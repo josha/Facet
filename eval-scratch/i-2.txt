@@ -1,0 +1,2645 @@
+local Facet = require(game.ReplicatedStorage.FacetI)
+
+-- Neon Circuit: hub HUD, Parts Shop and Garage for a neon kart racer.
+-- Written for strict Luau. Everything here is client side: a mock server
+-- answers every request after a short task.delay and owns accepted changes.
+
+local Players = game:GetService("Players")
+local GuiService = game:GetService("GuiService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local C = Facet.Compose
+local format = Facet.format
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+---------------------------------------------------------------------------
+-- Types
+---------------------------------------------------------------------------
+
+type Currency = "credits" | "gems"
+type Rarity = "common" | "rare" | "epic" | "legendary"
+type PartCategory = "motors" | "boosts" | "wheels" | "cosmetics"
+type KartClass = "speedster" | "drifter" | "bruiser" | "balanced"
+type Column = "sidebar" | "detail"
+type RGB = { r: number, g: number, b: number }
+
+type Kart = {
+	id: string,
+	name: string,
+	class: KartClass,
+	rarity: Rarity,
+	speed: number,
+	handling: number,
+	boost: number,
+	body: Color3,
+	glow: Color3,
+	blurb: string,
+}
+
+type Part = {
+	id: string,
+	name: string,
+	category: PartCategory,
+	rarity: Rarity,
+	price: number,
+	currency: Currency,
+	effect: string,
+	blurb: string,
+	color: Color3,
+}
+
+type ServerState = {
+	credits: number,
+	gems: number,
+	level: number,
+	xp: number,
+	xpGoal: number,
+	races: number,
+	owned: { [string]: boolean },
+	kart: string,
+	dailyReady: boolean,
+	streak: number,
+	nextDailyAt: number,
+}
+
+type Reply = { accepted: boolean, message: string }
+type QueuePhase = "idle" | "joining" | "queued" | "leaving" | "found" | "racing"
+type Queue = { phase: QueuePhase, since: number, session: number }
+type Refusal = { id: string, message: string }
+type KartShape = { length: number, width: number, height: number, nose: number }
+
+type Spinner = { part: BasePart, base: CFrame }
+type SceneKit = {
+	add: (
+		name: string,
+		shape: Enum.PartType,
+		size: Vector3,
+		cf: CFrame,
+		color: Color3,
+		material: Enum.Material,
+		transparency: number,
+		spins: boolean
+	) -> (),
+	wedge: (name: string, size: Vector3, cf: CFrame, color: Color3, spins: boolean) -> (),
+	spin: (live: Facet.Readable<boolean>, still: Facet.Readable<boolean>?) -> () -> (),
+}
+
+type HudCommand = {
+	id: string,
+	label: string,
+	caption: Facet.ValueString,
+	glyph: () -> GuiObject,
+	action: InputAction,
+	run: () -> (),
+}
+type HubActions = {
+	race: InputAction,
+	garage: HudCommand,
+	shop: HudCommand,
+	daily: HudCommand,
+	chat: HudCommand,
+}
+
+---------------------------------------------------------------------------
+-- Catalog
+---------------------------------------------------------------------------
+
+local KARTS: { Kart } = {
+	{
+		id = "volt",
+		name = "Volt Runner",
+		class = "speedster",
+		rarity = "rare",
+		speed = 86,
+		handling = 64,
+		boost = 72,
+		body = Color3.fromRGB(0, 196, 255),
+		glow = Color3.fromRGB(130, 255, 255),
+		blurb = "A low cyan dart tuned for long straights. Easy to launch, twitchy in tight turns.",
+	},
+	{
+		id = "viper",
+		name = "Neon Viper",
+		class = "speedster",
+		rarity = "legendary",
+		speed = 97,
+		handling = 70,
+		boost = 88,
+		body = Color3.fromRGB(255, 40, 170),
+		glow = Color3.fromRGB(255, 130, 225),
+		blurb = "The fastest frame in the hub. Its boost recharges on every clean drift.",
+	},
+	{
+		id = "kitsune",
+		name = "Drift Kitsune",
+		class = "drifter",
+		rarity = "epic",
+		speed = 78,
+		handling = 95,
+		boost = 74,
+		body = Color3.fromRGB(255, 118, 30),
+		glow = Color3.fromRGB(255, 196, 90),
+		blurb = "Short wheelbase and a forgiving rear. Holds a drift through any hairpin.",
+	},
+	{
+		id = "hopper",
+		name = "Pulse Hopper",
+		class = "balanced",
+		rarity = "common",
+		speed = 70,
+		handling = 76,
+		boost = 66,
+		body = Color3.fromRGB(110, 225, 60),
+		glow = Color3.fromRGB(196, 255, 120),
+		blurb = "A friendly all-rounder with steady grip. A good kart for learning new tracks.",
+	},
+	{
+		id = "brick",
+		name = "Ion Brick",
+		class = "bruiser",
+		rarity = "rare",
+		speed = 68,
+		handling = 56,
+		boost = 92,
+		body = Color3.fromRGB(255, 205, 40),
+		glow = Color3.fromRGB(255, 244, 150),
+		blurb = "Heavy armor and a huge boost tank. Shrugs off bumps from lighter karts.",
+	},
+	{
+		id = "moth",
+		name = "Glitch Moth",
+		class = "drifter",
+		rarity = "common",
+		speed = 72,
+		handling = 88,
+		boost = 60,
+		body = Color3.fromRGB(146, 78, 255),
+		glow = Color3.fromRGB(205, 165, 255),
+		blurb = "Light and nimble. Loses speed off the track but recovers quickly.",
+	},
+	{
+		id = "flare",
+		name = "Solar Flare",
+		class = "balanced",
+		rarity = "epic",
+		speed = 84,
+		handling = 80,
+		boost = 82,
+		body = Color3.fromRGB(255, 66, 58),
+		glow = Color3.fromRGB(255, 168, 112),
+		blurb = "No weak spots. Strong at every distance, with a long and bright boost trail.",
+	},
+	{
+		id = "halo",
+		name = "Zero Halo",
+		class = "speedster",
+		rarity = "epic",
+		speed = 92,
+		handling = 72,
+		boost = 76,
+		body = Color3.fromRGB(222, 234, 255),
+		glow = Color3.fromRGB(90, 200, 255),
+		blurb = "A clean white shell with a halo wing. Top speed arrives late but lasts.",
+	},
+}
+
+local KART_BY_ID: { [string]: Kart } = {}
+for _, kart in KARTS do
+	KART_BY_ID[kart.id] = kart
+end
+
+local PARTS: { Part } = {
+	{
+		id = "pulse-motor",
+		name = "Pulse Motor",
+		category = "motors",
+		rarity = "common",
+		price = 1200,
+		currency = "credits",
+		effect = "+3 Speed",
+		blurb = "A dependable coil motor that smooths out early acceleration.",
+		color = Color3.fromRGB(0, 229, 255),
+	},
+	{
+		id = "ion-core",
+		name = "Ion Core V2",
+		category = "motors",
+		rarity = "rare",
+		price = 3800,
+		currency = "credits",
+		effect = "+5 Speed",
+		blurb = "Twin ion coils push top speed higher on long straights.",
+		color = Color3.fromRGB(80, 160, 255),
+	},
+	{
+		id = "quantum-drive",
+		name = "Quantum Drive",
+		category = "motors",
+		rarity = "legendary",
+		price = 9500,
+		currency = "credits",
+		effect = "+9 Speed",
+		blurb = "Folds the power band so the kart never runs out of pull.",
+		color = Color3.fromRGB(255, 60, 200),
+	},
+	{
+		id = "starter-motor",
+		name = "Starter Motor",
+		category = "motors",
+		rarity = "common",
+		price = 500,
+		currency = "credits",
+		effect = "+1 Speed",
+		blurb = "The motor every rookie kart leaves the factory with.",
+		color = Color3.fromRGB(150, 170, 210),
+	},
+	{
+		id = "nitro-cell",
+		name = "Nitro Cell",
+		category = "boosts",
+		rarity = "common",
+		price = 900,
+		currency = "credits",
+		effect = "+2 Boost",
+		blurb = "A spare cell that tops up your boost meter after each lap.",
+		color = Color3.fromRGB(120, 255, 120),
+	},
+	{
+		id = "ion-thruster",
+		name = "Ion Thruster",
+		category = "boosts",
+		rarity = "epic",
+		price = 4800,
+		currency = "credits",
+		effect = "+6 Boost",
+		blurb = "A long-burn thruster. Every boost lasts almost a second longer.",
+		color = Color3.fromRGB(0, 229, 255),
+	},
+	{
+		id = "plasma-burst",
+		name = "Plasma Burst",
+		category = "boosts",
+		rarity = "epic",
+		price = 120,
+		currency = "gems",
+		effect = "+4 Boost",
+		blurb = "Stores drift energy and releases it in one bright burst.",
+		color = Color3.fromRGB(190, 90, 255),
+	},
+	{
+		id = "afterburner-x",
+		name = "Afterburner X",
+		category = "boosts",
+		rarity = "legendary",
+		price = 15000,
+		currency = "credits",
+		effect = "+10 Boost",
+		blurb = "Race-grade afterburner. Leaves a trail the whole lobby can see.",
+		color = Color3.fromRGB(255, 120, 40),
+	},
+	{
+		id = "grip-rings",
+		name = "Grip Rings",
+		category = "wheels",
+		rarity = "common",
+		price = 650,
+		currency = "credits",
+		effect = "+2 Handling",
+		blurb = "Soft compound rings that bite into tight corners.",
+		color = Color3.fromRGB(255, 210, 60),
+	},
+	{
+		id = "neon-spokes",
+		name = "Neon Spokes",
+		category = "wheels",
+		rarity = "rare",
+		price = 1800,
+		currency = "credits",
+		effect = "+3 Handling",
+		blurb = "Lightweight spokes that glow brighter the faster you go.",
+		color = Color3.fromRGB(255, 60, 160),
+	},
+	{
+		id = "hover-discs",
+		name = "Hover Discs",
+		category = "wheels",
+		rarity = "epic",
+		price = 5200,
+		currency = "credits",
+		effect = "+6 Handling",
+		blurb = "Magnetic discs that skim bumps and keep long drifts stable.",
+		color = Color3.fromRGB(0, 255, 200),
+	},
+	{
+		id = "mag-treads",
+		name = "Mag Treads",
+		category = "wheels",
+		rarity = "common",
+		price = 400,
+		currency = "credits",
+		effect = "+1 Handling",
+		blurb = "Standard treads with a light magnetic grip.",
+		color = Color3.fromRGB(140, 150, 190),
+	},
+	{
+		id = "cyan-underglow",
+		name = "Cyan Underglow",
+		category = "cosmetics",
+		rarity = "common",
+		price = 400,
+		currency = "credits",
+		effect = "Underglow",
+		blurb = "Classic cyan light under the chassis.",
+		color = Color3.fromRGB(0, 229, 255),
+	},
+	{
+		id = "holo-horn",
+		name = "Holo Horn",
+		category = "cosmetics",
+		rarity = "rare",
+		price = 30,
+		currency = "gems",
+		effect = "Horn sound",
+		blurb = "A synth chord that plays when you pass a rival.",
+		color = Color3.fromRGB(120, 255, 220),
+	},
+	{
+		id = "prism-trail",
+		name = "Prism Trail",
+		category = "cosmetics",
+		rarity = "epic",
+		price = 60,
+		currency = "gems",
+		effect = "Boost trail",
+		blurb = "Splits your boost trail into a rainbow ribbon.",
+		color = Color3.fromRGB(255, 120, 255),
+	},
+	{
+		id = "vapor-decal",
+		name = "Vaporwave Decal",
+		category = "cosmetics",
+		rarity = "legendary",
+		price = 250,
+		currency = "gems",
+		effect = "Body decal",
+		blurb = "A sunset grid decal with animated scanlines.",
+		color = Color3.fromRGB(255, 100, 180),
+	},
+}
+
+local PART_BY_ID: { [string]: Part } = {}
+for _, part in PARTS do
+	PART_BY_ID[part.id] = part
+end
+
+local DEFAULT_PART = "pulse-motor"
+local SHOWCASE_PART = "ion-thruster"
+local DEFAULT_KART = "volt"
+local DAILY_CREDITS = 500
+local DAILY_GEMS = 10
+local EXPENSIVE_CREDITS = 2500
+local EXPENSIVE_GEMS = 100
+local QUICK_CHAT = { "GG!", "Nice race!", "Race me!", "Let's go!", "Thanks!", "Wait up!" }
+
+local RARITY_LABEL: { [string]: string } =
+	{ common = "Common", rare = "Rare", epic = "Epic", legendary = "Legendary" }
+local RARITY_RANK: { [string]: number } = { common = 1, rare = 2, epic = 3, legendary = 4 }
+local RARITY_STATUS: { [string]: Facet.Status } =
+	{ common = "neutral", rare = "info", epic = "accent", legendary = "warning" }
+local CLASS_LABEL: { [string]: string } =
+	{ speedster = "Speedster", drifter = "Drifter", bruiser = "Bruiser", balanced = "All-rounder" }
+local CLASS_PLURAL: { [string]: string } =
+	{ speedster = "Speedsters", drifter = "Drifters", bruiser = "Bruisers", balanced = "All-rounders" }
+local CATEGORY_LABEL: { [string]: string } =
+	{ motors = "Motor", boosts = "Boost", wheels = "Wheels", cosmetics = "Cosmetic" }
+
+local CLASS_SHAPE: { [string]: KartShape } = {
+	speedster = { length = 5.2, width = 2.4, height = 0.5, nose = 1.5 },
+	drifter = { length = 4.2, width = 2.8, height = 0.7, nose = 0.9 },
+	bruiser = { length = 4.6, width = 3.0, height = 1.05, nose = 0.6 },
+	balanced = { length = 4.6, width = 2.6, height = 0.72, nose = 1.1 },
+}
+
+local CATEGORY_OPTIONS: { Facet.PickerOption<string> } = {
+	{ value = "all", label = "All items" },
+	{ value = "motors", label = "Motors" },
+	{ value = "boosts", label = "Boosts" },
+	{ value = "wheels", label = "Wheels" },
+	{ value = "cosmetics", label = "Cosmetics" },
+}
+local CLASS_OPTIONS: { Facet.PickerOption<string> } = {
+	{ value = "all", label = "All classes" },
+	{ value = "speedster", label = "Speedsters" },
+	{ value = "drifter", label = "Drifters" },
+	{ value = "bruiser", label = "Bruisers" },
+	{ value = "balanced", label = "All-rounders" },
+}
+local RARITY_OPTIONS: { Facet.PickerOption<string> } = {
+	{ value = "all", label = "All rarities" },
+	{ value = "common", label = "Common" },
+	{ value = "rare", label = "Rare" },
+	{ value = "epic", label = "Epic" },
+	{ value = "legendary", label = "Legendary" },
+}
+local SORT_OPTIONS: { Facet.PickerOption<string> } = {
+	{ value = "name", label = "Sort: Name A–Z" },
+	{ value = "speed", label = "Sort: Top speed" },
+	{ value = "rarity", label = "Sort: Rarity" },
+}
+
+local function kartById(id: string): Kart
+	return KART_BY_ID[id] or KARTS[1]
+end
+
+local function currencyName(currency: Currency, amount: number): string
+	if currency == "credits" then
+		return if amount == 1 then "Credit" else "Credits"
+	end
+	return if amount == 1 then "Gem" else "Gems"
+end
+
+local function priceText(part: Part): string
+	return `{format.grouped(part.price)} {currencyName(part.currency, part.price)}`
+end
+
+local function balanceOf(snapshot: ServerState, currency: Currency): number
+	return if currency == "credits" then snapshot.credits else snapshot.gems
+end
+
+local function isExpensive(part: Part): boolean
+	if part.currency == "credits" then
+		return part.price >= EXPENSIVE_CREDITS
+	end
+	return part.price >= EXPENSIVE_GEMS
+end
+
+local function ordinal(n: number): string
+	local suffix = "th"
+	local hundred = n % 100
+	if hundred < 11 or hundred > 13 then
+		local ten = n % 10
+		if ten == 1 then
+			suffix = "st"
+		elseif ten == 2 then
+			suffix = "nd"
+		elseif ten == 3 then
+			suffix = "rd"
+		end
+	end
+	return `{n}{suffix}`
+end
+
+local function trim(text: string): string
+	local result = string.gsub(text, "^%s+", "")
+	result = string.gsub(result, "%s+$", "")
+	return result
+end
+
+local function nameBefore(a: Kart, b: Kart): boolean
+	local left, right = string.lower(a.name), string.lower(b.name)
+	if left ~= right then
+		return left < right
+	end
+	return a.id < b.id
+end
+
+local function filterKarts(query: string, kind: string, rarity: string, sort: string): { Kart }
+	local needle = string.lower(trim(query))
+	local list: { Kart } = {}
+	for _, kart in KARTS do
+		local kindOk = kind == "all" or kart.class == kind
+		local rarityOk = rarity == "all" or kart.rarity == rarity
+		local nameOk = needle == "" or string.find(string.lower(kart.name), needle, 1, true) ~= nil
+		if kindOk and rarityOk and nameOk then
+			table.insert(list, kart)
+		end
+	end
+	table.sort(list, function(a: Kart, b: Kart): boolean
+		if sort == "speed" and a.speed ~= b.speed then
+			return a.speed > b.speed
+		end
+		if sort == "rarity" and a.rarity ~= b.rarity then
+			return RARITY_RANK[a.rarity] > RARITY_RANK[b.rarity]
+		end
+		return nameBefore(a, b)
+	end)
+	return list
+end
+
+---------------------------------------------------------------------------
+-- Client model: the accepted server snapshot plus local drafts and requests
+---------------------------------------------------------------------------
+
+local function seedState(): ServerState
+	return {
+		credits = 12450,
+		gems = 180,
+		level = 14,
+		xp = 1240,
+		xpGoal = 2000,
+		races = 37,
+		owned = { ["starter-motor"] = true, ["mag-treads"] = true },
+		kart = DEFAULT_KART,
+		dailyReady = true,
+		streak = 3,
+		nextDailyAt = 0,
+	}
+end
+
+local state = C.cell(seedState())
+local path = C.cell({} :: { Facet.NavigationEntry<string> })
+local queue = C.cell({ phase = "idle", since = 0, session = 0 } :: Queue)
+local lastRace = C.cell("")
+local clock = C.cell(os.clock())
+
+local dailyOpen = C.cell(false)
+local dailyBusy = C.cell(false)
+local dailyRefusal = C.cell("")
+local chatOpen = C.cell(false)
+
+local shopCategory = C.cell("all")
+local shopSelection = C.cell({ [DEFAULT_PART] = true } :: { [string]: boolean })
+local shopColumn = C.cell("sidebar" :: Column)
+local purchasePending = C.cell({} :: { [string]: boolean })
+local shopRefusal = C.cell({ id = "", message = "" } :: Refusal)
+local confirmId = C.cell(nil :: string?)
+local confirmBusy = C.cell(false)
+local confirmRefusal = C.cell("")
+
+local garageQuery = C.cell("")
+local garageClass = C.cell("all")
+local garageRarity = C.cell("all")
+local garageSort = C.cell("name")
+local garageSelection = C.cell({ [DEFAULT_KART] = true } :: { [string]: boolean })
+local garageColumn = C.cell("sidebar" :: Column)
+local favorites = C.cell({ viper = true } :: { [string]: boolean })
+local kartPending = C.cell(nil :: string?)
+local kartRefusal = C.cell("")
+
+local alive = true
+local epoch = 0
+local lastChatAt = -math.huge
+local raceRandom = Random.new()
+
+local function resetModel()
+	epoch += 1
+	lastChatAt = -math.huge
+	state:set(seedState())
+	queue:set({ phase = "idle", since = 0, session = queue:peek().session + 1 })
+	lastRace:set("")
+	dailyBusy:set(false)
+	dailyRefusal:set("")
+	dailyOpen:set(false)
+	chatOpen:set(false)
+	shopCategory:set("all")
+	shopSelection:set({ [DEFAULT_PART] = true })
+	shopColumn:set("sidebar")
+	purchasePending:set({})
+	shopRefusal:set({ id = "", message = "" })
+	confirmBusy:set(false)
+	confirmRefusal:set("")
+	confirmId:set(nil)
+	garageQuery:set("")
+	garageClass:set("all")
+	garageRarity:set("all")
+	garageSort:set("name")
+	garageSelection:set({ [DEFAULT_KART] = true })
+	garageColumn:set("sidebar")
+	favorites:set({ viper = true })
+	kartPending:set(nil)
+	kartRefusal:set("")
+end
+
+---------------------------------------------------------------------------
+-- Theme: dark glass, cyan accent, violet selection, soft neon glow
+---------------------------------------------------------------------------
+
+local function rgb(r: number, g: number, b: number): RGB
+	return { r = r / 255, g = g / 255, b = b / 255 }
+end
+
+local BODY_FONT = "rbxasset://fonts/families/BuilderSans.json"
+local DISPLAY_FONT = "rbxasset://fonts/families/Sarpanch.json"
+local TYPE_SIZES: { [string]: number } =
+	{ caption = 15, label = 17, body = 18, control = 18, strong = 19, numeral = 24, heading = 24, title = 30 }
+local TYPE_WEIGHTS: { [string]: string } =
+	{ label = "SemiBold", control = "SemiBold", strong = "Bold", numeral = "Bold", heading = "Bold", title = "Bold" }
+
+local typography: { [string]: Facet.TypographyPatch } = {}
+for role, size in TYPE_SIZES do
+	local display = role == "heading" or role == "title"
+	typography[role] = {
+		size = size,
+		font = { family = if display then DISPLAY_FONT else BODY_FONT, weight = TYPE_WEIGHTS[role] },
+	}
+end
+
+local definition: Facet.ThemeDefinition = {
+	base = Facet.themes.neutralPackage(),
+	identity = { id = "neon-circuit", displayName = "Neon Circuit" },
+	style = {
+		defaultTheme = "NeonCircuit",
+		themes = {
+			{
+				name = "NeonCircuit",
+				colors = {
+					surface = rgb(7, 9, 20),
+					surfaceStrong = rgb(17, 21, 44),
+					content = rgb(232, 240, 255),
+					contentStrong = rgb(255, 255, 255),
+					accent = rgb(0, 229, 255),
+					onAccent = rgb(2, 10, 22),
+					danger = rgb(255, 72, 120),
+					onDanger = rgb(24, 2, 10),
+					success = rgb(64, 255, 170),
+					onSuccess = rgb(2, 22, 12),
+					warning = rgb(255, 204, 64),
+					onWarning = rgb(26, 16, 0),
+				},
+				extra = {
+					control = rgb(30, 36, 74),
+					controlHover = rgb(42, 50, 100),
+					controlPressed = rgb(22, 26, 56),
+					controlSelected = rgb(118, 46, 214),
+					onSelected = rgb(255, 255, 255),
+					contentSecondary = rgb(160, 178, 224),
+					hairline = rgb(0, 229, 255),
+					hairlineOpacity = 0.3,
+					strongHairlineOpacity = 0.7,
+					dimDisabledPlates = true,
+				},
+			},
+		},
+	},
+	metrics = { typography = typography, radii = { control = 6, panel = 10 } },
+	chrome = {
+		panel = {
+			kind = "native",
+			shadow = {
+				color = rgb(0, 190, 255),
+				transparency = 0.62,
+				blurRadius = { offset = 26, scale = 0 },
+				offset = { x = { offset = 0, scale = 0 }, y = { offset = 0, scale = 0 } },
+				zIndex = -1,
+			},
+		},
+		focus = {
+			kind = "glow",
+			color = "$Accent",
+			transparency = 0.25,
+			blurRadius = { offset = 22, scale = 0 },
+			zIndex = -1,
+		},
+	},
+}
+
+local theme, report = Facet.themes.define(definition)
+if not report.ok then
+	for _, issue in report.errors do
+		warn(`[NeonCircuit] theme {issue.field}: {issue.message}`)
+	end
+end
+
+local app = Facet.app({ name = "NeonCircuitUI", theme = theme or Facet.themes.neutralPackage() })
+local UI = app.UI
+local Host = Facet.host(app.runtime)
+
+---------------------------------------------------------------------------
+-- Feedback and the mock server
+---------------------------------------------------------------------------
+
+local function toast(message: string, key: string)
+	if not alive then
+		return
+	end
+	app.presentToast(function(ui: Facet.Controls): Instance
+		return ui.Text "Message" { text = message, textRole = "strong" }
+	end, { key = key, position = "top", width = "hug" })
+end
+
+-- Runs `work` as the server's answer unless the script was disposed or the
+-- model was reset while the request was in flight.
+local function afterServer(seconds: number, work: () -> ())
+	local requestEpoch = epoch
+	task.delay(seconds, function()
+		if alive and requestEpoch == epoch then
+			work()
+		end
+	end)
+end
+
+local function finishRace(session: number)
+	local place = raceRandom:NextInteger(1, 5)
+	local xpGain = 240 - place * 30
+	local creditGain = 450 - place * 50
+	local nextState = table.clone(state:peek())
+	nextState.races += 1
+	nextState.credits += creditGain
+	nextState.xp += xpGain
+	local leveled = false
+	while nextState.xp >= nextState.xpGoal do
+		nextState.xp -= nextState.xpGoal
+		nextState.level += 1
+		nextState.xpGoal += 250
+		leveled = true
+	end
+	state:set(nextState)
+	queue:set({ phase = "idle", since = 0, session = session + 1 })
+	local kart = kartById(nextState.kart)
+	lastRace:set(`Last race: {ordinal(place)} of 8 · +{xpGain} XP · +{format.grouped(creditGain)} Credits`)
+	toast(`{kart.name} finished {ordinal(place)}! +{xpGain} XP, +{format.grouped(creditGain)} Credits`, "race")
+	if leveled then
+		toast(`Level up! You reached level {nextState.level}.`, "level")
+	end
+end
+
+local function pressRace()
+	local current = queue:peek()
+	if current.phase == "idle" then
+		local session = current.session + 1
+		queue:set({ phase = "joining", since = os.clock(), session = session })
+		afterServer(0.6, function()
+			if queue:peek().session ~= session then
+				return
+			end
+			queue:set({ phase = "queued", since = os.clock(), session = session })
+			afterServer(7, function()
+				local latest = queue:peek()
+				if latest.session ~= session or latest.phase ~= "queued" then
+					return
+				end
+				queue:set({ phase = "found", since = os.clock(), session = session })
+				toast("Race found: Neon Circuit, 8 racers", "race")
+				afterServer(3, function()
+					if queue:peek().session ~= session then
+						return
+					end
+					queue:set({ phase = "racing", since = os.clock(), session = session })
+					afterServer(6, function()
+						if queue:peek().session == session then
+							finishRace(session)
+						end
+					end)
+				end)
+			end)
+		end)
+	elseif current.phase == "queued" then
+		queue:set({ phase = "leaving", since = current.since, session = current.session })
+		afterServer(0.4, function()
+			if queue:peek().session ~= current.session then
+				return
+			end
+			queue:set({ phase = "idle", since = 0, session = current.session + 1 })
+			toast("You left the race queue.", "race")
+		end)
+	end
+end
+
+local function claimDaily()
+	if dailyBusy:peek() then
+		return
+	end
+	dailyBusy:set(true)
+	dailyRefusal:set("")
+	afterServer(0.8, function()
+		dailyBusy:set(false)
+		local snapshot = state:peek()
+		if not snapshot.dailyReady then
+			dailyRefusal:set("Already claimed today. Nothing changed; your next reward unlocks tomorrow.")
+			return
+		end
+		local nextState = table.clone(snapshot)
+		nextState.credits += DAILY_CREDITS
+		nextState.gems += DAILY_GEMS
+		nextState.dailyReady = false
+		nextState.streak += 1
+		nextState.nextDailyAt = os.time() + 20 * 3600
+		state:set(nextState)
+		dailyOpen:set(false)
+		toast(`Daily reward claimed: +{format.grouped(DAILY_CREDITS)} Credits, +{DAILY_GEMS} Gems`, "daily")
+	end)
+end
+
+local function chooseKart(kart: Kart)
+	if kartPending:peek() ~= nil or state:peek().kart == kart.id then
+		return
+	end
+	kartPending:set(kart.id)
+	kartRefusal:set("")
+	afterServer(0.6, function()
+		kartPending:set(nil)
+		local phase = queue:peek().phase
+		if phase == "found" or phase == "racing" then
+			kartRefusal:set("Karts lock once a race is found. Your kart is unchanged; try again after this race.")
+			return
+		end
+		local nextState = table.clone(state:peek())
+		nextState.kart = kart.id
+		state:set(nextState)
+		toast(`{kart.name} is set for your next race`, "kart")
+	end)
+end
+
+local function sendPurchase(part: Part, done: (Reply) -> ())
+	local pending = table.clone(purchasePending:peek())
+	pending[part.id] = true
+	purchasePending:set(pending)
+	afterServer(0.8, function()
+		local settled = table.clone(purchasePending:peek())
+		settled[part.id] = nil
+		purchasePending:set(settled)
+		local snapshot = state:peek()
+		if snapshot.owned[part.id] then
+			done({ accepted = false, message = `You already own {part.name}. Nothing was spent.` })
+			return
+		end
+		local balance = balanceOf(snapshot, part.currency)
+		if balance < part.price then
+			local missing = part.price - balance
+			done({
+				accepted = false,
+				message = `Not enough {currencyName(part.currency, 2)}: you need {format.grouped(missing)} more. Nothing was spent.`,
+			})
+			return
+		end
+		local owned = table.clone(snapshot.owned)
+		owned[part.id] = true
+		local nextState = table.clone(snapshot)
+		nextState.owned = owned
+		if part.currency == "credits" then
+			nextState.credits -= part.price
+		else
+			nextState.gems -= part.price
+		end
+		state:set(nextState)
+		done({ accepted = true, message = `{part.name} added to your parts bay` })
+	end)
+end
+
+local function requestBuy(part: Part)
+	local snapshot = state:peek()
+	if snapshot.owned[part.id] or purchasePending:peek()[part.id] then
+		return
+	end
+	shopRefusal:set({ id = "", message = "" })
+	if isExpensive(part) and balanceOf(snapshot, part.currency) >= part.price then
+		confirmBusy:set(false)
+		confirmRefusal:set("")
+		confirmId:set(part.id)
+		return
+	end
+	sendPurchase(part, function(reply: Reply)
+		if reply.accepted then
+			toast(reply.message, "purchase")
+		else
+			shopRefusal:set({ id = part.id, message = reply.message })
+		end
+	end)
+end
+
+local function confirmPurchase()
+	local id = confirmId:peek()
+	if id == nil or confirmBusy:peek() then
+		return
+	end
+	local part = PART_BY_ID[id]
+	confirmBusy:set(true)
+	confirmRefusal:set("")
+	sendPurchase(part, function(reply: Reply)
+		confirmBusy:set(false)
+		if reply.accepted then
+			confirmId:set(nil)
+			toast(reply.message, "purchase")
+		else
+			confirmRefusal:set(reply.message)
+		end
+	end)
+end
+
+local function sendChat(phrase: string)
+	chatOpen:set(false)
+	afterServer(0.35, function()
+		local now = os.clock()
+		if now - lastChatAt < 2.5 then
+			toast("Slow down! Wait a moment before sending another message.", "chat")
+			return
+		end
+		lastChatAt = now
+		toast(`You: {phrase}`, "chat")
+	end)
+end
+
+---------------------------------------------------------------------------
+-- Navigation routes shared by HUD buttons, game actions and _G.EvalUI
+---------------------------------------------------------------------------
+
+local function openPage(id: string)
+	dailyOpen:set(false)
+	chatOpen:set(false)
+	local current = path:peek()
+	if #current == 1 and current[1].id == id then
+		return
+	end
+	path:set({ { id = id } })
+end
+
+local function openShop()
+	openPage("shop")
+end
+
+local function openGarage()
+	openPage("garage")
+end
+
+local function closePage()
+	if confirmBusy:peek() then
+		return
+	end
+	confirmId:set(nil)
+	path:set({})
+end
+
+local function openDaily()
+	if #path:peek() == 0 then
+		chatOpen:set(false)
+		dailyRefusal:set("")
+		dailyOpen:set(true)
+	end
+end
+
+local function toggleChat()
+	if #path:peek() == 0 then
+		chatOpen:set(not chatOpen:peek())
+	end
+end
+
+local function suspendGameplay(): () -> ()
+	local touchControls = GuiService.TouchControlsEnabled
+	GuiService.TouchControlsEnabled = false
+	return function()
+		GuiService.TouchControlsEnabled = touchControls
+	end
+end
+
+---------------------------------------------------------------------------
+-- Line glyphs (unit-box strokes the theme paints like icons)
+---------------------------------------------------------------------------
+
+local CREDIT_TINT = Color3.fromRGB(0, 229, 255)
+local GEM_TINT = Color3.fromRGB(214, 120, 255)
+
+local function pt(x: number, y: number): Facet.PathPoint
+	return { x = x, y = y, inX = 0, inY = 0, outX = 0, outY = 0 }
+end
+
+local function placed(points: { Facet.PathPoint }, cx: number, cy: number, scale: number): { Facet.PathPoint }
+	local out: { Facet.PathPoint } = {}
+	for _, p in points do
+		table.insert(out, {
+			x = cx + (p.x - 0.5) * scale,
+			y = cy + (p.y - 0.5) * scale,
+			inX = p.inX * scale,
+			inY = p.inY * scale,
+			outX = p.outX * scale,
+			outY = p.outY * scale,
+		})
+	end
+	return out
+end
+
+local function stroke(points: { Facet.PathPoint }, closed: boolean): Frame
+	return UI.Path { points = points, closed = closed, thickness = 2, Size = UDim2.fromScale(1, 1) }
+end
+
+local function tintedStroke(points: { Facet.PathPoint }, closed: boolean, tint: Color3): Frame
+	return UI.Path { points = points, closed = closed, thickness = 2, tint = tint, Size = UDim2.fromScale(1, 1) }
+end
+
+local function garageGlyph(): GuiObject
+	local wheel = Facet.pathShapes.ring({ radius = 0.5 })
+	return Host.Frame "GarageGlyph" {
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		stroke({
+			pt(0.06, 0.64),
+			pt(0.16, 0.46),
+			pt(0.4, 0.46),
+			pt(0.48, 0.32),
+			pt(0.66, 0.32),
+			pt(0.74, 0.46),
+			pt(0.94, 0.52),
+			pt(0.94, 0.64),
+		}, true),
+		stroke(placed(wheel, 0.27, 0.72, 0.26), true),
+		stroke(placed(wheel, 0.75, 0.72, 0.26), true),
+	}
+end
+
+local function shopGlyph(): GuiObject
+	return Host.Frame "ShopGlyph" {
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		stroke({ pt(0.2, 0.36), pt(0.8, 0.36), pt(0.86, 0.88), pt(0.14, 0.88) }, true),
+		stroke({ pt(0.36, 0.36), pt(0.36, 0.2), pt(0.64, 0.2), pt(0.64, 0.36) }, false),
+	}
+end
+
+local function dailyGlyph(): GuiObject
+	return Host.Frame "DailyGlyph" {
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		stroke({ pt(0.18, 0.44), pt(0.82, 0.44), pt(0.82, 0.88), pt(0.18, 0.88) }, true),
+		stroke({ pt(0.1, 0.3), pt(0.9, 0.3), pt(0.9, 0.44), pt(0.1, 0.44) }, true),
+		stroke({ pt(0.5, 0.3), pt(0.5, 0.88) }, false),
+		stroke({ pt(0.28, 0.3), pt(0.34, 0.12), pt(0.5, 0.3), pt(0.66, 0.12), pt(0.72, 0.3) }, false),
+	}
+end
+
+local function chatGlyph(): GuiObject
+	return Host.Frame "ChatGlyph" {
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		stroke({
+			pt(0.12, 0.18),
+			pt(0.88, 0.18),
+			pt(0.88, 0.64),
+			pt(0.48, 0.64),
+			pt(0.26, 0.86),
+			pt(0.3, 0.64),
+			pt(0.12, 0.64),
+		}, true),
+		stroke({ pt(0.3, 0.41), pt(0.7, 0.41) }, false),
+	}
+end
+
+local function currencyGlyph(kind: Currency, size: Facet.Readable<number>): Frame
+	local function box(use: Facet.Use): UDim2
+		local side = use(size)
+		return UDim2.fromOffset(side, side)
+	end
+	if kind == "credits" then
+		return Host.Frame "CreditGlyph" {
+			BackgroundTransparency = 1,
+			Size = box,
+			tintedStroke(Facet.pathShapes.ring({ radius = 0.44 }), true, CREDIT_TINT),
+			tintedStroke({ pt(0.58, 0.2), pt(0.38, 0.54), pt(0.56, 0.54), pt(0.44, 0.82) }, false, CREDIT_TINT),
+		}
+	end
+	return Host.Frame "GemGlyph" {
+		BackgroundTransparency = 1,
+		Size = box,
+		tintedStroke({ pt(0.5, 0.1), pt(0.88, 0.38), pt(0.5, 0.92), pt(0.12, 0.38) }, true, GEM_TINT),
+		tintedStroke({ pt(0.12, 0.38), pt(0.88, 0.38) }, false, GEM_TINT),
+		tintedStroke({ pt(0.34, 0.38), pt(0.5, 0.92), pt(0.66, 0.38) }, false, GEM_TINT),
+	}
+end
+
+local function amountText(kind: Currency, short: boolean): (use: Facet.Use) -> string
+	return function(use: Facet.Use): string
+		local snapshot = use(state)
+		local amount = balanceOf(snapshot, kind)
+		return if short then format.compact(amount) else format.grouped(amount)
+	end
+end
+
+-- A wallet readout. The HUD uses short numbers; the shop shows full ones.
+local function walletReadout(kind: Currency, short: boolean, withUnit: boolean, size: Facet.Readable<number>): Frame
+	local valueRole: Facet.TextRole = if short then "numeral" else "strong"
+	if withUnit then
+		return UI.HStack(kind) {
+			gap = "s",
+			align = "center",
+			currencyGlyph(kind, size),
+			UI.VStack "Amount" {
+				gap = 0,
+				UI.Text "Value" { text = amountText(kind, short), textRole = valueRole },
+				UI.Text "Unit" {
+					text = if kind == "credits" then "Credits" else "Gems",
+					textRole = "caption",
+					role = "secondary",
+				},
+			},
+		}
+	end
+	return UI.HStack(kind) {
+		gap = "xs",
+		align = "center",
+		currencyGlyph(kind, size),
+		UI.Text "Value" { text = amountText(kind, short), textRole = "strong" },
+	}
+end
+
+---------------------------------------------------------------------------
+-- 3D previews built from primitives inside Stage
+---------------------------------------------------------------------------
+
+local KART_CAMERA = CFrame.lookAt(Vector3.new(6.6, 3.4, 7.6), Vector3.new(0, 0.75, 0))
+local PART_CAMERA = CFrame.lookAt(Vector3.new(4.4, 3.0, 5.2), Vector3.new(0, 1.0, 0))
+local NEON = Enum.Material.Neon
+local SMOOTH = Enum.Material.SmoothPlastic
+local METAL = Enum.Material.Metal
+local BLOCK = Enum.PartType.Block
+local CYLINDER = Enum.PartType.Cylinder
+local BALL = Enum.PartType.Ball
+local FLAT = CFrame.Angles(0, 0, math.rad(90))
+local SIDEWAYS = CFrame.Angles(0, math.rad(90), 0)
+
+local function sceneKit(runtime: Facet.Runtime, world: WorldModel): SceneKit
+	local H = Facet.host(runtime)
+	local parent = C.static(world)
+	local spinners: { Spinner } = {}
+
+	local function add(
+		name: string,
+		shape: Enum.PartType,
+		size: Vector3,
+		cf: CFrame,
+		color: Color3,
+		material: Enum.Material,
+		transparency: number,
+		spins: boolean
+	)
+		local part = H.Part(name) {
+			Parent = parent,
+			Anchored = true,
+			CanCollide = false,
+			CanQuery = false,
+			CanTouch = false,
+			CastShadow = false,
+			Shape = shape,
+			Size = size,
+			CFrame = cf,
+			Color = color,
+			Material = material,
+			Transparency = transparency,
+			TopSurface = Enum.SurfaceType.Smooth,
+			BottomSurface = Enum.SurfaceType.Smooth,
+		}
+		if spins then
+			table.insert(spinners, { part = part, base = cf })
+		end
+	end
+
+	local function wedge(name: string, size: Vector3, cf: CFrame, color: Color3, spins: boolean)
+		local part = H.WedgePart(name) {
+			Parent = parent,
+			Anchored = true,
+			CanCollide = false,
+			CanQuery = false,
+			CanTouch = false,
+			CastShadow = false,
+			Size = size,
+			CFrame = cf,
+			Color = color,
+			Material = SMOOTH,
+		}
+		if spins then
+			table.insert(spinners, { part = part, base = cf })
+		end
+	end
+
+	-- Turntable for inspection. It pauses while the Stage is not live and
+	-- stays still under reduced motion; the resting pose stays complete.
+	local function spin(live: Facet.Readable<boolean>, still: Facet.Readable<boolean>?): () -> ()
+		local angle = 0
+		local connection = RunService.Heartbeat:Connect(function(dt: number)
+			if not live:peek() then
+				return
+			end
+			if still ~= nil and still:peek() then
+				return
+			end
+			angle = (angle + dt * 0.5) % (2 * math.pi)
+			local turn = CFrame.Angles(0, angle, 0)
+			for _, item in spinners do
+				item.part.CFrame = turn * item.base
+			end
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end
+
+	return { add = add, wedge = wedge, spin = spin }
+end
+
+local function addPad(kit: SceneKit)
+	kit.add("Pad", CYLINDER, Vector3.new(0.16, 7.4, 7.4), CFrame.new(0, -0.08, 0) * FLAT, Color3.fromRGB(18, 20, 44), SMOOTH, 0, false)
+	kit.add("PadRing", CYLINDER, Vector3.new(0.1, 7.8, 7.8), CFrame.new(0, -0.12, 0) * FLAT, CREDIT_TINT, NEON, 0, false)
+end
+
+local function buildKart(kit: SceneKit, kart: Kart)
+	local shape = CLASS_SHAPE[kart.class]
+	local length, width, height, nose = shape.length, shape.width, shape.height, shape.nose
+	local dark = kart.body:Lerp(Color3.new(0, 0, 0), 0.72)
+	local tire = Color3.fromRGB(22, 22, 30)
+	local deck = 0.7
+	local bodyLength = length - nose - 0.3
+	local bodyBack = -length / 2 + 0.3
+	local bodyX = bodyBack + bodyLength / 2
+	local bodyY = deck + height / 2
+	local wingY = deck + height + 0.55
+
+	addPad(kit)
+	kit.add("Chassis", BLOCK, Vector3.new(length, 0.3, width - 0.3), CFrame.new(0, 0.55, 0), dark, METAL, 0, true)
+	kit.add("Body", BLOCK, Vector3.new(bodyLength, height, width * 0.72), CFrame.new(bodyX, bodyY, 0), kart.body, SMOOTH, 0, true)
+	kit.wedge(
+		"Nose",
+		Vector3.new(width * 0.72, height, nose),
+		CFrame.new(bodyBack + bodyLength + nose / 2, bodyY, 0) * CFrame.Angles(0, math.rad(-90), 0),
+		kart.body,
+		true
+	)
+	kit.add("Canopy", BALL, Vector3.one * 0.95, CFrame.new(bodyX + bodyLength * 0.12, deck + height, 0), kart.glow, SMOOTH, 0.25, true)
+	kit.add("Stripe", BLOCK, Vector3.new(bodyLength * 0.92, 0.05, 0.22), CFrame.new(bodyX, deck + height + 0.02, 0), kart.glow, NEON, 0, true)
+	kit.add("Wing", BLOCK, Vector3.new(0.4, 0.12, width * 0.96), CFrame.new(-length / 2 + 0.3, wingY, 0), kart.glow, NEON, 0, true)
+	for _, side in { -1, 1 } do
+		kit.add(
+			"WingPost",
+			BLOCK,
+			Vector3.new(0.12, 0.6, 0.12),
+			CFrame.new(-length / 2 + 0.34, wingY - 0.32, side * width * 0.3),
+			dark,
+			SMOOTH,
+			0,
+			true
+		)
+	end
+	for _, front in { -1, 1 } do
+		for _, side in { -1, 1 } do
+			local cf = CFrame.new(front * (length / 2 - 0.8), 0.5, side * (width / 2 - 0.12)) * SIDEWAYS
+			kit.add("Tire", CYLINDER, Vector3.new(0.5, 1, 1), cf, tire, SMOOTH, 0, true)
+			kit.add("Hub", CYLINDER, Vector3.new(0.54, 0.46, 0.46), cf, kart.glow, NEON, 0, true)
+		end
+	end
+	kit.add("Underglow", BLOCK, Vector3.new(length * 0.82, 0.06, width * 0.7), CFrame.new(0, 0.3, 0), kart.glow, NEON, 0.15, true)
+	kit.add("Bumper", BLOCK, Vector3.new(0.14, 0.14, width * 0.8), CFrame.new(length / 2 - 0.1, deck + 0.05, 0), kart.glow, NEON, 0, true)
+end
+
+local function buildPart(kit: SceneKit, part: Part)
+	local metal = Color3.fromRGB(46, 50, 74)
+	addPad(kit)
+	if part.category == "motors" then
+		kit.add("Core", BLOCK, Vector3.new(1.7, 1.1, 1.3), CFrame.new(0, 1.05, 0), metal, METAL, 0, true)
+		for index = -1, 1 do
+			kit.add("Coil", CYLINDER, Vector3.new(0.18, 1.4, 1.4), CFrame.new(index * 0.55, 1.05, 0), part.color, NEON, 0, true)
+		end
+		kit.add("Intake", BLOCK, Vector3.new(0.9, 0.24, 0.8), CFrame.new(0, 1.72, 0), part.color, SMOOTH, 0, true)
+	elseif part.category == "boosts" then
+		kit.add("Tube", CYLINDER, Vector3.new(2.2, 1.0, 1.0), CFrame.new(0.2, 1.1, 0), metal, METAL, 0, true)
+		kit.add("Nozzle", CYLINDER, Vector3.new(0.45, 1.3, 1.3), CFrame.new(-1.0, 1.1, 0), part.color, SMOOTH, 0, true)
+		kit.add("Flame", BALL, Vector3.one * 0.95, CFrame.new(-1.45, 1.1, 0), part.color, NEON, 0.2, true)
+		kit.add("Fin", BLOCK, Vector3.new(0.8, 0.08, 1.8), CFrame.new(0.5, 1.1, 0), part.color, NEON, 0, true)
+		kit.add("Cap", BALL, Vector3.one, CFrame.new(1.3, 1.1, 0), metal, SMOOTH, 0, true)
+	elseif part.category == "wheels" then
+		local cf = CFrame.new(0, 1.15, 0) * SIDEWAYS
+		kit.add("Tire", CYLINDER, Vector3.new(0.9, 2.2, 2.2), cf, Color3.fromRGB(22, 22, 30), SMOOTH, 0, true)
+		kit.add("Rim", CYLINDER, Vector3.new(0.95, 1.5, 1.5), cf, metal, METAL, 0, true)
+		kit.add("Hub", CYLINDER, Vector3.new(1.0, 0.7, 0.7), cf, part.color, NEON, 0, true)
+	else
+		kit.add("Base", CYLINDER, Vector3.new(0.3, 1.4, 1.4), CFrame.new(0, 0.15, 0) * FLAT, metal, METAL, 0, true)
+		kit.add("Orb", BALL, Vector3.one * 1.1, CFrame.new(0, 1.3, 0), part.color, NEON, 0, true)
+		kit.add(
+			"Halo",
+			CYLINDER,
+			Vector3.new(0.06, 2.4, 2.4),
+			CFrame.new(0, 1.3, 0) * CFrame.Angles(math.rad(20), 0, 0) * FLAT,
+			part.color,
+			NEON,
+			0.35,
+			true
+		)
+	end
+end
+
+local function kartStage(kart: Kart, detail: boolean, still: Facet.Readable<boolean>?): ViewportFrame
+	return UI.Stage(`{kart.id}Preview`) {
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = if detail then 2 else 1,
+		BackgroundColor3 = Color3.fromRGB(16, 12, 40),
+		BackgroundTransparency = if detail then 1 else 0,
+		Ambient = Color3.fromRGB(120, 125, 175),
+		LightColor = Color3.fromRGB(255, 248, 235),
+		LightDirection = Vector3.new(-0.5, -1, -0.7),
+		camera = KART_CAMERA,
+		fieldOfView = if detail then 32 else 30,
+		lazy = not detail,
+		content = function(runtime: Facet.Runtime, world: WorldModel, live: Facet.Readable<boolean>): (() -> ())?
+			local kit = sceneKit(runtime, world)
+			buildKart(kit, kart)
+			if detail then
+				return kit.spin(live, still)
+			end
+			return nil
+		end,
+	}
+end
+
+local function partStage(part: Part, detail: boolean, still: Facet.Readable<boolean>?): ViewportFrame
+	return UI.Stage(`{part.id}Preview`) {
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = if detail then 2 else 1,
+		BackgroundColor3 = Color3.fromRGB(16, 12, 40),
+		BackgroundTransparency = if detail then 1 else 0,
+		Ambient = Color3.fromRGB(120, 125, 175),
+		LightColor = Color3.fromRGB(255, 248, 235),
+		LightDirection = Vector3.new(-0.5, -1, -0.7),
+		camera = PART_CAMERA,
+		fieldOfView = if detail then 32 else 30,
+		lazy = not detail,
+		content = function(runtime: Facet.Runtime, world: WorldModel, live: Facet.Readable<boolean>): (() -> ())?
+			local kit = sceneKit(runtime, world)
+			buildPart(kit, part)
+			if detail then
+				return kit.spin(live, still)
+			end
+			return nil
+		end,
+	}
+end
+
+-- Violet-to-night showroom wall behind an inspected subject.
+local function showroomBackdrop(): Frame
+	return Host.Frame "Backdrop" {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+		BorderSizePixel = 0,
+		ZIndex = 1,
+		Host.UICorner { CornerRadius = UDim.new(0, 10) },
+		Host.UIGradient {
+			Color = ColorSequence.new(Color3.fromRGB(70, 30, 140), Color3.fromRGB(6, 10, 28)),
+			Rotation = 90,
+		},
+		Host.UIStroke { Color = CREDIT_TINT, Transparency = 0.6, Thickness = 1 },
+	}
+end
+
+---------------------------------------------------------------------------
+-- Hub HUD
+---------------------------------------------------------------------------
+
+local function circleButton(command: HudCommand, size: Facet.ControlSize): TextButton
+	return UI.Button(command.id) {
+		name = command.label,
+		shape = "circle",
+		controlSize = size,
+		appearance = "standard",
+		glyph = command.glyph,
+		caption = command.caption,
+		shortcutHint = command.action,
+		onActivate = function()
+			command.run()
+		end,
+	}
+end
+
+local function commandButton(command: HudCommand, size: Facet.ControlSize): GuiObject
+	local button = circleButton(command, size)
+	if command.id == "Daily" then
+		return UI.badged(button, function(use: Facet.Use): boolean
+			return use(state).dailyReady
+		end, { status = "success" })
+	end
+	return button
+end
+
+local function dailyDialog(iconSize: Facet.Readable<number>): Frame
+	local actions: { Facet.DialogAction } = {
+		{
+			id = "Later",
+			label = function(use: Facet.Use): string
+				return if use(state).dailyReady then "Later" else "Close"
+			end,
+			role = "cancel",
+			enabled = function(use: Facet.Use): boolean
+				return not use(dailyBusy)
+			end,
+			onActivate = function() end,
+		},
+		{
+			id = "Claim",
+			label = "Claim reward",
+			role = "default",
+			keepOpen = true,
+			busy = dailyBusy,
+			enabled = function(use: Facet.Use): boolean
+				return use(state).dailyReady
+			end,
+			onActivate = function()
+				claimDaily()
+			end,
+		},
+	}
+	local function reward(kind: Currency, amount: string): Frame
+		return UI.HStack(`{kind}Reward`) {
+			gap = "s",
+			align = "center",
+			currencyGlyph(kind, iconSize),
+			UI.VStack "Amount" {
+				gap = 0,
+				UI.Text "Value" { text = amount, textRole = "numeral" },
+				UI.Text "Unit" { text = if kind == "credits" then "Credits" else "Gems", textRole = "caption", role = "secondary" },
+			},
+		}
+	end
+	return UI.Dialog "DailyReward" {
+		isPresented = dailyOpen,
+		onPresentedChange = function(value: boolean)
+			if value or not dailyBusy:peek() then
+				dailyOpen:set(value)
+			end
+		end,
+		title = "Daily reward",
+		actions = actions,
+		content = function(): Instance
+			return UI.VStack "Reward" {
+				width = "fill",
+				gap = "m",
+				UI.Text "Streak" {
+					text = function(use: Facet.Use): string
+						local snapshot = use(state)
+						if snapshot.dailyReady then
+							return `Day {snapshot.streak + 1} of your streak`
+						end
+						return `Day {snapshot.streak} claimed`
+					end,
+					textRole = "heading",
+				},
+				UI.HStack "Gifts" {
+					gap = "l",
+					align = "center",
+					reward("credits", `+{format.grouped(DAILY_CREDITS)}`),
+					reward("gems", `+{DAILY_GEMS}`),
+				},
+				UI.Text "When" {
+					text = function(use: Facet.Use): string
+						local snapshot = use(state)
+						if snapshot.dailyReady then
+							return "Ready now. The reward lands in your wallet once the server confirms."
+						end
+						use(clock)
+						local wait = format.duration(snapshot.nextDailyAt - os.time(), { hours = true })
+						return `Already claimed today. Next reward in {wait}.`
+					end,
+					role = "secondary",
+					wrap = true,
+				},
+				C.show(function(use: Facet.Use): boolean
+					return use(dailyRefusal) ~= ""
+				end, function()
+					return UI.Notice "Refusal" { message = dailyRefusal, severity = "error" }
+				end),
+			}
+		end,
+	}
+end
+
+local function quickChat(): Frame
+	local items: { Facet.RadialItem<string> } = {}
+	for index, phrase in QUICK_CHAT do
+		local item: Facet.RadialAction<string> = {
+			id = `phrase{index}`,
+			label = phrase,
+			labelStyle = "text",
+			onSelect = function()
+				sendChat(phrase)
+			end,
+		}
+		table.insert(items, item)
+	end
+	local spec: Facet.RadialMenuSpec<string> = {
+		label = "Quick chat",
+		items = items,
+		launcher = false,
+		isPresented = chatOpen,
+		centerLabel = "Quick chat",
+		scrim = "dark",
+	}
+	return UI.RadialMenu "QuickChat" (spec)
+end
+
+local function hub(actions: HubActions): Frame
+	local env = UI.environment()
+	local barWidth = env.scaled(200)
+	local shortBar = env.scaled(90)
+	local iconSize = env.scaled(22)
+	local columnGap = env.scaled(30)
+	local touchOnly = UserInputService.TouchEnabled
+		and not UserInputService.MouseEnabled
+		and not UserInputService.KeyboardEnabled
+	-- Lift the HUD above Roblox's thumbstick and Jump button on touch-only devices.
+	local hudPadding: Facet.Sides = {
+		top = "m",
+		left = "m",
+		right = "m",
+		bottom = if touchOnly then env.thumbTarget:peek() + 28 else "m",
+	}
+
+	local function levelText(use: Facet.Use): string
+		return `LV {use(state).level}`
+	end
+	local function xpText(use: Facet.Use): string
+		local snapshot = use(state)
+		return `{format.grouped(snapshot.xp)} / {format.grouped(snapshot.xpGoal)}`
+	end
+	local function xpValue(use: Facet.Use): number
+		return use(state).xp
+	end
+	local function xpMax(use: Facet.Use): number
+		return use(state).xpGoal
+	end
+	local function racesText(use: Facet.Use): string
+		local count = use(state).races
+		return if count == 1 then "1 race finished" else `{format.grouped(count)} races finished`
+	end
+	local function barSize(use: Facet.Use): UDim2
+		return UDim2.fromOffset(use(barWidth), 0)
+	end
+	local function shortBarSize(use: Facet.Use): UDim2
+		return UDim2.fromOffset(use(shortBar), 0)
+	end
+
+	local function raceLabel(use: Facet.Use): string
+		local current = use(queue)
+		if current.phase == "idle" then
+			return "Race"
+		elseif current.phase == "joining" then
+			return "Joining…"
+		elseif current.phase == "queued" then
+			return `Leave queue  {format.duration(use(clock) - current.since)}`
+		elseif current.phase == "leaving" then
+			return "Leaving…"
+		elseif current.phase == "found" then
+			return "Race found!"
+		end
+		return "Racing…"
+	end
+	local function raceBusy(use: Facet.Use): boolean
+		local phase = use(queue).phase
+		return phase == "joining" or phase == "leaving"
+	end
+	local function raceEnabled(use: Facet.Use): boolean
+		local phase = use(queue).phase
+		return phase ~= "found" and phase ~= "racing"
+	end
+	local function raceAppearance(use: Facet.Use): string
+		return if use(queue).phase == "queued" then "standard" else "emphasis"
+	end
+	local function raceStatus(use: Facet.Use): string
+		local current = use(queue)
+		local kart = kartById(use(state).kart)
+		if current.phase == "joining" or current.phase == "queued" or current.phase == "leaving" then
+			return `Searching for racers · {kart.name}`
+		elseif current.phase == "found" then
+			return "Race found · Neon Circuit · loading"
+		elseif current.phase == "racing" then
+			return `Racing Neon Circuit in {kart.name}`
+		end
+		local last = use(lastRace)
+		if last ~= "" then
+			return last
+		end
+		return `Next race kart: {kart.name}`
+	end
+	local function raceButton(name: string): TextButton
+		return UI.Button(name) {
+			label = raceLabel,
+			icon = "flag",
+			appearance = raceAppearance,
+			controlSize = "large",
+			target = "thumb",
+			enabled = raceEnabled,
+			busy = raceBusy,
+			shortcutHint = actions.race,
+			onActivate = function()
+				pressRace()
+			end,
+		}
+	end
+
+	return Host.Frame "Hub" {
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		UI.Composition "HUD" {
+			padding = hudPadding,
+			UI.Region "Race" {
+				zone = "bottom",
+				rank = 1,
+				reveal = false,
+				UI.VStack "RaceFull" {
+					gap = "s",
+					align = "center",
+					UI.HStack "RaceStatus" {
+						surface = "panel",
+						padding = "s",
+						UI.Text "Status" { text = raceStatus, textRole = "label" },
+					},
+					raceButton("RaceCommand"),
+				},
+				UI.VStack "RaceShort" { align = "center", raceButton("RaceCommandShort") },
+			},
+			UI.Region "Actions" {
+				zone = "right",
+				rank = 2,
+				reveal = false,
+				UI.VStack "ActionColumn" {
+					gap = columnGap,
+					align = "center",
+					padding = { bottom = "l" },
+					SelectionGroup = true,
+					commandButton(actions.garage, "regular"),
+					commandButton(actions.shop, "regular"),
+					commandButton(actions.daily, "regular"),
+					commandButton(actions.chat, "regular"),
+				},
+				UI.VStack "ActionGrid" {
+					gap = columnGap,
+					padding = { bottom = "l" },
+					SelectionGroup = true,
+					UI.HStack "Upper" {
+						gap = "m",
+						commandButton(actions.garage, "compact"),
+						commandButton(actions.shop, "compact"),
+					},
+					UI.HStack "Lower" {
+						gap = "m",
+						commandButton(actions.daily, "compact"),
+						commandButton(actions.chat, "compact"),
+					},
+				},
+			},
+			UI.Region "Wallet" {
+				zone = "topRight",
+				rank = 3,
+				UI.HStack "WalletFull" {
+					surface = "panel",
+					padding = "s",
+					gap = "m",
+					align = "center",
+					walletReadout("credits", true, true, iconSize),
+					walletReadout("gems", true, true, iconSize),
+				},
+				UI.HStack "WalletShort" {
+					surface = "panel",
+					padding = "s",
+					gap = "s",
+					align = "center",
+					walletReadout("credits", true, false, iconSize),
+					walletReadout("gems", true, false, iconSize),
+				},
+			},
+			UI.Region "Profile" {
+				zone = "topLeft",
+				rank = 4,
+				UI.VStack "ProfileFull" {
+					surface = "panel",
+					padding = "m",
+					gap = "xs",
+					UI.HStack "Identity" {
+						gap = "s",
+						align = "center",
+						UI.Badge "Level" { label = levelText, status = "accent" },
+						UI.Text "Name" { text = player.DisplayName, textRole = "strong", AutoLocalize = false },
+					},
+					UI.ProgressView "XP" { label = "XP", endLabel = xpText, value = xpValue, max = xpMax, Size = barSize },
+					UI.Text "Races" { text = racesText, textRole = "caption", role = "secondary" },
+				},
+				UI.HStack "ProfileShort" {
+					surface = "panel",
+					padding = "s",
+					gap = "s",
+					align = "center",
+					UI.Badge "Level" { label = levelText, status = "accent" },
+					UI.ProgressView "XP" { value = xpValue, max = xpMax, Size = shortBarSize },
+					UI.Text "Races" { text = racesText, textRole = "caption", role = "secondary" },
+				},
+			},
+		},
+		dailyDialog(iconSize),
+		quickChat(),
+	}
+end
+
+---------------------------------------------------------------------------
+-- Shared page chrome
+---------------------------------------------------------------------------
+
+local function closeButton(): TextButton
+	return UI.Button "Close" {
+		label = "Close",
+		icon = "close",
+		appearance = "utility",
+		onActivate = function()
+			closePage()
+		end,
+	}
+end
+
+---------------------------------------------------------------------------
+-- Parts Shop
+---------------------------------------------------------------------------
+
+local function partCard(part: Part): GuiObject
+	return UI.Card(part.id) {
+		title = part.name,
+		caption = priceText(part),
+		imageAspectRatio = 16 / 10,
+		artwork = function(): GuiObject
+			return partStage(part, false, nil)
+		end,
+		badges = {
+			leading = { label = RARITY_LABEL[part.rarity], status = RARITY_STATUS[part.rarity] },
+			trailing = {
+				label = function(use: Facet.Use): string?
+					local snapshot = use(state)
+					if snapshot.owned[part.id] then
+						return "Owned"
+					end
+					if use(purchasePending)[part.id] then
+						return "Buying…"
+					end
+					local missing = part.price - balanceOf(snapshot, part.currency)
+					if missing > 0 then
+						return `Need {format.grouped(missing)}`
+					end
+					return nil
+				end,
+				status = function(use: Facet.Use): Facet.Status
+					if use(state).owned[part.id] then
+						return "success"
+					end
+					if use(purchasePending)[part.id] then
+						return "info"
+					end
+					return "warning"
+				end,
+			},
+		},
+	}
+end
+
+local function partDetail(chosen: Facet.Readable<Part>): Frame
+	local env = UI.environment()
+	local branches: { [string]: () -> Instance } = {}
+	for _, part in PARTS do
+		branches[part.id] = function(): Instance
+			return partStage(part, true, env.reducedMotion)
+		end
+	end
+	local function chosenId(use: Facet.Use): string
+		return use(chosen).id
+	end
+	local function isOwned(use: Facet.Use): boolean
+		return use(state).owned[use(chosen).id] == true
+	end
+	local function isPending(use: Facet.Use): boolean
+		return use(purchasePending)[use(chosen).id] == true
+	end
+	local function buyLabel(use: Facet.Use): string
+		if isOwned(use) then
+			return "Owned"
+		end
+		if isPending(use) then
+			return "Buying…"
+		end
+		return "Buy"
+	end
+	local function balanceText(use: Facet.Use): string
+		local part = use(chosen)
+		local snapshot = use(state)
+		if snapshot.owned[part.id] then
+			return "Already in your parts bay"
+		end
+		if use(purchasePending)[part.id] then
+			return "Waiting for the shop to confirm…"
+		end
+		local balance = balanceOf(snapshot, part.currency)
+		local unit = currencyName(part.currency, 2)
+		if balance >= part.price then
+			return `You have {format.grouped(balance)} {unit} · {format.grouped(balance - part.price)} left after`
+		end
+		return `You have {format.grouped(balance)} {unit} · need {format.grouped(part.price - balance)} more`
+	end
+
+	return UI.VStack "PartDetail" {
+		width = "fill",
+		height = "fill",
+		gap = "s",
+		padding = "m",
+		UI.HStack "Identity" {
+			width = "fill",
+			gap = "s",
+			align = "center",
+			UI.VStack "Names" {
+				gap = "xs",
+				UI.fill(),
+				UI.Text "Name" {
+					text = function(use: Facet.Use): string
+						return use(chosen).name
+					end,
+					textRole = "heading",
+					wrap = true,
+				},
+				UI.Text "Kind" {
+					text = function(use: Facet.Use): string
+						local part = use(chosen)
+						return `{CATEGORY_LABEL[part.category]} · {RARITY_LABEL[part.rarity]}`
+					end,
+					textRole = "caption",
+					role = "secondary",
+				},
+			},
+			UI.Badge "Effect" {
+				label = function(use: Facet.Use): string?
+					return use(chosen).effect
+				end,
+				status = "accent",
+			},
+		},
+		UI.ZStack "Art" { width = "fill", height = "fill", UI.fill(), showroomBackdrop(), C.switch(chosenId, branches) },
+		UI.Text "About" {
+			text = function(use: Facet.Use): string
+				return use(chosen).blurb
+			end,
+			wrap = true,
+		},
+		UI.HStack "Commit" {
+			width = "fill",
+			gap = "m",
+			align = "center",
+			UI.VStack "Terms" {
+				gap = "xs",
+				UI.fill(),
+				UI.Text "Price" {
+					text = function(use: Facet.Use): string
+						return priceText(use(chosen))
+					end,
+					textRole = "numeral",
+				},
+				UI.Text "Balance" { text = balanceText, textRole = "caption", role = "secondary", wrap = true },
+			},
+			UI.Button "Buy" {
+				label = buyLabel,
+				appearance = "emphasis",
+				controlSize = "large",
+				enabled = function(use: Facet.Use): boolean
+					return not isOwned(use)
+				end,
+				busy = isPending,
+				onActivate = function()
+					requestBuy(chosen:peek())
+				end,
+			},
+		},
+		C.show(function(use: Facet.Use): boolean
+			local refusal = use(shopRefusal)
+			return refusal.message ~= "" and refusal.id == use(chosen).id
+		end, function()
+			return UI.Notice "Refusal" {
+				message = function(use: Facet.Use): string
+					return use(shopRefusal).message
+				end,
+				severity = "error",
+			}
+		end),
+	}
+end
+
+local function confirmDialog(): Frame
+	local target = C.formula(function(use: Facet.Use): Part?
+		local id = use(confirmId)
+		return if id then PART_BY_ID[id] else nil
+	end)
+	local function afterText(use: Facet.Use): string
+		local part = use(target)
+		if part == nil then
+			return ""
+		end
+		local left = balanceOf(use(state), part.currency) - part.price
+		return `Balance after: {format.grouped(left)} {currencyName(part.currency, left)}`
+	end
+	local actions: { Facet.DialogAction } = {
+		{
+			id = "Cancel",
+			label = "Cancel",
+			role = "cancel",
+			enabled = function(use: Facet.Use): boolean
+				return not use(confirmBusy)
+			end,
+			onActivate = function()
+				if not confirmBusy:peek() then
+					confirmId:set(nil)
+				end
+			end,
+		},
+		{
+			id = "Buy",
+			label = function(use: Facet.Use): string
+				local part = use(target)
+				return if part then `Buy for {priceText(part)}` else "Buy"
+			end,
+			role = "default",
+			keepOpen = true,
+			busy = confirmBusy,
+			onActivate = function()
+				confirmPurchase()
+			end,
+		},
+	}
+	return UI.Dialog "ConfirmPurchase" {
+		isPresented = function(use: Facet.Use): boolean
+			return use(confirmId) ~= nil
+		end,
+		onPresentedChange = function(value: boolean)
+			if not value and not confirmBusy:peek() then
+				confirmId:set(nil)
+			end
+		end,
+		title = function(use: Facet.Use): string
+			local part = use(target)
+			return if part then `Buy {part.name}?` else "Confirm purchase"
+		end,
+		actions = actions,
+		content = function(): Instance
+			return UI.VStack "Terms" {
+				width = "fill",
+				gap = "s",
+				UI.Text "Price" {
+					text = function(use: Facet.Use): string
+						local part = use(target)
+						return if part then priceText(part) else ""
+					end,
+					textRole = "numeral",
+				},
+				UI.Text "Gain" {
+					text = function(use: Facet.Use): string
+						local part = use(target)
+						return if part then `Adds {part.effect} · {CATEGORY_LABEL[part.category]} part` else ""
+					end,
+					wrap = true,
+				},
+				UI.Text "After" { text = afterText, role = "secondary", wrap = true },
+				UI.Text "Promise" {
+					text = "Nothing is spent until the shop confirms.",
+					textRole = "caption",
+					role = "secondary",
+					wrap = true,
+				},
+				C.show(function(use: Facet.Use): boolean
+					return use(confirmRefusal) ~= ""
+				end, function()
+					return UI.Notice "Refusal" { message = confirmRefusal, severity = "error" }
+				end),
+			}
+		end,
+	}
+end
+
+local function shopBody(back: Facet.Cell<boolean>): Frame
+	local env = UI.environment()
+	local visible = C.formula(function(use: Facet.Use): { Part }
+		local category = use(shopCategory)
+		local list: { Part } = {}
+		for _, part in PARTS do
+			if category == "all" or part.category == category then
+				table.insert(list, part)
+			end
+		end
+		return list
+	end)
+	local chosen = C.formula(function(use: Facet.Use): Part
+		for id, on in use(shopSelection) do
+			local part = PART_BY_ID[id]
+			if on and part then
+				return part
+			end
+		end
+		return PARTS[1]
+	end)
+	local categorySpec: Facet.SinglePickerSpec<string> =
+		{ selected = shopCategory, options = CATEGORY_OPTIONS, style = "segmented" }
+
+	return UI.NavigationSplitView "ShopSplit" {
+		preferredCompactColumn = shopColumn,
+		resizable = false,
+		detailLabel = false,
+		compactBack = back,
+		sidebar = function(): Instance
+			local spec: Facet.KeyedCollectionSpec<Part, string> = {
+				UI.fill(),
+				from = visible,
+				key = "id",
+				selection = shopSelection,
+				selectionMode = "single",
+				minColumnWidth = env.scaled(168),
+				itemSize = env.scaled(200),
+				measure = true,
+				gap = env.scaled(12),
+				onActivate = function()
+					shopColumn:set("detail")
+				end,
+				render = function(row: Facet.Readable<Part>): GuiObject
+					return partCard(row:peek())
+				end,
+			}
+			return UI.VStack "Browse" {
+				width = "fill",
+				height = "fill",
+				gap = "s",
+				padding = "s",
+				align = "stretch",
+				UI.Picker "Category" (categorySpec),
+				UI.Text "Count" {
+					text = function(use: Facet.Use): string
+						local count = #use(visible)
+						return if count == 1 then "1 part" else `{count} parts`
+					end,
+					textRole = "caption",
+					role = "secondary",
+				},
+				UI.VirtualGrid "Parts" (spec),
+			}
+		end,
+		detail = function(): Instance
+			return partDetail(chosen)
+		end,
+	}
+end
+
+local function shopPage(): Frame
+	local back = C.cell(false)
+	local env = UI.environment()
+	local iconSize = env.scaled(20)
+	return UI.Screen "ShopPage" {
+		surface = "surface",
+		UI.NavBar "ShopBar" {
+			title = "Parts Shop",
+			onBack = back,
+			trailing = UI.HStack "ShopTrailing" {
+				gap = "m",
+				align = "center",
+				walletReadout("credits", false, true, iconSize),
+				walletReadout("gems", false, true, iconSize),
+				closeButton(),
+			},
+		},
+		UI.VStack "Body" { width = "fill", height = "fill", UI.fill(), shopBody(back) },
+		confirmDialog(),
+	}
+end
+
+---------------------------------------------------------------------------
+-- Garage
+---------------------------------------------------------------------------
+
+local function kartCard(kart: Kart): GuiObject
+	return UI.Card(kart.id) {
+		title = kart.name,
+		caption = `{CLASS_LABEL[kart.class]} · Speed {kart.speed}`,
+		imageAspectRatio = 16 / 10,
+		artwork = function(): GuiObject
+			return kartStage(kart, false, nil)
+		end,
+		badges = {
+			leading = { label = RARITY_LABEL[kart.rarity], status = RARITY_STATUS[kart.rarity] },
+			trailing = {
+				label = function(use: Facet.Use): string?
+					if use(state).kart == kart.id then
+						return "Next race"
+					end
+					if use(favorites)[kart.id] then
+						return "Favorite"
+					end
+					return nil
+				end,
+				status = function(use: Facet.Use): Facet.Status
+					return if use(state).kart == kart.id then "success" else "warning"
+				end,
+			},
+		},
+	}
+end
+
+local function emptyState(): Frame
+	return UI.VStack "NoMatches" {
+		width = "fill",
+		surface = "panel",
+		padding = "m",
+		gap = "s",
+		UI.Text "Title" { text = "No karts match", textRole = "heading" },
+		UI.Text "Why" {
+			text = function(use: Facet.Use): string
+				local filters: { string } = {}
+				local kind = use(garageClass)
+				if kind ~= "all" then
+					table.insert(filters, CLASS_PLURAL[kind] or kind)
+				end
+				local rarity = use(garageRarity)
+				if rarity ~= "all" then
+					table.insert(filters, RARITY_LABEL[rarity] or rarity)
+				end
+				local scope = if #filters > 0 then table.concat(filters, " · ") else "any class or rarity"
+				local query = trim(use(garageQuery))
+				if query ~= "" then
+					return `No kart name contains “{query}” in {scope}.`
+				end
+				return `There are no karts in {scope}.`
+			end,
+			role = "secondary",
+			wrap = true,
+		},
+		UI.HStack "Fixes" {
+			gap = "s",
+			wrap = true,
+			UI.Button "ClearSearch" {
+				label = "Clear search",
+				enabled = function(use: Facet.Use): boolean
+					return use(garageQuery) ~= ""
+				end,
+				onActivate = function()
+					garageQuery:set("")
+				end,
+			},
+			UI.Button "ResetFilters" {
+				label = "Reset filters",
+				enabled = function(use: Facet.Use): boolean
+					return use(garageClass) ~= "all" or use(garageRarity) ~= "all"
+				end,
+				onActivate = function()
+					garageClass:set("all")
+					garageRarity:set("all")
+				end,
+			},
+		},
+	}
+end
+
+local function kartDetail(chosen: Facet.Readable<Kart>): Frame
+	local env = UI.environment()
+	local equipped = C.formula(function(use: Facet.Use): Kart
+		return kartById(use(state).kart)
+	end)
+	local branches: { [string]: () -> Instance } = {}
+	for _, kart in KARTS do
+		branches[kart.id] = function(): Instance
+			return kartStage(kart, true, env.reducedMotion)
+		end
+	end
+	local function chosenId(use: Facet.Use): string
+		return use(chosen).id
+	end
+	local function isEquipped(use: Facet.Use): boolean
+		return use(state).kart == use(chosen).id
+	end
+	local function isFavorite(use: Facet.Use): boolean
+		return use(favorites)[use(chosen).id] == true
+	end
+	local function setFavorite(on: boolean)
+		local id = chosen:peek().id
+		local marks = table.clone(favorites:peek())
+		if on then
+			marks[id] = true
+		else
+			marks[id] = nil
+		end
+		favorites:set(marks)
+	end
+	local function stat(name: string, pick: (Kart) -> number): Frame
+		return UI.ProgressView(name) {
+			label = name,
+			max = 100,
+			value = function(use: Facet.Use): number
+				return pick(use(chosen))
+			end,
+			endLabel = function(use: Facet.Use): string
+				local kart, current = use(chosen), use(equipped)
+				local value = pick(kart)
+				local delta = value - pick(current)
+				if kart.id == current.id or delta == 0 then
+					return tostring(value)
+				end
+				local sign = if delta > 0 then "+" else ""
+				return `{value} ({sign}{delta})`
+			end,
+			Size = UDim2.new(1, 0, 0, 0),
+		}
+	end
+	local function chooseLabel(use: Facet.Use): string
+		local kart = use(chosen)
+		if use(state).kart == kart.id then
+			return "Set for your next race"
+		end
+		if use(kartPending) == kart.id then
+			return "Locking in…"
+		end
+		return `Race with {kart.name}`
+	end
+
+	local wide = C.cell(false)
+	local function basis(use: Facet.Use): UDim2
+		return if use(wide) then UDim2.new(0, 0, 1, 0) else UDim2.new(1, 0, 0, 0)
+	end
+	local facts = UI.VStack "Facts" {
+		width = "fill",
+		gap = "s",
+		align = "stretch",
+		stat("Speed", function(kart: Kart): number
+			return kart.speed
+		end),
+		stat("Handling", function(kart: Kart): number
+			return kart.handling
+		end),
+		stat("Boost", function(kart: Kart): number
+			return kart.boost
+		end),
+		UI.Text "Compare" {
+			text = function(use: Facet.Use): string
+				local kart, current = use(chosen), use(equipped)
+				if kart.id == current.id then
+					return "This is your next-race kart."
+				end
+				return `Numbers in brackets compare with your next-race kart, {current.name}.`
+			end,
+			textRole = "caption",
+			role = "secondary",
+			wrap = true,
+		},
+		UI.Text "About" {
+			text = function(use: Facet.Use): string
+				return use(chosen).blurb
+			end,
+			wrap = true,
+		},
+		UI.Toggle "Favorite" { label = "Favorite", presentation = "checkbox", value = isFavorite, onChange = setFavorite },
+	}
+	local panes = UI.AdaptiveStack "Panes" {
+		width = "fill",
+		height = "fill",
+		gap = "m",
+		UI.fill(),
+		axis = function(use: Facet.Use): "x" | "y"
+			return if use(wide) then "x" else "y"
+		end,
+		UI.ZStack "Art" {
+			Size = basis,
+			AutomaticSize = Enum.AutomaticSize.None,
+			UI.fill(3),
+			showroomBackdrop(),
+			C.switch(chosenId, branches),
+		},
+		UI.ScrollView "Fields" {
+			Size = basis,
+			AutomaticSize = Enum.AutomaticSize.None,
+			UI.fill(2),
+			padding = { right = "s" },
+			facts,
+		},
+	}
+	local room = UI.environment(panes)
+	local threshold = room.scaled(620)
+	C.watch(function(use: Facet.Use)
+		wide:set(use(room.viewportWidth) >= use(threshold))
+	end)
+
+	return UI.VStack "KartDetail" {
+		width = "fill",
+		height = "fill",
+		gap = "s",
+		padding = "m",
+		align = "stretch",
+		UI.HStack "Identity" {
+			width = "fill",
+			gap = "s",
+			align = "center",
+			UI.VStack "Names" {
+				gap = "xs",
+				UI.fill(),
+				UI.Text "Name" {
+					text = function(use: Facet.Use): string
+						return use(chosen).name
+					end,
+					textRole = "heading",
+					wrap = true,
+				},
+				UI.Text "Class" {
+					text = function(use: Facet.Use): string
+						local kart = use(chosen)
+						local notes = CLASS_LABEL[kart.class]
+						if isFavorite(use) then
+							notes ..= " · Favorite"
+						end
+						if isEquipped(use) then
+							notes ..= " · Next race"
+						end
+						return notes
+					end,
+					textRole = "caption",
+					role = "secondary",
+				},
+			},
+			UI.Badge "Rarity" {
+				label = function(use: Facet.Use): string?
+					return RARITY_LABEL[use(chosen).rarity]
+				end,
+				status = function(use: Facet.Use): Facet.Status
+					return RARITY_STATUS[use(chosen).rarity]
+				end,
+			},
+		},
+		panes,
+		UI.Button "Choose" {
+			label = chooseLabel,
+			appearance = function(use: Facet.Use): string
+				return if isEquipped(use) then "standard" else "emphasis"
+			end,
+			controlSize = "large",
+			enabled = function(use: Facet.Use): boolean
+				return not isEquipped(use)
+			end,
+			busy = function(use: Facet.Use): boolean
+				return use(kartPending) ~= nil
+			end,
+			onActivate = function()
+				chooseKart(chosen:peek())
+			end,
+		},
+		C.show(function(use: Facet.Use): boolean
+			return use(kartRefusal) ~= ""
+		end, function()
+			return UI.Notice "Refusal" { message = kartRefusal, severity = "error" }
+		end),
+	}
+end
+
+local function garageBody(back: Facet.Cell<boolean>): Frame
+	local env = UI.environment()
+	local visible = C.formula(function(use: Facet.Use): { Kart }
+		return filterKarts(use(garageQuery), use(garageClass), use(garageRarity), use(garageSort))
+	end)
+	local chosen = C.formula(function(use: Facet.Use): Kart
+		for id, on in use(garageSelection) do
+			local kart = KART_BY_ID[id]
+			if on and kart then
+				return kart
+			end
+		end
+		return kartById(DEFAULT_KART)
+	end)
+	local classSpec: Facet.SinglePickerSpec<string> =
+		{ selected = garageClass, options = CLASS_OPTIONS, style = "menu", sizing = "hug" }
+	local raritySpec: Facet.SinglePickerSpec<string> =
+		{ selected = garageRarity, options = RARITY_OPTIONS, style = "menu", sizing = "hug" }
+	local sortSpec: Facet.SinglePickerSpec<string> =
+		{ selected = garageSort, options = SORT_OPTIONS, style = "menu", sizing = "hug" }
+	local function countText(use: Facet.Use): string
+		local count = #use(visible)
+		if count == #KARTS then
+			return `{count} karts`
+		end
+		return `{count} of {#KARTS} karts`
+	end
+	local function grid(): ScrollingFrame
+		local spec: Facet.KeyedCollectionSpec<Kart, string> = {
+			UI.fill(),
+			from = visible,
+			key = "id",
+			selection = garageSelection,
+			selectionMode = "single",
+			minColumnWidth = env.scaled(168),
+			itemSize = env.scaled(200),
+			measure = true,
+			gap = env.scaled(12),
+			onActivate = function()
+				garageColumn:set("detail")
+			end,
+			render = function(row: Facet.Readable<Kart>): GuiObject
+				return kartCard(row:peek())
+			end,
+		}
+		return UI.VirtualGrid "Karts" (spec)
+	end
+
+	return UI.NavigationSplitView "GarageSplit" {
+		preferredCompactColumn = garageColumn,
+		resizable = false,
+		detailLabel = false,
+		compactBack = back,
+		sidebar = function(): Instance
+			return UI.VStack "Browse" {
+				width = "fill",
+				height = "fill",
+				gap = "s",
+				padding = "s",
+				align = "stretch",
+				UI.TextInput "Search" { value = garageQuery, placeholder = "Search karts by name", presentation = "search" },
+				UI.HStack "Filters" {
+					gap = "s",
+					wrap = true,
+					UI.Picker "Class" (classSpec),
+					UI.Picker "Rarity" (raritySpec),
+					UI.Picker "Sort" (sortSpec),
+				},
+				UI.Text "Count" { text = countText, textRole = "caption", role = "secondary" },
+				C.show(function(use: Facet.Use): boolean
+					return #use(visible) > 0
+				end, grid, emptyState),
+			}
+		end,
+		detail = function(): Instance
+			return kartDetail(chosen)
+		end,
+	}
+end
+
+local function garagePage(): Frame
+	local back = C.cell(false)
+	return UI.Screen "GaragePage" {
+		surface = "surface",
+		UI.NavBar "GarageBar" { title = "Garage", onBack = back, trailing = closeButton() },
+		UI.VStack "Body" { width = "fill", height = "fill", UI.fill(), garageBody(back) },
+	}
+end
+
+---------------------------------------------------------------------------
+-- Mount: one app, one tree
+---------------------------------------------------------------------------
+
+local function gameplayGuard(run: () -> ()): () -> ()
+	return function()
+		if UserInputService:GetFocusedTextBox() ~= nil then
+			return
+		end
+		run()
+	end
+end
+
+app.mount(function()
+	local hasPage = C.formula(function(use: Facet.Use): boolean
+		return #use(path) > 0
+	end)
+	C.watch(function(use: Facet.Use)
+		if use(hasPage) then
+			C.cleanup(suspendGameplay())
+		end
+	end)
+
+	local ticking = true
+	C.cleanup(function()
+		ticking = false
+	end)
+	task.spawn(function()
+		while ticking and alive do
+			task.wait(1)
+			if ticking and alive then
+				clock:set(os.clock())
+			end
+		end
+	end)
+
+	local function gameAction(name: string, key: Enum.KeyCode, pad: Enum.KeyCode, run: () -> ()): InputAction
+		local guarded = gameplayGuard(run)
+		return Host.InputAction(name) {
+			Type = Enum.InputActionType.Bool,
+			Pressed = function()
+				guarded()
+			end,
+			Host.InputBinding "Keyboard" { KeyCode = key },
+			Host.InputBinding "Gamepad" { KeyCode = pad },
+		}
+	end
+
+	local raceAction = gameAction("Race", Enum.KeyCode.R, Enum.KeyCode.ButtonX, pressRace)
+	local garageAction = gameAction("Garage", Enum.KeyCode.G, Enum.KeyCode.ButtonY, openGarage)
+	local shopAction = gameAction("Shop", Enum.KeyCode.B, Enum.KeyCode.ButtonR1, openShop)
+	local dailyAction = gameAction("Daily", Enum.KeyCode.J, Enum.KeyCode.ButtonL1, openDaily)
+	local chatAction = gameAction("QuickChat", Enum.KeyCode.T, Enum.KeyCode.ButtonL2, toggleChat)
+
+	-- Hub commands. Disabled while a page or the daily dialog owns input.
+	Host.InputContext "NeonCircuitHub" {
+		Parent = C.static(playerGui),
+		Enabled = function(use: Facet.Use): boolean
+			return not use(hasPage) and not use(dailyOpen)
+		end,
+		raceAction,
+		garageAction,
+		shopAction,
+		dailyAction,
+		chatAction,
+	}
+
+	local actions: HubActions = {
+		race = raceAction,
+		garage = {
+			id = "Garage",
+			label = "Garage",
+			caption = "Garage",
+			glyph = garageGlyph,
+			action = garageAction,
+			run = openGarage,
+		},
+		shop = {
+			id = "Shop",
+			label = "Parts shop",
+			caption = "Shop",
+			glyph = shopGlyph,
+			action = shopAction,
+			run = openShop,
+		},
+		daily = {
+			id = "Daily",
+			label = "Daily rewards",
+			caption = function(use: Facet.Use): string
+				return if use(state).dailyReady then "Ready!" else "Daily"
+			end,
+			glyph = dailyGlyph,
+			action = dailyAction,
+			run = openDaily,
+		},
+		chat = {
+			id = "Chat",
+			label = "Quick chat",
+			caption = "Chat",
+			glyph = chatGlyph,
+			action = chatAction,
+			run = toggleChat,
+		},
+	}
+
+	return UI.NavigationStack "Navigation" {
+		path = path,
+		chrome = "hidden",
+		root = {
+			content = function(): Instance
+				return hub(actions)
+			end,
+		},
+		destinations = {
+			shop = {
+				initialFocus = "Body",
+				content = function(): Instance
+					return shopPage()
+				end,
+			},
+			garage = {
+				initialFocus = "Body",
+				content = function(): Instance
+					return garagePage()
+				end,
+			},
+		},
+	}
+end)
+
+---------------------------------------------------------------------------
+-- Evaluation entry points
+---------------------------------------------------------------------------
+
+local function showScreen(target: string)
+	if not alive then
+		return
+	end
+	resetModel()
+	GuiService.SelectedObject = nil
+	if target == "hub" then
+		path:set({})
+	elseif target == "shop" then
+		openShop()
+	elseif target == "garage" then
+		openGarage()
+	elseif target == "purchase" then
+		openShop()
+		local part = PART_BY_ID[SHOWCASE_PART]
+		shopSelection:set({ [part.id] = true })
+		shopColumn:set("detail")
+		requestBuy(part)
+	else
+		warn(`[NeonCircuit] unknown screen "{target}"; use hub, shop, garage or purchase`)
+	end
+end
+
+local function disposeAll()
+	if not alive then
+		return
+	end
+	alive = false
+	epoch += 1
+	GuiService.SelectedObject = nil
+	app.dispose()
+end
+
+if typeof(script) == "Instance" then
+	game.Destroying:Connect(disposeAll)
+end
+
+_G.EvalUI = {
+	show = function(state: string)
+		showScreen(state)
+	end,
+	dispose = function()
+		disposeAll()
+	end,
+}
+
+return nil
