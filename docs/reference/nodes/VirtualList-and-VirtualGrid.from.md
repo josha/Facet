@@ -22,7 +22,9 @@ An identity key can be captured; a wallet, ownership map or item record can
 change.
 
 Derive a filtered `from` array from the current query, category and ownership
-cells. Do not change keys when a filter changes. Empty the array for no
+cells. Set `selectionFrom` to the full records, so a selection that the filter
+hides survives and returns when the filter clears. Do not change keys when a
+filter changes. Empty the array for no
 matches, show a clear result message and keep a route to clear the filter.
 Test empty and refill on the same mounted collection. For a small collection
 inside a Sheet, use the [content-sized pattern](VirtualList-and-VirtualGrid.sizing.md);
