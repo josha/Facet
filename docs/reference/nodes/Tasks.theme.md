@@ -2,7 +2,7 @@
 
 <!-- aliases: themePackage | ThemeDefinition | custom theme | theme definition | visual identity | art direction -->
 
-Express the direction in every theme layer, not just color.
+Theme every layer, not just color.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -15,13 +15,14 @@ for role, size in sizes do
 end
 local definition: Facet.ThemeDefinition = {
   base = Facet.themes.neutralPackage(),
-  identity = { id = "canyon-rally", displayName = "Canyon Rally" },
+  identity = { id = "dusk-rally", displayName = "Dusk Rally" },
   style = { defaultTheme = "Dusk", themes = { { name = "Dusk",
     colors = { surface = rgb(36, 24, 20), surfaceStrong = rgb(54, 38, 30), content = rgb(246, 232, 210),
       accent = rgb(255, 140, 48), onAccent = rgb(40, 18, 8) },
-    extra = { control = rgb(76, 54, 42), controlSelected = rgb(122, 58, 26), contentSecondary = rgb(206, 182, 152) },
+    extra = { control = rgb(76, 54, 42), controlHover = rgb(98, 70, 54), controlPressed = rgb(58, 40, 32),
+      controlSelected = rgb(122, 58, 26), contentSecondary = rgb(206, 182, 152) },
   } } },
-  metrics = { typography = typography, radii = { control = 3, panel = 4, tab = 3 },
+  metrics = { typography = typography, radii = { control = 3, panel = 4 },
     strokes = { hairline = 2 }, motion = { fast = 0.1, normal = 0.18 } },
   chrome = { panel = { kind = "native", shadow = "raised" }, focus = { kind = "brackets", corner = "square" } },
 }
@@ -31,5 +32,5 @@ local app = Facet.app({ name = "Game", theme = theme })
 script.Destroying:Connect(app.dispose)
 ```
 
-One direction: a dusk desert rally: tight corners, a wide display face, bracket focus and quick motion.  Derive yours with [Theme-identity](Theme-identity.md).
+A dusk rally: tight corners, a wide face, bracket focus, quick motion.  Derive yours with [Theme-identity](Theme-identity.md).
 Next: [Themes.metrics](Themes.metrics.md), [Themes.chrome](Themes.chrome.md).
