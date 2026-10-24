@@ -49,7 +49,7 @@ local command: Cli.Command = {
 	summary = "Verify or materialize the pinned Compose and Verify snapshots.",
 	usage = USAGE,
 	values = { "bump", "source" },
-	cases = SnapshotCases.cases,
+	register = SnapshotCases.register,
 	run = run,
 }
 

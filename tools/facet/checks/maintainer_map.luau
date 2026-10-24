@@ -1,7 +1,7 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local stringext = require("@std/stringext")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Luau = require("../lib/luau")
@@ -1012,19 +1012,24 @@ local function dropLine(text: string, needle: string): string
 	return table.concat(kept, "\n")
 end
 
-local function planted(edit: (string) -> string, extra: { [string]: string }?, expected: string): string?
+local function planted(
+	test: Verify.Context,
+	edit: (string) -> string,
+	extra: { [string]: string }?,
+	expected: string
+): ()
 	local files = fixture()
 	files[MAP] = edit(files[MAP])
 	local additions: { [string]: string } = extra or {}
 	for path, contents in additions do
 		files[path] = contents
 	end
-	return Rule.within(files, function(context)
+	Rule.within(test, files, function(context)
 		local findings = check(context)
 		if Rule.contains(findings, expected) then
-			return nil
+			return
 		end
-		return ("expected a finding with '%s', got %s"):format(expected, Rule.describe(findings))
+		error(("expected a finding with '%s', got %s"):format(expected, Rule.describe(findings)), 0)
 	end)
 end
 
@@ -1032,213 +1037,207 @@ local function unchanged(text: string): string
 	return text
 end
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "the clean fixture passes and counts each table",
-			run = function()
-				return Rule.within(fixture(), function(context)
-					local findings, counts = inspect(context)
-					return Case.first(
-						Case.same(findings, {}),
-						Case.equal(counts.areas, 2, "areas"),
-						Case.equal(counts.srcModules, 3, "src modules"),
-						Case.equal(counts.treeEntries, 5, "top-level directories"),
-						Case.equal(counts.seams, 2, "seams"),
-						Case.equal(counts.commands, 5, "facet commands"),
-						Case.equal(counts.playbooks, 1, "playbooks")
-					)
-				end)
-			end,
-		},
-		{
-			name = "an unowned module is reported",
-			run = function()
-				return planted(
-					unchanged,
-					{ ["src/extra.luau"] = "return {}\n" },
-					"src/extra.luau is not owned by any area row"
-				)
-			end,
-		},
-		{
-			name = "an owned module that does not exist is reported",
-			run = function()
-				return planted(function(text)
-					return replaceOnce(text, "`src/themes.luau`", "`src/no_such_module.luau`")
-				end, nil, "the 'themes' row owns 'src/no_such_module.luau', which does not exist")
-			end,
-		},
-		{
-			name = "a module with two owners is reported",
-			run = function()
-				return planted(function(text)
-					return replaceOnce(text, "`src/init.luau`, ", "`src/init.luau`, `src/themes.luau`, ")
-				end, nil, "'src/themes.luau' is owned by both 'root' and 'themes'")
-			end,
-		},
-		{
-			name = "a module owned directly and through its directory is reported",
-			run = function()
-				return planted(function(text)
-					return replaceOnce(text, "`src/themes.luau`", "`src/themes.luau`, `src/ui/button.luau`")
-				end, nil, "'src/ui/button.luau' is owned directly and through 'src/ui/'")
-			end,
-		},
-		{
-			name = "an unmapped top-level directory is reported and an ignored one is not",
-			run = function()
-				return planted(
-					unchanged,
-					{ ["bench/scene.luau"] = "return {}\n" },
-					"bench/ is a top-level directory that the tree table does not claim"
-				) or planted(function(text)
-					return dropLine(text, "| `examples/` |")
-				end, nil, "examples/ is a top-level directory")
-			end,
-		},
-		{
-			name = "a missing repository path is reported",
-			run = function()
-				return planted(function(text)
-					return replaceOnce(text, "`tools/facet/init.luau`", "`tools/no_such_check.luau --check`")
-				end, nil, "names the path 'tools/no_such_check.luau'")
-			end,
-		},
-		{
-			name = "an unregistered facet command, rule or action is reported",
-			run = function()
-				return planted(function(text)
-					return replaceOnce(text, "facet version", "facet versions")
-				end, nil, "names the facet command 'versions'") or planted(function(text)
-					return replaceOnce(text, "check doc-style maintainer-map", "check doc-style no-such-rule")
-				end, nil, "names the rule 'no-such-rule'") or planted(function(text)
-					return replaceOnce(text, "maintainer-map --counts", "doc-style --counts")
-				end, nil, "passes '--counts' to `check`, which no named rule takes")
-			end,
-		},
-		{
-			name = "a spec named under an area it does not cover is reported",
-			run = function()
-				return planted(function(text)
-					return replaceOnce(text, "`tests/root.verify.luau`", "`tests/themes.verify.luau`")
-				end, nil, "the 'root' row names 'tests/themes.verify.luau', which requires no module of that area")
-			end,
-		},
-		{
-			name = "a missing, unregistered or unexplained scenario is reported",
-			run = function()
-				return planted(function(text)
-					return replaceOnce(text, "`all_controls`", "`no_such_scenario`")
-				end, nil, "is not a module in examples/gallery/scenarios") or planted(function(text)
-					return replaceOnce(text, "`all_controls`", "`unlisted`")
-				end, nil, "the scenario 'unlisted' is not registered") or planted(function(text)
-					return replaceOnce(text, "None " .. EM_DASH .. " a live suite covers it.", "Nothing yet.")
-				end, nil, "the 'themes' row names no Studio scenario and gives no reason")
-			end,
-		},
-		{
-			name = "a public seam the library does not export is reported",
-			run = function()
-				return planted(function(text)
-					return replaceOnce(text, "`Facet.themes`", "`Facet.themez`")
-				end, nil, "advertises the seam 'Facet.themez', which the library does not export") or planted(
-					function(text)
-						return replaceOnce(text, "`Facet.themes`", "`Facet.define`")
-					end,
-					nil,
-					"seam 'Facet.define'"
-				)
-			end,
-		},
-		{
-			name = "a broken link or anchor is reported",
-			run = function()
-				return planted(function(text)
-					return replaceOnce(text, "(extending/new-control.md)", "(extending/no-such-page.md)")
-				end, nil, "resolves to 'docs/extending/no-such-page.md' and does not exist") or planted(
-					function(text)
-						return replaceOnce(text, "new-control.md#steps", "new-control.md#nowhere")
-					end,
-					nil,
-					"has no heading with that anchor"
-				)
-			end,
-		},
-		{
-			name = "an unlinked playbook is reported",
-			run = function()
-				return planted(
-					unchanged,
-					{ ["docs/extending/new-theme.md"] = "# Adding a theme\n" },
-					"docs/extending/new-theme.md is an extension playbook that the map does not link"
-				)
-			end,
-		},
-		{
-			name = "tables out of order are reported",
-			run = function()
-				return planted(function(text)
-					return dropLine(text, "| **root** | `tests/")
-				end, nil, "the area table has 2 rows and the proof table has 1")
-			end,
-		},
-		{
-			name = "a quick answer without a link is reported",
-			run = function()
-				return planted(function(text)
-					return replaceOnce(text, "[Adding a control](extending/new-control.md#steps)", "The playbook.")
-				end, nil, "quick answer 1 does not link the page")
-			end,
-		},
-		{
-			name = "a missing marker, map or surface file is reported",
-			run = function()
-				return planted(function(text)
-					return replaceOnce(text, QUICK_MARKER, "")
-				end, nil, "a table marker is missing") or planted(
-					unchanged,
-					{ [SURFACE] = "" },
-					"advertises the seam 'Facet.controls'"
-				) or Rule.within({ ["src/init.luau"] = "return {}\n" }, function(context)
-					return Case.expect(
-						Rule.contains(check(context), "the maintainer map is missing"),
-						"a missing map was not reported"
-					)
-				end)
-			end,
-		},
-		{
-			name = "CRLF line endings in the map pass like LF",
-			run = function()
-				local files = fixture()
-				files[MAP] = string.gsub(files[MAP], "\n", "\r\n")
-				return Rule.within(files, function(context)
-					return Case.same(check(context), {})
-				end)
-			end,
-		},
-		{
-			name = "the counts action reports the covering specs of each area",
-			run = function()
-				return Rule.within(fixture(), function(context)
-					local rows = coverage(context)
-					local shown: { string } = {}
-					for _, row in rows do
-						table.insert(shown, ("%s=%d"):format(row.area, row.specs))
-					end
-					return Case.same(shown, { "root=1", "themes=1" })
-				end)
-			end,
-		},
-	}
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "the clean fixture passes and counts each table", {
+		id = prefix .. "the clean fixture passes and counts each table",
+		run = function(test: Verify.Context)
+			Rule.within(test, fixture(), function(context)
+				local findings, counts = inspect(context)
+				Verify.expect(findings):toEqual({})
+				Verify.expect(counts.areas):toBe(2)
+				Verify.expect(counts.srcModules):toBe(3)
+				Verify.expect(counts.treeEntries):toBe(5)
+				Verify.expect(counts.seams):toBe(2)
+				Verify.expect(counts.commands):toBe(5)
+				Verify.expect(counts.playbooks):toBe(1)
+			end)
+		end,
+	})
+	harness:case(prefix .. "an unowned module is reported", {
+		id = prefix .. "an unowned module is reported",
+		run = function(test: Verify.Context)
+			planted(
+				test,
+				unchanged,
+				{ ["src/extra.luau"] = "return {}\n" },
+				"src/extra.luau is not owned by any area row"
+			)
+		end,
+	})
+	harness:case(prefix .. "an owned module that does not exist is reported", {
+		id = prefix .. "an owned module that does not exist is reported",
+		run = function(test: Verify.Context)
+			planted(test, function(text)
+				return replaceOnce(text, "`src/themes.luau`", "`src/no_such_module.luau`")
+			end, nil, "the 'themes' row owns 'src/no_such_module.luau', which does not exist")
+		end,
+	})
+	harness:case(prefix .. "a module with two owners is reported", {
+		id = prefix .. "a module with two owners is reported",
+		run = function(test: Verify.Context)
+			planted(test, function(text)
+				return replaceOnce(text, "`src/init.luau`, ", "`src/init.luau`, `src/themes.luau`, ")
+			end, nil, "'src/themes.luau' is owned by both 'root' and 'themes'")
+		end,
+	})
+	harness:case(prefix .. "a module owned directly and through its directory is reported", {
+		id = prefix .. "a module owned directly and through its directory is reported",
+		run = function(test: Verify.Context)
+			planted(test, function(text)
+				return replaceOnce(text, "`src/themes.luau`", "`src/themes.luau`, `src/ui/button.luau`")
+			end, nil, "'src/ui/button.luau' is owned directly and through 'src/ui/'")
+		end,
+	})
+	harness:case(prefix .. "an unmapped top-level directory is reported and an ignored one is not", {
+		id = prefix .. "an unmapped top-level directory is reported and an ignored one is not",
+		run = function(test: Verify.Context)
+			planted(
+				test,
+				unchanged,
+				{ ["bench/scene.luau"] = "return {}\n" },
+				"bench/ is a top-level directory that the tree table does not claim"
+			)
+			planted(test, function(text)
+				return dropLine(text, "| `examples/` |")
+			end, nil, "examples/ is a top-level directory")
+		end,
+	})
+	harness:case(prefix .. "a missing repository path is reported", {
+		id = prefix .. "a missing repository path is reported",
+		run = function(test: Verify.Context)
+			planted(test, function(text)
+				return replaceOnce(text, "`tools/facet/init.luau`", "`tools/no_such_check.luau --check`")
+			end, nil, "names the path 'tools/no_such_check.luau'")
+		end,
+	})
+	harness:case(prefix .. "an unregistered facet command, rule or action is reported", {
+		id = prefix .. "an unregistered facet command, rule or action is reported",
+		run = function(test: Verify.Context)
+			planted(test, function(text)
+				return replaceOnce(text, "facet version", "facet versions")
+			end, nil, "names the facet command 'versions'")
+			planted(test, function(text)
+				return replaceOnce(text, "check doc-style maintainer-map", "check doc-style no-such-rule")
+			end, nil, "names the rule 'no-such-rule'")
+			planted(test, function(text)
+				return replaceOnce(text, "maintainer-map --counts", "doc-style --counts")
+			end, nil, "passes '--counts' to `check`, which no named rule takes")
+		end,
+	})
+	harness:case(prefix .. "a spec named under an area it does not cover is reported", {
+		id = prefix .. "a spec named under an area it does not cover is reported",
+		run = function(test: Verify.Context)
+			planted(test, function(text)
+				return replaceOnce(text, "`tests/root.verify.luau`", "`tests/themes.verify.luau`")
+			end, nil, "the 'root' row names 'tests/themes.verify.luau', which requires no module of that area")
+		end,
+	})
+	harness:case(prefix .. "a missing, unregistered or unexplained scenario is reported", {
+		id = prefix .. "a missing, unregistered or unexplained scenario is reported",
+		run = function(test: Verify.Context)
+			planted(test, function(text)
+				return replaceOnce(text, "`all_controls`", "`no_such_scenario`")
+			end, nil, "is not a module in examples/gallery/scenarios")
+			planted(test, function(text)
+				return replaceOnce(text, "`all_controls`", "`unlisted`")
+			end, nil, "the scenario 'unlisted' is not registered")
+			planted(test, function(text)
+				return replaceOnce(text, "None " .. EM_DASH .. " a live suite covers it.", "Nothing yet.")
+			end, nil, "the 'themes' row names no Studio scenario and gives no reason")
+		end,
+	})
+	harness:case(prefix .. "a public seam the library does not export is reported", {
+		id = prefix .. "a public seam the library does not export is reported",
+		run = function(test: Verify.Context)
+			planted(test, function(text)
+				return replaceOnce(text, "`Facet.themes`", "`Facet.themez`")
+			end, nil, "advertises the seam 'Facet.themez', which the library does not export")
+			planted(test, function(text)
+				return replaceOnce(text, "`Facet.themes`", "`Facet.define`")
+			end, nil, "seam 'Facet.define'")
+		end,
+	})
+	harness:case(prefix .. "a broken link or anchor is reported", {
+		id = prefix .. "a broken link or anchor is reported",
+		run = function(test: Verify.Context)
+			planted(test, function(text)
+				return replaceOnce(text, "(extending/new-control.md)", "(extending/no-such-page.md)")
+			end, nil, "resolves to 'docs/extending/no-such-page.md' and does not exist")
+			planted(test, function(text)
+				return replaceOnce(text, "new-control.md#steps", "new-control.md#nowhere")
+			end, nil, "has no heading with that anchor")
+		end,
+	})
+	harness:case(prefix .. "an unlinked playbook is reported", {
+		id = prefix .. "an unlinked playbook is reported",
+		run = function(test: Verify.Context)
+			planted(
+				test,
+				unchanged,
+				{ ["docs/extending/new-theme.md"] = "# Adding a theme\n" },
+				"docs/extending/new-theme.md is an extension playbook that the map does not link"
+			)
+		end,
+	})
+	harness:case(prefix .. "tables out of order are reported", {
+		id = prefix .. "tables out of order are reported",
+		run = function(test: Verify.Context)
+			planted(test, function(text)
+				return dropLine(text, "| **root** | `tests/")
+			end, nil, "the area table has 2 rows and the proof table has 1")
+		end,
+	})
+	harness:case(prefix .. "a quick answer without a link is reported", {
+		id = prefix .. "a quick answer without a link is reported",
+		run = function(test: Verify.Context)
+			planted(test, function(text)
+				return replaceOnce(text, "[Adding a control](extending/new-control.md#steps)", "The playbook.")
+			end, nil, "quick answer 1 does not link the page")
+		end,
+	})
+	harness:case(prefix .. "a missing marker, map or surface file is reported", {
+		id = prefix .. "a missing marker, map or surface file is reported",
+		run = function(test: Verify.Context)
+			planted(test, function(text)
+				return replaceOnce(text, QUICK_MARKER, "")
+			end, nil, "a table marker is missing")
+			planted(test, unchanged, { [SURFACE] = "" }, "advertises the seam 'Facet.controls'")
+			Rule.within(test, { ["src/init.luau"] = "return {}\n" }, function(context)
+				Verify.expect(Rule.contains(check(context), "the maintainer map is missing"))
+					:toBeTrueWith("a missing map was not reported")
+			end)
+		end,
+	})
+	harness:case(prefix .. "CRLF line endings in the map pass like LF", {
+		id = prefix .. "CRLF line endings in the map pass like LF",
+		run = function(test: Verify.Context)
+			local files = fixture()
+			files[MAP] = string.gsub(files[MAP], "\n", "\r\n")
+			Rule.within(test, files, function(context)
+				Verify.expect(check(context)):toEqual({})
+			end)
+		end,
+	})
+	harness:case(prefix .. "the counts action reports the covering specs of each area", {
+		id = prefix .. "the counts action reports the covering specs of each area",
+		run = function(test: Verify.Context)
+			Rule.within(test, fixture(), function(context)
+				local rows = coverage(context)
+				local shown: { string } = {}
+				for _, row in rows do
+					table.insert(shown, ("%s=%d"):format(row.area, row.specs))
+				end
+				Verify.expect(shown):toEqual({ "root=1", "themes=1" })
+			end)
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
 	name = "maintainer-map",
 	summary = "docs/MAINTAINERS.md agrees with the tree: owners, proof, directories, paths, commands and links.",
 	check = check,
-	cases = cases,
+	register = register,
 	actions = {
 		counts = {
 			summary = "Print the number of covering specs for each area.",

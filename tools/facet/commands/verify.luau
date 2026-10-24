@@ -1,7 +1,7 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local Cli = require("../lib/cli")
-local Case = require("../lib/case")
 local Encoding = require("../lib/encoding")
 local Files = require("../lib/files")
 local Look = require("../lib/look")
@@ -198,11 +198,12 @@ return {
 	summary = "Run types, lint, build, audit and screenshots together.",
 	usage = USAGE,
 	values = { "project", "device", "tap", "wait", "out", "dump", "rule", "step", "page" },
-	cases = function(): { Case.Case }
-		return {
+	register = function(harness: Verify.Harness, prefix: string): ()
+		harness:case(
+			prefix .. "duplicate findings keep their count and distinct findings stay available in the report",
 			{
-				name = "duplicate findings keep their count and distinct findings stay available in the report",
-				run = function(): string?
+				id = prefix .. "duplicate findings keep their count and distinct findings stay available in the report",
+				run = function(test: Verify.Context): ()
 					local lines = {
 						"screenshot a.png",
 						"console shop: medium [rule] App.Control: detail",
@@ -212,18 +213,12 @@ return {
 						table.insert(lines, `desktop start: high [rule] App.Control{index}: detail`)
 					end
 					local result = Output.compact(lines)
-					return Case.first(
-						Case.equal(#result, 14, "bounded output"),
-						Case.equal(
-							result[2],
-							"console shop (+1 screens): medium [rule] App.Control: detail",
-							"grouped finding"
-						),
-						Case.equal(#lines, 16, "full report preserved")
-					)
+					Verify.expect(#result):toBe(14)
+					Verify.expect(result[2]):toBe("console shop (+1 screens): medium [rule] App.Control: detail")
+					Verify.expect(#lines):toBe(16)
 				end,
-			},
-		}
+			}
+		)
 	end,
 	run = run,
 } :: Cli.Command

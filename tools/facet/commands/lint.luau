@@ -1,8 +1,8 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local json = require("@std/json")
 local Analyzer = require("../lib/analyzer")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local ConsumerTypes = require("../lib/consumer_types")
 local Files = require("../lib/files")
@@ -290,106 +290,89 @@ local function rulesOf(findings: { UsageLint.Finding }): { [string]: number }
 	return seen
 end
 
-local function cases(): { Case.Case }
-	return {
-		{
-			name = "clean Facet code has no findings, and strings and comments do not count",
-			run = function()
-				local findings = UsageLint.check("good.luau", GOOD)
-				return Case.equal(#findings, 0, "findings: " .. (if findings[1] then findings[1].rule else ""))
-			end,
-		},
-		{
-			name = "each rule finds its planted fault on the right line",
-			run = function()
-				local seen = rulesOf(UsageLint.check("bad.luau", BAD))
-				return Case.first(
-					Case.equal(seen.strict, 1, "strict"),
-					Case.equal(seen["native-gui-object"], 3, "native-gui-object"),
-					Case.equal(seen["literal-paint"], 4, "literal-paint"),
-					Case.equal(seen["any-cast"], 5, "any-cast"),
-					Case.equal(seen["literal-font"], 5, "literal-font"),
-					Case.equal(seen["dot-cell-method"], 7, "dot-cell-method"),
-					Case.equal(seen["deprecated-scheduler"], 8, "deprecated-scheduler"),
-					Case.equal(seen["device-branch"], 9, "device-branch"),
-					Case.equal(seen["raw-input"], 10, "raw-input"),
-					Case.equal(seen["reserved-key"], 11, "reserved-key"),
-					Case.equal(seen["literal-motion"], 13, "literal-motion")
-				)
-			end,
-		},
-		{
-			name = "a second app or a second mounted root is a warning, and one of each is not",
-			run = function()
-				local one = [[--!strict
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "clean Facet code has no findings, and strings and comments do not count", {
+		id = prefix .. "clean Facet code has no findings, and strings and comments do not count",
+		run = function(test: Verify.Context)
+			local findings = UsageLint.check("good.luau", GOOD)
+			Verify.expect(#findings):toBe(0)
+		end,
+	})
+	harness:case(prefix .. "each rule finds its planted fault on the right line", {
+		id = prefix .. "each rule finds its planted fault on the right line",
+		run = function(test: Verify.Context)
+			local seen = rulesOf(UsageLint.check("bad.luau", BAD))
+			Verify.expect(seen.strict):toBe(1)
+			Verify.expect(seen["native-gui-object"]):toBe(3)
+			Verify.expect(seen["literal-paint"]):toBe(4)
+			Verify.expect(seen["any-cast"]):toBe(5)
+			Verify.expect(seen["literal-font"]):toBe(5)
+			Verify.expect(seen["dot-cell-method"]):toBe(7)
+			Verify.expect(seen["deprecated-scheduler"]):toBe(8)
+			Verify.expect(seen["device-branch"]):toBe(9)
+			Verify.expect(seen["raw-input"]):toBe(10)
+			Verify.expect(seen["reserved-key"]):toBe(11)
+			Verify.expect(seen["literal-motion"]):toBe(13)
+		end,
+	})
+	harness:case(prefix .. "a second app or a second mounted root is a warning, and one of each is not", {
+		id = prefix .. "a second app or a second mounted root is a warning, and one of each is not",
+		run = function(test: Verify.Context)
+			local one = [[--!strict
 local app = Facet.app({ name = "Game" })
 app.mount(function() return UI.Screen {} end)
 ]]
-				local two = [[--!strict
+			local two = [[--!strict
 local shop = Facet.app({ name = "Shop" })
 shop.mount(function() return UI.Screen {} end)
 ]]
-				local again = [[--!strict
+			local again = [[--!strict
 local app = Facet.app({ name = "Game" })
 app.mount(build)
 app.mount(other)
 Interface.mount(context)
 ]]
-				local single = UsageLint.project({ { file = "a.luau", source = one } })
-				local double =
-					rulesOf(UsageLint.project({ { file = "a.luau", source = one }, { file = "b.luau", source = two } }))
-				local mounts = rulesOf(UsageLint.project({ { file = "c.luau", source = again } }))
-				return Case.first(
-					Case.equal(#single, 0, "findings for one app"),
-					Case.equal(double["one-runtime"], 2, "second app"),
-					Case.equal(mounts["one-root"], 4, "second mount"),
-					Case.equal(mounts["one-runtime"], nil, "one app in one file")
-				)
-			end,
-		},
-		{
-			name = "type errors that hide their cause get a hint, and other errors do not",
-			run = function()
-				local overload = hint(
-					"Available overloads: <V, K>(KeyedCollectionSpec<V, K>) -> ScrollingFrame; and <V, _K>(IdentityCollectionSpec<V>) -> ScrollingFrame"
-				)
-				local option = hint("Expected this to be 'EventKey | number', but got '\"width\"'")
-				local record = hint("Cannot add indexer to table 'Record'")
-				local publicUse = hint("Unknown type 'Facet.Use'")
-				local encoding = hint("rojo sourcemap failed: [ERROR rojo] File was not valid UTF-8: src/a.luau")
-				return Case.first(
-					Case.expect(
-						overload ~= nil and string.find(overload, "KeyedCollectionSpec", 1, true) ~= nil,
-						"no spec hint"
-					),
-					Case.expect(option ~= nil and string.find(option, "width", 1, true) == 1, "no option hint"),
-					Case.expect(
-						record ~= nil and string.find(record, "Narrow the key", 1, true) ~= nil,
-						"no record hint"
-					),
-					Case.expect(
-						publicUse ~= nil and string.find(publicUse, "local Facet", 1, true) ~= nil,
-						"no Use hint"
-					),
-					Case.expect(
-						encoding ~= nil and string.find(encoding, "without a byte order mark", 1, true) ~= nil,
-						"no encoding hint"
-					),
-					Case.expect(
-						hint("Expected identifier when parsing expression, got Unicode character U+feff") ~= nil,
-						"no byte order mark hint"
-					),
-					Case.equal(hint("Type 'unknown' does not have key 'id'"), nil, "plain error")
-				)
-			end,
-		},
-		{
-			name = "usage counts the controls and helpers through an alias, and skips strings and comments",
-			run = function()
-				local counts = UsageLint.usage({
-					{
-						file = "a.luau",
-						source = [[--!strict
+			local single = UsageLint.project({ { file = "a.luau", source = one } })
+			local double =
+				rulesOf(UsageLint.project({ { file = "a.luau", source = one }, { file = "b.luau", source = two } }))
+			local mounts = rulesOf(UsageLint.project({ { file = "c.luau", source = again } }))
+			Verify.expect(#single):toBe(0)
+			Verify.expect(double["one-runtime"]):toBe(2)
+			Verify.expect(mounts["one-root"]):toBe(4)
+			Verify.expect(mounts["one-runtime"]):toBe(nil)
+		end,
+	})
+	harness:case(prefix .. "type errors that hide their cause get a hint, and other errors do not", {
+		id = prefix .. "type errors that hide their cause get a hint, and other errors do not",
+		run = function(test: Verify.Context)
+			local overload = hint(
+				"Available overloads: <V, K>(KeyedCollectionSpec<V, K>) -> ScrollingFrame; and <V, _K>(IdentityCollectionSpec<V>) -> ScrollingFrame"
+			)
+			local option = hint("Expected this to be 'EventKey | number', but got '\"width\"'")
+			local record = hint("Cannot add indexer to table 'Record'")
+			local publicUse = hint("Unknown type 'Facet.Use'")
+			local encoding = hint("rojo sourcemap failed: [ERROR rojo] File was not valid UTF-8: src/a.luau")
+			Verify.expect(overload ~= nil and string.find(overload, "KeyedCollectionSpec", 1, true) ~= nil)
+				:toBeTrueWith("no spec hint")
+			Verify.expect(option ~= nil and string.find(option, "width", 1, true) == 1):toBeTrueWith("no option hint")
+			Verify.expect(record ~= nil and string.find(record, "Narrow the key", 1, true) ~= nil)
+				:toBeTrueWith("no record hint")
+			Verify.expect(publicUse ~= nil and string.find(publicUse, "local Facet", 1, true) ~= nil)
+				:toBeTrueWith("no Use hint")
+			Verify.expect(encoding ~= nil and string.find(encoding, "without a byte order mark", 1, true) ~= nil)
+				:toBeTrueWith("no encoding hint")
+			Verify.expect(hint("Expected identifier when parsing expression, got Unicode character U+feff") ~= nil)
+				:toBeTrueWith("no byte order mark hint")
+			Verify.expect(hint("Type 'unknown' does not have key 'id'")):toBe(nil)
+		end,
+	})
+	harness:case(prefix .. "usage counts the controls and helpers through an alias, and skips strings and comments", {
+		id = prefix .. "usage counts the controls and helpers through an alias, and skips strings and comments",
+		run = function(test: Verify.Context)
+			local counts = UsageLint.usage({
+				{
+					file = "a.luau",
+					source = [[--!strict
 local app = Facet.app({ name = "Game" })
 local Kit = app.UI
 local label = Kit.Text "Coins" { text = Facet.format.compact(1200) }
@@ -397,42 +380,39 @@ local label = Kit.Text "Coins" { text = Facet.format.compact(1200) }
 local note = "UI.Toast in a string"
 local steps = UI.sequence({})
 ]],
-					},
-				})
-				local names = UsageLint.controls(Files.read("src/ui/control_types.luau"))
-				return Case.first(
-					Case.equal(counts["UI.Text"], 1, "Text through an alias"),
-					Case.equal(counts["Facet.format.compact"], 1, "format"),
-					Case.equal(counts["Facet.app"], 1, "app"),
-					Case.equal(counts["UI.sequence"], 1, "sequence"),
-					Case.equal(counts["UI.Sheet"], nil, "comment"),
-					Case.equal(counts["UI.Toast"], nil, "string"),
-					Case.expect(table.find(names, "UI.Typewriter") ~= nil and #names > 40, "the Controls type list")
-				)
-			end,
-		},
-		{
-			name = "Facet-only rules stay quiet in code that does not use Facet",
-			run = function()
-				local plain =
-					'--!strict\nlocal frame = Instance.new("Frame")\nframe.BackgroundColor3 = Color3.new(1, 1, 1)\n'
-				return Case.equal(#UsageLint.check("plain.luau", plain), 0, "findings")
-			end,
-		},
-		{
-			name = "the consumer example passes the lint",
-			run = function()
-				for _, file in sources({ "examples/consumer/src" }) do
-					for _, finding in UsageLint.check(file, Files.read(file)) do
-						if finding.severity == "error" then
-							return `{file}:{finding.line} {finding.rule}`
-						end
+				},
+			})
+			local names = UsageLint.controls(Files.read("src/ui/control_types.luau"))
+			Verify.expect(counts["UI.Text"]):toBe(1)
+			Verify.expect(counts["Facet.format.compact"]):toBe(1)
+			Verify.expect(counts["Facet.app"]):toBe(1)
+			Verify.expect(counts["UI.sequence"]):toBe(1)
+			Verify.expect(counts["UI.Sheet"]):toBe(nil)
+			Verify.expect(counts["UI.Toast"]):toBe(nil)
+			Verify.expect(table.find(names, "UI.Typewriter") ~= nil and #names > 40)
+				:toBeTrueWith("the Controls type list")
+		end,
+	})
+	harness:case(prefix .. "Facet-only rules stay quiet in code that does not use Facet", {
+		id = prefix .. "Facet-only rules stay quiet in code that does not use Facet",
+		run = function(test: Verify.Context)
+			local plain =
+				'--!strict\nlocal frame = Instance.new("Frame")\nframe.BackgroundColor3 = Color3.new(1, 1, 1)\n'
+			Verify.expect(#UsageLint.check("plain.luau", plain)):toBe(0)
+		end,
+	})
+	harness:case(prefix .. "the consumer example passes the lint", {
+		id = prefix .. "the consumer example passes the lint",
+		run = function(test: Verify.Context)
+			for _, file in sources({ "examples/consumer/src" }) do
+				for _, finding in UsageLint.check(file, Files.read(file)) do
+					if finding.severity == "error" then
+						error(`{file}:{finding.line} {finding.rule}`, 0)
 					end
 				end
-				return nil
-			end,
-		},
-	}
+			end
+		end,
+	})
 end
 
 local command: Cli.Command = {
@@ -440,7 +420,7 @@ local command: Cli.Command = {
 	summary = "Check interface code for Facet usage problems, and optionally strict types.",
 	usage = USAGE,
 	values = { "project", "solver" },
-	cases = cases,
+	register = register,
 	run = run,
 }
 

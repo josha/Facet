@@ -1,7 +1,7 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local stringext = require("@std/stringext")
-local Case = require("../lib/case")
 local Files = require("../lib/files")
 local Json = require("../lib/json")
 local Luau = require("../lib/luau")
@@ -648,22 +648,20 @@ local PLANTS: { Plant } = {
 	},
 }
 
-local function cases(): { Rule.Case }
-	local built: { Rule.Case } = {
-		{
-			name = "the unplanted fixture passes and vendor sources are skipped",
-			run = function()
-				return Rule.within(fixture(CONTROL_SOURCE, { BASE_ENTRY }), function(context)
-					return Case.same(check(context), {})
-				end)
-			end,
-		},
-	}
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "the unplanted fixture passes and vendor sources are skipped", {
+		id = prefix .. "the unplanted fixture passes and vendor sources are skipped",
+		run = function(test: Verify.Context)
+			Rule.within(test, fixture(CONTROL_SOURCE, { BASE_ENTRY }), function(context)
+				Verify.expect(check(context)):toEqual({})
+			end)
+		end,
+	})
 	for _, plant in PLANTS do
-		table.insert(built, {
-			name = "plant: " .. plant.name,
-			run = function()
-				return Rule.within(fixture(planted(plant.text), { BASE_ENTRY }), function(context)
+		harness:case(prefix .. ("plant: " .. plant.name), {
+			id = prefix .. ("plant: " .. plant.name),
+			run = function(test: Verify.Context)
+				Rule.within(test, fixture(planted(plant.text), { BASE_ENTRY }), function(context)
 					local findings = check(context)
 					local prefix = ("[%s] src/ui/inputs.luau"):format(plant.rule)
 					local bitten = false
@@ -673,20 +671,20 @@ local function cases(): { Rule.Case }
 						end
 					end
 					if not bitten then
-						return "the plant stayed green: " .. Rule.describe(findings)
+						error("the plant stayed green: " .. Rule.describe(findings), 0)
 					end
 					local expected = plant.expected
 					if expected ~= nil and table.find(findings, expected) == nil then
-						return ("expected %q in %s"):format(expected, Rule.describe(findings))
+						error(("expected %q in %s"):format(expected, Rule.describe(findings)), 0)
 					end
-					return nil
+					return
 				end)
 			end,
 		})
 	end
-	table.insert(built, {
-		name = "a stale, short-reasoned or unknown-status allowlist entry bites",
-		run = function()
+	harness:case(prefix .. "a stale, short-reasoned or unknown-status allowlist entry bites", {
+		id = prefix .. "a stale, short-reasoned or unknown-status allowlist entry bites",
+		run = function(test: Verify.Context)
 			local bad = {
 				path = "src/ui/inputs.luau",
 				rule = "radius",
@@ -694,8 +692,8 @@ local function cases(): { Rule.Case }
 				reason = "short",
 				status = "maybe",
 			}
-			return Rule.within(fixture(CONTROL_SOURCE, { BASE_ENTRY, bad }), function(context)
-				return Case.same(check(context), {
+			Rule.within(test, fixture(CONTROL_SOURCE, { BASE_ENTRY, bad }), function(context)
+				Verify.expect(check(context)):toEqual({
 					"[allowlist] tools/theme_drift_allowlist.json entries[1] status must be one of ['authored', 'no-metric', 'structural']",
 					"[allowlist] tools/theme_drift_allowlist.json entries[1] reason is too short to justify an exception",
 					"[allowlist] stale entry src/ui/inputs.luau radius 'ctx.corner(77)' matches nothing",
@@ -703,13 +701,14 @@ local function cases(): { Rule.Case }
 			end)
 		end,
 	})
-	table.insert(built, {
-		name = "an allowlist entry needs every field",
-		run = function()
-			return Rule.within(
+	harness:case(prefix .. "an allowlist entry needs every field", {
+		id = prefix .. "an allowlist entry needs every field",
+		run = function(test: Verify.Context)
+			Rule.within(
+				test,
 				fixture(CONTROL_SOURCE, { BASE_ENTRY, { path = "src/ui/inputs.luau" } }),
 				function(context)
-					return Case.same(check(context), {
+					Verify.expect(check(context)):toEqual({
 						"[allowlist] tools/theme_drift_allowlist.json entries[1] needs a non-empty 'rule'",
 						"[allowlist] tools/theme_drift_allowlist.json entries[1] needs a non-empty 'match'",
 						"[allowlist] tools/theme_drift_allowlist.json entries[1] needs a non-empty 'reason'",
@@ -721,21 +720,18 @@ local function cases(): { Rule.Case }
 			)
 		end,
 	})
-	table.insert(built, {
-		name = "a malformed allowlist and a theme without metrics are reported",
-		run = function()
+	harness:case(prefix .. "a malformed allowlist and a theme without metrics are reported", {
+		id = prefix .. "a malformed allowlist and a theme without metrics are reported",
+		run = function(test: Verify.Context)
 			local files = fixture(CONTROL_SOURCE, {})
 			files[ALLOWLIST] = '{"entries": {}}'
-			return Rule.within(files, function(context)
-				local shapeless = Case.same(check(context), {
+			Rule.within(test, files, function(context)
+				Verify.expect(check(context)):toEqual({
 					"[allowlist] tools/theme_drift_allowlist.json must hold an 'entries' list",
 				})
-				if shapeless ~= nil then
-					return shapeless
-				end
 				Files.write(context.path(ALLOWLIST), allowlist({ BASE_ENTRY }))
 				Files.write(context.path(THEME), "--!strict\nreturn { radii = {} }\n")
-				return Case.same(check(context), {
+				Verify.expect(check(context)):toEqual({
 					"[rule] src/ui/themes.luau no longer declares the radii metrics the 'radius' rule protects",
 					"[rule] src/ui/themes.luau no longer declares the strokes metrics the 'stroke' rule protects",
 					"[rule] src/ui/themes.luau no longer declares the typography metrics the 'type-size' rule protects",
@@ -743,25 +739,24 @@ local function cases(): { Rule.Case }
 			end)
 		end,
 	})
-	table.insert(built, {
-		name = "literals in strings, zero opacity and whole numbers in helpers stay clean",
-		run = function()
+	harness:case(prefix .. "literals in strings, zero opacity and whole numbers in helpers stay clean", {
+		id = prefix .. "literals in strings, zero opacity and whole numbers in helpers stay clean",
+		run = function(test: Verify.Context)
 			local source = planted(
 				'BackgroundTransparency = 0,\n\t\t\tTextTransparency = 1,\n\t\t\tctx.corner(1),\n\t\t\tName = "TextSize = 18",'
 			)
-			return Rule.within(fixture(source, { BASE_ENTRY }), function(context)
-				return Case.same(check(context), {})
+			Rule.within(test, fixture(source, { BASE_ENTRY }), function(context)
+				Verify.expect(check(context)):toEqual({})
 			end)
 		end,
 	})
-	return built
 end
 
 local rule: Rule.Rule = {
 	name = "theme-drift",
 	summary = "Framework controls read paint, type and metric values from the theme, not literals.",
 	check = check,
-	cases = cases,
+	register = register,
 }
 
 return rule

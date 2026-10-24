@@ -1,7 +1,7 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local json = require("@std/json")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local DocsIndex = require("../lib/docs_index")
 local Files = require("../lib/files")
@@ -162,52 +162,47 @@ local function run(invocation: Cli.Invocation): number
 	return 0
 end
 
-local function cases(): { Case.Case }
-	return {
-		{
-			name = "the overview names the version, the mount recipe, the task map and the commands",
-			run = function()
-				local text, facts = report(true)
-				return Case.first(
-					Case.expect(facts.version ~= "unknown", "the version is unknown"),
-					Case.expect(facts.hasTasks == true, "the task-to-control map is missing"),
-					Case.expect(string.find(text, "Facet.app(", 1, true) ~= nil, "the mount recipe is missing"),
-					Case.expect(
-						string.find(text, "| Ask for a brief confirmation | Alert. |", 1, true) ~= nil,
-						"a task row is missing"
-					),
-					Case.expect(string.find(text, "tools/facet docs", 1, true) ~= nil, "the docs command is missing"),
-					Case.expect(string.find(text, "Compose.cell", 1, true) ~= nil, "the Compose essentials are missing")
-				)
-			end,
-		},
-		{
-			name = "the overview stays short",
-			run = function()
-				local _, facts = report()
-				return Case.expect(facts.tokens < 4000, `the overview is {facts.tokens} tokens`)
-			end,
-		},
-		{
-			name = "every control that the overview recipe uses has a documented section",
-			run = function()
-				local sections = DocsIndex.load(".")
-				for _, name in { "Screen", "Button", "Sheet", "Text", "Mounting" } do
-					if DocsIndex.find(sections, name) == nil then
-						return `{name} has no section`
-					end
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "the overview names the version, the mount recipe, the task map and the commands", {
+		id = prefix .. "the overview names the version, the mount recipe, the task map and the commands",
+		run = function(test: Verify.Context)
+			local text, facts = report(true)
+			Verify.expect(facts.version ~= "unknown"):toBeTrueWith("the version is unknown")
+			Verify.expect(facts.hasTasks == true):toBeTrueWith("the task-to-control map is missing")
+			Verify.expect(string.find(text, "Facet.app(", 1, true) ~= nil):toBeTrueWith("the mount recipe is missing")
+			Verify.expect(string.find(text, "| Ask for a brief confirmation | Alert. |", 1, true) ~= nil)
+				:toBeTrueWith("a task row is missing")
+			Verify.expect(string.find(text, "tools/facet docs", 1, true) ~= nil)
+				:toBeTrueWith("the docs command is missing")
+			Verify.expect(string.find(text, "Compose.cell", 1, true) ~= nil)
+				:toBeTrueWith("the Compose essentials are missing")
+		end,
+	})
+	harness:case(prefix .. "the overview stays short", {
+		id = prefix .. "the overview stays short",
+		run = function(test: Verify.Context)
+			local _, facts = report()
+			Verify.expect(facts.tokens < 4000):toBeTrueWith(`the overview is {facts.tokens} tokens`)
+		end,
+	})
+	harness:case(prefix .. "every control that the overview recipe uses has a documented section", {
+		id = prefix .. "every control that the overview recipe uses has a documented section",
+		run = function(test: Verify.Context)
+			local sections = DocsIndex.load(".")
+			for _, name in { "Screen", "Button", "Sheet", "Text", "Mounting" } do
+				if DocsIndex.find(sections, name) == nil then
+					error(`{name} has no section`, 0)
 				end
-				return nil
-			end,
-		},
-	}
+			end
+		end,
+	})
 end
 
 local command: Cli.Command = {
 	name = "info",
 	summary = "Print the Facet overview for an author: mounting, the task-to-control map and the next commands.",
 	usage = USAGE,
-	cases = cases,
+	register = register,
 	run = run,
 }
 

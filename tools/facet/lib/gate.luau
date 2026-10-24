@@ -229,7 +229,7 @@ local function build(): Verify.EvidenceBuild
 	}
 end
 
-local function main(arguments: { string }): number
+local function main(arguments: { string }, directory: string?): number
 	local focused = arguments[1] == "spec"
 	local tier = "full"
 	local referenceHost = false
@@ -271,16 +271,24 @@ local function main(arguments: { string }): number
 		print("gate: --require-complete requires the full or release tier without query, filter or rerun flags")
 		return 2
 	end
-	local selectedTiers: { string } = if focused and tier ~= "release" then { "fast" } else TIERS[tier]
-	for _, name in selectedTiers do
-		table.insert(flags, "--tier")
-		table.insert(flags, name)
+	local selectedTiers: { string } = TIERS[tier]
+	if not focused then
+		for _, name in selectedTiers do
+			table.insert(flags, "--tier")
+			table.insert(flags, name)
+		end
+	elseif table.find(flags, "--case") then
+		table.insert(flags, "--only")
+		table.insert(flags, "specs")
 	end
 	local gate: Gate.Draft = if focused
 		then { id = "facet-specs", producers = { tests("specs", names) } }
 		else draft(referenceHost, studioHost)
+	if focused and #selectedTiers > 0 then
+		gate.producers[1].args = { "--tier=" .. table.concat(selectedTiers, ",") }
+	end
 	local options: Lute.GateOptions = {
-		directory = if focused then DIRECTORY .. "-specs" else DIRECTORY,
+		directory = directory or (if focused then DIRECTORY .. "-specs" else DIRECTORY),
 		build = build(),
 		capabilities = if studioHost then { "native-studio" } else {},
 		environment = {
@@ -305,4 +313,7 @@ return table.freeze({
 	build = build,
 
 	main = main,
+	selftest = function(source: string, prefix: string): number
+		return main({ "spec", source, "--name", prefix }, DIRECTORY .. "-selftests")
+	end,
 })

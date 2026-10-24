@@ -116,10 +116,13 @@ installs Lute. Run `lute run tools/facet help` to list the commands.
   its cases against planted faults. `lute run tools/facet check --all` runs every
   check.
 - `tools/facet/checks` holds one module for each check. A check module returns
-  its findings and its selftest cases. `tools/facet/commands` holds the other
-  commands. `tools/facet/lib` holds the shared modules.
-- `tests/tools/rules.verify.luau` and `tests/tools/commands.verify.luau` run each
-  selftest case as a Verify case in the Lute worker `tests/lute/worker.luau`.
+  its findings and registers its selftests with Verify. `tools/facet/commands`
+  holds the other commands. `tools/facet/lib` holds the shared modules.
+- Check and command modules expose `register(harness, prefix)`.
+  `tests/tools/rules.verify.luau` and `tests/tools/commands.verify.luau` use these
+  registrations in the Lute worker `tests/lute/worker.luau`. CLI selftests select
+  the same registrations through the Verify gate. Use Verify assertions and
+  `test:defer` for fixture cleanup.
   The `tool-specs` producer runs each plan unit that requires `lute`. The
   `suite` producer runs the other plan units in the engine worker
   `tests/worker.luau`.

@@ -1,9 +1,9 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local stringext = require("@std/stringext")
 local fs = require("@std/fs")
 local Allowlist = require("../lib/allowlist")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Rule = require("../lib/rule")
@@ -129,95 +129,84 @@ local function report(context: Rule.Context, _invocation: Cli.Invocation): numbe
 	return 0
 end
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "allowed paths pass and denied or unlisted paths are strays",
-			run = function()
-				local list = Allowlist.parse("src/\nREADME.md\n!src/core/fusion_adapter.luau\n")
-				local clean = { "src/init.luau", "README.md", "src/core/services.luau" }
-				local planted = table.clone(clean)
-				table.insert(planted, "docs/plans/secret-plan.md")
-				table.insert(planted, "src/core/fusion_adapter.luau")
-				return Case.first(
-					Case.same(strays(clean, list), {}, "clean"),
-					Case.same(
-						strays(planted, list),
-						{ "docs/plans/secret-plan.md", "src/core/fusion_adapter.luau" },
-						"planted"
-					)
-				)
-			end,
-		},
-		{
-			name = "private trees are strays even when a broad line allows them",
-			run = function()
-				local broad = Allowlist.parse("docs/\nartifacts/\n")
-				local privatePaths =
-					{ "docs/plans/goal.md", "docs/superpowers/specs/x.md", "artifacts/distribution-readiness/owner.md" }
-				local candidates = table.clone(privatePaths)
-				table.insert(candidates, "docs/guide/a.md")
-				return Case.same(strays(candidates, broad), privatePaths)
-			end,
-		},
-		{
-			name = "glob, character set and negated patterns match like fnmatch",
-			run = function()
-				local list = Allowlist.parse(
-					"# comment\r\n  tools/  \r\n*.md\r\n!*.env\r\n!!tools/secret_[0-9].txt\r\n!tools/[!a-m]*.key\r\n"
-				)
-				return Case.same(
-					strays({
-						"tools/run.luau",
-						"docs/guide/deep/page.md",
-						"tools/config/.env",
-						"tools/secret_7.txt",
-						"tools/secret_x.txt",
-						"tools/zeta.key",
-						"tools/alpha.key",
-						"bench/x.luau",
-					}, list),
-					{ "tools/config/.env", "tools/secret_7.txt", "tools/zeta.key", "bench/x.luau" }
-				)
-			end,
-		},
-		{
-			name = "deleted paths are not working paths and present files are",
-			run = function()
-				return Rule.within({ ["docs/plans/present.md"] = "private" }, function(context)
-					local broad = Allowlist.parse("docs/\n")
-					local candidates = { "docs/plans/deleted.md", "docs/plans/present.md" }
-					local linked = false
-					local made =
-						pcall(fs.symbolicLink, context.path("missing.md"), context.path("docs/plans/dangling.md"))
-					if made then
-						linked = true
-						table.insert(candidates, "docs/plans/dangling.md")
-					end
-					local expected = { "docs/plans/present.md" }
-					if linked then
-						table.insert(expected, "docs/plans/dangling.md")
-					end
-					return Case.same(strays(workingPaths(context, candidates), broad), expected)
-				end)
-			end,
-		},
-		{
-			name = "a missing allowlist is reported",
-			run = function()
-				return Rule.within({ ["README.md"] = "" }, function(context)
-					return Case.same(check(context), { LIST .. " is missing" })
-				end)
-			end,
-		},
-	}
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "allowed paths pass and denied or unlisted paths are strays", {
+		id = prefix .. "allowed paths pass and denied or unlisted paths are strays",
+		run = function(test: Verify.Context)
+			local list = Allowlist.parse("src/\nREADME.md\n!src/core/fusion_adapter.luau\n")
+			local clean = { "src/init.luau", "README.md", "src/core/services.luau" }
+			local planted = table.clone(clean)
+			table.insert(planted, "docs/plans/secret-plan.md")
+			table.insert(planted, "src/core/fusion_adapter.luau")
+			Verify.expect(strays(clean, list)):toEqual({})
+			Verify.expect(strays(planted, list))
+				:toEqual({ "docs/plans/secret-plan.md", "src/core/fusion_adapter.luau" })
+		end,
+	})
+	harness:case(prefix .. "private trees are strays even when a broad line allows them", {
+		id = prefix .. "private trees are strays even when a broad line allows them",
+		run = function(test: Verify.Context)
+			local broad = Allowlist.parse("docs/\nartifacts/\n")
+			local privatePaths =
+				{ "docs/plans/goal.md", "docs/superpowers/specs/x.md", "artifacts/distribution-readiness/owner.md" }
+			local candidates = table.clone(privatePaths)
+			table.insert(candidates, "docs/guide/a.md")
+			Verify.expect(strays(candidates, broad)):toEqual(privatePaths)
+		end,
+	})
+	harness:case(prefix .. "glob, character set and negated patterns match like fnmatch", {
+		id = prefix .. "glob, character set and negated patterns match like fnmatch",
+		run = function(test: Verify.Context)
+			local list = Allowlist.parse(
+				"# comment\r\n  tools/  \r\n*.md\r\n!*.env\r\n!!tools/secret_[0-9].txt\r\n!tools/[!a-m]*.key\r\n"
+			)
+			Verify.expect(strays({
+				"tools/run.luau",
+				"docs/guide/deep/page.md",
+				"tools/config/.env",
+				"tools/secret_7.txt",
+				"tools/secret_x.txt",
+				"tools/zeta.key",
+				"tools/alpha.key",
+				"bench/x.luau",
+			}, list)):toEqual({ "tools/config/.env", "tools/secret_7.txt", "tools/zeta.key", "bench/x.luau" })
+		end,
+	})
+	harness:case(prefix .. "deleted paths are not working paths and present files are", {
+		id = prefix .. "deleted paths are not working paths and present files are",
+		run = function(test: Verify.Context)
+			Rule.within(test, { ["docs/plans/present.md"] = "private" }, function(context)
+				local broad = Allowlist.parse("docs/\n")
+				local candidates = { "docs/plans/deleted.md", "docs/plans/present.md" }
+				local linked = false
+				local made = pcall(fs.symbolicLink, context.path("missing.md"), context.path("docs/plans/dangling.md"))
+				if made then
+					linked = true
+					table.insert(candidates, "docs/plans/dangling.md")
+				end
+				local expected = { "docs/plans/present.md" }
+				if linked then
+					table.insert(expected, "docs/plans/dangling.md")
+				end
+				Verify.expect(strays(workingPaths(context, candidates), broad)):toEqual(expected)
+			end)
+		end,
+	})
+	harness:case(prefix .. "a missing allowlist is reported", {
+		id = prefix .. "a missing allowlist is reported",
+		run = function(test: Verify.Context)
+			Rule.within(test, { ["README.md"] = "" }, function(context)
+				Verify.expect(check(context)):toEqual({ LIST .. " is missing" })
+			end)
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
 	name = "public-allowlist",
 	summary = "Every tracked path is allowed on the public tip by tools/public_allowlist.txt.",
 	check = check,
-	cases = cases,
+	register = register,
 	actions = {
 		report = {
 			summary = "Print the stray paths grouped by top-level directory, and exit 0.",

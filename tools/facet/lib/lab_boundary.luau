@@ -1,6 +1,6 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
-local Case = require("./case")
 local Files = require("./files")
 local Json = require("./json")
 local Rule = require("./rule")
@@ -91,62 +91,51 @@ local function project(paths: { [string]: string }): string
 	return Json.encode({ name = "Lab", tree = tree })
 end
 
-function LabBoundary.cases(): { Case.Case }
-	return {
-		{
-			name = "sources inside Facet and outputs in the lab build directory pass",
-			run = function()
-				return Rule.within({
-					["src/init.luau"] = "return {}",
-					["examples/facet-lab/src/init.luau"] = "return {}",
-					["examples/facet-lab/default.project.json"] = project({ Facet = "../../src", Lab = "src" }),
-				}, function(context: Rule.Context): string?
-					return Case.same(LabBoundary.check(context.root, { "build/Facet-Lab.rbxl" }), {})
-				end)
-			end,
-		},
-		{
-			name = "a source outside Facet and a missing source are refused",
-			run = function()
-				return Rule.within({
-					["src/init.luau"] = "return {}",
-					["examples/facet-lab/theme-light.project.json"] = project({
-						Outside = "../../../outside",
-						Missing = "../../src/missing.luau",
-					}),
-				}, function(context: Rule.Context): string?
-					local problems = LabBoundary.check(context.root, {})
-					return Case.first(
-						Case.equal(#problems, 2, "problems"),
-						Case.expect(
-							Rule.contains(
-								problems,
-								"theme-light.project.json: source ../../../outside must exist inside Facet"
-							),
-							"the outside source was accepted: " .. Rule.describe(problems)
-						),
-						Case.expect(
-							Rule.contains(problems, "source ../../src/missing.luau must exist inside Facet"),
-							"the missing source was accepted: " .. Rule.describe(problems)
-						)
-					)
-				end)
-			end,
-		},
-		{
-			name = "an output outside the lab build directory is refused",
-			run = function()
-				return Rule.within({
-					["examples/facet-lab/default.project.json"] = project({}),
-				}, function(context: Rule.Context): string?
-					return Case.same(
-						LabBoundary.check(context.root, { "build/Facet-Lab.rbxl", "../build/Facet-Lab.rbxl" }),
-						{ "output ../build/Facet-Lab.rbxl is outside the lab build directory" }
-					)
-				end)
-			end,
-		},
-	}
+function LabBoundary.register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "sources inside Facet and outputs in the lab build directory pass", {
+		id = prefix .. "sources inside Facet and outputs in the lab build directory pass",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["src/init.luau"] = "return {}",
+				["examples/facet-lab/src/init.luau"] = "return {}",
+				["examples/facet-lab/default.project.json"] = project({ Facet = "../../src", Lab = "src" }),
+			}, function(context: Rule.Context): ()
+				Verify.expect(LabBoundary.check(context.root, { "build/Facet-Lab.rbxl" })):toEqual({})
+			end)
+		end,
+	})
+	harness:case(prefix .. "a source outside Facet and a missing source are refused", {
+		id = prefix .. "a source outside Facet and a missing source are refused",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["src/init.luau"] = "return {}",
+				["examples/facet-lab/theme-light.project.json"] = project({
+					Outside = "../../../outside",
+					Missing = "../../src/missing.luau",
+				}),
+			}, function(context: Rule.Context): ()
+				local problems = LabBoundary.check(context.root, {})
+				Verify.expect(#problems):toBe(2)
+				Verify.expect(
+					Rule.contains(problems, "theme-light.project.json: source ../../../outside must exist inside Facet")
+				)
+					:toBeTrueWith("the outside source was accepted: " .. Rule.describe(problems))
+				Verify.expect(Rule.contains(problems, "source ../../src/missing.luau must exist inside Facet"))
+					:toBeTrueWith("the missing source was accepted: " .. Rule.describe(problems))
+			end)
+		end,
+	})
+	harness:case(prefix .. "an output outside the lab build directory is refused", {
+		id = prefix .. "an output outside the lab build directory is refused",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["examples/facet-lab/default.project.json"] = project({}),
+			}, function(context: Rule.Context): ()
+				Verify.expect(LabBoundary.check(context.root, { "build/Facet-Lab.rbxl", "../build/Facet-Lab.rbxl" }))
+					:toEqual({ "output ../build/Facet-Lab.rbxl is outside the lab build directory" })
+			end)
+		end,
+	})
 end
 
 return table.freeze(LabBoundary)

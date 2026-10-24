@@ -1,4 +1,5 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local Files = require("../lib/files")
 local Hash = require("../lib/hash")
@@ -96,78 +97,72 @@ local function tree(): { [string]: string }
 	}
 end
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "a notice or COMPOSE_COMMIT that differs from the pin fails",
-			run = function()
-				local files = tree()
-				files["THIRD_PARTY_NOTICES.md"] = "Compose and Verify at an older commit.\n"
-				files["src/init.luau"] = 'local COMPOSE_COMMIT = "old"\n'
-				return Rule.within(files, function(context)
-					local findings = table.concat(check(context), "\n")
-					for _, expected in
-						{ "name the pinned compose commit", "name the pinned verify commit", "COMPOSE_COMMIT must be" }
-					do
-						if string.find(findings, expected, 1, true) == nil then
-							return "missing finding: " .. expected
-						end
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "a notice or COMPOSE_COMMIT that differs from the pin fails", {
+		id = prefix .. "a notice or COMPOSE_COMMIT that differs from the pin fails",
+		run = function(test: Verify.Context)
+			local files = tree()
+			files["THIRD_PARTY_NOTICES.md"] = "Compose and Verify at an older commit.\n"
+			files["src/init.luau"] = 'local COMPOSE_COMMIT = "old"\n'
+			Rule.within(test, files, function(context)
+				local findings = table.concat(check(context), "\n")
+				for _, expected in
+					{ "name the pinned compose commit", "name the pinned verify commit", "COMPOSE_COMMIT must be" }
+				do
+					if string.find(findings, expected, 1, true) == nil then
+						error("missing finding: " .. expected, 0)
 					end
-					return nil
-				end)
-			end,
-		},
-		{
-			name = "intact pinned snapshots pass",
-			run = function()
-				return Rule.within(tree(), function(context)
-					local findings = check(context)
-					return Rule.expect(#findings == 0, Rule.describe(findings))
-				end)
-			end,
-		},
-		{
-			name = "a modified vendored file fails",
-			run = function()
-				return Rule.within(tree(), function(context)
-					Files.write(context.path("src/vendor/compose/core/init.luau"), "return { changed = true }\n")
-					return Rule.expect(
-						Rule.contains(check(context), "Compose: missing or modified"),
-						"the change passed"
-					)
-				end)
-			end,
-		},
-		{
-			name = "a modified nested guide fails",
-			run = function()
-				return Rule.within(tree(), function(context)
-					Files.write(context.path("tools/vendor/verify/.agents/skills/verify/SKILL.md"), "Changed\n")
-					return Rule.expect(
-						Rule.contains(check(context), "Verify: missing or modified"),
-						"the change passed"
-					)
-				end)
-			end,
-		},
-		{
-			name = "an unapproved vendor directory fails",
-			run = function()
-				local files = tree()
-				files["src/vendor/other/init.luau"] = "return {}\n"
-				return Rule.within(files, function(context)
-					return Rule.expect(Rule.contains(check(context), "src/vendor/other"), "the extra vendor passed")
-				end)
-			end,
-		},
-	}
+				end
+				return
+			end)
+		end,
+	})
+	harness:case(prefix .. "intact pinned snapshots pass", {
+		id = prefix .. "intact pinned snapshots pass",
+		run = function(test: Verify.Context)
+			Rule.within(test, tree(), function(context)
+				local findings = check(context)
+				Verify.expect(#findings == 0):toBeTrueWith(Rule.describe(findings))
+			end)
+		end,
+	})
+	harness:case(prefix .. "a modified vendored file fails", {
+		id = prefix .. "a modified vendored file fails",
+		run = function(test: Verify.Context)
+			Rule.within(test, tree(), function(context)
+				Files.write(context.path("src/vendor/compose/core/init.luau"), "return { changed = true }\n")
+				Verify.expect(Rule.contains(check(context), "Compose: missing or modified"))
+					:toBeTrueWith("the change passed")
+			end)
+		end,
+	})
+	harness:case(prefix .. "a modified nested guide fails", {
+		id = prefix .. "a modified nested guide fails",
+		run = function(test: Verify.Context)
+			Rule.within(test, tree(), function(context)
+				Files.write(context.path("tools/vendor/verify/.agents/skills/verify/SKILL.md"), "Changed\n")
+				Verify.expect(Rule.contains(check(context), "Verify: missing or modified"))
+					:toBeTrueWith("the change passed")
+			end)
+		end,
+	})
+	harness:case(prefix .. "an unapproved vendor directory fails", {
+		id = prefix .. "an unapproved vendor directory fails",
+		run = function(test: Verify.Context)
+			local files = tree()
+			files["src/vendor/other/init.luau"] = "return {}\n"
+			Rule.within(test, files, function(context)
+				Verify.expect(Rule.contains(check(context), "src/vendor/other")):toBeTrueWith("the extra vendor passed")
+			end)
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
 	name = "vendor",
 	summary = "The vendored Compose and Verify snapshots match their pins, and no other vendor exists.",
 	check = check,
-	cases = cases,
+	register = register,
 }
 
 return rule

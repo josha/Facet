@@ -1,7 +1,7 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local stringext = require("@std/stringext")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Json = require("../lib/json")
@@ -342,26 +342,28 @@ local function artifact(name: string, properties: string, extra: string?): strin
 	return `<roblox version="4"><Item class="ModuleScript" referent="0"><Properties><string name="Name">{name}</string>{properties}</Properties>{extra or ""}</Item></roblox>`
 end
 
-local function cases(): { Case.Case }
-	return {
-		{
-			name = "a single named ModuleScript with Source is accepted",
-			run = function()
-				local problems: { string } = {}
-				local source = artifactSource(
-					artifact(
-						"ClassicDesktop",
-						'<ProtectedString name="Source"><![CDATA[return { build = 1 }\n]]></ProtectedString>'
-					),
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "a single named ModuleScript with Source is accepted", {
+		id = prefix .. "a single named ModuleScript with Source is accepted",
+		run = function(test: Verify.Context)
+			local problems: { string } = {}
+			local source = artifactSource(
+				artifact(
 					"ClassicDesktop",
-					problems
-				)
-				return Case.first(Case.same(problems, {}), Case.equal(source, "return { build = 1 }\n", "source"))
-			end,
-		},
+					'<ProtectedString name="Source"><![CDATA[return { build = 1 }\n]]></ProtectedString>'
+				),
+				"ClassicDesktop",
+				problems
+			)
+			Verify.expect(problems):toEqual({})
+			Verify.expect(source):toBe("return { build = 1 }\n")
+		end,
+	})
+	harness:case(
+		prefix .. "a second root, a Folder root, child objects, a wrong name and an empty Source are refused",
 		{
-			name = "a second root, a Folder root, child objects, a wrong name and an empty Source are refused",
-			run = function()
+			id = prefix .. "a second root, a Folder root, child objects, a wrong name and an empty Source are refused",
+			run = function(test: Verify.Context)
 				local source = '<ProtectedString name="Source"><![CDATA[return {}]]></ProtectedString>'
 				local samples = {
 					{
@@ -384,110 +386,102 @@ local function cases(): { Case.Case }
 					local problems: { string } = {}
 					artifactSource(sample[1], "Theme", problems)
 					if not Rule.contains(problems, sample[2]) then
-						return `expected '{sample[2]}', got {Rule.describe(problems)}`
+						error(`expected '{sample[2]}', got {Rule.describe(problems)}`, 0)
 					end
 				end
-				return nil
 			end,
-		},
-		{
-			name = "require calls in code are reported by line and comments and longer names are ignored",
-			run = function()
-				local source = table.concat({
-					"--!strict",
-					"-- require('commented')",
-					'local picker = require("../../examples/gallery/client/theme_picker")',
-					"local requirement = 1",
-					"local my_require = function() end",
-					"local other = require 'quoted'",
-					'--[[ require("block") ]]',
-					"return {}",
-				}, "\n")
-				local problems = requireProblems("ClassicDesktop", source)
-				return Case.first(
-					Case.equal(#problems, 2, "require calls"),
-					Case.expect(Rule.contains(problems, "require() at line ~3."), Rule.describe(problems)),
-					Case.expect(Rule.contains(problems, "require() at line ~6."), Rule.describe(problems))
+		}
+	)
+	harness:case(prefix .. "require calls in code are reported by line and comments and longer names are ignored", {
+		id = prefix .. "require calls in code are reported by line and comments and longer names are ignored",
+		run = function(test: Verify.Context)
+			local source = table.concat({
+				"--!strict",
+				"-- require('commented')",
+				'local picker = require("../../examples/gallery/client/theme_picker")',
+				"local requirement = 1",
+				"local my_require = function() end",
+				"local other = require 'quoted'",
+				'--[[ require("block") ]]',
+				"return {}",
+			}, "\n")
+			local problems = requireProblems("ClassicDesktop", source)
+			Verify.expect(#problems):toBe(2)
+			Verify.expect(Rule.contains(problems, "require() at line ~3.")):toBeTrueWith(Rule.describe(problems))
+			Verify.expect(Rule.contains(problems, "require() at line ~6.")):toBeTrueWith(Rule.describe(problems))
+		end,
+	})
+	harness:case(prefix .. "a missing artifact and a size that drifted from the manifest are reported", {
+		id = prefix .. "a missing artifact and a size that drifted from the manifest are reported",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["build/themes/Drifted.rbxm"] = "abc",
+			}, function(context: Rule.Context): ()
+				local problems: { string } = {}
+				local drifted = Json.decode(
+					'{"artifact": "Drifted", "module": "drifted", "file": "build/themes/Drifted.rbxm", "bytes": 5}'
 				)
-			end,
-		},
-		{
-			name = "a missing artifact and a size that drifted from the manifest are reported",
-			run = function()
-				return Rule.within({
-					["build/themes/Drifted.rbxm"] = "abc",
-				}, function(context: Rule.Context): string?
-					local problems: { string } = {}
-					local drifted = Json.decode(
-						'{"artifact": "Drifted", "module": "drifted", "file": "build/themes/Drifted.rbxm", "bytes": 5}'
-					)
-					local missing = Json.decode(
-						'{"artifact": "Missing", "module": "missing", "file": "build/themes/Missing.rbxm", "bytes": 5}'
-					)
-					local kept = measure(context, drifted, 1, problems)
-					local skipped = measure(context, missing, 2, problems)
-					return Case.first(
-						Case.expect(kept, "a drifted artifact was skipped"),
-						Case.expect(not skipped, "a missing artifact was inspected"),
-						Case.same(problems, {
-							"Drifted: the manifest records 5 bytes and the artifact on disk is 3 — the manifest describes a different build",
-							"Missing: build/themes/Missing.rbxm was not built",
-						})
-					)
-				end)
-			end,
-		},
-		{
-			name = "every planted fault still finds its anchor in the shipped theme source",
-			run = function()
-				for _, plant in PLANTS do
-					local path = `examples/themes/{plant.module}.luau`
-					if not Files.isFile(path) then
-						return `{path} is missing`
-					end
-					local source = Files.text(path)
-					local changed = planted(plant, plant.artifact, source)
-					if changed == source then
-						return `the plant '{plant.label}' no longer changes {path}`
-					end
-					if planted(plant, "Other", source) ~= source then
-						return `the plant '{plant.label}' changes another artifact`
-					end
-				end
-				return nil
-			end,
-		},
-		{
-			name = "the shipped artifacts pass the probe and every planted fault bites",
-			tags = { "tier:full" },
-			run = function()
-				local passed, lines = plantedSelftest(Rule.context("."))
-				if passed then
-					return nil
-				end
-				return table.concat(lines, "\n")
-			end,
-		},
-		{
-			name = "the planted require is the only require the stripped plant adds",
-			run = function()
-				local plant = PLANTS[1]
-				local source = "--!strict\nlocal classic_desktop = {}\nreturn classic_desktop\n"
-				local problems = requireProblems(plant.artifact, planted(plant, plant.artifact, source))
-				return Case.first(
-					Case.equal(#problems, 1, "require calls"),
-					Case.expect(Rule.contains(problems, "line ~2."), Rule.describe(problems))
+				local missing = Json.decode(
+					'{"artifact": "Missing", "module": "missing", "file": "build/themes/Missing.rbxm", "bytes": 5}'
 				)
-			end,
-		},
-	}
+				local kept = measure(context, drifted, 1, problems)
+				local skipped = measure(context, missing, 2, problems)
+				Verify.expect(kept):toBeTrueWith("a drifted artifact was skipped")
+				Verify.expect(not skipped):toBeTrueWith("a missing artifact was inspected")
+				Verify.expect(problems):toEqual({
+					"Drifted: the manifest records 5 bytes and the artifact on disk is 3 — the manifest describes a different build",
+					"Missing: build/themes/Missing.rbxm was not built",
+				})
+			end)
+		end,
+	})
+	harness:case(prefix .. "every planted fault still finds its anchor in the shipped theme source", {
+		id = prefix .. "every planted fault still finds its anchor in the shipped theme source",
+		run = function(test: Verify.Context)
+			for _, plant in PLANTS do
+				local path = `examples/themes/{plant.module}.luau`
+				if not Files.isFile(path) then
+					error(`{path} is missing`, 0)
+				end
+				local source = Files.text(path)
+				local changed = planted(plant, plant.artifact, source)
+				if changed == source then
+					error(`the plant '{plant.label}' no longer changes {path}`, 0)
+				end
+				if planted(plant, "Other", source) ~= source then
+					error(`the plant '{plant.label}' changes another artifact`, 0)
+				end
+			end
+		end,
+	})
+	harness:case(prefix .. "the shipped artifacts pass the probe and every planted fault bites", {
+		id = prefix .. "the shipped artifacts pass the probe and every planted fault bites",
+		run = function(test: Verify.Context)
+			local passed, lines = plantedSelftest(Rule.context("."))
+			if passed then
+				return
+			end
+			Verify.expect(table.concat(lines, "\n")):toBeNil()
+		end,
+		tags = { "tier:full" },
+	})
+	harness:case(prefix .. "the planted require is the only require the stripped plant adds", {
+		id = prefix .. "the planted require is the only require the stripped plant adds",
+		run = function(test: Verify.Context)
+			local plant = PLANTS[1]
+			local source = "--!strict\nlocal classic_desktop = {}\nreturn classic_desktop\n"
+			local problems = requireProblems(plant.artifact, planted(plant, plant.artifact, source))
+			Verify.expect(#problems):toBe(1)
+			Verify.expect(Rule.contains(problems, "line ~2.")):toBeTrueWith(Rule.describe(problems))
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
 	name = "theme-artifacts",
 	summary = "Each shipped theme artifact installs and mounts against a bare library surface.",
 	check = check,
-	cases = cases,
+	register = register,
 	actions = {
 		planted = {
 			summary = "build and probe the real artifacts with each planted fault (needs rojo and lute)",

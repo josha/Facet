@@ -672,20 +672,11 @@ end)
 		end,
 	})
 	for _, command in commands do
-		local build = command.cases
-		if build == nil then
-			continue
+		local register = command.register
+		if register then
+			harness:suite(command.name, function()
+				register(harness, "tools/commands::" .. command.name .. "::")
+			end)
 		end
-		harness:suite(command.name, function()
-			for _, case in build() do
-				harness:case(case.name, {
-					id = ("tools/commands::%s::%s"):format(command.name, case.name),
-					tags = case.tags,
-					run = function()
-						Verify.expect(case.run()):toBe(nil)
-					end,
-				})
-			end
-		end)
 	end
 end

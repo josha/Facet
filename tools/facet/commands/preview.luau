@@ -1,7 +1,7 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local json = require("@std/json")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Look = require("../lib/look")
 
@@ -130,65 +130,57 @@ local function run(invocation: Cli.Invocation): number
 	return if failed then 1 else 0
 end
 
-local function cases(): { Case.Case }
-	return {
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "the outline lists visible text and controls from top to bottom with their rectangles", {
+		id = prefix .. "the outline lists visible text and controls from top to bottom with their rectangles",
+		run = function(test: Verify.Context)
+			local lines = Look.outline(Look.decode(Look.sample(false)), 200)
+			local joined = table.concat(lines, "\n")
+			local firstY = tonumber(string.match(lines[1] or "", "at%s+%-?%d+,(%-?%d+)"))
+			local lastY = tonumber(string.match(lines[#lines] or "", "at%s+%-?%d+,(%-?%d+)"))
+			Verify.expect(#lines > 5):toBeTrueWith("the outline is nearly empty")
+			Verify.expect(string.find(joined, "button", 1, true) ~= nil)
+				:toBeTrueWith("no control is marked as a button")
+			Verify.expect(firstY ~= nil and lastY ~= nil and firstY <= lastY)
+				:toBeTrueWith("the lines are not in screen order")
+		end,
+	})
+	harness:case(prefix .. "the outline stops at its limit and says how many lines it left out", {
+		id = prefix .. "the outline stops at its limit and says how many lines it left out",
+		run = function(test: Verify.Context)
+			local lines = Look.outline(Look.decode(Look.sample(false)), 3)
+			Verify.expect(#lines):toBe(4)
+			Verify.expect(string.find(lines[4], "more", 1, true) ~= nil)
+				:toBeTrueWith("the last line does not count the rest")
+		end,
+	})
+	harness:case(
+		prefix .. "each tapped screen says whether its tap found a control, and the summary names the misses",
 		{
-			name = "the outline lists visible text and controls from top to bottom with their rectangles",
-			run = function()
-				local lines = Look.outline(Look.decode(Look.sample(false)), 200)
-				local joined = table.concat(lines, "\n")
-				local firstY = tonumber(string.match(lines[1] or "", "at%s+%-?%d+,(%-?%d+)"))
-				local lastY = tonumber(string.match(lines[#lines] or "", "at%s+%-?%d+,(%-?%d+)"))
-				return Case.first(
-					Case.expect(#lines > 5, "the outline is nearly empty"),
-					Case.expect(string.find(joined, "button", 1, true) ~= nil, "no control is marked as a button"),
-					Case.expect(firstY ~= nil and lastY ~= nil and firstY <= lastY, "the lines are not in screen order")
-				)
-			end,
-		},
-		{
-			name = "the outline stops at its limit and says how many lines it left out",
-			run = function()
-				local lines = Look.outline(Look.decode(Look.sample(false)), 3)
-				return Case.first(
-					Case.equal(#lines, 4, "lines"),
-					Case.expect(string.find(lines[4], "more", 1, true) ~= nil, "the last line does not count the rest")
-				)
-			end,
-		},
-		{
-			name = "each tapped screen says whether its tap found a control, and the summary names the misses",
-			run = function()
+			id = prefix .. "each tapped screen says whether its tap found a control, and the summary names the misses",
+			run = function(test: Verify.Context)
 				local screens: { Look.Screen } = {
 					{ device = "desktop", label = "1-start" },
 					{ device = "desktop", label = "2-shop", tap = "Shop", found = true, target = "Shop" },
 					{ device = "desktop", label = "3-buy", tap = "Buy", found = false, problem = "tap" },
 				}
-				return Case.first(
-					Case.equal(Look.tapLine(screens[1]), nil, "untapped screen"),
-					Case.equal(Look.tapLine(screens[2]), 'tap "Shop": tapped the control "Shop"', "found"),
-					Case.equal(Look.tapLine(screens[3]), 'tap "Buy": no control was tapped', "missed"),
-					Case.equal(
-						Look.tapSummary(screens),
-						'taps: 1 found their control, 1 did not: desktop "Buy"',
-						"summary"
-					),
-					Case.equal(Look.tapSummary({ screens[1] }), nil, "no taps")
-				)
+				Verify.expect(Look.tapLine(screens[1])):toBe(nil)
+				Verify.expect(Look.tapLine(screens[2])):toBe('tap "Shop": tapped the control "Shop"')
+				Verify.expect(Look.tapLine(screens[3])):toBe('tap "Buy": no control was tapped')
+				Verify.expect(Look.tapSummary(screens)):toBe('taps: 1 found their control, 1 did not: desktop "Buy"')
+				Verify.expect(Look.tapSummary({ screens[1] })):toBe(nil)
 			end,
-		},
-		{
-			name = "taps become steps that wait after each tap",
-			run = function()
-				local steps = Look.parseSteps({ "Shop", "Buy" }, 2)
-				return Case.first(
-					Case.equal(#steps, 2, "steps"),
-					Case.equal(steps[2].tap, "Buy", "second tap"),
-					Case.equal(steps[1].wait, 2, "wait")
-				)
-			end,
-		},
-	}
+		}
+	)
+	harness:case(prefix .. "taps become steps that wait after each tap", {
+		id = prefix .. "taps become steps that wait after each tap",
+		run = function(test: Verify.Context)
+			local steps = Look.parseSteps({ "Shop", "Buy" }, 2)
+			Verify.expect(#steps):toBe(2)
+			Verify.expect(steps[2].tap):toBe("Buy")
+			Verify.expect(steps[1].wait):toBe(2)
+		end,
+	})
 end
 
 local command: Cli.Command = {
@@ -196,7 +188,7 @@ local command: Cli.Command = {
 	summary = "Play the place in Studio on each device and save screenshots and an outline of each screen.",
 	usage = USAGE,
 	values = { "device", "tap", "wait", "project", "out", "dump" },
-	cases = cases,
+	register = register,
 	run = run,
 }
 

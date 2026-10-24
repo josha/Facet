@@ -1,8 +1,8 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local stringext = require("@std/stringext")
 local Allowlist = require("../lib/allowlist")
-local Case = require("../lib/case")
 local Files = require("../lib/files")
 local Markdown = require("../lib/markdown")
 local Rule = require("../lib/rule")
@@ -213,138 +213,132 @@ local function fixture(extra: { [string]: string }): { [string]: string }
 	return files
 end
 
-local function expectFindings(extra: { [string]: string }, fragments: { string }): string?
-	return Rule.within(fixture(extra), function(context)
+local function expectFindings(test: Verify.Context, extra: { [string]: string }, fragments: { string }): ()
+	Rule.within(test, fixture(extra), function(context)
 		local findings = check(context)
 		for _, fragment in fragments do
 			if not Rule.contains(findings, fragment) then
-				return ("expected a finding with '%s', got %s"):format(fragment, Rule.describe(findings))
+				error(("expected a finding with '%s', got %s"):format(fragment, Rule.describe(findings)), 0)
 			end
 		end
-		return nil
+		return
 	end)
 end
 
-local function expectClean(extra: { [string]: string }): string?
-	return Rule.within(fixture(extra), function(context)
-		return Case.same(check(context), {})
+local function expectClean(test: Verify.Context, extra: { [string]: string }): ()
+	Rule.within(test, fixture(extra), function(context)
+		Verify.expect(check(context)):toEqual({})
 	end)
 end
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "a clean fixture passes and counts its links",
-			run = function()
-				return Rule.within(fixture({}), function(context)
-					local problems, counts = inspect(context)
-					return Case.first(
-						Case.same(problems, {}),
-						Case.equal(counts.documents, 4, "documents"),
-						Case.equal(counts.links, 2, "links"),
-						Case.equal(counts.anchors, 2, "anchors")
-					)
-				end)
-			end,
-		},
-		{
-			name = "a dead link is reported on its own line",
-			run = function()
-				return expectFindings({
-					["AGENTS.md"] = "# Agents\n\n[a file that is not there](docs/guide/does-not-exist.md)\n",
-				}, { "AGENTS.md:3: dead link " .. EM_DASH .. " docs/guide/does-not-exist.md" })
-			end,
-		},
-		{
-			name = "a link into archived material is reported, with or without a title",
-			run = function()
-				return expectFindings({
-					["AGENTS.md"] = '[the plan](docs/plans/distribution-readiness.md)\n[the handoff](docs/handoff/a-handoff.md "why it exists")\n[old](docs/reference/retired.md)\n',
-				}, {
-					"AGENTS.md:1: links into material that is not published "
-						.. EM_DASH
-						.. " docs/plans/distribution-readiness.md",
-					"AGENTS.md:2: links into material that is not published "
-						.. EM_DASH
-						.. " docs/handoff/a-handoff.md",
-					"resolves to docs/reference/retired.md",
-				})
-			end,
-		},
-		{
-			name = "a code-name link without a heading anchor is reported",
-			run = function()
-				return expectFindings(
-					{ ["AGENTS.md"] = "[`Facet.bind`](docs/reference/api.md)\n" },
-					{ "`Facet.bind` names a specific part of docs/reference/api.md" }
-				)
-			end,
-		},
-		{
-			name = "a code-name label that names a file may link to the top of the page",
-			run = function()
-				return expectClean({ ["AGENTS.md"] = "[`docs/reference/api.md`](docs/reference/api.md)\n" })
-			end,
-		},
-		{
-			name = "a missing heading anchor is reported and a repeated heading gets a numbered anchor",
-			run = function()
-				return Case.first(
-					expectFindings(
-						{ ["AGENTS.md"] = "[x](docs/reference/api.md#nowhere)\n" },
-						{ "no such heading " .. EM_DASH .. " docs/reference/api.md#nowhere" }
-					),
-					expectClean({ ["AGENTS.md"] = "[x](docs/reference/api.md#notes-1)\n" })
-				)
-			end,
-		},
-		{
-			name = "a dead link in a document widened by the allowlist is reported",
-			run = function()
-				return expectFindings(
-					{ ["docs/MAINTAINERS.md"] = "# Maintainers\n\n[a page](guide/no-such-topic.md)\n" },
-					{ "docs/MAINTAINERS.md:3: dead link " .. EM_DASH .. " guide/no-such-topic.md" }
-				)
-			end,
-		},
-		{
-			name = "links in code, external links and denied documents are not checked",
-			run = function()
-				return expectClean({
-					["AGENTS.md"] = "```md\n[x](docs/nowhere.md)\n```\n\n`[y](docs/nowhere.md)`\n\n[z](https://example.com/nowhere.md)\n",
-					["docs/guide/secret.md"] = "[x](docs/nowhere.md)\n",
-				})
-			end,
-		},
-		{
-			name = "CRLF line endings report the same lines as LF",
-			run = function()
-				return expectFindings(
-					{ ["AGENTS.md"] = "# Agents\r\n\r\n[dead](docs/nowhere.md)\r\n" },
-					{ "AGENTS.md:3: dead link" }
-				)
-			end,
-		},
-		{
-			name = "a missing allowlist is reported",
-			run = function()
-				return Rule.within({ ["AGENTS.md"] = "# Agents\n" }, function(context)
-					local findings = check(context)
-					return Case.expect(
-						#findings == 1 and Rule.contains(findings, ALLOWLIST .. " is missing"),
-						"expected one missing-allowlist finding, got " .. Rule.describe(findings)
-					)
-				end)
-			end,
-		},
-	}
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "a clean fixture passes and counts its links", {
+		id = prefix .. "a clean fixture passes and counts its links",
+		run = function(test: Verify.Context)
+			Rule.within(test, fixture({}), function(context)
+				local problems, counts = inspect(context)
+				Verify.expect(problems):toEqual({})
+				Verify.expect(counts.documents):toBe(4)
+				Verify.expect(counts.links):toBe(2)
+				Verify.expect(counts.anchors):toBe(2)
+			end)
+		end,
+	})
+	harness:case(prefix .. "a dead link is reported on its own line", {
+		id = prefix .. "a dead link is reported on its own line",
+		run = function(test: Verify.Context)
+			expectFindings(test, {
+				["AGENTS.md"] = "# Agents\n\n[a file that is not there](docs/guide/does-not-exist.md)\n",
+			}, { "AGENTS.md:3: dead link " .. EM_DASH .. " docs/guide/does-not-exist.md" })
+		end,
+	})
+	harness:case(prefix .. "a link into archived material is reported, with or without a title", {
+		id = prefix .. "a link into archived material is reported, with or without a title",
+		run = function(test: Verify.Context)
+			expectFindings(test, {
+				["AGENTS.md"] = '[the plan](docs/plans/distribution-readiness.md)\n[the handoff](docs/handoff/a-handoff.md "why it exists")\n[old](docs/reference/retired.md)\n',
+			}, {
+				"AGENTS.md:1: links into material that is not published "
+					.. EM_DASH
+					.. " docs/plans/distribution-readiness.md",
+				"AGENTS.md:2: links into material that is not published " .. EM_DASH .. " docs/handoff/a-handoff.md",
+				"resolves to docs/reference/retired.md",
+			})
+		end,
+	})
+	harness:case(prefix .. "a code-name link without a heading anchor is reported", {
+		id = prefix .. "a code-name link without a heading anchor is reported",
+		run = function(test: Verify.Context)
+			expectFindings(
+				test,
+				{ ["AGENTS.md"] = "[`Facet.bind`](docs/reference/api.md)\n" },
+				{ "`Facet.bind` names a specific part of docs/reference/api.md" }
+			)
+		end,
+	})
+	harness:case(prefix .. "a code-name label that names a file may link to the top of the page", {
+		id = prefix .. "a code-name label that names a file may link to the top of the page",
+		run = function(test: Verify.Context)
+			expectClean(test, { ["AGENTS.md"] = "[`docs/reference/api.md`](docs/reference/api.md)\n" })
+		end,
+	})
+	harness:case(prefix .. "a missing heading anchor is reported and a repeated heading gets a numbered anchor", {
+		id = prefix .. "a missing heading anchor is reported and a repeated heading gets a numbered anchor",
+		run = function(test: Verify.Context)
+			expectFindings(
+				test,
+				{ ["AGENTS.md"] = "[x](docs/reference/api.md#nowhere)\n" },
+				{ "no such heading " .. EM_DASH .. " docs/reference/api.md#nowhere" }
+			)
+			expectClean(test, { ["AGENTS.md"] = "[x](docs/reference/api.md#notes-1)\n" })
+		end,
+	})
+	harness:case(prefix .. "a dead link in a document widened by the allowlist is reported", {
+		id = prefix .. "a dead link in a document widened by the allowlist is reported",
+		run = function(test: Verify.Context)
+			expectFindings(
+				test,
+				{ ["docs/MAINTAINERS.md"] = "# Maintainers\n\n[a page](guide/no-such-topic.md)\n" },
+				{ "docs/MAINTAINERS.md:3: dead link " .. EM_DASH .. " guide/no-such-topic.md" }
+			)
+		end,
+	})
+	harness:case(prefix .. "links in code, external links and denied documents are not checked", {
+		id = prefix .. "links in code, external links and denied documents are not checked",
+		run = function(test: Verify.Context)
+			expectClean(test, {
+				["AGENTS.md"] = "```md\n[x](docs/nowhere.md)\n```\n\n`[y](docs/nowhere.md)`\n\n[z](https://example.com/nowhere.md)\n",
+				["docs/guide/secret.md"] = "[x](docs/nowhere.md)\n",
+			})
+		end,
+	})
+	harness:case(prefix .. "CRLF line endings report the same lines as LF", {
+		id = prefix .. "CRLF line endings report the same lines as LF",
+		run = function(test: Verify.Context)
+			expectFindings(
+				test,
+				{ ["AGENTS.md"] = "# Agents\r\n\r\n[dead](docs/nowhere.md)\r\n" },
+				{ "AGENTS.md:3: dead link" }
+			)
+		end,
+	})
+	harness:case(prefix .. "a missing allowlist is reported", {
+		id = prefix .. "a missing allowlist is reported",
+		run = function(test: Verify.Context)
+			Rule.within(test, { ["AGENTS.md"] = "# Agents\n" }, function(context)
+				local findings = check(context)
+				Verify.expect(#findings == 1 and Rule.contains(findings, ALLOWLIST .. " is missing"))
+					:toBeTrueWith("expected one missing-allowlist finding, got " .. Rule.describe(findings))
+			end)
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
 	name = "links",
 	summary = "Every relative link in a published document resolves, and every heading anchor exists.",
 	check = check,
-	cases = cases,
+	register = register,
 }
 
 return rule

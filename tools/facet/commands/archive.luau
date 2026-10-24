@@ -1,7 +1,8 @@
 --!strict
+local Gate = require("../lib/gate")
+local Verify = require("../../vendor/verify/src/core")
 
 local stringext = require("@std/stringext")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Hash = require("../lib/hash")
@@ -685,14 +686,12 @@ local function collector(): ({ string }, Say)
 	end
 end
 
-local function withDirectory(body: (root: string) -> string?): string?
+local function withDirectory(test: Verify.Context, body: (root: string) -> ())
 	local root = Files.temporaryDirectory("facet-archive-case-")
-	local ok, result = pcall(body, root)
-	Files.remove(root)
-	if not ok then
-		return "raised: " .. tostring(result)
-	end
-	return result
+	test:defer(function()
+		Files.remove(root)
+	end)
+	body(root)
 end
 
 local function contains(lines: { string }, fragment: string): boolean
@@ -704,163 +703,141 @@ local function contains(lines: { string }, fragment: string): boolean
 	return false
 end
 
-local function cases(): { Case.Case }
-	return {
-		{
-			name = "private: archive, verify, re-archive and planted faults",
-			run = function(): string?
-				return withDirectory(function(work: string): string?
-					local source = Files.join(work, "repo")
-					local root = Files.join(work, "archive")
-					Files.write(Files.join(source, "vendor/Thing/init.luau"), "return {}\n")
-					Files.write(Files.join(source, "vendor/Thing/NOTES.md"), "notes\n")
-					Files.write(Files.join(source, "vendor/.git/HEAD"), "ref\n")
-					Files.write(Files.join(source, "docs/one.md"), "one\n")
-					local lines, say = collector()
-					local code, copied = archive({ "vendor", "docs/one.md" }, root, source, true, say)
-					local clean = verify(root, true, say)
-					archive({ "vendor", "docs/one.md" }, root, source, true, say)
-					local manifest = loadManifest(root)
-					local entries = #entriesOf(manifest)
-					local sums = Files.read(Files.join(root, SUMS_NAME))
-					local planted = Files.join(root, "vendor/Thing/init.luau")
-					Files.write(planted, "return {}\n-- tampered\n")
-					local tampered = verify(root, true, say)
-					Files.write(planted, "return {}\n")
-					local restored = verify(root, true, say)
-					Files.remove(Files.join(root, "docs/one.md"))
-					local deleted = verify(root, true, say)
-					local absent = archive({ "no/such/path" }, root, source, true, say)
-					local outside = archive({ ".." }, root, source, true, say)
-					return Case.first(
-						Case.equal(code, 0, "archive exit"),
-						Case.equal(copied, 3, "copied"),
-						Case.equal(clean, 0, "a clean archive verifies"),
-						Case.equal(entries, 3, "re-archiving is idempotent"),
-						Case.expect(
-							string.find(sums, "  docs/one.md\n", 1, true) ~= nil,
-							"SHA256SUMS lacks docs/one.md"
-						),
-						Case.equal(Json.stringField(manifest, "schema"), SCHEMA, "schema"),
-						Case.expect(tampered ~= 0, "a planted checksum mismatch verified"),
-						Case.expect(contains(lines, "CHECKSUM  vendor/Thing/init.luau"), "no CHECKSUM line"),
-						Case.equal(restored, 0, "restored archive"),
-						Case.expect(deleted ~= 0, "a deleted archived file verified"),
-						Case.expect(absent ~= 0, "archiving a missing path passed"),
-						Case.expect(outside ~= 0, "archiving the parent directory passed")
-					)
-				end)
-			end,
-		},
-		{
-			name = "private: SHA256SUMS disagreement and unrecorded files",
-			run = function(): string?
-				return withDirectory(function(work: string): string?
-					local source = Files.join(work, "repo")
-					local root = Files.join(work, "archive")
-					Files.write(Files.join(source, "a.txt"), "a\n")
-					local lines, say = collector()
-					archive({ "a.txt" }, root, source, true, say)
-					Files.write(Files.join(root, "stray.txt"), "stray\n")
-					local noted = verify(root, false, say)
-					Files.write(Files.join(root, SUMS_NAME), string.rep("0", 64) .. "  a.txt\n")
-					local disagreed = verify(root, true, say)
-					Files.remove(Files.join(root, SUMS_NAME))
-					local missingSums = verify(root, true, say)
-					local listed, listSay = collector()
-					show(root, listSay)
-					return Case.first(
-						Case.equal(noted, 0, "verify with a stray file"),
-						Case.expect(contains(lines, "note: 1 other file(s)"), "no unrecorded note"),
-						Case.equal(disagreed, 1, "disagreeing sums"),
-						Case.expect(
-							contains(lines, "SUMS      a.txt: MANIFEST.json and SHA256SUMS disagree"),
-							"no SUMS line"
-						),
-						Case.equal(missingSums, 1, "missing sums"),
-						Case.expect(contains(listed, "          2  "), "list lacks the padded size"),
-						Case.expect(contains(listed, "1 file(s) in"), "no list summary")
-					)
-				end)
-			end,
-		},
-		{
-			name = "relink: finds and rewrites links into archived material",
-			run = function(): string?
-				return withDirectory(function(root: string): string?
-					local guide = table.concat({
-						"See [the plan](../plans/one.md) and [`docs/adr/0001.md`](../adr/0001.md#why).",
-						"Keep [the API](../reference/api.md) and [site](https://example.com/docs/adr/x.md).",
-						'A [nested [label] here](/artifacts/run.json "title") and [inventory](../INVENTORY.md).',
-						"Private [ref](../reference/internal.md), [anchor](#top), [split",
-						"label](../lessons/l.md).",
-						"",
-					}, "\r\n")
-					Files.write(Files.join(root, "docs/guide/one.md"), guide)
-					Files.write(Files.join(root, "docs/guide/clean.md"), "[ok](architecture.md)\n")
-					Files.write(Files.join(root, "docs/reference/internal.md"), "[x](../plans/p.md)\n")
-					local lines, say = collector()
-					local checked = relink(root, "check", say)
-					local fixLines, fixSay = collector()
-					local fixed = relink(root, "fix", fixSay)
-					local after = Files.read(Files.join(root, "docs/guide/one.md"))
-					local expected = table.concat({
-						"See the plan `docs/plans/one.md` (archived privately) and `docs/adr/0001.md` (archived privately).",
-						"Keep [the API](../reference/api.md) and [site](https://example.com/docs/adr/x.md).",
-						"A nested [label] here `artifacts/run.json` (archived privately) and inventory `docs/INVENTORY.md` (archived privately).",
-						"Private ref `docs/reference/internal.md` (archived privately), [anchor](#top), split",
-						"label `docs/lessons/l.md` (archived privately).",
-						"",
-					}, "\r\n")
-					local passLines, passSay = collector()
-					local clean = relink(root, "check", passSay)
-					return Case.first(
-						Case.equal(checked, 1, "check exit"),
-						Case.expect(
-							contains(lines, "docs/guide/one.md:1: links into archived material -> ../plans/one.md"),
-							"line 1 offender"
-						),
-						Case.expect(
-							contains(lines, "docs/guide/one.md:4: links into archived material -> ../lessons/l.md"),
-							"multi-line label offender line"
-						),
-						Case.expect(
-							contains(lines, "FAIL — 6 link(s) into archived material in 1 file(s) of 2 scanned"),
-							"check summary"
-						),
-						Case.equal(fixed, 0, "fix exit"),
-						Case.expect(
-							contains(fixLines, "rewrote 6 link(s) in 1 file(s); 2 documents scanned, 10 links read"),
-							"fix summary"
-						),
-						Case.equal(after, expected, "rewritten document"),
-						Case.equal(clean, 0, "clean after fix"),
-						Case.expect(contains(passLines, "PASS — 2 documents, 4 links"), "pass summary")
-					)
-				end)
-			end,
-		},
-		{
-			name = "relink: link grammar edge cases",
-			run = function(): string?
-				local function targets(source: string): { string }
-					local found: { string } = {}
-					for _, link in links(source) do
-						table.insert(found, link.label .. "=>" .. link.target)
-					end
-					return found
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "private: archive, verify, re-archive and planted faults", {
+		id = prefix .. "private: archive, verify, re-archive and planted faults",
+		run = function(test: Verify.Context): ()
+			withDirectory(test, function(work: string): ()
+				local source = Files.join(work, "repo")
+				local root = Files.join(work, "archive")
+				Files.write(Files.join(source, "vendor/Thing/init.luau"), "return {}\n")
+				Files.write(Files.join(source, "vendor/Thing/NOTES.md"), "notes\n")
+				Files.write(Files.join(source, "vendor/.git/HEAD"), "ref\n")
+				Files.write(Files.join(source, "docs/one.md"), "one\n")
+				local lines, say = collector()
+				local code, copied = archive({ "vendor", "docs/one.md" }, root, source, true, say)
+				local clean = verify(root, true, say)
+				archive({ "vendor", "docs/one.md" }, root, source, true, say)
+				local manifest = loadManifest(root)
+				local entries = #entriesOf(manifest)
+				local sums = Files.read(Files.join(root, SUMS_NAME))
+				local planted = Files.join(root, "vendor/Thing/init.luau")
+				Files.write(planted, "return {}\n-- tampered\n")
+				local tampered = verify(root, true, say)
+				Files.write(planted, "return {}\n")
+				local restored = verify(root, true, say)
+				Files.remove(Files.join(root, "docs/one.md"))
+				local deleted = verify(root, true, say)
+				local absent = archive({ "no/such/path" }, root, source, true, say)
+				local outside = archive({ ".." }, root, source, true, say)
+				Verify.expect(code):toBe(0)
+				Verify.expect(copied):toBe(3)
+				Verify.expect(clean):toBe(0)
+				Verify.expect(entries):toBe(3)
+				Verify.expect(string.find(sums, "  docs/one.md\n", 1, true) ~= nil)
+					:toBeTrueWith("SHA256SUMS lacks docs/one.md")
+				Verify.expect(Json.stringField(manifest, "schema")):toBe(SCHEMA)
+				Verify.expect(tampered ~= 0):toBeTrueWith("a planted checksum mismatch verified")
+				Verify.expect(contains(lines, "CHECKSUM  vendor/Thing/init.luau")):toBeTrueWith("no CHECKSUM line")
+				Verify.expect(restored):toBe(0)
+				Verify.expect(deleted ~= 0):toBeTrueWith("a deleted archived file verified")
+				Verify.expect(absent ~= 0):toBeTrueWith("archiving a missing path passed")
+				Verify.expect(outside ~= 0):toBeTrueWith("archiving the parent directory passed")
+			end)
+		end,
+	})
+	harness:case(prefix .. "private: SHA256SUMS disagreement and unrecorded files", {
+		id = prefix .. "private: SHA256SUMS disagreement and unrecorded files",
+		run = function(test: Verify.Context): ()
+			withDirectory(test, function(work: string): ()
+				local source = Files.join(work, "repo")
+				local root = Files.join(work, "archive")
+				Files.write(Files.join(source, "a.txt"), "a\n")
+				local lines, say = collector()
+				archive({ "a.txt" }, root, source, true, say)
+				Files.write(Files.join(root, "stray.txt"), "stray\n")
+				local noted = verify(root, false, say)
+				Files.write(Files.join(root, SUMS_NAME), string.rep("0", 64) .. "  a.txt\n")
+				local disagreed = verify(root, true, say)
+				Files.remove(Files.join(root, SUMS_NAME))
+				local missingSums = verify(root, true, say)
+				local listed, listSay = collector()
+				show(root, listSay)
+				Verify.expect(noted):toBe(0)
+				Verify.expect(contains(lines, "note: 1 other file(s)")):toBeTrueWith("no unrecorded note")
+				Verify.expect(disagreed):toBe(1)
+				Verify.expect(contains(lines, "SUMS      a.txt: MANIFEST.json and SHA256SUMS disagree"))
+					:toBeTrueWith("no SUMS line")
+				Verify.expect(missingSums):toBe(1)
+				Verify.expect(contains(listed, "          2  ")):toBeTrueWith("list lacks the padded size")
+				Verify.expect(contains(listed, "1 file(s) in")):toBeTrueWith("no list summary")
+			end)
+		end,
+	})
+	harness:case(prefix .. "relink: finds and rewrites links into archived material", {
+		id = prefix .. "relink: finds and rewrites links into archived material",
+		run = function(test: Verify.Context): ()
+			withDirectory(test, function(root: string): ()
+				local guide = table.concat({
+					"See [the plan](../plans/one.md) and [`docs/adr/0001.md`](../adr/0001.md#why).",
+					"Keep [the API](../reference/api.md) and [site](https://example.com/docs/adr/x.md).",
+					'A [nested [label] here](/artifacts/run.json "title") and [inventory](../INVENTORY.md).',
+					"Private [ref](../reference/internal.md), [anchor](#top), [split",
+					"label](../lessons/l.md).",
+					"",
+				}, "\r\n")
+				Files.write(Files.join(root, "docs/guide/one.md"), guide)
+				Files.write(Files.join(root, "docs/guide/clean.md"), "[ok](architecture.md)\n")
+				Files.write(Files.join(root, "docs/reference/internal.md"), "[x](../plans/p.md)\n")
+				local lines, say = collector()
+				local checked = relink(root, "check", say)
+				local fixLines, fixSay = collector()
+				local fixed = relink(root, "fix", fixSay)
+				local after = Files.read(Files.join(root, "docs/guide/one.md"))
+				local expected = table.concat({
+					"See the plan `docs/plans/one.md` (archived privately) and `docs/adr/0001.md` (archived privately).",
+					"Keep [the API](../reference/api.md) and [site](https://example.com/docs/adr/x.md).",
+					"A nested [label] here `artifacts/run.json` (archived privately) and inventory `docs/INVENTORY.md` (archived privately).",
+					"Private ref `docs/reference/internal.md` (archived privately), [anchor](#top), split",
+					"label `docs/lessons/l.md` (archived privately).",
+					"",
+				}, "\r\n")
+				local passLines, passSay = collector()
+				local clean = relink(root, "check", passSay)
+				Verify.expect(checked):toBe(1)
+				Verify.expect(contains(lines, "docs/guide/one.md:1: links into archived material -> ../plans/one.md"))
+					:toBeTrueWith("line 1 offender")
+				Verify.expect(contains(lines, "docs/guide/one.md:4: links into archived material -> ../lessons/l.md"))
+					:toBeTrueWith("multi-line label offender line")
+				Verify.expect(contains(lines, "FAIL — 6 link(s) into archived material in 1 file(s) of 2 scanned"))
+					:toBeTrueWith("check summary")
+				Verify.expect(fixed):toBe(0)
+				Verify.expect(contains(fixLines, "rewrote 6 link(s) in 1 file(s); 2 documents scanned, 10 links read"))
+					:toBeTrueWith("fix summary")
+				Verify.expect(after):toBe(expected)
+				Verify.expect(clean):toBe(0)
+				Verify.expect(contains(passLines, "PASS — 2 documents, 4 links")):toBeTrueWith("pass summary")
+			end)
+		end,
+	})
+	harness:case(prefix .. "relink: link grammar edge cases", {
+		id = prefix .. "relink: link grammar edge cases",
+		run = function(test: Verify.Context): ()
+			local function targets(source: string): { string }
+				local found: { string } = {}
+				for _, link in links(source) do
+					table.insert(found, link.label .. "=>" .. link.target)
 				end
-				return Case.first(
-					Case.same(targets('[a](b) [c] (d) [e](f g) [h](i "t")'), { "a=>b", "h=>i" }, "basic"),
-					Case.same(targets("[[a](x) [b](y)"), { "a=>x", "b=>y" }, "unclosed outer bracket"),
-					Case.same(targets("[a [b [c]] d](z)"), {}, "doubly nested"),
-					Case.same(targets("[](empty) [x]()"), { "=>empty" }, "empty label and target"),
-					Case.same(targets('[a](b\u{a0}"t")'), { "a=>b" }, "unicode whitespace before a title"),
-					Case.equal(strip("\u{3000} `x` \u{a0}"), "`x`", "unicode strip")
-				)
-			end,
-		},
-	}
+				return found
+			end
+			Verify.expect(targets('[a](b) [c] (d) [e](f g) [h](i "t")')):toEqual({ "a=>b", "h=>i" })
+			Verify.expect(targets("[[a](x) [b](y)")):toEqual({ "a=>x", "b=>y" })
+			Verify.expect(targets("[a [b [c]] d](z)")):toEqual({})
+			Verify.expect(targets("[](empty) [x]()")):toEqual({ "=>empty" })
+			Verify.expect(targets('[a](b\u{a0}"t")')):toEqual({ "a=>b" })
+			Verify.expect(strip("\u{3000} `x` \u{a0}")):toBe("`x`")
+		end,
+	})
 end
 
 local function runPrivate(invocation: Cli.Invocation): number
@@ -896,7 +873,7 @@ end
 
 local function run(invocation: Cli.Invocation): number
 	if Cli.switch(invocation, "selftest") then
-		return Case.report("archive", cases)
+		return Gate.selftest("tools/commands", "tools/commands::archive::")
 	end
 	local area = invocation.positional[1]
 	if area == "private" then
@@ -925,7 +902,7 @@ local command: Cli.Command = {
 	summary = "Keep the private archive (private archive|verify|list) and relink archived material.",
 	usage = USAGE,
 	values = { "root", "source" },
-	cases = cases,
+	register = register,
 	run = run,
 }
 
