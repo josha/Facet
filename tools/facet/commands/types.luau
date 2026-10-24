@@ -367,6 +367,7 @@ local NEGATIVE_PROBES: { { string } } = {
 	},
 	{ "Stepper numeric maximum", 'UI.Stepper({ value = Facet.Compose.cell(1), max = "ten" })' },
 	{ "Progress numeric value", 'UI.ProgressView({ value = "half" })' },
+	{ "Card badge status", 'UI.Card({ title = "Kart", image = "a", badges = { leading = { status = "busy" } } })' },
 	{ "Badge label", "UI.Badge({ label = false })" },
 	{ "Avatar presence", 'UI.Avatar({ name = "Alder", presence = "unknown" })' },
 	{ "Status status", 'UI.StatusIndicator({ status = "busy" })' },

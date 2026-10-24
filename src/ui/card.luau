@@ -1,6 +1,8 @@
 --!strict
 local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
+local Content = require("./content_types")
+local MediaProps = require("./media_props")
 local values = require("./content_values")
 local parts = require("./overlay_parts")
 local ContentProps = require("./content_props")
@@ -11,6 +13,8 @@ local feedbackPaint = require("./feedback_paint")
 
 local ACTION_KEYS: { [string]: boolean } = { label = true, icon = true, onActivate = true, enabled = true, busy = true }
 local MENU_KEYS: { [string]: boolean } = { items = true, label = true }
+local BADGE_KEYS: { [string]: boolean } = { label = true, status = true, icon = true, name = true }
+local CORNER_KEYS: { [string]: boolean } = { leading = true, trailing = true }
 
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 	local Host, Compose, read, runtime = ctx.Host, ctx.Compose, ctx.read, ctx.runtime
@@ -73,6 +77,24 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				assert(MENU_KEYS[key], `Facet UI.Card: menu has the unknown field '{key}'`)
 			end
 			assert(menu.items ~= nil, "Facet UI.Card: menu.items is required")
+		end
+		local revealing = primary ~= nil or menu ~= nil
+		local badges = spec.badges
+		if badges ~= nil then
+			assert(type(badges) == "table", "Facet UI.Card: badges must be a table")
+			assert(media, "Facet UI.Card: badges need image or artwork")
+			for corner, badge in (badges :: unknown) :: { [string]: unknown } do
+				assert(CORNER_KEYS[corner], `Facet UI.Card: badges has the unknown field '{corner}'`)
+				assert(type(badge) == "table", `Facet UI.Card: badges.{corner} must be a table`)
+				local fields = (badge :: unknown) :: { [string]: unknown }
+				for key in fields do
+					assert(BADGE_KEYS[key], `Facet UI.Card: badges.{corner} has the unknown field '{key}'`)
+				end
+				assert(
+					fields.label ~= nil or (fields.icon ~= nil and nonempty(fields.name)),
+					`Facet UI.Card: badges.{corner} needs a label, or an icon and a name`
+				)
+			end
 		end
 		local checks = values(ctx, "Card")
 		local title = checks.legal("title", spec.title, nonempty, "must be a nonempty string")
@@ -224,6 +246,55 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			spec.controls.lifting = lifting
 			spec.controls.diagnostics = checks.list
 		end
+		local badgeLayer: Frame? = nil
+		if badges then
+			local function gap(use: ComposeTypes.Use): UDim
+				return D.new(0, ctx.metric("space.s", use))
+			end
+			local layerProps: Types.FrameNativeProps = {
+				Name = "Badges",
+				BackgroundTransparency = 1,
+				Size = D2.fromScale(1, 1),
+				ZIndex = 2,
+				Host.UIPadding({ PaddingLeft = gap, PaddingRight = gap, PaddingTop = gap, PaddingBottom = gap }),
+			}
+			local function corner(name: string, badge: Content.CardBadge?, x: number)
+				if badge == nil then
+					return
+				end
+				local label = badge.label
+				local last = ""
+				local props: MediaProps.BadgeProps = {
+					label = function(use: ComposeTypes.Use): string?
+						local value = read(label, use)
+						if nonempty(value) then
+							last = value :: string
+						end
+						return if label == nil then nil else last
+					end,
+					status = badge.status,
+					icon = badge.icon,
+					name = badge.name,
+				}
+				local holder: Types.FrameNativeProps = {
+					Name = name,
+					BackgroundTransparency = 1,
+					AnchorPoint = ctx.types.Vector2.new(x, 0),
+					Position = D2.fromScale(x, 0),
+					Size = D2.fromOffset(0, 0),
+					AutomaticSize = E.AutomaticSize.XY,
+					Compose.show(function(use: ComposeTypes.Use): boolean
+						return label == nil or nonempty(read(label, use))
+					end, function()
+						return UI.Badge(props)
+					end) :: Types.Child,
+				}
+				layerProps[#layerProps + 1] = Host.Frame(holder)
+			end
+			corner("Leading", badges.leading, 0)
+			corner("Trailing", badges.trailing, 1)
+			badgeLayer = Host.Frame(layerProps)
+		end
 		local artwork = Host.ImageLabel({
 			Name = "Artwork",
 			LayoutOrder = 1,
@@ -238,6 +309,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				DominantAxis = E.DominantAxis.Width,
 			},
 		})
+		if badgeLayer then
+			badgeLayer.Parent = artwork
+		end
 		if spec.artwork then
 			local build = spec.artwork
 			runtime.mount(function()
@@ -256,6 +330,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			TextWrapped = true,
 		})
 		titleLabel:AddTag("facet-type-label")
+		local function closing(use: ComposeTypes.Use): UDim
+			return D.new(0, if media and not revealing and use(caption) == "" then ctx.metric("space.s", use) else 0)
+		end
 		local function inset(bottom: boolean): UIPadding
 			local function side(use: ComposeTypes.Use): UDim
 				return D.new(0, ctx.metric("space.s", use))
@@ -264,7 +341,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				PaddingLeft = side,
 				PaddingRight = side,
 				PaddingTop = if media or bottom then nil else side,
-				PaddingBottom = if bottom then side else nil,
+				PaddingBottom = if bottom then side else closing,
 			})
 		end
 		runtime.mount(function()
@@ -366,16 +443,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local actionEnabled = function(use: ComposeTypes.Use?): boolean
 			return enabled(use) and read(revealed, use)
 		end
-		local rowChildren: { Types.Child } = {
-			Host.UIListLayout({
-				FillDirection = E.FillDirection.Horizontal,
-				SortOrder = E.SortOrder.LayoutOrder,
-				VerticalAlignment = E.VerticalAlignment.Center,
-				Padding = function(use: ComposeTypes.Use)
-					return D.new(0, ctx.metric("space.s", use))
-				end,
-			}) :: Types.Child,
-		}
+		local rowChildren: { Types.Child } = {}
 		if primary then
 			local action = primary
 			local button = UI.Button({
@@ -416,67 +484,78 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			actionStates:set(states)
 			table.insert(rowChildren, more :: Types.Child)
 		end
-		local rowProps: Types.FrameNativeProps = {
-			Name = "Row",
-			BackgroundTransparency = 1,
-			Size = D2.fromScale(1, 0),
-			AutomaticSize = E.AutomaticSize.Y,
-			SelectionGroup = true,
-		}
-		for _, side in
-			{ "SelectionBehaviorUp", "SelectionBehaviorDown", "SelectionBehaviorLeft", "SelectionBehaviorRight" }
-		do
-			(rowProps :: { [unknown]: unknown })[side] = function(use: ComposeTypes.Use): Enum.SelectionBehavior
-				return if use(entered) then E.SelectionBehavior.Stop else E.SelectionBehavior.Escape
-			end
-		end
-		for _, child in rowChildren do
-			rowProps[#rowProps + 1] = child
-		end
-		rowProps.ZIndex = 2
 		local function tuck(use: ComposeTypes.Use): number
 			return 2 * ctx.metric("radii.panel", use)
 		end
-		if reveal == "automatic" then
-			local function side(use: ComposeTypes.Use): UDim
-				return D.new(0, ctx.metric("space.s", use))
-			end
-			rowProps[#rowProps + 1] = Host.UIPadding({
-				PaddingLeft = side,
-				PaddingRight = side,
-				PaddingTop = function(use: ComposeTypes.Use): UDim
-					return D.new(0, ctx.metric("space.s", use) + tuck(use))
-				end,
-				PaddingBottom = side,
-			})
-		end
-		local row = Host.Frame(rowProps)
-		local plateLayer = ctx.styled(
-			Host.Frame({
-				Name = "Plate",
-				Size = D2.fromScale(1, 1),
-				Visible = reveal == "automatic" and (primary ~= nil or menu ~= nil),
-			}),
-			"panel"
-		)
-		plateLayer:AddTag("facet-card-part")
-		local plate = ctx.fade {
-			Name = "Reveal",
-			LayoutOrder = 2,
-			ZIndex = 0,
-			BackgroundTransparency = 1,
-			Size = D2.fromScale(1, 0),
-			AutomaticSize = E.AutomaticSize.Y,
-			Interactable = revealed,
-			GroupTransparency = function(use: ComposeTypes.Use): number
-				if reduced(use) then
-					return if use(revealed) then 0 else 1
+		local plate: Frame? = nil
+		if revealing then
+			local rowProps: Types.FrameNativeProps = {
+				Name = "Row",
+				BackgroundTransparency = 1,
+				Size = D2.fromScale(1, 0),
+				AutomaticSize = E.AutomaticSize.Y,
+				SelectionGroup = true,
+				Host.UIListLayout({
+					FillDirection = E.FillDirection.Horizontal,
+					SortOrder = E.SortOrder.LayoutOrder,
+					VerticalAlignment = E.VerticalAlignment.Center,
+					Padding = function(use: ComposeTypes.Use)
+						return D.new(0, ctx.metric("space.s", use))
+					end,
+				}),
+			}
+			for _, side in
+				{ "SelectionBehaviorUp", "SelectionBehaviorDown", "SelectionBehaviorLeft", "SelectionBehaviorRight" }
+			do
+				(rowProps :: { [unknown]: unknown })[side] = function(use: ComposeTypes.Use): Enum.SelectionBehavior
+					return if use(entered) then E.SelectionBehavior.Stop else E.SelectionBehavior.Escape
 				end
-				return 1 - use(fade)
-			end,
-			plateLayer :: Types.Child,
-			row :: Types.Child,
-		}
+			end
+			for _, child in rowChildren do
+				rowProps[#rowProps + 1] = child
+			end
+			rowProps.ZIndex = 2
+			if reveal == "automatic" then
+				local function side(use: ComposeTypes.Use): UDim
+					return D.new(0, ctx.metric("space.s", use))
+				end
+				rowProps[#rowProps + 1] = Host.UIPadding({
+					PaddingLeft = side,
+					PaddingRight = side,
+					PaddingTop = function(use: ComposeTypes.Use): UDim
+						return D.new(0, ctx.metric("space.s", use) + tuck(use))
+					end,
+					PaddingBottom = side,
+				})
+			end
+			local row = Host.Frame(rowProps)
+			local plateLayer = ctx.styled(
+				Host.Frame({
+					Name = "Plate",
+					Size = D2.fromScale(1, 1),
+					Visible = reveal == "automatic",
+				}),
+				"panel"
+			)
+			plateLayer:AddTag("facet-card-part")
+			plate = ctx.fade {
+				Name = "Reveal",
+				LayoutOrder = 2,
+				ZIndex = 0,
+				BackgroundTransparency = 1,
+				Size = D2.fromScale(1, 0),
+				AutomaticSize = E.AutomaticSize.Y,
+				Interactable = revealed,
+				GroupTransparency = function(use: ComposeTypes.Use): number
+					if reduced(use) then
+						return if use(revealed) then 0 else 1
+					end
+					return 1 - use(fade)
+				end,
+				plateLayer :: Types.Child,
+				row :: Types.Child,
+			}
+		end
 		local function inLayout(): boolean
 			local parent = root and root.Parent
 			return parent ~= nil and parent:FindFirstChildWhichIsA("UIGridStyleLayout") ~= nil
@@ -503,6 +582,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			"enabled",
 			"controls",
 			"ringTarget",
+			"badges",
 		}, {
 			Name = "Card",
 			BackgroundTransparency = if media then 1 else nil,
@@ -535,7 +615,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				end,
 			}) :: Types.Child,
 			body :: Types.Child,
-			plate :: Types.Child,
 			liftScale :: Types.Child,
 			Compose.show(function(use: ComposeTypes.Use): boolean
 				local active = use(lifting) or use(scale) ~= 1
@@ -551,6 +630,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					return {}
 				end)
 			end) :: Types.Child,
+			plate :: Types.Child,
 		}))
 		if not media then
 			ctx.styled(card, "panel")
@@ -626,7 +706,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				end
 			end)
 		end
-		if primary or menu then
+		if revealing then
 			ctx.action(card, "CardCancel", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
 				return use(entered) and not use(menuOpen)
 			end, leaveActions, { priority = 1500 })

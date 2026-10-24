@@ -226,6 +226,181 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("leaves the reveal row out of a card with nothing to reveal so its plate ends at its body", {
+			id = "native_card::native Card::leaves the reveal row out of a card with nothing to reveal so its plate ends at its body",
+			run = function()
+				for _, reveal in { "automatic", "always" } do
+					local caption = Compose.cell("Friends playing")
+					local world, root = mount({
+						image = "rbxassetid://1",
+						title = "Course",
+						caption = caption,
+						reveal = reveal,
+					})
+					local laidOut: { string } = {}
+					for _, child in root:GetChildren() do
+						if child:IsA("GuiObject") then
+							table.insert(laidOut, child.Name)
+						end
+					end
+					Verify.expect((table.concat(laidOut, ","))):toBe("Body")
+					Verify.expect((world.find("Reveal"))):toBeNil()
+					Verify.expect((world.find("Plate"))):toBeNil()
+					Verify.expect((world.action("CardCancel"))):toBeNil()
+					local titleInset = world.find("Title"):FindFirstChildWhichIsA("UIPadding")
+					local captionInset = world.find("Caption"):FindFirstChildWhichIsA("UIPadding")
+					Verify.expect(titleInset.PaddingBottom.Offset):toBe(0)
+					Verify.expect(captionInset.PaddingBottom.Offset > 0):toBe(true)
+					caption:set("")
+					Verify.expect(titleInset.PaddingBottom.Offset):toBe(captionInset.PaddingBottom.Offset)
+					caption:set("Friends playing")
+					Verify.expect(titleInset.PaddingBottom.Offset):toBe(0)
+					world.stop()
+				end
+				local acting = cardSpec({})
+				acting.caption = nil
+				local world, root = mount(acting)
+				Verify.expect(plate(world).Parent):toBe(root)
+				Verify.expect(fadeKit.layer(world.find("Plate"))):toBe(plate(world))
+				local actingTitle = root:FindFirstChild("Title", true):FindFirstChildWhichIsA("UIPadding")
+				Verify.expect(actingTitle.PaddingBottom.Offset):toBe(0)
+				world.stop()
+			end,
+		})
+
+		verifyHarness:case("puts badges over the top corners of the art at theme spacing and follows their labels", {
+			id = "native_card::native Card::puts badges over the top corners of the art at theme spacing and follows their labels",
+			run = function()
+				local function shown(holder: Instance): string
+					local words: { string } = {}
+					for _, node in holder:GetDescendants() do
+						if node:IsA("TextLabel") and (node :: TextLabel).Text ~= "" then
+							table.insert(words, (node :: TextLabel).Text)
+						end
+					end
+					return table.concat(words, ",")
+				end
+				local label = Compose.cell("Owned" :: string?)
+				local status = Compose.cell("success")
+				local world = mount({
+					image = "rbxassetid://1",
+					title = "Course",
+					badges = {
+						leading = { label = "Rare", status = "accent" },
+						trailing = { label = label, status = status, icon = "checkmark" },
+					},
+				})
+				local layer = world.find("Badges")
+				Verify.expect(layer.Parent):toBe(world.find("Artwork"))
+				Verify.expect(layer.Size):toBe(UDim2.fromScale(1, 1))
+				Verify.expect(layer.ZIndex):toBe(2)
+				local inset = layer:FindFirstChildWhichIsA("UIPadding")
+				local gap = inset.PaddingTop.Offset
+				Verify.expect(gap > 0):toBe(true)
+				for _, side in { "Left", "Right", "Bottom" } do
+					Verify.expect(inset["Padding" .. side].Offset):toBe(gap)
+				end
+				local leading, trailing = world.find("Leading", layer), world.find("Trailing", layer)
+				Verify.expect(leading.AnchorPoint):toBe(world.V2(0, 0))
+				Verify.expect(leading.Position):toBe(UDim2.fromScale(0, 0))
+				Verify.expect(trailing.AnchorPoint):toBe(world.V2(1, 0))
+				Verify.expect(trailing.Position):toBe(UDim2.fromScale(1, 0))
+				Verify.expect((shown(leading))):toBe("Rare")
+				Verify.expect((shown(trailing))):toBe("Owned")
+				Verify.expect((leading:FindFirstChildWhichIsA("GuiObject"):HasTag("facet-status-accent"))):toBe(true)
+				local pill = trailing:FindFirstChildWhichIsA("GuiObject")
+				Verify.expect((pill:HasTag("facet-status-success"))):toBe(true)
+				status:set("warning")
+				Verify.expect((pill:HasTag("facet-status-warning"))):toBe(true)
+				label:set(nil)
+				Verify.expect((shown(trailing))):toBe("")
+				Verify.expect((shown(leading))):toBe("Rare")
+				label:set("Sold")
+				Verify.expect((shown(trailing))):toBe("Sold")
+				world.stop()
+				local plain = mount({ image = "rbxassetid://1", title = "Course" })
+				Verify.expect((plain.find("Badges"))):toBeNil()
+				plain.stop()
+				Verify.expect(function()
+					mount({ title = "Coins", badges = { leading = { label = "New" } } })
+				end):toThrow("badges need image or artwork")
+				Verify.expect(function()
+					mount({ image = "rbxassetid://1", title = "Coins", badges = { top = { label = "New" } } })
+				end):toThrow("badges has the unknown field 'top'")
+				Verify.expect(function()
+					mount({ image = "rbxassetid://1", title = "Coins", badges = { leading = { text = "New" } } })
+				end):toThrow("badges.leading has the unknown field 'text'")
+				Verify.expect(function()
+					mount({ image = "rbxassetid://1", title = "Coins", badges = { leading = { status = "accent" } } })
+				end):toThrow("badges.leading needs a label, or an icon and a name")
+				Verify.expect(function()
+					mount({ image = "rbxassetid://1", title = "Coins", badges = { trailing = { icon = "checkmark" } } })
+				end):toThrow("badges.trailing needs a label, or an icon and a name")
+				local marked = mount({
+					image = "rbxassetid://1",
+					title = "Coins",
+					badges = { trailing = { icon = "checkmark", name = "Verified" } },
+				})
+				local mark = marked.find("Trailing"):FindFirstChildWhichIsA("GuiObject")
+				Verify.expect(mark ~= nil and mark.Visible):toBe(true)
+				marked.stop()
+			end,
+		})
+
+		verifyHarness:case("paints a collection selection on the card's own plate, not on a plate under it", {
+			id = "native_card::native Card::paints a collection selection on the card's own plate, not on a plate under it",
+			run = function()
+				local selection = Compose.cell({ art = true } :: { [string]: boolean })
+				local world = worlds.new(function(UI)
+					return UI.VirtualGrid({
+						Name = "Grid",
+						from = { { id = "art" }, { id = "plain" } },
+						key = "id",
+						columns = 2,
+						itemSize = 200,
+						selection = selection,
+						render = function(_current, _placement, key)
+							return UI.Card({
+								Name = "Card",
+								image = if key == "art" then "rbxassetid://1" else nil,
+								title = key,
+							})
+						end,
+					})
+				end, { motionLevel = "none" })
+				world.engine.environment.poke(world.find("Grid"), "AbsoluteWindowSize", world.V2(600, 400))
+				local _, sheet = world.runtime.mount(function()
+					return Facet.themes.createStyleSheet(world.runtime, Facet.themes.neutralPackage(), {
+						types = world.engine.types,
+					})
+				end, world.engine.new("Folder"))
+				local function paint(node: Instance): unknown
+					return styleRules.resolve(sheet, node, "BackgroundColor3")
+				end
+				local items = world.find("Grid"):FindFirstChild("Items")
+				local art = world.find("Card", items:FindFirstChild("art"))
+				local plain = world.find("Card", items:FindFirstChild("plain"))
+				for _, card in { art, plain } do
+					local surface = card.Parent
+					Verify.expect(surface.Name):toBe("Surface")
+					Verify.expect((surface:HasTag("facet-tablerow"))):toBe(false)
+					Verify.expect((surface:HasTag("facet-skinned"))):toBe(false)
+					Verify.expect(surface.BackgroundTransparency):toBe(1)
+					Verify.expect((card:FindFirstChild("Reveal"))):toBeNil()
+				end
+				Verify.expect((art.Parent:HasTag("facet-selected"))):toBe(true)
+				local chosen = paint(art.Parent)
+				Verify.expect(chosen ~= nil):toBe(true)
+				Verify.expect(paint(art:FindFirstChild("Body"))):toBe(chosen)
+				Verify.expect(paint(plain) == chosen):toBe(false)
+				selection:set({ plain = true })
+				Verify.expect((art.Parent:HasTag("facet-selected"))):toBe(false)
+				Verify.expect(paint(plain)):toBe(chosen)
+				Verify.expect(paint(art:FindFirstChild("Body")) == chosen):toBe(false)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("keeps body, primary and More as sibling targets so one press runs one intent", {
 			id = "native_card::native Card::keeps body, primary and More as sibling targets so one press runs one intent",
 			run = function()
@@ -540,10 +715,10 @@ return function(verifyHarness: Verify.Harness)
 				plain.primaryAction = nil
 				plain.menu = nil
 				local empty, emptyRoot = mount(plain, { motionLevel = "normal" })
-				Verify.expect(empty.find("Plate").Visible):toBe(false)
+				Verify.expect((empty.find("Plate"))):toBeNil()
 				hover(emptyRoot, true)
 				settle(empty, 1)
-				Verify.expect(empty.find("Plate").Visible):toBe(false)
+				Verify.expect((empty.find("Reveal"))):toBeNil()
 				empty.stop()
 			end,
 		})
