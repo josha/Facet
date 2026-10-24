@@ -4,7 +4,20 @@ local Double = require("./lib/live_double")
 local Lute = require("../tools/vendor/verify/src/lute")
 
 return function(harness: Verify.Harness)
-	for _, id in { "screen-padding-and-gap", "zstack-alignment", "stack-distribution" } do
+	harness:case("all committed live sources register on the Verify engine double", function(check)
+		local catalog = Double.catalog(check)
+		check:expect(catalog.total > 0):toBe(true)
+		check:expect(catalog.total):toBe(catalog.automatic + catalog.interactive)
+	end)
+	for _, id in
+		{
+			"screen-padding-and-gap",
+			"grid-cells-and-gaps",
+			"zstack-alignment",
+			"stack-distribution",
+			"fill-and-extents",
+		}
+	do
 		harness:case(`original live primitives/{id} on the Verify engine double`, function(check)
 			Double.run(check, "primitives", id)
 		end)
@@ -24,5 +37,6 @@ return function(harness: Verify.Harness)
 			detected = detected or step.name == "B follows A by 10 + 8" and step.status == "failed"
 		end
 		check:expect(detected):toBe(true)
+		Double.run(check, "primitives", "screen-padding-and-gap")
 	end)
 end

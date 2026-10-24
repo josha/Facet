@@ -6,7 +6,7 @@ type Instance = PlaceRuntime.Instance
 export type Engine = PlaceRuntime.Engine
 type Runtime = PlaceRuntime.Runtime
 type ProjectNode = { [string]: unknown }
-type Project = { globIgnorePaths: { string }?, tree: { [string]: ProjectNode } }
+type Project = { globIgnorePaths: { string }?, emitLegacyScripts: boolean?, tree: { [string]: ProjectNode } }
 
 export type Host<B = unknown, C = () -> unknown> = PlaceRuntime.Host<B, C>
 export type Cache<B = unknown, C = () -> unknown> = PlaceRuntime.Cache<B, C>
@@ -191,14 +191,35 @@ local function projectValue(engine: PlaceRuntime.Engine, declared: string?, valu
 	if type(value) ~= "table" or declared == nil then
 		return value
 	end
-	local encoded = (value :: { [string]: unknown })[declared]
+	local explicit = (value :: { [string]: unknown })[declared]
+	local encoded = if explicit ~= nil then explicit else value
 	if declared == "Color3" then
 		local v = numbers(encoded, 3)
 		return engine.datatypes.Color3.new(v[1], v[2], v[3])
 	elseif declared == "Vector3" then
 		local v = numbers(encoded, 3)
 		return engine.datatypes.Vector3.new(v[1], v[2], v[3])
+	elseif declared == "Vector2" then
+		local v = numbers(encoded, 2)
+		return engine.datatypes.Vector2.new(v[1], v[2])
 	elseif declared == "CFrame" then
+		if explicit == nil then
+			local v = numbers(encoded, 12)
+			return engine.datatypes.CFrame.new(
+				v[1],
+				v[2],
+				v[3],
+				v[4],
+				v[5],
+				v[6],
+				v[7],
+				v[8],
+				v[9],
+				v[10],
+				v[11],
+				v[12]
+			)
+		end
 		assert(type(encoded) == "table", "project CFrame requires position and orientation")
 		local frame = encoded :: { position: unknown, orientation: { unknown } }
 		local p = numbers(frame.position, 3)
@@ -207,7 +228,7 @@ local function projectValue(engine: PlaceRuntime.Engine, declared: string?, valu
 			numbers(frame.orientation[1], 3), numbers(frame.orientation[2], 3), numbers(frame.orientation[3], 3)
 		return engine.datatypes.CFrame.new(p[1], p[2], p[3], x[1], x[2], x[3], y[1], y[2], y[3], z[1], z[2], z[3])
 	end
-	return value
+	return encoded
 end
 
 local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, deps: TreeDeps<B>): Mounted
@@ -222,6 +243,23 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 
 	local scripts: { Instance } = {}
 	local sources: { [Instance]: string } = {}
+	local function configure(object: Instance, node: ProjectNode)
+		local properties = node["$properties"]
+		if properties ~= nil then
+			for key, value in properties :: { [string]: unknown } do
+				if type(key) == "string" and engine.surface.memberKind(object.ClassName, key) == "property" then
+					local declared = engine.surface.memberType(object.ClassName, key)
+					engine.environment.poke(object, key, projectValue(engine, declared, value))
+				end
+			end
+		end
+		local attributes = node["$attributes"]
+		if attributes ~= nil then
+			for key, value in attributes :: { [string]: unknown } do
+				object:SetAttribute(key, value)
+			end
+		end
+	end
 
 	local function attach(object: Instance, parent: Instance, name: string)
 		engine.environment.poke(object, "Name", name)
@@ -229,7 +267,15 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 	end
 
 	local function makeScript(className: string, name: string, path: string, parent: Instance): Instance
-		local object = engine.newInstance(className, true)
+		local modern = project.emitLegacyScripts == false and className ~= "ModuleScript"
+		local object = engine.newInstance(if modern then "Script" else className, true)
+		if modern then
+			engine.environment.poke(
+				object,
+				"RunContext",
+				engine.datatypes.Enum.RunContext[if className == "LocalScript" then "Client" else "Server"]
+			)
+		end
 		attach(object, parent :: Instance, name)
 		sources[object] = path
 		cache.read(path)
@@ -330,19 +376,7 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 			object = engine.newInstance("Folder", true)
 			attach(object, parent :: Instance, name)
 		end
-		local properties = node["$properties"]
-		if properties ~= nil then
-			for key, value in properties :: { [string]: unknown } do
-				if type(key) ~= "string" then
-					continue
-				end
-				local kind = engine.surface.memberKind(object.ClassName, key)
-				if kind == "property" then
-					local declared = engine.surface.memberType(object.ClassName, key)
-					engine.environment.poke(object, key, projectValue(engine, declared, value))
-				end
-			end
-		end
+		configure(object, node)
 		for key, value in node do
 			if type(key) ~= "string" or string.sub(key, 1, 1) == "$" then
 				continue
@@ -352,27 +386,14 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 		return object
 	end
 
+	configure(engine.game, (project.tree :: unknown) :: ProjectNode)
 	for name, node in project.tree do
 		if type(name) ~= "string" or string.sub(name, 1, 1) == "$" then
 			continue
 		end
 		local service =
 			engine.service(if (node["$className"] :: string) ~= nil then node["$className"] :: string else name)
-		local properties = node["$properties"]
-		if properties ~= nil then
-			for key, value in properties :: { [string]: unknown } do
-				if type(key) ~= "string" then
-					continue
-				end
-				if engine.surface.memberKind(service.ClassName, key) == "property" then
-					engine.environment.poke(
-						service,
-						key,
-						projectValue(engine, engine.surface.memberType(service.ClassName, key), value)
-					)
-				end
-			end
-		end
+		configure(service, node)
 		for key, value in node do
 			if type(key) ~= "string" or string.sub(key, 1, 1) == "$" then
 				continue
@@ -384,12 +405,20 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 	return { root = engine.game, scripts = scripts, sources = sources }
 end
 
-local function scriptsUnder(container: Instance, className: string, out: { Instance })
+local function scriptsUnder(container: Instance, context: string, legacy: boolean, out: { Instance })
 	for _, child in container:GetChildren() do
-		if child.ClassName == className then
+		local mode = if child.ClassName == "Script"
+			then tostring(child.RunContext):match "([^%.]+)$" or "Legacy"
+			else "Legacy"
+		local selected = if child.ClassName == "LocalScript"
+			then legacy and context == "Client"
+			elseif child.ClassName == "Script" then mode == context
+				or (legacy and context == "Server" and mode == "Legacy")
+			else false
+		if selected and child.Disabled ~= true and child.Enabled ~= false then
 			out[#out + 1] = child
 		end
-		scriptsUnder(child, className, out)
+		scriptsUnder(child, context, legacy, out)
 	end
 end
 
@@ -502,8 +531,11 @@ local function run<B>(config: Config, deps: Deps<B>): Report
 
 	local serverNames: { string } = {}
 	local serverScripts: { Instance } = {}
-	scriptsUnder(serverScriptService, "Script", serverScripts)
-	scriptsUnder(workspace, "Script", serverScripts)
+	scriptsUnder(serverScriptService, "Server", true, serverScripts)
+	scriptsUnder(workspace, "Server", true, serverScripts)
+	scriptsUnder(engine.service "ReplicatedStorage", "Server", false, serverScripts)
+	scriptsUnder(replicatedFirst, "Server", false, serverScripts)
+	scriptsUnder(engine.service "ServerStorage", "Server", false, serverScripts)
 	for _, entry in serverScripts do
 		serverNames[#serverNames + 1] = entry:GetFullName()
 		runtime.runScript(entry, "server")
@@ -546,7 +578,7 @@ local function run<B>(config: Config, deps: Deps<B>): Report
 
 	local clientNames: { string } = {}
 	local firstScripts: { Instance } = {}
-	scriptsUnder(replicatedFirst, "LocalScript", firstScripts)
+	scriptsUnder(replicatedFirst, "Client", true, firstScripts)
 	for _, entry in firstScripts do
 		clientNames[#clientNames + 1] = entry:GetFullName()
 		runtime.runScript(entry, "client")
@@ -559,7 +591,9 @@ local function run<B>(config: Config, deps: Deps<B>): Report
 		end
 	end
 	local playerLocalScripts: { Instance } = {}
-	scriptsUnder(playerScripts, "LocalScript", playerLocalScripts)
+	scriptsUnder(playerScripts, "Client", true, playerLocalScripts)
+	scriptsUnder(engine.service "ReplicatedStorage", "Client", false, playerLocalScripts)
+	scriptsUnder(workspace, "Client", false, playerLocalScripts)
 	for _, entry in playerLocalScripts do
 		clientNames[#clientNames + 1] = entry:GetFullName()
 		runtime.runScript(entry, "client")

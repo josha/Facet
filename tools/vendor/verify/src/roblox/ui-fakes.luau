@@ -380,6 +380,16 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 		local result = fallback
 		for _, candidate in sheet:GetChildren() do
 			if candidate:IsA "StyleRule" then
+				local value = (properties[candidate] or {})[property]
+				local relevant = value ~= nil
+				for _, descendant in candidate:GetDescendants() do
+					if descendant:IsA "StyleRule" and (properties[descendant] or {})[property] ~= nil then
+						relevant = true
+					end
+				end
+				if not relevant then
+					continue
+				end
 				if #candidate:GetChildren() > 0 then
 					unsupported "nested StyleRules"
 				end
@@ -388,20 +398,27 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 				local matches = false
 				for _, branch in string.split(selector, ",") do
 					local trimmed = branch:match "^%s*(.-)%s*$" :: string
-					local className = trimmed:match "^([%a_][%w_]*)$"
-					local tag = trimmed:match "^%.([%a_][%w_%-]*)$"
-					if className == nil and tag == nil then
+					local className = trimmed:match "^([%a_][%w_]*)"
+					local rest = if className then trimmed:sub(#className + 1) else trimmed
+					local branchMatches = className == nil or object:IsA(className)
+					local tags = 0
+					while rest ~= "" do
+						local tag = rest:match "^%.([%a_][%w_%-]*)"
+						if tag == nil then
+							unsupported("selector " .. selector)
+						end
+						local name = tag :: string
+						tags += 1
+						branchMatches = branchMatches and table.find(env.tagsOf(object), name) ~= nil
+						rest = rest:sub(#name + 2)
+					end
+					if className == nil and tags == 0 then
 						unsupported("selector " .. selector)
 					end
-					if
-						if className
-							then object:IsA(className)
-							else table.find(env.tagsOf(object), tag :: string) ~= nil
-					then
+					if branchMatches then
 						matches = true
 					end
 				end
-				local value = (properties[candidate] or {})[property]
 				if matches and value ~= nil then
 					local priority = env.propertyOf(candidate, "Priority")
 					assert(type(priority) == "number", "StyleRule.Priority requires a number")
