@@ -2933,7 +2933,15 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "resizable", values = { true, false } },
 			{ key = "alwaysShowResizeHandle", values = { true, false } },
 		},
-		states = {},
+		states = {
+			{ name = "no Show detail row", props = properties { detailLabel = false } },
+			{
+				name = "page NavBar owns compact Back",
+				props = function(c: Context)
+					return { detailLabel = false, compactBack = c.cell("compactBack", false) }
+				end,
+			},
+		},
 	},
 
 	NavigationStack = {
@@ -3035,6 +3043,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "wide gap + padding", props = properties { gap = 24, padding = 16 } },
 			{ name = "long title", props = properties { title = LONG } },
 			{ name = "no back", props = properties { onBack = NONE } },
+			{
+				name = "back from a cell",
+				props = function(c: Context)
+					return { onBack = c.cell("navBack", true) }
+				end,
+			},
 			{
 				name = "leading slot",
 				props = function(c: Context)

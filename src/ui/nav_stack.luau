@@ -447,6 +447,29 @@ return function(
 						end
 						return if at and at ~= panel and at:IsA("GuiObject") then at :: GuiObject else nil
 					end
+					local resolved: string | false | nil = nil
+					local function landing(): GuiObject?
+						if resolved == nil then
+							local wanted = destination.initialFocus
+							local name = if type(wanted) == "function" then wanted() else wanted
+							assert(
+								name == nil or type(name) == "string",
+								"Facet.NavigationStack: initialFocus must return a control's name or nil"
+							)
+							resolved = if name then name else false
+						end
+						if resolved then
+							for _, node in panel:GetDescendants() do
+								if node.Name == resolved then
+									local found = surfaces.firstSelectable(node)
+									if found then
+										return found
+									end
+								end
+							end
+						end
+						return surfaces.firstSelectable(destinationFrame) or surfaces.firstSelectable(panel)
+					end
 					Compose.watch(function(use: ComposeTypes.Use)
 						local top = use(role) == "top"
 						if top and (use(moving) or not use(visible) or not use(interactable)) then
@@ -471,7 +494,7 @@ return function(
 									and back.Selectable
 									and back.Interactable
 								then back
-								else surfaces.firstSelectable(panel)
+								else landing()
 							root:SetAttribute("FacetSelectionOwner", false)
 						end
 						previousTop = top
