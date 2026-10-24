@@ -169,11 +169,13 @@ The `plan` producer checks its source coverage. The [CI guide](../tools/studio/C
 defines complete native runs, hosted CI coverage and the final Verify job.
 Hosted CI uses the engine double; native Studio coverage remains deferred.
 
-Test workers use the host CPU count with one thread reserved. The gate reserves
-2 GiB of memory, allows 2 GiB per worker and caps the pool at eight workers and
-the selected source count. Set `FACET_TEST_WORKERS` to a positive integer for
-a controlled comparison. The memory, source and eight-worker limits still
-apply. Performance timing remains serial.
+Commands and test workers share a process budget equal to the host CPU count.
+Each command and each test worker uses one slot. Tests can use a command's slot
+when the command exits. The gate reserves 2 GiB of memory, allows 2 GiB per
+worker and caps the test pool at eight workers and the selected source count.
+Set `FACET_TEST_WORKERS` to a positive integer for a controlled comparison.
+The shared process budget, memory, source and eight-worker limits still apply.
+Performance timing remains serial.
 
 The Lab option check reads field origins from the props generator and its
 option tables. Run the [Lab coverage tool](../examples/facet-lab/tools/coverage.luau)

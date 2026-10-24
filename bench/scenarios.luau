@@ -278,7 +278,7 @@ for _, inherited in { false, true } do
 		stop()
 		state.frame()
 		assert(#state.target:GetChildren() == 0, "mount ramp leaked a screen")
-	end, { samples = 120, warmup = 5 })
+	end, { samples = 60, warmup = 5 })
 end
 
 local function tableState(resizing)

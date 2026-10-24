@@ -748,6 +748,10 @@ A stored `false` stays `false`.
 Validation runs before mutation.
 Explicit fakes do not establish native rendering or input fidelity.
 
+`environment.defaultClassProperty(className, property)` reads the same default
+without allocating an object. It includes inherited properties and the configured
+default provider. An unknown class or property raises.
+
 ### Handler errors
 
 The engine prints an error that a handler raises. It does not raise the error to the caller.
@@ -849,7 +853,7 @@ The options `defaultProperty`, `computed`, `handlerErrors`, `undeclaredWrites` a
 
 The bridge returns `{ environment, engine, ui, layout, unavailable, faults, hasClass, observe, track, record, instanceHost, accounting, close }`.
 
-`layout = { roots, viewport, origin?, read?, vector?, measureBounds? }` enables explicit simulated layout. `roots()` returns the mounted roots and `viewport()` returns `{ X, Y }`. Call `bridge.layout.step()` after mutations, before the frame observations. It publishes geometry through the same environment. It does not step time or connect frame handlers.
+`layout = { roots, viewport, origin?, read?, component?, vector?, measureBounds? }` enables explicit simulated layout. `roots()` returns the mounted roots and `viewport()` returns `{ X, Y }`. Call `bridge.layout.step()` after mutations, before the frame observations. It publishes geometry through the same environment. It does not step time or connect frame handlers.
 
 `layout.objectsAtPosition(root, x, y)` queries published rectangular geometry in GUI coordinates. It returns visible hit objects from front to back, including non-interactable objects. Global and Sibling ordering, ancestor clipping and enabled ScreenGuis are supported. Right and bottom edges are inclusive, matching the native conformance fixture. Coordinates must be finite integers. Equal DisplayOrder across ScreenGuis and unsupported geometry raise. The simulated input backend supplies separate input eligibility and press/release routing over this query; the query itself does not dispatch events.
 
@@ -1011,11 +1015,40 @@ A probe proves only the expression that it runs.
 `Roblox.uiFakes.classes` declares optional UI methods.
 Supply it as a class overlay.
 Pass `uiFakes.validateProperty` as the property validator to reject the selection of hidden or unselectable controls.
-`Instance:GetStyled(property)` resolves the nearest linked StyleSheet with class selectors, tag selectors, compound class/tag selectors, comma-separated selector lists, rule priorities, and attribute tokens. For example, `Frame.Card.Hot` requires the class and both tags. Rules that do not set the queried property, including nested rules, do not affect its resolution. Every relevant list branch must use supported syntax. A nondefault raw property overrides the style. Writing the default or resetting the property exposes the style again. Empty links do not replace an ancestor scope.
+`Instance:GetStyled(property)` resolves the nearest linked StyleSheet with class,
+tag and name selectors, compound selectors, child (`>`) and descendant (`>>`)
+combinators, comma-separated alternatives, rule priorities and attribute tokens.
+For example, `.Container > Frame#Card.Hot` requires the parent tag, child class,
+child name and child tag. Relevant branches must use supported syntax. A
+nondefault raw property overrides the style. Writing the default or resetting
+it exposes the style again. Empty links do not replace an ancestor scope.
 
-`Instance:GetStyledPropertyChangedSignal(property)` observes the underlying style value and linked scope. Raw writes do not fire this signal. Style changes can fire it while a raw override masks the returned value. Call `controller.step()` to refresh observations; the fixture layout controller does this before layout. `controller.styled(object, property)` exposes the same effective read to host adapters. Closing the controller disconnects its observations.
+`Instance:GetStyled(property, "::ClassName")` reads a phantom `UIPadding`,
+`UICorner`, `UIStroke` or `UIGradient`. Missing phantoms raise. These components
+do not appear in the physical hierarchy, change resource counts or fire child
+events. A physical component has its own styled properties and takes precedence
+for layout. The shared fixtures check this distinction with physical and phantom
+padding, raw overrides, default values, token changes and removal.
 
-Relevant nested rules, other complex selectors, derived sheets, multiple links at one scope, equal-priority conflicts, selector arguments, and nonzero transitions raise `unsupported_ui_style`. This is modeled coverage. Shared Studio Client and double assertions cover compound selectors, tag changes, and property reads beside pseudo-instance rules. Studio Client probes on 2026-10-22, version `0.744.0.7441077`, confirmed scope replacement, raw/default precedence, token aliases, zero-duration transitions, inherited class matching, and the notification distinction.
+`Instance:GetStyledPropertyChangedSignal(property)` observes the underlying
+style value and linked scope. Raw writes do not fire this signal. Style changes
+can fire it while a raw override masks the returned value. Call
+`controller.step()` to refresh observations; fixture layout does this before
+layout. `controller.styled(object, property)` exposes the effective read.
+`controller.component(object, className, property)` reads a physical component
+first, then a supported phantom, or returns nil when neither exists. Supply
+this as `layout.component` beside `layout.read` for phantom padding geometry.
+The fixture bridge supplies both readers when it supplies styled reads.
+Closing the controller disconnects its observations.
+
+Relevant nested rules, state and query selectors, implicit space combinators,
+named or nested phantoms, derived sheets, multiple links at one scope,
+equal-priority conflicts, other selector arguments and nonzero transitions raise
+`unsupported_ui_style`. Unsupported selectors do not block properties that their
+rules cannot affect. This is bounded model coverage. Shared Studio Client and
+double assertions check hierarchy selectors, name/tag/parent mutations, compound
+selectors and phantom modifiers. Native conformance does not prove rendering.
+
 
 #### Rejected selection
 

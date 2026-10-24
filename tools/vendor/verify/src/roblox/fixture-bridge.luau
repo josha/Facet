@@ -163,6 +163,7 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 	local layoutOptions = if settings.layout then table.clone(settings.layout) else nil
 	if layoutOptions and controller and layoutOptions.read == nil then
 		layoutOptions.read = controller.styled
+		layoutOptions.component = layoutOptions.component or controller.component
 	end
 	if
 		layoutOptions

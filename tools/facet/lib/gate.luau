@@ -77,7 +77,7 @@ local function workerCount(threads: number, memoryBytes: number, sources: number
 	end
 	local gibibyte = 1024 ^ 3
 	local memorySlots = math.max(1, math.floor((memoryBytes - 2 * gibibyte) / (2 * gibibyte)))
-	return Lute.corpus.workers(threads, override, sources, 1, math.min(8, memorySlots))
+	return Lute.corpus.workers(threads, override, sources, 0, math.min(8, memorySlots))
 end
 
 local function tests(id: string, names: { string }): Gate.ProducerDraft
@@ -304,17 +304,20 @@ local function main(arguments: { string }, directory: string?): number
 	if focused and #selectedTiers > 0 then
 		gate.producers[1].args = { "--tier=" .. table.concat(selectedTiers, ",") }
 	end
+	local processLimit = math.max(1, system.threadCount())
 	local options: Lute.GateOptions = {
 		directory = directory or (if focused then DIRECTORY .. "-specs" else DIRECTORY),
+		processLimit = processLimit,
 		build = build(),
 		capabilities = if studioHost then { "native-studio" } else {},
 		environment = {
+			processLimit = tostring(processLimit),
 			tier = tostring(tier),
 			referenceHost = tostring(referenceHost),
 			studioHost = tostring(studioHost),
 		},
 	}
-	print(`Facet verification gate: {tier}.`)
+	print(`Facet verification gate: {tier}. Shared process budget: {processLimit}.`)
 	local code = Lute.gate.cli(gate, flags, { options = options, usage = USAGE })
 	return releasable(code, tier, (Lute.gate.last(Gate.define(gate), options)), requireComplete)
 end
