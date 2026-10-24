@@ -437,9 +437,11 @@ local ICONS: { { name: string, draw: () -> Image } } = {
 		name = "facet_icon_coin",
 		draw = function(): Image
 			local image = canvas()
-			dot(image, 64, 64, 46)
-			Draw.ellipse(image, { 30 * SS, 30 * SS, 98 * SS, 98 * SS }, nil, CLEAR, 8 * SS)
-			Draw.line(image, { 64 * SS, 48 * SS, 64 * SS, 80 * SS }, CLEAR, 9 * SS)
+			Draw.ellipse(image, { 14 * SS, 32 * SS, 114 * SS, 108 * SS }, INK)
+			Draw.rectangle(image, { 14 * SS, 54 * SS, 114 * SS, 70 * SS }, INK)
+			Draw.ellipse(image, { 9 * SS, 11 * SS, 119 * SS, 97 * SS }, CLEAR)
+			Draw.ellipse(image, { 14 * SS, 16 * SS, 114 * SS, 92 * SS }, INK)
+			Draw.ellipse(image, { 31 * SS, 30 * SS, 97 * SS, 78 * SS }, nil, CLEAR, 6 * SS)
 			return image
 		end,
 	},
