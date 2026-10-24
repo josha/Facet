@@ -175,6 +175,20 @@ return function(verifyHarness: Verify.Harness)
 				))):toBe(true)
 			end,
 		})
+
+		verifyHarness:case("shows every standard glyph with its registry art", {
+			id = "native_restored_controls::native restored controls: Label::shows every standard glyph with its registry art",
+			run = function()
+				local icons = require("../src/ui/icons")
+				for name, art in icons.ART do
+					local root, _, stop = build(nil, function(UI: FacetControls)
+						return UI.Label({ title = name, icon = name })
+					end)
+					Verify.expect(root:FindFirstChild("Icon", true).Image):toBe(art.contentId)
+					stop()
+				end
+			end,
+		})
 	end)
 
 	verifyHarness:suite("native restored controls: Image", function()
