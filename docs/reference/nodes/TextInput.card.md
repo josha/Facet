@@ -8,7 +8,11 @@ Inside an app mount, set `local UI = app.UI`.
 UI.TextInput "TextInput" { value = Facet.Compose.cell(""), placeholder = "Filter" }
 ```
 
-Key options: `value`, `placeholder`, `onCommit`, `clearButton`.
+Key options: `value`, `placeholder`, `onCommit`, `presentation`.
+
+`presentation = "search"` adds the search glyph and an in-field Clear (×)
+that empties only the text. Do not add a separate Clear button. Offer Clear
+search or Reset filters in the no-matches state instead.
 
 Use a writable cell or provide onChange.
 

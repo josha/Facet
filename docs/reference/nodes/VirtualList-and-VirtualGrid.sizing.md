@@ -15,6 +15,11 @@ code: the scrollbar inset, the paint gutters and the surface padding all
 reduce the space for columns, and a size clamped to a fixed range leaves dead
 space beside the items when the surface is wider than they are.
 
+Objects that players compare need at least two columns on a portrait phone.
+A phone about 400 pixels wide leaves about 340 to 370 pixels for the grid, so
+keep `minColumnWidth` near 150 to 160 scaled pixels; near 180, the grid falls
+to one column and shows about one object at a time.
+
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 local app = Facet.app({})

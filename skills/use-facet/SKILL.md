@@ -41,6 +41,7 @@ in the installed docs and CLI. Use `Map` only when the task has no known route.
 | Mixed input, text size or viewing distance | [Input](references/game-ui/INPUT_FOCUS_AND_ACCESS.md), then `environment` |
 | Gestures or value adjustment across inputs | [Adaptive manipulation](references/game-ui/ADAPTIVE_INTERACTION_AND_DIRECT_MANIPULATION.md), then the control's input contract |
 | Collection and selected detail | [Collections](references/game-ui/COLLECTIONS_AND_ACTIONS.md), then `Tasks.collection-detail` |
+| Quick chat, emotes or another quick choice during play | `RadialMenu.card` |
 | Boolean settings or named choices | [Choices](references/game-ui/CHOICES_AND_INPUT.md), then `Toggle.card`, `Picker.card` |
 | Inspection art beside a decision and action | `Tasks.inspect`, then `Stage.card` |
 | Object identity in a collection | `Card.card` |
@@ -49,6 +50,7 @@ in the installed docs and CLI. Use `Map` only when the task has no known route.
 | Visual system | `Tasks.theme` |
 | Transitions and reward motion | [Motion](references/game-ui/MOTION_AND_FEEDBACK.md), then `Custom-transitions` |
 | Server-accepted state | `Tasks.state` |
+| Confirming a purchase the server must accept | `Tasks.confirm` |
 | Reactive types or collection signatures | `Types.reactive` |
 | Lower-corner controls and movement clearance | `Tasks.safe-layout` |
 | Missing signature | The control's card or props node |
