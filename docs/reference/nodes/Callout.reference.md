@@ -10,6 +10,7 @@ or a function of `use`. Retirement is delivered once. A callout is contextual
 teaching attached to a control. It is not a second application presenter.
 Without an authored `edge`, a callout prefers above its anchor on touch and
 below for other input. The default follows live input changes.
+`edge` accepts `top`, `bottom`, `leading` and `trailing`.
 `edge = "top"` puts the callout above the anchor. If there is no room above
 and there is room below, the callout goes below the anchor. The callout
 scales and fades from the edge nearest to its anchor. See [Motion](Motion.md).

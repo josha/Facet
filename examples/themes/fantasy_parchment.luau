@@ -82,6 +82,7 @@ local CANDLELIGHT = {
 }
 
 local ASSETS = {
+	parchment_panel_tail = { content = "rbxassetid://136962298125184", preload = "install", fallback = "native" },
 	parchment_panel = {
 		contentId = "rbxassetid://78012779616687",
 		sliceCenter = { x0 = 40, y0 = 40, x1 = 104, y1 = 104 },
@@ -348,6 +349,13 @@ function fantasy_parchment.definition(themes: any): any
 
 		metrics = GENERATED.metrics,
 		chrome = {
+			panelTail = {
+				kind = "fill",
+				asset = "parchment_panel_tail",
+				size = { w = 32, h = 28 },
+				overhang = 16,
+				margin = 18,
+			},
 
 			panel = {
 				kind = "nineSlice",

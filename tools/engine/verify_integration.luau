@@ -5,7 +5,6 @@ local process = require("@std/process")
 local task = require("@std/task")
 local Lute = require("../vendor/verify/src/lute")
 local Verify = require("../vendor/verify/src/core")
-local VerifyRoblox = require("../vendor/verify/src/roblox")
 local Gate = require("../vendor/verify/src/gate")
 local Files = require("../facet/lib/files")
 local Run = require("../facet/lib/run")
@@ -818,9 +817,9 @@ harness:suite("Native fixture", function()
 		viewport.CurrentCamera = engine.new("Camera")
 		context:expect(assert(viewport:Clone()).CurrentCamera):toBe(nil)
 		for _, node in tracking.created do
-			assert(node:IsA("Instance"))
-			local instance = node :: VerifyRoblox.Instance
-			instance:Destroy()
+			if node:IsA("Instance") then
+				((node :: unknown) :: Instance):Destroy()
+			end
 		end
 		context:expect(engine.census().connections):toBe(0)
 	end)

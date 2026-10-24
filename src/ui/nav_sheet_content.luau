@@ -6,6 +6,7 @@ local Overlay = require("./overlay_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local NavigationProps = require("./navigation_props")
+local InputProps = require("./input_props")
 local sheetGesture = require("./nav_sheet_gesture")
 
 export type SheetContent = {
@@ -15,6 +16,9 @@ export type SheetContent = {
 	panelWidth: ComposeTypes.Formula<number>,
 	contentSize: ComposeTypes.Cell<Vector2>,
 	room: parts.Room,
+	entry: () -> GuiObject?,
+	guide: Frame?,
+	guideReserve: (ComposeTypes.Use) -> number,
 }
 
 return function(
@@ -325,6 +329,57 @@ return function(
 			actionRegion = region
 			table.insert(regions, region)
 		end
+		local guideRegion: Frame? = nil
+		local guideSize: ComposeTypes.Readable<Vector2>? = nil
+		local guidePresent: ComposeTypes.Readable<boolean>? = nil
+		if spec.guide ~= nil then
+			assert(type(spec.guide) == "table", "Facet.Sheet: guide takes ButtonGuide options")
+			assert(
+				spec.guideAlignment == nil or spec.guideAlignment == "start" or spec.guideAlignment == "end",
+				"Facet.Sheet: guideAlignment must be start or end"
+			)
+			local options = (table.clone(spec.guide) :: unknown) :: { [unknown]: unknown }
+			for key in options do
+				assert(
+					type(key) ~= "string" or string.match(key, "^%u") == nil,
+					"Facet.Sheet: guide takes ButtonGuide options; the Sheet places the guide"
+				)
+			end
+			options.Name = "ButtonGuide"
+			local guide = UI.ButtonGuide((options :: unknown) :: InputProps.ButtonGuideProps)
+			local visible = (ctx.observe.Visible(guide) :: unknown) :: ComposeTypes.Readable<unknown>
+			local present = Compose.formula(function(use: ComposeTypes.Use): boolean
+				return use(visible) == true
+			end)
+			local region = Host.Frame "Guide" {
+				BackgroundTransparency = 1,
+				Selectable = false,
+				AnchorPoint = V2.new(0, 1),
+				Position = function(use: ComposeTypes.Use): UDim2
+					return D2.fromOffset(pad("left", use), standing(use) - pad("bottom", use))
+				end,
+				Size = function(use: ComposeTypes.Use): UDim2
+					return D2.new(1, -pad("left", use) - pad("right", use), 0, 0)
+				end,
+				AutomaticSize = E.AutomaticSize.Y,
+				Visible = present,
+				Host.UIListLayout({
+					FillDirection = E.FillDirection.Horizontal,
+					HorizontalAlignment = if spec.guideAlignment == "start"
+						then E.HorizontalAlignment.Left
+						else E.HorizontalAlignment.Right,
+					SortOrder = E.SortOrder.LayoutOrder,
+				}),
+				guide,
+			}
+			guideRegion, guidePresent, guideSize = region, present, ctx.layoutSize(region, unit)
+		end
+		local function guideReserve(use: ComposeTypes.Use): number
+			if guidePresent == nil or guideSize == nil or not use(guidePresent) then
+				return 0
+			end
+			return use(guideSize).Y + 8
+		end
 		linkDismissal()
 		local contentSize = ctx.observe.AbsoluteContentSize(bodyLayout)
 		local extra = if hero == nil or sticky then inset * 2 else 0
@@ -335,7 +390,7 @@ return function(
 			return pad("top", use) + pad("bottom", use)
 		end
 		local room = parts.room(ctx, regions, body, natural, function(use: ComposeTypes.Use): number
-			return math.max(0, standing(use) - chrome(use))
+			return math.max(0, standing(use) - chrome(use) - guideReserve(use))
 		end, true, unit)
 		runtime.decorate(flex, {
 			FlexMode = function(use: ComposeTypes.Use)
@@ -343,7 +398,7 @@ return function(
 			end,
 		})
 		Compose.watch(function(use: ComposeTypes.Use)
-			local want = natural(use) + use(room.pinned) + chrome(use) + 8
+			local want = natural(use) + use(room.pinned) + chrome(use) + guideReserve(use) + 8
 			local previous = hugHeight:peek()
 			if want > 0 and (previous == nil or math.abs(previous - want) > 0.5) then
 				hugHeight:set(want)
@@ -357,13 +412,73 @@ return function(
 				Active = tallest,
 			})
 		end
+		local function usableWithin(node: GuiObject, region: Instance): boolean
+			local at: Instance? = node
+			while at and at ~= region do
+				if at:IsA("GuiObject") and (not at.Visible or not at.Interactable) then
+					return false
+				end
+				at = at.Parent
+			end
+			return at == region
+		end
+		local function firstIn(region: Instance?): GuiObject?
+			if region == nil then
+				return nil
+			end
+			local found = surfaces.firstSelectable(region)
+			if found and found == closeCommand then
+				found = surfaces.firstSelectable(content)
+			end
+			return if found and found ~= closeCommand and usableWithin(found, region) then found else nil
+		end
+		local resolved: string | false | nil = nil
+		local function wantedName(): string?
+			if resolved == nil then
+				local wanted = spec.initialFocus
+				local name = if type(wanted) == "function" then wanted() else wanted
+				assert(
+					name == nil or type(name) == "string",
+					"Facet.Sheet: initialFocus must return a control's name or nil"
+				)
+				resolved = if name then name else false
+			end
+			return if resolved then resolved else nil
+		end
+		local function named(region: Instance?, name: string): GuiObject?
+			if region == nil then
+				return nil
+			end
+			for _, node in region:GetDescendants() do
+				if node.Name == name then
+					local found = surfaces.firstSelectable(node)
+					if found and found ~= closeCommand and usableWithin(found, region) then
+						return found
+					end
+				end
+			end
+			return nil
+		end
+		local function entry(): GuiObject?
+			local name = wantedName()
+			if name then
+				local found = named(body, name) or named(actionRegion, name)
+				if found then
+					return found
+				end
+			end
+			return firstIn(body) or firstIn(actionRegion)
+		end
 		return {
+			entry = entry,
 			plaqued = plaqued,
 			usable = usable,
 			press = press,
 			panelWidth = panelWidth,
 			contentSize = contentSize,
 			room = room,
+			guide = guideRegion,
+			guideReserve = guideReserve,
 		}
 	end
 end

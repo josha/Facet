@@ -188,6 +188,7 @@ return function(
 					group.Parent = node
 					local function carried(child: Instance): boolean
 						return child ~= group
+							and not child:HasTag("facet-independent-fade")
 							and (
 								child:IsA("GuiBase2d")
 								or child:IsA("Path2D")

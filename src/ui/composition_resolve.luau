@@ -15,6 +15,7 @@ export type Declared = {
 	rank: number,
 	mayDrop: boolean,
 	sizes: { { x: number, y: number } },
+	trailing: boolean?,
 }
 export type Shift = { top: number, bottom: number }
 export type Rows = { top: number, bottom: number }
@@ -37,11 +38,11 @@ type Extent = { x: number, y: number }
 
 local FLOWS: { [number]: number } = { [9] = 1, [11] = 3 }
 
-local function cellOf(zone: string, riding: boolean): (number, number)
+local function cellOf(zone: string, riding: boolean, trailing: boolean?): (number, number)
 	if zone == "topbar" and riding then
 		return 0, 0
 	end
-	local cell = CELLS[zone]
+	local cell = if zone == "topbar" and trailing then CELLS.topRight else CELLS[zone]
 	return cell[1], cell[2]
 end
 
@@ -65,7 +66,7 @@ local function resolve(
 		local zoneW: { [number]: number }, zoneH: { [number]: number }, members: { [number]: { number } } = {}, {}, {}
 		local flowItems: { [number]: { Extent } }, landedBlock: { [number]: Extent } = {}, {}
 		for index, region in regions do
-			local column, row = cellOf(region.zone, strip ~= nil and not landed[index])
+			local column, row = cellOf(region.zone, strip ~= nil and not landed[index], region.trailing)
 			local key = column * 4 + row
 			members[key] = members[key] or {}
 			table.insert(members[key], index)
@@ -270,7 +271,9 @@ local function occupied(
 		local size = if form > 0 then region.sizes[form] else nil
 		local inStrip = region.zone == "topbar" and riding and not landed[index]
 		if size and size.x > 0 and size.y > 0 and not inStrip then
-			local home: string = if region.zone == "topbar" then "top" else region.zone
+			local home: string = if region.zone == "topbar"
+				then (if region.trailing then "topRight" else "top")
+				else region.zone
 			zones[home] = true
 		end
 	end

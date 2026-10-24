@@ -66,6 +66,31 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native themes and media", function()
+		verifyHarness:case("ten-foot text never drops below the console reading floors", {
+			id = "native_themes_media::ten-foot-text-floors",
+			run = function()
+				local package = assert(themes.define({ name = "Floors" }))
+				local far = themes.forDistance(package, "ten-foot").metrics.typography
+				local near = package.metrics.typography
+				local smallest = math.huge
+				for _, entry in near do
+					smallest = math.min(smallest, entry.size)
+				end
+				for role, entry in far do
+					local size = near[role].size
+					Verify.expect(entry.size >= (if size == smallest then 24 else 28)):toBe(true)
+					Verify.expect(entry.size >= math.floor(size * 1.5 + 0.5)):toBe(true)
+					for other, peer in far do
+						if near[other].size < size then
+							Verify.expect(peer.size < entry.size):toBe(true)
+						elseif near[other].size == size then
+							Verify.expect(peer.size):toBe(entry.size)
+						end
+					end
+				end
+			end,
+		})
+
 		verifyHarness:case("keeps each fade stroke presence selector on its theme motion token", {
 			id = "native_themes_media::native themes and media::keeps each fade stroke presence selector on its theme motion token",
 			run = function()
@@ -1103,6 +1128,40 @@ return function(verifyHarness: Verify.Harness)
 				local valid = themes.neutralPackage()
 				valid.chrome = { control = { kind = "native" :: "native", shadow = "raised" } }
 				Verify.expect((select(2, themes.define(valid))).ok):toBe(true)
+			end,
+		})
+
+		verifyHarness:case("validates the dimensions and overlap of panel arrow artwork", {
+			id = "native_themes_media::panel-tail-validation",
+			run = function()
+				for _, values in
+					{
+						{ 64, 64, 24, true },
+						{ 0, 64, 24, false },
+						{ math.huge, 64, 24, false },
+						{ 64, 0, 24, false },
+						{ 64, 64, 0, false },
+						{ 64, 64, 65, false },
+						{ 64, 64, 0 / 0, false },
+						{ 32, 20, 12, true, 30 },
+						{ 32, 20, 12, false, -1 },
+						{ 32, 20, 12, false, math.huge },
+						{ 32, 20, 12, false, 0 / 0 },
+					} :: { { number | boolean } }
+				do
+					local package = themes.neutralPackage()
+					package.assets = { arrow = { content = "rbxassetid://123" } }
+					package.chrome = {
+						panelTail = {
+							kind = "fill",
+							asset = "arrow",
+							size = { w = values[1] :: number, h = values[2] :: number },
+							overhang = values[3] :: number,
+							margin = if type(values[5]) == "number" then values[5] else nil,
+						},
+					}
+					Verify.expect(select(2, themes.define(package)).ok):toBe(values[4])
+				end
 			end,
 		})
 

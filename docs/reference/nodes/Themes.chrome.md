@@ -13,6 +13,7 @@ Focus artwork, chrome state art, selected plates and their engine limits.
 | `blurRadius`, `transparency`, `zIndex` | The glow (24 pixels, 0.25, -1). |
 | `corner` | `"square"` or `"pill"` for every control; otherwise the selected control's shape. |
 | `pulse` | `true`: the look breathes slowly while it shows. Reduced motion stops it. |
+| `halo` | For `kind = "ring"`: a second stroke just outside the ring, half its thickness, so the ring reads over any scene. By default black or white, whichever contrasts more with the ring; an RGB picks the colour and `false` removes it. |
 
 The engine draws only the selection object itself and its UI components
 (`UIStroke`, `UIGradient`, `UICorner`, `UIShadow`), never a child GuiObject,

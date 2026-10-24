@@ -68,7 +68,7 @@ local LIST: { Device } = {
 		width = 1920,
 		height = 1080,
 		real = "The preset xbox sets a 1920 x 1080 console viewport without touch. Engine selection navigation (GuiService.SelectedObject) moves and activates the controls.",
-		approximated = "VirtualInput has no gamepad events, so arrow keys stand for the D-pad and Return stands for the A button. UserInputService.GamepadEnabled stays false. When nothing is selected, GuiService:Select(PlayerGui) stands for the automatic selection that a real gamepad press starts. The view is not seen from 3 meters.",
+		approximated = "Arrow keys stand for the D-pad and Return stands for the A button. Record the observed input flags; the simulator can report GamepadEnabled without physical gamepad input. When nothing is selected, GuiService:Select(PlayerGui) stands for automatic selection. These actions do not test physical gamepad buttons or a view from 3 meters.",
 	},
 }
 

@@ -35,11 +35,15 @@ For a complete typed definition, open [Tasks.theme](Tasks.theme.md).
   package whose lengths are 1.5 times (`adaptive.TEN_FOOT_SCALE`): `space`,
   `targetSizes` (a 44 pixel target is 66), `iconSizes`, `strokes`, every
   `controlSizes` field, `radii` (rounded to whole pixels) and each type role
-  size, so a 16 pixel `body` is 24. A `metrics.controls` value scales unless
+  size. Text never goes below the console reading floors: 24 pixels for the
+  smallest size and 28 for every other (the Xbox Accessibility Guidelines ask
+  for text 26 pixels tall at 1080p), and larger roles stay larger, so the
+  neutral `body` is 29 rather than 24. A
+  `metrics.controls` value scales unless
   its name ends in `TextSize`, `Lines`, `Count`, `Duration`, `Seconds`,
   `Ratio`, `Fraction`, `Scale`, `Opacity` or `Weight`. Motion, colors, chrome
-  art and art insets do not scale. Every proportion of text to its control is
-  the same at both distances. The call is idempotent and reversible:
+  art and art insets do not scale. Above the floors, every proportion of text
+  to its control is the same at both distances. The call is idempotent and reversible:
   `forDistance(far, "near")` returns the authored package. You rarely call it:
   controls and a StyleSheet apply it from the ten-foot fact. A frozen
   package's ladder is cached.

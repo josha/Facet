@@ -362,6 +362,7 @@ PixelQuest.summary = "pixel-quest theme package art"
 function PixelQuest.generate(): { Common.Output }
 	local u = PIXEL_UNIT
 	local items: { Common.Item } = {
+		{ name = "pixel_panel_tail.png", image = Common.panelTail(panel():render(), 32, 20, 8, u) },
 		{
 			name = "pixel_plate_default.png",
 			image = plate("default"):render(),

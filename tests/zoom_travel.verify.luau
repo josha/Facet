@@ -275,7 +275,7 @@ return function(harness: Verify.Harness)
 			gui.SelectedObject = view
 			for _, node in tracking.created do
 				if node:IsA("InputAction") then
-					local action = node :: VerifyRoblox.Instance
+					local action = (node :: unknown) :: VerifyRoblox.Instance
 					if action.Name == "ZoomOut" then
 						engine.environment.fire(action, "Pressed")
 					end

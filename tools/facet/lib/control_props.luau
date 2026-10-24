@@ -1,6 +1,7 @@
 --!strict
 local Files = require("./files")
 local Run = require("./run")
+local Luau = require("./luau")
 
 type Variant = { name: string, parts: { string } }
 type Recipe = {
@@ -190,6 +191,7 @@ local FAMILIES: { Family } = {
 					{ name = "ShortcutHintActionProps", parts = { "Inputs.ShortcutAction" } },
 				},
 			},
+			{ name = "ButtonGuideProps", native = "FrameNativeProps", parts = { "Inputs.ButtonGuideOptions" } },
 			{ name = "DateTimePickerProps", native = "FrameProps", parts = { "Dates.DateTimePickerOptions" } },
 			{ name = "ColorPickerProps", native = "FrameProps", parts = { "Colors.ColorPickerOptions" } },
 		},
@@ -395,103 +397,39 @@ local FAMILIES: { Family } = {
 }
 
 local ENGINE = "src/ui/engine_types.luau"
-local sources: { [string]: string } = {}
 
-local function source(path: string): string
-	local cached = sources[path]
-	if cached == nil then
-		cached = Files.text(path)
-		sources[path] = cached
-	end
-	return cached
-end
+type FieldReader = (string, string) -> { string }
 
-local function nativeFields(native: string, root: string?): { string }
-	local text = source(if root then Files.join(root, ENGINE) else ENGINE)
-	local start = string.find(text, `\nexport type {native} = \{\n`, 1, true)
-	assert(start, `control_props: {ENGINE} has no table type {native}`)
-	local body = string.match(text, "^(.-)\n}", start + #native + 17)
-	assert(body, `control_props: {native} has no closing brace`)
-	local fields = {}
-	for name in string.gmatch(body, "\n\t([%a_][%w_]*):") do
-		table.insert(fields, name)
-	end
-	return fields
-end
-
-local function skipString(text: string, index: number): number
-	local quote = string.sub(text, index, index)
-	local cursor = index + 1
-	while cursor <= #text do
-		local char = string.sub(text, cursor, cursor)
-		if char == "\\" then
-			cursor += 2
-		elseif char == quote then
-			return cursor + 1
-		else
-			cursor += 1
-		end
-	end
-	error("control_props: unterminated string in a type")
-end
-
-local function optionFields(path: string, name: string): { string }
-	local text = source(path)
-	local header = string.find(text, `\nexport type {name}[%s<=]`)
-	assert(header, `control_props: {path} has no exported type {name}`)
-	local after = header + #name + 13
-	if string.sub(text, after, after) == "<" then
-		after = assert(string.find(text, ">", after, true), `control_props: {name} has unclosed type parameters`)
-	end
-	local equals = string.find(text, "=", after, true)
-	assert(equals, `control_props: {name} has no definition`)
-	local open = string.find(text, "%S", equals + 1)
-	assert(open and string.sub(text, open, open) == "{", `control_props: {name} in {path} must be one table type`)
-	local fields = {}
-	local depth = 0
-	local angle = 0
-	local expecting = true
-	local cursor = open
-	while cursor <= #text do
-		local char = string.sub(text, cursor, cursor)
-		if char == '"' or char == "'" then
-			cursor = skipString(text, cursor)
-			expecting = false
-			continue
-		end
-		if char == "<" then
-			angle += 1
-		elseif char == ">" and string.sub(text, cursor - 1, cursor - 1) ~= "-" then
-			angle -= 1
-		elseif angle > 0 then
-			expecting = false
-		elseif char == "{" or char == "(" or char == "[" then
-			depth += 1
-			if depth == 1 then
-				expecting = true
+local function tableFields(): FieldReader
+	local modules: { [string]: { [string]: Luau.Node } } = {}
+	return function(path: string, name: string): { string }
+		local types = modules[path]
+		if types == nil then
+			local parsed, problem = Luau.parse(Files.text(path))
+			assert(parsed, `control_props: cannot parse {path}: {problem}`)
+			types = {}
+			for _, statement in Luau.items(parsed.root, "statements") do
+				if Luau.tag(statement) == "typealias" and statement.export ~= nil then
+					local key, value = Luau.tokenText(statement, "name"), Luau.child(statement, "type")
+					if key and value then
+						types[key] = value
+					end
+				end
 			end
-		elseif char == "}" or char == ")" or char == "]" then
-			depth -= 1
-			if depth == 0 then
-				local after = string.match(text, "^%s*(%S)", cursor + 1)
-				assert(after ~= "|" and after ~= "&", `control_props: {name} in {path} must be one table type`)
-				return fields
-			end
-		elseif depth == 1 and char == "," then
-			expecting = true
-		elseif depth == 1 and expecting and string.match(char, "[%a_]") then
-			local field = string.match(text, "^([%a_][%w_]*)%s*:", cursor)
-			assert(field, `control_props: {name} in {path} has a malformed field near {cursor}`)
-			table.insert(fields, field)
-			cursor += #field
-			expecting = false
-			continue
-		elseif depth == 1 and expecting and not string.match(char, "%s") then
-			expecting = false
+			modules[path] = types
 		end
-		cursor += 1
+		local node = types[name]
+		assert(node, `control_props: {path} has no exported type {name}`)
+		assert(Luau.tag(node) == "table", `control_props: {name} in {path} must be one table type`)
+		local fields: { string } = {}
+		for _, entry in Luau.items(node, "entries") do
+			local key = Luau.tokenText(entry, "key")
+			if key then
+				table.insert(fields, key)
+			end
+		end
+		return fields
 	end
-	error(`control_props: {name} in {path} has no closing brace`)
 end
 
 local function camel(name: string): string
@@ -507,6 +445,7 @@ local function parsePart(text: string): Part
 end
 
 local function generate(family: Family): string
+	local readFields = tableFields()
 	local lines =
 		{ "--!strict", 'local Compose = require("../vendor/compose/core")', 'local Engine = require("./engine_types")' }
 	local aliases = {}
@@ -541,7 +480,7 @@ local function generate(family: Family): string
 		local seen: { [string]: string } = {}
 		local native = assert(recipe.native, `control_props: {recipe.name} has no native root props`)
 		local nativeWitness = witness(native, `Engine.{native}`, (string.gsub(native, "Props$", "")))
-		for _, field in nativeFields(native) do
+		for _, field in readFields(ENGINE, native) do
 			seen[field] = native
 			table.insert(out, `\t{field}: typeof({nativeWitness}.{field}),`)
 		end
@@ -557,7 +496,7 @@ local function generate(family: Family): string
 			local access = if part.arguments
 				then `((nil :: unknown) :: {part.text})`
 				else witness(part.alias .. part.name, part.text, (string.gsub(part.name, "Options$", "")))
-			for _, field in optionFields(file, part.name) do
+			for _, field in readFields(file, part.name) do
 				assert(
 					seen[field] == nil,
 					`control_props: {recipe.name} receives {field} from {seen[field]} and {text}`
@@ -593,7 +532,7 @@ local function generate(family: Family): string
 							.. string.upper(string.sub(argument, 1, 1))
 							.. string.sub(argument, 2)
 					)
-				for _, field in optionFields(file, part.name) do
+				for _, field in readFields(file, part.name) do
 					assert(fields[field] == nil, `control_props: {variant.name} receives {field} twice`)
 					if not table.find(order, field) then
 						table.insert(order, field)
@@ -677,6 +616,7 @@ local ControlProps = {}
 ControlProps.FAMILIES = FAMILIES
 
 function ControlProps.optionOrigins(root: string): { [string]: { [string]: string } }
+	local readFields = tableFields()
 	local origins: { [string]: { [string]: string } } = {}
 	for _, family in FAMILIES do
 		local function fields(parts: { string }): { [string]: string }
@@ -685,7 +625,7 @@ function ControlProps.optionOrigins(root: string): { [string]: { [string]: strin
 				local part = parsePart(text)
 				local module = assert(family.modules[part.alias])
 				local file = Files.join(root, "src/ui", string.sub(module, 3) .. ".luau")
-				for _, field in optionFields(file, part.name) do
+				for _, field in readFields(file, part.name) do
 					if string.match(field, "^[a-z]") then
 						found[field] = part.name
 					end
@@ -696,7 +636,7 @@ function ControlProps.optionOrigins(root: string): { [string]: { [string]: strin
 		for _, recipe in family.recipes do
 			local base = fields(recipe.parts or {})
 			if recipe.native then
-				for _, field in nativeFields(recipe.native, root) do
+				for _, field in readFields(Files.join(root, ENGINE), recipe.native) do
 					if string.match(field, "^[a-z]") then
 						base[field] = recipe.native
 					end

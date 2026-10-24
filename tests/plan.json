@@ -319,6 +319,13 @@
       ]
     },
     {
+      "id": "native_button_guide",
+      "locator": "tests/native_button_guide.verify.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
       "id": "native_lab_audit",
       "locator": "tests/native_lab_audit.verify.luau",
       "requires": [

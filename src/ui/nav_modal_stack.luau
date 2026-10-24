@@ -271,8 +271,21 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				end
 			end
 		end
+		local function entryTarget(): GuiObject?
+			local chosen = if spec.entry then spec.entry() else nil
+			if chosen and displayed(chosen) then
+				return chosen
+			end
+			return firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+		end
+		local provisional = Compose.cell(nil :: GuiObject?)
+		local function settleEntry(target: GuiObject?)
+			local chosen = if spec.entry and target then spec.entry() else nil
+			provisional:set(if spec.entry and target and chosen ~= target then target else nil)
+		end
 		local landed = false
 		local owned = false
+		local lastSelection: Instance? = nil
 		local function reclaimable(selected: Instance?): boolean
 			if selected == nil or selected.Parent == nil or within(selected, root) then
 				return true
@@ -360,7 +373,9 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 					landed = false
 					owned = false
 					if gui and selected then
-						gui.SelectedObject = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+						local target = entryTarget()
+						gui.SelectedObject = target
+						settleEntry(target)
 					end
 				end
 			end)
@@ -373,6 +388,47 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			back,
 			{ priority = spec.priority or 2000 }
 		)
+		if gui and spec.entry then
+			local guiService: GuiService = gui
+			local entry = spec.entry
+			local descendants = Compose.cell(0)
+			local selection = ctx.observe.SelectedObject(guiService)
+			runtime.connect(panel, "DescendantAdded", function()
+				descendants:set(descendants:peek() + 1)
+			end)
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(descendants)
+				use(selection)
+				local held = use(provisional)
+				if held == nil then
+					return
+				end
+				if guiService.SelectedObject ~= held then
+					provisional:set(nil)
+					return
+				end
+				local scopes = use(ctx.modalScopes)
+				if
+					scopes[#scopes] ~= root
+					or (exiting and use(exiting))
+					or not use(ctx.observe.Interactable(root))
+					or not use(ctx.observe.Interactable(panel))
+				then
+					return
+				end
+				local better = entry()
+				if better and better ~= held then
+					local size = use(ctx.observe.AbsoluteSize(better))
+					local parent = use(ctx.observe.Parent(better))
+					if parent and size.X > 0 and size.Y > 0 and displayed(better) then
+						guiService.SelectedObject = better
+						if guiService.SelectedObject == better then
+							provisional:set(nil)
+						end
+					end
+				end
+			end)
+		end
 		if gui then
 			local guiService: GuiService = gui
 			if kit.input then
@@ -383,6 +439,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 						or value == E.UserInputType.Touch
 					then
 						if within(guiService.SelectedObject, root) then
+							lastSelection = nil
 							guiService.SelectedObject = nil
 						end
 					end
@@ -413,11 +470,12 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 					and focusIn(use)
 					and not within(guiService.SelectedObject, root)
 				then
-					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+					local target = entryTarget()
 					if target and displayed(target) then
 						pcall(function()
 							guiService.SelectedObject = target
 						end)
+						settleEntry(target)
 					end
 				end
 			end)
@@ -425,7 +483,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			local extent = ctx.observe.AbsoluteSize(panel)
 			local landing = runtime.settled({
 				ready = function(): boolean
-					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+					local target = entryTarget()
 					return landed
 						or (
 							target ~= nil
@@ -435,7 +493,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 						)
 				end,
 				sample = function(): Vector2
-					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+					local target = entryTarget()
 					return if target then target.AbsoluteSize else V2.zero
 				end,
 			})
@@ -444,23 +502,45 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				use(extent)
 				use(landing)
 				local scopes = use(ctx.modalScopes)
+				local usable = true
+				local at = selected or lastSelection
+				while at and at ~= root do
+					if at:IsA("GuiObject") then
+						local visible = use(ctx.observe.Visible(at))
+						local interactable = use(ctx.observe.Interactable(at))
+						usable = usable and visible and interactable
+					end
+					at = use(ctx.observe.Parent(at)) :: Instance?
+				end
 				if within(selected, root) then
+					local replaced = lastSelection ~= nil and lastSelection ~= selected and not displayed(lastSelection)
 					landed = true
 					owned = true
-					local target = selected :: GuiObject
-					local interactable = use(ctx.observe.Interactable(target))
-					local visible = use(ctx.observe.Visible(target))
+					lastSelection = selected
 					if
-						not (interactable and visible)
+						replaced
+						and scopes[#scopes] == root
+						and use(rootInteractive)
+						and use(panelInteractive)
+						and not (exiting and use(exiting))
+						and focusIn(use)
+					then
+						settleEntry(selected :: GuiObject)
+					end
+					if
+						not usable
 						and scopes[#scopes] == root
 						and use(rootInteractive)
 						and use(panelInteractive)
 						and not (exiting and use(exiting))
 					then
-						gui.SelectedObject = if focusIn(use) then firstSelectable(panel) else nil
+						gui.SelectedObject = if focusIn(use) then entryTarget() else nil
 					end
 					return
 				end
+				local lost = if selected
+					then not displayed(selected)
+					else lastSelection ~= nil and not displayed(lastSelection)
 				if
 					selected ~= nil
 					and scopes[#scopes] == root
@@ -476,7 +556,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 					owned = false
 				end
 				if
-					landed
+					(landed and not lost)
 					or scopes[#scopes] ~= root
 					or not use(mounted)
 					or not use(rootVisible)
@@ -487,11 +567,12 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				then
 					return
 				end
-				local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+				local target = entryTarget()
 				if target and target.AbsoluteSize.X > 0 and target.AbsoluteSize.Y > 0 and displayed(target) then
 					pcall(function()
 						guiService.SelectedObject = target
 					end)
+					settleEntry(target)
 				end
 			end)
 		end

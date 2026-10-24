@@ -162,6 +162,7 @@ export type Config = {
 	environment: EnvironmentPreview?,
 	keyboardNavigation: boolean?,
 	translator: Value<Translator?>?,
+	buttonGuides: Value<boolean>?,
 }
 export type EnvironmentPreview = {
 	preferredInput: Value<(Enum.PreferredInput | string)?>?,
@@ -218,6 +219,7 @@ export type ResponderOptions = {
 	gameplayGuard: boolean?,
 	traversalWrap: boolean?,
 	engageOnPress: boolean?,
+	resignOnActivate: boolean?,
 }
 export type ResponderState = "passive" | "engaged"
 export type Responder = { state: Readable<ResponderState>, engage: () -> (), resign: () -> () }

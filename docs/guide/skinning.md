@@ -49,6 +49,34 @@ State-dependent assets select the art for the hover, pressed, disabled and
 selected behavior. Native rules still style the content and the engine
 properties.
 
+Callout and Popover can use theme arrow artwork. Declare `chrome.panelTail`
+with `kind = "fill"`, an `asset`, `size = { w = 32, h = 20 }`,
+`overhang = 12`, and `margin = 30`. The image points up. `overhang` is its depth outside the
+panel; the rest overlaps the frame to cover the join. Draw the join into the
+image, with the same edge bands and fill as the panel. Leave the outer area
+transparent. Do not use a nine-slice asset for this slot.
+
+Facet rotates the complete image onto each panel edge. It uses its width
+when it clamps the arrow away from corners and its depth for anchor spacing.
+The image follows panel scale and fade. It sits in the panel decoration layer
+below text and controls. `margin` reserves space for the
+corner artwork at both ends of the edge. On a short edge, only the arrow's
+width narrows. Its depth and overlap stay fixed so the frame bands still
+meet at their original thickness. If the corners leave no room, the arrow
+is hidden. It receives the panel's `artTint` and the
+theme's pixel rendering mode. Theme and palette changes update it live.
+Fantasy Ornate, Fantasy Parchment and Pixel Quest include this artwork.
+The arrow supplies its own border, so no native tail outline is drawn.
+
+Without `panelTail`, the arrow uses a native shape. Use theme rules for
+`.facet-tail-floating` (`BackgroundColor3`) and `.facet-outline-floating`
+(`Color3`) to match a panel's artwork. With a panel skin, the native outline
+draws only the two exposed tail edges. The artwork supplies the box frame.
+With a native panel, the outline runs around the panel and its tail.
+These rules do not change tooltip paint; help tails and outlines use
+`.facet-tail-tooltip` and `.facet-outline-tooltip`. Without overrides, tails
+use `surfaceStrong` and outlines use the theme's hairline color.
+
 ## The skin helper
 
 Control authors can use `themes.skin(runtime, package, slot, options)` for a

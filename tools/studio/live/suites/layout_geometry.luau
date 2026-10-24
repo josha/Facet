@@ -139,6 +139,128 @@ add("callout-tail-centre-border-corners", {}, function(t)
 	end
 end)
 
+add("callout-themed-arrows-follow-edges-and-clamps", {}, function(t)
+	for _, key in { "fantasy_ornate", "fantasy_parchment", "pixel_quest" } do
+		local package
+		for _, entry in t.themes do
+			if entry.name == key then
+				package = entry.package
+			end
+		end
+		assert(package, key .. " must be installed")
+		for _, size in { Vector2.new(1024, 768), Vector2.new(390, 844), Vector2.new(844, 390) } do
+			local edge, position
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+				edge, position =
+					Compose.cell("bottom" :: "top" | "bottom" | "leading" | "trailing"),
+					Compose.cell(UDim2.fromScale(0.5, 0.5))
+				local anchor =
+					UI.Button "Anchor" { label = "Anchor", Position = position, AnchorPoint = Vector2.new(0.5, 0.5) }
+				return Host.Frame {
+					BackgroundTransparency = 1,
+					Size = UDim2.fromScale(1, 1),
+					anchor :: unknown,
+					UI.Callout {
+						anchor = anchor,
+						edge = edge,
+						isPresented = true,
+						title = "A themed arrow",
+						onRetire = function() end,
+					},
+				}
+			end, { theme = package, size = size, frames = 20 })
+			local panel, arrow = t.find(stage.Parent, "CalloutPanel"), t.find(stage.Parent, "Arrow")
+			assert(panel and arrow, "callout must mount")
+			local artwork = t.find(panel, "ArrowArtwork")
+			assert(artwork, "arrow artwork must belong to the panel")
+			local image = artwork:FindFirstChildWhichIsA("ImageLabel", true)
+			assert(image, "arrow artwork must mount")
+			game:GetService("ContentProvider"):PreloadAsync({ image })
+			t.check(key .. " arrow image loads", image.IsLoaded)
+			for _, side in { "bottom", "top", "leading", "trailing" } do
+				edge:set(side :: "top" | "bottom" | "leading" | "trailing")
+				for _, fraction in { 0.1, 0.5, 0.9 } do
+					position:set(UDim2.fromScale(fraction, fraction))
+					t.settle(8)
+					local p, a = t.rect(panel), t.rect(arrow)
+					local cx, cy = a.x + a.w / 2, a.y + a.h / 2
+					local painted = t.rect(image)
+					t.near("arrow image stays centred in its rotated bounds on X", painted.x + painted.w / 2, cx, 1)
+					t.near("arrow image stays centred in its rotated bounds on Y", painted.y + painted.h / 2, cy, 1)
+					local recipe = package.chrome.panelTail
+					local inward = recipe.size.h / 2 - recipe.overhang
+					local label = `{key} {size} {side} {fraction}`
+					local rotation = arrow.Rotation
+					local vertical = rotation == 0 or rotation == 180
+					local actual = if vertical then cy else cx
+					local expected = if rotation == 0
+						then p.y + inward
+						elseif rotation == 180 then p.b - inward
+						elseif rotation == 90 then p.r - inward
+						else p.x + inward
+					t.near(label .. " artwork overlaps its frame at the join", actual, expected, 1)
+					local along, first, last =
+						if vertical then cx else cy, if vertical then p.x else p.y, if vertical then p.r else p.b
+					t.check(
+						label .. " artwork clears both corners",
+						along - a.w / 2 >= first + recipe.margin - 1 and along + a.w / 2 <= last - recipe.margin + 1
+					)
+					t.check(
+						label .. " artwork stays beneath content",
+						artwork.ZIndex == 0 and artwork:IsDescendantOf(panel)
+					)
+					for _, node in stage.Parent:GetDescendants() do
+						if node:IsA("Path2D") and node.Name == "Outline" then
+							t.check(label .. " has no extra native border", not node.Visible)
+						end
+					end
+				end
+			end
+			t.cleanup()
+		end
+	end
+end)
+
+add("popover-themed-arrows-keep-the-frame-unclipped", {}, function(t)
+	for _, theme in t.themes do
+		if not table.find({ "fantasy_ornate", "fantasy_parchment", "pixel_quest" }, theme.name) then
+			continue
+		end
+		for _, side in { "top", "bottom", "leading", "trailing" } do
+			local stage = t.mount(function(UI: FacetControls)
+				return UI.Popover {
+					isPresented = true,
+					edge = side :: "top" | "bottom" | "leading" | "trailing",
+					maxWidth = 280,
+					trigger = UI.Button "Anchor" { label = "About", Position = UDim2.fromScale(0.5, 0.5) },
+					content = function()
+						return UI.Text { text = "Anchored content with a tail.", wrap = true }
+					end,
+				}
+			end, { theme = theme.package, size = Vector2.new(1024, 768), motionLevel = "normal", frames = 50 })
+			local panel, arrow = t.find(stage.Parent, "Panel"), t.find(stage.Parent, "Tail")
+			t.check(theme.name .. " " .. side .. " panel mounts", panel ~= nil)
+			if panel then
+				t.check("the settled frame has no clipping fade container", panel:FindFirstChild("Fade") == nil)
+				local skin = panel:FindFirstChild("SkinBoundary", true)
+				t.check("the complete panel artwork remains mounted", skin ~= nil and t.visible(skin))
+				local join = panel:FindFirstChild("TailChromeBoundary")
+				local body = panel:FindFirstChild("Body", true)
+				t.check(
+					"the arrow join paints above the frame and below text",
+					skin ~= nil
+						and join ~= nil
+						and body ~= nil
+						and skin.ZIndex < join.ZIndex
+						and join.ZIndex < body.ZIndex
+				)
+			end
+			t.check("the themed arrow remains mounted", arrow ~= nil and t.visible(arrow))
+			t.cleanup()
+		end
+	end
+end)
+
 add("navigation-stack-root-box-and-back-chrome", {}, function(t)
 	local path
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)

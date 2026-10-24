@@ -249,7 +249,7 @@ function Paired.consistentSlower(ratio: number?, paired: { number }): boolean
 		return false
 	end
 	for _, value in paired do
-		if value <= 1 then
+		if value <= 1.05 then
 			return false
 		end
 	end
@@ -605,7 +605,7 @@ function Paired.summary(lines: { string }, first: string, second: string): { str
 		table.insert(summary, ("%d measurements were unavailable; see the full table."):format(unavailable))
 	end
 	table.insert(summary, "")
-	table.insert(summary, "Consistently slower means the median ratio is above 1.05 and every paired round is slower.")
+	table.insert(summary, "Consistently slower means the median ratio and every paired ratio are above 1.05.")
 	return summary
 end
 

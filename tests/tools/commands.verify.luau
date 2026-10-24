@@ -8,6 +8,7 @@ local Json = require("../../tools/facet/lib/json")
 local Static = require("../../tools/facet/lib/static_findings")
 local Analyzer = require("../../tools/facet/lib/analyzer")
 local Lute = require("../../tools/vendor/verify/src/lute")
+local ControlProps = require("../../tools/facet/lib/control_props")
 
 return function(harness: Verify.Harness)
 	harness:case("the gate audits off-reference scenes and preserves reference timing", function()
@@ -319,7 +320,7 @@ return function(harness: Verify.Harness)
 				"Tasks.sheet",
 				"Controls",
 				"Themes.index",
-				"Sheet.detents",
+				"Tasks.pages",
 				"ServerStorage.FacetDocs",
 				"<Control>.card",
 				"<Control>.props",
@@ -601,6 +602,58 @@ end)
 		Verify.expect(result.ok):toBe(true)
 		Verify.expect(string.find(result.stdout, "SELFTEST PASS", 1, true) ~= nil):toBe(true)
 	end)
+	harness:case("property origins use table syntax and refresh between scans", {
+		id = "tools/commands::props::syntax and freshness",
+		run = function(context)
+			local root = Files.temporaryDirectory("facet-prop-syntax")
+			context:defer(function()
+				Files.remove(root)
+			end)
+			local paths: { [string]: boolean } = { ["src/ui/engine_types.luau"] = true }
+			for _, family in ControlProps.FAMILIES do
+				for _, module in family.modules do
+					paths["src/ui/" .. string.sub(module, 3) .. ".luau"] = true
+				end
+			end
+			for path in paths do
+				Files.copy(path, Files.join(root, path))
+			end
+			local path = Files.join(root, "src/ui/input_types.luau")
+			local source = Files.text(path)
+			local header = "export type EnabledOptions%s*=%s*{"
+			local function withFields(fields: string): string
+				return (
+					string.gsub(source, header, function()
+						return "export type EnabledOptions = {" .. fields
+					end, 1)
+				)
+			end
+			Files.write(
+				path,
+				withFields([[
+	astProbe: <T>(value: { nestedProbe: T, labelProbe: "},<" }) -> (T, string);
+	astOther: { [string]: { value: number } };
+]])
+			)
+			local origins = ControlProps.optionOrigins(root)
+			Verify.expect(origins.ButtonProps.astProbe):toBe("EnabledOptions")
+			Verify.expect(origins.ButtonProps.astOther):toBe("EnabledOptions")
+			Verify.expect(origins.ButtonProps.nestedProbe):toBe(nil)
+			Verify.expect(origins.ButtonProps.labelProbe):toBe(nil)
+			Files.write(path, withFields(" astReplacement: boolean;\n"))
+			local refreshed = ControlProps.optionOrigins(root)
+			Verify.expect(refreshed.ButtonProps.astProbe):toBe(nil)
+			Verify.expect(refreshed.ButtonProps.astReplacement):toBe("EnabledOptions")
+			Verify.expect(ControlProps.optionOrigins(".").ButtonProps.astReplacement):toBe(nil)
+			for _, definition in { "{} & {}", "{} | {}", "string" } do
+				local renamed = string.gsub(source, "export type EnabledOptions", "type OriginalEnabledOptions", 1)
+				Files.write(path, "export type EnabledOptions = " .. definition .. "\n" .. renamed)
+				local ok, problem = pcall(ControlProps.optionOrigins, root)
+				Verify.expect(ok):toBe(false)
+				Verify.expect(string.find(tostring(problem), "must be one table type", 1, true) ~= nil):toBe(true)
+			end
+		end,
+	})
 	harness:case("module loader resolves an explicit Luau file before directory candidates", {
 		id = "tools/commands::loader::explicit Luau file",
 		run = function()

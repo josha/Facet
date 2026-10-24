@@ -27,6 +27,10 @@ for its playground, options, states, variants and usage examples. Settings
 contains the device, input, text, motion and theme previews. Compact layouts
 open the control list through Browse and Back.
 
+The selected theme and palette also color the whole page: `surface` paints
+the page and outer backdrop, and `surfaceStrong` paints the control list.
+Game scene previews keep their transparent background.
+
 Choose **Navigation → NavigationSplitView** (or search for it) to resize related
 panes and try compact navigation. The File library showcase combines two
 splits for Files, Inbox and Linked view. Each file pane has its own folder

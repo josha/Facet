@@ -16,6 +16,12 @@ VirtualList-and-VirtualGrid.selection option values and behavior.
   among the remaining rows as Table.
 - A keyboard or gamepad move steps along the scrolling axis. A vertical
   collection uses Up and Down. A horizontal collection uses Left and Right.
+- PageDown and PageUp, or RT and LT on a gamepad, move about one viewport at
+  a time and skip disabled and collapsed rows. A grid pages within the
+  column; from the row above a short last row, a page reaches the last item.
+  Home and End reach the first and last row. While a row holds the selection,
+  the collection takes RT and LT, so a game that uses the triggers releases
+  the selection before play resumes.
 - A reorder that would move a row that is not movable does not occur.
 
 Native properties and children stay available.

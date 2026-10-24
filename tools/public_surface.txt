@@ -154,6 +154,7 @@ controls(runtime).Avatar : function
 controls(runtime).AvatarGroup : function
 controls(runtime).Badge : function
 controls(runtime).Button : function
+controls(runtime).ButtonGuide : function
 controls(runtime).Callout : function
 controls(runtime).Card : function
 controls(runtime).CellEditor : function
@@ -254,6 +255,8 @@ type AvatarMember
 type AvatarProps
 type BadgeProps
 type BadgeValue
+type ButtonGuideEntry
+type ButtonGuideProps
 type ButtonProps
 type ButtonRole
 type CalloutSpec

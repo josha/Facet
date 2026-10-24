@@ -395,9 +395,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				table.insert(members[home], region)
 			end
 		end
-		local landedZone: Frame? = nil
-		if #stripRegions > 0 then
-			landedZone = Host.Frame "Landed" {
+		local function landingFrame(name: string, alignment: Enum.HorizontalAlignment): Frame
+			return Host.Frame(name) {
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				LayoutOrder = 0,
@@ -405,12 +404,23 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				AutomaticSize = E.AutomaticSize.XY,
 				Host.UIListLayout({
 					SortOrder = E.SortOrder.LayoutOrder,
-					HorizontalAlignment = E.HorizontalAlignment.Center,
+					HorizontalAlignment = alignment,
 					Padding = function(use: ComposeTypes.Use): UDim
 						return D.new(0, kit.spacing(gap, use))
 					end,
 				}),
 			}
+		end
+		local landedZone: Frame? = nil
+		local landedTrailing: Frame? = nil
+		if #stripRegions > 0 then
+			landedZone = landingFrame("Landed", E.HorizontalAlignment.Center)
+			for _, region in stripRegions do
+				if declared[region].trailing and landedTrailing == nil then
+					landedTrailing = landingFrame("LandedTrailing", E.HorizontalAlignment.Right)
+					members.topRight = members.topRight or {}
+				end
+			end
 		end
 		local zones: { [string]: Frame } = {}
 		local placed: { Frame } = {}
@@ -423,7 +433,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				cell[1],
 				cell[2],
 				gap,
-				if zone == "top" and landedZone then { landedZone :: Frame, table.unpack(children) } else children,
+				if zone == "top" and landedZone
+					then { landedZone :: Frame, table.unpack(children) }
+					elseif zone == "topRight" and landedTrailing then {
+						landedTrailing :: Frame,
+						table.unpack(children),
+					}
+					else children,
 				shift,
 				rows
 			)
@@ -573,12 +589,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				middleRow,
 				trailingRow,
 			})
-			local landing = assert(landedZone)
 			for _, region in stripRegions do
 				local home = if declared[region].leading
 					then leadingRow
 					elseif declared[region].trailing then trailingRow
 					else middleRow
+				local landing = if declared[region].trailing then assert(landedTrailing) else assert(landedZone)
 				local order = assert(table.find(regions, region))
 				runtime.decorate(region, {
 					Parent = function(use: ComposeTypes.Use): Instance?
@@ -793,7 +809,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					local value = use(observed)
 					measured[form] = { x = value.X, y = value.Y }
 				end
-				list[index] = { zone = entry.zone, rank = entry.rank, mayDrop = entry.mayDrop, sizes = measured }
+				list[index] = {
+					zone = entry.zone,
+					rank = entry.rank,
+					mayDrop = entry.mayDrop,
+					sizes = measured,
+					trailing = entry.trailing,
+				}
 			end
 			local strip = if stripSize and rides then use(stripSize) else nil
 			if strip and (strip.X <= 0 or strip.Y <= 0) and topbarBand and stripUnit then
@@ -855,7 +877,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local stripped = band ~= nil and strip ~= nil and strip.X > 0
 			local function placed(index: number): string
 				local zone = list[index].zone
-				return if zone == "topbar" and (down[index] or not stripped) then "top" else zone
+				if zone == "topbar" and (down[index] or not stripped) then
+					return if list[index].trailing then "topRight" else "top"
+				end
+				return zone
 			end
 			local filled: { [string]: boolean } = {}
 			local empty: { [number]: boolean } = {}
@@ -1044,7 +1069,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end)
 		assert(spec.passive == nil or type(spec.passive) == "boolean", "Facet Composition passive must be a boolean")
 		if spec.passive ~= false then
-			local options = { passive = true, gameplayGuard = false, engageOnPress = false }
+			local options = { passive = true, gameplayGuard = false, engageOnPress = false, resignOnActivate = true }
 			ctx.responder(root, options)
 			if stripGui then
 				ctx.responder(stripGui, options)

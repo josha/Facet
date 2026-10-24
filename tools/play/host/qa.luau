@@ -70,6 +70,7 @@ export type QA = {
 	reveal: (self: QA, query: Query) -> boolean,
 	reachable: (self: QA, query: Query) -> (boolean, string),
 	tap: (self: QA, query: Query) -> (boolean, string),
+	tapVisible: (self: QA, query: Query) -> (boolean, string, Info?),
 	press: (self: QA, key: string) -> (boolean, string),
 	typeText: (self: QA, query: Query, text: string, submit: boolean?) -> (boolean, string),
 	slide: (self: QA, near: string, fraction: number) -> (boolean, string),
@@ -326,6 +327,22 @@ local function create(context: Context, device: Devices.Device): QA
 				)
 		end
 		return true, if info ~= nil then info.label else ""
+	end
+
+	function qa.tapVisible(self: QA, query: Query): (boolean, string, Info?)
+		if self.device.mode == "gamepad" then
+			return false, "visible-hit taps require mouse or touch input", nil
+		end
+		local reachable, detail = self:reachable(query)
+		if not reachable then
+			return false, detail, nil
+		end
+		local value = record(self:call("tap", { query = query }))
+		local info = infoOf(value.info)
+		if value.tapped ~= true or value.activated ~= true or info == nil then
+			return false, tostring(value.reason or "the visible target did not activate"), info
+		end
+		return true, info.label, info
 	end
 
 	function qa.press(self: QA, key: string): (boolean, string)

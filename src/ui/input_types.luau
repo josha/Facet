@@ -311,11 +311,25 @@ export type ShortcutHintOptions = {
 	controlSize: Value<Shared.ControlSize?>?,
 	label: Shared.ValueString?,
 	labelPosition: ("start" | "end")?,
+	cap: boolean?,
 }
 export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & ShortcutHintOptions & {
 	action: InputAction?,
 	keys: Value<{ { string } }>?,
 }
+export type ButtonGuideEntry = {
+	action: InputAction?,
+	keyCode: (Enum.KeyCode | { Enum.KeyCode })?,
+	keys: Value<{ { string } }>?,
+	label: Shared.ValueString,
+}
+export type ButtonGuideOptions = {
+	ref: ((Frame) -> ())?,
+	entries: Value<{ ButtonGuideEntry }>,
+	inputs: { string }?,
+	controlSize: Value<Shared.ControlSize?>?,
+}
+export type ButtonGuideImplementationProps = Shared.FrameNativeProps & ButtonGuideOptions
 export type HapticKind = Shared.HapticKind
 export type AdjustmentState = { value: Shared.ValueNumber, onChange: ((number) -> ())? } | AdjustableOptions
 export type AdjustableOptions = {

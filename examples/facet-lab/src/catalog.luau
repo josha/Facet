@@ -56,16 +56,7 @@ local function properties(values: Properties): Properties
 	return values
 end
 
-local function nativeGlyph(c: Context): Properties
-	local function ring(): GuiObject
-		return c.UI.Path "NativeGlyph" {
-			points = c.Facet.pathShapes.ring({ radius = 0.75 }),
-			thickness = 2,
-			closed = true,
-		}
-	end
-	return { glyph = ring }
-end
+local nativeGlyph = require("./native_glyph")
 
 local function implied(choices: { [string]: Source }): { [string]: Source }
 	return choices
@@ -189,6 +180,7 @@ local SIZES: Axis = { key = "controlSize", values = { "xsmall", "compact", "regu
 local CORNERS: Axis = { key = "corners", values = { DEFAULT, "pill", "square" } }
 local FIELD_APPEARANCE: Axis = { key = "appearance", values = { "standard", "contrast", "utility" } }
 local DISABLED: State = { name = "disabled", props = properties { enabled = false } }
+local hintPages = require("./hint_pages")({ sizes = SIZES, none = NONE })
 local function fixed(w: number, h: number?): Properties
 	return {
 		Size = UDim2.fromOffset(w, h or 0),
@@ -738,36 +730,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 		},
 	},
-	ShortcutHint = {
-		family = "actions",
-		alias = "Shortcut",
-		purpose = "Shows the key or button for an action, adapting to the live input device.",
-		alternatives = "Button.shortcut to bind the key on the action itself.",
-		scenarios = { "shortcut_hint" },
-		snippet = 'UI.ShortcutHint { keys = { { "Ctrl", "S" } } }',
-		base = function()
-			return { keys = { { "Ctrl", "S" } } }
-		end,
-		axes = { SIZES },
-		states = {
-			{
-				name = "action (device-adaptive)",
-				props = function(c: Context)
-					local action = c.Host.InputAction({
-						Name = "LabSave",
-						c.Host.InputBinding({ KeyCode = Enum.KeyCode.F2, UIButton = nil }),
-					})
-					return { keys = NONE, action = action }
-				end,
-			},
-			{ name = "alternatives", props = properties { keys = { { "Ctrl", "S" }, { "F2" } }, separator = " or " } },
-			{ name = "label after", props = properties { label = "Save" } },
-			{ name = "label before", props = properties { label = "Save", labelPosition = "start" } },
-		},
-		valid = function(p: Properties)
-			return not (p.action ~= nil and p.keys ~= nil)
-		end,
-	},
+	ShortcutHint = hintPages.ShortcutHint,
+	ButtonGuide = hintPages.ButtonGuide,
 
 	TextInput = {
 		family = "inputs",
@@ -2532,6 +2496,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						gap = "s",
 						c.UI.Toggle({ label = "Only friends", value = c.cell("friends", false) }),
 						c.UI.Slider({
+							Name = "Distance",
 							label = "Distance",
 							value = c.cell("dist", 5),
 							min = 0,
@@ -2571,6 +2536,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 			{ name = "body pans the sheet", props = properties { scrollPolicy = "atLargestDetent" } },
 			{ name = "close button", props = properties { closeButton = true } },
+			{ name = "starts on Distance", props = properties { initialFocus = "Distance" } },
 			{ name = "close label", props = properties { closeButton = "Close" } },
 			{ name = "no content inset", props = properties { contentInset = "none" } },
 			{
@@ -2602,6 +2568,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end,
 			},
 			{ name = "left edge", props = properties { placement = "side", edge = "left" } },
+			{ name = "button guide", props = hintPages.sheetGuide },
 		},
 		valid = function(p: Properties)
 			return p.edge == nil or p.placement == "side" or p.placement == "adaptive"
@@ -2744,7 +2711,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		demonstrates = { "anchor" },
 		axes = {
-			{ key = "edge", values = { "bottom", "top" } },
+			{ key = "edge", values = { "bottom", "top", "leading", "trailing" } },
 			{ key = "align", values = { "leading", "center", "trailing" } },
 		},
 		states = {

@@ -9,8 +9,13 @@ Selection.SelectedObject option values and behavior.
   such as a `Composition` HUD, so the stick and the D-pad keep driving the
   game.
 - Presentation. A modal presented while a control is selected, or while a
-  gamepad is the preferred input, selects its first control. It waits until
-  the surface is shown, so it never selects a hidden control.
+  gamepad is the preferred input, selects its entry control. For a Sheet that
+  is the control `initialFocus` names, else the first control of its body,
+  else the first pinned action, and its Close or grabber only when nothing
+  else can be acted on (Back already closes it). A Dialog selects its cancel
+  action, else its first action that is not destructive. Other modals select
+  their first control. It waits until the surface is shown, so it never
+  selects a hidden control.
 - Leaving. A Facet presenter hands the selection back to its anchor or opener
   as it starts to leave. A game's own panel is not a presenter: when its
   buttons stop being selectable before it is gone, the engine moves the

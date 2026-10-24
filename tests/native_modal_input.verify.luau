@@ -53,6 +53,260 @@ return function(verifyHarness: Verify.Harness)
 			Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Previous")
 			w.stop()
 		end)
+		verifyHarness:case("a retained Sheet recovers selection after replacing its selected branch", {
+			id = "native_modal_input::sheet-content-replacement-selection",
+			run = function()
+				for _, preferred in { "Gamepad", "KeyboardAndMouse" } do
+					local open, detail = Compose.cell(false), Compose.cell(false)
+					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, engine)
+						return Host.Frame {
+							UI.Button "Opener" { label = "Open" } :: unknown,
+							UI.Sheet {
+								isPresented = open,
+								title = "Equipment",
+								placement = "center",
+								content = function()
+									return Host.Frame {
+										Compose.show(detail, function()
+											local control = UI.Button "Equip" { label = "Equip" }
+											engine.environment.poke(
+												control,
+												"AbsoluteSize",
+												engine.types.Vector2.new(120, 44)
+											)
+											return control
+										end, function()
+											return UI.Button "Inspect" { label = "Inspect" }
+										end),
+									}
+								end,
+							},
+						}
+					end, { motionLevel = "none" })
+					w.input.PreferredInput = w.Enum.PreferredInput[preferred]
+					w.gui.SelectedObject = w.find("Opener")
+					open:set(true)
+					w.advance(1 / 60, 3)
+					w.size(w.find("Close"), 44, 44)
+					local panel, removed = w.find("SheetPanel"), w.find("Inspect")
+					w.gui.SelectedObject = removed
+					detail:set(true)
+					w.advance(1 / 60, 3)
+					Verify.expect(removed.Parent):toBe(nil)
+					Verify.expect(w.find("SheetPanel")):toBe(panel)
+					Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Equip")
+					Verify.expect(w.gui.SelectedObject:IsDescendantOf(panel)):toBe(true)
+					Verify.expect(w.gui.SelectedObject.Selectable and w.gui.SelectedObject.Interactable):toBe(true)
+					open:set(false)
+					Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Opener")
+					w.stop()
+				end
+			end,
+		})
+		verifyHarness:case("a retained Sheet recovers selection when an ancestor is detached", {
+			id = "native_modal_input::sheet-content-ancestor-detached",
+			run = function()
+				local open = Compose.cell(false)
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet {
+						isPresented = open,
+						title = "Equipment",
+						placement = "center",
+						content = function()
+							return Host.Frame {
+								Host.Frame "Branch" { UI.Button "Inspect" { label = "Inspect" } } :: unknown,
+								UI.Button "Equip" { label = "Equip" },
+							}
+						end,
+					}
+				end, { motionLevel = "none" })
+				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				open:set(true)
+				w.advance(1 / 60, 3)
+				local branch, removed, replacement = w.find("Branch"), w.find("Inspect"), w.find("Equip")
+				w.size(replacement, 120, 44)
+				w.gui.SelectedObject = removed
+				branch.Parent = nil
+				w.advance(1 / 60, 3)
+				Verify.expect(removed.Parent):toBe(branch)
+				Verify.expect(branch.Parent):toBe(nil)
+				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Equip")
+				w.stop()
+			end,
+		})
+		verifyHarness:case("native fallback selection waits for replacement body bounds", {
+			id = "native_modal_input::sheet-native-fallback-after-layout",
+			run = function()
+				local open, detail = Compose.cell(false), Compose.cell(false)
+				local fallback = function() end
+				local connection: RBXScriptConnection? = nil
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet {
+						isPresented = open,
+						title = "Equipment",
+						placement = "center",
+						content = function()
+							return Host.Frame {
+								Compose.show(detail, function()
+									return UI.Button "Equip" { label = "Equip" }
+								end, function()
+									local branch = Host.Frame "Branch" { UI.Button "Inspect" { label = "Inspect" } }
+									connection = branch:GetPropertyChangedSignal("Parent"):Connect(function()
+										if branch.Parent == nil then
+											fallback()
+										end
+									end)
+									return branch
+								end),
+							}
+						end,
+					}
+				end, { motionLevel = "none" })
+				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				open:set(true)
+				w.advance(1 / 60, 3)
+				w.size(w.find("Close"), 44, 44)
+				fallback = function()
+					w.gui.SelectedObject = w.find("Close")
+				end
+				w.gui.SelectedObject = w.find("Inspect")
+				detail:set(true)
+				w.advance(1 / 60, 3)
+				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Close")
+				w.size(w.find("Equip"), 120, 44)
+				w.advance(1 / 60, 3)
+				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Equip")
+				if connection then
+					connection:Disconnect()
+				end
+				w.stop()
+			end,
+		})
+		verifyHarness:case("a retained Sheet recovers through an empty body before replacement content arrives", {
+			id = "native_modal_input::sheet-content-replacement-late",
+			run = function()
+				local open, ready = Compose.cell(false), Compose.cell(true)
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet {
+						isPresented = open,
+						title = "Equipment",
+						placement = "center",
+						content = function()
+							return Host.Frame {
+								Compose.show(ready, function()
+									return UI.Button "Equip" { label = "Equip" }
+								end),
+							}
+						end,
+					}
+				end, { motionLevel = "none" })
+				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				open:set(true)
+				w.advance(1 / 60, 3)
+				w.size(w.find("Close"), 44, 44)
+				w.size(w.find("Equip"), 120, 44)
+				w.gui.SelectedObject = w.find("Equip")
+				ready:set(false)
+				w.advance(1 / 60, 3)
+				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Close")
+				ready:set(true)
+				w.advance(1 / 60, 3)
+				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Close")
+				w.size(w.find("Equip"), 120, 44)
+				w.advance(1 / 60, 3)
+				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Equip")
+				w.stop()
+			end,
+		})
+		verifyHarness:case("replacing parent Sheet content preserves nested focus and repairs its return", {
+			id = "native_modal_input::sheet-content-replacement-nested",
+			run = function()
+				local open, child, detail = Compose.cell(false), Compose.cell(false), Compose.cell(false)
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, engine)
+					return Host.Frame {
+						UI.Button "Opener" { label = "Open" } :: unknown,
+						UI.Sheet {
+							isPresented = open,
+							title = "Equipment",
+							placement = "center",
+							content = function()
+								return Host.Frame {
+									Compose.show(detail, function()
+										local control = UI.Button "Equip" { label = "Equip" }
+										engine.environment.poke(
+											control,
+											"AbsoluteSize",
+											engine.types.Vector2.new(120, 44)
+										)
+										return control
+									end, function()
+										return UI.Button "Inspect" { label = "Inspect" }
+									end) :: unknown,
+									UI.Sheet {
+										isPresented = child,
+										title = "Details",
+										content = function()
+											return UI.Button "ChildAction" { label = "Continue" }
+										end,
+									},
+								}
+							end,
+						},
+					}
+				end, { motionLevel = "none" })
+				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.gui.SelectedObject = w.find("Opener")
+				open:set(true)
+				w.advance(1 / 60, 3)
+				w.gui.SelectedObject = w.find("Inspect")
+				child:set(true)
+				w.advance(1 / 60, 3)
+				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("ChildAction")
+				detail:set(true)
+				w.advance(1 / 60, 3)
+				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("ChildAction")
+				child:set(false)
+				w.advance(1 / 60, 3)
+				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Equip")
+				open:set(false)
+				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Opener")
+				w.stop()
+			end,
+		})
+		verifyHarness:case("pointer input can clear valid modal selection while gamepad remains preferred", {
+			id = "native_modal_input::pointer-clears-valid-selection",
+			run = function()
+				local open, detail = Compose.cell(false), Compose.cell(false)
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet {
+						isPresented = open,
+						title = "Equipment",
+						content = function()
+							return Host.Frame {
+								Compose.show(detail, function()
+									return UI.Button "Inspect" { label = "Inspect" }
+								end, function()
+									return UI.Button "Equip" { label = "Equip" }
+								end),
+							}
+						end,
+					}
+				end, { motionLevel = "none" })
+				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				open:set(true)
+				w.advance(1 / 60, 3)
+				w.size(w.find("Equip"), 120, 44)
+				w.gui.SelectedObject = w.find("Equip")
+				w.input.LastInputTypeChanged:Fire(w.Enum.UserInputType.MouseMovement)
+				w.advance(1 / 60, 3)
+				Verify.expect(w.gui.SelectedObject):toBe(nil)
+				detail:set(true)
+				w.size(w.find("Inspect"), 120, 44)
+				w.advance(1 / 60, 3)
+				Verify.expect(w.gui.SelectedObject):toBe(nil)
+				w.stop()
+			end,
+		})
 		verifyHarness:case("a D-pad press enters a modal presented in the layer of a resting passive HUD", function()
 			local open = Compose.cell(false)
 			local resign: () -> () = function() end

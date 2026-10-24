@@ -10,10 +10,19 @@ return function<V, K>(
 	focusScope: ComposeTypes.FocusScope<K>,
 	eligible: (ComposeTypes.Use) -> boolean
 ): ()
-	local read = ctx.read
+	local Compose, read = ctx.Compose, ctx.read
 	local E = ctx.types.Enum
 	local spec, kind, keyOf, horizontal = view.spec, view.kind, view.keyOf, view.horizontal
 	local extendSelection = view.extendSelection
+	local tree = view.tree
+	local function current(): { V }
+		return view.source(function<T>(readable: ComposeTypes.Readable<T>): T
+			return readable:peek()
+		end)
+	end
+	local function usable(item: V, index: number): boolean
+		return not (tree ~= nil and not tree.visible(keyOf(item, index))) and not policy.disabled(spec.disabled, item)
+	end
 	local directions: { { name: string, direction: ComposeTypes.FocusDirection, keys: { Enum.KeyCode } } } = {
 		{ name = "Left", direction = "left", keys = { E.KeyCode.Left, E.KeyCode.DPadLeft } },
 		{ name = "Right", direction = "right", keys = { E.KeyCode.Right, E.KeyCode.DPadRight } },
@@ -21,7 +30,7 @@ return function<V, K>(
 		{ name = "Down", direction = "down", keys = { E.KeyCode.Down, E.KeyCode.DPadDown } },
 	}
 	local function atEdge(key: K, step: number): boolean
-		local rows = read(spec.from)
+		local rows = current()
 		local at: number? = nil
 		for index, item in rows do
 			if keyOf(item, index) == key then
@@ -34,7 +43,7 @@ return function<V, K>(
 		end
 		local index = at + step
 		while index >= 1 and index <= #rows do
-			if not policy.disabled(spec.disabled, rows[index]) then
+			if usable(rows[index], index) then
 				return false
 			end
 			index += step
@@ -61,7 +70,7 @@ return function<V, K>(
 			local before = focusScope.current:peek()
 			local after = focusScope.move(binding.direction)
 			if kind == "grid" and spec.wrapFocus and before ~= nil and after == before then
-				local rows = read(spec.from)
+				local rows = current()
 				local columns = math.max(1, math.floor(read(spec.columns or 1)))
 				local at: number? = nil
 				for index, item in rows do
@@ -109,6 +118,86 @@ return function<V, K>(
 				extendSelection(before, landed)
 			end
 		end
+	end
+	local controls = view.controls
+	local function page(step: number): () -> ()
+		return function()
+			local placementOf, indexOfKey = controls.placementOf, controls.indexOfKey
+			local before = focusScope.current:peek()
+			if before == nil or placementOf == nil or indexOfKey == nil then
+				return
+			end
+			local at = indexOfKey(before)
+			local rows = current()
+			if at == nil or rows[at] == nil then
+				return
+			end
+			local here = placementOf(at)
+			local reach = math.max(view.viewport:peek().size, here.size)
+			local target: number?, last: number? = nil, nil
+			local index = at + step
+			while index >= 1 and index <= #rows do
+				local there = placementOf(index)
+				local distance = if step > 0
+					then there.offset + there.size - here.offset
+					else here.offset + here.size - there.offset
+				if distance > reach and (target ~= nil or distance > 2 * reach) then
+					break
+				end
+				if usable(rows[index], index) then
+					last = index
+					if there.column == here.column then
+						target = index
+						if distance > reach then
+							break
+						end
+					end
+				end
+				index += step
+			end
+			local edge = if step > 0 then #rows else 1
+			if
+				target == nil
+				and last ~= nil
+				and placementOf(last).row == placementOf(edge).row
+				and placementOf(last).row ~= here.row
+			then
+				target = last
+			end
+			if target ~= nil then
+				focusScope.focus(keyOf(rows[target], target))
+				local landed = focusScope.current:peek()
+				if landed ~= nil then
+					extendSelection(before, landed)
+				end
+			end
+		end
+	end
+	local owner = assert(Compose.currentOwner(), "collection navigation requires a Compose owner")
+	local function armPaging()
+		view.armPaging = nil
+		Compose.withOwner(owner.createChild(), function()
+			ctx.action(
+				root,
+				"CollectionPageDown",
+				{ E.KeyCode.PageDown, E.KeyCode.ButtonR2 },
+				eligible,
+				page(1),
+				{ priority = 200 }
+			)
+			ctx.action(
+				root,
+				"CollectionPageUp",
+				{ E.KeyCode.PageUp, E.KeyCode.ButtonL2 },
+				eligible,
+				page(-1),
+				{ priority = 200 }
+			)
+		end)
+	end
+	view.armPaging = armPaging
+	if focusScope.current:peek() ~= nil then
+		armPaging()
 	end
 	ctx.action(root, "CollectionFirst", { E.KeyCode.Home }, eligible, jump(focusScope.first), { priority = 200 })
 	ctx.action(root, "CollectionLast", { E.KeyCode.End }, eligible, jump(focusScope.last), { priority = 200 })

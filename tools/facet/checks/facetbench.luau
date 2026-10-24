@@ -20,17 +20,26 @@ local function check(context: Rule.Context): { string }
 			[Files.absolute(context.path("artifacts/facetbench/run-inputs"))] = true,
 			[Files.absolute(context.path("artifacts/facetbench/arm-facet"))] = true,
 		}
-		local instructions = Files.absolute(context.path("artifacts/facetbench/facet-instructions.md"))
+		local protocol = Files.read(context.path("eval/authoring.md"))
+		local instructions = {
+			[Files.absolute(context.path("artifacts/facetbench/plain-instructions.md"))] = protocol
+				.. "\n\n"
+				.. Files.read(context.path("eval/arms/plain/AGENTS.md")),
+			[Files.absolute(context.path("artifacts/facetbench/facet-instructions.md"))] = protocol
+				.. "\n\n"
+				.. Files.read(context.path("eval/arms/facet/AGENTS.md"))
+				.. "\n\n"
+				.. Files.read(context.path("skills/use-facet/SKILL.md")),
+		}
 		local contractFiles = table.clone(files)
 		contractFiles.exists = function(path: string): boolean
 			local absolute = Files.absolute(path)
-			return generated[absolute] == true or absolute == instructions or files.exists(path)
+			return generated[absolute] == true or instructions[absolute] ~= nil or files.exists(path)
 		end
 		contractFiles.read = function(path: string): string
-			if Files.absolute(path) == instructions then
-				return Files.read(context.path("eval/arms/facet/AGENTS.md"))
-					.. "\n\n"
-					.. Files.read(context.path("skills/use-facet/SKILL.md"))
+			local prepared = instructions[Files.absolute(path)]
+			if prepared ~= nil then
+				return prepared
 			end
 			return files.read(path)
 		end
@@ -130,6 +139,7 @@ local function cases(): { Rule.Case }
 				for _, relative in
 					{
 						"eval/run.json",
+						"eval/authoring.md",
 						"eval/tasks/run/task.json",
 						"eval/tasks/run/brief.md",
 						"eval/arms/plain/AGENTS.md",

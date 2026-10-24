@@ -26,11 +26,7 @@ return {
 		local noPresets: { Preset } = {}
 		local presets, name, presented = C.cell(noPresets), C.cell("Weekend racer"), C.cell(false)
 		local notice = C.cell("Pick a ride. Make it yours.")
-		local width, savedOpen = C.cell(1000), C.cell(false)
-		local wideAt = UI.environment().scaled(850)
-		local wide = C.formula(function(use: Use)
-			return use(width) >= use(wideAt)
-		end)
+		local savedOpen = C.cell(false)
 		local spec = C.formula(function(use: Use)
 			for _, item in vehicles do
 				if item.id == use(vehicle) then
@@ -150,7 +146,7 @@ return {
 					})
 				)
 				return Host.Model "Ride" { table.unpack(parts) }
-			end)
+			end, CF.lookAt(V3.new(6, 4, 8), V3.new(0, 1, 0)))
 		end
 		local function saved()
 			return UI.VStack "SavedRides" {
@@ -185,36 +181,51 @@ return {
 			}
 		end
 		local function screen()
+			local wide, short = C.cell(true), C.cell(false)
 			local rides = {}
 			for _, item in vehicles do
 				table.insert(rides, { value = item.id, label = item.label })
 			end
 			local stage = preview()
-			ctx.runtime.decorate(stage, {
-				Size = function(use: Use)
-					return D2.new(1, 0, 0, if use(wide) then 410 else 250)
+			ctx.runtime.decorate(stage, { Size = D2.fromScale(1, 1) })
+			local function paneSize(use: Use)
+				return if use(wide) then D2.new(0, 0, 1, 0) else D2.new(1, 0, 0, 0)
+			end
+			local introduction = view.text("GarageTitle", "Build your weekend ride", "caption")
+			ctx.runtime.decorate(introduction, {
+				Visible = function(use: Use)
+					return not use(short)
 				end,
 			})
-			return UI.ScrollView "Garage" {
-				padding = "l",
-				gap = "l",
-				ref = function(node)
-					view.observeWidth(width, node)
-				end,
-				view.text("GarageTitle", "Build your weekend ride", "title"),
+			local root = UI.VStack "Garage" {
+				width = "fill",
+				height = "fill",
+				padding = "m",
+				gap = "s",
+				introduction,
+				view.text("ModelName", function(use: Use)
+					return use(spec).label
+				end, "title"),
 				UI.AdaptiveStack "Configurator" {
 					width = "fill",
-					gap = "l",
+					height = "fill",
+					gap = "m",
+					UI.fill(),
 					axis = function(use: Use)
 						return if use(wide) then "x" else "y"
 					end,
-					UI.VStack "Showroom" {
-						Size = function(use: Use)
-							return D2.new(1, if use(wide) then -354 else 0, 0, 0)
-						end,
-						AutomaticSize = E.AutomaticSize.Y,
-						gap = "m",
+					UI.ZStack "Showroom" {
+						Size = paneSize,
+						AutomaticSize = E.AutomaticSize.None,
+						UI.fill(3),
 						stage,
+					},
+					UI.ScrollView "Inspector" {
+						Size = paneSize,
+						AutomaticSize = E.AutomaticSize.None,
+						UI.fill(2),
+						gap = "m",
+						UI.Picker "VehicleLineup" { label = "Vehicle", selected = vehicle, options = rides },
 						UI.Slider "Turntable" {
 							label = "Rotate car",
 							value = angle,
@@ -222,41 +233,10 @@ return {
 							max = 180,
 							step = 1,
 						},
-						UI.Picker "VehicleLineup" { label = "Vehicle", selected = vehicle, options = rides },
-					},
-					UI.VStack "Inspector" {
-						Size = function(use: Use)
-							return if use(wide) then D2.fromOffset(330, 0) else D2.new(1, 0, 0, 0)
-						end,
-						AutomaticSize = E.AutomaticSize.Y,
-						gap = "m",
-						view.text("ModelName", function(use: Use)
-							return use(spec).label
-						end, "title"),
 						UI.ColorPicker "Paint" { label = "Paint", value = paint },
 						UI.Picker "Wheels" { label = "Wheels", selected = wheel, options = wheels },
 						UI.Toggle "StripeToggle" { label = "Racing stripe", value = stripe },
 						UI.Divider {},
-						UI.Popover "SaveRide" {
-							isPresented = presented,
-							onPresentedChange = function(value)
-								presented:set(value)
-							end,
-							trigger = UI.Button "SavePreset" { label = "Save this car" },
-							compact = "popover",
-							maxWidth = 320,
-							content = function(): Instance
-								return UI.VStack {
-									width = "fill",
-									gap = "m",
-									view.text("SaveTitle", "Name this car", "heading"),
-									UI.TextInput "PresetName" { label = "Name", value = name },
-									view.button("ConfirmSave", "Save car", save, function(use: Use)
-										return string.find(use(name), "%S") ~= nil
-									end),
-								}
-							end,
-						},
 						UI.DisclosureGroup "SavedCars" {
 							label = function(use: Use)
 								return `Saved cars · {#use(presets)}`
@@ -264,11 +244,44 @@ return {
 							expanded = savedOpen,
 							content = saved,
 						},
-						view.text("GarageNotice", notice),
 						view.button("ResetGarage", "Reset garage", reset),
 					},
 				},
+				UI.HStack "GarageCommit" {
+					width = "fill",
+					gap = "m",
+					align = "center",
+					UI.Text "GarageNotice" { text = notice, wrap = true, role = "secondary", UI.fill() },
+					UI.Popover "SaveRide" {
+						isPresented = presented,
+						onPresentedChange = function(value)
+							presented:set(value)
+						end,
+						trigger = UI.Button "SavePreset" { label = "Save this car", appearance = "emphasis" },
+						compact = "popover",
+						maxWidth = 320,
+						content = function(): Instance
+							return UI.VStack {
+								width = "fill",
+								gap = "m",
+								view.text("SaveTitle", "Name this car", "heading"),
+								UI.TextInput "PresetName" { label = "Name", value = name },
+								view.button("ConfirmSave", "Save car", save, function(use: Use)
+									return string.find(use(name), "%S") ~= nil
+								end),
+							}
+						end,
+					},
+				},
 			}
+			local room = UI.environment(root)
+			local wideAt = room.scaled(680)
+			local shortAt = room.scaled(360)
+			C.watch(function(use: Use)
+				wide:set(use(room.viewportWidth) >= use(wideAt))
+				short:set(use(room.viewportHeight) < use(shortAt))
+			end)
+			return root
 		end
 		return {
 			screen = screen,

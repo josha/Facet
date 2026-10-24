@@ -18,7 +18,9 @@ GuiService.SelectedObject and input-context behavior are engine facts; a custom
 focus graph is not a substitute.
 
 Modal controls trap selection, choose an enabled initial target, own Back and
-restore the previous selection when it still exists. GuiButton.Modal affects
+restore the previous selection when it still exists. A Sheet's initial target
+is its `initialFocus`, else its first content control, and its Close only when
+nothing else can be acted on; a Dialog starts on its cancel action. GuiButton.Modal affects
 mouse locking; it is not a focus trap. Do not bind reserved Escape or gamepad
 Start. A game must separately suppress gameplay commands while UI owns input.
 

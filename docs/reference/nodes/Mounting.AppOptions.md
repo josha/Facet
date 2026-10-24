@@ -17,7 +17,8 @@ and these fields:
   them.
 
 The app gives `theme` to the controls and to the StyleSheet, so you set the
-theme one time.
+theme one time. Give `buttonGuides` a readable boolean that a player setting
+owns; every [ButtonGuide](ButtonGuide.reference.md) reads it.
 `component` runs in the owner of the mount. Cells that it makes belong to that
 mount. `app.mount` after `app.dispose` stops with an error.
 

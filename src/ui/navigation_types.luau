@@ -312,6 +312,9 @@ export type SheetOptions = {
 	actionLayout: Value<Overlay.ActionLayout?>?,
 	contentInset: ("standard" | "none")?,
 	scrollPolicy: ("always" | "atLargestDetent")?,
+	initialFocus: (string | () -> string?)?,
+	guide: Inputs.ButtonGuideOptions?,
+	guideAlignment: ("start" | "end")?,
 }
 export type SheetRequest = (string) -> boolean
 export type CalloutRetirement = "featureUsed" | "seen" | "dismissed" | "tapAway" | "action"
@@ -324,7 +327,7 @@ export type CalloutOptions = {
 	actions: { Overlay.Action }?,
 	closeButton: boolean?,
 	dismissLabel: Types.ValueString?,
-	edge: Value<"top" | "bottom">?,
+	edge: Value<"top" | "bottom" | "leading" | "trailing">?,
 	align: Value<"leading" | "center" | "trailing">?,
 	tail: boolean | "none"?,
 	priority: number?,
@@ -430,6 +433,7 @@ export type ModalOptions = {
 	ZIndex: number?,
 	priority: number?,
 	initialFocus: string?,
+	entry: (() -> GuiObject?)?,
 	backgroundTransparency: Types.ValueNumber?,
 	outsideDismiss: Types.ValueBoolean?,
 	outsideMargin: number?,

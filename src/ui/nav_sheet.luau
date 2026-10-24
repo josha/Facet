@@ -33,6 +33,9 @@ local KEYS = {
 	"contentInset",
 	"scrollPolicy",
 	"transition",
+	"initialFocus",
+	"guide",
+	"guideAlignment",
 }
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -53,6 +56,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		anchor: GuiObject?
 	): Frame
 		transitions.check(spec.transition)
+		assert(
+			spec.initialFocus == nil or type(spec.initialFocus) == "string" or type(spec.initialFocus) == "function",
+			"Facet.Sheet: initialFocus must be a name or a function that returns one"
+		)
 		local gesture = gestureFor(spec, detent, prepared, request, phase, anchor)
 		local placed, edge, ready, toward = gesture.placed, gesture.edge, gesture.ready, gesture.toward
 		local pulled, painted, keyboard, standing = gesture.pulled, gesture.painted, gesture.keyboard, gesture.standing
@@ -120,7 +127,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			[Compose.group({ "Position", "Size" })] = function(use: ComposeTypes.Use): (UDim2, UDim2)
 				local left, top, right, bottom =
 					pad("left", use), pad("top", use), pad("right", use), pad("bottom", use)
-				return D2.fromOffset(left, top), D2.new(1, -left - right, 0, math.max(0, standing(use) - top - bottom))
+				local height = standing(use) - top - bottom - sheetBody.guideReserve(use)
+				return D2.fromOffset(left, top), D2.new(1, -left - right, 0, math.max(0, height))
 			end,
 		})
 		local panelProps: Types.CanvasGroupNativeProps = {
@@ -151,6 +159,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		}
 		for _, child in { handle, room.frame, ctx.corner(), detector("PanelDrag", "panel") } :: { Instance } do
 			panelProps[#panelProps + 1] = child
+		end
+		if sheetBody.guide then
+			panelProps[#panelProps + 1] = sheetBody.guide
 		end
 		local panel = ctx.fade(panelProps, true)
 		local presentation: GuiObject = panel
@@ -206,6 +217,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				interactive("cancel")
 			end
 		end, {
+			entry = sheetBody.entry,
 			canDismiss = function(use: ComposeTypes.Use)
 				return canDismiss(use)
 			end,

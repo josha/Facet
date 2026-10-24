@@ -34,3 +34,13 @@ confirmation. Discard restores the accepted draft, then closes both surfaces.
 Save keeps the draft pending until the server accepts it; rejection preserves
 the draft and shows the error. See [Tasks.purchase](Tasks.purchase.md) for the
 request and response pattern. Do not mark a draft saved when sending a request.
+
+`initialFocus` is a name, or a function that Facet calls once, with no
+arguments, when the sheet opens and that returns a name or nil. With a
+keyboard or gamepad, the sheet first selects that control, or the first
+shown and enabled control inside an instance of that name, in the body or the
+actions. Content that mounts after the sheet opens, such as collection rows,
+still takes the selection while the player has not moved it. Without it, or when no such control is selectable, it selects the
+body's first control, then the first action, and Close or the grabber only
+when nothing else can be acted on, since Back already closes the sheet. Name
+the item the player most likely wants, such as a recommended product.

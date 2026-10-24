@@ -25,7 +25,10 @@ and `onSelection` colors when a palette of the theme package declares
 `selection`. Otherwise it keeps the selected wash (`controlSelected`).
 
 ShortcutHint takes `keys = { { "Ctrl", "K" } }` or an `action` InputAction. It
-also takes an optional `separator` and `controlSize`. The default separator is
+also takes an optional `separator` and `controlSize`. `cap = false` draws the
+keys or the platform glyph without the key cap (no fill, outline or side
+padding), for a glyph that sits on a button or a panel of its own; the glyph
+keeps the cap's text color. The default separator is
 ` / `. The theme metric `controls.shortcutHint.capStroke` sets the width of the
 cap outline. Without it, the outline is `strokes.hairline`. A value of 0 draws
 no outline.
@@ -41,3 +44,7 @@ on touch. Without a name the hint shows no words for that binding.
 color, such as `label = "Interact"`. `labelPosition` is `end` (the default,
 after the keys) or `start`. With a label, ShortcutHint returns a row Frame that
 holds the keys, named `Keys`, and the `Label`.
+
+For a legend line of commands that have no control of their own, use
+[ButtonGuide](ButtonGuide.reference.md). It draws one hint for each live
+command and shows by input class.

@@ -36,8 +36,11 @@ return function(harness: Verify.Harness)
 		end)
 		local holder: Folder? = nil
 		for _, node in tracking.created do
-			if node:IsA("Folder") and ((node :: unknown) :: Folder).Name == "TravelPortal" then
-				holder = (node :: unknown) :: Folder
+			if node:IsA("Folder") then
+				local folder = (node :: unknown) :: Folder
+				if folder.Name == "TravelPortal" then
+					holder = folder
+				end
 			end
 		end
 		local source = native.new("StyleLink")

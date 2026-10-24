@@ -7,6 +7,23 @@ local Route = require("../tools/play/host/route")
 local Check = require("../tools/play/host/check")
 local Devices = require("../tools/play/host/devices")
 
+local function hostFixture(device: string): QA.QA
+	return QA.create(
+		(
+				{
+					session = {},
+					probe = "probe",
+					outputs = "out",
+					captures = "captures",
+					scratch = "scratch",
+					shots = {},
+					log = function(_message: string) end,
+				} :: unknown
+			) :: QA.Context,
+		Devices.get(device)
+	)
+end
+
 local function fixture(
 	mode: string,
 	flat: boolean,
@@ -319,6 +336,70 @@ return function(harness: Verify.Harness)
 			t:expect(commands):toEqual({ "reveal", "reveal", "tap" })
 		end)
 	end
+	for _, device in { "desktop", "phone-landscape" } do
+		harness:case(device .. " explicit visible tap retains native hit bounds and requires activation", function(t)
+			local qa = hostFixture(device)
+			local query: QA.Query = { role = "button", exact = "Shop", near = "Menu" }
+			local commands: { string } = {}
+			local tapped: boolean? = true
+			local activated: boolean? = true
+			local includeInfo = true
+			qa.call = function(_self: QA.QA, command: string, fields: unknown?): unknown
+				t:expect((fields :: { query: QA.Query }).query):toBe(query)
+				table.insert(commands, command)
+				if command == "reachable" then
+					return { reachable = true }
+				end
+				t:expect(command):toBe("tap")
+				return {
+					tapped = tapped,
+					activated = activated,
+					info = if includeInfo
+						then {
+							path = "Menu.Shop",
+							class = "TextButton",
+							label = "Shop",
+							button = true,
+							selectable = true,
+							interactable = true,
+							rect = { x = 79, y = 317, width = 68, height = 41.667 },
+						}
+						else nil,
+				}
+			end
+			local ok, label, info = qa:tapVisible(query)
+			t:expect(ok):toBe(true)
+			t:expect(label):toBe("Shop")
+			t:expect(assert(info).rect.height):toBe(41.667)
+			t:expect(commands):toEqual({ "reachable", "tap" })
+			activated = false
+			t:expect((qa:tapVisible(query))):toBe(false)
+			activated = nil
+			t:expect((qa:tapVisible(query))):toBe(false)
+			activated, tapped = true, false
+			t:expect((qa:tapVisible(query))):toBe(false)
+			tapped, includeInfo = true, false
+			t:expect((qa:tapVisible(query))):toBe(false)
+		end)
+		harness:case(device .. " explicit visible tap rejects occlusion without sending input", function(t)
+			local qa = hostFixture(device)
+			qa.call = function(_self: QA.QA, command: string, _fields: unknown?): unknown
+				t:expect(command):toBe("reachable")
+				return { reachable = false, reason = "covered by modal" }
+			end
+			local ok, reason, info = qa:tapVisible({ role = "button", exact = "Shop" })
+			t:expect(ok):toBe(false)
+			t:expect(reason):toBe("covered by modal")
+			t:expect(info):toBe(nil)
+		end)
+	end
+	harness:case("explicit visible tap does not replace console selection with pointer input", function(t)
+		local qa = hostFixture("console")
+		qa.call = function(_self: QA.QA, _command: string, _fields: unknown?): unknown
+			error("unexpected native input", 0)
+		end
+		t:expect((qa:tapVisible({ role = "button", exact = "Shop" }))):toBe(false)
+	end)
 	for _, mode in { "mouse", "touch" } do
 		harness:case(mode .. " input preparation sends no selection or key input", function(t)
 			local qa = fixture(mode, true, false, false, false)

@@ -676,6 +676,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingLeft = types.UDim.new(0, 8),
 		PaddingRight = types.UDim.new(0, 8),
 	})
+	rule(".facet-shortcut-hint.facet-shortcut-hint-bare::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+	})
+	rule(".facet-shortcut-hint.facet-shortcut-hint-bare::UIStroke", { Transparency = 1 })
 	rule(".facet-toggle-row", { BackgroundTransparency = 1 })
 	rule(".facet-toggle-row:Hover", { BackgroundTransparency = 1 })
 	rule(".facet-toggle-row:Press", { BackgroundTransparency = 1 })
@@ -1029,7 +1034,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-calendar-chosen-end", { TextColor3 = c("surface") })
 	rule(".facet-skinned", { BackgroundTransparency = 1 })
 
-	for _, slot in { "control", "field", "panel" } do
+	for _, slot in { "control", "field", "panel", "panelTail" } do
 		rule(".facet-skin-art-" .. slot, if extra.artTint then { ImageColor3 = c("artTint") } else {})
 	end
 	for status, role in statusRoles do

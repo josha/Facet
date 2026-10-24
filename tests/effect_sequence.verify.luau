@@ -164,8 +164,11 @@ return function(harness: Verify.Harness)
 		end)
 		local paint: Frame? = nil
 		for _, node in tracking.created do
-			if node:IsA("Frame") and ((node :: unknown) :: Frame).Name == "FlashPaint" then
-				paint = (node :: unknown) :: Frame
+			if node:IsA("Frame") then
+				local frame = (node :: unknown) :: Frame
+				if frame.Name == "FlashPaint" then
+					paint = frame
+				end
 			end
 		end
 		local flash = assert(paint)

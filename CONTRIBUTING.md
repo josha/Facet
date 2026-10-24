@@ -32,7 +32,10 @@ you remove uses. This command refuses to raise a limit.
 ## Verification
 
 1. While you edit, run the targeted behavioral specs.
-2. Run `lute run tools/facet gate full` for a completed change. Read its report,
+2. Run `rokit install --no-trust-check` and `lute run tools/facet types prepare`.
+   Resolve missing dependencies or access before the full run. CI uses the
+   same preparation command.
+3. Run `lute run tools/facet gate full` for a completed change. Read its report,
    including failures and deferrals. A focused run is not full evidence.
 
 `tools/facet/lib/gate.luau` declares every producer as one Verify gate. Verify runs
@@ -132,4 +135,4 @@ Do not add Python or Lune programs.
 
 ## Versioning
 
-`src/init.luau` is the only version authority. Use only the current API. Do not add compatibility shims or a second supported architecture. Describe public behavior changes in the changelog.
+`src/init.luau` is the only version authority. Use only the current API. Do not add compatibility shims or a second supported architecture. Keep documentation focused on current contracts. Describe changes in the pull request, and keep only the latest evaluation evidence in the repository.
