@@ -146,6 +146,50 @@ end, function(state)
 	state.signals[1]:set(1000 + state.n)
 end)
 
+add("reserved-slot-record-update", function()
+	local world = nativeApp()
+	local items: { BenchRow } = {}
+	local slots: { string } = {}
+	for index = 1, 128 do
+		items[index] = { id = `r{index}`, name = `Row {index}` }
+		slots[index] = items[index].id
+	end
+	local rows = Compose.cell(items)
+	local labels: { [string]: TextLabel } = {}
+	local Host = world.runtime.constructors
+	world.runtime.mount(function()
+		local spec: Facet.KeyedCollectionSpec<BenchRow, string> = {
+			from = rows,
+			key = "id",
+			slots = slots,
+			mode = "all",
+			itemSize = 40,
+			render = function(current, _placement, key)
+				local label = Host.TextLabel({
+					Text = function(use: Use): string
+						return use(current).name
+					end,
+				}) :: TextLabel
+				labels[key] = label
+				return label
+			end,
+		}
+		return world.UI.VirtualList(spec)
+	end, world.target)
+	world.frame()
+	return { rows = rows, labels = labels, n = 0, frame = world.frame, dispose = world.dispose }
+end, function(state)
+	state.n += 1
+	local rows = table.clone(state.rows:peek())
+	local index = (state.n - 1) % #rows + 1
+	local previous = rows[index]
+	local name = `Updated {state.n}`
+	rows[index] = { id = previous.id, name = name }
+	state.rows:set(rows)
+	state.frame()
+	assert(state.labels[previous.id].Text == name, "reserved slot did not publish its updated record")
+end, { requirement = "UI-RUNTIME-002", samples = 200, warmup = 20 })
+
 add("mounted-slice-update-storm", function()
 	local world = nativeApp()
 	world.speed, world.n = Compose.cell(0), 0

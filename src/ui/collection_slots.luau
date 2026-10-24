@@ -27,12 +27,26 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 		end)
 	end
 	type SlotRecord = { key: K, item: V? }
+	local itemsByKey = if spec.slots ~= nil
+		then Compose.formula(function(use: ComposeTypes.Use): { [K]: V }
+			local items: { [K]: V } = {}
+			for index, item in source(use) do
+				items[keyOf(item, index)] = item
+			end
+			return items
+		end)
+		else nil
 	local slotSource = Compose.formula(function(use: ComposeTypes.Use): { SlotRecord }
-		local items, result, included = {} :: { [K]: V }, {} :: { SlotRecord }, {} :: { [K]: boolean }
+		local result: { SlotRecord } = {}
 		local rows = source(use)
-		for index, item in rows do
-			items[keyOf(item, index)] = item
+		if itemsByKey == nil then
+			for index, item in rows do
+				result[index] = { key = keyOf(item, index), item = item }
+			end
+			return result
 		end
+		local items = use(itemsByKey)
+		local included: { [K]: boolean } = {}
 		for _, key in read(spec.slots or {}, use) do
 			assert(not included[key], "Facet collection slots must have unique keys")
 			included[key] = true
@@ -71,17 +85,13 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 					key
 				)
 			end
-			local function itemForKey(use: ComposeTypes.Use): V?
-				for index, item in source(use) do
-					if keyOf(item, index) == key then
-						return item
-					end
-				end
-				return nil
-			end
+			local index = assert(itemsByKey)
+			local itemForKey = Compose.formula(function(use: ComposeTypes.Use): V?
+				return use(index)[key]
+			end)
 			local last = record:peek().item
 			local current = Compose.formula(function(use: ComposeTypes.Use): V
-				local item = itemForKey(use)
+				local item = use(itemForKey)
 				if item ~= nil then
 					last = item
 				end
@@ -90,7 +100,7 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 			local recess: GuiObject = ctx.styled(
 				Host.Frame "ReservedSlot" {
 					Visible = function(use: ComposeTypes.Use): boolean
-						return itemForKey(use) == nil
+						return use(itemForKey) == nil
 					end,
 					Interactable = false,
 					Selectable = false,
@@ -129,7 +139,7 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 				BackgroundTransparency = 1,
 				Size = D2.fromScale(1, 1),
 				Compose.show(function(use: ComposeTypes.Use): boolean
-					return itemForKey(use) ~= nil
+					return use(itemForKey) ~= nil
 				end, function()
 					return renderItem(current, placement, key)
 				end),
