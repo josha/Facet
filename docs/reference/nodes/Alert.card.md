@@ -17,3 +17,4 @@ Related controls: [Controls](Controls.md).
 Open:
 
 - [Alert.reference](Alert.reference.md)
+- [Tasks.confirm](Tasks.confirm.md): use a Dialog when the server must accept the choice.

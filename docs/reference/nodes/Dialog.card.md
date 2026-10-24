@@ -18,3 +18,4 @@ Related controls: [Controls](Controls.md).
 Open:
 
 - [Dialog.reference](Dialog.reference.md)
+- [Tasks.confirm](Tasks.confirm.md): a purchase confirmation that stays open until the server answers.
