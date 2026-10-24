@@ -19,7 +19,9 @@ toward the complete brief.
    and return. Include the server behavior that makes the result real. An open
    page, a changed label or a successful tool call does not prove this route.
 3. Start Play after the first persistent implementation. Check Client and Server
-   errors and request a capture. Inspect the returned image at its actual size.
+   errors and the current camera's `ViewportSize`. If the camera stays absent or
+   at 1 by 1, report unavailable native rendering separately from game failures.
+   Request a capture when rendering is ready. Inspect the returned image at its actual size.
    A text response, object bounds or an image from an earlier state does not
    verify the current appearance. Test a short or narrow supported layout before
    copying a layout pattern. Keep a coherent visual language across the world
