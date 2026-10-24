@@ -21,7 +21,8 @@ Presentation options:
 
 `caption` shows text centred below the Button in the caption type role, for
 example the name under a circle icon button in a HUD row. The caption takes
-no space in the layout and can be wider than the Button. In a row of
+no space in the layout and can be wider than the Button. In the bottom row
+of a Composition, Facet reserves the room under the row. In a row of
 captioned Buttons, set `gap` to at least the widest caption minus the Button
 width, for example `gap = "m"` for one-word names under compact circles.
 The caption is a native TextLabel inside the Button. It names the Button for

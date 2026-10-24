@@ -30,6 +30,14 @@ Region measurement, authored sizes and layout boundaries.
   center leaves also count as not fitting. Thus rank decides: a rank 3 corner
   steps down before a rank 1 race bar, and a rank 1 corner keeps its form
   while a rank 2 center region steps down.
+- The `bottomLeft`, `bottom` and `bottomRight` zones share one baseline.
+  Content that hangs below a bottom region, such as a Button `caption` or
+  the shortcut hint on a circle, takes no room in the layout. Facet measures
+  the largest overhang in the bottom row and lifts all three zones by that
+  amount. Thus a captioned circle and a Button of the same height line up on
+  their centres, and the captions stay above the bottom padding. The fit
+  rules count this room as part of the bottom row. A hidden region adds no
+  room.
 - The center-lane zones draw above the side zones (`ZIndex` 2).
   Thus a side region cannot hide a center callout.
 - The zones of one lane must not overlap vertically. The `center` zone stays centred and keeps `gap` from the

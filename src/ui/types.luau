@@ -252,6 +252,7 @@ export type Context = {
 	observe: Observe,
 	observeNative: {
 		AbsoluteContentSize: (UIGridStyleLayout) -> ComposeTypes.Cell<Vector2>,
+		AbsolutePosition: (GuiBase2d) -> ComposeTypes.Cell<Vector2>,
 		AbsoluteSize: (GuiBase2d) -> ComposeTypes.Cell<Vector2>,
 		AbsoluteWindowSize: (ScrollingFrame) -> ComposeTypes.Cell<Vector2>,
 		TextBounds: (TextBox | TextButton | TextLabel) -> ComposeTypes.Cell<Vector2>,
