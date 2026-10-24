@@ -58,6 +58,7 @@ export type ButtonInputOptions = {
 export type ButtonOptions = {
 	caption: Shared.ValueString?,
 	glyph: (() -> GuiObject)?,
+	shortcutHint: InputAction?,
 	selected: Shared.ValueBoolean?,
 	onActivate: ((InputObject?, number?) -> ())?,
 }

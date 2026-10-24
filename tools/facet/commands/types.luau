@@ -349,6 +349,7 @@ local NEGATIVE_PROBES: { { string } } = {
 	{ "Button callback", 'UI.Button({ label = "Save", onActivate = "save" })' },
 	{ "Button size rung", 'UI.Button({ label = "Save", controlSize = "tiny" })' },
 	{ "Button native return", 'local wrong: number = UI.Button({ label = "Save" })' },
+	{ "Button shortcut hint action", 'UI.Button({ label = "Boost", shortcutHint = "Boost" })' },
 	{ "Toggle cell value", 'UI.Toggle({ value = Facet.Compose.cell("on") })' },
 	{
 		"Toggle callback value",

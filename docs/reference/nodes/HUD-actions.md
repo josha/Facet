@@ -29,15 +29,21 @@ Use theme colors with at least 3:1 icon contrast against the circle. Keep the
 Make only interactive controls selectable. Give each Button a label. For a circle,
 use `caption`. The
 caption is a label inside the Button, so the name and the action stay one
-control. A separate Text below the circle is not part of the Button. Set
+control. Facet outlines the caption in the `surface` color, so it reads over
+a bright sky. A separate Text below the circle is not part of the Button. Set
 `SelectionGroup` on the row. Keep activation in `onActivate`. Sheet, Dialog
 and Menu own Back and Cancel.
 
 A Composition is passive: the movement stick and the D-pad drive the game and
 never select a HUD Button. Give each frequent HUD task a game action on a
-gamepad button, and while the gamepad is the input show that action's glyph
-on the Button with `UI.ShortcutHint { action = ..., cap = false }`, so the
-glyph sits on the Button without a second plate. For the other Buttons,
+gamepad button, and set `shortcutHint` to that action:
+
+```luau
+UI.Button "Shop" { icon = "view.grid", shape = "circle", caption = "Shop", shortcutHint = shopAction, onActivate = openShop }
+```
+
+The Button shows the action's glyph on its rim while the device has a binding
+for it, and hides it on touch. For the other Buttons,
 set `GuiService.SelectedObject` to one from a game action. With
 `GuiService.AutoSelectGuiEnabled` (the default), the engine's ButtonSelect
 (View) does this too; the virtual cursor does not. ButtonB returns the

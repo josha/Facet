@@ -126,7 +126,9 @@ Without it (Facet Neutral), each row keeps the 44 pixel floor.
 `strokes.utility`, when it is more than 0, draws an outline of that width on a
 `utility` Button. `controls.shortcutHint.capStroke` sets the width of the
 ShortcutHint cap outline, and 0 removes it. Without it, the cap uses
-`strokes.hairline`. A Notice with the standard appearance pads its content by
+`strokes.hairline`. `controls.button.captionStroke` sets the width of the
+outline on a Button `caption` and on the rim hint of a circle Button, and 0
+removes it. Without it, the outline is 1.5 pixels wide. A Notice with the standard appearance pads its content by
 the `panel` chrome `contentInsets`, and not less than 8 pixels. The layout constructors read the
 spacing steps from `metrics.space` of the theme package of the controls. A
 change to `space.m` changes each `gap` or `padding` that uses the `m` step.

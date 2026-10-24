@@ -1716,6 +1716,96 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		verifyHarness:case("shows a Button's shortcut hint at the trailing edge only while the input has a binding", {
+			id = "native_inputs::native input controls::shows a Button's shortcut hint at the trailing edge only while the input has a binding",
+			run = function()
+				local input: UserInputService
+				local action: InputAction
+				local node, stop, engine = world(function(UI: FacetControls, engine)
+					action = (engine.new("InputAction") :: unknown) :: InputAction
+					return UI.Button({ label = "Boost", icon = "flag", shortcutHint = action })
+				end, function(engine)
+					input = (engine.new("UserInputService") :: unknown) :: UserInputService
+					return { services = { UserInputService = input } }
+				end)
+				local P = engine.types.Enum.PreferredInput
+				local function prefer(kind: EnumItem)
+					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "PreferredInput", kind)
+				end
+				local function bind(binding: unknown)
+					engine.environment.poke((action :: unknown) :: VerifyRoblox.Instance, "PreferredBinding", binding)
+				end
+				local binding = engine.new("InputBinding")
+				binding.KeyCode = engine.types.Enum.KeyCode.ButtonX
+				bind(binding)
+				local content = find(node, "Content")
+				local hint = find(node, "ShortcutHint")
+				Verify.expect(hint.Parent):toBe(content)
+				Verify.expect(hint:HasTag("facet-shortcut-hint-bare")):toBe(true)
+				Verify.expect(find(content, "LeadingIcon") ~= nil):toBe(true)
+				Verify.expect(find(content, "Title").Text):toBe("Boost")
+				for _, child in content:GetChildren() do
+					if child:IsA("GuiObject") and child ~= hint then
+						Verify.expect(child.LayoutOrder < hint.LayoutOrder):toBe(true)
+					end
+				end
+				prefer(P.Gamepad)
+				Verify.expect(hint.Visible):toBe(true)
+				prefer(P.Touch)
+				Verify.expect(hint.Visible):toBe(false)
+				prefer(P.Gamepad)
+				bind(nil)
+				Verify.expect(hint.Visible):toBe(false)
+				bind(binding)
+				Verify.expect(hint.Visible):toBe(true)
+				action.Enabled = false
+				Verify.expect(hint.Visible):toBe(false)
+				action.Enabled = true
+				Verify.expect(hint.Visible):toBe(true)
+				stop()
+
+				local plain, stopPlain = world(function(UI: FacetControls)
+					return UI.Button({ label = "Boost" })
+				end)
+				Verify.expect(plain.Text):toBe("Boost")
+				Verify.expect(find(plain, "ShortcutHint")):toBeNil()
+				Verify.expect(find(plain, "Content")):toBeNil()
+				stopPlain()
+
+				Verify.expect(function()
+					world(function(UI: FacetControls)
+						return UI.Button({ label = "Boost", shortcutHint = ("Boost" :: unknown) :: InputAction })
+					end)
+				end):toThrow("shortcutHint must be a native InputAction")
+			end,
+		})
+		verifyHarness:case("places a circle Button's shortcut hint on its rim beside the icon and caption", {
+			id = "native_inputs::native input controls::places a circle Button's shortcut hint on its rim beside the icon and caption",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls, engine)
+					return UI.Button({
+						name = "Boost",
+						icon = "flag",
+						shape = "circle" :: "circle",
+						caption = "Boost",
+						shortcutHint = (engine.new("InputAction") :: unknown) :: InputAction,
+					})
+				end)
+				local hint = find(node, "ShortcutHint")
+				local rim = 0.5 + 0.5 * math.sqrt(0.5)
+				Verify.expect(hint.Parent):toBe(node)
+				Verify.expect(hint:HasTag("facet-button-outside")):toBe(true)
+				Verify.expect(hint:HasTag("facet-shortcut-hint-bare")):toBe(true)
+				Verify.expect(hint.AnchorPoint):toBe(engine.types.Vector2.new(0.5, 0.5))
+				Verify.expect(math.abs(hint.Position.X.Scale - rim) < 1e-6):toBe(true)
+				Verify.expect(math.abs(hint.Position.Y.Scale - rim) < 1e-6):toBe(true)
+				Verify.expect(find(find(node, "Content"), "ShortcutHint")):toBeNil()
+				Verify.expect(find(find(node, "Content"), "LeadingIcon") ~= nil):toBe(true)
+				Verify.expect(find(node, "Caption"):HasTag("facet-button-outside")):toBe(true)
+				Verify.expect(node.ClipsDescendants):toBe(false)
+				stop()
+			end,
+		})
 		verifyHarness:case("shows numeric validation text with interruptible reduced-motion-aware feedback", {
 			id = "native_inputs::native input controls::shows numeric validation text with interruptible reduced-motion-aware feedback",
 			run = function()

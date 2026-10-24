@@ -9,6 +9,8 @@ export type Pages = {
 	ShortcutHint: PageDefinition,
 	ButtonGuide: PageDefinition,
 	sheetGuide: CatalogTypes.Builder,
+	buttonHint: CatalogTypes.Builder,
+	circleHint: CatalogTypes.Builder,
 }
 
 local function properties(values: Properties): Properties
@@ -85,5 +87,24 @@ return function(shared: Shared): Pages
 	local function sheetGuide(): Properties
 		return { guide = { inputs = { "Gamepad", "KeyboardAndMouse" }, entries = entries() }, guideAlignment = "start" }
 	end
-	return { ShortcutHint = ShortcutHint, ButtonGuide = ButtonGuide, sheetGuide = sheetGuide }
+	local function boost(c: Context): unknown
+		return c.Host.InputAction({
+			Name = "LabBoost",
+			c.Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonX, UIButton = nil }),
+			c.Host.InputBinding({ KeyCode = Enum.KeyCode.B, UIButton = nil }),
+		})
+	end
+	local function buttonHint(c: Context): Properties
+		return { label = "Boost", shortcutHint = boost(c) }
+	end
+	local function circleHint(c: Context): Properties
+		return { shape = "circle", icon = "flag", caption = "Boost", shortcutHint = boost(c) }
+	end
+	return {
+		ShortcutHint = ShortcutHint,
+		ButtonGuide = ButtonGuide,
+		sheetGuide = sheetGuide,
+		buttonHint = buttonHint,
+		circleHint = circleHint,
+	}
 end
