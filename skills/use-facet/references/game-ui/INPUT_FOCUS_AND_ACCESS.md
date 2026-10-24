@@ -51,10 +51,11 @@ to activate a control without taking the keyboard.
 
 A page that replaces gameplay disables the game's gameplay InputContext and
 custom touch actions. If it hides native movement controls, save and restore
-the previous `GuiService.TouchControlsEnabled` value. Register restoration
-with `Compose.cleanup` in the owning page, as in `Tasks.pages`. Close a child
-surface without restoring gameplay while its parent still owns input. A
-visible overlay does not pause the world; the game owns that decision.
+the previous `GuiService.TouchControlsEnabled` value. Use one Compose lifetime
+for the whole active task, as in `Tasks.pages`. Keep it while the navigation
+path is nonempty; replacing a retained page must not release its input policy.
+Close a child surface without restoring gameplay while its parent still owns
+input. A visible overlay does not pause the world; the game owns that decision.
 
 Native InputContext priority and `Sink` resolve competing action bindings;
 disabling the gameplay context makes its ownership explicit. The responder's

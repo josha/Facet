@@ -5,7 +5,58 @@ local Audit = require("../../tools/vendor/verify/src/roblox/ui-audit")
 local Rules = require("../../examples/facet-kart/src/shared/RaceRules")
 local RaceSpace = require("../../tools/play/host/space")
 local Play = require("../../tools/play/host/play")
+local Setup = require("../../tools/facet/lib/facetbench_setup")
+local Json = require("../../tools/facet/lib/json")
 return function(harness: Verify.Harness)
+	harness:case(
+		"Studio-only preparation restricts every declared model without altering the source catalog",
+		function(t)
+			local requested = Setup.authorModels(Json.decode([[{"agents":[
+			{"adapter":"codex","model":"gpt-6-astra"},
+			{"adapter":"codex","model":"gpt-6.1-sol"},
+			{"adapter":"codex","model":"gpt-6-astra"}
+		]}]]))
+			t:expect(#requested):toBe(2)
+			local catalog = Json.decode([[{"models":[
+			{"slug":"gpt-6-astra","apply_patch_tool_type":"freeform","multi_agent_version":"1","experimental_supported_tools":["shell"],"context_window":100},
+			{"slug":"gpt-6.1-sol","apply_patch_tool_type":"freeform","multi_agent_version":"2","experimental_supported_tools":["browser"],"context_window":200},
+			{"slug":"unselected","apply_patch_tool_type":"freeform"}
+		]}]])
+			local before = Json.encode(catalog)
+			local models = assert(Json.arrayField(Setup.restrictCatalog(catalog, requested), "models"))
+			t:expect(#models):toBe(2)
+			for index, model in models do
+				local object = assert(Json.asObject(model))
+				t:expect(Json.stringField(model, "slug")):toBe(requested[index])
+				t:expect(Json.isNull(object.apply_patch_tool_type)):toBe(true)
+				t:expect(Json.isNull(object.multi_agent_version)):toBe(true)
+				t:expect(#assert(Json.arrayField(model, "experimental_supported_tools"))):toBe(0)
+				t:expect(type(Json.field(model, "context_window"))):toBe("number")
+			end
+			t:expect(Json.encode(catalog)):toBe(before)
+		end
+	)
+	harness:case("Studio-only preparation rejects missing or ambiguous model profiles", function(t)
+		for _, source in
+			{
+				[[{"agents":[]}]],
+				[[{"agents":[{"adapter":"codex"}]}]],
+				[[{"agents":[{"adapter":"codex","model":""}]}]],
+				[[{"agents":[{"adapter":"other","model":"gpt-6-astra"}]}]],
+			}
+		do
+			local accepted = pcall(Setup.authorModels, Json.decode(source))
+			t:expect(accepted):toBe(false)
+		end
+		local missing = pcall(Setup.restrictCatalog, Json.decode([[{"models":[]}]]), { "gpt-6-astra" })
+		t:expect(missing):toBe(false)
+		local duplicate = pcall(
+			Setup.restrictCatalog,
+			Json.decode([[{"models":[{"slug":"gpt-6-astra"},{"slug":"gpt-6-astra"}]}]]),
+			{ "gpt-6-astra" }
+		)
+		t:expect(duplicate):toBe(false)
+	end)
 	harness:case("missing universal device cases are a harness error instead of a zero score", function(t)
 		local empty = Verify.createHarness({ now = os.clock })
 		empty:case("workspace/builds", { id = "workspace/builds", run = function() end })
@@ -26,9 +77,9 @@ return function(harness: Verify.Harness)
 				error("small text")
 			end,
 		})
-		t:expect(
+		local acceptedFailure =
 			pcall(Play.validateResults, { ["desktop/universal/hub"] = true }, failed:run({ executor = "regression" }))
-		):toBe(true)
+		t:expect(acceptedFailure):toBe(true)
 		local transport = Verify.createHarness({ now = os.clock })
 		transport:case("desktop/universal/hub", {
 			id = "desktop/universal/hub",
@@ -36,13 +87,12 @@ return function(harness: Verify.Harness)
 				error("harness error: Studio Client call failed: session_lost")
 			end,
 		})
-		t:expect(
-			pcall(
-				Play.validateResults,
-				{ ["desktop/universal/hub"] = true },
-				transport:run({ executor = "regression" })
-			)
-		):toBe(false)
+		local acceptedTransport = pcall(
+			Play.validateResults,
+			{ ["desktop/universal/hub"] = true },
+			transport:run({ executor = "regression" })
+		)
+		t:expect(acceptedTransport):toBe(false)
 	end)
 	harness:case("opaque modal branches hide HUD text without hiding actual text overlaps", function(t)
 		local value = Audit.decode({
@@ -213,7 +263,7 @@ return function(harness: Verify.Harness)
 			background = { color = { r = 0, g = 0, b = 0 }, transparency = 0 },
 		}
 		dump.elements[1] = element
-		local actualJump = { x = 140, y = 10, width = 100, height = 40 }
+		local actualJump: RaceSpace.TouchRect = { x = 140, y = 10, width = 100, height = 40 }
 		element.interactive = true
 		t:expect(RaceSpace.touchControlsClear(dump, { actualJump })):toBe(false)
 		actualJump.x = 300

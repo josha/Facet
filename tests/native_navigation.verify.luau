@@ -564,6 +564,79 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
+		verifyHarness:case(
+			"owns gameplay suspension across destination replacement and restores prior input",
+			function()
+				for _, initiallyEnabled in { true, false } do
+					local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
+					local acquired, released = 0, 0
+					local disposed: { [string]: boolean } = {}
+					local gameplay: InputContext
+					local world = setup(function(UI: FacetControls, _Host: RobloxHost, engine)
+						gameplay = (engine.new("InputContext") :: unknown) :: InputContext
+						gameplay.Enabled = initiallyEnabled
+						local hasPage = Compose.formula(function(use: Compose.Use): boolean
+							return #use(path) > 0
+						end)
+						Compose.watch(function(use: Compose.Use)
+							if use(hasPage) then
+								local previous = gameplay.Enabled
+								gameplay.Enabled = false
+								acquired += 1
+								Compose.cleanup(function()
+									gameplay.Enabled = previous
+									released += 1
+								end)
+							end
+						end)
+						local function destination(name: string): Navigation.NavigationDestination<unknown>
+							return {
+								content = function(): Instance
+									Compose.cleanup(function()
+										disposed[name] = true
+									end)
+									return UI.Button { label = name }
+								end,
+							}
+						end
+						return UI.NavigationStack {
+							path = path,
+							chrome = "hidden",
+							root = {
+								content = function(): Instance
+									return UI.Button { label = "Gameplay" }
+								end,
+							},
+							destinations = { first = destination("first"), second = destination("second") },
+						}
+					end)
+					Verify.expect(gameplay.Enabled):toBe(initiallyEnabled)
+					path:set({ { id = "first" } })
+					world.settle()
+					Verify.expect(gameplay.Enabled):toBe(false)
+					path:set({ { id = "second" } })
+					Verify.expect(disposed.first):toBeNil()
+					Verify.expect(gameplay.Enabled):toBe(false)
+					world.settle()
+					Verify.expect(disposed.first):toBe(true)
+					Verify.expect(gameplay.Enabled):toBe(false)
+					Verify.expect(acquired):toBe(1)
+					Verify.expect(released):toBe(0)
+					path:set({})
+					Verify.expect(disposed.second):toBeNil()
+					Verify.expect(gameplay.Enabled):toBe(initiallyEnabled)
+					Verify.expect(released):toBe(1)
+					world.settle()
+					Verify.expect(disposed.second):toBe(true)
+					path:set({ { id = "first" } })
+					Verify.expect(gameplay.Enabled):toBe(false)
+					Verify.expect(acquired):toBe(2)
+					world.stop()
+					Verify.expect(gameplay.Enabled):toBe(initiallyEnabled)
+					Verify.expect(released):toBe(2)
+				end
+			end
+		)
 		verifyHarness:case("places floating tab tracks and marks inside phone and landscape bounds", {
 			id = "native_navigation::native navigation controls::places floating tab tracks and marks inside phone and landscape bounds",
 			run = function()
