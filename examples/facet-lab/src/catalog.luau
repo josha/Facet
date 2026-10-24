@@ -57,6 +57,7 @@ local function properties(values: Properties): Properties
 end
 
 local nativeGlyph = require("./native_glyph")
+local splitBack = require("./split_back_demo")
 
 local function implied(choices: { [string]: Source }): { [string]: Source }
 	return choices
@@ -2934,13 +2935,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "alwaysShowResizeHandle", values = { true, false } },
 		},
 		states = {
-			{ name = "no Show detail row", props = properties { detailLabel = false } },
-			{
-				name = "page NavBar owns compact Back",
-				props = function(c: Context)
-					return { detailLabel = false, compactBack = c.cell("compactBack", false) }
-				end,
-			},
+			{ name = "compact: Files opens detail, no Show detail row", cellWidth = 380, props = splitBack(false) },
+			{ name = "compact: the detail NavBar owns Back (compactBack)", cellWidth = 380, props = splitBack(true) },
 		},
 	},
 
@@ -2975,7 +2971,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					car = {
 						title = "Car",
 						content = function(entry): Instance
-							return c.UI.Text({ text = `Car details: {entry and entry.value or "?"}` })
+							return c.UI.Button({ label = `Drive {entry and entry.value or "?"}` })
 						end,
 					},
 				},
@@ -2996,6 +2992,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						destinations = {
 							car = {
 								chrome = "hidden",
+								initialFocus = "Drive",
 								content = function(): Instance
 									return c.UI.VStack {
 										width = "fill",
@@ -3007,6 +3004,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 												path:set({})
 											end,
 										},
+										c.UI.Button "Drive" { label = "Drive (initialFocus selects it)" },
 										c.UI.Text {
 											text = "This page uses the whole stack rectangle. Back also uses Escape, B or a right swipe from the left edge.",
 											TextWrapped = true,
