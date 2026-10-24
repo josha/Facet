@@ -2,7 +2,7 @@
 
 Part of [game UI design](../GAME_UI_DESIGN_GUIDE.md).
 
-The look of game UI does two jobs.  It makes information usable, and it makes the interface belong to the world.  Do them in that order: a functional pass that works in grayscale, then a flourish pass that brings in the world.  Put both into the theme, so every surface shares them.
+The look of game UI does two jobs.  The functional layer makes information usable.  The flourish layer makes the interface belong to the world.  When they conflict, the functional layer wins.  Decide both before the first screen and put them in the theme, so every surface shares them from the start.
 
 ## Write the direction first
 
@@ -19,15 +19,15 @@ Before you choose a single color, write the direction in a few words for each ro
 
 A direction is specific.  "Dark with a bright accent" is not a direction; it describes most generic interfaces.  Take each row from the game's world, its objects and its fiction.
 
-Test the type voice.  Set a line from the game, such as "Final lap", in the candidate display face and read it in your head.  Is it loud, playful, precise or solemn?  Choose the face whose voice matches the game.
+Choose the type voice from the face's visible traits.  Rounded ends feel friendly, wide letters feel technical, high-contrast strokes feel formal and brush forms feel handmade.  Set a real line from the game, such as "Final lap", and check it in a capture at its real size.
 
-## The functional pass
+## The functional layer
 
 ### Values and contrast
 
 Compose with four to six values: the backdrop, the surface, a raised plate or control, secondary content, content and the strongest content.  Only the focal content and the focus indicator reach the extremes.  To make one thing stand out, quiet the others: dim what is not selected and lower the contrast of what is locked.  This is emphasis by de-emphasis, and it costs nothing.
 
-Keep body text at 4.5:1 or more against its plate, and large text and essential marks at 3:1 or more.
+Keep body text at 4.5:1 or more against its plate, and large text and essential marks at 3:1 or more.  Check the ladder in numbers before you look at a capture: the theme report lists the contrast of each text pair, and adjacent plates need clearly different lightness.
 
 ### Type
 
@@ -39,19 +39,19 @@ Check digits and colons in the chosen face at small sizes.  Reserve the width of
 
 ### Icons
 
-Use one icon family.  Keep the stroke weight and the corner shape consistent, and count negative space as stroke.  Icons that navigate or command are functional: use a convention that players already know, such as a gear for settings, or add a label.  Decorative icons, such as nodes in a skill tree, can be expressive, because the text beside them names the item.  An icon does not need to depict its effect literally; the label explains the effect.  Draw and check each icon at the size it appears, and remove detail that turns to noise.  Keep a glyph at 3:1 or more against its plate.  `Icons.names` lists Facet's built-in glyphs, and a theme package can supply its own icon set.
+Use one icon family.  Keep the stroke weight and the corner shape consistent, and count negative space as stroke.  Icons that navigate or command are functional: use a convention that players already know, such as a gear for settings, or add a label.  Decorative icons, such as nodes in a skill tree, can be expressive, because the text beside them names the item.  An icon does not need to depict its effect literally; the label explains the effect.  Check each icon at the size it appears.  When you generate custom icon art, design it for that size and remove detail that turns to noise.  Keep a glyph at 3:1 or more against its plate.  `Icons.names` lists Facet's built-in glyphs, and a theme package can supply its own icon set.
 
 ### Space and alignment
 
 Use the theme's space tokens for every gap and padding, and one gutter for page margins.  Align text on shared edges and comparable numbers on one line.  Separate groups with space first.  A box around every fact flattens the hierarchy.
 
-## The flourish pass
+## The flourish layer
 
 ### Color
 
 Choose one accent, at most two.  Use it for focus, the primary action and the current selection.  Do not use it on every button or border.  The accent becomes the game's signature, because it sits on what the player looks at most.
 
-Tint the neutral values toward the world's palette and keep each value's lightness.  Desaturate the result to check that the ramp still matches the grayscale pass.  Keep danger, success and warning in hues distinct from the accent, and pair each one with an icon or a word.  Avoid distinctions that depend only on red and green.
+Tint the value ladder toward the world's palette, and keep each step's lightness so the ladder still separates without hue.  Keep danger, success and warning in hues distinct from the accent, and pair each one with an icon or a word.  Avoid distinctions that depend only on red and green.
 
 Choose light or dark plates from the world, not by habit.  A sunny world can carry light plates; a night world suits dark ones.  Over 3D gameplay, plates need a consistent separation from the scene in both cases.
 
@@ -102,10 +102,10 @@ The repository's example themes show how far a package can go.  Fantasy Ornate f
 
 ## Check the look
 
-- Desaturate a capture.  The focal area, the selection and the primary action still lead.
+- Judge a capture by lightness and size, ignoring hue.  The focal area, the selection and the primary action still lead.  With an image tool, desaturate the capture to confirm.
 - Place each HUD element over the brightest and the darkest scene.
 - View the result at its real size and distance: a television from across the room, a handheld at about 30 cm.
 - Run the longest translation and the largest text setting.
-- Ask whether the screen could belong to another game.  If it could, the flourish pass is not done.
+- Ask whether the screen could belong to another game.  If it could, the flourish is missing.
 
 Read `Tasks.theme` for a working package and `Theme-identity` for mapping a direction to roles.  Read `Themes.palette`, `Themes.metrics`, `Themes.chrome` and `Themes.skin` for the exact options.

@@ -9,7 +9,7 @@ Read this guide once before you design.  It moves from principles to the whole g
 1. **Serve play.**  Players came to play the game, not to operate its interface.  Keep the challenge the game intends and remove every difficulty the UI adds by accident.
 2. **Speak a language players already know.**  Use the conventions of the genre and the platform: a vertical pause list, confirm on A and back on B, a loadout with the character among its slots.  Depart from a convention only when the player gains something they can feel.
 3. **Direct attention.**  Each state has one focal point and one likely next action.  Contrast, size, color and motion are a budget.  When everything stands out, nothing does.
-4. **Function first, then flourish.**  A surface must work in grayscale first: its layout, flow, type, icons and contrast.  Then add color, shape, pattern and material until it is unmistakably this game's.
+4. **Function before flourish.**  Layout, flow, type, icons and contrast must work before decoration counts, and they win when the two conflict.  Hierarchy comes from lightness, size and space, so it holds without color.  The flourish of color, shape, pattern and material then makes it unmistakably this game's.
 5. **Design every state.**  Game UI changes constantly.  Design full and empty, the first visit and the hundredth, the longest translation, a slow network and a refused request.  One polished screenshot is not a design.
 6. **Answer every input and tell the truth.**  Acknowledge each input at once.  Show progress honestly and show only results the game accepted.  Make cancellation, failure and recovery predictable.
 7. **Fit every way of playing.**  Room, physical readability, input and access needs vary independently.  Design for the most constrained case first.  Roomier and more precise contexts add to that route; they never replace it.
@@ -80,7 +80,7 @@ Readability is physical.  For Steam Deck Verified, Valve requires the smallest c
 
 ## Map the flow
 
-Draw the flow before you design a screen.  List the places the player goes: play, preparation, shared decisions, results, learning and settings.  Connect them with the inputs that move between them.
+Write the flow down before you build a screen.  List the places the player goes: play, preparation, shared decisions, results, learning and settings.  For each place, note its entry, its exit and the inputs that connect it to the others.
 
 - A **linear** flow moves through fixed steps, such as choose, confirm, play and results.  Each step has one obvious next action and a way back.
 - A **hub** offers several destinations from one place.  Peer destinations that players revisit become tabs.  Launch points become a list or tiles.  A destination can hold a hub of its own.
@@ -136,7 +136,7 @@ Decide what the player notices first, second and third.  The subject (the object
 
 ### Group, align and balance
 
-Put related facts close together, and separate groups with space before you add boxes.  Align comparable values so the eye compares them along one line.  Use one spacing scale everywhere: the theme's space tokens.  Balance the margins so opposing margins match.  To check balance, flip a capture: a balanced surface still looks stable mirrored or upside down.  Strong outlines mark the selection or the action, not every container.
+Put related facts close together, and separate groups with space before you add boxes.  Align comparable values so the eye compares them along one line.  Use one spacing scale everywhere: the theme's space tokens.  Balance the margins so opposing margins match.  Check them from the measured bounds of the groups, not by eye alone.  Strong outlines mark the selection or the action, not every container.
 
 ### Rank the actions
 
@@ -154,25 +154,27 @@ Facet: VStack, HStack, Grid and ZStack express reading order and layering.  Adap
 
 ## Build the visual language
 
-Build the look in two passes.  The functional pass makes the surface usable.  The flourish pass makes it belong to this game.  Start the second pass only when the first one works.
+Decide the whole look before the first screen, then build in full color.  Write the direction, define the complete theme from it, and build every surface on that theme.  The theme is data: a change to it restyles every surface at once, so a gray draft is wasted work.
 
-The functional pass:
+The look has two layers.  The functional layer makes surfaces usable, and the flourish layer makes them belong to this game.  When the two conflict, the functional layer wins.
 
-1. **Values.**  Compose with four to six neutral values, from the background to the strongest content.  Only the focal content and the focus indicator reach the extremes.  Desaturate a capture: if the hierarchy disappears, color is doing work that contrast should do.
+The functional layer:
+
+1. **Values.**  Make the theme's plates and content a ladder of four to six clearly separate lightness steps, from the background to the strongest content.  Only the focal content and the focus indicator reach the extremes.  Lightness, size and space carry the hierarchy; hue only reinforces it.
 2. **Type.**  Use one plain, readable family for body text.  A display face can carry personality in titles and large numbers.  Use a few sizes and keep the meaning of each across the whole game.
-3. **Icons.**  Use one family with a consistent stroke and shape.  Icons that navigate or command must be familiar or labeled.  Decorative icons can be expressive.  Check each icon at the size it appears.
+3. **Icons.**  Use one family: Facet's built-in glyphs or the theme's own set.  Icons that navigate or command must be familiar or labeled.  Decorative icons can be expressive.  Check each icon at the size it appears.
 
-The flourish pass:
+The flourish layer:
 
-4. **Accent.**  Choose one accent color, at most two, for focus, the primary action and the current selection.  It becomes the game's signature.  Tint the neutral values toward the world's palette and keep their contrast.  Keep danger, success and warning distinct from the accent, and never let color alone carry a state.
+4. **Accent.**  Choose one accent color, at most two, for focus, the primary action and the current selection.  It becomes the game's signature.  Tint the value ladder toward the world's palette and keep each step's lightness.  Keep danger, success and warning distinct from the accent, and never let color alone carry a state.
 5. **Shape, pattern and material.**  Take them from the game's setting, era and tone: chunky rounded plastic for a toy racer, cut corners and scan lines for a cockpit, parchment and ink for an expedition.  Apply them to frames, corners, headers, backgrounds and transitions.  Never put a pattern under text at a contrast that hurts reading.
 6. **Motion character.**  Tune timing to the world: bouncy for a toy box, crisp for an instrument panel.
 
 UI over gameplay sits on a scene that moves and changes brightness.  Protect it with a backing panel, a stroke, a shadow under light marks or a container.  Test it over the brightest and the darkest places in the game.
 
-A palette alone is not an identity.  Two racing games should not look alike: they differ in shape, type, material and motion, not only in hue.  If a screen could belong to another game, the flourish pass is not done.
+A palette alone is not an identity.  Two racing games should not look alike: they differ in shape, type, material and motion, not only in hue.  If a screen could belong to another game, the flourish is missing.
 
-Facet: the theme owns paint, type, spacing, shape and motion.  Set its values, type and icons before the first screen, and add the flourish once that screen works.  `Facet.themes.define` takes palette roles, typography per role, metrics such as radii and strokes, chrome art for panels, controls, bars and focus, and extra StyleSheet rules.  Read the [visual language chapter](game-ui/VISUAL_LANGUAGE.md), then `Tasks.theme` and `Theme-identity`.
+Facet: the theme owns paint, type, spacing, shape and motion.  `Facet.themes.define` takes palette roles, typography per role, metrics such as radii and strokes, chrome art for panels, controls, bars and focus, and extra StyleSheet rules.  Read the [visual language chapter](game-ui/VISUAL_LANGUAGE.md), then `Tasks.theme` and `Theme-identity`.
 
 ## Choose elements by the decision
 
@@ -237,9 +239,9 @@ Each section above names the Facet mechanism for its level.  Use the native engi
 ## Verify like a player
 
 1. **Build one connected task first.**  Use real labels, art and data.  Go from the entry through the decision, commitment and feedback to the return, including cancellation and rejection.  Test its most constrained context before you repeat the pattern.
-2. **Look at it.**  Inspect captures at the intended viewing size.  The first glance shows the subject, its state and the next action.  Desaturate the capture and check that the hierarchy survives.  Check alignment, clipping and text over the brightest and darkest scenes.
+2. **Look at it.**  Inspect captures at the intended viewing size.  The first glance shows the subject, its state and the next action.  Judge the hierarchy by lightness and size, ignoring hue; with an image tool, desaturate the capture to confirm.  Check alignment, clipping and text over the brightest and darkest scenes.
 3. **Operate it.**  Use pointer, touch and gamepad at wide, narrow and short sizes.  Change the input and the viewport while the task is open.  Try the largest text setting and reduced motion.  Return to play and check input and focus.
-4. **Watch a player.**  When you can, have an unfamiliar player find the task, predict the action, complete it and explain the result without coaching.  Fix the causes of hesitation, wrong turns and missed feedback.  An agent's walkthrough finds gaps; it does not show what players prefer.
+4. **Play it cold.**  Start from play with real input and no prior knowledge of the route.  At each step, the next action must be visible and its result clear.  A reviewer with fresh context finds what the author no longer sees.  An agent's walkthrough finds gaps, but only players show what they prefer, so report what a playtest should watch.
 5. **Report the evidence.**  Keep technical checks, visual review, input tests and player observations separate.  Name the build, device, inputs and paths you tested.  A capture proves appearance, not reachability, and a simulated size does not prove readability on a physical handheld.
 
 Fix a shared layout or control cause before you copy the pattern elsewhere.
