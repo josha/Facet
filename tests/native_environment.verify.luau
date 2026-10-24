@@ -1606,11 +1606,13 @@ return function(verifyHarness: Verify.Harness)
 					local strip = w.engine.new("ScrollingFrame")
 					strip.Parent = screen
 					strip.ScrollingDirection = w.Enum.ScrollingDirection.X
-					strip.AbsolutePosition, strip.AbsoluteWindowSize = V.new(0, 0), V.new(400, 50)
+					w.engine.environment.poke(strip, "AbsolutePosition", V.new(0, 0))
+					w.engine.environment.poke(strip, "AbsoluteWindowSize", V.new(400, 50))
 					strip.AbsoluteCanvasSize = V.new(700, 50)
 					local segment = w.engine.new("TextButton")
 					segment.Parent = strip
-					segment.AbsolutePosition, segment.AbsoluteSize = V.new(320, 3), V.new(80, 44)
+					w.engine.environment.poke(segment, "AbsolutePosition", V.new(320, 3))
+					w.engine.environment.poke(segment, "AbsoluteSize", V.new(80, 44))
 					w.gui.SelectedObject = segment
 					Verify.expect(strip.CanvasPosition.X):toBe(80)
 					Verify.expect(strip.CanvasPosition.Y):toBe(0)

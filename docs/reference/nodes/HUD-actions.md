@@ -13,8 +13,8 @@ ScreenGui for the HUD.
 
 ## Size and position
 
-When using icon circles, use `controlSize = "regular"` for primary navigation. Reserve
-`compact` for secondary actions. Size primary thumb actions from
+Give primary navigation circles `controlSize = "regular"`. Reserve `compact`
+for secondary actions. Size primary thumb actions from
 `UI.environment().thumbTarget`. Give the row a bottom
 padding, such as `padding = captionRoom` with
 `local captionRoom: Facet.Sides = { bottom = "l" }`. A caption takes no space
@@ -22,7 +22,7 @@ in the layout, so this padding keeps it clear of the readouts below. Set the
 row `gap` to at least the widest caption minus the circle width.
 
 Use theme colors with at least 3:1 icon contrast against the circle. Keep the
-3D view clear: the corner zones hold the HUD and the centre stays open.
+centre of the 3D view open.
 
 In the top bar strip (`zone = "topbar"`), match Roblox's row of icon buttons:
 use an icon circle with a familiar glyph and a `name`, or an icon with a short
@@ -32,9 +32,8 @@ buttons are; `compact` is 36 pixels with a pointer. Composition `padding = "m"`
 
 ## Selection and input
 
-Make only interactive controls selectable. Give each Button a label. For a circle,
-use `caption`. The
-caption is a label inside the Button, so the name and the action stay one
+Make only interactive controls selectable. Give each Button a label; a circle
+uses `caption`, a label inside the Button, so the name and the action stay one
 control. Facet outlines the caption in the `surface` color, so it reads over
 a bright sky. A separate Text below the circle is not part of the Button. Set
 `SelectionGroup` on the row. Keep activation in `onActivate`. Sheet, Dialog
@@ -56,17 +55,15 @@ set `GuiService.SelectedObject` to one from a game action. With
 selection to the game, and so does pressing a HUD command that opens no
 surface, so the player can press Boost and keep driving. Test each route in Studio with the Controller Emulator.
 
-Check desktop, both phone orientations, tablet and console in Studio. Check
-every label, icon, touch control and gamepad selection path. Do not infer live
-engine behavior from a native engine double.
+Check desktop, both phone orientations, tablet and console in Studio: every
+label, icon, touch control and gamepad selection path.
 
 ## Readouts
 
 Put readouts on a stack with `surface = "panel"`, so they read over any scene.
 Give the main resource value `textRole = "numeral"`; use `caption` for its
 currency label, rate or explanation. Keep the number separate from secondary
-progress and status. Check that the value and action labels remain legible at the
-full desktop viewport, as well as on a phone.
+progress and status. Check that the value and action labels stay legible on desktop and on a phone.
 Use short numbers (`Facet.format.compact`, such as `1.18K`) on the HUD and full
 numbers in panels. A bar `ProgressView` in a hug stack needs a width. Put a
 timer in its action caption, such as "Offer 24:51". Set the HUD cells from the
