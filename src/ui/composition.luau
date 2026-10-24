@@ -403,7 +403,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local stripLanes = 1 + (if leadsAny then 1 else 0) + (if trailsAny then 1 else 0)
 		local function stripEnd(use: ComposeTypes.Use): number
 			local value = read(base, use)
-			local right: Types.Space? = if type(value) == "table" then (value :: Types.Sides).right else value :: Types.Space
+			local right: Types.Space? = if type(value) == "table"
+				then (value :: Types.Sides).right
+				else value :: Types.Space
 			return math.max(kit.spacing(gap, use), kit.spacing(right, use))
 		end
 		local function landingFrame(name: string, alignment: Enum.HorizontalAlignment): Frame
