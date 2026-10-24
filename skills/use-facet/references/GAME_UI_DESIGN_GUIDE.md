@@ -66,6 +66,11 @@ Keep a short choice near its source when it fits. Give a sustained task a page
 or in-world station with enough room and a clear return. Replace unrelated HUD
 groups; retain needed context, such as balance beside cost.
 
+Use a Sheet for temporary, modal focus over the game: a confirm, a quick pick or
+a short glance. When a destination such as a store or garage is a new mode that
+replaces play for a while, use a page with a Screen `surface`. Its plate reaches
+the glass.
+
 Keep frequent safe actions direct. Add review or recovery in proportion to
 consequence. Disclose optional detail without hiding commitment terms. A
 confirmation does not repair an ambiguous label or adjacent targets.

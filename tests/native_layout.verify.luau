@@ -10,6 +10,7 @@ return function(verifyHarness: Verify.Harness)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 	type Readable<T> = { peek: (Readable<T>) -> T }
 	type Use = <T>(Readable<T>) -> T
+	type GlassBands = { width: number, height: number, top: number, left: number, bottom: number, right: number }
 
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
@@ -1596,6 +1597,185 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(inner.PaddingLeft):toBe(T.UDim.new(0, 0))
 					stop()
 					runtime:dispose()
+				end,
+			})
+
+			local PORTRAIT: GlassBands = { width = 390, height = 844, top = 106, left = 0, bottom = 34, right = 0 }
+
+			local function glassWorld(bands: GlassBands, build: (FacetControls) -> Frame)
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local T = engine.types
+				local gui = engine.new("GuiService")
+				local service = (gui :: unknown) :: VerifyRoblox.Instance
+				local function guiInset(_self: VerifyRoblox.Instance): (Vector2, Vector2)
+					return T.Vector2.new(bands.left, bands.top), T.Vector2.new(bands.right, bands.bottom)
+				end
+				local function insetArea(_self: VerifyRoblox.Instance, inset: Enum.ScreenInsets): Rect
+					if inset == T.Enum.ScreenInsets.None then
+						return T.Rect.new(0, 0, bands.width, bands.height)
+					end
+					return T.Rect.new(bands.left, bands.top, bands.width - bands.right, bands.height - bands.bottom)
+				end
+				engine.environment.fakeOn(service, "GetGuiInset", guiInset)
+				engine.environment.fakeOn(service, "GetInsetArea", insetArea)
+				engine.environment.poke(service, "TopbarInset", T.Rect.new(0, 0, bands.width, bands.top))
+				local UI = Facet.controls(runtime, {
+					types = T,
+					guiService = gui,
+					motionLevel = "none",
+					services = { GuiService = gui },
+				})
+				local layer = engine.new("ScreenGui")
+				layer.ScreenInsets = T.Enum.ScreenInsets.CoreUISafeInsets
+				layer.ClipToDeviceSafeArea = true
+				local wide, tall = bands.width - bands.left - bands.right, bands.height - bands.top - bands.bottom
+				local safe = T.Vector2.new(wide, tall)
+				engine.environment.poke(layer, "AbsoluteSize", safe)
+				local built: Frame? = nil
+				local stop = runtime.mount(function()
+					local node = build(UI)
+					built = node
+					return node
+				end, layer)
+				local function poke(node: Instance, property: string, value: unknown)
+					engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, property, value)
+				end
+				return {
+					T = T,
+					layer = layer,
+					root = assert(built),
+					safe = safe,
+					poke = poke,
+					stop = function()
+						stop()
+						runtime:dispose()
+					end,
+				}
+			end
+
+			verifyHarness:case("paints a surface Screen to the glass at its safe edges and keeps the content safe", {
+				id = "native_layout::Screen::paints a surface Screen to the glass at its safe edges and keeps the content safe",
+				run = function()
+					local world = glassWorld(PORTRAIT, function(UI: FacetControls): Frame
+						return UI.Screen "Shop" { surface = "surface", UI.Text { text = "Shop" } }
+					end)
+					local T, corner = world.T, 8
+					world.poke(world.root, "AbsoluteSize", world.safe)
+					local glass = world.root:FindFirstChild("Glass") :: Instance
+					local backdrop = world.root:FindFirstChild("Backdrop", true) :: Frame
+					Verify.expect(glass:IsA("Folder")):toBe(true)
+					Verify.expect((backdrop:IsDescendantOf(glass))):toBe(true)
+					Verify.expect((backdrop:HasTag("facet-surface"))):toBe(true)
+					Verify.expect(backdrop.ZIndex):toBe(0)
+					Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(-corner, -106 - corner))
+					Verify.expect(backdrop.Size):toBe(T.UDim2.new(1, 2 * corner, 1, 106 + 34 + 2 * corner))
+					local padding = world.root:FindFirstChildWhichIsA("UIPadding") :: UIPadding
+					Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
+					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 16))
+					Verify.expect(padding.PaddingLeft):toBe(T.UDim.new(0, 16))
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					world.stop()
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+				end,
+			})
+
+			verifyHarness:case("ends the surface plate at the screen bounds away from the safe edges", {
+				id = "native_layout::Screen::ends the surface plate at the screen bounds away from the safe edges",
+				run = function()
+					local world = glassWorld(PORTRAIT, function(UI: FacetControls): Frame
+						return UI.VStack {
+							UI.Screen "Plain" { padding = 0 },
+							UI.Screen "Painted" { surface = "surface" },
+						}
+					end)
+					local T, corner = world.T, 8
+					local V2 = T.Vector2
+					local plain = world.root:FindFirstChild("Plain") :: Frame
+					local painted = world.root:FindFirstChild("Painted") :: Frame
+					world.poke(painted, "AbsolutePosition", V2.new(100, 50))
+					world.poke(painted, "AbsoluteSize", V2.new(200, 300))
+					local backdrop = painted:FindFirstChild("Backdrop", true) :: Frame
+					Verify.expect((plain:FindFirstChild("Glass"))):toBeNil()
+					Verify.expect((plain:FindFirstChild("Backdrop", true))):toBeNil()
+					Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(0, 0))
+					Verify.expect(backdrop.Size):toBe(T.UDim2.fromScale(1, 1))
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					world.poke(painted, "AbsolutePosition", V2.new(0, 50))
+					Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(-corner, 0))
+					Verify.expect(backdrop.Size):toBe(T.UDim2.new(1, corner, 1, 0))
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					world.poke(painted, "AbsolutePosition", V2.new(0, 0))
+					Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(-corner, -106 - corner))
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					world.stop()
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					local wrong = refusal(function(UI: FacetControls)
+						return UI.Screen(({ surface = "card" } :: unknown) :: Facet.ScreenProps)
+					end)
+					Verify.expect(mentions(wrong, "surface must be surface, panel or pane")):toBe(true)
+				end,
+			})
+
+			verifyHarness:case("follows a landscape cutout on either side with the surface plate", {
+				id = "native_layout::Screen::follows a landscape cutout on either side with the surface plate",
+				run = function()
+					for _, side in { { left = 47, right = 0 }, { left = 0, right = 47 } } do
+						local landscape: GlassBands = {
+							width = 844,
+							height = 390,
+							top = 58,
+							left = side.left,
+							bottom = 21,
+							right = side.right,
+						}
+						local world = glassWorld(landscape, function(UI: FacetControls): Frame
+							return UI.Screen { surface = "surface", UI.Text { text = "Garage" } }
+						end)
+						local T, corner = world.T, 8
+						world.poke(world.root, "AbsoluteSize", world.safe)
+						local backdrop = world.root:FindFirstChild("Backdrop", true) :: Frame
+						local wide = side.left + side.right + 2 * corner
+						Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(-side.left - corner, -58 - corner))
+						Verify.expect(backdrop.Size):toBe(T.UDim2.new(1, wide, 1, 58 + 21 + 2 * corner))
+						local padding = world.root:FindFirstChildWhichIsA("UIPadding") :: UIPadding
+						Verify.expect(padding.PaddingLeft):toBe(T.UDim.new(0, 16))
+						Verify.expect(padding.PaddingRight):toBe(T.UDim.new(0, 16))
+						Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
+						world.stop()
+					end
+				end,
+			})
+
+			verifyHarness:case("shares the device clipping lease between a surface Screen and a modal", {
+				id = "native_layout::Screen::shares the device clipping lease between a surface Screen and a modal",
+				run = function()
+					local open = Compose.cell(false)
+					local world = glassWorld(PORTRAIT, function(UI: FacetControls): Frame
+						return UI.Screen {
+							surface = "surface",
+							UI.Alert "Confirm" {
+								isPresented = open,
+								title = "Buy?",
+								actions = { { id = "ok", label = "OK" } },
+							},
+						}
+					end)
+					local V2 = world.T.Vector2
+					world.poke(world.root, "AbsoluteSize", world.safe)
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					open:set(true)
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					open:set(false)
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					world.poke(world.root, "AbsolutePosition", V2.new(0, 40))
+					world.poke(world.root, "AbsoluteSize", V2.new(390, 600))
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					open:set(true)
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					open:set(false)
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					world.stop()
 				end,
 			})
 		end)

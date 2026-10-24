@@ -20,12 +20,10 @@ local function pages(app: Facet.App, title: string,
 			return hud(function() path:set({ { id = "task" } }) end)
 		end },
 		destinations = { task = { initialFocus = "Body", content = function()
-			return UI.VStack "Surface" { surface = "surface", width = "fill", height = "fill",
-				UI.Screen "Task" {
-					UI.NavBar { title = title, onBack = back, trailing = UI.Button { label = "Close",
-						appearance = "utility", onActivate = function() path:set({}) end } },
-					UI.VStack "Body" { width = "fill", height = "fill", UI.fill(), body(back) },
-				},
+			return UI.Screen "Task" { surface = "surface",
+				UI.NavBar { title = title, onBack = back, trailing = UI.Button { label = "Close",
+					appearance = "utility", onActivate = function() path:set({}) end } },
+				UI.VStack "Body" { width = "fill", height = "fill", UI.fill(), body(back) },
 			}
 		end } },
 	}
@@ -35,6 +33,7 @@ end
 The [HUD](Tasks.hud.md) opener and gamepad command share the callback.
 NavigationStack owns motion and return focus; focus starts in the body, not on
 Close. Close returns to gameplay; NavBar Back follows the body's `back`.
+The Screen surface reaches the glass; the NavBar and body stay safe.
 
 suspendGameplay disables the game's InputContext, custom touch commands and
 GuiService.TouchControlsEnabled. Its returned function restores their prior

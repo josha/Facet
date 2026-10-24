@@ -17,6 +17,7 @@ local stackProps: Facet.StackProps =
 	{ Name = "Toolbar", maxWidth = 480, gap = "m", padding = { left = "xs", top = 4 }, align = "center" }
 local screen: Frame = UI.Screen({
 	maxWidth = 640,
+	surface = "surface",
 	gap = gap,
 	padding = "l",
 	distribute = "spaceBetween",

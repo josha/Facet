@@ -28,6 +28,7 @@ export type StackOptions = {
 }
 export type ScreenOptions = {
 	chrome: ("device" | "band" | "edge")?,
+	surface: ("surface" | "panel" | "pane")?,
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
 	maxWidth: Types.ValueNumber?,

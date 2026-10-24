@@ -57,7 +57,9 @@ page stays until its motion completes. It cannot be interacted with, and it
 cannot hold the selection. While a page moves, both pages are opaque. Each page
 gets the background color of the nearest opaque container of the stack. A
 separate black shade frame dims the covered page from 0 to 0.1 opacity. The page
-content does not change its transparency. At rest, the pages are transparent. The default motion is a critically damped Compose
+content does not change its transparency. At rest, the pages are transparent. A stack that fills its ScreenGui does not
+clip the moving pages, so a Screen `surface` stays on the glass while the page
+slides. The default motion is a critically damped Compose
 spring. `transition = { seconds, ease }` replaces the slide with a crossfade
 that uses those Compose tween options.
 `transition = false` disables motion. The pages that are present when the

@@ -4890,6 +4890,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {
 			{ name = "chrome band", props = properties { chrome = "band" } },
 			{ name = "chrome edge", props = properties { chrome = "edge" } },
+			{ name = "surface (reaches the glass at safe edges)", props = properties { surface = "surface" } },
 			{ name = "gap l", props = properties { gap = "l" } },
 			{ name = "fixed 300×200 (width/height)", props = properties { width = 300, height = 200 } },
 		},
@@ -4913,6 +4914,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			end
 			table.insert(p, UI.Text(merged(plain, { text = "Screen title (first child)", textRole = "heading" })))
 			table.insert(p, UI.Text(merged(plain, { text = facts, textRole = "caption" })))
+			if p.surface then
+				table.insert(p, require("./full_bleed_demo")(c))
+			end
 			table.insert(p, UI.ScrollView(rows))
 			table.insert(p, UI.Button({ label = "Continue (last child, stays pinned)", appearance = "emphasis" }))
 			local screen = UI.Screen(p)

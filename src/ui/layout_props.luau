@@ -166,6 +166,7 @@ export type ScreenProps = {
 	Style: typeof(frame.Style),
 	ref: typeof(frame.ref),
 	chrome: typeof(screen.chrome),
+	surface: typeof(screen.surface),
 	padding: typeof(screen.padding),
 	width: typeof(screen.width),
 	maxWidth: typeof(screen.maxWidth),

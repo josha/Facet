@@ -24,7 +24,8 @@ script.Destroying:Connect(app.dispose)
 
 Facet.app uses CoreUISafeInsets and disables fullscreen compatibility
 expansion. This clears device cutouts and core UI, not movement or action
-buttons. Modal scrim paint covers the screen; dismissal stays in the safe area.
+buttons. Modal scrim paint and a Screen `surface` cover the screen; dismissal
+and content stay in the safe area.
 
 Keep game-owned HUD and controls in one Composition. For persistent game
 chrome outside it, bind Screen.padding to the game's known clearance in
