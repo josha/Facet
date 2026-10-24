@@ -3331,6 +3331,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "square artwork", props = properties { imageAspectRatio = 1 } },
 			{ name = "fit framing", props = properties { imageFraming = "fit" } },
 			{ name = "informational (no body action)", props = properties { onActivate = NONE } },
+			{ name = "no actions (ends at the body)", props = properties { primaryAction = NONE, menu = NONE } },
 			{
 				name = "badges",
 				props = properties {
@@ -3944,6 +3945,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 			{ name = "cross gap 16", props = properties { crossGap = 16 } },
 			{ name = "hug", props = require("./hug_state")(ROWS, NONE) },
+			{ name = "selected cards", props = require("./card_selection_state")(ART) },
 		},
 	},
 	RowActions = {

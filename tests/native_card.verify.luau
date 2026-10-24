@@ -328,6 +328,20 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(function()
 					mount({ image = "rbxassetid://1", title = "Coins", badges = { leading = { text = "New" } } })
 				end):toThrow("badges.leading has the unknown field 'text'")
+				Verify.expect(function()
+					mount({ image = "rbxassetid://1", title = "Coins", badges = { leading = { status = "accent" } } })
+				end):toThrow("badges.leading needs a label, or an icon and a name")
+				Verify.expect(function()
+					mount({ image = "rbxassetid://1", title = "Coins", badges = { trailing = { icon = "checkmark" } } })
+				end):toThrow("badges.trailing needs a label, or an icon and a name")
+				local marked = mount({
+					image = "rbxassetid://1",
+					title = "Coins",
+					badges = { trailing = { icon = "checkmark", name = "Verified" } },
+				})
+				local mark = marked.find("Trailing"):FindFirstChildWhichIsA("GuiObject")
+				Verify.expect(mark ~= nil and mark.Visible):toBe(true)
+				marked.stop()
 			end,
 		})
 

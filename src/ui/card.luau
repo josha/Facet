@@ -86,9 +86,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			for corner, badge in (badges :: unknown) :: { [string]: unknown } do
 				assert(CORNER_KEYS[corner], `Facet UI.Card: badges has the unknown field '{corner}'`)
 				assert(type(badge) == "table", `Facet UI.Card: badges.{corner} must be a table`)
-				for key in (badge :: unknown) :: { [string]: unknown } do
+				local fields = (badge :: unknown) :: { [string]: unknown }
+				for key in fields do
 					assert(BADGE_KEYS[key], `Facet UI.Card: badges.{corner} has the unknown field '{key}'`)
 				end
+				assert(
+					fields.label ~= nil or (fields.icon ~= nil and nonempty(fields.name)),
+					`Facet UI.Card: badges.{corner} needs a label, or an icon and a name`
+				)
 			end
 		end
 		local checks = values(ctx, "Card")
