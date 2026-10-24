@@ -26,6 +26,8 @@ type FacetModule = typeof(require("@repo/tools/typecheck/aliases").FacetModule)
 type App = typeof(require("@repo/tools/typecheck/aliases").App)
 type Controls = typeof(require("@repo/tools/typecheck/aliases").Controls)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
+type ThemeDefinition = typeof(require("@repo/tools/typecheck/aliases").ThemeDefinition)
+type PaletteExtra = typeof(require("@repo/tools/typecheck/aliases").PaletteExtra)
 type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
@@ -886,6 +888,63 @@ function browser.mount(opts: MountOpts)
 			}
 			swatches[#swatches + 1] = UI.VStack(swatch)
 		end
+		local derived = Compose.formula(function(use: Use): PaletteExtra?
+			local entry = use(palette)
+			local own = entry.extra
+			if own == nil or own.control == nil then
+				return nil
+			end
+			local extra = table.clone(own)
+			extra.controlHover, extra.controlPressed = nil, nil
+			local colors: { [string]: { r: number?, g: number?, b: number? } } = {}
+			for role, value in entry.colors do
+				colors[role] = { r = value.r, g = value.g, b = value.b }
+			end
+			local definition: ThemeDefinition = {
+				base = Facet.themes.neutralPackage(),
+				identity = { id = "lab-derived-control-states" },
+				style = {
+					defaultTheme = "Derived",
+					themes = { { name = "Derived", colors = colors, extra = extra } },
+				},
+			}
+			local package = Facet.themes.define(definition)
+			return if package then package.style.themes[1].extra else nil
+		end)
+		local function plate(extra: PaletteExtra?, role: string): { r: number, g: number, b: number }?
+			if extra == nil then
+				return nil
+			elseif role == "controlHover" then
+				return extra.controlHover
+			elseif role == "controlPressed" then
+				return extra.controlPressed
+			end
+			return extra.control
+		end
+		local states: StackProps = { Name = "ControlStates", gap = "m", width = "fill", wrap = true }
+		for _, item in
+			{
+				{ label = "control", role = "control", derived = false },
+				{ label = "controlHover", role = "controlHover", derived = false },
+				{ label = "controlPressed", role = "controlPressed", derived = false },
+				{ label = "derived hover", role = "controlHover", derived = true },
+				{ label = "derived pressed", role = "controlPressed", derived = true },
+			}
+		do
+			states[#states + 1] = UI.VStack({
+				gap = "xs",
+				Host.Frame({
+					Name = item.label,
+					Size = UDim2.fromOffset(72, 40),
+					BorderSizePixel = 0,
+					BackgroundColor3 = function(use: Use)
+						local color = plate(if item.derived then use(derived) else use(palette).extra, item.role)
+						return if color then Color3.new(color.r, color.g, color.b) else Color3.new()
+					end,
+				}),
+				UI.Text({ text = item.label, textRole = "caption" }),
+			})
+		end
 		local ramp: StackProps = { Name = "Type", gap = "xs", width = "fill" }
 		for _, role in Facet.themes.TYPE_ROLES do
 			ramp[#ramp + 1] = wrapped({
@@ -923,6 +982,10 @@ function browser.mount(opts: MountOpts)
 			end),
 			section("SurfacesSection", "Surface tags", { UI.HStack(surfaces) }),
 			section("PaletteSection", "Palette", { UI.HStack(swatches) }),
+			section("ControlStatesSection", "Control states", {
+				caption("Derived: the hover and pressed plates that define makes from this palette's control alone."),
+				UI.HStack(states),
+			}),
 			section("TypeSection", "Type roles", { UI.VStack(ramp) }),
 			section("DividerSection", "Dividers", { dividers }),
 			section("LadderSection", "Control ladder × appearance", { UI.HStack(ladder) }),

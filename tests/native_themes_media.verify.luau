@@ -2570,6 +2570,42 @@ return function(verifyHarness: Verify.Harness)
 					h.dispose()
 				end,
 			})
+
+			verifyHarness:case("keeps the contrast step on a saturated control plate", {
+				id = "native_themes_media::native parity paint::keeps the contrast step on a saturated control plate",
+				run = function()
+					local function step(from: ThemeTypes.RGB, to: ThemeTypes.RGB): number
+						return (luminance(to) + 0.05) / (luminance(from) + 0.05)
+					end
+					local base = assert(themes.neutralPackage().style.themes[1].extra)
+					local up = step(assert(base.control), assert(base.controlHover))
+					local down = step(assert(base.control), assert(base.controlPressed))
+					local plates: { ThemeTypes.RGB } = {
+						{ r = 1, g = 0, b = 0 },
+						{ r = 1, g = 120 / 255, b = 0 },
+						{ r = 1, g = 200 / 255, b = 0 },
+					}
+					for _, plate in plates do
+						local definition: ThemeTypes.ThemeDefinition = {
+							base = themes.neutralPackage(),
+							identity = { id = "saturated-control-states" },
+							style = {
+								defaultTheme = "Game",
+								themes = { { name = "Game", extra = { control = plate } } },
+							},
+						}
+						local package, report = themes.define(definition)
+						Verify.expect(report.ok):toBe(true)
+						local extra = assert(assert(package).style.themes[1].extra)
+						local lighter, darker = assert(extra.controlHover), assert(extra.controlPressed)
+						Verify.expect(step(plate, lighter)):toBeCloseTo(up)
+						Verify.expect(step(plate, darker)):toBeCloseTo(down)
+						Verify.expect(lighter.r):toBeCloseTo(1)
+						Verify.expect(lighter.g > plate.g and lighter.b > plate.b):toBe(true)
+						Verify.expect(darker.r < 1 and darker.r > darker.g):toBe(true)
+					end
+				end,
+			})
 		end)
 	end)(verifyHarness)
 end

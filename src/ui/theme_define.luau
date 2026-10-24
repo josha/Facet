@@ -62,12 +62,18 @@ end
 
 local function shade(value: ThemeTypes.RGB, step: number): ThemeTypes.RGB
 	local current = luminance(value)
-	local target = (current + 0.05) * step - 0.05
-	local function channel(component: number): number
-		local level = math.clamp(if current > 0 then linear(component) * target / current else target, 0, 1)
-		return if level <= 0.0031308 then level * 12.92 else 1.055 * level ^ (1 / 2.4) - 0.055
+	local target = math.clamp((current + 0.05) * step - 0.05, 0, 1)
+	local levels: { number } = {}
+	for index, component in { value.r, value.g, value.b } do
+		levels[index] = math.clamp(if current > 0 then linear(component) * target / current else target, 0, 1)
 	end
-	return { r = channel(value.r), g = channel(value.g), b = channel(value.b) }
+	local reached = 0.2126 * levels[1] + 0.7152 * levels[2] + 0.0722 * levels[3]
+	local lift = if reached < target then (target - reached) / (1 - reached) else 0
+	local function channel(level: number): number
+		local lifted = level + (1 - level) * lift
+		return if lifted <= 0.0031308 then lifted * 12.92 else 1.055 * lifted ^ (1 / 2.4) - 0.055
+	end
+	return { r = channel(levels[1]), g = channel(levels[2]), b = channel(levels[3]) }
 end
 
 local function checkCoverage(
