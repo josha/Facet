@@ -12,6 +12,7 @@ local Compose: ComposeModule = Facet.Compose
 local nativeApp = require("./native_app")
 local authoringMotion = require("./authoring_motion")
 type BenchRow = { id: string, name: string }
+type BenchSort = { column: string, direction: "ascending" | "descending" }
 
 export type Scenario = {
 	name: string,
@@ -138,8 +139,8 @@ add("collection-selection-update", function()
 	for index = 1, 2048 do
 		items[index] = { id = `r{index}`, name = `Row {index}` }
 	end
-	local selection = Compose.cell({ r1 = true } :: { [string]: boolean })
-	local Host = world.runtime.constructors
+	local selection: Facet.Cell<{ [string]: boolean }> = Compose.cell({ r1 = true })
+	local Host = world.Host
 	world.runtime.mount(function()
 		local spec: Facet.KeyedCollectionSpec<BenchRow, string> = {
 			from = items,
@@ -152,7 +153,7 @@ add("collection-selection-update", function()
 					Text = function(use: Use): string
 						return use(current).name
 					end,
-				}) :: TextLabel
+				})
 			end,
 		}
 		return world.UI.VirtualList(spec)
@@ -194,7 +195,7 @@ add("reserved-slot-record-update", function()
 	end
 	local rows = Compose.cell(items)
 	local labels: { [string]: TextLabel } = {}
-	local Host = world.runtime.constructors
+	local Host = world.Host
 	world.runtime.mount(function()
 		local spec: Facet.KeyedCollectionSpec<BenchRow, string> = {
 			from = rows,
@@ -207,7 +208,7 @@ add("reserved-slot-record-update", function()
 					Text = function(use: Use): string
 						return use(current).name
 					end,
-				}) :: TextLabel
+				})
 				labels[key] = label
 				return label
 			end,
@@ -363,13 +364,15 @@ local function sortableTable()
 	for index = 1, 512 do
 		items[index] = { id = `r{index}`, name = string.format("Racer %04d", index) }
 	end
-	local sort = Compose.cell(nil :: { column: string, direction: "ascending" | "descending" }?)
+	local createSort: (BenchSort?) -> Facet.Cell<BenchSort?> = Compose.cell
+	local sort = createSort(nil)
 	local rows = Compose.cell(items)
 	local controls: OrderedControls = {}
 	local label: TextLabel? = nil
-	local Host = world.runtime.constructors
-	local _, mounted = world.runtime.mount(function()
+	local Host = world.Host
+	world.runtime.mount(function()
 		return world.UI.Table({
+			Name = "BenchTable",
 			from = rows,
 			key = function(item: BenchRow): string
 				return item.id
@@ -385,7 +388,7 @@ local function sortableTable()
 							Text = function(use: Use): string
 								return use(current).name
 							end,
-						}) :: TextLabel
+						})
 						if current:peek().id == "r1" then
 							label = node
 						end
@@ -398,9 +401,9 @@ local function sortableTable()
 			controls = controls,
 		})
 	end, world.target)
-	local tableNode = (mounted :: unknown) :: Frame
+	local tableNode = assert(VerifyRoblox.assertInstance(world.target):FindFirstChild("BenchTable"))
 	world.engine.environment.poke(
-		(assert(tableNode:FindFirstChild("Body")) :: unknown) :: VerifyRoblox.Instance,
+		assert(tableNode:FindFirstChild("Body")),
 		"AbsoluteWindowSize",
 		world.types.Vector2.new(800, 160)
 	)
@@ -511,6 +514,65 @@ end, function(state)
 	state.value:set("")
 	state.frame()
 end)
+
+add("outline-measured-update", function()
+	local world = nativeApp()
+	local items: { BenchRow } = {}
+	local initial: { [string]: number } = {}
+	for index = 1, 2048 do
+		local key = `r{index}`
+		items[index] = { id = key, name = `Row {index}` }
+		initial[key] = 40
+	end
+	initial.r1 = 60
+	local measured = Compose.cell(initial)
+	local Host = world.Host
+	world.runtime.mount(function()
+		local spec: Facet.KeyedOutlineSpec<BenchRow, string> = {
+			Name = "BenchOutline",
+			from = items,
+			key = "id",
+			children = function(): { BenchRow }?
+				return nil
+			end,
+			itemSize = 40,
+			measured = measured,
+			overscan = 0,
+			render = function(current)
+				return Host.TextLabel({
+					Text = function(use: Use): string
+						return use(current).name
+					end,
+				})
+			end,
+		}
+		return world.UI.Outline(spec)
+	end, world.target)
+	local root = assert(VerifyRoblox.assertInstance(world.target):FindFirstChild("BenchOutline"))
+	world.engine.environment.poke(root, "AbsoluteWindowSize", world.types.Vector2.new(800, 1205))
+	world.frame()
+	local row = assert(root:FindFirstChild("r1", true))
+	local content = row:FindFirstChild("Content")
+	assert(content ~= nil)
+	local size = content.Size
+	assert(typeof(size) == "UDim2")
+	return {
+		measured = measured,
+		content = content,
+		n = 0,
+		frame = world.frame,
+		dispose = world.dispose,
+	}
+end, function(state)
+	state.n += 1
+	local height = if state.n % 2 == 0 then 60 else 64
+	local sizes = table.clone(state.measured:peek())
+	sizes.r1 = height
+	state.measured:set(sizes)
+	state.frame()
+	local size = state.content.Size
+	assert(typeof(size) == "UDim2" and size.Y.Offset == height, "outline content lost its measured height")
+end, { requirement = "UI-RUNTIME-002", samples = 500, warmup = 50 })
 
 add("timer-readout-storm", function()
 	local world = nativeApp()

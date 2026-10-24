@@ -14,12 +14,13 @@ return function(harness: Verify.Harness)
 			native.clock = function(): number
 				return at
 			end
-			local runtime = Facet.Roblox.createRuntime((native :: unknown) :: Roblox.Engine)
+			local runtime = Facet.Roblox.createRuntime(native)
 			local deadline = Facet.Compose.cell(0.25)
 			local controls: Hud.TimerControls = {}
-			local stop, node = runtime.mount(function()
+			local mountedLabel: TextLabel? = nil
+			local stop = runtime.mount(function()
 				local UI = Facet.controls(runtime, { types = native.types })
-				return UI.Timer({
+				local label = UI.Timer({
 					deadline = deadline,
 					now = function(): number
 						return at
@@ -32,12 +33,14 @@ return function(harness: Verify.Harness)
 						calls += 1
 					end,
 				})
+				mountedLabel = label
+				return label
 			end, native.new("Folder"))
 			t:defer(function()
 				stop()
 				runtime:dispose()
 			end)
-			local label = node :: TextLabel
+			local label = assert(mountedLabel)
 			local function step(value: number)
 				local elapsed = value - at
 				at = value

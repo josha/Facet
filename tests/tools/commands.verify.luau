@@ -9,8 +9,29 @@ local Static = require("../../tools/facet/lib/static_findings")
 local Analyzer = require("../../tools/facet/lib/analyzer")
 local Lute = require("../../tools/vendor/verify/src/lute")
 local ControlProps = require("../../tools/facet/lib/control_props")
+local system = require("@std/system")
+local process = require("@std/process")
 
 return function(harness: Verify.Harness)
+	harness:case("test workers leave CPU and memory headroom and respect explicit limits", function()
+		local Policy = require("../../tools/facet/lib/gate")
+		local gibibyte = 1024 ^ 3
+		Verify.expect(Policy.workerCount(3, 16 * gibibyte, 100)):toBe(2)
+		Verify.expect(Policy.workerCount(16, 64 * gibibyte, 100)):toBe(8)
+		Verify.expect(Policy.workerCount(16, 4 * gibibyte, 100)):toBe(1)
+		Verify.expect(Policy.workerCount(16, 64 * gibibyte, 3)):toBe(3)
+		Verify.expect(Policy.workerCount(3, 16 * gibibyte, 100, 4)):toBe(4)
+		Verify.expect(Policy.workerCount(16, 4 * gibibyte, 100, 8)):toBe(1)
+		local sources = { "native_fields", "native_collections", "container_transfer", "hud_timer" }
+		local override = tonumber(process.env.FACET_TEST_WORKERS or "")
+		Verify.expect(Policy.tests("host-worker-units", sources).workers)
+			:toBe(Policy.workerCount(system.threadCount(), system.totalMemory() * 1024 ^ 2, #sources, override))
+		for _, invalid in { 0, -1, 1.5, math.huge } do
+			Verify.expect(function()
+				Policy.workerCount(8, 16 * gibibyte, 100, invalid)
+			end):toThrow("positive integer")
+		end
+	end)
 	harness:case("the gate audits off-reference scenes and preserves reference timing", function()
 		local Policy = require("../../tools/facet/lib/gate")
 		for _, reference in { false, true } do

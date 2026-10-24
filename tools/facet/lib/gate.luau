@@ -2,6 +2,7 @@
 
 local fs = require("@std/fs")
 local process = require("@std/process")
+local system = require("@std/system")
 local Gate = require("../../vendor/verify/src/gate")
 local Lute = require("../../vendor/verify/src/lute")
 local Verify = require("../../vendor/verify/src/core")
@@ -52,6 +53,7 @@ local TOOL_REQUIREMENT = "lute"
 local USAGE = table.concat({
 	"usage: lute run tools/facet gate [affected|fast|full|release] [--reference-host] [--studio-host] [--require-complete] [--only PRODUCER]... [--case ID]... [--file SPEC]... [--name TEXT] [--rerun] [--explain ID] [--list]",
 	"       lute run tools/facet gate spec SPEC... [--tier release] [--case ID]... [--name TEXT]",
+	"       FACET_TEST_WORKERS overrides CPU-based test concurrency within the memory and source limits.",
 }, "\n")
 
 local function decode<T>(path: string): T
@@ -66,6 +68,18 @@ local function toolUnits(): { [string]: boolean }
 	return tools
 end
 
+local function workerCount(threads: number, memoryBytes: number, sources: number, override: number?): number
+	if override ~= nil then
+		assert(
+			override >= 1 and override < math.huge and override % 1 == 0,
+			"FACET_TEST_WORKERS must be a positive integer"
+		)
+	end
+	local gibibyte = 1024 ^ 3
+	local memorySlots = math.max(1, math.floor((memoryBytes - 2 * gibibyte) / (2 * gibibyte)))
+	return Lute.corpus.workers(threads, override, sources, 1, math.min(8, memorySlots))
+end
+
 local function tests(id: string, names: { string }): Gate.ProducerDraft
 	local locators: { string } = {}
 	local tools = toolUnits()
@@ -78,6 +92,9 @@ local function tests(id: string, names: { string }): Gate.ProducerDraft
 		assert(worker == nil or worker == chosen, "a run cannot mix engine specs and tool specs: " .. name)
 		worker = chosen
 	end
+	local asked = process.env.FACET_TEST_WORKERS
+	local override = if asked ~= nil then tonumber(asked) else nil
+	assert(asked == nil or override ~= nil, "FACET_TEST_WORKERS must be a positive integer")
 	return {
 		id = id,
 		kind = "tests",
@@ -85,7 +102,7 @@ local function tests(id: string, names: { string }): Gate.ProducerDraft
 		worker = worker or ENGINE_WORKER,
 		locators = locators,
 		isolate = true,
-		workers = 4,
+		workers = workerCount(system.threadCount(), system.totalMemory() * 1024 ^ 2, #locators, override),
 		deadlineSeconds = 3600,
 		sourceDeadlineSeconds = 600,
 	}
@@ -309,6 +326,7 @@ return table.freeze({
 	define = define,
 	draft = draft,
 	tests = tests,
+	workerCount = workerCount,
 	releasable = releasable,
 	build = build,
 

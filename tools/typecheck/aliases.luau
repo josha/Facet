@@ -10,6 +10,7 @@ local PathShapes = require("../../src/ui/nav_path_shapes")
 local Compose = require("../../src/vendor/compose/core")
 local Dataset = require("../../examples/performance/lab/dataset")
 local Runtime = require("../../src/vendor/compose/core/runtime")
+type OutlineRecord = { id: string, children: { OutlineRecord }? }
 
 return (nil :: unknown) :: {
 	TimerControls: Facet.TimerControls,
@@ -65,6 +66,8 @@ return (nil :: unknown) :: {
 	MenuItem: Facet.MenuItem<any>,
 	MotionLevel: Compose.Formula<"normal" | "limited" | "none">,
 	NumberCell: Facet.Cell<number>,
+	NumberMapCell: Facet.Cell<{ [string]: number }>,
+	OutlineMeasurementSpec: Facet.KeyedOutlineSpec<OutlineRecord, string>,
 	OptionalNumberCell: Facet.Cell<number?>,
 	OptionalStringCell: Facet.Cell<string?>,
 	OrderedControls: Compose.OrderedCollectionControls<string>,

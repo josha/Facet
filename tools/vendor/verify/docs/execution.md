@@ -25,6 +25,15 @@ Consumers own discovery and changed-file reachability. Verify has no second sche
 - Failure accounting and report composition.
 
 A host supplies `runBatch`. Optional parallel dispatch and artifact routing keep the same report semantics.
+`host.runQueue(parallel, take, deliver)` is an optional rolling dispatch adapter.
+It runs at most `parallel` batches at once. Each free worker calls `take()` for
+its next batch, calls `runBatch`, then calls `deliver(batch.index, outcome)`.
+`take()` returns nil when no work remains or dispatch must stop. The adapter
+waits for every batch in flight before it returns. The Lute host implements
+this adapter. Hosts without it keep the `runBatches` dispatch groups.
+The executor checks cancellation, run deadlines and fail-fast before each new
+queued dispatch. It retains attempt records in batch order even when batches
+finish in another order. Every missing or unexpected outcome stays visible.
 A batch outcome is `returned`, `faulted`, `timed_out` or `cancelled`. Only a returned valid report carries verdicts.
 The host must stop timed-out and cancelled work and account for every dispatched batch.
 A clean exit without the expected report is a fault.
