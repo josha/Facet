@@ -1,4 +1,6 @@
 --!strict
+type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
+
 local CatalogTypes = require("./catalog_types")
 
 return function(handoff: boolean): CatalogTypes.Builder
@@ -21,11 +23,12 @@ return function(handoff: boolean): CatalogTypes.Builder
 		if handoff then
 			props.compactBack = back
 			props.detail = function(): Instance
-				return UI.VStack {
+				local body: StackProps = {
 					width = "fill",
 					UI.NavBar { title = "Linked files", backLabel = "Files", onBack = back },
-					UI.Button { label = "Linked files" },
 				}
+				body[#body + 1] = UI.Button { label = "Linked files" }
+				return UI.VStack(body)
 			end
 		end
 		return props
