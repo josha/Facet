@@ -370,6 +370,7 @@ local NEGATIVE_PROBES: { { string } } = {
 	{ "Badge label", "UI.Badge({ label = false })" },
 	{ "Avatar presence", 'UI.Avatar({ name = "Alder", presence = "unknown" })' },
 	{ "Status status", 'UI.StatusIndicator({ status = "busy" })' },
+	{ "Badged status", 'UI.badged(UI.Button { label = "Inbox" }, true, { status = "busy" })' },
 	{ "Sheet writable presentation", 'UI.Sheet({ isPresented = "yes", detent = Facet.Compose.cell("large") })' },
 	{ "Radial native hold action", 'UI.RadialMenu({ items = {}, holdAction = "Interact" })' },
 	{

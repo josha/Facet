@@ -179,6 +179,7 @@ export type CardControls = ContentTypes.CardControls
 export type CardAction = ContentTypes.CardAction
 export type CardMenu = ContentTypes.CardMenu
 export type BadgeValue = ContentTypes.BadgeValue
+export type BadgedOptions = ContentTypes.BadgedOptions
 export type Space = LayoutTypes.Space
 export type Padding = LayoutTypes.Padding
 export type Sides = LayoutTypes.Sides

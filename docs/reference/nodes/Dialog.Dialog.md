@@ -38,8 +38,10 @@ so does a false that the caller accepts in the callback. An action with
 or Next. An action that raises an error proposes nothing. Sheet, Notice
 and Callout actions refuse `keepOpen`. Cancel runs an enabled `role = "cancel"`
 action first. Otherwise Cancel proposes false. The one
-`role = "default"` action answers Return. A disabled or busy action does not
-run. `onDismiss(reason)` reports each closure once, after its cleanup:
+`role = "default"` action answers Return and has the `emphasis` appearance.
+A `destructive` action keeps the danger color. Cancel and the other actions
+keep the `standard` appearance. A disabled or busy action does not run.
+`onDismiss(reason)` reports each closure once, after its cleanup:
 `close`, `outside`, `cancel` or `action`. The caller's own false and owner
 disposal report `cancel`. A failing callback is raised after the dialog state
 is consistent.

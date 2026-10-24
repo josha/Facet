@@ -2755,6 +2755,40 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("gives the one default alert action the emphasis appearance and refuses a second default", {
+			id = "native_navigation::native navigation controls::gives the one default alert action the emphasis appearance and refuses a second default",
+			run = function()
+				type Action = FixtureNavigationTypes.AlertAction<unknown>
+				local function act(id: string, role: ("default" | "cancel" | "destructive")?): Action
+					return { id = id, label = id, role = role }
+				end
+				local list = { act("Stay", "cancel"), act("Sell", "destructive"), act("Gift"), act("Buy", "default") }
+				local world = setup(function(UI: FacetControls)
+					return UI.Alert({ isPresented = Compose.cell(true), title = "Buy Turbo Boost?", actions = list })
+				end)
+				local appearances = {}
+				for _, id in { "Stay", "Sell", "Gift", "Buy" } do
+					table.insert(appearances, `{id}={find(world.screen, id):GetAttribute("appearance")}`)
+				end
+				local expected = "Stay=standard,Sell=standard,Gift=standard,Buy=emphasis"
+				Verify.expect((table.concat(appearances, ","))):toBe(expected)
+				Verify.expect((find(world.screen, "Buy"):HasTag("facet-accent"))):toBe(true)
+				Verify.expect((find(world.screen, "Sell"):HasTag("facet-role-destructive"))):toBe(true)
+				Verify.expect((find(world.screen, "Stay"):HasTag("facet-role-cancel"))):toBe(true)
+				world.stop()
+				local twice = Compose.cell(true)
+				local doubledList = { act("Buy", "default"), act("Gift", "default") }
+				local doubled = setup(function(UI: FacetControls)
+					return UI.Alert({ isPresented = twice, title = "Buy?", actions = doubledList })
+				end)
+				doubled.settle()
+				local failure = tostring(find(doubled.screen, "Alert"):GetAttribute("FacetError"))
+				Verify.expect((string.find(failure, "one default action", 1, true) ~= nil)):toBe(true)
+				Verify.expect((twice:peek())):toBe(false)
+				doubled.stop()
+			end,
+		})
+
 		verifyHarness:case("keeps the alert card inside the screen when the theme chrome adds to its height", {
 			id = "native_navigation::native navigation controls::keeps the alert card inside the screen when the theme chrome adds to its height",
 			run = function()
