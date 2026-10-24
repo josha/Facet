@@ -6,6 +6,7 @@ local Layout = require("./layout_types")
 local layoutKit = require("./layout_kit")
 local scrollLock = require("./scroll_lock")
 local initialScroll = require("./scroll_initial")
+local glass = require("./glass")
 local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
 export type LayoutControls = ControlTypes.Controls
@@ -13,9 +14,10 @@ export type LayoutControls = ControlTypes.Controls
 return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTypes.Controls
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
 	local kit = layoutKit.of(ctx)
-	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
+	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local UI: ControlTypes.Controls = controls or ({} :: ControlTypes.Controls)
-	local flowKeys = { "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface", "status" }
+	local flowKeys =
+		{ "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface", "status", "corners" }
 	local PLATES: { [string]: string } = { surface = "facet-surface", panel = "facet-panel", pane = "facet-pane" }
 	local function containerProps(spec: unknown, keys: { string }): { [unknown]: unknown }
 		local maxWidth = (spec :: { maxWidth: Types.ValueNumber? }).maxWidth
@@ -53,7 +55,10 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	end
 	local CORNERS: { [string]: string } = { surface = "radii.control", panel = "radii.panel" }
 	local SIDES: { "top" | "right" | "bottom" | "left" } = { "top", "right", "bottom", "left" }
-	local function clearCorners(padding: Types.Value<Types.Padding>, metric: string): Types.Value<Types.Padding>
+	local function clearCorners(
+		padding: Types.Value<Types.Padding>,
+		bend: (ComposeTypes.Use) -> (number, boolean?)
+	): Types.Value<Types.Padding>
 		return function(use: ComposeTypes.Use): Types.Padding
 			local value = read(padding, use)
 			local given: { [string]: unknown } = if type(value) == "table"
@@ -71,14 +76,15 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					pixels[name] = kit.spacing(side :: Types.Space?, use)
 				end
 			end
-			local radius = ctx.metric(metric, use)
+			local radius, wide = bend(use)
 			local grown = table.clone(pixels)
 			local reach = math.ceil(radius)
 			for _, corner in { { "top", "left" }, { "top", "right" }, { "bottom", "left" }, { "bottom", "right" } } do
 				local vertical, horizontal = corner[1], corner[2]
 				local bleed = pixels[vertical] == 0 and pixels[horizontal] == 0
 				if not bleed and pixels[vertical] < radius and pixels[horizontal] < radius then
-					local grow = if pixels[horizontal] >= pixels[vertical] then horizontal else vertical
+					local across = if wide == nil then pixels[horizontal] >= pixels[vertical] else wide
+					local grow = if across then horizontal else vertical
 					grown[grow] = math.max(grown[grow], reach)
 				end
 			end
@@ -88,14 +94,55 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	local function stack(spec: LayoutProps.StackProps, vertical: boolean): Frame
 		local plate = PLATES[spec.surface or ""]
 		assert(spec.surface == nil or plate ~= nil, "Facet stack: surface must be surface, panel or pane")
+		local corners = spec.corners
+		assert(corners == nil or plate ~= nil, "Facet stack: corners need a surface")
 		local properties, children = split(spec, flowKeys)
 		local metric = CORNERS[spec.surface or ""]
+		local function shape(use: ComposeTypes.Use?): UDim
+			local value = read(corners, use)
+			if value == "pill" then
+				return D.new(1, 0)
+			elseif value == "square" then
+				return D.new(0, 0)
+			elseif value == "control" or value == "panel" then
+				return D.new(0, ctx.metric(if value == "panel" then "radii.panel" else "radii.control", use))
+			end
+			assert(
+				type(value) == "number" and value >= 0 and value < math.huge,
+				"Facet stack: corners must be pill, square, control, panel or a finite number of pixels, 0 or more"
+			)
+			return D.new(0, value)
+		end
+		local fixed = type(corners) == "string" or type(corners) == "number"
+		local measures = spec.padding ~= nil and (corners == "pill" or (corners ~= nil and not fixed))
+		local box = if measures then Compose.cell(V2.zero) else nil
+		local function bend(use: ComposeTypes.Use): (number, boolean?)
+			if corners == nil then
+				return ctx.metric(assert(metric), use), nil
+			end
+			local radius = shape(use)
+			if radius.Scale == 0 then
+				return radius.Offset, nil
+			end
+			local extent = if box then use(box) else V2.zero
+			return math.min(extent.X, extent.Y) / 2, extent.X >= extent.Y
+		end
+		if corners ~= nil then
+			local constant = fixed and corners ~= "control" and corners ~= "panel"
+			properties[#properties + 1] = Host.UICorner({ CornerRadius = if constant then shape() else shape })
+		end
 		local flow: Types.Flow = spec
-		if metric and spec.padding ~= nil then
+		if (metric ~= nil or corners ~= nil) and spec.padding ~= nil then
 			flow = table.clone(spec) :: Types.Flow
-			flow.padding = clearCorners(spec.padding, metric)
+			flow.padding = clearCorners(spec.padding, bend)
 		end
 		local frame = kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, vertical)
+		if box then
+			local measured, size = box, ctx.layoutSize(frame, ctx.layoutUnit(frame, "CornerUnit"))
+			Compose.watch(function(use: ComposeTypes.Use)
+				measured:set(use(size))
+			end)
+		end
 		if plate then
 			frame:AddTag(plate)
 		end
@@ -135,12 +182,14 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 
 	UI.Screen = ctx.construct("Screen", function(spec: LayoutProps.ScreenProps): Frame
 		local properties, children =
-			split(spec, { "gap", "padding", "align", "distribute", "width", "height", "chrome" })
+			split(spec, { "gap", "padding", "align", "distribute", "width", "height", "chrome", "surface" })
 		local chrome = spec.chrome or "device"
 		assert(
 			chrome == "device" or chrome == "band" or chrome == "edge",
 			"Facet UI.Screen: chrome must be device, band or edge"
 		)
+		local plate = PLATES[spec.surface or ""]
+		assert(spec.surface == nil or plate ~= nil, "Facet UI.Screen: surface must be surface, panel or pane")
 		local base: Types.Value<Types.Padding> = if spec.padding == nil then "m" else spec.padding
 		local under = Compose.cell(0)
 		local clearance: ComposeTypes.Cell<{ [string]: number }?> = Compose.cell(nil :: { [string]: number }?)
@@ -188,6 +237,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local frame =
 			kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, true, "fill", "fill")
 		kit.underTopbar(frame, under)
+		if plate then
+			glass.backdrop(ctx, frame, plate, CORNERS[spec.surface or ""], spec.surface == "panel")
+		end
 		local owner = assert(Compose.currentOwner())
 		local observing: ComposeTypes.Owner? = nil
 		local function locate()
@@ -656,10 +708,20 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		node: GuiObject,
 		sizes: { [GuiObject]: ComposeTypes.Cell<Vector2> },
 		parents: { [GuiObject]: ComposeTypes.Cell<Instance?> },
-		members: ComposeTypes.Cell<number>
+		members: ComposeTypes.Cell<number>,
+		spills: { [GuiObject]: ComposeTypes.Cell<boolean> }?
 	)
 		sizes[node] = ctx.observe.AbsoluteSize(node)
 		parents[node] = ctx.observe.Parent(node)
+		if spills then
+			local spilling = Compose.cell(node:GetAttribute("FacetOverflow") == true)
+			runtime.connect(node, "AttributeChanged", function(name: string)
+				if name == "FacetOverflow" then
+					spilling:set(node:GetAttribute("FacetOverflow") == true)
+				end
+			end)
+			spills[node] = spilling
+		end
 		members:update(function(count: number): number
 			return count + 1
 		end)
@@ -763,6 +825,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		assert(#children > 0, "Facet ViewThatFits needs at least one candidate")
 		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Vector2> }
 		local parents = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Instance?> }
+		local spills = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<boolean> }
 		local members = Compose.cell(0)
 		local box: Types.Box = { width = spec.width, height = spec.height }
 		local size, automatic = kit.extent(box, "fill", "hug")
@@ -773,7 +836,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		}
 		local node = kit.plain(
 			Host.Frame(kit.assemble(native, properties, { kit.list({}, true) }, children, function(child)
-				tracked(child, sizes, parents, members)
+				tracked(child, sizes, parents, members, spills)
 			end)),
 			properties
 		)
@@ -799,7 +862,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			local winner = candidates[#candidates]
 			for _, child in candidates do
 				local extent = use(sizes[child])
-				if (openX or extent.X <= offer.X) and (openY or extent.Y <= offer.Y) then
+				local wide = extent.X <= offer.X and not use(spills[child])
+				if (openX or wide) and (openY or extent.Y <= offer.Y) then
 					winner = child
 					break
 				end

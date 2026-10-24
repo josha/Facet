@@ -2,7 +2,10 @@
 local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Content = require("./content_types")
+local Media = require("./media_types")
 local ComposeTypes = require("../vendor/compose/core")
+
+local SEAL_STATUS: Media.Status = "error"
 
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
@@ -22,13 +25,29 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		assert(value == nil or value == false, "Facet UI.badged: value must be a string, a count, true, false or nil")
 		return ""
 	end
-	UI.badged = function(host: GuiObject, value: Types.Value<Content.BadgeValue?>, direction: ("ltr" | "rtl")?): Frame
+	UI.badged = function(
+		host: GuiObject,
+		value: Types.Value<Content.BadgeValue?>,
+		options: Content.BadgedOptions?
+	): Frame
 		assert((host :: Instance?) and host:IsA("GuiObject"), "Facet UI.badged: host must be a GuiObject")
+		assert(
+			options == nil or type(options) == "table",
+			"Facet UI.badged: options must be a table with direction and status"
+		)
+		local settings: Content.BadgedOptions = options or {}
+		for key in (settings :: unknown) :: { [unknown]: unknown } do
+			assert(key == "direction" or key == "status", `Facet UI.badged: unknown option '{tostring(key)}'`)
+		end
+		local direction, status = settings.direction, settings.status
 		assert(
 			direction == nil or direction == "ltr" or direction == "rtl",
 			"Facet UI.badged: direction must be ltr or rtl"
 		)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.badged: build a badged host inside runtime.mount")
+		local function tone(use: ComposeTypes.Use): Media.Status
+			return ((read(status, use) :: unknown) :: Media.Status?) or SEAL_STATUS
+		end
 		words(read(value))
 		local text = function(use: ComposeTypes.Use): string
 			return words(read(value, use))
@@ -58,6 +77,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						return UI.StatusIndicator({
 							Name = "CornerDot",
 							form = "dot",
+							status = tone,
 							AnchorPoint = V2.new(0.5, 0.5),
 							Position = D2.fromScale(0, 0),
 							ZIndex = host.ZIndex + 2,
@@ -69,6 +89,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						return UI.Badge({
 							Name = "CornerBadge",
 							label = text,
+							status = tone,
 							AnchorPoint = V2.new(0.5, 0.5),
 							Position = D2.fromScale(0, 0),
 							ZIndex = host.ZIndex + 2,

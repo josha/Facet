@@ -13,10 +13,8 @@ local function hud(app: Facet.App, goal: Facet.Readable<string>,
   local pressed = command.Pressed:Connect(activate)
   Facet.Compose.cleanup(function() pressed:Disconnect() end)
   local function action()
-    local hint: Facet.ShortcutHintActionProps = { action = command, cap = false }
-    local hintControl: (Facet.ShortcutHintProps) -> (Frame | TextLabel) = UI.ShortcutHint
     return UI.Button "Command" { label = label, appearance = "emphasis",
-      onActivate = function() activate() end, hintControl(hint) }
+      shortcutHint = command, onActivate = function() activate() end }
   end
   return UI.Composition "HUD" {
     UI.Region "Objective" { zone = "topLeft", rank = 1,
@@ -32,8 +30,9 @@ local function hud(app: Facet.App, goal: Facet.Readable<string>,
 end
 ```
 
-Both forms and the bound action call activate. The game owns its InputContext;
-activate can act in the world or open a [destination](Tasks.pages.md).
+Both forms and the bound action call activate, and `shortcutHint` shows the
+action's glyph. The game owns its InputContext; activate can act in the world
+or open a [destination](Tasks.pages.md).
 Keep the center and movement controls clear. Test short and narrow room with real text.
 
 [Safe layout](Tasks.safe-layout.md), [HUD actions](HUD-actions.md),

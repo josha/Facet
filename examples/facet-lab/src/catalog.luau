@@ -36,7 +36,15 @@ local catalog = {}
 
 catalog.NONE = table.freeze({})
 local NONE = catalog.NONE
-local VIRTUAL_DEMOS = { "selectionFrom", "selectionIndicator", "rowActions", "minColumnWidth", "slots", "slotControls" }
+local VIRTUAL_DEMOS = {
+	"selectionFrom",
+	"selectionIndicator",
+	"rowActions",
+	"minColumnWidth",
+	"minColumns",
+	"slots",
+	"slotControls",
+}
 
 catalog.DEFAULT = "(default)"
 local DEFAULT = catalog.DEFAULT
@@ -57,6 +65,7 @@ local function properties(values: Properties): Properties
 end
 
 local nativeGlyph = require("./native_glyph")
+local splitBack = require("./split_back_demo")
 
 local function implied(choices: { [string]: Source }): { [string]: Source }
 	return choices
@@ -181,6 +190,7 @@ local CORNERS: Axis = { key = "corners", values = { DEFAULT, "pill", "square" } 
 local FIELD_APPEARANCE: Axis = { key = "appearance", values = { "standard", "contrast", "utility" } }
 local DISABLED: State = { name = "disabled", props = properties { enabled = false } }
 local hintPages = require("./hint_pages")({ sizes = SIZES, none = NONE })
+local strips = require("./strip_overflow")(NONE)
 local function fixed(w: number, h: number?): Properties
 	return {
 		Size = UDim2.fromOffset(w, h or 0),
@@ -313,6 +323,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				name = "circle with caption",
 				props = properties { shape = "circle", icon = "settings", caption = "Settings" },
 			},
+			{ name = "shortcut hint", props = hintPages.buttonHint },
+			{ name = "circle with shortcut hint", props = hintPages.circleHint },
 			{ name = "discloses a truncated label", props = merged(fixed(120, 44), { label = LONG, disclose = true }) },
 			{ name = "fixed 140×64", props = fixed(140, 64) },
 			{
@@ -1627,6 +1639,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 			{ name = "vertical", props = properties { axis = "y" } },
 			{ name = "hug", props = properties { sizing = "hug" } },
+			{ name = "strip scrolls", props = strips.scrolls, across = false },
 			{
 				name = "icon only",
 				props = properties {
@@ -1796,6 +1809,14 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "contrast", props = properties { appearance = "status", status = "contrast" } },
 			{ name = "icon", props = properties { icon = "checkmark" } },
 			{ name = "trailing icon", props = properties { icon = "checkmark", iconPosition = "trailing" } },
+			{
+				name = "bound empty label (hidden)",
+				props = properties {
+					label = function(): string?
+						return nil
+					end,
+				},
+			},
 		},
 	},
 	badged = {
@@ -1810,16 +1831,19 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {}
 		end,
 		axes = {
-			{ key = "value", values = { 3, 120, "New", true, 0 } },
+			{ key = "value", values = { 3, 120, "1.2K", true, 0 } },
 			{ key = "host", values = { "icon button", "button", "avatar" } },
 		},
-		states = { { name = "right to left", props = properties { direction = "rtl" } } },
+		states = {
+			{ name = "right to left", props = properties { direction = "rtl" } },
+			{ name = "accent status", props = properties { status = "accent" } },
+		},
 		make = function(UI: FacetControls, p: Properties): Instance
 			local host = if p.host == "button"
 				then UI.Button({ label = "Inbox" })
 				elseif p.host == "avatar" then UI.Avatar({ name = "Ada Quill" })
 				else UI.Button({ label = "Inbox", icon = "flag", shape = "circle" })
-			return UI.badged(host, p.value, p.direction)
+			return UI.badged(host, p.value, { direction = p.direction, status = p.status })
 		end,
 	},
 	StatusIndicator = {
@@ -2082,6 +2106,27 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		axes = {
 			{ key = "presentation", values = { "titleAndIcon", "titleOnly", "iconOnly" } },
 			{ key = "iconPosition", values = { "leading", "trailing" } },
+			{
+				key = "icon",
+				values = {
+					"settings",
+					"star",
+					"heart",
+					"chat",
+					"gift",
+					"coin",
+					"gem",
+					"bag",
+					"trophy",
+					"crown",
+					"lock",
+					"bolt",
+					"wrench",
+					"timer",
+					"car",
+				},
+				props = properties { presentation = "iconOnly" },
+			},
 		},
 		states = {
 			{ name = "large icon", props = properties { iconSize = 32 } },
@@ -2431,6 +2476,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 							{
 								id = "Apply",
 								label = "Apply",
+								role = "default",
 								keepOpen = true,
 								onActivate = c.log("apply (stays open)"),
 							},
@@ -2574,7 +2620,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return p.edge == nil or p.placement == "side" or p.placement == "adaptive"
 		end,
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
-			return trigger(c, "Show sheet", function(open)
+			local shown = trigger(c, "Show sheet", function(open)
 				p.isPresented = open
 				p.onPresentedChange = function(nextValue: boolean)
 					c.log("presentation requested")(nextValue)
@@ -2582,6 +2628,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end
 				return UI.Sheet(p)
 			end)
+			if p.placement == "bottom" then
+				return UI.VStack(stacked({ gap = "xs", shown, require("./sheet_glass_demo")(c) }))
+			end
+			return shown
 		end,
 	},
 	Popover = {
@@ -2933,7 +2983,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "resizable", values = { true, false } },
 			{ key = "alwaysShowResizeHandle", values = { true, false } },
 		},
-		states = {},
+		states = {
+			{ name = "compact: Files opens detail, no Show detail row", cellWidth = 380, props = splitBack(false) },
+			{ name = "compact: the detail NavBar owns Back (compactBack)", cellWidth = 380, props = splitBack(true) },
+		},
 	},
 
 	NavigationStack = {
@@ -2967,7 +3020,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					car = {
 						title = "Car",
 						content = function(entry): Instance
-							return c.UI.Text({ text = `Car details: {entry and entry.value or "?"}` })
+							return c.UI.Button({ label = `Drive {entry and entry.value or "?"}` })
 						end,
 					},
 				},
@@ -2988,6 +3041,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						destinations = {
 							car = {
 								chrome = "hidden",
+								initialFocus = "Drive",
 								content = function(): Instance
 									return c.UI.VStack {
 										width = "fill",
@@ -2999,6 +3053,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 												path:set({})
 											end,
 										},
+										c.UI.Button "Drive" { label = "Drive (initialFocus selects it)" },
 										c.UI.Text {
 											text = "This page uses the whole stack rectangle. Back also uses Escape, B or a right swipe from the left edge.",
 											TextWrapped = true,
@@ -3035,6 +3090,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "wide gap + padding", props = properties { gap = 24, padding = 16 } },
 			{ name = "long title", props = properties { title = LONG } },
 			{ name = "no back", props = properties { onBack = NONE } },
+			{
+				name = "back from a cell",
+				props = function(c: Context)
+					return { onBack = c.cell("navBack", true) }
+				end,
+			},
 			{
 				name = "leading slot",
 				props = function(c: Context)
@@ -3331,6 +3392,16 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "square artwork", props = properties { imageAspectRatio = 1 } },
 			{ name = "fit framing", props = properties { imageFraming = "fit" } },
 			{ name = "informational (no body action)", props = properties { onActivate = NONE } },
+			{ name = "no actions (ends at the body)", props = properties { primaryAction = NONE, menu = NONE } },
+			{
+				name = "badges",
+				props = properties {
+					badges = {
+						leading = { label = "Rare", status = "accent" },
+						trailing = { label = "Owned", status = "success", icon = "checkmark" },
+					},
+				},
+			},
 			{
 				name = "3D artwork",
 				props = function(c: Context)
@@ -3935,6 +4006,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 			{ name = "cross gap 16", props = properties { crossGap = 16 } },
 			{ name = "hug", props = require("./hug_state")(ROWS, NONE) },
+			{ name = "selected cards", props = require("./card_selection_state")(ART) },
+			{
+				name = "minColumns 2",
+				props = properties { columns = NONE, minColumnWidth = 260, minColumns = 2 },
+				across = false,
+			},
 		},
 	},
 	RowActions = {
@@ -4710,6 +4787,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "wrap (narrow)", props = properties { wrap = true, width = 120, height = "hug" }, across = false },
 			{ name = "panel surface", props = properties { surface = "panel", padding = "s" }, across = false },
 			{
+				name = "pill surface",
+				props = properties { surface = "panel", corners = "pill", padding = "s" },
+				across = false,
+			},
+			{
 				name = "warning status",
 				props = properties { surface = "panel", status = "warning", padding = "s" },
 				across = false,
@@ -4730,6 +4812,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {
 			{ name = "wrap (short)", props = properties { wrap = true, height = 80, width = "hug" }, across = false },
 			{ name = "panel surface", props = properties { surface = "panel", padding = "s" }, across = false },
+			{
+				name = "pane, 6 px corners",
+				props = properties { surface = "pane", corners = 6, padding = "s" },
+				across = false,
+			},
 			{
 				name = "success status",
 				props = properties { surface = "panel", status = "success", padding = "s" },
@@ -4828,6 +4915,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {
 			{ name = "chrome band", props = properties { chrome = "band" } },
 			{ name = "chrome edge", props = properties { chrome = "edge" } },
+			{ name = "surface (reaches the glass at safe edges)", props = properties { surface = "surface" } },
 			{ name = "gap l", props = properties { gap = "l" } },
 			{ name = "fixed 300×200 (width/height)", props = properties { width = 300, height = 200 } },
 		},
@@ -4851,6 +4939,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			end
 			table.insert(p, UI.Text(merged(plain, { text = "Screen title (first child)", textRole = "heading" })))
 			table.insert(p, UI.Text(merged(plain, { text = facts, textRole = "caption" })))
+			if p.surface then
+				table.insert(p, require("./full_bleed_demo")(c))
+			end
 			table.insert(p, UI.ScrollView(rows))
 			table.insert(p, UI.Button({ label = "Continue (last child, stays pinned)", appearance = "emphasis" }))
 			local screen = UI.Screen(p)
@@ -4984,7 +5075,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			}
 		end,
 		axes = { { key = "width", values = { "fill", 360, 200, 110 } } },
-		states = { { name = "height 32 (too short for any)", props = properties { height = 32 } } },
+		states = {
+			{ name = "height 32 (too short for any)", props = properties { height = 32 } },
+			{ name = "segmented, then menu", props = strips.fallback },
+		},
 	},
 	Composition = {
 		family = "layout",
@@ -4993,7 +5087,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		purpose = "A HUD with ranked regions. Narrow the plate: higher ranks give way first. "
 			.. "The caption names each form; tap a short form to expand it.",
 		note = "Room sets the plate width; gap and padding set spacing. Enable topbar for the real Roblox strip. "
-			.. "The leading Settings button opens a popup. Resize Studio to see strip regions land in the top zone.",
+			.. "The leading Settings button opens a popup. Resize Studio to see strip regions land in the top zone. "
+			.. "With topbar, a trailing badge keeps the padding from the screen edge.",
 		alternatives = "A Screen with stacks when nothing competes for the same edge.",
 		scenarios = { "hud", "radial_menu" },
 		snippet = 'UI.Composition { UI.Region { zone = "topLeft", rank = 1, full, short }, … }',
@@ -5063,7 +5158,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				)
 			)
 			table.insert(p, region("Strip", "topbar", 5, true, UI.Badge({ label = "Top bar strip" })))
-			table.insert(p, require("./topbar_demo")(c))
+			for _, strip in require("./topbar_demo")(c, p.topbar == true) do
+				table.insert(p, strip)
+			end
 			table.insert(
 				p,
 				region("Ready", "bottom", 1, false, UI.Button({ label = "Ready up", appearance = "emphasis" }))
@@ -5188,96 +5285,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		demonstrates = { "form", "expand", "leading", "trailing" },
 	},
 
-	environment = {
-		host = "Screen",
-		family = "facet",
-		alias = "Environment (size class, input, safe area)",
-		purpose = "Engine facts a screen adapts to: viewport, size and height class, orientation, input, display size, safe insets, text size, reduced motion.",
-		alternatives = "Observe one container's AbsoluteSize for a local decision.",
-		snippet = "local env = UI.environment(); env.sizeClass, env.interactionClasses, …",
-		base = function()
-			return {}
-		end,
-		axes = { { key = "source", values = { "viewport", "this box" } } },
-		states = {},
-		make = function(UI: FacetControls, p: Properties, c: Context): Instance
-			local text = c.Compose.cell("")
-			local label = UI.Text({
-				text = text,
-				wrap = true,
-				Size = UDim2.fromOffset(320, 0),
-				AutomaticSize = Enum.AutomaticSize.Y,
-			})
-			local env = if p.source == "this box" then UI.environment(label) else UI.environment()
-			c.Compose.watch(function(use: Use)
-				local size = use(env.viewportSize)
-				local ic = use(env.interactionClasses)
-				local inset = use(env.safeInsets)
-				local topbar = use(env.topbarInset)
-				text:set(table.concat({
-					`viewport {math.floor(size.X)}×{math.floor(size.Y)} ({use(env.viewportWidth)} wide, {use(
-						env.viewportHeight
-					)} high)`,
-					`sizeClass {use(env.sizeClass)} · heightClass {use(env.heightClass)} · {use(env.orientation)} · axis {use(
-						env.axis
-					)}`,
-					`compact {tostring(use(env.isCompact))} · regular {tostring(use(env.isRegular))} · regular+ {tostring(
-						use(env.isRegularOrWider)
-					)} · wide {tostring(use(env.isWide))} · short {tostring(use(env.isShort))} · tall {tostring(
-						use(env.isTall)
-					)} · landscape {tostring(use(env.isLandscape))}`,
-					`input {ic.primary} (pointer {tostring(ic.pointer)}, touch {tostring(ic.touch)}, gamepad {tostring(
-						ic.gamepad
-					)}, keyboard {tostring(ic.keyboard)}) · effective {use(env.effectiveInput)}`,
-					`display {use(env.displaySize)} · text {use(env.preferredTextSize)} · motion {use(
-						env.motionLevel
-					)}`,
-					`safe insets t{inset.top} l{inset.left} b{inset.bottom} r{inset.right}`,
-					`topbar {topbar.Width}×{topbar.Height} at {topbar.Min.X},{topbar.Min.Y}`,
-					`topbar control diameter {use(env.topbarControlDiameter)}`,
-					`thumb target {use(env.thumbTarget)}`,
-				}, "\n"))
-			end)
-			local atLeast = env.atLeast("regular")
-			local function square(name: string, side: Readable<number>, caption: string): Instance
-				return UI.VStack(name)({
-					gap = "xs",
-					align = "center",
-					c.Host.Frame({
-						Name = "Square",
-						BackgroundColor3 = Color3.fromRGB(120, 140, 220),
-						Size = function(use: Use): UDim2
-							local edge = math.floor(use(side) + 0.5)
-							return UDim2.fromOffset(edge, edge)
-						end,
-					}),
-					UI.Text({
-						text = function(use: Use)
-							return `{caption} = {math.floor(use(side) + 0.5)}`
-						end,
-						textRole = "caption",
-					}),
-				})
-			end
-			return UI.VStack({
-				gap = "xs",
-				label,
-				UI.Text({
-					text = function(use: Use)
-						return `atLeast("regular") = {tostring(use(atLeast))}`
-					end,
-					textRole = "caption",
-				}),
-				UI.HStack({
-					gap = "m",
-					align = "end",
-					square("Scaled", env.scaled(48), "scaled(48)"),
-					square("ScaledBody", env.scaled(48, "body"), 'scaled(48, "body")'),
-				}),
-			})
-		end,
-		surface = "UI.environment",
-	},
+	environment = require("./environment_page"),
 	worldAnchor = {
 		host = "RadialMenu",
 		family = "facet",

@@ -52,6 +52,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		"dialogAction",
 		"icon",
 		"glyph",
+		"shortcutHint",
 		"trailingIcon",
 		"image",
 		"imageAspectRatio",
@@ -70,6 +71,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		"target",
 	})
 	local CONTROL_RUNGS = { "xsmall", "compact", "regular", "large" }
+	local SMALLER: { [string]: Shared.ControlSize } =
+		{ large = "regular", regular = "compact", compact = "xsmall", xsmall = "xsmall" }
+	local RIM = 0.5 + 0.5 * math.sqrt(0.5)
 	local rungTags: { string } = {}
 	for index, name in CONTROL_RUNGS do
 		rungTags[index] = "facet-size-" .. name
@@ -103,6 +107,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		assert(
 			spec.imageFraming == nil or spec.imageFraming == "fit" or spec.imageFraming == "crop",
 			"Facet.Button: imageFraming must be fit or crop"
+		)
+		local hinted = spec.shortcutHint
+		assert(
+			hinted == nil or (hinted.IsA and hinted:IsA("InputAction")),
+			"Facet.Button: shortcutHint must be a native InputAction"
 		)
 		local declaredSize = read(spec.textSize)
 		assert(
@@ -220,6 +229,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			or spec.row ~= nil
 			or spec.subtitle ~= nil
 			or spec.hint ~= nil
+			or hinted ~= nil
 		assert(
 			underline == nil or (not rich and spec.compactLabel == nil and spec.shape ~= "circle"),
 			"Facet.Button: underline belongs to a text button with no icon, image, row or compactLabel"
@@ -472,9 +482,35 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				return busy
 			end)
 		end
+		local inputHint: GuiObject? = nil
+		local corner = spec.shape == "circle"
+		if hinted then
+			local effective = ctx.effectiveInput()
+			local live, binding = ctx.observe.Enabled(hinted), ctx.observe.PreferredBinding(hinted)
+			local function cornerSize(use: ComposeTypes.Use): Shared.ControlSize
+				return SMALLER[read(spec.controlSize, use) or "regular"]
+			end
+			local shortcut = (UI.ShortcutHint :: unknown) :: (InputProps.ShortcutHintProps) -> TextLabel | Frame
+			inputHint = shortcut(({
+				Name = "ShortcutHint",
+				action = hinted,
+				cap = false,
+				controlSize = if corner then cornerSize else spec.controlSize,
+				AnchorPoint = if corner then V2.new(0.5, 0.5) else nil,
+				Position = if corner then D2.fromScale(RIM, RIM) else nil,
+				ZIndex = if corner then 2 else nil,
+				Visible = function(use: ComposeTypes.Use): boolean
+					if effective(use) == "Touch" or use(live) == false then
+						return false
+					end
+					return if use(binding) then true else false
+				end,
+			} :: unknown) :: InputProps.ShortcutHintProps)
+		end
+		local rowHint = if corner then nil else inputHint
 		local markRow: ((GuiObject) -> ())? = nil
 		if rich then
-			fillsGlyph, markRow = buttonContent(ctx, kit, spec, p, iconState, bounded, sized)
+			fillsGlyph, markRow = buttonContent(ctx, kit, spec, p, iconState, bounded, sized, rowHint)
 		end
 		local captionFits = Compose.cell(true)
 		local keyboardAttached = false
@@ -531,8 +567,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end,
 			})
 			caption:AddTag("facet-type-caption")
+			caption:AddTag("facet-button-outside")
 			node.ClipsDescendants = false
 			caption.Parent = node
+		end
+		if inputHint and corner then
+			inputHint:AddTag("facet-button-outside")
+			node.ClipsDescendants = false
+			inputHint.Parent = node
 		end
 		if not rich then
 			sized(node)

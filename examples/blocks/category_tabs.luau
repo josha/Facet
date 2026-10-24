@@ -24,6 +24,7 @@ return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 		end,
 		key = "id",
 		minColumnWidth = 180,
+		minColumns = 2,
 		itemSize = 80,
 		scrollReset = category,
 		render = function(current: Readable<Item>): GuiObject

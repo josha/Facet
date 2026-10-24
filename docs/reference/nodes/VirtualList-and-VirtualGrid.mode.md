@@ -11,6 +11,7 @@ VirtualList-and-VirtualGrid.mode option values and behavior.
 | `contentOverflow` | `visible` by default. `clip` uses the native cell content clip to keep oversized paint and pointer targets inside their cell. |
 | `columns` | The grid column count, default `1`; can be reactive. |
 | `minColumnWidth` | VirtualGrid only: a positive minimum tile width. Computes columns from the available cross-axis space and gaps. Do not combine it with `columns`. |
+| `minColumns` | VirtualGrid only: none by default; can be reactive. A positive whole number, the minimum number of columns in a `minColumnWidth` grid. When that many columns of `minColumnWidth` do not fit, the columns become narrower and share the space equally. With `hug`, the grid still makes no more columns than items. Use `minColumns = 2` for objects that players compare on a phone. Do not combine it with `columns`. |
 | `hug` | `false`. `true` with `mode = "all"` sizes the collection to its rows on its main axis, so it lays out as content in a hugging surface and does not scroll. A `minColumnWidth` grid with `hug` makes no more columns than items. See [sizing](VirtualList-and-VirtualGrid.sizing.md). |
 | `rowActions` | The same action factory and permission rules as Table. |
 | `overscan` | `2`. |

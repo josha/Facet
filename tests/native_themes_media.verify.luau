@@ -25,6 +25,45 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 	end)
+	verifyHarness:suite("game glyph catalog", function()
+		verifyHarness:case("registers game glyphs as standard art below theme icons", {
+			id = "native_themes_media::game glyph catalog::registers game glyphs as standard art below theme icons",
+			run = function()
+				local icons = require("../src/ui/icons")
+				local themes = require("../src").themes
+				local ThemeTypes = require("../src/ui/theme_types")
+				for _, name in
+					{
+						"star",
+						"heart",
+						"chat",
+						"gift",
+						"coin",
+						"gem",
+						"bag",
+						"trophy",
+						"crown",
+						"lock",
+						"bolt",
+						"wrench",
+						"timer",
+						"car",
+					}
+				do
+					local art = assert(icons.ART[name], name)
+					Verify.expect(art.assetName):toBe("facet_icon_" .. name)
+					Verify.expect(art.tintRole):toBe("content")
+					Verify.expect(themes.resolveIcon({}, name)):toBe(art.contentId)
+					Verify.expect(themes.resolveIcon({}, name .. ".fill")):toBe(art.contentId)
+					local catalog: { [string]: ThemeTypes.IconEntry } = { [name] = "rbxassetid://7" }
+					local themed: ThemeTypes.IconRegistry = { icons = catalog }
+					Verify.expect(themes.resolveIcon(themed, name)):toBe("rbxassetid://7")
+				end
+				Verify.expect(themes.resolveIcon({}, "person")):toBe(icons.ART.person.contentId)
+				Verify.expect(themes.resolveIcon({}, "kart")):toBe(nil)
+			end,
+		})
+	end)
 	type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
 
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -1365,6 +1404,59 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("hides a Badge while its bound label is empty and refuses a fixed empty label", {
+			id = "native_themes_media::native themes and media::hides a Badge while its bound label is empty and refuses a fixed empty label",
+			run = function()
+				local function refused(spec: FixtureMediaProps.BadgeProps): boolean
+					local engine, runtime, UI = setup()
+					local ok = pcall(function()
+						runtime.mount(function()
+							return UI.Badge(spec)
+						end, engine.new("Folder"))
+					end)
+					runtime:dispose()
+					return not ok
+				end
+				Verify.expect(refused({ label = "" })):toBe(true)
+				Verify.expect(refused({})):toBe(true)
+				Verify.expect(refused({ icon = "checkmark", label = "" })):toBe(true)
+				Verify.expect(refused({ label = "New" })):toBe(false)
+				local engine, runtime, UI = setup()
+				local caption = Compose.cell(nil :: string?)
+				local shown = Compose.cell(true)
+				local sale: GuiObject?, owned: GuiObject?, verified: GuiObject?
+				local stop = runtime.mount(function()
+					sale = UI.Badge({ label = caption, Visible = shown })
+					owned = UI.Badge({
+						label = function(): string?
+							return nil
+						end,
+					})
+					verified = UI.Badge({ icon = "checkmark", name = "Verified", label = caption })
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						sale :: unknown,
+						owned,
+						verified,
+					})
+				end, engine.new("Folder"))
+				local badge, empty, named = assert(sale), assert(owned), assert(verified)
+				Verify.expect(badge.Visible):toBe(false)
+				Verify.expect(empty.Visible):toBe(false)
+				Verify.expect(named.Visible):toBe(true)
+				caption:set("Sale")
+				Verify.expect(badge.Visible):toBe(true)
+				Verify.expect((badge :: TextLabel).Text):toBe("Sale")
+				shown:set(false)
+				Verify.expect(badge.Visible):toBe(false)
+				shown:set(true)
+				caption:set("")
+				Verify.expect(badge.Visible):toBe(false)
+				Verify.expect(named.Visible):toBe(true)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("preserves full size progress art endcaps centers and fill direction", {
 			id = "native_themes_media::native themes and media::preserves full size progress art endcaps centers and fill direction",
 			run = function()
@@ -2510,6 +2602,139 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				}
 			)
+
+			verifyHarness:case("derives control hover and pressed plates from the palette's own control", {
+				id = "native_themes_media::native parity paint::derives control hover and pressed plates from the palette's own control",
+				run = function()
+					type Plates = { control: ThemeTypes.RGB, hover: ThemeTypes.RGB, pressed: ThemeTypes.RGB }
+					local function rgb(r: number, g: number, b: number): ThemeTypes.RGB
+						return { r = r / 255, g = g / 255, b = b / 255 }
+					end
+					local function plates(extra: ThemeTypes.PaletteExtra?): Plates
+						local resolved = assert(extra)
+						return {
+							control = assert(resolved.control),
+							hover = assert(resolved.controlHover),
+							pressed = assert(resolved.controlPressed),
+						}
+					end
+					local function step(from: ThemeTypes.RGB, to: ThemeTypes.RGB): number
+						return (luminance(to) + 0.05) / (luminance(from) + 0.05)
+					end
+					local function follows(derived: Plates, reference: Plates)
+						local hover = step(reference.control, reference.hover)
+						local pressed = step(reference.control, reference.pressed)
+						Verify.expect(step(derived.control, derived.hover)):toBeCloseTo(hover)
+						Verify.expect(step(derived.control, derived.pressed)):toBeCloseTo(pressed)
+						for _, plate in { derived.hover, derived.pressed } do
+							Verify.expect(plate.r > plate.g and plate.g > plate.b):toBe(true)
+						end
+					end
+					local h = harness()
+					local function paint(package: ThemeTypes.ThemePackage?, selector: string): unknown
+						local sheet, stop = sheetFor(h, package)
+						local value = style(sheet, selector).BackgroundColor3
+						stop()
+						return value
+					end
+					local neutral = themes.neutralPackage()
+					local neutralDark = plates(neutral.style.themes[1].extra)
+					local neutralLight = plates(neutral.style.themes[2].extra)
+
+					local definition: ThemeTypes.ThemeDefinition = {
+						base = themes.neutralPackage(),
+						identity = { id = "derived-control-states" },
+						style = {
+							defaultTheme = "Game",
+							themes = { { name = "Game", extra = { control = rgb(168, 114, 47) } } },
+						},
+					}
+					local game, report = themes.define(definition)
+					Verify.expect(report.ok):toBe(true)
+					Verify.expect(#report.contrast):toBeGreaterThan(0)
+					local dark = plates(assert(game).style.themes[1].extra)
+					Verify.expect(luminance(dark.hover)):toBeGreaterThan(luminance(dark.control))
+					Verify.expect(luminance(dark.pressed)):toBeLessThan(luminance(dark.control))
+					follows(dark, neutralDark)
+					Verify.expect(neutralDark.hover.b > neutralDark.hover.r):toBe(true)
+					Verify.expect(paint(game, ".facet-button:Hover")):toBe(color(h.engine, dark.hover))
+					Verify.expect(paint(game, ".facet-button:Press")):toBe(color(h.engine, dark.pressed))
+
+					local package = themes.neutralPackage()
+					local parchment = assert(package.style.themes[2].extra)
+					parchment.control = rgb(214, 194, 156)
+					parchment.controlHover = nil
+					parchment.controlPressed = nil
+					local light = plates(assert((themes.define(package))).style.themes[2].extra)
+					Verify.expect(luminance(light.hover)):toBeLessThan(luminance(light.control))
+					Verify.expect(luminance(light.pressed)):toBeLessThan(luminance(light.hover))
+					follows(light, neutralLight)
+
+					local explicit = themes.neutralPackage()
+					local partial = assert(explicit.style.themes[1].extra)
+					partial.control = rgb(168, 114, 47)
+					partial.controlHover = rgb(200, 40, 40)
+					partial.controlPressed = nil
+					local resolved = assert((themes.define(explicit)))
+					local kept = plates(resolved.style.themes[1].extra)
+					Verify.expect(kept.hover):toEqual(rgb(200, 40, 40))
+					Verify.expect(kept.pressed):toEqual(dark.pressed)
+					Verify.expect(plates(resolved.style.themes[2].extra)):toEqual(neutralLight)
+
+					local plain: ThemeTypes.ThemeDefinition = {
+						base = themes.neutralPackage(),
+						identity = { id = "plain-control-states" },
+						style = {
+							defaultTheme = "Game",
+							themes = { { name = "Game", extra = { contentSecondary = rgb(150, 160, 170) } } },
+						},
+					}
+					local untouched, plainReport = themes.define(plain)
+					Verify.expect(plainReport.ok):toBe(true)
+					local unset = assert(assert(untouched).style.themes[1].extra)
+					Verify.expect(unset.controlHover):toBeNil()
+					Verify.expect(unset.controlPressed):toBeNil()
+					Verify.expect(paint(untouched, ".facet-button:Hover")):toBe(color(h.engine, neutralDark.hover))
+					Verify.expect(paint(untouched, ".facet-button:Press")):toBe(color(h.engine, neutralDark.pressed))
+					h.dispose()
+				end,
+			})
+
+			verifyHarness:case("keeps the contrast step on a saturated control plate", {
+				id = "native_themes_media::native parity paint::keeps the contrast step on a saturated control plate",
+				run = function()
+					local function step(from: ThemeTypes.RGB, to: ThemeTypes.RGB): number
+						return (luminance(to) + 0.05) / (luminance(from) + 0.05)
+					end
+					local base = assert(themes.neutralPackage().style.themes[1].extra)
+					local up = step(assert(base.control), assert(base.controlHover))
+					local down = step(assert(base.control), assert(base.controlPressed))
+					local plates: { ThemeTypes.RGB } = {
+						{ r = 1, g = 0, b = 0 },
+						{ r = 1, g = 120 / 255, b = 0 },
+						{ r = 1, g = 200 / 255, b = 0 },
+					}
+					for _, plate in plates do
+						local definition: ThemeTypes.ThemeDefinition = {
+							base = themes.neutralPackage(),
+							identity = { id = "saturated-control-states" },
+							style = {
+								defaultTheme = "Game",
+								themes = { { name = "Game", extra = { control = plate } } },
+							},
+						}
+						local package, report = themes.define(definition)
+						Verify.expect(report.ok):toBe(true)
+						local extra = assert(assert(package).style.themes[1].extra)
+						local lighter, darker = assert(extra.controlHover), assert(extra.controlPressed)
+						Verify.expect(step(plate, lighter)):toBeCloseTo(up)
+						Verify.expect(step(plate, darker)):toBeCloseTo(down)
+						Verify.expect(lighter.r):toBeCloseTo(1)
+						Verify.expect(lighter.g > plate.g and lighter.b > plate.b):toBe(true)
+						Verify.expect(darker.r < 1 and darker.r > darker.g):toBe(true)
+					end
+				end,
+			})
 		end)
 	end)(verifyHarness)
 end

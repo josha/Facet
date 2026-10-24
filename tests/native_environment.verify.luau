@@ -1592,6 +1592,35 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
+		verifyHarness:case(
+			"keeps the next segment in reach: a pad selection in a horizontal strip scrolls one segment of room into view",
+			{
+				id = "native_environment::focus ring: the engine draws the theme's focus look::keeps the next segment in reach: a pad selection in a horizontal strip scrolls one segment of room into view",
+				run = function()
+					local w, _, stop = ring(nil, { preferredInput = "Gamepad" })
+					w.input.GetLastInputType = function()
+						return w.Enum.UserInputType.Gamepad1
+					end
+					local V = w.engine.types.Vector2
+					local screen = w.engine.new("ScreenGui")
+					local strip = w.engine.new("ScrollingFrame")
+					strip.Parent = screen
+					strip.ScrollingDirection = w.Enum.ScrollingDirection.X
+					w.engine.environment.poke(strip, "AbsolutePosition", V.new(0, 0))
+					w.engine.environment.poke(strip, "AbsoluteWindowSize", V.new(400, 50))
+					w.engine.environment.poke(strip, "AbsoluteCanvasSize", V.new(700, 50))
+					local segment = w.engine.new("TextButton")
+					segment.Parent = strip
+					w.engine.environment.poke(segment, "AbsolutePosition", V.new(320, 3))
+					w.engine.environment.poke(segment, "AbsoluteSize", V.new(80, 44))
+					w.gui.SelectedObject = segment
+					Verify.expect(strip.CanvasPosition.X):toBe(80)
+					Verify.expect(strip.CanvasPosition.Y):toBe(0)
+					stop()
+				end,
+			}
+		)
+
 		verifyHarness:case("never scrolls a tall selection out of view to make room around it", {
 			id = "native_environment::focus ring: the engine draws the theme's focus look::never scrolls a tall selection out of view to make room around it",
 			run = function()

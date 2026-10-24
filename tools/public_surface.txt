@@ -255,12 +255,15 @@ type AvatarMember
 type AvatarProps
 type BadgeProps
 type BadgeValue
+type BadgedOptions
 type ButtonGuideEntry
 type ButtonGuideProps
 type ButtonProps
 type ButtonRole
 type CalloutSpec
 type CardAction
+type CardBadge
+type CardBadges
 type CardControls
 type CardMenu
 type CardSpec

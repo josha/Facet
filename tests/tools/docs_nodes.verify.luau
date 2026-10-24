@@ -82,6 +82,46 @@ return function(harness: Verify.Harness)
 		t:expect(string.find(sample, "optional: number? = omitted", 1, true) ~= nil):toBe(true)
 		t:expect((string.find(sample, "Size:", 1, true))):toBe(nil)
 	end)
+	harness:case("the committed icon name node lists every registered glyph with its use", function(t)
+		t:expect(Files.text(Props.ICONS_NODE)):toBe(Props.icons("."))
+		t:expect(table.concat(Props.iconProblems("."), "\n")):toBe("")
+		local names = Props.iconNames(".")
+		for _, name in
+			{
+				"star",
+				"heart",
+				"chat",
+				"gift",
+				"coin",
+				"gem",
+				"bag",
+				"trophy",
+				"lock",
+				"bolt",
+				"wrench",
+				"timer",
+				"car",
+			}
+		do
+			t:expect(table.find(names, name) ~= nil):toBe(true)
+		end
+		t:expect(table.find(names, "facet:search")):toBe(nil)
+		local nodes = Index.load(".")
+		local icons = assert(Index.find(nodes, "Icons.names"))
+		t:expect(icons.file):toBe(Props.ICONS_NODE)
+		t:expect(icons.kind):toBe("detail")
+		t:expect(assert(Index.find(nodes, "icon names")).path):toBe("Icons.names")
+		t:expect(table.find(assert(Index.find(nodes, "Reference")).children, "Icons.names") ~= nil):toBe(true)
+		t:expect(table.find(assert(Index.find(nodes, "Label.card")).children, "Icons.names") ~= nil):toBe(true)
+		for _, name in names do
+			local row = ("| `%s` | %s |"):format(name, Props.ICON_USES[name])
+			t:expect(string.find(icons.body, row, 1, true) ~= nil):toBe(true)
+		end
+		local response = DocsQuery.response(nodes, Cli.parse({ "docs", "Icons" }))
+		t:expect(string.find(response, "Resolved 'Icons' to Icons.names.", 1, true) == 1):toBe(true)
+		t:expect(string.find(response, "| `coin` | Coins or soft currency |", 1, true) ~= nil):toBe(true)
+		t:expect(#response + 1 <= Index.responseBudget):toBe(true)
+	end)
 	harness:case("node files supply paths, kinds, sentences, aliases and ordered links without a manifest", function(t)
 		local root = Files.temporaryDirectory("facet-docs")
 		t:defer(function()

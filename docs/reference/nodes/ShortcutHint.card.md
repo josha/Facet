@@ -11,6 +11,7 @@ UI.ShortcutHint "ShortcutHint" { keys = { { "E" } } }
 Key options: `keys`, `action`.
 
 Show the command that the game actually binds.
+On a Button, set the Button's `shortcutHint` to the action instead.
 
 Related controls: [Controls](Controls.md).
 

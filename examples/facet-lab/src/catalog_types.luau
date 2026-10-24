@@ -17,6 +17,7 @@ type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 type DropInfo = typeof(require("@repo/tools/typecheck/aliases").DropInfo)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
@@ -28,6 +29,7 @@ export type Context = {
 	Host: RobloxHost,
 	types: RobloxTypes,
 	app: App,
+	ctx: ExampleContext?,
 	logical: Readable<{ width: number, height: number }>,
 	cell: CellFactory,
 	log: (string) -> (...unknown) -> (),

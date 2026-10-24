@@ -2,6 +2,12 @@
 
 Optional semantic colors and their defaults.
 
+- `controlHover` and `controlPressed`: the control plate on hover and on
+  press. When a palette sets `control` and not these roles, `define` makes
+  them from `control`. They keep the contrast step of the neutral Dark or
+  Light states, for a dark or light `surface`, and the hue of `control`. The
+  palettes of `neutralPackage()` set both roles. To derive them in a copy, set
+  them to `nil`.
 - `selection` and `onSelection`: the color of an on or chosen mark and the
   color on it. The switch track and knob, the checkbox box and tick, the slider
   fill and the tab and segment underline (`facet-selection-indicator`) use

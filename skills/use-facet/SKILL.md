@@ -29,8 +29,9 @@ Folders follow repository paths: `Tasks.hud` is
 `docs/reference/nodes/Tasks.hud.md`. With filesystem access, use
 `lute run tools/facet docs <node>` or `docs --search TEXT`.
 Read `<Control>.card` for the entry point, then follow its props or reference
-link for exact options. `Icons.names` lists glyphs. These nodes are available
-in the installed docs and CLI. Use `Map` only when the task has no known route.
+link for exact options. `Icons.names` lists each built-in glyph, for example
+`coin`, `gem`, `star`, `gift` and `chat`. These nodes are available in the
+installed docs and CLI. Use `Map` only when the task has no known route.
 
 | Need | Read |
 | --- | --- |
@@ -41,14 +42,17 @@ in the installed docs and CLI. Use `Map` only when the task has no known route.
 | Mixed input, text size or viewing distance | [Input](references/game-ui/INPUT_FOCUS_AND_ACCESS.md), then `environment` |
 | Gestures or value adjustment across inputs | [Adaptive manipulation](references/game-ui/ADAPTIVE_INTERACTION_AND_DIRECT_MANIPULATION.md), then the control's input contract |
 | Collection and selected detail | [Collections](references/game-ui/COLLECTIONS_AND_ACTIONS.md), then `Tasks.collection-detail` |
+| Quick chat, emotes or another quick choice during play | `RadialMenu.card` |
 | Boolean settings or named choices | [Choices](references/game-ui/CHOICES_AND_INPUT.md), then `Toggle.card`, `Picker.card` |
 | Inspection art beside a decision and action | `Tasks.inspect`, then `Stage.card` |
 | Object identity in a collection | `Card.card` |
 | Container and text sizing | `Layout-options`, `Text.card`, `fill` |
 | A bounded interruption or dirty dismissal | [Surfaces](references/game-ui/SURFACES_INFORMATION_AND_FEEDBACK.md), then `Tasks.sheet`, `Sheet.dismissal` |
 | Visual system | `Tasks.theme` |
+| Glyphs for currency, rewards, shop, chat or vehicles | `Icons.names` |
 | Transitions and reward motion | [Motion](references/game-ui/MOTION_AND_FEEDBACK.md), then `Custom-transitions` |
 | Server-accepted state | `Tasks.state` |
+| Confirming a purchase the server must accept | `Tasks.confirm` |
 | Reactive types or collection signatures | `Types.reactive` |
 | Lower-corner controls and movement clearance | `Tasks.safe-layout` |
 | Missing signature | The control's card or props node |

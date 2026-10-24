@@ -12,6 +12,8 @@ Key options: `title`, `onBack`, `leading`, `trailing`.
 
 Do not show Back on a root page.
 
+`onBack` can be a boolean cell: Facet shows Back while it is true and writes false on Back, such as the `compactBack` cell of a NavigationSplitView.
+
 Related controls: [Controls](Controls.md).
 
 Open:

@@ -120,7 +120,9 @@ a binding; it does not create it. Use the engine's reported glyph instead of
 assuming a controller brand. Keep the action name clear, such as "Equip"
 rather than just "A".
 
-A control can carry its own glyph with `cap = false`. Use `UI.ButtonGuide`
+A control can carry its own glyph with `cap = false`. A Button takes the
+action in `shortcutHint` and shows the glyph only while the device has a
+binding for it. Use `UI.ButtonGuide`
 for contextual commands that have no visible control, such as paging or an
 action on the focused item. List each command once. Prioritize useful commands
 rather than filling a fixed quota. The guide is a noninteractive readout;

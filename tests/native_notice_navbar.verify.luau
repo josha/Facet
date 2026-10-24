@@ -476,6 +476,46 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("shows Back while a boolean onBack cell is true and writes false", {
+			id = "native_notice_navbar::native NavBar: the slot form::shows Back while a boolean onBack cell is true and writes false",
+			run = function()
+				local onBack = Compose.cell(false)
+				local w = mount(function(UI: FacetControls, Host: RobloxHost)
+					return UI.NavBar "Top" {
+						title = "Shop",
+						backLabel = "Parts",
+						onBack = onBack,
+						trailing = Host.Frame({ Name = "Tools", UI.Button "Close" { label = "Close" } }),
+					}
+				end)
+				local back, gap = w.find("Back"), w.find("BackGap")
+				local layout = w.find("Top"):FindFirstChildWhichIsA("UIListLayout")
+				Verify.expect(back.Visible or gap.Visible):toBe(false)
+				w.engine.environment.poke(w.find("TitleMeasure"), "TextBounds", w.Vector2.new(70, 24))
+				w.size(back, 200, 24)
+				w.size(w.find("Trailing"), 40, 40)
+				w.size(w.find("Top"), 300, 40)
+				Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
+				onBack:set(true)
+				Verify.expect(back.Visible and gap.Visible):toBe(true)
+				Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Vertical)
+				back.Activated:Fire()
+				Verify.expect((onBack:peek())):toBe(false)
+				Verify.expect(back.Visible or gap.Visible):toBe(false)
+				Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
+				w.stop()
+				local readOnly = Compose.formula(function(): boolean
+					return true
+				end)
+				local accepted = pcall(function()
+					mount(function(UI: FacetControls)
+						return UI.NavBar { onBack = (readOnly :: unknown) :: Facet.Cell<boolean> }
+					end).stop()
+				end)
+				Verify.expect(accepted):toBe(false)
+			end,
+		})
+
 		verifyHarness:case(
 			"a new bar keeps one row while its filling title row is still laid out, so it never flashes",
 			{

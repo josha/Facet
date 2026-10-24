@@ -269,6 +269,80 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("counts the gap beside an empty strip lane when it fits top bar regions", {
+			id = "native_composition::Composition::counts the gap beside an empty strip lane when it fits top bar regions",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local wallet: Declared = {
+					zone = "topbar" :: "topbar",
+					rank = 2,
+					mayDrop = false,
+					leading = true,
+					sizes = { { x = 44, y = 44 } },
+				}
+				local menu: Declared = {
+					zone = "topbar" :: "topbar",
+					rank = 1,
+					mayDrop = false,
+					trailing = true,
+					sizes = { { x = 44, y = 44 } },
+				}
+				local _, landed = resolver.resolve(673, 290, 8, { wallet, menu }, { x = 100, y = 44 })
+				Verify.expect(landed[1]):toBe(false)
+				Verify.expect(landed[2]):toBe(false)
+				_, landed = resolver.resolve(673, 290, 8, { wallet, menu }, { x = 100, y = 44, lanes = 3 })
+				Verify.expect(landed[1]):toBe(true)
+				Verify.expect(landed[2]):toBe(false)
+				_, landed = resolver.resolve(673, 290, 8, { wallet, menu }, { x = 104, y = 44, lanes = 3 })
+				Verify.expect(landed[1]):toBe(false)
+				Verify.expect(landed[2]):toBe(false)
+			end,
+		})
+
+		verifyHarness:case("ends the top bar strip at the composition's own edge padding", {
+			id = "native_composition::Composition::ends the top bar strip at the composition's own edge padding",
+			run = function()
+				local cases: { { padding: unknown, right: number } } = {
+					{ padding = 16, right = 16 },
+					{ padding = 0, right = 8 },
+					{ padding = { top = 4, right = 24 }, right = 24 },
+					{ padding = { left = 30 }, right = 8 },
+				}
+				for _, case in cases do
+					local engine, runtime, UI, gui = make()
+					local T = engine.types
+					local layer = engine.new("ScreenGui")
+					layer.Parent = engine.new("Folder")
+					local menu
+					runtime.mount(function()
+						local Host = runtime.constructors
+						menu = UI.Region {
+							Name = "Menu",
+							zone = "topbar",
+							rank = 1,
+							trailing = true,
+							Host.Frame { Name = "MenuFull" },
+						}
+						return UI.Composition { gap = 8, padding = case.padding, menu }
+					end, layer)
+					engine.environment.poke(gui, "TopbarInset", T.Rect.new(164, 0, 844, 58))
+					local strip = menu:FindFirstAncestorWhichIsA("ScreenGui")
+					Verify.expect(strip.Name):toBe("CompositionTopbar")
+					local row = strip:FindFirstChild("Topbar"):FindFirstChildWhichIsA("UIPadding")
+					Verify.expect(row.PaddingLeft):toBe(T.UDim.new(0, 8))
+					Verify.expect(row.PaddingRight):toBe(T.UDim.new(0, case.right))
+					sized(engine, menu:FindFirstChild("MenuFull", true), 40, 40)
+					sized(engine, layer:FindFirstChild("Zones", true), 844, 330)
+					sized(engine, strip, 56 + case.right, 58)
+					Verify.expect(menu.Parent.Name):toBe("Trailing")
+					sized(engine, strip, 55 + case.right, 58)
+					Verify.expect(menu.Parent.Name):toBe("LandedTrailing")
+					runtime:dispose()
+				end
+			end,
+		})
+
 		verifyHarness:case("opens an overlay from a top bar region in the composition's ScreenGui", {
 			id = "native_composition::Composition::opens an overlay from a top bar region in the composition's ScreenGui",
 			run = function()
@@ -302,6 +376,58 @@ return function(verifyHarness: Verify.Harness)
 				local panel = layer:FindFirstChild("OptionsPanel", true)
 				Verify.expect(panel ~= nil):toBe(true)
 				Verify.expect(panel:FindFirstAncestorWhichIsA("ScreenGui")):toBe(layer)
+				runtime:dispose()
+			end,
+		})
+
+		verifyHarness:case("hides its top bar strip while the composition or one of its ancestors is hidden", {
+			id = "native_composition::Composition::hides its top bar strip while the composition or one of its ancestors is hidden",
+			run = function()
+				local engine, runtime, UI, gui = make()
+				local T = engine.types
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local page = engine.new("Frame")
+				page.Parent = layer
+				local root, wallet
+				runtime.mount(function()
+					local Host = runtime.constructors
+					wallet = UI.Region {
+						Name = "Wallet",
+						zone = "topbar",
+						rank = 1,
+						Host.Frame { Name = "WalletFull" },
+					}
+					root = UI.Composition { gap = 8, padding = 0, wallet }
+					return root
+				end, page)
+				engine.environment.poke(gui, "TopbarInset", T.Rect.new(164, 0, 844, 58))
+				local strip = wallet:FindFirstAncestorWhichIsA("ScreenGui")
+				Verify.expect(strip.Name):toBe("CompositionTopbar")
+				Verify.expect(strip.Enabled):toBe(true)
+				page.Visible = false
+				Verify.expect(strip.Enabled):toBe(false)
+				page.Visible = true
+				Verify.expect(strip.Enabled):toBe(true)
+				root.Visible = false
+				Verify.expect(strip.Enabled):toBe(false)
+				root.Visible = true
+				Verify.expect(strip.Enabled):toBe(true)
+				layer.Enabled = false
+				Verify.expect(strip.Enabled):toBe(false)
+				layer.Enabled = true
+				Verify.expect(strip.Enabled):toBe(true)
+				local closed = engine.new("Frame")
+				closed.Visible = false
+				closed.Parent = layer
+				page.Parent = closed
+				Verify.expect(strip.Enabled):toBe(false)
+				Verify.expect(wallet:FindFirstAncestorWhichIsA("ScreenGui")):toBe(strip)
+				page.Parent = layer
+				Verify.expect(strip.Enabled):toBe(true)
+				closed.Visible = true
+				closed.Visible = false
+				Verify.expect(strip.Enabled):toBe(true)
 				runtime:dispose()
 			end,
 		})

@@ -11,7 +11,13 @@ local decoration = require("./native_decoration")
 
 type ButtonFactory = Types.Constructor<InputProps.ButtonProps, TextButton>
 type UIControls = { Button: ButtonFactory }
-type BackPlace = { AnchorPoint: Vector2?, Position: UDim2?, Size: UDim2?, LayoutOrder: number? }
+type BackPlace = {
+	AnchorPoint: Vector2?,
+	Position: UDim2?,
+	Size: UDim2?,
+	LayoutOrder: number?,
+	Visible: Types.ValueBoolean?,
+}
 
 local parts = {}
 
@@ -315,6 +321,7 @@ function parts.actions(
 			Name = action.id,
 			label = action.label,
 			role = action.role,
+			appearance = if action.role == "default" then "emphasis" else nil,
 			enabled = action.enabled,
 			busy = action.busy,
 			dialogAction = if action.role == "default" then "default" :: "default" else nil,
@@ -583,6 +590,7 @@ function parts.back(
 		Position = at.Position,
 		Size = at.Size,
 		LayoutOrder = at.LayoutOrder,
+		Visible = at.Visible,
 	}
 	local button = UI.Button(props)
 	local row = button:FindFirstChildWhichIsA("UIListLayout", true)

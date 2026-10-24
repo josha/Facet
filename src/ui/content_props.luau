@@ -325,6 +325,7 @@ export type CardSpec = {
 	enabled: typeof(card.enabled),
 	controls: typeof(card.controls),
 	ringTarget: typeof(card.ringTarget),
+	badges: typeof(card.badges),
 	[number | Engine.EventKey]: Compose.Child,
 }
 

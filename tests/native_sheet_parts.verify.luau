@@ -778,6 +778,29 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("the default action has the emphasis appearance, as in a Dialog", {
+			id = "native_sheet_parts::native Sheet: parts::the default action has the emphasis appearance, as in a Dialog",
+			run = function()
+				local function act(id: string, role: ("default" | "cancel" | "destructive")?): OverlayAction
+					return { id = id, label = id, role = role, onActivate = noop }
+				end
+				local list = { act("Skip", "cancel"), act("Reset", "destructive"), act("Map"), act("Join", "default") }
+				local w = mount({ actions = list })
+				local actions = w.find("Actions")
+				local appearances = {}
+				for _, id in { "Skip", "Reset", "Map", "Join" } do
+					local button = overlay.find(actions, id)
+					table.insert(appearances, `{id}={button:GetAttribute("appearance")}`)
+				end
+				local expected = "Skip=standard,Reset=standard,Map=standard,Join=emphasis"
+				Verify.expect((table.concat(appearances, ","))):toBe(expected)
+				Verify.expect((overlay.find(actions, "Join"):HasTag("facet-accent"))):toBe(true)
+				Verify.expect((overlay.find(actions, "Reset"):HasTag("facet-role-destructive"))):toBe(true)
+				Verify.expect((overlay.find(actions, "Skip"):HasTag("facet-role-cancel"))):toBe(true)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("a room too small for the pinned regions unpins them into one scroller", {
 			id = "native_sheet_parts::native Sheet: parts::a room too small for the pinned regions unpins them into one scroller",
 			run = function()
@@ -2020,6 +2043,180 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
+	end)
+
+	verifyHarness:suite("native Sheet: a bottom sheet's plate reaches the glass", function()
+		type Bands = { width: number, height: number, top: number, left: number, bottom: number, right: number }
+		local PORTRAIT: Bands = { width = 390, height = 844, top = 106, left = 0, bottom = 34, right = 0 }
+		local LANDSCAPE: Bands = { width = 844, height = 390, top = 58, left = 47, bottom = 21, right = 47 }
+		type GlassSpec = { width: string?, placement: string?, motionLevel: string?, unsettled: boolean? }
+		local RADIUS = 12
+
+		local function glassSheet(bands: Bands, spec: GlassSpec)
+			local safe = Vector2.new(bands.width - bands.left - bands.right, bands.height - bands.top - bands.bottom)
+			local options = { shown = Compose.cell(false), motionLevel = spec.motionLevel, unsettled = spec.unsettled }
+			local w = mount({ width = spec.width, placement = spec.placement }, options, { size = safe })
+			local T = w.engine.types
+			w.engine.environment.fakeOn(w.gui, "GetInsetArea", function(_self: unknown, inset: unknown): unknown
+				if inset == T.Enum.ScreenInsets.None then
+					return T.Rect.new(0, 0, bands.width, bands.height)
+				end
+				return T.Rect.new(bands.left, bands.top, bands.width - bands.right, bands.height - bands.bottom)
+			end)
+			w.engine.environment.poke(w.gui, "TopbarInset", T.Rect.new(0, 0, bands.width, bands.top))
+			w.screen.ScreenInsets = T.Enum.ScreenInsets.CoreUISafeInsets
+			w.screen.ClipToDeviceSafeArea = true
+			w.shown:set(true)
+			w.engine.environment.poke(w.find("Modal"), "AbsoluteSize", safe)
+			if not spec.unsettled then
+				w.advance(1 / 300, 2)
+			end
+			return w
+		end
+
+		local function box(node: GuiObject): { number }
+			return { node.Position.X.Offset, node.Position.Y.Offset, node.Size.X.Offset, node.Size.Y.Offset }
+		end
+
+		verifyHarness:case("the plate continues under the home indicator; the content keeps its safe place", {
+			id = "native_sheet_parts::native Sheet: a bottom sheet's plate reaches the glass::the plate continues under the home indicator; the content keeps its safe place",
+			run = function()
+				local safe = Vector2.new(390, 704)
+				local plain = mount(nil, { room = safe, motionLevel = "none" }, { size = safe })
+				local room = box(plain.find("Room"))
+				local grip = box(plain.find("Grabber"))
+				Verify.expect(box(plain.find("SheetPanel"))):toEqual({ 0, 0, 390, 352 })
+				plain.stop()
+				local w = glassSheet(PORTRAIT, { motionLevel = "none" })
+				local band = 34 + RADIUS
+				Verify.expect(box(w.find("SheetPanel"))):toEqual({ 0, band, 390, 352 + band })
+				Verify.expect(box(w.find("Room"))):toEqual(room)
+				Verify.expect(box(w.find("Grabber"))):toEqual(grip)
+				Verify.expect((w.find("SheetPanel"):HasTag("facet-sheet"))):toBe(true)
+				w.engine.environment.poke(w.input, "OnScreenKeyboardSize", Vector2.new(390, 250))
+				w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", true)
+				Verify.expect(box(w.find("SheetPanel"))):toEqual({ 0, -250, 390, 227 })
+				w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", false)
+				Verify.expect(box(w.find("SheetPanel"))):toEqual({ 0, band, 390, 352 + band })
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("the plate shares the device clipping lease with the scrim and returns it", {
+			id = "native_sheet_parts::native Sheet: a bottom sheet's plate reaches the glass::the plate shares the device clipping lease with the scrim and returns it",
+			run = function()
+				local w = glassSheet(PORTRAIT, { motionLevel = "none" })
+				local scrim = w.find("Scrim")
+				Verify.expect(scrim.Position.Y.Offset):toBe(-106)
+				Verify.expect(scrim.Size.Y.Offset):toBe(106 + 34)
+				Verify.expect(w.screen.ClipToDeviceSafeArea):toBe(false)
+				w.engine.environment.poke(w.input, "OnScreenKeyboardSize", Vector2.new(390, 250))
+				w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", true)
+				Verify.expect(w.find("SheetPanel").Position.Y.Offset):toBe(-250)
+				Verify.expect(w.screen.ClipToDeviceSafeArea):toBe(false)
+				w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", false)
+				w.shown:set(false)
+				w.advance(0.5, 10)
+				Verify.expect((w.find("SheetPanel"))):toBeNil()
+				Verify.expect((w.find("Scrim"))):toBeNil()
+				Verify.expect(w.screen.ClipToDeviceSafeArea):toBe(true)
+				w.shown:set(true)
+				w.engine.environment.poke(w.find("Modal"), "AbsoluteSize", Vector2.new(390, 704))
+				w.advance(1 / 300, 2)
+				Verify.expect(w.find("SheetPanel").Position.Y.Offset):toBe(34 + RADIUS)
+				Verify.expect(w.screen.ClipToDeviceSafeArea):toBe(false)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("a sheet as wide as the screen also reaches the side cutouts", {
+			id = "native_sheet_parts::native Sheet: a bottom sheet's plate reaches the glass::a sheet as wide as the screen also reaches the side cutouts",
+			run = function()
+				for _, side in
+					{
+						{ left = 47, right = 47, past = 47 },
+						{ left = 0, right = 48, past = 0 },
+						{ left = 0, right = 47, past = 1 },
+					}
+				do
+					local bands: Bands = {
+						width = 844,
+						height = 390,
+						top = 58,
+						left = side.left,
+						bottom = 21,
+						right = side.right,
+					}
+					local band = 21 + RADIUS
+					local w = glassSheet(bands, { width = "wide", motionLevel = "none" })
+					local panel, room = w.find("SheetPanel"), w.find("Room")
+					Verify.expect(panel.Size.X.Offset):toBe(844 - side.left + side.past)
+					Verify.expect(panel.Position.X.Offset):toBe((side.right - side.past) / 2)
+					Verify.expect(panel.Position.Y.Offset):toBe(band)
+					Verify.expect(room.Position.X.Offset):toBe(16 + side.past)
+					Verify.expect(room.Size.X.Offset):toBe(-32 - side.past - side.right)
+					Verify.expect(w.find("Grabber").Position.X.Offset):toBe((side.past - side.right) / 2)
+					w.stop()
+					local narrow = glassSheet(bands, { motionLevel = "none" })
+					Verify.expect(box(narrow.find("SheetPanel"))[1]):toBe(0)
+					Verify.expect(box(narrow.find("SheetPanel"))[2]):toBe(band)
+					Verify.expect(box(narrow.find("SheetPanel"))[3]):toBe(560)
+					Verify.expect(box(narrow.find("Room"))[1]):toBe(16)
+					narrow.stop()
+				end
+			end,
+		})
+
+		verifyHarness:case("side and center sheets keep their plate at the safe area", {
+			id = "native_sheet_parts::native Sheet: a bottom sheet's plate reaches the glass::side and center sheets keep their plate at the safe area",
+			run = function()
+				local safe = Vector2.new(750, 311)
+				local still = { room = safe, motionLevel = "none" }
+				for _, placement in { "side", "center" } do
+					local plain = mount({ placement = placement }, still, { size = safe })
+					local panel, room = box(plain.find("SheetPanel")), box(plain.find("Room"))
+					plain.stop()
+					local w = glassSheet(LANDSCAPE, { placement = placement, motionLevel = "none" })
+					Verify.expect(box(w.find("SheetPanel"))):toEqual(panel)
+					Verify.expect(box(w.find("Room"))):toEqual(room)
+					Verify.expect(w.screen.ClipToDeviceSafeArea):toBe(false)
+					w.shown:set(false)
+					w.advance(0.5, 10)
+					Verify.expect(w.screen.ClipToDeviceSafeArea):toBe(true)
+					w.stop()
+				end
+			end,
+		})
+
+		verifyHarness:case("the plate moves with the panel past the glass and through a drag", {
+			id = "native_sheet_parts::native Sheet: a bottom sheet's plate reaches the glass::the plate moves with the panel past the glass and through a drag",
+			run = function()
+				local w = glassSheet(PORTRAIT, { unsettled = true })
+				local panel = w.find("SheetPanel")
+				local band = 34 + RADIUS
+				Verify.expect(panel.Size.Y.Offset):toBe(352 + band)
+				Verify.expect(panel.Position.Y.Offset - panel.Size.Y.Offset):toBe(band)
+				w.advance(1 / 300, 2)
+				w.advance(0.5, 10)
+				Verify.expect(box(panel)):toEqual({ 0, band, 390, 352 + band })
+				local drag = w.find("UIDragDetector")
+				drag.DragStart:Fire(w.Vector2.new(0, 0))
+				w.tick(0.5)
+				drag.DragContinue:Fire(w.Vector2.new(0, 100))
+				Verify.expect(box(panel)):toEqual({ 0, 100 + band, 390, 352 + band })
+				drag.DragContinue:Fire(w.Vector2.new(0, 250))
+				w.tick(0.5)
+				drag.DragEnd:Fire()
+				Verify.expect((w.shown:peek())):toBe(false)
+				w.advance(0.02, 1)
+				Verify.expect(panel.Size.Y.Offset):toBe(352 + band)
+				Verify.expect(panel.Position.Y.Offset >= 250 + band):toBe(true)
+				w.advance(1, 20)
+				Verify.expect((w.find("SheetPanel"))):toBeNil()
+				Verify.expect(w.screen.ClipToDeviceSafeArea):toBe(true)
+				w.stop()
+			end,
+		})
 	end)
 
 	verifyHarness:suite("native panels: a skinned panel keeps its content inside the art carve", function()

@@ -43,6 +43,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		"selectionFrom",
 		"selectionIndicator",
 		"minColumnWidth",
+		"minColumns",
 		"hug",
 		"rowActions",
 		"key",

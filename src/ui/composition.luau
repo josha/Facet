@@ -395,6 +395,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				table.insert(members[home], region)
 			end
 		end
+		local leadsAny, trailsAny = false, false
+		for _, region in stripRegions do
+			leadsAny = leadsAny or declared[region].leading
+			trailsAny = trailsAny or declared[region].trailing
+		end
+		local stripLanes = 1 + (if leadsAny then 1 else 0) + (if trailsAny then 1 else 0)
+		local function stripEnd(use: ComposeTypes.Use): number
+			local value = read(base, use)
+			local right: Types.Space? = if type(value) == "table"
+				then (value :: Types.Sides).right
+				else value :: Types.Space
+			return math.max(kit.spacing(gap, use), kit.spacing(right, use))
+		end
 		local function landingFrame(name: string, alignment: Enum.HorizontalAlignment): Frame
 			return Host.Frame(name) {
 				BackgroundTransparency = 1,
@@ -495,8 +508,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local screen: ComposeTypes.Cell<ScreenGui?> = Compose.cell(nil :: ScreenGui?)
 			local holder: ComposeTypes.Cell<Instance?> = Compose.cell(nil :: Instance?)
 			local enabled = Compose.cell(true)
-			local watched: RBXScriptConnection? = nil
+			local owner = assert(Compose.currentOwner())
+			local chain: ComposeTypes.Owner? = nil
 			local function locate()
+				if owner.isDisposed() then
+					return
+				end
 				local host = root:FindFirstAncestorWhichIsA("ScreenGui")
 				if not host then
 					local surface = root:FindFirstAncestorWhichIsA("SurfaceGui")
@@ -505,28 +522,37 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 						host = source
 					end
 				end
-				if host ~= screen:peek() then
-					if watched then
-						watched:Disconnect()
-						watched = nil
+				if chain then
+					chain.dispose()
+				end
+				local watching = owner.createChild()
+				chain = watching
+				Compose.withOwner(watching, function()
+					local sources: { ComposeTypes.Readable<boolean> } = {}
+					local at: Instance? = root
+					while at and not at:IsA("LayerCollector") do
+						if at:IsA("GuiObject") then
+							table.insert(sources, ctx.observe.Visible(at))
+						end
+						at = at.Parent
 					end
 					if host then
-						local current = host
-						watched = current:GetPropertyChangedSignal("Enabled"):Connect(function()
-							enabled:set(current.Enabled)
-						end)
-						enabled:set(current.Enabled)
+						table.insert(sources, ctx.observe.Enabled(host))
 					end
-				end
+					Compose.watch(function(use: ComposeTypes.Use)
+						local shown = true
+						for _, source in sources do
+							if use(source) == false then
+								shown = false
+							end
+						end
+						enabled:set(shown)
+					end)
+				end)
 				screen:set(host)
 				holder:set(if host then host.Parent else nil)
 			end
 			runtime.connect(root, "AncestryChanged", locate)
-			Compose.cleanup(function()
-				if watched then
-					watched:Disconnect()
-				end
-			end)
 			locate()
 			local band = topbarBand
 			riding = function(use: ComposeTypes.Use): boolean
@@ -546,11 +572,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					end,
 				})
 				return Host.Frame(name)(fields)
-			end
-			local leadsAny, trailsAny = false, false
-			for _, region in stripRegions do
-				leadsAny = leadsAny or declared[region].leading
-				trailsAny = trailsAny or declared[region].trailing
 			end
 			local leadingRow = row("Leading", E.HorizontalAlignment.Left, {
 				LayoutOrder = 1,
@@ -582,7 +603,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 						return D.new(0, kit.spacing(gap, use))
 					end,
 					PaddingRight = function(use: ComposeTypes.Use): UDim
-						return D.new(0, kit.spacing(gap, use))
+						return D.new(0, stripEnd(use))
 					end,
 				}),
 				leadingRow,
@@ -814,6 +835,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					rank = entry.rank,
 					mayDrop = entry.mayDrop,
 					sizes = measured,
+					leading = entry.leading,
 					trailing = entry.trailing,
 				}
 			end
@@ -822,10 +844,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				local inset = use(topbarBand)
 				strip = V2.new(inset.Width, inset.Height) / use(stripUnit)
 			end
-			local band = if strip
+			local band: resolver.Strip? = if strip
 				then {
-					x = strip.X - 2 * kit.spacing(gap, use),
+					x = strip.X - kit.spacing(gap, use) - stripEnd(use),
 					y = math.min(strip.Y - ENGINE_MARGIN, ENGINE_BUTTON),
+					lanes = stripLanes,
 				}
 				else nil
 			local chosen, down, moved, overflow, packed = resolver.resolve(

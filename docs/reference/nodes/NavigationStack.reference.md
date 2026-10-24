@@ -35,6 +35,17 @@ destinations.match = {
 }
 ```
 
+When a page opens while a keyboard or gamepad selects controls, the page
+selects its entry control. That is the control that the destination's
+`initialFocus` names, else its first content control. The page selects the
+stack Back only when its content has no control, because B already goes
+Back. `initialFocus` is a name, or a function that Facet calls once, with no
+arguments, and that returns a name or nil. Facet selects that control, or
+the first shown and enabled control inside an instance of that name. A page
+that owns its header, such as a NavBar with Close, sets `initialFocus` to its
+body, so the selection does not start on Close. A page that the player
+returns to selects its last control again.
+
 The navigation bar title is inset on both sides by the control's horizontal
 padding (`controlSizes.regular.paddingX`), so a root page's leading title
 lines up with the Back label of the pages above it.
@@ -46,7 +57,9 @@ page stays until its motion completes. It cannot be interacted with, and it
 cannot hold the selection. While a page moves, both pages are opaque. Each page
 gets the background color of the nearest opaque container of the stack. A
 separate black shade frame dims the covered page from 0 to 0.1 opacity. The page
-content does not change its transparency. At rest, the pages are transparent. The default motion is a critically damped Compose
+content does not change its transparency. At rest, the pages are transparent. A stack that fills its ScreenGui does not
+clip the moving pages, so a Screen `surface` stays on the glass while the page
+slides. The default motion is a critically damped Compose
 spring. `transition = { seconds, ease }` replaces the slide with a crossfade
 that uses those Compose tween options.
 `transition = false` disables motion. The pages that are present when the

@@ -10,6 +10,7 @@ return function(verifyHarness: Verify.Harness)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 	type Readable<T> = { peek: (Readable<T>) -> T }
 	type Use = <T>(Readable<T>) -> T
+	type GlassBands = { width: number, height: number, top: number, left: number, bottom: number, right: number }
 
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
@@ -420,6 +421,178 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(insets(function(UI: FacetControls): unknown
 					return UI.VStack "Plain" { padding = 4 }
 				end)):toBe("4 4 4 4")
+			end,
+		})
+	end)
+
+	verifyHarness:suite("stack corners option", function()
+		type Corners = number | "pill" | "square" | "control" | "panel"
+		local function measure(root: Instance): string
+			local found = child(root, "UICorner")
+			local padding = child(root, "UIPadding")
+			local parts = { if found then `{found.CornerRadius.Scale},{found.CornerRadius.Offset}` else "theme" }
+			for _, side in { "PaddingTop", "PaddingRight", "PaddingBottom", "PaddingLeft" } do
+				table.insert(parts, if padding then tostring(padding[side].Offset) else "-")
+			end
+			return table.concat(parts, " ")
+		end
+		local function shaped(make: (FacetControls) -> unknown): string
+			local root, _, stop = build(nil, function(UI: FacetControls)
+				return make(UI)
+			end)
+			local text = measure(root)
+			stop()
+			return text
+		end
+
+		verifyHarness:case("rounds a pill plate and grows its long sides to half its short side", {
+			id = "native_layout::stack corners option::rounds a pill plate and grows its long sides to half its short side",
+			run = function()
+				local root, engine, stop = build(nil, function(UI: FacetControls)
+					return UI.HStack "Readout" {
+						surface = "panel",
+						corners = "pill",
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)
+				local V2 = engine.types.Vector2
+				Verify.expect(measure(root)):toBe("1,0 4 8 4 8")
+				engine.environment.poke(root, "AbsoluteSize", V2.new(96, 28))
+				Verify.expect(measure(root)):toBe("1,0 4 14 4 14")
+				engine.environment.poke(root, "AbsoluteSize", V2.new(28, 96))
+				Verify.expect(measure(root)):toBe("1,0 14 8 14 8")
+				stop()
+			end,
+		})
+
+		verifyHarness:case("keeps a pill plate as round as a pill Button when the theme has square pills", {
+			id = "native_layout::stack corners option::keeps a pill plate as round as a pill Button when the theme has square pills",
+			run = function()
+				local square = Facet.themes.neutralPackage()
+				square.metrics.radii.pill = 0
+				local root, engine, stop = build({ theme = square }, function(UI: FacetControls)
+					return UI.HStack "Row" {
+						surface = "panel",
+						corners = "pill",
+						UI.Button "Boost" { label = "Boost", corners = "pill" },
+					}
+				end)
+				local plate = child(root, "UICorner")
+				local button = child(root:FindFirstChild("Boost"), "UICorner")
+				Verify.expect(plate.CornerRadius):toBe(engine.types.UDim.new(1, 0))
+				Verify.expect(plate.CornerRadius):toBe(button.CornerRadius)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("takes a theme radius name or a pixel radius and clears content from it", {
+			id = "native_layout::stack corners option::takes a theme radius name or a pixel radius and clears content from it",
+			run = function()
+				Verify.expect(shaped(function(UI: FacetControls): unknown
+					return UI.HStack "Wide" {
+						surface = "surface",
+						corners = "panel",
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)):toBe("0,12 4 12 4 12")
+				Verify.expect(shaped(function(UI: FacetControls): unknown
+					return UI.HStack "Tight" {
+						surface = "panel",
+						corners = "control",
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)):toBe("0,8 4 8 4 8")
+				Verify.expect(shaped(function(UI: FacetControls): unknown
+					return UI.HStack "Tile" { surface = "pane", corners = 10, padding = 4 }
+				end)):toBe("0,10 4 10 4 10")
+				Verify.expect(shaped(function(UI: FacetControls): unknown
+					return UI.HStack "Flat" {
+						surface = "panel",
+						corners = "square",
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)):toBe("0,0 4 8 4 8")
+				Verify.expect(shaped(function(UI: FacetControls): unknown
+					return UI.VStack "Bare" { surface = "panel", corners = 6 }
+				end)):toBe("0,6 - - - -")
+			end,
+		})
+
+		verifyHarness:case("keeps the theme corner and padding of a stack without corners", {
+			id = "native_layout::stack corners option::keeps the theme corner and padding of a stack without corners",
+			run = function()
+				local root, _, stop = build(nil, function(UI: FacetControls)
+					return UI.HStack "Steps" {
+						surface = "panel",
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)
+				Verify.expect(measure(root)):toBe("theme 4 12 4 12")
+				Verify.expect(root:FindFirstChild("CornerUnit")):toBe(nil)
+				stop()
+				Verify.expect(shaped(function(UI: FacetControls): unknown
+					return UI.VStack "Pane" { surface = "pane", padding = 4 }
+				end)):toBe("theme 4 4 4 4")
+			end,
+		})
+
+		verifyHarness:case("follows a corners cell with the corner and the padding", {
+			id = "native_layout::stack corners option::follows a corners cell with the corner and the padding",
+			run = function()
+				local corners = Compose.cell("panel" :: Corners)
+				local root, engine, stop = build(nil, function(UI: FacetControls)
+					return UI.HStack "Live" {
+						surface = "panel",
+						corners = corners,
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)
+				Verify.expect(measure(root)):toBe("0,12 4 12 4 12")
+				corners:set("square")
+				Verify.expect(measure(root)):toBe("0,0 4 8 4 8")
+				engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(96, 30))
+				corners:set("pill")
+				Verify.expect(measure(root)):toBe("1,0 4 15 4 15")
+				stop()
+			end,
+		})
+
+		verifyHarness:case("follows the theme radius of a corners name when the theme changes", {
+			id = "native_layout::stack corners option::follows the theme radius of a corners name when the theme changes",
+			run = function()
+				local theme = Compose.cell(Facet.themes.neutralPackage())
+				local root, _, stop = build({ theme = theme }, function(UI: FacetControls)
+					return UI.HStack "Themed" {
+						surface = "surface",
+						corners = "panel",
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)
+				Verify.expect(measure(root)):toBe("0,12 4 12 4 12")
+				local rounder = Facet.themes.neutralPackage()
+				rounder.metrics.radii.panel = 20
+				theme:set(rounder)
+				Verify.expect(measure(root)):toBe("0,20 4 20 4 20")
+				Verify.expect(root:FindFirstChild("CornerUnit")):toBe(nil)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("refuses corners without a surface and an unknown corner value", {
+			id = "native_layout::stack corners option::refuses corners without a surface and an unknown corner value",
+			run = function()
+				local bare = refusal(function(UI: FacetControls): unknown
+					return UI.VStack "Bare" { corners = "pill" }
+				end)
+				Verify.expect(mentions(bare, "corners need a surface")):toBe(true)
+				local odd = refusal(function(UI: FacetControls): unknown
+					return UI.VStack "Odd" { surface = "panel", corners = ("round" :: unknown) :: number }
+				end)
+				Verify.expect(mentions(odd, "corners must be pill, square, control, panel")):toBe(true)
+				local negative = refusal(function(UI: FacetControls): unknown
+					return UI.VStack "Negative" { surface = "panel", corners = -2 }
+				end)
+				Verify.expect(mentions(negative, "corners must be pill, square, control, panel")):toBe(true)
 			end,
 		})
 	end)
@@ -1424,6 +1597,185 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(inner.PaddingLeft):toBe(T.UDim.new(0, 0))
 					stop()
 					runtime:dispose()
+				end,
+			})
+
+			local PORTRAIT: GlassBands = { width = 390, height = 844, top = 106, left = 0, bottom = 34, right = 0 }
+
+			local function glassWorld(bands: GlassBands, build: (FacetControls) -> Frame)
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local T = engine.types
+				local gui = engine.new("GuiService")
+				local service = (gui :: unknown) :: VerifyRoblox.Instance
+				local function guiInset(_self: VerifyRoblox.Instance): (Vector2, Vector2)
+					return T.Vector2.new(bands.left, bands.top), T.Vector2.new(bands.right, bands.bottom)
+				end
+				local function insetArea(_self: VerifyRoblox.Instance, inset: Enum.ScreenInsets): Rect
+					if inset == T.Enum.ScreenInsets.None then
+						return T.Rect.new(0, 0, bands.width, bands.height)
+					end
+					return T.Rect.new(bands.left, bands.top, bands.width - bands.right, bands.height - bands.bottom)
+				end
+				engine.environment.fakeOn(service, "GetGuiInset", guiInset)
+				engine.environment.fakeOn(service, "GetInsetArea", insetArea)
+				engine.environment.poke(service, "TopbarInset", T.Rect.new(0, 0, bands.width, bands.top))
+				local UI = Facet.controls(runtime, {
+					types = T,
+					guiService = gui,
+					motionLevel = "none",
+					services = { GuiService = gui },
+				})
+				local layer = engine.new("ScreenGui")
+				layer.ScreenInsets = T.Enum.ScreenInsets.CoreUISafeInsets
+				layer.ClipToDeviceSafeArea = true
+				local wide, tall = bands.width - bands.left - bands.right, bands.height - bands.top - bands.bottom
+				local safe = T.Vector2.new(wide, tall)
+				engine.environment.poke(layer, "AbsoluteSize", safe)
+				local built: Frame? = nil
+				local stop = runtime.mount(function()
+					local node = build(UI)
+					built = node
+					return node
+				end, layer)
+				local function poke(node: Instance, property: string, value: unknown)
+					engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, property, value)
+				end
+				return {
+					T = T,
+					layer = layer,
+					root = assert(built),
+					safe = safe,
+					poke = poke,
+					stop = function()
+						stop()
+						runtime:dispose()
+					end,
+				}
+			end
+
+			verifyHarness:case("paints a surface Screen to the glass at its safe edges and keeps the content safe", {
+				id = "native_layout::Screen::paints a surface Screen to the glass at its safe edges and keeps the content safe",
+				run = function()
+					local world = glassWorld(PORTRAIT, function(UI: FacetControls): Frame
+						return UI.Screen "Shop" { surface = "surface", UI.Text { text = "Shop" } }
+					end)
+					local T, corner = world.T, 8
+					world.poke(world.root, "AbsoluteSize", world.safe)
+					local glass = world.root:FindFirstChild("Glass") :: Instance
+					local backdrop = world.root:FindFirstChild("Backdrop", true) :: Frame
+					Verify.expect(glass:IsA("Folder")):toBe(true)
+					Verify.expect((backdrop:IsDescendantOf(glass))):toBe(true)
+					Verify.expect((backdrop:HasTag("facet-surface"))):toBe(true)
+					Verify.expect(backdrop.ZIndex):toBe(0)
+					Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(-corner, -106 - corner))
+					Verify.expect(backdrop.Size):toBe(T.UDim2.new(1, 2 * corner, 1, 106 + 34 + 2 * corner))
+					local padding = world.root:FindFirstChildWhichIsA("UIPadding") :: UIPadding
+					Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
+					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 16))
+					Verify.expect(padding.PaddingLeft):toBe(T.UDim.new(0, 16))
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					world.stop()
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+				end,
+			})
+
+			verifyHarness:case("ends the surface plate at the screen bounds away from the safe edges", {
+				id = "native_layout::Screen::ends the surface plate at the screen bounds away from the safe edges",
+				run = function()
+					local world = glassWorld(PORTRAIT, function(UI: FacetControls): Frame
+						return UI.VStack {
+							UI.Screen "Plain" { padding = 0 },
+							UI.Screen "Painted" { surface = "surface" },
+						}
+					end)
+					local T, corner = world.T, 8
+					local V2 = T.Vector2
+					local plain = world.root:FindFirstChild("Plain") :: Frame
+					local painted = world.root:FindFirstChild("Painted") :: Frame
+					world.poke(painted, "AbsolutePosition", V2.new(100, 50))
+					world.poke(painted, "AbsoluteSize", V2.new(200, 300))
+					local backdrop = painted:FindFirstChild("Backdrop", true) :: Frame
+					Verify.expect((plain:FindFirstChild("Glass"))):toBeNil()
+					Verify.expect((plain:FindFirstChild("Backdrop", true))):toBeNil()
+					Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(0, 0))
+					Verify.expect(backdrop.Size):toBe(T.UDim2.fromScale(1, 1))
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					world.poke(painted, "AbsolutePosition", V2.new(0, 50))
+					Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(-corner, 0))
+					Verify.expect(backdrop.Size):toBe(T.UDim2.new(1, corner, 1, 0))
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					world.poke(painted, "AbsolutePosition", V2.new(0, 0))
+					Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(-corner, -106 - corner))
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					world.stop()
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					local wrong = refusal(function(UI: FacetControls)
+						return UI.Screen(({ surface = "card" } :: unknown) :: Facet.ScreenProps)
+					end)
+					Verify.expect(mentions(wrong, "surface must be surface, panel or pane")):toBe(true)
+				end,
+			})
+
+			verifyHarness:case("follows a landscape cutout on either side with the surface plate", {
+				id = "native_layout::Screen::follows a landscape cutout on either side with the surface plate",
+				run = function()
+					for _, side in { { left = 47, right = 0 }, { left = 0, right = 47 } } do
+						local landscape: GlassBands = {
+							width = 844,
+							height = 390,
+							top = 58,
+							left = side.left,
+							bottom = 21,
+							right = side.right,
+						}
+						local world = glassWorld(landscape, function(UI: FacetControls): Frame
+							return UI.Screen { surface = "surface", UI.Text { text = "Garage" } }
+						end)
+						local T, corner = world.T, 8
+						world.poke(world.root, "AbsoluteSize", world.safe)
+						local backdrop = world.root:FindFirstChild("Backdrop", true) :: Frame
+						local wide = side.left + side.right + 2 * corner
+						Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(-side.left - corner, -58 - corner))
+						Verify.expect(backdrop.Size):toBe(T.UDim2.new(1, wide, 1, 58 + 21 + 2 * corner))
+						local padding = world.root:FindFirstChildWhichIsA("UIPadding") :: UIPadding
+						Verify.expect(padding.PaddingLeft):toBe(T.UDim.new(0, 16))
+						Verify.expect(padding.PaddingRight):toBe(T.UDim.new(0, 16))
+						Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
+						world.stop()
+					end
+				end,
+			})
+
+			verifyHarness:case("shares the device clipping lease between a surface Screen and a modal", {
+				id = "native_layout::Screen::shares the device clipping lease between a surface Screen and a modal",
+				run = function()
+					local open = Compose.cell(false)
+					local world = glassWorld(PORTRAIT, function(UI: FacetControls): Frame
+						return UI.Screen {
+							surface = "surface",
+							UI.Alert "Confirm" {
+								isPresented = open,
+								title = "Buy?",
+								actions = { { id = "ok", label = "OK" } },
+							},
+						}
+					end)
+					local V2 = world.T.Vector2
+					world.poke(world.root, "AbsoluteSize", world.safe)
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					open:set(true)
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					open:set(false)
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					world.poke(world.root, "AbsolutePosition", V2.new(0, 40))
+					world.poke(world.root, "AbsoluteSize", V2.new(390, 600))
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					open:set(true)
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					open:set(false)
+					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					world.stop()
 				end,
 			})
 		end)

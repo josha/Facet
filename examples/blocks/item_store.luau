@@ -47,6 +47,7 @@ return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 		from = model.items,
 		key = "id",
 		minColumnWidth = 240,
+		minColumns = 2,
 		itemSize = 320,
 		measure = true,
 		render = function(current: Readable<Item>): GuiObject

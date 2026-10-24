@@ -46,6 +46,9 @@ Each palette has `name`, `colors` and `extra`.
 - The main color roles include surfaces, content, accent, and the semantic
   success, warning and danger pairs.
 - The extras hold the hover, pressed, selected and secondary-content values.
+  When a palette sets `control` and not `controlHover` or `controlPressed`,
+  `define` makes the missing values from `control`. A copy of
+  `neutralPackage()` already sets both. Set them to `nil` to derive them.
 - Optional extras change nothing until you declare them. `selection` and
   `onSelection` paint an on or chosen mark: the switch, the checked box, the
   slider fill and the underline, and a chosen Chip and a selected link Button.
@@ -124,7 +127,9 @@ Without it (Facet Neutral), each row keeps the 44 pixel floor.
 `strokes.utility`, when it is more than 0, draws an outline of that width on a
 `utility` Button. `controls.shortcutHint.capStroke` sets the width of the
 ShortcutHint cap outline, and 0 removes it. Without it, the cap uses
-`strokes.hairline`. A Notice with the standard appearance pads its content by
+`strokes.hairline`. `controls.button.captionStroke` sets the width of the
+outline on a Button `caption` and on the rim hint of a circle Button, and 0
+removes it. Without it, the outline is 1.5 pixels wide. A Notice with the standard appearance pads its content by
 the `panel` chrome `contentInsets`, and not less than 8 pixels. The layout constructors read the
 spacing steps from `metrics.space` of the theme package of the controls. A
 change to `space.m` changes each `gap` or `padding` that uses the `m` step.

@@ -1,7 +1,6 @@
 --!strict
 local ControlTypes = require("./control_types")
 local activation = require("./activation")
-local adaptive = require("./adaptive")
 local preparePaint = require("./collection_paint")
 local reorder = require("./collection_reorder")
 local policy = require("./collection_policy")
@@ -100,22 +99,21 @@ return function<V, K>(
 			follow = follow,
 			followThreshold = spec.followThreshold,
 			layout = function(use: ComposeTypes.Use)
-				local columns = if kind == "grid" then math.max(1, math.floor(read(spec.columns or 1, use))) else 1
+				if spec.minColumns ~= nil then
+					local least = read(spec.minColumns, use)
+					assert(
+						spec.minColumnWidth ~= nil and spec.columns == nil and least >= 1 and least % 1 == 0,
+						"Facet minColumns needs minColumnWidth, a positive whole number and no columns"
+					)
+				end
 				if spec.minColumnWidth ~= nil then
 					local minimum = read(spec.minColumnWidth, use)
 					assert(
 						kind == "grid" and spec.columns == nil and minimum > 0 and minimum < math.huge,
 						"Facet minColumnWidth needs a grid, a positive width and no columns"
 					)
-					columns = view.fitColumns(
-						use,
-						adaptive.columnsFor(
-							math.max(0, use(cross) - 2 * crossEdge(use)),
-							minimum,
-							read(spec.crossGap or spec.gap or 0, use)
-						)
-					)
 				end
+				local columns = view.gridColumns(use, math.max(0, use(cross) - 2 * crossEdge(use)))
 				local gap: number = read(spec.gap or 0, use)
 				local crossGap: number = read(spec.crossGap or gap, use)
 				return {
@@ -371,17 +369,16 @@ return function<V, K>(
 								Compose.cleanup(activation.providePress(hit, pressed))
 								table.insert((children :: unknown) :: { unknown }, 1, hit)
 							end
+							local carded = tree == nil
+								and rendered:GetAttribute("FacetBody") ~= nil
+								and read(spec.contentOverflow) ~= "clip"
 							local paintSelection = spec.selectionIndicator ~= false and selectionMode ~= "none"
-							if paintSelection then
+							if paintSelection and not carded then
 								children.BackgroundTransparency = nil
 							end
 							local groupProperties = (children :: unknown) :: Types.CanvasGroupNativeProps
 							local surface: Frame? = nil
-							if
-								tree == nil
-								and rendered:GetAttribute("FacetBody") ~= nil
-								and read(spec.contentOverflow) ~= "clip"
-							then
+							if carded then
 								local cardSize = observe.AbsoluteSize(rendered)
 								local cardLift = rendered:FindFirstChildWhichIsA("UIScale")
 								local lift = if cardLift then observe.Scale(cardLift) else nil
@@ -439,7 +436,7 @@ return function<V, K>(
 							local content = Host.CanvasGroup(groupProperties)
 							local logical = surface or content
 							policy.drop(ctx, spec, current, key, logical, kind == "grid" or horizontal)
-							if paintSelection then
+							if paintSelection and not carded then
 								ctx.styled(logical, "TableRow")
 								if kind == "grid" or horizontal then
 									ctx.skin(logical, "control", {
@@ -448,6 +445,8 @@ return function<V, K>(
 										end,
 									})
 								end
+							end
+							if paintSelection then
 								Compose.watch(function(use: ComposeTypes.Use)
 									if use(selection)[key] == true then
 										logical:AddTag("facet-selected")

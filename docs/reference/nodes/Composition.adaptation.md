@@ -5,13 +5,16 @@ Top-bar strip layout, fallback and overlays.
 - A region with `zone = "topbar"` goes into the free strip of the Roblox top
   bar, level with the Roblox buttons. The composition puts these regions in a
   second ScreenGui with `ScreenInsets = TopbarSafeInsets`, in the parent of its
-  own ScreenGui. That ScreenGui has the same `DisplayOrder`, follows the
-  `Enabled` of the host and links the same StyleSheet. The regions sit side
+  own ScreenGui. That ScreenGui has the same `DisplayOrder` and links the same
+  StyleSheet. It is enabled only while the host is `Enabled` and the
+  composition and its ancestors are `Visible`. Thus a page that a
+  NavigationStack pushes over the HUD page hides the strip. The regions sit side
   by side. Leading regions sit beside the Roblox buttons. Trailing regions
   (`trailing = true`) sit at the far end of the strip, such as a menu button.
   The other regions stay centred in the remaining space.
   Regions step down when their total width with the gaps does not fit the strip,
-  or when a region is taller than the strip row.
+  or when a region is taller than the strip row. The middle lane, and a leading
+  or trailing lane that a region declares, keeps its `gap` even when empty.
 - When `topbar` is `false`, when `GuiService.TopbarInset` has no width (a
   console has no Roblox top bar), or when the composition is not in a
   ScreenGui, these regions come first in the `top` zone. A trailing region
@@ -27,9 +30,11 @@ Top-bar strip layout, fallback and overlays.
   2 pixels above the bottom of the band. Regions centre on the Roblox buttons.
   A region taller than 44 pixels does not fit the strip.
   The leading row starts one `gap` after the Roblox buttons.
-  The strip keeps one `gap` from the screen edge.
+  The strip's far end keeps the composition's own edge `padding`, or one `gap` when
+  the padding is smaller, so trailing regions line up with the zones below.
   Give a button beside the Roblox buttons a 44 pixel height.
-  A `compact` circle in the neutral theme has this height.
+  A `regular` Button in the neutral theme has this height with every input;
+  a `compact` Button is 36 pixels with a pointer.
 - A Popover, Menu or other overlay from a strip region shows in the composition's
   ScreenGui. Thus the narrow strip does not clip it.
 - In the strip, the `Topbar` Frame holds a `Leading` row for leading regions.

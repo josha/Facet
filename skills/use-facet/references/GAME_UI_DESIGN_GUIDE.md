@@ -66,6 +66,11 @@ Keep a short choice near its source when it fits. Give a sustained task a page
 or in-world station with enough room and a clear return. Replace unrelated HUD
 groups; retain needed context, such as balance beside cost.
 
+Use a Sheet for temporary, modal focus over the game: a confirm, a quick pick or
+a short glance. When a destination such as a store or garage is a new mode that
+replaces play for a while, use a page with a Screen `surface`. Its plate reaches
+the glass.
+
 Keep frequent safe actions direct. Add review or recovery in proportion to
 consequence. Disclose optional detail without hiding commitment terms. A
 confirmation does not repair an ambiguous label or adjacent targets.
@@ -90,8 +95,10 @@ inspection, comparison and results. Use the [layout chapter](game-ui/LAYOUT_AND_
 to choose that relationship before adding containers.
 
 Keep related content close and comparable facts aligned. Use space to separate
-groups without boxing every fact. Reserve strong accent for the important action
-or state. Keep stable meanings for color and icons.
+groups without boxing every fact. Plates side by side share one height, and one
+layer shares one elevation: all flat, or all lifted by one shadow
+(`Theme-identity`). A mismatch reads as an error, not as emphasis. Reserve strong
+accent for the important action or state. Keep stable meanings for color and icons.
 Distinguish focus, selection, equipped, pending and unavailable beyond color.
 
 Give objects meaningful artwork or well-framed Stage previews. Show the actual
@@ -117,9 +124,11 @@ meaning, with smaller forms and explicit priority. A compact form must retain
 access to every required task it replaces. Repeating the same status in several
 groups spends space and attention without adding a decision.
 
-Use safe edges without crowding native controls; Composition handles TopbarInset
-and its fallback. A marker may occupy the focus area when locating that target
-is the task. End commands and notices when their context ends.
+Use safe edges without crowding native controls. The free strip beside Roblox's
+top bar buttons suits a compact item, such as a currency or a menu button.
+Composition handles TopbarInset and its fallback; read `HUD-actions` to match
+Roblox's row. A marker may occupy the focus area when locating that target is
+the task. End commands and notices when their context ends.
 
 Composition is passive. Gameplay keeps the movement stick and D-pad.
 Give HUD tasks explicit gamepad actions and visible input hints. The opened

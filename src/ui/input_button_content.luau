@@ -13,7 +13,8 @@ return function(
 	p: InputProps.ButtonProps,
 	iconState: ComposeTypes.Cell<ThemeTypes.SkinState>?,
 	bounded: boolean,
-	sized: (TextLabel | TextButton) -> ()
+	sized: (TextLabel | TextButton) -> (),
+	hint: GuiObject?
 ): (boolean, ((GuiObject) -> ())?)
 	local runtime, Host, read = ctx.runtime, ctx.Host, ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
@@ -252,6 +253,9 @@ return function(
 	end
 	if spec.trailingIcon then
 		table.insert(content, icon(spec.trailingIcon, { Name = "TrailingIcon", Size = rungIcon }, iconState))
+	end
+	if hint then
+		table.insert(content, hint)
 	end
 	local contentFrame = if imageCard
 		then ctx.column(content, {

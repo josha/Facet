@@ -2,6 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local Nav = require("./navigation_types")
+local Media = require("./media_types")
 
 type Value<T> = Types.Value<T>
 
@@ -59,6 +60,13 @@ export type CardAction = {
 	busy: Types.ValueBoolean?,
 }
 export type CardMenu = { items: Value<{ Nav.MenuItem<string> }>, label: Types.ValueString? }
+export type CardBadge = {
+	label: Value<string?>?,
+	status: Value<Media.Status>?,
+	icon: Types.ValueString?,
+	name: string?,
+}
+export type CardBadges = { leading: CardBadge?, trailing: CardBadge? }
 export type CardControls = {
 	diagnostics: (() -> { string })?,
 	enterActions: (() -> boolean)?,
@@ -84,7 +92,9 @@ export type CardOptions = {
 	enabled: Types.ValueBoolean?,
 	controls: CardControls?,
 	ringTarget: ("card" | "media")?,
+	badges: CardBadges?,
 }
 export type BadgeValue = string | number | boolean
-export type Badged = (GuiObject, Value<BadgeValue?>, ("ltr" | "rtl")?) -> Frame
+export type BadgedOptions = { direction: ("ltr" | "rtl")?, status: Value<Media.Status>? }
+export type Badged = (GuiObject, Value<BadgeValue?>, BadgedOptions?) -> Frame
 return {}

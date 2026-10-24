@@ -234,7 +234,59 @@ function Props.load(root: string): { [string]: { Option } }
 	return result
 end
 
-function Props.icons(root: string): string
+Props.ICONS_NODE = "docs/reference/nodes/Icons.names.md"
+
+Props.ICON_USES = table.freeze({
+	bag = "Shop or store",
+	bolt = "Energy, boost or power",
+	calendar = "Date or schedule",
+	car = "Vehicle, kart or garage",
+	chat = "Chat or messages",
+	check = "Same art as `checkmark`",
+	checkmark = "Done, confirm or selected",
+	["chevron.down"] = "Expand or move down",
+	["chevron.first"] = "Go to the first item",
+	["chevron.last"] = "Go to the last item",
+	["chevron.leading"] = "Back or previous",
+	["chevron.trailing"] = "Forward, next or a child page",
+	["chevron.up"] = "Collapse or move up",
+	["chevron.up.chevron.down"] = "Choice in a pop-up menu",
+	clock = "Time of day or duration",
+	close = "Close or dismiss",
+	coin = "Coins or soft currency",
+	crown = "VIP, leader or top rank",
+	decrement = "Decrease",
+	edit = "Edit or rename",
+	flag = "Report, goal or checkpoint",
+	gem = "Gems or premium currency",
+	gift = "Gift or daily reward",
+	heart = "Like, favorite or health",
+	increment = "Increase or add",
+	lock = "Locked item or requirement",
+	menu = "Main menu",
+	more = "More actions",
+	mute = "Sound off",
+	person = "Player, user or profile",
+	settings = "Settings",
+	speaker = "Sound on",
+	star = "Favorite, rating or reward",
+	["status.error"] = "Error",
+	["status.info"] = "Information",
+	["status.success"] = "Success",
+	["status.warning"] = "Warning",
+	timer = "Countdown or stopwatch",
+	trash = "Delete",
+	trophy = "Achievement, win or leaderboard",
+	["view.grid"] = "Grid layout",
+	["view.list"] = "List layout",
+	["view.table"] = "Table layout",
+	["vote.down"] = "Dislike",
+	["vote.up"] = "Like",
+	volume = "Same art as `speaker`",
+	wrench = "Repair, upgrade or tools",
+}) :: { [string]: string }
+
+function Props.iconNames(root: string): { string }
 	local directory = if Files.isDirectory(Files.join(root, "Packages/Facet/ui")) then "Packages/Facet/ui" else "src/ui"
 	local names: { string } = {}
 	local source = Files.text(Files.join(root, directory, "icons.luau"))
@@ -245,12 +297,56 @@ function Props.icons(root: string): string
 		table.insert(names, name)
 	end
 	table.sort(names)
-	return "# Icons.names\n"
-		.. "Names for `icon` on Button, Label, Badge, Notice, Chip and the other controls with an icon option. "
-		.. "`NAME.fill` uses NAME when no filled art exists. "
-		.. "A theme package or the `icons` factory option can add a name or replace its art. "
-		.. "An unknown name causes an error, so take each name from this list or register it in your icons map.\n"
-		.. table.concat(names, ", ")
+	return names
+end
+
+function Props.icons(root: string): string
+	local lines = {
+		"# Icons.names",
+		"",
+		"<!-- aliases: Icons | icon names | icon | glyphs -->",
+		"",
+		"Names for `icon` on Button, Label, Badge, Notice, Chip and the other controls with an icon option.",
+		"`NAME.fill` uses NAME when no filled art exists.",
+		"A theme package or the `icons` factory option can add a name or replace its art.",
+		"An unknown name causes an error, so take each name from this list or register it in your icons map.",
+		"Each glyph is a near-white silhouette, and the theme supplies its color.",
+		"Use a name from this list before you draw a glyph with Path or Frames.",
+		"",
+		"| Name | Use for |",
+		"| --- | --- |",
+	}
+	for _, name in Props.iconNames(root) do
+		table.insert(lines, ("| `%s` | %s |"):format(name, Props.ICON_USES[name] or ""))
+	end
+	return table.concat(lines, "\n") .. "\n"
+end
+
+function Props.iconProblems(root: string): { string }
+	local problems: { string } = {}
+	local registered: { [string]: boolean } = {}
+	for _, name in Props.iconNames(root) do
+		registered[name] = true
+		if Props.ICON_USES[name] == nil then
+			table.insert(problems, `Icons.names: {name} has no use in tools/facet/lib/docs_props.luau ICON_USES`)
+		end
+	end
+	for name in Props.ICON_USES do
+		if not registered[name] then
+			table.insert(problems, `Icons.names: {name} in ICON_USES is not a registered icon name`)
+		end
+	end
+	local committed = Files.join(root, Props.ICONS_NODE)
+	if not Files.isFile(committed) then
+		table.insert(problems, `{Props.ICONS_NODE} is missing; run lute run tools/facet check docs-nodes --write`)
+	elseif Files.text(committed) ~= Props.icons(root) then
+		table.insert(
+			problems,
+			`{Props.ICONS_NODE} differs from the icon registry; run lute run tools/facet check docs-nodes --write`
+		)
+	end
+	table.sort(problems)
+	return problems
 end
 
 function Props.render(name: string, options: { Option }): string

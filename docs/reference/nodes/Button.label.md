@@ -28,6 +28,21 @@ The caption is a native TextLabel inside the Button. It names the Button for
 the player and for tools such as `verify --tap`, which press the Button that
 holds the matched text. The player presses the Button itself. Keep `label` or
 `name` for the accessible name. A caption sets `ClipsDescendants` to `false` on the Button.
+The caption is outside the plate, so it uses the `content` color, not the
+color of the plate. A Contextual UIStroke in the `surface` color outlines it,
+so it reads over any scene. The theme metric `controls.button.captionStroke`
+sets the outline width (the default is 1.5). A value of 0 draws no outline.
+
+`shortcutHint = action` shows the binding of a native InputAction on the
+Button, as a `ShortcutHint` with `cap = false`. The hint shows only while the
+action's `Enabled` is not false, the device has a binding for the action, and
+the input is not touch. A hidden hint takes no space. On a rect Button, the
+hint is the last part of the content row. On a `circle` Button, it sits on the
+lower right of the rim, one `controlSize` smaller, with the caption colors and
+outline. It can show with `icon`, `glyph` and `label`. The hint does not bind
+the action. To bind a key to the Button, use `shortcut`. With
+`appearance = "emphasis"` or `"inverse"`, or with `role = "destructive"`, the
+gamepad glyph uses the ink of the plate.
 
 `glyph = function(): GuiObject` supplies a native leading visual instead of
 `icon`. It runs once in the Button's Compose owner. The native content row

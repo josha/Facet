@@ -33,6 +33,9 @@ visible, and `cards` can show meaningful visual alternatives. Automatic does
 not select `cards`. Use Picker's `query` for a searchable known set; ComboBox
 requires separate accepted `value`, editable `text` and `acceptCustom` policy.
 Use ColorPicker for a color space; a few named colors can use Picker.
+A horizontal `segmented` strip stays on one row and scrolls when it does not
+fit. To show a menu on a narrow screen instead, use
+`ViewThatFits { segmentedPicker, menuPicker }`.
 
 ## Make adjustment understandable
 

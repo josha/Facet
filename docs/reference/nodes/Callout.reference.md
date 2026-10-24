@@ -27,7 +27,8 @@ The plate parts are optional, but the plate must show something:
 - `media`: `{ image, aspectRatio | height, scaleMode?, background? }`.
 - `steps`: `{ index, count }`. It shows `index of count`.
 - `actions`: one or two `{ id, label, role?, enabled?, busy?, onActivate }`.
-  They replace the bottom `Got it` button. A press retires the plate with the
+  They replace the bottom `Got it` button. The `default` action has the
+  `emphasis` appearance. A press retires the plate with the
   reason `action`, once, also when `onActivate` fails. A disabled or busy
   action does not run.
 - `closeButton`: `true` adds a close control at the top. It retires the plate

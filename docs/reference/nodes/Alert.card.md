@@ -12,8 +12,12 @@ Key options: `title`, `actions`, `isPresented`.
 
 Use a typed action array when literal roles need strict types.
 
+Facet gives the `role = "default"` action the `emphasis` appearance, so do not
+style the commit action yourself.
+
 Related controls: [Controls](Controls.md).
 
 Open:
 
 - [Alert.reference](Alert.reference.md)
+- [Tasks.confirm](Tasks.confirm.md): use a Dialog when the server must accept the choice.

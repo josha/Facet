@@ -13,8 +13,12 @@ Key options: `isPresented`, `title`, `content`, `actions`.
 
 Actions must update game state or presentation explicitly.
 
+Facet gives the `role = "default"` action the `emphasis` appearance, so do not
+style the commit action yourself.
+
 Related controls: [Controls](Controls.md).
 
 Open:
 
 - [Dialog.reference](Dialog.reference.md)
+- [Tasks.confirm](Tasks.confirm.md): a purchase confirmation that stays open until the server answers.

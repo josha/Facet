@@ -17,6 +17,7 @@ local stackProps: Facet.StackProps =
 	{ Name = "Toolbar", maxWidth = 480, gap = "m", padding = { left = "xs", top = 4 }, align = "center" }
 local screen: Frame = UI.Screen({
 	maxWidth = 640,
+	surface = "surface",
 	gap = gap,
 	padding = "l",
 	distribute = "spaceBetween",
@@ -34,6 +35,9 @@ local column: Frame = UI.VStack({
 	UI.Button({ label = "Save" }),
 })
 local row: Frame = UI.HStack(stackProps)
+local readout: Frame = UI.HStack({ surface = "panel", corners = "pill", padding = "s", UI.Text({ text = "12" }) })
+local tile: Frame = UI.VStack({ surface = "pane", corners = 6 })
+local framed: Frame = UI.VStack({ surface = "surface", corners = "panel" })
 local adaptiveProps: Facet.AdaptiveStackProps = { maxWidth = maximum, gap = "s", axis = "x" }
 local adaptive: Frame = UI.AdaptiveStack(adaptiveProps)
 local fits: Frame = UI.ViewThatFits({ maxWidth = 480, UI.Text({ text = "Wide" }), UI.Text({ text = "Narrow" }) })
@@ -114,6 +118,9 @@ return {
 	named = named,
 	column = column,
 	row = row,
+	readout = readout,
+	tile = tile,
+	framed = framed,
 	layers = layers,
 	page = page,
 	sideways = sideways,

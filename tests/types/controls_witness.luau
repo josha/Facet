@@ -156,7 +156,22 @@ local cardProps: Facet.CardSpec = {
 	controls = cardControls,
 }
 local card: Frame = UI.Card(cardProps)
+local owned = Compose.cell(true)
+local cardBadges: Facet.CardBadges = {
+	leading = { label = "Rare", status = "accent" },
+	trailing = {
+		label = function(use: Use): string?
+			return if use(owned) then "Owned" else nil
+		end,
+		status = "success",
+		icon = "checkmark",
+	},
+}
+local badgedProps: Facet.CardSpec = { image = "rbxassetid://1", title = text, badges = cardBadges }
+local badgedCard: Frame = UI.Card(badgedProps)
 local sealed: Frame = UI.badged(UI.Button({ label = "Inbox" }), 3)
+local sealOptions: Facet.BadgedOptions = { direction = "rtl", status = "accent" }
+local dotted: Frame = UI.badged(UI.Button({ label = "Daily" }), true, sealOptions)
 local firstRace: Facet.CivilDate? = { year = 2026, month = 10, day = 4 }
 local raceDay = Compose.cell(firstRace)
 local datePicker: GuiObject = UI.DateTimePicker({
@@ -212,6 +227,8 @@ local noticeProps: Facet.NoticeSpec = {
 local notice: Frame = UI.Notice(noticeProps)
 local navBarProps: Facet.NavBarSpec = { title = text, onBack = nothing, backLabel = "Back" }
 local navBar: Frame = UI.NavBar(navBarProps)
+local handedBack = Compose.cell(false)
+local handedNavBar: Frame = UI.NavBar({ title = text, onBack = handedBack, backLabel = "Parts" })
 local snackOpen = Compose.cell(false)
 local snackbarProps: Facet.ToastSpec = {
 	isPresented = snackOpen,
@@ -264,11 +281,21 @@ local split: GuiObject = UI.NavigationSplitView({
 	detail = content,
 	preferredCompactColumn = Compose.cell(startColumn),
 	sidebarWidth = Compose.cell(360),
+	detailLabel = false,
+	compactBack = handedBack,
 })
 local stack: GuiObject = UI.NavigationStack({
 	path = entries,
 	root = { title = "Home", content = content },
-	destinations = {},
+	destinations = {
+		named = { title = "Named", initialFocus = "Body", content = content },
+		chosen = {
+			initialFocus = function(): string?
+				return "Body"
+			end,
+			content = content,
+		},
+	},
 })
 local radial: GuiObject = UI.RadialMenu({ items = items, holdAction = Instance.new("InputAction") })
 local nestedRadial: GuiObject = UI.RadialMenu({ items = require("./radial_witness") })
@@ -428,13 +455,16 @@ local mounted: { GuiObject } = {
 	stepIndicator,
 	vote,
 	card,
+	badgedCard,
 	sealed,
+	dotted,
 	datePicker,
 	colorPicker,
 	dialog,
 	popover,
 	notice,
 	navBar,
+	handedNavBar,
 	snackbar,
 	toast,
 	menu,
