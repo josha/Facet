@@ -1008,6 +1008,22 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-segment-current >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-accent >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-accent >> .facet-icon", { ImageColor3 = c("onAccent") })
+	local bareGlyph = " >> .facet-shortcut-hint-bare >> .facet-shortcut-glyph"
+	rule(".facet-role-destructive" .. bareGlyph, { ImageColor3 = c("onDanger") })
+	rule(".facet-appearance-inverse" .. bareGlyph, { ImageColor3 = c("onInverse") })
+	rule(".facet-accent" .. bareGlyph, { ImageColor3 = c("onAccent") })
+	local buttonFamily: { [string]: number } = families.button or {}
+	local captionStroke = buttonFamily.captionStroke or 1.5
+	if captionStroke > 0 then
+		local halo: ThemeTypes.RuleProperties = {
+			ApplyStrokeMode = types.Enum.ApplyStrokeMode.Contextual,
+			Color = c("surface"),
+			Thickness = captionStroke,
+			Transparency = 0.3,
+		}
+		rule("TextLabel.facet-button-outside::UIStroke", halo)
+		rule(".facet-button-outside >> .facet-text::UIStroke", halo)
+	end
 	rule(".facet-calendar-day", { BackgroundTransparency = 1 })
 	rule(".facet-calendar-day::UIPadding", {
 		PaddingLeft = types.UDim.new(0, 0),
@@ -1193,6 +1209,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-selected >> .facet-text-input >> .facet-text", { TextColor3 = c("content") })
 	rule(".facet-tab-filled.facet-skinned", if selectedArt then {} else { BackgroundTransparency = 0 })
 	rule(".facet-tab-filled > #SkinBoundary", if selectedArt then {} else { Visible = false })
+	rule(".facet-button-outside, .facet-button-outside >> .facet-text", { TextColor3 = c("content") })
+	rule(".facet-button-outside >> .facet-shortcut-glyph", { ImageColor3 = c("contentStrong") })
 	for _, pair in
 		{
 			{ "facet-accent", "onAccent", "accent" },

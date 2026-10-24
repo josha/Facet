@@ -6,9 +6,9 @@ ButtonGuide shows one row of hints, such as "A Buy  B Back  LB/RB Tabs", for com
 
 Use it for the commands that act on the focused item, the bumpers and
 triggers, and Back on a surface without a visible Close. A command with its
-own control shows its glyph on that control (`ShortcutHint` with
-`cap = false`). List each command once: an action or a key that appears twice
-stops with an error.
+own control shows its glyph on that control (the Button `shortcutHint`, or
+`ShortcutHint` with `cap = false`). List each command once: an action or a
+key that appears twice stops with an error.
 
 - `entries`: a list, a readable list or a function of `use`. Each entry has a
   `label` (a string or a readable string) and one source:

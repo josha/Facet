@@ -5,8 +5,10 @@ Top-bar strip layout, fallback and overlays.
 - A region with `zone = "topbar"` goes into the free strip of the Roblox top
   bar, level with the Roblox buttons. The composition puts these regions in a
   second ScreenGui with `ScreenInsets = TopbarSafeInsets`, in the parent of its
-  own ScreenGui. That ScreenGui has the same `DisplayOrder`, follows the
-  `Enabled` of the host and links the same StyleSheet. The regions sit side
+  own ScreenGui. That ScreenGui has the same `DisplayOrder` and links the same
+  StyleSheet. It is enabled only while the host is `Enabled` and the
+  composition and its ancestors are `Visible`. Thus a page that a
+  NavigationStack pushes over the HUD page hides the strip. The regions sit side
   by side. Leading regions sit beside the Roblox buttons. Trailing regions
   (`trailing = true`) sit at the far end of the strip, such as a menu button.
   The other regions stay centred in the remaining space.

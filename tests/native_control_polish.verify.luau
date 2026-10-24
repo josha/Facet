@@ -450,6 +450,72 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("paints a caption and a rim hint outside the plate in content ink with a surface outline", {
+			id = "native_control_polish::native navigation stack paint::paints a caption and a rim hint outside the plate in content ink with a surface outline",
+			run = function()
+				local styleRules = require("./lib/style_rules")
+				local w = world(function(UI, _, engine)
+					local boost = engine.new("InputAction")
+					local binding = engine.new("InputBinding")
+					binding.KeyCode = engine.types.Enum.KeyCode.E
+					engine.environment.poke(boost, "PreferredBinding", binding)
+					local plate = UI.HStack "Plate" { UI.ShortcutHint "Cap" { action = boost } }
+					plate:AddTag("facet-accent")
+					return UI.HStack {
+						UI.Button "Race" {
+							icon = "flag",
+							shape = "circle",
+							appearance = "emphasis",
+							caption = "Race",
+							shortcutHint = boost,
+						},
+						UI.Button "Boost" { label = "Boost", appearance = "emphasis", shortcutHint = boost },
+						UI.Button "Sell" { label = "Sell", role = "destructive", shortcutHint = boost },
+						UI.Button "Ghost" { label = "Ghost", appearance = "inverse", shortcutHint = boost },
+						plate,
+					}
+				end)
+				local sheet: StyleSheet? = nil
+				w.runtime.mount(function()
+					local made = themes.createStyleSheet(w.runtime, nil, { types = w.engine.types })
+					sheet = made
+					return made
+				end, w.engine.new("Folder"))
+				local function paint(node: Instance, property: string, pseudo: string?): unknown
+					return styleRules.resolve(sheet, node, property, pseudo)
+				end
+				local race, boost = find(w.screen, "Race"), find(w.screen, "Boost")
+				local caption, rim = find(race, "Caption"), find(find(race, "ShortcutHint"), "Key")
+				for _, text in { caption, rim } do
+					expect(paint(text, "TextColor3")):toBe("$FacetColor_content")
+					expect(paint(text, "ApplyStrokeMode", "UIStroke")):toBe(w.E.ApplyStrokeMode.Contextual)
+					expect(paint(text, "Color", "UIStroke")):toBe("$FacetColor_surface")
+					expect(paint(text, "Thickness", "UIStroke")):toBe(1.5)
+				end
+				expect(paint(find(race, "LeadingIcon"), "ImageColor3")):toBe("$FacetColor_onAccent")
+				local inside = find(find(boost, "ShortcutHint"), "Key")
+				expect(paint(inside, "TextColor3")):toBe("$FacetColor_onAccent")
+				expect(paint(inside, "Color", "UIStroke")):toBeNil()
+				expect(paint(find(boost, "Title"), "TextColor3")):toBe("$FacetColor_onAccent")
+				for _, case in
+					{
+						{ hint = find(boost, "ShortcutHint"), ink = "$FacetColor_onAccent" },
+						{ hint = find(race, "ShortcutHint"), ink = "$FacetColor_contentStrong" },
+						{ hint = find(find(w.screen, "Sell"), "ShortcutHint"), ink = "$FacetColor_onDanger" },
+						{ hint = find(find(w.screen, "Ghost"), "ShortcutHint"), ink = "$FacetColor_onInverse" },
+						{ hint = find(w.screen, "Cap"), ink = "$FacetColor_contentStrong" },
+					}
+				do
+					local glyph = w.engine.new("ImageLabel")
+					glyph:AddTag("facet-shortcut-glyph")
+					glyph.Parent = case.hint
+					expect(paint(glyph, "ImageColor3")):toBe(case.ink)
+					glyph:Destroy()
+				end
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("a skinned caption can reclaim padding when the native button reports a fit", {
 			id = "native_control_polish::skinned-caption-fit",
 			run = function()

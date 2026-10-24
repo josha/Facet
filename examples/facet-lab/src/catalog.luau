@@ -314,6 +314,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				name = "circle with caption",
 				props = properties { shape = "circle", icon = "settings", caption = "Settings" },
 			},
+			{ name = "shortcut hint", props = hintPages.buttonHint },
+			{ name = "circle with shortcut hint", props = hintPages.circleHint },
 			{ name = "discloses a truncated label", props = merged(fixed(120, 44), { label = LONG, disclose = true }) },
 			{ name = "fixed 140×64", props = fixed(140, 64) },
 			{

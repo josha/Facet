@@ -95,6 +95,7 @@ return function(UI: InputsControls.Controls, action: InputAction): ()
 	})
 	local link: TextButton =
 		UI.Button({ label = "Terms", appearance = "inverse", underline = "hover", textSize = "label" })
+	local hinted: TextButton = UI.Button({ label = "Boost", icon = "flag", caption = "Boost", shortcutHint = action })
 	local plain: TextButton = UI.Toggle({
 		value = checked,
 		presentation = "checkbox",
@@ -103,6 +104,7 @@ return function(UI: InputsControls.Controls, action: InputAction): ()
 		textSize = 14,
 	})
 	link.Visible = true
+	hinted.Visible = true
 	plain.Visible = true
 	button.Text = "Saved"
 	toggle.Selected = true
