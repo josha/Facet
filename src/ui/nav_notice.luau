@@ -520,8 +520,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 
 	UI.NavBar = ctx.construct("NavBar", function(spec: OverlayProps.NavBarSpec): Frame
 		local where = "UI.NavBar"
-		if spec.onBack ~= nil and type(spec.onBack) ~= "function" then
-			error(`Facet {where}: onBack must be a function`, 0)
+		local onBack = spec.onBack
+		if onBack ~= nil and type(onBack) ~= "function" and not Compose.isReadable(onBack) then
+			error(`Facet {where}: onBack must be a function or a writable boolean cell`, 0)
 		end
 		if spec.trailing ~= nil and not parts.instance(spec.trailing) then
 			error(`Facet {where}: trailing is one GuiObject; put a cluster in a frame`, 0)
@@ -543,12 +544,27 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			return space(spec.gap, "s", use)
 		end
 		local primary: { Types.Child } = {}
-		if spec.onBack then
-			table.insert(primary, parts.back(ctx, UI, spec.backLabel, spec.onBack))
+		if onBack then
+			local shown: Types.ValueBoolean = true
+			local activate: () -> ()
+			if type(onBack) == "function" then
+				activate = onBack
+			else
+				local presented = onBack
+				if type(presented.set) ~= "function" then
+					error(`Facet {where}: onBack must be a function or a writable boolean cell`, 0)
+				end
+				shown = presented
+				activate = function()
+					presented:set(false)
+				end
+			end
+			table.insert(primary, parts.back(ctx, UI, spec.backLabel, activate, { Visible = shown }))
 			table.insert(
 				primary,
 				Host.Frame "BackGap" {
 					BackgroundTransparency = 1,
+					Visible = shown,
 					Size = function(use: ComposeTypes.Use)
 						return D2.fromOffset(ctx.metric("space.s", use), 0)
 					end,
@@ -721,10 +737,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end, trailingFrame)
 			local box = ctx.observe.AbsoluteSize(root)
 			local sides = ctx.observe.AbsoluteSize(trailingFrame)
-			local before: { ComposeTypes.Readable<Vector2> } = {}
+			local before: { { size: ComposeTypes.Readable<Vector2>, shown: ComposeTypes.Readable<boolean> } } = {}
 			for _, child in primaryFrame:GetChildren() do
 				if child:IsA("GuiObject") and child ~= centerFrame then
-					table.insert(before, ctx.observe.AbsoluteSize(child))
+					table.insert(before, { size = ctx.observe.AbsoluteSize(child), shown = ctx.observe.Visible(child) })
 				end
 			end
 			local natural = if titleMeasure then ctx.observe.TextBounds(titleMeasure) else nil
@@ -735,8 +751,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					return
 				end
 				local fixed = 0
-				for _, size in before do
-					fixed += use(size).X / scale + gap(use)
+				for _, part in before do
+					if use(part.shown) then
+						fixed += use(part.size).X / scale + gap(use)
+					end
 				end
 				local room = width - fixed - use(sides).X / scale - gap(use)
 				local wanted = if natural then use(natural).X / scale else ctx.metric("controls.popup.panelWidth", use)

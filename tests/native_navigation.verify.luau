@@ -3291,7 +3291,7 @@ return function(verifyHarness: Verify.Harness)
 				world.gui.SelectedObject = find(world.screen, "RootAction")
 				path:set({ { id = "detail" } })
 				world.settle()
-				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("Back")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("DetailAction")
 				path:set({})
 				world.settle()
 				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("RootAction")
@@ -3313,6 +3313,84 @@ return function(verifyHarness: Verify.Harness)
 				selection:set("two")
 				Verify.expect(assert(pager.gui.SelectedObject).Name):toBe("PageTwo")
 				pager.stop()
+			end,
+		})
+		verifyHarness:case("starts a pushed page on its named or first content control before the stack Back", {
+			id = "native_navigation::native navigation controls::starts a pushed page on its named or first content control before the stack Back",
+			run = function()
+				local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
+				local asked = 0
+				local function page(UI: FacetControls, named: boolean): Instance
+					return UI.VStack {
+						UI.NavBar "Header" {
+							title = "Shop",
+							trailing = UI.Button "Close" {
+								label = "Close",
+								onActivate = function()
+									path:set({})
+								end,
+							},
+						},
+						UI.VStack(if named then "Body" else "Content") { UI.Button "FirstCard" { label = "Card" } },
+					}
+				end
+				local world = setup(function(UI: FacetControls)
+					local spec: NavigationProps.NavigationStackSpec<unknown> = {
+						path = path,
+						root = {
+							content = function(): Instance
+								return UI.Button "RootAction" { label = "Root" }
+							end,
+						} :: Navigation.NavigationDestination<unknown>,
+						destinations = {
+							empty = {
+								title = "Empty",
+								content = function(): Instance
+									return UI.Text { text = "Nothing to act on" }
+								end,
+							} :: Navigation.NavigationDestination<unknown>,
+							missing = {
+								title = "Missing",
+								initialFocus = "Nowhere",
+								content = function(): Instance
+									return UI.Button "MissingAction" { label = "Missing" }
+								end,
+							} :: Navigation.NavigationDestination<unknown>,
+							header = {
+								chrome = "hidden" :: "hidden",
+								content = function(): Instance
+									return page(UI, false)
+								end,
+							} :: Navigation.NavigationDestination<unknown>,
+							named = {
+								chrome = "hidden" :: "hidden",
+								initialFocus = function(): string?
+									asked += 1
+									return "Body"
+								end,
+								content = function(): Instance
+									return page(UI, true)
+								end,
+							} :: Navigation.NavigationDestination<unknown>,
+						},
+					}
+					return UI.NavigationStack(spec)
+				end, { motionLevel = "none" })
+				local function open(id: string): string
+					path:set({ { id = id } })
+					world.settle()
+					return assert(world.gui.SelectedObject).Name
+				end
+				world.gui.SelectedObject = find(world.screen, "RootAction")
+				Verify.expect(open("empty")):toBe("Back")
+				Verify.expect(open("missing")):toBe("MissingAction")
+				Verify.expect(open("header")):toBe("Close")
+				Verify.expect(open("named")):toBe("FirstCard")
+				Verify.expect(asked):toBe(1)
+				path:set({})
+				world.settle()
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("RootAction")
+				world.stop()
 			end,
 		})
 		verifyHarness:case("bounds menu scrolling, prunes removed branches and closes every level on tap away", {

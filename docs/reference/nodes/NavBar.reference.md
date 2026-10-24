@@ -23,3 +23,8 @@ content colour with no plate (`utility`), and a `space.s` gap keeps the title
 away from it. NavigationStack's Back and the Back row of a sheet menu are the
 same control. `gap` and `padding` are pixels or `space` metric
 names.
+
+`onBack` is a function, or a writable boolean cell. With a cell, Back and its
+gap show only while the cell is `true`, and Back writes `false`. Use a cell
+when another control owns Back, such as the `compactBack` cell of a
+NavigationSplitView. A hidden Back does not take room from the title.

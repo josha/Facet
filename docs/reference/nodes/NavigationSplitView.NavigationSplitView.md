@@ -31,6 +31,32 @@ let the sidebar fill the control. Keep durable detail state in the model.
 writes `"detail"`. Set it to `"detail"` when a selection opens the detail pane.
 `backLabel` defaults to `"Back"`; `detailLabel` defaults to `"Show detail"`.
 
+Set `detailLabel = false` when an activation in the sidebar opens the detail
+pane. Then the compact sidebar has no Show detail row and starts at the top of
+the control. The control cannot see what an activation does, so the default
+keeps the row.
+
+Set `compactBack` to a writable boolean cell when the page has its own
+`UI.NavBar`. Then the compact detail pane has no Back row of its own. The
+control writes `true` to the cell while the compact layout shows the detail
+pane, and `false` at all other times. Write `false` to go Back. Give the cell
+to the NavBar as `onBack`. The NavBar shows Back only while the cell is
+`true`, so the page has one header. B and Escape still go Back. When the
+player uses Back with a keyboard or gamepad, the selection returns to the last
+sidebar control.
+
+```luau
+local back = Compose.cell(false)
+UI.NavBar { title = "Shop", backLabel = "Parts", onBack = back }
+UI.NavigationSplitView {
+    preferredCompactColumn = column,
+    detailLabel = false,
+    compactBack = back,
+    sidebar = parts,
+    detail = partDetail,
+}
+```
+
 `sidebarWidth` is an optional writable number cell in logical pixels. Its
 default is 360. `minSidebarWidth` defaults to 240, `maxSidebarWidth` to 600,
 `minDetailWidth` to 320. The available width can reduce the sidebar width.

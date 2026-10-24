@@ -108,8 +108,10 @@ Do not turn every small setting adjustment into another page.
 
 When a destination contains compact split navigation, use Close to return to
 gameplay and label the inner Back with its collection name. Two controls named
-Back must not lead to different places. Test the composed page and body together;
-their headers and safe margins consume the same limited height.
+Back must not lead to different places. Give the split's `compactBack` cell to
+the page NavBar's `onBack`, and set `detailLabel = false` when an activation
+opens the detail, so the page keeps one header. Test the composed page and body
+together; their headers and safe margins consume the same limited height.
 
 PageView suits a short inspectable sequence; expose an alternative to swiping.
 Pagination suits genuinely bounded result pages. StepIndicator describes task
