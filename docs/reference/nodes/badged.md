@@ -2,7 +2,7 @@
 
 <!-- aliases: badged | badged -->
 
-`UI.badged(host, value, options?) -> Frame` puts a count or a dot on the
+`UI.badged(host, value, options?) -> Frame` puts a dot or a count on the
 corner of a host, such as a Button, an icon Button or an Avatar. It returns a
 Frame named `<host name>+badge` that hugs the host and takes its
 `LayoutOrder`. A zero-size `Corner` frame sits at the top-right corner of the
@@ -14,8 +14,13 @@ whole count (above 99 shows "99+"), `true` for a dot (a `StatusIndicator` named 
 option with an `icon` shows its `badge` on the corner of the icon. A text tab or
 option keeps the count in its words.
 `options.status` is a status or a readable of one. It sets the color of the dot
-and of the count. Without it, the dot uses `error`, the danger color of the
-theme, so it shows on sky, terrain and themed controls. The count keeps the
-badge plate.
+and of the count. Without it, the seal uses `error`, the danger color of the
+theme, so it shows on sky, on terrain and on a Button that has the color of the
+Badge plate.
 The seal paints past the host by half its size, so give a host at a clipping
 edge that much room.
+
+Give `badged` a dot or a count. Use a string only for a short count, such as
+`"1.2K"`. Put a word, such as Ready or New, in the host label, for example
+`label = "Daily · Ready"`, and use `true` for the dot. The seal is centred on
+the corner, so a word covers the next control in a tight stack.

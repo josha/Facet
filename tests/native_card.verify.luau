@@ -920,8 +920,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("paints the corner dot in the error status unless the author names a status", {
-			id = "native_card::native Card::paints the corner dot in the error status unless the author names a status",
+		verifyHarness:case("paints the seal in the error status unless the author names a status", {
+			id = "native_card::native Card::paints the seal in the error status unless the author names a status",
 			run = function()
 				local status = Compose.cell("accent" :: FixtureMediaTypes.Status)
 				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
@@ -942,9 +942,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((shop:HasTag("facet-status-success"))):toBe(true)
 				local plain = world.find("CornerBadge", world.find("Inbox+badge"))
 				Verify.expect(plain.Text):toBe("3")
-				for _, tag in plain:GetTags() do
-					Verify.expect((string.find(tag, "facet-status-", 1, true))):toBeNil()
-				end
+				Verify.expect((plain:HasTag("facet-status-error"))):toBe(true)
+				Verify.expect((plain:HasTag("facet-status-neutral"))):toBe(false)
 				local mail = world.find("CornerBadge", world.find("Mail+badge"))
 				Verify.expect((mail:HasTag("facet-status-warning"))):toBe(true)
 				world.stop()
@@ -987,6 +986,7 @@ return function(verifyHarness: Verify.Harness)
 				local inbox = world.find("inbox", tabs)
 				local seal = inbox:FindFirstChild("CornerBadge", true)
 				Verify.expect(seal ~= nil and seal.Text == "3"):toBe(true)
+				Verify.expect((seal:HasTag("facet-status-error"))):toBe(true)
 				Verify.expect(seal:FindFirstAncestorWhichIsA("ImageLabel") ~= nil):toBe(true)
 				local sent = world.find("sent", tabs)
 				Verify.expect((sent:FindFirstChild("CornerBadge", true))):toBeNil()

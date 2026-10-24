@@ -1796,6 +1796,14 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "contrast", props = properties { appearance = "status", status = "contrast" } },
 			{ name = "icon", props = properties { icon = "checkmark" } },
 			{ name = "trailing icon", props = properties { icon = "checkmark", iconPosition = "trailing" } },
+			{
+				name = "bound empty label (hidden)",
+				props = properties {
+					label = function(): string?
+						return nil
+					end,
+				},
+			},
 		},
 	},
 	badged = {
@@ -1810,7 +1818,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {}
 		end,
 		axes = {
-			{ key = "value", values = { 3, 120, "New", true, 0 } },
+			{ key = "value", values = { 3, 120, "1.2K", true, 0 } },
 			{ key = "host", values = { "icon button", "button", "avatar" } },
 		},
 		states = {
@@ -2434,6 +2442,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 							{
 								id = "Apply",
 								label = "Apply",
+								role = "default",
 								keepOpen = true,
 								onActivate = c.log("apply (stays open)"),
 							},
