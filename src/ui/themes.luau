@@ -543,6 +543,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	local onSelected = c("onSelected") or c("content")
 	rule(".facet-selected", { BackgroundColor3 = c("controlSelected"), TextColor3 = onSelected })
 	rule(".facet-selected >> .facet-text", { TextColor3 = onSelected })
+	rule(
+		".facet-selected >> .facet-card-part, .facet-selected >> .facet-card-text",
+		{ BackgroundColor3 = c("controlSelected") }
+	)
 	rule(".facet-disabled", { TextTransparency = extra.disabledContentOpacity })
 	rule(".facet-disabled >> .facet-icon", { ImageTransparency = extra.disabledContentOpacity })
 

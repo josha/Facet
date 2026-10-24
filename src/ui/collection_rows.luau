@@ -367,17 +367,16 @@ return function<V, K>(
 								Compose.cleanup(activation.providePress(hit, pressed))
 								table.insert((children :: unknown) :: { unknown }, 1, hit)
 							end
+							local carded = tree == nil
+								and rendered:GetAttribute("FacetBody") ~= nil
+								and read(spec.contentOverflow) ~= "clip"
 							local paintSelection = spec.selectionIndicator ~= false and selectionMode ~= "none"
-							if paintSelection then
+							if paintSelection and not carded then
 								children.BackgroundTransparency = nil
 							end
 							local groupProperties = (children :: unknown) :: Types.CanvasGroupNativeProps
 							local surface: Frame? = nil
-							if
-								tree == nil
-								and rendered:GetAttribute("FacetBody") ~= nil
-								and read(spec.contentOverflow) ~= "clip"
-							then
+							if carded then
 								local cardSize = observe.AbsoluteSize(rendered)
 								local cardLift = rendered:FindFirstChildWhichIsA("UIScale")
 								local lift = if cardLift then observe.Scale(cardLift) else nil
@@ -435,7 +434,7 @@ return function<V, K>(
 							local content = Host.CanvasGroup(groupProperties)
 							local logical = surface or content
 							policy.drop(ctx, spec, current, key, logical, kind == "grid" or horizontal)
-							if paintSelection then
+							if paintSelection and not carded then
 								ctx.styled(logical, "TableRow")
 								if kind == "grid" or horizontal then
 									ctx.skin(logical, "control", {
@@ -444,6 +443,8 @@ return function<V, K>(
 										end,
 									})
 								end
+							end
+							if paintSelection then
 								Compose.watch(function(use: ComposeTypes.Use)
 									if use(selection)[key] == true then
 										logical:AddTag("facet-selected")
