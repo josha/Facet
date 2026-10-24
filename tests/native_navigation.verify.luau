@@ -3249,7 +3249,7 @@ return function(verifyHarness: Verify.Harness)
 				local asked = 0
 				local function page(UI: FacetControls, named: boolean): Instance
 					return UI.VStack {
-						UI.NavBar {
+						UI.NavBar "Header" {
 							title = "Shop",
 							trailing = UI.Button "Close" {
 								label = "Close",

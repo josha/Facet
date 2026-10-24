@@ -213,7 +213,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 				end, function()
 					return UI.Button {
 						Name = "ShowDetail",
-						label = if detailLabel then detailLabel else "Show detail",
+						label = (detailLabel :: Shared.ValueString?) or "Show detail",
 						appearance = "utility",
 						onActivate = function()
 							column:set("detail")

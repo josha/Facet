@@ -1,6 +1,6 @@
 # Tasks.collection-detail
 
-Supply loaded items, one selected key and the [page](Tasks.pages.md) Back cell.
+Supply loaded items and one selected key.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -31,8 +31,7 @@ local function browse(app: Facet.App, items: { Item }, selected: Facet.Cell<{ [s
 		end,
 	}
 	return UI.NavigationSplitView {
-		preferredCompactColumn = column, resizable = false,
-		detailLabel = false, compactBack = back,
+		preferredCompactColumn = column, resizable = false, detailLabel = false, compactBack = back,
 		sidebar = function() return UI.VirtualGrid(spec) end,
 		detail = function()
 			return UI.VStack({
@@ -40,8 +39,7 @@ local function browse(app: Facet.App, items: { Item }, selected: Facet.Cell<{ [s
 				UI.Text { textRole = "heading", wrap = true, text = function(use: Facet.Use) return use(chosen).name end },
 				UI.ZStack({ width = "fill", height = "fill", UI.fill(), art(chosen) } :: Facet.ZStackProps),
 				UI.Text { wrap = true, text = function(use: Facet.Use) return use(chosen).terms end },
-				UI.Button { label = action, appearance = "emphasis",
-					onActivate = function() commit(chosen:peek()) end },
+				UI.Button { label = action, appearance = "emphasis", onActivate = function() commit(chosen:peek()) end },
 			} :: Facet.StackProps)
 		end,
 	}
