@@ -299,7 +299,7 @@ return function(harness: Verify.Harness)
 				local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
 				type Row = { id: number, name: string }
 				local rows = C.cell({ [1] = { id = 1, name = "First" }, [3] = { id = 3, name = "Third" } } :: { Row })
-				local controls: { indexOfKey: ((number) -> number?)? } = {}
+				local controls: ComposeTypes.OrderedCollectionControls<number> = {}
 				local labels: { [number]: TextLabel } = {}
 				local stop = runtime.mount(function()
 					local spec: Facet.KeyedCollectionSpec<Row, number> = {
