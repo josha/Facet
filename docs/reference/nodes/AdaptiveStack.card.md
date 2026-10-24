@@ -8,7 +8,8 @@ Inside an app mount, set `local UI = app.UI`.
 UI.AdaptiveStack "AdaptiveStack" { UI.Text { text = "Ready" } }
 ```
 
-Key options: `breakpoint`, `gap`.
+Key options: `axis`, `gap`. Without `axis`, the stack is a row while the row fits
+and a column when it does not.
 
 Use room and input facts instead of a device branch.
 

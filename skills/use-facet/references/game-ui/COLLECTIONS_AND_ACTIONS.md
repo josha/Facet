@@ -17,7 +17,7 @@ Start with how the player recognizes and compares the objects.  Show the attribu
 | By authored spatial relationships, such as a skill tree or map | ZoomView over a stable content tree |
 | By cell footprint on a bounded inventory board | SpatialGrid |
 
-Item count alone does not decide this.  A skill tree keeps its authored connections visible even though its data is hierarchical.  SpatialGrid has explicit cell footprints and placement rules; it is not a world-map layout.
+Item count alone does not decide this, and a grid is not the body of every destination.  Compact forms still keep identity and the facts that compare objects.  A skill tree keeps its authored connections visible even though its data is hierarchical.  SpatialGrid has explicit cell footprints and placement rules; it is not a world-map layout.
 
 Keep browsing quieter than the selected object's inspection area.  Match the camera angle, lighting and scale across comparable objects, and frame each silhouette with room for its extremes.  Use a different view when inspection needs more detail than a thumbnail can show.  Show the selected object's name and status beside its action, and distinguish that selection from the equipped object.
 

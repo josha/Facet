@@ -57,13 +57,25 @@ Stacks hug their content by default.  Give the task a bound before you add fill 
 
 Allocate room to the required decision first.  Optional art, introductory copy and secondary facts yield before the action and the exit.  Keep the selected object's commitment outside a long browsing collection, and never let a preview push it below the shortest viewport.
 
-For a small grid of peer cards whose content sets the surface height, use VirtualGrid with `minColumnWidth`, `mode = "all"` and `hug = true`.  Its container sets the columns and the shared row width.  Keep a large catalog in a bounded scrolling collection instead.  Read `VirtualList-and-VirtualGrid.sizing` and `VirtualList-and-VirtualGrid.mode` for the exact sizing contract.
+For a small grid of peer cards whose content sets the surface height, use VirtualGrid with `minColumnWidth`, `mode = "all"` and `hug = true`.  Its container sets the columns and the shared row width.  Items share the row without empty columns and wrap as the surface narrows.  Never size items from the viewport, and never leave unused space beside fixed-width cards.  Keep a large catalog in a bounded scrolling collection instead.  Read `VirtualList-and-VirtualGrid.sizing` and `VirtualList-and-VirtualGrid.mode` for the exact sizing contract.
 
 Adapt to the containing surface, including its height.  `UI.environment(source)` reads a native container's room; the camera viewport is not the width of a nested panel.  Prefer native layout and controls that measure their own room.  Input and viewing distance are separate: a near player with a gamepad can still use two readable panes.
 
 Composition ranks competing Regions, and lower ranks take precedence.  Each form needs a measurable size and a complete meaning on its own; a fill-sized form cannot describe what it needs.  Use `mayDrop` only when an immediate required action has an equally usable alternative.  A compact Menu owns its own action and opens every choice it replaces.
 
 ViewThatFits tries alternatives in order and shows the last one when none fit, so the last one must work in the smallest supported room.  It does not decide which information is safe to remove.  Give each candidate an intrinsic or fixed size; a fill-width candidate always passes the width check.  Candidates are separate mounted trees, so shared values belong in the model, and each candidate creates its own Instances.
+
+## Use the whole screen
+
+Facet's app ScreenGui uses `CoreUISafeInsets` and turns off fullscreen compatibility expansion.  Ordinary content therefore clears the notch, the rounded corners, the home indicator and Roblox's top bar.  That keeps text and controls safe, but it is not the edge of the design.
+
+- **The top bar strip.**  Put compact HUD items in Regions with `zone = "topbar"`.  The Composition places them in a second ScreenGui with `TopbarSafeInsets`, in a 44 pixel row level with Roblox's buttons.  A `leading` region sits beside Roblox's buttons, and a `trailing` region sits at the far end, such as a menu button.  The other regions center in the remaining space.  Give a button there a 44 pixel height; a `compact` circle in the neutral theme has it, and `topbarControlDiameter` reports the matching size.
+- **When the strip changes.**  Strip regions step down when their combined width does not fit.  A region that still does not fit at its last form moves to the start of the `top` zone in its richest form.  It returns when the strip widens, such as after a rotation.  Without a strip, as on a console, strip regions start the `top` zone.  A trailing region starts `topRight` instead, so a menu button keeps its corner.  A Popover or Menu from a strip region shows in the Composition's own ScreenGui, so the strip does not clip it.
+- **Pages.**  Screen's `chrome` sets the policy.  `"device"`, the default, clears the device safe area, the top bar and the overscan, and the Screen's background still fills its parent.  `"band"` lets a page's own top row ride the strip beside Roblox's buttons when its ScreenGui reaches the top bar; the overscan stays.  `"edge"` adds neither; pair it with `ScreenInsets = Enum.ScreenInsets.None` for art that reaches the glass.
+- **Notches and corners.**  Keep art that frames the screen in a layer that reaches the glass, and keep text and controls in the safe layer.  Modal scrims already cover the whole screen while their exits stay safe.
+- **Measured edges.**  `UI.environment` reports `safeInsets`, `topbarInset` and `topbarControlDiameter`.  `topbarInset` is the free strip, not the bounds of Roblox's buttons.  Use these facts for game-authored chrome and never hard-code offsets for one device.
+
+Check portrait and both landscape rotations, because the notch changes sides.  Turn voice and camera controls on and off, open Roblox's menu, and check a console, where there is no strip.  Put the longest strip item in portrait and confirm that it moves without covering Roblox's buttons.
 
 ## Check
 

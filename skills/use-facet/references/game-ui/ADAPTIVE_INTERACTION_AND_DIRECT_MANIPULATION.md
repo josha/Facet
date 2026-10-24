@@ -14,7 +14,7 @@ Facet: use the owning behavior instead of adding a second drag system.  Collecti
 
 ## Avoid competing gestures
 
-Touch pickup coexists with scrolling.  `draggable` waits for a long press, and moving first scrolls.  Where a hold is unsuitable, use an explicit edit mode or the documented `armOnTap` route: a tap picks up, scrolling stays available and a tap on a target drops.  Explain the active mode and how to cancel it.  Keep the source and destination feedback visible around the held finger.  Pointer movement tracks the cursor directly, without easing behind it.
+Touch pickup coexists with scrolling.  `draggable` waits for a long press, and moving first scrolls.  When intentions conflict, give the object a drag handle, or use a long press or a deliberate manipulation mode.  Where a hold is unsuitable, use an explicit edit mode or the documented `armOnTap` route: a tap picks up, scrolling stays available and a tap on a target drops.  Explain the active mode and how to cancel it.  Keep the source and destination feedback visible around the held finger.  Pointer movement tracks the cursor directly, without easing behind it.
 
 Give gamepad an explicit pickup, destination, commit and cancel, or an equivalent command.  Collection `onActivate` can take precedence over pickup outside Edit mode; adding `drag` alone does not make one activation do both.  Show whether the next activation opens, picks up or commits.  A press that became a drag never also activates the source or a control behind it.
 

@@ -1,6 +1,8 @@
 # Choosing controls
 
 Choose behavior from the player's task, then read that control's API node.
+The [control map](../../skills/use-facet/references/CONTROL_MAP.md) covers every
+control with its alternatives and key options.
 For design principles and tradeoffs, use the
 [game UI design guide](../../skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md).
 

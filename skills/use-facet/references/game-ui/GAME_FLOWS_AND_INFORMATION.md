@@ -15,7 +15,7 @@ During play, the UI answers one question: what matters now?  That is usually the
 - **Commands that fit the moment.**  Show a command while it applies and remove it when its context ends.  The same goes for notices about queues, votes and offers.
 - **Destinations in the game's words.**  Label HUD entries with explicit verbs and the game's vocabulary.  Keep one visible entry per destination in each HUD form.  A reduced HUD still exposes every required task.
 
-Choose world or screen presentation by readability.  A marker in the world explains location, but distance, occlusion and camera motion change how well it reads.  Keep essential status and commands on the screen when the world cue cannot be read.
+Choose world or screen presentation by readability.  A marker in the world explains location, but distance, occlusion and camera motion change how well it reads.  Keep essential status and commands on the screen when the world cue cannot be read.  Test input and viewing distance in each presentation.
 
 Facet: Composition and Region arrange HUD groups by rank and swap in smaller forms (`Tasks.hud`, `HUD-actions`).  `Tasks.safe-layout` covers movement clearance.  ProgressView, Timer, ShortcutHint and `WorldMarker.card` supply their named behaviors.  Use Host.SurfaceGui or Host.BillboardGui for UI in the world.  `DiegeticScreen.reference` moves an existing app between the screen and a framed surface in the world.
 

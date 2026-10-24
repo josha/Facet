@@ -19,6 +19,7 @@ In Studio, read StringValue `Value`s under `ServerStorage.FacetDocs`.  Folders f
 
 | Need | Read |
 | --- | --- |
+| Which control fits a decision | [Control map](references/CONTROL_MAP.md), then the control's card |
 | First mount or existing Compose integration | `Mounting.Facet.app` |
 | Visual direction and theme | Visual language chapter, then `Tasks.theme` and `Theme-identity` |
 | Competing gameplay HUD groups | `Tasks.hud`, then `Composition.regions` if needed |
@@ -55,6 +56,8 @@ Use Facet controls for their supported behavior.  Host objects supply game art, 
 The theme owns paint, typography, spacing, shape and motion.  Use semantic roles and tokens, and derive the theme from the game's world; a recipe's sample palette is not a style.  Use Stage when the player needs to inspect a 3D object, and frame the actual subject.  Use stable model keys in VirtualList, VirtualGrid and Table, and choose collection density from what players must recognize or compare.
 
 Use `UI.fill()` for the room left beside siblings; `width = "fill"` spans the parent's width.  Express layout intent with hug, stretch and zones.  Bound collections and wrapped text at the task boundary.  Wrapped text fills the width and grows vertically; short readouts can hug without wrapping.  Do not use TextScaled.  Keep HUD Region nodes stable and branch inside their forms.  Fix fit warnings and shared sizing faults instead of adding game-specific measurement loops.
+
+Use the whole screen.  Safe insets bound text and controls, not art or backgrounds.  Put compact HUD items in the top bar's free strip with `zone = "topbar"` Regions.
 
 Composition is a passive HUD: gameplay keeps the movement stick and the D-pad.  Give each frequent HUD task a free gamepad button and a visible input hint.  Reach the other HUD tasks through ButtonSelect or one game action that enters HUD selection (`HUD-actions`).
 

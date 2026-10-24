@@ -49,7 +49,7 @@ Use the theme's space tokens for every gap and padding, and one gutter for page 
 
 ### Color
 
-Choose one accent, at most two.  Use it for focus, the primary action and the current selection.  Do not use it on every button or border.  The accent becomes the game's signature, because it sits on what the player looks at most.
+Choose one accent, at most two.  Use it for focus, the primary action and the current selection.  Do not use it on every button or border.  The accent becomes the game's signature, because it sits on what the player looks at most.  Keep comparison surfaces quiet and let object art carry recognition.  Keep each color's and each icon's meaning stable across the game.
 
 Tint the value ladder toward the world's palette, and keep each step's lightness so the ladder still separates without hue.  Keep danger, success and warning in hues distinct from the accent, and pair each one with an icon or a word.  Avoid distinctions that depend only on red and green.
 
