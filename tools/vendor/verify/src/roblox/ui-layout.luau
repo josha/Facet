@@ -5,9 +5,11 @@ local Datatypes = require "./datatypes"
 local Grid = require "./ui-grid-layout"
 local List = require "./ui-list-layout"
 local Float = require "./datatypes/float"
+local Values = require "./ui-values"
 
 type Instance = Environment.Instance
 type Vector = { X: number, Y: number }
+type TextMeasurement = { X: number, Y: number, intrinsicX: number, intrinsicY: number, fits: boolean }
 type Dimension = { Scale: number, Offset: number }
 type Dimensions = { X: Dimension, Y: Dimension }
 type Rectangle = { x: number, y: number, width: number, height: number, scale: number }
@@ -17,7 +19,7 @@ export type Options = {
 	origin: (() -> Vector)?,
 	read: ((Instance, string) -> unknown)?,
 	vector: ((number, number) -> unknown)?,
-	measureBounds: ((unknown) -> unknown)?,
+	measureBounds: ((Values.TextParameters) -> unknown)?,
 }
 export type Controller = {
 	step: () -> (),
@@ -41,8 +43,7 @@ local function attach(environment: Environment.Environment, options: Options): C
 		local value = optional(object, property)
 		return if type(value) == "number" then value else fallback
 	end
-	local function dimension(value: unknown, extent: number, scale: number): number
-		local unit = value :: Dimension
+	local function dimension(unit: Values.Dimension, extent: number, scale: number): number
 		return unit.Scale * extent + unit.Offset * scale
 	end
 	local function unsupported(object: Instance, mechanism: string)
@@ -61,9 +62,6 @@ local function attach(environment: Environment.Environment, options: Options): C
 					if options.measureBounds == nil then
 						unsupported(object, "AutomaticSize text measurement")
 					end
-				end
-				if object:FindFirstChildWhichIsA "UISizeConstraint" then
-					unsupported(object, "AutomaticSize with UISizeConstraint")
 				end
 			end
 			if number(object, "Rotation", 0) ~= 0 then
@@ -96,10 +94,10 @@ local function attach(environment: Environment.Environment, options: Options): C
 		if padding == nil then
 			return rectangle
 		end
-		local left = dimension(read(padding, "PaddingLeft"), rectangle.width, rectangle.scale)
-		local right = dimension(read(padding, "PaddingRight"), rectangle.width, rectangle.scale)
-		local top = dimension(read(padding, "PaddingTop"), rectangle.height, rectangle.scale)
-		local bottom = dimension(read(padding, "PaddingBottom"), rectangle.height, rectangle.scale)
+		local left = dimension(Values.dimension(read(padding, "PaddingLeft")), rectangle.width, rectangle.scale)
+		local right = dimension(Values.dimension(read(padding, "PaddingRight")), rectangle.width, rectangle.scale)
+		local top = dimension(Values.dimension(read(padding, "PaddingTop")), rectangle.height, rectangle.scale)
+		local bottom = dimension(Values.dimension(read(padding, "PaddingBottom")), rectangle.height, rectangle.scale)
 		return {
 			x = rectangle.x + left,
 			y = rectangle.y + top,
@@ -108,7 +106,7 @@ local function attach(environment: Environment.Environment, options: Options): C
 			scale = rectangle.scale,
 		}
 	end
-	local function textBounds(object: Instance, rectangle: Rectangle, intrinsic: boolean?): Vector?
+	local function textBounds(object: Instance, rectangle: Rectangle, intrinsic: boolean?): TextMeasurement?
 		if options.measureBounds == nil or not (isText(object)) then
 			return nil
 		end
@@ -124,24 +122,66 @@ local function attach(environment: Environment.Environment, options: Options): C
 			unsupported(object, "fractional or out-of-range rendered text size")
 		end
 		local content = inset(object, rectangle)
-		local measured = options.measureBounds {
-			Text = read(object, "Text"),
-			Font = read(object, "FontFace"),
-			Size = rendered,
-			Width = if optional(object, "TextWrapped") == true then content.width else 0,
-			RichText = read(object, "RichText"),
-		} :: Vector
-		local lines = measured.Y / rendered
-		local step = Float.f32(Float.f32(number(object, "LineHeight", 1)) * size)
-		local height = Float.f32(size + Float.f32(step * (lines - 1))) * rectangle.scale
-		if not intrinsic and lines > 1 and height > content.height then
-			unsupported(object, "text clipped by available height")
+		local automatic = enum(object, "AutomaticSize", "None")
+		local autoX, autoY = automatic == "X" or automatic == "XY", automatic == "Y" or automatic == "XY"
+		local maximumX, maximumY = math.huge, math.huge
+		local constraint = object:FindFirstChildWhichIsA "UISizeConstraint"
+		if constraint then
+			local maximum = Values.vector(read(constraint, "MaxSize"))
+			maximumX = math.max(0, maximum.X * rectangle.scale - rectangle.width + content.width)
+			maximumY = math.max(0, maximum.Y * rectangle.scale - rectangle.height + content.height)
 		end
-		return { X = measured.X, Y = height }
+		local wrapped = optional(object, "TextWrapped") == true
+		local parameters = {
+			Text = Values.string(read(object, "Text")),
+			Font = Values.font(read(object, "FontFace")),
+			Size = rendered,
+			Width = if wrapped then content.width else 0,
+			RichText = optional(object, "RichText") == true,
+		}
+		local intrinsicX = content.width
+		if intrinsic and autoX then
+			parameters.Width = 0
+			local unwrapped = Values.vector(options.measureBounds(parameters))
+			intrinsicX = math.min(math.max(content.width, unwrapped.X), maximumX)
+			parameters.Width = if wrapped then intrinsicX else 0
+		end
+		local measured = Values.vector(options.measureBounds(parameters))
+		local strut =
+			Values.vector(options.measureBounds { Text = "", Font = parameters.Font, Size = rendered, Width = 0 })
+		local lines = measured.Y / strut.Y
+		local step = Float.f32(Float.f32(number(object, "LineHeight", 1)) * strut.Y)
+		local function height(count: number): number
+			return Float.f32(strut.Y + Float.f32(step * (count - 1)))
+		end
+		local fullHeight = height(lines)
+		local availableHeight = if intrinsic and autoY then maximumY else content.height
+		local visible = lines
+		if wrapped then
+			local low, high = 1, lines
+			while low < high do
+				local middle = math.ceil((low + high) / 2)
+				if height(middle) <= availableHeight then
+					low = middle
+				else
+					high = middle - 1
+				end
+			end
+			visible = low
+		elseif not intrinsic and lines > 1 and fullHeight > content.height then
+			unsupported(object, "unwrapped multiline text exceeds available height")
+		end
+		return {
+			X = measured.X,
+			Y = height(visible),
+			intrinsicX = if intrinsic and autoX then intrinsicX else measured.X,
+			intrinsicY = fullHeight,
+			fits = measured.X <= content.width and fullHeight <= content.height,
+		}
 	end
-	local size: (Instance, Rectangle) -> Rectangle
-	size = function(object: Instance, parent: Rectangle): Rectangle
-		local authored = read(object, "Size") :: Dimensions
+	local size: (Instance, Rectangle, number?) -> Rectangle
+	size = function(object: Instance, parent: Rectangle, widthOverride: number?): Rectangle
+		local authored = Values.dimensions(read(object, "Size"))
 		local scale = parent.scale
 		local modifier = object:FindFirstChildWhichIsA "UIScale"
 		if modifier then
@@ -151,8 +191,8 @@ local function attach(environment: Environment.Environment, options: Options): C
 		local height = dimension(authored.Y, parent.height, parent.scale)
 		local constraint = object:FindFirstChildWhichIsA "UISizeConstraint"
 		if constraint then
-			local minimum = read(constraint, "MinSize") :: Vector
-			local maximum = read(constraint, "MaxSize") :: Vector
+			local minimum = Values.vector(read(constraint, "MinSize"))
+			local maximum = Values.vector(read(constraint, "MaxSize"))
 			width = math.clamp(width, minimum.X * parent.scale, maximum.X * parent.scale)
 			height = math.clamp(height, minimum.Y * parent.scale, maximum.Y * parent.scale)
 		end
@@ -164,6 +204,9 @@ local function attach(environment: Environment.Environment, options: Options): C
 			height = math.max(0, height * factor),
 			scale = scale,
 		}
+		if widthOverride ~= nil then
+			rectangle.width = widthOverride
+		end
 		local automatic = enum(object, "AutomaticSize", "None")
 		if automatic == "None" then
 			return rectangle
@@ -173,22 +216,24 @@ local function attach(environment: Environment.Environment, options: Options): C
 		local paddingX, paddingY = 0, 0
 		if padding then
 			for _, property in { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" } do
-				local unit = read(padding, property) :: Dimension
+				local unit = Values.dimension(read(padding, property))
 				if unit.Scale ~= 0 then
 					unsupported(object, "AutomaticSize with scaled padding")
 				end
 			end
 			paddingX = (
-				(read(padding, "PaddingLeft") :: Dimension).Offset + (read(padding, "PaddingRight") :: Dimension).Offset
+				(Values.dimension(read(padding, "PaddingLeft"))).Offset
+				+ (Values.dimension(read(padding, "PaddingRight"))).Offset
 			) * scale
 			paddingY = (
-				(read(padding, "PaddingTop") :: Dimension).Offset + (read(padding, "PaddingBottom") :: Dimension).Offset
+				(Values.dimension(read(padding, "PaddingTop"))).Offset
+				+ (Values.dimension(read(padding, "PaddingBottom"))).Offset
 			) * scale
 		end
 		local content = inset(object, rectangle)
 		local grid = object:FindFirstChildWhichIsA "UIGridLayout"
 		if grid then
-			local cell = read(grid, "CellSize") :: Dimensions
+			local cell = Values.dimensions(read(grid, "CellSize"))
 			if (autoX and cell.X.Scale ~= 0) or (autoY and cell.Y.Scale ~= 0) then
 				unsupported(grid, "grid cells relative to an automatic parent axis")
 			end
@@ -205,22 +250,25 @@ local function attach(environment: Environment.Environment, options: Options): C
 		local horizontal = list ~= nil and enum(list, "FillDirection", "Vertical") == "Horizontal"
 		local gap = 0
 		if list then
-			local unit = read(list, "Padding") :: Dimension
+			local unit = Values.dimension(read(list, "Padding"))
 			if unit.Scale ~= 0 then
 				unsupported(object, "AutomaticSize with scaled list padding")
 			end
 			gap = unit.Offset * scale
 		end
-		local bounds = textBounds(object, rectangle, true)
-		if bounds and autoX and optional(object, "TextWrapped") == true then
-			unsupported(object, "wrapped text on an automatic width axis")
+		if widthOverride ~= nil and isText(object) and autoX and optional(object, "TextWrapped") == true then
+			unsupported(object, "wrapped automatic width controlled by a list")
 		end
-		local intrinsicWidth, intrinsicHeight, count = if bounds then bounds.X else 0, if bounds then bounds.Y else 0, 0
+		local bounds = textBounds(object, rectangle, true)
+		local intrinsicWidth, intrinsicHeight, count =
+			if bounds then bounds.intrinsicX else 0,
+			if bounds then (if widthOverride ~= nil and autoY then bounds.intrinsicY else bounds.Y) else 0,
+			0
 		for _, child in object:GetChildren() do
 			if child:IsA "GuiObject" and optional(child, "Visible") ~= false then
-				local authoredChild = read(child, "Size") :: Dimensions
-				local position = read(child, "Position") :: Dimensions
-				local anchor = read(child, "AnchorPoint") :: Vector
+				local authoredChild = Values.dimensions(read(child, "Size"))
+				local position = Values.dimensions(read(child, "Position"))
+				local anchor = Values.vector(read(child, "AnchorPoint"))
 				if (autoX and authoredChild.X.Scale ~= 0) or (autoY and authoredChild.Y.Scale ~= 0) then
 					unsupported(child, "size relative to an automatic parent axis")
 				end
@@ -260,6 +308,9 @@ local function attach(environment: Environment.Environment, options: Options): C
 		end
 		if autoY then
 			rectangle.height = math.max(rectangle.height, intrinsicHeight + paddingY)
+			if widthOverride ~= nil and isText(object) and constraint then
+				rectangle.height = math.min(rectangle.height, (Values.vector(read(constraint, "MaxSize"))).Y * scale)
+			end
 		end
 		return rectangle
 	end
@@ -280,8 +331,12 @@ local function attach(environment: Environment.Environment, options: Options): C
 				and optional(object, "TextWrapped") == true
 				and enum(object, "AutomaticSize", "None") ~= "None"
 			then
-				if placed.width ~= size(object, parent).width then
-					unsupported(object, "wrapped automatic text with a flexed width")
+				local list = if object.Parent then object.Parent:FindFirstChildWhichIsA "UIListLayout" else nil
+				local reflowed = list ~= nil
+					and enum(list, "FillDirection", "Vertical") == "Vertical"
+					and enum(list, "HorizontalFlex", "None") == "Fill"
+				if not reflowed and placed.width ~= size(object, parent).width then
+					unsupported(object, "wrapped automatic text with an unmodeled flexed width")
 				end
 			end
 			textBounds(object, rectangle)
@@ -294,7 +349,7 @@ local function attach(environment: Environment.Environment, options: Options): C
 					placements[item.object] = item.rectangle
 				end
 			elseif list then
-				for _, item in List.measure(list, content, read, size).items do
+				for _, item in List.measure(list, content, read, size, size).items do
 					placements[item.object] = item.rectangle
 				end
 			end
@@ -308,9 +363,8 @@ local function attach(environment: Environment.Environment, options: Options): C
 		local function publish(object: Instance, rectangle: Rectangle)
 			local bounds = textBounds(object, rectangle)
 			if bounds then
-				local content = inset(object, rectangle)
 				environment.poke(object, "TextBounds", vector(bounds.X, bounds.Y))
-				environment.poke(object, "TextFits", bounds.X <= content.width and bounds.Y <= content.height)
+				environment.poke(object, "TextFits", bounds.fits)
 			end
 			environment.poke(object, "AbsolutePosition", vector(rectangle.x, rectangle.y))
 			environment.poke(object, "AbsoluteSize", vector(rectangle.width, rectangle.height))
@@ -321,8 +375,8 @@ local function attach(environment: Environment.Environment, options: Options): C
 			if object:IsA "GuiObject" then
 				rectangle = placed or size(object, parent)
 				if placed == nil then
-					local position = read(object, "Position") :: Dimensions
-					local anchor = read(object, "AnchorPoint") :: Vector
+					local position = Values.dimensions(read(object, "Position"))
+					local anchor = Values.vector(read(object, "AnchorPoint"))
 					rectangle.x = parent.x
 						+ dimension(position.X, parent.width, parent.scale)
 						- anchor.X * rectangle.width
@@ -336,7 +390,7 @@ local function attach(environment: Environment.Environment, options: Options): C
 			end
 			local content = inset(object, rectangle)
 			if object:IsA "ScrollingFrame" then
-				local canvas = read(object, "CanvasPosition") :: Vector
+				local canvas = Values.vector(read(object, "CanvasPosition"))
 				content = table.clone(content)
 				content.x -= canvas.X * content.scale
 				content.y -= canvas.Y * content.scale
@@ -354,7 +408,7 @@ local function attach(environment: Environment.Environment, options: Options): C
 				environment.poke(grid, "AbsoluteCellSize", vector(measured.cellWidth, measured.cellHeight))
 				environment.poke(grid, "AbsoluteCellCount", vector(measured.columns, measured.rows))
 			elseif list then
-				local measured = List.measure(list, content, read, size)
+				local measured = List.measure(list, content, read, size, size)
 				for _, item in measured.items do
 					placements[item.object] = item.rectangle
 				end
@@ -388,8 +442,8 @@ local function attach(environment: Environment.Environment, options: Options): C
 		local index = 0
 		local displays: { [number]: Instance } = {}
 		local function contains(object: Instance): boolean
-			local at = environment.propertyOf(object, "AbsolutePosition") :: Vector
-			local size = environment.propertyOf(object, "AbsoluteSize") :: Vector
+			local at = Values.vector(environment.propertyOf(object, "AbsolutePosition"))
+			local size = Values.vector(environment.propertyOf(object, "AbsoluteSize"))
 			assert(at ~= nil and size ~= nil, "hit testing requires published layout")
 			return size.X > 0 and size.Y > 0 and x >= at.X and y >= at.Y and x <= at.X + size.X and y <= at.Y + size.Y
 		end
@@ -423,14 +477,14 @@ local function attach(environment: Environment.Environment, options: Options): C
 				path = branch
 				local inside = contains(object)
 				if inside and not clipped then
-					local mode = enum(screen :: Instance, "ZIndexBehavior", "Sibling")
+					local mode = enum(assert(screen), "ZIndexBehavior", "Sibling")
 					if mode ~= "Sibling" and mode ~= "Global" then
 						unsupported(object, "ZIndexBehavior." .. mode)
 					end
 					table.insert(hits, {
 						object = object,
-						screen = screen :: Instance,
-						display = number(screen :: Instance, "DisplayOrder", 0),
+						screen = assert(screen),
+						display = number(assert(screen), "DisplayOrder", 0),
 						mode = mode,
 						z = number(object, "ZIndex", 1),
 						index = index,

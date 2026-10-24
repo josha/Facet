@@ -1,9 +1,16 @@
 --!strict
 
-export type Row = { advances: { number }, adjustments: { number }, starts: { number }?, ends: { number }? }
+export type Row = {
+	advances: { number },
+	adjustments: { number },
+	starts: { number }?,
+	ends: { number }?,
+	height: number?,
+}
 export type Face = { tokens: { string }, pairs: { { number } }, sizes: { Row } }
 export type Model = {
 	width: (text: string, size: number) -> number,
+	height: (size: number) -> number,
 	wrap: (text: string, size: number, limit: number) -> (number, number),
 }
 
@@ -34,6 +41,7 @@ local function create(face: Face): Model
 		local previous: number? = nil
 		local first: number? = nil
 		local latin = false
+		local latinBoundary = 0
 		while cursor <= #text do
 			local token: string? = nil
 			local entries: { string } = sequences[text:sub(cursor, cursor)] or {}
@@ -46,11 +54,14 @@ local function create(face: Face): Model
 			if token == nil then
 				error("unsupported_text_metrics: character at byte " .. cursor, 0)
 			end
-			local matched = token :: string
+			local matched = assert(token)
 			local index = indices[matched]
 			first = first or index
 			total += row.advances[index]
 			local startsLatin = not latin and matched:match "%a" ~= nil
+			if startsLatin and previous and row.starts then
+				latinBoundary = row.starts[index]
+			end
 			if previous and not startsLatin then
 				local pair = (pairs[previous] or {})[index]
 				if pair then
@@ -64,7 +75,9 @@ local function create(face: Face): Model
 		return math.ceil(
 			total
 				+ (if first and row.starts then row.starts[first] else 0)
+				+ latinBoundary
 				+ (if previous and row.ends then row.ends[previous] else 0)
+				- (if previous and row.starts and face.tokens[previous]:match "%a" then row.starts[previous] else 0)
 		)
 	end
 	local function wrap(text: string, size: number, limit: number): (number, number)
@@ -102,7 +115,11 @@ local function create(face: Face): Model
 		end
 		return maximum, count
 	end
-	return table.freeze { width = width, wrap = wrap }
+	local function height(size: number): number
+		local index = math.clamp(math.floor(size), 1, 100)
+		return face.sizes[index].height or index
+	end
+	return table.freeze { width = width, wrap = wrap, height = height }
 end
 
 return table.freeze { create = create }

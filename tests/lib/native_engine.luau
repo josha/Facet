@@ -191,6 +191,8 @@ local function new(options: Options?): (Engine, VerifyRoblox.FixtureBridge)
 		undeclaredWrites = settings.lenientProperties == true,
 		computed = computed,
 		ui = {
+			measureBounds = false,
+			measureText = false,
 			selection = "ignore",
 			requirePlayerGui = settings.selectionNeedsPlayerGui == true,
 			methods = methods,

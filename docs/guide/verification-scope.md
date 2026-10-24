@@ -30,10 +30,20 @@ These fixtures do not prove StyleSheet resolution or native safe areas.
 The `native_live_primitives` spec also runs five original Studio geometry
 cases with Verify's computed layout. It checks Screen/VStack padding and gap,
 grid cells and gaps, ZStack alignment, stack distribution and weighted fill.
-It also loads every committed live source and registers its cases in the double.
+The `native_live_contracts` spec adds 27 original live cases for text geometry,
+frame stability, lifecycle, styles, grids and content. Together these specs
+run 32 original live cases. They use Verify's bounded text model: 18 captured
+font faces, integer sizes 1–100, Latin letters, digits, spaces and newlines.
+Unsupported shaping and text modes raise errors. Upstream Verify checks
+348 shared text layout configurations against Studio.
+
+The primitive spec also loads every committed live source and registers its
+cases in the double.
 Registration does not prove case behavior. A planted gap regression must fail
 the original assertion. These cases prove the selected model behavior. They
-do not replace Studio evidence. See [the live CI scope](../../tools/studio/CI.md).
+do not replace Studio evidence. Scrolling canvas/window geometry and the
+remaining input, device and style mechanisms are outside this selection.
+See [the live CI scope](../../tools/studio/CI.md).
 
 ## Live
 

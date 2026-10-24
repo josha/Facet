@@ -1,6 +1,7 @@
 --!strict
 
 local Environment = require "./environment"
+local Values = require "./ui-values"
 
 type Instance = Environment.Instance
 type Vector = { X: number, Y: number }
@@ -69,7 +70,8 @@ local function measure(
 	list: Instance,
 	content: Rectangle,
 	read: (Instance, string) -> unknown,
-	size: (Instance, Rectangle) -> Rectangle
+	size: (Instance, Rectangle) -> Rectangle,
+	reflow: ((Instance, Rectangle, number) -> Rectangle)?
 ): Result
 	local function enum(object: Instance, property: string, fallback: string): string
 		local value = read(object, property)
@@ -84,14 +86,33 @@ local function measure(
 		if constraint == nil then
 			return 0, math.huge
 		end
-		local minimum, maximum = read(constraint, "MinSize") :: Vector, read(constraint, "MaxSize") :: Vector
+		local minimum, maximum = Values.vector(read(constraint, "MinSize")), Values.vector(read(constraint, "MaxSize"))
 		return (if horizontal then minimum.X else minimum.Y) * content.scale,
 			(if horizontal then maximum.X else maximum.Y) * content.scale
 	end
+	local horizontal = enum(list, "FillDirection", "Vertical") == "Horizontal"
+	local crossFlex = enum(list, if horizontal then "VerticalFlex" else "HorizontalFlex", "None")
 	local items: { Item } = {}
 	for index, child in assert(list.Parent):GetChildren() do
 		if child:IsA "GuiObject" and read(child, "Visible") ~= false then
-			table.insert(items, { object = child, rectangle = size(child, content), index = index })
+			local item = child:FindFirstChildWhichIsA "UIFlexItem"
+			local itemAlignment = if item then enum(item, "ItemLineAlignment", "Automatic") else "Automatic"
+			if itemAlignment == "Automatic" then
+				itemAlignment = enum(list, "ItemLineAlignment", "Automatic")
+			end
+			local rectangle: Rectangle
+			if
+				not horizontal
+				and crossFlex == "Fill"
+				and reflow
+				and (itemAlignment == "Automatic" or itemAlignment == "Stretch")
+			then
+				local minimum, maximum = bounds(child, true)
+				rectangle = reflow(child, content, math.clamp(content.width, minimum, maximum))
+			else
+				rectangle = size(child, content)
+			end
+			table.insert(items, { object = child, rectangle = rectangle, index = index })
 		end
 	end
 	local order = enum(list, "SortOrder", "Name")
@@ -103,9 +124,7 @@ local function measure(
 		local a, b = tostring(left.object.Name), tostring(right.object.Name)
 		return if a == b then left.index < right.index else a < b
 	end)
-	local horizontal = enum(list, "FillDirection", "Vertical") == "Horizontal"
 	local mainFlex = enum(list, if horizontal then "HorizontalFlex" else "VerticalFlex", "None")
-	local crossFlex = enum(list, if horizontal then "VerticalFlex" else "HorizontalFlex", "None")
 	local mainAlignment = enum(
 		list,
 		if horizontal then "HorizontalAlignment" else "VerticalAlignment",
@@ -118,7 +137,7 @@ local function measure(
 	)
 	local available = if horizontal then content.width else content.height
 	local availableCross = if horizontal then content.height else content.width
-	local padding = read(list, "Padding") :: Dimension
+	local padding = Values.dimension(read(list, "Padding"))
 	local gap = padding.Scale * available + padding.Offset * content.scale
 	local gaps = math.max(0, #items - 1) * gap
 	local flex: { Flex } = {}
