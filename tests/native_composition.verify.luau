@@ -303,7 +303,13 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("ends the top bar strip at the composition's own edge padding", {
 			id = "native_composition::Composition::ends the top bar strip at the composition's own edge padding",
 			run = function()
-				for _, case in { { padding = 16, right = 16 }, { padding = 0, right = 8 } } do
+				local cases: { { padding: unknown, right: number } } = {
+					{ padding = 16, right = 16 },
+					{ padding = 0, right = 8 },
+					{ padding = { top = 4, right = 24 }, right = 24 },
+					{ padding = { left = 30 }, right = 8 },
+				}
+				for _, case in cases do
 					local engine, runtime, UI, gui = make()
 					local T = engine.types
 					local layer = engine.new("ScreenGui")
@@ -326,6 +332,12 @@ return function(verifyHarness: Verify.Harness)
 					local row = strip:FindFirstChild("Topbar"):FindFirstChildWhichIsA("UIPadding")
 					Verify.expect(row.PaddingLeft):toBe(T.UDim.new(0, 8))
 					Verify.expect(row.PaddingRight):toBe(T.UDim.new(0, case.right))
+					sized(engine, menu:FindFirstChild("MenuFull"), 40, 40)
+					sized(engine, layer:FindFirstChild("Zones", true), 844, 330)
+					sized(engine, strip, 56 + case.right, 58)
+					Verify.expect(menu.Parent.Name):toBe("Trailing")
+					sized(engine, strip, 55 + case.right, 58)
+					Verify.expect(menu.Parent.Name):toBe("LandedTrailing")
 					runtime:dispose()
 				end
 			end,
