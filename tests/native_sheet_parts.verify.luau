@@ -2031,13 +2031,8 @@ return function(verifyHarness: Verify.Harness)
 
 		local function glassSheet(bands: Bands, spec: GlassSpec)
 			local safe = Vector2.new(bands.width - bands.left - bands.right, bands.height - bands.top - bands.bottom)
-			local options = {
-				size = safe,
-				shown = Compose.cell(false),
-				motionLevel = spec.motionLevel,
-				unsettled = spec.unsettled,
-			}
-			local w = mount({ width = spec.width, placement = spec.placement }, options)
+			local options = { shown = Compose.cell(false), motionLevel = spec.motionLevel, unsettled = spec.unsettled }
+			local w = mount({ width = spec.width, placement = spec.placement }, options, { size = safe })
 			local T = w.engine.types
 			w.engine.environment.fakeOn(w.gui, "GetInsetArea", function(_self: unknown, inset: unknown): unknown
 				if inset == T.Enum.ScreenInsets.None then
@@ -2064,7 +2059,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_sheet_parts::native Sheet: a bottom sheet's plate reaches the glass::the plate continues under the home indicator; the content keeps its safe place",
 			run = function()
 				local safe = Vector2.new(390, 704)
-				local plain = mount(nil, { size = safe, room = safe, motionLevel = "none" })
+				local plain = mount(nil, { room = safe, motionLevel = "none" }, { size = safe })
 				local room = box(plain.find("Room"))
 				local grip = box(plain.find("Grabber"))
 				Verify.expect(box(plain.find("SheetPanel"))):toEqual({ 0, 0, 390, 352 })
@@ -2153,8 +2148,9 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_sheet_parts::native Sheet: a bottom sheet's plate reaches the glass::side and center sheets keep their plate at the safe area",
 			run = function()
 				local safe = Vector2.new(750, 311)
+				local still = { room = safe, motionLevel = "none" }
 				for _, placement in { "side", "center" } do
-					local plain = mount({ placement = placement }, { size = safe, room = safe, motionLevel = "none" })
+					local plain = mount({ placement = placement }, still, { size = safe })
 					local panel, room = box(plain.find("SheetPanel")), box(plain.find("Room"))
 					plain.stop()
 					local w = glassSheet(LANDSCAPE, { placement = placement, motionLevel = "none" })
