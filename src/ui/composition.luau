@@ -395,6 +395,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				table.insert(members[home], region)
 			end
 		end
+		local leadsAny, trailsAny = false, false
+		for _, region in stripRegions do
+			leadsAny = leadsAny or declared[region].leading
+			trailsAny = trailsAny or declared[region].trailing
+		end
+		local stripLanes = 1 + (if leadsAny then 1 else 0) + (if trailsAny then 1 else 0)
+		local function stripEnd(use: ComposeTypes.Use): number
+			local value = read(base, use)
+			local right: Types.Space? = if type(value) == "table" then (value :: Types.Sides).right else value :: Types.Space
+			return math.max(kit.spacing(gap, use), kit.spacing(right, use))
+		end
 		local function landingFrame(name: string, alignment: Enum.HorizontalAlignment): Frame
 			return Host.Frame(name) {
 				BackgroundTransparency = 1,
@@ -547,11 +558,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				})
 				return Host.Frame(name)(fields)
 			end
-			local leadsAny, trailsAny = false, false
-			for _, region in stripRegions do
-				leadsAny = leadsAny or declared[region].leading
-				trailsAny = trailsAny or declared[region].trailing
-			end
 			local leadingRow = row("Leading", E.HorizontalAlignment.Left, {
 				LayoutOrder = 1,
 				Size = D2.new(),
@@ -582,7 +588,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 						return D.new(0, kit.spacing(gap, use))
 					end,
 					PaddingRight = function(use: ComposeTypes.Use): UDim
-						return D.new(0, kit.spacing(gap, use))
+						return D.new(0, stripEnd(use))
 					end,
 				}),
 				leadingRow,
@@ -814,6 +820,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					rank = entry.rank,
 					mayDrop = entry.mayDrop,
 					sizes = measured,
+					leading = entry.leading,
 					trailing = entry.trailing,
 				}
 			end
@@ -822,10 +829,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				local inset = use(topbarBand)
 				strip = V2.new(inset.Width, inset.Height) / use(stripUnit)
 			end
-			local band = if strip
+			local band: resolver.Strip? = if strip
 				then {
-					x = strip.X - 2 * kit.spacing(gap, use),
+					x = strip.X - kit.spacing(gap, use) - stripEnd(use),
 					y = math.min(strip.Y - ENGINE_MARGIN, ENGINE_BUTTON),
+					lanes = stripLanes,
 				}
 				else nil
 			local chosen, down, moved, overflow, packed = resolver.resolve(
