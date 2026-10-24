@@ -30,7 +30,7 @@ Use the [task map](../reference/nodes/Map.md) for implementation recipes.
 For a known control, read its card and props with
 `lute run tools/facet docs <Control>.card` and `<Control>.props`, or read
 the installed StringValues through Studio Model Context Protocol (MCP).
-Use `Icons.names` for glyphs.
+Take each glyph name from [Icons.names](../reference/nodes/Icons.names.md).
 
 Keep one owned tree. A page, panel or overlay belongs inside the existing
 mount; choosing another control is not a reason to create another app.

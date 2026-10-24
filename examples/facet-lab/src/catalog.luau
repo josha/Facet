@@ -2106,6 +2106,27 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		axes = {
 			{ key = "presentation", values = { "titleAndIcon", "titleOnly", "iconOnly" } },
 			{ key = "iconPosition", values = { "leading", "trailing" } },
+			{
+				key = "icon",
+				values = {
+					"settings",
+					"star",
+					"heart",
+					"chat",
+					"gift",
+					"coin",
+					"gem",
+					"bag",
+					"trophy",
+					"crown",
+					"lock",
+					"bolt",
+					"wrench",
+					"timer",
+					"car",
+				},
+				props = properties { presentation = "iconOnly" },
+			},
 		},
 		states = {
 			{ name = "large icon", props = properties { iconSize = 32 } },

@@ -45,15 +45,6 @@ local function run(invocation: Cli.Invocation): number
 			body = Props.render(name, options),
 		})
 	end
-	table.insert(nodes, {
-		path = "Icons.names",
-		file = "",
-		kind = "detail",
-		summary = "Every icon name for the icon option of a control.",
-		aliases = { "Icons", "icon names", "icon" },
-		children = {},
-		body = Props.icons("."),
-	})
 	print(DocsQuery.response(nodes, invocation))
 	return 0
 end
