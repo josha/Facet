@@ -437,16 +437,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			Active = false,
 			Interactable = false,
 			ZIndex = ROW_Z,
-			AnchorPoint = function(use: ComposeTypes.Use)
-				return V2.new(0.5, if bottom then 0 else 1 - amount(use))
-			end,
 			AutomaticSize = if contentHug then E.AutomaticSize.XY else E.AutomaticSize.Y,
 			Size = function(use: ComposeTypes.Use)
 				return if contentHug then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
-			end,
-			Position = function(use: ComposeTypes.Use)
-				local travel = (1 - amount(use)) * (MARGIN + use(stack.inset))
-				return D2.new(0.5, 0, if bottom then 1 - amount(use) else 0, if bottom then travel else -travel)
 			end,
 			body,
 		}
@@ -494,6 +487,23 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				entered:set(true)
 			end
 		end)
+		local lane = Host.Frame "ToastLane" {
+			BackgroundTransparency = 1,
+			Size = D2.fromScale(1, 0),
+			AutomaticSize = E.AutomaticSize.Y,
+			AnchorPoint = function(use: ComposeTypes.Use)
+				return V2.new(0, if bottom then 0 else 1 - amount(use))
+			end,
+			Position = function(use: ComposeTypes.Use)
+				local travel = (1 - amount(use)) * (MARGIN + use(stack.inset))
+				return D2.new(0, 0, if bottom then 1 - amount(use) else 0, if bottom then travel else -travel)
+			end,
+			Host.UIListLayout {
+				SortOrder = E.SortOrder.LayoutOrder,
+				HorizontalAlignment = E.HorizontalAlignment.Center,
+			},
+			row,
+		}
 		local slot = Host.Frame "ToastSlot" {
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),
@@ -502,7 +512,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local index = table.find(use(stack.order), record) or 0
 				return if bottom then -index else index
 			end,
-			row,
+			lane,
 		}
 		slot:SetAttribute("FacetArrivalGroup", true)
 		return slot

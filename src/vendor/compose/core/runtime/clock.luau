@@ -7,7 +7,7 @@ local Graph = require "../reactive/graph"
 local Cell = require "../reactive/cell"
 local ownedFrame = require "../ownership/frame"
 
-export type Options = { duration: number?, deadline: number?, start: number?, interval: number? }
+export type Options = { duration: number?, deadline: number?, start: number?, interval: number?, step: number? }
 
 return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 	return function(options: Options?): Types.Readable<number>
@@ -17,6 +17,11 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 		local duration, deadline = settings.duration, settings.deadline
 		local start = settings.start
 		local interval = settings.interval or 0
+		local step = settings.step
+		assert(
+			step == nil or (step > 0 and step < math.huge and interval == 0),
+			"Compose clock step must be finite and positive, and exclusive of interval"
+		)
 		assert(duration == nil or deadline == nil, "Compose clock accepts duration or deadline")
 		assert(
 			start == nil or (duration == nil and deadline == nil and start == start and math.abs(start) < math.huge),
@@ -50,7 +55,11 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 			pending += delta
 			local current = read()
 			local done = finished(current)
-			if pending >= interval or done then
+			if step then
+				if done or math.floor(current / step) ~= math.floor(value:peek() / step) then
+					value:set(current)
+				end
+			elseif pending >= interval or done then
 				pending = if interval > 0 then pending % interval else 0
 				value:set(current)
 			end
