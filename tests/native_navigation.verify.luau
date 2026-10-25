@@ -6205,7 +6205,9 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(picker.ClipsDescendants):toBe(false)
 					Verify.expect(picker.CanvasSize):toBe(types.UDim2.fromScale(1, 1))
 					Verify.expect(picker:GetAttribute("FacetOverflow")):toBe(nil)
+					Verify.expect(picker.ScrollBarThickness):toBe(0)
 					poke(layout, "AbsoluteContentSize", V2(world, 466, 44))
+					Verify.expect(picker.ScrollBarThickness):toBe(2)
 					Verify.expect(picker.ScrollingEnabled):toBe(true)
 					Verify.expect(picker.ClipsDescendants):toBe(true)
 					Verify.expect(picker.CanvasSize):toBe(types.UDim2.new(0, 472, 1, 0))
@@ -6225,6 +6227,53 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(picker.ScrollingEnabled):toBe(false)
 					Verify.expect(picker.CanvasSize):toBe(types.UDim2.fromScale(1, 1))
 					Verify.expect(picker:GetAttribute("FacetOverflow")):toBe(nil)
+					world.stop()
+				end,
+			})
+			verifyHarness:case("shows a scroll bar on an overflowing tab bar and hands a vertical drag to the page", {
+				id = "native_navigation::Segmented Picker overflow::shows a scroll bar on an overflowing tab bar and hands a vertical drag to the page",
+				run = function()
+					local world = setup(function(UI)
+						local tabs = {}
+						for _, option in categories do
+							table.insert(
+								tabs,
+								{ id = option.value, label = option.label, content = UI.Text { text = option.label } }
+							)
+						end
+						return UI.ScrollView "Page" {
+							UI.TabView "Shop" { selection = Compose.cell("all"), tabs = tabs },
+						}
+					end)
+					local types = world.engine.types
+					local poke = world.engine.environment.poke
+					local page = find(world.root, "Page")
+					local bar = find(page, "Tabs")
+					poke(page, "AbsoluteWindowSize", V2(world, 401, 300))
+					poke(page, "AbsoluteCanvasSize", V2(world, 401, 900))
+					page.CanvasPosition = V2(world, 0, 100)
+					poke(bar, "AbsoluteSize", V2(world, 401, 50))
+					poke(bar, "AbsoluteWindowSize", V2(world, 401, 50))
+					Verify.expect(bar.ScrollBarThickness):toBe(0)
+					poke(
+						find(bar, "Strip"):FindFirstChildWhichIsA("UIListLayout"),
+						"AbsoluteContentSize",
+						V2(world, 520, 44)
+					)
+					Verify.expect(bar.ScrollBarThickness):toBe(2)
+					local touch = {
+						UserInputType = types.Enum.UserInputType.Touch,
+						UserInputState = types.Enum.UserInputState.Begin,
+						Position = types.Vector3.new(50, 20, 0),
+					}
+					bar.InputBegan:Fire(touch)
+					touch.UserInputState = types.Enum.UserInputState.Change
+					touch.Position = types.Vector3.new(50, 60, 0)
+					world.input.InputChanged:Fire(touch)
+					Verify.expect(bar.ScrollingEnabled):toBe(false)
+					Verify.expect(page.ScrollingEnabled):toBe(true)
+					world.input.InputEnded:Fire(touch)
+					Verify.expect(bar.ScrollingEnabled):toBe(true)
 					world.stop()
 				end,
 			})

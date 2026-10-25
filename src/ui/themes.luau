@@ -935,7 +935,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-choice-current:Press", { BackgroundTransparency = 0.62, BackgroundColor3 = c("accent") })
 	rule(".facet-choice-current >> .facet-button-caption", { TextColor3 = c("accent") })
 	rule(".facet-choice-current >> .facet-icon", { ImageColor3 = c("accent") })
-	rule(".facet-segmented", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
+	rule(".facet-segmented", {
+		BackgroundColor3 = c("control"),
+		BackgroundTransparency = 0,
+		BorderSizePixel = 0,
+		ScrollBarImageColor3 = c("contentSecondary"),
+	})
 	local trackRadius = if package.metrics.radii.control > 0 then package.metrics.radii.control + 2 else 0
 	rule(".facet-segmented::UICorner", { CornerRadius = types.UDim.new(0, trackRadius) })
 
