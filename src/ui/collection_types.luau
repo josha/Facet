@@ -33,6 +33,14 @@ export type RowRender<V, K> = (
 	placement: ComposeTypes.Readable<ComposeTypes.Placement>,
 	key: K
 ) -> GuiObject
+export type RowRecycle<V, K> = (
+	current: ComposeTypes.Readable<V>,
+	placement: ComposeTypes.Readable<ComposeTypes.Placement>,
+	key: ComposeTypes.Readable<K>
+) -> GuiObject
+export type RecycleOptions<V, K> = {
+	recycle: RowRecycle<V, K>?,
+}
 export type SelectionOptions<V, K> = {
 	selection: ComposeTypes.Cell<Selection<K>>?,
 	selectionFrom: Types.Value<{ V }>?,
@@ -63,7 +71,7 @@ export type CollectionOptions<V, K> = {
 	from: Types.Value<{ V }>,
 	slots: Types.Value<{ K }>?,
 	slotControls: SlotControls<K>?,
-	render: RowRender<V, K>,
+	render: RowRender<V, K>?,
 	mode: ComposeTypes.OrderedCollectionMode?,
 	itemSize: (Types.ValueNumber | "cards")?,
 	cards: { perView: number?, minWidth: number?, peek: number? }?,
@@ -211,6 +219,7 @@ export type CollectionShape<V, K> =
 	& HierarchyOptions<V, K>
 	& OptionalChildren<V>
 	& CollectionOptions<V, K>
+	& RecycleOptions<V, K>
 export type TableShape<V, K> =
 	Types.FrameProps
 	& SelectionOptions<V, K>

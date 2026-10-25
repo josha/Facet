@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "32a1af22f909267345b061dc29c299d656ed1e25",
+  "commit": "1f20ddae60cf25df2faa5a9520f4bd5ad522de4b",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -20,7 +20,7 @@
     "core/collection/layout.luau": "82177323acba42a3fc75df8193de6e222a901065a65534312d65ce8ef11bf1f2",
     "core/collection/prefix.luau": "5a98d1238a4f4e9042fa732fdf7364fde206e3607d55ffd304d53bee039c13ca",
     "core/collection/relevance.luau": "d621d7eca0a2073d573138047736f46a226a78494040bb49affdc2b60b226faf",
-    "core/collection/retain.luau": "4868e6ec9b459908d8be4bc2f3c5f2c289263c2073a6e89bf6c73846418d54f2",
+    "core/collection/retain.luau": "e296272afadd5dbf019a1ea1c47980aabc745cc6f03757703c5e07fa96b3aa04",
     "core/diagnostics.luau": "e3f772e0197515ae68bd78d64c3d0fe4ef04b4bbf20147e7bd6729cc12a66ab1",
     "core/focus-neighbor.luau": "1350088f82ba244c20aa2e8b9c03ffb7c2547867ed6b7cda100e75c5083ada7f",
     "core/focus-scope.luau": "b8102d0dd9cc88d1cd85fb9b430da9aa8b46b33d28912dc6b1c1cc7ca7085d2b",
@@ -68,7 +68,7 @@
     "core/structure/layer-stack.luau": "25dcb3edf100e9b05d65bff3ff785e079c1e17123901c402f1ee4241dc93a957",
     "core/structure/lis.luau": "711a8c00f14e1538b5e1117edacd8c551a6515594742bea10aa648421fbdd7f1",
     "core/structure/mount-budget.luau": "bf592eeef578d9a2f615a14f52e1423de602177dec1221b1ade636d020f03f61",
-    "core/structure/ordered-collection.luau": "988757efc528808cbf6c509e1479333184932097fa0a8505291df061bc6c6895",
+    "core/structure/ordered-collection.luau": "c449bd0a9afa2274c1ba92bc3943d0a4b72a254e3838769586dde095941cc09e",
     "core/structure/portal.luau": "b0b79c3fa736f0d74013c6e94ba275d8b96142a3208b44f7635357fd9ea28b40",
     "core/structure/presence.luau": "49d8601aa587632f909b9395299e54088ffe07c86446c5d91082d8a85b47f7d5",
     "core/structure/show.luau": "25cf27daafd144766ab77cf96f062eb7a88049748f6cc7d195c5700e6036dfce",
@@ -89,8 +89,8 @@
   },
   "docs": {
     "SKILL.md": "5b00d1daf8a47f8d97e5af9ab3044aca442fa027064015c8e7ffb584b074c7f1",
-    "references/api.md": "0b8baaf53ee5777bdbe5049f531b011402c5034be471f42414353d7468e37844",
-    "references/consumer-guides.md": "530042409ea09ffcf3e4f3f0558e4f9609618ca6ad55e10402ee11823288fa1d",
-    "references/ownership.md": "c32d233f1e3f6ea570c1e7e2fafa30de29485b41c50b232a5d673903891e0025"
+    "references/api.md": "48447c735c43cd39d020101aef3ec381e5de252341a05b5c5c311684a5becf57",
+    "references/consumer-guides.md": "22f375a71643e6b8f51553e410c29c9ec7476abf43e4e1729bb7cb1256dd2eef",
+    "references/ownership.md": "645e918801a1b8aa2fa5de85f762200b0d17df930fd9e5042f22311a5cfb196d"
   }
 }

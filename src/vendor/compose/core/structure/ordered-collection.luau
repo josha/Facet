@@ -56,7 +56,12 @@ export type Controls<K> = {
 export type Options<V, K> = {
 	from: keyed.Source<V>,
 	key: ((value: V, index: number) -> K)?,
-	render: (value: Types.Readable<V>, placement: Types.Readable<Layout.Placement>, key: K) -> Host.Node,
+	render: ((value: Types.Readable<V>, placement: Types.Readable<Layout.Placement>, key: K) -> Host.Node)?,
+	recycle: ((
+		value: Types.Readable<V>,
+		placement: Types.Readable<Layout.Placement>,
+		key: Types.Readable<K>
+	) -> Host.Node)?,
 	mode: Mode?,
 	viewport: (Types.Readable<Viewport> | Types.Body<Viewport>)?,
 	direction: Direction?,
@@ -73,6 +78,7 @@ local KNOWN_FIELDS: { [string]: true } = {
 	from = true,
 	key = true,
 	render = true,
+	recycle = true,
 	mode = true,
 	viewport = true,
 	direction = true,
@@ -134,8 +140,22 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 	Support.noUnknownFields(settings, "OrderedCollection", KNOWN_FIELDS)
 
 	local source = Support.sourceOf(settings.from, "OrderedCollection", "from") :: Types.Body<{ V }>
-	local render =
-		Support.builderOf(settings.render, "OrderedCollection", "render") :: (Types.Readable<V>, Types.Readable<Layout.Placement>, K) -> Host.Node
+	if (settings.render == nil) == (settings.recycle == nil) then
+		Diagnostics.raise("collection/render-or-recycle", "OrderedCollection needs exactly one of render and recycle", {
+			primitive = "OrderedCollection",
+			expected = "render = function(value, placement, key) or recycle = function(value, placement, key)",
+			contract = "render mounts one row per key; recycle reuses rows and passes the key as a readable",
+			fix = "pass render, or pass recycle when row content can follow a changing key",
+		})
+	end
+	local render: ((Types.Readable<V>, Types.Readable<Layout.Placement>, K) -> Host.Node)? = if settings.render
+			~= nil
+		then Support.builderOf(settings.render, "OrderedCollection", "render")
+		else nil
+	local recycle: ((Types.Readable<V>, Types.Readable<Layout.Placement>, Types.Readable<K>) -> Host.Node)? = if settings.recycle
+			~= nil
+		then Support.builderOf(settings.recycle, "OrderedCollection", "recycle")
+		else nil
 
 	local keyOf: (value: V, index: number) -> K
 	if settings.key ~= nil then
@@ -488,6 +508,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 		source = source,
 		select = select,
 		render = render,
+		recycle = recycle,
 		equals = function(current: Layout.Placement, incoming: Layout.Placement): boolean
 			return current.index == incoming.index
 				and current.row == incoming.row

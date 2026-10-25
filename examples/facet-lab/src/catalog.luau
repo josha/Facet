@@ -3869,6 +3869,22 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "gap 8, overscan 3", props = properties { gap = 8, overscan = 3 } },
 			{ name = "follows the end", props = properties { follow = "end", followThreshold = 24 } },
 			{
+				name = "recycled rows",
+				props = function(c: Context)
+					return {
+						render = NONE,
+						recycle = function(current): GuiObject
+							return c.UI.Text({
+								text = function(use: Use)
+									return use(current).name
+								end,
+								Size = UDim2.fromScale(1, 1),
+							})
+						end,
+					}
+				end,
+			},
+			{
 				name = "selection reported",
 				props = function(c: Context)
 					local selection = c.cell("selection", {})
@@ -3996,6 +4012,22 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "snap", values = { "none", "item" }, matrix = false },
 		},
 		states = {
+			{
+				name = "recycled cells",
+				props = function(c: Context)
+					return {
+						render = NONE,
+						recycle = function(current): GuiObject
+							return c.UI.Text({
+								text = function(use: Use)
+									return use(current).name
+								end,
+								Size = UDim2.fromScale(1, 1),
+							})
+						end,
+					}
+				end,
+			},
 			{ name = "content clipped", props = properties { contentOverflow = "clip" } },
 			{ name = "content visible", props = properties { contentOverflow = "visible" } },
 			{ name = "copy rows by dragging into this collection", props = transferState },
