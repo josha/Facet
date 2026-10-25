@@ -4,7 +4,7 @@ local Types = require("./types")
 local Nav = require("./navigation_types")
 local Media = require("./media_types")
 
-type Value<T> = Types.Value<T>
+export type Value<T> = Types.Value<T>
 
 export type Diagnostics = { diagnostics: (() -> { string })? }
 export type PaginationForm = "numbers" | "arrows" | "label"
