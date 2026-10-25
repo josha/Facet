@@ -45,8 +45,10 @@ Factory-options.keyboardNavigation option values and behavior.
 - `suspendGameplay`: `true` makes a NavigationStack with a nonempty path
   suspend gameplay, as every modal surface does. While any of them is open,
   `GuiService.TouchControlsEnabled` is off and the environment's
-  `gameplaySuspended` is true. The last to close restores
-  `TouchControlsEnabled`. See [Tasks.pages](Tasks.pages.md).
+  `gameplaySuspended` is true. A RadialMenu hides touch controls but does
+  not suspend gameplay. The last to close restores `TouchControlsEnabled`,
+  or `true` if the game set it while it was off. See
+  [Tasks.pages](Tasks.pages.md).
 - `services`, `guiService`, `userInputService` and `types`: native dependencies.
 - `inputParent` and `overlayParent`: placement targets. Presented controls
   mount inside `overlayParent` when you set it. They measure its live bounds

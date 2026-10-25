@@ -57,7 +57,9 @@ share one suspension; the last to close ends it, without waiting for exit
 motion. The game owns its input state: derive each gameplay InputContext's
 `Enabled` and each custom touch control's `Visible` from its own state and
 `not gameplaySuspended`, so a change the game makes during a page survives
-it. A visible overlay does not pause the world; the game owns that decision.
+it. Create that watch before the surfaces in the mount, or in an owner that
+outlives them, so it sees the suspension end when the UI unmounts. A
+RadialMenu hides touch controls but does not suspend gameplay. A visible overlay does not pause the world; the game owns that decision.
 
 Native InputContext priority and `Sink` resolve competing action bindings;
 disabling the gameplay context makes its ownership explicit. The responder's
@@ -81,8 +83,8 @@ grabber. Among actions, Dialog, Alert, Sheet and Callout start on the
 `default` action, unless it is destructive; then they start on the safe
 choice, Cancel. A read-only result may need Close as
 its useful action. `role = "default"` gives both the emphasis and the entry
-focus, so mark an action that loses progress or spends something the player
-cannot get back `destructive`. Read `Selection.SelectedObject` for the exact behavior.
+focus, so mark an action that loses progress or an item the player cannot get
+back `destructive`. A purchase that the server confirms stays `default`. Read `Selection.SelectedObject` for the exact behavior.
 
 Make directional movement agree with the visible arrangement and keyboard
 order agree with the reading and action order. Put frequent commands near

@@ -672,6 +672,7 @@ return function(verifyHarness: Verify.Harness)
 					path:set({ { id = "first" } })
 					Verify.expect(suspended:peek()):toBe(true)
 					world.stop()
+					Verify.expect(gameplay.Enabled):toBe(not inKart)
 					Verify.expect(world.gui.TouchControlsEnabled):toBe(true)
 				end
 			end
@@ -709,7 +710,10 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end, { suspendGameplay = true })
 				Verify.expect(suspended:peek()):toBe(false)
+				world.gui.TouchControlsEnabled = false
 				path:set({ { id = "shop" } })
+				world.gui.TouchControlsEnabled = true
+				Verify.expect(world.gui.TouchControlsEnabled):toBe(false)
 				opened:set(true)
 				world.settle()
 				Verify.expect(suspended:peek()):toBe(true)
@@ -2027,6 +2031,25 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
+		verifyHarness:case("hides touch controls for a radial menu without suspending gameplay", function()
+			local opened = Compose.cell(false)
+			local suspended: Compose.Readable<boolean>
+			local world = setup(function(UI: FacetControls)
+				suspended = UI.environment().gameplaySuspended
+				return UI.RadialMenu({
+					isPresented = opened,
+					items = { { id = "Wave", label = "Wave" } :: FixtureRadialTypes.RadialItem<unknown> },
+				})
+			end, { suspendGameplay = true })
+			opened:set(true)
+			world.settle()
+			Verify.expect(world.gui.TouchControlsEnabled):toBe(false)
+			Verify.expect(suspended:peek()):toBe(false)
+			opened:set(false)
+			world.settle()
+			Verify.expect(world.gui.TouchControlsEnabled):toBe(true)
+			world.stop()
+		end)
 		verifyHarness:case("blocks background shortcuts until the top modal leaves", {
 			id = "native_navigation::native navigation controls::blocks background shortcuts until the top modal leaves",
 			run = function()

@@ -617,7 +617,7 @@ return function(
 			end)
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(open) then
-					Compose.cleanup(gameplayHold.hold(ctx))
+					Compose.cleanup(gameplayHold.hold(ctx, ctx.config.guiService, true))
 				end
 			end)
 		end

@@ -440,6 +440,7 @@ export type ModalOptions = {
 	outsideMargin: number?,
 	canDismiss: Types.ValueBoolean?,
 	onOutside: (() -> ())?,
+	keepsGameplay: boolean?,
 }
 export type OverlayOptions = {
 	parent: (() -> GuiBase2d?)?,
