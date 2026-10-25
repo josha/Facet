@@ -268,6 +268,48 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("shows a price, then nothing once owned, then a named check icon once equipped", {
+			id = "native_card::native Card::shows a price, then nothing once owned, then a named check icon once equipped",
+			run = function()
+				local owned, equipped = Compose.cell(false), Compose.cell(false)
+				local world = mount({
+					image = "rbxassetid://1",
+					title = "Comet",
+					badges = {
+						trailing = {
+							label = function(use: Compose.Use): string?
+								return if use(owned) then nil else "3,400"
+							end,
+							icon = function(use: Compose.Use): string?
+								return if use(equipped) then "checkmark" elseif use(owned) then nil else "coin"
+							end,
+							name = "Equipped",
+							status = "neutral",
+						},
+					},
+				})
+				local trailing = world.find("Trailing", world.find("Badges"))
+				local function pill(): GuiObject?
+					return trailing:FindFirstChildWhichIsA("GuiObject")
+				end
+				local function words(): string
+					local found = pill()
+					local label = if found then found:FindFirstChildWhichIsA("TextLabel", true) else nil
+					return if label and label.Visible then label.Text else ""
+				end
+				Verify.expect(pill() ~= nil):toBe(true)
+				Verify.expect(words()):toBe("3,400")
+				owned:set(true)
+				Verify.expect(pill()):toBeNil()
+				equipped:set(true)
+				Verify.expect(pill() ~= nil):toBe(true)
+				Verify.expect(words()):toBe("")
+				local named = (pill() :: GuiObject):FindFirstChild("Label", true)
+				Verify.expect(named and named:GetAttribute("AccessibleLabel")):toBe("Equipped")
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("moves the leading badge to the front of the caption when both badges do not fit, once", {
 			id = "native_card::native Card::moves the leading badge to the front of the caption when both badges do not fit, once",
 			run = function()

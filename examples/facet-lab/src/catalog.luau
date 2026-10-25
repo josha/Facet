@@ -4878,7 +4878,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		alias = "Flex grow (UIFlexItem)",
 		purpose = "Makes one child grow along its stack's main axis; a weight shares the free space.",
 		alternatives = 'Spacer for empty space; width = "fill" on the cross axis.',
-		snippet = 'UI.Text { text = "Name", UI.fill() }',
+		snippet = 'UI.Button { label = "Grows", UI.fill() }',
 		base = function()
 			return {}
 		end,

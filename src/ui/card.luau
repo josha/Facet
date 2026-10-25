@@ -271,14 +271,19 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				end
 				local label = badge.label
 				local last = ""
+				local function marked(use: ComposeTypes.Use): boolean
+					return badge.name ~= nil and nonempty(read(badge.icon, use))
+				end
 				local shown = function(use: ComposeTypes.Use): boolean
-					return label == nil or nonempty(read(label, use))
+					return label == nil or nonempty(read(label, use)) or marked(use)
 				end
 				local props: MediaProps.BadgeProps = {
 					label = function(use: ComposeTypes.Use): string?
 						local value = read(label, use)
 						if nonempty(value) then
 							last = value :: string
+						elseif marked(use) then
+							return nil
 						end
 						return if label == nil then nil else last
 					end,

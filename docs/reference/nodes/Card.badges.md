@@ -44,10 +44,14 @@ local card = UI.Card "Kart" {
 Keep the item state in the game model. Here `owned` holds it.
 
 A shop card carries the decision. The caption says what the item changes,
-and one badge shows the price, a short shortfall or Owned:
+and the trailing badge shows the price until the player owns the item. Show
+every price the same way, in `neutral`; show what the player can afford in the
+detail and its Buy. An owned item needs no badge. A badge with `name` and an
+icon shows the icon alone while its label is empty, so Equipped is a named
+check:
 
 ```luau
-local coins, owned = Compose.cell(300), Compose.cell(false)
+local owned, equipped = Compose.cell(false), Compose.cell(false)
 local card = UI.Card "Engine" {
     title = "Turbo Engine",
     image = "rbxassetid://0",
@@ -56,16 +60,13 @@ local card = UI.Card "Engine" {
     badges = {
         leading = { label = "Rare", status = "accent" },
         trailing = {
-            label = function(use)
-                return if use(owned) then "Owned" else "450"
-            end,
+            label = function(use) return if use(owned) then nil else "450" end,
             icon = function(use)
-                return if use(owned) then "checkmark" else "coin"
+                return if use(equipped) then "checkmark"
+                    elseif use(owned) then nil else "coin"
             end,
-            status = function(use)
-                return if use(owned) then "success"
-                    elseif use(coins) < 450 then "warning" else "neutral"
-            end,
+            name = "Equipped",
+            status = function(use) return if use(equipped) then "success" else "neutral" end,
         },
     },
 }
