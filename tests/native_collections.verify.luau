@@ -108,6 +108,67 @@ return function(verifyHarness: Verify.Harness)
 		end
 		return values
 	end
+	verifyHarness:case("recycled rows follow new keys as the list scrolls", {
+		id = "native_collections::recycled rows follow new keys as the list scrolls",
+		run = function()
+			local engine, runtime, UI, target = setup()
+			local selection = Compose.cell({})
+			local renders = 0
+			local activated = nil
+			local stop, mounted = runtime.mount(function()
+				return UI.VirtualList({
+					from = records(100),
+					key = "id",
+					itemSize = 20,
+					overscan = 0,
+					selection = selection,
+					selectionMode = "single",
+					onActivate = function(_item, key)
+						activated = key
+					end,
+					recycle = function(current): GuiObject
+						renders += 1
+						return UI.Button({
+							Name = "Label",
+							label = function(use)
+								return use(current).label
+							end,
+						})
+					end,
+				})
+			end, target)
+			local list = (mounted :: unknown) :: ScrollingFrame
+			engine.environment.poke(
+				VerifyRoblox.assertInstance(list),
+				"AbsoluteWindowSize",
+				engine.types.Vector2.new(200, 95)
+			)
+			local before = renders
+			Verify.expect(before > 0):toBe(true)
+			list.CanvasPosition = engine.types.Vector2.new(0, 1000)
+			Verify.expect(renders):toBe(before)
+			local row: Instance? = nil
+			for _, node in list:GetDescendants() do
+				if node:GetAttribute("FacetCollectionRow") and node.Name == "51" then
+					row = node
+				end
+			end
+			Verify.expect(row ~= nil):toBe(true)
+			local shown = false
+			for _, node in assert(row):GetDescendants() do
+				shown = shown or (node.Name == "Label" and node:IsA("TextButton") and node.Text == "51")
+			end
+			Verify.expect(shown):toBe(true)
+			engine.environment.fire(
+				VerifyRoblox.assertInstance(assert(assert(row):FindFirstChild("RowHit"))),
+				"Activated"
+			)
+			Verify.expect(activated):toBe("51")
+			Verify.expect(selection:peek()["51"]):toBe(true)
+			stop()
+			runtime:dispose()
+		end,
+	})
 	verifyHarness:case("selection changes reuse membership until its reactive source changes", {
 		id = "native_collections::selection changes reuse membership until its reactive source changes",
 		run = function(t)

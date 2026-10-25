@@ -261,7 +261,7 @@ return function<V, K>(
 					local painted = Compose.cell(false)
 					local stop, mountedContent = Compose.withOwner(contentOwner, function()
 						return runtime.mount(function(): CanvasGroup
-							local rendered = spec.render(current, placement, key)
+							local rendered = assert(spec.render)(current, placement, key)
 							if tree and not tree.columnar then
 								rendered = tree.wrap(rendered, current, key)
 							end
