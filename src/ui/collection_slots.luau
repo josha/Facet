@@ -8,7 +8,7 @@ export type Slot<V, K> = { key: K, item: V? }
 export type Slots<V, K> = {
 	source: ComposeTypes.Formula<{ Slot<V, K> }>,
 	wrap: (
-		CollectionTypes.RowRender<V, K>
+		(ComposeTypes.Readable<V>, ComposeTypes.Readable<ComposeTypes.Placement>, K) -> GuiObject
 	) -> (ComposeTypes.Readable<Slot<V, K>>, ComposeTypes.Readable<ComposeTypes.Placement>, K) -> GuiObject,
 }
 return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
@@ -70,7 +70,11 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 		end
 		return true
 	end)
-	local function withSlots(renderItem: CollectionTypes.RowRender<V, K>)
+	local function withSlots(renderItem: (
+		ComposeTypes.Readable<V>,
+		ComposeTypes.Readable<ComposeTypes.Placement>,
+		K
+	) -> GuiObject)
 		return function(
 			record: ComposeTypes.Readable<SlotRecord>,
 			placement: ComposeTypes.Readable<ComposeTypes.Placement>,

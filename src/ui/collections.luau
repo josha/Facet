@@ -4,7 +4,6 @@ local TreeTypes = require("./collection_tree")
 local State = require("./collection_state")
 local createSlots = require("./collection_slots")
 local createRows = require("./collection_rows")
-local createRecycled = require("./collection_recycled")
 local attachFling = require("./collection_fling")
 local createFocus = require("./collection_focus")
 local bindNavigation = require("./collection_navigation")
@@ -49,7 +48,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		"rowActions",
 		"key",
 		"render",
-		"recycle",
 		"contentOverflow",
 		"mode",
 		"snap",
@@ -111,25 +109,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 			spec.snap == nil or spec.snap == "none" or spec.snap == "item",
 			"Facet collection snap must be none or item"
 		)
-		assert(
-			(type(spec.render) == "function") ~= (type(spec.recycle) == "function"),
-			"Facet collection requires exactly one of render(current, placement, key) and recycle(current, placement, key)"
-		)
-		assert(
-			spec.recycle == nil
-				or (
-					spec.children == nil
-					and spec.slots == nil
-					and spec.drag == nil
-					and spec.drop == nil
-					and spec.reorderable == nil
-					and spec.deletable == nil
-					and spec.editing == nil
-					and spec.measure == nil
-					and spec.rowActions == nil
-				),
-			"Facet collection recycle supports fixed-size rows without children, slots, drag, drop, editing, measure or row actions"
-		)
+		assert(type(spec.render) == "function", "Facet collection requires render(current, placement, key)")
 		assert(spec.hug == nil or type(spec.hug) == "boolean", "Facet collection hug must be a boolean")
 		assert(not spec.hug or spec.mode == "all", 'Facet collection hug needs mode = "all": it sizes to every row')
 		assert(not spec.hug or spec.itemSize ~= "cards", 'Facet collection hug cannot size "cards" from its own extent')
@@ -197,10 +177,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 			else nil
 		local overlayReorder = if editor then editor.overlay else nil
 		local slots = createSlots(ctx, view)
-		local recycle = spec.recycle
-		local orderedRows: (CollectionTypes.Follow?) -> ComposeTypes.Child = if recycle
-			then createRecycled(ctx, view, recycle)
-			else createRows(ctx, UI, view, editor, slots)
+		local orderedRows = createRows(ctx, UI, view, editor, slots)
 		local function followOf(use: ComposeTypes.Use?): CollectionTypes.Follow
 			local value = read(spec.follow, use)
 			assert(value == nil or value == "end" or value == "none", "Facet collection follow must be none or end")

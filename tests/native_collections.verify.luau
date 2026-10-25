@@ -108,8 +108,8 @@ return function(verifyHarness: Verify.Harness)
 		end
 		return values
 	end
-	verifyHarness:case("recycled rows follow new keys as the list scrolls", {
-		id = "native_collections::recycled rows follow new keys as the list scrolls",
+	verifyHarness:case("rows recycle across keys as the list scrolls", {
+		id = "native_collections::rows recycle across keys as the list scrolls",
 		run = function()
 			local engine, runtime, UI, target = setup()
 			local selection = Compose.cell({})
@@ -126,7 +126,7 @@ return function(verifyHarness: Verify.Harness)
 					onActivate = function(_item, key)
 						activated = key
 					end,
-					recycle = function(current): GuiObject
+					render = function(current): GuiObject
 						renders += 1
 						return UI.Button({
 							Name = "Label",
@@ -149,7 +149,7 @@ return function(verifyHarness: Verify.Harness)
 			Verify.expect(renders):toBe(before)
 			local row: Instance? = nil
 			for _, node in list:GetDescendants() do
-				if node:GetAttribute("FacetCollectionRow") and node.Name == "51" then
+				if node.Name == "51" and node:FindFirstChild("Content") then
 					row = node
 				end
 			end
@@ -160,7 +160,7 @@ return function(verifyHarness: Verify.Harness)
 			end
 			Verify.expect(shown):toBe(true)
 			engine.environment.fire(
-				VerifyRoblox.assertInstance(assert(assert(row):FindFirstChild("RowHit"))),
+				VerifyRoblox.assertInstance(assert(assert(row):FindFirstChild("RowHit", true))),
 				"Activated"
 			)
 			Verify.expect(activated):toBe("51")
@@ -238,7 +238,7 @@ return function(verifyHarness: Verify.Harness)
 			local column: FixtureCollectionTypes.TableColumn<Row, number> = {
 				id = "label",
 				render = function(_current, _placement, key): Frame
-					return Host.Frame({ Name = `HeightProbe{key}`, Size = engine.types.UDim2.fromOffset(100, 0) })
+					return Host.Frame({ Name = `HeightProbe{key:peek()}`, Size = engine.types.UDim2.fromOffset(100, 0) })
 				end,
 			}
 			runtime.mount(function()
@@ -1428,8 +1428,8 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 	verifyHarness:suite("collection retired content", function()
-		verifyHarness:case("keeps the last item readable while replaced rows wait for the new paint", {
-			id = "native_collections::collection retired content::keeps the last item readable while replaced rows wait for the new paint",
+		verifyHarness:case("rebinds a replaced row in place and keeps it reactive", {
+			id = "native_collections::collection retired content::rebinds a replaced row in place and keeps it reactive",
 			run = function()
 				type Row = { id: string, title: string }
 				for _, kind in { "list", "grid" } do
@@ -1480,12 +1480,12 @@ return function(verifyHarness: Verify.Harness)
 						engine.heartbeat:Fire(1 / 60)
 					end
 					local items = assert(root:FindFirstChild("Items", true))
-					local retired = assert(items:FindFirstChild("A"))
-					local caption = assert(retired:FindFirstChild("Caption", true)) :: TextLabel
+					local slot = assert(items:FindFirstChild("A"))
+					local caption = assert(slot:FindFirstChild("Caption", true)) :: TextLabel
 					rows:set({ { id = "C", title = "Gamma" }, { id = "D", title = "Delta" } })
-					Verify.expect(retired.Parent ~= nil):toBe(true)
 					revision:set(2)
-					Verify.expect(caption.Text):toBe("Alpha 2")
+					Verify.expect(caption.Text):toBe("Gamma 2")
+					Verify.expect(slot.Name):toBe("C")
 					for _ = 1, 12 do
 						size()
 						engine.heartbeat:Fire(1 / 60)
@@ -1592,8 +1592,11 @@ return function(verifyHarness: Verify.Harness)
 						layout(true)
 						for _ = 1, 4 do
 							engine.heartbeat:Fire(1 / 60)
-							Verify.expect(`painted {rows:peek()[1].id}: {painted()}`)
-								:toBe(`painted {rows:peek()[1].id}: 1`)
+							for _, label in root:GetDescendants() do
+								if label.Name == "Caption" then
+									Verify.expect((label :: TextLabel).Text):toBe(data[1].title)
+								end
+							end
 						end
 						layout(false)
 						for _ = 1, 4 do
@@ -2191,7 +2194,7 @@ return function(verifyHarness: Verify.Harness)
 						key = "id",
 						itemSize = 20,
 						render = function(current, _placement, rowKey): GuiObject
-							table.insert(keys, rowKey)
+							table.insert(keys, rowKey:peek())
 							return button(UI, current)
 						end,
 					})
@@ -3151,7 +3154,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(action ~= nil):toBe(true)
 				node.CanvasPosition = engine.types.Vector2.new(0, 0)
 				Verify.expect(gui.SelectedObject):toBeNil()
-				Verify.expect(engine.environment.isAlive(assert(action))):toBe(false)
+				local fifty = node:FindFirstChild("50", true)
+				Verify.expect(fifty == nil or not fifty:IsAncestorOf(assert(action))):toBe(true)
 				node.CanvasPosition = engine.types.Vector2.new(0, 900)
 				Verify.expect((assert(gui.SelectedObject) :: TextLabel).Text):toBe("50")
 				stop()
@@ -9352,7 +9356,7 @@ return function(verifyHarness: Verify.Harness)
 					local values = Compose.cell("Child")
 					local stop, node: any = runtime.mount(function()
 						local render = function(_current, _placement, key)
-							local fieldEditing: FixtureComposeTypes.Cell<boolean> = if key == "parent"
+							local fieldEditing: FixtureComposeTypes.Cell<boolean> = if key:peek() == "parent"
 								then Compose.cell(false)
 								else editing
 							return UI.CellEditor {

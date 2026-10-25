@@ -3746,7 +3746,6 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end,
 			},
 			{ name = "no header", props = properties { header = false } },
-			{ name = "recycled rows", props = properties { recycle = true } },
 			{ name = "windowed, overscan 1", props = properties { mode = "windowed", overscan = 1 } },
 			{ name = "measured rows", props = properties { measure = true } },
 			{ name = "snap to rows", props = properties { snap = "item" } },

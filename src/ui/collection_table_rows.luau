@@ -40,7 +40,7 @@ return function<V, K>(
 	ctx: Types.Context,
 	UI: ControlTypes.BuilderControls,
 	shared: Rows<V, K>
-): { render: CollectionTypes.RowRender<V, K>, recycle: CollectionTypes.RowRecycle<V, K> }
+): CollectionTypes.RowRender<V, K>
 	local lists = layoutKit.of(ctx)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
@@ -194,7 +194,7 @@ return function<V, K>(
 						then ctx.styled(
 							Host.Frame "Inset" {
 								BackgroundTransparency = 1,
-								custom(current, placement, key:peek()) :: ComposeTypes.Child,
+								custom(current, placement, key) :: ComposeTypes.Child,
 								Host.UIListLayout {
 									FillDirection = E.FillDirection.Vertical,
 									VerticalAlignment = E.VerticalAlignment.Center,
@@ -203,7 +203,7 @@ return function<V, K>(
 							},
 							"TableCellInset"
 						)
-						elseif render then render(current, placement, key:peek())
+						elseif render then render(current, placement, key)
 						else ctx.styled(
 							ctx.text({
 								Name = "Value",
@@ -365,7 +365,7 @@ return function<V, K>(
 											end,
 										}),
 										if column:peek().detailRender
-											then (assert(column:peek().detailRender))(current, placement, key:peek())
+											then (assert(column:peek().detailRender))(current, placement, key)
 											else ctx.text({
 												Name = "FullValue",
 												TextWrapped = true,
@@ -450,14 +450,5 @@ return function<V, K>(
 		end
 		return row
 	end
-	return {
-		render = function(
-			current: ComposeTypes.Readable<V>,
-			placement: ComposeTypes.Readable<ComposeTypes.Placement>,
-			key: K
-		): GuiObject
-			return build(current, placement, Compose.cell(key))
-		end,
-		recycle = build,
-	}
+	return build
 end

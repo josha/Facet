@@ -48,6 +48,8 @@ export type View<V, K> = {
 	armPaging: (() -> ())?,
 	scope: ComposeTypes.FocusScope<K>?,
 	mounted: { [K]: Frame? },
+	slotKeys: { [Frame]: ComposeTypes.Readable<K> },
+	nodeOf: (K) -> Frame?,
 	cellEdits: { [K]: { activation.EditAction } },
 	placed: { [K]: ComposeTypes.Readable<ComposeTypes.Placement> },
 	poolOwner: ComposeTypes.Owner,
@@ -167,6 +169,20 @@ local function create<V, K>(
 	local noFocusCandidates: { V } = {}
 	local initialFollow = read(spec.follow) == "end" and spec.CanvasPosition == nil
 	local mounted: { [K]: Frame? } = {}
+	local slotKeys = setmetatable({} :: { [Frame]: ComposeTypes.Readable<K> }, { __mode = "k" })
+	local function nodeOf(key: K): Frame?
+		local node = mounted[key]
+		local slot = if node then slotKeys[node] else nil
+		if node and (slot == nil or slot:peek() == key) then
+			return node
+		end
+		for candidate, held in slotKeys do
+			if held:peek() == key then
+				return candidate
+			end
+		end
+		return nil
+	end
 	local cellEdits: { [K]: { activation.EditAction } } = {}
 	local placed: { [K]: ComposeTypes.Readable<ComposeTypes.Placement> } = {}
 	local poolOwner = assert(Compose.currentOwner()).createChild()
@@ -326,6 +342,8 @@ local function create<V, K>(
 		armPaging = nil,
 		scope = nil,
 		mounted = mounted,
+		slotKeys = slotKeys,
+		nodeOf = nodeOf,
 		cellEdits = cellEdits,
 		placed = placed,
 		poolOwner = poolOwner,

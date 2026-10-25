@@ -12,7 +12,7 @@ local EDITORS = { text = true, number = true, toggle = true, menu = true }
 local SETTINGS = { "options", "min", "max", "step", "draft", "validate", "editLabel", "editable" }
 
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
-	local Compose, read = ctx.Compose, ctx.read
+	local Compose, Host, read = ctx.Compose, ctx.Host, ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local editors = {}
 	local function build(spec: CollectionProps.CellEditorSpec): Frame
@@ -451,29 +451,48 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 		onCellChange: (key: K, column: string, value: unknown) -> (),
 		enabled: (ComposeTypes.Use) -> boolean
 	): CollectionTypes.RowRender<V, K>
-		return function(current: ComposeTypes.Readable<V>, _placement, key: K): GuiObject
-			return UI.CellEditor {
-				Name = "CellEditor",
-				editor = assert(column.editor),
-				label = column.label or column.id,
-				editLabel = column.editLabel or function(use: ComposeTypes.Use): string
-					return "Edit " .. read(column.label or column.id, use)
-				end,
-				value = function(use: ComposeTypes.Use): unknown
-					return raw(use(current))
-				end,
-				onChange = function(nextValue: unknown)
-					onCellChange(key, column.id, nextValue)
-				end,
-				draft = if column.draft then column.draft(key) else nil,
-				validate = column.validate,
-				enabled = function(use: ComposeTypes.Use): boolean
-					return enabled(use) and policy.allows(column.editable, use(current))
-				end,
-				options = column.options,
-				min = column.min,
-				max = column.max,
-				step = column.step,
+		return function(current: ComposeTypes.Readable<V>, _placement, keyed: ComposeTypes.Readable<K>): GuiObject
+			return Host.Frame {
+				Name = "CellEditorSlot",
+				BackgroundTransparency = 1,
+				Size = D2.fromScale(1, 1),
+				Compose.keyed({
+					from = function(use: ComposeTypes.Use): { K }
+						return { use(keyed) }
+					end,
+					key = function(key: K): K
+						return key
+					end,
+					render = function(
+						_: ComposeTypes.Readable<K>,
+						_index: ComposeTypes.Readable<number>,
+						key: K
+					): GuiObject
+						return UI.CellEditor {
+							Name = "CellEditor",
+							editor = assert(column.editor),
+							label = column.label or column.id,
+							editLabel = column.editLabel or function(use: ComposeTypes.Use): string
+								return "Edit " .. read(column.label or column.id, use)
+							end,
+							value = function(use: ComposeTypes.Use): unknown
+								return raw(use(current))
+							end,
+							onChange = function(nextValue: unknown)
+								onCellChange(key, column.id, nextValue)
+							end,
+							draft = if column.draft then column.draft(key) else nil,
+							validate = column.validate,
+							enabled = function(use: ComposeTypes.Use): boolean
+								return enabled(use) and policy.allows(column.editable, use(current))
+							end,
+							options = column.options,
+							min = column.min,
+							max = column.max,
+							step = column.step,
+						}
+					end,
+				}),
 			}
 		end
 	end
