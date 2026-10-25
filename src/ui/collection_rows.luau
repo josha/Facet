@@ -32,6 +32,7 @@ return function<V, K>(
 	local coordinator, selectionMode = view.coordinator, view.selectionMode
 	local measured, containsCards, horizontal = view.measured, view.containsCards, view.horizontal
 	local reduced, focusActive = view.reduced, view.focusActive
+	local liveOverflow = Compose.isReadable(spec.contentOverflow) or type(spec.contentOverflow) == "function"
 	local mounted, cellEdits, placed, poolOwner = view.mounted, view.cellEdits, view.placed, view.poolOwner
 	local preparing, waiting = view.preparing, view.waiting
 	local crossEdge, fullSizes = view.crossEdge, view.fullSizes
@@ -161,33 +162,26 @@ return function<V, K>(
 						return held
 					end
 					local current, placement = retained(rowItem), retained(rowPlacement)
-					local glide = Compose.cell(0)
-					local stopGlide: (() -> ())? = nil
-					local function halt()
-						if stopGlide then
-							stopGlide()
-							stopGlide = nil
-						end
-					end
-					Compose.cleanup(halt)
-					local function shift(use: ComposeTypes.Use?): number
-						return if use then use(glide) else glide:peek()
-					end
-					local paintPlacement = Compose.formula(function(use: ComposeTypes.Use): ComposeTypes.Placement
-						local at = use(placement)
-						return if editor and (spec.drag or spec.drop) then editor.placement(key, at, use) else at
-					end)
-					local reservedPosition = Compose.cell(V2.new(placement:peek().crossOffset, placement:peek().offset))
 					local springPlacement = spec.slots ~= nil or spec.drag ~= nil or spec.drop ~= nil
+					local reservedPosition: ComposeTypes.Cell<Vector2>? = nil
+					local glide: ComposeTypes.Cell<number>? = nil
 					if springPlacement then
+						local position = Compose.cell(V2.new(placement:peek().crossOffset, placement:peek().offset))
+						reservedPosition = position
+						local target: ComposeTypes.Readable<ComposeTypes.Placement> = if editor
+								and (spec.drag or spec.drop)
+							then Compose.formula(function(use: ComposeTypes.Use): ComposeTypes.Placement
+								return editor.placement(key, use(placement), use)
+							end)
+							else placement
 						local engine = travelEngine(ctx, {
 							initial = { placement:peek().crossOffset, placement:peek().offset },
 							target = function()
-								local at = paintPlacement:peek()
+								local at = target:peek()
 								return { at.crossOffset, at.offset }
 							end,
 							sample = function(values)
-								reservedPosition:set(V2.new(values[1], values[2]))
+								position:set(V2.new(values[1], values[2]))
 							end,
 							reduced = reduced,
 							motion = "spring",
@@ -196,70 +190,69 @@ return function<V, K>(
 							spring = ctx.motionSpring("travel"),
 						})
 						Compose.watch(function(use: ComposeTypes.Use)
-							use(paintPlacement)
+							use(target)
 							engine.retarget()
 						end)
-					end
-					local previous = placement:peek()
-					Compose.watch(function(use: ComposeTypes.Use)
-						local at = use(placement)
-						local delta = previous.offset + glide:peek() - at.offset
-						local moved = at.index ~= previous.index
-						previous = at
-						if
-							springPlacement
-							or tree
-							or not moved
-							or kind ~= "list"
-							or math.abs(delta) > viewport:peek().size
-							or reduced()
-						then
-							return
-						end
-						halt()
-						local elapsed = 0
-						local seconds = ctx.metric("motion.durations.glide")
-						local present = ctx.motionEase("present")
-						glide:set(delta)
-						stopGlide = view.frames.onFrame(function(step: number)
-							elapsed = math.min(seconds, elapsed + step)
-							glide:set(delta * (1 - present(elapsed / seconds)))
-							if elapsed >= seconds then
-								halt()
+					elseif tree == nil and kind == "list" then
+						local offset = Compose.cell(0)
+						glide = offset
+						local stopGlide: (() -> ())? = nil
+						local function halt()
+							if stopGlide then
+								stopGlide()
+								stopGlide = nil
 							end
+						end
+						Compose.cleanup(halt)
+						local previous = placement:peek()
+						Compose.watch(function(use: ComposeTypes.Use)
+							local at = use(placement)
+							local delta = previous.offset + offset:peek() - at.offset
+							local moved = at.index ~= previous.index
+							previous = at
+							if not moved or math.abs(delta) > viewport:peek().size or reduced() then
+								return
+							end
+							halt()
+							local elapsed = 0
+							local seconds = ctx.metric("motion.durations.glide")
+							local present = ctx.motionEase("present")
+							offset:set(delta)
+							stopGlide = view.frames.onFrame(function(step: number)
+								elapsed = math.min(seconds, elapsed + step)
+								offset:set(delta * (1 - present(elapsed / seconds)))
+								if elapsed >= seconds then
+									halt()
+								end
+							end)
 						end)
-					end)
+					end
 					Compose.withOwner(contentOwner, function()
 						runtime.decorate(node, {
 							Name = tostring(key),
 							ClipsDescendants = tree ~= nil,
-							Interactable = function(use: ComposeTypes.Use)
-								return (tree == nil or tree.visible(key, use))
-									and not policy.disabled(spec.disabled, use(current))
-							end,
-							LayoutOrder = function(use: ComposeTypes.Use)
-								return use(placement).index
-							end,
-							Position = function(use: ComposeTypes.Use)
-								local at = use(placement)
-								if springPlacement then
-									local position = use(reservedPosition)
-									return if horizontal
-										then D2.fromOffset(position.Y, position.X)
-										else D2.fromOffset(position.X, position.Y)
-								end
-								local offset = at.offset + shift(use)
-								return if horizontal
-									then D2.fromOffset(offset, at.crossOffset)
-									else D2.fromOffset(at.crossOffset, offset)
-							end,
-							Size = function(use: ComposeTypes.Use)
-								local at = use(placement)
-								return if horizontal
-									then D2.fromOffset(at.size, at.crossSize)
-									else D2.fromOffset(at.crossSize, at.size)
-							end,
+							Interactable = if tree == nil and spec.disabled == nil
+								then true
+								else function(use: ComposeTypes.Use)
+									return (tree == nil or tree.visible(key, use))
+										and not policy.disabled(spec.disabled, use(current))
+								end,
 						})
+						Compose.watch(function(use: ComposeTypes.Use)
+							local at = use(placement)
+							local main, cross = at.offset + (if glide then use(glide) else 0), at.crossOffset
+							if reservedPosition then
+								local position = use(reservedPosition)
+								main, cross = position.Y, position.X
+							end
+							node.LayoutOrder = at.index
+							node.Position = if horizontal
+								then D2.fromOffset(main, cross)
+								else D2.fromOffset(cross, main)
+							node.Size = if horizontal
+								then D2.fromOffset(at.size, at.crossSize)
+								else D2.fromOffset(at.crossSize, at.size)
+						end)
 					end)
 					mounted[key] = node
 					placed[key] = placement
@@ -325,9 +318,11 @@ return function<V, K>(
 									else D2.fromScale(1, 1),
 								BackgroundTransparency = 1,
 								Attributes = { FacetCollectionRow = true } :: EngineTypes.Attributes,
-								ClipsDescendants = function(use)
-									return read(spec.contentOverflow, use) == "clip"
-								end,
+								ClipsDescendants = if liveOverflow
+									then function(use: ComposeTypes.Use): boolean
+										return read(spec.contentOverflow, use) == "clip"
+									end
+									else read(spec.contentOverflow) == "clip",
 								rendered,
 							}
 							if

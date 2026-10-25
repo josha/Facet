@@ -61,12 +61,12 @@
              },
     "VirtualList-1-rows":  {
                                "connections":  45,
-                               "holdings":  174,
+                               "holdings":  170,
                                "instances":  31
                            },
     "VirtualList-2-rows":  {
                                "connections":  59,
-                               "holdings":  212,
+                               "holdings":  203,
                                "instances":  34
                            },
     "Button-focused":  {
@@ -115,6 +115,6 @@
     "Dialog-reactive-theme": {"connections":47,"holdings":222,"instances":33},
     "Card-reactive-theme": {"connections":9,"holdings":84,"instances":15},
     "Card-actions-reactive-theme": {"connections":26,"holdings":142,"instances":25},
-    "VirtualList-1-rows-reactive-theme": {"connections":47,"holdings":185,"instances":33},
-    "VirtualList-2-rows-reactive-theme": {"connections":63,"holdings":234,"instances":38}
+    "VirtualList-1-rows-reactive-theme": {"connections":47,"holdings":181,"instances":33},
+    "VirtualList-2-rows-reactive-theme": {"connections":63,"holdings":225,"instances":38}
 }
