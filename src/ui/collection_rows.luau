@@ -163,9 +163,11 @@ return function<V, K>(
 					end
 					local current, placement = retained(rowItem), retained(rowPlacement)
 					local springPlacement = spec.slots ~= nil or spec.drag ~= nil or spec.drop ~= nil
-					local reservedPosition: ComposeTypes.Cell<Vector2>? = nil
+					local reservedPosition: ComposeTypes.Readable<Vector2>? = nil
 					local glide: ComposeTypes.Cell<number>? = nil
-					if springPlacement then
+					if editor and (spec.reorderable or spec.drag) then
+						reservedPosition = editor.position(key, placement, spec.reducedMotion)
+					elseif springPlacement then
 						local position = Compose.cell(V2.new(placement:peek().crossOffset, placement:peek().offset))
 						reservedPosition = position
 						local target: ComposeTypes.Readable<ComposeTypes.Placement> = if editor

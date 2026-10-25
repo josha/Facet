@@ -6975,6 +6975,169 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	verifyHarness:suite("live pointer reorder displacement", function()
+		for _, layout in
+			{
+				"list",
+				"horizontal list",
+				"variable list",
+				"horizontal variable list",
+				"grid",
+				"horizontal grid",
+				"slotted rack",
+				"horizontal slotted rack",
+				"slotted grid",
+				"horizontal slotted grid",
+			}
+		do
+			for _, cancel in { false, true } do
+				local name =
+					`displaces two neighbours in a {layout} and settles after {if cancel then "cancel" else "drop"}`
+				verifyHarness:case(name, {
+					id = `native_collections::live pointer reorder displacement::{name}`,
+					run = function()
+						for _, motion in { "normal", "none", "collection" } do
+							local engine, runtime, UI, target =
+								setup({ motionLevel = if motion == "none" then "none" else "normal" })
+							local reduced = motion ~= "normal"
+							local V2 = engine.types.Vector2
+							local source = Compose.cell(records(4))
+							local slots = Compose.cell({ 1, 9, 2, 3, 4 })
+							local horizontal = string.find(layout, "horizontal", 1, true) ~= nil
+							local variable = string.find(layout, "variable", 1, true) ~= nil
+							local grid = string.find(layout, "grid", 1, true) ~= nil
+							local slotted = string.find(layout, "slotted", 1, true) ~= nil
+							local calls, requestSlot = 0, -1
+							local requestKeys: { number } = {}
+							local mounted: ScrollingFrame? = nil
+							local stop = runtime.mount(function(): ScrollingFrame
+								local spec: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> =
+									{
+										from = source,
+										key = function(item: { id: number, label: string }): number
+											return item.id
+										end,
+										itemSize = 20,
+										measured = if variable then { [1] = 20, [2] = 40, [3] = 20, [4] = 20 } else nil,
+										columns = if grid then 2 else nil,
+										direction = if horizontal then "horizontal" else "vertical",
+										slots = if slotted then slots else nil,
+										reorderable = true,
+										reducedMotion = motion == "collection",
+										onReorder = function(keys: { number }, slot: number)
+											calls += 1
+											requestSlot, requestKeys = slot, keys
+
+											local rows = table.clone(source:peek())
+											local held = assert(table.remove(rows, 1))
+											table.insert(rows, slot + 1, held)
+											source:set(rows)
+											if slotted then
+												slots:set({ 2, 9, 3, 1, 4 })
+											end
+										end,
+										render = function(): GuiObject
+											return UI.Button({ label = "Row" })
+										end,
+									}
+								local collection = if grid then UI.VirtualGrid(spec) else UI.VirtualList(spec)
+								mounted = collection
+								return collection
+							end, target)
+							local node = assert(mounted)
+							engine.environment.poke(
+								VerifyRoblox.assertInstance(node),
+								"AbsoluteWindowSize",
+								V2.new(200, 200)
+							)
+							nativeDrag.measure(node, engine.environment)
+							local first = assert(node:FindFirstChild("1", true))
+							assert(first:IsA("GuiObject"))
+							local second = assert(node:FindFirstChild("2", true))
+							assert(second:IsA("GuiObject"))
+							local third = assert(node:FindFirstChild("3", true))
+							assert(third:IsA("GuiObject"))
+							local fourth = assert(node:FindFirstChild("4", true))
+							assert(fourth:IsA("GuiObject"))
+							local firstRest, secondRest, thirdRest, fourthRest =
+								first.Position, second.Position, third.Position, fourth.Position
+							local thirdGoal = if variable
+								then engine.types.UDim2.fromOffset(
+									secondRest.X.Offset + (if horizontal then 20 else 0),
+									secondRest.Y.Offset + (if horizontal then 0 else 20)
+								)
+								else secondRest
+							local function point(position: UDim2): Vector2
+								return V2.new(
+									position.X.Offset + (if horizontal then 10 else if grid then 75 else 10),
+									position.Y.Offset + (if horizontal and grid then 75 else 10)
+								)
+							end
+							local detector = VerifyRoblox.assertInstance(
+								assert(first:FindFirstChild("Move", true)):FindFirstChildWhichIsA("UIDragDetector")
+							)
+							engine.environment.fire(detector, "DragStart", point(firstRest))
+							engine.environment.fire(detector, "DragContinue", point(thirdRest))
+							Verify.expect(calls):toBe(0)
+							Verify.expect(source:peek()[1].id):toBe(1)
+							if reduced then
+								Verify.expect(second.Position):toBe(firstRest)
+								Verify.expect(third.Position):toBe(thirdGoal)
+							else
+								Verify.expect(second.Position):toBe(secondRest)
+								Verify.expect(third.Position):toBe(thirdRest)
+								engine.heartbeat:Fire(1 / 60)
+								Verify.expect(second.Position ~= secondRest and second.Position ~= firstRest):toBe(true)
+								Verify.expect(third.Position ~= thirdRest and third.Position ~= thirdGoal):toBe(true)
+							end
+							for _ = 1, 90 do
+								engine.heartbeat:Fire(1 / 60)
+							end
+							Verify.expect(second.Position):toBe(firstRest)
+							Verify.expect(third.Position):toBe(thirdGoal)
+							Verify.expect(fourth.Position):toBe(fourthRest)
+							if cancel then
+								engine.environment.fire(
+									VerifyRoblox.assertInstance(
+										assert(target:FindFirstChild("FacetReorderCancel")):FindFirstChild(
+											"ReorderCancel"
+										)
+									),
+									"Pressed"
+								)
+							else
+								engine.environment.fire(detector, "DragEnd")
+							end
+							if reduced then
+								Verify.expect(second.Position):toBe(if cancel then secondRest else firstRest)
+							elseif cancel then
+								engine.heartbeat:Fire(1 / 60)
+								Verify.expect(second.Position ~= firstRest and second.Position ~= secondRest):toBe(true)
+							end
+							for _ = 1, 90 do
+								engine.heartbeat:Fire(1 / 60)
+							end
+							Verify.expect(calls):toBe(if cancel then 0 else 1)
+							Verify.expect(requestSlot):toBe(if cancel then -1 else 2)
+							Verify.expect(requestKeys):toEqual(if cancel then {} else { 1 })
+							local order = {}
+							for _, item in source:peek() do
+								table.insert(order, item.id)
+							end
+							Verify.expect(order):toEqual(if cancel then { 1, 2, 3, 4 } else { 2, 3, 1, 4 })
+							Verify.expect(first.Position):toBe(if cancel then firstRest else thirdRest)
+							Verify.expect(second.Position):toBe(if cancel then secondRest else firstRest)
+							Verify.expect(third.Position):toBe(if cancel then thirdRest else thirdGoal)
+							Verify.expect(fourth.Position):toBe(fourthRest)
+							stop()
+							runtime:dispose()
+						end
+					end,
+				})
+			end
+		end
+	end)
+
 	verifyHarness:suite("Table keyed reorder motion", function()
 		verifyHarness:case("a Table glides its rows to a reversed order like VirtualList", {
 			id = "native_collections::Table keyed reorder motion::a Table glides its rows to a reversed order like VirtualList",

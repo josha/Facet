@@ -198,6 +198,12 @@ local SUITES: { { id: string, cases: { string } } } = {
 		},
 	},
 	{
+		id = "reorder_displacement",
+		cases = {
+			"held-tile-opens-its-slot-and-settles-on-drop",
+		},
+	},
+	{
 		id = "scroll_live",
 		cases = {
 			"scroll-view-canvas-covers-rows-and-gaps",

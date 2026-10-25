@@ -44,11 +44,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 	local remaining: { K } = {}
 	local rowIndices: { number } = {}
 	local remainingIndex: { [K]: number } = {}
-	local function insertion(payload: unknown, info: DragTypes.Proposal)
-		local rows: { V } = read(source)
-		local data = payload :: { collection: unknown, keys: { K }? }
-		local same = type(payload) == "table" and data.collection == collectionId and info.operation == "move"
-		local carried: { K } = if same then data.keys or noCarried else noCarried
+	local function indexRows(rows: { V }, carried: { K })
 		if rows ~= cachedRows or carried ~= cachedCarried then
 			cachedRows, cachedCarried = rows, carried
 			remaining, rowIndices, remainingIndex = {}, {}, {}
@@ -65,11 +61,13 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 				end
 			end
 		end
+	end
+	local function pointerSlot(position: Vector2?): number
 		local slot = 0
 		local offset, across = math.huge, math.huge
-		if info.position then
-			offset = alongBody(body, info.position) + axis(body.CanvasPosition)
-			across = crossAxis(info.position - body.AbsolutePosition) / scaleOf(body) + crossAxis(body.CanvasPosition)
+		if position then
+			offset = alongBody(body, position) + axis(body.CanvasPosition)
+			across = crossAxis(position - body.AbsolutePosition) / scaleOf(body) + crossAxis(body.CanvasPosition)
 		end
 		local low, high = 1, #remaining
 		while low <= high do
@@ -89,7 +87,22 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 				high = middle - 1
 			end
 		end
-		local move = moving:peek()
+		return slot
+	end
+	local function insertion(payload: unknown, info: DragTypes.Proposal)
+		local rows: { V } = read(source)
+		local data = payload :: { collection: unknown, keys: { K }? }
+		local same = type(payload) == "table" and data.collection == collectionId and info.operation == "move"
+		local move, session = moving:peek(), drag.state:peek()
+		local carried: { K } = if move
+				and session
+				and session.source == body
+				and info.operation == "move"
+			then move.keys
+			elseif same then data.keys or noCarried
+			else noCarried
+		indexRows(rows, carried)
+		local slot = pointerSlot(info.position)
 		if move and move.keyboard and same then
 			slot = move.slot
 		end
@@ -106,6 +119,14 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		info.insertion =
 			{ collection = collectionId, beforeKey = remaining[slot + 1], afterKey = remaining[slot], slot = slot }
 	end
+	shared.setPointerSlot(function(position: Vector2): number?
+		local move = moving:peek()
+		if move == nil then
+			return nil
+		end
+		indexRows(read(source), move.keys)
+		return pointerSlot(position)
+	end)
 	local function localMove(payload: unknown, info: DragTypes.Proposal): boolean
 		local data = payload :: { collection: unknown, keys: { K }? }
 		if
@@ -167,9 +188,10 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		local session = drag.state:peek()
 		incoming:set(if accepted and session and session.source ~= body then info.insertion else nil)
 		local move = moving:peek()
-		if move and not move.keyboard and accepted and move.slot ~= (info.insertion :: Env.DropInsertion).slot then
+		local insertion = info.insertion
+		if move and not move.keyboard and insertion and move.slot ~= insertion.slot then
 			local next = table.clone(move)
-			next.slot = (info.insertion :: Env.DropInsertion).slot
+			next.slot = insertion.slot
 			moving:set(next)
 		end
 		if update then
