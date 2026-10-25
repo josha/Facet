@@ -886,6 +886,29 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
+		verifyHarness:case(
+			"an overflowing body flashes its native scroll bar once so touch players see there is more",
+			{
+				id = "native_dialog::native Dialog: composition, layout and the height budget::an overflowing body flashes its native scroll bar once so touch players see there is more",
+				run = function()
+					local open, log, change = caller()
+					local w =
+						mount(standard(open, log, change), nil, { size = Vector2.new(749, 323), runService = true })
+					w.advance(1, 60)
+					local body = w.find("Body")
+					sized(w, 60)
+					Verify.expect(body.CanvasPosition.Y):toBe(0)
+					sized(w, 600)
+					Verify.expect(body.CanvasPosition.Y):toBe(1)
+					w.advance(1 / 60)
+					Verify.expect(body.CanvasPosition.Y):toBe(0)
+					w.advance(1 / 60, 10)
+					Verify.expect(body.CanvasPosition.Y):toBe(0)
+					w.stop()
+				end,
+			}
+		)
+
 		verifyHarness:case("stacks two actions when the longer label does not fit its equal share of the row", {
 			id = "native_dialog::native Dialog: composition, layout and the height budget::stacks two actions when the longer label does not fit its equal share of the row",
 			run = function()

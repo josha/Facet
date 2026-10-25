@@ -15,6 +15,7 @@ local tabItem = require("./nav_tab_item")
 local tabAccessories = require("./nav_tab_accessories")
 local presentationReadiness = require("./presentation_readiness")
 local scrollLock = require("./scroll_lock")
+local scrollFlash = require("./scroll_flash")
 type SelectionLinks = {
 	NextSelectionLeft: GuiObject?,
 	NextSelectionRight: GuiObject?,
@@ -406,6 +407,7 @@ return function(
 			},
 		}
 		scrollLock.own((bar :: unknown) :: ScrollingFrame, ctx)
+		scrollFlash(ctx, (bar :: unknown) :: ScrollingFrame, "X", stripOverflows)
 		local bandBox = Host.Frame "TabBand" {
 			ZIndex = 2,
 			BackgroundTransparency = 1,

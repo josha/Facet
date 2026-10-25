@@ -49,6 +49,7 @@ is consistent.
 The panel hugs its content. When the content cannot leave `space.xl` clear
 above and below, as on a phone in landscape, the panel fills the safe area and
 keeps its content at the dialog width, so page controls behind it cannot read
-as its own.
+as its own. A body that overflows flashes its native scroll bar once, because
+touch devices hide scroll bars at rest.
 
 Other options:

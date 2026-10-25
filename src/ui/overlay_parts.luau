@@ -5,6 +5,7 @@ local ThemeTypes = require("./theme_types")
 local Overlay = require("./overlay_types")
 local measuredScroll = require("./measured_scroll")
 local scrollLock = require("./scroll_lock")
+local scrollFlash = require("./scroll_flash")
 local freeze = require("./freeze")
 local InputProps = require("./input_props")
 local decoration = require("./native_decoration")
@@ -461,6 +462,9 @@ function parts.room(
 	local frame = Host.ScrollingFrame(props)
 	scrollLock.own(frame, ctx)
 	parts.reach(ctx, frame, tight)
+	if body then
+		scrollFlash(ctx, body, "Y", overflowing)
+	end
 	return { frame = frame, pinned = pinned, tight = tight, bodyHeight = bodyHeight, overflowing = overflowing }
 end
 
