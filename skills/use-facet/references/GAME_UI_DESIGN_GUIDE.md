@@ -101,6 +101,14 @@ layer shares one elevation: all flat, or all lifted by one shadow
 accent for the important action or state. Keep stable meanings for color and icons.
 Distinguish focus, selection, equipped, pending and unavailable beyond color.
 
+Show each fact once, in the smallest form the player reads at a glance. Omit
+what the state already implies: a price means the item is not owned, so an
+owned item needs no Owned label. Use a familiar glyph with an accessible name
+for a state the player learns once, such as equipped or locked; keep words for
+names, numbers and new terms. Do not repeat on a card what its title, art or
+selected detail already says. Show one kind of fact one way everywhere, such as
+every price in one treatment, so the eye compares values, not colors.
+
 Give objects meaningful artwork or well-framed Stage previews. Show the actual
 subject and its distinguishing details. Show a color as a swatch and a pattern
 as a preview. Pair unfamiliar glyphs with labels. Test text over busy gameplay

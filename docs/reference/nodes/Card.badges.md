@@ -20,7 +20,9 @@ corners of the art.
 - A text card, without `image` or `artwork`, does not accept `badges`.
 - When both badges do not fit across the art, the leading badge's label
   moves to the front of the caption, unless the caption already says it, and
-  the trailing badge stays. Put the fact that decides the choice, such as the
+  the trailing badge stays. A badge too wide for the art alone, such as a long
+  translated label, moves to the caption the same way, so text never leaves
+  the card. Put the fact that decides the choice, such as the
   price or Owned, in `trailing`.
 - For a dot or a count on the corner of a Button, use [badged](badged.md).
 
