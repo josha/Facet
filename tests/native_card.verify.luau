@@ -128,7 +128,11 @@ return function(verifyHarness: Verify.Harness)
 							entry.enterActions()
 						end
 					end,
-					render = function(current: any, _placement: any, key: FixtureComposeTypes.Readable<string>): GuiObject
+					render = function(
+						current: any,
+						_placement: any,
+						key: FixtureComposeTypes.Readable<string>
+					): GuiObject
 						local entry = {}
 						local card = UI.Card({
 							Name = "Card",

@@ -620,6 +620,7 @@ return function(harness: Verify.Harness)
 				columns = 2,
 				itemSize = 60,
 				mode = "all" :: "all",
+				recycle = false,
 				render = function(current: Shared.Readable<number>): GuiObject
 					local id = current:peek()
 					local slot = Host.Frame { Name = `Target{id}`, ClipsDescendants = true }

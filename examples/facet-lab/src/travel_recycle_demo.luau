@@ -20,6 +20,7 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 		itemSize = 64,
 		mode = "all",
 		Size = UDim2.new(1, 0, 0, 100),
+		recycle = false,
 		render = function(current): GuiObject
 			local key = current:peek()
 			local target = UI.Button {
