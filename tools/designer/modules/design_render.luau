@@ -47,8 +47,10 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 	local root = build(value.root)
 	if editing then
 		local Compose, Host, types = ctx.Compose, ctx.Host, ctx.types
-		local Enum, UDim, UDim2, Vector2 = types.Enum, types.UDim, types.UDim2, types.Vector2
-		local accent = types.Color3.fromRGB(53, 129, 247)
+		local Enum, UDim, UDim2, Vector2 =
+			types.Enum or Enum, types.UDim or UDim, types.UDim2 or UDim2, types.Vector2 or Vector2
+		local Color3, Font = types.Color3 or Color3, types.Font or Font
+		local accent = Color3.fromRGB(53, 129, 247)
 		local hovered = Compose.cell(nil :: string?)
 		local function contains(instance: GuiObject, position: Vector3): boolean
 			local current: Instance? = instance
@@ -121,9 +123,9 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 					Position = UDim2.new(0.5, 0, 1, 4),
 					AutomaticSize = Enum.AutomaticSize.XY,
 					BackgroundColor3 = accent,
-					TextColor3 = types.Color3.new(1, 1, 1),
+					TextColor3 = Color3.new(1, 1, 1),
 					TextSize = 12,
-					FontFace = types.Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold),
+					FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold),
 					Interactable = false,
 					Host.UIPadding {
 						PaddingLeft = UDim.new(0, 4),

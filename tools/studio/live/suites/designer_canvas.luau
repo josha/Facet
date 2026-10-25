@@ -6,6 +6,8 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Render = typeof(require("@repo/tools/designer/modules/design_render"))
 type Templates = typeof(require("@repo/tools/designer/modules/templates"))
+type Designer = typeof(require("@repo/tools/designer/modules/designer"))
+type Document = typeof(require("@repo/tools/designer/modules/document"))
 type Live = {
 	mount: ((FacetControls, RobloxHost, ComposeModule) -> Instance, { size: Vector2 }) -> Instance,
 	settle: (number) -> (),
@@ -14,6 +16,9 @@ type Live = {
 }
 local loadRender: (ModuleScript) -> Render = require
 local loadTemplates: (ModuleScript) -> Templates = require
+local loadDesigner: (ModuleScript) -> Designer = require
+local loadDocument: (ModuleScript) -> Document = require
+local Live = require(script.Parent.Parent)
 
 local function module(name: string): ModuleScript
 	local folder = ReplicatedStorage:WaitForChild("FacetDesignModules")
@@ -70,6 +75,43 @@ return {
 				text == `{math.round(target.AbsoluteSize.X)} × {math.round(target.AbsoluteSize.Y)}`,
 				text
 			)
+		end,
+	},
+	{
+		id = "delete-key-removes-the-selected-layer",
+		contracts = {},
+		run = function(t: Live)
+			local designer = loadDesigner(module("designer"))
+			local document = loadDocument(module("document"))
+			local screen = Instance.new("ScreenGui")
+			screen.Name = "DesignerProbe"
+			screen.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+			local session = designer.mount(require(ReplicatedStorage:WaitForChild("Facet")), screen, {})
+			t.settle(20)
+			local value = session.document()
+			local child = value.root.children[1]
+			session.actions.select(child.id)
+			t.settle(5)
+			local action: InputAction? = nil
+			for _, node in screen:GetDescendants() do
+				if
+					node:IsA("InputAction")
+					and node.Name == "Delete"
+					and node.Parent
+					and node.Parent.Name == "DesignShortcuts"
+				then
+					action = node
+				end
+			end
+			local bound = assert(action, "DesignShortcuts has a Delete action")
+			local binding = bound:FindFirstChildWhichIsA("InputBinding")
+			t.check("Delete is bound to the Delete key", binding ~= nil and binding.KeyCode == Enum.KeyCode.Delete)
+			Live.press({ "Delete" })
+			t.settle(10)
+			local found = document.find(session.document().root, child.id)
+			t.check("Delete removes the selected layer", found == nil, child.id)
+			session.dispose()
+			screen:Destroy()
 		end,
 	},
 }
