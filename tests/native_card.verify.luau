@@ -277,10 +277,10 @@ return function(verifyHarness: Verify.Harness)
 					title = "Comet",
 					badges = {
 						trailing = {
-							label = function(use: Compose.Use): string?
+							label = function(use: FixtureComposeTypes.Use): string?
 								return if use(owned) then nil else "3,400"
 							end,
-							icon = function(use: Compose.Use): string?
+							icon = function(use: FixtureComposeTypes.Use): string?
 								return if use(equipped) then "checkmark" elseif use(owned) then nil else "coin"
 							end,
 							name = "Equipped",

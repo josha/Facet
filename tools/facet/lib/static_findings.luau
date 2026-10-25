@@ -19,9 +19,9 @@ end
 
 function Static.layoutHint(option: string): string?
 	if option == "width" then
-		return 'width belongs to containers. For cross-axis width use align = "stretch" on the parent VStack; for main-axis width put UI.Spacer() beside the leaf in an HStack (Text ignores UI.fill()). For explicit width use Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y. Read docs Layout-options.'
+		return 'width belongs to containers. For cross-axis width use align = "stretch" on the parent VStack; for main-axis width put UI.Spacer {} beside the leaf in an HStack (Text ignores UI.fill()). For explicit width use Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y. Read docs Layout-options.'
 	elseif option == "height" then
-		return 'height belongs to containers. For cross-axis height use align = "stretch" on the parent HStack; for main-axis height put UI.Spacer() beside the leaf in a VStack (Text ignores UI.fill()). For explicit height use Size = UDim2.fromOffset(0, 48), AutomaticSize = Enum.AutomaticSize.X. For a fixed box set Size and AutomaticSize = Enum.AutomaticSize.None. Read docs Layout-options.'
+		return 'height belongs to containers. For cross-axis height use align = "stretch" on the parent HStack; for main-axis height put UI.Spacer {} beside the leaf in a VStack (Text ignores UI.fill()). For explicit height use Size = UDim2.fromOffset(0, 48), AutomaticSize = Enum.AutomaticSize.X. For a fixed box set Size and AutomaticSize = Enum.AutomaticSize.None. Read docs Layout-options.'
 	elseif option == "gap" then
 		return "gap belongs to containers. Put gap on the parent VStack or HStack; it sets UIListLayout.Padding between children. Read docs Layout-options."
 	elseif option == "padding" then
