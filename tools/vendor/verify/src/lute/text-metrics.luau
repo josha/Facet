@@ -71,26 +71,38 @@ local function load(): { [string]: Metrics.Model }
 	return loaded
 end
 
+local function modelFor(parameters: Values.TextParameters): (Metrics.Model, number)
+	if parameters.RichText then
+		error("unsupported_text_metrics: RichText", 0)
+	end
+	local font = parameters.Font
+	local key = font.Family
+		.. "/"
+		.. Values.enumName(font.Weight, "FontWeight")
+		.. "/"
+		.. Values.enumName(font.Style, "FontStyle")
+	local model = load()[key]
+	if model == nil then
+		error("unsupported_text_metrics: font " .. key, 0)
+	end
+	return model, math.clamp(math.floor(parameters.Size), 1, 100)
+end
+
 local function create(): (Values.TextParameters) -> unknown
-	local catalog = load()
+	load()
 	return function(parameters: Values.TextParameters): unknown
-		if parameters.RichText then
-			error("unsupported_text_metrics: RichText", 0)
-		end
-		local font = parameters.Font
-		local key = font.Family
-			.. "/"
-			.. Values.enumName(font.Weight, "FontWeight")
-			.. "/"
-			.. Values.enumName(font.Style, "FontStyle")
-		local model = catalog[key]
-		if model == nil then
-			error("unsupported_text_metrics: font " .. key, 0)
-		end
-		local size = math.clamp(math.floor(parameters.Size), 1, 100)
+		local model, size = modelFor(parameters)
 		local width, lines = model.wrap(parameters.Text, size, parameters.Width)
 		return Datatypes.Vector2.new(width, lines * model.height(size))
 	end
 end
 
-return { create = create }
+local function truncator(): (Values.TextParameters, string, number, boolean) -> number?
+	load()
+	return function(parameters: Values.TextParameters, mode: string, lines: number, wrapped: boolean): number?
+		local model, size = modelFor(parameters)
+		return model.truncate(parameters.Text, size, parameters.Width, lines, mode, wrapped)
+	end
+end
+
+return { create = create, truncator = truncator }

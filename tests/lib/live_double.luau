@@ -7,6 +7,10 @@ local Project = require("../../tools/facet/lib/live_project")
 type Check = { name: string, ok: boolean, detail: unknown? }
 type Record = { checks: { Check }, notes: { [string]: unknown } }
 type Context = { cleanup: () -> () }
+type InteractiveStep = { name: string, status: string, message: string? }
+type InteractiveResult = { id: string, status: string, failures: unknown?, steps: { InteractiveStep }? }
+type InteractiveReport = { results: { InteractiveResult } }
+type Drive = (unknown, string, { [string]: unknown }) -> InteractiveReport
 type Case = { id: string, run: ((Context) -> ())?, probe: boolean? }
 type Live = {
 	context: (unknown, { unknown }, Record, Verify.Context?) -> Context,
@@ -28,22 +32,20 @@ local CACHE = Roblox.createPlaceCache(Lute.fixture.host)
 local function open(check: Verify.Context, suites: { string }, sources: { [string]: string }?)
 	local project = Lute.encode(Project.build(suites))
 	local roots: { Roblox.Instance } = {}
+	local placed: Roblox.PlaceRuntime? = nil
 	local snapshot = Lute.fixture.load()
 	local bridge = Lute.fixture.bridge(snapshot, {
 		handlerErrors = "raise",
-		ui = {
-			methods = {
-				["GuiService.GetGuiInset"] = function()
-					return Roblox.datatypes.Vector2.zero, Roblox.datatypes.Vector2.zero
-				end,
-			},
-		},
 		layout = {
 			roots = function()
 				return roots
 			end,
 			viewport = function()
-				return { X = 800, Y = 600 }
+				local viewport = assert(placed).device().viewport
+				return { X = viewport[1], Y = viewport[2] }
+			end,
+			screenArea = function(screen: Roblox.Instance)
+				return assert(placed).screenArea(screen)
 			end,
 		},
 	})
@@ -67,6 +69,7 @@ local function open(check: Verify.Context, suites: { string }, sources: { [strin
 		client = { name = "LiveDouble", userId = 1, viewport = { x = 800, y = 600 } },
 		beforeRender = assert(bridge.layout).step,
 	})
+	placed = runtime
 	check:defer(function()
 		for index = #runtime.closeHandlers, 1, -1 do
 			runtime.closeHandlers[index]()
@@ -79,7 +82,8 @@ local function open(check: Verify.Context, suites: { string }, sources: { [strin
 		inputService = engine.service("UserInputService"),
 		layout = assert(bridge.layout),
 		inset = function()
-			return { X = 0, Y = 0 }
+			local inset = runtime.device().guiInset
+			return { X = inset[1], Y = inset[2] }
 		end,
 		library = Roblox.reflectionSnapshot.library(snapshot),
 		activationWindowSeconds = 0.5,
@@ -100,6 +104,8 @@ local function run(check: Verify.Context, suite: string, id: string, sources: { 
 	local context: Context? = nil
 	local done = false
 	local probe = false
+	local interactive: InteractiveReport? = nil
+	local source = Lute.fixture.host.readFile("tools/studio/live/interactive.luau")
 	local scheduler = bridge.environment.scheduler
 	local thread = scheduler.spawnTagged({ context = "client", source = `live-double/{suite}/{id}` }, function()
 		local live = runtime.requireInstance(storage:FindFirstChild("FacetLive")) :: Live
@@ -112,7 +118,15 @@ local function run(check: Verify.Context, suite: string, id: string, sources: { 
 			if case.id == id then
 				found = true
 				probe = case.probe == true
-				assert(case.run, "interactive cases require a modeled input host")(assert(context))
+				if case.run then
+					case.run(assert(context))
+				else
+					local drive = Lute.chunk.load(source, { environment = runtime.globals })() :: Drive
+					local options: { [string]: unknown } = { only = id, device = "keep" }
+					local ok, result = xpcall(drive, debug.traceback, live, suite, options)
+					check:expect(ok):toBeTrueWith(tostring(result))
+					interactive = if ok then result :: InteractiveReport else nil
+				end
 			end
 		end
 		assert(found, `unknown live case {suite}/{id}`)
@@ -132,10 +146,27 @@ local function run(check: Verify.Context, suite: string, id: string, sources: { 
 	end
 	check:expect(engine.diagnostics):toEqual({})
 	check:expect(scheduler.failures):toEqual({})
-	check:expect(done):toBe(true)
+	check
+		:expect(done)
+		:toBeTrueWith(
+			string.format("the case did not finish: %s %s", coroutine.status(thread), debug.traceback(thread))
+		)
+	if interactive then
+		check:expect(#interactive.results > 0):toBeTrueWith(string.sub(Lute.encode(interactive), 1, 1500))
+		for _, result in interactive.results do
+			local steps: { InteractiveStep } = result.steps or {}
+			for _, step in steps do
+				check:expect(step.status == "passed"):toBeTrueWith(`{result.id}: {step.name}: {tostring(step.message)}`)
+			end
+			check:expect(result.status == "passed"):toBeTrueWith(`{result.id}: {result.status}`)
+		end
+		return
+	end
 	check:expect(if probe then next(record.notes) ~= nil else #record.checks > 0):toBe(true)
 	for _, result in record.checks do
-		check:expect(result.ok):toBeTrueWith(result.name)
+		check
+			:expect(result.ok)
+			:toBeTrueWith(if result.detail == nil then result.name else `{result.name}: {Lute.encode(result.detail)}`)
 	end
 end
 

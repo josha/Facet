@@ -9,6 +9,18 @@ local UiLayout = require "./ui-layout"
 local PlaceRuntime = require "./place-runtime"
 local Datatypes = require "./datatypes"
 
+local SERVICE_DEFAULTS: { [string]: { [string]: unknown } } = {
+	GuiService = {
+		AutoSelectGuiEnabled = true,
+		GuiNavigationEnabled = true,
+		TouchControlsEnabled = true,
+		MenuIsOpen = false,
+		IsModalDialog = false,
+		IsWindows = false,
+	},
+	UserInputService = { MouseIconEnabled = true, MouseDeltaSensitivity = 1, ModalEnabled = false },
+}
+
 type Vector2 = Adapter.Vector2
 type Vector3 = Adapter.Vector3
 type Color3 = Adapter.Color3
@@ -117,6 +129,24 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 			end
 		end
 	end
+	local readInteractable: ((Environment.Instance) -> unknown)? = nil
+	local nonInteractable: unknown = nil
+	if computed["GuiObject.GuiState"] == nil then
+		computed["GuiObject.GuiState"] = {
+			get = function(object: Environment.Instance): unknown
+				local read = readInteractable
+				local current: Environment.Instance? = object
+				while read and nonInteractable ~= nil and current do
+					if current:IsA "GuiObject" and read(current) == false then
+						return nonInteractable
+					end
+					current = current.Parent
+				end
+				return nil
+			end,
+			writable = true,
+		}
+	end
 	local unavailable: { string } = {}
 	local ui = settings.ui
 	local validate = if type(ui) == "table" then ui.validate else nil
@@ -159,6 +189,15 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 		then UiFakes.attach(environment, ui :: UiFakes.Options?, selection)
 		else nil
 	local library = (settings.library :: unknown) :: Adapter.Library<V2, V3, C3, U1, U2, CF>?
+	if library then
+		local found, member = pcall(function(): unknown
+			return ((library.datatypes :: unknown) :: typeof(Datatypes)).Enum.GuiState.NonInteractable
+		end)
+		nonInteractable = if found then member else nil
+		readInteractable = function(object: Environment.Instance): unknown
+			return environment.propertyOf(object, "Interactable")
+		end
+	end
 	local engine = Adapter.create(environment, library)
 	local layoutOptions = if settings.layout then table.clone(settings.layout) else nil
 	if layoutOptions and controller and layoutOptions.read == nil then
@@ -172,14 +211,16 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 		and type(ui.measureBounds) == "function"
 	then
 		layoutOptions.measureBounds = ui.measureBounds
+		layoutOptions.truncateBounds = ui.truncateBounds
 	end
 	local layout = if layoutOptions then UiLayout.attach(environment, layoutOptions) else nil
 	if layout and controller then
 		local step = layout.step
 		local stepStyles = controller.step
+		local cached = controller.cached
 		layout.step = function()
 			stepStyles()
-			step()
+			cached(step)
 		end
 	end
 	local place: PlaceRuntime.Engine? = nil
@@ -223,6 +264,12 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 					return existing
 				end
 				local object = environment.createEngineInstance(name)
+				local defaults: { [string]: unknown } = SERVICE_DEFAULTS[name] or {}
+				for property, value in defaults do
+					if member(name, property) == "property" and environment.propertyOf(object, property) == nil then
+						environment.poke(object, property, value)
+					end
+				end
 				object.Parent = game
 				services[name] = object
 				return object

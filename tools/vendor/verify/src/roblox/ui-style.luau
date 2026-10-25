@@ -12,8 +12,10 @@ export type Controller = {
 	component: (Instance, string, string) -> unknown,
 	signal: (Instance, string) -> Environment.Signal<()>,
 	step: () -> (),
+	cached: (() -> ()) -> (),
 	close: () -> (),
 }
+type Resolved = { sheet: Instance?, value: unknown, present: boolean }
 type Watch = { signal: Environment.Signal<()>, sheet: Instance?, value: unknown }
 local PHANTOMS = { UIPadding = true, UICorner = true, UIStroke = true, UIGradient = true }
 
@@ -31,7 +33,9 @@ local function create(
 	local watches: { [Instance]: { [string]: Watch } } = {}
 	setmetatable(watches, { __mode = "k" })
 	local parsed: { [string]: Selector.Selector } = {}
-	local function scope(object: Instance): Instance?
+	local frameScopes: { [Instance]: { sheet: Instance? } }? = nil
+	local frameValues: { [Instance]: { [string]: Resolved } }? = nil
+	local function linkedSheet(object: Instance): Instance?
 		local current: Instance? = object
 		while current do
 			local link: Instance? = nil
@@ -54,6 +58,18 @@ local function create(
 			current = current.Parent
 		end
 		return nil
+	end
+	local function scope(object: Instance): Instance?
+		local scopes = frameScopes
+		if scopes == nil then
+			return linkedSheet(object)
+		end
+		local known = scopes[object]
+		if known == nil then
+			known = { sheet = linkedSheet(object) }
+			scopes[object] = known
+		end
+		return known.sheet
 	end
 	local function token(sheet: Instance, value: unknown): unknown
 		local seen: { [string]: boolean } = {}
@@ -79,7 +95,27 @@ local function create(
 		end
 		return result
 	end
+	local resolveFresh: (Instance, string?, string?) -> (Instance?, unknown, boolean)
 	local function resolve(object: Instance, property: string?, phantom: string?): (Instance?, unknown, boolean)
+		local values = frameValues
+		if values == nil then
+			return resolveFresh(object, property, phantom)
+		end
+		local entries = values[object]
+		if entries == nil then
+			entries = {}
+			values[object] = entries
+		end
+		local key = (property or "") .. "|" .. (phantom or "")
+		local found = entries[key]
+		if found == nil then
+			local sheet, value, present = resolveFresh(object, property, phantom)
+			found = { sheet = sheet, value = value, present = present }
+			entries[key] = found
+		end
+		return found.sheet, found.value, found.present
+	end
+	function resolveFresh(object: Instance, property: string?, phantom: string?): (Instance?, unknown, boolean)
 		local sheet = scope(object)
 		local result: unknown = if phantom or property == nil then nil else env.defaultPropertyOf(object, property)
 		if sheet == nil then
@@ -217,6 +253,18 @@ local function create(
 						end
 					end
 				end
+			end
+		end,
+		cached = function(body: () -> ())
+			if frameValues ~= nil then
+				body()
+				return
+			end
+			frameScopes, frameValues = {}, {}
+			local outcome = table.pack(pcall(body))
+			frameScopes, frameValues = nil, nil
+			if not outcome[1] then
+				error(outcome[2], 0)
 			end
 		end,
 		close = close,

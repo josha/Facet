@@ -62,6 +62,9 @@ local function bridge(snapshot: (string | Snapshot.Snapshot)?, options: Options?
 		local ui: UiFakes.Options = table.clone(settings.ui or {})
 		if ui.measureBounds == nil then
 			ui.measureBounds = TextMetrics.create()
+			if ui.truncateBounds == nil then
+				ui.truncateBounds = TextMetrics.truncator()
+			end
 		end
 		if ui.measureText == nil then
 			local measure = TextMetrics.create()

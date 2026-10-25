@@ -1,6 +1,7 @@
 --!strict
 
 local Scheduler = require "./scheduler"
+local DeviceCatalog = require "./device-catalog"
 local Datatypes = require "./datatypes"
 local Environment = require "./environment"
 
@@ -44,6 +45,8 @@ export type Runtime = {
 	requireInstance: (unknown) -> unknown,
 	runScript: (Instance, string) -> thread?,
 	step: (seconds: number) -> (),
+	screenArea: (screen: Instance) -> { x: number, y: number, width: number, height: number },
+	device: () -> DeviceCatalog.Device,
 }
 
 export type Host<B = unknown, C = Chunk> = {
@@ -484,6 +487,129 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 			GetLastInputType = function(): Datatypes.EnumMember
 				return lastInput
 			end,
+			GetMouseButtonsPressed = function(): { Instance }
+				return {}
+			end,
+			IsGamepadButtonDown = function(): boolean
+				return false
+			end,
+		}
+		local current: DeviceCatalog.Device? = if options.client
+			then DeviceCatalog.desktop(options.client.viewport.x, options.client.viewport.y)
+			else nil
+		local function device(api: string): DeviceCatalog.Device
+			local active = current
+			if active == nil then
+				error("unsupported_method: " .. api .. " needs a client device", 0)
+			end
+			return active
+		end
+		local function area(values: DeviceCatalog.Area): unknown
+			return engine.datatypes.Rect.new(values[1], values[2], values[3], values[4])
+		end
+		local function apply(entry: DeviceCatalog.Device)
+			current = entry
+			local Enum = engine.datatypes.Enum
+			local input = engine.service "UserInputService"
+			environment.poke(input, "PreferredInput", Enum.PreferredInput[entry.preferredInput])
+			environment.poke(input, "TouchEnabled", entry.touch)
+			environment.poke(input, "KeyboardEnabled", entry.keyboard)
+			environment.poke(input, "MouseEnabled", entry.mouse)
+			environment.poke(input, "GamepadEnabled", entry.gamepad)
+			environment.poke(engine.service "GuiService", "TopbarInset", area(entry.topbar))
+			local camera = engine.service("Workspace"):FindFirstChildOfClass "Camera"
+			if camera then
+				environment.poke(
+					camera,
+					"ViewportSize",
+					engine.datatypes.Vector2.new(entry.viewport[1], entry.viewport[2])
+				)
+			end
+		end
+		if current then
+			apply(current)
+		end
+		runtime.device = function(): DeviceCatalog.Device
+			return device "the simulated device"
+		end
+		runtime.screenArea = function(screen: Instance): { x: number, y: number, width: number, height: number }
+			local active = device "ScreenGui layout"
+			local mode = environment.propertyOf(screen, "ScreenInsets")
+			local insets = engine.datatypes.Enum.ScreenInsets
+			local values = if mode == insets.None
+				then active.none
+				elseif mode == insets.DeviceSafeInsets then active.device
+				elseif mode == insets.TopbarSafeInsets then {
+					active.topbar[1],
+					active.topbar[2] - active.guiInset[2],
+					active.topbar[3],
+					active.topbar[4] - active.guiInset[2],
+				}
+				else active.coreUI
+			return { x = values[1], y = values[2], width = values[3] - values[1], height = values[4] - values[2] }
+		end
+		local inputOverrides = overrides.UserInputService
+		local gamepads = engine.datatypes.Enum.UserInputType
+		inputOverrides.GetNavigationGamepads = function(): { unknown }
+			local all: { unknown } = {}
+			for index = 1, 8 do
+				table.insert(all, gamepads:FromName("Gamepad" .. index))
+			end
+			return all
+		end
+		inputOverrides.GetConnectedGamepads = function(): { unknown }
+			return if device("UserInputService.GetConnectedGamepads").gamepad then { gamepads.Gamepad1 } else {}
+		end
+		inputOverrides.GetGamepadConnected = function(_service: Instance, gamepad: unknown): boolean
+			return gamepad == gamepads.Gamepad1 and device("UserInputService.GetGamepadConnected").gamepad
+		end
+		inputOverrides.GamepadSupports = function(): boolean
+			return false
+		end
+		overrides.GuiService = {
+			IsTenFootInterface = function(): boolean
+				return device("GuiService.IsTenFootInterface").tenFoot
+			end,
+			GetGuiInset = function(): (unknown, unknown)
+				local inset = device("GuiService.GetGuiInset").guiInset
+				return engine.datatypes.Vector2.new(inset[1], inset[2]),
+					engine.datatypes.Vector2.new(inset[3], inset[4])
+			end,
+			GetInsetArea = function(_service: Instance, screenInsets: Datatypes.EnumMember): unknown
+				local active = device "GuiService.GetInsetArea"
+				local insets = engine.datatypes.Enum.ScreenInsets
+				return area(
+					if screenInsets == insets.CoreUISafeInsets
+						then active.coreUI
+						elseif screenInsets == insets.DeviceSafeInsets then active.device
+						else active.none
+				)
+			end,
+		}
+		overrides.StudioDeviceSimulatorService = {
+			SetDeviceAsync = function(_service: Instance, id: string)
+				apply(DeviceCatalog.device(id))
+			end,
+			SetOrientationAsync = function(_service: Instance, orientation: unknown)
+				local name = string.match(tostring(orientation), "([^%.]+)$")
+				if name == nil or engine.datatypes.Enum.ScreenOrientation:FromName(name) == nil then
+					error("Unable to cast string to ScreenOrientation", 0)
+				end
+				apply(DeviceCatalog.oriented(device "StudioDeviceSimulatorService.SetOrientationAsync", name))
+			end,
+			GetOrientationAsync = function(): unknown
+				local orientation = device("StudioDeviceSimulatorService.GetOrientationAsync").orientation
+				return engine.datatypes.Enum.ScreenOrientation:FromName(orientation or "LandscapeLeft")
+			end,
+			SetResolutionAsync = function(_service: Instance, width: number, height: number)
+				apply(DeviceCatalog.resized(device "StudioDeviceSimulatorService.SetResolutionAsync", width, height))
+			end,
+			StopSimulationAsync = function()
+				local client = options.client
+				if client then
+					apply(DeviceCatalog.desktop(client.viewport.x, client.viewport.y))
+				end
+			end,
 		}
 		overrides.Players = {
 			GetPlayers = function(service: Instance): { Instance }
@@ -702,9 +828,34 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 			PreloadAsync = function(
 				_service: Instance,
 				instances: { Instance | string },
-				_callback: ((string, Datatypes.EnumMember) -> ())?
+				callback: ((string, Datatypes.EnumMember) -> ())?
 			)
-				assert(next(instances) == nil, "unsupported_place_asset: ContentProvider.PreloadAsync")
+				local success = engine.datatypes.Enum.AssetFetchStatus.Success
+				local function fetched(content: string)
+					if callback and content ~= "" then
+						callback(content, success)
+					end
+				end
+				for _, entry in instances do
+					if type(entry) == "string" then
+						fetched(entry)
+						continue
+					end
+					local objects = entry:GetDescendants()
+					table.insert(objects, 1, entry)
+					for _, object in objects do
+						for _, property in { "Image", "Texture", "TextureID", "MeshId", "SoundId", "AnimationId" } do
+							local value = environment.propertyOf(object, property)
+							if type(value) == "string" then
+								fetched(value)
+							end
+						end
+						local face = environment.propertyOf(object, "FontFace")
+						if engine.datatypes.typeName(face) == "Font" then
+							fetched((face :: Datatypes.FontValue).Family)
+						end
+					end
+				end
 			end,
 		}
 		overrides.AssetService = {

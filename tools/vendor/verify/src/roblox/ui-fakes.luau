@@ -13,6 +13,7 @@ end
 export type Options = {
 	measureText: (((text: string, size: number, font: Enum.EnumItem, bounds: Values.Vector) -> unknown) | false)?,
 	measureBounds: (((parameters: Values.TextParameters) -> unknown) | false)?,
+	truncateBounds: ((parameters: Values.TextParameters, mode: string, lines: number, wrapped: boolean) -> number?)?,
 	methods: { [string]: Environment.Method }?,
 	validate: (((className: string, property: string) -> boolean) | false)?,
 	selection: ("raise" | "ignore")?,
@@ -24,6 +25,7 @@ export type Controller = {
 	styled: (Instance, string) -> unknown,
 	component: (Instance, string, string) -> unknown,
 	step: () -> (),
+	cached: (() -> ()) -> (),
 	rejectedSelections: () -> { Rejection },
 	close: () -> (),
 }
@@ -353,6 +355,7 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 		styled = style.styled,
 		component = style.component,
 		step = style.step,
+		cached = style.cached,
 		focused = function(): Instance?
 			return focused
 		end,
