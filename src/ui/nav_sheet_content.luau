@@ -468,7 +468,13 @@ return function(
 					return found
 				end
 			end
-			return firstIn(body) or firstIn(actionRegion)
+			local candidates: { parts.Candidate } = {}
+			for _, action in actions :: { Overlay.Action } do
+				local candidate: parts.Candidate = { id = action.id, role = action.role, usable = usable(action) }
+				table.insert(candidates, candidate)
+			end
+			local preferred = parts.initialAction(candidates)
+			return firstIn(body) or (if preferred then named(actionRegion, preferred) else nil) or firstIn(actionRegion)
 		end
 		return {
 			entry = entry,

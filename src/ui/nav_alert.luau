@@ -109,7 +109,7 @@ return function(
 				assert(#actions > 0, "Alert requires at least one action")
 				local cancel: Nav.AlertAction<P>?
 				local primary: Nav.AlertAction<P>?
-				local initial: string?
+				local candidates: { parts.Candidate } = {}
 				local identities: { [string]: boolean } = {}
 				for _, action in actions do
 					assert(
@@ -125,14 +125,15 @@ return function(
 						assert(primary == nil, "Alert accepts one default action")
 						primary = action
 					end
-					if
-						read(action.enabled) ~= false
-						and action.role ~= "destructive"
-						and (initial == nil or action.shortcut == "defaultAction")
-					then
-						initial = action.id
-					end
+					local candidate: parts.Candidate = {
+						id = action.id,
+						role = if action.shortcut == "cancelAction" then action.role or "cancel" else action.role,
+						usable = read(action.enabled) ~= false,
+						default = action.shortcut == "defaultAction",
+					}
+					table.insert(candidates, candidate)
 				end
+				local initial = parts.initialAction(candidates)
 				local function activate(action: Nav.AlertAction<P>?): ()
 					if action and read(action.enabled) == false then
 						return

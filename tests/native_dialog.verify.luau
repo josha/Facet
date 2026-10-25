@@ -351,13 +351,46 @@ return function(verifyHarness: Verify.Harness)
 		)
 	end)
 
+	verifyHarness:suite("native Dialog: initial action", function()
+		verifyHarness:case("starts on the default action unless it is destructive, then on the safe choice", function()
+			local parts = require("../src/ui/overlay_parts")
+			local function pick(list: { parts.Candidate }): string
+				return parts.initialAction(list) or "none"
+			end
+			Verify.expect(pick({
+				{ id = "Later", role = "cancel", usable = true },
+				{ id = "Claim", role = "default", usable = true },
+			})):toBe("Claim")
+			Verify.expect(pick({
+				{ id = "Keep", role = "cancel", usable = true },
+				{ id = "Sell", role = "destructive", usable = true },
+			})):toBe("Keep")
+			Verify.expect(pick({
+				{ id = "Keep", role = "cancel", usable = true },
+				{ id = "Sell", role = "destructive", usable = true, default = true },
+			})):toBe("Keep")
+			Verify.expect(pick({
+				{ id = "Later", role = "cancel", usable = true },
+				{ id = "Claim", role = "default", usable = false },
+			})):toBe("Later")
+			Verify.expect(pick({
+				{ id = "Info", usable = false },
+				{ id = "Delete", role = "destructive", usable = true },
+			})):toBe("none")
+			Verify.expect(pick({
+				{ id = "One", usable = true },
+				{ id = "Two", usable = true, default = true },
+			})):toBe("Two")
+		end)
+	end)
+
 	verifyHarness:suite("native Dialog: the caller's fact decides", function()
 		verifyHarness:case("keeps the claimed selection and parent when the entry fade completes", {
 			id = "native_dialog::native Dialog: the caller's fact decides::keeps the claimed selection and parent when the entry fade completes",
 			run = function()
 				local open, log, change = caller()
 				local w = mount(standard(open, log, change), nil, { lastInputType = UserInputType.Keyboard })
-				local stay = actionButton(w, "Stay")
+				local stay = actionButton(w, "Leave")
 				Verify.expect(w.find("Fade") ~= nil and stay:IsDescendantOf(w.find("Fade"))):toBe(true)
 				Verify.expect(w.gui.SelectedObject):toBe(stay)
 				stay.AncestryChanged:Connect(function()
@@ -430,7 +463,7 @@ return function(verifyHarness: Verify.Harness)
 						nil,
 						{ lastInputType = UserInputType.Keyboard }
 					)
-					Verify.expect(w2.gui.SelectedObject):toBe(actionButton(w2, "Stay"))
+					Verify.expect(w2.gui.SelectedObject):toBe(actionButton(w2, "Leave"))
 					w2.find("Close").Activated:Fire()
 					Verify.expect((w2.find("Panel"))):toBe(nil)
 					Verify.expect((table.concat(log2.dismissed, ","))):toBe("close")

@@ -287,6 +287,30 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(if hero.gui.SelectedObject then hero.gui.SelectedObject.Name else "nil"):toBe("Continue")
 				hero.stop()
 
+				for _, case in
+					{
+						{ role = "default", expected = "Claim" },
+						{ role = "destructive", expected = "Later" },
+					}
+				do
+					local reward = mount({
+						placement = "center",
+						content = built(function(_, Host: RobloxHost)
+							return Host.TextLabel "Reward" { Text = "Daily reward" }
+						end),
+						actions = {
+							{ id = "Later", label = "Later", role = "cancel", onActivate = noop },
+							{ id = "Claim", label = "Claim", role = case.role, onActivate = noop },
+						},
+					}, { shown = Compose.cell(false), motionLevel = "none" })
+					reward.engine.environment.poke(reward.input, "PreferredInput", reward.Enum.PreferredInput.Gamepad)
+					reward.shown:set(true)
+					reward.advance(1 / 60, 3)
+					Verify.expect(if reward.gui.SelectedObject then reward.gui.SelectedObject.Name else "nil")
+						:toBe(case.expected)
+					reward.stop()
+				end
+
 				local ready = Compose.cell(false)
 				local late = mount({
 					placement = "center",

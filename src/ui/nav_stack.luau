@@ -15,6 +15,7 @@ local textMeasure = require("./text_measure")
 local presentationReadiness = require("./presentation_readiness")
 local glass = require("./glass")
 local gameplayHold = require("./gameplay_hold")
+local entryUpgrade = require("./entry_upgrade")
 
 return function(
 	ctx: Types.Context,
@@ -451,6 +452,11 @@ return function(
 						end
 						return if at and at ~= panel and at:IsA("GuiObject") then at :: GuiObject else nil
 					end
+					local function contentEntry(): GuiObject?
+						return surfaces.firstSelectable(destinationFrame, nil, function(node: Instance): boolean
+							return node:GetAttribute("FacetNavBar") == true
+						end)
+					end
 					local resolved: string | false | nil = nil
 					local function landing(): GuiObject?
 						if resolved == nil then
@@ -472,8 +478,11 @@ return function(
 								end
 							end
 						end
-						return surfaces.firstSelectable(destinationFrame) or surfaces.firstSelectable(panel)
+						return contentEntry()
+							or surfaces.firstSelectable(destinationFrame)
+							or surfaces.firstSelectable(panel)
 					end
+					local provisional = Compose.cell(nil :: GuiObject?)
 					Compose.watch(function(use: ComposeTypes.Use)
 						local top = use(role) == "top"
 						if top and (use(moving) or not use(visible) or not use(interactable)) then
@@ -493,16 +502,28 @@ return function(
 						then
 							handoff = false
 							local back = recall()
-							gui.SelectedObject = if back
-									and back.Visible
-									and back.Selectable
-									and back.Interactable
-								then back
-								else landing()
+							local usable = back and back.Visible and back.Selectable and back.Interactable
+							local target = if usable then back else landing()
+							gui.SelectedObject = target
+							provisional:set(
+								if not usable and not resolved and target ~= contentEntry() then target else nil
+							)
 							root:SetAttribute("FacetSelectionOwner", false)
 						end
 						previousTop = top
 					end)
+					if gui then
+						entryUpgrade(ctx, {
+							gui = gui,
+							panel = destinationFrame,
+							held = provisional,
+							entry = contentEntry,
+							displayed = surfaces.displayed,
+							ready = function(use: ComposeTypes.Use): boolean
+								return use(role) == "top" and not use(moving) and use(visible) and use(interactable)
+							end,
+						})
+					end
 					surfaces.keep(destination.content)
 					return panel
 				end,

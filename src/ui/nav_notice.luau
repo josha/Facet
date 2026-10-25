@@ -664,6 +664,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		if plate then
 			root:AddTag(plate)
 		end
+		root:SetAttribute("FacetNavBar", true)
 		local list = root:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
 		if list then
 			runtime.decorate(list, {

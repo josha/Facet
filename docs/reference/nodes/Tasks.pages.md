@@ -14,7 +14,7 @@ local function pages(app: Facet.App, title: string,
 		root = { content = function()
 			return hud(function() path:set({ { id = "task" } }) end)
 		end },
-		destinations = { task = { initialFocus = "Body", content = function()
+		destinations = { task = { content = function()
 			return UI.Screen "Task" { surface = "surface",
 				UI.NavBar { title = title, onBack = back, trailing = UI.Button { label = "Close",
 					appearance = "utility", onActivate = function() path:set({}) end } },

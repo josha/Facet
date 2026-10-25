@@ -3483,6 +3483,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
 				local asked = 0
+				local rows = Compose.cell(false)
 				local function page(UI: FacetControls, named: boolean): Instance
 					return UI.VStack {
 						UI.NavBar "Header" {
@@ -3525,6 +3526,22 @@ return function(verifyHarness: Verify.Harness)
 									return page(UI, false)
 								end,
 							} :: Navigation.NavigationDestination<unknown>,
+							late = {
+								chrome = "hidden" :: "hidden",
+								content = function(): Instance
+									return UI.VStack {
+										UI.NavBar "Header" {
+											title = "Garage",
+											trailing = UI.Button "Close" { label = "Close" },
+										},
+										UI.VStack "Rows" {
+											Compose.show(rows, function()
+												return UI.Button "Row" { label = "Row" }
+											end),
+										},
+									}
+								end,
+							} :: Navigation.NavigationDestination<unknown>,
 							named = {
 								chrome = "hidden" :: "hidden",
 								initialFocus = function(): string?
@@ -3547,8 +3564,28 @@ return function(verifyHarness: Verify.Harness)
 				world.gui.SelectedObject = find(world.screen, "RootAction")
 				Verify.expect(open("empty")):toBe("Back")
 				Verify.expect(open("missing")):toBe("MissingAction")
-				Verify.expect(open("header")):toBe("Close")
+				Verify.expect(open("header")):toBe("FirstCard")
 				Verify.expect(open("named")):toBe("FirstCard")
+				Verify.expect(open("late")):toBe("Close")
+				rows:set(true)
+				local row = find(world.screen, "Row")
+				world.engine.environment.poke(row, "AbsoluteSize", world.engine.types.Vector2.new(120, 44))
+				world.settle()
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("Row")
+				rows:set(false)
+				Verify.expect(open("header")):toBe("FirstCard")
+				Verify.expect(open("late")):toBe("Close")
+				local moved = world.gui.SelectedObject
+				world.gui.SelectedObject = nil
+				world.gui.SelectedObject = moved
+				rows:set(true)
+				world.engine.environment.poke(
+					find(world.screen, "Row"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(120, 44)
+				)
+				world.settle()
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("Close")
 				Verify.expect(asked):toBe(1)
 				path:set({})
 				world.settle()

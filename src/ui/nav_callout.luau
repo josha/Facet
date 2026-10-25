@@ -486,7 +486,17 @@ return function(
 						use(rebuilt)
 						local below = (use(panelAt) :: Vector2).Y > anchor.AbsolutePosition.Y
 						local direction = if below then "Down" else "Up"
-						local found = surfaces.firstSelectable(panel)
+						local candidates: { parts.Candidate } = {}
+						for _, action in actions do
+							local candidate: parts.Candidate =
+								{ id = action.id, role = action.role, usable = parts.usable(ctx, action, use) }
+							table.insert(candidates, candidate)
+						end
+						local preferred = parts.initialAction(candidates)
+						local chosen = if preferred then panel:FindFirstChild(preferred, true) else nil
+						local found = if chosen and chosen:IsA("GuiObject")
+							then chosen
+							else surfaces.firstSelectable(panel)
 						local target = if found == leaving then nil else found
 						if linked ~= direction or linkedTarget ~= target then
 							unlink()

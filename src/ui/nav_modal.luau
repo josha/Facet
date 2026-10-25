@@ -32,6 +32,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		within = kit.within,
 		keep = kit.keep,
 		firstSelectable = kit.firstSelectable,
+		displayed = kit.displayed,
 		preference = kit.preference,
 		selecting = kit.selecting,
 		overlay = portal.overlay,

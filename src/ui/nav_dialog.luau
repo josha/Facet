@@ -355,17 +355,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						plaqued:set(on)
 					end,
 				})
-				local initial: string? = if cancelAction and parts.usable(ctx, cancelAction)
-					then cancelAction.id
-					else nil
-				if initial == nil then
-					for _, action in actions do
-						if action.role ~= "destructive" and parts.usable(ctx, action) then
-							initial = action.id
-							break
-						end
-					end
+				local candidates: { parts.Candidate } = {}
+				for _, action in actions do
+					local candidate: parts.Candidate =
+						{ id = action.id, role = action.role, usable = parts.usable(ctx, action) }
+					table.insert(candidates, candidate)
 				end
+				local initial = parts.initialAction(candidates)
 				Compose.cleanup(function()
 					if disposed or owner.isDisposed() then
 						closing = nil

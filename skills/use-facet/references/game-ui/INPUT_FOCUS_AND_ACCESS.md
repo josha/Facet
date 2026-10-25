@@ -76,8 +76,9 @@ bracket, glow and art treatments need equally visible boundaries.
 Choose entry focus from the likely next action and the cost of an accidental
 activation. When a Sheet takes selection, it uses `initialFocus`, then its
 first available content control, then a pinned action, then Close or the
-grabber. A Dialog prefers
-Cancel, then a non-destructive action. A read-only result may need Close as
+grabber. Among actions, Dialog, Alert, Sheet and Callout start on the
+`default` action, unless it is destructive; then they start on the safe
+choice, Cancel. A read-only result may need Close as
 its useful action. Keep this judgment separate from the visual emphasis of
 the primary action. Read `Selection.SelectedObject` for the exact behavior.
 

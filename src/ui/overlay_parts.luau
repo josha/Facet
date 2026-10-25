@@ -185,6 +185,24 @@ function parts.usable(ctx: Types.Context, action: Overlay.Action?, use: ComposeT
 	return action ~= nil and ctx.read(action.enabled, use) ~= false and ctx.read(action.busy, use) ~= true
 end
 
+export type Candidate = { id: string, role: string?, usable: boolean, default: boolean? }
+
+function parts.initialAction(candidates: { Candidate }): string?
+	local cancel: string?, first: string? = nil, nil
+	for _, candidate in candidates do
+		if candidate.usable and candidate.role ~= "destructive" then
+			if candidate.default or candidate.role == "default" then
+				return candidate.id
+			end
+			if candidate.role == "cancel" and cancel == nil then
+				cancel = candidate.id
+			end
+			first = first or candidate.id
+		end
+	end
+	return cancel or first
+end
+
 function parts.call<A...>(fn: (A...) -> (), settle: (() -> ())?, ...: A...)
 	local ok: boolean, failure: unknown = pcall(fn, ...)
 	if settle then
