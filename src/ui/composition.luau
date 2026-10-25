@@ -173,8 +173,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	UI.Region = ctx.construct("Region", function(spec: LayoutProps.RegionProps): Frame
 		local zone, rank = spec.zone, spec.rank
 		assert(
-			type(zone) == "string" and resolver.CELLS[zone] ~= nil,
-			"Facet Region zone must be topLeft, top, topRight, left, center, right, bottomLeft, bottom, bottomRight or topbar"
+			type(zone) == "string" and (zone == "action" or resolver.CELLS[zone] ~= nil),
+			"Facet Region zone must be topLeft, top, topRight, left, center, right, bottomLeft, bottom, bottomRight, topbar or action"
 		)
 		assert(
 			type(rank) == "number" and rank >= 1 and rank % 1 == 0,
@@ -246,7 +246,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local hangs: { ComposeTypes.Cell<number> } = {}
 		local floors: { () -> boolean } = {}
 		local contents: { GuiObject } = {}
-		local below = resolver.CELLS[zone][2] == 3
+		local below = zone == "action" or resolver.CELLS[zone][2] == 3
 		for index = 1, #properties do
 			local child = properties[index] :: GuiObject
 			contents[index] = child
@@ -327,7 +327,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					Compose.cleanup(returnHome)
 					return holder
 				end
-			local cell = resolver.CELLS[zone]
+			local cell = resolver.CELLS[if zone == "action" then "bottom" else zone]
 			local edge: Overlay.Edge = if cell[1] == 2 and cell[2] == 3 then "top" else EXPAND_EDGE[cell[1]]
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(form) <= 1 and open:peek() then
@@ -516,14 +516,21 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end)
 		local members: { [string]: { Frame } } = {}
 		local stripRegions: { Frame } = {}
+		local actionRegions: { Frame } = {}
 		for order, region in regions do
 			local zone = declared[region].zone
 			region.LayoutOrder = order
 			local home = if zone == "topbar" then "top" else zone
-			members[home] = members[home] or {}
+			if zone == "action" then
+				table.insert(actionRegions, region)
+				members.bottom = members.bottom or {}
+				members.bottomRight = members.bottomRight or {}
+			else
+				members[home] = members[home] or {}
+			end
 			if zone == "topbar" then
 				table.insert(stripRegions, region)
-			else
+			elseif zone ~= "action" then
 				table.insert(members[home], region)
 			end
 		end
@@ -790,7 +797,22 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local safeUnit = ctx.layoutUnit(safe)
 		local floor = ctx.hitFloor()
 		local safeBox = layoutSize(safe, safeUnit)
-		for zone, children in members do
+		local actionZone = Compose.formula(function(use: ComposeTypes.Use): resolver.Zone
+			local size = use(safeBox)
+			return if size.Y > size.X then "bottom" else "bottomRight"
+		end)
+		for _, region in actionRegions do
+			runtime.decorate(region, {
+				Parent = function(use: ComposeTypes.Use): Instance?
+					return zones[use(actionZone)]
+				end,
+			})
+		end
+		for zone, own in members do
+			local children = table.clone(own)
+			if zone == "bottom" or zone == "bottomRight" then
+				table.move(actionRegions, 1, #actionRegions, #children + 1, children)
+			end
 			local revealing = false
 			for _, region in children do
 				revealing = revealing or declared[region].reveal ~= nil
@@ -807,7 +829,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				local list = {}
 				for _, region in children do
 					local entry = declared[region]
-					if entry.reveal and use(entry.form) == 0 then
+					if
+						entry.reveal
+						and use(entry.form) == 0
+						and (entry.zone ~= "action" or use(actionZone) == zone)
+					then
 						table.insert(list, region)
 					end
 				end
@@ -961,7 +987,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					hanging = hanging or hangs[form] > 0
 				end
 				list[index] = {
-					zone = entry.zone,
+					zone = (if entry.zone == "action" then use(actionZone) else entry.zone) :: resolver.Zone,
 					rank = entry.rank,
 					mayDrop = entry.mayDrop,
 					sizes = measured,

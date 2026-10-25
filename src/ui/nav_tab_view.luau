@@ -14,6 +14,7 @@ local tabMetrics = require("./nav_tab_metrics")
 local tabItem = require("./nav_tab_item")
 local tabAccessories = require("./nav_tab_accessories")
 local presentationReadiness = require("./presentation_readiness")
+local scrollLock = require("./scroll_lock")
 type SelectionLinks = {
 	NextSelectionLeft: GuiObject?,
 	NextSelectionRight: GuiObject?,
@@ -353,9 +354,10 @@ return function(
 			end,
 			BorderSizePixel = 0,
 			ScrollBarThickness = function(use: ComposeTypes.Use)
-				return if use(placement) == "sidebar" then 2 else 0
+				return if use(placement) == "sidebar" or use(stripOverflows) then 2 else 0
 			end,
 			VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
+			HorizontalScrollBarInset = E.ScrollBarInset.None,
 			CanvasSize = D2.fromOffset(0, 0),
 			AutomaticCanvasSize = function(use: ComposeTypes.Use)
 				return if use(placement) == "sidebar" then E.AutomaticSize.Y else E.AutomaticSize.X
@@ -403,6 +405,7 @@ return function(
 				}),
 			},
 		}
+		scrollLock.own((bar :: unknown) :: ScrollingFrame, ctx)
 		local bandBox = Host.Frame "TabBand" {
 			ZIndex = 2,
 			BackgroundTransparency = 1,

@@ -351,13 +351,46 @@ return function(verifyHarness: Verify.Harness)
 		)
 	end)
 
+	verifyHarness:suite("native Dialog: initial action", function()
+		verifyHarness:case("starts on the default action unless it is destructive, then on the safe choice", function()
+			local parts = require("../src/ui/overlay_parts")
+			local function pick(list: { parts.Candidate }): string
+				return parts.initialAction(list) or "none"
+			end
+			Verify.expect(pick({
+				{ id = "Later", role = "cancel", usable = true },
+				{ id = "Claim", role = "default", usable = true },
+			})):toBe("Claim")
+			Verify.expect(pick({
+				{ id = "Keep", role = "cancel", usable = true },
+				{ id = "Sell", role = "destructive", usable = true },
+			})):toBe("Keep")
+			Verify.expect(pick({
+				{ id = "Keep", role = "cancel", usable = true },
+				{ id = "Sell", role = "destructive", usable = true, default = true },
+			})):toBe("Keep")
+			Verify.expect(pick({
+				{ id = "Later", role = "cancel", usable = true },
+				{ id = "Claim", role = "default", usable = false },
+			})):toBe("Later")
+			Verify.expect(pick({
+				{ id = "Info", usable = false },
+				{ id = "Delete", role = "destructive", usable = true },
+			})):toBe("none")
+			Verify.expect(pick({
+				{ id = "One", usable = true },
+				{ id = "Two", usable = true, default = true },
+			})):toBe("Two")
+		end)
+	end)
+
 	verifyHarness:suite("native Dialog: the caller's fact decides", function()
 		verifyHarness:case("keeps the claimed selection and parent when the entry fade completes", {
 			id = "native_dialog::native Dialog: the caller's fact decides::keeps the claimed selection and parent when the entry fade completes",
 			run = function()
 				local open, log, change = caller()
 				local w = mount(standard(open, log, change), nil, { lastInputType = UserInputType.Keyboard })
-				local stay = actionButton(w, "Stay")
+				local stay = actionButton(w, "Leave")
 				Verify.expect(w.find("Fade") ~= nil and stay:IsDescendantOf(w.find("Fade"))):toBe(true)
 				Verify.expect(w.gui.SelectedObject):toBe(stay)
 				stay.AncestryChanged:Connect(function()
@@ -430,7 +463,7 @@ return function(verifyHarness: Verify.Harness)
 						nil,
 						{ lastInputType = UserInputType.Keyboard }
 					)
-					Verify.expect(w2.gui.SelectedObject):toBe(actionButton(w2, "Stay"))
+					Verify.expect(w2.gui.SelectedObject):toBe(actionButton(w2, "Leave"))
 					w2.find("Close").Activated:Fire()
 					Verify.expect((w2.find("Panel"))):toBe(nil)
 					Verify.expect((table.concat(log2.dismissed, ","))):toBe("close")
@@ -758,7 +791,7 @@ return function(verifyHarness: Verify.Harness)
 				sized(w, 400)
 				local body, room = w.find("Body"), w.find("Room")
 				Verify.expect(room.ScrollingEnabled):toBe(true)
-				Verify.expect(room.Size.Y.Offset):toBe(160 - 64)
+				Verify.expect(room.Size.Y.Offset):toBe(160 - 32)
 				Verify.expect(body.ScrollingEnabled):toBe(false)
 				Verify.expect(body.Size.Y.Offset):toBe(400)
 				Verify.expect((actionButton(w, "Leave"):IsDescendantOf(room))):toBe(true)
@@ -800,7 +833,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(room.ScrollingEnabled):toBe(false)
 				Verify.expect(body.ScrollingEnabled):toBe(true)
 				w.engine.environment.poke(w.screen, "AbsoluteSize", Vector2.new(320, 90))
-				Verify.expect(room.Size.Y.Offset):toBe(44)
+				Verify.expect(room.Size.Y.Offset):toBe(90 - 32)
 				w.stop()
 			end,
 		})
@@ -819,6 +852,58 @@ return function(verifyHarness: Verify.Harness)
 				local list = w.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
 				Verify.expect(list.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
 				Verify.expect(actionButton(w, "Stay").LayoutOrder < actionButton(w, "Leave").LayoutOrder):toBe(true)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case(
+			"a dialog that cannot keep clear margins covers the safe area so page chrome cannot read as its own",
+			{
+				id = "native_dialog::native Dialog: composition, layout and the height budget::a dialog that cannot keep clear margins covers the safe area so page chrome cannot read as its own",
+				run = function()
+					local open, log, change = caller()
+					local w = mount(standard(open, log, change), nil, { size = Vector2.new(749, 323) })
+					sized(w, 40)
+					local panel, room = w.find("Panel"), w.find("Room")
+					local padding = panel:FindFirstChildWhichIsA("UIPadding")
+					local card = panel.Size.X.Offset
+					Verify.expect(card < 749):toBe(true)
+					Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
+					Verify.expect(padding.PaddingLeft.Offset):toBe(16)
+					sized(w, 180)
+					Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
+					Verify.expect(panel.Size.X.Offset):toBe(749)
+					Verify.expect(panel.Size.Y.Offset):toBe(323)
+					Verify.expect(room.Size.Y.Offset):toBe(323 - 32)
+					Verify.expect(padding.PaddingLeft.Offset):toBe(16 + math.floor((749 - card) / 2))
+					Verify.expect(padding.PaddingRight.Offset):toBe(16 + (749 - card) - math.floor((749 - card) / 2))
+					Verify.expect(w.find("Body").Size.Y.Offset > 180):toBe(true)
+					sized(w, 40)
+					Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
+					Verify.expect(panel.Size.X.Offset):toBe(card)
+					w.stop()
+				end,
+			}
+		)
+
+		verifyHarness:case("a covering dialog sizes its room from the theme's real panel insets", {
+			id = "native_dialog::native Dialog: composition, layout and the height budget::a covering dialog sizes its room from the theme's real panel insets",
+			run = function()
+				local open, log, change = caller()
+				local insets = { left = 24, right = 24, top = 24, bottom = 24 }
+				local themes = require("../src/ui/themes")(Compose)
+				local package = themes.neutralPackage()
+				package.chrome = { panel = { kind = "native", contentInsets = insets } }
+				local options: Types.Config = { theme = assert(themes.define(package)) }
+				local w = mount(standard(open, log, change), options, { size = Vector2.new(749, 323) })
+				sized(w, 180)
+				local panel, room = w.find("Panel"), w.find("Room")
+				local padding = panel:FindFirstChildWhichIsA("UIPadding")
+				Verify.expect(panel.Size.Y.Offset):toBe(323)
+				Verify.expect(padding.PaddingTop.Offset):toBe(24)
+				Verify.expect(padding.PaddingBottom.Offset):toBe(24)
+				Verify.expect(room.Size.Y.Offset):toBe(323 - 48)
+				Verify.expect(padding.PaddingLeft.Offset > 24):toBe(true)
 				w.stop()
 			end,
 		})

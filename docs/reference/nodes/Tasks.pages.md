@@ -5,21 +5,16 @@ Call inside the app mount.
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 local function pages(app: Facet.App, title: string,
-	hud: (() -> ()) -> GuiObject, body: (Facet.Cell<boolean>) -> GuiObject,
-	suspendGameplay: () -> (() -> ())): Frame
+	hud: (() -> ()) -> GuiObject, body: (Facet.Cell<boolean>) -> GuiObject): Frame
 	local C, UI = Facet.Compose, app.UI
 	local path = C.cell({} :: { Facet.NavigationEntry<string> })
 	local back = C.cell(false)
-	local hasPage = C.formula(function(use) return #use(path) > 0 end)
-	C.watch(function(use)
-		if use(hasPage) then C.cleanup(suspendGameplay()) end
-	end)
 	return UI.NavigationStack {
 		path = path, chrome = "hidden",
 		root = { content = function()
 			return hud(function() path:set({ { id = "task" } }) end)
 		end },
-		destinations = { task = { initialFocus = "Body", content = function()
+		destinations = { task = { content = function()
 			return UI.Screen "Task" { surface = "surface",
 				UI.NavBar { title = title, onBack = back, trailing = UI.Button { label = "Close",
 					appearance = "utility", onActivate = function() path:set({}) end } },
@@ -35,10 +30,11 @@ NavigationStack owns motion and return focus; focus starts in the body, not on
 Close. Close returns to gameplay; NavBar Back follows the body's `back`.
 The Screen surface reaches the glass; the NavBar and body stay safe.
 
-suspendGameplay disables the game's InputContext, custom touch commands and
-GuiService.TouchControlsEnabled. Its returned function restores their prior
-values. One suspension covers the nonempty path; root or unmount releases it
-without waiting for exit motion.
+Create the app with `suspendGameplay = true`. While the path is nonempty or
+a modal is open, Facet turns off GuiService.TouchControlsEnabled and
+`UI.environment().gameplaySuspended` is true. Both return when the last one
+closes, without waiting for exit motion. Derive the game's input from it:
+`driving.Enabled = use(inKart) and not use(suspended)` in a `C.watch`.
 This does not pause the clock. Keep saved values and drafts outside pages.
 
 The body owns its layout: use [collection/detail](Tasks.collection-detail.md),

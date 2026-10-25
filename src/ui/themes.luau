@@ -191,6 +191,7 @@ local neutral: ThemeTypes.ThemePackage = {
 		iconSizes = { small = 16, medium = 20, large = 24 },
 		controls = {
 			navigationBack = { swipeEdge = 24 },
+			button = { captionStroke = 1.5, captionStrokeOpacity = 0.7 },
 			tabBottomTrack = { height = 64, sideInset = 16, bottomInset = 12, radius = 20, contentGap = 8 },
 			tabRailTrack = { sideInset = 8, topInset = 8, bottomInset = 8, radius = 16 },
 			tabMark = { width = 20, height = 4, gap = 4, radius = 2 },
@@ -1026,7 +1027,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			ApplyStrokeMode = types.Enum.ApplyStrokeMode.Contextual,
 			Color = c("surface"),
 			Thickness = captionStroke,
-			Transparency = 0.3,
+			Transparency = 1 - (buttonFamily.captionStrokeOpacity or 0.7),
 		}
 		rule("TextLabel.facet-button-outside::UIStroke", halo)
 		rule(".facet-button-outside >> .facet-text::UIStroke", halo)
@@ -1094,7 +1095,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	local art = if selectedLink then (package.assets or {})[selectedLink.asset] else nil
 	local pressedEmphasis = false
 	for _, theme in package.style.themes do
-		local swatch = merge(neutral.style.themes[1].colors, theme.colors)
+		local swatch = merge(support.neutralBase(neutral, theme.colors).colors, theme.colors)
 		local fill, ink = color(types, swatch.accent), color(types, swatch.onAccent)
 		if art and fill and ink and contrast(ink, black) <= contrast(fill, black) then
 			pressedEmphasis = true

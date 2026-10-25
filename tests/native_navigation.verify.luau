@@ -57,6 +57,7 @@ return function(verifyHarness: Verify.Harness)
 			motionLevel: Shared.Value<Shared.MotionLevel>?,
 			runService: boolean?,
 			preRender: boolean?,
+			suspendGameplay: boolean?,
 		}?
 	)
 		local engine = engines.new()
@@ -98,6 +99,7 @@ return function(verifyHarness: Verify.Harness)
 			theme = options and options.theme,
 			pressHaptic = options and options.pressHaptic and options.pressHaptic(engine),
 			motionLevel = options and options.motionLevel,
+			suspendGameplay = options and options.suspendGameplay,
 		})
 		local target = engine.new("Folder")
 		local stop, screen: any = runtime.mount(function()
@@ -614,27 +616,19 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case(
 			"owns gameplay suspension across destination replacement and restores prior input",
 			function()
-				for _, initiallyEnabled in { true, false } do
+				for _, inKart in { true, false } do
 					local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
-					local acquired, released = 0, 0
+					local driving = Compose.cell(inKart)
 					local disposed: { [string]: boolean } = {}
+					local writes = 0
 					local gameplay: InputContext
+					local suspended: Compose.Readable<boolean>
 					local world = setup(function(UI: FacetControls, _Host: RobloxHost, engine)
 						gameplay = (engine.new("InputContext") :: unknown) :: InputContext
-						gameplay.Enabled = initiallyEnabled
-						local hasPage = Compose.formula(function(use: Compose.Use): boolean
-							return #use(path) > 0
-						end)
+						suspended = UI.environment().gameplaySuspended
 						Compose.watch(function(use: Compose.Use)
-							if use(hasPage) then
-								local previous = gameplay.Enabled
-								gameplay.Enabled = false
-								acquired += 1
-								Compose.cleanup(function()
-									gameplay.Enabled = previous
-									released += 1
-								end)
-							end
+							gameplay.Enabled = use(driving) and not use(suspended)
+							writes += 1
 						end)
 						local function destination(name: string): Navigation.NavigationDestination<unknown>
 							return {
@@ -656,34 +650,93 @@ return function(verifyHarness: Verify.Harness)
 							},
 							destinations = { first = destination("first"), second = destination("second") },
 						}
-					end)
-					Verify.expect(gameplay.Enabled):toBe(initiallyEnabled)
+					end, { suspendGameplay = true })
+					Verify.expect(gameplay.Enabled):toBe(inKart)
 					path:set({ { id = "first" } })
 					world.settle()
 					Verify.expect(gameplay.Enabled):toBe(false)
+					Verify.expect(world.gui.TouchControlsEnabled):toBe(false)
+					local before = writes
+					path:set({ { id = "first" }, { id = "second" } })
 					path:set({ { id = "second" } })
-					Verify.expect(disposed.first):toBeNil()
-					Verify.expect(gameplay.Enabled):toBe(false)
+					Verify.expect(writes):toBe(before)
 					world.settle()
 					Verify.expect(disposed.first):toBe(true)
+					driving:set(not inKart)
 					Verify.expect(gameplay.Enabled):toBe(false)
-					Verify.expect(acquired):toBe(1)
-					Verify.expect(released):toBe(0)
 					path:set({})
-					Verify.expect(disposed.second):toBeNil()
-					Verify.expect(gameplay.Enabled):toBe(initiallyEnabled)
-					Verify.expect(released):toBe(1)
+					Verify.expect(gameplay.Enabled):toBe(not inKart)
+					Verify.expect(world.gui.TouchControlsEnabled):toBe(true)
 					world.settle()
 					Verify.expect(disposed.second):toBe(true)
 					path:set({ { id = "first" } })
-					Verify.expect(gameplay.Enabled):toBe(false)
-					Verify.expect(acquired):toBe(2)
+					Verify.expect(suspended:peek()):toBe(true)
 					world.stop()
-					Verify.expect(gameplay.Enabled):toBe(initiallyEnabled)
-					Verify.expect(released):toBe(2)
+					Verify.expect(gameplay.Enabled):toBe(not inKart)
+					Verify.expect(world.gui.TouchControlsEnabled):toBe(true)
 				end
 			end
 		)
+		verifyHarness:case("keeps gameplay suspended until both a page and a Sheet over it close", function()
+			for _, pageFirst in { true, false } do
+				local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
+				local opened = Compose.cell(false)
+				local suspended: Compose.Readable<boolean>
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					suspended = UI.environment().gameplaySuspended
+					return Host.Frame {
+						UI.NavigationStack {
+							path = path,
+							chrome = "hidden",
+							root = {
+								content = function(): Instance
+									return UI.Button { label = "Gameplay" }
+								end,
+							},
+							destinations = {
+								shop = {
+									content = function(): Instance
+										return UI.Button { label = "Shop" }
+									end,
+								},
+							},
+						},
+						UI.Sheet {
+							isPresented = opened,
+							content = function(): Instance
+								return Host.Frame {}
+							end,
+						},
+					}
+				end, { suspendGameplay = true })
+				Verify.expect(suspended:peek()):toBe(false)
+				world.gui.TouchControlsEnabled = false
+				path:set({ { id = "shop" } })
+				world.gui.TouchControlsEnabled = true
+				Verify.expect(world.gui.TouchControlsEnabled):toBe(false)
+				opened:set(true)
+				world.settle()
+				Verify.expect(suspended:peek()):toBe(true)
+				Verify.expect(world.gui.TouchControlsEnabled):toBe(false)
+				if pageFirst then
+					path:set({})
+				else
+					opened:set(false)
+				end
+				world.settle()
+				Verify.expect(suspended:peek()):toBe(true)
+				Verify.expect(world.gui.TouchControlsEnabled):toBe(false)
+				if pageFirst then
+					opened:set(false)
+				else
+					path:set({})
+				end
+				world.settle()
+				Verify.expect(suspended:peek()):toBe(false)
+				Verify.expect(world.gui.TouchControlsEnabled):toBe(true)
+				world.stop()
+			end
+		end)
 		verifyHarness:case("places floating tab tracks and marks inside phone and landscape bounds", {
 			id = "native_navigation::native navigation controls::places floating tab tracks and marks inside phone and landscape bounds",
 			run = function()
@@ -1978,6 +2031,25 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
+		verifyHarness:case("hides touch controls for a radial menu without suspending gameplay", function()
+			local opened = Compose.cell(false)
+			local suspended: Compose.Readable<boolean>
+			local world = setup(function(UI: FacetControls)
+				suspended = UI.environment().gameplaySuspended
+				return UI.RadialMenu({
+					isPresented = opened,
+					items = { { id = "Wave", label = "Wave" } :: FixtureRadialTypes.RadialItem<unknown> },
+				})
+			end, { suspendGameplay = true })
+			opened:set(true)
+			world.settle()
+			Verify.expect(world.gui.TouchControlsEnabled):toBe(false)
+			Verify.expect(suspended:peek()):toBe(false)
+			opened:set(false)
+			world.settle()
+			Verify.expect(world.gui.TouchControlsEnabled):toBe(true)
+			world.stop()
+		end)
 		verifyHarness:case("blocks background shortcuts until the top modal leaves", {
 			id = "native_navigation::native navigation controls::blocks background shortcuts until the top modal leaves",
 			run = function()
@@ -3445,6 +3517,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
 				local asked = 0
+				local rows = Compose.cell(false)
 				local function page(UI: FacetControls, named: boolean): Instance
 					return UI.VStack {
 						UI.NavBar "Header" {
@@ -3487,6 +3560,22 @@ return function(verifyHarness: Verify.Harness)
 									return page(UI, false)
 								end,
 							} :: Navigation.NavigationDestination<unknown>,
+							late = {
+								chrome = "hidden" :: "hidden",
+								content = function(): Instance
+									return UI.VStack {
+										UI.NavBar "Header" {
+											title = "Garage",
+											trailing = UI.Button "Close" { label = "Close" },
+										},
+										UI.VStack "Rows" {
+											Compose.show(rows, function()
+												return UI.Button "Row" { label = "Row" }
+											end),
+										},
+									}
+								end,
+							} :: Navigation.NavigationDestination<unknown>,
 							named = {
 								chrome = "hidden" :: "hidden",
 								initialFocus = function(): string?
@@ -3509,8 +3598,28 @@ return function(verifyHarness: Verify.Harness)
 				world.gui.SelectedObject = find(world.screen, "RootAction")
 				Verify.expect(open("empty")):toBe("Back")
 				Verify.expect(open("missing")):toBe("MissingAction")
-				Verify.expect(open("header")):toBe("Close")
+				Verify.expect(open("header")):toBe("FirstCard")
 				Verify.expect(open("named")):toBe("FirstCard")
+				Verify.expect(open("late")):toBe("Close")
+				rows:set(true)
+				local row = find(world.screen, "Row")
+				world.engine.environment.poke(row, "AbsoluteSize", world.engine.types.Vector2.new(120, 44))
+				world.settle()
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("Row")
+				rows:set(false)
+				Verify.expect(open("header")):toBe("FirstCard")
+				Verify.expect(open("late")):toBe("Close")
+				local moved = world.gui.SelectedObject
+				world.gui.SelectedObject = nil
+				world.gui.SelectedObject = moved
+				rows:set(true)
+				world.engine.environment.poke(
+					find(world.screen, "Row"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(120, 44)
+				)
+				world.settle()
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("Close")
 				Verify.expect(asked):toBe(1)
 				path:set({})
 				world.settle()
@@ -6218,7 +6327,9 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(picker.ClipsDescendants):toBe(false)
 					Verify.expect(picker.CanvasSize):toBe(types.UDim2.fromScale(1, 1))
 					Verify.expect(picker:GetAttribute("FacetOverflow")):toBe(nil)
+					Verify.expect(picker.ScrollBarThickness):toBe(0)
 					poke(layout, "AbsoluteContentSize", V2(world, 466, 44))
+					Verify.expect(picker.ScrollBarThickness):toBe(2)
 					Verify.expect(picker.ScrollingEnabled):toBe(true)
 					Verify.expect(picker.ClipsDescendants):toBe(true)
 					Verify.expect(picker.CanvasSize):toBe(types.UDim2.new(0, 472, 1, 0))
@@ -6238,6 +6349,53 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(picker.ScrollingEnabled):toBe(false)
 					Verify.expect(picker.CanvasSize):toBe(types.UDim2.fromScale(1, 1))
 					Verify.expect(picker:GetAttribute("FacetOverflow")):toBe(nil)
+					world.stop()
+				end,
+			})
+			verifyHarness:case("shows a scroll bar on an overflowing tab bar and hands a vertical drag to the page", {
+				id = "native_navigation::Segmented Picker overflow::shows a scroll bar on an overflowing tab bar and hands a vertical drag to the page",
+				run = function()
+					local world = setup(function(UI)
+						local tabs = {}
+						for _, option in categories do
+							table.insert(
+								tabs,
+								{ id = option.value, label = option.label, content = UI.Text { text = option.label } }
+							)
+						end
+						return UI.ScrollView "Page" {
+							UI.TabView "Shop" { selection = Compose.cell("all"), tabs = tabs },
+						}
+					end)
+					local types = world.engine.types
+					local poke = world.engine.environment.poke
+					local page = find(world.root, "Page")
+					local bar = find(page, "Tabs")
+					poke(page, "AbsoluteWindowSize", V2(world, 401, 300))
+					poke(page, "AbsoluteCanvasSize", V2(world, 401, 900))
+					page.CanvasPosition = V2(world, 0, 100)
+					poke(bar, "AbsoluteSize", V2(world, 401, 50))
+					poke(bar, "AbsoluteWindowSize", V2(world, 401, 50))
+					Verify.expect(bar.ScrollBarThickness):toBe(0)
+					poke(
+						find(bar, "Strip"):FindFirstChildWhichIsA("UIListLayout"),
+						"AbsoluteContentSize",
+						V2(world, 520, 44)
+					)
+					Verify.expect(bar.ScrollBarThickness):toBe(2)
+					local touch = {
+						UserInputType = types.Enum.UserInputType.Touch,
+						UserInputState = types.Enum.UserInputState.Begin,
+						Position = types.Vector3.new(50, 20, 0),
+					}
+					bar.InputBegan:Fire(touch)
+					touch.UserInputState = types.Enum.UserInputState.Change
+					touch.Position = types.Vector3.new(50, 60, 0)
+					world.input.InputChanged:Fire(touch)
+					Verify.expect(bar.ScrollingEnabled):toBe(false)
+					Verify.expect(page.ScrollingEnabled):toBe(true)
+					world.input.InputEnded:Fire(touch)
+					Verify.expect(bar.ScrollingEnabled):toBe(true)
 					world.stop()
 				end,
 			})

@@ -32,6 +32,7 @@ export type AppOptions = {
 	sheet: ThemeTypes.ThemeOptions?,
 	focusRing: boolean?,
 	buttonGuides: Types.Value<boolean>?,
+	suspendGameplay: boolean?,
 }
 export type AnchoredOptions = {
 	source: Overlay.PopoverSource,

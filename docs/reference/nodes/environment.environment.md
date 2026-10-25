@@ -13,6 +13,7 @@ environment keeps the last real size.
 |---|---|
 | `viewportSize`, `viewportWidth`, `viewportHeight` | The viewport: layout units for a `GuiBase2d` source, pixels for a camera. |
 | `topbarInset` | The available top-bar rectangle from `GuiService.TopbarInset`, in screen pixels. |
+| `gameplaySuspended` | True while a modal surface, or with `suspendGameplay` a NavigationStack page, replaces gameplay. Derive gameplay InputContext `Enabled` from it. |
 | `topbarControlDiameter` | The rounded top-bar height times 0.75, or 0.5 when `GuiService:IsTenFootInterface()` is true. Use it for an action beside the Roblox controls. |
 
 | Field | Source and value |

@@ -13,7 +13,7 @@ export type Kit = {
 	keep: (...unknown) -> (),
 	within: (Instance?, Instance) -> boolean,
 	displayed: (Instance) -> boolean,
-	firstSelectable: (Instance, string?) -> GuiObject?,
+	firstSelectable: (Instance, string?, ((Instance) -> boolean)?) -> GuiObject?,
 	attach: Attach,
 	inset: (number, string, string?, ComposeTypes.Use?) -> number,
 	skin: (GuiObject, string?, Nav.PanelSkin?) -> GuiObject,
@@ -97,8 +97,8 @@ return function(ctx: Types.Context, attach: Attach): Kit
 		end
 		return at ~= nil
 	end
-	local function firstSelectable(node: Instance, preferred: string?): GuiObject?
-		if node:IsA("GuiObject") and (not node.Visible or not node.Interactable) then
+	local function firstSelectable(node: Instance, preferred: string?, skip: ((Instance) -> boolean)?): GuiObject?
+		if node:IsA("GuiObject") and (not node.Visible or not node.Interactable) or (skip and skip(node)) then
 			return nil
 		end
 		if
@@ -113,7 +113,7 @@ return function(ctx: Types.Context, attach: Attach): Kit
 			end
 		end
 		for _, child in node:GetChildren() do
-			local found = firstSelectable(child, preferred)
+			local found = firstSelectable(child, preferred, skip)
 			if found then
 				return found
 			end

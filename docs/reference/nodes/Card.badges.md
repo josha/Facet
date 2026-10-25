@@ -16,7 +16,9 @@ corners of the art.
   badge without a `label` needs `icon` and `name`, and it always shows. A
   badge with neither is an error when the Card is made.
 - A text card, without `image` or `artwork`, does not accept `badges`.
-- Keep the labels short, so that the two badges do not touch.
+- When both badges do not fit across the art, the leading badge shows as a
+  dot in its status color and the trailing badge keeps its label. Put the
+  fact that decides the choice, such as the price or Owned, in `trailing`.
 - For a dot or a count on the corner of a Button, use [badged](badged.md).
 
 Do not put Badges in `artwork` with ZStack, Position or ZIndex. Give the item
@@ -39,3 +41,33 @@ local card = UI.Card "Kart" {
 ```
 
 Keep the item state in the game model. Here `owned` holds it.
+
+A shop card carries the decision. The caption says what the item changes,
+and one badge shows the price, a short shortfall or Owned:
+
+```luau
+local coins, owned = Compose.cell(300), Compose.cell(false)
+local card = UI.Card "Engine" {
+    title = "Turbo Engine",
+    image = "rbxassetid://0",
+    caption = "+12 top speed",
+    onActivate = function() print("Open detail") end,
+    badges = {
+        leading = { label = "Rare", status = "accent" },
+        trailing = {
+            label = function(use)
+                return if use(owned) then "Owned" else "450"
+            end,
+            icon = function(use)
+                return if use(owned) then "checkmark" else "coin"
+            end,
+            status = function(use)
+                return if use(owned) then "success"
+                    elseif use(coins) < 450 then "warning" else "neutral"
+            end,
+        },
+    },
+}
+```
+
+A text card has no badges; put the price and its state in the caption.

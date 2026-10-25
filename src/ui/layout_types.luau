@@ -110,6 +110,7 @@ export type Zone =
 	| "bottom"
 	| "bottomRight"
 	| "topbar"
+	| "action"
 export type RegionOptions = {
 	zone: Zone,
 	rank: number,

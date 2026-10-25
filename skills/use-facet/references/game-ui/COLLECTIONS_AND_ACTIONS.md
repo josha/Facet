@@ -7,6 +7,10 @@ Part of [game UI design](../GAME_UI_DESIGN_GUIDE.md).
 Start with how the player recognizes and compares the objects. Show the
 attributes that change the decision, in a consistent order and with common
 units. Keep identity, availability and cost visible before commitment.
+Each shop or collection card answers what the item is, what it costs, whether
+the player can afford it, whether they own it and what it changes. A name and
+a price alone do not let the player choose. Put Buy in the detail or the
+confirmation, not on every card.
 An unavailable object may still help the player plan if its reason and next
 step are clear. Do not make them remember a previous object's facts to compare
 it with the current one.

@@ -45,6 +45,7 @@ export type Environment = {
 	safeInsets: Types.Readable<SafeInsets>,
 	topbarInset: Types.Readable<Rect>,
 	topbarControlDiameter: Types.Readable<number>,
+	gameplaySuspended: Types.Readable<boolean>,
 	preferredTextSize: Types.Readable<string>,
 	reducedMotion: Types.Readable<boolean>,
 	motionLevel: Types.Readable<Types.MotionLevel>,

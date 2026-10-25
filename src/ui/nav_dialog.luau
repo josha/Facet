@@ -164,10 +164,17 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local function widthPx(use: ComposeTypes.Use): number
 					return math.max(0, math.min(parts.width(ctx, spec.width, use), use(extent).X - 2 * margin(use)))
 				end
+				local covering = Compose.cell(false)
+				local function available(use: ComposeTypes.Use): number
+					return math.max(0, use(extent).Y - keyboard(use))
+				end
+				local function padded(use: ComposeTypes.Use): number
+					return surfaces.inset(16, "top", "panel", use) + surfaces.inset(16, "bottom", "panel", use)
+				end
 				local function roomPx(use: ComposeTypes.Use): number
-					local available = math.max(0, use(extent).Y - keyboard(use))
-					local minimum = math.min(ctx.metric("targetSizes.minimum", use), math.max(0, available - 32))
-					return math.max(minimum, available - 4 * margin(use))
+					local minimum = math.min(ctx.metric("targetSizes.minimum", use), math.max(0, available(use) - 32))
+					local chrome = if use(covering) then padded(use) else 4 * margin(use)
+					return math.max(minimum, available(use) - chrome)
 				end
 				local regions: { GuiObject } = {}
 				if spec.hero then
@@ -273,7 +280,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					return use(naturalSize).Y
 				end, function(use: ComposeTypes.Use)
 					return roomPx(use)
-				end, false, unit)
+				end, covering, unit)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local need = use(room.pinned) + use(naturalSize).Y + padded(use)
+					covering:set(need + 2 * ctx.metric("space.xl", use) > available(use))
+				end)
 				if body and spec.contentSelectable ~= false then
 					local scroller = body
 					runtime.decorate(scroller, { Selectable = room.overflowing })
@@ -324,11 +335,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						return D2.new(0.5, 0, 0.5, -keyboard(use) / 2)
 					end,
 					Size = function(use: ComposeTypes.Use)
+						if use(covering) then
+							return D2.fromOffset(use(extent).X, available(use))
+						end
 						local box = use(held)
 						return D2.fromOffset(widthPx(use), if box then math.ceil(box.Y) else 0)
 					end,
 					AutomaticSize = function(use: ComposeTypes.Use)
-						return if use(held) then E.AutomaticSize.None else E.AutomaticSize.Y
+						return if use(held) or use(covering) then E.AutomaticSize.None else E.AutomaticSize.Y
 					end,
 					BackgroundTransparency = 0,
 					BorderSizePixel = 0,
@@ -350,22 +364,25 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					held:set(if use(rested) and shown.travel(use) < 1 then use(sizes[1]) / use(unit) else nil)
 				end)
 				surfaces.skin(panel, "panel", {
+					reserve = function(name: string, use: ComposeTypes.Use): number
+						if not use(covering) or (name ~= "left" and name ~= "right") then
+							return 0
+						end
+						local spare = math.max(0, use(extent).X - widthPx(use))
+						return if name == "left" then math.floor(spare / 2) else spare - math.floor(spare / 2)
+					end,
 					title = spec.title,
 					onCaption = function(on: boolean)
 						plaqued:set(on)
 					end,
 				})
-				local initial: string? = if cancelAction and parts.usable(ctx, cancelAction)
-					then cancelAction.id
-					else nil
-				if initial == nil then
-					for _, action in actions do
-						if action.role ~= "destructive" and parts.usable(ctx, action) then
-							initial = action.id
-							break
-						end
-					end
+				local candidates: { parts.Candidate } = {}
+				for _, action in actions do
+					local candidate: parts.Candidate =
+						{ id = action.id, role = action.role, usable = parts.usable(ctx, action) }
+					table.insert(candidates, candidate)
 				end
+				local initial = parts.initialAction(candidates)
 				Compose.cleanup(function()
 					if disposed or owner.isDisposed() then
 						closing = nil

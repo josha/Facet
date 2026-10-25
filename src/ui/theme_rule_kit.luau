@@ -32,8 +32,9 @@ return function(
 ): RuleKit
 	local color = paint.color
 	local palette = paletteFor(package, selected)
-	local colors = merge(neutral.style.themes[1].colors, palette.colors)
-	local extra = merge(neutral.style.themes[1].extra :: ThemeTypes.PaletteExtra, palette.extra)
+	local base = support.neutralBase(neutral, palette.colors)
+	local colors = merge(base.colors, palette.colors)
+	local extra = merge(base.extra :: ThemeTypes.PaletteExtra, palette.extra)
 	local tokens: { [string]: Color3? }, typefaces: { [string]: Font? } = {}, {}
 	local fallbacks: { [string]: string } = {
 		selection = "accent",

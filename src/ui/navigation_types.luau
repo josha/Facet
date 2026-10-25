@@ -440,6 +440,7 @@ export type ModalOptions = {
 	outsideMargin: number?,
 	canDismiss: Types.ValueBoolean?,
 	onOutside: (() -> ())?,
+	keepsGameplay: boolean?,
 }
 export type OverlayOptions = {
 	parent: (() -> GuiBase2d?)?,
@@ -459,7 +460,8 @@ export type Surfaces = {
 	service: (("GuiService") -> GuiService?) & (("UserInputService") -> UserInputService?),
 	within: (Instance?, Instance) -> boolean,
 	keep: (...unknown) -> (),
-	firstSelectable: (Instance, string?) -> GuiObject?,
+	firstSelectable: (Instance, string?, ((Instance) -> boolean)?) -> GuiObject?,
+	displayed: (Instance) -> boolean,
 	preference: () -> (ComposeTypes.Use) -> number,
 	selecting: () -> (ComposeTypes.Use) -> boolean,
 	attach: <N>(N & Instance, { Types.Child }) -> N & Instance,

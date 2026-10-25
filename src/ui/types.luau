@@ -163,6 +163,7 @@ export type Config = {
 	keyboardNavigation: boolean?,
 	translator: Value<Translator?>?,
 	buttonGuides: Value<boolean>?,
+	suspendGameplay: boolean?,
 }
 export type EnvironmentPreview = {
 	preferredInput: Value<(Enum.PreferredInput | string)?>?,

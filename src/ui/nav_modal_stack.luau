@@ -6,11 +6,10 @@ local scrollLock = require("./scroll_lock")
 local surfaceKit = require("./nav_surface_kit")
 local modalInput = require("./nav_modal_input")
 local glass = require("./glass")
+local gameplayHold = require("./gameplay_hold")
+local entryUpgrade = require("./entry_upgrade")
 
 export type Modal = (() -> GuiObject, (string?) -> (), Nav.ModalOptions?) -> Frame
-local touchControls = (
-	setmetatable({}, { __mode = "k" }) :: unknown
-) :: { [GuiService]: { count: number, enabled: boolean } }
 
 return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -195,32 +194,17 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			})
 		end
 		local released = false
-		local heldTouch: GuiService? = nil
+		local heldTouch: (() -> ())? = nil
 		local function holdTouch()
-			if gui == nil or heldTouch ~= nil then
-				return
+			if heldTouch == nil then
+				heldTouch = gameplayHold.hold(ctx, gui, spec.keepsGameplay ~= true)
 			end
-			local lease = touchControls[gui]
-			if lease == nil then
-				lease = { count = 0, enabled = gui.TouchControlsEnabled }
-				touchControls[gui] = lease
-			end
-			lease.count += 1
-			heldTouch = gui
-			gui.TouchControlsEnabled = false
 		end
 		local function releaseTouch()
-			local service = heldTouch
+			local release = heldTouch
 			heldTouch = nil
-			if service then
-				local lease = touchControls[service]
-				if lease then
-					lease.count -= 1
-					if lease.count == 0 then
-						touchControls[service] = nil
-						service.TouchControlsEnabled = lease.enabled
-					end
-				end
+			if release then
+				release()
 			end
 		end
 		local function entryTarget(): GuiObject?
@@ -341,45 +325,20 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			{ priority = spec.priority or 2000 }
 		)
 		if gui and spec.entry then
-			local guiService: GuiService = gui
-			local entry = spec.entry
-			local descendants = Compose.cell(0)
-			local selection = ctx.observe.SelectedObject(guiService)
-			runtime.connect(panel, "DescendantAdded", function()
-				descendants:set(descendants:peek() + 1)
-			end)
-			Compose.watch(function(use: ComposeTypes.Use)
-				use(descendants)
-				use(selection)
-				local held = use(provisional)
-				if held == nil then
-					return
-				end
-				if guiService.SelectedObject ~= held then
-					provisional:set(nil)
-					return
-				end
-				local scopes = use(ctx.modalScopes)
-				if
-					scopes[#scopes] ~= root
-					or (exiting and use(exiting))
-					or not use(ctx.observe.Interactable(root))
-					or not use(ctx.observe.Interactable(panel))
-				then
-					return
-				end
-				local better = entry()
-				if better and better ~= held then
-					local size = use(ctx.observe.AbsoluteSize(better))
-					local parent = use(ctx.observe.Parent(better))
-					if parent and size.X > 0 and size.Y > 0 and displayed(better) then
-						guiService.SelectedObject = better
-						if guiService.SelectedObject == better then
-							provisional:set(nil)
-						end
-					end
-				end
-			end)
+			entryUpgrade(ctx, {
+				gui = gui,
+				panel = panel,
+				held = provisional,
+				entry = spec.entry,
+				displayed = displayed,
+				ready = function(use: ComposeTypes.Use): boolean
+					local scopes = use(ctx.modalScopes)
+					return scopes[#scopes] == root
+						and not (exiting and use(exiting))
+						and use(ctx.observe.Interactable(root))
+						and use(ctx.observe.Interactable(panel))
+				end,
+			})
 		end
 		if gui then
 			local guiService: GuiService = gui

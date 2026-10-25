@@ -1459,6 +1459,37 @@ return function(verifyHarness: Verify.Harness)
 			stop()
 		end)
 
+		verifyHarness:case(
+			"puts the action zone at the bottom centre when portrait and the bottom right otherwise",
+			function(t)
+				local engine, runtime, UI = make()
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local root: Frame
+				runtime.mount(function()
+					root = UI.Composition "Hud" {
+						gap = 8,
+						padding = 0,
+						topbar = false,
+						UI.Region "Status" { zone = "topLeft", rank = 2, UI.Text { text = "Level 4" } },
+						UI.Region "Go" { zone = "action", rank = 1, UI.Button "Race" { label = "Race" } },
+					}
+					return root
+				end, layer)
+				sized(engine, root:FindFirstChild("Race", true), 160, 56)
+				local go = root:FindFirstChild("Go", true) :: Frame
+				sized(engine, root:FindFirstChild("Zones"), 390, 700)
+				t:expect((go.Parent :: Instance).Name):toBe("Bottom")
+				t:expect(go:GetAttribute("FacetForm")):toBe(1)
+				sized(engine, root:FindFirstChild("Zones"), 844, 390)
+				t:expect((go.Parent :: Instance).Name):toBe("BottomRight")
+				t:expect(go:GetAttribute("FacetForm")):toBe(1)
+				sized(engine, root:FindFirstChild("Zones"), 390, 700)
+				t:expect((go.Parent :: Instance).Name):toBe("Bottom")
+				runtime:dispose()
+			end
+		)
+
 		verifyHarness:case("counts the caption overhang when it fits the bottom row under the zone above", function(t)
 			local resolver = require("../src/ui/composition_resolve")
 			type Declared = resolver.Declared

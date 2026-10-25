@@ -46,4 +46,9 @@ keep the `standard` appearance. A disabled or busy action does not run.
 disposal report `cancel`. A failing callback is raised after the dialog state
 is consistent.
 
+The panel hugs its content. When the content cannot leave `space.xl` clear
+above and below, as on a phone in landscape, the panel fills the safe area and
+keeps its content at the dialog width, so page controls behind it cannot read
+as its own.
+
 Other options:

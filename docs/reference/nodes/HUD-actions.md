@@ -31,11 +31,11 @@ buttons are; `compact` is 36 pixels with a pointer. Composition `padding = "m"`
 
 ## Selection and input
 
-Make only interactive controls selectable. Give each Button a label; a circle
-uses `caption`, a label inside the Button, so the name and the action stay one
-control. Facet outlines the caption in the `surface` color, so it reads over
-a bright sky. A separate Text below the circle is not part of the Button. Set
-`SelectionGroup` on the row. Keep activation in `onActivate`. Sheet, Dialog
+Make only interactive controls selectable. Give each Button a `name`. A
+circle with a familiar glyph, such as a bag for Shop, needs no `caption`; add
+one only when the glyph alone is ambiguous. Do not caption a Button that has a
+`label`. A caption is part of the Button and reads over a bright sky; a
+separate Text is not. Set `SelectionGroup` on the row. Keep activation in `onActivate`. Sheet, Dialog
 and Menu own Back and Cancel.
 
 A Composition is passive: the movement stick and the D-pad drive the game and
@@ -43,7 +43,7 @@ never select a HUD Button. Give each frequent HUD task a game action on a
 gamepad button, and set `shortcutHint` to that action:
 
 ```luau
-UI.Button "Shop" { icon = "view.grid", shape = "circle", caption = "Shop", shortcutHint = shopAction, onActivate = openShop }
+UI.Button "Shop" { icon = "bag", shape = "circle", name = "Shop", shortcutHint = shopAction, onActivate = openShop }
 ```
 
 The Button shows the action's glyph on its rim while the device has a binding

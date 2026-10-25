@@ -5235,6 +5235,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					"bottom",
 					"bottomRight",
 					"topbar",
+					"action",
 				},
 			},
 			{ key = "rank", values = { 1, 2, 3 } },

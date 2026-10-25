@@ -42,7 +42,8 @@ app.mount(function()
 end)
 ```
 
-Show the price, the gain and the balance after. The `default` role gives Buy
-the emphasis and Return. `keepOpen` and `busy` hold the Dialog until the server
-answers; a refusal stays as an error Notice. Alert suits a choice with no server
-reply. See [purchase state](Tasks.purchase.md).
+Show the price, the gain and the balance after. `default` gives Buy the
+emphasis, entry focus and Return. If the balance is short, show the shortfall
+and make the way to earn it `default`; Buy stays enabled for the server.
+`keepOpen` and `busy` hold the Dialog until the server answers; a refusal
+stays as an error Notice. See [purchase state](Tasks.purchase.md).

@@ -7,6 +7,7 @@ local adaptive = require("./adaptive")
 local motion = require("./motion")
 local freeze = require("./freeze")
 local support = require("./theme_support")
+local gameplayHold = require("./gameplay_hold")
 
 type Point = { X: number, Y: number, Z: number }
 type Projector = {
@@ -696,6 +697,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			safeInsets = safeInsets,
 			topbarInset = topbarInset,
 			topbarControlDiameter = topbarControlDiameter,
+			gameplaySuspended = gameplayHold.suspended(ctx),
 			preferredTextSize = preferredTextSize,
 			reducedMotion = derived(function(use): boolean
 				return level(use) ~= "normal"

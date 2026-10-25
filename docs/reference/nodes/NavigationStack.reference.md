@@ -37,14 +37,16 @@ destinations.match = {
 
 When a page opens while a keyboard or gamepad selects controls, the page
 selects its entry control. That is the control that the destination's
-`initialFocus` names, else its first content control. The page selects the
+`initialFocus` names, else its first content control outside a NavBar. The page selects the
 stack Back only when its content has no control, because B already goes
 Back. `initialFocus` is a name, or a function that Facet calls once, with no
 arguments, and that returns a name or nil. Facet selects that control, or
 the first shown and enabled control inside an instance of that name. A page
-that owns its header, such as a NavBar with Close, sets `initialFocus` to its
-body, so the selection does not start on Close. A page that the player
-returns to selects its last control again.
+that owns its header, such as a NavBar with Close, starts on its body. When
+the body has no control yet, the page starts on Close and moves to the first
+body control that mounts later, such as a collection row, while the player
+has not moved the selection. A page that the player returns to selects its
+last control again.
 
 The navigation bar title is inset on both sides by the control's horizontal
 padding (`controlSizes.regular.paddingX`), so a root page's leading title

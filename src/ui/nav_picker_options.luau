@@ -634,7 +634,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		if scrolls then
 			local scrollable: Types.ScrollingFrameNativeProps = {
 				ScrollingDirection = E.ScrollingDirection.X,
-				ScrollBarThickness = 0,
+				HorizontalScrollBarInset = E.ScrollBarInset.None,
 				Selectable = false,
 				AutomaticCanvasSize = E.AutomaticSize.None,
 			}
@@ -742,6 +742,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			if fields.ScrollingEnabled == nil then
 				scrolling.ScrollingEnabled = function(use: ComposeTypes.Use): boolean
 					return use(spills)
+				end
+			end
+			if fields.ScrollBarThickness == nil then
+				scrolling.ScrollBarThickness = function(use: ComposeTypes.Use): number
+					return if use(spills) then segmentMetrics.inset - 1 else 0
 				end
 			end
 			if fields.ClipsDescendants == nil then

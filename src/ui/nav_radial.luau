@@ -140,6 +140,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					end,
 					back,
 					{
+						keepsGameplay = true,
 						appearance = function(use: ComposeTypes.Use?): number
 							return 1 - if use then paint.transparency(use) else 0
 						end,
