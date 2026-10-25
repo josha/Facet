@@ -4,7 +4,7 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Tile = { id: string }
-type Cells = { set: (Cells, { Tile }) -> (), peek: (Cells) -> { Tile } }
+type Cells = typeof(require("@repo/tools/typecheck/aliases").ComposeModule.cell({} :: { Tile }))
 type Live = {
 	mount: ((FacetControls, RobloxHost, ComposeModule) -> Instance, { frames: number? }) -> Instance,
 	settle: (number) -> (),
