@@ -920,11 +920,16 @@ return function(verifyHarness: Verify.Harness)
 						"AbsoluteSize",
 						world.engine.types.Vector2.new(width / 4 - 4, 44)
 					)
+					world.engine.environment.poke(
+						find(button, "Content"),
+						"AbsoluteSize",
+						world.engine.types.Vector2.new(width / 4 - 4, 44)
+					)
 					local title = find(button, "Title")
-					Verify.expect(title.Size.X.Scale):toBe(1)
+					Verify.expect(title.Size.X.Scale):toBe(0)
 					Verify.expect(title.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.None)
 					Verify.expect(title.TextTruncate):toBe(world.engine.types.Enum.TextTruncate.AtEnd)
-					Verify.expect(width / 4 - 4 + title.Size.X.Offset > 0):toBe(true)
+					Verify.expect(title.Size.X.Offset > 0 and title.Size.X.Offset < width / 4 - 4):toBe(true)
 					world.stop()
 				end
 			end,
