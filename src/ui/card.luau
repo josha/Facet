@@ -259,21 +259,18 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				Host.UIPadding({ PaddingLeft = gap, PaddingRight = gap, PaddingTop = gap, PaddingBottom = gap }),
 			}
 			local paired = badges.leading ~= nil and badges.trailing ~= nil
-			if paired then
-				layerProps[#layerProps + 1] = Host.UIListLayout({
-					FillDirection = E.FillDirection.Horizontal,
-					Wraps = true,
-					HorizontalFlex = E.UIFlexAlignment.SpaceBetween,
-					SortOrder = E.SortOrder.LayoutOrder,
-					Padding = gap,
-				})
-			end
-			local function corner(name: string, badge: Content.CardBadge?, order: number)
+			local widths: { [string]: ComposeTypes.Cell<number> } =
+				{ Leading = Compose.cell(0), Trailing = Compose.cell(0) }
+			local fits = Compose.cell(true)
+			local function corner(name: string, badge: Content.CardBadge?, x: number)
 				if badge == nil then
 					return
 				end
 				local label = badge.label
 				local last = ""
+				local shown = function(use: ComposeTypes.Use): boolean
+					return label == nil or nonempty(read(label, use))
+				end
 				local props: MediaProps.BadgeProps = {
 					label = function(use: ComposeTypes.Use): string?
 						local value = read(label, use)
@@ -285,26 +282,61 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					status = badge.status,
 					icon = badge.icon,
 					name = badge.name,
+					Visible = if name == "Leading" then fits else nil,
 				}
 				local holder: Types.FrameNativeProps = {
 					Name = name,
 					BackgroundTransparency = 1,
-					LayoutOrder = order,
-					AnchorPoint = ctx.types.Vector2.new(order - 1, 0),
-					Position = D2.fromScale(order - 1, 0),
+					AnchorPoint = ctx.types.Vector2.new(x, 0),
+					Position = D2.fromScale(x, 0),
 					Size = D2.fromOffset(0, 0),
 					AutomaticSize = E.AutomaticSize.XY,
-					Compose.show(function(use: ComposeTypes.Use): boolean
-						return label == nil or nonempty(read(label, use))
-					end, function()
-						return UI.Badge(props)
+					Compose.show(shown, function()
+						local pill = UI.Badge(props)
+						local size = ctx.observe.AbsoluteSize(pill)
+						Compose.watch(function(use: ComposeTypes.Use)
+							widths[name]:set(use(size).X)
+						end)
+						Compose.cleanup(function()
+							widths[name]:set(0)
+						end)
+						return pill
 					end) :: Types.Child,
 				}
+				if paired and name == "Leading" then
+					holder[#holder + 1] = Compose.show(function(use: ComposeTypes.Use): boolean
+						return shown(use) and not use(fits)
+					end, function()
+						return Host.Frame "Dot" {
+							BackgroundTransparency = 1,
+							Size = function(use: ComposeTypes.Use): UDim2
+								return D2.fromOffset(10, ctx.controlSize(nil, "iconSize", use) + 4)
+							end,
+							UI.StatusIndicator "Mark" {
+								status = badge.status,
+								name = badge.name or last,
+								diameter = 10,
+								AnchorPoint = ctx.types.Vector2.new(0.5, 0.5),
+								Position = D2.fromScale(0.5, 0.5),
+							},
+						}
+					end) :: Types.Child
+				end
 				layerProps[#layerProps + 1] = Host.Frame(holder)
 			end
-			corner("Leading", badges.leading, 1)
-			corner("Trailing", badges.trailing, 2)
-			badgeLayer = Host.Frame(layerProps)
+			corner("Leading", badges.leading, 0)
+			corner("Trailing", badges.trailing, 1)
+			local badgeArea = Host.Frame(layerProps)
+			if paired then
+				local area, unit = ctx.observe.AbsoluteSize(badgeArea), ctx.layoutUnit(badgeArea)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local leading, trailing = use(widths.Leading), use(widths.Trailing)
+					local room = use(area).X
+					local need = leading + trailing + 3 * ctx.metric("space.s", use) * use(unit)
+					fits:set(leading <= 0 or trailing <= 0 or room <= 0 or need <= room)
+				end)
+			end
+			badgeLayer = badgeArea
 		end
 		local artwork = Host.ImageLabel({
 			Name = "Artwork",
