@@ -39,7 +39,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end
 		return value :: T
 	end
-	ctx.read = (read :: unknown) :: Shared.Read
+	ctx.read = read
 	ctx.readSource = function<T>(source: ComposeTypes.Readable<T>, use: ComposeTypes.Use?): T
 		return if use then use(source) else source:peek()
 	end

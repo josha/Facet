@@ -15,6 +15,40 @@ export type Model = {
 	truncate: (text: string, size: number, limit: number, lines: number, mode: string, wrapped: boolean) -> number?,
 }
 
+local ACCENTED = {}
+for _, letter in
+	{
+		"é",
+		"á",
+		"í",
+		"ó",
+		"ú",
+		"ñ",
+		"ü",
+		"ö",
+		"ä",
+		"ç",
+		"è",
+		"à",
+		"ê",
+		"ô",
+		"ë",
+		"ß",
+		"É",
+		"ð",
+		"ĝ",
+		"ş",
+		"Ş",
+		"ţ",
+	}
+do
+	ACCENTED[letter] = true
+end
+
+local function letter(token: string): boolean
+	return token:match "%a" ~= nil or ACCENTED[token] == true
+end
+
 local function create(face: Face): Model
 	local indices: { [string]: number } = {}
 	local sequences: { [string]: { string } } = {}
@@ -53,22 +87,21 @@ local function create(face: Face): Model
 				end
 			end
 			if token == nil then
-				error("unsupported_text_metrics: character at byte " .. cursor, 0)
+				local ok, code = pcall(utf8.codepoint, text, cursor)
+				error(
+					string.format(
+						"unsupported_text_metrics: character U+%04X at byte %d",
+						if ok then code else string.byte(text, cursor),
+						cursor
+					),
+					0
+				)
 			end
 			local matched = assert(token)
-			if
-				matched == "-"
-				and (
-					string.find(string.sub(text, cursor + 1, cursor + 1), "^[^%w%s]")
-					or (cursor > 1 and string.find(string.sub(text, cursor - 1, cursor - 1), "^[^%w%s]"))
-				)
-			then
-				error("unsupported_text_metrics: hyphen beside punctuation at byte " .. cursor, 0)
-			end
 			local index = indices[matched]
 			first = first or index
 			total += row.advances[index]
-			local startsLatin = not latin and matched:match "%a" ~= nil
+			local startsLatin = not latin and letter(matched)
 			if startsLatin and previous and row.starts then
 				latinBoundary = row.starts[index] + (if row.ends then row.ends[previous] else 0)
 			end
@@ -86,7 +119,7 @@ local function create(face: Face): Model
 			+ (if first and row.starts then row.starts[first] else 0)
 			+ latinBoundary
 			+ (if previous and row.ends then row.ends[previous] else 0)
-			- (if previous and row.starts and face.tokens[previous]:match "%a" then row.starts[previous] else 0)
+			- (if previous and row.starts and letter(face.tokens[previous]) then row.starts[previous] else 0)
 	end
 	local function width(text: string, size: number): number
 		return math.ceil(exact(text, size))

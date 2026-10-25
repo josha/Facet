@@ -63,6 +63,9 @@ return function<V>(
 	local buttons: { [string]: TextButton } = {}
 	local ringFits: ComposeTypes.Cell<{ [string]: { ring: number, inner: number, outer: number } }> = Compose.cell({})
 	local fittedWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
+	local function iconSide(use: ComposeTypes.Use): number
+		return if spec.iconSize ~= nil then read(spec.iconSize, use) else ctx.controlSize(nil, "iconSize", use)
+	end
 	local function iconic(use: ComposeTypes.Use, live: Radial.Sector<V>): boolean
 		if live.list then
 			return false
@@ -253,6 +256,21 @@ return function<V>(
 								or read(live.item.checked, use) == true
 								or (live.item.selected ~= nil and read(live.item.selected, use) == live.item.value)
 						end
+						local function box(use: ComposeTypes.Use, live: Radial.Sector<V>): (number, number)
+							if appearance == "buttons" then
+								local diameter = math.max(
+									44,
+									live.size,
+									if iconic(use, live)
+										then 0
+										else (use(wordWidths)[live.key] or 0) + captionPadding(use)
+								)
+								return diameter, diameter
+							end
+							local iconOnly = iconic(use, live)
+							local bounds = geometry.labelBounds(use(fittedShape) or live, if iconOnly then 160 else 40)
+							return if iconOnly then bounds.h else bounds.w, bounds.h
+						end
 						local button = UI.Button({
 							Name = sector.id,
 							corners = if appearance == "buttons" then "pill" :: "pill" else nil,
@@ -310,18 +328,8 @@ return function<V>(
 								if live.list then
 									return D2.new(1, -8, 0, 44)
 								end
-								if appearance == "buttons" then
-									local diameter = math.max(
-										44,
-										live.size,
-										if iconic(use, live)
-											then 0
-											else (use(wordWidths)[live.key] or 0) + captionPadding(use)
-									)
-									return D2.fromOffset(diameter, diameter)
-								end
-								local bounds = geometry.labelBounds(use(fittedShape) or live, 40)
-								return D2.fromOffset(if iconic(use, live) then bounds.h else bounds.w, bounds.h)
+								local width, height = box(use, live)
+								return D2.fromOffset(width, height)
 							end,
 							TextWrapped = false,
 							enabled = function(use: ComposeTypes.Use)
@@ -356,6 +364,17 @@ return function<V>(
 								Visible = function(use: ComposeTypes.Use)
 									local live = currentSector(use)
 									return live.list or iconic(use, live)
+								end,
+								Size = function(use: ComposeTypes.Use): UDim2
+									local live = currentSector(use)
+									local theme = ctx.controlSize(nil, "iconSize", use)
+									if live.list or not iconic(use, live) then
+										return D2.fromOffset(theme, theme)
+									end
+									local width, height = box(use, live)
+									local room = math.min(width, height)
+									local side = math.min(iconSide(use), math.max(room - 4, theme))
+									return D2.fromOffset(side, side)
 								end,
 							})
 						end
@@ -462,7 +481,7 @@ return function<V>(
 							local text = use(measured)
 							local label = geometry.labelBounds(live, 40)
 							local iconOnly = iconic(use, live)
-							local iconSize = ctx.controlSize(nil, "iconSize", use)
+							local iconSize = iconSide(use) + 8
 							local fitted = geometry.fitContent(
 								live,
 								if iconOnly

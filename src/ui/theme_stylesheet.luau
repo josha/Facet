@@ -58,7 +58,7 @@ return function(
 		end
 	end
 	local function textRank(value: unknown): number
-		local name = if typeof(value) == "EnumItem" then (value :: EnumItem).Name else value
+		local name = if typeof(value) == "EnumItem" then value.Name else value
 		return ({ Medium = 0, Large = 1, Larger = 2, Largest = 3 } :: { [unknown]: number })[name] or 0
 	end
 	local textRules = (
@@ -199,7 +199,7 @@ return function(
 		if snaps(use) or explicit == false then
 			seconds = 0
 		elseif explicit ~= nil then
-			return explicit :: TweenInfo
+			return explicit
 		elseif role == "normal" then
 			seconds = normal
 		else
@@ -370,13 +370,11 @@ return function(
 	}
 	local mounted: { [string]: MountedRule } = {}
 	type ByTiming = { [string]: { [string]: string } }
-	local transitionTables = (
-		setmetatable({} :: { [ThemeTypes.RuleProperties]: ByTiming }, { __mode = "k" }) :: unknown
-	) :: { [ThemeTypes.RuleProperties]: ByTiming }
+	local transitionTables = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: ByTiming }
 	local function transitionsFor(properties: ThemeTypes.RuleProperties, timing: string): { [string]: string }
 		local byTiming = transitionTables[properties]
 		if byTiming == nil then
-			local fresh = (setmetatable({} :: ByTiming, { __mode = "k" }) :: unknown) :: ByTiming
+			local fresh = (setmetatable({}, { __mode = "k" }) :: unknown) :: ByTiming
 			byTiming = fresh
 			transitionTables[properties] = fresh
 		end
@@ -395,16 +393,14 @@ return function(
 			byTiming[timing] = built
 			transitions = built
 		end
-		return transitions :: { [string]: string }
+		return transitions
 	end
 	type Known = { [ThemeTypes.RuleProperties]: boolean }
-	local comparisons = (
-		setmetatable({} :: { [ThemeTypes.RuleProperties]: Known }, { __mode = "k" }) :: unknown
-	) :: { [ThemeTypes.RuleProperties]: Known }
+	local comparisons = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: Known }
 	local function sameRuleProperties(left: ThemeTypes.RuleProperties, right: ThemeTypes.RuleProperties): boolean
 		local known = comparisons[left]
 		if known == nil then
-			known = (setmetatable({} :: Known, { __mode = "k" }) :: unknown) :: Known
+			known = (setmetatable({}, { __mode = "k" }) :: unknown) :: Known
 			comparisons[left] = known
 		end
 		local same = known[right]
@@ -412,7 +408,7 @@ return function(
 			same = sameProperties(left, right)
 			known[right] = same
 		end
-		return same :: boolean
+		return same
 	end
 	local function apply(record: MountedRule, definition: NativeRule)
 		if record.priority ~= definition.priority then

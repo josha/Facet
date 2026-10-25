@@ -49,7 +49,7 @@ local function isColor(value: unknown): boolean
 	end
 	for _, channel in { "r", "g", "b" } do
 		local component = (value :: { [string]: unknown })[channel]
-		if type(component) ~= "number" or not ((component :: number) >= 0 and (component :: number) <= 1) then
+		if type(component) ~= "number" or not (component >= 0 and component <= 1) then
 			return false
 		end
 	end
@@ -128,7 +128,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 	local function define(
 		inputDefinition: ThemeTypes.ThemeDefinition | ThemeTypes.ThemePackage
 	): (ThemeTypes.ThemePackage?, ThemeTypes.ThemeReport)
-		local definition = (inputDefinition :: unknown) :: ThemeTypes.ThemeDefinition
+		local definition = inputDefinition :: ThemeTypes.ThemeDefinition
 		local errors: { ThemeTypes.ThemeIssue } = {}
 		local seen: { [unknown]: boolean } = {}
 		local function validate(value: unknown, path: string)
@@ -178,7 +178,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		if #errors > 0 then
 			return nil, { ok = false, errors = errors, missing = {}, contrast = {} }
 		end
-		local typography = (package.metrics.typography :: unknown) :: { [string]: unknown }
+		local typography = package.metrics.typography :: { [string]: unknown }
 		local definedMetrics = (definition :: { metrics: unknown? }).metrics
 		local authored: { [string]: unknown } = if type(definedMetrics) == "table"
 				and type((definedMetrics :: { typography: unknown? }).typography) == "table"
@@ -233,11 +233,11 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				entry.size = resolved[entry.size]
 			end
 		end
-		local space = (package.metrics :: { space: unknown }).space
+		local space = package.metrics.space
 		if type(space) ~= "table" then
 			table.insert(errors, { field = "metrics.space", message = "Spacing steps must be a table of pixel sizes" })
 		else
-			for step, pixels in space :: { [unknown]: unknown } do
+			for step, pixels in space do
 				if type(step) ~= "string" or type(pixels) ~= "number" or pixels < 0 then
 					table.insert(errors, {
 						field = "metrics.space." .. tostring(step),
@@ -251,7 +251,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		if xsmall ~= nil then
 			for _, field in { "height", "paddingX", "iconSize" } do
 				local value = if type(xsmall) == "table" then (xsmall :: { [string]: unknown })[field] else nil
-				if type(value) ~= "number" or (value :: number) < 0 then
+				if type(value) ~= "number" or value < 0 then
 					table.insert(errors, {
 						field = "metrics.controlSizes.xsmall." .. field,
 						message = "The xsmall rung needs a height, a paddingX and an iconSize of 0 or more",
@@ -259,7 +259,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				end
 			end
 		end
-		local targets = (package.metrics :: { targetSizes: unknown }).targetSizes
+		local targets = package.metrics.targetSizes
 		local sizes: { [string]: unknown } = if type(targets) == "table" then targets :: { [string]: unknown } else {}
 		local minimum = sizes.minimum
 		for _, name in { "pointer", "inline" } do
@@ -276,10 +276,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		end
 		for _, name in { "thumb", "thumbLarge" } do
 			local value = sizes[name]
-			if
-				value ~= nil
-				and (type(value) ~= "number" or (type(minimum) == "number" and (value :: number) < (minimum :: number)))
-			then
+			if value ~= nil and (type(value) ~= "number" or (type(minimum) == "number" and value < minimum)) then
 				table.insert(errors, {
 					field = "metrics.targetSizes." .. name,
 					message = `targetSizes.{name} must be a number of pixels, at least targetSizes.minimum`,
@@ -294,12 +291,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				table.insert(errors, { field = "metrics.motion." .. path, message = message })
 			end
 			local function number(path: string, value: unknown, low: number, high: number, open: boolean?)
-				if
-					type(value) ~= "number"
-					or (value :: number) > high
-					or (value :: number) < low
-					or (open == true and value == low)
-				then
+				if type(value) ~= "number" or value > high or value < low or (open == true and value == low) then
 					issue(path, `must be a number from {low} to {high}{if open then ", above " .. low else ""}`)
 				end
 			end
@@ -370,7 +362,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				end
 			end)
 			each("styles", function(path: string, value: unknown)
-				if type(value) ~= "string" or EASING_STYLES[value :: string] == nil then
+				if type(value) ~= "string" or EASING_STYLES[value] == nil then
 					issue(path, "must name an Enum.EasingStyle item")
 				end
 			end)
@@ -405,7 +397,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			if tint ~= nil then
 				for _, channel in { "r", "g", "b" } do
 					local amount = if type(tint) == "table" then tint[channel] else nil
-					if type(amount) ~= "number" or (amount :: number) < 0 or (amount :: number) > 1 then
+					if type(amount) ~= "number" or amount < 0 or amount > 1 then
 						table.insert(
 							errors,
 							{ field = path .. ".tint", message = "Art tint needs r, g and b from 0 to 1" }
@@ -510,7 +502,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 						)
 					end
 				end
-				local extra = (merge(base.extra or {}, palette.extra or {}) :: unknown) :: { [string]: ThemeTypes.RGB? }
+				local extra = merge(base.extra or {}, palette.extra or {}) :: { [string]: ThemeTypes.RGB? }
 				local selectedFill = extra.controlSelected
 				local selectedLabel = extra.onSelected or colors.content
 				if type(selectedFill) == "table" and type(selectedLabel) == "table" then

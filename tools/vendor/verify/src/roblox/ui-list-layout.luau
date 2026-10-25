@@ -278,15 +278,6 @@ local function measure(
 			if main - gaps > available then
 				error("unsupported_ui_layout: " .. list:GetFullName() .. " requires overflowing list spacing", 0)
 			end
-			local leading = if horizontal then "Left" else "Top"
-			if mainAlignment ~= leading and not wrapped then
-				error(
-					"unsupported_ui_layout: "
-						.. list:GetFullName()
-						.. " requires list spacing with non-leading alignment",
-					0
-				)
-			end
 			cursor = 0
 			local spaces = if mainFlex == "SpaceBetween"
 				then #items - 1

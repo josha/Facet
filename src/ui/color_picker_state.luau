@@ -69,7 +69,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 		refuse("`allowEmpty` is true or false.")
 	end
 	local allowEmpty = spec.allowEmpty == true
-	local initial: unknown = read(spec.value)
+	local initial: Color3? = read(spec.value)
 	if not (isColor(initial) or (initial == nil and allowEmpty)) then
 		refuse("`value` is a Color3 (or a readable one); nil only with `allowEmpty = true`.")
 	end
@@ -159,7 +159,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 	kit.chrome.check("ColorPicker", spec)
 	local labelled = spec.label ~= nil
 
-	local diagnostics = Compose.cell({} :: { string })
+	local diagnostics: Cell<{ string }> = Compose.cell({})
 	local function note(line: string)
 		local list = diagnostics:peek()
 		if list[#list] ~= line then
@@ -174,11 +174,11 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 	local function legalColor(value: unknown): boolean
 		return isColor(value) or (value == nil and allowEmpty)
 	end
-	local held = Compose.cell(initial :: Color3?)
+	local held = Compose.cell(initial)
 	Compose.watch(function(use: Use)
-		local value: unknown = read(spec.value, use)
+		local value: Color3? = read(spec.value, use)
 		if legalColor(value) then
-			held:set(value :: Color3?)
+			held:set(value)
 		else
 			note(
 				`Facet UI.ColorPicker: \`value\` {if allowEmpty then "is a Color3 or nil" else "is a Color3"}; keeping the last legal value`
@@ -218,7 +218,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 		return not disposed and interactive()
 	end
 
-	local canon = Compose.cell(color.hsvOf((initial :: Color3?) or kit.WHITE))
+	local canon = Compose.cell(color.hsvOf(initial or kit.WHITE))
 	local snapshot: { value: Color3?, alpha: number, canon: Hsv } =
 		{ value = held:peek(), alpha = alphaHeld:peek(), canon = canon:peek() }
 	local function takeSnapshot()
@@ -248,16 +248,16 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 
 	local function change(next: Color3?)
 		if spec.onChange then
-			((spec.onChange :: unknown) :: (Color3?) -> ())(next)
+			(spec.onChange :: (Color3?) -> ())(next)
 		elseif writable(spec.value) then
-			((spec.value :: unknown) :: ComposeTypes.Cell<Color3?>):set(next)
+			(spec.value :: ComposeTypes.Cell<Color3?>):set(next)
 		end
 	end
 	local function changeAlpha(next: number)
 		if spec.onAlphaChange then
 			spec.onAlphaChange(next)
 		elseif writable(spec.alpha) then
-			((spec.alpha :: unknown) :: ComposeTypes.Cell<number>):set(next)
+			(spec.alpha :: ComposeTypes.Cell<number>):set(next)
 		end
 	end
 	local function current(): Color3?
@@ -389,7 +389,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 			spec.onPresentedChange(next)
 		elseif spec.isPresented ~= nil then
 			if writable(spec.isPresented) then
-				((spec.isPresented :: unknown) :: ComposeTypes.Cell<boolean>):set(next)
+				(spec.isPresented :: ComposeTypes.Cell<boolean>):set(next)
 			end
 		else
 			ownOpen:set(next)

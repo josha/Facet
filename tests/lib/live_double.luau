@@ -94,6 +94,15 @@ local function open(check: Verify.Context, suites: { string }, sources: { [strin
 		return "verify-engine-double"
 	end
 	local storage = engine.service("ReplicatedStorage")
+	for _, suite in suites do
+		local suiteSource = Lute.fixture.host.readFile(`tools/studio/live/suites/{suite}.luau`)
+		if
+			string.find(suiteSource, "FacetShowcaseAPI", 1, true) or string.find(suiteSource, "FacetGallery", 1, true)
+		then
+			runtime.runScript(assert(storage:FindFirstChild("Gallery")), "client")
+			break
+		end
+	end
 	return { bridge = bridge, engine = engine, runtime = runtime, storage = storage }
 end
 

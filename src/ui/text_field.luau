@@ -164,7 +164,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			)
 		end
 		assert(
-			spec.step == nil or (finite(spec.step) and (spec.step :: number) > 0),
+			spec.step == nil or (finite(spec.step) and spec.step > 0),
 			`Facet.{control}: step must be finite and above zero`
 		)
 		assert(
@@ -199,7 +199,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			if word ~= "none" and word ~= "all" and word ~= "end" then
 				error(`Facet UI.{control}: selectOnFocus: one of none | all | end (got {tostring(word)})`, 0)
 			end
-			return word :: InputTypes.SelectOnFocus
+			return word
 		end
 		lastPolicy = policyOf(read(spec.selectOnFocus))
 
@@ -610,7 +610,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 				name = "Clear",
 				icon = "close",
 				appearance = "utility",
-				shape = "circle" :: "circle",
+				shape = "circle",
 				Size = function(use: ComposeTypes.Use): UDim2
 					local side = math.max(36, use(textHeight) + 12) - 8
 					return D2.fromOffset(side, side)
@@ -620,7 +620,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 						local floor = touchFloor(use)
 						return V2.new(floor, floor)
 					end,
-				} :: Shared.Child,
+				},
 				AnchorPoint = if framed then nil else V2.new(1, 0.5),
 				Position = if framed then nil else D2.fromScale(1, 0.5),
 				LayoutOrder = if framed then 40 else nil,
@@ -648,10 +648,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 		local root: TextBox | Frame = node
 		local keyboard = ctx.config.userInputService
 		if keyboard then
-			local scrolling = (UI :: unknown) :: {
-				scrollTo: ((ScrollingFrame, Vector2) -> boolean)?,
-				scrollToVisible: ((GuiObject, Environment.ScrollRect?, Environment.ScrollOptions?) -> boolean)?,
-			}
+			local scrolling = UI
 			local shown = ctx.observe.OnScreenKeyboardVisible(keyboard)
 			local positionObserver = (ctx.observe :: unknown) :: {
 				OnScreenKeyboardPosition: (UserInputService) -> ComposeTypes.Cell<Vector2>,
@@ -732,7 +729,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 						local size = ctx.metric("typography.body.size", use)
 						return D2.new(0, 0, 0, math.ceil(lines * size * 1.2) + 12)
 					end,
-				}, { node :: ComposeTypes.Child })
+				}, { node })
 				local viewport = editor :: ScrollingFrame
 				local caret = ctx.observe.CursorPosition(node)
 				local drawn = ctx.observe.TextBounds(node)
@@ -813,7 +810,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 					PaddingRight = carved(spec, 10, "right"),
 					PaddingTop = carved(spec, 4, "top"),
 					PaddingBottom = carved(spec, 4, "bottom"),
-				}) :: ComposeTypes.Child,
+				}),
 			})
 			local layout = assert(plate:FindFirstChildWhichIsA("UIListLayout"))
 			layout.VerticalAlignment = E.VerticalAlignment.Center
@@ -995,7 +992,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			attributes(node, {
 				selectOnFocus = function(use: ComposeTypes.Use): string
 					local ok, policy = pcall(policyOf, read(spec.selectOnFocus, use))
-					return if ok then policy :: string else lastPolicy
+					return if ok then policy else lastPolicy
 				end,
 			})
 		end
@@ -1067,7 +1064,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 					if active == nil or type(argument) ~= "number" then
 						return false
 					end
-					local travel = argument :: number
+					local travel = argument
 					local count = math.floor(math.abs(travel) / SCRUB_PIXELS) * (if travel < 0 then -1 else 1)
 					local number = stepped(active.start, count)
 					if number ~= numericValue:peek() then
@@ -1120,7 +1117,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			Compose.cleanup(textPress({
 				box = node,
 				input = input,
-				Enum = (E :: unknown) :: typeof(Enum),
+				Enum = E :: typeof(Enum),
 				policy = function(): string?
 					return lastPolicy
 				end,
@@ -1151,7 +1148,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 	local textInput = ctx.construct("TextInput", function(spec: Spec): TextBox | Frame
 		return build("TextInput", spec)
 	end)
-	UI.TextInput = (textInput :: unknown) :: typeof(UI.TextInput)
+	UI.TextInput = textInput :: typeof(UI.TextInput)
 	local numberInput = ctx.construct("NumberInput", function(spec: Spec): TextBox | Frame
 		if spec.presentation ~= nil then
 			error("Facet UI.NumberInput: NumberInput IS the number presentation; remove presentation", 0)

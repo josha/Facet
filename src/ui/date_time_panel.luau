@@ -203,7 +203,7 @@ return function(
 			Name = "Calendar",
 			Size = if overlay then nil else D2.new(1, 0, 0, 0),
 			AutomaticSize = if overlay then E.AutomaticSize.Y else E.AutomaticSize.Y,
-			ctx.padding(16, 16) :: Shared.Child,
+			ctx.padding(16, 16),
 		})
 		assert(panel:FindFirstChildWhichIsA("UIListLayout")).Padding = D.new(0, 12)
 

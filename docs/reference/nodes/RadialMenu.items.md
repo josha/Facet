@@ -9,7 +9,7 @@ generic constructor overload.
 
 `isPresented`, `label`, `launcher`, `preset`, `distribution`, `navigation`,
 `expansion`, `center`, `centerLabel`, `centerContent`, `centerPassThrough`,
-`anchor`, `follow`, `clearance`, `ringWidth`, `contentFit`, `gestureSelection`,
+`anchor`, `follow`, `clearance`, `ringWidth`, `iconSize`, `contentFit`, `gestureSelection`,
 `holdAction`, `enabled`, `scrim`, `onOpen` and `onClose`.
 
 The launcher is a round `more` button whose accessible name is

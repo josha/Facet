@@ -62,16 +62,16 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		return function(use: ComposeTypes.Use): Types.Padding
 			local value = read(padding, use)
 			local given: { [string]: unknown } = if type(value) == "table"
-				then value :: { [string]: unknown }
+				then value
 				else { top = value, right = value, bottom = value, left = value }
 			local pixels: { [string]: number } = {}
 			for _, name in SIDES do
 				local side = given[name]
 				if typeof(side) == "UDim" then
-					if (side :: UDim).Scale ~= 0 then
+					if side.Scale ~= 0 then
 						return value
 					end
-					pixels[name] = (side :: UDim).Offset
+					pixels[name] = side.Offset
 				else
 					pixels[name] = kit.spacing(side :: Types.Space?, use)
 				end
@@ -133,10 +133,10 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		end
 		local flow: Types.Flow = spec
 		if (metric ~= nil or corners ~= nil) and spec.padding ~= nil then
-			flow = table.clone(spec) :: Types.Flow
+			flow = table.clone(spec)
 			flow.padding = clearCorners(spec.padding, bend)
 		end
-		local frame = kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, vertical)
+		local frame = kit.stack(children, properties :: Engine.FrameNativeProps, flow, vertical)
 		if box then
 			local measured, size = box, ctx.layoutSize(frame, ctx.layoutUnit(frame, "CornerUnit"))
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -234,8 +234,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			width = spec.width,
 			height = spec.height,
 		}
-		local frame =
-			kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, true, "fill", "fill")
+		local frame = kit.stack(children, properties :: Engine.FrameNativeProps, flow, true, "fill", "fill")
 		kit.underTopbar(frame, under)
 		if plate then
 			glass.backdrop(ctx, frame, plate, CORNERS[spec.surface or ""], spec.surface == "panel")
@@ -700,7 +699,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		if holder == nil or not holder:IsA("ScrollingFrame") then
 			return false
 		end
-		local direction = (holder :: ScrollingFrame).ScrollingDirection
+		local direction = holder.ScrollingDirection
 		return direction == E.ScrollingDirection.XY
 			or direction == (if horizontal then E.ScrollingDirection.X else E.ScrollingDirection.Y)
 	end
@@ -747,7 +746,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			local vertical: Types.Value<boolean> = if Compose.isReadable(axis) or type(axis) == "function"
 				then column
 				else column(nil)
-			return kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, vertical)
+			return kit.stack(children, properties :: Engine.FrameNativeProps, flow, vertical)
 		end
 		local vertical = Compose.cell(false)
 		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Vector2> }
@@ -889,14 +888,14 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		}
 		local region = Compose.boundary(function()
 			failed:set(nil)
-			return (spec.view() :: unknown) :: ComposeTypes.Node
+			return spec.view() :: ComposeTypes.Node
 		end, function(failure: unknown, retry: () -> ())
 			failed:set(tostring(failure))
 			local report: ((unknown) -> ())? = spec.onError or ctx.config.onError
 			if report then
 				report(failure)
 			end
-			return (spec.fallback(failure, retry) :: unknown) :: ComposeTypes.Node
+			return spec.fallback(failure, retry) :: ComposeTypes.Node
 		end)
 		local root = kit.plain(Host.Frame(kit.assemble(native, properties, {}, { region })), properties)
 		Compose.watch(function(use: ComposeTypes.Use)

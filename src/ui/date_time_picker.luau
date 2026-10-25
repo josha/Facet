@@ -100,7 +100,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			})
 			local size = ctx.observe.AbsoluteSize(root)
 			Compose.watch(function(use: Use)
-				local measured = use(size) :: Vector2
+				local measured = use(size)
 				room:set(measured.X)
 			end)
 		else
@@ -144,12 +144,12 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				diagnostics = function(use: Use): number
 					return #use(diagnostics)
 				end,
-			} :: Shared.Attributes,
+			},
 		})
 		root:AddTag("facet-date-time-picker")
 		return root
 	end
 
 	local constructor = ctx.construct("DateTimePicker", build)
-	UI.DateTimePicker = (constructor :: unknown) :: Shared.Constructor<Spec, Frame>
+	UI.DateTimePicker = constructor
 end

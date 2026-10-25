@@ -180,7 +180,7 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 		validateProperty = validator,
 		defaultProperty = settings.defaultProperty,
 		handlerErrors = settings.handlerErrors,
-		computed = computed,
+		computed = table.freeze(computed),
 		undeclaredWrites = settings.undeclaredWrites,
 		undeclaredReads = settings.undeclaredReads,
 		functionDoubles = settings.functionDoubles,

@@ -89,21 +89,21 @@ local function new(ctx: Shared.Context): Kit
 		return Host.Frame(name)({
 			Size = D2.fromOffset(RING, RING),
 			BackgroundTransparency = 1,
-			ctx.corner(RING) :: Shared.Child,
+			ctx.corner(RING),
 			stroke(BLACK, 1),
 			Host.Frame "Band" {
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = D2.fromScale(0.5, 0.5),
 				Size = D2.new(1, -2, 1, -2),
 				BackgroundTransparency = 1,
-				ctx.corner(RING) :: Shared.Child,
+				ctx.corner(RING),
 				stroke(WHITE, 3),
 				Host.Frame "Inner" {
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = D2.fromScale(0.5, 0.5),
 					Size = D2.new(1, -6, 1, -6),
 					BackgroundTransparency = 1,
-					ctx.corner(RING) :: Shared.Child,
+					ctx.corner(RING),
 					stroke(BLACK, 1),
 				},
 			},
@@ -149,7 +149,7 @@ local function new(ctx: Shared.Context): Kit
 					local p = paint(use)
 					return if p.color ~= nil and p.alpha >= 1 then 0 else 1
 				end,
-				ctx.corner() :: Shared.Child,
+				ctx.corner(),
 				Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),
 				ctx.Compose.show(function(use: Use): boolean
 					local p = paint(use)

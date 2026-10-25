@@ -105,9 +105,9 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			end
 			return derive(function(use)
 				local value: unknown = pick(use)
-				local extra = if room and use then (use(room) :: Room)[name] elseif room then room:peek()[name] else 0
+				local extra = if room and use then use(room)[name] elseif room then room:peek()[name] else 0
 				if typeof(value) == "UDim" then
-					local given = value :: UDim
+					local given = value
 					return if extra > 0 then types.UDim.new(given.Scale, given.Offset + extra) else given
 				end
 				return types.UDim.new(0, kit.spacing(value :: Shared.Space?, use) + extra)
@@ -127,7 +127,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				if child:IsA("GuiObject") and child.Visible then
 					for _, item in child:GetChildren() do
 						if item:IsA("UIShadow") and item.Enabled then
-							local shadow = item :: UIShadow
+							local shadow = item
 							local blur = shadow.BlurRadius.Offset
 							local ox, oy = shadow.Offset.X.Offset, shadow.Offset.Y.Offset
 							local sx, sy = shadow.Spread.X.Offset, shadow.Spread.Y.Offset
@@ -373,8 +373,8 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 						for at, node in slot do
 							if node:IsA("GuiObject") then
 								local order = base + (own[node] or at)
-								stamped[node] = order;
-								(node :: GuiObject).LayoutOrder = order
+								stamped[node] = order
+								node.LayoutOrder = order
 							end
 						end
 					end
@@ -402,19 +402,19 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							local gui = node :: Instance
 							table.insert(slot, at or #slot + 1, gui)
 							if gui:IsA("GuiObject") then
-								local authored = (gui :: GuiObject).LayoutOrder
+								local authored = gui.LayoutOrder
 								if authored ~= 0 then
 									own[gui] = authored
 								end
 								watches[gui] = gui:GetPropertyChangedSignal("LayoutOrder"):Connect(function()
-									local order = (gui :: GuiObject).LayoutOrder
+									local order = gui.LayoutOrder
 									if order ~= stamped[gui] then
 										own[gui] = order
 										restamp()
 									end
 								end)
 								if place then
-									place(gui :: GuiObject, index)
+									place(gui, index)
 								end
 							end
 							restamp()
@@ -462,7 +462,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				fields[#fields + 1] = helper
 			end
 		end
-		for key, value in ((properties or {}) :: unknown) :: { [unknown]: unknown } do
+		for key, value in (properties or {}) :: { [unknown]: unknown } do
 			if type(key) == "number" then
 				fields[#fields + 1] = value
 			else
@@ -496,7 +496,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			AutomaticSize = automatic,
 		}
 		local room: ComposeTypes.Cell<Room>? = if flow.padding ~= nil
-			then Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 } :: Room)
+			then Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 })
 			else nil
 		local column = if live(vertical) then nil else read(vertical) == true
 		local across: unknown = if column == nil
@@ -844,7 +844,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				lift(0)
 			end
 			if child:IsA("GuiObject") then
-				unliftable[child :: GuiObject] = nil
+				unliftable[child] = nil
 			end
 			extentMatch.forget(state, child)
 			schedule()
@@ -853,7 +853,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			if watched[child] or not child:IsA("GuiObject") then
 				return
 			end
-			local node = child :: GuiObject
+			local node = child
 			if floors[node] == nil then
 				floors[node] = Compose.withOwner(owner, function(): (number) -> boolean
 					return kit.lifter(node, axis)

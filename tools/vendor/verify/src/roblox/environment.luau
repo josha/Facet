@@ -87,6 +87,9 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 	end
 	local newObject: (className: string, props: { [unknown]: unknown }?, isRoot: boolean, engineOwned: boolean?) -> Instance
 
+	type ComputedLookup = { get: ((object: Instance) -> unknown)?, writable: boolean }
+	local computedLookups: { [string]: { [string]: ComputedLookup } } = {}
+
 	local function defineClass<P, M>(className: string, spec: ClassSpec<P, M>, defineOptions: DefineOptions?)
 		if type(className) ~= "string" or className == "" then
 			error("class name must be a non-empty string", 2)
@@ -96,6 +99,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		end
 		specs[className] = (spec :: unknown) :: ClassSpec
 		table.clear(resolved)
+		table.clear(computedLookups)
 	end
 
 	if settings.builtins ~= false then
@@ -340,11 +344,11 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		return ("%s %q"):format(state.className, tostring(state.values.Name))
 	end
 
-	local function computedEntry(className: string, key: string): (((object: Instance) -> unknown)?, boolean)
-		local getters = settings.computed
-		if getters == nil or (next(getters) == nil and metatableOf(getters) == nil) then
-			return nil, false
-		end
+	local function lookupComputed(
+		getters: { [string]: Computed },
+		className: string,
+		key: string
+	): (((object: Instance) -> unknown)?, boolean)
 		local walk: string? = className
 		while walk ~= nil do
 			local entry = getters[walk .. "." .. key]
@@ -358,6 +362,27 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			walk = if spec ~= nil then spec.super else nil
 		end
 		return nil, false
+	end
+	local function computedEntry(className: string, key: string): (((object: Instance) -> unknown)?, boolean)
+		local getters = settings.computed
+		if getters == nil or (next(getters) == nil and metatableOf(getters) == nil) then
+			return nil, false
+		end
+		if not table.isfrozen(getters) then
+			return lookupComputed(getters, className, key)
+		end
+		local byKey = computedLookups[className]
+		if byKey == nil then
+			byKey = {}
+			computedLookups[className] = byKey
+		end
+		local found = byKey[key]
+		if found == nil then
+			local get, writable = lookupComputed(getters, className, key)
+			found = { get = get, writable = writable }
+			byKey[key] = found
+		end
+		return found.get, found.writable
 	end
 	local function computedFor(className: string, key: string): ((object: Instance) -> unknown)?
 		local getter = computedEntry(className, key)
