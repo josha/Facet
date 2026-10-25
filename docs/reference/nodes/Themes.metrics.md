@@ -29,8 +29,9 @@ Optional theme metrics for tabs, control sizes, targets and shortcuts.
   packages that also target main. The native ShortcutHint draws each chord as
   one label, so it has no gap between caps to set.
 - `controls.button.captionStroke`: a number of pixels for the outline of a
-  Button `caption` and of the rim hint of a circle Button. Without it, the
-  outline is 1.5 pixels. A value of 0 draws no outline.
+  Button `caption` and of the rim hint of a circle Button. The neutral value
+  is 1.5 pixels, and it scales at ten feet. A value of 0 draws no outline.
+  `controls.button.captionStrokeOpacity` (0.7) sets its opacity.
 
 StyleSheet rules own ordinary paint. Explicit Instance properties override
 native styling intentionally. Give the same theme package readable to

@@ -32,8 +32,16 @@ return function(
 ): RuleKit
 	local color = paint.color
 	local palette = paletteFor(package, selected)
-	local colors = merge(neutral.style.themes[1].colors, palette.colors)
-	local extra = merge(neutral.style.themes[1].extra :: ThemeTypes.PaletteExtra, palette.extra)
+	local surface = if palette.colors then palette.colors.surface else nil
+	local light = surface ~= nil and 0.2126 * surface.r + 0.7152 * surface.g + 0.0722 * surface.b > 0.5
+	local base = neutral.style.themes[1]
+	for _, entry in neutral.style.themes do
+		if light and entry.name == "Light" then
+			base = entry
+		end
+	end
+	local colors = merge(base.colors, palette.colors)
+	local extra = merge(base.extra :: ThemeTypes.PaletteExtra, palette.extra)
 	local tokens: { [string]: Color3? }, typefaces: { [string]: Font? } = {}, {}
 	local fallbacks: { [string]: string } = {
 		selection = "accent",

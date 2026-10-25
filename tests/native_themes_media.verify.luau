@@ -106,6 +106,13 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native themes and media", function()
+		verifyHarness:case("scales the caption outline at ten feet and keeps its opacity", function()
+			local package = themes.neutralPackage()
+			local far = themes.forDistance(package, "ten-foot").metrics.controls.button
+			local near = package.metrics.controls.button
+			Verify.expect(far.captionStroke):toBeGreaterThan(near.captionStroke)
+			Verify.expect(far.captionStrokeOpacity):toBe(near.captionStrokeOpacity)
+		end)
 		verifyHarness:case("ten-foot text never drops below the console reading floors", {
 			id = "native_themes_media::ten-foot-text-floors",
 			run = function()
@@ -2696,6 +2703,15 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(unset.controlPressed):toBeNil()
 					Verify.expect(paint(untouched, ".facet-button:Hover")):toBe(color(h.engine, neutralDark.hover))
 					Verify.expect(paint(untouched, ".facet-button:Press")):toBe(color(h.engine, neutralDark.pressed))
+
+					local undefined = themes.neutralPackage()
+					local sand = assert(undefined.style.themes[1])
+					sand.colors.surface = rgb(240, 232, 214)
+					local sandExtra = assert(sand.extra)
+					sandExtra.controlHover = nil
+					sandExtra.controlPressed = nil
+					Verify.expect(paint(undefined, ".facet-button:Hover")):toBe(color(h.engine, neutralLight.hover))
+					Verify.expect(paint(undefined, ".facet-button:Press")):toBe(color(h.engine, neutralLight.pressed))
 					h.dispose()
 				end,
 			})
