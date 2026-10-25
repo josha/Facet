@@ -94,7 +94,8 @@ return function<V, K>(
 			wireSelection(child, key)
 		end
 	end
-	local recycling = spec.slots == nil
+	local recycling = spec.recycle ~= false
+		and spec.slots == nil
 		and tree == nil
 		and editor == nil
 		and spec.rowActions == nil

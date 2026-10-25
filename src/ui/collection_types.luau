@@ -61,6 +61,7 @@ export type ReorderOptions<V, K> = {
 export type Activate<V, K> = (item: V, key: K, input: InputObject?, clickCount: number?) -> ()
 export type CollectionOptions<V, K> = {
 	from: Types.Value<{ V }>,
+	recycle: boolean?,
 	slots: Types.Value<{ K }>?,
 	slotControls: SlotControls<K>?,
 	render: RowRender<V, K>?,
@@ -202,6 +203,7 @@ export type TableOptions<V, K> = {
 	scrolls: boolean?,
 	mode: ComposeTypes.OrderedCollectionMode?,
 	snap: ("none" | "item")?,
+	recycle: boolean?,
 }
 export type ReorderShape<V, K> = SelectionOptions<V, K> & ReorderOptions<V, K>
 export type CollectionShape<V, K> =

@@ -51,6 +51,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		"contentOverflow",
 		"mode",
 		"snap",
+		"recycle",
 		"reducedMotion",
 		"direction",
 		"itemSize",
