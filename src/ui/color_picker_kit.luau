@@ -175,17 +175,18 @@ local function new(ctx: Shared.Context): Kit
 						},
 					}
 				end),
-				Host.Frame "Empty" {
-					AnchorPoint = V2.new(0.5, 0.5),
-					Position = D2.fromScale(0.5, 0.5),
-					Size = D2.new(1, 0, 0, 1),
-					Rotation = -45,
-					BorderSizePixel = 0,
-					BackgroundColor3 = MUTED,
-					Visible = function(use: Use)
-						return paint(use).color == nil
-					end,
-				},
+				ctx.Compose.show(function(use: Use): boolean
+					return paint(use).color == nil
+				end, function(): Frame
+					return Host.Frame "Empty" {
+						AnchorPoint = V2.new(0.5, 0.5),
+						Position = D2.fromScale(0.5, 0.5),
+						Size = D2.new(1, 0, 0, 1),
+						Rotation = -45,
+						BorderSizePixel = 0,
+						BackgroundColor3 = MUTED,
+					}
+				end),
 			}),
 			"color-swatch"
 		)
