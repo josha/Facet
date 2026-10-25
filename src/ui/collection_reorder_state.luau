@@ -95,6 +95,7 @@ export type Reorder<V, K> = {
 	commitLocal: ({ K }, number) -> (),
 	commit: (...unknown) -> (),
 	movePointer: (Vector2) -> (),
+	setPointerSlot: ((Vector2) -> number?) -> (),
 	step: (number, boolean?) -> (),
 	chosen: (ComposeTypes.Use?, boolean?, boolean?) -> { K },
 	canDelete: (ComposeTypes.Use?) -> boolean,
@@ -129,6 +130,9 @@ return function<V, K>(
 	local collectionId = spec.collectionId or source
 	local rowNodes: { [K]: Frame } = {}
 	local stopLocal: () -> () = function() end
+	local pointerSlot: (Vector2) -> number? = function()
+		return nil
+	end
 	local deletable = spec.deletable == true
 	local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if ctx.config.userInputService
 		then ctx.observe.PreferredInput(ctx.config.userInputService)
@@ -504,37 +508,19 @@ return function<V, K>(
 		if move == nil then
 			return
 		end
-		local body = bodyOf()
-		local offset = alongBody(body, position) + axis(body.CanvasPosition)
-		local across = crossAxis(position - body.AbsolutePosition) / scaleOf(body) + crossAxis(body.CanvasPosition)
-		local low, high = 1, #move.rows + 1
-		while low < high do
-			local middle = math.floor((low + high) / 2)
-			local at = assert(controls.placementOf)(middle)
-			local crossed = if grid
-				then offset >= at.offset + at.size
-					or (
-						offset >= at.offset
-						and offset < at.offset + at.size
-						and across >= at.crossOffset + at.crossSize / 2
-					)
-				else offset >= at.offset + at.size / 2
-			if crossed then
-				low = middle + 1
-			else
-				high = middle
-			end
-		end
-		local nextMove, slot = table.clone(move), 0
-		for index = 1, low - 1 do
-			if not move.included[keyOf(move.rows[index], index)] then
-				slot += 1
-			end
-		end
-		nextMove.slot = slot
+		local nextMove = table.clone(move)
 		nextMove.pointer = position
 		moving:set(nextMove)
 		drag.update(position)
+		local session, live = drag.state:peek(), moving:peek()
+		if session and session.target ~= bodyOf() and live then
+			local slot = pointerSlot(position)
+			if slot and live.slot ~= slot then
+				local next = table.clone(live)
+				next.slot = slot
+				moving:set(next)
+			end
+		end
 	end
 	local function step(delta: number, along: boolean?): ()
 		local current = moving:peek()
@@ -731,6 +717,9 @@ return function<V, K>(
 		commitLocal = commitLocal,
 		commit = commit,
 		movePointer = movePointer,
+		setPointerSlot = function(slotAt: (Vector2) -> number?)
+			pointerSlot = slotAt
+		end,
 		step = step,
 		chosen = chosen,
 		canDelete = canDelete,
