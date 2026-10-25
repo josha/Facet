@@ -24,7 +24,7 @@ return function(ctx: Shared.Context): Selection
 	local E = ctx.types.Enum
 	local gui = config.guiService
 	local input = config.userInputService
-	local responders = Compose.cell({} :: { Record })
+	local responders: ComposeTypes.Cell<{ Record }> = Compose.cell({})
 	local keyboardNavigation = if config.keyboardNavigation == nil
 		then KEYBOARD_NAVIGATION_DEFAULT
 		else config.keyboardNavigation
@@ -523,7 +523,7 @@ return function(ctx: Shared.Context): Selection
 			return true
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
-			local current = use(selectedObject) :: GuiObject?
+			local current = use(selectedObject)
 			if current and current:IsA("ScrollingFrame") and shown(current) and forward(current) then
 				return
 			end
@@ -553,7 +553,7 @@ return function(ctx: Shared.Context): Selection
 					Name = "Enter",
 					Type = E.InputActionType.Direction2D,
 					StateChanged = function(value: unknown)
-						if typeof(value) == "Vector2" and (value :: Vector2).Magnitude >= 0.5 then
+						if typeof(value) == "Vector2" and value.Magnitude >= 0.5 then
 							enter()
 						end
 					end,
@@ -564,7 +564,7 @@ return function(ctx: Shared.Context): Selection
 				if not keyboardNavigation or use(keyboard) ~= true then
 					return false
 				end
-				local current = use(selectedObject) :: Instance?
+				local current = use(selectedObject)
 				if current ~= nil then
 					if ownedByFacet(current) then
 						return true
@@ -652,8 +652,8 @@ return function(ctx: Shared.Context): Selection
 			"Facet UI.responder expects a GuiObject or a LayerCollector"
 		)
 		local settings: Env.ResponderOptions = options or {}
-		for key, value in (settings :: unknown) :: { [unknown]: unknown } do
-			assert(RESPONDER_KEYS[key :: string] == true, `Facet UI.responder: unknown option '{tostring(key)}'`)
+		for key, value in settings :: { [string]: boolean } do
+			assert(RESPONDER_KEYS[key] == true, `Facet UI.responder: unknown option '{tostring(key)}'`)
 			assert(type(value) == "boolean", `Facet UI.responder: {tostring(key)} must be a boolean`)
 		end
 		local passive = settings.passive ~= false
@@ -695,7 +695,7 @@ return function(ctx: Shared.Context): Selection
 		if passive and gui and gui.GetPropertyChangedSignal then
 			local selected = ctx.observe.SelectedObject(gui)
 			Compose.watch(function(use: ComposeTypes.Use)
-				local current = use(selected) :: Instance?
+				local current = use(selected)
 				if current == nil then
 					return
 				end

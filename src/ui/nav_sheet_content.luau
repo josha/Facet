@@ -101,7 +101,7 @@ return function(
 					)
 				end
 				local content = current.content
-				local node: Instance = if type(content) == "function" then content() else content :: Instance
+				local node: Instance = if type(content) == "function" then content() else content
 				if node:IsA("GuiObject") then
 					runtime.decorate(node, { LayoutOrder = 1 })
 				end
@@ -160,7 +160,7 @@ return function(
 				)
 			elseif spec.header ~= false then
 				local custom = spec.header
-				local node: Instance = if type(custom) == "function" then custom() else custom :: Instance
+				local node: Instance = if type(custom) == "function" then custom() else custom
 				if node:IsA("GuiObject") then
 					surfaces.attach(node, { Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) })
 				end
@@ -211,9 +211,7 @@ return function(
 		local bodyLayout = Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder })
 		local bodyPadding = contentPadding()
 		local bodyChildren: { Types.Child } = { bodyLayout }
-		local content: Instance = if type(spec.content) == "function"
-			then (spec.content :: () -> Instance)()
-			else spec.content :: Instance
+		local content: Instance = if type(spec.content) == "function" then spec.content() else spec.content
 		local scrollViewport: Frame? = nil
 		local bodyContent = content
 		if content:IsA("GuiObject") and content.Size.Y.Scale > 0 then
@@ -251,7 +249,7 @@ return function(
 			ClipsDescendants = true,
 			Selectable = false,
 			SelectionGroup = false,
-			flex :: Instance,
+			flex,
 		}
 		local body = parts.scroller(ctx, bodyProps, bodyChildren, { name = "SheetFlow" })
 		if scrollViewport then
@@ -322,7 +320,7 @@ return function(
 				action.onActivate()
 			end
 		end
-		local actions = spec.actions or {}
+		local actions: { Overlay.Action } = spec.actions or {}
 		if #actions > 0 then
 			local region = parts.actions(ctx, UI, actions, spec.actionLayout, function(use: ComposeTypes.Use)
 				return math.max(0, use(panelWidth) - pad("left", use) - pad("right", use))
@@ -339,7 +337,7 @@ return function(
 				spec.guideAlignment == nil or spec.guideAlignment == "start" or spec.guideAlignment == "end",
 				"Facet.Sheet: guideAlignment must be start or end"
 			)
-			local options = (table.clone(spec.guide) :: unknown) :: { [unknown]: unknown }
+			local options = table.clone(spec.guide) :: { [unknown]: unknown }
 			for key in options do
 				assert(
 					type(key) ~= "string" or string.match(key, "^%u") == nil,
@@ -347,8 +345,8 @@ return function(
 				)
 			end
 			options.Name = "ButtonGuide"
-			local guide = UI.ButtonGuide((options :: unknown) :: InputProps.ButtonGuideProps)
-			local visible = (ctx.observe.Visible(guide) :: unknown) :: ComposeTypes.Readable<unknown>
+			local guide = UI.ButtonGuide(options :: InputProps.ButtonGuideProps)
+			local visible = ctx.observe.Visible(guide)
 			local present = Compose.formula(function(use: ComposeTypes.Use): boolean
 				return use(visible) == true
 			end)
@@ -469,7 +467,7 @@ return function(
 				end
 			end
 			local candidates: { parts.Candidate } = {}
-			for _, action in actions :: { Overlay.Action } do
+			for _, action in actions do
 				local candidate: parts.Candidate = { id = action.id, role = action.role, usable = usable(action) }
 				table.insert(candidates, candidate)
 			end

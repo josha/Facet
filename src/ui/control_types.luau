@@ -19,6 +19,10 @@ local EffectProps = require("./effect_props")
 local ZoomTravelProps = require("./zoom_travel_props")
 local DiegeticTypes = require("./diegetic_types")
 
+local commandControls: Commands.Controls
+local effectControls: Effects.Controls
+local environmentControls: Env.EnvironmentControls
+
 type Constructor<P, N> = Shared.Constructor<P, N>
 
 type PickerShapes =
@@ -109,9 +113,9 @@ export type Controls = {
 	DiegeticScreen: Constructor<DiegeticTypes.DiegeticScreenProps, Folder>,
 	Timer: Constructor<HudProps.TimerProps, TextLabel>,
 	Typewriter: Constructor<HudProps.TypewriterProps, TextLabel>,
-	commandScope: typeof(((nil :: unknown) :: Commands.Controls).commandScope),
-	sequence: typeof(((nil :: unknown) :: Effects.Controls).sequence),
-	countUp: typeof(((nil :: unknown) :: Effects.Controls).countUp),
+	commandScope: typeof(commandControls.commandScope),
+	sequence: typeof(effectControls.sequence),
+	countUp: typeof(effectControls.countUp),
 	Flash: Constructor<EffectProps.FlashProps, Frame>,
 	ZoomView: Constructor<ZoomTravelProps.ZoomViewProps, ScrollingFrame>,
 	Travel: Constructor<ZoomTravelProps.TravelProps, Frame>,
@@ -185,21 +189,21 @@ export type Controls = {
 	Toast: Constructor<OverlayProps.ToastSpec, Frame>,
 	DateTimePicker: Constructor<InputProps.DateTimePickerProps, Frame>,
 	ColorPicker: Constructor<InputProps.ColorPickerProps, Frame>,
-	environment: typeof(((nil :: unknown) :: Env.EnvironmentControls).environment),
-	focusRing: typeof(((nil :: unknown) :: Env.EnvironmentControls).focusRing),
-	focusSection: typeof(((nil :: unknown) :: Env.EnvironmentControls).focusSection),
-	responder: typeof(((nil :: unknown) :: Env.EnvironmentControls).responder),
+	environment: typeof(environmentControls.environment),
+	focusRing: typeof(environmentControls.focusRing),
+	focusSection: typeof(environmentControls.focusSection),
+	responder: typeof(environmentControls.responder),
 	adjustable: (node: GuiObject, options: Inputs.AdjustableOptions) -> (),
 	feedback: (kind: Inputs.HapticKind) -> (),
-	gestureArbiter: typeof(((nil :: unknown) :: Env.EnvironmentControls).gestureArbiter),
-	draggable: typeof(((nil :: unknown) :: Env.EnvironmentControls).draggable),
-	dropTarget: typeof(((nil :: unknown) :: Env.EnvironmentControls).dropTarget),
-	worldAnchor: typeof(((nil :: unknown) :: Env.EnvironmentControls).worldAnchor),
-	scrollTo: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollTo),
-	scrollToVisible: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollToVisible),
+	gestureArbiter: typeof(environmentControls.gestureArbiter),
+	draggable: typeof(environmentControls.draggable),
+	dropTarget: typeof(environmentControls.dropTarget),
+	worldAnchor: typeof(environmentControls.worldAnchor),
+	scrollTo: typeof(environmentControls.scrollTo),
+	scrollToVisible: typeof(environmentControls.scrollToVisible),
 }
 export type BuilderControls = {
-	scrollTo: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollTo),
+	scrollTo: typeof(environmentControls.scrollTo),
 	DiegeticScreen: Constructor<DiegeticTypes.DiegeticScreenProps, Folder>,
 	Button: Constructor<InputProps.ButtonProps, TextButton>,
 	Toggle: Constructor<InputProps.ToggleProps, TextButton>,

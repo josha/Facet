@@ -192,7 +192,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				Padding = function(use: ComposeTypes.Use)
 					return D.new(0, if use(sheeted) then 8 else 0)
 				end,
-			}) :: Types.Child,
+			}),
 			Compose.show(function()
 				return spec.query ~= nil
 			end, function()
@@ -237,7 +237,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				PaddingRight = function(use: ComposeTypes.Use)
 					return D.new(0, if use(sheeted) then 8 else ctx.metric("space.xs", use))
 				end,
-			}) :: Types.Child,
+			}),
 		}
 		if closeCommand ~= nil and closeCommand ~= false then
 			surfaces.attach(rows, {
@@ -325,7 +325,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			surfaces.attach(panel, {
 				Host.UIGradient "PresentationFade" {
 					Transparency = function(use: ComposeTypes.Use)
-						return ctx.types.NumberSequence.new(1 - (shown :: Nav.Presence).opacity(use))
+						return ctx.types.NumberSequence.new(1 - shown.opacity(use))
 					end,
 				},
 			})
@@ -422,9 +422,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local extent = ctx.observe.AbsoluteSize(modal)
 		local origin = ctx.observe.AbsolutePosition(modal)
 		local input = surfaces.service("UserInputService")
-		local preferred = if input
-			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
-			else Compose.cell(nil :: Enum.PreferredInput?)
+		local preferred = if input then ctx.observe.PreferredInput(input) else Compose.cell(nil :: Enum.PreferredInput?)
 		local surface = ctx.observe.Parent(modal)
 		local asSheet = Compose.formula(function(use: ComposeTypes.Use)
 			local presentation = read(spec.presentation, use)
@@ -466,7 +464,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				return 0, 0, 0, 0
 			end
 			local ok, topLeft, bottomRight = pcall(function(): (Vector2, Vector2)
-				return (guiService :: GuiService):GetGuiInset()
+				return guiService:GetGuiInset()
 			end)
 			if ok and typeof(topLeft) == "Vector2" and typeof(bottomRight) == "Vector2" then
 				return topLeft.X, topLeft.Y, bottomRight.X, bottomRight.Y
@@ -702,7 +700,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end
 		Compose.cleanup(stopSettling)
 		Compose.watch(function(use: ComposeTypes.Use)
-			local content = use(laidOut) :: Vector2?
+			local content = use(laidOut)
 			local level = table.concat(use(path), "/") .. "@" .. tostring(if content then content.Y else 0)
 			if centered == level then
 				return
@@ -739,16 +737,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						sibling ~= row
 						and sibling:IsA("GuiObject")
 						and sibling.Visible
-						and sibling.LayoutOrder < (row :: GuiObject).LayoutOrder
+						and sibling.LayoutOrder < row.LayoutOrder
 					then
 						offset += sibling.AbsoluteSize.Y + gap
 					end
 				end
-				return math.clamp(
-					offset + (row :: GuiObject).AbsoluteSize.Y / 2 - window / 2,
-					0,
-					math.max(0, canvas - window)
-				)
+				return math.clamp(offset + row.AbsoluteSize.Y / 2 - window / 2, 0, math.max(0, canvas - window))
 			end
 			local first = target()
 			if first == nil then
@@ -840,11 +834,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 									local _, top, _, bottom = insets(use)
 									return V2.new(280, math.max(44, use(extent).Y - top - bottom - 16))
 								end,
-							} :: Types.Child,
+							},
 							Host.UIListLayout({
 								FillDirection = E.FillDirection.Vertical,
 								SortOrder = E.SortOrder.LayoutOrder,
-							}) :: Types.Child,
+							}),
 							Host.UIPadding({
 								PaddingTop = function(use: ComposeTypes.Use)
 									return D.new(0, ctx.metric("space.xs", use))
@@ -858,7 +852,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 								PaddingRight = function(use: ComposeTypes.Use)
 									return D.new(0, ctx.metric("space.xs", use))
 								end,
-							}) :: Types.Child,
+							}),
 							Compose.keyed({
 								from = function(use: ComposeTypes.Use)
 									return use(source).items

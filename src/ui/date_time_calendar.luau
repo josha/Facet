@@ -323,8 +323,8 @@ return function(
 			Selectable = function(use: Use)
 				return interactive(use) and not use(outside)
 			end,
-			NextSelectionUp = (up :: unknown) :: Shared.Value<GuiObject?>,
-			NextSelectionDown = (down :: unknown) :: Shared.Value<GuiObject?>,
+			NextSelectionUp = up,
+			NextSelectionDown = down,
 			onActivate = function()
 				if swallowTap then
 					swallowTap = false
@@ -335,12 +335,12 @@ return function(
 			Host.Frame "Layers" {
 				BackgroundTransparency = 1,
 				Size = D2.fromScale(1, 1),
-				band :: Shared.Child,
-				cap :: Shared.Child,
-				disc :: Shared.Child,
-				ring :: Shared.Child,
-				number :: Shared.Child,
-				strike :: Shared.Child,
+				band,
+				cap,
+				disc,
+				ring,
+				number,
+				strike,
 			},
 		})
 		cell:AddTag("facet-calendar-day")
@@ -480,18 +480,15 @@ return function(
 		turn("CalendarPreviousMonth", -1, { E.KeyCode.ButtonL1, E.KeyCode.Comma })
 		turn("CalendarNextMonth", 1, { E.KeyCode.ButtonR1, E.KeyCode.Period })
 		if gui then
-			local last: unknown = selected:peek()
+			local last: GuiObject? = selected:peek()
 			Compose.watch(function(use: Use)
 				local now = use(selected)
-				local entering = now ~= nil
-					and cellIndex[(now :: unknown) :: Instance] ~= nil
-					and last ~= nil
-					and cellIndex[(last :: unknown) :: Instance] == nil
+				local entering = now ~= nil and cellIndex[now] ~= nil and last ~= nil and cellIndex[last] == nil
 				last = now
 				if entering then
 					local list = cells[1]
 					local target = if list then list[landing()] else nil
-					if target and (target :: unknown) ~= now and target.Selectable then
+					if target and target ~= now and target.Selectable then
 						gui.SelectedObject = target
 					end
 				end

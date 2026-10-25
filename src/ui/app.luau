@@ -95,7 +95,7 @@ return function(
 	local settings: AppOptions = options or {}
 	local owned = settings.runtime == nil
 	local runtime = settings.runtime or roblox.createRuntime()
-	local UI = controls(Compose, runtime, (settings :: unknown) :: Types.Config)
+	local UI = controls(Compose, runtime, settings)
 	local Host = (runtime.constructors :: unknown) :: Engine.Host
 	local Links = (runtime.constructors :: unknown) :: StyleLinkHost
 	local stops: { () -> () } = {}
@@ -117,7 +117,7 @@ return function(
 			end
 			local sheet = themes.createStyleSheet(runtime, settings.theme, sheetOptions)
 			local props: { [unknown]: unknown } = {}
-			for key, value in ((settings.screen or {}) :: unknown) :: { [unknown]: unknown } do
+			for key, value in (settings.screen or {}) :: { [unknown]: unknown } do
 				assert(type(key) == "string", "Facet app: screen takes native ScreenGui properties only")
 				props[key] = value
 			end
@@ -140,9 +140,9 @@ return function(
 			props[2] = Links.StyleLink({ StyleSheet = Compose.static(sheet) })
 			props[3] = component()
 			if target:IsA("PlayerGui") and settings.focusRing ~= false then
-				props[4] = UI.focusRing(target :: PlayerGui)
+				props[4] = UI.focusRing(target)
 			end
-			return Host.ScreenGui((props :: unknown) :: Engine.ScreenGuiNativeProps)
+			return Host.ScreenGui(props :: Engine.ScreenGuiNativeProps)
 		end, target)
 		local stopped = false
 		local function release()
@@ -156,7 +156,7 @@ return function(
 			end
 		end
 		table.insert(stops, release)
-		return release, (root :: unknown) :: ScreenGui
+		return release, root :: ScreenGui
 	end
 	local members = (UI :: unknown) :: { [string]: unknown }
 	local function refusal(control: string, spec: unknown): string?
@@ -167,7 +167,7 @@ return function(
 		end
 		local ok, failure = pcall(function()
 			Compose.withRootOwner(function()
-				Host.ScreenGui({ construct(spec) } :: Engine.ScreenGuiNativeProps)
+				Host.ScreenGui({ construct(spec) })
 			end)
 		end)
 		if ok then
@@ -245,7 +245,7 @@ return function(
 	local function presentToast(component: (ControlTypes.Controls) -> Instance, options: ToastOptions?): Toast
 		assert(type(component) == "function", "Facet app.presentToast: expected a component function")
 		local spec: { [string]: unknown } = {}
-		for key, value in ((options or {}) :: unknown) :: { [string]: unknown } do
+		for key, value in (options or {}) :: { [string]: unknown } do
 			spec[key] = value
 		end
 		local stop: () -> () = function() end

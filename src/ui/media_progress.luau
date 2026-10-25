@@ -131,9 +131,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		local direction = Compose.formula(function(use: ComposeTypes.Use): Theme.FillDirection
 			local package = read(ctx.config.theme, use)
 			local recipe = if package then ((package.chrome or {}) :: { [string]: Theme.SkinLayer }).barFill else nil
-			local value = (if recipe then recipe.direction or "ltr" else "ltr") :: Theme.FillDirection
+			local value: Theme.FillDirection = if recipe then recipe.direction or "ltr" else "ltr"
 			assert(({ ltr = true, rtl = true, ttb = true, btt = true })[value], "Facet progress invalid fill direction")
-			return value :: Theme.FillDirection
+			return value
 		end)
 		local function dynamic(source: unknown): boolean
 			return Compose.isReadable(source) or type(source) == "function"
@@ -184,7 +184,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			end
 			local function ornament(slot: string, use: ComposeTypes.Use): (number, number)
 				local package = read(ctx.config.theme, use)
-				local recipe = if package then ((package.chrome or {}) :: { [string]: Theme.SkinLayer })[slot] else nil
+				local recipe = if package then (package.chrome or {})[slot] else nil
 				if recipe == nil or recipe.kind == "native" or recipe.kind == "none" then
 					return 1, 0
 				end

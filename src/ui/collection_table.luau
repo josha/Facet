@@ -276,7 +276,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			Size = function(use: ComposeTypes.Use)
 				return D2.new(1, 0, 0, use(headerHeight))
 			end,
-			headerLayout :: ComposeTypes.Child,
+			headerLayout,
 			headerCells,
 		}
 		local header = Host.ScrollingFrame(headerProps)
@@ -301,7 +301,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			end,
 			ScrollingEnabled = spec.scrolls ~= false,
 			ClipsDescendants = spec.scrolls ~= false,
-			mode = if spec.scrolls == false then "all" :: ComposeTypes.OrderedCollectionMode else spec.mode,
+			mode = if spec.scrolls == false then "all" else spec.mode,
 			ScrollingDirection = E.ScrollingDirection.XY,
 			VerticalScrollBarInset = if spec.scrolls == false then E.ScrollBarInset.None else E.ScrollBarInset.Always,
 			CanvasSize = function(use: ComposeTypes.Use)
@@ -486,7 +486,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			BackgroundTransparency = 1,
 			ClipsDescendants = spec.scrolls ~= false,
 			unit :: ComposeTypes.Child,
-			textInsets :: ComposeTypes.Child,
+			textInsets,
 			ctx.styled(
 				Host.Frame({
 					Name = "HeaderBand",
@@ -499,7 +499,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 					end,
 				}),
 				"TableHead"
-			) :: ComposeTypes.Child,
+			),
 			header,
 			createToolbar(ctx, UI, spec, editing, editor, metrics),
 			body,
@@ -566,7 +566,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			end)
 		end
 		assert(type(key) == "function", "Facet UI.Table: key must be a function or a field name")
-		return create((spec :: unknown) :: CollectionTypes.TableShape<V, K>, (key :: unknown) :: (V, number) -> K)
+		return create((spec :: unknown) :: CollectionTypes.TableShape<V, K>, key :: (V, number) -> K)
 	end
 	local tableConstructor: ControlTypes.TableConstructor = ctx.construct("Table", constructor)
 	UI.Table = tableConstructor
