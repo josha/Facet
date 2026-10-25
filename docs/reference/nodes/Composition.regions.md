@@ -6,7 +6,9 @@ Keep Region nodes as direct Composition children. Put `Compose.show` inside
 a stable stack or frame form, not around the Region.
 
 - `zone` is required: `topLeft`, `top`, `topRight`, `left`, `center`,
-  `right`, `bottomLeft`, `bottom`, `bottomRight` or `topbar`. Give two
+  `right`, `bottomLeft`, `bottom`, `bottomRight`, `topbar` or `action`.
+  `action` is the thumb zone for frequent actions: the `bottom` zone while
+  the Composition is taller than wide, and `bottomRight` otherwise. Give two
   readouts that share a sight line, such as level progress and a timed goal,
   their own regions in one `top` or `bottom` zone. They show side by side
   when the row has room.

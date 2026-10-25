@@ -126,6 +126,10 @@ groups spends space and attention without adding a decision.
 
 Use safe edges without crowding native controls. The free strip beside Roblox's
 top bar buttons suits a compact item, such as a currency or a menu button.
+It holds readouts and menus, not frequent actions: a phone's top edge is out of
+thumb reach. Give the primary action the widest target and put it, with its
+frequent neighbours, in the `action` zone. A portrait phone then shows them at
+the bottom centre, and a landscape screen at the bottom right.
 Composition handles TopbarInset and its fallback; read `HUD-actions` to match
 Roblox's row. A marker may occupy the focus area when locating that target is
 the task. End commands and notices when their context ends.

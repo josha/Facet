@@ -35,6 +35,7 @@ local CELLS: { [string]: { number } } = {
 	bottom = { 2, 3 },
 	bottomRight = { 3, 3 },
 	topbar = { 2, 1 },
+	action = { 3, 3 },
 }
 
 type Extent = { x: number, y: number }
