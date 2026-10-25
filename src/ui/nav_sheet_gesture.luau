@@ -103,7 +103,7 @@ return function(
 			return keyboardPixels(use) / use(unit)
 		end
 		local layer = if anchor then surfaces.parent(anchor) else ctx.config.overlayParent
-		local initial = if layer and layer:IsA("GuiBase2d") then (layer :: GuiBase2d).AbsoluteSize else V2.zero
+		local initial = if layer and layer:IsA("GuiBase2d") then layer.AbsoluteSize else V2.zero
 		local extent = Compose.cell(if initial.Y > 0 then initial else V2.new(0, 720))
 		local pointer: (ComposeTypes.Use) -> boolean = function()
 			return false

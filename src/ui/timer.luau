@@ -34,7 +34,10 @@ return function(ctx: Shared.Context, UI: Controls.Controls)
 			)
 			completed:set(false)
 			local clock = runtime.clock(
-				if spec.now then {} elseif spec.deadline ~= nil then { deadline = target } else { start = target }
+				if spec.now
+					then {}
+					elseif spec.deadline ~= nil then { deadline = target, step = 1 }
+					else { start = target, step = 1 }
 			)
 			local shownSeconds: number? = nil
 			local shownHours: boolean? = nil
