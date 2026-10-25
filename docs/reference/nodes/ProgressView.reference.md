@@ -4,6 +4,12 @@ ProgressView.reference option values and behavior.
 
 The unwrapped value and end label keep their largest measured boxes while their text keeps the same length, as Text does.
 
+On the bar's row, the value and the end label keep the width of their text,
+and the track gets the remaining width. When the row is too narrow, the track
+becomes narrower first, down to `controls.progress.minTrackWidth`. Only then
+does the end label become narrower and end with "…". A short label, such as
+"0%" or "3/12", thus always shows in a bar of fixed width.
+
 A bar fills its container's width. Inside a hugging stack or Region form,
 give the bar an explicit environment-scaled width with
 `Size = UDim2.fromOffset(width, 0)`. A fill child does not size its hugging

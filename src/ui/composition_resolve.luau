@@ -20,7 +20,7 @@ export type Declared = {
 	trailing: boolean?,
 }
 export type Strip = { x: number, y: number, lanes: number? }
-export type Shift = { top: number, bottom: number, hang: number }
+export type Shift = { top: number, bottom: number, hang: number, leanTop: number, leanBottom: number }
 export type Rows = { top: number, bottom: number }
 type Stacked = { top: boolean, bottom: boolean }
 
@@ -56,20 +56,34 @@ local function resolve(
 	gap: number,
 	regions: { Declared },
 	strip: Strip?,
-	stacked: Stacked?
+	stacked: Stacked?,
+	leaning: { [string]: number }?
 ): ({ number }, { boolean }, Shift, { number }, Rows)
 	local forms = table.create(#regions, 1)
 	local landed = table.create(#regions, false)
-	local shift: Shift = { top = 0, bottom = 0, hang = 0 }
+	local shift: Shift = { top = 0, bottom = 0, hang = 0, leanTop = 0, leanBottom = 0 }
 	if width <= 0 or height <= 0 then
 		return forms, landed, shift, {}, { top = 0, bottom = 0 }
 	end
 	local stack: Stacked = stacked or { top = false, bottom = false }
 	local lane = (width - 2 * gap) / 3
+	local lean: { [string]: number } = leaning or { top = 0, bottom = 0 }
 	while true do
 		local zoneW: { [number]: number }, zoneH: { [number]: number }, members: { [number]: { number } } = {}, {}, {}
 		local flowItems: { [number]: { Extent } }, landedBlock: { [number]: Extent } = {}, {}
 		local hang = 0
+		local function between(row: number, edge: string?): (number, number, number, number)
+			local left, right = zoneW[4 + row] or 0, zoneW[12 + row] or 0
+			local side = math.max(left, right)
+			if side <= 0 then
+				return width, 0, 0, 0
+			end
+			local lone = if left > 0 and right <= 0 then 1 elseif right > 0 and left <= 0 then -1 else 0
+			if edge and lone ~= 0 and lean[edge] == lone then
+				return width - side - gap, lone, side, lone
+			end
+			return math.max(lane, width - 2 * (side + gap)), 0, side, lone
+		end
 		for index, region in regions do
 			local column, row = cellOf(region.zone, strip ~= nil and not landed[index], region.trailing)
 			local key = column * 4 + row
@@ -109,11 +123,7 @@ local function resolve(
 			local items = flowItems[key]
 			if items then
 				local edge = if row == 1 then "top" else "bottom"
-				local side = math.max(zoneW[4 + row] or 0, zoneW[12 + row] or 0)
-				local room = if stack[edge]
-					then width
-					elseif side > 0 then math.max(lane, width - 2 * (side + gap))
-					else width
+				local room = if stack[edge] then width else (between(row, edge))
 				local widest, total, lineW, lineH = 0, -gap, -1, 0
 				for _, item in items do
 					if lineW >= 0 and lineW + gap + item.x <= room then
@@ -199,8 +209,7 @@ local function resolve(
 				end
 				if column == 2 then
 					local edge = if row == 1 then "top" elseif row == 3 then "bottom" else nil
-					local side = math.max(zoneW[4 + row] or 0, zoneW[12 + row] or 0)
-					room = if side > 0 then math.max(lane, width - 2 * (side + gap)) else width
+					room = between(row, edge)
 					local wide = zoneW[key] or 0
 					if edge and stack[edge] then
 						room = width
@@ -262,15 +271,32 @@ local function resolve(
 		end
 		if chosen == nil then
 			for edge in squeezed do
+				local _, _, _, lone = between(if edge == "top" then 1 else 3, edge)
+				if squeezed[edge] and not stack[edge] and lean[edge] == 0 and lone ~= 0 then
+					local next = { top = lean.top, bottom = lean.bottom }
+					next[edge] = lone
+					return resolve(width, height, gap, regions, strip, stack, next)
+				end
+			end
+			for edge in squeezed do
 				if squeezed[edge] and not stack[edge] and corner[edge] > 0 then
 					local next: Stacked = { top = stack.top, bottom = stack.bottom }
 					next[edge] = true
-					return resolve(width, height, gap, regions, strip, next)
+					return resolve(width, height, gap, regions, strip, next, lean)
 				end
 			end
 			shift.top = if stack.top and (zoneW[9] or 0) > 0 then corner.top + gap else 0
 			shift.bottom = if stack.bottom and (zoneW[11] or 0) > 0 then corner.bottom + gap else 0
 			shift.hang = hang
+			for row, edge in { [1] = "top", [3] = "bottom" } do
+				local _, direction, side = between(row, edge)
+				local offset = if stack[edge] or direction == 0 then 0 else direction * (side + gap) / 2
+				if edge == "top" then
+					shift.leanTop = offset
+				else
+					shift.leanBottom = offset
+				end
+			end
 			local overflow: { number } = {}
 			for index in failing do
 				table.insert(overflow, index)

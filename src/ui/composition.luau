@@ -45,6 +45,10 @@ local function lowered(moved: resolver.Shift, column: number, row: number): numb
 		else 0
 end
 
+local function leaned(moved: resolver.Shift, column: number, row: number): number
+	return if column ~= 2 then 0 elseif row == 1 then moved.leanTop elseif row == 3 then moved.leanBottom else 0
+end
+
 return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
 	local kit = layoutKit.of(ctx)
@@ -417,7 +421,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			AnchorPoint = V2.new((column - 1) / 2, (row - 1) / 2),
 			ZIndex = if column == 2 then 2 else 1,
 			Position = function(use: ComposeTypes.Use): UDim2
-				return D2.new((column - 1) / 2, 0, (row - 1) / 2, lowered(use(shift), column, row))
+				local moved = use(shift)
+				return D2.new((column - 1) / 2, leaned(moved, column, row), (row - 1) / 2, lowered(moved, column, row))
 			end,
 			Size = function(use: ComposeTypes.Use): UDim2
 				local packed = if flowing then (if row == 1 then use(rows).top else use(rows).bottom) else 0
@@ -568,7 +573,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		local zones: { [string]: Frame } = {}
 		local placed: { Frame } = {}
-		local resting: resolver.Shift = { top = 0, bottom = 0, hang = 0 }
+		local resting: resolver.Shift = { top = 0, bottom = 0, hang = 0, leanTop = 0, leanBottom = 0 }
 		local shift: ComposeTypes.Cell<resolver.Shift> = Compose.cell(resting)
 		local rows: ComposeTypes.Cell<resolver.Rows> = Compose.cell({ top = 0, bottom = 0 })
 		for zone, children in members do
@@ -854,7 +859,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local function place(use: ComposeTypes.Use): (UDim2, Vector2)
 				local unit, space = use(safeUnit), kit.spacing(gap, use)
 				local size = use(zoneSize) / unit
-				local at = (use(safeBox) - size) * anchor + V2.new(0, lowered(use(shift), column, row))
+				local moved = use(shift)
+				local at = (use(safeBox) - size) * anchor
+					+ V2.new(leaned(moved, column, row), lowered(moved, column, row))
 				if column == 2 then
 					return if row == 3
 						then D2.fromOffset(at.X + size.X / 2, at.Y - space)
@@ -1016,7 +1023,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				landed:set(down)
 			end
 			local was = shift:peek()
-			if was.top ~= moved.top or was.bottom ~= moved.bottom or was.hang ~= moved.hang then
+			if
+				was.top ~= moved.top
+				or was.bottom ~= moved.bottom
+				or was.hang ~= moved.hang
+				or was.leanTop ~= moved.leanTop
+				or was.leanBottom ~= moved.leanBottom
+			then
 				shift:set(moved)
 			end
 			local wrapped = rows:peek()

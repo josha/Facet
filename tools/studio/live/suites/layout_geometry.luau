@@ -429,6 +429,46 @@ add("circle-button-authored-axes", {}, function(t)
 	end
 end)
 
+add("progress-short-end-label-keeps-its-text", {}, function(t)
+	for _, theme in t.themes do
+		for _, width in { 150, 120 } do
+			for _, words in { "0%", "100%", "0/12" } do
+				local where = `{theme.name} {width} {words}`
+				local stage = t.mount(function(UI: FacetControls)
+					return UI.ProgressView "Bar" { value = 0.3, endLabel = words, Size = UDim2.fromOffset(width, 0) }
+				end, { theme = theme.package, size = Vector2.new(300, 120) })
+				local ending = t.find(stage, "EndLabel") :: TextLabel?
+				local track = t.find(stage, "Track") :: Frame?
+				if not (ending and track) then
+					t.check(where .. " bar mounted", false)
+					t.cleanup()
+					continue
+				end
+				local limit = track:FindFirstChildWhichIsA("UISizeConstraint")
+				local floor = if limit then limit.MinSize.X else 0
+				local giving = track.AbsoluteSize.X > floor + 0.5
+				t.check(
+					where .. " the end label shows all its text while the track can give way",
+					ending.TextFits or not giving,
+					{
+						text = ending.Text,
+						bounds = ending.TextBounds,
+						size = ending.AbsoluteSize,
+						track = track.AbsoluteSize,
+					}
+				)
+				t.check(where .. " the track gives way", track.AbsoluteSize.X >= 4, track.AbsoluteSize)
+				t.check(
+					where .. " the track and the label share the bar's width",
+					ending.AbsolutePosition.X + ending.AbsoluteSize.X <= track.AbsolutePosition.X + width + 0.5,
+					{ track = track.AbsoluteSize, ending = ending.AbsoluteSize }
+				)
+				t.cleanup()
+			end
+		end
+	end
+end)
+
 add("circular-progress-stroke-inside-box", {}, function(t)
 	for _, theme in t.themes do
 		local stage = t.mount(function(UI: FacetControls)
