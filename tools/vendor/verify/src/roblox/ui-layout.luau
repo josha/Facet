@@ -166,9 +166,9 @@ local function attach(environment: Environment.Environment, options: Options): C
 			return scaledBounds(object, rectangle)
 		end
 		local size = number(object, "TextSize", 14)
-		local rendered = size * rectangle.scale
-		if size ~= math.floor(size) or rendered ~= math.floor(rendered) or rendered < 1 or rendered > 100 then
-			unsupported(object, "fractional or out-of-range rendered text size")
+		local rendered = math.floor(size * rectangle.scale)
+		if rendered < 1 or rendered > 100 then
+			unsupported(object, "out-of-range rendered text size")
 		end
 		local content = inset(object, rectangle)
 		local automatic = enum(object, "AutomaticSize", "None")
@@ -328,11 +328,12 @@ local function attach(environment: Environment.Environment, options: Options): C
 			(automatic == "X" or automatic == "XY") and widthOverride == nil, automatic == "Y" or automatic == "XY"
 		local padding = paddingValue(object, "PaddingLeft")
 		local paddingX, paddingY = 0, 0
+		local scaledPadding = false
 		if padding then
 			for _, property in { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" } do
 				local unit = Values.dimension(paddingValue(object, property))
 				if unit.Scale ~= 0 then
-					unsupported(object, "AutomaticSize with scaled padding")
+					scaledPadding = true
 				end
 			end
 			paddingX = (
@@ -345,6 +346,9 @@ local function attach(environment: Environment.Environment, options: Options): C
 		end
 		local content = inset(object, rectangle)
 		local grid = object:FindFirstChildWhichIsA "UIGridLayout"
+		if grid and scaledPadding then
+			unsupported(object, "AutomaticSize with scaled padding around a grid")
+		end
 		if grid then
 			local cell = Values.dimensions(read(grid, "CellSize"))
 			if (autoX and cell.X.Scale ~= 0) or (autoY and cell.Y.Scale ~= 0) then
@@ -392,6 +396,7 @@ local function attach(environment: Environment.Environment, options: Options): C
 			end
 			return size(child, reference)
 		end
+
 		local function limited(frame: Rectangle): Rectangle
 			if constraint == nil then
 				return table.clone(frame)
@@ -582,6 +587,100 @@ local function attach(environment: Environment.Environment, options: Options): C
 			end
 			return parent
 		end
+		type Canvas = { content: Rectangle, window: Vector, canvas: Vector, position: Vector }
+		local function canvasOf(object: Instance, rectangle: Rectangle, parent: Rectangle): Canvas
+			local scale = rectangle.scale
+			local thickness = (number(object, "ScrollBarThickness", 12) + 1) * scale
+			local direction = enum(object, "ScrollingDirection", "XY")
+			local alongX, alongY = direction ~= "Y", direction ~= "X"
+			local authored = Values.dimensions(read(object, "CanvasSize"))
+			local authoredX = dimension(authored.X, parent.width, parent.scale)
+				* scale
+				/ math.max(parent.scale, 0.000001)
+			local authoredY = dimension(authored.Y, parent.height, parent.scale)
+				* scale
+				/ math.max(parent.scale, 0.000001)
+			local automatic = enum(object, "AutomaticCanvasSize", "None")
+			local insetX = enum(object, "VerticalScrollBarInset", "None")
+			local insetY = enum(object, "HorizontalScrollBarInset", "None")
+			local function reserve(inset: string, shown: boolean): number
+				return if inset == "Always" or (inset == "ScrollBar" and shown) then thickness else 0
+			end
+			local function extent(width: number, height: number): (number, number)
+				if automatic == "None" then
+					return 0, 0
+				end
+				local probe: Rectangle = { x = 0, y = 0, width = width, height = height, scale = scale }
+				local inner = inset(object, probe)
+				local padX, padY = width - inner.width, height - inner.height
+				local list = object:FindFirstChildWhichIsA "UIListLayout"
+				local grid = object:FindFirstChildWhichIsA "UIGridLayout"
+				if grid then
+					local measured = Grid.measure(grid, inner, read)
+					return measured.width + padX, measured.height + padY
+				elseif list then
+					local measured = List.measure(list, inner, read, size, size)
+					return measured.width + padX, measured.height + padY
+				end
+				local farX, farY = 0, 0
+				for _, child in object:GetChildren() do
+					if child:IsA "GuiObject" and optional(child, "Visible") ~= false then
+						local measured = size(child, inner)
+						local position = Values.dimensions(read(child, "Position"))
+						local anchor = Values.vector(read(child, "AnchorPoint"))
+						farX =
+							math.max(farX, dimension(position.X, inner.width, scale) + (1 - anchor.X) * measured.width)
+						farY = math.max(
+							farY,
+							dimension(position.Y, inner.height, scale) + (1 - anchor.Y) * measured.height
+						)
+					end
+				end
+				return farX + padX, farY + padY
+			end
+			local showX, showY = false, false
+			local canvasX, canvasY = 0, 0
+			for _ = 1, 3 do
+				local baseX = rectangle.width - reserve(insetX, showY)
+				local baseY = rectangle.height - reserve(insetY, showX)
+				canvasX, canvasY = math.max(authoredX, baseX), math.max(authoredY, baseY)
+				local contentX, contentY = extent(canvasX, canvasY)
+				if automatic == "X" or automatic == "XY" then
+					canvasX = math.max(canvasX, contentX)
+				end
+				if automatic == "Y" or automatic == "XY" then
+					canvasY = math.max(canvasY, contentY)
+				end
+				local nextY = alongY and canvasY > rectangle.height - reserve(insetY, showX)
+				local nextX = alongX and canvasX > rectangle.width - reserve(insetX, showY)
+				if nextX == showX and nextY == showY then
+					break
+				end
+				showX, showY = nextX, nextY
+			end
+			local windowX = rectangle.width - (if showY then thickness else 0)
+			local windowY = rectangle.height - (if showX then thickness else 0)
+			local maxX = math.max(0, canvasX - (rectangle.width - reserve(insetX, showY)))
+			local maxY = math.max(0, canvasY - (rectangle.height - reserve(insetY, showX)))
+			local requested = Values.vector(read(object, "CanvasPosition"))
+			local position = {
+				X = math.clamp(requested.X, 0, maxX / scale),
+				Y = math.clamp(requested.Y, 0, maxY / scale),
+			}
+			local content = inset(object, {
+				x = rectangle.x - position.X * scale,
+				y = rectangle.y - position.Y * scale,
+				width = canvasX,
+				height = canvasY,
+				scale = scale,
+			})
+			return {
+				content = content,
+				window = { X = windowX, Y = windowY },
+				canvas = { X = canvasX, Y = canvasY },
+				position = position,
+			}
+		end
 		local measureTree: (Instance, Rectangle, Rectangle?) -> ()
 		measureTree = function(object: Instance, parent: Rectangle, placed: Rectangle?)
 			local rectangle = if object:IsA "GuiObject" then placed or size(object, parent) else area(object, parent)
@@ -606,18 +705,21 @@ local function attach(environment: Environment.Environment, options: Options): C
 			end
 			textBounds(object, rectangle)
 			local basis = bases[object]
-			local content = inset(
-				object,
-				if basis
-					then {
-						x = rectangle.x,
-						y = rectangle.y,
-						width = basis.width,
-						height = basis.height,
-						scale = rectangle.scale,
-					}
-					else rectangle
-			)
+			local scrolled = if object:IsA "ScrollingFrame" then canvasOf(object, rectangle, parent) else nil
+			local content = if scrolled
+				then scrolled.content
+				else inset(
+					object,
+					if basis
+						then {
+							x = rectangle.x,
+							y = rectangle.y,
+							width = basis.width,
+							height = basis.height,
+							scale = rectangle.scale,
+						}
+						else rectangle
+				)
 			local placements: { [Instance]: Rectangle } = {}
 			local grid = object:FindFirstChildWhichIsA "UIGridLayout"
 			local list = object:FindFirstChildWhichIsA "UIListLayout"
@@ -699,10 +801,14 @@ local function attach(environment: Environment.Environment, options: Options): C
 					else rectangle
 			)
 			if object:IsA "ScrollingFrame" then
-				local canvas = Values.vector(read(object, "CanvasPosition"))
-				content = table.clone(content)
-				content.x -= canvas.X * content.scale
-				content.y -= canvas.Y * content.scale
+				local scrolled = canvasOf(object, rectangle, parent)
+				content = scrolled.content
+				environment.poke(object, "AbsoluteWindowSize", vector(scrolled.window.X, scrolled.window.Y))
+				environment.poke(object, "AbsoluteCanvasSize", vector(scrolled.canvas.X, scrolled.canvas.Y))
+				local requested = Values.vector(read(object, "CanvasPosition"))
+				if requested.X ~= scrolled.position.X or requested.Y ~= scrolled.position.Y then
+					environment.poke(object, "CanvasPosition", vector(scrolled.position.X, scrolled.position.Y))
+				end
 			end
 			local list = object:FindFirstChildWhichIsA "UIListLayout"
 			local grid = object:FindFirstChildWhichIsA "UIGridLayout"
@@ -826,11 +932,17 @@ local function attach(environment: Environment.Environment, options: Options): C
 				end
 				clipped = clipped or optional(object, "ClipsDescendants") == true and not inside
 			end
+			local folder = object:IsA "Folder"
 			for ordinal, child in object:GetChildren() do
-				if child:IsA "GuiObject" and not object:IsA "GuiObject" and not object:IsA "ScreenGui" then
+				if
+					child:IsA "GuiObject"
+					and not object:IsA "GuiObject"
+					and not object:IsA "ScreenGui"
+					and not folder
+				then
 					unsupported(child, "non-GuiObject hit-testing parent")
 				end
-				visit(child, screen, path, ordinal, clipped)
+				visit(child, screen, path, if folder then sibling + ordinal / 1000 else ordinal, clipped)
 			end
 		end
 		visit(root, nil, {}, 1, false)

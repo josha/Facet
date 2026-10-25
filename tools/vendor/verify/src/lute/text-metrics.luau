@@ -71,10 +71,48 @@ local function load(): { [string]: Metrics.Model }
 	return loaded
 end
 
-local function modelFor(parameters: Values.TextParameters): (Metrics.Model, number)
-	if parameters.RichText then
-		error("unsupported_text_metrics: RichText", 0)
+local ENTITIES: { [string]: string } = { lt = "<", gt = ">", amp = "&", quot = '"', apos = "'" }
+local NEUTRAL_TAGS: { [string]: boolean } = { u = true, s = true, stroke = true, mark = true }
+local NEUTRAL_FONT: { [string]: boolean } = { color = true, transparency = true }
+
+local function unescape(text: string): string
+	return (string.gsub(text, "&(%a+);", function(name: string): string
+		return ENTITIES[name] or `&{name};`
+	end))
+end
+
+local function plain(text: string): string
+	local source = string.gsub(text, "<!%-%-.-%-%->", "")
+	local out: { string } = {}
+	local upper = 0
+	local cursor = 1
+	while true do
+		local first, last, closing, name, attributes = string.find(source, "<(/?)(%a+)(.-)>", cursor)
+		local chunk = unescape(string.sub(source, cursor, if first then first - 1 else #source))
+		table.insert(out, if upper > 0 then string.upper(chunk) else chunk)
+		if first == nil or last == nil then
+			break
+		end
+		local tag = string.lower(name or "")
+		if tag == "br" then
+			table.insert(out, "\n")
+		elseif tag == "uc" or tag == "uppercase" then
+			upper = math.max(0, upper + (if closing == "/" then -1 else 1))
+		elseif tag == "font" then
+			for attribute in string.gmatch(attributes or "", "([%w_]+)%s*=") do
+				if not NEUTRAL_FONT[string.lower(attribute)] then
+					error("unsupported_text_metrics: RichText <font " .. attribute .. ">", 0)
+				end
+			end
+		elseif not NEUTRAL_TAGS[tag] then
+			error("unsupported_text_metrics: RichText <" .. tag .. ">", 0)
+		end
+		cursor = last + 1
 	end
+	return table.concat(out)
+end
+
+local function modelFor(parameters: Values.TextParameters): (Metrics.Model, number)
 	local font = parameters.Font
 	local key = font.Family
 		.. "/"
@@ -92,7 +130,8 @@ local function create(): (Values.TextParameters) -> unknown
 	load()
 	return function(parameters: Values.TextParameters): unknown
 		local model, size = modelFor(parameters)
-		local width, lines = model.wrap(parameters.Text, size, parameters.Width)
+		local text = if parameters.RichText then plain(parameters.Text) else parameters.Text
+		local width, lines = model.wrap(text, size, parameters.Width)
 		return Datatypes.Vector2.new(width, lines * model.height(size))
 	end
 end
@@ -101,7 +140,8 @@ local function truncator(): (Values.TextParameters, string, number, boolean) -> 
 	load()
 	return function(parameters: Values.TextParameters, mode: string, lines: number, wrapped: boolean): number?
 		local model, size = modelFor(parameters)
-		return model.truncate(parameters.Text, size, parameters.Width, lines, mode, wrapped)
+		local text = if parameters.RichText then plain(parameters.Text) else parameters.Text
+		return model.truncate(text, size, parameters.Width, lines, mode, wrapped)
 	end
 end
 
