@@ -49,7 +49,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
 	local kit = layoutKit.of(ctx)
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
-	local declared = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Declared }
+	local declared = setmetatable({} :: { [Instance]: Declared }, { __mode = "k" })
 	local function layoutSize(node: GuiBase2d, scale: ComposeTypes.Readable<number>?): ComposeTypes.Readable<Vector2>
 		local size = ctx.observe.AbsoluteSize(node)
 		local unit = scale or ctx.layoutUnit(node)

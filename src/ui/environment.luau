@@ -35,7 +35,7 @@ local function enumName(value: unknown, fallback: string): string
 end
 
 type SelectionOwner = { prior: GuiObject?, rings: { GuiObject } }
-local selectionOwners = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: SelectionOwner }
+local selectionOwners = setmetatable({} :: { [Instance]: SelectionOwner }, { __mode = "k" })
 
 return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	local Compose = ctx.Compose
@@ -54,15 +54,14 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		return Compose.cell(fallback)
 	end
 
-	local function scene(): Instance?
-		local services = (config.services :: unknown) :: { Workspace: Instance? }
-		return services.Workspace
+	local function scene(): Workspace?
+		return config.services.Workspace
 	end
 
 	UI.focusRing = function(playerGui: PlayerGui): Frame
 		assert(Compose.currentOwner() ~= nil, "Facet UI.focusRing must run inside a component or Compose owner")
 		local Host, E, D, D2 = ctx.Host, ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2
-		local input = (config.services :: unknown) :: { UserInputService: UserInputService? }
+		local input = config.services
 		local keyed = Compose.cell(false)
 		local cursor = watched(config.services.GamepadService, "GamepadCursorEnabled", false)
 		local function heard(kind: Enum.UserInputType)
@@ -166,8 +165,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				end
 			end
 		end)
-		local tweens = (config.services :: unknown) :: { TweenService: TweenService? }
-		local tweenService = tweens.TweenService
+		local tweenService = config.services.TweenService
 		if tweenService and observation then
 			runtime.mountFragment(function()
 				return {
@@ -442,7 +440,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local node: Instance? = source
 		if node == nil then
 			local world = scene()
-			node = if world then ((world :: unknown) :: { CurrentCamera: Instance? }).CurrentCamera else nil
+			node = if world then world.CurrentCamera else nil
 		end
 		local gui2d = node ~= nil and node:IsA("GuiBase2d")
 		local property = if gui2d then "AbsoluteSize" else "ViewportSize"

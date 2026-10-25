@@ -2,6 +2,7 @@
 
 local PlaceBoot = require "@self/place-boot"
 local PlaceRuntime = require "@self/place-runtime"
+local DeviceCatalog = require "@self/device-catalog"
 
 local CaseEntry = require "@self/case-entry"
 local EnvironmentEngineAdapter = require "@self/environment-engine"
@@ -135,6 +136,8 @@ export type UiAuditCollectOptions = UiAuditCollect.Options
 
 export type PlaceBootStage = PlaceBoot.Stage
 export type PlaceRuntimeEngine = PlaceRuntime.Engine
+export type PlaceRuntime = PlaceRuntime.Runtime
+export type SimulatedDevice = DeviceCatalog.Device
 export type PlaceBootEngine = PlaceBoot.Engine
 export type PlaceBootView = PlaceBoot.View
 export type PlaceBootHost<B = unknown, C = () -> unknown> = PlaceBoot.Host<B, C>

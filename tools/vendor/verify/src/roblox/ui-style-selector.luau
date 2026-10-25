@@ -3,7 +3,7 @@
 local Environment = require "./environment"
 
 type Instance = Environment.Instance
-type Segment = { className: string?, name: string?, tags: { string } }
+type Segment = { className: string?, name: string?, tags: { string }, state: string? }
 export type Branch = { segments: { Segment }, relations: { string }, phantom: string? }
 export type Selector = { Branch }
 
@@ -26,6 +26,18 @@ local function parse(selector: string): Selector
 			end
 			while position <= #source do
 				local prefix = source:sub(position, position)
+				if prefix == ":" and source:sub(position + 1, position + 1) ~= ":" then
+					local state = source:sub(position + 1):match "^([%a]+)"
+					if state ~= "Idle" and state ~= "Hover" and state ~= "Press" and state ~= "NonInteractable" then
+						unsupported(selector)
+					end
+					if segment.state ~= nil then
+						unsupported(selector)
+					end
+					segment.state = state
+					position += #assert(state) + 1
+					continue
+				end
 				if prefix ~= "." and prefix ~= "#" then
 					break
 				end
@@ -90,6 +102,14 @@ local function matches(branch: Branch, object: Instance): boolean
 		end
 		for _, tag in segment.tags do
 			if not candidate:HasTag(tag) then
+				return false
+			end
+		end
+		if segment.state then
+			if not candidate:IsA "GuiObject" then
+				return false
+			end
+			if tostring(candidate.GuiState) ~= "Enum.GuiState." .. segment.state then
 				return false
 			end
 		end

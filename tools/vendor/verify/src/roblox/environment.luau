@@ -422,6 +422,17 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 				coupled = "CFrame"
 			end
 		end
+		if key == "IgnoreGuiInset" and type(value) == "boolean" and isA(state.className, "ScreenGui") then
+			local insets = state.values.ScreenInsets :: Datatypes.EnumMember?
+			local family = if insets then insets.EnumType else nil
+			local replacement = if family
+				then family:FromName(if value then "DeviceSafeInsets" else "CoreUISafeInsets")
+				else nil
+			if replacement and replacement ~= insets then
+				state.values.ScreenInsets = replacement
+				coupled = "ScreenInsets"
+			end
+		end
 		state.values[key] = value
 		changed(object, state, key)
 		if coupled then

@@ -156,8 +156,10 @@ return function<V, K>(
 					elseif node:IsA("Path2D") then
 						node.ZIndex += base
 						top = math.max(top, node.ZIndex)
-					elseif node:IsA("UIDragDetector") or node:IsA("InputContext") then
-						((node :: unknown) :: { Enabled: boolean }).Enabled = false
+					elseif node:IsA("UIDragDetector") then
+						node.Enabled = false
+					elseif node:IsA("InputContext") then
+						node.Enabled = false
 					end
 				end
 				copy.Name = "Reorderable"

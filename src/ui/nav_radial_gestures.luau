@@ -10,7 +10,7 @@ local PaintTypes = require("./nav_radial_sectors")
 local HubTypes = require("./nav_radial_center")
 
 type NavigationHold = { count: number, saved: boolean, changed: boolean, watch: RBXScriptConnection? }
-local navigationHolds = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: NavigationHold }
+local navigationHolds = setmetatable({} :: { [Instance]: NavigationHold }, { __mode = "k" })
 local function holdNavigation(gui: GuiService): () -> ()
 	local hold = navigationHolds[gui]
 	if hold == nil then

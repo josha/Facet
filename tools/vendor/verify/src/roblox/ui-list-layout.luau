@@ -66,6 +66,17 @@ local function distribute(items: { Flex }, available: number): boolean
 	return changed
 end
 
+local function wrappedAutomaticText(object: Instance, read: (Instance, string) -> unknown): boolean
+	if
+		not (object:IsA "TextLabel" or object:IsA "TextButton" or object:IsA "TextBox")
+		or read(object, "TextWrapped") ~= true
+	then
+		return false
+	end
+	local automatic = tostring(read(object, "AutomaticSize")):match "([^%.]+)$"
+	return automatic == "Y" or automatic == "XY"
+end
+
 local function measure(
 	list: Instance,
 	content: Rectangle,
@@ -230,6 +241,33 @@ local function measure(
 			})
 		end
 		local changed = distribute(flex, available - gaps)
+		if horizontal and reflow and not wrapped then
+			local reflowed = false
+			for index, item in items do
+				local child = item.object:FindFirstChildWhichIsA "UIFlexItem"
+				local itemAlignment = if child then enum(child, "ItemLineAlignment", "Automatic") else "Automatic"
+				if itemAlignment == "Automatic" then
+					itemAlignment = enum(list, "ItemLineAlignment", "Automatic")
+				end
+				if
+					flex[index].value ~= flex[index].basis
+					and itemAlignment ~= "Stretch"
+					and not (itemAlignment == "Automatic" and crossFlex == "Fill")
+					and wrappedAutomaticText(item.object, read)
+				then
+					local measured = reflow(item.object, content, flex[index].value)
+					item.rectangle = table.clone(item.rectangle)
+					item.rectangle.height = measured.height
+					reflowed = true
+				end
+			end
+			if reflowed and crossFlex ~= "Fill" then
+				line = 0
+				for _, item in items do
+					line = math.max(line, item.rectangle.height)
+				end
+			end
+		end
 		local main = gaps
 		for _, item in flex do
 			main += item.value

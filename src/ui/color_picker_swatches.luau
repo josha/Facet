@@ -165,14 +165,15 @@ return function(
 				kit.swatch("Swatch", D2.fromScale(1, 1), function(use: Use): Paint
 					return { color = use(source).color, alpha = 1 }
 				end) :: Shared.Child,
-				ctx.icon("checkmark", {
-					Name = "Check",
-					AnchorPoint = V2.new(0.5, 0.5),
-					Position = D2.fromScale(0.5, 0.5),
-					Visible = function(use: Use)
-						return chosen(use) and not (removable and use(editing))
-					end,
-				}),
+				Compose.show(function(use: Use): boolean
+					return chosen(use) and not (removable and use(editing))
+				end, function(): Instance
+					return ctx.icon("checkmark", {
+						Name = "Check",
+						AnchorPoint = V2.new(0.5, 0.5),
+						Position = D2.fromScale(0.5, 0.5),
+					})
+				end),
 			})
 			if removable then
 				surfaces.attach(node, {

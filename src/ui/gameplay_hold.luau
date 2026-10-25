@@ -10,7 +10,7 @@ type Lease = {
 	suspended: ComposeTypes.Cell<boolean>,
 }
 
-local leases = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiService]: Lease }
+local leases = setmetatable({} :: { [GuiService]: Lease }, { __mode = "k" })
 
 local function leaseFor(ctx: Types.Context, gui: GuiService): Lease
 	local lease = leases[gui]

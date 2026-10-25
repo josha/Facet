@@ -7,7 +7,7 @@ export type Reach = { meets: { [string]: boolean }, glass: { [string]: number } 
 type Lease = { count: number, clipped: boolean }
 
 local SIDES = { "top", "left", "bottom", "right" }
-local leases = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ScreenGui]: Lease }
+local leases = setmetatable({} :: { [ScreenGui]: Lease }, { __mode = "k" })
 
 local function apart(): Reach
 	return {

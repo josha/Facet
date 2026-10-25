@@ -6,6 +6,7 @@ local Native = require "./experience-host"
 local Environment = require "./environment"
 local Layout = require "./ui-layout"
 local Datatypes = require "./datatypes"
+local Values = require "./ui-values"
 
 export type Key = { code: string, down: boolean }
 export type Pointer = { x: number, y: number, button: "left" | "right" | "middle", down: boolean }
@@ -188,6 +189,8 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 	local hovered: { Instance } = {}
 	local pressed: { Instance } = {}
 	local pressedButton: Instance? = nil
+	type Drag = { detector: Instance, origin: Position }
+	local dragging: Drag? = nil
 	type Activation = { released: number, count: number }
 	local activations = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Activation }
 	local owned: { Environment.Object } = {}
@@ -219,6 +222,44 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 			current = current.Parent
 		end
 		return true
+	end
+	local stated: { [Instance]: boolean } = {}
+	local hasStates, guiStates = pcall(function(): unknown
+		return library.Enum.GuiState
+	end)
+	local function setState(object: Instance, name: string)
+		local member = library.Enum.GuiState:FromName(name)
+		if env.propertyOf(object, "GuiState") ~= member then
+			env.poke(object, "GuiState", member)
+		end
+	end
+	local function refreshStates()
+		if not hasStates or guiStates == nil then
+			return
+		end
+		local wanted: { [Instance]: string } = {}
+		for _, object in hovered do
+			if object:IsA "GuiObject" then
+				wanted[object] = "Hover"
+			end
+		end
+		if held then
+			for _, object in pressed do
+				if wanted[object] then
+					wanted[object] = "Press"
+				end
+			end
+		end
+		for object in stated do
+			if wanted[object] == nil and env.isAlive(object) then
+				setState(object, if interactable(object) then "Idle" else "NonInteractable")
+			end
+		end
+		table.clear(stated)
+		for object, name in wanted do
+			setState(object, name)
+			stated[object] = true
+		end
 	end
 	local function validateBindings(source: "movement" | "button"): ()
 		local root = gui:FindFirstAncestorWhichIsA "DataModel" or gui
@@ -288,9 +329,6 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 			if object:IsA "StyleLink" and options.read == nil then
 				unsupported "StyleLink without effective input properties"
 			end
-			if object:IsA "UIDragDetector" then
-				unsupported(object.ClassName)
-			end
 			for _, child in object:GetChildren() do
 				validate(child)
 			end
@@ -343,6 +381,40 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		env.poke(object, "Position", library.Vector3.new(at.X - inset.X, at.Y - inset.Y, 0))
 		env.poke(object, "UserInputState", state)
 	end
+	local function gui2d(at: Position): unknown
+		local inset = options.inset()
+		return library.Vector2.new(at.X - inset.X, at.Y - inset.Y)
+	end
+	local function detectorFor(targets: { Instance }): Instance?
+		for _, target in targets do
+			for _, child in target:GetChildren() do
+				if child:IsA "UIDragDetector" and read(child, "Enabled") ~= false then
+					if tostring(read(child, "ResponseStyle")) ~= "Enum.UIDragDetectorResponseStyle.CustomOffset" then
+						unsupported "UIDragDetector response other than CustomOffset"
+					end
+					if tostring(read(child, "DragStyle")) ~= "Enum.UIDragDetectorDragStyle.TranslatePlane" then
+						unsupported "UIDragDetector drag style other than TranslatePlane"
+					end
+					for _, limit in { "MinDragTranslation", "MaxDragTranslation" } do
+						local value = Values.dimensions(read(child, limit))
+						if value.X.Scale ~= 0 or value.X.Offset ~= 0 or value.Y.Scale ~= 0 or value.Y.Offset ~= 0 then
+							unsupported "UIDragDetector drag translation limits"
+						end
+					end
+					return child
+				end
+			end
+		end
+		return nil
+	end
+	local function dragTo(at: Position, signal: string)
+		local active = dragging
+		if active == nil or not env.isAlive(active.detector) then
+			return
+		end
+		env.poke(active.detector, "DragUDim2", library.UDim2.fromOffset(at.X - active.origin.X, at.Y - active.origin.Y))
+		env.fire(active.detector, signal, gui2d(at))
+	end
 	local function move(at: Position, objects: { Instance })
 		local object = movement or input(inputTypes.MouseMovement)
 		movement = object
@@ -365,6 +437,10 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		hovered = objects
 		lastInput = inputTypes.MouseMovement
 		env.fire(service, "InputChanged", object, processed(objects, false))
+		if held and dragging then
+			dragTo(at, "DragContinue")
+		end
+		refreshStates()
 	end
 	local function send(at: Position, down: boolean, movePointer: boolean?)
 		local objects = hits(at, "button")
@@ -373,16 +449,6 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		end
 		local targets, targetButton = recipients(objects)
 		assert(down ~= held, "VirtualInput::SendMouseButton: duplicate button state.")
-		if not down and #targets > 0 then
-			if #targets ~= #pressed then
-				unsupported "release onto different input recipients"
-			end
-			for ordinal, object in targets do
-				if object ~= pressed[ordinal] then
-					unsupported "release onto different input recipients"
-				end
-			end
-		end
 		if movePointer then
 			move(at, objects)
 		end
@@ -396,6 +462,15 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		if down then
 			held = true
 			pressed, pressedButton = targets, targetButton
+			local detector = detectorFor(targets)
+			if detector then
+				dragging = { detector = detector, origin = at }
+				env.poke(detector, "DragUDim2", library.UDim2.fromOffset(0, 0))
+				env.fire(detector, "DragStart", gui2d(at))
+				if targetButton and detector.Parent == targetButton then
+					pressedButton, targetButton = nil, nil
+				end
+			end
 			if targetButton then
 				env.fire(targetButton, "MouseButton1Down", at.X, at.Y)
 			end
@@ -405,6 +480,10 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 			env.fire(service, "InputBegan", object, processed(targets, true))
 		else
 			held = false
+			if dragging then
+				dragTo(at, "DragEnd")
+				dragging = nil
+			end
 			local original = pressedButton
 			if original and env.isAlive(original) and original == targetButton then
 				env.fire(original, "MouseButton1Click")
@@ -427,12 +506,133 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 			pressed, pressedButton = {}, nil
 			env.fire(service, "InputEnded", object, processed(targets, true))
 		end
+		refreshStates()
 	end
-	local function noKey(_value: Key)
-		unsupported "keyboard input"
+	local heldKeys: { [string]: true } = {}
+	local heldInputs: { [string]: Instance } = {}
+	local actionStates = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: boolean }
+	local function focusedBox(): Instance?
+		local method = service.GetFocusedTextBox
+		if type(method) ~= "function" then
+			return nil
+		end
+		local found = (method :: (Instance) -> Instance?)(service)
+		return if found and env.isAlive(found) then found else nil
 	end
-	local function noText(_value: string)
-		unsupported "text input"
+	local function codeName(value: unknown): string
+		return (tostring(value):match "([^%.]+)$" or tostring(value))
+	end
+	local function boundActions(code: string): { { action: Instance, context: Instance } }
+		local root = gui:FindFirstAncestorWhichIsA "DataModel" or gui
+		local found: { { action: Instance, context: Instance } } = {}
+		for _, binding in root:GetDescendants() do
+			if not binding:IsA "InputBinding" or codeName(env.propertyOf(binding, "KeyCode")) ~= code then
+				continue
+			end
+			if codeName(env.propertyOf(binding, "Type")) ~= "Automatic" then
+				unsupported "keyboard InputBinding.Type metadata"
+			end
+			local action = binding.Parent
+			if action == nil or not action:IsA "InputAction" then
+				unsupported "keyboard InputBinding without a direct InputAction"
+			end
+			local owner = (action :: Instance):FindFirstAncestorWhichIsA "InputContext"
+			if owner == nil then
+				unsupported "keyboard InputAction outside an InputContext"
+			end
+			local context = owner :: Instance
+			if codeName(env.propertyOf(action :: Instance, "Type")) ~= "Bool" then
+				unsupported "keyboard InputAction.Type other than Bool"
+			end
+			if env.propertyOf(action :: Instance, "Enabled") == true and env.propertyOf(context, "Enabled") == true then
+				table.insert(found, { action = action :: Instance, context = context })
+			end
+		end
+		table.sort(found, function(left, right)
+			return (env.propertyOf(left.context, "Priority") :: number)
+				> env.propertyOf(right.context, "Priority") :: number
+		end)
+		return found
+	end
+	local function deliverKey(value: Key)
+		local code = value.code
+		local keyboard = inputTypes.Keyboard
+		local member = library.Enum.KeyCode:FromName(code)
+		if member == nil then
+			unsupported("unknown KeyCode " .. code)
+		end
+		local object = input(keyboard)
+		env.poke(object, "KeyCode", member)
+		env.poke(object, "UserInputState", if value.down then states.Begin else states.End)
+		lastInput = keyboard
+		local box = focusedBox()
+		if value.down then
+			heldKeys[code] = true
+			heldInputs[code] = object
+		else
+			heldKeys[code] = nil
+			heldInputs[code] = nil
+		end
+		if box then
+			if value.down and code == "Backspace" then
+				local current = tostring(box.Text)
+				box.Text = string.sub(current, 1, math.max(0, utf8.offset(current, -1) or 1) - 1)
+			elseif value.down and code == "Return" then
+				if (heldKeys.LeftShift or heldKeys.RightShift) and box.MultiLine == true then
+					unsupported "Shift+Return in a multiline TextBox"
+				end
+				local release = box.ReleaseFocus
+				if type(release) == "function" then
+					(release :: (Instance, boolean) -> ())(box, true)
+				end
+			end
+			env.fire(service, if value.down then "InputBegan" else "InputEnded", object, true)
+			return
+		end
+		local guiService = (gui:FindFirstAncestorWhichIsA "DataModel" or gui):FindFirstChildOfClass "GuiService"
+		if guiService and env.propertyOf(guiService, "SelectedObject") ~= nil then
+			unsupported "keyboard input while a GuiObject is selected"
+		end
+		env.fire(service, if value.down then "InputBegan" else "InputEnded", object, false)
+		local sunk: number? = nil
+		for _, entry in boundActions(code) do
+			local priority = env.propertyOf(entry.context, "Priority") :: number
+			if sunk and priority < sunk then
+				break
+			end
+			if actionStates[entry.action] ~= value.down then
+				actionStates[entry.action] = value.down
+				env.fire(entry.action, if value.down then "Pressed" else "Released")
+				env.fire(entry.action, "StateChanged", value.down)
+			end
+			if env.propertyOf(entry.context, "Sink") == true then
+				sunk = priority
+			end
+		end
+	end
+	local function deliverText(value: string)
+		local box = focusedBox()
+		if box == nil then
+			unsupported "text input without a focused TextBox"
+		end
+		local target = box :: Instance
+		target.Text = tostring(target.Text) .. value
+	end
+	local function sendKeyLater(value: Key)
+		ensureOpen()
+		env.scheduler.delay(0, function()
+			if not closed then
+				deliverKey(value)
+			end
+		end)
+	end
+	local function sendTextLater(value: string)
+		ensureOpen()
+		env.scheduler.delay(0, function()
+			if not closed then
+				deliverText(value)
+			end
+		end)
 	end
 	local prepared, problem = pcall(function()
 		movement = input(inputTypes.MouseMovement)
@@ -457,12 +657,12 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		install(
 			device,
 			"SendMouseButton",
-			function(_self: Environment.Object, at: Position, kind: unknown, down: boolean, count: number)
+			function(_self: Environment.Object, at: Position, kind: unknown, down: boolean, count: number?)
 				if kind ~= inputTypes.MouseButton1 then
 					unsupported "non-left mouse button"
 				end
-				if count ~= 0 then
-					unsupported "explicit activation count"
+				if count ~= nil and (type(count) ~= "number" or count < 0 or count % 1 ~= 0) then
+					unsupported "non-integer activation count"
 				end
 				if at.X ~= position.X or at.Y ~= position.Y then
 					unsupported "button coordinates without prior pointer movement"
@@ -470,11 +670,11 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 				send(at, down)
 			end
 		)
-		install(device, "SendKey", function()
-			unsupported "keyboard input"
+		install(device, "SendKey", function(_self: Environment.Object, down: boolean, code: unknown, _repeat: boolean)
+			sendKeyLater { code = codeName(code), down = down }
 		end)
-		install(device, "SendTextInput", function()
-			unsupported "text input"
+		install(device, "SendTextInput", function(_self: Environment.Object, value: string)
+			sendTextLater(value)
 		end)
 		return device
 	end
@@ -489,6 +689,26 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 	install(service, "GetLastInputType", function(): unknown
 		ensureOpen()
 		return lastInput
+	end)
+	install(service, "IsKeyDown", function(_self: Instance, code: unknown): boolean
+		ensureOpen()
+		return heldKeys[codeName(code)] == true
+	end)
+	install(service, "GetKeysPressed", function(): { Instance }
+		ensureOpen()
+		local pressedKeys: { Instance } = {}
+		for _, object in heldInputs do
+			table.insert(pressedKeys, object)
+		end
+		table.sort(pressedKeys, function(left, right)
+			return (env.propertyOf(left, "KeyCode") :: Datatypes.EnumMember).Value
+				< (env.propertyOf(right, "KeyCode") :: Datatypes.EnumMember).Value
+		end)
+		return pressedKeys
+	end)
+	install(service, "GetMouseButtonsPressed", function(): { Instance }
+		ensureOpen()
+		return if held and buttonInput then { buttonInput } else {}
 	end)
 	install(gui, "GetGuiObjectsAtPosition", function(_self: Instance, x: number, y: number): { Instance }
 		ensureOpen()
@@ -508,8 +728,10 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		end
 	end)
 	return {
-		key = noKey,
-		text = noText,
+		key = function(value: Key)
+			sendKeyLater(key(value))
+		end,
+		text = sendTextLater,
 		pointer = function(value: Pointer)
 			local current = pointer(value)
 			if current.button ~= "left" then

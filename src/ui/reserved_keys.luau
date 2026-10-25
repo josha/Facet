@@ -23,7 +23,7 @@ local MODIFIERS = table.freeze({
 	"RightSuper",
 })
 
-local dispatchers = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [UserInputService]: Dispatcher }
+local dispatchers = setmetatable({} :: { [UserInputService]: Dispatcher }, { __mode = "k" })
 
 local function holds(handler: Handler, selected: Instance?): boolean
 	local node = handler.node

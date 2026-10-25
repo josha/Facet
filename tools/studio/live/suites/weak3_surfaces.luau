@@ -704,7 +704,7 @@ add("menu-dense-pointer-rows-live", {}, function(t)
 	t.note("gamepad host", host(t))
 	t.settle(10)
 	panel = visibleNamed(t, stage, "MenuPanel") or panel
-	pitch(t, "a gamepad arrives", panel, MENU_IDS, 44)
+	pitch(t, "a gamepad arrives", panel, MENU_IDS, if GuiService:IsTenFootInterface() then 44 * 1.5 else 44)
 	unemulated(t)
 	panel = visibleNamed(t, stage, "MenuPanel") or panel
 	pitch(t, "the gamepad leaves", panel, MENU_IDS, 28)
