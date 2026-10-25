@@ -210,6 +210,7 @@ export type TableOptions<V, K> = {
 	scrolls: boolean?,
 	mode: ComposeTypes.OrderedCollectionMode?,
 	snap: ("none" | "item")?,
+	recycle: boolean?,
 }
 export type ReorderShape<V, K> = SelectionOptions<V, K> & ReorderOptions<V, K>
 export type CollectionShape<V, K> =

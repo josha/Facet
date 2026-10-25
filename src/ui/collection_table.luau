@@ -57,6 +57,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 		"disabled",
 		"measure",
 		"measured",
+		"recycle",
 		"follow",
 		"followThreshold",
 		"reducedMotion",
@@ -289,6 +290,53 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 				return body
 			end, selection, sort, editing, false, if tree then tree.location else nil, true)
 		end
+		local rows = createRows(ctx, UI, {
+			spec = spec,
+			rowPolicySpec = rowPolicySpec,
+			selection = selection,
+			coordinator = coordinator,
+			rowMeasures = rowMeasures,
+			actionGutters = actionGutters,
+			truncatedRows = truncatedRows,
+			unitScale = unitScale,
+			scrolledX = scrolledX,
+			editors = editors,
+			field = field,
+			tree = tree,
+			editor = editor,
+			laneWidth = laneWidth,
+			metrics = metrics,
+			layout = layout,
+		})
+		local function plain(columns: { CollectionTypes.TableColumn<V, K> }): boolean
+			for _, column in columns do
+				if column.render or column.editor or column.detailRender then
+					return false
+				end
+			end
+			return true
+		end
+		local recycled = spec.recycle == true
+		assert(
+			not recycled
+				or (
+					tree == nil
+					and editor == nil
+					and editing == nil
+					and spec.rowActions == nil
+					and spec.measure == nil
+					and plain(read(spec.columns))
+				),
+			"Facet Table recycle needs plain columns without render, editor or detailRender, and no children, reorder, editing, row actions or measure"
+		)
+		if recycled then
+			Compose.watch(function(use: ComposeTypes.Use)
+				assert(
+					plain(read(spec.columns, use)),
+					"Facet Table cannot add a rendered or editable column after it mounts plain rows"
+				)
+			end)
+		end
 		local bodySpec: CollectionProps.KeyedCollectionSpec<V, K> = {
 			Name = "Body",
 			Position = function(use: ComposeTypes.Use)
@@ -363,24 +411,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			end,
 			editing = editing,
 
-			render = createRows(ctx, UI, {
-				spec = spec,
-				rowPolicySpec = rowPolicySpec,
-				selection = selection,
-				coordinator = coordinator,
-				rowMeasures = rowMeasures,
-				actionGutters = actionGutters,
-				truncatedRows = truncatedRows,
-				unitScale = unitScale,
-				scrolledX = scrolledX,
-				editors = editors,
-				field = field,
-				tree = tree,
-				editor = editor,
-				laneWidth = laneWidth,
-				metrics = metrics,
-				layout = layout,
-			}),
+			render = if recycled then nil else rows.render,
+			recycle = if recycled then rows.recycle else nil,
 		}
 		local previousSort = sort:peek()
 		body = buildList(bodySpec, tree, true, function(use: ComposeTypes.Use, viewport): number?

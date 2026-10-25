@@ -40,6 +40,7 @@ return function<V, K>(
 			status = view.status,
 			controls = view.controls,
 			overscan = spec.overscan or 2,
+			measured = Compose.formula(view.fullSizes),
 			follow = follow,
 			followThreshold = spec.followThreshold,
 			layout = function(use: ComposeTypes.Use)
