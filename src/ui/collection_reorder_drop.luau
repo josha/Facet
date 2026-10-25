@@ -20,7 +20,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 			local data = if type(payload) == "table" then payload :: { keys: { K }? } else nil
 			local key = if data and data.keys then data.keys[1] else nil
 			local index = if key ~= nil and table.find(read(reservedSlots), key)
-				then assert(controls.indexOfKey)(key :: K)
+				then assert(controls.indexOfKey)(key)
 				else nil
 			if index == nil and info.insertion then
 				local before = info.insertion.beforeKey
@@ -48,12 +48,12 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		local rows: { V } = read(source)
 		local data = payload :: { collection: unknown, keys: { K }? }
 		local same = type(payload) == "table" and data.collection == collectionId and info.operation == "move"
-		local carried = if same then data.keys or noCarried else noCarried
+		local carried: { K } = if same then data.keys or noCarried else noCarried
 		if rows ~= cachedRows or carried ~= cachedCarried then
 			cachedRows, cachedCarried = rows, carried
 			remaining, rowIndices, remainingIndex = {}, {}, {}
 			local included: { [K]: boolean } = {}
-			for _, key in carried :: { K } do
+			for _, key in carried do
 				included[key] = true
 			end
 			for index, item in rows do
@@ -116,11 +116,11 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		then
 			return false
 		end
-		if type(data.keys) ~= "table" or #(data.keys :: { K }) == 0 then
+		if type(data.keys) ~= "table" or #data.keys == 0 then
 			return false
 		end
 		local live = sourceIndex:peek()
-		for _, key in data.keys :: { K } do
+		for _, key in data.keys do
 			if live[key] == nil then
 				return false
 			end

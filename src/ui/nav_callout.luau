@@ -41,12 +41,7 @@ return function(
 			local function whole(value: unknown): boolean
 				return type(value) == "number" and value == math.floor(value) and value < math.huge
 			end
-			if
-				not whole(index)
-				or not whole(count)
-				or (index :: number) < 1
-				or (index :: number) > (count :: number)
-			then
+			if not whole(index) or not whole(count) or index < 1 or index > count then
 				error(`Facet {where}: steps must be \{ index, count } with whole numbers 1 <= index <= count`, 0)
 			end
 		end
@@ -165,7 +160,7 @@ return function(
 				if spec.title ~= nil or spec.closeButton == true then
 					local header: { Types.Child } = {}
 					if spec.title ~= nil then
-						local title = spec.title :: Types.Value<string>
+						local title = spec.title
 						local heading = ctx.text({
 							Name = "Title",
 							Text = function(use: ComposeTypes.Use): string
@@ -284,8 +279,8 @@ return function(
 						end,
 						Size = D2.fromOffset(280, 0),
 						AutomaticSize = E.AutomaticSize.Y,
-						ctx.corner() :: Types.Child,
-						content :: Types.Child,
+						ctx.corner(),
+						content,
 					},
 					"callout"
 				)
@@ -487,7 +482,7 @@ return function(
 					end)
 					Compose.watch(function(use: ComposeTypes.Use)
 						use(rebuilt)
-						local below = (use(panelAt) :: Vector2).Y > anchor.AbsolutePosition.Y
+						local below = use(panelAt).Y > anchor.AbsolutePosition.Y
 						local direction = if below then "Down" else "Up"
 						local candidates: { parts.Candidate } = {}
 						for _, action in actions do
@@ -525,15 +520,13 @@ return function(
 						end
 					end)
 					ctx.action(panel, "CalloutBack", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use)
-						local current = use(selection) :: Instance?
+						local current = use(selection)
 						return current ~= nil and current:IsDescendantOf(panel)
 					end, function()
 						retire("dismissed")
 					end, { priority = 2000 })
 				end
-				local overlayRoot = if arrow
-					then Host.Folder "CalloutOverlay" { panel :: Instance, table.unpack(arrow) }
-					else panel :: Instance
+				local overlayRoot = if arrow then Host.Folder "CalloutOverlay" { panel, table.unpack(arrow) } else panel
 				surfaces.keep(spec.content)
 				return overlayRoot
 			end, { motion = timing }),

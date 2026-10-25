@@ -318,7 +318,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					local button = UI.Button({
 						Name = `Page-{page}`,
 						label = tostring(page),
-						controlSize = "compact" :: Types.ControlSize,
+						controlSize = "compact",
 						AnchorPoint = V2.new(0.5, 0.5),
 						Position = D2.fromScale(0.5, 0.5),
 						Size = function(use: ComposeTypes.Use)
@@ -423,7 +423,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				Padding = function(use: ComposeTypes.Use)
 					return ctx.types.UDim.new(0, gap(use))
 				end,
-			}) :: Types.Child,
+			}),
 			items,
 		}
 		if gui and gui.GetPropertyChangedSignal then
@@ -468,11 +468,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				end,
 				FacetForm = form,
 				FacetDirection = direction,
-			} :: Types.Attributes,
+			},
 			digits :: Types.Child,
-			ellipsis :: Types.Child,
-			widest :: Types.Child,
-			row :: Types.Child,
+			ellipsis,
+			widest,
+			row,
 		}))
 		local rootSize = ctx.layoutSize(root, unit)
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -551,7 +551,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			local selection = ctx.observe.SelectedObject(gui)
 			local held: Instance? = nil
 			Compose.watch(function(use: ComposeTypes.Use)
-				local selected = use(selection) :: Instance?
+				local selected = use(selection)
 				local previous = held
 				held = if selected ~= nil and selected:IsDescendantOf(root) then selected else nil
 				if previous ~= nil and previous ~= selected and not previous:IsDescendantOf(root) then
@@ -566,8 +566,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				if landing == nil then
 					return
 				end
-				local extent = use(ctx.observe.AbsoluteSize(landing)) :: Vector2
-				local selected = use(selection) :: Instance?
+				local extent = use(ctx.observe.AbsoluteSize(landing))
+				local selected = use(selection)
 				if landing.Parent == nil then
 					pending:set(nil)
 				elseif extent.X > 0 then

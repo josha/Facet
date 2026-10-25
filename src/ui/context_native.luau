@@ -99,14 +99,14 @@ return function(
 		chrome: boolean?,
 		scrolls: boolean?
 	): Frame
-		local fields = (properties :: unknown) :: { [unknown]: unknown }
-		local source = Compose.cell({ (fields.GroupTransparency or 0) :: Shared.Value<number> })
+		local fields = properties
+		local source: ComposeTypes.Cell<{ Shared.Value<number> }> = Compose.cell({ fields.GroupTransparency or 0 })
 		fields.GroupTransparency = nil
 		local node = if scrolls
 			then (Host.ScrollingFrame((properties :: unknown) :: Shared.ScrollingFrameNativeProps) :: unknown) :: Frame
 			else Host.Frame((properties :: unknown) :: Shared.FrameNativeProps)
 		local function amount(use: ComposeTypes.Use): number
-			return read(use(source)[1] :: Shared.Value<number>, use) or 0
+			return read(use(source)[1], use) or 0
 		end
 		local shown = ctx.observe.Visible(node)
 		local warming = Compose.cell(false)
@@ -148,7 +148,7 @@ return function(
 					return use(shown) and (persistent == true or amount(use) > 0)
 				end, function()
 					local automatic = ctx.observe.AutomaticSize(node)
-					local leaving = frames ~= nil and (read(source:peek()[1] :: Shared.Value<number>) or 0) < 0.5
+					local leaving = frames ~= nil and (read(source:peek()[1]) or 0) < 0.5
 					local gather: (() -> ())? = nil
 					if frames then
 						warming:set(not leaving)
@@ -208,7 +208,7 @@ return function(
 						keepSelection(function()
 							for _, child: Instance in node:GetChildren() do
 								if carried(child) then
-									(child :: Instance).Parent = group
+									child.Parent = group
 								end
 							end
 							group.Visible = true
@@ -286,7 +286,7 @@ return function(
 			return nil, nil
 		end
 		local function hasSkin(use: ComposeTypes.Use?): boolean
-			local package = ctx.read(config.theme, use) :: Theme.ThemePackage?
+			local package = ctx.read(config.theme, use)
 			local recipe = package and (package.chrome or {})[slot]
 			return recipe ~= nil and (recipe.kind ~= "native" and recipe.kind ~= "none" or recipe.shadow ~= nil)
 		end
@@ -303,7 +303,7 @@ return function(
 				types = types,
 				target = node,
 				shadowTransparency = function(use: ComposeTypes.Use)
-					local package = ctx.read(config.theme, use) :: Theme.ThemePackage?
+					local package = ctx.read(config.theme, use)
 					local recipe = package and (package.chrome or {})[slot]
 					local fill = if recipe and recipe.kind == "native"
 						then math.clamp(use(background) :: number, 0, 1)
