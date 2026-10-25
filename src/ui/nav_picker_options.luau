@@ -130,6 +130,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			return style == "segmented" and read(spec.axis, use) ~= "y"
 		end
 		local room = Compose.cell(math.huge)
+		local spilling = Compose.cell(false)
 		local segmentBoxes: {
 			[GuiObject]: {
 				order: ComposeTypes.Readable<number>,
@@ -467,7 +468,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 								FlexMode = function(use: ComposeTypes.Use): Enum.UIFlexMode
 									return if read(spec.sizing, use) == "hug"
 										then E.UIFlexMode.None
-										elseif across(use) then E.UIFlexMode.Grow
+										elseif across(use) then if use(spilling)
+											then E.UIFlexMode.None
+											else E.UIFlexMode.Grow
 										else E.UIFlexMode.Fill
 								end,
 							}),
@@ -709,6 +712,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				return room > 0 and use(extent).X > room + 1
 			end)
 			overflows = spills
+			Compose.watch(function(use: ComposeTypes.Use)
+				spilling:set(use(spills))
+			end)
 			local fields = (p :: unknown) :: { [string]: unknown }
 			local scrolling: { [string]: unknown } = {
 				Size = function(use: ComposeTypes.Use): UDim2
