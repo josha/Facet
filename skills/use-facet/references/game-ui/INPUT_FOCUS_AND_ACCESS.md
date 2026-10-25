@@ -49,14 +49,15 @@ dedicated interface. For other HUD roots, use `UI.responder`; `engage` and
 `resign` make the transition explicit. `engageOnPress = false` permits a press
 to activate a control without taking the keyboard.
 
-A page that replaces gameplay suspends gameplay input. Give `Facet.app` the
-game's gameplay InputContexts and custom touch controls once, as `gameplay =
-{ contexts = { ... }, controls = { ... } }`. While a NavigationStack path is
-nonempty or a Sheet is presented, Facet disables those contexts, hides those
-controls and turns off `GuiService.TouchControlsEnabled`. Overlapping surfaces
-share one suspension, and the last to close restores the prior values. It does
-not wait for exit motion. A visible overlay does not pause the world; the game
-owns that decision.
+A page that replaces gameplay suspends gameplay input. Facet owns when:
+create the app with `suspendGameplay = true`, and while a NavigationStack path
+is nonempty or a modal surface is open, `UI.environment().gameplaySuspended`
+is true and `GuiService.TouchControlsEnabled` is off. Overlapping surfaces
+share one suspension; the last to close ends it, without waiting for exit
+motion. The game owns its input state: derive each gameplay InputContext's
+`Enabled` and each custom touch control's `Visible` from its own state and
+`not gameplaySuspended`, so a change the game makes during a page survives
+it. A visible overlay does not pause the world; the game owns that decision.
 
 Native InputContext priority and `Sink` resolve competing action bindings;
 disabling the gameplay context makes its ownership explicit. The responder's
@@ -79,8 +80,9 @@ first available content control, then a pinned action, then Close or the
 grabber. Among actions, Dialog, Alert, Sheet and Callout start on the
 `default` action, unless it is destructive; then they start on the safe
 choice, Cancel. A read-only result may need Close as
-its useful action. Keep this judgment separate from the visual emphasis of
-the primary action. Read `Selection.SelectedObject` for the exact behavior.
+its useful action. `role = "default"` gives both the emphasis and the entry
+focus, so mark an action that loses progress or spends something the player
+cannot get back `destructive`. Read `Selection.SelectedObject` for the exact behavior.
 
 Make directional movement agree with the visible arrangement and keyboard
 order agree with the reading and action order. Put frequent commands near

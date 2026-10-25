@@ -30,10 +30,11 @@ NavigationStack owns motion and return focus; focus starts in the body, not on
 Close. Close returns to gameplay; NavBar Back follows the body's `back`.
 The Screen surface reaches the glass; the NavBar and body stay safe.
 
-Create the app with `gameplay = { contexts = { gameplayContext },
-controls = { customStick } }`. While the path is nonempty, Facet disables
-them and GuiService.TouchControlsEnabled, and the root or unmount restores
-their prior values without waiting for exit motion. A Sheet does the same.
+Create the app with `suspendGameplay = true`. While the path is nonempty or
+a modal is open, Facet turns off GuiService.TouchControlsEnabled and
+`UI.environment().gameplaySuspended` is true. Both return when the last one
+closes, without waiting for exit motion. Derive the game's input from it:
+`driving.Enabled = use(inKart) and not use(suspended)` in a `C.watch`.
 This does not pause the clock. Keep saved values and drafts outside pages.
 
 The body owns its layout: use [collection/detail](Tasks.collection-detail.md),

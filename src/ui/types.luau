@@ -163,9 +163,8 @@ export type Config = {
 	keyboardNavigation: boolean?,
 	translator: Value<Translator?>?,
 	buttonGuides: Value<boolean>?,
-	gameplay: GameplayInput?,
+	suspendGameplay: boolean?,
 }
-export type GameplayInput = { contexts: { InputContext }?, controls: { GuiObject }? }
 export type EnvironmentPreview = {
 	preferredInput: Value<(Enum.PreferredInput | string)?>?,
 	touchEnabled: Value<boolean?>?,

@@ -357,6 +357,7 @@ return function(
 				return if use(placement) == "sidebar" or use(stripOverflows) then 2 else 0
 			end,
 			VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
+			HorizontalScrollBarInset = E.ScrollBarInset.None,
 			CanvasSize = D2.fromOffset(0, 0),
 			AutomaticCanvasSize = function(use: ComposeTypes.Use)
 				return if use(placement) == "sidebar" then E.AutomaticSize.Y else E.AutomaticSize.X

@@ -631,6 +631,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		if scrolls then
 			local scrollable: Types.ScrollingFrameNativeProps = {
 				ScrollingDirection = E.ScrollingDirection.X,
+				HorizontalScrollBarInset = E.ScrollBarInset.None,
 				Selectable = false,
 				AutomaticCanvasSize = E.AutomaticSize.None,
 			}

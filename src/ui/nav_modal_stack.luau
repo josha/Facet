@@ -197,7 +197,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 		local heldTouch: (() -> ())? = nil
 		local function holdTouch()
 			if heldTouch == nil then
-				heldTouch = gameplayHold.touch(gui)
+				heldTouch = gameplayHold.hold(ctx)
 			end
 		end
 		local function releaseTouch()

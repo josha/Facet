@@ -57,7 +57,7 @@ return function(verifyHarness: Verify.Harness)
 			motionLevel: Shared.Value<Shared.MotionLevel>?,
 			runService: boolean?,
 			preRender: boolean?,
-			gameplay: ((engine: { new: (className: string) -> unknown }) -> Shared.GameplayInput)?,
+			suspendGameplay: boolean?,
 		}?
 	)
 		local engine = engines.new()
@@ -99,7 +99,7 @@ return function(verifyHarness: Verify.Harness)
 			theme = options and options.theme,
 			pressHaptic = options and options.pressHaptic and options.pressHaptic(engine),
 			motionLevel = options and options.motionLevel,
-			gameplay = options and options.gameplay and options.gameplay(engine),
+			suspendGameplay = options and options.suspendGameplay,
 		})
 		local target = engine.new("Folder")
 		local stop, screen: any = runtime.mount(function()
@@ -616,12 +616,20 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case(
 			"owns gameplay suspension across destination replacement and restores prior input",
 			function()
-				for _, initiallyEnabled in { true, false } do
+				for _, inKart in { true, false } do
 					local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
+					local driving = Compose.cell(inKart)
 					local disposed: { [string]: boolean } = {}
+					local writes = 0
 					local gameplay: InputContext
-					local stick: GuiObject
-					local world = setup(function(UI: FacetControls)
+					local suspended: Compose.Readable<boolean>
+					local world = setup(function(UI: FacetControls, _Host: RobloxHost, engine)
+						gameplay = (engine.new("InputContext") :: unknown) :: InputContext
+						suspended = UI.environment().gameplaySuspended
+						Compose.watch(function(use: Compose.Use)
+							gameplay.Enabled = use(driving) and not use(suspended)
+							writes += 1
+						end)
 						local function destination(name: string): Navigation.NavigationDestination<unknown>
 							return {
 								content = function(): Instance
@@ -642,37 +650,28 @@ return function(verifyHarness: Verify.Harness)
 							},
 							destinations = { first = destination("first"), second = destination("second") },
 						}
-					end, {
-						gameplay = function(engine)
-							gameplay = (engine.new("InputContext") :: unknown) :: InputContext
-							gameplay.Enabled = initiallyEnabled
-							stick = (engine.new("Frame") :: unknown) :: GuiObject
-							return { contexts = { gameplay }, controls = { stick } }
-						end,
-					})
-					Verify.expect(gameplay.Enabled):toBe(initiallyEnabled)
+					end, { suspendGameplay = true })
+					Verify.expect(gameplay.Enabled):toBe(inKart)
 					path:set({ { id = "first" } })
 					world.settle()
 					Verify.expect(gameplay.Enabled):toBe(false)
-					Verify.expect(stick.Visible):toBe(false)
 					Verify.expect(world.gui.TouchControlsEnabled):toBe(false)
+					local before = writes
+					path:set({ { id = "first" }, { id = "second" } })
 					path:set({ { id = "second" } })
-					Verify.expect(disposed.first):toBeNil()
-					Verify.expect(gameplay.Enabled):toBe(false)
+					Verify.expect(writes):toBe(before)
 					world.settle()
 					Verify.expect(disposed.first):toBe(true)
+					driving:set(not inKart)
 					Verify.expect(gameplay.Enabled):toBe(false)
 					path:set({})
-					Verify.expect(disposed.second):toBeNil()
-					Verify.expect(gameplay.Enabled):toBe(initiallyEnabled)
-					Verify.expect(stick.Visible):toBe(true)
+					Verify.expect(gameplay.Enabled):toBe(not inKart)
 					Verify.expect(world.gui.TouchControlsEnabled):toBe(true)
 					world.settle()
 					Verify.expect(disposed.second):toBe(true)
 					path:set({ { id = "first" } })
-					Verify.expect(gameplay.Enabled):toBe(false)
+					Verify.expect(suspended:peek()):toBe(true)
 					world.stop()
-					Verify.expect(gameplay.Enabled):toBe(initiallyEnabled)
 					Verify.expect(world.gui.TouchControlsEnabled):toBe(true)
 				end
 			end
@@ -681,8 +680,9 @@ return function(verifyHarness: Verify.Harness)
 			for _, pageFirst in { true, false } do
 				local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
 				local opened = Compose.cell(false)
-				local gameplay: InputContext
+				local suspended: Compose.Readable<boolean>
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					suspended = UI.environment().gameplaySuspended
 					return Host.Frame {
 						UI.NavigationStack {
 							path = path,
@@ -707,30 +707,28 @@ return function(verifyHarness: Verify.Harness)
 							end,
 						},
 					}
-				end, {
-					gameplay = function(engine)
-						gameplay = (engine.new("InputContext") :: unknown) :: InputContext
-						gameplay.Enabled = true
-						return { contexts = { gameplay } }
-					end,
-				})
+				end, { suspendGameplay = true })
+				Verify.expect(suspended:peek()):toBe(false)
 				path:set({ { id = "shop" } })
 				opened:set(true)
-				Verify.expect(gameplay.Enabled):toBe(false)
+				world.settle()
+				Verify.expect(suspended:peek()):toBe(true)
 				Verify.expect(world.gui.TouchControlsEnabled):toBe(false)
 				if pageFirst then
 					path:set({})
 				else
 					opened:set(false)
 				end
-				Verify.expect(gameplay.Enabled):toBe(false)
+				world.settle()
+				Verify.expect(suspended:peek()):toBe(true)
 				Verify.expect(world.gui.TouchControlsEnabled):toBe(false)
 				if pageFirst then
 					opened:set(false)
 				else
 					path:set({})
 				end
-				Verify.expect(gameplay.Enabled):toBe(true)
+				world.settle()
+				Verify.expect(suspended:peek()):toBe(false)
 				Verify.expect(world.gui.TouchControlsEnabled):toBe(true)
 				world.stop()
 			end

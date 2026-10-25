@@ -173,7 +173,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	UI.Region = ctx.construct("Region", function(spec: LayoutProps.RegionProps): Frame
 		local zone, rank = spec.zone, spec.rank
 		assert(
-			type(zone) == "string" and resolver.CELLS[zone] ~= nil,
+			type(zone) == "string" and (zone == "action" or resolver.CELLS[zone] ~= nil),
 			"Facet Region zone must be topLeft, top, topRight, left, center, right, bottomLeft, bottom, bottomRight, topbar or action"
 		)
 		assert(
@@ -246,7 +246,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local hangs: { ComposeTypes.Cell<number> } = {}
 		local floors: { () -> boolean } = {}
 		local contents: { GuiObject } = {}
-		local below = resolver.CELLS[zone][2] == 3
+		local below = zone == "action" or resolver.CELLS[zone][2] == 3
 		for index = 1, #properties do
 			local child = properties[index] :: GuiObject
 			contents[index] = child
@@ -327,7 +327,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					Compose.cleanup(returnHome)
 					return holder
 				end
-			local cell = resolver.CELLS[zone]
+			local cell = resolver.CELLS[if zone == "action" then "bottom" else zone]
 			local edge: Overlay.Edge = if cell[1] == 2 and cell[2] == 3 then "top" else EXPAND_EDGE[cell[1]]
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(form) <= 1 and open:peek() then

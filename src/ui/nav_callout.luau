@@ -225,6 +225,7 @@ return function(
 					)
 				end
 				local actions: { Overlay.Action } = spec.actions or {}
+				local actionButtons: { [string]: GuiObject } = {}
 				if #actions > 0 then
 					local buttons: Types.FrameNativeProps = {
 						Name = "Actions",
@@ -239,7 +240,7 @@ return function(
 						Padding = ctx.types.UDim.new(0, 8),
 					})
 					for index, action in actions do
-						buttons[#buttons + 1] = UI.Button({
+						local button = UI.Button({
 							Name = action.id,
 							label = action.label,
 							role = action.role,
@@ -253,6 +254,8 @@ return function(
 								end)
 							end,
 						})
+						buttons[#buttons + 1] = button
+						actionButtons[action.id] = button
 					end
 					table.insert(rows, Host.Frame(buttons))
 				else
@@ -493,10 +496,9 @@ return function(
 							table.insert(candidates, candidate)
 						end
 						local preferred = parts.initialAction(candidates)
-						local chosen = if preferred then panel:FindFirstChild(preferred, true) else nil
-						local found = if chosen and chosen:IsA("GuiObject")
-							then chosen
-							else surfaces.firstSelectable(panel)
+						local chosen = if preferred then actionButtons[preferred] else nil
+						local found = (if chosen then surfaces.firstSelectable(chosen) else nil)
+							or surfaces.firstSelectable(panel)
 						local target = if found == leaving then nil else found
 						if linked ~= direction or linkedTarget ~= target then
 							unlink()

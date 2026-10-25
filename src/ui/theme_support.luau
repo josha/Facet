@@ -185,7 +185,27 @@ local function deeplyFrozen(value: unknown, visited: { [unknown]: boolean }): bo
 	return true
 end
 
+local function neutralBase(neutral: ThemeTypes.ThemePackage, colors: { [string]: unknown }?): ThemeTypes.Palette
+	local surface = if colors then colors.surface else nil
+	local base = neutral.style.themes[1]
+	if type(surface) == "table" then
+		local rgb = surface :: ThemeTypes.RGB
+		local function linear(channel: number): number
+			return if channel <= 0.04045 then channel / 12.92 else ((channel + 0.055) / 1.055) ^ 2.4
+		end
+		if 0.2126 * linear(rgb.r) + 0.7152 * linear(rgb.g) + 0.0722 * linear(rgb.b) > 0.18 then
+			for _, entry in neutral.style.themes do
+				if entry.name == "Light" then
+					base = entry
+				end
+			end
+		end
+	end
+	return base
+end
+
 return {
+	neutralBase = neutralBase,
 	contrast = contrast,
 	readableTransparency = readableTransparency,
 	copy = copy,

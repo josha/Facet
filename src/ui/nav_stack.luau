@@ -611,11 +611,16 @@ return function(
 		Compose.watch(function(use: ComposeTypes.Use)
 			root:SetAttribute("FacetError", use(errorText))
 		end)
-		Compose.watch(function(use: ComposeTypes.Use)
-			if #use(spec.path) > 0 then
-				Compose.cleanup(gameplayHold.hold(ctx.config))
-			end
-		end)
+		if ctx.config.suspendGameplay then
+			local open = Compose.formula(function(use: ComposeTypes.Use): boolean
+				return #use(spec.path) > 0
+			end)
+			Compose.watch(function(use: ComposeTypes.Use)
+				if use(open) then
+					Compose.cleanup(gameplayHold.hold(ctx))
+				end
+			end)
+		end
 		return root
 	end
 

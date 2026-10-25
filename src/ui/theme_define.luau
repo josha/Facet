@@ -467,7 +467,8 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				)
 				continue
 			end
-			local colors = merge(neutral.style.themes[1].colors, palette.colors)
+			local base = support.neutralBase(neutral, palette.colors)
+			local colors = merge(base.colors, palette.colors)
 			local valid = true
 			for role, value in colors do
 				if not isColor(value) then
@@ -509,9 +510,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 						)
 					end
 				end
-				local extra = (
-					merge(neutral.style.themes[1].extra or {}, palette.extra or {}) :: unknown
-				) :: { [string]: ThemeTypes.RGB? }
+				local extra = (merge(base.extra or {}, palette.extra or {}) :: unknown) :: { [string]: ThemeTypes.RGB? }
 				local selectedFill = extra.controlSelected
 				local selectedLabel = extra.onSelected or colors.content
 				if type(selectedFill) == "table" and type(selectedLabel) == "table" then
