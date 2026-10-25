@@ -99,7 +99,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			end
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
-			local edge = readSource(open, use) :: RowEdge?
+			local edge = readSource(open, use)
 			if edge ~= nil and #actions(edge, use) == 0 then
 				setOpen(nil)
 			end
@@ -136,7 +136,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			if live ~= nil then
 				return live
 			end
-			local edge = use(open) :: RowEdge?
+			local edge = use(open)
 			return if edge == nil then 0 else bandWidth(edge, use) * (if edge == "leading" then 1 else -1)
 		end)
 		local shownOffset = offset:peek()
@@ -273,7 +273,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						then E.HorizontalAlignment.Right
 						else E.HorizontalAlignment.Left,
 					SortOrder = E.SortOrder.LayoutOrder,
-				}) :: ComposeTypes.Child,
+				}),
 				Compose.keyed({
 					from = function(use: ComposeTypes.Use)
 						return actions(edge, use)
@@ -571,9 +571,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		end)
 		local menuItems = Compose.formula(function(use: ComposeTypes.Use)
 			local result: { NavigationTypes.MenuItem<string> } = {}
-			local edges: { RowEdge } = { "leading" :: RowEdge, "trailing" :: RowEdge }
+			local edges: { RowEdge } = { "leading", "trailing" }
 			for _, edge in edges do
-				for _, action in actions(edge :: RowEdge, use) do
+				for _, action in actions(edge, use) do
 					table.insert(result, {
 						id = edge .. ":" .. action.id,
 						label = action.label,
@@ -600,7 +600,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			Size = D2.new(1, 0, 0, 44),
 			BackgroundTransparency = 1,
 			ClipsDescendants = true,
-			tray("leading") :: ComposeTypes.Child,
+			tray("leading"),
 			tray("trailing"),
 			Host.Frame "Content" {
 				Visible = function(use: ComposeTypes.Use): boolean
@@ -625,7 +625,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						return if read(spec.editing, use) then use(editWidth) else 0
 					end,
 				} :: Types.Attributes,
-				content :: ComposeTypes.Child,
+				content,
 				Host.TextButton "SwipeGrip" {
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
@@ -816,7 +816,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				end
 				local point = V2.new(input.Position.X, input.Position.Y)
 				local guiService = ctx.config.guiService
-				if (layer :: ScreenGui).IgnoreGuiInset and guiService then
+				if layer.IgnoreGuiInset and guiService then
 					point += guiService:GetGuiInset()
 				end
 				local at, size = root.AbsolutePosition, root.AbsoluteSize
@@ -885,9 +885,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			setOpen(nil)
 		end, { priority = 300 })
 		local function destructive(use: ComposeTypes.Use?): (RowAction?, RowEdge?)
-			local edges: { RowEdge } = { "trailing" :: RowEdge, "leading" :: RowEdge }
+			local edges: { RowEdge } = { "trailing", "leading" }
 			for _, edge in edges do
-				for _, action in actions(edge :: RowEdge, use) do
+				for _, action in actions(edge, use) do
 					if action.role == "destructive" and read(action.enabled, use) ~= false then
 						return action, edge :: RowEdge
 					end
@@ -962,7 +962,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		end
 		local previousSelection: GuiObject?
 		Compose.watch(function(use: ComposeTypes.Use)
-			local edge = use(open) :: RowEdge?
+			local edge = use(open)
 			if gui == nil then
 				return
 			end

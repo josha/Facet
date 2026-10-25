@@ -46,7 +46,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.badged: build a badged host inside runtime.mount")
 		local function tone(use: ComposeTypes.Use): Media.Status
-			return ((read(status, use) :: unknown) :: Media.Status?) or SEAL_STATUS
+			local current: Media.Status? = read(status, use)
+			return current or SEAL_STATUS
 		end
 		words(read(value))
 		local text = function(use: ComposeTypes.Use): string
@@ -62,8 +63,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			LayoutOrder = host.LayoutOrder,
 			Size = D2.fromOffset(0, 0),
 			AutomaticSize = E.AutomaticSize.XY,
-			list :: Types.Child,
-			host :: Types.Child,
+			list,
+			host,
 			Host.Folder "Seal" {
 				Host.Frame "Corner" {
 					BackgroundTransparency = 1,
@@ -96,7 +97,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						})
 					end),
 				},
-			} :: Types.Child,
+			},
 		})
 		return wrapper
 	end

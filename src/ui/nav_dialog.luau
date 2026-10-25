@@ -305,7 +305,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					end
 					local function bind(name: string, direction: number, keys: { Enum.KeyCode })
 						ctx.action(scroller, name, keys, function(use: ComposeTypes.Use)
-							if use(selected) ~= (scroller :: GuiObject) or not use(room.overflowing) then
+							if use(selected) ~= scroller or not use(room.overflowing) then
 								return false
 							end
 							local y = use(canvas).Y
@@ -349,7 +349,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					GroupTransparency = function(use: ComposeTypes.Use)
 						return 1 - shown.opacity(use)
 					end,
-					room.frame :: Instance,
+					room.frame,
 					ctx.padding(16, 16),
 					ctx.corner(),
 				}

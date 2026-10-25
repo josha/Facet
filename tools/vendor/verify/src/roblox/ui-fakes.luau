@@ -171,7 +171,7 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 	local selected = rule or selection(options)
 	local focused: Instance? = nil
 	local focusConnection: Environment.Connection? = nil
-	local function release(enterPressed: boolean?)
+	local function release(enterPressed: boolean?, cause: Instance?)
 		local previous = focused
 		focused = nil
 		if focusConnection then
@@ -179,7 +179,7 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 			focusConnection = nil
 		end
 		if previous and env.isAlive(previous) then
-			env.fire(previous, "FocusLost", enterPressed == true, nil)
+			env.fire(previous, "FocusLost", enterPressed == true, cause)
 		end
 	end
 	env.fake("TextBox.CaptureFocus", function(object: Instance)
@@ -195,11 +195,13 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 		if object.ClearTextOnFocus == true then
 			object.Text = ""
 		end
+		local text = tostring(object.Text)
+		pcall(env.poke, object, "CursorPosition", (utf8.len(text) or #text) + 1)
 		env.fire(object, "Focused")
 	end)
-	env.fake("TextBox.ReleaseFocus", function(object: Instance, enterPressed: boolean?)
+	env.fake("TextBox.ReleaseFocus", function(object: Instance, enterPressed: boolean?, cause: Instance?)
 		if focused == object then
-			release(enterPressed)
+			release(enterPressed, cause)
 		end
 	end)
 	env.fake("TextBox.IsFocused", function(object: Instance): boolean

@@ -474,6 +474,28 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
+		verifyHarness:case("draws icon-only items at the menu icon size inside their sector", {
+			id = "native_radial_controls::native radial interaction policies::draws icon-only items at the menu icon size inside their sector",
+			run = function()
+				local world = setup({
+					center = "empty" :: "empty",
+					iconSize = 40,
+					ringWidth = 96,
+					items = {
+						{ id = "gear", label = "Gear", icon = "menu", labelStyle = "icon" :: "icon" } :: Radial.RadialItem<string>,
+						{ id = "wave", label = "Wave", icon = "flag", labelStyle = "icon" :: "icon" } :: Radial.RadialItem<string>,
+					},
+				}, true)
+				world.step(1)
+				local gear = world.find("gear")
+				local glyph = assert(gear:FindFirstChild("LeadingIcon", true))
+				local room = math.min(gear.Size.X.Offset, gear.Size.Y.Offset)
+				Verify.expect(glyph.Size.X.Offset):toBe(40)
+				Verify.expect(room >= 44):toBe(true)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("a level's wedges keep their shape while they fade out for the next level", {
 			id = "native_radial_controls::native radial interaction policies::a level's wedges keep their shape while they fade out for the next level",
 			run = function()

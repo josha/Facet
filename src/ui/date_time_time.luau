@@ -61,7 +61,7 @@ return function(
 				label = name,
 				Size = D2.new(0, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) :: Shared.Child,
+				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 				value = text,
 				numericValue = number,
 				min = lo,
@@ -117,8 +117,8 @@ return function(
 				Name = "Half",
 				options = { { value = "AM", label = "AM" }, { value = "PM", label = "PM" } },
 				selected = half,
-				style = "segmented" :: "segmented",
-				sizing = "hug" :: "hug",
+				style = "segmented",
+				sizing = "hug",
 				Size = D2.fromOffset(0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
 				enabled = function(use: Use)
@@ -130,7 +130,7 @@ return function(
 						return false
 					end
 					local next = table.clone(v)
-					next.hour = (v.hour :: number) % 12 + (if word == "PM" then 12 else 0)
+					next.hour = v.hour % 12 + (if word == "PM" then 12 else 0)
 					if not propose(next) then
 						return false
 					end

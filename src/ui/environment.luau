@@ -29,7 +29,7 @@ end
 
 local function enumName(value: unknown, fallback: string): string
 	if typeof(value) == "EnumItem" then
-		return (value :: EnumItem).Name
+		return value.Name
 	end
 	return fallback
 end
@@ -84,12 +84,12 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			return ctx.read(config.theme, use)
 		end)
 		local recipe = Compose.formula(function(use: ComposeTypes.Use): ThemeTypes.SkinLayer
-			local current = use(package) :: ThemeTypes.ThemePackage?
+			local current = use(package)
 			local chrome = if current then current.chrome else nil
 			return (if chrome then chrome.focus else nil) or { kind = "ring" :: "ring" }
 		end)
 		local function layer(use: ComposeTypes.Use): ThemeTypes.SkinLayer
-			return use(recipe) :: ThemeTypes.SkinLayer
+			return use(recipe)
 		end
 		local function shown(use: ComposeTypes.Use): boolean
 			return use(cursor) ~= true and (use(keyed) or use(env.effectiveInput) == "Gamepad")
@@ -118,7 +118,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			for name in string.gmatch(path, "[^/]+") do
 				at = if at == nil then nil elseif name == ".." then at.Parent else at:FindFirstChild(name)
 			end
-			return if at and at:IsA("GuiObject") then at :: GuiObject else nil
+			return if at and at:IsA("GuiObject") then at else nil
 		end
 		local partRevision = Compose.cell(0)
 		local function partShare(target: Instance?): (Vector2?, Vector2?)
@@ -126,11 +126,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			if part == nil or target == nil or not target:IsA("GuiObject") then
 				return nil, nil
 			end
-			local whole = (target :: GuiObject).AbsoluteSize
+			local whole = target.AbsoluteSize
 			if whole.X <= 0 or whole.Y <= 0 then
 				return nil, nil
 			end
-			local offset = part.AbsolutePosition - (target :: GuiObject).AbsolutePosition
+			local offset = part.AbsolutePosition - target.AbsolutePosition
 			return ctx.types.Vector2.new(offset.X / whole.X, offset.Y / whole.Y),
 				ctx.types.Vector2.new(part.AbsoluteSize.X / whole.X, part.AbsoluteSize.Y / whole.Y)
 		end
@@ -139,7 +139,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			reshaped:set(reshaped:peek() + 1)
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
-			local target = use(selected) :: Instance?
+			local target: GuiObject? = use(selected)
 			use(partRevision)
 			if observation and target and target:IsA("GuiObject") then
 				Compose.cleanup(observation.observeProperty(target, "AbsoluteSize", bump))
@@ -200,12 +200,12 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end, paint)
 		end
 		local function art(use: ComposeTypes.Use): ThemeTypes.Asset?
-			local current = use(package) :: ThemeTypes.ThemePackage?
+			local current = use(package)
 			local focus = layer(use)
 			if focus.kind ~= "nineSlice" or type(focus.asset) ~= "string" or current == nil then
 				return nil
 			end
-			return (current.assets or {})[focus.asset :: string]
+			return (current.assets or {})[focus.asset]
 		end
 		local function outset(use: ComposeTypes.Use): number
 			return scaled(use, layer(use).outset or 0, 1.5)
@@ -251,7 +251,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			Size = function(use: ComposeTypes.Use): UDim2
 				local grow = lift(use)
 				use(reshaped)
-				local target = use(selected) :: Instance?
+				local target: GuiObject? = use(selected)
 				local _, share = partShare(target)
 				if share then
 					return D2.new(share.X, 2 * grow, share.Y, 2 * grow)
@@ -262,7 +262,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			Position = function(use: ComposeTypes.Use): UDim2
 				local grow = lift(use)
 				use(reshaped)
-				local target = use(selected) :: Instance?
+				local target: GuiObject? = use(selected)
 				local at = partShare(target)
 				if at then
 					return D2.new(at.X, -grow, at.Y, -grow)
@@ -297,8 +297,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 						return D.new(0.5, 0)
 					end
 					use(reshaped)
-					local target = use(selected) :: Instance?
-					local radius = use(themeRadius) :: UDim
+					local target: GuiObject? = use(selected)
+					local radius = use(themeRadius)
 					if target then
 						local own = (partOf(target) or target):FindFirstChildWhichIsA("UICorner")
 						if own then
@@ -329,7 +329,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					Transparency = function(use: ComposeTypes.Use): NumberSequence
 						local focus = layer(use)
 						use(reshaped)
-						local target = use(selected) :: GuiObject?
+						local target: GuiObject? = use(selected)
 						local shape = partOf(target) or target
 						local width = (if shape then shape.AbsoluteSize.X else 0) + 2 * lift(use)
 						local arm = scaled(use, if type(focus.size) == "number" then focus.size else 12, 1.5)
@@ -359,7 +359,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					if type(wanted) == "table" then
 						return ctx.types.Color3.new(wanted.r, wanted.g, wanted.b)
 					end
-					local ink = use(color) :: Color3
+					local ink = use(color)
 					local black, white = ctx.types.Color3.new(0, 0, 0), ctx.types.Color3.new(1, 1, 1)
 					return if support.contrast(ink, black) >= support.contrast(ink, white) then black else white
 				end,
@@ -386,7 +386,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				Compose.keyed({
 					from = function(use: ComposeTypes.Use): { GuiObject }
 						use(partRevision)
-						local target = use(selected) :: GuiObject?
+						local target: GuiObject? = use(selected)
 						use(reshaped)
 						return if target
 								and not target.SelectionImageObject
@@ -416,7 +416,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			owner = { prior = playerGui.SelectionImageObject, rings = {} }
 			selectionOwners[playerGui] = owner
 		end
-		local held = owner :: SelectionOwner
+		local held = owner
 		local selectionHost = (playerGui :: unknown) :: { SelectionImageObject: GuiObject? }
 		table.insert(held.rings, ring)
 		selectionHost.SelectionImageObject = ring
@@ -496,7 +496,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				"Facet environment.atLeast expects compact, regular or wide"
 			)
 			return derived(function(use): boolean
-				local current = (use(sizeClass) :: unknown) :: Env.SizeClass
+				local current = use(sizeClass)
 				return adaptive.sizeClassAtLeast(current, wanted)
 			end)
 		end
@@ -548,7 +548,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local topbar = watched(gui, "TopbarInset", nil)
 		local topbarInset = derived(function(use): Rect
 			local inset = use(topbar)
-			return if typeof(inset) == "Rect" then inset :: Rect else ctx.types.Rect.new()
+			return if typeof(inset) == "Rect" then inset else ctx.types.Rect.new()
 		end)
 		local topbarControlDiameter = derived(function(use): number
 			use(viewportSize)
@@ -594,7 +594,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local metricScale = derived(function(use): number
 			return if use(isTenFoot) then adaptive.TEN_FOOT_SCALE else 1
 		end)
-		local textService = (config.services :: unknown) :: { TextService: TextService? }
+		local textService = config.services
 		local function textFactor(role: string, use: ComposeTypes.Use): number
 			local path = `typography.{role}.size`
 			local authored = ctx.metric(path, use, true)
@@ -779,7 +779,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local last: GuiObject? = nil
 		local inside = false
 		Compose.watch(function(use: ComposeTypes.Use)
-			local current = use(selected) :: GuiObject?
+			local current: GuiObject? = use(selected)
 			local entered = current ~= nil and current:IsDescendantOf(group)
 			if entered and not inside and entry ~= "nearest" then
 				local target: GuiObject? = nil
@@ -837,7 +837,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					end
 				end
 				Compose.watch(function(use: ComposeTypes.Use)
-					local current = use(selected) :: GuiObject?
+					local current: GuiObject? = use(selected)
 					local within = current ~= nil and current:IsDescendantOf(group)
 					if
 						held
@@ -882,7 +882,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local world = (scene() :: unknown) :: Scene?
 		local function sample(): Env.WorldAnchorPoint
 			local place = world
-			local found = (ctx.read(options.target) :: unknown) :: Instance?
+			local found: Instance? = ctx.read(options.target)
 			local chosen = (ctx.read(options.camera) :: unknown) :: Projector?
 			local camera = chosen or (if place then place.CurrentCamera else nil)
 			if found == nil or camera == nil or place == nil then
@@ -901,7 +901,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				if not target:FindFirstChildWhichIsA("BasePart", true) then
 					return { visible = false }
 				end
-				frame, size = (target :: Model):GetBoundingBox()
+				frame, size = target:GetBoundingBox()
 			else
 				frame, size = (target :: BasePart).CFrame, (target :: BasePart).Size
 			end

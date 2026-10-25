@@ -72,6 +72,9 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 		local boundFor, boundWidth = "", 0
 		local pending: thread? = nil
 		local function widestWord(): number
+			if owner.isDisposed() then
+				return 0
+			end
 			if probe == nil then
 				Compose.withOwner(owner, function()
 					local _, measure = ctx.runtime.mount(function()

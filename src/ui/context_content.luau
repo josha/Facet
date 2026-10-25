@@ -386,7 +386,7 @@ return function(
 )
 	local Compose, runtime, types, Host = ctx.Compose, ctx.runtime, ctx.types, ctx.Host
 	local Enum = types.Enum
-	local layout = layoutKit.attach((ctx :: unknown) :: Shared.Context)
+	local layout = layoutKit.attach(ctx)
 	function ctx.textLayout(label: TextLabel | TextButton, stable: boolean?, watchPadding: boolean?)
 		attachLayout(ctx, label, stable, watchPadding)
 	end
@@ -413,14 +413,14 @@ return function(
 		end, parent)
 		local size = ctx.observe.AbsoluteSize(probe :: GuiObject)
 		return Compose.formula(function(use: ComposeTypes.Use): number
-			local unit = (use(size) :: Vector2).X / 100
+			local unit = use(size).X / 100
 			return if unit > 0 then unit else 1
 		end)
 	end
 	function ctx.layoutSize(node: GuiBase2d, unit: ComposeTypes.Readable<number>?): ComposeTypes.Readable<Vector2>
 		local size, unit = ctx.observe.AbsoluteSize(node), unit or ctx.layoutUnit(node)
 		return Compose.formula(function(use: ComposeTypes.Use): Vector2
-			return (use(size) :: Vector2) / use(unit)
+			return use(size) / use(unit)
 		end)
 	end
 	function ctx.layoutBounds(
@@ -429,7 +429,7 @@ return function(
 	): ComposeTypes.Readable<Vector2>
 		local bounds, unit = ctx.observe.TextBounds(label), unit or ctx.layoutUnit(label)
 		return Compose.formula(function(use: ComposeTypes.Use): Vector2
-			return (use(bounds) :: Vector2) / use(unit)
+			return use(bounds) / use(unit)
 		end)
 	end
 	function ctx.text(properties: Shared.TextLabelNativeProps?, stable: boolean?): TextLabel
@@ -441,8 +441,8 @@ return function(
 			AutomaticSize = Enum.AutomaticSize.XY,
 			TextXAlignment = Enum.TextXAlignment.Left,
 		}
-		local fields = (native :: unknown) :: { [unknown]: unknown }
-		for key, value in ((properties or {}) :: unknown) :: { [unknown]: unknown } do
+		local fields = native :: { [unknown]: unknown }
+		for key, value in (properties or {}) :: { [unknown]: unknown } do
 			fields[key] = value
 		end
 		local label = ctx.styled(Host.TextLabel(native), "Text")
@@ -492,7 +492,7 @@ return function(
 				Name = "Captions",
 				Size = types.UDim2.new(0, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }) :: ComposeTypes.Child,
+				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
 			})
 		)
 		table.move(parts.trailing or {}, 1, #(parts.trailing or {}), #columns + 1, columns)
@@ -615,8 +615,8 @@ return function(
 		elseif resample() ~= Enum.ResamplerMode.Default then
 			native.ResampleMode = resample()
 		end
-		local fields = (native :: unknown) :: { [unknown]: unknown }
-		for key, value in ((properties or {}) :: unknown) :: { [unknown]: unknown } do
+		local fields = native :: { [unknown]: unknown }
+		for key, value in (properties or {}) :: { [unknown]: unknown } do
 			fields[key] = value
 		end
 		return ctx.styled(Host.ImageLabel(native), "Icon")

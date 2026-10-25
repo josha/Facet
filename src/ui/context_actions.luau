@@ -26,7 +26,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			selectionWaiters[gui] = created
 			waiters = created
 		end
-		local registry = waiters :: SelectionWaiters
+		local registry = waiters
 		Compose.cleanup(function()
 			if registry.waiting[node] == callback then
 				registry.waiting[node] = nil
@@ -54,9 +54,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			callback()
 		end
 	end
-	local shiftRoutes = (
-		setmetatable({} :: { [Instance]: () -> () }, { __mode = "k" }) :: unknown
-	) :: { [Instance]: () -> () }
+	local shiftRoutes = setmetatable({} :: { [Instance]: () -> () }, { __mode = "k" })
 	function ctx.shiftRoute(root: Instance, handler: () -> ()): ()
 		shiftRoutes[root] = handler
 		Compose.cleanup(function()
@@ -69,8 +67,8 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		local service = config.userInputService
 		if
 			not service
-			or not (type(input) == "table" or (typeof(input) == "Instance" and (input :: Instance):IsA("InputObject")))
-			or (input :: InputObject).KeyCode ~= Enum.KeyCode.Return
+			or not (type(input) == "table" or (typeof(input) == "Instance" and input:IsA("InputObject")))
+			or input.KeyCode ~= Enum.KeyCode.Return
 		then
 			return nil
 		end
@@ -228,7 +226,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 						root = root.Parent
 					end
 					if root == nil then
-						parent:set(nil :: Instance?)
+						parent:set(nil)
 						available:set(false)
 						return
 					end
@@ -325,7 +323,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		for _, binding in keyCodes :: { Shared.ActionBinding } do
 			local code: unknown = if type(binding) == "string"
 				then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
-				elseif type(binding) == "table" then (binding :: Shared.InputBindingNativeProps).KeyCode
+				elseif type(binding) == "table" then binding.KeyCode
 				else binding
 			local codeName = if code ~= nil then (code :: Enum.KeyCode).Name else nil
 			if codeName and reservedKeys.KEYS[codeName] then
@@ -373,7 +371,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				for _, binding in keyCodes :: { Shared.ActionBinding } do
 					local code: unknown = if type(binding) == "string"
 						then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
-						elseif type(binding) == "table" then (binding :: Shared.InputBindingNativeProps).KeyCode
+						elseif type(binding) == "table" then binding.KeyCode
 						else binding
 					if typeof(code) == "EnumItem" or type(code) == "table" then
 						local key = code :: Enum.KeyCode
@@ -433,7 +431,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			for _, binding in keyCodes :: { Shared.ActionBinding } do
 				local code: unknown = if type(binding) == "string"
 					then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
-					elseif type(binding) == "table" then (binding :: Shared.InputBindingNativeProps).KeyCode
+					elseif type(binding) == "table" then binding.KeyCode
 					else binding
 				for _, direction in { "Up", "Down", "Left", "Right" } do
 					local keys = (Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode }
@@ -491,7 +489,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				table.clear(previous)
 			end
 			Compose.watch(function(use: ComposeTypes.Use)
-				local target = if use(steerable) then use(selection) :: GuiObject? else nil
+				local target: GuiObject? = if use(steerable) then use(selection) else nil
 				if target == pinned then
 					return
 				end

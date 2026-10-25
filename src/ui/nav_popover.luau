@@ -39,7 +39,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		node: GuiBase2d,
 		property: "AbsoluteSize" | "AbsolutePosition"
 	): ComposeTypes.Readable<Vector2>
-		return (runtime.observe(node, property) :: unknown) :: ComposeTypes.Readable<Vector2>
+		return runtime.observe(node, property) :: ComposeTypes.Readable<Vector2>
 	end
 
 	local function finite(value: unknown): boolean
@@ -132,10 +132,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local root: GuiObject
 		if spec.trigger then
 			root = spec.trigger
-			local native = table.clone((props :: unknown) :: { [unknown]: unknown })
+			local native = table.clone(props :: { [unknown]: unknown })
 			native.Name = nil
 			if next(native) ~= nil then
-				runtime.decorate(root, (native :: unknown) :: Types.GuiObjectNativeProps)
+				runtime.decorate(root, native :: Types.GuiObjectNativeProps)
 			end
 		else
 			local frame = Host.Frame(
@@ -331,8 +331,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			bodyProps[#bodyProps + 1] = limit
 			local children: { Types.Child } = { list, proposed, content }
 			local closeUnit = ctx.layoutUnit(layer)
-			local closeContentSize = if content:IsA("GuiObject")
-				then ctx.observe.AbsoluteSize(content :: GuiObject)
+			local closeContentSize: ComposeTypes.Readable<Vector2> = if content:IsA("GuiObject")
+				then ctx.observe.AbsoluteSize(content)
 				else Compose.cell(V2.zero)
 			local closes = spec.cancelPolicy ~= "none"
 				and spec.closeButton ~= false
@@ -348,7 +348,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						VerticalAlignment = E.VerticalAlignment.Center,
 						SortOrder = E.SortOrder.LayoutOrder,
 						Padding = ctx.types.UDim.new(0, PADDING),
-					} :: Types.Child,
+					},
 				}
 				if spec.title ~= nil then
 					table.insert(
@@ -379,7 +379,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 									return spec.closeButton
 								end
 								local box = safe(use)
-								local size = use(closeContentSize) :: Vector2
+								local size = use(closeContentSize)
 								local unit = use(closeUnit)
 								return box.w / unit < 600
 									or box.w * box.h > 0
@@ -425,7 +425,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					Size = D2.fromOffset(0, 0),
 					AutomaticSize = E.AutomaticSize.XY,
 					ZIndex = 2,
-					body :: Instance,
+					body,
 					ctx.padding(PADDING, PADDING),
 				}),
 				"popover"

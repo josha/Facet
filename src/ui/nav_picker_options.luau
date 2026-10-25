@@ -8,7 +8,6 @@ local Content = require("./content_types")
 local reducedMotion = require("./motion").reduced
 local scrollLock = require("./scroll_lock")
 local ComposeTypes = require("../vendor/compose/core")
-local MediaProps = require("./media_props")
 local NavigationProps = require("./navigation_props")
 local PickerParts = require("./nav_picker_parts")
 
@@ -42,7 +41,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			return math.abs(after.X * before.Y - before.X * after.Y) > 0.5 * math.max(before.Y, after.Y)
 		end
 		local function landsWithStrip(use: ComposeTypes.Use): boolean
-			local order, strip = use(currentOrder), use(laidOut) :: Vector2
+			local order, strip = use(currentOrder), use(laidOut)
 			local reflowed = order == seenOrder and seenStrip ~= nil and reshaped(seenStrip, strip)
 			seenOrder, seenStrip = order, strip
 			return reduced(use) or reflowed
@@ -57,12 +56,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local unit = ctx.observe.AbsoluteSize(probe)
 		local content = ctx.observe.AbsolutePosition(probe)
 		local function rectAt(use: ComposeTypes.Use, order: number): (Vector2?, Vector2?)
-			local scale = (use(unit) :: Vector2).X
+			local scale = use(unit).X
 			scale = if scale > 0 then scale else 1
-			local room = (use(laidOut) :: Vector2) / scale
+			local room = use(laidOut) / scale
 			for _, box in boxes do
 				if use(box.order) == order then
-					local at = (use(box.at) - use(content) :: Vector2) / scale
+					local at = (use(box.at) - use(content)) / scale
 					local size = use(box.size) / scale
 					at = V2.new(math.clamp(at.X, 0, room.X), math.clamp(at.Y, 0, room.Y))
 					return at, V2.new(math.min(size.X, room.X - at.X), math.min(size.Y, room.Y - at.Y))
@@ -384,7 +383,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 												ctx.corner(4) :: Types.Child,
 											},
 											"fill"
-										) :: Types.Child,
+										),
 									},
 									"radio-mark"
 								),
@@ -396,9 +395,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						or Compose.isReadable(spec.options)
 						or type(spec.options) == "function"
 					then
-						local statusUI = (UI :: unknown) :: {
-							StatusIndicator: Types.Constructor<MediaProps.StatusIndicatorProps, TextLabel>,
-						}
+						local statusUI = UI
 						surfaces.attach(button, {
 							Compose.show(function(use: ComposeTypes.Use)
 								return use(source).indicator ~= nil
@@ -497,7 +494,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						wrapCaptions(button, spec.controlSize, function(use: ComposeTypes.Use): number
 							return use(room) - 2 * segmentMetrics.inset
 						end, peers)
-						shared.wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use): string
+						shared.wrapWhenLong(button, function(use: ComposeTypes.Use): string
 							return `{use(room) - 2 * segmentMetrics.inset}|{peers(use)}`
 						end, button, true)
 						local caption = button:FindFirstChild("Title", true) or button:FindFirstChild("Label", true)
@@ -693,7 +690,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end
 		local overflows: ComposeTypes.Readable<boolean>? = nil
 		if scrolls then
-			local scroller = (picker :: unknown) :: ScrollingFrame
+			local scroller = picker :: ScrollingFrame
 			scrollLock.own(scroller, ctx)
 			local layout = assert(picker:FindFirstChildWhichIsA("UIListLayout", true))
 			local extent = ctx.observe.AbsoluteContentSize(layout)

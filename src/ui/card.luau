@@ -86,7 +86,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			for corner, badge in (badges :: unknown) :: { [string]: unknown } do
 				assert(CORNER_KEYS[corner], `Facet UI.Card: badges has the unknown field '{corner}'`)
 				assert(type(badge) == "table", `Facet UI.Card: badges.{corner} must be a table`)
-				local fields = (badge :: unknown) :: { [string]: unknown }
+				local fields = badge :: { [string]: unknown }
 				for key in fields do
 					assert(BADGE_KEYS[key], `Facet UI.Card: badges.{corner} has the unknown field '{key}'`)
 				end
@@ -210,8 +210,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			local target = if spec.browseTarget then spec.browseTarget() else nil
 			if target and target.Parent then
 				gui.SelectedObject = target
-			elseif root and (root :: Frame).Parent then
-				local body = (root :: Frame):FindFirstChild("Body")
+			elseif root and root.Parent then
+				local body = root:FindFirstChild("Body")
 				if body and body:IsA("GuiObject") and body.Selectable then
 					gui.SelectedObject = body
 				end
@@ -233,7 +233,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				return
 			end
 			entered:set(false)
-			if gui and root and within(gui.SelectedObject, root :: Frame) then
+			if gui and root and within(gui.SelectedObject, root) then
 				restore()
 			end
 		end
@@ -310,7 +310,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 							widths[name]:set(0)
 						end)
 						return pill
-					end) :: Types.Child,
+					end),
 				}
 				layerProps[#layerProps + 1] = Host.Frame(holder)
 			end
@@ -440,17 +440,17 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				PaddingRight = D.new(0, 0),
 				PaddingTop = D.new(0, 0),
 				PaddingBottom = D.new(0, 0),
-			} :: Types.Child,
+			},
 			Host.UIListLayout({
 				FillDirection = E.FillDirection.Vertical,
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = function(use: ComposeTypes.Use)
 					return D.new(0, ctx.metric("space.xs", use))
 				end,
-			}) :: Types.Child,
-			artwork :: Types.Child,
-			titleLabel :: Types.Child,
-			captionLabel :: Types.Child,
+			}),
+			artwork,
+			titleLabel,
+			captionLabel,
 		}
 		local body: GuiObject
 		if spec.onActivate then
@@ -528,19 +528,19 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						action.onActivate()
 					end
 				end,
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) :: Types.Child,
+				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 			})
 			primaryButton = button
 			local states = table.clone(actionStates:peek())
 			table.insert(states, holding(button))
 			actionStates:set(states)
-			table.insert(rowChildren, button :: Types.Child)
+			table.insert(rowChildren, button)
 		end
 		if menu then
 			local more = UI.Menu({
 				Name = "More",
 				LayoutOrder = 2,
-				trigger = UI.Button({ label = "", name = menu.label or "More", icon = "more", enabled = enabled }) :: GuiObject,
+				trigger = UI.Button({ label = "", name = menu.label or "More", icon = "more", enabled = enabled }),
 				items = menu.items,
 				isPresented = menuOpen,
 				enabled = enabled,
@@ -549,7 +549,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			local states = table.clone(actionStates:peek())
 			table.insert(states, holding(more))
 			actionStates:set(states)
-			table.insert(rowChildren, more :: Types.Child)
+			table.insert(rowChildren, more)
 		end
 		local function tuck(use: ComposeTypes.Use): number
 			return 2 * ctx.metric("radii.panel", use)
@@ -619,8 +619,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					end
 					return 1 - use(fade)
 				end,
-				plateLayer :: Types.Child,
-				row :: Types.Child,
+				plateLayer,
+				row,
 			}
 		end
 		local function inLayout(): boolean
@@ -673,7 +673,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				FacetEntered = checks.attribute(entered),
 				FacetMenuOpen = checks.attribute(menuOpen),
 				FacetBody = checks.attribute(if spec.onActivate then "button" else "informational"),
-			} :: Types.Attributes,
+			},
 			Host.UIListLayout({
 				FillDirection = E.FillDirection.Vertical,
 				SortOrder = E.SortOrder.LayoutOrder,
@@ -719,7 +719,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				body:SetAttribute("FacetFocusHeight", use(ratio))
 			end)
 		end
-		if (spec :: { [unknown]: unknown }).Position == nil then
+		if spec.Position == nil then
 			runtime.decorate(card, {
 				AnchorPoint = function(use: ComposeTypes.Use): Vector2
 					local factor = math.max(use(scale), 0.001)

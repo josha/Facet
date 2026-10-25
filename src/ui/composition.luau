@@ -213,18 +213,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local yielding = Compose.cell(false)
 		local lift = Compose.cell(0)
 		local properties = (
-			ctx.props(
-				spec,
-				{ "zone", "rank", "mayDrop", "form", "expand", "reveal", "leading", "trailing" },
-				{
-					BorderSizePixel = 0,
-					Size = D2.new(),
-					AutomaticSize = E.AutomaticSize.XY,
-					Visible = function(use: ComposeTypes.Use): boolean
-						return use(form) > 0 and not use(yielding)
-					end,
-				}
-			) :: unknown
+			ctx.props(spec, { "zone", "rank", "mayDrop", "form", "expand", "reveal", "leading", "trailing" }, {
+				BorderSizePixel = 0,
+				Size = D2.new(),
+				AutomaticSize = E.AutomaticSize.XY,
+				Visible = function(use: ComposeTypes.Use): boolean
+					return use(form) > 0 and not use(yielding)
+				end,
+			})
 		) :: Types.FrameNativeProps
 		local open, hosted = Compose.cell(false), Compose.cell(false)
 		local richest = properties[1] :: GuiObject?
@@ -370,7 +366,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end
 		end
 		local node = kit.plain(Host.Frame(properties), spec)
-		local authored = ((spec :: unknown) :: { Visible: Types.Value<boolean>? }).Visible
+		local authored = spec.Visible
 		regionPresence[node] = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return use(form) > 0 and read(authored, use) ~= false
 		end)
@@ -458,9 +454,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	end
 
 	UI.Composition = ctx.construct("Composition", function(spec: LayoutProps.CompositionProps): Frame
-		local properties = (
-			ctx.props(spec, { "gap", "padding", "topbar", "rows", "passive" }) :: unknown
-		) :: Types.FrameNativeProps
+		local properties = (ctx.props(spec, { "gap", "padding", "topbar", "rows", "passive" })) :: Types.FrameNativeProps
 		local regions: { Frame } = {}
 		local helpers: { Instance } = {}
 		for index = 1, #properties do
@@ -501,7 +495,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local framed = use(direct)
 			local function side(name: "top" | "right" | "bottom" | "left", pixels: number): UDim
 				if framed and type(margins) == "table" then
-					return D.new(0, pixels + ((margins :: { [string]: number })[name] or 0))
+					return D.new(0, pixels + (margins[name] or 0))
 				end
 				return D.new(if framed and margins == nil and distant(use) then FRACTION[name] else 0, pixels)
 			end
@@ -542,9 +536,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local stripLanes = 1 + (if leadsAny then 1 else 0) + (if trailsAny then 1 else 0)
 		local function stripEnd(use: ComposeTypes.Use): number
 			local value = read(base, use)
-			local right: Types.Space? = if type(value) == "table"
-				then (value :: Types.Sides).right
-				else value :: Types.Space
+			local right: Types.Space? = if type(value) == "table" then value.right else value
 			return math.max(kit.spacing(gap, use), kit.spacing(right, use))
 		end
 		local function landingFrame(name: string, alignment: Enum.HorizontalAlignment): Frame
@@ -578,7 +570,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local placed: { Frame } = {}
 		local resting: resolver.Shift = { top = 0, bottom = 0, hang = 0 }
 		local shift: ComposeTypes.Cell<resolver.Shift> = Compose.cell(resting)
-		local rows: ComposeTypes.Cell<resolver.Rows> = Compose.cell({ top = 0, bottom = 0 } :: resolver.Rows)
+		local rows: ComposeTypes.Cell<resolver.Rows> = Compose.cell({ top = 0, bottom = 0 })
 		for zone, children in members do
 			local cell = resolver.CELLS[zone]
 			local frame = zoneFrame(
@@ -587,9 +579,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				cell[2],
 				gap,
 				if zone == "top" and landedZone
-					then { landedZone :: Frame, table.unpack(children) }
+					then { landedZone, table.unpack(children) }
 					elseif zone == "topRight" and landedTrailing then {
-						landedTrailing :: Frame,
+						landedTrailing,
 						table.unpack(children),
 					}
 					else children,
@@ -639,7 +631,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local riding: (ComposeTypes.Use) -> boolean = function()
 			return false
 		end
-		local landed: ComposeTypes.Cell<{ boolean }> = Compose.cell({} :: { boolean })
+		local landed: ComposeTypes.Cell<{ boolean }> = Compose.cell({})
 		local stripGui: ScreenGui? = nil
 		local topbarBand = if #stripRegions > 0 and ctx.config.guiService
 			then ctx.observe.TopbarInset(ctx.config.guiService)
@@ -1204,7 +1196,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(ancestry)
-			local layer = root:FindFirstAncestorWhichIsA("LayerCollector") :: LayerCollector?
+			local layer = root:FindFirstAncestorWhichIsA("LayerCollector")
 			if layer ~= claimed then
 				if enabling then
 					enabling:Disconnect()

@@ -85,7 +85,7 @@ return function(ctx: Types.Context, label: TextLabel, plateShown: ComposeTypes.R
 		elseif seconds == nil then
 			clock = 0
 		else
-			local total = seconds :: number
+			local total = seconds
 			local progress = if total > 0 then math.min(1, clock / total) else 1
 			travel:set(if phase == "out" then progress else 1 - progress)
 			if progress >= 1 then

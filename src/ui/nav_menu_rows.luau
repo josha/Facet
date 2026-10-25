@@ -60,6 +60,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			}
 		end, row)
 	end
+	local function hairline(): Frame
+		return ctx.styled(Host.Frame({ Name = "Hairline", Size = D2.new(1, 0, 0, 1), ZIndex = 3 }), "menu-hairline")
+	end
 	local function fillTitle(button: GuiObject)
 		local content = button:FindFirstChild("Content")
 		local words = content and (content:FindFirstChild("Captions") or content:FindFirstChild("Title"))
@@ -97,8 +100,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				BackgroundTransparency = 1,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
-				ctx.padding(12, 4) :: Types.Child,
-				title :: Types.Child,
+				ctx.padding(12, 4),
+				title,
 			})
 		end
 		local source = Compose.formula(function(use: ComposeTypes.Use): Nav.MenuItem<V>
@@ -181,17 +184,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end)
 		fillTitle(row)
 		surfaces.attach(row, {
-			ctx.styled(
-				Host.Frame({
-					Name = "Hairline",
-					Size = D2.new(1, 0, 0, 1),
-					ZIndex = 3,
-					Visible = function(use: ComposeTypes.Use)
-						return use(entrySource).ruled == true and not use(sheeted)
-					end,
-				}),
-				"menu-hairline"
-			) :: Types.Child,
+			Compose.show(function(use: ComposeTypes.Use): boolean
+				return use(entrySource).ruled == true and not use(sheeted)
+			end, hairline),
 		})
 		Compose.watch(function(use: ComposeTypes.Use)
 			if hitFloor(use) < ctx.metric("targetSizes.minimum", use) then
@@ -211,7 +206,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						local badge = read(actionItem(use(source)).badge, use)
 						return if badge == nil then "" else tostring(badge)
 					end,
-				}) :: Types.Child
+				})
 			)
 		end
 		if item.meta ~= nil then
@@ -223,7 +218,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				end,
 			})
 			meta:AddTag("facet-secondary")
-			table.insert(accessories, meta :: Types.Child)
+			table.insert(accessories, meta)
 		end
 		if item.shortcutLabel ~= nil then
 			local shortcut = ctx.text({
@@ -234,7 +229,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				end,
 			})
 			shortcut:AddTag("facet-secondary")
-			table.insert(accessories, shortcut :: Types.Child)
+			table.insert(accessories, shortcut)
 		end
 		if #accessories > 0 then
 			surfaces.attach(row, {
@@ -252,7 +247,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						Padding = D.new(0, 8),
 					}),
 					table.unpack(accessories),
-				} :: Types.Child,
+				},
 			})
 		end
 		local avatar = item.avatar
@@ -265,7 +260,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					name = avatar.name,
 					image = avatar.image,
 					userId = avatar.userId,
-					controlSize = "compact" :: Types.ControlSize,
+					controlSize = "compact",
 					Selectable = false,
 					Active = false,
 					Interactable = false,
@@ -394,18 +389,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			layout.HorizontalAlignment = E.HorizontalAlignment.Left
 		end
 		surfaces.attach(button, {
-			ctx.styled(
-				Host.Frame({
-					Name = "Hairline",
-					Size = D2.new(1, 0, 0, 1),
-					ZIndex = 3,
-					Visible = function(use: ComposeTypes.Use)
-						local before = use(source).items[use(index) - 1]
-						return before ~= nil and before.divider ~= true
-					end,
-				}),
-				"menu-hairline"
-			) :: Types.Child,
+			Compose.show(function(use: ComposeTypes.Use): boolean
+				local before = use(source).items[use(index) - 1]
+				return before ~= nil and before.divider ~= true
+			end, hairline),
 		})
 		return button
 	end

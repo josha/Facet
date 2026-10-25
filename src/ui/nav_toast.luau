@@ -62,7 +62,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 	local E, D2, V2, UD = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local frames = runtime.host.frames
 	local gui = surfaces.service("GuiService")
-	local stacks = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [string]: Stack } }
+	local stacks: { [Instance]: { [string]: Stack } } = {}
+	setmetatable(stacks, { __mode = "k" })
 	local actionRows = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: boolean }
 	local actionTokens = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [unknown]: boolean }
 	local returnTo: GuiObject? = nil
@@ -275,7 +276,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			if type(spec.action) ~= "table" then
 				error(`Facet {where}: action must be \{ label, onActivate }`, 0)
 			end
-			local action = spec.action :: Overlay.ToastAction
+			local action = spec.action
 			parts.known(where, (action :: unknown) :: { [string]: unknown }, { "label", "onActivate" }, "action")
 			if not parts.bound(ctx, action.label, "string") or type(action.onActivate) ~= "function" then
 				error(`Facet {where}: action needs a label and an onActivate function`, 0)
@@ -717,7 +718,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end, { priority = 2500 })
 		local raiser = returnTo
 		local target = surfaces.firstSelectable(row)
-		if raiser and target and (raiser.NextSelectionDown :: GuiObject?) == nil then
+		if raiser and target and typeof(raiser.NextSelectionDown) ~= "Instance" then
 			raiser.NextSelectionDown = target
 			local function unlink()
 				if raiser.NextSelectionDown == target then
@@ -794,7 +795,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local collector = root:FindFirstAncestorWhichIsA("LayerCollector")
 			local layer = if collector then surfaces.parent(root) else nil
 			if record.stack == nil and layer then
-				local stack = stackFor(layer :: GuiBase2d, if interactive then "action" else spec.position or "top")
+				local stack = stackFor(layer, if interactive then "action" else spec.position or "top")
 				record.stack = stack
 				stack.users += 1
 				ready:set(true)

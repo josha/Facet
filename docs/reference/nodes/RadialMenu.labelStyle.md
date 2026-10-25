@@ -19,7 +19,9 @@ least that thick and grows until every item's label or icon box fits, with
 `space.s` around it, at the item's direction. The box is estimated from theme
 metrics, not measured: the label is its character count times 0.6 of
 `typography.control.size` wide and one control line tall, and an icon is
-`iconSize` square. The ring is never thinner than `targetSizes.minimum`, is
+`iconSize` square. Set `iconSize` on the menu to draw icon-only items at that
+size instead of the theme control icon size. An icon never grows past the
+square that fits in its sector, so give large icons room with `ringWidth`. The ring is never thinner than `targetSizes.minimum`, is
 thick enough for each wedge to be one touch target wide, and is never wider
 than the room. A level that replaces its parent (`navigation = "replace"`)
 keeps items at the same

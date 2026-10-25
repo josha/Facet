@@ -339,9 +339,6 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		local inset = options.inset()
 		local result: { Instance } = {}
 		for _, object in layout.objectsAtPosition(gui, at.X - inset.X, at.Y - inset.Y) do
-			if object:IsA "TextBox" then
-				unsupported "TextBox focus and editing"
-			end
 			if interactable(object) then
 				table.insert(result, object)
 			end
@@ -442,6 +439,14 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		end
 		refreshStates()
 	end
+	local function focusedBox(): Instance?
+		local method = service.GetFocusedTextBox
+		if type(method) ~= "function" then
+			return nil
+		end
+		local found = (method :: (Instance) -> Instance?)(service)
+		return if found and env.isAlive(found) then found else nil
+	end
 	local function send(at: Position, down: boolean, movePointer: boolean?)
 		local objects = hits(at, "button")
 		if movePointer then
@@ -473,6 +478,24 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 			end
 			if targetButton then
 				env.fire(targetButton, "MouseButton1Down", at.X, at.Y)
+			end
+			local box = focusedBox()
+			local clicked = targets[1]
+			if box and box ~= clicked then
+				local release = box.ReleaseFocus
+				if type(release) == "function" then
+					(release :: (Instance, boolean, Instance) -> ())(box, false, object)
+				end
+			end
+			if clicked and clicked:IsA "TextBox" and read(clicked, "TextEditable") ~= false and box ~= clicked then
+				local capture = clicked.CaptureFocus
+				if type(capture) == "function" then
+					(capture :: (Instance) -> ())(clicked)
+				end
+				if tostring(clicked.Text) ~= "" then
+					unsupported "TextBox click placement inside existing text"
+				end
+				env.poke(clicked, "CursorPosition", 1)
 			end
 			for _, target in targets do
 				env.fire(target, "InputBegan", object)
@@ -511,14 +534,6 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 	local heldKeys: { [string]: true } = {}
 	local heldInputs: { [string]: Instance } = {}
 	local actionStates = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: boolean }
-	local function focusedBox(): Instance?
-		local method = service.GetFocusedTextBox
-		if type(method) ~= "function" then
-			return nil
-		end
-		local found = (method :: (Instance) -> Instance?)(service)
-		return if found and env.isAlive(found) then found else nil
-	end
 	local function codeName(value: unknown): string
 		return (tostring(value):match "([^%.]+)$" or tostring(value))
 	end
@@ -576,7 +591,19 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		if box then
 			if value.down and code == "Backspace" then
 				local current = tostring(box.Text)
-				box.Text = string.sub(current, 1, math.max(0, utf8.offset(current, -1) or 1) - 1)
+				local length = utf8.len(current) or #current
+				local cursor = env.propertyOf(box, "CursorPosition")
+				local at = if type(cursor) == "number"
+						and cursor >= 1
+						and cursor <= length + 1
+					then cursor
+					else length + 1
+				if at > 1 then
+					local start = utf8.offset(current, at - 1) or 1
+					local finish = utf8.offset(current, at) or #current + 1
+					box.Text = current:sub(1, start - 1) .. current:sub(finish)
+					env.poke(box, "CursorPosition", at - 1)
+				end
 			elseif value.down and code == "Return" then
 				if (heldKeys.LeftShift or heldKeys.RightShift) and box.MultiLine == true then
 					unsupported "Shift+Return in a multiline TextBox"
@@ -616,7 +643,13 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 			unsupported "text input without a focused TextBox"
 		end
 		local target = box :: Instance
-		target.Text = tostring(target.Text) .. value
+		local current = tostring(target.Text)
+		local length = utf8.len(current) or #current
+		local cursor = env.propertyOf(target, "CursorPosition")
+		local at = if type(cursor) == "number" and cursor >= 1 and cursor <= length + 1 then cursor else length + 1
+		local split = utf8.offset(current, at) or #current + 1
+		target.Text = current:sub(1, split - 1) .. value .. current:sub(split)
+		env.poke(target, "CursorPosition", at + (utf8.len(value) or #value))
 	end
 	local function sendKeyLater(value: Key)
 		ensureOpen()

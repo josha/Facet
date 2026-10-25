@@ -79,7 +79,8 @@ return function(
 			"Invalid TabView.style"
 		)
 		local sectionLabels: { [string]: string } = {}
-		for _, section in (spec.sections or {} :: { { id: string, label: string } }) do
+		local sections: { { id: string, label: string } } = spec.sections or {}
+		for _, section in sections do
 			assert(
 				type(section.id) == "string" and type(section.label) == "string" and sectionLabels[section.id] == nil,
 				"TabView sections require unique ids and labels"
@@ -180,7 +181,7 @@ return function(
 					then "gamepad"
 					elseif preferred == E.PreferredInput.Touch then "touch"
 					else "pointer",
-				displaySize = if typeof(display) == "EnumItem" then (display :: EnumItem).Name else nil,
+				displaySize = if typeof(display) == "EnumItem" then display.Name else nil,
 				tenFoot = distant,
 			})
 			if spec.style == "sidebarAdaptable" and not distant and (home == "sidebar" or home == "topBar") then
@@ -226,10 +227,12 @@ return function(
 			local ordered: { Nav.Tab } = {}
 			local added: { [string]: boolean } = {}
 			local hidden: { [string]: boolean } = {}
-			for _, id in (customized.hidden or {} :: { string }) do
+			local hiddenIds: { string } = customized.hidden or {}
+			local orderedIds: { string } = customized.order or {}
+			for _, id in hiddenIds do
 				hidden[id] = true
 			end
-			for _, id in (customized.order or {} :: { string }) do
+			for _, id in orderedIds do
 				local tab = byId[id]
 				if tab and not added[id] and (not hidden[id] or tab.required) then
 					table.insert(ordered, tab)
@@ -384,7 +387,7 @@ return function(
 				PaddingRight = inset,
 				PaddingTop = inset,
 				PaddingBottom = inset,
-			}) :: Types.Child,
+			}),
 			Host.Frame "Strip" {
 				BackgroundTransparency = 1,
 				Size = function(use: ComposeTypes.Use): UDim2
@@ -393,7 +396,7 @@ return function(
 				AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
 					return if use(placement) == "sidebar" then E.AutomaticSize.Y else E.AutomaticSize.X
 				end,
-				stripLayout :: Types.Child,
+				stripLayout,
 				tabItem(ctx, UI, surfaces, spec, {
 					frame = frame,
 					select = select,
@@ -405,7 +408,7 @@ return function(
 				}),
 			},
 		}
-		scrollLock.own((bar :: unknown) :: ScrollingFrame, ctx)
+		scrollLock.own(bar, ctx)
 		local bandBox = Host.Frame "TabBand" {
 			ZIndex = 2,
 			BackgroundTransparency = 1,
@@ -465,7 +468,7 @@ return function(
 			reserved = layer
 			if layer and layer:IsA("GuiBase2d") then
 				local band = string.find(use(placement), "bottom") ~= nil and use(barSize).Y > 0
-				local top = use(barAt).Y - (layer :: GuiBase2d).AbsolutePosition.Y - use(aboveHeight)
+				local top = use(barAt).Y - layer.AbsolutePosition.Y - use(aboveHeight)
 				reservations.set(
 					layer,
 					bar,
@@ -860,7 +863,7 @@ return function(
 			end
 			local accessory: GuiObject? = nil
 			Compose.watch(function(use: ComposeTypes.Use)
-				local current = use(selectedObject) :: GuiObject?
+				local current = use(selectedObject)
 				accessory = if inChrome(current) then current else nil
 			end)
 			local first = true

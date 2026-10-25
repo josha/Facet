@@ -141,7 +141,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 					and not root:FindFirstChildWhichIsA("UILayout")
 					and clear(a)
 					and clear(b)
-				then root :: GuiBase2d
+				then root
 				else nil
 		end
 		local function paint(sample: { number })
@@ -173,10 +173,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 			values[2] += arc * unit
 			local origin = container.AbsolutePosition
 			if container:IsA("ScrollingFrame") then
-				origin -= (container :: ScrollingFrame).CanvasPosition
+				origin -= container.CanvasPosition
 			end
 			if container:IsA("GuiObject") then
-				local left, top = contentInsets(container :: GuiObject)
+				local left, top = contentInsets(container)
 				origin += V2.new(left, top)
 			end
 			node.Position = D2.fromOffset(
@@ -337,7 +337,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 				"ChildAdded",
 				Compose.bindOwner(function(child: Instance)
 					if child:IsA("StyleLink") then
-						local source = child :: StyleLink
+						local source = child
 						styleCopy.StyleSheet = source.StyleSheet
 						runtime.connect(source, "Changed", function(property: string)
 							if property == "StyleSheet" and not owner.isDisposed() then
@@ -384,7 +384,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 		end)
 		if spec.transparency then
 			assert(node:IsA("CanvasGroup"), "Facet UI.Travel: transparency requires CanvasGroup content")
-			local group = node :: CanvasGroup
+			local group = node
 			local fade = runtime.tween(function(use: Shared.Use)
 				return ctx.read(spec.transparency, use)
 			end, {

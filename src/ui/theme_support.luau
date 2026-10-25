@@ -41,7 +41,7 @@ local function copy<T>(value: T): T
 		return value
 	end
 	local out: { [unknown]: unknown } = {}
-	for key, child in (value :: unknown) :: { [unknown]: unknown } do
+	for key, child in value :: { [unknown]: unknown } do
 		out[key] = copy(child)
 	end
 	return (out :: unknown) :: T
@@ -92,7 +92,7 @@ local function frozen<T>(value: T): T
 	if type(value) ~= "table" or table.isfrozen(value) then
 		return value
 	end
-	for _, child in (value :: unknown) :: { [unknown]: unknown } do
+	for _, child in value :: { [unknown]: unknown } do
 		frozen(child)
 	end
 	return (table.freeze(value) :: unknown) :: T

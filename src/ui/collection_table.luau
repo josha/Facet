@@ -138,6 +138,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			end
 			return nil
 		end
+		local ascending: {
+			rows: { V },
+			column: CollectionTypes.TableColumn<V, K>,
+			items: { V },
+			values: { unknown },
+		}? =
+			nil
 		local function sortRows(rows: { V }, use: ComposeTypes.Use): { V }
 			local order = use(sort)
 			if order == nil then
@@ -153,39 +160,55 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			if column == nil then
 				return rows
 			end
-			local descending = order.direction == "descending"
-			local indexed: { { item: V, index: number, value: unknown, number: number?, text: string? } } =
-				table.create(#rows)
-			for index, item in rows do
-				local value = field(item, column)
-				indexed[index] = {
-					item = item,
-					index = index,
-					value = value,
-					number = if type(value) == "number" then value else nil,
-					text = if value == nil then nil else tostring(value),
-				}
+			local items: { V }, values: { unknown }
+			local cached = ascending
+			if cached ~= nil and cached.rows == rows and cached.column == column then
+				items, values = cached.items, cached.values
+			else
+				local indexed: { { item: V, index: number, value: unknown, number: number?, text: string? } } =
+					table.create(#rows)
+				for index, item in rows do
+					local value = field(item, column)
+					indexed[index] = {
+						item = item,
+						index = index,
+						value = value,
+						number = if type(value) == "number" then value else nil,
+						text = if value == nil then nil else tostring(value),
+					}
+				end
+				table.sort(indexed, function(a, b)
+					if a.value == b.value then
+						return a.index < b.index
+					end
+					local left, right = a.text, b.text
+					if left == nil then
+						return true
+					elseif right == nil then
+						return false
+					elseif a.number ~= nil and b.number ~= nil then
+						return a.number < b.number
+					end
+					return left < right
+				end)
+				items, values = table.create(#rows), table.create(#rows)
+				for index, entry in indexed do
+					items[index], values[index] = entry.item, entry.value
+				end
+				ascending = { rows = rows, column = column, items = items, values = values }
 			end
-			table.sort(indexed, function(a, b)
-				if a.value == b.value then
-					return a.index < b.index
+			if order.direction ~= "descending" then
+				return table.clone(items)
+			end
+			local result: { V } = table.create(#items)
+			local stop = #items
+			while stop >= 1 do
+				local first = stop
+				while first > 1 and values[first - 1] == values[stop] do
+					first -= 1
 				end
-				local left, right = a.text, b.text
-				local before
-				if left == nil then
-					before = true
-				elseif right == nil then
-					before = false
-				elseif a.number ~= nil and b.number ~= nil then
-					before = a.number < b.number
-				else
-					before = left < right
-				end
-				return if descending then not before else before
-			end)
-			local result: { V } = table.create(#rows)
-			for index, entry in indexed do
-				result[index] = entry.item
+				table.move(items, first, stop, #result + 1, result)
+				stop = first - 1
 			end
 			return result
 		end

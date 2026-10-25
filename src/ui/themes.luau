@@ -218,9 +218,9 @@ local neutral: ThemeTypes.ThemePackage = {
 	icons = {},
 	rules = {},
 }
-for role, size in
-	{ caption = 14, label = 15, body = 16, heading = 20, title = 24, control = 18, strong = 16, numeral = 18 } :: { [string]: number }
-do
+local typographySizes: { [string]: number } =
+	{ caption = 14, label = 15, body = 16, heading = 20, title = 24, control = 18, strong = 16, numeral = 18 }
+for role, size in typographySizes do
 	neutral.metrics.typography[role] = {
 		size = size,
 		font = {
@@ -346,15 +346,14 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		local ink = if role == "slider-fill" or role == "selection-indicator" then "selection" else "accent"
 		rule(".facet-" .. role, { BackgroundColor3 = c(ink), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	end
-	for role, slot in
-		{
-			button = "control",
-			field = "field",
-			badge = "badge",
-			panel = "panel",
-			["control.facet-skinned"] = "control",
-		} :: { [string]: string }
-	do
+	local skinSlots: { [string]: string } = {
+		button = "control",
+		field = "field",
+		badge = "badge",
+		panel = "panel",
+		["control.facet-skinned"] = "control",
+	}
+	for role, slot in skinSlots do
 		local chrome = package.chrome
 		local recipe = if chrome then chrome[slot] else nil
 		local inset: ThemeTypes.Insets = if recipe then recipe.contentInsets or {} else {}
@@ -377,9 +376,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			PaddingBottom = side(vertical, inset.bottom),
 		})
 	end
-	local buttonInsets: ThemeTypes.Insets = if ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
-		then ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control.contentInsets or {}
-		else {}
+	local chrome: { [string]: ThemeTypes.SkinLayer } = package.chrome or {}
+	local buttonInsets: ThemeTypes.Insets = if chrome.control then chrome.control.contentInsets or {} else {}
 
 	rule(".facet-sheet >> .facet-card-body, .facet-panel >> .facet-card-body", { BackgroundColor3 = c("control") })
 	rule(".facet-sheet >> .facet-card-text, .facet-panel >> .facet-card-text", { BackgroundColor3 = c("control") })
@@ -649,12 +647,14 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-badge-status > .facet-icon", { ImageColor3 = c("content") })
 	rule(".facet-badge-status::UIPadding", { PaddingLeft = types.UDim.new(0, 20) })
 	rule(".facet-cutout", { Color = c("surface") })
-	for role, gradient in (extra.chromeGradient or {}) :: { [string]: ThemeTypes.Gradient } do
+	local gradients: { [string]: ThemeTypes.Gradient } = extra.chromeGradient or {}
+	for role, gradient in gradients do
 		local stops: { ColorSequenceKeypoint }, alpha: { NumberSequenceKeypoint } = {}, {}
 		for _, stop in gradient.stops do
 			table.insert(stops, types.ColorSequenceKeypoint.new(stop.t, types.Color3.new(stop.r, stop.g, stop.b)))
 		end
-		for _, stop in (gradient.alpha or {}) :: { { t: number, v: number } } do
+		local alphaStops: { { t: number, v: number } } = gradient.alpha or {}
+		for _, stop in alphaStops do
 			table.insert(alpha, types.NumberSequenceKeypoint.new(stop.t, stop.v))
 		end
 		if #stops >= 2 then
@@ -876,7 +876,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	local focusColor = if focus then focus.color else nil
 	rule(".facet-focus-ring", {
 		BackgroundColor3 = if type(focusColor) == "table"
-			then color(types, focusColor :: ThemeTypes.RGB)
+			then color(types, focusColor)
 			elseif type(focusColor) == "string" then c(
 				string.lower(string.sub(focusColor, 2, 2)) .. string.sub(focusColor, 3)
 			) or c("accent")
@@ -1078,7 +1078,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			{ ImageColor3 = types.Color3.new(1, 1, 1) }
 		)
 	end
-	local plate = ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
+	local plate = chrome.control
 	local selectedArt: ThemeTypes.AssetLink? = nil
 	local selectedLayer = 0
 	local plateLayers: { ThemeTypes.SkinLayer } = if plate == nil
@@ -1094,7 +1094,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	local selectedLink: { asset: string, rotation: number?, tint: ThemeTypes.RGB? }? = if type(selectedArt)
 			== "string"
 		then { asset = selectedArt }
-		else selectedArt :: { asset: string, rotation: number?, tint: ThemeTypes.RGB? }?
+		else selectedArt
 	local white, black = types.Color3.new(1, 1, 1), types.Color3.new(0, 0, 0)
 	local art = if selectedLink then (package.assets or {})[selectedLink.asset] else nil
 	local pressedEmphasis = false
@@ -1105,9 +1105,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			pressedEmphasis = true
 		end
 	end
-	for _, entry in
-		{ { ".facet-role-destructive", "danger", "onDanger" }, { ".facet-accent", "accent", "onAccent" } } :: { { string } }
-	do
+	for _, entry in { { ".facet-role-destructive", "danger", "onDanger" }, { ".facet-accent", "accent", "onAccent" } } do
 		local selector, fill, ink = entry[1], resolved(entry[2]) :: Color3, resolved(entry[3]) :: Color3
 		local pressed = pressedEmphasis and entry[2] == "accent"
 		local tinted = not pressed and contrast(ink, black) > contrast(fill, black)
@@ -1192,7 +1190,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 				{ ".facet-role-destructive.facet-disabled", "danger" },
 				{ ".facet-disabled >> .facet-toggle-indicator", "control" },
 				{ ".facet-disabled >> .facet-toggle-on", "selection" },
-			} :: { { string } }
+			}
 		do
 			rule(entry[1], { BackgroundColor3 = faded(entry[2]) })
 		end
