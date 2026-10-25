@@ -269,7 +269,7 @@ return function(verifyHarness: Verify.Harness)
 				t:expect(assert(controls.indexOfKey)(1)):toBe(33)
 				calls = 0
 				sort:set({ column = "rank", direction = "descending" })
-				t:expect(calls):toBe(128)
+				t:expect(calls):toBe(0)
 				t:expect(assert(controls.indexOfKey)(3)):toBe(1)
 				t:expect(assert(controls.indexOfKey)(7)):toBe(2)
 				t:expect(assert(controls.indexOfKey)(4)):toBe(97)
