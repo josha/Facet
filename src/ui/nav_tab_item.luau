@@ -234,6 +234,7 @@ return function(
 			local title = rowContent and rowContent:FindFirstChild("Title") :: TextLabel?
 			if glyph and flow and title then
 				local restGap = flow.Padding
+				local contentWidth = ctx.observe.AbsoluteSize(rowContent :: GuiObject)
 				runtime.decorate(flow, {
 					FillDirection = function(use)
 						return if stacked(use) then E.FillDirection.Vertical else E.FillDirection.Horizontal
@@ -248,13 +249,15 @@ return function(
 							return D2.new(1, 0, 0, labelLine(use))
 						end
 						if string.find(use(placement), "bottom") then
-							return D2.new(
-								1,
-								-ctx.controlSize(spec.controlSize, "iconSize", use)
-									- (flow:GetStyled("Padding") :: UDim).Offset,
-								0,
-								labelLine(use)
-							)
+							local unit = use(layoutUnit)
+							local room = use(contentWidth).X / unit
+								- ctx.controlSize(spec.controlSize, "iconSize", use)
+								- (flow:GetStyled("Padding") :: UDim).Offset
+							local measured = use(wordWidths)[tab.id]
+							local width = if measured and measured > 0
+								then math.min(math.ceil(measured / unit), room)
+								else room
+							return D2.fromOffset(math.max(0, width), labelLine(use))
 						end
 						return D2.fromOffset(0, 0)
 					end,
