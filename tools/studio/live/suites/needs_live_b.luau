@@ -571,15 +571,23 @@ add("skinned-checkbox-stroke", {}, function(t)
 			base ~= nil and (base:GetProperty("Transparency") :: number) < 1,
 			base and base:GetProperties()
 		)
-		t.check(
-			entry.name .. " skinned stroke rule hides the outline at a higher priority",
-			base ~= nil and over ~= nil and over.Priority > base.Priority and over:GetProperty("Transparency") == 1,
-			{ base = base and base.Priority, skinned = over and over.Priority }
-		)
-		t.check(
-			entry.name .. " skinned menu stroke rule hides the hairline",
-			menuOver ~= nil and menuOver:GetProperty("Transparency") == 1
-		)
+		if entry.hidden then
+			t.check(
+				entry.name .. " skinned stroke rule hides the outline at a higher priority",
+				base ~= nil and over ~= nil and over.Priority > base.Priority and over:GetProperty("Transparency") == 1,
+				{ base = base and base.Priority, skinned = over and over.Priority }
+			)
+			t.check(
+				entry.name .. " skinned menu stroke rule hides the hairline",
+				menuOver ~= nil and menuOver:GetProperty("Transparency") == 1
+			)
+		else
+			t.check(
+				entry.name .. " an unskinned stage mounts no skinned stroke rules",
+				over == nil and menuOver == nil,
+				{ skinned = over and over.Priority, menu = menuOver and menuOver.Priority }
+			)
+		end
 		if indicator then
 			t.check(
 				entry.name .. " indicator carries the checkbox tag",

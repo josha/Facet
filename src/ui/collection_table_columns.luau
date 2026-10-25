@@ -196,15 +196,40 @@ return function<V, K>(
 		end
 		return total
 	end)
+	local owner = assert(Compose.currentOwner())
+	local perColumn: {
+		[string]: { allocated: ComposeTypes.Readable<number?>, fixed: ComposeTypes.Readable<number?> },
+	} =
+		{}
+	local allocatedWidths: ComposeTypes.Readable<{ [string]: number }>
+	local function widthsOf(
+		id: string
+	): { allocated: ComposeTypes.Readable<number?>, fixed: ComposeTypes.Readable<number?> }
+		local found = perColumn[id]
+		if found == nil then
+			Compose.withOwner(owner, function()
+				found = {
+					allocated = Compose.formula(function(use: ComposeTypes.Use): number?
+						return use(allocatedWidths)[id]
+					end),
+					fixed = Compose.formula(function(use: ComposeTypes.Use): number?
+						return readSource(widths, use)[id]
+					end),
+				}
+			end)
+			perColumn[id] = assert(found)
+		end
+		return assert(found)
+	end
 	local function columnWidth(
 		current: ComposeTypes.Readable<CollectionTypes.TableColumn<V, K>>,
 		use: ComposeTypes.Use
 	): number?
 		local column = use(current)
-		local fixed = readSource(widths, use)[column.id] or column.width
+		local fixed = use(widthsOf(column.id).fixed) or column.width
 		return if fixed ~= nil then boundedWidth(column, fixed) else nil
 	end
-	local allocatedWidths = Compose.formula(function(use: ComposeTypes.Use): { [string]: number }
+	allocatedWidths = Compose.formula(function(use: ComposeTypes.Use): { [string]: number }
 		local filled = use(fillWidth)
 		local offer = if filled > 0 then filled else use(viewportWidth)
 		if offer <= 0 then
@@ -291,7 +316,7 @@ return function<V, K>(
 			LayoutOrder = index,
 			BackgroundTransparency = 1,
 			Size = function(use: ComposeTypes.Use)
-				return D2.new(0, use(allocatedWidths)[use(current).id] or columnWidth(current, use) or 0, 1, 0)
+				return D2.new(0, use(widthsOf(use(current).id).allocated) or columnWidth(current, use) or 0, 1, 0)
 			end,
 			Host.UISizeConstraint({
 				MinSize = function(use: ComposeTypes.Use)
@@ -299,7 +324,7 @@ return function<V, K>(
 				end,
 				MaxSize = function(use: ComposeTypes.Use)
 					return V2.new(
-						math.min(use(allocatedWidths)[use(current).id] or 1000000, use(current).maxWidth or 1000000),
+						math.min(use(widthsOf(use(current).id).allocated) or 1000000, use(current).maxWidth or 1000000),
 						1000000
 					)
 				end,

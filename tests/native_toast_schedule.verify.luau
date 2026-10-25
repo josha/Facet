@@ -262,7 +262,7 @@ return function(verifyHarness: Verify.Harness)
 	local function rows(world: any): { any }
 		local out = world.findAll("ToastRow")
 		table.sort(out, function(a, b)
-			return a.Parent.LayoutOrder < b.Parent.LayoutOrder
+			return a:FindFirstAncestor("ToastSlot").LayoutOrder < b:FindFirstAncestor("ToastSlot").LayoutOrder
 		end)
 		return out
 	end
@@ -310,19 +310,19 @@ return function(verifyHarness: Verify.Harness)
 				f.world.advance(0.1)
 				list = rows(f.world)
 				expect(list[1].AnchorPoint.Y):toBe(0)
-				local stack = list[1].Parent.Parent
+				local stack = list[1]:FindFirstAncestor("ToastStack")
 				local layout = stack:FindFirstChildWhichIsA("UIListLayout")
 				expect(stack.Name):toBe("ToastStack")
-				expect(list[2].Parent.Parent):toBe(stack)
+				expect(list[2]:FindFirstAncestor("ToastStack")):toBe(stack)
 				expect(layout.FillDirection):toBe(f.world.Enum.FillDirection.Vertical)
 				expect(layout.Padding.Offset):toBe(8)
-				expect(list[1].Parent.LayoutOrder):toBe(1)
-				expect(list[2].Parent.LayoutOrder):toBe(2)
+				expect(list[1]:FindFirstAncestor("ToastSlot").LayoutOrder):toBe(1)
+				expect(list[2]:FindFirstAncestor("ToastSlot").LayoutOrder):toBe(2)
 				expect(stack:FindFirstChildWhichIsA("UIPadding").PaddingTop.Offset):toBe(8)
 				f.shown[1]:set(false)
 				f.world.advance(0.3)
 				expect((messages(f.world))):toBe("b")
-				expect(rows(f.world)[1].Parent.LayoutOrder):toBe(1)
+				expect(rows(f.world)[1]:FindFirstAncestor("ToastSlot").LayoutOrder):toBe(1)
 				expect(#stack:GetChildren()):toBe(3)
 				expect(f.reasons[1]):toBe("a:manual")
 				f.world.stop()
@@ -344,7 +344,7 @@ return function(verifyHarness: Verify.Harness)
 				local function offsets(): string
 					local out = {}
 					for _, row in rows(f.world) do
-						local stack = row.Parent.Parent
+						local stack = row:FindFirstAncestor("ToastStack")
 						local padding = stack:FindFirstChildWhichIsA("UIPadding")
 						local bottom = stack:FindFirstChildWhichIsA("UIListLayout").VerticalAlignment
 							== f.world.Enum.VerticalAlignment.Bottom
@@ -416,8 +416,10 @@ return function(verifyHarness: Verify.Harness)
 				f.world.advance(0.1)
 				local list = rows(f.world)
 				expect(list[1].Size.X.Scale):toBe(1)
-				expect(list[1].Parent.Parent.Size.X.Offset):toBe(-32)
-				expect(list[1].Position.X.Scale):toBe(0.5)
+				expect(list[1]:FindFirstAncestor("ToastStack").Size.X.Offset):toBe(-32)
+				expect(list[1].Parent:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment):toBe(
+					f.world.Enum.HorizontalAlignment.Center
+				)
 				expect(list[2].AutomaticSize):toBe(f.world.Enum.AutomaticSize.Y)
 				expect(list[2].Size.X.Scale):toBe(1)
 				expect(overlay.find(list[2], "WidthCap").MaxSize.X):toBe(560)
@@ -450,12 +452,12 @@ return function(verifyHarness: Verify.Harness)
 				local row = w.find("ToastRow")
 				expect((row:IsDescendantOf(presentation))):toBe(true)
 				expect(row.Size.X.Scale):toBe(1)
-				expect(row.Parent.Parent.Size.X.Scale):toBe(1)
-				expect(row.Parent.Parent.Size.X.Offset):toBe(-32)
+				expect(row:FindFirstAncestor("ToastStack").Size.X.Scale):toBe(1)
+				expect(row:FindFirstAncestor("ToastStack").Size.X.Offset):toBe(-32)
 				w.engine.environment.poke(presentation, "AbsoluteSize", Vector2.new(280, 720))
 				w.advance(0.1)
 				expect(row.Size.X.Scale):toBe(1)
-				expect(row.Parent.Parent.Size.X.Offset):toBe(-32)
+				expect(row:FindFirstAncestor("ToastStack").Size.X.Offset):toBe(-32)
 				w.stop()
 			end,
 		})

@@ -594,7 +594,8 @@ add("segment-accent-plate-image-themes", {}, function(t)
 		local selectedInk = sheetRule(stage, ".facet-skinned.facet-selected >> .facet-button-caption")
 		local art = selectedArt(entry.package)
 		t.check(`{entry.name}: one segment is current`, #current == 1, #current)
-		if current[1] and plate and ink then
+		local captioned = current[1] ~= nil and tagged(current[1], "facet-button-caption")[1] ~= nil
+		if current[1] and plate and (ink or not captioned) then
 			local segment = current[1]
 			local fill = t.find(stage, "SelectionFill")
 			local covering = {}
@@ -660,7 +661,7 @@ add("segment-accent-plate-image-themes", {}, function(t)
 					segment:GetStyled("BackgroundTransparency") == 1,
 					segment:GetStyled("BackgroundTransparency")
 				)
-				local expected = if caption then ink.TextColor3 else plate.TextColor3
+				local expected = if caption then assert(ink).TextColor3 else plate.TextColor3
 				t.check(
 					`{entry.name}: the label reads onAccent on the plate`,
 					reader:GetStyled("TextColor3") == expected,
@@ -680,7 +681,7 @@ add("segment-accent-plate-image-themes", {}, function(t)
 				other and other:GetStyled("BackgroundTransparency")
 			)
 		else
-			t.check(`{entry.name}: the plate rules compile`, false, { plate ~= nil, ink ~= nil })
+			t.check(`{entry.name}: the plate rules compile`, false, { plate ~= nil, ink ~= nil, captioned })
 		end
 		t.cleanup()
 	end

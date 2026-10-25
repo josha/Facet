@@ -545,6 +545,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		end
 		if presentation == "bar" and #trailing > 0 and direction:peek() ~= "ttb" and direction:peek() ~= "btt" then
 			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }).Parent = content
+			Host.UISizeConstraint({
+				MinSize = function(use: ComposeTypes.Use): Vector2
+					return V2.new(ctx.metric("controls.progress.minTrackWidth", use), 0)
+				end,
+			}).Parent =
+				content
+			if ending then
+				ending.TextTruncate = E.TextTruncate.AtEnd
+				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Shrink }).Parent = ending
+			end
 			local line: { ComposeTypes.Child } = { content }
 			for _, node in trailing do
 				table.insert(line, node)

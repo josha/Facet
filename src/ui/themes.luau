@@ -197,7 +197,13 @@ local neutral: ThemeTypes.ThemePackage = {
 			tabMark = { width = 20, height = 4, gap = 4, radius = 2 },
 			tabRailSelection = { insetX = 8, insetY = 4, radius = 8 },
 			zoom = { stepRatio = 1.25, panSpeed = 480, panStep = 48, doubleTapSeconds = 0.35, doubleTapDistance = 12 },
-			progress = { trackHeight = 6, circularSize = 32, circularThickness = 3, spinnerDotSize = 4 },
+			progress = {
+				trackHeight = 6,
+				minTrackWidth = 64,
+				circularSize = 32,
+				circularThickness = 3,
+				spinnerDotSize = 4,
+			},
 			image = { defaultSize = 48 },
 			alert = { maxWidth = 560 },
 			popup = { panelWidth = 360 },
@@ -538,6 +544,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-role-destructive:Hover", { BackgroundColor3 = c("danger") })
 	rule(".facet-role-destructive:Press", { BackgroundColor3 = c("danger") })
 	rule(".facet-role-destructive >> .facet-button-caption", { TextColor3 = c("onDanger") })
+	rule(".facet-role-cancel", { TextColor3 = c("contentSecondary") })
 	rule(".facet-role-cancel >> .facet-button-caption", { TextColor3 = c("contentSecondary") })
 	rule(".facet-role-onIndicator >> .facet-button-caption", { TextColor3 = c("onAccent") })
 	rule(".facet-role-destructive >> .facet-text", { TextColor3 = c("onDanger") })
