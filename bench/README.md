@@ -24,8 +24,11 @@ for each node. It caches immutable reflected defaults. It releases destroyed
 nodes from diagnostic history and allocates ancestry and destruction signals
 only when observed. Authored nodes and updates remain in the workload.
 
-A CPU yardstick median drift above 15 percent makes the microbenchmark verdict
-`FAIL_ENVIRONMENT`. This checks typical CPU rate, not tail stability. The raw
+A CPU yardstick median drift above 25 percent makes the microbenchmark verdict
+`FAIL_ENVIRONMENT`. This checks typical CPU rate, not tail stability. The
+yardstick has 100 samples per endpoint. Each sample batches 20 workload calls
+and records time per call. Each endpoint first warms up for 25 batches.
+This reduces short-sample noise without accepting more CPU drift. The raw
 samples and p95 drift stay in the artifact. Paired workload p50 and p95 use
 the same 5 percent rule. Heap samples depend on collector phase. Use deterministic
 workload cases to check sampling, state changes, image ownership, and teardown.

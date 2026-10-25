@@ -35,7 +35,7 @@ export type Memory = {
 	measure: <T>(spec: Spec<T>, options: Options?) -> Result,
 }
 
-local METHOD = "gc-witness-low-water/1"
+local METHOD = "gc-witness-low-water/2"
 
 local function integer(value: number, minimum: number): boolean
 	return value >= minimum and value < math.huge and value % 1 == 0
@@ -127,8 +127,8 @@ local bound = create {
 	heap = gcinfo,
 	witness = witness,
 	pressure = function()
-		local scratch = table.create(64, 0)
-		assert(#scratch == 64, "memory pressure allocation failed")
+		local scratch = buffer.create(8192)
+		assert(buffer.len(scratch) == 8192, "memory pressure allocation failed")
 	end,
 }
 

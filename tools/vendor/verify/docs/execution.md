@@ -128,14 +128,16 @@ from the baseline, in KiB. Call it outside timed measurements.
 progress. Lute does not expose forced collection. Weak-reference witnesses mark
 collection progress while small temporary allocations drive the collector.
 The first witness cycle is excluded; later cycles sample the lowest observed
-heap. The method is `gc-witness-low-water/1`. It estimates retained Luau heap,
+heap. The method is `gc-witness-low-water/2`. It estimates retained Luau heap,
 not exact reachable bytes, process RSS or Roblox engine memory.
 
 Options are `cycles` (default 4, at least 2), `maxAllocations` (default 1000000)
 and `deadlineSeconds` (default 5). Invalid readings and incomplete collection
 progress raise an error. They do not produce a passing measurement.
 Each endpoint has its own allocation and time bounds. Each pressure allocation
-is one 64-entry table. `Lute.memory.create({ now, heap, witness, pressure })`
+is one 8 KiB buffer. Version 1 used one 64-entry table per allocation.
+Compare measurements collected with the same method version.
+`Lute.memory.create({ now, heap, witness, pressure })`
 injects the host operations. `witness()` returns a weak table with a `token`
 field that becomes nil after its object is collected.
 

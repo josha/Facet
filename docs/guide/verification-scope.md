@@ -80,5 +80,11 @@ is deferred, not passed. Paired CI timing compares the same workload on each
 platform. Instrumented resource checks and native frame observations answer
 different questions. See [performance](performance.md).
 
+Paired CI also compares retained Luau heap for each scene while mounted and
+after teardown. A separate workload pass estimates the heap after eight
+collection witness cycles at each endpoint. This pass does not change the timed samples. Growth must exceed 5%
+and 64 KiB in the median and every paired round. Missing readings fail the
+comparison. These estimates do not measure process RAM or Roblox engine memory.
+
 Use [Contributing](../../CONTRIBUTING.md) for current commands. Report baseline
 failures separately from regressions and state any untested behavior.

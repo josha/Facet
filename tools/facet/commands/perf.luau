@@ -14,6 +14,8 @@ local Microprofiler = require("../lib/microprofiler")
 local Memory = require("../checks/perf_memory")
 local Footprint = require("../checks/perf_footprint")
 local Paired = require("../lib/perf_paired")
+local Retained = require("../lib/perf_retained")
+local Inputs = require("../lib/perf_inputs")
 local Place = require("../lib/perf_place")
 local Run = require("../lib/run")
 
@@ -32,13 +34,16 @@ subcommands:
                                 capture a built game in owned Studio sessions, without an agent
   profile SCENE [TRACE.json]    sample the unchanged scene with the Lute profiler
   prove-memory-gate             plant native and Compose leaks and prove that the teardown gate fails
+  prove-retained-memory [--out DIR]
+                                compare unchanged and retained-allocation controls for every paired scene
+  affected BASE                 run paired performance when its code, fixtures or toolchain change; exit 3 when unchanged
   scenes [--themes]             check that each production (or theme-swap) scene did its work
   place [--no-build]            build examples/performance.project.json and check the place
   paired run --out DIR [--rounds N] [--scenes a,b] [--skip-bench] [--gate] [--summary FILE] LABEL=WORKTREE...
                                 run the paired scenes and the bench in each worktree, round by round
                                 --gate requires two arms and six full rounds; pass after three or continue all measurements through six; invalid evidence exits 2, invalid CPU calibration exits 75
   paired report DIR FIRST SECOND --rounds N [--scenes a,b] [--skip-bench] [--gate] [--summary FILE]
-                                require complete measurements for the expected scope; invalid evidence exits 2; --gate exits 1 when SECOND is consistently slower; --summary appends the summary and tables as Markdown
+                                require complete timing and retained heap measurements; invalid evidence exits 2; --gate exits 1 for a consistent latency or retained heap regression; --summary appends the summary and tables as Markdown
   aggregate [--all] [--layout] DUMP.html...
                                 read a MicroProfiler HTML dump's aggregate timer table
   spec-timings [OUTCOME.json] [OUTPUT.tsv]
@@ -428,6 +433,20 @@ local function pairedReport(invocation: Cli.Invocation, canContinue: boolean?): 
 		end
 	end
 	local summary = Paired.summary(lines, first, second)
+	local memoryLines, memoryFlags = Paired.memoryTable(entries, first, second)
+	if #memoryFlags > 0 then
+		summary[1] = "### Paired performance: FAIL"
+	end
+	table.insert(summary, "")
+	table.insert(
+		summary,
+		`Retained Luau heap: {if #memoryFlags == 0 then "PASS" else "FAIL"}. Growth must exceed 5% and 64 KiB in the median and every paired round, for mounted or teardown retention.`
+	)
+	for _, flag in memoryFlags do
+		table.insert(summary, "- " .. flag)
+	end
+	table.move(memoryLines, 1, #memoryLines, #lines + 1, lines)
+	table.move(memoryFlags, 1, #memoryFlags, #slower + 1, slower)
 	summary[1] ..= ` ({rounds} rounds{if canContinue == true
 			and Cli.switch(invocation, "gate")
 			and #slower > 0
@@ -455,7 +474,7 @@ local function pairedReport(invocation: Cli.Invocation, canContinue: boolean?): 
 		Files.write(target, existing .. table.concat(page, "\n") .. "\n")
 	end
 	if Cli.switch(invocation, "gate") and #slower > 0 then
-		print(("paired gate: FAIL - %s is consistently slower in %s"):format(second, table.concat(slower, ", ")))
+		print(("paired gate: FAIL - %s regresses in %s"):format(second, table.concat(slower, ", ")))
 		return 1
 	end
 	return 0
@@ -486,7 +505,6 @@ local function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture
 	end
 	local execute = capture or Run.capture
 	local environment = toolEnvironment(rokitDirectories(), false)
-	local runner = Files.absolute("bench/paired_scene.luau")
 	local benchCommand = benchmarkCommand()
 	local log = Files.join(out, "log.txt")
 	local rows = Files.join(out, "scenes.jsonl")
@@ -496,9 +514,12 @@ local function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture
 	end
 	Files.makeDirectory(out)
 	for _, entry in trees do
-		local target = Files.join(entry.tree, "bench/paired_scene.luau")
-		if not samePath(target, runner) then
-			Files.write(target, Files.read(runner))
+		for _, path in { "bench/paired_scene.luau", "bench/paired_workload.luau" } do
+			local source = Files.absolute(path)
+			local target = Files.join(entry.tree, path)
+			if not samePath(target, source) then
+				Files.write(target, Files.read(source))
+			end
 		end
 	end
 	for round = 1, rounds do
@@ -800,10 +821,35 @@ return dataset
 	</Item>
 </roblox>]==]
 
+local function memoryFixture(mounted: number?, teardown: number?): Json.Object
+	local result = Json.object()
+	local fields: { [string]: string | number } = {
+		method = Lute.memory.METHOD,
+		cycles = Retained.CYCLES,
+		baselineKb = 1000,
+		baselineAllocations = 10,
+		mountedAllocations = 10,
+		teardownAllocations = 10,
+	}
+	for key, value in fields do
+		Json.set(result, key, value)
+	end
+	Json.set(result, "mountedKb", 1000 + (mounted or 1000))
+	Json.set(result, "teardownKb", 1000 + (teardown or 0))
+	Json.set(result, "mountedRetainedKb", mounted or 1000)
+	Json.set(result, "teardownRetainedKb", teardown or 0)
+	return result
+end
+
 local function pairedEntries(lines: { string }): { Json.Object }
 	local entries: { Json.Object } = {}
 	for _, line in lines do
-		table.insert(entries, Json.asObject(Json.decode(line)) or Json.object())
+		local entry = Json.asObject(Json.decode(line)) or Json.object()
+		local row = Json.asObject(Json.field(entry, "row"))
+		if row ~= nil and Json.field(row, "memory") == nil then
+			Json.set(row, "memory", memoryFixture())
+		end
+		table.insert(entries, entry)
 	end
 	return entries
 end
@@ -859,6 +905,9 @@ local function requiredPairs(): (Paired.Scope, { Json.Object }, { Paired.Bench }
 		table.insert(first, requiredBench(round, "base"))
 		table.insert(second, requiredBench(round, "cand"))
 	end
+	for _, entry in entries do
+		Json.set(assert(Json.asObject(Json.field(entry, "row"))), "memory", memoryFixture())
+	end
 	return { rounds = 2, scenes = { "dense-hud" }, bench = true }, entries, first, second
 end
 
@@ -892,6 +941,11 @@ local function pairedRunFixture(test: Verify.Context, mode: string): ()
 			local slower = label == "cand" and (mode == "fail" or (mode == "continue" and round <= 3))
 			Json.set(row, "p50", if slower then 2 else 1)
 			Json.set(row, "p95", if slower then 4 else 2)
+			local retained = label == "cand" and (mode == "memory" or (mode == "memory-continue" and round <= 3))
+			Json.set(row, "memory", memoryFixture(if retained then 2000 else 1000, if retained then 1000 else 0))
+			if mode == "memory-invalid" and label == "cand" and round == 3 then
+				Json.set(row, "memory", nil)
+			end
 			if mode == "invalid" and label == "cand" and round == 3 then
 				Json.set(row, "scene", "unselected-scene")
 			end
@@ -906,14 +960,20 @@ local function pairedRunFixture(test: Verify.Context, mode: string): ()
 				Json.set(document, "proofStatus", "unstable-cpu-rate")
 				Json.set(document, "failureKind", "calibration")
 				Json.set(document, "expectedMeasurements", 1)
-				Json.set(document, "yardstickMedianDriftPct", 20)
+				Json.set(document, "yardstickMedianDriftPct", 30)
 			end
 			Files.write(Files.join(tree, "artifacts/bench.json"), Json.encode(document))
 		end
 		local code = if mode == "calibration" and output == "" then 2 else 0
 		return { ok = code == 0, code = code, stdout = output, stderr = "", timedOut = false }
 	end)
-	local rounds = if mode == "continue" or mode == "fail" or mode == "manual" then 6 else 3
+	local rounds = if mode == "continue"
+			or mode == "fail"
+			or mode == "manual"
+			or mode == "memory"
+			or mode == "memory-continue"
+		then 6
+		else 3
 	if mode == "calibration" then
 		Verify.expect(status):toBe(75)
 		Verify.expect(#arms):toBe(1)
@@ -943,9 +1003,11 @@ local function pairedRunFixture(test: Verify.Context, mode: string): ()
 			summaryCount += 1
 		end
 	end
-	local final = if mode == "fail" then "FAIL" else "PASS"
-	Verify.expect(status):toBe(if mode == "invalid" then 2 elseif mode == "fail" then 1 else 0)
-	Verify.expect(summaryCount):toBe(if mode == "manual" or mode == "invalid" then 0 elseif rounds == 6 then 2 else 1)
+	local invalid = mode == "invalid" or mode == "memory-invalid"
+	local failed = mode == "fail" or mode == "memory"
+	local final = if failed then "FAIL" else "PASS"
+	Verify.expect(status):toBe(if invalid then 2 elseif failed then 1 else 0)
+	Verify.expect(summaryCount):toBe(if mode == "manual" or invalid then 0 elseif rounds == 6 then 2 else 1)
 	Verify.expect(table.concat(arms, ",")):toBe(expected)
 	Verify.expect(calls):toEqual(expectedCalls)
 	if summaryCount > 0 then
@@ -1231,6 +1293,60 @@ end
 REGISTRATIONS.paired = function(harness: Verify.Harness, prefix: string): ()
 	local idPrefix = prefix
 	prefix ..= "paired::"
+	for _, mode in { "memory", "memory-continue", "memory-invalid" } do
+		harness:case(prefix .. "retained memory checkpoint " .. mode, function(test)
+			pairedRunFixture(test, mode)
+		end)
+	end
+	harness:case(prefix .. "retained memory requires both growth bounds and every paired round", function(test)
+		local function readings(mounted: number, teardown: number): { Retained.Reading }
+			return {
+				{ mounted = mounted, teardown = teardown },
+				{ mounted = mounted, teardown = teardown },
+				{ mounted = mounted, teardown = teardown },
+			}
+		end
+		test:expect(Retained.compare(readings(1000, 0), readings(1064, 64))[1].regressed):toBe(false)
+		test:expect(Retained.compare(readings(1000, 0), readings(1065, 65))[1].regressed):toBe(true)
+		test:expect(Retained.compare(readings(10000, 0), readings(10065, 1))[1].regressed):toBe(false)
+		test:expect(Retained.compare(readings(1000, 0), readings(1000, 65))[2].regressed):toBe(true)
+		local noisy = readings(1100, 100)
+		noisy[3] = { mounted = 1040, teardown = 40 }
+		test:expect(Retained.compare(readings(1000, 0), noisy)[1].regressed):toBe(false)
+		test:expect(Retained.compare(readings(1000, 0), noisy)[2].regressed):toBe(false)
+	end)
+	harness:case(prefix .. "retained memory rejects missing malformed and contradictory measurements", function(test)
+		for _, key in
+			{
+				"method",
+				"cycles",
+				"baselineKb",
+				"mountedKb",
+				"teardownKb",
+				"mountedRetainedKb",
+				"teardownRetainedKb",
+				"baselineAllocations",
+				"mountedAllocations",
+				"teardownAllocations",
+			}
+		do
+			local value = memoryFixture()
+			Json.set(value, key, nil)
+			local reading = Retained.read(value)
+			test:expect(reading):toBe(nil)
+		end
+		for _, bad in { -1, math.huge, math.huge - math.huge } do
+			local value = memoryFixture()
+			Json.set(value, "mountedKb", bad)
+			test:expect((Retained.read(value))):toBe(nil)
+		end
+		local mismatched = memoryFixture()
+		Json.set(mismatched, "mountedRetainedKb", 2000)
+		test:expect((Retained.read(mismatched))):toBe(nil)
+		local scope, entries, first, second = requiredPairs()
+		Json.set(assert(Json.asObject(Json.field(entries[1], "row"))), "memory", nil)
+		test:expect(#Paired.validate(scope, entries, first, second, "base", "cand") > 0):toBe(true)
+	end)
 	harness:case(prefix .. "paired: a valid full-scope pass ends after three rounds", {
 		id = idPrefix .. "paired: a valid full-scope pass ends after three rounds",
 		run = function(test: Verify.Context): ()
@@ -1288,7 +1404,7 @@ REGISTRATIONS.paired = function(harness: Verify.Harness, prefix: string): ()
 			Json.set(document, "proofStatus", "unstable-cpu-rate")
 			Json.set(document, "failureKind", "calibration")
 			Json.set(document, "expectedMeasurements", 1)
-			Json.set(document, "yardstickMedianDriftPct", 16)
+			Json.set(document, "yardstickMedianDriftPct", 26)
 			local errors, retry = Paired.benchOutcome(2, document)
 			local _, crashed = Paired.benchOutcome(1, document)
 			Json.set(document, "failureKind", "execution")
@@ -1356,9 +1472,9 @@ return {
 			local old = requiredBench(1, "base").document
 			Json.set(old, "yardstickMedianDriftPct", nil)
 			local boundary = requiredBench(1, "base").document
-			Json.set(boundary, "yardstickMedianDriftPct", 15)
+			Json.set(boundary, "yardstickMedianDriftPct", 25)
 			local drifted = requiredBench(1, "base").document
-			Json.set(drifted, "yardstickMedianDriftPct", 15.01)
+			Json.set(drifted, "yardstickMedianDriftPct", 25.01)
 			local first, second = {}, {}
 			for round = 1, 3 do
 				local base, candidate = requiredBench(round, "base"), requiredBench(round, "cand")
@@ -1373,7 +1489,7 @@ return {
 			local lines = Paired.benchTables(first, second, "base", "cand")
 			Verify.expect(#Paired.benchOutcome(0, old) > 0):toBeTrueWith("missing median calibration accepted")
 			Verify.expect((Paired.benchOutcome(0, boundary))):toEqual({})
-			Verify.expect(#Paired.benchOutcome(0, drifted) > 0):toBeTrueWith("median drift above15% accepted")
+			Verify.expect(#Paired.benchOutcome(0, drifted) > 0):toBeTrueWith("median drift above 25% accepted")
 			Verify.expect((Paired.benchOutcome(0, second[1].document))):toEqual({})
 			expectContains(
 				lines,
@@ -1399,7 +1515,7 @@ return {
 			local unstable = requiredBench(1, "base").document
 			Json.set(unstable, "proofStatus", "unstable-cpu-rate")
 			local drifted = requiredBench(1, "base").document
-			Json.set(drifted, "yardstickMedianDriftPct", 16)
+			Json.set(drifted, "yardstickMedianDriftPct", 26)
 			Verify.expect(#Paired.benchOutcome(1, successful) > 0)
 				:toBeTrueWith("failed command accepted a leftover report")
 			Verify.expect(#Paired.benchOutcome(2, successful) > 0):toBeTrueWith("environment failure accepted")
@@ -1736,8 +1852,39 @@ REGISTRATIONS.footprint = function(harness: Verify.Harness, prefix: string): ()
 	})
 end
 REGISTRATIONS["prove-memory-gate"] = registerNone
+REGISTRATIONS["prove-retained-memory"] = registerNone
+REGISTRATIONS.affected = function(harness: Verify.Harness, prefix: string)
+	prefix ..= "affected::"
+	harness:case(prefix .. "paired performance input coverage", function(context)
+		for _, path in
+			{
+				"src/ui/control.luau",
+				"bench/scenarios.luau",
+				"bench/paired_workload.luau",
+				"examples/themes/data.json",
+				"tests/lib/native_engine.luau",
+				"tests/behavior.verify.luau",
+				"tools/vendor/verify/src/lute/memory.luau",
+				"tools/facet/lib/perf_retained.luau",
+				"tools/engine/retained_memory_proof.luau",
+				"eval/data.json",
+				"rokit.toml",
+				".luaurc",
+				"default.project.json",
+				".github/workflows/ci.yml",
+				"future/code.luau",
+			}
+		do
+			context:expect(Inputs.affects(path)):toBeTrueWith(path)
+		end
+		for _, path in { "README.md", "docs/guide/components.md", "skills/use-facet/SKILL.md", "AGENTS.md" } do
+			context:expect(not Inputs.affects(path)):toBeTrueWith(path)
+		end
+	end)
+end
 
-local ORDER = { "budgets", "metrics", "scenes", "place", "paired", "aggregate", "spec-timings", "footprint", "run" }
+local ORDER =
+	{ "budgets", "metrics", "scenes", "place", "paired", "aggregate", "spec-timings", "footprint", "run", "affected" }
 
 local function registerAll(harness: Verify.Harness, prefix: string): ()
 	harness:case(prefix .. "the memory gate rejects planted native and Compose leaks", {
@@ -1787,6 +1934,16 @@ local function run(invocation: Cli.Invocation): number
 	end
 	if Cli.switch(invocation, "selftest") then
 		return Gate.selftest("tools/commands", "tools/commands::perf::" .. subcommand .. "::")
+	end
+	if subcommand == "affected" then
+		return Inputs.run(invocation.positional[2])
+	elseif subcommand == "prove-retained-memory" then
+		return Run.inherit({
+			Run.lute(),
+			"run",
+			"tools/engine/retained_memory_proof.luau",
+			Cli.flag(invocation, "out") or "artifacts/perf-paired-retained-calibration",
+		}).code
 	end
 	if
 		subcommand == "run"

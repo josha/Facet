@@ -130,9 +130,21 @@ local function yardstickIssues(spec: Spec, tool: Yardstick, before: { number }, 
 end
 
 local function timeYardstick(clock: Clock, scale: number, tool: Yardstick, into: { number }): string?
+	local iterations = tool.iterations or 1
+	local function batch()
+		for _ = 1, iterations do
+			tool.run()
+		end
+	end
+	for _ = 1, tool.warmup or 0 do
+		local ok, thrown: unknown = pcall(batch)
+		if not ok then
+			return "workload raised: " .. tostring(thrown)
+		end
+	end
 	for _ = 1, tool.samples do
 		local before = clock()
-		local ok, thrown: unknown = pcall(tool.run)
+		local ok, thrown: unknown = pcall(batch)
 		if not ok then
 			return "workload raised: " .. tostring(thrown)
 		end
@@ -140,7 +152,7 @@ local function timeYardstick(clock: Clock, scale: number, tool: Yardstick, into:
 		if elapsed ~= elapsed or elapsed < 0 or elapsed == math.huge then
 			return "the clock produced an invalid yardstick duration"
 		end
-		table.insert(into, elapsed * scale)
+		table.insert(into, elapsed * scale / iterations)
 	end
 	return nil
 end
