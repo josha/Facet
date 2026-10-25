@@ -1008,11 +1008,34 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	end)
 
 	UI.fill = function(weight: number?): UIFlexItem
-		if weight == nil then
-			return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
+		assert(
+			weight == nil or (type(weight) == "number" and weight > 0),
+			"Facet fill weight must be a positive number"
+		)
+		local item = if weight == nil
+			then Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
+			else Host.UIFlexItem({ FlexMode = E.UIFlexMode.Custom, GrowRatio = weight, ShrinkRatio = weight })
+		local held: GuiObject? = nil
+		local function place()
+			local leaf = item.Parent
+			if held and held ~= leaf then
+				if held.AutomaticSize == E.AutomaticSize.Y then
+					held.AutomaticSize = E.AutomaticSize.XY
+				end
+				held = nil
+			end
+			if held or leaf == nil or not leaf:IsA("GuiObject") or leaf.AutomaticSize ~= E.AutomaticSize.XY then
+				return
+			end
+			local row = leaf.Parent
+			local list = if row then row:FindFirstChildWhichIsA("UIListLayout") else nil
+			if list and list.FillDirection == E.FillDirection.Horizontal then
+				held = leaf
+				leaf.AutomaticSize = E.AutomaticSize.Y
+			end
 		end
-		assert(type(weight) == "number" and weight > 0, "Facet fill weight must be a positive number")
-		return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Custom, GrowRatio = weight, ShrinkRatio = weight })
+		runtime.connect(item, "AncestryChanged", place)
+		return item
 	end
 
 	return UI

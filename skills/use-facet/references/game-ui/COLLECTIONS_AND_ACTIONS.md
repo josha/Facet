@@ -11,6 +11,8 @@ Each shop or collection card answers what the item is, what it costs, whether
 the player can afford it, whether they own it and what it changes. A name and
 a price alone do not let the player choose. Put Buy in the detail or the
 confirmation, not on every card.
+When the player is short, keep Buy and its price visible but disabled, show
+the shortfall, and make the way to earn it the default.
 An unavailable object may still help the player plan if its reason and next
 step are clear. Do not make them remember a previous object's facts to compare
 it with the current one.

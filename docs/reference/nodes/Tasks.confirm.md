@@ -44,6 +44,7 @@ end)
 
 Show the price, the gain and the balance after. `default` gives Buy the
 emphasis, entry focus and Return. If the balance is short, show the shortfall
-and make the way to earn it `default`; Buy stays enabled for the server.
+and make the way to earn it `default`. Keep Buy and its price; set
+`enabled = false`.
 `keepOpen` and `busy` hold the Dialog until the server answers; a refusal
 stays as an error Notice. See [purchase state](Tasks.purchase.md).
