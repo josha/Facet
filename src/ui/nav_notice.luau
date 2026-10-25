@@ -124,7 +124,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end, { seconds = ctx.metric("motion.reducedFade"), ease = ctx.motionEase("fade") })
 		local function progress(use: ComposeTypes.Use?): number
 			if read(preparing, use) then
-				return 1
+				return 0
 			end
 			local current = level(use)
 			if current == "limited" then
@@ -362,7 +362,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local native = (ctx.props(spec, NOTICE_KEYS, defaults) :: unknown) :: { [unknown]: unknown }
 		local restVisible = native.Visible
 		native.Visible = function(use: ComposeTypes.Use): boolean
-			return not use(preparing) and read(restVisible, use) ~= false
+			return read(restVisible, use) ~= false
 		end
 		local restSize, restAutomatic, restClip, restInteractable =
 			native.Size, native.AutomaticSize, native.ClipsDescendants, native.Interactable
@@ -406,7 +406,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			return if settled(use) then read(restClip, use) == true else true
 		end
 		native.Interactable = function(use: ComposeTypes.Use): unknown
-			return not use(leaving) and read(restInteractable, use) ~= false
+			return not use(leaving) and not use(preparing) and read(restInteractable, use) ~= false
 		end
 		root = Host.Frame((native :: unknown) :: Types.FrameNativeProps)
 		if not prepares then
@@ -437,7 +437,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			root:SetAttribute("NoticeAccessories", if use(beside) then "beside" else "below")
 		end)
 		if prepares then
-			local ready = presentationReady(ctx, { root })
+			local ready = presentationReady(ctx, { body })
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(ready) and preparing:peek() then
 					preparing:set(false)

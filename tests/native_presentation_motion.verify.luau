@@ -925,6 +925,31 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case(
+			"a notice in a stack measures while laid out at zero height and arrives without waiting for its timeout",
+			{
+				id = "native_presentation_motion::presentation motion: Toast with an action, and Notice::a notice in a stack measures while laid out at zero height and arrives without waiting for its timeout",
+				run = function()
+					local w = overlay.new(function(UI: FacetControls)
+						return UI.VStack "Terms" {
+							UI.Notice "Short" { message = "You can't afford this yet." },
+						}
+					end, nil, { runService = true, preRender = true })
+					local notice = w.find("Short")
+					Verify.expect(notice.Visible):toBe(true)
+					Verify.expect(notice.Size.Y.Offset):toBe(0)
+					Verify.expect(notice.ClipsDescendants):toBe(true)
+					Verify.expect(notice.Interactable):toBe(false)
+					w.engine.environment.poke(notice, "AbsoluteSize", Vector2.new(300, 0))
+					w.engine.environment.poke(w.find("Body"), "AbsoluteSize", Vector2.new(276, 36))
+					w.advance(0.3, 18)
+					Verify.expect(notice.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
+					Verify.expect(notice.Interactable):toBe(true)
+					w.stop()
+				end,
+			}
+		)
+
 		verifyHarness:case("the close collapses the notice first, then reports; a notice the caller keeps comes back", {
 			id = "native_presentation_motion::presentation motion: Toast with an action, and Notice::the close collapses the notice first, then reports; a notice the caller keeps comes back",
 			run = function()
