@@ -128,7 +128,7 @@ Use safe edges without crowding native controls. The free strip beside Roblox's
 top bar buttons suits a compact item, such as a currency or a menu button.
 It holds readouts and menus, not frequent actions: a phone's top edge is out of
 thumb reach. Give the primary action the widest target and put it, with its
-frequent neighbours, in the `action` zone. A portrait phone then shows them at
+frequent neighbours, in one `action` region. A portrait phone shows it at
 the bottom centre, and a landscape screen at the bottom right.
 Composition handles TopbarInset and its fallback; read `HUD-actions` to match
 Roblox's row. A marker may occupy the focus area when locating that target is
