@@ -1310,6 +1310,29 @@ return function(harness: Verify.Harness)
 			Verify.expect(ended):toBe(1)
 			w.stop()
 		end)
+		harness:case("a consumed mouse tap does not block the next press on the reused input from dragging", function()
+			local w = fixture()
+			local E, V3 = w.engine.types.Enum, w.engine.types.Vector3
+			w.bind({ payload = "tile", hitArea = w.source })
+			local pointer = (
+				{
+					UserInputType = E.UserInputType.MouseButton1,
+					UserInputState = E.UserInputState.Begin,
+					Position = V3.new(30, 70, 0),
+				} :: unknown
+			) :: InputObject
+			local event = (w.source.InputBegan :: unknown) :: { Fire: (unknown, InputObject) -> () }
+			event:Fire(pointer)
+			activation.consume(pointer)
+			pointer.UserInputState = E.UserInputState.End
+			w.input.InputEnded:Fire(pointer)
+			Verify.expect(w.service.state:peek()):toBeNil()
+			pointer.UserInputState = E.UserInputState.Begin
+			event:Fire(pointer)
+			w.input.InputChanged:Fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(60, 70, 0) })
+			Verify.expect(w.service.state:peek() ~= nil):toBe(true)
+			w.stop()
+		end)
 		harness:case("a mouse tap calls the source press once without a drag", function()
 			local w = fixture()
 			local presses = 0
