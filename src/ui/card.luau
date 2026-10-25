@@ -301,6 +301,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					AutomaticSize = E.AutomaticSize.XY,
 					Compose.show(shown, function()
 						local pill = UI.Badge(props)
+						pill:AddTag("facet-badge-on-media")
 						local size = ctx.observe.AbsoluteSize(pill)
 						Compose.watch(function(use: ComposeTypes.Use)
 							widths[name]:set(use(size).X)

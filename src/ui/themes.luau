@@ -636,6 +636,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(`{surface} >> .facet-text, {surface} >> .facet-icon`, { TextColor3 = partner, ImageColor3 = partner })
 		rule(`{surface} >> .facet-fill, {surface} >> .facet-track`, { BackgroundColor3 = partner })
 	end
+	rule(".facet-badge-on-media::UIStroke", { Thickness = 1, Transparency = 0.5 })
+	for status in statusRoles do
+		rule(".facet-badge-on-media.facet-status-" .. status .. "::UIStroke", { Color = c(partnerOf(status)) })
+	end
 	rule(".facet-status-hollow", { BackgroundTransparency = 1 })
 	rule(".facet-badge-utility", { BackgroundTransparency = 1, TextColor3 = c("contentSecondary") })
 	rule(".facet-badge-utility > .facet-text", { TextColor3 = c("contentSecondary") })

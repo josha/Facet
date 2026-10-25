@@ -12,6 +12,8 @@ corners of the art.
   badge is at the top-right corner.
 - A frame named `Badges` covers the art, above the artwork. Its padding keeps
   both badges `space.s` from the edges of the art.
+  A badge on the art has a thin edge in its own ink, so it keeps its shape
+  on art of the same colour.
 - A badge with a `label` shows only while the label is a nonempty string. A
   badge without a `label` needs `icon` and `name`, and it always shows. A
   badge with neither is an error when the Card is made.
@@ -45,8 +47,8 @@ Keep the item state in the game model. Here `owned` holds it.
 
 A shop card carries the decision. The caption says what the item changes,
 and the trailing badge shows the price until the player owns the item. Show
-every price the same way, in `neutral`; show what the player can afford in the
-detail and its Buy. An owned item needs no badge. A badge with `name` and an
+every price the same way, in `contrast`, which reads on any art; show what the
+player can afford in the detail and its Buy. An owned item needs no badge. A badge with `name` and an
 icon shows the icon alone while its label is empty, so Equipped is a named
 check:
 
@@ -66,7 +68,7 @@ local card = UI.Card "Engine" {
                     elseif use(owned) then nil else "coin"
             end,
             name = "Equipped",
-            status = function(use) return if use(equipped) then "success" else "neutral" end,
+            status = function(use) return if use(equipped) then "success" else "contrast" end,
         },
     },
 }
