@@ -35,7 +35,7 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 		local instance = ctx.UI[node.kind](node.name)(props)
 		if definition.anchor then
 			instance =
-				ctx.UI.VStack("__FacetDesignHost_" .. node.id) { gap = "s", state["anchor_" .. node.id], instance }
+				ctx.UI.VStack("__FacetDesignHost_" .. node.id)({ gap = "s", state["anchor_" .. node.id], instance })
 		end
 		if editing then
 			instance:SetAttribute("FacetDesignNode", node.id)
@@ -94,7 +94,7 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 			return input.UserInputType == Enum.UserInputType.MouseButton1
 				or input.UserInputType == Enum.UserInputType.Touch
 		end
-		local capture = Host.Frame "DesignSelection" {
+		local capture = Host.Frame("DesignSelection")({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Active = true,
@@ -115,10 +115,27 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 			[Compose.event("MouseLeave")] = function()
 				hovered:set(nil)
 			end,
+		})
+		local SNAP = 4
+		local function scale(): number
+			local factor, current: Instance? = 1, capture
+			while current do
+				local uiScale = current:FindFirstChildWhichIsA("UIScale")
+				if uiScale then
+					factor *= uiScale.Scale
+				end
+				current = current.Parent
+			end
+			return factor
+		end
+		local grips = {
+			{ name = "ResizeEast", anchor = Vector2.new(1, 0.5), width = true, height = false },
+			{ name = "ResizeSouth", anchor = Vector2.new(0.5, 1), width = false, height = true },
+			{ name = "ResizeSouthEast", anchor = Vector2.new(1, 1), width = true, height = true },
 		}
 		local function outline(name: string, thickness: number, target: (Use) -> string?, sized: boolean)
 			local readout = if sized
-				then Host.TextLabel "Size" {
+				then Host.TextLabel("Size")({
 					AnchorPoint = Vector2.new(0.5, 0),
 					Position = UDim2.new(0.5, 0, 1, 4),
 					AutomaticSize = Enum.AutomaticSize.XY,
@@ -127,36 +144,101 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 					TextSize = 12,
 					FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold),
 					Interactable = false,
-					Host.UIPadding {
+					Host.UIPadding({
 						PaddingLeft = UDim.new(0, 4),
 						PaddingRight = UDim.new(0, 4),
 						PaddingTop = UDim.new(0, 1),
 						PaddingBottom = UDim.new(0, 1),
-					},
-					Host.UICorner { CornerRadius = UDim.new(0, 3) },
-				}
+					}),
+					Host.UICorner({ CornerRadius = UDim.new(0, 3) }),
+				})
 				else nil
-			local frame = Host.Frame(name) {
+			local frame = Host.Frame(name)({
 				BackgroundTransparency = 1,
 				Visible = false,
 				Interactable = false,
 				ZIndex = 2001,
-				Host.UIStroke { Color = accent, Thickness = thickness, ApplyStrokeMode = Enum.ApplyStrokeMode.Border },
+				Host.UIStroke({ Color = accent, Thickness = thickness, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
 				readout,
-			}
+			})
 			local shown: GuiObject? = nil
+			local shownId: string? = nil
+			local preview: Vector2? = nil
+			local handles = if sized and editing.resize
+				then Host.Frame(name .. "Handles")({
+					BackgroundTransparency = 1,
+					Visible = false,
+					ZIndex = 2002,
+				})
+				else nil
 			local function place()
 				local instance = shown
 				if instance == nil or instance.Parent == nil then
 					frame.Visible = false
+					if handles then
+						handles.Visible = false
+					end
 					return
 				end
-				local origin, at, size = capture.AbsolutePosition, instance.AbsolutePosition, instance.AbsoluteSize
-				frame.Position = UDim2.fromOffset(at.X - origin.X, at.Y - origin.Y)
+				local factor = scale()
+				local at = (instance.AbsolutePosition - capture.AbsolutePosition) / factor
+				local size = preview or instance.AbsoluteSize / factor
+				frame.Position = UDim2.fromOffset(at.X, at.Y)
 				frame.Size = UDim2.fromOffset(size.X, size.Y)
 				frame.Visible = true
+				if handles then
+					handles.Position, handles.Size, handles.Visible = frame.Position, frame.Size, true
+				end
 				if readout then
 					readout.Text = `{math.round(size.X)} × {math.round(size.Y)}`
+				end
+			end
+			if handles then
+				for _, grip in grips do
+					local start, origin, travel = Vector2.zero, Vector2.zero, Vector2.zero
+					local detector = Host.UIDragDetector({
+						DragStyle = Enum.UIDragDetectorDragStyle.TranslatePlane,
+						ResponseStyle = Enum.UIDragDetectorResponseStyle.CustomOffset,
+					})
+					local function dragged(): Vector2
+						local function snap(extent: number, delta: number, active: boolean): number
+							return if active then math.max(SNAP, math.round((extent + delta) / SNAP) * SNAP) else extent
+						end
+						return Vector2.new(snap(start.X, travel.X, grip.width), snap(start.Y, travel.Y, grip.height))
+					end
+					detector.DragStart:Connect(function(position: Vector2)
+						origin, travel = position, Vector2.zero
+						start = if shown then shown.AbsoluteSize / scale() else Vector2.zero
+						preview = start
+					end)
+					detector.DragContinue:Connect(function(position: Vector2)
+						travel = (position - origin) / scale()
+						preview = dragged()
+						place()
+					end)
+					detector.DragEnd:Connect(function()
+						local id, size = shownId, dragged()
+						preview = nil
+						place()
+						if id and size ~= start then
+							editing.resize(id, {
+								width = if grip.width then size.X else nil,
+								height = if grip.height then size.Y else nil,
+							})
+						end
+					end)
+					local handle = Host.Frame(grip.name)({
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						Position = UDim2.fromScale(grip.anchor.X, grip.anchor.Y),
+						Size = UDim2.fromOffset(10, 10),
+						BackgroundColor3 = Color3.new(1, 1, 1),
+						Active = true,
+						ZIndex = 2003,
+						Host.UIStroke({ Color = accent, Thickness = 1.5 }),
+						Host.UISizeConstraint({ MinSize = Vector2.new(10, 10) }),
+						detector,
+					})
+					handle.Parent = handles
 				end
 			end
 			local connections: { RBXScriptConnection } = {}
@@ -169,6 +251,7 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 			Compose.watch(function(use: Use)
 				local id = target(use)
 				release()
+				shownId = id
 				shown = if id then nodes[id] else nil
 				local instance = shown
 				if instance then
@@ -181,6 +264,9 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 			end)
 			Compose.cleanup(release)
 			frame.Parent = capture
+			if handles then
+				handles.Parent = capture
+			end
 		end
 		outline("DesignHover", 1, function(use: Use): string?
 			local id = use(hovered)

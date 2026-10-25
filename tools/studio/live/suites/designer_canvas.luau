@@ -8,16 +8,28 @@ type Render = typeof(require("@repo/tools/designer/modules/design_render"))
 type Templates = typeof(require("@repo/tools/designer/modules/templates"))
 type Designer = typeof(require("@repo/tools/designer/modules/designer"))
 type Document = typeof(require("@repo/tools/designer/modules/document"))
+type Library = typeof(require("@repo/tools/designer/modules/library"))
 type Live = {
 	mount: ((FacetControls, RobloxHost, ComposeModule) -> Instance, { size: Vector2 }) -> Instance,
 	settle: (number) -> (),
 	find: (Instance, string) -> Instance?,
 	check: (string, boolean, unknown?) -> (),
+	note: (string, unknown) -> (),
+}
+type Probe = { width: () -> number, read: () -> unknown, close: () -> () }
+type Case = {
+	id: string,
+	contracts: { string },
+	plan: string?,
+	run: ((Live) -> ())?,
+	setup: ((Live) -> Probe)?,
+	steps: { [string]: (Live, Probe) -> () }?,
 }
 local loadRender: (ModuleScript) -> Render = require
 local loadTemplates: (ModuleScript) -> Templates = require
 local loadDesigner: (ModuleScript) -> Designer = require
 local loadDocument: (ModuleScript) -> Document = require
+local loadLibrary: (ModuleScript) -> Library = require
 local Live = require(script.Parent.Parent)
 
 local function module(name: string): ModuleScript
@@ -27,7 +39,7 @@ local function module(name: string): ModuleScript
 	return found
 end
 
-return {
+local cases: { Case } = {
 	{
 		id = "selection-overlay-follows-the-layer",
 		contracts = {},
@@ -110,8 +122,82 @@ return {
 			t.settle(10)
 			local found = document.find(session.document().root, child.id)
 			t.check("Delete removes the selected layer", found == nil, child.id)
+			started:Disconnect()
 			session.dispose()
 			screen:Destroy()
 		end,
 	},
+	{
+		id = "resize-handle-drag-sets-the-layer-width",
+		contracts = {},
+		plan = "drag: drag from east to past",
+		setup = function(t: Live): Probe
+			local designer = loadDesigner(module("designer"))
+			local document = loadDocument(module("document"))
+			local library = loadLibrary(module("library"))
+			local screen = Instance.new("ScreenGui")
+			screen.Name = "DesignerResizeProbe"
+			screen.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+			local session = designer.mount(require(ReplicatedStorage:WaitForChild("Facet")), screen, {})
+			t.settle(20)
+			local value = session.document()
+			local chosen: string? = nil
+			for _, row in document.rows(value.root) do
+				if chosen == nil and row.id ~= value.root.id and library.descriptor(row.kind, "width") then
+					chosen = row.id
+				end
+			end
+			local id = assert(chosen, "the template has a layer with a width")
+			session.actions.select(id)
+			t.settle(10)
+			local grip = t.find(screen, "ResizeEast")
+			assert(
+				grip and grip:IsA("GuiObject") and grip.Parent and grip.Parent:IsA("GuiObject"),
+				"the resize handle is shown"
+			)
+			local frame = grip.Parent
+			local detector = grip:FindFirstChildWhichIsA("UIDragDetector")
+			assert(detector, "the handle has a drag detector")
+			local function design(): number
+				return frame.Size.X.Offset + 40 * frame.Size.X.Offset / frame.AbsoluteSize.X
+			end
+			local width = design()
+			local started = detector.DragStart:Connect(function()
+				width = design()
+			end)
+			local centre = grip.AbsolutePosition + grip.AbsoluteSize / 2
+			t.note("points", {
+				east = { math.floor(centre.X + 0.5), math.floor(centre.Y + 0.5) },
+				past = { math.floor(centre.X + 40.5), math.floor(centre.Y + 0.5) },
+			})
+			return {
+				width = function(): number
+					return width
+				end,
+				read = function(): unknown
+					local node = document.find(session.document().root, id)
+					return if node then node.props.width else nil
+				end,
+				close = function()
+					session.dispose()
+					screen:Destroy()
+				end,
+			}
+		end,
+		steps = {
+			drag = function(t: Live, probe: Probe)
+				t.settle(10)
+				local width = probe.read()
+				local expected = math.round(probe.width() / 4) * 4
+				t.check(
+					"dragging the east handle 40 screen px sets the snapped design width",
+					type(width) == "number" and math.abs(width - expected) <= 4 and width % 4 == 0,
+					{ width = width, expected = expected }
+				)
+				probe.close()
+			end,
+		},
+	},
 }
+
+return cases
