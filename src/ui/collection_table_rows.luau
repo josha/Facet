@@ -126,19 +126,41 @@ return function<V, K>(
 					index: ComposeTypes.Readable<number>
 				)
 					local definition = column:peek()
-					local render: CollectionTypes.RowRender<V, K>? = definition.render
-						or if definition.editor
-							then editors.render(
-								definition,
-								function(item: V): unknown
-									return field(item, definition)
+					local authored = definition.render
+					local editorCell = if authored == nil and definition.editor
+						then editors.render(
+							definition,
+							function(item: V): unknown
+								return field(item, definition)
+							end,
+							assert(spec.onCellChange),
+							function(use: ComposeTypes.Use): boolean
+								return not policy.disabled(spec.disabled, use(current))
+							end
+						)
+						else nil
+					local render: ((ComposeTypes.Readable<K>) -> ComposeTypes.Child)? = if authored
+						then function(rowKey: ComposeTypes.Readable<K>): ComposeTypes.Child
+							return authored(current, placement, rowKey)
+						end
+						elseif editorCell then function(rowKey: ComposeTypes.Readable<K>): ComposeTypes.Child
+							return Compose.keyed({
+								from = function(use: ComposeTypes.Use): { K }
+									return { use(rowKey) }
 								end,
-								assert(spec.onCellChange),
-								function(use: ComposeTypes.Use): boolean
-									return not policy.disabled(spec.disabled, use(current))
-								end
-							)
-							else nil
+								key = function(value: K): K
+									return value
+								end,
+								render = function(
+									_: ComposeTypes.Readable<K>,
+									_index: ComposeTypes.Readable<number>,
+									value: K
+								): GuiObject
+									return editorCell(current, placement, value)
+								end,
+							})
+						end
+						else nil
 					local function valueText(use: ComposeTypes.Use): string
 						local result = field(use(current), use(column))
 						return if result == nil then "" else tostring(result)
@@ -189,12 +211,11 @@ return function<V, K>(
 							return valueText(use)
 						end, true, metrics.touchRows)
 					local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
-					local custom = render
-					local content: GuiObject = if custom
+					local content: GuiObject = if render
 						then ctx.styled(
 							Host.Frame "Inset" {
 								BackgroundTransparency = 1,
-								custom(current, placement, key) :: ComposeTypes.Child,
+								render(key),
 								Host.UIListLayout {
 									FillDirection = E.FillDirection.Vertical,
 									VerticalAlignment = E.VerticalAlignment.Center,
@@ -203,7 +224,6 @@ return function<V, K>(
 							},
 							"TableCellInset"
 						)
-						elseif render then render(current, placement, key)
 						else ctx.styled(
 							ctx.text({
 								Name = "Value",
@@ -225,7 +245,7 @@ return function<V, K>(
 							"TableValue"
 						)
 					if render then
-						local measured = if custom then content:GetChildren()[1] :: GuiObject else content
+						local measured = content:FindFirstChildWhichIsA("GuiObject") or content
 						local size = ctx.observe.AbsoluteSize(measured)
 						local settled = if runtime.host.frames
 							then runtime.settled {

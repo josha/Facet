@@ -465,10 +465,11 @@ return function<V, K>(
 		local held: K? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local now = use(keyCell)
-			local arriving = held ~= nil and held ~= now
-			if arriving then
-				if mounted[held] == node then
-					mounted[held], placed[held], cellEdits[held] = nil, nil, nil
+			local gone = held
+			local arriving = gone ~= nil and gone ~= now
+			if gone ~= nil and arriving then
+				if mounted[gone] == node then
+					mounted[gone], placed[gone], cellEdits[gone] = nil, nil, nil
 				end
 				if gui and State.belongsTo(gui.SelectedObject, node) then
 					view.focusOwned = true

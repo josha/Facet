@@ -169,7 +169,7 @@ local function create<V, K>(
 	local noFocusCandidates: { V } = {}
 	local initialFollow = read(spec.follow) == "end" and spec.CanvasPosition == nil
 	local mounted: { [K]: Frame? } = {}
-	local slotKeys = setmetatable({} :: { [Frame]: ComposeTypes.Readable<K> }, { __mode = "k" })
+	local slotKeys: { [Frame]: ComposeTypes.Readable<K> } = {}
 	local function nodeOf(key: K): Frame?
 		local node = mounted[key]
 		local slot = if node then slotKeys[node] else nil

@@ -39,22 +39,30 @@ local spec: Facet.KeyedCollectionSpec<Item, string> = {
         if entry and entry.enterActions then entry.enterActions() end
     end,
     render = function(current, _placement, key)
-        controls[key] = {}
+        local entry = {}
         local card = UI.Card {
             image = art,
             title = function(use) return use(current).title end,
             reveal = "always",
-            controls = controls[key],
+            controls = entry,
             browseTarget = function()
-                local node = cards[key]
+                local node = cards[key:peek()]
                 local hit = node and node.Parent and node.Parent:FindFirstChild("RowHit")
                 return if hit and hit:IsA("GuiObject") then hit else nil
             end,
-            primaryAction = { label = "Play", onActivate = function() play(key) end },
-            menu = { items = { { id = "hide", label = "Not interested", onSelect = function() hide(key) end } } },
+            primaryAction = { label = "Play", onActivate = function() play(key:peek()) end },
+            menu = { items = { { id = "hide", label = "Not interested", onSelect = function() hide(key:peek()) end } } },
         }
-        cards[key] = card
-        Facet.Compose.cleanup(function() cards[key], controls[key] = nil, nil end)
+        local held
+        local function forget()
+            if held ~= nil and cards[held] == card then cards[held], controls[held] = nil, nil end
+        end
+        Facet.Compose.watch(function(use)
+            forget()
+            held = use(key)
+            cards[held], controls[held] = card, entry
+        end)
+        Facet.Compose.cleanup(forget)
         return card
     end,
 }

@@ -209,7 +209,9 @@ add("reserved-slot-record-update", function()
 						return use(current).name
 					end,
 				})
-				labels[key] = label
+				Compose.watch(function(use: Use)
+					labels[use(key)] = label
+				end)
 				return label
 			end,
 		}
