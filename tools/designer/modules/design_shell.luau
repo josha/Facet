@@ -684,6 +684,55 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			transfer = transferPanel,
 			gallery = galleryPanel,
 		}, model, options)
+		local function shortcut(name: string, keys: { { Enum.KeyCode } }, run: () -> ())
+			local bindings = {}
+			for _, chord in keys do
+				table.insert(
+					bindings,
+					Host.InputBinding {
+						KeyCode = chord[#chord],
+						PrimaryModifier = if #chord > 1 then chord[1] else nil,
+						SecondaryModifier = if #chord > 2 then chord[2] else nil,
+					}
+				)
+			end
+			return Host.InputAction(name) {
+				Type = Enum.InputActionType.Bool,
+				[Compose.event("Pressed")] = function()
+					if game:GetService("UserInputService"):GetFocusedTextBox() == nil then
+						run()
+					end
+				end,
+				table.unpack(bindings),
+			}
+		end
+		local K = Enum.KeyCode
+		local shortcuts = Host.InputContext "DesignShortcuts" {
+			Enabled = function(use: Use): boolean
+				local state = use(model)
+				return not state.interactive and state.menuTitle == "" and state.dataTitle == ""
+			end,
+			shortcut("Delete", { { K.Delete }, { K.Backspace } }, actions.delete),
+			shortcut("Duplicate", { { K.LeftControl, K.D }, { K.LeftMeta, K.D } }, actions.duplicate),
+			shortcut("Undo", { { K.LeftControl, K.Z }, { K.LeftMeta, K.Z } }, actions.undo),
+			shortcut("Redo", {
+				{ K.LeftControl, K.Y },
+				{ K.LeftControl, K.LeftShift, K.Z },
+				{ K.LeftMeta, K.LeftShift, K.Z },
+			}, actions.redo),
+			shortcut("SelectParent", { { K.Escape } }, function()
+				actions.selectRelative("parent")
+			end),
+			shortcut("SelectChild", { { K.Return } }, function()
+				actions.selectRelative("child")
+			end),
+			shortcut("SelectNext", { { K.Tab } }, function()
+				actions.selectRelative("next")
+			end),
+			shortcut("SelectPrevious", { { K.LeftShift, K.Tab } }, function()
+				actions.selectRelative("previous")
+			end),
+		}
 		return Host.Frame "FacetDesign" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = Color3.fromRGB(233, 237, 245),
@@ -704,6 +753,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			dataPanel,
 			galleryPanel,
 			transferPanel,
+			shortcuts,
 			Host.Frame "StatusBar" {
 				Position = UDim2.new(0, 0, 1, -32),
 				Size = UDim2.new(1, 0, 0, 32),

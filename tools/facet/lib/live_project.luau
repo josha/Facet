@@ -27,6 +27,7 @@ local function build(suites: { string }): Project
 		journal_demo = { ["$path"] = "facet-lab/src/journal_demo.luau" },
 	}
 	storage.LabThemes = { ["$path"] = "facet-lab/themes" }
+	storage.FacetDesignModules = { ["$path"] = "../tools/designer/modules" }
 	if table.find(suites, "lab") then
 		storage.Lab = { ["$path"] = "facet-lab/src" }
 		storage.FacetShowcase = {

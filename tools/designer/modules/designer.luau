@@ -286,6 +286,26 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 			end
 		end)
 	end
+	actions.selectRelative = function(direction: string)
+		local value, id = stack.current()
+		local node, parent, index = document.find(value.root, id)
+		if node == nil then
+			return
+		end
+		local target: string? = nil
+		if direction == "parent" and parent then
+			target = parent.id
+		elseif direction == "child" and node.children[1] then
+			target = node.children[1].id
+		elseif parent and index and (direction == "next" or direction == "previous") then
+			local count = #parent.children
+			local step = if direction == "next" then 1 else -1
+			target = parent.children[(index - 1 + step) % count + 1].id
+		end
+		if target then
+			actions.select(target)
+		end
+	end
 	actions.property = function(key, value)
 		commit(function(current, id)
 			return document.change(current, id, key, value)
