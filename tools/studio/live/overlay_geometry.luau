@@ -55,7 +55,14 @@ local function attachment(
 	end
 end
 
-local function scrim(t: Checks, catcher: GuiObject, viewport: GuiObject, safe: GuiObject, panel: GuiObject)
+local function scrim(
+	t: Checks,
+	catcher: GuiObject,
+	viewport: GuiObject,
+	safe: GuiObject,
+	panel: GuiObject,
+	plate: boolean?
+)
 	local low, high = catcher.AbsolutePosition, catcher.AbsolutePosition + catcher.AbsoluteSize
 	local clipping: { { path: string, position: { number }, size: { number } } } = {}
 	local at = catcher.Parent
@@ -79,6 +86,15 @@ local function scrim(t: Checks, catcher: GuiObject, viewport: GuiObject, safe: G
 		math.max(table.unpack(overflow)) <= 1,
 		{ overflow = overflow, clipping = clipping }
 	)
+	local bottom = panel.AbsolutePosition.Y + panel.AbsoluteSize.Y
+	if plate and bottom > safe.AbsolutePosition.Y + safe.AbsoluteSize.Y + 1 then
+		t.check(
+			"a bottom sheet plate reaches the bottom of the glass",
+			bottom >= ending.Y - 1,
+			{ bottom = panel.AbsolutePosition.Y + panel.AbsoluteSize.Y, glass = ending.Y }
+		)
+		return
+	end
 	t.check(
 		"modal panel stays inside core and device safe insets",
 		inside(panel, safe.AbsolutePosition, safe.AbsolutePosition + safe.AbsoluteSize, 1),

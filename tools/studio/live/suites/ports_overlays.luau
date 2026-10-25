@@ -2255,7 +2255,18 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 				)
 				t.check("modal panel and scrim are presented", catcher ~= nil and panel ~= nil and t.visible(panel))
 				if catcher and panel then
-					geometry.scrim(t, scrim, viewport, safe, panel)
+					geometry.scrim(t, scrim, viewport, safe, panel, kind == "Sheet")
+					if kind == "Sheet" then
+						local copy = t.find(panel, "Copy")
+						t.check(
+							"bottom sheet content stays inside core and device safe insets",
+							copy ~= nil
+								and copy.AbsolutePosition.Y >= safe.AbsolutePosition.Y - 1
+								and copy.AbsolutePosition.Y + copy.AbsoluteSize.Y
+									<= safe.AbsolutePosition.Y + safe.AbsoluteSize.Y + 1,
+							copy and { copy.AbsolutePosition.Y, copy.AbsoluteSize.Y }
+						)
+					end
 					t.check(
 						"dismissal input stays inside safe bounds",
 						catcher.AbsolutePosition.Y >= safe.AbsolutePosition.Y - 1

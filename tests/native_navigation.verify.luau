@@ -3302,9 +3302,22 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(segmented:GetAttribute("FacetOverflow")):toBe(true)
 				Verify.expect(segmented.Visible):toBe(false)
 				Verify.expect(menu.Visible):toBe(true)
+				local flex = {}
+				for _, node in segmented:GetDescendants() do
+					if node:IsA("UIFlexItem") then
+						table.insert(flex, node)
+					end
+				end
+				Verify.expect(#flex):toBe(3)
+				for _, item in flex do
+					Verify.expect(item.FlexMode):toBe(world.engine.types.Enum.UIFlexMode.None)
+				end
 				poke(layout, "AbsoluteContentSize", Vector2.new(300, 44))
 				Verify.expect(segmented.Visible):toBe(true)
 				Verify.expect(menu.Visible):toBe(false)
+				for _, item in flex do
+					Verify.expect(item.FlexMode):toBe(world.engine.types.Enum.UIFlexMode.Grow)
+				end
 				world.stop()
 				Verify.expect(world.engine.census().connections):toBe(0)
 			end,
