@@ -270,6 +270,38 @@ return function(harness: Verify.Harness)
 		end
 		t:expect(found):toBe(true)
 	end)
+	harness:case("audit reports a HUD zone that moved under a corner into the play view", function(t)
+		local Look = require("../../tools/facet/lib/look")
+		local dump = Look.decode(Look.sample(false))
+		local template = dump.elements[1]
+		local function zone(name: string, x: number, y: number, width: number, height: number)
+			local element = table.clone(template)
+			element.path = "PlayerGui.Sample.Hud.Zones." .. name
+			element.rect = { x = x, y = y, width = width, height = height }
+			element.visible = true
+			table.insert(dump.elements, element)
+			return element
+		end
+		local function covered(): number
+			local count = 0
+			for _, finding in Look.audit(dump, "phone-portrait").violations do
+				if finding.rule == "hud-in-view" then
+					count += 1
+				end
+			end
+			return count
+		end
+		zone("TopLeft", 8, 8, 103, 102)
+		local top = zone("Top", 40, 118, 308, 27)
+		t:expect(covered()):toBe(1)
+		top.rect = { x = 160, y = 8, width = 180, height = 27 }
+		t:expect(covered()):toBe(0)
+		top.rect = { x = 40, y = 118, width = 0, height = 0 }
+		t:expect(covered()):toBe(0)
+		zone("BottomRight", 311, 626, 70, 70)
+		zone("Bottom", 40, 548, 300, 40)
+		t:expect(covered()):toBe(1)
+	end)
 	harness:case("static output groups by rule message and hint and bounds locations", function(t)
 		local findings: { Static.Finding } = {}
 		for index = 1, 8 do

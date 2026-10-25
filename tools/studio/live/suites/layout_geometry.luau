@@ -7,6 +7,14 @@ type Destination = typeof(require("@repo/tools/typecheck/aliases").Destination)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+local storage = game:GetService("ReplicatedStorage")
+local VerifyRoblox = (require :: (Instance) -> typeof(require("@repo/tools/vendor/verify/src/roblox")))(
+	storage:WaitForChild("FacetVerify"):WaitForChild("roblox")
+)
+local HudView = (require :: (Instance) -> typeof(require("../hud_view")))(
+	storage:WaitForChild("FacetLive"):WaitForChild("hud_view")
+)
 type Case = {
 	id: string,
 	contracts: { string },
@@ -426,6 +434,142 @@ add("circle-button-authored-axes", {}, function(t)
 		t.near(`authored {axis} circle keeps its authored {axis}`, if axis == "width" then r.w else r.h, expected, 0.5)
 		t.near(`authored {axis} circle is round`, r.w, r.h, 0.5)
 		t.cleanup()
+	end
+end)
+
+local HUD_DEVICES: { { name: string, size: Vector2, environment: { [string]: string } } } = {
+	{ name = "desktop", size = Vector2.new(1542, 1009), environment = { preferredInput = "KeyboardAndMouse" } },
+	{ name = "phone-portrait", size = Vector2.new(389, 704), environment = { preferredInput = "Touch" } },
+	{ name = "phone-landscape", size = Vector2.new(800, 360), environment = { preferredInput = "Touch" } },
+	{ name = "tablet", size = Vector2.new(1024, 768), environment = { preferredInput = "Touch" } },
+	{
+		name = "console",
+		size = Vector2.new(1920, 1080),
+		environment = { preferredInput = "Gamepad", viewingDistance = "ten-foot" },
+	},
+}
+
+local function goalsHud(UI: FacetControls, ordering: boolean)
+	local env = UI.environment()
+	local function bar(name: string, value: number, words: string, width: number)
+		return UI.ProgressView(name) {
+			value = value,
+			endLabel = words,
+			Size = function(use: Use)
+				return UDim2.fromOffset(use(env.scaled(width)), 0)
+			end,
+		}
+	end
+	local function order(compact: boolean): Frame?
+		if not ordering then
+			return nil
+		end
+		return UI.HStack "Order" {
+			gap = "s",
+			align = "center",
+			UI.Text "Title" { text = "Bear's Big Order", textRole = "strong" },
+			if compact then UI.Text "Count" { text = "0/12" } else bar("Bales", 0, "0/12", 120),
+			UI.Text "Clock" { text = "2:26", textRole = "label" },
+		}
+	end
+	local edge = { top = "xs", bottom = "xs", left = "m", right = "m" }
+	return UI.Composition "Hud" {
+		topbar = false,
+		UI.Region "Wallet" {
+			zone = "topLeft",
+			rank = 1,
+			UI.VStack "WalletFull" {
+				gap = "xs",
+				align = "stretch",
+				UI.HStack "Coins" {
+					surface = "panel",
+					padding = "s",
+					gap = "m",
+					UI.Text "Count" { text = "1,234,567", textRole = "numeral" },
+					UI.Text "Unit" { text = "coins", textRole = "caption" },
+				},
+				UI.Button "Upgrades" { label = "Upgrades", controlSize = "compact" },
+			},
+		},
+		UI.Region "Goals" {
+			zone = "top",
+			rank = 2,
+			mayDrop = false,
+			reveal = false,
+			UI.HStack "GoalsWide" {
+				surface = "panel",
+				padding = edge,
+				gap = "s",
+				align = "center",
+				UI.Text "Name" { text = "Green Meadows", textRole = "strong" },
+				bar("Mowed", 0, "0%", 150),
+				order(false),
+			},
+			UI.HStack "GoalsLine" {
+				surface = "panel",
+				padding = edge,
+				gap = "s",
+				align = "center",
+				UI.Text "Name" { text = "Green Meadows", textRole = "strong" },
+				UI.Text "Pct" { text = "0%" },
+				order(true),
+			},
+			UI.VStack "GoalsTall" {
+				surface = "panel",
+				padding = edge,
+				gap = "xs",
+				UI.HStack "Meadow" {
+					gap = "s",
+					align = "center",
+					UI.Text "Name" { text = "Green Meadows", textRole = "strong" },
+					UI.Text "Pct" { text = "0%" },
+				},
+				order(true),
+			},
+		},
+		UI.Region "Boost" {
+			zone = "action",
+			rank = 1,
+			UI.Button "Boost" { label = "Boost", shape = "circle", target = "thumb", controlSize = "large" },
+		},
+	}
+end
+
+add("hud-goals-card-fits-every-device", {}, function(t)
+	local studio = game:GetService("RunService"):IsStudio()
+	for _, device in HUD_DEVICES do
+		for _, ordering in { false, true } do
+			local where = `{device.name}{if ordering then " with the order" else ""}`
+			local stage = t.mount(function(UI: FacetControls)
+				return goalsHud(UI, ordering)
+			end, { size = device.size, environment = device.environment, frames = 30 })
+			local audit = VerifyRoblox.uiAudit.analyze(VerifyRoblox.uiAudit.collect { roots = { stage } })
+			local blocking = {}
+			for _, violation in audit.violations do
+				local measured = studio
+					or string.match(violation.path, "%.EndLabel$") ~= nil
+					or string.match(violation.path, "%.Value$") ~= nil
+				if
+					violation.rule == "text-truncated" and measured
+					or violation.rule == "text-clipped"
+					or violation.rule == "offscreen"
+				then
+					table.insert(blocking, violation)
+				end
+			end
+			t.check(where .. ": the HUD text fits and stays on screen", #blocking == 0, blocking)
+			local zones: { { path: string, rect: { x: number, y: number, width: number, height: number }, visible: boolean } } =
+				{}
+			for _, element in VerifyRoblox.uiAudit.collect({ roots = { stage } }).elements do
+				table.insert(zones, { path = element.path, rect = element.rect, visible = element.visible })
+			end
+			local covered = HudView.problems(zones)
+			t.check(where .. ": no HUD zone moves into the play view", #covered == 0, covered)
+			local goals = t.find(stage, "Goals")
+			t.check(where .. ": the goals card shows", goals ~= nil and t.visible(goals), goals and goals.AbsoluteSize)
+			t.note(where .. " goals form", goals and goals:GetAttribute("FacetForm"))
+			t.cleanup()
+		end
 	end
 end)
 

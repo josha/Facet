@@ -2,6 +2,7 @@
 
 local fs = require("@std/fs")
 local Audit = require("../../vendor/verify/src/roblox/ui-audit")
+local HudView = require("../../studio/live/hud_view")
 local Devices = require("../../play/host/devices")
 local Files = require("./files")
 local Encoding = require("./encoding")
@@ -440,6 +441,19 @@ function Look.audit(dump: Audit.Dump, device: string): Audit.Report
 	if #problems > 0 then
 		local penalty = #problems * report.options.weights.high
 		report.rules["modal-presentation"] = { count = #problems, severity = "high", penalty = penalty }
+		report.score = math.max(0, report.score - penalty)
+	end
+	local zones: { HudView.Element } = {}
+	for _, element in dump.elements do
+		table.insert(zones, { path = element.path, rect = element.rect, visible = element.visible })
+	end
+	local covered = HudView.problems(zones)
+	for _, problem in covered do
+		table.insert(report.violations, problem)
+	end
+	if #covered > 0 then
+		local penalty = #covered * report.options.weights.medium
+		report.rules["hud-in-view"] = { count = #covered, severity = "medium", penalty = penalty }
 		report.score = math.max(0, report.score - penalty)
 	end
 	return report
