@@ -8,6 +8,7 @@ type Live = {
 	settle: (number) -> (),
 	visible: (GuiObject) -> boolean,
 	clipped: (GuiObject) -> { x: number, y: number, w: number, h: number }?,
+	device: ({ device: string?, orientation: Enum.ScreenOrientation? }) -> Vector2,
 }
 type Snapshot = { points: number, selected: string, owned: { string }, visible: number, zoom: number, notice: string }
 type Report = { ok: boolean, error: string?, panel: string?, demo: Snapshot }
@@ -270,8 +271,7 @@ return {
 			local simulator = (
 				game:GetService("StudioDeviceSimulatorService") :: unknown
 			) :: { SetOrientationAsync: (unknown, Enum.ScreenOrientation) -> () }
-			simulator:SetOrientationAsync(Enum.ScreenOrientation.Portrait)
-			t.settle(30)
+			t.device({ device = "iphone_14", orientation = Enum.ScreenOrientation.Portrait })
 			local size = assert(workspace.CurrentCamera).ViewportSize
 			t.check("portrait touch emulator is active", Input.TouchEnabled and size.Y > size.X, size)
 			pointer(t)
