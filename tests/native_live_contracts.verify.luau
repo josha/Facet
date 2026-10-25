@@ -7,13 +7,16 @@ return function(harness: Verify.Harness)
 		{
 			id = "classb_collections",
 			cases = {
+				"drag-across-rows-after-page-scroll",
 				"page-scroll-moves-the-table-body",
+				"plate-decoration-stays-inside-the-band",
 			},
 		},
 		{
 			id = "classb_examples",
 			cases = {
 				"outpost-terminal-holds-canvas-every-text-size",
+				"settings-sync-compact-phone-every-text-size",
 			},
 		},
 		{
@@ -27,43 +30,52 @@ return function(harness: Verify.Harness)
 			id = "classb_navigation",
 			cases = {
 				"navigation-gameplay-lifetime",
-				"underline-follows-rehomed-strip",
-				"tab-reorder-keeps-page-geometry",
+				"pageview-fixed-in-scroller",
 				"path-clipped-in-scroll",
+				"tab-content-stretches-page",
+				"tab-reorder-keeps-page-geometry",
+				"underline-follows-rehomed-strip",
 			},
 		},
 		{
 			id = "classb_themes",
 			cases = {
 				"authored-metric-native-stroke",
-				"status-round-containment",
-				"skeleton-circle-round-sweep",
+				"selection-corners-follow-control",
 				"skeleton-band-contained",
+				"skeleton-circle-round-sweep",
 				"skeleton-parent-alignment",
+				"status-round-containment",
 			},
 		},
 		{
 			id = "focus_probe",
 			cases = {
-				"F9-arrow-keys-drive-engine",
 				"F11-selection-image-part",
+				"F9-arrow-keys-drive-engine",
 			},
 		},
 		{
 			id = "frame_stability",
 			cases = {
 				"native-indeterminate-progress-layout",
-				"negative-indeterminate-progress-layout-resize",
-				"negative-one-frame-late-resize",
-				"negative-late-resize-after-explicit-state-change",
-				"native-text-change-starts-a-new-state",
-				"negative-late-resize-after-text-change",
 				"native-scroll-change-starts-a-new-state",
-				"negative-late-resize-after-scroll-change",
+				"native-text-change-starts-a-new-state",
 				"native-visibility-change-starts-a-new-state",
+				"negative-gradient-mask-does-not-hide-a-late-visible-resize",
+				"negative-indeterminate-progress-layout-resize",
+				"negative-late-resize-after-explicit-state-change",
+				"negative-late-resize-after-scroll-change",
+				"negative-late-resize-after-text-change",
 				"negative-late-resize-after-visibility-change",
 				"negative-native-sample-errors-fail-the-observation",
-				"negative-gradient-mask-does-not-hide-a-late-visible-resize",
+				"negative-one-frame-late-resize",
+			},
+		},
+		{
+			id = "gallery",
+			cases = {
+				"word-game-fits-the-phone",
 			},
 		},
 		{
@@ -72,16 +84,18 @@ return function(harness: Verify.Harness)
 				"component-setup-error-and-throwing-cleanup",
 				"compose-delivery-order",
 				"image-scale-mode-renders",
-				"ring-geometry-only-on-real-change",
-				"touch-page-view-dots",
 				"presence-retires-until-exit",
+				"ring-geometry-only-on-real-change",
+				"stack-pop-retires-until-motion-ends",
 				"touch-hint-with-no-touch-binding",
+				"touch-page-view-dots",
 			},
 		},
 		{
 			id = "in47",
 			cases = {
 				"actions-released-with-their-owner",
+				"hover-follows-the-pointer",
 				"one-action-many-devices",
 				"touch-one-action-many-devices",
 			},
@@ -89,17 +103,13 @@ return function(harness: Verify.Harness)
 		{
 			id = "layout_geometry",
 			cases = {
-				"circle-button-authored-axes",
 				"callout-edge-gap-shift-clamp",
 				"callout-tail-centre-border-corners",
-				"vertical-segments-stack-share-width-floor",
+				"circle-button-authored-axes",
+				"navigation-stack-root-box-and-back-chrome",
+				"panel-insets-reserve-native-padding",
 				"tab-head-accessory-above-rail",
-			},
-		},
-		{
-			id = "mobile_regressions",
-			cases = {
-				"segmented-opening-layout",
+				"vertical-segments-stack-share-width-floor",
 			},
 		},
 		{
@@ -125,31 +135,42 @@ return function(harness: Verify.Harness)
 			id = "needs_live",
 			cases = {
 				"circular-value-inside-gauge",
+				"collapsed-column-details-target",
 			},
 		},
 		{
 			id = "needs_live_b",
 			cases = {
 				"disclosure-description-header",
+				"progress-skin-under-scale",
+			},
+		},
+		{
+			id = "paint_live",
+			cases = {
+				"explicit-paint-beats-the-sheet",
+				"path-strokes-in-theme-roles",
 			},
 		},
 		{
 			id = "ports_content",
 			cases = {
-				"stage-draft-preview",
-				"pagination-targets-separate-and-centred",
+				"outline-section-closes-up",
 				"pagination-arrows-hold-still",
-				"steps-underline-follows-and-springs",
-				"steps-number-marker-is-a-circle",
+				"pagination-targets-separate-and-centred",
 				"recipe-dividers-start-at-the-text",
+				"stage-draft-preview",
+				"steps-number-marker-is-a-circle",
+				"steps-underline-follows-and-springs",
 			},
 		},
 		{
 			id = "ports_foundation",
 			cases = {
+				"selection-marks",
 				"strong-divider-and-pane",
-				"utility-stroke",
 				"tab-rung",
+				"utility-stroke",
 				"xsmall-rung",
 			},
 		},
@@ -158,13 +179,30 @@ return function(harness: Verify.Harness)
 			cases = {
 				"callout-fixed-width-content-containment",
 				"navbar-search-wraps-filter",
+				"popover-capped-follows-a-shrinking-window",
+				"sheet-guarded-dismissal",
 			},
 		},
 		{
 			id = "ports_pickers",
 			cases = {
-				"fields-accessories",
 				"dtp-grid-layout",
+				"fields-accessories",
+				"slider-rotation-live",
+			},
+		},
+		{
+			id = "primitives",
+			cases = {
+				"grid-cells-and-gaps",
+				"scroll-view-canvas-and-stretch",
+				"zstack-alignment",
+			},
+		},
+		{
+			id = "scroll_live",
+			cases = {
+				"scroll-view-canvas-covers-rows-and-gaps",
 			},
 		},
 		{
@@ -176,9 +214,11 @@ return function(harness: Verify.Harness)
 		{
 			id = "text_live",
 			cases = {
+				"button-labels-centred-in-every-package",
+				"hidden-wallet-form-shrinks-before-reveal",
 				"padded-text-draws-inside-its-inset",
-				"wrapped-region-readouts-use-the-offered-column-width",
 				"styled-caption-does-not-hide-the-composition",
+				"wrapped-region-readouts-use-the-offered-column-width",
 			},
 		},
 		{
@@ -188,10 +228,19 @@ return function(harness: Verify.Harness)
 			},
 		},
 		{
+			id = "weak3_pointer",
+			cases = {
+				"range-slider-drag",
+				"skinned-part-press-state",
+			},
+		},
+		{
 			id = "weak3_surfaces",
 			cases = {
-				"slider-rung-thin-rail-whole-target",
+				"dialog-actions-stack-and-row",
+				"notice-preparation-preserves-visible-motion",
 				"outline-disclosure-indent",
+				"slider-rung-thin-rail-whole-target",
 				"tabview-rung-centred",
 			},
 		},
