@@ -513,6 +513,6 @@ does not belong in the repository.
 
 The development tree includes Verify from
 [voidmeld/verify](https://github.com/voidmeld/verify), commit
-`dfd2c52a5ef395ef0e49b408dd95adfc3d64285e`, under the MIT License.
+`13b7c2f843d2359357e82a3a8d7a77d4d90eb437`, under the MIT License.
 Its license is in `tools/vendor/verify/LICENSE`. The generated snapshot is
 checked by `lute run tools/facet sync verify --check`. Verify is not included in the Facet model.

@@ -317,7 +317,7 @@ A spec supplies these fields:
 
 The consumer owns identities, budgets and units. No machine is a universal baseline.
 
-`Benchmark.collection({ name, yardstick, benchmarks })` is one case whose members share a yardstick.
+`Benchmark.collection({ name, yardstick, benchmarks, calibrationAttempts? })` is one case whose members share a yardstick.
 A gate declares it as `{ kind = "benchmark", collection = collection }`.
 The collection measures the yardstick before and after the whole collection. `Benchmark.collect` returns the raw result.
 
@@ -326,9 +326,10 @@ The collection measures the yardstick before and after the whole collection. `Be
 - The judge view carries these samples raw (`yardstickBefore`, `yardstickAfter`) and summarized (`yardstickBeforeSummary`, `yardstickAfterSummary`).
   A caller can apply its own normalization and rules.
 - A drifting yardstick marks the members unsupported and skips their judges.
+- `calibrationAttempts` defaults to 1. A value of 2 permits one retry of the collection after a yardstick drift or spread rejection, only when the workloads completed without failures or other invalid measurements. A valid measurement or workload failure never triggers a retry. A second invalid calibration remains unsupported. `Benchmark.collect` retains both raw attempts in `attempts`; the case attaches their calibration, member and phase samples as `calibration-attempts.tsv`.
 
 Warmup runs are untimed. Exactly `samples` timed samples follow, and each sample averages `iterations` runs.
-Verify never retries the run.
+Verify never retries a valid run to obtain a passing verdict.
 The measurement evidence of the case keeps all raw samples.
 
 ### The sample lifecycle

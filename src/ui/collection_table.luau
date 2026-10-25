@@ -153,26 +153,35 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			if column == nil then
 				return rows
 			end
-			local indexed: { { item: V, index: number, value: unknown } } = table.create(#rows)
+			local descending = order.direction == "descending"
+			local indexed: { { item: V, index: number, value: unknown, number: number?, text: string? } } =
+				table.create(#rows)
 			for index, item in rows do
-				indexed[index] = { item = item, index = index, value = field(item, column) }
+				local value = field(item, column)
+				indexed[index] = {
+					item = item,
+					index = index,
+					value = value,
+					number = if type(value) == "number" then value else nil,
+					text = if value == nil then nil else tostring(value),
+				}
 			end
 			table.sort(indexed, function(a, b)
-				local left, right = a.value, b.value
-				if left == right then
+				if a.value == b.value then
 					return a.index < b.index
 				end
+				local left, right = a.text, b.text
 				local before
 				if left == nil then
 					before = true
 				elseif right == nil then
 					before = false
-				elseif type(left) == "number" and type(right) == "number" then
-					before = left < right
+				elseif a.number ~= nil and b.number ~= nil then
+					before = a.number < b.number
 				else
-					before = tostring(left) < tostring(right)
+					before = left < right
 				end
-				return if order.direction == "descending" then not before else before
+				return if descending then not before else before
 			end)
 			local result: { V } = table.create(#rows)
 			for index, entry in indexed do

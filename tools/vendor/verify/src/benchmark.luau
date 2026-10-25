@@ -10,6 +10,7 @@ export type Stored = Store.Stored
 export type StoredMeasurement = Store.StoredMeasurement
 export type CompareRule = Store.Rule
 export type CompareOptions = Store.CompareOptions
+export type CollectionAttempt = Types.CollectionAttempt
 export type CompareMetric = Store.CompareMetric
 export type SpreadOptions = Store.SpreadOptions
 export type SpreadMetric = Store.SpreadMetric
@@ -730,7 +731,7 @@ local function withoutVerdicts(member: Spec): Spec
 	return copy
 end
 
-local function collect(collection: Collection): CollectionResult
+local function collectOnce(collection: Collection): CollectionResult
 	Check.checkCollection(collection)
 	local tool = collection.yardstick
 	local clock: Clock = collection.clock or os.clock
@@ -780,6 +781,43 @@ local function collect(collection: Collection): CollectionResult
 		invalid = invalid,
 		failure = failure,
 	}
+end
+
+local function retryCalibration(result: CollectionResult): boolean
+	if result.failure ~= nil or #result.invalid == 0 then
+		return false
+	end
+	for _, issue in result.invalid do
+		if issue.reason ~= "yardstick_drift" and issue.reason ~= "yardstick_unstable" then
+			return false
+		end
+	end
+	for _, member in result.results do
+		if member.failure ~= nil or #member.invalid > 0 then
+			return false
+		end
+		for _, phase in member.phases do
+			if #phase.invalid > 0 then
+				return false
+			end
+		end
+	end
+	return true
+end
+
+local function collect(collection: Collection): CollectionResult
+	Check.checkCollection(collection)
+	local result = collectOnce(collection)
+	if collection.calibrationAttempts ~= 2 then
+		return result
+	end
+	local attempts: { CollectionAttempt } = { table.clone(result) }
+	if retryCalibration(result) then
+		result = collectOnce(collection)
+		table.insert(attempts, table.clone(result))
+	end
+	result.attempts = attempts
+	return result
 end
 
 local function limitsFor(spec: Spec, budget: Budget?): Performance.Limits
@@ -938,6 +976,31 @@ local function collectionCase(collection: Collection): Harness.CaseOptions
 	return {
 		run = function(context: Harness.Context)
 			local collected = collect(collection)
+			if collected.attempts ~= nil and #collected.attempts > 1 then
+				local lines: { string } = {}
+				local function samples(label: string, values: { number })
+					local fields: { string } = { label }
+					for _, value in values do
+						table.insert(fields, tostring(value))
+					end
+					table.insert(lines, table.concat(fields, "\t"))
+				end
+				for index, attempt in collected.attempts do
+					table.insert(lines, `attempt\t{index}`)
+					samples("yardstick-before", attempt.yardstickBefore)
+					samples("yardstick-after", attempt.yardstickAfter)
+					for _, issue in attempt.invalid do
+						table.insert(lines, `invalid\t{issue.reason}\t{issue.detail}`)
+					end
+					for _, member in attempt.results do
+						samples(`member\t{member.name}\t{member.unit}`, member.samples)
+						for _, phase in member.phases do
+							samples(`phase\t{member.name}\t{phase.name}\t{member.unit}`, phase.samples)
+						end
+					end
+				end
+				context:attach("calibration-attempts.tsv", "text/tab-separated-values", table.concat(lines, "\n"))
+			end
 			local firstFailure: unknown = nil
 			for index, result in collected.results do
 				local reported, thrown: unknown = pcall(report, context, collection.benchmarks[index], result)

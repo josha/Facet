@@ -374,6 +374,30 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		return if settings.defaultProperty ~= nil then settings.defaultProperty(className, key, fallback) else fallback
 	end
 
+	local classDefaults: { [Resolved]: { values: { [string]: unknown }, fresh: { string } } } = {}
+
+	local function defaultsOf(className: string, class: Resolved): { [string]: unknown }
+		local cached = classDefaults[class]
+		if cached == nil then
+			local values: { [string]: unknown } = {}
+			local fresh: { string } = {}
+			for key in class.properties do
+				local value = defaultOf(className, class, key)
+				values[key] = value
+				if type(value) == "table" and Names.of(value) == nil then
+					table.insert(fresh, key)
+				end
+			end
+			cached = { values = values, fresh = fresh }
+			classDefaults[class] = cached
+		end
+		local values = table.clone(cached.values)
+		for _, key in cached.fresh do
+			values[key] = defaultOf(className, class, key)
+		end
+		return values
+	end
+
 	local function memberError(state: State, key: string): never
 		error(("%s is not a valid member of %s"):format(key, describe(state)), 3)
 	end
@@ -1070,10 +1094,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		if (not class.creatable or not class.instance) and not isRoot and engineOwned ~= true then
 			error(("Unable to create an Instance of type %q"):format(className), 3)
 		end
-		local values: { [string]: unknown } = {}
-		for key, default in class.properties do
-			values[key] = defaultOf(className, class, key)
-		end
+		local values: { [string]: unknown } = defaultsOf(className, class)
 		local object = (setmetatable({} :: { [string]: unknown }, objectMetatable) :: unknown) :: Instance
 		Names.register(object, if class.instance then "Instance" else "Object")
 		if class.instance then
