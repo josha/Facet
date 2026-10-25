@@ -6,7 +6,15 @@ local Values = require "./ui-values"
 type Instance = Environment.Instance
 type Vector = { X: number, Y: number }
 type Dimension = { Scale: number, Offset: number }
-export type Rectangle = { x: number, y: number, width: number, height: number, scale: number }
+export type Rectangle = {
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	scale: number,
+	flexWidth: number?,
+	flexHeight: number?,
+}
 export type Item = { object: Instance, rectangle: Rectangle, index: number }
 export type Result = { items: { Item }, width: number, height: number }
 type Flex = { basis: number, value: number, grow: number, shrink: number, minimum: number, maximum: number }
@@ -153,6 +161,7 @@ local function measure(
 	local padding = Values.dimension(read(list, "Padding"))
 	local gap = padding.Scale * available + padding.Offset * content.scale
 	local crossGap = padding.Scale * availableCross + padding.Offset * content.scale
+	local flexAvailable = (if horizontal then content.flexWidth else content.flexHeight) or available
 	local function preferredCross(item: Item): number
 		local dimensions = Values.dimensions(read(item.object, "Size"))
 		local unit = if horizontal then dimensions.Y else dimensions.X
@@ -240,7 +249,7 @@ local function measure(
 					else 0,
 			})
 		end
-		local changed = distribute(flex, available - gaps)
+		local changed = distribute(flex, flexAvailable - gaps)
 		if horizontal and reflow and not wrapped then
 			local reflowed = false
 			for index, item in items do

@@ -6,6 +6,7 @@ local reducedMotion = require("./motion").reduced
 local sessionOf = require("./drag_session")
 local arbiterOf = require("./gesture_service")
 local scrollLock = require("./scroll_lock")
+local activation = require("./activation")
 local ControlTypes = require("./control_types")
 local ZoomTravelProps = require("./zoom_travel_props")
 
@@ -314,7 +315,34 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			end
 		end
 		Compose.cleanup(releasePinch)
+		local suppressed: { [GuiButton]: boolean } = {}
+		local suppressing = false
+		local restorePending = false
+		local function restoreButtons()
+			suppressing, restorePending = false, false
+			for button in suppressed do
+				button.Active = true
+			end
+			table.clear(suppressed)
+		end
+		local function suppressButton(node: Instance)
+			if suppressing and node:IsA("GuiButton") and node.Active then
+				suppressed[node] = true
+				node.Active = false
+			end
+		end
+		runtime.connect(root, "DescendantAdded", suppressButton)
+		runtime.connect(root, "DescendantRemoving", function(node: Instance)
+			if node:IsA("GuiButton") and suppressed[node] then
+				suppressed[node] = nil
+				node.Active = true
+			end
+		end)
+		Compose.cleanup(restoreButtons)
 		local function render(delta: number)
+			if restorePending then
+				restoreButtons()
+			end
 			refreshMouse()
 			if ctx.read(spec.enabled) == false then
 				pinchActive = false
@@ -419,7 +447,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		local lastTap: { at: number, point: Vector2 }? = nil
 		local pressPoint = V2.zero
 		local moved = false
-		local backgroundTap = false
+		local boardTap = false
 		local function localPoint(point: Vector2): Vector2
 			return (point - root.AbsolutePosition) / math.max(unit:peek(), 0.001)
 		end
@@ -441,7 +469,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 							node:IsA("GuiObject")
 							and (
 								node:IsA("ScrollingFrame")
-								or (tap and (node.Active or node:IsA("GuiButton") or node:IsA("TextBox")))
+								or (tap and (node:IsA("TextBox") or (node.Active and not node:IsA("GuiButton"))))
 							)
 						then
 							return false
@@ -456,7 +484,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			end
 			return false
 		end
-		local function overMouse(): boolean
+		local function overPoint(point: Vector2): boolean
 			if pinchActive then
 				return false
 			end
@@ -469,7 +497,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			then
 				return false
 			end
-			if effectiveInput() ~= "KeyboardAndMouse" or not inside(mousePoint()) then
+			if not inside(point) then
 				return false
 			end
 			local at: Instance? = root.Parent
@@ -479,7 +507,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 						return false
 					end
 					if at.ClipsDescendants then
-						local point, position, size = mousePoint(), at.AbsolutePosition, at.AbsoluteSize
+						local position, size = at.AbsolutePosition, at.AbsoluteSize
 						if
 							point.X < position.X
 							or point.Y < position.Y
@@ -494,7 +522,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				end
 				at = at.Parent
 			end
-			return ownsPoint(mousePoint(), false)
+			return ownsPoint(point, false)
+		end
+		local function overMouse(): boolean
+			return effectiveInput() == "KeyboardAndMouse" and overPoint(mousePoint())
 		end
 		local function canWheelPan(delta: Vector2): boolean
 			local size, area, position = extent() * applied, window(), root.CanvasPosition
@@ -519,8 +550,27 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				if event == press then
 					return
 				end
+				if restorePending then
+					restoreButtons()
+				end
 				press, pressPoint, moved = event, V2.new(event.Position.X, event.Position.Y), false
-				backgroundTap = ownsPoint(pressPoint, true)
+				boardTap = ownsPoint(pressPoint, true)
+				local frames = runtime.host.frames
+				local now = if frames then frames.now() else os.clock()
+				local prior = lastTap
+				if
+					boardTap
+					and enabled()
+					and prior
+					and now - prior.at <= ctx.metric("controls.zoom.doubleTapSeconds")
+					and (pressPoint - prior.point).Magnitude <= ctx.metric("controls.zoom.doubleTapDistance")
+				then
+					activation.consume(event)
+					suppressing, restorePending = true, false
+					for _, node in root:GetDescendants() do
+						suppressButton(node)
+					end
+				end
 				contacts[event] = true
 				arbiter.begin(event, root, pressPoint, { scroll = event.UserInputType == E.UserInputType.Touch })
 				if event.UserInputType == E.UserInputType.MouseButton1 then
@@ -575,16 +625,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 					or event.UserInputType == E.UserInputType.MouseButton1
 				then
 					contacts[event] = true
-					if event.UserInputType == E.UserInputType.MouseButton1 and overMouse() then
-						beginPointer(event)
-					elseif
-						event.UserInputType == E.UserInputType.Touch
-						and not pinchActive
-						and ctx.read(spec.enabled) ~= false
-						and root.Visible
-						and root.Interactable
-						and inside(V2.new(event.Position.X, event.Position.Y))
-					then
+					if overPoint(V2.new(event.Position.X, event.Position.Y)) then
 						beginPointer(event)
 					end
 				end
@@ -634,6 +675,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 					return
 				end
 				press, mousePanning = nil, false
+				restorePending = suppressing
 				local decision = arbiter.get(event)
 				local kind = arbiter.finish(event, root, event.UserInputState == E.UserInputState.Cancel)
 				if decision and decision.owner ~= root then
@@ -642,7 +684,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				end
 				if
 					moved
-					or not backgroundTap
+					or not boardTap
+					or not inside(V2.new(event.Position.X, event.Position.Y))
 					or kind == "scroll"
 					or kind == "pan"
 					or event.UserInputState == E.UserInputState.Cancel
@@ -676,6 +719,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			end)
 			runtime.connect(input, "WindowFocusReleased", function()
 				focused = false
+				restoreButtons()
 				releaseMouse()
 				releasePinch()
 				arbiter.cancelOwner(root)

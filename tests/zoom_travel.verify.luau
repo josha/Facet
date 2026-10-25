@@ -10,7 +10,7 @@ local engineLib = require("./lib/native_engine")
 local geometry = require("../src/ui/zoom_geometry")
 local travelGeometry = require("../src/ui/travel_geometry")
 
-local function inputWorld()
+local function inputWorld(content: ((Shared.Host, ZoomTypesControls.Controls) -> GuiObject)?)
 	local engine = engineLib.new({ lenientProperties = true })
 	local C = Facet.Compose
 	local runtime = Facet.Roblox.createRuntime(engine)
@@ -39,8 +39,12 @@ local function inputWorld()
 			controls = controls,
 			enabled = enabled,
 			zoom = zoom,
+			doubleTapZoom = 2,
 			contentSize = V2.new(1000, 1000),
 			content = function(): GuiObject
+				if content then
+					return content(Host, UI)
+				end
 				return Host.Frame { Name = "Board" }
 			end,
 		}
@@ -538,8 +542,103 @@ return function(harness: Verify.Harness)
 			t:expect(w.scale.Scale):toBe(outside)
 		end)
 
-		harness:case("child controls keep rapid pointer and touch activation without camera movement", function(t)
-			for _, className in { "TextButton", "TextBox", "Frame" } do
+		for _, touch in { false, true } do
+			for _, native in { false, true } do
+				harness:case(
+					(if touch then "touch" else "mouse")
+						.. " double taps over "
+						.. (if native then "native" else "Facet")
+						.. " child buttons preserve one activation and toggle anchored zoom and fit",
+					function(t)
+						local activations = 0
+						local first: TextButton
+						local second: TextButton
+						local w = inputWorld(function(Host, UI): GuiObject
+							local function activate()
+								activations += 1
+							end
+							if native then
+								first = Host.TextButton { Activated = activate, Active = true }
+								second = Host.TextButton { Activated = activate, Active = true }
+							else
+								first = UI.Button { label = "First", onActivate = activate }
+								second = UI.Button { label = "Second", onActivate = activate }
+							end
+							return Host.Frame { first, second }
+						end)
+						t:defer(w.stop)
+						local V2, E = w.engine.types.Vector2, w.engine.types.Enum
+						local point = V2.new(170, 180)
+						w.setMouse(point + V2.new(0, 56))
+						local hit = first
+						w.player.GetGuiObjectsAtPosition = function(): { GuiObject }
+							return { hit, w.view }
+						end
+						local function settle()
+							for _ = 1, 40 do
+								w.engine.heartbeat:Fire(0.016)
+							end
+						end
+						local function tap(button: TextButton, beforeEnd: boolean, suppressed: boolean)
+							hit = button
+							local pointer = w.event(
+								if touch then E.UserInputType.Touch else E.UserInputType.MouseButton1,
+								point,
+								E.UserInputState.Begin
+							)
+							w.input.InputBegan:Fire(pointer, true)
+							w.engine.heartbeat:Fire(0)
+							t:expect(first.Active):toBe(not suppressed)
+							t:expect(second.Active):toBe(not suppressed)
+							pointer.UserInputState = E.UserInputState.End
+							local function activate()
+								if not native or button.Active then
+									w.engine.environment.fire(
+										FixtureRoblox.assertInstance(button),
+										"Activated",
+										pointer,
+										1
+									)
+								end
+							end
+							if beforeEnd then
+								activate()
+							end
+							w.input.InputEnded:Fire(pointer, true)
+							if not beforeEnd then
+								activate()
+							end
+						end
+						assert(w.controls.fit)()
+						settle()
+						tap(first, true, false)
+						t:expect(activations):toBe(1)
+						t:expect(w.zoom:peek()):toBe(0.4)
+						tap(second, false, true)
+						t:expect(activations):toBe(1)
+						t:expect(w.zoom:peek()):toBe(2)
+						settle()
+						t:expect(first.Active and second.Active):toBe(true)
+						t:expect(math.abs(w.view.CanvasPosition.X - 600)):toBeLessThan(0.001)
+						t:expect(math.abs(w.view.CanvasPosition.Y - 600)):toBeLessThan(0.001)
+						tap(first, false, false)
+						t:expect(activations):toBe(2)
+						tap(second, true, true)
+						t:expect(activations):toBe(2)
+						settle()
+						t:expect(w.scale.Scale):toBe(0.4)
+						t:expect(w.view.CanvasPosition.Magnitude):toBe(0)
+						tap(first, false, false)
+						settle()
+						t:expect(activations):toBe(3)
+						t:expect(w.zoom:peek()):toBe(0.4)
+					end
+				)
+			end
+		end
+
+		harness:case("text editing and active child surfaces keep rapid taps without camera movement", function(t)
+			for _, className in { "TextBox", "Frame" } do
 				for _, touch in { false, true } do
 					local w = inputWorld()
 					t:defer(w.stop)

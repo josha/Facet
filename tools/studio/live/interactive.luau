@@ -729,6 +729,17 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		io.up(point(points, "to"))
 		live.step("dropped")
 	end
+	drivers["double-tap-over-cell-buttons-toggles-zoom"] = function(_, _, io)
+		local at = point(shared.FacetLiveSession.record.notes.points, "cell")
+		io.click(at)
+		live.step("single")
+		io.click(at)
+		io.click(at)
+		live.step("zoomed")
+		io.click(at)
+		io.click(at)
+		live.step("fitted")
+	end
 	drivers["color-plane-drag"] = function(_, _, io)
 		local points = shared.FacetLiveSession.record.notes.points
 		io.heldDrag(point(points, "down"), point(points, "to"))
