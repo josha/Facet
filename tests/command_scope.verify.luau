@@ -93,31 +93,113 @@ return function(harness: Verify.Harness)
 			Verify.expect(commands.focus(1)):toBe(false)
 			runtime:dispose()
 		end)
-		harness:case("typing commands retain native focus for bound WASD and restore navigation during chat", function()
+		for _, binding in
+			{ { key = "A", capture = false }, { key = "Left", capture = true }, { key = "DPadLeft", capture = true } }
+		do
+			harness:case(
+				"typing commands retain native focus and restore navigation during chat: " .. binding.key,
+				function()
+					local engine = engineLib.new()
+					local runtime = Facet.Roblox.createRuntime(engine)
+					local input, gui = engine.new("UserInputService"), engine.new("GuiService")
+					local chat: TextBox? = nil
+					input.GetFocusedTextBox = function()
+						return chat
+					end
+					local UI =
+						Facet.controls(runtime, { types = engine.types, userInputService = input, guiService = gui })
+					local Host = (
+						runtime.constructors :: unknown
+					) :: typeof(require("../tools/typecheck/aliases").RobloxHost)
+					local scope: Scope?
+					local target: GuiObject?
+					local outside = engine.new("TextButton")
+					local calls = 0
+					local stop = runtime.mount(function()
+						local cell = UI.Button "Cell" { label = "Cell", NextSelectionLeft = outside }
+						target = cell
+						local root = Host.Frame { cell }
+						local targets: { Facet.CommandTarget<number> } = { { key = 1, node = cell } }
+						scope = UI.commandScope(root, {
+							targets = targets,
+							commands = {
+								{
+									id = "Letter",
+									keys = { binding.key },
+									onInvoke = function()
+										calls += 1
+									end,
+								},
+							},
+						})
+						return root
+					end, engine.new("ScreenGui"))
+					local commands, cell = assert(scope), assert(target)
+					Verify.expect(commands.focus(1)):toBe(true)
+					Verify.expect(cell.NextSelectionLeft):toBe(if binding.capture then cell else outside)
+					Verify.expect(cell.NextSelectionRight == cell):toBe(false)
+					local event = {
+						KeyCode = if binding.key == "A"
+							then engine.types.Enum.KeyCode.A
+							elseif binding.key == "Left" then engine.types.Enum.KeyCode.Left
+							else engine.types.Enum.KeyCode.DPadLeft,
+						UserInputType = if binding.key == "DPadLeft"
+							then engine.types.Enum.UserInputType.Gamepad1
+							else engine.types.Enum.UserInputType.Keyboard,
+					}
+					input.InputBegan:Fire(event)
+					Verify.expect(cell.NextSelectionLeft):toBe(cell)
+					local pressed = (commands.actions.Letter.Pressed :: unknown) :: { Fire: (unknown) -> () }
+					pressed:Fire()
+					Verify.expect(calls):toBe(1)
+					input.InputEnded:Fire(event)
+					Verify.expect(cell.NextSelectionLeft):toBe(if binding.capture then cell else outside)
+					input.InputBegan:Fire(event)
+					Verify.expect(cell.NextSelectionLeft):toBe(cell)
+					Verify.expect(calls):toBe(2)
+					chat = engine.new("TextBox")
+					input.TextBoxFocused:Fire(chat)
+					Verify.expect(cell.NextSelectionLeft):toBe(outside)
+					input.InputBegan:Fire(event)
+					Verify.expect(calls):toBe(2)
+					input.InputEnded:Fire(event)
+					chat = nil
+					input.TextBoxFocusReleased:Fire(nil)
+					Verify.expect(cell.NextSelectionLeft):toBe(if binding.capture then cell else outside)
+					pressed:Fire()
+					input.InputBegan:Fire(event)
+					Verify.expect(calls):toBe(3)
+					Verify.expect(cell.NextSelectionLeft):toBe(cell)
+					stop()
+					Verify.expect(cell.NextSelectionLeft):toBe(outside)
+					runtime:dispose()
+				end
+			)
+		end
+		harness:case("a W command leaves selection links unpinned and DPadDown reaches the neighbour below", function()
 			local engine = engineLib.new()
 			local runtime = Facet.Roblox.createRuntime(engine)
 			local input, gui = engine.new("UserInputService"), engine.new("GuiService")
-			local chat: TextBox? = nil
 			input.GetFocusedTextBox = function()
-				return chat
+				return nil
 			end
 			local UI = Facet.controls(runtime, { types = engine.types, userInputService = input, guiService = gui })
-			local Host = (runtime.constructors :: unknown) :: typeof(require("../tools/typecheck/aliases").RobloxHost)
 			local scope: Scope?
-			local target: GuiObject?
-			local outside = engine.new("TextButton")
+			local target: GuiObject?, below: GuiObject?
 			local calls = 0
 			local stop = runtime.mount(function()
-				local cell = UI.Button "Cell" { label = "Cell", NextSelectionLeft = outside }
-				target = cell
-				local root = Host.Frame { cell }
+				local neighbour = UI.Button "Below" { label = "Below" }
+				local cell = UI.Button "Cell" { label = "Cell" }
+				cell.NextSelectionDown = neighbour
+				target, below = cell, neighbour
+				local root = UI.Grid { columns = 1, cell, neighbour }
 				local targets: { Facet.CommandTarget<number> } = { { key = 1, node = cell } }
 				scope = UI.commandScope(root, {
 					targets = targets,
 					commands = {
 						{
 							id = "Letter",
-							keys = { "A" },
+							keys = { "W" },
 							onInvoke = function()
 								calls += 1
 							end,
@@ -126,27 +208,38 @@ return function(harness: Verify.Harness)
 				})
 				return root
 			end, engine.new("ScreenGui"))
-			local commands, cell = assert(scope), assert(target)
+			local commands, cell, neighbour = assert(scope), assert(target), assert(below)
 			Verify.expect(commands.focus(1)):toBe(true)
-			Verify.expect(cell.NextSelectionLeft):toBe(cell)
+			Verify.expect(cell.NextSelectionUp == cell):toBe(false)
+			Verify.expect(cell.NextSelectionDown):toBe(neighbour)
+			Verify.expect(cell.NextSelectionLeft == cell):toBe(false)
 			Verify.expect(cell.NextSelectionRight == cell):toBe(false)
-			local event =
-				{ KeyCode = engine.types.Enum.KeyCode.A, UserInputType = engine.types.Enum.UserInputType.Keyboard }
-			input.InputBegan:Fire(event)
-			local pressed = (commands.actions.Letter.Pressed :: unknown) :: { Fire: (unknown) -> () }
-			pressed:Fire()
+			local letter = {
+				KeyCode = engine.types.Enum.KeyCode.W,
+				UserInputType = engine.types.Enum.UserInputType.Keyboard,
+			}
+			input.InputBegan:Fire(letter)
+			Verify.expect(cell.NextSelectionUp):toBe(cell)
+			Verify.expect(cell.NextSelectionDown):toBe(neighbour)
+			input.InputEnded:Fire(letter)
+			Verify.expect(cell.NextSelectionUp == cell):toBe(false)
 			Verify.expect(calls):toBe(1)
-			input.InputEnded:Fire(event)
-			chat = engine.new("TextBox")
-			input.TextBoxFocused:Fire(chat)
-			Verify.expect(cell.NextSelectionLeft):toBe(outside)
-			input.InputBegan:Fire(event)
+			local nativeDown = input.InputBegan:Connect(function(event: { KeyCode: Enum.KeyCode })
+				if event.KeyCode == engine.types.Enum.KeyCode.DPadDown then
+					local selected: GuiObject? = gui.SelectedObject
+					if selected and selected.NextSelectionDown then
+						gui.SelectedObject = selected.NextSelectionDown
+					end
+				end
+			end)
+			input.InputBegan:Fire({
+				KeyCode = engine.types.Enum.KeyCode.DPadDown,
+				UserInputType = engine.types.Enum.UserInputType.Gamepad1,
+			})
+			Verify.expect(gui.SelectedObject):toBe(neighbour)
 			Verify.expect(calls):toBe(1)
-			chat = nil
-			input.TextBoxFocusReleased:Fire(nil)
-			Verify.expect(cell.NextSelectionLeft):toBe(cell)
+			nativeDown:Disconnect()
 			stop()
-			Verify.expect(cell.NextSelectionLeft):toBe(outside)
 			runtime:dispose()
 		end)
 		harness:case("F-024 nested scope wins, pointer focus follows targets and disposal releases commands", function()
