@@ -95,6 +95,11 @@ local function new(options: Options?): Loader
 			end,
 		}) :: unknown
 	) :: Environment
+	for name, value in _G :: Environment do
+		if supplied[name] == nil and defaults[name] == nil then
+			rawset(globals, name, value)
+		end
+	end
 
 	local function file(module: string): string
 		local known = resolved[module]

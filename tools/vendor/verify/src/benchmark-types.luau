@@ -116,6 +116,7 @@ export type Collection = {
 	yardstick: Yardstick,
 	benchmarks: { Spec },
 	clock: Clock?,
+	calibrationAttempts: number?,
 }
 
 export type InvalidReason =
@@ -171,7 +172,7 @@ export type Result = {
 	elapsedSeconds: number,
 }
 
-export type CollectionResult = {
+export type CollectionAttempt = {
 	name: string,
 	results: { Result },
 	yardstickBefore: { number },
@@ -179,6 +180,8 @@ export type CollectionResult = {
 	invalid: { Invalid },
 	failure: string?,
 }
+
+export type CollectionResult = CollectionAttempt & { attempts: { CollectionAttempt }? }
 
 return {
 	SCALE = table.freeze { seconds = 1, milliseconds = 1e3, microseconds = 1e6 } :: { [Unit]: number },
