@@ -653,7 +653,7 @@ harness:suite("Facet gate through Verify", function()
 			seen[producer.id] = producer
 			tiers[producer.tier :: string] += 1
 		end
-		context:expect(tiers):toEqual({ fast = 16, full = 24, release = 2 })
+		context:expect(tiers):toEqual({ fast = 16, full = 24, release = 3 })
 		context:expect(seen["studio-live"].requires):toEqual({ "native-studio" })
 		context:expect(seen["studio-live"].report):toEqual({ minimum = 1 })
 		context:expect(seen["run-comparison"].tier):toBe("release")
@@ -699,6 +699,10 @@ harness:suite("Facet gate through Verify", function()
 			context:expect(seen[removed]):toBeNil()
 		end
 		context:expect(seen["prove-perf-gate"].tier):toBe("release")
+		context:expect(seen["prove-retained-memory"].tier):toBe("release")
+		context
+			:expect(seen["prove-retained-memory"].argv)
+			:toEqual({ "lute", "run", "tools/facet", "perf", "prove-retained-memory" })
 		context:expect(seen["facetbench"].tier):toBe("fast")
 		local plan =
 			Lute.parse(fs.readFileToString("tests/plan.json")) :: { units: { { locator: string, requires: { string }? } } }

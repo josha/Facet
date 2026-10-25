@@ -98,6 +98,13 @@ end
 local function checkYardstick(tool: Yardstick)
 	assert(type(tool.run) == "function", "yardstick needs a run function")
 	positiveWhole(tool.samples, "yardstick.samples")
+	if tool.iterations ~= nil then
+		positiveWhole(tool.iterations, "yardstick.iterations")
+	end
+	if tool.warmup ~= nil then
+		nonnegativeFinite(tool.warmup, "yardstick.warmup")
+		assert(tool.warmup % 1 == 0, "yardstick.warmup must be a whole number")
+	end
 	nonnegativeFinite(tool.maxSpread, "yardstick.maxSpread")
 	nonnegativeFinite(tool.maxDrift, "yardstick.maxDrift")
 	assert(

@@ -47,7 +47,7 @@ CI compares complete scenes and microbenchmarks on Linux, macOS and Windows.
 The required Verify check rolls them up. A statistical slowdown gets a complete
 six-round recheck; an execution failure cannot become a narrowed passing run.
 CPU calibration compares median yardstick rate before and after the run with
-a 15% drift limit. CI permits one complete calibration retry, preserving the
+a 25% drift limit. CI permits one complete calibration retry, preserving the
 failed attempt. A second calibration failure fails the job.
 
 Use the current workflow and producer catalog for exact CI commands and

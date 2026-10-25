@@ -138,7 +138,7 @@ local function segmentedFlip(state)
 	local after = probe()
 	return { segments = segments, textSizeBefore = before, textSizeAfter = after }
 end
-type SceneState = { workload: { [string]: any }, target: any, dispose: () -> () }
+export type SceneState = { workload: { [string]: any }, target: any, dispose: () -> () }
 local scenes = {}
 for _, name in workloads.ORDER do
 	local counts = sampling[name] or { 240, 60 }

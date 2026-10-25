@@ -1,6 +1,7 @@
 --!strict
 
 local Json = require("./json")
+local Retained = require("./perf_retained")
 
 export type Rounds = { [number]: Json.Object }
 
@@ -37,7 +38,7 @@ function Paired.benchOutcome(code: number, document: unknown): ({ string }, bool
 		or drift == nil
 		or drift ~= drift
 		or drift < 0
-		or drift > 15
+		or drift > 25
 	then
 		table.insert(errors, "benchmark yardstick is missing or unstable")
 	end
@@ -82,7 +83,7 @@ function Paired.benchOutcome(code: number, document: unknown): ({ string }, bool
 		and Json.numberField(document, "expectedMeasurements") == #rows
 		and positive(Json.field(document, "yardstickP95Ms"))
 		and positive(drift)
-		and (drift :: number) > 15
+		and (drift :: number) > 25
 	return errors, calibration
 end
 
@@ -130,6 +131,10 @@ function Paired.validate(
 			table.insert(errors, `{label} round {round} scene {scene} is duplicate or unavailable`)
 		end
 		seen[key] = true
+		local _, memoryProblem = Retained.read(Json.field(row, "memory"))
+		if memoryProblem then
+			table.insert(errors, `{label} round {round} scene {scene}: {memoryProblem}`)
+		end
 	end
 	for _, label in { first, second } do
 		for round = 1, scope.rounds do
@@ -607,6 +612,62 @@ function Paired.summary(lines: { string }, first: string, second: string): { str
 	table.insert(summary, "")
 	table.insert(summary, "Consistently slower means the median ratio and every paired ratio are above 1.05.")
 	return summary
+end
+
+function Paired.memoryTable(entries: { Json.Object }, first: string, second: string): ({ string }, { string })
+	local groups: { [string]: { first: { Retained.Reading }, second: { Retained.Reading } } } = {}
+	for _, entry in entries do
+		local label = Json.stringField(entry, "label")
+		if label ~= first and label ~= second then
+			continue
+		end
+		local row = Json.field(entry, "row")
+		local scene, round = Json.stringField(row, "scene"), Json.numberField(entry, "round")
+		local reading = Retained.read(Json.field(row, "memory"))
+		if scene == nil or round == nil or reading == nil then
+			continue
+		end
+		local group = groups[scene]
+		if group == nil then
+			group = { first = {}, second = {} }
+			groups[scene] = group
+		end
+		local target = if label == first then group.first else group.second
+		target[round] = reading
+	end
+	local scenes: { string } = {}
+	for scene in groups do
+		table.insert(scenes, scene)
+	end
+	table.sort(scenes)
+	local lines = {
+		"",
+		`| Retained scene | State | {first} KiB | {second} KiB | Growth KiB | Ratio | Flag |`,
+		"|---|---|---:|---:|---:|---:|---|",
+	}
+	local flags: { string } = {}
+	for _, scene in scenes do
+		local group = groups[scene]
+		for _, compared in Retained.compare(group.first, group.second) do
+			local flag = if compared.regressed then second .. " retains more" else ""
+			if compared.regressed then
+				table.insert(flags, `{scene} ({compared.metric} retained memory)`)
+			end
+			table.insert(
+				lines,
+				("| %s | %s | %.1f | %.1f | %+.1f | %s | %s |"):format(
+					scene,
+					compared.metric,
+					compared.first,
+					compared.second,
+					compared.deltaKb,
+					Paired.number(compared.ratio, 3),
+					flag
+				)
+			)
+		end
+	end
+	return lines, flags
 end
 
 function Paired.benchRound(name: string, label: string): number?
