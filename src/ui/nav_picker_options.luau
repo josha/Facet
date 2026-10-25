@@ -7,7 +7,6 @@ local Media = require("./media_types")
 local Content = require("./content_types")
 local reducedMotion = require("./motion").reduced
 local scrollLock = require("./scroll_lock")
-local scrollFlash = require("./scroll_flash")
 local ComposeTypes = require("../vendor/compose/core")
 local MediaProps = require("./media_props")
 local NavigationProps = require("./navigation_props")
@@ -710,7 +709,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				return room > 0 and use(extent).X > room + 1
 			end)
 			overflows = spills
-			scrollFlash(ctx, scroller, "X", spills)
 			local fields = (p :: unknown) :: { [string]: unknown }
 			local scrolling: { [string]: unknown } = {
 				Size = function(use: ComposeTypes.Use): UDim2

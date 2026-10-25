@@ -392,7 +392,7 @@ return function(
 		end
 		local room = parts.room(ctx, regions, body, natural, function(use: ComposeTypes.Use): number
 			return math.max(0, standing(use) - chrome(use) - guideReserve(use))
-		end, true, unit, gesture.ready)
+		end, true, unit)
 		runtime.decorate(flex, {
 			FlexMode = function(use: ComposeTypes.Use)
 				return if use(room.tight) then E.UIFlexMode.None else E.UIFlexMode.Fill

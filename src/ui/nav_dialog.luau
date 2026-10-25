@@ -164,7 +164,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local function widthPx(use: ComposeTypes.Use): number
 					return math.max(0, math.min(parts.width(ctx, spec.width, use), use(extent).X - 2 * margin(use)))
 				end
-				local covering, arrived = Compose.cell(false), Compose.cell(false)
+				local covering = Compose.cell(false)
 				local function available(use: ComposeTypes.Use): number
 					return math.max(0, use(extent).Y - keyboard(use))
 				end
@@ -280,7 +280,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					return use(naturalSize).Y
 				end, function(use: ComposeTypes.Use)
 					return roomPx(use)
-				end, covering, unit, arrived)
+				end, covering, unit)
 				Compose.watch(function(use: ComposeTypes.Use)
 					local need = use(room.pinned) + use(naturalSize).Y + padded(use)
 					covering:set(need + 2 * ctx.metric("space.xl", use) > available(use))
@@ -359,9 +359,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					local rest = ctx.metric("motion.materialize.modal", use)
 					return if use(settled) then rest + (1 - rest) * shown.travel(use) else 1
 				end, nil, true)
-				Compose.watch(function(use: ComposeTypes.Use)
-					arrived:set(use(settled) and shown.travel(use) >= 1)
-				end)
 				local sizes, rested = surfaces.atRest(shown.travel, settled, { panel })
 				Compose.watch(function(use: ComposeTypes.Use)
 					held:set(if use(rested) and shown.travel(use) < 1 then use(sizes[1]) / use(unit) else nil)

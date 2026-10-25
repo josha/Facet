@@ -31,9 +31,7 @@ A horizontal strip is a native `ScrollingFrame` and never wraps to a second
 row. When the segments do not fit in its width, they keep their natural widths
 and the strip scrolls horizontally. The strip then clips its segments, shows a
 thin native scroll bar in its bottom inset and keeps the chosen segment in view.
-A TabView tab bar that overflows shows the same bar. Touch devices hide
-native scroll bars at rest, so the strip flashes its bar once when it starts to
-overflow. A gamepad or keyboard selection scrolls the strip
+A TabView tab bar that overflows shows the same bar. A gamepad or keyboard selection scrolls the strip
 to the selected segment. A vertical touch drag that starts on the strip
 scrolls the page around it. While the strip scrolls, the Picker has the
 `FacetOverflow` attribute, so a `ViewThatFits` shows its next candidate. Use
