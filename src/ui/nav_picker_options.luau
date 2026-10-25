@@ -130,6 +130,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			return style == "segmented" and read(spec.axis, use) ~= "y"
 		end
 		local room = Compose.cell(math.huge)
+		local spilling = Compose.cell(false)
 		local segmentBoxes: {
 			[GuiObject]: {
 				order: ComposeTypes.Readable<number>,
@@ -467,7 +468,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 								FlexMode = function(use: ComposeTypes.Use): Enum.UIFlexMode
 									return if read(spec.sizing, use) == "hug"
 										then E.UIFlexMode.None
-										elseif across(use) then E.UIFlexMode.Grow
+										elseif across(use) then if use(spilling)
+											then E.UIFlexMode.None
+											else E.UIFlexMode.Grow
 										else E.UIFlexMode.Fill
 								end,
 							}),
@@ -701,13 +704,16 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local scale = use(unit)
 				return if scale > 0 then scale else 1
 			end
-			local spills = Compose.formula(function(use: ComposeTypes.Use): boolean
+			Compose.watch(function(use: ComposeTypes.Use)
 				if not across(use) then
-					return false
+					spilling:set(false)
+					return
 				end
-				local room = use(window).X - 2 * segmentMetrics.inset * scaleOf(use)
-				return room > 0 and use(extent).X > room + 1
+				local view = use(window).X
+				local room = if spilling:peek() then view - 2 * segmentMetrics.inset * scaleOf(use) else view
+				spilling:set(room > 0 and use(extent).X > room + 1)
 			end)
+			local spills: ComposeTypes.Readable<boolean> = spilling
 			overflows = spills
 			local fields = (p :: unknown) :: { [string]: unknown }
 			local scrolling: { [string]: unknown } = {
