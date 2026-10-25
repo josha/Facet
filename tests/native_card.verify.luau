@@ -128,7 +128,7 @@ return function(verifyHarness: Verify.Harness)
 							entry.enterActions()
 						end
 					end,
-					render = function(current: any, _placement: any, key: any): GuiObject
+					render = function(current: any, _placement: any, key: FixtureComposeTypes.Readable<string>): GuiObject
 						local entry = {}
 						local card = UI.Card({
 							Name = "Card",
@@ -166,7 +166,7 @@ return function(verifyHarness: Verify.Harness)
 								cards[held], controls[held] = nil, nil
 							end
 						end
-						Compose.watch(function(use: any)
+						Compose.watch(function(use: FixtureComposeTypes.Use)
 							forget()
 							local now = use(key)
 							held = now

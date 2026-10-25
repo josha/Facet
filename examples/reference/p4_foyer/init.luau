@@ -100,6 +100,7 @@ function Foyer.build(ctx: ExampleContext)
 			measure = true,
 			gap = 12,
 			Size = D2.fromScale(1, 1),
+			recycle = false,
 			render = function(current: Readable<seed.Tile>): GuiObject
 				return tile(current:peek())
 			end,

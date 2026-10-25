@@ -27,7 +27,7 @@ export type Rows<V, K> = {
 			(Item) -> unknown,
 			(Key, string, unknown) -> (),
 			(ComposeTypes.Use) -> boolean
-		) -> CollectionTypes.RowRender<Item, Key>,
+		) -> (ComposeTypes.Readable<Item>, ComposeTypes.Readable<ComposeTypes.Placement>, Key) -> GuiObject,
 	},
 	field: (V, CollectionTypes.TableColumn<V, K>) -> unknown,
 	tree: TreeTypes.Tree<V, K>?,
@@ -139,11 +139,16 @@ return function<V, K>(
 							end
 						)
 						else nil
-					local render: ((ComposeTypes.Readable<K>) -> ComposeTypes.Child)? = if authored
-						then function(rowKey: ComposeTypes.Readable<K>): ComposeTypes.Child
-							return authored(current, placement, rowKey)
+					local build: ((K) -> GuiObject)? = if authored
+						then function(value: K): GuiObject
+							return authored(current, placement, Compose.cell(value))
 						end
-						elseif editorCell then function(rowKey: ComposeTypes.Readable<K>): ComposeTypes.Child
+						elseif editorCell then function(value: K): GuiObject
+							return editorCell(current, placement, value)
+						end
+						else nil
+					local render: ((ComposeTypes.Readable<K>) -> ComposeTypes.Child)? = if build
+						then function(rowKey: ComposeTypes.Readable<K>): ComposeTypes.Child
 							return Compose.keyed({
 								from = function(use: ComposeTypes.Use): { K }
 									return { use(rowKey) }
@@ -156,7 +161,7 @@ return function<V, K>(
 									_index: ComposeTypes.Readable<number>,
 									value: K
 								): GuiObject
-									return editorCell(current, placement, value)
+									return build(value)
 								end,
 							})
 						end

@@ -316,6 +316,7 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 						itemSize = 56,
 						measured = extents,
 						status = status,
+						recycle = item.workload ~= "edit-locality",
 						render = function(current): GuiObject
 							if item.workload == "edit-locality" then
 								local value = values[current:peek().id]

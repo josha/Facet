@@ -211,6 +211,7 @@ return {
 								ref = function(node: ScrollingFrame)
 									view.observeWidth(measuredWidth, node)
 								end,
+								recycle = false,
 								render = function(current: Readable<Item>): GuiObject
 									local item = current:peek()
 									local card = UI.Card("Item_" .. item.id)({

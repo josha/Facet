@@ -233,6 +233,7 @@ return {
 						ref = function(node: ScrollingFrame)
 							view.observeWidth(gridWidth, node)
 						end,
+						recycle = false,
 						render = function(current): GuiObject
 							local blend = current:peek()
 							return UI.Card("Recipe_" .. blend.id) {

@@ -103,7 +103,8 @@ return function<V, K>(
 	local function row(
 		rowItem: ComposeTypes.Readable<V>,
 		rowPlacement: ComposeTypes.Readable<ComposeTypes.Placement>,
-		keyCell: ComposeTypes.Readable<K>
+		keyCell: ComposeTypes.Readable<K>,
+		follows: boolean
 	): GuiObject
 		local lease = view.pool.acquire()
 		local node = runtime.borrow(lease.value.node) :: Frame
@@ -191,9 +192,7 @@ return function<V, K>(
 		end
 		Compose.withOwner(contentOwner, function()
 			runtime.decorate(node, {
-				Name = function(use: ComposeTypes.Use): string
-					return tostring(use(keyCell))
-				end,
+				Name = tostring(keyCell:peek()),
 				ClipsDescendants = tree ~= nil,
 				Interactable = if tree == nil and spec.disabled == nil
 					then true
@@ -464,7 +463,7 @@ return function<V, K>(
 		wireSelection(content, keyCell)
 		view.slotKeys[node] = keyCell
 		local held: K? = nil
-		Compose.watch(function(use: ComposeTypes.Use)
+		local function follow(use: ComposeTypes.Use)
 			local now = use(keyCell)
 			local gone = held
 			local arriving = gone ~= nil and gone ~= now
@@ -478,6 +477,7 @@ return function<V, K>(
 				end
 			end
 			held = now
+			node.Name = tostring(now)
 			mounted[now], placed[now], cellEdits[now] = node, placement, edits
 			if arriving then
 				if tree == nil and spec.disabled ~= nil then
@@ -487,7 +487,14 @@ return function<V, K>(
 					return value + 1
 				end)
 			end
-		end)
+		end
+		if follows then
+			Compose.watch(follow)
+		else
+			follow(function<T>(readable: ComposeTypes.Readable<T>): T
+				return readable:peek()
+			end)
+		end
 		local measureRow: ((ComposeTypes.Use, Vector2) -> ())? = nil
 		local automatic = measuredNode.AutomaticSize
 		local natural = (
@@ -714,7 +721,8 @@ return function<V, K>(
 							return assert(use(record).item)
 						end),
 						rowPlacement,
-						keyCell
+						keyCell,
+						true
 					)
 				end
 				else nil,
@@ -726,7 +734,7 @@ return function<V, K>(
 						rowPlacement: ComposeTypes.Readable<ComposeTypes.Placement>,
 						key: K
 					): GuiObject
-						return row(rowItem, rowPlacement, Compose.cell(key))
+						return row(rowItem, rowPlacement, Compose.cell(key), false)
 					end
 				),
 		})
