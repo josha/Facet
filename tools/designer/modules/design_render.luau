@@ -12,6 +12,7 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 	document.validate(value)
 	local UDim2 = if ctx.types then ctx.types.UDim2 else UDim2
 	local locals = {}
+	local nodes: { [string]: GuiObject } = {}
 	ctx.types = ctx.types or { UDim2 = UDim2, Color3 = Color3 }
 	local build
 	build = function(node: document.Node, scope: any?): GuiObject
@@ -38,34 +39,17 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 		end
 		if editing then
 			instance:SetAttribute("FacetDesignNode", node.id)
-			ctx.runtime.connect(instance, "InputBegan", function(input)
-				if
-					not editing.interactive:peek()
-					and (
-						input.UserInputType == Enum.UserInputType.MouseButton1
-						or input.UserInputType == Enum.UserInputType.Touch
-					)
-				then
-					editing.select(node.id)
-				end
-			end)
-			local stroke = ctx.Host.UIStroke {
-				Color = Color3.fromRGB(53, 129, 247),
-				Thickness = 2,
-				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-				BorderStrokePosition = Enum.BorderStrokePosition.Inner,
-				ZIndex = 10,
-				Enabled = function(use: Use)
-					return not use(editing.interactive) and use(editing.selected) == node.id
-				end,
-			}
-			stroke.Parent = instance
+			nodes[node.id] = instance
 		end
 		return instance
 	end
 	ctx.render = build
 	local root = build(value.root)
 	if editing then
+		local Compose, Host, types = ctx.Compose, ctx.Host, ctx.types
+		local Enum, UDim, UDim2, Vector2 = types.Enum, types.UDim, types.UDim2, types.Vector2
+		local accent = types.Color3.fromRGB(53, 129, 247)
+		local hovered = Compose.cell(nil :: string?)
 		local function contains(instance: GuiObject, position: Vector3): boolean
 			local current: Instance? = instance
 			while current and current:IsA("GuiObject") do
@@ -87,7 +71,28 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 			end
 			return true
 		end
-		local capture = ctx.Host.Frame "DesignSelection" {
+		local function pick(position: Vector3): string
+			local chosen, deepest = value.root.id, 0
+			for _, instance in root:GetDescendants() do
+				local id = instance:GetAttribute("FacetDesignNode")
+				if type(id) == "string" and instance:IsA("GuiObject") and contains(instance, position) then
+					local depth, ancestor = 0, instance.Parent
+					while ancestor and ancestor ~= root do
+						depth += 1
+						ancestor = ancestor.Parent
+					end
+					if depth >= deepest then
+						deepest, chosen = depth, id
+					end
+				end
+			end
+			return chosen
+		end
+		local function pointer(input: InputObject): boolean
+			return input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch
+		end
+		local capture = Host.Frame "DesignSelection" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Active = true,
@@ -95,30 +100,93 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 			Visible = function(use: Use)
 				return not use(editing.interactive)
 			end,
-			[ctx.Compose.event("InputBegan")] = function(input)
-				if
-					input.UserInputType ~= Enum.UserInputType.MouseButton1
-					and input.UserInputType ~= Enum.UserInputType.Touch
-				then
-					return
+			[Compose.event("InputBegan")] = function(input: InputObject)
+				if pointer(input) then
+					editing.select(pick(input.Position))
 				end
-				local chosen, deepest = value.root.id, 0
-				for _, instance in root:GetDescendants() do
-					local id = instance:GetAttribute("FacetDesignNode")
-					if type(id) == "string" and instance:IsA("GuiObject") and contains(instance, input.Position) then
-						local depth, ancestor = 0, instance.Parent
-						while ancestor and ancestor ~= root do
-							depth += 1
-							ancestor = ancestor.Parent
-						end
-						if depth >= deepest then
-							deepest, chosen = depth, id
-						end
-					end
+			end,
+			[Compose.event("InputChanged")] = function(input: InputObject)
+				if input.UserInputType == Enum.UserInputType.MouseMovement then
+					hovered:set(pick(input.Position))
 				end
-				editing.select(chosen)
+			end,
+			[Compose.event("MouseLeave")] = function()
+				hovered:set(nil)
 			end,
 		}
+		local function outline(name: string, thickness: number, target: (Use) -> string?, sized: boolean)
+			local readout = if sized
+				then Host.TextLabel "Size" {
+					AnchorPoint = Vector2.new(0.5, 0),
+					Position = UDim2.new(0.5, 0, 1, 4),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					BackgroundColor3 = accent,
+					TextColor3 = types.Color3.new(1, 1, 1),
+					TextSize = 12,
+					FontFace = types.Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold),
+					Interactable = false,
+					Host.UIPadding {
+						PaddingLeft = UDim.new(0, 4),
+						PaddingRight = UDim.new(0, 4),
+						PaddingTop = UDim.new(0, 1),
+						PaddingBottom = UDim.new(0, 1),
+					},
+					Host.UICorner { CornerRadius = UDim.new(0, 3) },
+				}
+				else nil
+			local frame = Host.Frame(name) {
+				BackgroundTransparency = 1,
+				Visible = false,
+				Interactable = false,
+				ZIndex = 2001,
+				Host.UIStroke { Color = accent, Thickness = thickness, ApplyStrokeMode = Enum.ApplyStrokeMode.Border },
+				readout,
+			}
+			local shown: GuiObject? = nil
+			local function place()
+				local instance = shown
+				if instance == nil or instance.Parent == nil then
+					frame.Visible = false
+					return
+				end
+				local origin, at, size = capture.AbsolutePosition, instance.AbsolutePosition, instance.AbsoluteSize
+				frame.Position = UDim2.fromOffset(at.X - origin.X, at.Y - origin.Y)
+				frame.Size = UDim2.fromOffset(size.X, size.Y)
+				frame.Visible = true
+				if readout then
+					readout.Text = `{math.round(size.X)} × {math.round(size.Y)}`
+				end
+			end
+			local connections: { RBXScriptConnection } = {}
+			local function release()
+				for _, connection in connections do
+					connection:Disconnect()
+				end
+				table.clear(connections)
+			end
+			Compose.watch(function(use: Use)
+				local id = target(use)
+				release()
+				shown = if id then nodes[id] else nil
+				local instance = shown
+				if instance then
+					for _, property in { "AbsolutePosition", "AbsoluteSize" } do
+						table.insert(connections, instance:GetPropertyChangedSignal(property):Connect(place))
+					end
+					table.insert(connections, capture:GetPropertyChangedSignal("AbsolutePosition"):Connect(place))
+				end
+				place()
+			end)
+			Compose.cleanup(release)
+			frame.Parent = capture
+		end
+		outline("DesignHover", 1, function(use: Use): string?
+			local id = use(hovered)
+			return if use(editing.interactive) or id == use(editing.selected) then nil else id
+		end, false)
+		outline("DesignSelected", 2, function(use: Use): string?
+			return if use(editing.interactive) then nil else use(editing.selected)
+		end, true)
 		capture.Parent = ctx.overlay or root
 	end
 	return root

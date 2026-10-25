@@ -210,6 +210,50 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	verifyHarness:suite("Facet Design selection overlay", function()
+		verifyHarness:case("outlines the selected layer with one shared frame and its size", {
+			id = "facet_designer::Facet Design selection overlay::outlines the selected layer with one shared frame and its size",
+			run = function()
+				local Compose = Facet.Compose
+				local value = templates[1]
+				local child = assert(value.root.children[1])
+				local selected, interactive = Compose.cell(value.root.id), Compose.cell(false)
+				local mounted, engine, parent = fixture(function(ctx)
+					return render.build(value, ctx, {
+						selected = selected,
+						interactive = interactive,
+						select = function(id: string)
+							selected:set(id)
+						end,
+					})
+				end)
+				local capture = assert(parent:FindFirstChild("DesignSelection", true))
+				local frame = assert(capture:FindFirstChild("DesignSelected"))
+				Verify.expect(#capture:GetChildren()):toBe(2)
+				Verify.expect(capture:FindFirstChild("DesignHover") ~= nil):toBe(true)
+				local target
+				for _, descendant in parent:GetDescendants() do
+					if descendant:GetAttribute("FacetDesignNode") == child.id then
+						target = descendant
+					end
+				end
+				engine.environment.poke(capture, "AbsolutePosition", engine.types.Vector2.new(10, 20))
+				engine.environment.poke(target, "AbsolutePosition", engine.types.Vector2.new(40, 60))
+				engine.environment.poke(target, "AbsoluteSize", engine.types.Vector2.new(120, 32))
+				selected:set(child.id)
+				Verify.expect(frame.Visible):toBe(true)
+				Verify.expect(frame.Position):toEqual(engine.types.UDim2.fromOffset(30, 40))
+				Verify.expect(frame.Size):toEqual(engine.types.UDim2.fromOffset(120, 32))
+				Verify.expect(assert(frame:FindFirstChild("Size")).Text):toBe("120 × 32")
+				engine.environment.poke(target, "AbsoluteSize", engine.types.Vector2.new(200, 32))
+				Verify.expect(frame.Size):toEqual(engine.types.UDim2.fromOffset(200, 32))
+				interactive:set(true)
+				Verify.expect(frame.Visible):toBe(false)
+				mounted.dispose()
+			end,
+		})
+	end)
+
 	verifyHarness:suite("Facet Design editor overlays", function()
 		verifyHarness:case("covers native insets and moves selection into the active custom panel", {
 			id = "facet_designer::Facet Design editor overlays::covers native insets and moves selection into the active custom panel",
