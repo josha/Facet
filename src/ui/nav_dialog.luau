@@ -27,7 +27,7 @@ local KEYS = {
 
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
-	local E, D2, V2, Edge = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
+	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 
 	local function blank(value: unknown): boolean
 		return type(value) ~= "string" or string.match(value, "%S") == nil
@@ -324,9 +324,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local settled = Compose.cell(false)
 				local held: ComposeTypes.Cell<Vector2?> = Compose.cell(nil :: Vector2?)
 				local shown = surfaces.appearance(phase, ctx.motionTiming("dialog"), settled)
-				local function side(use: ComposeTypes.Use): UDim
-					return Edge.new(0, 16 + if use(covering) then (use(extent).X - widthPx(use)) / 2 else 0)
-				end
 				local panelProps: Types.CanvasGroupNativeProps = {
 					Name = "Panel",
 					AnchorPoint = V2.new(0.5, 0.5),
@@ -349,12 +346,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						return 1 - shown.opacity(use)
 					end,
 					room.frame :: Instance,
-					Host.UIPadding({
-						PaddingTop = Edge.new(0, 16),
-						PaddingBottom = Edge.new(0, 16),
-						PaddingLeft = side,
-						PaddingRight = side,
-					}) :: Instance,
+					ctx.padding(16, 16),
 					ctx.corner(),
 				}
 				local panel = ctx.styled(ctx.fade(panelProps, true), "dialog")
@@ -368,6 +360,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					held:set(if use(rested) and shown.travel(use) < 1 then use(sizes[1]) / use(unit) else nil)
 				end)
 				surfaces.skin(panel, "panel", {
+					reserve = function(name: string, use: ComposeTypes.Use): number
+						local sideways = name == "left" or name == "right"
+						return if sideways and use(covering) then math.floor((use(extent).X - widthPx(use)) / 2) else 0
+					end,
 					title = spec.title,
 					onCaption = function(on: boolean)
 						plaqued:set(on)
