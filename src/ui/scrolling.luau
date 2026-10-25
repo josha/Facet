@@ -88,10 +88,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	end
 
 	UI.scrollToVisible = function(node: GuiObject, rect: Env.ScrollRect?, options: Env.ScrollOptions?): boolean
-		assert(
-			type(node) ~= "string" and (node :: unknown) ~= nil and node:IsA("GuiObject"),
-			"Facet UI.scrollToVisible expects a GuiObject"
-		)
+		assert(typeof(node) == "Instance" and node:IsA("GuiObject"), "Facet UI.scrollToVisible expects a GuiObject")
 		local origin, extent = node.AbsolutePosition, node.AbsoluteSize
 		local left, top, width, height = origin.X, origin.Y, extent.X, extent.Y
 		if rect then

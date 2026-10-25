@@ -803,8 +803,10 @@ return function(ctx: Types.Context): Drag.Service
 				for _, node in nodes do
 					if node:IsA("GuiObject") then
 						node.Interactable, node.Active, node.Selectable = false, false, false
-					elseif node:IsA("UIDragDetector") or node:IsA("InputContext") then
-						((node :: unknown) :: { Enabled: boolean }).Enabled = false
+					elseif node:IsA("UIDragDetector") then
+						node.Enabled = false
+					elseif node:IsA("InputContext") then
+						node.Enabled = false
 					end
 				end
 				ghost:RemoveTag("facet-drag-held")

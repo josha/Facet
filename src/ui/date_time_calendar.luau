@@ -425,7 +425,7 @@ return function(
 	local function navigate(panel: Frame)
 		local function focusedCell(use: Use?): (number?, number?)
 			local node = if use then use(selected) else selected:peek()
-			local at = if node ~= nil then cellIndex[(node :: unknown) :: Instance] else nil
+			local at = if node ~= nil then cellIndex[node] else nil
 			if at == nil then
 				return nil, nil
 			end
