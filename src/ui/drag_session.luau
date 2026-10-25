@@ -75,7 +75,7 @@ return function(ctx: Types.Context): Drag.Service
 			playerGui = players.LocalPlayer:FindFirstChildWhichIsA("PlayerGui")
 		end
 		if playerGui then
-			for _, node in (playerGui :: PlayerGui):GetGuiObjectsAtPosition(at.X, at.Y) do
+			for _, node in playerGui:GetGuiObjectsAtPosition(at.X, at.Y) do
 				local excluded, pass = false, node:GetAttribute("FacetDropPassThrough") == true
 				local parent: Instance? = node
 				while parent do

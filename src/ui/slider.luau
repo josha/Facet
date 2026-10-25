@@ -200,7 +200,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 			end
 			local measured = ctx.observe.AbsoluteSize(art)
 			Compose.watch(function(use: ComposeTypes.Use)
-				local box = use(measured) :: Vector2
+				local box: Vector2 = use(measured)
 				local side = if vertical then box.Y else box.X
 				extent:set(if side > 0 then side else knobSize(use))
 			end)
@@ -241,7 +241,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 				Size = D2.fromOffset(0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
 				Visible = visible,
-				Host.UISizeConstraint({ MinSize = knobFloor }) :: ComposeTypes.Child,
+				Host.UISizeConstraint({ MinSize = knobFloor }),
 				Host.UIListLayout({
 					HorizontalAlignment = E.HorizontalAlignment.Center,
 					VerticalAlignment = E.VerticalAlignment.Center,
@@ -876,7 +876,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 			h.attributes(node, {
 				AccessibleLabel = function(use: ComposeTypes.Use): string
 					local named = read(spec.label, use)
-					local side = use(adjusting) :: string
+					local side: string = use(adjusting)
 					return ctx.phrase(
 						"Facet.RangeThumb",
 						"{range} {thumb}",
