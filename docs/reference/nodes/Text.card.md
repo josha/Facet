@@ -17,7 +17,7 @@ grows vertically by default. Give the parent a numeric width, or
 without wrapping.
 Text has no width option. See [Layout-options](Layout-options.md) for native sizing.
 Hugging text ignores `UI.fill()`. For a label and its value at opposite ends,
-put `UI.Spacer()` between them in an HStack with `width = "fill"`.
+put `UI.Spacer {}` between them in an HStack with `width = "fill"`.
 
 Related controls: [Controls](Controls.md).
 

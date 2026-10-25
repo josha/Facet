@@ -268,6 +268,83 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("shows a price, then nothing once owned, then a named check icon once equipped", {
+			id = "native_card::native Card::shows a price, then nothing once owned, then a named check icon once equipped",
+			run = function()
+				local owned, equipped = Compose.cell(false), Compose.cell(false)
+				local world = mount({
+					image = "rbxassetid://1",
+					title = "Comet",
+					badges = {
+						trailing = {
+							label = function(use: FixtureComposeTypes.Use): string?
+								return if use(owned) then nil else "3,400"
+							end,
+							icon = function(use: FixtureComposeTypes.Use): string?
+								return if use(equipped) then "checkmark" elseif use(owned) then nil else "coin"
+							end,
+							name = "Equipped",
+							status = "neutral",
+						},
+					},
+				})
+				local trailing = world.find("Trailing", world.find("Badges"))
+				local function pill(): GuiObject?
+					return trailing:FindFirstChildWhichIsA("GuiObject")
+				end
+				local function words(): string
+					local found = pill()
+					local label = if found then found:FindFirstChildWhichIsA("TextLabel", true) else nil
+					return if label and label.Visible then label.Text else ""
+				end
+				Verify.expect(pill() ~= nil):toBe(true)
+				Verify.expect(words()):toBe("3,400")
+				owned:set(true)
+				Verify.expect(pill()):toBeNil()
+				equipped:set(true)
+				Verify.expect(pill() ~= nil):toBe(true)
+				Verify.expect(words()):toBe("")
+				local named = (pill() :: GuiObject):FindFirstChild("Label", true)
+				Verify.expect(named and named:GetAttribute("AccessibleLabel")):toBe("Equipped")
+				world.stop()
+			end,
+		})
+
+		verifyHarness:case("moves the leading badge to the front of the caption when both badges do not fit, once", {
+			id = "native_card::native Card::moves the leading badge to the front of the caption when both badges do not fit, once",
+			run = function()
+				local caption = Compose.cell("Spd 82")
+				local world = mount({
+					image = "rbxassetid://1",
+					title = "Comet",
+					caption = caption,
+					badges = { leading = { label = "Rare", status = "accent" }, trailing = { label = "Owned" } },
+				})
+				local layer = world.find("Badges")
+				local poke = world.engine.environment.poke
+				poke(world.find("Leading", layer):FindFirstChildWhichIsA("GuiObject"), "AbsoluteSize", world.V2(80, 24))
+				poke(
+					world.find("Trailing", layer):FindFirstChildWhichIsA("GuiObject"),
+					"AbsoluteSize",
+					world.V2(90, 24)
+				)
+				poke(layer, "AbsoluteSize", world.V2(300, 160))
+				local label = world.find("Caption")
+				Verify.expect(label.Text):toBe("Spd 82")
+				poke(layer, "AbsoluteSize", world.V2(180, 100))
+				Verify.expect(label.Text):toBe("Rare · Spd 82")
+				caption:set("Rare Spd 82")
+				Verify.expect(label.Text):toBe("Rare Spd 82")
+				local leadPill = world.find("Leading", layer):FindFirstChildWhichIsA("GuiObject")
+				local trailPill = world.find("Trailing", layer):FindFirstChildWhichIsA("GuiObject")
+				poke(trailPill, "AbsoluteSize", world.V2(200, 24))
+				Verify.expect(trailPill.Visible):toBe(false)
+				Verify.expect(leadPill.Visible):toBe(true)
+				Verify.expect(label.Text):toBe("Owned · Rare Spd 82")
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("puts badges over the top corners of the art at theme spacing and follows their labels", {
 			id = "native_card::native Card::puts badges over the top corners of the art at theme spacing and follows their labels",
 			run = function()
@@ -311,17 +388,20 @@ return function(verifyHarness: Verify.Harness)
 				poke(layer, "AbsoluteSize", world.V2(300, 160))
 				poke(leadPill, "AbsoluteSize", world.V2(80, 24))
 				poke(trailPill, "AbsoluteSize", world.V2(90, 24))
+				local caption = world.find("Caption")
 				Verify.expect(leadPill.Visible):toBe(true)
-				Verify.expect((leading:FindFirstChild("Dot"))):toBeNil()
+				Verify.expect(caption.Visible):toBe(false)
 				poke(layer, "AbsoluteSize", world.V2(180, 100))
 				Verify.expect(leadPill.Visible):toBe(false)
-				Verify.expect(leading:FindFirstChild("Dot") ~= nil):toBe(true)
+				Verify.expect(caption.Visible):toBe(true)
+				Verify.expect(caption.Text):toBe("Rare")
 				poke(layer, "AbsoluteSize", world.V2(300, 160))
 				Verify.expect(leadPill.Visible):toBe(true)
-				Verify.expect((leading:FindFirstChild("Dot"))):toBeNil()
+				Verify.expect(caption.Visible):toBe(false)
 				Verify.expect((shown(leading))):toBe("Rare")
 				Verify.expect((shown(trailing))):toBe("Owned")
 				Verify.expect((leading:FindFirstChildWhichIsA("GuiObject"):HasTag("facet-status-accent"))):toBe(true)
+				Verify.expect((leading:FindFirstChildWhichIsA("GuiObject"):HasTag("facet-badge-on-media"))):toBe(true)
 				local pill = trailing:FindFirstChildWhichIsA("GuiObject")
 				Verify.expect((pill:HasTag("facet-status-success"))):toBe(true)
 				status:set("warning")

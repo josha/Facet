@@ -247,6 +247,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			spec.controls.diagnostics = checks.list
 		end
 		local badgeLayer: Frame? = nil
+		local moved = function(_: ComposeTypes.Use): { string }
+			return {}
+		end
 		if badges then
 			local function gap(use: ComposeTypes.Use): UDim
 				return D.new(0, ctx.metric("space.s", use))
@@ -258,31 +261,36 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				ZIndex = 2,
 				Host.UIPadding({ PaddingLeft = gap, PaddingRight = gap, PaddingTop = gap, PaddingBottom = gap }),
 			}
-			local paired = badges.leading ~= nil and badges.trailing ~= nil
 			local widths: { [string]: ComposeTypes.Cell<number> } =
 				{ Leading = Compose.cell(0), Trailing = Compose.cell(0) }
-			local fits = Compose.cell(true)
+			local onArt: { [string]: ComposeTypes.Cell<boolean> } =
+				{ Leading = Compose.cell(true), Trailing = Compose.cell(true) }
 			local function corner(name: string, badge: Content.CardBadge?, x: number)
 				if badge == nil then
 					return
 				end
 				local label = badge.label
 				local last = ""
+				local function marked(use: ComposeTypes.Use): boolean
+					return badge.name ~= nil and nonempty(read(badge.icon, use))
+				end
 				local shown = function(use: ComposeTypes.Use): boolean
-					return label == nil or nonempty(read(label, use))
+					return label == nil or nonempty(read(label, use)) or marked(use)
 				end
 				local props: MediaProps.BadgeProps = {
 					label = function(use: ComposeTypes.Use): string?
 						local value = read(label, use)
 						if nonempty(value) then
 							last = value :: string
+						elseif marked(use) then
+							return nil
 						end
 						return if label == nil then nil else last
 					end,
 					status = badge.status,
 					icon = badge.icon,
 					name = badge.name,
-					Visible = if name == "Leading" then fits else nil,
+					Visible = onArt[name],
 				}
 				local holder: Types.FrameNativeProps = {
 					Name = name,
@@ -293,6 +301,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					AutomaticSize = E.AutomaticSize.XY,
 					Compose.show(shown, function()
 						local pill = UI.Badge(props)
+						pill:AddTag("facet-badge-on-media")
 						local size = ctx.observe.AbsoluteSize(pill)
 						Compose.watch(function(use: ComposeTypes.Use)
 							widths[name]:set(use(size).X)
@@ -303,39 +312,41 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						return pill
 					end),
 				}
-				if paired and name == "Leading" then
-					holder[#holder + 1] = Compose.show(function(use: ComposeTypes.Use): boolean
-						return shown(use) and not use(fits)
-					end, function()
-						return Host.Frame "Dot" {
-							BackgroundTransparency = 1,
-							Size = function(use: ComposeTypes.Use): UDim2
-								return D2.fromOffset(10, ctx.controlSize(nil, "iconSize", use) + 4)
-							end,
-							UI.StatusIndicator "Mark" {
-								status = badge.status,
-								name = badge.name or last,
-								diameter = 10,
-								AnchorPoint = ctx.types.Vector2.new(0.5, 0.5),
-								Position = D2.fromScale(0.5, 0.5),
-							},
-						}
-					end)
-				end
 				layerProps[#layerProps + 1] = Host.Frame(holder)
 			end
 			corner("Leading", badges.leading, 0)
 			corner("Trailing", badges.trailing, 1)
-			local badgeArea = Host.Frame(layerProps)
-			if paired then
-				local area, unit = ctx.observe.AbsoluteSize(badgeArea), ctx.layoutUnit(badgeArea)
-				Compose.watch(function(use: ComposeTypes.Use)
-					local leading, trailing = use(widths.Leading), use(widths.Trailing)
-					local room = use(area).X
-					local need = leading + trailing + 3 * ctx.metric("space.s", use) * use(unit)
-					fits:set(leading <= 0 or trailing <= 0 or room <= 0 or need <= room)
-				end)
+			local trailingLabel = if badges.trailing then badges.trailing.label else nil
+			local leadingLabel = if badges.leading then badges.leading.label else nil
+			moved = function(use: ComposeTypes.Use): { string }
+				local list: { string } = {}
+				local function add(name: string, label: Content.Value<string?>?)
+					local value = read(label, use)
+					if not use(onArt[name]) and nonempty(value) then
+						table.insert(list, value :: string)
+					end
+				end
+				add("Trailing", trailingLabel)
+				add("Leading", leadingLabel)
+				return list
 			end
+			local badgeArea = Host.Frame(layerProps)
+			local area, unit = ctx.observe.AbsoluteSize(badgeArea), ctx.layoutUnit(badgeArea)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local leading, trailing = use(widths.Leading), use(widths.Trailing)
+				local room = use(area).X
+				local space = ctx.metric("space.s", use) * use(unit)
+				local function alone(width: number): boolean
+					return width <= 0 or room <= 0 or width + 2 * space <= room
+				end
+				local keepsTrailing = alone(trailing)
+				onArt.Trailing:set(keepsTrailing)
+				onArt.Leading:set(
+					if keepsTrailing and trailing > 0
+						then leading <= 0 or room <= 0 or leading + trailing + 3 * space <= room
+						else alone(leading)
+				)
+			end)
 			badgeLayer = badgeArea
 		end
 		local artwork = Host.ImageLabel({
@@ -373,8 +384,21 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			TextWrapped = true,
 		})
 		titleLabel:AddTag("facet-type-label")
+		local function subtitle(use: ComposeTypes.Use): string
+			local rest = use(caption)
+			local parts: { string } = {}
+			for _, label in moved(use) do
+				if not string.find(string.lower(rest), string.lower(label), 1, true) then
+					table.insert(parts, label)
+				end
+			end
+			if rest ~= "" then
+				table.insert(parts, rest)
+			end
+			return table.concat(parts, " · ")
+		end
 		local function closing(use: ComposeTypes.Use): UDim
-			return D.new(0, if media and not revealing and use(caption) == "" then ctx.metric("space.s", use) else 0)
+			return D.new(0, if media and not revealing and subtitle(use) == "" then ctx.metric("space.s", use) else 0)
 		end
 		local function inset(bottom: boolean): UIPadding
 			local function side(use: ComposeTypes.Use): UDim
@@ -391,13 +415,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			return inset(false)
 		end, titleLabel)
 		local captionLabel: TextLabel?
-		if spec.caption ~= nil then
+		if spec.caption ~= nil or badges ~= nil then
 			local label = ctx.text({
 				Name = "Caption",
 				LayoutOrder = 3,
-				Text = caption,
+				Text = subtitle,
 				Visible = function(use: ComposeTypes.Use): boolean
-					return use(caption) ~= ""
+					return subtitle(use) ~= ""
 				end,
 				Size = D2.fromScale(1, 0),
 				AutomaticSize = E.AutomaticSize.Y,

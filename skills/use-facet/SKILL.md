@@ -93,7 +93,9 @@ inspect the result or error; a strict directive does not execute the path.
 
 Use Facet controls for their supported behavior. Host objects supply game art,
 minimaps and Stage scene content, not a replacement button or input system.
-Use the engine first, then Compose, then Facet before writing a custom mechanism.
+For a need, look in this order: a Facet control or option, then Compose for state
+and lifetime, then a native engine object through Host. Write a custom mechanism
+only when none of these supports the behavior.
 Read the [Compose skill](../compose/SKILL.md) only for an operation outside this path.
 
 The theme owns paint, typography, spacing and motion. Use semantic roles and

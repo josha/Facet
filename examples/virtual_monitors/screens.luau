@@ -760,7 +760,8 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 						}
 					end,
 				},
-				UI.Text "CreatorName" { text = selected.creator, textRole = "label", UI.fill() },
+				UI.Text "CreatorName" { text = selected.creator, textRole = "label" },
+				UI.Spacer {},
 			},
 			UI.HStack "DetailsTabs" {
 				width = "fill",

@@ -12,13 +12,18 @@ corners of the art.
   badge is at the top-right corner.
 - A frame named `Badges` covers the art, above the artwork. Its padding keeps
   both badges `space.s` from the edges of the art.
+  A badge on the art has a thin edge in its own ink, so it keeps its shape
+  on art of the same colour.
 - A badge with a `label` shows only while the label is a nonempty string. A
   badge without a `label` needs `icon` and `name`, and it always shows. A
   badge with neither is an error when the Card is made.
 - A text card, without `image` or `artwork`, does not accept `badges`.
-- When both badges do not fit across the art, the leading badge shows as a
-  dot in its status color and the trailing badge keeps its label. Put the
-  fact that decides the choice, such as the price or Owned, in `trailing`.
+- When both badges do not fit across the art, the leading badge's label
+  moves to the front of the caption, unless the caption already says it, and
+  the trailing badge stays. A badge too wide for the art alone, such as a long
+  translated label, moves to the caption the same way, so text never leaves
+  the card. Put the fact that decides the choice, such as the
+  price or Owned, in `trailing`.
 - For a dot or a count on the corner of a Button, use [badged](badged.md).
 
 Do not put Badges in `artwork` with ZStack, Position or ZIndex. Give the item
@@ -43,10 +48,14 @@ local card = UI.Card "Kart" {
 Keep the item state in the game model. Here `owned` holds it.
 
 A shop card carries the decision. The caption says what the item changes,
-and one badge shows the price, a short shortfall or Owned:
+and the trailing badge shows the price until the player owns the item. Show
+every price the same way, in `contrast`, which reads on any art; show what the
+player can afford in the detail and its Buy. An owned item needs no badge. A badge with `name` and an
+icon shows the icon alone while its label is empty, so Equipped is a named
+check:
 
 ```luau
-local coins, owned = Compose.cell(300), Compose.cell(false)
+local owned, equipped = Compose.cell(false), Compose.cell(false)
 local card = UI.Card "Engine" {
     title = "Turbo Engine",
     image = "rbxassetid://0",
@@ -55,16 +64,13 @@ local card = UI.Card "Engine" {
     badges = {
         leading = { label = "Rare", status = "accent" },
         trailing = {
-            label = function(use)
-                return if use(owned) then "Owned" else "450"
-            end,
+            label = function(use) return if use(owned) then nil else "450" end,
             icon = function(use)
-                return if use(owned) then "checkmark" else "coin"
+                return if use(equipped) then "checkmark"
+                    elseif use(owned) then nil else "coin"
             end,
-            status = function(use)
-                return if use(owned) then "success"
-                    elseif use(coins) < 450 then "warning" else "neutral"
-            end,
+            name = "Equipped",
+            status = function(use) return if use(equipped) then "success" else "contrast" end,
         },
     },
 }
