@@ -16,7 +16,9 @@ corners of the art.
   badge without a `label` needs `icon` and `name`, and it always shows. A
   badge with neither is an error when the Card is made.
 - A text card, without `image` or `artwork`, does not accept `badges`.
-- Keep the labels short, so that the two badges do not touch.
+- The badges sit in one wrapping row. When both do not fit across the art,
+  the trailing badge moves under the leading one, so neither is clipped.
+  Short labels keep both on the top edge.
 - For a dot or a count on the corner of a Button, use [badged](badged.md).
 
 Do not put Badges in `artwork` with ZStack, Position or ZIndex. Give the item

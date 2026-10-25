@@ -257,9 +257,21 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				Size = D2.fromScale(1, 1),
 				ZIndex = 2,
 				Host.UIPadding({ PaddingLeft = gap, PaddingRight = gap, PaddingTop = gap, PaddingBottom = gap }),
+				Host.UIListLayout({
+					FillDirection = E.FillDirection.Horizontal,
+					Wraps = true,
+					HorizontalFlex = E.UIFlexAlignment.SpaceBetween,
+					SortOrder = E.SortOrder.LayoutOrder,
+					Padding = gap,
+				}),
 			}
-			local function corner(name: string, badge: Content.CardBadge?, x: number)
+			local function corner(name: string, badge: Content.CardBadge?, order: number)
 				if badge == nil then
+					layerProps[#layerProps + 1] = Host.Frame(name) {
+						BackgroundTransparency = 1,
+						LayoutOrder = order,
+						Size = D2.fromOffset(0, 0),
+					}
 					return
 				end
 				local label = badge.label
@@ -279,8 +291,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				local holder: Types.FrameNativeProps = {
 					Name = name,
 					BackgroundTransparency = 1,
-					AnchorPoint = ctx.types.Vector2.new(x, 0),
-					Position = D2.fromScale(x, 0),
+					LayoutOrder = order,
 					Size = D2.fromOffset(0, 0),
 					AutomaticSize = E.AutomaticSize.XY,
 					Compose.show(function(use: ComposeTypes.Use): boolean
@@ -291,8 +302,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				}
 				layerProps[#layerProps + 1] = Host.Frame(holder)
 			end
-			corner("Leading", badges.leading, 0)
-			corner("Trailing", badges.trailing, 1)
+			corner("Leading", badges.leading, 1)
+			corner("Trailing", badges.trailing, 2)
 			badgeLayer = Host.Frame(layerProps)
 		end
 		local artwork = Host.ImageLabel({
