@@ -2,7 +2,7 @@
 local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 
-local pending = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: number }
+local pending = setmetatable({} :: { [Instance]: number }, { __mode = "k" })
 
 local function hold(node: Instance): () -> ()
 	pending[node] = (pending[node] or 0) + 1

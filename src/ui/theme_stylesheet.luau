@@ -170,7 +170,7 @@ return function(
 			end)
 		end
 	end
-	local hoverless = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [{ NativeRule }]: { NativeRule } }
+	local hoverless = setmetatable({} :: { [{ NativeRule }]: { NativeRule } }, { __mode = "k" })
 	local function withoutHover(rules: { NativeRule }): { NativeRule }
 		local cached = hoverless[rules]
 		if cached then
@@ -552,7 +552,7 @@ return function(
 			connection:Disconnect()
 		end)
 	end
-	local warmed = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.ThemePackage]: boolean }
+	local warmed = setmetatable({} :: { [ThemeTypes.ThemePackage]: boolean }, { __mode = "k" })
 	Compose.watch(function(use: ComposeTypes.Use)
 		local package = read(packageOrReadable, use)
 		if package == nil or warmed[package] then

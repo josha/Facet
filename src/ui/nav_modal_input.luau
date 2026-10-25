@@ -8,9 +8,9 @@ type Held = {
 	connections: { RBXScriptConnection },
 	owners: { [Instance]: boolean },
 }
-local releases = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: () -> () }
-local states = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: Held }
-local holders = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [GuiObject]: boolean } }
+local releases = setmetatable({} :: { [Instance]: () -> () }, { __mode = "k" })
+local states = setmetatable({} :: { [GuiObject]: Held }, { __mode = "k" })
+local holders = setmetatable({} :: { [Instance]: { [GuiObject]: boolean } }, { __mode = "k" })
 
 local function releaseAll(node: GuiObject)
 	local state = states[node]

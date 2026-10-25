@@ -11,7 +11,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	local types = ctx.types
 	local V2 = types.Vector2
 	local E = types.Enum
-	local running: { [Instance]: Playback } = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Playback }
+	local running = setmetatable({} :: { [Instance]: Playback }, { __mode = "k" })
 
 	local function reduced(): boolean
 		local gui = config.guiService

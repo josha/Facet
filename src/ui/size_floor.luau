@@ -3,7 +3,7 @@ local ComposeTypes = require("../vendor/compose/core")
 
 export type Floor = { x: ComposeTypes.Cell<number>, y: ComposeTypes.Cell<number> }
 
-local floors = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Floor }
+local floors = setmetatable({} :: { [Instance]: Floor }, { __mode = "k" })
 
 local sizeFloor = {}
 
