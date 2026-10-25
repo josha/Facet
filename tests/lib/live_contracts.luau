@@ -107,6 +107,7 @@ local SUITES: { { id: string, cases: { string } } } = {
 			"circle-button-authored-axes",
 			"navigation-stack-root-box-and-back-chrome",
 			"panel-insets-reserve-native-padding",
+			"progress-short-end-label-keeps-its-text",
 			"tab-head-accessory-above-rail",
 			"vertical-segments-stack-share-width-floor",
 		},

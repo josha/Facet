@@ -563,6 +563,80 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("moves a center-lane zone beside its row's one occupied corner before it stacks the zone", {
+			id = "native_composition::Composition::moves a center-lane zone beside its row's one occupied corner before it stacks the zone",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local function wide(x: number, y: number)
+					return { x = x, y = y }
+				end
+				local wallet: Declared =
+					{ zone = "topLeft" :: "topLeft", rank = 1, mayDrop = false, sizes = { wide(103, 102) } }
+				local goals: Declared = {
+					zone = "top" :: "top",
+					rank = 2,
+					mayDrop = false,
+					sizes = { wide(308, 27), wide(180, 27), wide(308, 31), wide(180, 27) },
+				}
+				local forms, _, shift, overflow = resolver.resolve(373, 688, 8, { wallet, goals })
+				Verify.expect(forms[1]):toBe(1)
+				Verify.expect(forms[2]):toBe(2)
+				Verify.expect(shift.top):toBe(0)
+				Verify.expect(shift.leanTop):toBe(55.5)
+				Verify.expect(#overflow):toBe(0)
+				local map: Declared =
+					{ zone = "topRight" :: "topRight", rank = 1, mayDrop = false, sizes = { wide(44, 44) } }
+				forms, _, shift = resolver.resolve(373, 688, 8, { wallet, goals, map })
+				Verify.expect(forms[2]):toBe(1)
+				Verify.expect(shift.top):toBe(110)
+				Verify.expect(shift.leanTop):toBe(0)
+				local mirrored: Declared =
+					{ zone = "bottomRight" :: "bottomRight", rank = 1, mayDrop = false, sizes = { wide(70, 70) } }
+				local notice: Declared =
+					{ zone = "bottom" :: "bottom", rank = 3, mayDrop = false, sizes = { wide(260, 40) } }
+				forms, _, shift = resolver.resolve(373, 688, 8, { mirrored, notice })
+				Verify.expect(forms[2]):toBe(1)
+				Verify.expect(shift.bottom):toBe(0)
+				Verify.expect(shift.leanBottom):toBe(-39)
+				local roomy: Declared = { zone = "top" :: "top", rank = 2, mayDrop = false, sizes = { wide(140, 27) } }
+				forms, _, shift = resolver.resolve(373, 688, 8, { wallet, roomy })
+				Verify.expect(shift.leanTop):toBe(0)
+
+				local engine, runtime, UI = make()
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local root: Frame
+				runtime.mount(function()
+					local Host = runtime.constructors
+					root = UI.Composition {
+						gap = 8,
+						padding = 0,
+						topbar = false,
+						UI.Region { Name = "Wallet", zone = "topLeft", rank = 1, Host.Frame { Name = "WalletFull" } },
+						UI.Region {
+							Name = "Goals",
+							zone = "top",
+							rank = 2,
+							Host.Frame { Name = "GoalsWide" },
+							Host.Frame { Name = "GoalsLine" },
+						},
+					}
+					return root
+				end, layer)
+				sized(engine, root:FindFirstChild("WalletFull", true), 103, 102)
+				sized(engine, root:FindFirstChild("GoalsWide", true), 308, 27)
+				sized(engine, root:FindFirstChild("GoalsLine", true), 180, 27)
+				sized(engine, root:FindFirstChild("Zones"), 373, 688)
+				local top = root:FindFirstChild("Top", true) :: Frame
+				Verify.expect(top.Position):toBe(engine.types.UDim2.new(0.5, 55.5, 0, 0))
+				sized(engine, root:FindFirstChild("GoalsLine", true), 120, 27)
+				sized(engine, root:FindFirstChild("GoalsWide", true), 140, 27)
+				Verify.expect(top.Position):toBe(engine.types.UDim2.new(0.5, 0, 0, 0))
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("discloses a stepped-down region's richest content in context, anchored at the region", {
 			id = "native_composition::Composition::discloses a stepped-down region's richest content in context, anchored at the region",
 			run = function()

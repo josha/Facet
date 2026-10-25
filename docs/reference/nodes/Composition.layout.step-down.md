@@ -15,8 +15,15 @@ Form selection, zone fallback, fit warnings and resize motion.
 - The composition repeats this until every lane fits or no region can give
   way. It never scales content down.
 - A `top` or `bottom` zone can remain too wide for the space between its row's
-  corner zones after no region can give way. It then moves below the top
-  corners, or above the bottom corners, and uses the full width.
+  corner zones after no region can give way. When only one corner zone of
+  that row has content, the zone first moves beside that corner. It is
+  centred in the width that the corner and one `gap` leave, and the
+  composition resolves again from the richest forms. Thus on a portrait
+  phone a readout beside the wallet column stays in the top row, and does
+  not go down into the view.
+- When both corner zones of the row have content, or the zone is still too
+  wide beside its corner, it moves below the top corners, or above the bottom
+  corners, and uses the full width.
   The composition resolves again from the richest forms.
   The `left` and `right` zones that the moved zone covers give way first.
 - A region can still fail to fit at its last form when nothing else can give

@@ -163,6 +163,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			return use(direction) == "rtl" or use(direction) == "btt"
 		end
 		local content: GuiObject
+		local inline = presentation == "bar"
+			and spec.label == nil
+			and (if spec.showValue then true else spec.endLabel ~= nil)
 		if presentation == "bar" then
 			local function thickness(use: ComposeTypes.Use): number
 				local rung = read(spec.controlSize, use)
@@ -205,7 +208,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				Name = "Track",
 				Size = fixed(function(use: ComposeTypes.Use)
 					local pixels = thickness(use)
-					return if vertical(use) then D2.new(0, pixels, 1, 0) else D2.new(1, 0, 0, pixels)
+					return if vertical(use)
+						then D2.new(0, pixels, 1, 0)
+						elseif inline then D2.fromOffset(0, pixels)
+						else D2.new(1, 0, 0, pixels)
 				end),
 				ClipsDescendants = false,
 			}

@@ -145,6 +145,15 @@ Composition handles TopbarInset and its fallback; read `HUD-actions` to match
 Roblox's row. A marker may occupy the focus area when locating that target is
 the task. End commands and notices when their context ends.
 
+A portrait phone has a short top bar strip and narrow corners. A wide readout
+that does not fit the strip lands below the bar. When it is too wide for the
+top row, it moves under the corner columns and spans the screen. There it
+covers the ground ahead of the player, lines up with no other panel, and a
+bar in it can become a short stub. Give such a region a short form, such as
+one line of text, that fits beside one top corner. Composition then keeps it
+in the top row, beside that corner. Keep the bar in the forms for wider screens.
+Check portrait in Studio with real text, also while an optional goal shows.
+
 Composition is passive. Gameplay keeps the movement stick and D-pad.
 Give HUD tasks explicit gamepad actions and visible input hints. The opened
 task surface owns selection; choose a useful, safe initial target through the
