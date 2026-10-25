@@ -385,11 +385,14 @@ function parts.room(
 	body: ScrollingFrame?,
 	natural: (ComposeTypes.Use) -> number,
 	maximum: (ComposeTypes.Use) -> number,
-	fill: boolean,
+	fill: boolean | ComposeTypes.Readable<boolean>,
 	unit: ComposeTypes.Readable<number>?
 ): Room
 	local Compose, Host, E, D2 = ctx.Compose, ctx.Host, ctx.types.Enum, ctx.types.UDim2
 	local gap = 8
+	local function filling(use: ComposeTypes.Use): boolean
+		return if type(fill) == "boolean" then fill else use(fill)
+	end
 	local sizes: { ComposeTypes.Readable<Vector2> } = {}
 	for _, region in regions do
 		if region ~= body then
@@ -417,7 +420,7 @@ function parts.room(
 			return content
 		end
 		local room = math.max(0, maximum(use) - use(pinned))
-		return if fill then room else math.min(content, room)
+		return if filling(use) then room else math.min(content, room)
 	end)
 	local overflowing = Compose.formula(function(use: ComposeTypes.Use): boolean
 		return not use(tight) and natural(use) > use(bodyHeight) + 1
@@ -442,10 +445,10 @@ function parts.room(
 		AutomaticCanvasSize = E.AutomaticSize.Y,
 		ScrollingEnabled = tight,
 		AutomaticSize = function(use: ComposeTypes.Use)
-			return if fill or use(tight) then E.AutomaticSize.None else E.AutomaticSize.Y
+			return if filling(use) or use(tight) then E.AutomaticSize.None else E.AutomaticSize.Y
 		end,
 		Size = function(use: ComposeTypes.Use)
-			return if fill or use(tight) then D2.new(1, 0, 0, maximum(use)) else D2.new(1, 0, 0, 0)
+			return if filling(use) or use(tight) then D2.new(1, 0, 0, maximum(use)) else D2.new(1, 0, 0, 0)
 		end,
 		Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = ctx.types.UDim.new(0, gap) }),
 	}

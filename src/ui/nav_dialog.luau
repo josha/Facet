@@ -27,7 +27,7 @@ local KEYS = {
 
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
-	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
+	local E, D2, V2, Edge = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 
 	local function blank(value: unknown): boolean
 		return type(value) ~= "string" or string.match(value, "%S") == nil
@@ -164,10 +164,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local function widthPx(use: ComposeTypes.Use): number
 					return math.max(0, math.min(parts.width(ctx, spec.width, use), use(extent).X - 2 * margin(use)))
 				end
+				local covering = Compose.cell(false)
+				local function available(use: ComposeTypes.Use): number
+					return math.max(0, use(extent).Y - keyboard(use))
+				end
 				local function roomPx(use: ComposeTypes.Use): number
-					local available = math.max(0, use(extent).Y - keyboard(use))
-					local minimum = math.min(ctx.metric("targetSizes.minimum", use), math.max(0, available - 32))
-					return math.max(minimum, available - 4 * margin(use))
+					local minimum = math.min(ctx.metric("targetSizes.minimum", use), math.max(0, available(use) - 32))
+					return math.max(minimum, available(use) - (if use(covering) then 2 else 4) * margin(use))
 				end
 				local regions: { GuiObject } = {}
 				if spec.hero then
@@ -273,7 +276,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					return use(naturalSize).Y
 				end, function(use: ComposeTypes.Use)
 					return roomPx(use)
-				end, false, unit)
+				end, covering, unit)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local need = use(room.pinned) + use(naturalSize).Y + 2 * margin(use)
+					covering:set(need + 2 * ctx.metric("space.xl", use) > available(use))
+				end)
 				if body and spec.contentSelectable ~= false then
 					local scroller = body
 					runtime.decorate(scroller, { Selectable = room.overflowing })
@@ -317,6 +324,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local settled = Compose.cell(false)
 				local held: ComposeTypes.Cell<Vector2?> = Compose.cell(nil :: Vector2?)
 				local shown = surfaces.appearance(phase, ctx.motionTiming("dialog"), settled)
+				local function side(use: ComposeTypes.Use): UDim
+					return Edge.new(0, 16 + if use(covering) then (use(extent).X - widthPx(use)) / 2 else 0)
+				end
 				local panelProps: Types.CanvasGroupNativeProps = {
 					Name = "Panel",
 					AnchorPoint = V2.new(0.5, 0.5),
@@ -324,11 +334,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						return D2.new(0.5, 0, 0.5, -keyboard(use) / 2)
 					end,
 					Size = function(use: ComposeTypes.Use)
+						if use(covering) then
+							return D2.fromOffset(use(extent).X, available(use))
+						end
 						local box = use(held)
 						return D2.fromOffset(widthPx(use), if box then math.ceil(box.Y) else 0)
 					end,
 					AutomaticSize = function(use: ComposeTypes.Use)
-						return if use(held) then E.AutomaticSize.None else E.AutomaticSize.Y
+						return if use(held) or use(covering) then E.AutomaticSize.None else E.AutomaticSize.Y
 					end,
 					BackgroundTransparency = 0,
 					BorderSizePixel = 0,
@@ -336,7 +349,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						return 1 - shown.opacity(use)
 					end,
 					room.frame :: Instance,
-					ctx.padding(16, 16),
+					Host.UIPadding({
+						PaddingTop = Edge.new(0, 16),
+						PaddingBottom = Edge.new(0, 16),
+						PaddingLeft = side,
+						PaddingRight = side,
+					}) :: Instance,
 					ctx.corner(),
 				}
 				local panel = ctx.styled(ctx.fade(panelProps, true), "dialog")

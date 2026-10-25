@@ -791,7 +791,7 @@ return function(verifyHarness: Verify.Harness)
 				sized(w, 400)
 				local body, room = w.find("Body"), w.find("Room")
 				Verify.expect(room.ScrollingEnabled):toBe(true)
-				Verify.expect(room.Size.Y.Offset):toBe(160 - 64)
+				Verify.expect(room.Size.Y.Offset):toBe(160 - 32)
 				Verify.expect(body.ScrollingEnabled):toBe(false)
 				Verify.expect(body.Size.Y.Offset):toBe(400)
 				Verify.expect((actionButton(w, "Leave"):IsDescendantOf(room))):toBe(true)
@@ -833,7 +833,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(room.ScrollingEnabled):toBe(false)
 				Verify.expect(body.ScrollingEnabled):toBe(true)
 				w.engine.environment.poke(w.screen, "AbsoluteSize", Vector2.new(320, 90))
-				Verify.expect(room.Size.Y.Offset):toBe(44)
+				Verify.expect(room.Size.Y.Offset):toBe(90 - 32)
 				w.stop()
 			end,
 		})
@@ -855,6 +855,36 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
+
+		verifyHarness:case(
+			"a dialog that cannot keep clear margins covers the safe area so page chrome cannot read as its own",
+			{
+				id = "native_dialog::native Dialog: composition, layout and the height budget::a dialog that cannot keep clear margins covers the safe area so page chrome cannot read as its own",
+				run = function()
+					local open, log, change = caller()
+					local w = mount(standard(open, log, change), nil, { size = Vector2.new(749, 323) })
+					sized(w, 40)
+					local panel, room = w.find("Panel"), w.find("Room")
+					local padding = panel:FindFirstChildWhichIsA("UIPadding")
+					local card = panel.Size.X.Offset
+					Verify.expect(card < 749):toBe(true)
+					Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
+					Verify.expect(padding.PaddingLeft.Offset):toBe(16)
+					sized(w, 180)
+					Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
+					Verify.expect(panel.Size.X.Offset):toBe(749)
+					Verify.expect(panel.Size.Y.Offset):toBe(323)
+					Verify.expect(room.Size.Y.Offset):toBe(323 - 32)
+					Verify.expect(padding.PaddingLeft.Offset):toBe(16 + math.floor((749 - card) / 2))
+					Verify.expect(padding.PaddingRight.Offset):toBe(16 + math.floor((749 - card) / 2))
+					Verify.expect(w.find("Body").Size.Y.Offset > 180):toBe(true)
+					sized(w, 40)
+					Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
+					Verify.expect(panel.Size.X.Offset):toBe(card)
+					w.stop()
+				end,
+			}
+		)
 
 		verifyHarness:case("stacks two actions when the longer label does not fit its equal share of the row", {
 			id = "native_dialog::native Dialog: composition, layout and the height budget::stacks two actions when the longer label does not fit its equal share of the row",
