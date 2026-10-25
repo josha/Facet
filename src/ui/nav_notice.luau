@@ -215,7 +215,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				FlexMode = function(use: ComposeTypes.Use)
 					return if use(beside) then E.UIFlexMode.Fill else E.UIFlexMode.None
 				end,
-			}) :: Instance,
+			}),
 		})
 		local bodyChildren: { Types.Child } = { copyFrame }
 		if link ~= nil or #actions > 0 then
@@ -247,7 +247,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				)
 			end
 			local row = ctx.row(accessories, { Name = "Accessories" })
-			local list = row:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
+			local list = row:FindFirstChildWhichIsA("UIListLayout")
 			if list then
 				list.Wraps = true
 				list.VerticalAlignment = E.VerticalAlignment.Center
@@ -359,7 +359,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			BorderSizePixel = 0,
 			ZIndex = if placement == "affixed" then 50 else nil,
 		}
-		local native = (ctx.props(spec, NOTICE_KEYS, defaults) :: unknown) :: { [unknown]: unknown }
+		local native = ctx.props(spec, NOTICE_KEYS, defaults) :: { [unknown]: unknown }
 		local restVisible = native.Visible
 		native.Visible = function(use: ComposeTypes.Use): boolean
 			return read(restVisible, use) ~= false
@@ -392,11 +392,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			if settled(use) then
 				return rest
 			end
-			local width = if typeof(rest) == "UDim2" then (rest :: UDim2).X else UD.new(1, 0)
+			local width = if typeof(rest) == "UDim2" then rest.X else UD.new(1, 0)
 			local tallest = use(bodyExtent).Y
 			for _, child in rowChildren do
-				if typeof(child) == "Instance" and child ~= body and (child :: Instance):IsA("GuiObject") then
-					tallest = math.max(tallest, (child :: GuiObject).Size.Y.Offset)
+				if typeof(child) == "Instance" and child ~= body and child:IsA("GuiObject") then
+					tallest = math.max(tallest, child.Size.Y.Offset)
 				end
 			end
 			local height = tallest + inset.PaddingTop.Offset + inset.PaddingBottom.Offset
@@ -408,7 +408,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		native.Interactable = function(use: ComposeTypes.Use): unknown
 			return not use(leaving) and not use(preparing) and read(restInteractable, use) ~= false
 		end
-		root = Host.Frame((native :: unknown) :: Types.FrameNativeProps)
+		root = Host.Frame(native :: Types.FrameNativeProps)
 		if not prepares then
 			present:set(true)
 		end
@@ -476,7 +476,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					local function publish()
 						local box = root.AbsoluteSize
 						local paints = box.X > 0 and box.Y > 0 and root.Visible
-						local top = root.AbsolutePosition.Y - (layer :: GuiBase2d).AbsolutePosition.Y
+						local top = root.AbsolutePosition.Y - layer.AbsolutePosition.Y
 						reservations.set(
 							layer,
 							token,
@@ -630,7 +630,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		})
 		local stacked = Compose.cell(false)
 		local rootChildren: { Types.Child } = { primaryFrame }
-		local trailingFrame: GuiObject? = nil
+		local trailingFrame: ScrollingFrame? = nil
 		if spec.trailing then
 			local trailing = Host.ScrollingFrame "Trailing" {
 				BackgroundTransparency = 1,
@@ -665,7 +665,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			root:AddTag(plate)
 		end
 		root:SetAttribute("FacetNavBar", true)
-		local list = root:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
+		local list = root:FindFirstChildWhichIsA("UIListLayout")
 		if list then
 			runtime.decorate(list, {
 				FillDirection = function(use: ComposeTypes.Use)
@@ -683,7 +683,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			table.insert(rows, trailingFrame)
 		end
 		for _, frame in rows do
-			local layout = frame:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
+			local layout = frame:FindFirstChildWhichIsA("UIListLayout")
 			if layout then
 				runtime.decorate(layout, {
 					VerticalAlignment = E.VerticalAlignment.Center,
@@ -709,13 +709,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end
 		if trailingFrame then
 			local available = ctx.layoutSize(root)
-			local unit = ctx.layoutUnit(root :: GuiObject)
-			local trailingLayout = assert(trailingFrame:FindFirstChildWhichIsA("UIListLayout")) :: UIListLayout
+			local unit = ctx.layoutUnit(root)
+			local trailingLayout = assert(trailingFrame:FindFirstChildWhichIsA("UIListLayout"))
 			local content = ctx.observe.AbsoluteContentSize(trailingLayout)
 			local scrollStyle = (ctx.observeStyled :: unknown) :: {
 				ScrollBarThickness: (ScrollingFrame) -> ComposeTypes.Cell<number>,
 			}
-			local thickness = scrollStyle.ScrollBarThickness(trailingFrame :: ScrollingFrame)
+			local thickness = scrollStyle.ScrollBarThickness(trailingFrame)
 			local function offered(use: ComposeTypes.Use): number
 				local width = use(available).X
 				return if width > 0

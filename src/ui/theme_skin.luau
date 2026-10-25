@@ -170,7 +170,7 @@ return function(
 		if recipe == nil or recipe.kind == "native" or recipe.kind == "none" or overText then
 			return {}
 		end
-		local state = (read(settings.state, use) or "default") :: ThemeTypes.SkinState
+		local state: ThemeTypes.SkinState = (read(settings.state, use) or "default") :: ThemeTypes.SkinState
 		local selected = read(settings.selected, use) == true
 		local direction = if slot == "barCap" then read(settings.direction, use) or "ltr" else nil
 		local fit = read(settings.fit, use)
@@ -190,7 +190,7 @@ return function(
 			if deeplyFrozen(package, {}) then
 				local snapshot: CompiledLayers = {
 					package = package,
-					state = state :: ThemeTypes.SkinState,
+					state = state,
 					selected = selected,
 					direction = direction,
 					fit = fit,
@@ -211,7 +211,7 @@ return function(
 			anchor: Vector2?,
 			source: ThemeTypes.AssetSource?
 		)
-			local assetName, link = variantAsset(source or layer.asset, state :: ThemeTypes.SkinState, selected)
+			local assetName, link = variantAsset(source or layer.asset, state, selected)
 			local asset = assetName and (package.assets or {})[assetName]
 			if not asset then
 				return
@@ -284,20 +284,20 @@ return function(
 			local name = slot .. tostring(index)
 			if layer.kind == "corners" then
 				local size = if type(layer.size) == "number" then layer.size else 16
-				for corner, point in
-					{
-						topLeft = V2.new(0, 0),
-						topRight = V2.new(1, 0),
-						bottomLeft = V2.new(0, 1),
-						bottomRight = V2.new(1, 1),
-					} :: { [string]: Vector2 }
-				do
-					local asset = ({
+				local corners: { [string]: Vector2 } = {
+					topLeft = V2.new(0, 0),
+					topRight = V2.new(1, 0),
+					bottomLeft = V2.new(0, 1),
+					bottomRight = V2.new(1, 1),
+				}
+				for corner, point in corners do
+					local cornerAssets: { [string]: ThemeTypes.AssetSource? } = {
 						topLeft = layer.topLeft,
 						topRight = layer.topRight,
 						bottomLeft = layer.bottomLeft,
 						bottomRight = layer.bottomRight,
-					} :: { [string]: ThemeTypes.AssetSource? })[corner]
+					}
+					local asset = cornerAssets[corner]
 					if asset or layer.asset then
 						image(
 							layer,
@@ -311,7 +311,9 @@ return function(
 				end
 			elseif layer.kind == "edges" then
 				local thickness, margin = layer.thickness or 8, layer.margin or 0
-				for _, edge in (layer.sides or { "top", "right", "bottom", "left" }) :: { string } do
+				local sides: { "top" | "right" | "bottom" | "left" } = layer.sides
+					or { "top", "right", "bottom", "left" }
+				for _, edge in sides do
 					local horizontal = edge == "top" or edge == "bottom"
 					local endPoint = edge == "bottom" or edge == "right"
 					local size = if horizontal

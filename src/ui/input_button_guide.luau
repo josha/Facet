@@ -49,7 +49,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		return tostring(value)
 	end
 	local function keyOf(entry: Entry): unknown
-		local fields = (entry :: unknown) :: Fields
+		local fields = entry
 		if fields.action ~= nil then
 			return fields.action
 		end
@@ -100,7 +100,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 	end
 	UI.ButtonGuide = ctx.construct("ButtonGuide", function(spec: InputTypes.ButtonGuideImplementationProps): Frame
 		assert(spec.entries ~= nil, "Facet.ButtonGuide: entries is required")
-		local inputs = ((spec.inputs :: unknown) or { "Gamepad" }) :: { unknown }
+		local inputs: { string } = spec.inputs or { "Gamepad" }
 		assert(type(inputs) == "table" and #inputs > 0, "Facet.ButtonGuide: inputs must be a nonempty list")
 		local accepted: { [string]: boolean } = {}
 		for _, input in inputs do
@@ -109,7 +109,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				input == "Gamepad" or input == "KeyboardAndMouse",
 				"Facet.ButtonGuide: inputs takes Gamepad and KeyboardAndMouse"
 			)
-			accepted[input :: string] = true
+			accepted[input] = true
 		end
 		local effective = ctx.effectiveInput()
 		local bare = Compose.formula(function(use: ComposeTypes.Use): boolean
@@ -118,9 +118,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local entries = Compose.formula(function(use: ComposeTypes.Use): { Entry }
 			return check(read(spec.entries, use))
 		end)
-		local shown = Compose.cell({} :: Shown)
+		local shown: ComposeTypes.Cell<Shown> = Compose.cell({})
 		local placed = Compose.cell(0)
-		local hint = (UI.ShortcutHint :: unknown) :: (InputProps.ShortcutHintProps) -> TextLabel | Frame
+		local hint: (InputProps.ShortcutHintProps) -> TextLabel | Frame = UI.ShortcutHint
 		local function keyCodeHint(
 			codes: { Enum.KeyCode },
 			label: (ComposeTypes.Use) -> string,
@@ -155,7 +155,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		local function render(value: ComposeTypes.Readable<Entry>, index: ComposeTypes.Readable<number>): GuiObject
 			local entry = value:peek()
-			local fields = (entry :: unknown) :: Fields
+			local fields = entry
 			local action = entry.action
 			local live: ComposeTypes.Readable<boolean>? = nil
 			if action then
@@ -203,7 +203,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				Visible = visible,
 			} :: unknown) :: InputProps.ShortcutHintProps)
 		end
-		local p = props(spec :: Shared.FrameNativeProps, KEYS, {
+		local p = props(spec, KEYS, {
 			Name = "ButtonGuide",
 			Size = D2.fromOffset(0, 0),
 			AutomaticSize = E.AutomaticSize.XY,
@@ -237,7 +237,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				}
 			end,
 		})
-		local root = Host.Frame(p :: Shared.FrameNativeProps)
+		local root = Host.Frame(p)
 		runtime.connect(root, "AncestryChanged", function()
 			placed:set(placed:peek() + 1)
 		end)
