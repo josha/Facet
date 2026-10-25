@@ -768,7 +768,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			for part in string.gmatch(name, "[^/]+") do
 				at = if at then at:FindFirstChild(part, true) else nil
 			end
-			return if at and at:IsA("GuiObject") and usable(at :: GuiObject) then at :: GuiObject else nil
+			return if at and at:IsA("GuiObject") and usable(at) then at else nil
 		end
 		local function first(): GuiObject?
 			local list: { GuiObject } = {}
@@ -892,7 +892,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				found:IsA("BasePart") or found:IsA("Model") or found:IsA("Player"),
 				"Facet UI.worldAnchor: target must be a BasePart, Model or Player"
 			)
-			local target: Instance? = if found:IsA("Player") then (found :: Player).Character else found
+			local target: Instance? = if found:IsA("Player") then found.Character else found
 			if target == nil or not target:IsDescendantOf((place :: unknown) :: Instance) then
 				return { visible = false }
 			end

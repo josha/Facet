@@ -1,7 +1,7 @@
 --!strict
 local Types = require("./types")
 
-type Value<T> = Types.Value<T>
+export type Value<T> = Types.Value<T>
 
 export type Rect = { x: number, y: number, w: number, h: number }
 export type ScaleMode = "fit" | "crop" | "stretch"

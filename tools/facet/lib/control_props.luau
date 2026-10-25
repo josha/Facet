@@ -432,6 +432,147 @@ local function tableFields(): FieldReader
 	end
 end
 
+export type Imports = { aliasOf: { [string]: string }, pathOf: { [string]: string }, lines: { string } }
+
+local function splitArguments(text: string?): { string }
+	if text == nil then
+		return {}
+	end
+	local inner = assert(string.match(text, "^%s*<(.*)>%s*$"), `control_props: malformed type arguments {text}`)
+	local result: { string } = {}
+	local depth, start = 0, 1
+	for index = 1, #inner do
+		local character = string.sub(inner, index, index)
+		if character == "<" or character == "{" or character == "(" then
+			depth += 1
+		elseif character == ">" or character == "}" or character == ")" then
+			depth -= 1
+		elseif character == "," and depth == 0 then
+			table.insert(result, (string.gsub(string.sub(inner, start, index - 1), "^%s*(.-)%s*$", "%1")))
+			start = index + 1
+		end
+	end
+	table.insert(result, (string.gsub(string.sub(inner, start), "^%s*(.-)%s*$", "%1")))
+	return result
+end
+
+type Declared = {
+	parsed: Luau.Parsed,
+	source: string,
+	types: { [string]: Luau.Node },
+	exported: { [string]: boolean },
+	requires: { [string]: string },
+}
+
+local function declaredFields(): (string, string, string?, string, Imports) -> { [string]: string }
+	local modules: { [string]: Declared } = {}
+	local function load(path: string): Declared
+		local found = modules[path]
+		if found then
+			return found
+		end
+		local source = Files.text(path)
+		local parsed, problem = Luau.parse(source)
+		assert(parsed, `control_props: cannot parse {path}: {problem}`)
+		local declared: Declared = { parsed = parsed, source = source, types = {}, exported = {}, requires = {} }
+		for _, statement in Luau.items(parsed.root, "statements") do
+			if Luau.tag(statement) == "typealias" then
+				local key = Luau.tokenText(statement, "name")
+				if key then
+					declared.types[key] = statement
+					declared.exported[key] = statement.export ~= nil
+				end
+			end
+		end
+		for name, target in string.gmatch(source, '\nlocal ([%a_][%w_]*) = require%("([^"]+)"%)') do
+			if name and target then
+				declared.requires[name] = target
+			end
+		end
+		modules[path] = declared
+		return declared
+	end
+	local function slice(declared: Declared, node: Luau.Node): (number, number)
+		local location = Luau.location(node)
+		return Luau.offset(declared.parsed, location.beginLine, location.beginColumn),
+			Luau.offset(declared.parsed, location.endLine, location.endColumn) - 1
+	end
+	return function(
+		path: string,
+		name: string,
+		arguments: string?,
+		alias: string,
+		imports: Imports
+	): { [string]: string }
+		local declared = load(path)
+		local statement = assert(declared.types[name], `control_props: {path} has no type {name}`)
+		local generics: { [string]: string } = {}
+		local values = splitArguments(arguments)
+		for index, generic in Luau.items(statement, "generics") do
+			local key = assert(Luau.tokenText(generic, "name"), `control_props: {name} has an unnamed generic`)
+			generics[key] = values[index] or key
+		end
+		local function importAlias(prefix: string): string
+			local target = declared.requires[prefix]
+			if target == nil then
+				return prefix
+			end
+			local existing = imports.aliasOf[target]
+			if existing then
+				return existing
+			end
+			assert(imports.pathOf[prefix] == nil, `control_props: alias {prefix} names two modules`)
+			imports.aliasOf[target], imports.pathOf[prefix] = prefix, target
+			table.insert(imports.lines, `local {prefix} = require("{target}")`)
+			return prefix
+		end
+		local result: { [string]: string } = {}
+		for _, entry in Luau.items(assert(Luau.child(statement, "type")), "entries") do
+			local key = Luau.tokenText(entry, "key")
+			local value = Luau.child(entry, "value")
+			if key == nil or value == nil then
+				continue
+			end
+			local first, last = slice(declared, value)
+			local edits: { { first: number, last: number, text: string } } = {}
+			Luau.walk(value, function(node: Luau.Node): boolean
+				local tag = Luau.tag(node)
+				assert(tag ~= "typeof", `control_props: {name}.{key} uses typeof`)
+				if tag ~= "reference" then
+					return true
+				end
+				local nameToken = assert(Luau.child(node, "name"))
+				local prefixToken = Luau.child(node, "prefix")
+				local text = assert(Luau.text(nameToken))
+				local replacement: string? = nil
+				if prefixToken then
+					replacement = importAlias(assert(Luau.text(prefixToken))) .. "." .. text
+				elseif generics[text] then
+					replacement = generics[text]
+				elseif declared.types[text] then
+					assert(declared.exported[text], `control_props: {path} must export {text} for {name}.{key}`)
+					replacement = alias .. "." .. text
+				end
+				if replacement then
+					local from = slice(declared, prefixToken or nameToken)
+					local _, to = slice(declared, nameToken)
+					table.insert(edits, { first = from, last = to, text = replacement })
+				end
+				return true
+			end)
+			table.sort(edits, function(a, b)
+				return a.first > b.first
+			end)
+			local text = string.sub(declared.source, first, last)
+			for _, edit in edits do
+				text = string.sub(text, 1, edit.first - first) .. edit.text .. string.sub(text, edit.last - first + 2)
+			end
+			result[key] = text
+		end
+		return result
+	end
+end
+
 local function camel(name: string): string
 	return string.lower(string.sub(name, 1, 1)) .. string.sub(name, 2)
 end
@@ -446,8 +587,17 @@ end
 
 local function generate(family: Family): string
 	local readFields = tableFields()
+	local readDeclared = declaredFields()
 	local lines =
 		{ "--!strict", 'local Compose = require("../vendor/compose/core")', 'local Engine = require("./engine_types")' }
+	local imports: Imports = {
+		aliasOf = { ["../vendor/compose/core"] = "Compose", ["./engine_types"] = "Engine" },
+		pathOf = { Compose = "../vendor/compose/core", Engine = "./engine_types" },
+		lines = {},
+	}
+	for alias, path in family.modules do
+		imports.aliasOf[path], imports.pathOf[alias] = alias, path
+	end
 	local aliases = {}
 	for alias in family.modules do
 		table.insert(aliases, alias)
@@ -457,32 +607,15 @@ local function generate(family: Family): string
 		table.insert(lines, `local {alias} = require("{family.modules[alias]}")`)
 	end
 	table.insert(lines, "")
-	local witnesses: { [string]: string } = {}
-	local taken: { [string]: boolean } = {}
-	local witnessLines = {}
-	local function witness(key: string, typeText: string, short: string): string
-		local existing = witnesses[key]
-		if existing then
-			return existing
-		end
-		local local_ = camel(short)
-		if taken[local_] then
-			local_ = camel(key)
-		end
-		taken[local_] = true
-		witnesses[key] = local_
-		table.insert(witnessLines, `local {local_} = (nil :: unknown) :: {typeText}`)
-		return local_
-	end
 	local blocks = {}
 	local function body(recipe: Recipe, extra: { string }, tail: { string }?): { string }
 		local out = {}
 		local seen: { [string]: string } = {}
 		local native = assert(recipe.native, `control_props: {recipe.name} has no native root props`)
-		local nativeWitness = witness(native, `Engine.{native}`, (string.gsub(native, "Props$", "")))
+		local nativeTypes = readDeclared(ENGINE, native, nil, "Engine", imports)
 		for _, field in readFields(ENGINE, native) do
 			seen[field] = native
-			table.insert(out, `\t{field}: typeof({nativeWitness}.{field}),`)
+			table.insert(out, `\t{field}: {nativeTypes[field]},`)
 		end
 		local parts = table.clone(recipe.parts or {})
 		for _, part in extra do
@@ -493,9 +626,7 @@ local function generate(family: Family): string
 			local path = family.modules[part.alias]
 			assert(path, `control_props: {family.output} has no module alias {part.alias}`)
 			local file = "src/ui/" .. string.sub(path, 3) .. ".luau"
-			local access = if part.arguments
-				then `((nil :: unknown) :: {part.text})`
-				else witness(part.alias .. part.name, part.text, (string.gsub(part.name, "Options$", "")))
+			local declared = readDeclared(file, part.name, part.arguments, part.alias, imports)
 			for _, field in readFields(file, part.name) do
 				assert(
 					seen[field] == nil,
@@ -503,7 +634,7 @@ local function generate(family: Family): string
 				)
 				seen[field] = text
 				local override = recipe.overrides and recipe.overrides[field]
-				table.insert(out, if override then `\t{field}: {override},` else `\t{field}: typeof({access}.{field}),`)
+				table.insert(out, `\t{field}: {override or declared[field]},`)
 			end
 		end
 		if tail then
@@ -522,22 +653,13 @@ local function generate(family: Family): string
 				local path = family.modules[part.alias]
 				assert(path, `control_props: {family.output} has no module alias {part.alias}`)
 				local file = "src/ui/" .. string.sub(path, 3) .. ".luau"
-				local argument = if part.arguments then string.gsub(part.arguments, "[^%w]", "") else ""
-				local access = if part.arguments and recipe.params
-					then `((nil :: unknown) :: {part.text})`
-					else witness(
-						part.alias .. part.name .. argument,
-						part.text,
-						string.gsub(part.name, "Options$", "")
-							.. string.upper(string.sub(argument, 1, 1))
-							.. string.sub(argument, 2)
-					)
+				local declared = readDeclared(file, part.name, part.arguments, part.alias, imports)
 				for _, field in readFields(file, part.name) do
 					assert(fields[field] == nil, `control_props: {variant.name} receives {field} twice`)
 					if not table.find(order, field) then
 						table.insert(order, field)
 					end
-					fields[field] = `typeof({access}.{field})`
+					fields[field] = declared[field]
 				end
 			end
 			types[index] = fields
@@ -584,7 +706,8 @@ local function generate(family: Family): string
 			table.insert(blocks, "}")
 		end
 	end
-	for _, line in witnessLines do
+	table.sort(imports.lines)
+	for _, line in imports.lines do
 		table.insert(lines, line)
 	end
 	table.insert(lines, "")

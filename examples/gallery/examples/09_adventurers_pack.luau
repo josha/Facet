@@ -208,7 +208,7 @@ return {
 								end,
 								Size = D2.new(1, 0, 0, 310),
 								UI.fill(),
-								ref = function(node)
+								ref = function(node: ScrollingFrame)
 									view.observeWidth(measuredWidth, node)
 								end,
 								render = function(current: Readable<Item>): GuiObject
