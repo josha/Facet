@@ -17,7 +17,8 @@ properties and reports:
   high    text that does not fit or that an ancestor clips, low text contrast,
           controls or text past the screen edge
   medium  content past the safe area, touch targets under 44 points, controls
-          that overlap, controls that a gamepad cannot reach, hidden focus
+          that overlap, controls that a gamepad cannot reach, hidden focus, a HUD
+          zone moved into the play view
   low     broken selection links, too many text sizes or spacing values
 
 Each rule prints its fix once per run. Every screen keeps its score and findings.
@@ -38,6 +39,7 @@ local FIXES: { [string]: string } = {
 	["text-clipped"] = 'A parent with ClipsDescendants cuts the text. Let the container grow (AutomaticSize or height = "hug") or put the content in a ScrollView.',
 	["contrast-low"] = "The text color is too close to its background. Use a textRole and the theme surfaces instead of literal colors, or an appearance that the theme pairs with readable text.",
 	["offscreen"] = 'The element extends past the screen. Use width = "fill" with maxWidth, an adaptive control, or a ScrollView for long content.',
+	["hud-in-view"] = "A top or bottom Composition region did not fit beside the corner zones of its row, so the zone moved under them, into the play view. Give the region a shorter form that fits beside one corner, such as one line of text, make a corner region narrower, or give the region mayDrop = true.",
 	["outside-safe-area"] = "The element is under the notch or the home bar. Put HUD content in UI.Composition regions or a UI.Screen, which keep the safe insets.",
 	["touch-target-small"] = "A control is smaller than 44 points on a touch device. Use a Facet control with a controlSize (the target floor keeps 44 points on touch), or a larger Size.",
 	["interactive-overlap"] = "Two controls overlap and neither contains the other, so a tap can hit the wrong one. Lay them out in a stack or a grid instead of absolute positions.",

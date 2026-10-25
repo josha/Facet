@@ -153,6 +153,7 @@ bar in it can become a short stub. Give such a region a short form, such as
 one line of text, that fits beside one top corner. Composition then keeps it
 in the top row, beside that corner. Keep the bar in the forms for wider screens.
 Check portrait in Studio with real text, also while an optional goal shows.
+`lute run tools/facet audit` reports a zone that moved into the view as `hud-in-view`.
 
 Composition is passive. Gameplay keeps the movement stick and D-pad.
 Give HUD tasks explicit gamepad actions and visible input hints. The opened

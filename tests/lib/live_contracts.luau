@@ -111,6 +111,7 @@ local SUITES: { { id: string, cases: { string } } } = {
 			"callout-edge-gap-shift-clamp",
 			"callout-tail-centre-border-corners",
 			"circle-button-authored-axes",
+			"hud-goals-card-fits-every-device",
 			"navigation-stack-root-box-and-back-chrome",
 			"panel-insets-reserve-native-padding",
 			"progress-short-end-label-keeps-its-text",
