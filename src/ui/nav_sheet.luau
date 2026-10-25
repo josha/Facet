@@ -11,6 +11,7 @@ local sheetContent = require("./nav_sheet_content")
 local transitions = require("./transition")
 local arrival = require("./overlay_arrival")
 local glass = require("./glass")
+local gameplayHold = require("./gameplay_hold")
 
 type Prepared = sheetDetents.Prepared
 
@@ -323,6 +324,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local root = Host.Frame(
 			ctx.props(spec, KEYS, { Name = "Sheet", BackgroundTransparency = 1, Size = D2.fromOffset(0, 0) })
 		)
+		Compose.watch(function(use: ComposeTypes.Use)
+			if use(spec.isPresented) then
+				Compose.cleanup(gameplayHold.hold(ctx.config))
+			end
+		end)
 		surfaces.attach(root, {
 			surfaces.overlay(root, spec.isPresented, function(phase)
 				return modalFor(spec, detent, prepared, nil, phase, root)

@@ -14,6 +14,7 @@ local fontReadiness = require("./font_readiness")
 local textMeasure = require("./text_measure")
 local presentationReadiness = require("./presentation_readiness")
 local glass = require("./glass")
+local gameplayHold = require("./gameplay_hold")
 
 return function(
 	ctx: Types.Context,
@@ -588,6 +589,11 @@ return function(
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			root:SetAttribute("FacetError", use(errorText))
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			if #use(spec.path) > 0 then
+				Compose.cleanup(gameplayHold.hold(ctx.config))
+			end
 		end)
 		return root
 	end

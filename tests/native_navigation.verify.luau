@@ -57,6 +57,7 @@ return function(verifyHarness: Verify.Harness)
 			motionLevel: Shared.Value<Shared.MotionLevel>?,
 			runService: boolean?,
 			preRender: boolean?,
+			gameplay: ((engine: { new: (className: string) -> unknown }) -> Shared.GameplayInput)?,
 		}?
 	)
 		local engine = engines.new()
@@ -98,6 +99,7 @@ return function(verifyHarness: Verify.Harness)
 			theme = options and options.theme,
 			pressHaptic = options and options.pressHaptic and options.pressHaptic(engine),
 			motionLevel = options and options.motionLevel,
+			gameplay = options and options.gameplay and options.gameplay(engine),
 		})
 		local target = engine.new("Folder")
 		local stop, screen: any = runtime.mount(function()
@@ -616,26 +618,10 @@ return function(verifyHarness: Verify.Harness)
 			function()
 				for _, initiallyEnabled in { true, false } do
 					local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
-					local acquired, released = 0, 0
 					local disposed: { [string]: boolean } = {}
 					local gameplay: InputContext
-					local world = setup(function(UI: FacetControls, _Host: RobloxHost, engine)
-						gameplay = (engine.new("InputContext") :: unknown) :: InputContext
-						gameplay.Enabled = initiallyEnabled
-						local hasPage = Compose.formula(function(use: Compose.Use): boolean
-							return #use(path) > 0
-						end)
-						Compose.watch(function(use: Compose.Use)
-							if use(hasPage) then
-								local previous = gameplay.Enabled
-								gameplay.Enabled = false
-								acquired += 1
-								Compose.cleanup(function()
-									gameplay.Enabled = previous
-									released += 1
-								end)
-							end
-						end)
+					local stick: GuiObject
+					local world = setup(function(UI: FacetControls)
 						local function destination(name: string): Navigation.NavigationDestination<unknown>
 							return {
 								content = function(): Instance
@@ -656,34 +642,99 @@ return function(verifyHarness: Verify.Harness)
 							},
 							destinations = { first = destination("first"), second = destination("second") },
 						}
-					end)
+					end, {
+						gameplay = function(engine)
+							gameplay = (engine.new("InputContext") :: unknown) :: InputContext
+							gameplay.Enabled = initiallyEnabled
+							stick = (engine.new("Frame") :: unknown) :: GuiObject
+							return { contexts = { gameplay }, controls = { stick } }
+						end,
+					})
 					Verify.expect(gameplay.Enabled):toBe(initiallyEnabled)
 					path:set({ { id = "first" } })
 					world.settle()
 					Verify.expect(gameplay.Enabled):toBe(false)
+					Verify.expect(stick.Visible):toBe(false)
+					Verify.expect(world.gui.TouchControlsEnabled):toBe(false)
 					path:set({ { id = "second" } })
 					Verify.expect(disposed.first):toBeNil()
 					Verify.expect(gameplay.Enabled):toBe(false)
 					world.settle()
 					Verify.expect(disposed.first):toBe(true)
 					Verify.expect(gameplay.Enabled):toBe(false)
-					Verify.expect(acquired):toBe(1)
-					Verify.expect(released):toBe(0)
 					path:set({})
 					Verify.expect(disposed.second):toBeNil()
 					Verify.expect(gameplay.Enabled):toBe(initiallyEnabled)
-					Verify.expect(released):toBe(1)
+					Verify.expect(stick.Visible):toBe(true)
+					Verify.expect(world.gui.TouchControlsEnabled):toBe(true)
 					world.settle()
 					Verify.expect(disposed.second):toBe(true)
 					path:set({ { id = "first" } })
 					Verify.expect(gameplay.Enabled):toBe(false)
-					Verify.expect(acquired):toBe(2)
 					world.stop()
 					Verify.expect(gameplay.Enabled):toBe(initiallyEnabled)
-					Verify.expect(released):toBe(2)
+					Verify.expect(world.gui.TouchControlsEnabled):toBe(true)
 				end
 			end
 		)
+		verifyHarness:case("keeps gameplay suspended until both a page and a Sheet over it close", function()
+			for _, pageFirst in { true, false } do
+				local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
+				local opened = Compose.cell(false)
+				local gameplay: InputContext
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame {
+						UI.NavigationStack {
+							path = path,
+							chrome = "hidden",
+							root = {
+								content = function(): Instance
+									return UI.Button { label = "Gameplay" }
+								end,
+							},
+							destinations = {
+								shop = {
+									content = function(): Instance
+										return UI.Button { label = "Shop" }
+									end,
+								},
+							},
+						},
+						UI.Sheet {
+							isPresented = opened,
+							content = function(): Instance
+								return Host.Frame {}
+							end,
+						},
+					}
+				end, {
+					gameplay = function(engine)
+						gameplay = (engine.new("InputContext") :: unknown) :: InputContext
+						gameplay.Enabled = true
+						return { contexts = { gameplay } }
+					end,
+				})
+				path:set({ { id = "shop" } })
+				opened:set(true)
+				Verify.expect(gameplay.Enabled):toBe(false)
+				Verify.expect(world.gui.TouchControlsEnabled):toBe(false)
+				if pageFirst then
+					path:set({})
+				else
+					opened:set(false)
+				end
+				Verify.expect(gameplay.Enabled):toBe(false)
+				Verify.expect(world.gui.TouchControlsEnabled):toBe(false)
+				if pageFirst then
+					opened:set(false)
+				else
+					path:set({})
+				end
+				Verify.expect(gameplay.Enabled):toBe(true)
+				Verify.expect(world.gui.TouchControlsEnabled):toBe(true)
+				world.stop()
+			end
+		end)
 		verifyHarness:case("places floating tab tracks and marks inside phone and landscape bounds", {
 			id = "native_navigation::native navigation controls::places floating tab tracks and marks inside phone and landscape bounds",
 			run = function()

@@ -49,13 +49,14 @@ dedicated interface. For other HUD roots, use `UI.responder`; `engage` and
 `resign` make the transition explicit. `engageOnPress = false` permits a press
 to activate a control without taking the keyboard.
 
-A page that replaces gameplay disables the game's gameplay InputContext and
-custom touch actions. If it hides native movement controls, save and restore
-the previous `GuiService.TouchControlsEnabled` value. Use one Compose lifetime
-for the whole active task, as in `Tasks.pages`. Keep it while the navigation
-path is nonempty; replacing a retained page must not release its input policy.
-Close a child surface without restoring gameplay while its parent still owns
-input. A visible overlay does not pause the world; the game owns that decision.
+A page that replaces gameplay suspends gameplay input. Give `Facet.app` the
+game's gameplay InputContexts and custom touch controls once, as `gameplay =
+{ contexts = { ... }, controls = { ... } }`. While a NavigationStack path is
+nonempty or a Sheet is presented, Facet disables those contexts, hides those
+controls and turns off `GuiService.TouchControlsEnabled`. Overlapping surfaces
+share one suspension, and the last to close restores the prior values. It does
+not wait for exit motion. A visible overlay does not pause the world; the game
+owns that decision.
 
 Native InputContext priority and `Sink` resolve competing action bindings;
 disabling the gameplay context makes its ownership explicit. The responder's

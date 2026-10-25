@@ -42,6 +42,12 @@ Factory-options.keyboardNavigation option values and behavior.
 - `buttonGuides`: a boolean or a readable boolean, `true` by default. `false`
   hides every [ButtonGuide](ButtonGuide.reference.md). Bind one player
   settings Toggle to it.
+- `gameplay`: `{ contexts = { InputContext }?, controls = { GuiObject }? }`,
+  the game's gameplay input. While a NavigationStack path is nonempty or a
+  Sheet is presented, Facet sets each context's `Enabled` and each control's
+  `Visible` to `false` and turns off `GuiService.TouchControlsEnabled`. When
+  the last of them closes, Facet restores the prior values. See
+  [Tasks.pages](Tasks.pages.md).
 - `services`, `guiService`, `userInputService` and `types`: native dependencies.
 - `inputParent` and `overlayParent`: placement targets. Presented controls
   mount inside `overlayParent` when you set it. They measure its live bounds

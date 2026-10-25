@@ -6,11 +6,9 @@ local scrollLock = require("./scroll_lock")
 local surfaceKit = require("./nav_surface_kit")
 local modalInput = require("./nav_modal_input")
 local glass = require("./glass")
+local gameplayHold = require("./gameplay_hold")
 
 export type Modal = (() -> GuiObject, (string?) -> (), Nav.ModalOptions?) -> Frame
-local touchControls = (
-	setmetatable({}, { __mode = "k" }) :: unknown
-) :: { [GuiService]: { count: number, enabled: boolean } }
 
 return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -195,32 +193,17 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			})
 		end
 		local released = false
-		local heldTouch: GuiService? = nil
+		local heldTouch: (() -> ())? = nil
 		local function holdTouch()
-			if gui == nil or heldTouch ~= nil then
-				return
+			if heldTouch == nil then
+				heldTouch = gameplayHold.touch(gui)
 			end
-			local lease = touchControls[gui]
-			if lease == nil then
-				lease = { count = 0, enabled = gui.TouchControlsEnabled }
-				touchControls[gui] = lease
-			end
-			lease.count += 1
-			heldTouch = gui
-			gui.TouchControlsEnabled = false
 		end
 		local function releaseTouch()
-			local service = heldTouch
+			local release = heldTouch
 			heldTouch = nil
-			if service then
-				local lease = touchControls[service]
-				if lease then
-					lease.count -= 1
-					if lease.count == 0 then
-						touchControls[service] = nil
-						service.TouchControlsEnabled = lease.enabled
-					end
-				end
+			if release then
+				release()
 			end
 		end
 		local function entryTarget(): GuiObject?
