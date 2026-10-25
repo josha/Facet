@@ -2,7 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 
-type Value<T> = Shared.Value<T>
+export type Value<T> = Shared.Value<T>
 
 export type CellBinding<T> = { value: ComposeTypes.Cell<T>, onChange: ((T) -> ())? }
 export type RequestBinding<T> = { value: Value<T>, onChange: (T) -> () }

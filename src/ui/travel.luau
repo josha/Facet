@@ -128,7 +128,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 				while current do
 					if
 						current:FindFirstChildWhichIsA("UIScale")
-						or (current:IsA("GuiObject") and (current :: GuiObject).ClipsDescendants)
+						or (current:IsA("GuiObject") and current.ClipsDescendants)
 					then
 						return false
 					end
