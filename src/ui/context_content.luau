@@ -441,8 +441,8 @@ return function(
 			AutomaticSize = Enum.AutomaticSize.XY,
 			TextXAlignment = Enum.TextXAlignment.Left,
 		}
-		local fields = (native :: unknown) :: { [unknown]: unknown }
-		for key, value in ((properties or {}) :: unknown) :: { [unknown]: unknown } do
+		local fields = native :: { [unknown]: unknown }
+		for key, value in (properties or {}) :: { [unknown]: unknown } do
 			fields[key] = value
 		end
 		local label = ctx.styled(Host.TextLabel(native), "Text")
@@ -615,8 +615,8 @@ return function(
 		elseif resample() ~= Enum.ResamplerMode.Default then
 			native.ResampleMode = resample()
 		end
-		local fields = (native :: unknown) :: { [unknown]: unknown }
-		for key, value in ((properties or {}) :: unknown) :: { [unknown]: unknown } do
+		local fields = native :: { [unknown]: unknown }
+		for key, value in (properties or {}) :: { [unknown]: unknown } do
 			fields[key] = value
 		end
 		return ctx.styled(Host.ImageLabel(native), "Icon")
