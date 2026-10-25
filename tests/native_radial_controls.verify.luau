@@ -482,8 +482,8 @@ return function(verifyHarness: Verify.Harness)
 					iconSize = 40,
 					ringWidth = 96,
 					items = {
-						{ id = "gear", label = "Gear", icon = "menu", labelStyle = "icon" :: "icon" } :: Radial.RadialItem<any>,
-						{ id = "wave", label = "Wave", icon = "flag", labelStyle = "icon" :: "icon" } :: Radial.RadialItem<any>,
+						{ id = "gear", label = "Gear", icon = "menu", labelStyle = "icon" :: "icon" } :: Radial.RadialItem<string>,
+						{ id = "wave", label = "Wave", icon = "flag", labelStyle = "icon" :: "icon" } :: Radial.RadialItem<string>,
 					},
 				}, true)
 				world.step(1)
