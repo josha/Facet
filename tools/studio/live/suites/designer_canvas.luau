@@ -16,7 +16,7 @@ type Live = {
 	check: (string, boolean, unknown?) -> (),
 	note: (string, unknown) -> (),
 }
-type Probe = { width: () -> number, read: () -> unknown, close: () -> () }
+type Probe = { width: (() -> number)?, expected: string?, read: () -> unknown, close: () -> () }
 type Case = {
 	id: string,
 	contracts: { string },
@@ -40,6 +40,72 @@ local function module(name: string): ModuleScript
 end
 
 local cases: { Case } = {
+	{
+		id = "drag-moves-a-layer-below-its-siblings",
+		contracts = {},
+		plan = "drag: drag from first to below",
+		setup = function(t: Live): Probe
+			local designer = loadDesigner(module("designer"))
+			local document = loadDocument(module("document"))
+			local value = document.new("Move probe")
+			local first, second, third
+			value, first = document.insert(value, value.root.id, "Text")
+			value, second = document.insert(value, value.root.id, "Text")
+			value, third = document.insert(value, value.root.id, "Text")
+			local screen = Instance.new("ScreenGui")
+			screen.Name = "DesignerMoveProbe"
+			screen.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+			local session = designer.mount(require(ReplicatedStorage:WaitForChild("Facet")), screen, {
+				read = function()
+					return { draft = value }
+				end,
+			})
+			t.settle(20)
+			local layers: { GuiObject } = {}
+			for _, child in value.root.children do
+				for _, node in screen:GetDescendants() do
+					if node:GetAttribute("FacetDesignNode") == child.id and node:IsA("GuiObject") and node.Visible then
+						table.insert(layers, node)
+						break
+					end
+				end
+			end
+			assert(#layers == 3, "the three layers are on the canvas")
+			local from = layers[1].AbsolutePosition + layers[1].AbsoluteSize / 2
+			local last = layers[3]
+			t.note("points", {
+				first = { math.floor(from.X + 0.5), math.floor(from.Y + 0.5) },
+				below = { math.floor(from.X + 0.5), math.floor(last.AbsolutePosition.Y + last.AbsoluteSize.Y + 12.5) },
+			})
+			return {
+				expected = table.concat({ second, third, first }, ","),
+				read = function(): unknown
+					local children = session.document().root.children
+					local ids: { string } = {}
+					for _, child in children do
+						table.insert(ids, child.id)
+					end
+					return table.concat(ids, ",")
+				end,
+				close = function()
+					session.dispose()
+					screen:Destroy()
+				end,
+			}
+		end,
+		steps = {
+			drag = function(t: Live, probe: Probe)
+				t.settle(10)
+				local order = probe.read()
+				t.check(
+					"dragging the first layer below the last one moves it to the end",
+					order == probe.expected,
+					{ order = order, expected = probe.expected }
+				)
+				probe.close()
+			end,
+		},
+	},
 	{
 		id = "selection-overlay-follows-the-layer",
 		contracts = {},
@@ -188,7 +254,7 @@ local cases: { Case } = {
 			drag = function(t: Live, probe: Probe)
 				t.settle(10)
 				local width = probe.read()
-				local expected = math.round(probe.width() / 4) * 4
+				local expected = math.round(assert(probe.width)() / 4) * 4
 				t.check(
 					"dragging the east handle 40 screen px sets the snapped design width",
 					type(width) == "number" and math.abs(width - expected) <= 4 and width % 4 == 0,

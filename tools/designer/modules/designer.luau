@@ -72,6 +72,9 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 		resize = function(id: string, extents: { width: number?, height: number? })
 			actions.resize(id, extents)
 		end,
+		move = function(id: string, destination: string, before: number)
+			actions.moveLayer(id, destination, before)
+		end,
 	}
 	local menuCallback: any
 	local disposed = false
@@ -570,6 +573,11 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 			commit(function(current, selection)
 				return document.move(current, selection, target)
 			end)
+		end)
+	end
+	actions.moveLayer = function(id: string, destination: string, before: number)
+		commit(function(current)
+			return document.move(current, id, destination, before), id
 		end)
 	end
 	actions.reorderLayers = function(keys, slot)

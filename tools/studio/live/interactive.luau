@@ -712,6 +712,11 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		io.drag(point(points, "pileUpper"), point(points, "pileLeft"))
 		live.step("dragPile")
 	end
+	drivers["drag-moves-a-layer-below-its-siblings"] = function(_, _, io)
+		local points = shared.FacetLiveSession.record.notes.points
+		io.drag(point(points, "first"), point(points, "below"))
+		live.step("drag")
+	end
 	drivers["resize-handle-drag-sets-the-layer-width"] = function(_, _, io)
 		local points = shared.FacetLiveSession.record.notes.points
 		io.drag(point(points, "east"), point(points, "past"))
