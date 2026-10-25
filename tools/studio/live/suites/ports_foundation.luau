@@ -296,7 +296,9 @@ interactive(
 			t.device({ device = "xbox", input = Enum.PreferredInput.Gamepad })
 			t.note("gamepad input", inputFacts())
 			t.check("a gamepad is available", UserInputService.GamepadEnabled, inputFacts())
-			checkRows(t, "gamepad menu (same panel)", value.panel, MENU_ROWS, 44)
+			local tenFoot = GuiService:IsTenFootInterface()
+			t.note("ten-foot interface", tenFoot)
+			checkRows(t, "gamepad menu (same panel)", value.panel, MENU_ROWS, if tenFoot then 44 * 1.5 else 44)
 		end,
 		desktop = function(t: any, value: any)
 			desktop(t)
