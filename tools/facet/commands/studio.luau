@@ -30,7 +30,7 @@ local function run(invocation: Cli.Invocation): number
 	local casesFromTree = false
 	local studio: string? = nil
 	local resumeRun: string? = nil
-	local device = "none"
+	local device = "hd_1080"
 	local sharedValues: { string } = {}
 	local index = 2
 	while index <= #invocation.arguments do
