@@ -417,7 +417,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		return root
 	end
 	local function construct<V, K>(
-		spec: CollectionProps.CollectionSpec<V, K>,
+		spec: CollectionProps.CollectionSpec<V, K> | CollectionProps.OutlineSpec<V, K>,
 		kind: ComposeTypes.OrderedCollectionLayoutKind,
 		tree: TreeTypes.Tree<V, K>?,
 		actionsWrapped: boolean?,
