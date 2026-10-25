@@ -63,6 +63,19 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 	local view, bench: any
 	local automaticZoom = true
 	local actions: any = {}
+	local canvas = {
+		selected = selected,
+		interactive = interactive,
+		select = function(id: string)
+			actions.select(id)
+		end,
+		resize = function(id: string, extents: { width: number?, height: number? })
+			actions.resize(id, extents)
+		end,
+		move = function(id: string, destination: string, before: number)
+			actions.moveLayer(id, destination, before)
+		end,
+	}
 	local menuCallback: any
 	local disposed = false
 	local function jsonEncode(value)
@@ -151,9 +164,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 			canEditLayer = id ~= value.root.id,
 		})
 		if rebuild then
-			bench.actions.design(
-				render.definition(value, { selected = selected, interactive = interactive, select = actions.select })
-			)
+			bench.actions.design(render.definition(value, canvas))
 			local state = bench.model:peek()
 			patch({
 				status = if state.error ~= ""
@@ -169,12 +180,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 			local nextValue, nextId = callback(value, id)
 			document.validate(nextValue)
 			assert(document.find(nextValue.root, nextId or id), "Selection does not exist")
-			local applied = bench.actions.design(
-				render.definition(
-					nextValue,
-					{ selected = selected, interactive = interactive, select = actions.select }
-				)
-			)
+			local applied = bench.actions.design(render.definition(nextValue, canvas))
 			assert(applied, bench.model:peek().error)
 			local ok, err = pcall(function()
 				if dependencies.updateSource then
@@ -183,12 +189,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 				return true
 			end)
 			if not ok then
-				bench.actions.design(
-					render.definition(
-						value,
-						{ selected = selected, interactive = interactive, select = actions.select }
-					)
-				)
+				bench.actions.design(render.definition(value, canvas))
 				error(err, 0)
 			end
 			stack.commit(nextValue, nextId or id)
@@ -309,6 +310,19 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 	actions.property = function(key, value)
 		commit(function(current, id)
 			return document.change(current, id, key, value)
+		end)
+	end
+	actions.resize = function(id: string, extents: { width: number?, height: number? })
+		commit(function(current)
+			local node = assert(document.find(current.root, id))
+			local nextValue = current
+			for _, key in { "width", "height" } do
+				local extent = extents[key]
+				if extent and library.descriptor(node.kind, key) then
+					nextValue = document.change(nextValue, id, key, extent)
+				end
+			end
+			return nextValue, id
 		end)
 	end
 	local function showStructured()
@@ -559,6 +573,11 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 			commit(function(current, selection)
 				return document.move(current, selection, target)
 			end)
+		end)
+	end
+	actions.moveLayer = function(id: string, destination: string, before: number)
+		commit(function(current)
+			return document.move(current, id, destination, before), id
 		end)
 	end
 	actions.reorderLayers = function(keys, slot)

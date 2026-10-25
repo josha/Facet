@@ -48,6 +48,12 @@ local SUITES: { { id: string, cases: { string } } } = {
 		},
 	},
 	{
+		id = "designer_canvas",
+		cases = {
+			"selection-overlay-follows-the-layer",
+		},
+	},
+	{
 		id = "focus_probe",
 		cases = {
 			"F11-selection-image-part",

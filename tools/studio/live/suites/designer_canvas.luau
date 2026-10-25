@@ -8,16 +8,28 @@ type Render = typeof(require("@repo/tools/designer/modules/design_render"))
 type Templates = typeof(require("@repo/tools/designer/modules/templates"))
 type Designer = typeof(require("@repo/tools/designer/modules/designer"))
 type Document = typeof(require("@repo/tools/designer/modules/document"))
+type Library = typeof(require("@repo/tools/designer/modules/library"))
 type Live = {
 	mount: ((FacetControls, RobloxHost, ComposeModule) -> Instance, { size: Vector2 }) -> Instance,
 	settle: (number) -> (),
 	find: (Instance, string) -> Instance?,
 	check: (string, boolean, unknown?) -> (),
+	note: (string, unknown) -> (),
+}
+type Probe = { width: (() -> number)?, expected: string?, read: () -> unknown, close: () -> () }
+type Case = {
+	id: string,
+	contracts: { string },
+	plan: string?,
+	run: ((Live) -> ())?,
+	setup: ((Live) -> Probe)?,
+	steps: { [string]: (Live, Probe) -> () }?,
 }
 local loadRender: (ModuleScript) -> Render = require
 local loadTemplates: (ModuleScript) -> Templates = require
 local loadDesigner: (ModuleScript) -> Designer = require
 local loadDocument: (ModuleScript) -> Document = require
+local loadLibrary: (ModuleScript) -> Library = require
 local Live = require(script.Parent.Parent)
 
 local function module(name: string): ModuleScript
@@ -27,7 +39,73 @@ local function module(name: string): ModuleScript
 	return found
 end
 
-return {
+local cases: { Case } = {
+	{
+		id = "drag-moves-a-layer-below-its-siblings",
+		contracts = {},
+		plan = "drag: drag from first to below",
+		setup = function(t: Live): Probe
+			local designer = loadDesigner(module("designer"))
+			local document = loadDocument(module("document"))
+			local value = document.new("Move probe")
+			local first, second, third
+			value, first = document.insert(value, value.root.id, "Text")
+			value, second = document.insert(value, value.root.id, "Text")
+			value, third = document.insert(value, value.root.id, "Text")
+			local screen = Instance.new("ScreenGui")
+			screen.Name = "DesignerMoveProbe"
+			screen.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+			local session = designer.mount(require(ReplicatedStorage:WaitForChild("Facet")), screen, {
+				read = function()
+					return { draft = value }
+				end,
+			})
+			t.settle(20)
+			local layers: { GuiObject } = {}
+			for _, child in value.root.children do
+				for _, node in screen:GetDescendants() do
+					if node:GetAttribute("FacetDesignNode") == child.id and node:IsA("GuiObject") and node.Visible then
+						table.insert(layers, node)
+						break
+					end
+				end
+			end
+			assert(#layers == 3, "the three layers are on the canvas")
+			local from = layers[1].AbsolutePosition + layers[1].AbsoluteSize / 2
+			local last = layers[3]
+			t.note("points", {
+				first = { math.floor(from.X + 0.5), math.floor(from.Y + 0.5) },
+				below = { math.floor(from.X + 0.5), math.floor(last.AbsolutePosition.Y + last.AbsoluteSize.Y + 12.5) },
+			})
+			return {
+				expected = table.concat({ second, third, first }, ","),
+				read = function(): unknown
+					local children = session.document().root.children
+					local ids: { string } = {}
+					for _, child in children do
+						table.insert(ids, child.id)
+					end
+					return table.concat(ids, ",")
+				end,
+				close = function()
+					session.dispose()
+					screen:Destroy()
+				end,
+			}
+		end,
+		steps = {
+			drag = function(t: Live, probe: Probe)
+				t.settle(10)
+				local order = probe.read()
+				t.check(
+					"dragging the first layer below the last one moves it to the end",
+					order == probe.expected,
+					{ order = order, expected = probe.expected }
+				)
+				probe.close()
+			end,
+		},
+	},
 	{
 		id = "selection-overlay-follows-the-layer",
 		contracts = {},
@@ -114,4 +192,78 @@ return {
 			screen:Destroy()
 		end,
 	},
+	{
+		id = "resize-handle-drag-sets-the-layer-width",
+		contracts = {},
+		plan = "drag: drag from east to past",
+		setup = function(t: Live): Probe
+			local designer = loadDesigner(module("designer"))
+			local document = loadDocument(module("document"))
+			local library = loadLibrary(module("library"))
+			local screen = Instance.new("ScreenGui")
+			screen.Name = "DesignerResizeProbe"
+			screen.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+			local session = designer.mount(require(ReplicatedStorage:WaitForChild("Facet")), screen, {})
+			t.settle(20)
+			local value = session.document()
+			local chosen: string? = nil
+			for _, row in document.rows(value.root) do
+				if chosen == nil and row.id ~= value.root.id and library.descriptor(row.kind, "width") then
+					chosen = row.id
+				end
+			end
+			local id = assert(chosen, "the template has a layer with a width")
+			session.actions.select(id)
+			t.settle(10)
+			local grip = t.find(screen, "ResizeEast")
+			assert(
+				grip and grip:IsA("GuiObject") and grip.Parent and grip.Parent:IsA("GuiObject"),
+				"the resize handle is shown"
+			)
+			local frame = grip.Parent
+			local detector = grip:FindFirstChildWhichIsA("UIDragDetector")
+			assert(detector, "the handle has a drag detector")
+			local function design(): number
+				return frame.Size.X.Offset + 40 * frame.Size.X.Offset / frame.AbsoluteSize.X
+			end
+			local width = design()
+			local started = detector.DragStart:Connect(function()
+				width = design()
+			end)
+			local centre = grip.AbsolutePosition + grip.AbsoluteSize / 2
+			t.note("points", {
+				east = { math.floor(centre.X + 0.5), math.floor(centre.Y + 0.5) },
+				past = { math.floor(centre.X + 40.5), math.floor(centre.Y + 0.5) },
+			})
+			return {
+				width = function(): number
+					return width
+				end,
+				read = function(): unknown
+					local node = document.find(session.document().root, id)
+					return if node then node.props.width else nil
+				end,
+				close = function()
+					started:Disconnect()
+					session.dispose()
+					screen:Destroy()
+				end,
+			}
+		end,
+		steps = {
+			drag = function(t: Live, probe: Probe)
+				t.settle(10)
+				local width = probe.read()
+				local expected = math.round(assert(probe.width)() / 4) * 4
+				t.check(
+					"dragging the east handle 40 screen px sets the snapped design width",
+					type(width) == "number" and math.abs(width - expected) <= 4 and width % 4 == 0,
+					{ width = width, expected = expected }
+				)
+				probe.close()
+			end,
+		},
+	},
 }
+
+return cases

@@ -252,6 +252,132 @@ return function(verifyHarness: Verify.Harness)
 				mounted.dispose()
 			end,
 		})
+		verifyHarness:case("moves the dragged layer to the slot under the pointer with a drop marker", {
+			id = "facet_designer::Facet Design selection overlay::moves the dragged layer to the slot under the pointer with a drop marker",
+			run = function()
+				local Compose = Facet.Compose
+				local value = document.new("Move")
+				local first, second, third
+				value, first = document.insert(value, value.root.id, "Text")
+				value, second = document.insert(value, value.root.id, "Text")
+				value, third = document.insert(value, value.root.id, "Text")
+				local selected, interactive = Compose.cell(value.root.id), Compose.cell(false)
+				local moves: { { id: string, destination: string, before: number } } = {}
+				local mounted, engine, parent = fixture(function(ctx)
+					return render.build(value, ctx, {
+						selected = selected,
+						interactive = interactive,
+						select = function(id: string)
+							selected:set(id)
+						end,
+						move = function(id: string, destination: string, before: number)
+							table.insert(moves, { id = id, destination = destination, before = before })
+						end,
+					})
+				end)
+				local capture = assert(parent:FindFirstChild("DesignSelection", true))
+				local marker = assert(capture:FindFirstChild("DesignDropMarker"))
+				local detector = assert(capture:FindFirstChildOfClass("UIDragDetector"))
+				local layers = {}
+				for _, descendant in parent:GetDescendants() do
+					local id = descendant:GetAttribute("FacetDesignNode")
+					if type(id) == "string" then
+						layers[id] = descendant
+					end
+				end
+				local V2, poke = engine.types.Vector2, engine.environment.poke
+				poke(capture, "AbsolutePosition", V2.new(0, 0))
+				local ancestor = layers[value.root.id]
+				while ancestor and ancestor ~= parent.Parent do
+					poke(ancestor, "AbsolutePosition", V2.new(0, 0))
+					poke(ancestor, "AbsoluteSize", V2.new(400, 300))
+					ancestor = ancestor.Parent
+				end
+				for index, id in { first, second, third } do
+					poke(layers[id], "AbsolutePosition", V2.new(0, (index - 1) * 60))
+					poke(layers[id], "AbsoluteSize", V2.new(400, 50))
+				end
+				local fire = engine.environment.fire
+				fire(detector, "DragStart", V2.new(10, 10))
+				fire(detector, "DragContinue", V2.new(10, 12))
+				Verify.expect(marker.Visible):toBe(false)
+				fire(detector, "DragContinue", V2.new(10, 100))
+				Verify.expect(marker.Visible):toBe(true)
+				Verify.expect(marker.Position):toEqual(engine.types.UDim2.fromOffset(0, 119))
+				Verify.expect(marker.Size):toEqual(engine.types.UDim2.fromOffset(400, 2))
+				fire(detector, "DragEnd", V2.new(10, 100))
+				Verify.expect(marker.Visible):toBe(false)
+				Verify.expect(moves):toEqual({ { id = first, destination = value.root.id, before = 2 } })
+				local moved = document.move(value, first, value.root.id, 2)
+				Verify.expect(moved.root.children[2].id):toBe(first)
+				fire(detector, "DragStart", V2.new(10, 200))
+				fire(detector, "DragContinue", V2.new(10, 20))
+				fire(detector, "DragEnd", V2.new(10, 20))
+				Verify.expect(#moves):toBe(1)
+				mounted.dispose()
+			end,
+		})
+		verifyHarness:case("resizes the selected layer from its handles in one snapped edit", {
+			id = "facet_designer::Facet Design selection overlay::resizes the selected layer from its handles in one snapped edit",
+			run = function()
+				local Compose = Facet.Compose
+				local value = templates[1]
+				local child = assert(value.root.children[1])
+				local selected, interactive = Compose.cell(child.id), Compose.cell(false)
+				local edits: { { id: string, width: number?, height: number? } } = {}
+				local mounted, engine, parent = fixture(function(ctx)
+					return render.build(value, ctx, {
+						selected = selected,
+						interactive = interactive,
+						select = function(id: string)
+							selected:set(id)
+						end,
+						resize = function(id: string, extents: { width: number?, height: number? })
+							table.insert(edits, { id = id, width = extents.width, height = extents.height })
+						end,
+					})
+				end)
+				local capture = assert(parent:FindFirstChild("DesignSelection", true))
+				local frame = assert(capture:FindFirstChild("DesignSelected"))
+				local handles = assert(capture:FindFirstChild("DesignSelectedHandles"))
+				Verify.expect(capture:FindFirstChild("DesignHoverHandles")):toBe(nil)
+				local target
+				for _, descendant in parent:GetDescendants() do
+					if descendant:GetAttribute("FacetDesignNode") == child.id then
+						target = descendant
+					end
+				end
+				engine.environment.poke(target, "AbsoluteSize", engine.types.Vector2.new(120, 32))
+				Verify.expect(handles.Visible):toBe(true)
+				Verify.expect(handles.Size):toEqual(frame.Size)
+				local east =
+					assert(assert(handles:FindFirstChild("ResizeEast")):FindFirstChildOfClass("UIDragDetector"))
+				local corner =
+					assert(assert(handles:FindFirstChild("ResizeSouthEast")):FindFirstChildOfClass("UIDragDetector"))
+				local fire = engine.environment.fire
+				fire(east, "DragStart", engine.types.Vector2.new(0, 0))
+				fire(east, "DragContinue", engine.types.Vector2.new(41, 300))
+				Verify.expect(frame.Size):toEqual(engine.types.UDim2.fromOffset(160, 32))
+				Verify.expect(assert(frame:FindFirstChild("Size")).Text):toBe("160 × 32")
+				fire(east, "DragEnd", engine.types.Vector2.new(41, 300))
+				Verify.expect(edits):toEqual({ { id = child.id, width = 160 } })
+				fire(corner, "DragStart", engine.types.Vector2.new(0, 0))
+				fire(corner, "DragContinue", engine.types.Vector2.new(-500, 9))
+				fire(corner, "DragEnd", engine.types.Vector2.new(-500, 9))
+				Verify.expect(edits[2]):toEqual({ id = child.id, width = 4, height = 40 })
+				Verify.expect(frame.Size):toEqual(engine.types.UDim2.fromOffset(120, 32))
+				local zoom = engine.environment.createInstance("UIScale")
+				zoom.Scale = 2
+				zoom.Parent = parent
+				engine.environment.poke(target, "AbsoluteSize", engine.types.Vector2.new(240, 64))
+				Verify.expect(frame.Size):toEqual(engine.types.UDim2.fromOffset(120, 32))
+				fire(east, "DragStart", engine.types.Vector2.new(0, 0))
+				fire(east, "DragContinue", engine.types.Vector2.new(16, 0))
+				fire(east, "DragEnd", engine.types.Vector2.new(16, 0))
+				Verify.expect(edits[3]):toEqual({ id = child.id, width = 128 })
+				mounted.dispose()
+			end,
+		})
 	end)
 
 	verifyHarness:suite("Facet Design editor overlays", function()
