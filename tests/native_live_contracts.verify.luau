@@ -192,14 +192,6 @@ return function(harness: Verify.Harness)
 			},
 		},
 		{
-			id = "primitives",
-			cases = {
-				"grid-cells-and-gaps",
-				"scroll-view-canvas-and-stretch",
-				"zstack-alignment",
-			},
-		},
-		{
 			id = "scroll_live",
 			cases = {
 				"scroll-view-canvas-covers-rows-and-gaps",

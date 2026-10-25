@@ -160,8 +160,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			if column == nil then
 				return rows
 			end
-			local sorted = ascending
-			if sorted == nil or sorted.rows ~= rows or sorted.column ~= column then
+			local items: { V }, values: { unknown }
+			local cached = ascending
+			if cached ~= nil and cached.rows == rows and cached.column == column then
+				items, values = cached.items, cached.values
+			else
 				local indexed: { { item: V, index: number, value: unknown, number: number?, text: string? } } =
 					table.create(#rows)
 				for index, item in rows do
@@ -188,14 +191,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 					end
 					return left < right
 				end)
-				local items: { V }, values: { unknown } = table.create(#rows), table.create(#rows)
+				items, values = table.create(#rows), table.create(#rows)
 				for index, entry in indexed do
 					items[index], values[index] = entry.item, entry.value
 				end
-				sorted = { rows = rows, column = column, items = items, values = values }
-				ascending = sorted
+				ascending = { rows = rows, column = column, items = items, values = values }
 			end
-			local items, values = sorted.items, sorted.values
 			if order.direction ~= "descending" then
 				return table.clone(items)
 			end
