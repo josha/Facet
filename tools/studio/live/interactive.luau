@@ -721,6 +721,12 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		local points = shared.FacetLiveSession.record.notes.points
 		io.drag(point(points, "east"), point(points, "past"))
 		live.step("drag")
+	drivers["held-tile-opens-its-slot-and-settles-on-drop"] = function(_, _, io)
+		local points = shared.FacetLiveSession.record.notes.points
+		io.heldDrag(point(points, "from"), point(points, "to"))
+		live.step("held")
+		io.up(point(points, "to"))
+		live.step("dropped")
 	end
 	drivers["color-plane-drag"] = function(_, _, io)
 		local points = shared.FacetLiveSession.record.notes.points

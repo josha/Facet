@@ -43,6 +43,7 @@
     { "id": "ports_overlays", "locator": "tools/studio/live/suites/ports_overlays.luau" },
     { "id": "ports_pickers", "locator": "tools/studio/live/suites/ports_pickers.luau" },
     { "id": "primitives", "locator": "tools/studio/live/suites/primitives.luau" },
+    { "id": "reorder_displacement", "locator": "tools/studio/live/suites/reorder_displacement.luau" },
     { "id": "reward_sequence", "locator": "tools/studio/live/suites/reward_sequence.luau" },
     { "id": "scroll_live", "locator": "tools/studio/live/suites/scroll_live.luau" },
     { "id": "segmented_motion", "locator": "tools/studio/live/suites/segmented_motion.luau" },
