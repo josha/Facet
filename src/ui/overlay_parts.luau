@@ -464,14 +464,7 @@ function parts.room(
 	scrollLock.own(frame, ctx)
 	parts.reach(ctx, frame, tight)
 	if body then
-		scrollFlash(
-			ctx,
-			body,
-			"Y",
-			Compose.formula(function(use: ComposeTypes.Use): boolean
-				return use(overflowing) and (shown == nil or use(shown))
-			end)
-		)
+		scrollFlash(ctx, body, "Y", overflowing, shown)
 	end
 	return { frame = frame, pinned = pinned, tight = tight, bodyHeight = bodyHeight, overflowing = overflowing }
 end

@@ -915,13 +915,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local open, log, change = caller()
 				local insets = { left = 24, right = 24, top = 24, bottom = 24 }
-				local w = mount(
-					standard(open, log, change),
-					{
-						theme = { identity = {}, chrome = { panel = { kind = "native", contentInsets = insets } } },
-					} :: any,
-					{ size = Vector2.new(749, 323) }
-				)
+				local themes = require("../src/ui/themes")(Compose)
+				local package = themes.neutralPackage()
+				package.chrome = { panel = { kind = "native", contentInsets = insets } }
+				local options: Types.Config = { theme = assert(themes.define(package)) }
+				local w = mount(standard(open, log, change), options, { size = Vector2.new(749, 323) })
 				sized(w, 180)
 				local panel, room = w.find("Panel"), w.find("Room")
 				local padding = panel:FindFirstChildWhichIsA("UIPadding")

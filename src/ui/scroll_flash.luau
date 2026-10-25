@@ -2,19 +2,25 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 
-return function(ctx: Types.Context, frame: ScrollingFrame, axis: "X" | "Y", when: ComposeTypes.Readable<boolean>)
+return function(
+	ctx: Types.Context,
+	frame: ScrollingFrame,
+	axis: "X" | "Y",
+	when: ComposeTypes.Readable<boolean>,
+	shown: ComposeTypes.Readable<boolean>?
+)
 	local Compose, V2 = ctx.Compose, ctx.types.Vector2
 	local frames = ctx.config.services and ctx.config.services.RunService
-	if frames == nil then
+	local input = ctx.config.userInputService
+	if frames == nil or input == nil then
 		return
 	end
-	local input = ctx.effectiveInput()
 	Compose.watch(function(use: ComposeTypes.Use)
-		if not use(when) or input(use) ~= "Touch" then
+		if not use(when) or (shown and not use(shown)) then
 			return
 		end
 		local at = frame.CanvasPosition
-		if (if axis == "X" then at.X else at.Y) ~= 0 then
+		if input.PreferredInput ~= ctx.types.Enum.PreferredInput.Touch or (if axis == "X" then at.X else at.Y) ~= 0 then
 			return
 		end
 		local nudged = if axis == "X" then V2.new(1, at.Y) else V2.new(at.X, 1)
