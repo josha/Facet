@@ -79,6 +79,34 @@ add("authored-metric-native-stroke", {}, function(t)
 	t.near("native stroke follows a replacement theme", stroke:GetStyled("Thickness"), 6, 0.01)
 end)
 
+add("chip-pill-near-and-ten-foot", {}, function(t)
+	local themes = t.Facet.themes
+	local function check(distance: "near" | "ten-foot")
+		local package = themes.forDistance(themes.neutralPackage(), distance)
+		local stage = t.mount(function(UI: FacetControls, _Host: RobloxHost, Compose: ComposeModule)
+			return UI.Chip "Global" {
+				label = "Global",
+				selected = Compose.cell(true),
+				onToggle = function(_: boolean) end,
+			}
+		end, { theme = package, size = Vector2.new(600, 300), frames = 6 })
+		local chip = t.find(stage, "Global")
+		local size = chip.AbsoluteSize
+		local padding = chip:FindFirstChildOfClass("UIPadding")
+		local pill = math.floor(assert(package.metrics.controlSizes.regular).height / 2 + 0.5)
+		t.check(
+			distance .. " the chip insets are half its control height",
+			padding ~= nil and padding:GetStyled("PaddingLeft").Offset == pill,
+			{ pill = pill }
+		)
+		t.check(distance .. " the selected chip reads as a pill", size.X >= size.Y * 1.5, size)
+		t.note(distance, { size = size })
+		t.cleanup()
+	end
+	check("near")
+	check("ten-foot")
+end)
+
 add("skeleton-circle-round-sweep", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Holder" {
