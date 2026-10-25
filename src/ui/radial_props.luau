@@ -89,6 +89,7 @@ export type RadialMenuSpec<V = string> = {
 	follow: Radial.Follow?,
 	clearance: Engine.ValueNumber?,
 	ringWidth: Engine.Value<number | Radial.RingWidth>?,
+	iconSize: Engine.ValueNumber?,
 	contentFit: Radial.ContentFit?,
 	gestureSelection: ("bounded" | "direction")?,
 	enabled: Engine.ValueBoolean?,

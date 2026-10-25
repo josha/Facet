@@ -52,6 +52,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			"follow",
 			"clearance",
 			"ringWidth",
+			"iconSize",
 			"contentFit",
 			"gestureSelection",
 			"enabled",

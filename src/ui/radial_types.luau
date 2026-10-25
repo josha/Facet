@@ -118,6 +118,7 @@ export type RadialMenuOptions<V = string> = {
 	follow: Follow?,
 	clearance: Types.ValueNumber?,
 	ringWidth: Types.Value<number | RingWidth>?,
+	iconSize: Types.ValueNumber?,
 	contentFit: ContentFit?,
 	gestureSelection: ("bounded" | "direction")?,
 	enabled: Types.ValueBoolean?,
