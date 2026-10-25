@@ -12,7 +12,7 @@ local noted = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: {
 
 local function publish(layer: Instance)
 	local entries: { [unknown]: Entry } = layers[layer] or {}
-	local height = if layer:IsA("GuiBase2d") then (layer :: GuiBase2d).AbsoluteSize.Y else 0
+	local height = if layer:IsA("GuiBase2d") then layer.AbsoluteSize.Y else 0
 	local top, bottom = 0, 0
 	for _, entry in entries do
 		if entry.edge == "top" then
@@ -47,7 +47,7 @@ function reservations.reserved(layer: GuiBase2d, edge: Edge, skip: { [unknown]: 
 	local reserved = 0
 	for _, candidate in candidates do
 		local entries = layers[candidate]
-		local shown = candidate == layer or not candidate:IsA("LayerCollector") or (candidate :: LayerCollector).Enabled
+		local shown = candidate == layer or not candidate:IsA("LayerCollector") or candidate.Enabled
 		if entries and shown and candidate:IsA("GuiBase2d") then
 			local origin = (candidate :: GuiBase2d).AbsolutePosition.Y
 			for token, entry in entries do
@@ -113,7 +113,7 @@ function reservations.contests(layer: Instance, token: Instance): { Contest }
 	local seen = noted[token]
 	for candidate, entries in claims do
 		local shared = candidate == layer or (parent ~= nil and candidate.Parent == parent)
-		local shown = candidate == layer or not candidate:IsA("LayerCollector") or (candidate :: LayerCollector).Enabled
+		local shown = candidate == layer or not candidate:IsA("LayerCollector") or candidate.Enabled
 		if shared and shown then
 			for other, zones in entries do
 				local told = if seen then seen[other] else nil
