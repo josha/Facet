@@ -122,7 +122,6 @@ local cases: { Case } = {
 			t.settle(10)
 			local found = document.find(session.document().root, child.id)
 			t.check("Delete removes the selected layer", found == nil, child.id)
-			started:Disconnect()
 			session.dispose()
 			screen:Destroy()
 		end,
@@ -179,6 +178,7 @@ local cases: { Case } = {
 					return if node then node.props.width else nil
 				end,
 				close = function()
+					started:Disconnect()
 					session.dispose()
 					screen:Destroy()
 				end,
