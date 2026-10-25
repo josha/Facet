@@ -6,6 +6,11 @@ Run all committed live suites with the existing Studio command:
 lute run tools/facet studio live --all --complete
 ```
 
+The command simulates the `hd_1080` device unless `--device` names another
+device. The simulated device sets a 1919×1080 viewport. Without it, the
+viewport is the Studio window, and docked panels make it smaller than the
+stages. Cases then fail because their content is off the screen.
+
 The committed Verify source plan is `tools/studio/live/plan.json`. The command
 runs those sources and their registered cases. The `plan` producer checks that
 each live suite source on disk appears exactly once. A source addition or removal

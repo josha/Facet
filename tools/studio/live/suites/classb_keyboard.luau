@@ -895,8 +895,12 @@ local function sheetRule(stage: any, selector: string): any
 	end
 	local found
 	for _, rule in sheet:GetChildren() do
-		if rule:IsA("StyleRule") and rule.Selector == selector then
-			found = rule
+		if rule:IsA("StyleRule") then
+			for part in string.gmatch(rule.Selector, "[^,]+") do
+				if string.match(part, "^%s*(.-)%s*$") == selector then
+					found = rule
+				end
+			end
 		end
 	end
 	return found
@@ -952,8 +956,13 @@ add("role-fills-win-at-rest", {}, function(t)
 				{ danger = danger.Priority, hover = hover.Priority, base = baseHover.Priority }
 			)
 		end
-		local cancel = sheetRule(stage, ".facet-role-cancel >> .facet-button-caption")
-		t.check(`{entry.name} the cancel role has its own caption rule`, cancel ~= nil)
+		local cancel = sheetRule(stage, ".facet-role-cancel")
+		local cancelInk = if cancel then t.ruleValue(cancel, "TextColor3") else nil
+		local cancelText = t.find(stage, "Cancel"):GetStyled("TextColor3")
+		t.check(`{entry.name} the cancel role paints its secondary text`, same(cancelText, cancelInk), {
+			text = tostring(cancelText),
+			rule = tostring(cancelInk),
+		})
 		t.cleanup()
 	end
 end)
