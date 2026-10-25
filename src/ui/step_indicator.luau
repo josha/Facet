@@ -196,7 +196,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					local side = math.max(cueSize(use), math.ceil(math.max(bounds.X, bounds.Y, line)) + 8)
 					return D2.fromOffset(side, side)
 				end,
-				Host.UIAspectRatioConstraint({ AspectRatio = 1 }) :: Types.Child,
+				Host.UIAspectRatioConstraint({ AspectRatio = 1 }),
 				ctx.styled(
 					Host.Frame "Circle" {
 						BackgroundTransparency = 1,
@@ -206,12 +206,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 							local state = if step then stateOf(step, read(model, use).current) else "upcoming"
 							return state ~= "complete" and state ~= "error"
 						end,
-						Host.UICorner({ CornerRadius = ctx.round }) :: Types.Child,
-						Host.UIStroke({ ApplyStrokeMode = E.ApplyStrokeMode.Border }) :: Types.Child,
-						numberLabel :: Types.Child,
+						Host.UICorner({ CornerRadius = ctx.round }),
+						Host.UIStroke({ ApplyStrokeMode = E.ApplyStrokeMode.Border }),
+						numberLabel,
 					},
 					"step-circle"
-				) :: Types.Child,
+				),
 				ctx.icon("checkmark", {
 					Name = "Check",
 					Size = D2.fromScale(1, 1),
@@ -219,7 +219,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						local step = stepById(id, use)
 						return step ~= nil and stateOf(step, read(model, use).current) == "complete"
 					end,
-				}) :: Types.Child,
+				}),
 				ctx.icon("status.error", {
 					Name = "Error",
 					Size = D2.fromScale(1, 1),
@@ -227,7 +227,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						local step = stepById(id, use)
 						return step ~= nil and stateOf(step, read(model, use).current) == "error"
 					end,
-				}) :: Types.Child,
+				}),
 			}
 			local label = ctx.text({
 				Name = "Label",
@@ -291,16 +291,16 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					Padding = function(use: ComposeTypes.Use)
 						return D.new(0, ctx.metric("space.s", use))
 					end,
-				}) :: Types.Child,
+				}),
 				Host.UIPadding({
 					PaddingLeft = padding("left"),
 					PaddingRight = padding("right"),
 					PaddingTop = padding("top"),
 					PaddingBottom = padding("bottom"),
-				}) :: Types.Child,
-				cue :: Types.Child,
-				copy :: Types.Child,
-				measure :: Types.Child,
+				}),
+				cue,
+				copy,
+				measure,
 			}
 		end
 		local rowItems = Compose.keyed({
@@ -418,12 +418,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
-			rowLayout :: Types.Child,
+			rowLayout,
 			Host.UIPadding({
 				PaddingBottom = function(use: ComposeTypes.Use)
 					return D.new(0, ctx.metric("space.xs", use) + 2)
 				end,
-			}) :: Types.Child,
+			}),
 			rowItems,
 		}
 		local underline = ctx.styled(
@@ -450,8 +450,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
-			row :: Types.Child,
-			underline :: Types.Child,
+			row,
+			underline,
 		}
 		local stripPosition, stripSize = ctx.observe.AbsolutePosition(strip), ctx.observe.AbsoluteSize(strip)
 		local unit = ctx.layoutUnit(strip)
@@ -545,8 +545,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				FacetForm = checks.attribute(form),
 				FacetListOpen = checks.attribute(listOpen),
 			} :: Types.Attributes,
-			strip :: Types.Child,
-			compact :: Types.Child,
+			strip,
+			compact,
 		}))
 		runtime.decorate(strip, {
 			Visible = function(use: ComposeTypes.Use): boolean

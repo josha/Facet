@@ -154,7 +154,7 @@ function geometry.labelBounds(s: Radial.SectorShape, height: number): LabelBound
 		height = requestedHeight,
 		bounds = bounds,
 	}
-	return (bounds :: unknown) :: LabelBounds
+	return bounds
 end
 
 function geometry.fitContent(

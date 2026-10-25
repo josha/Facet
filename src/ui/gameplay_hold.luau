@@ -23,7 +23,7 @@ local function leaseFor(ctx: Types.Context, gui: GuiService): Lease
 		}
 		leases[gui] = lease
 	end
-	return lease :: Lease
+	return lease
 end
 
 local function hold(ctx: Types.Context, gui: GuiService?, suspends: boolean): () -> ()
