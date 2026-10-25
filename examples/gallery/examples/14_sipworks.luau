@@ -230,7 +230,7 @@ return {
 						end,
 						Size = D2.new(1, 0, 0, 300),
 						UI.fill(),
-						ref = function(node)
+						ref = function(node: ScrollingFrame)
 							view.observeWidth(gridWidth, node)
 						end,
 						render = function(current): GuiObject
