@@ -217,6 +217,12 @@ local function check(spec: Spec, owned: boolean?)
 end
 
 local function checkCollection(collection: Collection)
+	assert(
+		collection.calibrationAttempts == nil
+			or collection.calibrationAttempts == 1
+			or collection.calibrationAttempts == 2,
+		"collection.calibrationAttempts must be one or two"
+	)
 	assert(type(collection.name) == "string" and string.find(collection.name, "%S") ~= nil, "collection needs a name")
 	assert(#collection.benchmarks > 0, "collection needs at least one benchmark")
 	local tool = collection.yardstick

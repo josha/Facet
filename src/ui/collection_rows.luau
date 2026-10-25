@@ -36,6 +36,21 @@ return function<V, K>(
 	local preparing, waiting = view.preparing, view.waiting
 	local crossEdge, fullSizes = view.crossEdge, view.fullSizes
 	local slotSource, withSlots = slots.source, slots.wrap
+	local keyedRows = setmetatable({} :: { [{ V }]: { keys: { K }, index: { [K]: number } } }, { __mode = "k" })
+	local function keysOf(rows: { V }): { keys: { K }, index: { [K]: number } }
+		local cached = keyedRows[rows]
+		if cached == nil then
+			local keys: { K }, index: { [K]: number } = table.create(#rows), {}
+			for position, item in rows do
+				local key = view.keyOf(item, position)
+				keys[position] = key
+				index[key] = position
+			end
+			cached = { keys = keys, index = index }
+			keyedRows[rows] = cached
+		end
+		return cached
+	end
 	local function select(key: K, current: ComposeTypes.Readable<V>, input: InputObject?, clicks: number?): ()
 		if policy.disabled(spec.disabled, current:peek()) or activation.consumed(input) then
 			return
@@ -610,34 +625,38 @@ return function<V, K>(
 								return math.max(0, value - 1)
 							end)
 						end
-						local wanted = false
-						local pendingReplacement = false
 						local nextRows = source(function<T>(cell: ComposeTypes.Readable<T>): T
 							return cell:peek()
 						end)
-						for index, item in nextRows do
-							local nextKey = view.keyOf(item, index)
-							wanted = wanted or nextKey == key
+						local keyed = keysOf(nextRows)
+						local wanted = keyed.index[key] ~= nil
+						local pendingReplacement = false
+						if not wanted then
 							local window = viewport:peek()
-							local at = if controls.placementOf then controls.placementOf(index) else nil
-							local inWindow = spec.mode == "all"
-								or window.size <= 0
-								or (
-									at ~= nil
-									and at.offset + at.size > window.offset
-									and at.offset < window.offset + window.size
-								)
-							pendingReplacement = pendingReplacement or (mounted[nextKey] == nil and inWindow)
+							for index, nextKey in keyed.keys do
+								if mounted[nextKey] == nil then
+									local at = if controls.placementOf then controls.placementOf(index) else nil
+									if
+										spec.mode == "all"
+										or window.size <= 0
+										or (
+											at ~= nil
+											and at.offset + at.size > window.offset
+											and at.offset < window.offset + window.size
+										)
+									then
+										pendingReplacement = true
+										break
+									end
+								end
+							end
 						end
 						if
 							not wanted
 							and pendingReplacement
 							and painted:peek()
 							and not poolOwner.isDisposed()
-							and #source(function<T>(cell: ComposeTypes.Readable<T>): T
-									return cell:peek()
-								end)
-								> 0
+							and #nextRows > 0
 						then
 							parked = previousParent
 							node.Parent = parked
