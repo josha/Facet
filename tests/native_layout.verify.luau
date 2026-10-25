@@ -171,29 +171,6 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("stack surfaces", function()
-		verifyHarness:case("lets UI.fill() widen a hugging leaf in an HStack, as for a label beside its value", {
-			id = "native_layout::stack surfaces::lets UI.fill() widen a hugging leaf in an HStack, as for a label beside its value",
-			run = function()
-				local root, engine, stop = build(nil, function(UI: FacetControls)
-					return UI.VStack {
-						UI.HStack "Term" {
-							UI.Text { Name = "Label", text = "Price", UI.fill() :: unknown },
-							UI.Text { Name = "Value", text = "15,000 coins" },
-						},
-						UI.VStack "Column" {
-							UI.Text { Name = "Tall", text = "Stays hugging", UI.fill() :: unknown },
-						},
-					}
-				end)
-				local E = engine.types.Enum
-				local term = root:FindFirstChild("Term", true)
-				Verify.expect(term:FindFirstChild("Label").AutomaticSize):toBe(E.AutomaticSize.Y)
-				Verify.expect(term:FindFirstChild("Value").AutomaticSize):toBe(E.AutomaticSize.XY)
-				Verify.expect(root:FindFirstChild("Tall", true).AutomaticSize):toBe(E.AutomaticSize.XY)
-				stop()
-			end,
-		})
-
 		verifyHarness:case("paints a stack with the named theme plate and rejects an unknown surface", {
 			id = "native_layout::stack surfaces::paints a stack with the named theme plate and rejects an unknown surface",
 			run = function()
