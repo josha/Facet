@@ -704,17 +704,17 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local scale = use(unit)
 				return if scale > 0 then scale else 1
 			end
-			local spills = Compose.formula(function(use: ComposeTypes.Use): boolean
-				if not across(use) then
-					return false
-				end
-				local room = use(window).X - 2 * segmentMetrics.inset * scaleOf(use)
-				return room > 0 and use(extent).X > room + 1
-			end)
-			overflows = spills
 			Compose.watch(function(use: ComposeTypes.Use)
-				spilling:set(use(spills))
+				if not across(use) then
+					spilling:set(false)
+					return
+				end
+				local view = use(window).X
+				local room = if spilling:peek() then view - 2 * segmentMetrics.inset * scaleOf(use) else view
+				spilling:set(room > 0 and use(extent).X > room + 1)
 			end)
+			local spills: ComposeTypes.Readable<boolean> = spilling
+			overflows = spills
 			local fields = (p :: unknown) :: { [string]: unknown }
 			local scrolling: { [string]: unknown } = {
 				Size = function(use: ComposeTypes.Use): UDim2
