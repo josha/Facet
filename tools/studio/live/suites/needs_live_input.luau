@@ -705,7 +705,7 @@ table.insert(cases, {
 		local handle = panel:FindFirstChild("DragHandle", true)
 		t.note("passive sheet parts", { pill = panel:FindFirstChild("Pill", true), handle = handle })
 		t.check("the drag handle is a passive frame", handle ~= nil and handle:IsA("Frame") and not handle.Selectable)
-		for _, name in { "Grabber", "Close", "First", "Second", "Third" } do
+		for _, name in { "Grabber", "First", "Second", "Third" } do
 			local target = panel:FindFirstChild(name, true)
 			t.check(name .. " mounts", target ~= nil)
 			GuiService.SelectedObject = target
@@ -713,11 +713,13 @@ table.insert(cases, {
 			t.check(name .. " keeps native selection inside the panel", within(GuiService.SelectedObject, panel))
 			t.check(name .. " is visible", target ~= nil and t_visible(target))
 		end
-		local grabber = panel:FindFirstChild("Grabber", true)
 		local close = panel:FindFirstChild("Close", true)
+		t.check("a docked Sheet with a grabber shows no Close", close == nil or not t_visible(close))
+		local grabber = panel:FindFirstChild("Grabber", true)
+		local first = panel:FindFirstChild("First", true)
 		t.check(
-			"the grabber links Down to Close",
-			grabber ~= nil and grabber:IsA("GuiObject") and grabber.NextSelectionDown == close
+			"the grabber links Down to the first task entry",
+			grabber ~= nil and grabber:IsA("GuiObject") and grabber.NextSelectionDown == first
 		)
 		local watched = (value :: unknown) :: { connection: RBXScriptConnection }
 		watched.connection:Disconnect()
