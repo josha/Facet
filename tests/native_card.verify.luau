@@ -268,6 +268,35 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("moves the leading badge to the front of the caption when both badges do not fit, once", {
+			id = "native_card::native Card::moves the leading badge to the front of the caption when both badges do not fit, once",
+			run = function()
+				local caption = Compose.cell("Spd 82")
+				local world = mount({
+					image = "rbxassetid://1",
+					title = "Comet",
+					caption = caption,
+					badges = { leading = { label = "Rare", status = "accent" }, trailing = { label = "Owned" } },
+				})
+				local layer = world.find("Badges")
+				local poke = world.engine.environment.poke
+				poke(world.find("Leading", layer):FindFirstChildWhichIsA("GuiObject"), "AbsoluteSize", world.V2(80, 24))
+				poke(
+					world.find("Trailing", layer):FindFirstChildWhichIsA("GuiObject"),
+					"AbsoluteSize",
+					world.V2(90, 24)
+				)
+				poke(layer, "AbsoluteSize", world.V2(300, 160))
+				local label = world.find("Caption")
+				Verify.expect(label.Text):toBe("Spd 82")
+				poke(layer, "AbsoluteSize", world.V2(180, 100))
+				Verify.expect(label.Text):toBe("Rare · Spd 82")
+				caption:set("Rare Spd 82")
+				Verify.expect(label.Text):toBe("Rare Spd 82")
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("puts badges over the top corners of the art at theme spacing and follows their labels", {
 			id = "native_card::native Card::puts badges over the top corners of the art at theme spacing and follows their labels",
 			run = function()
@@ -311,14 +340,16 @@ return function(verifyHarness: Verify.Harness)
 				poke(layer, "AbsoluteSize", world.V2(300, 160))
 				poke(leadPill, "AbsoluteSize", world.V2(80, 24))
 				poke(trailPill, "AbsoluteSize", world.V2(90, 24))
+				local caption = world.find("Caption")
 				Verify.expect(leadPill.Visible):toBe(true)
-				Verify.expect((leading:FindFirstChild("Dot"))):toBeNil()
+				Verify.expect(caption.Visible):toBe(false)
 				poke(layer, "AbsoluteSize", world.V2(180, 100))
 				Verify.expect(leadPill.Visible):toBe(false)
-				Verify.expect(leading:FindFirstChild("Dot") ~= nil):toBe(true)
+				Verify.expect(caption.Visible):toBe(true)
+				Verify.expect(caption.Text):toBe("Rare")
 				poke(layer, "AbsoluteSize", world.V2(300, 160))
 				Verify.expect(leadPill.Visible):toBe(true)
-				Verify.expect((leading:FindFirstChild("Dot"))):toBeNil()
+				Verify.expect(caption.Visible):toBe(false)
 				Verify.expect((shown(leading))):toBe("Rare")
 				Verify.expect((shown(trailing))):toBe("Owned")
 				Verify.expect((leading:FindFirstChildWhichIsA("GuiObject"):HasTag("facet-status-accent"))):toBe(true)

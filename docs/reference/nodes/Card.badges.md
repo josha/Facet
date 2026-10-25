@@ -16,9 +16,10 @@ corners of the art.
   badge without a `label` needs `icon` and `name`, and it always shows. A
   badge with neither is an error when the Card is made.
 - A text card, without `image` or `artwork`, does not accept `badges`.
-- When both badges do not fit across the art, the leading badge shows as a
-  dot in its status color and the trailing badge keeps its label. Put the
-  fact that decides the choice, such as the price or Owned, in `trailing`.
+- When both badges do not fit across the art, the leading badge's label
+  moves to the front of the caption, unless the caption already says it, and
+  the trailing badge stays. Put the fact that decides the choice, such as the
+  price or Owned, in `trailing`.
 - For a dot or a count on the corner of a Button, use [badged](badged.md).
 
 Do not put Badges in `artwork` with ZStack, Position or ZIndex. Give the item
