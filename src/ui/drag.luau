@@ -177,9 +177,14 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end,
 		})
 		detector.Parent = source
+		local ended = setmetatable({} :: { [InputObject]: true }, { __mode = "k" })
 		ctx.runtime.connect(source, "InputBegan", function(value: InputObject)
 			if value.UserInputType == E.UserInputType.MouseButton1 or value.UserInputType == E.UserInputType.Touch then
 				eligible = false
+				if ended[value] then
+					ended[value] = nil
+					activation.release(value)
+				end
 				if active or activation.consumed(value) then
 					return
 				end
@@ -243,6 +248,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				end
 			end)
 			ctx.runtime.connect(input, "InputEnded", function(value: InputObject)
+				ended[value] = true
 				if value == pressed then
 					arbiter.finish(value, source, value.UserInputState == E.UserInputState.Cancel)
 				end
