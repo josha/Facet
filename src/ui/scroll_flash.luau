@@ -8,8 +8,9 @@ return function(ctx: Types.Context, frame: ScrollingFrame, axis: "X" | "Y", when
 	if frames == nil then
 		return
 	end
+	local input = ctx.effectiveInput()
 	Compose.watch(function(use: ComposeTypes.Use)
-		if not use(when) then
+		if not use(when) or input(use) ~= "Touch" then
 			return
 		end
 		local at = frame.CanvasPosition

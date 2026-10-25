@@ -16,6 +16,7 @@ export type SheetContent = {
 	panelWidth: ComposeTypes.Formula<number>,
 	contentSize: ComposeTypes.Cell<Vector2>,
 	room: parts.Room,
+	arrived: ComposeTypes.Cell<boolean>,
 	entry: () -> GuiObject?,
 	guide: Frame?,
 	guideReserve: (ComposeTypes.Use) -> number,
@@ -390,9 +391,10 @@ return function(
 		local chrome = function(use: ComposeTypes.Use): number
 			return pad("top", use) + pad("bottom", use)
 		end
+		local arrived = Compose.cell(false)
 		local room = parts.room(ctx, regions, body, natural, function(use: ComposeTypes.Use): number
 			return math.max(0, standing(use) - chrome(use) - guideReserve(use))
-		end, true, unit)
+		end, true, unit, arrived)
 		runtime.decorate(flex, {
 			FlexMode = function(use: ComposeTypes.Use)
 				return if use(room.tight) then E.UIFlexMode.None else E.UIFlexMode.Fill
@@ -484,6 +486,7 @@ return function(
 			panelWidth = panelWidth,
 			contentSize = contentSize,
 			room = room,
+			arrived = arrived,
 			guide = guideRegion,
 			guideReserve = guideReserve,
 		}

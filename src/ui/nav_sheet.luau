@@ -109,6 +109,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		else
 			shown = surfaces.appearance(phase, ctx.motionTiming("sheet"), ready)
 		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			sheetBody.arrived:set(shown.travel(use) >= 1)
+		end)
 		local function travel(use: ComposeTypes.Use): (number, number)
 			local rest = 1 - shown.travel(use)
 			if rest <= 0 then

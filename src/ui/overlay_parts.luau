@@ -387,7 +387,8 @@ function parts.room(
 	natural: (ComposeTypes.Use) -> number,
 	maximum: (ComposeTypes.Use) -> number,
 	fill: boolean | ComposeTypes.Readable<boolean>,
-	unit: ComposeTypes.Readable<number>?
+	unit: ComposeTypes.Readable<number>?,
+	shown: ComposeTypes.Readable<boolean>?
 ): Room
 	local Compose, Host, E, D2 = ctx.Compose, ctx.Host, ctx.types.Enum, ctx.types.UDim2
 	local gap = 8
@@ -463,7 +464,14 @@ function parts.room(
 	scrollLock.own(frame, ctx)
 	parts.reach(ctx, frame, tight)
 	if body then
-		scrollFlash(ctx, body, "Y", overflowing)
+		scrollFlash(
+			ctx,
+			body,
+			"Y",
+			Compose.formula(function(use: ComposeTypes.Use): boolean
+				return use(overflowing) and (shown == nil or use(shown))
+			end)
+		)
 	end
 	return { frame = frame, pinned = pinned, tight = tight, bodyHeight = bodyHeight, overflowing = overflowing }
 end

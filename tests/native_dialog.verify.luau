@@ -876,7 +876,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(panel.Size.Y.Offset):toBe(323)
 					Verify.expect(room.Size.Y.Offset):toBe(323 - 32)
 					Verify.expect(padding.PaddingLeft.Offset):toBe(16 + math.floor((749 - card) / 2))
-					Verify.expect(padding.PaddingRight.Offset):toBe(16 + math.floor((749 - card) / 2))
+					Verify.expect(padding.PaddingRight.Offset):toBe(16 + (749 - card) - math.floor((749 - card) / 2))
 					Verify.expect(w.find("Body").Size.Y.Offset > 180):toBe(true)
 					sized(w, 40)
 					Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
@@ -894,6 +894,7 @@ return function(verifyHarness: Verify.Harness)
 					local open, log, change = caller()
 					local w =
 						mount(standard(open, log, change), nil, { size = Vector2.new(749, 323), runService = true })
+					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 					w.advance(1, 60)
 					local body = w.find("Body")
 					sized(w, 60)
@@ -908,6 +909,30 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
+
+		verifyHarness:case("a covering dialog sizes its room from the theme's real panel insets", {
+			id = "native_dialog::native Dialog: composition, layout and the height budget::a covering dialog sizes its room from the theme's real panel insets",
+			run = function()
+				local open, log, change = caller()
+				local insets = { left = 24, right = 24, top = 24, bottom = 24 }
+				local w = mount(
+					standard(open, log, change),
+					{
+						theme = { identity = {}, chrome = { panel = { kind = "native", contentInsets = insets } } },
+					} :: any,
+					{ size = Vector2.new(749, 323) }
+				)
+				sized(w, 180)
+				local panel, room = w.find("Panel"), w.find("Room")
+				local padding = panel:FindFirstChildWhichIsA("UIPadding")
+				Verify.expect(panel.Size.Y.Offset):toBe(323)
+				Verify.expect(padding.PaddingTop.Offset):toBe(24)
+				Verify.expect(padding.PaddingBottom.Offset):toBe(24)
+				Verify.expect(room.Size.Y.Offset):toBe(323 - 48)
+				Verify.expect(padding.PaddingLeft.Offset > 24):toBe(true)
+				w.stop()
+			end,
+		})
 
 		verifyHarness:case("stacks two actions when the longer label does not fit its equal share of the row", {
 			id = "native_dialog::native Dialog: composition, layout and the height budget::stacks two actions when the longer label does not fit its equal share of the row",

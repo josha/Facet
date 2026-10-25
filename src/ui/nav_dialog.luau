@@ -164,13 +164,17 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local function widthPx(use: ComposeTypes.Use): number
 					return math.max(0, math.min(parts.width(ctx, spec.width, use), use(extent).X - 2 * margin(use)))
 				end
-				local covering = Compose.cell(false)
+				local covering, arrived = Compose.cell(false), Compose.cell(false)
 				local function available(use: ComposeTypes.Use): number
 					return math.max(0, use(extent).Y - keyboard(use))
 				end
+				local function padded(use: ComposeTypes.Use): number
+					return surfaces.inset(16, "top", "panel", use) + surfaces.inset(16, "bottom", "panel", use)
+				end
 				local function roomPx(use: ComposeTypes.Use): number
 					local minimum = math.min(ctx.metric("targetSizes.minimum", use), math.max(0, available(use) - 32))
-					return math.max(minimum, available(use) - (if use(covering) then 2 else 4) * margin(use))
+					local chrome = if use(covering) then padded(use) else 4 * margin(use)
+					return math.max(minimum, available(use) - chrome)
 				end
 				local regions: { GuiObject } = {}
 				if spec.hero then
@@ -276,9 +280,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					return use(naturalSize).Y
 				end, function(use: ComposeTypes.Use)
 					return roomPx(use)
-				end, covering, unit)
+				end, covering, unit, arrived)
 				Compose.watch(function(use: ComposeTypes.Use)
-					local need = use(room.pinned) + use(naturalSize).Y + 2 * margin(use)
+					local need = use(room.pinned) + use(naturalSize).Y + padded(use)
 					covering:set(need + 2 * ctx.metric("space.xl", use) > available(use))
 				end)
 				if body and spec.contentSelectable ~= false then
@@ -355,14 +359,20 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					local rest = ctx.metric("motion.materialize.modal", use)
 					return if use(settled) then rest + (1 - rest) * shown.travel(use) else 1
 				end, nil, true)
+				Compose.watch(function(use: ComposeTypes.Use)
+					arrived:set(use(settled) and shown.travel(use) >= 1)
+				end)
 				local sizes, rested = surfaces.atRest(shown.travel, settled, { panel })
 				Compose.watch(function(use: ComposeTypes.Use)
 					held:set(if use(rested) and shown.travel(use) < 1 then use(sizes[1]) / use(unit) else nil)
 				end)
 				surfaces.skin(panel, "panel", {
 					reserve = function(name: string, use: ComposeTypes.Use): number
-						local sideways = name == "left" or name == "right"
-						return if sideways and use(covering) then math.floor((use(extent).X - widthPx(use)) / 2) else 0
+						if not use(covering) or (name ~= "left" and name ~= "right") then
+							return 0
+						end
+						local spare = math.max(0, use(extent).X - widthPx(use))
+						return if name == "left" then math.floor(spare / 2) else spare - math.floor(spare / 2)
 					end,
 					title = spec.title,
 					onCaption = function(on: boolean)
