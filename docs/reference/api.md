@@ -3,6 +3,34 @@
 Open the [documentation map](nodes/Map.md).
 Run `lute run tools/facet docs` to read the map.
 
+`Facet.controls(runtime, options?)` returns controls for a Compose Roblox runtime.
+Without options, it returns the controls provided for that runtime in the
+current Compose owner or a parent owner. If no provider exists, it makes fresh
+controls. Explicit options, including `{}`, always make fresh controls.
+
+`UI.provide(body)` provides `UI` while `body()` runs and to its descendant
+Compose owners. It returns the results of `body()`. A nested provider replaces
+the controls for the same runtime within its scope. Controls for other runtimes
+stay available. The provider uses the Compose module that made `UI`.
+
+`Facet.app` provides `app.UI` to mounted components and presented content.
+For a direct Compose mount, call the provider inside the mount:
+
+```luau
+local UI = Facet.controls(runtime, { theme = Facet.themes.neutralPackage() })
+local function PortablePanel()
+    local inherited = Facet.controls(runtime)
+    return inherited.Button { label = "Continue" }
+end
+local stop = runtime.mount(function()
+    return UI.provide(PortablePanel)
+end, playerGui)
+```
+
+`PortablePanel` can call `Facet.controls(runtime)` to get the same controls
+object, with its theme, translator, motion level, text preference, viewport
+and overlay host configuration. The provider does not install a StyleSheet.
+
 `Facet.MenuCommand` types a command menu item. `Facet.RadialAction<V>` types a
 radial command. See [menu items](nodes/Menu-and-SplitButton.items.md) and
 [radial items](nodes/RadialMenu.items.md).

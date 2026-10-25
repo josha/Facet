@@ -2,9 +2,22 @@
 local context = require("@self/context")
 local Types = require("@self/control_types")
 local freeze = require("@self/freeze")
+local controlEnvironment = require("@self/control_environment")
 return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: Types.Config?): Types.Controls
+	local environment = controlEnvironment(Compose)
+	if options == nil then
+		local inherited = environment.read()[runtime]
+		if inherited ~= nil then
+			return inherited
+		end
+	end
 	local ctx = context(Compose, runtime, options)
 	local UI = ({} :: unknown) :: Types.Controls
+	UI.provide = function<R...>(body: () -> R...): R...
+		local inherited = table.clone(environment.read())
+		inherited[runtime] = UI
+		return environment.provide(inherited, body)
+	end
 	require("@self/layout")(ctx, UI)
 	require("@self/composition")(ctx, UI)
 	require("@self/inputs")(ctx, UI)

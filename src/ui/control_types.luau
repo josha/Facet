@@ -109,6 +109,7 @@ type TableShapes =
 export type TableConstructor = TableShapes & ((string) -> TableShapes)
 
 export type Controls = {
+	provide: <R...>(body: () -> R...) -> R...,
 	WorldMarker: Constructor<HudProps.WorldMarkerProps, Frame>,
 	DiegeticScreen: Constructor<DiegeticTypes.DiegeticScreenProps, Folder>,
 	Timer: Constructor<HudProps.TimerProps, TextLabel>,

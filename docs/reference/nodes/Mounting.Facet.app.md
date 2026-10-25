@@ -39,6 +39,11 @@ Call `mount` one time. Each screen, HUD element and overlay is a branch of
 that tree. A Sheet, Dialog, Popover and Toast present in their own layer from
 inside the tree.
 
+The app provides `app.UI` to mounted components and presented content.
+`Facet.controls(app.runtime)` without options returns that same object inside
+those components and their descendant Compose owners. For a direct Compose
+mount, use `UI.provide(body)`. See the [API reference](../api.md).
+
 Task recipes include standalone bootstraps. When combining them, reuse their
 component bodies inside this mount, with the same UI, model, commands and
 localization source. Do not create another app for each recipe.

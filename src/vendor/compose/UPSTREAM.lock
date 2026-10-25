@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "1f20ddae60cf25df2faa5a9520f4bd5ad522de4b",
+  "commit": "8408aa273e882c2c02dd99e2f3a0c08134946bd5",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -21,20 +21,21 @@
     "core/collection/prefix.luau": "5a98d1238a4f4e9042fa732fdf7364fde206e3607d55ffd304d53bee039c13ca",
     "core/collection/relevance.luau": "d621d7eca0a2073d573138047736f46a226a78494040bb49affdc2b60b226faf",
     "core/collection/retain.luau": "e296272afadd5dbf019a1ea1c47980aabc745cc6f03757703c5e07fa96b3aa04",
+    "core/context.luau": "fc36e6fbd7f66f40cf50c6979a5689fef9aa20972a6173810d6815ea174457c4",
     "core/diagnostics.luau": "e3f772e0197515ae68bd78d64c3d0fe4ef04b4bbf20147e7bd6729cc12a66ab1",
     "core/focus-neighbor.luau": "1350088f82ba244c20aa2e8b9c03ffb7c2547867ed6b7cda100e75c5083ada7f",
     "core/focus-scope.luau": "b8102d0dd9cc88d1cd85fb9b430da9aa8b46b33d28912dc6b1c1cc7ca7085d2b",
     "core/frames.luau": "f5150b120e9ff1399f0b789afa0655b2fdb48b159bf7b14f25a627147fb3b111",
     "core/geometry.luau": "2ff2290214177aab2e4ea759f7ee60a9468860913f5e24207bb6dd1404b9a603",
     "core/host.luau": "1eb0527921b777ce22b7a6ba00dbf94c481f235e820aed6a406cbd11c651d195",
-    "core/init.luau": "da88cb4740cd4d20e7f6137149f36c5b97a6d5c0ede7e114b16e71d2b1af5a21",
+    "core/init.luau": "4ed8aa38985061701e4130bca4b58d5d11e82cedb1bff91dc6e73e6a2e57cc87",
     "core/keyed-cache.luau": "9c2c0c3e02116592d189e6f2c2a33396d95c8fdb4b98896ae9e3e7673be85929",
-    "core/ownership/active.luau": "4341c7a77a235841ecc8a4fabcbaf645db6d9411a6ee3c2c7fa7b5c577b16ed9",
+    "core/ownership/active.luau": "3138b3777a0bb7c9f229ebf3c78a45c6ca01f92137bcc7afa9b31d71a25d5cbc",
     "core/ownership/cache-options.luau": "c2f55031a0a1aaa3ac6489b8b79ff27e8c8fb6e785d1fdea2cca8a1d1265dc8c",
     "core/ownership/frame.luau": "e7de95755fa393a4c5fb3a9e94cdec067d19ffabd4ede66a848be0d56bc94022",
     "core/ownership/inspect.luau": "0796da033f7eb8b2ff3b0144e08892aa8f81c51757f32d2269dcc4145028dd33",
     "core/ownership/nodes.luau": "b9333ee8be3ecbd3b98414e453156c097159f58a24b6e14533fafdcea370a8f8",
-    "core/ownership/owner.luau": "f626a23eb1c2c6bd974c3d40d88bee65bd373965d57d9c185628a8cc84227e1b",
+    "core/ownership/owner.luau": "76d9fa9bc984c3079e3e531c61e0d11581a7c65d49c26ca3def746e0fd3b1a3b",
     "core/ownership/report.luau": "7443556cd861224ff0837019102ead497eff51d1cd5fc31986aa53226038afcd",
     "core/ownership/root-scope.luau": "2ac7b482381429ebbcc9945072ef5979bf1c64108b005ea09286b15a88d8efb3",
     "core/ownership/root.luau": "d843f8bcdb0dc9d58b0d8cc9f8dba4def7879b575432a4a880728ff6f97c4319",
@@ -89,8 +90,8 @@
   },
   "docs": {
     "SKILL.md": "5b00d1daf8a47f8d97e5af9ab3044aca442fa027064015c8e7ffb584b074c7f1",
-    "references/api.md": "48447c735c43cd39d020101aef3ec381e5de252341a05b5c5c311684a5becf57",
-    "references/consumer-guides.md": "22f375a71643e6b8f51553e410c29c9ec7476abf43e4e1729bb7cb1256dd2eef",
-    "references/ownership.md": "645e918801a1b8aa2fa5de85f762200b0d17df930fd9e5042f22311a5cfb196d"
+    "references/api.md": "ea4baf5f38e455ed94bd3f5fc807d3eecc6fe730c99bd347353cc81d3b3bd761",
+    "references/consumer-guides.md": "348c350dce9503f81202a4b169b9d422661d415cced450b70b9ce040f2e85676",
+    "references/ownership.md": "339ed1d11f2e5436c64482812d71876548c55c14dd382948ca4b041d5f989497"
   }
 }

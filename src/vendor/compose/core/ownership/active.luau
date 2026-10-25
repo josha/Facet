@@ -134,6 +134,7 @@ local function runWith1<T>(owner: Owner.Owner, body: () -> T): T
 end
 
 Owner.installActivationDepth(depth)
+Owner.installCurrentOwner(current)
 
 local function resetForTests()
 	table.clear(activations)

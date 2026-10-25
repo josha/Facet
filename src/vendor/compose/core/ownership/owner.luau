@@ -14,6 +14,7 @@ export type Boundary = {
 }
 
 export type Owner = {
+	parent: Owner?,
 	own: (dispose: Dispose, afterDispose: Dispose?) -> Dispose,
 	watch: (body: (use: Types.Use) -> (), label: string?, afterDispose: Dispose?) -> Dispose,
 	watchStatic: <T>(producer: Types.Readable<T>, body: (value: T) -> (), afterDispose: Dispose?) -> Dispose,
@@ -76,12 +77,17 @@ local function releaseEntry(entry: Entry, failures: { unknown })
 	end
 end
 
-export type RunScope = { child: Owner | false, create: () -> Owner, base: number }
+export type RunScope = { child: Owner | false, create: () -> Owner, base: number, inherited: Owner }
 
 local RUN_SCOPE = {
 	__index = function(scope: RunScope, key: string): unknown
 		local child = scope.child
 		if child == false then
+			if key == "parent" then
+				return scope.inherited
+			elseif key == "isDisposed" then
+				return scope.inherited.isDisposed
+			end
 			child = scope.create()
 			scope.child = child
 		end
@@ -98,16 +104,26 @@ local function installActivationDepth(depth: () -> number)
 	activationDepth = depth
 end
 
+local currentOwner: () -> Owner? = function(): Owner?
+	return nil
+end
+
+local function installCurrentOwner(current: () -> Owner?)
+	currentOwner = current
+end
+
 local function runScopeOf(consumer: unknown): RunScope?
 	return runScopes[consumer]
 end
 
-local function createOwner(inherited: Reactor.Reactor?): Owner
+local function createOwner(inherited: Reactor.Reactor?, parent: Owner?): Owner
 	local reactor = inherited or Reactor.create()
+	local ancestor = parent or currentOwner()
 	local head: Entry? = nil
 	local count = 0
 	local disposed = false
 	local detachFromParent: Dispose? = nil
+	local owner: Owner
 
 	local function unlink(entry: Entry)
 		local previous = entry[PREVIOUS] :: Entry?
@@ -206,6 +222,7 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 		end
 
 		disposed = true
+		owner.parent = nil
 
 		local pending = head
 		head = nil
@@ -236,10 +253,8 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 		raiseAll(failures)
 	end
 
-	local owner: Owner
-
 	local function createChild(): Owner
-		local child = createOwner(reactor)
+		local child = createOwner(reactor, owner)
 		child.__attachTo(own(function()
 			child.dispose()
 		end))
@@ -309,7 +324,7 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 
 	local function scopedRuns(body: (use: Types.Use) -> (), afterDispose: Dispose?): ((use: Types.Use) -> (), Dispose)
 		local record = (
-			setmetatable({ child = false, create = createChild, base = 0 }, RUN_SCOPE) :: unknown
+			setmetatable({ child = false, create = createChild, base = 0, inherited = owner }, RUN_SCOPE) :: unknown
 		) :: RunScope
 		local function release()
 			local current = record.child
@@ -359,7 +374,8 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 		end, label, released)
 	end
 
-	owner = {
+	local initialized: Owner = {
+		parent = ancestor,
 		own = own,
 		watch = ownedWatch,
 		watchStatic = ownedWatchStatic,
@@ -383,6 +399,7 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 			detachFromParent = detach
 		end,
 	}
+	owner = initialized
 
 	return owner
 end
@@ -391,5 +408,6 @@ return {
 	createOwner = createOwner,
 	raiseAll = raiseAll,
 	installActivationDepth = installActivationDepth,
+	installCurrentOwner = installCurrentOwner,
 	runScopeOf = runScopeOf,
 }
