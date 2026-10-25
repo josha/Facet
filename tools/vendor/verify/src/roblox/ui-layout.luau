@@ -12,7 +12,7 @@ type Vector = { X: number, Y: number }
 type TextMeasurement = { X: number, Y: number, intrinsicX: number, intrinsicY: number, fits: boolean }
 type Dimension = { Scale: number, Offset: number }
 type Dimensions = { X: Dimension, Y: Dimension }
-type Rectangle = { x: number, y: number, width: number, height: number, scale: number }
+type Rectangle = List.Rectangle
 type Turn = { x: number, y: number, angle: number }
 export type Options = {
 	roots: () -> { Instance },
@@ -113,12 +113,15 @@ local function attach(environment: Environment.Environment, options: Options): C
 		local top = dimension(Values.dimension(paddingValue(object, "PaddingTop")), rectangle.height, rectangle.scale)
 		local bottom =
 			dimension(Values.dimension(paddingValue(object, "PaddingBottom")), rectangle.height, rectangle.scale)
+		local scrolling = object:IsA "ScrollingFrame"
 		return {
 			x = rectangle.x + left,
 			y = rectangle.y + top,
 			width = math.max(0, rectangle.width - left - right),
 			height = math.max(0, rectangle.height - top - bottom),
 			scale = rectangle.scale,
+			flexWidth = if scrolling then rectangle.width else nil,
+			flexHeight = if scrolling then rectangle.height else nil,
 		}
 	end
 	local function scaledBounds(object: Instance, rectangle: Rectangle): TextMeasurement

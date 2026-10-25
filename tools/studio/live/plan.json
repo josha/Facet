@@ -56,6 +56,7 @@
     { "id": "weak3_geometry", "locator": "tools/studio/live/suites/weak3_geometry.luau" },
     { "id": "weak3_pointer", "locator": "tools/studio/live/suites/weak3_pointer.luau" },
     { "id": "weak3_surfaces", "locator": "tools/studio/live/suites/weak3_surfaces.luau" },
+    { "id": "zoom_double_tap", "locator": "tools/studio/live/suites/zoom_double_tap.luau" },
     { "id": "zoom_travel", "locator": "tools/studio/live/suites/zoom_travel.luau" }
   ]
 }

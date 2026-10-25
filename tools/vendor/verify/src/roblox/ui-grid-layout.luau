@@ -7,7 +7,15 @@ local Values = require "./ui-values"
 type Instance = Environment.Instance
 type Dimension = { Scale: number, Offset: number }
 type Dimensions = { X: Dimension, Y: Dimension }
-export type Rectangle = { x: number, y: number, width: number, height: number, scale: number }
+export type Rectangle = {
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	scale: number,
+	flexWidth: number?,
+	flexHeight: number?,
+}
 export type Item = { object: Instance, rectangle: Rectangle, index: number }
 export type Result = {
 	items: { Item },

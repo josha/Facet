@@ -207,6 +207,7 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 	env.fake("TextBox.IsFocused", function(object: Instance): boolean
 		return focused == object
 	end)
+	env.fake("ScrollingFrame.ResetScrollVelocity", function(_object: Instance) end)
 	env.fake("UserInputService.GetFocusedTextBox", function(_object: Instance): Instance?
 		return focused
 	end)
