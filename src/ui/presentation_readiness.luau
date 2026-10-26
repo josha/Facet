@@ -4,6 +4,8 @@ local ComposeTypes = require("../vendor/compose/core")
 local fontReadiness = require("./font_readiness")
 local textMeasure = require("./text_measure")
 
+local TEXT: { [string]: true } = { TextLabel = true, TextButton = true, TextBox = true }
+
 return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnlyValue<boolean>
 	local fontsReady = fontReadiness(ctx, roots)
 	local snapshot = ""
@@ -12,34 +14,37 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 	local waiting = 0
 	local function prepared(): boolean
 		local parts: { string } = {}
+		local texts: { fontReadiness.TextNode } = {}
 		local measured, attached = true, false
-		for _, root in roots do
-			attached = attached or root.Parent ~= nil and root.AbsoluteSize.X > 0 and root.AbsoluteSize.Y > 0
-			table.insert(parts, `{root.AbsolutePosition}:{root.AbsoluteSize}:{root.Visible}`)
-			for _, node in root:GetDescendants() do
-				if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-					measured = measured and not textMeasure.pending(node)
-					local visible = true
-					local at: Instance? = node
-					while at do
-						if at:IsA("GuiObject") and not at.Visible then
-							visible = false
-							break
-						end
-						if at == root then
-							break
-						end
-						at = at.Parent
-					end
-					if visible then
-						table.insert(parts, `{node.AbsolutePosition}:{node.AbsoluteSize}:{node.TextBounds}:{node.Text}`)
-					end
+		local function record(node: Instance, visible: boolean)
+			if TEXT[node.ClassName] and (node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox")) then
+				table.insert(texts, node)
+				measured = measured and not textMeasure.pending(node)
+				if visible then
+					local position, size, bounds = node.AbsolutePosition, node.AbsoluteSize, node.TextBounds
+					table.insert(parts, `{position.X},{position.Y}:{size.X},{size.Y}:{bounds.X},{bounds.Y}:{node.Text}`)
 				end
 			end
 		end
+		local function visit(parent: Instance, visible: boolean)
+			for _, child in parent:GetChildren() do
+				local shown = visible and (not child:IsA("GuiObject") or child.Visible)
+				record(child, shown)
+				visit(child, shown)
+			end
+		end
+		for _, root in roots do
+			local size, position = root.AbsoluteSize, root.AbsolutePosition
+			attached = attached or root.Parent ~= nil and size.X > 0 and size.Y > 0
+			table.insert(parts, `{position.X},{position.Y}:{size.X},{size.Y}:{root.Visible}`)
+			if TEXT[root.ClassName] and (root:IsA("TextLabel") or root:IsA("TextButton") or root:IsA("TextBox")) then
+				table.insert(texts, root)
+			end
+			visit(root, root.Visible)
+		end
 		snapshot = table.concat(parts, ";")
 		laidOut = laidOut or attached
-		return attached and measured and fontsReady()
+		return attached and measured and fontsReady(texts)
 	end
 	return ctx.runtime.settled {
 		ready = function(): boolean
