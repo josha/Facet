@@ -189,24 +189,34 @@ return function(
 					paint.Visible = true
 					dressed:set(true)
 					unmount = runtime.mountFragment(function()
-						local children = node:GetChildren()
+						local mask = Host.UIGradient "FeedbackMask" { Transparency = ctx.types.NumberSequence.new(1) }
+						local children: { Instance } = {}
+						local moving = true
 						local selected = if ctx.config.guiService then ctx.config.guiService.SelectedObject else nil
-						for _, child in children do
+						local function move(child: Instance)
+							local carried = child:IsA("GuiObject")
+								or child:IsA("Folder")
+								or child:IsA("UIGridStyleLayout")
+								or child:IsA("UICorner")
+								or child:IsA("UIStroke")
+								or child:IsA("UIGradient")
+								or child:IsA("UIShadow")
 							if
-								child ~= boundary
+								carried
+								and moving
+								and child ~= boundary
 								and child ~= measurement
-								and (
-									child:IsA("GuiObject")
-									or child:IsA("UIGridStyleLayout")
-									or child:IsA("UICorner")
-									or child:IsA("UIStroke")
-									or child:IsA("UIGradient")
-									or child:IsA("UIShadow")
-								)
+								and child ~= mask
+								and not paint:IsDescendantOf(child)
 							then
-								(child :: Instance).Parent = paint
+								table.insert(children, child)
+								child.Parent = paint
 							end
 						end
+						for _, child in node:GetChildren() do
+							move(child)
+						end
+						runtime.connect(node, "ChildAdded", move)
 						if selected and ctx.config.guiService then
 							ctx.config.guiService.SelectedObject = selected
 						end
@@ -225,6 +235,7 @@ return function(
 							end, paint)
 						end
 						Compose.cleanup(function()
+							moving = false
 							local currentSelection = if ctx.config.guiService
 								then ctx.config.guiService.SelectedObject
 								else nil
@@ -237,7 +248,7 @@ return function(
 								ctx.config.guiService.SelectedObject = currentSelection
 							end
 						end)
-						return { Host.UIGradient "FeedbackMask" { Transparency = ctx.types.NumberSequence.new(1) } }
+						return { mask }
 					end, node)
 				end
 				local frames = ctx.config.services.RunService

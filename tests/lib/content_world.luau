@@ -4,8 +4,10 @@ type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRun
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local Facet = require("../../src")
 local engineLib = require("./native_engine")
+local VerifyRoblox = require("../../tools/vendor/verify/src/roblox")
 
 export type World = {
+	layout: VerifyRoblox.UiLayoutController?,
 	engine: any,
 	runtime: any,
 	gui: any,
@@ -35,8 +37,8 @@ local function find(root: any, name: string): any
 	return nil
 end
 
-local function new(build: (any, any, any) -> any, options: { [string]: any }?): World
-	local engine: any = engineLib.new()
+local function new(build: (any, any, any) -> any, options: { [string]: any }?, engineOptions: engineLib.Options?): World
+	local engine, bridge = engineLib.new(engineOptions)
 	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
@@ -56,11 +58,13 @@ local function new(build: (any, any, any) -> any, options: { [string]: any }?): 
 	end
 	local UI = Facet.controls(runtime, config :: any)
 	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local parent = engine.new("Folder")
 	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine) })
-	end, engine.new("Folder"))
+	end, parent)
 	local world: World
 	world = {
+		layout = bridge.layout,
 		engine = engine,
 		runtime = runtime,
 		gui = gui,
@@ -71,6 +75,9 @@ local function new(build: (any, any, any) -> any, options: { [string]: any }?): 
 		stop = function()
 			stop()
 			runtime:dispose()
+			parent:Destroy()
+			gui:Destroy()
+			input:Destroy()
 		end,
 		find = function(name: string, root: any?): any
 			return find(root or screen, name)

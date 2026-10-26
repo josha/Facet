@@ -114,7 +114,7 @@
     "Sheet-reactive-theme": {"connections":50,"holdings":257,"instances":45},
     "Dialog-reactive-theme": {"connections":47,"holdings":222,"instances":33},
     "Card-reactive-theme": {"connections":9,"holdings":84,"instances":15},
-    "Card-actions-reactive-theme": {"connections":26,"holdings":142,"instances":25},
+    "Card-actions-reactive-theme": {"connections":26,"holdings":145,"instances":26},
     "VirtualList-1-rows-reactive-theme": {"connections":40,"holdings":182,"instances":33},
     "VirtualList-2-rows-reactive-theme": {"connections":48,"holdings":227,"instances":38}
 }
