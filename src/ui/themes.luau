@@ -357,8 +357,9 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		local chrome = package.chrome
 		local recipe = if chrome then chrome[slot] else nil
 		local inset: ThemeTypes.Insets = if recipe then recipe.contentInsets or {} else {}
+		local regular = package.metrics.controlSizes.regular
 		local horizontal = if role == "button"
-			then 12
+			then if regular then regular.paddingX else 12
 			elseif role == "badge" then 8
 			elseif role == "panel" then package.metrics.space.m
 			else 0
@@ -429,6 +430,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 		return math.max(0, 2 * rungMetric("compact", field) - rungMetric("regular", field))
 	end
+	local pill = math.floor(rungMetric("regular", "height") / 2 + 0.5)
+	rule(".facet-button.facet-chip::UIPadding", {
+		PaddingLeft = types.UDim.new(0, pill + (buttonInsets.left or 0)),
+		PaddingRight = types.UDim.new(0, pill + (buttonInsets.right or 0)),
+	})
 	for _, rung in { "xsmall", "compact", "regular", "large" } do
 		local paddingX = rungMetric(rung, "paddingX")
 		rule(".facet-button.facet-size-" .. rung .. "::UIPadding", {

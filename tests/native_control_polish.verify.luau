@@ -384,6 +384,36 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	verifyHarness:suite("native chip shape", function()
+		verifyHarness:case("keeps a chip pill-shaped at near and ten-foot distance", {
+			id = "native_control_polish::native chip shape::keeps a chip pill-shaped at near and ten-foot distance",
+			run = function()
+				local styleRules = require("./lib/style_rules")
+				local function check(distance: "near" | "ten-foot")
+					local package = themes.forDistance(themes.neutralPackage(), distance)
+					local regular = assert(package.metrics.controlSizes.regular)
+					local w = world(function(UI: FacetControls)
+						return UI.Chip "Pill" {
+							label = "Global",
+							selected = Compose.cell(true),
+							onToggle = function(_: boolean) end,
+						}
+					end, { theme = package })
+					local chip = find(w.screen, "Pill")
+					local sheet = sheetFor(w, package)
+					local left = styleRules.resolve(sheet, chip, "PaddingLeft", "UIPadding").Offset
+					local right = styleRules.resolve(sheet, chip, "PaddingRight", "UIPadding").Offset
+					local pill = math.floor(regular.height / 2 + 0.5)
+					expect(`{distance} left {left}`):toBe(`{distance} left {pill}`)
+					expect(`{distance} right {right}`):toBe(`{distance} right {pill}`)
+					w.stop()
+				end
+				check("near")
+				check("ten-foot")
+			end,
+		})
+	end)
+
 	verifyHarness:suite("native navigation stack paint", function()
 		verifyHarness:case("lets a fixed-width button's padding give way before its label vanishes", {
 			id = "native_control_polish::native navigation stack paint::lets a fixed-width button's padding give way before its label vanishes",
