@@ -357,8 +357,13 @@ local function samePath(left: string, right: string): boolean
 	return a == b
 end
 
-local function benchmarkCommand(): { string }
-	return { Run.lute(), "run", Files.absolute("tools/facet"), "bench" }
+local function benchmarkCommand(shard: string?): { string }
+	local argv = { Run.lute(), "run", Files.absolute("tools/facet"), "bench" }
+	if shard ~= nil then
+		table.insert(argv, "--shard")
+		table.insert(argv, shard)
+	end
+	return argv
 end
 
 local function benchesFor(out: string, label: string): { Paired.Bench }
@@ -513,9 +518,6 @@ local function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture
 			end
 		end
 		invocation.flags.scenes = table.concat(share, ",")
-		if shardIndex ~= 1 then
-			invocation.flags["skip-bench"] = true
-		end
 	end
 	local selected = Cli.flag(invocation, "scenes")
 	local sceneList: { string } = if selected ~= nil and selected ~= ""
@@ -530,7 +532,7 @@ local function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture
 	end
 	local execute = capture or Run.capture
 	local environment = toolEnvironment(rokitDirectories(), false)
-	local benchCommand = benchmarkCommand()
+	local benchCommand = benchmarkCommand(shard)
 	local log = Files.join(out, "log.txt")
 	local rows = Files.join(out, "scenes.jsonl")
 	if Files.isDirectory(out) and #Files.list(out) > 0 then
