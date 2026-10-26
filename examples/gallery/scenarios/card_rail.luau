@@ -126,7 +126,7 @@ return {
 				Size = function(use: Use)
 					return D2.new(1, 0, 0, use(height))
 				end,
-				render = function(current, placement, key): GuiObject
+				render = function(current, placement, key: Readable<string>): GuiObject
 					Compose.watch(function(use: Use)
 						local extent = use(placement).size
 						if extent > 1 and cardWidth:peek() ~= extent then
@@ -143,12 +143,14 @@ return {
 					end
 					track:SetControlPoints(points)
 					return UI.Button({
-						Name = "Card_" .. key,
+						Name = function(use: Use): string
+							return "Card_" .. use(key)
+						end,
 						label = "",
 						Size = D2.fromScale(1, 1),
 						AutomaticSize = E.AutomaticSize.None,
 						onActivate = function()
-							selected:set(key)
+							selected:set(key:peek())
 						end,
 						Host.Frame "Card" {
 							BackgroundTransparency = 1,

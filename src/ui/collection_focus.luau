@@ -24,7 +24,7 @@ return function<V, K>(
 	local source, viewport, mountedVersion = view.source, view.viewport, view.mountedVersion
 	local status, controls = view.status, view.controls
 	local horizontal, focusActive = view.horizontal, view.focusActive
-	local mounted = view.mounted
+	local nodeOf = view.nodeOf
 	local restoring = false
 	local focusGeometry = Compose.formula(function(use: ComposeTypes.Use)
 		use(mountedVersion)
@@ -195,12 +195,12 @@ return function<V, K>(
 			or root.Parent == nil
 			or not view.focusOwned
 			or key == nil
-			or mounted[key] == nil
-			or not belongsTo(mounted[key], root)
+			or nodeOf(key) == nil
+			or not belongsTo(nodeOf(key), root)
 		then
 			return
 		end
-		local node = findSelectable(assert(mounted[key]), view.focusedPath, 1)
+		local node = findSelectable(assert(nodeOf(key)), view.focusedPath, 1)
 		if node and policy.selectionVisible(node) then
 			restoring = true
 			pcall(function()
@@ -264,8 +264,9 @@ return function<V, K>(
 			return
 		end
 		use(status)
-		for key, node in mounted do
-			if node and field:IsDescendantOf(node) then
+		for node, held in view.slotKeys do
+			local key = held:peek()
+			if field:IsDescendantOf(node) then
 				local index = assert(controls.indexOfKey)(key)
 				local at = index and assert(controls.placementOf)(index)
 				if at and at.offset < current.offset then
@@ -319,8 +320,9 @@ return function<V, K>(
 		if node and not restoring then
 			if belongsTo(node, root) then
 				focusActive:set(true)
-				for key, row in mounted do
-					if row and belongsTo(node, row) then
+				for row, held in view.slotKeys do
+					local key = held:peek()
+					if belongsTo(node, row) then
 						local neighbour = neighbourOf(key)
 						if neighbour ~= nil then
 							view.focusOwned = true
@@ -333,7 +335,7 @@ return function<V, K>(
 			else
 				local lost = lastFocused or focusScope.current:peek()
 				local neighbour = if view.focusOwned and lost ~= nil then neighbourOf(lost) else nil
-				if neighbour ~= nil and mounted[neighbour] then
+				if neighbour ~= nil and nodeOf(neighbour) then
 					focusScope.focus(neighbour)
 					restoreFocus(neighbour)
 				else
@@ -349,15 +351,15 @@ return function<V, K>(
 		end
 		local target: GuiObject? = nil
 		local key = focusScope.current:peek()
-		if key ~= nil and mounted[key] then
-			target = findSelectable(assert(mounted[key]), nil, 1)
+		if key ~= nil and nodeOf(key) then
+			target = findSelectable(assert(nodeOf(key)), nil, 1)
 		end
 		if target == nil then
 			local rows: { V } = read(spec.from) or {}
 			for index, item in rows do
 				local candidate = keyOf(item, index)
-				if mounted[candidate] and not policy.disabled(spec.disabled, item) then
-					target = findSelectable(assert(mounted[candidate]), nil, 1)
+				if nodeOf(candidate) and not policy.disabled(spec.disabled, item) then
+					target = findSelectable(assert(nodeOf(candidate)), nil, 1)
 					if target then
 						break
 					end

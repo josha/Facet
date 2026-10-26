@@ -51,9 +51,8 @@ return {
 		local function record(text: string)
 			last:set(copy.lastPrefix .. text)
 		end
-		local function render(current: Readable<Game>, _placement: unknown, key: string): GuiObject
+		local function render(current: Readable<Game>, _placement: unknown, key: Readable<string>): GuiObject
 			local table_: CardControls = {}
-			controls[key] = table_
 			local card = UI.Card "Card" {
 				image = "rbxassetid://75342910516929",
 				title = function(use: Use)
@@ -64,7 +63,7 @@ return {
 				end,
 				controls = table_,
 				browseTarget = function(): GuiObject?
-					local node = cards[key]
+					local node = cards[key:peek()]
 					local content = if node then node.Parent else nil
 					local hit = if content then content:FindFirstChild("RowHit") else nil
 					if hit and hit:IsA("GuiObject") then
@@ -75,7 +74,7 @@ return {
 				primaryAction = {
 					label = "Play",
 					onActivate = function()
-						record(`play {key}`)
+						record(`play {key:peek()}`)
 					end,
 				},
 				menu = {
@@ -84,19 +83,25 @@ return {
 							id = "hide",
 							label = "Not interested",
 							onSelect = function()
-								record(`hid {key}`)
+								record(`hid {key:peek()}`)
 							end,
 						},
 					},
 				},
 			}
-			cards[key] = card
-			Compose.cleanup(function()
-				if cards[key] == card then
-					cards[key] = nil
-					controls[key] = nil
+			local held: string? = nil
+			local function forget()
+				if held ~= nil and cards[held] == card then
+					cards[held], controls[held] = nil, nil
 				end
+			end
+			Compose.watch(function(use: Use)
+				forget()
+				local now = use(key)
+				held = now
+				cards[now], controls[now] = card, table_
 			end)
+			Compose.cleanup(forget)
 			return card
 		end
 		local function screen()

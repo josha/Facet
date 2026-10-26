@@ -128,9 +128,12 @@ return function(verifyHarness: Verify.Harness)
 							entry.enterActions()
 						end
 					end,
-					render = function(current: any, _placement: any, key: string): GuiObject
+					render = function(
+						current: any,
+						_placement: any,
+						key: FixtureComposeTypes.Readable<string>
+					): GuiObject
 						local entry = {}
-						controls[key] = entry
 						local card = UI.Card({
 							Name = "Card",
 							image = "rbxassetid://1",
@@ -139,14 +142,14 @@ return function(verifyHarness: Verify.Harness)
 							end,
 							controls = entry,
 							browseTarget = function()
-								local node = cards[key]
+								local node = cards[key:peek()]
 								local content = if node then node.Parent else nil
 								return if content then content:FindFirstChild("RowHit") else nil
 							end,
 							primaryAction = {
 								label = "Play",
 								onActivate = function()
-									table.insert(log, `play:{key}`)
+									table.insert(log, `play:{key:peek()}`)
 								end,
 							},
 							menu = {
@@ -155,19 +158,25 @@ return function(verifyHarness: Verify.Harness)
 										id = "hide",
 										label = "Not interested",
 										onSelect = function()
-											table.insert(log, `hide:{key}`)
+											table.insert(log, `hide:{key:peek()}`)
 										end,
 									},
 								},
 							},
 						})
-						cards[key] = card
-						Compose.cleanup(function()
-							if cards[key] == card then
-								cards[key] = nil
-								controls[key] = nil
+						local held: string? = nil
+						local function forget()
+							if held ~= nil and cards[held] == card then
+								cards[held], controls[held] = nil, nil
 							end
+						end
+						Compose.watch(function(use: FixtureComposeTypes.Use)
+							forget()
+							local now = use(key)
+							held = now
+							cards[now], controls[now] = card, entry
 						end)
+						Compose.cleanup(forget)
 						return card
 					end,
 				})
@@ -456,7 +465,7 @@ return function(verifyHarness: Verify.Harness)
 						render = function(_current, _placement, key)
 							return UI.Card({
 								Name = "Card",
-								image = if key == "art" then "rbxassetid://1" else nil,
+								image = if key:peek() == "art" then "rbxassetid://1" else nil,
 								title = key,
 							})
 						end,

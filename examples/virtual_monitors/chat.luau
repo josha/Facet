@@ -459,6 +459,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 							return UI.VirtualList "Messages" {
 								from = chat.messages,
 								key = "id",
+								recycle = false,
 								render = message,
 								itemSize = 110,
 								gap = 12,

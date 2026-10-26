@@ -674,7 +674,7 @@ return {
 		local function cell(
 			current: Readable<File>,
 			_placement: unknown,
-			key: string,
+			key: Readable<string>,
 			icon: boolean,
 			tableCell: boolean?
 		): Frame
@@ -721,12 +721,12 @@ return {
 				editor = "text",
 				value = nameOf(current),
 				enabled = editable,
-				draft = draft(key),
+				draft = draft(key:peek()),
 				validate = validName,
 				Size = D2.new(1, 0, 0, 0),
 				if not icon then UI.fill() else nil,
 				onChange = function(v: unknown)
-					change(key, "name", if type(v) == "string" then v else nil)
+					change(key:peek(), "name", if type(v) == "string" then v else nil)
 				end,
 			}
 			local label = UI.HStack "ColorLabel" {
@@ -861,7 +861,7 @@ return {
 					then children(item.id, rows:peek())
 					else nil
 			end
-			local function render(current: Readable<File>, placement: unknown, key: string): GuiObject
+			local function render(current: Readable<File>, placement: unknown, key: Readable<string>): GuiObject
 				return cell(current, placement, key, kind == "icons")
 			end
 			if kind == "details" then
@@ -873,7 +873,11 @@ return {
 						value = function(item: File): string
 							return item.name
 						end,
-						render = function(current: Readable<File>, placement: unknown, key: string): GuiObject
+						render = function(
+							current: Readable<File>,
+							placement: unknown,
+							key: Readable<string>
+						): GuiObject
 							return cell(current, placement, key, false, true)
 						end,
 					},

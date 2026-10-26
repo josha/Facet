@@ -31,16 +31,8 @@ export type Follow = "end" | "none"
 export type RowRender<V, K> = (
 	current: ComposeTypes.Readable<V>,
 	placement: ComposeTypes.Readable<ComposeTypes.Placement>,
-	key: K
-) -> GuiObject
-export type RowRecycle<V, K> = (
-	current: ComposeTypes.Readable<V>,
-	placement: ComposeTypes.Readable<ComposeTypes.Placement>,
 	key: ComposeTypes.Readable<K>
 ) -> GuiObject
-export type RecycleOptions<V, K> = {
-	recycle: RowRecycle<V, K>?,
-}
 export type SelectionOptions<V, K> = {
 	selection: ComposeTypes.Cell<Selection<K>>?,
 	selectionFrom: Types.Value<{ V }>?,
@@ -69,6 +61,7 @@ export type ReorderOptions<V, K> = {
 export type Activate<V, K> = (item: V, key: K, input: InputObject?, clickCount: number?) -> ()
 export type CollectionOptions<V, K> = {
 	from: Types.Value<{ V }>,
+	recycle: boolean?,
 	slots: Types.Value<{ K }>?,
 	slotControls: SlotControls<K>?,
 	render: RowRender<V, K>?,
@@ -210,6 +203,7 @@ export type TableOptions<V, K> = {
 	scrolls: boolean?,
 	mode: ComposeTypes.OrderedCollectionMode?,
 	snap: ("none" | "item")?,
+	recycle: boolean?,
 }
 export type ReorderShape<V, K> = SelectionOptions<V, K> & ReorderOptions<V, K>
 export type CollectionShape<V, K> =
@@ -219,7 +213,6 @@ export type CollectionShape<V, K> =
 	& HierarchyOptions<V, K>
 	& OptionalChildren<V>
 	& CollectionOptions<V, K>
-	& RecycleOptions<V, K>
 export type TableShape<V, K> =
 	Types.FrameProps
 	& SelectionOptions<V, K>

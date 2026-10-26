@@ -333,7 +333,9 @@ return function(harness: Verify.Harness)
 								end,
 							})
 							assert(typeof(label) == "Instance" and label:IsA("TextLabel"))
-							labels[key] = label
+							Facet.Compose.watch(function(use: Facet.Use)
+								labels[use(key)] = label
+							end)
 							return label
 						end,
 					}
@@ -390,7 +392,9 @@ return function(harness: Verify.Harness)
 								end,
 							})
 							assert(typeof(label) == "Instance" and label:IsA("TextLabel"))
-							labels[key] = label
+							Facet.Compose.watch(function(use: Facet.Use)
+								labels[use(key)] = label
+							end)
 							return label
 						end,
 					}

@@ -72,6 +72,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 		"scrolls",
 		"mode",
 		"snap",
+		"recycle",
 		"header",
 		"dragLabel",
 		"autoscroll",
@@ -289,6 +290,24 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 				return body
 			end, selection, sort, editing, false, if tree then tree.location else nil, true)
 		end
+		local rows = createRows(ctx, UI, {
+			spec = spec,
+			rowPolicySpec = rowPolicySpec,
+			selection = selection,
+			coordinator = coordinator,
+			rowMeasures = rowMeasures,
+			actionGutters = actionGutters,
+			truncatedRows = truncatedRows,
+			unitScale = unitScale,
+			scrolledX = scrolledX,
+			editors = editors,
+			field = field,
+			tree = tree,
+			editor = editor,
+			laneWidth = laneWidth,
+			metrics = metrics,
+			layout = layout,
+		})
 		local bodySpec: CollectionProps.KeyedCollectionSpec<V, K> = {
 			Name = "Body",
 			Position = function(use: ComposeTypes.Use)
@@ -345,6 +364,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			end,
 			follow = spec.follow,
 			snap = spec.snap,
+			recycle = spec.recycle,
 			reducedMotion = spec.reducedMotion,
 			followThreshold = spec.followThreshold,
 			selection = selection,
@@ -363,24 +383,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			end,
 			editing = editing,
 
-			render = createRows(ctx, UI, {
-				spec = spec,
-				rowPolicySpec = rowPolicySpec,
-				selection = selection,
-				coordinator = coordinator,
-				rowMeasures = rowMeasures,
-				actionGutters = actionGutters,
-				truncatedRows = truncatedRows,
-				unitScale = unitScale,
-				scrolledX = scrolledX,
-				editors = editors,
-				field = field,
-				tree = tree,
-				editor = editor,
-				laneWidth = laneWidth,
-				metrics = metrics,
-				layout = layout,
-			}),
+			render = rows,
 		}
 		local previousSort = sort:peek()
 		body = buildList(bodySpec, tree, true, function(use: ComposeTypes.Use, viewport): number?

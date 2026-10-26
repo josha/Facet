@@ -3750,6 +3750,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "measured rows", props = properties { measure = true } },
 			{ name = "snap to rows", props = properties { snap = "item" } },
 			{ name = "follows the end", props = properties { follow = "end", followThreshold = 24 } },
+			{ name = "rebuilt rows", props = properties { recycle = false } },
 			{
 				name = "status + controls + focus",
 				props = function(c: Context)
@@ -3868,22 +3869,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "measured rows", props = properties { measure = true } },
 			{ name = "gap 8, overscan 3", props = properties { gap = 8, overscan = 3 } },
 			{ name = "follows the end", props = properties { follow = "end", followThreshold = 24 } },
-			{
-				name = "recycled rows",
-				props = function(c: Context)
-					return {
-						render = NONE,
-						recycle = function(current): GuiObject
-							return c.UI.Text({
-								text = function(use: Use)
-									return use(current).name
-								end,
-								Size = UDim2.fromScale(1, 1),
-							})
-						end,
-					}
-				end,
-			},
+			{ name = "rebuilt rows", props = properties { recycle = false } },
 			{
 				name = "selection reported",
 				props = function(c: Context)
@@ -4012,22 +3998,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "snap", values = { "none", "item" }, matrix = false },
 		},
 		states = {
-			{
-				name = "recycled cells",
-				props = function(c: Context)
-					return {
-						render = NONE,
-						recycle = function(current): GuiObject
-							return c.UI.Text({
-								text = function(use: Use)
-									return use(current).name
-								end,
-								Size = UDim2.fromScale(1, 1),
-							})
-						end,
-					}
-				end,
-			},
+			{ name = "rebuilt rows", props = properties { recycle = false } },
 			{ name = "content clipped", props = properties { contentOverflow = "clip" } },
 			{ name = "content visible", props = properties { contentOverflow = "visible" } },
 			{ name = "copy rows by dragging into this collection", props = transferState },
@@ -6037,6 +6008,7 @@ PAGE_DATA.Outline = {
 		},
 		{ name = "large indentation", props = properties { indent = 48 } },
 		{ name = "reduced motion", props = properties { reducedMotion = true } },
+		{ name = "rebuilt rows", props = properties { recycle = false } },
 		{
 			name = "disabled folder",
 			props = properties {

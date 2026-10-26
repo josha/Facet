@@ -450,7 +450,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 		raw: (V) -> unknown,
 		onCellChange: (key: K, column: string, value: unknown) -> (),
 		enabled: (ComposeTypes.Use) -> boolean
-	): CollectionTypes.RowRender<V, K>
+	): (
+		ComposeTypes.Readable<V>,
+		ComposeTypes.Readable<ComposeTypes.Placement>,
+		K
+	) -> GuiObject
 		return function(current: ComposeTypes.Readable<V>, _placement, key: K): GuiObject
 			return UI.CellEditor {
 				Name = "CellEditor",

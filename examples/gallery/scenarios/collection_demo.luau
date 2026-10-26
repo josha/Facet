@@ -192,7 +192,7 @@ return function(ctx: ExampleContext, options: Options): Built
 		end
 		return result
 	end)
-	local function mailBody(current: Readable<Row>, key: string, sender: boolean): GuiObject
+	local function mailBody(current: Readable<Row>, key: Readable<string>, sender: boolean): GuiObject
 		local function words(read: (Row) -> string?): (Use) -> string
 			return function(use: Use): string
 				return read(use(current)) or ""
@@ -214,7 +214,7 @@ return function(ctx: ExampleContext, options: Options): Built
 				status = "accent",
 				name = "Unread",
 				Visible = function(use: Use)
-					return not use(readRows)[key]
+					return not use(readRows)[use(key)]
 				end,
 			},
 			Host.Frame "Text" {
@@ -264,19 +264,19 @@ return function(ctx: ExampleContext, options: Options): Built
 					return ctx.Facet.themes.resolveIcon(package, "flag") or ""
 				end,
 				Visible = function(use: Use)
-					return use(flaggedRows)[key] == true
+					return use(flaggedRows)[use(key)] == true
 				end,
 			},
 		}
 	end
-	local function row(current: Readable<Row>, placement: unknown, key: string): GuiObject
+	local function row(current: Readable<Row>, placement: unknown, key: Readable<string>): GuiObject
 		mounted:set(mounted:peek() + 1)
 		built:set(built:peek() + 1)
 		Compose.cleanup(function()
 			mounted:set(mounted:peek() - 1)
 		end)
 		if options.variable or options.measure then
-			return Host.Frame("Post_" .. key)({
+			local post = Host.Frame "Post" {
 				BackgroundTransparency = 1,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
@@ -314,11 +314,17 @@ return function(ctx: ExampleContext, options: Options): Built
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
 				},
-			})
+			}
+			Compose.watch(function(use: Use)
+				post.Name = "Post_" .. use(key)
+			end)
+			return post
 		end
 		local button = if options.mail
 			then UI.Button({
-				Name = "Item_" .. key,
+				Name = function(use: Use): string
+					return "Item_" .. use(key)
+				end,
 				label = "",
 				name = function(use: Use): string
 					local item = use(current)
@@ -327,13 +333,15 @@ return function(ctx: ExampleContext, options: Options): Built
 				Size = D2.fromScale(1, 1),
 				AutomaticSize = E.AutomaticSize.None,
 				onActivate = function()
-					selected:set(key)
-					markRead(assert(key))
+					selected:set(key:peek())
+					markRead(key:peek())
 				end,
 				mailBody(current, key, true),
 			})
 			else UI.Button({
-				Name = "Item_" .. key,
+				Name = function(use: Use): string
+					return "Item_" .. use(key)
+				end,
 				label = function(use: Use): string
 					return use(current).label or ""
 				end,
@@ -344,11 +352,11 @@ return function(ctx: ExampleContext, options: Options): Built
 				Size = D2.fromScale(1, 1),
 				AutomaticSize = E.AutomaticSize.None,
 				onActivate = function()
-					selected:set(key)
+					selected:set(key:peek())
 				end,
 			})
 		if options.actions then
-			local spec = actions(key)
+			local spec = actions(key:peek())
 			local rowSpec: RowActionsSpec = {
 				Name = spec.Name,
 				coordinator = spec.coordinator,
@@ -462,7 +470,7 @@ return function(ctx: ExampleContext, options: Options): Built
 			id = "subject",
 			label = "Subject",
 			minWidth = 160,
-			render = function(current: Readable<Row>, _: unknown, key: string): GuiObject
+			render = function(current: Readable<Row>, _: unknown, key: Readable<string>): GuiObject
 				return mailBody(current, key, false)
 			end,
 		},

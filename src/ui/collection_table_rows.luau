@@ -27,7 +27,7 @@ export type Rows<V, K> = {
 			(Item) -> unknown,
 			(Key, string, unknown) -> (),
 			(ComposeTypes.Use) -> boolean
-		) -> CollectionTypes.RowRender<Item, Key>,
+		) -> (ComposeTypes.Readable<Item>, ComposeTypes.Readable<ComposeTypes.Placement>, Key) -> GuiObject,
 	},
 	field: (V, CollectionTypes.TableColumn<V, K>) -> unknown,
 	tree: TreeTypes.Tree<V, K>?,
@@ -54,20 +54,40 @@ return function<V, K>(
 	local CELL_PADDING, minimumRow = metrics.cellPadding, metrics.minimumRow
 	local collapsed, disclosureWidth = layout.collapsed, layout.disclosureWidth
 	local setPrimaryMeasure = layout.setPrimaryMeasure
-	return function(
+	local function build(
 		current: ComposeTypes.Readable<V>,
 		placement: ComposeTypes.Readable<ComposeTypes.Placement>,
-		key: K
+		key: ComposeTypes.Readable<K>
 	): GuiObject
 		local cellHeights: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
 		local truncated: ComposeTypes.Cell<{ [string]: boolean }> = Compose.cell({})
-		Compose.cleanup(function()
-			if truncatedRows:peek()[key] == nil then
-				return
+		local held: K? = nil
+		local function forget(gone: K?)
+			if gone ~= nil and truncatedRows:peek()[gone] ~= nil then
+				local rows = table.clone(truncatedRows:peek())
+				rows[gone] = nil
+				truncatedRows:set(rows)
 			end
-			local rows = table.clone(truncatedRows:peek())
-			rows[key] = nil
-			truncatedRows:set(rows)
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			local now, cells = use(key), use(truncated)
+			if held ~= now then
+				forget(held)
+				held = now
+			end
+			local wanted = if next(cells) then cells else nil
+			if truncatedRows:peek()[now] ~= wanted then
+				local rows = table.clone(truncatedRows:peek())
+				if wanted then
+					rows[now] = wanted
+				else
+					rows[now] = nil
+				end
+				truncatedRows:set(rows)
+			end
+		end)
+		Compose.cleanup(function()
+			forget(held)
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local height = use(minimumRow)
@@ -77,9 +97,10 @@ return function<V, K>(
 					height = math.max(height, sizes[column.id] or 0)
 				end
 			end
-			if (height > use(minimumRow) or rowMeasures:peek()[key] ~= nil) and rowMeasures:peek()[key] ~= height then
+			local now = use(key)
+			if (height > use(minimumRow) or rowMeasures:peek()[now] ~= nil) and rowMeasures:peek()[now] ~= height then
 				local nextHeights = table.clone(rowMeasures:peek())
-				nextHeights[key] = height
+				nextHeights[now] = height
 				rowMeasures:set(nextHeights)
 			end
 		end)
@@ -89,7 +110,7 @@ return function<V, K>(
 			BackgroundTransparency = 1,
 			Attributes = {
 				FacetSelected = function(use: ComposeTypes.Use)
-					return read(selection, use)[key] == true
+					return read(selection, use)[use(key)] == true
 				end,
 			} :: EngineTypes.Attributes,
 			lists.list({}, false) :: ComposeTypes.Child,
@@ -105,19 +126,46 @@ return function<V, K>(
 					index: ComposeTypes.Readable<number>
 				)
 					local definition = column:peek()
-					local render: CollectionTypes.RowRender<V, K>? = definition.render
-						or if definition.editor
-							then editors.render(
-								definition,
-								function(item: V): unknown
-									return field(item, definition)
+					local authored = definition.render
+					local editorCell = if authored == nil and definition.editor
+						then editors.render(
+							definition,
+							function(item: V): unknown
+								return field(item, definition)
+							end,
+							assert(spec.onCellChange),
+							function(use: ComposeTypes.Use): boolean
+								return not policy.disabled(spec.disabled, use(current))
+							end
+						)
+						else nil
+					local build: ((K) -> GuiObject)? = if authored
+						then function(value: K): GuiObject
+							return authored(current, placement, Compose.cell(value))
+						end
+						elseif editorCell then function(value: K): GuiObject
+							return editorCell(current, placement, value)
+						end
+						else nil
+					local render: ((ComposeTypes.Readable<K>) -> ComposeTypes.Child)? = if build
+						then function(rowKey: ComposeTypes.Readable<K>): ComposeTypes.Child
+							return Compose.keyed({
+								from = function(use: ComposeTypes.Use): { K }
+									return { use(rowKey) }
 								end,
-								assert(spec.onCellChange),
-								function(use: ComposeTypes.Use): boolean
-									return not policy.disabled(spec.disabled, use(current))
-								end
-							)
-							else nil
+								key = function(value: K): K
+									return value
+								end,
+								render = function(
+									_: ComposeTypes.Readable<K>,
+									_index: ComposeTypes.Readable<number>,
+									value: K
+								): GuiObject
+									return build(value)
+								end,
+							})
+						end
+						else nil
 					local function valueText(use: ComposeTypes.Use): string
 						local result = field(use(current), use(column))
 						return if result == nil then "" else tostring(result)
@@ -168,12 +216,11 @@ return function<V, K>(
 							return valueText(use)
 						end, true, metrics.touchRows)
 					local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
-					local custom = render
-					local content: GuiObject = if custom
+					local content: GuiObject = if render
 						then ctx.styled(
 							Host.Frame "Inset" {
 								BackgroundTransparency = 1,
-								custom(current, placement, key) :: ComposeTypes.Child,
+								render(key),
 								Host.UIListLayout {
 									FillDirection = E.FillDirection.Vertical,
 									VerticalAlignment = E.VerticalAlignment.Center,
@@ -182,7 +229,6 @@ return function<V, K>(
 							},
 							"TableCellInset"
 						)
-						elseif render then render(current, placement, key)
 						else ctx.styled(
 							ctx.text({
 								Name = "Value",
@@ -204,7 +250,7 @@ return function<V, K>(
 							"TableValue"
 						)
 					if render then
-						local measured = if custom then content:GetChildren()[1] :: GuiObject else content
+						local measured = content:FindFirstChildWhichIsA("GuiObject") or content
 						local size = ctx.observe.AbsoluteSize(measured)
 						local settled = if runtime.host.frames
 							then runtime.settled {
@@ -245,7 +291,7 @@ return function<V, K>(
 								) :: UDim).Offset
 								else math.max(CELL_PADDING, use(metrics.textInsetSize).X / use(unitScale))
 							setPrimaryMeasure(
-								key,
+								use(key),
 								assert(undisclosed),
 								math.ceil(use(natural).X / use(unitScale)),
 								inset
@@ -266,18 +312,11 @@ return function<V, K>(
 									cells[id] = nil
 								end
 								truncated:set(cells)
-								local rows = table.clone(truncatedRows:peek())
-								if next(cells) then
-									rows[key] = cells
-								else
-									rows[key] = nil
-								end
-								truncatedRows:set(rows)
 							end
 						end)
 					end
 					if tree and index:peek() == 1 then
-						content = tree.wrap(content, current, key)
+						content = tree.wrap(content, current, key:peek())
 						local outlineSize = ctx.observe.AbsoluteSize(content)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local sizes = table.clone(cellHeights:peek())
@@ -383,27 +422,27 @@ return function<V, K>(
 		end
 		row = Host.Frame(rowProps)
 		local disclosing = row
-		row = policy.actions(ctx, rowPolicySpec, current, key, row, UI.RowActions, coordinator) :: Frame
+		row = policy.actions(ctx, rowPolicySpec, current, key:peek(), row, UI.RowActions, coordinator) :: Frame
 		local actionButton = row:FindFirstChild("CellActions")
 		if actionButton and actionButton:IsA("GuiObject") then
 			local visible = ctx.observe.Visible(actionButton)
 			local size = ctx.observe.AbsoluteSize(actionButton)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local width = if use(visible) then use(size).X / use(unitScale) else 0
-				if actionGutters:peek()[key] ~= width then
+				if actionGutters:peek()[key:peek()] ~= width then
 					local gutters = table.clone(actionGutters:peek())
-					gutters[key] = width
+					gutters[key:peek()] = width
 					actionGutters:set(gutters)
 				end
 			end)
 			Compose.cleanup(function()
 				local gutters = table.clone(actionGutters:peek())
-				gutters[key] = nil
+				gutters[key:peek()] = nil
 				actionGutters:set(gutters)
 			end)
 		end
 		if editor then
-			row = editor.wrap(row, current, key, true)
+			row = editor.wrap(row, current, key:peek(), true)
 		end
 		local painted = ctx.styled(if editor then row else disclosing, "TableRow")
 		runtime.decorate(painted, {
@@ -419,7 +458,7 @@ return function<V, K>(
 			end
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
-			local on = read(selection, use)[key] == true
+			local on = read(selection, use)[use(key)] == true
 			if on ~= painted:HasTag("facet-selected") then
 				if on then
 					painted:AddTag("facet-selected")
@@ -431,9 +470,10 @@ return function<V, K>(
 		if editor then
 			local press = editor.press
 			Compose.cleanup(activation.providePress(row, function(value: InputObject)
-				press(key, value)
+				press(key:peek(), value)
 			end))
 		end
 		return row
 	end
+	return build
 end
