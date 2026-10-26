@@ -215,9 +215,7 @@ local function cell<T>(initial: Initial<T>, equals: Equals<T>?): Value<T>
 	return NodeCast.make(node, class)
 end
 
-local function isValue(candidate: unknown): boolean
-	return NodeCast.asNode(candidate) ~= nil
-end
+local isValue = NodeCast.isNode
 
 return {
 	cell = cell,

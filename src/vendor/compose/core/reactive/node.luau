@@ -30,6 +30,10 @@ local function asNode(candidate: unknown): Node?
 	return nil
 end
 
+local function isNode(candidate: unknown): boolean
+	return type(candidate) == "table" and classes[metatableOf(candidate)] == true
+end
+
 local function nodeOf<T>(value: Types.ReadOnlyValue<T>): Node
 	return (value :: unknown) :: Node
 end
@@ -70,6 +74,7 @@ local function identityKey<V, K>(value: V, _index: number): K
 end
 
 return {
+	isNode = isNode,
 	adopt = adopt,
 	use = use,
 	setObserver = setObserver,

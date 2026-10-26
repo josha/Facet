@@ -186,7 +186,7 @@ return function(timeline: (Timeline.Options?) -> Timeline.Timeline, ownerOf: (st
 				if Owner.isDisposed(scope) then
 					return
 				end
-				Reactors.batch(scope.reactor, function()
+				Reactors.batch(Owner.reactorOf(scope), function()
 					cancel()
 					cursor = 1
 					for _, phase in phases do

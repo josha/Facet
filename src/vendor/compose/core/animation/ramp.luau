@@ -44,7 +44,7 @@ local function createRamps(
 						expected = "seconds; zero or less jumps to the target at once",
 					})
 				end
-				Reactors.batch(owner.reactor, function()
+				Reactors.batch(Owner.reactorOf(owner), function()
 					if duration > 0 then
 						seconds:set(duration)
 					end

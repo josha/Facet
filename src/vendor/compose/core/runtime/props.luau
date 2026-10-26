@@ -531,15 +531,30 @@ local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, 
 	end
 end
 
-local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Owner, onKey: (string) -> ())
+local propertyTargets: { [Host.Host]: Target } = {}
+
+Weak.entries(propertyTargets)
+
+local function propertyTarget(host: Host.Host): Target
+	local render = host.render
+	local cached = propertyTargets[host]
+	if cached ~= nil and cached.write == render.setProperty and cached.clear == render.clearProperty then
+		return cached
+	end
 	local target: Target = {
 		registry = propertyBindings,
-		write = host.render.setProperty,
-		clear = host.render.clearProperty :: Clear,
+		write = render.setProperty,
+		clear = render.clearProperty :: Clear,
 		host = host,
 		prefix = "",
 		deduplicate = false,
 	}
+	propertyTargets[host] = target
+	return target
+end
+
+local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Owner, onKey: (string) -> ())
+	local target = propertyTarget(host)
 	local length = #props
 
 	for key, value in props do

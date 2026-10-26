@@ -66,6 +66,9 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 		local currentList: { V } = {}
 
 		Owners.own(owner, function()
+			for _, entry in entries do
+				Block.releaseNodes(mountPoint, entry.nodes)
+			end
 			table.clear(entries)
 			table.clear(order)
 			table.clear(positionOf)
@@ -98,7 +101,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			local position = if readsIndex then cellModule.cell(index) else UNREAD_INDEX
 			local block = Block.mountBlock(mountPoint, owner, function(): { Host.Node }
 				return { render(value, position, itemKey) }
-			end, "keyed row", at)
+			end, "keyed row", at, true)
 			local nodes = block.nodes
 			local size = #nodes
 			if size ~= 1 then
@@ -132,7 +135,9 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			for index = #order, 1, -1 do
 				local existing = order[index]
 				if seen[existing] == nil then
-					Owners.dispose(entries[existing].owner)
+					local leaving = entries[existing]
+					Block.releaseNodes(mountPoint, leaving.nodes)
+					Owners.dispose(leaving.owner)
 					entries[existing] = nil
 					positionOf[existing] = nil
 					removedAny = true

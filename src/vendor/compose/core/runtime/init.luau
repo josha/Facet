@@ -236,9 +236,7 @@ local function createRuntime(host: Host.Host): Runtime
 
 			local node = render.createNode(kind)
 			Nodes.markOwned(node)
-			Owner.own(owner, function()
-				destroyOwnedNode(node)
-			end)
+			Owner.holdSubject(owner, destroyOwnedNode, node)
 			if Inspect.isActive() then
 				Inspect.node(owner, node, "owned")
 				Nodes.chargeToOwner(owner, node, "owned")
@@ -340,7 +338,7 @@ local function createRuntime(host: Host.Host): Runtime
 		end
 
 		local mountPoint = Children.wholeOf(host, target)
-		local ok, block = pcall(Block.mountBlock, mountPoint, owner, produce, label, nil)
+		local ok, block = pcall(Block.mountBlock, mountPoint, owner, produce, label, nil, false)
 		if not ok then
 			if isTopLevel then
 				Owner.dispose(owner)

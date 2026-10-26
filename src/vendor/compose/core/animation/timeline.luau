@@ -129,7 +129,7 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 		end
 
 		local function publishAtomically(body: () -> ())
-			Reactors.batch(owner.reactor, body)
+			Reactors.batch(Owner.reactorOf(owner), body)
 		end
 
 		local function onFrame(delta: number)

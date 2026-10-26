@@ -53,12 +53,22 @@ local function requireNodes(produced: { Node }, label: string): { Node }
 	return produced
 end
 
+local function releaseNodes(mountPoint: Children.MountPoint, nodes: { Node })
+	for index = #nodes, 1, -1 do
+		mountPoint.remove(nodes[index])
+	end
+	for _, node in nodes do
+		Nodes.forget(node)
+	end
+end
+
 local function mountBlock(
 	mountPoint: Children.MountPoint,
 	parentOwner: Owner.Owner,
 	produce: () -> { Node },
 	label: string,
-	at: number?
+	at: number?,
+	detached: boolean?
 ): Block
 	local owner = Owner.createChild(parentOwner)
 
@@ -89,20 +99,18 @@ local function mountBlock(
 		error(insertErr, 0)
 	end
 
-	Owner.adopt(owner, function()
-		for index = #built, 1, -1 do
-			mountPoint.remove(built[index])
-		end
-		for _, node in built do
-			Nodes.forget(node)
-		end
-	end)
+	if not detached then
+		Owner.adopt(owner, function()
+			releaseNodes(mountPoint, built)
+		end)
+	end
 
 	return { nodes = built, owner = owner }
 end
 
 return {
 	mountBlock = mountBlock,
+	releaseNodes = releaseNodes,
 	nameOf = nameOf,
 	requireNodes = requireNodes,
 }

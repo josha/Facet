@@ -12,7 +12,7 @@ export type Slot = {
 }
 
 local function createSlot(explicit: Owner.Owner?): Slot
-	if explicit ~= nil and (type(explicit) ~= "table" or type(explicit.disposed) ~= "boolean") then
+	if explicit ~= nil and (type(explicit) ~= "table" or type(explicit.reactor) ~= "table") then
 		Diagnostics.raise("slot/invalid-owner", "a slot can only be bound to an owner", {
 			actual = Diagnostics.describe(explicit),
 			expected = "an owner from Compose.createOwner or Compose.owner.createChild",
