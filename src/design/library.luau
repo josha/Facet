@@ -121,7 +121,7 @@ local function plainFields(source: { [string]: Types.DerivedField }): { [string]
 		fields[key] = {
 			type = field.type,
 			options = field.options,
-			datatype = field.datatype,
+			datatype = if field.type == "color" then "Color3" else field.datatype,
 			group = if lower then "Control" else "Roblox",
 			order = order,
 		}
@@ -137,7 +137,7 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 		fields[key] = {
 			type = field.type,
 			options = field.options,
-			datatype = field.datatype,
+			datatype = if field.type == "color" then "Color3" else field.datatype,
 			group = "More",
 			order = order,
 		}
@@ -161,6 +161,7 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 			type = field.type,
 			options = field.options,
 			order = field.order,
+			datatype = if field.type == "color" then "Color3" else nil,
 			also = if #also > 0 then also else nil,
 			luauType = if field.format == "padding"
 				then "Facet.Sides"
@@ -191,6 +192,9 @@ local function create(context: Context): Design.Library
 	end
 
 	local function convert(datatype: string, literal: Literal): unknown
+		if datatype == "Color3" then
+			return color(literal)
+		end
 		local enumName = string.match(datatype, "^Enum%.(.+)$")
 		if enumName ~= nil then
 			local lookup = context.enumItem

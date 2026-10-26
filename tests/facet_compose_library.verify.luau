@@ -361,6 +361,7 @@ return function(verifyHarness: Verify.Harness)
 				local text, sheet, alert
 				value, text = Design.document.insert(value, library, "n1", "Text")
 				value = Design.document.change(value, library, text, "textSize", { literal = "body" })
+				value = Design.document.change(value, library, text, "TextColor3", { literal = "#986325" })
 				value, sheet = Design.document.insert(value, library, "n1", "Sheet")
 				value = Design.document.change(value, library, sheet, "closeButton", { literal = "Cancel" })
 				local reportArgs: { Facet.DesignInputType } = {}
@@ -392,6 +393,7 @@ return function(verifyHarness: Verify.Harness)
 						"padding = vStackPadding,",
 						"local UI = Facet.controls(runtime)",
 						'textSize = "body",',
+						'TextColor3 = Color3.fromHex "986325",',
 						'closeButton = "Cancel",',
 						"if props.onReport then",
 					}
