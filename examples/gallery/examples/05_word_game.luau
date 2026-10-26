@@ -511,7 +511,7 @@ function example.build(ctx: ExampleContext): Built
 				text = "v exact spot   ~ different spot   x absent",
 				textRole = "caption",
 			},
-			UI.VStack "kb"({ width = "fill", gap = "s", table.unpack(keyRows) }),
+			UI.VStack "kb"({ width = "fill", maxWidth = 640, gap = "s", table.unpack(keyRows) }),
 			UI.Button "Restart" {
 				label = "New game",
 				onActivate = function()

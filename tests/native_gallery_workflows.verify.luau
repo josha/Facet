@@ -164,7 +164,9 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(total <= width + 0.001 and total >= width - 10):toBe(true)
 					end
 				end
-				Verify.expect((find(node, "kb"):FindFirstChildWhichIsA("UISizeConstraint"))):toBeNil()
+				local cap = find(node, "kb"):FindFirstChildWhichIsA("UISizeConstraint")
+				Verify.expect(cap.MaxSize.X):toBe(640)
+				Verify.expect(cap.MinSize.X):toBe(0)
 				local finalRow = find(node, "kbrow3")
 				Verify.expect(finalRow.Size.X.Scale):toBe(1)
 				local count = 0

@@ -65,6 +65,7 @@ function example.build(ctx: ExampleContext)
 				gap = 12,
 				padding = "m",
 				align = "stretch",
+				maxWidth = 560,
 				text("Title", "Settings sync", "title"),
 				text(
 					"Explanation",

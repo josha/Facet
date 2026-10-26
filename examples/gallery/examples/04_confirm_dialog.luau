@@ -53,7 +53,7 @@ function example.build(ctx: ExampleContext)
 		local actions: { AlertAction } = {
 			{
 				id = "Confirm",
-				label = "Delete Save",
+				label = "Delete save",
 				compactLabel = "Delete",
 				role = "destructive",
 				onActivate = function()
@@ -76,6 +76,7 @@ function example.build(ctx: ExampleContext)
 			UI.ScrollView "Page" {
 				gap = "s",
 				align = "stretch",
+				maxWidth = 560,
 				UI.Text "Title" {
 					textRole = "title",
 					TextWrapped = true,
@@ -84,8 +85,19 @@ function example.build(ctx: ExampleContext)
 					end,
 				},
 				UI.Text "Outcome" { text = outcome, TextWrapped = true },
-				UI.Button "Delete" { label = "Delete Save", enabled = hasSave, onActivate = openDialog },
-				UI.Button "Restore" { label = "Restore the save", onActivate = restore },
+				UI.Button "Delete" {
+					label = "Delete save",
+					role = "destructive",
+					enabled = hasSave,
+					onActivate = openDialog,
+				},
+				UI.Button "Restore" {
+					label = "Restore save",
+					Visible = function(use: Use)
+						return not use(hasSave)
+					end,
+					onActivate = restore,
+				},
 			},
 			UI.Alert "ConfirmDialog" {
 				title = "Delete this save?",
