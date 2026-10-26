@@ -93,6 +93,14 @@ local function stateKeys(spec: Types.ControlSpec): { string }
 	return if state ~= nil then { state } else {}
 end
 
+local LITERAL_KINDS: { [string]: string } = {
+	string = "string",
+	choice = "string",
+	color = "string",
+	number = "number",
+	boolean = "boolean",
+}
+
 local function derivedFields(name: string): { [string]: Types.DerivedField }
 	local found = derived.controls[name]
 	return if found ~= nil then found.fields else {}
@@ -132,8 +140,27 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 			order = order,
 		}
 	end
+	local typed = derivedFields(name)
 	for key, field in spec.fields do
-		fields[key] = { type = field.type, options = field.options, order = field.order }
+		local also: { string } = {}
+		if field.format == "spacing" then
+			table.insert(also, "number")
+		elseif field.format == "padding" then
+			table.insert(also, "number")
+			table.insert(also, "table")
+		end
+		local runtime = typed[key]
+		local kind = if runtime ~= nil then LITERAL_KINDS[runtime.type] else nil
+		local own = LITERAL_KINDS[field.type]
+		if kind ~= nil and kind ~= own and table.find(also, kind) == nil then
+			table.insert(also, kind)
+		end
+		fields[key] = {
+			type = field.type,
+			options = field.options,
+			order = field.order,
+			also = if #also > 0 then also else nil,
+		}
 	end
 	return fields
 end
@@ -200,7 +227,7 @@ local function create(context: Context): Design.Library
 			if entry ~= nil then
 				if entry.children ~= nil then
 					actions(entry.children, handler)
-				elseif not entry.divider then
+				elseif not entry.divider and entry[handler] == nil then
 					entry[handler] = noop
 				end
 			end
@@ -239,7 +266,9 @@ local function create(context: Context): Design.Library
 							and spec.fields[key] == nil
 						then typed[key].datatype
 						else nil
-					if literal ~= nil and datatype ~= nil then
+					if resolved.value ~= nil then
+						values[key] = resolved.value
+					elseif literal ~= nil and datatype ~= nil then
 						values[key] = convert(datatype, literal)
 					elseif literal ~= nil then
 						values[key] = copy(literal)
@@ -476,7 +505,9 @@ local function create(context: Context): Design.Library
 				local literal = resolved.literal
 				local field = source[key]
 				local datatype = if field then field.datatype else nil
-				if literal ~= nil and datatype ~= nil then
+				if resolved.value ~= nil then
+					values[key] = resolved.value
+				elseif literal ~= nil and datatype ~= nil then
 					values[key] = convert(datatype, literal)
 				elseif literal ~= nil then
 					values[key] = copy(literal)

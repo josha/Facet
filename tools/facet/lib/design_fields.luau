@@ -84,6 +84,9 @@ local function splitUnion(text: string): { string }
 	return parts
 end
 
+local aliases: { [string]: string } = {}
+local resolving: { [string]: boolean } = {}
+
 local classify: (key: string, text: string) -> Field?
 
 local function classifyOne(key: string, text: string): Field?
@@ -115,6 +118,14 @@ local function classifyOne(key: string, text: string): Field?
 	if DATATYPES[current] then
 		return { type = "datatype", datatype = current }
 	end
+	local aliasName = string.match(current, "^[%w_]+%.([%w_]+)$") or string.match(current, "^([%w_]+)$")
+	local aliased = if aliasName then aliases[aliasName] else nil
+	if aliasName and aliased and not resolving[aliasName] then
+		resolving[aliasName] = true
+		local field = classify(key, aliased)
+		resolving[aliasName] = nil
+		return field
+	end
 	return nil
 end
 
@@ -145,20 +156,23 @@ classify = function(key: string, text: string): Field?
 	local found: Field? = nil
 	for _, part in parts do
 		local field = classifyOne(key, part)
-		if field ~= nil and field.type ~= "choice" then
-			if found == nil or (found.type ~= "string" and field.type == "string") then
-				found = field
-			end
+		local textual = field ~= nil and (field.type == "string" or field.type == "choice")
+		if field ~= nil and (found == nil or (found.type ~= "string" and textual)) then
+			found = if textual then { type = "string" } else field
 		end
 	end
 	return found
 end
 
-local function exportedTables(root: string): { [string]: { source: string, node: Luau.Node, parsed: Luau.Parsed } }
-	local found: { [string]: { source: string, node: Luau.Node, parsed: Luau.Parsed } } = {}
+type Declared = { source: string, node: Luau.Node, parsed: Luau.Parsed }
+
+local function exportedTables(root: string): { [string]: Declared }
+	local found: { [string]: Declared } = {}
+	table.clear(aliases)
 	for _, entry in Files.list(Files.join(root, "src/ui")) do
 		local name = entry.name
-		if string.match(name, "%.luau$") then
+		local module = string.match(name, "^(.+)%.luau$")
+		if module then
 			local source = Files.text(Files.join(root, "src/ui", name))
 			if string.find(source, "export type", 1, true) then
 				local parsed = Luau.parse(source)
@@ -167,7 +181,12 @@ local function exportedTables(root: string): { [string]: { source: string, node:
 						if Luau.tag(statement) == "typealias" and statement.export ~= nil then
 							local key, value = Luau.tokenText(statement, "name"), Luau.child(statement, "type")
 							if key and value and Luau.tag(value) == "table" then
-								found[key] = { source = source, node = value, parsed = parsed }
+								found[module .. "." .. key] = { source = source, node = value, parsed = parsed }
+							elseif key and value then
+								local location = Luau.location(value)
+								local first = Luau.offset(parsed, location.beginLine, location.beginColumn)
+								local last = Luau.offset(parsed, location.endLine, location.endColumn) - 1
+								aliases[key] = aliases[key] or string.sub(source, first, last)
 							end
 						end
 					end
@@ -179,11 +198,20 @@ local function exportedTables(root: string): { [string]: { source: string, node:
 end
 
 local function constructors(root: string): { [string]: string }
+	local text = Files.text(Files.join(root, CONTROLS))
+	local modules: { [string]: string } = {}
+	for line in string.gmatch(text, "[^\n]+") do
+		local alias, module = string.match(line, '^local ([%w_]+) = require%("%./([%w_]+)"%)')
+		if alias and module then
+			modules[alias] = module
+		end
+	end
 	local kinds: { [string]: string } = {}
-	for line in string.gmatch(Files.text(Files.join(root, CONTROLS)), "[^\n]+") do
-		local kind, typeName = string.match(line, "^\t(%u[%w]*): Constructor<[%w_]+%.([%w_]+)")
-		if kind and typeName and kinds[kind] == nil then
-			kinds[kind] = typeName
+	for line in string.gmatch(text, "[^\n]+") do
+		local kind, alias, typeName = string.match(line, "^\t(%u[%w]*): Constructor<([%w_]+)%.([%w_]+)")
+		local module = if alias then modules[alias] else nil
+		if kind and module and typeName and kinds[kind] == nil then
+			kinds[kind] = module .. "." .. typeName
 		end
 	end
 	return kinds
@@ -252,8 +280,6 @@ local DesignFields = {}
 DesignFields.OUTPUT = OUTPUT
 DesignFields.classify = classify
 
-type Declared = { source: string, node: Luau.Node, parsed: Luau.Parsed }
-
 local function derive(declared: Declared): Derived
 	local fields: { [string]: Field } = {}
 	local children = false
@@ -289,7 +315,7 @@ function DesignFields.generate(root: string): string
 	end
 	local host: { [string]: Derived } = {}
 	for _, className in HOST_CLASSES do
-		local declared = tables[className .. "Props"]
+		local declared = tables["engine_types." .. className .. "Props"]
 		if declared then
 			host[className] = derive(declared)
 		end

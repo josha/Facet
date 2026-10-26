@@ -322,9 +322,9 @@ return function(verifyHarness: Verify.Harness)
 						"UI.VStack(props.name) {",
 						"Size = UDim2.new(1, 0, 0, 320)",
 						"AutomaticSize = Enum.AutomaticSize.Y",
-						"Facet.Compose.keyed { from = props.games",
-						"Facet.Compose.show(props.offered, function() return UI.Button",
-						"if props.onRetry then props.onRetry(...) end",
+						"from = props.games,",
+						"Facet.Compose.show(props.offered, function()",
+						"if props.onRetry then",
 						'UI.Text "Text" {',
 						"games: Facet.Compose.ReadOnlyValue<{ { id: string, title: string } }>?",
 						"\tname: string,",
@@ -344,6 +344,49 @@ return function(verifyHarness: Verify.Harness)
 				panel = Design.document.change(panel, library, inner, "text", { literal = "Finding players" })
 				Verify.expect(string.find(Design.emit(panel, library), 'Host.Frame "Frame" {', 1, true) ~= nil)
 					:toBe(true)
+			end,
+		})
+
+		verifyHarness:case("accepts the literals Facet controls take at runtime", {
+			id = "facet_compose_library::accepts the literals Facet controls take at runtime",
+			run = function()
+				local library = offline()
+				local value = Design.document.new("Drawer", library, "VStack")
+				value = Design.document.change(value, library, "n1", "gap", { literal = 8 })
+				local sideTable: { [string | number]: Facet.DesignLiteral } = { left = 8, right = 8, top = 12 }
+				local sides: Facet.DesignLiteral = sideTable
+				value = Design.document.change(value, library, "n1", "padding", { literal = sides })
+				local text, sheet, alert
+				value, text = Design.document.insert(value, library, "n1", "Text")
+				value = Design.document.change(value, library, text, "textSize", { literal = "body" })
+				value, sheet = Design.document.insert(value, library, "n1", "Sheet")
+				value = Design.document.change(value, library, sheet, "closeButton", { literal = "Cancel" })
+				local reportArgs: { Facet.DesignInputType } = {}
+				local report: Facet.DesignOutput = { id = "onReport", args = reportArgs }
+				value = Design.document.setContract(value, library, { inputs = {}, outputs = { report } })
+				value, alert = Design.document.insert(value, library, "n1", "Alert")
+				local call: { [string | number]: Facet.DesignLiteral } = {}
+				call["$output"] = "onReport"
+				local action: { [string | number]: Facet.DesignLiteral } = { id = "report", label = "Report" }
+				action.onActivate = call
+				local actions: Facet.DesignLiteral = { action }
+				value = Design.document.change(value, library, alert, "actions", { literal = actions })
+				local code = Design.emit(value, library, { name = "Drawer", rowFunctions = true })
+				for _, expected in
+					{
+						"gap = 8,",
+						"padding = { left = 8, right = 8, top = 12 },",
+						'textSize = "body",',
+						'closeButton = "Cancel",',
+						"if props.onReport then",
+					}
+				do
+					Verify.expect(`{expected} {string.find(code, expected, 1, true) ~= nil}`):toBe(`{expected} true`)
+				end
+				Verify.expect(
+					Design.emit(Design.parse(code, library), library, { name = "Drawer", rowFunctions = true })
+				)
+					:toBe(code)
 			end,
 		})
 

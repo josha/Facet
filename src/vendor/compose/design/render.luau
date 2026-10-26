@@ -78,6 +78,39 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		end
 	end
 	collect(value.root)
+	local function carriesOutput(current: Literal): boolean
+		if type(current) ~= "table" then
+			return false
+		end
+		if current["$output"] ~= nil then
+			return true
+		end
+		for _, item in current do
+			if carriesOutput(item) then
+				return true
+			end
+		end
+		return false
+	end
+	local function withCallbacks(current: Literal): unknown
+		if type(current) ~= "table" then
+			return current
+		end
+		local output = current["$output"]
+		if type(output) == "string" then
+			return function(...: Literal)
+				local handler = outputs[output]
+				if handler then
+					handler { ... }
+				end
+			end
+		end
+		local copied: { [string | number]: unknown } = {}
+		for key, item in current do
+			copied[key] = withCallbacks(item)
+		end
+		return copied
+	end
 	local function resolve(property: Types.Value, item: ReadOnlyValue<Row>?): Resolved
 		local current, input, field, output, name =
 			property.literal, property.input, property.item, property.output, property.token
@@ -90,6 +123,9 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			return { readable = states[stateId] }
 		end
 		if current ~= nil then
+			if carriesOutput(current) then
+				return { literal = current, value = withCallbacks(current) }
+			end
 			return { literal = current }
 		elseif input then
 			local slot = slots[input]
@@ -163,8 +199,15 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 				}
 			end
 		elseif bind and template then
-			for _, row in rowsOf(inputs[bind.from]) do
-				table.insert(children, build(template, Core.cell(row)))
+			local rowId = bind.row or template.id
+			for _, child in node.children do
+				if child.id == rowId then
+					for _, row in rowsOf(inputs[bind.from]) do
+						table.insert(children, build(child, Core.cell(row)))
+					end
+				elseif child.when == nil or truthy(child.when) then
+					table.insert(children, build(child, item))
+				end
 			end
 		else
 			for _, child in node.children do

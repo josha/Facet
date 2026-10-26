@@ -39,12 +39,14 @@ export type Field = {
 	order: number?,
 	default: Literal?,
 	datatype: string?,
+	also: { string }?,
 }
 
 export type Row = { [string | number]: Literal }
 
 export type Resolved = {
 	literal: Literal?,
+	value: unknown,
 	readable: ReadOnlyValue<Literal?>?,
 	callback: ((...Literal) -> ())?,
 	template: ((row: ReadOnlyValue<Row>) -> unknown)?,
@@ -105,7 +107,7 @@ export type State = { id: string, type: InputType, initial: Literal }
 
 export type Contract = { inputs: { Input }, outputs: { Output } }
 
-export type Bind = { from: string, key: string }
+export type Bind = { from: string, key: string, row: string? }
 
 export type Node = {
 	id: string,

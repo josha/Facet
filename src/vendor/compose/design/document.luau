@@ -72,7 +72,7 @@ local function copyNode(node: Node): Node
 		name = node.name,
 		props = props,
 		children = children,
-		bind = if bind then { from = bind.from, key = bind.key } else nil,
+		bind = if bind then { from = bind.from, key = bind.key, row = bind.row } else nil,
 		nameField = node.nameField,
 		nameInput = node.nameInput,
 		when = node.when,
@@ -229,6 +229,20 @@ local function stateOf(value: Document, id: string): Types.State?
 end
 document.stateOf = stateOf
 
+local function checkOutputs(value: Document, current: Literal, key: string)
+	if type(current) ~= "table" then
+		return
+	end
+	local output = current["$output"]
+	if output ~= nil then
+		assert(type(output) == "string" and hasOutput(value, output), `{key} calls unknown output {tostring(output)}`)
+		return
+	end
+	for _, item in current do
+		checkOutputs(value, item, key)
+	end
+end
+
 local function checkValue(value: Document, field: Types.Field, property: Value, collection: Types.Input?, key: string)
 	assert(present(property) == 1, `{key} holds exactly one literal or binding`)
 	local stateId = property.state
@@ -246,6 +260,11 @@ local function checkValue(value: Document, field: Types.Field, property: Value, 
 	assert(field.type ~= "node", `{key} references another node`)
 	if current ~= nil then
 		assert(plain(current, 0), `{key} must be plain data`)
+		checkOutputs(value, current, key)
+		local also = field.also
+		if also ~= nil and table.find(also, type(current)) ~= nil then
+			return
+		end
 		if field.type == "choice" then
 			local options = field.options or {}
 			assert(
@@ -395,6 +414,8 @@ function document.validate(value: Document, library: Library): Document
 			end
 		end
 		local nested = collection
+		local rowCollection: Types.Input? = nil
+		local rowId: string? = nil
 		if kind.children == "none" then
 			assert(#node.children == 0 and node.bind == nil, `{node.kind} holds no children`)
 		elseif kind.children == "slot" then
@@ -418,16 +439,27 @@ function document.validate(value: Document, library: Library): Document
 				local list = assert(inputOf(value, bind.from), `{node.kind} binds unknown input {bind.from}`)
 				assert(list.type == "list", `{node.kind} binds {bind.from}, which is not a list`)
 				assert(#bind.key > 0, `{node.kind} needs an item key`)
-				assert(#node.children == 1, `{node.kind} repeats exactly one row template`)
-				nested = list
+				local row = bind.row
+				if row == nil then
+					assert(#node.children == 1, `{node.kind} repeats exactly one row template`)
+				else
+					local found = false
+					for _, child in node.children do
+						found = found or child.id == row
+					end
+					assert(found, `{node.kind} repeats unknown row {row}`)
+				end
+				rowCollection = list
+				rowId = row or (if node.children[1] then node.children[1].id else nil)
 			end
 		end
 		for _, child in node.children do
+			local isRow = rowCollection ~= nil and child.id == rowId
 			assert(
-				child.when == nil or (kind.children == "list" and node.bind == nil),
-				`{child.name} is shown conditionally only inside an unbound list container`
+				child.when == nil or (kind.children == "list" and not isRow),
+				`{child.name} is shown conditionally only inside a list container, outside its row`
 			)
-			visit(child, depth + 1, nested)
+			visit(child, depth + 1, if isRow then rowCollection else nested)
 		end
 	end
 	visit(value.root, 0, nil)
@@ -542,7 +574,7 @@ end
 function document.bind(value: Document, library: Library, id: string, bind: Types.Bind?): Document
 	local nextValue = copyDocument(value)
 	local node = assert(document.find(nextValue.root, id), "Choose a node")
-	node.bind = if bind then { from = bind.from, key = bind.key } else nil
+	node.bind = if bind then { from = bind.from, key = bind.key, row = bind.row } else nil
 	return document.validate(nextValue, library)
 end
 
