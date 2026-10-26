@@ -417,6 +417,7 @@ local function measure(spec: Spec, clock: Clock, started: number): Result
 			)
 		end
 		local result: Result = {
+			attempts = 1,
 			name = spec.name,
 			unit = spec.unit,
 			samples = samples,
@@ -670,6 +671,7 @@ local function blankResult(spec: Spec, failure: string?): Result
 		table.insert(entries, phaseResult(spec, phase, {}, {}, {}, {}))
 	end
 	return {
+		attempts = 0,
 		name = spec.name,
 		unit = spec.unit,
 		samples = {},
@@ -684,6 +686,26 @@ local function blankResult(spec: Spec, failure: string?): Result
 		failure = failure,
 		elapsedSeconds = 0,
 	}
+end
+
+local function retryDrift(result: Result): boolean
+	if result.failure ~= nil then
+		return false
+	end
+	local drifted = false
+	for _, issue in result.invalid do
+		if issue.reason == "yardstick_drift" then
+			drifted = true
+		elseif issue.reason ~= "yardstick_unstable" then
+			return false
+		end
+	end
+	for _, phase in result.phases do
+		if #phase.invalid > 0 then
+			return false
+		end
+	end
+	return drifted
 end
 
 local function run(spec: Spec): Result
@@ -702,6 +724,13 @@ local function run(spec: Spec): Result
 		result = blankResult(spec, setupFailure)
 	else
 		result = measure(spec, clock, started)
+		for attempt = 2, 3 do
+			if not retryDrift(result) then
+				break
+			end
+			result = measure(spec, clock, started)
+			result.attempts = attempt
+		end
 	end
 	if spec.teardown ~= nil then
 		local ok, thrown: unknown = pcall(spec.teardown)
@@ -885,6 +914,7 @@ local function noteInvalid(context: Harness.Context, prefix: string, entries: { 
 end
 
 local function report(context: Harness.Context, spec: Spec, result: Result)
+	context:step(("benchmark %s attempts: %d"):format(spec.name, result.attempts), function() end)
 	local plain = spec.phases == nil
 	if plain then
 		record(context, spec.name, inputOf(spec, result.samples, result.summary, result.series), limitsOf(spec))

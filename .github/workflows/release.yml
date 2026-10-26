@@ -37,7 +37,74 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  cross-platform:
+    name: Full suite (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macOS
+          - os: windows-latest
+            platform: Windows
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit }}
+          fetch-depth: 0
+
+      - name: Install Rokit
+        env:
+          GITHUB_PAT: ${{ github.token }}
+        run: |
+          curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cygpath -w "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+          else
+            echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Install the pinned toolchain
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          rokit authenticate github --token "$GITHUB_TOKEN"
+          for attempt in 1 2 3; do
+            if rokit install --no-trust-check; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              sleep 10
+            fi
+          done
+          exit 1
+
+      - name: Prepare all local gate dependencies
+        run: lute run tools/facet types prepare
+
+      - name: Full tier
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/verify
+          lute run tools/facet gate full 2>&1 | tee artifacts/verify/ci.log
+
+      - name: Save verification diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-verification-${{ matrix.os }}-${{ github.run_id }}
+          path: artifacts/verify/
+          if-no-files-found: warn
+          retention-days: 14
+
   publish:
+    needs: cross-platform
     runs-on: ubuntu-latest
     environment: release
     steps:
