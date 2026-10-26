@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "1a7930a4977360c1df2849b64c6e267895a5a8ad",
+  "commit": "083faaa21fe4886311c1150a7d09e184173148d1",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -85,20 +85,21 @@
     "design-editor/layers.luau": "61e88a00ecca53b3cc77b6c7456485d8c2ddf240f2e3a521da906074bc012198",
     "design-editor/library-panel.luau": "57acd4d02e48260b571f43b52793f339bad854bdf6f62965f3092e16cbc92426",
     "design-editor/math.luau": "6ed8a00a655e86d1d8372872c703f481d7d6e4c277c6bd6e198c1dcf448e84ff",
-    "design-editor/roblox-3d-library.luau": "2e3bb6a24c1b867a7d5c68d0d7c1e3170d64d9d21cc546d25b20618e4d0ef292",
+    "design-editor/roblox-3d-library.luau": "04b166fee7c4f4d620e8fb960d1b147db30f53b74b9c19e248146c30f4cf9889",
     "design-editor/roblox-library.luau": "f09b307133c93e74287c4ab098d39e14afc83c64817c601e1108b3afa0618f33",
     "design-editor/stage.luau": "8bd447bc9f220364c5234df294657526e5a3a8dbb58a12bd79f22fc6a06d8d08",
     "design-editor/stage3d.luau": "42d1d72386d24ef7b5421b23b70b3a5768b48be1a8fc3804dc65daccaf01bce8",
     "design-editor/theme.luau": "7955aeaedcae8b017125457d9239c9f718b371e1dc1d238ef06f1472478dcc66",
     "design-editor/ui.luau": "f040e44e03b8023aaa97700076f27931e3d6e822508584ee4111a199c668b460",
-    "design/document.luau": "9c2eb47345bf62855ecde409bef11396c34c498ef446f1a5db07107d19f9aadc",
+    "design/document.luau": "fcd1645c99d6f3921c5d090f3b2a30e9c3dfac56283aa6aa862e319b657837a8",
     "design/history.luau": "7682df2f2c6b01fd123210acd45cd9f2fc6c7e0925a04489cc3aae29bf81ef06",
-    "design/init.luau": "6fa8e91a40a400b946e9a9ef6f3a167b40254996c54a3b9bb1161d2e30afcc8d",
+    "design/init.luau": "6c515dc3968421a4e5a37ddd6b2854550c6648ce976bab367c6cdffa7bf8ef7c",
+    "design/library.luau": "95c8652acd457c2b71104ca565b127a32d3a5e9e7150370a022a094878e34f01",
     "design/link.luau": "523b958f9cb723cdba3c60825607daf2940ede5f2bd85413c1c3aa3307599c2a",
-    "design/render.luau": "88a80d1d6ec738bea79e6f1ddde7fd2129135c2e77c42d06bf472ab9df00f50f",
+    "design/render.luau": "596a7ad999f4f0d871f64b91d48cd28dcaadcfd2c74e33477bd198fc3e6e892e",
     "design/session.luau": "10daa8a70a9cfd7e7fbb3141a7f4913e3d5545412f55ad4c4c64f478a19de0a1",
-    "design/source.luau": "4bfe89b67ea3ed0464456fb2ead131ab41d17173d24eea0618467b5ea5c8abf3",
-    "design/types.luau": "cc1c26e3fb1df2aee49df3939139d4bdb89dbbe8f1b32900d30cf5b7f793a16c",
+    "design/source.luau": "a428fcbef6d3b531413bcacbbb24bbc4341bce9ca84f1e85eeeb02dfc8786249",
+    "design/types.luau": "bf23ccdff66de0055e185e6f764940318205bbfad97d43512c9f8e96d26fc72e",
     "license.luau": "6895ff52a3e5583fabbf3f961d94eece335df5f24d2753189473daf8873e8f36",
     "roblox/cleanup.luau": "506fbbc882f9cccd6d82835ff54aaeac31ca4bee8c66240cb0fd34ea34e97366",
     "roblox/codecs.luau": "aa08c6971ddd501f831ccfa87c07d8bec1d3691ba924e7880c4d24c45cced08c",
@@ -111,8 +112,8 @@
   },
   "docs": {
     "SKILL.md": "5b00d1daf8a47f8d97e5af9ab3044aca442fa027064015c8e7ffb584b074c7f1",
-    "references/api.md": "0377b3da580cd487a78f28128c8ab26ff08136b799e6950269e0723126dee802",
-    "references/consumer-guides.md": "51c783d3c089297d1adde72dd62f5ba8e2c2f8819ae00c0cc5a543f6a7831d8e",
-    "references/ownership.md": "0a42c908d506c00fc015ffb8b29da1e14bacb2674a77c4de77dfbfbf4ec9bb8b"
+    "references/api.md": "aabd8e1fb3596a2f47c707788835da9625c75579e8b163d1a4c8d2588a87a681",
+    "references/consumer-guides.md": "64184bc715163ebbfa89f7a06de57e603dd6c3060e87802ad371a0389d5c957c",
+    "references/ownership.md": "4d479573b02cd29348e257de761d1a6e618b59cc69411b083eb38e55968bdda9"
   }
 }

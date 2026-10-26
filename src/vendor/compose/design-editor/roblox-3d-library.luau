@@ -83,6 +83,123 @@ return function(runtime: Compose.Runtime, environment: Environment.Environment):
 	}
 	local MATERIALS = { "SmoothPlastic", "Plastic", "Neon", "Glass", "Metal", "Wood", "Concrete", "Grass" }
 	local SHAPES = { "Block", "Ball", "Cylinder", "Wedge" }
+	local FACES = { "Front", "Back", "Top", "Bottom", "Left", "Right" }
+
+	local function text(value: Design.Literal?): string?
+		return if type(value) == "string" then value else nil
+	end
+
+	local function number(value: Design.Literal?, fallback: number): number
+		return if type(value) == "number" then value else fallback
+	end
+
+	local function tint(node: Compose.Node, property: string, value: Design.Literal?)
+		if type(value) == "string" and string.match(value, "^#%x%x%x%x%x%x$") then
+			ui.set(node, property, ui.hex(value))
+		end
+	end
+
+	local function attach(parent: Compose.Node, children: { unknown })
+		for _, child in children do
+			if child ~= nil then
+				ui.set(child, "Parent", parent)
+			end
+		end
+	end
+
+	local function light(className: string, extra: { [string]: Design.Field }): Design.Kind
+		local fields: { [string]: Design.Field } = {
+			color = { type = "color", group = "Light", order = 1 },
+			brightness = { type = "number", group = "Light", order = 2 },
+			range = { type = "number", group = "Light", order = 3 },
+			shadows = { type = "boolean", group = "Light", order = 4 },
+		}
+		for key, field in extra do
+			fields[key] = field
+		end
+		local defaults: { [string]: Design.Literal } = { color = "#FFE8C2", brightness = 1, range = 12 }
+		return {
+			fields = fields,
+			defaults = defaults,
+			children = "none",
+			category = "Light",
+			call = "Design." .. className,
+			build = function(props: Props): unknown
+				local node = ui.new(className)
+				apply(props.color, function(value: Design.Literal?)
+					tint(node, "Color", value)
+				end)
+				apply(props.brightness, function(value: Design.Literal?)
+					ui.set(node, "Brightness", number(value, 1))
+				end)
+				apply(props.range, function(value: Design.Literal?)
+					ui.set(node, "Range", math.clamp(number(value, 12), 0, 60))
+				end)
+				apply(props.shadows, function(value: Design.Literal?)
+					ui.set(node, "Shadows", value == true)
+				end)
+				if fields.face ~= nil then
+					apply(props.face, function(value: Design.Literal?)
+						ui.set(node, "Face", enumItem("NormalId", value, "Front"))
+					end)
+				end
+				if fields.angle ~= nil then
+					apply(props.angle, function(value: Design.Literal?)
+						ui.set(node, "Angle", math.clamp(number(value, 90), 0, 180))
+					end)
+				end
+				return node
+			end,
+		}
+	end
+
+	local function surfaceImage(className: string, extra: { [string]: Design.Field }): Design.Kind
+		local fields: { [string]: Design.Field } = {
+			image = { type = "string", group = "Image", order = 1 },
+			face = { type = "choice", options = FACES, group = "Image", order = 2 },
+			color = { type = "color", group = "Image", order = 3 },
+			transparency = { type = "number", group = "Image", order = 4 },
+		}
+		for key, field in extra do
+			fields[key] = field
+		end
+		local defaults: { [string]: Design.Literal } = { face = "Front" }
+		return {
+			fields = fields,
+			defaults = defaults,
+			children = "none",
+			category = "Surface",
+			call = "Design." .. className,
+			build = function(props: Props): unknown
+				local node = ui.new(className)
+				apply(props.image, function(value: Design.Literal?)
+					ui.set(
+						node,
+						if className == "Texture" or className == "Decal" then "Texture" else "Image",
+						text(value) or ""
+					)
+				end)
+				apply(props.face, function(value: Design.Literal?)
+					ui.set(node, "Face", enumItem("NormalId", value, "Front"))
+				end)
+				apply(props.color, function(value: Design.Literal?)
+					tint(node, "Color3", value)
+				end)
+				apply(props.transparency, function(value: Design.Literal?)
+					ui.set(node, "Transparency", math.clamp(number(value, 0), 0, 1))
+				end)
+				if fields.tileU ~= nil then
+					apply(props.tileU, function(value: Design.Literal?)
+						ui.set(node, "StudsPerTileU", math.max(number(value, 2), 0.01))
+					end)
+					apply(props.tileV, function(value: Design.Literal?)
+						ui.set(node, "StudsPerTileV", math.max(number(value, 2), 0.01))
+					end)
+				end
+				return node
+			end,
+		}
+	end
 
 	local library: Design.Library = {
 		name = "Roblox3D",
@@ -134,11 +251,14 @@ return function(runtime: Compose.Runtime, environment: Environment.Environment):
 					color = { type = "color", group = "Surface", order = 1 },
 					material = { type = "choice", options = MATERIALS, group = "Surface", order = 2 },
 					transparency = { type = "number", group = "Surface", order = 3 },
+					materialVariant = { type = "string", group = "Surface", order = 4 },
+					meshId = { type = "string", group = "Mesh", order = 1 },
+					textureId = { type = "string", group = "Mesh", order = 2 },
 				},
 				defaults = partDefaults,
-				children = "none",
+				children = "list",
 				call = "Design.Part",
-				build = function(props: Props): unknown
+				build = function(props: Props, children: { unknown }): unknown
 					local wedge = props.shape and props.shape.literal == "Wedge"
 					local part: Compose.Node = if wedge then ui.new "WedgePart" else ui.new "Part"
 					ui.set(part, "Anchored", true)
@@ -167,12 +287,41 @@ return function(runtime: Compose.Runtime, environment: Environment.Environment):
 					apply(props.transparency, function(value: Design.Literal?)
 						ui.set(part, "Transparency", if type(value) == "number" then math.clamp(value, 0, 1) else 0)
 					end)
+					apply(props.materialVariant, function(value: Design.Literal?)
+						ui.set(part, "MaterialVariant", text(value) or "")
+					end)
+					if props.meshId ~= nil or props.textureId ~= nil then
+						local mesh = ui.new "SpecialMesh"
+						ui.set(mesh, "MeshType", ui.values.enum("MeshType", "FileMesh"))
+						apply(props.meshId, function(value: Design.Literal?)
+							ui.set(mesh, "MeshId", text(value) or "")
+						end)
+						apply(props.textureId, function(value: Design.Literal?)
+							ui.set(mesh, "TextureId", text(value) or "")
+						end)
+						ui.set(mesh, "Parent", part)
+					end
+					attach(part, children)
 					place(props, function(frame: { number })
 						ui.set(part, "CFrame", ui.values.cframe(frame))
 					end)
 					return part
 				end,
 			},
+			PointLight = light("PointLight", {}),
+			SpotLight = light("SpotLight", {
+				face = { type = "choice", options = FACES, group = "Light", order = 5 },
+				angle = { type = "number", group = "Light", order = 6 },
+			}),
+			SurfaceLight = light("SurfaceLight", {
+				face = { type = "choice", options = FACES, group = "Light", order = 5 },
+				angle = { type = "number", group = "Light", order = 6 },
+			}),
+			Decal = surfaceImage("Decal", {}),
+			Texture = surfaceImage("Texture", {
+				tileU = { type = "number", group = "Image", order = 5 },
+				tileV = { type = "number", group = "Image", order = 6 },
+			}),
 		},
 	}
 

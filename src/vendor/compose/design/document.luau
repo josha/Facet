@@ -46,6 +46,8 @@ local function copyValue(value: Value): Value
 		item = value.item,
 		output = value.output,
 		args = copyArgs(value.args),
+		fields = if value.fields then table.clone(value.fields) else nil,
+		node = value.node,
 		token = value.token,
 	}
 end
@@ -168,6 +170,9 @@ local function present(value: Value): number
 	if value.token ~= nil then
 		count += 1
 	end
+	if value.node ~= nil then
+		count += 1
+	end
 	return count
 end
 
@@ -192,6 +197,11 @@ local function checkValue(value: Document, field: Types.Field, property: Value, 
 	assert(present(property) == 1, `{key} holds exactly one literal or binding`)
 	local current = property.literal
 	local input, item, output = property.input, property.item, property.output
+	if property.node ~= nil then
+		assert(field.type == "node", `{key} cannot reference a node`)
+		return
+	end
+	assert(field.type ~= "node", `{key} references another node`)
 	if current ~= nil then
 		assert(plain(current, 0), `{key} must be plain data`)
 		if field.type == "choice" then
@@ -241,6 +251,20 @@ local function checkValue(value: Document, field: Types.Field, property: Value, 
 				assert(plain(argument, 0), `{key} output arguments must be plain data`)
 			end
 		end
+		local passed = property.fields
+		if passed then
+			local list = assert(collection, `{key} passes item fields outside a collection template`)
+			local declared = list.fields
+			if declared then
+				for _, name in passed do
+					local found = false
+					for _, entry in declared do
+						found = found or entry.id == name
+					end
+					assert(found, `{key} passes unknown item field {name}`)
+				end
+			end
+		end
 	else
 		assert(field.tokens == true, `{key} does not take theme tokens`)
 	end
@@ -254,6 +278,7 @@ function document.validate(value: Document, library: Library): Document
 	checkContract(value.contract)
 	local seen: { [string]: true } = {}
 	local count, highest = 0, 0
+	local references: { [string]: string } = {}
 	local function visit(node: Node, depth: number, collection: Types.Input?)
 		assert(depth <= MAX_DEPTH, "Designs nest at most 32 levels")
 		count += 1
@@ -267,6 +292,10 @@ function document.validate(value: Document, library: Library): Document
 		for key, property in node.props do
 			local field = assert(kind.fields[key], `{node.kind} has no property {key}`)
 			checkValue(value, field, property, collection, key)
+			local target = property.node
+			if target ~= nil then
+				references[target] = key
+			end
 		end
 		local nested = collection
 		if kind.children == "none" then
@@ -294,6 +323,9 @@ function document.validate(value: Document, library: Library): Document
 	end
 	visit(value.root, 0, nil)
 	assert(value.nextId > highest, "Next node id must exceed every node id")
+	for target, key in references do
+		assert(seen[target], `{key} references unknown node {target}`)
+	end
 	return value
 end
 
