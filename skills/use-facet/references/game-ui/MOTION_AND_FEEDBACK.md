@@ -31,6 +31,12 @@ of either animation. Skip, interruption, navigation away and reduced motion
 must preserve the same final state and cleanup.
 Read `Effect-sequences` and `Travel.reference` for their contracts.
 
+Use `UI.shake(faces, { intensity = 1 })` for brief rejection feedback.
+Pass existing tile faces inside stable layout slots and call the handle's
+`play()` method. The effect restores their rotations on completion, cancel,
+replay and cleanup. Limited and none motion keep the faces still.
+Keep the rejection reason and next action visible after the effect ends.
+
 Reduced motion can execute sequence callbacks immediately. Do not depend on
 a duration to grant rewards, release input or complete a task. Repeated state
 updates should retarget or settle coherently rather than accumulating effects.

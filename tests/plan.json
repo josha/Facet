@@ -737,6 +737,13 @@
       ]
     },
     {
+      "id": "effect_shake",
+      "locator": "tests/effect_shake.verify.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
       "id": "live_drivers",
       "locator": "tests/live_drivers.verify.luau",
       "requires": [

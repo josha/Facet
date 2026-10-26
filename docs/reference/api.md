@@ -1,5 +1,12 @@
 # Facet documentation
 
+Use `UI.shake(targets, options?)` for brief feedback on existing tile faces.
+`targets` is a `{ GuiObject }` array or a readable array. `Facet.ShakeOptions`
+accepts an optional nonnegative `intensity` multiplier, default `1`.
+The returned `Facet.Sequence` has `play`, `cancel`, `finish`, `running` and
+`completed`. See [effect sequences](nodes/Effect-sequences.md) for restoration,
+motion policy and theme tokens.
+
 Open the [documentation map](nodes/Map.md).
 Run `lute run tools/facet docs` to read the map.
 

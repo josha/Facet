@@ -23,8 +23,10 @@ export type FlashOptions = {
 	color: Shared.Value<Color3>?,
 	mode: ("pulse" | "sweep")?,
 }
+export type ShakeOptions = { intensity: number? }
 export type Controls = {
 	sequence: (SequenceSpec) -> Sequence,
 	countUp: (Shared.Value<number>) -> Shared.Readable<number>,
+	shake: (Shared.Value<{ GuiObject }>, ShakeOptions?) -> Sequence,
 }
 return {}

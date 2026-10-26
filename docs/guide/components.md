@@ -202,6 +202,14 @@ return UI.NavigationStack {
 }
 ```
 
+Use `UI.shake(faces, { intensity = 1 })` for brief rejection feedback on existing
+tile faces. Call the returned handle's `play()` method for each rejection.
+Put each face inside a stable layout slot and leave room for rotation.
+The effect restores the captured rotations on completion, cancel, replay and
+cleanup. A readable target change cancels the run. Limited and none motion
+keep the faces still. Keep the reason and next action visible in text.
+See [effect sequences](../reference/nodes/Effect-sequences.md) for the full contract.
+
 Haptics are restrained. The `pressHaptic` of the controls plays only for a
 control that changes a state or a value, for example a Toggle or a Stepper
 step. To make a game-specific Button play it, set `haptic = true`.

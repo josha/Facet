@@ -38,6 +38,7 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 	require("@self/scrolling")(ctx, UI)
 	require("@self/navigation_split_view")(ctx, UI, surfaces)
 	require("@self/effect_sequence")(ctx, UI)
+	require("@self/effect_shake")(ctx, UI)
 	require("@self/effect_flash")(ctx, UI, surfaces)
 	require("@self/zoom_view")(ctx, UI)
 	require("@self/travel")(ctx, UI, surfaces)
