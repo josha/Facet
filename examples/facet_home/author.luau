@@ -18,15 +18,6 @@ type Section = {
 
 local library = Kit.library({
 	UI = {},
-	rgb = function(r: number, g: number, b: number): unknown
-		return { r, g, b }
-	end,
-	udim2 = function(a: number, b: number, c: number, d: number): unknown
-		return { a, b, c, d }
-	end,
-	offset = function(x: number, y: number): unknown
-		return { 0, x, 0, y }
-	end,
 })
 
 local output = "examples/facet_home/designs/"

@@ -9,15 +9,6 @@ local Facet = Loader.new().require("src") :: typeof(require("../../src"))
 local kit = Facet.design()
 local library = kit.library({
 	UI = {},
-	rgb = function(r: number, g: number, b: number): unknown
-		return { r, g, b }
-	end,
-	udim2 = function(xScale: number, xOffset: number, yScale: number, yOffset: number): unknown
-		return { xScale, xOffset, yScale, yOffset }
-	end,
-	offset = function(x: number, y: number): unknown
-		return { 0, x, 0, y }
-	end,
 })
 
 local function check(source: string): (boolean, string)

@@ -413,34 +413,6 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 			local library = designKit.library({
 				UI = UI,
 				motion = designKit.motion(UI),
-				rgb = Color3.fromRGB,
-				udim2 = UDim2.new,
-				offset = UDim2.fromOffset,
-				datatype = function(name: string, components: { number }): unknown
-					local a, b, c, d = components[1] or 0, components[2] or 0, components[3] or 0, components[4] or 0
-					if name == "UDim2" then
-						return UDim2.new(a, b, c, d)
-					elseif name == "UDim" then
-						return UDim.new(a, b)
-					elseif name == "Vector2" then
-						return Vector2.new(a, b)
-					elseif name == "Vector3" then
-						return Vector3.new(a, b, c)
-					elseif name == "Rect" then
-						return Rect.new(a, b, c, d)
-					elseif name == "NumberRange" then
-						return NumberRange.new(a, b)
-					end
-					return nil
-				end,
-				enumItem = function(enumName: string, item: string): unknown
-					for _, enum in Enum:GetEnums() do
-						if tostring(enum) == enumName then
-							return enum:FromName(item)
-						end
-					end
-					return nil
-				end,
 				host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
 					return runtime.constructors[className](name)(props)
 				end,

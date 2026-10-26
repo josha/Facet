@@ -116,25 +116,14 @@ return function(verifyHarness: Verify.Harness)
 	local function offline(): Facet.DesignLibrary
 		return Kit.library({
 			UI = {},
-			rgb = function(r: number, g: number, b: number): unknown
-				return { r, g, b }
-			end,
-			udim2 = function(a: number, b: number, c: number, d: number): unknown
-				return { a, b, c, d }
-			end,
-			offset = function(x: number, y: number): unknown
-				return { 0, x, 0, y }
-			end,
 		})
 	end
 
 	local function live(ctx: Context, motion: Facet.DesignMotion?): Facet.DesignLibrary
 		return Kit.library({
 			UI = ctx.UI,
+			types = ctx.types,
 			motion = motion,
-			rgb = ctx.types.Color3.fromRGB,
-			udim2 = ctx.types.UDim2.new,
-			offset = ctx.types.UDim2.fromOffset,
 		})
 	end
 
@@ -426,15 +415,6 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local library = Kit.library({
 					UI = {},
-					rgb = function(r: number, g: number, b: number): unknown
-						return { r, g, b }
-					end,
-					udim2 = function(a: number, b: number, c: number, d: number): unknown
-						return { a, b, c, d }
-					end,
-					offset = function(x: number, y: number): unknown
-						return { 0, x, 0, y }
-					end,
 					tokens = {
 						path = "T.",
 						require = 'local T = require(game:GetService("ReplicatedStorage").Shared.UI.DesignSystem)',
@@ -494,15 +474,6 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local library = Kit.library({
 					UI = {},
-					rgb = function(r: number, g: number, b: number): unknown
-						return { r, g, b }
-					end,
-					udim2 = function(a: number, b: number, c: number, d: number): unknown
-						return { a, b, c, d }
-					end,
-					offset = function(x: number, y: number): unknown
-						return { 0, x, 0, y }
-					end,
 					host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
 						return { className = className, name = name, props = props }
 					end,
@@ -730,20 +701,7 @@ return function(verifyHarness: Verify.Harness)
 					local types = ctx.types
 					local library = Kit.library({
 						UI = ctx.UI,
-						rgb = types.Color3.fromRGB,
-						udim2 = types.UDim2.new,
-						offset = types.UDim2.fromOffset,
-						datatype = function(name: string, components: { number }): unknown
-							if name == "UDim2" then
-								return types.UDim2.new(components[1], components[2], components[3], components[4])
-							elseif name == "Vector2" then
-								return types.Vector2.new(components[1], components[2])
-							end
-							return nil
-						end,
-						enumItem = function(enumName: string, item: string): unknown
-							return types.Enum[enumName][item]
-						end,
+						types = ctx.types,
 					})
 					local value = Design.document.new("Sized", library, "VStack")
 					local id

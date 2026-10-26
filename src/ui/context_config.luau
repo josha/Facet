@@ -1,6 +1,7 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
+local robloxTypes = require("./roblox_types")
 local motion = require("./motion")
 
 return function(
@@ -31,27 +32,7 @@ return function(
 			end)
 		end
 	end
-	local types: Shared.RobloxTypes = config.types
-		or {
-			UDim = UDim,
-			UDim2 = UDim2,
-			Vector2 = Vector2,
-			Vector3 = Vector3,
-			Color3 = Color3,
-			CFrame = CFrame,
-			Enum = Enum,
-			Font = Font,
-			Rect = Rect,
-			ColorSequence = ColorSequence,
-			ColorSequenceKeypoint = ColorSequenceKeypoint,
-			NumberSequence = NumberSequence,
-			NumberSequenceKeypoint = NumberSequenceKeypoint,
-			NumberRange = NumberRange,
-			Path2DControlPoint = Path2DControlPoint,
-			FloatCurveKey = FloatCurveKey,
-			TweenInfo = TweenInfo,
-			BrickColor = BrickColor,
-		}
+	local types: Shared.RobloxTypes = config.types or robloxTypes()
 	assert(types.UDim2 and types.Enum, "Facet.controls requires Roblox datatypes")
 	local services: Shared.Services = if config.services then table.clone(config.services) else {}
 	if game then

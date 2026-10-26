@@ -59,9 +59,7 @@ return function(verifyHarness: Verify.Harness)
 						})
 						local library = Facet.design().library({
 							UI = UI,
-							rgb = types.Color3.fromRGB,
-							udim2 = types.UDim2.new,
-							offset = types.UDim2.fromOffset,
+							types = types,
 						})
 						local value = Design.parse(code, library)
 						Verify.expect(Design.emit(value, library, { name = name })):toBe(code)
