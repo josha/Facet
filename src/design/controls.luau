@@ -214,6 +214,8 @@ local controls: { [string]: Types.ControlSpec } = {
 	},
 	Button = {
 		category = "Input",
+		container = true,
+		seeds = {},
 		defaults = { appearance = "emphasis", label = "Continue" },
 		fields = {
 			label = { type = "string", label = "Label", order = 1 },

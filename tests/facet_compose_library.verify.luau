@@ -306,6 +306,9 @@ return function(verifyHarness: Verify.Harness)
 				value = Design.document.bind(value, library, list, { from = "games", key = "id" })
 				value = Design.document.change(value, library, row, "text", { item = "title" })
 				value, button = Design.document.insert(value, library, "n1", "Button")
+				local badge
+				value, badge = Design.document.insert(value, library, button, "Text")
+				value = Design.document.change(value, library, badge, "text", { literal = "3 new" })
 				value = Design.document.change(value, library, button, "onActivate", { output = "onRetry" })
 				value = Design.document.change(value, library, button, "selected", { literal = true })
 				value = Design.document.showWhen(value, library, button, "offered")
@@ -322,6 +325,7 @@ return function(verifyHarness: Verify.Harness)
 						"Facet.Compose.keyed { from = props.games",
 						"Facet.Compose.show(props.offered, function() return UI.Button",
 						"if props.onRetry then props.onRetry(...) end",
+						'UI.Text "Text" {',
 						"games: Facet.Compose.ReadOnlyValue<{ { id: string, title: string } }>?",
 						"\tname: string,",
 					}
