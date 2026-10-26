@@ -23,6 +23,7 @@ export type Engine = {
 	onWrite: ((any, string, any) -> ()) -> any,
 }
 export type Options = {
+	layout: VerifyRoblox.UiLayoutOptions?,
 	measureText: ((any) -> any)?,
 	textFits: ((any) -> any)?,
 	getStyled: ((any, string) -> any)?,
@@ -190,9 +191,10 @@ local function new(options: Options?): (Engine, VerifyRoblox.FixtureBridge)
 		undeclaredReads = "nil",
 		undeclaredWrites = settings.lenientProperties == true,
 		computed = computed,
+		layout = settings.layout,
 		ui = {
-			measureBounds = false,
-			measureText = false,
+			measureBounds = if settings.layout then nil else false,
+			measureText = if settings.layout then nil else false,
 			selection = "ignore",
 			requirePlayerGui = settings.selectionNeedsPlayerGui == true,
 			methods = methods,

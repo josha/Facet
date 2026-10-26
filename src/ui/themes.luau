@@ -391,7 +391,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		".facet-sheet >> .facet-card-text >> .facet-card-text, .facet-panel >> .facet-card-text >> .facet-card-text",
 		{ BackgroundColor3 = c("control") }
 	)
-	rule(".facet-card-text >> .facet-card-part", { BackgroundTransparency = 1 })
+	rule(".facet-card-text >> .facet-card-body, .facet-card-text >> .facet-card-inflow", { BackgroundTransparency = 1 })
 	rule(".facet-card-text::UIPadding", {
 		PaddingBottom = types.UDim.new(0, package.metrics.space.s),
 		PaddingLeft = types.UDim.new(0, 0),
