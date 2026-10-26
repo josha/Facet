@@ -419,7 +419,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 				provide = function(content: unknown): unknown
 					local sheet = themes.createStyleSheet(runtime, theme, { theme = palette })
 					local styles: Compose.Child = sheet
-					local link: Compose.Child = Host.StyleLink({ StyleSheet = sheet })
+					local link: Compose.Child = Host.StyleLink({ StyleSheet = core.static(sheet) })
 					local design: Compose.Child = if typeof(content) == "Instance" then content else nil
 					return Host.Frame({
 						Name = "FacetTheme",

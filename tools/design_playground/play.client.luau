@@ -6,6 +6,18 @@ local remote = storage:WaitForChild("ComposeDesignStorage")
 assert(remote:IsA("RemoteFunction"), "ComposeDesignStorage must be a RemoteFunction")
 local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 
+local backdrop = Instance.new("ScreenGui")
+backdrop.Name = "ComposeDesignBackdrop"
+backdrop.ResetOnSpawn = false
+backdrop.ScreenInsets = Enum.ScreenInsets.None
+backdrop.DisplayOrder = -1
+local chrome = Instance.new("Frame")
+chrome.Size = UDim2.fromScale(1, 1)
+chrome.BorderSizePixel = 0
+chrome.BackgroundColor3 = Color3.fromRGB(44, 44, 46)
+chrome.Parent = backdrop
+backdrop.Parent = playerGui
+
 local screen = Instance.new("ScreenGui")
 screen.Name = "ComposeDesignPlay"
 screen.ResetOnSpawn = false
