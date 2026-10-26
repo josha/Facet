@@ -23,6 +23,7 @@ export type Session = {
 	changeMany: (changes: { [string]: Types.Value }) -> boolean,
 	rename: (name: string) -> boolean,
 	tag: (tags: { string }?) -> boolean,
+	content: (key: string, kind: string) -> boolean,
 	bind: (bind: Types.Bind?) -> boolean,
 	move: (id: string, destination: string, before: number?) -> boolean,
 	remove: () -> boolean,
@@ -113,6 +114,11 @@ return function(library: Types.Library, initial: Types.Document): Session
 					result = Document.change(result, library, id, key, property)
 				end
 				return result, nil
+			end)
+		end,
+		content = function(key: string, kind: string): boolean
+			return attempt(function(value: Types.Document, id: string): (Types.Document, string?)
+				return Document.content(value, library, id, key, kind)
 			end)
 		end,
 		tag = function(tags: { string }?): boolean

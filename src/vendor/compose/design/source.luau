@@ -450,7 +450,11 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			local owner = assert(cellOwner, "A cell template needs its node")
 			local found = Document.find(owner, template)
 			local cell = assert(found, "A cell template names a child")
-			return rowFunction(cell, depth, assert(owner.bind, "A cell template needs a repeated list").from)
+			local bound = owner.bind
+			if bound == nil then
+				return returning("", emit(cell, depth + 1), depth)
+			end
+			return rowFunction(cell, depth, bound.from)
 		end
 		local keys: { string | number } = {}
 		for key in current do
@@ -594,6 +598,9 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			return callback(output, list, depth)
 		end
 		local call = assert(library.token, `{library.name} has no theme tokens`)
+		if string.sub(call, -1) == "." then
+			return call .. assert(token)
+		end
 		return `{call} {literal(assert(token))}`
 	end
 	local function tagged(node: Node, depth: number): string
@@ -624,10 +631,7 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		if nameField ~= nil then
 			opening = `{kind.call}(tostring(current:peek().{nameField})) `
 		elseif nameInput ~= nil then
-			local declared = assert(Document.input(value, nameInput))
-			opening = if declared.required
-				then `{kind.call}(props.{nameInput}) `
-				else `{kind.call}(props.{nameInput} or {literal(node.name)}) `
+			opening = `{kind.call}(props.{nameInput} or {literal(node.name)}) `
 		else
 			opening = `{kind.call} {literal(node.name)} `
 		end
@@ -1375,7 +1379,11 @@ function source.parse(code: string, library: Library): Types.Document
 		local tokenCall = library.token
 		if tokenCall and tokens[at] and tokens[at].kind == "name" then
 			local start = at
-			if dotted() == tokenCall then
+			local path = dotted()
+			if string.sub(tokenCall, -1) == "." and string.sub(path, 1, #tokenCall) == tokenCall then
+				return { token = string.sub(path, #tokenCall + 1) }, nil
+			end
+			if path == tokenCall then
 				local wrapped = peek() == "("
 				if wrapped then
 					take "("
@@ -1479,7 +1487,12 @@ function source.parse(code: string, library: Library): Types.Document
 				local prop = name()
 				take "="
 				local property, template = value()
-				if template then
+				local contentField = kind.fields[prop]
+				if template and contentField and contentField.type == "content" then
+					local marker: Record = { ["$template"] = template.id }
+					result.props[prop] = { literal = marker }
+					table.insert(pendingCells, template)
+				elseif template then
 					assert(
 						prop == (if kind.children == "slot" then kind.slot else kind.template),
 						`{prop} cannot hold a template`

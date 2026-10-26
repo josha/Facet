@@ -94,6 +94,7 @@ export type Library = {
 	show: string?,
 	keyed: string?,
 	categories: { string }?,
+	contentKind: string?,
 	tags: { call: string, apply: (built: unknown, tags: { string }) -> () }?,
 	space: ("2d" | "3d")?,
 	provide: ((content: unknown) -> unknown)?,

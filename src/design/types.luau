@@ -44,6 +44,12 @@ export type Context = {
 	enumItem: ((enumName: string, item: string) -> unknown)?,
 	host: ((className: string, name: string, props: { [unknown]: unknown }) -> unknown)?,
 	provide: ((content: unknown) -> unknown)?,
+	tokens: Tokens?,
+}
+
+export type Tokens = {
+	path: string,
+	require: string,
 }
 
 export type StudioKit = Design.Kit

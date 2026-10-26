@@ -49,6 +49,10 @@ not overwrite the module. Keep every edit inside the shapes below.
 - A style tag: `<tag>(<node>, { "tag-name" })`, where `<tag>` is the library's
   tag call (Facet: `Facet.tag`).
 - A node reference: `refs.nN`, with the node wrapped in `capture("nN", <node>)`.
+- A content property that holds a subtree: `glyph = function() return <node> end`.
+  The node is a child of the control in the editor.
+- A token: `<token>(name)`, or `T.space.md` when the library's token prefix ends
+  with a dot (for example `T.`). Add the prefix's `require` to the prelude.
 
 Any other expression is custom code. Put game logic, computed values and
 effects in game code, and pass the results in through inputs.

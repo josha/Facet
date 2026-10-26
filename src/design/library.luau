@@ -674,11 +674,30 @@ local function create(context: Context): Design.Library
 		end
 	end
 
+	local tokens = context.tokens
+	if tokens ~= nil then
+		for _, kind in kinds do
+			for key, field in kind.fields do
+				local measure = string.match(key, "[Gg]ap$")
+					or string.match(key, "[Pp]adding")
+					or key == "width"
+					or key == "height"
+				if field.type == "color" or field.type == "number" or measure then
+					field.tokens = true
+				end
+			end
+		end
+	end
+	local prelude = { 'local Facet = require(game:GetService("ReplicatedStorage").Facet)' }
+	if tokens ~= nil then
+		table.insert(prelude, tokens.require)
+	end
 	return {
 		name = "Facet",
 		parameter = "UI",
 		parameterType = "Facet.Controls",
-		prelude = { 'local Facet = require(game:GetService("ReplicatedStorage").Facet)' },
+		prelude = prelude,
+		token = if tokens ~= nil then tokens.path else nil,
 		returnType = "GuiObject",
 		readable = "Facet.ReadOnlyValue",
 		cell = "Facet.Value",
