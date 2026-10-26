@@ -190,7 +190,16 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			end
 			return { literal = inputs[input] }
 		elseif field then
-			return { readable = itemField(assert(item, "Item bindings need a template"), field) }
+			local row = assert(item, "Item bindings need a template")
+			if definition ~= nil and definition.type == "string" then
+				return {
+					readable = Core.formula(function(use: Use): Literal?
+						local current = use(row)[field]
+						return if current == nil or type(current) == "string" then current else tostring(current)
+					end),
+				}
+			end
+			return { readable = itemField(row, field) }
 		elseif output then
 			local passed = property.fields
 			if passed then
