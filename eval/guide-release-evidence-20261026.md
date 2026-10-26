@@ -108,6 +108,10 @@ This confirms a native simulator/ScrollingFrame resize path, not a Facet-only
 defect. A passing observation case does not establish retention acceptance.
 Any mitigation needs separate scroll-policy work and physical-device rotation
 evidence; do not hide it in the guide or alter this failure into a pass.
+The comparator is `validation/native-scroll-v1/`. Final attempt descriptions,
+52 evidence hashes and cleanup checks are in `validation/STEP2-FOLLOWUP-RESULTS.txt`,
+`validation/STEP2-FOLLOWUP-FILES.json` and `validation/STEP2-FOLLOWUP-CLEANUP.txt`.
+All seven follow-up Studio PIDs were checked absent after owned-session cleanup.
 
 ### Lighting setup
 
