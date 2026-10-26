@@ -420,6 +420,43 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("writes a game's design tokens as table paths", {
+			id = "facet_compose_library::writes a game's design tokens as table paths",
+			run = function()
+				local library = Kit.library({
+					UI = {},
+					rgb = function(r: number, g: number, b: number): unknown
+						return { r, g, b }
+					end,
+					udim2 = function(a: number, b: number, c: number, d: number): unknown
+						return { a, b, c, d }
+					end,
+					offset = function(x: number, y: number): unknown
+						return { 0, x, 0, y }
+					end,
+					tokens = {
+						path = "T.",
+						require = 'local T = require(game:GetService("ReplicatedStorage").Shared.UI.DesignSystem)',
+					},
+				})
+				local value, text =
+					Design.document.insert(Design.document.new("Tokens", library, "VStack"), library, "n1", "Text")
+				value = Design.document.change(value, library, "n1", "gap", { token = "space.md" })
+				value = Design.document.change(value, library, text, "ZIndex", { token = "layer.overlay" })
+				local code = Design.emit(value, library, { name = "Tokens" })
+				for _, expected in
+					{
+						'local T = require(game:GetService("ReplicatedStorage").Shared.UI.DesignSystem)',
+						"gap = T.space.md,",
+						"ZIndex = T.layer.overlay,",
+					}
+				do
+					Verify.expect(`{expected} {string.find(code, expected, 1, true) ~= nil}`):toBe(`{expected} true`)
+				end
+				Verify.expect(Design.emit(Design.parse(code, library), library, { name = "Tokens" })):toBe(code)
+			end,
+		})
+
 		verifyHarness:case("authors whole game views with typed props, outputs and Roblox values", {
 			id = "facet_compose_library::authors whole game views with typed props, outputs and Roblox values",
 			run = function()
@@ -474,7 +511,7 @@ return function(verifyHarness: Verify.Harness)
 				for _, expected in
 					{
 						"local function ChooseGameView(props: Props): GuiObject",
-						"UI.VStack(props.name) {",
+						"UI.VStack(props.name or ",
 						"Size = UDim2.new(1, 0, 0, 320)",
 						"AutomaticSize = Enum.AutomaticSize.Y",
 						"from = props.games,",

@@ -405,6 +405,7 @@ return function(ui: UI.UI)
 						local line, caption = row(key, entry.label or humanize(key))
 						local slot = editorSlot(line)
 						local literal = if property then property.literal else nil
+						local contentKind = session.library.contentKind
 						if property and literal == nil then
 							local pill = pressable("Binding", color.accentSoft, color.hover, function()
 								session.change(key, nil)
@@ -576,6 +577,30 @@ return function(ui: UI.UI)
 							)
 							ui.set(box, "Size", ui.values.udim2(1, 0, 1, 0))
 							ui.set(box, "Parent", slot)
+						elseif
+							entry.type == "content"
+							and type(literal) == "table"
+							and type(literal["$template"]) == "string"
+						then
+							local childId: string = literal["$template"]
+							local open = pressable("OpenContent", color.accentSoft, color.hover, function()
+								session.select(childId)
+							end)
+							ui.set(open, "Size", ui.values.udim2(1, 0, 1, 0))
+							local found = Design.document.find(value.root, childId)
+							ui.set(open, "Text", "◇ " .. (if found then found.name else childId))
+							ui.set(open, "TextColor3", color.accent)
+							ui.set(open, "TextSize", size.small)
+							ui.set(open, "Parent", slot)
+						elseif entry.type == "content" and contentKind ~= nil then
+							local add = pressable("AddContent", color.panel, color.hover, function()
+								session.content(key, contentKind)
+							end)
+							ui.set(add, "Size", ui.values.udim2(1, 0, 1, 0))
+							ui.set(add, "Text", "+ " .. contentKind)
+							ui.set(add, "TextColor3", color.accent)
+							ui.set(add, "TextSize", size.small)
+							ui.set(add, "Parent", slot)
 						else
 							local hint = Theme.label("Not bound", color.tertiary, size.small)
 							ui.set(hint, "Size", ui.values.udim2(1, 0, 1, 0))

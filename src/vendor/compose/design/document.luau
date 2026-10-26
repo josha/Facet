@@ -321,6 +321,14 @@ local function checkValue(value: Document, field: Types.Field, property: Value, 
 		return
 	end
 	assert(field.type ~= "node", `{key} references another node`)
+	local holdsContent = field.type == "content"
+	if current ~= nil and holdsContent then
+		assert(
+			type(current) == "table" and type(current["$template"]) == "string",
+			`{key} holds a slot input or a content node`
+		)
+		return
+	end
 	if current ~= nil then
 		assert(plain(current, 0), `{key} must be plain data`)
 		checkOutputs(value, current, key, collection)
@@ -505,10 +513,16 @@ function document.validate(value: Document, library: Library): Document
 		local nested = collection
 		local rowCollection: Types.Input? = nil
 		local rowId: string? = nil
+		local ordinary = 0
+		for _, child in node.children do
+			if not cells[child.id] then
+				ordinary += 1
+			end
+		end
 		if kind.children == "none" then
-			assert(#node.children == 0 and node.bind == nil, `{node.kind} holds no children`)
+			assert(ordinary == 0 and node.bind == nil, `{node.kind} holds no children`)
 		elseif kind.children == "slot" then
-			assert(#node.children <= 1 and node.bind == nil, `{node.kind} holds one content node`)
+			assert(ordinary <= 1 and node.bind == nil, `{node.kind} holds one content node`)
 			assert(kind.slot ~= nil, `{node.kind} names no content property`)
 		elseif kind.children == "template" then
 			local bind = node.bind
@@ -583,7 +597,7 @@ function document.validate(value: Document, library: Library): Document
 		end
 		for _, child in node.children do
 			if cells[child.id] then
-				visit(child, depth + 1, own)
+				visit(child, depth + 1, own or collection)
 				continue
 			end
 			local isRow = rowCollection ~= nil and child.id == rowId
@@ -740,13 +754,56 @@ function document.applies(node: Node, kind: Types.Kind, key: string): boolean
 	return true
 end
 
+function document.content(
+	value: Document,
+	library: Library,
+	id: string,
+	key: string,
+	kindName: string
+): (Document, string)
+	local nextValue = copyDocument(value)
+	local node = assert(document.find(nextValue.root, id), "Choose a node")
+	local kind = assert(library.kinds[node.kind])
+	local field = assert(kind.fields[key], `{node.kind} has no property {key}`)
+	assert(field.type == "content", `{key} does not hold content`)
+	local child = assert(library.kinds[kindName], `Unknown {library.name} kind {kindName}`)
+	local childId = `n{nextValue.nextId}`
+	nextValue.nextId += 1
+	table.insert(node.children, {
+		id = childId,
+		kind = kindName,
+		name = kindName,
+		props = defaults(child),
+		children = {},
+	})
+	local marker: Types.Row = { ["$template"] = childId }
+	node.props[key] = { literal = marker }
+	return document.validate(nextValue, library), childId
+end
+
 function document.change(value: Document, library: Library, id: string, key: string, property: Value?): Document
 	local nextValue = copyDocument(value)
 	local node = assert(document.find(nextValue.root, id), "Choose a node")
+	local previous = node.props[key]
+	local before = if previous and previous.literal ~= nil then cellsOf(previous.literal, {}) else {}
 	if property then
 		node.props[key] = copyValue(property)
 	else
 		node.props[key] = nil
+	end
+	if next(before) ~= nil then
+		local kept: { [string]: true } = {}
+		for _, other in node.props do
+			if other.literal ~= nil then
+				cellsOf(other.literal, kept)
+			end
+		end
+		for index = #node.children, 1, -1 do
+			local childId = node.children[index].id
+			if before[childId] and not kept[childId] then
+				table.remove(node.children, index)
+			end
+		end
 	end
 	local kind = library.kinds[node.kind]
 	if kind then

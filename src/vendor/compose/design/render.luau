@@ -115,8 +115,9 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		if type(template) == "string" then
 			local found = Document.find(owner, template)
 			local cell = assert(found, `{owner.name} renders unknown cell {template}`)
-			return function(each: ReadOnlyValue<Row>): unknown
-				return build(cell, each)
+			local repeated = owner.bind ~= nil
+			return function(each: ReadOnlyValue<Row>?): unknown
+				return build(cell, if repeated then each else row)
 			end
 		end
 		local output = current["$output"]
