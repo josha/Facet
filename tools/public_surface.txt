@@ -62,15 +62,6 @@ Compose : table
   Compose.watch : function
   Compose.withOwner : function
   Compose.withRootOwner : function
-Design : table
-  Design.document : table
-  Design.emit : function
-  Design.extend : function
-  Design.history : function
-  Design.link : function
-  Design.parse : function
-  Design.render : function
-  Design.session : function
 Roblox : table
   Roblox.__resetForTests : function
   Roblox.animatableTypes : function
@@ -123,75 +114,7 @@ civilDate : table(frozen)
   civilDate.weekday : function
   civilDate.within : function
 controls : function
-designControls : table
-  designControls.AdaptiveStack : table
-  designControls.Alert : table
-  designControls.AsyncImage : table
-  designControls.Avatar : table
-  designControls.AvatarGroup : table
-  designControls.Badge : table
-  designControls.Button : table
-  designControls.Callout : table
-  designControls.Card : table
-  designControls.CellEditor : table
-  designControls.Chip : table
-  designControls.CollapsibleView : table
-  designControls.ColorPicker : table
-  designControls.ComboBox : table
-  designControls.Composition : table
-  designControls.DateTimePicker : table
-  designControls.Dialog : table
-  designControls.DisclosureGroup : table
-  designControls.Divider : table
-  designControls.ErrorBoundary : table
-  designControls.Grid : table
-  designControls.HStack : table
-  designControls.Image : table
-  designControls.Label : table
-  designControls.LevelPicker : table
-  designControls.Menu : table
-  designControls.NavBar : table
-  designControls.NavigationSplitView : table
-  designControls.NavigationStack : table
-  designControls.Notice : table
-  designControls.NumberInput : table
-  designControls.Outline : table
-  designControls.PageView : table
-  designControls.Pagination : table
-  designControls.Path : table
-  designControls.Picker : table
-  designControls.Popover : table
-  designControls.ProgressView : table
-  designControls.RadialMenu : table
-  designControls.Rating : table
-  designControls.Region : table
-  designControls.RowActions : table
-  designControls.Screen : table
-  designControls.ScrollView : table
-  designControls.Sheet : table
-  designControls.ShortcutHint : table
-  designControls.Skeleton : table
-  designControls.Slider : table
-  designControls.Spacer : table
-  designControls.SplitButton : table
-  designControls.Stage : table
-  designControls.StatusIndicator : table
-  designControls.StepIndicator : table
-  designControls.Stepper : table
-  designControls.TabView : table
-  designControls.Table : table
-  designControls.Text : table
-  designControls.TextInput : table
-  designControls.Toast : table
-  designControls.Toggle : table
-  designControls.VStack : table
-  designControls.ViewThatFits : table
-  designControls.VirtualGrid : table
-  designControls.VirtualList : table
-  designControls.Vote : table
-  designControls.ZStack : table
-designLibrary : function
-designSeeds : function
+design : function
 format : table(frozen)
   format.compact : function
   format.duration : function
@@ -393,6 +316,7 @@ type DesignEmitOptions
 type DesignInput
 type DesignInputType
 type DesignItemField
+type DesignKit
 type DesignLibrary
 type DesignLiteral
 type DesignModule

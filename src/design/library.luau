@@ -12,15 +12,7 @@ type Record = { [unknown]: unknown }
 type Construct = (props: Record) -> unknown
 type Named = (name: string) -> Construct
 
-export type Context = {
-	UI: unknown,
-	rgb: (r: number, g: number, b: number) -> unknown,
-	udim2: (xScale: number, xOffset: number, yScale: number, yOffset: number) -> unknown,
-	offset: (x: number, y: number) -> unknown,
-	datatype: ((name: string, components: { number }) -> unknown)?,
-	enumItem: ((enumName: string, item: string) -> unknown)?,
-	host: ((className: string, name: string, props: Record) -> unknown)?,
-}
+export type Context = Types.Context
 
 local LEVEL_IMAGES: Record = {
 	filled = "rbxassetid://108245103349446",
@@ -481,7 +473,11 @@ local function create(context: Context): Design.Library
 				for key, value in live do
 					values[key] = value
 				end
-				if contentKey == nil and spec.container and not OWN_CHILDREN[name] then
+				if TEMPLATE_KINDS[name] then
+					for _, child in children do
+						table.insert(values :: { unknown }, child)
+					end
+				elseif contentKey == nil and spec.container and not OWN_CHILDREN[name] then
 					for _, child in children do
 						table.insert(values :: { unknown }, child)
 					end

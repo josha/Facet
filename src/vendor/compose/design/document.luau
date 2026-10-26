@@ -50,6 +50,8 @@ local function copyValue(value: Value): Value
 		args = copyArgs(value.args),
 		fields = if value.fields then table.clone(value.fields) else nil,
 		node = value.node,
+		nodeFrom = value.nodeFrom,
+		nodes = if value.nodes then table.clone(value.nodes) else nil,
 		token = value.token,
 		state = value.state,
 	}
@@ -193,6 +195,9 @@ local function present(value: Value): number
 	if value.node ~= nil then
 		count += 1
 	end
+	if value.nodeFrom ~= nil then
+		count += 1
+	end
 	if value.state ~= nil then
 		count += 1
 	end
@@ -255,6 +260,17 @@ local function checkValue(value: Document, field: Types.Field, property: Value, 
 	local input, item, output = property.input, property.item, property.output
 	if property.node ~= nil then
 		assert(field.type == "node", `{key} cannot reference a node`)
+		return
+	end
+	local source = property.nodeFrom
+	if source ~= nil then
+		assert(field.type == "node", `{key} cannot reference a node`)
+		local declared = inputOf(value, source)
+		local held = stateOf(value, source)
+		local typed = if declared then declared.type elseif held then held.type else nil
+		assert(typed == "string", `{key} follows {source}, which is not a text input or state`)
+		local candidates = property.nodes
+		assert(candidates ~= nil and #candidates > 0, `{key} names no candidate nodes`)
 		return
 	end
 	assert(field.type ~= "node", `{key} references another node`)
@@ -364,6 +380,8 @@ function document.validate(value: Document, library: Library): Document
 	local seen: { [string]: true } = {}
 	local count, highest = 0, 0
 	local references: { [string]: string } = {}
+	local liveCandidates: { string } = {}
+	local nodeNames: { [string]: string } = {}
 	local function visit(node: Node, depth: number, collection: Types.Input?)
 		assert(depth <= MAX_DEPTH, "Designs nest at most 32 levels")
 		count += 1
@@ -371,6 +389,7 @@ function document.validate(value: Document, library: Library): Document
 		local number = tonumber(string.match(node.id, "^n(%d+)$"))
 		assert(number ~= nil and not seen[node.id], "Node ids must be unique")
 		seen[node.id] = true
+		nodeNames[node.id] = node.name
 		highest = math.max(highest, number)
 		local kind = assert(library.kinds[node.kind], `Unknown {library.name} kind {node.kind}`)
 		assert(#node.name > 0 and #node.name <= 120, "A node needs a name")
@@ -412,6 +431,13 @@ function document.validate(value: Document, library: Library): Document
 			if target ~= nil then
 				references[target] = key
 			end
+			local candidates = property.nodes
+			if candidates then
+				for _, candidate in candidates do
+					references[candidate] = key
+					table.insert(liveCandidates, candidate)
+				end
+			end
 		end
 		local nested = collection
 		local rowCollection: Types.Input? = nil
@@ -422,13 +448,24 @@ function document.validate(value: Document, library: Library): Document
 			assert(#node.children <= 1 and node.bind == nil, `{node.kind} holds one content node`)
 			assert(kind.slot ~= nil, `{node.kind} names no content property`)
 		elseif kind.children == "template" then
-			assert(#node.children <= 1, `{node.kind} holds one row template`)
 			local bind = node.bind
+			assert(#node.children <= 1 or (bind ~= nil and bind.row ~= nil), `{node.kind} holds one row template`)
 			if bind then
 				local list = assert(inputOf(value, bind.from), `{node.kind} binds unknown input {bind.from}`)
 				assert(list.type == "list", `{node.kind} binds {bind.from}, which is not a list`)
 				assert(#bind.key > 0, `{node.kind} needs an item key`)
-				nested = list
+				local row = bind.row
+				if row ~= nil then
+					local found = false
+					for _, child in node.children do
+						found = found or child.id == row
+					end
+					assert(found, `{node.kind} repeats unknown row {row}`)
+					rowCollection = list
+					rowId = row
+				else
+					nested = list
+				end
 			else
 				assert(#node.children == 0, `{node.kind} needs a list input for its template`)
 			end
@@ -466,6 +503,13 @@ function document.validate(value: Document, library: Library): Document
 	assert(value.nextId > highest, "Next node id must exceed every node id")
 	for target, key in references do
 		assert(seen[target], `{key} references unknown node {target}`)
+	end
+	local names: { [string]: string } = {}
+	for _, candidate in liveCandidates do
+		local name = assert(nodeNames[candidate])
+		assert(string.match(name, "^[%a_][%w_]*$") ~= nil, `{name} must be a Luau name to be chosen by a reference`)
+		assert(names[name] == nil or names[name] == candidate, `Two chosen nodes share the name {name}`)
+		names[name] = candidate
 	end
 	return value
 end
@@ -542,7 +586,8 @@ function document.insert(
 	local container = assert(library.kinds[parent.kind])
 	assert(
 		container.children == "list"
-			or ((container.children == "template" or container.children == "slot") and #parent.children == 0),
+			or ((container.children == "template" or container.children == "slot") and #parent.children == 0)
+			or (container.children == "template" and parent.bind ~= nil and parent.bind.row ~= nil),
 		`{parent.kind} cannot take this node`
 	)
 	local kind = assert(library.kinds[kindName], `Unknown {library.name} kind {kindName}`)

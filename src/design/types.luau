@@ -1,6 +1,6 @@
 --!strict
 
-local Design = require("../vendor/compose/design")
+local Design = require("../vendor/compose/design/types")
 
 export type Literal = Design.Literal
 
@@ -31,6 +31,16 @@ export type ControlSpec = {
 	anchor: string?,
 	nativeSize: boolean?,
 	seeds: { Seed }?,
+}
+
+export type Context = {
+	UI: unknown,
+	rgb: (r: number, g: number, b: number) -> unknown,
+	udim2: (xScale: number, xOffset: number, yScale: number, yOffset: number) -> unknown,
+	offset: (x: number, y: number) -> unknown,
+	datatype: ((name: string, components: { number }) -> unknown)?,
+	enumItem: ((enumName: string, item: string) -> unknown)?,
+	host: ((className: string, name: string, props: { [unknown]: unknown }) -> unknown)?,
 }
 
 return {}

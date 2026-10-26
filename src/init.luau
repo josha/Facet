@@ -1,8 +1,8 @@
 --!strict
 local Compose = require("@self/vendor/compose/core")
 local Roblox = require("@self/vendor/compose/roblox")
-local ComposeDesign = require("@self/vendor/compose/design")
-local FacetDesign = require("@self/design")
+local ComposeDesign = require("@self/vendor/compose/design/types")
+local FacetDesign = require("@self/design/types")
 local ControlTypes = require("@self/ui/control_types")
 local DiegeticTypes = require("@self/ui/diegetic_types")
 export type DiegeticScreenProps = DiegeticTypes.DiegeticScreenProps
@@ -286,7 +286,7 @@ export type Owner = Compose.Owner
 export type Use = Compose.Use
 export type ComposeModule = typeof(Compose)
 export type ComposeRobloxModule = typeof(Roblox)
-export type DesignModule = typeof(ComposeDesign)
+export type DesignModule = typeof(require("@self/vendor/compose/design"))
 export type DesignContext = FacetDesign.Context
 export type DesignControlSpec = FacetDesign.ControlSpec
 export type DesignSeed = FacetDesign.Seed
@@ -301,15 +301,18 @@ export type DesignOutput = ComposeDesign.Output
 export type DesignInputType = ComposeDesign.InputType
 export type DesignState = ComposeDesign.State
 export type DesignEmitOptions = ComposeDesign.EmitOptions
+export type DesignKit = {
+	Design: DesignModule,
+	library: (DesignContext) -> ComposeDesign.Library,
+	controls: { [string]: DesignControlSpec },
+	seeds: (kind: string) -> { DesignSeed },
+}
 export type Facet = {
 	VERSION: string,
 	COMPOSE_COMMIT: string,
 	Compose: ComposeModule,
 	Roblox: ComposeRobloxModule,
-	Design: DesignModule,
-	designLibrary: (DesignContext) -> ComposeDesign.Library,
-	designControls: { [string]: DesignControlSpec },
-	designSeeds: (kind: string) -> { DesignSeed },
+	design: () -> DesignKit,
 	controls: (Runtime, ControlOptions?) -> Controls,
 	host: (Runtime) -> Host,
 	app: (AppOptions?) -> App,
@@ -327,7 +330,7 @@ export type Facet = {
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "ed850c6a8189e9ec2d457d992bf7262aa2a95f85"
+local COMPOSE_COMMIT = "0b2af86b4d5c07321c6bf31b5b35fe5ff73ab0d4"
 local USED = {
 	"boundary",
 	"cell",
@@ -371,16 +374,29 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		error("Facet.bind: pass the Compose Roblox module from the same Compose copy as the second argument", 2)
 	end
 	local themes = bindThemes(core)
+	local designKit: DesignKit? = nil
+	local function loadDesign(): DesignKit
+		local kit = designKit
+		if kit == nil then
+			local facetDesign = require("@self/design")
+			local made: DesignKit = freeze({
+				Design = require("@self/vendor/compose/design"),
+				library = facetDesign.library,
+				controls = facetDesign.controls,
+				seeds = facetDesign.seeds,
+			})
+			designKit = made
+			return made
+		end
+		return kit
+	end
 	local surface: Facet
 	surface = freeze({
 		VERSION = VERSION,
 		COMPOSE_COMMIT = COMPOSE_COMMIT,
 		Compose = core,
 		Roblox = roblox,
-		Design = ComposeDesign,
-		designLibrary = FacetDesign.library,
-		designControls = FacetDesign.controls,
-		designSeeds = FacetDesign.seeds,
+		design = loadDesign,
 		controls = function(runtime: Runtime, options: ControlOptions?): Controls
 			return createControls(core, runtime, options)
 		end,
