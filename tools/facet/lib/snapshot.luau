@@ -43,7 +43,7 @@ function Snapshot.config(root: string, name: Name): Config
 			destination = "src/vendor/compose",
 			docsSource = ".agents/skills/compose",
 			docsDestination = "skills/compose",
-			paths = { "src/core", "src/roblox", "LICENSE" },
+			paths = { "src/core", "src/roblox", "src/design", "src/design-editor", "LICENSE" },
 			stripPrefix = "src/",
 			relocateDocs = true,
 		}

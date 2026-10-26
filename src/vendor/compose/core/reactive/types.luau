@@ -52,6 +52,8 @@ export type Node = {
 	set: ((Node, unknown) -> ())?,
 	group: boolean?,
 	source: Node?,
+	fastKey: string?,
+	fastNext: Node?,
 }
 
 return {}

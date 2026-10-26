@@ -8,24 +8,11 @@ local Types = require "./types"
 local profile = require "./profile"
 local stats = require "./stats"
 local statsOn = stats.state
-local userSpace = require "./userSpace"
-local validationState = userSpace.state
 
 type Body = (use: Types.Use) -> ()
 type Node = Types.Node
 type Reactor = Types.Reactor
 type Dispose = Types.Dispose
-
-local function invoke(node: Node)
-	local effect = node.effect
-	if effect then
-		if validationState.validating then
-			userSpace.call(effect, Graph.use)
-		else
-			effect(Graph.use)
-		end
-	end
-end
 
 local function rerun(node: Node)
 	if statsOn.enabled then
@@ -33,7 +20,7 @@ local function rerun(node: Node)
 		profile.enterRun(node)
 	end
 	node.state = Graph.CLEAN
-	Graph.track(node, invoke)
+	Graph.runEffect(node)
 end
 
 local function moved(node: Node): boolean
@@ -70,6 +57,8 @@ local resume: Node? = nil
 
 local function sweep(leader: Node, producer: Node, from: Node?)
 	local reactor = leader.reactor
+	local frame = Evaluation.frame()
+	local previousConsumer, previousOrder = Evaluation.enter(leader)
 	local edge = from
 	while edge ~= nil do
 		local following = edge[4]
@@ -85,10 +74,16 @@ local function sweep(leader: Node, producer: Node, from: Node?)
 			and not consumer.released
 			and consumer.group
 		then
-			rerun(consumer)
+			if statsOn.enabled then
+				stats.bump "watchRuns"
+				profile.enterRun(consumer)
+			end
+			consumer.state = Graph.CLEAN
+			Graph.runEffectIn(frame, consumer)
 		end
 		edge = following
 	end
+	Evaluation.leave(previousConsumer, previousOrder)
 end
 
 function TERMINAL.run(leader: Node)
@@ -145,15 +140,13 @@ function GUARDED.run(node: Node)
 	rerun(node)
 end
 
-local function start(reactor: Reactor, body: Body, class: {}, label: string?): Dispose
+local function begin(reactor: Reactor, body: Body, class: {}, label: string?): Node
 	local node: Node = {
 		state = Graph.DIRTY,
-		reads = 0,
-		queued = false,
-		released = false,
-		retry = false,
 		reactor = reactor,
 		effect = body,
+		released = false,
+		queued = false,
 	}
 	NodeCast.classify(node, class)
 	if statsOn.enabled then
@@ -166,6 +159,21 @@ local function start(reactor: Reactor, body: Body, class: {}, label: string?): D
 		Graph.release(node)
 		error(err, 0)
 	end
+	return node
+end
+
+local function releaseHeld(subject: unknown)
+	local node = NodeCast.heldEdge(subject)
+	if node.listener ~= nil then
+		Graph.unlisten(node)
+	elseif not node.released and node.effect ~= nil then
+		Graph.release(node)
+		node.queued = false
+	end
+end
+
+local function start(reactor: Reactor, body: Body, class: {}, label: string?): Dispose
+	local node = begin(reactor, body, class, label)
 	return function()
 		if node.released then
 			return
@@ -187,8 +195,16 @@ local function watchTerminal(reactor: Reactor, body: Body): Dispose
 	return start(reactor, body, TERMINAL, nil)
 end
 
+local function terminalNode(reactor: Reactor, body: Body): Node
+	return begin(reactor, body, TERMINAL, nil)
+end
+
 local function watchStatic<T>(reactor: Reactor, value: Types.ReadOnlyValue<T>, body: (value: T) -> ()): Dispose
 	return Graph.listen(reactor, NodeCast.nodeOf(value), NodeCast.eraseListener(body))
+end
+
+local function listenEdge<T>(reactor: Reactor, value: Types.ReadOnlyValue<T>, body: (value: T) -> ()): Node
+	return Graph.listenEdge(reactor, NodeCast.nodeOf(value), NodeCast.eraseListener(body))
 end
 
 local function sample<T>(body: () -> T): T
@@ -199,6 +215,10 @@ return {
 	watch = watch,
 	watchGuarded = watchGuarded,
 	watchStatic = watchStatic,
+	listenEdge = listenEdge,
+	unlisten = Graph.unlisten,
+	terminalNode = terminalNode,
+	releaseHeld = releaseHeld,
 	watchTerminal = watchTerminal,
 	sample = sample,
 }

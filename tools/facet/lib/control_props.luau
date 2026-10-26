@@ -2,6 +2,7 @@
 local Files = require("./files")
 local Run = require("./run")
 local Luau = require("./luau")
+local DesignFields = require("./design_fields")
 
 type Variant = { name: string, parts: { string } }
 type Recipe = {
@@ -807,6 +808,12 @@ function ControlProps.stale(scratchDirectory: string): ({ string }, { [string]: 
 			table.insert(stale, family.output)
 			texts[family.output] = text
 		end
+	end
+	local fieldsText = format(DesignFields.generate("."), Files.join(scratchDirectory, "fields.luau"))
+	local current = if Files.isFile(DesignFields.OUTPUT) then Files.text(DesignFields.OUTPUT) else nil
+	if current ~= fieldsText then
+		table.insert(stale, DesignFields.OUTPUT)
+		texts[DesignFields.OUTPUT] = fieldsText
 	end
 	return stale, texts
 end

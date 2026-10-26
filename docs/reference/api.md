@@ -8,6 +8,9 @@ The returned `Facet.Sequence` has `play`, `cancel`, `finish`, `running` and
 motion policy and theme tokens.
 
 Open the [documentation map](nodes/Map.md).
+
+`Facet.designLibrary(context)` returns the Facet library for `Facet.Design`.
+See [Design library](nodes/Design-library.md).
 Run `lute run tools/facet docs` to read the map.
 
 `Facet.controls(runtime, options?)` returns controls for a Compose Roblox runtime.

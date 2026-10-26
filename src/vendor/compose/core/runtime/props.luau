@@ -14,6 +14,7 @@ local stats = require "../reactive/stats"
 local statsOn = stats.state
 local Owner = require "../ownership/owner"
 local Types = require "../reactive/types"
+local Watch = require "../reactive/watch"
 local Weak = require "../weak"
 
 type Node = Host.Node
@@ -30,6 +31,10 @@ type Clear = (node: Node, key: string, value: nil) -> ...unknown
 type GroupBody = (use: Types.Use) -> ...unknown
 
 local propertyBindings: Registry = {}
+
+local fastEdges: { [Node]: Types.Node? } = {}
+
+Weak.keys(fastEdges)
 
 Weak.keys(propertyBindings)
 local attributeBindings: Registry = {}
@@ -553,47 +558,79 @@ local function propertyTarget(host: Host.Host): Target
 	return target
 end
 
-local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Owner, onKey: (string) -> ())
+local function retireFast(node: Node, key: string)
+	local edge = fastEdges[node]
+	local previous: Types.Node? = nil
+	while edge ~= nil do
+		local following = edge.fastNext
+		if edge.fastKey == key then
+			if previous == nil then
+				fastEdges[node] = following
+			else
+				previous.fastNext = following
+			end
+			Watch.releaseHeld(edge)
+		else
+			previous = edge
+		end
+		edge = following
+	end
+end
+
+local function apply(
+	host: Host.Host,
+	node: Node,
+	props: Props,
+	owner: Owner.Owner,
+	onKey: (string) -> (),
+	created: boolean?
+)
 	local target = propertyTarget(host)
+	local fresh = created == true and not statsOn.enabled and owner.boundary == nil and not owner.disposed
+	local write = target.write
+	local replacing = not fresh and fastEdges[node] ~= nil
 	local length = #props
 
 	for key, value in props do
-		if type(key) == "number" and key >= 1 and key <= length and key % 1 == 0 then
-			continue
-		end
-
-		local marker = Keys.readKey(key)
-		if marker ~= nil then
-			onKey(marker.name)
-			if marker.kind == "group" then
-				bindGroup(host, node, owner, marker.names, value)
-			elseif marker.kind == "event" then
-				if type(value) ~= "function" then
-					error(
-						Diagnostics.format(
-							"props/event-needs-handler",
-							"an event key was given something that is not a handler",
-							{
-								event = marker.name,
-								node = Host.describeNode(host, node),
-								actual = Diagnostics.describe(value),
-								expected = "a function",
-							}
-						),
-						0
-					)
-				end
-				subscribe(host, node, owner, marker.name, value :: (...unknown) -> ())
-			elseif type(value) == "function" or cellModule.isValue(value) then
-				bind(target, node, owner, marker.name, value :: Types.Source<unknown>)
-			else
-				refuseNodeValue(host, node, marker.name, value)
-				writeOnce(target, node, owner, marker.name, value)
-			end
-			continue
-		end
-
 		if type(key) ~= "string" then
+			if type(key) == "number" and key >= 1 and key <= length and key % 1 == 0 then
+				continue
+			end
+
+			local marker = Keys.readKey(key)
+			if marker ~= nil then
+				onKey(marker.name)
+				if replacing then
+					retireFast(node, marker.name)
+				end
+				if marker.kind == "group" then
+					bindGroup(host, node, owner, marker.names, value)
+				elseif marker.kind == "event" then
+					if type(value) ~= "function" then
+						error(
+							Diagnostics.format(
+								"props/event-needs-handler",
+								"an event key was given something that is not a handler",
+								{
+									event = marker.name,
+									node = Host.describeNode(host, node),
+									actual = Diagnostics.describe(value),
+									expected = "a function",
+								}
+							),
+							0
+						)
+					end
+					subscribe(host, node, owner, marker.name, value :: (...unknown) -> ())
+				elseif type(value) == "function" or cellModule.isValue(value) then
+					bind(target, node, owner, marker.name, value :: Types.Source<unknown>)
+				else
+					refuseNodeValue(host, node, marker.name, value)
+					writeOnce(target, node, owner, marker.name, value)
+				end
+				continue
+			end
+
 			error(
 				Diagnostics.format("props/unsupported-key", "a props key is neither a string nor a wrapped key", {
 					actual = Diagnostics.describe(key),
@@ -604,6 +641,9 @@ local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Own
 			)
 		end
 		local name = key
+		if replacing then
+			retireFast(node, name)
+		end
 
 		if name == ATTRIBUTES then
 			onKey(ATTRIBUTES)
@@ -613,20 +653,51 @@ local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Own
 
 		onKey(name)
 
+		local kind = type(value)
+		if kind == "string" or kind == "boolean" then
+			if fresh then
+				write(node, name, value)
+			else
+				writeOnce(target, node, owner, name, value)
+			end
+			continue
+		end
+
 		local literal, isStatic = Keys.readStatic(value)
 		if isStatic then
-			writeOnce(target, node, owner, name, literal)
+			if fresh then
+				write(node, name, literal)
+			else
+				writeOnce(target, node, owner, name, literal)
+			end
 			continue
 		end
 
 		if cellModule.isValue(value) then
-			bind(target, node, owner, name, value :: Types.Source<unknown>)
+			if fresh then
+				local edge = Owner.listenHeld(owner, value :: Types.ReadOnlyValue<unknown>, function(current: unknown)
+					write(node, name, current)
+				end)
+				edge.fastKey = name
+				edge.fastNext = fastEdges[node]
+				fastEdges[node] = edge
+			else
+				bind(target, node, owner, name, value :: Types.Source<unknown>)
+			end
 			continue
 		end
 
 		if type(value) == "function" then
 			if classify(host, node, name) == "event" then
 				subscribe(host, node, owner, name, value :: (...unknown) -> ())
+			elseif fresh then
+				local source = value :: Types.Body<unknown>
+				local watcher = Owner.effectHeld(owner, function(use: Types.Use)
+					write(node, name, source(use))
+				end)
+				watcher.fastKey = name
+				watcher.fastNext = fastEdges[node]
+				fastEdges[node] = watcher
 			else
 				bind(target, node, owner, name, value :: Types.Source<unknown>)
 			end
@@ -634,10 +705,19 @@ local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Own
 		end
 
 		refuseNodeValue(host, node, name, value)
-		writeOnce(target, node, owner, name, value)
+		if fresh then
+			write(node, name, value)
+		else
+			writeOnce(target, node, owner, name, value)
+		end
 	end
+end
+
+local function forget(node: Node)
+	fastEdges[node] = nil
 end
 
 return {
 	apply = apply,
+	forget = forget,
 }

@@ -28,6 +28,7 @@ With shell access, use `lute run tools/facet docs <path>` or `docs --search TEXT
 | Use gamepad and touch-safe layout | [Tasks.safe-layout](Tasks.safe-layout.md) |
 | Preview an object or editable appearance | [Stage.card](Stage.card.md) |
 | Guide a player through live actions | [Callout.card](Callout.card.md) |
+| Author a screen as a design document | [Design-library](Design-library.md) |
 
 Browse [Tasks](Tasks.md), [Controls](Controls.md),
 [Reference](Reference.md) or [Themes.index](Themes.index.md).

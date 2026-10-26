@@ -130,6 +130,7 @@ local function createRuntime(host: Host.Host): Runtime
 	end
 
 	local function destroyOwnedNode(node: Node)
+		Props.forget(node)
 		local ok, err: unknown = pcall(Nodes.releaseDependents, node)
 		render.destroyNode(node)
 		Nodes.forget(node)
@@ -170,7 +171,7 @@ local function createRuntime(host: Host.Host): Runtime
 					inFlight = nil
 				end
 			end
-			Props.apply(host, node, props, owner, onKey)
+			Props.apply(host, node, props, owner, onKey, true)
 
 			local childCount = #props
 			if childCount == 0 then
@@ -179,13 +180,19 @@ local function createRuntime(host: Host.Host): Runtime
 
 			inFlight = nil
 			local list = Children.createList(host, node)
+			local staticSlot = 0
 			for index = 1, childCount do
 				local child = props[index]
-				local slot = Children.addSlot(list)
-				if type(child) == "function" and pendingLabel[child] == nil then
+				local childType = type(child)
+				if childType == "table" or childType == "userdata" then
+					if staticSlot == 0 then
+						staticSlot = Children.addSlot(list)
+					end
+					Children.insertStatic(list, staticSlot, child)
+				elseif childType == "function" and pendingLabel[child] == nil then
+					staticSlot = 0
+					local slot = Children.addSlot(list);
 					(child :: Children.Directive)(Children.mountPointFor(list, slot))
-				elseif type(child) == "table" or type(child) == "userdata" then
-					Children.insertStatic(list, slot, child)
 				elseif pendingLabel[child] ~= nil then
 					error(
 						Diagnostics.format(
@@ -233,7 +240,7 @@ local function createRuntime(host: Host.Host): Runtime
 
 			local owner = requireOwner(operation)
 			local mark = Owner.checkpoint(owner)
-
+			local heldMark = Owner.heldCount(owner)
 			local node = render.createNode(kind)
 			Nodes.markOwned(node)
 			Owner.holdSubject(owner, destroyOwnedNode, node)
@@ -244,9 +251,12 @@ local function createRuntime(host: Host.Host): Runtime
 
 			local savedInFlight = inFlight
 			inFlight = nil
-			local ok, err: unknown = pcall(Active.runWith, owner, applyBuild, label, props, node, owner)
+			local running = Active.push(owner)
+			local ok, err: unknown = pcall(applyBuild, label, props, node, owner)
+			Active.pop(owner, running)
 			if not ok then
 				Owner.rollbackTo(owner, mark)
+				Owner.rollbackHeld(owner, heldMark)
 				local key = inFlight
 				inFlight = savedInFlight
 				if key ~= nil then

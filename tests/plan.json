@@ -85,6 +85,13 @@
       ]
     },
     {
+      "id": "facet_compose_library",
+      "locator": "tests/facet_compose_library.verify.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
       "id": "facet_designer",
       "locator": "tests/facet_designer.verify.luau",
       "requires": [

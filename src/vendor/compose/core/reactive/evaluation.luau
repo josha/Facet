@@ -103,6 +103,7 @@ end
 
 return {
 	cache = cache,
+	frame = frame,
 	context = context,
 	enter = enter,
 	snapshot = snapshot,

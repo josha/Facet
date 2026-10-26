@@ -76,7 +76,7 @@ local function createSchedulers(
 	return function(explicit: Owner.Owner?): Scheduler
 		local parent: Owner.Owner
 		if explicit ~= nil then
-			if type(explicit) ~= "table" or type(explicit.reactor) ~= "table" then
+			if not Owner.isOwner(explicit) then
 				error(
 					Diagnostics.format("scheduler/invalid-owner", "a scheduler can only be bound to an owner", {
 						actual = Diagnostics.describe(explicit),
