@@ -133,7 +133,7 @@ return function(verifyHarness: Verify.Harness)
 			context:defer(function()
 				runtime:dispose()
 			end)
-			local environment = getfenv(require("../src/ui/context_config"))
+			local environment = getfenv(require("../src/ui/roblox_types"))
 			local previous: { [string]: unknown } = {}
 			for key, value in engine.types do
 				if type(key) == "string" then

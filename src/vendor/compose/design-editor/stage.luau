@@ -182,6 +182,105 @@ return function(ui: UI.UI)
 			end
 			return nil
 		end
+		type Drop = { destination: string, before: number, edge: UI.Point, along: UI.Point }
+		type Carry = { id: string, start: UI.Point, active: boolean, drop: Drop? }
+		local carrying: Carry? = nil
+		local marker = frame "DesignDropMarker"
+		ui.set(marker, "BackgroundTransparency", 0)
+		ui.set(marker, "BackgroundColor3", accent)
+		ui.set(marker, "ZIndex", 2004)
+		ui.set(marker, "Visible", false)
+		ui.set(marker, "Parent", overlay)
+		local function horizontal(instance: Compose.Node): boolean
+			local layout = ui.call(instance, "FindFirstChildWhichIsA", "UIListLayout")
+			return layout ~= nil and ui.get(layout, "FillDirection") == ui.values.enum("FillDirection", "Horizontal")
+		end
+		local function dropAt(point: UI.Point, moving: string): Drop?
+			local value = session.document:peek()
+			local movingNode = Design.document.find(value.root, moving)
+			if movingNode == nil then
+				return nil
+			end
+			local host: Design.Node? = nil
+			local deepest = -1
+			for id, instance in nodes do
+				local node = Design.document.find(value.root, id)
+				local kind = if node then session.library.kinds[node.kind] else nil
+				if
+					node
+					and kind
+					and kind.children == "list"
+					and kind.leaf ~= true
+					and Design.document.find(movingNode, id) == nil
+					and ui.get(instance, "Parent")
+					and contains(instance, point, surface)
+				then
+					local depth = depthOf(instance, surface)
+					if depth > deepest then
+						host, deepest = node, depth
+					end
+				end
+			end
+			local container = host
+			if container == nil then
+				return nil
+			end
+			local box = nodes[container.id]
+			local across = horizontal(box)
+			local origin = ui.xy(overlay, "AbsolutePosition")
+			local at, extent = ui.xy(box, "AbsolutePosition"), ui.xy(box, "AbsoluteSize")
+			local before, count = 1, 0
+			local edge = if across then at.X else at.Y
+			for _, child in container.children do
+				if child.id ~= moving then
+					count += 1
+					local instance = nodes[child.id]
+					if instance then
+						local position, size = ui.xy(instance, "AbsolutePosition"), ui.xy(instance, "AbsoluteSize")
+						local middle = if across then position.X + size.X / 2 else position.Y + size.Y / 2
+						local pointer = if across then point.X else point.Y
+						if pointer > middle then
+							before = count + 1
+							edge = if across then position.X + size.X else position.Y + size.Y
+						end
+					end
+				end
+			end
+			return {
+				destination = container.id,
+				before = before,
+				edge = if across
+					then { X = edge - origin.X, Y = at.Y - origin.Y }
+					else { X = at.X - origin.X, Y = edge - origin.Y },
+				along = if across then { X = 2, Y = extent.Y } else { X = extent.X, Y = 2 },
+			}
+		end
+		local function carry(point: UI.Point)
+			local active = carrying
+			if active == nil then
+				return
+			end
+			if not active.active and Math.length(Math.sub(point, active.start)) < 4 then
+				return
+			end
+			active.active = true
+			local drop = dropAt(point, active.id)
+			active.drop = drop
+			ui.set(marker, "Visible", drop ~= nil)
+			if drop then
+				ui.set(marker, "Position", ui.values.udim2(0, drop.edge.X, 0, drop.edge.Y))
+				ui.set(marker, "Size", ui.values.udim2(0, drop.along.X, 0, drop.along.Y))
+			end
+		end
+		local function finishCarry()
+			local active = carrying
+			carrying = nil
+			ui.set(marker, "Visible", false)
+			local drop = if active and active.active then active.drop else nil
+			if active and drop then
+				session.move(active.id, drop.destination, drop.before)
+			end
+		end
 		local function startResize(corner: UI.Point, from: UI.Point)
 			local id = session.selected:peek()
 			local instance: Compose.Node? = nodes[id]
@@ -504,6 +603,10 @@ return function(ui: UI.UI)
 					updateResize(toGui(input))
 					return
 				end
+				if carrying and ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseMovement") then
+					carry(toGui(input))
+					return
+				end
 				local from = panning
 				if from and ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseMovement") then
 					local at = toGui(input)
@@ -525,6 +628,9 @@ return function(ui: UI.UI)
 				if ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1") and resizing then
 					finishResize()
 				end
+				if ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1") and carrying then
+					finishCarry()
+				end
 			end)
 		)
 		local began = ui.connect(overlay, "InputBegan", function(input: Compose.Node)
@@ -537,7 +643,11 @@ return function(ui: UI.UI)
 				if grip then
 					startResize(grip.corner, point)
 				elseif ui.call(UserInputService, "IsKeyDown", ui.values.enum("KeyCode", "Space")) ~= true then
-					session.select(pick(point))
+					local picked = pick(point)
+					session.select(picked)
+					if picked ~= session.document:peek().root.id then
+						carrying = { id = picked, start = point, active = false, drop = nil }
+					end
 				end
 			end
 		end)

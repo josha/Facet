@@ -340,7 +340,7 @@ export type Facet = {
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "8b93ea4cb00aa5874d88744084b406755edb8c18"
+local COMPOSE_COMMIT = "7674be4f4f78cf71119b8a6f66980b6df0a8a94e"
 local USED = {
 	"boundary",
 	"cell",
@@ -413,34 +413,6 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 			local library = designKit.library({
 				UI = UI,
 				motion = designKit.motion(UI),
-				rgb = Color3.fromRGB,
-				udim2 = UDim2.new,
-				offset = UDim2.fromOffset,
-				datatype = function(name: string, components: { number }): unknown
-					local a, b, c, d = components[1] or 0, components[2] or 0, components[3] or 0, components[4] or 0
-					if name == "UDim2" then
-						return UDim2.new(a, b, c, d)
-					elseif name == "UDim" then
-						return UDim.new(a, b)
-					elseif name == "Vector2" then
-						return Vector2.new(a, b)
-					elseif name == "Vector3" then
-						return Vector3.new(a, b, c)
-					elseif name == "Rect" then
-						return Rect.new(a, b, c, d)
-					elseif name == "NumberRange" then
-						return NumberRange.new(a, b)
-					end
-					return nil
-				end,
-				enumItem = function(enumName: string, item: string): unknown
-					for _, enum in Enum:GetEnums() do
-						if tostring(enum) == enumName then
-							return enum:FromName(item)
-						end
-					end
-					return nil
-				end,
 				host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
 					return runtime.constructors[className](name)(props)
 				end,

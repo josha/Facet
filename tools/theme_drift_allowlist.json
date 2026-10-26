@@ -1,6 +1,13 @@
 {
   "entries": [
     {
+      "path": "src/design/library.luau",
+      "rule": "paint-color",
+      "match": "return types.Color3.fromHex(value)",
+      "status": "authored",
+      "reason": "A Compose Design document authors this hex color; the library converts the literal and does not choose a theme color."
+    },
+    {
       "path": "src/ui/input_button.luau",
       "rule": "radius",
       "match": "ctx.corner(2),",
