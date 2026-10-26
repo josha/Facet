@@ -66,17 +66,18 @@ local cases: { Case } = {
 			host.Size = UDim2.fromOffset(1200, 760)
 			host.Parent = screen
 			local runtime = Facet.Roblox.createRuntime()
-			local library = Facet.designLibrary({
+			local library = Facet.design().library({
 				UI = Facet.controls(runtime),
 				rgb = Color3.fromRGB,
 				udim2 = UDim2.new,
 				offset = UDim2.fromOffset,
 			})
-			local editor = DesignEditor.create(library, Facet.Design.document.new("Probe", library, "VStack"), host, {
-				runtime = runtime,
-				environment = Facet.Roblox.designEnvironment(),
-				stageSize = { X = 390, Y = 640 },
-			})
+			local editor =
+				DesignEditor.create(library, Facet.design().Design.document.new("Probe", library, "VStack"), host, {
+					runtime = runtime,
+					environment = Facet.Roblox.designEnvironment(),
+					stageSize = { X = 390, Y = 640 },
+				})
 			t.settle(10)
 			t.check("the editor inserts a Facet Button", editor.session.insert("Button"))
 			t.check("the editor relabels the Button", editor.session.change("label", { literal = "Buy" }))

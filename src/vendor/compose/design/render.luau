@@ -9,13 +9,7 @@ type Literal = Types.Literal
 type Row = Types.Row
 type Resolved = Types.Resolved
 
-export type Context = {
-	inputs: { [string]: Literal }?,
-	outputs: { [string]: (args: { Literal }) -> () }?,
-	slots: { [string]: () -> unknown }?,
-	token: ((name: string) -> Literal)?,
-	decorate: ((node: Types.Node, built: unknown) -> ())?,
-}
+export type Context = Types.RenderContext
 
 local function itemField(current: ReadOnlyValue<Row>, field: string): ReadOnlyValue<Literal?>
 	return Core.formula(function(use: Use): Literal?
@@ -66,11 +60,21 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		return inputs[id] == true
 	end
 	local references: { [string]: Core.Value<unknown> } = {}
+	local names: { [string]: string } = {}
 	local function collect(node: Types.Node)
+		names[node.id] = node.name
 		for _, property in node.props do
 			local target = property.node
 			if target ~= nil and references[target] == nil then
 				references[target] = Core.cell(nil :: unknown)
+			end
+			local candidates = property.nodes
+			if candidates then
+				for _, candidate in candidates do
+					if references[candidate] == nil then
+						references[candidate] = Core.cell(nil :: unknown)
+					end
+				end
 			end
 		end
 		for _, child in node.children do
@@ -117,6 +121,24 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		local target = property.node
 		if target ~= nil then
 			return { node = references[target] }
+		end
+		local source = property.nodeFrom
+		if source ~= nil then
+			local byName: { [string]: Core.Value<unknown> } = {}
+			local candidates = property.nodes
+			if candidates then
+				for _, candidate in candidates do
+					byName[names[candidate]] = references[candidate]
+				end
+			end
+			local held = states[source]
+			return {
+				node = Core.formula(function(use: Use): unknown
+					local chosen = if held ~= nil then use(held) else inputs[source]
+					local cell = if type(chosen) == "string" then byName[chosen] else nil
+					return if cell then use(cell) else nil
+				end),
+			}
 		end
 		local stateId = property.state
 		if stateId ~= nil then
@@ -190,11 +212,20 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			end
 		elseif kind.children == "template" then
 			if bind and template then
+				local rowId = bind.row or template.id
+				local rowNode = template
+				for _, child in node.children do
+					if child.id == rowId then
+						rowNode = child
+					else
+						table.insert(children, build(child, item))
+					end
+				end
 				local rows: ReadOnlyValue<{ Row }> = Core.cell(rowsOf(inputs[bind.from]))
 				props[assert(kind.source, `{node.kind} names no list property`)] = { rows = rows, key = bind.key }
 				props[assert(kind.template, `{node.kind} names no template property`)] = {
 					template = function(row: ReadOnlyValue<Row>): unknown
-						return build(template, row)
+						return build(rowNode, row)
 					end,
 				}
 			end

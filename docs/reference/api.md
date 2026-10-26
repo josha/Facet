@@ -9,7 +9,7 @@ motion policy and theme tokens.
 
 Open the [documentation map](nodes/Map.md).
 
-`Facet.designLibrary(context)` returns the Facet library for `Facet.Design`.
+`Facet.design()` loads the design kit on first use: `Design` (Compose Design), `library(context)`, `controls` and `seeds`. A game that does not author designs never loads it.
 See [Design library](nodes/Design-library.md).
 Run `lute run tools/facet docs` to read the map.
 

@@ -4,7 +4,8 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local FacetDesign = require("../src/design")
-	local Design = Facet.Design
+	local Kit = Facet.design()
+	local Design = Kit.Design
 	local engines = require("./lib/native_engine")
 	local session = require("../tools/designer/modules/session")
 
@@ -64,7 +65,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local function names(): { string }
 		local list: { string } = {}
-		for name in Facet.designControls do
+		for name in Kit.controls do
 			table.insert(list, name)
 		end
 		table.sort(list)
@@ -72,7 +73,7 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function offline(): Facet.DesignLibrary
-		return Facet.designLibrary({
+		return Kit.library({
 			UI = {},
 			rgb = function(r: number, g: number, b: number): unknown
 				return { r, g, b }
@@ -87,7 +88,7 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function live(ctx: Context): Facet.DesignLibrary
-		return Facet.designLibrary({
+		return Kit.library({
 			UI = ctx.UI,
 			rgb = ctx.types.Color3.fromRGB,
 			udim2 = ctx.types.UDim2.new,
@@ -127,7 +128,7 @@ return function(verifyHarness: Verify.Harness)
 				table.insert(children, list)
 				continue
 			end
-			table.insert(children, seeded({ kind = name, children = Facet.designSeeds(name) }))
+			table.insert(children, seeded({ kind = name, children = Kit.seeds(name) }))
 		end
 		local first: { [string]: Facet.DesignLiteral } = { id = "a", label = "First" }
 		local second: { [string]: Facet.DesignLiteral } = { id = "b", label = "Second" }
@@ -157,7 +158,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local library = offline()
 				local list = names()
-				Verify.expect(Facet.designControls == FacetDesign.controls):toBe(true)
+				Verify.expect(Kit.controls == FacetDesign.controls):toBe(true)
 				Verify.expect(#list):toBeGreaterThan(60)
 				for _, name in list do
 					Verify.expect(library.kinds[name].call):toBe("UI." .. name)
@@ -270,7 +271,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("authors whole game views with typed props, outputs and Roblox values", {
 			id = "facet_compose_library::authors whole game views with typed props, outputs and Roblox values",
 			run = function()
-				local library = Facet.designLibrary({
+				local library = Kit.library({
 					UI = {},
 					rgb = function(r: number, g: number, b: number): unknown
 						return { r, g, b }
@@ -401,6 +402,53 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(`{expected} {string.find(code, expected, 1, true) ~= nil}`):toBe(`{expected} true`)
 				end
 				Verify.expect(Design.emit(Design.parse(code, library), library, emitOptions)):toBe(code)
+			end,
+		})
+
+		verifyHarness:case("authors second-batch views with collection rows, statics and chosen nodes", {
+			id = "facet_compose_library::authors second-batch views with collection rows, statics and chosen nodes",
+			run = function()
+				local library = offline()
+				local rowFields: { Facet.DesignItemField } =
+					{ { id = "revision", type = "string" }, { id = "word", type = "string" } }
+				local value = Design.document.new("MatchHistory", library, "VStack")
+				value = Design.document.setContract(value, library, {
+					inputs = { { id = "turns", kind = "readable", type = "list", fields = rowFields } },
+					outputs = {},
+				})
+				local list, row, empty
+				value, list = Design.document.insert(value, library, "n1", "VirtualList")
+				value = Design.document.bind(value, library, list, { from = "turns", key = "revision" })
+				value, row = Design.document.insert(value, library, list, "Text")
+				value = Design.document.change(value, library, row, "text", { item = "word" })
+				value = Design.document.bind(value, library, list, { from = "turns", key = "revision", row = row })
+				value = Design.document.change(value, library, list, "recycle", { literal = false })
+				value = Design.document.change(value, library, list, "mode", { literal = "all" })
+				value, empty = Design.document.insert(value, library, list, "Text")
+				value = Design.document.rename(value, library, empty, "NoTurns")
+				local code = Design.emit(value, library, { name = "MatchHistory", rowFunctions = true })
+				for _, expected in { "recycle = false,", 'mode = "all",', 'UI.Text "NoTurns"' } do
+					Verify.expect(`{expected} {string.find(code, expected, 1, true) ~= nil}`):toBe(`{expected} true`)
+				end
+				Verify.expect(
+					Design.emit(Design.parse(code, library), library, { name = "MatchHistory", rowFunctions = true })
+				)
+					:toBe(code)
+				local marker = Design.document.new("Rewards", library, "VStack")
+				local markerState: Facet.DesignState = { id = "source", type = "string", initial = "Stage" }
+				marker = Design.document.setState(marker, library, { markerState })
+				local stage, flash
+				marker, stage = Design.document.insert(marker, library, "n1", "VStack")
+				marker = Design.document.rename(marker, library, stage, "Stage")
+				marker, flash = Design.document.insert(marker, library, "n1", "WorldMarker")
+				local anchorFields: { Facet.DesignItemField } = {}
+				marker = Design.document.setContract(marker, library, {
+					inputs = { { id = "anchor", kind = "readable", type = "record", fields = anchorFields } },
+					outputs = {},
+				})
+				marker = Design.document.change(marker, library, flash, "anchor", { input = "anchor" })
+				Verify.expect(string.find(Design.emit(marker, library), "anchor = props.anchor,", 1, true) ~= nil)
+					:toBe(true)
 			end,
 		})
 

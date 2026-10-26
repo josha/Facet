@@ -43,14 +43,17 @@ local function showCompose()
 	composeButton:SetActive(composeWidget.Enabled)
 	if composeWidget.Enabled and not composed then
 		local runtime = Facet.Roblox.createRuntime()
-		local library = Facet.designLibrary({
+		local library = Facet.design().library({
 			UI = Facet.controls(runtime),
 			rgb = Color3.fromRGB,
 			udim2 = UDim2.new,
 			offset = UDim2.fromOffset,
 		})
-		local editor =
-			DesignEditor.create(library, Facet.Design.document.new("Screen", library, "Screen"), composeWidget, {
+		local editor = DesignEditor.create(
+			library,
+			Facet.design().Design.document.new("Screen", library, "Screen"),
+			composeWidget,
+			{
 				runtime = runtime,
 				environment = Facet.Roblox.designEnvironment(),
 				stageSize = { X = 390, Y = 844 },
@@ -75,7 +78,8 @@ local function showCompose()
 						history:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
 					end
 				end,
-			})
+			}
+		)
 		composed = {
 			dispose = function()
 				editor.dispose()
