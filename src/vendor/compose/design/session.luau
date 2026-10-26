@@ -28,6 +28,9 @@ export type Session = {
 	move: (id: string, destination: string, before: number?) -> boolean,
 	remove: () -> boolean,
 	duplicate: () -> boolean,
+	copy: () -> boolean,
+	paste: () -> boolean,
+	shift: (step: number) -> boolean,
 	setContract: (contract: Types.Contract) -> boolean,
 	replace: (value: Types.Document) -> boolean,
 	undo: () -> boolean,
@@ -35,6 +38,7 @@ export type Session = {
 }
 
 return function(library: Types.Library, initial: Types.Document): Session
+	local clipboard: Types.Node? = nil
 	local history = History(Document.validate(initial, library))
 	local document = Core.cell(history.current())
 	local selected = Core.cell(initial.root.id)
@@ -152,6 +156,40 @@ return function(library: Types.Library, initial: Types.Document): Session
 		duplicate = function(): boolean
 			return attempt(function(value: Types.Document, id: string): (Types.Document, string?)
 				return Document.duplicate(value, library, id)
+			end)
+		end,
+		copy = function(): boolean
+			local value = document:peek()
+			local node, parent = Document.find(value.root, selected:peek())
+			if node == nil or parent == nil then
+				return false
+			end
+			clipboard = Document.copyNode(node)
+			return true
+		end,
+		paste = function(): boolean
+			local copied = clipboard
+			if copied == nil then
+				return false
+			end
+			return attempt(function(value: Types.Document, id: string): (Types.Document, string?)
+				local node, parent, index = Document.find(value.root, id)
+				local target = assert(node)
+				local container = assert(library.kinds[target.kind])
+				if parent and index and (container.children ~= "list" or container.leaf == true) then
+					return Document.paste(value, library, copied, parent.id, index + 1)
+				end
+				return Document.paste(value, library, copied, target.id)
+			end)
+		end,
+		shift = function(step: number): boolean
+			return attempt(function(value: Types.Document, id: string): (Types.Document, string?)
+				local _, parent, index = Document.find(value.root, id)
+				local holder = assert(parent, "The root cannot move")
+				local at = assert(index)
+				local destination = math.clamp(at + step, 1, #holder.children)
+				assert(destination ~= at, "The node is already at the edge")
+				return Document.move(value, library, id, holder.id, destination), id
 			end)
 		end,
 		setContract = function(contract: Types.Contract): boolean

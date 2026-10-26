@@ -84,6 +84,7 @@ local function copyNode(node: Node): Node
 		tags = if node.tags then table.clone(node.tags) else nil,
 	}
 end
+document.copyNode = copyNode
 
 local function copyFields(source: { Types.ItemField }): { Types.ItemField }
 	local list: { Types.ItemField } = {}
@@ -1014,6 +1015,24 @@ function document.duplicate(value: Document, library: Library, id: string): (Doc
 		nextValue.nextId += 1
 	end
 	table.insert(parent.children, index + 1, twin)
+	return document.validate(nextValue, library), twin.id
+end
+
+function document.paste(
+	value: Document,
+	library: Library,
+	copied: Node,
+	destination: string,
+	at: number?
+): (Document, string)
+	local nextValue = copyDocument(value)
+	local target = assert(document.find(nextValue.root, destination), "Choose a container")
+	local twin = copyNode(copied)
+	for _, row in document.nodes(twin) do
+		row.node.id = `n{nextValue.nextId}`
+		nextValue.nextId += 1
+	end
+	table.insert(target.children, math.clamp(at or #target.children + 1, 1, #target.children + 1), twin)
 	return document.validate(nextValue, library), twin.id
 end
 
