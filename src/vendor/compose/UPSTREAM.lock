@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "a2776091d4a4d27268ea3ec6a40a8eed87275412",
+  "commit": "ae9bc66c686606a3d6e20932b93b1c9a68f9f8d5",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -90,14 +90,14 @@
     "design-editor/stage3d.luau": "42d1d72386d24ef7b5421b23b70b3a5768b48be1a8fc3804dc65daccaf01bce8",
     "design-editor/theme.luau": "7955aeaedcae8b017125457d9239c9f718b371e1dc1d238ef06f1472478dcc66",
     "design-editor/ui.luau": "f040e44e03b8023aaa97700076f27931e3d6e822508584ee4111a199c668b460",
-    "design/document.luau": "c5ae6f4f9dd3ea170380381c0ffee3f15c49fad1e9dcfc72862fbf54f3218666",
+    "design/document.luau": "9c2eb47345bf62855ecde409bef11396c34c498ef446f1a5db07107d19f9aadc",
     "design/history.luau": "7682df2f2c6b01fd123210acd45cd9f2fc6c7e0925a04489cc3aae29bf81ef06",
     "design/init.luau": "6fa8e91a40a400b946e9a9ef6f3a167b40254996c54a3b9bb1161d2e30afcc8d",
     "design/link.luau": "523b958f9cb723cdba3c60825607daf2940ede5f2bd85413c1c3aa3307599c2a",
-    "design/render.luau": "4ab877ee21bc7cc8c4b286d1582c9b66cb17bc7d3b65c4712e6c1941c290db16",
+    "design/render.luau": "88a80d1d6ec738bea79e6f1ddde7fd2129135c2e77c42d06bf472ab9df00f50f",
     "design/session.luau": "10daa8a70a9cfd7e7fbb3141a7f4913e3d5545412f55ad4c4c64f478a19de0a1",
-    "design/source.luau": "66bf99fa956a071fc537a32aa0e0fa96b291905d9ffff0cf7da7489848b7619b",
-    "design/types.luau": "0e111684b00b6edf6449b1c2b614420e31f5d531786bf2db24d26c213cb04bfe",
+    "design/source.luau": "4bfe89b67ea3ed0464456fb2ead131ab41d17173d24eea0618467b5ea5c8abf3",
+    "design/types.luau": "d29092ed1e0c6875fc6217dee4f68dbc421513801bdae9ec6e26ceea5ba7d282",
     "license.luau": "6895ff52a3e5583fabbf3f961d94eece335df5f24d2753189473daf8873e8f36",
     "roblox/cleanup.luau": "506fbbc882f9cccd6d82835ff54aaeac31ca4bee8c66240cb0fd34ea34e97366",
     "roblox/codecs.luau": "aa08c6971ddd501f831ccfa87c07d8bec1d3691ba924e7880c4d24c45cced08c",
@@ -110,8 +110,8 @@
   },
   "docs": {
     "SKILL.md": "5b00d1daf8a47f8d97e5af9ab3044aca442fa027064015c8e7ffb584b074c7f1",
-    "references/api.md": "1f637e60913267c00cbc4a46b636b2bd2f817e20a7279b1e359d86b6139de65e",
-    "references/consumer-guides.md": "b249e9867869fa929236549f460a570b6b8a6cf3bea1ec15f68c994da5533913",
-    "references/ownership.md": "b7d8af61fcf51abcca76ecc2143a7634c8569b4cc4afe3670400086d4745828c"
+    "references/api.md": "088fd4baea1f10d0b90c75b68d50ff2b0b9cc1272b4f36e1f1ad4618bf7d4993",
+    "references/consumer-guides.md": "88f9fe795a18cb29766d8ea8d07f5dd74a6ab4ef9d779eb646c464041d29801b",
+    "references/ownership.md": "22f2faa17069b733177b098c749a5cf60e63a817e1abec41e38f544c8136a3b5"
   }
 }

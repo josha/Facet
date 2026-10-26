@@ -38,13 +38,14 @@ export type Resolved = {
 	key: string?,
 }
 
-export type Children = "none" | "list" | "template"
+export type Children = "none" | "list" | "template" | "slot"
 
 export type Kind = {
 	fields: { [string]: Field },
 	defaults: { [string]: Literal }?,
 	children: Children,
 	template: string?,
+	slot: string?,
 	source: string?,
 	key: string?,
 	call: string,

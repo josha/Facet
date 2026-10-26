@@ -271,6 +271,9 @@ function document.validate(value: Document, library: Library): Document
 		local nested = collection
 		if kind.children == "none" then
 			assert(#node.children == 0 and node.bind == nil, `{node.kind} holds no children`)
+		elseif kind.children == "slot" then
+			assert(#node.children <= 1 and node.bind == nil, `{node.kind} holds one content node`)
+			assert(kind.slot ~= nil, `{node.kind} names no content property`)
 		elseif kind.children == "template" then
 			assert(#node.children <= 1, `{node.kind} holds one row template`)
 			local bind = node.bind
@@ -358,7 +361,8 @@ function document.insert(
 	local parent = assert(document.find(nextValue.root, parentId), "Choose a container")
 	local container = assert(library.kinds[parent.kind])
 	assert(
-		container.children == "list" or (container.children == "template" and #parent.children == 0),
+		container.children == "list"
+			or ((container.children == "template" or container.children == "slot") and #parent.children == 0),
 		`{parent.kind} cannot take this node`
 	)
 	local kind = assert(library.kinds[kindName], `Unknown {library.name} kind {kindName}`)

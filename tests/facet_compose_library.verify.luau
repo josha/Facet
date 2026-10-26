@@ -57,7 +57,7 @@ return function(verifyHarness: Verify.Harness)
 		for _, name in names do
 			local definition = designerLibrary.definitions[name]
 			local seeds = definition.seeds
-				or if library.kinds[name].children == "list"
+				or if library.kinds[name].children ~= "none"
 					then { { kind = "Text", props = { text = "Make this content yours" } } }
 					else {}
 			table.insert(children, seeded({ kind = name, children = seeds }))

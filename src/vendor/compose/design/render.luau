@@ -88,7 +88,15 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		end
 		local children: { unknown } = {}
 		local bind, template = node.bind, node.children[1]
-		if kind.children == "template" then
+		if kind.children == "slot" then
+			if template then
+				props[assert(kind.slot, `{node.kind} names no content property`)] = {
+					slot = function(): unknown
+						return build(template, item)
+					end,
+				}
+			end
+		elseif kind.children == "template" then
 			if bind and template then
 				local rows: ReadOnlyValue<{ Row }> = Core.cell(rowsOf(inputs[bind.from]))
 				props[assert(kind.source, `{node.kind} names no list property`)] = { rows = rows, key = bind.key }

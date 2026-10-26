@@ -30,8 +30,9 @@ export type Resolved = {
 export type Kind = {
 	fields: { [string]: Field },
 	defaults: { [string]: Literal }?,
-	children: "none" | "list" | "template",
+	children: "none" | "list" | "template" | "slot",
 	template: string?,
+	slot: string?,
 	source: string?,
 	key: string?,
 	call: string,
@@ -157,10 +158,12 @@ local function create(ctx: Context): Library
 	for _, name in library.names() do
 		local definition = library.definitions[name] :: { [string]: unknown }
 		local isContainer = definition.container == true
+		local content = if type(definition.content) == "string" then definition.content :: string else nil
 		kinds[name] = {
 			fields = fieldsOf(definition),
 			defaults = defaultsOf(definition),
-			children = if isContainer then "list" else "none",
+			children = if content then "slot" elseif isContainer then "list" else "none",
+			slot = content,
 			call = "UI." .. name,
 			build = function(props: { [string]: Resolved }, children: { unknown }): unknown
 				counter += 1
@@ -209,6 +212,13 @@ local function create(ctx: Context): Library
 				local resolved = adapter.evaluate(adapter.properties(node), evaluation, {}) :: { [unknown]: unknown }
 				for key, value in live do
 					resolved[key] = value
+				end
+				local slot = if content then props[content] else nil
+				if slot and slot.slot then
+					local builder = slot.slot
+					resolved[content] = function()
+						return builder()
+					end
 				end
 				if not definition.content and not CONTENT_KINDS[name] then
 					for _, child in children do

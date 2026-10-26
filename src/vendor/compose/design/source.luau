@@ -154,7 +154,11 @@ function source.emit(value: Types.Document, library: Library): string
 			table.insert(body, `{indent}\t{key} = {expression(node.props[key])},`)
 		end
 		local bind, template = node.bind, node.children[1]
-		if kind.children == "template" then
+		if kind.children == "slot" then
+			if template then
+				table.insert(body, `{indent}\t{assert(kind.slot)} = function() return {emit(template, depth + 1)} end,`)
+			end
+		elseif kind.children == "template" then
 			if bind and template then
 				table.insert(body, `{indent}\t{assert(kind.source)} = props.{bind.from},`)
 				local keyProp = kind.key
@@ -415,8 +419,10 @@ function source.parse(code: string, library: Library): Types.Document
 				local field = name()
 				take "end"
 				return { item = field }, nil
-			elseif peek() == "current" then
-				take "current"
+			elseif peek() == "current" or peek() == ")" then
+				if peek() == "current" then
+					take "current"
+				end
 				take ")"
 				take "return"
 				local child = node()
@@ -489,7 +495,10 @@ function source.parse(code: string, library: Library): Types.Document
 				take "="
 				local property, template = value()
 				if template then
-					assert(prop == kind.template, `{prop} cannot hold a template`)
+					assert(
+						prop == (if kind.children == "slot" then kind.slot else kind.template),
+						`{prop} cannot hold a template`
+					)
 					table.insert(result.children, template)
 				elseif property and templated and prop == kind.source then
 					from = assert(property.input, `{prop} must read a list input`)
