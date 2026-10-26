@@ -43,6 +43,7 @@ function example.build(ctx: ExampleContext)
 		return UI.Screen "TempConverter" {
 			UI.ScrollView "Page" {
 				gap = "s",
+				maxWidth = 560,
 				UI.Text "Title" { text = "Fahrenheit → Celsius", textRole = "title" },
 				UI.Text "Prompt" {
 					text = "Enter a temperature in °F:",

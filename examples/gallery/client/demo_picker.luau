@@ -52,14 +52,14 @@ local demos: { Demo } = {
 	},
 }
 local EXAMPLES = {
-	[0] = "02_playlist_table",
-	"01_temperature_converter",
-	"02_playlist_table",
-	"03_settings_sync",
-	"04_confirm_dialog",
-	"05_word_game",
-	"06_tile_game",
-	"07_match3",
+	[0] = { module = "02_playlist_table", title = "Playlist" },
+	{ module = "01_temperature_converter", title = "Temperature converter" },
+	{ module = "02_playlist_table", title = "Playlist" },
+	{ module = "03_settings_sync", title = "Settings sync" },
+	{ module = "04_confirm_dialog", title = "Confirm dialog" },
+	{ module = "05_word_game", title = "Word Guess" },
+	{ module = "06_tile_game", title = "Crossword" },
+	{ module = "07_match3", title = "Match-3" },
 }
 local catalogue = {}
 function catalogue.list(example: number?): { Demo }
@@ -84,15 +84,9 @@ function catalogue.boot(demo: string?, scenario: string?, example: number?): (st
 	if type(scenario) == "string" and scenario ~= "" then
 		return scenario, { id = scenario, title = scenario, kind = "fixture", module = scenario }
 	end
-	local name = if type(example) == "number" then EXAMPLES[example] else nil
-	if name then
-		return name,
-			{
-				id = name,
-				title = if example == 0 then "Playlist" elseif example == 5 then "Word Guess" else name,
-				kind = "example",
-				module = name,
-			}
+	local entry = if type(example) == "number" then EXAMPLES[example] else nil
+	if entry then
+		return entry.module, { id = entry.module, title = entry.title, kind = "example", module = entry.module }
 	end
 	return demo or "garage", nil
 end

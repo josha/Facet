@@ -829,6 +829,7 @@ local function build(ctx: ExampleContext): Built
 			UI.ScrollView "Page" {
 				gap = "s",
 				align = "stretch",
+				maxWidth = 480,
 				UI.Text "Title" { text = "Facet Match-3", textRole = "title", TextWrapped = true },
 				UI.Text "Hint" { text = hint, TextWrapped = true },
 				UI.HStack "Stats" {

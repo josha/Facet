@@ -727,7 +727,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			if fields.CanvasSize == nil then
 				scrolling.CanvasSize = function(use: ComposeTypes.Use): UDim2
 					if not use(spills) then
-						return D2.fromScale(1, 1)
+						return D2.new(0, math.floor(use(window).X / scaleOf(use)), 1, 0)
 					end
 					return D2.new(0, math.ceil(use(extent).X / scaleOf(use)) + 2 * segmentMetrics.inset, 1, 0)
 				end

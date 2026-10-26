@@ -815,9 +815,6 @@ function example.build(ctx: ExampleContext): Built
 		end)
 		turnsLeftSig, scoreTextSig, progressTextSig = turnsLeft, scoreText, progressText
 		verdictSigOf, wordTextSig, hintTextSig = verdictSig, wordText, hintText
-		local function narrow()
-			return Host.UISizeConstraint({ MaxSize = Vector2.new(360, math.huge) })
-		end
 		local boardSlots: { [string]: GuiObject } = {}
 		local rackSlots: { [number]: GuiObject } = {}
 		local cells: { Child } = {}
@@ -943,6 +940,7 @@ function example.build(ctx: ExampleContext): Built
 			UI.ScrollView "Page" {
 				gap = "s",
 				align = "stretch",
+				maxWidth = 480,
 				UI.Text "Title" { text = "Facet Crossword", textRole = "title", TextWrapped = true },
 				UI.HStack "Stats" {
 					wrap = true,
@@ -957,15 +955,13 @@ function example.build(ctx: ExampleContext): Built
 					columns = SIZE,
 					gap = "xs",
 					aspectRatio = 1,
-					narrow(),
 					table.unpack(cells),
 				}),
 				UI.Text "RackLabel" { text = "Your rack", TextWrapped = true },
 				UI.Grid "rack"({
 					columns = RACK_SIZE,
 					gap = "xs",
-					cellHeight = 48,
-					narrow(),
+					cellHeight = 56,
 					table.unpack(rackTiles),
 				}),
 				Compose.OrderedCollection {
