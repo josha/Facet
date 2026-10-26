@@ -2,8 +2,8 @@
 
 <!-- aliases: NavigationStack | navigationstack -->
 
-NavigationStack requires a writable `path`, `root` and `destinations`. The path
-is an array of `{ id, value }` entries. `root` and each `destinations[id]` are
+Supply writable `path`, `root` and `destinations`. Path is an array of
+`{ id, value }` entries. `root` and each `destinations[id]` are
 `{ title, content }`. Destination content receives the entry.
 
 - To push, append an entry.
@@ -20,7 +20,7 @@ The page uses the full stack rectangle, with no stack title or Back bar.
 Set it on the stack to use this default for all pages, including the root.
 A destination's `chrome = "automatic"` overrides the stack default.
 Both settings can be readables. An absent option keeps the current behaviour,
-including the Back bar above an untitled child page. The root never has a
+including Back above an untitled child. The root never has a
 stack Back command.
 
 Hidden chrome keeps route history, page motion, Escape, gamepad B and selection
@@ -69,6 +69,10 @@ spring. `transition = { seconds, ease }` replaces the slide with a crossfade
 that uses those Compose tween options.
 `transition = false` disables motion. The pages that are present when the
 stack mounts show without motion.
+
+Set theme `metrics.motion.distances.parallax = 0` to keep covered pages still
+while the front page slides. It affects all default stacks in that theme.
+See [Tasks.theme](Tasks.theme.md).
 
 Add `transition.apply` to author motion from the shared presentation progress.
 See [Custom-transitions](Custom-transitions.md) for the callback, lifetime and

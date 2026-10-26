@@ -21,6 +21,12 @@ and report. Set semantic palette roles, typography roles, spacing, targets,
 icons and motion there. Use `textRole` in controls so access adjustments work.
 Avoid scattered native paint overrides that defeat the live StyleSheet.
 
+Motion should explain the relationship. A child page can shift its parent;
+a task opened over gameplay can leave the HUD still. `Tasks.theme` shows
+`metrics.motion.distances.parallax = 0` for that second choice. It affects all
+default navigation stacks in the theme. Check both directions, interruption
+and reduced motion; a settled capture cannot show an unwanted background slide.
+
 Theme contrast validation covers semantic color pairs. It does not prove text
 contrast over an image or the scene. Test focus, selected, disabled, pressed and
 error states against actual backgrounds. Use text or shape as well as color.

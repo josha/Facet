@@ -22,7 +22,7 @@ local definition: Facet.ThemeDefinition = {
     extra = { control = rgb(219, 225, 209), controlHover = rgb(201, 217, 193), controlPressed = rgb(184, 204, 176),
       controlSelected = rgb(186, 214, 193), contentSecondary = rgb(73, 88, 73),
       hairline = rgb(24, 91, 67), hairlineOpacity = 0.4, dimDisabledPlates = true } } } },
-  metrics = { typography = typography },
+  metrics = { typography = typography, motion = { distances = { parallax = 0 } } },
 }
 local theme, report = Facet.themes.define(definition)
 assert(report.ok and theme, "Invalid game theme")
@@ -30,8 +30,7 @@ local app = Facet.app({ name = "Game", theme = theme })
 script.Destroying:Connect(app.dispose)
 ```
 
-Use a palette and type hierarchy for the game. Use accent for commitment,
-quiet surfaces for comparison, and art for recognition. Paint does
-not supply composition: give the selected object a focal area, keep its terms
-beside its action, and let decoration yield on short screens.
-Next: [Theme-identity](Theme-identity.md), [Themes.tokens](Themes.tokens.md).
+Use the game's palette, type and subject art. This theme keeps covered pages
+still (`parallax = 0`); omit that patch for the base page-to-page movement.
+It applies to all default stacks using the theme. See [Theme-identity](Theme-identity.md)
+and [Themes.tokens](Themes.tokens.md).

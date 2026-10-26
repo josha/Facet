@@ -1,6 +1,6 @@
 # Tasks.pages
 
-Inside the app mount:
+Inside app mount:
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -25,21 +25,21 @@ local function pages(app: Facet.App, title: string,
 end
 ```
 
-Start on the [HUD](Tasks.hud.md) or [hub](Tasks.hub.md), with an empty path.
-The opener and gamepad command share a callback. NavigationStack owns motion
-and return focus. Close returns to gameplay; NavBar Back follows the body's
+Start with [HUD](Tasks.hud.md) or [hub](Tasks.hub.md), with an empty path.
+Opener and gamepad use one callback. NavigationStack owns motion and focus. Close returns to gameplay; NavBar Back follows the body's
 `back`. Screen reaches the glass; NavBar and body stay safe.
 
-Create the app with `suspendGameplay = true`. While the path is nonempty or
+The default stack also moves its covered HUD. For a stationary HUD, use the
+`parallax = 0` theme in [Tasks.theme](Tasks.theme.md). Check both directions.
+
+Use `suspendGameplay = true`. While the path is nonempty or
 a modal is open, Facet turns off GuiService.TouchControlsEnabled and
 `UI.environment().gameplaySuspended` is true. Both return when the last one
-closes, without waiting for exit motion. Derive the game's input from it:
+closes, before exit motion ends. Derive the game's input from it:
 `driving.Enabled = use(inKart) and not use(suspended)` in a `C.watch`.
-This does not pause the clock. Keep saved values and drafts outside pages.
+The clock still runs. Keep saved values and drafts outside pages.
 
-Each body owns its layout: [collection/detail](Tasks.collection-detail.md),
-a [form](ScrollView.card.md), or a subject with facts and action.
-Keep commitment with its terms. Pin them while readable content fits;
-otherwise let the complete decision scroll. Give unrelated tasks separate
-scroll state.
-Use [Sheet](Tasks.sheet.md) for a short task.
+Give each body its task layout: [collection/detail](Tasks.collection-detail.md),
+a [form](ScrollView.card.md), or subject and action. Keep commitment with its
+terms; scroll the complete decision when room is short. Give unrelated tasks
+separate scroll state. Use [Sheet](Tasks.sheet.md) for a short task.
