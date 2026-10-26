@@ -141,6 +141,51 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
+		verifyHarness:case("Back returns selection to an opener beside a NavigationStack", {
+			id = "native_dialog::native Dialog: one Back press closes one modal::Back returns selection to an opener beside a NavigationStack",
+			run = function()
+				local open, log, change = caller()
+				open:set(false)
+				local held = false
+				local opener: GuiObject
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
+					opener = UI.Button "Opener" {
+						label = "Open",
+						onActivate = function()
+							open:set(true)
+						end,
+					}
+					gui.SelectedObject = opener
+					return Host.Frame({
+						opener :: unknown,
+						UI.NavigationStack "App" {
+							path = Compose.cell({}),
+							destinations = {},
+							root = {
+								content = function(): Instance
+									return UI.Button "Home" { label = "Home" }
+								end,
+							},
+						},
+						UI.Dialog "Confirm"(standard(open, log, change)(UI, Host)),
+					})
+				end, { motionLevel = "none" })
+				w.input.IsGamepadButtonDown = function(_, _, key)
+					return held and key == w.Enum.KeyCode.ButtonB
+				end
+				w.gui.SelectedObject = opener
+				open:set(true)
+				w.advance(0.1)
+				Verify.expect(w.gui.SelectedObject ~= opener):toBe(true)
+				held = true
+				w.action("ModalBack").Pressed:Fire()
+				held = false
+				w.advance(0.1)
+				Verify.expect((open:peek())):toBe(false)
+				Verify.expect(w.gui.SelectedObject):toBe(opener)
+				w.stop()
+			end,
+		})
 		verifyHarness:case("the modal under a closing one ignores the Back press that closed it", {
 			id = "native_dialog::native Dialog: one Back press closes one modal::the modal under a closing one ignores the Back press that closed it",
 			run = function()
