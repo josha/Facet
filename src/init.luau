@@ -290,10 +290,12 @@ export type DesignModule = typeof(require("@self/vendor/compose/design"))
 export type DesignContext = FacetDesign.Context
 export type DesignControlSpec = FacetDesign.ControlSpec
 export type DesignSeed = FacetDesign.Seed
+export type DesignStudioKit = FacetDesign.StudioKit
 export type DesignLibrary = ComposeDesign.Library
 export type DesignDocument = ComposeDesign.Document
 export type DesignNode = ComposeDesign.Node
 export type DesignValue = ComposeDesign.Value
+export type DesignField = ComposeDesign.Field
 export type DesignLiteral = ComposeDesign.Literal
 export type DesignInput = ComposeDesign.Input
 export type DesignItemField = ComposeDesign.ItemField
@@ -313,6 +315,8 @@ export type Facet = {
 	Compose: ComposeModule,
 	Roblox: ComposeRobloxModule,
 	design: () -> DesignKit,
+	composeDesign: () -> DesignStudioKit,
+	tag: <T>(instance: T, tags: { string }) -> T,
 	controls: (Runtime, ControlOptions?) -> Controls,
 	host: (Runtime) -> Host,
 	app: (AppOptions?) -> App,
@@ -330,7 +334,7 @@ export type Facet = {
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "0b2af86b4d5c07321c6bf31b5b35fe5ff73ab0d4"
+local COMPOSE_COMMIT = "1667ae2fb154994a88b0ecbbc5e5cfb95cb23003"
 local USED = {
 	"boundary",
 	"cell",
@@ -355,6 +359,15 @@ local USED = {
 	"withOwner",
 	"withRootOwner",
 }
+
+local function tag<T>(instance: T, tags: { string }): T
+	if typeof(instance) == "Instance" then
+		for _, name in tags do
+			instance:AddTag(name)
+		end
+	end
+	return instance
+end
 
 local recipes: { arithmetic: { parse: (unknown) -> number? } } =
 	freeze({ arithmetic = freeze({ parse = arithmetic.parse }) })
@@ -391,12 +404,75 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		return kit
 	end
 	local surface: Facet
+	local function composeDesign(): DesignStudioKit
+		local DesignEditor = require("@self/vendor/compose/design-editor")
+		return DesignEditor.kit("Facet", function(): DesignEditor.Workspace
+			local runtime = roblox.createRuntime()
+			local Host = surface.host(runtime)
+			local theme = themes.neutralPackage()
+			local palette = core.cell("Light")
+			local textSize = core.cell("Medium")
+			local library = loadDesign().library({
+				UI = surface.controls(runtime, { theme = theme, environment = { preferredTextSize = textSize } }),
+				rgb = Color3.fromRGB,
+				udim2 = UDim2.new,
+				offset = UDim2.fromOffset,
+				provide = function(content: unknown): unknown
+					local sheet = themes.createStyleSheet(runtime, theme, { theme = palette })
+					local styles: Compose.Child = sheet
+					local link: Compose.Child = Host.StyleLink({ StyleSheet = sheet })
+					local design: Compose.Child = if typeof(content) == "Instance" then content else nil
+					return Host.Frame({
+						Name = "FacetTheme",
+						Size = UDim2.fromScale(1, 1),
+						BackgroundTransparency = 1,
+						styles,
+						link,
+						design,
+					})
+				end,
+			})
+			return {
+				runtime = runtime,
+				environment = roblox.designEnvironment(),
+				library = library,
+				root = "Screen",
+				devices = {
+					{ name = "Phone", size = { X = 390, Y = 844 } },
+					{ name = "Tablet", size = { X = 820, Y = 1180 } },
+					{ name = "Desktop", size = { X = 1280, Y = 800 } },
+					{ name = "Console", size = { X = 1920, Y = 1080 } },
+				},
+				previews = {
+					{
+						name = "Theme",
+						choices = { "Light", "Dark" },
+						select = function(choice: string)
+							palette:set(choice)
+						end,
+					},
+					{
+						name = "Text size",
+						choices = { "Medium", "Large", "Larger", "Largest" },
+						select = function(choice: string)
+							textSize:set(choice)
+						end,
+					},
+				},
+				dispose = function()
+					runtime:dispose()
+				end,
+			}
+		end)
+	end
 	surface = freeze({
 		VERSION = VERSION,
 		COMPOSE_COMMIT = COMPOSE_COMMIT,
 		Compose = core,
 		Roblox = roblox,
 		design = loadDesign,
+		composeDesign = composeDesign,
+		tag = tag,
 		controls = function(runtime: Runtime, options: ControlOptions?): Controls
 			return createControls(core, runtime, options)
 		end,

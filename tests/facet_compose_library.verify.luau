@@ -7,7 +7,6 @@ return function(verifyHarness: Verify.Harness)
 	local Kit = Facet.design()
 	local Design = Kit.Design
 	local engines = require("./lib/native_engine")
-	local session = require("../tools/designer/modules/session")
 
 	type Types = {
 		Color3: {
@@ -28,39 +27,80 @@ return function(verifyHarness: Verify.Harness)
 	type Context = { UI: Facet.Controls, types: Types, runtime: Facet.Runtime }
 	type Engine = typeof(engines.new())
 
-	local function config()
-		return {
-			width = 1280,
-			height = 720,
-			input = "Touch",
-			display = "Small",
-			distance = "near",
-			palette = "Dark",
-			textSize = "Medium",
-			motionLevel = "none",
-		}
-	end
-
-	local function mount(render: (ctx: Context, engine: Engine) -> unknown)
+	local function mount(render: (ctx: Context, engine: Engine) -> unknown): { dispose: () -> () }
 		local engine = engines.new()
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		engine.environment.poke(input, "PreferredInput", engine.types.Enum.PreferredInput.KeyboardAndMouse)
 		input.GetFocusedTextBox = function()
 			return nil
 		end
-		local options = {
-			config = config(),
-			engine = engine,
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local UI = Facet.controls(runtime, {
 			types = engine.types,
 			services = { GuiService = gui, UserInputService = input },
-		}
-		local parent = engine.new("ScreenGui")
-		return session.mount(Facet, parent, {
-			name = "Library",
-			render = function(ctx: Context)
-				return render(ctx, engine)
+			motionLevel = "none",
+		})
+		local stop = runtime.mount(function()
+			return render({ UI = UI, types = engine.types, runtime = runtime }, engine)
+		end, engine.new("ScreenGui"))
+		return {
+			dispose = function()
+				stop()
+				runtime:dispose()
 			end,
-		}, options)
+		}
+	end
+
+	local function designEnvironment(ctx: Context, engine: Engine)
+		local types = ctx.types
+		return Facet.Roblox.designEnvironment({
+			service = function(name: string): unknown
+				return engine.new(name)
+			end,
+			values = {
+				vector2 = types.Vector2.new,
+				vector3 = types.Vector3.new,
+				udim = types.UDim.new,
+				udim2 = types.UDim2.new,
+				color = types.Color3.new,
+				font = function(family: string, weight: string): unknown
+					return types.Font.new(family, types.Enum.FontWeight[weight])
+				end,
+				enum = function(name: string, item: string): unknown
+					return types.Enum[name][item]
+				end,
+				cframe = function(components: { number }): unknown
+					return types.CFrame.new(table.unpack(components))
+				end,
+				raycastParams = function(): unknown
+					return nil
+				end,
+			},
+		})
+	end
+
+	local function sample(field: Facet.DesignField, preset: Facet.DesignLiteral?): Facet.DesignValue?
+		local kind = field.type
+		local default = if preset ~= nil then preset else field.default
+		if default ~= nil and kind ~= "node" and kind ~= "event" and kind ~= "content" then
+			return { literal = default }
+		elseif kind == "string" then
+			return { literal = "Sample" }
+		elseif kind == "number" then
+			return { literal = 1 }
+		elseif kind == "boolean" then
+			return { literal = true }
+		elseif kind == "choice" then
+			local options = field.options
+			return if options ~= nil and options[1] ~= nil then { literal = options[1] } else nil
+		elseif kind == "color" then
+			return { literal = "#336699" }
+		elseif kind == "vector3" then
+			return { literal = { 1, 2, 3 } }
+		elseif kind == "node" then
+			return { node = "n1" }
+		end
+		return nil
 	end
 
 	local function names(): { string }
@@ -222,30 +262,7 @@ return function(verifyHarness: Verify.Harness)
 				local mounted = mount(function(ctx: Context, engine: Engine)
 					local types = ctx.types
 					local library = live(ctx)
-					local environment = Facet.Roblox.designEnvironment({
-						service = function(name: string): unknown
-							return engine.new(name)
-						end,
-						values = {
-							vector2 = types.Vector2.new,
-							vector3 = types.Vector3.new,
-							udim = types.UDim.new,
-							udim2 = types.UDim2.new,
-							color = types.Color3.new,
-							font = function(family: string, weight: string): unknown
-								return types.Font.new(family, types.Enum.FontWeight[weight])
-							end,
-							enum = function(name: string, item: string): unknown
-								return types.Enum[name][item]
-							end,
-							cframe = function(components: { number }): unknown
-								return types.CFrame.new(table.unpack(components))
-							end,
-							raycastParams = function(): unknown
-								return nil
-							end,
-						},
-					})
+					local environment = designEnvironment(ctx, engine)
 					local host = ctx.UI.VStack("Editor")({ width = "fill" })
 					editor = DesignEditor.create(library, Design.document.new("Shop", library, "VStack"), host, {
 						runtime = ctx.runtime,
@@ -264,6 +281,138 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(string.find(Design.emit(value, opened.session.library), 'label = "Buy"', 1, true) ~= nil)
 					:toBe(true)
 				opened.dispose()
+				mounted.dispose()
+			end,
+		})
+
+		verifyHarness:case("edits every field of every Facet control in the Compose design editor", {
+			id = "facet_compose_library::edits every field of every Facet control in the Compose design editor",
+			run = function()
+				local DesignEditor = require("../src/vendor/compose/design-editor")
+				local editor: DesignEditor.Editor? = nil
+				local runtime: Facet.Runtime? = nil
+				local mounted = mount(function(ctx: Context, engine: Engine)
+					local library = live(ctx)
+					runtime = ctx.runtime
+					local host = ctx.UI.VStack("Editor")({ width = "fill" })
+					editor = DesignEditor.create(library, Design.document.new("Every", library, "VStack"), host, {
+						runtime = ctx.runtime,
+						environment = designEnvironment(ctx, engine),
+						stageSize = { X = 1280, Y = 720 },
+					})
+					return host
+				end)
+				local opened = assert(editor)
+				local library = opened.session.library
+				local failures: { string } = {}
+				local edited = 0
+				for _, name in names() do
+					opened.session.replace(Design.document.new("Every", library, "VStack"))
+					opened.session.select("n1")
+					if not opened.session.insert(name) then
+						table.insert(failures, `{name}: insert`)
+						continue
+					end
+					local id = opened.session.selected:peek()
+					local kind = library.kinds[name]
+					local stage = assert(opened.stage)
+					assert(runtime):settle()
+					if stage.nodes[id] == nil then
+						table.insert(failures, `{name}: {opened.session.problem:peek() or "not rendered"}`)
+						continue
+					end
+					local keys: { string } = {}
+					for key in kind.fields do
+						table.insert(keys, key)
+					end
+					table.sort(keys)
+					for _, key in keys do
+						local defaults = kind.defaults
+						local value = sample(kind.fields[key], if defaults then defaults[key] else nil)
+						local field = kind.fields[key]
+						local steps = 0
+						local pending: { [string]: Facet.DesignValue } = {}
+						local requires: { [string]: { Facet.DesignLiteral } } = field.requires or {}
+						for other, allowed in requires do
+							local needed = if #allowed > 0
+								then { literal = allowed[1] }
+								else sample(kind.fields[other], if defaults then defaults[other] else nil)
+							if needed == nil then
+								value = nil
+							else
+								pending[other] = needed
+							end
+						end
+						local progressed = value ~= nil
+						while progressed and next(pending) ~= nil do
+							progressed = false
+							for other, needed in pending do
+								opened.session.select(id)
+								if opened.session.change(other, needed) then
+									steps += 1
+									pending[other] = nil
+									progressed = true
+								end
+							end
+						end
+						if value ~= nil then
+							opened.session.select(id)
+							local ok, changed = pcall(opened.session.change, key, value)
+							assert(runtime):settle()
+							if not ok or not changed then
+								table.insert(
+									failures,
+									`{name}.{key}: {if ok then opened.session.problem:peek() else changed}`
+								)
+							elseif stage.nodes[id] == nil then
+								table.insert(
+									failures,
+									`{name}.{key}: {opened.session.problem:peek() or "not rendered"}`
+								)
+							else
+								edited += 1
+							end
+							if ok and changed then
+								steps += 1
+							end
+						end
+						for _ = 1, steps do
+							opened.session.undo()
+						end
+					end
+				end
+				Verify.expect(table.concat(failures, "\n")):toBe("")
+				Verify.expect(edited):toBeGreaterThan(900)
+				opened.dispose()
+				mounted.dispose()
+			end,
+		})
+
+		verifyHarness:case("tags Facet controls for theme rules from Compose Design", {
+			id = "facet_compose_library::tags Facet controls for theme rules from Compose Design",
+			run = function()
+				local tagged: Instance? = nil
+				local mounted = mount(function(ctx: Context)
+					local library = live(ctx)
+					local value, id = Design.document.insert(
+						Design.document.new("Tagged", library, "VStack"),
+						library,
+						"n1",
+						"Button"
+					)
+					value = Design.document.tag(value, library, id, { "amigos-stat" })
+					local code = Design.emit(value, library)
+					Verify.expect(string.find(code, "Facet.tag(", 1, true) ~= nil):toBe(true)
+					Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+					return Design.render(value, library, {
+						decorate = function(node: Facet.DesignNode, instance: unknown)
+							if node.id == id and typeof(instance) == "Instance" then
+								tagged = instance
+							end
+						end,
+					})
+				end)
+				Verify.expect(assert(tagged):HasTag("amigos-stat")):toBe(true)
 				mounted.dispose()
 			end,
 		})

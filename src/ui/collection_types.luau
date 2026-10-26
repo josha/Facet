@@ -56,7 +56,6 @@ export type ReorderOptions<V, K> = {
 	onDelete: ((keys: { K }) -> ())?,
 	dragLabel: ((item: V) -> string)?,
 	autoscroll: boolean?,
-	direction: ComposeTypes.OrderedCollectionDirection?,
 }
 export type Activate<V, K> = (item: V, key: K, input: InputObject?, clickCount: number?) -> ()
 export type CollectionOptions<V, K> = {
@@ -97,6 +96,7 @@ export type CollectionOptions<V, K> = {
 	onActivate: Activate<V, K>?,
 	onReachEnd: (() -> ())?,
 	contentOverflow: Types.Input<"visible" | "clip">?,
+	direction: ComposeTypes.OrderedCollectionDirection?,
 }
 export type Keyed<V, K> = { key: ((item: V, index: number) -> K) | string }
 export type Identity = { key: nil? }

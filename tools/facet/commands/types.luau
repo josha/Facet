@@ -808,9 +808,12 @@ local function props(invocation: Cli.Invocation): number
 		print(("%d generated props modules match their option types"):format(#ControlProps.FAMILIES))
 		return 0
 	end
-	for _, output in stale do
-		Files.write(output, texts[output])
-		print(("wrote %s"):format(output))
+	while #stale > 0 do
+		for _, output in stale do
+			Files.write(output, texts[output])
+			print(("wrote %s"):format(output))
+		end
+		stale, texts = ControlProps.stale(ARTIFACTS)
 	end
 	return 0
 end

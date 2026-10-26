@@ -10,6 +10,8 @@ motion policy and theme tokens.
 Open the [documentation map](nodes/Map.md).
 
 `Facet.design()` loads the design kit on first use: `Design` (Compose Design), `library(context)`, `controls` and `seeds`. A game that does not author designs never loads it.
+
+`Facet.composeDesign()` returns the `Facet.DesignStudioKit` that the Compose Design Studio plugin opens. It loads the design editor on first use and gives the plugin the Facet controls, the theme StyleSheet around the staged design, Phone, Tablet, Desktop and Console sizes, and Theme and Text size previews. `Facet.DesignField` types one field of a design kind. `Facet.tag(instance, tags)` adds style tags to an instance and returns it; Compose Design emits it for a node's style tags.
 See [Design library](nodes/Design-library.md).
 Run `lute run tools/facet docs` to read the map.
 

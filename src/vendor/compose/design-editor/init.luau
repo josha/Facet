@@ -2,6 +2,7 @@
 
 local Compose = require "./core"
 local Design = require "./design"
+local DesignTypes = require "./design/types"
 local Environment = require "@self/environment"
 local Editor = require "@self/editor"
 local UI = require "@self/ui"
@@ -12,7 +13,20 @@ export type Environment = Environment.Environment
 export type Values = Environment.Values
 export type Point = UI.Point
 export type Editor = Editor.Editor
+export type Device = Editor.Device
+export type Preview = Editor.Preview
 export type Options = Editor.Options & { environment: Environment.Environment }
+export type Workspace = {
+	runtime: Compose.Runtime,
+	environment: Environment.Environment,
+	library: Design.Library,
+	root: string,
+	stageSize: UI.Point?,
+	devices: { Editor.Device }?,
+	previews: { Editor.Preview }?,
+	dispose: (() -> ())?,
+}
+export type Kit = DesignTypes.Kit
 
 local function create(
 	library: Design.Library,
@@ -55,8 +69,53 @@ local function create(
 	}
 end
 
+local function kit(name: string, open: () -> Workspace): Kit
+	return {
+		name = name,
+		edit = function(parent: Compose.Node, documentName: string, link: Design.LinkStore?): DesignTypes.OpenDesign
+			local workspace = open()
+			local library = workspace.library
+			local initial = Design.document.new(documentName, library, workspace.root)
+			if link ~= nil then
+				local current = link.read()
+				if string.match(current, "^%s*$") then
+					link.write(current, Design.emit(initial, library))
+				end
+			end
+			local devices = workspace.devices
+			local options: Options = {
+				runtime = workspace.runtime,
+				environment = workspace.environment,
+				stageSize = workspace.stageSize
+					or if devices ~= nil and devices[1] ~= nil then devices[1].size else { X = 390, Y = 844 },
+				devices = devices,
+				previews = workspace.previews,
+				link = link,
+			}
+			local ok, result = pcall(create, library, initial, parent, options)
+			local release = workspace.dispose
+			if not ok then
+				if release ~= nil then
+					release()
+				end
+				error(result, 0)
+			end
+			local editor = result
+			return {
+				dispose = function()
+					editor.dispose()
+					if release ~= nil then
+						release()
+					end
+				end,
+			}
+		end,
+	}
+end
+
 return {
 	create = create,
+	kit = kit,
 	robloxLibrary = RobloxLibrary,
 	roblox3DLibrary = Roblox3DLibrary,
 }

@@ -52,12 +52,21 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			states[entry.id] = Core.cell(entry.initial :: Literal?)
 		end
 	end
-	local function truthy(id: string): boolean
+	local function truthy(id: string, item: ReadOnlyValue<Row>?): boolean
+		if item ~= nil and item:peek()[id] ~= nil then
+			return item:peek()[id] == true
+		end
 		local held = states[id]
 		if held ~= nil then
 			return held:peek() == true
 		end
 		return inputs[id] == true
+	end
+	local function listFrom(from: string, item: ReadOnlyValue<Row>?): Literal?
+		if item ~= nil and item:peek()[from] ~= nil then
+			return item:peek()[from]
+		end
+		return inputs[from]
 	end
 	local references: { [string]: Core.Value<unknown> } = {}
 	local names: { [string]: string } = {}
@@ -221,7 +230,7 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 						table.insert(children, build(child, item))
 					end
 				end
-				local rows: ReadOnlyValue<{ Row }> = Core.cell(rowsOf(inputs[bind.from]))
+				local rows: ReadOnlyValue<{ Row }> = Core.cell(rowsOf(listFrom(bind.from, item)))
 				props[assert(kind.source, `{node.kind} names no list property`)] = { rows = rows, key = bind.key }
 				props[assert(kind.template, `{node.kind} names no template property`)] = {
 					template = function(row: ReadOnlyValue<Row>): unknown
@@ -233,17 +242,17 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			local rowId = bind.row or template.id
 			for _, child in node.children do
 				if child.id == rowId then
-					for _, row in rowsOf(inputs[bind.from]) do
+					for _, row in rowsOf(listFrom(bind.from, item)) do
 						table.insert(children, build(child, Core.cell(row)))
 					end
-				elseif child.when == nil or truthy(child.when) then
+				elseif child.when == nil or truthy(child.when, item) then
 					table.insert(children, build(child, item))
 				end
 			end
 		else
 			for _, child in node.children do
 				local condition = child.when
-				if condition == nil or truthy(condition) then
+				if condition == nil or truthy(condition, item) then
 					table.insert(children, build(child, item))
 				end
 			end
@@ -264,6 +273,10 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			end
 		end
 		local built = kind.build(props, children, named)
+		local tags, tagging = node.tags, library.tags
+		if tags ~= nil and tagging ~= nil then
+			tagging.apply(built, tags)
+		end
 		local captured = references[node.id]
 		if captured ~= nil then
 			captured:set(built)

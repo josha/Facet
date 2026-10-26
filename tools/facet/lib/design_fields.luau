@@ -2,7 +2,7 @@
 local Files = require("./files")
 local Luau = require("./luau")
 
-export type Field = { type: string, options: { string }?, datatype: string? }
+export type Field = { type: string, options: { string }?, datatype: string?, also: { string }? }
 
 local OUTPUT = "src/design/fields.luau"
 local HOST_CLASSES = {
@@ -37,7 +37,17 @@ local SCALARS: { [string]: string } = {
 	Color3 = "color",
 }
 
+local NODES: { [string]: boolean } = {
+	Attachment = true,
+	BasePart = true,
+	GuiInstance = true,
+	Instance = true,
+	Model = true,
+	PVInstance = true,
+}
+
 local DATATYPES: { [string]: boolean } = {
+	Font = true,
 	UDim2 = true,
 	UDim = true,
 	Vector2 = true,
@@ -94,8 +104,14 @@ local classify: (key: string, text: string) -> Field?
 
 local function classifyOne(key: string, text: string): Field?
 	local current = unwrap(text)
-	local wrapped = string.match(current, "^[%w_]+%.Input<(.*)>$") or string.match(current, "^Input<(.*)>$")
+	local wrapped = string.match(current, "^[%w_]+%.Input<(.*)>$")
+		or string.match(current, "^Input<(.*)>$")
+		or string.match(current, "^[%w_]+%.ReadOnlyValue<(.*)>$")
 	if wrapped then
+		local inner = unwrap(wrapped)
+		if (string.match(inner, "^[%w_]+%.([%w_]+)$") or inner) == "GuiObject" then
+			return { type = "node" }
+		end
 		return classify(key, wrapped)
 	end
 	local valueName = string.match(current, "^[%w_]+%.Value([%w_]+)$") or string.match(current, "^Value([%w_]+)$")
@@ -109,6 +125,12 @@ local function classifyOne(key: string, text: string): Field?
 			return { type = "datatype", datatype = valueName }
 		end
 		return nil
+	end
+	local bare = string.match(current, "^[%w_]+%.([%w_]+)$") or current
+	if NODES[bare] then
+		return { type = "node" }
+	elseif bare == "Color3" then
+		return { type = "color" }
 	end
 	if current == "boolean" or current == "string" or current == "number" then
 		local scalar: string = current
@@ -149,6 +171,8 @@ classify = function(key: string, text: string): Field?
 	if string.find(current, "->", 1, true) then
 		if string.match(key, "^on%u") then
 			return { type = "event" }
+		elseif string.match(current, "^%(?%(%)%s*%->%s*[%w_%.]*GuiObject%)?$") then
+			return { type = "content" }
 		end
 		return nil
 	end
@@ -165,26 +189,28 @@ classifyKnown = function(key: string, current: string): Field?
 		return classifyOne(key, parts[1])
 	end
 	local options: { string } = {}
-	for _, part in parts do
-		local option = string.match(part, '^"([^"]*)"$')
-		if option == nil then
-			options = {}
-			break
-		end
-		table.insert(options, option)
-	end
-	if #options == #parts then
-		return { type = "choice", options = options }
-	end
 	local found: Field? = nil
 	for _, part in parts do
-		local field = classifyOne(key, part)
-		local textual = field ~= nil and (field.type == "string" or field.type == "choice")
-		if field ~= nil and (found == nil or (found.type ~= "string" and textual)) then
-			found = if textual then { type = "string" } else field
+		local option = string.match(part, '^"([^"]*)"$')
+		if option ~= nil then
+			table.insert(options, option)
+		else
+			local field = classifyOne(key, part)
+			if field ~= nil and field.type == "choice" then
+				for _, choice in field.options or {} do
+					table.insert(options, choice)
+				end
+			elseif field ~= nil and (found == nil or (found.type ~= "string" and field.type == "string")) then
+				found = field
+			end
 		end
 	end
-	return found
+	if #options == 0 or (found ~= nil and found.type == "string") then
+		return found
+	elseif found ~= nil and found.type == "number" then
+		return { type = "choice", options = options, also = { "number" } }
+	end
+	return { type = "choice", options = options }
 end
 
 type Declared = { source: string, node: Luau.Node, parsed: Luau.Parsed, file: string }
@@ -297,7 +323,9 @@ local function constructors(root: string): { [string]: string }
 				local first = string.find(text, "\ntype " .. constructor .. "Shapes? =")
 					or string.find(text, "\nexport type " .. constructor .. "Shapes? =")
 				if first then
-					local specAlias, specName = string.match(text, "spec: ([%w_]+)%.([%w_]+)", first)
+					local stop = string.find(text, "\n%a", first + 1) or #text
+					local declaration = string.sub(text, first, stop)
+					local specAlias, specName = string.match(declaration, "=.-([%w_]+)%.([%w_]+)")
 					kind, alias, typeName = named, specAlias, specName
 				end
 			end
@@ -334,6 +362,14 @@ local function renderSection(lines: { string }, title: string, kinds: { [string]
 			local parts = { `type = "{field.type}"` }
 			if field.datatype then
 				table.insert(parts, `datatype = "{field.datatype}"`)
+			end
+			local also = field.also
+			if also then
+				local quoted: { string } = {}
+				for _, kind in also do
+					table.insert(quoted, string.format("%q", kind))
+				end
+				table.insert(parts, "also = { " .. table.concat(quoted, ", ") .. " }")
 			end
 			local options = field.options
 			if options then
@@ -389,7 +425,7 @@ local function derive(declared: Declared): Derived
 			else
 				local key = Luau.tokenText(entry, "key")
 				local field = if key then classify(key, text) else nil
-				if key and field then
+				if key and key ~= "Name" and field then
 					fields[key] = field
 				end
 			end

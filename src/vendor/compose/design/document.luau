@@ -78,21 +78,24 @@ local function copyNode(node: Node): Node
 		nameField = node.nameField,
 		nameInput = node.nameInput,
 		when = node.when,
+		tags = if node.tags then table.clone(node.tags) else nil,
 	}
+end
+
+local function copyFields(source: { Types.ItemField }): { Types.ItemField }
+	local list: { Types.ItemField } = {}
+	for at, field in source do
+		local nested = field.fields
+		list[at] = { id = field.id, type = field.type, fields = if nested then copyFields(nested) else nil }
+	end
+	return list
 end
 
 local function copyContract(contract: Types.Contract): Types.Contract
 	local inputs: { Types.Input } = {}
 	for index, input in contract.inputs do
-		local fields: { Types.ItemField }? = nil
 		local source = input.fields
-		if source then
-			local list: { Types.ItemField } = {}
-			for at, field in source do
-				list[at] = { id = field.id, type = field.type }
-			end
-			fields = list
-		end
+		local fields: { Types.ItemField }? = if source then copyFields(source) else nil
 		local preview = input.preview
 		inputs[index] = {
 			id = input.id,
@@ -219,6 +222,22 @@ local function checkContract(contract: Types.Contract)
 		assert(not seen[output.id], `Duplicate contract id {output.id}`)
 		seen[output.id] = true
 	end
+end
+
+local function listOf(value: Document, from: string, collection: Types.Input?): Types.Input?
+	local declared = inputOf(value, from)
+	if declared ~= nil then
+		return declared
+	end
+	local fields = if collection then collection.fields else nil
+	if fields ~= nil then
+		for _, field in fields do
+			if field.id == from and field.type == "list" then
+				return { id = from, kind = "readable", type = "list", fields = field.fields }
+			end
+		end
+	end
+	return nil
 end
 
 local function stateOf(value: Document, id: string): Types.State?
@@ -422,6 +441,14 @@ function document.validate(value: Document, library: Library): Document
 			local declared = inputOf(value, condition)
 			local held = stateOf(value, condition)
 			local typed = if declared then declared.type elseif held then held.type else nil
+			local itemFields = if collection then collection.fields else nil
+			if typed == nil and itemFields ~= nil then
+				for _, field in itemFields do
+					if field.id == condition then
+						typed = field.type
+					end
+				end
+			end
 			assert(typed == "boolean", `{node.name} is shown by {condition}, which is not a true or false input`)
 		end
 		for key, property in node.props do
@@ -451,7 +478,7 @@ function document.validate(value: Document, library: Library): Document
 			local bind = node.bind
 			assert(#node.children <= 1 or (bind ~= nil and bind.row ~= nil), `{node.kind} holds one row template`)
 			if bind then
-				local list = assert(inputOf(value, bind.from), `{node.kind} binds unknown input {bind.from}`)
+				local list = assert(listOf(value, bind.from, collection), `{node.kind} binds unknown input {bind.from}`)
 				assert(list.type == "list", `{node.kind} binds {bind.from}, which is not a list`)
 				assert(#bind.key > 0, `{node.kind} needs an item key`)
 				local row = bind.row
@@ -473,7 +500,7 @@ function document.validate(value: Document, library: Library): Document
 			local bind = node.bind
 			if bind then
 				assert(library.keyed ~= nil, `{library.name} cannot repeat children`)
-				local list = assert(inputOf(value, bind.from), `{node.kind} binds unknown input {bind.from}`)
+				local list = assert(listOf(value, bind.from, collection), `{node.kind} binds unknown input {bind.from}`)
 				assert(list.type == "list", `{node.kind} binds {bind.from}, which is not a list`)
 				assert(#bind.key > 0, `{node.kind} needs an item key`)
 				local row = bind.row
@@ -590,12 +617,58 @@ function document.insert(
 			or (container.children == "template" and parent.bind ~= nil and parent.bind.row ~= nil),
 		`{parent.kind} cannot take this node`
 	)
-	local kind = assert(library.kinds[kindName], `Unknown {library.name} kind {kindName}`)
-	local id = `n{nextValue.nextId}`
-	nextValue.nextId += 1
-	local node: Node = { id = id, kind = kindName, name = kindName, props = defaults(kind), children = {} }
+	local function create(seed: Types.Seed): Node
+		local kind = assert(library.kinds[seed.kind], `Unknown {library.name} kind {seed.kind}`)
+		local created: Node = {
+			id = `n{nextValue.nextId}`,
+			kind = seed.kind,
+			name = seed.kind,
+			props = defaults(kind),
+			children = {},
+		}
+		nextValue.nextId += 1
+		local literals = seed.props
+		if literals then
+			for key, item in literals do
+				created.props[key] = { literal = copyLiteral(item) }
+			end
+		end
+		local nested: { Types.Seed }? = seed.children or kind.seeds
+		if nested then
+			for _, child in nested do
+				table.insert(created.children, create(child))
+			end
+		end
+		return created
+	end
+	local node = create { kind = kindName }
 	table.insert(parent.children, math.clamp(at or #parent.children + 1, 1, #parent.children + 1), node)
-	return document.validate(nextValue, library), id
+	return document.validate(nextValue, library), node.id
+end
+
+function document.applies(node: Node, kind: Types.Kind, key: string): boolean
+	local field = kind.fields[key]
+	local requires = if field then field.requires else nil
+	if requires == nil then
+		return true
+	end
+	for other, allowed in requires do
+		local property = node.props[other]
+		local defaults = kind.defaults
+		local sibling = kind.fields[other]
+		local current: Literal? = if property
+			then property.literal
+			elseif defaults and defaults[other] ~= nil then defaults[other]
+			elseif sibling then sibling.default
+			else nil
+		if property ~= nil and current == nil then
+			continue
+		end
+		if current == nil or (#allowed > 0 and table.find(allowed, current) == nil) then
+			return false
+		end
+	end
+	return true
 end
 
 function document.change(value: Document, library: Library, id: string, key: string, property: Value?): Document
@@ -606,6 +679,48 @@ function document.change(value: Document, library: Library, id: string, key: str
 	else
 		node.props[key] = nil
 	end
+	local kind = library.kinds[node.kind]
+	if kind then
+		local requires = if kind.fields[key] then kind.fields[key].requires else nil
+		if property and requires and not document.applies(node, kind, key) then
+			local needs: { string } = {}
+			for other, allowed in requires do
+				local listed: { string } = {}
+				for _, item in allowed do
+					table.insert(listed, tostring(item))
+				end
+				table.insert(
+					needs,
+					if #listed > 0 then `{other} is {table.concat(listed, " or ")}` else `{other} is set`
+				)
+			end
+			table.sort(needs)
+			error(`{key} applies only when {table.concat(needs, " and ")}`, 0)
+		end
+		local pruned = true
+		while pruned do
+			pruned = false
+			for other in node.props do
+				if not document.applies(node, kind, other) then
+					node.props[other] = nil
+					pruned = true
+				end
+			end
+		end
+	end
+	return document.validate(nextValue, library)
+end
+
+function document.tag(value: Document, library: Library, id: string, tags: { string }?): Document
+	assert(tags == nil or library.tags ~= nil, `{library.name} has no tags`)
+	local nextValue = copyDocument(value)
+	local node = assert(document.find(nextValue.root, id), "Choose a node")
+	if tags ~= nil then
+		for _, tag in tags do
+			assert(type(tag) == "string" and string.match(tag, "^[%w_%-]+$"), "A tag is letters, digits, - and _")
+		end
+	end
+	node.tags = if tags ~= nil and #tags > 0 then table.clone(tags) else nil
 	return document.validate(nextValue, library)
 end
 

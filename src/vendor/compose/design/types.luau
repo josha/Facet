@@ -43,6 +43,9 @@ export type Field = {
 	datatype: string?,
 	also: { string }?,
 	luauType: string?,
+	label: string?,
+	advanced: boolean?,
+	requires: { [string]: { Literal } }?,
 }
 
 export type Row = { [string | number]: Literal }
@@ -61,9 +64,12 @@ export type Resolved = {
 
 export type Children = "none" | "list" | "template" | "slot"
 
+export type Seed = { kind: string, props: { [string]: Literal }?, children: { Seed }? }
+
 export type Kind = {
 	fields: { [string]: Field },
 	defaults: { [string]: Literal }?,
+	seeds: { Seed }?,
 	children: Children,
 	template: string?,
 	slot: string?,
@@ -86,14 +92,17 @@ export type Library = {
 	token: string?,
 	show: string?,
 	keyed: string?,
+	categories: { string }?,
+	tags: { call: string, apply: (built: unknown, tags: { string }) -> () }?,
 	space: ("2d" | "3d")?,
+	provide: ((content: unknown) -> unknown)?,
 	kinds: { [string]: Kind },
 }
 
 export type InputKind = "value" | "readable" | "cell"
 export type InputType = "string" | "number" | "boolean" | "color" | "image" | "list" | "record" | "slot"
 
-export type ItemField = { id: string, type: InputType }
+export type ItemField = { id: string, type: InputType, fields: { ItemField }? }
 
 export type Input = {
 	id: string,
@@ -122,6 +131,7 @@ export type Node = {
 	nameField: string?,
 	nameInput: string?,
 	when: string?,
+	tags: { string }?,
 }
 
 export type Document = {
@@ -149,6 +159,19 @@ export type RenderContext = {
 	slots: { [string]: () -> unknown }?,
 	token: ((name: string) -> Literal)?,
 	decorate: ((node: Node, built: unknown) -> ())?,
+}
+
+export type LinkStore = {
+	read: () -> string,
+	write: (expected: string, generated: string) -> boolean,
+	watch: (changed: () -> ()) -> () -> (),
+}
+
+export type OpenDesign = { dispose: () -> () }
+
+export type Kit = {
+	name: string,
+	edit: (parent: unknown, name: string, link: LinkStore?) -> OpenDesign,
 }
 
 return {}

@@ -83,9 +83,12 @@ covers. The current suite is the evidence. A passing run proves only the selecte
 
 ## Performance
 
-[![Facet performance on the latest main commit](https://raw.githubusercontent.com/josha/Facet/perf-results/summary.svg)](https://github.com/josha/Facet/blob/perf-results/README.md)
+Facet uses [Compose](https://github.com/voidmeld/compose) for scene composition.
+The [Compose framework comparison](https://github.com/voidmeld/compose/blob/main/docs/framework-comparison.md)
+shows why: frame time and retained memory against the other Roblox UI frameworks.
 
-Each push to `main` publishes these numbers. Select the table for every scene and microbenchmark, the change from the previous commit and trend charts.
+Facet's target is less than 5% added cost against an equivalent screen that is
+built directly with Compose and Roblox instances.
 
 ## Installing
 

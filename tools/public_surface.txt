@@ -113,6 +113,7 @@ civilDate : table(frozen)
   civilDate.toUnix : function
   civilDate.weekday : function
   civilDate.within : function
+composeDesign : function
 controls : function
 design : function
 format : table(frozen)
@@ -140,6 +141,7 @@ recipes : table(frozen)
   recipes.arithmetic : table(frozen)
 richText : table(frozen)
   richText.escape : function
+tag : function
 themes : table
   themes.REQUIRED_TYPE_ROLES : table(frozen)
   themes.SCHEMA : string
@@ -313,6 +315,7 @@ type DesignContext
 type DesignControlSpec
 type DesignDocument
 type DesignEmitOptions
+type DesignField
 type DesignInput
 type DesignInputType
 type DesignItemField
@@ -324,6 +327,7 @@ type DesignNode
 type DesignOutput
 type DesignSeed
 type DesignState
+type DesignStudioKit
 type DesignValue
 type DialogAction
 type DialogDismissReason
