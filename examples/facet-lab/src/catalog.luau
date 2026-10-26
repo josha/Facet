@@ -6153,6 +6153,7 @@ PAGE_DATA.RewardSequence = {
 	end,
 }
 PAGE_DATA.sequence = PAGE_DATA.RewardSequence
+PAGE_DATA.shake = require("./shake_demo")
 PAGE_DATA.countUp = {
 	family = "media",
 	purpose = "Show a changing total.",

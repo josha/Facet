@@ -238,6 +238,7 @@ controls(runtime).responder : function
 controls(runtime).scrollTo : function
 controls(runtime).scrollToVisible : function
 controls(runtime).sequence : function
+controls(runtime).shake : function
 controls(runtime).worldAnchor : function
 type ActionRole
 type Activate
@@ -403,6 +404,7 @@ type ScrollViewProps
 type Sequence
 type SequenceSpec
 type SequenceStep
+type ShakeOptions
 type SheetDetent
 type SheetSpec
 type ShortcutHintActionProps

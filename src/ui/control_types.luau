@@ -115,6 +115,7 @@ export type Controls = {
 	Typewriter: Constructor<HudProps.TypewriterProps, TextLabel>,
 	commandScope: typeof(commandControls.commandScope),
 	sequence: typeof(effectControls.sequence),
+	shake: typeof(effectControls.shake),
 	countUp: typeof(effectControls.countUp),
 	Flash: Constructor<EffectProps.FlashProps, Frame>,
 	ZoomView: Constructor<ZoomTravelProps.ZoomViewProps, ScrollingFrame>,

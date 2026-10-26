@@ -60,6 +60,7 @@ local EffectTypes = require("@self/ui/effect_types")
 export type SequenceStep = EffectTypes.SequenceStep
 export type SequenceSpec = EffectTypes.SequenceSpec
 export type Sequence = EffectTypes.Sequence
+export type ShakeOptions = EffectTypes.ShakeOptions
 export type FlashProps = EffectProps.FlashProps
 local ZoomTravelTypes = require("@self/ui/zoom_travel_types")
 export type ZoomViewProps = ZoomTravelProps.ZoomViewProps
