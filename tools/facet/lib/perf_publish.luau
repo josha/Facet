@@ -155,6 +155,59 @@ local function change(current: number, previous: number?): string
 	return ("%+.1f%%"):format((current / previous - 1) * 100)
 end
 
+local function escape(text: string): string
+	return (string.gsub(text, '[&<>"]', { ["&"] = "&amp;", ["<"] = "&lt;", [">"] = "&gt;", ['"'] = "&quot;" }))
+end
+
+function Publish.summary(entries: { Entry }): string
+	local latest = entries[#entries]
+	local previous = entries[#entries - 1]
+	local before: { [string]: number } = {}
+	if previous then
+		for _, row in previous.rows do
+			before[row.kind .. ":" .. row.name] = row.p50
+		end
+	end
+	local rows: { Row } = {}
+	for _, row in latest.rows do
+		if row.kind == "scene" then
+			table.insert(rows, row)
+		end
+	end
+	local width, rowHeight, top = 720, 24, 64
+	local height = top + rowHeight * (#rows + 1) + 16
+	local lines = {
+		`<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13">`,
+		`<rect width="{width}" height="{height}" rx="8" fill="#ffffff" stroke="#d0d7de"/>`,
+		`<text x="16" y="28" font-size="16" font-weight="600" fill="#1f2328">Facet performance</text>`,
+		`<text x="16" y="48" fill="#59636e">{escape(string.sub(latest.commit, 1, 12))} · {escape(latest.date)} · CI Ubuntu runner, paired pr arm, ms per frame</text>`,
+		`<text x="16" y="{top + 16}" font-weight="600" fill="#59636e">Scene</text>`,
+		`<text x="400" y="{top + 16}" font-weight="600" fill="#59636e" text-anchor="end">p50 ms</text>`,
+		`<text x="490" y="{top + 16}" font-weight="600" fill="#59636e" text-anchor="end">p95 ms</text>`,
+		`<text x="600" y="{top + 16}" font-weight="600" fill="#59636e" text-anchor="end">Retained KiB</text>`,
+		`<text x="700" y="{top + 16}" font-weight="600" fill="#59636e" text-anchor="end">Change</text>`,
+	}
+	for index, row in rows do
+		local y = top + rowHeight * index + 16
+		local delta = change(row.p50, before[row.kind .. ":" .. row.name])
+		local tone = if string.sub(delta, 1, 1) == "+" and delta ~= "+0.0%"
+			then "#cf222e"
+			elseif string.sub(delta, 1, 1) == "-" then "#1a7f37"
+			else "#59636e"
+		local retained = if row.retainedKb then ("%d"):format(math.floor(row.retainedKb + 0.5)) else "—"
+		if index % 2 == 0 then
+			table.insert(lines, `<rect x="8" y="{y - 16}" width="{width - 16}" height="{rowHeight}" fill="#f6f8fa"/>`)
+		end
+		table.insert(lines, `<text x="16" y="{y}" fill="#1f2328">{escape(row.name)}</text>`)
+		table.insert(lines, `<text x="400" y="{y}" fill="#1f2328" text-anchor="end">{("%.4f"):format(row.p50)}</text>`)
+		table.insert(lines, `<text x="490" y="{y}" fill="#1f2328" text-anchor="end">{("%.4f"):format(row.p95)}</text>`)
+		table.insert(lines, `<text x="600" y="{y}" fill="#1f2328" text-anchor="end">{retained}</text>`)
+		table.insert(lines, `<text x="700" y="{y}" fill="{tone}" text-anchor="end">{escape(delta)}</text>`)
+	end
+	table.insert(lines, "</svg>")
+	return table.concat(lines, "\n") .. "\n"
+end
+
 function Publish.render(entries: { Entry }): string
 	local latest = entries[#entries]
 	local previous = entries[#entries - 1]
@@ -249,6 +302,7 @@ function Publish.run(directory: string, commit: string, date: string, paired: { 
 		return left.commit < right.commit
 	end)
 	Files.write(Files.join(directory, "README.md"), Publish.render(entries))
+	Files.write(Files.join(directory, "summary.svg"), Publish.summary(entries))
 	print(`perf publish: {#rows} rows for {commit}`)
 	return 0
 end
