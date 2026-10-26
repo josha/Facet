@@ -13,7 +13,6 @@
     { "id": "classb_themes", "locator": "tools/studio/live/suites/classb_themes.luau" },
     { "id": "command_scope", "locator": "tools/studio/live/suites/command_scope.luau" },
     { "id": "container_transfer", "locator": "tools/studio/live/suites/container_transfer.luau" },
-    { "id": "designer_canvas", "locator": "tools/studio/live/suites/designer_canvas.luau" },
     { "id": "focus_opened", "locator": "tools/studio/live/suites/focus_opened.luau" },
     { "id": "focus_probe", "locator": "tools/studio/live/suites/focus_probe.luau" },
     { "id": "focus_walk", "locator": "tools/studio/live/suites/focus_walk.luau" },

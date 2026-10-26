@@ -2,6 +2,7 @@
 
 local Core = require "../core"
 local Types = require "./types"
+local Document = require "./document"
 
 type ReadOnlyValue<T> = Core.Value<T>
 type Use = Core.Use
@@ -95,7 +96,7 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		if type(current) ~= "table" then
 			return false
 		end
-		if current["$output"] ~= nil then
+		if current["$output"] ~= nil or current["$template"] ~= nil then
 			return true
 		end
 		for _, item in current do
@@ -105,26 +106,41 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		end
 		return false
 	end
-	local function withCallbacks(current: Literal): unknown
+	local build: (node: Types.Node, item: ReadOnlyValue<Row>?) -> unknown
+	local function withCallbacks(current: Literal, row: ReadOnlyValue<Row>?, owner: Types.Node): unknown
 		if type(current) ~= "table" then
 			return current
 		end
+		local template = current["$template"]
+		if type(template) == "string" then
+			local found = Document.find(owner, template)
+			local cell = assert(found, `{owner.name} renders unknown cell {template}`)
+			return function(each: ReadOnlyValue<Row>): unknown
+				return build(cell, each)
+			end
+		end
 		local output = current["$output"]
 		if type(output) == "string" then
+			local passesRow = current["$row"] == true
 			return function(...: Literal)
 				local handler = outputs[output]
 				if handler then
-					handler { ... }
+					handler(if passesRow then { assert(row, "Row outputs need a row"):peek() } else { ... })
 				end
 			end
 		end
 		local copied: { [string | number]: unknown } = {}
 		for key, item in current do
-			copied[key] = withCallbacks(item)
+			copied[key] = withCallbacks(item, row, owner)
 		end
 		return copied
 	end
-	local function resolve(property: Types.Value, item: ReadOnlyValue<Row>?): Resolved
+	local function resolve(
+		property: Types.Value,
+		item: ReadOnlyValue<Row>?,
+		owner: Types.Node,
+		definition: Types.Field?
+	): Resolved
 		local current, input, field, output, name =
 			property.literal, property.input, property.item, property.output, property.token
 		local target = property.node
@@ -154,8 +170,17 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			return { readable = states[stateId] }
 		end
 		if current ~= nil then
+			if definition ~= nil and definition.perRow then
+				local literal = current
+				return {
+					literal = current,
+					value = function(each: ReadOnlyValue<Row>): unknown
+						return withCallbacks(literal, each, owner)
+					end,
+				}
+			end
 			if carriesOutput(current) then
-				return { literal = current, value = withCallbacks(current) }
+				return { literal = current, value = withCallbacks(current, item, owner) }
 			end
 			return { literal = current }
 		elseif input then
@@ -203,14 +228,25 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		end
 		return {}
 	end
-	local function build(node: Types.Node, item: ReadOnlyValue<Row>?): unknown
+	build = function(node: Types.Node, item: ReadOnlyValue<Row>?): unknown
 		local kind = assert(library.kinds[node.kind], `Unknown {library.name} kind {node.kind}`)
 		local props: { [string]: Resolved } = {}
+		local cells: { [string]: true } = {}
 		for key, property in node.props do
-			props[key] = resolve(property, item)
+			props[key] = resolve(property, item, node, kind.fields[key])
+			local literal = property.literal
+			if literal ~= nil then
+				Document.cellsOf(literal, cells)
+			end
+		end
+		local content: { Types.Node } = {}
+		for _, child in node.children do
+			if not cells[child.id] then
+				table.insert(content, child)
+			end
 		end
 		local children: { unknown } = {}
-		local bind, template = node.bind, node.children[1]
+		local bind, template = node.bind, content[1]
 		if kind.children == "slot" then
 			if template then
 				props[assert(kind.slot, `{node.kind} names no content property`)] = {
@@ -220,19 +256,25 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 				}
 			end
 		elseif kind.children == "template" then
-			if bind and template then
+			if bind then
+				local rows: ReadOnlyValue<{ Row }> = Core.cell(rowsOf(listFrom(bind.from, item)))
+				props[assert(kind.source, `{node.kind} names no list property`)] = { rows = rows, key = bind.key }
+			end
+			if kind.template == nil then
+				for _, child in content do
+					table.insert(children, build(child, item))
+				end
+			elseif bind and template then
 				local rowId = bind.row or template.id
 				local rowNode = template
-				for _, child in node.children do
+				for _, child in content do
 					if child.id == rowId then
 						rowNode = child
 					else
 						table.insert(children, build(child, item))
 					end
 				end
-				local rows: ReadOnlyValue<{ Row }> = Core.cell(rowsOf(listFrom(bind.from, item)))
-				props[assert(kind.source, `{node.kind} names no list property`)] = { rows = rows, key = bind.key }
-				props[assert(kind.template, `{node.kind} names no template property`)] = {
+				props[assert(kind.template)] = {
 					template = function(row: ReadOnlyValue<Row>): unknown
 						return build(rowNode, row)
 					end,
@@ -240,7 +282,7 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			end
 		elseif bind and template then
 			local rowId = bind.row or template.id
-			for _, child in node.children do
+			for _, child in content do
 				if child.id == rowId then
 					for _, row in rowsOf(listFrom(bind.from, item)) do
 						table.insert(children, build(child, Core.cell(row)))
@@ -250,7 +292,7 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 				end
 			end
 		else
-			for _, child in node.children do
+			for _, child in content do
 				local condition = child.when
 				if condition == nil or truthy(condition, item) then
 					table.insert(children, build(child, item))

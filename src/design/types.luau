@@ -11,6 +11,7 @@ export type FieldSpec = {
 	options: { string }?,
 	format: string?,
 	default: Literal?,
+	perRow: boolean?,
 }
 
 export type DerivedField = { type: Design.FieldType, options: { string }?, datatype: string?, also: { string }? }

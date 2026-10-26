@@ -26,7 +26,7 @@ targets:
   model [output] [--publisher]     build/Facet.rbxm, its .rbxmx twin and its manifest
   lab                              examples/facet-lab/build/*
   home                             build/Facet-Home.rbxl
-  designer                         build/Facet-Design.rbxm and build/Facet-Design-Playground.rbxl]]
+  playground                       build/Compose-Design-Playground.rbxl]]
 
 local EXAMPLES = {
 	{ "Facet-SettingsDemo", "00_settings_demo" },
@@ -338,12 +338,8 @@ local function lab(): number
 	return 0
 end
 
-local function designer(): number
-	local code = rojo("tools/designer/default.project.json", "build/Facet-Design.rbxm")
-	if code ~= 0 then
-		return code
-	end
-	return rojo("tools/designer/smoke.project.json", "build/Facet-Design-Playground.rbxl")
+local function playground(): number
+	return rojo("tools/design_playground/default.project.json", "build/Compose-Design-Playground.rbxl")
 end
 
 local function home(): number
@@ -367,7 +363,7 @@ local TARGETS: { [string]: (Cli.Invocation) -> number } = {
 	model = model,
 	lab = lab,
 	home = home,
-	designer = designer,
+	playground = playground,
 }
 
 local function refusal(invocation: Cli.Invocation): string?
@@ -505,7 +501,7 @@ end
 
 local command: Cli.Command = {
 	name = "build",
-	summary = "Build places, reference places, themes, the model, the lab, home, or the designer.",
+	summary = "Build places, reference places, themes, the model, the lab, home, or the design playground.",
 	usage = USAGE,
 	register = register,
 	run = run,

@@ -1,18 +1,19 @@
 --!strict
 
-local Facet = require(game.ReplicatedStorage.Facet)
-local Compose = Facet.Compose
+local Facet = require(game:GetService("ReplicatedStorage").Facet)
 
-export type Row = { [string]: unknown }
-export type Data = {}
+export type Props = {}
 
-return function(UI: Facet.Controls, data: Data?): GuiObject
+local _design = { contract = { inputs = {}, outputs = {} }, name = "Settings" }
+
+local function Settings(UI: Facet.Controls, props: Props): GuiObject
+	local contentPadding: Facet.Sides = { bottom = 24, left = 20, right = 20, top = 20 }
 	return UI.Screen "Screen" {
 		gap = "m",
 		UI.ScrollView "Content" {
 			gap = "m",
 			height = "fill",
-			padding = { ["bottom"] = 24, ["left"] = 20, ["right"] = 20, ["top"] = 20 },
+			padding = contentPadding,
 			width = "fill",
 			UI.Text "Eyebrow" {
 				role = "secondary",
@@ -51,3 +52,5 @@ return function(UI: Facet.Controls, data: Data?): GuiObject
 		},
 	}
 end
+
+return Settings

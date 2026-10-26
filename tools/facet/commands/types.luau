@@ -1042,7 +1042,7 @@ local FIXTURE_FILES = {
 	"tests/a.luau",
 	"examples/a.luau",
 	"bench/a.luau",
-	"tools/designer/a.luau",
+	"tools/design_playground/a.luau",
 }
 
 local FIXTURE_LOCKS: { [string]: unknown } = {
@@ -1198,7 +1198,7 @@ register = function(harness: Verify.Harness, prefix: string): ()
 					project = "default.project.json",
 					name = "project-abc",
 					sourcemap = "artifacts/verify/types/project-abc.sourcemap.json",
-					mapped = { "src/a.luau", "tools/designer/a.luau", "elsewhere/b.luau" },
+					mapped = { "src/a.luau", "tools/design_playground/a.luau", "elsewhere/b.luau" },
 				},
 			})
 			local covered: { string } = {}

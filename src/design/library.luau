@@ -109,11 +109,10 @@ for _, set in { icons.BUILTIN, icons.ART } do
 end
 table.sort(ICONS)
 
-local function picked(key: string, kind: Design.FieldType, options: { string }?): (Design.FieldType, { string }?)
-	if kind == "string" and string.match(key, "[iI]con$") then
-		return "choice", ICONS
-	end
-	return kind, options
+local CHOICE: Design.FieldType = "choice"
+
+local function iconic(key: string, kind: Design.FieldType): boolean
+	return kind == "string" and string.match(key, "[iI]con$") ~= nil
 end
 
 local REQUIRES: { [string]: { [string]: { Literal } } } = {
@@ -138,10 +137,12 @@ local KIND_REQUIRES: { [string]: { [string]: { [string]: { Literal } } } } = {
 	Toggle = { mixed = { presentation = { "checkbox" } } },
 }
 
+local SLICE_CENTER: Design.Row = { x0 = 0, y0 = 0, x1 = 1, y1 = 1 }
+
 local FIELD_DEFAULTS: { [string]: { [string]: Literal } } = {
 	NavigationSplitView = { maxSidebarWidth = 480 },
 	ProgressView = { min = 0, sweep = 240 },
-	Image = { sliceCenter = { x0 = 0, y0 = 0, x1 = 1, y1 = 1 } },
+	Image = { sliceCenter = SLICE_CENTER },
 }
 
 local function refine(name: string, fields: { [string]: Design.Field }): { [string]: Design.Field }
@@ -175,10 +176,10 @@ local function plainFields(source: { [string]: Types.DerivedField }): { [string]
 	for order, key in keys do
 		local field = source[key]
 		local lower = string.match(key, "^%l") ~= nil
-		local kind, options = picked(key, field.type, field.options)
+		local icon = iconic(key, field.type)
 		fields[key] = {
-			type = kind,
-			options = options,
+			type = if icon then CHOICE else field.type,
+			options = if icon then ICONS else field.options,
 			datatype = if field.type == "color" then "Color3" else field.datatype,
 			also = field.also,
 			group = if lower then "Control" else "Roblox",
@@ -198,10 +199,10 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 			continue
 		end
 		order += 1
-		local kind, options = picked(key, field.type, field.options)
+		local icon = iconic(key, field.type)
 		fields[key] = {
-			type = kind,
-			options = options,
+			type = if icon then CHOICE else field.type,
+			options = if icon then ICONS else field.options,
 			datatype = if field.type == "color" then "Color3" else field.datatype,
 			also = field.also,
 			group = "More",
@@ -224,18 +225,21 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 		if kind ~= nil and kind ~= own and table.find(also, kind) == nil then
 			table.insert(also, kind)
 		end
-		local kind, options = picked(key, field.type, field.options)
+		local icon = iconic(key, field.type)
 		fields[key] = {
-			type = kind,
-			options = options,
+			type = if icon then CHOICE else field.type,
+			options = if icon then ICONS else field.options,
 			order = field.order,
 			label = field.label,
 			default = field.default,
+			perRow = field.perRow,
 			datatype = if field.type == "color" then "Color3" else nil,
 			also = if #also > 0 then also else nil,
 			luauType = if field.format == "padding"
 				then "Facet.Sides"
 				elseif key == "options" and OPTION_LISTS[name] then "{ Facet.PickerOption<string> }"
+				elseif key == "columns" and name == "Table" then "{ Facet.TableColumn<$Item, $Key> }"
+				elseif key == "rowActions" then "Facet.RowActionsOptions?"
 				else nil,
 		}
 	end
@@ -335,21 +339,22 @@ local function create(context: Context): Design.Library
 	for name, spec in controls do
 		local contentKey = spec.content
 		local templated = TEMPLATE_KINDS[name] == true
+		local bound = templated or name == "Table"
 		local kindFields = refine(name, fieldsOf(name, spec))
 		kinds[name] = {
 			fields = kindFields,
 			defaults = spec.defaults,
 			seeds = if spec.seeds ~= nil or contentKey ~= nil then seeds(name) else nil,
-			children = if templated
+			children = if bound
 				then "template"
 				elseif contentKey ~= nil then "slot"
 				elseif spec.container then "list"
 				else "none",
 			slot = contentKey,
 			category = spec.category,
-			source = if templated then "from" else nil,
+			source = if bound then "from" else nil,
 			template = if templated then "render" else nil,
-			key = if templated then "key" else nil,
+			key = if bound then "key" else nil,
 			call = "UI." .. name,
 			build = function(props: { [string]: Resolved }, children: { unknown }, nodeName: string): unknown
 				local values: Record = {}
@@ -533,14 +538,14 @@ local function create(context: Context): Design.Library
 						end
 					end
 				end
-				if templated then
-					local rows = props.from
-					if rows ~= nil and rows.rows ~= nil then
-						values.from = rows.rows
-						if rows.key ~= nil then
-							values.key = rows.key
-						end
+				local rows = props.from
+				if bound and rows ~= nil and rows.rows ~= nil then
+					values.from = rows.rows
+					if rows.key ~= nil then
+						values.key = rows.key
 					end
+				end
+				if templated then
 					local row = props.render
 					local template = if row ~= nil then row.template else nil
 					if template ~= nil then

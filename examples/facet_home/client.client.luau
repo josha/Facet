@@ -2,12 +2,6 @@
 
 type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
 type Use = <T>(ReadOnlyValue<T>) -> T
-type DesignRow = { [string]: unknown }
-type DesignData = {
-	ChooseFurniture: ((DesignRow, unknown, InputObject?, number?) -> ())?,
-	InventoryRows: ReadOnlyValue<{ DesignRow }>?,
-	PlaceFurniture: ((DesignRow) -> ())?,
-}
 local storage, players = game:GetService("ReplicatedStorage"), game:GetService("Players")
 local Facet = require(storage:WaitForChild("Facet"))
 local modules = storage:WaitForChild("FacetHome")
@@ -109,57 +103,49 @@ local stop = runtime.mount(function()
 		Facet.themes.createStyleSheet(runtime, theme, { theme = palette, tenFoot = UI.environment().isTenFoot })
 	local function page(): GuiObject
 		local name = route:peek()
-		local components: { [string]: (Facet.Controls, DesignData?) -> GuiObject } = {
-			Home = require(pages:WaitForChild("Home")),
-			Furnish = require(pages:WaitForChild("Furnish")),
-			Activities = require(pages:WaitForChild("Activities")),
-			People = require(pages:WaitForChild("People")),
-			Settings = require(pages:WaitForChild("Settings")),
-		}
-		local component = assert(components[name])
-		local function chosenId(row: DesignRow): string?
-			local id = row.id
-			return if type(id) == "string" then id else nil
-		end
-		local inventoryRows = Compose.formula(function(use: Use): { DesignRow }
-			local rows: { DesignRow } = {}
-			for _, item in policy.catalog do
-				if policy.matches(item, use(query)) then
-					local count = 0
-					for _, piece in use(layout).slots do
-						if piece.kind == item.id then
-							count += 1
+		local root: GuiObject
+		if name == "Furnish" then
+			local Furnish = require(pages:WaitForChild("Furnish"))
+			local inventoryRows = Compose.formula(function(use: Use): { Furnish.InventoryRowsItem }
+				local rows: { Furnish.InventoryRowsItem } = {}
+				for _, item in policy.catalog do
+					if policy.matches(item, use(query)) then
+						local count = 0
+						for _, piece in use(layout).slots do
+							if piece.kind == item.id then
+								count += 1
+							end
 						end
+						table.insert(rows, {
+							id = item.id,
+							name = item.name,
+							category = item.category,
+							quantity = count,
+							finish = use(finish),
+						})
 					end
-					local row: DesignRow = {
-						id = item.id,
-						name = item.name,
-						category = item.category,
-						quantity = count,
-						finish = use(finish),
-					}
-					table.insert(rows, row)
 				end
-			end
-			return rows
-		end)
-		local inputs: DesignData = {
-			InventoryRows = inventoryRows,
-			ChooseFurniture = function(row: DesignRow)
-				local id = chosenId(row)
-				if id then
-					chosen:set(id)
-				end
-			end,
-			PlaceFurniture = function(row: DesignRow)
-				local id = chosenId(row)
-				if id then
-					chosen:set(id)
+				return rows
+			end)
+			root = Furnish(UI, {
+				inventoryRows = inventoryRows,
+				onChooseFurniture = function(row: Furnish.InventoryRowsItem)
+					chosen:set(row.id)
+				end,
+				onPlaceFurniture = function(row: Furnish.InventoryRowsItem)
+					chosen:set(row.id)
 					request("place")
-				end
-			end,
-		}
-		local root = component(UI, inputs)
+				end,
+			})
+		else
+			local pagesByName: { [string]: (Facet.Controls, {}) -> GuiObject } = {
+				Home = require(pages:WaitForChild("Home")),
+				Activities = require(pages:WaitForChild("Activities")),
+				People = require(pages:WaitForChild("People")),
+				Settings = require(pages:WaitForChild("Settings")),
+			}
+			root = assert(pagesByName[name])(UI, {})
+		end
 		if name == "Home" then
 			local destinations: { [string]: string } =
 				{ OpenFurnish = "Furnish", OpenActivities = "Activities", OpenPeople = "People" }
@@ -409,7 +395,7 @@ local function mountBoard(room: Instance)
 			CanvasSize = Vector2.new(800, 380),
 			sheet,
 			Host.StyleLink { StyleSheet = Compose.static(sheet) },
-			require(pages:WaitForChild("Wall"))(UI),
+			require(pages:WaitForChild("Wall"))(UI, {}),
 		}
 	end, player.PlayerGui)
 end

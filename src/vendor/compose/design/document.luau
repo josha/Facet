@@ -109,7 +109,7 @@ local function copyContract(contract: Types.Contract): Types.Contract
 	local outputs: { Types.Output } = {}
 	for index, output in contract.outputs do
 		local args = output.args
-		outputs[index] = { id = output.id, args = if args then table.clone(args) else nil }
+		outputs[index] = { id = output.id, args = if args then table.clone(args) else nil, row = output.row }
 	end
 	return { inputs = inputs, outputs = outputs }
 end
@@ -221,6 +221,14 @@ local function checkContract(contract: Types.Contract)
 		assert(string.match(output.id, OUTPUT) ~= nil, "Outputs are named onSomething")
 		assert(not seen[output.id], `Duplicate contract id {output.id}`)
 		seen[output.id] = true
+		local row = output.row
+		if row ~= nil then
+			local found = false
+			for _, input in contract.inputs do
+				found = found or (input.id == row and input.type == "list" and input.fields ~= nil)
+			end
+			assert(found, `{output.id} carries a row of {row}, which is not a list input with fields`)
+		end
 	end
 end
 
@@ -253,17 +261,37 @@ local function stateOf(value: Document, id: string): Types.State?
 end
 document.stateOf = stateOf
 
-local function checkOutputs(value: Document, current: Literal, key: string)
+local function cellsOf(current: Literal, found: { [string]: true }): { [string]: true }
+	if type(current) == "table" then
+		local template = current["$template"]
+		if type(template) == "string" then
+			found[template] = true
+		else
+			for _, item in current do
+				cellsOf(item, found)
+			end
+		end
+	end
+	return found
+end
+document.cellsOf = cellsOf
+
+local function checkOutputs(value: Document, current: Literal, key: string, collection: Types.Input?)
 	if type(current) ~= "table" then
 		return
 	end
 	local output = current["$output"]
 	if output ~= nil then
 		assert(type(output) == "string" and hasOutput(value, output), `{key} calls unknown output {tostring(output)}`)
+		assert(current["$row"] == nil or collection ~= nil, `{key} passes a row outside a collection`)
+		return
+	end
+	if current["$template"] ~= nil then
+		assert(collection ~= nil, `{key} renders a cell outside a collection`)
 		return
 	end
 	for _, item in current do
-		checkOutputs(value, item, key)
+		checkOutputs(value, item, key, collection)
 	end
 end
 
@@ -295,7 +323,7 @@ local function checkValue(value: Document, field: Types.Field, property: Value, 
 	assert(field.type ~= "node", `{key} references another node`)
 	if current ~= nil then
 		assert(plain(current, 0), `{key} must be plain data`)
-		checkOutputs(value, current, key)
+		checkOutputs(value, current, key, collection)
 		local also = field.also
 		if also ~= nil and table.find(also, type(current)) ~= nil then
 			return
@@ -451,9 +479,17 @@ function document.validate(value: Document, library: Library): Document
 			end
 			assert(typed == "boolean", `{node.name} is shown by {condition}, which is not a true or false input`)
 		end
+		local ownBind = node.bind
+		local own = if ownBind then listOf(value, ownBind.from, collection) else nil
+		local cells: { [string]: true } = {}
 		for key, property in node.props do
 			local field = assert(kind.fields[key], `{node.kind} has no property {key}`)
-			checkValue(value, field, property, collection, key)
+			local literal = property.literal
+			assert(not field.perRow or own ~= nil, `{key} needs the node to repeat a list`)
+			checkValue(value, field, property, if literal ~= nil and own ~= nil then own else collection, key)
+			if literal ~= nil then
+				cellsOf(literal, cells)
+			end
 			local target = property.node
 			if target ~= nil then
 				references[target] = key
@@ -476,7 +512,16 @@ function document.validate(value: Document, library: Library): Document
 			assert(kind.slot ~= nil, `{node.kind} names no content property`)
 		elseif kind.children == "template" then
 			local bind = node.bind
-			assert(#node.children <= 1 or (bind ~= nil and bind.row ~= nil), `{node.kind} holds one row template`)
+			local rows = 0
+			for _, child in node.children do
+				if not cells[child.id] then
+					rows += 1
+				end
+			end
+			assert(
+				rows <= 1 or kind.template == nil or (bind ~= nil and bind.row ~= nil),
+				`{node.kind} holds one row template`
+			)
 			if bind then
 				local list = assert(listOf(value, bind.from, collection), `{node.kind} binds unknown input {bind.from}`)
 				assert(list.type == "list", `{node.kind} binds {bind.from}, which is not a list`)
@@ -505,7 +550,13 @@ function document.validate(value: Document, library: Library): Document
 				assert(#bind.key > 0, `{node.kind} needs an item key`)
 				local row = bind.row
 				if row == nil then
-					assert(#node.children == 1, `{node.kind} repeats exactly one row template`)
+					local rows = 0
+					for _, child in node.children do
+						if not cells[child.id] then
+							rows += 1
+						end
+					end
+					assert(rows == 1, `{node.kind} repeats exactly one row template`)
 				else
 					local found = false
 					for _, child in node.children do
@@ -514,10 +565,27 @@ function document.validate(value: Document, library: Library): Document
 					assert(found, `{node.kind} repeats unknown row {row}`)
 				end
 				rowCollection = list
-				rowId = row or (if node.children[1] then node.children[1].id else nil)
+				local first: string? = nil
+				for _, child in node.children do
+					if first == nil and not cells[child.id] then
+						first = child.id
+					end
+				end
+				rowId = row or first
 			end
 		end
+		for id in cells do
+			local found = false
+			for _, child in node.children do
+				found = found or child.id == id
+			end
+			assert(found, `{node.name} renders unknown cell {id}`)
+		end
 		for _, child in node.children do
+			if cells[child.id] then
+				visit(child, depth + 1, own)
+				continue
+			end
 			local isRow = rowCollection ~= nil and child.id == rowId
 			assert(
 				child.when == nil or (kind.children == "list" and not isRow),
@@ -614,6 +682,7 @@ function document.insert(
 	assert(
 		container.children == "list"
 			or ((container.children == "template" or container.children == "slot") and #parent.children == 0)
+			or (container.children == "template" and container.template == nil)
 			or (container.children == "template" and parent.bind ~= nil and parent.bind.row ~= nil),
 		`{parent.kind} cannot take this node`
 	)
