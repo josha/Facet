@@ -93,7 +93,7 @@ Prefixing requires a source and does not change selection visibility.
 | `harness:run(options)` | Execute the selected cases and return a report. |
 
 Run options name the `executor`. They can also supply `environment`, `capabilities`, `selection`, `invoke`, `bind` and `cancelled`.
-Selection supports IDs, suite prefixes, sources, a case-name substring (`nameContains`, plain text), tags, capabilities and a predicate.
+Selection supports IDs, suite prefixes, sources, a case-name substring (`nameContains`, plain text), tags, capabilities and a predicate. `shard = { index, count }` runs every `count`th case that the rest of the selection matches, starting at `index`, so the shards of one run cover each matching case exactly once. An index outside `1..count` or a fractional value is an error.
 Every field that you set must match.
 A focused result records that execution. It does not establish a complete gate.
 
@@ -1665,6 +1665,12 @@ Check Git-selected repository files against configured leakage rules.
 ### `Checks.noAny`
 
 Require strict maintained Luau and reject explicit dynamic type escapes.
+
+### `Checks.specStyle`
+
+Reject colon case registration, context expectations and dotted `Test.it`, `Test.expect` or `Test.describe` calls in
+`*.verify.luau` files, so specs declare `describe`, `it` and `expect` once. Takes the same selection as `Checks.noAny`;
+`exclude` names files whose subject is the raw harness API.
 
 ### `Checks.testManifest`
 
