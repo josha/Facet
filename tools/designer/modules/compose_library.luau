@@ -73,6 +73,12 @@ local FIELD_TYPES: { [string]: FieldType } = {
 	padding = "choice",
 }
 
+local TEMPLATE_KINDS: { [string]: true } = {
+	VirtualList = true,
+	VirtualGrid = true,
+	Outline = true,
+}
+
 local CONTENT_KINDS: { [string]: true } = {
 	ErrorBoundary = true,
 	TabView = true,
@@ -162,8 +168,11 @@ local function create(ctx: Context): Library
 		kinds[name] = {
 			fields = fieldsOf(definition),
 			defaults = defaultsOf(definition),
-			children = if content then "slot" elseif isContainer then "list" else "none",
+			children = if TEMPLATE_KINDS[name] then "template" elseif content then "slot" elseif isContainer then "list" else "none",
 			slot = content,
+			source = if TEMPLATE_KINDS[name] then "from" else nil,
+			template = if TEMPLATE_KINDS[name] then "render" else nil,
+			key = if TEMPLATE_KINDS[name] then "key" else nil,
 			call = "UI." .. name,
 			build = function(props: { [string]: Resolved }, children: { unknown }): unknown
 				counter += 1
@@ -212,6 +221,20 @@ local function create(ctx: Context): Library
 				local resolved = adapter.evaluate(adapter.properties(node), evaluation, {}) :: { [unknown]: unknown }
 				for key, value in live do
 					resolved[key] = value
+				end
+				local rows = props.from
+				if TEMPLATE_KINDS[name] and rows and rows.rows ~= nil then
+					resolved.from = rows.rows
+					if rows.key ~= nil then
+						resolved.key = rows.key
+					end
+				end
+				local row = props.render
+				if TEMPLATE_KINDS[name] and row and row.template ~= nil then
+					local template = row.template
+					resolved.render = function(current: unknown)
+						return template(current)
+					end
 				end
 				local slot = if content then props[content] else nil
 				if slot and slot.slot then

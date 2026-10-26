@@ -58,6 +58,15 @@ return function(verifyHarness: Verify.Harness)
 		local children: { Design.Node } = {}
 		for _, name in names do
 			local definition = designerLibrary.definitions[name]
+			if library.kinds[name].children == "template" then
+				local list = seeded({ kind = name })
+				list.bind = { from = "rows", key = "id" }
+				local row = seeded({ kind = "Text" })
+				row.props.text = { item = "label" }
+				table.insert(list.children, row)
+				table.insert(children, list)
+				continue
+			end
 			local seeds = definition.seeds
 				or if library.kinds[name].children ~= "none"
 					then { { kind = "Text", props = { text = "Make this content yours" } } }
@@ -69,7 +78,18 @@ return function(verifyHarness: Verify.Harness)
 			name = "Every control",
 			library = library.name,
 			nextId = nextId,
-			contract = { inputs = {}, outputs = {} },
+			contract = {
+				inputs = {
+					{
+						id = "rows",
+						kind = "value",
+						type = "list",
+						preview = { { id = "a", label = "First" }, { id = "b", label = "Second" } },
+						fields = { { id = "id", type = "string" }, { id = "label", type = "string" } },
+					},
+				},
+				outputs = {},
+			},
 			root = { id = "n1", kind = "ScrollView", name = "Root", props = {}, children = children },
 		}
 	end
@@ -92,6 +112,30 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(kind ~= nil):toBe(true)
 					Verify.expect(kind.call):toBe("UI." .. name)
 				end
+			end,
+		})
+
+		verifyHarness:case("inserts every Facet control with its defaults into a valid design", {
+			id = "facet_compose_library::inserts every Facet control with its defaults into a valid design",
+			run = function()
+				local library = composeLibrary.create({
+					Facet = Facet,
+					Compose = Facet.Compose,
+					runtime = nil,
+					Host = nil,
+					UI = {},
+				})
+				local failures: { string } = {}
+				for _, name in designerLibrary.names() do
+					local ok, problem = pcall(function()
+						local value = Design.document.new("Probe", library, "VStack")
+						Design.document.insert(value, library, "n1", name)
+					end)
+					if not ok then
+						table.insert(failures, `{name}: {problem}`)
+					end
+				end
+				Verify.expect(table.concat(failures, "\n")):toBe("")
 			end,
 		})
 
