@@ -229,6 +229,7 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 			end
 		)
 	end
+	local invalidateStyle: () -> () = function() end
 	local properties: Style.Properties = {}
 	local transitions: Style.Properties = {}
 	local defaults: { [Instance]: unknown } = {}
@@ -248,6 +249,7 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 		end)
 		env.fake(prefix .. "." .. setter, function(object: Instance, values: { [string]: unknown })
 			store[object] = table.clone(values)
+			invalidateStyle()
 		end)
 	end
 	mapMethods("StyleRule", properties, "GetProperties", "SetProperties")
@@ -264,6 +266,7 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 		local values = store[object] or {}
 		store[object] = values
 		values[name] = value
+		invalidateStyle()
 	end
 	env.fake("StyleRule.SetProperty", function(object: Instance, name: string, value: unknown)
 		setValue(properties, object, name, value)
@@ -342,6 +345,7 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 		end
 	end)
 	local style = Style.create(env, properties, transitions, defaults, derives)
+	invalidateStyle = style.invalidate
 	env.fake("Instance.GetStyled", function(object: Instance, property: string, selector: unknown): unknown
 		if selector == nil then
 			return style.styled(object, property)

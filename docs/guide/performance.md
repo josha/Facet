@@ -43,7 +43,8 @@ within the 5% tolerance does not confirm a regression. This rule rejects a
 stable slowdown above 5%; a variable slowdown can remain unflagged. Inspect
 the full measurements when investigating such a change.
 
-CI compares complete scenes and microbenchmarks on Linux, macOS and Windows.
+CI compares complete scenes and microbenchmarks on Linux. A release also runs
+the full suite on macOS and Windows before it publishes.
 The required Verify check rolls them up. A statistical slowdown gets a complete
 six-round recheck; an execution failure cannot become a narrowed passing run.
 CPU calibration compares median yardstick rate before and after the run with
@@ -57,7 +58,7 @@ required scenes. A selected local run is not complete CI evidence.
 
 Run the CI workflow manually with `diagnostic` set to `true`. Set `base` and
 `candidate` to the same full commit SHA. This runs three independent A/A samples
-on each platform, even when the source trees match. Each sample uses the normal
+on Linux, even when the source trees match. Each sample uses the normal
 complete performance gate, including its three-round checkpoint and six-round
 continuation. The diagnostic does not retry failed samples or replace the
 required Verify check.
