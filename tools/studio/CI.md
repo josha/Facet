@@ -44,12 +44,13 @@ producers remain outside the full tier. Missing input capabilities remain in the
 Verify report and fail complete mode. Native CI cannot pass while absolute timing
 producers are deferred.
 
-The **CI** workflow runs the full tier in four Linux shards and a Linux paired
-performance check on free GitHub-hosted runners for each pull request and push
+The **CI** workflow runs the full tier in four Linux shards and the Linux paired
+performance check in three parts on free GitHub-hosted runners for each pull request and push
 to main. The final **Verify** job requires every shard and the performance check
 to succeed. The **release** workflow runs the full tier on macOS and Windows
-before it publishes. The performance job compares the base and candidate on the
-same runner. A failed,
+before it publishes. Each performance part takes every third paired scene with
+`perf paired run --part K/3`, compares the base and candidate on one runner and
+gates its own scenes. Part 1 also runs the microbenchmarks. A failed,
 cancelled or skipped required job
 fails Verify. The manual CI dispatch uses its base and candidate revisions for
 the performance comparison and checks the candidate.

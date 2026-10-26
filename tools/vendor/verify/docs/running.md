@@ -217,7 +217,7 @@ end
 | `--rerun` | Repeat what the last run did not pass. |
 | `--explain id` | Explain the last run for a producer or case. |
 | `--list` | List the producers. |
-| `--shard index/count` | Run one of `count` shards. Each producer and each spec file of a `tests` producer goes to exactly one shard. The selected tiers limit the work. A shard with no work exits with 0. |
+| `--shard index/count` | Run one of `count` shards. Each producer and each spec file of a `tests` producer goes to exactly one shard. A producer stays in the same shard as the producers it runs after. The selected tiers limit the work. A shard with no work exits with 0. |
 | `--weights path` | Balance the shards by the measured seconds in this file. Unmeasured work gets the median weight. |
 | `--record-weights path` | After the run, write the measured seconds of the passed producers and of each spec file to this file. Earlier entries that the run did not measure stay. |
 

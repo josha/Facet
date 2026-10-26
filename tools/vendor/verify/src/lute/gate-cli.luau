@@ -157,7 +157,7 @@ local function narrow(draft: Gate.Draft, files: { string }, only: { string }): (
 	return narrowed, nil
 end
 
-type Item = { file: string?, producer: string?, weight: number }
+type Item = { files: { string }, producers: { string }, weight: number }
 
 local function median(values: { [string]: number }, fallback: number): number
 	local sorted: { number } = {}
@@ -175,26 +175,62 @@ local function shard(draft: Gate.Draft, slot: Shard, weights: Weights, tiers: { 
 	local items: { Item } = {}
 	local producerDefault = median(weights.producers, 1)
 	local fileDefault = median(weights.files, 1)
+	local group: { [string]: string } = {}
+	local function root(id: string): string
+		local parent = group[id] or id
+		if parent == id then
+			return id
+		end
+		local top = root(parent)
+		group[id] = top
+		return top
+	end
+	local selected: { Gate.ProducerDraft } = {}
 	for _, producer in draft.producers do
 		local inTier = #tiers == 0 or producer.tier == nil or table.find(tiers, producer.tier) ~= nil
 		if inTier then
-			if producer.kind == "tests" and producer.locators ~= nil then
-				for _, locator in producer.locators do
-					table.insert(items, { file = locator, weight = weights.files[locator] or fileDefault })
+			table.insert(selected, producer)
+			if producer.kind ~= "tests" or producer.locators == nil then
+				group[producer.id] = group[producer.id] or producer.id
+			end
+		end
+	end
+	for _, producer in selected do
+		local dependencies: { string } = producer.after or {}
+		if group[producer.id] ~= nil then
+			for _, dependency in dependencies do
+				if group[dependency] ~= nil then
+					group[root(producer.id)] = root(dependency)
 				end
-			else
+			end
+		end
+	end
+	local byRoot: { [string]: Item } = {}
+	for _, producer in selected do
+		if producer.kind == "tests" and producer.locators ~= nil then
+			for _, locator in producer.locators do
 				table.insert(
 					items,
-					{ producer = producer.id, weight = weights.producers[producer.id] or producerDefault }
+					{ files = { locator }, producers = {}, weight = weights.files[locator] or fileDefault }
 				)
 			end
+		else
+			local top = root(producer.id)
+			local item = byRoot[top]
+			if item == nil then
+				item = { files = {}, producers = {}, weight = 0 }
+				byRoot[top] = item
+				table.insert(items, item)
+			end
+			table.insert(item.producers, producer.id)
+			item.weight += weights.producers[producer.id] or producerDefault
 		end
 	end
 	table.sort(items, function(left: Item, right: Item): boolean
 		if left.weight ~= right.weight then
 			return left.weight > right.weight
 		end
-		return (left.file or left.producer or "") < (right.file or right.producer or "")
+		return (left.files[1] or left.producers[1] or "") < (right.files[1] or right.producers[1] or "")
 	end)
 	local loads: { number } = table.create(slot.count, 0)
 	local share: Share = { files = {}, only = {}, load = 0 }
@@ -208,10 +244,11 @@ local function shard(draft: Gate.Draft, slot: Shard, weights: Weights, tiers: { 
 		loads[lightest] += item.weight
 		if lightest == slot.index then
 			share.load += item.weight
-			if item.file ~= nil then
-				table.insert(share.files, item.file)
-			elseif item.producer ~= nil then
-				table.insert(share.only, item.producer)
+			for _, file in item.files do
+				table.insert(share.files, file)
+			end
+			for _, id in item.producers do
+				table.insert(share.only, id)
 			end
 		end
 	end

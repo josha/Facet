@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "30ec2009bbc9e3d5daec3b5c770e32922089f6cf",
+  "commit": "e828fab9fe6c996ab1be13e03aa68b18e5228c2f",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "e5246af86c3ffe5b8ab119f4d757e2a521df58c9e53df40c901ea43de1d59613",
@@ -11,7 +11,7 @@
     "docs/experience.md": "64a7461aa67d79a7d07cb0b71d6faed8cc089f3272fb4eabb0818afa526911d6",
     "docs/laws.md": "f06803ded6d724de53073e1de08575e650f5c270fd83eec85bb6b92a2e415cba",
     "docs/lint.md": "c5cd8188df7ccb8f91f57ac15fa398769f33d112781c38017af41edfbb5a3a02",
-    "docs/running.md": "8896a4b0709f4a72d90173ae58cbace7aee09b9bfd2f5bb72cef70ab49917843",
+    "docs/running.md": "1e26f8f446035f12b831811ee0db19f6bad876316e844c3074c734009f0e48c5",
     "docs/scoped-studio-mcp.md": "e3409e22c1bcfa454f684ba2062065e9108672a4246228f4df386e724bb329d5",
     "license.luau": "6895ff52a3e5583fabbf3f961d94eece335df5f24d2753189473daf8873e8f36",
     "src/agent-eval/adapters.luau": "0ebf7fbc3221edc1da031014072668c1353f86b62745a19a4cb23acd942e2f69",
@@ -96,7 +96,7 @@
     "src/lute/fixtures/text/Nunito-Regular-Normal.json": "8c228356538901f03803467ff04897bb323a0db307f99b3a534c85371826b117",
     "src/lute/fixtures/text/Nunito-SemiBold-Normal.json": "6737e9802b3088b92258dc99cf7647dfdaf80f37d9f9ff25cb87e30fdf834280",
     "src/lute/fixtures/text/SourceSansPro-Regular-Normal.json": "0f34ee42f8f3821be6a567f6fef376a6e600c3b439ef6a6b7a3287d9ff29519d",
-    "src/lute/gate-cli.luau": "a0d2aba240fc63deb4a120bbc028d743ab815758f702681a7be2f71970788d3c",
+    "src/lute/gate-cli.luau": "a3551cee50def83d8d9a024dd00691a748f3cbce94857c16158cdf8e04efb6de",
     "src/lute/gate.luau": "b7b45faa50d1a2effe346c7cd1695e79b1172e3039ecf64bd63c48497ac49ce5",
     "src/lute/hash.luau": "3a2cced5ea4e0cec7c309d486992447b777752d19850ceaf4124d5adeeba2ee1",
     "src/lute/host.luau": "228fd94ffa3021895ab29da242f58d5c7bab4b7d6b26b7ec4d170f23dcad573f",
