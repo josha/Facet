@@ -2,8 +2,8 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type TextProps = typeof(require("@repo/tools/typecheck/aliases").TextProps)
 type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
@@ -32,7 +32,9 @@ type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
 type UnknownCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 type Settings = typeof(require("@repo/examples/facet-lab/src/lab_settings").new(nil :: never, nil :: never))
 type Props = { width: unknown?, label: unknown?, Size: unknown?, AutomaticSize: unknown?, [unknown]: unknown }
 type Source = Props | (catalog.Context) -> Props
@@ -51,7 +53,7 @@ type PageState = {
 	values: { [string]: UnknownCell },
 	version: NumberCell,
 	revision: NumberCell,
-	log: Cell<{ string }>,
+	log: Value<{ string }>,
 }
 type MatrixEntry = { label: string, axis: { [string]: unknown }?, state: catalog.State?, context: Source? }
 type OutlineEntry = {
@@ -71,7 +73,7 @@ export type Context = {
 	runtime: typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime),
 	types: typeof(require("@repo/tools/typecheck/aliases").RobloxTypes),
 	packages: { [string]: ThemePackage },
-	theme: Cell<ThemePackage>,
+	theme: Value<ThemePackage>,
 	themeName: StringCell,
 	themeMode: StringCell,
 	sceneVisible: BooleanCell,
@@ -157,17 +159,17 @@ function browser.mount(opts: MountOpts)
 		children.padding = { top = "m", left = "m", right = "m", bottom = "xl" }
 		return UI.ScrollView(children)
 	end
-	local function when(condition: Readable<boolean> | (Use) -> boolean, view: () -> Child): Child
+	local function when(condition: ReadOnlyValue<boolean> | (Use) -> boolean, view: () -> Child): Child
 		return Compose.show(condition, view)
 	end
 
 	local function dropdown<V>(
 		id: string,
 		label: string,
-		selected: Cell<V>,
+		selected: Value<V>,
 		values: { V | { value: V, label: string } },
 		onChange: ((V) -> ())?,
-		enabledFor: ((V) -> Readable<boolean>)?
+		enabledFor: ((V) -> ReadOnlyValue<boolean>)?
 	): GuiObject
 		local options: { typeof(require("@repo/tools/typecheck/aliases").PickerOption) } = {}
 		for _, v in values do
@@ -246,11 +248,11 @@ function browser.mount(opts: MountOpts)
 				logical = logical,
 			} :: unknown
 		) :: catalog.Context
-		function c.cell<T>(name: string, initial: T): Cell<T>
+		function c.cell<T>(name: string, initial: T): Value<T>
 			if not persistent then
 				return Compose.cell(initial)
 			end
-			local value: Cell<T>? = (ps.values[name] :: unknown) :: Cell<T>?
+			local value: Value<T>? = (ps.values[name] :: unknown) :: Value<T>?
 			if value == nil then
 				value = Compose.cell(initial)
 				ps.values[name] = (value :: unknown) :: UnknownCell
@@ -258,7 +260,7 @@ function browser.mount(opts: MountOpts)
 					ps.version:set(ps.version:peek() + 1)
 				end)
 			end
-			return (value :: unknown) :: Cell<T>
+			return (value :: unknown) :: Value<T>
 		end
 		function c.log(name: string): (...unknown) -> ()
 			return function(...)
@@ -372,7 +374,7 @@ function browser.mount(opts: MountOpts)
 		overrides: Props,
 		where: string,
 		tall: boolean?,
-		available: Readable<number>?
+		available: ReadOnlyValue<number>?
 	)
 		local data = page.data
 		return UI.ErrorBoundary "Live" {
@@ -1104,7 +1106,7 @@ function browser.mount(opts: MountOpts)
 			Compose.keyed({
 				from = current,
 				key = pageKey,
-				render = function(item: Readable<{ id: string, revision: number }>): GuiObject
+				render = function(item: ReadOnlyValue<{ id: string, revision: number }>): GuiObject
 					local id = item:peek().id
 					if id == "@style" then
 						return StylePage()

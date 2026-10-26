@@ -33,8 +33,17 @@ local LazyFamilyKind = Names.behavior "Enum"
 local EnumsKind = Names.behavior "Enums"
 local LazyEnumsKind = Names.behavior "Enums"
 
+local familyNames: { [unknown]: string } = {}
+local familyItems: { [unknown]: { EnumItem } } = {}
+local enumFamilies: { [unknown]: { EnumFamily } } = {}
+local itemValues: { [unknown]: EnumItem } = {}
+Names.weak(familyNames)
+Names.weak(familyItems)
+Names.weak(enumFamilies)
+Names.weak(itemValues)
+
 local function familyName(family: unknown): string
-	return Names.fields(family)[NAME] :: string
+	return familyNames[family]
 end
 
 local function itemFamily(item: unknown): string
@@ -46,7 +55,7 @@ local function label(item: Fields): string
 end
 
 local function items(family: unknown): { EnumItem }
-	return Names.fields(family)[ITEMS] :: { EnumItem }
+	return familyItems[family]
 end
 
 local function isA(self: EnumItem, family: string): boolean
@@ -72,7 +81,7 @@ ItemKind.meta.__tostring = function(item: EnumItem): string
 	return ("Enum.%s.%s"):format(itemFamily(item), item.Name)
 end
 
-local familyMethods: { [string]: unknown } = {
+local familyMethods: { [unknown]: unknown } = {
 	GetEnumItems = function(self: EnumFamily): { EnumItem }
 		return table.clone(items(self))
 	end,
@@ -95,11 +104,11 @@ local familyMethods: { [string]: unknown } = {
 }
 
 local function familyLabel(family: Fields): string
-	return ('"Enum.%s"'):format(family[NAME] :: string)
+	return ('"Enum.%s"'):format(familyNames[family])
 end
 
 FamilyKind.fields.__index = function(family: Fields, key: unknown): unknown
-	local method = familyMethods[key :: string]
+	local method = familyMethods[key]
 	if method ~= nil then
 		return method
 	end
@@ -111,7 +120,7 @@ end
 FamilyKind.meta.__tostring = familyName
 
 local function getEnums(self: Enums): { EnumFamily }
-	return table.clone(Names.fields(self)[ITEMS] :: { EnumFamily })
+	return table.clone(enumFamilies[self])
 end
 
 EnumsKind.fields.__index = function(_: Fields, key: unknown): unknown
@@ -125,12 +134,14 @@ EnumsKind.meta.__tostring = function(): string
 end
 
 local function item(family: unknown, name: string, value: number?): EnumItem
-	return Names.make(ItemKind, { Name = name, Value = value, EnumType = family })
+	local made: EnumItem = Names.make(ItemKind, { Name = name, Value = value, EnumType = family })
+	itemValues[made] = made
+	return made
 end
 
 local function catalog(source: Catalog): Enums
 	local root: Fields = {}
-	local families: { unknown } = {}
+	local families: { EnumFamily } = {}
 	local names: { string } = {}
 	for name in source do
 		table.insert(names, name)
@@ -138,7 +149,8 @@ local function catalog(source: Catalog): Enums
 	table.sort(names)
 	for _, name in names do
 		local fields: Fields = { [NAME] = name }
-		local family = Names.make(FamilyKind, fields)
+		local family: EnumFamily = Names.make(FamilyKind, fields)
+		familyNames[family], familyNames[fields] = name, name
 		local list: { EnumItem } = {}
 		for _, entry in source[name] do
 			local created = item(family, entry.name, entry.value)
@@ -146,11 +158,14 @@ local function catalog(source: Catalog): Enums
 			fields[entry.name] = created
 		end
 		fields[ITEMS] = table.freeze(list)
+		familyItems[family] = list
 		root[name] = family
 		table.insert(families, family)
 	end
 	root[ITEMS] = table.freeze(families)
-	return Names.make(EnumsKind, root)
+	local made: Enums = Names.make(EnumsKind, root)
+	enumFamilies[made] = families
+	return made
 end
 
 LazyFamilyKind.fields.__index = function(fields: Fields, key: unknown): unknown
@@ -168,7 +183,8 @@ LazyEnumsKind.fields.__index = function(root: Fields, key: unknown): unknown
 		return nil
 	end
 	local fields: Fields = { [NAME] = key }
-	local family = Names.make(LazyFamilyKind, fields)
+	local family: EnumFamily = Names.make(LazyFamilyKind, fields)
+	familyNames[family], familyNames[fields] = key, key
 	fields[SELF] = family
 	rawset(root, key, family)
 	return family
@@ -189,4 +205,12 @@ local function isItem(value: unknown): boolean
 	return Names.is(value, ItemKind)
 end
 
-return { catalog = catalog, lazy = lazy, enumType = enumType, isItem = isItem }
+return {
+	catalog = catalog,
+	lazy = lazy,
+	enumType = enumType,
+	isItem = isItem,
+	itemValue = function(value: unknown): EnumItem
+		return itemValues[value]
+	end,
+}

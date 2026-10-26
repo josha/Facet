@@ -151,7 +151,7 @@ return function(
 		locate()
 		local input = surfaces.service("UserInputService")
 		local primaryInput = if input
-			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
+			then ctx.observe.PreferredInput(input) :: ComposeTypes.ReadOnlyValue<Enum.PreferredInput?>
 			else Compose.cell(nil :: Enum.PreferredInput?)
 		local tenFoot = ctx.tenFoot()
 		local displaySize = if ctx.config.guiService
@@ -254,7 +254,7 @@ return function(
 		local bookmarkPaths: { [string]: { string } } = {}
 		local tabButtons: { [string]: TextButton } = {}
 		local tabLinks = Compose.cell(0)
-		local tabMeasures: { [string]: { position: ComposeTypes.Readable<Vector2>, size: ComposeTypes.Readable<Vector2> } } =
+		local tabMeasures: { [string]: { position: ComposeTypes.ReadOnlyValue<Vector2>, size: ComposeTypes.ReadOnlyValue<Vector2> } } =
 			{}
 		local gui = surfaces.service("GuiService")
 		local selectedObject = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil :: GuiObject?)
@@ -551,8 +551,8 @@ return function(
 					else V2.new(math.max(0, bar.CanvasPosition.X + delta), bar.CanvasPosition.Y)
 			end
 		end)
-		local prepared: { [string]: ComposeTypes.Cell<boolean> } = {}
-		local groupReady: ComposeTypes.Readable<boolean>? = nil
+		local prepared: { [string]: ComposeTypes.Value<boolean> } = {}
+		local groupReady: ComposeTypes.ReadOnlyValue<boolean>? = nil
 		if spec.transition and (spec.transition.apply or spec.transition.progress) then
 			for id in byId do
 				prepared[id] = Compose.cell(false)
@@ -588,8 +588,8 @@ return function(
 				from = visited,
 				retention = "all",
 				render = function(
-					current: ComposeTypes.Readable<string>,
-					state: ComposeTypes.Readable<ComposeTypes.LayerStackState>,
+					current: ComposeTypes.ReadOnlyValue<string>,
+					state: ComposeTypes.ReadOnlyValue<ComposeTypes.LayerStackState>,
 					id: string
 				): Instance
 					local step = if spec.placement == "none" then 0 else 1

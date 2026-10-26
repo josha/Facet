@@ -161,7 +161,7 @@ local function collect(options: Options?): Audit.Dump
 	local given: Options = options or {}
 	local game = given.game
 	if game == nil then
-		game = (getfenv(0) :: { [string]: unknown }).game
+		game = getfenv(0).game
 	end
 	local guiService = service(game, "GuiService")
 	local players = service(game, "Players")
@@ -182,7 +182,7 @@ local function collect(options: Options?): Audit.Dump
 
 	local roots: { unknown } = {}
 	if given.roots ~= nil then
-		roots = table.clone(given.roots :: { unknown })
+		roots = table.clone(given.roots)
 	else
 		local sources: { unknown } = {}
 		for _, child in children(playerGui) do
@@ -309,19 +309,20 @@ local function collect(options: Options?): Audit.Dump
 					if selection == nil then
 						selection = defaultSelection
 					end
-					local state = "default"
+					local state: "default" | "visible" | "hidden" = "default"
 					if selection ~= nil then
 						state = if rendersSomething(selection, 0) then "visible" else "hidden"
 					end
 					local hover = textOf(read(child, "HoverImage"))
 					local pressed = textOf(read(child, "PressedImage"))
 					local auto = styled(child, "AutoButtonColor")
+					local stateStyled = given.stateStyled
 					element.focus = {
-						selectionImage = state :: "default" | "visible" | "hidden",
+						selectionImage = state,
 						autoButtonColor = if type(auto) == "boolean" then auto else nil,
 						hoverImage = hover ~= nil and hover ~= "",
 						pressedImage = pressed ~= nil and pressed ~= "",
-						stateStyled = given.stateStyled ~= nil and given.stateStyled(child) == true,
+						stateStyled = stateStyled ~= nil and stateStyled(child) == true,
 					}
 				end
 				table.insert(elements, element)

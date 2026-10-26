@@ -5,8 +5,8 @@ type Built = typeof(require("@repo/examples/types").Built)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 
 local ALIGN_BOX_ROWS = 10
 

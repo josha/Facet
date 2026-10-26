@@ -8,8 +8,8 @@ return function(verifyHarness: Verify.Harness)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
 	type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
@@ -56,7 +56,7 @@ return function(verifyHarness: Verify.Harness)
 				end,
 				itemSize = 56,
 				status = status,
-				render = function(current: Readable<Item>): GuiObject
+				render = function(current: ReadOnlyValue<Item>): GuiObject
 					local item = current:peek()
 					return Host.Frame({
 						Size = D2.new(1, 0, 0, 56),

@@ -3,8 +3,8 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 
 local session = {}
 
@@ -24,7 +24,7 @@ function session.mount(Facet: any, parent: Instance, preview: any, options: any)
 			return
 		end
 		disposed = true
-		owner.dispose()
+		Compose.owner.dispose(owner)
 		runtime:dispose()
 	end
 	if options.register then

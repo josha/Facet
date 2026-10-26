@@ -19,7 +19,10 @@ export type OverlapParamsValue = Filter & { MaxParts: number, Tolerance: number 
 export type RaycastParamsConstructor = { new: () -> RaycastParamsValue }
 export type OverlapParamsConstructor = { new: () -> OverlapParamsValue }
 
-local LISTS = { FilterDescendantsInstances = true, IncludeInstances = true, ExcludeInstances = true }
+type State = { values: Names.Fields, lists: { [unknown]: { unknown } } }
+
+local LISTS: { [unknown]: boolean } =
+	{ FilterDescendantsInstances = true, IncludeInstances = true, ExcludeInstances = true }
 
 local function append(target: { unknown }, value: unknown, visiting: { [unknown]: boolean })
 	if Names.kind(value) == "Instance" then
@@ -36,23 +39,26 @@ local function append(target: { unknown }, value: unknown, visiting: { [unknown]
 	end
 end
 
-local function constructor(name: string, enums: Enum.Enums): () -> Filter
+local function constructor<T>(name: string, enums: Enum.Enums, make: (Names.Behavior, Names.Fields) -> T): () -> T
 	local kind = Names.behavior(name)
 	local storage = {}
-	local function state(value: unknown): Names.Fields
-		return Names.fields(value)[storage] :: Names.Fields
+	local states: { [unknown]: State } = {}
+	Names.weak(states)
+	local function state(value: unknown): State
+		return states[value]
 	end
 	local function add(self: Filter, instances: unknown)
-		append(state(self).FilterDescendantsInstances :: { unknown }, instances, {})
+		append(state(self).lists.FilterDescendantsInstances, instances, {})
 	end
 	kind.fields.__index = function(fields: Names.Fields, key: unknown): unknown
 		if key == "AddToFilter" then
 			return add
 		end
-		local values = fields[storage] :: Names.Fields
-		local value = values[key]
-		if LISTS[key :: string] then
-			return if value == nil then nil else table.clone(value :: { unknown })
+		local stored = state(fields)
+		local value = stored.values[key]
+		if LISTS[key] then
+			local list = stored.lists[key]
+			return if list == nil then nil else table.clone(list)
 		end
 		if value ~= nil then
 			return value
@@ -60,15 +66,18 @@ local function constructor(name: string, enums: Enum.Enums): () -> Filter
 		return Names.missing(kind, key)
 	end
 	kind.meta.__newindex = function(self: unknown, key: unknown, value: unknown)
-		local values = state(self)
-		if LISTS[key :: string] then
+		local stored = state(self)
+		local values = stored.values
+		if LISTS[key] then
 			if value == nil and key ~= "FilterDescendantsInstances" then
 				values[key] = nil
+				stored.lists[key] = nil
 				return
 			end
 			assert(type(value) == "table", "instance filter must be an array")
 			local list: { unknown } = {}
 			values[key] = list
+			stored.lists[key] = list
 			append(list, value, {})
 		elseif key == "FilterType" then
 			assert(Enum.isItem(value) and Enum.enumType(value) == "RaycastFilterType", "RaycastFilterType expected")
@@ -92,9 +101,10 @@ local function constructor(name: string, enums: Enum.Enums): () -> Filter
 			Names.missing(kind, key)
 		end
 	end
-	return function(): Filter
+	return function(): T
+		local initialList: { unknown } = {}
 		local values: Names.Fields = {
-			FilterDescendantsInstances = {},
+			FilterDescendantsInstances = initialList,
 			FilterType = enums.RaycastFilterType.Exclude,
 			CollisionGroup = "Default",
 			RespectCanCollide = false,
@@ -105,15 +115,23 @@ local function constructor(name: string, enums: Enum.Enums): () -> Filter
 		else
 			values.MaxParts, values.Tolerance = 0, 0
 		end
-		return Names.make(kind, { [storage] = values })
+		local stored: State = { values = values, lists = { FilterDescendantsInstances = initialList } }
+		local fields: Names.Fields = { [storage] = stored }
+		local made = make(kind, fields)
+		states[made], states[fields] = stored, stored
+		return made
 	end
 end
 
 return {
 	raycast = function(enums: Enum.Enums): RaycastParamsConstructor
-		return { new = (constructor("RaycastParams", enums) :: unknown) :: () -> RaycastParamsValue }
+		local make: (Names.Behavior, Names.Fields) -> RaycastParamsValue = Names.make
+		local new = constructor("RaycastParams", enums, make)
+		return { new = new }
 	end,
 	overlap = function(enums: Enum.Enums): OverlapParamsConstructor
-		return { new = (constructor("OverlapParams", enums) :: unknown) :: () -> OverlapParamsValue }
+		local make: (Names.Behavior, Names.Fields) -> OverlapParamsValue = Names.make
+		local new = constructor("OverlapParams", enums, make)
+		return { new = new }
 	end,
 }

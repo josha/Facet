@@ -5,8 +5,8 @@ type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNat
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Draft = { name: string, base: string, essence: string, garnish: string }
 type TopRow = { id: string, name: string, bottles: number }
@@ -124,7 +124,7 @@ function Cartwheel.build(ctx: ExampleContext)
 		end
 		return result
 	end)
-	local function brewRow(current: Readable<orderService.Brew>): GuiObject
+	local function brewRow(current: ReadOnlyValue<orderService.Brew>): GuiObject
 		local brew = current:peek()
 		return view.column(tostring(brew.id), {
 			view.action("Open", function(use: Use)
@@ -221,7 +221,7 @@ function Cartwheel.build(ctx: ExampleContext)
 						table.insert(result, { id = row.potion.id, name = row.potion.name, bottles = row.bottles })
 					end
 					return result
-				end, function(current: Readable<TopRow>): GuiObject
+				end, function(current: ReadOnlyValue<TopRow>): GuiObject
 					return view.text(function(use: Use): string
 						local row = use(current)
 						return row.name .. " · " .. row.bottles .. " bottles"
@@ -285,7 +285,7 @@ function Cartwheel.build(ctx: ExampleContext)
 			end),
 			view.text("Potion gallery", 24),
 			view.column("Potions", {
-				view.list(data.potions, function(current: Readable<data.Potion>): GuiObject
+				view.list(data.potions, function(current: ReadOnlyValue<data.Potion>): GuiObject
 					local potion = current:peek()
 					return view.column(potion.id, {
 						Host.ImageLabel "Potion" {
@@ -330,7 +330,7 @@ function Cartwheel.build(ctx: ExampleContext)
 						key = function(id: string): string
 							return id
 						end,
-						render = function(current: Readable<string>): GuiObject
+						render = function(current: ReadOnlyValue<string>): GuiObject
 							local period = current:peek()
 							local rows: { Child } = {}
 							for _, plaza in data.plazas do
@@ -366,7 +366,7 @@ function Cartwheel.build(ctx: ExampleContext)
 						end
 					end
 					return result
-				end, function(current: Readable<data.Post>): GuiObject
+				end, function(current: ReadOnlyValue<data.Post>): GuiObject
 					local post = current:peek()
 					local tags: { string } = {}
 					for _, index in post.tags do
@@ -432,7 +432,7 @@ function Cartwheel.build(ctx: ExampleContext)
 								key = function(value: number): number
 									return value
 								end,
-								render = function(current: Readable<number>): Instance
+								render = function(current: ReadOnlyValue<number>): Instance
 									local index = current:peek()
 									return Host.Part({
 										Name = "Potion" .. index,
@@ -463,7 +463,7 @@ function Cartwheel.build(ctx: ExampleContext)
 					key = function(id: string): string
 						return id
 					end,
-					render = function(current: Readable<string>): GuiObject
+					render = function(current: ReadOnlyValue<string>): GuiObject
 						local id = current:peek()
 						local plaza = assert(data.plazaById(id))
 						local weather = ambient.forPlaza(id)

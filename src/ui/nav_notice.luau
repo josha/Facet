@@ -132,7 +132,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			elseif current == "none" then
 				return if read(present, use) then 1 else 0
 			end
-			return read(travel, use)
+			return ctx.readSource(travel, use)
 		end
 		local emphasis = appearance == "emphasis"
 		local status = "facet-status-" .. severity
@@ -312,7 +312,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local function finish()
 				leaving:set(false)
 				report()
-				if not noticeOwner.isDisposed() then
+				if not ComposeTypes.owner.isDisposed(noticeOwner) then
 					present:set(true)
 				end
 			end
@@ -452,17 +452,17 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local layerOwner: ComposeTypes.Owner? = nil
 			local current: Instance? = nil
 			local function locate()
-				if owner.isDisposed() then
+				if ComposeTypes.owner.isDisposed(owner) then
 					return
 				end
 				if layerOwner then
-					layerOwner.dispose()
+					ComposeTypes.owner.dispose(layerOwner)
 				end
 				if current then
 					reservations.clear(current, token)
 					current = nil
 				end
-				local child = owner.createChild()
+				local child = ComposeTypes.owner.createChild(owner)
 				layerOwner = child
 				Compose.withOwner(child, function()
 					local layer = root:FindFirstAncestorWhichIsA("LayerCollector")
@@ -521,7 +521,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 	UI.NavBar = ctx.construct("NavBar", function(spec: OverlayProps.NavBarSpec): Frame
 		local where = "UI.NavBar"
 		local onBack = spec.onBack
-		if onBack ~= nil and type(onBack) ~= "function" and not Compose.isReadable(onBack) then
+		if onBack ~= nil and type(onBack) ~= "function" and not Compose.isValue(onBack) then
 			error(`Facet {where}: onBack must be a function or a writable boolean cell`, 0)
 		end
 		if spec.trailing ~= nil and not parts.instance(spec.trailing) then
@@ -713,7 +713,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local trailingLayout = assert(trailingFrame:FindFirstChildWhichIsA("UIListLayout"))
 			local content = ctx.observe.AbsoluteContentSize(trailingLayout)
 			local scrollStyle = (ctx.observeStyled :: unknown) :: {
-				ScrollBarThickness: (ScrollingFrame) -> ComposeTypes.Cell<number>,
+				ScrollBarThickness: (ScrollingFrame) -> ComposeTypes.Value<number>,
 			}
 			local thickness = scrollStyle.ScrollBarThickness(trailingFrame)
 			local function offered(use: ComposeTypes.Use): number
@@ -738,7 +738,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end, trailingFrame)
 			local box = ctx.observe.AbsoluteSize(root)
 			local sides = ctx.observe.AbsoluteSize(trailingFrame)
-			local before: { { size: ComposeTypes.Readable<Vector2>, shown: ComposeTypes.Readable<boolean> } } = {}
+			local before: { { size: ComposeTypes.ReadOnlyValue<Vector2>, shown: ComposeTypes.ReadOnlyValue<boolean> } } =
+				{}
 			for _, child in primaryFrame:GetChildren() do
 				if child:IsA("GuiObject") and child ~= centerFrame then
 					table.insert(before, { size = ctx.observe.AbsoluteSize(child), shown = ctx.observe.Visible(child) })

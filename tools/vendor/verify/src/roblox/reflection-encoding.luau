@@ -2,8 +2,18 @@
 
 type Fields = { [string]: unknown }
 
+local function numeric(value: unknown): number
+	assert(type(value) == "number")
+	return value
+end
+
+local function text(value: unknown): string
+	assert(type(value) == "string")
+	return value
+end
+
 local function number(value: unknown): unknown
-	local magnitude = value :: number
+	local magnitude = value
 	if magnitude ~= magnitude then
 		return { ["$"] = "number", v = "nan" }
 	elseif magnitude == math.huge then
@@ -21,13 +31,13 @@ end
 local function numbers(value: unknown, keys: { string }): { number }
 	local out: { number } = {}
 	for index, key in keys do
-		out[index] = field(value, key) :: number
+		out[index] = numeric(field(value, key))
 	end
 	return out
 end
 
 local function enumName(value: unknown): string
-	return field(value, "Name") :: string
+	return text(field(value, "Name"))
 end
 
 local function sequence(value: unknown, read: (unknown) -> { number }): { number }
@@ -44,7 +54,7 @@ local function encode(value: unknown, kind: string): unknown
 	if kind == "number" then
 		return number(value)
 	elseif kind == "string" then
-		local text = value :: string
+		local text = text(value)
 		if utf8.len(text) == nil then
 			return {
 				["$"] = "bytes",
@@ -69,10 +79,10 @@ local function encode(value: unknown, kind: string): unknown
 		return {
 			["$"] = kind,
 			v = {
-				field(x, "Scale") :: number,
-				field(x, "Offset") :: number,
-				field(y, "Scale") :: number,
-				field(y, "Offset") :: number,
+				field(x, "Scale"),
+				field(x, "Offset"),
+				field(y, "Scale"),
+				field(y, "Offset"),
 			},
 		}
 	elseif kind == "CFrame" then
@@ -82,10 +92,10 @@ local function encode(value: unknown, kind: string): unknown
 		return {
 			["$"] = kind,
 			v = {
-				field(min, "X") :: number,
-				field(min, "Y") :: number,
-				field(max, "X") :: number,
-				field(max, "Y") :: number,
+				field(min, "X"),
+				field(min, "Y"),
+				field(max, "X"),
+				field(max, "Y"),
 			},
 		}
 	elseif kind == "NumberRange" then
@@ -103,10 +113,10 @@ local function encode(value: unknown, kind: string): unknown
 			v = sequence(value, function(keypoint: unknown): { number }
 				local color = field(keypoint, "Value")
 				return {
-					field(keypoint, "Time") :: number,
-					field(color, "R") :: number,
-					field(color, "G") :: number,
-					field(color, "B") :: number,
+					numeric(field(keypoint, "Time")),
+					numeric(field(color, "R")),
+					numeric(field(color, "G")),
+					numeric(field(color, "B")),
 				}
 			end),
 		}
@@ -150,11 +160,10 @@ local function quote(value: string): string
 end
 
 local function serialize(value: unknown): string
-	local kind = type(value)
-	if kind == "string" then
-		return quote(value :: string)
-	elseif kind == "number" then
-		local whole = value :: number
+	if type(value) == "string" then
+		return quote(value)
+	elseif type(value) == "number" then
+		local whole = value
 		if whole ~= whole then
 			return '"nan"'
 		elseif whole == math.huge then
@@ -165,20 +174,21 @@ local function serialize(value: unknown): string
 		return if whole % 1 == 0 and math.abs(whole) < 2 ^ 53
 			then string.format("%d", whole)
 			else string.format("%.17g", whole)
-	elseif kind == "boolean" then
+	elseif type(value) == "boolean" then
 		return tostring(value)
 	end
 	local entries = value :: { [unknown]: unknown }
 	if #entries > 0 or next(entries) == nil then
 		local items: { string } = {}
-		for index, item in entries :: { unknown } do
+		for index, item in entries do
+			assert(type(index) == "number")
 			items[index] = serialize(item)
 		end
 		return "[" .. table.concat(items, ",") .. "]"
 	end
 	local keys: { string } = {}
 	for key in entries do
-		table.insert(keys, key :: string)
+		table.insert(keys, text(key))
 	end
 	table.sort(keys)
 	local pieces: { string } = {}

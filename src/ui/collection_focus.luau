@@ -101,7 +101,7 @@ return function<V, K>(
 		priorKeys, knownKeys = knownKeys, keys
 	end)
 	local function peekRows(): { V }
-		return source(function<T>(value: ComposeTypes.Readable<T>): T
+		return source(function<T>(value: ComposeTypes.ReadOnlyValue<T>): T
 			return value:peek()
 		end)
 	end
@@ -246,7 +246,7 @@ return function<V, K>(
 		use(focusSize)
 		restoreFocus(focusScope.current:peek())
 	end)
-	local selected: ComposeTypes.Cell<GuiObject?> = if gui
+	local selected: ComposeTypes.Value<GuiObject?> = if gui
 		then observe.SelectedObject(gui)
 		else Compose.cell(nil :: GuiObject?)
 	Compose.watch(function(use: ComposeTypes.Use)

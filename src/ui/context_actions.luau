@@ -148,8 +148,8 @@ return function(ctx: Shared.Context, config: Shared.Config)
 	end
 	type ActionGroup = {
 		context: InputContext,
-		parent: ComposeTypes.Cell<Instance?>,
-		available: ComposeTypes.Cell<boolean>,
+		parent: ComposeTypes.Value<Instance?>,
+		available: ComposeTypes.Value<boolean>,
 	}
 	function ctx.reserveKeys(handler: Shared.ReservedKeyHandler): ()
 		local input = config.userInputService
@@ -183,7 +183,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		node: Instance,
 		name: string,
 		keyCodes: Shared.ActionBindings,
-		enabledSource: Shared.Value<boolean>?,
+		enabledSource: Shared.Input<boolean>?,
 		onPressed: () -> (),
 		actionSettings: ActionSettings?
 	)
@@ -203,8 +203,8 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			end
 			group = named[settings.group]
 		end
-		local parent: ComposeTypes.Cell<Instance?>
-		local available: ComposeTypes.Cell<boolean>
+		local parent: ComposeTypes.Value<Instance?>
+		local available: ComposeTypes.Value<boolean>
 		if group then
 			parent, available = group.parent, group.available
 		else
@@ -212,11 +212,11 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			available = Compose.cell(false)
 			local ancestryOwner: ComposeTypes.Owner?
 			local function locate()
-				if owner.isDisposed() then
+				if ComposeTypes.owner.isDisposed(owner) then
 					return
 				end
 				if ancestryOwner then
-					ancestryOwner.dispose()
+					ComposeTypes.owner.dispose(ancestryOwner)
 					ancestryOwner = nil
 				end
 				local inputParent: Instance? = config.inputParent
@@ -231,10 +231,10 @@ return function(ctx: Shared.Context, config: Shared.Config)
 						return
 					end
 				end
-				local childOwner = owner.createChild()
+				local childOwner = ComposeTypes.owner.createChild(owner)
 				ancestryOwner = childOwner
 				Compose.withOwner(childOwner, function()
-					local sources: { ComposeTypes.Readable<boolean> } = {}
+					local sources: { ComposeTypes.ReadOnlyValue<boolean> } = {}
 					local at: Instance? = node
 					local collector: Instance? = nil
 					while at do
@@ -452,7 +452,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			if next(steering) == nil then
 				return action, context
 			end
-			local heldDirections: ComposeTypes.Cell<{ [string]: boolean }> = Compose.cell({})
+			local heldDirections: ComposeTypes.Value<{ [string]: boolean }> = Compose.cell({})
 			for _, direction in steering do
 				if not table.find(directions, direction) then
 					table.insert(directions, direction)

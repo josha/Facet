@@ -17,7 +17,7 @@ return function(
 	UI.SplitButton = ctx.construct("SplitButton", function<V>(spec: NavigationProps.SplitButtonSpec<V>): Frame
 		local input = surfaces.service("UserInputService")
 		local preferred = if input
-			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
+			then ctx.observe.PreferredInput(input) :: ComposeTypes.ReadOnlyValue<Enum.PreferredInput?>
 			else Compose.cell(nil :: Enum.PreferredInput?)
 		local touch = Compose.formula(function(use: ComposeTypes.Use)
 			return use(preferred) == E.PreferredInput.Touch

@@ -15,9 +15,11 @@ type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Focus = typeof(require("@repo/tools/typecheck/aliases").FocusControls)
 type NavigationEntry = typeof(require("@repo/tools/typecheck/aliases").NavigationEntry)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type File = {
 	id: string,
 	name: string,
@@ -58,15 +60,15 @@ return {
 		local noFiles: { File } = {}
 		local noSelection: Selection = {}
 		local noEntries: { Entry } = {}
-		local rows: Cell<{ File }> = Compose.cell(noFiles)
-		local selection: Cell<Selection> = Compose.cell(noSelection)
-		local path: Cell<{ Entry }> = Compose.cell(noEntries)
-		local expanded: Cell<Selection> = Compose.cell(noSelection)
-		local linkedPath: Cell<{ Entry }> = Compose.cell(noEntries)
-		local paths: { [string]: Cell<{ Entry }> } = { primary = path, linked = linkedPath }
+		local rows: Value<{ File }> = Compose.cell(noFiles)
+		local selection: Value<Selection> = Compose.cell(noSelection)
+		local path: Value<{ Entry }> = Compose.cell(noEntries)
+		local expanded: Value<Selection> = Compose.cell(noSelection)
+		local linkedPath: Value<{ Entry }> = Compose.cell(noEntries)
+		local paths: { [string]: Value<{ Entry }> } = { primary = path, linked = linkedPath }
 		local creatingFolder = Compose.cell(false)
-		local inbox: Cell<{ File }> = Compose.cell(noFiles)
-		local inboxSelection: Cell<Selection> = Compose.cell(noSelection)
+		local inbox: Value<{ File }> = Compose.cell(noFiles)
+		local inboxSelection: Value<Selection> = Compose.cell(noSelection)
 		local transfers = Compose.cell(false)
 		local operation = Compose.cell("move")
 		local function dropOperation(use: Use): Operation
@@ -101,13 +103,13 @@ return {
 		local focuses: { [string]: Focus } = { primary = {}, linked = {} }
 		local query, state, message = Compose.cell(""), Compose.cell("ready"), Compose.cell("")
 		local noUndo: Undo? = nil
-		local drafts: { [string]: Cell<CellDraft?> } = {}
-		local undo: Cell<Undo?> = Compose.cell(noUndo)
+		local drafts: { [string]: Value<CellDraft?> } = {}
+		local undo: Value<Undo?> = Compose.cell(noUndo)
 		local serial = 0
 		local unsorted: Sort? = nil
-		local primarySort: Cell<Sort?> = Compose.cell(unsorted)
-		local linkedSort: Cell<Sort?> = Compose.cell(unsorted)
-		local sorts: { [string]: Cell<Sort?> } = { primary = primarySort, linked = linkedSort }
+		local primarySort: Value<Sort?> = Compose.cell(unsorted)
+		local linkedSort: Value<Sort?> = Compose.cell(unsorted)
+		local sorts: { [string]: Value<Sort?> } = { primary = primarySort, linked = linkedSort }
 		local payloads: { [unknown]: Payload } = {}
 		setmetatable(payloads, { __mode = "k" })
 		local function register(payload: Payload): Payload
@@ -259,13 +261,13 @@ return {
 			state:set("ready")
 		end
 		seed(24)
-		local function draft(key: string): Cell<CellDraft?>
+		local function draft(key: string): Value<CellDraft?>
 			local existing = drafts[key]
 			if existing then
 				return existing
 			end
 			local empty: CellDraft? = nil
-			local created: Cell<CellDraft?> = Compose.cell(empty)
+			local created: Value<CellDraft?> = Compose.cell(empty)
 			drafts[key] = created
 			return created
 		end
@@ -411,7 +413,7 @@ return {
 		local filtered = Compose.formula(function(use: Use): { File }
 			return visibleRows(use(rows), folderNow(use), string.lower(use(query)))
 		end)
-		local function reorder(keys: { string }, slot: number, source: Readable<{ File }>)
+		local function reorder(keys: { string }, slot: number, source: ReadOnlyValue<{ File }>)
 			if not editingEnabled:peek() or refuse:peek() then
 				return
 			end
@@ -451,7 +453,7 @@ return {
 			}
 		end
 		local function receiver(collection: string, parent: string?): Receiver
-			local target: Cell<{ File }> = if collection == "library" then rows else inbox
+			local target: Value<{ File }> = if collection == "library" then rows else inbox
 			return {
 				operation = dropOperation,
 				accepts = function(value: unknown): (boolean, string?)
@@ -483,7 +485,7 @@ return {
 						return false
 					end
 					local oldRows, oldInbox = rows:peek(), inbox:peek()
-					local origin: Cell<{ File }>? = if payload.collection == "library"
+					local origin: Value<{ File }>? = if payload.collection == "library"
 						then rows
 						elseif payload.collection == "inbox" then inbox
 						else nil
@@ -539,7 +541,7 @@ return {
 					for index, item in carried do
 						table.insert(kept, insertion + index - 1, item)
 					end
-					ctx.runtime.reactor:batch(function()
+					Compose.reactor.batch(ctx.runtime.reactor, function()
 						undo:set({ collections = { oldRows, oldInbox } })
 						if origin and origin ~= target and info.operation == "move" then
 							local remaining: { File } = {}
@@ -613,7 +615,7 @@ return {
 					end
 					inbox:set(kept)
 				end,
-				render = function(current: Readable<File>): GuiObject
+				render = function(current: ReadOnlyValue<File>): GuiObject
 					return UI.VStack {
 						width = "fill",
 						padding = "s",
@@ -661,20 +663,20 @@ return {
 			return UI.HStack(palettes)
 		end
 
-		local function nameOf(current: Readable<File>): (Use) -> string
+		local function nameOf(current: ReadOnlyValue<File>): (Use) -> string
 			return function(use: Use): string
 				return use(current).name
 			end
 		end
-		local function kindOf(current: Readable<File>): (Use) -> string
+		local function kindOf(current: ReadOnlyValue<File>): (Use) -> string
 			return function(use: Use): string
 				return use(current).kind
 			end
 		end
 		local function cell(
-			current: Readable<File>,
+			current: ReadOnlyValue<File>,
 			_placement: unknown,
-			key: Readable<string>,
+			key: ReadOnlyValue<string>,
 			icon: boolean,
 			tableCell: boolean?
 		): Frame
@@ -775,7 +777,7 @@ return {
 			}
 			return if icon then UI.VStack(fileCell) else UI.HStack(fileCell)
 		end
-		local function rowDrop(current: Readable<File>, key: string): DropTargetSpec
+		local function rowDrop(current: ReadOnlyValue<File>, key: string): DropTargetSpec
 			local folderDrop = receiver("library", key)
 			local function isFolder(): boolean
 				return current:peek().kind == "Folder"
@@ -839,7 +841,7 @@ return {
 			local function onActivate(item: File)
 				openFolder(item, id)
 			end
-			local function rowActions(_: Readable<File>, key: string): RowActionsOptions
+			local function rowActions(_: ReadOnlyValue<File>, key: string): RowActionsOptions
 				local trailing: { RowAction } = {
 					{
 						id = "delete",
@@ -861,7 +863,11 @@ return {
 					then children(item.id, rows:peek())
 					else nil
 			end
-			local function render(current: Readable<File>, placement: unknown, key: Readable<string>): GuiObject
+			local function render(
+				current: ReadOnlyValue<File>,
+				placement: unknown,
+				key: ReadOnlyValue<string>
+			): GuiObject
 				return cell(current, placement, key, kind == "icons")
 			end
 			if kind == "details" then
@@ -874,9 +880,9 @@ return {
 							return item.name
 						end,
 						render = function(
-							current: Readable<File>,
+							current: ReadOnlyValue<File>,
 							placement: unknown,
-							key: Readable<string>
+							key: ReadOnlyValue<string>
 						): GuiObject
 							return cell(current, placement, key, false, true)
 						end,
@@ -997,8 +1003,8 @@ return {
 			name: string,
 			label: string | (Use) -> string,
 			action: () -> (),
-			enabled: (boolean | Readable<boolean> | (Use) -> boolean)?,
-			visible: (boolean | Readable<boolean> | (Use) -> boolean)?
+			enabled: (boolean | ReadOnlyValue<boolean> | (Use) -> boolean)?,
+			visible: (boolean | ReadOnlyValue<boolean> | (Use) -> boolean)?
 		): TextButton
 			return UI.Button {
 				Name = name,
@@ -1082,9 +1088,9 @@ return {
 			}
 		end
 		local sidebarColumn: "sidebar" | "detail" = "sidebar"
-		local splitColumn: Cell<"sidebar" | "detail"> = Compose.cell(sidebarColumn)
+		local splitColumn: Value<"sidebar" | "detail"> = Compose.cell(sidebarColumn)
 		local splitWidth = Compose.cell(360)
-		local inboxColumn: Cell<"sidebar" | "detail"> = Compose.cell(sidebarColumn)
+		local inboxColumn: Value<"sidebar" | "detail"> = Compose.cell(sidebarColumn)
 		local inboxWidth = Compose.cell(360)
 		Compose.watch(function(use: Use)
 			if use(transfers) then
@@ -1113,7 +1119,7 @@ return {
 						from = function(use: Use): { string }
 							return { use(mode) }
 						end,
-						render = function(current: Readable<string>): GuiObject
+						render = function(current: ReadOnlyValue<string>): GuiObject
 							return view(current:peek(), id, folder)
 						end,
 					},

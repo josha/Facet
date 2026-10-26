@@ -124,7 +124,8 @@ local function parse(source: string): Element
 			end
 			local child = element(name, close)
 			for key, _quote, value in string.gmatch(string.sub(body, #name + 1), "([%w_:%.%-]+)%s*=%s*(['\"])(.-)%2") do
-				child.attributes[key] = decode(value :: string)
+				assert(value ~= nil)
+				child.attributes[key] = decode(value)
 			end
 			table.insert(stack[#stack].children, child)
 			if not selfClosing then

@@ -7,11 +7,11 @@ local Shared = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 
 export type ValueState<T> = {
-	value: Shared.Value<T>,
+	value: Shared.Input<T>,
 	onChange: ((T) -> ())?,
 	readOnly: boolean?,
 }
-export type NumberSpec = { value: Shared.Value<number>, onChange: ((number) -> ())? }
+export type NumberSpec = { value: Shared.Input<number>, onChange: ((number) -> ())? }
 type Unskinned = typeof(setmetatable({} :: { [unknown]: boolean }, { __mode = "k" }))
 export type Kit = {
 	lists: layoutKit.Kit,
@@ -22,7 +22,7 @@ export type Kit = {
 	repeatInterval: number,
 	repeatHeld: inputAdjustment.RepeatHeld,
 	dynamic: (unknown) -> boolean,
-	hasText: (Shared.Value<string>?, ComposeTypes.Use?) -> boolean,
+	hasText: (Shared.Input<string>?, ComposeTypes.Use?) -> boolean,
 	enabled: (inputAdjustment.EnabledSource, ComposeTypes.Use?) -> boolean,
 	stopEnabled: (inputAdjustment.EnabledSource, ComposeTypes.Use?) -> boolean,
 	writable: (unknown) -> boolean,
@@ -31,7 +31,7 @@ export type Kit = {
 	attributes: (Instance, Shared.Attributes) -> Instance,
 	valueAttributes: (GuiObject, NumberSpec, valueModel.Model) -> (),
 	adjustment: inputAdjustment.Adjustment,
-	paintedPart: (Shared.FrameProps, Shared.Value<string>?, string, string) -> Frame,
+	paintedPart: (Shared.FrameProps, Shared.Input<string>?, string, string) -> Frame,
 }
 
 local REPEAT_DELAY, REPEAT_INTERVAL = 0.4, 0.1
@@ -79,9 +79,9 @@ return function(ctx: Shared.Context): Kit
 		numeral = true,
 	}
 	local function dynamic(source: unknown): boolean
-		return Compose.isReadable(source) or type(source) == "function"
+		return Compose.isValue(source) or type(source) == "function"
 	end
-	local function hasText(source: Shared.Value<string>?, use: ComposeTypes.Use?): boolean
+	local function hasText(source: Shared.Input<string>?, use: ComposeTypes.Use?): boolean
 		local value = read(source, use)
 		return value ~= nil and value ~= ""
 	end
@@ -95,7 +95,7 @@ return function(ctx: Shared.Context): Kit
 	end
 	local function writable(source: unknown): boolean
 		return type(source) == "table"
-			and Compose.isReadable(source)
+			and Compose.isValue(source)
 			and type((source :: { [string]: unknown }).set) == "function"
 	end
 	local function requireValue(spec: NumberSpec, kind: "boolean" | "number" | "string", name: string): ()
@@ -113,7 +113,7 @@ return function(ctx: Shared.Context): Kit
 		if spec.onChange then
 			spec.onChange(nextValue)
 		else
-			(spec.value :: ComposeTypes.Cell<number>):set(nextValue)
+			(spec.value :: ComposeTypes.Value<number>):set(nextValue)
 		end
 		return read(spec.value) == nextValue
 	end
@@ -143,7 +143,7 @@ return function(ctx: Shared.Context): Kit
 	})
 	local function paintedPart(
 		native: Shared.FrameProps,
-		image: Shared.Value<string>?,
+		image: Shared.Input<string>?,
 		role: string,
 		slot: string
 	): Frame

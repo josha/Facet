@@ -26,7 +26,8 @@ end
 
 local function setOf(values: { string }?): { [string]: boolean }
 	local result: { [string]: boolean } = {}
-	for _, value in values or ({} :: { string }) do
+	local supplied: { string } = values or {}
+	for _, value in supplied do
 		result[value] = true
 	end
 	return result

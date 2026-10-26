@@ -72,7 +72,7 @@ local function hint(message: string): string?
 	if string.find(message, "Sides", 1, true) ~= nil then
 		return 'give a padding table a type on a local, for example local inset: Facet.Sides = { top = "xl" }, and pass padding = inset. A literal inside the options does not check, because padding also takes a readable. Read docs Layout-options.'
 	end
-	if string.find(message, "Readable", 1, true) ~= nil then
+	if string.find(message, "ReadOnlyValue", 1, true) ~= nil then
 		return "annotate reactive callbacks with function(use: Facet.Use) and type option lists before passing them. Read docs Types.reactive."
 	end
 	if string.find(message, "not valid UTF-8", 1, true) ~= nil or string.find(message, "U+feff", 1, true) ~= nil then

@@ -5,8 +5,8 @@ type Placement = typeof(require("@repo/tools/typecheck/aliases").SpatialPlacemen
 type DropInfo = typeof(require("@repo/tools/typecheck/aliases").DropInfo)
 type DraggableSpec = typeof(require("@repo/tools/typecheck/aliases").DraggableSpec)
 type DropTargetSpec = typeof(require("@repo/tools/typecheck/aliases").DropTargetSpec)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Item = { id: string, label: string, container: string, at: Placement }
 
 local page: Catalog.PageDefinition = {
@@ -100,7 +100,7 @@ local page: Catalog.PageDefinition = {
 						local item = find(payload)
 						return if item then c.types.Vector2.new(item.at.width, item.at.height) else nil
 					end,
-					drag = function(current: Readable<Item>): DraggableSpec
+					drag = function(current: ReadOnlyValue<Item>): DraggableSpec
 						return {
 							payload = current:peek().id,
 							valid = function(): boolean
@@ -132,7 +132,7 @@ local page: Catalog.PageDefinition = {
 							return true
 						end,
 					} :: DropTargetSpec,
-					render = function(current: Readable<Item>): GuiObject
+					render = function(current: ReadOnlyValue<Item>): GuiObject
 						return UI.Button {
 							Name = current:peek().id,
 							label = current:peek().label,

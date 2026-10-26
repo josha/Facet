@@ -2,7 +2,7 @@
 local Shared = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 
-type Held = { box: TextBox, height: ComposeTypes.Cell<number>, stop: () -> () }
+type Held = { box: TextBox, height: ComposeTypes.Value<number>, stop: () -> () }
 local held: { [ComposeTypes.Runtime]: Held } = {}
 setmetatable(held, { __mode = "k" })
 local keyboard = {}
@@ -37,7 +37,7 @@ function keyboard.capture(
 		return
 	end
 	local height = extent.Y
-	if height <= 0 or owner.isDisposed() then
+	if height <= 0 or ComposeTypes.owner.isDisposed(owner) then
 		return
 	end
 	local prior = held[ctx.runtime]
@@ -46,7 +46,7 @@ function keyboard.capture(
 	end
 	local current: Held = { box = box, height = ctx.Compose.cell(height), stop = function() end }
 	held[ctx.runtime] = current
-	current.stop = owner.watch(function(use: ComposeTypes.Use)
+	current.stop = ComposeTypes.owner.watch(owner, function(use: ComposeTypes.Use)
 		local state = use(ctx.runtime.observe(press, "UserInputState", { frame = true }))
 		if state == E.UserInputState.End or state == E.UserInputState.Cancel then
 			release(ctx.runtime, current)

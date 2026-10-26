@@ -14,19 +14,19 @@ export type Sequence = {
 	play: () -> (),
 	cancel: () -> (),
 	finish: () -> (),
-	running: Shared.Readable<boolean>,
-	completed: Shared.Readable<boolean>,
+	running: Shared.ReadOnlyValue<boolean>,
+	completed: Shared.ReadOnlyValue<boolean>,
 }
 export type FlashOptions = {
-	target: Shared.GuiInstance | Shared.Value<GuiObject>,
-	progress: Shared.Value<number>,
-	color: Shared.Value<Color3>?,
+	target: Shared.GuiInstance | Shared.Input<GuiObject>,
+	progress: Shared.Input<number>,
+	color: Shared.Input<Color3>?,
 	mode: ("pulse" | "sweep")?,
 }
 export type ShakeOptions = { intensity: number? }
 export type Controls = {
 	sequence: (SequenceSpec) -> Sequence,
-	countUp: (Shared.Value<number>) -> Shared.Readable<number>,
-	shake: (Shared.Value<{ GuiObject }>, ShakeOptions?) -> Sequence,
+	countUp: (Shared.Input<number>) -> Shared.ReadOnlyValue<number>,
+	shake: (Shared.Input<{ GuiObject }>, ShakeOptions?) -> Sequence,
 }
 return {}

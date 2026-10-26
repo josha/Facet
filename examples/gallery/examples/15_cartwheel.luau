@@ -1,8 +1,8 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type CartwheelModule = typeof(require("@repo/examples/reference/p2_cartwheel"))
 type CartwheelData = typeof(require("@repo/examples/reference/p2_cartwheel/content/data"))
 
@@ -58,7 +58,7 @@ return {
 				notice:set(`Serving order {id}…`)
 			end
 		end
-		local function ticket(current: Readable<Brew>): GuiObject
+		local function ticket(current: ReadOnlyValue<Brew>): GuiObject
 			local id = current:peek().id
 			expanded[id] = expanded[id] or C.cell(false)
 			local actions: { RadialItem } = {
@@ -224,7 +224,7 @@ return {
 					key = function(item: Seller)
 						return item.id
 					end,
-					render = function(current: Readable<Seller>): GuiObject
+					render = function(current: ReadOnlyValue<Seller>): GuiObject
 						return view.text("Seller", function(use: Use)
 							local row = use(current)
 							return `{row.name} · {row.bottles} bottles`
@@ -308,7 +308,7 @@ return {
 								key = function(id: string)
 									return id
 								end,
-								render = function(current: Readable<string>): GuiObject
+								render = function(current: ReadOnlyValue<string>): GuiObject
 									local id = current:peek()
 									return column(
 										id,

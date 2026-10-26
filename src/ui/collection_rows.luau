@@ -32,7 +32,7 @@ return function<V, K>(
 	local coordinator, selectionMode = view.coordinator, view.selectionMode
 	local measured, containsCards, horizontal = view.measured, view.containsCards, view.horizontal
 	local reduced, focusActive = view.reduced, view.focusActive
-	local liveOverflow = Compose.isReadable(spec.contentOverflow) or type(spec.contentOverflow) == "function"
+	local liveOverflow = Compose.isValue(spec.contentOverflow) or type(spec.contentOverflow) == "function"
 	local mounted, cellEdits, placed, poolOwner = view.mounted, view.cellEdits, view.placed, view.poolOwner
 	local preparing, waiting = view.preparing, view.waiting
 	local crossEdge, fullSizes = view.crossEdge, view.fullSizes
@@ -52,7 +52,7 @@ return function<V, K>(
 		end
 		return cached
 	end
-	local function select(key: K, current: ComposeTypes.Readable<V>, input: InputObject?, clicks: number?): ()
+	local function select(key: K, current: ComposeTypes.ReadOnlyValue<V>, input: InputObject?, clicks: number?): ()
 		if policy.disabled(spec.disabled, current:peek()) or activation.consumed(input) then
 			return
 		end
@@ -84,7 +84,7 @@ return function<V, K>(
 		view.focusedPath = path
 		view.scope.focus(key)
 	end
-	local function wireSelection(node: Instance, key: ComposeTypes.Readable<K>): ()
+	local function wireSelection(node: Instance, key: ComposeTypes.ReadOnlyValue<K>): ()
 		if node:IsA("GuiObject") and (node.Selectable or node:IsA("GuiButton") or node:IsA("TextBox")) then
 			runtime.connect(node, "SelectionGained", function()
 				captureSelection(node, key:peek())
@@ -101,16 +101,16 @@ return function<V, K>(
 		and spec.rowActions == nil
 		and spec.rowDrop == nil
 	local function row(
-		rowItem: ComposeTypes.Readable<V>,
-		rowPlacement: ComposeTypes.Readable<ComposeTypes.Placement>,
-		keyCell: ComposeTypes.Readable<K>,
+		rowItem: ComposeTypes.ReadOnlyValue<V>,
+		rowPlacement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+		keyCell: ComposeTypes.ReadOnlyValue<K>,
 		follows: boolean
 	): GuiObject
 		local lease = view.pool.acquire()
 		local node = runtime.borrow(lease.value.node) :: Frame
-		local contentOwner = poolOwner.createChild()
-		local function retained<T>(row: ComposeTypes.Readable<T>): ComposeTypes.Readable<T>
-			local held = Compose.withOwner(contentOwner, function(): ComposeTypes.Cell<T>
+		local contentOwner = ComposeTypes.owner.createChild(poolOwner)
+		local function retained<T>(row: ComposeTypes.ReadOnlyValue<T>): ComposeTypes.ReadOnlyValue<T>
+			local held = Compose.withOwner(contentOwner, function(): ComposeTypes.Value<T>
 				return Compose.cell(row:peek())
 			end)
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -120,14 +120,14 @@ return function<V, K>(
 		end
 		local current, placement = retained(rowItem), retained(rowPlacement)
 		local springPlacement = spec.slots ~= nil or spec.drag ~= nil or spec.drop ~= nil
-		local reservedPosition: ComposeTypes.Readable<Vector2>? = nil
-		local glide: ComposeTypes.Cell<number>? = nil
+		local reservedPosition: ComposeTypes.ReadOnlyValue<Vector2>? = nil
+		local glide: ComposeTypes.Value<number>? = nil
 		if editor and (spec.reorderable or spec.drag) then
 			reservedPosition = editor.position(keyCell:peek(), placement, spec.reducedMotion)
 		elseif springPlacement then
 			local position = Compose.cell(V2.new(placement:peek().crossOffset, placement:peek().offset))
 			reservedPosition = position
-			local target: ComposeTypes.Readable<ComposeTypes.Placement> = if editor
+			local target: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement> = if editor
 					and (spec.drag or spec.drop)
 				then Compose.formula(function(use: ComposeTypes.Use): ComposeTypes.Placement
 					return editor.placement(use(keyCell), use(placement), use)
@@ -217,7 +217,7 @@ return function<V, K>(
 		end)
 		local edits: { activation.EditAction } = {}
 		local measuredNode: GuiObject
-		local actionHeight: ComposeTypes.Readable<number>? = nil
+		local actionHeight: ComposeTypes.ReadOnlyValue<number>? = nil
 		local painted = Compose.cell(false)
 		local stop, mountedContent = Compose.withOwner(contentOwner, function()
 			return runtime.mount(function(): CanvasGroup
@@ -437,7 +437,12 @@ return function<V, K>(
 			if node.Parent and parked == nil then
 				previousParent = node.Parent
 			end
-			if parked and not restoringParent and not poolOwner.isDisposed() and node.Parent == nil then
+			if
+				parked
+				and not restoringParent
+				and not ComposeTypes.owner.isDisposed(poolOwner)
+				and node.Parent == nil
+			then
 				restoringParent = true
 				local ok = pcall(function()
 					node.Parent = parked
@@ -457,7 +462,7 @@ return function<V, K>(
 			restore:Disconnect()
 			destroyed:Disconnect()
 			stop()
-			contentOwner.dispose()
+			Compose.owner.dispose(contentOwner)
 			lease.release()
 		end
 		wireSelection(content, keyCell)
@@ -491,7 +496,7 @@ return function<V, K>(
 		if follows then
 			Compose.watch(follow)
 		else
-			follow(function<T>(readable: ComposeTypes.Readable<T>): T
+			follow(function<T>(readable: ComposeTypes.ReadOnlyValue<T>): T
 				return readable:peek()
 			end)
 		end
@@ -613,7 +618,7 @@ return function<V, K>(
 					return math.max(0, value - 1)
 				end)
 			end
-			local nextRows = source(function<T>(cell: ComposeTypes.Readable<T>): T
+			local nextRows = source(function<T>(cell: ComposeTypes.ReadOnlyValue<T>): T
 				return cell:peek()
 			end)
 			local keyed = keysOf(nextRows)
@@ -643,7 +648,7 @@ return function<V, K>(
 				not wanted
 				and pendingReplacement
 				and painted:peek()
-				and not poolOwner.isDisposed()
+				and not ComposeTypes.owner.isDisposed(poolOwner)
 				and #nextRows > 0
 			then
 				parked = previousParent
@@ -712,9 +717,9 @@ return function<V, K>(
 			end,
 			recycle = if recycling
 				then function(
-					record: ComposeTypes.Readable<SlotRecord>,
-					rowPlacement: ComposeTypes.Readable<ComposeTypes.Placement>,
-					keyCell: ComposeTypes.Readable<K>
+					record: ComposeTypes.ReadOnlyValue<SlotRecord>,
+					rowPlacement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+					keyCell: ComposeTypes.ReadOnlyValue<K>
 				): GuiObject
 					return row(
 						Compose.formula(function(use: ComposeTypes.Use): V
@@ -730,8 +735,8 @@ return function<V, K>(
 				then nil
 				else withSlots(
 					function(
-						rowItem: ComposeTypes.Readable<V>,
-						rowPlacement: ComposeTypes.Readable<ComposeTypes.Placement>,
+						rowItem: ComposeTypes.ReadOnlyValue<V>,
+						rowPlacement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
 						key: K
 					): GuiObject
 						return row(rowItem, rowPlacement, Compose.cell(key), false)

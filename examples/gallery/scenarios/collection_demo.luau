@@ -9,9 +9,11 @@ type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNat
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type RowActionsSpec = typeof(require("@repo/tools/typecheck/aliases").RowActionsSpec)
 type Built = typeof(require("@repo/examples/types").Built)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 export type Row = {
 	id: string,
 	label: string?,
@@ -60,9 +62,9 @@ return function(ctx: ExampleContext, options: Options): Built
 	end
 	local noSelection: Flags = {}
 	local nothing: string? = nil
-	local rows: Cell<{ Row }> = Compose.cell(initial)
-	local selection: Cell<Flags> = Compose.cell(noSelection)
-	local selected: Cell<string?> = Compose.cell(nothing)
+	local rows: Value<{ Row }> = Compose.cell(initial)
+	local selection: Value<Flags> = Compose.cell(noSelection)
+	local selected: Value<string?> = Compose.cell(nothing)
 	local columns, textOffset, variable = Compose.cell(4), Compose.cell(0), Compose.cell(true)
 	local editing, moves = Compose.cell(false), Compose.cell(0)
 	local mounted, built = Compose.cell(0), Compose.cell(0)
@@ -80,14 +82,14 @@ return function(ctx: ExampleContext, options: Options): Built
 		following = false,
 		measured = 0,
 	}
-	local status: Cell<CollectionStatus> = Compose.cell(idle)
+	local status: Value<CollectionStatus> = Compose.cell(idle)
 	local controls: OrderedControls = {}
 	local noToken: {}? = nil
-	local coordinator: Cell<{}?> = Compose.cell(noToken)
+	local coordinator: Value<{}?> = Compose.cell(noToken)
 	local titleLine, bodyLine = Compose.cell(21), Compose.cell(18)
 	local noFlags: Flags = {}
-	local readRows: Cell<Flags> = Compose.cell(noFlags)
-	local flaggedRows: Cell<Flags> = Compose.cell(noFlags)
+	local readRows: Value<Flags> = Compose.cell(noFlags)
+	local flaggedRows: Value<Flags> = Compose.cell(noFlags)
 	local body: ScrollingFrame?
 	local function seedFlags()
 		local reads: Flags, flags: Flags = {}, {}
@@ -171,8 +173,8 @@ return function(ctx: ExampleContext, options: Options): Built
 			trailing = trailing,
 		}
 	end
-	local function observe(node: Instance, property: string, read: () -> Vector2): Cell<Vector2>
-		local value: Cell<Vector2> = Compose.cell(read())
+	local function observe(node: Instance, property: string, read: () -> Vector2): Value<Vector2>
+		local value: Value<Vector2> = Compose.cell(read())
 		local connection = node:GetPropertyChangedSignal(property):Connect(function()
 			value:set(read())
 		end)
@@ -192,7 +194,7 @@ return function(ctx: ExampleContext, options: Options): Built
 		end
 		return result
 	end)
-	local function mailBody(current: Readable<Row>, key: Readable<string>, sender: boolean): GuiObject
+	local function mailBody(current: ReadOnlyValue<Row>, key: ReadOnlyValue<string>, sender: boolean): GuiObject
 		local function words(read: (Row) -> string?): (Use) -> string
 			return function(use: Use): string
 				return read(use(current)) or ""
@@ -269,7 +271,7 @@ return function(ctx: ExampleContext, options: Options): Built
 			},
 		}
 	end
-	local function row(current: Readable<Row>, placement: unknown, key: Readable<string>): GuiObject
+	local function row(current: ReadOnlyValue<Row>, placement: unknown, key: ReadOnlyValue<string>): GuiObject
 		mounted:set(mounted:peek() + 1)
 		built:set(built:peek() + 1)
 		Compose.cleanup(function()
@@ -435,7 +437,7 @@ return function(ctx: ExampleContext, options: Options): Built
 			markRead(assert(key))
 		end
 	end
-	local function rowActions(_: Readable<Row>, key: string): RowActions
+	local function rowActions(_: ReadOnlyValue<Row>, key: string): RowActions
 		return actions(key)
 	end
 	local function onCellChange(key: string, column: string, value: unknown)
@@ -470,7 +472,7 @@ return function(ctx: ExampleContext, options: Options): Built
 			id = "subject",
 			label = "Subject",
 			minWidth = 160,
-			render = function(current: Readable<Row>, _: unknown, key: Readable<string>): GuiObject
+			render = function(current: ReadOnlyValue<Row>, _: unknown, key: ReadOnlyValue<string>): GuiObject
 				return mailBody(current, key, false)
 			end,
 		},
@@ -483,9 +485,9 @@ return function(ctx: ExampleContext, options: Options): Built
 		end
 		if options.table then
 			local unsorted: { column: string, direction: "ascending" | "descending" }? = nil
-			local sort: Cell<{ column: string, direction: "ascending" | "descending" }?> = Compose.cell(unsorted)
+			local sort: Value<{ column: string, direction: "ascending" | "descending" }?> = Compose.cell(unsorted)
 			local noWidths: { [string]: number } = {}
-			local widths: Cell<{ [string]: number }> = Compose.cell(noWidths)
+			local widths: Value<{ [string]: number }> = Compose.cell(noWidths)
 			local tableView = UI.Table "Collection" {
 				from = rows,
 				key = itemKey,
@@ -659,7 +661,7 @@ return function(ctx: ExampleContext, options: Options): Built
 			AutomaticSize = E.AutomaticSize.XY,
 			Size = D2.fromOffset(0, 0),
 		}
-		local function textBounds(probe: GuiObject): Cell<Vector2>
+		local function textBounds(probe: GuiObject): Value<Vector2>
 			return observe(probe, "TextBounds", function(): Vector2
 				return if probe:IsA("TextLabel") then probe.TextBounds else Vector2.zero
 			end)

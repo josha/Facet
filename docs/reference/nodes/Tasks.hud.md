@@ -5,8 +5,8 @@ and a bound InputAction.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
-local function hud(app: Facet.App, goal: Facet.Readable<string>,
-  progress: Facet.Readable<string>, resource: Facet.Readable<string>,
+local function hud(app: Facet.App, goal: Facet.ReadOnlyValue<string>,
+  progress: Facet.ReadOnlyValue<string>, resource: Facet.ReadOnlyValue<string>,
   label: string, command: InputAction, activate: () -> ()): Frame
   local UI = app.UI
   local env = UI.environment()

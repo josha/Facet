@@ -62,7 +62,7 @@ local SCHEMA_VERSION = 1
 
 local function text(value: unknown, label: string): string
 	assert(type(value) == "string" and string.find(value, "%S") ~= nil, label .. " must be a nonempty string")
-	return value :: string
+	return value
 end
 
 local function nonnegativeFinite(value: unknown, label: string): number
@@ -70,7 +70,7 @@ local function nonnegativeFinite(value: unknown, label: string): number
 		type(value) == "number" and value == value and value >= 0 and value < math.huge,
 		label .. " must be finite and nonnegative"
 	)
-	return value :: number
+	return value
 end
 
 local function decode(value: unknown): Stored
@@ -78,19 +78,21 @@ local function decode(value: unknown): Stored
 	local raw = value :: { [string]: unknown }
 	assert(raw.schemaVersion == SCHEMA_VERSION, "unsupported stored run schema version")
 	local rows = raw.measurements
-	assert(type(rows) == "table" and #(rows :: { unknown }) > 0, "a stored run needs measurements")
+	local listedRows = rows :: { unknown }
+	assert(type(rows) == "table" and #listedRows > 0, "a stored run needs measurements")
 	local measurements: { StoredMeasurement } = {}
 	local seen: { [string]: boolean } = {}
-	for index, item in rows :: { unknown } do
+	for index, item in listedRows do
 		assert(type(item) == "table", "a stored measurement must be a table")
 		local row = item :: { [string]: unknown }
 		local name = text(row.name, "measurement name")
 		assert(not seen[name], ("stored measurement %q is listed twice"):format(name))
 		seen[name] = true
 		local listed = row.samples
-		assert(type(listed) == "table" and #(listed :: { unknown }) > 0, "stored samples must not be empty")
+		local listedSamples = listed :: { unknown }
+		assert(type(listed) == "table" and #listedSamples > 0, "stored samples must not be empty")
 		local samples: { number } = {}
-		for position, sample in listed :: { unknown } do
+		for position, sample in listedSamples do
 			assert(position == #samples + 1, "stored samples must be a dense array")
 			table.insert(samples, nonnegativeFinite(sample, "stored sample"))
 		end
@@ -115,7 +117,7 @@ local function metricOf(measurement: StoredMeasurement, metric: SpreadMetric): n
 		then summary.mean
 		elseif metric == "maximum" then summary.maximum
 		else summary[metric]
-	return value :: number
+	return value
 end
 
 local function indexOf(run: Stored): { [string]: StoredMeasurement }
@@ -275,19 +277,22 @@ local function spread(runs: { Stored }, options: SpreadOptions?): SpreadSummary
 			unit = present[1].unit,
 			context = { environment = present[1].environment, signal = name, timing = "observed" },
 		}
-		local midpoint = summary.p50 :: number
-		local range = (summary.maximum :: number) - (summary.minimum :: number)
+		local midpoint = summary.p50
+		local minimum, maximum = summary.minimum, summary.maximum
+		local mean, deviation = summary.mean, summary.deviation
+		assert(midpoint ~= nil and minimum ~= nil and maximum ~= nil and mean ~= nil and deviation ~= nil)
+		local range = maximum - minimum
 		table.insert(noise, {
 			name = name,
 			unit = present[1].unit,
 			runs = #present,
 			metric = metric,
 			values = values,
-			minimum = summary.minimum :: number,
-			maximum = summary.maximum :: number,
+			minimum = minimum,
+			maximum = maximum,
 			median = midpoint,
-			mean = summary.mean :: number,
-			deviation = summary.deviation :: number,
+			mean = mean,
+			deviation = deviation,
 			relativeRange = if midpoint > 0 then range / midpoint elseif range == 0 then 0 else nil,
 		})
 	end

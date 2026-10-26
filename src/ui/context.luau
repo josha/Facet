@@ -28,23 +28,23 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	local ctx = (fields :: unknown) :: Shared.Context
 	local track = installConstruct(ctx)
 	local function read<T>(value: T | ComposeTypes.Source<T>, use: ComposeTypes.Use?): T
-		if Compose.isReadable(value) then
-			local source = value :: ComposeTypes.Readable<T>
+		if Compose.isValue(value) then
+			local source = value :: ComposeTypes.ReadOnlyValue<T>
 			return if use then use(source) else source:peek()
 		elseif type(value) == "function" then
 			local body = value :: ComposeTypes.Body<T>
-			return body(use or function<U>(source: ComposeTypes.Readable<U>): U
+			return body(use or function<U>(source: ComposeTypes.ReadOnlyValue<U>): U
 				return source:peek()
 			end)
 		end
 		return value :: T
 	end
 	ctx.read = read
-	ctx.readSource = function<T>(source: ComposeTypes.Readable<T>, use: ComposeTypes.Use?): T
+	ctx.readSource = function<T>(source: ComposeTypes.ReadOnlyValue<T>, use: ComposeTypes.Use?): T
 		return if use then use(source) else source:peek()
 	end
 	local function live(value: unknown): boolean
-		return Compose.isReadable(value) or type(value) == "function"
+		return Compose.isValue(value) or type(value) == "function"
 	end
 	local themeMetrics = installMetrics(ctx, config, themes)
 	local observation = installObservation(ctx, config, services)

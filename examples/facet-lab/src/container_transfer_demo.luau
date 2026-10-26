@@ -15,7 +15,11 @@ type Model = { rack: { Tile }, board: { [number]: Tile } }
 type Payload = { collection: string, keys: { string }, items: { Tile } }
 type Use = <T>(FacetReadable<T>) -> T
 type FacetReadable<T> = { peek: (FacetReadable<T>) -> T }
-type FacetCell<T> = FacetReadable<T> & { set: (FacetCell<T>, T) -> (), update: (FacetCell<T>, (T) -> T) -> () }
+type FacetCell<T> = FacetReadable<T> & {
+	set: (FacetCell<T>, T) -> (),
+	update: (FacetCell<T>, (T) -> T) -> (),
+	dispose: (FacetCell<T>) -> (),
+}
 type Options = {
 	reject: boolean?,
 	scale: number?,

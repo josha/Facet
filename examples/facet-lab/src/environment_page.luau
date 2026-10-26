@@ -1,8 +1,8 @@
 --!strict
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 
 local CatalogTypes = require("./catalog_types")
 type Context = CatalogTypes.Context
@@ -57,7 +57,7 @@ local page: CatalogTypes.PageDefinition = {
 			}, "\n"))
 		end)
 		local atLeast = env.atLeast("regular")
-		local function square(name: string, side: Readable<number>, caption: string): Instance
+		local function square(name: string, side: ReadOnlyValue<number>, caption: string): Instance
 			return UI.VStack(name)({
 				gap = "xs",
 				align = "center",

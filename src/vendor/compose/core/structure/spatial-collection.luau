@@ -1,6 +1,9 @@
 --!strict
 --!native
 
+local createChosenIndices: (number, number?) -> { number } = table.create
+local createStates: (number, Representation?) -> { Representation } = table.create
+
 local Children = require "../runtime/children"
 local Admission = require "../collection/admission"
 local Diagnostics = require "../diagnostics"
@@ -46,15 +49,15 @@ export type Options<V, K> = {
 	from: keyed.Source<V>,
 	key: ((value: V, index: number) -> K)?,
 	position: (value: V) -> (number, number, number?),
-	origin: Types.Readable<Point> | Types.Body<Point>,
+	origin: Types.ReadOnlyValue<Point> | Types.Body<Point>,
 	tiers: { Tier },
-	render: (value: Types.Readable<V>, representation: Types.Readable<Representation>, key: K) -> Host.Node,
+	render: (value: Types.ReadOnlyValue<V>, representation: Types.ReadOnlyValue<Representation>, key: K) -> Host.Node,
 	cellSize: number?,
 	hysteresis: number?,
 	importance: ((value: V) -> number)?,
-	pinned: (Types.Readable<{ [K]: boolean }> | Types.Body<{ [K]: boolean }>)?,
+	pinned: (Types.ReadOnlyValue<{ [K]: boolean }> | Types.Body<{ [K]: boolean }>)?,
 	budget: Budget?,
-	status: Types.Cell<Status>?,
+	status: Types.Value<Status>?,
 }
 
 local KNOWN_FIELDS: { [string]: true } = {
@@ -84,9 +87,7 @@ local function numberOr(value: unknown, fallback: number): number
 	return fallback
 end
 
-local function identity<V>(value: V, _index: number): V
-	return value
-end
+local identity = require("../reactive/node").identityKey
 
 local function spatialCollection<V, K>(options: Options<V, K>): Children.Directive
 	local settings = Support.optionsOf(
@@ -96,12 +97,10 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 	)
 	Support.noUnknownFields(settings, "SpatialCollection", KNOWN_FIELDS)
 
-	local source = Support.sourceOf(settings.from, "SpatialCollection", "from") :: Types.Body<{ V }>
-	local render =
-		Support.builderOf(settings.render, "SpatialCollection", "render") :: (Types.Readable<V>, Types.Readable<Representation>, K) -> Host.Node
-	local positionOf =
-		Support.builderOf(settings.position, "SpatialCollection", "position") :: (value: V) -> (number, number, number?)
-	local originBody = Support.sourceOf(settings.origin, "SpatialCollection", "origin") :: Types.Body<Point>
+	local source: Types.Body<{ V }> = Support.sourceOf(settings.from, "SpatialCollection", "from")
+	local render = Support.builderOf(settings.render, "SpatialCollection", "render")
+	local positionOf = Support.builderOf(settings.position, "SpatialCollection", "position")
+	local originBody: Types.Body<Point> = Support.sourceOf(settings.origin, "SpatialCollection", "origin")
 
 	local tiers = settings.tiers
 	if type(tiers) ~= "table" then
@@ -111,27 +110,27 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 			expected = '{ { name = "full", radius = 100 }, ... }',
 		})
 	end
-	Relevance.checkTiers(tiers :: { Tier }, "SpatialCollection")
+	Relevance.checkTiers(tiers, "SpatialCollection")
 	local tierCount = #tiers
 	local outerRadius = tiers[tierCount].radius
 
 	local keyOf: (value: V, index: number) -> K
 	if settings.key ~= nil then
-		keyOf = Support.builderOf(settings.key, "SpatialCollection", "key") :: (value: V, index: number) -> K
+		keyOf = Support.builderOf(settings.key, "SpatialCollection", "key")
 	else
-		keyOf = (identity :: unknown) :: (value: V, index: number) -> K
+		keyOf = identity
 	end
 
 	local hysteresis = math.max(0, numberOr(settings.hysteresis, 0))
 	local cellSize = numberOr(settings.cellSize, math.max(1, outerRadius))
 	local importance = settings.importance
 	if importance ~= nil then
-		importance = Support.builderOf(importance, "SpatialCollection", "importance") :: (value: V) -> number
+		importance = Support.builderOf(importance, "SpatialCollection", "importance")
 	end
 
 	local pinnedBody: Types.Body<{ [K]: boolean }>? = nil
 	if settings.pinned ~= nil then
-		pinnedBody = Support.sourceOf(settings.pinned, "SpatialCollection", "pinned") :: Types.Body<{ [K]: boolean }>
+		pinnedBody = Support.sourceOf(settings.pinned, "SpatialCollection", "pinned")
 	end
 
 	local budget: Budget = settings.budget or {}
@@ -176,8 +175,9 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 						if pinnedBody ~= nil then
 							indexOfKey[key] = index
 						end
+						local importance = importance
 						if importance ~= nil then
-							local scale = math.max(0, numberOr((importance :: (value: V) -> number)(value), 1))
+							local scale = math.max(0, numberOr(importance(value), 1))
 							if scale > largestImportance then
 								largestImportance = scale
 							end
@@ -211,7 +211,8 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 
 			local origin = originBody(use)
 			local ox, oy, oz = numberOr(origin.x, 0), numberOr(origin.y, 0), numberOr(origin.z, 0)
-			local pinned: { [K]: boolean }? = if pinnedBody ~= nil then pinnedBody(use) else nil
+			local readPinned: Types.Body<{ [K]: boolean }>? = pinnedBody
+			local pinned: { [K]: boolean }? = if readPinned ~= nil then readPinned(use) else nil
 
 			local count = #list
 			if simpleMovingPopulation and gridFor ~= list then
@@ -224,14 +225,14 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 					local x, y, z = positionOf(value)
 					local dx, dy, dz = x - ox, y - oy, (z or 0) - oz
 					local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
-					local tier = Relevance.tierFor(distance, nil, tiers :: { Tier }, 0, 1)
+					local tier = Relevance.tierFor(distance, nil, tiers, 0, 1)
 					if tier ~= nil then
 						local at = #values + 1
 						values[at] = value
 						keys[at] = keyOf(value, index)
 						states[at] = {
 							tier = tier,
-							name = (tiers :: { Tier })[tier].name,
+							name = (tiers)[tier].name,
 							distance = distance,
 							pinned = false,
 						}
@@ -304,15 +305,13 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 				local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
 				local key = allKeys[index]
 				local current = tierOf[key]
-				local scale = if importance ~= nil
-					then math.max(0, numberOr((importance :: (value: V) -> number)(value), 1))
-					else 1
+				local scale = if importance ~= nil then math.max(0, numberOr(importance(value), 1)) else 1
 
 				local tier: number?
 				if pinned ~= nil and pinned[key] then
-					tier = Relevance.pinnedTier(distance, current, tiers :: { Tier }, hysteresis, scale)
+					tier = Relevance.pinnedTier(distance, current, tiers, hysteresis, scale)
 				else
-					tier = Relevance.tierFor(distance, current, tiers :: { Tier }, hysteresis, scale)
+					tier = Relevance.tierFor(distance, current, tiers, hysteresis, scale)
 				end
 
 				if tier ~= nil then
@@ -339,10 +338,10 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 			end)
 			local admitted, pending = admission.admitted, admission.pending
 			if admission.order ~= nil then
-				local order = admission.order :: { number }
-				local chosenIndices = table.create(admitted) :: { number }
-				local chosenTiers = table.create(admitted) :: { number }
-				local chosenDistance = table.create(admitted) :: { number }
+				local order = admission.order
+				local chosenIndices: { number } = createChosenIndices(admitted)
+				local chosenTiers: { number } = createChosenIndices(admitted)
+				local chosenDistance: { number } = createChosenIndices(admitted)
 				for position = 1, admitted do
 					local at = order[position]
 					chosenIndices[position] = newIndices[at]
@@ -355,9 +354,9 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 			pump.update(pending > 0)
 
 			local total = #keptIndices + #newIndices
-			local values = table.create(total) :: { V }
-			local keys = table.create(total) :: { K }
-			local states = table.create(total) :: { Representation }
+			local values: { V } = table.create(total)
+			local keys: { K } = table.create(total)
+			local states: { Representation } = createStates(total)
 			local perTier = table.create(tierCount, 0)
 			local nextTier: { [K]: number } = {}
 
@@ -386,7 +385,7 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 				keys[position] = key
 				states[position] = {
 					tier = tier,
-					name = (tiers :: { Tier })[tier].name,
+					name = (tiers)[tier].name,
 					distance = distance,
 					pinned = pinned ~= nil and pinned[key] == true,
 				}

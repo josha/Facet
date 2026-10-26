@@ -10,47 +10,47 @@ local Vector3 = Vector.Vector3
 type Vector3Value = Vector.Vector3Value
 type Rotation = { number }
 
-export type CFrameValue = typeof(setmetatable(
-	{} :: {
-		X: number,
-		Y: number,
-		Z: number,
-		Position: Vector3Value,
-		Rotation: CFrameValue,
-		RightVector: Vector3Value,
-		UpVector: Vector3Value,
-		LookVector: Vector3Value,
-		XVector: Vector3Value,
-		YVector: Vector3Value,
-		ZVector: Vector3Value,
-		GetComponents: (
-			self: CFrameValue
-		) -> (number, number, number, number, number, number, number, number, number, number, number, number),
-		Inverse: (self: CFrameValue) -> CFrameValue,
-		Lerp: (self: CFrameValue, goal: CFrameValue, alpha: number) -> CFrameValue,
-		Orthonormalize: (self: CFrameValue) -> CFrameValue,
-		ToWorldSpace: (self: CFrameValue, ...CFrameValue) -> ...CFrameValue,
-		ToObjectSpace: (self: CFrameValue, ...CFrameValue) -> ...CFrameValue,
-		PointToWorldSpace: (self: CFrameValue, ...Vector3Value) -> ...Vector3Value,
-		PointToObjectSpace: (self: CFrameValue, ...Vector3Value) -> ...Vector3Value,
-		VectorToWorldSpace: (self: CFrameValue, ...Vector3Value) -> ...Vector3Value,
-		VectorToObjectSpace: (self: CFrameValue, ...Vector3Value) -> ...Vector3Value,
-		ToEulerAnglesXYZ: (self: CFrameValue) -> (number, number, number),
-		ToEulerAnglesYXZ: (self: CFrameValue) -> (number, number, number),
-		ToOrientation: (self: CFrameValue) -> (number, number, number),
-		ToAxisAngle: (self: CFrameValue) -> (Vector3Value, number),
-		FuzzyEq: (self: CFrameValue, other: CFrameValue, epsilon: number?) -> boolean,
-	},
-	{} :: {
-		__mul: ((CFrameValue, CFrameValue) -> CFrameValue) & ((CFrameValue, Vector3Value) -> Vector3Value),
-		__add: (CFrameValue, Vector3Value) -> CFrameValue,
-		__sub: (CFrameValue, Vector3Value) -> CFrameValue,
-		__eq: (CFrameValue, CFrameValue) -> boolean,
-		__tostring: (CFrameValue) -> string,
-	}
-))
+local CFrameValueFields: {
+	X: number,
+	Y: number,
+	Z: number,
+	Position: Vector3Value,
+	Rotation: CFrameValue,
+	RightVector: Vector3Value,
+	UpVector: Vector3Value,
+	LookVector: Vector3Value,
+	XVector: Vector3Value,
+	YVector: Vector3Value,
+	ZVector: Vector3Value,
+	GetComponents: (
+		self: CFrameValue
+	) -> (number, number, number, number, number, number, number, number, number, number, number, number),
+	Inverse: (self: CFrameValue) -> CFrameValue,
+	Lerp: (self: CFrameValue, goal: CFrameValue, alpha: number) -> CFrameValue,
+	Orthonormalize: (self: CFrameValue) -> CFrameValue,
+	ToWorldSpace: (self: CFrameValue, ...CFrameValue) -> ...CFrameValue,
+	ToObjectSpace: (self: CFrameValue, ...CFrameValue) -> ...CFrameValue,
+	PointToWorldSpace: (self: CFrameValue, ...Vector3Value) -> ...Vector3Value,
+	PointToObjectSpace: (self: CFrameValue, ...Vector3Value) -> ...Vector3Value,
+	VectorToWorldSpace: (self: CFrameValue, ...Vector3Value) -> ...Vector3Value,
+	VectorToObjectSpace: (self: CFrameValue, ...Vector3Value) -> ...Vector3Value,
+	ToEulerAnglesXYZ: (self: CFrameValue) -> (number, number, number),
+	ToEulerAnglesYXZ: (self: CFrameValue) -> (number, number, number),
+	ToOrientation: (self: CFrameValue) -> (number, number, number),
+	ToAxisAngle: (self: CFrameValue) -> (Vector3Value, number),
+	FuzzyEq: (self: CFrameValue, other: CFrameValue, epsilon: number?) -> boolean,
+}
+local CFrameValueMeta: {
+	__mul: ((CFrameValue, CFrameValue) -> CFrameValue) & ((CFrameValue, Vector3Value) -> Vector3Value),
+	__add: (CFrameValue, Vector3Value) -> CFrameValue,
+	__sub: (CFrameValue, Vector3Value) -> CFrameValue,
+	__eq: (CFrameValue, CFrameValue) -> boolean,
+	__tostring: (CFrameValue) -> string,
+}
 
-type Methods = { [string]: unknown }
+export type CFrameValue = typeof(setmetatable(CFrameValueFields, CFrameValueMeta))
+
+type Methods = { [unknown]: unknown }
 
 local ROTATION = {}
 local UNIT_TOLERANCE = 1e-5
@@ -58,30 +58,37 @@ local IDENTITY = table.freeze { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
 
 local CFrameKind = Names.behavior "CFrame"
 
+local frames: { [unknown]: CFrameValue? } = {}
+local rotations: { [unknown]: Rotation } = {}
+Names.weak(frames)
+Names.weak(rotations)
+
 local function make(x: number, y: number, z: number, rotation: Rotation): CFrameValue
 	local r = table.create(9, 0)
 	for index = 1, 9 do
 		r[index] = f32(rotation[index])
 	end
-	return Names.make(CFrameKind, { X = f32(x), Y = f32(y), Z = f32(z), [ROTATION] = table.freeze(r) })
+	local fields: Names.Fields = { X = f32(x), Y = f32(y), Z = f32(z), [ROTATION] = table.freeze(r) }
+	local made: CFrameValue = Names.make(CFrameKind, fields)
+	frames[made], frames[fields] = made, made
+	rotations[made], rotations[fields] = r, r
+	return made
 end
 
 local function rotationOf(frame: CFrameValue): Rotation
-	return Names.fields(frame)[ROTATION] :: Rotation
+	return rotations[frame]
 end
 
 local function expectFrame(value: unknown, position: number): CFrameValue
-	if not Names.is(value, CFrameKind) then
-		Names.argument(position, "CFrame", value)
+	local found = frames[value]
+	if not found then
+		return Names.argument(position, "CFrame", value)
 	end
-	return value :: CFrameValue
+	return found
 end
 
 local function expectVector(value: unknown, position: number): Vector3Value
-	if not Vector.isVector3(value) then
-		Names.argument(position, "Vector3", value)
-	end
-	return value :: Vector3Value
+	return Vector.expect3(value, position)
 end
 
 local function dot(a1: number, b1: number, a2: number, b2: number, a3: number, b3: number): number
@@ -365,7 +372,7 @@ function methods.FuzzyEq(self: CFrameValue, other: unknown, epsilon: number?): b
 	local limit = epsilon or 1e-5
 	local a, b = { components(self) }, { components(target) }
 	for index = 1, 12 do
-		local left, right = a[index] :: number, b[index] :: number
+		local left, right = a[index], b[index]
 		if math.abs(left - right) > limit * math.max(1, math.abs(left), math.abs(right)) then
 			return false
 		end
@@ -374,12 +381,13 @@ function methods.FuzzyEq(self: CFrameValue, other: unknown, epsilon: number?): b
 end
 
 CFrameKind.fields.__index = function(fields: Names.Fields, key: unknown): unknown
-	local method = methods[key :: string]
+	local method = methods[key]
 	if method ~= nil then
 		return method
 	end
-	local frame = (fields :: unknown) :: CFrameValue
-	local r = fields[ROTATION] :: Rotation
+	local frame = frames[fields]
+	assert(frame ~= nil)
+	local r = rotations[fields]
 	if key == "Position" or key == "p" then
 		return Vector3.new(frame.X, frame.Y, frame.Z)
 	elseif key == "Rotation" then
@@ -399,9 +407,9 @@ end
 CFrameKind.meta.__mul = function(left: unknown, right: unknown): unknown
 	local frame = expectFrame(left, 1)
 	if Names.is(right, CFrameKind) then
-		return compose(frame, right :: CFrameValue)
+		return compose(frame, expectFrame(right, 2))
 	elseif Vector.isVector3(right) then
-		local v = right :: Vector3Value
+		local v = Vector.expect3(right, 2)
 		local x, y, z = rotate(rotationOf(frame), v.X, v.Y, v.Z)
 		return Vector3.new(frame.X + x, frame.Y + y, frame.Z + z)
 	end
@@ -436,7 +444,7 @@ end
 CFrameKind.meta.__tostring = function(frame: CFrameValue): string
 	local parts: { string } = {}
 	for _, component in { components(frame) } do
-		table.insert(parts, Float.general(component :: number, 9))
+		table.insert(parts, Float.general(component, 9))
 	end
 	return table.concat(parts, ", ")
 end
@@ -447,7 +455,7 @@ local function new(...: unknown): CFrameValue
 	if count == 0 then
 		return make(0, 0, 0, IDENTITY)
 	elseif Vector.isVector3(first) then
-		local position = first :: Vector3Value
+		local position = Vector.expect3(first, 1)
 		if count >= 2 and second ~= nil then
 			return lookAt(position, expectVector(second, 2))
 		end
@@ -507,6 +515,7 @@ local function read(value: CFrameValue): (number, number, number, { number })
 end
 
 return {
+	expect = expectFrame,
 	CFrame = CFrame,
 	read = read,
 	isCFrame = function(value: unknown): boolean

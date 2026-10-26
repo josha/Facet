@@ -9,7 +9,7 @@ local formula = require "./reactive/formula"
 local Support = require "./structure/support"
 
 export type Options<V, K> = {
-	from: Types.Readable<{ V }> | Types.Body<{ V }>,
+	from: Types.ReadOnlyValue<{ V }> | Types.Body<{ V }>,
 	key: ((value: V, index: number) -> K)?,
 	disabled: ((value: V, index: number) -> boolean)?,
 	position: ((value: V, index: number) -> (number, number))?,
@@ -19,7 +19,7 @@ export type Options<V, K> = {
 }
 
 export type FocusScope<K> = {
-	current: Types.Readable<K?>,
+	current: Types.ReadOnlyValue<K?>,
 	focus: (key: K) -> boolean,
 	clear: () -> (),
 	next: () -> K?,
@@ -27,7 +27,7 @@ export type FocusScope<K> = {
 	move: (direction: Direction) -> K?,
 	first: () -> K?,
 	last: () -> K?,
-	isFocused: (key: K) -> Types.Readable<boolean>,
+	isFocused: (key: K) -> Types.ReadOnlyValue<boolean>,
 }
 
 export type Direction = "left" | "right" | "up" | "down"
@@ -42,23 +42,24 @@ local KNOWN_FIELDS: { [string]: true } = {
 	autoFocus = true,
 }
 
-local function identity<V>(value: V, _index: number): V
-	return value
-end
+local identity = require("./reactive/node").identityKey
 
 local function createFocusScope<V, K>(options: Options<V, K>): FocusScope<K>
 	local settings = Support.optionsOf(options, "createFocusScope", "from = ..., key = ...")
 	Support.noUnknownFields(settings, "createFocusScope", KNOWN_FIELDS)
 	local owner = Active.current()
 	if owner == nil then
-		Diagnostics.raise("focus-scope/no-active-owner", "createFocusScope ran outside an owner", {
-			contract = "a focus scope lives exactly as long as the component or owner that created it",
-			fix = "create it inside a component or Compose.withOwner(owner, ...)",
-		})
+		error(
+			Diagnostics.format("focus-scope/no-active-owner", "createFocusScope ran outside an owner", {
+				contract = "a focus scope lives exactly as long as the component or owner that created it",
+				fix = "create it inside a component or Compose.withOwner(owner, ...)",
+			}),
+			0
+		)
 	end
-	local source = Support.sourceOf(settings.from, "createFocusScope", "from") :: Types.Body<{ V }>
+	local source: Types.Body<{ V }> = Support.sourceOf(settings.from, "createFocusScope", "from")
 	local keyOf: (value: V, index: number) -> K = if settings.key == nil
-		then (identity :: unknown) :: (value: V, index: number) -> K
+		then identity
 		else Support.builderOf(settings.key, "createFocusScope", "key")
 	local disabled: ((value: V, index: number) -> boolean)? = if settings.disabled == nil
 		then nil
@@ -69,37 +70,46 @@ local function createFocusScope<V, K>(options: Options<V, K>): FocusScope<K>
 	local wrap = settings.wrap == true
 	local autoFocus = settings.autoFocus == true
 	local initial: K? = settings.initial
-	local current: Types.Cell<K?> = cellModule.cell(initial)
+	local current: Types.Value<K?> = cellModule.cell(initial)
 	local order: { K } = {}
 	local positions: { [K]: number } = {}
 	local points: { [K]: { x: number, y: number } } = {}
 	local alive = true
-	local holder = owner :: Owner.Owner
+	local holder = owner
 
-	holder.own(function()
+	Owner.own(holder, function()
 		alive = false
 		table.clear(order)
 		table.clear(positions)
 		table.clear(points)
 	end)
-	holder.watch(function(use)
+	Owner.watch(holder, function(use)
 		local list = source(use)
 		table.clear(order)
 		table.clear(positions)
 		table.clear(points)
 		for index, value in list do
-			if disabled == nil or not (disabled :: (V, number) -> boolean)(value, index) then
+			local disabled = disabled
+			if disabled == nil or not disabled(value, index) then
 				local key = keyOf(value, index)
 				if positions[key] ~= nil then
-					Diagnostics.raise("focus-scope/duplicate-key", "createFocusScope encountered the same key twice", {
-						index = index,
-						contract = "focus candidates have stable unique keys",
-					})
+					error(
+						Diagnostics.format(
+							"focus-scope/duplicate-key",
+							"createFocusScope encountered the same key twice",
+							{
+								index = index,
+								contract = "focus candidates have stable unique keys",
+							}
+						),
+						0
+					)
 				end
 				order[#order + 1] = key
 				positions[key] = #order
+				local positionOf = positionOf
 				if positionOf ~= nil then
-					local x, y = (positionOf :: (V, number) -> (number, number))(value, index)
+					local x, y = positionOf(value, index)
 					if
 						type(x) ~= "number"
 						or type(y) ~= "number"
@@ -108,13 +118,16 @@ local function createFocusScope<V, K>(options: Options<V, K>): FocusScope<K>
 						or math.abs(x) == math.huge
 						or math.abs(y) == math.huge
 					then
-						Diagnostics.raise(
-							"focus-scope/invalid-position",
-							"createFocusScope.position returned invalid coordinates",
-							{
-								index = index,
-								expected = "two finite numbers",
-							}
+						error(
+							Diagnostics.format(
+								"focus-scope/invalid-position",
+								"createFocusScope.position returned invalid coordinates",
+								{
+									index = index,
+									expected = "two finite numbers",
+								}
+							),
+							0
 						)
 					end
 					points[key] = { x = x, y = y }
@@ -180,15 +193,21 @@ local function createFocusScope<V, K>(options: Options<V, K>): FocusScope<K>
 
 	local function moveDirection(direction: Direction): K?
 		if direction ~= "left" and direction ~= "right" and direction ~= "up" and direction ~= "down" then
-			Diagnostics.raise("focus-scope/unknown-direction", "focus movement needs a known direction", {
-				actual = Diagnostics.describe(direction),
-				expected = '"left", "right", "up", or "down"',
-			})
+			error(
+				Diagnostics.format("focus-scope/unknown-direction", "focus movement needs a known direction", {
+					actual = Diagnostics.describe(direction),
+					expected = '"left", "right", "up", or "down"',
+				}),
+				0
+			)
 		end
 		if positionOf == nil then
-			Diagnostics.raise("focus-scope/no-positions", "directional focus movement needs candidate positions", {
-				fix = "pass position = function(item) return item.x, item.y end, or use next/previous",
-			})
+			error(
+				Diagnostics.format("focus-scope/no-positions", "directional focus movement needs candidate positions", {
+					fix = "pass position = function(item) return item.x, item.y end, or use next/previous",
+				}),
+				0
+			)
 		end
 		local selected = current:peek()
 		if selected == nil or points[selected] == nil then
@@ -226,11 +245,11 @@ local function createFocusScope<V, K>(options: Options<V, K>): FocusScope<K>
 		return selected
 	end
 
-	local function isFocused(key: K): Types.Readable<boolean>
+	local function isFocused(key: K): Types.ReadOnlyValue<boolean>
 		local value = formula(function(use)
 			return use(current) == key
 		end)
-		holder.own(function()
+		Owner.own(holder, function()
 			value:dispose()
 		end)
 		return value

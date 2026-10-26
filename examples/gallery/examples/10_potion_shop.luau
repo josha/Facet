@@ -1,8 +1,8 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local makeView = require("./showcase_view")
 type Sale = { id: number, name: string, recipe: string, quantity: number, earned: number }
 local recipes = {
@@ -346,7 +346,7 @@ return {
 						key = function(item: Sale)
 							return item.id
 						end,
-						render = function(current: Readable<Sale>): GuiObject
+						render = function(current: ReadOnlyValue<Sale>): GuiObject
 							return view.text("Sale" .. current:peek().id, function(use: Use)
 								local sale = use(current)
 								return `{sale.name} · {sale.quantity} × {sale.recipe} · +{sale.earned}`

@@ -6,29 +6,29 @@ local CELL_PADDING = 16
 export type Metrics = {
 	cellPadding: number,
 	input: UserInputService?,
-	preferredInput: ComposeTypes.Readable<Enum.PreferredInput>?,
+	preferredInput: ComposeTypes.ReadOnlyValue<Enum.PreferredInput>?,
 	touchRows: (ComposeTypes.Use) -> boolean,
-	minimumRow: ComposeTypes.Formula<number>,
+	minimumRow: ComposeTypes.Value<number>,
 	toolbarShown: (ComposeTypes.Use) -> boolean,
-	toolbarHeight: ComposeTypes.Formula<number>,
-	headerHeight: ComposeTypes.Formula<number>,
-	topHeight: ComposeTypes.Formula<number>,
-	recordHeight: (ComposeTypes.Cell<{ [string]: number }>, string, TextLabel | TextButton, number) -> (),
+	toolbarHeight: ComposeTypes.Value<number>,
+	headerHeight: ComposeTypes.Value<number>,
+	topHeight: ComposeTypes.Value<number>,
+	recordHeight: (ComposeTypes.Value<{ [string]: number }>, string, TextLabel | TextButton, number) -> (),
 	textInsets: TextLabel,
-	textInsetSize: ComposeTypes.Cell<Vector2>,
+	textInsetSize: ComposeTypes.Value<Vector2>,
 }
 return function<V, K>(
 	ctx: Types.Context,
 	spec: CollectionTypes.TableShape<V, K>,
 	ownsToggle: boolean,
-	unitScale: ComposeTypes.Cell<number>,
-	headerMeasures: ComposeTypes.Cell<{ [string]: number }>
+	unitScale: ComposeTypes.Value<number>,
+	headerMeasures: ComposeTypes.Value<{ [string]: number }>
 ): Metrics
 	local Compose = ctx.Compose
 	local read = ctx.read
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
 	local input = ctx.config.userInputService
-	local preferredInput: ComposeTypes.Readable<Enum.PreferredInput>? = if input
+	local preferredInput: ComposeTypes.ReadOnlyValue<Enum.PreferredInput>? = if input
 		then ctx.observe.PreferredInput(input)
 		else nil
 	local tenFoot = ctx.tenFoot()
@@ -94,12 +94,12 @@ return function<V, K>(
 		return use(toolbarHeight) + use(headerHeight)
 	end)
 	local function recordHeight(
-		cell: ComposeTypes.Cell<{ [string]: number }>,
+		cell: ComposeTypes.Value<{ [string]: number }>,
 		id: string,
 		node: TextLabel | TextButton,
 		extra: number
 	): ()
-		local observed: ComposeTypes.Readable<Vector2> = if node:IsA("TextLabel")
+		local observed: ComposeTypes.ReadOnlyValue<Vector2> = if node:IsA("TextLabel")
 			then ctx.observe.TextBounds(node)
 			else ctx.observe.TextBounds(node)
 		local text = ctx.observe.Text(node)

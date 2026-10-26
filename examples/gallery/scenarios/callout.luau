@@ -4,8 +4,8 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Mark = { id: string, requested: BooleanCell, showing: BooleanCell, retired: BooleanCell }
 
 local COPY = {

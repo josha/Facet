@@ -9,12 +9,12 @@ local Theme = require("./theme_types")
 export type Place = (GuiObject, number) -> ()
 export type Room = { top: number, right: number, bottom: number, left: number }
 export type Kit = {
-	spacing: (Shared.Value<Shared.Space>?, ComposeTypes.Use?) -> number,
-	insets: (Shared.Value<Shared.Padding>?, ComposeTypes.Readable<Room>?) -> UIPadding?,
-	shadowRoom: (GuiObject, ComposeTypes.Cell<Room>) -> (),
-	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Value<UDim2>, Shared.Value<Enum.AutomaticSize>),
-	list: (Shared.Flow, Shared.Value<boolean>, boolean?) -> UIListLayout,
-	underTopbar: (GuiObject, ComposeTypes.Cell<number>) -> (),
+	spacing: (Shared.Input<Shared.Space>?, ComposeTypes.Use?) -> number,
+	insets: (Shared.Input<Shared.Padding>?, ComposeTypes.ReadOnlyValue<Room>?) -> UIPadding?,
+	shadowRoom: (GuiObject, ComposeTypes.Value<Room>) -> (),
+	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Input<UDim2>, Shared.Input<Enum.AutomaticSize>),
+	list: (Shared.Flow, Shared.Input<boolean>, boolean?) -> UIListLayout,
+	underTopbar: (GuiObject, ComposeTypes.Value<number>) -> (),
 	ordered: ({ ComposeTypes.Child }, Place?) -> { ComposeTypes.Child },
 	assemble: <P>(P, unknown?, { Instance? }, { ComposeTypes.Child }, Place?) -> P,
 	plain: <N>(N & Instance, unknown?) -> N & Instance,
@@ -22,7 +22,7 @@ export type Kit = {
 		{ ComposeTypes.Child },
 		Shared.FrameNativeProps?,
 		Shared.Flow,
-		Shared.Value<boolean>,
+		Shared.Input<boolean>,
 		Shared.Extent?,
 		Shared.Extent?
 	) -> Frame,
@@ -48,9 +48,9 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	local Enum = types.Enum
 	local kit = {} :: Kit
 	local function live(value: unknown): boolean
-		return Compose.isReadable(value) or type(value) == "function"
+		return Compose.isValue(value) or type(value) == "function"
 	end
-	local function derive<T>(compute: (ComposeTypes.Use?) -> T, ...: unknown): Shared.Value<T>
+	local function derive<T>(compute: (ComposeTypes.Use?) -> T, ...: unknown): Shared.Input<T>
 		for index = 1, select("#", ...) do
 			if live((select(index, ...))) then
 				return function(use: ComposeTypes.Use): T
@@ -60,7 +60,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		return compute(nil)
 	end
-	function kit.spacing(value: Shared.Value<Shared.Space>?, use: ComposeTypes.Use?): number
+	function kit.spacing(value: Shared.Input<Shared.Space>?, use: ComposeTypes.Use?): number
 		local step = read(value, use)
 		if step == nil then
 			return 0
@@ -81,16 +81,16 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		)
 		return pixels
 	end
-	local function spacingValue(value: Shared.Value<Shared.Space>?): Shared.Value<UDim>
+	local function spacingValue(value: Shared.Input<Shared.Space>?): Shared.Input<UDim>
 		return derive(function(use)
 			return types.UDim.new(0, kit.spacing(value, use))
 		end, value, if type(read(value)) == "string" then config.theme else nil)
 	end
-	function kit.insets(padding: Shared.Value<Shared.Padding>?, room: ComposeTypes.Readable<Room>?): UIPadding?
+	function kit.insets(padding: Shared.Input<Shared.Padding>?, room: ComposeTypes.ReadOnlyValue<Room>?): UIPadding?
 		if padding == nil then
 			return nil
 		end
-		local function side(name: "top" | "right" | "bottom" | "left"): Shared.Value<UDim>
+		local function side(name: "top" | "right" | "bottom" | "left"): Shared.Input<UDim>
 			local function pick(use: ComposeTypes.Use?): Shared.Space?
 				local value = read(padding, use)
 				if type(value) == "table" then
@@ -120,7 +120,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			PaddingLeft = side("left"),
 		})
 	end
-	function kit.shadowRoom(frame: GuiObject, room: ComposeTypes.Cell<Room>)
+	function kit.shadowRoom(frame: GuiObject, room: ComposeTypes.Value<Room>)
 		local function measure()
 			local top, right, bottom, left = 0, 0, 0, 0
 			for _, child in frame:GetChildren() do
@@ -229,7 +229,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		box: Shared.Box,
 		width: Shared.Extent,
 		height: Shared.Extent
-	): (Shared.Value<UDim2>, Shared.Value<Enum.AutomaticSize>)
+	): (Shared.Input<UDim2>, Shared.Input<Enum.AutomaticSize>)
 		local function resolve(use: ComposeTypes.Use?): (Shared.Extent, Shared.Extent)
 			local w: Shared.Extent? = read(box.width, use)
 			local h: Shared.Extent? = read(box.height, use)
@@ -258,7 +258,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	local function edge<T>(value: Shared.Align | Shared.Distribute, start: T, center: T, finish: T): T
 		return if value == "center" then center elseif value == "end" then finish else start
 	end
-	function kit.list(flow: Shared.Flow, vertical: Shared.Value<boolean>, matched: boolean?): UIListLayout
+	function kit.list(flow: Shared.Flow, vertical: Shared.Input<boolean>, matched: boolean?): UIListLayout
 		local function column(use: ComposeTypes.Use?): boolean
 			return read(vertical, use) == true
 		end
@@ -485,7 +485,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		children: { ComposeTypes.Child },
 		properties: Shared.FrameNativeProps?,
 		flow: Shared.Flow,
-		vertical: Shared.Value<boolean>,
+		vertical: Shared.Input<boolean>,
 		width: Shared.Extent?,
 		height: Shared.Extent?
 	): Frame
@@ -495,7 +495,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			Size = size,
 			AutomaticSize = automatic,
 		}
-		local room: ComposeTypes.Cell<Room>? = if flow.padding ~= nil
+		local room: ComposeTypes.Value<Room>? = if flow.padding ~= nil
 			then Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 })
 			else nil
 		local column = if live(vertical) then nil else read(vertical) == true
@@ -636,7 +636,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			end
 		end
 		local function aimed(value: number): GuiObject?
-			if value <= 0 or owner.isDisposed() then
+			if value <= 0 or ComposeTypes.owner.isDisposed(owner) then
 				return nil
 			end
 			local aim = kit.liftTarget(source)
@@ -679,7 +679,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local pending = false
 		local function apply()
 			pending = false
-			if not owner.isDisposed() then
+			if not ComposeTypes.owner.isDisposed(owner) then
 				applied = lift(value())
 			end
 		end
@@ -747,7 +747,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local settling = 0
 		local seen: { [unknown]: number } = {}
 		local function check(): boolean
-			if owner.isDisposed() then
+			if ComposeTypes.owner.isDisposed(owner) then
 				return true
 			end
 			local members: { unknown } = {}
@@ -808,7 +808,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		local pending = false
 		local function schedule()
-			if pending or owner.isDisposed() then
+			if pending or ComposeTypes.owner.isDisposed(owner) then
 				return
 			end
 			if frames == nil then
@@ -885,7 +885,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			table.clear(watched)
 		end)
 	end
-	function kit.underTopbar(frame: GuiObject, under: ComposeTypes.Cell<number>)
+	function kit.underTopbar(frame: GuiObject, under: ComposeTypes.Value<number>)
 		local gui = config.guiService
 		if gui == nil then
 			return

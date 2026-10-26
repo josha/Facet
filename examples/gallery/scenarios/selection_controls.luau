@@ -5,8 +5,8 @@ type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type VoteCell = typeof(require("@repo/tools/typecheck/aliases").VoteCell)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
 return {

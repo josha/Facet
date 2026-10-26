@@ -46,11 +46,11 @@ return function(
 		ZIndex = node.ZIndex,
 		container,
 	})
-	local scale = (runtime.observe(boundary, "AbsoluteSize", poll) :: unknown) :: ComposeTypes.Cell<Vector2>
-	local size = (runtime.observe(target, "AbsoluteSize", poll) :: unknown) :: ComposeTypes.Cell<Vector2>
-	local at = (runtime.observe(target, "AbsolutePosition", frame) :: unknown) :: ComposeTypes.Cell<Vector2>
-	local rotation = (runtime.observe(target, "AbsoluteRotation", frame) :: unknown) :: ComposeTypes.Cell<number>
-	local boundaryAt = (runtime.observe(boundary, "AbsolutePosition", frame) :: unknown) :: ComposeTypes.Cell<Vector2>
+	local scale = (runtime.observe(boundary, "AbsoluteSize", poll) :: unknown) :: ComposeTypes.Value<Vector2>
+	local size = (runtime.observe(target, "AbsoluteSize", poll) :: unknown) :: ComposeTypes.Value<Vector2>
+	local at = (runtime.observe(target, "AbsolutePosition", frame) :: unknown) :: ComposeTypes.Value<Vector2>
+	local rotation = (runtime.observe(target, "AbsoluteRotation", frame) :: unknown) :: ComposeTypes.Value<number>
+	local boundaryAt = (runtime.observe(boundary, "AbsolutePosition", frame) :: unknown) :: ComposeTypes.Value<Vector2>
 	local insets = Compose.cell({} :: Insets)
 	local padding = Compose.cell(target:FindFirstChildWhichIsA("UIPadding"))
 	local function childChanged(child: Instance)
@@ -107,7 +107,7 @@ return function(
 	end)
 	if target:IsA("ScrollingFrame") then
 		local frame = target :: ScrollingFrame
-		local canvas = (runtime.observe(frame, "CanvasPosition") :: unknown) :: ComposeTypes.Cell<Vector2>
+		local canvas = (runtime.observe(frame, "CanvasPosition") :: unknown) :: ComposeTypes.Value<Vector2>
 		runtime.decorate(boundary, {
 			Position = function(use: ComposeTypes.Use): UDim2
 				local rendered: Vector2, factor: Vector2, at: Vector2 = use(size), use(scale), use(canvas)

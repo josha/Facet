@@ -4,18 +4,18 @@ local Types = require("./types")
 local CollectionTypes = require("./collection_types")
 local Metrics = require("./collection_table_metrics")
 export type Columns<V, K> = {
-	viewportWidth: ComposeTypes.Cell<number>,
-	fillWidth: ComposeTypes.Cell<number>,
+	viewportWidth: ComposeTypes.Value<number>,
+	fillWidth: ComposeTypes.Value<number>,
 	setPrimaryMeasure: (K, TextLabel, number, number) -> (),
 	minimumOf: (CollectionTypes.TableColumn<V, K>) -> number,
-	collapsed: ComposeTypes.Formula<{ [string]: boolean }>,
-	disclosureWidth: ComposeTypes.Formula<number>,
-	disclosureShare: ComposeTypes.Formula<number>,
-	narrowest: ComposeTypes.Formula<number>,
+	collapsed: ComposeTypes.Value<{ [string]: boolean }>,
+	disclosureWidth: ComposeTypes.Value<number>,
+	disclosureShare: ComposeTypes.Value<number>,
+	narrowest: ComposeTypes.Value<number>,
 	textWrap: (CollectionTypes.TableColumn<V, K>, ComposeTypes.Use) -> boolean,
 	columnFrame: (
-		ComposeTypes.Readable<CollectionTypes.TableColumn<V, K>>,
-		ComposeTypes.Readable<number>,
+		ComposeTypes.ReadOnlyValue<CollectionTypes.TableColumn<V, K>>,
+		ComposeTypes.ReadOnlyValue<number>,
 		GuiObject,
 		GuiObject?,
 		GuiObject?
@@ -24,13 +24,13 @@ export type Columns<V, K> = {
 return function<V, K>(
 	ctx: Types.Context,
 	spec: CollectionTypes.TableShape<V, K>,
-	widths: ComposeTypes.Cell<{ [string]: number }>,
-	truncatedRows: ComposeTypes.Cell<{ [K]: { [string]: boolean } }>,
+	widths: ComposeTypes.Value<{ [string]: number }>,
+	truncatedRows: ComposeTypes.Value<{ [K]: { [string]: boolean } }>,
 	metrics: Metrics.Metrics,
-	rows: ComposeTypes.Readable<{ V }>,
+	rows: ComposeTypes.ReadOnlyValue<{ V }>,
 	keyOf: (V, number) -> K,
 	field: (V, CollectionTypes.TableColumn<V, K>) -> unknown,
-	unitScale: ComposeTypes.Readable<number>
+	unitScale: ComposeTypes.ReadOnlyValue<number>
 ): Columns<V, K>
 	local Compose, Host = ctx.Compose, ctx.Host
 	local read = ctx.read
@@ -198,13 +198,14 @@ return function<V, K>(
 	end)
 	local owner = assert(Compose.currentOwner())
 	local perColumn: {
-		[string]: { allocated: ComposeTypes.Readable<number?>, fixed: ComposeTypes.Readable<number?> },
+		[string]: { allocated: ComposeTypes.ReadOnlyValue<number?>, fixed: ComposeTypes.ReadOnlyValue<number?> },
 	} =
 		{}
-	local allocatedWidths: ComposeTypes.Readable<{ [string]: number }>
-	local function widthsOf(
-		id: string
-	): { allocated: ComposeTypes.Readable<number?>, fixed: ComposeTypes.Readable<number?> }
+	local allocatedWidths: ComposeTypes.ReadOnlyValue<{ [string]: number }>
+	local function widthsOf(id: string): {
+		allocated: ComposeTypes.ReadOnlyValue<number?>,
+		fixed: ComposeTypes.ReadOnlyValue<number?>,
+	}
 		local found = perColumn[id]
 		if found == nil then
 			Compose.withOwner(owner, function()
@@ -222,7 +223,7 @@ return function<V, K>(
 		return assert(found)
 	end
 	local function columnWidth(
-		current: ComposeTypes.Readable<CollectionTypes.TableColumn<V, K>>,
+		current: ComposeTypes.ReadOnlyValue<CollectionTypes.TableColumn<V, K>>,
 		use: ComposeTypes.Use
 	): number?
 		local column = use(current)
@@ -302,8 +303,8 @@ return function<V, K>(
 		return if value == nil then metrics.touchRows(use) else value
 	end
 	local function columnFrame(
-		current: ComposeTypes.Readable<CollectionTypes.TableColumn<V, K>>,
-		index: ComposeTypes.Readable<number>,
+		current: ComposeTypes.ReadOnlyValue<CollectionTypes.TableColumn<V, K>>,
+		index: ComposeTypes.ReadOnlyValue<number>,
 		content: GuiObject,
 		extra: GuiObject?,
 		more: GuiObject?

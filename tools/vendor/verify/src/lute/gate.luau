@@ -43,6 +43,11 @@ export type Gate = {
 	cli: (draft: Gate.Draft, args: { string }, options: CliOptions?) -> number,
 }
 
+local function checkedString(value: unknown): string
+	assert(type(value) == "string")
+	return value
+end
+
 local function capabilities(runtime: Runtime?): { string }
 	local declared = { "local-luau", "process" }
 	for _, capability in Bounded.capabilities(if runtime ~= nil then runtime.bounded else nil) do
@@ -90,7 +95,7 @@ local function numbers(value: unknown): { [string]: number }
 end
 
 local function readWeights(text: string): Cli.Weights
-	local parsed, value: unknown = pcall(Wire.parse, text)
+	local parsed, value = pcall(Wire.parse, text)
 	if not parsed or type(value) ~= "table" then
 		return { producers = {}, files = {} }
 	end
@@ -151,7 +156,7 @@ local function create(runtime: Runtime): Gate
 					table.insert(units, { id = job.id .. ":" .. locator, locator = locator })
 				end
 				local host = Host.create({
-					worker = job.worker :: string,
+					worker = checkedString(job.worker),
 					command = job.command or options.command,
 					directory = stem .. "-worker",
 					deadlineSeconds = job.deadlineSeconds,
@@ -204,7 +209,7 @@ local function create(runtime: Runtime): Gate
 							caseIdStyle = "bare",
 						},
 					}
-					local ran, execution: unknown = pcall(function()
+					local ran, execution = pcall(function()
 						local execution = Verify.execute(plan, host)
 						if job.isolate then
 							Verify.merge(reports, host.name, host.environment)
@@ -217,7 +222,7 @@ local function create(runtime: Runtime): Gate
 						timedOut = false,
 						stdout = "",
 						stderr = "",
-						report = if ran then (execution :: Verify.ExecutionReport).report else nil,
+						report = if ran then (execution).report else nil,
 						detail = if ran then nil else tostring(execution),
 					}
 				end)
@@ -258,9 +263,9 @@ local function create(runtime: Runtime): Gate
 				local document: unknown = nil
 				local detail: string? = if started then nil else ran.stderr
 				if started and not ran.timedOut and runtime.fs.exists(reportPath) then
-					local read, text: unknown = pcall(runtime.fs.read, reportPath)
+					local read, text = pcall(runtime.fs.read, reportPath)
 					if read then
-						local parsed, value: unknown = pcall(Wire.parse, text :: string)
+						local parsed, value = pcall(Wire.parse, text)
 						if parsed then
 							document = value
 						else
@@ -342,7 +347,7 @@ local function create(runtime: Runtime): Gate
 		if not runtime.fs.exists(path) then
 			return nil, "no earlier outcome at " .. path
 		end
-		local parsed, value: unknown = pcall(function(): unknown
+		local parsed, value = pcall(function(): unknown
 			return Wire.parse(runtime.fs.read(path))
 		end)
 		if not parsed or type(value) ~= "table" then
@@ -352,11 +357,11 @@ local function create(runtime: Runtime): Gate
 		if outcome.gate ~= gate.id or outcome.digest ~= gate.digest then
 			return nil, "the earlier outcome belongs to another gate definition"
 		end
-		local decoded, report: unknown = pcall(Verify.decode, outcome.execution.report)
+		local decoded, report = pcall(Verify.decode, outcome.execution.report)
 		if not decoded then
 			return nil, "the earlier outcome holds an invalid report: " .. tostring(report)
 		end
-		outcome.execution.report = report :: Verify.Report
+		outcome.execution.report = report
 		return outcome, nil
 	end
 

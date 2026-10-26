@@ -17,15 +17,24 @@ local function finite(value: unknown): boolean
 end
 
 local function number(value: unknown, name: string, minimum: number?): number
-	if not finite(value) or (minimum ~= nil and (value :: number) < minimum) then
-		Diagnostics.raise("geometry/invalid-number", ("%s must be a finite number"):format(name), {
-			actual = Diagnostics.describe(value),
-			expected = if minimum ~= nil
-				then ("a finite number of %s or more"):format(tostring(minimum))
-				else "a finite number",
-		})
+	if
+		type(value) ~= "number"
+		or value ~= value
+		or value <= -math.huge
+		or value >= math.huge
+		or (minimum ~= nil and value < minimum)
+	then
+		error(
+			Diagnostics.format("geometry/invalid-number", ("%s must be a finite number"):format(name), {
+				actual = Diagnostics.describe(value),
+				expected = if minimum ~= nil
+					then ("a finite number of %s or more"):format(tostring(minimum))
+					else "a finite number",
+			}),
+			0
+		)
 	end
-	return value :: number
+	return value
 end
 
 local function bounds(value: unknown, name: string): Bounds
@@ -99,7 +108,7 @@ end
 local function fit(available: Bounds, desired: Size, options: FitOptions?): Frame
 	bounds(available, "available")
 	size(desired, "desired")
-	local settings = if options ~= nil then options else {} :: FitOptions
+	local settings: FitOptions = if options ~= nil then options else {}
 	local minimum = if settings.min ~= nil then size(settings.min, "min") else nil
 	local maximum = if settings.max ~= nil then size(settings.max, "max") else nil
 	if minimum ~= nil and maximum ~= nil and (minimum.width > maximum.width or minimum.height > maximum.height) then
@@ -178,7 +187,7 @@ local function firstClear<T, R>(candidates: { T }, options: ClearOptions<R>?): (
 			expected = "an array of { left, top, right, bottom } in preference order",
 		})
 	end
-	local settings = if options ~= nil then options else {} :: ClearOptions<R>
+	local settings: ClearOptions<R> = if options ~= nil then options else {}
 	local within = if settings.within ~= nil then bounds(settings.within, "within") else nil
 	local reserved: { R } = if settings.reserved ~= nil then settings.reserved else {}
 	for index, region in reserved do
@@ -186,7 +195,7 @@ local function firstClear<T, R>(candidates: { T }, options: ClearOptions<R>?): (
 	end
 	for index, candidate in candidates do
 		bounds(candidate, ("candidates[%d]"):format(index))
-		local clear = within == nil or encloses(within :: Bounds, (candidate :: unknown) :: Bounds)
+		local clear = within == nil or encloses(within, (candidate :: unknown) :: Bounds)
 		if clear then
 			for _, region in reserved do
 				if intersects((candidate :: unknown) :: Bounds, (region :: unknown) :: Bounds) then

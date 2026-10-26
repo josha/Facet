@@ -27,7 +27,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 	end
 	UI.badged = function(
 		host: GuiObject,
-		value: Types.Value<Content.BadgeValue?>,
+		value: Types.Input<Content.BadgeValue?>,
 		options: Content.BadgedOptions?
 	): Frame
 		assert((host :: Instance?) and host:IsA("GuiObject"), "Facet UI.badged: host must be a GuiObject")

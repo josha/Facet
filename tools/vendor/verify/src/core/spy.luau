@@ -18,13 +18,18 @@ export type Spy<A... = ...unknown> = {
 	implementation: (f: (A...) -> ...unknown) -> (),
 }
 
-local function arguments(...: unknown): { unknown }
-	return { ... }
+local function arguments<A...>(...: A...): { unknown }
+	local result: { unknown } = {}
+	for index = 1, select("#", ...) do
+		local value: unknown = select(index, ...)
+		result[index] = value
+	end
+	return result
 end
 
 local function on<A...>(implementation: ((A...) -> ...unknown)?): Spy<A...>
 	local calls: { Call } = {}
-	local recordArguments = (arguments :: unknown) :: (A...) -> { unknown }
+	local recordArguments = arguments
 
 	local current: (A...) -> ...unknown = implementation or function(...: A...) end
 

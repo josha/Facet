@@ -11,8 +11,8 @@ return function(verifyHarness: Verify.Harness)
 	type TextButtonConstructor = typeof(require("@repo/tools/typecheck/aliases").TextButtonConstructor)
 	local FixtureEngineTypes = require("../src/ui/engine_types")
 	local requireDynamic = require :: (any) -> any
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 	local SharedTypes = require("../src/ui/control_types")
 
 	local Compose = require("../src/vendor/compose/core")
@@ -148,7 +148,7 @@ return function(verifyHarness: Verify.Harness)
 				modal.Parent = node.Parent
 				local available = false
 				local owner = Compose.createRootOwner(function(root)
-					root.watch(function(use)
+					Compose.owner.watch(root, function(use)
 						available = ctx.available(node, use)
 					end)
 				end)
@@ -221,18 +221,18 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(engine.census().connections):toBe(before + 1)
 				node.Text = "First"
 				Verify.expect(first:peek()):toBe("First")
-				firstOwner.dispose()
+				Compose.owner.dispose(firstOwner)
 				node.Text = "Second"
 				Verify.expect(second:peek()):toBe("Second")
 				Verify.expect(engine.census().connections):toBe(before + 1)
-				secondOwner.dispose()
+				Compose.owner.dispose(secondOwner)
 				Verify.expect(engine.census().connections):toBe(before)
 				node.Text = "Released"
 				Verify.expect(second:peek()):toBe("Second")
 				for _, property in { "AbsoluteSize", "SelectedObject" } do
 					local gui = (engine.new("GuiService") :: unknown) :: GuiService
 					local target: Instance = if property == "AbsoluteSize" then node else gui
-					local function observe(): Compose.Readable<unknown>
+					local function observe(): Compose.ReadOnlyValue<unknown>
 						return if property == "AbsoluteSize"
 							then ctx.observe.AbsoluteSize(node)
 							else ctx.observe.SelectedObject(gui)
@@ -242,12 +242,12 @@ return function(verifyHarness: Verify.Harness)
 					local left, right = Compose.withOwner(a, observe), Compose.withOwner(b, observe)
 					Verify.expect(left):toBe(right)
 					Verify.expect(engine.census().connections):toBe(baseline + 1)
-					a.dispose()
+					Compose.owner.dispose(a)
 					local value: unknown = if property == "AbsoluteSize" then engine.types.Vector2.new(80, 40) else node
 					engine.environment.poke(VerifyRoblox.assertInstance(target), property, value)
 					Verify.expect(right:peek()):toBe(value)
 					Verify.expect(engine.census().connections):toBe(baseline + 1)
-					b.dispose()
+					Compose.owner.dispose(b)
 					Verify.expect(engine.census().connections):toBe(baseline)
 				end
 				stop()

@@ -24,3 +24,8 @@ These files are generated. They are not authored.
 
 The Lune fixture does not change. The tests use it as a second, smaller database.
 The Studio files record the engine version that wrote them. Regenerate them after a Roblox update and review the difference.
+
+## Leakage checks
+
+`tools/check-leakage.luau` scans tracked text for product asset, place and universe identifiers.
+`tools/lib/denylist.luau` allows only exact literals in named files: URI constructors in the datatype implementation, synthetic IDs in tests and native conformance, and the engine-reported default font ID in the generated datatype probe fixture. The generated fixture's source and regeneration command are recorded above. Other literals in those files remain checked.

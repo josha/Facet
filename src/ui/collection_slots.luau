@@ -6,10 +6,10 @@ local CollectionTypes = require("./collection_types")
 local State = require("./collection_state")
 export type Slot<V, K> = { key: K, item: V? }
 export type Slots<V, K> = {
-	source: ComposeTypes.Formula<{ Slot<V, K> }>,
+	source: ComposeTypes.Value<{ Slot<V, K> }>,
 	wrap: (
-		(ComposeTypes.Readable<V>, ComposeTypes.Readable<ComposeTypes.Placement>, K) -> GuiObject
-	) -> (ComposeTypes.Readable<Slot<V, K>>, ComposeTypes.Readable<ComposeTypes.Placement>, K) -> GuiObject,
+		(ComposeTypes.ReadOnlyValue<V>, ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>, K) -> GuiObject
+	) -> (ComposeTypes.ReadOnlyValue<Slot<V, K>>, ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>, K) -> GuiObject,
 }
 return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 	local Compose, Host = ctx.Compose, ctx.Host
@@ -71,13 +71,13 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 		return true
 	end)
 	local function withSlots(renderItem: (
-		ComposeTypes.Readable<V>,
-		ComposeTypes.Readable<ComposeTypes.Placement>,
+		ComposeTypes.ReadOnlyValue<V>,
+		ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
 		K
 	) -> GuiObject)
 		return function(
-			record: ComposeTypes.Readable<SlotRecord>,
-			placement: ComposeTypes.Readable<ComposeTypes.Placement>,
+			record: ComposeTypes.ReadOnlyValue<SlotRecord>,
+			placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
 			key: K
 		)
 			if spec.slots == nil then

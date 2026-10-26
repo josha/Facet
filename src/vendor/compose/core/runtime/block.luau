@@ -1,4 +1,5 @@
 --!strict
+--!native
 
 local Active = require "../ownership/active"
 local Children = require "./children"
@@ -13,7 +14,7 @@ type Dispose = Types.Dispose
 
 export type Block = {
 	nodes: { Node },
-	dispose: Dispose,
+	owner: Owner.Owner,
 }
 
 local function nameOf(component: unknown): string
@@ -59,16 +60,16 @@ local function mountBlock(
 	label: string,
 	at: number?
 ): Block
-	local owner = parentOwner.createChild()
+	local owner = Owner.createChild(parentOwner)
 
 	local ok, produced = pcall(Active.runWith1, owner, produce)
 	if not ok then
-		owner.dispose()
+		Owner.dispose(owner)
 		error(produced, 0)
 	end
 	local okNodes, built = pcall(requireNodes, produced, label)
 	if not okNodes then
-		owner.dispose()
+		Owner.dispose(owner)
 		error(built, 0)
 	end
 
@@ -84,11 +85,11 @@ local function mountBlock(
 		for index = inserted, 1, -1 do
 			pcall(mountPoint.remove, built[index])
 		end
-		owner.dispose()
+		Owner.dispose(owner)
 		error(insertErr, 0)
 	end
 
-	owner.own(function()
+	Owner.adopt(owner, function()
 		for index = #built, 1, -1 do
 			mountPoint.remove(built[index])
 		end
@@ -97,7 +98,7 @@ local function mountBlock(
 		end
 	end)
 
-	return { nodes = built, dispose = owner.dispose }
+	return { nodes = built, owner = owner }
 end
 
 return {

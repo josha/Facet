@@ -4,14 +4,14 @@ local Types = require("./types")
 local Nav = require("./navigation_types")
 local Media = require("./media_types")
 
-export type Value<T> = Types.Value<T>
+export type Input<T> = Types.Input<T>
 
 export type Diagnostics = { diagnostics: (() -> { string })? }
 export type PaginationForm = "numbers" | "arrows" | "label"
 export type PaginationOptions = {
 	page: Types.ValueNumber,
 	onChange: (number) -> (),
-	pageCount: Value<number?>?,
+	pageCount: Input<number?>?,
 	hasNext: Types.ValueBoolean?,
 	hasPrevious: Types.ValueBoolean?,
 	siblingCount: number?,
@@ -19,7 +19,7 @@ export type PaginationOptions = {
 	showFirstLast: boolean?,
 	form: PaginationForm?,
 	direction: ("ltr" | "rtl")?,
-	controlSize: Value<Types.ControlSize?>?,
+	controlSize: Input<Types.ControlSize?>?,
 	enabled: Types.ValueBoolean?,
 	controls: Diagnostics?,
 }
@@ -33,22 +33,22 @@ export type Step = {
 	enabled: boolean?,
 }
 export type StepIndicatorOptions = {
-	steps: Value<{ Step }>,
-	current: Value<string?>,
+	steps: Input<{ Step }>,
+	current: Input<string?>,
 	onSelect: ((string) -> ())?,
 	sizing: ("fill" | "hug")?,
 	listLabel: string?,
-	controlSize: Value<Types.ControlSize?>?,
+	controlSize: Input<Types.ControlSize?>?,
 	enabled: Types.ValueBoolean?,
 	controls: Diagnostics?,
 }
 export type VoteValue = "up" | "down" | "none"
 export type VoteOptions = {
-	value: Value<VoteValue>,
+	value: Input<VoteValue>,
 	onChange: ((VoteValue) -> ())?,
 	summary: Types.ValueString?,
 	readOnly: Types.ValueBoolean?,
-	controlSize: Value<Types.ControlSize?>?,
+	controlSize: Input<Types.ControlSize?>?,
 	enabled: Types.ValueBoolean?,
 	controls: Diagnostics?,
 }
@@ -59,10 +59,10 @@ export type CardAction = {
 	enabled: Types.ValueBoolean?,
 	busy: Types.ValueBoolean?,
 }
-export type CardMenu = { items: Value<{ Nav.MenuItem<string> }>, label: Types.ValueString? }
+export type CardMenu = { items: Input<{ Nav.MenuItem<string> }>, label: Types.ValueString? }
 export type CardBadge = {
-	label: Value<string?>?,
-	status: Value<Media.Status>?,
+	label: Input<string?>?,
+	status: Input<Media.Status>?,
 	icon: Types.ValueString?,
 	name: string?,
 }
@@ -71,11 +71,11 @@ export type CardControls = {
 	diagnostics: (() -> { string })?,
 	enterActions: (() -> boolean)?,
 	leaveActions: (() -> ())?,
-	engaged: ComposeTypes.Readable<boolean>?,
-	revealed: ComposeTypes.Readable<boolean>?,
-	scale: ComposeTypes.Readable<number>?,
-	lifting: ComposeTypes.Readable<boolean>?,
-	revealExtent: ComposeTypes.Readable<{ body: number }>?,
+	engaged: ComposeTypes.ReadOnlyValue<boolean>?,
+	revealed: ComposeTypes.ReadOnlyValue<boolean>?,
+	scale: ComposeTypes.ReadOnlyValue<number>?,
+	lifting: ComposeTypes.ReadOnlyValue<boolean>?,
+	revealExtent: ComposeTypes.ReadOnlyValue<{ body: number }>?,
 }
 export type CardOptions = {
 	image: Types.ValueString?,
@@ -95,6 +95,6 @@ export type CardOptions = {
 	badges: CardBadges?,
 }
 export type BadgeValue = string | number | boolean
-export type BadgedOptions = { direction: ("ltr" | "rtl")?, status: Value<Media.Status>? }
-export type Badged = (GuiObject, Value<BadgeValue?>, BadgedOptions?) -> Frame
+export type BadgedOptions = { direction: ("ltr" | "rtl")?, status: Input<Media.Status>? }
+export type Badged = (GuiObject, Input<BadgeValue?>, BadgedOptions?) -> Frame
 return {}

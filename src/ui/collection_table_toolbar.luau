@@ -42,7 +42,7 @@ return function<V, K>(
 			Size = D2.new(0, 0, 1, 0),
 			AutomaticSize = E.AutomaticSize.X,
 			onActivate = function()
-				local cell = (editing :: unknown) :: ComposeTypes.Cell<boolean>
+				local cell = (editing :: unknown) :: ComposeTypes.Value<boolean>
 				cell:set(not cell:peek())
 			end,
 		})

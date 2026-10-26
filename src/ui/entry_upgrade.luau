@@ -5,7 +5,7 @@ local ComposeTypes = require("../vendor/compose/core")
 export type Options = {
 	gui: GuiService,
 	panel: Instance,
-	held: ComposeTypes.Cell<GuiObject?>,
+	held: ComposeTypes.Value<GuiObject?>,
 	entry: () -> GuiObject?,
 	ready: (ComposeTypes.Use) -> boolean,
 	displayed: (Instance) -> boolean,

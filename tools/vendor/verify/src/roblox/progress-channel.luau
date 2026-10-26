@@ -37,13 +37,13 @@ local function collect(rows: { unknown }, token: string, runId: string): Collect
 			if not valid then
 				result.rejected += 1
 				result.first = result.first or "progress context is not a valid event of this run"
-			elseif not seen[(event :: Core.ProgressEvent).sequence] then
-				seen[(event :: Core.ProgressEvent).sequence] = true
-				table.insert(result.events, event :: Core.ProgressEvent)
+			elseif not seen[event.sequence] then
+				seen[event.sequence] = true
+				table.insert(result.events, event)
 			end
 		end
 	end
-	table.sort(result.events, function(left, right)
+	table.sort(result.events, function(left: Core.ProgressEvent, right: Core.ProgressEvent)
 		return left.sequence < right.sequence
 	end)
 	return result

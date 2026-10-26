@@ -16,7 +16,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	UI.Image = ctx.construct("Image", function(spec: MediaProps.ImageProps): ImageLabel
 		local keys = { "image", "tint", "scaleMode", "tileSize", "sliceCenter", "sliceScale", "resample", "shape" }
 		local declared = read(spec.scaleMode)
-		local live = Compose.isReadable(spec.scaleMode) or type(spec.scaleMode) == "function"
+		local live = Compose.isValue(spec.scaleMode) or type(spec.scaleMode) == "function"
 		assert(
 			not live or (spec.tileSize == nil and spec.sliceCenter == nil),
 			"Facet UI.Image: tile and slice are static; author scaleMode as a word with its geometry"
@@ -82,7 +82,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			end,
 		}
 		if spec.tint ~= nil then
-			defaults.ImageColor3 = spec.tint :: Types.Value<Color3>
+			defaults.ImageColor3 = spec.tint :: Types.Input<Color3>
 		end
 		if spec.scaleMode ~= nil then
 			defaults.ScaleType = function(use: ComposeTypes.Use): Enum.ScaleType

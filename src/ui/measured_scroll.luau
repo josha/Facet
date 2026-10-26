@@ -13,9 +13,9 @@ return function(
 ): (
 	ScrollingFrame,
 	Frame,
-	ComposeTypes.Readable<Vector2>,
-	ComposeTypes.Readable<number>,
-	ComposeTypes.Readable<boolean>
+	ComposeTypes.ReadOnlyValue<Vector2>,
+	ComposeTypes.ReadOnlyValue<number>,
+	ComposeTypes.ReadOnlyValue<boolean>
 )
 	local Host, Compose, E, D2 = ctx.Host, ctx.Compose, ctx.types.Enum, ctx.types.UDim2
 	local hug = options ~= nil and options.hug == true

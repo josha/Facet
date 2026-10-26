@@ -64,9 +64,9 @@ local function saveCapture(result: unknown, directory: string, stem: string): Im
 				type(image.data) == "string" and (image.mimeType == "image/png" or image.mimeType == "image/jpeg"),
 				"capture returned unsupported image data"
 			)
-			local mediaType = image.mimeType :: string
+			local mediaType = image.mimeType
 			local output = directory .. "/" .. stem .. (if mediaType == "image/png" then ".png" else ".jpg")
-			fs.writeStringToFile(output, decodeBase64(image.data :: string))
+			fs.writeStringToFile(output, decodeBase64(image.data))
 			assert(Media.mediaType(fs.readFileToString(output)) == mediaType, "capture bytes do not match image type")
 			return { reference = output, mediaType = mediaType }
 		end

@@ -6,11 +6,13 @@ type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type Compose = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Types = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 
-return function(UI: Controls, runtime: Runtime, C: Compose, types: Types, selected: Cell<string>): Instance
+return function(UI: Controls, runtime: Runtime, C: Compose, types: Types, selected: Value<string>): Instance
 	local Host = (runtime.constructors :: unknown) :: Host
 	local D2, V2, E = types.UDim2, types.Vector2, types.Enum
 	local ink = types.Color3.fromRGB(56, 49, 38)
@@ -31,7 +33,7 @@ return function(UI: Controls, runtime: Runtime, C: Compose, types: Types, select
 		end
 		return stops[#stops].Value
 	end
-	local held: Cell<number?> = C.cell(nil :: number?)
+	local held: Value<number?> = C.cell(nil :: number?)
 	local dragging = C.cell(false)
 	local settled = C.cell(true)
 	local environment = UI.environment()
@@ -69,7 +71,7 @@ return function(UI: Controls, runtime: Runtime, C: Compose, types: Types, select
 			Size = D2.new(1, -24, 1, -56),
 			Host.UISizeConstraint { MaxSize = V2.new(640, 10000) },
 		}
-		local size = runtime.observe(board, "AbsoluteSize") :: Readable<Vector2>
+		local size = runtime.observe(board, "AbsoluteSize") :: ReadOnlyValue<Vector2>
 		local function paper(id: string, number: string, title: string, body: string): GuiObject
 			return Host.Frame(id) {
 				BackgroundColor3 = paperColor,

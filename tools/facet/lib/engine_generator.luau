@@ -178,12 +178,12 @@ function Generator.generate(definitions: string, schema: Schema, classes: { stri
 		"--!strict",
 		'local Compose = require("../vendor/compose/core")',
 		"",
-		"export type Value<T> = T | Compose.Readable<T> | Compose.Formula<T> | Compose.Body<T>",
+		"export type Input<T> = Compose.Input<T>",
 		"export type StaticValue = typeof(Compose.static(nil))",
 		'export type EventKey = typeof(Compose.event(""))',
 		"export type Constructor<P, N> = ((P) -> N) & ((string) -> (P) -> N)",
 		"export type AttributeValue = string | boolean | number | UDim | UDim2 | BrickColor | Color3 | Vector2 | Vector3 | CFrame | NumberSequence | ColorSequence | NumberRange | Rect | Font",
-		"export type Attributes = { [string]: Value<AttributeValue?> }",
+		"export type Attributes = { [string]: Input<AttributeValue?> }",
 		"",
 	}
 	local aliases: { [string]: string } = {}
@@ -277,9 +277,9 @@ function Generator.generate(definitions: string, schema: Schema, classes: { stri
 	table.sort(sharedNatives, function(left: string, right: string): boolean
 		return aliases[left] < aliases[right]
 	end)
-	local insertAt = (table.find(result, "export type Attributes = { [string]: Value<AttributeValue?> }") :: number) + 1
+	local insertAt = (table.find(result, "export type Attributes = { [string]: Input<AttributeValue?> }") :: number) + 1
 	for offset, native in sharedNatives do
-		table.insert(result, insertAt + offset - 1, ("export type %s = Value<%s>"):format(aliases[native], native))
+		table.insert(result, insertAt + offset - 1, ("export type %s = Input<%s>"):format(aliases[native], native))
 	end
 	table.insert(result, "export type RobloxTypes = {")
 	for _, name in Generator.DATATYPES do
@@ -347,7 +347,7 @@ function Generator.generate(definitions: string, schema: Schema, classes: { stri
 		for _, native in nativeKeys do
 			local names = table.clone(members[key][native])
 			table.sort(names)
-			table.insert(signatures, ("((%s) -> Compose.Cell<%s>)"):format(table.concat(names, " | "), native))
+			table.insert(signatures, ("((%s) -> Compose.Value<%s>)"):format(table.concat(names, " | "), native))
 		end
 		table.insert(result, ("\t%s: %s,"):format(key, table.concat(signatures, " & ")))
 	end

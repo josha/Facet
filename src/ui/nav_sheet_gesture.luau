@@ -29,17 +29,17 @@ type Session = {
 export type Gesture = {
 	edge: string,
 	level: (ComposeTypes.Use?) -> motion.Level,
-	unit: ComposeTypes.Cell<number>,
+	unit: ComposeTypes.Value<number>,
 	keyboard: (ComposeTypes.Use) -> number,
-	extent: ComposeTypes.Cell<Vector2>,
-	placed: ComposeTypes.Formula<string>,
+	extent: ComposeTypes.Value<Vector2>,
+	placed: ComposeTypes.Value<string>,
 	showGrabber: (ComposeTypes.Use?) -> boolean,
 	reserve: (string, ComposeTypes.Use?) -> number,
 	pad: (string, ComposeTypes.Use?) -> number,
 	outset: (string, ComposeTypes.Use?) -> number,
-	reached: ComposeTypes.Cell<glass.Reach?>?,
-	hugHeight: ComposeTypes.Cell<number?>,
-	ready: ComposeTypes.Cell<boolean>,
+	reached: ComposeTypes.Value<glass.Reach?>?,
+	hugHeight: ComposeTypes.Value<number?>,
+	ready: ComposeTypes.Value<boolean>,
 	painted: (ComposeTypes.Use?) -> number,
 	canDismiss: (ComposeTypes.Use?) -> boolean,
 	close: (string) -> (),
@@ -49,7 +49,7 @@ export type Gesture = {
 	pulled: (ComposeTypes.Use?) -> number,
 	toward: () -> number,
 	detector: (string, "grip" | "panel") -> Instance,
-	tallest: ComposeTypes.Formula<boolean>,
+	tallest: ComposeTypes.Value<boolean>,
 	grabber: TextButton,
 	handle: TextButton,
 }
@@ -65,7 +65,7 @@ return function(
 	word: (string) -> string
 ): (
 	NavigationProps.SheetSpec,
-	ComposeTypes.Cell<string>,
+	ComposeTypes.Value<string>,
 	Prepared,
 	Nav.SheetRequest?,
 	Nav.PresencePhase?,
@@ -80,7 +80,7 @@ return function(
 	end
 	return function(
 		spec: NavigationProps.SheetSpec,
-		detent: ComposeTypes.Cell<string>,
+		detent: ComposeTypes.Value<string>,
 		prepared: Prepared,
 		request: Nav.SheetRequest?,
 		phase: Nav.PresencePhase?,
@@ -91,7 +91,7 @@ return function(
 		local edge = spec.edge or "right"
 		local gui = surfaces.service("GuiService")
 		local input = surfaces.service("UserInputService")
-		local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if input
+		local preferred: ComposeTypes.ReadOnlyValue<Enum.PreferredInput>? = if input
 				and input.GetPropertyChangedSignal
 			then ctx.observe.PreferredInput(input)
 			else nil
@@ -125,21 +125,21 @@ return function(
 			return if declared == "automatic" then "bottom" else declared
 		end)
 		local function from(use: ComposeTypes.Use?): string
-			return if read(placed, use) == "side" then edge else "bottom"
+			return if ctx.readSource(placed, use) == "side" then edge else "bottom"
 		end
 		local indicator = spec.dragIndicator or "automatic"
 		local function showGrabber(use: ComposeTypes.Use?): boolean
-			return read(placed, use) ~= "center"
+			return ctx.readSource(placed, use) ~= "center"
 				and indicator ~= "hidden"
 				and (spec.closeButton == nil or spec.closeButton == false)
 		end
 		local BASE: { [string]: number } = { top = 12, bottom = 12, left = 16, right = 16 }
 		local RESERVED: { [string]: string } = { bottom = "top", right = "left", left = "right" }
-		local safeInsets: ComposeTypes.Readable<{ [string]: number }>?
-		local reached: ComposeTypes.Cell<glass.Reach?>? = nil
-		local outsets: ComposeTypes.Readable<{ [string]: number }>? = nil
+		local safeInsets: ComposeTypes.ReadOnlyValue<{ [string]: number }>?
+		local reached: ComposeTypes.Value<glass.Reach?>? = nil
+		local outsets: ComposeTypes.ReadOnlyValue<{ [string]: number }>? = nil
 		if ctx.config.guiService then
-			local measured: ComposeTypes.Cell<glass.Reach?> = Compose.cell(nil :: glass.Reach?)
+			local measured: ComposeTypes.Value<glass.Reach?> = Compose.cell(nil :: glass.Reach?)
 			reached = measured
 			outsets = Compose.formula(function(use: ComposeTypes.Use): { [string]: number }
 				local value = use(measured)
@@ -172,7 +172,7 @@ return function(
 		end
 		local function available(use: ComposeTypes.Use?): number
 			local get: ComposeTypes.Use = use
-				or function<T>(source: ComposeTypes.Readable<T>): T
+				or function<T>(source: ComposeTypes.ReadOnlyValue<T>): T
 					return source:peek()
 				end
 			return math.max(1, get(extent).Y - keyboard(get))
@@ -180,7 +180,7 @@ return function(
 		local function minimum(use: ComposeTypes.Use?): number
 			return ctx.metric("targetSizes.minimum", use) * 4 + ctx.metric("space.m", use) * 2
 		end
-		local hugHeight: ComposeTypes.Cell<number?> = Compose.cell(nil :: number?)
+		local hugHeight: ComposeTypes.Value<number?> = Compose.cell(nil :: number?)
 		local function heightOf(d: Detent, use: ComposeTypes.Use?): number
 			local room = available(use)
 			local want = if d.hug
@@ -210,7 +210,7 @@ return function(
 			end
 			return byId[lastValid]
 		end
-		local dragHeight: ComposeTypes.Cell<number?> = Compose.cell(nil :: number?)
+		local dragHeight: ComposeTypes.Value<number?> = Compose.cell(nil :: number?)
 		local ready = Compose.cell(frames == nil)
 		local settleTo = settle(ctx, function(): number
 			return heightOf(selected())

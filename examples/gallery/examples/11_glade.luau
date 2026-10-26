@@ -1,9 +1,11 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type SupplyModule = typeof(require("@repo/examples/reference/p1_glade/services/supply"))
 local loadSupply: (ModuleScript | string) -> SupplyModule = require
 local makeView = require("./showcase_view")
@@ -50,7 +52,7 @@ return {
 		local noFavorites: { [string]: boolean } = {}
 		local noVisits: { Visit } = {}
 		local now = C.cell(0)
-		local visitor: Cell<Creature?> = C.cell(noVisitor)
+		local visitor: Value<Creature?> = C.cell(noVisitor)
 		local seen = C.cell(noneSeen)
 		local journal = C.cell(noVisits)
 		local favorites = C.cell(noFavorites)
@@ -115,7 +117,7 @@ return {
 				notice:set("The dew bowl is nearly empty. Refill it to welcome your first visitor.")
 			end)
 		end
-		local function scene(creature: Readable<Creature?>)
+		local function scene(creature: ReadOnlyValue<Creature?>)
 			return Host.Frame "GladeScene" {
 				Size = D2.new(1, 0, 0, 300),
 				BackgroundTransparency = 1,
@@ -310,7 +312,7 @@ return {
 					key = function(item: Visit)
 						return item.id
 					end,
-					render = function(current: Readable<Visit>): GuiObject
+					render = function(current: ReadOnlyValue<Visit>): GuiObject
 						return view.text("Visit" .. current:peek().id, function(use: Use)
 							local entry = use(current)
 							return `{entry.id}. {entry.text}`

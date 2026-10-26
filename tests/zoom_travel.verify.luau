@@ -193,11 +193,11 @@ return function(harness: Verify.Harness)
 			local input = engine.new("UserInputService")
 			local gui = engine.new("GuiService")
 			local UI = Facet.controls(runtime, { types = engine.types, userInputService = input, guiService = gui })
-			local zoom: Facet.Cell<number>
+			local zoom: Facet.Value<number>
 			local view: ScrollingFrame
 			local tile: TextButton
 			local controls: Facet.ZoomControls = {}
-			local enabled: Facet.Cell<boolean>
+			local enabled: Facet.Value<boolean>
 			local stop = runtime.mount(function()
 				zoom = C.cell(1)
 				enabled = C.cell(true)
@@ -759,7 +759,7 @@ return function(harness: Verify.Harness)
 			local drag = require("../src/ui/drag_session")(ctx)
 			local UI = ({} :: unknown) :: ZoomTypesControls.Controls
 			require("../src/ui/zoom_view")(ctx, UI)
-			local zoom: Facet.Cell<number>
+			local zoom: Facet.Value<number>
 			local view: ScrollingFrame
 			local tile: TextButton
 			local controls: Facet.ZoomControls = {}
@@ -1041,7 +1041,7 @@ return function(harness: Verify.Harness)
 			local Host = (runtime.constructors :: unknown) :: Shared.Host
 			local run = engine.new("RunService")
 			local UI = Facet.controls(runtime, { types = engine.types, services = { RunService = run } })
-			local zoom: Facet.Cell<number>
+			local zoom: Facet.Value<number>
 			local view: ScrollingFrame
 			local stop = runtime.mount(function()
 				zoom = C.cell(1)
@@ -1121,8 +1121,8 @@ return function(harness: Verify.Harness)
 				engine.types.Vector2.new(80, 80)
 			)
 			local UI = Facet.controls(runtime, { types = engine.types, overlayParent = overlay })
-			local destination: Facet.Cell<GuiObject>
-			local reduced: Facet.Cell<Shared.MotionLevel>
+			local destination: Facet.Value<GuiObject>
+			local reduced: Facet.Value<Shared.MotionLevel>
 			local content: Frame
 			local wrapper: Frame
 			local mounts = 0

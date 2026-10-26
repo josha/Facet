@@ -96,7 +96,7 @@ local function claudeArguments(request: Request): { string }
 	end
 	if request.model ~= nil then
 		table.insert(argv, "--model")
-		table.insert(argv, request.model :: string)
+		table.insert(argv, request.model)
 	end
 	if request.budgets.maxTurns ~= nil then
 		table.insert(argv, "--max-turns")
@@ -110,7 +110,7 @@ local function claudeArguments(request: Request): { string }
 	table.insert(argv, optionText(options, "permissionMode", label) or "bypassPermissions")
 	if request.mcpConfig ~= nil then
 		table.insert(argv, "--mcp-config")
-		table.insert(argv, request.mcpConfig :: string)
+		table.insert(argv, request.mcpConfig)
 	end
 	if Schema.flag(options.strictMcpConfig, label .. ".strictMcpConfig", true) then
 		table.insert(argv, "--strict-mcp-config")
@@ -130,15 +130,15 @@ local function claudeArguments(request: Request): { string }
 	end
 	if request.instructions ~= nil and request.instructions ~= "" then
 		table.insert(argv, "--append-system-prompt")
-		table.insert(argv, request.instructions :: string)
+		table.insert(argv, request.instructions)
 	end
-	if request.allowedTools ~= nil and #(request.allowedTools :: { string }) > 0 then
+	if request.allowedTools ~= nil and #request.allowedTools > 0 then
 		table.insert(argv, "--allowedTools")
-		table.insert(argv, table.concat(request.allowedTools :: { string }, ","))
+		table.insert(argv, table.concat(request.allowedTools, ","))
 	end
-	if request.disallowedTools ~= nil and #(request.disallowedTools :: { string }) > 0 then
+	if request.disallowedTools ~= nil and #request.disallowedTools > 0 then
 		table.insert(argv, "--disallowedTools")
-		table.insert(argv, table.concat(request.disallowedTools :: { string }, ","))
+		table.insert(argv, table.concat(request.disallowedTools, ","))
 	end
 	local extra: { string } = optionTexts(options, "arguments", label) or {}
 	for _, word in extra do
@@ -254,7 +254,7 @@ local function codex(decode: (text: string) -> unknown): Adapter
 	return {
 		id = "codex",
 		run = function(request: Request, services: Services.Services): Outcome
-			local mcp = if request.mcpConfig ~= nil then services.files.read(request.mcpConfig :: string) else nil
+			local mcp = if request.mcpConfig ~= nil then services.files.read(request.mcpConfig) else nil
 			local outcome = executeCommand(
 				request,
 				services,
@@ -330,13 +330,14 @@ local function replay(options: ReplayOptions): Adapter
 		id = options.id or "replay",
 		run = function(request: Request, services: Services.Services): Outcome
 			local response = options.respond(request)
-			for _, name in Schema.sortedKeys(response.files or {}) do
+			local responseFiles = response.files or {}
+			for _, name in Schema.sortedKeys(responseFiles) do
 				if not Paths.contained(name) then
 					error(("replay file %s leaves the workspace"):format(name), 0)
 				end
 				local target = Paths.join(request.workspace, name)
 				services.files.makeDirectory(Paths.parent(target))
-				services.files.write(target, (response.files :: { [string]: string })[name])
+				services.files.write(target, responseFiles[name])
 			end
 			local lines = response.lines or {}
 			local seconds = response.seconds or (if #lines > 0 then lines[#lines].at else nil) or 0
@@ -365,7 +366,7 @@ local function parseStamped(text: string): { Services.Line }
 	for line in string.gmatch(text, "[^\n]+") do
 		local stamp, rest = string.match(line, "^(%d+%.?%d*)\t(.*)$")
 		if stamp ~= nil then
-			table.insert(result, { at = tonumber(stamp), text = (string.gsub(rest :: string, "\r$", "")) })
+			table.insert(result, { at = tonumber(stamp), text = (string.gsub(assert(rest), "\r$", "")) })
 		else
 			table.insert(result, { at = nil, text = (string.gsub(line, "\r$", "")) })
 		end

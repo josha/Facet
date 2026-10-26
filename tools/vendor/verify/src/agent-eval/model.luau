@@ -203,9 +203,10 @@ local function armSetup(value: unknown, label: string, directory: string, files:
 	local mcp: string? = nil
 	local declaredMcp = Schema.optionalText(raw.mcp, label .. ".mcp")
 	if declaredMcp ~= nil then
-		mcp = Paths.join(directory, declaredMcp)
-		if not files.exists(mcp :: string) then
-			Schema.fail(label .. ".mcp", ("names a missing file %s"):format(mcp :: string))
+		local resolved = Paths.join(directory, declaredMcp)
+		mcp = resolved
+		if not files.exists(resolved) then
+			Schema.fail(label .. ".mcp", ("names a missing file %s"):format(assert(mcp)))
 		end
 	end
 	return {
@@ -280,7 +281,7 @@ local function checks(value: unknown, label: string): { Check }
 			"report",
 		})
 		local kindName = Schema.text(raw.kind, where .. ".kind")
-		local kind = CHECK_KINDS[kindName]
+		local kind: CheckKind? = CHECK_KINDS[kindName]
 		if kind == nil then
 			Schema.fail(where .. ".kind", "must be command, verify or audit")
 		end
@@ -310,7 +311,7 @@ local function checks(value: unknown, label: string): { Check }
 		local audit = if Schema.absent(raw.audit) then {} else Schema.record(raw.audit, where .. ".audit")
 		local check: Check = {
 			id = Schema.identifier(raw.id, where .. ".id"),
-			kind = kind :: CheckKind,
+			kind = assert(kind),
 			argv = argv,
 			required = Schema.flag(raw.required, where .. ".required", true),
 			after = Schema.texts(raw.after, where .. ".after"),
@@ -399,9 +400,10 @@ local function decodeTask(
 	end
 	local starter: string? = nil
 	if starterName ~= nil then
-		starter = Paths.join(directory, starterName)
-		if not files.isDirectory(starter :: string) then
-			Schema.fail(label .. ".starter", ("names a missing directory %s"):format(starter :: string))
+		local resolved = Paths.join(directory, starterName)
+		starter = resolved
+		if not files.isDirectory(resolved) then
+			Schema.fail(label .. ".starter", ("names a missing directory %s"):format(assert(starter)))
 		end
 	end
 	local arms: { [string]: ArmSetup } = {}
@@ -449,8 +451,9 @@ local function decodeTask(
 		for _, text in arms[armId].instructions do
 			table.insert(pieces, text)
 		end
-		if arms[armId].mcp ~= nil then
-			table.insert(pieces, files.read(arms[armId].mcp :: string))
+		local mcp = arms[armId].mcp
+		if mcp ~= nil then
+			table.insert(pieces, files.read(mcp))
 		end
 	end
 	task.digest = loader.hash(table.concat(pieces, "\n\0\n"))
@@ -476,9 +479,9 @@ local function order(tasks: { Task }): { Task }
 		end
 		state[task.id] = "active"
 		if task.from ~= nil then
-			local parent = byId[task.from :: string]
+			local parent = byId[task.from]
 			if parent == nil then
-				Schema.fail("task " .. task.id .. ".from", ("names an unknown task %q"):format(task.from :: string))
+				Schema.fail("task " .. task.id .. ".from", ("names an unknown task %q"):format(task.from))
 			end
 			local next = table.clone(trail)
 			table.insert(next, parent.id)
@@ -654,7 +657,7 @@ local function plan(suite: Suite, loader: Loader, selection: Selection?): { RunS
 					local key = ("%s/%s/%s/%d"):format(task.id, arm.id, agent.id, seed)
 					local parent: RunSpec? = nil
 					if task.from ~= nil then
-						parent = byKey[("%s/%s/%s/%d"):format(task.from :: string, arm.id, agent.id, seed)]
+						parent = byKey[("%s/%s/%s/%d"):format(task.from, arm.id, agent.id, seed)]
 					end
 					local setup = merge(arm.setup, task.arms[arm.id])
 					local spec: RunSpec = {

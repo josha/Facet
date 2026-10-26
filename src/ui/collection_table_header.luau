@@ -13,9 +13,9 @@ return function<V, K>(
 	ctx: Types.Context,
 	UI: ControlTypes.BuilderControls,
 	spec: CollectionTypes.TableShape<V, K>,
-	sort: ComposeTypes.Cell<CollectionTypes.Sort?>,
-	widths: ComposeTypes.Cell<{ [string]: number }>,
-	headerMeasures: ComposeTypes.Cell<{ [string]: number }>,
+	sort: ComposeTypes.Value<CollectionTypes.Sort?>,
+	widths: ComposeTypes.Value<{ [string]: number }>,
+	headerMeasures: ComposeTypes.Value<{ [string]: number }>,
 	metrics: Metrics.Metrics,
 	layout: Columns.Columns<V, K>
 ): ComposeTypes.Directive
@@ -40,8 +40,8 @@ return function<V, K>(
 			return column.id
 		end,
 		render = function(
-			current: ComposeTypes.Readable<CollectionTypes.TableColumn<V, K>>,
-			index: ComposeTypes.Readable<number>
+			current: ComposeTypes.ReadOnlyValue<CollectionTypes.TableColumn<V, K>>,
+			index: ComposeTypes.ReadOnlyValue<number>
 		)
 			local column = current:peek()
 			local buttonProps: InputProps.ButtonProps = {
@@ -84,7 +84,7 @@ return function<V, K>(
 			}
 			local button = ctx.styled(UI.Button(buttonProps), "TableHeading")
 			local frame: Frame
-			local resizeUnit: ComposeTypes.Readable<number>
+			local resizeUnit: ComposeTypes.ReadOnlyValue<number>
 			local grip: TextButton?
 			local minimum = Compose.formula(function(use)
 				local value = use(current)
@@ -110,7 +110,7 @@ return function<V, K>(
 						AccessibleLabel = (function(use: ComposeTypes.Use): string
 							local value = use(current)
 							return "Resize " .. tostring(read(value.label or value.id, use))
-						end) :: Types.Value<Types.AttributeValue?>,
+						end) :: Types.Input<Types.AttributeValue?>,
 					},
 					Selectable = false,
 					AnchorPoint = V2.new(0.5, 0),

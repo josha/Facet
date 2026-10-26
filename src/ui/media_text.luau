@@ -25,12 +25,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		assert(table.find(themes.TYPE_ROLES, name), "Facet Text invalid textRole")
 		return "facet-type-" .. name
 	end
-	local function textRole(node: TextLabel, role: Types.Value<Media.TextRole>?): TextLabel
-		if not Compose.isReadable(role) and type(role) ~= "function" then
+	local function textRole(node: TextLabel, role: Types.Input<Media.TextRole>?): TextLabel
+		if not Compose.isValue(role) and type(role) ~= "function" then
 			node:AddTag(roleTag(role :: Media.TextRole?))
 			return node
 		end
-		local live = role :: Types.Value<Media.TextRole>
+		local live = role :: Types.Input<Media.TextRole>
 		local previous: string?
 		Compose.watch(function(use: ComposeTypes.Use)
 			local tag = roleTag(read(live, use))
@@ -140,8 +140,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		if fields.label ~= nil or spec.Text ~= nil then
 			error("Facet UI.Text: set the text with text. Remove label and Text.", 0)
 		end
-		local source: Types.Value<string>? = spec.text
-		if not Compose.isReadable(source) and type(source) ~= "function" then
+		local source: Types.Input<string>? = spec.text
+		if not Compose.isValue(source) and type(source) ~= "function" then
 			assert(type(source) == "string", "Facet UI.Text requires text")
 		end
 		local truncate = spec.truncate
@@ -209,7 +209,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			defaults.TextDirection = DIRECTION[spec.direction]
 		end
 		if spec.tint ~= nil then
-			defaults.TextColor3 = spec.tint :: Types.Value<Color3>
+			defaults.TextColor3 = spec.tint :: Types.Input<Color3>
 		end
 		if spec.textAlign ~= nil then
 			defaults.TextXAlignment = function(use: ComposeTypes.Use): Enum.TextXAlignment
@@ -235,7 +235,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			defaults.TextWrapped = true
 			defaults.TextTruncate = E.TextTruncate.AtEnd
 		end
-		local roleSource: Types.Value<Media.TextRole>? = sizeRole or spec.textRole
+		local roleSource: Types.Input<Media.TextRole>? = sizeRole or spec.textRole
 		if fit then
 			local function scale(bound: Media.TextFitBound, use: ComposeTypes.Use): number
 				return math.round(

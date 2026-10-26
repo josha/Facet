@@ -22,10 +22,7 @@ local RayKind = Names.behavior "Ray"
 local RegionKind = Names.behavior "Region3"
 
 local function vector(value: unknown, position: number): Vector3
-	if Names.of(value) ~= "Vector3" then
-		Names.argument(position, "Vector3", value)
-	end
-	return value :: Vector3
+	return Vector.expect3(value, position)
 end
 
 local function ray(origin: Vector3?, direction: Vector3?): RayValue
@@ -49,7 +46,7 @@ local function closest(self: RayValue, point: Vector3): Vector3
 	return self.Origin + self.Direction * math.max(0, (target - self.Origin):Dot(self.Direction) / lengthSquared)
 end
 
-local rayMethods: { [string]: unknown } = {
+local rayMethods: { [unknown]: unknown } = {
 	ClosestPoint = closest,
 	Distance = function(self: RayValue, point: Vector3): number
 		return (vector(point, 1) - closest(self, point)).Magnitude
@@ -57,9 +54,9 @@ local rayMethods: { [string]: unknown } = {
 }
 RayKind.fields.__index = function(fields: Names.Fields, key: unknown): unknown
 	if key == "Unit" then
-		return ray(fields.Origin :: Vector3, (fields.Direction :: Vector3).Unit)
+		return ray(vector(fields.Origin, 1), vector(fields.Direction, 2).Unit)
 	end
-	return rayMethods[key :: string] or Names.missing(RayKind, key)
+	return rayMethods[key] or Names.missing(RayKind, key)
 end
 RayKind.meta.__eq = function(a: RayValue, b: RayValue): boolean
 	return a.Origin == b.Origin and a.Direction == b.Direction

@@ -21,7 +21,7 @@ return function(
 	local lists = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local function presented<P>(
-		spec: { isPresented: ComposeTypes.Cell<boolean>?, item: ComposeTypes.Cell<P?>? }
+		spec: { isPresented: ComposeTypes.Value<boolean>?, item: ComposeTypes.Value<P?>? }
 	): ComposeTypes.Body<boolean>
 		assert(spec.isPresented or spec.item, "A presented control requires isPresented or item")
 		return function(use: ComposeTypes.Use)
@@ -29,9 +29,9 @@ return function(
 		end
 	end
 	local function dismiss<P>(spec: {
-		isPresented: ComposeTypes.Cell<boolean>?,
-		item: ComposeTypes.Cell<P?>?,
-		error: ComposeTypes.Cell<string?>?,
+		isPresented: ComposeTypes.Value<boolean>?,
+		item: ComposeTypes.Value<P?>?,
+		error: ComposeTypes.Value<string?>?,
 	}): ()
 		if spec.item then
 			spec.item:set(nil)
@@ -227,7 +227,7 @@ return function(
 						Padding = ctx.types.UDim.new(0, 8),
 					}),
 				}
-				local textBounds: { ComposeTypes.Readable<Vector2> } = {}
+				local textBounds: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 				for index, action in actions do
 					local button = UI.Button({
 						Name = action.id,
@@ -387,10 +387,10 @@ return function(
 					local phase = assert(phase)
 					local ready = Compose.cell(false)
 					local source: GuiObject? = read(transition.source)
-					local sourcePosition: ComposeTypes.Readable<Vector2> = if source
+					local sourcePosition: ComposeTypes.ReadOnlyValue<Vector2> = if source
 						then ctx.observe.AbsolutePosition(source)
 						else Compose.cell(V2.zero)
-					local sourceSize: ComposeTypes.Readable<Vector2> = if source
+					local sourceSize: ComposeTypes.ReadOnlyValue<Vector2> = if source
 						then ctx.observe.AbsoluteSize(source)
 						else Compose.cell(V2.zero)
 					local origin = ctx.observe.AbsolutePosition(modal)

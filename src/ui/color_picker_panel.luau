@@ -14,7 +14,7 @@ local createReadout = require("./color_picker_readout")
 type Use = ComposeTypes.Use
 type Measure = (Use) -> number
 export type PanelView = { panel: Frame, chrome: Measure, tech: Measure }
-export type Panel = (boolean, (Use) -> boolean, ComposeTypes.Readable<number>, number?) -> PanelView
+export type Panel = (boolean, (Use) -> boolean, ComposeTypes.ReadOnlyValue<number>, number?) -> PanelView
 
 local MODE_LABEL, GAP, PAD, SPACE, MAX_COLUMNS = Kit.MODE_LABEL, Kit.GAP, Kit.PAD, Kit.SPACE, Kit.MAX_COLUMNS
 
@@ -39,7 +39,7 @@ return function(
 	local function panelView(
 		overlay: boolean,
 		sheet: (Use) -> boolean,
-		room: ComposeTypes.Readable<number>,
+		room: ComposeTypes.ReadOnlyValue<number>,
 		width: number?
 	): PanelView
 		if width and width > 0 then
@@ -74,9 +74,9 @@ return function(
 			table.insert(shows, show)
 			technique[#technique + 1] = show
 		end
-		local heights: { ComposeTypes.Readable<Vector2> } = {}
+		local heights: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 		for _, show in shows do
-			table.insert(heights, runtime.observe(show, "AbsoluteSize") :: ComposeTypes.Readable<Vector2>)
+			table.insert(heights, runtime.observe(show, "AbsoluteSize") :: ComposeTypes.ReadOnlyValue<Vector2>)
 		end
 		local techniqueNode = Host.Frame(technique)
 		local unit = ctx.layoutUnit(techniqueNode)
@@ -87,9 +87,9 @@ return function(
 		local function tech(use: Use): number
 			return if overlay and #modes > 1 then 6 * state.cellSize(use) + 5 * GAP else active(use)
 		end
-		local measured: { { node: GuiObject, size: ComposeTypes.Readable<Vector2> } } = {}
+		local measured: { { node: GuiObject, size: ComposeTypes.ReadOnlyValue<Vector2> } } = {}
 		local function measure(node: GuiObject): GuiObject
-			local size = runtime.observe(node, "AbsoluteSize") :: ComposeTypes.Readable<Vector2>
+			local size = runtime.observe(node, "AbsoluteSize") :: ComposeTypes.ReadOnlyValue<Vector2>
 			table.insert(measured, { node = node, size = size })
 			return node
 		end
@@ -140,7 +140,7 @@ return function(
 			body = Host.Frame((bodyProps :: unknown) :: Shared.FrameNativeProps)
 		end
 		local window =
-			runtime.observe(body, if overlay then "AbsoluteWindowSize" else "AbsoluteSize") :: ComposeTypes.Readable<Vector2>
+			runtime.observe(body, if overlay then "AbsoluteWindowSize" else "AbsoluteSize") :: ComposeTypes.ReadOnlyValue<Vector2>
 		Compose.watch(function(use: Use)
 			local w = use(window).X / use(unit)
 			if w > 0 then
@@ -227,7 +227,7 @@ return function(
 		local panel = if overlay
 			then ctx.fade((props :: unknown) :: Shared.CanvasGroupNativeProps)
 			else Host.Frame(props)
-		local visibility: { ComposeTypes.Readable<boolean> } = {}
+		local visibility: { ComposeTypes.ReadOnlyValue<boolean> } = {}
 		for _, entry in measured do
 			table.insert(visibility, ctx.observe.Visible(entry.node))
 		end

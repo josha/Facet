@@ -13,8 +13,10 @@ export type TabItemView = {
 	select: (string) -> (),
 	sectionLabels: { [string]: string },
 	tabButtons: { [string]: TextButton },
-	tabMeasures: { [string]: { position: ComposeTypes.Readable<Vector2>, size: ComposeTypes.Readable<Vector2> } },
-	tabLinks: ComposeTypes.Cell<number>,
+	tabMeasures: {
+		[string]: { position: ComposeTypes.ReadOnlyValue<Vector2>, size: ComposeTypes.ReadOnlyValue<Vector2> },
+	},
+	tabLinks: ComposeTypes.Value<number>,
 	metrics: tabMetrics.TabMetrics,
 }
 
@@ -43,7 +45,10 @@ return function(
 		key = function(tab: Nav.Tab): string
 			return tab.id
 		end,
-		render = function(current: ComposeTypes.Readable<Nav.Tab>, index: ComposeTypes.Readable<number>): Instance
+		render = function(
+			current: ComposeTypes.ReadOnlyValue<Nav.Tab>,
+			index: ComposeTypes.ReadOnlyValue<number>
+		): Instance
 			local tab = current:peek()
 			local button = UI.Button({
 				Name = tab.id,
@@ -70,7 +75,7 @@ return function(
 						return ""
 					end
 					else nil,
-				TextSize = if fit then nil else (spec.textSize :: unknown) :: Types.Value<number>,
+				TextSize = if fit then nil else (spec.textSize :: unknown) :: Types.Input<number>,
 				LayoutOrder = index,
 				Size = function(use: ComposeTypes.Use)
 					local place = use(placement)
@@ -515,7 +520,7 @@ return function(
 							from = function(use: ComposeTypes.Use): { GuiObject }
 								return { if use(insetSelection) then button else assert(glyph) }
 							end,
-							render = function(target: ComposeTypes.Readable<GuiObject>): Instance
+							render = function(target: ComposeTypes.ReadOnlyValue<GuiObject>): Instance
 								return Host.Folder {
 									Compose.portal(target:peek(), function()
 										return { buildMark() }

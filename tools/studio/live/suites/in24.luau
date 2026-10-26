@@ -10,8 +10,8 @@ type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").Scre
 type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -814,7 +814,7 @@ add("compose-delivery-order", {}, function(t)
 		table.concat(seen, ",") == "2,1,2,1",
 		seen
 	)
-	owner.dispose()
+	Compose.owner.dispose(owner)
 end)
 
 local IMAGE = "rbxassetid://92798715826227"

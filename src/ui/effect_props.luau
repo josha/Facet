@@ -72,9 +72,9 @@ export type FlashProps = {
 	ZIndex: Engine.ValueNumber?,
 	Style: Engine.ValueEnumFrameStyle?,
 	ref: ((Frame) -> ())?,
-	target: Shared.GuiInstance | Shared.Value<GuiObject>,
-	progress: Shared.Value<number>,
-	color: Shared.Value<Color3>?,
+	target: Shared.GuiInstance | Shared.Input<GuiObject>,
+	progress: Shared.Input<number>,
+	color: Shared.Input<Color3>?,
 	mode: ("pulse" | "sweep")?,
 	[number | Engine.EventKey]: Compose.Child,
 }

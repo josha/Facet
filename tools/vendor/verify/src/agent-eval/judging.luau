@@ -115,7 +115,7 @@ local function decodeJudgment(value: unknown): Judge.Judgment
 				if value ~= "first" and value ~= "second" and value ~= "tie" then
 					Schema.fail(where .. ".verdict.criteria." .. key, "must be first, second or tie")
 				end
-				choices[key] = value :: Judge.Choice
+				choices[key] = if value == "first" then "first" elseif value == "second" then "second" else "tie"
 			end
 			local overall = verdictRaw.overall
 			if overall ~= "first" and overall ~= "second" and overall ~= "tie" then
@@ -123,7 +123,7 @@ local function decodeJudgment(value: unknown): Judge.Judgment
 			end
 			verdict = {
 				criteria = choices,
-				overall = overall :: Judge.Choice,
+				overall = if overall == "first" then "first" elseif overall == "second" then "second" else "tie",
 				confidence = Schema.number(verdictRaw.confidence, where .. ".verdict.confidence", 0),
 				reasons = Schema.texts(verdictRaw.reasons, where .. ".verdict.reasons"),
 			}
@@ -132,9 +132,9 @@ local function decodeJudgment(value: unknown): Judge.Judgment
 			first = if raw.first == "b" then "b" else "a",
 			attempts = Schema.number(raw.attempts, where .. ".attempts", 0, true),
 			model = Schema.optionalText(raw.model, where .. ".model"),
-			raw = if type(raw.raw) == "string" then raw.raw :: string else nil,
+			raw = if type(raw.raw) == "string" then raw.raw else nil,
 			verdict = verdict,
-			error = if type(raw.error) == "string" then raw.error :: string else nil,
+			error = if type(raw.error) == "string" then raw.error else nil,
 		})
 	end
 	return {
@@ -145,14 +145,18 @@ local function decodeJudgment(value: unknown): Judge.Judgment
 		device = Schema.text(entry.device, "judgment.device"),
 		a = Schema.text(entry.a, "judgment.a"),
 		b = Schema.text(entry.b, "judgment.b"),
-		status = status :: "judged" | "forfeit" | "skipped" | "failed",
+		status = if status == "judged"
+			then "judged"
+			elseif status == "forfeit" then "forfeit"
+			elseif status == "skipped" then "skipped"
+			else "failed",
 		order = if order == "b-first" then "b-first" else "a-first",
 		presentations = presentations,
 		scoreA = Schema.optionalNumber(entry.scoreA, "judgment.scoreA", 0),
 		criteria = criteria,
 		winner = Schema.optionalText(entry.winner, "judgment.winner"),
-		consistent = if type(entry.consistent) == "boolean" then entry.consistent :: boolean else nil,
-		detail = if type(entry.detail) == "string" then entry.detail :: string else nil,
+		consistent = if type(entry.consistent) == "boolean" then entry.consistent else nil,
+		detail = if type(entry.detail) == "string" then entry.detail else nil,
 	}
 end
 
@@ -191,7 +195,7 @@ local function run(options: Options): { Judge.Judgment }
 		end
 		local judgment: Judge.Judgment
 		if reused ~= nil then
-			judgment = reused :: Judge.Judgment
+			judgment = reused
 			log(("judge %s: reused (%s)"):format(comparison.id, tostring(judgment.winner)))
 		else
 			judgment = Judge.compare(comparison, {

@@ -15,9 +15,11 @@ type Report = {
 	busy: boolean,
 	status: string,
 }
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
 return {
@@ -26,7 +28,8 @@ return {
 	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local sceneViewport: Readable<{ width: number, height: number }> = assert(ctx.sceneViewport or ctx.viewport)
+		local sceneViewport: ReadOnlyValue<{ width: number, height: number }> =
+			assert(ctx.sceneViewport or ctx.viewport)
 		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -54,7 +57,7 @@ return {
 		local favorites = signal(false)
 		local weather = signal("any")
 		local noTarget: string? = nil
-		local scrollTarget: Cell<string?> = signal(noTarget)
+		local scrollTarget: Value<string?> = signal(noTarget)
 		local scrollProgress = signal(0)
 		local heroVisible = signal(true)
 		local rowVolume = signal(60)
@@ -65,7 +68,7 @@ return {
 		local noTags: { [string]: boolean } = {}
 		local chosenTags = signal(noTags)
 		local noDriver: string? = nil
-		local driver: Cell<string?> = signal(noDriver)
+		local driver: Value<string?> = signal(noDriver)
 		local mounted = false
 		local seconds = 0
 		local readRung = function(): ControlSize?
@@ -74,7 +77,7 @@ return {
 		local setRung = function(_rung: ControlSize) end
 		local function VocabularySection()
 			local initialRung: ControlSize = "compact"
-			local rung: Cell<ControlSize> = Compose.cell(initialRung)
+			local rung: Value<ControlSize> = Compose.cell(initialRung)
 			readRung = function(): ControlSize?
 				return rung:peek()
 			end
@@ -697,7 +700,7 @@ return {
 								key = function(item)
 									return item
 								end,
-								render = function(current: Readable<string>, placement, key: string): GuiObject
+								render = function(current: ReadOnlyValue<string>, placement, key: string): GuiObject
 									local item = current:peek()
 									return UI.Chip "Token" {
 										label = item,

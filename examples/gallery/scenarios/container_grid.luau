@@ -2,8 +2,8 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
 local CELLS: { { id: string, label: string, spans: { number }? } } = {
@@ -28,7 +28,7 @@ return {
 				connection:Disconnect()
 			end)
 		end
-		local function panel(name: string, scale: number, maxWidth: Readable<number>?)
+		local function panel(name: string, scale: number, maxWidth: ReadOnlyValue<number>?)
 			local extent = Compose.cell(V2.zero)
 			local geometry = Compose.formula(function(use: Use)
 				local width = use(extent).X

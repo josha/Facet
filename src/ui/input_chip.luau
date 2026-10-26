@@ -30,9 +30,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local p = (table.clone(spec) :: unknown) :: InputProps.ButtonProps & {
 			onToggle: ((boolean) -> ())?,
 			onRemove: (() -> ())?,
-			editing: Shared.Value<boolean>?,
-			removeLabel: Shared.Value<string>?,
-			removeFocusFallback: Shared.Value<GuiObject?>?,
+			editing: Shared.Input<boolean>?,
+			removeLabel: Shared.Input<string>?,
+			removeFocusFallback: Shared.Input<GuiObject?>?,
 			leading: Instance?,
 			trailing: Instance?,
 		}
@@ -116,7 +116,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				if spec.onToggle then
 					spec.onToggle(value)
 				else
-					(spec.selected :: ComposeTypes.Cell<boolean>):set(value)
+					(spec.selected :: ComposeTypes.Value<boolean>):set(value)
 				end
 			end
 		end
@@ -207,7 +207,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end
 				return false
 			end
-			local focused: ComposeTypes.Readable<GuiObject?> = if gui
+			local focused: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
 				then ctx.observe.SelectedObject(gui)
 				else Compose.cell(nil :: GuiObject?)
 			local wasFocused = false

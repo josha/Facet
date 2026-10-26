@@ -4,7 +4,7 @@ local Inputs = require("./input_types")
 local placement = require("./overlay_placement")
 local freeze = require("./freeze")
 
-export type Plate = { name: string?, gate: Types.Value<boolean>?, shown: Types.Cell<boolean>? }
+export type Plate = { name: string?, gate: Types.Input<boolean>?, shown: Types.Value<boolean>? }
 type Show = (GuiObject, Inputs.Help, Plate?) -> ()
 
 local pressed = setmetatable({} :: { [Instance]: boolean }, { __mode = "k" })
@@ -14,7 +14,7 @@ local help = {}
 local KEYS: { [string]: boolean } = freeze({ title = true, body = true, shortcut = true, edge = true, align = true })
 
 function help.check(ctx: Types.Context, value: unknown)
-	if type(value) ~= "table" or ctx.Compose.isReadable(value) then
+	if type(value) ~= "table" or ctx.Compose.isValue(value) then
 		return
 	end
 	local fields = value :: { [string]: unknown }
@@ -24,7 +24,7 @@ function help.check(ctx: Types.Context, value: unknown)
 		end
 	end
 	local function text(field: unknown): boolean
-		return type(field) == "string" or type(field) == "function" or ctx.Compose.isReadable(field)
+		return type(field) == "string" or type(field) == "function" or ctx.Compose.isValue(field)
 	end
 	if not text(fields.body) then
 		error("Facet UI.Button: help.body must be a string or a bound string", 0)

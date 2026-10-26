@@ -1,8 +1,10 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 
 local data = require("../content/data")
 local rng = require("./rng")
@@ -86,7 +88,7 @@ function order_service.new(opts: Opts)
 		table.insert(backlog, makeBrew(id, status, placed))
 		placed -= random.int(7, 19)
 	end
-	local brews: Cell<{ Brew }> = Compose.cell(backlog)
+	local brews: Value<{ Brew }> = Compose.cell(backlog)
 	self.brews = brews
 
 	function self.byId(id: number): Brew?

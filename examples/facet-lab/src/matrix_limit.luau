@@ -2,13 +2,13 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
-type Readable<T> = { peek: (Readable<T>) -> T }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
 
 return function(
 	Compose: ComposeModule,
 	Host: Host,
 	node: GuiObject,
-	available: Readable<number>,
+	available: ReadOnlyValue<number>,
 	vector: typeof(Vector2)?
 ): GuiObject
 	local Vector = vector or Vector2

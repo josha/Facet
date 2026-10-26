@@ -34,7 +34,7 @@ local function state(value: unknown): State
 		velocity = vector(fields.velocity),
 		health = finite(fields.health),
 		maximumHealth = finite(fields.maximumHealth),
-		equipped = fields.equipped :: string?,
+		equipped = if type(fields.equipped) == "string" then fields.equipped else nil,
 	}
 end
 local move = Operations.operation { kind = "action", name = "player.move", input = vector, output = empty }
@@ -92,18 +92,18 @@ type Globals = {
 local function native(actor: string): Operations.Host
 	local engine = Native.nativeEngine()
 	assert(engine.context == "client", "player host requires the live client")
-	local globals = (getfenv(0) :: unknown) :: Globals
+	local globals: Globals = getfenv(0)
 	local player = globals.game:GetService("Players").LocalPlayer
 	assert(player ~= nil, "local player is unavailable")
-	local localPlayer = player :: Player
+	local localPlayer = player
 	local function character(): Node
 		assert(localPlayer.Character ~= nil, "player character is unavailable")
-		return localPlayer.Character :: Node
+		return localPlayer.Character
 	end
 	local function humanoid(): Node
 		local found = character():FindFirstChildOfClass "Humanoid"
 		assert(found ~= nil, "player humanoid is unavailable")
-		return found :: Node
+		return found
 	end
 	local function read(value: EngineVector): Vector
 		return { x = value.X, y = value.Y, z = value.Z }
@@ -123,7 +123,7 @@ local function native(actor: string): Operations.Host
 			local backpack = localPlayer:FindFirstChild "Backpack"
 			assert(backpack ~= nil, "player backpack is unavailable")
 			local matches: { Node } = {}
-			for _, child in (backpack :: Node):GetChildren() do
+			for _, child in backpack:GetChildren() do
 				if child.Name == name and child:IsA "Tool" then
 					table.insert(matches, child)
 				end
@@ -138,8 +138,8 @@ local function native(actor: string): Operations.Host
 			local body = humanoid()
 			local tool = rig:FindFirstChildOfClass "Tool"
 			return {
-				position = read((root :: Node).Position),
-				velocity = read((root :: Node).AssemblyLinearVelocity),
+				position = read(root.Position),
+				velocity = read(root.AssemblyLinearVelocity),
 				health = body.Health,
 				maximumHealth = body.MaxHealth,
 				equipped = if tool then tool.Name else nil,

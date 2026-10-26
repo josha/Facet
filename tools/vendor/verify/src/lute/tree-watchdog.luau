@@ -43,7 +43,7 @@ local function report(path: string, argv: { string })
 		fs.writeStringToFile(path .. ".refused", tostring(result))
 		process.exit(127)
 	end
-	process.exit((result :: process.ProcessResult).exitcode)
+	process.exit((result).exitcode)
 end
 
 local function watch(seconds: number, argv: { string })
@@ -61,7 +61,7 @@ local function watch(seconds: number, argv: { string })
 	task.spawn(function()
 		local ran, value = pcall(process.run, reporter)
 		if ran then
-			finished = value :: process.ProcessResult
+			finished = value
 		else
 			failure = tostring(value)
 		end
@@ -80,7 +80,8 @@ local function watch(seconds: number, argv: { string })
 		elseif refusal ~= nil then
 			emit(-1, false, "", "the command could not be started: " .. refusal)
 		else
-			local result = done :: process.ProcessResult
+			local result = done
+			assert(result ~= nil)
 			emit(result.exitcode, false, result.stdout, result.stderr)
 		end
 		process.exit(0)
@@ -91,8 +92,8 @@ local function watch(seconds: number, argv: { string })
 		local killed, result = pcall(process.run, { "taskkill", "/T", "/F", "/PID", pid })
 		if not killed then
 			detail = "taskkill could not be started: " .. tostring(result)
-		elseif (result :: process.ProcessResult).exitcode ~= 0 then
-			local ran = result :: process.ProcessResult
+		elseif (result).exitcode ~= 0 then
+			local ran = result
 			detail = ("taskkill exited %d: %s%s"):format(ran.exitcode, ran.stdout, ran.stderr)
 		end
 	end

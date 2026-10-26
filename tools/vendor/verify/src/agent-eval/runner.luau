@@ -40,6 +40,11 @@ type Instance = {
 
 local IMAGE_EXTENSIONS: { [string]: boolean } = { png = true, jpg = true, jpeg = true }
 
+local function checkedString(value: unknown): string
+	assert(type(value) == "string")
+	return value
+end
+
 local function copyTree(files: Services.Files, from: string, to: string)
 	if not files.isDirectory(from) then
 		files.makeDirectory(Paths.parent(to))
@@ -127,7 +132,7 @@ local function placeholders(
 	end
 	values.devices = table.concat(devices, ",")
 	if instance.device ~= nil then
-		local device = instance.device :: Model.Device
+		local device = instance.device
 		values.device = device.id
 		values.width = tostring(device.width)
 		values.height = tostring(device.height)
@@ -212,7 +217,7 @@ local function create(options: Options): () -> Summary
 		local out: { string } = {}
 		for _, line in lines do
 			if line.at ~= nil then
-				table.insert(out, ("%.6f\t%s"):format(line.at :: number, line.text))
+				table.insert(out, ("%.6f\t%s"):format(line.at, line.text))
 			else
 				table.insert(out, line.text)
 			end
@@ -293,7 +298,7 @@ local function create(options: Options): () -> Summary
 				end
 				local expectation: Gate.ReportExpectation? = if instance.check.kind == "verify" then {} else nil
 				if instance.check.report ~= nil then
-					local declared = instance.check.report :: Model.ReportExpectation
+					local declared = instance.check.report
 					expectation = { cases = declared.cases, minimum = declared.minimum, exact = declared.exact }
 				end
 				table.insert(producers, {
@@ -344,7 +349,7 @@ local function create(options: Options): () -> Summary
 				local check: Result.CheckResult = {
 					id = record.id,
 					check = instance.check.id,
-					device = if instance.device ~= nil then (instance.device :: Model.Device).id else nil,
+					device = if instance.device ~= nil then (instance.device).id else nil,
 					kind = instance.check.kind,
 					required = instance.check.required,
 					status = record.status,
@@ -391,7 +396,7 @@ local function create(options: Options): () -> Summary
 			local check: Result.CheckResult = {
 				id = instance.id,
 				check = instance.check.id,
-				device = if instance.device ~= nil then (instance.device :: Model.Device).id else nil,
+				device = if instance.device ~= nil then (instance.device).id else nil,
 				kind = "audit",
 				required = instance.check.required,
 				status = "failed",
@@ -407,13 +412,10 @@ local function create(options: Options): () -> Summary
 			end
 			if blocked ~= nil then
 				check.status = "blocked"
-				check.detail = ("blocked by %s (%s)"):format(
-					blocked :: string,
-					statuses[blocked :: string] or "not run"
-				)
+				check.detail = ("blocked by %s (%s)"):format(blocked, statuses[blocked] or "not run")
 			else
 				local values = placeholders(spec, workspace, directory, instance)
-				local dumpPath = substitute(instance.check.dump :: string, values)
+				local dumpPath = substitute(checkedString(instance.check.dump), values)
 				local ok, problem = pcall(function(): string?
 					if not files.exists(dumpPath) then
 						error(("no interface dump at %s"):format(dumpPath), 0)
@@ -466,13 +468,17 @@ local function create(options: Options): () -> Summary
 				end)
 				for _, entry in entries do
 					local stem, extension = string.match(entry.name, "^(.+)%.([%w]+)$")
-					if entry.kind == "file" and stem ~= nil and IMAGE_EXTENSIONS[string.lower(extension :: string)] then
+					if
+						entry.kind == "file"
+						and stem ~= nil
+						and IMAGE_EXTENSIONS[string.lower(checkedString(extension))]
+					then
 						local path = Paths.join(folder, entry.name)
 						local bytes = files.read(path)
 						if #bytes > 0 then
 							table.insert(result.captures, {
 								device = device.id,
-								label = stem :: string,
+								label = stem,
 								path = path,
 								sha256 = services.hash(bytes),
 								size = #bytes,
@@ -524,16 +530,16 @@ local function create(options: Options): () -> Summary
 		if status == "timed_out" then
 			table.insert(list, "wallSeconds")
 		end
-		if budgets.maxTurns ~= nil and result.metrics.turns > (budgets.maxTurns :: number) then
+		if budgets.maxTurns ~= nil and result.metrics.turns > budgets.maxTurns then
 			table.insert(list, "maxTurns")
 		end
-		if budgets.maxOutputTokens ~= nil and result.metrics.outputTokens > (budgets.maxOutputTokens :: number) then
+		if budgets.maxOutputTokens ~= nil and result.metrics.outputTokens > budgets.maxOutputTokens then
 			table.insert(list, "maxOutputTokens")
 		end
 		if
 			budgets.maxCostUsd ~= nil
 			and result.metrics.costUsd ~= nil
-			and (result.metrics.costUsd :: number) > (budgets.maxCostUsd :: number)
+			and result.metrics.costUsd > budgets.maxCostUsd
 		then
 			table.insert(list, "maxCostUsd")
 		end
@@ -555,16 +561,14 @@ local function create(options: Options): () -> Summary
 			local source = spec.task.starter
 			if spec.task.from ~= nil then
 				local parentDirectory =
-					Paths.join(evidence, Model.runPath(spec.task.from :: string, spec.arm.id, spec.agent.id, spec.seed))
+					Paths.join(evidence, Model.runPath(spec.task.from, spec.arm.id, spec.agent.id, spec.seed))
 				local parentWorkspace = Paths.join(parentDirectory, "workspace")
 				if
 					not files.exists(Paths.join(parentDirectory, "result.json"))
 					or not files.isDirectory(parentWorkspace)
 				then
 					result.status = "blocked"
-					result.detail = ("the follow-up needs the workspace of %s"):format(
-						spec.parent or (spec.task.from :: string)
-					)
+					result.detail = ("the follow-up needs the workspace of %s"):format(spec.parent or spec.task.from)
 					return nil
 				end
 				source = parentWorkspace
@@ -572,7 +576,7 @@ local function create(options: Options): () -> Summary
 			if files.exists(workspace) then
 				files.remove(workspace)
 			end
-			copyTree(files, source :: string, workspace)
+			copyTree(files, checkedString(source), workspace)
 			for _, overlay in spec.arm.setup.overlay do
 				if files.isDirectory(overlay) then
 					copyTree(files, overlay, workspace)
@@ -586,7 +590,7 @@ local function create(options: Options): () -> Summary
 			if spec.arm.setup.mcp ~= nil then
 				mcpConfig = Paths.join(directory, "mcp.json")
 				local values = { workspace = workspace, evidence = directory }
-				files.write(mcpConfig :: string, substitute(files.read(spec.arm.setup.mcp :: string), values))
+				files.write(checkedString(mcpConfig), substitute(files.read(spec.arm.setup.mcp), values))
 			end
 			local studio = spec.arm.setup.studio
 			if studio ~= nil then
@@ -660,7 +664,7 @@ local function create(options: Options): () -> Summary
 		end)
 		if closeStudio ~= nil then
 			local cleaned, cleanupProblem = pcall(function(): string?
-				(closeStudio :: (boolean?) -> ())(false)
+				(closeStudio)(false)
 				return nil
 			end)
 			if not cleaned then
@@ -747,7 +751,7 @@ local function create(options: Options): () -> Summary
 		local running = 0
 		local limit = math.max(1, options.parallelism or suite.parallelism)
 		local function ready(spec: Model.RunSpec): boolean
-			return spec.parent == nil or not inPlan[spec.parent :: string] or results[spec.parent :: string] ~= nil
+			return spec.parent == nil or not inPlan[spec.parent] or results[spec.parent] ~= nil
 		end
 		while #pending > 0 or running > 0 do
 			local launched = false
@@ -811,7 +815,7 @@ local function create(options: Options): () -> Summary
 											("run %s: result could not be kept: %s; %s"):format(
 												spec.id,
 												tostring(saveProblem),
-												failed.detail :: string
+												checkedString(failed.detail)
 											)
 										)
 									end

@@ -8,19 +8,20 @@ local PreferredInput = require "./preferred-input"
 local function preferredInput(
 	inputService: { PreferredInput: unknown }?,
 	engine: Engine.Engine?
-): Compose.Cell<PreferredInput.Class>
+): Compose.Value<PreferredInput.Class>
 	local resolvedEngine = if engine ~= nil then engine else Engine.ambient()
-	local resolvedService = inputService
-	if resolvedService == nil then
+	local service: { PreferredInput: unknown }
+	if inputService == nil then
 		local globals = (
 			getfenv and getfenv(0) or {}
 		) :: { game: { GetService: (unknown, string) -> { PreferredInput: unknown } } }
-		resolvedService = globals.game:GetService "UserInputService"
+		service = globals.game:GetService "UserInputService"
+	else
+		service = inputService
 	end
-	local service = resolvedService :: { PreferredInput: unknown }
 	local initial: PreferredInput.Class = PreferredInput.specOf(service.PreferredInput).class
-	local value: Compose.Cell<PreferredInput.Class> = Compose.cell(initial)
-	local connection = resolvedEngine.propertyChanged(resolvedService, "PreferredInput"):Connect(function()
+	local value: Compose.Value<PreferredInput.Class> = Compose.cell(initial)
+	local connection = resolvedEngine.propertyChanged(service, "PreferredInput"):Connect(function()
 		value:set(PreferredInput.specOf(service.PreferredInput).class)
 	end)
 	Compose.cleanup(function()

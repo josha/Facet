@@ -1,5 +1,9 @@
 --!strict
 
+local freeze: ({}) -> {} = table.freeze
+
+local createCopied: (number, string?) -> { string } = table.create
+
 export type EventKey = {
 	composeKey: "event",
 	name: string,
@@ -29,7 +33,7 @@ local function event(name: string): EventKey
 		return existing
 	end
 	local created: EventKey = { composeKey = "event", name = name }
-	table.freeze(created :: {})
+	freeze(created)
 	eventKeys[name] = created
 	return created
 end
@@ -40,7 +44,7 @@ local function property(name: string): PropertyKey
 		return existing
 	end
 	local created: PropertyKey = { composeKey = "property", name = name }
-	table.freeze(created :: {})
+	freeze(created)
 	propertyKeys[name] = created
 	return created
 end
@@ -49,30 +53,35 @@ local function group(names: { string }): GroupKey
 	if #names == 0 then
 		error("group needs at least one property name", 2)
 	end
-	local copied = table.create(#names) :: { string }
+	local copied: { string } = createCopied(#names)
 	for index, name in names do
 		if type(name) ~= "string" then
 			error(("group names must be strings; entry %d is %s"):format(index, typeof(name)), 2)
 		end
 		copied[index] = name
 	end
-	table.freeze(copied)
+	freeze(copied)
 	local created: GroupKey = { composeKey = "group", names = copied }
-	table.freeze(created :: {})
+	freeze(created)
 	return created
 end
 
 local function static(value: unknown): StaticValue
 	local created: StaticValue = { composeValue = "static", value = value }
-	table.freeze(created :: {})
+	freeze(created)
 	return created
 end
 
-export type Marker = {
-	kind: "event" | "property" | "group",
-	name: string,
-	names: { string }?,
-}
+export type Marker =
+	{
+		kind: "event" | "property",
+		name: string,
+	}
+	| {
+		kind: "group",
+		name: string,
+		names: { string },
+	}
 
 local function readKey(key: unknown): Marker?
 	if type(key) ~= "table" then

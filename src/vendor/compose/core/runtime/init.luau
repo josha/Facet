@@ -1,4 +1,5 @@
 --!strict
+--!native
 
 local Active = require "./ownership/active"
 local Animation = require "./animation/motion"
@@ -65,15 +66,15 @@ export type Runtime = {
 	adopt: (node: Node) -> Node,
 	borrow: (node: Node) -> Node,
 
-	spring: <T>(source: Types.Body<T>, options: Animation.SpringOptions?) -> Types.Readable<T>,
+	spring: <T>(source: Types.Body<T>, options: Animation.SpringOptions?) -> Types.ReadOnlyValue<T>,
 
-	tween: <T>(source: Types.Body<T>, options: Animation.TweenOptions?) -> Types.Readable<T>,
+	tween: <T>(source: Types.Body<T>, options: Animation.TweenOptions?) -> Types.ReadOnlyValue<T>,
 	timeline: (options: TimelineModule.Options?) -> TimelineModule.Timeline,
 	ramp: <T>(initial: T, options: RampModule.Options?) -> RampModule.Ramp<T>,
 	scheduler: (owner: Owner.Owner?) -> SchedulerModule.Scheduler,
-	observe: (node: Node, property: string, options: ObserveOptions?) -> Types.Readable<unknown>,
-	settled: <T, R>(options: settled.Options<T, R>) -> Types.Readable<boolean>,
-	clock: (options: clock.Options?) -> Types.Readable<number>,
+	observe: (node: Node, property: string, options: ObserveOptions?) -> Types.ReadOnlyValue<unknown>,
+	settled: <T, R>(options: settled.Options<T, R>) -> Types.ReadOnlyValue<boolean>,
+	clock: (options: clock.Options?) -> Types.ReadOnlyValue<number>,
 	sequence: (options: sequence.Options) -> sequence.Sequence,
 
 	reactor: Reactor.Reactor,
@@ -113,12 +114,19 @@ local function createRuntime(host: Host.Host): Runtime
 	local function requireOwner(operation: string): Owner.Owner
 		local owner = Active.current()
 		if owner == nil then
-			Diagnostics.raise("owner/no-active-owner", ("%s ran with no owner to register with"):format(operation), {
-				contract = "nodes and bindings must belong to something that can release them",
-				fix = "call it inside runtime.mount(component, target), or inside Compose.withOwner(owner, fn)",
-			})
+			error(
+				Diagnostics.format(
+					"owner/no-active-owner",
+					("%s ran with no owner to register with"):format(operation),
+					{
+						contract = "nodes and bindings must belong to something that can release them",
+						fix = "call it inside runtime.mount(component, target), or inside Compose.withOwner(owner, fn)",
+					}
+				),
+				0
+			)
 		end
-		return owner :: Owner.Owner
+		return owner
 	end
 
 	local function destroyOwnedNode(node: Node)
@@ -130,14 +138,19 @@ local function createRuntime(host: Host.Host): Runtime
 		end
 	end
 
-	local pendingLabel = Weak.keys() :: { [unknown]: string }
+	local pendingLabel: { [unknown]: string } = {}
+
+	Weak.keys(pendingLabel)
 
 	local function create(kind: string): Constructor
 		if type(kind) ~= "string" then
-			Diagnostics.raise("mount/kind-not-a-string", "create expects a node kind", {
-				actual = Diagnostics.describe(kind),
-				expected = 'a string the host understands, e.g. "Frame"',
-			})
+			error(
+				Diagnostics.format("mount/kind-not-a-string", "create expects a node kind", {
+					actual = Diagnostics.describe(kind),
+					expected = 'a string the host understands, e.g. "Frame"',
+				}),
+				0
+			)
 		end
 
 		local operation = ("create(%q)"):format(kind)
@@ -174,47 +187,56 @@ local function createRuntime(host: Host.Host): Runtime
 				elseif type(child) == "table" or type(child) == "userdata" then
 					Children.insertStatic(list, slot, child)
 				elseif pendingLabel[child] ~= nil then
-					Diagnostics.raise(
-						"mount/constructor-not-applied",
-						"a child is a constructor that was never given props",
-						{
-							kind = kind,
-							index = index,
-							label = pendingLabel[child],
-							contract = ("%s %q is a constructor; it builds a node only once it is called with props"):format(
-								kind,
-								pendingLabel[child]
-							),
-							fix = ("write %s %q { } -- an empty table is fine"):format(kind, pendingLabel[child]),
-						}
+					error(
+						Diagnostics.format(
+							"mount/constructor-not-applied",
+							"a child is a constructor that was never given props",
+							{
+								kind = kind,
+								index = index,
+								label = pendingLabel[child],
+								contract = ("%s %q is a constructor; it builds a node only once it is called with props"):format(
+									kind,
+									pendingLabel[child]
+								),
+								fix = ("write %s %q { } -- an empty table is fine"):format(kind, pendingLabel[child]),
+							}
+						),
+						0
 					)
 				else
-					Diagnostics.raise("mount/not-a-child", "a child is neither a node nor a directive", {
-						kind = kind,
-						index = index,
-						actual = Diagnostics.describe(child),
-						expected = "a node, or a directive such as show(...) or keyed(...)",
-					})
+					error(
+						Diagnostics.format("mount/not-a-child", "a child is neither a node nor a directive", {
+							kind = kind,
+							index = index,
+							actual = Diagnostics.describe(child),
+							expected = "a node, or a directive such as show(...) or keyed(...)",
+						}),
+						0
+					)
 				end
 			end
 		end
 
 		local function build(label: string?, props: Props.Props): Node
 			if type(props) ~= "table" then
-				Diagnostics.raise("props/not-a-table", ("create(%q) expects a props table"):format(kind), {
-					kind = kind,
-					label = label,
-					actual = Diagnostics.describe(props),
-					expected = "a table of properties, with children in its array part",
-				})
+				error(
+					Diagnostics.format("props/not-a-table", ("create(%q) expects a props table"):format(kind), {
+						kind = kind,
+						label = label,
+						actual = Diagnostics.describe(props),
+						expected = "a table of properties, with children in its array part",
+					}),
+					0
+				)
 			end
 
 			local owner = requireOwner(operation)
-			local mark = owner.checkpoint()
+			local mark = Owner.checkpoint(owner)
 
 			local node = render.createNode(kind)
 			Nodes.markOwned(node)
-			owner.own(function()
+			Owner.own(owner, function()
 				destroyOwnedNode(node)
 			end)
 			if Inspect.isActive() then
@@ -226,7 +248,7 @@ local function createRuntime(host: Host.Host): Runtime
 			inFlight = nil
 			local ok, err: unknown = pcall(Active.runWith, owner, applyBuild, label, props, node, owner)
 			if not ok then
-				owner.rollbackTo(mark)
+				Owner.rollbackTo(owner, mark)
 				local key = inFlight
 				inFlight = savedInFlight
 				if key ~= nil then
@@ -249,17 +271,20 @@ local function createRuntime(host: Host.Host): Runtime
 					return labelled
 				end
 				return build(nil, first)
-			end :: Constructor
+			end
 		) :: Constructor
 	end
 
 	local function refuseAfterDispose(operation: string, label: string)
 		if runtimeDisposed then
-			Diagnostics.raise("runtime/disposed", ("%s ran after runtime:dispose()"):format(operation), {
-				component = label,
-				contract = "a disposed runtime starts no new work",
-				fix = "create a new runtime, or mount before disposing this one",
-			})
+			error(
+				Diagnostics.format("runtime/disposed", ("%s ran after runtime:dispose()"):format(operation), {
+					component = label,
+					contract = "a disposed runtime starts no new work",
+					fix = "create a new runtime, or mount before disposing this one",
+				}),
+				0
+			)
 		end
 	end
 
@@ -293,18 +318,21 @@ local function createRuntime(host: Host.Host): Runtime
 
 	local function mountInto(produce: () -> { Node }, target: Node, label: string): (Dispose, { Node })
 		if type(target) ~= "table" and type(target) ~= "userdata" then
-			Diagnostics.raise("mount/target-not-a-node", "mount expects a host node to mount into", {
-				component = label,
-				actual = Diagnostics.describe(target),
-				expected = "a node belonging to the host this runtime renders to",
-			})
+			error(
+				Diagnostics.format("mount/target-not-a-node", "mount expects a host node to mount into", {
+					component = label,
+					actual = Diagnostics.describe(target),
+					expected = "a node belonging to the host this runtime renders to",
+				}),
+				0
+			)
 		end
 		refuseAfterDispose("mount", label)
 		claimTarget(target)
 
 		local parent = Active.current()
 		local isTopLevel = parent == nil
-		local owner = if parent ~= nil then parent else Owner.createOwner(reactor)
+		local owner = parent or Owner.createOwner(reactor)
 
 		if isTopLevel and Inspect.isActive() then
 			Inspect.mount(owner)
@@ -315,17 +343,17 @@ local function createRuntime(host: Host.Host): Runtime
 		local ok, block = pcall(Block.mountBlock, mountPoint, owner, produce, label, nil)
 		if not ok then
 			if isTopLevel then
-				owner.dispose()
+				Owner.dispose(owner)
 			end
 			error(block, 0)
 		end
 
 		if not isTopLevel then
-			return block.dispose, block.nodes
+			return Owner.disposer(block.owner), block.nodes
 		end
 
 		local detach = Root.hold(function()
-			releaseInOrder(block.dispose, owner.dispose)
+			releaseInOrder(Owner.disposer(block.owner), Owner.disposer(owner))
 		end)
 		return orderAgainstTarget(target, detach), block.nodes
 	end
@@ -341,27 +369,30 @@ local function createRuntime(host: Host.Host): Runtime
 	local function mountFragment(fragment: Fragment, target: Node): (Dispose, { Node })
 		local label = Block.nameOf(fragment)
 		if type(target) ~= "table" and type(target) ~= "userdata" then
-			Diagnostics.raise("mount/target-not-a-node", "mountFragment expects a host node to mount into", {
-				component = label,
-				actual = Diagnostics.describe(target),
-				expected = "a node belonging to the host this runtime renders to",
-			})
+			error(
+				Diagnostics.format("mount/target-not-a-node", "mountFragment expects a host node to mount into", {
+					component = label,
+					actual = Diagnostics.describe(target),
+					expected = "a node belonging to the host this runtime renders to",
+				}),
+				0
+			)
 		end
 		refuseAfterDispose("mountFragment", label)
 		claimTarget(target)
 
 		local parent = Active.current()
 		local isTopLevel = parent == nil
-		local owner = if parent ~= nil then parent else Owner.createOwner(reactor)
+		local owner = parent or Owner.createOwner(reactor)
 		if isTopLevel and Inspect.isActive() then
 			Inspect.mount(owner)
 			Inspect.label(owner, label)
 		end
 
-		local blockOwner = owner.createChild()
+		local blockOwner = Owner.createChild(owner)
 		local roots: { Node } = {}
 		local list = Children.createList(host, target)
-		blockOwner.own(function()
+		Owner.own(blockOwner, function()
 			for index = #roots, 1, -1 do
 				pcall(render.removeChild, target, roots[index])
 			end
@@ -370,14 +401,17 @@ local function createRuntime(host: Host.Host): Runtime
 		local ok, err: unknown = pcall(function()
 			local children = Active.withOwner(blockOwner, fragment)
 			if type(children) ~= "table" then
-				Diagnostics.raise(
-					"mount/not-a-child-list",
-					"a fragment returned something that is not a list of children",
-					{
-						component = label,
-						actual = Diagnostics.describe(children),
-						expected = "an array of nodes and structural directives",
-					}
+				error(
+					Diagnostics.format(
+						"mount/not-a-child-list",
+						"a fragment returned something that is not a list of children",
+						{
+							component = label,
+							actual = Diagnostics.describe(children),
+							expected = "an array of nodes and structural directives",
+						}
+					),
+					0
 				)
 			end
 			for index, child in children do
@@ -390,59 +424,71 @@ local function createRuntime(host: Host.Host): Runtime
 					Children.insertStatic(list, slot, child)
 					table.insert(roots, child)
 				elseif pendingLabel[child] ~= nil then
-					Diagnostics.raise(
-						"mount/constructor-not-applied",
-						"a fragment child is a constructor that was never given props",
-						{
-							component = label,
-							index = index,
-							label = pendingLabel[child],
-							fix = ("write Part %q { } -- an empty table is fine"):format(pendingLabel[child]),
-						}
+					error(
+						Diagnostics.format(
+							"mount/constructor-not-applied",
+							"a fragment child is a constructor that was never given props",
+							{
+								component = label,
+								index = index,
+								label = pendingLabel[child],
+								fix = ("write Part %q { } -- an empty table is fine"):format(pendingLabel[child]),
+							}
+						),
+						0
 					)
 				else
-					Diagnostics.raise("mount/not-a-child", "a fragment entry is neither a node nor a directive", {
-						component = label,
-						index = index,
-						actual = Diagnostics.describe(child),
-						expected = "a node, or a directive such as show(...) or keyed(...)",
-					})
+					error(
+						Diagnostics.format("mount/not-a-child", "a fragment entry is neither a node nor a directive", {
+							component = label,
+							index = index,
+							actual = Diagnostics.describe(child),
+							expected = "a node, or a directive such as show(...) or keyed(...)",
+						}),
+						0
+					)
 				end
 			end
 		end)
 		if not ok then
-			blockOwner.dispose()
+			Owner.dispose(blockOwner)
 			if isTopLevel then
-				owner.dispose()
+				Owner.dispose(owner)
 			end
 			error(err, 0)
 		end
 
 		if not isTopLevel then
-			return blockOwner.dispose, roots
+			return Owner.disposer(blockOwner), roots
 		end
 		local detach = Root.hold(function()
-			releaseInOrder(blockOwner.dispose, owner.dispose)
+			releaseInOrder(Owner.disposer(blockOwner), Owner.disposer(owner))
 		end)
 		return orderAgainstTarget(target, detach), roots
 	end
 
 	local function decorate(node: Node, props: Props.Props): Node
 		if type(node) ~= "table" and type(node) ~= "userdata" then
-			Diagnostics.raise("mount/not-a-node", "decorate expects an existing host node", {
-				actual = Diagnostics.describe(node),
-				expected = "a node belonging to the host this runtime renders to",
-			})
+			error(
+				Diagnostics.format("mount/not-a-node", "decorate expects an existing host node", {
+					actual = Diagnostics.describe(node),
+					expected = "a node belonging to the host this runtime renders to",
+				}),
+				0
+			)
 		end
 		if type(props) ~= "table" then
-			Diagnostics.raise("props/not-a-table", "decorate expects a props table", {
-				actual = Diagnostics.describe(props),
-				expected = "a table of properties and event keys",
-			})
+			error(
+				Diagnostics.format("props/not-a-table", "decorate expects a props table", {
+					actual = Diagnostics.describe(props),
+					expected = "a table of properties and event keys",
+				}),
+				0
+			)
 		end
 
 		local parentOwner = requireOwner "decorate"
-		local owner = parentOwner.createChild()
+		local owner = Owner.createChild(parentOwner)
 
 		local inFlight: string? = nil
 		local ok, err: unknown = pcall(function()
@@ -452,17 +498,20 @@ local function createRuntime(host: Host.Host): Runtime
 				end)
 
 				if #props > 0 then
-					Diagnostics.raise("props/decorate-has-children", "decorate cannot add children", {
-						contract = "decorate only applies properties and events to an existing node",
-						fix = "use a portal to mount children into a node Compose does not own",
-					})
+					error(
+						Diagnostics.format("props/decorate-has-children", "decorate cannot add children", {
+							contract = "decorate only applies properties and events to an existing node",
+							fix = "use a portal to mount children into a node Compose does not own",
+						}),
+						0
+					)
 				end
 				return nil
 			end)
 		end)
 
 		if not ok then
-			owner.dispose()
+			Owner.dispose(owner)
 			if inFlight ~= nil then
 				error(("%s\n  while applying: decorate.%s"):format(tostring(err), tostring(inFlight)), 0)
 			end
@@ -474,46 +523,58 @@ local function createRuntime(host: Host.Host): Runtime
 
 	local function connect<Args...>(node: Node, event: string, handler: (Args...) -> ()): () -> ()
 		if type(node) ~= "table" and type(node) ~= "userdata" then
-			Diagnostics.raise("mount/not-a-node", "connect expects an existing host node", {
-				event = event,
-				actual = Diagnostics.describe(node),
-				expected = "a node belonging to the host this runtime renders to",
-			})
+			error(
+				Diagnostics.format("mount/not-a-node", "connect expects an existing host node", {
+					event = event,
+					actual = Diagnostics.describe(node),
+					expected = "a node belonging to the host this runtime renders to",
+				}),
+				0
+			)
 		end
 		if type(handler) ~= "function" then
-			Diagnostics.raise("props/event-needs-handler", "connect expects a handler function", {
-				event = event,
-				actual = Diagnostics.describe(handler),
-				expected = "a function",
-			})
+			error(
+				Diagnostics.format("props/event-needs-handler", "connect expects a handler function", {
+					event = event,
+					actual = Diagnostics.describe(handler),
+					expected = "a function",
+				}),
+				0
+			)
 		end
 
 		local events = host.events
 		if events == nil then
-			Diagnostics.raise("host/no-events", ("host %q cannot subscribe to events"):format(host.name), {
-				event = event,
-				contract = "subscribing requires the host events capability",
-				fix = "implement host.events.connectEvent, or stop calling connect on this host",
-			})
+			error(
+				Diagnostics.format("host/no-events", ("host %q cannot subscribe to events"):format(host.name), {
+					event = event,
+					contract = "subscribing requires the host events capability",
+					fix = "implement host.events.connectEvent, or stop calling connect on this host",
+				}),
+				0
+			)
 		end
 
 		local owner = requireOwner "connect"
-		local unsubscribe = (events :: Host.Events).connectEvent(node, event, handler)
-		local detach = owner.own(unsubscribe)
+		local unsubscribe = (events).connectEvent(node, event, handler)
+		local detach = Owner.own(owner, unsubscribe)
 		return detach
 	end
 
 	local function adopt(node: Node): Node
 		local owner = requireOwner "adopt"
 		if Nodes.custodyOf(node) == "owned" then
-			Diagnostics.raise("owner/already-owned", "adopt was given a node Compose already owns", {
-				node = Host.describeNode(host, node),
-				contract = "a node has exactly one owner; adopting a second time would destroy it twice",
-				fix = "adopt only nodes created outside Compose",
-			})
+			error(
+				Diagnostics.format("owner/already-owned", "adopt was given a node Compose already owns", {
+					node = Host.describeNode(host, node),
+					contract = "a node has exactly one owner; adopting a second time would destroy it twice",
+					fix = "adopt only nodes created outside Compose",
+				}),
+				0
+			)
 		end
 		Nodes.markAdopted(node)
-		owner.own(function()
+		Owner.own(owner, function()
 			destroyOwnedNode(node)
 		end)
 		if Inspect.isActive() then
@@ -542,8 +603,8 @@ local function createRuntime(host: Host.Host): Runtime
 
 	local function watch(_self: Runtime, body: (use: Types.Use) -> (), label: string?): Types.Dispose
 		local active = Active.current()
-		local owner = if active ~= nil then active else rootOwner
-		return owner.watch(body, label)
+		local owner = active or rootOwner
+		return Owner.watch(owner, body, label)
 	end
 
 	local constructors: { [string]: Constructor } = {}
@@ -560,17 +621,17 @@ local function createRuntime(host: Host.Host): Runtime
 		reactor = reactor,
 		watch = watch,
 		batch = function<T...>(_self: Runtime, body: () -> T...): T...
-			return reactor:batch(body)
+			return Reactor.batch(reactor, body)
 		end,
 		settle = function(_self: Runtime)
-			reactor:settle()
+			Reactor.settle(reactor)
 		end,
 		pending = function(_self: Runtime): number
-			return reactor:pending()
+			return Reactor.pending(reactor)
 		end,
 		dispose = function(_self: Runtime)
 			runtimeDisposed = true
-			rootOwner.dispose()
+			Owner.dispose(rootOwner)
 		end,
 		connect = connect,
 		create = create,

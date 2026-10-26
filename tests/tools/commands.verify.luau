@@ -577,7 +577,7 @@ end)
 		local recipes = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "Tasks.collection-detail" })
 		Verify.expect(recipes.ok):toBe(true)
 		Verify.expect(#recipes.stdout <= 2048):toBe(true)
-		Verify.expect(string.find(recipes.stdout, "Facet.Readable<Item>", 1, true) ~= nil):toBe(true)
+		Verify.expect(string.find(recipes.stdout, "Facet.ReadOnlyValue<Item>", 1, true) ~= nil):toBe(true)
 	end)
 	harness:case(
 		"lint keeps all error locations and full details when it shortens cyclic type errors",
@@ -600,7 +600,7 @@ type Entry = { id: string, title: string }
 local entries: { Entry } = {}
 local initial: { name: string, enabled: boolean }? = nil
 local state = Facet.Compose.cell(initial)
-local wrong: Facet.Readable<Entry> = state
+local wrong: Facet.ReadOnlyValue<Entry> = state
 app.mount(function()
     local spec: Facet.KeyedCollectionSpec<Entry, string> = {
         from = Facet.Compose.cell(entries), key = "id", itemSize = 64,

@@ -16,7 +16,7 @@ return function<V, K>(
 	local extendSelection = view.extendSelection
 	local tree = view.tree
 	local function current(): { V }
-		return view.source(function<T>(readable: ComposeTypes.Readable<T>): T
+		return view.source(function<T>(readable: ComposeTypes.ReadOnlyValue<T>): T
 			return readable:peek()
 		end)
 	end
@@ -176,7 +176,7 @@ return function<V, K>(
 	local owner = assert(Compose.currentOwner(), "collection navigation requires a Compose owner")
 	local function armPaging()
 		view.armPaging = nil
-		Compose.withOwner(owner.createChild(), function()
+		Compose.withOwner(ComposeTypes.owner.createChild(owner), function()
 			ctx.action(
 				root,
 				"CollectionPageDown",

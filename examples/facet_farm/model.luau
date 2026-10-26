@@ -1,9 +1,10 @@
 --!strict
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Formula<T> = { peek: (Readable<T>) -> T, dispose: (Formula<T>) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local model = {}
 
 export type CropId = "wheat" | "carrot" | "strawberry" | "pumpkin"
@@ -23,21 +24,21 @@ export type View = "2d" | "3d"
 export type Toast = { serial: number, message: string }
 export type Cue = { serial: number, name: string }
 export type Farm = {
-	coins: Cell<number>,
-	xp: Cell<number>,
-	plots: Cell<{ Plot }>,
-	now: Cell<number>,
-	tool: Cell<Tool>,
-	seed: Cell<CropId>,
-	marketOpen: Cell<boolean>,
-	blend: Readable<number>?,
-	view: Cell<View>,
-	music: Cell<boolean>,
-	levelUp: Cell<boolean>,
-	toast: Cell<Toast?>,
-	harvested: Cell<number>,
-	cue: Cell<Cue?>,
-	level: Formula<number>,
+	coins: Value<number>,
+	xp: Value<number>,
+	plots: Value<{ Plot }>,
+	now: Value<number>,
+	tool: Value<Tool>,
+	seed: Value<CropId>,
+	marketOpen: Value<boolean>,
+	blend: ReadOnlyValue<number>?,
+	view: Value<View>,
+	music: Value<boolean>,
+	levelUp: Value<boolean>,
+	toast: Value<Toast?>,
+	harvested: Value<number>,
+	cue: Value<Cue?>,
+	level: ReadOnlyValue<number>,
 	tick: () -> (),
 	unlocked: (crop: Crop) -> boolean,
 	act: (index: number) -> boolean,
@@ -107,14 +108,14 @@ function model.new(Compose: ComposeModule, clock: (() -> number)?): Farm
 	local initialTool: Tool = "plow"
 	local initialSeed: CropId = "wheat"
 	local initialView: View = "2d"
-	local noBlend: Readable<number>? = nil
+	local noBlend: ReadOnlyValue<number>? = nil
 	local noToast: Toast? = nil
 	local noCue: Cue? = nil
-	local tool: Cell<Tool> = Compose.cell(initialTool)
-	local seed: Cell<CropId> = Compose.cell(initialSeed)
-	local view: Cell<View> = Compose.cell(initialView)
-	local toast: Cell<Toast?> = Compose.cell(noToast)
-	local cues: Cell<Cue?> = Compose.cell(noCue)
+	local tool: Value<Tool> = Compose.cell(initialTool)
+	local seed: Value<CropId> = Compose.cell(initialSeed)
+	local view: Value<View> = Compose.cell(initialView)
+	local toast: Value<Toast?> = Compose.cell(noToast)
+	local cues: Value<Cue?> = Compose.cell(noCue)
 	local self = {
 		coins = Compose.cell(120),
 		xp = Compose.cell(0),
@@ -141,9 +142,10 @@ function model.new(Compose: ComposeModule, clock: (() -> number)?): Farm
 		serial += 1
 		self.toast:set({ serial = serial, message = message })
 	end
-	self.level = Compose.formula(function(use: Use): number
+	local level: ReadOnlyValue<number> = Compose.formula(function(use: Use): number
 		return model.levelOf(use(self.xp))
 	end)
+	self.level = level
 	function self.tick()
 		self.now:set(time())
 	end

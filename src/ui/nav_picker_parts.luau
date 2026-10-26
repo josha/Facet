@@ -6,42 +6,42 @@ local ComposeTypes = require("../vendor/compose/core")
 export type Choice<V> = {
 	isSelected: (value: V, use: ComposeTypes.Use?) -> boolean,
 	select: (value: V) -> (),
-	options: ComposeTypes.Readable<{ Nav.PickerOption<V> }>,
+	options: ComposeTypes.ReadOnlyValue<{ Nav.PickerOption<V> }>,
 }
 export type Parts = {
 	keys: { string },
 	appearanceFor: (style: Nav.PickerStyle, word: unknown) -> string?,
-	derive: <T>(compute: (ComposeTypes.Use?) -> T, ...unknown) -> Types.Value<T>,
-	layoutWidth: (node: GuiObject) -> ComposeTypes.Readable<number>,
+	derive: <T>(compute: (ComposeTypes.Use?) -> T, ...unknown) -> Types.Input<T>,
+	layoutWidth: (node: GuiObject) -> ComposeTypes.ReadOnlyValue<number>,
 	wrapWhenLong: (
 		label: TextLabel | TextButton,
 		space: (ComposeTypes.Use) -> string,
 		container: GuiObject,
 		truncates: boolean
 	) -> (),
-	sideChrome: (controlSize: Types.Value<Types.ControlSize?>?, use: ComposeTypes.Use?, glyph: boolean?) -> number,
+	sideChrome: (controlSize: Types.Input<Types.ControlSize?>?, use: ComposeTypes.Use?, glyph: boolean?) -> number,
 	wrapCaptions: (
 		button: GuiObject,
-		controlSize: Types.Value<Types.ControlSize?>?,
+		controlSize: Types.Input<Types.ControlSize?>?,
 		across: (ComposeTypes.Use) -> number,
 		peers: ((ComposeTypes.Use) -> number)?
 	) -> (),
-	liveIcon: <V>(source: ComposeTypes.Readable<Nav.PickerOption<V>>) -> Types.Value<string>?,
+	liveIcon: <V>(source: ComposeTypes.ReadOnlyValue<Nav.PickerOption<V>>) -> Types.Input<string>?,
 }
 
 return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local function derive<T>(compute: (ComposeTypes.Use?) -> T, ...: unknown): Types.Value<T>
+	local function derive<T>(compute: (ComposeTypes.Use?) -> T, ...: unknown): Types.Input<T>
 		for index = 1, select("#", ...) do
 			local source = select(index, ...)
-			if Compose.isReadable(source) or type(source) == "function" then
+			if Compose.isValue(source) or type(source) == "function" then
 				return compute
 			end
 		end
 		return compute(nil)
 	end
-	local function layoutWidth(node: GuiObject): ComposeTypes.Readable<number>
+	local function layoutWidth(node: GuiObject): ComposeTypes.ReadOnlyValue<number>
 		local extent = ctx.observe.AbsoluteSize(node)
 		local _, units = ctx.runtime.mount(function()
 			return ctx.Host.Folder "Units" {
@@ -72,7 +72,7 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 		local boundFor, boundWidth = "", 0
 		local pending: thread? = nil
 		local function widestWord(): number
-			if owner.isDisposed() then
+			if ComposeTypes.owner.isDisposed(owner) then
 				return 0
 			end
 			if probe == nil then
@@ -163,7 +163,7 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 	end
 
 	local function sideChrome(
-		controlSize: Types.Value<Types.ControlSize?>?,
+		controlSize: Types.Input<Types.ControlSize?>?,
 		use: ComposeTypes.Use?,
 		glyph: boolean?
 	): number
@@ -177,7 +177,7 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 
 	local function wrapCaptions(
 		button: GuiObject,
-		controlSize: Types.Value<Types.ControlSize?>?,
+		controlSize: Types.Input<Types.ControlSize?>?,
 		across: (ComposeTypes.Use) -> number,
 		peers: ((ComposeTypes.Use) -> number)?
 	)
@@ -227,7 +227,7 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 	}
 	local MENU_WORDS: { [string]: string } = { standard = "standard", contrast = "contrast", utility = "utility" }
 	local STRIP_WORDS: { [string]: string } = { filled = "filled", stroke = "stroke", utility = "utility" }
-	local function liveIcon<V>(source: ComposeTypes.Readable<Nav.PickerOption<V>>): Types.Value<string>?
+	local function liveIcon<V>(source: ComposeTypes.ReadOnlyValue<Nav.PickerOption<V>>): Types.Input<string>?
 		if source:peek().icon == nil then
 			return nil
 		end

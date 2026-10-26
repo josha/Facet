@@ -18,7 +18,7 @@ return function(
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local body = kit.body
-	type CalloutRegistration = { id: number, eligible: ComposeTypes.Readable<boolean>, priority: number }
+	type CalloutRegistration = { id: number, eligible: ComposeTypes.ReadOnlyValue<boolean>, priority: number }
 	local callouts = Compose.cell({} :: { CalloutRegistration })
 	local nextCallout = 0
 
@@ -109,7 +109,7 @@ return function(
 		}, "Callout")
 		local plate: Instance? = nil
 		local function retire(reason: Nav.CalloutRetirement): ()
-			if retired:peek() or calloutOwner.isDisposed() then
+			if retired:peek() or ComposeTypes.owner.isDisposed(calloutOwner) then
 				return
 			end
 			local gui = ctx.config.guiService

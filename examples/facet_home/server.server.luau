@@ -50,7 +50,7 @@ local sessions: { [Player]: Session } = {}
 local sequence = 0
 local function repaint(session: Session)
 	if session.furnitureOwner then
-		session.furnitureOwner.dispose()
+		Facet.Compose.owner.dispose(session.furnitureOwner)
 	end
 	local furnitureOwner = Facet.Compose.createOwner(runtime.reactor)
 	session.furnitureOwner = furnitureOwner
@@ -128,8 +128,8 @@ local function open(player: Player): Session
 end
 local function close(session: Session)
 	assert(session.arrival):Disconnect()
-	assert(session.furnitureOwner).dispose()
-	session.roomOwner.dispose()
+	Facet.Compose.owner.dispose(assert(session.furnitureOwner))
+	Facet.Compose.owner.dispose(session.roomOwner)
 end
 remote.OnServerInvoke = function(player: Player, request: Request): Response
 	local ok, result = pcall(function()
@@ -193,6 +193,6 @@ script.Destroying:Connect(function()
 	root:Destroy()
 	remote:Destroy()
 	signal:Destroy()
-	owner.dispose()
+	Facet.Compose.owner.dispose(owner)
 	runtime:dispose()
 end)

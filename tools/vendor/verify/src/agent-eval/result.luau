@@ -139,11 +139,12 @@ end
 
 local function status(value: unknown, label: string): RunStatus
 	local name = Schema.text(value, label)
-	local known = STATUSES[name]
+	local known: RunStatus? = STATUSES[name]
 	if known == nil then
 		Schema.fail(label, "is not a run status")
 	end
-	return known :: RunStatus
+	assert(known ~= nil)
+	return known
 end
 
 local function decode(value: unknown): RunResult
@@ -184,7 +185,7 @@ local function decode(value: unknown): RunResult
 		local entry = Schema.record(item, ("result.session.mcpServers[%d]"):format(index))
 		table.insert(servers, {
 			name = Schema.text(entry.name, "result.session.mcpServers.name"),
-			status = if type(entry.status) == "string" then entry.status :: string else "",
+			status = if type(entry.status) == "string" then entry.status else "",
 		})
 	end
 	local session: Session = {
@@ -195,7 +196,7 @@ local function decode(value: unknown): RunResult
 		usageSource = Schema.optionalText(sessionRaw.usageSource, "result.session.usageSource") or "none",
 		tools = Schema.texts(sessionRaw.tools, "result.session.tools"),
 		mcpServers = servers,
-		result = if type(sessionRaw.result) == "string" then sessionRaw.result :: string else nil,
+		result = if type(sessionRaw.result) == "string" then sessionRaw.result else nil,
 		malformed = Schema.optionalNumber(sessionRaw.malformed, "result.session.malformed", 0) or 0,
 	}
 	local checks: { CheckResult } = {}
@@ -221,7 +222,7 @@ local function decode(value: unknown): RunResult
 			status = Schema.text(entry.status, where .. ".status"),
 			passed = Schema.flag(entry.passed, where .. ".passed", false),
 			seconds = Schema.optionalNumber(entry.seconds, where .. ".seconds", 0),
-			detail = if type(entry.detail) == "string" then entry.detail :: string else nil,
+			detail = if type(entry.detail) == "string" then entry.detail else nil,
 			cases = cases,
 			scores = scores(entry.scores, where .. ".scores"),
 		})
@@ -264,7 +265,7 @@ local function decode(value: unknown): RunResult
 		order = Schema.number(raw.order, "result.order", 0, true),
 		parent = Schema.optionalText(raw.parent, "result.parent"),
 		status = status(raw.status, "result.status"),
-		detail = if type(raw.detail) == "string" then raw.detail :: string else nil,
+		detail = if type(raw.detail) == "string" then raw.detail else nil,
 		passed = Schema.flag(raw.passed, "result.passed", false),
 		checksPassed = Schema.flag(raw.checksPassed, "result.checksPassed", false),
 		exceeded = Schema.texts(raw.exceeded, "result.exceeded"),

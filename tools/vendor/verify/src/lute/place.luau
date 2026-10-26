@@ -236,9 +236,9 @@ local function moduleTree(options: BundleOptions): string
 				end
 			end
 			assert(resolved ~= nil, "unresolved fixture module " .. target)
-			if files[resolved :: string] == nil then
-				files[resolved :: string] = fs.readFileToString(resolved :: string)
-				table.insert(pending, resolved :: string)
+			if files[resolved] == nil then
+				files[resolved] = fs.readFileToString(resolved)
+				table.insert(pending, resolved)
 			end
 		end
 	end
@@ -274,7 +274,7 @@ local function moduleTree(options: BundleOptions): string
 	end
 	local function node(name: string): string
 		local source = sources[name]
-		local label = if name == "" then rootName else name:match "[^/]+$" :: string
+		local label = if name == "" then rootName else assert(name:match "[^/]+$")
 		local pieces = {
 			'<Item class="'
 				.. (if source then "ModuleScript" else "Folder")

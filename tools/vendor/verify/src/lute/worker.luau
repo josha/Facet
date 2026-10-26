@@ -53,7 +53,8 @@ local function runBatchWith(
 	batch: PlanBatch,
 	operations: Operations | SelfRegisteringOperations,
 	options: Options?,
-	selfRegistering: boolean
+	selfRegistering: boolean,
+	register: Registrar?
 ): Report
 	local settings: Options = if options ~= nil then options else {}
 	local executor = settings.executor or "lute"
@@ -77,10 +78,10 @@ local function runBatchWith(
 		local value: unknown
 		if selfRegistering then
 			session:open(unit.locator)
-			succeeded, value = pcall((operations :: SelfRegisteringOperations).load, unit.locator, session:harness())
+			succeeded, value = pcall(assert(register), unit.locator, session:harness())
 			session:close()
 		else
-			succeeded, value = pcall((operations :: Operations).load, unit.locator)
+			succeeded, value = pcall((operations).load, unit.locator)
 			if succeeded then
 				classify = false
 				if type(value) == "function" then
@@ -100,10 +101,9 @@ local function runBatchWith(
 
 		local disposition: LoadDisposition? = nil
 		if classify and operations.classifyLoadFailure ~= nil then
-			local classified, verdict: unknown =
-				pcall(operations.classifyLoadFailure :: (string, unknown) -> LoadDisposition?, unit.locator, value)
+			local classified, verdict = pcall(operations.classifyLoadFailure, unit.locator, value)
 			if classified and type(verdict) == "table" then
-				disposition = verdict :: LoadDisposition
+				disposition = verdict
 			end
 		end
 		local id = ("unit:%s:%s"):format(unit.id, phase)
@@ -129,7 +129,7 @@ local function runBatchWith(
 					id,
 					unit.locator,
 					if skipped then "skipped" else "failed",
-					if skipped then (disposition :: LoadDisposition).reason or tostring(value) else tostring(value)
+					if skipped then assert(disposition).reason or tostring(value) else tostring(value)
 				)
 			)
 		end
@@ -244,7 +244,7 @@ local function create(runtime: Runtime): Worker
 			operations: SelfRegisteringOperations,
 			options: Options?
 		): Report
-			return runBatchWith(batch, operations, options, true)
+			return runBatchWith(batch, operations, options, true, operations.load)
 		end,
 		main = function(operations: Operations, options: Options?)
 			mainWith(runtime, function(batch, settings)
@@ -253,7 +253,7 @@ local function create(runtime: Runtime): Worker
 		end,
 		mainSelfRegistering = function(operations: SelfRegisteringOperations, options: Options?)
 			mainWith(runtime, function(batch, settings)
-				return runBatchWith(batch, operations, settings, true)
+				return runBatchWith(batch, operations, settings, true, operations.load)
 			end, options)
 		end,
 	}

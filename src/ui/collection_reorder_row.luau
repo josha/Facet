@@ -15,7 +15,7 @@ local TAP = 3
 return function<V, K>(
 	shared: State.Reorder<V, K>,
 	pointer: Pointer.Pointer<K>
-): (GuiObject, ComposeTypes.Readable<V>, K, boolean?) -> Frame
+): (GuiObject, ComposeTypes.ReadOnlyValue<V>, K, boolean?) -> Frame
 	local ctx, UI, spec, gesture = shared.ctx, shared.UI, shared.spec, shared.gesture
 	local Compose, Host = ctx.Compose, ctx.Host
 	local read = ctx.read
@@ -30,10 +30,10 @@ return function<V, K>(
 	local gui, movable = shared.gui, shared.movable
 	local begin, commit, movePointer = shared.begin, shared.commit, shared.movePointer
 	local axis, crossAxis = shared.axis, shared.crossAxis
-	local selectedObject: ComposeTypes.Readable<unknown>? = if ctx.config.guiService
+	local selectedObject: ComposeTypes.ReadOnlyValue<unknown>? = if ctx.config.guiService
 		then ctx.observe.SelectedObject(ctx.config.guiService)
 		else nil
-	local function wrap(row: GuiObject, current: ComposeTypes.Readable<V>, key: K, painted: boolean?): Frame
+	local function wrap(row: GuiObject, current: ComposeTypes.ReadOnlyValue<V>, key: K, painted: boolean?): Frame
 		rowKeys[row] = key
 		local handleNode: Instance? = nil
 		local function toggle()

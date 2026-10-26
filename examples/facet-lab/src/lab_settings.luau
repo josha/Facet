@@ -1,13 +1,15 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type MotionLevel = typeof(require("@repo/examples/types").MotionLevel)
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 type InputChoice = {
 	preferredInput: string,
 	mouseEnabled: boolean,
@@ -19,16 +21,16 @@ type Device = { logical: { width: number, height: number }, scale: number, fit: 
 export type Settings = {
 	cells: { [string]: StringCell },
 	CHOICES: { [string]: { string } },
-	transparency: Readable<number>,
-	hover: Readable<boolean>,
-	buttonGuides: Cell<boolean>,
-	scale: Readable<number>,
-	viewport: Cell<Vector2?>,
+	transparency: ReadOnlyValue<number>,
+	hover: ReadOnlyValue<boolean>,
+	buttonGuides: Value<boolean>,
+	scale: ReadOnlyValue<number>,
+	viewport: Value<Vector2?>,
 	environment: typeof(require("@repo/tools/typecheck/aliases").ControlOptions.environment),
 	device: (Use, { width: number, height: number }) -> Device,
 	set: (string, string) -> { [string]: string | boolean },
 	reset: () -> (),
-	lines: Readable<string>,
+	lines: ReadOnlyValue<string>,
 	status: () -> { [string]: string },
 }
 
@@ -38,9 +40,9 @@ export type Context = {
 	runtime: Runtime,
 	guiService: GuiService,
 	viewingDistance: StringCell,
-	previewScale: Readable<number>,
-	motionPreference: Cell<MotionLevel?>,
-	motionLevel: Readable<MotionLevel>,
+	previewScale: ReadOnlyValue<number>,
+	motionPreference: Value<MotionLevel?>,
+	motionLevel: ReadOnlyValue<MotionLevel>,
 }
 
 local lab_settings = {}
@@ -104,7 +106,7 @@ function lab_settings.new(ctx: Context, input: UserInputService): Settings
 		text = Compose.cell("automatic"),
 	}
 
-	local function live<T>(object: Instance, property: string, read: () -> T): Cell<T>
+	local function live<T>(object: Instance, property: string, read: () -> T): Value<T>
 		local value = Compose.cell(read())
 		local connection = object:GetPropertyChangedSignal(property):Connect(function()
 			value:set(read())

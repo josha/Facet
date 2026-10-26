@@ -1,8 +1,8 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 
 local seedData = require("../content/seed")
 
@@ -11,8 +11,8 @@ local visits = {}
 export type Opts = {
 	Compose: ComposeModule,
 	rooted: <T>(() -> T) -> T,
-	now: Readable<number>,
-	charmTier: Readable<string>,
+	now: ReadOnlyValue<number>,
+	charmTier: ReadOnlyValue<string>,
 }
 export type Current = { id: string, wisp: string, glade: string, start: number }
 export type Recent = { id: string, wisp: string, glade: string, finish: number }
@@ -39,10 +39,10 @@ function visits.new(opts: Opts)
 		return visit.start
 	end
 
-	local currentByGlade: { [string]: Readable<Current?> } = {}
-	local recentByGlade: { [string]: Readable<{ Recent }> } = {}
+	local currentByGlade: { [string]: ReadOnlyValue<Current?> } = {}
+	local recentByGlade: { [string]: ReadOnlyValue<{ Recent }> } = {}
 
-	function service.current(gladeId: string): Readable<Current?>
+	function service.current(gladeId: string): ReadOnlyValue<Current?>
 		local memo = currentByGlade[gladeId]
 		if memo == nil then
 			memo = rooted(function()
@@ -65,7 +65,7 @@ function visits.new(opts: Opts)
 		return memo
 	end
 
-	function service.recent(gladeId: string): Readable<{ Recent }>
+	function service.recent(gladeId: string): ReadOnlyValue<{ Recent }>
 		local memo = recentByGlade[gladeId]
 		if memo == nil then
 			memo = rooted(function()
@@ -114,7 +114,7 @@ function visits.new(opts: Opts)
 		return out
 	end)
 
-	function service.currentAll(): Readable<{ Live }>
+	function service.currentAll(): ReadOnlyValue<{ Live }>
 		return currentAll
 	end
 

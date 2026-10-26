@@ -16,7 +16,7 @@ local textMeasure = require("./text_measure")
 type Reason = Overlay.ToastDismissReason
 type Record = {
 	spec: OverlayProps.ToastSpec,
-	state: ComposeTypes.Cell<string>,
+	state: ComposeTypes.Value<string>,
 	stack: Stack?,
 	id: number?,
 	pending: Reason?,
@@ -26,8 +26,8 @@ type Record = {
 }
 type Stack = {
 	schedule: toastSchedule.Schedule,
-	order: ComposeTypes.Cell<{ Record }>,
-	inset: ComposeTypes.Cell<number>,
+	order: ComposeTypes.Value<{ Record }>,
+	inset: ComposeTypes.Value<number>,
 	time: number,
 	stop: (() -> ())?,
 	lane: string,
@@ -356,9 +356,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 
 	local function limitedSlide(
 		phase: Nav.PresencePhase?,
-		entered: ComposeTypes.Readable<boolean>,
+		entered: ComposeTypes.ReadOnlyValue<boolean>,
 		level: (ComposeTypes.Use?) -> motion.Level
-	): (ComposeTypes.Readable<number>, (
+	): (ComposeTypes.ReadOnlyValue<number>, (
 		ComposeTypes.Use,
 		(ComposeTypes.Use) -> number
 	) -> number)
@@ -400,7 +400,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local hug = spec.width == "hug"
 		local contentHug = hug and spec.content ~= nil
 		local extent = if contentHug then ctx.layoutSize(stack.layer) else nil
-		local natural: ComposeTypes.Readable<Vector2>? = nil
+		local natural: ComposeTypes.ReadOnlyValue<Vector2>? = nil
 		local reduced = reducedMotion(ctx)
 		local level = motion.level(ctx)
 		local body: Instance
@@ -703,7 +703,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				record.row = nil
 			end
 		end)
-		local selection: ComposeTypes.Readable<GuiObject?> = if gui and gui.GetPropertyChangedSignal
+		local selection: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui and gui.GetPropertyChangedSignal
 			then ctx.observe.SelectedObject(gui)
 			else Compose.cell(nil :: GuiObject?)
 		ctx.action(row, "ToastCancel", { E.KeyCode.ButtonB, E.KeyCode.Escape }, function(use: ComposeTypes.Use)
@@ -829,7 +829,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				stack.users -= 1
 				if stack.users == 0 then
 					if stack.owner then
-						stack.owner.dispose()
+						ComposeTypes.owner.dispose(stack.owner)
 					end
 					local lanes = stacks[stack.layer]
 					if lanes then

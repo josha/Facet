@@ -1,6 +1,8 @@
 --!strict
 
 local Datatypes = require "./datatypes"
+local FrameTypes = require "./datatypes/cframe"
+local VectorTypes = require "./datatypes/vector"
 local Environment = require "./environment-types"
 local ModelScale = require "./model-scale-fakes"
 
@@ -12,7 +14,7 @@ local function attach(environment: Environment.Environment, hasPivot: (Instance)
 	local function frame(object: Instance, property: string): CFrame
 		local value = environment.propertyOf(object, property)
 		assert(Datatypes.typeName(value) == "CFrame", property .. " must be a CFrame")
-		return value :: CFrame
+		return FrameTypes.expect(value, 1)
 	end
 	local function bounds(model: Instance, basis: CFrame): (CFrame, Vector3)
 		local minimum = Datatypes.Vector3.new(math.huge, math.huge, math.huge)
@@ -24,7 +26,7 @@ local function attach(environment: Environment.Environment, hasPivot: (Instance)
 			end
 			count += 1
 			local localFrame = basis:Inverse() * frame(object, "CFrame")
-			local half = (environment.propertyOf(object, "Size") :: Vector3) / 2
+			local half = VectorTypes.expect3(environment.propertyOf(object, "Size"), 1) / 2
 			for x = -1, 1, 2 do
 				for y = -1, 1, 2 do
 					for z = -1, 1, 2 do
@@ -54,7 +56,7 @@ local function attach(environment: Environment.Environment, hasPivot: (Instance)
 		local basis, volume = Datatypes.CFrame.identity, -1
 		for _, child in object:GetDescendants() do
 			if child:IsA "BasePart" then
-				local size = environment.propertyOf(child, "Size") :: Vector3
+				local size = VectorTypes.expect3(environment.propertyOf(child, "Size"), 1)
 				local candidate = size.X * size.Y * size.Z
 				if candidate > volume then
 					basis, volume = frame(child, "CFrame").Rotation, candidate

@@ -7,7 +7,7 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureThemeTypes = require("../../src/ui/theme_types")
 local Facet = require("../../src")
 local Compose: ComposeModule = Facet.Compose
-type Use = <T>(Facet.Readable<T>) -> T
+type Use = <T>(Facet.ReadOnlyValue<T>) -> T
 local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 local UI = Facet.controls(runtime)
 local themeBase = Facet.themes.neutralPackage()
@@ -136,7 +136,7 @@ local stepProps: Facet.StepIndicatorSpec = {
 local stepIndicator: Frame = UI.StepIndicator(stepProps)
 type VoteValue = "up" | "down" | "none"
 local initialVote: VoteValue = "none"
-local voteCell: Facet.Cell<VoteValue> = Compose.cell(initialVote)
+local voteCell: Facet.Value<VoteValue> = Compose.cell(initialVote)
 local voteProps: Facet.VoteSpec = {
 	value = voteCell,
 	summary = "92% liked",
@@ -183,7 +183,7 @@ local datePicker: GuiObject = UI.DateTimePicker({
 	min = { year = 2026, month = 1, day = 1 },
 })
 local startPaint: Color3? = Color3.fromRGB(230, 57, 70)
-local paint: Facet.Cell<Color3?> = Compose.cell(startPaint)
+local paint: Facet.Value<Color3?> = Compose.cell(startPaint)
 local colorProps: Facet.ColorPickerProps = {
 	label = "Kart paint",
 	value = paint,
@@ -267,7 +267,7 @@ local tabs: GuiObject =
 	UI.TabView({ selection = selected, tabs = { { id = "home", label = "Home", content = content } } })
 local pages: GuiObject = UI.PageView({ selection = selected, pages = { { id = "home", content = content } } })
 local startColumn: "sidebar" | "detail" = "sidebar"
-local entries: Facet.Cell<{ { id: string, value: string? } }> = Compose.cell({})
+local entries: Facet.Value<{ { id: string, value: string? } }> = Compose.cell({})
 local split: GuiObject = UI.NavigationSplitView({
 	axis = "y",
 	resizable = Compose.cell(true),
@@ -352,7 +352,7 @@ local list: ScrollingFrame = UI.VirtualList({
 	key = function(row: { id: string, title: string }): string
 		return row.id
 	end,
-	render = function(current: Facet.Readable<{ id: string, title: string }>): GuiObject
+	render = function(current: Facet.ReadOnlyValue<{ id: string, title: string }>): GuiObject
 		return UI.Text({
 			text = function(use: Use): string
 				return use(current).title
@@ -377,8 +377,8 @@ local tableView: GuiObject = UI.Table({
 	},
 })
 type TreeRow = { id: string, title: string, children: { TreeRow }? }
-local treeRows: Facet.Cell<{ TreeRow }> = Compose.cell({})
-local openKeys: Facet.Cell<{ [string]: boolean }> = Compose.cell({})
+local treeRows: Facet.Value<{ TreeRow }> = Compose.cell({})
+local openKeys: Facet.Value<{ [string]: boolean }> = Compose.cell({})
 local outline: ScrollingFrame = UI.Outline {
 	from = treeRows,
 	key = "id",

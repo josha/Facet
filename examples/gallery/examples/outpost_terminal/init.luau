@@ -1,9 +1,11 @@
 --!strict
 
 type TextPropsText = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local rules = require("@self/rules")
 local terminal = { rules = rules, CANVAS = { w = 640, h = 480 }, TITLE = "OUTPOST 7 — POWER" }
 
@@ -41,8 +43,8 @@ function terminal.build(ctx: ExampleContext, options: Options?)
 	local phase, status = Compose.cell("idle"), Compose.cell("idle")
 	local noOutcome: Outcome? = nil
 	local noReason: string? = nil
-	local outcome: Cell<Outcome?> = Compose.cell(noOutcome)
-	local exitReason: Cell<string?> = Compose.cell(noReason)
+	local outcome: Value<Outcome?> = Compose.cell(noOutcome)
+	local exitReason: Value<string?> = Compose.cell(noReason)
 	local draft: { [string]: typeof(Compose.cell(0)) } = {}
 	for _, consumer in rules.CONSUMERS do
 		draft[consumer.id] = Compose.cell(rules.START[consumer.id])

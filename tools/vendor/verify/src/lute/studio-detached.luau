@@ -181,7 +181,7 @@ local function record(text: string?): { [string]: unknown }?
 	if text == nil then
 		return nil
 	end
-	local parsed, value: unknown = pcall(Wire.parse, text)
+	local parsed, value = pcall(Wire.parse, text)
 	if parsed and type(value) == "table" then
 		return value :: { [string]: unknown }
 	end
@@ -229,7 +229,7 @@ local function fetch(options: Options, prefix: string, status: { [string]: unkno
 				detail = ("transport: requested segment %d of %d but the engine returned segment %d"):format(
 					index,
 					count,
-					fields.index :: number
+					fields.index
 				),
 			}
 		end
@@ -238,7 +238,7 @@ local function fetch(options: Options, prefix: string, status: { [string]: unkno
 				status = "failed",
 				detail = ("transport: segment %d claims %d segments but the engine reported %d"):format(
 					index,
-					fields.count :: number,
+					fields.count,
 					count
 				),
 			}

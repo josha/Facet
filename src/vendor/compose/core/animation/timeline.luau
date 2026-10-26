@@ -1,5 +1,6 @@
 --!strict
 
+local Reactors = require "../reactive/reactor"
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
 local Owner = require "../ownership/owner"
@@ -19,10 +20,10 @@ export type Options = {
 }
 
 export type Timeline = {
-	progress: Types.Readable<number>,
-	elapsed: Types.Readable<number>,
-	moving: Types.Readable<boolean>,
-	completed: Types.Readable<boolean>,
+	progress: Types.ReadOnlyValue<number>,
+	elapsed: Types.ReadOnlyValue<number>,
+	moving: Types.ReadOnlyValue<boolean>,
+	completed: Types.ReadOnlyValue<boolean>,
 	play: (self: Timeline) -> (),
 	pause: (self: Timeline) -> (),
 	seek: (self: Timeline, seconds: number) -> (),
@@ -33,11 +34,14 @@ export type Timeline = {
 local function positive(name: string, value: number)
 	local infinite = value == math.huge
 	if value ~= value or value <= 0 or (infinite and name ~= "repeats") then
-		Diagnostics.raise("animation/timeline-option", ("timeline %s must be greater than zero"):format(name), {
-			option = name,
-			actual = tostring(value),
-			expected = "a number greater than zero",
-		})
+		error(
+			Diagnostics.format("animation/timeline-option", ("timeline %s must be greater than zero"):format(name), {
+				option = name,
+				actual = tostring(value),
+				expected = "a number greater than zero",
+			}),
+			0
+		)
 	end
 end
 
@@ -45,12 +49,15 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 	local function timeline(options: Options?): Timeline
 		local frames = host.frames
 		if frames == nil then
-			Diagnostics.raise("animation/no-frames", ("host %q cannot drive a timeline"):format(host.name), {
-				contract = "a timeline needs a frame loop, which is the host frames capability",
-				fix = "implement host.frames.onFrame and host.frames.now, or drive time outside Compose",
-			})
+			error(
+				Diagnostics.format("animation/no-frames", ("host %q cannot drive a timeline"):format(host.name), {
+					contract = "a timeline needs a frame loop, which is the host frames capability",
+					fix = "implement host.frames.onFrame and host.frames.now, or drive time outside Compose",
+				}),
+				0
+			)
 		end
-		local loop = frames :: Host.Frames
+		local loop = frames
 		local owner = ownerOf "timeline"
 
 		local settings: Options = if options ~= nil then options else {}
@@ -63,11 +70,14 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 		positive("repeats", repeats)
 		positive("scale", scale)
 		if delay < 0 or delay ~= delay then
-			Diagnostics.raise("animation/timeline-option", "timeline delay must not be negative", {
-				option = "delay",
-				actual = tostring(delay),
-				expected = "zero or more seconds",
-			})
+			error(
+				Diagnostics.format("animation/timeline-option", "timeline delay must not be negative", {
+					option = "delay",
+					actual = tostring(delay),
+					expected = "zero or more seconds",
+				}),
+				0
+			)
 		end
 
 		local progress = cellModule.cell(0)
@@ -119,7 +129,7 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 		end
 
 		local function publishAtomically(body: () -> ())
-			owner.reactor:batch(body)
+			Reactors.batch(owner.reactor, body)
 		end
 
 		local function onFrame(delta: number)
@@ -133,7 +143,7 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 		end
 
 		local function start()
-			if owner.isDisposed() or moving:peek() or completed:peek() then
+			if Owner.isDisposed(owner) or moving:peek() or completed:peek() then
 				return
 			end
 			pump.start()
@@ -141,24 +151,18 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 		end
 
 		pump = ownedFrame(owner, loop.onFrame, onFrame)
-		owner.own(stop)
+		Owner.own(owner, stop)
 
-		local self = {} :: Timeline
-		self.progress = progress
-		self.elapsed = elapsed
-		self.moving = moving
-		self.completed = completed
-
-		function self.play()
+		local function play()
 			publishAtomically(start)
 		end
 
-		function self.pause()
+		local function pause()
 			publishAtomically(stop)
 		end
 
-		function self.seek(_self: Timeline, seconds: number)
-			if owner.isDisposed() then
+		local function seek(_self: Timeline, seconds: number)
+			if Owner.isDisposed(owner) then
 				return
 			end
 			publishAtomically(function()
@@ -171,8 +175,8 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 			end)
 		end
 
-		function self.restart()
-			if owner.isDisposed() then
+		local function restart()
+			if Owner.isDisposed(owner) then
 				return
 			end
 			publishAtomically(function()
@@ -183,7 +187,7 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 			end)
 		end
 
-		function self.setScale(_self: Timeline, next: number)
+		local function setScale(_self: Timeline, next: number)
 			positive("scale", next)
 			scale = next
 		end
@@ -194,6 +198,17 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 				start()
 			end
 		end)
+		local self: Timeline = {
+			progress = progress,
+			elapsed = elapsed,
+			moving = moving,
+			completed = completed,
+			play = play,
+			pause = pause,
+			seek = seek,
+			restart = restart,
+			setScale = setScale,
+		}
 		return self
 	end
 

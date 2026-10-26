@@ -4,9 +4,11 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 local seed = require("@self/content/seed")
 local strings = require("@self/content/strings")
@@ -32,7 +34,7 @@ function Glade.build(ctx: ExampleContext)
 	local selected, detailOpen, shopOpen, wispOpen =
 		Compose.cell("mossholm"), Compose.cell(false), Compose.cell(false), Compose.cell(false)
 	local noWisp: string? = nil
-	local wisp: Cell<string?> = Compose.cell(noWisp)
+	local wisp: Value<string?> = Compose.cell(noWisp)
 	local notice, complete = Compose.cell(""), Compose.cell(false)
 	local keeperName, keeperContact = Compose.cell(seed.KEEPER.displayName), Compose.cell(seed.KEEPER.contact)
 	local draftName, draftContact = Compose.cell(seed.KEEPER.displayName), Compose.cell(seed.KEEPER.contact)
@@ -227,7 +229,7 @@ function Glade.build(ctx: ExampleContext)
 			view.column("Visits", {
 				view.watch(function(use: Use): { visitsService.Recent }
 					return use(visits.recent(id))
-				end, function(current: Readable<visitsService.Recent>): GuiObject
+				end, function(current: ReadOnlyValue<visitsService.Recent>): GuiObject
 					local visit = current:peek()
 					return view.action(visit.id, text("wisp." .. visit.wisp), function()
 						wisp:set(visit.wisp)
@@ -258,7 +260,7 @@ function Glade.build(ctx: ExampleContext)
 			view.column("Glades", {
 				view.watch(function(use: Use): { seed.Glade }
 					return use(filtered)
-				end, function(current: Readable<seed.Glade>): GuiObject
+				end, function(current: ReadOnlyValue<seed.Glade>): GuiObject
 					local glade = current:peek()
 					return view.column(glade.id, {
 						scene(glade.id),
@@ -282,7 +284,7 @@ function Glade.build(ctx: ExampleContext)
 		return view.page("Wisps", {
 			view.text("Wisps", 28),
 			view.column("Visitors", {
-				view.list(seed.WISPS, function(current: Readable<seed.Wisp>): GuiObject
+				view.list(seed.WISPS, function(current: ReadOnlyValue<seed.Wisp>): GuiObject
 					local item = current:peek()
 					return view.column(item.id, {
 						view.action("Open", text("wisp." .. item.id), function()
@@ -388,7 +390,7 @@ function Glade.build(ctx: ExampleContext)
 				label = "Flora",
 				content = function(): Instance
 					return view.page("Flora", {
-						view.list(seed.FLORA, function(current: Readable<seed.Flora>): GuiObject
+						view.list(seed.FLORA, function(current: ReadOnlyValue<seed.Flora>): GuiObject
 							local item = current:peek()
 							return view.column(item.id, {
 								view.text(text("flora." .. item.id), 24),

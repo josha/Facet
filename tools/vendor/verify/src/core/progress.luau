@@ -52,12 +52,12 @@ local function valid(value: unknown, runId: string): Event
 	assert(fields.status == nil or type(fields.status) == "string", "progress status")
 	return {
 		runId = runId,
-		sequence = fields.sequence :: number,
-		actor = fields.actor :: string,
-		caseId = fields.caseId :: string,
-		step = fields.step :: string,
-		phase = fields.phase :: Phase,
-		status = fields.status :: string?,
+		sequence = fields.sequence,
+		actor = fields.actor,
+		caseId = fields.caseId,
+		step = fields.step,
+		phase = fields.phase,
+		status = if type(fields.status) == "string" then fields.status else nil,
 	}
 end
 

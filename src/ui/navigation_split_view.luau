@@ -38,8 +38,8 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			assert(value > 0 and value < math.huge, "NavigationSplitView pane limits must be positive finite numbers")
 		end
 		assert(maximum >= minimum, "NavigationSplitView maximum sidebar size must be at least its minimum")
-		local column: Shared.Cell<Column> = spec.preferredCompactColumn or Compose.cell("sidebar" :: Column)
-		local extent: Shared.Cell<number> = if vertical
+		local column: Shared.Value<Column> = spec.preferredCompactColumn or Compose.cell("sidebar" :: Column)
+		local extent: Shared.Value<number> = if vertical
 			then spec.sidebarHeight or Compose.cell(240)
 			else spec.sidebarWidth or Compose.cell(360)
 		assert(column.set and extent.set, "NavigationSplitView column and pane size require writable cells")
@@ -123,7 +123,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		end
 		local sidebar: Frame
 		local detail: Frame
-		local detailVisibility: Shared.Readable<boolean>? = nil
+		local detailVisibility: Shared.ReadOnlyValue<boolean>? = nil
 		local resize: TextButton
 		local function back()
 			column:set("sidebar")

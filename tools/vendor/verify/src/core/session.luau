@@ -49,11 +49,18 @@ export type Session<S = Surface> = {
 	reset: (self: Session<S>) -> (),
 }
 
-type Entry<S> = {
+type Registered<S> = {
 	source: string,
-	harness: Harness.Harness?,
-	surface: S?,
-	report: Report?,
+	harness: Harness.Harness,
+	surface: S,
+	report: nil,
+}
+
+type Entry<S> = Registered<S> | {
+	source: string,
+	harness: nil,
+	surface: nil,
+	report: Report,
 }
 
 local DEFAULT_RUNTIME_VERBS: { string } = { "skip" }
@@ -79,13 +86,13 @@ local function create<S>(options: Options<S>): Session<S>
 	end
 
 	local session = {} :: Session<S>
-	local stack: { Entry<S> } = {}
+	local stack: { Registered<S> } = {}
 	local pending: { Entry<S> } = {}
 	local running: Entry<S>? = nil
 	local runInProgress = false
 	local selection: Selection? = options.selection
 
-	local function registering(): Entry<S>
+	local function registering(): Registered<S>
 		local entry = stack[#stack]
 		if entry == nil then
 			error("a verification source registered outside an open session source", 3)
@@ -94,11 +101,13 @@ local function create<S>(options: Options<S>): Session<S>
 	end
 
 	function session:current(): S
-		return registering().surface :: S
+		return registering().surface
 	end
 
 	function session:harness(): Harness.Harness
-		return registering().harness :: Harness.Harness
+		local harness = registering().harness
+		assert(harness ~= nil)
+		return harness
 	end
 
 	session.verbs = (
@@ -185,8 +194,10 @@ local function create<S>(options: Options<S>): Session<S>
 				continue
 			end
 			running = entry
-			local ok, produced: unknown = pcall(function(): Report
-				return (entry.harness :: Harness.Harness):run {
+			local ok, produced = pcall(function(): Report
+				local harness = entry.harness
+				assert(harness ~= nil)
+				return harness:run {
 					executor = executor,
 					capabilities = capabilities,
 					environment = environment,
@@ -199,7 +210,7 @@ local function create<S>(options: Options<S>): Session<S>
 			if not ok then
 				error(produced, 0)
 			end
-			table.insert(reports, stamp(produced :: Report, entry.source))
+			table.insert(reports, stamp(produced, entry.source))
 		end
 		return ReportModel.merge(reports, executor, environment)
 	end
@@ -210,13 +221,13 @@ local function create<S>(options: Options<S>): Session<S>
 		end
 		runInProgress = true
 
-		local ok, produced: unknown = pcall(runQueued, table.clone(pending))
+		local ok, produced = pcall(runQueued, table.clone(pending))
 		running = nil
 		runInProgress = false
 		if not ok then
 			error(produced, 0)
 		end
-		return produced :: Report
+		return produced
 	end
 
 	function session:reset()
@@ -233,6 +244,6 @@ end
 
 type Creator = (<S>(options: ProvidedOptions<S>) -> Session<S>) & ((options: DefaultOptions) -> Session<Surface>)
 
-return {
-	create = (create :: unknown) :: Creator,
-}
+local creator = (create :: unknown) :: Creator
+
+return { create = creator }

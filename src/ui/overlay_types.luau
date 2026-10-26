@@ -1,7 +1,7 @@
 --!strict
 local Types = require("./types")
 
-export type Value<T> = Types.Value<T>
+export type Input<T> = Types.Input<T>
 
 export type Rect = { x: number, y: number, w: number, h: number }
 export type ScaleMode = "fit" | "crop" | "stretch"
@@ -10,7 +10,7 @@ export type Media = {
 	aspectRatio: number?,
 	height: (number | string)?,
 	scaleMode: ScaleMode?,
-	background: Value<Color3>?,
+	background: Input<Color3>?,
 }
 export type Hero = {
 	image: string?,
@@ -18,7 +18,7 @@ export type Hero = {
 	aspectRatio: number?,
 	height: (number | string)?,
 	scaleMode: ScaleMode?,
-	background: Value<Color3>?,
+	background: Input<Color3>?,
 	sticky: boolean?,
 }
 export type ActionRole = "default" | "cancel" | "destructive"
@@ -54,9 +54,9 @@ export type DialogOptions = {
 	hero: Media?,
 	actionLabel: Types.ValueString?,
 	actions: { DialogAction }?,
-	actionLayout: Value<ActionLayout?>?,
+	actionLayout: Input<ActionLayout?>?,
 	closeButton: boolean?,
-	width: Value<WidthPreset?>?,
+	width: Input<WidthPreset?>?,
 	contentSelectable: boolean?,
 }
 
@@ -94,11 +94,11 @@ export type NoticeOptions = {
 	link: { label: Types.ValueString, onActivate: () -> () }?,
 	actions: { Action }?,
 	onDismiss: (() -> ())?,
-	controlSize: Value<Types.ControlSize?>?,
+	controlSize: Input<Types.ControlSize?>?,
 }
 
 export type NavBarOptions = {
-	onBack: ((() -> ()) | Types.Cell<boolean>)?,
+	onBack: ((() -> ()) | Types.Value<boolean>)?,
 	backLabel: string?,
 	title: Types.ValueString?,
 	titleSize: string?,

@@ -81,7 +81,7 @@ local function attachLayout(
 	local revision = Compose.cell(0)
 	local framed = services.RunService ~= nil and getfenv ~= nil and getfenv(0).game ~= nil
 	local size =
-		runtime.observe(label, "AbsoluteSize", if framed then { frame = true, poll = true } else nil) :: ComposeTypes.Readable<Vector2>
+		runtime.observe(label, "AbsoluteSize", if framed then { frame = true, poll = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
 	local bounds = ctx.observe.TextBounds(label)
 	local function invalidate()
 		if not refreshing then
@@ -407,7 +407,7 @@ return function(
 			end,
 		})
 	end
-	function ctx.layoutUnit(parent: GuiBase2d, name: string?): ComposeTypes.Readable<number>
+	function ctx.layoutUnit(parent: GuiBase2d, name: string?): ComposeTypes.ReadOnlyValue<number>
 		local _, probe = runtime.mount(function()
 			return Host.Frame(name or "LayoutUnit")({ Size = types.UDim2.fromOffset(100, 1), Visible = false })
 		end, parent)
@@ -417,7 +417,10 @@ return function(
 			return if unit > 0 then unit else 1
 		end)
 	end
-	function ctx.layoutSize(node: GuiBase2d, unit: ComposeTypes.Readable<number>?): ComposeTypes.Readable<Vector2>
+	function ctx.layoutSize(
+		node: GuiBase2d,
+		unit: ComposeTypes.ReadOnlyValue<number>?
+	): ComposeTypes.ReadOnlyValue<Vector2>
 		local size, unit = ctx.observe.AbsoluteSize(node), unit or ctx.layoutUnit(node)
 		return Compose.formula(function(use: ComposeTypes.Use): Vector2
 			return use(size) / use(unit)
@@ -425,8 +428,8 @@ return function(
 	end
 	function ctx.layoutBounds(
 		label: TextLabel | TextButton | TextBox,
-		unit: ComposeTypes.Readable<number>?
-	): ComposeTypes.Readable<Vector2>
+		unit: ComposeTypes.ReadOnlyValue<number>?
+	): ComposeTypes.ReadOnlyValue<Vector2>
 		local bounds, unit = ctx.observe.TextBounds(label), unit or ctx.layoutUnit(label)
 		return Compose.formula(function(use: ComposeTypes.Use): Vector2
 			return use(bounds) / use(unit)
@@ -474,7 +477,7 @@ return function(
 	function ctx.column(children: { ComposeTypes.Child }, properties: Shared.FrameNativeProps?): Frame
 		return layout.stack(children, properties, { gap = 8 }, true)
 	end
-	function ctx.listRow(parts: Shared.ListRow): (Frame, Shared.Value<UDim2>, (GuiObject) -> ())
+	function ctx.listRow(parts: Shared.ListRow): (Frame, Shared.Input<UDim2>, (GuiObject) -> ())
 		for _, caption in parts.captions do
 			if caption.Name == "Description" then
 				caption:AddTag("facet-secondary")
@@ -505,7 +508,7 @@ return function(
 			Position = types.UDim2.fromScale(0, if parts.described then 0 else 0.5),
 		})
 		assert(content:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = Enum.VerticalAlignment.Center
-		local rung: Shared.Value<Shared.ControlSize?>? = parts.controlSize
+		local rung: Shared.Input<Shared.ControlSize?>? = parts.controlSize
 		local function height(use: ComposeTypes.Use?): UDim2
 			return types.UDim2.new(1, 0, 0, ctx.controlSize(rung, "height", use))
 		end
@@ -549,7 +552,7 @@ return function(
 				end
 			end
 	end
-	function ctx.iconVaries(name: Shared.Value<string>?): boolean
+	function ctx.iconVaries(name: Shared.Input<string>?): boolean
 		if name == nil then
 			return false
 		end
@@ -573,9 +576,9 @@ return function(
 			or themes.resolveIcon(package, requested, "disabled") ~= resting
 	end
 	function ctx.icon(
-		name: Shared.Value<string>,
+		name: Shared.Input<string>,
 		properties: Shared.ImageLabelNativeProps?,
-		state: Shared.Value<Theme.SkinState>?
+		state: Shared.Input<Theme.SkinState>?
 	): ImageLabel
 		local function image(use: ComposeTypes.Use?): string
 			local requested = ctx.read(name, use)

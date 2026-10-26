@@ -52,9 +52,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 		end)
 		local function retire()
 			if task and task.defer then
-				task.defer(owner.dispose)
+				task.defer(Compose.owner.dispose, owner)
 			else
-				owner.dispose()
+				Compose.owner.dispose(owner)
 			end
 		end
 		runtime.connect(node, "Destroying", retire)
@@ -67,7 +67,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 		local inPlace = false
 		local moving = false
 		local motion: engine.Handle
-		local units: { [GuiBase2d]: Shared.Readable<number> } = {}
+		local units: { [GuiBase2d]: Shared.ReadOnlyValue<number> } = {}
 		local function contentInsets(slot: GuiObject): (number, number, number, number)
 			local unit = 1
 			local at: Instance? = slot
@@ -145,11 +145,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 				else nil
 		end
 		local function paint(sample: { number })
-			if owner.isDisposed() then
+			if Compose.owner.isDisposed(owner) then
 				return
 			end
 			if previous and (destination.Parent == nil or node.Parent == nil) then
-				owner.dispose()
+				Compose.owner.dispose(owner)
 				return
 			end
 			values = table.clone(sample)
@@ -190,8 +190,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 			end
 		end
 		local function land()
-			if owner.isDisposed() or destination.Parent == nil then
-				owner.dispose()
+			if Compose.owner.isDisposed(owner) or destination.Parent == nil then
+				Compose.owner.dispose(owner)
 				return
 			end
 			moving = false
@@ -268,16 +268,16 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 		})
 		motion.snap(values)
 		local function retarget()
-			if owner.isDisposed() then
+			if Compose.owner.isDisposed(owner) then
 				return
 			end
 			if previous and node.Parent == nil then
-				owner.dispose()
+				Compose.owner.dispose(owner)
 				return
 			end
 			if not destination.Parent then
 				if previous then
-					owner.dispose()
+					Compose.owner.dispose(owner)
 					return
 				end
 				node.Visible = false
@@ -340,7 +340,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 						local source = child
 						styleCopy.StyleSheet = source.StyleSheet
 						runtime.connect(source, "Changed", function(property: string)
-							if property == "StyleSheet" and not owner.isDisposed() then
+							if property == "StyleSheet" and not Compose.owner.isDisposed(owner) then
 								styleCopy.StyleSheet = source.StyleSheet
 							end
 						end)
@@ -399,7 +399,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 		return anchor
 	end
 	UI.Travel = ctx.construct("Travel", function(spec: ZoomTravelProps.TravelProps): Frame
-		local owner = assert(Compose.currentOwner()).createChild()
+		local owner = Compose.owner.createChild(assert(Compose.currentOwner()))
 		return Compose.withOwner(owner, function(): Frame
 			return build(spec)
 		end)

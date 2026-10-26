@@ -25,7 +25,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		nonmodal: boolean?,
 		phase: Nav.PresencePhase?,
 		motion: Nav.MotionTiming?,
-		pointer: ComposeTypes.Readable<Vector2?>?,
+		pointer: ComposeTypes.ReadOnlyValue<Vector2?>?,
 		closeCommand: (boolean | "automatic")?
 	): Frame
 		local popoverTiming, sheetTiming = ctx.motionTiming("popover"), ctx.motionTiming("sheet")
@@ -218,8 +218,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						.. entry.key
 				end,
 				render = function(
-					entrySource: ComposeTypes.Readable<MenuEntry<V>>,
-					index: ComposeTypes.Readable<number>
+					entrySource: ComposeTypes.ReadOnlyValue<MenuEntry<V>>,
+					index: ComposeTypes.ReadOnlyValue<number>
 				)
 					return menuRow.entry(entrySource, index, rowState)
 				end,
@@ -607,8 +607,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local gui = surfaces.service("GuiService")
 		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil :: GuiObject?)
 		local function selectedBranch(use: ComposeTypes.Use?): Nav.MenuAction<V>?
-			local node = read(selected, use)
-			for _, item in read(current, use) do
+			local node = ctx.readSource(selected, use)
+			for _, item in ctx.readSource(current, use) do
 				if
 					item.divider ~= true
 					and node
@@ -802,7 +802,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					return level.id
 				end,
 				render = function(
-					source: ComposeTypes.Readable<{ id: string, items: { Nav.MenuItem<V> }, prefix: { string }, depth: number }>
+					source: ComposeTypes.ReadOnlyValue<{ id: string, items: { Nav.MenuItem<V> }, prefix: { string }, depth: number }>
 				)
 					local ancestorHeight = Compose.cell(0)
 					local ancestor = ctx.styled(
@@ -861,8 +861,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 									return item.id or index
 								end,
 								render = function(
-									row: ComposeTypes.Readable<Nav.MenuItem<V>>,
-									index: ComposeTypes.Readable<number>
+									row: ComposeTypes.ReadOnlyValue<Nav.MenuItem<V>>,
+									index: ComposeTypes.ReadOnlyValue<number>
 								)
 									return menuRow.ancestor(row, index, source, rowState)
 								end,

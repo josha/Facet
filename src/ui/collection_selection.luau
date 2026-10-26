@@ -6,10 +6,10 @@ local CollectionTypes = require("./collection_types")
 return function<V, K>(
 	ctx: Types.Context,
 	spec: CollectionTypes.SelectionOptions<V, K>,
-	source: Types.Value<{ V }>,
+	source: Types.Input<{ V }>,
 	keyOf: (V, number) -> K,
 	controls: ComposeTypes.OrderedCollectionControls<K>,
-	selection: ComposeTypes.Cell<CollectionTypes.Selection<K>>,
+	selection: ComposeTypes.Value<CollectionTypes.Selection<K>>,
 	defaultMode: "none" | "single" | "multiple"
 ): ((K, V, InputObject?) -> (), (K?, K) -> ())
 	local Compose, read, E = ctx.Compose, ctx.read, ctx.types.Enum

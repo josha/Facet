@@ -3,11 +3,11 @@ local FacetTypes = require("../../src")
 
 type FacetModule = FacetTypes.Facet
 type FacetControls = FacetTypes.Controls
-type NumberCell = FacetTypes.Cell<number>
-type StringCell = FacetTypes.Cell<string>
+type NumberCell = FacetTypes.Value<number>
+type StringCell = FacetTypes.Value<string>
 type TimerControls = FacetTypes.TimerControls
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Model = {
 	phase: StringCell,
 	deadline: NumberCell,

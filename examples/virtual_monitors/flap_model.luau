@@ -1,8 +1,10 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 local flap = {
 	WIDTH = 768,
 	HEIGHT = 448,
@@ -27,8 +29,8 @@ export type State = {
 	score: number,
 }
 export type Flap = {
-	state: Cell<State>,
-	best: Cell<number>,
+	state: Value<State>,
+	best: Value<number>,
 	flap: () -> (),
 	pause: () -> (),
 	togglePause: () -> (),

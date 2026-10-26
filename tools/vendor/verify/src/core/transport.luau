@@ -71,7 +71,7 @@ local function extract(bytes: string, tag: string): { Record }
 		local chunkIndex, chunkCount, rest = string.match(body, "^chunk|(%d+)/(%d+)|(.*)$")
 		if chunkIndex ~= nil then
 			table.insert(records, {
-				payload = rest :: string,
+				payload = assert(rest),
 				ordinal = ordinal,
 				chunkIndex = tonumber(chunkIndex),
 				chunkCount = tonumber(chunkCount),
@@ -107,7 +107,7 @@ local function reassemble(records: { Record }): (string?, string?)
 		return whole[1].payload, nil
 	end
 
-	local count = chunks[1].chunkCount :: number
+	local count = assert(chunks[1].chunkCount)
 	local seen: { [number]: Record } = {}
 	for _, chunk in chunks do
 		if chunk.chunkCount ~= count then
@@ -116,10 +116,10 @@ local function reassemble(records: { Record }): (string?, string?)
 					chunks[1].ordinal,
 					count,
 					chunk.ordinal,
-					chunk.chunkCount :: number
+					assert(chunk.chunkCount)
 				)
 		end
-		local index = chunk.chunkIndex :: number
+		local index = assert(chunk.chunkIndex)
 		if index < 1 or index > count then
 			return nil, ("chunk %d/%d on line %d is out of range"):format(index, count, chunk.ordinal)
 		end
@@ -197,7 +197,14 @@ local function readSegment(raw: unknown): Segment?
 	then
 		return nil
 	end
-	return raw :: Segment
+	return {
+		index = fields.index,
+		count = fields.count,
+		digest = fields.digest,
+		totalDigest = fields.totalDigest,
+		totalBytes = fields.totalBytes,
+		payload = fields.payload,
+	}
 end
 
 local function reassembleSegments(segments: { unknown }): (string?, string?)
@@ -257,7 +264,11 @@ local function reassembleSegments(segments: { unknown }): (string?, string?)
 	end
 	local whole = table.concat(pieces)
 	if #whole ~= totalBytes then
-		return nil, ("reassembled %d bytes but the segments claimed %d: truncated"):format(#whole, totalBytes :: number)
+		return nil,
+			("reassembled %d bytes but the segments claimed %d: truncated"):format(
+				#whole,
+				if type(totalBytes) == "number" then totalBytes else 0
+			)
 	end
 	if fingerprint(whole) ~= totalDigest then
 		return nil, "reassembled payload failed its whole-payload digest check"

@@ -5,7 +5,13 @@ local Paths = require "../core/path"
 type Instance = PlaceRuntime.Instance
 export type Engine = PlaceRuntime.Engine
 type Runtime = PlaceRuntime.Runtime
-type ProjectNode = { [string]: unknown }
+type ProjectNode = {
+	[string]: unknown,
+	["$path"]: string?,
+	["$className"]: string?,
+	["$properties"]: { [string]: unknown }?,
+	["$attributes"]: { [string]: unknown }?,
+}
 type Project = { globIgnorePaths: { string }?, emitLegacyScripts: boolean?, tree: { [string]: ProjectNode } }
 
 export type Host<B = unknown, C = () -> unknown> = PlaceRuntime.Host<B, C>
@@ -160,15 +166,19 @@ local function scriptClass(fileName: string): (string?, string?)
 	if module ~= nil then
 		return "ModuleScript", module
 	end
-	return nil
+	return nil, nil
 end
 
 local function numbers(value: unknown, count: number): { number }
-	assert(type(value) == "table" and #(value :: { unknown }) == count, "invalid project datatype component count")
-	for _, component in value :: { unknown } do
+	assert(type(value) == "table", "invalid project datatype component count")
+	local entries = value :: { unknown }
+	assert(#entries == count, "invalid project datatype component count")
+	local result: { number } = {}
+	for index, component in entries do
 		assert(type(component) == "number", "project datatype requires numeric components")
+		result[index] = component
 	end
-	return value :: { number }
+	return result
 end
 
 local function projectValue(engine: PlaceRuntime.Engine, declared: string?, value: unknown): unknown
@@ -237,7 +247,8 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 	local opaque = deps.opaque
 	local project = deps.host.decodeJson(deps.host.readFile(projectPath)) :: Project
 	local patterns: { string } = {}
-	for _, glob in (project.globIgnorePaths or {}) :: { string } do
+	local ignorePaths: { string } = project.globIgnorePaths or {}
+	for _, glob in ignorePaths do
 		patterns[#patterns + 1] = globToPattern(glob)
 	end
 
@@ -246,7 +257,7 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 	local function configure(object: Instance, node: ProjectNode)
 		local properties = node["$properties"]
 		if properties ~= nil then
-			for key, value in properties :: { [string]: unknown } do
+			for key, value in properties do
 				if type(key) == "string" and engine.surface.memberKind(object.ClassName, key) == "property" then
 					local declared = engine.surface.memberType(object.ClassName, key)
 					engine.environment.poke(object, key, projectValue(engine, declared, value))
@@ -255,7 +266,7 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 		end
 		local attributes = node["$attributes"]
 		if attributes ~= nil then
-			for key, value in attributes :: { [string]: unknown } do
+			for key, value in attributes do
 				object:SetAttribute(key, value)
 			end
 		end
@@ -276,7 +287,7 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 				engine.datatypes.Enum.RunContext[if className == "LocalScript" then "Client" else "Server"]
 			)
 		end
-		attach(object, parent :: Instance, name)
+		attach(object, parent, name)
 		sources[object] = path
 		cache.read(path)
 		if className ~= "ModuleScript" then
@@ -293,7 +304,7 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 			return nil
 		end
 		if files.fileType(path) == "file" then
-			local className = scriptClass(string.match(path, "([^/]+)$") :: string)
+			local className = scriptClass(string.match(path, "([^/]+)$") or "")
 			if className == nil then
 				return nil
 			end
@@ -314,13 +325,15 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 			end
 		end
 		if container == nil then
-			container = engine.newInstance("Folder", true)
-			attach(container :: Instance, parent :: Instance, name)
+			local folder = engine.newInstance("Folder", true)
+			attach(folder, parent, name)
+			container = folder
 		end
+		local directory = container or error "missing mount container"
 		for _, entry in entries do
 			local childPath = path .. "/" .. entry.name
 			if entry.type == "dir" then
-				mountPath(childPath, entry.name, container :: Instance)
+				mountPath(childPath, entry.name, directory)
 				continue
 			end
 			if string.match(entry.name, "^init%.") ~= nil then
@@ -333,14 +346,15 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 			if ignored(childPath, patterns) then
 				continue
 			end
-			makeScript(resolved, base :: string, childPath, container :: Instance)
+			makeScript(resolved, base or "", childPath, directory)
 		end
 		return container
 	end
 
 	local function mountNode(node: ProjectNode, name: string, parent: Instance?): Instance
 		local object: Instance
-		local path = node["$path"] :: string?
+		local className = node["$className"]
+		local path = node["$path"]
 		if path then
 			path = Paths.collapse(Paths.join(Paths.parent(projectPath), Paths.normalize(path)))
 		end
@@ -349,32 +363,34 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 		elseif path ~= nil then
 			if string.match(path, "%.rbx[m]?[x]?$") ~= nil then
 				object = engine.newInstance("Model", true)
-				attach(object, parent :: Instance, name)
+				attach(object, parent, name)
 				if opaque ~= nil then
 					if opaque.attribute ~= nil then
-						object:SetAttribute(opaque.attribute :: string, path)
+						object:SetAttribute(opaque.attribute, path)
 					end
 					if opaque.fill ~= nil then
 						opaque.fill(engine, object, path)
 					end
 				end
 			else
-				object = mountPath(path, name, parent, true) :: Instance
+				local mounted = mountPath(path, name, parent, true)
+				if mounted ~= nil then
+					object = mounted
+				else
+					object = engine.newInstance(className or IMPLICIT_CLASS_NAME, true)
+					attach(object, parent, name)
+				end
 			end
-			if object == nil then
-				object = engine.newInstance((node["$className"] :: string?) or IMPLICIT_CLASS_NAME, true)
-				attach(object, parent :: Instance, name)
-			end
-		elseif (node["$className"] :: string) ~= nil then
-			if engine.surface.services[node["$className"] :: string] == true and parent == engine.game then
-				object = engine.service(node["$className"] :: string)
+		elseif className ~= nil then
+			if engine.surface.services[className] == true and parent == engine.game then
+				object = engine.service(className)
 			else
-				object = engine.newInstance(node["$className"] :: string, true)
-				attach(object, parent :: Instance, name)
+				object = engine.newInstance(className, true)
+				attach(object, parent, name)
 			end
 		else
 			object = engine.newInstance("Folder", true)
-			attach(object, parent :: Instance, name)
+			attach(object, parent, name)
 		end
 		configure(object, node)
 		for key, value in node do
@@ -391,8 +407,7 @@ local function buildTree<B>(engine: PlaceRuntime.Engine, projectPath: string, de
 		if type(name) ~= "string" or string.sub(name, 1, 1) == "$" then
 			continue
 		end
-		local service =
-			engine.service(if (node["$className"] :: string) ~= nil then node["$className"] :: string else name)
+		local service = engine.service(if node["$className"] ~= nil then node["$className"] else name)
 		configure(service, node)
 		for key, value in node do
 			if type(key) ~= "string" or string.sub(key, 1, 1) == "$" then
@@ -449,12 +464,9 @@ local function mountEngineProvided(engine: Engine, player: Instance, provided: b
 	if textChat:FindFirstChild "ChannelTabsConfiguration" == nil then
 		named(engine, "ChannelTabsConfiguration", "ChannelTabsConfiguration", textChat)
 	end
-	local channels = textChat:FindFirstChild "TextChannels"
-	if channels == nil then
-		channels = named(engine, "Folder", "TextChannels", textChat)
-	end
-	if (channels :: Instance):FindFirstChild "RBXGeneral" == nil then
-		named(engine, "TextChannel", "RBXGeneral", channels :: Instance)
+	local channels = textChat:FindFirstChild "TextChannels" or named(engine, "Folder", "TextChannels", textChat)
+	if channels:FindFirstChild "RBXGeneral" == nil then
+		named(engine, "TextChannel", "RBXGeneral", channels)
 	end
 end
 
@@ -495,7 +507,7 @@ local function run<B>(config: Config, deps: Deps<B>): Report
 		if watcher == nil then
 			return
 		end
-		(watcher :: Observer)(stage, {
+		watcher(stage, {
 			engine = engine,
 			runtime = runtime,
 			player = identified,
@@ -553,8 +565,7 @@ local function run<B>(config: Config, deps: Deps<B>): Report
 	engine.environment.poke(playerGui, "Name", "PlayerGui")
 	playerGui.Parent = player
 	local seenRoots: { [string]: boolean } = {}
-	playerGui.ChildAdded:Connect(function(value: unknown)
-		local child = value :: Instance
+	playerGui.ChildAdded:Connect(function(child: Instance)
 		seenRoots[tostring(child.Name)] = true
 	end)
 	local playerScripts = engine.newInstance("PlayerScripts", true)
@@ -622,10 +633,10 @@ local function run<B>(config: Config, deps: Deps<B>): Report
 	local attributes = config.attributes
 	if attributes ~= nil then
 		if attributes.character ~= nil then
-			character:SetAttribute(attributes.character :: string, true)
+			character:SetAttribute(attributes.character, true)
 		end
 		if attributes.workspace ~= nil then
-			workspace:SetAttribute(attributes.workspace :: string, true)
+			workspace:SetAttribute(attributes.workspace, true)
 		end
 	end
 

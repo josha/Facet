@@ -135,7 +135,7 @@ local function windowsPipe(executable: string, directory: string, deadline: numb
 			Powershell.command(BRIDGE),
 			{ env = { VERIFY_MCP_DIRECTORY = directory, VERIFY_MCP_EXECUTABLE = executable } }
 		)
-		bridge.detail = if ran then (result :: Runtime.ProcessResult).stderr else tostring(result)
+		bridge.detail = if ran then (result).stderr else tostring(result)
 		bridge.done = true
 	end)
 	while not fs.exists(pidPath) and not bridge.done and os.clock() < deadline do
@@ -218,7 +218,7 @@ local function connectOnce(executable: string, directory: string, deadline: numb
 			if #bytes > consumed then
 				local chunk = bytes:sub(consumed + 1)
 				for text in string.gmatch(chunk, "([^\n]+)\n") do
-					local parsed, value: unknown = pcall(Wire.parse, text)
+					local parsed, value = pcall(Wire.parse, text)
 					if parsed and type(value) == "table" then
 						local fields = value :: { [string]: unknown }
 						if type(fields.id) == "number" then

@@ -16,8 +16,8 @@ return function(verifyHarness: Verify.Harness)
 	local FixtureEnvironmentTypes = require("../src/ui/environment_types")
 	local FixtureNavigationTypes = require("../src/ui/navigation_types")
 	local FixtureEngineTypes = require("../src/ui/engine_types")
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 	local SharedTypes = require("../src/ui/control_types")
 
 	local Compose = require("../src/vendor/compose/core")
@@ -186,7 +186,7 @@ return function(verifyHarness: Verify.Harness)
 				return false
 			end)
 			local visible = Compose.cell({ initial[1] })
-			local selected: FixtureComposeTypes.Cell<FixtureCollectionTypes.Selection<number>> =
+			local selected: FixtureComposeTypes.Value<FixtureCollectionTypes.Selection<number>> =
 				Compose.cell({ [2] = true })
 			local calls = 0
 			local stop = runtime.mount(function()
@@ -289,7 +289,7 @@ return function(verifyHarness: Verify.Harness)
 					rows[index] = { id = index, rank = if index % 4 == 0 then nil else index % 4 }
 				end
 				local source = Compose.cell(rows)
-				local createSort: (FixtureCollectionTypes.Sort?) -> FixtureComposeTypes.Cell<FixtureCollectionTypes.Sort?> =
+				local createSort: (FixtureCollectionTypes.Sort?) -> FixtureComposeTypes.Value<FixtureCollectionTypes.Sort?> =
 					Compose.cell
 				local sort = createSort(nil)
 				local controls: FixtureComposeTypes.OrderedCollectionControls<number> = {}
@@ -543,9 +543,9 @@ return function(verifyHarness: Verify.Harness)
 					return readProperty(instance, property)
 				end
 
-				local settled: FixtureComposeTypes.Readable<boolean>? = nil
-				local glyphs: FixtureComposeTypes.Readable<unknown>? = nil
-				local box: FixtureComposeTypes.Readable<unknown>? = nil
+				local settled: FixtureComposeTypes.ReadOnlyValue<boolean>? = nil
+				local glyphs: FixtureComposeTypes.ReadOnlyValue<unknown>? = nil
+				local box: FixtureComposeTypes.ReadOnlyValue<unknown>? = nil
 				local stop = runtime.mount(function()
 					glyphs = runtime.observe(node, "TextBounds")
 					box = runtime.observe(node, "AbsoluteSize")
@@ -583,7 +583,7 @@ return function(verifyHarness: Verify.Harness)
 				node.Parent = target
 
 				local beforePaint = engine.heartbeat
-				local size: FixtureComposeTypes.Readable<unknown>? = nil
+				local size: FixtureComposeTypes.ReadOnlyValue<unknown>? = nil
 				local stop = runtime.mount(function()
 					size = runtime.observe(node, "AbsoluteSize")
 					return nil
@@ -758,7 +758,7 @@ return function(verifyHarness: Verify.Harness)
 				text.Parent = node
 				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.zero)
 				node.Parent = target
-				local ready: FixtureComposeTypes.Readable<boolean>? = nil
+				local ready: FixtureComposeTypes.ReadOnlyValue<boolean>? = nil
 				local stop = runtime.mount(function()
 					ready = require("../src/ui/collection_paint")(ctx, node, nil, true)
 					return nil
@@ -796,7 +796,7 @@ return function(verifyHarness: Verify.Harness)
 				text.Parent = node
 				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.zero)
 				node.Parent = target
-				local ready: FixtureComposeTypes.Readable<boolean>? = nil
+				local ready: FixtureComposeTypes.ReadOnlyValue<boolean>? = nil
 				local stop = runtime.mount(function()
 					ready = require("../src/ui/collection_paint")(ctx, node, nil, true)
 					return nil
@@ -841,7 +841,7 @@ return function(verifyHarness: Verify.Harness)
 					engine.types.Vector2.new(240, 44)
 				)
 				node.Parent = target
-				local ready: FixtureComposeTypes.Readable<boolean>? = nil
+				local ready: FixtureComposeTypes.ReadOnlyValue<boolean>? = nil
 				local stop = runtime.mount(function()
 					ready = require("../src/ui/collection_paint")(ctx, node, nil, true)
 					return nil
@@ -875,7 +875,7 @@ return function(verifyHarness: Verify.Harness)
 				)
 				node.Parent = target
 				local release = require("../src/ui/text_measure").hold(text)
-				local ready: FixtureComposeTypes.Readable<boolean>? = nil
+				local ready: FixtureComposeTypes.ReadOnlyValue<boolean>? = nil
 				local stop = runtime.mount(function()
 					ready = require("../src/ui/collection_paint")(ctx, node)
 					return nil
@@ -911,7 +911,7 @@ return function(verifyHarness: Verify.Harness)
 					engine.types.Vector2.new(240, 44)
 				)
 				node.Parent = target
-				local ready: FixtureComposeTypes.Readable<boolean>? = nil
+				local ready: FixtureComposeTypes.ReadOnlyValue<boolean>? = nil
 				local stop = runtime.mount(function()
 					ready = require("../src/ui/collection_paint")(ctx, node)
 					return nil
@@ -934,7 +934,7 @@ return function(verifyHarness: Verify.Harness)
 					return stale
 				end
 				local root: Frame? = nil
-				local ready: FixtureComposeTypes.Readable<boolean>? = nil
+				local ready: FixtureComposeTypes.ReadOnlyValue<boolean>? = nil
 				local stop = runtime.mount(function()
 					local frame = Host.Frame { Host.TextLabel "Name" { Text = "Material" } }
 					root = frame
@@ -1009,7 +1009,7 @@ return function(verifyHarness: Verify.Harness)
 									Name = "Data",
 									from = rows,
 									key = "id",
-									render = function(current: FixtureComposeTypes.Readable<Row>): GuiObject
+									render = function(current: FixtureComposeTypes.ReadOnlyValue<Row>): GuiObject
 										return Host.TextLabel { Text = current:peek().name }
 									end,
 								}
@@ -1156,7 +1156,9 @@ return function(verifyHarness: Verify.Harness)
 				local Host = (runtime.constructors :: unknown) :: FixtureEngineTypes.Host
 				local mode = Compose.cell("grid")
 				local rows = { { id = "one", label = "One" }, { id = "two", label = "Two" } }
-				local function text(current: FixtureComposeTypes.Readable<{ id: string, label: string }>): GuiObject
+				local function text(
+					current: FixtureComposeTypes.ReadOnlyValue<{ id: string, label: string }>
+				): GuiObject
 					return Host.TextLabel "Name" { Text = current:peek().label } :: GuiObject
 				end
 				local stop, mountedRoot = runtime.mount(function()
@@ -1189,7 +1191,7 @@ return function(verifyHarness: Verify.Harness)
 													label = "Kind",
 													width = 100,
 													render = function(
-														_current: FixtureComposeTypes.Readable<{ id: string, label: string }>
+														_current: FixtureComposeTypes.ReadOnlyValue<{ id: string, label: string }>
 													): GuiObject
 														return Host.TextLabel "Kind" { Text = "Material" }
 													end,
@@ -1311,7 +1313,7 @@ return function(verifyHarness: Verify.Harness)
 								children = function(item: Row): { Row }?
 									return if item.id == "folder" then children else nil
 								end,
-								render = function(current: FixtureComposeTypes.Readable<Row>): GuiObject
+								render = function(current: FixtureComposeTypes.ReadOnlyValue<Row>): GuiObject
 									return (Host.TextLabel { Text = current:peek().label } :: unknown) :: TextLabel
 								end,
 							}
@@ -1373,7 +1375,7 @@ return function(verifyHarness: Verify.Harness)
 							key = "id",
 							mode = "all" :: "all",
 							itemSize = 44,
-							render = function(current: FixtureComposeTypes.Readable<Row>): GuiObject
+							render = function(current: FixtureComposeTypes.ReadOnlyValue<Row>): GuiObject
 								return Host.TextLabel "Caption" { Text = current:peek().title }
 							end,
 						}
@@ -1444,7 +1446,7 @@ return function(verifyHarness: Verify.Harness)
 							key = "id",
 							mode = "all" :: "all",
 							itemSize = 44,
-							render = function(current: FixtureComposeTypes.Readable<Row>): GuiObject
+							render = function(current: FixtureComposeTypes.ReadOnlyValue<Row>): GuiObject
 								return Host.TextLabel "Caption" {
 									Text = function(use: FixtureComposeTypes.Use): string
 										return `{use(current).title} {use(revision)}`
@@ -1512,7 +1514,7 @@ return function(verifyHarness: Verify.Harness)
 							from = rows,
 							key = "id",
 							mode = "all" :: "all",
-							render = function(current: FixtureComposeTypes.Readable<Row>)
+							render = function(current: FixtureComposeTypes.ReadOnlyValue<Row>)
 								return Host.TextLabel "Caption" {
 									Text = function(use)
 										return use(current).title
@@ -1720,7 +1722,7 @@ return function(verifyHarness: Verify.Harness)
 						columns = 2,
 						itemSize = 44,
 						mode = "all" :: "all",
-						contentOverflow = (choice :: unknown) :: FixtureComposeTypes.Readable<"clip" | "visible">,
+						contentOverflow = (choice :: unknown) :: FixtureComposeTypes.ReadOnlyValue<"clip" | "visible">,
 						render = function(): GuiObject
 							return (
 								UI.Button({ label = "2W", Size = engine.types.UDim2.fromOffset(66, 66) }) :: unknown
@@ -1783,7 +1785,10 @@ return function(verifyHarness: Verify.Harness)
 		return item.id
 	end
 
-	local function button(UI: SharedTypes.Controls, current: Compose.Readable<{ id: number, label: string }>): GuiObject
+	local function button(
+		UI: SharedTypes.Controls,
+		current: Compose.ReadOnlyValue<{ id: number, label: string }>
+	): GuiObject
 		return UI.Button "Action" {
 			label = function(use: Use)
 				return use(current).label
@@ -4429,7 +4434,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_collections::Compose native collections::uses native drag to reveal and invoke row actions with cancellation and coordination",
 			run = function()
 				local engine, runtime, UI, target = setup()
-				local open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, coordinator =
+				local open: FixtureComposeTypes.Value<("leading" | "trailing")?>, coordinator =
 					Compose.cell(nil :: ("leading" | "trailing")?), Compose.cell(nil :: {}?)
 				local invoked = 0
 				local stop, node: any = runtime.mount(function()
@@ -4475,7 +4480,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_collections::Compose native collections::swipes a Button row from a grip over the content and forwards a tap to the Button",
 			run = function()
 				local engine, runtime, UI, target = setup()
-				local open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, activated =
+				local open: FixtureComposeTypes.Value<("leading" | "trailing")?>, activated =
 					Compose.cell(nil :: ("leading" | "trailing")?), 0
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
@@ -4535,7 +4540,7 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 				local E = engine.types.Enum
 				local V2 = engine.types.Vector2
-				local open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, activated =
+				local open: FixtureComposeTypes.Value<("leading" | "trailing")?>, activated =
 					Compose.cell(nil :: ("leading" | "trailing")?), 0
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
@@ -4604,7 +4609,7 @@ return function(verifyHarness: Verify.Harness)
 						"PreferredInput",
 						E.PreferredInput.Touch
 					)
-					local open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, invoked =
+					local open: FixtureComposeTypes.Value<("leading" | "trailing")?>, invoked =
 						Compose.cell(nil :: ("leading" | "trailing")?), 0
 					local stop, node: any = runtime.mount(function()
 						return UI.RowActions({
@@ -4656,7 +4661,7 @@ return function(verifyHarness: Verify.Harness)
 						"PreferredInput",
 						E.PreferredInput.Touch
 					)
-					local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+					local open: FixtureComposeTypes.Value<("leading" | "trailing")?> =
 						Compose.cell(nil :: ("leading" | "trailing")?)
 					local stop, page: any = runtime.mount(function()
 						return ctx.Host.ScrollingFrame "Page" {
@@ -4971,7 +4976,7 @@ return function(verifyHarness: Verify.Harness)
 				for _, edge in edges do
 					local engine, runtime, UI, target, _, ctx = setup({ motionLevel = "normal" })
 					local invoked = 0
-					local open: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?> = Compose.cell(edge)
+					local open: FixtureComposeTypes.Value<FixtureCollectionTypes.RowEdge?> = Compose.cell(edge)
 					local action: FixtureCollectionTypes.RowAction = {
 						id = "Delete",
 						label = "Delete",
@@ -5027,7 +5032,7 @@ return function(verifyHarness: Verify.Harness)
 				local function mount()
 					return runtime.mount(function()
 						return UI.RowActions({
-							open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?>,
+							open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Value<FixtureCollectionTypes.RowEdge?>,
 							content = UI.Button "Action" { label = "Row" } :: GuiObject,
 							trailing = {
 								{
@@ -5078,7 +5083,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_collections::Compose native collections::never commits or opens a full swipe on an unmeasured row",
 			run = function()
 				local engine, runtime, UI, target = setup()
-				local invoked, open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+				local invoked, open: FixtureComposeTypes.Value<("leading" | "trailing")?> =
 					0, Compose.cell(nil :: ("leading" | "trailing")?)
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
@@ -5110,7 +5115,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_collections::Compose native collections::restores a kept row after a destructive action so it can commit again",
 			run = function()
 				local engine, runtime, UI, target = setup()
-				local invoked, open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+				local invoked, open: FixtureComposeTypes.Value<("leading" | "trailing")?> =
 					0, Compose.cell("trailing" :: ("leading" | "trailing")?)
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
@@ -5154,7 +5159,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_collections::Compose native collections::respects edge full-swipe policy, edit affordances and focused destructive input",
 			run = function()
 				local engine, runtime, UI, target, gui = setup()
-				local editing, open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+				local editing, open: FixtureComposeTypes.Value<("leading" | "trailing")?> =
 					Compose.cell(false), Compose.cell(nil :: ("leading" | "trailing")?)
 				local invoked = 0
 				local stop, node: any = runtime.mount(function()
@@ -5443,7 +5448,7 @@ return function(verifyHarness: Verify.Harness)
 						measure = true,
 						render = function(current): GuiObject
 							return UI.RowActions({
-								open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?>,
+								open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Value<FixtureCollectionTypes.RowEdge?>,
 								content = button(UI, current),
 								trailing = function(use: Use): { FixtureCollectionTypes.RowAction }
 									local item = use(current)
@@ -5496,7 +5501,7 @@ return function(verifyHarness: Verify.Harness)
 						return now
 					end,
 				})
-				local enabled, open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, invoked =
+				local enabled, open: FixtureComposeTypes.Value<("leading" | "trailing")?>, invoked =
 					Compose.cell(true), Compose.cell(nil :: ("leading" | "trailing")?), 0
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
@@ -5734,7 +5739,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_collections::Compose native collections::measures localized row action labels and reveals truncated visible table values",
 			run = function()
 				local engine, runtime, UI, target = setup()
-				local open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, editing =
+				local open: FixtureComposeTypes.Value<("leading" | "trailing")?>, editing =
 					Compose.cell("trailing" :: ("leading" | "trailing")?), Compose.cell(true)
 				local stopActions, actions: any = runtime.mount(function()
 					return UI.RowActions({
@@ -6222,7 +6227,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_collections::Compose native collections::cancels native row gestures and keeps destructive opt-outs behind every action route",
 			run = function()
 				local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
-				local enabled, open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, invoked =
+				local enabled, open: FixtureComposeTypes.Value<("leading" | "trailing")?>, invoked =
 					Compose.cell(false), Compose.cell(nil :: ("leading" | "trailing")?), 0
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
@@ -7193,7 +7198,7 @@ return function(verifyHarness: Verify.Harness)
 				local stop, actions: any = runtime.mount(function()
 					return UI.RowActions({
 						content = UI.Button "Action" { label = "Row" } :: GuiObject,
-						open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?>,
+						open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Value<FixtureCollectionTypes.RowEdge?>,
 						trailing = {
 							{ id = "remove", label = "Remove", icon = "trash", role = "destructive" :: "destructive" } :: FixtureCollectionTypes.RowAction,
 						},
@@ -9356,7 +9361,7 @@ return function(verifyHarness: Verify.Harness)
 					local values = Compose.cell("Child")
 					local stop, node: any = runtime.mount(function()
 						local render = function(_current, _placement, key)
-							local fieldEditing: FixtureComposeTypes.Cell<boolean> = if key:peek() == "parent"
+							local fieldEditing: FixtureComposeTypes.Value<boolean> = if key:peek() == "parent"
 								then Compose.cell(false)
 								else editing
 							return UI.CellEditor {
@@ -9522,7 +9527,7 @@ return function(verifyHarness: Verify.Harness)
 				t:defer(function()
 					runtime:dispose()
 				end)
-				local external: FixtureComposeTypes.Cell<{ [string]: number }> = Compose.cell({ child = 90 })
+				local external: FixtureComposeTypes.Value<{ [string]: number }> = Compose.cell({ child = 90 })
 				local minimum = Compose.cell(20)
 				local Host = ctx.Host
 				runtime.mount(function()
@@ -9570,7 +9575,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				for _, kind in { "Outline", "VirtualList", "Table" } do
 					local engine, runtime, UI, target = setup()
-					local rows: Compose.Cell<{ OutlineRecord }> = Compose.cell({
+					local rows: Compose.Value<{ OutlineRecord }> = Compose.cell({
 						{ id = "folder", label = "Folder", children = { { id = "child", label = "Child" } } },
 						{ id = "empty", label = "Empty", children = {} },
 						{ id = "leaf", label = "Leaf" },
@@ -9874,8 +9879,8 @@ return function(verifyHarness: Verify.Harness)
 		local FixtureComposeTypes = require("../src/vendor/compose/core")
 		local FixtureCollectionTypes = require("../src/ui/collection_types")
 		local FixtureCollectionProps = require("../src/ui/collection_props")
-		type Readable<T> = { peek: (Readable<T>) -> T }
-		type Use = <T>(Readable<T>) -> T
+		type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+		type Use = <T>(ReadOnlyValue<T>) -> T
 
 		local Facet = require("../src")
 		local engineLib = require("./lib/native_engine")
@@ -10215,7 +10220,7 @@ return function(verifyHarness: Verify.Harness)
 					local createMetrics = require("../src/ui/collection_table_metrics")
 					local createColumns = require("../src/ui/collection_table_columns")
 					local engine, runtime, _, target, _, ctx = setup()
-					local widths: FixtureComposeTypes.Cell<{ [string]: number }> = Compose.cell({ name = 120 })
+					local widths: FixtureComposeTypes.Value<{ [string]: number }> = Compose.cell({ name = 120 })
 					local definitions: { FixtureCollectionTypes.TableColumn<string, string> } = {
 						{ id = "name", minWidth = 80 },
 						{ id = "artist", width = 100, priority = 1 },

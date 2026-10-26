@@ -9,10 +9,10 @@ local Reactor = require "../reactive/reactor"
 local sharedResource = require "../async/shared"
 
 export type Options = { frame: boolean?, poll: boolean?, styled: boolean? }
-type Entry = { live: boolean, read: () -> unknown, value: Types.Cell<unknown> }
+type Entry = { live: boolean, read: () -> unknown, value: Types.Value<unknown> }
 
 return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reactor.Reactor)
-	local entries: { [Host.Node]: { [string]: sharedResource.Acquire<Types.Cell<unknown>> } } = {}
+	local entries: { [Host.Node]: { [string]: sharedResource.Acquire<Types.Value<unknown>> } } = {}
 	local pending: { [Entry]: boolean } = {}
 	local polling: { [Entry]: boolean } = {}
 	local stop: Host.Unsubscribe? = nil
@@ -46,7 +46,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 					end
 				end
 			end
-			reactor:batch(function()
+			Reactor.batch(reactor, function()
 				for _, snapshot in snapshots do
 					if snapshot.entry.live then
 						snapshot.entry.value:set(snapshot.value)
@@ -57,7 +57,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 			Owner.raiseAll(failures)
 		end)
 	end
-	return function(node: Host.Node, property: string, options: Options?): Types.Readable<unknown>
+	return function(node: Host.Node, property: string, options: Options?): Types.ReadOnlyValue<unknown>
 		ownerOf "observe"
 		local observation = assert(host.observation, "Compose observe requires host.observation")
 		local styled = options ~= nil and options.styled == true
@@ -91,11 +91,11 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 			properties = {}
 			entries[node] = properties
 		end
-		local acquire: sharedResource.Acquire<Types.Cell<unknown>>? = properties[key]
+		local acquire: sharedResource.Acquire<Types.Value<unknown>>? = properties[key]
 		if acquire == nil then
-			acquire = sharedResource(function(): (Types.Cell<unknown>, (() -> ())?)
+			acquire = sharedResource(function(): (Types.Value<unknown>, (() -> ())?)
 				local owner = ownerOf "observe"
-				owner.own(function()
+				Owner.own(owner, function()
 					properties[key] = nil
 					if next(properties) == nil then
 						entries[node] = nil
@@ -110,7 +110,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 						end,
 						value = value,
 					}
-					owner.own(function()
+					Owner.own(owner, function()
 						entry.live = false
 						pending[entry], polling[entry] = nil, nil
 						idle()
@@ -121,7 +121,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 							schedule()
 						end
 					end)
-					owner.own(release)
+					Owner.own(owner, release)
 					pending[entry] = true
 					if poll then
 						polling[entry] = true

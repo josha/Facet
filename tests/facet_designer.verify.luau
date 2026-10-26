@@ -3,8 +3,8 @@ local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")
@@ -104,7 +104,7 @@ return function(verifyHarness: Verify.Harness)
 							neutralPackage = Facet.themes.neutralPackage,
 							createStyleSheet = function(
 								target: typeof(runtime),
-								package: Engine.Value<Theme.ThemePackage>?,
+								package: Engine.Input<Theme.ThemePackage>?,
 								options: Theme.ThemeOptions?
 							)
 								local config = table.clone(options or {})
@@ -582,7 +582,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("gives comparison canvases independent state", {
 			id = "facet_designer::Facet Design sessions::gives comparison canvases independent state",
 			run = function()
-				local cells: { Facet.Cell<number> } = {}
+				local cells: { Facet.Value<number> } = {}
 				local function render(ctx)
 					local value = ctx.Compose.cell(1)
 					table.insert(cells, value)

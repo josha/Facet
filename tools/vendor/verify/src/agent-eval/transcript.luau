@@ -41,6 +41,11 @@ export type Transcript = {
 
 local RESULT_LIMIT = 4000
 
+local function checkedNumber(value: unknown): number
+	assert(type(value) == "number")
+	return value
+end
+
 local function emptyUsage(): Usage
 	return { input = 0, cacheCreation = 0, cacheRead = 0, output = 0 }
 end
@@ -50,8 +55,8 @@ local function total(usage: Usage): number
 end
 
 local function count(value: unknown): number
-	if Schema.finite(value) and (value :: number) >= 0 then
-		return value :: number
+	if type(value) == "number" and Schema.finite(value) and value >= 0 then
+		return value
 	end
 	return 0
 end
@@ -115,7 +120,7 @@ local function union(intervals: { { number } }): number
 		elseif interval[1] <= endAt then
 			endAt = math.max(endAt, interval[2])
 		else
-			sum += endAt - (startAt :: number)
+			sum += endAt - startAt
 			startAt, endAt = interval[1], interval[2]
 		end
 	end
@@ -173,7 +178,7 @@ local function parseClaudeStream(lines: { Services.Line }, decode: (text: string
 		if string.match(line.text, "^%s*$") ~= nil then
 			continue
 		end
-		local parsed, event: unknown = pcall(decode, line.text)
+		local parsed, event = pcall(decode, line.text)
 		if not parsed or type(event) ~= "table" then
 			transcript.malformed += 1
 			continue
@@ -185,7 +190,6 @@ local function parseClaudeStream(lines: { Services.Line }, decode: (text: string
 		local at = line.at
 		local kind = textOf(field(event, "type"))
 		local subagent = textOf(field(event, "parent_tool_use_id")) ~= nil
-		local messageId: string? = nil
 		if kind == "system" and field(event, "subtype") == "init" then
 			transcript.model = textOf(field(event, "model")) or transcript.model
 			transcript.session = textOf(field(event, "session_id")) or transcript.session
@@ -207,8 +211,7 @@ local function parseClaudeStream(lines: { Services.Line }, decode: (text: string
 			end
 		elseif kind == "assistant" then
 			local message = field(event, "message")
-			messageId = textOf(field(message, "id")) or ("line-" .. tostring(transcript.events))
-			local id = messageId :: string
+			local id = textOf(field(message, "id")) or ("line-" .. tostring(transcript.events))
 			if not seenMessage[id] then
 				seenMessage[id] = true
 				table.insert(messageOrder, id)
@@ -270,19 +273,19 @@ local function parseClaudeStream(lines: { Services.Line }, decode: (text: string
 			transcript.status = if transcript.subtype == "success" and not isError then "success" else "error"
 			local reported = field(event, "num_turns")
 			if Schema.finite(reported) then
-				transcript.reportedTurns = reported :: number
+				transcript.reportedTurns = checkedNumber(reported)
 			end
 			local cost = field(event, "total_cost_usd")
 			if Schema.finite(cost) then
-				transcript.costUsd = cost :: number
+				transcript.costUsd = checkedNumber(cost)
 			end
 			local duration = field(event, "duration_ms")
 			if Schema.finite(duration) then
-				transcript.durationSeconds = (duration :: number) / 1000
+				transcript.durationSeconds = (checkedNumber(duration)) / 1000
 			end
 			local api = field(event, "duration_api_ms")
 			if Schema.finite(api) then
-				transcript.apiSeconds = (api :: number) / 1000
+				transcript.apiSeconds = (checkedNumber(api)) / 1000
 			end
 			transcript.session = textOf(field(event, "session_id")) or transcript.session
 			transcript.permissionDenials = #list(field(event, "permission_denials"))
@@ -294,14 +297,14 @@ local function parseClaudeStream(lines: { Services.Line }, decode: (text: string
 			local models = field(event, "modelUsage")
 			if type(models) == "table" then
 				local collected: { [string]: Usage } = {}
-				local any = false
+				local found = false
 				for name, entry in models :: { [unknown]: unknown } do
 					if type(name) == "string" and type(entry) == "table" then
 						collected[name] = modelUsage(entry)
-						any = true
+						found = true
 					end
 				end
-				if any then
+				if found then
 					resultModels = collected
 				end
 			end

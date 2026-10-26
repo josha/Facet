@@ -45,21 +45,21 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		)
 		local pointer = pointerDragOf(ctx)
 		local bottom = spec.actionPlacement == "bottom"
-		local leading: Types.Value<{ RowAction }> = spec.leading or {}
-		local trailing: Types.Value<{ RowAction }> = spec.trailing or {}
+		local leading: Types.Input<{ RowAction }> = spec.leading or {}
+		local trailing: Types.Input<{ RowAction }> = spec.trailing or {}
 		local content = if type(spec.content) == "function" then spec.content() else spec.content
 		assert(typeof(content) == "Instance" or type(content) == "table", "Facet.RowActions requires content")
 		local cellEdits = activation.edits(content)
-		local open: ComposeTypes.Cell<RowEdge?> = spec.open or Compose.cell(nil :: RowEdge?)
+		local open: ComposeTypes.Value<RowEdge?> = spec.open or Compose.cell(nil :: RowEdge?)
 		local menuOpen = Compose.cell(false)
-		local drag: ComposeTypes.Cell<number?> = Compose.cell(nil :: number?)
+		local drag: ComposeTypes.Value<number?> = Compose.cell(nil :: number?)
 		local dimensions = Compose.cell(V2.zero)
 		local editWidth = Compose.cell(72)
 		local measuredActionSize = Compose.cell(V2.zero)
-		local actionWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
+		local actionWidths: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
 		local rowToken = {}
 		local departure = runtime.timeline({ duration = ctx.metric("motion.durations.rowDeparture"), autoplay = false })
-		local committing: ComposeTypes.Cell<{ action: RowAction, edge: RowEdge, from: number }?> =
+		local committing: ComposeTypes.Value<{ action: RowAction, edge: RowEdge, from: number }?> =
 			Compose.cell(nil :: { action: RowAction, edge: RowEdge, from: number }?)
 		local fired = false
 		local motionReduced = reducedMotion(ctx)
@@ -281,7 +281,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					key = function(action: RowAction)
 						return action.id
 					end,
-					render = function(current: ComposeTypes.Readable<RowAction>, index: ComposeTypes.Readable<number>)
+					render = function(
+						current: ComposeTypes.ReadOnlyValue<RowAction>,
+						index: ComposeTypes.ReadOnlyValue<number>
+					)
 						local iconic = current:peek().icon ~= nil
 						local function words(use: ComposeTypes.Use): string
 							return read(use(current).label, use)
@@ -856,7 +859,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		runtime.connect(root, "TouchLongPress", longPress)
 		runtime.connect(grip, "TouchLongPress", longPress)
 		local gui = ctx.config.guiService
-		local selected: ComposeTypes.Cell<GuiObject?> = if gui
+		local selected: ComposeTypes.Value<GuiObject?> = if gui
 			then ctx.observe.SelectedObject(gui)
 			else Compose.cell(nil :: GuiObject?)
 		local function scope(): Instance

@@ -1,5 +1,6 @@
 --!strict
 
+local Owners = require "../ownership/owner"
 local Children = require "../runtime/children"
 local Host = require "../host"
 local Support = require "./support"
@@ -8,7 +9,7 @@ local Types = require "../reactive/types"
 export type Builder = () -> Host.Node | Children.Directive
 
 local function switch<K>(source: Types.Source<K>, branches: { [K]: Builder }, fallback: Builder?): Children.Directive
-	local from = Support.sourceOf(source, "switch", "source") :: Types.Body<K>
+	local from: Types.Body<K> = Support.sourceOf(source, "switch", "source")
 	if type(branches) ~= "table" then
 		Support.optionsOf(branches, "switch", "a table of branches keyed by value")
 	end
@@ -19,7 +20,7 @@ local function switch<K>(source: Types.Source<K>, branches: { [K]: Builder }, fa
 		local selected: K? = nil
 		local started = false
 
-		owner.watch(function(use)
+		Owners.watch(owner, function(use)
 			local key = from(use)
 			if started and key == selected then
 				return
@@ -40,7 +41,7 @@ local function switch<K>(source: Types.Source<K>, branches: { [K]: Builder }, fa
 				return
 			end
 
-			local pick = chosen :: Builder
+			local pick = chosen
 			disposeCurrent = Support.mountBuilder(mountPoint, owner, pick, "switch")
 		end)
 	end

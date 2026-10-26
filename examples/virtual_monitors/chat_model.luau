@@ -1,24 +1,26 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 
 export type Message = { id: number, role: "user" | "assistant", content: string }
 export type Vote = "up" | "down" | "none"
 export type Chat = {
-	messages: Cell<{ Message }>,
-	draft: Cell<string>,
-	streaming: Cell<boolean>,
-	active: Cell<number?>,
-	feedback: Cell<{ [number]: Vote? }>,
-	completed: Cell<number>,
+	messages: Value<{ Message }>,
+	draft: Value<string>,
+	streaming: Value<boolean>,
+	active: Value<number?>,
+	feedback: Value<{ [number]: Vote? }>,
+	completed: Value<number>,
 	restore: (Message, number) -> (),
 	retry: (number) -> boolean,
 	edit: (number) -> boolean,
 	rate: (number, Vote) -> (),
-	streamedChars: Cell<number>,
-	totalChars: Cell<number>,
+	streamedChars: Value<number>,
+	totalChars: Value<number>,
 	send: () -> boolean,
 	remove: (number) -> (Message?, number?),
 	clear: () -> (),
@@ -30,13 +32,13 @@ local chat = {}
 
 function chat.new(Compose: ComposeModule): Chat
 	local initialMessages: { Message } = {}
-	local messages: Cell<{ Message }> = Compose.cell(initialMessages)
+	local messages: Value<{ Message }> = Compose.cell(initialMessages)
 	local draft = Compose.cell("")
 	local streaming = Compose.cell(false)
 	local initialActive: number? = nil
-	local active: Cell<number?> = Compose.cell(initialActive)
+	local active: Value<number?> = Compose.cell(initialActive)
 	local initialFeedback: { [number]: Vote? } = {}
-	local feedback: Cell<{ [number]: Vote? }> = Compose.cell(initialFeedback)
+	local feedback: Value<{ [number]: Vote? }> = Compose.cell(initialFeedback)
 	local completed = Compose.cell(0)
 
 	local streamedChars, totalChars = Compose.cell(0), Compose.cell(0)

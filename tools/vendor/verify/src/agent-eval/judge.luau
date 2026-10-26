@@ -154,9 +154,14 @@ local DEFAULT_RUBRIC: Rubric = {
 	},
 }
 
+local function checkedString(value: unknown): string
+	assert(type(value) == "string")
+	return value
+end
+
 local function choice(value: unknown, label: string): Choice
 	if value == "first" or value == "second" or value == "tie" then
-		return value :: Choice
+		return value
 	end
 	return Schema.fail(label, "must be first, second or tie")
 end
@@ -222,7 +227,7 @@ local function system(rubric: Rubric): string
 		"Reply with only one JSON object. Do not write prose or a code fence.",
 	}
 	if rubric.instructions ~= nil then
-		table.insert(lines, rubric.instructions :: string)
+		table.insert(lines, rubric.instructions)
 	end
 	return table.concat(lines, "\n")
 end
@@ -310,11 +315,12 @@ local function compare(comparison: Comparison, options: CompareOptions): Judgmen
 			return judgment
 		end
 		judgment.status = "forfeit"
-		judgment.scoreA = if aEmpty then 0 else 1
+		local scoreA = if aEmpty then 0 else 1
+		judgment.scoreA = scoreA
 		judgment.winner = if aEmpty then comparison.b.arm else comparison.a.arm
 		judgment.detail = ("%s produced no screenshots"):format(if aEmpty then comparison.a.arm else comparison.b.arm)
 		for _, criterion in rubric.criteria do
-			judgment.criteria[criterion.id] = judgment.scoreA :: number
+			judgment.criteria[criterion.id] = scoreA
 		end
 		return judgment
 	end
@@ -322,7 +328,7 @@ local function compare(comparison: Comparison, options: CompareOptions): Judgmen
 	local orders: { "a" | "b" } = if aFirst then { "a", "b" } else { "b", "a" }
 	for _, firstSide in orders do
 		local presentation: Presentation = {
-			first = firstSide :: "a" | "b",
+			first = if firstSide == "a" then "a" else "b",
 			attempts = 0,
 		}
 		local first = if firstSide == "a" then comparison.a else comparison.b
@@ -335,14 +341,14 @@ local function compare(comparison: Comparison, options: CompareOptions): Judgmen
 				presentation.error = tostring(reply)
 				continue
 			end
-			local answer = reply :: Reply
+			local answer = reply
 			presentation.model = answer.model or presentation.model
 			if answer.text == nil then
 				presentation.error = answer.error or "the judge returned no text"
 				continue
 			end
 			presentation.raw = answer.text
-			local verdict, problem = parseVerdict(answer.text :: string, rubric, options.decode)
+			local verdict, problem = parseVerdict(answer.text, rubric, options.decode)
 			if verdict ~= nil then
 				presentation.verdict = verdict
 				presentation.error = nil
@@ -374,7 +380,8 @@ local function compare(comparison: Comparison, options: CompareOptions): Judgmen
 		sum += value
 	end
 	judgment.status = "judged"
-	judgment.scoreA = sum / #scores
+	local scoreA = sum / #scores
+	judgment.scoreA = scoreA
 	for id, list in criteria do
 		local total = 0
 		for _, value in list do
@@ -382,10 +389,7 @@ local function compare(comparison: Comparison, options: CompareOptions): Judgmen
 		end
 		judgment.criteria[id] = total / #list
 	end
-	judgment.winner = if (judgment.scoreA :: number) > 0.5
-		then comparison.a.arm
-		elseif (judgment.scoreA :: number) < 0.5 then comparison.b.arm
-		else "tie"
+	judgment.winner = if scoreA > 0.5 then comparison.a.arm elseif scoreA < 0.5 then comparison.b.arm else "tie"
 	if #scores == 2 then
 		judgment.consistent = scores[1] == scores[2]
 	else
@@ -409,27 +413,26 @@ local function anthropic(options: AnthropicOptions): Transport
 		local content: { { [string]: unknown } } = {}
 		for _, part in input.parts do
 			if part.text ~= nil then
-				table.insert(content, { type = "text", text = part.text } :: { [string]: unknown })
+				local block: { [string]: unknown } = { type = "text", text = part.text }
+				table.insert(content, block)
 			elseif part.image ~= nil then
-				local bytes = options.read(part.image :: string)
+				local bytes = options.read(part.image)
 				local kind = Media.mediaType(bytes)
 				if kind == nil then
 					return {
-						error = ("%s is not a PNG, JPEG, GIF or WebP image"):format(part.image :: string),
+						error = ("%s is not a PNG, JPEG, GIF or WebP image"):format(part.image),
 					}
 				end
 				if #bytes > limit then
 					return {
-						error = ("%s has %d bytes, above the limit of %d"):format(part.image :: string, #bytes, limit),
+						error = ("%s has %d bytes, above the limit of %d"):format(part.image, #bytes, limit),
 					}
 				end
-				table.insert(
-					content,
-					{
-						type = "image",
-						source = { type = "base64", media_type = kind, data = Base64.encode(bytes) },
-					} :: { [string]: unknown }
-				)
+				local block: { [string]: unknown } = {
+					type = "image",
+					source = { type = "base64", media_type = kind, data = Base64.encode(bytes) },
+				}
+				table.insert(content, block)
 			end
 		end
 		local body: { [string]: unknown } = {
@@ -455,7 +458,7 @@ local function anthropic(options: AnthropicOptions): Transport
 		if response == nil then
 			return { text = nil, error = problem or "the request was not answered", model = nil }
 		end
-		local answer = response :: Services.HttpResponse
+		local answer = response
 		local decoded, value = pcall(options.decode, answer.body)
 		if answer.status ~= 200 then
 			local message = if decoded then field(field(value, "error"), "message") else nil
@@ -479,7 +482,7 @@ local function anthropic(options: AnthropicOptions): Transport
 		if type(blocks) == "table" then
 			for _, block in ipairs(blocks :: { unknown }) do
 				if field(block, "type") == "text" and type(field(block, "text")) == "string" then
-					table.insert(texts, field(block, "text") :: string)
+					table.insert(texts, checkedString(field(block, "text")))
 				end
 			end
 		end
@@ -500,11 +503,11 @@ local function cliInput(options: CliOptions, input: Request, sequence: number): 
 	local images: { string } = {}
 	for _, part in input.parts do
 		if part.text ~= nil then
-			table.insert(lines, part.text :: string)
+			table.insert(lines, part.text)
 		elseif part.image ~= nil then
-			local extension = string.match(part.image :: string, "(%.[%w]+)$") or ".png"
+			local extension = string.match(part.image, "(%.[%w]+)$") or ".png"
 			local name = ("image-%02d%s"):format(#images + 1, string.lower(extension))
-			options.files.copy(part.image :: string, Paths.join(directory, name))
+			options.files.copy(part.image, Paths.join(directory, name))
 			table.insert(images, "./" .. name)
 			table.insert(lines, ("Read the image file ./%s."):format(name))
 		end
@@ -727,7 +730,7 @@ local function calibrate(judgments: { Judgment }, labels: { Label }): Calibratio
 		if judgment == nil then
 			table.insert(calibration.unjudged, label.comparison)
 		else
-			table.insert(pairs, { human = label.winner, judge = judgment.winner :: string })
+			table.insert(pairs, { human = label.winner, judge = checkedString(judgment.winner) })
 		end
 	end
 	for _, judgment in judgments do

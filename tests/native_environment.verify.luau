@@ -10,8 +10,8 @@ return function(verifyHarness: Verify.Harness)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 	type ScrollingFrameConstructor = typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameConstructor)
 	type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Facet = require("../src") :: any
 	local engineLib = require("./lib/native_engine")
@@ -135,7 +135,7 @@ return function(verifyHarness: Verify.Harness)
 				w.gui.IsTenFootInterface = function()
 					return nativeConsole
 				end
-				local env: { topbarInset: Readable<Rect>, topbarControlDiameter: Readable<number> }? = nil
+				local env: { topbarInset: ReadOnlyValue<Rect>, topbarControlDiameter: ReadOnlyValue<number> }? = nil
 				local reads = 0
 				local stop = owned(w.runtime, function()
 					local facts = w.UI.environment(screen)
@@ -1665,7 +1665,7 @@ return function(verifyHarness: Verify.Harness)
 				row.Parent = list
 				w.engine.environment.poke(FixtureRoblox.assertInstance(row), "AbsolutePosition", V.new(0, 800))
 				w.engine.environment.poke(FixtureRoblox.assertInstance(row), "AbsoluteSize", V.new(300, 44))
-				w.runtime.reactor:batch(function()
+				Compose.reactor.batch(w.runtime.reactor, function()
 					w.gui.SelectedObject = row
 					list.CanvasPosition = V.new(0, 644)
 				end)

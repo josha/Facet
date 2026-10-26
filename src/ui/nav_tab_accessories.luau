@@ -8,7 +8,7 @@ local tabMetrics = require("./nav_tab_metrics")
 
 export type TabAccessoryView = {
 	frame: tabMetrics.TabFrame,
-	aboveHeight: ComposeTypes.Cell<number>,
+	aboveHeight: ComposeTypes.Value<number>,
 	metrics: tabMetrics.TabMetrics,
 }
 
@@ -53,7 +53,7 @@ return function(
 					end
 					return result
 				end,
-				render = function(current: ComposeTypes.Readable<Nav.Placement>): Instance
+				render = function(current: ComposeTypes.ReadOnlyValue<Nav.Placement>): Instance
 					local built = build(current:peek())
 					if built == nil then
 						return Host.Folder({})
@@ -71,7 +71,7 @@ return function(
 						built,
 					})
 					local measure = ctx.observe.AbsoluteSize(accessory)
-					local metric: ComposeTypes.Cell<number> = if slot == "head"
+					local metric: ComposeTypes.Value<number> = if slot == "head"
 						then headHeight
 						elseif slot == "foot" then footHeight
 						elseif slot == "trailing" then trailingWidth

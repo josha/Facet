@@ -1,13 +1,13 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 
-export type Floor = { x: ComposeTypes.Cell<number>, y: ComposeTypes.Cell<number> }
+export type Floor = { x: ComposeTypes.Value<number>, y: ComposeTypes.Value<number> }
 
 local floors = setmetatable({} :: { [Instance]: Floor }, { __mode = "k" })
 
 local sizeFloor = {}
 
-function sizeFloor.of(node: Instance, cell: (number) -> ComposeTypes.Cell<number>): Floor
+function sizeFloor.of(node: Instance, cell: (number) -> ComposeTypes.Value<number>): Floor
 	local floor = floors[node]
 	if floor == nil then
 		floor = { x = cell(0), y = cell(0) }

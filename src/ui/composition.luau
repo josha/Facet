@@ -17,12 +17,12 @@ type Declared = {
 	zone: Layout.Zone,
 	rank: number,
 	mayDrop: boolean,
-	sizes: { ComposeTypes.Cell<Vector2> },
-	form: ComposeTypes.Cell<number>,
-	yielding: ComposeTypes.Cell<boolean>,
-	lift: ComposeTypes.Cell<number>,
-	hangs: { ComposeTypes.Cell<number> },
-	authored: Types.Value<boolean>?,
+	sizes: { ComposeTypes.Value<Vector2> },
+	form: ComposeTypes.Value<number>,
+	yielding: ComposeTypes.Value<boolean>,
+	lift: ComposeTypes.Value<number>,
+	hangs: { ComposeTypes.Value<number> },
+	authored: Types.Input<boolean>?,
 	floors: { () -> boolean },
 	contents: { GuiObject },
 	leading: boolean,
@@ -54,14 +54,20 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local kit = layoutKit.of(ctx)
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local declared = setmetatable({} :: { [Instance]: Declared }, { __mode = "k" })
-	local function layoutSize(node: GuiBase2d, scale: ComposeTypes.Readable<number>?): ComposeTypes.Readable<Vector2>
+	local function layoutSize(
+		node: GuiBase2d,
+		scale: ComposeTypes.ReadOnlyValue<number>?
+	): ComposeTypes.ReadOnlyValue<Vector2>
 		local size = ctx.observe.AbsoluteSize(node)
 		local unit = scale or ctx.layoutUnit(node)
 		return Compose.formula(function(use: ComposeTypes.Use): Vector2
 			return use(size) / use(unit)
 		end)
 	end
-	local function overhang(content: GuiObject, unit: ComposeTypes.Readable<number>): ComposeTypes.Readable<number>
+	local function overhang(
+		content: GuiObject,
+		unit: ComposeTypes.ReadOnlyValue<number>
+	): ComposeTypes.ReadOnlyValue<number>
 		local reach = Compose.cell(0)
 		local owner = assert(Compose.currentOwner())
 		local outside: { [Instance]: boolean } = {}
@@ -69,7 +75,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local pending: (() -> ())? = nil
 		local function measure()
 			pending = nil
-			if owner.isDisposed() then
+			if ComposeTypes.owner.isDisposed(owner) then
 				return
 			end
 			local edge = content.AbsolutePosition.Y + content.AbsoluteSize.Y
@@ -98,22 +104,22 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end
 		end
 		local function track()
-			if owner.isDisposed() then
+			if ComposeTypes.owner.isDisposed(owner) then
 				return
 			end
 			if scope then
-				scope.dispose()
+				ComposeTypes.owner.dispose(scope)
 				scope = nil
 			end
 			if next(outside) == nil then
 				reach:set(0)
 				return
 			end
-			local watching = owner.createChild()
+			local watching = ComposeTypes.owner.createChild(owner)
 			scope = watching
 			Compose.withOwner(watching, function()
-				local places: { ComposeTypes.Readable<Vector2> } = {}
-				local shown: { ComposeTypes.Readable<boolean> } = {}
+				local places: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
+				local shown: { ComposeTypes.ReadOnlyValue<boolean> } = {}
 				local function observe(node: GuiObject)
 					table.insert(places, ctx.observeNative.AbsolutePosition(node))
 					table.insert(places, ctx.observeNative.AbsoluteSize(node))
@@ -186,7 +192,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		)
 		assert(spec.mayDrop == nil or type(spec.mayDrop) == "boolean", "Facet Region mayDrop must be a boolean")
 		assert(
-			spec.form == nil or (Compose.isReadable(spec.form) and type(spec.form.set) == "function"),
+			spec.form == nil or (Compose.isValue(spec.form) and type(spec.form.set) == "function"),
 			"Facet Region form must be a writable cell"
 		)
 		assert(
@@ -203,7 +209,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			"Facet Region trailing must be a boolean, and only a topbar region can trail"
 		)
 		assert(not (spec.leading and spec.trailing), "Facet Region cannot both lead and trail")
-		local form: ComposeTypes.Cell<number> = spec.form or Compose.cell(1)
+		local form: ComposeTypes.Value<number> = spec.form or Compose.cell(1)
 		form:set(1)
 		local reduced = reducedMotion(ctx)
 		local popSeconds = ctx.metric("motion.durations.regionPop")
@@ -242,8 +248,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				"badge"
 			)
 		end
-		local sizes: { ComposeTypes.Cell<Vector2> } = {}
-		local hangs: { ComposeTypes.Cell<number> } = {}
+		local sizes: { ComposeTypes.Value<Vector2> } = {}
+		local hangs: { ComposeTypes.Value<number> } = {}
 		local floors: { () -> boolean } = {}
 		local contents: { GuiObject } = {}
 		local below = zone == "action" or resolver.CELLS[zone][2] == 3
@@ -298,7 +304,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local owner = assert(Compose.currentOwner())
 		local home = properties[1] :: Instance
 		local function returnHome()
-			if owner.isDisposed() then
+			if ComposeTypes.owner.isDisposed(owner) then
 				return
 			end
 			local content = assert(richest)
@@ -409,10 +415,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		name: string,
 		column: number,
 		row: number,
-		gap: Types.Value<Types.Space>,
+		gap: Types.Input<Types.Space>,
 		children: { Frame },
-		shift: ComposeTypes.Readable<resolver.Shift>,
-		rows: ComposeTypes.Readable<resolver.Rows>
+		shift: ComposeTypes.ReadOnlyValue<resolver.Shift>,
+		rows: ComposeTypes.ReadOnlyValue<resolver.Rows>
 	): Frame
 		local flowing = column == 2 and row ~= 2
 		local fields: Types.FrameNativeProps = {
@@ -482,8 +488,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		for _, helper in helpers do
 			properties[#properties + 1] = helper
 		end
-		local gap: Types.Value<Types.Space> = if spec.gap == nil then "s" else spec.gap
-		local base: Types.Value<Types.Padding> = if spec.padding == nil then "s" else spec.padding
+		local gap: Types.Input<Types.Space> = if spec.gap == nil then "s" else spec.gap
+		local base: Types.Input<Types.Padding> = if spec.padding == nil then "s" else spec.padding
 		local under = Compose.cell(0)
 		local direct = Compose.cell(false)
 		local distant = ctx.tenFoot()
@@ -574,8 +580,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local zones: { [string]: Frame } = {}
 		local placed: { Frame } = {}
 		local resting: resolver.Shift = { top = 0, bottom = 0, hang = 0, leanTop = 0, leanBottom = 0 }
-		local shift: ComposeTypes.Cell<resolver.Shift> = Compose.cell(resting)
-		local rows: ComposeTypes.Cell<resolver.Rows> = Compose.cell({ top = 0, bottom = 0 })
+		local shift: ComposeTypes.Value<resolver.Shift> = Compose.cell(resting)
+		local rows: ComposeTypes.Value<resolver.Rows> = Compose.cell({ top = 0, bottom = 0 })
 		for zone, children in members do
 			local cell = resolver.CELLS[zone]
 			local frame = zoneFrame(
@@ -636,19 +642,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local riding: (ComposeTypes.Use) -> boolean = function()
 			return false
 		end
-		local landed: ComposeTypes.Cell<{ boolean }> = Compose.cell({})
+		local landed: ComposeTypes.Value<{ boolean }> = Compose.cell({})
 		local stripGui: ScreenGui? = nil
 		local topbarBand = if #stripRegions > 0 and ctx.config.guiService
 			then ctx.observe.TopbarInset(ctx.config.guiService)
 			else nil
 		if #stripRegions > 0 then
-			local screen: ComposeTypes.Cell<ScreenGui?> = Compose.cell(nil :: ScreenGui?)
-			local holder: ComposeTypes.Cell<Instance?> = Compose.cell(nil :: Instance?)
+			local screen: ComposeTypes.Value<ScreenGui?> = Compose.cell(nil :: ScreenGui?)
+			local holder: ComposeTypes.Value<Instance?> = Compose.cell(nil :: Instance?)
 			local enabled = Compose.cell(true)
 			local owner = assert(Compose.currentOwner())
 			local chain: ComposeTypes.Owner? = nil
 			local function locate()
-				if owner.isDisposed() then
+				if ComposeTypes.owner.isDisposed(owner) then
 					return
 				end
 				local host = root:FindFirstAncestorWhichIsA("ScreenGui")
@@ -660,12 +666,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					end
 				end
 				if chain then
-					chain.dispose()
+					ComposeTypes.owner.dispose(chain)
 				end
-				local watching = owner.createChild()
+				local watching = ComposeTypes.owner.createChild(owner)
 				chain = watching
 				Compose.withOwner(watching, function()
-					local sources: { ComposeTypes.Readable<boolean> } = {}
+					local sources: { ComposeTypes.ReadOnlyValue<boolean> } = {}
 					local at: Instance? = root
 					while at and not at:IsA("LayerCollector") do
 						if at:IsA("GuiObject") then
@@ -954,7 +960,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local streaks: { [Frame]: number } = {}
 		local later = runtime.scheduler()
 		local last: Vector2? = nil
-		local placement: ComposeTypes.Cell<Placement?> = Compose.cell(nil :: Placement?)
+		local placement: ComposeTypes.Value<Placement?> = Compose.cell(nil :: Placement?)
 		local stripUnit = if stripGui then ctx.layoutUnit(stripGui) else nil
 		local stripSize = if stripGui then layoutSize(stripGui, stripUnit) else nil
 		local heights = extentMatch.new()
@@ -1186,7 +1192,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		runtime.connect(root, "AncestryChanged", moved)
 		local shown = ctx.observe.Visible(root)
-		local regionShown: { ComposeTypes.Readable<unknown> } = {}
+		local regionShown: { ComposeTypes.ReadOnlyValue<unknown> } = {}
 		for index, region in regions do
 			regionShown[index] = ctx.observe.Visible(region)
 		end

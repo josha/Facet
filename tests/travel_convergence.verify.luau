@@ -275,7 +275,7 @@ return function(harness: Verify.Harness)
 			native.environment.poke(slot, "AbsoluteSize", native.types.Vector2.new(16, 16))
 			slots[index] = slot
 		end
-		local cells: { Facet.Cell<GuiObject> } = {}
+		local cells: { Facet.Value<GuiObject> } = {}
 		local nodes: { Frame } = {}
 		local stop = runtime.mount(function()
 			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
@@ -326,12 +326,12 @@ return function(harness: Verify.Harness)
 		screen.Parent, row.Parent = native.new("Folder"), screen
 		local slots: { Frame } = {}
 		local nodes: { Frame } = {}
-		local cells: { Facet.Cell<GuiObject> } = {}
+		local cells: { Facet.Value<GuiObject> } = {}
 		local starts: { number } = {}
 		local lands = 0
 		local lifted: { boolean } = {}
 		local arced: { boolean } = {}
-		local reduced: Facet.Cell<Shared.MotionLevel>
+		local reduced: Facet.Value<Shared.MotionLevel>
 		for index = 1, 7 do
 			slots[index] = native.new("Frame")
 			slots[index].Parent = row
@@ -508,7 +508,7 @@ return function(harness: Verify.Harness)
 		local stroke = native.new("UIStroke")
 		stroke.Parent, stroke.Thickness = target, 3
 		padding.PaddingLeft, padding.PaddingTop = native.types.UDim.new(0, 0), native.types.UDim.new(0, 0)
-		local destination: Facet.Cell<GuiObject>
+		local destination: Facet.Value<GuiObject>
 		local node: Frame
 		local stop = runtime.mount(function()
 			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
@@ -605,8 +605,8 @@ return function(harness: Verify.Harness)
 		local screen = native.new("ScreenGui")
 		screen.Parent = native.new("Folder")
 		local slots: { [number]: GuiObject } = {}
-		local rows: Facet.Cell<{ number }>
-		local destination: Facet.Cell<GuiObject>
+		local rows: Facet.Value<{ number }>
+		local destination: Facet.Value<GuiObject>
 		local node: Frame
 		local root: Frame
 		local stop = runtime.mount(function()
@@ -621,7 +621,7 @@ return function(harness: Verify.Harness)
 				itemSize = 60,
 				mode = "all" :: "all",
 				recycle = false,
-				render = function(current: Shared.Readable<number>): GuiObject
+				render = function(current: Shared.ReadOnlyValue<number>): GuiObject
 					local id = current:peek()
 					local slot = Host.Frame { Name = `Target{id}`, ClipsDescendants = true }
 					native.environment.poke(
@@ -728,7 +728,7 @@ return function(harness: Verify.Harness)
 		native.environment.poke(FixtureRoblox.assertInstance(source), "AbsoluteSize", native.types.Vector2.new(44, 44))
 		native.environment.poke(FixtureRoblox.assertInstance(target), "AbsoluteSize", native.types.Vector2.new(44, 44))
 		native.environment.poke(target, "AbsolutePosition", native.types.Vector2.new(200, 200))
-		local destination: Facet.Cell<GuiObject>
+		local destination: Facet.Value<GuiObject>
 		local node: Frame
 		local stop = runtime.mount(function()
 			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })

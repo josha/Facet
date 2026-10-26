@@ -158,7 +158,10 @@ See [declarative gates](execution.md#declarative-gates) and [benchmarks](experie
 ## Repository gate
 
 `tools/gate.luau` is the one command that checks this repository.
-It runs the static checks, the specs in `tests`, the examples and the boundary checks.
+It runs the static checks, the committed `tests/manifest.luau` corpus, the examples and the boundary checks.
+The full gate requires a clean committed HEAD and proves that a fresh clone passes the portable tiers.
+After adding or removing a specification, regenerate the manifest with `lute run tools/check-test-manifest.luau --write`.
+Verify contains only first-party source and uses the toolchain in `rokit.toml`; it has no external source dependencies and needs no `dependencies.lock.luau`.
 The spec corpus runs through the `specs` producer of kind `tests`.
 
 ```sh

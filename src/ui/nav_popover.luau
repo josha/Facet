@@ -38,8 +38,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 	local function geometry(
 		node: GuiBase2d,
 		property: "AbsoluteSize" | "AbsolutePosition"
-	): ComposeTypes.Readable<Vector2>
-		return runtime.observe(node, property) :: ComposeTypes.Readable<Vector2>
+	): ComposeTypes.ReadOnlyValue<Vector2>
+		return runtime.observe(node, property) :: ComposeTypes.ReadOnlyValue<Vector2>
 	end
 
 	local function finite(value: unknown): boolean
@@ -209,20 +209,20 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			check()
 		end
 		local input = surfaces.service("UserInputService")
-		local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if input
+		local preferred: ComposeTypes.ReadOnlyValue<Enum.PreferredInput>? = if input
 				and input.GetPropertyChangedSignal
 			then ctx.observe.PreferredInput(input)
 			else nil
 		local layerSize = Compose.cell(V2.zero)
 		local layerOwner: ComposeTypes.Owner? = nil
 		local function locateLayer()
-			if owner.isDisposed() then
+			if ComposeTypes.owner.isDisposed(owner) then
 				return
 			end
 			if layerOwner then
-				layerOwner.dispose()
+				ComposeTypes.owner.dispose(layerOwner)
 			end
-			local child = owner.createChild()
+			local child = ComposeTypes.owner.createChild(owner)
 			layerOwner = child
 			Compose.withOwner(child, function()
 				local layer = surfaces.parent(root)
@@ -270,7 +270,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local layer = assert(surfaces.parent(root))
 			local extent = geometry(layer, "AbsoluteSize")
 			local origin = geometry(layer, "AbsolutePosition")
-			local sourceAt: ComposeTypes.Readable<Vector2>, sourceSize: ComposeTypes.Readable<Vector2>
+			local sourceAt: ComposeTypes.ReadOnlyValue<Vector2>, sourceSize: ComposeTypes.ReadOnlyValue<Vector2>
 			local anchorNode = node or spec.trigger
 			if anchorNode then
 				sourceAt, sourceSize = geometry(anchorNode, "AbsolutePosition"), geometry(anchorNode, "AbsoluteSize")
@@ -331,7 +331,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			bodyProps[#bodyProps + 1] = limit
 			local children: { Types.Child } = { list, proposed, content }
 			local closeUnit = ctx.layoutUnit(layer)
-			local closeContentSize: ComposeTypes.Readable<Vector2> = if content:IsA("GuiObject")
+			local closeContentSize: ComposeTypes.ReadOnlyValue<Vector2> = if content:IsA("GuiObject")
 				then ctx.observe.AbsoluteSize(content)
 				else Compose.cell(V2.zero)
 			local closes = spec.cancelPolicy ~= "none"
@@ -621,7 +621,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					if losing then
 						return
 					end
-					if disposed or owner.isDisposed() then
+					if disposed or ComposeTypes.owner.isDisposed(owner) then
 						closing = nil
 						report("cancel")
 						return
@@ -641,7 +641,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						from = function(use: ComposeTypes.Use): { string }
 							return { use(route) }
 						end,
-						render = function(item: ComposeTypes.Readable<string>): Instance
+						render = function(item: ComposeTypes.ReadOnlyValue<string>): Instance
 							local modal = if item:peek() == "sheet" then sheeted(phase) else anchored(phase)
 							activeModal = modal
 							Compose.cleanup(function()

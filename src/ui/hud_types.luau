@@ -3,19 +3,19 @@ local Shared = require("./types")
 local Media = require("./media_types")
 local Env = require("./environment_types")
 
-export type TimerControls = { completed: Shared.Readable<boolean>? }
+export type TimerControls = { completed: Shared.ReadOnlyValue<boolean>? }
 export type TimerOptions = {
 	ref: ((TextLabel) -> ())?,
 	deadline: Shared.ValueNumber?,
 	start: Shared.ValueNumber?,
 	now: (() -> number)?,
 	hours: boolean?,
-	textRole: Shared.Value<Media.TextRole>?,
+	textRole: Shared.Input<Media.TextRole>?,
 	onComplete: (() -> ())?,
 	controls: TimerControls?,
 }
 export type TypewriterControls = {
-	revealed: Shared.Readable<boolean>?,
+	revealed: Shared.ReadOnlyValue<boolean>?,
 	finish: (() -> ())?,
 }
 export type TypewriterOptions = {
@@ -24,10 +24,10 @@ export type TypewriterOptions = {
 }
 export type WorldMarkerEdge = "clamp" | "hide"
 export type WorldMarkerOptions = {
-	anchor: Shared.Readable<Env.WorldAnchorPoint>,
-	edge: Shared.Value<WorldMarkerEdge>?,
-	margin: Shared.Value<Shared.Padding>?,
-	arrow: Shared.Value<boolean>?,
+	anchor: Shared.ReadOnlyValue<Env.WorldAnchorPoint>,
+	edge: Shared.Input<WorldMarkerEdge>?,
+	margin: Shared.Input<Shared.Padding>?,
+	arrow: Shared.Input<boolean>?,
 }
 
 return {}

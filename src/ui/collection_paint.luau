@@ -8,7 +8,7 @@ return function(
 	root: GuiObject,
 	measure: ((ComposeTypes.Use, Vector2) -> ())?,
 	rest: boolean?
-): ComposeTypes.Readable<boolean>
+): ComposeTypes.ReadOnlyValue<boolean>
 	local size = ctx.observe.AbsoluteSize(root)
 	local function sample(): boolean
 		local box = root.AbsoluteSize
@@ -85,7 +85,7 @@ return function(
 		end
 		if box.X <= 0 or box.Y <= 0 then
 			if scope then
-				scope.dispose()
+				ComposeTypes.owner.dispose(scope)
 				scope = nil
 			end
 			ready:set(false)
@@ -93,7 +93,7 @@ return function(
 		if scope then
 			return
 		end
-		local nextScope = owner.createChild()
+		local nextScope = ComposeTypes.owner.createChild(owner)
 		scope = nextScope
 		ctx.Compose.withOwner(nextScope, function()
 			local render = ctx.config.services.RunService and ctx.config.services.RunService.PreRender

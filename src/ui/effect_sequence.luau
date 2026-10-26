@@ -6,7 +6,7 @@ local reducedMotion = require("./motion").reduced
 
 return function(ctx: Shared.Context, UI: Types.Controls)
 	local runtime = ctx.runtime
-	function UI.countUp(value: Shared.Value<number>): Shared.Readable<number>
+	function UI.countUp(value: Shared.Input<number>): Shared.ReadOnlyValue<number>
 		return runtime.tween(function(use: Shared.Use): number
 			local number = ctx.read(value, use)
 			assert(number == number and math.abs(number) < math.huge, "Facet countUp requires a finite value")

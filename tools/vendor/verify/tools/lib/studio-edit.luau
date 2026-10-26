@@ -34,14 +34,14 @@ local function connect(target: Target, directory: string): Connection
 			0
 		)
 	end
-	local attached = session :: Lute.StudioSession
+	local attached = session
 	return {
 		execute = function(code: string): string
 			local response = attached.execute("Edit", code)
 			if not response.ok or response.text == nil then
 				error("Studio refused the request: " .. tostring(response.detail), 0)
 			end
-			return response.text :: string
+			return response.text
 		end,
 		close = function()
 			attached.close()

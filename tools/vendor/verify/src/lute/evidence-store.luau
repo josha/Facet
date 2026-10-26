@@ -40,11 +40,11 @@ local function readFile(reference: string): (string?, string?)
 	if reference == "" or Files.hasScheme(reference) then
 		return nil, "reference is not a local file"
 	end
-	local ok, bytes: unknown = pcall(Files.readArtifact, reference)
+	local ok, bytes = pcall(Files.readArtifact, reference)
 	if not ok then
 		return nil, tostring(bytes)
 	end
-	return bytes :: string, nil
+	return bytes, nil
 end
 
 local function localDirectory(directory: string): Core.EvidenceSink
@@ -90,17 +90,17 @@ local function localDirectory(directory: string): Core.EvidenceSink
 		if owned(reference) == nil then
 			return nil, "reference is outside the store"
 		end
-		local ok, bytes: unknown = pcall(fs.readFileToString, reference)
+		local ok, bytes = pcall(fs.readFileToString, reference)
 		if not ok then
 			return nil, tostring(bytes)
 		end
-		return bytes :: string, nil
+		return bytes, nil
 	end
 	local function stat(reference: string): (Core.EvidenceStat?, string?)
 		if owned(reference) == nil then
 			return nil, "reference is outside the store"
 		end
-		local ok, size: unknown = pcall(function(): number
+		local ok, size = pcall(function(): number
 			local metadata = fs.metadata(reference)
 			assert(metadata.type == "file", "stored artifact is not a regular file")
 			return metadata.size
@@ -108,7 +108,7 @@ local function localDirectory(directory: string): Core.EvidenceSink
 		if not ok then
 			return nil, tostring(size)
 		end
-		return { size = size :: number }, nil
+		return { size = size }, nil
 	end
 	return { put = put, get = get, stat = stat }
 end

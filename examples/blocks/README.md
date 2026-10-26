@@ -14,7 +14,7 @@ local FacetTypes = require(game:GetService("ReplicatedStorage").Packages.Facet)
 ```
 
 In a property function that reads two kinds of value, write
-`function(use: Facet.Use)`. `Facet.Use` is `<T>(Facet.Readable<T>) -> T`.
+`function(use: Facet.Use)`. `Facet.Use` is `<T>(Facet.ReadOnlyValue<T>) -> T`.
 
 ## Starter blocks
 

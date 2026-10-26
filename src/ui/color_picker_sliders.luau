@@ -224,7 +224,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 			end),
 		}
 		local labels: { TextLabel } = {}
-		local bounds: { ComposeTypes.Readable<Vector2> } = {}
+		local bounds: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 		for _, slider in sliders do
 			local label = slider:FindFirstChild("Label") :: TextLabel
 			table.insert(labels, label)

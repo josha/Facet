@@ -121,19 +121,19 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 			end
 			for key, value in fields do
 				if type(key) == "string" then
-					if Compose.isReadable(value) then
+					if Compose.isValue(value) then
 						if not native[metatableOf(value)] then
 							reject(key)
 						end
 					elseif type(value) == "table" and metatableOf(value) == nil then
 						for _, entry in value :: { [unknown]: unknown } do
-							if type(entry) == "table" and not Compose.isReadable(entry) then
+							if type(entry) == "table" and not Compose.isValue(entry) then
 								for field, inner in entry :: { [unknown]: unknown } do
-									if Compose.isReadable(inner) and not native[metatableOf(inner)] then
+									if Compose.isValue(inner) and not native[metatableOf(inner)] then
 										reject(`{key}.{tostring(field)}`)
 									end
 								end
-							elseif Compose.isReadable(entry) and not native[metatableOf(entry)] then
+							elseif Compose.isValue(entry) and not native[metatableOf(entry)] then
 								reject(key)
 							end
 						end

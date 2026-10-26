@@ -3,9 +3,9 @@ local FacetTypes = require("../../src")
 
 type FacetModule = FacetTypes.Facet
 type FacetControls = FacetTypes.Controls
-type BooleanCell = FacetTypes.Cell<boolean>
-type NumberCell = FacetTypes.Cell<number>
-type StringCell = FacetTypes.Cell<string>
+type BooleanCell = FacetTypes.Value<boolean>
+type NumberCell = FacetTypes.Value<number>
+type StringCell = FacetTypes.Value<string>
 type Model = { music: BooleanCell, volume: NumberCell, quality: StringCell, reset: () -> () }
 
 return function(_Facet: FacetModule, UI: FacetControls, model: Model): Instance

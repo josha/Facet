@@ -3,8 +3,8 @@
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 
 local widgets = require("./widgets")
 local gallery = require("./gallery")

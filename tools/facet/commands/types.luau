@@ -389,9 +389,15 @@ local NEGATIVE_PROBES: { { string } } = {
 	},
 	{ "Radial geometry", 'UI.RadialMenu({ items={}, preset="triangle" })' },
 	{ "Slider controlled callback", "UI.Slider({value=0.5})" },
-	{ "Toggle controlled callback", "UI.Toggle({value=Facet.Compose.formula(function() return false end)})" },
+	{
+		"Toggle controlled callback",
+		"local source: Facet.ReadOnlyValue<boolean> = Facet.Compose.formula(function() return false end); UI.Toggle({value=source})",
+	},
 	{ "TextInput numeric model", 'UI.TextInput({value=Facet.Compose.cell("1"),presentation="number"})' },
-	{ "TextInput controlled callback", 'UI.TextInput({value=Facet.Compose.formula(function() return "" end)})' },
+	{
+		"TextInput controlled callback",
+		'local source: Facet.ReadOnlyValue<string> = Facet.Compose.formula(function() return "" end); UI.TextInput({value=source})',
+	},
 	{ "NumberInput numeric model", 'UI.NumberInput({value=Facet.Compose.cell("1")})' },
 	{ "Civil date parse", 'local civilDay: number = Facet.civilDate.parse("09/03/2026")' },
 	{ "Shortcut neither source", "UI.ShortcutHint({})" },
@@ -439,7 +445,7 @@ local PROBE_HEADER = {
 	'local Facet = require("@repo/src")',
 	"local runtime = Facet.Roblox.createRuntime()",
 	"local UI = Facet.controls(runtime)",
-	"local nullableText: Facet.Cell<string?> = Facet.Compose.cell(nil :: string?)",
+	"local nullableText: Facet.Value<string?> = Facet.Compose.cell(nil :: string?)",
 }
 
 local function probeSource(names: { string }): (string, { [number]: string }, number)
@@ -1455,17 +1461,17 @@ register = function(harness: Verify.Harness, prefix: string): ()
 				Verify.expect(table.find(lines, line) ~= nil):toBeTrueWith("missing line: " .. line)
 			end
 			Verify.expect(ordered):toEqual({ "Instance", "GuiObject", "Frame" })
-			has("export type ValueBoolean = Value<boolean>")
-			has("export type ValueInstanceOptional = Value<Instance?>")
-			has("export type ValueEnumFrameStyle = Value<Enum.FrameStyle>")
+			has("export type ValueBoolean = Input<boolean>")
+			has("export type ValueInstanceOptional = Input<Instance?>")
+			has("export type ValueEnumFrameStyle = Input<Enum.FrameStyle>")
 			has("\tParent: (ValueInstanceOptional | StaticValue)?,")
 			has("\tChanged: ((string) -> ())?,")
 			has("\tInputBegan: ((InputObject, Enum.UserInputState, unknown) -> ())?,")
 			has("\tAttributes: Attributes?,")
 			has("\tref: ((Frame) -> ())?,")
 			has("\tFrame: Constructor<FrameNativeProps, Frame>,")
-			has("\tAbsoluteSize: ((GuiObject) -> Compose.Cell<Vector2>),")
-			has("\tParent: ((Instance) -> Compose.Cell<Instance?>),")
+			has("\tAbsoluteSize: ((GuiObject) -> Compose.Value<Vector2>),")
+			has("\tParent: ((Instance) -> Compose.Value<Instance?>),")
 			Verify.expect(table.find(lines, "export type InstanceNativeProps = {") == nil)
 				:toBeTrueWith("an unselected class was exported")
 			Verify.expect(table.find(lines, "\tGuiObject: Constructor<GuiObjectNativeProps, GuiObject>,") == nil)

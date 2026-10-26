@@ -8,38 +8,53 @@ local f32 = Float.f32
 
 type Color3Value = Color.Color3Value
 
-export type NumberRangeValue = typeof(setmetatable(
-	{} :: { Min: number, Max: number },
-	{} :: { __eq: (NumberRangeValue, NumberRangeValue) -> boolean, __tostring: (NumberRangeValue) -> string }
-))
+local NumberRangeValueFields: { Min: number, Max: number }
+local NumberRangeValueMeta: { __eq: (NumberRangeValue, NumberRangeValue) -> boolean, __tostring: (NumberRangeValue) -> string }
+
+export type NumberRangeValue = typeof(setmetatable(NumberRangeValueFields, NumberRangeValueMeta))
+
+local NumberSequenceKeypointValueFields: { Time: number, Value: number, Envelope: number }
+local NumberSequenceKeypointValueMeta: {
+	__eq: (NumberSequenceKeypointValue, NumberSequenceKeypointValue) -> boolean,
+	__tostring: (NumberSequenceKeypointValue) -> string,
+}
 
 export type NumberSequenceKeypointValue = typeof(setmetatable(
-	{} :: { Time: number, Value: number, Envelope: number },
-	{} :: {
-		__eq: (NumberSequenceKeypointValue, NumberSequenceKeypointValue) -> boolean,
-		__tostring: (NumberSequenceKeypointValue) -> string,
-	}
+	NumberSequenceKeypointValueFields,
+	NumberSequenceKeypointValueMeta
 ))
+
+local ColorSequenceKeypointValueFields: { Time: number, Value: Color3Value }
+local ColorSequenceKeypointValueMeta: {
+	__eq: (ColorSequenceKeypointValue, ColorSequenceKeypointValue) -> boolean,
+	__tostring: (ColorSequenceKeypointValue) -> string,
+}
 
 export type ColorSequenceKeypointValue = typeof(setmetatable(
-	{} :: { Time: number, Value: Color3Value },
-	{} :: {
-		__eq: (ColorSequenceKeypointValue, ColorSequenceKeypointValue) -> boolean,
-		__tostring: (ColorSequenceKeypointValue) -> string,
-	}
+	ColorSequenceKeypointValueFields,
+	ColorSequenceKeypointValueMeta
 ))
 
-export type NumberSequenceValue = typeof(setmetatable(
-	{} :: { Keypoints: { NumberSequenceKeypointValue } },
-	{} :: { __eq: (NumberSequenceValue, NumberSequenceValue) -> boolean, __tostring: (NumberSequenceValue) -> string }
-))
+local NumberSequenceValueFields: { Keypoints: { NumberSequenceKeypointValue } }
+local NumberSequenceValueMeta: { __eq: (NumberSequenceValue, NumberSequenceValue) -> boolean, __tostring: (NumberSequenceValue) -> string }
 
-export type ColorSequenceValue = typeof(setmetatable(
-	{} :: { Keypoints: { ColorSequenceKeypointValue } },
-	{} :: { __eq: (ColorSequenceValue, ColorSequenceValue) -> boolean, __tostring: (ColorSequenceValue) -> string }
-))
+export type NumberSequenceValue = typeof(setmetatable(NumberSequenceValueFields, NumberSequenceValueMeta))
 
-type Keypoint = { Time: number }
+local ColorSequenceValueFields: { Keypoints: { ColorSequenceKeypointValue } }
+local ColorSequenceValueMeta: { __eq: (ColorSequenceValue, ColorSequenceValue) -> boolean, __tostring: (ColorSequenceValue) -> string }
+
+export type ColorSequenceValue = typeof(setmetatable(ColorSequenceValueFields, ColorSequenceValueMeta))
+
+type Keypoint = NumberSequenceKeypointValue | ColorSequenceKeypointValue
+
+local ranges: { [unknown]: NumberRangeValue } = {}
+local numberSequences: { [unknown]: NumberSequenceValue } = {}
+Names.weak(ranges)
+Names.weak(numberSequences)
+local keypointValues: { [unknown]: Keypoint } = {}
+local storedKeypoints: { [unknown]: { Keypoint } } = {}
+Names.weak(keypointValues)
+Names.weak(storedKeypoints)
 
 local KEYPOINTS = {}
 
@@ -67,7 +82,9 @@ local NumberRange = {
 		if high < low then
 			error("NumberRange: invalid range", 2)
 		end
-		return Names.make(NumberRangeKind, { Min = low, Max = high })
+		local made: NumberRangeValue = Names.make(NumberRangeKind, { Min = low, Max = high })
+		ranges[made] = made
+		return made
 	end,
 }
 
@@ -79,7 +96,10 @@ NumberKeypointKind.meta.__tostring = function(a: NumberSequenceKeypointValue): s
 end
 
 local function numberKeypoint(time: number, value: number, envelope: number): NumberSequenceKeypointValue
-	return Names.make(NumberKeypointKind, { Time = f32(time), Value = f32(value), Envelope = f32(envelope) })
+	local made: NumberSequenceKeypointValue =
+		Names.make(NumberKeypointKind, { Time = f32(time), Value = f32(value), Envelope = f32(envelope) })
+	keypointValues[made] = made
+	return made
 end
 
 local NumberSequenceKeypoint = {
@@ -99,7 +119,9 @@ local function colorKeypoint(time: number, color: unknown): ColorSequenceKeypoin
 	if not Color.isColor3(color) then
 		Names.argument(2, "Color3", color)
 	end
-	return Names.make(ColorKeypointKind, { Time = f32(time), Value = color })
+	local made: ColorSequenceKeypointValue = Names.make(ColorKeypointKind, { Time = f32(time), Value = color })
+	keypointValues[made] = made
+	return made
 end
 
 local ColorSequenceKeypoint = {
@@ -127,14 +149,14 @@ local function validate(owner: string, keypoints: { Keypoint })
 	end
 end
 
-local function keypointsOf(value: unknown): { unknown }
-	return Names.fields(value)[KEYPOINTS] :: { unknown }
+local function keypointsOf(value: unknown): { Keypoint }
+	return storedKeypoints[value]
 end
 
 local function sequenceKind(kind: Names.Behavior, owner: string)
 	kind.fields.__index = function(fields: { [unknown]: unknown }, key: unknown): unknown
 		if key == "Keypoints" then
-			return table.clone(fields[KEYPOINTS] :: { unknown })
+			return table.clone(storedKeypoints[fields])
 		end
 		return Names.missing(kind, key)
 	end
@@ -164,13 +186,13 @@ end
 sequenceKind(NumberSequenceKind, "NumberSequence")
 sequenceKind(ColorSequenceKind, "ColorSequence")
 
-local function keypointList(value: unknown, kind: Names.Behavior, owner: string): { unknown }
-	local list: { unknown } = {}
+local function keypointList(value: unknown, kind: Names.Behavior, owner: string): { Keypoint }
+	local list: { Keypoint } = {}
 	for index, keypoint in value :: { unknown } do
 		if not Names.is(keypoint, kind) then
 			error(("%s: expected keypoint at index %d"):format(owner, index), 3)
 		end
-		list[index] = keypoint
+		list[index] = keypointValues[keypoint]
 	end
 	return list
 end
@@ -178,37 +200,54 @@ end
 local NumberSequence = {
 	new = function(...: unknown): NumberSequenceValue
 		local first, second = ...
-		local keypoints: { unknown }
+		local keypoints: { Keypoint } = {}
 		if type(first) == "table" and not Names.is(first, NumberKeypointKind) then
 			keypoints = keypointList(first, NumberKeypointKind, "NumberSequence")
 		elseif second ~= nil then
-			keypoints = { numberKeypoint(0, Float.coerce(first, 1), 0), numberKeypoint(1, Float.coerce(second, 2), 0) }
+			keypoints[1] = numberKeypoint(0, Float.coerce(first, 1), 0)
+			keypoints[2] = numberKeypoint(1, Float.coerce(second, 2), 0)
 		else
 			local value = Float.coerce(first, 1)
-			keypoints = { numberKeypoint(0, value, 0), numberKeypoint(1, value, 0) }
+			keypoints[1] = numberKeypoint(0, value, 0)
+			keypoints[2] = numberKeypoint(1, value, 0)
 		end
-		validate("NumberSequence", (keypoints :: unknown) :: { Keypoint })
-		return Names.make(NumberSequenceKind, { [KEYPOINTS] = table.freeze(keypoints) })
+		validate("NumberSequence", keypoints)
+		local fields: Names.Fields = { [KEYPOINTS] = table.freeze(keypoints) }
+		local made: NumberSequenceValue = Names.make(NumberSequenceKind, fields)
+		numberSequences[made] = made
+		storedKeypoints[made], storedKeypoints[fields] = keypoints, keypoints
+		return made
 	end,
 }
 
 local ColorSequence = {
 	new = function(...: unknown): ColorSequenceValue
 		local first, second = ...
-		local keypoints: { unknown }
+		local keypoints: { Keypoint } = {}
 		if type(first) == "table" and not Color.isColor3(first) then
 			keypoints = keypointList(first, ColorKeypointKind, "ColorSequence")
 		elseif second ~= nil then
-			keypoints = { colorKeypoint(0, first), colorKeypoint(1, second) }
+			keypoints[1] = colorKeypoint(0, first)
+			keypoints[2] = colorKeypoint(1, second)
 		else
-			keypoints = { colorKeypoint(0, first), colorKeypoint(1, first) }
+			keypoints[1] = colorKeypoint(0, first)
+			keypoints[2] = colorKeypoint(1, first)
 		end
-		validate("ColorSequence", (keypoints :: unknown) :: { Keypoint })
-		return Names.make(ColorSequenceKind, { [KEYPOINTS] = table.freeze(keypoints) })
+		validate("ColorSequence", keypoints)
+		local fields: Names.Fields = { [KEYPOINTS] = table.freeze(keypoints) }
+		local made: ColorSequenceValue = Names.make(ColorSequenceKind, fields)
+		storedKeypoints[made], storedKeypoints[fields] = keypoints, keypoints
+		return made
 	end,
 }
 
 return {
+	rangeValue = function(value: unknown): NumberRangeValue
+		return ranges[value]
+	end,
+	numberSequenceValue = function(value: unknown): NumberSequenceValue
+		return numberSequences[value]
+	end,
 	NumberRange = NumberRange,
 	NumberSequenceKeypoint = NumberSequenceKeypoint,
 	NumberSequence = NumberSequence,

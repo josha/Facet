@@ -3,7 +3,7 @@ local Shared = require("./types")
 export type Options = {
 	min: number?,
 	max: number?,
-	step: Shared.Value<number>?,
+	step: Shared.Input<number>?,
 	format: ((number) -> string)?,
 }
 export type Model = {

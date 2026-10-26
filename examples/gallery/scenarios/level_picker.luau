@@ -4,9 +4,11 @@ type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Segment = {
 	count: number,
@@ -59,7 +61,7 @@ return {
 			id: string,
 			label: string,
 			hint: string,
-			value: Cell<number>,
+			value: Value<number>,
 			pickerId: string,
 			spec: Segment
 		): Frame

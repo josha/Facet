@@ -1,18 +1,26 @@
 --!strict
 --!native
 
-local Graph = require "./graph"
+local Evaluation = require "./evaluation"
+local Types = require "./types"
 local profile = require "./profile"
 local stats = require "./stats"
 local statsOn = stats.state
 
-export type Reactor = Graph.Reactor
-type Consumer = Graph.Consumer
-type Scheduled = Graph.Scheduled
+type Node = Types.Node
+export type Reactor = Types.Reactor
 
 local MAX_RUNS_PER_DRAIN = 1_000_000
 
-local traceback = debug.traceback :: (message: string) -> string
+local caught = ""
+
+local function traceback(message: unknown): string
+	return debug.traceback(tostring(message), 2)
+end
+
+local function catch(message: unknown)
+	caught = traceback(message)
+end
 
 local function describeErrors(errors: { string }): string
 	if #errors == 1 then
@@ -26,214 +34,274 @@ local function describeErrors(errors: { string }): string
 end
 
 local function create(): Reactor
-	local queue: { Scheduled } = {}
-	local queueCount = 0
-	local cursor = 0
-	local batching = false
-	local reactor: Reactor
+	return { queue = {}, count = 0, cursor = 0, batching = false, errors = nil, abandoned = false }
+end
 
-	local drainErrors: { string }? = nil
-	local drainAbandoned = false
+local touched: { Reactor } = {}
+local touchedCount = 0
 
-	local function runRest(): ...unknown
-		while cursor < queueCount do
-			local limit = queueCount
-			if limit > MAX_RUNS_PER_DRAIN then
-				limit = MAX_RUNS_PER_DRAIN
-			end
-			while cursor < limit do
-				cursor += 1
-				local watch = queue[cursor]
-				watch.queued = false
-				watch.run(watch)
-			end
-			if cursor >= MAX_RUNS_PER_DRAIN then
-				local errors: { string } = drainErrors or {}
-				drainErrors = errors
-				table.insert(
-					errors,
-					(
-						"Compose: watch cascade did not settle after %d runs. A watch is very likely "
-						.. "writing to a cell it also reads; break the loop, or write inside a batch "
-						.. "that ends."
-					):format(MAX_RUNS_PER_DRAIN)
-				)
-				drainAbandoned = true
-				return
-			end
-		end
-	end
-
-	local function drain(): { string }?
-		drainErrors = nil
-		drainAbandoned = false
-		local openedAt = if statsOn.enabled then profile.nowOrNil() else nil
-
-		local context = Graph.captureEvaluationContext()
-		repeat
-			local ok, err = xpcall(runRest, traceback)
-			if not ok then
-				Graph.restoreEvaluationContext(context)
-				local errors: { string } = drainErrors or {}
-				drainErrors = errors
-				table.insert(errors, tostring(err))
-			end
-		until drainAbandoned or cursor >= queueCount
-
-		if statsOn.enabled then
-			stats.bump("continuationPasses", cursor)
-			if openedAt ~= nil then
-				local closedAt = profile.nowOrNil()
-				profile.drain(cursor, if closedAt ~= nil then closedAt - openedAt else 0)
-			end
-		end
-
-		if drainAbandoned then
-			for index = cursor + 1, queueCount do
-				Graph.rearm(queue[index])
-			end
-			for index = queueCount, 1, -1 do
-				queue[index].queued = false
-				queue[index] = nil
-			end
-		else
-			table.clear(queue)
-		end
-		queueCount = 0
-		cursor = 0
-		return drainErrors
-	end
-
-	local function finishBatch<T...>(ok: boolean, ...: T...): T...
-		local errors = drain()
-		batching = false
-
-		if not ok then
-			error(select(1, ...), 0)
-		end
-		if errors ~= nil then
-			error(describeErrors(errors), 0)
-		end
-		return ...
-	end
-
-	local function batch<T...>(_self: Reactor, body: () -> T...): T...
-		if batching then
-			return body()
-		end
-
-		batching = true
-		if statsOn.enabled then
-			stats.bump "drains"
-		end
-
-		return finishBatch(xpcall(body, traceback))
-	end
-
-	local function settle(_self: Reactor)
-		if batching or queueCount == 0 then
+local function touch(reactor: Reactor)
+	for index = 1, touchedCount do
+		if touched[index] == reactor then
 			return
 		end
+	end
+	touchedCount += 1
+	touched[touchedCount] = reactor
+end
 
-		batching = true
+local function enqueue(node: Node)
+	local reactor = node.reactor
+	if reactor == nil then
+		return
+	end
+	if node.queued then
 		if statsOn.enabled then
-			stats.bump "drains"
+			stats.bump "watchSchedulesCoalesced"
+			profile.schedule(node, true)
 		end
-		local errors = drain()
-		batching = false
+		return
+	end
+	node.queued = true
+	local count = reactor.count + 1
+	reactor.count = count
+	reactor.queue[count] = node
+	if statsOn.enabled then
+		stats.bump "watchSchedules"
+		profile.schedule(node, false)
+	end
+	if not reactor.batching then
+		touch(reactor)
+	end
+end
 
-		if errors ~= nil then
-			error(describeErrors(errors), 0)
+local function rearm(node: Node)
+	if node.released or node.retry then
+		return
+	end
+	node.retry = true
+	for index = 1, #node do
+		local edge = node[index]
+		local producer = if edge ~= nil then edge[1] else nil
+		if producer ~= nil and producer.state ~= nil then
+			rearm(producer)
 		end
 	end
+end
 
-	local function pending(_self: Reactor): number
-		return queueCount - cursor
-	end
+local function fail(reactor: Reactor, message: string)
+	local errors = reactor.errors or {}
+	reactor.errors = errors
+	table.insert(errors, message)
+end
 
-	local function enqueueConsumer(consumer: Consumer)
-		local watch = consumer :: Scheduled
-		if watch.queued then
-			if statsOn.enabled then
-				stats.bump "watchSchedulesCoalesced"
-				profile.schedule(watch, true)
+local function runRest(reactor: Reactor)
+	local queue = reactor.queue
+	while reactor.cursor < reactor.count do
+		local limit = math.min(reactor.count, MAX_RUNS_PER_DRAIN)
+		while reactor.cursor < limit do
+			local cursor = reactor.cursor + 1
+			reactor.cursor = cursor
+			local node = queue[cursor]
+			node.queued = false
+			local run = node.run
+			if run then
+				run(node)
 			end
+		end
+		if reactor.cursor >= MAX_RUNS_PER_DRAIN then
+			fail(
+				reactor,
+				(
+					"Compose: watch cascade did not settle after %d runs. A watch is very likely "
+					.. "writing to a cell it also reads; break the loop, or write inside a batch "
+					.. "that ends."
+				):format(MAX_RUNS_PER_DRAIN)
+			)
+			reactor.abandoned = true
 			return
 		end
-		watch.queued = true
-		queueCount += 1
-		queue[queueCount] = watch
-		if statsOn.enabled then
-			stats.bump "watchSchedules"
-			profile.schedule(watch, false)
-		end
+	end
+end
 
-		if not batching then
-			Graph.touch(reactor)
+local function drain(reactor: Reactor): { string }?
+	reactor.errors = nil
+	reactor.abandoned = false
+	local openedAt = if statsOn.enabled then profile.nowOrNil() else nil
+
+	local consumer, at = Evaluation.snapshot()
+	repeat
+		if not xpcall(runRest, catch, reactor) then
+			Evaluation.leave(consumer, at)
+			fail(reactor, caught)
+		end
+	until reactor.abandoned or reactor.cursor >= reactor.count
+
+	local cursor = reactor.cursor
+	if statsOn.enabled then
+		stats.bump("continuationPasses", cursor)
+		if openedAt ~= nil then
+			local closedAt = profile.nowOrNil()
+			profile.drain(cursor, if closedAt ~= nil then closedAt - openedAt else 0)
 		end
 	end
 
-	local function enqueue(_self: Reactor, consumer: Consumer)
-		enqueueConsumer(consumer)
-	end
-
-	local function enqueueSettleConsumer(consumer: Consumer)
-		local watch = consumer :: Scheduled
-		if batching or queueCount > 0 then
-			if not watch.queued then
-				watch.queued = true
-				queueCount += 1
-				queue[queueCount] = watch
-			end
-			return
+	local queue = reactor.queue
+	if reactor.abandoned then
+		for index = cursor + 1, reactor.count do
+			rearm(queue[index])
 		end
-
-		batching = true
-		local context = Graph.captureEvaluationContext()
-		local ok, err = xpcall(watch.run, traceback, watch)
-		if not ok then
-			Graph.restoreEvaluationContext(context)
-		end
-		local errors: { string }? = nil
-		if queueCount > 0 then
-			errors = drain()
-		end
-		batching = false
-		if not ok then
-			if errors == nil then
-				errors = { tostring(err) }
-			else
-				table.insert(errors, 1, tostring(err))
-			end
-		end
-		if errors ~= nil then
-			error(describeErrors(errors), 0)
-		end
-	end
-
-	local function reset(_self: Reactor)
-		for index = queueCount, 1, -1 do
+		for index = reactor.count, 1, -1 do
 			queue[index].queued = false
 			queue[index] = nil
 		end
-		queueCount = 0
-		cursor = 0
-		batching = false
+	else
+		table.clear(queue)
+	end
+	reactor.count = 0
+	reactor.cursor = 0
+	return reactor.errors
+end
+
+local function finishBatch<T...>(reactor: Reactor, ok: boolean, ...: T...): T...
+	local errors = drain(reactor)
+	reactor.batching = false
+	if not ok then
+		error(select(1, ...), 0)
+	end
+	if errors ~= nil then
+		error(describeErrors(errors), 0)
+	end
+	return ...
+end
+
+local function batch<T...>(reactor: Reactor, body: () -> T...): T...
+	if reactor.batching then
+		return body()
+	end
+	reactor.batching = true
+	if statsOn.enabled then
+		stats.bump "drains"
+	end
+	return finishBatch(reactor, xpcall(body, traceback))
+end
+
+local function settle(reactor: Reactor)
+	if reactor.batching or reactor.count == 0 then
+		return
+	end
+	reactor.batching = true
+	if statsOn.enabled then
+		stats.bump "drains"
+	end
+	local errors = drain(reactor)
+	reactor.batching = false
+	if errors ~= nil then
+		error(describeErrors(errors), 0)
+	end
+end
+
+local function settleTouched()
+	if touchedCount == 0 then
+		return
+	end
+	local count = touchedCount
+	touchedCount = 0
+
+	if count == 1 then
+		local only = touched[1]
+		touched[1] = nil
+		settle(only)
+		return
 	end
 
-	reactor = {
-		batch = batch,
-		settle = settle,
-		pending = pending,
-		__enqueue = enqueue,
-		__enqueueConsumer = enqueueConsumer,
-		__enqueueSettleConsumer = enqueueSettleConsumer,
-		__reset = reset,
-	}
-	return reactor
+	local pending = touched
+	touched = {}
+	local errors: { string } = {}
+	for index = 1, count do
+		local reactor = pending[index]
+		pending[index] = nil
+		local ok, err: unknown = pcall(settle, reactor)
+		if not ok then
+			table.insert(errors, tostring(err))
+		end
+	end
+	if #errors == 0 then
+		return
+	end
+	if #errors == 1 then
+		error(errors[1], 0)
+	end
+	local parts = { ("Compose: %d scheduling domains failed while settling one write:"):format(#errors) }
+	for index, message in errors do
+		table.insert(parts, ("  [%d] %s"):format(index, message))
+	end
+	error(table.concat(parts, "\n"), 0)
+end
+
+local function runNow(node: Node)
+	local reactor = node.reactor
+	local run = node.run
+	if reactor == nil or run == nil then
+		return
+	end
+	if reactor.batching or reactor.count > 0 then
+		if not node.queued then
+			node.queued = true
+			local count = reactor.count + 1
+			reactor.count = count
+			reactor.queue[count] = node
+		end
+		return
+	end
+	reactor.batching = true
+	local consumer, at = Evaluation.snapshot()
+	local ok = xpcall(run, catch, node)
+	if not ok then
+		Evaluation.leave(consumer, at)
+	end
+	local errors: { string }? = nil
+	if reactor.count > 0 then
+		errors = drain(reactor)
+	end
+	reactor.batching = false
+	if not ok then
+		if errors == nil then
+			errors = { caught }
+		else
+			table.insert(errors, 1, caught)
+		end
+	end
+	if errors ~= nil then
+		error(describeErrors(errors), 0)
+	end
+end
+
+local function pending(reactor: Reactor): number
+	return reactor.count - reactor.cursor
+end
+
+local function reset(reactor: Reactor)
+	local queue = reactor.queue
+	for index = reactor.count, 1, -1 do
+		queue[index].queued = false
+		queue[index] = nil
+	end
+	reactor.count = 0
+	reactor.cursor = 0
+	reactor.batching = false
 end
 
 return {
 	create = create,
+	enqueue = enqueue,
+	runNow = runNow,
+	batch = batch,
+	settle = settle,
+	settleTouched = settleTouched,
+	pending = pending,
+	reset = reset,
+	rearm = rearm,
+	touch = touch,
 	MAX_RUNS_PER_DRAIN = MAX_RUNS_PER_DRAIN,
 }

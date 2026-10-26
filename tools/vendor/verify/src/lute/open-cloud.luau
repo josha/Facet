@@ -220,7 +220,7 @@ type Config = {
 type Sent = { exchange: Exchange, refused: boolean, expired: boolean }
 
 local function send(config: Config, call: Call, seconds: number): Sent
-	local asked, verdict: unknown = pcall(config.options.authorize, call)
+	local asked, verdict = pcall(config.options.authorize, call)
 	if not asked then
 		return {
 			exchange = { status = "unsent", detail = "authorize raised: " .. tostring(verdict) },
@@ -228,7 +228,7 @@ local function send(config: Config, call: Call, seconds: number): Sent
 			expired = false,
 		}
 	end
-	local decision = verdict :: Authorization
+	local decision = verdict
 	if type(decision) ~= "table" or decision.ok ~= true then
 		return {
 			exchange = {
@@ -244,9 +244,9 @@ local function send(config: Config, call: Call, seconds: number): Sent
 	local limit = config.now() + seconds
 	local slot: { done: boolean, exchange: Exchange? } = { done = false, exchange = nil }
 	task.spawn(function()
-		local sent, value: unknown = pcall(config.options.request, call, limit)
+		local sent, value = pcall(config.options.request, call, limit)
 		slot.exchange = if sent
-			then value :: Exchange
+			then value
 			else { status = "unanswered", detail = "transport raised: " .. tostring(value) }
 		slot.done = true
 	end)
@@ -304,29 +304,45 @@ local function httpDetail(label: string, exchange: Exchange): string
 end
 
 local function decoded(exchange: Exchange): { [string]: unknown }?
-	local parsed, value: unknown = pcall(Wire.parse, exchange.body or "")
+	local parsed, value = pcall(Wire.parse, exchange.body or "")
 	if parsed and type(value) == "table" then
 		return value :: { [string]: unknown }
 	end
 	return nil
 end
 
-local function outcomeOf(runId: string, fields: { [string]: unknown }): Outcome
+type OutcomeFields = {
+	status: "returned" | "faulted" | "timed_out" | "refused",
+	passed: boolean?,
+	delivery: Delivery?,
+	binding: Binding?,
+	state: string?,
+	handle: Handle?,
+	report: Core.Report?,
+	results: { unknown }?,
+	task: { [string]: unknown }?,
+	detail: string?,
+	logs: string?,
+	diagnostics: { string }?,
+	timing: Timing?,
+}
+
+local function outcomeOf(runId: string, fields: OutcomeFields): Outcome
 	return {
-		status = fields.status :: "returned" | "faulted" | "timed_out" | "refused",
+		status = fields.status,
 		passed = fields.passed == true,
-		delivery = (fields.delivery or "unsent") :: Delivery,
+		delivery = (fields.delivery or "unsent"),
 		runId = runId,
-		binding = (fields.binding or "run") :: Binding,
-		state = fields.state :: string?,
-		handle = fields.handle :: Handle?,
-		report = fields.report :: Core.Report?,
-		results = fields.results :: { unknown }?,
-		task = fields.task :: { [string]: unknown }?,
-		detail = fields.detail :: string?,
-		logs = (fields.logs or "") :: string,
-		diagnostics = (fields.diagnostics or {}) :: { string },
-		timing = (fields.timing or { pollSeconds = 0, totalSeconds = 0, polls = 0 }) :: Timing,
+		binding = (fields.binding or "run"),
+		state = fields.state,
+		handle = fields.handle,
+		report = fields.report,
+		results = fields.results,
+		task = fields.task,
+		detail = fields.detail,
+		logs = (fields.logs or ""),
+		diagnostics = (fields.diagnostics or {}),
+		timing = (fields.timing or { pollSeconds = 0, totalSeconds = 0, polls = 0 }),
 	}
 end
 
@@ -388,7 +404,7 @@ local function boundReport(results: unknown, runId: string): (Core.Report?, stri
 	local problem: string? = nil
 	local function visit(value: unknown)
 		if type(value) == "string" then
-			local parsed, inner: unknown = pcall(Wire.parse, value)
+			local parsed, inner = pcall(Wire.parse, value)
 			if parsed then
 				visit(inner)
 			end
@@ -396,9 +412,9 @@ local function boundReport(results: unknown, runId: string): (Core.Report?, stri
 			local object = value :: { [unknown]: unknown }
 			if object.runId ~= nil then
 				if object.runId == runId then
-					local received, report: unknown = pcall(Channel.receive, value, runId)
+					local received, report = pcall(Channel.receive, value, runId)
 					if received then
-						table.insert(matched, report :: Core.Report)
+						table.insert(matched, report)
 					else
 						problem = "the run-bound envelope is not a valid report: " .. tostring(report)
 					end
@@ -438,11 +454,16 @@ local function finish(
 	collect: boolean
 ): Outcome
 	local binding: Binding = handle.binding or "run"
-	local state = terminal.state :: string
+	local state = terminal.state
+	assert(type(state) == "string")
 	local logs = if collect then collectLogs(config, handle, diagnostics) else ""
 	local output = terminal.output
 	local results = if type(output) == "table" then (output :: { [string]: unknown }).results else nil
-	local function done(status: string, detail: string?, report: Core.Report?): Outcome
+	local function done(
+		status: "returned" | "faulted" | "timed_out" | "refused",
+		detail: string?,
+		report: Core.Report?
+	): Outcome
 		return outcomeOf(handle.runId, {
 			status = status,
 			passed = binding == "run" and status == "returned" and report ~= nil and allPassed(report),
@@ -451,7 +472,7 @@ local function finish(
 			state = state,
 			handle = handle,
 			report = report,
-			results = if type(results) == "table" then results else nil,
+			results = if type(results) == "table" then results :: { unknown } else nil,
 			task = terminal,
 			detail = detail,
 			logs = logs,
@@ -488,7 +509,7 @@ local function watch(config: Config, handle: Handle, delivery: Delivery, collect
 		local elapsed = config.now() - started
 		return { submitSeconds = nil, pollSeconds = elapsed, totalSeconds = elapsed, polls = attempts }
 	end
-	local function stopped(status: string, detail: string): Outcome
+	local function stopped(status: "faulted" | "timed_out" | "refused", detail: string): Outcome
 		return outcomeOf(handle.runId, {
 			status = status,
 			delivery = delivery,
@@ -528,8 +549,8 @@ local function watch(config: Config, handle: Handle, delivery: Delivery, collect
 			if current.path ~= handle.path then
 				return stopped("faulted", "task poll answered for a different task path")
 			end
-			state = current.state :: string
-			if TERMINAL[state :: string] then
+			state = current.state
+			if TERMINAL[current.state] then
 				local finished = finish(config, handle, delivery, current, diagnostics, collect)
 				finished.timing = timing()
 				return finished
@@ -576,9 +597,13 @@ local function connect(options: Options): Session
 	local function submit(input: RunInput): Submission
 		local binding: Binding = if type(input) == "table" and input.binding == "caller" then "caller" else "run"
 		local runId = if type(input) == "table" and type(input.runId) == "string" then input.runId else ""
-		local function stopped(status: string, delivery: Delivery, detail: string): Submission
+		local function stopped(
+			status: "faulted" | "timed_out" | "refused",
+			delivery: Delivery,
+			detail: string
+		): Submission
 			return {
-				status = status :: "faulted" | "timed_out" | "refused",
+				status = status,
 				delivery = delivery,
 				runId = runId,
 				binding = binding,
@@ -597,7 +622,7 @@ local function connect(options: Options): Session
 			)
 		end
 		local script = if binding == "caller" then input.code else ("local runId = %q; %s"):format(runId, input.code)
-		local body = json.serialize(({ script = script } :: unknown) :: json.Value)
+		local body = json.serialize { script = script }
 		local url = submitUrl(options.universeId, options.placeId, options.versionId)
 		local sent = send(config, callFor(options, "submit", "POST", url, body, nil), config.requestSeconds)
 		local exchange = sent.exchange
@@ -635,7 +660,7 @@ local function connect(options: Options): Session
 				"faulted",
 				"answered",
 				("the task path %q is outside the requested universe, place and version"):format(
-					string.sub(created.path :: string, 1, 256)
+					string.sub(created.path, 1, 256)
 				)
 			)
 		end
@@ -644,10 +669,10 @@ local function connect(options: Options): Session
 			delivery = "answered",
 			runId = runId,
 			binding = binding,
-			state = created.state :: string,
+			state = created.state,
 			task = created,
 			handle = {
-				path = created.path :: string,
+				path = created.path,
 				runId = runId,
 				universeId = options.universeId,
 				placeId = options.placeId,
@@ -680,6 +705,7 @@ local function connect(options: Options): Session
 		local began = config.now()
 		local submission = submit(input)
 		if submission.handle == nil then
+			assert(submission.status ~= "submitted")
 			return outcomeOf(submission.runId, {
 				status = submission.status,
 				delivery = submission.delivery,
@@ -761,7 +787,7 @@ local function host(options: HostOptions): Core.Host
 		local previous = prior[batch.id]
 		local outcome: Outcome
 		if previous ~= nil and previous.handle ~= nil and previous.status == "timed_out" then
-			outcome = session.reconcile(previous.handle :: Handle)
+			outcome = session.reconcile(previous.handle)
 		elseif previous ~= nil and previous.delivery == "possibly_sent" then
 			outcome = outcomeOf(previous.runId, {
 				status = "faulted",

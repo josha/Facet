@@ -5,7 +5,7 @@ local reducedMotion = require("./motion").reduced
 
 export type Spring = { period: number, damping: number }
 export type Settle = {
-	value: ComposeTypes.Readable<number?>,
+	value: ComposeTypes.ReadOnlyValue<number?>,
 	launch: (from: number, velocity: number, spring: Spring?) -> boolean,
 	halt: () -> (),
 }
@@ -17,7 +17,7 @@ return function(ctx: Types.Context, target: () -> number, spring: Spring, reduce
 	local reduce: () -> boolean = reduced or function(): boolean
 		return fallback()
 	end
-	local value: ComposeTypes.Cell<number?> = Compose.cell(nil :: number?)
+	local value: ComposeTypes.Value<number?> = Compose.cell(nil :: number?)
 	local stop: (() -> ())? = nil
 	local disposed = false
 	local function halt()

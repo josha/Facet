@@ -1,5 +1,6 @@
 --!strict
 
+local Owners = require "./ownership/owner"
 local Diagnostics = require "./diagnostics"
 local cacheOptions = require "./ownership/cache-options"
 
@@ -40,7 +41,7 @@ local function createPool<T>(options: Options<T>): Pool<T>
 			table.clear(active)
 		end)
 	end
-	owner.own(destroyAll)
+	Owners.own(owner, destroyAll)
 
 	local function acquire(): Lease<T>
 		if disposed then
@@ -50,7 +51,8 @@ local function createPool<T>(options: Options<T>): Pool<T>
 		end
 		local value: T
 		if #idle > 0 then
-			value = table.remove(idle) :: T
+			value = idle[#idle]
+			idle[#idle] = nil
 		else
 			value = options.create()
 		end
@@ -66,7 +68,7 @@ local function createPool<T>(options: Options<T>): Pool<T>
 				return
 			end
 			if options.reset ~= nil then
-				local ok, err: unknown = pcall(options.reset :: (T) -> (), value)
+				local ok, err: unknown = pcall(options.reset, value)
 				if not ok then
 					options.destroy(value)
 					error(err, 0)

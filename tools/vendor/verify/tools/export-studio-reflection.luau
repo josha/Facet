@@ -67,7 +67,7 @@ local snapshot = StudioEdit.run(target, ".lute/tmp/verify-export-reflection", fu
 		framework = framework,
 	})
 end)
-Lute.fixture.save(output :: string, snapshot)
+Lute.fixture.save(output, snapshot)
 local classCount, enumCount = 0, 0
 for _ in snapshot.classes do
 	classCount += 1
@@ -83,6 +83,6 @@ print(
 		classCount,
 		enumCount,
 		tostring(snapshot.engineVersion),
-		output :: string
+		output
 	)
 )

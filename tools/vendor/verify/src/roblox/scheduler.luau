@@ -34,7 +34,7 @@ local function create(): Scheduler
 	local owners: { [thread]: thread } = {}
 	local cleanups: { [thread]: () -> () } = {}
 	local active: unknown = nil
-	local scheduler = {} :: Scheduler
+	local scheduler = {}
 	local onFailure: (string) -> () = function() end
 	local function release(thread: thread)
 		local cleanup = cleanups[thread]
@@ -190,12 +190,18 @@ local function create(): Scheduler
 			end
 		end
 		timers = keep
-		table.sort(due, function(left, right): boolean
-			if left.at ~= right.at then
-				return left.at < right.at
+		table.sort(
+			due,
+			function(
+				left: { at: number, thread: thread, order: number },
+				right: { at: number, thread: thread, order: number }
+			): boolean
+				if left.at ~= right.at then
+					return left.at < right.at
+				end
+				return left.order < right.order
 			end
-			return left.order < right.order
-		end)
+		)
 		for _, entry in due do
 			push(entry.thread)
 		end
@@ -235,7 +241,7 @@ local function create(): Scheduler
 	end
 
 	scheduler.failures = failures
-	return scheduler :: Scheduler
+	return scheduler
 end
 
 return { create = create }

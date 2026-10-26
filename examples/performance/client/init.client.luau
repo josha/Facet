@@ -76,7 +76,7 @@ local stop = runtime.mount(function()
 			themeName = themeName,
 			setTheme = function(name: string)
 				local package = assert(packages[name], `no theme package named {name}`)
-				runtime.reactor:batch(function()
+				Facet.Compose.reactor.batch(runtime.reactor, function()
 					theme:set(package)
 					themeName:set(name)
 				end)

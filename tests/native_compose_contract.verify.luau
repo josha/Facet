@@ -7,8 +7,8 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 	type Owner = typeof(require("@repo/tools/typecheck/aliases").Owner)
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Facet = require("../src")
 	local Roblox = require("../src/vendor/compose/roblox")
@@ -25,7 +25,7 @@ return function(verifyHarness: Verify.Harness)
 			local cached = Compose.cell(engine.types.Vector2.new(280, 120))
 			local ready = Compose.cell(false)
 			local progress = 0
-			local held: Readable<Vector2>? = nil
+			local held: ReadOnlyValue<Vector2>? = nil
 			local stop, mounted = runtime.mount(function()
 				local ctx = context(Compose, runtime, { types = engine.types })
 				local panel = ctx.Host.Frame {}
@@ -152,7 +152,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Facet.Roblox.createRuntime((engine :: unknown) :: Roblox.Engine)
-				local amount: Readable<number> = Compose.cell(0)
+				local amount: ReadOnlyValue<number> = Compose.cell(0)
 				local stop = runtime.mount(function()
 					runtime.timeline { duration = 1 }
 					local ready = runtime.settled {
@@ -191,9 +191,9 @@ return function(verifyHarness: Verify.Harness)
 				local child: Owner? = nil
 				local unwatch: (() -> ())? = nil
 				local stop = runtime.mount(function()
-					local owner = assert(Compose.currentOwner()).createChild()
+					local owner = Compose.owner.createChild(assert(Compose.currentOwner()))
 					child = owner
-					unwatch = owner.watch(function(use: Use)
+					unwatch = Compose.owner.watch(owner, function(use: Use)
 						use(source)
 						calls += 1
 					end)
@@ -211,8 +211,8 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 				stopWatch()
 				stopWatch()
-				owned.dispose()
-				assert(owned.isDisposed() and cleanups == 1, "cleanup was skipped or repeated")
+				Compose.owner.dispose(owned)
+				assert(Compose.owner.isDisposed(owned) and cleanups == 1, "cleanup was skipped or repeated")
 				source:set(2)
 				assert(calls == 2, "child watch survived parent")
 				runtime:dispose()

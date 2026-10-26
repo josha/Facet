@@ -1,18 +1,18 @@
 --!strict
 local Shared = require("./types")
 
-type Value<T> = Shared.Value<T>
+type Input<T> = Shared.Input<T>
 export type Mode = "swatches" | "spectrum" | "sliders" | "brick"
 export type Style = "automatic" | "inline"
 export type DismissReason = "activate" | "outside" | "cancel" | "anchorLost" | "apply"
 export type Swatch = Color3 | { color: Color3, label: string? }
 export type SwatchItem = { color: Color3, label: string?, key: string }
-export type ColorValue = Value<Color3?>
+export type ColorValue = Input<Color3?>
 export type NumberValue = Shared.ValueNumber
 export type FlagValue = Shared.ValueBoolean
 export type WordsValue = Shared.ValueString
-export type SizeValue = Value<Shared.ControlSize?>
-export type SwatchesValue = Value<{ Swatch }>
+export type SizeValue = Input<Shared.ControlSize?>
+export type SwatchesValue = Input<{ Swatch }>
 export type ColorPickerOptions = {
 	value: ColorValue,
 	onChange: ((color: Color3) -> ())?,

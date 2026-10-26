@@ -97,7 +97,7 @@ local function tree(
 	if not called then
 		return refused("the tree watchdog could not be started: " .. tostring(result), true)
 	end
-	local ran = result :: Runtime.ProcessResult
+	local ran = result
 	local code, flag, outBytes, errBytes = string.match(ran.stdout, TREE_HEADER)
 	local header = string.find(ran.stdout, "\n", 1, true)
 	local outLength = tonumber(outBytes)
@@ -118,7 +118,8 @@ local function tree(
 			unsupported = false,
 		}
 	end
-	local exitcode = tonumber(code) :: number
+	local exitcode = tonumber(code)
+	assert(exitcode ~= nil)
 	local timedOut = flag == "1"
 	return {
 		ok = exitcode == 0 and not timedOut,
@@ -164,7 +165,7 @@ local function runWith(
 	if not called then
 		return refused(tostring(result), false)
 	end
-	local ran = result :: Runtime.ProcessResult
+	local ran = result
 	local stderr = string.gsub(ran.stderr, "%[%d+%][%+%-]?%s+[^\n]*\n?", "")
 	local timedOut = string.find(stderr, MARKER, 1, true) ~= nil
 	local unsupported = string.find(stderr, UNSUPPORTED, 1, true) ~= nil

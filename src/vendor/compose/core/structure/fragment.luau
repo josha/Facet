@@ -8,7 +8,7 @@ local Support = require "./support"
 export type Builder = () -> { Host.Node }
 
 local function fragment(builder: Builder): Children.Directive
-	local build = Support.builderOf(builder, "fragment", "builder") :: Builder
+	local build: Builder = Support.builderOf(builder, "fragment", "builder")
 	return function(mountPoint: Children.MountPoint)
 		local owner = Support.ownerFor "fragment"
 		Support.mountPointOf(mountPoint, "fragment")

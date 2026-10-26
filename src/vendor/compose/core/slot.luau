@@ -12,25 +12,23 @@ export type Slot = {
 }
 
 local function createSlot(explicit: Owner.Owner?): Slot
-	local parent = explicit
-	if parent == nil then
-		parent = Active.current()
-		if parent == nil then
-			Diagnostics.raise("slot/no-active-owner", "createSlot ran outside an owner", {
-				contract = "a slot cannot outlive the owner responsible for what it holds",
-				fix = "create it inside a component, Compose.withOwner(owner, ...), or pass an owner",
-			})
-		end
-	elseif type(parent) ~= "table" or type((parent :: Owner.Owner).createChild) ~= "function" then
+	if explicit ~= nil and (type(explicit) ~= "table" or type(explicit.disposed) ~= "boolean") then
 		Diagnostics.raise("slot/invalid-owner", "a slot can only be bound to an owner", {
-			actual = Diagnostics.describe(parent),
-			expected = "an owner from Compose.createOwner or owner.createChild",
+			actual = Diagnostics.describe(explicit),
+			expected = "an owner from Compose.createOwner or Compose.owner.createChild",
 		})
 	end
-	local scope = (parent :: Owner.Owner).createChild()
+	local parent = explicit or Active.current()
+	if parent == nil then
+		return Diagnostics.raise("slot/no-active-owner", "createSlot ran outside an owner", {
+			contract = "a slot cannot outlive the owner responsible for what it holds",
+			fix = "create it inside a component, Compose.withOwner(owner, ...), or pass an owner",
+		})
+	end
+	local scope = Owner.createChild(parent)
 	local currentKey: unknown = nil
 	local currentOwner: Owner.Owner? = nil
-	scope.own(function()
+	Owner.own(scope, function()
 		currentKey = nil
 		currentOwner = nil
 	end)
@@ -43,7 +41,7 @@ local function createSlot(explicit: Owner.Owner?): Slot
 		local owner = currentOwner
 		currentOwner = nil
 		if owner ~= nil then
-			owner.dispose()
+			Owner.dispose(owner)
 		end
 		return true
 	end
@@ -61,10 +59,10 @@ local function createSlot(explicit: Owner.Owner?): Slot
 				expected = "a function receiving the owner for the attachment and a release callback",
 			})
 		end
-		if scope.isDisposed() or currentKey == key then
+		if Owner.isDisposed(scope) or currentKey == key then
 			return false
 		end
-		local staged = scope.createChild()
+		local staged = Owner.createChild(scope)
 		local ok, failure: unknown = pcall(function()
 			Active.withOwner(staged, function()
 				attach(staged, function()
@@ -74,17 +72,17 @@ local function createSlot(explicit: Owner.Owner?): Slot
 			return nil
 		end)
 		if not ok then
-			pcall(staged.dispose)
+			pcall(Owner.dispose, staged)
 			error(failure, 0)
 		end
-		if scope.isDisposed() then
+		if Owner.isDisposed(scope) then
 			return false
 		end
 		local prior = currentOwner
 		currentKey = key
 		currentOwner = staged
 		if prior ~= nil then
-			prior.dispose()
+			Owner.dispose(prior)
 		end
 		return true
 	end
@@ -95,7 +93,7 @@ local function createSlot(explicit: Owner.Owner?): Slot
 		current = function(): unknown
 			return currentKey
 		end,
-		dispose = scope.dispose,
+		dispose = Owner.disposer(scope),
 	}
 end
 

@@ -153,7 +153,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 
 		local node: TextButton
-		local iconState: ComposeTypes.Cell<ThemeTypes.SkinState>?
+		local iconState: ComposeTypes.Value<ThemeTypes.SkinState>?
 		if
 			(spec.icon or spec.trailingIcon)
 			and (
@@ -207,9 +207,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local guiService = ctx.config.services.GuiService
 		local lazyKeyboard = underline ~= "hover"
 		local enabledLive = dynamic(spec.enabled) or dynamic(spec.disabled) or dynamic(spec.busy)
-		local selectedForKeyboard: Shared.Value<boolean>
-		local fallbackSelection: ComposeTypes.Cell<boolean>?
-		local function observeSelection(): Shared.Value<boolean>
+		local selectedForKeyboard: Shared.Input<boolean>
+		local fallbackSelection: ComposeTypes.Value<boolean>?
+		local function observeSelection(): Shared.Input<boolean>
 			local selected = ctx.observe.SelectedObject(assert(guiService))
 			return function(use: ComposeTypes.Use)
 				local target = use(selected)
@@ -668,7 +668,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end)
 		end
 		assert(spec.disclose == nil or type(spec.disclose) == "boolean", "Facet.Button: disclose must be a boolean")
-		local fits: ComposeTypes.Readable<boolean>? = nil
+		local fits: ComposeTypes.ReadOnlyValue<boolean>? = nil
 		if spec.disclose then
 			local title = node:FindFirstChild("Title", true)
 			local textFits = ctx.observe.TextFits(if title and title:IsA("TextLabel") then title else node)
@@ -686,7 +686,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local owner = assert(Compose.currentOwner(), "Facet.Button requires a Compose owner")
 		local selectionWired = false
 		local function selectedLazily()
-			if selectionWired or owner.isDisposed() then
+			if selectionWired or ComposeTypes.owner.isDisposed(owner) then
 				return
 			end
 			selectionWired = true
@@ -772,7 +772,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end)
 				return boundary
 			end
-			if Compose.isReadable(ctx.config.theme) or type(ctx.config.theme) == "function" then
+			if Compose.isValue(ctx.config.theme) or type(ctx.config.theme) == "function" then
 				local attached = false
 				runtime.mountFragment(function()
 					return {

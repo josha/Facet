@@ -1,5 +1,6 @@
 --!strict
 
+local Owners = require "../ownership/owner"
 local Children = require "../runtime/children"
 local Admission = require "../collection/admission"
 local Diagnostics = require "../diagnostics"
@@ -19,10 +20,10 @@ export type Status = {
 export type Options<V, K> = {
 	from: keyed.Source<V>,
 	key: ((value: V, index: number) -> K)?,
-	render: (value: Types.Readable<V>, index: Types.Readable<number>, key: K) -> Host.Node,
+	render: (value: Types.ReadOnlyValue<V>, index: Types.ReadOnlyValue<number>, key: K) -> Host.Node,
 	mountsPerFrame: number,
 	priority: ((value: V, index: number) -> number)?,
-	status: Types.Cell<Status>?,
+	status: Types.Value<Status>?,
 }
 
 local KNOWN_FIELDS: { [string]: true } = {
@@ -34,18 +35,15 @@ local KNOWN_FIELDS: { [string]: true } = {
 	status = true,
 }
 
-local function identity<V>(value: V, _index: number): V
-	return value
-end
+local identity = require("../reactive/node").identityKey
 
 local function mountBudget<V, K>(options: Options<V, K>): Children.Directive
 	local settings = Support.optionsOf(options, "MountBudget", "from = ..., mountsPerFrame = ..., render = ...")
 	Support.noUnknownFields(settings, "MountBudget", KNOWN_FIELDS)
-	local source = Support.sourceOf(settings.from, "MountBudget", "from") :: Types.Body<{ V }>
-	local render =
-		Support.builderOf(settings.render, "MountBudget", "render") :: (Types.Readable<V>, Types.Readable<number>, K) -> Host.Node
+	local source: Types.Body<{ V }> = Support.sourceOf(settings.from, "MountBudget", "from")
+	local render = Support.builderOf(settings.render, "MountBudget", "render")
 	local keyOf: (value: V, index: number) -> K = if settings.key == nil
-		then (identity :: unknown) :: (value: V, index: number) -> K
+		then identity
 		else Support.builderOf(settings.key, "MountBudget", "key")
 	local priority: ((value: V, index: number) -> number)? = if settings.priority == nil
 		then nil
@@ -78,7 +76,7 @@ local function mountBudget<V, K>(options: Options<V, K>): Children.Directive
 		local cursor = 1
 		local prefix = false
 
-		owner.watch(function(use)
+		Owners.watch(owner, function(use)
 			use(tick)
 			local list = source(use)
 			local changed = list ~= builtFor
@@ -106,10 +104,11 @@ local function mountBudget<V, K>(options: Options<V, K>): Children.Directive
 				local candidates: { number } = {}
 				for index, value in list do
 					local key = keys[index]
+					local priority = priority
 					if not admitted[key] then
 						candidates[#candidates + 1] = index
 						if priority ~= nil then
-							local score = (priority :: (V, number) -> number)(value, index)
+							local score = priority(value, index)
 							if type(score) ~= "number" or score ~= score or math.abs(score) == math.huge then
 								Diagnostics.raise(
 									"mount-budget/invalid-priority",
@@ -134,7 +133,7 @@ local function mountBudget<V, K>(options: Options<V, K>): Children.Directive
 				if ranked.order == nil then
 					queue = candidates
 				else
-					for _, at in ranked.order :: { number } do
+					for _, at in ranked.order do
 						queue[#queue + 1] = candidates[at]
 					end
 				end
@@ -187,7 +186,8 @@ local function mountBudget<V, K>(options: Options<V, K>): Children.Directive
 		local function selectedKey(_value: V, index: number): K
 			return selectedKeys[index]
 		end
-		(keyed { from = selected, key = selectedKey, render = render })(mountPoint)
+		local selectedOptions: keyed.Options<V, K> = { from = selected, key = selectedKey, render = render }
+		keyed(selectedOptions)(mountPoint)
 	end
 end
 

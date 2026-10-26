@@ -23,7 +23,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 		end, { period = spring.period, damping = spring.damping, reducedMotion = reduce })
 		local camera = Compose.cell<<Camera?>>(nil)
 		local surface = Compose.cell<<SurfaceGui?>>(nil)
-		local ready = Compose.cell<<Types.Readable<boolean>?>>(nil)
+		local ready = Compose.cell<<Types.ReadOnlyValue<boolean>?>>(nil)
 		local moved, ownsCamera = false, false
 		local previous: Camera? = nil
 		local parked: { Camera } = {}

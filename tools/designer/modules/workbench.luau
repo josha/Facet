@@ -158,7 +158,7 @@ function workbench.mount(Facet: any, widget: Instance, dependencies: any): any
 			sessions = {},
 			disposers = {},
 			stop = function()
-				owner.dispose()
+				Compose.owner.dispose(owner)
 				runtime:dispose()
 			end,
 		}

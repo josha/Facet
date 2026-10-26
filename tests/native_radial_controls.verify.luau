@@ -20,7 +20,7 @@ return function(verifyHarness: Verify.Harness)
 		gui: any,
 		input: any,
 		screen: any,
-		opened: Compose.Cell<boolean>,
+		opened: Compose.Value<boolean>,
 		find: (string) -> any,
 		step: (number) -> (),
 		stop: () -> (),

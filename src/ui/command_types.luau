@@ -9,12 +9,12 @@ export type Command<K> = {
 	onInvoke: (K) -> (),
 }
 export type CommandSpec<K> = {
-	targets: Shared.Value<{ CommandTarget<K> }>,
+	targets: Shared.Input<{ CommandTarget<K> }>,
 	commands: { Command<K> },
 	enabled: Shared.ValueBoolean?,
 }
 export type CommandScope<K> = {
-	current: Shared.Readable<K?>,
+	current: Shared.ReadOnlyValue<K?>,
 	focus: (K) -> boolean,
 	clear: () -> (),
 	actions: { [string]: InputAction },

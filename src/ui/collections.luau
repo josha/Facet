@@ -184,7 +184,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 			assert(value == nil or value == "end" or value == "none", "Facet collection follow must be none or end")
 			return if value == "end" then "end" else "none"
 		end
-		local directive = if Compose.isReadable(spec.follow) or type(spec.follow) == "function"
+		local directive = if Compose.isValue(spec.follow) or type(spec.follow) == "function"
 			then Compose.switch(followOf, {
 				none = function()
 					return orderedRows("none")
@@ -268,8 +268,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 				return overlayReorder(true)
 			end, root)
 		end
-		local size: ComposeTypes.Cell<Vector2> = ctx.observeNative.AbsoluteWindowSize(root)
-		local position: ComposeTypes.Cell<Vector2> = observe.CanvasPosition(root)
+		local size: ComposeTypes.Value<Vector2> = ctx.observeNative.AbsoluteWindowSize(root)
+		local position: ComposeTypes.Value<Vector2> = observe.CanvasPosition(root)
 		local mountParent = observe.Parent(root)
 		local ancestryVersion = Compose.cell(0)
 		runtime.connect(root, "AncestryChanged", function()

@@ -9,7 +9,7 @@ Each key and node must be unique. A node can contain native selection targets.
 unique. `keys` contains KeyCode names. One key belongs to one command in the
 scope. `enabled` on the spec or command is a boolean or readable.
 
-The returned handle has `current: Readable<K?>`, `focus(key) -> boolean`,
+The returned handle has `current: ReadOnlyValue<K?>`, `focus(key) -> boolean`,
 `clear()`, and `actions` by command id. Actions are native InputActions and
 can be used with ShortcutHint. `focus` selects an available native target.
 It returns false if the key is absent, disabled or unmounted. `clear` clears

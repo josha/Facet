@@ -272,9 +272,9 @@ export type CivilDate = CivilTypes.CivilDate
 export type CivilRange = CivilTypes.Range
 export type CivilLocale = CivilTypes.Locale
 export type CivilDateModule = CivilTypes.Module
-export type Cell<T> = Compose.Cell<T>
-export type Readable<T> = Compose.Readable<T>
-export type Value<T> = SharedTypes.Value<T>
+export type Value<T> = Compose.Value<T>
+export type ReadOnlyValue<T> = Compose.ReadOnlyValue<T>
+export type Input<T> = SharedTypes.Input<T>
 export type ValueString = SharedTypes.ValueString
 export type ValueBoolean = SharedTypes.ValueBoolean
 export type ValueNumber = SharedTypes.ValueNumber
@@ -306,7 +306,7 @@ export type Facet = {
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "8408aa273e882c2c02dd99e2f3a0c08134946bd5"
+local COMPOSE_COMMIT = "f2225ecf1b04a3b161bd17f1082551bffee13c84"
 local USED = {
 	"boundary",
 	"cell",
@@ -319,7 +319,7 @@ local USED = {
 	"focusNeighbor",
 	"formula",
 	"fragment",
-	"isReadable",
+	"isValue",
 	"keyed",
 	"portal",
 	"presence",

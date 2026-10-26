@@ -128,8 +128,9 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 			error(label .. ".command must name the program that starts the worker", 3)
 		end
 		if draft.cases ~= nil then
-			cases = ordered(draft.cases, label .. ".cases")
-			if #(cases :: { string }) == 0 then
+			local declared = ordered(draft.cases, label .. ".cases")
+			cases = declared
+			if #declared == 0 then
 				error(label .. ".cases must declare at least one case", 3)
 			end
 		end

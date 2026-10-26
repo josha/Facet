@@ -162,7 +162,7 @@ return function(
 	end
 	local function linkStyle<V>(spec: NavigationProps.PickerSpec<V>, choice: PickerParts.Choice<V>): GuiObject
 		local isSelected = choice.isSelected
-		local opened: ComposeTypes.Cell<boolean> = spec.isPresented or ctx.Compose.cell(false)
+		local opened: ComposeTypes.Value<boolean> = spec.isPresented or ctx.Compose.cell(false)
 		local chosenText = function(use: ComposeTypes.Use): string
 			for _, option in read(spec.options, use) do
 				if isSelected(option.value, use) then

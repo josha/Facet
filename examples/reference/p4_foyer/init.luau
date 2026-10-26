@@ -3,9 +3,11 @@
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 local Services = require("@self/services")
 local seed = require("@self/content/seed")
@@ -20,11 +22,11 @@ function Foyer.build(ctx: ExampleContext)
 	local destination, tab, query, locale =
 		Compose.cell("home"), Compose.cell("forYou"), Compose.cell(""), Compose.cell("en")
 	local noSelection: string? = nil
-	local selected: Cell<string?> = Compose.cell(noSelection)
+	local selected: Value<string?> = Compose.cell(noSelection)
 	local detailOpen, notifications, invite = Compose.cell(false), Compose.cell(false), Compose.cell(false)
 	local noSection: Services.Section? = nil
 	local sectionOpen = Compose.cell(false)
-	local expanded: Cell<Services.Section?> = Compose.cell(noSection)
+	local expanded: Value<Services.Section?> = Compose.cell(noSection)
 	local filtered = services.filterMemo(query)
 	local notice = Compose.cell("")
 	local function text(key: string, param: string?): (Use) -> string
@@ -101,7 +103,7 @@ function Foyer.build(ctx: ExampleContext)
 			gap = 12,
 			Size = D2.fromScale(1, 1),
 			recycle = false,
-			render = function(current: Readable<seed.Tile>): GuiObject
+			render = function(current: ReadOnlyValue<seed.Tile>): GuiObject
 				return tile(current:peek())
 			end,
 		}
@@ -137,7 +139,7 @@ function Foyer.build(ctx: ExampleContext)
 				return view.column("SearchResults", {
 					view.watch(function(use: Use): { seed.Tile }
 						return use(filtered)
-					end, function(current: Readable<seed.Tile>): GuiObject
+					end, function(current: ReadOnlyValue<seed.Tile>): GuiObject
 						return tile(current:peek())
 					end, function(item: seed.Tile): string
 						return item.id
@@ -152,7 +154,7 @@ function Foyer.build(ctx: ExampleContext)
 				return view.column("Sections", {
 					view.watch(function(use: Use): { Services.Section }
 						return if use(tab) == "charts" then services.charted else use(services.sections)
-					end, function(current: Readable<Services.Section>): GuiObject
+					end, function(current: ReadOnlyValue<Services.Section>): GuiObject
 						local entry = current:peek()
 						return view.column(entry.id, {
 							view.text(text(entry.titleKey), 24),
@@ -167,7 +169,7 @@ function Foyer.build(ctx: ExampleContext)
 							view.column("Tiles", {
 								view.watch(function(use: Use): { seed.Tile }
 									return use(current).tiles
-								end, function(item: Readable<seed.Tile>): GuiObject
+								end, function(item: ReadOnlyValue<seed.Tile>): GuiObject
 									return tile(item:peek())
 								end, function(item: seed.Tile): string
 									return item.id
@@ -188,7 +190,7 @@ function Foyer.build(ctx: ExampleContext)
 				invite:set(true)
 			end),
 			view.column("Friends", {
-				view.list(services.friends, function(current: Readable<seed.Friend>): GuiObject
+				view.list(services.friends, function(current: ReadOnlyValue<seed.Friend>): GuiObject
 					local friend = current:peek()
 					return view.column(friend.id, {
 						image(friend.portraitKey, D2.fromOffset(60, 60)),
@@ -208,7 +210,7 @@ function Foyer.build(ctx: ExampleContext)
 		return view.page("Mail", {
 			view.text(text("notices.title"), 28),
 			view.column("Notices", {
-				view.list(services.notices, function(current: Readable<seed.Notice>): GuiObject
+				view.list(services.notices, function(current: ReadOnlyValue<seed.Notice>): GuiObject
 					local item = current:peek()
 					return view.column(
 						item.id,

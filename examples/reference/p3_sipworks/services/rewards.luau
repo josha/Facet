@@ -1,8 +1,10 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 
 local rewards = {}
 
@@ -19,7 +21,7 @@ function rewards.new(opts: Opts)
 	local earned = Compose.cell(opts.startEarned or 0)
 	local spent = Compose.cell(opts.startSpent or 0)
 	local noStamps: { [number]: boolean } = {}
-	local unstamped: Cell<{ [number]: boolean }> = Compose.cell(noStamps)
+	local unstamped: Value<{ [number]: boolean }> = Compose.cell(noStamps)
 
 	local self = {}
 	self.earned = earned

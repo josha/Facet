@@ -60,6 +60,11 @@ local FAILING_FACTS: { [string]: boolean } = {
 	["no-cases"] = true,
 }
 
+local function checkedString(value: unknown): string
+	assert(type(value) == "string")
+	return value
+end
+
 local function checkedHost(host: Host): Host
 	if type(host) ~= "table" then
 		error("execute requires a host adapter", 3)
@@ -202,7 +207,7 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 	local groups: { [string]: boolean } = {}
 	local groupCount = 0
 	for _, unit in runnable do
-		local key = if unit.group ~= nil then "g:" .. (unit.group :: string) else "u:" .. unit.id
+		local key = if unit.group ~= nil then "g:" .. unit.group else "u:" .. unit.id
 		if not groups[key] then
 			groups[key] = true
 			groupCount += 1
@@ -257,7 +262,7 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 	local producedReports: { [number]: { Report } } = {}
 	local dispatched: { [number]: boolean } = {}
 	local stopped: string? = if fixtureFailure ~= nil
-		then ("fixture %s did not acquire"):format(fixtureFailure :: string)
+		then ("fixture %s did not acquire"):format(fixtureFailure)
 		else nil
 	local stopKind: string = if fixtureFailure ~= nil then "fixture" else ""
 
@@ -288,9 +293,9 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 		local detail: string? = outcome.detail
 		local report: Report? = nil
 		if outcome.report ~= nil then
-			local decoded, value: unknown = pcall(ReportModel.decode, outcome.report)
+			local decoded, value = pcall(ReportModel.decode, outcome.report)
 			if decoded then
-				report = value :: Report
+				report = value
 			elseif status == "returned" then
 				status = "faulted"
 				detail = "undecodable batch report: " .. tostring(value)
@@ -305,7 +310,7 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 				list = {}
 				producedReports[batch.index] = list
 			end
-			table.insert(list, report :: Report)
+			table.insert(list, report)
 
 			if status == "returned" then
 				adopted[batch.index] = report
@@ -318,7 +323,7 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 			status = status,
 			detail = detail,
 			produced = report ~= nil,
-			verdictDigest = if report ~= nil then ReportModel.verdictDigest(report :: Report) else nil,
+			verdictDigest = if report ~= nil then ReportModel.verdictDigest(report) else nil,
 			durationMicros = micros(elapsedSeconds),
 			adopted = false,
 		})
@@ -330,7 +335,7 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 	end
 
 	local function runOne(batch: PlanBatch): unknown
-		local ok, value: unknown = pcall(adapter.runBatch, batch)
+		local ok, value = pcall(adapter.runBatch, batch)
 		if not ok then
 			return { status = "faulted", detail = "the host raised while running a batch: " .. tostring(value) }
 		end
@@ -338,7 +343,8 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 	end
 
 	local function runChunk(chunk: { PlanBatch }, attempt: number)
-		if #chunk == 1 or adapter.runBatches == nil then
+		local runBatches = adapter.runBatches
+		if #chunk == 1 or runBatches == nil then
 			for _, batch in chunk do
 				local started = adapter.now()
 				local outcome = runOne(batch)
@@ -349,16 +355,12 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 		local collected: { [number]: unknown } = {}
 		local duplicates: { string } = {}
 		local started = adapter.now()
-		local ok, thrown: unknown = pcall(
-			adapter.runBatches :: ({ PlanBatch }, (number, unknown) -> ()) -> (),
-			chunk,
-			function(index: number, outcome: unknown)
-				if collected[index] ~= nil then
-					table.insert(duplicates, tostring(index))
-				end
-				collected[index] = outcome
+		local ok, thrown: unknown = pcall(runBatches, chunk, function(index: number, outcome: unknown)
+			if collected[index] ~= nil then
+				table.insert(duplicates, tostring(index))
 			end
-		)
+			collected[index] = outcome
+		end)
 		local elapsed = adapter.now() - started
 		if #duplicates > 0 then
 			fact(
@@ -383,7 +385,7 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 
 	local function shouldStop(): string?
 		if adapter.cancelled ~= nil then
-			local ok, answer: unknown = pcall(adapter.cancelled :: () -> boolean)
+			local ok, answer = pcall(adapter.cancelled)
 			if ok and answer == true then
 				stopKind = "cancelled"
 				return "the host cancelled the run"
@@ -518,7 +520,7 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 				then
 					table.insert(retryQueue, batch.index)
 				end
-				if policy.failFast and report ~= nil and hasFailure(report :: Report) then
+				if policy.failFast and report ~= nil and hasFailure(report) then
 					stopKind = "fail-fast"
 					stopped = ("fail-fast stopped the run after %s"):format(batch.id)
 				end
@@ -537,7 +539,7 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 		if release == nil then
 			continue
 		end
-		local ok, thrown: unknown = pcall(release :: () -> ())
+		local ok, thrown: unknown = pcall(release)
 		if not ok then
 			fact("fixture-cleanup-failed", fixture.name, tostring(thrown))
 		end
@@ -593,12 +595,11 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 				end
 			end
 			if adapter.artifact ~= nil then
-				for _, result in (report :: Report).results do
+				for _, result in (report).results do
 					for artifactIndex, artifact in result.artifacts do
-						local ok, replaced: unknown =
-							pcall(adapter.artifact :: (string, Artifact) -> Artifact, result.id, artifact)
+						local ok, replaced = pcall(adapter.artifact, result.id, artifact)
 						if ok and type(replaced) == "table" then
-							result.artifacts[artifactIndex] = replaced :: Artifact
+							result.artifacts[artifactIndex] = replaced
 						elseif not ok then
 							fact("artifact-sink-failed", artifact.name, tostring(replaced))
 						end
@@ -630,13 +631,14 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 		end
 	end
 
-	if stopped ~= nil then
+	local stoppedReason = stopped
+	if stoppedReason ~= nil then
 		if stopKind == "cancelled" then
-			fact("cancelled", selected.id, stopped :: string)
+			fact("cancelled", selected.id, checkedString(stoppedReason))
 		elseif stopKind == "run-deadline" then
-			fact("run-deadline-exceeded", selected.id, stopped :: string)
+			fact("run-deadline-exceeded", selected.id, checkedString(stoppedReason))
 		elseif stopKind == "fail-fast" then
-			fact("fail-fast-stopped", selected.id, stopped :: string)
+			fact("fail-fast-stopped", selected.id, checkedString(stoppedReason))
 		end
 		for _, batch in batches do
 			if dispatched[batch.index] == true then

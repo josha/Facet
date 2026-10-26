@@ -15,8 +15,8 @@ type CivilDate = DTP.CivilDate
 type Range = DTP.Range
 type Spec = InputProps.DateTimePickerProps
 type Use = ComposeTypes.Use
-type Readable<T> = ComposeTypes.Readable<T>
-type Cell<T> = ComposeTypes.Cell<T>
+type ReadOnlyValue<T> = ComposeTypes.ReadOnlyValue<T>
+type Value<T> = ComposeTypes.Value<T>
 
 local CELL, GAP, ROW = Parts.CELL, Parts.GAP, Parts.ROW
 local span, monthOf = Parts.span, Parts.monthOf
@@ -34,7 +34,7 @@ return function(
 	panelView: ((Use) -> string) -> Frame,
 	chromeSpec: fieldChrome.Options,
 	rootProps: Spec,
-	routeCell: Cell<string>
+	routeCell: Value<string>
 ): Frame
 	local Host, Compose, runtime = ctx.Host, ctx.Compose, ctx.runtime
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
@@ -256,7 +256,7 @@ return function(
 			local bounds = ctx.observe.AbsoluteSize(plate)
 			local tenFoot = ctx.tenFoot()
 			local atTenFoot = Compose.formula(tenFoot):peek()
-			local atTouch = (preferred :: Readable<unknown>):peek() == E.PreferredInput.Touch
+			local atTouch = (preferred :: ReadOnlyValue<unknown>):peek() == E.PreferredInput.Touch
 			local route = Compose.formula(function(use: Use): string
 				if atTenFoot then
 					return "sheet"

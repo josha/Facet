@@ -2,7 +2,7 @@
 
 <!-- aliases: Reserved collection slots | reserved-collection-slots -->
 
-VirtualList and VirtualGrid accept `slots: Value<{ K }>` with unique item keys.
+VirtualList and VirtualGrid accept `slots: Input<{ K }>` with unique item keys.
 The keys define the slot order. A key absent from `from` shows a non-selectable
 recess. When that item returns to `from`, it uses its reserved slot. Items not
 listed in `slots` follow the listed keys in source order. Remove a key from

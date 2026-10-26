@@ -5,15 +5,15 @@ local Owner = require "./owner"
 local root = Owner.createOwner()
 
 local function hold(dispose: () -> ()): () -> ()
-	return root.own(dispose)
+	return Owner.own(root, dispose)
 end
 
 local function size(): number
-	return root.size()
+	return Owner.size(root)
 end
 
 local function disposeAll()
-	root.dispose()
+	Owner.dispose(root)
 	root = Owner.createOwner()
 end
 

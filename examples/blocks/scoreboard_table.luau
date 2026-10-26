@@ -3,10 +3,10 @@ local FacetTypes = require("../../src")
 
 type FacetModule = FacetTypes.Facet
 type FacetControls = FacetTypes.Controls
-type SortCell = FacetTypes.Cell<{ column: string, direction: "ascending" | "descending" }?>
-type Readable<T> = { peek: (Readable<T>) -> T }
+type SortCell = FacetTypes.Value<{ column: string, direction: "ascending" | "descending" }?>
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
 type Player = { id: string, name: string, kills: number, deaths: number, score: number }
-type Model = { players: Readable<{ Player }>, localPlayerId: string }
+type Model = { players: ReadOnlyValue<{ Player }>, localPlayerId: string }
 
 return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 	local sort: SortCell = Facet.Compose.cell(

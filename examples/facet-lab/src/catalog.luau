@@ -17,9 +17,11 @@ type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 type DropInfo = typeof(require("@repo/tools/typecheck/aliases").DropInfo)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 
 local CatalogTypes = require("./catalog_types")
 export type Context = CatalogTypes.Context
@@ -95,7 +97,7 @@ local function columnList(columns: { TableColumn }): { TableColumn }
 	return columns
 end
 
-local function reorderRows(c: Context, rows: Cell<{ Row }>)
+local function reorderRows(c: Context, rows: Value<{ Row }>)
 	return function(keys: { string }, slot: number)
 		local remaining: { Row }, moved: { Row } = {}, {}
 		for _, row in rows:peek() do
@@ -4299,7 +4301,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					key = function(entry)
 						return entry.n
 					end,
-					render = function(entry: Readable<{ n: number, spec: Properties }>): GuiObject
+					render = function(entry: ReadOnlyValue<{ n: number, spec: Properties }>): GuiObject
 						return UI.Toast(entry:peek().spec)
 					end,
 				}),
@@ -5436,7 +5438,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						key = function(item)
 							return item.id
 						end,
-						render = function(value: Readable<Row>, index: Readable<number>): GuiObject
+						render = function(value: ReadOnlyValue<Row>, index: ReadOnlyValue<number>): GuiObject
 							return UI.Text({
 								LayoutOrder = index,
 								text = function(use: Use)
@@ -5492,7 +5494,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				return if use(at) then 1 else 0
 			end
 			local reduced = c.Compose.cell(p.reducedMotion == true)
-			local motion: Readable<number> = if p.kind == "spring"
+			local motion: ReadOnlyValue<number> = if p.kind == "spring"
 				then runtime.spring(body, { period = 0.4, damping = 0.6, reducedMotion = reduced })
 				else runtime.tween(
 					body,

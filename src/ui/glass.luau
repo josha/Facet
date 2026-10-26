@@ -72,7 +72,7 @@ local function fills(frame: GuiObject): boolean
 	return true
 end
 
-local function hold(ctx: Types.Context, node: Instance, wanted: ComposeTypes.Readable<boolean>?)
+local function hold(ctx: Types.Context, node: Instance, wanted: ComposeTypes.ReadOnlyValue<boolean>?)
 	local Compose, runtime = ctx.Compose, ctx.runtime
 	local held: ScreenGui? = nil
 	local function release()
@@ -117,10 +117,10 @@ local function hold(ctx: Types.Context, node: Instance, wanted: ComposeTypes.Rea
 	Compose.cleanup(release)
 end
 
-local function reach(ctx: Types.Context, frame: GuiObject, poll: boolean?): ComposeTypes.Readable<Reach>
+local function reach(ctx: Types.Context, frame: GuiObject, poll: boolean?): ComposeTypes.ReadOnlyValue<Reach>
 	local Compose, runtime = ctx.Compose, ctx.runtime
 	local service = ctx.config.guiService
-	local result: ComposeTypes.Cell<Reach> = Compose.cell(apart())
+	local result: ComposeTypes.Value<Reach> = Compose.cell(apart())
 	local function measure()
 		local value = apart()
 		local screen = frame:FindFirstAncestorWhichIsA("ScreenGui")

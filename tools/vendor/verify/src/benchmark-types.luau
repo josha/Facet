@@ -184,6 +184,6 @@ export type CollectionAttempt = {
 
 export type CollectionResult = CollectionAttempt & { attempts: { CollectionAttempt }? }
 
-return {
-	SCALE = table.freeze { seconds = 1, milliseconds = 1e3, microseconds = 1e6 } :: { [Unit]: number },
-}
+local scale: { [Unit]: number } = { seconds = 1, milliseconds = 1e3, microseconds = 1e6 }
+
+return { SCALE = table.freeze(scale) }

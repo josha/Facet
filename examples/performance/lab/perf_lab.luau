@@ -9,8 +9,8 @@ type WorkloadsModule = typeof(require("./workloads"))
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Workload = { [string]: any, build: () -> any, step: () -> (), ready: boolean?, counters: any?, n: number? }
 local lab = {}
 lab.VERSION = "native-performance-lab/1"
@@ -223,7 +223,7 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 			key = function(item)
 				return item.id
 			end,
-			render = function(current: Readable<{ id: string, workload: string, count: number }>): GuiObject
+			render = function(current: ReadOnlyValue<{ id: string, workload: string, count: number }>): GuiObject
 				local item = current:peek()
 				local data = modules.dataset.build({ count = item.count, seed = 1 })
 				local context = table.clone(ctx)
@@ -252,7 +252,7 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 								key = function(row)
 									return row.id
 								end,
-								render = function(row: Readable<DatasetItem>): GuiObject
+								render = function(row: ReadOnlyValue<DatasetItem>): GuiObject
 									return modules.rows.build(context, row)
 								end,
 							}),

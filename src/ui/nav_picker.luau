@@ -26,7 +26,7 @@ return function(
 	local optionsStyle = pickerOptions(ctx, UI, surfaces, shared)
 	local function optionLabels(options: unknown): { unknown }
 		local labels: { unknown } = {}
-		if type(options) == "table" and not Compose.isReadable(options) then
+		if type(options) == "table" and not Compose.isValue(options) then
 			for _, option in options :: { { label: unknown } } do
 				table.insert(labels, option.label)
 			end
@@ -162,7 +162,7 @@ return function(
 			end
 		end
 		local function commitSelection<T>(
-			selected: ComposeTypes.Cell<T>,
+			selected: ComposeTypes.Value<T>,
 			value: T,
 			onChanging: ((T, T) -> boolean?)?,
 			onChange: ((T) -> ())?
@@ -218,9 +218,9 @@ return function(
 			local retained = ctx.config.services.RunService ~= nil and spec.query == nil
 			local input = surfaces.service("UserInputService")
 			local preferred = if input
-				then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
+				then ctx.observe.PreferredInput(input) :: ComposeTypes.ReadOnlyValue<Enum.PreferredInput?>
 				else Compose.cell(nil :: Enum.PreferredInput?)
-			local opened: ComposeTypes.Cell<boolean> = spec.isPresented or Compose.cell(false)
+			local opened: ComposeTypes.Value<boolean> = spec.isPresented or Compose.cell(false)
 			local tenFoot = ctx.tenFoot()
 			local width = Compose.cell(0)
 			local measure = ctx.text({
@@ -310,7 +310,7 @@ return function(
 					end
 					return choices
 				end,
-				render = function(current: ComposeTypes.Readable<Nav.PickerStyle>)
+				render = function(current: ComposeTypes.ReadOnlyValue<Nav.PickerStyle>)
 					local presentation: Nav.PickerStyle = current:peek()
 					local function active(use: ComposeTypes.Use): boolean
 						return use(resolved) == presentation

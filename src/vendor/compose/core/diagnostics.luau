@@ -41,13 +41,13 @@ local function format(code: string, summary: string, fields: Fields?): string
 end
 
 local function raise(code: string, summary: string, fields: Fields?, level: number?): never
-	return error(format(code, summary, fields), if level ~= nil then level else 0) :: never
+	return error(format(code, summary, fields), if level ~= nil then level else 0)
 end
 
 local function describe(value: unknown): string
 	local kind = typeof(value)
-	if kind == "string" then
-		return ("string %q"):format(value :: string)
+	if type(value) == "string" then
+		return ("string %q"):format(value)
 	elseif kind == "number" or kind == "boolean" or kind == "nil" then
 		return ("%s %s"):format(kind, tostring(value))
 	end
@@ -68,19 +68,19 @@ local function parse(message: string): Parsed?
 	local body = string.sub(message, at)
 
 	local code, summary = string.match(body, "^Compose%[([^%]]+)%]:%s*([^\n]*)")
-	if code == nil then
+	if code == nil or summary == nil then
 		return nil
 	end
 
 	local fields: { [string]: string } = {}
 	for line in string.gmatch(body, "\n([^\n]*)") do
 		local name, value = string.match(line, "^%s%s([%w_]+):%s(.*)$")
-		if name ~= nil then
-			fields[name :: string] = value :: string
+		if name ~= nil and value ~= nil then
+			fields[name] = value
 		end
 	end
 
-	return { code = code :: string, summary = summary :: string, fields = fields }
+	return { code = code, summary = summary, fields = fields }
 end
 
 return {

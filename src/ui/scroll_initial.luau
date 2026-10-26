@@ -1,7 +1,7 @@
 --!strict
 local Types = require("./types")
 
-return function(ctx: Types.Context, frame: ScrollingFrame, source: Types.Value<Vector2>?)
+return function(ctx: Types.Context, frame: ScrollingFrame, source: Types.Input<Vector2>?)
 	if source == nil then
 		return
 	end

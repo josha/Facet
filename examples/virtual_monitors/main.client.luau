@@ -3,8 +3,8 @@
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type ModelNativeProps = typeof(require("@repo/tools/typecheck/aliases").ModelNativeProps)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Piece = { name: string, size: Vector3, frame: CFrame, color: Color3, material: Enum.Material }
 type StandPiece = { name: string, size: Vector3, frame: CFrame }
 if not game:IsLoaded() then
@@ -241,8 +241,8 @@ local lifetime = Compose.createRootOwner(function()
 		actions.discoveryContent = function(sceneRuntime: ComposeRuntime, target: WorldModel): (() -> ())?
 			return scenes.discovery(sceneRuntime, target)
 		end
-		actions.gameContent = function(current: Readable<Game>)
-			return function(sceneRuntime: ComposeRuntime, target: WorldModel, live: Readable<boolean>): (() -> ())?
+		actions.gameContent = function(current: ReadOnlyValue<Game>)
+			return function(sceneRuntime: ComposeRuntime, target: WorldModel, live: ReadOnlyValue<boolean>): (() -> ())?
 				return scenes.card(sceneRuntime, target, current:peek(), motionPolicy, function(use: Use): boolean
 					return active(use) and use(live)
 				end)

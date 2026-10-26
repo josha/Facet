@@ -11,9 +11,11 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type ObservedCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Signal = { Fire: (Signal, ...unknown) -> () }
 local function fire(signal: unknown, ...: unknown)
 	local native = (signal :: unknown) :: Signal
@@ -102,7 +104,7 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 	local state = {
 		n = 0,
 		name = name,
-		selected = nil :: (Cell<string> | Cell<{ [string]: boolean }>)?,
+		selected = nil :: (Value<string> | Value<{ [string]: boolean }>)?,
 		observed = {} :: { ObservedCell },
 		nodes = {},
 		close = nil :: (() -> ())?,
@@ -176,7 +178,7 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 		end
 		return Host.Frame(props)
 	end
-	local function bindCell<T>(value: T): Cell<T>
+	local function bindCell<T>(value: T): Value<T>
 		local cell = Compose.cell(value)
 		table.insert(state.observed, (cell :: unknown) :: ObservedCell)
 		return cell
@@ -439,7 +441,7 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 			state.rows, state.collectionSelection =
 				Compose.cell(items :: { Row }), Compose.cell({} :: { [string]: boolean })
 			state.selected = state.collectionSelection
-			local function cell(current: Readable<Row>): Instance
+			local function cell(current: ReadOnlyValue<Row>): Instance
 				return Host.TextLabel({
 					Text = function(use: Use)
 						return use(current).name
@@ -692,18 +694,19 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 					table.insert(
 						children,
 						Host.Frame({
-							BackgroundTransparency = (value :: unknown) :: Cell<number>,
+							BackgroundTransparency = (value :: unknown) :: Value<number>,
 							Size = D2.fromOffset(30, 30),
 							Host.UICorner({}) :: unknown,
 							Host.UIStroke({ Thickness = 2 }),
 							Host.UIShadow({
-								Transparency = (value :: unknown) :: Cell<number>,
+								Transparency = (value :: unknown) :: Value<number>,
 								BlurRadius = types.UDim.new(0, 8),
 							}),
 						})
 					)
 				elseif name == "stylesheet-state-churn" then
-					local control = UI.Toggle({ label = `Option {index}`, value = (value :: unknown) :: Cell<boolean> })
+					local control =
+						UI.Toggle({ label = `Option {index}`, value = (value :: unknown) :: Value<boolean> })
 					table.insert(state.nodes, control)
 					table.insert(children, control)
 				else
@@ -746,7 +749,7 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 							key = function(item)
 								return item.id
 							end,
-							render = function(current: Readable<{ id: string, x: number }>): GuiObject
+							render = function(current: ReadOnlyValue<{ id: string, x: number }>): GuiObject
 								return Host.Frame({ Name = `Dot-{current:peek().id}`, Size = D2.fromOffset(6, 6) })
 							end,
 						}),

@@ -7,7 +7,7 @@ local activation = require("./activation")
 type Level = { child: Instance, parent: Instance, siblings: { Instance } }
 type Snapshot = { node: GuiObject, levels: { Level }, modal: boolean }
 
-type Record = { root: Instance, passive: boolean, engaged: ComposeTypes.Cell<boolean> }
+type Record = { root: Instance, passive: boolean, engaged: ComposeTypes.Value<boolean> }
 export type Selection = {
 	track: (Instance) -> (),
 	responder: (Instance, Env.ResponderOptions?) -> Env.Responder,
@@ -24,7 +24,7 @@ return function(ctx: Shared.Context): Selection
 	local E = ctx.types.Enum
 	local gui = config.guiService
 	local input = config.userInputService
-	local responders: ComposeTypes.Cell<{ Record }> = Compose.cell({})
+	local responders: ComposeTypes.Value<{ Record }> = Compose.cell({})
 	local keyboardNavigation = if config.keyboardNavigation == nil
 		then KEYBOARD_NAVIGATION_DEFAULT
 		else config.keyboardNavigation
@@ -484,12 +484,12 @@ return function(ctx: Shared.Context): Selection
 		local tracking: ComposeTypes.Owner? = nil
 		local function track(current: GuiObject): ()
 			if tracking then
-				tracking.dispose()
+				ComposeTypes.owner.dispose(tracking)
 			end
-			local child = owner.createChild()
+			local child = ComposeTypes.owner.createChild(owner)
 			tracking = child
 			Compose.withOwner(child, function()
-				local sources: { ComposeTypes.Readable<unknown> } = { ctx.observe.Parent(current) }
+				local sources: { ComposeTypes.ReadOnlyValue<unknown> } = { ctx.observe.Parent(current) }
 				local at: Instance? = current
 				while at do
 					if at:IsA("GuiObject") then
@@ -804,7 +804,7 @@ return function(ctx: Shared.Context): Selection
 			Compose.formula(function(use: ComposeTypes.Use): Env.ResponderState
 				return if use(engaged) then "engaged" else "passive"
 			end) :: unknown
-		) :: ComposeTypes.Readable<Env.ResponderState>
+		) :: ComposeTypes.ReadOnlyValue<Env.ResponderState>
 		return table.freeze({
 			state = state,
 			engage = engage,

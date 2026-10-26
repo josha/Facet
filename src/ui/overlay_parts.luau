@@ -43,7 +43,7 @@ function parts.instance(value: unknown): boolean
 end
 
 function parts.readable(ctx: Types.Context, value: unknown): boolean
-	return type(value) == "function" or ctx.Compose.isReadable(value)
+	return type(value) == "function" or ctx.Compose.isValue(value)
 end
 
 function parts.bound(ctx: Types.Context, value: unknown, kind: string): boolean
@@ -213,7 +213,7 @@ function parts.call<A...>(fn: (A...) -> (), settle: (() -> ())?, ...: A...)
 	end
 end
 
-function parts.width(ctx: Types.Context, preset: Types.Value<Overlay.WidthPreset?>?, use: ComposeTypes.Use?): number
+function parts.width(ctx: Types.Context, preset: Types.Input<Overlay.WidthPreset?>?, use: ComposeTypes.Use?): number
 	local chosen = ctx.read(preset, use) or "automatic"
 	local key = parts.WIDTHS[chosen]
 	assert(key, `Facet width must be automatic, narrow or wide, not {tostring(chosen)}`)
@@ -273,13 +273,13 @@ function parts.media(ctx: Types.Context, media: Overlay.Media | Overlay.Hero, na
 	return Host.Frame(props)
 end
 
-export type ActionGroup = { frame: Frame, stacked: ComposeTypes.Readable<boolean> }
+export type ActionGroup = { frame: Frame, stacked: ComposeTypes.ReadOnlyValue<boolean> }
 
 function parts.stackedForm(ctx: Types.Context): (ComposeTypes.Use) -> boolean
 	local E = ctx.types.Enum
 	local tenFoot = ctx.tenFoot()
 	local gui = ctx.config.guiService
-	local text: ComposeTypes.Readable<unknown>? = if gui and gui.GetPropertyChangedSignal
+	local text: ComposeTypes.ReadOnlyValue<unknown>? = if gui and gui.GetPropertyChangedSignal
 		then ctx.observe.PreferredTextSize(gui)
 		else nil
 	return function(use: ComposeTypes.Use): boolean
@@ -292,7 +292,7 @@ function parts.actions(
 	ctx: Types.Context,
 	UI: UIControls,
 	actions: { Overlay.Action },
-	layout: Types.Value<Overlay.ActionLayout?>?,
+	layout: Types.Input<Overlay.ActionLayout?>?,
 	offered: (ComposeTypes.Use) -> number,
 	press: (Overlay.Action) -> (),
 	height: number?
@@ -305,7 +305,7 @@ function parts.actions(
 	end
 	modeOf()
 	local rowHeight = height or 44
-	local widths: { ComposeTypes.Readable<Vector2> } = {}
+	local widths: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 	local measured = Compose.cell(0)
 	local form = parts.stackedForm(ctx)
 	local stacked = Compose.formula(function(use: ComposeTypes.Use): boolean
@@ -373,10 +373,10 @@ end
 
 export type Room = {
 	frame: ScrollingFrame,
-	pinned: ComposeTypes.Readable<number>,
-	tight: ComposeTypes.Readable<boolean>,
-	bodyHeight: ComposeTypes.Readable<number>,
-	overflowing: ComposeTypes.Readable<boolean>,
+	pinned: ComposeTypes.ReadOnlyValue<number>,
+	tight: ComposeTypes.ReadOnlyValue<boolean>,
+	bodyHeight: ComposeTypes.ReadOnlyValue<number>,
+	overflowing: ComposeTypes.ReadOnlyValue<boolean>,
 }
 
 function parts.room(
@@ -385,15 +385,15 @@ function parts.room(
 	body: ScrollingFrame?,
 	natural: (ComposeTypes.Use) -> number,
 	maximum: (ComposeTypes.Use) -> number,
-	fill: boolean | ComposeTypes.Readable<boolean>,
-	unit: ComposeTypes.Readable<number>?
+	fill: boolean | ComposeTypes.ReadOnlyValue<boolean>,
+	unit: ComposeTypes.ReadOnlyValue<number>?
 ): Room
 	local Compose, Host, E, D2 = ctx.Compose, ctx.Host, ctx.types.Enum, ctx.types.UDim2
 	local gap = 8
 	local function filling(use: ComposeTypes.Use): boolean
 		return if type(fill) == "boolean" then fill else use(fill)
 	end
-	local sizes: { ComposeTypes.Readable<Vector2> } = {}
+	local sizes: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 	for _, region in regions do
 		if region ~= body then
 			table.insert(sizes, ctx.layoutSize(region, unit))
@@ -464,7 +464,7 @@ function parts.room(
 	return { frame = frame, pinned = pinned, tight = tight, bodyHeight = bodyHeight, overflowing = overflowing }
 end
 
-function parts.reach(ctx: Types.Context, scroller: ScrollingFrame, active: ComposeTypes.Readable<boolean>)
+function parts.reach(ctx: Types.Context, scroller: ScrollingFrame, active: ComposeTypes.ReadOnlyValue<boolean>)
 	local Compose, V2 = ctx.Compose, ctx.types.Vector2
 	local gui = ctx.config.guiService
 	local input = ctx.config.userInputService
@@ -596,7 +596,7 @@ end
 function parts.back(
 	ctx: Types.Context,
 	UI: UIControls,
-	label: Types.Value<string>?,
+	label: Types.Input<string>?,
 	onActivate: () -> (),
 	place: BackPlace?
 ): TextButton
@@ -650,7 +650,7 @@ export type TailPanel = {
 	node: GuiObject,
 	scale: (ComposeTypes.Use) -> number,
 	corner: (ComposeTypes.Use) -> Vector2,
-	size: ComposeTypes.Readable<Vector2>,
+	size: ComposeTypes.ReadOnlyValue<Vector2>,
 	radius: (ComposeTypes.Use) -> number,
 	role: string,
 }

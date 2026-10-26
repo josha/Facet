@@ -6,12 +6,12 @@ export type Mark = "required" | "optional"
 export type Appearance = "standard" | "contrast" | "utility"
 export type Corners = "pill" | "square"
 export type Options = {
-	label: Shared.Value<string>?,
+	label: Shared.Input<string>?,
 	requiredMark: Mark?,
-	hint: Shared.Value<string>?,
-	errorText: Shared.Value<string>?,
-	controlSize: Shared.Value<Shared.ControlSize?>?,
-	appearance: Shared.Value<string>?,
+	hint: Shared.Input<string>?,
+	errorText: Shared.Input<string>?,
+	controlSize: Shared.Input<Shared.ControlSize?>?,
+	appearance: Shared.Input<string>?,
 	corners: Corners?,
 }
 export type Wrap = {
@@ -20,7 +20,7 @@ export type Wrap = {
 	plate: GuiObject,
 	focus: () -> (),
 	enabled: (ComposeTypes.Use?) -> boolean,
-	message: ComposeTypes.Readable<string>?,
+	message: ComposeTypes.ReadOnlyValue<string>?,
 	native: Shared.FrameNativeProps,
 }
 export type Chrome = {
@@ -28,7 +28,7 @@ export type Chrome = {
 	present: (Options) -> boolean,
 	check: (string, Options) -> (),
 	labelText: (Options, ComposeTypes.Use?) -> string,
-	errorOf: (Options, ComposeTypes.Readable<string>?) -> (ComposeTypes.Use?) -> string,
+	errorOf: (Options, ComposeTypes.ReadOnlyValue<string>?) -> (ComposeTypes.Use?) -> string,
 	paint: (string, GuiObject, Options, ((ComposeTypes.Use?) -> boolean)?) -> (),
 	wrap: (Wrap) -> Frame,
 }
@@ -46,7 +46,7 @@ return function(ctx: Shared.Context): Chrome
 	local chrome = {} :: Chrome
 	chrome.KEYS = KEYS
 	local function dynamic(source: unknown): boolean
-		return Compose.isReadable(source) or type(source) == "function"
+		return Compose.isValue(source) or type(source) == "function"
 	end
 	function chrome.present(spec: Options): boolean
 		for _, key in KEYS do
@@ -71,7 +71,7 @@ return function(ctx: Shared.Context): Chrome
 			error(`Facet UI.{control}: requiredMark must be required | optional (got {tostring(mark)})`, 0)
 		end
 		for _, key in { "label", "hint", "errorText" } do
-			local value = read(((spec :: unknown) :: { [string]: Shared.Value<unknown> })[key])
+			local value = read(((spec :: unknown) :: { [string]: Shared.Input<unknown> })[key])
 			if value ~= nil and type(value) ~= "string" then
 				error(`Facet UI.{control}: {key} must be a string or a readable string (got {typeof(value)})`, 0)
 			end
@@ -89,7 +89,7 @@ return function(ctx: Shared.Context): Chrome
 		local words = read(spec.label, use) or ""
 		return if spec.requiredMark == "required" then words .. " *" else words
 	end
-	function chrome.errorOf(spec: Options, internal: ComposeTypes.Readable<string>?): (ComposeTypes.Use?) -> string
+	function chrome.errorOf(spec: Options, internal: ComposeTypes.ReadOnlyValue<string>?): (ComposeTypes.Use?) -> string
 		return function(use: ComposeTypes.Use?): string
 			local authored = read(spec.errorText, use)
 			if type(authored) == "string" and authored ~= "" then

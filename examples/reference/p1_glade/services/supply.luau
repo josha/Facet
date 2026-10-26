@@ -1,9 +1,11 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 
 local seedData = require("../content/seed")
 
@@ -12,9 +14,9 @@ local supply = {}
 export type Opts = {
 	Compose: ComposeModule,
 	rooted: <T>(() -> T) -> T,
-	now: Readable<number>,
+	now: ReadOnlyValue<number>,
 }
-export type Stamps = { nectar: Cell<number>, dew: Cell<number> }
+export type Stamps = { nectar: Value<number>, dew: Value<number> }
 export type GladeSupply = {
 	glade: string,
 	nectar: string,
@@ -34,7 +36,7 @@ function supply.new(opts: Opts)
 	local now = opts.now
 
 	local stamps: { [string]: Stamps } = {}
-	local assigned: { [string]: Cell<string> } = {}
+	local assigned: { [string]: Value<string> } = {}
 	for _, glade in seedData.GLADES do
 		stamps[glade.id] = {
 			nectar = Compose.cell(-glade.nectarAge),
@@ -45,11 +47,11 @@ function supply.new(opts: Opts)
 
 	local service = {}
 
-	local levels: { [string]: Readable<number> } = {}
-	local remainings: { [string]: Readable<number> } = {}
-	local states: { [string]: Readable<string> } = {}
+	local levels: { [string]: ReadOnlyValue<number> } = {}
+	local remainings: { [string]: ReadOnlyValue<number> } = {}
+	local states: { [string]: ReadOnlyValue<string> } = {}
 
-	local function stampOf(gladeId: string, kind: string): Cell<number>
+	local function stampOf(gladeId: string, kind: string): Value<number>
 		local stamp = stamps[gladeId]
 		return if kind == "dew" then stamp.dew else stamp.nectar
 	end
@@ -58,7 +60,7 @@ function supply.new(opts: Opts)
 		return at - stampOf(gladeId, kind):peek()
 	end
 
-	function service.remaining(gladeId: string, kind: string): Readable<number>
+	function service.remaining(gladeId: string, kind: string): ReadOnlyValue<number>
 		local key = gladeId .. "/" .. kind
 		local memo = remainings[key]
 		if memo == nil then
@@ -75,7 +77,7 @@ function supply.new(opts: Opts)
 		return memo
 	end
 
-	function service.level(gladeId: string, kind: string): Readable<number>
+	function service.level(gladeId: string, kind: string): ReadOnlyValue<number>
 		local key = gladeId .. "/" .. kind
 		local memo = levels[key]
 		if memo == nil then
@@ -90,7 +92,7 @@ function supply.new(opts: Opts)
 		return memo
 	end
 
-	function service.state(gladeId: string, kind: string): Readable<string>
+	function service.state(gladeId: string, kind: string): ReadOnlyValue<string>
 		local key = gladeId .. "/" .. kind
 		local memo = states[key]
 		if memo == nil then
@@ -113,7 +115,7 @@ function supply.new(opts: Opts)
 		return memo
 	end
 
-	function service.nectarOf(gladeId: string): Cell<string>
+	function service.nectarOf(gladeId: string): Value<string>
 		return assigned[gladeId]
 	end
 

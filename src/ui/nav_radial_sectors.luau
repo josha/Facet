@@ -61,8 +61,8 @@ return function<V>(
 		return math.max(1 - use(entry.progress), use(fading))
 	end
 	local buttons: { [string]: TextButton } = {}
-	local ringFits: ComposeTypes.Cell<{ [string]: { ring: number, inner: number, outer: number } }> = Compose.cell({})
-	local fittedWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
+	local ringFits: ComposeTypes.Value<{ [string]: { ring: number, inner: number, outer: number } }> = Compose.cell({})
+	local fittedWidths: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
 	local function iconSide(use: ComposeTypes.Use): number
 		return if spec.iconSize ~= nil then read(spec.iconSize, use) else ctx.controlSize(nil, "iconSize", use)
 	end
@@ -161,9 +161,9 @@ return function<V>(
 				visit(read(spec.items, use), "")
 				return entries
 			end,
-			render = function(key: ComposeTypes.Readable<string>)
-				local current: ComposeTypes.Cell<Radial.Sector<V>?> = Compose.cell(nil :: Radial.Sector<V>?)
-				local fittedShape: ComposeTypes.Cell<Radial.SectorShape?> = Compose.cell(nil :: Radial.SectorShape?)
+			render = function(key: ComposeTypes.ReadOnlyValue<string>)
+				local current: ComposeTypes.Value<Radial.Sector<V>?> = Compose.cell(nil :: Radial.Sector<V>?)
+				local fittedShape: ComposeTypes.Value<Radial.SectorShape?> = Compose.cell(nil :: Radial.SectorShape?)
 				local painted = Compose.cell(false)
 				local present = Compose.formula(function(use: ComposeTypes.Use): Radial.Sector<V>?
 					local entries = use(sectors)

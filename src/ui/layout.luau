@@ -56,9 +56,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	local CORNERS: { [string]: string } = { surface = "radii.control", panel = "radii.panel" }
 	local SIDES: { "top" | "right" | "bottom" | "left" } = { "top", "right", "bottom", "left" }
 	local function clearCorners(
-		padding: Types.Value<Types.Padding>,
+		padding: Types.Input<Types.Padding>,
 		bend: (ComposeTypes.Use) -> (number, boolean?)
-	): Types.Value<Types.Padding>
+	): Types.Input<Types.Padding>
 		return function(use: ComposeTypes.Use): Types.Padding
 			local value = read(padding, use)
 			local given: { [string]: unknown } = if type(value) == "table"
@@ -190,9 +190,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		)
 		local plate = PLATES[spec.surface or ""]
 		assert(spec.surface == nil or plate ~= nil, "Facet UI.Screen: surface must be surface, panel or pane")
-		local base: Types.Value<Types.Padding> = if spec.padding == nil then "m" else spec.padding
+		local base: Types.Input<Types.Padding> = if spec.padding == nil then "m" else spec.padding
 		local under = Compose.cell(0)
-		local clearance: ComposeTypes.Cell<{ [string]: number }?> = Compose.cell(nil :: { [string]: number }?)
+		local clearance: ComposeTypes.Value<{ [string]: number }?> = Compose.cell(nil :: { [string]: number }?)
 		local distant = ctx.tenFoot()
 		local authored = ctx.config.environment and ctx.config.environment.overscanInsets
 		local needsInsets = Compose.formula(function(use: ComposeTypes.Use): boolean
@@ -242,11 +242,11 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local owner = assert(Compose.currentOwner())
 		local observing: ComposeTypes.Owner? = nil
 		local function locate()
-			if owner.isDisposed() then
+			if ComposeTypes.owner.isDisposed(owner) then
 				return
 			end
 			if observing then
-				observing.dispose()
+				ComposeTypes.owner.dispose(observing)
 				observing = nil
 			end
 			local layer = (ctx.config.overlayParent or frame:FindFirstAncestorWhichIsA("LayerCollector")) :: GuiBase2d?
@@ -254,7 +254,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				clearance:set(nil)
 				return
 			end
-			local child = owner.createChild()
+			local child = ComposeTypes.owner.createChild(owner)
 			observing = child
 			Compose.withOwner(child, function()
 				local position, size = ctx.observe.AbsolutePosition(frame), ctx.observe.AbsoluteSize(frame)
@@ -303,7 +303,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			)
 			return if value == "center" then 0.5 elseif value == "end" then 1 else 0
 		end
-		local placed = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Vector2> }
+		local placed = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<Vector2> }
 		local members = Compose.cell(0)
 		local function hugs(value: Layout.Extent?): boolean
 			return value == nil or value == "hug"
@@ -407,15 +407,15 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			local unit = ctx.layoutUnit(frame)
 			local window = ctx.observe.AbsoluteWindowSize(frame)
 			local observe = (ctx.observe :: unknown) :: {
-				PaddingLeft: (UIPadding) -> ComposeTypes.Cell<UDim>,
-				PaddingRight: (UIPadding) -> ComposeTypes.Cell<UDim>,
+				PaddingLeft: (UIPadding) -> ComposeTypes.Value<UDim>,
+				PaddingRight: (UIPadding) -> ComposeTypes.Value<UDim>,
 			}
 			local left = if insets then observe.PaddingLeft(insets) else nil
 			local right = if insets then observe.PaddingRight(insets) else nil
 			local mode = ctx.observe.AutomaticSize(frame)
 			local scrollStyle = (
 				ctx.observeStyled :: unknown
-			) :: { ScrollBarThickness: (ScrollingFrame) -> ComposeTypes.Cell<number> }
+			) :: { ScrollBarThickness: (ScrollingFrame) -> ComposeTypes.Value<number> }
 			local thickness = scrollStyle.ScrollBarThickness(frame)
 			if frame:FindFirstChildWhichIsA("UISizeConstraint") == nil then
 				runtime.mount(function()
@@ -705,10 +705,10 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	end
 	local function tracked(
 		node: GuiObject,
-		sizes: { [GuiObject]: ComposeTypes.Cell<Vector2> },
-		parents: { [GuiObject]: ComposeTypes.Cell<Instance?> },
-		members: ComposeTypes.Cell<number>,
-		spills: { [GuiObject]: ComposeTypes.Cell<boolean> }?
+		sizes: { [GuiObject]: ComposeTypes.Value<Vector2> },
+		parents: { [GuiObject]: ComposeTypes.Value<Instance?> },
+		members: ComposeTypes.Value<number>,
+		spills: { [GuiObject]: ComposeTypes.Value<boolean> }?
 	)
 		sizes[node] = ctx.observe.AbsoluteSize(node)
 		parents[node] = ctx.observe.Parent(node)
@@ -743,15 +743,15 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				assert(value == "x" or value == "y", "Facet AdaptiveStack axis must be x or y")
 				return value == "y"
 			end
-			local vertical: Types.Value<boolean> = if Compose.isReadable(axis) or type(axis) == "function"
+			local vertical: Types.Input<boolean> = if Compose.isValue(axis) or type(axis) == "function"
 				then column
 				else column(nil)
 			return kit.stack(children, properties :: Engine.FrameNativeProps, flow, vertical)
 		end
 		local vertical = Compose.cell(false)
-		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Vector2> }
-		local parents = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Instance?> }
-		local shown = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<boolean> }
+		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<Vector2> }
+		local parents = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<Instance?> }
+		local shown = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<boolean> }
 		local members = Compose.cell(0)
 		local size, automatic = kit.extent(flow, "fill", "hug")
 		local layout = kit.list(flow, vertical)
@@ -822,9 +822,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	UI.ViewThatFits = ctx.construct("ViewThatFits", function(spec: LayoutProps.ViewThatFitsProps): Frame
 		local properties, children = split(spec, { "width", "height" })
 		assert(#children > 0, "Facet ViewThatFits needs at least one candidate")
-		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Vector2> }
-		local parents = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Instance?> }
-		local spills = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<boolean> }
+		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<Vector2> }
+		local parents = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<Instance?> }
+		local spills = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<boolean> }
 		local members = Compose.cell(0)
 		local box: Types.Box = { width = spec.width, height = spec.height }
 		local size, automatic = kit.extent(box, "fill", "hug")
@@ -880,7 +880,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local properties = containerProps(spec, { "view", "fallback", "onError", "width", "height" })
 		local box: Types.Box = { width = spec.width, height = spec.height }
 		local size, automatic = kit.extent(box, "hug", "hug")
-		local failed: ComposeTypes.Cell<string?> = Compose.cell(nil :: string?)
+		local failed: ComposeTypes.Value<string?> = Compose.cell(nil :: string?)
 		local native: Engine.FrameNativeProps = {
 			BorderSizePixel = 0,
 			Size = size,
@@ -911,7 +911,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				return axis
 			end
 		end
-		local direction: ComposeTypes.Cell<"x" | "y"> = Compose.cell("y" :: "x" | "y")
+		local direction: ComposeTypes.Value<"x" | "y"> = Compose.cell("y" :: "x" | "y")
 		local connections: { RBXScriptConnection } = {}
 		local function release()
 			for _, connection in connections do

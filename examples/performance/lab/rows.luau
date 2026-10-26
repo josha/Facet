@@ -1,13 +1,13 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local rows = { VERSION = "native-perf-rows/2", ITEM_SIZE = 56, COMPACT_ITEM_SIZE = 152 }
 function rows.estimate(ctx)
 	return if ctx.viewport and ctx.viewport.w < 720 then rows.COMPACT_ITEM_SIZE else rows.ITEM_SIZE
 end
-function rows.build(ctx: { [string]: any }, current: Readable<any>, options: { [string]: any }?)
+function rows.build(ctx: { [string]: any }, current: ReadOnlyValue<any>, options: { [string]: any }?)
 	local Compose: ComposeModule, Host, UI, T = ctx.Facet.Compose, ctx.Host, ctx.UI, ctx.types
 	local D2, E = T.UDim2, T.Enum
 	local full = not options or options.full ~= false

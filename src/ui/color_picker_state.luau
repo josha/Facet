@@ -6,7 +6,7 @@ local InputProps = require("./input_props")
 local Kit = require("./color_picker_kit")
 
 type Use = ComposeTypes.Use
-type Cell<T> = ComposeTypes.Cell<T>
+type Value<T> = ComposeTypes.Value<T>
 type Hsv = Kit.Hsv
 type Item = Kit.Item
 type Paint = Kit.Paint
@@ -18,10 +18,10 @@ export type State = {
 	draft: boolean,
 	modes: { string },
 	labelled: boolean,
-	diagnostics: Cell<{ string }>,
-	held: Cell<Color3?>,
-	alphaHeld: Cell<number>,
-	canon: Cell<Hsv>,
+	diagnostics: Value<{ string }>,
+	held: Value<Color3?>,
+	alphaHeld: Value<number>,
+	canon: Value<Hsv>,
 	enabled: (Use?) -> boolean,
 	interactive: (Use?) -> boolean,
 	mayEdit: () -> boolean,
@@ -35,23 +35,23 @@ export type State = {
 	semanticName: (Use?) -> string,
 	currentPaint: (Use) -> Paint,
 	gui: GuiService?,
-	selected: ComposeTypes.Readable<GuiObject?>,
-	preferred: Cell<Enum.PreferredInput> | Cell<unknown>,
+	selected: ComposeTypes.ReadOnlyValue<GuiObject?>,
+	preferred: Value<Enum.PreferredInput> | Value<unknown>,
 	touch: (Use?) -> boolean,
 	gamepad: (Use?) -> boolean,
 	presented: (Use?) -> boolean,
 	requestPresented: (boolean) -> (),
 	close: (Types.DismissReason) -> (),
-	modeCell: Cell<string>,
-	formatCell: Cell<string>,
-	hexError: Cell<string>,
-	placement: Cell<string>,
-	columns: Cell<number>,
+	modeCell: Value<string>,
+	formatCell: Value<string>,
+	hexError: Value<string>,
+	placement: Value<string>,
+	columns: Value<number>,
 	cellSize: (Use?) -> number,
-	editing: Cell<boolean>,
+	editing: Value<boolean>,
 	saving: boolean,
 	removing: boolean,
-	swatchList: ComposeTypes.Formula<{ Item }>,
+	swatchList: ComposeTypes.Value<{ Item }>,
 }
 
 local isColor, unit, writable = Kit.isColor, Kit.unit, Kit.writable
@@ -128,7 +128,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 			or if ctx.types.BrickColor
 				then { "swatches", "spectrum", "sliders", "brick" }
 				else { "swatches", "spectrum", "sliders" }
-		if Compose.isReadable(listed) or type(listed) ~= "table" or #(listed :: { unknown }) == 0 then
+		if Compose.isValue(listed) or type(listed) ~= "table" or #(listed :: { unknown }) == 0 then
 			refuse(
 				'`modes` is a non-empty list of "swatches" | "spectrum" | "sliders" | "brick", fixed at construction.'
 			)
@@ -159,7 +159,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 	kit.chrome.check("ColorPicker", spec)
 	local labelled = spec.label ~= nil
 
-	local diagnostics: Cell<{ string }> = Compose.cell({})
+	local diagnostics: Value<{ string }> = Compose.cell({})
 	local function note(line: string)
 		local list = diagnostics:peek()
 		if list[#list] ~= line then
@@ -250,14 +250,14 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 		if spec.onChange then
 			(spec.onChange :: (Color3?) -> ())(next)
 		elseif writable(spec.value) then
-			(spec.value :: ComposeTypes.Cell<Color3?>):set(next)
+			(spec.value :: ComposeTypes.Value<Color3?>):set(next)
 		end
 	end
 	local function changeAlpha(next: number)
 		if spec.onAlphaChange then
 			spec.onAlphaChange(next)
 		elseif writable(spec.alpha) then
-			(spec.alpha :: ComposeTypes.Cell<number>):set(next)
+			(spec.alpha :: ComposeTypes.Value<number>):set(next)
 		end
 	end
 	local function current(): Color3?
@@ -389,7 +389,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 			spec.onPresentedChange(next)
 		elseif spec.isPresented ~= nil then
 			if writable(spec.isPresented) then
-				(spec.isPresented :: ComposeTypes.Cell<boolean>):set(next)
+				(spec.isPresented :: ComposeTypes.Value<boolean>):set(next)
 			end
 		else
 			ownOpen:set(next)

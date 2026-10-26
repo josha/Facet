@@ -121,10 +121,10 @@ local function present(value: unknown): boolean
 end
 
 local function number(value: unknown, label: string): number
-	if not finite(value) then
-		fail(label, "must be a finite number")
+	if type(value) ~= "number" or not finite(value) then
+		return fail(label, "must be a finite number")
 	end
-	return value :: number
+	return value
 end
 
 local function optionalNumber(value: unknown, label: string): number?
@@ -136,9 +136,9 @@ end
 
 local function text(value: unknown, label: string): string
 	if type(value) ~= "string" then
-		fail(label, "must be a string")
+		return fail(label, "must be a string")
 	end
-	return value :: string
+	return value
 end
 
 local function optionalText(value: unknown, label: string): string?
@@ -153,9 +153,9 @@ local function boolean(value: unknown, label: string, default: boolean?): boolea
 		return default
 	end
 	if type(value) ~= "boolean" then
-		fail(label, "must be a boolean")
+		return fail(label, "must be a boolean")
 	end
-	return value :: boolean
+	return value
 end
 
 local function optionalBoolean(value: unknown, label: string): boolean?
@@ -311,7 +311,10 @@ local function decode(value: unknown): Dump
 				fail(where .. ".focus.selectionImage", "must be default, visible or hidden")
 			end
 			focus = {
-				selectionImage = image :: "default" | "visible" | "hidden",
+				selectionImage = if image == "default"
+					then "default"
+					elseif image == "visible" then "visible"
+					else "hidden",
 				autoButtonColor = optionalBoolean(f.autoButtonColor, where .. ".focus.autoButtonColor"),
 				hoverImage = boolean(f.hoverImage, where .. ".focus.hoverImage", false),
 				pressedImage = boolean(f.pressedImage, where .. ".focus.pressedImage", false),

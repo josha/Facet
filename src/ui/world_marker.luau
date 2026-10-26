@@ -161,7 +161,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end)
 		local size = ctx.observe.AbsoluteSize(root)
 		Compose.watch(function(use: ComposeTypes.Use)
-			local point = read(spec.anchor, use) :: Env.WorldAnchorPoint
+			local point = ctx.readSource(spec.anchor, use) :: Env.WorldAnchorPoint
 			local edge = read(spec.edge, use) or "clamp"
 			assert(EDGES[edge] == true, "Facet WorldMarker edge must be clamp or hide")
 			use(geometry)

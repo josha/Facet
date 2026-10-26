@@ -4,8 +4,8 @@ type Timeline = typeof(require("@repo/tools/typecheck/aliases").Timeline)
 type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type ModelNativeProps = typeof(require("@repo/tools/typecheck/aliases").ModelNativeProps)
 type PartNativeProps = typeof(require("@repo/tools/typecheck/aliases").PartNativeProps)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type HatPiece = { name: string, size: Vector3, height: number, color: "tint" | "shade" | Color3 }
 local Facet = require(game:GetService("ReplicatedStorage").Facet)
 local catalogModule = require("./catalog")
@@ -17,7 +17,7 @@ function scenes.card(
 	runtime: Runtime,
 	target: Instance,
 	item: Game,
-	motionPolicy: Readable<string>,
+	motionPolicy: ReadOnlyValue<string>,
 	active: ((Use) -> boolean)?
 ): () -> ()
 	local Host = Facet.host(runtime)
@@ -446,14 +446,14 @@ end
 function scenes.staticAvatar(
 	runtime: Runtime,
 	target: Instance,
-	angle: Readable<number>,
-	palette: Readable<string>,
-	hat: Readable<boolean>,
-	motionPolicy: Readable<string>,
-	hatTint: Readable<{ number }>
+	angle: ReadOnlyValue<number>,
+	palette: ReadOnlyValue<string>,
+	hat: ReadOnlyValue<boolean>,
+	motionPolicy: ReadOnlyValue<string>,
+	hatTint: ReadOnlyValue<{ number }>
 ): () -> ()
 	local Host = Facet.host(runtime)
-	local animatedAngle: Readable<number>
+	local animatedAngle: ReadOnlyValue<number>
 	local colors: { [string]: Color3 } = {
 		sage = Color3.fromRGB(130, 158, 126),
 		clay = Color3.fromRGB(195, 121, 94),
@@ -640,12 +640,12 @@ end
 function scenes.avatar(
 	runtime: Runtime,
 	target: Instance,
-	angle: Readable<number>,
-	palette: Readable<string>,
-	hat: Readable<boolean>,
-	motionPolicy: Readable<string>,
+	angle: ReadOnlyValue<number>,
+	palette: ReadOnlyValue<string>,
+	hat: ReadOnlyValue<boolean>,
+	motionPolicy: ReadOnlyValue<string>,
 	active: ((Use) -> boolean)?,
-	hatTint: Readable<{ number }>
+	hatTint: ReadOnlyValue<{ number }>
 ): () -> ()
 	local template = avatarTemplate
 	if not template then

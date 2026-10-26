@@ -14,10 +14,10 @@ return function(ctx: Types.Context, control: string)
 	end
 	local function legal<T>(
 		key: string,
-		source: Types.Value<T>,
+		source: Types.Input<T>,
 		ok: (unknown) -> boolean,
 		what: string
-	): ComposeTypes.Formula<T>
+	): ComposeTypes.Value<T>
 		local last: T = read(source)
 		local refused = false
 		return Compose.formula(function(use: ComposeTypes.Use): T
@@ -32,8 +32,8 @@ return function(ctx: Types.Context, control: string)
 		end)
 	end
 	return {
-		attribute = function(value: unknown): Types.Value<Types.AttributeValue?>
-			return value :: Types.Value<Types.AttributeValue?>
+		attribute = function(value: unknown): Types.Input<Types.AttributeValue?>
+			return value :: Types.Input<Types.AttributeValue?>
 		end,
 		note = note,
 		list = function(): { string }

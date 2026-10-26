@@ -45,36 +45,36 @@ export type Reorder<V, K> = {
 	ctx: Types.Context,
 	UI: ControlTypes.BuilderControls,
 	spec: CollectionTypes.ReorderShape<V, K>,
-	source: Types.Value<{ V }>,
+	source: Types.Input<{ V }>,
 	keyOf: (V, number) -> K,
 	controls: ComposeTypes.OrderedCollectionControls<K>,
 	bodyOf: () -> ScrollingFrame,
-	selection: ComposeTypes.Cell<CollectionTypes.Selection<K>>,
-	sort: ComposeTypes.Cell<CollectionTypes.Sort?>,
+	selection: ComposeTypes.Value<CollectionTypes.Selection<K>>,
+	sort: ComposeTypes.Value<CollectionTypes.Sort?>,
 	editing: Types.ValueBoolean?,
 	grid: boolean?,
 	location: (({ K }, number) -> (boolean, number, K?))?,
 	instantLayout: boolean?,
-	reservedSlots: Types.Value<{ K }>?,
+	reservedSlots: Types.Input<{ K }>?,
 	gesture: Gesture<V, K>,
-	moving: ComposeTypes.Cell<Move<V, K>?>,
-	choosingDestination: ComposeTypes.Cell<boolean>,
-	incoming: ComposeTypes.Cell<Env.DropInsertion?>,
+	moving: ComposeTypes.Value<Move<V, K>?>,
+	choosingDestination: ComposeTypes.Value<boolean>,
+	incoming: ComposeTypes.Value<Env.DropInsertion?>,
 	reorderable: boolean,
 	drag: DragTypes.Service,
 	arbiter: arbitration.Arbiter,
 	collectionId: unknown,
 	rowNodes: { [K]: Frame },
 	deletable: boolean,
-	preferred: ComposeTypes.Readable<Enum.PreferredInput>?,
-	controlsShown: ComposeTypes.Formula<boolean>,
+	preferred: ComposeTypes.ReadOnlyValue<Enum.PreferredInput>?,
+	controlsShown: ComposeTypes.Value<boolean>,
 	mode: string,
 	marked: boolean,
 	minusShown: boolean,
-	markShown: ComposeTypes.Formula<boolean>,
-	leading: ComposeTypes.Formula<number>,
-	trailing: ComposeTypes.Formula<number>,
-	header: ComposeTypes.Formula<number>,
+	markShown: ComposeTypes.Value<boolean>,
+	leading: ComposeTypes.Value<number>,
+	trailing: ComposeTypes.Value<number>,
+	header: ComposeTypes.Value<number>,
 	motionReduced: (ComposeTypes.Use?) -> boolean,
 	horizontal: boolean,
 	axis: (Vector2) -> number,
@@ -85,12 +85,12 @@ export type Reorder<V, K> = {
 	input: UserInputService?,
 	rowKeys: { [Instance]: K },
 	gui: GuiService?,
-	focus: ComposeTypes.Readable<GuiObject?>,
+	focus: ComposeTypes.ReadOnlyValue<GuiObject?>,
 	pluginGui: Instance?,
 	disarm: () -> (),
 	cancel: () -> (),
 	movable: (V) -> boolean,
-	sourceIndex: ComposeTypes.Formula<{ [K]: V }>,
+	sourceIndex: ComposeTypes.Value<{ [K]: V }>,
 	begin: (K, Vector2?, boolean?, boolean?) -> (),
 	commitLocal: ({ K }, number) -> (),
 	commit: (...unknown) -> (),
@@ -106,24 +106,24 @@ return function<V, K>(
 	ctx: Types.Context,
 	UI: ControlTypes.BuilderControls,
 	spec: CollectionTypes.ReorderShape<V, K>,
-	source: Types.Value<{ V }>,
+	source: Types.Input<{ V }>,
 	keyOf: (V, number) -> K,
 	controls: ComposeTypes.OrderedCollectionControls<K>,
 	bodyOf: () -> ScrollingFrame,
-	selection: ComposeTypes.Cell<CollectionTypes.Selection<K>>,
-	sort: ComposeTypes.Cell<CollectionTypes.Sort?>,
+	selection: ComposeTypes.Value<CollectionTypes.Selection<K>>,
+	sort: ComposeTypes.Value<CollectionTypes.Sort?>,
 	editing: Types.ValueBoolean?,
 	grid: boolean?,
 	location: (({ K }, number) -> (boolean, number, K?))?,
 	instantLayout: boolean?,
-	reservedSlots: Types.Value<{ K }>?
+	reservedSlots: Types.Input<{ K }>?
 ): Reorder<V, K>
 	local Compose = ctx.Compose
 	local read = ctx.read
 	local V2, E = ctx.types.Vector2, ctx.types.Enum
-	local moving: ComposeTypes.Cell<Move<V, K>?> = Compose.cell(nil :: Move<V, K>?)
+	local moving: ComposeTypes.Value<Move<V, K>?> = Compose.cell(nil :: Move<V, K>?)
 	local choosingDestination = Compose.cell(false)
-	local incoming: ComposeTypes.Cell<Env.DropInsertion?> = Compose.cell(nil :: Env.DropInsertion?)
+	local incoming: ComposeTypes.Value<Env.DropInsertion?> = Compose.cell(nil :: Env.DropInsertion?)
 	local reorderable = spec.reorderable == true or spec.drag ~= nil
 	local drag = sessionOf(ctx)
 	local arbiter = gestureOf(ctx)
@@ -134,7 +134,7 @@ return function<V, K>(
 		return nil
 	end
 	local deletable = spec.deletable == true
-	local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if ctx.config.userInputService
+	local preferred: ComposeTypes.ReadOnlyValue<Enum.PreferredInput>? = if ctx.config.userInputService
 		then ctx.observe.PreferredInput(ctx.config.userInputService)
 		else nil
 	local controlsShown = Compose.formula(function(use: ComposeTypes.Use): boolean
@@ -205,7 +205,7 @@ return function<V, K>(
 	}
 	local rowKeys = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: K }
 	local gui = ctx.config.guiService
-	local focus: ComposeTypes.Readable<GuiObject?> = if gui and gui.GetPropertyChangedSignal
+	local focus: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui and gui.GetPropertyChangedSignal
 		then ctx.observe.SelectedObject(gui)
 		else Compose.cell(nil :: GuiObject?)
 	local function disarm()
@@ -629,7 +629,7 @@ return function<V, K>(
 	local function deletes(selectedOnly: boolean?): (ComposeTypes.Use?) -> boolean
 		return function(use: ComposeTypes.Use?): boolean
 			if not selectedOnly then
-				local at: Instance? = read(focus, use)
+				local at: Instance? = ctx.readSource(focus, use)
 				while at do
 					if at:GetAttribute("FacetSelectionOwner") == true then
 						if at ~= bodyOf() then

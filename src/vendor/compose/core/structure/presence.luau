@@ -1,5 +1,6 @@
 --!strict
 
+local Owners = require "../ownership/owner"
 local Active = require "../ownership/active"
 local Block = require "../runtime/block"
 local Children = require "../runtime/children"
@@ -10,13 +11,13 @@ local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 
 export type Phase = {
-	exiting: Types.Readable<boolean>,
+	exiting: Types.ReadOnlyValue<boolean>,
 }
 
 export type Builder = (phase: Phase) -> Host.Node | { Host.Node }
 
 export type Exiting = {
-	completed: Types.Readable<boolean>,
+	completed: Types.ReadOnlyValue<boolean>,
 }
 
 export type Options = {
@@ -34,8 +35,8 @@ local function presence<T>(condition: Types.Source<T>, builder: Builder, options
 			exit = Support.builderOf(settings.exit, "presence", "exit")
 		end
 	end
-	local when = Support.sourceOf(condition, "presence", "condition") :: Types.Body<T>
-	local build = Support.builderOf(builder, "presence", "builder") :: Builder
+	local when: Types.Body<T> = Support.sourceOf(condition, "presence", "condition")
+	local build: Builder = Support.builderOf(builder, "presence", "builder")
 
 	return function(mountPoint: Children.MountPoint)
 		local owner = Support.ownerFor "presence"
@@ -55,16 +56,16 @@ local function presence<T>(condition: Types.Source<T>, builder: Builder, options
 			end
 		end
 
-		owner.own(function()
+		Owners.own(owner, function()
 			forgetExit()
 			local departing = leaving
 			leaving = nil
 			if departing ~= nil then
-				departing.dispose()
+				Owners.dispose(departing.owner)
 			end
 		end)
 
-		owner.watch(function(use)
+		Owners.watch(owner, function(use)
 			local truthy = not not when(use)
 			if truthy == shown then
 				return
@@ -97,18 +98,18 @@ local function presence<T>(condition: Types.Source<T>, builder: Builder, options
 			end
 			local start = exit
 			if start == nil then
-				departing.dispose()
+				Owners.dispose(departing.owner)
 				return
 			end
 
 			leaving = departing
 			exiting:set(true)
-			local ok, running: unknown = pcall(Active.withOwner, owner, function(): Exiting
+			local ok, running = pcall(Active.withOwner, owner, function(): Exiting
 				return start(departing.nodes)
 			end)
 			if not ok then
 				leaving = nil
-				departing.dispose()
+				Owners.dispose(departing.owner)
 				Diagnostics.raise("structure/exit-failed", "a presence exit raised instead of returning", {
 					detail = tostring(running),
 					contract = "exit starts the departure and returns something with a completed readable",
@@ -116,9 +117,9 @@ local function presence<T>(condition: Types.Source<T>, builder: Builder, options
 				})
 				return
 			end
-			if type(running) ~= "table" or (running :: { completed: unknown }).completed == nil then
+			if type(running) ~= "table" or running.completed == nil then
 				leaving = nil
-				departing.dispose()
+				Owners.dispose(departing.owner)
 				Diagnostics.raise("structure/exit-not-completable", "a presence exit returned nothing that completes", {
 					actual = Diagnostics.describe(running),
 					expected = "a table with a `completed` readable, such as a timeline",
@@ -127,8 +128,8 @@ local function presence<T>(condition: Types.Source<T>, builder: Builder, options
 			end
 
 			local exited = false
-			local stop = owner.watch(function(watchUse)
-				if not watchUse((running :: Exiting).completed) then
+			local stop = Owners.watch(owner, function(watchUse)
+				if not watchUse(running.completed) then
 					return
 				end
 				local finished = leaving
@@ -138,7 +139,7 @@ local function presence<T>(condition: Types.Source<T>, builder: Builder, options
 				leaving = nil
 				exited = true
 				forgetExit()
-				finished.dispose()
+				Owners.dispose(finished.owner)
 			end)
 			if exited then
 				stop()

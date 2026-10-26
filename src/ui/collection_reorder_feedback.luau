@@ -10,8 +10,8 @@ return function<V, K>(
 	shared: State.Reorder<V, K>,
 	body: ScrollingFrame,
 	insideBody: boolean?,
-	canvasAt: ComposeTypes.Cell<Vector2>,
-	bodyAt: ComposeTypes.Cell<UDim2>
+	canvasAt: ComposeTypes.Value<Vector2>,
+	bodyAt: ComposeTypes.Value<UDim2>
 ): Frame
 	local ctx, spec, gesture = shared.ctx, shared.spec, shared.gesture
 	local Compose, Host = ctx.Compose, ctx.Host

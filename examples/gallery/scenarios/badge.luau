@@ -6,8 +6,10 @@ type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSizeVa
 type ControlSizeCell = typeof(require("@repo/tools/typecheck/aliases").ControlSize)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type BadgeStatus = "neutral" | "info" | "success" | "warning" | "error" | "accent" | "voice" | "contrast"
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 return {
 	title = "Badges",
 	ledgerRows = {},
@@ -19,7 +21,7 @@ return {
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local initialStatus: BadgeStatus = "neutral"
 		local initialRung: ControlSize = "compact"
-		local status: Cell<BadgeStatus> = Compose.cell(initialStatus)
+		local status: Value<BadgeStatus> = Compose.cell(initialStatus)
 		local rung: ControlSizeCell = Compose.cell(initialRung)
 		local rootPath: unknown, controller: unknown, record: GuiObject? = nil, nil, nil
 		local function report()

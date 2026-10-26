@@ -1,4 +1,5 @@
 --!strict
+--!native
 
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
@@ -10,7 +11,9 @@ export type Custody = "owned" | "adopted" | "borrowed"
 
 type Counts = { owned: number, adopted: number, borrowed: number }
 
-local custody = Weak.keys() :: { [Node]: Custody }
+local custody: { [Node]: Custody } = {}
+
+Weak.keys(custody)
 
 local function assertReference(node: Node, operation: string)
 	local kind = type(node)
@@ -60,7 +63,9 @@ local function isDestructible(node: Node): boolean
 	return known == "owned" or known == "adopted"
 end
 
-local dependents = Weak.keys() :: { [Node]: { () -> () } }
+local dependents: { [Node]: { () -> () } } = {}
+
+Weak.keys(dependents)
 
 local function attachDependent(node: Node, dispose: () -> ()): () -> ()
 	assertReference(node, "mount")
@@ -106,7 +111,9 @@ local function releaseDependents(node: Node)
 	end
 end
 
-local labels = Weak.keys() :: { [Node]: string }
+local labels: { [Node]: string } = {}
+
+Weak.keys(labels)
 
 local function label(node: Node, name: string)
 	labels[node] = name
@@ -118,9 +125,13 @@ end
 
 export type OwnedCounts = { ownedNodes: number, borrowedNodes: number }
 
-local charge = Weak.keys() :: { [Node]: { owner: unknown, custody: Custody } }
+local charge: { [Node]: { owner: unknown, custody: Custody } } = {}
 
-local ownerCounts = Weak.keys() :: { [unknown]: Counts }
+Weak.keys(charge)
+
+local ownerCounts: { [unknown]: Counts } = {}
+
+Weak.keys(ownerCounts)
 
 local function bucketFor(owner: unknown): Counts
 	local existing = ownerCounts[owner]

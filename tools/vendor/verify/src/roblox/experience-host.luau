@@ -67,7 +67,7 @@ type DataModel = {
 type Globals = { game: DataModel?, version: (() -> string)? }
 
 local function nativeEngine(): Engine
-	local globals = (getfenv(0) :: unknown) :: Globals
+	local globals: Globals = getfenv(0)
 	local dataModel = globals.game
 	local version = globals.version
 	assert(dataModel ~= nil and version ~= nil, "experience-host: Roblox engine is unavailable")
@@ -112,20 +112,20 @@ local function request(value: unknown): Experience.Request
 	assert(fields.kind == "action" or fields.kind == "query", "experience-host: invalid operation kind")
 	assert(type(fields.actor) == "string" and fields.actor ~= "", "experience-host: missing actor")
 	assert(type(fields.name) == "string" and fields.name ~= "", "experience-host: missing operation name")
-	assert(finite(fields.deadline), "experience-host: invalid request deadline")
+	assert(type(fields.deadline) == "number" and finite(fields.deadline), "experience-host: invalid request deadline")
 	return {
-		kind = fields.kind :: "action" | "query",
-		actor = fields.actor :: string,
-		name = fields.name :: string,
+		kind = if fields.kind == "action" then "action" else "query",
+		actor = fields.actor,
+		name = fields.name,
 		payload = fields.payload,
-		deadline = fields.deadline :: number,
+		deadline = fields.deadline,
 	}
 end
 
 local function wireRequest(value: unknown, now: number): Experience.Request
 	local fields = record(value)
 	assert(
-		finite(fields.remainingSeconds) and (fields.remainingSeconds :: number) > 0,
+		type(fields.remainingSeconds) == "number" and finite(fields.remainingSeconds) and fields.remainingSeconds > 0,
 		"experience-host: invalid remaining request budget"
 	)
 	return request {
@@ -133,7 +133,7 @@ local function wireRequest(value: unknown, now: number): Experience.Request
 		actor = fields.actor,
 		name = fields.name,
 		payload = fields.payload,
-		deadline = now + (fields.remainingSeconds :: number),
+		deadline = now + fields.remainingSeconds,
 	}
 end
 
@@ -170,7 +170,7 @@ local function respondRequest(
 		return output
 	end)
 	return {
-		id = fields.id :: string,
+		id = fields.id,
 		actor = actor,
 		kind = invocation.kind,
 		name = invocation.name,
@@ -211,7 +211,8 @@ local function remoteTransport(
 				actors[envelope.request.actor] == "client",
 				"experience-host: server transport only routes to a client"
 			)
-			local resolve = playerFor :: (string) -> unknown
+			local resolve = playerFor
+			assert(resolve ~= nil, "experience-host: server routing requires a player resolver")
 			local player = resolve(envelope.request.actor)
 			assert(player ~= nil, "experience-host: target player is unavailable")
 			return remote:InvokeClient(player, envelope)
@@ -344,13 +345,17 @@ local function create(options: Options): Experience.Host
 			then nil
 			else function(actor: string, checkpoint: string): { Types.Artifact }
 				actorReady(actor)
-				return (options.capture :: (string, string) -> { Types.Artifact })(actor, checkpoint)
+				local capture = options.capture
+				assert(capture ~= nil)
+				return capture(actor, checkpoint)
 			end,
 		judge = if options.judge == nil
 			then nil
 			else function(judgment: Experience.JudgmentRequest): Experience.Judgment
 				actorReady(judgment.actor)
-				return (options.judge :: (Experience.JudgmentRequest) -> Experience.Judgment)(judgment)
+				local judge = options.judge
+				assert(judge ~= nil)
+				return judge(judgment)
 			end,
 		close = function()
 			if closed then

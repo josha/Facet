@@ -9,8 +9,8 @@ type Definition = typeof(require("@repo/examples/types").Definition)
 type ThemeModule = typeof(require("@repo/examples/types").ThemeModule)
 local loadDefinition: (ModuleScript) -> Definition = require
 local loadTheme: (ModuleScript) -> ThemeModule = require
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 if not game:IsLoaded() then
 	game.Loaded:Wait()
 end

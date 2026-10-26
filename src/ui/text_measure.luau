@@ -21,19 +21,19 @@ local function hold(node: Instance): () -> ()
 end
 
 local shared = (setmetatable({}, { __mode = "k" }) :: unknown) :: {
-	[Instance]: ComposeTypes.AcquireSharedResource<ComposeTypes.Readable<Vector2>>,
+	[Instance]: ComposeTypes.AcquireSharedResource<ComposeTypes.ReadOnlyValue<Vector2>>,
 }
 local readouts = (setmetatable({}, { __mode = "k" }) :: unknown) :: {
-	[Instance]: ComposeTypes.AcquireSharedResource<ComposeTypes.Readable<Vector2>>,
+	[Instance]: ComposeTypes.AcquireSharedResource<ComposeTypes.ReadOnlyValue<Vector2>>,
 }
 
 local function createNatural(
 	ctx: Types.Context,
 	label: TextLabel | TextButton | TextBox,
-	fallback: (() -> ComposeTypes.Readable<Vector2>)?,
-	revision: ComposeTypes.Cell<number>?,
+	fallback: (() -> ComposeTypes.ReadOnlyValue<Vector2>)?,
+	revision: ComposeTypes.Value<number>?,
 	stable: boolean?
-): ComposeTypes.Readable<Vector2>
+): ComposeTypes.ReadOnlyValue<Vector2>
 	local Compose, Host = ctx.Compose, ctx.Host
 	local service = ctx.config.services.TextService
 	local bounds = Compose.cell(ctx.types.Vector2.new(math.huge, 0))
@@ -125,19 +125,19 @@ return {
 	natural = function(
 		ctx: Types.Context,
 		label: TextLabel | TextButton | TextBox,
-		fallback: (() -> ComposeTypes.Readable<Vector2>)?,
-		revision: ComposeTypes.Cell<number>?,
+		fallback: (() -> ComposeTypes.ReadOnlyValue<Vector2>)?,
+		revision: ComposeTypes.Value<number>?,
 		stable: boolean?
-	): ComposeTypes.Readable<Vector2>
+	): ComposeTypes.ReadOnlyValue<Vector2>
 		if ctx.config.services.TextService == nil then
 			return if fallback then fallback() else ctx.Compose.cell(ctx.types.Vector2.new(math.huge, 0))
 		end
-		local resources: { [Instance]: ComposeTypes.AcquireSharedResource<ComposeTypes.Readable<Vector2>> } = if stable
+		local resources: { [Instance]: ComposeTypes.AcquireSharedResource<ComposeTypes.ReadOnlyValue<Vector2>> } = if stable
 			then readouts
 			else shared
-		local acquire: ComposeTypes.AcquireSharedResource<ComposeTypes.Readable<Vector2>>? = resources[label]
+		local acquire: ComposeTypes.AcquireSharedResource<ComposeTypes.ReadOnlyValue<Vector2>>? = resources[label]
 		if not acquire then
-			acquire = ctx.Compose.createSharedResource(function(): (ComposeTypes.Readable<Vector2>, (() -> ())?)
+			acquire = ctx.Compose.createSharedResource(function(): (ComposeTypes.ReadOnlyValue<Vector2>, (() -> ())?)
 				ctx.Compose.cleanup(function()
 					resources[label] = nil
 				end)

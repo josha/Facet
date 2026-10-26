@@ -2,8 +2,8 @@
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 local makeView = require("./showcase_view")
 local rules = require("./outpost_terminal/rules")

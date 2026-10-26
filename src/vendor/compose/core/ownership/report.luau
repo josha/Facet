@@ -1,5 +1,7 @@
 --!strict
 
+local createChildren: (number, OwnerReport?) -> { OwnerReport } = table.create
+
 local Inspect = require "./inspect"
 local Host = require "../host"
 local Nodes = require "./nodes"
@@ -63,8 +65,8 @@ local function describe(owner: Owner.Owner, record: Inspect.Record, seen: { [unk
 	local holding = 0
 	local disposed = false
 	local ok = pcall(function()
-		holding = owner.size()
-		disposed = owner.isDisposed()
+		holding = Owner.size(owner)
+		disposed = Owner.isDisposed(owner)
 	end)
 	if not ok then
 		holding = 0
@@ -353,7 +355,7 @@ end
 
 local function data(report: Report): Data
 	local function shape(entry: OwnerReport): OwnerReport
-		local children = table.create(#entry.children) :: { OwnerReport }
+		local children: { OwnerReport } = createChildren(#entry.children)
 		for index, subject in entry.children do
 			children[index] = shape(subject)
 		end
@@ -378,11 +380,11 @@ local function data(report: Report): Data
 			children = children,
 		}
 	end
-	local mounts = table.create(#report.mounts) :: { OwnerReport }
+	local mounts: { OwnerReport } = createChildren(#report.mounts)
 	for index, entry in report.mounts do
 		mounts[index] = shape(entry)
 	end
-	local detached = table.create(#report.detached) :: { OwnerReport }
+	local detached: { OwnerReport } = createChildren(#report.detached)
 	for index, entry in report.detached do
 		detached[index] = shape(entry)
 	end

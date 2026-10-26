@@ -50,7 +50,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 
 	local function modalFor(
 		spec: NavigationProps.SheetSpec,
-		detent: ComposeTypes.Cell<string>,
+		detent: ComposeTypes.Value<string>,
 		prepared: Prepared,
 		request: Nav.SheetRequest?,
 		phase: Nav.PresencePhase?,
@@ -103,7 +103,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					return 1
 				end,
 				opacity = function(use: Types.Use?): number
-					return ctx.read(custom.opacity, use)
+					return ctx.readSource(custom.opacity, use)
 				end,
 			}
 		else

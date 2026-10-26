@@ -1,8 +1,10 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 
 local commands = {}
 
@@ -37,13 +39,13 @@ function commands.new(opts: Opts)
 	local S = opts.strings
 	local latency: number = opts.latency or 0.25
 
-	local statuses: { [string]: Cell<string> } = {}
-	local reasons: { [string]: Cell<string> } = {}
+	local statuses: { [string]: Value<string> } = {}
+	local reasons: { [string]: Value<string> } = {}
 	local inFlight: { [string]: boolean } = {}
 	local log: { Entry } = {}
 	local self = { log = log }
 
-	local function statusSignal(id: string): Cell<string>
+	local function statusSignal(id: string): Value<string>
 		local existing = statuses[id]
 		if existing == nil then
 			existing = Compose.cell("idle")
@@ -52,7 +54,7 @@ function commands.new(opts: Opts)
 		return existing
 	end
 
-	local function reasonSignal(id: string): Cell<string>
+	local function reasonSignal(id: string): Value<string>
 		local existing = reasons[id]
 		if existing == nil then
 			existing = Compose.cell("")
@@ -61,11 +63,11 @@ function commands.new(opts: Opts)
 		return existing
 	end
 
-	function self.status(id: string): Cell<string>
+	function self.status(id: string): Value<string>
 		return statusSignal(id)
 	end
 
-	function self.reason(id: string): Cell<string>
+	function self.reason(id: string): Value<string>
 		return reasonSignal(id)
 	end
 

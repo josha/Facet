@@ -31,7 +31,7 @@ local function wrap(initial: Connection?, deps: Deps): Connection
 	end
 	return {
 		alive = function(): boolean
-			return not closed and active ~= nil and (active :: Connection).alive()
+			return not closed and active ~= nil and (active).alive()
 		end,
 		close = function()
 			closed = true
@@ -53,9 +53,9 @@ local function wrap(initial: Connection?, deps: Deps): Connection
 					break
 				end
 				if active == nil then
-					local opened, value: unknown = pcall(deps.open, deadline)
+					local opened, value = pcall(deps.open, deadline)
 					if opened then
-						local fresh = value :: Connection
+						local fresh = value
 						if closed then
 							pcall(fresh.close)
 							break

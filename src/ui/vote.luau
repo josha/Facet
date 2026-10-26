@@ -182,7 +182,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			AutomaticSize = E.AutomaticSize.XY,
 			Attributes = {
 				FacetValue = function(use: ComposeTypes.Use)
-					return read(value, use)
+					return ctx.readSource(value, use)
 				end,
 				FacetReadOnly = function(use: ComposeTypes.Use): boolean
 					return use(readOnly)

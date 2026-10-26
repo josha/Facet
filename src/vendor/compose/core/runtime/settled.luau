@@ -17,7 +17,7 @@ export type Options<T, R = unknown> = {
 }
 
 return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
-	return function<T, R>(options: Options<T, R>): Types.Readable<boolean>
+	return function<T, R>(options: Options<T, R>): Types.ReadOnlyValue<boolean>
 		local owner = ownerOf "settled"
 		local frames = assert(host.frames, "Compose settled requires host.frames")
 		local count = options.frames or 2
@@ -43,7 +43,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 			end
 			local mine = generation
 			local current = options.sample()
-			if mine ~= generation or owner.isDisposed() then
+			if mine ~= generation or Owner.isDisposed(owner) then
 				return
 			end
 			waited += delta
@@ -56,7 +56,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 		end)
 		local function track()
 			halt()
-			if owner.isDisposed() then
+			if Owner.isDisposed(owner) then
 				return
 			end
 			value:set(false)
@@ -64,10 +64,10 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 			pump.start()
 		end
 		if options.restart then
-			local source = Support.sourceOf(options.restart, "settled", "restart") :: Types.Body<R>
+			local source: Types.Body<R> = Support.sourceOf(options.restart, "settled", "restart")
 			local seen: R? = nil
 			local initialized = false
-			owner.watch(function(use)
+			Owner.watch(owner, function(use)
 				local key = source(use)
 				if not initialized or key ~= seen then
 					initialized, seen = true, key

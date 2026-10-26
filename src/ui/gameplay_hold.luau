@@ -7,7 +7,7 @@ type Lease = {
 	suspensions: number,
 	before: boolean,
 	watch: RBXScriptConnection?,
-	suspended: ComposeTypes.Cell<boolean>,
+	suspended: ComposeTypes.Value<boolean>,
 }
 
 local leases = setmetatable({} :: { [GuiService]: Lease }, { __mode = "k" })
@@ -69,7 +69,7 @@ local function hold(ctx: Types.Context, gui: GuiService?, suspends: boolean): ()
 	end
 end
 
-local function suspended(ctx: Types.Context): ComposeTypes.Readable<boolean>
+local function suspended(ctx: Types.Context): ComposeTypes.ReadOnlyValue<boolean>
 	local gui = ctx.config.guiService
 	local source = if gui then leaseFor(ctx, gui).suspended else nil
 	return ctx.Compose.formula(function(use: ComposeTypes.Use): boolean

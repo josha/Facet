@@ -16,7 +16,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	local E, D2, D, V2 = types.Enum, types.UDim2, types.UDim, types.Vector2
 	local metric, controlSize = ctx.metric, ctx.controlSize
 	local skin = shared.skin
-	local function statusTag(node: GuiObject, source: Types.Value<Media.Status>?)
+	local function statusTag(node: GuiObject, source: Types.Input<Media.Status>?)
 		local previous: string?
 		Compose.watch(function(use: ComposeTypes.Use)
 			local requested = read(source, use)
@@ -54,7 +54,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			return value or ""
 		end
 		assert(
-			named or type(spec.label) == "function" or Compose.isReadable(spec.label) or caption() ~= "",
+			named or type(spec.label) == "function" or Compose.isValue(spec.label) or caption() ~= "",
 			"Facet Badge requires meaningful text or a named icon"
 		)
 		local native = ctx.props(
@@ -194,7 +194,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				end)
 				return boundary
 			end
-			if Compose.isReadable(ctx.config.theme) or type(ctx.config.theme) == "function" then
+			if Compose.isValue(ctx.config.theme) or type(ctx.config.theme) == "function" then
 				local attached = false
 				runtime.mountFragment(function()
 					return {

@@ -29,9 +29,9 @@ local function requireBody(body: unknown, operation: string)
 end
 
 local function unwind(owner: Owner.Owner, failure: unknown): never
-	local ok, disposeError: unknown = pcall(owner.dispose)
+	local ok, disposeError: unknown = pcall(Owner.dispose, owner)
 	if ok then
-		return error(failure, 0) :: never
+		return error(failure, 0)
 	end
 	return error(
 		("%s\nCompose: the root scope also raised while unwinding it:\n%s"):format(
@@ -39,14 +39,14 @@ local function unwind(owner: Owner.Owner, failure: unknown): never
 			tostring(disposeError)
 		),
 		0
-	) :: never
+	)
 end
 
 local function settle<T...>(owner: Owner.Owner, ok: boolean, ...: T...): T...
 	if not ok then
 		unwind(owner, (select(1, ...)))
 	end
-	owner.dispose()
+	Owner.dispose(owner)
 	return ...
 end
 
@@ -70,7 +70,7 @@ local function createRootOwner(body: (owner: Owner.Owner) -> (), reactor: Reacto
 	end
 	return {
 		owner = owner,
-		dispose = owner.dispose,
+		dispose = Owner.disposer(owner),
 	}
 end
 

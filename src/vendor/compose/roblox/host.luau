@@ -1,9 +1,14 @@
 --!strict
+--!native
 
 local Compose = require "../core"
 local Engine = require "./engine"
 
 type Node = Compose.Node
+
+local function readMember(node: Node, key: string): unknown
+	return (node :: { [string]: unknown })[key]
+end
 
 type DefaultCache = { [string]: unknown }
 type StyledNode = {
@@ -57,10 +62,6 @@ local function createHost(engine: Engine.Engine): Compose.Host
 
 	local function readClassName(node: Node): string
 		return (node :: Engine.Instance).ClassName
-	end
-
-	local function readMember(node: Node, key: string): unknown
-		return (node :: { [string]: unknown })[key]
 	end
 
 	local function hasConnectMethod(value: unknown): boolean
@@ -171,9 +172,9 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		local class = classNameOf(node)
 		local byKey = classified[class]
 		if byKey ~= nil then
-			local known = byKey[key]
+			local known: Compose.KeyKind? = byKey[key]
 			if known ~= nil then
-				return known :: Compose.KeyKind
+				return known
 			end
 		end
 
@@ -234,6 +235,7 @@ local function createHost(engine: Engine.Engine): Compose.Host
 	local function observeStyledProperty(node: Node, key: string, listener: () -> ()): Compose.Unsubscribe
 		local native = node :: StyledNode
 		local entry = styledEntries[node]
+		local current: StyledEntry
 		if entry == nil then
 			local created: StyledEntry = { live = true, subscribers = {} }
 			styledEntries[node] = created
@@ -252,9 +254,10 @@ local function createHost(engine: Engine.Engine): Compose.Host
 				end
 				raiseFailures(failures)
 			end
-			entry = created
+			current = created
+		else
+			current = entry
 		end
-		local current = entry :: StyledEntry
 		local subscriber: Subscriber = { live = true, listener = listener }
 		current.subscribers[subscriber] = true
 		local function release()
@@ -351,4 +354,5 @@ end
 
 return {
 	createHost = createHost,
+	readMember = readMember,
 }

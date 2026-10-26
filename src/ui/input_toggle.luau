@@ -9,8 +9,8 @@ local InputProps = require("./input_props")
 local ComposeTypes = require("../vendor/compose/core")
 
 type ToggleButtonProps = InputProps.ButtonProps & {
-	value: Shared.Value<boolean>?,
-	mixed: Shared.Value<boolean>?,
+	value: Shared.Input<boolean>?,
+	mixed: Shared.Input<boolean>?,
 	presentation: ("switch" | "checkbox" | "button")?,
 	onChange: ((boolean) -> ())?,
 	indicatorPosition: ("leading" | "trailing")?,
@@ -64,9 +64,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				spec.onChange(value)
 			else
 				if writable(spec.mixed) then
-					((spec.mixed :: unknown) :: ComposeTypes.Cell<boolean>):set(false)
+					((spec.mixed :: unknown) :: ComposeTypes.Value<boolean>):set(false)
 				end
-				(spec.value :: ComposeTypes.Cell<boolean>):set(value)
+				(spec.value :: ComposeTypes.Value<boolean>):set(value)
 			end
 		end
 		if presentation ~= "button" then
@@ -89,13 +89,13 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				local side = ctx.controlSize(spec.controlSize, "iconSize", use) + ctx.metric("space.xs", use)
 				return side, side
 			end
-			local function sizedValue<T>(compute: (ComposeTypes.Use?) -> T): Shared.Value<T>
+			local function sizedValue<T>(compute: (ComposeTypes.Use?) -> T): Shared.Input<T>
 				return if sizeLive then compute else compute()
 			end
-			local function rounded(compute: (ComposeTypes.Use?) -> UDim): Shared.Value<UDim>
+			local function rounded(compute: (ComposeTypes.Use?) -> UDim): Shared.Input<UDim>
 				return if sizeLive or dynamic(ctx.config.theme) then compute else compute()
 			end
-			local function boxed<T>(compute: (number) -> T): Shared.Value<T>
+			local function boxed<T>(compute: (number) -> T): Shared.Input<T>
 				return sizedValue(function(use)
 					local _, side = track(use)
 					return compute(side)
@@ -268,7 +268,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				p.Text = spec.Text or spec.label or ""
 				p.TextXAlignment = spec.TextXAlignment or E.TextXAlignment.Left
 				local reactive = dynamic(ctx.config.theme) or dynamic(spec.controlSize) or sizeLive
-				local function paddingAmount(side: "left" | "right" | "top" | "bottom"): Shared.Value<UDim>
+				local function paddingAmount(side: "left" | "right" | "top" | "bottom"): Shared.Input<UDim>
 					local function amount(use: ComposeTypes.Use?): UDim
 						local package = read(ctx.config.theme, use)
 						local skin = package and package.chrome and package.chrome.control
@@ -288,7 +288,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					return if reactive then amount else amount()
 				end
 				local padding: Shared.UIPaddingNativeProps = {}
-				local fields = (padding :: unknown) :: { [string]: Shared.Value<UDim> }
+				local fields = (padding :: unknown) :: { [string]: Shared.Input<UDim> }
 				local function inset(side: "left" | "right" | "top" | "bottom", key: string)
 					local amount = paddingAmount(side)
 					if reactive or ((amount :: unknown) :: UDim).Offset ~= 0 then

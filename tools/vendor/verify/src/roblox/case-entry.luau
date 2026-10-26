@@ -23,15 +23,12 @@ local function run(
 	local entry = factory(host, runId)
 	local options = entry.options
 	if logs ~= nil then
+		local drain = logs
 		options = table.clone(options)
 		local bind = options.bind
 		options.bind = function(context)
 			context:defer(function()
-				Logs.finish(
-					context,
-					logs :: Logs.Drain,
-					if entry.expectedErrors then entry.expectedErrors[context.id] else nil
-				)
+				Logs.finish(context, drain, if entry.expectedErrors then entry.expectedErrors[context.id] else nil)
 			end)
 			return if bind
 				then bind(context)

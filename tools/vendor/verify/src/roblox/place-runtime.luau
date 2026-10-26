@@ -116,18 +116,21 @@ local function resolveAlias(aliases: { [string]: string }, target: string): stri
 	if alias == nil then
 		return nil
 	end
-	local root = aliases[alias :: string]
+	local root = aliases[alias]
 	if root == nil then
 		return nil
 	end
-	return root .. "/" .. (rest :: string)
+	return root .. "/" .. (rest or "")
 end
 
 local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>): Runtime
 	local aliases = options.aliases
 	local cache = options.cache
 	local host = options.host
-	local runtime = {} :: Runtime
+	local initialPlayer: Instance? = nil
+	local initialAdded: { [string]: Environment.Signal } = {}
+	local initialRemoved: { [string]: Environment.Signal } = {}
+	local runtime = { localPlayer = initialPlayer, tagAdded = initialAdded, tagRemoved = initialRemoved }
 	local environment = engine.environment
 	local scheduler = environment.scheduler
 	local modules: { [string]: { [Instance]: Entry } } = { server = {}, client = {} }
@@ -155,10 +158,13 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 
 	local resolveInstanceRequire: (Instance, string) -> unknown
 
+	local function inherit(values: { [string]: unknown })
+		setmetatable(values, { __index = globals })
+	end
+
 	local function environmentFor(scriptInstance: Instance): { [string]: unknown }
-		local environment: { [string]: unknown } = (
-			setmetatable({}, { __index = globals }) :: unknown
-		) :: { [string]: unknown }
+		local environment: { [string]: unknown } = {}
+		inherit(environment)
 		environment.script = scriptInstance
 		environment.getfenv = function(): unknown
 			return environment
@@ -209,9 +215,8 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 		if cached ~= nil then
 			return awaitEntry(cached)
 		end
-		local environment: { [string]: unknown } = (
-			setmetatable({}, { __index = globals }) :: unknown
-		) :: { [string]: unknown }
+		local environment: { [string]: unknown } = {}
+		inherit(environment)
 		environment.script = nil
 		environment.getfenv = function(): unknown
 			return environment
@@ -273,14 +278,14 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 		if type(target) == "string" then
 			local resolved = resolveAlias(aliases, target)
 			if resolved == nil then
-				error(("place runtime cannot resolve require(%q)"):format(target), 2)
+				return error(("place runtime cannot resolve require(%q)"):format(target), 2)
 			end
-			return requirePath(resolved :: string)
+			return requirePath(resolved)
 		end
 		if not engine.isInstance(target) then
 			error("Attempted to call require with invalid argument(s).", 2)
 		end
-		local object = target :: Instance
+		local object = Environment.assertInstance(target)
 		if object.ClassName ~= "ModuleScript" then
 			error(("Attempted to require a %s"):format(object.ClassName), 2)
 		end
@@ -403,8 +408,10 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 		overrides.ReplicatedFirst = {
 			RemoveDefaultLoadingScreen = function() end,
 		}
-		local humanoidStates = setmetatable({} :: { [Instance]: Datatypes.EnumMember }, { __mode = "k" })
-		local disabledStates = setmetatable({} :: { [Instance]: { [string]: boolean } }, { __mode = "k" })
+		local humanoidStates: { [Instance]: Datatypes.EnumMember } = {}
+		setmetatable(humanoidStates, { __mode = "k" })
+		local disabledStates: { [Instance]: { [string]: boolean } } = {}
+		setmetatable(disabledStates, { __mode = "k" })
 		local function validateHumanoidState(state: Datatypes.EnumMember)
 			assert(
 				Datatypes.typeName(state) == "EnumItem" and Datatypes.enumType(state) == "HumanoidStateType",
@@ -708,7 +715,11 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 				return host.decodeJson(text)
 			end,
 		}
-		local pendingDetach = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: boolean }
+		local pendingDetach: { [Instance]: boolean } = {}
+		do
+			local weak = pendingDetach
+			setmetatable(weak, { __mode = "k" })
+		end
 		local function tagged(tag: string): { Instance }
 			local out: { Instance } = {}
 			local candidates = engine.game:GetDescendants()
@@ -928,7 +939,7 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 			local methods = overrides[object.ClassName]
 			if methods and (allowed == nil or allowed[object.ClassName]) then
 				for name, method in methods do
-					if not environment.hasFake(object :: Instance, name) then
+					if not environment.hasFake(Environment.assertInstance(object), name) then
 						table.insert(
 							runtime.closeHandlers,
 							environment.fakeOn(object, name, method :: Environment.Method)
@@ -936,12 +947,12 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 					end
 				end
 				if object.ClassName == "UserInputService" then
-					local service = object :: Instance
+					local service = Environment.assertInstance(object)
 					for _, event in { "InputBegan", "InputChanged", "InputEnded" } do
 						local connection = (service[event] :: Environment.Signal):Connect(function(input: unknown)
 							assert(engine.isInstance(input), "input event requires an InputObject")
 							local inputType =
-								environment.propertyOf(input :: Instance, "UserInputType") :: Datatypes.EnumMember
+								environment.propertyOf(Environment.assertInstance(input), "UserInputType") :: Datatypes.EnumMember
 							if inputType ~= lastInput then
 								lastInput = inputType
 								environment.fire(service, "LastInputTypeChanged", inputType)
@@ -1099,18 +1110,19 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 	runtime.globals = globals
 	runtime.requireInstance = requireInstance
 
-	function runtime.runScript(scriptInstance: Instance, scriptContext: string)
+	function runtime.runScript(scriptInstance: Instance, scriptContext: string): thread?
 		local path = mounted.sources[scriptInstance]
 		if path == nil then
 			return
 		end
 		local name = scriptInstance:GetFullName()
 		local thread = coroutine.create(function()
-			local ok, failure = xpcall(function()
+			local failure = ""
+			local ok = xpcall(function()
 				local chunk = loadSource(path, "@" .. path, environmentFor(scriptInstance))
 				chunk()
-			end, function(message: unknown): string
-				return tostring(message)
+			end, function(message: unknown)
+				failure = tostring(message)
 			end)
 			if not ok then
 				engine.record("error", failure, name)

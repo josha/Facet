@@ -1,8 +1,8 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type Entry = { id: string, value: string? }
 local makeView = require("./showcase_view")
@@ -212,7 +212,7 @@ return {
 									view.observeWidth(measuredWidth, node)
 								end,
 								recycle = false,
-								render = function(current: Readable<Item>): GuiObject
+								render = function(current: ReadOnlyValue<Item>): GuiObject
 									local item = current:peek()
 									local card = UI.Card("Item_" .. item.id)({
 										title = item.name,

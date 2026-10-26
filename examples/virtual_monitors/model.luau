@@ -1,9 +1,11 @@
 --!strict
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type CivilDate = typeof(require("@repo/tools/typecheck/aliases").CivilDate)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local catalogModule = require("./catalog")
 local chatModule = require("./chat_model")
 local flapModule = require("./flap_model")
@@ -13,63 +15,63 @@ export type Game = catalogModule.Game
 export type Presence = "online" | "away" | "busy" | "offline" | "inExperience"
 export type Launch = { id: string, mode: string, stage: number, elapsed: number }
 export type Toast = { serial: number, message: string, undo: (() -> ())? }
-export type Presentation = { about: Cell<boolean>, status: Cell<boolean> }
+export type Presentation = { about: Value<boolean>, status: Value<boolean> }
 export type PathEntry = { id: string, value: boolean? }
 export type SavedSort = { column: string, direction: "ascending" | "descending" }
 export type Model = {
 	catalog: catalogModule.Catalog,
 	chat: chatModule.Chat,
 	flap: flapModule.Flap,
-	mode: Cell<string>,
-	selectedTab: Cell<string>,
-	focused: Cell<string>,
-	dark: Cell<boolean>,
-	query: Cell<string>,
-	searchSelection: Cell<string>,
-	featuredIndex: Cell<number>,
-	discoveryScroll: Cell<number?>,
-	savedScroll: Cell<number?>,
-	chatScroll: Cell<number?>,
-	genre: Cell<string>,
-	launch: Cell<any>,
-	avatarPath: Cell<{ PathEntry }>,
-	sort: Cell<string>,
-	shelf: Cell<string>,
-	selectedGame: Cell<any>,
-	detailTab: Cell<string>,
-	saved: Cell<{ [string]: boolean }>,
-	savedOrder: Cell<{ string }>,
-	savedSelection: Cell<{ [string]: boolean }>,
-	savedSort: Cell<SavedSort?>,
-	savedWidths: Cell<{ [string]: number }>,
-	notes: Cell<{ [string]: string }>,
-	ratings: Cell<{ [string]: number }>,
-	palette: Cell<string>,
-	hat: Cell<boolean>,
-	hatTint: Cell<{ number }>,
-	angle: Cell<number>,
-	turnStep: Cell<number>,
-	autoSpin: Cell<number>,
-	followChat: Cell<boolean>,
-	avatarSummary: Cell<boolean>,
-	avatarSummaryDetent: Cell<string>,
-	avatarSettingsExpanded: Cell<boolean>,
-	avatarTipsExpanded: Cell<boolean>,
-	chatPromptUsed: Cell<boolean>,
-	detailPath: Cell<{ PathEntry }>,
-	featuredSelection: Cell<string>,
-	resetAvatarPresented: Cell<boolean>,
-	lookResets: Cell<number>,
-	hidden: Cell<{ [string]: boolean }>,
-	sessions: Cell<{ [string]: CivilDate }>,
-	similarPage: Cell<number>,
-	presence: Cell<Presence?>,
-	chatUnread: Cell<number>,
-	toasts: { [string]: Cell<Toast?> },
+	mode: Value<string>,
+	selectedTab: Value<string>,
+	focused: Value<string>,
+	dark: Value<boolean>,
+	query: Value<string>,
+	searchSelection: Value<string>,
+	featuredIndex: Value<number>,
+	discoveryScroll: Value<number?>,
+	savedScroll: Value<number?>,
+	chatScroll: Value<number?>,
+	genre: Value<string>,
+	launch: Value<any>,
+	avatarPath: Value<{ PathEntry }>,
+	sort: Value<string>,
+	shelf: Value<string>,
+	selectedGame: Value<any>,
+	detailTab: Value<string>,
+	saved: Value<{ [string]: boolean }>,
+	savedOrder: Value<{ string }>,
+	savedSelection: Value<{ [string]: boolean }>,
+	savedSort: Value<SavedSort?>,
+	savedWidths: Value<{ [string]: number }>,
+	notes: Value<{ [string]: string }>,
+	ratings: Value<{ [string]: number }>,
+	palette: Value<string>,
+	hat: Value<boolean>,
+	hatTint: Value<{ number }>,
+	angle: Value<number>,
+	turnStep: Value<number>,
+	autoSpin: Value<number>,
+	followChat: Value<boolean>,
+	avatarSummary: Value<boolean>,
+	avatarSummaryDetent: Value<string>,
+	avatarSettingsExpanded: Value<boolean>,
+	avatarTipsExpanded: Value<boolean>,
+	chatPromptUsed: Value<boolean>,
+	detailPath: Value<{ PathEntry }>,
+	featuredSelection: Value<string>,
+	resetAvatarPresented: Value<boolean>,
+	lookResets: Value<number>,
+	hidden: Value<{ [string]: boolean }>,
+	sessions: Value<{ [string]: CivilDate }>,
+	similarPage: Value<number>,
+	presence: Value<Presence?>,
+	chatUnread: Value<number>,
+	toasts: { [string]: Value<Toast?> },
 	presentations: { [string]: Presentation },
 	modeChosen: boolean,
-	visibleGames: Readable<{ Game }>,
-	savedGames: Readable<{ Game }>,
+	visibleGames: ReadOnlyValue<{ Game }>,
+	savedGames: ReadOnlyValue<{ Game }>,
 	flapActive: (Use) -> boolean,
 	flapPress: () -> (),
 	notify: (app: string, message: string, undo: (() -> ())?) -> (),
@@ -114,7 +116,7 @@ export type TextExtras = {
 	role: "secondary"?,
 	[number]: Child,
 }
-export type StageContent = (runtime: Runtime, world: WorldModel, live: Readable<boolean>) -> (() -> ())?
+export type StageContent = (runtime: Runtime, world: WorldModel, live: ReadOnlyValue<boolean>) -> (() -> ())?
 export type Actions = {
 	model: Model,
 	types: RobloxTypes?,
@@ -127,7 +129,7 @@ export type Actions = {
 	clock: typeof(require("@repo/tools/typecheck/aliases").DateTimePickerProps.clock),
 	creatorImageLoader: typeof(require("@repo/tools/typecheck/aliases").AsyncImageProps.loader),
 	discoveryContent: StageContent?,
-	gameContent: ((Readable<Game>) -> StageContent)?,
+	gameContent: ((ReadOnlyValue<Game>) -> StageContent)?,
 	avatarContent: StageContent?,
 }
 export type Context = {
@@ -148,16 +150,16 @@ export type Context = {
 	quiet: (name: string, value: TextValue, role: TextRole?, extras: TextExtras?) -> GuiObject,
 	button: (name: string, label: TextValue, activate: () -> (), extras: ButtonProps?) -> TextButton,
 	stage: (name: string, content: StageContent?, extras: StageProps?) -> Child,
-	observeSize: (node: GuiObject) -> Cell<Vector2>,
-	measure: (node: GuiObject, value: Cell<Vector2>) -> GuiObject,
-	collection: (source: Cell<number?>, build: (canvas: ((Use) -> Vector2)?) -> ScrollingFrame) -> ScrollingFrame,
+	observeSize: (node: GuiObject) -> Value<Vector2>,
+	measure: (node: GuiObject, value: Value<Vector2>) -> GuiObject,
+	collection: (source: Value<number?>, build: (canvas: ((Use) -> Vector2)?) -> ScrollingFrame) -> ScrollingFrame,
 	actions: Actions,
 	rounded: (radius: number?) -> UICorner,
 	panelShadow: () -> Frame,
 	toastFor: (app: string) -> Child,
 }
 
-local function peekNow<T>(value: Readable<T>): T
+local function peekNow<T>(value: ReadOnlyValue<T>): T
 	return value:peek()
 end
 
@@ -186,35 +188,35 @@ function model.new(Compose: ComposeModule): Model
 	local emptyHidden: { [string]: boolean } = {}
 	local emptySessions: { [string]: CivilDate } = {}
 	local presentations: { [string]: Presentation } = {}
-	local discoveryScroll: Cell<number?> = Compose.cell(initialScroll)
-	local savedScroll: Cell<number?> = Compose.cell(initialScroll)
-	local chatScroll: Cell<number?> = Compose.cell(noScroll)
+	local discoveryScroll: Value<number?> = Compose.cell(initialScroll)
+	local savedScroll: Value<number?> = Compose.cell(initialScroll)
+	local chatScroll: Value<number?> = Compose.cell(noScroll)
 	local query, genre, sort = Compose.cell(""), Compose.cell("all"), Compose.cell("recommended")
-	local launch: Cell<Launch?> = Compose.cell(noLaunch)
-	local avatarPath: Cell<{ PathEntry }> = Compose.cell(emptyPath)
-	local selectedGame: Cell<Game?> = Compose.cell(noGame)
+	local launch: Value<Launch?> = Compose.cell(noLaunch)
+	local avatarPath: Value<{ PathEntry }> = Compose.cell(emptyPath)
+	local selectedGame: Value<Game?> = Compose.cell(noGame)
 	local detailTab = Compose.cell("about")
-	local saved: Cell<{ [string]: boolean }> = Compose.cell(emptySaved)
-	local savedOrder: Cell<{ string }> = Compose.cell(emptyOrder)
-	local savedSelection: Cell<{ [string]: boolean }> = Compose.cell(emptySelection)
-	local savedSort: Cell<SavedSort?> = Compose.cell(noSort)
-	local savedWidths: Cell<{ [string]: number }> = Compose.cell(emptyWidths)
-	local notes: Cell<{ [string]: string }> = Compose.cell(emptyNotes)
-	local ratings: Cell<{ [string]: number }> = Compose.cell(emptyRatings)
+	local saved: Value<{ [string]: boolean }> = Compose.cell(emptySaved)
+	local savedOrder: Value<{ string }> = Compose.cell(emptyOrder)
+	local savedSelection: Value<{ [string]: boolean }> = Compose.cell(emptySelection)
+	local savedSort: Value<SavedSort?> = Compose.cell(noSort)
+	local savedWidths: Value<{ [string]: number }> = Compose.cell(emptyWidths)
+	local notes: Value<{ [string]: string }> = Compose.cell(emptyNotes)
+	local ratings: Value<{ [string]: number }> = Compose.cell(emptyRatings)
 	local palette, hat = Compose.cell("sage"), Compose.cell(true)
-	local hatTint: Cell<{ number }> = Compose.cell({ 218, 195, 145 })
+	local hatTint: Value<{ number }> = Compose.cell({ 218, 195, 145 })
 	local angle, turnStep, autoSpin = Compose.cell(-15), Compose.cell(30), Compose.cell(0)
 	local chatPromptUsed = Compose.cell(false)
-	local detailPath: Cell<{ PathEntry }> = Compose.cell(emptyDetailPath)
+	local detailPath: Value<{ PathEntry }> = Compose.cell(emptyDetailPath)
 	local lookResets = Compose.cell(0)
-	local hidden: Cell<{ [string]: boolean }> = Compose.cell(emptyHidden)
-	local sessions: Cell<{ [string]: CivilDate }> = Compose.cell(emptySessions)
+	local hidden: Value<{ [string]: boolean }> = Compose.cell(emptyHidden)
+	local sessions: Value<{ [string]: CivilDate }> = Compose.cell(emptySessions)
 	local similarPage = Compose.cell(1)
-	local presence: Cell<Presence?> = Compose.cell(initialPresence)
+	local presence: Value<Presence?> = Compose.cell(initialPresence)
 	local chatUnread = Compose.cell(0)
-	local discoverToast: Cell<Toast?> = Compose.cell(noToast)
-	local chatToast: Cell<Toast?> = Compose.cell(noToast)
-	local toasts: { [string]: Cell<Toast?> } = { Discover = discoverToast, Chat = chatToast }
+	local discoverToast: Value<Toast?> = Compose.cell(noToast)
+	local chatToast: Value<Toast?> = Compose.cell(noToast)
+	local toasts: { [string]: Value<Toast?> } = { Discover = discoverToast, Chat = chatToast }
 	local self: Model
 	local serial = 0
 	local function flapActive(use: Use): boolean

@@ -1,39 +1,34 @@
 --!strict
+--!native
 
 local state = { validating = false }
 
 local YIELDED = "Compose: reactive code yielded. Computeds and effects must complete "
 	.. "without yielding; use an async resource for work that waits."
 
-local function raise(co: thread, cause: unknown): never
-	if type(cause) == "string" then
-		error(debug.traceback(co, cause), 2)
-	end
-	error(cause, 2)
+type Completion = { done: boolean }
+
+local function finish<R...>(completion: Completion, ...: R...): R...
+	completion.done = true
+	return ...
 end
 
-local function settle(co: thread, ok: boolean, ...: unknown): ...unknown
-	if ok and coroutine.status(co) == "dead" then
-		return ...
+local function check<R...>(completion: Completion, ...: R...): R...
+	if not completion.done then
+		error(YIELDED, 3)
 	end
-	if ok then
-		return raise(co, YIELDED)
-	end
-	return raise(co, (...))
+	return ...
 end
 
-local function guarded(fn: (...unknown) -> ...unknown, ...: unknown): ...unknown
-	local co = coroutine.create(fn)
-	return settle(co, coroutine.resume(co, ...))
-end
-
-local checked = (guarded :: unknown) :: <Args..., Rets...>(fn: (Args...) -> Rets..., Args...) -> Rets...
-
-local function call<Args..., Rets...>(fn: (Args...) -> Rets..., ...: Args...): Rets...
-	if state.validating then
-		return checked(fn, ...)
+local function call<A..., R...>(fn: (A...) -> R..., ...: A...): R...
+	if not state.validating then
+		return fn(...)
 	end
-	return fn(...)
+	local completion: Completion = { done = false }
+	local wrapped = coroutine.wrap(function(...: A...): R...
+		return finish(completion, fn(...))
+	end)
+	return check(completion, wrapped(...))
 end
 
 local function setValidating(value: boolean)
@@ -42,7 +37,6 @@ end
 
 return {
 	call = call,
-
 	state = state,
 	setValidating = setValidating,
 }

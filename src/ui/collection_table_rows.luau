@@ -14,20 +14,20 @@ local Columns = require("./collection_table_columns")
 export type Rows<V, K> = {
 	spec: CollectionTypes.TableShape<V, K>,
 	rowPolicySpec: CollectionTypes.TableShape<V, K>,
-	selection: ComposeTypes.Cell<CollectionTypes.Selection<K>>,
-	coordinator: ComposeTypes.Cell<{}?>,
-	rowMeasures: ComposeTypes.Cell<{ [K]: number }>,
-	actionGutters: ComposeTypes.Cell<{ [K]: number }>,
-	truncatedRows: ComposeTypes.Cell<{ [K]: { [string]: boolean } }>,
-	unitScale: ComposeTypes.Cell<number>,
-	scrolledX: ComposeTypes.Cell<number>,
+	selection: ComposeTypes.Value<CollectionTypes.Selection<K>>,
+	coordinator: ComposeTypes.Value<{}?>,
+	rowMeasures: ComposeTypes.Value<{ [K]: number }>,
+	actionGutters: ComposeTypes.Value<{ [K]: number }>,
+	truncatedRows: ComposeTypes.Value<{ [K]: { [string]: boolean } }>,
+	unitScale: ComposeTypes.Value<number>,
+	scrolledX: ComposeTypes.Value<number>,
 	editors: {
 		render: <Item, Key>(
 			CollectionTypes.TableColumn<Item, Key>,
 			(Item) -> unknown,
 			(Key, string, unknown) -> (),
 			(ComposeTypes.Use) -> boolean
-		) -> (ComposeTypes.Readable<Item>, ComposeTypes.Readable<ComposeTypes.Placement>, Key) -> GuiObject,
+		) -> (ComposeTypes.ReadOnlyValue<Item>, ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>, Key) -> GuiObject,
 	},
 	field: (V, CollectionTypes.TableColumn<V, K>) -> unknown,
 	tree: TreeTypes.Tree<V, K>?,
@@ -55,12 +55,12 @@ return function<V, K>(
 	local collapsed, disclosureWidth = layout.collapsed, layout.disclosureWidth
 	local setPrimaryMeasure = layout.setPrimaryMeasure
 	local function build(
-		current: ComposeTypes.Readable<V>,
-		placement: ComposeTypes.Readable<ComposeTypes.Placement>,
-		key: ComposeTypes.Readable<K>
+		current: ComposeTypes.ReadOnlyValue<V>,
+		placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+		key: ComposeTypes.ReadOnlyValue<K>
 	): GuiObject
-		local cellHeights: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
-		local truncated: ComposeTypes.Cell<{ [string]: boolean }> = Compose.cell({})
+		local cellHeights: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
+		local truncated: ComposeTypes.Value<{ [string]: boolean }> = Compose.cell({})
 		local held: K? = nil
 		local function forget(gone: K?)
 			if gone ~= nil and truncatedRows:peek()[gone] ~= nil then
@@ -122,8 +122,8 @@ return function<V, K>(
 					return column.id
 				end,
 				render = function(
-					column: ComposeTypes.Readable<CollectionTypes.TableColumn<V, K>>,
-					index: ComposeTypes.Readable<number>
+					column: ComposeTypes.ReadOnlyValue<CollectionTypes.TableColumn<V, K>>,
+					index: ComposeTypes.ReadOnlyValue<number>
 				)
 					local definition = column:peek()
 					local authored = definition.render
@@ -147,8 +147,8 @@ return function<V, K>(
 							return editorCell(current, placement, value)
 						end
 						else nil
-					local render: ((ComposeTypes.Readable<K>) -> ComposeTypes.Child)? = if build
-						then function(rowKey: ComposeTypes.Readable<K>): ComposeTypes.Child
+					local render: ((ComposeTypes.ReadOnlyValue<K>) -> ComposeTypes.Child)? = if build
+						then function(rowKey: ComposeTypes.ReadOnlyValue<K>): ComposeTypes.Child
 							return Compose.keyed({
 								from = function(use: ComposeTypes.Use): { K }
 									return { use(rowKey) }
@@ -157,8 +157,8 @@ return function<V, K>(
 									return value
 								end,
 								render = function(
-									_: ComposeTypes.Readable<K>,
-									_index: ComposeTypes.Readable<number>,
+									_: ComposeTypes.ReadOnlyValue<K>,
+									_index: ComposeTypes.ReadOnlyValue<number>,
 									value: K
 								): GuiObject
 									return build(value)
@@ -380,8 +380,8 @@ return function<V, K>(
 									return column.id
 								end,
 								render = function(
-									column: ComposeTypes.Readable<CollectionTypes.TableColumn<V, K>>,
-									index: ComposeTypes.Readable<number>
+									column: ComposeTypes.ReadOnlyValue<CollectionTypes.TableColumn<V, K>>,
+									index: ComposeTypes.ReadOnlyValue<number>
 								)
 									return ctx.column({
 										ctx.text({

@@ -2,10 +2,10 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 
-export type Value<T> = Shared.Value<T>
+export type Input<T> = Shared.Input<T>
 
-export type CellBinding<T> = { value: ComposeTypes.Cell<T>, onChange: ((T) -> ())? }
-export type RequestBinding<T> = { value: Value<T>, onChange: (T) -> () }
+export type CellBinding<T> = { value: ComposeTypes.Value<T>, onChange: ((T) -> ())? }
+export type RequestBinding<T> = { value: Input<T>, onChange: (T) -> () }
 export type ValueBinding<T> = CellBinding<T> | RequestBinding<T>
 export type EnabledOptions =
 	{ enabled: Shared.ValueBoolean?, disabled: Shared.ValueBoolean?, busy: Shared.ValueBoolean? }
@@ -26,11 +26,11 @@ export type ButtonVisualOptions = {
 	name: Shared.ValueString?,
 	compactLabel: Shared.ValueString?,
 	pop: boolean?,
-	appearance: (Shared.ValueString | Shared.Value<string?>)?,
-	controlSize: Value<Shared.ControlSize?>?,
-	corners: Value<ButtonCorners>?,
+	appearance: (Shared.ValueString | Shared.Input<string?>)?,
+	controlSize: Input<Shared.ControlSize?>?,
+	corners: Input<ButtonCorners>?,
 	shape: ("rect" | "circle")?,
-	role: Value<ButtonRole>?,
+	role: Input<ButtonRole>?,
 	icon: Shared.ValueString?,
 	trailingIcon: Shared.ValueString?,
 	image: Shared.ValueString?,
@@ -41,11 +41,11 @@ export type ButtonVisualOptions = {
 	help: Help?,
 	disclose: boolean?,
 	row: Row?,
-	textSize: Value<string | number>?,
+	textSize: Input<string | number>?,
 	underline: ("always" | "hover")?,
 }
 export type ButtonInputOptions = {
-	haptic: Value<boolean | Shared.HapticKind>?,
+	haptic: Input<boolean | Shared.HapticKind>?,
 	repeatDelay: number?,
 	repeatInterval: number?,
 	shortcut: Shortcut?,
@@ -91,11 +91,11 @@ export type FieldAppearance = "standard" | "contrast" | "utility"
 export type TextValue = Shared.ValueString
 export type NumberValue = Shared.ValueNumber
 export type TextBinding = ValueBinding<string>
-export type NumberCell = ComposeTypes.Cell<number>
+export type NumberCell = ComposeTypes.Value<number>
 export type FlagValue = Shared.ValueBoolean
-export type SizeValue = Value<Shared.ControlSize?>
-export type FieldAppearanceValue = Value<FieldAppearance>
-export type SelectOnFocusValue = Value<SelectOnFocus>
+export type SizeValue = Input<Shared.ControlSize?>
+export type FieldAppearanceValue = Input<FieldAppearance>
+export type SelectOnFocusValue = Input<SelectOnFocus>
 export type RequiredMark = "required" | "optional"
 export type FieldCorners = "pill" | "square"
 export type FieldChrome = {
@@ -116,7 +116,7 @@ export type TextInputOptions = {
 	visibleLines: number?,
 	validate: ((string) -> string?)?,
 	maxLength: number?,
-	invalid: ComposeTypes.Readable<boolean>?,
+	invalid: ComposeTypes.ReadOnlyValue<boolean>?,
 	clearButton: boolean?,
 	clearButtonMode: ClearButtonMode?,
 	selectOnFocus: SelectOnFocusValue?,
@@ -152,7 +152,7 @@ export type TextInputImplementationProps = Shared.TextBoxProps & FieldChrome & T
 	onChange: ((string) -> ())?,
 	onCommit: (((string, TextCommitReason) -> ()) | ((number, CommitReason) -> ()))?,
 	presentation: ("plain" | "search" | "number")?,
-	numericValue: ComposeTypes.Cell<number>?,
+	numericValue: ComposeTypes.Value<number>?,
 }
 export type NumberInputModel = {
 	numericValue: NumberCell,
@@ -183,10 +183,10 @@ export type SliderThumb = "value" | "lower" | "upper"
 export type SliderChange = { thumb: SliderThumb }
 export type SliderKnob = {
 	thumb: SliderThumb,
-	value: ComposeTypes.Readable<number>,
-	fraction: ComposeTypes.Readable<number>,
-	dragging: ComposeTypes.Readable<boolean>,
-	enabled: ComposeTypes.Readable<boolean>,
+	value: ComposeTypes.ReadOnlyValue<number>,
+	fraction: ComposeTypes.ReadOnlyValue<number>,
+	dragging: ComposeTypes.ReadOnlyValue<boolean>,
+	enabled: ComposeTypes.ReadOnlyValue<boolean>,
 }
 export type SliderOptions = {
 	enabled: Shared.ValueBoolean?,
@@ -210,10 +210,10 @@ export type SliderImplementationProps = Shared.FrameProps & ValueOptions & Slide
 	onChange: (((number, SliderChange?) -> ()) | ((SliderRange, SliderChange) -> ()))?,
 	onCommit: (((number, SliderChange?) -> ()) | ((SliderRange, SliderChange) -> ()))?,
 }
-export type RangeValue = Value<SliderRange>
+export type RangeValue = Input<SliderRange>
 export type SliderCellBinding = {
 	range: false?,
-	value: ComposeTypes.Cell<number>,
+	value: ComposeTypes.Value<number>,
 	onChange: ((number) -> ())?,
 	onCommit: ((number) -> ())?,
 }
@@ -233,8 +233,8 @@ export type SliderBinding = SliderCellBinding | SliderRequestBinding | SliderRan
 export type LevelSize = "small" | "medium" | "large"
 export type Glyphs = { filled: string, empty: string }
 export type Images = { filled: string, empty: string }
-export type Tint = { filled: Value<Color3>?, empty: Value<Color3>? }
-export type LevelCellBinding = { value: ComposeTypes.Cell<number>, onChange: ((number) -> ())?, readOnly: boolean? }
+export type Tint = { filled: Input<Color3>?, empty: Input<Color3>? }
+export type LevelCellBinding = { value: ComposeTypes.Value<number>, onChange: ((number) -> ())?, readOnly: boolean? }
 export type LevelRequestBinding = { value: Shared.ValueNumber, onChange: (number) -> (), readOnly: boolean? }
 export type LevelReadOnlyBinding = { value: Shared.ValueNumber, readOnly: true, onChange: ((number) -> ())? }
 export type LevelBinding = LevelCellBinding | LevelRequestBinding | LevelReadOnlyBinding
@@ -277,7 +277,7 @@ export type LevelPickerOptions = {
 	tint: Tint?,
 }
 export type ChipCellSelection = {
-	selected: ComposeTypes.Cell<boolean>,
+	selected: ComposeTypes.Value<boolean>,
 	onToggle: ((boolean) -> ())?,
 	onRemove: (() -> ())?,
 }
@@ -288,7 +288,7 @@ export type ChipOptions = {
 	ref: ((TextButton | Frame) -> ())?,
 	editing: FlagValue?,
 	removeLabel: Shared.ValueString?,
-	removeFocusFallback: Value<GuiObject?>?,
+	removeFocusFallback: Input<GuiObject?>?,
 	leading: Shared.Child?,
 	trailing: Shared.Child?,
 }
@@ -303,32 +303,32 @@ export type ChipImplementationProps =
 		onToggle: ((boolean) -> ())?,
 		onRemove: (() -> ())?,
 	}
-export type ShortcutKeys = { keys: Value<{ { string } }>, action: nil? }
+export type ShortcutKeys = { keys: Input<{ { string } }>, action: nil? }
 export type ShortcutAction = { action: InputAction, keys: nil? }
 export type ShortcutHintSource = ShortcutKeys | ShortcutAction
 export type ShortcutHintOptions = {
 	ref: ((TextLabel | Frame) -> ())?,
 	separator: Shared.ValueString?,
-	controlSize: Value<Shared.ControlSize?>?,
+	controlSize: Input<Shared.ControlSize?>?,
 	label: Shared.ValueString?,
 	labelPosition: ("start" | "end")?,
 	cap: boolean?,
 }
 export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & ShortcutHintOptions & {
 	action: InputAction?,
-	keys: Value<{ { string } }>?,
+	keys: Input<{ { string } }>?,
 }
 export type ButtonGuideEntry = {
 	action: InputAction?,
 	keyCode: (Enum.KeyCode | { Enum.KeyCode })?,
-	keys: Value<{ { string } }>?,
+	keys: Input<{ { string } }>?,
 	label: Shared.ValueString,
 }
 export type ButtonGuideOptions = {
 	ref: ((Frame) -> ())?,
-	entries: Value<{ ButtonGuideEntry }>,
+	entries: Input<{ ButtonGuideEntry }>,
 	inputs: { string }?,
-	controlSize: Value<Shared.ControlSize?>?,
+	controlSize: Input<Shared.ControlSize?>?,
 }
 export type ButtonGuideImplementationProps = Shared.FrameNativeProps & ButtonGuideOptions
 export type HapticKind = Shared.HapticKind

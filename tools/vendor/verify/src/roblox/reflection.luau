@@ -197,12 +197,12 @@ local function create(options: Options): Environment.Environment
 				valid = enumType == expected or enumType == expected:sub(6)
 			elseif definitions[expected] then
 				valid = value == nil
-					or (Environment.isInstance(value) and (value :: Environment.Instance):IsA(expected))
+					or (Environment.isInstance(value) and Environment.assertInstance(value):IsA(expected))
 			end
 			if valid and expected == "Ref" and value ~= nil and options.referenceClass then
 				local target = options.referenceClass(className, key)
 				if target then
-					valid = (value :: Environment.Instance):IsA(target)
+					valid = Environment.assertInstance(value):IsA(target)
 				end
 			end
 			assert(valid, className .. "." .. key .. " requires " .. expected .. ", received " .. actual)

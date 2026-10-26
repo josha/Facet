@@ -10,10 +10,10 @@ local surfaceParts = require("./nav_surface_parts")
 
 type CollapsibleButtonSpec = InputProps.ButtonProps & {
 	content: Nav.Content?,
-	expanded: ComposeTypes.Cell<boolean>?,
+	expanded: ComposeTypes.Value<boolean>?,
 	initialFocus: string?,
-	dismissButton: Nav.Value<boolean>?,
-	outsideDismiss: Nav.Value<boolean>?,
+	dismissButton: Nav.Input<boolean>?,
+	outsideDismiss: Nav.Input<boolean>?,
 }
 
 return function(
@@ -47,7 +47,7 @@ return function(
 			local root = UI.Button(buttonSpec)
 			local input = surfaces.service("UserInputService")
 			local preferred = if input
-				then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
+				then ctx.observe.PreferredInput(input) :: ComposeTypes.ReadOnlyValue<Enum.PreferredInput?>
 				else Compose.cell(nil :: Enum.PreferredInput?)
 			local prepared, entered = Compose.cell(false), Compose.cell(false)
 			Compose.watch(function(use: ComposeTypes.Use)

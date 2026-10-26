@@ -34,6 +34,19 @@ local GLOBALS = "{ game = game, Instance = Instance, Enum = Enum, BrickColor = B
 	.. " version = version, security = SecurityCapabilities.fromCurrent():Add(Enum.SecurityCapability.Plugin),"
 	.. " classSecurity = SecurityCapabilities.new(table.unpack(Enum.SecurityCapability:GetEnumItems())) }"
 
+local function optionalString(value: unknown): string?
+	if value == nil then
+		return nil
+	end
+	assert(type(value) == "string")
+	return value
+end
+
+local function checkedString(value: unknown): string
+	assert(type(value) == "string")
+	return value
+end
+
 local function literal(names: { string }): string
 	local quoted: { string } = {}
 	for _, name in names do
@@ -94,12 +107,12 @@ local function export(execute: Execute, options: Options?): Snapshot.Snapshot
 	local index = run("index", {})
 	local superclasses: { [string]: string | false } = {}
 	for _, entry in index.classes :: { Fields } do
-		superclasses[entry.name :: string] = false
+		superclasses[checkedString(entry.name)] = false
 	end
 	for _, entry in index.classes :: { Fields } do
-		local super = entry.superclass :: string?
+		local super = optionalString(entry.superclass)
 		if super ~= nil and superclasses[super] ~= nil then
-			superclasses[entry.name :: string] = super
+			superclasses[checkedString(entry.name)] = super
 		end
 	end
 	local known: { [string]: boolean } = {}
@@ -148,14 +161,14 @@ local function export(execute: Execute, options: Options?): Snapshot.Snapshot
 		for _, entry in classes do
 			local fields = entry :: Fields
 			for _, property in fields.properties :: { [string]: Fields } do
-				local family = string.match(property.datatype :: string, "^Enum%.(.+)$")
+				local family = string.match(checkedString(property.datatype), "^Enum%.(.+)$")
 				if family ~= nil and known[family] then
 					families[family] = true
 				end
 			end
 			for _, value in fields.defaults :: { [string]: unknown } do
 				if type(value) == "table" and (value :: Fields)["$"] == "EnumItem" then
-					families[(value :: Fields).family :: string] = true
+					families[checkedString((value :: Fields).family)] = true
 				end
 			end
 		end
@@ -215,7 +228,7 @@ end
 return game:GetService("HttpService"):JSONEncode({ engineVersion = version(), results = results })]]
 	)
 	local reply = record(execute(table.concat(pieces, "\n")), "probe")
-	return { engineVersion = reply.engineVersion :: string?, results = reply.results :: { [string]: string } }
+	return { engineVersion = optionalString(reply.engineVersion), results = reply.results :: { [string]: string } }
 end
 
 local function probeLocal(environment: { [string]: unknown }, probes: { Probe }): { [string]: string }

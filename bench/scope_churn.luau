@@ -1,8 +1,8 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local process = require("@std/process")
 local json = require("@std/json")
 local nativeApp = require("./native_app")
@@ -19,7 +19,7 @@ local stop, root, items
 local started = os.clock()
 if workload == "children" then
 	for index = 1, size do
-		children[index] = owner.createChild()
+		children[index] = Compose.owner.createChild(owner)
 	end
 else
 	local data = {}
@@ -34,7 +34,7 @@ else
 				key = function(row: { id: string, text: string }): string
 					return row.id
 				end,
-				render = function(current: Readable<{ id: string, text: string }>)
+				render = function(current: ReadOnlyValue<{ id: string, text: string }>)
 					return Host.TextLabel({
 						Name = function(use: Use)
 							return use(current).id
@@ -54,8 +54,8 @@ local function step()
 	counter += 1
 	if workload == "children" then
 		for index = 1, math.max(1, size // 100) do
-			children[index].dispose()
-			children[index] = owner.createChild()
+			Compose.owner.dispose(children[index])
+			children[index] = Compose.owner.createChild(owner)
 		end
 	else
 		local previous = items:peek()
@@ -91,13 +91,13 @@ if root then
 		assert((byName[item.id] :: TextLabel).Text == item.text, `incorrect row {item.id}`)
 	end
 else
-	assert(owner.size() == size, "incorrect live child owner count")
+	assert(Compose.owner.size(owner) == size, "incorrect live child owner count")
 end
 started = os.clock()
 if stop then
 	stop()
 end
-owner.dispose()
+Compose.owner.dispose(owner)
 world.dispose()
 local unmountMs = (os.clock() - started) * 1000
 table.sort(timings)

@@ -191,7 +191,7 @@ local function select(plan: PlanDraft, selection: PlanSelection?): Plan
 		local keep = (not hasIds or ids[unit.id])
 			and (not hasTags or intersects(unit.tags, tags))
 			and (not hasCapabilities or intersects(unit.requires, capabilities))
-			and (not hasGroups or (unit.group ~= nil and groups[unit.group :: string]))
+			and (not hasGroups or (unit.group ~= nil and groups[unit.group]))
 		if keep and predicate ~= nil then
 			keep = predicate {
 				id = unit.id,
@@ -228,7 +228,7 @@ local function partition(plan: PlanDraft, batchCount: number, mode: Types.Batchi
 	local groups: { Group } = {}
 	local byKey: { [string]: Group } = {}
 	for order, unit in checked.units do
-		local key = if unit.group ~= nil then "g:" .. (unit.group :: string) else "u:" .. unit.id
+		local key = if unit.group ~= nil then "g:" .. unit.group else "u:" .. unit.id
 		local group = byKey[key]
 		if group == nil then
 			group = { key = key, first = unit.id, order = order, units = {}, size = 0 }
@@ -270,7 +270,7 @@ local function partition(plan: PlanDraft, batchCount: number, mode: Types.Batchi
 		})
 	end
 	for _, unit in checked.units do
-		local key = if unit.group ~= nil then "g:" .. (unit.group :: string) else "u:" .. unit.id
+		local key = if unit.group ~= nil then "g:" .. unit.group else "u:" .. unit.id
 		table.insert(batches[assignment[key]].units, unit)
 	end
 	return batches

@@ -1,4 +1,5 @@
 --!strict
+local Compose = require("../vendor/compose/core")
 local Shared = require("./types")
 local Controls = require("./control_types")
 local Props = require("./hud_props")
@@ -23,7 +24,7 @@ return function(ctx: Shared.Context, UI: Controls.Controls)
 		local painted = ctx.observe.Text(label)
 		local reduce = reducedMotion(ctx)
 		local function finish()
-			if owner.isDisposed() or revealed:peek() then
+			if Compose.owner.isDisposed(owner) or revealed:peek() then
 				return
 			end
 			label.MaxVisibleGraphemes = -1

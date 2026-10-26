@@ -89,7 +89,7 @@ return function(
 	end
 	function ctx.effectiveInput(): (ComposeTypes.Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse"
 		local input = config.userInputService
-		local function watch(property: string): ComposeTypes.Readable<unknown>?
+		local function watch(property: string): ComposeTypes.ReadOnlyValue<unknown>?
 			if input == nil then
 				return nil
 			end
@@ -99,14 +99,14 @@ return function(
 					MouseEnabled = ctx.observe.MouseEnabled,
 					TouchEnabled = ctx.observe.TouchEnabled,
 					GamepadEnabled = ctx.observe.GamepadEnabled,
-				} :: { [string]: (UserInputService) -> ComposeTypes.Readable<unknown> })[property],
+				} :: { [string]: (UserInputService) -> ComposeTypes.ReadOnlyValue<unknown> })[property],
 				input
 			)
 			return if ok then value else nil
 		end
 		local preferred, mouse, touch, gamepad =
 			watch("PreferredInput"), watch("MouseEnabled"), watch("TouchEnabled"), watch("GamepadEnabled")
-		local function on(source: ComposeTypes.Readable<unknown>?, use: ComposeTypes.Use?): boolean
+		local function on(source: ComposeTypes.ReadOnlyValue<unknown>?, use: ComposeTypes.Use?): boolean
 			return source ~= nil and ctx.readSource(source, use) == true
 		end
 		return function(use: ComposeTypes.Use?): "Touch" | "Gamepad" | "KeyboardAndMouse"
@@ -124,7 +124,7 @@ return function(
 			return "KeyboardAndMouse"
 		end
 	end
-	function ctx.thumbFloor(target: ComposeTypes.Readable<number>): (ComposeTypes.Use?) -> number
+	function ctx.thumbFloor(target: ComposeTypes.ReadOnlyValue<number>): (ComposeTypes.Use?) -> number
 		local input = config.userInputService
 		if input == nil then
 			return function()

@@ -7,8 +7,8 @@ type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 
 local words = require("./words")
 
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 
 local example = {}
 example.title = "Crossword (Scrabble-style)"
@@ -760,13 +760,13 @@ function example.build(ctx: ExampleContext): Built
 		end)
 	end
 	restart(DEFAULT_SEED)
-	local turnsLeftSig: Readable<number>? = nil
-	local scoreTextSig: Readable<string>? = nil
-	local progressTextSig: Readable<string>? = nil
-	local verdictSigOf: Readable<Verdict?>? = nil
-	local wordTextSig: Readable<string>? = nil
-	local hintTextSig: Readable<string>? = nil
-	local cellStateOf: { [string]: Readable<string> } = {}
+	local turnsLeftSig: ReadOnlyValue<number>? = nil
+	local scoreTextSig: ReadOnlyValue<string>? = nil
+	local progressTextSig: ReadOnlyValue<string>? = nil
+	local verdictSigOf: ReadOnlyValue<Verdict?>? = nil
+	local wordTextSig: ReadOnlyValue<string>? = nil
+	local hintTextSig: ReadOnlyValue<string>? = nil
+	local cellStateOf: { [string]: ReadOnlyValue<string> } = {}
 	local function Crossword()
 		local turnsLeft = Compose.formula(function(use: Use)
 			return math.max(0, TURNS - (use(turnSig) - 1))
@@ -973,7 +973,7 @@ function example.build(ctx: ExampleContext): Built
 					key = function(tile: MovingTile)
 						return tile.id
 					end,
-					render = function(item: Readable<MovingTile>)
+					render = function(item: ReadOnlyValue<MovingTile>)
 						return UI.Travel {
 							destination = function(use: Use): GuiObject
 								local tile = use(item)

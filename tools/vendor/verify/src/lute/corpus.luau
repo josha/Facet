@@ -54,7 +54,7 @@ local function walk(root: string, rule: Rule, listDir: ListDir, compare: Compare
 		if entry.type == "dir" then
 			walk(child, rule, listDir, compare, into)
 		elseif entry.type == "file" and string.match(entry.name, rule.pattern) ~= nil then
-			if rule.exclude == nil or string.match(entry.name, rule.exclude :: string) == nil then
+			if rule.exclude == nil or string.match(entry.name, rule.exclude) == nil then
 				table.insert(into, child)
 			end
 		end
@@ -124,11 +124,11 @@ local function groupByRequire(files: { string }, readFile: ReadFile, aliasPatter
 	end
 
 	for index, file in files do
-		local read, source: unknown = pcall(readFile, file)
+		local read, source = pcall(readFile, file)
 		if not read then
 			continue
 		end
-		for capture in string.gmatch(source :: string, aliasPattern) do
+		for capture in string.gmatch(source, aliasPattern) do
 			for _, candidate in { capture, capture .. ".luau", capture .. "/init.luau" } do
 				local target = indexOf[candidate]
 				if target ~= nil then
@@ -173,7 +173,7 @@ local function selection(files: { string }, query: Query?): Types.PlanSelection
 	if asked.pattern ~= nil and asked.name ~= nil then
 		error("a corpus query names a pattern or a literal name, never both", 2)
 	end
-	local pattern = if asked.name ~= nil then literal(asked.name :: string) else asked.pattern
+	local pattern = if asked.name ~= nil then literal(asked.name) else asked.pattern
 	local root = asked.root
 	local matched: { [string]: boolean } = {}
 	for _, file in files do
@@ -182,7 +182,7 @@ local function selection(files: { string }, query: Query?): Types.PlanSelection
 		end
 		if pattern ~= nil and pattern ~= "" then
 			local name = string.match(file, "([^/]+)$")
-			if name == nil or string.match(name :: string, pattern :: string) == nil then
+			if name == nil or string.match(name, pattern) == nil then
 				continue
 			end
 		end
@@ -212,9 +212,9 @@ local function lockText(sections: { LockSection }): string
 				error(("lock section %s has an unnamed field"):format(section.name), 2)
 			end
 			if type(field.value) == "number" then
-				table.insert(lines, ("		%s = %d,"):format(field.name, field.value :: number))
+				table.insert(lines, ("		%s = %d,"):format(field.name, field.value))
 			elseif type(field.value) == "string" then
-				table.insert(lines, ("		%s = %q,"):format(field.name, field.value :: string))
+				table.insert(lines, ("		%s = %q,"):format(field.name, field.value))
 			else
 				error(("lock field %s.%s is neither a number nor a string"):format(section.name, field.name), 2)
 			end

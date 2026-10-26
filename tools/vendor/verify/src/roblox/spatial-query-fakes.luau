@@ -1,12 +1,14 @@
 --!strict
 
 local Datatypes = require "./datatypes"
+local FrameTypes = require "./datatypes/cframe"
+local VectorTypes = require "./datatypes/vector"
+local EnumTypes = require "./datatypes/enum"
 local Names = require "./datatypes/names"
 local Environment = require "./environment-types"
 
 type Instance = Environment.Instance
 type Vector = Datatypes.Vector3Value
-type Frame = Datatypes.CFrameValue
 type Result = { Instance: Instance, Position: Vector, Normal: Vector, Distance: number, Material: unknown }
 
 local resultKind = Names.behavior "RaycastResult"
@@ -105,11 +107,11 @@ local function attach(environment: Environment.Environment)
 				)
 				assert(
 					part.ClassName == "Part"
-						and (environment.propertyOf(part, "Shape") :: Datatypes.EnumMember).Name == "Block",
+						and EnumTypes.itemValue(environment.propertyOf(part, "Shape")).Name == "Block",
 					"raycast collision geometry requires an explicit host for " .. part.ClassName
 				)
-				local frame = environment.propertyOf(part, "CFrame") :: Frame
-				local size = environment.propertyOf(part, "Size") :: Vector
+				local frame = FrameTypes.expect(environment.propertyOf(part, "CFrame"), 1)
+				local size = VectorTypes.expect3(environment.propertyOf(part, "Size"), 1)
 				local fraction, normal =
 					box(frame:PointToObjectSpace(origin), frame:VectorToObjectSpace(direction), size / 2)
 				if fraction ~= nil and (nearest == nil or fraction * length < nearest.Distance) then

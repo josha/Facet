@@ -57,7 +57,7 @@ local function worker(path: string)
 		callSeconds = CALL_SECONDS,
 	}, directory, textField "place", textField "placeName", deadline)
 	assert(launched ~= nil, failure)
-	local owner = launched :: Launch.Launched
+	local owner = launched
 	local session = owner.session
 	local function call(tool: string, arguments: { [string]: unknown }): unknown
 		local response = session.call(tool, Wire.encode(arguments))
@@ -200,7 +200,7 @@ local function run(options: Options): Core.BatchOutcome
 	local placeName = "Verify-"
 		.. tostring(process.pid())
 		.. "-"
-		.. (string.match(directory, if system.win32 then "[^/\\]+$" else "[^/]+$") :: string)
+		.. (string.match(directory, if system.win32 then "[^/\\]+$" else "[^/]+$"))
 		.. extension
 	local placePath = directory .. "/" .. placeName
 	fs.writeStringToFile(placePath, source)
@@ -254,7 +254,7 @@ local function run(options: Options): Core.BatchOutcome
 		return { status = "faulted", detail = "invalid or missing engine report: " .. tostring(report) }
 	end
 	if #survivors > 0 then
-		local first = (report :: Core.Report).results[1]
+		local first = (report).results[1]
 		if first ~= nil then
 			table.insert(first.limitations, leftover:sub(3))
 		end

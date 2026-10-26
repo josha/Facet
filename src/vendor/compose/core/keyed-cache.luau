@@ -1,5 +1,6 @@
 --!strict
 
+local Owners = require "./ownership/owner"
 local Diagnostics = require "./diagnostics"
 local cacheOptions = require "./ownership/cache-options"
 
@@ -56,7 +57,7 @@ local function createKeyedCache<K, T>(options: Options<K, T>): Cache<K, T>
 			table.clear(order)
 		end)
 	end
-	owner.own(destroyAll)
+	Owners.own(owner, destroyAll)
 
 	local function get(key: K): T
 		if disposed then

@@ -4,14 +4,14 @@ local settling = require("./settle")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local contacts = require("./input_contacts")
-type SnapOptions = { direction: ComposeTypes.OrderedCollectionDirection?, reducedMotion: Types.Value<boolean>? }
+type SnapOptions = { direction: ComposeTypes.OrderedCollectionDirection?, reducedMotion: Types.Input<boolean>? }
 return function<K>(
 	ctx: Types.Context,
 	spec: SnapOptions,
 	root: ScrollingFrame,
 	controls: ComposeTypes.OrderedCollectionControls<K>,
-	status: ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus>,
-	viewport: ComposeTypes.Cell<ComposeTypes.OrderedCollectionViewport>,
+	status: ComposeTypes.Value<ComposeTypes.OrderedCollectionStatus>,
+	viewport: ComposeTypes.Value<ComposeTypes.OrderedCollectionViewport>,
 	setOffset: (number) -> (),
 	frameworkWrite: () -> boolean,
 	enabled: (() -> boolean)?

@@ -1,5 +1,6 @@
 --!strict
 
+local Reactors = require "../reactive/reactor"
 local Diagnostics = require "../diagnostics"
 local Easing = require "./easing"
 local Motion = require "./motion"
@@ -12,14 +13,14 @@ export type Options = {
 }
 
 export type Ramp<T> = {
-	value: Types.Readable<T>,
+	value: Types.ReadOnlyValue<T>,
 	retarget: (target: T, seconds: number) -> (),
 }
 
 local DEFAULT_SECONDS = 0.25
 
 local function createRamps(
-	tween: <T>(source: Types.Body<T>, options: Motion.TweenOptions?) -> Types.Readable<T>,
+	tween: <T>(source: Types.Body<T>, options: Motion.TweenOptions?) -> Types.ReadOnlyValue<T>,
 	requireOwner: (operation: string) -> Owner.Owner
 ): <T>(initial: T, options: Options?) -> Ramp<T>
 	return function<T>(initial: T, options: Options?): Ramp<T>
@@ -43,7 +44,7 @@ local function createRamps(
 						expected = "seconds; zero or less jumps to the target at once",
 					})
 				end
-				owner.reactor:batch(function()
+				Reactors.batch(owner.reactor, function()
 					if duration > 0 then
 						seconds:set(duration)
 					end

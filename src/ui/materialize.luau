@@ -5,11 +5,11 @@ local ComposeTypes = require("../vendor/compose/core")
 local function materialize(
 	ctx: Types.Context,
 	panel: GuiObject,
-	geometry: { Size: Types.Value<UDim2>?, AutomaticSize: Types.Value<Enum.AutomaticSize>? },
+	geometry: { Size: Types.Input<UDim2>?, AutomaticSize: Types.Input<Enum.AutomaticSize>? },
 	scale: (ComposeTypes.Use) -> number,
 	pivot: ((ComposeTypes.Use) -> Vector2)?,
 	paintOnly: boolean?,
-	supplied: ComposeTypes.Readable<Vector2>?
+	supplied: ComposeTypes.ReadOnlyValue<Vector2>?
 )
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum

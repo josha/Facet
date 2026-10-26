@@ -111,7 +111,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			}
 		end)
 		local function target(kind: string, page: number?, use: ComposeTypes.Use?): number?
-			local st = read(state, use)
+			local st = ctx.readSource(state, use)
 			local current = st.current
 			if current == nil then
 				return nil
@@ -139,7 +139,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local gap = function(use: ComposeTypes.Use?): number
 			return (ctx.metric("space.xs", use))
 		end
-		local function measure(name: string, text: Types.Value<string>): TextLabel
+		local function measure(name: string, text: Types.Input<string>): TextLabel
 			local label = ctx.text({ Name = name, Text = text, Visible = false, TextWrapped = false })
 			label:AddTag("facet-button")
 			return label
@@ -311,7 +311,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			key = function(entry: Entry): string
 				return entry.key
 			end,
-			render = function(source: ComposeTypes.Readable<Entry>, index: ComposeTypes.Readable<number>): Instance
+			render = function(
+				source: ComposeTypes.ReadOnlyValue<Entry>,
+				index: ComposeTypes.ReadOnlyValue<number>
+			): Instance
 				local entry = source:peek()
 				if entry.kind == "page" then
 					local page = assert(entry.page)

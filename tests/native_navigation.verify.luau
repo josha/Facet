@@ -15,8 +15,8 @@ return function(verifyHarness: Verify.Harness)
 	local NavigationFixtures = require("../src/ui/navigation_types")
 	local FixtureThemeTypes = require("../src/ui/theme_types")
 	local FixtureNavigationTypes = require("../src/ui/navigation_types")
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 	local Navigation = require("../src/ui/navigation_types")
 	local NavigationProps = require("../src/ui/navigation_props")
 	local SharedTypes = require("../src/ui/control_types")
@@ -54,7 +54,7 @@ return function(verifyHarness: Verify.Harness)
 		options: {
 			theme: any?,
 			pressHaptic: ((any) -> HapticEffect)?,
-			motionLevel: Shared.Value<Shared.MotionLevel>?,
+			motionLevel: Shared.Input<Shared.MotionLevel>?,
 			runService: boolean?,
 			preRender: boolean?,
 			suspendGameplay: boolean?,
@@ -622,7 +622,7 @@ return function(verifyHarness: Verify.Harness)
 					local disposed: { [string]: boolean } = {}
 					local writes = 0
 					local gameplay: InputContext
-					local suspended: Compose.Readable<boolean>
+					local suspended: Compose.ReadOnlyValue<boolean>
 					local world = setup(function(UI: FacetControls, _Host: RobloxHost, engine)
 						gameplay = (engine.new("InputContext") :: unknown) :: InputContext
 						suspended = UI.environment().gameplaySuspended
@@ -681,7 +681,7 @@ return function(verifyHarness: Verify.Harness)
 			for _, pageFirst in { true, false } do
 				local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
 				local opened = Compose.cell(false)
-				local suspended: Compose.Readable<boolean>
+				local suspended: Compose.ReadOnlyValue<boolean>
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
 					suspended = UI.environment().gameplaySuspended
 					return Host.Frame {
@@ -2038,7 +2038,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 		verifyHarness:case("hides touch controls for a radial menu without suspending gameplay", function()
 			local opened = Compose.cell(false)
-			local suspended: Compose.Readable<boolean>
+			local suspended: Compose.ReadOnlyValue<boolean>
 			local world = setup(function(UI: FacetControls)
 				suspended = UI.environment().gameplaySuspended
 				return UI.RadialMenu({
@@ -3635,7 +3635,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("bounds menu scrolling, prunes removed branches and closes every level on tap away", {
 			id = "native_navigation::native navigation controls::bounds menu scrolling, prunes removed branches and closes every level on tap away",
 			run = function()
-				local shown, items: FixtureComposeTypes.Cell<{ FixtureNavigationTypes.MenuItem<any> }> =
+				local shown, items: FixtureComposeTypes.Value<{ FixtureNavigationTypes.MenuItem<any> }> =
 					Compose.cell(true), Compose.cell({ { id = "branch", label = "Branch", children = {
 						{ id = "leaf", label = "Leaf", onSelect = function() end },
 					} } } :: { Navigation.MenuItem<any> })
@@ -4266,7 +4266,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("clears bound alert errors and turns native page animation off for reduced motion", {
 			id = "native_navigation::native navigation controls::clears bound alert errors and turns native page animation off for reduced motion",
 			run = function()
-				local shown, errorValue: FixtureComposeTypes.Cell<string?>, page =
+				local shown, errorValue: FixtureComposeTypes.Value<string?>, page =
 					Compose.cell(true), cells.optionalString("Oops"), Compose.cell("a")
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
@@ -5631,8 +5631,8 @@ return function(verifyHarness: Verify.Harness)
 		local FixtureComposeTypes = require("../src/vendor/compose/core")
 		local FixtureCollectionTypes = require("../src/ui/collection_types")
 		local FixtureNavigationTypes = require("../src/ui/navigation_types")
-		type Readable<T> = { peek: (Readable<T>) -> T }
-		type Use = <T>(Readable<T>) -> T
+		type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+		type Use = <T>(ReadOnlyValue<T>) -> T
 
 		local materialize = require("./lib/materialize")
 		local Facet = require("../src")
@@ -5803,7 +5803,7 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_navigation::native parity navigation::sizes segments by fill or hug without replacing them and refuses unknown sizing",
 				run = function()
 					local sizing, selected =
-						(function(value: "fill" | "hug"): FixtureComposeTypes.Cell<"fill" | "hug">
+						(function(value: "fill" | "hug"): FixtureComposeTypes.Value<"fill" | "hug">
 							return Compose.cell(value)
 						end)("fill"), Compose.cell("a")
 					local world = setup(function(UI: FacetControls)

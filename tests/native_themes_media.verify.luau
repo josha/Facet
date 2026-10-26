@@ -75,8 +75,8 @@ return function(verifyHarness: Verify.Harness)
 	local FixtureMediaTypes = require("../src/ui/media_types")
 	local FixtureMediaProps = require("../src/ui/media_props")
 	local FixtureThemeTypes = require("../src/ui/theme_types")
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local transitionOf = require("./lib/transition")
 	local styleProperties = require("./lib/style_properties")
@@ -780,7 +780,7 @@ return function(verifyHarness: Verify.Harness)
 					assert(light.extra).onSelected = { r = 1, g = 1, b = 1 }
 					package.style.themes = { package.style.themes[1], light }
 					package = assert(themes.define(package))
-					local selection, reduced, explicit: FixtureComposeTypes.Cell<(TweenInfo | false)?> =
+					local selection, reduced, explicit: FixtureComposeTypes.Value<(TweenInfo | false)?> =
 						Compose.cell("Dark"), Compose.cell(false), Compose.cell(nil :: TweenInfo | false | nil)
 					local stop, sheet: any = runtime.mount(function()
 						return themes.createStyleSheet(runtime, package, {
@@ -1053,7 +1053,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_themes_media::native themes and media::preserves avatar initials presence rung changes and keyed roster identity",
 			run = function()
 				local engine, runtime, UI = setup()
-				local rung: FixtureComposeTypes.Cell<"compact" | "large" | "regular" | "xsmall">, presence =
+				local rung: FixtureComposeTypes.Value<"compact" | "large" | "regular" | "xsmall">, presence =
 					Compose.cell("compact" :: "compact" | "large" | "regular" | "xsmall"),
 					Compose.cell("online" :: ("away" | "busy" | "inExperience" | "offline" | "online")?)
 				local roster = Compose.cell({

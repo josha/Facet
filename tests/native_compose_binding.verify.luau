@@ -4,8 +4,8 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
@@ -420,7 +420,7 @@ return function(verifyHarness: Verify.Harness)
 						1,
 						true
 					) ~= nil):toBe(true)
-					local palette = ((surface.Compose.cell :: unknown) :: (string) -> Facet.Cell<string>)("Dark")
+					local palette = ((surface.Compose.cell :: unknown) :: (string) -> Facet.Value<string>)("Dark")
 					local styled = (surface.app :: (Facet.AppOptions) -> Facet.App)({
 						runtime = (runtime :: unknown) :: Facet.Runtime,
 						types = engine.types,

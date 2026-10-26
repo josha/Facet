@@ -37,7 +37,7 @@ return function(
 		local reduced = reducedMotion(ctx)
 		local hugs = spec.AutomaticSize == E.AutomaticSize.Y or spec.AutomaticSize == E.AutomaticSize.XY
 		local tallest = Compose.cell(0)
-		local heights: { ComposeTypes.Readable<Vector2> } = {}
+		local heights: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 		for index, page in spec.pages do
 			local body = content(page.content, nil)
 			if hugs and body:IsA("GuiObject") then
@@ -56,7 +56,7 @@ return function(
 		local function nativeScroll(use: ComposeTypes.Use): boolean
 			return effectiveInput(use) == "Touch" or ctx.read(spec.scrollWheel, use) == true
 		end
-		local function Page(current: ComposeTypes.Readable<Nav.Tab>): GuiObject
+		local function Page(current: ComposeTypes.ReadOnlyValue<Nav.Tab>): GuiObject
 			return assert(pageNodes[current:peek().id])
 		end
 		local pages = UI.VirtualList "Pages" {

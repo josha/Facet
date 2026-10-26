@@ -314,11 +314,11 @@ export type ThemeOptions = {
 	types: Engine.RobloxTypes?,
 	name: string?,
 	theme: Engine.ValueString?,
-	motionLevel: (Engine.Value<"normal" | "limited" | "none"> | Engine.Value<("normal" | "limited" | "none")?>)?,
+	motionLevel: (Engine.Input<"normal" | "limited" | "none"> | Engine.Input<("normal" | "limited" | "none")?>)?,
 	preferredTransparency: Engine.ValueNumber?,
-	hover: (Engine.ValueBoolean | Engine.Value<boolean?>)?,
+	hover: (Engine.ValueBoolean | Engine.Input<boolean?>)?,
 	tenFoot: Engine.ValueBoolean?,
-	transition: Engine.Value<(TweenInfo | false)?>?,
+	transition: Engine.Input<(TweenInfo | false)?>?,
 	contentProvider: ContentProvider?,
 	collectionService: CollectionService?,
 }
@@ -328,13 +328,13 @@ export type SkinOptions = {
 	target: GuiObject?,
 	label: Engine.ValueString?,
 	onCaption: ((boolean) -> ())?,
-	state: Engine.Value<SkinState>?,
+	state: Engine.Input<SkinState>?,
 	selected: Engine.ValueBoolean?,
-	direction: Engine.Value<FillDirection>?,
+	direction: Engine.Input<FillDirection>?,
 	fit: Engine.ValueNumber?,
-	Size: Engine.Value<UDim2>?,
-	Position: Engine.Value<UDim2>?,
-	AnchorPoint: Engine.Value<Vector2>?,
+	Size: Engine.Input<UDim2>?,
+	Position: Engine.Input<UDim2>?,
+	AnchorPoint: Engine.Input<Vector2>?,
 	ZIndex: number?,
 }
 export type Themes = {
@@ -348,12 +348,12 @@ export type Themes = {
 	resolveIcon: (package: IconRegistry, name: string, state: SkinState?) -> string?,
 	createStyleSheet: (
 		runtime: ComposeTypes.Runtime,
-		packageOrReadable: Engine.Value<ThemePackage>?,
+		packageOrReadable: Engine.Input<ThemePackage>?,
 		options: ThemeOptions?
 	) -> StyleSheet,
 	skin: (
 		runtime: ComposeTypes.Runtime,
-		packageOrReadable: Engine.Value<ThemePackage>?,
+		packageOrReadable: Engine.Input<ThemePackage>?,
 		slot: string,
 		options: SkinOptions?
 	) -> Frame,

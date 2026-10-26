@@ -219,7 +219,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 							then read(image, use)
 							else "rbxthumb://type=AvatarHeadShot&id=" .. tostring(read(userId, use)) .. "&w=150&h=150"
 					end,
-					placeholder = function(_state: ComposeTypes.Readable<Media.ImageState>): Instance
+					placeholder = function(_state: ComposeTypes.ReadOnlyValue<Media.ImageState>): Instance
 						return Host.Frame({ BackgroundTransparency = 1, Size = D2.fromScale(1, 1) })
 					end,
 					Host.UICorner({ CornerRadius = ctx.round }),
@@ -332,7 +332,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			key = function(item: Media.AvatarMember)
 				return if item.resource then item.id .. "\0" .. tostring(item.resource) else item.id
 			end,
-			render = function(current: ComposeTypes.Readable<Media.AvatarMember>, index: ComposeTypes.Readable<number>)
+			render = function(
+				current: ComposeTypes.ReadOnlyValue<Media.AvatarMember>,
+				index: ComposeTypes.ReadOnlyValue<number>
+			)
 				return UI.Avatar({
 					resource = current:peek().resource,
 					Name = function(use: ComposeTypes.Use)
@@ -379,7 +382,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 								"Facet AvatarGroup overflowLabel must be a string"
 							)
 							return label or tostring(#use(items) - maximum) .. " more players"
-						end) :: Engine.Value<Engine.AttributeValue?>,
+						end) :: Engine.Input<Engine.AttributeValue?>,
 					},
 					Size = function(use: ComposeTypes.Use)
 						local pixels = size(use)

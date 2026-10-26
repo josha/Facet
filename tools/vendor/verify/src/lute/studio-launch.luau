@@ -49,13 +49,13 @@ local function listed(transport: Attach.Transport, deadline: number): ({ Attach.
 	if exchange.detail ~= nil then
 		return nil, exchange.detail
 	end
-	local parsed, value: unknown = pcall(function(): { Attach.StudioInfo }
+	local parsed, value = pcall(function(): { Attach.StudioInfo }
 		return Attach.discovered(Reply.texts(exchange.result))
 	end)
 	if not parsed then
 		return nil, tostring(value)
 	end
-	return value :: { Attach.StudioInfo }, nil
+	return value, nil
 end
 
 local function open(
@@ -65,7 +65,15 @@ local function open(
 	name: string,
 	deadline: number
 ): (Launched?, string?)
-	local transport = options.transport or Attach.transport(options.mcpExecutable :: string, directory .. "/mcp")
+	local transport: Attach.Transport
+	local supplied = options.transport
+	if supplied ~= nil then
+		transport = supplied
+	else
+		local executable = options.mcpExecutable
+		assert(executable ~= nil)
+		transport = Attach.transport(executable, directory .. "/mcp")
+	end
 	local before = Processes.snapshot(options.processes)
 	local pid: number? = nil
 
@@ -88,16 +96,18 @@ local function open(
 	for _, studio in previous do
 		known[studio.id] = true
 	end
-	local started, value: unknown = pcall(function(): number
+	local started, value = pcall(function(): number
 		if options.start ~= nil then
 			return options.start(place, name, deadline)
 		end
-		return Processes.start(options.studioExecutable :: string, place, name, deadline, directory .. "/studio.log")
+		local executable = options.studioExecutable
+		assert(executable ~= nil)
+		return Processes.start(executable, place, name, deadline, directory .. "/studio.log")
 	end)
 	if not started then
 		return abandon("Studio did not start: " .. tostring(value))
 	end
-	pid = value :: number
+	pid = value
 	local selected: Attach.StudioInfo? = nil
 	local last = "no listing arrived"
 	while selected == nil and os.clock() < deadline do
@@ -130,7 +140,7 @@ local function open(
 	end
 	local session, refusal = Attach.attach {
 		authorize = options.authorize or allow,
-		studioId = (selected :: Attach.StudioInfo).id,
+		studioId = (selected).id,
 		transport = transport,
 		mode = "edit",
 		callSeconds = options.callSeconds,
@@ -138,11 +148,13 @@ local function open(
 		cleanupSeconds = options.cleanupSeconds,
 	}
 	if session == nil then
-		local why = refusal :: Attach.Refusal
+		local why = refusal
+		assert(why ~= nil)
 		return abandon(("attach %s: %s"):format(why.kind, why.detail))
 	end
-	local opened = session :: Attach.Session
-	local owner = pid :: number
+	local opened = session
+	local owner = pid
+	assert(owner ~= nil)
 	local closed: Closed? = nil
 	return {
 		session = opened,
@@ -152,7 +164,7 @@ local function open(
 		pid = owner,
 		close = function(): Closed
 			if closed ~= nil then
-				return closed :: Closed
+				return closed
 			end
 			local cleanup = opened.close()
 			local reaped = Processes.reap(before, { root = owner, markers = { name } }, options.processes)

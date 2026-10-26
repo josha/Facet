@@ -8,8 +8,8 @@ return function(verifyHarness: Verify.Harness)
 
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Compose = require("../src/vendor/compose/core")
 	local Roblox = require("../src/vendor/compose/roblox")

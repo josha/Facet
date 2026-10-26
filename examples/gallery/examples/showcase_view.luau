@@ -7,9 +7,9 @@ type DemoTab = typeof(require("@repo/examples/types").DemoTab)
 type PartNativeProps = typeof(require("@repo/tools/typecheck/aliases").PartNativeProps)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
-type Value<T> = T | Readable<T> | (Use) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
+type Input<T> = T | ReadOnlyValue<T> | (Use) -> T
 type TextRole = "caption" | "label" | "body" | "heading" | "title" | "control" | "strong" | "numeral"
 type Page = { id: string, label: string, content: () -> Instance }
 local loadTabs: (ModuleScript | string) -> DemoTabs = require
@@ -18,7 +18,7 @@ return function(ctx: ExampleContext)
 	local UI, Host, Compose = ctx.UI, ctx.Host, ctx.Compose
 	local D2, V3, CF, C3, E = ctx.types.UDim2, ctx.types.Vector3, ctx.types.CFrame, ctx.types.Color3, ctx.types.Enum
 	local view = {}
-	function view.text(name: string, text: Value<string>, role: TextRole?)
+	function view.text(name: string, text: Input<string>, role: TextRole?)
 		return UI.Text(name)({
 			text = text,
 			textRole = role or "body",
@@ -27,7 +27,7 @@ return function(ctx: ExampleContext)
 			AutomaticSize = E.AutomaticSize.Y,
 		})
 	end
-	function view.page(name: string, title: Value<string>, subtitle: Value<string>, children: { Child })
+	function view.page(name: string, title: Input<string>, subtitle: Input<string>, children: { Child })
 		return UI.ScrollView(name)({
 			padding = "l",
 			gap = "m",
@@ -44,14 +44,14 @@ return function(ctx: ExampleContext)
 			table.unpack(children),
 		}
 	end
-	function view.button(name: string, label: Value<string>, action: () -> (), enabled: Value<boolean>?)
+	function view.button(name: string, label: Input<string>, action: () -> (), enabled: Input<boolean>?)
 		return UI.Button(name)({ label = label, onActivate = action, enabled = enabled })
 	end
 	function view.part(
 		name: string,
-		size: Value<Vector3>,
+		size: Input<Vector3>,
 		position: Vector3,
-		color: Value<Color3>,
+		color: Input<Color3>,
 		extra: PartNativeProps?
 	): Part
 		local props: PartNativeProps = table.clone(extra or {})

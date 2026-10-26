@@ -7,8 +7,8 @@ return function(verifyHarness: Verify.Harness)
 	type ExampleContext = typeof(require("@repo/examples/types").Context)
 	type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local expect = Verify.expect
 	local Facet = require("../src")
@@ -98,7 +98,7 @@ return function(verifyHarness: Verify.Harness)
 								if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
 							) :: "none" | "normal" | "limited"
 						end) :: unknown
-					) :: ComposeTypes.Formula<"none" | "normal" | "limited">,
+					) :: ComposeTypes.Value<"none" | "normal" | "limited">,
 			})
 			game = definition.build(ctx)
 			return ctx.Host.ScreenGui "GameScreen" { game.screen() }

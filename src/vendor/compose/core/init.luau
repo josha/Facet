@@ -13,6 +13,7 @@ local FocusScope = require "@self/focus-scope"
 local Geometry = require "@self/geometry"
 local FocusNeighbor = require "@self/focus-neighbor"
 local Graph = require "@self/reactive/graph"
+local NodeCast = require "@self/reactive/node"
 local Inspect = require "@self/ownership/inspect"
 local InspectReport = require "@self/ownership/report"
 local HostProtocol = require "@self/host"
@@ -50,12 +51,11 @@ local userSpace = require "@self/reactive/userSpace"
 
 export type Dispose = Types.Dispose
 export type Use = Types.Use
-export type Readable<T> = Types.Readable<T>
-export type Cell<T> = Types.Cell<T>
-export type Formula<T> = Types.Formula<T>
 export type Body<T> = Types.Body<T>
 export type Source<T> = Types.Source<T>
 export type Value<T> = Types.Value<T>
+export type ReadOnlyValue<T> = Types.ReadOnlyValue<T>
+export type Input<T> = Types.Input<T>
 export type Equals<T> = Types.Equals<T>
 export type Reactor = reactorModule.Reactor
 export type AccumulatorOptions<T, E> = AccumulatorModule.Options<T, E>
@@ -168,17 +168,13 @@ export type InspectNode = Inspect.NodeReport
 export type InspectOwnedCounts = InspectReport.OwnedCounts
 export type InspectData = InspectReport.Data
 
-local function formula<T>(body: Types.Body<T>, equals: Types.Equals<T>?): Types.Formula<T>
+local function formula<T>(body: Types.Body<T>, equals: Types.Equals<T>?): Types.Value<T>
 	local value = formulaModule(body, equals)
 	local owner = Active.current()
 	if owner ~= nil then
-		local dispose = value.dispose
-		local release = owner.own(function()
-			dispose(value)
+		NodeCast.nodeOf(value).release = OwnerModule.own(owner, function()
+			value:dispose()
 		end)
-		value.dispose = function(_self: Types.Formula<T>)
-			release()
-		end
 	end
 	return value
 end
@@ -186,12 +182,15 @@ end
 local function watch(body: (use: Types.Use) -> (), label: string?): Types.Dispose
 	local owner = Active.current()
 	if owner == nil then
-		Diagnostics.raise("owner/no-active-owner", "watch ran with no owner to hold it", {
-			contract = "a watch lives exactly as long as the owner that created it",
-			fix = "call it inside a component, or use owner.watch(...) with an explicit owner",
-		})
+		error(
+			Diagnostics.format("owner/no-active-owner", "watch ran with no owner to hold it", {
+				contract = "a watch lives exactly as long as the owner that created it",
+				fix = "call it inside a component, or use OwnerModule.watch(owner, ...) with an explicit owner",
+			}),
+			0
+		)
 	end
-	return (owner :: OwnerModule.Owner).watch(body, label)
+	return OwnerModule.watch(owner, body, label)
 end
 
 local function cleanup(value: unknown): Types.Dispose
@@ -209,16 +208,22 @@ local function cleanup(value: unknown): Types.Dispose
 				(object.dispose :: (unknown) -> ())(object)
 			end
 		else
-			Diagnostics.raise("owner/uncleanable", "cleanup was given a table it cannot tear down", {
-				actual = "table with neither destroy nor dispose",
-				expected = "a function, or a table with a destroy or dispose method",
-			})
+			error(
+				Diagnostics.format("owner/uncleanable", "cleanup was given a table it cannot tear down", {
+					actual = "table with neither destroy nor dispose",
+					expected = "a function, or a table with a destroy or dispose method",
+				}),
+				0
+			)
 		end
 	else
-		Diagnostics.raise("owner/uncleanable", "cleanup was given something it cannot tear down", {
-			actual = Diagnostics.describe(value),
-			expected = "a function, or a table with a destroy or dispose method",
-		})
+		error(
+			Diagnostics.format("owner/uncleanable", "cleanup was given something it cannot tear down", {
+				actual = Diagnostics.describe(value),
+				expected = "a function, or a table with a destroy or dispose method",
+			}),
+			0
+		)
 	end
 	local holder = Active.current()
 	if holder ~= nil and Inspect.isActive() then
@@ -227,27 +232,34 @@ local function cleanup(value: unknown): Types.Dispose
 	return Active.own(teardown, "cleanup")
 end
 
-local function sampleRead<T>(node: Types.Readable<T>): T
-	if cellModule.isReadable(node) then
+local function sampleRead<T>(node: Types.ReadOnlyValue<T>): T
+	if cellModule.isValue(node) then
 		return node:peek()
 	end
 	return Graph.notANode("the reader Compose.sample passes to a body", node)
 end
 
 local function sample<T>(source: Types.Source<T>): T
-	if cellModule.isReadable(source) then
-		return (source :: Types.Readable<T>):peek()
+	if cellModule.isValue(source) then
+		return (source :: Types.ReadOnlyValue<T>):peek()
 	end
 	if type(source) ~= "function" then
 		local actual = Diagnostics.describe(source)
-		Diagnostics.raise("reactive/not-a-source", ("Compose.sample was given a %s it cannot read"):format(actual), {
-			actual = actual,
-			expected = "a cell, a formula, or a function taking `use`",
-			contract = "sample reads a source's current value once, without recording a dependency",
-			fix = "pass the cell or formula itself, or a body that reads one",
-		})
+		error(
+			Diagnostics.format(
+				"reactive/not-a-source",
+				("Compose.sample was given a %s it cannot read"):format(actual),
+				{
+					actual = actual,
+					expected = "a cell, a formula, or a function taking `use`",
+					contract = "sample reads a source's current value once, without recording a dependency",
+					fix = "pass the cell or formula itself, or a body that reads one",
+				}
+			),
+			0
+		)
 	end
-	local body = source :: Types.Body<T>
+	local body = source
 	return watchModule.sample(function(): T
 		return body(sampleRead)
 	end)
@@ -257,20 +269,26 @@ local withOwner = Active.withOwner
 
 local function bindOwner<Args..., Rets...>(body: (Args...) -> Rets...): (Args...) -> Rets...
 	if type(body) ~= "function" then
-		Diagnostics.raise("owner/bind-body-not-a-function", "bindOwner expects the function to bind", {
-			actual = Diagnostics.describe(body),
-			expected = "a function to run later under the owner active now",
-			contract = "bindOwner exists to carry one callback back into its owner; there is nothing else to bind",
-		})
+		error(
+			Diagnostics.format("owner/bind-body-not-a-function", "bindOwner expects the function to bind", {
+				actual = Diagnostics.describe(body),
+				expected = "a function to run later under the owner active now",
+				contract = "bindOwner exists to carry one callback back into its owner; there is nothing else to bind",
+			}),
+			0
+		)
 	end
 	local owner = Active.current()
 	if owner == nil then
-		Diagnostics.raise("owner/no-active-owner", "bindOwner has no owner to bind to", {
-			contract = "a bound callback re-enters the owner that created it, so there has to be one to capture",
-			fix = "call Compose.bindOwner inside the component or mount whose owner the callback belongs to",
-		})
+		error(
+			Diagnostics.format("owner/no-active-owner", "bindOwner has no owner to bind to", {
+				contract = "a bound callback re-enters the owner that created it, so there has to be one to capture",
+				fix = "call Compose.bindOwner inside the component or mount whose owner the callback belongs to",
+			}),
+			0
+		)
 	end
-	return Active.bind(owner :: OwnerModule.Owner, body)
+	return Active.bind(owner, body)
 end
 
 local function resetForTests()
@@ -305,15 +323,21 @@ local profile = {
 
 return {
 	cell = cellModule.cell,
-	sharedCell = cellModule.sharedCell,
+	sharedCell = cellModule.cell,
 	formula = formula,
 	accumulator = AccumulatorModule,
 	watch = watch,
 	sample = sample,
-	isReadable = cellModule.isReadable,
-	reactor = reactorModule.create,
+	isValue = cellModule.isValue,
+	reactor = {
+		create = reactorModule.create,
+		batch = reactorModule.batch,
+		settle = reactorModule.settle,
+		pending = reactorModule.pending,
+	},
 
 	createOwner = OwnerModule.createOwner,
+	owner = OwnerModule.api,
 	withOwner = withOwner,
 	bindOwner = bindOwner,
 	withRootOwner = RootScopeModule.withRootOwner,

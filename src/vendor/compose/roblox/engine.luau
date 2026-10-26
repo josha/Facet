@@ -27,7 +27,18 @@ export type Instance = {
 	SetAttribute: (self: Instance, name: string, value: unknown) -> (),
 	GetPropertyChangedSignal: (self: Instance, name: string) -> Signal<()>,
 }
-export type PropertyObservable = { GetPropertyChangedSignal: (self: PropertyObservable, name: string) -> Signal<()> }
+export type PropertyObservable = {
+	GetPropertyChangedSignal: (self: PropertyObservable, name: string) -> Signal<()>,
+	GetDescendants: (self: PropertyObservable) -> { unknown },
+}
+
+local function observable(object: unknown): PropertyObservable
+	return object :: PropertyObservable
+end
+
+local function descendants(object: unknown): { unknown }
+	return observable(object):GetDescendants()
+end
 export type DataModel = {
 	GetService: (
 		self: DataModel,
@@ -61,6 +72,10 @@ export type Engine = {
 type Library<F> = { new: F }
 
 type Globals = {
+	pcall: (callback: unknown, ...unknown) -> (boolean, ...unknown),
+	Enum: { [string]: { [string]: unknown } },
+	Font: Library<(family: string, weight: unknown) -> unknown>,
+	RaycastParams: Library<() -> { FilterType: unknown, FilterDescendantsInstances: { unknown } }>,
 	Instance: Library<(className: string) -> Instance>?,
 	game: DataModel?,
 	typeof: (value: unknown) -> string,
@@ -70,12 +85,20 @@ type Globals = {
 	UDim: Library<(scale: number, offset: number) -> UDim>?,
 	UDim2: Library<(xScale: number, xOffset: number, yScale: number, yOffset: number) -> UDim2>?,
 	CFrame: Library<(...number) -> CFrame>?,
-	task: { cancel: unknown }?,
+	task: { cancel: ((thread: thread) -> ())? }?,
 	os: typeof(os),
 }
 
 local function environment(): Globals
-	return ((getfenv and getfenv(0) or {}) :: unknown) :: Globals
+	return ((getfenv and getfenv(0) or { pcall = pcall }) :: unknown) :: Globals
+end
+
+local function invoke(read: (unknown, string) -> unknown, object: unknown, method: string, ...: unknown): ...unknown
+	local result = table.pack(environment().pcall(read(object, method), object, ...))
+	if result[1] ~= true then
+		error(result[2], 0)
+	end
+	return table.unpack(result, 2, result.n)
 end
 
 local function ambient(): Engine
@@ -111,7 +134,7 @@ local function ambient(): Engine
 			(object :: Destroyable):Destroy()
 		end,
 		propertyChanged = function(object: unknown, property: string): Signal<()>
-			return (object :: PropertyObservable):GetPropertyChangedSignal(property)
+			return observable(object):GetPropertyChangedSignal(property)
 		end,
 		datatypes = {
 			Vector2 = if vector2 ~= nil then vector2.new else nil,
@@ -148,15 +171,66 @@ local function ambient(): Engine
 	}
 end
 
+local function designEnvironment(read: (unknown, string) -> unknown)
+	local globals = environment()
+	local dataModel = assert(globals.game, "Roblox is absent; inject a design environment")
+	local vector2, vector3, color3, udim, udim2, cframe =
+		globals.Vector2, globals.Vector3, globals.Color3, globals.UDim, globals.UDim2, globals.CFrame
+	return {
+		descendants = descendants,
+		invoke = function(object: unknown, method: string, ...: unknown): ...unknown
+			return invoke(read, object, method, ...)
+		end,
+		service = function(name: string): unknown
+			return dataModel:GetService(name)
+		end,
+		values = {
+			vector2 = function(x: number, y: number): unknown
+				return assert(vector2).new(x, y)
+			end,
+			vector3 = function(x: number, y: number, z: number): unknown
+				return assert(vector3).new(x, y, z)
+			end,
+			udim = function(scale: number, offset: number): unknown
+				return assert(udim).new(scale, offset)
+			end,
+			udim2 = function(xs: number, xo: number, ys: number, yo: number): unknown
+				return assert(udim2).new(xs, xo, ys, yo)
+			end,
+			color = function(r: number, g: number, b: number): unknown
+				return assert(color3).new(r, g, b)
+			end,
+			font = function(family: string, weight: string): unknown
+				return globals.Font.new(family, globals.Enum.FontWeight[weight])
+			end,
+			enum = function(name: string, item: string): unknown
+				return globals.Enum[name][item]
+			end,
+			cframe = function(components: { number }): unknown
+				return assert(cframe).new(table.unpack(components))
+			end,
+			raycastParams = function(include: boolean, nodes: { unknown }): unknown
+				local params = globals.RaycastParams.new()
+				params.FilterType = globals.Enum.RaycastFilterType[if include then "Include" else "Exclude"]
+				params.FilterDescendantsInstances = nodes
+				return params
+			end,
+		},
+	}
+end
+
 local function cancelThread(thread: thread): boolean
 	local scheduler = environment().task
 	if scheduler == nil or type(scheduler.cancel) ~= "function" then
 		return false
 	end
-	return (pcall(scheduler.cancel :: (thread: thread) -> (), thread))
+	return (pcall(scheduler.cancel, thread))
 end
 
 return {
 	ambient = ambient,
+	designEnvironment = designEnvironment,
+	descendants = descendants,
+	invoke = invoke,
 	cancelThread = cancelThread,
 }

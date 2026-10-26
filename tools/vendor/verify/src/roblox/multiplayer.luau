@@ -53,10 +53,11 @@ local function artifacts(value: unknown): { Core.Artifact }
 		local fields = record(item)
 		assert(type(fields.name) == "string" and type(fields.reference) == "string", "invalid capture")
 		assert(fields.mediaType == nil or type(fields.mediaType) == "string", "invalid capture media type")
-		table.insert(
-			result,
-			{ name = fields.name, reference = fields.reference, mediaType = fields.mediaType :: string? }
-		)
+		table.insert(result, {
+			name = fields.name,
+			reference = fields.reference,
+			mediaType = if type(fields.mediaType) == "string" then fields.mediaType else nil,
+		})
 	end
 	return result
 end
@@ -186,7 +187,7 @@ local function server(context: Core.Context, options: ServerOptions): Core.CaseH
 		local player = players[actor]
 		assert(player ~= nil and ready[actor] ~= nil and player.Parent ~= nil, "actor unavailable: " .. actor)
 		local limit = options.engine.now() + envelope.request.remainingSeconds
-		local entry = { actor = actor, response = nil :: unknown }
+		local entry: { actor: string, response: unknown } = { actor = actor, response = nil }
 		pending[envelope.id] = entry
 		local ok, result = pcall(function(): unknown
 			options.remote:FireClient(player, { runId = options.runId, kind = "request", envelope = envelope })
@@ -246,13 +247,14 @@ local function client(options: ClientOptions): () -> ()
 	local capabilities = table.clone(options.capabilities)
 	local registry: Native.Registry =
 		{ actions = table.clone(options.registry.actions), queries = table.clone(options.registry.queries) }
-	if options.capture then
+	local capture = options.capture
+	if capture then
 		table.insert(capabilities, "capture")
 		registry.queries["verify.capture"] = Native.endpoint(function(value): string
 			assert(type(value) == "string" and value ~= "", "capture requires checkpoint")
 			return value
 		end, function(name)
-			return (options.capture :: (string) -> { Core.Artifact })(name)
+			return capture(name)
 		end)
 	end
 	local function close()
@@ -294,7 +296,7 @@ local function client(options: ClientOptions): () -> ()
 				error = if ok then nil else tostring(reason),
 			}
 		elseif fields.kind == "request" and actor ~= nil then
-			local identity = actor :: string
+			local identity = actor
 			options.spawn(function()
 				local envelope = record(fields.envelope)
 				local response = Native.respond(registry, capabilities, options.now, identity, envelope)

@@ -8,8 +8,8 @@ type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayActi
 type OverlayMedia = typeof(require("@repo/tools/typecheck/aliases").OverlayMedia)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 
 local COPY = {
 	title = "Overlays on request",

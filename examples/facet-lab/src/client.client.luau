@@ -6,7 +6,7 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 type FacetModule = typeof(require("@repo/tools/typecheck/aliases").FacetModule)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Readable<T> = { peek: (Readable<T>) -> T }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
 type ThemeModule = typeof(require("@repo/examples/types").ThemeModule)
 local loadTheme: (ModuleScript) -> ThemeModule = require
 
@@ -55,7 +55,7 @@ local lab = (nil :: unknown) :: typeof(browser.mount(nil :: never))
 local owner = Compose.createRootOwner(function()
 	local createViewport = (
 		Facet.Roblox.createViewport :: unknown
-	) :: (Camera) -> Readable<{ width: number, height: number }>
+	) :: (Camera) -> ReadOnlyValue<{ width: number, height: number }>
 	local viewport = createViewport(assert(workspace.CurrentCamera))
 
 	local ctx = (
@@ -127,7 +127,7 @@ local owner = Compose.createRootOwner(function()
 			Name = "Backdrop",
 			Size = UDim2.fromScale(1, 1),
 			BorderSizePixel = 0,
-			BackgroundTransparency = function(use: <T>(Readable<T>) -> T)
+			BackgroundTransparency = function(use: <T>(ReadOnlyValue<T>) -> T)
 				return if use(sceneVisible) then 1 else 0
 			end,
 		})
