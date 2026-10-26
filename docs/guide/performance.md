@@ -46,7 +46,10 @@ the full measurements when investigating such a change.
 CI compares complete scenes and microbenchmarks on Linux. A release also runs
 the full suite on macOS and Windows before it publishes.
 The required Verify check rolls them up. A statistical slowdown gets a complete
-six-round recheck; an execution failure cannot become a narrowed passing run.
+six-round recheck. A slowdown that remains after six rounds gets one fresh
+complete confirmation run, and the gate fails only for a scene or measurement
+that is slower in both runs. An execution failure cannot become a narrowed
+passing run.
 CPU calibration compares median yardstick rate before and after the run with
 a 25% drift limit. CI permits one complete calibration retry, preserving the
 failed attempt. A second calibration failure fails the job.

@@ -57,7 +57,7 @@ local ENVIRONMENT = "facet-lute"
 local BASELINE = "bench/baseline.json"
 local ARTIFACT = "artifacts/bench.json"
 
-return function(): number
+return function(shard: { index: number, count: number }?): number
 	local synced = Run.inherit({ Run.lute(), "run", "tools/facet", "sync", "compose", "--check" })
 	if not synced.ok then
 		return 1
@@ -77,6 +77,18 @@ return function(): number
 		else
 			table.insert(subjects, s)
 		end
+	end
+	if shard then
+		table.sort(subjects, function(left: Scenario, right: Scenario): boolean
+			return left.name < right.name
+		end)
+		local share: { Scenario } = {}
+		for position, scenario in subjects do
+			if (position - 1) % shard.count == shard.index - 1 then
+				table.insert(share, scenario)
+			end
+		end
+		subjects = share
 	end
 	if yardstickScenario == nil then
 		print(`bench: FAIL - the yardstick scenario '{YARDSTICK}' is not registered in bench/scenarios.luau`)
