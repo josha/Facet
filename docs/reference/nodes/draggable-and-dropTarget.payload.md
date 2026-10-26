@@ -26,8 +26,13 @@ draggable-and-dropTarget.payload option values and behavior.
   Set `false` to hide these labels. Armed input instructions remain visible.
   Collection sources set this in the spec returned by `drag(items, keys)`.
 - `previewScale`: a positive finite magnification for the carried preview.
-  Default `1` keeps the source size. The native UIScale enlarges the preview
-  around its captured contact point without changing the source or hit targets.
+  Default `1` keeps the source size. With `UI.draggable`, another value also
+  lifts the source on touch-down, mouse press, or keyboard or gamepad pickup.
+  The theme's `motion.durations.pressLift` is 0.1 seconds in Neutral.
+  The source stays lifted while held. Release without a drag returns it to rest.
+  Reduced motion applies each size at once. Layout and hit targets stay fixed.
+  A drag keeps the current lifted size and position in the ghost, then completes
+  the lift. No extra option is needed.
   Collection drag factories accept the same option. A successful landing and a
   cancelled return settle at the destination or source size through Travel.
 - `preview`: an optional visual to copy for the carried preview. Use it when

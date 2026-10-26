@@ -844,6 +844,137 @@ return function(verifyHarness: Verify.Harness)
 			end
 			return false
 		end
+		for _, kind in { "MouseButton1", "Touch", "Gamepad", "Keyboard" } do
+			for _, reduced in { false, true } do
+				verifyHarness:case("press lift " .. kind .. (if reduced then " reduced" else " animated"), {
+					id = "native_environment::press lift::" .. kind .. (if reduced then " reduced" else " animated"),
+					run = function()
+						local w = world(nil, { motionLevel = if reduced then "none" else "normal" })
+						local screen, card = w.engine.new("ScreenGui"), w.engine.new("TextButton")
+						local V2, V3, D2 = w.engine.types.Vector2, w.engine.types.Vector3, w.engine.types.UDim2
+						card.Parent, card.Selectable, card.Size = screen, true, D2.fromOffset(100, 40)
+						w.engine.environment.poke(card, "AbsolutePosition", V2.new(20, 30))
+						w.engine.environment.poke(card, "AbsoluteSize", V2.new(100, 40))
+						local stop = owned(w.runtime, function()
+							w.UI.draggable(card, { payload = "tile", previewScale = 1.25 })
+						end)
+						local scaler = card:FindFirstChild("PressLift", true)
+						local paint = scaler.Parent
+						w.engine.environment.poke(card:FindFirstChild("FeedbackUnit"), "AbsoluteSize", V2.new(100, 1))
+						local armed = kind == "Gamepad" or kind == "Keyboard"
+						local value = pointer(w, if armed then "Touch" else kind, 40)
+						value.Position, value.UserInputState = V3.new(40, 40, 0), w.Enum.UserInputState.Begin
+						if armed then
+							w.engine.environment.poke(
+								w.input,
+								"PreferredInput",
+								if kind == "Gamepad"
+									then w.Enum.PreferredInput.Gamepad
+									else w.Enum.PreferredInput.KeyboardAndMouse
+							)
+							w.gui.SelectedObject = card
+							Verify.expect(press(screen, "DragPickUp")):toBe(true)
+						else
+							nativeDrag.press(card, value)
+							Verify.expect(screen:FindFirstChild("DragGhost")):toBeNil()
+						end
+						if reduced then
+							Verify.expect(scaler.Scale):toBe(1.25)
+						else
+							Verify.expect(scaler.Scale):toBe(1)
+							w.engine.environment.step(0.04)
+							Verify.expect(scaler.Scale > 1 and scaler.Scale < 1.25):toBe(true)
+						end
+						Verify.expect(card.Size):toBe(D2.fromOffset(100, 40))
+						if armed then
+							local ghost = screen:FindFirstChild("DragGhost")
+							Verify.expect(ghost:FindFirstChildWhichIsA("UIScale").Scale):toBe(scaler.Scale)
+							w.engine.environment.step(0.1)
+							Verify.expect(ghost:FindFirstChildWhichIsA("UIScale").Scale):toBe(1.25)
+							w.engine.environment.step(1)
+							Verify.expect(scaler.Scale):toBe(1.25)
+							Verify.expect(press(screen, "DragCancel")):toBe(true)
+						else
+							w.engine.environment.step(0.1)
+							Verify.expect(scaler.Scale):toBe(1.25)
+							w.frames.Heartbeat.Fire(0)
+							Verify.expect(paint.Visible):toBe(true)
+							w.engine.environment.step(1)
+							Verify.expect(scaler.Scale):toBe(1.25)
+							value.UserInputState = w.Enum.UserInputState.End
+							nativeDrag.finish(w.input, value)
+							Verify.expect(screen:FindFirstChild("DragGhost")):toBeNil()
+						end
+						if reduced then
+							Verify.expect(scaler.Scale):toBe(1)
+						else
+							w.engine.environment.step(0.04)
+							Verify.expect(scaler.Scale > 1 and scaler.Scale < 1.25):toBe(true)
+							w.engine.environment.step(0.1)
+							Verify.expect(scaler.Scale):toBe(1)
+						end
+						stop()
+						w.stop()
+						Verify.expect(w.engine.census().connections):toBe(0)
+					end,
+				})
+			end
+		end
+		for _, kind in { "MouseButton1", "Touch" } do
+			verifyHarness:case("press lift carries into the ghost " .. kind, {
+				id = "native_environment::press lift::handoff " .. kind,
+				run = function()
+					local w = world()
+					local screen, card = w.engine.new("ScreenGui"), w.engine.new("TextButton")
+					local V2, V3, D2 = w.engine.types.Vector2, w.engine.types.Vector3, w.engine.types.UDim2
+					card.Parent, card.Size = screen, D2.fromOffset(100, 40)
+					w.engine.environment.poke(card, "AbsolutePosition", V2.new(20, 30))
+					w.engine.environment.poke(card, "AbsoluteSize", V2.new(100, 40))
+					local stop = owned(w.runtime, function()
+						w.runtime.connect(card, "AttributeChanged", function(name)
+							if name == "FacetDragHeld" then
+								card.TextTransparency = if card:GetAttribute("FacetDragHeld") then 1 else 0
+							end
+						end)
+						w.UI.draggable(card, { payload = "tile", previewScale = 1.25 })
+					end)
+					w.engine.environment.poke(card:FindFirstChild("FeedbackUnit"), "AbsoluteSize", V2.new(100, 1))
+					local value = pointer(w, kind, 40)
+					value.Position, value.UserInputState = V3.new(40, 40, 0), w.Enum.UserInputState.Begin
+					nativeDrag.press(card, value)
+					w.engine.environment.step(0.04)
+					w.frames.Heartbeat.Fire(0)
+					local scale = card:FindFirstChild("PressLift", true).Scale
+					Verify.expect(scale > 1 and scale < 1.25):toBe(true)
+					if kind == "Touch" then
+						card.TouchLongPress:Fire({ V2.new(40, 40) }, w.Enum.UserInputState.Begin)
+					else
+						local movement = pointer(w, "MouseMovement", 40)
+						movement.Position = V3.new(50, 40, 0)
+						nativeDrag.move(w.input, movement)
+					end
+					local ghost = screen:FindFirstChild("DragGhost")
+					local transform = ghost:FindFirstChildWhichIsA("UIScale")
+					Verify.expect(ghost.Visible):toBe(true)
+					Verify.expect(ghost.TextTransparency):toBe(0)
+					Verify.expect(card.TextTransparency):toBe(1)
+					Verify.expect(transform.Scale):toBe(scale)
+					Verify.expect(ghost.Size):toBe(D2.fromOffset(100, 40))
+					local left = ghost.Position.X.Offset - ghost.AnchorPoint.X * 100 * scale
+					local top = ghost.Position.Y.Offset - ghost.AnchorPoint.Y * 40 * scale
+					Verify.expect(
+						math.abs(left - (20 - 50 * (scale - 1) + (if kind == "Touch" then 0 else 10))) < 0.001
+					)
+						:toBe(true)
+					Verify.expect(math.abs(top - (30 - 20 * (scale - 1))) < 0.001):toBe(true)
+					w.engine.environment.step(0.1)
+					Verify.expect(transform.Scale):toBe(1.25)
+					Verify.expect(card.Size):toBe(D2.fromOffset(100, 40))
+					stop()
+					w.stop()
+				end,
+			})
+		end
 
 		verifyHarness:case(
 			"picks a source up after a pointer travels, shows a ghost and drops on the target under it",

@@ -26,6 +26,8 @@ input ends in the same drop:
 While the source is held it has the `facet-drag-held` tag and the
 `FacetDragHeld` attribute. Every theme hides its text and icons, so its plate
 stays as the empty slot until the drop lands or the source goes back.
+With `previewScale`, press feedback starts before pickup. See
+the [payload options](draggable-and-dropTarget.payload.md) for its timing and release.
 
 ```lua
 local sponsors: { [unknown]: number } = {}
