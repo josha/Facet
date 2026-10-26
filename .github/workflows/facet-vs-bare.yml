@@ -1,0 +1,49 @@
+name: Facet versus bare
+
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: Optional workload id substring
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rokit
+        run: |
+          curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+      - name: Install pinned tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          rokit authenticate github --token "$GITHUB_TOKEN"
+          rokit install --no-trust-check
+          lute run tools/facet types prepare
+      - name: Check parity and measure
+        env:
+          WORKLOAD_FILTER: ${{ inputs.filter }}
+        run: |
+          args=()
+          if [ -n "$WORKLOAD_FILTER" ]; then
+            args+=(--filter "$WORKLOAD_FILTER")
+          fi
+          lute run tools/facet bench compare --verify "${args[@]}"
+          lute run tools/facet bench compare "${args[@]}"
+      - name: Upload comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: facet-vs-bare-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/facet-vs-bare/
+            docs/performance/facet-vs-bare.md
+          if-no-files-found: error

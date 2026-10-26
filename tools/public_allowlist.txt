@@ -29,6 +29,8 @@ docs/guide/
 docs/reference/
 docs/reference/constitution.md
 docs/extending/
+docs/performance/
+# ^ The generated Facet versus bare Roblox UI comparison report.
 docs/MAINTAINERS.md
 tests/
 bench/

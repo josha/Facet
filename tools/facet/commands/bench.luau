@@ -3,14 +3,21 @@
 local Cli = require("../lib/cli")
 
 local USAGE =
-	"usage: lute run tools/facet bench [--shard K/N] [--cases a,b]\n\n--shard runs every Nth microbenchmark and --cases runs only the named ones; both always run the CPU yardstick.\nExit 0 passes, 1 fails and 2 reports a host timing comparison failure."
+	"usage: lute run tools/facet bench [--shard K/N] [--cases a,b]\n       lute run tools/facet bench compare [--verify] [--filter text] [--out dir]\n\n--shard runs every Nth microbenchmark and --cases runs only the named ones; both always run the CPU yardstick.\ncompare checks Facet/bare parity before timing and writes JSON and Markdown; --verify checks parity only.\nExit 0 passes, 1 fails and 2 reports a host timing comparison failure or usage error."
 
 local command: Cli.Command = {
 	name = "bench",
 	summary = "Run the headless microbenchmarks against bench/baseline.json.",
 	usage = USAGE,
-	values = { "shard", "cases" },
+	values = { "shard", "cases", "filter", "out" },
 	run = function(invocation: Cli.Invocation): number
+		if invocation.positional[1] == "compare" then
+			return require("./bench_compare")(invocation)
+		end
+		if #invocation.positional > 0 then
+			print(USAGE)
+			return 2
+		end
 		local listed = Cli.flag(invocation, "cases")
 		local cases = if listed ~= nil then string.split(listed, ",") else nil
 		local value = Cli.flag(invocation, "shard")
