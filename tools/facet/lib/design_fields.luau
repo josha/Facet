@@ -84,8 +84,11 @@ local function splitUnion(text: string): { string }
 	return parts
 end
 
-local aliases: { [string]: string } = {}
+type Module = { aliases: { [string]: string }, requires: { [string]: string } }
+
+local modules: { [string]: Module } = {}
 local resolving: { [string]: boolean } = {}
+local currentFile = ""
 
 local classify: (key: string, text: string) -> Field?
 
@@ -118,16 +121,28 @@ local function classifyOne(key: string, text: string): Field?
 	if DATATYPES[current] then
 		return { type = "datatype", datatype = current }
 	end
-	local aliasName = string.match(current, "^[%w_]+%.([%w_]+)$") or string.match(current, "^([%w_]+)$")
-	local aliased = if aliasName then aliases[aliasName] else nil
-	if aliasName and aliased and not resolving[aliasName] then
-		resolving[aliasName] = true
-		local field = classify(key, aliased)
-		resolving[aliasName] = nil
-		return field
+	local qualifier, qualified = string.match(current, "^([%w_]+)%.([%w_]+)$")
+	local here = modules[currentFile]
+	local target = if qualifier and here then here.requires[qualifier] elseif qualifier then nil else currentFile
+	local aliasName = qualified or string.match(current, "^([%w_]+)$")
+	local info = if target then modules[target] else nil
+	local aliased = if info and aliasName then info.aliases[aliasName] else nil
+	if target and aliasName and aliased then
+		local marker = target .. ":" .. aliasName
+		if not resolving[marker] then
+			resolving[marker] = true
+			local saved = currentFile
+			currentFile = target
+			local field = classify(key, aliased)
+			currentFile = saved
+			resolving[marker] = nil
+			return field
+		end
 	end
 	return nil
 end
+
+local classifyKnown: (key: string, text: string) -> Field?
 
 classify = function(key: string, text: string): Field?
 	local current = unwrap(text)
@@ -137,6 +152,14 @@ classify = function(key: string, text: string): Field?
 		end
 		return nil
 	end
+	local known = classifyKnown(key, current)
+	if known ~= nil then
+		return known
+	end
+	return if string.match(key, "^%l") then { type = "value" } else nil
+end
+
+classifyKnown = function(key: string, current: string): Field?
 	local parts = splitUnion(current)
 	if #parts == 1 then
 		return classifyOne(key, parts[1])
@@ -164,34 +187,93 @@ classify = function(key: string, text: string): Field?
 	return found
 end
 
-type Declared = { source: string, node: Luau.Node, parsed: Luau.Parsed }
+type Declared = { source: string, node: Luau.Node, parsed: Luau.Parsed, file: string }
+
+local function dirname(path: string): string
+	return string.match(path, "^(.*)/[^/]*$") or ""
+end
+
+local function normalize(path: string): string
+	local parts: { string } = {}
+	for part in string.gmatch(path, "[^/]+") do
+		if part == ".." then
+			table.remove(parts)
+		elseif part ~= "." then
+			table.insert(parts, part)
+		end
+	end
+	return table.concat(parts, "/")
+end
+
+local function resolveRequire(root: string, from: string, spec: string): string?
+	local directory = dirname(from)
+	local isInit = string.match(from, "/init%.luau$") ~= nil
+	local base
+	if string.sub(spec, 1, 6) == "@self/" then
+		base = directory .. "/" .. string.sub(spec, 7)
+	elseif isInit then
+		base = dirname(directory) .. "/" .. spec
+	else
+		base = directory .. "/" .. spec
+	end
+	local path = normalize(base)
+	if Files.isFile(Files.join(root, path .. ".luau")) then
+		return path .. ".luau"
+	elseif Files.isFile(Files.join(root, path, "init.luau")) then
+		return path .. "/init.luau"
+	end
+	return nil
+end
+
+local function scan(root: string, path: string, found: { [string]: Declared }, module: string?)
+	local source = Files.text(Files.join(root, path))
+	local info: Module = { aliases = {}, requires = {} }
+	modules[path] = info
+	for line in string.gmatch(source, "[^\n]+") do
+		local alias, spec = string.match(line, '^local ([%w_]+)[^=]*= require%(?%s*"([^"]+)"')
+		if alias and spec then
+			local resolved = resolveRequire(root, path, spec)
+			if resolved then
+				info.requires[alias] = resolved
+			end
+		end
+	end
+	if not string.find(source, "type", 1, true) then
+		return
+	end
+	local parsed = Luau.parse(source)
+	if parsed == nil then
+		return
+	end
+	for _, statement in Luau.items(parsed.root, "statements") do
+		local key, value = Luau.tokenText(statement, "name"), Luau.child(statement, "type")
+		if Luau.tag(statement) == "typealias" and key and value then
+			if Luau.tag(value) == "table" then
+				if module and statement.export ~= nil then
+					found[module .. "." .. key] = { source = source, node = value, parsed = parsed, file = path }
+				end
+			else
+				local location = Luau.location(value)
+				local first = Luau.offset(parsed, location.beginLine, location.beginColumn)
+				local last = Luau.offset(parsed, location.endLine, location.endColumn) - 1
+				info.aliases[key] = string.sub(source, first, last)
+			end
+		end
+	end
+end
 
 local function exportedTables(root: string): { [string]: Declared }
 	local found: { [string]: Declared } = {}
-	table.clear(aliases)
+	table.clear(modules)
 	for _, entry in Files.list(Files.join(root, "src/ui")) do
-		local name = entry.name
-		local module = string.match(name, "^(.+)%.luau$")
+		local module = string.match(entry.name, "^(.+)%.luau$")
 		if module then
-			local source = Files.text(Files.join(root, "src/ui", name))
-			if string.find(source, "export type", 1, true) then
-				local parsed = Luau.parse(source)
-				if parsed then
-					for _, statement in Luau.items(parsed.root, "statements") do
-						if Luau.tag(statement) == "typealias" and statement.export ~= nil then
-							local key, value = Luau.tokenText(statement, "name"), Luau.child(statement, "type")
-							if key and value and Luau.tag(value) == "table" then
-								found[module .. "." .. key] = { source = source, node = value, parsed = parsed }
-							elseif key and value then
-								local location = Luau.location(value)
-								local first = Luau.offset(parsed, location.beginLine, location.beginColumn)
-								local last = Luau.offset(parsed, location.endLine, location.endColumn) - 1
-								aliases[key] = aliases[key] or string.sub(source, first, last)
-							end
-						end
-					end
-				end
-			end
+			scan(root, "src/ui/" .. entry.name, found, module)
+		end
+	end
+	for _, relative in Files.walk(Files.join(root, "src/vendor/compose/core")) do
+		if string.match(relative, "%.luau$") then
+			scan(root, "src/vendor/compose/core/" .. relative, found, nil)
 		end
 	end
 	return found
@@ -209,6 +291,17 @@ local function constructors(root: string): { [string]: string }
 	local kinds: { [string]: string } = {}
 	for line in string.gmatch(text, "[^\n]+") do
 		local kind, alias, typeName = string.match(line, "^\t(%u[%w]*): Constructor<([%w_]+)%.([%w_]+)")
+		if kind == nil then
+			local named, constructor = string.match(line, "^\t(%u[%w]*): ([%w_]+)Constructor,$")
+			if named and constructor then
+				local first = string.find(text, "\ntype " .. constructor .. "Shapes? =")
+					or string.find(text, "\nexport type " .. constructor .. "Shapes? =")
+				if first then
+					local specAlias, specName = string.match(text, "spec: ([%w_]+)%.([%w_]+)", first)
+					kind, alias, typeName = named, specAlias, specName
+				end
+			end
+		end
 		local module = if alias then modules[alias] else nil
 		if kind and module and typeName and kinds[kind] == nil then
 			kinds[kind] = module .. "." .. typeName
@@ -281,6 +374,7 @@ DesignFields.OUTPUT = OUTPUT
 DesignFields.classify = classify
 
 local function derive(declared: Declared): Derived
+	currentFile = declared.file
 	local fields: { [string]: Field } = {}
 	local children = false
 	for _, entry in Luau.items(declared.node, "entries") do
