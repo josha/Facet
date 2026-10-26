@@ -1127,7 +1127,10 @@ local function shardedConfirmationFixture(test: Verify.Context): ()
 			output = "@@" .. Json.encode(row)
 		else
 			counts[label] += 1
-			Files.write(Files.join(tree, "artifacts/bench.json"), Json.encode(requiredBench(counts[label], label).document))
+			Files.write(
+				Files.join(tree, "artifacts/bench.json"),
+				Json.encode(requiredBench(counts[label], label).document)
+			)
 		end
 		return { ok = true, code = 0, stdout = output, stderr = "", timedOut = false }
 	end)
