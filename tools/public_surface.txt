@@ -34,16 +34,17 @@ Compose : table
   Compose.group : function
   Compose.indexes : function
   Compose.inspect : table
-  Compose.isReadable : function
+  Compose.isValue : function
   Compose.keyed : function
   Compose.labelOf : function
   Compose.outstandingMounts : function
+  Compose.owner : table
   Compose.parseDiagnostic : function
   Compose.portal : function
   Compose.presence : function
   Compose.profile : table
   Compose.property : function
-  Compose.reactor : function
+  Compose.reactor : table
   Compose.readWorkCounters : function
   Compose.registerCodec : function
   Compose.registeredCodecs : function
@@ -69,6 +70,7 @@ Roblox : table
   Roblox.createHost : function
   Roblox.createRuntime : function
   Roblox.createViewport : function
+  Roblox.designEnvironment : function
   Roblox.preferredInput : function
   Roblox.preferredInputSpec : function
   Roblox.usableViewportSize : function
@@ -270,7 +272,6 @@ type CardBadges
 type CardControls
 type CardMenu
 type CardSpec
-type Cell
 type CellDraft
 type CellEditorSpec
 type Child
@@ -342,6 +343,7 @@ type ImageLoader
 type ImageProps
 type ImageResource
 type ImageScaleMode
+type Input
 type InteractionClasses
 type KeyedCollectionSpec
 type KeyedOutlineSpec
@@ -393,7 +395,7 @@ type RatingCellProps
 type RatingProps
 type RatingReadOnlyProps
 type RatingRequestProps
-type Readable
+type ReadOnlyValue
 type RegionProps
 type RowAction
 type RowActionsOptions
