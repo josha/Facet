@@ -168,6 +168,8 @@ return {
 	bind = bind,
 	runWith = runWith,
 	runWith1 = runWith1,
+	push = push,
+	pop = pop,
 	own = own,
 	resetForTests = resetForTests,
 }

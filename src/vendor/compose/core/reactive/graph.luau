@@ -122,7 +122,9 @@ local function markStale(producer: Node, state: number)
 			local current = consumer.state or CLEAN
 			local retry = consumer.retry
 			if current < state or retry then
-				consumer.retry = false
+				if retry then
+					consumer.retry = false
+				end
 				consumer.state = state
 				if current == CLEAN or retry then
 					if consumer.run == nil then
@@ -273,6 +275,20 @@ local function runEffect(consumer: Node)
 		end
 	end
 	Evaluation.leave(previousConsumer, previousOrder)
+	trim(consumer, (consumer.reads or 0) + 1)
+end
+
+local function runEffectIn(frame: Evaluation.Evaluation, consumer: Node)
+	frame.consumer = consumer
+	consumer.reads = 0
+	local effect = consumer.effect
+	if effect then
+		if validationState.validating then
+			userSpace.call(effect, use)
+		else
+			effect(use)
+		end
+	end
 	trim(consumer, (consumer.reads or 0) + 1)
 end
 
@@ -479,6 +495,7 @@ return {
 	notANode = notANode,
 	use = use,
 	runEffect = runEffect,
+	runEffectIn = runEffectIn,
 	dependenciesMoved = dependenciesMoved,
 	evaluate = evaluate,
 	track = track,

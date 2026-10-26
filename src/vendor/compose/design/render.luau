@@ -51,6 +51,20 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			inputs[input.id] = preview
 		end
 	end
+	local states: { [string]: Core.Value<Literal?> } = {}
+	local declared = value.state
+	if declared then
+		for _, entry in declared do
+			states[entry.id] = Core.cell(entry.initial :: Literal?)
+		end
+	end
+	local function truthy(id: string): boolean
+		local held = states[id]
+		if held ~= nil then
+			return held:peek() == true
+		end
+		return inputs[id] == true
+	end
 	local references: { [string]: Core.Value<unknown> } = {}
 	local function collect(node: Types.Node)
 		for _, property in node.props do
@@ -70,6 +84,10 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		local target = property.node
 		if target ~= nil then
 			return { node = references[target] }
+		end
+		local stateId = property.state
+		if stateId ~= nil then
+			return { readable = states[stateId] }
 		end
 		if current ~= nil then
 			return { literal = current }
@@ -144,12 +162,26 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 					end,
 				}
 			end
+		elseif bind and template then
+			for _, row in rowsOf(inputs[bind.from]) do
+				table.insert(children, build(template, Core.cell(row)))
+			end
 		else
 			for _, child in node.children do
-				table.insert(children, build(child, item))
+				local condition = child.when
+				if condition == nil or truthy(condition) then
+					table.insert(children, build(child, item))
+				end
 			end
 		end
 		local named = node.name
+		local nameInput = node.nameInput
+		if nameInput ~= nil then
+			local supplied = inputs[nameInput]
+			if type(supplied) == "string" and supplied ~= "" then
+				named = supplied
+			end
+		end
 		local nameField = node.nameField
 		if nameField ~= nil and item ~= nil then
 			local field = item:peek()[nameField]

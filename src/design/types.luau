@@ -12,6 +12,12 @@ export type FieldSpec = {
 	format: string?,
 }
 
+export type DerivedField = { type: Design.FieldType, options: { string }?, datatype: string? }
+
+export type DerivedKind = { children: boolean, fields: { [string]: DerivedField } }
+
+export type Derived = { controls: { [string]: DerivedKind }, host: { [string]: DerivedKind } }
+
 export type Seed = { kind: string, props: { [string]: Literal }?, children: { Seed }? }
 
 export type ControlSpec = {

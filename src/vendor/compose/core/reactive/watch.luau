@@ -57,6 +57,8 @@ local resume: Node? = nil
 
 local function sweep(leader: Node, producer: Node, from: Node?)
 	local reactor = leader.reactor
+	local frame = Evaluation.frame()
+	local previousConsumer, previousOrder = Evaluation.enter(leader)
 	local edge = from
 	while edge ~= nil do
 		local following = edge[4]
@@ -72,10 +74,16 @@ local function sweep(leader: Node, producer: Node, from: Node?)
 			and not consumer.released
 			and consumer.group
 		then
-			rerun(consumer)
+			if statsOn.enabled then
+				stats.bump "watchRuns"
+				profile.enterRun(consumer)
+			end
+			consumer.state = Graph.CLEAN
+			Graph.runEffectIn(frame, consumer)
 		end
 		edge = following
 	end
+	Evaluation.leave(previousConsumer, previousOrder)
 end
 
 function TERMINAL.run(leader: Node)
@@ -137,6 +145,8 @@ local function begin(reactor: Reactor, body: Body, class: {}, label: string?): N
 		state = Graph.DIRTY,
 		reactor = reactor,
 		effect = body,
+		released = false,
+		queued = false,
 	}
 	NodeCast.classify(node, class)
 	if statsOn.enabled then

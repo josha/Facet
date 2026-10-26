@@ -389,13 +389,17 @@ type DateTimePickerProps
 type DesignContext
 type DesignControlSpec
 type DesignDocument
+type DesignEmitOptions
 type DesignInput
+type DesignInputType
 type DesignItemField
 type DesignLibrary
 type DesignLiteral
 type DesignModule
 type DesignNode
+type DesignOutput
 type DesignSeed
+type DesignState
 type DesignValue
 type DialogAction
 type DialogDismissReason

@@ -297,6 +297,10 @@ export type DesignValue = ComposeDesign.Value
 export type DesignLiteral = ComposeDesign.Literal
 export type DesignInput = ComposeDesign.Input
 export type DesignItemField = ComposeDesign.ItemField
+export type DesignOutput = ComposeDesign.Output
+export type DesignInputType = ComposeDesign.InputType
+export type DesignState = ComposeDesign.State
+export type DesignEmitOptions = ComposeDesign.EmitOptions
 export type Facet = {
 	VERSION: string,
 	COMPOSE_COMMIT: string,

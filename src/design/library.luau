@@ -4,6 +4,7 @@ local Compose = require("../vendor/compose/core")
 local Design = require("../vendor/compose/design")
 local Types = require("./types")
 local controls = require("./controls")
+local derived = require("./fields")
 
 type Literal = Design.Literal
 type Resolved = Design.Resolved
@@ -16,6 +17,9 @@ export type Context = {
 	rgb: (r: number, g: number, b: number) -> unknown,
 	udim2: (xScale: number, xOffset: number, yScale: number, yOffset: number) -> unknown,
 	offset: (x: number, y: number) -> unknown,
+	datatype: ((name: string, components: { number }) -> unknown)?,
+	enumItem: ((enumName: string, item: string) -> unknown)?,
+	host: ((className: string, name: string, props: Record) -> unknown)?,
 }
 
 local LEVEL_IMAGES: Record = {
@@ -89,8 +93,45 @@ local function stateKeys(spec: Types.ControlSpec): { string }
 	return if state ~= nil then { state } else {}
 end
 
-local function fieldsOf(spec: Types.ControlSpec): { [string]: Design.Field }
+local function derivedFields(name: string): { [string]: Types.DerivedField }
+	local found = derived.controls[name]
+	return if found ~= nil then found.fields else {}
+end
+
+local function plainFields(source: { [string]: Types.DerivedField }): { [string]: Design.Field }
 	local fields: { [string]: Design.Field } = {}
+	local keys: { string } = {}
+	for key in source do
+		table.insert(keys, key)
+	end
+	table.sort(keys)
+	for order, key in keys do
+		local field = source[key]
+		local lower = string.match(key, "^%l") ~= nil
+		fields[key] = {
+			type = field.type,
+			options = field.options,
+			datatype = field.datatype,
+			group = if lower then "Control" else "Roblox",
+			order = order,
+		}
+	end
+	return fields
+end
+
+local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Design.Field }
+	local fields: { [string]: Design.Field } = {}
+	local order = 1000
+	for key, field in derivedFields(name) do
+		order += 1
+		fields[key] = {
+			type = field.type,
+			options = field.options,
+			datatype = field.datatype,
+			group = "More",
+			order = order,
+		}
+	end
 	for key, field in spec.fields do
 		fields[key] = { type = field.type, options = field.options, order = field.order }
 	end
@@ -114,6 +155,25 @@ local function create(context: Context): Design.Library
 			)
 		end
 		return value
+	end
+
+	local function convert(datatype: string, literal: Literal): unknown
+		local enumName = string.match(datatype, "^Enum%.(.+)$")
+		if enumName ~= nil then
+			local lookup = context.enumItem
+			return if lookup ~= nil and type(literal) == "string" then lookup(enumName, literal) else literal
+		end
+		local construct = context.datatype
+		if construct == nil or type(literal) ~= "table" then
+			return literal
+		end
+		local components: { number } = {}
+		for _, component in literal do
+			if type(component) == "number" then
+				table.insert(components, component)
+			end
+		end
+		return construct(datatype, components)
 	end
 
 	local function stack(children: { unknown }): unknown
@@ -152,7 +212,7 @@ local function create(context: Context): Design.Library
 		local contentKey = spec.content
 		local templated = TEMPLATE_KINDS[name] == true
 		kinds[name] = {
-			fields = fieldsOf(spec),
+			fields = fieldsOf(name, spec),
 			defaults = spec.defaults,
 			children = if templated
 				then "template"
@@ -171,9 +231,18 @@ local function create(context: Context): Design.Library
 					values[key] = copy(value)
 				end
 				local live: Record = {}
+				local typed = derived[name]
 				for key, resolved in props do
-					if resolved.literal ~= nil then
-						values[key] = copy(resolved.literal)
+					local literal = resolved.literal
+					local datatype = if typed
+							and typed[key]
+							and spec.fields[key] == nil
+						then typed[key].datatype
+						else nil
+					if literal ~= nil and datatype ~= nil then
+						values[key] = convert(datatype, literal)
+					elseif literal ~= nil then
+						values[key] = copy(literal)
 					elseif resolved.readable ~= nil then
 						live[key] = resolved.readable
 					elseif resolved.callback ~= nil then
@@ -397,6 +466,66 @@ local function create(context: Context): Design.Library
 			end,
 		}
 	end
+	local function generic(
+		source: { [string]: Types.DerivedField },
+		build: (nodeName: string, props: Record) -> unknown
+	): (props: { [string]: Resolved }, children: { unknown }, nodeName: string) -> unknown
+		return function(props: { [string]: Resolved }, children: { unknown }, nodeName: string): unknown
+			local values: Record = {}
+			for key, resolved in props do
+				local literal = resolved.literal
+				local field = source[key]
+				local datatype = if field then field.datatype else nil
+				if literal ~= nil and datatype ~= nil then
+					values[key] = convert(datatype, literal)
+				elseif literal ~= nil then
+					values[key] = copy(literal)
+				elseif resolved.readable ~= nil then
+					values[key] = resolved.readable
+				elseif resolved.callback ~= nil then
+					values[key] = resolved.callback
+				elseif resolved.node ~= nil then
+					values[key] = resolved.node
+				end
+			end
+			for _, child in children do
+				table.insert(values :: { unknown }, child)
+			end
+			return build(nodeName, values)
+		end
+	end
+
+	for name, entry in derived.controls do
+		if kinds[name] == nil then
+			kinds[name] = {
+				fields = plainFields(entry.fields),
+				children = if entry.children then "list" else "none",
+				category = "More",
+				call = "UI." .. name,
+				build = generic(entry.fields, function(nodeName: string, values: Record): unknown
+					return UI[name](nodeName)(values)
+				end),
+			}
+		end
+	end
+
+	local host = context.host
+	if host ~= nil then
+		for className, entry in derived.host do
+			if kinds[className] == nil then
+				kinds[className] = {
+					fields = plainFields(entry.fields),
+					children = if entry.children then "list" else "none",
+					category = "Roblox",
+					call = "Host." .. className,
+					build = generic(entry.fields, function(nodeName: string, values: Record): unknown
+						return host(className, nodeName, values)
+					end),
+				}
+			end
+		end
+	end
+
 	return {
 		name = "Facet",
 		parameter = "UI",
@@ -406,6 +535,8 @@ local function create(context: Context): Design.Library
 		readable = "Facet.Compose.ReadOnlyValue",
 		cell = "Facet.Compose.Value",
 		newCell = "Facet.Compose.cell",
+		show = "Facet.Compose.show",
+		keyed = "Facet.Compose.keyed",
 		space = "2d",
 		kinds = kinds,
 	}

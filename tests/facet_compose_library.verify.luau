@@ -265,6 +265,84 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("authors whole game views with typed props, outputs and Roblox values", {
+			id = "facet_compose_library::authors whole game views with typed props, outputs and Roblox values",
+			run = function()
+				local library = Facet.designLibrary({
+					UI = {},
+					rgb = function(r: number, g: number, b: number): unknown
+						return { r, g, b }
+					end,
+					udim2 = function(a: number, b: number, c: number, d: number): unknown
+						return { a, b, c, d }
+					end,
+					offset = function(x: number, y: number): unknown
+						return { 0, x, 0, y }
+					end,
+					host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
+						return { className = className, name = name, props = props }
+					end,
+				})
+				local rowFields: { Facet.DesignItemField } =
+					{ { id = "id", type = "string" }, { id = "title", type = "string" } }
+				local retryArgs: { Facet.DesignInputType } = {}
+				local retry: Facet.DesignOutput = { id = "onRetry", args = retryArgs }
+				local value = Design.document.new("ChooseGameView", library, "VStack")
+				value = Design.document.setContract(value, library, {
+					inputs = {
+						{ id = "name", kind = "value", type = "string", required = true },
+						{ id = "games", kind = "readable", type = "list", fields = rowFields },
+						{ id = "offered", kind = "readable", type = "boolean" },
+					},
+					outputs = { retry },
+				})
+				value = Design.document.nameFromInput(value, library, "n1", "name")
+				local size: Facet.DesignLiteral = { 1, 0, 0, 320 }
+				value = Design.document.change(value, library, "n1", "Size", { literal = size })
+				value = Design.document.change(value, library, "n1", "AutomaticSize", { literal = "Y" })
+				local list, row, button
+				value, list = Design.document.insert(value, library, "n1", "VStack")
+				value, row = Design.document.insert(value, library, list, "Text")
+				value = Design.document.bind(value, library, list, { from = "games", key = "id" })
+				value = Design.document.change(value, library, row, "text", { item = "title" })
+				value, button = Design.document.insert(value, library, "n1", "Button")
+				value = Design.document.change(value, library, button, "onActivate", { output = "onRetry" })
+				value = Design.document.change(value, library, button, "selected", { literal = true })
+				value = Design.document.showWhen(value, library, button, "offered")
+				local code = Design.emit(value, library, {
+					name = "ChooseGameView",
+					controls = "local UI = Facet.controls(Facet.runtime())",
+				})
+				for _, expected in
+					{
+						"local function ChooseGameView(props: Props): GuiObject",
+						"UI.VStack(props.name) {",
+						"Size = UDim2.new(1, 0, 0, 320)",
+						"AutomaticSize = Enum.AutomaticSize.Y",
+						"Facet.Compose.keyed { from = props.games",
+						"Facet.Compose.show(props.offered, function() return UI.Button",
+						"if props.onRetry then props.onRetry(...) end",
+						"games: Facet.Compose.ReadOnlyValue<{ { id: string, title: string } }>?",
+						"\tname: string,",
+					}
+				do
+					Verify.expect(`{expected} {string.find(code, expected, 1, true) ~= nil}`):toBe(`{expected} true`)
+				end
+				Verify.expect(Design.emit(Design.parse(code, library), library, {
+					name = "ChooseGameView",
+					controls = "local UI = Facet.controls(Facet.runtime())",
+				})):toBe(code)
+
+				local panel = Design.document.new("MatchmakingPanel", library, "Frame")
+				panel = Design.document.change(panel, library, "n1", "BackgroundTransparency", { literal = 1 })
+				local inner
+				panel, inner = Design.document.insert(panel, library, "n1", "Text")
+				panel = Design.document.change(panel, library, inner, "text", { literal = "Finding players" })
+				Verify.expect(string.find(Design.emit(panel, library), 'Host.Frame "Frame" {', 1, true) ~= nil)
+					:toBe(true)
+			end,
+		})
+
 		verifyHarness:case("emits Facet source for a design that uses every control", {
 			id = "facet_compose_library::emits Facet source for a design that uses every control",
 			run = function()
