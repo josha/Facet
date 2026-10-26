@@ -93,6 +93,8 @@ local function stateKeys(spec: Types.ControlSpec): { string }
 	return if state ~= nil then { state } else {}
 end
 
+local OPTION_LISTS: { [string]: true } = { Picker = true, ComboBox = true }
+
 local LITERAL_KINDS: { [string]: string } = {
 	string = "string",
 	choice = "string",
@@ -160,6 +162,10 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 			options = field.options,
 			order = field.order,
 			also = if #also > 0 then also else nil,
+			luauType = if field.format == "padding"
+				then "Facet.Sides"
+				elseif key == "options" and OPTION_LISTS[name] then "{ Facet.PickerOption<string> }"
+				else nil,
 		}
 	end
 	return fields

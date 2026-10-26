@@ -40,6 +40,7 @@ export type Field = {
 	default: Literal?,
 	datatype: string?,
 	also: { string }?,
+	luauType: string?,
 }
 
 export type Row = { [string | number]: Literal }

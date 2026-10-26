@@ -204,6 +204,7 @@ end
 export type EmitOptions = {
 	name: string?,
 	rowFunctions: boolean?,
+	localControls: boolean?,
 	controls: string?,
 	propsType: string?,
 	prelude: { string }?,
@@ -227,7 +228,8 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			table.insert(lines, line)
 		end
 	end
-	if controls ~= nil then
+	local localControls = options ~= nil and options.localControls == true
+	if controls ~= nil and not localControls then
 		table.insert(lines, controls)
 	end
 	table.insert(lines, "")
@@ -356,6 +358,25 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		table.insert(lines, tabs(depth) .. "}")
 		return table.concat(lines, "\n")
 	end
+	local hoisted: { string } = {}
+	local function hoist(node: Node, key: string, luauType: string, current: Literal): string
+		local base = string.gsub(node.name, "[^%w_]", "")
+		base = string.lower(string.sub(base, 1, 1)) .. string.sub(base, 2)
+		if not string.match(base, "^%a") then
+			base = "value"
+		end
+		base ..= string.upper(string.sub(key, 1, 1)) .. string.sub(key, 2)
+		local name = base
+		local suffix = 1
+		while rowNames[name] do
+			suffix += 1
+			name = base .. tostring(suffix)
+		end
+		rowNames[name] = true
+		local prefix = `\tlocal {name}: {luauType} = `
+		table.insert(hoisted, prefix .. layout(current, 1, #prefix + 3))
+		return name
+	end
 	local function expression(property: Value, depth: number, used: number): string
 		local target = property.node
 		if target ~= nil then
@@ -429,8 +450,12 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			local current = property.literal
 			local datatype: string? = if field then field.datatype else nil
 			local written = expression(property, depth + 1, (depth + 1) * 4 + #key + 4)
+			local luauType: string? = if field then field.luauType else nil
 			if current ~= nil and datatype ~= nil then
 				written = datatypeLiteral(datatype, current)
+			elseif current ~= nil and type(current) == "table" and luauType then
+				local typeName: string = luauType
+				written = hoist(node, key, typeName, current)
 			end
 			table.insert(body, `{inner}{key} = {written},`)
 		end
@@ -490,7 +515,13 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		then `(props: {propsName}): {library.returnType}`
 		else `({library.parameter}: {library.parameterType}, props: {propsName}): {library.returnType}`
 	table.insert(lines, if exported then `local function {exported}{signature}` else `return function{signature}`)
+	if controls ~= nil and localControls then
+		table.insert(lines, "\t" .. controls)
+	end
 	local rootSource = emit(value.root, 1)
+	for _, definition in hoisted do
+		table.insert(lines, definition)
+	end
 	local readsState = string.find(rootSource, "state.", 1, true) ~= nil
 	for _, definition in rowDefinitions do
 		readsState = readsState or string.find(definition, "state.", 1, true) ~= nil
@@ -511,7 +542,14 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		local newCell = assert(library.newCell, `{library.name} cannot hold state; it names no cell constructor`)
 		local cells: { string } = {}
 		for _, entry in state do
-			table.insert(cells, `{entry.id} = {newCell}({literal(entry.initial)})`)
+			local initial = entry.initial
+			local argument = literal(initial)
+			table.insert(
+				cells,
+				if type(initial) == "string" or type(initial) == "table"
+					then `{entry.id} = {newCell} {argument}`
+					else `{entry.id} = {newCell}({argument})`
+			)
 		end
 		table.insert(lines, "\tlocal state = { " .. table.concat(cells, ", ") .. " }")
 	end
@@ -716,6 +754,7 @@ function source.parse(code: string, library: Library): Types.Document
 		calls[kind.call] = kindName
 	end
 	local rows: { [string]: Node } = {}
+	local typedLiterals: { [string]: Literal } = {}
 	local function plain(): Literal
 		if peek() == "function" then
 			take "function"
@@ -791,6 +830,10 @@ function source.parse(code: string, library: Library): Types.Document
 		if bare and bare.kind == "name" and rows[bare.text] ~= nil and (peek(1) == "," or peek(1) == "}") then
 			take()
 			return nil, rows[bare.text]
+		end
+		if bare and bare.kind == "name" and typedLiterals[bare.text] ~= nil and (peek(1) == "," or peek(1) == "}") then
+			take()
+			return { literal = typedLiterals[bare.text] }, nil
 		end
 		if peek() == "state" and peek(1) == "." then
 			take "state"
@@ -1102,7 +1145,16 @@ function source.parse(code: string, library: Library): Types.Document
 	take()
 	take "function"
 	while not (peek() == "return" and peek(1) ~= "node") do
-		if peek() == "local" and peek(1) == "function" and peek(2) ~= "capture" then
+		if peek() == "local" and tokens[at + 1] and tokens[at + 1].kind == "name" and peek(2) == ":" then
+			take "local"
+			local literalName = name()
+			take ":"
+			while peek() ~= "=" do
+				take()
+			end
+			take "="
+			typedLiterals[literalName] = plain()
+		elseif peek() == "local" and peek(1) == "function" and peek(2) ~= "capture" then
 			take "local"
 			take "function"
 			local rowName = name()

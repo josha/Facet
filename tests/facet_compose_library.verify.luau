@@ -373,11 +373,24 @@ return function(verifyHarness: Verify.Harness)
 				action.onActivate = call
 				local actions: Facet.DesignLiteral = { action }
 				value = Design.document.change(value, library, alert, "actions", { literal = actions })
-				local code = Design.emit(value, library, { name = "Drawer", rowFunctions = true })
+				local picker
+				value, picker = Design.document.insert(value, library, "n1", "Picker")
+				local option: { [string | number]: Facet.DesignLiteral } = { value = "Medium", label = "Standard" }
+				local pickerOptions: Facet.DesignLiteral = { option }
+				value = Design.document.change(value, library, picker, "options", { literal = pickerOptions })
+				local emitOptions: Facet.DesignEmitOptions = {
+					name = "Drawer",
+					rowFunctions = true,
+					controls = "local UI = Facet.controls(runtime)",
+					localControls = true,
+				}
+				local code = Design.emit(value, library, emitOptions)
 				for _, expected in
 					{
 						"gap = 8,",
-						"padding = { left = 8, right = 8, top = 12 },",
+						"local vStackPadding: Facet.Sides = { left = 8, right = 8, top = 12 }",
+						"padding = vStackPadding,",
+						"local UI = Facet.controls(runtime)",
 						'textSize = "body",',
 						'closeButton = "Cancel",',
 						"if props.onReport then",
@@ -385,10 +398,7 @@ return function(verifyHarness: Verify.Harness)
 				do
 					Verify.expect(`{expected} {string.find(code, expected, 1, true) ~= nil}`):toBe(`{expected} true`)
 				end
-				Verify.expect(
-					Design.emit(Design.parse(code, library), library, { name = "Drawer", rowFunctions = true })
-				)
-					:toBe(code)
+				Verify.expect(Design.emit(Design.parse(code, library), library, emitOptions)):toBe(code)
 			end,
 		})
 
