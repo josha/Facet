@@ -808,9 +808,12 @@ local function props(invocation: Cli.Invocation): number
 		print(("%d generated props modules match their option types"):format(#ControlProps.FAMILIES))
 		return 0
 	end
-	for _, output in stale do
-		Files.write(output, texts[output])
-		print(("wrote %s"):format(output))
+	while #stale > 0 do
+		for _, output in stale do
+			Files.write(output, texts[output])
+			print(("wrote %s"):format(output))
+		end
+		stale, texts = ControlProps.stale(ARTIFACTS)
 	end
 	return 0
 end
@@ -1039,7 +1042,7 @@ local FIXTURE_FILES = {
 	"tests/a.luau",
 	"examples/a.luau",
 	"bench/a.luau",
-	"tools/designer/a.luau",
+	"tools/design_playground/a.luau",
 }
 
 local FIXTURE_LOCKS: { [string]: unknown } = {
@@ -1195,7 +1198,7 @@ register = function(harness: Verify.Harness, prefix: string): ()
 					project = "default.project.json",
 					name = "project-abc",
 					sourcemap = "artifacts/verify/types/project-abc.sourcemap.json",
-					mapped = { "src/a.luau", "tools/designer/a.luau", "elsewhere/b.luau" },
+					mapped = { "src/a.luau", "tools/design_playground/a.luau", "elsewhere/b.luau" },
 				},
 			})
 			local covered: { string } = {}

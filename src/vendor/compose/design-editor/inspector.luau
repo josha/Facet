@@ -26,8 +26,10 @@ return function(ui: UI.UI)
 		if value == nil then
 			return ""
 		end
-		local input, item, output, token = value.input, value.item, value.output, value.token
-		if input then
+		local input, item, output, token, node = value.input, value.item, value.output, value.token, value.node
+		if node then
+			return "◎ " .. node
+		elseif input then
 			return input
 		elseif item then
 			return "item." .. item
@@ -56,6 +58,16 @@ return function(ui: UI.UI)
 			end
 			return list
 		end
+		if field.type == "node" then
+			local function visit(node: Design.Node)
+				table.insert(list, { node = node.id })
+				for _, child in node.children do
+					visit(child)
+				end
+			end
+			visit(value.root)
+			return list
+		end
 		for _, input in value.contract.inputs do
 			local slot = input.type == "slot"
 			if slot == (field.type == "content") then
@@ -76,10 +88,12 @@ return function(ui: UI.UI)
 			and left.output == right.output
 			and left.token == right.token
 			and left.item == right.item
+			and left.node == right.node
 	end
 
 	local function humanize(key: string): string
-		local spaced = string.gsub(key, "(%l)(%u)", "%1 %2")
+		local trimmed = string.gsub(key, "Color3$", "Color")
+		local spaced = string.gsub(string.gsub(trimmed, "(%u)(%u%l)", "%1 %2"), "(%l)(%u)", "%1 %2")
 		return string.upper(string.sub(spaced, 1, 1)) .. string.lower(string.sub(spaced, 2))
 	end
 
@@ -246,7 +260,8 @@ return function(ui: UI.UI)
 			ui.set(slot, "Parent", row)
 			return slot
 		end
-		local function render(value: Design.Document, id: string)
+		local showAdvanced = Compose.cell(false)
+		local function render(value: Design.Document, id: string, advancedOpen: boolean)
 			clear()
 			order = 0
 			local node = Design.document.find(value.root, id)
@@ -299,6 +314,19 @@ return function(ui: UI.UI)
 				ui.set(caption, "Parent", frame)
 				return frame, caption
 			end
+			if session.library.tags ~= nil then
+				local tagRow = row("Tags", "Style tags")
+				local tags = field(table.concat(node.tags or {}, ", "), function(text: string)
+					local tags: { string } = {}
+					for tag in string.gmatch(text, "[^,%s]+") do
+						table.insert(tags, tag)
+					end
+					session.tag(if #tags > 0 then tags else nil)
+				end, true)
+				ui.set(tags, "PlaceholderText", "None")
+				ui.set(tags, "Size", ui.values.udim2(1, 0, 1, 0))
+				ui.set(tags, "Parent", editorSlot(tagRow))
+			end
 			if kind.children == "template" then
 				section "Data"
 				local lists: { string } = {}
@@ -334,7 +362,15 @@ return function(ui: UI.UI)
 			end
 			local grouped: { [string]: { string } } = {}
 			local extra: { string } = {}
+			local advancedKeys: { string } = {}
 			for key, entry in kind.fields do
+				if not Design.document.applies(node, kind, key) then
+					continue
+				end
+				if entry.advanced and node.props[key] == nil then
+					table.insert(advancedKeys, key)
+					continue
+				end
 				local group = entry.group or "Properties"
 				if grouped[group] == nil then
 					grouped[group] = {}
@@ -349,205 +385,257 @@ return function(ui: UI.UI)
 			for _, group in extra do
 				table.insert(sequence, group)
 			end
-			for _, group in sequence do
-				local keys = grouped[group]
-				if keys == nil then
-					continue
-				end
-				table.sort(keys, function(left: string, right: string): boolean
-					local a, b = kind.fields[left].order or math.huge, kind.fields[right].order or math.huge
-					if a == b then
-						return left < right
+			local function renderGroups(sequenceList: { string }, groupedKeys: { [string]: { string } })
+				for _, group in sequenceList do
+					local keys = groupedKeys[group]
+					if keys == nil then
+						continue
 					end
-					return a < b
-				end)
-				section(group)
-				for _, key in keys do
-					local entry = kind.fields[key]
-					local property = node.props[key]
-					local line, caption = row(key, humanize(key))
-					local slot = editorSlot(line)
-					local literal = if property then property.literal else nil
-					if property and literal == nil then
-						local pill = pressable("Binding", color.accentSoft, color.hover, function()
-							session.change(key, nil)
-						end)
-						ui.set(pill, "Size", ui.values.udim2(1, 0, 1, 0))
-						ui.set(pill, "Text", glyphOf(property) .. "  " .. describe(property))
-						ui.set(pill, "TextColor3", color.accent)
-						ui.set(pill, "TextSize", size.small)
-						ui.set(pill, "FontFace", Theme.font.bold)
-						ui.set(pill, "TextXAlignment", ui.values.enum("TextXAlignment", "Left"))
-						ui.set(pill, "TextTruncate", ui.values.enum("TextTruncate", "AtEnd"))
-						Theme.pad(pill, 8)
-						ui.set(pill, "Parent", slot)
-					elseif entry.type == "boolean" then
-						local on = if literal ~= nil then literal == true else entry.default == true
-						local switch = toggle(on, function()
-							session.change(key, { literal = not on })
-						end)
-						ui.set(switch, "AnchorPoint", ui.values.vector2(0, 0.5))
-						ui.set(switch, "Position", ui.values.udim2(0, 0, 0.5, 0))
-						ui.set(switch, "Parent", slot)
-					elseif entry.type == "choice" and #(entry.options or {}) > 4 then
-						local list = entry.options or {}
-						local current = if type(literal) == "string" then literal else list[1]
-						local picker = pressable("Picker", color.field, color.hover, function()
-							local at = table.find(list, current) or 0
-							session.change(key, { literal = list[at % #list + 1] })
-						end)
-						ui.set(picker, "Size", ui.values.udim2(1, 0, 1, 0))
-						ui.set(picker, "Text", humanize(current or "") .. "  ▾")
-						ui.set(picker, "TextColor3", color.text)
-						ui.set(picker, "TextSize", size.small)
-						ui.set(picker, "FontFace", Theme.font.medium)
-						ui.set(picker, "TextXAlignment", ui.values.enum("TextXAlignment", "Left"))
-						Theme.pad(picker, 8)
-						ui.set(picker, "Parent", slot)
-					elseif entry.type == "choice" then
-						local picker = segmented(
-							entry.options or {},
-							if type(literal) == "string" then literal else nil,
-							function(chosen: string)
-								session.change(key, { literal = chosen })
-							end
-						)
-						ui.set(picker, "Size", ui.values.udim2(1, 0, 1, 0))
-						ui.set(picker, "Parent", slot)
-					elseif entry.type == "number" then
-						local box = field(
-							if type(literal) == "number" then tostring(literal) else "",
-							function(text: string)
-								local number = tonumber(text)
-								if number then
-									session.change(key, { literal = number })
-								elseif text == "" then
-									session.change(key, nil)
-								end
-							end,
-							true
-						)
-						ui.set(box, "PlaceholderText", "Auto")
-						ui.set(box, "Size", ui.values.udim2(1, 0, 1, 0))
-						ui.set(caption, "Active", true)
-						track {
-							ui.connect(caption, "InputBegan", function(input: Compose.Node)
-								if
-									ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1")
-								then
-									local measured = if settings.measure then settings.measure(id, key) else nil
-									local start = if type(literal) == "number"
-										then literal
-										else tonumber(ui.text(box, "Text")) or math.round(measured or 0)
-									scrub = {
-										key = key,
-										box = box,
-										from = ui.xy(input, "Position").X,
-										start = start,
-										value = start,
-									}
-								end
-							end),
-							ui.connect(caption, "MouseEnter", function()
-								ui.set(caption, "TextColor3", color.text)
-							end),
-							ui.connect(caption, "MouseLeave", function()
-								ui.set(caption, "TextColor3", color.secondary)
-							end),
-						}
-						ui.set(box, "Parent", slot)
-					elseif entry.type == "color" then
-						local text = if type(literal) == "string" then literal else ""
-						local box = field(text, function(changed: string)
-							session.change(key, if changed == "" then nil else { literal = changed })
-						end, true)
-						ui.set(box, "PlaceholderText", "None")
-						ui.set(box, "Size", ui.values.udim2(1, 0, 1, 0))
-						Theme.pad(box, 30, 8)
-						local swatch = Theme.frame("Swatch", hex(text) or color.field)
-						ui.set(swatch, "Size", ui.values.udim2(0, 14, 0, 14))
-						ui.set(swatch, "AnchorPoint", ui.values.vector2(0, 0.5))
-						ui.set(swatch, "Position", ui.values.udim2(0, -22, 0.5, 0))
-						Theme.corner(swatch, 3)
-						Theme.stroke(swatch, color.white, 1, if hex(text) then 0.85 else 0.6)
-						ui.set(swatch, "Parent", box)
-						ui.set(box, "Parent", slot)
-					elseif entry.type == "vector3" then
-						local components: { number } = {}
-						if type(literal) == "table" then
-							for index = 1, 3 do
-								local component = literal[index]
-								components[index] = if type(component) == "number" then component else 0
-							end
-						else
-							components = { 0, 0, 0 }
+					table.sort(keys, function(left: string, right: string): boolean
+						local a, b = kind.fields[left].order or math.huge, kind.fields[right].order or math.huge
+						if a == b then
+							return left < right
 						end
-						local layout = Theme.list(slot, ui.values.enum("FillDirection", "Horizontal"), 4)
-						ui.set(layout, "HorizontalFlex", ui.values.enum("UIFlexAlignment", "Fill"))
-						for index, axis in { "X", "Y", "Z" } do
-							local cell = field(tostring(components[index]), function(text: string)
-								local number = tonumber(text)
-								if number then
-									local nextValue: { [string | number]: Design.Literal } = {}
-									for position = 1, 3 do
-										nextValue[position] = if position == index then number else components[position]
+						return a < b
+					end)
+					section(group)
+					for _, key in keys do
+						local entry = kind.fields[key]
+						local property = node.props[key]
+						local line, caption = row(key, entry.label or humanize(key))
+						local slot = editorSlot(line)
+						local literal = if property then property.literal else nil
+						if property and literal == nil then
+							local pill = pressable("Binding", color.accentSoft, color.hover, function()
+								session.change(key, nil)
+							end)
+							ui.set(pill, "Size", ui.values.udim2(1, 0, 1, 0))
+							local target = property.node
+							local named = if target then Design.document.find(value.root, target) else nil
+							ui.set(
+								pill,
+								"Text",
+								glyphOf(property) .. "  " .. if named then "◎ " .. named.name else describe(property)
+							)
+							ui.set(pill, "TextColor3", color.accent)
+							ui.set(pill, "TextSize", size.small)
+							ui.set(pill, "FontFace", Theme.font.bold)
+							ui.set(pill, "TextXAlignment", ui.values.enum("TextXAlignment", "Left"))
+							ui.set(pill, "TextTruncate", ui.values.enum("TextTruncate", "AtEnd"))
+							Theme.pad(pill, 8)
+							ui.set(pill, "Parent", slot)
+						elseif entry.type == "boolean" then
+							local on = if literal ~= nil then literal == true else entry.default == true
+							local switch = toggle(on, function()
+								session.change(key, { literal = not on })
+							end)
+							ui.set(switch, "AnchorPoint", ui.values.vector2(0, 0.5))
+							ui.set(switch, "Position", ui.values.udim2(0, 0, 0.5, 0))
+							ui.set(switch, "Parent", slot)
+						elseif entry.type == "choice" and #(entry.options or {}) > 4 then
+							local list = entry.options or {}
+							local current = if type(literal) == "string" then literal else list[1]
+							local picker = pressable("Picker", color.field, color.hover, function()
+								local at = table.find(list, current) or 0
+								session.change(key, { literal = list[at % #list + 1] })
+							end)
+							ui.set(picker, "Size", ui.values.udim2(1, 0, 1, 0))
+							ui.set(picker, "Text", humanize(current or "") .. "  ▾")
+							ui.set(picker, "TextColor3", color.text)
+							ui.set(picker, "TextSize", size.small)
+							ui.set(picker, "FontFace", Theme.font.medium)
+							ui.set(picker, "TextXAlignment", ui.values.enum("TextXAlignment", "Left"))
+							Theme.pad(picker, 8)
+							ui.set(picker, "Parent", slot)
+						elseif entry.type == "choice" then
+							local picker = segmented(
+								entry.options or {},
+								if type(literal) == "string" then literal else nil,
+								function(chosen: string)
+									session.change(key, { literal = chosen })
+								end
+							)
+							ui.set(picker, "Size", ui.values.udim2(1, 0, 1, 0))
+							ui.set(picker, "Parent", slot)
+						elseif entry.type == "number" then
+							local box = field(
+								if type(literal) == "number" then tostring(literal) else "",
+								function(text: string)
+									local number = tonumber(text)
+									if number then
+										session.change(key, { literal = number })
+									elseif text == "" then
+										session.change(key, nil)
 									end
-									session.change(key, { literal = nextValue })
-								end
+								end,
+								true
+							)
+							ui.set(box, "PlaceholderText", "Auto")
+							ui.set(box, "Size", ui.values.udim2(1, 0, 1, 0))
+							ui.set(caption, "Active", true)
+							track {
+								ui.connect(caption, "InputBegan", function(input: Compose.Node)
+									if
+										ui.get(input, "UserInputType")
+										== ui.values.enum("UserInputType", "MouseButton1")
+									then
+										local measured = if settings.measure then settings.measure(id, key) else nil
+										local start = if type(literal) == "number"
+											then literal
+											else tonumber(ui.text(box, "Text")) or math.round(measured or 0)
+										scrub = {
+											key = key,
+											box = box,
+											from = ui.xy(input, "Position").X,
+											start = start,
+											value = start,
+										}
+									end
+								end),
+								ui.connect(caption, "MouseEnter", function()
+									ui.set(caption, "TextColor3", color.text)
+								end),
+								ui.connect(caption, "MouseLeave", function()
+									ui.set(caption, "TextColor3", color.secondary)
+								end),
+							}
+							ui.set(box, "Parent", slot)
+						elseif entry.type == "color" then
+							local text = if type(literal) == "string" then literal else ""
+							local box = field(text, function(changed: string)
+								session.change(key, if changed == "" then nil else { literal = changed })
 							end, true)
-							ui.set(cell, "Name", axis)
-							ui.set(cell, "LayoutOrder", index)
-							ui.set(cell, "Size", ui.values.udim2(0, 0, 1, 0))
-							Theme.pad(cell, 16, 4)
-							local tag = Theme.label(axis, color.tertiary, size.small, Theme.font.bold)
-							ui.set(tag, "Position", ui.values.udim2(0, -12, 0, 0))
-							ui.set(tag, "Size", ui.values.udim2(0, 10, 1, 0))
-							ui.set(tag, "Parent", cell)
-							ui.set(cell, "Parent", slot)
-						end
-					elseif entry.type == "string" then
-						local box = field(if type(literal) == "string" then literal else "", function(text: string)
-							session.change(key, if text == "" then nil else { literal = text })
-						end)
-						ui.set(box, "Size", ui.values.udim2(1, 0, 1, 0))
-						ui.set(box, "Parent", slot)
-					else
-						local hint = Theme.label("Not bound", color.tertiary, size.small)
-						ui.set(hint, "Size", ui.values.udim2(1, 0, 1, 0))
-						ui.set(hint, "Parent", slot)
-					end
-					local available = choices(value, entry, tokens)
-					if #available > 0 then
-						local bound = property ~= nil and literal == nil
-						local link = pressable("Bind", color.panel, color.hover, function()
-							local at = 0
-							for index, option in available do
-								if same(property, option) then
-									at = index
+							ui.set(box, "PlaceholderText", "None")
+							ui.set(box, "Size", ui.values.udim2(1, 0, 1, 0))
+							Theme.pad(box, 30, 8)
+							local swatch = Theme.frame("Swatch", hex(text) or color.field)
+							ui.set(swatch, "Size", ui.values.udim2(0, 14, 0, 14))
+							ui.set(swatch, "AnchorPoint", ui.values.vector2(0, 0.5))
+							ui.set(swatch, "Position", ui.values.udim2(0, -22, 0.5, 0))
+							Theme.corner(swatch, 3)
+							Theme.stroke(swatch, color.white, 1, if hex(text) then 0.85 else 0.6)
+							ui.set(swatch, "Parent", box)
+							ui.set(box, "Parent", slot)
+						elseif entry.type == "vector3" then
+							local components: { number } = {}
+							if type(literal) == "table" then
+								for index = 1, 3 do
+									local component = literal[index]
+									components[index] = if type(component) == "number" then component else 0
 								end
+							else
+								components = { 0, 0, 0 }
 							end
-							session.change(key, available[at % #available + 1])
-						end, 1)
-						ui.set(link, "Size", ui.values.udim2(0, 24, 0, 24))
-						ui.set(link, "AnchorPoint", ui.values.vector2(1, 0.5))
-						ui.set(link, "Position", ui.values.udim2(1, 0, 0.5, 0))
-						ui.set(
-							link,
-							"Text",
-							if entry.type == "event" then "⚡" elseif entry.tokens then "◆" else "⛓"
-						)
-						ui.set(link, "TextSize", size.small)
-						ui.set(link, "FontFace", Theme.font.bold)
-						ui.set(link, "TextColor3", if bound then color.accent else color.tertiary)
-						ui.set(link, "Parent", line)
+							local layout = Theme.list(slot, ui.values.enum("FillDirection", "Horizontal"), 4)
+							ui.set(layout, "HorizontalFlex", ui.values.enum("UIFlexAlignment", "Fill"))
+							for index, axis in { "X", "Y", "Z" } do
+								local cell = field(tostring(components[index]), function(text: string)
+									local number = tonumber(text)
+									if number then
+										local nextValue: { [string | number]: Design.Literal } = {}
+										for position = 1, 3 do
+											nextValue[position] = if position == index
+												then number
+												else components[position]
+										end
+										session.change(key, { literal = nextValue })
+									end
+								end, true)
+								ui.set(cell, "Name", axis)
+								ui.set(cell, "LayoutOrder", index)
+								ui.set(cell, "Size", ui.values.udim2(0, 0, 1, 0))
+								Theme.pad(cell, 16, 4)
+								local tag = Theme.label(axis, color.tertiary, size.small, Theme.font.bold)
+								ui.set(tag, "Position", ui.values.udim2(0, -12, 0, 0))
+								ui.set(tag, "Size", ui.values.udim2(0, 10, 1, 0))
+								ui.set(tag, "Parent", cell)
+								ui.set(cell, "Parent", slot)
+							end
+						elseif entry.type == "string" then
+							local box = field(if type(literal) == "string" then literal else "", function(text: string)
+								session.change(key, if text == "" then nil else { literal = text })
+							end)
+							ui.set(box, "Size", ui.values.udim2(1, 0, 1, 0))
+							ui.set(box, "Parent", slot)
+						elseif entry.type == "value" or entry.type == "datatype" then
+							local box = field(
+								if literal ~= nil then Design.literal(literal) else "",
+								function(text: string)
+									if text == "" then
+										session.change(key, nil)
+										return
+									end
+									local parsed, result = pcall(Design.parseLiteral, text)
+									if parsed then
+										session.change(key, { literal = result })
+									else
+										session.problem:set(`{entry.label or humanize(key)}: {result}`)
+									end
+								end,
+								true
+							)
+							ui.set(box, "Size", ui.values.udim2(1, 0, 1, 0))
+							ui.set(box, "Parent", slot)
+						else
+							local hint = Theme.label("Not bound", color.tertiary, size.small)
+							ui.set(hint, "Size", ui.values.udim2(1, 0, 1, 0))
+							ui.set(hint, "Parent", slot)
+						end
+						local available = choices(value, entry, tokens)
+						if #available > 0 then
+							local bound = property ~= nil and literal == nil
+							local link = pressable("Bind", color.panel, color.hover, function()
+								local at = 0
+								for index, option in available do
+									if same(property, option) then
+										at = index
+									end
+								end
+								session.change(key, available[at % #available + 1])
+							end, 1)
+							ui.set(link, "Size", ui.values.udim2(0, 24, 0, 24))
+							ui.set(link, "AnchorPoint", ui.values.vector2(1, 0.5))
+							ui.set(link, "Position", ui.values.udim2(1, 0, 0.5, 0))
+							ui.set(
+								link,
+								"Text",
+								if entry.type == "event" then "⚡" elseif entry.tokens then "◆" else "⛓"
+							)
+							ui.set(link, "TextSize", size.small)
+							ui.set(link, "FontFace", Theme.font.bold)
+							ui.set(link, "TextColor3", if bound then color.accent else color.tertiary)
+							ui.set(link, "Parent", line)
+						end
 					end
+				end
+			end
+			renderGroups(sequence, grouped)
+			if #advancedKeys > 0 then
+				local toggleFrame = block("AdvancedToggle", 36)
+				local toggle = pressable("Advanced", color.raised, color.hover, function()
+					showAdvanced:set(not showAdvanced:peek())
+				end)
+				ui.set(
+					toggle,
+					"Text",
+					if advancedOpen then `Advanced  ▾  {#advancedKeys}` else `Advanced  ▸  {#advancedKeys}`
+				)
+				ui.set(toggle, "TextColor3", color.secondary)
+				ui.set(toggle, "TextSize", size.small)
+				ui.set(toggle, "FontFace", Theme.font.bold)
+				ui.set(toggle, "Size", ui.values.udim2(1, -2 * size.gutter, 0, 28))
+				ui.set(toggle, "Position", ui.values.udim2(0, size.gutter, 0, 4))
+				ui.set(toggle, "TextXAlignment", ui.values.enum("TextXAlignment", "Left"))
+				ui.set(toggle, "Parent", toggleFrame)
+				if advancedOpen then
+					renderGroups({ "Advanced" }, { Advanced = advancedKeys })
 				end
 			end
 			block("End", 16)
 		end
 		local root = Compose.createRootOwner(function()
 			Compose.watch(function(use: Compose.Use)
-				render(use(session.document), use(session.selected))
+				render(use(session.document), use(session.selected), use(showAdvanced))
 			end)
 		end, ui.runtime.reactor)
 		local release = Compose.owner.own(ui.owner, root.dispose)

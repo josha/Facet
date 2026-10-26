@@ -1,109 +1,110 @@
 --!strict
 
-local Facet = require(game.ReplicatedStorage.Facet)
-local Compose = Facet.Compose
+local Facet = require(game:GetService("ReplicatedStorage").Facet)
 
-export type Row = { [string]: unknown }
-export type Data = {
-	["ChooseFurniture"]: ((Row, unknown, InputObject?, number?) -> ())?,
-	["InventoryRows"]: Facet.ReadOnlyValue<{ Row }>?,
-	["PlaceFurniture"]: ((Row) -> ())?,
+export type InventoryRowsItem = { id: string, name: string, category: string, quantity: number, finish: string }
+
+export type Props = {
+	inventoryRows: Facet.ReadOnlyValue<{ InventoryRowsItem }>,
+	onChooseFurniture: ((InventoryRowsItem) -> ())?,
+	onPlaceFurniture: ((InventoryRowsItem) -> ())?,
 }
 
-local function rows(supplied: Facet.ReadOnlyValue<{ Row }>?, sample: { Row }): (Facet.Use) -> { Row }
-	return function(use: Facet.Use): { Row }
-		return if supplied then use(supplied) else sample
-	end
-end
+local _design = {
+	contract = {
+		inputs = {
+			{
+				fields = {
+					{ id = "id", type = "string" },
+					{ id = "name", type = "string" },
+					{ id = "category", type = "string" },
+					{ id = "quantity", type = "number" },
+					{ id = "finish", type = "string" },
+				},
+				id = "inventoryRows",
+				kind = "readable",
+				preview = {
+					{ category = "Comfort", finish = "Sage", id = "sofa", name = "Leather loveseat", quantity = 0 },
+					{ category = "Living", finish = "Sage", id = "table", name = "Oak table", quantity = 0 },
+					{ category = "Lighting", finish = "Sage", id = "lamp", name = "Reading lamp", quantity = 0 },
+					{ category = "Greenery", finish = "Sage", id = "plant", name = "Monstera", quantity = 0 },
+					{ category = "Living", finish = "Sage", id = "shelf", name = "Story shelf", quantity = 0 },
+					{ category = "Comfort", finish = "Sage", id = "rug", name = "Sunrise rug", quantity = 0 },
+				},
+				required = true,
+				type = "list",
+			},
+		},
+		outputs = {
+			{ id = "onChooseFurniture", row = "inventoryRows" },
+			{ id = "onPlaceFurniture", row = "inventoryRows" },
+		},
+	},
+	name = "Furnish",
+	state = { { id = "furnitureQuery", initial = "", type = "string" } },
+}
 
-return function(UI: Facet.Controls, data: Data?): GuiObject
-	local state_n7 = Compose.cell("")
-	local columns_n10: { Facet.TableColumn<Row, unknown> } = {
-		[1] = {
-			["id"] = "name",
-			["label"] = "Furniture",
-			["minWidth"] = 180,
-			["priority"] = "always",
-			["render"] = function(current: Facet.ReadOnlyValue<Row>): GuiObject
-				return UI.VStack "name" {
+local function Furnish(UI: Facet.Controls, props: Props): GuiObject
+	local contentPadding: Facet.Sides = { bottom = 24, left = 20, right = 20, top = 20 }
+	local state = { furnitureQuery = Facet.Compose.cell "" }
+	local furnitureInventoryColumns: { Facet.TableColumn<InventoryRowsItem, string> } = {
+		{
+			id = "name",
+			label = "Furniture",
+			minWidth = 180,
+			priority = "always",
+			render = function(current: Facet.ReadOnlyValue<InventoryRowsItem>)
+				return UI.VStack "FurnitureCell" {
 					gap = "xs",
-					padding = "xs",
 					width = "fill",
 					UI.Text "FurnitureName" {
-						text = function(use: Facet.Use)
-							return tostring(
-								if use(current)["name"] == nil then "Sample value" else use(current)["name"]
-							)
+						text = function(use)
+							return use(current).name
 						end,
 						textRole = "strong",
 						wrap = true,
 					},
 					UI.Text "FurnitureCategory" {
 						role = "secondary",
-						text = function(use: Facet.Use)
-							return tostring(
-								if use(current)["category"] == nil
-									then "A little possibility"
-									else use(current)["category"]
-							)
+						text = function(use)
+							return use(current).category
 						end,
 						textRole = "caption",
 						wrap = true,
 					},
 				}
 			end,
-			["sortable"] = true,
-			["value"] = function(row: Row)
-				return row["name"]
-			end,
-			["width"] = 220,
+			sortable = true,
+			width = 220,
 		},
-		[2] = {
-			["id"] = "quantity",
-			["label"] = "Placed",
-			["priority"] = 2,
-			["render"] = function(current: Facet.ReadOnlyValue<Row>): GuiObject
-				return UI.VStack "quantity" {
-					gap = "xs",
-					padding = "xs",
-					width = "fill",
-					UI.Badge "Badge" {
-						label = function(use: Facet.Use)
-							return tostring(if use(current)["quantity"] == nil then "0" else use(current)["quantity"])
-						end,
-						status = "success",
-					},
+		{
+			id = "quantity",
+			label = "Placed",
+			priority = 2,
+			render = function(current: Facet.ReadOnlyValue<InventoryRowsItem>)
+				return UI.Badge "FurnitureQuantity" {
+					label = function(use)
+						return tostring(use(current).quantity)
+					end,
+					status = "success",
 				}
 			end,
-			["value"] = function(row: Row)
-				return row["quantity"]
-			end,
-			["width"] = 82,
+			width = 82,
 		},
-		[3] = {
-			["id"] = "finish",
-			["label"] = "Next finish",
-			["priority"] = 1,
-			["render"] = function(current: Facet.ReadOnlyValue<Row>): GuiObject
-				return UI.VStack "finish" {
-					gap = "xs",
-					padding = "xs",
-					width = "fill",
-					UI.Text "CellValue" {
-						text = function(use: Facet.Use)
-							return tostring(
-								if use(current)["finish"] == nil then "Sample value" else use(current)["finish"]
-							)
-						end,
-						textRole = "caption",
-						wrap = true,
-					},
+		{
+			id = "finish",
+			label = "Next finish",
+			priority = 1,
+			render = function(current: Facet.ReadOnlyValue<InventoryRowsItem>)
+				return UI.Text "FurnitureFinish" {
+					text = function(use)
+						return use(current).finish
+					end,
+					textRole = "caption",
+					wrap = true,
 				}
 			end,
-			["value"] = function(row: Row)
-				return row["finish"]
-			end,
-			["width"] = 110,
+			width = 110,
 		},
 	}
 	return UI.Screen "Screen" {
@@ -111,7 +112,7 @@ return function(UI: Facet.Controls, data: Data?): GuiObject
 		UI.ScrollView "Content" {
 			gap = "m",
 			height = "fill",
-			padding = { ["bottom"] = 24, ["left"] = 20, ["right"] = 20, ["top"] = 20 },
+			padding = contentPadding,
 			width = "fill",
 			UI.Text "Eyebrow" {
 				role = "secondary",
@@ -138,7 +139,7 @@ return function(UI: Facet.Controls, data: Data?): GuiObject
 			UI.TextInput "FurnitureSearch" {
 				clearButton = true,
 				placeholder = "Find furniture",
-				value = state_n7,
+				value = state.furnitureQuery,
 			},
 			UI.Text "InventoryHeading" {
 				text = "YOUR INVENTORY",
@@ -151,87 +152,42 @@ return function(UI: Facet.Controls, data: Data?): GuiObject
 				wrap = true,
 			},
 			UI.Table "FurnitureInventory" {
-				Size = UDim2.new(1, 0, 0, 340),
-				columns = columns_n10,
-				from = rows(if data then data["InventoryRows"] else nil, {
-					[1] = {
-						["category"] = "Comfort",
-						["finish"] = "Sage",
-						["id"] = "sofa",
-						["name"] = "Leather loveseat",
-						["quantity"] = 0,
-					},
-					[2] = {
-						["category"] = "Living",
-						["finish"] = "Sage",
-						["id"] = "table",
-						["name"] = "Oak table",
-						["quantity"] = 0,
-					},
-					[3] = {
-						["category"] = "Lighting",
-						["finish"] = "Sage",
-						["id"] = "lamp",
-						["name"] = "Reading lamp",
-						["quantity"] = 0,
-					},
-					[4] = {
-						["category"] = "Greenery",
-						["finish"] = "Sage",
-						["id"] = "plant",
-						["name"] = "Monstera",
-						["quantity"] = 0,
-					},
-					[5] = {
-						["category"] = "Living",
-						["finish"] = "Sage",
-						["id"] = "shelf",
-						["name"] = "Story shelf",
-						["quantity"] = 0,
-					},
-					[6] = {
-						["category"] = "Comfort",
-						["finish"] = "Sage",
-						["id"] = "rug",
-						["name"] = "Sunrise rug",
-						["quantity"] = 0,
-					},
-				}),
+				columns = furnitureInventoryColumns,
+				height = 340,
 				itemSize = 76,
-				key = "id",
-				onActivate = function(item: Row, key: unknown, input: InputObject?, clickCount: number?)
-					local handler = if data then data["ChooseFurniture"] else nil
-					if handler then
-						handler(item, key, input, clickCount)
+				onActivate = function(...)
+					if props.onChooseFurniture then
+						props.onChooseFurniture(...)
 					end
 				end,
-				rowActions = function(current: Facet.ReadOnlyValue<Row>): Facet.RowActionsOptions
+				rowActions = function(current: Facet.ReadOnlyValue<InventoryRowsItem>): Facet.RowActionsOptions?
 					return {
+						fullSwipe = false,
 						trailing = {
-							[1] = {
-								["id"] = "choose",
-								["label"] = "Choose",
-								["onActivate"] = function()
-									local handler = if data then data["ChooseFurniture"] else nil
-									if handler then
-										handler(current:peek())
+							{
+								id = "choose",
+								label = "Choose",
+								onActivate = function(...)
+									if props.onChooseFurniture then
+										props.onChooseFurniture(current:peek())
 									end
 								end,
 							},
-							[2] = {
-								["id"] = "place",
-								["label"] = "Place here",
-								["onActivate"] = function()
-									local handler = if data then data["PlaceFurniture"] else nil
-									if handler then
-										handler(current:peek())
+							{
+								id = "place",
+								label = "Place here",
+								onActivate = function(...)
+									if props.onPlaceFurniture then
+										props.onPlaceFurniture(current:peek())
 									end
 								end,
 							},
 						},
-						fullSwipe = false,
 					}
 				end,
+				width = "fill",
+				from = props.inventoryRows,
+				key = "id",
 			},
 			UI.Text "EmptyFurniture" {
 				text = "No furniture matches. Clear your search.",
@@ -331,3 +287,5 @@ return function(UI: Facet.Controls, data: Data?): GuiObject
 		},
 	}
 end
+
+return Furnish

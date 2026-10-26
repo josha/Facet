@@ -7,11 +7,7 @@ local Types = require "./types"
 
 export type Status = "synchronized" | "custom" | "conflict"
 
-export type Store = {
-	read: () -> string,
-	write: (expected: string, generated: string) -> boolean,
-	watch: (changed: () -> ()) -> () -> (),
-}
+export type Store = Types.LinkStore
 
 export type Link = {
 	status: Core.Value<Status>,

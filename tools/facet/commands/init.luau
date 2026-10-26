@@ -31,6 +31,7 @@ local commands: { Cli.Command } = {
 	require("@self/verify"),
 	require("@self/studio"),
 	require("@self/kit"),
+	require("@self/design"),
 }
 
 return table.freeze(commands)

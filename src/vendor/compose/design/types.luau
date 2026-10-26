@@ -14,6 +14,8 @@ export type Value = {
 	args: { Literal }?,
 	fields: { string }?,
 	node: string?,
+	nodeFrom: string?,
+	nodes: { string }?,
 	token: string?,
 	state: string?,
 }
@@ -41,6 +43,10 @@ export type Field = {
 	datatype: string?,
 	also: { string }?,
 	luauType: string?,
+	label: string?,
+	advanced: boolean?,
+	requires: { [string]: { Literal } }?,
+	perRow: boolean?,
 }
 
 export type Row = { [string | number]: Literal }
@@ -59,9 +65,12 @@ export type Resolved = {
 
 export type Children = "none" | "list" | "template" | "slot"
 
+export type Seed = { kind: string, props: { [string]: Literal }?, children: { Seed }? }
+
 export type Kind = {
 	fields: { [string]: Field },
 	defaults: { [string]: Literal }?,
+	seeds: { Seed }?,
 	children: Children,
 	template: string?,
 	slot: string?,
@@ -84,14 +93,17 @@ export type Library = {
 	token: string?,
 	show: string?,
 	keyed: string?,
+	categories: { string }?,
+	tags: { call: string, apply: (built: unknown, tags: { string }) -> () }?,
 	space: ("2d" | "3d")?,
+	provide: ((content: unknown) -> unknown)?,
 	kinds: { [string]: Kind },
 }
 
 export type InputKind = "value" | "readable" | "cell"
 export type InputType = "string" | "number" | "boolean" | "color" | "image" | "list" | "record" | "slot"
 
-export type ItemField = { id: string, type: InputType }
+export type ItemField = { id: string, type: InputType, fields: { ItemField }? }
 
 export type Input = {
 	id: string,
@@ -102,7 +114,7 @@ export type Input = {
 	required: boolean?,
 }
 
-export type Output = { id: string, args: { InputType }? }
+export type Output = { id: string, args: { InputType }?, row: string? }
 
 export type State = { id: string, type: InputType, initial: Literal }
 
@@ -120,6 +132,7 @@ export type Node = {
 	nameField: string?,
 	nameInput: string?,
 	when: string?,
+	tags: { string }?,
 }
 
 export type Document = {
@@ -130,6 +143,36 @@ export type Document = {
 	contract: Contract,
 	state: { State }?,
 	root: Node,
+}
+
+export type EmitOptions = {
+	name: string?,
+	rowFunctions: boolean?,
+	localControls: boolean?,
+	controls: string?,
+	propsType: string?,
+	prelude: { string }?,
+}
+
+export type RenderContext = {
+	inputs: { [string]: Literal }?,
+	outputs: { [string]: (args: { Literal }) -> () }?,
+	slots: { [string]: () -> unknown }?,
+	token: ((name: string) -> Literal)?,
+	decorate: ((node: Node, built: unknown) -> ())?,
+}
+
+export type LinkStore = {
+	read: () -> string,
+	write: (expected: string, generated: string) -> boolean,
+	watch: (changed: () -> ()) -> () -> (),
+}
+
+export type OpenDesign = { dispose: () -> () }
+
+export type Kit = {
+	name: string,
+	edit: (parent: unknown, name: string, link: LinkStore?) -> OpenDesign,
 }
 
 return {}

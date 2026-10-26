@@ -60,7 +60,16 @@ return function(ui: UI.UI)
 			end
 			table.insert(members, name)
 		end
-		table.sort(order)
+		local preferred = library.categories or {}
+		table.sort(order, function(left: string, right: string): boolean
+			local a, b = table.find(preferred, left), table.find(preferred, right)
+			if a and b then
+				return a < b
+			elseif a or b then
+				return a ~= nil
+			end
+			return left < right
+		end)
 
 		type Entry = { name: string, button: Compose.Node, header: Compose.Node }
 		local entries: { Entry } = {}

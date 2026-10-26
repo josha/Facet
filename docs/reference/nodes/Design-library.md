@@ -3,13 +3,14 @@
 Author Facet screens as Compose Design documents. A document uses the format
 `compose-design/1` and the library name `Facet`.
 
-`Facet.designLibrary(context)` returns a `Facet.DesignLibrary` for
-`Facet.Design`. Each Facet control is a kind with fields, defaults and a
+`Facet.design()` returns the design kit, loaded on first use. `kit.library(context)` returns a `Facet.DesignLibrary` for
+`kit.Design`. Each Facet control is a kind with fields, defaults and a
 category.
 
 ```luau
 local UI = Facet.controls(runtime)
-local library = Facet.designLibrary({
+local kit = Facet.design()
+local library = kit.library({
     UI = UI,
     rgb = Color3.fromRGB,
     udim2 = UDim2.new,
@@ -30,16 +31,16 @@ local library = Facet.designLibrary({
         return runtime.constructors[className](name)(props)
     end,
 })
-local document = Facet.Design.document.new("Shop", library, "VStack")
-local view = Facet.Design.render(document, library, { inputs = { title = "Shop" } })
-local source = Facet.Design.emit(document, library, { name = "Shop" })
+local document = kit.Design.document.new("Shop", library, "VStack")
+local view = kit.Design.render(document, library, { inputs = { title = "Shop" } })
+local source = kit.Design.emit(document, library, { name = "Shop" })
 ```
 
-- `Facet.Design` is the Compose Design module: `document`, `history`,
+- `kit.Design` is the Compose Design module: `document`, `history`,
   `session`, `render`, `link`, `extend`, `emit` and `parse`.
-- `Facet.designControls` maps each control name to its fields, defaults,
+- `kit.controls` maps each control name to its fields, defaults,
   category and child mode.
-- `Facet.designSeeds(kind)` returns the child nodes that a new node of that
+- `kit.seeds(kind)` returns the child nodes that a new node of that
   kind starts with.
 
 Child modes:
@@ -72,18 +73,18 @@ Kinds:
 
 Whole views:
 
-- `Facet.Design.document.nameFromInput` names a node from a text input. The
+- `kit.Design.document.nameFromInput` names a node from a text input. The
   source is `UI.VStack(props.name)`.
 - A stack can bind a list input. Its one child is the row template, emitted
   with `Facet.Compose.keyed`.
-- `Facet.Design.document.showWhen` shows a child of a stack while a true or
+- `kit.Design.document.showWhen` shows a child of a stack while a true or
   false input or state holds, emitted with `Facet.Compose.show`.
-- `Facet.Design.document.setState` declares local state, such as an expanded
+- `kit.Design.document.setState` declares local state, such as an expanded
   flag. Bind a field to it with `{ state = "expanded" }`.
 - Emit with `{ name = "ShopView", controls = "local UI = ..." }` to write a
   view that takes only `props`. `propsType` reuses an exported props type.
   `prelude` adds lines.
 
 The game keeps its state and server validation. Give state to a design as
-contract inputs. Receive events as contract outputs. Use `Facet.Design.extend`
+contract inputs. Receive events as contract outputs. Use `kit.Design.extend`
 to add a game's own kinds to the library.

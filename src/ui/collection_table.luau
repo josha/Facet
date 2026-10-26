@@ -76,6 +76,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 		"header",
 		"dragLabel",
 		"autoscroll",
+		"direction",
 		"onCellChange",
 		"alternatingRows",
 		"deletable",
@@ -84,6 +85,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 	}
 	local function create<V, K>(spec: CollectionTypes.TableShape<V, K>, keyOf: (V, number) -> K): Frame
 		assert(spec.columns ~= nil, "Facet.Table requires columns")
+		assert(spec.direction == nil or spec.direction == "vertical", "Facet.Table rows run vertically")
 		local manageable = spec.reorderable == true or spec.deletable == true
 		local ownsToggle = manageable and spec.editing == nil and spec.header ~= false
 		local editing: Types.ValueBoolean? = if ownsToggle then Compose.cell(false) else spec.editing

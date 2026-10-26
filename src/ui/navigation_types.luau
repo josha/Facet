@@ -246,7 +246,7 @@ export type DisclosureGroupOptions = {
 	onToggle: ((boolean) -> ())?,
 	chevronPosition: "leading" | "trailing"?,
 	appearance: "plain" | "contained" | "divided" | "outline"?,
-	textSize: Input<string | number>?,
+	textSize: Input<number | Types.TextRole>?,
 	indent: (number | Types.SpaceStep)?,
 }
 export type CollapsibleViewOptions = {
