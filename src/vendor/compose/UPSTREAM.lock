@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "95677df5b4f09dfec34b643dbda96de189abbc7b",
+  "commit": "9c6f1e0b8961d29cb6234e1e798ae152bfaa05f9",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -96,7 +96,7 @@
     "design/init.luau": "5c2e395785fb0348527ca462d4ceeff996b601096c22f6f84e6115753dd767cc",
     "design/library.luau": "95c8652acd457c2b71104ca565b127a32d3a5e9e7150370a022a094878e34f01",
     "design/link.luau": "ff5c4987cf238f04efee3c503952e4404dc76b2b98673ae4d557c866d1ad84d6",
-    "design/render.luau": "cd0ff5ec603c925b21dd7c9e4d157b785b0ed4801ee07ee66a0653dbe49e2beb",
+    "design/render.luau": "15ffcc84102caa4faaac9c6f81fe17471148ed7c298301f639a855ce9afd99d9",
     "design/session.luau": "c4d774fe7d2ca1fbdf3a70b1d038739035dea1a8623eec8a097b15fcf310bf42",
     "design/source.luau": "142390a5e2104679783dded0466f6eb44b7625de23563414b5324e4657e6603b",
     "design/types.luau": "7d6f47b4446751023d7175b74cc1e08e8c69a0c70816b8741b927d7c5b4a8651",
@@ -111,9 +111,10 @@
     "roblox/viewport.luau": "21bb4bd27e07d9eb69603189ddfadb1048cf89ef88206f57869d0602318bfe0c"
   },
   "docs": {
-    "SKILL.md": "5b00d1daf8a47f8d97e5af9ab3044aca442fa027064015c8e7ffb584b074c7f1",
-    "references/api.md": "b36f61e2e7279ec740d4538eca807064122f9d08ee01c38cb620df6d78185bbe",
-    "references/consumer-guides.md": "e7427aacb056f37c7d72d556037272d3f463fb19545e3b9118fb4f37aab5c9ca",
-    "references/ownership.md": "eba21cf8bbefa6e6848e117215e7d7abd1fbdf47777a129d04244699d8764b10"
+    "SKILL.md": "a3277af0c096e2c640b1a0fb22c1739ffbf57603e81aab8ec9d7324d9f7ac590",
+    "references/api.md": "788a91de7e7142e5e0e9c652c58a65ea89b72ee3bb7b7e5fbd2785ab9f647743",
+    "references/consumer-guides.md": "c59d45f4cefb348d6a346ebcedbfb53d156aafed0590299dd00e34d3701f9bdd",
+    "references/design.md": "28e16f2f3ed7e3a099ad7a1a94eab4c5e2df1b062311179f95be762ae8060afe",
+    "references/ownership.md": "bb99338a3992e66fe155b943eb2907f185be7b2248a28e9ed7c908acab237410"
   }
 }

@@ -1,6 +1,6 @@
 ---
 name: compose
-description: Invoke only while consuming Compose's public scene-composition and ownership API in a Luau application. Do not invoke it to change Compose itself, or for application logic, networking, physics, persistence, or asset loading.
+description: Invoke only while consuming Compose's public scene-composition and ownership API in a Luau application, including editing a Compose Design module. Do not invoke it to change Compose itself, or for application logic, networking, physics, persistence, or asset loading.
 ---
 
 # Compose consumer
@@ -32,3 +32,4 @@ Read one reference for the contract that you need:
 - [Public API and first component](references/api.md)
 - [Ownership and reactive structure](references/ownership.md)
 - [Roblox, profiling, or authoring](references/consumer-guides.md)
+- [Edit a Compose Design module](references/design.md)
