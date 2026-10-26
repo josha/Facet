@@ -9,8 +9,31 @@ A component is a function that returns a native Instance.
   control or layout constructor makes them.
 - Make controls inside a Compose owner. This is usually the component that you
   give to `app.mount`.
+- In a portable component, call `Facet.controls(runtime)` without options to
+  use the controls provided by the app. The returned object is `app.UI`, with
+  the same theme, translator, motion level, text preference, viewport and
+  overlay host configuration.
 - Put a semantic name directly after the constructor: `UI.HStack "Toolbar" { ... }` or `UI.Button "Save" { ... }`. Do not write `Name = "..."` for a fixed name. Use `Name` only when the name is computed.
 - Use numeric children and native property names.
+
+When you mount with Compose directly, provide controls inside the mount:
+
+```luau
+local UI = Facet.controls(runtime, { theme = Facet.themes.neutralPackage() })
+local function Settings()
+    local inherited = Facet.controls(runtime)
+    return inherited.Button { label = "Save" }
+end
+local stop = runtime.mount(function()
+    return UI.provide(Settings)
+end, playerGui)
+```
+
+`UI.provide(body)` returns the results of `body()`. It supplies `UI` to the
+current body and its descendant Compose owners. A nested provider replaces
+the controls for the same runtime within that scope. It does not install a
+StyleSheet. Without a provider, `Facet.controls(runtime)` makes fresh controls.
+An explicit options table, including `{}`, always makes fresh controls.
 
 ## State and requests
 

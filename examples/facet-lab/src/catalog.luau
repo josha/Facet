@@ -4380,6 +4380,21 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			})
 		end,
 	},
+	provide = {
+		host = "Button",
+		family = "actions",
+		alias = "Inherited controls",
+		purpose = "Use the configured controls inside a portable component.",
+		snippet = "UI.provide(Component)",
+		axes = {},
+		states = {},
+		make = function(UI: FacetControls, _p: Properties, c: Context): Instance
+			return UI.provide(function()
+				local inherited = c.Facet.controls(c.app.runtime)
+				return inherited.Button({ label = "Continue", onActivate = c.log("activate") })
+			end)
+		end,
+	},
 	commandScope = {
 		host = "Frame",
 		family = "actions",

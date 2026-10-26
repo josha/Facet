@@ -138,7 +138,7 @@ return function(
 			end
 			props[1] = sheet
 			props[2] = Links.StyleLink({ StyleSheet = Compose.static(sheet) })
-			props[3] = component()
+			props[3] = UI.provide(component)
 			if target:IsA("PlayerGui") and settings.focusRing ~= false then
 				props[4] = UI.focusRing(target)
 			end
@@ -276,7 +276,9 @@ return function(
 		end
 		stop = runtime.mountFragment(function(): { ComposeTypes.Child }
 			spec.Name = `Toast{id}`
-			return { UI.Toast((spec :: unknown) :: OverlayProps.ToastSpec) }
+			return UI.provide(function(): { ComposeTypes.Child }
+				return { UI.Toast((spec :: unknown) :: OverlayProps.ToastSpec) }
+			end)
 		end, assert(toastLayer))
 		if not live then
 			stop()

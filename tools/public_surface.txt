@@ -12,6 +12,7 @@ Compose : table
   Compose.boundary : function
   Compose.cell : function
   Compose.cleanup : function
+  Compose.createContext : function
   Compose.createFocusScope : function
   Compose.createKeyedCache : function
   Compose.createOwner : function
@@ -234,6 +235,7 @@ controls(runtime).fill : function
 controls(runtime).focusRing : function
 controls(runtime).focusSection : function
 controls(runtime).gestureArbiter : function
+controls(runtime).provide : function
 controls(runtime).responder : function
 controls(runtime).scrollTo : function
 controls(runtime).scrollToVisible : function

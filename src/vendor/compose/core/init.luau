@@ -7,6 +7,7 @@ local AnimationEasing = require "@self/animation/easing"
 local AnimationSpring = require "@self/animation/spring"
 local AsyncBoundary = require "@self/async/boundary"
 local AsyncShared = require "@self/async/shared"
+local ContextModule = require "@self/context"
 local Diagnostics = require "@self/diagnostics"
 local FocusScope = require "@self/focus-scope"
 local Geometry = require "@self/geometry"
@@ -60,6 +61,7 @@ export type Reactor = reactorModule.Reactor
 export type AccumulatorOptions<T, E> = AccumulatorModule.Options<T, E>
 
 export type Owner = OwnerModule.Owner
+export type Context<T> = ContextModule.Context<T>
 export type RootScope = RootScopeModule.RootScope
 export type Custody = nodes.Custody
 
@@ -356,6 +358,7 @@ return {
 	springCoefficients = AnimationSpring.coefficients,
 
 	createSharedResource = AsyncShared,
+	createContext = ContextModule,
 	boundary = AsyncBoundary,
 
 	formatDiagnostic = Diagnostics.format,

@@ -37,6 +37,200 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("Facet on the consumer's Compose instance", function()
+		verifyHarness:case("inherits app controls and the 60 pixel Button height", function(context)
+			for _, surface in { Facet, Facet.bind(Core, Roblox) } do
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = surface.Roblox.createRuntime(engine)
+				context:defer(function()
+					runtime:dispose()
+				end)
+				local theme = surface.themes.neutralPackage()
+				theme.metrics.controlSizes.regular.height = 60
+				local app = surface.app({
+					runtime = runtime,
+					types = engine.types,
+					parent = engine.new("Folder"),
+					theme = theme,
+					motionLevel = "none",
+					guiService = engine.new("GuiService"),
+					environment = { preferredTextSize = "Largest" },
+				})
+				context:defer(app.dispose)
+				local function PortableButton(props: Facet.ButtonProps): TextButton
+					local UI = surface.controls(runtime)
+					Verify.expect(UI):toBe(app.UI)
+					Verify.expect(UI.environment().preferredTextSize:peek()):toBe("Largest")
+					return UI.Button(props)
+				end
+				app.mount(function()
+					local button = PortableButton({ label = "Continue" })
+					local reference = app.UI.Button({ label = "Continue" })
+					Verify.expect(button.Size.Y.Offset):toBe(60)
+					Verify.expect(button.Size):toBe(reference.Size)
+					return app.UI.VStack { button, reference }
+				end)
+			end
+		end)
+
+		verifyHarness:case("inherits app controls in presented content", function(context)
+			local engine = engineLib.new()
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+			context:defer(function()
+				runtime:dispose()
+			end)
+			local app = Facet.app({
+				runtime = runtime,
+				types = engine.types,
+				parent = engine.new("Folder"),
+				motionLevel = "none",
+			})
+			context:defer(app.dispose)
+			local rendered = 0
+			local function PortableContent(): TextButton
+				rendered += 1
+				local UI = Facet.controls(runtime)
+				Verify.expect(UI):toBe(app.UI)
+				return UI.Button({ label = "Continue" })
+			end
+			local close = app.presentAnchored(PortableContent, {
+				source = { rect = { x = 100, y = 100, w = 40, h = 40 } },
+				modal = false,
+			})
+			Verify.expect(rendered):toBe(1)
+			close()
+			local toast = app.presentToast(PortableContent)
+			Verify.expect(rendered):toBe(2)
+			toast.dismiss()
+		end)
+
+		verifyHarness:case("explicit options build fresh controls under a provider", function(context)
+			local engine = engineLib.new()
+			local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+			context:defer(function()
+				runtime:dispose()
+			end)
+			local Bound = Facet.bind(Core, Roblox)
+			local theme = Bound.themes.neutralPackage()
+			theme.metrics.controlSizes.regular.height = 60
+			local UI = Bound.controls(runtime, { types = engine.types, theme = theme })
+			runtime.mount(function()
+				return UI.provide(function()
+					local first = Bound.controls(runtime, { types = engine.types })
+					local second = Bound.controls(runtime, { types = engine.types })
+					Verify.expect(first == UI):toBe(false)
+					Verify.expect(second == first):toBe(false)
+					Verify.expect(Bound.controls(runtime)):toBe(UI)
+					local button = first.Button({ label = "Standalone" })
+					Verify.expect(button.Size.Y.Offset):toBe(44)
+					return button
+				end)
+			end, engine.new("Folder"))
+		end)
+
+		verifyHarness:case("no provider and empty options build fresh controls", function(context)
+			local engine = engineLib.new()
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+			context:defer(function()
+				runtime:dispose()
+			end)
+			local environment = getfenv(require("../src/ui/context_config"))
+			local previous: { [string]: unknown } = {}
+			for key, value in engine.types do
+				if type(key) == "string" then
+					previous[key] = environment[key]
+					environment[key] = value
+				end
+			end
+			context:defer(function()
+				for key in engine.types do
+					if type(key) == "string" then
+						environment[key] = previous[key]
+					end
+				end
+			end)
+			local first = Facet.controls(runtime)
+			Verify.expect(Facet.controls(runtime) == first):toBe(false)
+			runtime.mount(function()
+				local second = Facet.controls(runtime)
+				Verify.expect(second == first):toBe(false)
+				return first.provide(function()
+					local explicit = Facet.controls(runtime, {})
+					Verify.expect(explicit == first):toBe(false)
+					Verify.expect(Facet.controls(runtime, {}) == explicit):toBe(false)
+					return explicit.Button({ label = "Default" })
+				end)
+			end, engine.new("Folder"))
+			Verify.expect(Facet.controls(runtime) == first):toBe(false)
+		end)
+
+		verifyHarness:case("nested providers override controls and retain descendant owners", function(context)
+			local engine = engineLib.new()
+			local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+			context:defer(function()
+				runtime:dispose()
+			end)
+			local Bound = Facet.bind(Core, Roblox)
+			local outer = Bound.controls(runtime, { types = engine.types })
+			local theme = Bound.themes.neutralPackage()
+			theme.metrics.controlSizes.regular.height = 60
+			local inner = Bound.controls(runtime, { types = engine.types, theme = theme })
+			local shown = Core.cell(false)
+			local renders, cleanups = 0, 0
+			local stop = runtime.mount(function()
+				return outer.provide(function()
+					Verify.expect(Bound.controls(runtime)):toBe(outer)
+					local result = inner.provide(function()
+						Verify.expect(Bound.controls(runtime)):toBe(inner)
+						Verify.expect(Facet.bind(Core, Roblox).controls(runtime)):toBe(inner)
+						return inner.VStack {
+							Core.show(shown, function()
+								renders += 1
+								Core.cleanup(function()
+									cleanups += 1
+								end)
+								local UI = Bound.controls(runtime)
+								Verify.expect(UI):toBe(inner)
+								local button = UI.Button({ label = "Nested" })
+								Verify.expect(button.Size.Y.Offset):toBe(60)
+								return button
+							end),
+						}
+					end)
+					Verify.expect(Bound.controls(runtime)):toBe(outer)
+					return result
+				end)
+			end, engine.new("Folder"))
+			shown:set(true)
+			shown:set(false)
+			shown:set(true)
+			Verify.expect(renders):toBe(2)
+			Verify.expect(cleanups):toBe(1)
+			stop()
+			Verify.expect(cleanups):toBe(2)
+		end)
+
+		verifyHarness:case("providers keep controls separate for each runtime", function(context)
+			local engine = engineLib.new()
+			local first: ComposeRuntime = Roblox.createRuntime(engine)
+			local second: ComposeRuntime = Roblox.createRuntime(engine)
+			context:defer(function()
+				second:dispose()
+				first:dispose()
+			end)
+			local Bound = Facet.bind(Core, Roblox)
+			local outer = Bound.controls(first, { types = engine.types })
+			local inner = Bound.controls(second, { types = engine.types })
+			first.mount(function()
+				return outer.provide(function()
+					return inner.provide(function()
+						Verify.expect(Bound.controls(first)):toBe(outer)
+						Verify.expect(Bound.controls(second)):toBe(inner)
+						return outer.Button({ label = "First runtime" })
+					end)
+				end)
+			end, engine.new("Folder"))
+		end)
+
 		verifyHarness:case("drives bound controls from consumer cells and nests their disposal under consumer owners", {
 			id = "native_compose_binding::Facet on the consumer's Compose instance::drives bound controls from consumer cells and nests their disposal under consumer owners",
 			run = function()

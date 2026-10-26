@@ -9,7 +9,7 @@ Public-entry-points option values and behavior.
 | `VERSION` | The package version string. |
 | `Compose` | The pinned Compose core module, by reference. Use its cells, formulas, owners and structural operations directly. |
 | `Roblox` | The pinned Compose Roblox module, by reference. `createRuntime(engine?)` makes the native runtime. `createHost(engine?)` makes its host. |
-| `controls(runtime, options?)` | Returns the control constructor table for that native runtime. |
+| `controls(runtime, options?)` | Without options, returns the controls provided for that runtime in the current Compose owner or a parent owner. If none exists, makes fresh controls. Explicit options, including `{}`, always make fresh controls. `UI.provide(body)` supplies controls to the body and its descendant owners. See the [API reference](../api.md). |
 | `host(runtime)` | Returns `runtime.constructors` with the `Host` type. Use it for native objects: `local Host = Facet.host(runtime)`. |
 | `app(options?)` | Returns an app: a runtime, the controls for it, and a `mount` that adds the ScreenGui, the StyleSheet and the StyleLink. See [Mounting](Mounting.md). |
 | `themes` | Theme package definitions, native StyleSheet compilation, icons and skins. |
