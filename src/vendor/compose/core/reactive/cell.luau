@@ -93,7 +93,9 @@ end
 function CELL.set(self: Node, incoming: unknown)
 	local current = self.value
 	if if validationState.validating then userSpace.call(same, current, incoming) else current == incoming then
-		suppress(self)
+		if statsOn.enabled then
+			suppress(self)
+		end
 		return
 	end
 	self.value = incoming

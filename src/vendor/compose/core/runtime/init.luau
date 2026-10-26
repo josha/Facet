@@ -130,6 +130,7 @@ local function createRuntime(host: Host.Host): Runtime
 	end
 
 	local function destroyOwnedNode(node: Node)
+		Props.forget(node)
 		local ok, err: unknown = pcall(Nodes.releaseDependents, node)
 		render.destroyNode(node)
 		Nodes.forget(node)
@@ -170,7 +171,7 @@ local function createRuntime(host: Host.Host): Runtime
 					inFlight = nil
 				end
 			end
-			Props.apply(host, node, props, owner, onKey)
+			Props.apply(host, node, props, owner, onKey, true)
 
 			local childCount = #props
 			if childCount == 0 then
@@ -233,6 +234,7 @@ local function createRuntime(host: Host.Host): Runtime
 
 			local owner = requireOwner(operation)
 			local mark = Owner.checkpoint(owner)
+			local heldMark = Owner.heldCount(owner)
 
 			local node = render.createNode(kind)
 			Nodes.markOwned(node)
@@ -247,6 +249,7 @@ local function createRuntime(host: Host.Host): Runtime
 			local ok, err: unknown = pcall(Active.runWith, owner, applyBuild, label, props, node, owner)
 			if not ok then
 				Owner.rollbackTo(owner, mark)
+				Owner.rollbackHeld(owner, heldMark)
 				local key = inFlight
 				inFlight = savedInFlight
 				if key ~= nil then

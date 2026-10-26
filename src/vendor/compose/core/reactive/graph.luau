@@ -153,37 +153,6 @@ local function refresh(producer: Node)
 	end
 end
 
-local function record(consumer: Node, producer: Node)
-	if consumer.released then
-		refresh(producer)
-		return
-	end
-	local at = consumer.reads
-	if at == nil then
-		refresh(producer)
-		return
-	end
-	local edge = consumer[at]
-	if edge == nil or edge[1] ~= producer then
-		at += 1
-		consumer.reads = at
-		edge = consumer[at]
-		if edge == nil or edge[1] ~= producer then
-			trim(consumer, at)
-			local attached = attach(producer, consumer)
-			consumer[at] = attached
-			edge = attached
-		end
-	end
-	local update = producer.refresh
-	if update then
-		update(producer)
-	end
-	if edge ~= nil then
-		edge.version = producer.version
-	end
-end
-
 local function notANode(api: string, candidate: unknown): never
 	local actual = Diagnostics.describe(candidate)
 	return Diagnostics.raise(
@@ -218,7 +187,34 @@ local function observe(node: Node, value: unknown)
 		})
 		return
 	end
-	record(consumer, node)
+	if consumer.released then
+		refresh(node)
+		return
+	end
+	local at = consumer.reads
+	if at == nil then
+		refresh(node)
+		return
+	end
+	local edge = consumer[at]
+	if edge == nil or edge[1] ~= node then
+		at += 1
+		consumer.reads = at
+		edge = consumer[at]
+		if edge == nil or edge[1] ~= node then
+			trim(consumer, at)
+			local attached = attach(node, consumer)
+			consumer[at] = attached
+			edge = attached
+		end
+	end
+	local update = node.refresh
+	if update then
+		update(node)
+	end
+	if edge ~= nil then
+		edge.version = node.version
+	end
 end
 
 NodeCast.setObserver(observe)
@@ -263,6 +259,21 @@ local function evaluate<A, T>(consumer: Node, body: (A) -> T, argument: A): T
 
 	trim(consumer, (consumer.reads or 0) + 1)
 	return result
+end
+
+local function runEffect(consumer: Node)
+	local previousConsumer, previousOrder = Evaluation.enter(consumer)
+	consumer.reads = 0
+	local effect = consumer.effect
+	if effect then
+		if validationState.validating then
+			userSpace.call(effect, use)
+		else
+			effect(use)
+		end
+	end
+	Evaluation.leave(previousConsumer, previousOrder)
+	trim(consumer, (consumer.reads or 0) + 1)
 end
 
 local function track(consumer: Node, invoke: (Node) -> ())
@@ -380,6 +391,15 @@ function LISTENER.run(leader: Node)
 	if update then
 		update(producer)
 	end
+	if producer.first == leader and leader[4] == nil and not statsOn.enabled then
+		local listener = leader.listener
+		local version = producer.version
+		if listener ~= nil and leader.version ~= version then
+			leader.version = version
+			listener(producer.value)
+		end
+		return
+	end
 	runListeners(leader, producer)
 end
 
@@ -388,8 +408,41 @@ CELL_LISTENER.__index = CELL_LISTENER
 
 function CELL_LISTENER.run(leader: Node)
 	local producer = leader[1]
-	if producer ~= nil then
-		runListeners(leader, producer)
+	if producer == nil then
+		return
+	end
+	if producer.first == leader and leader[4] == nil and not statsOn.enabled then
+		local listener = leader.listener
+		local version = producer.version
+		if listener ~= nil and leader.version ~= version then
+			leader.version = version
+			listener(producer.value)
+		end
+		return
+	end
+	runListeners(leader, producer)
+end
+
+local function listenEdge(reactor: Types.Reactor, producer: Node, listener: (value: unknown) -> ()): Node
+	refresh(producer)
+	local edge: Node =
+		{ producer, nil, nil, nil, version = producer.version, reactor = reactor, queued = false, listener = listener }
+	NodeCast.classify(edge, if producer.refresh ~= nil then LISTENER else CELL_LISTENER)
+	if statsOn.enabled then
+		profile.born(edge)
+		stats.bump "watchRuns"
+		profile.enterRun(edge)
+	end
+	listener(producer.value)
+	append(producer, edge)
+	return edge
+end
+
+local function unlisten(subject: unknown)
+	local edge = NodeCast.heldEdge(subject)
+	if edge.listener ~= nil then
+		edge.listener = nil
+		detach(edge)
 	end
 end
 
@@ -425,6 +478,7 @@ return {
 	refresh = refresh,
 	notANode = notANode,
 	use = use,
+	runEffect = runEffect,
 	dependenciesMoved = dependenciesMoved,
 	evaluate = evaluate,
 	track = track,
@@ -433,4 +487,6 @@ return {
 	untracked = untracked,
 	countNotification = countNotification,
 	listen = listen,
+	listenEdge = listenEdge,
+	unlisten = unlisten,
 }

@@ -8,15 +8,14 @@ local Types = require "../reactive/types"
 
 type Dispose = Types.Dispose
 
-type Activation = { owner: Owner.Owner, thread: thread }
-
-local activations: { Activation } = {}
+local owners: { Owner.Owner } = {}
+local threads: { thread } = {}
 
 local function depth(): number
 	local running = coroutine.running()
 	local count = 0
-	for _, activation in activations do
-		if activation.thread == running or coroutine.status(activation.thread) == "normal" then
+	for _, thread in threads do
+		if thread == running or coroutine.status(thread) == "normal" then
 			count += 1
 		end
 	end
@@ -29,24 +28,25 @@ local function find(create: boolean): Owner.Owner?
 	local inherited: Owner.Owner? = nil
 	local seen: { [thread]: boolean }? = nil
 	local ambiguous = false
-	for index = #activations, 1, -1 do
-		local activation = activations[index]
-		if activation.thread == running then
-			explicit = activation.owner
+	for index = #threads, 1, -1 do
+		local thread = threads[index]
+		if thread == running then
+			explicit = owners[index]
 			break
 		else
-			local status = coroutine.status(activation.thread)
-			if status == "normal" and (seen == nil or not seen[activation.thread]) then
+			local status = coroutine.status(thread)
+			if status == "normal" and (seen == nil or not seen[thread]) then
 				local visited = seen or {}
 				seen = visited
-				visited[activation.thread] = true
+				visited[thread] = true
 				if inherited == nil then
-					inherited = activation.owner
-				elseif inherited ~= activation.owner then
+					inherited = owners[index]
+				elseif inherited ~= owners[index] then
 					ambiguous = true
 				end
 			elseif status == "dead" then
-				table.remove(activations, index)
+				table.remove(threads, index)
+				table.remove(owners, index)
 			end
 		end
 	end
@@ -77,26 +77,32 @@ local function nearest(): Owner.Owner?
 	return find(false)
 end
 
-local function push(owner: Owner.Owner): Activation
-	local activation: Activation = { owner = owner, thread = coroutine.running() }
-	table.insert(activations, activation)
-	return activation
+local function push(owner: Owner.Owner): thread
+	local running = coroutine.running()
+	local index = #threads + 1
+	threads[index] = running
+	owners[index] = owner
+	return running
 end
 
-local function pop(activation: Activation)
-	local last = #activations
-	if activations[last] == activation then
-		activations[last] = nil
+local function pop(owner: Owner.Owner, running: thread)
+	local last = #threads
+	if threads[last] == running and owners[last] == owner then
+		threads[last] = nil
+		owners[last] = nil
 		return
 	end
-	local index = table.find(activations, activation)
-	if index ~= nil then
-		table.remove(activations, index)
+	for index = last, 1, -1 do
+		if threads[index] == running and owners[index] == owner then
+			table.remove(threads, index)
+			table.remove(owners, index)
+			return
+		end
 	end
 end
 
-local function release<T...>(activation: Activation, ok: boolean, ...: T...): T...
-	pop(activation)
+local function release<T...>(owner: Owner.Owner, running: thread, ok: boolean, ...: T...): T...
+	pop(owner, running)
 	if not ok then
 		error(select(1, ...), 0)
 	end
@@ -104,14 +110,12 @@ local function release<T...>(activation: Activation, ok: boolean, ...: T...): T.
 end
 
 local function withOwner<T...>(owner: Owner.Owner, body: () -> T...): T...
-	local activation = push(owner)
-	return release(activation, pcall(body))
+	return release(owner, push(owner), pcall(body))
 end
 
 local function bind<Args..., Rets...>(owner: Owner.Owner, body: (Args...) -> Rets...): (Args...) -> Rets...
 	return function(...: Args...): Rets...
-		local activation = push(owner)
-		return release(activation, pcall(body, ...))
+		return release(owner, push(owner), pcall(body, ...))
 	end
 end
 
@@ -130,18 +134,18 @@ local function own(dispose: Dispose, operation: string): Dispose
 end
 
 local function runWith<A...>(owner: Owner.Owner, body: (A...) -> (), ...: A...)
-	local activation = push(owner)
+	local running = push(owner)
 	local ok, err: unknown = pcall(body, ...)
-	pop(activation)
+	pop(owner, running)
 	if not ok then
 		error(err, 0)
 	end
 end
 
 local function runWith1<T>(owner: Owner.Owner, body: () -> T): T
-	local activation = push(owner)
+	local running = push(owner)
 	local ok, result = pcall(body)
-	pop(activation)
+	pop(owner, running)
 	if not ok then
 		error(result, 0)
 	end
@@ -152,7 +156,8 @@ Owner.installActivationDepth(depth)
 Owner.installCurrentOwner(current)
 
 local function resetForTests()
-	table.clear(activations)
+	table.clear(threads)
+	table.clear(owners)
 end
 
 return {

@@ -6,6 +6,7 @@ local Weak = require "../weak"
 local Inspect = require "./inspect"
 local Reactor = require "../reactive/reactor"
 local watchModule = require "../reactive/watch"
+local NodeCast = require "../reactive/node"
 local Evaluation = require "../reactive/evaluation"
 
 type Dispose = Types.Dispose
@@ -19,14 +20,12 @@ export type Owner = {
 	reactor: Reactor.Reactor?,
 	boundary: Boundary?,
 	head: Owner?,
-	count: number?,
 	disposed: boolean?,
 	previous: Owner?,
 	following: Owner?,
 	release: Dispose?,
 	after: Dispose?,
-	releaseSubject: ((subject: unknown) -> ())?,
-	subject: unknown,
+	[number]: unknown,
 }
 
 export type Entry = Owner
@@ -41,6 +40,8 @@ local function new(inherited: Reactor.Reactor?, parent: Owner?): Owner
 		reactor = inherited or Reactor.create(),
 	}
 end
+
+local detached: Reactor.Reactor? = nil
 
 local function noop() end
 
@@ -62,21 +63,55 @@ end
 local disposeOwner: (owner: Owner) -> ()
 
 local function reactorOf(owner: Owner): Reactor.Reactor
-	return assert(owner.reactor, "Compose: a cleanup entry is not an owner")
+	local current: Owner? = owner
+	while current ~= nil do
+		local reactor = current.reactor
+		if reactor ~= nil then
+			return reactor
+		end
+		current = current.parent
+	end
+	local fallback = detached or Reactor.create()
+	detached = fallback
+	return fallback
+end
+
+local function isOwner(candidate: unknown): boolean
+	if type(candidate) ~= "table" then
+		return false
+	end
+	local owner = candidate :: Owner
+	return owner.release == nil
+		and owner[1] == nil
+		and (owner.reactor ~= nil or owner.parent ~= nil or owner.disposed ~= nil)
+end
+
+local function heldSize(entry: Entry): number
+	return #entry // 2
+end
+
+local function releaseBatch(batch: Entry, keep: number, failures: { unknown })
+	for index = #batch - 1, keep * 2 + 1, -2 do
+		local releaseSubject, subject = batch[index], batch[index + 1]
+		batch[index] = nil
+		batch[index + 1] = nil
+		if type(releaseSubject) == "function" then
+			local ok, failure: unknown = pcall(NodeCast.releaser(releaseSubject), subject)
+			if not ok then
+				table.insert(failures, failure)
+			end
+		end
+	end
 end
 
 local function releaseEntry(entry: Entry, failures: { unknown })
 	local release = entry.release
 	if release == nil then
-		local releaseSubject = entry.releaseSubject
-		if releaseSubject == nil then
-			disposeOwner(entry)
+		if entry[1] ~= nil then
+			releaseBatch(entry, 0, failures)
 			return
 		end
-		entry.releaseSubject = nil
-		local subject = entry.subject
-		entry.subject = nil
-		releaseSubject(subject)
+		disposeOwner(entry)
 		return
 	end
 	entry.release = nil
@@ -109,7 +144,6 @@ local function unlink(owner: Owner, entry: Entry)
 	end
 	entry.previous = nil
 	entry.following = nil
-	owner.count = (owner.count or 1) - 1
 end
 
 local function attach(owner: Owner, entry: Entry)
@@ -119,7 +153,6 @@ local function attach(owner: Owner, entry: Entry)
 		first.previous = entry
 	end
 	owner.head = entry
-	owner.count = (owner.count or 0) + 1
 end
 
 local function link(owner: Owner, release: Dispose, after: Dispose?): Entry
@@ -189,7 +222,33 @@ local function holdSubject(owner: Owner, releaseSubject: (subject: unknown) -> (
 		releaseSubject(subject)
 		return
 	end
-	attach(owner, { releaseSubject = releaseSubject, subject = subject })
+	local head = owner.head
+	if head == nil or head[1] == nil then
+		attach(owner, { releaseSubject, subject })
+		return
+	end
+	local size = #head
+	head[size + 1] = releaseSubject
+	head[size + 2] = subject
+end
+
+local function heldCount(owner: Owner): number
+	local head = owner.head
+	return if head == nil then 0 else heldSize(head)
+end
+
+local function rollbackHeld(owner: Owner, keep: number)
+	local head = owner.head
+	if head == nil then
+		return
+	end
+	local held = heldSize(head)
+	if held <= keep then
+		return
+	end
+	local failures: { unknown } = {}
+	releaseBatch(head, keep, failures)
+	raiseAll(failures)
 end
 
 local function adopt(owner: Owner, dispose: Dispose)
@@ -243,7 +302,6 @@ disposeOwner = function(owner: Owner)
 
 	local pending = owner.head
 	owner.head = nil
-	owner.count = 0
 	if pending == nil then
 		return
 	end
@@ -273,7 +331,14 @@ local function isDisposed(owner: Owner): boolean
 end
 
 local function size(owner: Owner): number
-	return owner.count or 0
+	local total = 0
+	local entry = owner.head
+	while entry ~= nil do
+		local held = heldSize(entry)
+		total += if held > 0 then held else 1
+		entry = entry.following
+	end
+	return total
 end
 
 local function guardWith(owner: Owner, boundary: Boundary)
@@ -281,7 +346,7 @@ local function guardWith(owner: Owner, boundary: Boundary)
 end
 
 local function createChild(owner: Owner): Owner
-	local child = new(owner.reactor, owner)
+	local child: Owner = { parent = owner }
 	if owner.disposed then
 		disposeOwner(child)
 	else
@@ -290,7 +355,10 @@ local function createChild(owner: Owner): Owner
 	if Inspect.isActive() then
 		Inspect.child(owner, child)
 	end
-	child.boundary = owner.boundary
+	local boundary = owner.boundary
+	if boundary ~= nil then
+		child.boundary = boundary
+	end
 	return child
 end
 
@@ -333,6 +401,24 @@ local function watchStatic<T>(
 			boundary.report(err)
 		end
 	end, nil, after)
+end
+
+local function listenHeld<T>(owner: Owner, producer: Types.ReadOnlyValue<T>, body: (value: T) -> ()): Types.Node
+	if Inspect.isActive() then
+		Inspect.watch(owner)
+	end
+	local edge = watchModule.listenEdge(reactorOf(owner), producer, body)
+	holdSubject(owner, watchModule.releaseHeld, edge)
+	return edge
+end
+
+local function effectHeld(owner: Owner, body: (use: Types.Use) -> ()): Types.Node
+	if Inspect.isActive() then
+		Inspect.watch(owner)
+	end
+	local node = watchModule.terminalNode(reactorOf(owner), body)
+	holdSubject(owner, watchModule.releaseHeld, node)
+	return node
 end
 
 local function watchTerminal(owner: Owner, body: (use: Types.Use) -> (), after: Dispose?): Dispose
@@ -424,6 +510,7 @@ end
 return {
 	createOwner = createOwner,
 	reactorOf = reactorOf,
+	isOwner = isOwner,
 	raiseAll = raiseAll,
 	installActivationDepth = installActivationDepth,
 	installCurrentOwner = installCurrentOwner,
@@ -447,6 +534,10 @@ return {
 	own = own,
 	adopt = adopt,
 	holdSubject = holdSubject,
+	listenHeld = listenHeld,
+	effectHeld = effectHeld,
+	heldCount = heldCount,
+	rollbackHeld = rollbackHeld,
 	watch = watch,
 	watchStatic = watchStatic,
 	watchTerminal = watchTerminal,
