@@ -363,6 +363,36 @@ local function git(arguments: { string }, cwd: string?): (string?, string?)
 	return result.stdout, nil
 end
 
+function Snapshot.executables(config: Config): { string }
+	local found: { string } = {}
+	local roots = { config.destination, config.docsDestination }
+	for _, root in roots do
+		local listed = git({ "ls-files", "-s", "--", root }, config.root)
+		for line in string.gmatch(listed or "", "[^\n]+") do
+			local mode, path = string.match(line, "^(%d+) %x+ %d+\t(.+)$")
+			if mode ~= nil and path ~= nil and mode ~= "100644" then
+				table.insert(found, path)
+			end
+		end
+	end
+	table.sort(found)
+	return found
+end
+
+local function clearExecutables(config: Config): string?
+	local executables = Snapshot.executables(config)
+	if #executables == 0 then
+		return nil
+	end
+	local arguments = { "update-index", "--chmod=-x", "--" }
+	for _, path in executables do
+		table.insert(arguments, path)
+		Run.capture({ "chmod", "644", Files.join(config.root, path) })
+	end
+	local _, failure = git(arguments, config.root)
+	return failure
+end
+
 function Snapshot.materialize(
 	config: Config,
 	repository: string,
@@ -438,6 +468,7 @@ end
 
 export type Request = {
 	check: boolean,
+	contentOnly: boolean?,
 	bump: string?,
 	source: string?,
 	materialize: Fetch?,
@@ -467,7 +498,22 @@ function Snapshot.sync(config: Config, request: Request): (number, string)
 		return 1, refusal or "invalid pin"
 	end
 	if request.bump == nil and Snapshot.verify(config, pin) then
-		return 0, ("%s: pinned dependency verified %s"):format(config.name, pin.commit)
+		local executables = if request.contentOnly then {} else Snapshot.executables(config)
+		if #executables == 0 then
+			return 0, ("%s: pinned dependency verified %s"):format(config.name, pin.commit)
+		elseif request.check then
+			return 1,
+				("%s: generated files must have mode 100644: %s; run lute run tools/facet sync %s"):format(
+					config.name,
+					table.concat(executables, ", "),
+					string.lower(config.name)
+				)
+		end
+		local failure = clearExecutables(config)
+		if failure ~= nil then
+			return 1, ("%s: %s"):format(config.name, failure)
+		end
+		return 0, ("%s: cleared the executable mode on %d generated files"):format(config.name, #executables)
 	end
 	if request.check then
 		return 1,
@@ -532,6 +578,10 @@ function Snapshot.sync(config: Config, request: Request): (number, string)
 	end
 	if not Snapshot.verify(config, pin) then
 		return 1, config.name .. " materialization did not match its pin"
+	end
+	local cleared = clearExecutables(config)
+	if cleared ~= nil then
+		return 1, ("%s: %s"):format(config.name, cleared)
 	end
 	return 0, ("%s: materialized %s"):format(config.name, pin.commit)
 end

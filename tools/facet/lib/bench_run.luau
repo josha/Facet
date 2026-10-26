@@ -58,7 +58,7 @@ local BASELINE = "bench/baseline.json"
 local ARTIFACT = "artifacts/bench.json"
 
 return function(shard: { index: number, count: number }?): number
-	local synced = Run.inherit({ Run.lute(), "run", "tools/facet", "sync", "compose", "--check" })
+	local synced = Run.inherit({ Run.lute(), "run", "tools/facet", "sync", "compose", "--check", "--content" })
 	if not synced.ok then
 		return 1
 	end
