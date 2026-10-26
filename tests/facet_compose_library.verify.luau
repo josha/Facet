@@ -3,6 +3,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
+	local FacetDesign = require("../src/design")
 	local Design = Facet.Design
 	local engines = require("./lib/native_engine")
 	local session = require("../tools/designer/modules/session")
@@ -156,6 +157,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local library = offline()
 				local list = names()
+				Verify.expect(Facet.designControls == FacetDesign.controls):toBe(true)
 				Verify.expect(#list):toBeGreaterThan(60)
 				for _, name in list do
 					Verify.expect(library.kinds[name].call):toBe("UI." .. name)
@@ -314,7 +316,7 @@ return function(verifyHarness: Verify.Harness)
 				value = Design.document.showWhen(value, library, button, "offered")
 				local code = Design.emit(value, library, {
 					name = "ChooseGameView",
-					controls = "local UI = Facet.controls(Facet.runtime())",
+					controls = "local UI = Facet.controls(runtime)",
 				})
 				for _, expected in
 					{
@@ -334,7 +336,7 @@ return function(verifyHarness: Verify.Harness)
 				end
 				Verify.expect(Design.emit(Design.parse(code, library), library, {
 					name = "ChooseGameView",
-					controls = "local UI = Facet.controls(Facet.runtime())",
+					controls = "local UI = Facet.controls(runtime)",
 				})):toBe(code)
 
 				local panel = Design.document.new("MatchmakingPanel", library, "Frame")
