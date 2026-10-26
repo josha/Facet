@@ -15,6 +15,7 @@ instances. It does not mount another application.
 | `fieldOfView` | Vertical field of view, default 48 degrees. Must be between zero and 180. |
 | `motion` | Theme motion role, default `move`. Reduced motion uses the end pose directly. |
 | `onUnavailable` | Optional callback with a failure reason. The interface returns to its original screen hosts. |
+| `interactive` | Optional. When `true`, presses on the tablet reach the live app's controls, and the screen returns only when the game sets `isPresented` to false. The surface is hosted beside the first layer so that it receives input. Default `false`: a press anywhere on the tablet returns to the screen. |
 
 The surface uses native SurfaceGui input and a queryable display part. Tapping
 the display reverses the shot. While pulled back, the display is a return target;

@@ -169,6 +169,15 @@ local classifyKnown: (key: string, text: string) -> Field?
 
 classify = function(key: string, text: string): Field?
 	local current = unwrap(text)
+	local parts = splitUnion(current)
+	if #parts > 1 and string.find(current, "->", 1, true) then
+		for _, part in parts do
+			local field = classify(key, part)
+			if field ~= nil and field.type == "content" then
+				return field
+			end
+		end
+	end
 	if string.find(current, "->", 1, true) then
 		if string.match(key, "^on%u") then
 			return { type = "event" }

@@ -187,16 +187,10 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 			}
 			local storage = Host.Folder "Cameras" { worldCamera }
 			cameraStorage = storage
-			local screen = Host.SurfaceGui "DiegeticCanvas" {
-				Parent = Compose.static(root),
-				Adornee = Compose.static(plate),
-				Face = E.NormalId.Front,
-				SizingMode = E.SurfaceGuiSizingMode.FixedSize,
-				CanvasSize = canvas,
-				LightInfluence = 0,
-				Enabled = false,
-				ZIndexBehavior = E.ZIndexBehavior.Sibling,
-				UI.Button "ReturnToScreen" {
+			local interactive = spec.interactive == true
+			local returnButton = if interactive
+				then nil
+				else UI.Button "ReturnToScreen" {
 					label = "",
 					name = "Return to screen",
 					Size = D2.fromScale(1, 1),
@@ -206,7 +200,20 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 					onActivate = function()
 						spec.isPresented:set(false)
 					end,
-				},
+				}
+			local host = if interactive
+				then assert(spec.layers[1].Parent, "An interactive screen needs a mounted layer")
+				else root
+			local screen = Host.SurfaceGui "DiegeticCanvas" {
+				Parent = Compose.static(host),
+				Adornee = Compose.static(plate),
+				Face = E.NormalId.Front,
+				SizingMode = E.SurfaceGuiSizingMode.FixedSize,
+				CanvasSize = canvas,
+				LightInfluence = 0,
+				Enabled = false,
+				ZIndexBehavior = E.ZIndexBehavior.Sibling,
+				returnButton,
 			}
 			ctx.overlayHosts[screen] = spec.layers[1]
 			surface:set(screen)
