@@ -2,11 +2,13 @@
 local Compose = require("../vendor/compose/core")
 local Types = require("./types")
 
-return function(ctx: Types.Context, roots: { GuiObject }): () -> boolean
+export type TextNode = TextLabel | TextButton | TextBox
+
+return function(ctx: Types.Context, roots: { GuiObject }): (texts: { TextNode }?) -> boolean
 	local provider = ctx.config.services.ContentProvider
 	local textService = ctx.config.services.TextService
 	if (provider == nil and textService == nil) or task == nil then
-		return function(): boolean
+		return function(_texts: { TextNode }?): boolean
 			return true
 		end
 	end
@@ -26,24 +28,32 @@ return function(ctx: Types.Context, roots: { GuiObject }): () -> boolean
 		pending = nil
 	end
 	ctx.Compose.cleanup(cancel)
-	return function(): boolean
-		local fonts: { [string]: TextLabel | TextButton | TextBox } = {}
+	local function collect(): { TextNode }
+		local found: { TextNode } = {}
 		for _, root in roots do
 			local texts = root:GetDescendants()
 			table.insert(texts, root)
 			for _, node in texts do
 				if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-					local face = node:GetStyled("FontFace") :: Font
-					fonts[`{face.Family}:{face.Weight.Name}:{face.Style.Name}:{node:GetStyled("TextSize")}`] = node
+					table.insert(found, node)
 				end
 			end
+		end
+		return found
+	end
+	return function(texts: { TextNode }?): boolean
+		local fonts: { [string]: TextNode } = {}
+		local nodes: { TextNode } = texts or collect()
+		for _, node in nodes do
+			local face = node:GetStyled("FontFace") :: Font
+			fonts[`{face.Family}:{face.Weight.Name}:{face.Style.Name}:{node:GetStyled("TextSize")}`] = node
 		end
 		local faces = {}
 		for source in fonts do
 			table.insert(faces, source)
 		end
 		table.sort(faces)
-		local sources: { TextLabel | TextButton | TextBox } = {}
+		local sources: { TextNode } = {}
 		for _, face in faces do
 			table.insert(sources, fonts[face])
 		end
