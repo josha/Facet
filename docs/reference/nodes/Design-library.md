@@ -3,7 +3,7 @@
 Author Facet screens as Compose Design documents. A document uses the format
 `compose-design/1` and the library name `Facet`.
 
-`Facet.design()` returns the design kit, loaded on first use. `kit.library(context)` returns a `Facet.DesignLibrary` for
+`Facet.design()` returns the design kit. `kit.library(context)` returns a `Facet.DesignLibrary` for
 `kit.Design`. Each Facet control is a kind with fields, defaults and a
 category.
 
@@ -81,6 +81,11 @@ Whole views:
   false input or state holds, emitted with `Facet.Compose.show`.
 - `kit.Design.document.setState` declares local state, such as an expanded
   flag. Bind a field to it with `{ state = "expanded" }`.
+- A bound value can move: `{ state = "glow", motion = "move" }` emits
+  `UI.follow(state.glow, "move")`. The roles are the theme's springs.
+- `kit.Design.document.setSequences` keeps timed steps in the design. An
+  event plays one with `{ play = "reveal" }`. Pass `motion = kit.motion(UI)`
+  in the context to animate them in a render.
 - Emit with `{ name = "ShopView", controls = "local UI = ..." }` to write a
   view that takes only `props`. `propsType` reuses an exported props type.
   `prelude` adds lines.

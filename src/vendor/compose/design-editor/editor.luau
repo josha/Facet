@@ -222,6 +222,12 @@ return function(ui: UI.UI)
 		local libraryPanel = LibraryPanel(ui)(session, libraryBody)
 		local inspector = Inspector(ui)(session, right, {
 			tokens = options.tokens,
+			play = function(sequence: string)
+				local flat = stage
+				if flat then
+					flat.play(sequence)
+				end
+			end,
 			measure = function(id: string, key: string): number?
 				local flat = stage
 				local instance: Compose.Node? = if flat then flat.nodes[id] else nil

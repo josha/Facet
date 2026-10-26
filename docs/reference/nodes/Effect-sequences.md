@@ -20,10 +20,14 @@ Motion already started by a callback remains owned by that control. `finish()` a
 cleanup. Reduced motion runs start, final sample and end in order without
 waiting. A game owns durable state and validation in its callbacks.
 
-`UI.countUp(value) -> ReadOnlyValue<number>` interpolates a finite number or
-readable using `motion.durations.countUp` and `motion.easing.countUp`. Feed
-it to a `UI.Text` formula to format a total. Retargeting starts at the current
+`UI.countUp(value) -> ReadOnlyValue<number>` interpolates a finite number
+with `motion.durations.countUp` and `motion.easing.countUp`, from the current
 number. Reduced motion applies the new number at once.
+
+`UI.follow(value, role)` follows a value with the theme spring
+`motion.springs[role]`, such as `move`. It moves numbers, `Color3`, `UDim2` and
+`Vector2`. `UI.toward(value, target)` is a step `sample` that moves a number
+value to `target`.
 
 `UI.Flash { target, progress, color?, mode? } -> Frame` paints a transient
 overlay for a GuiObject or readable target. The ownership anchor is empty.
@@ -33,10 +37,9 @@ measured target. Colour defaults to the theme accent. The paint hides at
 both ends and under reduced motion. It does not change target paint, parent
 or input. Compose owns its portal, observation and paint.
 
-Use `travelStagger` between lock callbacks, a parallel sweep and flash, then
-an `onStart` that changes a Travel destination. Use `travel` for that step,
-`countUp` for the total and a final refill callback. Use Travel's `onLanded`
-when the game must wait for actual placement. The consumer needs no frame loop.
+A reward uses `travelStagger` between locks, a parallel sweep and flash, a
+`travel` step that changes a Travel destination, `countUp` and a refill. Use
+Travel's `onLanded` to wait for placement. No frame loop is needed.
 
 `UI.shake(targets, options?) -> Sequence` creates no GUI. `targets` is a
 `{ GuiObject }` array or a readable array. `options.intensity` is a finite,

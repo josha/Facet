@@ -6143,15 +6143,9 @@ PAGE_DATA.RewardSequence = {
 }
 PAGE_DATA.sequence = PAGE_DATA.RewardSequence
 PAGE_DATA.shake = require("./shake_demo")
-PAGE_DATA.countUp = {
-	family = "media",
-	purpose = "Show a changing total.",
-	alternatives = "Use Text for a fixed number.",
-	snippet = "local number = UI.countUp(total)",
-	axes = {},
-	states = {},
-	make = PAGE_DATA.RewardSequence.make,
-}
+PAGE_DATA.countUp = require("./motion_pages").countUp
+PAGE_DATA.follow = require("./motion_pages").follow
+PAGE_DATA.toward = require("./motion_pages").toward
 PAGE_DATA.Flash = {
 	family = "media",
 	purpose = "Pulse or sweep over a GUI target.",

@@ -12,6 +12,7 @@ local MAX_NODES = 500
 local MAX_DEPTH = 32
 local IDENTIFIER = "^%l[%w]*$"
 local OUTPUT = "^on%u[%w]*$"
+local TOKEN = "^%a[%w]*$"
 local DATATYPE_ARITY: { [string]: number } =
 	{ UDim2 = 4, UDim = 2, Vector2 = 2, Vector3 = 3, Rect = 4, NumberRange = 2 }
 
@@ -54,6 +55,8 @@ local function copyValue(value: Value): Value
 		nodes = if value.nodes then table.clone(value.nodes) else nil,
 		token = value.token,
 		state = value.state,
+		motion = value.motion,
+		play = value.play,
 	}
 end
 document.copyValue = copyValue
@@ -125,6 +128,29 @@ local function copyState(state: { Types.State }?): { Types.State }?
 	return copied
 end
 
+local function copySequences(sequences: { Types.Sequence }?): { Types.Sequence }?
+	if sequences == nil then
+		return nil
+	end
+	local copied: { Types.Sequence } = {}
+	for index, sequence in sequences do
+		local steps: { Types.SequenceStep } = {}
+		for at, step in sequence.steps do
+			local target = step.to
+			steps[at] = {
+				delay = step.delay,
+				duration = step.duration,
+				easing = step.easing,
+				state = step.state,
+				to = if target ~= nil then copyLiteral(target) else nil,
+				output = step.output,
+			}
+		end
+		copied[index] = { id = sequence.id, autoplay = sequence.autoplay, steps = steps }
+	end
+	return copied
+end
+
 local function copyDocument(value: Document): Document
 	return {
 		schema = "compose-design/1",
@@ -133,6 +159,7 @@ local function copyDocument(value: Document): Document
 		nextId = value.nextId,
 		contract = copyContract(value.contract),
 		state = copyState(value.state),
+		sequences = copySequences(value.sequences),
 		root = copyNode(value.root),
 	}
 end
@@ -204,6 +231,9 @@ local function present(value: Value): number
 	if value.state ~= nil then
 		count += 1
 	end
+	if value.play ~= nil then
+		count += 1
+	end
 	return count
 end
 
@@ -261,6 +291,19 @@ local function stateOf(value: Document, id: string): Types.State?
 end
 document.stateOf = stateOf
 
+local function sequenceOf(value: Document, id: string): Types.Sequence?
+	local sequences = value.sequences
+	if sequences then
+		for _, sequence in sequences do
+			if sequence.id == id then
+				return sequence
+			end
+		end
+	end
+	return nil
+end
+document.sequenceOf = sequenceOf
+
 local function cellsOf(current: Literal, found: { [string]: true }): { [string]: true }
 	if type(current) == "table" then
 		local template = current["$template"]
@@ -297,6 +340,12 @@ end
 
 local function checkValue(value: Document, field: Types.Field, property: Value, collection: Types.Input?, key: string)
 	assert(present(property) == 1, `{key} holds exactly one literal or binding`)
+	local played = property.play
+	if played ~= nil then
+		assert(sequenceOf(value, played) ~= nil, `{key} plays unknown sequence {played}`)
+		assert(field.type == "event", `{key} cannot play a sequence`)
+		return
+	end
 	local stateId = property.state
 	if stateId ~= nil then
 		assert(stateOf(value, stateId) ~= nil, `{key} reads unknown state {stateId}`)
@@ -321,6 +370,14 @@ local function checkValue(value: Document, field: Types.Field, property: Value, 
 		return
 	end
 	assert(field.type ~= "node", `{key} references another node`)
+	local holdsContent = field.type == "content"
+	if current ~= nil and holdsContent then
+		assert(
+			type(current) == "table" and type(current["$template"]) == "string",
+			`{key} holds a slot input or a content node`
+		)
+		return
+	end
 	if current ~= nil then
 		assert(plain(current, 0), `{key} must be plain data`)
 		checkOutputs(value, current, key, collection)
@@ -424,6 +481,35 @@ function document.validate(value: Document, library: Library): Document
 			assert(plain(entry.initial, 0), `State {entry.id} starts with plain data`)
 		end
 	end
+	local sequences = value.sequences
+	if sequences then
+		assert(library.sequence ~= nil, `{library.name} cannot play sequences`)
+		for _, sequence in sequences do
+			local id = sequence.id
+			assert(string.match(id, IDENTIFIER) ~= nil, "Sequence ids are lower camel case")
+			assert(
+				inputOf(value, id) == nil and not hasOutput(value, id) and stateOf(value, id) == nil,
+				`Duplicate id {id}`
+			)
+			assert(sequenceOf(value, id) == sequence, `Duplicate sequence id {id}`)
+			assert(#sequence.steps > 0 and #sequence.steps <= 32, `Sequence {id} holds 1 to 32 steps`)
+			for _, step in sequence.steps do
+				for _, token in { step.delay, step.duration, step.easing } do
+					assert(
+						type(token) == "string" and string.match(token, TOKEN) ~= nil,
+						`Sequence {id} times steps with token names`
+					)
+				end
+				local target = step.state
+				assert((target == nil) == (step.to == nil), `Sequence {id} moves a state to a value`)
+				assert(target == nil or stateOf(value, target) ~= nil, `Sequence {id} moves unknown state {target}`)
+				local to = step.to
+				assert(to == nil or plain(to, 0), `Sequence {id} moves state to plain data`)
+				local output = step.output
+				assert(output == nil or hasOutput(value, output), `Sequence {id} calls unknown output {output}`)
+			end
+		end
+	end
 	local seen: { [string]: true } = {}
 	local count, highest = 0, 0
 	local references: { [string]: string } = {}
@@ -487,6 +573,16 @@ function document.validate(value: Document, library: Library): Document
 			local literal = property.literal
 			assert(not field.perRow or own ~= nil, `{key} needs the node to repeat a list`)
 			checkValue(value, field, property, if literal ~= nil and own ~= nil then own else collection, key)
+			local role = property.motion
+			if role ~= nil then
+				local motion = assert(library.motion, `{library.name} has no motion roles`)
+				assert(table.find(motion.roles, role) ~= nil, `{key} moves with unknown motion role {role}`)
+				assert(
+					property.input ~= nil or property.state ~= nil or property.item ~= nil,
+					`{key} moves only when it follows an input, state or item`
+				)
+				assert(field.type ~= "event" and field.type ~= "content" and field.type ~= "node", `{key} cannot move`)
+			end
 			if literal ~= nil then
 				cellsOf(literal, cells)
 			end
@@ -505,10 +601,16 @@ function document.validate(value: Document, library: Library): Document
 		local nested = collection
 		local rowCollection: Types.Input? = nil
 		local rowId: string? = nil
+		local ordinary = 0
+		for _, child in node.children do
+			if not cells[child.id] then
+				ordinary += 1
+			end
+		end
 		if kind.children == "none" then
-			assert(#node.children == 0 and node.bind == nil, `{node.kind} holds no children`)
+			assert(ordinary == 0 and node.bind == nil, `{node.kind} holds no children`)
 		elseif kind.children == "slot" then
-			assert(#node.children <= 1 and node.bind == nil, `{node.kind} holds one content node`)
+			assert(ordinary <= 1 and node.bind == nil, `{node.kind} holds one content node`)
 			assert(kind.slot ~= nil, `{node.kind} names no content property`)
 		elseif kind.children == "template" then
 			local bind = node.bind
@@ -583,7 +685,7 @@ function document.validate(value: Document, library: Library): Document
 		end
 		for _, child in node.children do
 			if cells[child.id] then
-				visit(child, depth + 1, own)
+				visit(child, depth + 1, own or collection)
 				continue
 			end
 			local isRow = rowCollection ~= nil and child.id == rowId
@@ -740,13 +842,56 @@ function document.applies(node: Node, kind: Types.Kind, key: string): boolean
 	return true
 end
 
+function document.content(
+	value: Document,
+	library: Library,
+	id: string,
+	key: string,
+	kindName: string
+): (Document, string)
+	local nextValue = copyDocument(value)
+	local node = assert(document.find(nextValue.root, id), "Choose a node")
+	local kind = assert(library.kinds[node.kind])
+	local field = assert(kind.fields[key], `{node.kind} has no property {key}`)
+	assert(field.type == "content", `{key} does not hold content`)
+	local child = assert(library.kinds[kindName], `Unknown {library.name} kind {kindName}`)
+	local childId = `n{nextValue.nextId}`
+	nextValue.nextId += 1
+	table.insert(node.children, {
+		id = childId,
+		kind = kindName,
+		name = kindName,
+		props = defaults(child),
+		children = {},
+	})
+	local marker: Types.Row = { ["$template"] = childId }
+	node.props[key] = { literal = marker }
+	return document.validate(nextValue, library), childId
+end
+
 function document.change(value: Document, library: Library, id: string, key: string, property: Value?): Document
 	local nextValue = copyDocument(value)
 	local node = assert(document.find(nextValue.root, id), "Choose a node")
+	local previous = node.props[key]
+	local before = if previous and previous.literal ~= nil then cellsOf(previous.literal, {}) else {}
 	if property then
 		node.props[key] = copyValue(property)
 	else
 		node.props[key] = nil
+	end
+	if next(before) ~= nil then
+		local kept: { [string]: true } = {}
+		for _, other in node.props do
+			if other.literal ~= nil then
+				cellsOf(other.literal, kept)
+			end
+		end
+		for index = #node.children, 1, -1 do
+			local childId = node.children[index].id
+			if before[childId] and not kept[childId] then
+				table.remove(node.children, index)
+			end
+		end
 	end
 	local kind = library.kinds[node.kind]
 	if kind then
@@ -856,6 +1001,12 @@ function document.showWhen(value: Document, library: Library, id: string, condit
 	local nextValue = copyDocument(value)
 	local node = assert(document.find(nextValue.root, id), "Choose a node")
 	node.when = condition
+	return document.validate(nextValue, library)
+end
+
+function document.setSequences(value: Document, library: Library, sequences: { Types.Sequence }?): Document
+	local nextValue = copyDocument(value)
+	nextValue.sequences = if sequences ~= nil and #sequences > 0 then copySequences(sequences) else nil
 	return document.validate(nextValue, library)
 end
 

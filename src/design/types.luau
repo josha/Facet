@@ -1,5 +1,6 @@
 --!strict
 
+local Core = require("../vendor/compose/core")
 local Design = require("../vendor/compose/design/types")
 
 export type Literal = Design.Literal
@@ -44,6 +45,22 @@ export type Context = {
 	enumItem: ((enumName: string, item: string) -> unknown)?,
 	host: ((className: string, name: string, props: { [unknown]: unknown }) -> unknown)?,
 	provide: ((content: unknown) -> unknown)?,
+	tokens: Tokens?,
+	motion: Motion?,
+}
+
+export type Motion = {
+	animate: (source: Core.ReadOnlyValue<Literal?>, role: string) -> Core.ReadOnlyValue<Literal?>,
+	sequence: (
+		sequence: Design.Sequence,
+		states: { [string]: Core.Value<Literal?> },
+		outputs: { [string]: () -> () }
+	) -> Design.Player,
+}
+
+export type Tokens = {
+	path: string,
+	require: string,
 }
 
 export type StudioKit = Design.Kit

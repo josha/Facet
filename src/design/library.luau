@@ -6,6 +6,7 @@ local Types = require("./types")
 local controls = require("./controls")
 local derived = require("./fields")
 local icons = require("../ui/icons")
+local Motion = require("./motion")
 
 type Literal = Design.Literal
 type Resolved = Design.Resolved
@@ -562,6 +563,13 @@ local function create(context: Context): Design.Library
 						end
 					end
 				end
+				if
+					name == "Menu"
+					and (values.trigger ~= nil or live.trigger ~= nil)
+					and values.label == spec.defaults.label
+				then
+					values.label = nil
+				end
 				if name == "Table" then
 					local columns = record(values.columns)
 					if columns ~= nil then
@@ -674,11 +682,30 @@ local function create(context: Context): Design.Library
 		end
 	end
 
+	local tokens = context.tokens
+	if tokens ~= nil then
+		for _, kind in kinds do
+			for key, field in kind.fields do
+				local measure = string.match(key, "[Gg]ap$")
+					or string.match(key, "[Pp]adding")
+					or key == "width"
+					or key == "height"
+				if field.type == "color" or field.type == "number" or measure then
+					field.tokens = true
+				end
+			end
+		end
+	end
+	local prelude = { 'local Facet = require(game:GetService("ReplicatedStorage").Facet)' }
+	if tokens ~= nil then
+		table.insert(prelude, tokens.require)
+	end
 	return {
 		name = "Facet",
 		parameter = "UI",
 		parameterType = "Facet.Controls",
-		prelude = { 'local Facet = require(game:GetService("ReplicatedStorage").Facet)' },
+		prelude = prelude,
+		token = if tokens ~= nil then tokens.path else nil,
 		returnType = "GuiObject",
 		readable = "Facet.ReadOnlyValue",
 		cell = "Facet.Value",
@@ -695,8 +722,19 @@ local function create(context: Context): Design.Library
 			end,
 		},
 		keyed = "Facet.Compose.keyed",
+		motion = {
+			call = "UI.follow",
+			roles = Motion.roles,
+			animate = if context.motion then context.motion.animate else nil,
+		},
+		sequence = {
+			call = "UI.sequence",
+			toward = "UI.toward",
+			build = if context.motion then context.motion.sequence else nil,
+		},
 		space = "2d",
 		provide = context.provide,
+		contentKind = "HStack",
 		categories = {
 			"Layout",
 			"Content",

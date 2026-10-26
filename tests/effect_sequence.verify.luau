@@ -189,4 +189,50 @@ return function(harness: Verify.Harness)
 		progress:set(0.5)
 		t:expect(flash.Visible):toBe(false)
 	end)
+	harness:case("follow springs to a value and toward fills a step from where it starts", function(t)
+		local native = engineLib.new()
+		local C = Facet.Compose
+		local runtime = Facet.Roblox.createRuntime(native)
+		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local target, charge = C.cell(0), C.cell(0.25)
+		local reduced = C.cell("normal" :: Shared.MotionLevel)
+		local followed: Facet.ReadOnlyValue<number>
+		local fill: EffectTypes.Sequence
+		local stop = runtime.mount(function()
+			local UI = Facet.controls(runtime, { types = native.types, motionLevel = reduced })
+			followed = UI.follow(target, "move")
+			fill = UI.sequence { steps = { { duration = "glide", sample = UI.toward(charge, 1) } } }
+			t:expect(function()
+				UI.toward(charge, math.huge)
+			end):toThrow("Facet toward requires a finite target")
+			return Host.Frame {}
+		end, native.new("Folder"))
+		t:defer(function()
+			stop()
+			runtime:dispose()
+		end)
+		target:set(10)
+		native.heartbeat:Fire(1 / 60)
+		local early = followed:peek()
+		t:expect(early > 0 and early < 10):toBe(true)
+		for _ = 1, 240 do
+			native.heartbeat:Fire(1 / 60)
+		end
+		t:expect(math.abs(followed:peek() - 10) < 0.01):toBe(true)
+		fill.play()
+		native.heartbeat:Fire(0.05)
+		local middle = charge:peek()
+		t:expect(middle > 0.25 and middle < 1):toBe(true)
+		for _ = 1, 60 do
+			native.heartbeat:Fire(1 / 60)
+		end
+		t:expect(charge:peek()):toBe(1)
+		charge:set(0)
+		fill.play()
+		native.heartbeat:Fire(0.05)
+		t:expect(charge:peek() > 0 and charge:peek() < middle):toBe(true)
+		reduced:set("none")
+		target:set(-4)
+		t:expect(followed:peek()):toBe(-4)
+	end)
 end

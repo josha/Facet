@@ -13,6 +13,7 @@ export type Inspector = {
 export type Options = {
 	tokens: { string }?,
 	measure: ((id: string, key: string) -> number?)?,
+	play: ((sequence: string) -> ())?,
 }
 
 return function(ui: UI.UI)
@@ -27,12 +28,18 @@ return function(ui: UI.UI)
 			return ""
 		end
 		local input, item, output, token, node = value.input, value.item, value.output, value.token, value.node
+		local held, played, role = value.state, value.play, value.motion
+		local moving = if role then "  〜 " .. role else ""
 		if node then
 			return "◎ " .. node
+		elseif played then
+			return "▶ " .. played
+		elseif held then
+			return "state." .. held .. moving
 		elseif input then
-			return input
+			return input .. moving
 		elseif item then
-			return "item." .. item
+			return "item." .. item .. moving
 		elseif output then
 			return "→ " .. output
 		elseif token then
@@ -44,6 +51,8 @@ return function(ui: UI.UI)
 	local function glyphOf(value: Design.Value): string
 		if value.token then
 			return "◆"
+		elseif value.play then
+			return "▶"
 		elseif value.output then
 			return "⚡"
 		end
@@ -55,6 +64,12 @@ return function(ui: UI.UI)
 		if field.type == "event" then
 			for _, output in value.contract.outputs do
 				table.insert(list, { output = output.id })
+			end
+			local sequences = value.sequences
+			if sequences then
+				for _, sequence in sequences do
+					table.insert(list, { play = sequence.id })
+				end
 			end
 			return list
 		end
@@ -74,6 +89,12 @@ return function(ui: UI.UI)
 				table.insert(list, { input = input.id })
 			end
 		end
+		local state = value.state
+		if state and field.type ~= "content" then
+			for _, entry in state do
+				table.insert(list, { state = entry.id })
+			end
+		end
 		if field.tokens then
 			for _, name in tokens do
 				table.insert(list, { token = name })
@@ -89,6 +110,8 @@ return function(ui: UI.UI)
 			and left.token == right.token
 			and left.item == right.item
 			and left.node == right.node
+			and left.state == right.state
+			and left.play == right.play
 	end
 
 	local function humanize(key: string): string
@@ -405,6 +428,7 @@ return function(ui: UI.UI)
 						local line, caption = row(key, entry.label or humanize(key))
 						local slot = editorSlot(line)
 						local literal = if property then property.literal else nil
+						local contentKind = session.library.contentKind
 						if property and literal == nil then
 							local pill = pressable("Binding", color.accentSoft, color.hover, function()
 								session.change(key, nil)
@@ -576,6 +600,30 @@ return function(ui: UI.UI)
 							)
 							ui.set(box, "Size", ui.values.udim2(1, 0, 1, 0))
 							ui.set(box, "Parent", slot)
+						elseif
+							entry.type == "content"
+							and type(literal) == "table"
+							and type(literal["$template"]) == "string"
+						then
+							local childId: string = literal["$template"]
+							local open = pressable("OpenContent", color.accentSoft, color.hover, function()
+								session.select(childId)
+							end)
+							ui.set(open, "Size", ui.values.udim2(1, 0, 1, 0))
+							local found = Design.document.find(value.root, childId)
+							ui.set(open, "Text", "◇ " .. (if found then found.name else childId))
+							ui.set(open, "TextColor3", color.accent)
+							ui.set(open, "TextSize", size.small)
+							ui.set(open, "Parent", slot)
+						elseif entry.type == "content" and contentKind ~= nil then
+							local add = pressable("AddContent", color.panel, color.hover, function()
+								session.content(key, contentKind)
+							end)
+							ui.set(add, "Size", ui.values.udim2(1, 0, 1, 0))
+							ui.set(add, "Text", "+ " .. contentKind)
+							ui.set(add, "TextColor3", color.accent)
+							ui.set(add, "TextSize", size.small)
+							ui.set(add, "Parent", slot)
 						else
 							local hint = Theme.label("Not bound", color.tertiary, size.small)
 							ui.set(hint, "Size", ui.values.udim2(1, 0, 1, 0))
@@ -591,7 +639,10 @@ return function(ui: UI.UI)
 										at = index
 									end
 								end
-								session.change(key, available[at % #available + 1])
+								local chosen = table.clone(available[at % #available + 1])
+								local follows = chosen.input ~= nil or chosen.state ~= nil or chosen.item ~= nil
+								chosen.motion = if property and follows then property.motion else nil
+								session.change(key, chosen)
 							end, 1)
 							ui.set(link, "Size", ui.values.udim2(0, 24, 0, 24))
 							ui.set(link, "AnchorPoint", ui.values.vector2(1, 0.5))
@@ -605,6 +656,27 @@ return function(ui: UI.UI)
 							ui.set(link, "FontFace", Theme.font.bold)
 							ui.set(link, "TextColor3", if bound then color.accent else color.tertiary)
 							ui.set(link, "Parent", line)
+						end
+						local motion = session.library.motion
+						local follows = property ~= nil
+							and (property.input ~= nil or property.state ~= nil or property.item ~= nil)
+						if motion ~= nil and property ~= nil and follows then
+							local current = property
+							local roles = motion.roles
+							local moves = pressable("Motion", color.panel, color.hover, function()
+								local at = if current.motion then table.find(roles, current.motion) or 0 else 0
+								local moved = table.clone(current)
+								moved.motion = roles[at + 1]
+								session.change(key, moved)
+							end, 1)
+							ui.set(moves, "Size", ui.values.udim2(0, 24, 0, 24))
+							ui.set(moves, "AnchorPoint", ui.values.vector2(1, 0.5))
+							ui.set(moves, "Position", ui.values.udim2(1, -28, 0.5, 0))
+							ui.set(moves, "Text", "〜")
+							ui.set(moves, "TextSize", size.small)
+							ui.set(moves, "FontFace", Theme.font.bold)
+							ui.set(moves, "TextColor3", if current.motion then color.accent else color.tertiary)
+							ui.set(moves, "Parent", line)
 						end
 					end
 				end
@@ -629,6 +701,33 @@ return function(ui: UI.UI)
 				ui.set(toggle, "Parent", toggleFrame)
 				if advancedOpen then
 					renderGroups({ "Advanced" }, { Advanced = advancedKeys })
+				end
+			end
+			local sequences = value.sequences
+			local play = settings.play
+			if sequences and play then
+				local heading = block("Sequences", 28)
+				local title = Theme.label("Sequences", color.secondary, size.small)
+				ui.set(title, "FontFace", Theme.font.bold)
+				ui.set(title, "Size", ui.values.udim2(1, -2 * size.gutter, 1, 0))
+				ui.set(title, "Position", ui.values.udim2(0, size.gutter, 0, 0))
+				ui.set(title, "Parent", heading)
+				for _, entry in sequences do
+					local strip = block("Sequence", 32)
+					local sequenceId = entry.id
+					local start = pressable("Play", color.raised, color.hover, function()
+						play(sequenceId)
+					end)
+					local steps = #entry.steps
+					local plural = if steps == 1 then "step" else "steps"
+					local autoplay = if entry.autoplay then "  ·  on show" else ""
+					ui.set(start, "Text", `▶  {sequenceId}   {steps} {plural}{autoplay}`)
+					ui.set(start, "TextColor3", color.text)
+					ui.set(start, "TextSize", size.small)
+					ui.set(start, "TextXAlignment", ui.values.enum("TextXAlignment", "Left"))
+					ui.set(start, "Size", ui.values.udim2(1, -2 * size.gutter, 0, 28))
+					ui.set(start, "Position", ui.values.udim2(0, size.gutter, 0, 2))
+					ui.set(start, "Parent", strip)
 				end
 			end
 			block("End", 16)

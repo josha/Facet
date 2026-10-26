@@ -159,6 +159,37 @@ local function stateLiteral(state: { Types.State }): Literal
 	return list
 end
 
+local function sequencesLiteral(sequences: { Types.Sequence }): Literal
+	local entries: Record = {}
+	for index, sequence in sequences do
+		local steps: Record = {}
+		for at, step in sequence.steps do
+			local entry: Record = {}
+			local function put(key: string, found: string?)
+				if found ~= nil then
+					entry[key] = found
+				end
+			end
+			put("delay", step.delay)
+			put("duration", step.duration)
+			put("easing", step.easing)
+			put("state", step.state)
+			put("output", step.output)
+			local to = step.to
+			if to ~= nil then
+				entry.to = to
+			end
+			steps[at] = entry
+		end
+		local record: Record = { id = sequence.id, steps = steps }
+		if sequence.autoplay then
+			record.autoplay = true
+		end
+		entries[index] = record
+	end
+	return entries
+end
+
 local function scalar(library: Library, kind: string): string
 	if kind == "number" then
 		return "number"
@@ -280,6 +311,10 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 	local state = value.state
 	if state and #state > 0 then
 		header.state = stateLiteral(state)
+	end
+	local sequences = value.sequences
+	if sequences and #sequences > 0 then
+		header.sequences = sequencesLiteral(sequences)
 	end
 	table.insert(lines, "local _design = " .. layoutHeader(header))
 	table.insert(lines, "")
@@ -450,7 +485,11 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			local owner = assert(cellOwner, "A cell template needs its node")
 			local found = Document.find(owner, template)
 			local cell = assert(found, "A cell template names a child")
-			return rowFunction(cell, depth, assert(owner.bind, "A cell template needs a repeated list").from)
+			local bound = owner.bind
+			if bound == nil then
+				return returning("", emit(cell, depth + 1), depth)
+			end
+			return rowFunction(cell, depth, bound.from)
 		end
 		local keys: { string | number } = {}
 		for key in current do
@@ -545,6 +584,13 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		return name
 	end
 	local function expression(property: Value, depth: number, used: number): string
+		local role = property.motion
+		if role ~= nil then
+			local motion = assert(library.motion, `{library.name} has no motion roles`)
+			local still = table.clone(property)
+			still.motion = nil
+			return `{motion.call}({expression(still, depth, used)}, {literal(role)})`
+		end
 		local target = property.node
 		if target ~= nil then
 			return `refs.{target}`
@@ -552,6 +598,10 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		local stateId = property.state
 		if stateId ~= nil then
 			return `state.{stateId}`
+		end
+		local played = property.play
+		if played ~= nil then
+			return `sequences.{played}.play`
 		end
 		local source = property.nodeFrom
 		if source ~= nil then
@@ -594,6 +644,9 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			return callback(output, list, depth)
 		end
 		local call = assert(library.token, `{library.name} has no theme tokens`)
+		if string.sub(call, -1) == "." then
+			return call .. assert(token)
+		end
 		return `{call} {literal(assert(token))}`
 	end
 	local function tagged(node: Node, depth: number): string
@@ -624,10 +677,7 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		if nameField ~= nil then
 			opening = `{kind.call}(tostring(current:peek().{nameField})) `
 		elseif nameInput ~= nil then
-			local declared = assert(Document.input(value, nameInput))
-			opening = if declared.required
-				then `{kind.call}(props.{nameInput}) `
-				else `{kind.call}(props.{nameInput} or {literal(node.name)}) `
+			opening = `{kind.call}(props.{nameInput} or {literal(node.name)}) `
 		else
 			opening = `{kind.call} {literal(node.name)} `
 		end
@@ -808,6 +858,49 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			table.insert(lines, "\tlocal named = { " .. table.concat(entries, ", ") .. " }")
 		end
 	end
+	local sequenceLines: { string } = {}
+	if sequences and #sequences > 0 then
+		local sequencing = assert(library.sequence, `{library.name} cannot play sequences`)
+		table.insert(sequenceLines, "\tlocal sequences = {")
+		for _, sequence in sequences do
+			table.insert(sequenceLines, "\t\t" .. sequence.id .. " = " .. sequencing.call .. " {")
+			table.insert(sequenceLines, "\t\t\tsteps = {")
+			for _, step in sequence.steps do
+				local parts: { string } = {}
+				local function timed(key: string, token: string?)
+					if token ~= nil then
+						table.insert(parts, `{key} = {literal(token)}`)
+					end
+				end
+				timed("delay", step.delay)
+				timed("duration", step.duration)
+				timed("easing", step.easing)
+				local target, to = step.state, step.to
+				if target ~= nil and to ~= nil then
+					table.insert(
+						parts,
+						if type(to) == "number"
+							then `sample = {sequencing.toward}(state.{target}, {literal(to)})`
+							else `onStart = function() state.{target}:set({literal(to)}) end`
+					)
+					readsState = true
+				end
+				local output = step.output
+				if output ~= nil then
+					table.insert(parts, `onEnd = props.{output}`)
+				end
+				table.insert(sequenceLines, "\t\t\t\t{ " .. table.concat(parts, ", ") .. " },")
+			end
+			table.insert(sequenceLines, "\t\t\t},")
+			table.insert(sequenceLines, "\t\t},")
+		end
+		table.insert(sequenceLines, "\t}")
+		for _, sequence in sequences do
+			if sequence.autoplay then
+				table.insert(sequenceLines, `\tsequences.{sequence.id}.play()`)
+			end
+		end
+	end
 	if state and #state > 0 and readsState then
 		local newCell = assert(library.newCell, `{library.name} cannot hold state; it names no cell constructor`)
 		local cells: { string } = {}
@@ -822,6 +915,9 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			)
 		end
 		table.insert(lines, "\tlocal state = { " .. table.concat(cells, ", ") .. " }")
+	end
+	for _, line in sequenceLines do
+		table.insert(lines, line)
 	end
 	for _, definition in rowDefinitions do
 		table.insert(lines, definition)
@@ -1037,6 +1133,35 @@ local function stateFrom(header: Record): { Types.State }?
 	return state
 end
 
+local function sequencesFrom(header: Record): { Types.Sequence }?
+	if header.sequences == nil then
+		return nil
+	end
+	local sequences: { Types.Sequence } = {}
+	for _, entry in list(header, "sequences") do
+		local steps: { Types.SequenceStep } = {}
+		for _, step in list(entry, "steps") do
+			local function token(key: string): string?
+				local found = step[key]
+				return if type(found) == "string" then found else nil
+			end
+			table.insert(steps, {
+				delay = token "delay",
+				duration = token "duration",
+				easing = token "easing",
+				state = token "state",
+				to = step.to,
+				output = token "output",
+			})
+		end
+		table.insert(
+			sequences,
+			{ id = text(entry, "id"), autoplay = if entry.autoplay == true then true else nil, steps = steps }
+		)
+	end
+	return sequences
+end
+
 local function fieldsFrom(entry: Record): { Types.ItemField }
 	local declared: { Types.ItemField } = {}
 	for _, field in list(entry, "fields") do
@@ -1190,7 +1315,33 @@ function source.parse(code: string, library: Library): Types.Document
 		end
 		return path
 	end
+	local function startsCall(path: string): boolean
+		local offset = 0
+		for index, part in string.split(path, ".") do
+			if index > 1 then
+				if peek(offset) ~= "." then
+					return false
+				end
+				offset += 1
+			end
+			if peek(offset) ~= part then
+				return false
+			end
+			offset += 1
+		end
+		return peek(offset) == "("
+	end
 	local function value(): (Value?, Node?)
+		local motion = library.motion
+		if motion ~= nil and startsCall(motion.call) then
+			dotted()
+			take "("
+			local moving = assert(value(), `{motion.call} moves an input, state or item`)
+			take ","
+			moving.motion = unquote(take().text)
+			take ")"
+			return moving, nil
+		end
 		local bare = tokens[at]
 		if bare and bare.kind == "name" and rows[bare.text] ~= nil and (peek(1) == "," or peek(1) == "}") then
 			take()
@@ -1203,6 +1354,14 @@ function source.parse(code: string, library: Library): Types.Document
 				table.insert(pendingCells, cell)
 			end
 			return { literal = typedLiterals[bare.text] }, nil
+		end
+		if peek() == "sequences" and peek(1) == "." then
+			take "sequences"
+			take "."
+			local played = name()
+			take "."
+			take "play"
+			return { play = played }, nil
 		end
 		if peek() == "state" and peek(1) == "." then
 			take "state"
@@ -1375,7 +1534,11 @@ function source.parse(code: string, library: Library): Types.Document
 		local tokenCall = library.token
 		if tokenCall and tokens[at] and tokens[at].kind == "name" then
 			local start = at
-			if dotted() == tokenCall then
+			local path = dotted()
+			if string.sub(tokenCall, -1) == "." and string.sub(path, 1, #tokenCall) == tokenCall then
+				return { token = string.sub(path, #tokenCall + 1) }, nil
+			end
+			if path == tokenCall then
 				local wrapped = peek() == "("
 				if wrapped then
 					take "("
@@ -1479,7 +1642,12 @@ function source.parse(code: string, library: Library): Types.Document
 				local prop = name()
 				take "="
 				local property, template = value()
-				if template then
+				local contentField = kind.fields[prop]
+				if template and contentField and contentField.type == "content" then
+					local marker: Record = { ["$template"] = template.id }
+					result.props[prop] = { literal = marker }
+					table.insert(pendingCells, template)
+				elseif template then
 					assert(
 						prop == (if kind.children == "slot" then kind.slot else kind.template),
 						`{prop} cannot hold a template`
@@ -1701,6 +1869,7 @@ function source.parse(code: string, library: Library): Types.Document
 		nextId = nextId,
 		contract = contractOf(header),
 		state = stateFrom(header),
+		sequences = sequencesFrom(header),
 		root = root,
 	}, library)
 end

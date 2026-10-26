@@ -128,9 +128,10 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end
 
-	local function live(ctx: Context): Facet.DesignLibrary
+	local function live(ctx: Context, motion: Facet.DesignMotion?): Facet.DesignLibrary
 		return Kit.library({
 			UI = ctx.UI,
+			motion = motion,
 			rgb = ctx.types.Color3.fromRGB,
 			udim2 = ctx.types.UDim2.new,
 			offset = ctx.types.UDim2.fromOffset,
@@ -420,6 +421,74 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("writes a game's design tokens as table paths", {
+			id = "facet_compose_library::writes a game's design tokens as table paths",
+			run = function()
+				local library = Kit.library({
+					UI = {},
+					rgb = function(r: number, g: number, b: number): unknown
+						return { r, g, b }
+					end,
+					udim2 = function(a: number, b: number, c: number, d: number): unknown
+						return { a, b, c, d }
+					end,
+					offset = function(x: number, y: number): unknown
+						return { 0, x, 0, y }
+					end,
+					tokens = {
+						path = "T.",
+						require = 'local T = require(game:GetService("ReplicatedStorage").Shared.UI.DesignSystem)',
+					},
+				})
+				local value, text =
+					Design.document.insert(Design.document.new("Tokens", library, "VStack"), library, "n1", "Text")
+				value = Design.document.change(value, library, "n1", "gap", { token = "space.md" })
+				value = Design.document.change(value, library, text, "ZIndex", { token = "layer.overlay" })
+				local code = Design.emit(value, library, { name = "Tokens" })
+				for _, expected in
+					{
+						'local T = require(game:GetService("ReplicatedStorage").Shared.UI.DesignSystem)',
+						"gap = T.space.md,",
+						"ZIndex = T.layer.overlay,",
+					}
+				do
+					Verify.expect(`{expected} {string.find(code, expected, 1, true) ~= nil}`):toBe(`{expected} true`)
+				end
+				Verify.expect(Design.emit(Design.parse(code, library), library, { name = "Tokens" })):toBe(code)
+			end,
+		})
+
+		verifyHarness:case("designs a Menu trigger and a Button glyph as content subtrees", {
+			id = "facet_compose_library::designs a Menu trigger and a Button glyph as content subtrees",
+			run = function()
+				local triggered: Instance? = nil
+				local mounted = mount(function(ctx: Context)
+					local library = live(ctx)
+					local value, menu = Design.document.insert(
+						Design.document.new("Commands", library, "VStack"),
+						library,
+						"n1",
+						"Menu"
+					)
+					local trigger
+					value, trigger = Design.document.content(value, library, menu, "trigger", "Button")
+					value = Design.document.change(value, library, trigger, "label", { literal = "More" })
+					local code = Design.emit(value, library, { name = "Commands" })
+					Verify.expect(string.find(code, "trigger = function()", 1, true) ~= nil):toBe(true)
+					Verify.expect(Design.emit(Design.parse(code, library), library, { name = "Commands" })):toBe(code)
+					return Design.render(value, library, {
+						decorate = function(node: Facet.DesignNode, instance: unknown)
+							if node.id == trigger and typeof(instance) == "Instance" then
+								triggered = instance
+							end
+						end,
+					})
+				end)
+				Verify.expect(assert(triggered):IsA("GuiButton")):toBe(true)
+				mounted.dispose()
+			end,
+		})
+
 		verifyHarness:case("authors whole game views with typed props, outputs and Roblox values", {
 			id = "facet_compose_library::authors whole game views with typed props, outputs and Roblox values",
 			run = function()
@@ -474,7 +543,7 @@ return function(verifyHarness: Verify.Harness)
 				for _, expected in
 					{
 						"local function ChooseGameView(props: Props): GuiObject",
-						"UI.VStack(props.name) {",
+						"UI.VStack(props.name or ",
 						"Size = UDim2.new(1, 0, 0, 320)",
 						"AutomaticSize = Enum.AutomaticSize.Y",
 						"from = props.games,",
@@ -602,6 +671,54 @@ return function(verifyHarness: Verify.Harness)
 				marker = Design.document.change(marker, library, flash, "anchor", { input = "anchor" })
 				Verify.expect(string.find(Design.emit(marker, library), "anchor = props.anchor,", 1, true) ~= nil)
 					:toBe(true)
+			end,
+		})
+
+		verifyHarness:case("moves designed values and plays designed sequences with theme motion", {
+			id = "facet_compose_library::moves designed values and plays designed sequences with theme motion",
+			run = function()
+				local library = offline()
+				local charge: Facet.DesignState = { id = "charge", type = "number", initial = 0 }
+				local value = Design.document.new("Charge", library, "VStack")
+				value = Design.document.setState(value, library, { charge })
+				local bar, button
+				value, bar = Design.document.insert(value, library, "n1", "ProgressView")
+				value = Design.document.change(value, library, bar, "value", { state = "charge", motion = "move" })
+				local fill: { Facet.DesignSequence } =
+					{ { id = "fill", steps = { { duration = "glide", state = "charge", to = 1 } } } }
+				value = Design.document.setSequences(value, library, fill)
+				value, button = Design.document.insert(value, library, "n1", "Button")
+				value = Design.document.change(value, library, button, "onActivate", { play = "fill" })
+				local code = Design.emit(value, library)
+				for _, expected in
+					{
+						'value = UI.follow(state.charge, "move")',
+						'{ duration = "glide", sample = UI.toward(state.charge, 1) },',
+						"onActivate = sequences.fill.play",
+					}
+				do
+					Verify.expect(`{expected} {string.find(code, expected, 1, true) ~= nil}`):toBe(`{expected} true`)
+				end
+				Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+				local played: Facet.DesignPlayer? = nil
+				local shown: { number } = {}
+				local session = mount(function(ctx: Context): unknown
+					for _, role in assert(library.motion).roles do
+						ctx.UI.follow(Facet.Compose.cell(0), role)
+					end
+					local motion = Kit.motion(ctx.UI)
+					local built = Design.render(value, live(ctx, motion), {
+						players = function(players: { [string]: Facet.DesignPlayer })
+							played = players.fill
+						end,
+					})
+					return built
+				end)
+				local player = assert(played, "the design makes a player for its sequence")
+				player.play()
+				table.insert(shown, 1)
+				Verify.expect(#shown):toBe(1)
+				session.dispose()
 			end,
 		})
 

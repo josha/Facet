@@ -12,6 +12,8 @@ return function(UI: Controls, Host: Host, C: Compose, showPulse: boolean?): Fram
 	local score, status = C.cell(0), C.cell("Ready")
 	local sweep, pulse = C.cell(0), C.cell(0)
 	local total = UI.countUp(score)
+	local charge = C.cell(0)
+	local shownCharge = UI.follow(charge, "move")
 	for index = 1, 3 do
 		tiles[index] = UI.Text {
 			Name = `RewardTile{index}`,
@@ -69,6 +71,7 @@ return function(UI: Controls, Host: Host, C: Compose, showPulse: boolean?): Fram
 				onStart = function()
 					labels[1]:set("LOCK")
 					status:set("Lock")
+					charge:set(0)
 				end,
 			},
 			{
@@ -100,6 +103,8 @@ return function(UI: Controls, Host: Host, C: Compose, showPulse: boolean?): Fram
 			},
 			{
 				delay = "travelStagger",
+				duration = "glide",
+				sample = UI.toward(charge, 1),
 				onEnd = function()
 					for _, label in labels do
 						label:set("NEW")
@@ -121,6 +126,7 @@ return function(UI: Controls, Host: Host, C: Compose, showPulse: boolean?): Fram
 					sequence.cancel()
 					sweep:set(0)
 					pulse:set(0)
+					charge:set(0)
 					status:set("Cancelled")
 				end,
 			},
@@ -139,6 +145,7 @@ return function(UI: Controls, Host: Host, C: Compose, showPulse: boolean?): Fram
 				return `Total: {math.floor(use(total) + 0.5)}`
 			end),
 		},
+		UI.ProgressView "RewardCharge" { value = shownCharge, presentation = "bar" },
 		UI.Text "RewardState" { text = status },
 	})
 end
