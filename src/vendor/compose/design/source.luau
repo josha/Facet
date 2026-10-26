@@ -251,6 +251,7 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		table.insert(lines, "}")
 		table.insert(lines, "")
 	end
+	local rowTypesAt = #lines + 1
 	local header: Record = { name = value.name, contract = contractLiteral(value.contract) }
 	local state = value.state
 	if state and #state > 0 then
@@ -290,16 +291,18 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 	local function returning(params: string, body: string, depth: number): string
 		return `function({params})\n{tabs(depth + 1)}return {body}\n{tabs(depth)}end`
 	end
-	local function rowFunction(template: Node, depth: number): string
-		if not rowFunctions then
-			return returning("current", emit(template, depth + 1), depth)
-		end
+	local rowTypeLines: { string } = {}
+	local rowItemTypes: { [string]: string } = {}
+	local function rowBase(template: Node): string
 		local base = string.gsub(template.name, "[^%w_]", "")
 		if not string.match(base, "^%u") then
 			base = "Row" .. base
 		elseif not string.match(base, "Row$") then
 			base ..= "Row"
 		end
+		return base
+	end
+	local function unique(base: string): string
 		local name = base
 		local suffix = 1
 		while rowNames[name] do
@@ -307,7 +310,48 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			name = base .. tostring(suffix)
 		end
 		rowNames[name] = true
-		table.insert(rowDefinitions, `\tlocal function {name}(current)\n\t\treturn {emit(template, 2)}\n\tend`)
+		return name
+	end
+	local function itemType(template: Node, from: string): string?
+		local known = rowItemTypes[template.id]
+		if known ~= nil then
+			return known
+		end
+		local declared = Document.input(value, from)
+		local fields = if declared then declared.fields else nil
+		if fields == nil or #fields == 0 then
+			return nil
+		end
+		local name = unique(rowBase(template) .. "Item")
+		rowItemTypes[template.id] = name
+		table.insert(rowTypeLines, `type {name} = {rowType(library, fields)}`)
+		return name
+	end
+	local function keyFunction(template: Node, bind: Types.Bind, depth: number): string
+		local typed = itemType(template, bind.from)
+		if typed == nil then
+			return returning("row", "row." .. bind.key, depth)
+		end
+		local declared = assert(Document.input(value, bind.from))
+		local keyType = "string"
+		local fields = declared.fields
+		if fields then
+			for _, field in fields do
+				if field.id == bind.key then
+					keyType = scalar(library, field.type)
+				end
+			end
+		end
+		return `function(row: {typed}): {keyType}\n{tabs(depth + 1)}return row.{bind.key}\n{tabs(depth)}end`
+	end
+	local function rowFunction(template: Node, depth: number, from: string): string
+		local typed = itemType(template, from)
+		local parameter = if typed then `current: {library.readable}<{typed}>` else "current"
+		if not rowFunctions then
+			return returning(parameter, emit(template, depth + 1), depth)
+		end
+		local name = unique(rowBase(template))
+		table.insert(rowDefinitions, `\tlocal function {name}({parameter})\n\t\treturn {emit(template, 2)}\n\tend`)
 		return name
 	end
 	local function layout(current: Literal, depth: number, used: number): string
@@ -477,7 +521,7 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 				if keyProp then
 					table.insert(body, `{inner}{keyProp} = {literal(bind.key)},`)
 				end
-				table.insert(body, `{inner}{assert(kind.template)} = {rowFunction(template, depth + 1)},`)
+				table.insert(body, `{inner}{assert(kind.template)} = {rowFunction(template, depth + 1, bind.from)},`)
 			end
 		else
 			local rowId = if bind then bind.row or (if template then template.id else nil) else nil
@@ -488,8 +532,8 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 					local field = tabs(depth + 2)
 					table.insert(body, `{inner}{keyedCall} ` .. "{")
 					table.insert(body, `{field}from = props.{bind.from},`)
-					table.insert(body, `{field}key = {returning("row", "row." .. bind.key, depth + 2)},`)
-					table.insert(body, `{field}render = {rowFunction(child, depth + 2)},`)
+					table.insert(body, `{field}key = {keyFunction(child, bind, depth + 2)},`)
+					table.insert(body, `{field}render = {rowFunction(child, depth + 2, bind.from)},`)
 					table.insert(body, `{inner}},`)
 				elseif condition == nil then
 					table.insert(body, `{inner}{emit(child, depth + 1)},`)
@@ -522,6 +566,10 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		table.insert(lines, "\t" .. controls)
 	end
 	local rootSource = emit(value.root, 1)
+	for index, line in rowTypeLines do
+		table.insert(lines, rowTypesAt + 2 * index - 2, line)
+		table.insert(lines, rowTypesAt + 2 * index - 1, "")
+	end
 	for _, definition in hoisted do
 		table.insert(lines, definition)
 	end
@@ -752,6 +800,20 @@ function source.parse(code: string, library: Library): Types.Document
 		assert(token.kind == "name", `Expected a name but found {token.text}`)
 		return token.text
 	end
+	local function annotation()
+		if peek() == ":" then
+			while peek() ~= ")" do
+				take()
+			end
+		end
+	end
+	local function returnAnnotation()
+		if peek() == ":" then
+			while peek() ~= "return" do
+				take()
+			end
+		end
+	end
 	local calls: { [string]: string } = {}
 	for kindName, kind in library.kinds do
 		calls[kind.call] = kindName
@@ -868,6 +930,7 @@ function source.parse(code: string, library: Library): Types.Document
 			elseif peek() == "current" or peek() == ")" then
 				if peek() == "current" then
 					take "current"
+					annotation()
 				end
 				take ")"
 				take "return"
@@ -1101,7 +1164,9 @@ function source.parse(code: string, library: Library): Types.Document
 					take "function"
 					take "("
 					take "row"
+					annotation()
 					take ")"
+					returnAnnotation()
 					take "return"
 					take "row"
 					take "."
@@ -1115,6 +1180,7 @@ function source.parse(code: string, library: Library): Types.Document
 						take "function"
 						take "("
 						take "current"
+						annotation()
 						take ")"
 						take "return"
 						row = node()
@@ -1174,6 +1240,7 @@ function source.parse(code: string, library: Library): Types.Document
 			local rowName = name()
 			take "("
 			take "current"
+			annotation()
 			take ")"
 			take "return"
 			rows[rowName] = node()

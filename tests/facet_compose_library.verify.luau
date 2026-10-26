@@ -328,7 +328,7 @@ return function(verifyHarness: Verify.Harness)
 						"Facet.Compose.show(props.offered, function()",
 						"if props.onRetry then",
 						'UI.Text "Text" {',
-						"games: Facet.Compose.ReadOnlyValue<{ { id: string, title: string } }>?",
+						"games: Facet.ReadOnlyValue<{ { id: string, title: string } }>?",
 						"\tname: string,",
 					}
 				do
