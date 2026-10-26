@@ -41,6 +41,8 @@ return (nil :: unknown) :: {
 	ScrollingFrameNativeProps: Engine.ScrollingFrameNativeProps,
 	CanvasGroupNativeProps: Engine.CanvasGroupNativeProps,
 	ScreenGuiNativeProps: Engine.ScreenGuiNativeProps,
+	FolderNativeProps: Engine.FolderNativeProps,
+	BillboardGuiNativeProps: Engine.BillboardGuiNativeProps,
 	Attributes: Engine.Attributes,
 	ControlSize: Facet.Value<Shared.ControlSize?>,
 	CoordinatesCell: Facet.Value<{ number }?>,
