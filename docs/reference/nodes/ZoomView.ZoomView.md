@@ -1,5 +1,7 @@
 # ZoomView.ZoomView
 
+<!-- aliases: ZoomRect | Facet.ZoomRect -->
+
 `UI.ZoomView(spec) -> ScrollingFrame` wraps one stable content tree. Required:
 `contentSize` (a Vector2 in layout pixels, or a readable) and `content()` (a
 factory that returns a GuiObject). The factory runs once. Native `Size` sets

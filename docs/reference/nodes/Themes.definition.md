@@ -25,6 +25,14 @@ For a complete typed definition, open [Tasks.theme](Tasks.theme.md).
   does not declare `style.themes` gets only the first palette of its base. Thus
   a package derived from Neutral has one palette unless it declares more.
 - `checkCoverage(package, needs)` returns `{ ok, covered, missing }`.
+  Each need is `{ name: string, section: string?, kind: "color" | "number"?,
+  fields: { string }? }`. `section` is a dotted package path, default `metrics`.
+  Without `kind`, the named value must exist there; `number` also requires a
+  number. `fields` requires numeric members on that value. With `color`, the
+  name must exist in every palette's `colors` or `extra`; `section` and `fields`
+  do not apply. `covered` lists names; each `missing` entry has `name`, `message`
+  and `fix`. `ok` means none are missing. This checks only the supplied needs,
+  not color validity, contrast, layout, readable text or complete UI coverage.
 - `resolveIcon(package, name, state?)` resolves real image content. A name
   that ends in `.fill`, such as `"star.fill"`, is the filled variant. The
   package art for that name wins. Without it, the regular icon draws.

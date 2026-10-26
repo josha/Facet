@@ -17,7 +17,8 @@ heights. Its button uses a circular utility appearance so a theme does not
 add a large framed button inside the card. Lists and tables use trailing
 placement. Fixed-size items must have room for their content and actions.
 
-`actionWidth` has a minimum default of `88`. Native label bounds can make the
+`actionWidth` defaults to `64` when every action on that edge has an icon,
+and `88` otherwise. Native label bounds can make the
 action tray larger. Each action is as wide as its painted label, plus its icon
 and gap when it has an `icon`, plus 32 pixels. Full swipe is on by default. You can set it for each edge.
 A row with no measured width does not open or run an action from a swipe.

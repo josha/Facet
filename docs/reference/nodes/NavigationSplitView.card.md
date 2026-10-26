@@ -12,7 +12,9 @@ Key options: `sidebar`, `detail`, `axis`, `resizable`, `detailLabel`, `compactBa
 
 Keep durable detail state in the model.
 
-On a phone, Facet shows the compact Back in the page `UI.NavBar` through `compactBack`, and `detailLabel = false` removes Show detail, so the page keeps one header.
+When the page owns a `NavBar`, pass the same writable boolean cell to its
+`onBack` and the split view's `compactBack`. Set `detailLabel = false` only
+when sidebar activation opens detail. See the [integrated example](NavigationSplitView.NavigationSplitView.md).
 
 Related controls: [Controls](Controls.md).
 

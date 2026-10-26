@@ -1,24 +1,22 @@
 # Game UI design
 
-Read Game UI design before planning, building, changing
-or reviewing UI. The use-facet skill includes the guide and its chapters.
+Use the current use-facet skill to choose the task's composition, then retrieve
+only the controls and contracts needed to build it.
 
-Open the main guide from the skill's directory:
-`references/GAME_UI_DESIGN_GUIDE.md`.
-
-| Installation | Guide path from the project root |
+| Installation | Skill path from the project root |
 | --- | --- |
-| Facet repository | `skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md` |
-| Exported author kit | `.agents/skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md` |
+| Facet repository | `skills/use-facet/SKILL.md` |
+| Exported author kit | `.agents/skills/use-facet/SKILL.md` |
 
-Read the main guide unless already in context. Follow its task map to the
-relevant chapters. For a new flow, start with the player task and interaction
-hierarchy. For a local control choice, compare the nearest alternatives.
-Do not load every chapter by default.
+The skill starts with the player's decision and return path. Its pattern and
+compact-composition references distinguish subject, records, comparison, forms,
+outcomes and gameplay commands. It routes game themes, advanced interactions
+and typed examples without loading every capability before the first screen.
 
-The guide moves from principles and player tasks to interaction hierarchy,
-visual identity, adaptation, ownership and verification. Its task chapters
-cover game flows, navigation, collections, editing, feedback, motion and access.
-Use it to choose what the UI should do and why. Use [Map](Map.md) for task
-recipes and exact control contracts. Check the rendered result against the
-guide as well as the technical checks.
+Use [Map](Map.md) for recipes and exact control contracts. Capture the task in
+its real world at wide, portrait and short sizes, inspect attention and useful
+content, then correct the largest observed problem before copying the structure.
+A passing typecheck or a control catalog is not a visual or behavioral review.
+
+Older design chapters remain available for background reading. They are not a
+second required reading path alongside the current skill.

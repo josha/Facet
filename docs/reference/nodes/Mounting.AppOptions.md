@@ -2,6 +2,9 @@
 
 Set application options with `AppOptions`.
 
+For the returned `App` methods, presenter options and close/dismiss handles,
+see [Mounting.Facet.app](Mounting.Facet.app.md).
+
 `AppOptions` accepts every `controls` option (see [Factory options](Factory-options.md))
 and these fields:
 

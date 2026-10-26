@@ -9,6 +9,9 @@ is an array of `{ id, value }` entries. `root` and each `destinations[id]` are
 - To push, append an entry.
 - To pop, remove the last entry.
 
+Preserve entry tables when changing the path. `id` names the destination, not
+a page instance. See [NavigationStack.path](NavigationStack.path.md).
+
 `backLabel` sets the text of the native Back chrome. Compose `LayerStack` owns
 the retained pages and their disposal.
 

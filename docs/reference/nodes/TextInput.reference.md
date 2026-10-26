@@ -4,7 +4,9 @@
 
 `value` is the string model. Roblox TextBox owns editing, IME, the caret, the
 text selection and focus. `onChange(text)` handles user edits. An external
-model update does not send it. `onCommit(value, reason)` receives `submit` or
+model update does not send it. With `onChange`, the control requests the
+value and does not write even a writable cell. Accept the edit by writing
+your model. `onCommit(value, reason)` receives `submit` or
 `focusLost`. The number presentation also reports `clamped`. `onCancel`
 observes cancellation and the restoration of the initial value of the edit.
 

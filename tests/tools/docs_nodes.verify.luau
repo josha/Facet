@@ -20,6 +20,37 @@ local function node(path: string, kind: string, body: string, children: { string
 end
 
 return function(harness: Verify.Harness)
+	harness:case("exported consumer type aliases resolve to their canonical contracts", function(t)
+		local nodes = Index.load(".")
+		local exports = Files.text("src/init.luau")
+		for _, pair in
+			{
+				{ "FocusControls", "Collections.focus-controls" },
+				{ "CollectionPlacement", "Collections.placement" },
+				{ "ZoomRect", "ZoomView.ZoomView" },
+				{ "HierarchyOptions", "Outline.Outline" },
+			}
+		do
+			t:expect(string.find(exports, "\nexport type " .. pair[1] .. "[%s<]") ~= nil):toBe(true)
+			local canonical = assert(Index.find(nodes, pair[2]))
+			for _, alias in { pair[1], "Facet." .. pair[1] } do
+				t:expect(assert(Index.find(nodes, alias)).path):toBe(canonical.path)
+				local response = DocsQuery.response(nodes, Cli.parse({ "docs", alias }))
+				t:expect(string.find(response, "Resolved '" .. alias .. "' to " .. canonical.path .. ".", 1, true) == 1)
+					:toBe(true)
+				t:expect(response):toBe(
+					"Resolved '"
+						.. alias
+						.. "' to "
+						.. canonical.path
+						.. ".\n"
+						.. (string.gsub(canonical.body, "%s+$", ""))
+				)
+				t:expect(#response + 1 <= Index.responseBudget):toBe(true)
+			end
+		end
+	end)
+
 	harness:case("control option near misses select the typed list without source output", function(t)
 		for _, query in { "Stack", "Picker.style", "UI.Picker.props", "Button.missingOption" } do
 			local result = Run.capture({ Run.lute(), "run", "tools/facet", "docs", query })
@@ -253,6 +284,7 @@ return function(harness: Verify.Harness)
 		local nodes = Index.load(".")
 		for _, pair in
 			{
+				{ "TextField.card", "TextInput.card" },
 				{ "ProgressBar.card", "ProgressView.card" },
 				{ "Progress.card", "ProgressView.card" },
 				{ "Stack.layout", "Layout-options" },

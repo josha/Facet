@@ -1,0 +1,14 @@
+{
+  "name": "FacetAuthoringExamples",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Packages": { "$className": "Folder", "Facet": { "$path": "../../src" } },
+      "AuthoringExamples": {
+        "$className": "Folder",
+        "examples": { "$path": "examples" },
+        "assets": { "$path": "assets" }
+      }
+    }
+  }
+}

@@ -6,9 +6,10 @@ Roblox engine. Read [the API reference](docs/reference/api.md) and
 contract.
 
 For UI design, implementation, examples or review, use the
-[use-facet skill](skills/use-facet/SKILL.md). Read its required
-[game UI design guide](skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md)
-and the task chapters before choosing controls or layouts.
+[use-facet skill](skills/use-facet/SKILL.md). Follow its task-based reading
+routes before choosing controls or layouts. The skill's current examples and
+compact compositions define the authoring workflow; retain older design
+chapters as reference, not as a second required reading path.
 
 ## Rules for code
 

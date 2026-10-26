@@ -10,3 +10,6 @@ Open:
 - [RowActions.reference](RowActions.reference.md)
 - [Table.reference](Table.reference.md)
 - [VirtualList-and-VirtualGrid](VirtualList-and-VirtualGrid.md)
+
+- [FocusControls](Collections.focus-controls.md)
+- [CollectionPlacement and controls](Collections.placement.md)

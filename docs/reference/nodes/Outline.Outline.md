@@ -1,5 +1,7 @@
 # Outline.Outline
 
+<!-- aliases: HierarchyOptions | Facet.HierarchyOptions -->
+
 Use `UI.Outline` for expandable rows. It has the same `from`, `key`,
 `render(current, placement, key)`, selection, editing, drag and focus options
 as VirtualList. Table and vertical VirtualList also accept the hierarchy

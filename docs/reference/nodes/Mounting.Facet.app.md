@@ -27,13 +27,35 @@ The app has these fields:
   PlayerGui. The `screen` option of the app sets native ScreenGui properties,
   for example `ScreenInsets`.
 - `presentAnchored(component, options)`: shows a popover at `options.source`
-  in its own ScreenGui and returns `close, screenGui`.
+  in its own ScreenGui and returns `close, screenGui`. Repeated `close()` calls
+  are safe. See the option routes below.
 - `presentToast(component, options?)`: shows a toast and returns
-  `{ id, dismiss }`.
-- `construct(control, spec)`, `refusal(control, spec)` and `controlNames()`:
-  make one control by name, return the error a spec would raise, and list the
-  control names.
+  `{ id, dismiss }`. `dismiss()` returns true on its first dismissal and false
+  after the toast has retired.
+- `construct(control, spec)`: builds an uppercase-named constructor inside
+  the current Compose owner. It does not invoke helpers such as `environment`.
+- `refusal(control, spec)`: tries construction in a temporary owner and returns
+  the error text, or nil on success. Construction can run factories and refs;
+  this is not a pure game-state validator. An unknown control name throws.
+- `controlNames()`: returns sorted names of all `UI` bindings, including
+  helpers. Not every returned name is accepted by `construct`.
 - `dispose()`: stops every mount. It disposes the runtime when the app made it.
+
+Imperative presenters call `component(UI)` inside their owned content. Their
+types are `Facet.AnchoredOptions` and `Facet.ToastOptions`:
+
+- `AnchoredOptions` requires `source`. `edge`, `align`, `gap`, `crossOffset`,
+  `tail`, `maxWidth` and `maxHeight` position the panel; `modal`, `cancelPolicy`
+  and `onDismiss` control interruption. Follow [Popover](Popover.reference.md)
+  for source, placement and dismissal meanings. The app accepts presentation
+  changes and releases this ScreenGui when dismissed.
+- `ToastOptions` takes `key`, `priority`, `duration`, `readFloor`, `position`,
+  `width`, `fade` and `onDismiss`. Follow [Toast](Toast.reference.md) for
+  scheduling, timing and dismissal meanings. The returned `{ id, dismiss }`
+  is a handle, not a GuiObject or a game reward receipt.
+
+These helpers create app-owned layers; they do not require another app.
+Keep a handle only as long as its task needs it, then close or dismiss it.
 
 Call `mount` one time. Each screen, HUD element and overlay is a branch of
 that tree. A Sheet, Dialog, Popover and Toast present in their own layer from

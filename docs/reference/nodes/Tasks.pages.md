@@ -1,6 +1,6 @@
 # Tasks.pages
 
-Call inside the app mount.
+Inside the app mount:
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -25,10 +25,10 @@ local function pages(app: Facet.App, title: string,
 end
 ```
 
-The [HUD](Tasks.hud.md) opener and gamepad command share the callback.
-NavigationStack owns motion and return focus; focus starts in the body, not on
-Close. Close returns to gameplay; NavBar Back follows the body's `back`.
-The Screen surface reaches the glass; the NavBar and body stay safe.
+Start on the [HUD](Tasks.hud.md) or [hub](Tasks.hub.md), with an empty path.
+The opener and gamepad command share a callback. NavigationStack owns motion
+and return focus. Close returns to gameplay; NavBar Back follows the body's
+`back`. Screen reaches the glass; NavBar and body stay safe.
 
 Create the app with `suspendGameplay = true`. While the path is nonempty or
 a modal is open, Facet turns off GuiService.TouchControlsEnabled and
@@ -37,7 +37,9 @@ closes, without waiting for exit motion. Derive the game's input from it:
 `driving.Enabled = use(inKart) and not use(suspended)` in a `C.watch`.
 This does not pause the clock. Keep saved values and drafts outside pages.
 
-The body owns its layout: use [collection/detail](Tasks.collection-detail.md),
-a [form](ScrollView.card.md), or a focal subject with its facts and action.
-Keep commitment outside long scrolling content.
+Each body owns its layout: [collection/detail](Tasks.collection-detail.md),
+a [form](ScrollView.card.md), or a subject with facts and action.
+Keep commitment with its terms. Pin them while readable content fits;
+otherwise let the complete decision scroll. Give unrelated tasks separate
+scroll state.
 Use [Sheet](Tasks.sheet.md) for a short task.

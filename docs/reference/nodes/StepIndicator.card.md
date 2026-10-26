@@ -11,7 +11,8 @@ UI.StepIndicator "Setup" { steps = steps, current = "name" }
 
 Key options: `steps`, `current`, `onSelect`.
 
-A current id must name a declared step.
+Use a declared current id for an active step. A nil or unknown id shows
+"No current step".
 
 Related controls: [Controls](Controls.md).
 

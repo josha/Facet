@@ -37,9 +37,8 @@ measured target. Colour defaults to the theme accent. The paint hides at
 both ends and under reduced motion. It does not change target paint, parent
 or input. Compose owns its portal, observation and paint.
 
-A reward uses `travelStagger` between locks, a parallel sweep and flash, a
-`travel` step that changes a Travel destination, `countUp` and a refill. Use
-Travel's `onLanded` to wait for placement. No frame loop is needed.
+Use `travelStagger` between locks, then sweep/flash, `travel`, `countUp` and refill. Change Travel's destination in `onStart`. Its `onLanded` also
+runs on immediate initial placement; see [Travel timing](Travel.Travel.md).
 
 `UI.shake(targets, options?) -> Sequence` creates no GUI. `targets` is a
 `{ GuiObject }` array or a readable array. `options.intensity` is a finite,
