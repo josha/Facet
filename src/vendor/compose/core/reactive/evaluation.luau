@@ -10,7 +10,8 @@ export type Evaluation = { consumer: Node?, order: number }
 
 local evaluations: { [thread]: Evaluation } = {}
 Weak.keys(evaluations)
-local active = 0
+local evaluating: { [thread]: Evaluation } = {}
+Weak.keys(evaluating)
 local order = 0
 export type Cache = { thread: thread?, frame: Evaluation? }
 
@@ -28,11 +29,8 @@ local function context(): Node?
 	if own ~= nil and own.order > 0 then
 		return own.consumer
 	end
-	if active == 0 then
-		return nil
-	end
 	local inherited: Evaluation? = nil
-	for thread, evaluation in evaluations do
+	for thread, evaluation in evaluating do
 		if
 			evaluation.order > 0
 			and coroutine.status(thread) == "normal"
@@ -76,7 +74,7 @@ local function enter(consumer: Node?): (Node?, number)
 	local current: Evaluation = if cached ~= nil then cached else frame()
 	local previousConsumer, previousOrder = current.consumer, current.order
 	if previousOrder == 0 then
-		active += 1
+		evaluating[running] = current
 	end
 	order += 1
 	current.consumer = consumer
@@ -85,8 +83,7 @@ local function enter(consumer: Node?): (Node?, number)
 end
 
 local function snapshot(): (Node?, number)
-	local cached = cache.frame
-	local current: Evaluation = if cached ~= nil and coroutine.running() == cache.thread then cached else frame()
+	local current = frame()
 	return current.consumer, current.order
 end
 
@@ -97,7 +94,7 @@ local function leave(previousConsumer: Node?, previousOrder: number)
 	current.consumer = previousConsumer
 	current.order = previousOrder
 	if previousOrder == 0 then
-		active -= 1
+		evaluating[running] = nil
 	end
 end
 

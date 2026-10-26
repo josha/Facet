@@ -153,6 +153,37 @@ local function refresh(producer: Node)
 	end
 end
 
+local function record(consumer: Node, producer: Node)
+	if consumer.released then
+		refresh(producer)
+		return
+	end
+	local at = consumer.reads
+	if at == nil then
+		refresh(producer)
+		return
+	end
+	local edge = consumer[at]
+	if edge == nil or edge[1] ~= producer then
+		at += 1
+		consumer.reads = at
+		edge = consumer[at]
+		if edge == nil or edge[1] ~= producer then
+			trim(consumer, at)
+			local attached = attach(producer, consumer)
+			consumer[at] = attached
+			edge = attached
+		end
+	end
+	local update = producer.refresh
+	if update then
+		update(producer)
+	end
+	if edge ~= nil then
+		edge.version = producer.version
+	end
+end
+
 local function notANode(api: string, candidate: unknown): never
 	local actual = Diagnostics.describe(candidate)
 	return Diagnostics.raise(
@@ -187,34 +218,7 @@ local function observe(node: Node, value: unknown)
 		})
 		return
 	end
-	if consumer.released then
-		refresh(node)
-		return
-	end
-	local at = consumer.reads
-	if at == nil then
-		refresh(node)
-		return
-	end
-	local edge = consumer[at]
-	if edge == nil or edge[1] ~= node then
-		at += 1
-		consumer.reads = at
-		edge = consumer[at]
-		if edge == nil or edge[1] ~= node then
-			trim(consumer, at)
-			local attached = attach(node, consumer)
-			consumer[at] = attached
-			edge = attached
-		end
-	end
-	local update = node.refresh
-	if update then
-		update(node)
-	end
-	if edge ~= nil then
-		edge.version = node.version
-	end
+	record(consumer, node)
 end
 
 NodeCast.setObserver(observe)
@@ -376,15 +380,6 @@ function LISTENER.run(leader: Node)
 	if update then
 		update(producer)
 	end
-	if producer.first == leader and leader[4] == nil and not statsOn.enabled then
-		local listener = leader.listener
-		local version = producer.version
-		if listener ~= nil and leader.version ~= version then
-			leader.version = version
-			listener(producer.value)
-		end
-		return
-	end
 	runListeners(leader, producer)
 end
 
@@ -393,19 +388,9 @@ CELL_LISTENER.__index = CELL_LISTENER
 
 function CELL_LISTENER.run(leader: Node)
 	local producer = leader[1]
-	if producer == nil then
-		return
+	if producer ~= nil then
+		runListeners(leader, producer)
 	end
-	if producer.first == leader and leader[4] == nil and not statsOn.enabled then
-		local listener = leader.listener
-		local version = producer.version
-		if listener ~= nil and leader.version ~= version then
-			leader.version = version
-			listener(producer.value)
-		end
-		return
-	end
-	runListeners(leader, producer)
 end
 
 local function listen(reactor: Types.Reactor, producer: Node, listener: (value: unknown) -> ()): Dispose
