@@ -562,6 +562,13 @@ local function create(context: Context): Design.Library
 						end
 					end
 				end
+				if
+					name == "Menu"
+					and (values.trigger ~= nil or live.trigger ~= nil)
+					and values.label == spec.defaults.label
+				then
+					values.label = nil
+				end
 				if name == "Table" then
 					local columns = record(values.columns)
 					if columns ~= nil then
@@ -716,6 +723,7 @@ local function create(context: Context): Design.Library
 		keyed = "Facet.Compose.keyed",
 		space = "2d",
 		provide = context.provide,
+		contentKind = "HStack",
 		categories = {
 			"Layout",
 			"Content",

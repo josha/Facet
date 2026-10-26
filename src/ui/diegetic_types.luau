@@ -9,6 +9,7 @@ export type DiegeticScreenProps = {
 	camera: Types.Input<CFrame>,
 	fieldOfView: number?,
 	motion: string?,
+	interactive: boolean?,
 	onUnavailable: ((string) -> ())?,
 }
 return {}

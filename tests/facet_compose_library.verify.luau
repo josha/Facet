@@ -457,6 +457,37 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("designs a Menu trigger and a Button glyph as content subtrees", {
+			id = "facet_compose_library::designs a Menu trigger and a Button glyph as content subtrees",
+			run = function()
+				local triggered: Instance? = nil
+				local mounted = mount(function(ctx: Context)
+					local library = live(ctx)
+					local value, menu = Design.document.insert(
+						Design.document.new("Commands", library, "VStack"),
+						library,
+						"n1",
+						"Menu"
+					)
+					local trigger
+					value, trigger = Design.document.content(value, library, menu, "trigger", "Button")
+					value = Design.document.change(value, library, trigger, "label", { literal = "More" })
+					local code = Design.emit(value, library, { name = "Commands" })
+					Verify.expect(string.find(code, "trigger = function()", 1, true) ~= nil):toBe(true)
+					Verify.expect(Design.emit(Design.parse(code, library), library, { name = "Commands" })):toBe(code)
+					return Design.render(value, library, {
+						decorate = function(node: Facet.DesignNode, instance: unknown)
+							if node.id == trigger and typeof(instance) == "Instance" then
+								triggered = instance
+							end
+						end,
+					})
+				end)
+				Verify.expect(assert(triggered):IsA("GuiButton")):toBe(true)
+				mounted.dispose()
+			end,
+		})
+
 		verifyHarness:case("authors whole game views with typed props, outputs and Roblox values", {
 			id = "facet_compose_library::authors whole game views with typed props, outputs and Roblox values",
 			run = function()

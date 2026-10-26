@@ -4,7 +4,7 @@ return function(harness: Verify.Harness)
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")
 	local Geometry = require("../src/ui/diegetic_geometry")
-	local function fixture(vr: boolean?)
+	local function fixture(vr: boolean?, interactive: boolean?)
 		local engine, bridge = engines.new()
 		local tracking = bridge.track()
 		local types = engine.types
@@ -67,6 +67,7 @@ return function(harness: Verify.Harness)
 					surface = types.CFrame.new(),
 					bounds = types.Vector2.new(3, 2),
 					camera = types.CFrame.new(0, 4, 10),
+					interactive = interactive,
 				},
 			}
 			mounted = root
@@ -141,6 +142,21 @@ return function(harness: Verify.Harness)
 			Verify.expect(world.scenes()):toBe(2)
 		end
 	)
+	harness:case("An interactive DiegeticScreen leaves surface presses to the live app", function(context)
+		local world = fixture(nil, true)
+		context:defer(world.close)
+		local app = assert(world.root:FindFirstChild("Application"))
+		world.presented:set(true)
+		world.step(120)
+		local display = assert(world.root:FindFirstChild("DiegeticCanvas", true))
+		Verify.expect(display.Parent):toBe(app.Parent)
+		Verify.expect(display:FindFirstChild("ReturnToScreen", true)):toBe(nil)
+		Verify.expect(world.presented:peek()):toBe(true)
+		world.presented:set(false)
+		world.step(240)
+		Verify.expect(world.root:FindFirstChild("DiegeticCanvas", true)):toBe(nil)
+		Verify.expect(world.workspace.CurrentCamera):toBe(world.original)
+	end)
 	harness:case("DiegeticScreen reverses from its current pose without replacing content", function(context)
 		local world = fixture()
 		context:defer(world.close)
