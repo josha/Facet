@@ -357,8 +357,13 @@ local function samePath(left: string, right: string): boolean
 	return a == b
 end
 
-local function benchmarkCommand(): { string }
-	return { Run.lute(), "run", Files.absolute("tools/facet"), "bench" }
+local function benchmarkCommand(shard: string?): { string }
+	local argv = { Run.lute(), "run", Files.absolute("tools/facet"), "bench" }
+	if shard ~= nil then
+		table.insert(argv, "--shard")
+		table.insert(argv, shard)
+	end
+	return argv
 end
 
 local function benchesFor(out: string, label: string): { Paired.Bench }
@@ -375,6 +380,8 @@ local function benchesFor(out: string, label: string): { Paired.Bench }
 	end
 	return benches
 end
+
+local lastFlagged: { string } = {}
 
 local function pairedReport(invocation: Cli.Invocation, canContinue: boolean?): number
 	local out, first, second = invocation.positional[3], invocation.positional[4], invocation.positional[5]
@@ -473,6 +480,7 @@ local function pairedReport(invocation: Cli.Invocation, canContinue: boolean?): 
 		local existing = if Files.isFile(target) then Files.read(target) else ""
 		Files.write(target, existing .. table.concat(page, "\n") .. "\n")
 	end
+	lastFlagged = slower
 	if Cli.switch(invocation, "gate") and #slower > 0 then
 		print(("paired gate: FAIL - %s regresses in %s"):format(second, table.concat(slower, ", ")))
 		return 1
@@ -480,7 +488,9 @@ local function pairedReport(invocation: Cli.Invocation, canContinue: boolean?): 
 	return 0
 end
 
-local function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): number
+local pairedRun: (invocation: Cli.Invocation, capture: typeof(Run.capture)?) -> number
+
+function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): number
 	local out = Cli.flag(invocation, "out")
 	local trees: { { label: string, tree: string } } = {}
 	for index = 3, #invocation.positional do
@@ -513,9 +523,6 @@ local function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture
 			end
 		end
 		invocation.flags.scenes = table.concat(share, ",")
-		if shardIndex ~= 1 then
-			invocation.flags["skip-bench"] = true
-		end
 	end
 	local selected = Cli.flag(invocation, "scenes")
 	local sceneList: { string } = if selected ~= nil and selected ~= ""
@@ -530,7 +537,7 @@ local function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture
 	end
 	local execute = capture or Run.capture
 	local environment = toolEnvironment(rokitDirectories(), false)
-	local benchCommand = benchmarkCommand()
+	local benchCommand = benchmarkCommand(shard)
 	local log = Files.join(out, "log.txt")
 	local rows = Files.join(out, "scenes.jsonl")
 	if Files.isDirectory(out) and #Files.list(out) > 0 then
@@ -613,6 +620,34 @@ local function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture
 			report.flags = table.clone(invocation.flags)
 			report.flags.rounds = tostring(round)
 			local status = pairedReport(report, round < rounds)
+			if status == 1 and round == rounds and not Cli.switch(invocation, "confirmation") then
+				local flagged = table.clone(lastFlagged)
+				append(log, `Confirming {table.concat(flagged, ", ")} with a fresh complete run.\n`)
+				print(`paired run: confirming {table.concat(flagged, ", ")} with a fresh complete run`)
+				local again = table.clone(invocation)
+				again.flags = table.clone(invocation.flags)
+				again.flags.out = out .. "-confirm"
+				again.flags.confirmation = true
+				local confirmed = pairedRun(again, capture)
+				if confirmed ~= 1 then
+					append(log, if confirmed == 0 then "DONE after confirmation\n" else `GATE FAILED {confirmed}\n`)
+					return confirmed
+				end
+				local repeated: { string } = {}
+				for _, name in lastFlagged do
+					if table.find(flagged, name) then
+						table.insert(repeated, name)
+					end
+				end
+				if #repeated == 0 then
+					print("paired gate: PASS - no slowdown repeated in the confirmation run")
+					append(log, "DONE after confirmation\n")
+					return 0
+				end
+				print(`paired gate: FAIL - {trees[2].label} regresses in {table.concat(repeated, ", ")} in both runs`)
+				append(log, "GATE FAILED 1\n")
+				return 1
+			end
 			if status ~= 1 or round == rounds then
 				append(log, if status == 0 then "DONE\n" else `GATE FAILED {status}\n`)
 				return status
@@ -963,7 +998,8 @@ local function pairedRunFixture(test: Verify.Context, mode: string): ()
 			local row = Json.object()
 			Json.set(row, "scene", argv[4])
 			Json.set(row, "status", "ok")
-			local slower = label == "cand" and (mode == "fail" or (mode == "continue" and round <= 3))
+			local slower = label == "cand"
+				and (mode == "fail" or (mode == "continue" and round <= 3) or (mode == "flaky" and round <= 6))
 			Json.set(row, "p50", if slower then 2 else 1)
 			Json.set(row, "p95", if slower then 4 else 2)
 			local retained = label == "cand" and (mode == "memory" or (mode == "memory-continue" and round <= 3))
@@ -994,6 +1030,7 @@ local function pairedRunFixture(test: Verify.Context, mode: string): ()
 	end)
 	local rounds = if mode == "continue"
 			or mode == "fail"
+			or mode == "flaky"
 			or mode == "manual"
 			or mode == "memory"
 			or mode == "memory-continue"
@@ -1005,19 +1042,26 @@ local function pairedRunFixture(test: Verify.Context, mode: string): ()
 		return
 	end
 	local entries = pairedEntries(Files.lines(Files.read(Files.join(out, "scenes.jsonl"))))
-	local expected = if rounds == 6
-		then "base,cand,cand,base,base,cand,cand,base,base,cand,cand,base"
-		else "base,cand,cand,base,base,cand"
-	local order = string.split(expected, ",")
+	local six = "base,cand,cand,base,base,cand,cand,base,base,cand,cand,base"
+	local three = "base,cand,cand,base,base,cand"
+	local confirmation = if mode == "fail" or mode == "memory" then six elseif mode == "flaky" then three else nil
+	local expected = (if rounds == 6 then six else three) .. (if confirmation then "," .. confirmation else "")
 	local expectedCalls: { string } = {}
-	for round = 1, rounds do
-		for _, scene in Paired.SCENES do
-			for position = 1, 2 do
-				table.insert(expectedCalls, order[(round - 1) * 2 + position] .. ":" .. scene)
+	local runs: { string } = { if rounds == 6 then six else three }
+	if confirmation then
+		table.insert(runs, confirmation)
+	end
+	for _, run in runs do
+		local order = string.split(run, ",")
+		for round = 1, #order // 2 do
+			for _, scene in Paired.SCENES do
+				for position = 1, 2 do
+					table.insert(expectedCalls, order[(round - 1) * 2 + position] .. ":" .. scene)
+				end
 			end
-		end
-		for position = 1, 2 do
-			table.insert(expectedCalls, order[(round - 1) * 2 + position] .. ":bench")
+			for position = 1, 2 do
+				table.insert(expectedCalls, order[(round - 1) * 2 + position] .. ":bench")
+			end
 		end
 	end
 	local summaryCount = 0
@@ -1030,9 +1074,16 @@ local function pairedRunFixture(test: Verify.Context, mode: string): ()
 	end
 	local invalid = mode == "invalid" or mode == "memory-invalid"
 	local failed = mode == "fail" or mode == "memory"
-	local final = if failed then "FAIL" else "PASS"
+	local final = if failed or mode == "flaky" then "FAIL" else "PASS"
 	Verify.expect(status):toBe(if invalid then 2 elseif failed then 1 else 0)
-	Verify.expect(summaryCount):toBe(if mode == "manual" or invalid then 0 elseif rounds == 6 then 2 else 1)
+	Verify.expect(summaryCount):toBe(
+		if mode == "manual" or invalid
+			then 0
+			elseif failed then 4
+			elseif mode == "flaky" then 3
+			elseif rounds == 6 then 2
+			else 1
+	)
 	Verify.expect(table.concat(arms, ",")):toBe(expected)
 	Verify.expect(calls):toEqual(expectedCalls)
 	if summaryCount > 0 then
@@ -1394,6 +1445,12 @@ REGISTRATIONS.paired = function(harness: Verify.Harness, prefix: string): ()
 		id = idPrefix .. "paired: a persistent slowdown fails after every six-round measurement",
 		run = function(test: Verify.Context): ()
 			pairedRunFixture(test, "fail")
+		end,
+	})
+	harness:case(prefix .. "paired: a slowdown that does not repeat in the confirmation run passes", {
+		id = idPrefix .. "paired: a slowdown that does not repeat in the confirmation run passes",
+		run = function(test: Verify.Context): ()
+			pairedRunFixture(test, "flaky")
 		end,
 	})
 	harness:case(prefix .. "paired: invalid calibration stops before the checkpoint", {
@@ -1934,6 +1991,7 @@ local KNOWN = {
 	"rounds",
 	"scenes",
 	"shard",
+	"confirmation",
 	"skip-bench",
 	"all",
 	"layout",
