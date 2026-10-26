@@ -483,6 +483,9 @@ return function(
 							or surfaces.firstSelectable(destinationFrame)
 							or surfaces.firstSelectable(panel)
 					end
+					local function claims(selected: GuiObject?, pushed: boolean): boolean
+						return selected ~= nil and (pushed or surfaces.within(selected, root))
+					end
 					local provisional = Compose.cell(nil :: GuiObject?)
 					Compose.watch(function(use: ComposeTypes.Use)
 						local top = use(role) == "top"
@@ -499,13 +502,15 @@ return function(
 							and use(parent)
 							and previousTop ~= true
 							and (previousTop == false or use(state).index > 1)
-							and (gui.SelectedObject ~= nil or handoff or focusing(use))
+							and (handoff or focusing(use) or claims(gui.SelectedObject, previousTop == nil))
 						then
 							handoff = false
 							local back = recall()
 							local usable = back and back.Visible and back.Selectable and back.Interactable
 							local target = if usable then back else landing()
-							gui.SelectedObject = target
+							if target ~= nil or surfaces.within(gui.SelectedObject, root) then
+								gui.SelectedObject = target
+							end
 							provisional:set(
 								if not usable and not resolved and target ~= contentEntry() then target else nil
 							)

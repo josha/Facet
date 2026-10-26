@@ -613,6 +613,49 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
+		verifyHarness:case("leaves a sibling's selection alone when the stack pops to an empty root", {
+			id = "native_navigation::native navigation controls::leaves a sibling's selection alone when the stack pops to an empty root",
+			run = function()
+				local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
+				local world = setup(function(UI: FacetControls)
+					local spec: NavigationProps.NavigationStackSpec<unknown> = {
+						path = path,
+						chrome = "hidden" :: "hidden",
+						root = {
+							content = function(): Instance
+								return UI.Text "Empty" { text = "Nothing here" }
+							end,
+						} :: Navigation.NavigationDestination<unknown>,
+						destinations = {
+							detail = {
+								content = function(): Instance
+									return UI.Button "DetailAction" { label = "Detail" }
+								end,
+							} :: Navigation.NavigationDestination<unknown>,
+						},
+					}
+					return UI.VStack "Room" {
+						UI.Button "Sibling" { label = "Sibling" },
+						UI.NavigationStack "App"(spec),
+					}
+				end)
+				local stack = find(world.screen, "App")
+				local sibling = find(world.screen, "Sibling")
+				path:set({ { id = "detail" } })
+				world.settle()
+				Verify.expect(world.gui.SelectedObject):toBe(nil)
+				world.gui.SelectedObject = find(stack, "DetailAction")
+				world.settle()
+				world.gui.SelectedObject = sibling
+				path:set({})
+				world.settle()
+				Verify.expect(world.gui.SelectedObject):toBe(sibling)
+				path:set({ { id = "detail" } })
+				world.settle()
+				Verify.expect(world.gui.SelectedObject):toBe(find(stack, "DetailAction"))
+				world.stop()
+			end,
+		})
 		verifyHarness:case(
 			"owns gameplay suspension across destination replacement and restores prior input",
 			function()
