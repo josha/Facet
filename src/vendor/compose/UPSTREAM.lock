@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "76eccc20c54010b1ede63f96c07949c2ee799d0a",
+  "commit": "514a3bd6ec89ed215f55e651fe6b8c11cbeb5175",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -42,9 +42,9 @@
     "core/pool.luau": "e8f71dc404c7a709103c87184a68f587b9e57b985582330d0a76f1e0bab88e81",
     "core/reactive/cell.luau": "ce58ba6a0986bccfbdb0e4126bc7cc8b229b07e949bde04cb101288547101400",
     "core/reactive/clock.luau": "ad9421eacb56ae0a0a82a53d2bea124fc6d30e6e536f5f3767a6997a0e1fb049",
-    "core/reactive/evaluation.luau": "266524c1910eb48141fa106cde5810e9152578a3028fd12036bc6bd595926291",
+    "core/reactive/evaluation.luau": "0df4195c8d13346ef4b718bd90c936d76f4d8a5f1a8435e07585df6d452c1626",
     "core/reactive/formula.luau": "e1e9f5a72601c99a13186ec826102bef3282401f2deca8115d0da8d79038b65a",
-    "core/reactive/graph.luau": "ee401ac96f25db8cfad37c021974f702299d6d75ef09c8445099aa8c8503090e",
+    "core/reactive/graph.luau": "707d3d1dddaa7a413e39ce9ba2166de84a72ad15db563fa5ab28886860ca1ae8",
     "core/reactive/node.luau": "7f0d04dfceb3a45afada637abd566669b22fdaac7368960d8523ecc8e92e88b8",
     "core/reactive/profile.luau": "c85624d1db4c1a3e0074d5249bc911ce407e01e62172365cb3e05c049216c535",
     "core/reactive/reactor.luau": "11456804f8dfce3e982f116f7b67e627f819eea24582cc6f6842c3e08f8083bc",
@@ -90,8 +90,8 @@
   },
   "docs": {
     "SKILL.md": "5b00d1daf8a47f8d97e5af9ab3044aca442fa027064015c8e7ffb584b074c7f1",
-    "references/api.md": "166c06c7070eb6b77ff66355170d9347fe33ea66dec01b8726f2a42cf1da0d53",
-    "references/consumer-guides.md": "a1857ee2d7310e31be2bd4877a0bd8c8ef3672629327036e6558d5019e3c4d4d",
-    "references/ownership.md": "7adc93d0f3045bd677b54cc26d6c3a951c1ec57716555106159f21b789e6e80d"
+    "references/api.md": "78745fc8dbc03acc508b9474d425a8efa0b9e1cfd9fdc855e54425077a51b908",
+    "references/consumer-guides.md": "dcc9a909bef3cb2c503677a64fe01607cc636015707225b2d40e5df7a50048df",
+    "references/ownership.md": "26a6138981d5dcd7384edf9b97140654ac064a5f216bfc4ba45f4c3ea924dbd3"
   }
 }
