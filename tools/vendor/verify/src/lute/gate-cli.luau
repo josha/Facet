@@ -11,7 +11,14 @@ export type Command = {
 	rerun: boolean,
 	list: boolean,
 	explain: string?,
+	shard: Shard?,
+	weights: string?,
+	recordWeights: string?,
 }
+
+export type Shard = { index: number, count: number }
+export type Weights = { producers: { [string]: number }, files: { [string]: number } }
+export type Share = { files: { string }, only: { string }, load: number }
 
 local VALUED: { [string]: boolean } = {
 	["--only"] = true,
@@ -20,10 +27,13 @@ local VALUED: { [string]: boolean } = {
 	["--file"] = true,
 	["--name"] = true,
 	["--explain"] = true,
+	["--shard"] = true,
+	["--weights"] = true,
+	["--record-weights"] = true,
 }
 
 local USAGE =
-	"usage: <gate script> [--only producer]... [--tier name]... [--case id]... [--file spec]... [--name text] [--rerun] [--explain id] [--list]"
+	"usage: <gate script> [--only producer]... [--tier name]... [--case id]... [--file spec]... [--name text] [--rerun] [--explain id] [--list] [--shard index/count] [--weights path] [--record-weights path]"
 
 local function parse(args: { string }): (Command?, string?)
 	local command: Command = {
@@ -52,6 +62,17 @@ local function parse(args: { string }): (Command?, string?)
 				table.insert(command.cases, value)
 			elseif flag == "--file" then
 				table.insert(command.files, value)
+			elseif flag == "--shard" then
+				local position, total = string.match(value, "^(%d+)/(%d+)$")
+				local slot, count = tonumber(position), tonumber(total)
+				if slot == nil or count == nil or count < 1 or slot < 1 or slot > count then
+					return nil, "--shard needs index/count with 1 <= index <= count"
+				end
+				command.shard = { index = slot, count = count }
+			elseif flag == "--weights" then
+				command.weights = value
+			elseif flag == "--record-weights" then
+				command.recordWeights = value
 			elseif flag == "--name" then
 				if value == "" then
 					return nil, "--name needs a nonempty text"
@@ -136,4 +157,127 @@ local function narrow(draft: Gate.Draft, files: { string }, only: { string }): (
 	return narrowed, nil
 end
 
-return { USAGE = USAGE, parse = parse, narrow = narrow }
+type Item = { files: { string }, producers: { string }, weight: number }
+
+local function median(values: { [string]: number }, fallback: number): number
+	local sorted: { number } = {}
+	for _, value in values do
+		table.insert(sorted, value)
+	end
+	if #sorted == 0 then
+		return fallback
+	end
+	table.sort(sorted)
+	return sorted[(#sorted + 1) // 2]
+end
+
+local function shard(draft: Gate.Draft, slot: Shard, weights: Weights, tiers: { string }): Share
+	local items: { Item } = {}
+	local producerDefault = median(weights.producers, 1)
+	local fileDefault = median(weights.files, 1)
+	local group: { [string]: string } = {}
+	local function root(id: string): string
+		local parent = group[id] or id
+		if parent == id then
+			return id
+		end
+		local top = root(parent)
+		group[id] = top
+		return top
+	end
+	local selected: { Gate.ProducerDraft } = {}
+	for _, producer in draft.producers do
+		local inTier = #tiers == 0 or producer.tier == nil or table.find(tiers, producer.tier) ~= nil
+		if inTier then
+			table.insert(selected, producer)
+			if producer.kind ~= "tests" or producer.locators == nil then
+				group[producer.id] = group[producer.id] or producer.id
+			end
+		end
+	end
+	for _, producer in selected do
+		local dependencies: { string } = producer.after or {}
+		if group[producer.id] ~= nil then
+			for _, dependency in dependencies do
+				if group[dependency] ~= nil then
+					group[root(producer.id)] = root(dependency)
+				end
+			end
+		end
+	end
+	local byRoot: { [string]: Item } = {}
+	for _, producer in selected do
+		if producer.kind == "tests" and producer.locators ~= nil then
+			for _, locator in producer.locators do
+				table.insert(
+					items,
+					{ files = { locator }, producers = {}, weight = weights.files[locator] or fileDefault }
+				)
+			end
+		else
+			local top = root(producer.id)
+			local item = byRoot[top]
+			if item == nil then
+				item = { files = {}, producers = {}, weight = 0 }
+				byRoot[top] = item
+				table.insert(items, item)
+			end
+			table.insert(item.producers, producer.id)
+			item.weight += weights.producers[producer.id] or producerDefault
+		end
+	end
+	table.sort(items, function(left: Item, right: Item): boolean
+		if left.weight ~= right.weight then
+			return left.weight > right.weight
+		end
+		return (left.files[1] or left.producers[1] or "") < (right.files[1] or right.producers[1] or "")
+	end)
+	local loads: { number } = table.create(slot.count, 0)
+	local share: Share = { files = {}, only = {}, load = 0 }
+	for _, item in items do
+		local lightest = 1
+		for index = 2, slot.count do
+			if loads[index] < loads[lightest] then
+				lightest = index
+			end
+		end
+		loads[lightest] += item.weight
+		if lightest == slot.index then
+			share.load += item.weight
+			for _, file in item.files do
+				table.insert(share.files, file)
+			end
+			for _, id in item.producers do
+				table.insert(share.only, id)
+			end
+		end
+	end
+	return share
+end
+
+export type ProducerTime = { id: string, timed: boolean, durationMicros: number? }
+export type ResultTime = { source: string?, durationMicros: number }
+
+local function measured(previous: Weights, producerTimes: { ProducerTime }, resultTimes: { ResultTime }): Weights
+	local producers = table.clone(previous.producers)
+	local files = table.clone(previous.files)
+	for _, record in producerTimes do
+		local micros = record.durationMicros
+		if record.timed and micros ~= nil then
+			producers[record.id] = math.floor(micros / 1e5 + 0.5) / 10
+		end
+	end
+	local totals: { [string]: number } = {}
+	for _, result in resultTimes do
+		local source = result.source
+		if source ~= nil and string.find(source, "/", 1, true) ~= nil then
+			totals[source] = (totals[source] or 0) + result.durationMicros
+		end
+	end
+	for source, micros in totals do
+		files[source] = math.floor(micros / 1e5 + 0.5) / 10
+	end
+	return { producers = producers, files = files }
+end
+
+return { USAGE = USAGE, parse = parse, narrow = narrow, shard = shard, measured = measured }
