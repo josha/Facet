@@ -103,6 +103,9 @@ local function fieldsLiteral(fields: { Types.ItemField }): Record
 	local list: Record = {}
 	for _, field in fields do
 		local item: Record = { id = field.id, type = field.type }
+		if field.luauType ~= nil then
+			item.luauType = field.luauType
+		end
 		local nested = field.fields
 		if nested then
 			item.fields = fieldsLiteral(nested)
@@ -116,6 +119,9 @@ local function contractLiteral(contract: Types.Contract): Literal
 	local inputs: Record = {}
 	for _, input in contract.inputs do
 		local entry: Record = { id = input.id, kind = input.kind, type = input.type }
+		if input.luauType ~= nil then
+			entry.luauType = input.luauType
+		end
 		local preview = input.preview
 		if preview ~= nil then
 			entry.preview = preview
@@ -208,7 +214,13 @@ end
 local function rowType(library: Library, fields: { Types.ItemField }): string
 	local pieces: { string } = {}
 	for _, field in fields do
-		table.insert(pieces, `{field.id}: {scalar(library, field.type)}`)
+		local shape = field.luauType
+		local nested = field.fields
+		if shape == nil and nested ~= nil and #nested > 0 then
+			local child = rowType(library, nested)
+			shape = if field.type == "list" then "{ " .. child .. " }" else child
+		end
+		table.insert(pieces, `{field.id}: {shape or scalar(library, field.type)}`)
 	end
 	return "{ " .. table.concat(pieces, ", ") .. " }"
 end
@@ -218,6 +230,9 @@ local function listItemName(input: Types.Input): string
 end
 
 local function base(library: Library, input: Types.Input): string
+	if input.luauType ~= nil then
+		return input.luauType
+	end
 	local fields = input.fields
 	if fields and #fields > 0 then
 		if input.type == "list" then
@@ -1168,6 +1183,7 @@ local function fieldsFrom(entry: Record): { Types.ItemField }
 		table.insert(declared, {
 			id = text(field, "id"),
 			type = inputType(text(field, "type")),
+			luauType = if field.luauType ~= nil then text(field, "luauType") else nil,
 			fields = if field.fields ~= nil then fieldsFrom(field) else nil,
 		})
 	end
@@ -1183,6 +1199,7 @@ local function contractOf(header: Record): Types.Contract
 		table.insert(inputs, {
 			id = text(entry, "id"),
 			kind = inputKind(text(entry, "kind")),
+			luauType = if entry.luauType ~= nil then text(entry, "luauType") else nil,
 			type = inputType(text(entry, "type")),
 			preview = entry.preview,
 			fields = fields,

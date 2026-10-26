@@ -24,6 +24,10 @@ export type Workspace = {
 	stageSize: UI.Point?,
 	devices: { Editor.Device }?,
 	previews: { Editor.Preview }?,
+	token: ((name: string) -> Design.Literal)?,
+	resolveToken: ((name: string) -> Design.Resolved)?,
+	tokens: { string }?,
+	slots: { [string]: () -> unknown }?,
 	dispose: (() -> ())?,
 }
 export type Kit = DesignTypes.Kit
@@ -90,6 +94,10 @@ local function kit(name: string, open: () -> Workspace): Kit
 					or if devices ~= nil and devices[1] ~= nil then devices[1].size else { X = 390, Y = 844 },
 				devices = devices,
 				previews = workspace.previews,
+				token = workspace.token,
+				resolveToken = workspace.resolveToken,
+				tokens = workspace.tokens,
+				slots = workspace.slots,
 				link = link,
 			}
 			local ok, result = pcall(create, library, initial, parent, options)

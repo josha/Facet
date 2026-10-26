@@ -32,6 +32,8 @@ end
 
 return function(value: Types.Document, library: Types.Library, context: Context?): unknown
 	local supplied: { [string]: Literal } = if context and context.inputs then context.inputs else {}
+	local bindings: { [string]: Resolved } = if context and context.bindings then context.bindings else {}
+	local live = context ~= nil and context.bindings ~= nil
 	local outputs: { [string]: (args: { Literal }) -> () } = if context and context.outputs then context.outputs else {}
 	local slots: { [string]: () -> unknown } = if context and context.slots then context.slots else {}
 	local token = if context then context.token else nil
@@ -74,21 +76,38 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 	if shared then
 		shared(players)
 	end
-	local function truthy(id: string, item: ReadOnlyValue<Row>?): boolean
-		if item ~= nil and item:peek()[id] ~= nil then
-			return item:peek()[id] == true
+	local function inputValue(id: string, use: Use?): Literal?
+		local binding = bindings[id]
+		if binding ~= nil then
+			local readable = binding.readable
+			if readable ~= nil then
+				return if use then use(readable) else readable:peek()
+			end
+			return binding.literal
+		end
+		return inputs[id]
+	end
+	local function truthy(id: string, item: ReadOnlyValue<Row>?, use: Use?): boolean
+		local row = if item then (if use then use(item) else item:peek()) else nil
+		if Document.input(value, id) == nil and row ~= nil and row[id] ~= nil then
+			return row[id] == true
 		end
 		local held = states[id]
 		if held ~= nil then
-			return held:peek() == true
+			return (if use then use(held) else held:peek()) == true
 		end
-		return inputs[id] == true
+		return inputValue(id, use) == true
 	end
-	local function listFrom(from: string, item: ReadOnlyValue<Row>?): Literal?
-		if item ~= nil and item:peek()[from] ~= nil then
-			return item:peek()[from]
+	local function listFrom(from: string, item: ReadOnlyValue<Row>?, use: Use?): { Row }
+		local binding = bindings[from]
+		local rows = if binding then binding.rows else nil
+		if rows ~= nil then
+			return if use then use(rows) else rows:peek()
 		end
-		return inputs[from]
+		if Document.input(value, from) == nil and item ~= nil then
+			return rowsOf((if use then use(item) else item:peek())[from])
+		end
+		return rowsOf(inputValue(from, use))
 	end
 	local references: { [string]: Core.Value<unknown> } = {}
 	local names: { [string]: string } = {}
@@ -181,7 +200,7 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			local held = states[source]
 			return {
 				node = Core.formula(function(use: Use): unknown
-					local chosen = if held ~= nil then use(held) else inputs[source]
+					local chosen = if held ~= nil then use(held) else inputValue(source, use)
 					local cell = if type(chosen) == "string" then byName[chosen] else nil
 					return if cell then use(cell) else nil
 				end),
@@ -217,6 +236,10 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			end
 			return { literal = current }
 		elseif input then
+			local binding = bindings[input]
+			if binding ~= nil then
+				return table.clone(binding)
+			end
 			local slot = slots[input]
 			if slot then
 				return { slot = slot }
@@ -265,6 +288,10 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 				end,
 			}
 		elseif name then
+			local resolved = if context then context.resolveToken else nil
+			if resolved then
+				return table.clone(resolved(name))
+			end
 			local resolver = assert(token, "This design reads theme tokens; supply a token resolver")
 			return { literal = resolver(name) }
 		end
@@ -294,6 +321,21 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			end
 		end
 		local children: { unknown } = {}
+		local function append(child: Types.Node)
+			local condition = child.when
+			if condition ~= nil and live then
+				table.insert(
+					children,
+					Core.show(function(use: Use): boolean
+						return truthy(condition, item, use)
+					end, function(): unknown
+						return build(child, item)
+					end)
+				)
+			elseif condition == nil or truthy(condition, item, nil) then
+				table.insert(children, build(child, item))
+			end
+		end
 		local bind, template = node.bind, content[1]
 		if kind.children == "slot" then
 			if template then
@@ -305,12 +347,16 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			end
 		elseif kind.children == "template" then
 			if bind then
-				local rows: ReadOnlyValue<{ Row }> = Core.cell(rowsOf(listFrom(bind.from, item)))
+				local rows: ReadOnlyValue<{ Row }> = if live
+					then Core.formula(function(use: Use): { Row }
+						return listFrom(bind.from, item, use)
+					end)
+					else Core.cell(listFrom(bind.from, item, nil))
 				props[assert(kind.source, `{node.kind} names no list property`)] = { rows = rows, key = bind.key }
 			end
 			if kind.template == nil then
 				for _, child in content do
-					table.insert(children, build(child, item))
+					append(child)
 				end
 			elseif bind and template then
 				local rowId = bind.row or template.id
@@ -319,7 +365,7 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 					if child.id == rowId then
 						rowNode = child
 					else
-						table.insert(children, build(child, item))
+						append(child)
 					end
 				end
 				props[assert(kind.template)] = {
@@ -332,25 +378,41 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			local rowId = bind.row or template.id
 			for _, child in content do
 				if child.id == rowId then
-					for _, row in rowsOf(listFrom(bind.from, item)) do
-						table.insert(children, build(child, Core.cell(row)))
+					if live then
+						table.insert(
+							children,
+							Core.keyed {
+								from = function(use: Use): { Row }
+									return listFrom(bind.from, item, use)
+								end,
+								key = function(row: Row): Literal
+									local key = row[bind.key]
+									assert(key ~= nil, `A row needs key {bind.key}`)
+									return key
+								end,
+								render = function(row: ReadOnlyValue<Row>): unknown
+									return build(child, row)
+								end,
+							}
+						)
+					else
+						for _, row in listFrom(bind.from, item, nil) do
+							table.insert(children, build(child, Core.cell(row)))
+						end
 					end
-				elseif child.when == nil or truthy(child.when, item) then
-					table.insert(children, build(child, item))
+				else
+					append(child)
 				end
 			end
 		else
 			for _, child in content do
-				local condition = child.when
-				if condition == nil or truthy(condition, item) then
-					table.insert(children, build(child, item))
-				end
+				append(child)
 			end
 		end
 		local named = node.name
 		local nameInput = node.nameInput
 		if nameInput ~= nil then
-			local supplied = inputs[nameInput]
+			local supplied = inputValue(nameInput, nil)
 			if type(supplied) == "string" and supplied ~= "" then
 				named = supplied
 			end

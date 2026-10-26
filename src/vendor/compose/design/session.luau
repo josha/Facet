@@ -95,11 +95,13 @@ return function(library: Types.Library, initial: Types.Document): Session
 		end,
 		insert = function(kind: string): boolean
 			return attempt(function(value: Types.Document, id: string): (Types.Document, string?)
-				local node, parent = Document.find(value.root, id)
+				local node, parent, index = Document.find(value.root, id)
 				local target = assert(node)
 				local container = assert(library.kinds[target.kind])
-				local host = if container.children == "none" and parent then parent.id else target.id
-				return Document.insert(value, library, host, kind)
+				if parent and index and (container.children == "none" or container.leaf == true) then
+					return Document.insert(value, library, parent.id, kind, index + 1)
+				end
+				return Document.insert(value, library, target.id, kind)
 			end)
 		end,
 		change = function(key: string, property: Types.Value?): boolean
