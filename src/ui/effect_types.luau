@@ -27,6 +27,8 @@ export type ShakeOptions = { intensity: number? }
 export type Controls = {
 	sequence: (SequenceSpec) -> Sequence,
 	countUp: (Shared.Input<number>) -> Shared.ReadOnlyValue<number>,
+	follow: <T>(Shared.ReadOnlyValue<T> | (Shared.Use) -> T, string) -> Shared.ReadOnlyValue<T>,
+	toward: (Shared.Value<number>, number) -> (number) -> (),
 	shake: (Shared.Input<{ GuiObject }>, ShakeOptions?) -> Sequence,
 }
 return {}

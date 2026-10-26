@@ -6,7 +6,7 @@ local Document = require "./document"
 local History = require "./history"
 
 type Cell<T> = Core.Value<T>
-type ReadOnlyValue<T> = Core.Value<T>
+type ReadOnlyValue<T> = Core.ReadOnlyValue<T>
 
 export type Session = {
 	library: Types.Library,

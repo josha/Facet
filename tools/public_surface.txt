@@ -239,6 +239,7 @@ controls(runtime).feedback : function
 controls(runtime).fill : function
 controls(runtime).focusRing : function
 controls(runtime).focusSection : function
+controls(runtime).follow : function
 controls(runtime).gestureArbiter : function
 controls(runtime).provide : function
 controls(runtime).responder : function
@@ -246,6 +247,7 @@ controls(runtime).scrollTo : function
 controls(runtime).scrollToVisible : function
 controls(runtime).sequence : function
 controls(runtime).shake : function
+controls(runtime).toward : function
 controls(runtime).worldAnchor : function
 type ActionRole
 type Activate
@@ -323,9 +325,12 @@ type DesignKit
 type DesignLibrary
 type DesignLiteral
 type DesignModule
+type DesignMotion
 type DesignNode
 type DesignOutput
+type DesignPlayer
 type DesignSeed
+type DesignSequence
 type DesignState
 type DesignStudioKit
 type DesignValue

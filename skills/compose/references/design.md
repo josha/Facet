@@ -17,13 +17,18 @@ not overwrite the module. Keep every edit inside the shapes below.
 2. Exported types: one `export type <List>Item` for each list input with
    fields, and `export type Props`. The editor writes these from the contract.
    Do not edit them by hand. Change the contract in the header.
-3. The header: `local _design = { name = ..., contract = { inputs = ..., outputs = ... }, state = ... }`.
+3. The header: `local _design = { name = ..., contract = { inputs = ..., outputs = ... }, state = ..., sequences = ... }`.
    - An input has `id`, `kind` (`value`, `readable` or `cell`), `type`
      (`string`, `number`, `boolean`, `color`, `image`, `list`, `record` or
      `slot`) and an optional `preview`, `fields` and `required`.
    - An output has an `id` that starts with `on`, and optional `args` or `row`.
      `row` names the list input whose row the output passes.
    - Input and state ids use lower camel case.
+   - A sequence has an `id`, an optional `autoplay = true` and 1 to 32 `steps`.
+     A step has optional `delay`, `duration` and `easing` theme token names, an
+     optional `state` with the value `to` that the step moves it to, and an
+     optional `output` that the step calls when it ends. The header is the
+     source of truth: the editor writes the `local sequences` block from it.
 4. One component function that returns one control tree, and `return <Name>`.
 
 ## Shapes inside the tree
@@ -51,6 +56,11 @@ not overwrite the module. Keep every edit inside the shapes below.
 - A node reference: `refs.nN`, with the node wrapped in `capture("nN", <node>)`.
 - A content property that holds a subtree: `glyph = function() return <node> end`.
   The node is a child of the control in the editor.
+- A moving value: `<follow>(state.id, "role")`, where `<follow>` is the
+  library's motion call (Facet: `UI.follow`) and `role` is one of its motion
+  roles. The wrapped value is an input, a state value or an item field. The
+  theme sets the timing of each role.
+- A sequence play: `onActivate = sequences.id.play` on an event property.
 - A token: `<token>(name)`, or `T.space.md` when the library's token prefix ends
   with a dot (for example `T.`). Add the prefix's `require` to the prelude.
 

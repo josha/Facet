@@ -293,6 +293,7 @@ export type DesignContext = FacetDesign.Context
 export type DesignControlSpec = FacetDesign.ControlSpec
 export type DesignSeed = FacetDesign.Seed
 export type DesignStudioKit = FacetDesign.StudioKit
+export type DesignMotion = FacetDesign.Motion
 export type DesignLibrary = ComposeDesign.Library
 export type DesignDocument = ComposeDesign.Document
 export type DesignNode = ComposeDesign.Node
@@ -304,12 +305,15 @@ export type DesignItemField = ComposeDesign.ItemField
 export type DesignOutput = ComposeDesign.Output
 export type DesignInputType = ComposeDesign.InputType
 export type DesignState = ComposeDesign.State
+export type DesignSequence = ComposeDesign.Sequence
+export type DesignPlayer = ComposeDesign.Player
 export type DesignEmitOptions = ComposeDesign.EmitOptions
 export type DesignKit = {
 	Design: DesignModule,
 	library: (DesignContext) -> ComposeDesign.Library,
 	controls: { [string]: DesignControlSpec },
 	seeds: (kind: string) -> { DesignSeed },
+	motion: (Controls) -> DesignMotion,
 }
 export type Facet = {
 	VERSION: string,
@@ -336,7 +340,7 @@ export type Facet = {
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "0660763fd9a7296fd4320c032998431a4e3d3809"
+local COMPOSE_COMMIT = "c8164df93ef222734030d8b5ca2c62f3868740ab"
 local USED = {
 	"boundary",
 	"cell",
@@ -394,6 +398,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		library = FacetDesignModule.library,
 		controls = FacetDesignModule.controls,
 		seeds = FacetDesignModule.seeds,
+		motion = FacetDesignModule.motion,
 	})
 	local surface: Facet
 	local function composeDesign(): DesignStudioKit
@@ -404,8 +409,10 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 			local theme = themes.neutralPackage()
 			local palette = core.cell("Light")
 			local textSize = core.cell("Medium")
+			local UI = surface.controls(runtime, { theme = theme, environment = { preferredTextSize = textSize } })
 			local library = designKit.library({
-				UI = surface.controls(runtime, { theme = theme, environment = { preferredTextSize = textSize } }),
+				UI = UI,
+				motion = designKit.motion(UI),
 				rgb = Color3.fromRGB,
 				udim2 = UDim2.new,
 				offset = UDim2.fromOffset,

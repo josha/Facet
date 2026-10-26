@@ -6,6 +6,7 @@ local Types = require("./types")
 local controls = require("./controls")
 local derived = require("./fields")
 local icons = require("../ui/icons")
+local Motion = require("./motion")
 
 type Literal = Design.Literal
 type Resolved = Design.Resolved
@@ -721,6 +722,16 @@ local function create(context: Context): Design.Library
 			end,
 		},
 		keyed = "Facet.Compose.keyed",
+		motion = {
+			call = "UI.follow",
+			roles = Motion.roles,
+			animate = if context.motion then context.motion.animate else nil,
+		},
+		sequence = {
+			call = "UI.sequence",
+			toward = "UI.toward",
+			build = if context.motion then context.motion.sequence else nil,
+		},
 		space = "2d",
 		provide = context.provide,
 		contentKind = "HStack",

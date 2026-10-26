@@ -2,7 +2,7 @@
 
 local Core = require "../core"
 
-type ReadOnlyValue<T> = Core.Value<T>
+type ReadOnlyValue<T> = Core.ReadOnlyValue<T>
 
 export type Literal = string | number | boolean | { [string | number]: Literal }
 
@@ -18,6 +18,8 @@ export type Value = {
 	nodes: { string }?,
 	token: string?,
 	state: string?,
+	motion: string?,
+	play: string?,
 }
 
 export type FieldType =
@@ -81,6 +83,33 @@ export type Kind = {
 	build: (props: { [string]: Resolved }, children: { unknown }, name: string) -> unknown,
 }
 
+export type Motion = {
+	call: string,
+	roles: { string },
+	animate: ((source: ReadOnlyValue<Literal?>, role: string) -> ReadOnlyValue<Literal?>)?,
+}
+
+export type SequenceStep = {
+	delay: string?,
+	duration: string?,
+	easing: string?,
+	state: string?,
+	to: Literal?,
+	output: string?,
+}
+
+export type Sequence = { id: string, autoplay: boolean?, steps: { SequenceStep } }
+
+export type Player = { play: () -> () }
+
+export type Sequencing = {
+	call: string,
+	toward: string,
+	build: (
+		(sequence: Sequence, states: { [string]: Core.Value<Literal?> }, outputs: { [string]: () -> () }) -> Player
+	)?,
+}
+
 export type Library = {
 	name: string,
 	parameter: string,
@@ -98,6 +127,8 @@ export type Library = {
 	tags: { call: string, apply: (built: unknown, tags: { string }) -> () }?,
 	space: ("2d" | "3d")?,
 	provide: ((content: unknown) -> unknown)?,
+	motion: Motion?,
+	sequence: Sequencing?,
 	kinds: { [string]: Kind },
 }
 
@@ -143,6 +174,7 @@ export type Document = {
 	nextId: number,
 	contract: Contract,
 	state: { State }?,
+	sequences: { Sequence }?,
 	root: Node,
 }
 
@@ -161,6 +193,7 @@ export type RenderContext = {
 	slots: { [string]: () -> unknown }?,
 	token: ((name: string) -> Literal)?,
 	decorate: ((node: Node, built: unknown) -> ())?,
+	players: ((players: { [string]: Player }) -> ())?,
 }
 
 export type LinkStore = {

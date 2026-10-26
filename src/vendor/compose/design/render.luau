@@ -4,7 +4,7 @@ local Core = require "../core"
 local Types = require "./types"
 local Document = require "./document"
 
-type ReadOnlyValue<T> = Core.Value<T>
+type ReadOnlyValue<T> = Core.ReadOnlyValue<T>
 type Use = Core.Use
 type Literal = Types.Literal
 type Row = Types.Row
@@ -52,6 +52,27 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		for _, entry in declared do
 			states[entry.id] = Core.cell(entry.initial :: Literal?)
 		end
+	end
+	local players: { [string]: Types.Player } = {}
+	local sequences, sequencing = value.sequences, library.sequence
+	local playing = if sequencing then sequencing.build else nil
+	if sequences ~= nil and playing ~= nil then
+		local called: { [string]: () -> () } = {}
+		for _, output in value.contract.outputs do
+			called[output.id] = function()
+				local handler = outputs[output.id]
+				if handler then
+					handler {}
+				end
+			end
+		end
+		for _, sequence in sequences do
+			players[sequence.id] = playing(sequence, states, called)
+		end
+	end
+	local shared = if context then context.players else nil
+	if shared then
+		shared(players)
 	end
 	local function truthy(id: string, item: ReadOnlyValue<Row>?): boolean
 		if item ~= nil and item:peek()[id] ~= nil then
@@ -170,6 +191,17 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		if stateId ~= nil then
 			return { readable = states[stateId] }
 		end
+		local played = property.play
+		if played ~= nil then
+			return {
+				callback = function()
+					local player = players[played]
+					if player then
+						player.play()
+					end
+				end,
+			}
+		end
 		if current ~= nil then
 			if definition ~= nil and definition.perRow then
 				local literal = current
@@ -243,7 +275,13 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		local props: { [string]: Resolved } = {}
 		local cells: { [string]: true } = {}
 		for key, property in node.props do
-			props[key] = resolve(property, item, node, kind.fields[key])
+			local resolved = resolve(property, item, node, kind.fields[key])
+			local role, readable = property.motion, resolved.readable
+			local animate = if library.motion then library.motion.animate else nil
+			if role ~= nil and readable ~= nil and animate ~= nil then
+				resolved.readable = animate(readable, role)
+			end
+			props[key] = resolved
 			local literal = property.literal
 			if literal ~= nil then
 				Document.cellsOf(literal, cells)
@@ -338,5 +376,14 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		end
 		return built
 	end
-	return build(value.root, nil)
+	local root = build(value.root, nil)
+	if sequences ~= nil then
+		for _, sequence in sequences do
+			local player = players[sequence.id]
+			if sequence.autoplay and player then
+				player.play()
+			end
+		end
+	end
+	return root
 end

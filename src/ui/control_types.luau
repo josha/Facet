@@ -118,6 +118,8 @@ export type Controls = {
 	sequence: typeof(effectControls.sequence),
 	shake: typeof(effectControls.shake),
 	countUp: typeof(effectControls.countUp),
+	follow: typeof(effectControls.follow),
+	toward: typeof(effectControls.toward),
 	Flash: Constructor<EffectProps.FlashProps, Frame>,
 	ZoomView: Constructor<ZoomTravelProps.ZoomViewProps, ScrollingFrame>,
 	Travel: Constructor<ZoomTravelProps.TravelProps, Frame>,

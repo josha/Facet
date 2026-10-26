@@ -17,6 +17,22 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 			reducedMotion = reducedMotion(ctx),
 		})
 	end
+	function UI.follow<T>(value: Shared.ReadOnlyValue<T> | (Shared.Use) -> T, role: string): Shared.ReadOnlyValue<T>
+		local spring = ctx.motionSpring(role)
+		return runtime.spring(function(use: Shared.Use): T
+			return ctx.read(value, use)
+		end, { period = spring.period, damping = spring.damping, reducedMotion = reducedMotion(ctx) })
+	end
+	function UI.toward(value: Shared.Value<number>, target: number): (number) -> ()
+		assert(target == target and math.abs(target) < math.huge, "Facet toward requires a finite target")
+		local from: number? = nil
+		return function(progress: number)
+			local start = if progress <= 0 then nil else from
+			local origin = start or value:peek()
+			from = if progress >= 1 then nil else origin
+			value:set(origin + (target - origin) * progress)
+		end
+	end
 	function UI.sequence(spec: Types.SequenceSpec): Types.Sequence
 		local function seconds(token: string?): number
 			local value = if token then ctx.metric("motion.durations." .. token) else 0

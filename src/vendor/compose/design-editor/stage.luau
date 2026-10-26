@@ -14,6 +14,7 @@ export type Stage = {
 	fit: () -> (),
 	zoomTo: (scale: number, around: UI.Point?) -> (),
 	resize: (size: UI.Point) -> (),
+	play: (sequence: string) -> (),
 	dispose: () -> (),
 }
 
@@ -349,6 +350,7 @@ return function(ui: UI.UI)
 			return box
 		end
 		local started = false
+		local players: { [string]: Design.Player } = {}
 		local root = Compose.createRootOwner(function()
 			Compose.watch(function(use: Compose.Use)
 				local value = use(session.document)
@@ -363,6 +365,9 @@ return function(ui: UI.UI)
 							inputs = options.inputs,
 							slots = options.slots,
 							token = options.token,
+							players = function(made: { [string]: Design.Player })
+								players = made
+							end,
 							decorate = function(node: Design.Node, built: Compose.Node)
 								if ui.isA(built, "GuiObject") then
 									runtime.decorate(built, { Attributes = { [ATTRIBUTE] = node.id } })
@@ -519,6 +524,12 @@ return function(ui: UI.UI)
 			fit = fit,
 			zoomTo = zoomTo,
 			resize = resize,
+			play = function(sequence: string)
+				local player = players[sequence]
+				if player then
+					player.play()
+				end
+			end,
 			dispose = function()
 				for _, connection in surfaceInput do
 					connection:Disconnect()

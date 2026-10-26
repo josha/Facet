@@ -128,9 +128,10 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end
 
-	local function live(ctx: Context): Facet.DesignLibrary
+	local function live(ctx: Context, motion: Facet.DesignMotion?): Facet.DesignLibrary
 		return Kit.library({
 			UI = ctx.UI,
+			motion = motion,
 			rgb = ctx.types.Color3.fromRGB,
 			udim2 = ctx.types.UDim2.new,
 			offset = ctx.types.UDim2.fromOffset,
@@ -670,6 +671,54 @@ return function(verifyHarness: Verify.Harness)
 				marker = Design.document.change(marker, library, flash, "anchor", { input = "anchor" })
 				Verify.expect(string.find(Design.emit(marker, library), "anchor = props.anchor,", 1, true) ~= nil)
 					:toBe(true)
+			end,
+		})
+
+		verifyHarness:case("moves designed values and plays designed sequences with theme motion", {
+			id = "facet_compose_library::moves designed values and plays designed sequences with theme motion",
+			run = function()
+				local library = offline()
+				local charge: Facet.DesignState = { id = "charge", type = "number", initial = 0 }
+				local value = Design.document.new("Charge", library, "VStack")
+				value = Design.document.setState(value, library, { charge })
+				local bar, button
+				value, bar = Design.document.insert(value, library, "n1", "ProgressView")
+				value = Design.document.change(value, library, bar, "value", { state = "charge", motion = "move" })
+				local fill: { Facet.DesignSequence } =
+					{ { id = "fill", steps = { { duration = "glide", state = "charge", to = 1 } } } }
+				value = Design.document.setSequences(value, library, fill)
+				value, button = Design.document.insert(value, library, "n1", "Button")
+				value = Design.document.change(value, library, button, "onActivate", { play = "fill" })
+				local code = Design.emit(value, library)
+				for _, expected in
+					{
+						'value = UI.follow(state.charge, "move")',
+						'{ duration = "glide", sample = UI.toward(state.charge, 1) },',
+						"onActivate = sequences.fill.play",
+					}
+				do
+					Verify.expect(`{expected} {string.find(code, expected, 1, true) ~= nil}`):toBe(`{expected} true`)
+				end
+				Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+				local played: Facet.DesignPlayer? = nil
+				local shown: { number } = {}
+				local session = mount(function(ctx: Context): unknown
+					for _, role in assert(library.motion).roles do
+						ctx.UI.follow(Facet.Compose.cell(0), role)
+					end
+					local motion = Kit.motion(ctx.UI)
+					local built = Design.render(value, live(ctx, motion), {
+						players = function(players: { [string]: Facet.DesignPlayer })
+							played = players.fill
+						end,
+					})
+					return built
+				end)
+				local player = assert(played, "the design makes a player for its sequence")
+				player.play()
+				table.insert(shown, 1)
+				Verify.expect(#shown):toBe(1)
+				session.dispose()
 			end,
 		})
 
