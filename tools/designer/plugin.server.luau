@@ -49,32 +49,33 @@ local function showCompose()
 			udim2 = UDim2.new,
 			offset = UDim2.fromOffset,
 		})
-		local editor = DesignEditor.create(library, Facet.Design.document.new("Screen", library, "Screen"), composeWidget, {
-			runtime = runtime,
-			environment = Facet.Roblox.designEnvironment(),
-			stageSize = { X = 390, Y = 844 },
-			onExport = function(source: string)
-				local history = game:GetService("ChangeHistoryService")
-				local storage = game:GetService("ReplicatedStorage")
-				local recording = history:TryBeginRecording("ComposeDesign.Export", "Export Compose Design")
-				local folder = storage:FindFirstChild("FacetDesigns") or Instance.new("Folder")
-				folder.Name = "FacetDesigns"
-				folder.Parent = storage
-				local target = folder:FindFirstChild("Screen")
-				if not (target and target:IsA("ModuleScript")) then
-					target = Instance.new("ModuleScript")
-					target.Name = "Screen"
-					target.Parent = folder
-				end
-				local module = target :: ModuleScript
-				game:GetService("ScriptEditorService"):UpdateSourceAsync(module, function()
-					return source
-				end)
-				if recording then
-					history:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
-				end
-			end,
-		})
+		local editor =
+			DesignEditor.create(library, Facet.Design.document.new("Screen", library, "Screen"), composeWidget, {
+				runtime = runtime,
+				environment = Facet.Roblox.designEnvironment(),
+				stageSize = { X = 390, Y = 844 },
+				onExport = function(source: string)
+					local history = game:GetService("ChangeHistoryService")
+					local storage = game:GetService("ReplicatedStorage")
+					local recording = history:TryBeginRecording("ComposeDesign.Export", "Export Compose Design")
+					local folder = storage:FindFirstChild("FacetDesigns") or Instance.new("Folder")
+					folder.Name = "FacetDesigns"
+					folder.Parent = storage
+					local target = folder:FindFirstChild("Screen")
+					if not (target and target:IsA("ModuleScript")) then
+						target = Instance.new("ModuleScript")
+						target.Name = "Screen"
+						target.Parent = folder
+					end
+					local module = target :: ModuleScript
+					game:GetService("ScriptEditorService"):UpdateSourceAsync(module, function()
+						return source
+					end)
+					if recording then
+						history:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
+					end
+				end,
+			})
 		composed = {
 			dispose = function()
 				editor.dispose()

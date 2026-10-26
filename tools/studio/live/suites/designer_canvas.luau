@@ -30,6 +30,10 @@ local loadTemplates: (ModuleScript) -> Templates = require
 local loadDesigner: (ModuleScript) -> Designer = require
 local loadDocument: (ModuleScript) -> Document = require
 local loadLibrary: (ModuleScript) -> Library = require
+type FacetModule = typeof(require("@repo/src"))
+type DesignEditorModule = typeof(require("@repo/src/vendor/compose/design-editor"))
+local loadFacet: (ModuleScript) -> FacetModule = require
+local loadEditor: (ModuleScript) -> DesignEditorModule = require
 local Live = require(script.Parent.Parent)
 
 local function module(name: string): ModuleScript
@@ -39,7 +43,76 @@ local function module(name: string): ModuleScript
 	return found
 end
 
+local function facetModule(): ModuleScript
+	local found = ReplicatedStorage:WaitForChild("Facet")
+	assert(found:IsA("ModuleScript"), "Facet is a ModuleScript")
+	return found
+end
+
 local cases: { Case } = {
+	{
+		id = "compose-design-edits-facet-controls",
+		contracts = {},
+		run = function(t: Live)
+			local Facet = loadFacet(facetModule())
+			local editorModule =
+				facetModule():WaitForChild("vendor"):WaitForChild("compose"):WaitForChild("design-editor")
+			assert(editorModule:IsA("ModuleScript"), "design-editor is a ModuleScript")
+			local DesignEditor = loadEditor(editorModule)
+			local screen = Instance.new("ScreenGui")
+			screen.Name = "ComposeDesignProbe"
+			screen.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+			local host = Instance.new("Frame")
+			host.Size = UDim2.fromOffset(1200, 760)
+			host.Parent = screen
+			local runtime = Facet.Roblox.createRuntime()
+			local library = Facet.designLibrary({
+				UI = Facet.controls(runtime),
+				rgb = Color3.fromRGB,
+				udim2 = UDim2.new,
+				offset = UDim2.fromOffset,
+			})
+			local editor = DesignEditor.create(library, Facet.Design.document.new("Probe", library, "VStack"), host, {
+				runtime = runtime,
+				environment = Facet.Roblox.designEnvironment(),
+				stageSize = { X = 390, Y = 640 },
+			})
+			t.settle(10)
+			t.check("the editor inserts a Facet Button", editor.session.insert("Button"))
+			t.check("the editor relabels the Button", editor.session.change("label", { literal = "Buy" }))
+			t.settle(10)
+			local stage = t.find(host, "StagePanel")
+			local button: GuiObject? = nil
+			for _, node in (stage or host):GetDescendants() do
+				if node:IsA("TextLabel") and node.Text == "Buy" then
+					button = node
+				end
+			end
+			local stageFrame = stage :: GuiObject?
+			local inside = button ~= nil
+				and stageFrame ~= nil
+				and button.AbsoluteSize.X > 0
+				and button.AbsolutePosition.X >= stageFrame.AbsolutePosition.X
+				and button.AbsolutePosition.Y >= stageFrame.AbsolutePosition.Y
+			t.check("the stage paints the relabelled Facet Button inside the stage", inside, {
+				size = if button then button.AbsoluteSize else nil,
+				position = if button then button.AbsolutePosition else nil,
+			})
+			local kinds = t.find(host, "Kinds")
+			local entries = 0
+			if kinds then
+				for _, node in kinds:GetChildren() do
+					if node:IsA("TextButton") then
+						entries += 1
+					end
+				end
+			end
+			t.check("the Library panel lists every Facet control", entries >= 66, { entries = entries })
+			editor.dispose()
+			runtime:dispose()
+			screen:Destroy()
+		end,
+	},
 	{
 		id = "drag-moves-a-layer-below-its-siblings",
 		contracts = {},
