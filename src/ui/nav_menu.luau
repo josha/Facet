@@ -67,8 +67,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		if spec.label ~= nil and spec.trigger ~= nil then
 			error("Facet UI.Menu: give label or trigger, not both", 0)
 		end
-		local opened: ComposeTypes.Cell<boolean> = spec.isPresented or Compose.cell(false)
-		local pointer: ComposeTypes.Cell<Vector2?> = Compose.cell(nil :: Vector2?)
+		local opened: ComposeTypes.Value<boolean> = spec.isPresented or Compose.cell(false)
+		local pointer: ComposeTypes.Value<Vector2?> = Compose.cell(nil :: Vector2?)
 		local announced = false
 		local function announce(state: boolean)
 			if state == announced then

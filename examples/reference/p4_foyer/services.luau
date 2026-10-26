@@ -1,9 +1,11 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 
 local seed = require("./content/seed")
 
@@ -19,12 +21,12 @@ function services.new(deps: { Compose: ComposeModule })
 	local idle: CommandStatus = "idle"
 	local nothing: string? = nil
 	local noIds: { [string]: boolean } = {}
-	local sections: Cell<{ Section }> = Compose.cell(seed.sections(page))
-	local refreshStatus: Cell<CommandStatus> = Compose.cell(idle)
-	local refreshReason: Cell<string?> = Compose.cell(nothing)
-	local visitStatus: Cell<CommandStatus> = Compose.cell(idle)
-	local visitPendingId: Cell<string?> = Compose.cell(nothing)
-	local continueIds: Cell<{ [string]: boolean }> = Compose.cell(noIds)
+	local sections: Value<{ Section }> = Compose.cell(seed.sections(page))
+	local refreshStatus: Value<CommandStatus> = Compose.cell(idle)
+	local refreshReason: Value<string?> = Compose.cell(nothing)
+	local visitStatus: Value<CommandStatus> = Compose.cell(idle)
+	local visitPendingId: Value<string?> = Compose.cell(nothing)
+	local continueIds: Value<{ [string]: boolean }> = Compose.cell(noIds)
 	local self = {
 		sections = sections,
 		charted = seed.charted(),
@@ -106,7 +108,7 @@ function services.new(deps: { Compose: ComposeModule })
 		return page
 	end
 
-	function self.filterMemo(query: Readable<string>)
+	function self.filterMemo(query: ReadOnlyValue<string>)
 		return Compose.formula(function(use: Use): { seed.Tile }
 			local q = string.lower(use(query))
 			if q == "" then

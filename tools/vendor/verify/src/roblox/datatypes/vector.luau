@@ -6,95 +6,95 @@ local Names = require "./names"
 
 local f32 = Float.f32
 
-export type Vector2Value = typeof(setmetatable(
-	{} :: {
-		X: number,
-		Y: number,
-		Magnitude: number,
-		Unit: Vector2Value,
-		Lerp: (self: Vector2Value, goal: Vector2Value, alpha: number) -> Vector2Value,
-		Dot: (self: Vector2Value, other: Vector2Value) -> number,
-		Cross: (self: Vector2Value, other: Vector2Value) -> number,
-		Abs: (self: Vector2Value) -> Vector2Value,
-		Ceil: (self: Vector2Value) -> Vector2Value,
-		Floor: (self: Vector2Value) -> Vector2Value,
-		Sign: (self: Vector2Value) -> Vector2Value,
-		Max: (self: Vector2Value, ...Vector2Value) -> Vector2Value,
-		Min: (self: Vector2Value, ...Vector2Value) -> Vector2Value,
-		Angle: (self: Vector2Value, other: Vector2Value, isSigned: boolean?) -> number,
-		FuzzyEq: (self: Vector2Value, other: Vector2Value, epsilon: number?) -> boolean,
-	},
-	{} :: {
-		__add: (Vector2Value, Vector2Value) -> Vector2Value,
-		__sub: (Vector2Value, Vector2Value) -> Vector2Value,
-		__mul: (Vector2Value | number, Vector2Value | number) -> Vector2Value,
-		__div: (Vector2Value | number, Vector2Value | number) -> Vector2Value,
-		__idiv: (Vector2Value, Vector2Value | number) -> Vector2Value,
-		__unm: (Vector2Value) -> Vector2Value,
-		__eq: (Vector2Value, Vector2Value) -> boolean,
-		__tostring: (Vector2Value) -> string,
-	}
-))
+local Vector2ValueFields: {
+	X: number,
+	Y: number,
+	Magnitude: number,
+	Unit: Vector2Value,
+	Lerp: (self: Vector2Value, goal: Vector2Value, alpha: number) -> Vector2Value,
+	Dot: (self: Vector2Value, other: Vector2Value) -> number,
+	Cross: (self: Vector2Value, other: Vector2Value) -> number,
+	Abs: (self: Vector2Value) -> Vector2Value,
+	Ceil: (self: Vector2Value) -> Vector2Value,
+	Floor: (self: Vector2Value) -> Vector2Value,
+	Sign: (self: Vector2Value) -> Vector2Value,
+	Max: (self: Vector2Value, ...Vector2Value) -> Vector2Value,
+	Min: (self: Vector2Value, ...Vector2Value) -> Vector2Value,
+	Angle: (self: Vector2Value, other: Vector2Value, isSigned: boolean?) -> number,
+	FuzzyEq: (self: Vector2Value, other: Vector2Value, epsilon: number?) -> boolean,
+}
+local Vector2ValueMeta: {
+	__add: (Vector2Value, Vector2Value) -> Vector2Value,
+	__sub: (Vector2Value, Vector2Value) -> Vector2Value,
+	__mul: (Vector2Value | number, Vector2Value | number) -> Vector2Value,
+	__div: (Vector2Value | number, Vector2Value | number) -> Vector2Value,
+	__idiv: (Vector2Value, Vector2Value | number) -> Vector2Value,
+	__unm: (Vector2Value) -> Vector2Value,
+	__eq: (Vector2Value, Vector2Value) -> boolean,
+	__tostring: (Vector2Value) -> string,
+}
 
-export type Vector3Value = typeof(setmetatable(
-	{} :: {
-		X: number,
-		Y: number,
-		Z: number,
-		Magnitude: number,
-		Unit: Vector3Value,
-		Lerp: (self: Vector3Value, goal: Vector3Value, alpha: number) -> Vector3Value,
-		Dot: (self: Vector3Value, other: Vector3Value) -> number,
-		Cross: (self: Vector3Value, other: Vector3Value) -> Vector3Value,
-		Abs: (self: Vector3Value) -> Vector3Value,
-		Ceil: (self: Vector3Value) -> Vector3Value,
-		Floor: (self: Vector3Value) -> Vector3Value,
-		Sign: (self: Vector3Value) -> Vector3Value,
-		Max: (self: Vector3Value, ...Vector3Value) -> Vector3Value,
-		Min: (self: Vector3Value, ...Vector3Value) -> Vector3Value,
-		Angle: (self: Vector3Value, other: Vector3Value, axis: Vector3Value?) -> number,
-		FuzzyEq: (self: Vector3Value, other: Vector3Value, epsilon: number?) -> boolean,
-	},
-	{} :: {
-		__add: (Vector3Value, Vector3Value) -> Vector3Value,
-		__sub: (Vector3Value, Vector3Value) -> Vector3Value,
-		__mul: (Vector3Value | number, Vector3Value | number) -> Vector3Value,
-		__div: (Vector3Value | number, Vector3Value | number) -> Vector3Value,
-		__idiv: (Vector3Value, Vector3Value | number) -> Vector3Value,
-		__unm: (Vector3Value) -> Vector3Value,
-		__eq: (Vector3Value, Vector3Value) -> boolean,
-		__tostring: (Vector3Value) -> string,
-	}
-))
+export type Vector2Value = typeof(setmetatable(Vector2ValueFields, Vector2ValueMeta))
 
-export type Vector2int16Value = typeof(setmetatable(
-	{} :: { X: number, Y: number },
-	{} :: {
-		__add: (Vector2int16Value, Vector2int16Value) -> Vector2int16Value,
-		__sub: (Vector2int16Value, Vector2int16Value) -> Vector2int16Value,
-		__mul: (Vector2int16Value, Vector2int16Value | number) -> Vector2int16Value,
-		__div: (Vector2int16Value, Vector2int16Value | number) -> Vector2int16Value,
-		__unm: (Vector2int16Value) -> Vector2int16Value,
-		__eq: (Vector2int16Value, Vector2int16Value) -> boolean,
-		__tostring: (Vector2int16Value) -> string,
-	}
-))
+local Vector3ValueFields: {
+	X: number,
+	Y: number,
+	Z: number,
+	Magnitude: number,
+	Unit: Vector3Value,
+	Lerp: (self: Vector3Value, goal: Vector3Value, alpha: number) -> Vector3Value,
+	Dot: (self: Vector3Value, other: Vector3Value) -> number,
+	Cross: (self: Vector3Value, other: Vector3Value) -> Vector3Value,
+	Abs: (self: Vector3Value) -> Vector3Value,
+	Ceil: (self: Vector3Value) -> Vector3Value,
+	Floor: (self: Vector3Value) -> Vector3Value,
+	Sign: (self: Vector3Value) -> Vector3Value,
+	Max: (self: Vector3Value, ...Vector3Value) -> Vector3Value,
+	Min: (self: Vector3Value, ...Vector3Value) -> Vector3Value,
+	Angle: (self: Vector3Value, other: Vector3Value, axis: Vector3Value?) -> number,
+	FuzzyEq: (self: Vector3Value, other: Vector3Value, epsilon: number?) -> boolean,
+}
+local Vector3ValueMeta: {
+	__add: (Vector3Value, Vector3Value) -> Vector3Value,
+	__sub: (Vector3Value, Vector3Value) -> Vector3Value,
+	__mul: (Vector3Value | number, Vector3Value | number) -> Vector3Value,
+	__div: (Vector3Value | number, Vector3Value | number) -> Vector3Value,
+	__idiv: (Vector3Value, Vector3Value | number) -> Vector3Value,
+	__unm: (Vector3Value) -> Vector3Value,
+	__eq: (Vector3Value, Vector3Value) -> boolean,
+	__tostring: (Vector3Value) -> string,
+}
 
-export type Vector3int16Value = typeof(setmetatable(
-	{} :: { X: number, Y: number, Z: number },
-	{} :: {
-		__add: (Vector3int16Value, Vector3int16Value) -> Vector3int16Value,
-		__sub: (Vector3int16Value, Vector3int16Value) -> Vector3int16Value,
-		__mul: (Vector3int16Value, Vector3int16Value | number) -> Vector3int16Value,
-		__div: (Vector3int16Value, Vector3int16Value | number) -> Vector3int16Value,
-		__unm: (Vector3int16Value) -> Vector3int16Value,
-		__eq: (Vector3int16Value, Vector3int16Value) -> boolean,
-		__tostring: (Vector3int16Value) -> string,
-	}
-))
+export type Vector3Value = typeof(setmetatable(Vector3ValueFields, Vector3ValueMeta))
 
-type Components = { X: number, Y: number, Z: number? }
-type Methods = { [string]: unknown }
+local Vector2int16ValueFields: { X: number, Y: number }
+local Vector2int16ValueMeta: {
+	__add: (Vector2int16Value, Vector2int16Value) -> Vector2int16Value,
+	__sub: (Vector2int16Value, Vector2int16Value) -> Vector2int16Value,
+	__mul: (Vector2int16Value, Vector2int16Value | number) -> Vector2int16Value,
+	__div: (Vector2int16Value, Vector2int16Value | number) -> Vector2int16Value,
+	__unm: (Vector2int16Value) -> Vector2int16Value,
+	__eq: (Vector2int16Value, Vector2int16Value) -> boolean,
+	__tostring: (Vector2int16Value) -> string,
+}
+
+export type Vector2int16Value = typeof(setmetatable(Vector2int16ValueFields, Vector2int16ValueMeta))
+
+local Vector3int16ValueFields: { X: number, Y: number, Z: number }
+local Vector3int16ValueMeta: {
+	__add: (Vector3int16Value, Vector3int16Value) -> Vector3int16Value,
+	__sub: (Vector3int16Value, Vector3int16Value) -> Vector3int16Value,
+	__mul: (Vector3int16Value, Vector3int16Value | number) -> Vector3int16Value,
+	__div: (Vector3int16Value, Vector3int16Value | number) -> Vector3int16Value,
+	__unm: (Vector3int16Value) -> Vector3int16Value,
+	__eq: (Vector3int16Value, Vector3int16Value) -> boolean,
+	__tostring: (Vector3int16Value) -> string,
+}
+
+export type Vector3int16Value = typeof(setmetatable(Vector3int16ValueFields, Vector3int16ValueMeta))
+
+type Components = { X: number, Y: number, Z: number?, [unknown]: unknown }
+type Methods = { [unknown]: unknown }
 
 local DEFAULT_EPSILON = 1e-5
 
@@ -119,26 +119,37 @@ local Vector3Kind = Names.behavior "Vector3"
 local Vector2int16Kind = Names.behavior("Vector2int16", { quoted = true })
 local Vector3int16Kind = Names.behavior("Vector3int16", { quoted = true })
 
+local values2: { [unknown]: Vector2Value? } = {}
+local values3: { [unknown]: Vector3Value? } = {}
+Names.weak(values2)
+Names.weak(values3)
+
 local function make2(x: number, y: number): Vector2Value
-	return Names.make(Vector2Kind, { X = f32(x), Y = f32(y) })
+	local made: Vector2Value = Names.make(Vector2Kind, { X = f32(x), Y = f32(y) })
+	values2[made] = made
+	return made
 end
 
 local function make3(x: number, y: number, z: number): Vector3Value
-	return Names.make(Vector3Kind, { X = f32(x), Y = f32(y), Z = f32(z) })
+	local made: Vector3Value = Names.make(Vector3Kind, { X = f32(x), Y = f32(y), Z = f32(z) })
+	values3[made] = made
+	return made
 end
 
 local function expect2(value: unknown, position: number): Vector2Value
-	if not Names.is(value, Vector2Kind) then
-		Names.argument(position, "Vector2", value)
+	local found = values2[value]
+	if found == nil then
+		return Names.argument(position, "Vector2", value)
 	end
-	return value :: Vector2Value
+	return found
 end
 
 local function expect3(value: unknown, position: number): Vector3Value
-	if not Names.is(value, Vector3Kind) then
-		Names.argument(position, "Vector3", value)
+	local found = values3[value]
+	if found == nil then
+		return Names.argument(position, "Vector3", value)
 	end
-	return value :: Vector3Value
+	return found
 end
 
 local methods2: Methods = {}
@@ -168,7 +179,8 @@ local function fold2(v: Vector2Value, others: { unknown }, pick: (number, number
 	local x, y = v.X, v.Y
 	for index, other in others do
 		local vector = expect2(other, index + 1)
-		x, y = pick(x, vector.X), pick(y, vector.Y)
+		x = pick(x, vector.X)
+		y = pick(y, vector.Y)
 	end
 	return make2(x, y)
 end
@@ -177,7 +189,9 @@ local function fold3(v: Vector3Value, others: { unknown }, pick: (number, number
 	local x, y, z = v.X, v.Y, v.Z
 	for index, other in others do
 		local vector = expect3(other, index + 1)
-		x, y, z = pick(x, vector.X), pick(y, vector.Y), pick(z, vector.Z)
+		x = pick(x, vector.X)
+		y = pick(y, vector.Y)
+		z = pick(z, vector.Z)
 	end
 	return make3(x, y, z)
 end
@@ -269,7 +283,7 @@ function methods3.FuzzyEq(self: Vector3Value, other: unknown, epsilon: number?):
 end
 
 Vector2Kind.fields.__index = function(v: Vector2Value, key: unknown): unknown
-	local method = methods2[key :: string]
+	local method = methods2[key]
 	if method ~= nil then
 		return method
 	elseif key == "Magnitude" then
@@ -286,7 +300,7 @@ Vector2Kind.fields.__index = function(v: Vector2Value, key: unknown): unknown
 end
 
 Vector3Kind.fields.__index = function(v: Vector3Value, key: unknown): unknown
-	local method = methods3[key :: string]
+	local method = methods3[key]
 	if method ~= nil then
 		return method
 	elseif key == "Magnitude" then
@@ -308,15 +322,15 @@ type Combine = (number, number) -> number
 
 local function combine2(name: string, combine: Combine, scalars: boolean, leftScalars: boolean)
 	return function(left: unknown, right: unknown): Vector2Value
-		local leftVector, rightVector = Names.is(left, Vector2Kind), Names.is(right, Vector2Kind)
+		local leftVector, rightVector = values2[left], values2[right]
 		if leftVector and rightVector then
-			local a, b = left :: Vector2Value, right :: Vector2Value
+			local a, b = leftVector, rightVector
 			return make2(combine(a.X, b.X), combine(a.Y, b.Y))
 		elseif leftVector and scalars and type(right) == "number" then
-			local a, s = left :: Vector2Value, f32(right)
+			local a, s = leftVector, f32(right)
 			return make2(combine(a.X, s), combine(a.Y, s))
 		elseif rightVector and leftScalars and type(left) == "number" then
-			local s, b = f32(left), right :: Vector2Value
+			local s, b = f32(left), rightVector
 			return make2(combine(s, b.X), combine(s, b.Y))
 		elseif leftVector and not scalars then
 			return Names.argument(2, "Vector2", right)
@@ -327,15 +341,15 @@ end
 
 local function combine3(name: string, combine: Combine, scalars: boolean, leftScalars: boolean)
 	return function(left: unknown, right: unknown): Vector3Value
-		local leftVector, rightVector = Names.is(left, Vector3Kind), Names.is(right, Vector3Kind)
+		local leftVector, rightVector = values3[left], values3[right]
 		if leftVector and rightVector then
-			local a, b = left :: Vector3Value, right :: Vector3Value
+			local a, b = leftVector, rightVector
 			return make3(combine(a.X, b.X), combine(a.Y, b.Y), combine(a.Z, b.Z))
 		elseif leftVector and scalars and type(right) == "number" then
-			local a, s = left :: Vector3Value, f32(right)
+			local a, s = leftVector, f32(right)
 			return make3(combine(a.X, s), combine(a.Y, s), combine(a.Z, s))
 		elseif rightVector and leftScalars and type(left) == "number" then
-			local s, b = f32(left), right :: Vector3Value
+			local s, b = f32(left), rightVector
 			return make3(combine(s, b.X), combine(s, b.Y), combine(s, b.Z))
 		end
 		return Names.arithmetic(name, left, right)
@@ -388,17 +402,27 @@ Vector3Kind.meta.__tostring = function(v: Vector3Value): string
 	return Float.shortest(v.X) .. ", " .. Float.shortest(v.Y) .. ", " .. Float.shortest(v.Z)
 end
 
+local integerComponents: { [unknown]: Components } = {}
+Names.weak(integerComponents)
+
 local function makeInt2(x: number, y: number): Vector2int16Value
-	return Names.make(Vector2int16Kind, { X = Float.int16(x), Y = Float.int16(y) })
+	local fields: Components = { X = Float.int16(x), Y = Float.int16(y) }
+	local made: Vector2int16Value = Names.make(Vector2int16Kind, fields)
+	integerComponents[made] = fields
+	return made
 end
 
 local function makeInt3(x: number, y: number, z: number): Vector3int16Value
-	return Names.make(Vector3int16Kind, { X = Float.int16(x), Y = Float.int16(y), Z = Float.int16(z) })
+	local fields: Components = { X = Float.int16(x), Y = Float.int16(y), Z = Float.int16(z) }
+	local made: Vector3int16Value = Names.make(Vector3int16Kind, fields)
+	integerComponents[made] = fields
+	return made
 end
 
 local function components(value: unknown): Components
-	local fields = Names.fields(value)
-	return { X = rawget(fields, "X") :: number, Y = rawget(fields, "Y") :: number, Z = rawget(fields, "Z") :: number? }
+	local fields = integerComponents[value]
+	local z = rawget(fields, "Z")
+	return { X = fields.X, Y = fields.Y, Z = if type(z) == "number" then z else nil }
 end
 
 local function integer(
@@ -419,7 +443,7 @@ local function integer(
 			return build {
 				X = combine(a.X, b.X),
 				Y = combine(a.Y, b.Y),
-				Z = if a.Z ~= nil then combine(a.Z, b.Z :: number) else nil,
+				Z = if a.Z ~= nil then combine(a.Z, b.Z or 0) else nil,
 			}
 		elseif scalars and type(right) == "number" then
 			return build {
@@ -437,7 +461,7 @@ local function build2(components: Components): unknown
 end
 
 local function build3(components: Components): unknown
-	return makeInt3(components.X, components.Y, components.Z :: number)
+	return makeInt3(components.X, components.Y, components.Z or 0)
 end
 
 for _, entry in
@@ -488,12 +512,12 @@ local AXES: { [string]: { number } } = { X = { 1, 0, 0 }, Y = { 0, 1, 0 }, Z = {
 
 local function fromItem(table_: { [string]: { number } }, item: unknown, family: string): Vector3Value
 	local components = if Enum.isItem(item) and Enum.enumType(item) == family
-		then table_[(item :: Enum.EnumItem).Name]
+		then table_[Enum.itemValue(item).Name]
 		else nil
 	if components == nil then
-		Names.argument(1, "Enum." .. family, item)
+		return Names.argument(1, "Enum." .. family, item)
 	end
-	local found = components :: { number }
+	local found = components
 	return make3(found[1], found[2], found[3])
 end
 
@@ -531,6 +555,11 @@ return {
 	Vector3 = Vector3,
 	Vector2int16 = Vector2int16,
 	Vector3int16 = Vector3int16,
+	find3 = function(value: unknown): Vector3Value?
+		return values3[value]
+	end,
+	expect2 = expect2,
+	expect3 = expect3,
 	isVector2 = function(value: unknown): boolean
 		return Names.is(value, Vector2Kind)
 	end,

@@ -29,7 +29,15 @@ export type Loader = {
 	reference: (path: string) -> Reference,
 }
 
-local requireRuntime = (require :: unknown) :: (string) -> unknown
+local requireRuntime: (string) -> unknown = require
+
+local function inherit(environment: Environment, index: Environment | ((Environment, string) -> unknown))
+	setmetatable(environment, { __index = index })
+end
+
+local function weakKeys<K, V>(registry: { [K]: V })
+	setmetatable(registry, { __mode = "k" })
+end
 
 local function parent(path: string): string
 	return string.match(path, "^(.*)/[^/]*$") or ""
@@ -78,24 +86,22 @@ local function new(options: Options?): Loader
 	local resolved: { [string]: string } = {}
 	local loaded: { [string]: unknown } = {}
 	local loading: { [string]: boolean } = {}
-	local environments = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [unknown]: Environment }
+	local environments: { [unknown]: Environment } = {}
+	weakKeys(environments)
 	local defaults: Environment = { warn = warn, typeof = Datatypes.typeof }
 	local supplied: Environment = settings.globals or {}
-	local globals = (
-		setmetatable({}, {
-			__index = function(_: Environment, name: string): unknown
-				local value = supplied[name]
-				if value == nil then
-					value = defaults[name]
-				end
-				if value == nil then
-					value = (_G :: Environment)[name]
-				end
-				return value
-			end,
-		}) :: unknown
-	) :: Environment
-	for name, value in _G :: Environment do
+	local globals: Environment = {}
+	inherit(globals, function(_: Environment, name: string): unknown
+		local value = supplied[name]
+		if value == nil then
+			value = defaults[name]
+		end
+		if value == nil then
+			value = (_G)[name]
+		end
+		return value
+	end)
+	for name, value in _G do
 		if supplied[name] == nil and defaults[name] == nil then
 			rawset(globals, name, value)
 		end
@@ -136,7 +142,8 @@ local function new(options: Options?): Loader
 			return value
 		end
 		local directory = if string.sub(path, -10) == "/init.luau" then parent(module) else parent(path)
-		local environment = (setmetatable({}, { __index = globals }) :: unknown) :: Environment
+		local environment: Environment = {}
+		inherit(environment, globals)
 		environment.require = function(target: string | Reference): unknown
 			if type(target) == "table" then
 				return import(file(normalize(target.modulePath)))
@@ -147,11 +154,13 @@ local function new(options: Options?): Loader
 			end
 			local alias, tail = string.match(request, "^@([^/]+)/(.+)$")
 			if alias == "self" then
-				return import(file(normalize(join(module, tail :: string))))
+				assert(tail ~= nil)
+				return import(file(normalize(join(module, tail))))
 			elseif alias ~= nil then
 				local root = aliases[alias]
 				assert(root ~= nil, `{path} requires an unknown alias: {request}`)
-				return import(file(normalize(join(root, tail :: string))))
+				assert(tail ~= nil)
+				return import(file(normalize(join(root, tail))))
 			end
 			assert(
 				string.sub(request, 1, 2) == "./" or string.sub(request, 1, 3) == "../",
@@ -188,13 +197,16 @@ local function new(options: Options?): Loader
 	end
 
 	local function reference(path: string): Reference
-		return (
-			setmetatable({ modulePath = path }, {
+		local made: Reference = { modulePath = path }
+		local function attach(value: Reference)
+			setmetatable(value, {
 				__index = function(_: Reference, child: string): Reference
 					return reference(path .. "/" .. child)
 				end,
-			}) :: unknown
-		) :: Reference
+			})
+		end
+		attach(made)
+		return made
 	end
 
 	return {

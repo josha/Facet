@@ -12,7 +12,7 @@ local Calendar = require("./date_time_calendar")
 
 type CivilDate = DTP.CivilDate
 type Use = ComposeTypes.Use
-type Readable<T> = ComposeTypes.Readable<T>
+type ReadOnlyValue<T> = ComposeTypes.ReadOnlyValue<T>
 type TimeRow = { id: string, hour: number, minute: number }
 
 local ROW = Parts.ROW
@@ -167,7 +167,7 @@ return function(
 				itemSize = ROW,
 				Size = D2.new(1, 0, 0, 4 * ROW),
 				CanvasPosition = V2.new(0, first * ROW),
-				render = function(row: Readable<TimeRow>): GuiObject
+				render = function(row: ReadOnlyValue<TimeRow>): GuiObject
 					local t = row:peek()
 					return UI.Button({
 						Name = "Time",

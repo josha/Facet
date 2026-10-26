@@ -38,7 +38,7 @@ local function share(frames: Host.Frames, reactor: Reactor.Reactor): Host.Frames
 					dispatching = true
 					local failures: { unknown } = {}
 					local ok, failure: unknown = pcall(function()
-						reactor:batch(function()
+						Reactor.batch(reactor, function()
 							for index = 1, #listeners do
 								local current = listeners[index]
 								if current.live then

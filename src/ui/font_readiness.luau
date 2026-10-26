@@ -1,4 +1,5 @@
 --!strict
+local Compose = require("../vendor/compose/core")
 local Types = require("./types")
 
 return function(ctx: Types.Context, roots: { GuiObject }): () -> boolean
@@ -66,7 +67,7 @@ return function(ctx: Types.Context, roots: { GuiObject }): () -> boolean
 						provider:PreloadAsync(sources)
 					end)
 				end
-				if not owner.isDisposed() and wanted == key then
+				if not Compose.owner.isDisposed(owner) and wanted == key then
 					loaded = key
 				end
 			end)

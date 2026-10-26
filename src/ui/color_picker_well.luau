@@ -47,10 +47,10 @@ return function(
 		use: Use,
 		view: PanelView,
 		sheet: (Use) -> boolean,
-		extent: ComposeTypes.Readable<Vector2>,
-		origin: ComposeTypes.Readable<Vector2>,
-		at: ComposeTypes.Readable<Vector2>,
-		bounds: ComposeTypes.Readable<Vector2>,
+		extent: ComposeTypes.ReadOnlyValue<Vector2>,
+		origin: ComposeTypes.ReadOnlyValue<Vector2>,
+		at: ComposeTypes.ReadOnlyValue<Vector2>,
+		bounds: ComposeTypes.ReadOnlyValue<Vector2>,
 		tenFoot: boolean
 	): Placement
 		local offer = use(extent)

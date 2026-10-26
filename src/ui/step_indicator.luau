@@ -148,7 +148,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			end
 		end
 		local stepById = function(id: string, use: ComposeTypes.Use?): Content.Step?
-			local m = read(model, use)
+			local m = ctx.readSource(model, use)
 			local position = m.index[id]
 			return if position then m.steps[position] else nil
 		end
@@ -169,14 +169,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				return D.new(0, inset(side, use))
 			end
 		end
-		local measures = Compose.cell({} :: { [string]: { ComposeTypes.Readable<Vector2> } })
+		local measures = Compose.cell({} :: { [string]: { ComposeTypes.ReadOnlyValue<Vector2> } })
 		local cells: { [string]: GuiObject } = {}
-		local cellMeasures = Compose.cell({} :: { [string]: { ComposeTypes.Readable<Vector2> } })
+		local cellMeasures = Compose.cell({} :: { [string]: { ComposeTypes.ReadOnlyValue<Vector2> } })
 		local function content(id: string): { Types.Child }
 			local numberLabel = ctx.text({
 				Name = "Number",
 				Text = function(use: ComposeTypes.Use): string
-					return tostring(read(model, use).index[id] or "")
+					return tostring(ctx.readSource(model, use).index[id] or "")
 				end,
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = D2.fromScale(0.5, 0.5),
@@ -203,7 +203,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						Size = D2.fromScale(1, 1),
 						Visible = function(use: ComposeTypes.Use): boolean
 							local step = stepById(id, use)
-							local state = if step then stateOf(step, read(model, use).current) else "upcoming"
+							local state = if step then stateOf(step, ctx.readSource(model, use).current) else "upcoming"
 							return state ~= "complete" and state ~= "error"
 						end,
 						Host.UICorner({ CornerRadius = ctx.round }),
@@ -217,7 +217,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					Size = D2.fromScale(1, 1),
 					Visible = function(use: ComposeTypes.Use): boolean
 						local step = stepById(id, use)
-						return step ~= nil and stateOf(step, read(model, use).current) == "complete"
+						return step ~= nil and stateOf(step, ctx.readSource(model, use).current) == "complete"
 					end,
 				}),
 				ctx.icon("status.error", {
@@ -225,7 +225,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					Size = D2.fromScale(1, 1),
 					Visible = function(use: ComposeTypes.Use): boolean
 						local step = stepById(id, use)
-						return step ~= nil and stateOf(step, read(model, use).current) == "error"
+						return step ~= nil and stateOf(step, ctx.readSource(model, use).current) == "error"
 					end,
 				}),
 			}
@@ -243,7 +243,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				LayoutOrder = 2,
 				Text = function(use: ComposeTypes.Use): string
 					local step = stepById(id, use)
-					return if step then STATES[stateOf(step, read(model, use).current)] else ""
+					return if step then STATES[stateOf(step, ctx.readSource(model, use).current)] else ""
 				end,
 			})
 			state:AddTag("facet-type-caption")
@@ -310,7 +310,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			key = function(step: Content.Step): string
 				return step.id .. (if permitted(step) then ":button" else ":plain")
 			end,
-			render = function(source: ComposeTypes.Readable<Content.Step>, index: ComposeTypes.Readable<number>)
+			render = function(
+				source: ComposeTypes.ReadOnlyValue<Content.Step>,
+				index: ComposeTypes.ReadOnlyValue<number>
+			)
 				local step = source:peek()
 				local id = step.id
 				local node: GuiObject
@@ -475,7 +478,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			local widest = 0
 			for _, step in m.steps do
 				local copyWidth = 0
-				local cellBounds: { ComposeTypes.Readable<Vector2> } = all[step.id] or {}
+				local cellBounds: { ComposeTypes.ReadOnlyValue<Vector2> } = all[step.id] or {}
 				for _, bounds in ipairs(cellBounds) do
 					copyWidth = math.max(copyWidth, use(bounds).X / use(unit))
 				end

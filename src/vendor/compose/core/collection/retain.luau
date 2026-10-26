@@ -7,11 +7,11 @@ local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 local keyed = require "../structure/keyed"
 
-export type Render<V, S, K> = (value: Types.Readable<V>, state: Types.Readable<S>, key: K) -> Host.Node
+export type Render<V, S, K> = (value: Types.ReadOnlyValue<V>, state: Types.ReadOnlyValue<S>, key: K) -> Host.Node
 export type Recycle<V, S, K> = (
-	value: Types.Readable<V>,
-	state: Types.Readable<S>,
-	key: Types.Readable<K>
+	value: Types.ReadOnlyValue<V>,
+	state: Types.ReadOnlyValue<S>,
+	key: Types.ReadOnlyValue<K>
 ) -> Host.Node
 
 export type Selection<V, S, K> = {
@@ -34,7 +34,7 @@ local function retainKeyed<V, S, K>(options: Options<V, S, K>, render: Render<V,
 	local selectItems = options.select
 	local equals = options.equals
 
-	local states: { [K]: Types.Cell<S> } = {}
+	local states: { [K]: Types.Value<S> } = {}
 	local keysAt: { K } = {}
 	local pending: { [K]: S } = {}
 	local present: { [K]: true } = {}
@@ -72,14 +72,14 @@ local function retainKeyed<V, S, K>(options: Options<V, S, K>, render: Render<V,
 		return keysAt[index]
 	end
 
-	local function renderRetained(value: Types.Readable<V>, _index: Types.Readable<number>, key: K): Host.Node
+	local function renderRetained(value: Types.ReadOnlyValue<V>, _index: Types.ReadOnlyValue<number>, key: K): Host.Node
 		local state = states[key]
 		if state == nil then
 			state = cellModule.cell(pending[key], equals)
 			states[key] = state
 			pending[key] = nil
 		end
-		return render(value, state :: Types.Cell<S>, key)
+		return render(value, state, key)
 	end
 
 	return keyed { from = slice, key = keyOfRetained, render = renderRetained }
@@ -92,8 +92,8 @@ local function retainSlots<V, S, K>(options: Options<V, S, K>, recycle: Recycle<
 
 	local slotOf: { [K]: number } = {}
 	local keyAt: { [number]: K } = {}
-	local states: { [number]: Types.Cell<S> } = {}
-	local keyCells: { [number]: Types.Cell<K> } = {}
+	local states: { [number]: Types.Value<S> } = {}
+	local keyCells: { [number]: Types.Value<K> } = {}
 	local pendingStates: { [number]: S } = {}
 	local pendingKeys: { [number]: K } = {}
 	local slotsAt: { number } = {}
@@ -163,18 +163,22 @@ local function retainSlots<V, S, K>(options: Options<V, S, K>, recycle: Recycle<
 		return slotsAt[index]
 	end
 
-	local function renderSlot(value: Types.Readable<V>, _index: Types.Readable<number>, slot: number): Host.Node
+	local function renderSlot(
+		value: Types.ReadOnlyValue<V>,
+		_index: Types.ReadOnlyValue<number>,
+		slot: number
+	): Host.Node
 		local state = states[slot]
 		local keyCell = keyCells[slot]
 		if state == nil or keyCell == nil then
 			state = cellModule.cell(pendingStates[slot], equals)
-			keyCell = cellModule.cell(pendingKeys[slot] :: K)
+			keyCell = cellModule.cell(pendingKeys[slot])
 			states[slot] = state
 			keyCells[slot] = keyCell
 			pendingStates[slot] = nil
 			pendingKeys[slot] = nil
 		end
-		return recycle(value, state :: Types.Cell<S>, keyCell :: Types.Cell<K>)
+		return recycle(value, state, keyCell)
 	end
 
 	return keyed { from = slice, key = slotOfRetained, render = renderSlot }

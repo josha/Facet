@@ -2,13 +2,13 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
-type Readable<T> = { peek: (Readable<T>) -> T }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
 type Bounded = { width: unknown?, label: unknown?, Size: unknown?, AutomaticSize: unknown? }
 
 return function<P>(
 	Compose: ComposeModule,
 	props: P & Bounded,
-	available: Readable<number>,
+	available: ReadOnlyValue<number>,
 	control: boolean?,
 	types: RobloxTypes?,
 	boundLabel: boolean?,
@@ -18,7 +18,7 @@ return function<P>(
 	if control == false then
 		return props
 	end
-	local room: Readable<number> = if maximum
+	local room: ReadOnlyValue<number> = if maximum
 		then Compose.formula(function(use)
 			return math.min(maximum, math.max(0, use(available)))
 		end)

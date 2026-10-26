@@ -1,9 +1,9 @@
 --!strict
 type Context = typeof(require("@repo/examples/types").Context)
 type Point = typeof(require("@repo/tools/typecheck/aliases").PathPoint)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
-type Paint = Color3 | Readable<Color3> | (Use) -> Color3
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
+type Paint = Color3 | ReadOnlyValue<Color3> | (Use) -> Color3
 local drawings: { [string]: { { number } } } = {
 	bolt = {
 		{ 0.62, 0.05 },

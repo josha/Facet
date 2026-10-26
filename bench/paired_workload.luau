@@ -74,12 +74,12 @@ local ok, problem = pcall(function()
 	fields.p95 = assert(Json.numberField(total, "p95_ms"))
 	fields.p99 = assert(Json.numberField(total, "p99_ms"))
 	fields.samples = assert(Json.numberField(total, "samples"))
-	local retained: buffer? = nil
+	local planted: { buffer } = {}
 	local memory = Lute.memory.measure({
 		setup = function()
 			local state = chosen.setup(profile)
 			if plantedBytes > 0 then
-				retained = buffer.create(plantedBytes)
+				table.insert(planted, buffer.create(plantedBytes))
 			end
 			local fixture: perf_scenes.SceneState =
 				{ workload = state.workload, target = state.target, dispose = state.dispose }
@@ -96,9 +96,10 @@ local ok, problem = pcall(function()
 		end,
 		warmup = chosen.warmup,
 		iterations = chosen.samples,
+		rehearsals = 2,
 	}, { cycles = Retained.CYCLES })
-	if retained ~= nil then
-		assert(buffer.len(retained) == plantedBytes)
+	for _, allocation in planted do
+		assert(buffer.len(allocation) == plantedBytes)
 	end
 	fields.memory = {
 		method = memory.method,

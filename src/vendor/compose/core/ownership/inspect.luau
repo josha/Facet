@@ -88,12 +88,12 @@ local function isActive(): boolean
 	return state ~= nil
 end
 
-local function guarded(body: () -> ())
+local function guarded(body: (State) -> ())
 	local held = state
 	if held == nil or held.broken then
 		return
 	end
-	local ok = pcall(body)
+	local ok = pcall(body, held)
 	if not ok then
 		held.broken = true
 	end
@@ -113,6 +113,8 @@ local function recordFor(owner: unknown): Record?
 		return nil
 	end
 	held.nextId += 1
+	local children: { [unknown]: true } = {}
+	Weak.keys(children)
 	local record: Record = {
 		id = held.nextId,
 		label = nil,
@@ -121,7 +123,7 @@ local function recordFor(owner: unknown): Record?
 		borrowed = 0,
 		watches = 0,
 		cleanups = 0,
-		children = Weak.keys() :: { [unknown]: true },
+		children = children,
 		childCount = 0,
 		isChild = false,
 		isMount = false,
@@ -133,8 +135,7 @@ local function recordFor(owner: unknown): Record?
 end
 
 local function node(owner: unknown, subject: unknown, custody: string)
-	guarded(function()
-		local held = state :: State
+	guarded(function(held)
 		local record = recordFor(owner)
 		if record == nil then
 			return
@@ -207,10 +208,16 @@ local function label(owner: unknown, name: string)
 end
 
 local function start(options: Options?)
-	local settings: Options = options or ({} :: Options)
+	local settings: Options = options or {}
+	local records: { [unknown]: Record } = {}
+	Weak.keys(records)
+	local ordered: { [number]: unknown } = {}
+	Weak.values(ordered)
+	local nodeOwner: { [unknown]: Record } = {}
+	Weak.keys(nodeOwner)
 	state = {
-		records = Weak.keys() :: { [unknown]: Record },
-		ordered = Weak.values() :: { [number]: unknown },
+		records = records,
+		ordered = ordered,
 		orderedCount = 0,
 		nextId = 0,
 		maxOwners = settings.maxOwners or DEFAULT_MAX_OWNERS,
@@ -218,7 +225,7 @@ local function start(options: Options?)
 		droppedOwners = 0,
 		droppedNodes = 0,
 		nodes = 0,
-		nodeOwner = Weak.keys() :: { [unknown]: Record },
+		nodeOwner = nodeOwner,
 		broken = false,
 	}
 end

@@ -9,7 +9,7 @@ local ComposeTypes = require("../vendor/compose/core")
 type Spec = InputTypes.SliderImplementationProps
 type Range = InputTypes.SliderRange
 type Thumb = InputTypes.SliderThumb
-type NumberSpec = { value: Shared.Value<number>, onChange: ((number) -> ())? }
+type NumberSpec = { value: Shared.Input<number>, onChange: ((number) -> ())? }
 export type Adjust = {
 	once: boolean?,
 	vertical: boolean?,
@@ -24,7 +24,7 @@ export type Helpers = {
 	attributes: (Instance, Shared.Attributes) -> Instance,
 	valueAttributes: (GuiObject, NumberSpec, valueModel.Model) -> (),
 	adjustment: (GuiObject, InputTypes.AdjustmentState, (number) -> (), (() -> ())?, number?, number?, Adjust?) -> (),
-	paintedPart: (Shared.FrameProps, Shared.Value<string>?, string, string) -> Frame,
+	paintedPart: (Shared.FrameProps, Shared.Input<string>?, string, string) -> Frame,
 }
 
 local SLIDER_KEYS = {
@@ -63,9 +63,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 	local readSource = ctx.readSource
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local function dynamic(source: unknown): boolean
-		return Compose.isReadable(source) or type(source) == "function"
+		return Compose.isValue(source) or type(source) == "function"
 	end
-	local function derive<T>(compute: (ComposeTypes.Use?) -> T, ...: unknown): Shared.Value<T>
+	local function derive<T>(compute: (ComposeTypes.Use?) -> T, ...: unknown): Shared.Input<T>
 		for index = 1, select("#", ...) do
 			if dynamic((select(index, ...))) then
 				return compute
@@ -77,7 +77,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 		local state = (spec :: unknown) :: { enabled: unknown, disabled: unknown, busy: unknown }
 		return dynamic(state.enabled) or dynamic(state.disabled) or dynamic(state.busy)
 	end
-	local function enabledValue(spec: Spec): Shared.Value<boolean>
+	local function enabledValue(spec: Spec): Shared.Input<boolean>
 		local function compute(use: ComposeTypes.Use?): boolean
 			return h.enabled(spec, use)
 		end
@@ -157,11 +157,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 		thumb: Thumb,
 		value: (ComposeTypes.Use?) -> number,
 		fraction: (ComposeTypes.Use?) -> number,
-		dragging: ComposeTypes.Readable<boolean>,
+		dragging: ComposeTypes.ReadOnlyValue<boolean>,
 		shown: (ComposeTypes.Use) -> boolean,
 		vertical: boolean,
 		target: boolean,
-		extent: ComposeTypes.Cell<number>
+		extent: ComposeTypes.Value<number>
 	): Frame
 		local knobSize = function(use: ComposeTypes.Use?): number
 			if spec.controlSize == nil then
@@ -180,7 +180,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 			local side = knobSize(use)
 			return V2.new(side, side)
 		end, spec.controlSize, sizeSources)
-		local visible: Shared.Value<boolean>? = if mode == "always" then nil elseif mode == "none" then false else shown
+		local visible: Shared.Input<boolean>? = if mode == "always" then nil elseif mode == "none" then false else shown
 		local size = if target then 44 else KNOB
 		local markName = if name == "ThumbStop" then "Thumb" else "Knob"
 		local native: Shared.FrameNativeProps = {
@@ -303,7 +303,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 			return nil
 		end
 		if isRange then
-			local initial = read(spec.value :: Shared.Value<Range>)
+			local initial = read(spec.value :: Shared.Input<Range>)
 			local why = problem(initial)
 			if why then
 				error(`Facet UI.Slider: {why}`, 0)
@@ -329,7 +329,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 			return turn or 0
 		end
 		local track: Frame
-		local extents: { [Thumb]: ComposeTypes.Cell<number> } = {}
+		local extents: { [Thumb]: ComposeTypes.Value<number> } = {}
 		local function extent(thumb: Thumb): ()
 			extents[thumb] = Compose.cell(if mode == "none" then 0 else KNOB)
 		end
@@ -339,7 +339,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 		else
 			extent("value")
 		end
-		local function extentOf(thumb: Thumb): ComposeTypes.Cell<number>
+		local function extentOf(thumb: Thumb): ComposeTypes.Value<number>
 			return assert(extents[thumb])
 		end
 		local dragging = Compose.cell(false)
@@ -355,11 +355,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 			return use(hovered) or use(selectedInside) or use(dragging) or use(preferred) == E.PreferredInput.Touch
 		end
 		local diagnostics: { string } = {}
-		local last: Range? = if isRange then table.clone(read(spec.value :: Shared.Value<Range>)) else nil
+		local last: Range? = if isRange then table.clone(read(spec.value :: Shared.Input<Range>)) else nil
 		local legal = Compose.cell(last)
 		if isRange then
 			Compose.watch(function(use: ComposeTypes.Use)
-				local pair = read(spec.value :: Shared.Value<Range>, use)
+				local pair = read(spec.value :: Shared.Input<Range>, use)
 				local why = problem(pair)
 				if why then
 					if diagnostics[#diagnostics] ~= why then
@@ -377,7 +377,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 			return assert(readSource(legal, use))
 		end
 		local function single(use: ComposeTypes.Use?): number
-			return read(spec.value :: Shared.Value<number>, use)
+			return read(spec.value :: Shared.Input<number>, use)
 		end
 		local detent = ctx.haptic(true)
 		local function proposeSingle(value: number): boolean
@@ -391,7 +391,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 			if spec.onChange then
 				(spec.onChange :: (number) -> ())(nextValue)
 			else
-				(spec.value :: ComposeTypes.Cell<number>):set(nextValue)
+				(spec.value :: ComposeTypes.Value<number>):set(nextValue)
 			end
 			local moved = single() == nextValue
 			if moved and detent and spec.step ~= nil then
@@ -413,7 +413,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 					{ thumb = thumb }
 				)
 			else
-				(spec.value :: ComposeTypes.Cell<Range>):set({ lower = nextPair.lower, upper = nextPair.upper })
+				(spec.value :: ComposeTypes.Value<Range>):set({ lower = nextPair.lower, upper = nextPair.upper })
 			end
 			if detent and spec.step ~= nil then
 				detent:Play()
@@ -462,7 +462,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 					if spec.onChange then
 						(spec.onChange :: (number) -> ())(snapshot)
 					else
-						(spec.value :: ComposeTypes.Cell<number>):set(snapshot)
+						(spec.value :: ComposeTypes.Value<number>):set(snapshot)
 					end
 				end
 			end
@@ -846,7 +846,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 				AccessibleLabel = (function(use: ComposeTypes.Use): string
 					local named = if trackLabel ~= nil then read(trackLabel, use) else nil
 					return if named and named ~= "" then named else model.format(single(use))
-				end) :: Shared.Value<Shared.AttributeValue?>,
+				end) :: Shared.Input<Shared.AttributeValue?>,
 			})
 			node:SetAttribute(
 				"FacetFocusPart",
@@ -859,7 +859,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 			end, cancel, model.min, model.max, { vertical = vertical, guard = true })
 		end
 		if isRange then
-			local adjusting: ComposeTypes.Cell<Thumb> = Compose.cell("lower" :: Thumb)
+			local adjusting: ComposeTypes.Value<Thumb> = Compose.cell("lower" :: Thumb)
 			if selection then
 				local observed = selection
 				Compose.watch(function(use: ComposeTypes.Use)
@@ -956,7 +956,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 				end,
 				diagnostics = function(use: ComposeTypes.Use)
 					use(legal)
-					read(spec.value :: Shared.Value<Range>, use)
+					read(spec.value :: Shared.Input<Range>, use)
 					return table.concat(diagnostics, "\n")
 				end,
 			})

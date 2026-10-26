@@ -5,35 +5,35 @@ local Names = require "./names"
 
 local f32 = Float.f32
 
-export type Color3Value = typeof(setmetatable(
-	{} :: {
-		R: number,
-		G: number,
-		B: number,
-		Lerp: (self: Color3Value, goal: Color3Value, alpha: number) -> Color3Value,
-		ToHSV: (self: Color3Value) -> (number, number, number),
-		ToHex: (self: Color3Value) -> string,
-	},
-	{} :: {
-		__eq: (Color3Value, Color3Value) -> boolean,
-		__tostring: (Color3Value) -> string,
-	}
-))
+local Color3ValueFields: {
+	R: number,
+	G: number,
+	B: number,
+	Lerp: (self: Color3Value, goal: Color3Value, alpha: number) -> Color3Value,
+	ToHSV: (self: Color3Value) -> (number, number, number),
+	ToHex: (self: Color3Value) -> string,
+}
+local Color3ValueMeta: {
+	__eq: (Color3Value, Color3Value) -> boolean,
+	__tostring: (Color3Value) -> string,
+}
 
-export type BrickColorValue = typeof(setmetatable(
-	{} :: {
-		Number: number,
-		Name: string,
-		Color: Color3Value,
-		r: number,
-		g: number,
-		b: number,
-	},
-	{} :: {
-		__eq: (BrickColorValue, BrickColorValue) -> boolean,
-		__tostring: (BrickColorValue) -> string,
-	}
-))
+export type Color3Value = typeof(setmetatable(Color3ValueFields, Color3ValueMeta))
+
+local BrickColorValueFields: {
+	Number: number,
+	Name: string,
+	Color: Color3Value,
+	r: number,
+	g: number,
+	b: number,
+}
+local BrickColorValueMeta: {
+	__eq: (BrickColorValue, BrickColorValue) -> boolean,
+	__tostring: (BrickColorValue) -> string,
+}
+
+export type BrickColorValue = typeof(setmetatable(BrickColorValueFields, BrickColorValueMeta))
 
 export type BrickColorEntry = { number: number, name: string, color: { number } }
 export type BrickColorCatalog = { colors: { BrickColorEntry }, palette: { number } }
@@ -55,15 +55,21 @@ export type BrickColorConstructor = {
 local Color3Kind = Names.behavior "Color3"
 local BrickColorKind = Names.behavior("BrickColor", { quoted = true })
 
+local values: { [unknown]: Color3Value? } = {}
+Names.weak(values)
+
 local function make(r: number, g: number, b: number): Color3Value
-	return Names.make(Color3Kind, { R = f32(r), G = f32(g), B = f32(b) })
+	local made: Color3Value = Names.make(Color3Kind, { R = f32(r), G = f32(g), B = f32(b) })
+	values[made] = made
+	return made
 end
 
 local function expect(value: unknown, position: number): Color3Value
-	if not Names.is(value, Color3Kind) then
-		Names.argument(position, "Color3", value)
+	local found = values[value]
+	if found == nil then
+		return Names.argument(position, "Color3", value)
 	end
-	return value :: Color3Value
+	return found
 end
 
 local function fromHSV(hue: number, saturation: number, value: number): Color3Value
@@ -133,7 +139,8 @@ local function fromHex(text: string): Color3Value
 	if #digits ~= 6 or string.find(digits, "%X") ~= nil then
 		error("Unable to convert characters to hex value", 2)
 	end
-	local value = tonumber(digits, 16) :: number
+	local value = tonumber(digits, 16)
+	assert(value ~= nil)
 	return make(
 		bit32.rshift(value, 16) / 255,
 		bit32.band(bit32.rshift(value, 8), 255) / 255,
@@ -141,7 +148,7 @@ local function fromHex(text: string): Color3Value
 	)
 end
 
-local methods: { [string]: unknown } = {
+local methods: { [unknown]: unknown } = {
 	Lerp = function(self: Color3Value, goal: unknown, alpha: number): Color3Value
 		local target = expect(goal, 1)
 		local t = f32(alpha)
@@ -156,7 +163,7 @@ local methods: { [string]: unknown } = {
 }
 
 Color3Kind.fields.__index = function(color: Color3Value, key: unknown): unknown
-	local method = methods[key :: string]
+	local method = methods[key]
 	if method ~= nil then
 		return method
 	elseif key == "r" then
@@ -265,7 +272,7 @@ local function brickColor(catalog: BrickColorCatalog?): BrickColorConstructor
 			require_()
 			return byName[first] or numbered(DEFAULT_NUMBER)
 		elseif Names.is(first, Color3Kind) then
-			local color = first :: Color3Value
+			local color = expect(first, 1)
 			return closest(color.R, color.G, color.B)
 		elseif first == nil then
 			return closest(0, 0, 0)

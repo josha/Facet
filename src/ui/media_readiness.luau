@@ -3,7 +3,7 @@ local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 local motion = require("./motion")
 
-return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: Types.Value<number>?)
+return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: Types.Input<number>?)
 	local Compose = ctx.Compose
 	local owner = assert(Compose.currentOwner())
 	local scope: ComposeTypes.Owner? = nil
@@ -24,11 +24,11 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 			end
 			parent = parent.Parent
 		end
-		if row == held or owner.isDisposed() then
+		if row == held or ComposeTypes.owner.isDisposed(owner) then
 			return
 		end
 		if scope then
-			scope.dispose()
+			ComposeTypes.owner.dispose(scope)
 			scope = nil
 		end
 		held = row
@@ -42,11 +42,11 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 			node:SetAttribute("FacetMediaReady", nil)
 			return
 		end
-		local nextScope = owner.createChild()
+		local nextScope = ComposeTypes.owner.createChild(owner)
 		scope = nextScope
 		Compose.withOwner(nextScope, function()
 			local size = ctx.observe.AbsoluteSize(node)
-			local observed = (ctx.observe :: unknown) :: { [string]: (Instance) -> ComposeTypes.Cell<unknown> }
+			local observed = (ctx.observe :: unknown) :: { [string]: (Instance) -> ComposeTypes.Value<unknown> }
 			local loaded = if node:IsA("ImageLabel") then observed.IsLoaded(node) else nil
 			local image = if node:IsA("ImageLabel") then observed.Image(node) else nil
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -60,7 +60,10 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 					local thread = task.defer(function()
 						pcall(function()
 							provider:PreloadAsync({ node }, function(_content: string, status: Enum.AssetFetchStatus)
-								if not asset.isDisposed() and status == ctx.types.Enum.AssetFetchStatus.Success then
+								if
+									not ComposeTypes.owner.isDisposed(asset)
+									and status == ctx.types.Enum.AssetFetchStatus.Success
+								then
 									fetched:set(true)
 								end
 							end)

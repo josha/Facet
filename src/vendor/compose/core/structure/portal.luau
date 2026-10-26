@@ -11,14 +11,17 @@ export type Builder = () -> { Host.Node }
 
 local function portal(target: Host.Node, builder: Builder): Children.Directive
 	if type(target) ~= "table" and type(target) ~= "userdata" then
-		Diagnostics.raise("mount/target-not-a-node", "portal expects a host node to mount into", {
-			actual = Diagnostics.describe(target),
-			expected = "a node belonging to the host this runtime renders to",
-			contract = "a portal's target is borrowed: Compose adds to it and leaves it standing",
-			fix = "pass the layer node itself, e.g. portal(screenLayer, function() ... end)",
-		})
+		error(
+			Diagnostics.format("mount/target-not-a-node", "portal expects a host node to mount into", {
+				actual = Diagnostics.describe(target),
+				expected = "a node belonging to the host this runtime renders to",
+				contract = "a portal's target is borrowed: Compose adds to it and leaves it standing",
+				fix = "pass the layer node itself, e.g. portal(screenLayer, function() ... end)",
+			}),
+			0
+		)
 	end
-	local build = Support.builderOf(builder, "portal", "builder") :: Builder
+	local build: Builder = Support.builderOf(builder, "portal", "builder")
 	return function(mountPoint: Children.MountPoint)
 		local owner = Support.ownerFor "portal"
 		Support.mountPointOf(mountPoint, "portal")

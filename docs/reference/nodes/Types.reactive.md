@@ -31,7 +31,7 @@ role, and `Facet.Activate` for a button callback. A plain `string` permits value
 that are not type roles. An untyped collection helper loses its row and key
 types; keep `Facet.KeyedCollectionSpec<Item, string>` at that boundary.
 Define the state record before creating a cell with empty maps or optional
-fields: `local state: Facet.Cell<State> = Facet.Compose.cell(initialState)`.
+fields: `local state: Facet.Value<State> = Facet.Compose.cell(initialState)`.
 Check shared helpers before using them across screens so one inference failure
 does not become errors throughout the application.
 

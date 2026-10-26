@@ -8,8 +8,8 @@ return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 	type GlassBands = { width: number, height: number, top: number, left: number, bottom: number, right: number }
 
 	local Facet = require("../src")

@@ -49,7 +49,7 @@ local function fixture()
 				footprint = function(): Vector2
 					return engine.types.Vector2.new(2, 2)
 				end,
-				drag = function(current: Types.Readable<Item>): Facet.DraggableSpec
+				drag = function(current: Types.ReadOnlyValue<Item>): Facet.DraggableSpec
 					return { payload = current, returnTravel = false }
 				end,
 				drop = {
@@ -61,7 +61,7 @@ local function fixture()
 						return if pending then "pending" else true
 					end,
 				},
-				render = function(current: Types.Readable<Item>): GuiObject
+				render = function(current: Types.ReadOnlyValue<Item>): GuiObject
 					return UI.Button { Name = current:peek().id, label = current:peek().id }
 				end,
 			},

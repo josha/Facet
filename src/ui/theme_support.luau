@@ -75,14 +75,14 @@ local function merge<T>(base: T, overrides: unknown): T
 	return (out :: unknown) :: T
 end
 
-local function read<T>(source: Engine.Value<T>, use: ComposeTypes.Use?): T
+local function read<T>(source: Engine.Input<T>, use: ComposeTypes.Use?): T
 	if type(source) == "function" then
-		return (source :: (ComposeTypes.Use) -> T)(use or function<U>(value: ComposeTypes.Readable<U>): U
+		return (source :: (ComposeTypes.Use) -> T)(use or function<U>(value: ComposeTypes.ReadOnlyValue<U>): U
 			return value:peek()
 		end)
 	end
 	if type(source) == "table" and type(source.peek) == "function" then
-		local readable = source :: ComposeTypes.Readable<T>
+		local readable = source :: ComposeTypes.ReadOnlyValue<T>
 		return if use then use(readable) else readable:peek()
 	end
 	return source :: T

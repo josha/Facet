@@ -1,7 +1,7 @@
 --!strict
 local Compose = require("../vendor/compose/core")
 
-export type Value<T> = T | Compose.Readable<T> | Compose.Formula<T> | Compose.Body<T>
+export type Input<T> = Compose.Input<T>
 export type StaticValue = typeof(Compose.static(nil))
 export type EventKey = typeof(Compose.event(""))
 export type Constructor<P, N> = ((P) -> N) & ((string) -> (P) -> N)
@@ -21,95 +21,95 @@ export type AttributeValue =
 	| NumberRange
 	| Rect
 	| Font
-export type Attributes = { [string]: Value<AttributeValue?> }
-export type ValueBasePartOptional = Value<BasePart?>
-export type ValueBoolean = Value<boolean>
-export type ValueBrickColor = Value<BrickColor>
-export type ValueCFrame = Value<CFrame>
-export type ValueCameraOptional = Value<Camera?>
-export type ValueColor3 = Value<Color3>
-export type ValueColorSequence = Value<ColorSequence>
-export type ValueContent = Value<Content>
-export type ValueEnumApplyStrokeMode = Value<Enum.ApplyStrokeMode>
-export type ValueEnumAspectType = Value<Enum.AspectType>
-export type ValueEnumAutomaticSize = Value<Enum.AutomaticSize>
-export type ValueEnumBorderMode = Value<Enum.BorderMode>
-export type ValueEnumBorderStrokePosition = Value<Enum.BorderStrokePosition>
-export type ValueEnumButtonStyle = Value<Enum.ButtonStyle>
-export type ValueEnumCameraType = Value<Enum.CameraType>
-export type ValueEnumDominantAxis = Value<Enum.DominantAxis>
-export type ValueEnumEasingDirection = Value<Enum.EasingDirection>
-export type ValueEnumEasingStyle = Value<Enum.EasingStyle>
-export type ValueEnumElasticBehavior = Value<Enum.ElasticBehavior>
-export type ValueEnumFieldOfViewMode = Value<Enum.FieldOfViewMode>
-export type ValueEnumFillDirection = Value<Enum.FillDirection>
-export type ValueEnumFont = Value<Enum.Font>
-export type ValueEnumFrameStyle = Value<Enum.FrameStyle>
-export type ValueEnumGradientTileMode = Value<Enum.GradientTileMode>
-export type ValueEnumGradientType = Value<Enum.GradientType>
-export type ValueEnumHapticEffectType = Value<Enum.HapticEffectType>
-export type ValueEnumHighlightDepthMode = Value<Enum.HighlightDepthMode>
-export type ValueEnumHorizontalAlignment = Value<Enum.HorizontalAlignment>
-export type ValueEnumInputActionType = Value<Enum.InputActionType>
-export type ValueEnumInputBindingType = Value<Enum.InputBindingType>
-export type ValueEnumInputSink = Value<Enum.InputSink>
-export type ValueEnumItemLineAlignment = Value<Enum.ItemLineAlignment>
-export type ValueEnumKeyCode = Value<Enum.KeyCode>
-export type ValueEnumLineJoinMode = Value<Enum.LineJoinMode>
-export type ValueEnumMaterial = Value<Enum.Material>
-export type ValueEnumModelStreamingMode = Value<Enum.ModelStreamingMode>
-export type ValueEnumNormalId = Value<Enum.NormalId>
-export type ValueEnumPartType = Value<Enum.PartType>
-export type ValueEnumResamplerMode = Value<Enum.ResamplerMode>
-export type ValueEnumRollOffMode = Value<Enum.RollOffMode>
-export type ValueEnumSafeAreaCompatibility = Value<Enum.SafeAreaCompatibility>
-export type ValueEnumScaleType = Value<Enum.ScaleType>
-export type ValueEnumScreenInsets = Value<Enum.ScreenInsets>
-export type ValueEnumScrollBarInset = Value<Enum.ScrollBarInset>
-export type ValueEnumScrollingDirection = Value<Enum.ScrollingDirection>
-export type ValueEnumSelectionBehavior = Value<Enum.SelectionBehavior>
-export type ValueEnumSizeConstraint = Value<Enum.SizeConstraint>
-export type ValueEnumSortOrder = Value<Enum.SortOrder>
-export type ValueEnumStartCorner = Value<Enum.StartCorner>
-export type ValueEnumStrokeSizingMode = Value<Enum.StrokeSizingMode>
-export type ValueEnumSurfaceGuiSizingMode = Value<Enum.SurfaceGuiSizingMode>
-export type ValueEnumSurfaceType = Value<Enum.SurfaceType>
-export type ValueEnumTextDirection = Value<Enum.TextDirection>
-export type ValueEnumTextTruncate = Value<Enum.TextTruncate>
-export type ValueEnumTextXAlignment = Value<Enum.TextXAlignment>
-export type ValueEnumTextYAlignment = Value<Enum.TextYAlignment>
-export type ValueEnumUIDragDetectorBoundingBehavior = Value<Enum.UIDragDetectorBoundingBehavior>
-export type ValueEnumUIDragDetectorDragRelativity = Value<Enum.UIDragDetectorDragRelativity>
-export type ValueEnumUIDragDetectorDragSpace = Value<Enum.UIDragDetectorDragSpace>
-export type ValueEnumUIDragDetectorDragStyle = Value<Enum.UIDragDetectorDragStyle>
-export type ValueEnumUIDragDetectorResponseStyle = Value<Enum.UIDragDetectorResponseStyle>
-export type ValueEnumUIDragSpeedAxisMapping = Value<Enum.UIDragSpeedAxisMapping>
-export type ValueEnumUIFlexAlignment = Value<Enum.UIFlexAlignment>
-export type ValueEnumUIFlexMode = Value<Enum.UIFlexMode>
-export type ValueEnumVerticalAlignment = Value<Enum.VerticalAlignment>
-export type ValueEnumVerticalScrollBarPosition = Value<Enum.VerticalScrollBarPosition>
-export type ValueEnumZIndexBehavior = Value<Enum.ZIndexBehavior>
-export type ValueFont = Value<Font>
-export type ValueGuiBase2dOptional = Value<GuiBase2d?>
-export type ValueGuiButtonOptional = Value<GuiButton?>
-export type ValueGuiObjectOptional = Value<GuiObject?>
-export type ValueHapticEffectOptional = Value<HapticEffect?>
-export type ValueHumanoidBasePartNilOptional = Value<Humanoid | BasePart | nil?>
-export type ValueInstanceOptional = Value<Instance?>
-export type ValueLocalizationTableOptional = Value<LocalizationTable?>
-export type ValueNumber = Value<number>
-export type ValueNumberRange = Value<NumberRange>
-export type ValueNumberSequence = Value<NumberSequence>
-export type ValuePhysicalProperties = Value<PhysicalProperties>
-export type ValueRect = Value<Rect>
-export type ValueSecurityCapabilities = Value<SecurityCapabilities>
-export type ValueSoundGroupOptional = Value<SoundGroup?>
-export type ValueString = Value<string>
-export type ValueStyleSheetOptional = Value<StyleSheet?>
-export type ValueUDim = Value<UDim>
-export type ValueUDim2 = Value<UDim2>
-export type ValueVector2 = Value<Vector2>
-export type ValueVector3 = Value<Vector3>
+export type Attributes = { [string]: Input<AttributeValue?> }
+export type ValueBasePartOptional = Input<BasePart?>
+export type ValueBoolean = Input<boolean>
+export type ValueBrickColor = Input<BrickColor>
+export type ValueCFrame = Input<CFrame>
+export type ValueCameraOptional = Input<Camera?>
+export type ValueColor3 = Input<Color3>
+export type ValueColorSequence = Input<ColorSequence>
+export type ValueContent = Input<Content>
+export type ValueEnumApplyStrokeMode = Input<Enum.ApplyStrokeMode>
+export type ValueEnumAspectType = Input<Enum.AspectType>
+export type ValueEnumAutomaticSize = Input<Enum.AutomaticSize>
+export type ValueEnumBorderMode = Input<Enum.BorderMode>
+export type ValueEnumBorderStrokePosition = Input<Enum.BorderStrokePosition>
+export type ValueEnumButtonStyle = Input<Enum.ButtonStyle>
+export type ValueEnumCameraType = Input<Enum.CameraType>
+export type ValueEnumDominantAxis = Input<Enum.DominantAxis>
+export type ValueEnumEasingDirection = Input<Enum.EasingDirection>
+export type ValueEnumEasingStyle = Input<Enum.EasingStyle>
+export type ValueEnumElasticBehavior = Input<Enum.ElasticBehavior>
+export type ValueEnumFieldOfViewMode = Input<Enum.FieldOfViewMode>
+export type ValueEnumFillDirection = Input<Enum.FillDirection>
+export type ValueEnumFont = Input<Enum.Font>
+export type ValueEnumFrameStyle = Input<Enum.FrameStyle>
+export type ValueEnumGradientTileMode = Input<Enum.GradientTileMode>
+export type ValueEnumGradientType = Input<Enum.GradientType>
+export type ValueEnumHapticEffectType = Input<Enum.HapticEffectType>
+export type ValueEnumHighlightDepthMode = Input<Enum.HighlightDepthMode>
+export type ValueEnumHorizontalAlignment = Input<Enum.HorizontalAlignment>
+export type ValueEnumInputActionType = Input<Enum.InputActionType>
+export type ValueEnumInputBindingType = Input<Enum.InputBindingType>
+export type ValueEnumInputSink = Input<Enum.InputSink>
+export type ValueEnumItemLineAlignment = Input<Enum.ItemLineAlignment>
+export type ValueEnumKeyCode = Input<Enum.KeyCode>
+export type ValueEnumLineJoinMode = Input<Enum.LineJoinMode>
+export type ValueEnumMaterial = Input<Enum.Material>
+export type ValueEnumModelStreamingMode = Input<Enum.ModelStreamingMode>
+export type ValueEnumNormalId = Input<Enum.NormalId>
+export type ValueEnumPartType = Input<Enum.PartType>
+export type ValueEnumResamplerMode = Input<Enum.ResamplerMode>
+export type ValueEnumRollOffMode = Input<Enum.RollOffMode>
+export type ValueEnumSafeAreaCompatibility = Input<Enum.SafeAreaCompatibility>
+export type ValueEnumScaleType = Input<Enum.ScaleType>
+export type ValueEnumScreenInsets = Input<Enum.ScreenInsets>
+export type ValueEnumScrollBarInset = Input<Enum.ScrollBarInset>
+export type ValueEnumScrollingDirection = Input<Enum.ScrollingDirection>
+export type ValueEnumSelectionBehavior = Input<Enum.SelectionBehavior>
+export type ValueEnumSizeConstraint = Input<Enum.SizeConstraint>
+export type ValueEnumSortOrder = Input<Enum.SortOrder>
+export type ValueEnumStartCorner = Input<Enum.StartCorner>
+export type ValueEnumStrokeSizingMode = Input<Enum.StrokeSizingMode>
+export type ValueEnumSurfaceGuiSizingMode = Input<Enum.SurfaceGuiSizingMode>
+export type ValueEnumSurfaceType = Input<Enum.SurfaceType>
+export type ValueEnumTextDirection = Input<Enum.TextDirection>
+export type ValueEnumTextTruncate = Input<Enum.TextTruncate>
+export type ValueEnumTextXAlignment = Input<Enum.TextXAlignment>
+export type ValueEnumTextYAlignment = Input<Enum.TextYAlignment>
+export type ValueEnumUIDragDetectorBoundingBehavior = Input<Enum.UIDragDetectorBoundingBehavior>
+export type ValueEnumUIDragDetectorDragRelativity = Input<Enum.UIDragDetectorDragRelativity>
+export type ValueEnumUIDragDetectorDragSpace = Input<Enum.UIDragDetectorDragSpace>
+export type ValueEnumUIDragDetectorDragStyle = Input<Enum.UIDragDetectorDragStyle>
+export type ValueEnumUIDragDetectorResponseStyle = Input<Enum.UIDragDetectorResponseStyle>
+export type ValueEnumUIDragSpeedAxisMapping = Input<Enum.UIDragSpeedAxisMapping>
+export type ValueEnumUIFlexAlignment = Input<Enum.UIFlexAlignment>
+export type ValueEnumUIFlexMode = Input<Enum.UIFlexMode>
+export type ValueEnumVerticalAlignment = Input<Enum.VerticalAlignment>
+export type ValueEnumVerticalScrollBarPosition = Input<Enum.VerticalScrollBarPosition>
+export type ValueEnumZIndexBehavior = Input<Enum.ZIndexBehavior>
+export type ValueFont = Input<Font>
+export type ValueGuiBase2dOptional = Input<GuiBase2d?>
+export type ValueGuiButtonOptional = Input<GuiButton?>
+export type ValueGuiObjectOptional = Input<GuiObject?>
+export type ValueHapticEffectOptional = Input<HapticEffect?>
+export type ValueHumanoidBasePartNilOptional = Input<Humanoid | BasePart | nil?>
+export type ValueInstanceOptional = Input<Instance?>
+export type ValueLocalizationTableOptional = Input<LocalizationTable?>
+export type ValueNumber = Input<number>
+export type ValueNumberRange = Input<NumberRange>
+export type ValueNumberSequence = Input<NumberSequence>
+export type ValuePhysicalProperties = Input<PhysicalProperties>
+export type ValueRect = Input<Rect>
+export type ValueSecurityCapabilities = Input<SecurityCapabilities>
+export type ValueSoundGroupOptional = Input<SoundGroup?>
+export type ValueString = Input<string>
+export type ValueStyleSheetOptional = Input<StyleSheet?>
+export type ValueUDim = Input<UDim>
+export type ValueUDim2 = Input<UDim2>
+export type ValueVector2 = Input<Vector2>
+export type ValueVector3 = Input<Vector3>
 
 export type BillboardGuiNativeProps = {
 	Changed: ((string) -> ())?,
@@ -4061,62 +4061,62 @@ export type RobloxTypes = {
 }
 
 export type Observe = {
-	AbsoluteCanvasSize: (ScrollingFrame) -> Compose.Cell<Vector2>,
-	AbsoluteContentSize: (UIGridStyleLayout) -> Compose.Cell<Vector2>,
-	AbsolutePosition: (GuiBase2d) -> Compose.Cell<Vector2>,
-	AbsoluteSize: (GuiBase2d) -> Compose.Cell<Vector2>,
-	AbsoluteWindowSize: (ScrollingFrame) -> Compose.Cell<Vector2>,
-	AnchorPoint: (GuiObject) -> Compose.Cell<Vector2>,
-	AutomaticSize: (GuiObject) -> Compose.Cell<Enum.AutomaticSize>,
-	BackgroundColor3: (GuiObject) -> Compose.Cell<Color3>,
-	CanvasPosition: (ScrollingFrame) -> Compose.Cell<Vector2>,
-	ContentText: (TextBox | TextButton | TextLabel) -> Compose.Cell<string>,
-	CornerRadius: (UICorner) -> Compose.Cell<UDim>,
-	CurrentPage: (UIPageLayout) -> Compose.Cell<GuiObject>,
-	CursorPosition: (TextBox) -> Compose.Cell<number>,
-	DisplayImage: (InputBinding) -> Compose.Cell<Content>,
-	DisplayName: (InputAction | InputBinding) -> Compose.Cell<string>,
-	Enabled: (InputAction | InputContext | LayerCollector) -> Compose.Cell<boolean>,
-	FontFace: (TextBox | TextButton | TextLabel) -> Compose.Cell<Font>,
-	GamepadCursorEnabled: (GamepadService) -> Compose.Cell<boolean>,
-	GamepadEnabled: (UserInputService) -> Compose.Cell<boolean>,
-	GuiState: (GuiObject) -> Compose.Cell<Enum.GuiState>,
-	Interactable: (GuiObject) -> Compose.Cell<boolean>,
-	KeyCode: (InputBinding) -> Compose.Cell<Enum.KeyCode>,
-	KeyboardEnabled: (UserInputService) -> Compose.Cell<boolean>,
-	LineHeight: (TextBox | TextButton | TextLabel) -> Compose.Cell<number>,
-	MouseEnabled: (UserInputService) -> Compose.Cell<boolean>,
-	OnScreenKeyboardSize: (UserInputService) -> Compose.Cell<Vector2>,
-	OnScreenKeyboardVisible: (UserInputService) -> Compose.Cell<boolean>,
-	PaddingBottom: (UIPadding) -> Compose.Cell<UDim>,
-	PaddingTop: (UIPadding) -> Compose.Cell<UDim>,
-	Parent: (Instance) -> Compose.Cell<Instance?>,
-	Position: (GuiObject) -> Compose.Cell<UDim2>,
-	PreferredBinding: (InputAction) -> Compose.Cell<InputBinding>,
-	PreferredInput: (UserInputService) -> Compose.Cell<Enum.PreferredInput>,
-	PreferredTextSize: (GuiService) -> Compose.Cell<Enum.PreferredTextSize>,
-	PreferredTransparency: (GuiService) -> Compose.Cell<number>,
-	PrimaryModifier: (InputBinding) -> Compose.Cell<Enum.KeyCode>,
-	ReducedMotionEnabled: (GuiService) -> Compose.Cell<boolean>,
-	RichText: (TextBox | TextButton | TextLabel) -> Compose.Cell<boolean>,
-	Scale: (InputBinding | UIScale) -> Compose.Cell<number>,
-	SecondaryModifier: (InputBinding) -> Compose.Cell<Enum.KeyCode>,
-	SelectedObject: (GuiService) -> Compose.Cell<GuiObject?>,
-	Size: (GuiObject) -> Compose.Cell<UDim2>,
-	Text: (TextBox | TextButton | TextLabel) -> Compose.Cell<string>,
-	TextBounds: (TextBox | TextButton | TextLabel) -> Compose.Cell<Vector2>,
-	TextColor3: (TextBox | TextButton | TextLabel) -> Compose.Cell<Color3>,
-	TextFits: (TextBox | TextButton | TextLabel) -> Compose.Cell<boolean>,
-	TextScaled: (TextBox | TextButton | TextLabel) -> Compose.Cell<boolean>,
-	TextSize: (TextBox | TextButton | TextLabel) -> Compose.Cell<number>,
-	TextTruncate: (TextBox | TextButton | TextLabel) -> Compose.Cell<Enum.TextTruncate>,
-	TextWrapped: (TextBox | TextButton | TextLabel) -> Compose.Cell<boolean>,
-	TextXAlignment: (TextBox | TextButton | TextLabel) -> Compose.Cell<Enum.TextXAlignment>,
-	TextYAlignment: (TextBox | TextButton | TextLabel) -> Compose.Cell<Enum.TextYAlignment>,
-	TopbarInset: (GuiService) -> Compose.Cell<Rect>,
-	TouchEnabled: (UserInputService) -> Compose.Cell<boolean>,
-	ViewportDisplaySize: (GuiService) -> Compose.Cell<Enum.DisplaySize>,
-	Visible: (GuiObject) -> Compose.Cell<boolean>,
+	AbsoluteCanvasSize: (ScrollingFrame) -> Compose.Value<Vector2>,
+	AbsoluteContentSize: (UIGridStyleLayout) -> Compose.Value<Vector2>,
+	AbsolutePosition: (GuiBase2d) -> Compose.Value<Vector2>,
+	AbsoluteSize: (GuiBase2d) -> Compose.Value<Vector2>,
+	AbsoluteWindowSize: (ScrollingFrame) -> Compose.Value<Vector2>,
+	AnchorPoint: (GuiObject) -> Compose.Value<Vector2>,
+	AutomaticSize: (GuiObject) -> Compose.Value<Enum.AutomaticSize>,
+	BackgroundColor3: (GuiObject) -> Compose.Value<Color3>,
+	CanvasPosition: (ScrollingFrame) -> Compose.Value<Vector2>,
+	ContentText: (TextBox | TextButton | TextLabel) -> Compose.Value<string>,
+	CornerRadius: (UICorner) -> Compose.Value<UDim>,
+	CurrentPage: (UIPageLayout) -> Compose.Value<GuiObject>,
+	CursorPosition: (TextBox) -> Compose.Value<number>,
+	DisplayImage: (InputBinding) -> Compose.Value<Content>,
+	DisplayName: (InputAction | InputBinding) -> Compose.Value<string>,
+	Enabled: (InputAction | InputContext | LayerCollector) -> Compose.Value<boolean>,
+	FontFace: (TextBox | TextButton | TextLabel) -> Compose.Value<Font>,
+	GamepadCursorEnabled: (GamepadService) -> Compose.Value<boolean>,
+	GamepadEnabled: (UserInputService) -> Compose.Value<boolean>,
+	GuiState: (GuiObject) -> Compose.Value<Enum.GuiState>,
+	Interactable: (GuiObject) -> Compose.Value<boolean>,
+	KeyCode: (InputBinding) -> Compose.Value<Enum.KeyCode>,
+	KeyboardEnabled: (UserInputService) -> Compose.Value<boolean>,
+	LineHeight: (TextBox | TextButton | TextLabel) -> Compose.Value<number>,
+	MouseEnabled: (UserInputService) -> Compose.Value<boolean>,
+	OnScreenKeyboardSize: (UserInputService) -> Compose.Value<Vector2>,
+	OnScreenKeyboardVisible: (UserInputService) -> Compose.Value<boolean>,
+	PaddingBottom: (UIPadding) -> Compose.Value<UDim>,
+	PaddingTop: (UIPadding) -> Compose.Value<UDim>,
+	Parent: (Instance) -> Compose.Value<Instance?>,
+	Position: (GuiObject) -> Compose.Value<UDim2>,
+	PreferredBinding: (InputAction) -> Compose.Value<InputBinding>,
+	PreferredInput: (UserInputService) -> Compose.Value<Enum.PreferredInput>,
+	PreferredTextSize: (GuiService) -> Compose.Value<Enum.PreferredTextSize>,
+	PreferredTransparency: (GuiService) -> Compose.Value<number>,
+	PrimaryModifier: (InputBinding) -> Compose.Value<Enum.KeyCode>,
+	ReducedMotionEnabled: (GuiService) -> Compose.Value<boolean>,
+	RichText: (TextBox | TextButton | TextLabel) -> Compose.Value<boolean>,
+	Scale: (InputBinding | UIScale) -> Compose.Value<number>,
+	SecondaryModifier: (InputBinding) -> Compose.Value<Enum.KeyCode>,
+	SelectedObject: (GuiService) -> Compose.Value<GuiObject?>,
+	Size: (GuiObject) -> Compose.Value<UDim2>,
+	Text: (TextBox | TextButton | TextLabel) -> Compose.Value<string>,
+	TextBounds: (TextBox | TextButton | TextLabel) -> Compose.Value<Vector2>,
+	TextColor3: (TextBox | TextButton | TextLabel) -> Compose.Value<Color3>,
+	TextFits: (TextBox | TextButton | TextLabel) -> Compose.Value<boolean>,
+	TextScaled: (TextBox | TextButton | TextLabel) -> Compose.Value<boolean>,
+	TextSize: (TextBox | TextButton | TextLabel) -> Compose.Value<number>,
+	TextTruncate: (TextBox | TextButton | TextLabel) -> Compose.Value<Enum.TextTruncate>,
+	TextWrapped: (TextBox | TextButton | TextLabel) -> Compose.Value<boolean>,
+	TextXAlignment: (TextBox | TextButton | TextLabel) -> Compose.Value<Enum.TextXAlignment>,
+	TextYAlignment: (TextBox | TextButton | TextLabel) -> Compose.Value<Enum.TextYAlignment>,
+	TopbarInset: (GuiService) -> Compose.Value<Rect>,
+	TouchEnabled: (UserInputService) -> Compose.Value<boolean>,
+	ViewportDisplaySize: (GuiService) -> Compose.Value<Enum.DisplaySize>,
+	Visible: (GuiObject) -> Compose.Value<boolean>,
 }
 
 export type Host = {

@@ -15,14 +15,18 @@ export type RandomValue = {
 local kind = Names.behavior "Random"
 local stateKey = {}
 local serial = 0
+local states: { [unknown]: Generator.Generator } = {}
+Names.weak(states)
 
 local function state(self: RandomValue): Generator.Generator
 	assert(Names.is(self, kind), "Random expected")
-	return Names.fields(self)[stateKey] :: Generator.Generator
+	return states[self]
 end
 
 local function create(generator: Generator.Generator): RandomValue
-	return Names.make(kind, { [stateKey] = generator })
+	local made: RandomValue = Names.make(kind, { [stateKey] = generator })
+	states[made] = generator
+	return made
 end
 
 local function bounds(minimum: number, maximum: number): (number, number)
@@ -33,7 +37,8 @@ end
 
 local function integer(self: RandomValue, minimum: number, maximum: number): number
 	local low, high = bounds(minimum, maximum)
-	low, high = math.modf(low), math.modf(high)
+	low = math.modf(low)
+	high = math.modf(high)
 	assert(
 		math.abs(low) < 2 ^ 53 and math.abs(high) < 2 ^ 53 and high - low < 2 ^ 53,
 		"integer range exceeds exact numeric precision"
@@ -41,7 +46,7 @@ local function integer(self: RandomValue, minimum: number, maximum: number): num
 	return state(self).integer(low, high)
 end
 
-local methods: { [string]: unknown } = {
+local methods: { [unknown]: unknown } = {
 	NextNumber = function(self: RandomValue, minimum: number?, maximum: number?): number
 		assert((minimum == nil) == (maximum == nil), "Random:NextNumber requires 0 or 2 arguments")
 		local low, high = bounds(minimum or 0, maximum or 1)
@@ -74,7 +79,7 @@ local methods: { [string]: unknown } = {
 }
 
 kind.fields.__index = function(_fields: Names.Fields, key: unknown): unknown
-	return methods[key :: string] or Names.missing(kind, key)
+	return methods[key] or Names.missing(kind, key)
 end
 
 return {

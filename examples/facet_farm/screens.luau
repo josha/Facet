@@ -10,8 +10,8 @@ type Constructors = typeof(require("@repo/tools/typecheck/aliases").ComposeRunti
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local modelModule = require("./model")
 local theme = require("./theme")
 
@@ -589,7 +589,7 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 					local toast = use(farm.toast)
 					return if toast then { toast.serial } else {}
 				end,
-				render = function(current: Readable<number>): GuiObject
+				render = function(current: ReadOnlyValue<number>): GuiObject
 					local serial = current:peek()
 					return UI.Toast("Toast" .. serial)({
 						isPresented = function(use: Use)

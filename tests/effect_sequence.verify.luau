@@ -12,7 +12,7 @@ return function(harness: Verify.Harness)
 		local runtime = Facet.Roblox.createRuntime(native)
 		local Host = (runtime.constructors :: unknown) :: Shared.Host
 		local sequence: EffectTypes.Sequence
-		local count: Facet.Readable<number>
+		local count: Facet.ReadOnlyValue<number>
 		local score = C.cell(0)
 		local reduced = C.cell("normal" :: Shared.MotionLevel)
 		local events: { string } = {}

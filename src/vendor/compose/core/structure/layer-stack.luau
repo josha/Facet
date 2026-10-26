@@ -20,7 +20,7 @@ export type State = {
 export type Options<V, K> = {
 	from: keyed.Source<V>,
 	key: ((value: V, index: number) -> K)?,
-	render: (value: Types.Readable<V>, state: Types.Readable<State>, key: K) -> Host.Node,
+	render: (value: Types.ReadOnlyValue<V>, state: Types.ReadOnlyValue<State>, key: K) -> Host.Node,
 	retention: Retention?,
 }
 
@@ -31,9 +31,7 @@ local KNOWN_FIELDS: { [string]: true } = {
 	retention = true,
 }
 
-local function identity<V>(value: V, _index: number): V
-	return value
-end
+local identity = require("../reactive/node").identityKey
 
 local function sameState(a: State, b: State): boolean
 	return a.index == b.index and a.depthFromTop == b.depthFromTop and a.top == b.top and a.covered == b.covered
@@ -42,18 +40,24 @@ end
 local function layerStack<V, K>(options: Options<V, K>): Children.Directive
 	local settings = Support.optionsOf(options, "LayerStack", "from = ..., key = ..., render = ...")
 	Support.noUnknownFields(settings, "LayerStack", KNOWN_FIELDS)
-	local source = Support.sourceOf(settings.from, "LayerStack", "from") :: Types.Body<{ V }>
-	local render =
-		Support.builderOf(settings.render, "LayerStack", "render") :: (Types.Readable<V>, Types.Readable<State>, K) -> Host.Node
+	local source: Types.Body<{ V }> = Support.sourceOf(settings.from, "LayerStack", "from")
+	local render = Support.builderOf(settings.render, "LayerStack", "render")
 	local keyOf: (value: V, index: number) -> K = if settings.key == nil
-		then (identity :: unknown) :: (value: V, index: number) -> K
+		then identity
 		else Support.builderOf(settings.key, "LayerStack", "key")
 	local retention: Retention = settings.retention or "all"
 	if retention ~= "all" and retention ~= "top" then
-		Diagnostics.raise("layer-stack/unknown-retention", "LayerStack was given a retention policy it does not have", {
-			actual = Diagnostics.describe(retention),
-			expected = '"all" or "top"',
-		})
+		error(
+			Diagnostics.format(
+				"layer-stack/unknown-retention",
+				"LayerStack was given a retention policy it does not have",
+				{
+					actual = Diagnostics.describe(retention),
+					expected = '"all" or "top"',
+				}
+			),
+			0
+		)
 	end
 
 	local function select(_use: Types.Use, list: { V }): retain.Selection<V, State, K>

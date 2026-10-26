@@ -4,13 +4,14 @@ local Host = require "../host"
 local Owner = require "../ownership/owner"
 local Types = require "../reactive/types"
 local Graph = require "../reactive/graph"
+local NodeCast = require "../reactive/node"
 local Cell = require "../reactive/cell"
 local ownedFrame = require "../ownership/frame"
 
 export type Options = { duration: number?, deadline: number?, start: number?, interval: number?, step: number? }
 
 return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
-	return function(options: Options?): Types.Readable<number>
+	return function(options: Options?): Types.ReadOnlyValue<number>
 		local owner = ownerOf "clock"
 		local frames = assert(host.frames, "Compose clock requires host.frames")
 		local settings: Options = options or {}
@@ -45,7 +46,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 				else elapsed
 		end
 		local value = Cell.cell(read())
-		local producer = (value :: unknown) :: Graph.Producer
+		local producer = NodeCast.nodeOf(value)
 		local function finished(current: number): boolean
 			return (duration ~= nil or deadline ~= nil) and current == 0
 		end
@@ -69,14 +70,14 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 		end)
 		Graph.observations[producer] = function(observed)
 			pump.stop()
-			if observed and not owner.isDisposed() then
+			if observed and not Owner.isDisposed(owner) then
 				value:set(read())
 				if not finished(value:peek()) then
 					pump.start()
 				end
 			end
 		end
-		owner.own(function()
+		Owner.own(owner, function()
 			Graph.observations[producer] = nil
 		end)
 		return value

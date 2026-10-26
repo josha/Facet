@@ -13,7 +13,7 @@ type Live = {
 	note: (string, unknown) -> (),
 	settle: (number) -> (),
 }
-type Readable<T> = { peek: (Readable<T>) -> T }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
 type Item = { id: string }
 type PreviewSample = { pointer: Vector2, contact: Vector2, rect: { number }, error: number }
 type State = {
@@ -249,7 +249,7 @@ local cases: { Case } = {
 							return true
 						end,
 					},
-					render = function(current: Readable<Item>): GuiObject
+					render = function(current: ReadOnlyValue<Item>): GuiObject
 						return UI.Button { label = current:peek().id }
 					end,
 				}

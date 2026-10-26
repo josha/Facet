@@ -4,8 +4,8 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local function virtualInput(): any
 	return (game:GetService("UserInputService") :: any):CreateVirtualInput()
 end
@@ -237,7 +237,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 			local viewport = if emulate
 				then Compose.formula(function(use: Use)
 					local size = config.size
-					local value = if Compose.isReadable(size) then use(size) else size
+					local value = if Compose.isValue(size) then use(size) else size
 					return { width = value.X, height = value.Y }
 				end)
 				else Facet.Roblox.createViewport(workspace.CurrentCamera)
@@ -255,7 +255,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 					if size == nil then
 						return UDim2.fromScale(1, 1)
 					end
-					local value = if Compose.isReadable(size) then use(size) else size
+					local value = if Compose.isValue(size) then use(size) else size
 					return UDim2.fromOffset(value.X, value.Y)
 				end,
 				BackgroundTransparency = 1,

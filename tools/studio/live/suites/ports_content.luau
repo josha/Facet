@@ -1,6 +1,6 @@
 --!strict
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -294,7 +294,7 @@ for _, direction in { "vertical", "horizontal" } do
 				direction = direction,
 				itemSize = if horizontal then 240 else 140,
 				gap = 20,
-				render = function(current: Readable<number>)
+				render = function(current: ReadOnlyValue<number>)
 					return UI.Card(`Card{current:peek()}`) {
 						title = `Vehicle {current:peek()}`,
 						caption = "Compare handling and speed",

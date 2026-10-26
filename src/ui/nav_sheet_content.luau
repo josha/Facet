@@ -10,11 +10,11 @@ local InputProps = require("./input_props")
 local sheetGesture = require("./nav_sheet_gesture")
 
 export type SheetContent = {
-	plaqued: ComposeTypes.Cell<boolean>,
+	plaqued: ComposeTypes.Value<boolean>,
 	usable: (Overlay.Action?) -> boolean,
 	press: (Overlay.Action) -> (),
-	panelWidth: ComposeTypes.Formula<number>,
-	contentSize: ComposeTypes.Cell<Vector2>,
+	panelWidth: ComposeTypes.Value<number>,
+	contentSize: ComposeTypes.Value<Vector2>,
 	room: parts.Room,
 	entry: () -> GuiObject?,
 	guide: Frame?,
@@ -58,7 +58,7 @@ return function(
 			end
 			if explicit ~= nil and explicit ~= true then
 				return linkClose(UI.Button "Close" {
-					label = explicit :: Types.Value<string>,
+					label = explicit :: Types.Input<string>,
 					icon = "close",
 					appearance = if overHero then "inverse" else "utility",
 					LayoutOrder = 2,
@@ -329,8 +329,8 @@ return function(
 			table.insert(regions, region)
 		end
 		local guideRegion: Frame? = nil
-		local guideSize: ComposeTypes.Readable<Vector2>? = nil
-		local guidePresent: ComposeTypes.Readable<boolean>? = nil
+		local guideSize: ComposeTypes.ReadOnlyValue<Vector2>? = nil
+		local guidePresent: ComposeTypes.ReadOnlyValue<boolean>? = nil
 		if spec.guide ~= nil then
 			assert(type(spec.guide) == "table", "Facet.Sheet: guide takes ButtonGuide options")
 			assert(

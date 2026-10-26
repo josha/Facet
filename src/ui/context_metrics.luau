@@ -107,7 +107,7 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 		return style
 	end
 	function ctx.controlSize(
-		source: Shared.Value<Shared.ControlSize?>?,
+		source: Shared.Input<Shared.ControlSize?>?,
 		field: "height" | "paddingX" | "iconSize",
 		use: ComposeTypes.Use?
 	): number

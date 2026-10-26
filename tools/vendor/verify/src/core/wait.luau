@@ -21,7 +21,8 @@ export type Result = {
 
 local function waitUntil(spec: Spec, ops: Ops): Result
 	assert(spec.name ~= "" and spec.deadlineSeconds >= 0 and spec.pollSeconds > 0, "invalid wait bounds")
-	local began, polls, observed = ops.now(), 0, nil :: unknown
+	local began, polls = ops.now(), 0
+	local observed: unknown = nil
 	local function finish(reason: Reason, detail: string?): Result
 		return {
 			ok = reason == "satisfied",
@@ -76,17 +77,19 @@ local function waitUntil(spec: Spec, ops: Ops): Result
 end
 
 local function awaitValue<T>(predicate: () -> T?, seconds: number, poll: number, ops: Ops, truthy: boolean?): T?
+	local observed: T? = nil
 	local result = waitUntil({
 		name = "value",
 		deadlineSeconds = seconds,
 		pollSeconds = poll,
 		probe = function(): (boolean, unknown, string?)
 			local value = predicate()
+			observed = value
 			return if truthy then not not value else value ~= nil, value, nil
 		end,
 	}, ops)
 	if result.ok then
-		return result.observed :: T
+		return observed
 	end
 	if result.reason ~= "timeout" and result.reason ~= "cancelled" then
 		error(result.detail, 2)

@@ -10,7 +10,7 @@ local Host = Facet.host(runtime)
 local small: Facet.Space = "s"
 local fill: Facet.Extent = "fill"
 local gap = Compose.cell(small)
-local width: Facet.Cell<Facet.Extent> = Compose.cell(fill)
+local width: Facet.Value<Facet.Extent> = Compose.cell(fill)
 local visible = Compose.cell(true)
 local maximum = Compose.cell(480)
 local stackProps: Facet.StackProps =
@@ -89,7 +89,7 @@ local spacerProps: Facet.SpacerProps = { minLength = "m" }
 local spacer: Frame = UI.Spacer(spacerProps)
 local adaptive: Frame = UI.AdaptiveStack({ axis = "x", gap = "s" })
 local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Long" }), UI.Text({ text = "L" }) })
-local chosen: Facet.Cell<number> = Compose.cell(1)
+local chosen: Facet.Value<number> = Compose.cell(1)
 local region: Frame = UI.Region("Tasks")({
 	zone = "left",
 	rank = 2,

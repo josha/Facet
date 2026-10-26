@@ -95,7 +95,7 @@ local function measure(grid: Instance, content: Rectangle, read: (Instance, stri
 		end
 	end
 	local order = enum("SortOrder", "Name")
-	table.sort(items, function(left, right): boolean
+	table.sort(items, function(left: Item, right: Item): boolean
 		if order == "LayoutOrder" then
 			local a, b =
 				Values.number(read(left.object, "LayoutOrder")), Values.number(read(right.object, "LayoutOrder"))

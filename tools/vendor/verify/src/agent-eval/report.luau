@@ -135,6 +135,11 @@ local METRICS: { MetricSpec } = {
 	{ name = "timeToFirstPassSeconds", statistic = "ratio" },
 }
 
+local function checkedNumber(value: unknown): number
+	assert(type(value) == "number")
+	return value
+end
+
 local function metricSpec(name: string): MetricSpec?
 	for _, spec in METRICS do
 		if spec.name == name then
@@ -239,7 +244,28 @@ local function runValue(result: Result.RunResult, name: string): number?
 		end
 		return sum / #result.audits
 	end
-	local value = ((metrics :: unknown) :: { [string]: unknown })[name]
+	local values: { [string]: unknown } = {
+		turns = metrics.turns,
+		messages = metrics.messages,
+		subagentMessages = metrics.subagentMessages,
+		inputTokens = metrics.inputTokens,
+		cacheCreationTokens = metrics.cacheCreationTokens,
+		cacheReadTokens = metrics.cacheReadTokens,
+		outputTokens = metrics.outputTokens,
+		totalTokens = metrics.totalTokens,
+		costUsd = metrics.costUsd,
+		wallSeconds = metrics.wallSeconds,
+		agentSeconds = metrics.agentSeconds,
+		apiSeconds = metrics.apiSeconds,
+		toolSeconds = metrics.toolSeconds,
+		startupSeconds = metrics.startupSeconds,
+		turnLatencies = metrics.turnLatencies,
+		turnIntervals = metrics.turnIntervals,
+		toolCalls = metrics.toolCalls,
+		toolErrors = metrics.toolErrors,
+		permissionDenials = metrics.permissionDenials,
+	}
+	local value = values[name]
 	return if type(value) == "number" then value else nil
 end
 
@@ -300,7 +326,7 @@ local function judgeScore(judgment: Judge.Judgment, arm: string, other: string?)
 		return judgment.scoreA
 	end
 	if judgment.b == arm and (other == nil or judgment.a == other) then
-		return 1 - (judgment.scoreA :: number)
+		return 1 - judgment.scoreA
 	end
 	return nil
 end
@@ -463,7 +489,7 @@ local function build(
 				if spec.statistic == "level" then
 					local values: { number } = {}
 					for _, item in sample do
-						table.insert(values, item.judge :: number)
+						table.insert(values, checkedNumber(item.judge))
 					end
 					return mean(values)
 				end
@@ -478,8 +504,8 @@ local function build(
 							table.insert(right, value)
 						end
 					end
-					local top = Stats.percentile(left, spec.rank :: number)
-					local bottom = Stats.percentile(right, spec.rank :: number)
+					local top = Stats.percentile(left, spec.rank)
+					local bottom = Stats.percentile(right, spec.rank)
 					if top == nil or bottom == nil or bottom == 0 then
 						return nil
 					end
@@ -488,8 +514,8 @@ local function build(
 				local left: { number } = {}
 				local right: { number } = {}
 				for _, item in sample do
-					table.insert(left, item.arms[thresholds.treatment].values[spec.name] :: number)
-					table.insert(right, item.arms[thresholds.baseline].values[spec.name] :: number)
+					table.insert(left, checkedNumber(item.arms[thresholds.treatment].values[spec.name]))
+					table.insert(right, checkedNumber(item.arms[thresholds.baseline].values[spec.name]))
 				end
 				local top = mean(left)
 				local bottom = mean(right)
@@ -534,7 +560,7 @@ local function build(
 				elseif rule.upper ~= nil then "upper"
 				elseif rule.atLeast ~= nil then "atLeast"
 				else "atMost"
-			local threshold = (rule.lower or rule.upper or rule.atLeast or rule.atMost) :: number
+			local threshold = checkedNumber((rule.lower or rule.upper or rule.atLeast or rule.atMost))
 			local value = if bound == "lower"
 				then comparison.lower
 				elseif bound == "upper" then comparison.upper
@@ -643,7 +669,7 @@ local function show(value: number?, digits: number?): string
 		return "n/a"
 	end
 	local places = digits or 3
-	return string.format("%." .. tostring(places) .. "f", value :: number)
+	return string.format("%." .. tostring(places) .. "f", value)
 end
 
 local function markdown(report: EvalReport): string
@@ -724,7 +750,7 @@ local function markdown(report: EvalReport): string
 		end
 	end
 	if report.calibration ~= nil then
-		local calibration = report.calibration :: Judge.Calibration
+		local calibration = report.calibration
 		add ""
 		add "## Judge calibration"
 		add ""

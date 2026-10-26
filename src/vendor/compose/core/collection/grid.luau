@@ -94,7 +94,7 @@ local function build<V>(self: Grid, list: { V }, positionOf: (value: V) -> (numb
 			lengths[key] = 0
 			activeKeys[#activeKeys + 1] = key
 		end
-		local at = (lengths[key] :: number) + 1
+		local at = lengths[key] + 1
 		lengths[key] = at
 		bucket[at] = index
 	end

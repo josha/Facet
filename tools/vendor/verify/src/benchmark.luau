@@ -93,7 +93,9 @@ local function baselineValue(spec: Spec, baseline: Baseline): number?
 	if baseline.value ~= nil then
 		return baseline.value
 	end
-	return metricValue(summaryOf(spec, baseline.samples :: { number }), baseline.metric)
+	local samples = baseline.samples
+	assert(samples ~= nil)
+	return metricValue(summaryOf(spec, samples), baseline.metric)
 end
 
 local function yardstickIssues(spec: Spec, tool: Yardstick, before: { number }, after: { number }): { Invalid }
@@ -159,7 +161,7 @@ local function timeYardstick(clock: Clock, scale: number, tool: Yardstick, into:
 end
 
 local function readHeap(heap: Heap): number?
-	local ok, value: unknown = pcall(heap.probe)
+	local ok, value = pcall(heap.probe)
 	if ok and type(value) == "number" and value == value and value >= 0 and value < math.huge then
 		return value
 	end
@@ -338,7 +340,7 @@ local function judgeResult(spec: Spec, result: Result)
 		if judge == nil then
 			return nil
 		end
-		local ok, verdict: unknown = pcall(judge, {
+		local ok, verdict = pcall(judge, {
 			phase = phase,
 			samples = table.clone(samples),
 			summary = summary,
@@ -358,7 +360,9 @@ local function judgeResult(spec: Spec, result: Result)
 	end
 	result.judgment = ask(spec.judge, nil, result.samples, result.summary, result.series)
 	for index, entry in result.phases do
-		local phase = (spec.phases :: { Phase })[index]
+		local phases = spec.phases
+		assert(phases ~= nil)
+		local phase = phases[index]
 		if #entry.invalid == 0 then
 			entry.judgment = ask(phase.judge, phase.name, entry.samples, entry.summary, entry.series)
 		end
@@ -550,7 +554,8 @@ local function measure(spec: Spec, clock: Clock, started: number): Result
 				table.insert(samples, total)
 			end
 		else
-			local work = spec.workload :: (unknown, Sampler) -> ()
+			local work = spec.workload
+			assert(work ~= nil)
 			local tools = samplerFor(if record then series else nil)
 			local before = if record then clock() else 0
 			for _ = 1, if record then iterations else 1 do
@@ -611,7 +616,8 @@ local function measure(spec: Spec, clock: Clock, started: number): Result
 					end
 				end
 			else
-				local work = spec.workload :: (unknown, Sampler) -> ()
+				local work = spec.workload
+				assert(work ~= nil)
 				ok = attempt(function()
 					work(nil, tools)
 				end)
@@ -793,7 +799,9 @@ local function collectOnce(collection: Collection): CollectionResult
 				end
 				result.comparison = comparisonOf(member, member.baseline, result.summary, result.samples, before, after)
 				for position, entry in result.phases do
-					local phase = (member.phases :: { Phase })[position]
+					local phases = member.phases
+					assert(phases ~= nil)
+					local phase = phases[position]
 					entry.comparison = comparisonOf(member, phase.baseline, entry.summary, entry.samples, before, after)
 				end
 				if #invalid == 0 then
@@ -837,11 +845,12 @@ end
 local function collect(collection: Collection): CollectionResult
 	Check.checkCollection(collection)
 	local result = collectOnce(collection)
-	if collection.calibrationAttempts ~= 2 then
+	local allowed = collection.calibrationAttempts or 1
+	if allowed < 2 then
 		return result
 	end
 	local attempts: { CollectionAttempt } = { table.clone(result) }
-	if retryCalibration(result) then
+	while #attempts < allowed and retryCalibration(result) do
 		result = collectOnce(collection)
 		table.insert(attempts, table.clone(result))
 	end
@@ -920,7 +929,9 @@ local function report(context: Harness.Context, spec: Spec, result: Result)
 		record(context, spec.name, inputOf(spec, result.samples, result.summary, result.series), limitsOf(spec))
 	end
 	for index, entry in result.phases do
-		local phase = (spec.phases :: { Phase })[index]
+		local phases = spec.phases
+		assert(phases ~= nil)
+		local phase = phases[index]
 		record(
 			context,
 			entry.measurement,
@@ -965,7 +976,7 @@ local function report(context: Harness.Context, spec: Spec, result: Result)
 		error(("%s was refused by its judge: %s"):format(spec.name, result.judgment), 0)
 	end
 	if result.failure ~= nil then
-		error(result.failure :: string, 0)
+		error(result.failure, 0)
 	end
 	noteInvalid(context, "benchmark invalid", result.invalid)
 	for _, entry in result.phases do
@@ -1039,7 +1050,7 @@ local function collectionCase(collection: Collection): Harness.CaseOptions
 				end
 			end
 			if collected.failure ~= nil then
-				error(collected.failure :: string, 0)
+				error(collected.failure, 0)
 			end
 			if firstFailure ~= nil then
 				error(firstFailure, 0)

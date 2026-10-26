@@ -228,7 +228,7 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("presentation motion: Calendar", function()
-		local dateCell: (Facet.CivilDate?) -> Compose.Cell<Facet.CivilDate?> = Compose.cell
+		local dateCell: (Facet.CivilDate?) -> Compose.Value<Facet.CivilDate?> = Compose.cell
 		local configurations: { Types.Config } = {
 			{ motionLevel = "normal" },
 			{ motionLevel = "limited" },
@@ -540,7 +540,7 @@ return function(verifyHarness: Verify.Harness)
 		end)
 		local function tipsWorld(
 			options: Types.Config?,
-			outsideDismiss: boolean | Compose.Readable<boolean>?,
+			outsideDismiss: boolean | Compose.ReadOnlyValue<boolean>?,
 			setup: overlay.Setup?
 		): (any, any)
 			local expanded = Compose.cell(false)
@@ -671,7 +671,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("outside dismissal can change while open without disabling Close or Cancel", {
 			id = "native_presentation_motion::CollapsibleView in place::outside dismissal can change while open without disabling Close or Cancel",
 			run = function()
-				for _, value in { false, Compose.cell(false) } :: { boolean | Compose.Cell<boolean> } do
+				for _, value in { false, Compose.cell(false) } :: { boolean | Compose.Value<boolean> } do
 					local w, expanded = tipsWorld({ motionLevel = "none" }, value)
 					local function outside()
 						w.find("DismissTarget").Activated:Fire({

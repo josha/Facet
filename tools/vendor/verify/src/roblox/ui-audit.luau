@@ -211,25 +211,27 @@ local function analyze(dump: Dump, options: Options?): Report
 		local severity: Severity = RULES[rule]
 		counts[rule] = (counts[rule] or 0) + 1
 		penalties[rule] = (penalties[rule] or 0) + resolved.weights[severity]
-		table.insert(violations, {
+		local violation: Violation = {
 			rule = rule,
 			severity = severity,
 			path = if element ~= nil then element.path else "",
 			detail = detail,
 			value = value,
-		})
+		}
+		table.insert(violations, violation)
 	end
 
 	local failures: { Dump.Failure } = dump.failures or {}
 	for _, failure in failures do
 		counts["control-failed"] = (counts["control-failed"] or 0) + 1
 		penalties["control-failed"] = (penalties["control-failed"] or 0) + resolved.weights.high
-		table.insert(violations, {
+		local violation: Violation = {
 			rule = "control-failed",
 			severity = "high",
 			path = failure.path,
 			detail = `{failure.attribute}: {failure.message}`,
-		})
+		}
+		table.insert(violations, violation)
 	end
 
 	local roots: { [number]: Root } = {}
@@ -261,7 +263,7 @@ local function analyze(dump: Dump, options: Options?): Report
 		if not element.visible or (root ~= nil and not root.enabled) then
 			continue
 		end
-		local shown = Dump.intersect(Dump.intersect(element.rect, element.clip), element.scrollClip) :: Rect
+		local shown = Dump.intersect(Dump.intersect(element.rect, element.clip), element.scrollClip) or element.rect
 		if area(shown) <= 0 then
 			continue
 		end
@@ -392,8 +394,8 @@ local function analyze(dump: Dump, options: Options?): Report
 				and y <= other.rect.y + other.rect.height
 				and (
 					found == nil
-					or other.zIndex > (found :: Element).zIndex
-					or (other.zIndex == (found :: Element).zIndex and other.order > (found :: Element).order)
+					or other.zIndex > found.zIndex
+					or (other.zIndex == found.zIndex and other.order > found.order)
 				)
 			then
 				found = other
@@ -474,8 +476,8 @@ local function analyze(dump: Dump, options: Options?): Report
 					textValue.bounds.width - element.rect.width
 				)
 			end
-			local expected = Dump.intersect(element.rect, element.scrollClip) :: Rect
-			if element.clip ~= nil and area(expected) > 0 and not inside(expected, element.clip :: Rect, EDGE) then
+			local expected = Dump.intersect(element.rect, element.scrollClip) or element.rect
+			if element.clip ~= nil and area(expected) > 0 and not inside(expected, element.clip, EDGE) then
 				add("text-clipped", element, "an ancestor that clips its descendants cuts the text", nil)
 			end
 			if not textValue.scaled then
@@ -487,8 +489,8 @@ local function analyze(dump: Dump, options: Options?): Report
 				metrics.contrastUnknown += 1
 			elseif not inactive then
 				local alpha = 1 - textValue.transparency
-				local lowBlack = ratio(blend(textValue.color, alpha, overBlack :: Color), overBlack :: Color)
-				local lowWhite = ratio(blend(textValue.color, alpha, overWhite :: Color), overWhite :: Color)
+				local lowBlack = ratio(blend(textValue.color, alpha, overBlack), overBlack)
+				local lowWhite = ratio(blend(textValue.color, alpha, overWhite), overWhite)
 				local large = textValue.size >= resolved.largeTextSize * dump.screen.scale
 					or (textValue.bold and textValue.size >= resolved.largeBoldTextSize * dump.screen.scale)
 				local required = if large then resolved.largeContrast else resolved.contrast
@@ -512,8 +514,8 @@ local function analyze(dump: Dump, options: Options?): Report
 			elseif
 				not backdrops[element.index]
 				and dump.screen.safeArea ~= nil
-				and not inside(shown, dump.screen.safeArea :: Rect, EDGE)
-				and not (dump.screen.topbarSafeArea ~= nil and inside(shown, dump.screen.topbarSafeArea :: Rect, EDGE))
+				and not inside(shown, dump.screen.safeArea, EDGE)
+				and not (dump.screen.topbarSafeArea ~= nil and inside(shown, dump.screen.topbarSafeArea, EDGE))
 			then
 				add("outside-safe-area", element, "the element extends past the safe area", nil)
 			end
@@ -535,7 +537,7 @@ local function analyze(dump: Dump, options: Options?): Report
 			end
 		end
 		if element.interactive and element.focus ~= nil then
-			local focus = element.focus :: Focus
+			local focus = element.focus
 			if resolved.gamepad and element.selectable and focus.selectionImage == "hidden" then
 				add("focus-hidden", element, "the selection image is invisible", nil)
 			end
@@ -550,24 +552,24 @@ local function analyze(dump: Dump, options: Options?): Report
 			end
 		end
 		if element.padding ~= nil then
-			local padding = element.padding :: Insets
+			local padding = element.padding
 			spacingValue(padding.left)
 			spacingValue(padding.top)
 			spacingValue(padding.right)
 			spacingValue(padding.bottom)
 		end
 		if element.layout ~= nil then
-			spacingValue((element.layout :: Layout).padding)
+			spacingValue(element.layout.padding)
 		end
 	end
 
 	local children: { [number]: { Element } } = {}
 	for _, element in dump.elements do
 		if visibleRects[element.index] ~= nil and element.parent ~= nil then
-			local list = children[element.parent :: number]
+			local list = children[element.parent]
 			if list == nil then
 				list = {}
-				children[element.parent :: number] = list
+				children[element.parent] = list
 			end
 			table.insert(list, element)
 		end
@@ -667,7 +669,7 @@ local function analyze(dump: Dump, options: Options?): Report
 				other = visibleRects[right.index]
 			end
 			if other then
-				local shared = Dump.intersect(textRect, other) :: Rect
+				local shared = Dump.intersect(textRect, other) or textRect
 				if shared.width > EDGE and shared.height > EDGE then
 					add("text-overlap", left, "text overlaps " .. right.path, area(shared))
 				end
@@ -686,12 +688,15 @@ local function analyze(dump: Dump, options: Options?): Report
 			if left.root ~= right.root or ancestorOf(left.index, right) or ancestorOf(right.index, left) then
 				continue
 			end
-			local leftRect = visibleRects[left.index] :: Rect
-			local rightRect = visibleRects[right.index] :: Rect
+			local leftRect = visibleRects[left.index]
+			local rightRect = visibleRects[right.index]
+			if leftRect == nil or rightRect == nil then
+				continue
+			end
 			if inside(leftRect, rightRect, EDGE) or inside(rightRect, leftRect, EDGE) then
 				continue
 			end
-			local shared = Dump.intersect(visibleRects[left.index], visibleRects[right.index]) :: Rect
+			local shared = Dump.intersect(leftRect, rightRect) or leftRect
 			if shared.width > EDGE and shared.height > EDGE then
 				add(
 					"interactive-overlap",
@@ -752,13 +757,17 @@ local function analyze(dump: Dump, options: Options?): Report
 				local primary = 0
 				local cross = 0
 				if direction == "up" then
-					primary, cross = fromY - y, math.abs(x - fromX)
+					primary = fromY - y
+					cross = math.abs(x - fromX)
 				elseif direction == "down" then
-					primary, cross = y - fromY, math.abs(x - fromX)
+					primary = y - fromY
+					cross = math.abs(x - fromX)
 				elseif direction == "left" then
-					primary, cross = fromX - x, math.abs(y - fromY)
+					primary = fromX - x
+					cross = math.abs(y - fromY)
 				else
-					primary, cross = x - fromX, math.abs(y - fromY)
+					primary = x - fromX
+					cross = math.abs(y - fromY)
 				end
 				if primary > EDGE then
 					local score = primary + 2 * cross
@@ -772,8 +781,8 @@ local function analyze(dump: Dump, options: Options?): Report
 		end
 		if #nodes > 0 then
 			local start: Element = nodes[1]
-			if dump.selected ~= nil and isNode[dump.selected :: number] then
-				start = dump.elements[dump.selected :: number]
+			if dump.selected ~= nil and isNode[dump.selected] then
+				start = dump.elements[dump.selected]
 			else
 				for _, node in nodes do
 					if
@@ -787,7 +796,10 @@ local function analyze(dump: Dump, options: Options?): Report
 			local reached: { [number]: boolean } = { [start.index] = true }
 			local queue: { Element } = { start }
 			while #queue > 0 do
-				local current = table.remove(queue, 1) :: Element
+				local current = table.remove(queue, 1)
+				if current == nil then
+					break
+				end
 				for _, direction in Dump.DIRECTIONS do
 					local target: Element? = nil
 					local explicit: Link? = nil
@@ -797,8 +809,8 @@ local function analyze(dump: Dump, options: Options?): Report
 						end
 					end
 					if explicit ~= nil then
-						if explicit.index ~= nil and isNode[explicit.index :: number] then
-							target = dump.elements[explicit.index :: number]
+						if explicit.index ~= nil and isNode[explicit.index] then
+							target = dump.elements[explicit.index]
 						end
 					else
 						target = geometric(current, direction)
@@ -822,7 +834,7 @@ local function analyze(dump: Dump, options: Options?): Report
 		end
 		for _, element in dump.elements do
 			for _, link in element.next do
-				if link.index == nil or not isNode[link.index :: number] then
+				if link.index == nil or not isNode[link.index] then
 					if visibleRects[element.index] ~= nil then
 						add(
 							"selection-link-broken",
@@ -879,7 +891,7 @@ local function analyze(dump: Dump, options: Options?): Report
 		rules[rule] = { count = ruleCount, severity = RULES[rule], penalty = penalty }
 	end
 	local rank: { [Severity]: number } = { high = 1, medium = 2, low = 3 }
-	table.sort(violations, function(left, right)
+	table.sort(violations, function(left: Violation, right: Violation)
 		if rank[left.severity] ~= rank[right.severity] then
 			return rank[left.severity] < rank[right.severity]
 		end

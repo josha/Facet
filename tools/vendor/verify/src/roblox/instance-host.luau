@@ -247,7 +247,7 @@ end
 type NativeGlobals = { Instance: { new: (string) -> Node }, task: { wait: (number) -> number } }
 local function native(actor: string, borrowed: { [string]: Node }?, codec: Codec?): Host
 	local engine = Native.nativeEngine()
-	local globals = (getfenv(0) :: unknown) :: NativeGlobals
+	local globals: NativeGlobals = getfenv(0)
 	local bound = registry { actor = actor, createInstance = globals.Instance.new, borrowed = borrowed, codec = codec }
 	local host = Native.create {
 		engine = engine,

@@ -3,9 +3,11 @@
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Placement = "automatic" | "sidebar" | "topBar" | "bottomBar" | "bottomBarCompact" | "none"
 type Entry = typeof(require("@repo/examples/types").DemoTab)
 type CategoryLayout = typeof(require("@repo/examples/types").CategoryLayout)
@@ -20,14 +22,14 @@ end
 return function(ctx: ExampleContext, id: string, groups: { Entry })
 	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2 = ctx.types.UDim2
-	local selections: { [string]: Cell<string> } = {}
-	local preference: Cell<string> = ctx.categoryPlacement or Compose.cell("automatic")
+	local selections: { [string]: Value<string> } = {}
+	local preference: Value<string> = ctx.categoryPlacement or Compose.cell("automatic")
 	local builtById: { [string]: Built } = {}
 	local function tabsFor(
 		key: string,
 		entries: { Entry },
 		outer: boolean,
-		parentVisible: Readable<boolean>?
+		parentVisible: ReadOnlyValue<boolean>?
 	): GuiObject
 		local selected = selections[key]
 		if not selected then

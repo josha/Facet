@@ -11,7 +11,7 @@ export type Adjust = {
 	extra: (((ComposeTypes.Use) -> boolean) -> ())?,
 }
 export type EnabledSource = InputTypes.EnabledOptions | InputTypes.NumberInputOptions | InputTypes.LevelOptions | {
-	value: Shared.Value<number>,
+	value: Shared.Input<number>,
 	onChange: ((number) -> ())?,
 }
 export type RepeatHeld = (
@@ -157,8 +157,8 @@ return function(ctx: Shared.Context, base: Base): Adjustment
 							stopRepeat()
 						end
 					end)
-					local function peekUse<T>(source: ComposeTypes.Readable<T>): T
-						return read(source)
+					local function peekUse<T>(source: ComposeTypes.ReadOnlyValue<T>): T
+						return ctx.readSource(source)
 					end
 					local function movable(direction: number): () -> boolean
 						return function(): boolean

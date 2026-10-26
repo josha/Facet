@@ -4,9 +4,11 @@ local Facet = require("../src")
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type SkinLayer = typeof(require("@repo/tools/typecheck/aliases").SkinLayer)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 export type Size = { width: number, height: number }
 export type Device = { width: number?, height: number?, displaySize: string, input: string, rotates: boolean? }
 export type Demo = { id: string, kind: string, module: string, title: string, blurb: string? }
@@ -23,8 +25,8 @@ export type ThemeModule = {
 	build: (typeof(Facet.themes)) -> (Facet.ThemePackage?, ...unknown),
 }
 export type CategoryLayout = {
-	placement: Readable<string>,
-	available: Readable<boolean>,
+	placement: ReadOnlyValue<string>,
+	available: ReadOnlyValue<boolean>,
 	toggle: () -> (),
 }
 export type Scenario = { build: (Context) -> Built }
@@ -40,51 +42,51 @@ export type Context = {
 	Host: RobloxHost,
 	runtime: Facet.Runtime,
 	types: RobloxTypes,
-	viewport: Readable<Size>?,
-	previewViewport: Readable<Size>?,
-	sceneViewport: Readable<Size>?,
+	viewport: ReadOnlyValue<Size>?,
+	previewViewport: ReadOnlyValue<Size>?,
+	sceneViewport: ReadOnlyValue<Size>?,
 	worldTarget: Instance?,
 	inputTarget: Instance?,
 	guiService: GuiService?,
 	runService: RunService?,
 	heartbeat: RBXScriptSignal?,
-	selection: Cell<string>?,
+	selection: Value<string>?,
 	demos: { Demo }?,
 	buildStamp: unknown,
-	theme: Cell<Facet.ThemePackage>?,
-	themeMode: Cell<string>?,
-	themeName: Cell<string>?,
+	theme: Value<Facet.ThemePackage>?,
+	themeMode: Value<string>?,
+	themeName: Value<string>?,
 	packages: { [string]: Facet.ThemePackage }?,
 	load: ((kind: string, name: string, ...string) -> Definition)?,
 	find: ((kind: string, name: string, ...string) -> ModuleScript)?,
 	overlayParent: Frame?,
 	sheet: StyleSheet?,
-	viewingDistance: Cell<ViewingDistance?>?,
-	categoryPlacement: Cell<string>?,
-	categoryLayout: Cell<CategoryLayout?>?,
-	devicePreview: Cell<string>?,
-	orientationPreview: Cell<string>?,
-	inputPreview: Cell<string>?,
-	textPreview: Cell<string>?,
-	device: Readable<Device?>?,
-	topInset: Readable<number>?,
-	metricScale: Cell<Readable<number>?>?,
-	previewScale: Readable<number>?,
+	viewingDistance: Value<ViewingDistance?>?,
+	categoryPlacement: Value<string>?,
+	categoryLayout: Value<CategoryLayout?>?,
+	devicePreview: Value<string>?,
+	orientationPreview: Value<string>?,
+	inputPreview: Value<string>?,
+	textPreview: Value<string>?,
+	device: ReadOnlyValue<Device?>?,
+	topInset: ReadOnlyValue<number>?,
+	metricScale: Value<ReadOnlyValue<number>?>?,
+	previewScale: ReadOnlyValue<number>?,
 	environment: typeof(require("@repo/tools/typecheck/aliases").ControlOptions.environment),
 	hoverPreview: ((Use) -> boolean?)?,
-	motionPreference: Cell<MotionLevel?>?,
-	motionLevel: Readable<MotionLevel>?,
-	motionMode: Cell<string>?,
-	reducedMotion: Readable<boolean>?,
-	sceneVisible: Cell<boolean>?,
-	pageVisible: Readable<boolean>?,
-	active: Cell<string?>?,
-	errorMessage: Cell<string?>?,
+	motionPreference: Value<MotionLevel?>?,
+	motionLevel: ReadOnlyValue<MotionLevel>?,
+	motionMode: Value<string>?,
+	reducedMotion: ReadOnlyValue<boolean>?,
+	sceneVisible: Value<boolean>?,
+	pageVisible: ReadOnlyValue<boolean>?,
+	active: Value<string?>?,
+	errorMessage: Value<string?>?,
 	currentReport: (() -> unknown)?,
 	currentSelect: ((unknown) -> boolean?)?,
 	requestPanel: ((string?) -> ())?,
-	panelOpen: Readable<boolean>?,
-	panelSection: Readable<string>?,
+	panelOpen: ReadOnlyValue<boolean>?,
+	panelSection: ReadOnlyValue<string>?,
 	copy: { [string]: string }?,
 	player: Player?,
 	outpostRemote: RemoteEvent?,

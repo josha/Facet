@@ -16,7 +16,7 @@ line shows at once. Text styles and the font follow the theme.
 
 `onRevealed()` runs once when the line finishes, including an empty line,
 Skip or reduced motion. Pass a `TypewriterControls` table as `controls` to
-get `revealed: Readable<boolean>` and `finish: () -> ()`. `finish()` shows
+get `revealed: ReadOnlyValue<boolean>` and `finish: () -> ()`. `finish()` shows
 the whole line at once. Repeated calls do not repeat the callback. A new line
 resets `revealed`. Unmount cancels the clock and clears the controls fields.
 

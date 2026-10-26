@@ -3,9 +3,11 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type MenuSpec = typeof(require("@repo/tools/typecheck/aliases").MenuSpec)
@@ -75,7 +77,7 @@ return {
 		local urlBar, ride, overflow, reportOpen =
 			Compose.cell(false), Compose.cell(true), Compose.cell(false), Compose.cell(false)
 		local noNotice: string? = nil
-		local notice: Cell<string?> = Compose.cell(noNotice)
+		local notice: Value<string?> = Compose.cell(noNotice)
 		local selectedWeapon = Compose.cell(1)
 		local reportActions: { AlertAction } = {
 			{ id = "close", label = "Done", role = "cancel" },
@@ -185,7 +187,7 @@ return {
 			label: string,
 			icon: string,
 			onActivate: (() -> ())?,
-			side: Readable<number>?
+			side: ReadOnlyValue<number>?
 		): TextButton
 			return UI.Button({
 				Name = name,
@@ -252,7 +254,7 @@ return {
 			end
 			return string.format("%d:%02d", math.floor(value / 60), value % 60)
 		end
-		local function bar(name: string, value: Readable<number>, width: number, segments: number?): Frame
+		local function bar(name: string, value: ReadOnlyValue<number>, width: number, segments: number?): Frame
 			return UI.ProgressView({
 				Name = name,
 				value = value,

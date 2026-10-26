@@ -3,8 +3,8 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local GuiService = game:GetService("GuiService")
 local Verify = (require :: (ModuleScript) -> typeof(require("@repo/tools/vendor/verify/src/core")))(
 	game.ReplicatedStorage.FacetVerify.core
@@ -2051,7 +2051,7 @@ interactive(
 						key = function(item: string): string
 							return item
 						end,
-						render = function(current: Readable<string>): GuiObject
+						render = function(current: ReadOnlyValue<string>): GuiObject
 							local item = current:peek()
 							return UI.Chip(item)({
 								label = item,

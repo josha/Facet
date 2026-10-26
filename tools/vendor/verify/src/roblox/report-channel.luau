@@ -25,7 +25,7 @@ end
 local function collect(bytes: string, runId: string, decode: (string) -> unknown): Core.Report
 	local payload, reason = Core.receipt(bytes, "VERIFY_REPORT")
 	assert(payload ~= nil, reason)
-	return receive(decode(payload :: string), runId)
+	return receive(decode(payload), runId)
 end
 
 return { envelope = envelope, receive = receive, publish = publish, collect = collect }

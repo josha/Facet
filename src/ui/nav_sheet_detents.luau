@@ -12,7 +12,7 @@ export type Prepared = { detents: { Detent }, byId: { [string]: Detent }, cancel
 export type Detents = {
 	prepare: (NavigationProps.SheetSpec) -> Prepared,
 	word: (string) -> string,
-	writableDetent: (NavigationProps.SheetSpec, Prepared) -> ComposeTypes.Cell<string>,
+	writableDetent: (NavigationProps.SheetSpec, Prepared) -> ComposeTypes.Value<string>,
 }
 
 local PLACEMENTS: { [string]: boolean } =
@@ -126,7 +126,7 @@ return function(ctx: Types.Context): Detents
 		return string.upper(string.sub(id, 1, 1)) .. string.sub(id, 2)
 	end
 
-	local function writableDetent(spec: NavigationProps.SheetSpec, prepared: Prepared): ComposeTypes.Cell<string>
+	local function writableDetent(spec: NavigationProps.SheetSpec, prepared: Prepared): ComposeTypes.Value<string>
 		local authored = spec.detent
 		if type(authored) == "table" then
 			return authored

@@ -1,11 +1,14 @@
 --!strict
 
 local Types = require "./datatypes"
+local FrameTypes = require "./datatypes/cframe"
+local VectorTypes = require "./datatypes/vector"
+local SequenceTypes = require "./datatypes/sequence"
+local EnumTypes = require "./datatypes/enum"
 local Environment = require "./environment-types"
 
 type Instance = Environment.Instance
 type CFrame = Types.CFrameValue
-type Vector3 = Types.Vector3Value
 type Cached = { original: unknown, written: unknown }
 type Write = { object: Instance, property: string, value: unknown, original: unknown }
 
@@ -33,16 +36,16 @@ local function scaled(value: unknown, ratio: number): unknown
 	end
 	local kind = Types.typeName(value)
 	if kind == "Vector3" then
-		return (value :: Vector3) * ratio
+		return VectorTypes.expect3(value, 1) * ratio
 	elseif kind == "CFrame" then
-		local frame = value :: CFrame
+		local frame = FrameTypes.expect(value, 1)
 		return Types.CFrame.new(frame.Position * ratio) * frame.Rotation
 	elseif kind == "NumberRange" then
-		local range = value :: Types.NumberRangeValue
+		local range = SequenceTypes.rangeValue(value)
 		return Types.NumberRange.new(range.Min * ratio, range.Max * ratio)
 	elseif kind == "NumberSequence" then
 		local points: { Types.NumberSequenceKeypointValue } = {}
-		for _, point in (value :: Types.NumberSequenceValue).Keypoints do
+		for _, point in SequenceTypes.numberSequenceValue(value).Keypoints do
 			table.insert(
 				points,
 				Types.NumberSequenceKeypoint.new(point.Time, point.Value * ratio, point.Envelope * ratio)
@@ -54,8 +57,10 @@ local function scaled(value: unknown, ratio: number): unknown
 end
 
 local function attach(environment: Environment.Environment, pivot: (Instance) -> CFrame)
-	local scales = setmetatable({} :: { [Instance]: number }, { __mode = "k" })
-	local originals = setmetatable({} :: { [Instance]: { [Instance]: { [string]: Cached } } }, { __mode = "k" })
+	local scales: { [Instance]: number } = {}
+	setmetatable(scales, { __mode = "k" })
+	local originals: { [Instance]: { [Instance]: { [string]: Cached } } } = {}
+	setmetatable(originals, { __mode = "k" })
 	environment.fake("Model.GetScale", function(model: Instance): number
 		return scales[model] or 1
 	end)
@@ -92,7 +97,7 @@ local function attach(environment: Environment.Environment, pivot: (Instance) ->
 				error("unsupported_model_scale_constraint: " .. object.ClassName)
 			end
 			if object:IsA "BasePart" then
-				local frame = environment.propertyOf(object, "CFrame") :: CFrame
+				local frame = FrameTypes.expect(environment.propertyOf(object, "CFrame"), 1)
 				enqueue(
 					object,
 					"CFrame",
@@ -120,7 +125,7 @@ local function attach(environment: Environment.Environment, pivot: (Instance) ->
 				resize(object, "MaxForce", 3)
 				resize(object, "MaxTorque", 3)
 			elseif object:IsA "SpecialMesh" then
-				local meshType = environment.propertyOf(object, "MeshType") :: Types.EnumMember
+				local meshType = EnumTypes.itemValue(environment.propertyOf(object, "MeshType"))
 				if meshType.Name == "FileMesh" then
 					resize(object, "Scale")
 				end

@@ -41,15 +41,16 @@ local function authorize(player: Player): {runId: string, cases: {string}?}
  assert(not used[player], 'published verification already executed for this player')
  local data = player:GetJoinData().LaunchData
  assert(type(data)=='string' and #data>0, 'published verification requires launch data')
- local value: unknown = game:GetService('HttpService'):JSONDecode(data)
+ local value: {verifyRun: unknown, verifyEntry: unknown, verifyCases: {[unknown]: unknown}?} = game:GetService('HttpService'):JSONDecode(data)
  assert(type(value)=='table', 'invalid verification launch data')
- local request = value :: {[string]: unknown}
+ local request = value
  assert(type(request.verifyRun)=='string' and request.verifyRun~='', 'verification run identity is missing')
  assert(request.verifyEntry==expectedEntry, 'verification entry does not match this fixture')
  local ids: {string}? = nil
  if request.verifyCases~=nil then
   assert(type(request.verifyCases)=='table', 'case selection must be an array')
-  local values=request.verifyCases :: {[unknown]: unknown}
+  local values=request.verifyCases
+  assert(values~=nil)
   local selected: {string}={}
   local seen: {[string]: boolean}={}
   local count=0
@@ -112,8 +113,9 @@ remote.Name='VerifyPublishedRun'
 remote.OnServerInvoke=function(player: Player) return authorize(player) end
 remote.Parent=game:GetService('ReplicatedStorage')
 ]]
-		client ..= execution .. [[local remote=game:GetService('ReplicatedStorage'):WaitForChild('VerifyPublishedRun') :: RemoteFunction
-local request=remote:InvokeServer() :: {runId: string, cases: {string}?}
+		client ..= execution .. [[local remote=game:GetService('ReplicatedStorage'):WaitForChild('VerifyPublishedRun')
+assert(remote:IsA('RemoteFunction'))
+local request: {runId: string, cases: {string}?}=remote:InvokeServer()
 local report=execute(request)
 Channel.publish(request.runId, report, function(value) return game:GetService('HttpService'):JSONEncode(value) end, print)
 ]]
@@ -126,7 +128,8 @@ remote.OnServerInvoke=function(player: Player)
 end
 remote.Parent=game:GetService('ReplicatedStorage')
 ]]
-		client ..= [[local remote=game:GetService('ReplicatedStorage'):WaitForChild('VerifyPublishedRun') :: RemoteFunction
+		client ..= [[local remote=game:GetService('ReplicatedStorage'):WaitForChild('VerifyPublishedRun')
+assert(remote:IsA('RemoteFunction'))
 local response=remote:InvokeServer()
 local report=Channel.receive(response,response.runId)
 Channel.publish(response.runId, report, function(value) return game:GetService('HttpService'):JSONEncode(value) end, print)

@@ -9,7 +9,7 @@ local ComposeTypes = require("../vendor/compose/core")
 
 type Entry = InputTypes.ButtonGuideEntry
 type Fields = { action: unknown, keys: unknown, keyCode: unknown, label: unknown }
-type Shown = { [{}]: ComposeTypes.Readable<boolean> | boolean }
+type Shown = { [{}]: ComposeTypes.ReadOnlyValue<boolean> | boolean }
 
 local KEYS = { "entries", "inputs", "controlSize", "Visible", "Selectable", "Active" }
 
@@ -39,7 +39,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		if type(value) == "string" then
 			return value
 		end
-		if type(value) == "table" and not Compose.isReadable(value) then
+		if type(value) == "table" and not Compose.isValue(value) then
 			local chords: { string } = {}
 			for _, chord in value :: { unknown } do
 				table.insert(chords, if type(chord) == "table" then table.concat(chord :: { string }, "+") else "?")
@@ -118,7 +118,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local entries = Compose.formula(function(use: ComposeTypes.Use): { Entry }
 			return check(read(spec.entries, use))
 		end)
-		local shown: ComposeTypes.Cell<Shown> = Compose.cell({})
+		local shown: ComposeTypes.Value<Shown> = Compose.cell({})
 		local placed = Compose.cell(0)
 		local hint: (InputProps.ShortcutHintProps) -> TextLabel | Frame = UI.ShortcutHint
 		local function keyCodeHint(
@@ -153,11 +153,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				ctx.styled(ctx.text({ Name = "Label", Text = label, AutomaticSize = E.AutomaticSize.XY }), "secondary")
 			return ctx.row({ cap, caption }, native)
 		end
-		local function render(value: ComposeTypes.Readable<Entry>, index: ComposeTypes.Readable<number>): GuiObject
+		local function render(
+			value: ComposeTypes.ReadOnlyValue<Entry>,
+			index: ComposeTypes.ReadOnlyValue<number>
+		): GuiObject
 			local entry = value:peek()
 			local fields = entry
 			local action = entry.action
-			local live: ComposeTypes.Readable<boolean>? = nil
+			local live: ComposeTypes.ReadOnlyValue<boolean>? = nil
 			if action then
 				local enabled, binding = ctx.observe.Enabled(action), ctx.observe.PreferredBinding(action)
 				live = Compose.formula(function(use: ComposeTypes.Use): boolean
@@ -254,7 +257,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					return false
 				end
 				for _, live in use(shown) do
-					if live == true or use(live :: ComposeTypes.Readable<boolean>) then
+					if live == true or use(live :: ComposeTypes.ReadOnlyValue<boolean>) then
 						return true
 					end
 				end

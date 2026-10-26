@@ -177,11 +177,11 @@ local function receive(producer: Producer, document: unknown, ctx: Context, bare
 		end
 		value = fields.report
 	end
-	local decoded, report: unknown = pcall(ReportModel.decode, value)
+	local decoded, report = pcall(ReportModel.decode, value)
 	if not decoded then
 		return nil, "the report is invalid: " .. tostring(report)
 	end
-	return report :: Report, nil
+	return report, nil
 end
 
 local function census(declared: { string }, report: Report, producer: Producer): string?
@@ -330,7 +330,9 @@ local function benchmark(producer: Producer, ctx: Context, deadline: number?): B
 			clock = source.clock or ctx.now,
 		}
 	else
-		options = Benchmark.case(bounded(producer.benchmark :: Benchmark.Spec))
+		local benchmark = producer.benchmark
+		assert(benchmark ~= nil)
+		options = Benchmark.case(bounded(benchmark))
 	end
 	local base = harnessReport(producer, ctx, nil, options.run)
 	return finish(producer, ctx, base, nil, true, nil)

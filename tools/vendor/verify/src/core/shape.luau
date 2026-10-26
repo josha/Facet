@@ -1,5 +1,7 @@
 --!strict
 
+local readMetatable = (getmetatable :: unknown) :: (unknown) -> unknown
+
 local function sortedKeys<T>(map: { [string]: T }): { string }
 	local keys: { string } = {}
 	for key in map do
@@ -22,14 +24,14 @@ local function nonnegativeInteger(value: unknown): boolean
 end
 
 local function denseRows(value: unknown, count: number): boolean
-	if
-		type(value) ~= "table"
-		or ((getmetatable :: unknown) :: (unknown) -> unknown)(value) ~= nil
-		or #(value :: { unknown }) ~= count
-	then
+	if type(value) ~= "table" then
 		return false
 	end
-	for key in value :: { [unknown]: unknown } do
+	local entries = value :: { [unknown]: unknown }
+	if readMetatable(entries) ~= nil or #entries ~= count then
+		return false
+	end
+	for key in entries do
 		if type(key) == "userdata" then
 			continue
 		end
@@ -41,16 +43,20 @@ local function denseRows(value: unknown, count: number): boolean
 end
 
 local function exactKeys(value: unknown, fields: { [string]: boolean }): boolean
-	if type(value) ~= "table" or ((getmetatable :: unknown) :: (unknown) -> unknown)(value) ~= nil then
+	if type(value) ~= "table" then
 		return false
 	end
-	for key in value :: { [unknown]: unknown } do
+	local entries = value :: { [unknown]: unknown }
+	if readMetatable(entries) ~= nil then
+		return false
+	end
+	for key in entries do
 		if type(key) ~= "string" or fields[key] ~= true then
 			return false
 		end
 	end
 	for key in fields do
-		if (value :: { [string]: unknown })[key] == nil then
+		if entries[key] == nil then
 			return false
 		end
 	end

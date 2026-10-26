@@ -7,8 +7,8 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 	type ExampleContext = typeof(require("@repo/examples/types").Context)
 	type Built = typeof(require("@repo/examples/types").Built)
 	type DemoTab = typeof(require("@repo/examples/types").DemoTab)

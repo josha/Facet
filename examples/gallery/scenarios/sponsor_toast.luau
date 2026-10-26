@@ -2,8 +2,8 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
 type Row = {
@@ -252,7 +252,7 @@ return {
 						key = function(row: Row)
 							return row.id
 						end,
-						render = function(current: Readable<Row>): GuiObject
+						render = function(current: ReadOnlyValue<Row>): GuiObject
 							local row = current:peek()
 							local id = row.id
 							local hug = row.width == "hug"

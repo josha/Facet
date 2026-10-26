@@ -5,8 +5,8 @@ type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local WRAP_TAGS = { "Rain", "Dust", "Night", "Mirror", "Reverse", "Elimination" }
 local RAIL_TAGS = {
 	"Sprint",
@@ -192,8 +192,10 @@ return {
 			local package: ThemePackage = if ctx.theme then use(ctx.theme) else Facet.themes.neutralPackage()
 			return package.metrics
 		end
-		local function observePosition(node: GuiObject): Readable<Vector2>
-			return (ctx.runtime.observe(node, "AbsolutePosition", { frame = true }) :: unknown) :: Readable<Vector2>
+		local function observePosition(node: GuiObject): ReadOnlyValue<Vector2>
+			return (ctx.runtime.observe(node, "AbsolutePosition", { frame = true }) :: unknown) :: ReadOnlyValue<
+				Vector2
+			>
 		end
 		local function dividerExample(
 			id: string,

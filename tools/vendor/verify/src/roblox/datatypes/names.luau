@@ -9,19 +9,23 @@ export type Behavior = {
 	meta: { [string]: unknown },
 }
 
-local BEHAVIOR = {}
-local registered = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [unknown]: string }
-local metatableOf = (getmetatable :: unknown) :: (unknown) -> unknown
+local proxyMetatable = getmetatable
+local function weak<K, V>(values: { [K]: V })
+	setmetatable(values, { __mode = "kv" })
+end
+
+local registered: { [unknown]: string } = {}
+weak(registered)
+local behaviors: { [unknown]: Behavior } = {}
+local storage: { [unknown]: Fields } = {}
+weak(behaviors)
+weak(storage)
 
 local function behaviorOf(value: unknown): Behavior?
 	if type(value) ~= "userdata" then
 		return nil
 	end
-	local metatable = metatableOf(value)
-	if type(metatable) ~= "table" then
-		return nil
-	end
-	return rawget(metatable :: Fields, BEHAVIOR) :: Behavior?
+	return behaviors[value]
 end
 
 local function invalid(member: unknown, owner: string): never
@@ -111,19 +115,20 @@ local function missing(kind: Behavior, key: unknown): never
 	)
 end
 
-local function make<T>(kind: Behavior, fields: Fields): T
+local function make(kind: Behavior, fields: Fields)
 	local proxy = newproxy(true)
-	local metatable = metatableOf(proxy) :: Fields
+	local metatable: Fields = proxyMetatable(proxy)
 	for key, method in kind.meta do
 		metatable[key] = method
 	end
+	behaviors[proxy] = kind
+	storage[proxy] = fields
 	metatable.__index = setmetatable(fields, kind.fields)
-	metatable[BEHAVIOR] = kind
-	return (proxy :: unknown) :: T
+	return proxy
 end
 
 local function fields(value: unknown): Fields
-	return rawget(metatableOf(value) :: Fields, "__index") :: Fields
+	return storage[value]
 end
 
 local function of(value: unknown): string?
@@ -144,6 +149,7 @@ local function argument(position: number, expected: string, value: unknown): nev
 end
 
 return {
+	weak = weak,
 	registered = function(value: unknown): string?
 		return registered[value]
 	end,

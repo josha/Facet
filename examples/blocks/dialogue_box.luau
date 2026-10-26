@@ -4,12 +4,12 @@ local FacetTypes = require("../../src")
 type FacetModule = FacetTypes.Facet
 type FacetControls = FacetTypes.Controls
 type TypewriterControls = FacetTypes.TypewriterControls
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Reply = { id: string, label: string }
 type Line = { speaker: string, text: string, replies: { Reply } }
 type Model = {
-	line: Readable<Line?>,
+	line: ReadOnlyValue<Line?>,
 	choose: (replyId: string) -> (),
 }
 
@@ -66,7 +66,7 @@ return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 						key = function(reply: Reply): string
 							return reply.id
 						end,
-						render = function(reply: Readable<Reply>)
+						render = function(reply: ReadOnlyValue<Reply>)
 							return UI.Button "Reply" {
 								label = reply:peek().label,
 								onActivate = function()

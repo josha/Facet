@@ -17,13 +17,13 @@ type Snapshot<V, K> = {
 	weights: { [K]: number },
 }
 export type Tree<V, K> = {
-	from: ComposeTypes.Readable<{ V }>,
-	all: ComposeTypes.Readable<{ V }>,
+	from: ComposeTypes.ReadOnlyValue<{ V }>,
+	all: ComposeTypes.ReadOnlyValue<{ V }>,
 	columnar: boolean?,
 	visible: (K, ComposeTypes.Use?) -> boolean,
 	ancestor: (K) -> K?,
 	sizes: (ComposeTypes.Use, { [K]: number }, number, number) -> { [K]: number },
-	wrap: (GuiObject, ComposeTypes.Readable<V>, K) -> GuiObject,
+	wrap: (GuiObject, ComposeTypes.ReadOnlyValue<V>, K) -> GuiObject,
 	bind: (ScrollingFrame, Collections.FocusControls<K>) -> (),
 	toggle: (K) -> (),
 	location: ({ K }, number) -> (boolean, number, K?),
@@ -33,7 +33,7 @@ return function<V, K>(
 	ctx: Types.Context,
 	UI: ControlTypes.BuilderControls,
 	spec: Collections.HierarchyOptions<V, K> & Collections.OptionalChildren<V> & {
-		from: Types.Value<{ V }>,
+		from: Types.Input<{ V }>,
 		disabled: Collections.RowPredicate<V>?,
 		reducedMotion: Types.ValueBoolean?,
 	},
@@ -42,7 +42,7 @@ return function<V, K>(
 ): Tree<V, K>
 	local C, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
-	local expanded: ComposeTypes.Cell<Collections.Selection<K>> = spec.expanded
+	local expanded: ComposeTypes.Value<Collections.Selection<K>> = spec.expanded
 		or C.cell({} :: Collections.Selection<K>)
 	assert(expanded.set, "Facet outline expanded requires a writable Compose cell")
 	assert(type(spec.children) == "function" or type(spec.children) == "string", "Facet outline requires children")
@@ -297,7 +297,7 @@ return function<V, K>(
 			end
 			return true, if before ~= nil then siblingSlots[before] else remainingSiblings, parent
 		end,
-		wrap = function(content: GuiObject, current: ComposeTypes.Readable<V>, key: K): GuiObject
+		wrap = function(content: GuiObject, current: ComposeTypes.ReadOnlyValue<V>, key: K): GuiObject
 			local natural, authored, automatic =
 				ctx.observe.AbsoluteSize(content), ctx.observe.Size(content), ctx.observe.AutomaticSize(content)
 			local unit = Host.Frame { Name = "OutlineUnit", Size = D2.fromOffset(1, 1), Visible = false }

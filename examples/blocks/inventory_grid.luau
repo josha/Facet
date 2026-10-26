@@ -4,11 +4,11 @@ local FacetTypes = require("../../src")
 type Use = FacetTypes.Use
 type FacetModule = FacetTypes.Facet
 type FacetControls = FacetTypes.Controls
-type Readable<T> = { peek: (Readable<T>) -> T }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
 type Item = { id: string, name: string, description: string, slot: string }
 type Model = {
-	items: Readable<{ Item }>,
-	equipped: Readable<{ [string]: string }>,
+	items: ReadOnlyValue<{ Item }>,
+	equipped: ReadOnlyValue<{ [string]: string }>,
 	equip: (itemId: string, slot: string) -> (),
 }
 
@@ -33,7 +33,7 @@ return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 		minColumnWidth = 180,
 		minColumns = 2,
 		itemSize = 80,
-		render = function(current: Readable<Item>): GuiObject
+		render = function(current: ReadOnlyValue<Item>): GuiObject
 			return UI.Text "ItemName" {
 				text = function(use: Use)
 					local item = use(current)

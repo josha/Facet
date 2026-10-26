@@ -13,9 +13,9 @@ local function createContext<T>(default: T): Context<T>
 	setmetatable(provided, { __mode = "k" })
 
 	local function read(): T
-		local owner = Active.current()
+		local owner = Active.nearest()
 		while owner ~= nil do
-			if owner.isDisposed() then
+			if Owner.isDisposed(owner) then
 				return default
 			end
 			local entry = provided[owner]
@@ -29,7 +29,7 @@ local function createContext<T>(default: T): Context<T>
 
 	local function finish<R...>(owner: Owner.Owner, ok: boolean, ...: R...): R...
 		if not ok then
-			pcall(owner.dispose)
+			pcall(Owner.dispose, owner)
 			error(select(1, ...), 0)
 		end
 		return ...
@@ -37,10 +37,10 @@ local function createContext<T>(default: T): Context<T>
 
 	local function provide<R...>(value: T, body: () -> R...): R...
 		local parent = Active.current()
-		local owner = if parent ~= nil then parent.createChild() else Owner.createOwner()
-		if not owner.isDisposed() then
+		local owner = if parent ~= nil then Owner.createChild(parent) else Owner.createOwner()
+		if not Owner.isDisposed(owner) then
 			provided[owner] = { value = value }
-			owner.own(function()
+			Owner.own(owner, function()
 				provided[owner] = nil
 			end)
 		end

@@ -20,7 +20,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 		assert(spec.drop == nil or spec.footprint ~= nil, "SpatialGrid.drop requires footprint(payload)")
 		local nodes: { [K]: GuiObject } = {}
 		local cells: { TextButton } = {}
-		local positions: { Types.Readable<Vector2> } = {}
+		local positions: { Types.ReadOnlyValue<Vector2> } = {}
 		local preview = C.cell(nil :: Spatial.Placement?)
 		local accepted = C.cell(false)
 		local size = C.formula(function(use: Types.Use): number
@@ -68,7 +68,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				SortOrder = E.SortOrder.LayoutOrder,
 			},
 		}
-		local unit: Types.Readable<number>
+		local unit: Types.ReadOnlyValue<number>
 		local origin = ctx.observe.AbsolutePosition(grid)
 		local function position(at: Spatial.Placement, use: Types.Use): UDim2
 			local offset = (use(positions[(at.row - 1) * spec.columns + at.column]) - use(origin)) / use(unit)
@@ -208,7 +208,11 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				C.keyed({
 					from = items,
 					key = spec.key,
-					render = function(current: Types.Readable<V>, _index: Types.Readable<number>, key: K): GuiObject
+					render = function(
+						current: Types.ReadOnlyValue<V>,
+						_index: Types.ReadOnlyValue<number>,
+						key: K
+					): GuiObject
 						local item = spec.render(current, key)
 						nodes[key] = item
 						C.cleanup(function()

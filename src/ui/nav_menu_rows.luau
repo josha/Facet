@@ -8,10 +8,10 @@ local Theme = require("./theme_types")
 
 export type RowState = {
 	hitFloor: (ComposeTypes.Use?) -> number,
-	sheeted: ComposeTypes.Readable<boolean>,
-	path: ComposeTypes.Readable<{ string }>,
+	sheeted: ComposeTypes.ReadOnlyValue<boolean>,
+	path: ComposeTypes.ReadOnlyValue<{ string }>,
 	rowNodes: { [string]: GuiObject },
-	widths: ComposeTypes.Cell<{ [string]: number }>,
+	widths: ComposeTypes.Value<{ [string]: number }>,
 	enter: (string, GuiObject?, { string }?) -> (),
 	close: () -> (),
 }
@@ -26,7 +26,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		row: GuiObject,
 		name: string,
 		selected: (ComposeTypes.Use) -> boolean,
-		enabled: Types.Value<boolean>
+		enabled: Types.Input<boolean>
 	)
 		row:AddTag("facet-menu-mark")
 		local state = if ctx.iconVaries(name) then ctx.observe.GuiState(row) else nil
@@ -79,8 +79,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end
 	end
 	local function entryRow<V>(
-		entrySource: ComposeTypes.Readable<MenuItems.MenuEntry<V>>,
-		index: ComposeTypes.Readable<number>,
+		entrySource: ComposeTypes.ReadOnlyValue<MenuItems.MenuEntry<V>>,
+		index: ComposeTypes.ReadOnlyValue<number>,
 		state: RowState
 	): GuiObject
 		local hitFloor, sheeted, rowNodes, widths, enter, close =
@@ -286,12 +286,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			if layout then
 				layout.HorizontalAlignment = E.HorizontalAlignment.Left
 			end
-			local natural: ComposeTypes.Readable<Vector2> = if content == row
+			local natural: ComposeTypes.ReadOnlyValue<Vector2> = if content == row
 				then ctx.observe.TextBounds(row)
 				else ctx.observe.AbsoluteSize(content)
 			local words = content:FindFirstChild("Captions") or content:FindFirstChild("Title")
-			local wordsBox: ComposeTypes.Readable<Vector2>? = nil
-			local wordsNatural: ComposeTypes.Readable<Vector2>? = nil
+			local wordsBox: ComposeTypes.ReadOnlyValue<Vector2>? = nil
+			local wordsNatural: ComposeTypes.ReadOnlyValue<Vector2>? = nil
 			if words and words:IsA("TextLabel") then
 				wordsBox, wordsNatural = ctx.observe.AbsoluteSize(words), ctx.observe.TextBounds(words)
 			elseif words and words:IsA("GuiObject") then
@@ -321,9 +321,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		return row
 	end
 	local function ancestorRow<V>(
-		row: ComposeTypes.Readable<Nav.MenuItem<V>>,
-		index: ComposeTypes.Readable<number>,
-		source: ComposeTypes.Readable<AncestorLevel<V>>,
+		row: ComposeTypes.ReadOnlyValue<Nav.MenuItem<V>>,
+		index: ComposeTypes.ReadOnlyValue<number>,
+		source: ComposeTypes.ReadOnlyValue<AncestorLevel<V>>,
 		state: RowState
 	): GuiObject
 		local hitFloor, path, enter, close = state.hitFloor, state.path, state.enter, state.close

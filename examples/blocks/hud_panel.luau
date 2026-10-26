@@ -3,7 +3,7 @@ local FacetTypes = require("../../src")
 
 type FacetModule = FacetTypes.Facet
 type FacetControls = FacetTypes.Controls
-type StringCell = FacetTypes.Cell<string>
+type StringCell = FacetTypes.Value<string>
 type Model = { objective: StringCell, trackObjective: () -> () }
 
 return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance

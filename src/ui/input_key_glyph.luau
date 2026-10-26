@@ -3,13 +3,13 @@ local Shared = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 
 export type Parts = {
-	key: Shared.Value<Enum.KeyCode?>,
-	name: Shared.Value<string?>?,
-	primary: Shared.Value<Enum.KeyCode?>?,
-	secondary: Shared.Value<Enum.KeyCode?>?,
-	image: Shared.Value<Content?>?,
+	key: Shared.Input<Enum.KeyCode?>,
+	name: Shared.Input<string?>?,
+	primary: Shared.Input<Enum.KeyCode?>?,
+	secondary: Shared.Input<Enum.KeyCode?>?,
+	image: Shared.Input<Content?>?,
 }
-export type Glyph = (name: string, controlSize: Shared.Value<Shared.ControlSize?>?, parts: Parts) -> Frame
+export type Glyph = (name: string, controlSize: Shared.Input<Shared.ControlSize?>?, parts: Parts) -> Frame
 
 local KEY_NAMES: { [string]: string } = {
 	Return = "Enter",
@@ -29,7 +29,7 @@ local KEY_NAMES: { [string]: string } = {
 return function(ctx: Shared.Context, noKey: Enum.KeyCode): Glyph
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
-	return function(frameName: string, controlSize: Shared.Value<Shared.ControlSize?>?, parts: Parts): Frame
+	return function(frameName: string, controlSize: Shared.Input<Shared.ControlSize?>?, parts: Parts): Frame
 		local input = ctx.config.services.UserInputService
 		local nativeImage = Compose.formula(function(use: ComposeTypes.Use): Content | string | nil
 			local content = read(parts.image, use)

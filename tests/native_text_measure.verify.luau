@@ -533,7 +533,7 @@ return function(harness: Verify.Harness)
 				services = { TextService = (service :: unknown) :: TextService },
 			} :: Shared.Config
 		)
-		local result: ComposeTypes.Readable<Vector2>? = nil
+		local result: ComposeTypes.ReadOnlyValue<Vector2>? = nil
 		local stop = runtime.mount(function()
 			local Host = (runtime.constructors :: unknown) :: RobloxHost
 			local node = Host.TextLabel { Text = "Saved", TextSize = 16 }

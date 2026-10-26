@@ -1,4 +1,5 @@
 --!strict
+local Compose = require("../vendor/compose/core")
 local Shared = require("./types")
 
 export type Options = {
@@ -55,7 +56,7 @@ return function(ctx: Shared.Context, options: Options): Handle
 	local stop: () -> ()
 	local function alive(): boolean
 		return not stopped
-			and not owner.isDisposed()
+			and not Compose.owner.isDisposed(owner)
 			and not (hadParent and options.carrier and options.carrier.Parent == nil)
 	end
 	local waiting = 0

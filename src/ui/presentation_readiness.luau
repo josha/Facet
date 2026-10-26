@@ -4,7 +4,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local fontReadiness = require("./font_readiness")
 local textMeasure = require("./text_measure")
 
-return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.Readable<boolean>
+return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnlyValue<boolean>
 	local fontsReady = fontReadiness(ctx, roots)
 	local snapshot = ""
 	local limit = math.ceil(math.max(1, ctx.metric("motion.restLimit")) * 60)

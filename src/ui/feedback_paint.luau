@@ -7,7 +7,7 @@ return function(
 	ctx: Types.Context,
 	node: GuiObject,
 	scale: UIScale,
-	geometry: { Size: Types.Value<UDim2>?, AutomaticSize: Types.Value<Enum.AutomaticSize>?, reflow: boolean? }
+	geometry: { Size: Types.Input<UDim2>?, AutomaticSize: Types.Input<Enum.AutomaticSize>?, reflow: boolean? }
 )
 	local Compose, runtime, Host = ctx.Compose, ctx.runtime, ctx.Host
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
@@ -16,7 +16,7 @@ return function(
 	local measurement = node:FindFirstChild("FeedbackUnit")
 	local factor = ctx.observe.Scale(scale)
 	local natural = Compose.cell(V2.zero)
-	local painted: ComposeTypes.Readable<Vector2>? = nil
+	local painted: ComposeTypes.ReadOnlyValue<Vector2>? = nil
 	local dressed = Compose.cell(false)
 	local function axes(use: ComposeTypes.Use): (boolean, boolean)
 		local value = ctx.read(geometry.AutomaticSize, use) or automatic
@@ -166,7 +166,7 @@ return function(
 						local padding = node:FindFirstChildWhichIsA("UIPadding")
 						local observePadding = (
 							ctx.observeStyled :: unknown
-						) :: { [string]: (Instance) -> ComposeTypes.Cell<UDim> }
+						) :: { [string]: (Instance) -> ComposeTypes.Value<UDim> }
 						if padding then
 							runtime.mount(function()
 								return Host.UIPadding({

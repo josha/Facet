@@ -19,7 +19,7 @@ export type Kit = {
 	DARK: Color3,
 	normalize: (unknown) -> ({ Item }?, string?),
 	ring: (string) -> Frame,
-	swatch: (string, Shared.Value<UDim2>, (Use) -> Paint) -> Frame,
+	swatch: (string, Shared.Input<UDim2>, (Use) -> Paint) -> Frame,
 }
 
 local MODE_LABEL: { [string]: string } =
@@ -110,7 +110,7 @@ local function new(ctx: Shared.Context): Kit
 		})
 	end
 
-	local function swatch(name: string, edge: Shared.Value<UDim2>, paint: (Use) -> Paint): Frame
+	local function swatch(name: string, edge: Shared.Input<UDim2>, paint: (Use) -> Paint): Frame
 		local function checkerView(): Frame
 			local cells: { Shared.Child } = {}
 			for index, place in { { 0, 0 }, { 0.5, 0 }, { 0, 0.5 }, { 0.5, 0.5 } } do

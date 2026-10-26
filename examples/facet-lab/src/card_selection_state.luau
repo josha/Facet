@@ -1,8 +1,8 @@
 --!strict
 local CatalogTypes = require("./catalog_types")
 
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Row = { name: string }
 
 return function(art: string): CatalogTypes.Builder
@@ -17,7 +17,7 @@ return function(art: string): CatalogTypes.Builder
 				selection:set(keys)
 				c.log("onSelectionChange")()
 			end,
-			render = function(current: Readable<Row>): GuiObject
+			render = function(current: ReadOnlyValue<Row>): GuiObject
 				return c.UI.Card({
 					image = art,
 					imageAspectRatio = 2,

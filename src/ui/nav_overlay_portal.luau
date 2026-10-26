@@ -10,24 +10,24 @@ local arrival = require("./overlay_arrival")
 local transitions = require("./transition")
 
 export type Portal = {
-	available: (GuiObject) -> ComposeTypes.Readable<boolean>,
+	available: (GuiObject) -> ComposeTypes.ReadOnlyValue<boolean>,
 	parent: (Instance) -> GuiBase2d?,
-	overlay: (GuiObject, Types.Value<boolean>, (Nav.PresencePhase?) -> Instance, Nav.OverlayOptions?) -> Types.Child,
+	overlay: (GuiObject, Types.Input<boolean>, (Nav.PresencePhase?) -> Instance, Nav.OverlayOptions?) -> Types.Child,
 }
 
 return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local departure = presence.departure
-	local function available(anchor: GuiObject, changed: (() -> ())?): ComposeTypes.Readable<boolean>
+	local function available(anchor: GuiObject, changed: (() -> ())?): ComposeTypes.ReadOnlyValue<boolean>
 		local owner = assert(Compose.currentOwner())
 		local value = Compose.cell(false)
 		local ancestryOwner: ComposeTypes.Owner?
 		local function locate()
-			if owner.isDisposed() then
+			if ComposeTypes.owner.isDisposed(owner) then
 				return
 			end
 			if ancestryOwner then
-				ancestryOwner.dispose()
+				ComposeTypes.owner.dispose(ancestryOwner)
 				ancestryOwner = nil
 			end
 			local root: Instance? = anchor
@@ -38,11 +38,11 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 				value:set(false)
 				return
 			end
-			local nextOwner = owner.createChild()
+			local nextOwner = ComposeTypes.owner.createChild(owner)
 			ancestryOwner = nextOwner
 			Compose.withOwner(nextOwner, function()
-				local sources: { ComposeTypes.Readable<boolean> } = {}
-				local inputs: { [ComposeTypes.Readable<boolean>]: GuiObject } = {}
+				local sources: { ComposeTypes.ReadOnlyValue<boolean> } = {}
+				local inputs: { [ComposeTypes.ReadOnlyValue<boolean>]: GuiObject } = {}
 				local at: Instance? = anchor
 				local attached = false
 				while at do
@@ -87,7 +87,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		return value
 	end
 
-	local function arrive(build: () -> Instance, arrived: ComposeTypes.Cell<boolean>): Instance
+	local function arrive(build: () -> Instance, arrived: ComposeTypes.Value<boolean>): Instance
 		local frames = ctx.config.services and ctx.config.services.RunService
 		local built: Instance? = nil
 		local wrapper: Frame? = nil
@@ -188,7 +188,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		if node:GetAttribute("FacetArrivalGroup") == true then
 			return node
 		end
-		local depths: { ComposeTypes.Readable<number> } = {}
+		local depths: { ComposeTypes.ReadOnlyValue<number> } = {}
 		for _, surface in surfaces do
 			local depth = Compose.cell(surface.ZIndex)
 			Compose.cleanup(assert(runtime.host.observation).observeProperty(surface, "ZIndex", function()
@@ -221,7 +221,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 	end
 	local function overlay(
 		anchor: GuiObject,
-		presented: Types.Value<boolean>,
+		presented: Types.Input<boolean>,
 		build: (Nav.PresencePhase?) -> Instance,
 		options: Nav.OverlayOptions?
 	): Types.Child
@@ -229,7 +229,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		local destination = Compose.cell(nil :: Instance?)
 		destination:set(if options and options.parent then options.parent() else ctx.config.overlayParent)
 		local function locate()
-			if owner.isDisposed() then
+			if ComposeTypes.owner.isDisposed(owner) then
 				return
 			end
 			if options and options.parent then
@@ -252,7 +252,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 					return {}
 				end)
 			end
-			local age: ComposeTypes.Readable<number>? = nil
+			local age: ComposeTypes.ReadOnlyValue<number>? = nil
 			local activePhase: Nav.PresencePhase? = nil
 			local function render(phase: Nav.PresencePhase?): Instance
 				if phase then
@@ -272,7 +272,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 							if link then
 								local observe = (
 									ctx.observe :: unknown
-								) :: { StyleSheet: (StyleLink) -> ComposeTypes.Cell<StyleSheet?> }
+								) :: { StyleSheet: (StyleLink) -> ComposeTypes.Value<StyleSheet?> }
 								local sheet = observe.StyleSheet(link :: StyleLink)
 								local Links = (Host :: unknown) :: { StyleLink: ({ StyleSheet: unknown }) -> Instance }
 								runtime.mountFragment(function()

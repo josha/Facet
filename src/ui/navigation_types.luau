@@ -5,33 +5,33 @@ local Radial = require("./radial_types")
 local Inputs = require("./input_types")
 local Overlay = require("./overlay_types")
 
-export type Value<T> = Types.Value<T>
+export type Input<T> = Types.Input<T>
 export type Content = Instance | Types.GuiInstance | (() -> Instance)
 export type Indicator = "automatic" | "pill" | "underline" | "none"
 export type TabSelectionIndicator = Indicator | "mark"
 export type Placement = "automatic" | "topBar" | "sidebar" | "bottomBar" | "bottomBarCompact" | "none"
 export type TransitionContext = {
-	progress: ComposeTypes.Readable<number>,
-	isPresented: ComposeTypes.Readable<boolean>,
+	progress: ComposeTypes.ReadOnlyValue<number>,
+	isPresented: ComposeTypes.ReadOnlyValue<boolean>,
 }
 export type Transition = {
 	seconds: Types.ValueNumber?,
 	ease: ComposeTypes.Easing?,
 	motion: string?,
 	fade: boolean?,
-	progress: ComposeTypes.Readable<number?>?,
+	progress: ComposeTypes.ReadOnlyValue<number?>?,
 	apply: ((GuiObject, TransitionContext) -> ())?,
 }
-export type SourceTransition = { seconds: Types.ValueNumber?, ease: ComposeTypes.Easing?, source: Value<GuiObject?>? }
+export type SourceTransition = { seconds: Types.ValueNumber?, ease: ComposeTypes.Easing?, source: Input<GuiObject?>? }
 export type MenuTrigger = "activate" | "secondary" | "longPress" | "keyboard" | "gamepad"
 export type OptionAvatar = MenuAvatar
 export type OptionIndicator = {
-	status: Value<"neutral" | "info" | "success" | "warning" | "error" | "accent">?,
+	status: Input<"neutral" | "info" | "success" | "warning" | "error" | "accent">?,
 	form: ("dot" | "ring" | "square" | "dash")?,
 	count: Types.ValueNumber?,
 }
 export type MenuItemBase = {
-	role: Value<"default" | "cancel" | "destructive" | "onIndicator">?,
+	role: Input<"default" | "cancel" | "destructive" | "onIndicator">?,
 	id: string?,
 	label: Types.ValueString,
 	description: Types.ValueString?,
@@ -41,7 +41,7 @@ export type MenuItemBase = {
 	marked: Types.ValueBoolean?,
 	dismiss: boolean?,
 	divider: false?,
-	badge: Value<(string | number)?>?,
+	badge: Input<(string | number)?>?,
 	avatar: MenuAvatar?,
 	sectionTitle: Types.ValueString?,
 	shortcutLabel: Types.ValueString?,
@@ -62,7 +62,7 @@ export type MenuDim = {
 }
 export type MenuWidth = number | UDim | UDim2 | MenuDim
 export type MenuSubmenu<V = string> = {
-	role: Value<"default" | "cancel" | "destructive" | "onIndicator">?,
+	role: Input<"default" | "cancel" | "destructive" | "onIndicator">?,
 	id: string?,
 	label: Types.ValueString,
 	description: Types.ValueString?,
@@ -72,17 +72,17 @@ export type MenuSubmenu<V = string> = {
 	marked: Types.ValueBoolean?,
 	dismiss: boolean?,
 	divider: false?,
-	badge: Value<(string | number)?>?,
+	badge: Input<(string | number)?>?,
 	avatar: MenuAvatar?,
 	sectionTitle: Types.ValueString?,
 	shortcutLabel: Types.ValueString?,
-	children: Value<{ MenuItem<V> }>,
+	children: Input<{ MenuItem<V> }>,
 	onSelect: nil,
 	checked: nil,
 	selected: nil,
 }
 export type MenuCommand = {
-	role: Value<"default" | "cancel" | "destructive" | "onIndicator">?,
+	role: Input<"default" | "cancel" | "destructive" | "onIndicator">?,
 	id: string?,
 	label: Types.ValueString,
 	description: Types.ValueString?,
@@ -92,7 +92,7 @@ export type MenuCommand = {
 	marked: Types.ValueBoolean?,
 	dismiss: boolean?,
 	divider: false?,
-	badge: Value<(string | number)?>?,
+	badge: Input<(string | number)?>?,
 	avatar: MenuAvatar?,
 	sectionTitle: Types.ValueString?,
 	shortcutLabel: Types.ValueString?,
@@ -102,7 +102,7 @@ export type MenuCommand = {
 	selected: nil,
 }
 export type MenuCheck = {
-	role: Value<"default" | "cancel" | "destructive" | "onIndicator">?,
+	role: Input<"default" | "cancel" | "destructive" | "onIndicator">?,
 	id: string?,
 	label: Types.ValueString,
 	description: Types.ValueString?,
@@ -112,18 +112,18 @@ export type MenuCheck = {
 	marked: Types.ValueBoolean?,
 	dismiss: boolean?,
 	divider: false?,
-	badge: Value<(string | number)?>?,
+	badge: Input<(string | number)?>?,
 	avatar: MenuAvatar?,
 	sectionTitle: Types.ValueString?,
 	shortcutLabel: Types.ValueString?,
 	children: nil,
-	checked: ComposeTypes.Cell<boolean>,
+	checked: ComposeTypes.Value<boolean>,
 	selected: nil,
 	onChange: ((boolean) -> ())?,
 	onSelect: (() -> ())?,
 }
 export type MenuChoice<V = string> = {
-	role: Value<"default" | "cancel" | "destructive" | "onIndicator">?,
+	role: Input<"default" | "cancel" | "destructive" | "onIndicator">?,
 	id: string?,
 	label: Types.ValueString,
 	description: Types.ValueString?,
@@ -133,13 +133,13 @@ export type MenuChoice<V = string> = {
 	marked: Types.ValueBoolean?,
 	dismiss: boolean?,
 	divider: false?,
-	badge: Value<(string | number)?>?,
+	badge: Input<(string | number)?>?,
 	avatar: MenuAvatar?,
 	sectionTitle: Types.ValueString?,
 	shortcutLabel: Types.ValueString?,
 	children: nil,
 	checked: nil,
-	selected: ComposeTypes.Cell<V>,
+	selected: ComposeTypes.Value<V>,
 	value: V,
 	onChange: ((V) -> ())?,
 	onSelect: (() -> ())?,
@@ -147,22 +147,22 @@ export type MenuChoice<V = string> = {
 export type MenuAction<V = string> = MenuSubmenu<V> | MenuCommand | MenuCheck | MenuChoice<V>
 export type MenuItem<V = string> = { id: string?, divider: true } | MenuAction<V>
 export type MenuOptions<V = string> = {
-	items: Value<{ MenuItem<V> }>,
-	query: ComposeTypes.Cell<string>?,
+	items: Input<{ MenuItem<V> }>,
+	query: ComposeTypes.Value<string>?,
 	label: Types.ValueString?,
 	trigger: Types.GuiInstance | (() -> GuiObject)?,
 	disclosure: boolean?,
 	triggers: { MenuTrigger }?,
-	presentation: Value<"automatic" | "menu" | "sheet">?,
+	presentation: Input<"automatic" | "menu" | "sheet">?,
 	backLabel: Types.ValueString?,
 	onOpen: (() -> ())?,
 	onClose: (() -> ())?,
 	closeButton: boolean?,
 	enabled: Types.ValueBoolean?,
-	isPresented: ComposeTypes.Cell<boolean>?,
+	isPresented: ComposeTypes.Value<boolean>?,
 	edge: MenuEdge?,
 	align: MenuAlign?,
-	width: Value<MenuWidth>?,
+	width: Input<MenuWidth>?,
 	maxHeight: number?,
 	controls: { diagnostics: (() -> { string })? }?,
 }
@@ -172,7 +172,7 @@ export type PickerOption<V = string> = {
 	label: Types.ValueString,
 	description: Types.ValueString?,
 	icon: Types.ValueString?,
-	badge: Value<(string | number)?>?,
+	badge: Input<(string | number)?>?,
 	meta: Types.ValueString?,
 	avatar: OptionAvatar?,
 	sectionTitle: Types.ValueString?,
@@ -181,24 +181,24 @@ export type PickerOption<V = string> = {
 }
 export type PickerStyle = "automatic" | "menu" | "navigationLink" | "segmented" | "inline" | "radioGroup" | "cards"
 export type PickerCommon<V> = {
-	Style: Value<Enum.FrameStyle>?,
-	options: Value<{ PickerOption<V> }>,
+	Style: Input<Enum.FrameStyle>?,
+	options: Input<{ PickerOption<V> }>,
 	style: PickerStyle?,
-	query: ComposeTypes.Cell<string>?,
+	query: ComposeTypes.Value<string>?,
 	placeholder: Types.ValueString?,
 	label: Types.ValueString?,
 	required: boolean?,
 	enabled: Types.ValueBoolean?,
-	indicator: Value<Indicator?>?,
-	axis: Value<"x" | "y">?,
-	sizing: Value<"fill" | "hug">?,
+	indicator: Input<Indicator?>?,
+	axis: Input<"x" | "y">?,
+	sizing: Input<"fill" | "hug">?,
 	iconOnly: Types.ValueBoolean?,
 	textSize: Types.ValueNumber?,
-	isPresented: ComposeTypes.Cell<boolean>?,
+	isPresented: ComposeTypes.Value<boolean>?,
 	requiredMark: ("required" | "optional")?,
 	hint: Types.ValueString?,
 	errorText: Types.ValueString?,
-	controlSize: Value<Types.ControlSize?>?,
+	controlSize: Input<Types.ControlSize?>?,
 	appearance: Types.ValueString?,
 	corners: ("pill" | "square")?,
 	maxHeight: number?,
@@ -207,29 +207,29 @@ export type PickerCommon<V> = {
 }
 export type SingleSelection<V = string> = {
 	multiple: false?,
-	selected: ComposeTypes.Cell<V>,
+	selected: ComposeTypes.Value<V>,
 	onChanging: ((V, V) -> boolean?)?,
 	onChange: ((V) -> ())?,
 }
 export type MultipleSelection<V = string> = {
 	multiple: true,
-	selected: ComposeTypes.Cell<{ [V]: boolean }>,
+	selected: ComposeTypes.Value<{ [V]: boolean }>,
 	onChanging: (({ [V]: boolean }, { [V]: boolean }) -> boolean?)?,
 	onChange: (({ [V]: boolean }) -> ())?,
 }
 export type SplitButtonOptions<V = string> = {
 	label: Types.ValueString?,
 	onActivate: (() -> ())?,
-	items: Value<{ MenuItem<V> }>,
+	items: Input<{ MenuItem<V> }>,
 	enabled: Types.ValueBoolean?,
 	busy: Types.ValueBoolean?,
 	shortcut: Inputs.Shortcut?,
 	menuLabel: Types.ValueString?,
 }
 export type ComboBoxOptions = {
-	value: ComposeTypes.Cell<string>,
-	text: ComposeTypes.Cell<string>,
-	options: Value<{ PickerOption<string> }>,
+	value: ComposeTypes.Value<string>,
+	text: ComposeTypes.Value<string>,
+	options: Input<{ PickerOption<string> }>,
 	enabled: Types.ValueBoolean?,
 	acceptCustom: (string) -> (boolean, string?),
 	onChange: ((string) -> ())?,
@@ -237,7 +237,7 @@ export type ComboBoxOptions = {
 	placeholder: Types.ValueString?,
 }
 export type DisclosureGroupOptions = {
-	expanded: ComposeTypes.Cell<boolean>,
+	expanded: ComposeTypes.Value<boolean>,
 	label: Types.ValueString?,
 	content: Content,
 	description: Types.ValueString?,
@@ -246,12 +246,12 @@ export type DisclosureGroupOptions = {
 	onToggle: ((boolean) -> ())?,
 	chevronPosition: "leading" | "trailing"?,
 	appearance: "plain" | "contained" | "divided" | "outline"?,
-	textSize: Value<string | number>?,
+	textSize: Input<string | number>?,
 	indent: (number | Types.SpaceStep)?,
 }
 export type CollapsibleViewOptions = {
 	glyph: (() -> GuiObject)?,
-	expanded: ComposeTypes.Cell<boolean>,
+	expanded: ComposeTypes.Value<boolean>,
 	content: Content,
 	initialFocus: string?,
 	dismissButton: Types.ValueBoolean?,
@@ -268,19 +268,19 @@ export type AlertAction<P = unknown> = {
 	shortcut: "defaultAction" | "cancelAction" | Inputs.Shortcut?,
 	onActivate: ((P) -> ())?,
 }
-export type AlertText<P> = string | ComposeTypes.Readable<string> | ComposeTypes.Formula<string> | ((P) -> string)
+export type AlertText<P> = string | ComposeTypes.ReadOnlyValue<string> | ComposeTypes.Value<string> | ((P) -> string)
 export type AlertOptions<P = unknown> = {
-	isPresented: ComposeTypes.Cell<boolean>?,
-	item: ComposeTypes.Cell<P?>?,
-	presenting: Value<P>?,
+	isPresented: ComposeTypes.Value<boolean>?,
+	item: ComposeTypes.Value<P?>?,
+	presenting: Input<P>?,
 	title: AlertText<P>?,
 	message: AlertText<P>?,
 	actions: { AlertAction<P> } | ((P) -> { AlertAction<P> })?,
 	content: ((P) -> Instance)?,
-	error: ComposeTypes.Cell<string?>?,
+	error: ComposeTypes.Value<string?>?,
 	icon: Types.ValueString?,
 	severity: "information" | "warning" | "critical"?,
-	suppression: { isSuppressed: ComposeTypes.Cell<boolean>, label: Types.ValueString? }?,
+	suppression: { isSuppressed: ComposeTypes.Value<boolean>, label: Types.ValueString? }?,
 	maxWidth: number?,
 	padding: number?,
 	surface: "dialog" | "fullScreen"?,
@@ -294,9 +294,9 @@ export type SheetDetent =
 	| { id: string, fraction: nil, height: number }
 export type SheetOptions = {
 	transition: Transition | false?,
-	isPresented: ComposeTypes.Cell<boolean>,
+	isPresented: ComposeTypes.Value<boolean>,
 	onPresentedChange: ((boolean) -> ())?,
-	detent: (ComposeTypes.Cell<string> | string)?,
+	detent: (ComposeTypes.Value<string> | string)?,
 	detents: { SheetDetent }?,
 	title: Types.ValueString?,
 	content: Content,
@@ -304,12 +304,12 @@ export type SheetOptions = {
 	dragIndicator: ("automatic" | "visible" | "hidden")?,
 	placement: ("automatic" | "adaptive" | "bottom" | "side" | "center")?,
 	edge: ("left" | "right")?,
-	width: Value<Overlay.WidthPreset?>?,
+	width: Input<Overlay.WidthPreset?>?,
 	closeButton: (boolean | Types.ValueString)?,
 	header: (Content | false)?,
 	hero: Overlay.Hero?,
 	actions: { Overlay.Action }?,
-	actionLayout: Value<Overlay.ActionLayout?>?,
+	actionLayout: Input<Overlay.ActionLayout?>?,
 	contentInset: ("standard" | "none")?,
 	scrollPolicy: ("always" | "atLargestDetent")?,
 	initialFocus: (string | () -> string?)?,
@@ -327,8 +327,8 @@ export type CalloutOptions = {
 	actions: { Overlay.Action }?,
 	closeButton: boolean?,
 	dismissLabel: Types.ValueString?,
-	edge: Value<"top" | "bottom" | "leading" | "trailing">?,
-	align: Value<"leading" | "center" | "trailing">?,
+	edge: Input<"top" | "bottom" | "leading" | "trailing">?,
+	align: Input<"leading" | "center" | "trailing">?,
 	tail: boolean | "none"?,
 	priority: number?,
 	seen: Types.ValueBoolean?,
@@ -342,8 +342,8 @@ export type CalloutOptions = {
 }
 export type Tab = {
 	id: string,
-	badge: Value<(string | number)?>?,
-	badgeAnchor: Value<"topLeading" | "topTrailing" | "bottomLeading" | "bottomTrailing">?,
+	badge: Input<(string | number)?>?,
+	badgeAnchor: Input<"topLeading" | "topTrailing" | "bottomLeading" | "bottomTrailing">?,
 	label: Types.ValueString?,
 	icon: Types.ValueString?,
 	glyph: (() -> GuiObject)?,
@@ -356,79 +356,79 @@ export type Tab = {
 export type TabIndicator = {
 	form: ("dot" | "ring" | "square" | "dash")?,
 	status: ("neutral" | "info" | "success" | "warning" | "error" | "accent")?,
-	count: Value<number?>?,
+	count: Input<number?>?,
 	max: number?,
 }
 export type TabViewOptions = {
-	selection: ComposeTypes.Cell<string>,
-	tabs: Value<{ Tab }>,
+	selection: ComposeTypes.Value<string>,
+	tabs: Input<{ Tab }>,
 	sections: { { id: string, label: string } }?,
-	customization: Value<{ order: { string }?, hidden: { string }? }>?,
+	customization: Input<{ order: { string }?, hidden: { string }? }>?,
 	accessories: {
 		head: ((Placement) -> Instance?)?,
 		foot: ((Placement) -> Instance?)?,
 		trailing: ((Placement) -> Instance?)?,
 		aboveBar: ((Placement) -> Instance?)?,
 	}?,
-	railWidth: Value<number?>?,
+	railWidth: Input<number?>?,
 	transition: Transition | false?,
 	retention: "all" | "top"?,
-	placement: Value<Placement>?,
+	placement: Input<Placement>?,
 	style: "automatic" | "sidebarAdaptable" | "collapsible"?,
-	sidebarPreference: Value<"automatic" | "topBar" | "sidebar">?,
-	sidebarExpanded: ComposeTypes.Cell<boolean>?,
+	sidebarPreference: Input<"automatic" | "topBar" | "sidebar">?,
+	sidebarExpanded: ComposeTypes.Value<boolean>?,
 	restoreScroll: boolean?,
 	restoreFocus: boolean?,
 	shoulderNavigation: "strip" | "content"?,
-	indicator: Value<TabSelectionIndicator?>?,
-	track: Value<"automatic" | "floating">?,
-	indicatorPlacement: Value<"aboveIcon" | "belowIcon" | "inset">?,
+	indicator: Input<TabSelectionIndicator?>?,
+	track: Input<"automatic" | "floating">?,
+	indicatorPlacement: Input<"aboveIcon" | "belowIcon" | "inset">?,
 	iconOnly: Types.ValueBoolean?,
-	labelPlacement: Value<"besideIcon" | "belowIcon">?,
-	textSize: Value<number | "fit">?,
-	controlSize: Value<Types.ControlSize?>?,
+	labelPlacement: Input<"besideIcon" | "belowIcon">?,
+	textSize: Input<number | "fit">?,
+	controlSize: Input<Types.ControlSize?>?,
 	enabled: Types.ValueBoolean?,
 	onChange: ((string) -> ())?,
 }
 export type NavigationEntry<P = unknown> = { id: string, value: P? }
 export type NavigationDestination<P = unknown> = {
 	title: Types.ValueString?,
-	chrome: Value<"automatic" | "hidden">?,
+	chrome: Input<"automatic" | "hidden">?,
 	initialFocus: (string | () -> string?)?,
 	content: Instance | ((NavigationEntry<P>?) -> Instance),
 }
 export type NavigationStackOptions<P = unknown> = {
-	path: ComposeTypes.Cell<{ NavigationEntry<P> }>,
+	path: ComposeTypes.Value<{ NavigationEntry<P> }>,
 	root: NavigationDestination<P>,
 	destinations: { [string]: NavigationDestination<P> },
 	backLabel: Types.ValueString?,
-	chrome: Value<"automatic" | "hidden">?,
+	chrome: Input<"automatic" | "hidden">?,
 	transition: Transition | false?,
 }
 export type PageViewOptions = {
-	selection: ComposeTypes.Cell<string>,
+	selection: ComposeTypes.Value<string>,
 	pages: { Tab },
-	autoAdvanceSeconds: Value<number?>?,
-	scrollWheel: Value<boolean>?,
+	autoAdvanceSeconds: Input<number?>?,
+	scrollWheel: Input<boolean>?,
 	indicators: boolean?,
 	indicatorPlacement: ("footer" | "overlay")?,
 	summary: boolean?,
 	controls: boolean?,
 }
-export type PresencePhase = { exiting: ComposeTypes.Readable<boolean> }
+export type PresencePhase = { exiting: ComposeTypes.ReadOnlyValue<boolean> }
 export type MotionTiming = { enter: number, exit: number }
 export type Appearance = (ComposeTypes.Use?) -> number
 export type Presence = { opacity: Appearance, travel: Appearance }
 export type PopoverOptions = {
-	geometry: { Size: Types.Value<UDim2>?, AutomaticSize: Types.Value<Enum.AutomaticSize>? }?,
+	geometry: { Size: Types.Input<UDim2>?, AutomaticSize: Types.Input<Enum.AutomaticSize>? }?,
 	from: number?,
 	pinned: boolean?,
-	rested: ComposeTypes.Readable<boolean>?,
-	size: ComposeTypes.Readable<Vector2>?,
+	rested: ComposeTypes.ReadOnlyValue<boolean>?,
+	size: ComposeTypes.ReadOnlyValue<Vector2>?,
 	rise: ((ComposeTypes.Use) -> number?)?,
 }
 export type ModalOptions = {
-	exiting: ComposeTypes.Readable<boolean>?,
+	exiting: ComposeTypes.ReadOnlyValue<boolean>?,
 	appearance: Appearance?,
 	Name: string?,
 	ZIndex: number?,
@@ -465,13 +465,13 @@ export type Surfaces = {
 	preference: () -> (ComposeTypes.Use) -> number,
 	selecting: () -> (ComposeTypes.Use) -> boolean,
 	attach: <N>(N & Instance, { Types.Child }) -> N & Instance,
-	available: (GuiObject) -> ComposeTypes.Readable<boolean>,
+	available: (GuiObject) -> ComposeTypes.ReadOnlyValue<boolean>,
 	centered: (GuiObject, number) -> GuiObject,
 	skin: (GuiObject, string?, PanelSkin?) -> GuiObject,
 	inset: (number, string, string?, ComposeTypes.Use?) -> number,
 	modal: (() -> GuiObject, (string?) -> (), ModalOptions?) -> Frame,
 	overlay: (GuiObject, Types.ValueBoolean, (PresencePhase?) -> Instance, OverlayOptions?) -> Types.Child,
-	appearance: (PresencePhase?, MotionTiming, ComposeTypes.Readable<boolean>?) -> Presence,
+	appearance: (PresencePhase?, MotionTiming, ComposeTypes.ReadOnlyValue<boolean>?) -> Presence,
 	popover: (
 		GuiObject,
 		Appearance,
@@ -480,10 +480,10 @@ export type Surfaces = {
 	) -> (ComposeTypes.Use) -> number,
 	atRest: (
 		Appearance,
-		ComposeTypes.Cell<boolean>,
+		ComposeTypes.Value<boolean>,
 		{ GuiObject },
 		((ComposeTypes.Use) -> string)?
-	) -> ({ ComposeTypes.Readable<Vector2> }, ComposeTypes.Readable<boolean>),
+	) -> ({ ComposeTypes.ReadOnlyValue<Vector2> }, ComposeTypes.ReadOnlyValue<boolean>),
 	sheetModal: ((Types.FrameProps & SheetOptions, SheetRequest, PresencePhase?) -> Frame)?,
 }
 export type SplitColumn = "sidebar" | "detail"
@@ -491,7 +491,7 @@ export type NavigationSplitViewOptions = {
 	axis: ("x" | "y")?,
 	resizable: Types.ValueBoolean?,
 	alwaysShowResizeHandle: Types.ValueBoolean?,
-	sidebarHeight: ComposeTypes.Cell<number>?,
+	sidebarHeight: ComposeTypes.Value<number>?,
 	minSidebarHeight: number?,
 	maxSidebarHeight: number?,
 	minDetailHeight: number?,
@@ -499,14 +499,14 @@ export type NavigationSplitViewOptions = {
 	sidebar: Content,
 	detail: Content,
 	detailVisible: Types.ValueBoolean?,
-	preferredCompactColumn: ComposeTypes.Cell<SplitColumn>?,
-	sidebarWidth: ComposeTypes.Cell<number>?,
+	preferredCompactColumn: ComposeTypes.Value<SplitColumn>?,
+	sidebarWidth: ComposeTypes.Value<number>?,
 	minSidebarWidth: number?,
 	maxSidebarWidth: number?,
 	minDetailWidth: number?,
 	compactWidth: number?,
 	backLabel: Types.ValueString?,
 	detailLabel: (Types.ValueString | false)?,
-	compactBack: ComposeTypes.Cell<boolean>?,
+	compactBack: ComposeTypes.Value<boolean>?,
 }
 return {}

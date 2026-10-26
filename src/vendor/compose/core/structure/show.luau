@@ -1,5 +1,6 @@
 --!strict
 
+local Owners = require "../ownership/owner"
 local Children = require "../runtime/children"
 local Host = require "../host"
 local Support = require "./support"
@@ -8,16 +9,16 @@ local Types = require "../reactive/types"
 export type Builder = () -> Host.Node | Children.Directive
 
 local function show<T>(condition: Types.Source<T>, builder: Builder, fallback: Builder?): Children.Directive
-	local when = Support.sourceOf(condition, "show", "condition") :: Types.Body<T>
-	local render = Support.builderOf(builder, "show", "builder") :: Builder
-	local otherwise = if fallback ~= nil then Support.builderOf(fallback, "show", "fallback") :: Builder else nil
+	local when: Types.Body<T> = Support.sourceOf(condition, "show", "condition")
+	local render: Builder = Support.builderOf(builder, "show", "builder")
+	local otherwise = if fallback ~= nil then Support.builderOf(fallback, "show", "fallback") else nil
 	return function(mountPoint: Children.MountPoint)
 		local owner = Support.ownerFor "show"
 		Support.mountPointOf(mountPoint, "show")
 		local disposeCurrent: Types.Dispose? = nil
 		local shown: boolean? = nil
 
-		owner.watch(function(use)
+		Owners.watch(owner, function(use)
 			local truthy = not not when(use)
 			if truthy == shown then
 				return

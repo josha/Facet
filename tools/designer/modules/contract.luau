@@ -10,7 +10,7 @@ contract.HEADER = table.concat({
 }, "\n")
 
 contract.ROWS = table.concat({
-	"local function rows(supplied: Facet.Readable<{ Row }>?, sample: { Row }): (Facet.Use) -> { Row }",
+	"local function rows(supplied: Facet.ReadOnlyValue<{ Row }>?, sample: { Row }): (Facet.Use) -> { Row }",
 	"\treturn function(use: Facet.Use): { Row }",
 	"\t\treturn if supplied then use(supplied) else sample",
 	"\tend",
@@ -18,11 +18,11 @@ contract.ROWS = table.concat({
 }, "\n")
 
 contract.SIGNATURE = "return function(UI: Facet.Controls, data: Data?): GuiObject"
-contract.ROW = "Facet.Readable<Row>"
+contract.ROW = "Facet.ReadOnlyValue<Row>"
 contract.COLUMNS = "{ Facet.TableColumn<Row, unknown> }"
 contract.ACTIVATION = "(Row, unknown, InputObject?, number?) -> ()"
 contract.HANDLER = "(Row) -> ()"
-contract.SOURCE = "Facet.Readable<{ Row }>"
+contract.SOURCE = "Facet.ReadOnlyValue<{ Row }>"
 
 function contract.dataType(bindings: { [string]: string }, literal: (unknown) -> string): string
 	local keys: { string } = {}

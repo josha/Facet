@@ -27,10 +27,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 			spec.editing == nil or spec.editor == "text" or spec.editor == "number",
 			"Facet CellEditor: only text and number accept editing"
 		)
-		local draft: ComposeTypes.Cell<CollectionTypes.CellDraft?> = spec.draft
+		local draft: ComposeTypes.Value<CollectionTypes.CellDraft?> = spec.draft
 			or Compose.cell(nil :: CollectionTypes.CellDraft?)
 		local errorText = Compose.cell("")
-		local editing: ComposeTypes.Cell<boolean> = spec.editing or Compose.cell(false)
+		local editing: ComposeTypes.Value<boolean> = spec.editing or Compose.cell(false)
 		local alive = true
 		Compose.cleanup(function()
 			alive = false
@@ -80,7 +80,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 		end
 		local child: GuiObject
 		local display: TextLabel? = nil
-		local fieldHeight: ComposeTypes.Readable<UDim2>? = nil
+		local fieldHeight: ComposeTypes.ReadOnlyValue<UDim2>? = nil
 		if spec.editor == "toggle" then
 			child = UI.Toggle(({
 				Name = "Editor",
@@ -451,11 +451,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 		onCellChange: (key: K, column: string, value: unknown) -> (),
 		enabled: (ComposeTypes.Use) -> boolean
 	): (
-		ComposeTypes.Readable<V>,
-		ComposeTypes.Readable<ComposeTypes.Placement>,
+		ComposeTypes.ReadOnlyValue<V>,
+		ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
 		K
 	) -> GuiObject
-		return function(current: ComposeTypes.Readable<V>, _placement, key: K): GuiObject
+		return function(current: ComposeTypes.ReadOnlyValue<V>, _placement, key: K): GuiObject
 			return UI.CellEditor {
 				Name = "CellEditor",
 				editor = assert(column.editor),

@@ -4,6 +4,11 @@ local Shape = require "../core/shape"
 
 export type Record = { [string]: unknown }
 
+local function checkedString(value: unknown): string
+	assert(type(value) == "string")
+	return value
+end
+
 local function absent(value: unknown): boolean
 	return value == nil or type(value) == "userdata"
 end
@@ -14,17 +19,18 @@ end
 
 local function record(value: unknown, label: string): Record
 	if type(value) ~= "table" then
-		fail(label, "must be an object")
+		return fail(label, "must be an object")
 	end
-	for key in value :: { [unknown]: unknown } do
+	local fields = value :: Record
+	for key in fields do
 		if type(key) ~= "string" then
-			fail(label, "must be an object with string keys")
+			return fail(label, "must be an object with string keys")
 		end
 	end
-	return value :: Record
+	return fields
 end
 
-local function only(value: Record, label: string, fields: { string })
+local function only(value: Record, label: string, fields: { string }): ()
 	local allowed: { [string]: boolean } = {}
 	for _, field in fields do
 		allowed[field] = true
@@ -38,9 +44,9 @@ end
 
 local function text(value: unknown, label: string): string
 	if type(value) ~= "string" or value == "" then
-		fail(label, "must be a non-empty string")
+		return fail(label, "must be a non-empty string")
 	end
-	return value :: string
+	return value
 end
 
 local function optionalText(value: unknown, label: string): string?
@@ -53,7 +59,7 @@ end
 local function identifier(value: unknown, label: string): string
 	local candidate = text(value, label)
 	if #candidate > 64 or string.match(candidate, "^[A-Za-z0-9][A-Za-z0-9._-]*$") == nil then
-		fail(label, "must be an identifier of letters, digits, '.', '_' or '-' (at most 64 characters)")
+		return fail(label, "must be an identifier of letters, digits, '.', '_' or '-' (at most 64 characters)")
 	end
 	return candidate
 end
@@ -63,15 +69,15 @@ local function finite(value: unknown): boolean
 end
 
 local function number(value: unknown, label: string, minimum: number?, integer: boolean?): number
-	if not finite(value) then
-		fail(label, "must be a finite number")
+	if type(value) ~= "number" or not finite(value) then
+		return fail(label, "must be a finite number")
 	end
-	local result = value :: number
+	local result = value
 	if minimum ~= nil and result < minimum then
-		fail(label, ("must be at least %s"):format(tostring(minimum)))
+		return fail(label, ("must be at least %s"):format(tostring(minimum)))
 	end
 	if integer == true and result % 1 ~= 0 then
-		fail(label, "must be an integer")
+		return fail(label, "must be an integer")
 	end
 	return result
 end
@@ -88,9 +94,9 @@ local function flag(value: unknown, label: string, default: boolean): boolean
 		return default
 	end
 	if type(value) ~= "boolean" then
-		fail(label, "must be a boolean")
+		return fail(label, "must be a boolean")
 	end
-	return value :: boolean
+	return value
 end
 
 local function list(value: unknown, label: string): { unknown }
@@ -98,18 +104,18 @@ local function list(value: unknown, label: string): { unknown }
 		return {}
 	end
 	if type(value) ~= "table" then
-		fail(label, "must be an array")
+		return fail(label, "must be an array")
 	end
 	local result: { unknown } = {}
 	for key, item in value :: { [unknown]: unknown } do
 		if type(key) ~= "number" or key % 1 ~= 0 or key < 1 then
-			fail(label, "must be an array")
+			return fail(label, "must be an array")
 		end
-		result[key :: number] = item
+		result[key] = item
 	end
 	for index = 1, #result do
 		if result[index] == nil then
-			fail(label, "must be a dense array")
+			return fail(label, "must be a dense array")
 		end
 	end
 	local count = 0
@@ -117,7 +123,7 @@ local function list(value: unknown, label: string): { unknown }
 		count += 1
 	end
 	if count ~= #result then
-		fail(label, "must be a dense array")
+		return fail(label, "must be a dense array")
 	end
 	return result
 end
@@ -144,14 +150,14 @@ local function dictionary(value: unknown, label: string): { [string]: string }
 	local result: { [string]: string } = {}
 	for key, item in record(value, label) do
 		if type(item) ~= "string" then
-			fail(("%s.%s"):format(label, key), "must be a string")
+			return fail(("%s.%s"):format(label, key), "must be a string")
 		end
-		result[key] = item :: string
+		result[key] = item
 	end
 	return result
 end
 
-local function unique(values: { string }, label: string)
+local function unique(values: { string }, label: string): ()
 	local seen: { [string]: boolean } = {}
 	for _, value in values do
 		if seen[value] then
@@ -166,7 +172,7 @@ local sortedKeys = Shape.sortedKeys
 local function canonical(value: unknown): string
 	local kind = type(value)
 	if kind == "string" then
-		return string.format("%q", value :: string)
+		return string.format("%q", checkedString(value))
 	elseif kind == "number" or kind == "boolean" then
 		return tostring(value)
 	elseif kind ~= "table" then
@@ -177,9 +183,9 @@ local function canonical(value: unknown): string
 	for _ in items do
 		count += 1
 	end
-	if count > 0 and #(items :: { unknown }) == count then
+	if count > 0 and #items == count then
 		local pieces: { string } = {}
-		for _, item in items :: { unknown } do
+		for _, item in items do
 			table.insert(pieces, canonical(item))
 		end
 		return "[" .. table.concat(pieces, ",") .. "]"

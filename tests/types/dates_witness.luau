@@ -20,7 +20,7 @@ return function(UI: DatesControls.Controls): ()
 			assert(closed ~= "")
 		end,
 	})
-	local trip: Compose.Cell<Dates.Range> = Compose.cell({})
+	local trip: Compose.Value<Dates.Range> = Compose.cell({})
 	local range: Frame = UI.DateTimePicker({
 		selection = "range",
 		range = trip,

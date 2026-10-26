@@ -18,33 +18,51 @@ type StepResult = Types.StepResult
 
 local SCHEMA_VERSION = 1
 
-local VALID_STATUS: { [string]: boolean } = {
-	passed = true,
-	failed = true,
-	skipped = true,
-	unsupported = true,
-	timed_out = true,
-	cancelled = true,
+local VALID_STATUS: { [string]: Status } = {
+	passed = "passed",
+	failed = "failed",
+	skipped = "skipped",
+	unsupported = "unsupported",
+	timed_out = "timed_out",
+	cancelled = "cancelled",
 }
 
-local VALID_PHASE: { [string]: boolean } = {
-	load = true,
-	registration = true,
-	setup = true,
-	case = true,
-	step = true,
-	teardown = true,
-	cleanup = true,
-	executor = true,
+local VALID_PHASE: { [string]: Types.FailurePhase } = {
+	load = "load",
+	registration = "registration",
+	setup = "setup",
+	case = "case",
+	step = "step",
+	teardown = "teardown",
+	cleanup = "cleanup",
+	executor = "executor",
 }
 
-local VALID_OUTCOME: { [string]: boolean } = {
-	failed = true,
-	timed_out = true,
-	cancelled = true,
+local VALID_OUTCOME: { [string]: Types.FailureOutcome } = {
+	failed = "failed",
+	timed_out = "timed_out",
+	cancelled = "cancelled",
 }
 
 local copyStrings = Shape.copyStrings
+
+local function checkedString(value: unknown): string
+	assert(type(value) == "string")
+	return value
+end
+
+local function checkedNumber(value: unknown): number
+	assert(type(value) == "number")
+	return value
+end
+
+local function checkedOptionalNumber(value: unknown): number?
+	if value == nil then
+		return nil
+	end
+	assert(type(value) == "number")
+	return value
+end
 
 local function copyEnvironment(value: unknown, label: string): { [string]: string }
 	if type(value) ~= "table" then
@@ -102,8 +120,8 @@ local function copyFailures(value: unknown, label: string): { Failure }
 			error(label .. " contains an unknown failure outcome: " .. outcome, 3)
 		end
 		table.insert(result, {
-			phase = phase :: Types.FailurePhase,
-			outcome = outcome :: Types.FailureOutcome,
+			phase = assert(VALID_PHASE[phase]),
+			outcome = assert(VALID_OUTCOME[outcome]),
 			message = requiredString(raw.message, label .. ".message"),
 		})
 	end
@@ -133,7 +151,7 @@ local function copySteps(value: unknown, label: string): { StepResult }
 		table.insert(result, {
 			name = requiredString(raw.name, label .. ".name"),
 			actor = optionalString(raw.actor, label .. ".actor"),
-			status = status :: "passed" | "failed" | "timed_out" | "cancelled" | "unsupported",
+			status = status,
 			durationMicros = nonnegativeNumber(raw.durationMicros, label .. ".durationMicros"),
 			message = optionalString(raw.message, label .. ".message"),
 		})
@@ -185,10 +203,10 @@ local function copyEvidence(value: unknown, steps: { StepResult }): Types.Eviden
 	local raw = fields(value)
 	local function step(value: unknown): number
 		assert(
-			Shape.nonnegativeInteger(value) and (value :: number) >= 1 and steps[value :: number] ~= nil,
+			Shape.nonnegativeInteger(value) and (checkedNumber(value)) >= 1 and steps[checkedNumber(value)] ~= nil,
 			"evidence needs a recorded step"
 		)
-		return value :: number
+		return checkedNumber(value)
 	end
 	local result: Types.Evidence = { observations = {}, checkpoints = {}, reviews = {}, measurements = {} }
 	for _, item in rows(raw.observations) do
@@ -196,7 +214,7 @@ local function copyEvidence(value: unknown, steps: { StepResult }): Types.Eviden
 		assert(row.kind == "action" or row.kind == "query", "invalid observation kind")
 		table.insert(result.observations, {
 			step = step(row.step),
-			kind = row.kind :: "action" | "query",
+			kind = row.kind,
 			actor = requiredString(row.actor, "actor"),
 			name = requiredString(row.name, "name"),
 			value = Operations.snapshot(row.value),
@@ -242,7 +260,7 @@ local function copyEvidence(value: unknown, steps: { StepResult }): Types.Eviden
 			checkpoint = checkpoint,
 			criterion = requiredString(row.criterion, "criterion"),
 			judgment = {
-				status = judgment.status :: "passed" | "failed" | "unreviewed",
+				status = judgment.status,
 				reviewer = requiredString(judgment.reviewer, "reviewer"),
 				detail = requiredString(judgment.detail, "detail"),
 			},
@@ -256,23 +274,25 @@ local function copyEvidence(value: unknown, steps: { StepResult }): Types.Eviden
 		local samples: { number } = {}
 		for _, sample in rows(input.samples) do
 			assert(Shape.finiteNonnegative(sample), "invalid performance sample")
-			table.insert(samples, sample :: number)
+			table.insert(samples, checkedNumber(sample))
 		end
 		local function optionalNumber(value: unknown): number?
 			assert(value == nil or Shape.finiteNonnegative(value), "invalid performance bound")
-			return value :: number?
+			return checkedOptionalNumber(value)
 		end
 		local percentiles: { number }? = nil
 		if input.percentiles ~= nil then
-			percentiles = {}
+			local collected: { number } = {}
+			percentiles = collected
 			for _, value in rows(input.percentiles) do
 				assert(type(value) == "number", "invalid performance percentile")
-				table.insert(percentiles :: { number }, value)
+				table.insert(collected, value)
 			end
 		end
 		local series: Performance.Series? = nil
 		if input.series ~= nil then
-			series = {}
+			local collected: Performance.Series = {}
+			series = collected
 			for name, runs in fields(input.series) do
 				assert(type(name) == "string", "invalid series name")
 				local copiedRuns: { { number } } = {}
@@ -284,7 +304,7 @@ local function copyEvidence(value: unknown, steps: { StepResult }): Types.Eviden
 					end
 					table.insert(copiedRuns, values)
 				end
-				(series :: Performance.Series)[name] = copiedRuns
+				collected[name] = copiedRuns
 			end
 		end
 		local copiedInput: Performance.Input = {
@@ -296,13 +316,13 @@ local function copyEvidence(value: unknown, steps: { StepResult }): Types.Eviden
 			context = {
 				environment = requiredString(context.environment, "environment"),
 				signal = requiredString(context.signal, "signal"),
-				timing = context.timing :: "observed" | "simulated",
+				timing = context.timing,
 			},
 		}
 		assert(Shape.nonnegativeInteger(limits.minimumSamples), "invalid minimum samples")
 		local copiedLimits: Performance.Limits = {
 			unit = requiredString(limits.unit, "unit"),
-			minimumSamples = limits.minimumSamples :: number,
+			minimumSamples = checkedNumber(limits.minimumSamples),
 			p50 = optionalNumber(limits.p50),
 			p95 = optionalNumber(limits.p95),
 			p99 = optionalNumber(limits.p99),
@@ -368,7 +388,7 @@ local function copyResult(value: unknown, label: string): CaseResult
 		source = optionalString(raw.source, label .. ".source"),
 		path = copyStrings(raw.path, label .. ".path"),
 		name = requiredString(raw.name, label .. ".name"),
-		status = status :: Status,
+		status = assert(VALID_STATUS[status]),
 		durationMicros = nonnegativeNumber(raw.durationMicros, label .. ".durationMicros"),
 		failures = failures,
 		steps = steps,
@@ -612,16 +632,16 @@ local function compose(payloads: { Types.ShardPayload }, executor: string, envir
 	local function nameFailure(shardId: string, id: string, name: string, message: string)
 		local chosen = uniqueId(id)
 		into.ids[chosen] = shardId
-		table.insert(into.results, {
+		local result: CaseResult = {
 			id = chosen,
 			path = {},
 			name = name,
-			status = "failed" :: Status,
+			status = "failed",
 			durationMicros = 0,
 			failures = {
 				{
-					phase = "executor" :: Types.FailurePhase,
-					outcome = "failed" :: Types.FailureOutcome,
+					phase = "executor",
+					outcome = "failed",
 					message = message,
 				},
 			},
@@ -630,7 +650,8 @@ local function compose(payloads: { Types.ShardPayload }, executor: string, envir
 			limitations = {},
 			missingCapabilities = {},
 			origin = composedOrigin,
-		})
+		}
+		table.insert(into.results, result)
 	end
 
 	for index, payload in payloads do
@@ -651,13 +672,13 @@ local function compose(payloads: { Types.ShardPayload }, executor: string, envir
 			nameFailure(shardId, "shard:" .. shardId, shardId, "shard produced no report")
 			continue
 		end
-		local decoded, decodedReport: unknown = pcall(decode, payload.report)
+		local decoded, decodedReport = pcall(decode, payload.report)
 		if not decoded then
 			nameFailure(shardId, "shard:" .. shardId, shardId, "undecodable shard payload: " .. tostring(decodedReport))
 			continue
 		end
 
-		local report = decodedReport :: Report
+		local report = decodedReport
 		absorbEnvelope(into, report)
 		for _, result in report.results do
 			local claimedBy = into.ids[result.id]
@@ -690,7 +711,7 @@ local function canonicalValue(value: unknown): string
 		return "nil"
 	end
 	if kind == "string" then
-		return string.format("%q", value :: string)
+		return string.format("%q", checkedString(value))
 	end
 	if kind == "number" or kind == "boolean" then
 		return tostring(value)

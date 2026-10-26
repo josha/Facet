@@ -130,7 +130,7 @@ local function loadSuite(parsed: Parsed, context: Context): Model.Suite
 	if path == nil then
 		error("--suite is required", 0)
 	end
-	local absolute = context.absolute(path :: string)
+	local absolute = context.absolute(path)
 	local files = context.loader.files
 	if not files.exists(absolute) then
 		error(("no suite file at %s"):format(absolute), 0)
@@ -141,10 +141,10 @@ end
 local function evidenceOf(parsed: Parsed, suite: Model.Suite, context: Context): string
 	local declared = one(parsed, "evidence")
 	if declared ~= nil then
-		return context.absolute(declared :: string)
+		return context.absolute(declared)
 	end
 	if suite.evidence ~= nil then
-		return context.absolute(suite.evidence :: string)
+		return context.absolute(suite.evidence)
 	end
 	return context.absolute(".verify/agent-eval/" .. suite.id)
 end
@@ -172,7 +172,7 @@ local function plan(parsed: Parsed, context: Context): number
 				spec.order,
 				spec.id,
 				string.sub(spec.digest, 1, 12),
-				if spec.parent ~= nil then "  after " .. (spec.parent :: string) else ""
+				if spec.parent ~= nil then "  after " .. spec.parent else ""
 			)
 		)
 	end
@@ -187,7 +187,7 @@ local function runCommand(parsed: Parsed, context: Context): number
 	local workspaces = one(parsed, "workspaces")
 	if workspaces ~= nil then
 		services = table.clone(services)
-		services.workspaces = context.absolute(workspaces :: string)
+		services.workspaces = context.absolute(workspaces)
 	end
 	local summary = Runner.run {
 		suite = suite,
@@ -282,8 +282,8 @@ local function judgeCommand(parsed: Parsed, context: Context): number
 			return 2
 		end
 		transport = Judge.anthropic {
-			request = services.request :: (Services.HttpRequest) -> (Services.HttpResponse?, string?),
-			apiKey = key :: string,
+			request = services.request,
+			apiKey = key,
 			read = context.loader.files.read,
 			encode = context.encode,
 			decode = context.decode,
@@ -314,7 +314,7 @@ local function judgeCommand(parsed: Parsed, context: Context): number
 		}
 	end
 	local seed = numberFlag(parsed, "seed")
-		or (if type(suite.judge.seed) == "number" then suite.judge.seed :: number else nil)
+		or (if type(suite.judge.seed) == "number" then suite.judge.seed else nil)
 		or 1
 	local judgments = Judging.run {
 		suite = suite,
@@ -354,16 +354,14 @@ local function reportCommand(parsed: Parsed, context: Context): number
 	if thresholdsPath == nil then
 		error("--thresholds is required", 0)
 	end
-	local thresholds = Report.decodeThresholds(context.decode(files.read(context.absolute(thresholdsPath :: string))))
+	local thresholds = Report.decodeThresholds(context.decode(files.read(context.absolute(thresholdsPath))))
 	local results = Runner.load(evidence, files, context.decode)
 	local judgments = Judging.load(evidence, files, context.decode)
 	local calibration: Judge.Calibration? = nil
 	local labels = one(parsed, "labels")
 	if labels ~= nil then
-		calibration = Judge.calibrate(
-			judgments,
-			Judge.decodeLabels(context.decode(files.read(context.absolute(labels :: string))))
-		)
+		calibration =
+			Judge.calibrate(judgments, Judge.decodeLabels(context.decode(files.read(context.absolute(labels)))))
 	end
 	local report = Report.build(suite.id, results, judgments, thresholds, calibration)
 	local out = context.absolute(one(parsed, "out") or evidence)
@@ -377,7 +375,7 @@ local function reportCommand(parsed: Parsed, context: Context): number
 		if runId == nil then
 			error("--verify-report needs --run", 0)
 		end
-		context.writeVerifyReport(context.absolute(verifyPath :: string), runId :: string, Report.verdict(report))
+		context.writeVerifyReport(context.absolute(verifyPath), runId, Report.verdict(report))
 	end
 	context.services.print(text)
 	return if report.verdict == "PASS" then 0 else 1
@@ -397,7 +395,7 @@ local function auditCommand(parsed: Parsed, context: Context): number
 	})
 	local out = one(parsed, "out")
 	if out ~= nil then
-		files.write(context.absolute(out :: string), context.encode(report))
+		files.write(context.absolute(out), context.encode(report))
 	end
 	local say = context.services.print
 	say(
@@ -434,9 +432,9 @@ local function main(args: { string }, context: Context): number
 		report = reportCommand,
 		audit = auditCommand,
 	}
-	local handler = handlers[command :: string]
+	local handler = handlers[command]
 	if handler == nil then
-		say(("unknown command %s"):format(command :: string))
+		say(("unknown command %s"):format(command))
 		say(USAGE)
 		return 2
 	end

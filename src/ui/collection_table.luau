@@ -92,9 +92,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 		Compose.watch(function(use: ComposeTypes.Use)
 			editors.check(read(spec.columns, use), spec.onCellChange)
 		end)
-		local sort: ComposeTypes.Cell<CollectionTypes.Sort?> = spec.sort or Compose.cell(nil :: CollectionTypes.Sort?)
-		local widths: ComposeTypes.Cell<{ [string]: number }> = spec.widths or Compose.cell({})
-		local selection: ComposeTypes.Cell<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
+		local sort: ComposeTypes.Value<CollectionTypes.Sort?> = spec.sort or Compose.cell(nil :: CollectionTypes.Sort?)
+		local widths: ComposeTypes.Value<{ [string]: number }> = spec.widths or Compose.cell({})
+		local selection: ComposeTypes.Value<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
 		local emptyStatus: ComposeTypes.OrderedCollectionStatus = {
 			mode = "windowed",
 			direction = "vertical",
@@ -111,7 +111,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 		}
 		local status = (
 			spec.status or Compose.cell(emptyStatus)
-		) :: ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus>
+		) :: ComposeTypes.Value<ComposeTypes.OrderedCollectionStatus>
 		if status:peek() == nil then
 			status:set(emptyStatus)
 		end
@@ -119,14 +119,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			local current = use(status)
 			return if current then current.extent else 0
 		end)
-		local coordinator: ComposeTypes.Cell<{}?> = Compose.cell(nil :: {}?)
+		local coordinator: ComposeTypes.Value<{}?> = Compose.cell(nil :: {}?)
 		local queries: ComposeTypes.OrderedCollectionControls<K> = spec.controls or {}
 		local body: ScrollingFrame
 		local unitScale = Compose.cell(1)
-		local rowMeasures: ComposeTypes.Cell<{ [K]: number }> = Compose.cell({})
-		local actionGutters: ComposeTypes.Cell<{ [K]: number }> = Compose.cell({})
-		local headerMeasures: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
-		local truncatedRows: ComposeTypes.Cell<{ [K]: { [string]: boolean } }> = Compose.cell({})
+		local rowMeasures: ComposeTypes.Value<{ [K]: number }> = Compose.cell({})
+		local actionGutters: ComposeTypes.Value<{ [K]: number }> = Compose.cell({})
+		local headerMeasures: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
+		local truncatedRows: ComposeTypes.Value<{ [K]: { [string]: boolean } }> = Compose.cell({})
 		local metrics = createMetrics(ctx, spec, ownsToggle, unitScale, headerMeasures)
 		local minimumRow, toolbarHeight, headerHeight = metrics.minimumRow, metrics.toolbarHeight, metrics.headerHeight
 		local topHeight, textInsets = metrics.topHeight, metrics.textInsets
@@ -420,7 +420,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 		})
 		local position, rendered = ctx.observe.CanvasPosition(body), ctx.observe.AbsoluteWindowSize(body)
 		local outerSize = ctx.observe.AbsoluteSize(body)
-		local scrollBar = runtime.observe(body, "ScrollBarThickness") :: ComposeTypes.Readable<number>
+		local scrollBar = runtime.observe(body, "ScrollBarThickness") :: ComposeTypes.ReadOnlyValue<number>
 		local unitSize = ctx.observe.AbsoluteSize(unit)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local scale = use(unitSize).X

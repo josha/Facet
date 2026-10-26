@@ -4,8 +4,8 @@ type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
 type ScrollingFrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameNativeProps)

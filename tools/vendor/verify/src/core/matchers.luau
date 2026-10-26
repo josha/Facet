@@ -23,6 +23,11 @@ export type Expectation = {
 	never: Expectation,
 }
 
+local function checkedString(value: unknown): string
+	assert(type(value) == "string")
+	return value
+end
+
 local function render(value: unknown, depth: number, seen: { [unknown]: boolean }): string
 	if type(value) == "string" then
 		return string.format("%q", value)
@@ -92,7 +97,7 @@ local function fail(negated: boolean, verb: string, actual: unknown, expected: u
 		message ..= "\n     " .. detail
 	end
 
-	return error(message, 0) :: never
+	return error(message, 0)
 end
 
 local float32Slot = buffer.create(4)
@@ -117,7 +122,7 @@ local function makeExpectation(actual: unknown): Expectation
 
 		local function numberValue(): number
 			if type(actual) ~= "number" then
-				return error("numeric expectation received " .. describe(actual), 3) :: never
+				return error("numeric expectation received " .. describe(actual), 3)
 			end
 			return actual
 		end
@@ -209,7 +214,7 @@ local function makeExpectation(actual: unknown): Expectation
 
 		local function containsSubstring(expected: unknown): boolean
 			local needle = if type(expected) == "string" then expected else tostring(expected)
-			return string.find(actual :: string, needle, 1, true) ~= nil
+			return string.find(checkedString(actual), needle, 1, true) ~= nil
 		end
 
 		local function requireHaystack()
@@ -286,12 +291,12 @@ local function makeExpectation(actual: unknown): Expectation
 			check(matched, "to throw matching", pattern, caught(ok, thrown))
 		end
 
-		return expectation :: Expectation
+		return expectation
 	end
 
 	local unknownMatcher = {
 		__index = function(_: unknown, key: unknown): never
-			return error(("unknown matcher %q"):format(tostring(key)), 2) :: never
+			return error(("unknown matcher %q"):format(tostring(key)), 2)
 		end,
 	}
 

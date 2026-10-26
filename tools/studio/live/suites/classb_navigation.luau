@@ -8,8 +8,8 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Destination = typeof(require("@repo/tools/typecheck/aliases").Destination)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 

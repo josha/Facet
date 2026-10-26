@@ -19,10 +19,15 @@ local function environmentFor(options: Options): { [string]: unknown }
 			if value ~= nil then
 				return value
 			end
-			return (_G :: { [string]: unknown })[key]
+			return (_G)[key]
 		end,
 	}
-	return (setmetatable({}, fallback) :: unknown) :: { [string]: unknown }
+	local environment: { [string]: unknown } = {}
+	local function attach(value: { [string]: unknown })
+		setmetatable(value, fallback)
+	end
+	attach(environment)
+	return environment
 end
 
 local function load(source: string, options: Options?): (...unknown) -> ...unknown
@@ -31,7 +36,7 @@ local function load(source: string, options: Options?): (...unknown) -> ...unkno
 end
 
 local function check(source: string, name: string?): (boolean, string?)
-	local loaded, problem: unknown = pcall(luau.load, luau.compile(source), "@" .. (name or "chunk"), {})
+	local loaded, problem = pcall(luau.load, luau.compile(source), "@" .. (name or "chunk"), {})
 	if loaded then
 		return true, nil
 	end

@@ -6,11 +6,13 @@ local clock = {}
 
 export type Scheduled = { at: number, seq: number, fn: () -> (), cancelled: boolean }
 
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 export type Handle = { cancel: () -> () }
 export type Clock = {
-	nowSignal: Cell<number>,
+	nowSignal: Value<number>,
 	now: () -> number,
 	after: (delay: number, fn: () -> ()) -> Handle,
 	advance: (dt: number) -> number,
@@ -20,7 +22,7 @@ export type Clock = {
 
 function clock.new(Compose: ComposeModule, opts: { start: number? }?): Clock
 	local options: { start: number? } = opts or {}
-	local nowSignal: Cell<number> = Compose.cell(options.start or 0)
+	local nowSignal: Value<number> = Compose.cell(options.start or 0)
 	local scheduled: { Scheduled } = {}
 	local seq = 0
 	local self = { nowSignal = nowSignal }

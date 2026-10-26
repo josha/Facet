@@ -342,7 +342,7 @@ local function schedule(
 		end
 		local job: GateTypes.Job = {
 			id = producer.id,
-			kind = producer.kind :: "tests" | "command" | "build" | "native",
+			kind = producer.kind,
 			argv = producer.argv,
 			env = producer.env,
 			cwd = producer.cwd,
@@ -359,7 +359,10 @@ local function schedule(
 			expectsReport = producer.kind == "tests" or producer.report ~= nil,
 			deadlineSeconds = deadline,
 		}
-		local started, handle: unknown = pcall(executor.start, job)
+		local handles: { GateTypes.Task } = {}
+		local started, handle = pcall(function()
+			handles[1] = executor.start(job)
+		end)
 		if not started then
 			local outcome: GateTypes.JobOutcome = {
 				started = false,
@@ -372,15 +375,17 @@ local function schedule(
 			record(producer, GateJob.conclude(producer, ctx, outcome, nil), began, outcome, nil)
 			return
 		end
-		table.insert(running, { id = producer.id, handle = handle :: GateTypes.Task, startedAt = began })
+		table.insert(running, { id = producer.id, handle = handles[1], startedAt = began })
 	end
 
 	while true do
 		local index = 1
 		while index <= #running do
 			local entry = running[index]
-			local polled, outcome: unknown = pcall(entry.handle.poll)
 			local result: GateTypes.JobOutcome? = nil
+			local polled, outcome = pcall(function()
+				result = entry.handle.poll()
+			end)
 			if not polled then
 				result = {
 					started = true,
@@ -390,8 +395,6 @@ local function schedule(
 					stderr = "",
 					detail = "the executor raised while polling: " .. tostring(outcome),
 				}
-			else
-				result = outcome :: GateTypes.JobOutcome?
 			end
 			if result ~= nil then
 				table.remove(running, index)
@@ -424,14 +427,9 @@ local function schedule(
 				local producer = byId[id]
 				local state, culprit, culpritStatus = readiness(producer)
 				if state == "blocked" then
+					assert(culprit ~= nil and culpritStatus ~= nil)
 					waiting[id] = nil
-					record(
-						producer,
-						GateJob.blocked(producer, ctx, culprit :: string, culpritStatus :: string),
-						executor.now(),
-						nil,
-						nil
-					)
+					record(producer, GateJob.blocked(producer, ctx, culprit, culpritStatus), executor.now(), nil, nil)
 					records[id].blockedBy = culprit
 					progress = true
 				elseif state == "ready" then
@@ -673,7 +671,7 @@ local function missingCases(records: { ProducerRecord }, requested: GateTypes.Se
 				table.insert(parts, ("name %q"):format(requested.nameContains))
 			end
 			if #listed(requested.sources) > 0 then
-				table.insert(parts, "source " .. table.concat(requested.sources :: { string }, ","))
+				table.insert(parts, "source " .. table.concat(listed(requested.sources), ","))
 			end
 			table.insert(missing, table.concat(parts, " "))
 		end

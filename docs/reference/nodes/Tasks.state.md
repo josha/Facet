@@ -28,7 +28,7 @@ local function mountWallet(client: Client)
   end)
   return app
 end
-local snapshot: Facet.Cell<State> = C.cell({ coins = 300, xp = 40 })
+local snapshot: Facet.Value<State> = C.cell({ coins = 300, xp = 40 })
 mountWallet({
   getState = function() return snapshot:peek() end,
   onStateChanged = function(changed)

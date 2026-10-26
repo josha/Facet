@@ -22,13 +22,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		picker: GuiObject,
 		boxes: {
 			[GuiObject]: {
-				order: ComposeTypes.Readable<number>,
-				size: ComposeTypes.Readable<Vector2>,
-				at: ComposeTypes.Readable<Vector2>,
+				order: ComposeTypes.ReadOnlyValue<number>,
+				size: ComposeTypes.ReadOnlyValue<Vector2>,
+				at: ComposeTypes.ReadOnlyValue<Vector2>,
 			},
 		},
-		currentOrder: ComposeTypes.Cell<number>,
-		indicator: Types.Value<string>?
+		currentOrder: ComposeTypes.Value<number>,
+		indicator: Types.Input<string>?
 	): ()
 		local reduced = reducedMotion(ctx)
 		local spring = ctx.motionSpring("control")
@@ -132,9 +132,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local spilling = Compose.cell(false)
 		local segmentBoxes: {
 			[GuiObject]: {
-				order: ComposeTypes.Readable<number>,
-				size: ComposeTypes.Readable<Vector2>,
-				at: ComposeTypes.Readable<Vector2>,
+				order: ComposeTypes.ReadOnlyValue<number>,
+				size: ComposeTypes.ReadOnlyValue<Vector2>,
+				at: ComposeTypes.ReadOnlyValue<Vector2>,
 			},
 		} =
 			{}
@@ -181,7 +181,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				+ math.max(0, if inset then inset.bottom or 0 else 0)
 			return math.max(rung, math.ceil(caption) + chrome + 2 * segmentMetrics.inset)
 		end
-		local fixedOptions = not (Compose.isReadable(spec.options) or type(spec.options) == "function")
+		local fixedOptions = not (Compose.isValue(spec.options) or type(spec.options) == "function")
 		local children: { ComposeTypes.Child } = {
 			Host.UIListLayout({
 				FillDirection = derive(function(use: ComposeTypes.Use?)
@@ -218,8 +218,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					return option.id or option.value
 				end,
 				render = function(
-					source: ComposeTypes.Readable<Nav.PickerOption<V>>,
-					index: ComposeTypes.Readable<number>
+					source: ComposeTypes.ReadOnlyValue<Nav.PickerOption<V>>,
+					index: ComposeTypes.ReadOnlyValue<number>
 				)
 					local selected = function(use: ComposeTypes.Use)
 						return isSelected(use(source).value, use)
@@ -276,7 +276,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						subtitle = if source:peek().description ~= nil
 								or source:peek().badge ~= nil
 								or style == "radioGroup"
-								or Compose.isReadable(spec.options)
+								or Compose.isValue(spec.options)
 								or type(spec.options) == "function"
 							then function(use: ComposeTypes.Use)
 								return read(use(source).description, use) or ""
@@ -336,11 +336,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					local badgeContent = button:FindFirstChild("Content")
 					if
 						badgeContent
-						and (
-							current.badge ~= nil
-							or Compose.isReadable(spec.options)
-							or type(spec.options) == "function"
-						)
+						and (current.badge ~= nil or Compose.isValue(spec.options) or type(spec.options) == "function")
 					then
 						runtime.mountFragment(function()
 							return {
@@ -392,7 +388,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					end
 					if
 						source:peek().indicator ~= nil
-						or Compose.isReadable(spec.options)
+						or Compose.isValue(spec.options)
 						or type(spec.options) == "function"
 					then
 						local statusUI = UI
@@ -422,7 +418,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							end),
 						})
 					end
-					local underlined = Compose.isReadable(spec.indicator)
+					local underlined = Compose.isValue(spec.indicator)
 						or type(spec.indicator) == "function"
 						or spec.indicator == "underline"
 					surfaces.attach(button, {
@@ -473,7 +469,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							}),
 						})
 					end
-					if fixed and not (Compose.isReadable(current.label) or type(current.label) == "function") then
+					if fixed and not (Compose.isValue(current.label) or type(current.label) == "function") then
 						button:SetAttribute("FacetLabel", current.label)
 					else
 						Compose.watch(function(use: ComposeTypes.Use)
@@ -688,7 +684,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		else
 			picker = Host.Frame(p)
 		end
-		local overflows: ComposeTypes.Readable<boolean>? = nil
+		local overflows: ComposeTypes.ReadOnlyValue<boolean>? = nil
 		if scrolls then
 			local scroller = picker :: ScrollingFrame
 			scrollLock.own(scroller, ctx)
@@ -710,7 +706,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local room = if spilling:peek() then view - 2 * segmentMetrics.inset * scaleOf(use) else view
 				spilling:set(room > 0 and use(extent).X > room + 1)
 			end)
-			local spills: ComposeTypes.Readable<boolean> = spilling
+			local spills: ComposeTypes.ReadOnlyValue<boolean> = spilling
 			overflows = spills
 			local fields = (p :: unknown) :: { [string]: unknown }
 			local scrolling: { [string]: unknown } = {
@@ -806,7 +802,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		if style == "segmented" then
 			picker:AddTag("facet-segmented")
 			if spec.multiple ~= true then
-				slideSelection(picker, segmentBoxes, currentOrder, (spec.indicator :: unknown) :: Types.Value<string>?)
+				slideSelection(picker, segmentBoxes, currentOrder, (spec.indicator :: unknown) :: Types.Input<string>?)
 			end
 			surfaces.attach(picker, {
 				Host.UISizeConstraint "TargetFloor" {

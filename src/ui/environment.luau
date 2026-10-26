@@ -43,9 +43,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	local runtime = ctx.runtime
 	local V2 = ctx.types.Vector2
 
-	local function watched(node: Instance?, property: string, fallback: unknown): ComposeTypes.Readable<unknown>
+	local function watched(node: Instance?, property: string, fallback: unknown): ComposeTypes.ReadOnlyValue<unknown>
 		if node ~= nil then
-			local observers = (ctx.observe :: unknown) :: { [string]: (Instance) -> ComposeTypes.Readable<unknown> }
+			local observers = (ctx.observe :: unknown) :: { [string]: (Instance) -> ComposeTypes.ReadOnlyValue<unknown> }
 			local ok, value = pcall(observers[property], node)
 			if ok then
 				return value
@@ -394,7 +394,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 							then { partOf(target) or target }
 							else {}
 					end,
-					render = function(item: ComposeTypes.Readable<GuiObject>): Folder
+					render = function(item: ComposeTypes.ReadOnlyValue<GuiObject>): Folder
 						runtime.mount(function()
 							return Host.UIStroke {
 								Name = "FacetFocusGlow",
@@ -446,28 +446,30 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local property = if gui2d then "AbsoluteSize" else "ViewportSize"
 		local screenSize = watched(node, property, V2.zero)
 		local unit = if gui2d then ctx.layoutUnit(node :: GuiBase2d) else nil
-		local engineSize: ComposeTypes.Readable<unknown> = if unit
+		local engineSize: ComposeTypes.ReadOnlyValue<unknown> = if unit
 			then Compose.formula(function(use: ComposeTypes.Use): unknown
 				local size = use(screenSize)
 				return if typeof(size) == "Vector2" then size / use(unit) else size
 			end)
 			else screenSize
 		local forced = if source == nil and config.environment then config.environment.viewportSize else nil
-		local raw: ComposeTypes.Readable<unknown> = if forced == nil
+		local raw: ComposeTypes.ReadOnlyValue<unknown> = if forced == nil
 			then engineSize
 			else Compose.formula(function(use: ComposeTypes.Use): unknown
 				local size = ctx.read(forced, use)
 				return if size == nil then use(engineSize) else size
 			end)
 		local last: Vector2 = V2.zero
-		local viewportSize: ComposeTypes.Readable<Vector2> = Compose.formula(function(use: ComposeTypes.Use): Vector2
-			local size = use(raw)
-			if typeof(size) == "Vector2" and size.X >= 2 and size.Y >= 2 then
-				last = size
+		local viewportSize: ComposeTypes.ReadOnlyValue<Vector2> = Compose.formula(
+			function(use: ComposeTypes.Use): Vector2
+				local size = use(raw)
+				if typeof(size) == "Vector2" and size.X >= 2 and size.Y >= 2 then
+					last = size
+				end
+				return last
 			end
-			return last
-		end)
-		local function derived<T>(body: (ComposeTypes.Use) -> T): ComposeTypes.Readable<T>
+		)
+		local function derived<T>(body: (ComposeTypes.Use) -> T): ComposeTypes.ReadOnlyValue<T>
 			return Compose.formula(body)
 		end
 		local viewportWidth = derived(function(use): number
@@ -482,14 +484,14 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				local class: Env.SizeClass = adaptive.sizeClass(use(viewportWidth))
 				return if class == "wide" and tenFoot(use) then "regular" else class
 			end) :: unknown
-		) :: ComposeTypes.Readable<Env.SizeClass>
+		) :: ComposeTypes.ReadOnlyValue<Env.SizeClass>
 		local heightClass = (
 			derived(function(use): Env.HeightClass
 				local class: Env.HeightClass = adaptive.heightClass(use(viewportHeight))
 				return if class == "tall" and tenFoot(use) then "medium" else class
 			end) :: unknown
-		) :: ComposeTypes.Readable<Env.HeightClass>
-		local function atLeast(target: Env.SizeClass): ComposeTypes.Readable<boolean>
+		) :: ComposeTypes.ReadOnlyValue<Env.HeightClass>
+		local function atLeast(target: Env.SizeClass): ComposeTypes.ReadOnlyValue<boolean>
 			local wanted: Env.SizeClass = target
 			assert(
 				target == "compact" or target == "regular" or target == "wide",
@@ -533,14 +535,14 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			derived(function(use): "Touch" | "Gamepad" | "KeyboardAndMouse"
 				return primaryInput(use)
 			end) :: unknown
-		) :: ComposeTypes.Readable<"Touch" | "Gamepad" | "KeyboardAndMouse">
+		) :: ComposeTypes.ReadOnlyValue<"Touch" | "Gamepad" | "KeyboardAndMouse">
 		local displayRaw = watched(gui, "ViewportDisplaySize", nil)
 		local displaySize = (
 			derived(function(use): Env.DisplaySize
 				local name = enumName(use(displayRaw), "Medium")
 				return if name == "Small" or name == "Large" then name else "Medium"
 			end) :: unknown
-		) :: ComposeTypes.Readable<Env.DisplaySize>
+		) :: ComposeTypes.ReadOnlyValue<Env.DisplaySize>
 		local textRaw = watched(gui, "PreferredTextSize", nil)
 		local preferredTextSize = derived(function(use): string
 			return enumName(use(textRaw), "Medium")
@@ -612,7 +614,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end
 			return engine * (if authored > 0 then chosen / authored else 1)
 		end
-		local function scaled(value: number | string, relativeTo: string?): ComposeTypes.Readable<number>
+		local function scaled(value: number | string, relativeTo: string?): ComposeTypes.ReadOnlyValue<number>
 			assert(
 				relativeTo == nil
 					or (type(relativeTo) == "string" and pcall(ctx.metric, `typography.{relativeTo}.size`)),
@@ -643,7 +645,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			orientation = (derived(function(use): Env.Orientation
 				local size = use(viewportSize)
 				return adaptive.orientationFor(size.X, size.Y)
-			end) :: unknown) :: ComposeTypes.Readable<Env.Orientation>,
+			end) :: unknown) :: ComposeTypes.ReadOnlyValue<Env.Orientation>,
 			isCompact = derived(function(use): boolean
 				return use(sizeClass) == "compact"
 			end),
@@ -671,7 +673,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end),
 			axis = (derived(function(use: ComposeTypes.Use): "x" | "y"
 				return adaptive.axisFor(use(viewportWidth))
-			end) :: unknown) :: ComposeTypes.Readable<"x" | "y">,
+			end) :: unknown) :: ComposeTypes.ReadOnlyValue<"x" | "y">,
 			atLeast = atLeast,
 			interactionClasses = interactionClasses,
 			effectiveInput = effectiveInput,
@@ -679,7 +681,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			isTenFoot = isTenFoot,
 			viewingDistanceSource = (derived(function(use): "authored" | "inferred"
 				return if ctx.viewingDistance(use) == "automatic" then "inferred" else "authored"
-			end) :: unknown) :: ComposeTypes.Readable<"authored" | "inferred">,
+			end) :: unknown) :: ComposeTypes.ReadOnlyValue<"authored" | "inferred">,
 			metricScale = metricScale,
 			scaled = scaled,
 			overscanInsets = overscan,
@@ -691,7 +693,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					displaySize = use(displaySize),
 					tenFoot = use(isTenFoot),
 				})
-			end) :: unknown) :: ComposeTypes.Readable<adaptive.NavPlacement>,
+			end) :: unknown) :: ComposeTypes.ReadOnlyValue<adaptive.NavPlacement>,
 			safeInsets = safeInsets,
 			topbarInset = topbarInset,
 			topbarControlDiameter = topbarControlDiameter,
@@ -702,7 +704,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end),
 			motionLevel = (derived(function(use): "normal" | "limited" | "none"
 				return level(use)
-			end) :: unknown) :: ComposeTypes.Readable<Shared.MotionLevel>,
+			end) :: unknown) :: ComposeTypes.ReadOnlyValue<Shared.MotionLevel>,
 		})
 		return environment
 	end

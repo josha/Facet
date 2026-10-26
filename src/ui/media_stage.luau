@@ -45,7 +45,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			end)
 		end
 	end
-	local function stageLive(stage: ViewportFrame): (ComposeTypes.Readable<boolean>, ComposeTypes.Readable<boolean>)
+	local function stageLive(
+		stage: ViewportFrame
+	): (ComposeTypes.ReadOnlyValue<boolean>, ComposeTypes.ReadOnlyValue<boolean>)
 		local owner = assert(Compose.currentOwner())
 		local moving = Compose.cell(false)
 		local visible = Compose.cell(true)
@@ -112,7 +114,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			end)
 		end
 		local function locate()
-			if owner.isDisposed() then
+			if ComposeTypes.owner.isDisposed(owner) then
 				return
 			end
 			local found: ScrollingFrame? = nil
@@ -132,14 +134,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			end
 			current = found
 			if tracking then
-				tracking.dispose()
+				ComposeTypes.owner.dispose(tracking)
 				tracking = nil
 			end
 			moving:set(false)
 			visible:set(true)
 			near:set(true)
 			if found then
-				local child = owner.createChild()
+				local child = ComposeTypes.owner.createChild(owner)
 				tracking = child
 				Compose.withOwner(child, function()
 					track(found)
@@ -169,7 +171,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			then spec.camera :: Camera
 			else Host.Camera "Camera" {
 				FieldOfView = bind(spec.fieldOfView, 45),
-				CFrame = (spec.camera :: Types.Value<CFrame>?)
+				CFrame = (spec.camera :: Types.Input<CFrame>?)
 					or types.CFrame.lookAt(types.Vector3.new(0, 2, 8), types.Vector3.new(0, 0, 0)),
 			}
 		local native = ctx.props(
@@ -193,7 +195,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			local owner = assert(Compose.currentOwner())
 			local built = false
 			local function build()
-				if built or owner.isDisposed() then
+				if built or ComposeTypes.owner.isDisposed(owner) then
 					return
 				end
 				built = true
@@ -212,7 +214,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				local queued = false
 				local function attempt()
 					queued = false
-					if not owner.isDisposed() and shown:peek() then
+					if not ComposeTypes.owner.isDisposed(owner) and shown:peek() then
 						build()
 					end
 				end

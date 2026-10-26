@@ -1,8 +1,9 @@
 --!strict
+--!native
 
 local Diagnostics = require "../diagnostics"
 local Owner = require "./owner"
-local Graph = require "../reactive/graph"
+local Evaluation = require "../reactive/evaluation"
 local Types = require "../reactive/types"
 
 type Dispose = Types.Dispose
@@ -22,7 +23,7 @@ local function depth(): number
 	return count
 end
 
-local function current(): Owner.Owner?
+local function find(create: boolean): Owner.Owner?
 	local running = coroutine.running()
 	local explicit: Owner.Owner? = nil
 	local inherited: Owner.Owner? = nil
@@ -49,20 +50,31 @@ local function current(): Owner.Owner?
 			end
 		end
 	end
-	local context = Graph.evaluationContext()
+	local context = Evaluation.context()
 	if context ~= nil then
 		local record = Owner.runScopeOf(context)
 		if record ~= nil and depth() <= record.base then
-			return (record :: unknown) :: Owner.Owner
+			return if create then Owner.scopeOwner(record) else record.child or record.inherited
 		end
 	end
 	if explicit == nil and ambiguous then
-		Diagnostics.raise("owner/no-active-owner", "resumer owners are ambiguous", {
-			contract = "a callback cannot infer the order of distinct resumer owners",
-			fix = "bind the child callback with Compose.bindOwner or activate its owner with Compose.withOwner",
-		})
+		error(
+			Diagnostics.format("owner/no-active-owner", "resumer owners are ambiguous", {
+				contract = "a callback cannot infer the order of distinct resumer owners",
+				fix = "bind the child callback with Compose.bindOwner or activate its owner with Compose.withOwner",
+			}),
+			0
+		)
 	end
 	return explicit or inherited
+end
+
+local function current(): Owner.Owner?
+	return find(true)
+end
+
+local function nearest(): Owner.Owner?
+	return find(false)
 end
 
 local function push(owner: Owner.Owner): Activation
@@ -106,12 +118,15 @@ end
 local function own(dispose: Dispose, operation: string): Dispose
 	local owner = current()
 	if owner == nil then
-		Diagnostics.raise("owner/no-active-owner", ("%s has no owner to register with"):format(operation), {
-			contract = "resources must be created inside a mount, so something can release them",
-			fix = "wrap the caller in runtime.mount(component, target), or pass an explicit owner",
-		})
+		error(
+			Diagnostics.format("owner/no-active-owner", ("%s has no owner to register with"):format(operation), {
+				contract = "resources must be created inside a mount, so something can release them",
+				fix = "wrap the caller in runtime.mount(component, target), or pass an explicit owner",
+			}),
+			0
+		)
 	end
-	return (owner :: Owner.Owner).own(dispose)
+	return Owner.own(owner, dispose)
 end
 
 local function runWith<A...>(owner: Owner.Owner, body: (A...) -> (), ...: A...)
@@ -142,6 +157,7 @@ end
 
 return {
 	current = current,
+	nearest = nearest,
 	depth = depth,
 	withOwner = withOwner,
 	bind = bind,

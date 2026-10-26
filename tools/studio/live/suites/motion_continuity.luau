@@ -8,8 +8,8 @@ type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Case = {
 	id: string,
 	contracts: { string },

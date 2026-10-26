@@ -6,7 +6,16 @@ local Core = require "../core"
 
 local function append(path: string, event: Core.ProgressEvent)
 	local handle = fs.open(path, "a")
-	local written = pcall(fs.write, handle, json.serialize((event :: unknown) :: json.Value) .. "\n")
+	local encoded = json.serialize {
+		runId = event.runId,
+		sequence = event.sequence,
+		actor = event.actor,
+		caseId = event.caseId,
+		step = event.step,
+		phase = event.phase,
+		status = event.status,
+	}
+	local written = pcall(fs.write, handle, encoded .. "\n")
 	fs.close(handle)
 	assert(written, "progress line was not written")
 end
@@ -28,7 +37,7 @@ local function read(path: string, runId: string): { Core.ProgressEvent }
 			if decoded then
 				local valid, event = pcall(Core.progress.valid, value, runId)
 				if valid then
-					table.insert(events, event :: Core.ProgressEvent)
+					table.insert(events, event)
 				end
 			end
 		end

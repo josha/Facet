@@ -8,10 +8,10 @@ export type ZoomControls = {
 	zoomAt: ((number, Vector2?) -> boolean)?,
 }
 export type ZoomViewOptions = {
-	contentSize: Shared.Value<Vector2>,
+	contentSize: Shared.Input<Vector2>,
 	content: () -> GuiObject,
-	zoom: Shared.Cell<number>?,
-	focus: Shared.Value<Vector2>?,
+	zoom: Shared.Value<number>?,
+	focus: Shared.Input<Vector2>?,
 	minZoom: number?,
 	maxZoom: number?,
 	doubleTapZoom: number?,
@@ -19,11 +19,11 @@ export type ZoomViewOptions = {
 	controls: ZoomControls?,
 }
 export type TravelOptions = {
-	destination: Shared.Value<GuiObject>,
+	destination: Shared.Input<GuiObject>,
 	content: () -> GuiObject,
 	path: ("straight" | "arc")?,
 	motion: ("ease" | "spring")?,
-	transparency: Shared.Value<number>?,
+	transparency: Shared.Input<number>?,
 	stagger: (number | (() -> number))?,
 	lift: boolean?,
 	onStarted: ((GuiObject) -> ())?,

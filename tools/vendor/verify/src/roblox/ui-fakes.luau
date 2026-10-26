@@ -34,77 +34,92 @@ export type Selection = {
 	rejected: { Rejection },
 }
 
-local classes = (
-	{
-		Instance = { methods = { GetStyled = true, GetStyledPropertyChangedSignal = true } },
-		TextBox = {
-			super = "GuiObject",
-			properties = { Text = "", ClearTextOnFocus = true },
-			events = { "Focused", "FocusLost" },
-			methods = { CaptureFocus = true, ReleaseFocus = true, IsFocused = true },
-		},
-		UserInputService = { super = "Instance", creatable = true, methods = { GetFocusedTextBox = true } },
-		GuiService = {
-			super = "Instance",
-			creatable = true,
-			properties = { SelectedObject = false },
-			methods = { GetGuiInset = true },
-		},
-		TextService = {
-			super = "Instance",
-			creatable = true,
-			methods = { GetTextSize = true, GetTextBoundsAsync = true },
-		},
-		StyleRule = {
-			super = "Instance",
-			properties = { Selector = "", Priority = 0 },
-			methods = {
-				GetProperties = true,
-				SetProperties = true,
-				GetProperty = true,
-				SetProperty = true,
-				GetPropertyTransitions = true,
-				SetPropertyTransitions = true,
-				SetPropertyTransition = true,
-				GetDefaultPropertyTransition = true,
-				SetDefaultPropertyTransition = true,
-			},
-		},
-		StyleLink = { super = "Instance", properties = { StyleSheet = false } },
-		StyleSheet = { super = "Instance", methods = { GetDerives = true, SetDerives = true } },
-		VideoFrame = {
-			super = "GuiObject",
-			properties = { Playing = false, TimePosition = 0 },
-			events = { "Played", "Paused" },
-			methods = { Play = true, Pause = true },
-		},
-		Path2D = {
-			super = "Instance",
-			events = { "ControlPointChanged" },
-			methods = {
-				GetControlPoints = true,
-				SetControlPoints = true,
-				GetControlPoint = true,
-				InsertControlPoint = true,
-				RemoveControlPoint = true,
-				UpdateControlPoint = true,
-				GetLength = true,
-				GetPositionOnCurve = true,
-				GetPositionOnCurveArcLength = true,
-				GetTangentOnCurve = true,
-				GetTangentOnCurveArcLength = true,
-				GetBoundingRect = true,
-				GetMaxControlPoints = true,
-			},
-		},
-		UIPageLayout = {
-			super = "Instance",
-			properties = { CurrentPage = false, Animated = false },
-			events = { "PageEnter", "PageLeave", "Stopped" },
-			methods = { JumpTo = true, JumpToIndex = true, Next = true, Previous = true },
-		},
-	} :: unknown
-) :: { [string]: Environment.ClassSpec }
+local instanceMethods: { [string]: unknown } = { GetStyled = true, GetStyledPropertyChangedSignal = true }
+local textBoxProperties: { [string]: unknown } = { Text = "", ClearTextOnFocus = true }
+local textBoxMethods: { [string]: unknown } = { CaptureFocus = true, ReleaseFocus = true, IsFocused = true }
+local userInputServiceMethods: { [string]: unknown } = { GetFocusedTextBox = true }
+local guiServiceProperties: { [string]: unknown } = { SelectedObject = false }
+local guiServiceMethods: { [string]: unknown } = { GetGuiInset = true }
+local textServiceMethods: { [string]: unknown } = { GetTextSize = true, GetTextBoundsAsync = true }
+local styleRuleProperties: { [string]: unknown } = { Selector = "", Priority = 0 }
+local styleRuleMethods: { [string]: unknown } = {
+	GetProperties = true,
+	SetProperties = true,
+	GetProperty = true,
+	SetProperty = true,
+	GetPropertyTransitions = true,
+	SetPropertyTransitions = true,
+	SetPropertyTransition = true,
+	GetDefaultPropertyTransition = true,
+	SetDefaultPropertyTransition = true,
+}
+local styleLinkProperties: { [string]: unknown } = { StyleSheet = false }
+local styleSheetMethods: { [string]: unknown } = { GetDerives = true, SetDerives = true }
+local videoFrameProperties: { [string]: unknown } = { Playing = false, TimePosition = 0 }
+local videoFrameMethods: { [string]: unknown } = { Play = true, Pause = true }
+local path2DMethods: { [string]: unknown } = {
+	GetControlPoints = true,
+	SetControlPoints = true,
+	GetControlPoint = true,
+	InsertControlPoint = true,
+	RemoveControlPoint = true,
+	UpdateControlPoint = true,
+	GetLength = true,
+	GetPositionOnCurve = true,
+	GetPositionOnCurveArcLength = true,
+	GetTangentOnCurve = true,
+	GetTangentOnCurveArcLength = true,
+	GetBoundingRect = true,
+	GetMaxControlPoints = true,
+}
+local uiPageLayoutProperties: { [string]: unknown } = { CurrentPage = false, Animated = false }
+local uiPageLayoutMethods: { [string]: unknown } = { JumpTo = true, JumpToIndex = true, Next = true, Previous = true }
+
+local classes: { [string]: Environment.ClassSpec } = {
+	Instance = { methods = instanceMethods },
+	TextBox = {
+		super = "GuiObject",
+		properties = textBoxProperties,
+		events = { "Focused", "FocusLost" },
+		methods = textBoxMethods,
+	},
+	UserInputService = { super = "Instance", creatable = true, methods = userInputServiceMethods },
+	GuiService = {
+		super = "Instance",
+		creatable = true,
+		properties = guiServiceProperties,
+		methods = guiServiceMethods,
+	},
+	TextService = {
+		super = "Instance",
+		creatable = true,
+		methods = textServiceMethods,
+	},
+	StyleRule = {
+		super = "Instance",
+		properties = styleRuleProperties,
+		methods = styleRuleMethods,
+	},
+	StyleLink = { super = "Instance", properties = styleLinkProperties },
+	StyleSheet = { super = "Instance", methods = styleSheetMethods },
+	VideoFrame = {
+		super = "GuiObject",
+		properties = videoFrameProperties,
+		events = { "Played", "Paused" },
+		methods = videoFrameMethods,
+	},
+	Path2D = {
+		super = "Instance",
+		events = { "ControlPointChanged" },
+		methods = path2DMethods,
+	},
+	UIPageLayout = {
+		super = "Instance",
+		properties = uiPageLayoutProperties,
+		events = { "PageEnter", "PageLeave", "Stopped" },
+		methods = uiPageLayoutMethods,
+	},
+}
 
 local function visible(object: Instance): boolean
 	local current: Instance? = object
@@ -133,7 +148,7 @@ local function selection(options: Options?): Selection
 			return nil
 		end
 		assert(Environment.isInstance(value), "SelectedObject requires a simulated instance")
-		local object = value :: Instance
+		local object = Environment.assertInstance(value)
 		assert(object:IsA "GuiObject", "SelectedObject requires a GuiObject")
 		if settings.requirePlayerGui == true then
 			assert(
@@ -297,7 +312,8 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 		env.poke(object, "Playing", false)
 		env.fire(object, "Paused", env.propertyOf(object, "Video"))
 	end)
-	local points = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { unknown } }
+	local points: { [Instance]: { unknown } } = {}
+	setmetatable(points, { __mode = "k" })
 	env.fake("Path2D.SetControlPoints", function(object: Instance, values: { unknown })
 		points[object] = table.clone(values)
 		env.fire(object, "ControlPointChanged")

@@ -48,7 +48,7 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Notice "Banner" { placement = "affixed", message = "Saved" }
 				end, screen)
 				local banner = (node :: unknown) :: { AbsoluteSize: Vector2 }
-				frameEngine.environment.poke(FixtureRoblox.assertInstance(banner), "AbsoluteSize", Vector2.new(800, 96))
+				engine.environment.poke(FixtureRoblox.assertInstance(banner), "AbsoluteSize", Vector2.new(800, 96))
 				Verify.expect(screen:GetAttribute("FacetInsetTop")):toBe(0)
 				frames:Fire(1 / 60)
 				Verify.expect(screen:GetAttribute("FacetInsetTop")):toBe(96)
@@ -507,12 +507,14 @@ return function(verifyHarness: Verify.Harness)
 				local readOnly = Compose.formula(function(): boolean
 					return true
 				end)
+				local readOnlyBar = mount(function(UI: FacetControls)
+					return UI.NavBar { onBack = readOnly }
+				end)
 				local accepted = pcall(function()
-					mount(function(UI: FacetControls)
-						return UI.NavBar { onBack = (readOnly :: unknown) :: Facet.Cell<boolean> }
-					end).stop()
+					readOnlyBar.find("Back").Activated:Fire()
 				end)
 				Verify.expect(accepted):toBe(false)
+				readOnlyBar.stop()
 			end,
 		})
 

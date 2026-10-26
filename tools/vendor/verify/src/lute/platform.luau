@@ -54,6 +54,10 @@ export type Result = {
 
 local absolute = Files.absolute
 
+local function environmentFor(options: Options): { [string]: string }
+	return { host = assert(options.host), entry = options.entry }
+end
+
 local function literalIds(ids: { string }?): string
 	if ids == nil then
 		return "nil"
@@ -95,7 +99,7 @@ end
 local function failure(options: Options, status: "failed" | "timed_out", message: string): Core.Report
 	return Core.syntheticReport {
 		executor = "verify-run",
-		environment = { host = options.host :: string, entry = options.entry },
+		environment = environmentFor(options),
 		id = "verify:execution",
 		name = "host execution",
 		status = status,
@@ -114,7 +118,7 @@ local function appendFailure(report: Core.Report, options: Options, name: string
 	end
 	local failed = failure(options, "failed", message)
 	failed.results[1].id = id
-	return Core.merge({ report, failed }, "verify-run", { host = options.host :: string, entry = options.entry })
+	return Core.merge({ report, failed }, "verify-run", { host = options.host, entry = options.entry })
 end
 
 local function run(options: Options): Result
@@ -163,7 +167,8 @@ local function run(options: Options): Result
 				absolute(options.entry),
 				directory .. "/worker-report",
 			}
-			for _, id in options.caseIds or ({} :: { string }) do
+			local caseIds: { string } = options.caseIds or {}
+			for _, id in caseIds do
 				table.insert(command, id)
 			end
 			local environment: { [string]: string }? = if progressPath ~= nil
@@ -186,7 +191,8 @@ local function run(options: Options): Result
 			local place = options.place or directory .. "/fixture.rbxlx"
 			if options.place == nil and options.attach == nil then
 				local roots = { framework .. "/src/core", framework .. "/src/roblox" }
-				for _, root in options.roots or ({} :: { string }) do
+				local additionalRoots: { string } = options.roots or {}
+				for _, root in additionalRoots do
 					table.insert(roots, root)
 				end
 				local modules = { options.entry }
@@ -233,7 +239,8 @@ local function run(options: Options): Result
 				code = engineCode(framework, options.entry, options.caseIds, "open-cloud"),
 				runId = directory,
 			}
-			local finished = cloud :: OpenCloud.Outcome
+			local finished = cloud
+			assert(finished ~= nil)
 			outcome = if finished.status == "returned"
 				then { status = "returned", report = finished.report }
 				else {
@@ -280,11 +287,11 @@ local function run(options: Options): Result
 	if not ok then
 		report = failure(options, "failed", tostring(thrown))
 	else
-		local completed = outcome :: Core.BatchOutcome
+		local completed = outcome
 		if completed.status == "returned" then
 			local decoded, value = pcall(Core.decode, completed.report)
 			if decoded then
-				report = value :: Core.Report
+				report = value
 				if report.total == 0 then
 					report = failure(options, "failed", "host returned an empty report")
 				elseif options.caseIds ~= nil then
@@ -307,12 +314,12 @@ local function run(options: Options): Result
 		elseif unsupported ~= nil then
 			report = Core.syntheticReport {
 				executor = "verify-run",
-				environment = { host = options.host :: string, entry = options.entry },
+				environment = environmentFor(options),
 				id = "verify:execution",
 				name = "host execution",
 				status = "unsupported",
 				missingCapabilities = { "roblox-player-launcher" },
-				limitations = { unsupported :: string },
+				limitations = { unsupported },
 			}
 		else
 			report = failure(
@@ -348,7 +355,8 @@ local function run(options: Options): Result
 	end
 	local required: { Evidence.Requirement } = table.clone(options.requiredEvidence or {})
 	for _, case in report.results do
-		for _, mediaType in options.requiredMedia or ({} :: { string }) do
+		local requiredMedia: { string } = options.requiredMedia or {}
+		for _, mediaType in requiredMedia do
 			table.insert(required, { caseId = case.id, mediaType = mediaType })
 		end
 	end

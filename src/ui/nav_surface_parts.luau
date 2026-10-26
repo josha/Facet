@@ -8,11 +8,11 @@ export type SurfaceParts = {
 	body: (Nav.Content) -> Instance,
 	empty: (Types.FrameProps, { string }, string) -> Frame,
 	revealMotion: (
-		ComposeTypes.Cell<boolean>
-	) -> ((ComposeTypes.Use?) -> number, ComposeTypes.Readable<boolean>, (ComposeTypes.Use) -> number),
+		ComposeTypes.Value<boolean>
+	) -> ((ComposeTypes.Use?) -> number, ComposeTypes.ReadOnlyValue<boolean>, (ComposeTypes.Use) -> number),
 	unroll: (
 		(ComposeTypes.Use?) -> number,
-		ComposeTypes.Readable<Vector2>
+		ComposeTypes.ReadOnlyValue<Vector2>
 	) -> ((ComposeTypes.Use) -> Enum.AutomaticSize, (ComposeTypes.Use) -> number?),
 }
 
@@ -27,7 +27,7 @@ return function(ctx: Types.Context): SurfaceParts
 			ctx.props(spec, keys, { Name = name, BackgroundTransparency = 1, Size = D2.fromOffset(0, 0) })
 		)
 	end
-	local function revealMotion(expanded: ComposeTypes.Cell<boolean>): ((ComposeTypes.Use?) -> number, ComposeTypes.Readable<boolean>, (
+	local function revealMotion(expanded: ComposeTypes.Value<boolean>): ((ComposeTypes.Use?) -> number, ComposeTypes.ReadOnlyValue<boolean>, (
 		ComposeTypes.Use
 	) -> number)
 		local level = motionLevels.level(ctx)
@@ -53,7 +53,7 @@ return function(ctx: Types.Context): SurfaceParts
 				if current == "none" or (current == "limited" and not fades) then
 					return if read(expanded, use) then 1 else 0
 				end
-				return read(value, use)
+				return ctx.readSource(value, use)
 			end
 		end
 		local progress, opacity =
@@ -72,7 +72,7 @@ return function(ctx: Types.Context): SurfaceParts
 				return 1 - opacity(use)
 			end
 	end
-	local function unroll(progress: (ComposeTypes.Use?) -> number, natural: ComposeTypes.Readable<Vector2>)
+	local function unroll(progress: (ComposeTypes.Use?) -> number, natural: ComposeTypes.ReadOnlyValue<Vector2>)
 		return function(use: ComposeTypes.Use): Enum.AutomaticSize
 			return if progress(use) >= 1 then E.AutomaticSize.Y else E.AutomaticSize.None
 		end, function(use: ComposeTypes.Use): number?

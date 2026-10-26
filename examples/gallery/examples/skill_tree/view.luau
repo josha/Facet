@@ -1,7 +1,7 @@
 --!strict
 type Context = typeof(require("@repo/examples/types").Context)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 type ZoomControls = typeof(require("@repo/tools/typecheck/aliases").ZoomControls)
@@ -14,8 +14,8 @@ local art = require("./art")
 return function(ctx: Context)
 	local UI, H, C, runtime = ctx.UI, ctx.Host, ctx.Compose, ctx.runtime
 	local D2, V2, C3, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
-	local theme: Readable<ThemePackage> = ctx.theme or C.cell(ctx.Facet.themes.neutralPackage())
-	local mode: Readable<string> = ctx.themeMode or C.cell(theme:peek().style.defaultTheme)
+	local theme: ReadOnlyValue<ThemePackage> = ctx.theme or C.cell(ctx.Facet.themes.neutralPackage())
+	local mode: ReadOnlyValue<string> = ctx.themeMode or C.cell(theme:peek().style.defaultTheme)
 	local LocalizationTable = ((H :: unknown) :: {
 		LocalizationTable: (string) -> ({ SourceLocaleId: string }) -> LocalizationTable,
 	}).LocalizationTable
@@ -127,7 +127,7 @@ return function(ctx: Context)
 	end
 	local function label(
 		name: string,
-		value: string | Readable<string> | (Use) -> string,
+		value: string | ReadOnlyValue<string> | (Use) -> string,
 		role: Role?,
 		secondary: boolean?,
 		visibleWhen: ((Use) -> boolean)?
@@ -160,7 +160,7 @@ return function(ctx: Context)
 		end
 		return V2.new(x, y)
 	end
-	local function tile(current: Readable<Node>): GuiObject
+	local function tile(current: ReadOnlyValue<Node>): GuiObject
 		local node = current:peek()
 		local status = C.formula(function(use: Use)
 			return model.status(use(state), node)

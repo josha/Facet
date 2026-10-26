@@ -20,7 +20,7 @@ Motion already started by a callback remains owned by that control. `finish()` a
 cleanup. Reduced motion runs start, final sample and end in order without
 waiting. A game owns durable state and validation in its callbacks.
 
-`UI.countUp(value) -> Readable<number>` interpolates a finite number or
+`UI.countUp(value) -> ReadOnlyValue<number>` interpolates a finite number or
 readable using `motion.durations.countUp` and `motion.easing.countUp`. Feed
 it to a `UI.Text` formula to format a total. Retargeting starts at the current
 number. Reduced motion applies the new number at once.

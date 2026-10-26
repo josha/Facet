@@ -8,13 +8,13 @@ local arrival = require("./overlay_arrival")
 local textMeasure = require("./text_measure")
 
 export type Presence = {
-	appearance: (Nav.PresencePhase?, Nav.MotionTiming, ComposeTypes.Readable<boolean>?) -> Nav.Presence,
+	appearance: (Nav.PresencePhase?, Nav.MotionTiming, ComposeTypes.ReadOnlyValue<boolean>?) -> Nav.Presence,
 	atRest: (
 		Nav.Appearance,
-		ComposeTypes.Cell<boolean>,
+		ComposeTypes.Value<boolean>,
 		{ GuiObject },
 		((ComposeTypes.Use) -> string)?
-	) -> ({ ComposeTypes.Readable<Vector2> }, ComposeTypes.Readable<boolean>),
+	) -> ({ ComposeTypes.ReadOnlyValue<Vector2> }, ComposeTypes.ReadOnlyValue<boolean>),
 	departure: (Nav.MotionTiming, GuiObject, () -> boolean) -> ComposeTypes.PresenceOptions,
 }
 
@@ -23,14 +23,15 @@ return function(ctx: Types.Context): Presence
 	local function appearance(
 		phase: Nav.PresencePhase?,
 		timing: Nav.MotionTiming,
-		ready: ComposeTypes.Readable<boolean>?
+		ready: ComposeTypes.ReadOnlyValue<boolean>?
 	): Nav.Presence
 		local level = motion.level(ctx)
 		local arrivalReady = arrival.ready(phase)
 		local function placed(use: ComposeTypes.Use?): boolean
-			return (ready == nil or ctx.read(ready, use)) and (arrivalReady == nil or ctx.read(arrivalReady, use))
+			return (ready == nil or ctx.readSource(ready, use))
+				and (arrivalReady == nil or ctx.readSource(arrivalReady, use))
 		end
-		local exiting: ComposeTypes.Readable<boolean> = if phase then phase.exiting else Compose.cell(false)
+		local exiting: ComposeTypes.ReadOnlyValue<boolean> = if phase then phase.exiting else Compose.cell(false)
 		local shown = Compose.cell(false)
 		local fadeIn, fadeOut = ctx.metric("motion.presentFadeIn"), ctx.metric("motion.presentFadeOut")
 		local present, fade = ctx.motionEase("present"), ctx.motionEase("fade")
@@ -52,17 +53,17 @@ return function(ctx: Types.Context): Presence
 			if not placed(use) then
 				return 0
 			end
-			return if level(use) == "none" then 1 else ctx.read(progress, use)
+			return if level(use) == "none" then 1 else ctx.readSource(progress, use)
 		end
 		local function travel(use: ComposeTypes.Use?): number
 			if not placed(use) then
 				return 0
 			end
-			return if level(use) == "normal" then ctx.read(progress, use) else 1
+			return if level(use) == "normal" then ctx.readSource(progress, use) else 1
 		end
 		local last = 0
 		type Anchor = { p: number, o: number }
-		local anchor: ComposeTypes.Cell<Anchor> = Compose.cell({ p = 0, o = 0 } :: Anchor)
+		local anchor: ComposeTypes.Value<Anchor> = Compose.cell({ p = 0, o = 0 } :: Anchor)
 		local function opacity(use: ComposeTypes.Use?): number
 			local p = raw(use)
 			if level(use) ~= "normal" then
@@ -92,13 +93,13 @@ return function(ctx: Types.Context): Presence
 	end
 	local function atRest(
 		amount: Nav.Appearance,
-		ready: ComposeTypes.Cell<boolean>,
+		ready: ComposeTypes.Value<boolean>,
 		nodes: { GuiObject },
 		restart: ((ComposeTypes.Use) -> string)?
-	): ({ ComposeTypes.Readable<Vector2> }, ComposeTypes.Readable<boolean>)
-		local live: { ComposeTypes.Readable<Vector2> } = {}
+	): ({ ComposeTypes.ReadOnlyValue<Vector2> }, ComposeTypes.ReadOnlyValue<boolean>)
+		local live: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 		for index, node in nodes do
-			live[index] = (runtime.observe(node, "AbsoluteSize") :: unknown) :: ComposeTypes.Readable<Vector2>
+			live[index] = (runtime.observe(node, "AbsoluteSize") :: unknown) :: ComposeTypes.ReadOnlyValue<Vector2>
 		end
 		local fontsReady = fontReadiness(ctx, nodes)
 		local sampled: { Vector2 } = {}
@@ -139,8 +140,8 @@ return function(ctx: Types.Context): Presence
 			restart = restart,
 			timeout = ctx.metric("motion.restLimit"),
 		}
-		local held: { ComposeTypes.Readable<Vector2> } = {}
-		local naturalSizes: { ComposeTypes.Cell<Vector2> } = {}
+		local held: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
+		local naturalSizes: { ComposeTypes.Value<Vector2> } = {}
 		for index, size in live do
 			local natural = Compose.cell(size:peek())
 			naturalSizes[index] = natural

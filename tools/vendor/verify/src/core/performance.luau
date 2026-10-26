@@ -161,11 +161,12 @@ local function summarize(input: Input): Summary
 	end
 	local extra: { PercentileValue }? = nil
 	if requested ~= nil then
-		extra = {}
+		local collected: { PercentileValue } = {}
+		extra = collected
 		for _, percentile in requested do
 			local value = nearestRank(sorted, percentile)
 			if value ~= nil then
-				table.insert(extra :: { PercentileValue }, { percentile = percentile, value = value })
+				table.insert(collected, { percentile = percentile, value = value })
 			end
 		end
 	end

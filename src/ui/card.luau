@@ -119,8 +119,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local root: Frame? = nil
 		local primaryButton: TextButton?
 		local moreTrigger: GuiObject?
-		local actionStates = Compose.cell({} :: { ComposeTypes.Readable<boolean> })
-		local function holding(button: GuiObject): ComposeTypes.Readable<boolean>
+		local actionStates = Compose.cell({} :: { ComposeTypes.ReadOnlyValue<boolean> })
+		local function holding(button: GuiObject): ComposeTypes.ReadOnlyValue<boolean>
 			local down = Compose.cell(false)
 			local state = ctx.observe.GuiState(button)
 			local function pointer(input: InputObject): boolean
@@ -261,9 +261,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				ZIndex = 2,
 				Host.UIPadding({ PaddingLeft = gap, PaddingRight = gap, PaddingTop = gap, PaddingBottom = gap }),
 			}
-			local widths: { [string]: ComposeTypes.Cell<number> } =
+			local widths: { [string]: ComposeTypes.Value<number> } =
 				{ Leading = Compose.cell(0), Trailing = Compose.cell(0) }
-			local onArt: { [string]: ComposeTypes.Cell<boolean> } =
+			local onArt: { [string]: ComposeTypes.Value<boolean> } =
 				{ Leading = Compose.cell(true), Trailing = Compose.cell(true) }
 			local function corner(name: string, badge: Content.CardBadge?, x: number)
 				if badge == nil then
@@ -320,7 +320,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			local leadingLabel = if badges.leading then badges.leading.label else nil
 			moved = function(use: ComposeTypes.Use): { string }
 				local list: { string } = {}
-				local function add(name: string, label: Content.Value<string?>?)
+				local function add(name: string, label: Content.Input<string?>?)
 					local value = read(label, use)
 					if not use(onArt[name]) and nonempty(value) then
 						table.insert(list, value :: string)
@@ -508,7 +508,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		ctx.styled(body, "card-body")
 		body:AddTag("facet-card-part")
 		local actionEnabled = function(use: ComposeTypes.Use?): boolean
-			return enabled(use) and read(revealed, use)
+			return enabled(use) and ctx.readSource(revealed, use)
 		end
 		local rowChildren: { Types.Child } = {}
 		if primary then

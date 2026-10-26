@@ -80,9 +80,9 @@ export type DialogSpec = {
 	hero: Overlay.Media?,
 	actionLabel: Types.ValueString?,
 	actions: { Overlay.DialogAction }?,
-	actionLayout: Overlay.Value<Overlay.ActionLayout?>?,
+	actionLayout: Overlay.Input<Overlay.ActionLayout?>?,
 	closeButton: boolean?,
-	width: Overlay.Value<Overlay.WidthPreset?>?,
+	width: Overlay.Input<Overlay.WidthPreset?>?,
 	contentSelectable: boolean?,
 	[number | Engine.EventKey]: Compose.Child,
 }
@@ -249,7 +249,7 @@ export type NoticeSpec = {
 	link: { label: Types.ValueString, onActivate: () -> () }?,
 	actions: { Overlay.Action }?,
 	onDismiss: (() -> ())?,
-	controlSize: Overlay.Value<Types.ControlSize?>?,
+	controlSize: Overlay.Input<Types.ControlSize?>?,
 	[number | Engine.EventKey]: Compose.Child,
 }
 export type NavBarSpec = {
@@ -319,7 +319,7 @@ export type NavBarSpec = {
 	ZIndex: Engine.ValueNumber?,
 	Style: Engine.ValueEnumFrameStyle?,
 	ref: ((Frame) -> ())?,
-	onBack: ((() -> ()) | Types.Cell<boolean>)?,
+	onBack: ((() -> ()) | Types.Value<boolean>)?,
 	backLabel: string?,
 	title: Types.ValueString?,
 	titleSize: string?,

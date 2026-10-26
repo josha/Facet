@@ -50,7 +50,7 @@ local function write(report: Core.Report, directory: string, required: { Require
 			end
 			local suffix = string.match(source, "(%.[%w]+)$") or ""
 			local filename = string.format("%04d-%s%s", count, safe(artifact.name), suffix)
-			local output = (artifactsDirectory :: string) .. "/" .. filename
+			local output = assert(artifactsDirectory) .. "/" .. filename
 			Files.writeArtifact(output, bytes)
 			artifact.reference = output
 		end)
@@ -120,7 +120,7 @@ local function finish(report: Core.Report, directory: string): string
 	assert(index ~= nil, "evidence summary is missing its artifact section")
 	local reportPath = destination .. "/report.json"
 	fs.writeStringToFile(reportPath, Wire.encode(report))
-	fs.writeStringToFile(summaryPath, Core.format(report) .. "\n" .. string.sub(previous, index :: number))
+	fs.writeStringToFile(summaryPath, Core.format(report) .. "\n" .. string.sub(previous, index))
 	return reportPath
 end
 

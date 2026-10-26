@@ -1,11 +1,11 @@
 --!strict
 
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type DesignRow = { [string]: unknown }
 type DesignData = {
 	ChooseFurniture: ((DesignRow, unknown, InputObject?, number?) -> ())?,
-	InventoryRows: Readable<{ DesignRow }>?,
+	InventoryRows: ReadOnlyValue<{ DesignRow }>?,
 	PlaceFurniture: ((DesignRow) -> ())?,
 }
 local storage, players = game:GetService("ReplicatedStorage"), game:GetService("Players")

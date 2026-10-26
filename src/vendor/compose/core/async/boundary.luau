@@ -3,7 +3,9 @@
 local Children = require "../runtime/children"
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
+local Owner = require "../ownership/owner"
 local Support = require "../structure/support"
+local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 
 export type Builder = () -> Host.Node
@@ -19,7 +21,8 @@ local function boundary(builder: Builder, fallback: Fallback): Children.Directiv
 
 	return function(mountPoint: Children.MountPoint)
 		local owner = Support.ownerFor "boundary"
-		local failure = cellModule.cell(nil :: unknown)
+		local initial: unknown = nil
+		local failure: Types.Value<unknown> = cellModule.cell(initial)
 		local attempt = cellModule.cell(1)
 
 		local current: (() -> ())? = nil
@@ -42,7 +45,7 @@ local function boundary(builder: Builder, fallback: Fallback): Children.Directiv
 			end)
 		end
 
-		owner.watch(function(use)
+		Owner.watch(owner, function(use)
 			local reason = use(failure)
 
 			use(attempt)
@@ -55,14 +58,14 @@ local function boundary(builder: Builder, fallback: Fallback): Children.Directiv
 
 			if reason == nil then
 				reported = false
-				local child = owner.createChild()
-				child.guardWith { report = report }
+				local child = Owner.createChild(owner)
+				Owner.guardWith(child, { report = report })
 
 				local ok, block = pcall(Support.mountBuilder, mountPoint, child, builder, "boundary")
 				if ok then
-					current = child.dispose
+					current = Owner.disposer(child)
 				else
-					child.dispose()
+					Owner.dispose(child)
 					report(block)
 				end
 				return

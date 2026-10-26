@@ -11,7 +11,7 @@ return function(
 	kit: inputKit.Kit,
 	spec: InputProps.ButtonProps,
 	p: InputProps.ButtonProps,
-	iconState: ComposeTypes.Cell<ThemeTypes.SkinState>?,
+	iconState: ComposeTypes.Value<ThemeTypes.SkinState>?,
 	bounded: boolean,
 	sized: (TextLabel | TextButton) -> (),
 	hint: GuiObject?
@@ -20,7 +20,7 @@ return function(
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local dynamic, hasText = kit.dynamic, kit.hasText
 	local liveWidth = bounded and spec.AutomaticSize == nil and dynamic(spec.Size)
-	local function sizing<T>(fixed: T, hug: T): Shared.Value<T>
+	local function sizing<T>(fixed: T, hug: T): Shared.Input<T>
 		if liveWidth then
 			return function(use: ComposeTypes.Use): T
 				local size = read(spec.Size, use) :: UDim2
@@ -55,7 +55,7 @@ return function(
 	local content: { ComposeTypes.Child } = {}
 	local imageCard = spec.image ~= nil
 	local hugs = false
-	local rungIcon: Shared.Value<UDim2>? = nil
+	local rungIcon: Shared.Input<UDim2>? = nil
 	if spec.controlSize ~= nil then
 		local function iconSide(use: ComposeTypes.Use?): UDim2
 			local side = ctx.controlSize(spec.controlSize, "iconSize", use)
@@ -171,7 +171,7 @@ return function(
 	local rowCaptions: { GuiObject } = {}
 	local wordless = hasLeading and description == nil and not dynamic(label) and label == ""
 	if not (spec.shape == "circle" and (spec.icon or spec.glyph)) and not wordless then
-		local function caption(name: string, text: Shared.Value<string>): TextLabel
+		local function caption(name: string, text: Shared.Input<string>): TextLabel
 			local live = dynamic(text)
 			local function words(use: ComposeTypes.Use?): string
 				return read(text, use) or ""

@@ -6,8 +6,8 @@ type OrderedControls = typeof(require("@repo/tools/typecheck/aliases").OrderedCo
 type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
 type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local motion = {}
 
 function motion.create(ctx: Context, name: string, _dataset)
@@ -41,7 +41,7 @@ function motion.create(ctx: Context, name: string, _dataset)
 		countWork = false,
 		motionTransactions = 0,
 		springsMoving = nil :: number?,
-		rows = nil :: Readable<{ unknown }>?,
+		rows = nil :: ReadOnlyValue<{ unknown }>?,
 	}
 	local function label(text: TextValue, size: number, name: string?)
 		return Host.TextLabel({
@@ -147,7 +147,7 @@ function motion.create(ctx: Context, name: string, _dataset)
 				status = state.status,
 				controls = state.controls,
 				Size = D2.new(1, 0, 0, height),
-				render = function(current: Readable<{ id: string, name: string }>): GuiObject
+				render = function(current: ReadOnlyValue<{ id: string, name: string }>): GuiObject
 					return label(function(use: Use)
 						return use(current).name
 					end, 15, "Name")
@@ -262,7 +262,7 @@ function motion.create(ctx: Context, name: string, _dataset)
 				key = function(item)
 					return item.id
 				end,
-				render = function(current: Readable<{ id: string, index: number }>): GuiObject
+				render = function(current: ReadOnlyValue<{ id: string, index: number }>): GuiObject
 					local record = current:peek()
 					local hold = (record.index - 1) * 0.02
 					local group = Host.CanvasGroup({

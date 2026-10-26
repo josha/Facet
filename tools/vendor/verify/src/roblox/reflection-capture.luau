@@ -2,13 +2,26 @@
 
 type Fields = { [string]: unknown }
 type Encode = (value: unknown, kind: string) -> unknown
-type Service = { [string]: unknown }
+type EnumItem = { Name: string, Value: number }
+type EnumFamily = { GetEnumItems: (EnumFamily) -> { EnumItem } }
+type Enums = { GetEnums: (Enums) -> { EnumFamily }, [string]: EnumFamily }
+type BrickColor = { Number: number, Name: string, Color: { R: number, G: number, B: number } }
+type Font = { Family: string, Weight: EnumItem, Style: EnumItem }
+type Node = { [string]: unknown, Destroy: (Node) -> () }
+type Reflection = {
+	GetClass: (Reflection, string, Fields?) -> ReflectedMember?,
+	GetClasses: (Reflection, Fields?) -> { ReflectedMember },
+	GetPropertiesOfClass: (Reflection, string, Fields?) -> { ReflectedMember }?,
+	GetEventsOfClass: (Reflection, string, Fields?) -> { ReflectedMember }?,
+	GetMethodsOfClass: (Reflection, string, Fields?) -> { ReflectedMember }?,
+}
+type Game = { GetService: (Game, string) -> Reflection, FindService: (Game, string) -> Node? }
 type Globals = {
-	game: unknown,
-	Instance: { new: (className: string) -> unknown },
-	Enum: unknown,
-	BrickColor: { new: (number) -> unknown, palette: (number) -> unknown },
-	Font: { fromEnum: (unknown) -> unknown },
+	game: Game,
+	Instance: { new: (className: string) -> Node },
+	Enum: Enums,
+	BrickColor: { new: (number) -> BrickColor, palette: (number) -> BrickColor },
+	Font: { fromEnum: (EnumItem) -> Font },
 	typeof: (unknown) -> string,
 	version: (() -> string)?,
 	security: unknown,
@@ -48,13 +61,8 @@ local RENAMES: { [string]: string } = {
 
 local SKIPPED: { [string]: boolean } = { Parent = true, ClassName = true }
 
-local function call(target: unknown, method: string, ...: unknown): unknown
-	local fields = target :: Fields
-	return (fields[method] :: (unknown, ...unknown) -> unknown)(target, ...)
-end
-
-local function reflection(globals: Globals): unknown
-	return call(globals.game, "GetService", "ReflectionService")
+local function reflection(globals: Globals): Reflection
+	return globals.game:GetService "ReflectionService"
 end
 
 local function filter(globals: Globals): Fields
@@ -91,7 +99,7 @@ local function property(member: ReflectedMember): Fields
 		table.insert(tags, "Deprecated")
 	end
 	return {
-		datatype = datatype(member.Type :: ReflectedType),
+		datatype = datatype(assert(member.Type)),
 		scriptability = if readable and writable
 			then "ReadWrite"
 			elseif readable then "Read"
@@ -101,13 +109,13 @@ local function property(member: ReflectedMember): Fields
 	}
 end
 
-local function sample(globals: Globals, encode: Encode, object: unknown, members: { ReflectedMember }): Fields
+local function sample(globals: Globals, encode: Encode, object: Node, members: { ReflectedMember }): Fields
 	local defaults: Fields = {}
 	for _, member in members do
 		local permits: { [string]: unknown } = member.Permits or {}
 		if permits.Read ~= nil and not SKIPPED[member.Name] then
 			local read, value = pcall(function(): unknown
-				return (object :: Fields)[member.Name]
+				return object[member.Name]
 			end)
 			if read and value ~= nil then
 				local encoded = encode(value, globals.typeof(value))
@@ -122,19 +130,21 @@ end
 
 local function class(globals: Globals, encode: Encode, name: string, services: boolean): Fields
 	local service = reflection(globals)
-	local current = call(service, "GetClass", name) :: ReflectedMember?
-	local plugin = if current == nil then call(service, "GetClass", name, filter(globals)) :: ReflectedMember? else nil
+	local current = service:GetClass(name)
+	local plugin = if current == nil then service:GetClass(name, filter(globals)) else nil
 	local permitted = current or plugin
 	local scope = if current == nil and plugin ~= nil then filter(globals) else nil
-	local reflected = permitted
-		or call(service, "GetClass", name, { Security = globals.classSecurity }) :: ReflectedMember?
+	local reflected = permitted or service:GetClass(name, { Security = globals.classSecurity })
 	assert(reflected ~= nil, "Studio reflection has no class " .. name)
-	local function membersOf(method: string): { ReflectedMember }
-		local members = call(service, method, name, scope) :: { ReflectedMember }?
+	local function membersOf(
+		method: string,
+		fetch: (Reflection, string, Fields?) -> { ReflectedMember }?
+	): { ReflectedMember }
+		local members = fetch(service, name, scope)
 		assert(members ~= nil or permitted == nil, "Studio reflection returned no " .. method .. " for " .. name)
 		return members or {}
 	end
-	local members = membersOf "GetPropertiesOfClass"
+	local members = membersOf("GetPropertiesOfClass", service.GetPropertiesOfClass)
 	local permits: { [string]: unknown } = if permitted then permitted.Permits or {} else {}
 	local tags: { string } = {}
 	if permits.New == nil then
@@ -153,13 +163,13 @@ local function class(globals: Globals, encode: Encode, name: string, services: b
 		end
 	end
 	local events: { string } = {}
-	for _, member in membersOf "GetEventsOfClass" do
+	for _, member in membersOf("GetEventsOfClass", service.GetEventsOfClass) do
 		if member.Owner == name and member.Permits ~= nil and member.Permits.Listen ~= nil then
 			table.insert(events, member.Name)
 		end
 	end
 	local methods: { string } = {}
-	for _, member in membersOf "GetMethodsOfClass" do
+	for _, member in membersOf("GetMethodsOfClass", service.GetMethodsOfClass) do
 		if member.Owner == name and member.Permits ~= nil and member.Permits.Call ~= nil then
 			table.insert(methods, member.Name)
 		end
@@ -169,10 +179,10 @@ local function class(globals: Globals, encode: Encode, name: string, services: b
 		local created, object = pcall(globals.Instance.new, name)
 		if created and object ~= nil then
 			defaults = sample(globals, encode, object, members)
-			pcall(call, object, "Destroy")
+			pcall(object.Destroy, object)
 		end
 	elseif services and permits.GetService ~= nil then
-		local found, object = pcall(call, globals.game, "FindService", name)
+		local found, object = pcall(globals.game.FindService, globals.game, name)
 		if found and object ~= nil then
 			defaults = sample(globals, encode, object, members)
 		end
@@ -188,19 +198,19 @@ local function class(globals: Globals, encode: Encode, name: string, services: b
 end
 
 local function index(globals: Globals): Fields
-	local classes: { Fields } = {}
-	for _, reflected in
-		call(reflection(globals), "GetClasses", { Security = globals.classSecurity }) :: { ReflectedMember }
-	do
-		local entry: Fields = {}
-		entry.name, entry.superclass = reflected.Name, reflected.Superclass
+	local classes: { { name: string, superclass: string? } } = {}
+	for _, reflected in reflection(globals):GetClasses { Security = globals.classSecurity } do
+		local entry = { name = reflected.Name, superclass = reflected.Superclass }
 		table.insert(classes, entry)
 	end
-	table.sort(classes, function(left: Fields, right: Fields): boolean
-		return (left.name :: string) < (right.name :: string)
-	end)
+	table.sort(
+		classes,
+		function(left: { name: string, superclass: string? }, right: { name: string, superclass: string? }): boolean
+			return left.name < right.name
+		end
+	)
 	local enums: { string } = {}
-	for _, family in call(globals.Enum, "GetEnums") :: { unknown } do
+	for _, family in globals.Enum:GetEnums() do
 		table.insert(enums, tostring(family))
 	end
 	return {
@@ -213,9 +223,9 @@ end
 local function enums(globals: Globals, names: { string }): Fields
 	local out: Fields = {}
 	for _, name in names do
-		local family = (globals.Enum :: Fields)[name]
-		local items: { Fields } = {}
-		for _, item in call(family, "GetEnumItems") :: { Fields } do
+		local family = globals.Enum[name]
+		local items: { { name: string, value: number } } = {}
+		for _, item in family:GetEnumItems() do
 			table.insert(items, { name = item.Name, value = item.Value })
 		end
 		out[name] = items
@@ -226,9 +236,9 @@ end
 local function engine(globals: Globals): Fields
 	local colors: { Fields } = {}
 	for number = 0, 1032 do
-		local color = globals.BrickColor.new(number) :: Fields
+		local color = globals.BrickColor.new(number)
 		if color.Number == number then
-			local value = color.Color :: Fields
+			local value = color.Color
 			local entry: Fields = {}
 			entry.number, entry.name, entry.color = number, color.Name, { value.R, value.G, value.B }
 			table.insert(colors, entry)
@@ -236,18 +246,18 @@ local function engine(globals: Globals): Fields
 	end
 	local palette: { number } = {}
 	for slot = 0, 127 do
-		table.insert(palette, (globals.BrickColor.palette(slot) :: Fields).Number :: number)
+		table.insert(palette, globals.BrickColor.palette(slot).Number)
 	end
 	local fonts: Fields = {}
-	local family = (globals.Enum :: Fields).Font
-	for _, item in call(family, "GetEnumItems") :: { Fields } do
+	local family = globals.Enum.Font
+	for _, item in family:GetEnumItems() do
 		local converted, font = pcall(globals.Font.fromEnum, item)
 		if converted then
-			local fields = font :: Fields
-			fonts[item.Name :: string] = {
+			local fields = font
+			fonts[item.Name] = {
 				family = fields.Family,
-				weight = (fields.Weight :: Fields).Name,
-				style = (fields.Style :: Fields).Name,
+				weight = fields.Weight.Name,
+				style = fields.Style.Name,
 			}
 		end
 	end

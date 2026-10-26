@@ -273,7 +273,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					end, press)
 					table.insert(regions, assert(group).frame)
 				end
-				local naturalSize: ComposeTypes.Readable<Vector2> = if bodyContent
+				local naturalSize: ComposeTypes.ReadOnlyValue<Vector2> = if bodyContent
 					then ctx.layoutSize(bodyContent, unit)
 					else Compose.cell(V2.zero)
 				local room = parts.room(ctx, regions, body, function(use: ComposeTypes.Use): number
@@ -290,7 +290,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					runtime.decorate(scroller, { Selectable = room.overflowing })
 					scroller:SetAttribute("FacetSelectionOwner", true)
 					local gui = surfaces.service("GuiService")
-					local selected: ComposeTypes.Readable<GuiObject?> = if gui
+					local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
 						then ctx.observe.SelectedObject(gui)
 						else Compose.cell(nil :: GuiObject?)
 					local canvas = ctx.observe.CanvasPosition(scroller)
@@ -326,7 +326,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					})
 				end
 				local settled = Compose.cell(false)
-				local held: ComposeTypes.Cell<Vector2?> = Compose.cell(nil :: Vector2?)
+				local held: ComposeTypes.Value<Vector2?> = Compose.cell(nil :: Vector2?)
 				local shown = surfaces.appearance(phase, ctx.motionTiming("dialog"), settled)
 				local panelProps: Types.CanvasGroupNativeProps = {
 					Name = "Panel",
@@ -384,7 +384,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				end
 				local initial = parts.initialAction(candidates)
 				Compose.cleanup(function()
-					if disposed or owner.isDisposed() then
+					if disposed or ComposeTypes.owner.isDisposed(owner) then
 						closing = nil
 						report("cancel")
 						return

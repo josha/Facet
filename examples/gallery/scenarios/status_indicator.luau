@@ -5,8 +5,10 @@ type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Status = "neutral" | "info" | "success" | "warning" | "error" | "accent" | "voice" | "contrast"
 type Form = "dot" | "ring" | "square" | "dash"
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 return {
 	title = "Status marks",
 	ledgerRows = {},
@@ -17,8 +19,8 @@ return {
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local initialStatus: Status = "neutral"
 		local initialForm: Form = "dot"
-		local status: Cell<Status> = Compose.cell(initialStatus)
-		local form: Cell<Form> = Compose.cell(initialForm)
+		local status: Value<Status> = Compose.cell(initialStatus)
+		local form: Value<Form> = Compose.cell(initialForm)
 		local count = Compose.cell(0)
 		local rootPath, controller, record: TextLabel?
 		local function report()

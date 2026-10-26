@@ -1,9 +1,11 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Terminal = typeof(require("@repo/examples/gallery/examples/outpost_terminal"))
 type Reply = {
 	kind: string?,
@@ -43,7 +45,7 @@ return {
 		end
 		local world = ctx.worldTarget
 		local noConsole: BasePart? = nil
-		local console: Cell<BasePart?> = Compose.cell(noConsole)
+		local console: Value<BasePart?> = Compose.cell(noConsole)
 		local token: string? = nil
 		local replies: { Reply } = {}
 		local connectionState =

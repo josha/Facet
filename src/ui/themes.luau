@@ -1275,14 +1275,14 @@ return function(Compose: typeof(ComposeTypes)): ThemeTypes.Themes
 		resolveIcon = themes.resolveIcon,
 		createStyleSheet = function(
 			runtime: ComposeTypes.Runtime,
-			packageOrReadable: Engine.Value<ThemeTypes.ThemePackage>?,
+			packageOrReadable: Engine.Input<ThemeTypes.ThemePackage>?,
 			options: ThemeTypes.ThemeOptions?
 		): StyleSheet
 			return createStyleSheet(neutral, rulesFor, themes.forDistance, Compose, runtime, packageOrReadable, options)
 		end,
 		skin = function(
 			runtime: ComposeTypes.Runtime,
-			packageOrReadable: Engine.Value<ThemeTypes.ThemePackage>?,
+			packageOrReadable: Engine.Input<ThemeTypes.ThemePackage>?,
 			slot: string,
 			options: ThemeTypes.SkinOptions?
 		): Frame

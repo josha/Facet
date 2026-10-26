@@ -37,7 +37,7 @@ local function listener(path: string, runId: string, readHistory: (number) -> st
 		end
 	end
 	local function poll()
-		local ok, problem: unknown = pcall(function()
+		local ok, problem = pcall(function()
 			local before: number
 			repeat
 				before = polled

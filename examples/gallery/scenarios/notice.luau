@@ -6,8 +6,8 @@ type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type ToastSpec = typeof(require("@repo/tools/typecheck/aliases").ToastSpec)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type NoticeSeverity = "info" | "success" | "warning" | "error"
 type ToastAction = { label: string, onActivate: () -> () }
 type ToastExtra = {
@@ -188,7 +188,7 @@ return {
 					key = function(entry: Entry): number
 						return entry.id
 					end,
-					render = function(item: Readable<Entry>): GuiObject
+					render = function(item: ReadOnlyValue<Entry>): GuiObject
 						local entry: Entry = item:peek()
 						return UI.Toast(entry.spec)
 					end,

@@ -134,15 +134,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end,
 				render = function(_, _, current: InputBinding)
 					return glyph("PreferredBinding", spec.controlSize, {
-						key = (ctx.observe.KeyCode(current) :: unknown) :: ComposeTypes.Readable<Enum.KeyCode?>,
-						name = (ctx.observe.DisplayName(current) :: unknown) :: ComposeTypes.Readable<string?>,
+						key = (ctx.observe.KeyCode(current) :: unknown) :: ComposeTypes.ReadOnlyValue<Enum.KeyCode?>,
+						name = (ctx.observe.DisplayName(current) :: unknown) :: ComposeTypes.ReadOnlyValue<string?>,
 						primary = (
 								ctx.observe.PrimaryModifier(current) :: unknown
-							) :: ComposeTypes.Readable<Enum.KeyCode?>,
+							) :: ComposeTypes.ReadOnlyValue<Enum.KeyCode?>,
 						secondary = (
 								ctx.observe.SecondaryModifier(current) :: unknown
-							) :: ComposeTypes.Readable<Enum.KeyCode?>,
-						image = (ctx.observe.DisplayImage(current) :: unknown) :: ComposeTypes.Readable<Content?>,
+							) :: ComposeTypes.ReadOnlyValue<Enum.KeyCode?>,
+						image = (ctx.observe.DisplayImage(current) :: unknown) :: ComposeTypes.ReadOnlyValue<Content?>,
 					})
 				end,
 			})

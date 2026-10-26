@@ -10,15 +10,15 @@ local PickerState = require("./date_time_state")
 type CivilDate = DTP.CivilDate
 type Range = DTP.Range
 type Use = ComposeTypes.Use
-type Cell<T> = ComposeTypes.Cell<T>
+type Value<T> = ComposeTypes.Value<T>
 type Grab = { other: CivilDate, from: Range, last: CivilDate, moved: boolean }
 export type Calendar = {
 	cells: { [number]: { [number]: TextButton } },
 	cellIndex: { [Instance]: { k: number, i: number } },
 	cellFor: (CivilDate, Use?) -> (number?, number?),
 	landing: () -> number,
-	upTarget: Cell<GuiObject?>,
-	downTarget: Cell<GuiObject?>,
+	upTarget: Value<GuiObject?>,
+	downTarget: Value<GuiObject?>,
 	pane: (number) -> Frame,
 	navigate: (Frame) -> (),
 }

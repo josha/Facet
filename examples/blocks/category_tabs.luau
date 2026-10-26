@@ -3,10 +3,10 @@ local FacetTypes = require("../../src")
 
 type FacetModule = FacetTypes.Facet
 type FacetControls = FacetTypes.Controls
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Item = { id: string, name: string, category: string }
-type Model = { items: Readable<{ Item }> }
+type Model = { items: ReadOnlyValue<{ Item }> }
 
 return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 	local category = Facet.Compose.cell("all")
@@ -27,7 +27,7 @@ return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 		minColumns = 2,
 		itemSize = 80,
 		scrollReset = category,
-		render = function(current: Readable<Item>): GuiObject
+		render = function(current: ReadOnlyValue<Item>): GuiObject
 			return UI.Text "ItemName" {
 				text = function(use: Use)
 					return use(current).name

@@ -1,4 +1,8 @@
 --!strict
+--!native
+
+local createWritten: (number, unknown?) -> { unknown } = table.create
+local createPrevious: (number, Binding??) -> { Binding? } = table.create
 
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
@@ -25,8 +29,11 @@ type Registry = { [Node]: Bindings }
 type Clear = (node: Node, key: string, value: nil) -> ...unknown
 type GroupBody = (use: Types.Use) -> ...unknown
 
-local propertyBindings = Weak.keys() :: Registry
-local attributeBindings = Weak.keys() :: Registry
+local propertyBindings: Registry = {}
+
+Weak.keys(propertyBindings)
+local attributeBindings: Registry = {}
+Weak.keys(attributeBindings)
 
 local function retireBinding(binding: Binding?, key: string)
 	if binding == nil then
@@ -154,29 +161,35 @@ end
 local function subscribe(host: Host.Host, node: Node, owner: Owner.Owner, name: string, handler: (...unknown) -> ())
 	local events = host.events
 	if events == nil then
-		Diagnostics.raise("host/no-events", ("host %q cannot subscribe to events"):format(host.name), {
-			event = name,
-			node = Host.describeNode(host, node),
-			contract = "subscribing requires the host events capability",
-			fix = "implement host.events.connectEvent, or stop passing event keys to this host",
-		})
+		error(
+			Diagnostics.format("host/no-events", ("host %q cannot subscribe to events"):format(host.name), {
+				event = name,
+				node = Host.describeNode(host, node),
+				contract = "subscribing requires the host events capability",
+				fix = "implement host.events.connectEvent, or stop passing event keys to this host",
+			}),
+			0
+		)
 	end
-	owner.own((events :: Host.Events).connectEvent(node, name, handler))
+	Owner.own(owner, (events).connectEvent(node, name, handler))
 end
 
 local function refuseNodeValue(host: Host.Host, node: Node, key: string, value: unknown)
 	if not Nodes.isDestructible(value) then
 		return
 	end
-	Diagnostics.raise("props/child-under-string-key", "a node was given as the value of a property", {
-		key = key,
-		node = Host.describeNode(host, node),
-		actual = ("a node this runtime will destroy: %s"):format(Host.describeNode(host, value)),
-		expected = "a value the host can store in a property",
-		contract = "a string key names a property to write; children live in the array part of the props table",
-		fix = ("drop the key -- write the node as a positional child rather than as %s = ...; "):format(key)
-			.. ("if this host really does take a node there, say so with %s = static(node)"):format(key),
-	})
+	error(
+		Diagnostics.format("props/child-under-string-key", "a node was given as the value of a property", {
+			key = key,
+			node = Host.describeNode(host, node),
+			actual = ("a node this runtime will destroy: %s"):format(Host.describeNode(host, value)),
+			expected = "a value the host can store in a property",
+			contract = "a string key names a property to write; children live in the array part of the props table",
+			fix = ("drop the key -- write the node as a positional child rather than as %s = ...; "):format(key)
+				.. ("if this host really does take a node there, say so with %s = static(node)"):format(key),
+		}),
+		0
+	)
 end
 
 type Target = {
@@ -204,7 +217,7 @@ local function writeOnce(target: Target, node: Node, owner: Owner.Owner, key: st
 	local bindings, binding = bindingFor(registry, node)
 	local cleanup = singleCleanup(registry, node, bindings, key, binding, clear)
 	replace(bindings, key, binding)
-	binding.dispose = owner.own(cleanup)
+	binding.dispose = Owner.own(owner, cleanup)
 end
 
 local function bind(target: Target, node: Node, owner: Owner.Owner, key: string, source: Types.Source<unknown>)
@@ -241,22 +254,23 @@ local function bind(target: Target, node: Node, owner: Owner.Owner, key: string,
 	if statsOn.enabled then
 		profile.naming(("%s.%s%s"):format(Host.describeNode(target.host, node), target.prefix, key))
 	end
-	if cellModule.isReadable(source) then
-		binding.dispose = owner.watchStatic(source :: Types.Readable<unknown>, publish, cleanup)
-	else
-		local body = source :: Types.Body<unknown>
-		binding.dispose = owner.watchTerminal(function(use)
+	local dispose: () -> ()
+	if type(source) == "function" then
+		dispose = Owner.watchTerminal(owner, function(use)
 			if written == UNWRITTEN or binding.active then
-				publish(body(use))
+				publish(source(use))
 			end
 		end, cleanup)
+	else
+		dispose = Owner.watchStatic(owner, source, publish, cleanup)
 	end
+	binding.dispose = dispose
 	if statsOn.enabled then
 		profile.naming(nil)
 	end
 	previous = nil
 	if binding.remaining == 0 then
-		(binding.dispose :: () -> ())()
+		dispose()
 	end
 end
 
@@ -266,27 +280,37 @@ local function bindGroup(host: Host.Host, node: Node, owner: Owner.Owner, names:
 	for index = 1, count do
 		local name = names[index]
 		if classify(host, node, name) == "event" then
-			Diagnostics.raise("props/group-names-an-event", "a group named a key the host classifies as an event", {
-				event = name,
-				node = Host.describeNode(host, node),
-				contract = "a group writes properties; events are subscribed with event(name)",
-				fix = ("move %q out of the group and onto its own [event(%q)] key"):format(name, name),
-			})
+			error(
+				Diagnostics.format(
+					"props/group-names-an-event",
+					"a group named a key the host classifies as an event",
+					{
+						event = name,
+						node = Host.describeNode(host, node),
+						contract = "a group writes properties; events are subscribed with event(name)",
+						fix = ("move %q out of the group and onto its own [event(%q)] key"):format(name, name),
+					}
+				),
+				0
+			)
 		end
 	end
 	if type(source) ~= "function" then
-		Diagnostics.raise("props/group-needs-a-body", "a group key was given something that is not a body", {
-			properties = table.concat(names, ", "),
-			node = Host.describeNode(host, node),
-			actual = Diagnostics.describe(source),
-			expected = "a function taking `use` and returning one value per name",
-		})
+		error(
+			Diagnostics.format("props/group-needs-a-body", "a group key was given something that is not a body", {
+				properties = table.concat(names, ", "),
+				node = Host.describeNode(host, node),
+				actual = Diagnostics.describe(source),
+				expected = "a function taking `use` and returning one value per name",
+			}),
+			0
+		)
 	end
 
 	local body = source :: GroupBody
-	local written = table.create(count, UNWRITTEN) :: { unknown }
+	local written: { unknown } = createWritten(count, UNWRITTEN)
 	local bindings, binding = bindingFor(propertyBindings, node)
-	local previous = table.create(count) :: { Binding? }
+	local previous: { Binding? } = createPrevious(count)
 	for index, name in names do
 		previous[index] = bindings[name]
 	end
@@ -320,15 +344,18 @@ local function bindGroup(host: Host.Host, node: Node, owner: Owner.Owner, names:
 	if statsOn.enabled then
 		profile.naming(("%s.{%s}"):format(Host.describeNode(host, node), table.concat(names, ",")))
 	end
-	binding.dispose = owner.watch(function(use)
+	local dispose = Owner.watch(owner, function(use)
 		local values = table.pack(body(use))
 		if values.n ~= count then
-			Diagnostics.raise("props/group-arity", "a group body returned the wrong number of values", {
-				properties = table.concat(names, ", "),
-				node = Host.describeNode(host, node),
-				actual = ("%d value(s)"):format(values.n),
-				expected = ("%d, one per name, in order"):format(count),
-			})
+			error(
+				Diagnostics.format("props/group-arity", "a group body returned the wrong number of values", {
+					properties = table.concat(names, ", "),
+					node = Host.describeNode(host, node),
+					actual = ("%d value(s)"):format(values.n),
+					expected = ("%d, one per name, in order"):format(count),
+				}),
+				0
+			)
 		end
 		for index = 1, count do
 			local name = names[index]
@@ -358,6 +385,7 @@ local function bindGroup(host: Host.Host, node: Node, owner: Owner.Owner, names:
 			binding.dispose()
 		end
 	end, nil, cleanup)
+	binding.dispose = dispose
 	if statsOn.enabled then
 		profile.naming(nil)
 	end
@@ -368,7 +396,7 @@ local function bindGroup(host: Host.Host, node: Node, owner: Owner.Owner, names:
 		end
 	end
 	if binding.remaining == 0 then
-		(binding.dispose :: () -> ())()
+		dispose()
 	end
 end
 
@@ -379,14 +407,17 @@ type SetAttribute = (node: Node, name: string, value: unknown) -> (boolean, stri
 local function attributeWriter(host: Host.Host, node: Node): SetAttribute
 	local setAttribute = host.render.setAttribute
 	if setAttribute == nil then
-		Diagnostics.raise("host/no-attributes", ("host %q cannot store attributes"):format(host.name), {
-			key = ATTRIBUTES,
-			node = Host.describeNode(host, node),
-			contract = "an Attributes prop requires the render.setAttribute capability",
-			fix = "implement host.render.setAttribute, or write the value under an ordinary property key",
-		})
+		error(
+			Diagnostics.format("host/no-attributes", ("host %q cannot store attributes"):format(host.name), {
+				key = ATTRIBUTES,
+				node = Host.describeNode(host, node),
+				contract = "an Attributes prop requires the render.setAttribute capability",
+				fix = "implement host.render.setAttribute, or write the value under an ordinary property key",
+			}),
+			0
+		)
 	end
-	return setAttribute :: SetAttribute
+	return setAttribute
 end
 
 local function writeAttribute(host: Host.Host, node: Node, write: SetAttribute, name: string, value: unknown)
@@ -394,47 +425,56 @@ local function writeAttribute(host: Host.Host, node: Node, write: SetAttribute, 
 	if accepted then
 		return
 	end
-	Diagnostics.raise("props/attribute-value", "the host refused an attribute value", {
-		key = ("%s.%s"):format(ATTRIBUTES, name),
-		node = Host.describeNode(host, node),
-		actual = Diagnostics.describe(value),
-		expected = "a value this host stores as an attribute",
-		detail = if reason ~= nil then reason else "the host gave no reason",
-		contract = "an attribute value must be one the host's attribute store accepts; nil clears it",
-		fix = ("write a value the host accepts, or move %q onto an ordinary property key"):format(name),
-	})
+	error(
+		Diagnostics.format("props/attribute-value", "the host refused an attribute value", {
+			key = ("%s.%s"):format(ATTRIBUTES, name),
+			node = Host.describeNode(host, node),
+			actual = Diagnostics.describe(value),
+			expected = "a value this host stores as an attribute",
+			detail = if reason ~= nil then reason else "the host gave no reason",
+			contract = "an attribute value must be one the host's attribute store accepts; nil clears it",
+			fix = ("write a value the host accepts, or move %q onto an ordinary property key"):format(name),
+		}),
+		0
+	)
 end
 
 local function refuseNodeAttribute(host: Host.Host, node: Node, name: string, value: unknown)
 	if not Nodes.isDestructible(value) then
 		return
 	end
-	Diagnostics.raise("props/child-under-attribute", "a node was given as the value of an attribute", {
-		key = ("%s.%s"):format(ATTRIBUTES, name),
-		node = Host.describeNode(host, node),
-		actual = ("a node this runtime will destroy: %s"):format(Host.describeNode(host, value)),
-		expected = "a value the host can store in an attribute",
-		contract = "an attribute holds data; children live in the array part of the props table",
-		fix = ("drop the attribute -- write the node as a positional child rather than as %s.%s"):format(
-			ATTRIBUTES,
-			name
-		),
-	})
+	error(
+		Diagnostics.format("props/child-under-attribute", "a node was given as the value of an attribute", {
+			key = ("%s.%s"):format(ATTRIBUTES, name),
+			node = Host.describeNode(host, node),
+			actual = ("a node this runtime will destroy: %s"):format(Host.describeNode(host, value)),
+			expected = "a value the host can store in an attribute",
+			contract = "an attribute holds data; children live in the array part of the props table",
+			fix = ("drop the attribute -- write the node as a positional child rather than as %s.%s"):format(
+				ATTRIBUTES,
+				name
+			),
+		}),
+		0
+	)
 end
 
 local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, source: unknown, onKey: (string) -> ())
 	if type(source) ~= "table" then
-		Diagnostics.raise(
-			"props/attributes-not-a-table",
-			"the Attributes key was given something that is not a table",
-			{
-				key = ATTRIBUTES,
-				node = Host.describeNode(host, node),
-				actual = Diagnostics.describe(source),
-				expected = "a table of attribute name to value",
-				contract = "Attributes is a reserved key naming a table of attributes to write",
-				fix = 'write Attributes = { Tier = 3 }, or [Compose.property "Attributes"] = value for a real property',
-			}
+		error(
+			Diagnostics.format(
+				"props/attributes-not-a-table",
+				"the Attributes key was given something that is not a table",
+				{
+					key = ATTRIBUTES,
+					node = Host.describeNode(host, node),
+					actual = Diagnostics.describe(source),
+					expected = "a table of attribute name to value",
+					contract = "Attributes is a reserved key naming a table of attributes to write",
+					fix = 'write Attributes = { Tier = 3 }, or [Compose.property "Attributes"] = value for a real property',
+				}
+			),
+			0
 		)
 	end
 
@@ -442,16 +482,19 @@ local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, 
 	local names: { string } = {}
 	for name in table_ do
 		if type(name) ~= "string" or name == "" then
-			Diagnostics.raise("props/attribute-name", "an attribute name is not a non-empty string", {
-				key = ATTRIBUTES,
-				node = Host.describeNode(host, node),
-				actual = Diagnostics.describe(name),
-				expected = "a non-empty string",
-				contract = "every key of an Attributes table names one attribute",
-				fix = "give the attribute a name the host can address",
-			})
+			error(
+				Diagnostics.format("props/attribute-name", "an attribute name is not a non-empty string", {
+					key = ATTRIBUTES,
+					node = Host.describeNode(host, node),
+					actual = Diagnostics.describe(name),
+					expected = "a non-empty string",
+					contract = "every key of an Attributes table names one attribute",
+					fix = "give the attribute a name the host can address",
+				}),
+				0
+			)
 		end
-		table.insert(names, name :: string)
+		table.insert(names, name)
 	end
 
 	table.sort(names)
@@ -478,7 +521,7 @@ local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, 
 			continue
 		end
 
-		if cellModule.isReadable(value) or type(value) == "function" then
+		if cellModule.isValue(value) or type(value) == "function" then
 			bind(target, node, owner, name, value :: Types.Source<unknown>)
 			continue
 		end
@@ -488,15 +531,30 @@ local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, 
 	end
 end
 
-local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Owner, onKey: (string) -> ())
+local propertyTargets: { [Host.Host]: Target } = {}
+
+Weak.entries(propertyTargets)
+
+local function propertyTarget(host: Host.Host): Target
+	local render = host.render
+	local cached = propertyTargets[host]
+	if cached ~= nil and cached.write == render.setProperty and cached.clear == render.clearProperty then
+		return cached
+	end
 	local target: Target = {
 		registry = propertyBindings,
-		write = host.render.setProperty,
-		clear = host.render.clearProperty :: Clear,
+		write = render.setProperty,
+		clear = render.clearProperty :: Clear,
 		host = host,
 		prefix = "",
 		deduplicate = false,
 	}
+	propertyTargets[host] = target
+	return target
+end
+
+local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Owner, onKey: (string) -> ())
+	local target = propertyTarget(host)
 	local length = #props
 
 	for key, value in props do
@@ -508,22 +566,25 @@ local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Own
 		if marker ~= nil then
 			onKey(marker.name)
 			if marker.kind == "group" then
-				bindGroup(host, node, owner, marker.names :: { string }, value)
+				bindGroup(host, node, owner, marker.names, value)
 			elseif marker.kind == "event" then
 				if type(value) ~= "function" then
-					Diagnostics.raise(
-						"props/event-needs-handler",
-						"an event key was given something that is not a handler",
-						{
-							event = marker.name,
-							node = Host.describeNode(host, node),
-							actual = Diagnostics.describe(value),
-							expected = "a function",
-						}
+					error(
+						Diagnostics.format(
+							"props/event-needs-handler",
+							"an event key was given something that is not a handler",
+							{
+								event = marker.name,
+								node = Host.describeNode(host, node),
+								actual = Diagnostics.describe(value),
+								expected = "a function",
+							}
+						),
+						0
 					)
 				end
 				subscribe(host, node, owner, marker.name, value :: (...unknown) -> ())
-			elseif type(value) == "function" or cellModule.isReadable(value) then
+			elseif type(value) == "function" or cellModule.isValue(value) then
 				bind(target, node, owner, marker.name, value :: Types.Source<unknown>)
 			else
 				refuseNodeValue(host, node, marker.name, value)
@@ -533,13 +594,16 @@ local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Own
 		end
 
 		if type(key) ~= "string" then
-			Diagnostics.raise("props/unsupported-key", "a props key is neither a string nor a wrapped key", {
-				actual = Diagnostics.describe(key),
-				expected = 'a string, event("Name"), or property("Name")',
-				contract = "props keys name properties and events; array entries are children",
-			})
+			error(
+				Diagnostics.format("props/unsupported-key", "a props key is neither a string nor a wrapped key", {
+					actual = Diagnostics.describe(key),
+					expected = 'a string, event("Name"), or property("Name")',
+					contract = "props keys name properties and events; array entries are children",
+				}),
+				0
+			)
 		end
-		local name = key :: string
+		local name = key
 
 		if name == ATTRIBUTES then
 			onKey(ATTRIBUTES)
@@ -555,7 +619,7 @@ local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Own
 			continue
 		end
 
-		if cellModule.isReadable(value) then
+		if cellModule.isValue(value) then
 			bind(target, node, owner, name, value :: Types.Source<unknown>)
 			continue
 		end

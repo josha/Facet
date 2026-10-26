@@ -277,7 +277,8 @@ local function attach(environment: Environment.Environment, options: Options): C
 			fits = measured.X <= content.width and fullHeight <= content.height,
 		}
 	end
-	local bases = setmetatable({} :: { [Instance]: { width: number, height: number } }, { __mode = "k" })
+	local bases: { [Instance]: { width: number, height: number } } = {}
+	setmetatable(bases, { __mode = "k" })
 	local size: (Instance, Rectangle, number?) -> Rectangle
 	size = function(object: Instance, parent: Rectangle, widthOverride: number?): Rectangle
 		local authored = Values.dimensions(read(object, "Size"))
@@ -566,8 +567,10 @@ local function attach(environment: Environment.Environment, options: Options): C
 		end
 		return rectangle
 	end
-	local turns = setmetatable({} :: { [Instance]: { Turn } }, { __mode = "k" })
-	local frames = setmetatable({} :: { [Instance]: Rectangle }, { __mode = "k" })
+	local turns: { [Instance]: { Turn } } = {}
+	setmetatable(turns, { __mode = "k" })
+	local frames: { [Instance]: Rectangle } = {}
+	setmetatable(frames, { __mode = "k" })
 	local function rotate(x: number, y: number, turn: Turn, sign: number): (number, number)
 		local radians = math.rad(turn.angle) * sign
 		local cosine, sine = math.cos(radians), math.sin(radians)

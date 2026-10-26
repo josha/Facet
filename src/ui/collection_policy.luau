@@ -50,19 +50,19 @@ end
 function policy.actions<V, K>(
 	ctx: Types.Context,
 	spec: {
-		rowActions: ((ComposeTypes.Readable<V>, K) -> CollectionTypes.RowActionsShape?)?,
+		rowActions: ((ComposeTypes.ReadOnlyValue<V>, K) -> CollectionTypes.RowActionsShape?)?,
 		rowDeletable: ((V) -> boolean)?,
 		disabled: ((V) -> boolean)?,
 		reducedMotion: Types.ValueBoolean?,
 		editing: Types.ValueBoolean?,
 	},
-	current: ComposeTypes.Readable<V>,
+	current: ComposeTypes.ReadOnlyValue<V>,
 	key: K,
 	row: GuiObject,
 	constructor: Types.Constructor<CollectionProps.RowActionsSpec, Frame>,
-	coordinator: ComposeTypes.Cell<{}?>,
+	coordinator: ComposeTypes.Value<{}?>,
 	tiled: boolean?
-): (GuiObject, ComposeTypes.Readable<number>?)
+): (GuiObject, ComposeTypes.ReadOnlyValue<number>?)
 	local authored = if spec.rowActions then spec.rowActions(current, key) else nil
 	local edits = activation.edits(row)
 	if authored == nil and #edits == 0 then
@@ -70,7 +70,7 @@ function policy.actions<V, K>(
 	end
 	local actions: CollectionTypes.RowActionsShape = authored or {}
 	local actionSpec = table.clone(actions) :: CollectionProps.RowActionsSpec
-	local function gated(list: Types.Value<{ CollectionTypes.RowAction }>?): Types.Value<{ CollectionTypes.RowAction }>?
+	local function gated(list: Types.Input<{ CollectionTypes.RowAction }>?): Types.Input<{ CollectionTypes.RowAction }>?
 		if list == nil then
 			return nil
 		end
@@ -128,7 +128,7 @@ end
 function policy.drop<V, K>(
 	ctx: Types.Context,
 	spec: CollectionTypes.ReorderShape<V, K>,
-	current: ComposeTypes.Readable<V>,
+	current: ComposeTypes.ReadOnlyValue<V>,
 	key: K,
 	row: GuiObject,
 	horizontal: boolean

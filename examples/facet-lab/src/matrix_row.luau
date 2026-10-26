@@ -3,8 +3,8 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
-type Cell<T> = { set: (Cell<T>, T) -> () }
-return function(UI: Controls, Compose: ComposeModule, props: StackProps, available: Cell<number>): Frame
+type Value<T> = { set: (Value<T>, T) -> () }
+return function(UI: Controls, Compose: ComposeModule, props: StackProps, available: Value<number>): Frame
 	local row = UI.HStack(props)
 	local room = UI.environment(row)
 	Compose.watch(function(use)

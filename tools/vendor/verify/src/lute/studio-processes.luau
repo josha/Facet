@@ -42,10 +42,9 @@ local function parse(text: string): { Proc }
 	for line in string.gmatch(text, "[^\r\n]+") do
 		local pid, ppid, command = string.match(line, "^%s*(%d+)%s+(%d+)%s*(.*)$")
 		if pid ~= nil then
-			table.insert(
-				procs,
-				{ pid = tonumber(pid) :: number, ppid = tonumber(ppid) :: number, command = command :: string }
-			)
+			local processId, parentId = tonumber(pid), tonumber(ppid)
+			assert(processId ~= nil and parentId ~= nil and command ~= nil)
+			table.insert(procs, { pid = processId, ppid = parentId, command = command })
 		end
 	end
 	return procs

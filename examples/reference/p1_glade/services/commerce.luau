@@ -1,8 +1,10 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 
 local seedData = require("../content/seed")
 local strings = require("../content/strings")
@@ -11,9 +13,9 @@ local commerce = {}
 
 export type Opts = {
 	Compose: ComposeModule,
-	now: Readable<number>,
+	now: ReadOnlyValue<number>,
 }
-export type Record = { status: Cell<string>, reason: Cell<string?> }
+export type Record = { status: Value<string>, reason: Value<string?> }
 type Flight = { id: string, family: string, outcome: string, apply: (() -> ())?, dueAt: number }
 export type Held = { nectar: string, count: number }
 export type CommandState = { id: string, status: string, reason: string? }
@@ -41,13 +43,13 @@ function commerce.new(opts: Opts)
 	local Compose: ComposeModule = opts.Compose
 	local now = opts.now
 
-	local satchel: { [string]: Cell<number> } = {}
+	local satchel: { [string]: Value<number> } = {}
 	for _, nectar in seedData.NECTARS do
 		if nectar.premium then
 			satchel[nectar.id] = Compose.cell(seedData.SATCHEL[nectar.id] or 0)
 		end
 	end
-	local charmTier: Cell<string> = Compose.cell("none")
+	local charmTier: Value<string> = Compose.cell("none")
 
 	local records: { [string]: Record } = {}
 
@@ -61,7 +63,7 @@ function commerce.new(opts: Opts)
 			return existing
 		end
 		local noReason: string? = nil
-		local reason: Cell<string?> = Compose.cell(noReason)
+		local reason: Value<string?> = Compose.cell(noReason)
 		local record: Record = { status = Compose.cell("idle"), reason = reason }
 		records[id] = record
 		return record
@@ -73,19 +75,19 @@ function commerce.new(opts: Opts)
 		return recordFor(id)
 	end
 
-	function service.status(id: string): Cell<string>
+	function service.status(id: string): Value<string>
 		return recordFor(id).status
 	end
 
-	function service.reason(id: string): Cell<string?>
+	function service.reason(id: string): Value<string?>
 		return recordFor(id).reason
 	end
 
-	function service.satchelOf(nectarId: string): Cell<number>
+	function service.satchelOf(nectarId: string): Value<number>
 		return satchel[nectarId]
 	end
 
-	function service.charmTier(): Cell<string>
+	function service.charmTier(): Value<string>
 		return charmTier
 	end
 

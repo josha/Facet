@@ -27,7 +27,7 @@ return function<V>(
 	arrangement: ArrangementTypes.Arrangement<V>,
 	paint: PaintTypes.Paint<V>,
 	root: Frame,
-	layoutUnit: ComposeTypes.Readable<number>,
+	layoutUnit: ComposeTypes.ReadOnlyValue<number>,
 	phase: Navigation.PresencePhase?
 ): Hub<V>
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read

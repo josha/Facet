@@ -1133,3 +1133,560 @@ Consumers retain their field sets, identifiers and acceptance policy.
 The [run guide](running.md) describes selection, entry modules and host execution.
 
 `Core.waitUntil(spec, ops)` polls to a bound and returns its terminal reason, last observation and elapsed time. `Core.awaitValue(predicate, seconds, poll, ops)` waits for a non-nil value (including false), returns nil on timeout or cancellation, and raises probe failures. Its optional final `truthy` argument ignores false as well as nil. The caller supplies the clock, sleep and optional cancellation.
+
+## Package export index
+
+Each heading names one runtime export. Table exports group the operations described in the relevant contract. Type-only exports remain declared in each entry point.
+
+### `AgentEval.SCHEMA_VERSION`
+
+Schema version accepted by the evaluation suite decoder.
+
+### `AgentEval.adapters`
+
+Adapters that bind declared evaluation services to a run.
+
+### `AgentEval.base64`
+
+Base64 encoding and decoding for evaluation payloads.
+
+### `AgentEval.cli`
+
+Command line entry point for evaluation runs.
+
+### `AgentEval.decodeSuite`
+
+Validate an unknown evaluation suite before planning it.
+
+### `AgentEval.judge`
+
+Judge backends, rubric defaults, verdict decoding and calibration.
+
+### `AgentEval.load`
+
+Load an evaluation suite from its source.
+
+### `AgentEval.lute`
+
+Lute operations used by the evaluation runner.
+
+### `AgentEval.plan`
+
+Build an evaluation plan from a decoded suite.
+
+### `AgentEval.random`
+
+Seeded random values for reproducible evaluation inputs.
+
+### `AgentEval.report`
+
+Decode thresholds, build reports and determine verdicts.
+
+### `AgentEval.result`
+
+Evaluation result constructors and validation.
+
+### `AgentEval.run`
+
+Execute an evaluation plan with explicit services.
+
+### `AgentEval.scopedMcp`
+
+MCP service scoped to the evaluation's authorized operations.
+
+### `AgentEval.stats`
+
+Statistical comparisons used by evaluation reports.
+
+### `AgentEval.transcript`
+
+Decode and inspect agent transcripts.
+
+### `Bdd.counts`
+
+Summarize result counts by status.
+
+### `Bdd.formatFailures`
+
+Format failed results and their details.
+
+### `Bdd.formatResults`
+
+Format all case results and summary counts.
+
+### `Bdd.surface`
+
+Build the BDD registration surface over a harness.
+
+### `Benchmark.case`
+
+Construct a named benchmark case.
+
+### `Benchmark.check`
+
+Validate benchmark results against limits.
+
+### `Benchmark.checkCollection`
+
+Validate a collection of benchmark reports.
+
+### `Benchmark.collect`
+
+Collect benchmark measurements using the supplied host.
+
+### `Benchmark.collection`
+
+Construct a benchmark collection.
+
+### `Benchmark.compare`
+
+Compare benchmark measurements.
+
+### `Benchmark.decode`
+
+Decode an unknown benchmark report.
+
+### `Benchmark.limits`
+
+Benchmark limit constructors and validation.
+
+### `Benchmark.run`
+
+Run benchmark cases with the supplied timing options.
+
+### `Benchmark.spread`
+
+Calculate measurement spread.
+
+### `Benchmark.store`
+
+Benchmark report persistence operations.
+
+### `Benchmark.storeReport`
+
+Store a benchmark report through the supplied store.
+
+### `Consumer.generic`
+
+Generic consumer diagnostic ruleset.
+
+### `Consumer.roblox`
+
+Roblox consumer diagnostic ruleset.
+
+### `Consumer.scan`
+
+Scan a source string with the selected diagnostic rules.
+
+### `Consumer.scanProductionPaths`
+
+Check production paths for test framework leakage.
+
+### `Consumer.scanTree`
+
+Scan a tree using caller-supplied file operations.
+
+### `Core.SCHEMA_VERSION`
+
+Current report schema version.
+
+### `Core.awaitValue`
+
+Wait for a supplied reader to return the required value within a bound.
+
+### `Core.bindOperation`
+
+Bind an operation descriptor to an implementation.
+
+### `Core.compose`
+
+Compose reports with validated provenance.
+
+### `Core.decode`
+
+Decode unknown data as a validated report.
+
+### `Core.execute`
+
+Execute an explicit plan with supplied executors.
+
+### `Core.extract`
+
+Extract framed report records from host output.
+
+### `Core.float32`
+
+Round a number to its float32 representation for comparisons.
+
+### `Core.format`
+
+Format a report for human inspection.
+
+### `Core.frame`
+
+Frame a report for transport through host output.
+
+### `Core.memorySink`
+
+Create an in-memory evidence sink.
+
+### `Core.merge`
+
+Merge compatible report results.
+
+### `Core.observationParity`
+
+Compare observations across reports.
+
+### `Core.operation`
+
+Construct an operation descriptor.
+
+### `Core.performance`
+
+Performance observation and budget helpers.
+
+### `Core.progress`
+
+Progress event validation and construction.
+
+### `Core.reassemble`
+
+Reassemble transported report records.
+
+### `Core.reassembleSegments`
+
+Reassemble segmented reports.
+
+### `Core.receipt`
+
+Create a transport receipt.
+
+### `Core.runCase`
+
+Run one named case with explicit options and clock.
+
+### `Core.runCases`
+
+Run a validated named case collection with explicit selection.
+
+### `Core.segment`
+
+Split a report into transport segments.
+
+### `Core.shape`
+
+Predicates for finite numbers, nonnegative numbers, integers and dense rows.
+
+### `Core.syntheticReport`
+
+Construct a report for an execution-level result.
+
+### `Core.waitUntil`
+
+Wait for a predicate with explicit clock and timing bounds.
+
+### `Evidence.bindReview`
+
+Bind a review to the exact sealed evidence it judges.
+
+### `Evidence.expand`
+
+Expand evidence requirements for validation.
+
+### `Evidence.explain`
+
+Explain evidence validation findings.
+
+### `Evidence.seal`
+
+Seal evidence content with its provenance and digest.
+
+### `Evidence.validate`
+
+Validate evidence integrity, freshness, reviews and coverage.
+
+### `Gate.SCHEMA_VERSION`
+
+Current gate schema version.
+
+### `Gate.define`
+
+Validate a producer draft and define the gate.
+
+### `Gate.explain`
+
+Explain producer selection and outcome.
+
+### `Gate.format`
+
+Format a gate outcome.
+
+### `Gate.list`
+
+List the gate's producers.
+
+### `Gate.rerun`
+
+Select previously unsuccessful producers for another run.
+
+### `Gate.run`
+
+Run selected producers through explicit execution operations.
+
+### `Gate.testCases`
+
+Expose gate producers as named cases.
+
+### `Lute.attachments`
+
+Attachment sinks for writing case artifacts.
+
+### `Lute.chunk`
+
+Chunked source loading helpers.
+
+### `Lute.corpus`
+
+Deterministic source discovery, queries and lock parsing.
+
+### `Lute.decode`
+
+Decode a worker wire record.
+
+### `Lute.decodeBatch`
+
+Decode a batch of worker results.
+
+### `Lute.encode`
+
+Encode a worker wire record.
+
+### `Lute.evidence`
+
+Host evidence collection and validation helpers.
+
+### `Lute.evidenceStore`
+
+Filesystem evidence sealing and validation.
+
+### `Lute.fixture`
+
+Create simulated host fixtures and run exported probes.
+
+`bridge(snapshot?, options?)` accepts `content` providers in addition to the reflection and UI options:
+
+- `content.assetVersion(versionId)` returns a live, archivable Model template created in this bridge's environment, or nil for unavailable content. `InsertService:LoadAssetVersion` validates the version ID, clones the template on each call and parents the result to InsertService. Missing providers, unavailable versions and invalid templates raise. The provider owns fixture acquisition and version mapping; the double performs no network fetch and invents no geometry.
+- `content.terrainMaterialColor(material)` supplies a captured Color3 for an unset terrain material. `Terrain:SetMaterialColor` stores per-terrain overrides and `GetMaterialColor` returns them before consulting the provider. Air, Water, other enum families and invalid colors raise. An unset material without a provider raises rather than inventing a default palette.
+
+`placeEngine().record` retains diagnostics and feeds LogService history and MessageOut with message types and virtual timestamps. History returns independent tables, retains the newest 512 entries in order and is cleared by ClearOutput. Clearing history preserves diagnostics. Structured Logger context is outside this modeled surface.
+
+Sound Play, Pause, Resume and Stop update playback state and emit their corresponding events. Virtual time advances TimePosition at PlaybackSpeed; a supplied positive TimeLength permits completion and loops. The double does not load sound media, discover durations or establish audible playback. TextChatService.OnIncomingMessage uses the environment's write-only callback storage; a host can inspect and invoke it through propertyOf. It does not establish filtered chat delivery.
+
+Uncaptured font faces still raise. Supply measured `ui.measureBounds`, `ui.truncateBounds` and `ui.measureText` adapters for the needed text operations, or capture font facts with the documented native text-metrics tool. An unrelated face is never substituted.
+
+### `Lute.gate`
+
+Run the gate command line with bounded producer processes.
+
+### `Lute.host`
+
+Create a Lute worker host.
+
+### `Lute.loader`
+
+Load a mounted module tree into an explicit environment.
+
+### `Lute.memory`
+
+Collect heap observations through an explicit memory host.
+
+### `Lute.model`
+
+Read and write model source representations.
+
+### `Lute.openCloud`
+
+Submit, observe and reconcile authorized Open Cloud execution.
+
+### `Lute.parse`
+
+Parse worker wire output.
+
+### `Lute.place`
+
+Build or bundle mounted source trees into XML fixtures.
+
+### `Lute.platform`
+
+Dispatch a case entry to the selected simulator or native host.
+
+### `Lute.player`
+
+Run cases through a caller-selected Player backend.
+
+### `Lute.selfRegisteringWorker`
+
+Run worker modules that register their own cases.
+
+### `Lute.studio`
+
+Launch or attach Studio execution sessions.
+
+### `Lute.typePolicy`
+
+Detect explicit any and weakened strict typing in source.
+
+### `Lute.worker`
+
+Run the worker protocol over registered sources.
+
+### `Roblox.assertInstance`
+
+Assert that a value is a simulated instance.
+
+### `Roblox.bootPlace`
+
+Boot a place using explicit engine operations and mounted sources.
+
+### `Roblox.buildPlaceTree`
+
+Build the simulated instance tree for a mounted place.
+
+### `Roblox.createPlaceCache`
+
+Create a cache for mounted place sources.
+
+### `Roblox.createPlaceRuntime`
+
+Create a place runtime with explicit engine bindings.
+
+### `Roblox.datatypes`
+
+Simulated Roblox datatype constructors and catalog.
+
+### `Roblox.environmentEngine`
+
+Adapt a simulated environment to the place engine contract.
+
+### `Roblox.experienceHost`
+
+Coordinate experience observations through explicit host operations.
+
+### `Roblox.fixtureBridge`
+
+Bridge reflection facts and behavior adapters into a fixture.
+
+### `Roblox.inputHost`
+
+Host adapter for explicit input observations.
+
+### `Roblox.instanceHost`
+
+Host adapter for instance observations.
+
+### `Roblox.isInstance`
+
+Test whether a value is a simulated instance.
+
+### `Roblox.multiplayer`
+
+Coordinate declared multiplayer roles and observations.
+
+### `Roblox.network`
+
+Network observation and validation helpers.
+
+### `Roblox.performance`
+
+Roblox performance observation helpers.
+
+### `Roblox.playerHost`
+
+Host adapter for player observations.
+
+### `Roblox.progressChannel`
+
+Transport progress events between host contexts.
+
+### `Roblox.reflection`
+
+Decode and query reflection facts.
+
+### `Roblox.reflectionSnapshot`
+
+Build and inspect frozen reflection snapshots.
+
+### `Roblox.reportChannel`
+
+Transport reports between host contexts.
+
+### `Roblox.testEnvironment`
+
+Create an isolated simulated environment.
+
+### `Roblox.typeName`
+
+Return a simulated value's Roblox type name.
+
+### `Roblox.uiAudit`
+
+Collect, decode and analyze UI facts with explicit rules.
+
+### `Roblox.uiFakes`
+
+Explicit UI behavior doubles used with reflection facts.
+
+## Repository checks
+
+The Lute-only `src/checks` package returns findings without exiting. Configuration, behavior and
+contract falsifiers are defined in [repository checks](checks.md).
+
+### `Checks.walk`
+
+Sorted file traversal, subtree exclusion and source line lookup.
+
+### `Checks.temporaryDirectory`
+
+Unique scoped temporary directories with cleanup on return or error.
+
+### `Checks.denylist`
+
+Parameterized rule scanning with exact path exemptions and literal allowances.
+
+### `Checks.boundary`
+
+Check source roots against configured host/domain rules.
+
+### `Checks.leakage`
+
+Check Git-selected repository files against configured leakage rules.
+
+### `Checks.noAny`
+
+Require strict maintained Luau and reject explicit dynamic type escapes.
+
+### `Checks.testManifest`
+
+Compare or write a manifest against configured corpus discovery.
+
+### `Checks.publicSurface`
+
+Compare caller-loaded public exports with configured API documentation.
+
+### `Checks.comments`
+
+Check or rewrite prohibited source/config comments with explicit allowances.
+
+### `Checks.provenance`
+
+Validate license text, dependency provenance and configured source/notice policy.
+
+### `Checks.cleanClone`
+
+Require clean HEAD and run a configured gate in a disposable exact-HEAD clone.
+
+### `Checks.lintRules`
+
+Lute rules for shared globals, misplaced type comparisons and invalid string escapes.
+

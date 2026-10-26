@@ -26,8 +26,9 @@ local function directorySink(directory: string): Sink
 	local root = absolute(directory) .. "/attachments"
 	return function(caseId: string, name: string, text: string, meta: Meta): (string?, string?)
 		local path = root .. "/" .. safeSegment(caseId) .. "/" .. name
-		local ok, failure: unknown = pcall(function()
-			local parent = string.match(path, "^(.*)/[^/]+$") :: string
+		local ok, failure = pcall(function()
+			local parent = string.match(path, "^(.*)/[^/]+$")
+			assert(parent ~= nil)
 			Files.ensureDirectory(parent)
 			assert(#text == meta.size, "attachment size does not match its content")
 			Files.writeArtifact(path, text)

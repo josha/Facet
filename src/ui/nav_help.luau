@@ -96,16 +96,16 @@ return function(
 		}
 	end)
 	help.register(ctx, function(anchor: GuiObject, value: Inputs.Help, plate: help.Plate?)
-		local structured: Inputs.HelpSpec? = if type(value) == "table" and not Compose.isReadable(value)
+		local structured: Inputs.HelpSpec? = if type(value) == "table" and not Compose.isValue(value)
 			then value :: Inputs.HelpSpec
 			else nil
-		local text: Types.Value<string> = if structured then structured.body else value :: Types.Value<string>
+		local text: Types.Input<string> = if structured then structured.body else value :: Types.Input<string>
 		local gate = plate and plate.gate
 		local state = ctx.observe.GuiState(anchor)
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		local held = Compose.cell(false)
-		local touchOffset: ComposeTypes.Cell<Vector2?> = Compose.cell(nil :: Vector2?)
+		local touchOffset: ComposeTypes.Value<Vector2?> = Compose.cell(nil :: Vector2?)
 		local function press(points: { Vector2 }, phase: Enum.UserInputState)
 			if phase == E.UserInputState.Begin and ctx.read(gate) ~= false then
 				local point = points[1]
@@ -190,7 +190,7 @@ return function(
 				local layer = assert(parent(anchor))
 				local at, bounds = ctx.observe.AbsolutePosition(anchor), ctx.observe.AbsoluteSize(anchor)
 				local extent, origin = ctx.observe.AbsoluteSize(layer), ctx.observe.AbsolutePosition(layer)
-				local widths = Compose.cell({} :: { ComposeTypes.Readable<Vector2> })
+				local widths = Compose.cell({} :: { ComposeTypes.ReadOnlyValue<Vector2> })
 				local function width(use: ComposeTypes.Use): UDim2
 					local widest = 0
 					for _, natural in use(widths) do

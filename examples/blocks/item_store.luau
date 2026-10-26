@@ -4,9 +4,11 @@ local FacetTypes = require("../../src")
 type FacetModule = FacetTypes.Facet
 type FacetControls = FacetTypes.Controls
 type Use = FacetTypes.Use
-type NumberCell = FacetTypes.Cell<number>
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type NumberCell = FacetTypes.Value<number>
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 type Item = {
 	id: string,
 	name: string,
@@ -19,14 +21,14 @@ type Item = {
 type Model = {
 	coins: NumberCell,
 	gems: NumberCell,
-	items: Readable<{ Item }>,
+	items: ReadOnlyValue<{ Item }>,
 	confirmationThreshold: number,
 	purchase: (itemId: string) -> { ok: boolean, reason: string? },
 }
 
 return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 	local Compose = Facet.Compose
-	local pending: Cell<Item?> = Compose.cell(nil :: Item?)
+	local pending: Value<Item?> = Compose.cell(nil :: Item?)
 	local busy = Compose.cell(false)
 	local message = Compose.cell("")
 	local confirmation = Compose.cell("")
@@ -50,7 +52,7 @@ return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 		minColumns = 2,
 		itemSize = 320,
 		measure = true,
-		render = function(current: Readable<Item>): GuiObject
+		render = function(current: ReadOnlyValue<Item>): GuiObject
 			return UI.VStack "ItemTile" {
 				padding = "s",
 				width = "fill",

@@ -1,5 +1,8 @@
 --!strict
 
+local freeze: ({}) -> {} = table.freeze
+
+local Owners = require "../ownership/owner"
 local Children = require "../runtime/children"
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
@@ -15,7 +18,7 @@ export type Options<V> = {
 	tileSize: Size,
 	overscan: number?,
 	read: (use: Types.Use, column: number, row: number) -> V?,
-	render: (value: Types.Readable<V>, placement: Placement) -> Host.Node,
+	render: (value: Types.ReadOnlyValue<V>, placement: Placement) -> Host.Node,
 }
 
 local KNOWN_FIELDS: { [string]: true } =
@@ -29,10 +32,9 @@ local function tileCollection<V>(options: Options<V>): Children.Directive
 	local settings =
 		Support.optionsOf(options, "TileCollection", "viewport = ..., tileSize = ..., read = ..., render = ...")
 	Support.noUnknownFields(settings, "TileCollection", KNOWN_FIELDS)
-	local viewport = Support.sourceOf(settings.viewport, "TileCollection", "viewport") :: Types.Body<Viewport>
-	local read = Support.builderOf(settings.read, "TileCollection", "read") :: (Types.Use, number, number) -> V?
-	local render =
-		Support.builderOf(settings.render, "TileCollection", "render") :: (Types.Readable<V>, Placement) -> Host.Node
+	local viewport: Types.Body<Viewport> = Support.sourceOf(settings.viewport, "TileCollection", "viewport")
+	local read: (Types.Use, number, number) -> V? = Support.builderOf(settings.read, "TileCollection", "read")
+	local render = Support.builderOf(settings.render, "TileCollection", "render")
 	local size = settings.tileSize
 	if
 		type(size) ~= "table"
@@ -59,7 +61,7 @@ local function tileCollection<V>(options: Options<V>): Children.Directive
 		Support.mountPointOf(mountPoint, "TileCollection")
 		local keys: { string } = {}
 		local placements: { [string]: Placement } = {}
-		owner.own(function()
+		Owners.own(owner, function()
 			table.clear(keys)
 			table.clear(placements)
 		end)
@@ -102,8 +104,9 @@ local function tileCollection<V>(options: Options<V>): Children.Directive
 						local value = read(use, column, row)
 						if value ~= nil then
 							local key = string.format("%.0f:%.0f", column + 0, row + 0)
-							local placement: Placement? = placements[key]
-							if placement == nil then
+							local existing = placements[key]
+							local placement: Placement
+							if existing == nil then
 								local fresh: Placement = {
 									column = column,
 									row = row,
@@ -112,12 +115,14 @@ local function tileCollection<V>(options: Options<V>): Children.Directive
 									width = width,
 									height = height,
 								}
-								table.freeze(fresh :: {})
+								freeze(fresh)
 								placement = fresh
+							else
+								placement = existing
 							end
 							values[#values + 1] = value
 							nextKeys[#values] = key
-							nextPlacements[key] = placement :: Placement
+							nextPlacements[key] = placement
 						end
 					end
 				end
@@ -132,7 +137,11 @@ local function tileCollection<V>(options: Options<V>): Children.Directive
 			key = function(_value: V, index: number): string
 				return keys[index]
 			end,
-			render = function(value: Types.Readable<V>, _index: Types.Readable<number>, key: string): Host.Node
+			render = function(
+				value: Types.ReadOnlyValue<V>,
+				_index: Types.ReadOnlyValue<number>,
+				key: string
+			): Host.Node
 				return render(value, placements[key])
 			end,
 		}(mountPoint)

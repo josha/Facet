@@ -74,7 +74,7 @@ local function strings(value: unknown): { string }
 end
 
 local function decode(encoded: string): PlanBatch
-	local parsed, value: unknown = pcall(Wire.parse, encoded)
+	local parsed, value = pcall(Wire.parse, encoded)
 	if not parsed then
 		error("unparseable batch: " .. tostring(value), 2)
 	end

@@ -104,18 +104,18 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 		end
 	end
 	local function dynamic(source: unknown): boolean
-		return Compose.isReadable(source) or type(source) == "function"
+		return Compose.isValue(source) or type(source) == "function"
 	end
 	local function writable(source: unknown): boolean
 		return type(source) == "table"
-			and Compose.isReadable(source)
+			and Compose.isValue(source)
 			and type((source :: { [string]: unknown }).set) == "function"
 	end
 	local function attributes(node: Instance, values: Shared.Attributes)
 		runtime.decorate(node, { Attributes = values })
 	end
 	local function build(control: string, spec: Spec): TextBox | Frame
-		local invalidSource: ComposeTypes.Readable<boolean>? = spec.invalid
+		local invalidSource: ComposeTypes.ReadOnlyValue<boolean>? = spec.invalid
 		assert(type(read(spec.value)) == "string", `Facet.{control}: value must resolve to a string`)
 		assert(
 			writable(spec.value) or type(spec.onChange) == "function",
@@ -153,7 +153,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			`Facet.{control}: maxLength must be a nonnegative integer`
 		)
 		assert(
-			spec.invalid == nil or (Compose.isReadable(spec.invalid) and type(read(spec.invalid)) == "boolean"),
+			spec.invalid == nil or (Compose.isValue(spec.invalid) and type(read(spec.invalid)) == "boolean"),
 			`Facet.{control}: invalid must be a boolean readable`
 		)
 		assert(type(read(spec.readOnly) or false) == "boolean", `Facet.{control}: readOnly must be a boolean`)
@@ -173,7 +173,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			`Facet.{control}: precision must be a whole number from 0 to 10`
 		)
 		for _, key in { "prefix", "suffix" } do
-			local unit = read((spec :: { [unknown]: Shared.Value<unknown> })[key])
+			local unit = read((spec :: { [unknown]: Shared.Input<unknown> })[key])
 			assert(unit == nil or type(unit) == "string", `Facet.{control}: {key} must be a string`)
 		end
 		assert(
@@ -243,7 +243,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			if spec.onChange then
 				spec.onChange(value)
 			else
-				(spec.value :: ComposeTypes.Cell<string>):set(value)
+				(spec.value :: ComposeTypes.Value<string>):set(value)
 			end
 		end
 		local function setText(value: string): ()
@@ -257,7 +257,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			invalid:set(value)
 			validationMessage:set(if value then message or "Check this value." else "")
 			if writable(invalidSource) then
-				(invalidSource :: ComposeTypes.Cell<boolean>):set(value)
+				(invalidSource :: ComposeTypes.Value<boolean>):set(value)
 			end
 			if value and errorTimeline and errorReduced and not errorReduced() then
 				errorTimeline:restart()
@@ -651,7 +651,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			local scrolling = UI
 			local shown = ctx.observe.OnScreenKeyboardVisible(keyboard)
 			local positionObserver = (ctx.observe :: unknown) :: {
-				OnScreenKeyboardPosition: (UserInputService) -> ComposeTypes.Cell<Vector2>,
+				OnScreenKeyboardPosition: (UserInputService) -> ComposeTypes.Value<Vector2>,
 			}
 			local keyboardPosition = positionObserver.OnScreenKeyboardPosition(keyboard)
 			local fieldPosition, fieldSize = ctx.observe.AbsolutePosition(node), ctx.observe.AbsoluteSize(node)
@@ -707,7 +707,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			if spec.leading then
 				slot("Leading", 10, spec.leading)
 			end
-			local function unit(name: string, order: number, words: Shared.Value<string>?)
+			local function unit(name: string, order: number, words: Shared.Input<string>?)
 				if words ~= nil then
 					table.insert(
 						parts,
@@ -857,7 +857,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			})
 		end
 
-		local drawnHeight: ComposeTypes.Readable<number>
+		local drawnHeight: ComposeTypes.ReadOnlyValue<number>
 		if spec.multiline == true then
 			local shown = ctx.observe.Text(node)
 			local measure = ctx.text({
@@ -1032,7 +1032,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			elseif restore then
 				assert(spec.numericValue):set(active.start)
 				if writable(spec.value) then
-					(spec.value :: ComposeTypes.Cell<string>):set(active.text)
+					(spec.value :: ComposeTypes.Value<string>):set(active.text)
 				end
 			end
 		end

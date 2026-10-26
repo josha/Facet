@@ -2,8 +2,10 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type AvatarMember = typeof(require("@repo/tools/typecheck/aliases").AvatarMember)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 export type Game = {
 	id: string,
 	index: number,
@@ -21,7 +23,7 @@ export type Game = {
 	creatorImage: string,
 }
 export type Catalog = {
-	items: Cell<{ Game }>,
+	items: Value<{ Game }>,
 	seen: (number, number?) -> (),
 	step: () -> (),
 	dispose: () -> (),

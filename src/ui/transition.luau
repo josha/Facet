@@ -2,15 +2,15 @@
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local motion = require("./motion")
-local completions = setmetatable({} :: { [Nav.PresencePhase]: Types.Readable<boolean> }, { __mode = "k" })
+local completions = setmetatable({} :: { [Nav.PresencePhase]: Types.ReadOnlyValue<boolean> }, { __mode = "k" })
 
 export type Motion = {
-	progress: Types.Readable<number>,
-	opacity: Types.Readable<number>,
-	transparency: Types.Readable<number>,
-	completed: Types.Readable<boolean>,
-	visible: Types.Readable<boolean>,
-	interacting: Types.Readable<boolean>,
+	progress: Types.ReadOnlyValue<number>,
+	opacity: Types.ReadOnlyValue<number>,
+	transparency: Types.ReadOnlyValue<number>,
+	completed: Types.ReadOnlyValue<boolean>,
+	visible: Types.ReadOnlyValue<boolean>,
+	interacting: Types.ReadOnlyValue<boolean>,
 	apply: (GuiObject, GuiObject?) -> (),
 }
 
@@ -32,11 +32,11 @@ end
 local function create(
 	ctx: Types.Context,
 	spec: Nav.Transition,
-	presented: Types.Readable<boolean>,
+	presented: Types.ReadOnlyValue<boolean>,
 	immediate: boolean?,
-	ready: Types.Readable<boolean>?,
+	ready: Types.ReadOnlyValue<boolean>?,
 	disabled: boolean?,
-	targetPresented: Types.Readable<boolean>?
+	targetPresented: Types.ReadOnlyValue<boolean>?
 ): Motion
 	check(spec)
 	local C, runtime = ctx.Compose, ctx.runtime

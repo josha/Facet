@@ -1,8 +1,8 @@
 --!strict
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Entry = { id: string, value: string? }
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
 
@@ -186,7 +186,7 @@ return {
 									key = function(item: { id: string, label: string })
 										return item.id
 									end,
-									render = function(item: Readable<{ id: string, label: string }>): GuiObject
+									render = function(item: ReadOnlyValue<{ id: string, label: string }>): GuiObject
 										local id = item:peek().id
 										return UI.Button({
 											Name = "Result-" .. id,

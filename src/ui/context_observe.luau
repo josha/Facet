@@ -15,13 +15,13 @@ local GEOMETRY: { [string]: ComposeTypes.ObserveOptions } = {
 
 export type Observation = {
 	preview: { [string]: unknown },
-	observeStyled: (Instance, string) -> ComposeTypes.Cell<unknown>,
+	observeStyled: (Instance, string) -> ComposeTypes.Value<unknown>,
 }
 
 return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Services): Observation
 	local Compose, runtime, Enum = ctx.Compose, ctx.runtime, ctx.types.Enum
 	local framed = services.RunService ~= nil and getfenv ~= nil and getfenv(0).game ~= nil
-	local sharedObservations: { [Instance]: { [string]: ComposeTypes.AcquireSharedResource<ComposeTypes.Cell<unknown>> } } =
+	local sharedObservations: { [Instance]: { [string]: ComposeTypes.AcquireSharedResource<ComposeTypes.Value<unknown>> } } =
 		{}
 	local preview: { [string]: unknown } = (config.environment or {}) :: { [string]: unknown }
 	local PREVIEWED: { [string]: { key: string, enum: string? } } = {
@@ -40,7 +40,10 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 	for key in preview do
 		assert(previewKeys[key], `Facet.controls: unknown environment option '{tostring(key)}'`)
 	end
-	local function previewed(property: string, engine: ComposeTypes.Readable<unknown>): ComposeTypes.Readable<unknown>
+	local function previewed(
+		property: string,
+		engine: ComposeTypes.ReadOnlyValue<unknown>
+	): ComposeTypes.ReadOnlyValue<unknown>
 		local entry = PREVIEWED[property]
 		local source = if entry then preview[entry.key] else nil
 		if source == nil then
@@ -64,7 +67,7 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 			return value
 		end)
 	end
-	local function observe(node: Instance, property: string): ComposeTypes.Cell<unknown>
+	local function observe(node: Instance, property: string): ComposeTypes.Value<unknown>
 		local selection = property == "SelectedObject"
 		local preferred = property == "PreferredInput" and node == config.userInputService
 		if not selection and not preferred then
@@ -73,7 +76,7 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 					property,
 					runtime.observe(node, property, if framed then GEOMETRY[property] else nil)
 				) :: unknown
-			) :: ComposeTypes.Cell<unknown>
+			) :: ComposeTypes.Value<unknown>
 		end
 		local byProperty = sharedObservations[node]
 		if byProperty == nil then
@@ -82,8 +85,8 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 		end
 		local acquire = byProperty[property]
 		if not acquire then
-			acquire = Compose.createSharedResource(function(): (ComposeTypes.Cell<unknown>, (() -> ())?)
-				local cell: ComposeTypes.Cell<unknown>? = nil
+			acquire = Compose.createSharedResource(function(): (ComposeTypes.Value<unknown>, (() -> ())?)
+				local cell: ComposeTypes.Value<unknown>? = nil
 				local scope = Compose.createRootOwner(function()
 					local observation = assert(runtime.host.observation)
 					local source = if selection then nil else runtime.observe(node, property)
@@ -161,13 +164,13 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 			end)
 			byProperty[property] = acquire
 		end
-		return (previewed(property, assert(acquire)()) :: unknown) :: ComposeTypes.Cell<unknown>
+		return (previewed(property, assert(acquire)()) :: unknown) :: ComposeTypes.Value<unknown>
 	end
-	local function observers(watch: (Instance, string) -> ComposeTypes.Cell<unknown>): Shared.Observe
-		local bound: { [string]: (Instance) -> ComposeTypes.Cell<unknown> } = {}
+	local function observers(watch: (Instance, string) -> ComposeTypes.Value<unknown>): Shared.Observe
+		local bound: { [string]: (Instance) -> ComposeTypes.Value<unknown> } = {}
 		setmetatable(bound, {
-			__index = function(_, property: string): (Instance) -> ComposeTypes.Cell<unknown>
-				local read = function(node: Instance): ComposeTypes.Cell<unknown>
+			__index = function(_, property: string): (Instance) -> ComposeTypes.Value<unknown>
+				local read = function(node: Instance): ComposeTypes.Value<unknown>
 					return watch(node, property)
 				end
 				bound[property] = read
@@ -178,10 +181,10 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 	end
 	ctx.selectionHooks = {}
 	ctx.observe = observers(observe)
-	ctx.observeNative = observers(function(node: Instance, property: string): ComposeTypes.Cell<unknown>
-		return (runtime.observe(node, property) :: unknown) :: ComposeTypes.Cell<unknown>
+	ctx.observeNative = observers(function(node: Instance, property: string): ComposeTypes.Value<unknown>
+		return (runtime.observe(node, property) :: unknown) :: ComposeTypes.Value<unknown>
 	end)
-	local function observeStyled(node: Instance, property: string): ComposeTypes.Cell<unknown>
+	local function observeStyled(node: Instance, property: string): ComposeTypes.Value<unknown>
 		local observation = assert(runtime.host.observation)
 		local readStyled = assert(observation.readStyledProperty)
 		local observeStyled = assert(observation.observeStyledProperty)

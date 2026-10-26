@@ -39,7 +39,7 @@ end
 local function url(placeId: number, runId: string, selection: Selection?): string
 	assert(placeId > 0 and placeId <= 9007199254740991 and placeId % 1 == 0, "Player requires a published place id")
 	assert(runId ~= "" and #runId <= 256, "Player requires a unique run id of at most 256 bytes")
-	local fields: { [string]: unknown } = { verifyRun = runId }
+	local fields: json.Object = { verifyRun = runId }
 	if selection ~= nil then
 		if selection.entry ~= nil then
 			assert(selection.entry ~= "", "Player entry must not be empty")
@@ -47,7 +47,7 @@ local function url(placeId: number, runId: string, selection: Selection?): strin
 		end
 		if selection.caseIds ~= nil then
 			local seen: { [string]: boolean } = {}
-			local ids: { string } = {}
+			local ids: json.Array = {}
 			for _, id in selection.caseIds do
 				assert(id ~= "" and not seen[id], "Player case ids must be unique and nonempty")
 				seen[id] = true
@@ -57,10 +57,7 @@ local function url(placeId: number, runId: string, selection: Selection?): strin
 			fields.verifyCases = ids
 		end
 	end
-	return "roblox://placeId="
-		.. string.format("%.0f", placeId)
-		.. "&launchData="
-		.. encode(json.serialize(fields :: json.Object))
+	return "roblox://placeId=" .. string.format("%.0f", placeId) .. "&launchData=" .. encode(json.serialize(fields))
 end
 
 local function command(argv: { string }, seconds: number): Bounded.Result
@@ -75,7 +72,9 @@ local function pids(seconds: number): { number }
 	assert(result.ok or result.exitcode == 1, result.stderr)
 	local values: { number } = {}
 	for digits in string.gmatch(result.stdout, "%d+") do
-		table.insert(values, tonumber(digits) :: number)
+		local value = tonumber(digits)
+		assert(value ~= nil)
+		table.insert(values, value)
 	end
 	return values
 end
@@ -111,7 +110,8 @@ local function nativeLaunch(address: string, deadline: number): Session
 			task.wait(math.min(0.1, math.max(0, deadline - os.clock())))
 		end
 	end
-	local owned = pid :: number
+	local owned = pid
+	assert(owned ~= nil)
 	local started = identity(owned, 2)
 	assert(
 		started ~= "" and string.find(started, "/RobloxPlayer", 1, true) ~= nil,
@@ -153,7 +153,7 @@ local function nativeLaunch(address: string, deadline: number): Session
 					log = path
 				end
 			end
-			return if log ~= nil then fs.readFileToString(log :: string) else ""
+			return if log ~= nil then fs.readFileToString(log) else ""
 		end,
 	}
 end
@@ -170,8 +170,8 @@ local function run(options: Options): Core.BatchOutcome
 	local timedOut = false
 	local lastBytes = ""
 	local ok, result = pcall(function(): Core.Report
-		session = backend.launch(address, deadline)
-		local active = session :: Session
+		local active = backend.launch(address, deadline)
+		session = active
 		while true do
 			local remaining = deadline - backend.now()
 			if remaining <= 0 then
@@ -204,7 +204,7 @@ local function run(options: Options): Core.BatchOutcome
 	end)
 	local cleanupOk, cleanupError = pcall(function()
 		if session ~= nil then
-			(session :: Session).close()
+			(session).close()
 		end
 	end)
 	if not cleanupOk then
@@ -224,7 +224,7 @@ local function run(options: Options): Core.BatchOutcome
 			detail = tostring(result),
 		}
 	end
-	return { status = "returned", report = result :: Core.Report }
+	return { status = "returned", report = result }
 end
 
 return { run = run, url = url, supported = supported }

@@ -5,13 +5,13 @@ local syntax = require "@std/syntax"
 local visitor = require "@std/syntax/visitor"
 
 local function explicitAny(source: string): { number }
-	local parsed = (parser.parse(source) :: unknown) :: { root: syntax.CstStatBlock }
+	local parsed = (parser.parse(source)) :: { root: syntax.CstStatBlock }
 	local lines: { number } = {}
 	local walk = visitor.create()
 	walk.visitType = function(node)
-		local tag = ((node :: unknown) :: { tag: string }).tag
+		local tag = ((node) :: { tag: string }).tag
 		if tag == "reference" then
-			local reference = (node :: unknown) :: {
+			local reference = (node) :: {
 				prefix: unknown,
 				name: { text: string },
 				location: {
@@ -29,11 +29,11 @@ local function explicitAny(source: string): { number }
 end
 
 local function nonStrict(source: string): { number }
-	local parsed = (parser.parse(source) :: unknown) :: { root: syntax.CstStatBlock, eof: syntax.CstToken<string> }
+	local parsed = (parser.parse(source)) :: { root: syntax.CstStatBlock, eof: syntax.CstToken<string> }
 	local lines: { number } = {}
 	local walk = visitor.create()
 	walk.visitToken = function(token)
-		local view = (token :: unknown) :: {
+		local view = (token) :: {
 			leadingTrivia: { { text: string, location: { beginLine: number } } },
 			trailingTrivia: { { text: string, location: { beginLine: number } } },
 		}

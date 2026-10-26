@@ -4,8 +4,8 @@ type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type MenuSpec = typeof(require("@repo/tools/typecheck/aliases").MenuSpec)
 type CollectionStatus = typeof(require("@repo/tools/typecheck/aliases").CollectionStatus)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local modelModule = require("./model")
 local chatModule = require("./chat_model")
 type Context = modelModule.Context
@@ -140,7 +140,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 		refresh()
 		return label
 	end
-	local function message(current: Readable<Message>): GuiObject
+	local function message(current: ReadOnlyValue<Message>): GuiObject
 		local id = current:peek().id
 		local isUser = current:peek().role == "user"
 		local streamingHere = Compose.formula(function(use: Use)
@@ -454,7 +454,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 					key = function(value: boolean): string
 						return tostring(value)
 					end,
-					render = function(current: Readable<boolean>): GuiObject
+					render = function(current: ReadOnlyValue<boolean>): GuiObject
 						return ctx.collection(model.chatScroll, function(canvas: ((Use) -> Vector2)?): ScrollingFrame
 							return UI.VirtualList "Messages" {
 								from = chat.messages,

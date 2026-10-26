@@ -3,14 +3,14 @@
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
-type Value<T> = T | Readable<T> | (Use) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
+type Input<T> = T | ReadOnlyValue<T> | (Use) -> T
 return function(ctx: ExampleContext)
 	local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
 	local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 	local view = {}
-	function view.text(label: Value<string>, size: number?): GuiObject
+	function view.text(label: Input<string>, size: number?): GuiObject
 		return UI.Text({
 			text = label,
 			TextSize = size or 16,
@@ -48,7 +48,7 @@ return function(ctx: ExampleContext)
 			view.column("Content", children, 16),
 		})
 	end
-	function view.action(name: string, label: Value<string>, command: () -> (), enabled: Value<boolean>?): TextButton
+	function view.action(name: string, label: Input<string>, command: () -> (), enabled: Input<boolean>?): TextButton
 		return UI.Button({
 			Name = name,
 			label = label,
@@ -58,20 +58,20 @@ return function(ctx: ExampleContext)
 			AutomaticSize = E.AutomaticSize.None,
 		})
 	end
-	function view.watch<T>(source: (Use) -> { T }, render: (Readable<T>, string) -> GuiObject, id: (T) -> string)
+	function view.watch<T>(source: (Use) -> { T }, render: (ReadOnlyValue<T>, string) -> GuiObject, id: (T) -> string)
 		return Compose.keyed({
 			from = source,
 			key = function(item: T): string
 				return id(item)
 			end,
-			render = function(current: Readable<T>, index: Readable<number>, key: string): GuiObject
+			render = function(current: ReadOnlyValue<T>, index: ReadOnlyValue<number>, key: string): GuiObject
 				local node = render(current, key)
 				ctx.runtime.decorate(node, { LayoutOrder = index })
 				return node
 			end,
 		})
 	end
-	function view.list<T>(items: { T }, render: (Readable<T>, string) -> GuiObject, id: (T) -> string)
+	function view.list<T>(items: { T }, render: (ReadOnlyValue<T>, string) -> GuiObject, id: (T) -> string)
 		return view.watch(function(): { T }
 			return items
 		end, render, id)

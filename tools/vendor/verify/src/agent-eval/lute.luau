@@ -211,7 +211,7 @@ local function bridged(
 	local specPath = Paths.join(directory, "command.json")
 	fs.writeStringToFile(
 		specPath,
-		json.serialize({
+		json.serialize {
 			file = command.argv[1],
 			arguments = windowsCommandLine { table.unpack(command.argv, 2) },
 			input = command.input or "",
@@ -219,7 +219,7 @@ local function bridged(
 			out = outPath,
 			code = codePath,
 			err = errPath,
-		} :: json.Value)
+		}
 	)
 	local literal = "'" .. string.gsub(specPath, "'", "''") .. "'"
 	return Powershell.command("$specPath = " .. literal .. "\n" .. BRIDGE)
@@ -313,7 +313,7 @@ local function request(input: Services.HttpRequest): (Services.HttpResponse?, st
 			body = input.body,
 		})
 		if ok then
-			local answer = value :: net.Response
+			local answer = value
 			response = { status = answer.status, body = answer.body }
 		else
 			problem = tostring(value)

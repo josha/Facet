@@ -15,9 +15,11 @@ type MotionLevel = typeof(require("@repo/examples/types").MotionLevel)
 type CategoryLayout = typeof(require("@repo/examples/types").CategoryLayout)
 type ThemeModule = typeof(require("@repo/examples/types").ThemeModule)
 type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local catalogue = require("./demo_picker")
 local screen = {}
 local DEVICES: { [string]: Device } = {
@@ -37,14 +39,14 @@ function screen.configure(ctx: ExampleContext)
 		Size = ctx.types.UDim2.fromOffset(0, 0),
 		ZIndex = 100,
 	}
-	local themeName: Cell<string> = ctx.themeName or Compose.cell("Neutral")
+	local themeName: Value<string> = ctx.themeName or Compose.cell("Neutral")
 	ctx.themeName = themeName
 	local automaticDistance: ViewingDistance? = "automatic"
-	local viewingDistance: Cell<ViewingDistance?> = Compose.cell(automaticDistance)
+	local viewingDistance: Value<ViewingDistance?> = Compose.cell(automaticDistance)
 	ctx.viewingDistance = viewingDistance
 	ctx.categoryPlacement = Compose.cell("automatic")
 	local noLayout: CategoryLayout? = nil
-	local categoryLayout: Cell<CategoryLayout?> = Compose.cell(noLayout)
+	local categoryLayout: Value<CategoryLayout?> = Compose.cell(noLayout)
 	ctx.categoryLayout = categoryLayout
 	local devicePreview, orientationPreview = Compose.cell("automatic"), Compose.cell("portrait")
 	ctx.devicePreview, ctx.orientationPreview = devicePreview, orientationPreview
@@ -77,8 +79,8 @@ function screen.configure(ctx: ExampleContext)
 		end)
 	end
 	ctx.topInset = inset
-	local noMetric: Readable<number>? = nil
-	local metricScale: Cell<Readable<number>?> = Compose.cell(noMetric)
+	local noMetric: ReadOnlyValue<number>? = nil
+	local metricScale: Value<ReadOnlyValue<number>?> = Compose.cell(noMetric)
 	ctx.metricScale = metricScale
 	local previewScale = Compose.formula(function(use: Use): number
 		local chosen = use(device)
@@ -150,7 +152,7 @@ function screen.configure(ctx: ExampleContext)
 	}
 	ctx.hoverPreview = forced("KeyboardAndMouse")
 	local followDevice: MotionLevel? = nil
-	local motionPreference: Cell<MotionLevel?> = Compose.cell(followDevice)
+	local motionPreference: Value<MotionLevel?> = Compose.cell(followDevice)
 	ctx.motionPreference = motionPreference
 	local nativeReduced = Compose.cell(gui and gui.ReducedMotionEnabled == true or false)
 	if gui then
@@ -171,7 +173,7 @@ function screen.configure(ctx: ExampleContext)
 		return "normal"
 	end
 	local initialLevel: MotionLevel = "normal"
-	local motionLevel: Cell<MotionLevel> = Compose.cell(initialLevel)
+	local motionLevel: Value<MotionLevel> = Compose.cell(initialLevel)
 	Compose.watch(function(use: Use)
 		motionLevel:set(levelOf(use))
 	end)
@@ -246,7 +248,7 @@ function screen.setTheme(ctx: ExampleContext, name: string): boolean
 		return false
 	end
 	local themeName, themeMode, theme = assert(ctx.themeName), assert(ctx.themeMode), assert(ctx.theme)
-	ctx.runtime.reactor:batch(function()
+	ctx.runtime:batch(function()
 		themeName:set(name)
 		themeMode:set(package.style.defaultTheme)
 		theme:set(package)
@@ -258,7 +260,7 @@ function screen.resetAll(ctx: ExampleContext)
 	local devicePreview, orientationPreview = assert(ctx.devicePreview), assert(ctx.orientationPreview)
 	local inputPreview, textPreview = assert(ctx.inputPreview), assert(ctx.textPreview)
 	local viewingDistance = assert(ctx.viewingDistance)
-	ctx.runtime.reactor:batch(function()
+	ctx.runtime:batch(function()
 		devicePreview:set("automatic")
 		orientationPreview:set("portrait")
 		inputPreview:set("automatic")
@@ -360,12 +362,12 @@ function screen.build(ctx: ExampleContext)
 	assert(ctx.metricScale):set(environment.metricScale)
 	local sceneVisible = Compose.cell(false)
 	ctx.sceneVisible = sceneVisible
-	local themeName: Cell<string> = ctx.themeName or Compose.cell("Neutral")
+	local themeName: Value<string> = ctx.themeName or Compose.cell("Neutral")
 	ctx.themeName = themeName
 	local nothing: string? = nil
-	local active: Cell<string?> = Compose.cell(nothing)
+	local active: Value<string?> = Compose.cell(nothing)
 	ctx.active = active
-	local errorMessage: Cell<string?> = Compose.cell(nothing)
+	local errorMessage: Value<string?> = Compose.cell(nothing)
 	ctx.errorMessage = errorMessage
 	local themeMode, theme, packages = assert(ctx.themeMode), assert(ctx.theme), assert(ctx.packages)
 	local devicePreview, orientationPreview = assert(ctx.devicePreview), assert(ctx.orientationPreview)

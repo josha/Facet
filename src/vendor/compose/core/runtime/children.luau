@@ -1,4 +1,5 @@
 --!strict
+--!native
 
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
@@ -113,7 +114,7 @@ local function mountPointFor(list: ChildList, slot: number): MountPoint
 				fix = "use insert, moveTo, remove, count, parent, or host; to reach the parent node itself, "
 					.. "read mountPoint.parent",
 			}
-		) :: never
+		)
 	end
 
 	return (

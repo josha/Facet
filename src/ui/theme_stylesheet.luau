@@ -19,7 +19,7 @@ return function(
 	forDistance: (ThemeTypes.ThemePackage, string?) -> ThemeTypes.ThemePackage,
 	Compose: typeof(ComposeTypes),
 	runtime: ComposeTypes.Runtime,
-	packageOrReadable: Engine.Value<ThemeTypes.ThemePackage>?,
+	packageOrReadable: Engine.Input<ThemeTypes.ThemePackage>?,
 	options: ThemeTypes.ThemeOptions?
 ): StyleSheet
 	local settings: ThemeTypes.ThemeOptions = options or {}
@@ -34,7 +34,7 @@ return function(
 			then { settings.motionLevel }
 			else motionLevels.published(runtime)
 		for _, source in sources do
-			local chosen = read(source :: Engine.Value<("normal" | "limited" | "none")?>, use)
+			local chosen = read(source :: Engine.Input<("normal" | "limited" | "none")?>, use)
 			if chosen ~= nil and motionLevels.resolve(chosen, false) == "none" then
 				return true
 			end
@@ -42,7 +42,7 @@ return function(
 		return false
 	end
 	local preferredTextSize = ((runtime :: unknown) :: { [string]: unknown }).FacetTextPreference
-	local nativeTextSize: Engine.Value<unknown>? = nil
+	local nativeTextSize: Engine.Input<unknown>? = nil
 	if preferredTextSize ~= nil then
 		local globals = getfenv(0)
 		local gui = globals.game and globals.game:GetService("GuiService")
@@ -94,7 +94,7 @@ return function(
 			end)
 		end
 	end
-	local hover: Engine.Value<boolean>? = nil
+	local hover: Engine.Input<boolean>? = nil
 	do
 		local globals = getfenv(0)
 		local input = globals.game and globals.game:GetService("UserInputService")
@@ -130,7 +130,7 @@ return function(
 			end)
 		end
 	end
-	local distant: Engine.Value<boolean>? = settings.tenFoot
+	local distant: Engine.Input<boolean>? = settings.tenFoot
 	if distant == nil then
 		local globals = getfenv(0)
 		local gui = globals.game and globals.game:GetService("GuiService")
@@ -438,7 +438,7 @@ return function(
 	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({
 		Compose.keyed({
 			from = ids,
-			render = function(current: ComposeTypes.Readable<string>)
+			render = function(current: ComposeTypes.ReadOnlyValue<string>)
 				local id = current:peek()
 				local initial = definitions[id]
 				local node = Host.StyleRule({
@@ -493,7 +493,7 @@ return function(
 		end
 		local preference = preferenceFor(use)
 		local typography = package.metrics.controls.typography or neutral.metrics.controls.typography
-		local textChoice = read(preferredTextSize :: Engine.Value<Enum.PreferredTextSize | string>?, use)
+		local textChoice = read(preferredTextSize :: Engine.Input<Enum.PreferredTextSize | string>?, use)
 		local textOffset = if textChoice ~= nil
 			then (textRank(textChoice) - textRank(read(nativeTextSize, use))) * typography.preferredSizeStep
 			else 0

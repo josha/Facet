@@ -35,7 +35,7 @@ return function(ctx: Types.Context, attach: Attach): Kit
 
 	local function selecting(): (ComposeTypes.Use) -> boolean
 		local active = gui ~= nil and gui.SelectedObject ~= nil
-		local last: ComposeTypes.Cell<Enum.UserInputType>? = nil
+		local last: ComposeTypes.Value<Enum.UserInputType>? = nil
 		if input and input.GetLastInputType then
 			local source = Compose.cell(input:GetLastInputType())
 			last = source

@@ -6,9 +6,11 @@ type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 
 local assets = require("./assets")
 
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 
 local ROWS = 6
 local COLS = 6
@@ -251,11 +253,11 @@ local function build(ctx: ExampleContext): Built
 	local message = Compose.cell("")
 	local resolving = Compose.cell(false)
 	local unselected: { number }? = nil
-	local selected: Cell<{ number }?> = Compose.cell(unselected)
-	local kindHandle: { [string]: { state: Cell<string>, value: Cell<string?> } } = {}
+	local selected: Value<{ number }?> = Compose.cell(unselected)
+	local kindHandle: { [string]: { state: Value<string>, value: Value<string?> } } = {}
 	for _, kind in KINDS do
 		local image: string? = assets.match3Tiles[kind].image
-		local value: Cell<string?> = Compose.cell(image)
+		local value: Value<string?> = Compose.cell(image)
 		kindHandle[kind] = { state = Compose.cell("ready"), value = value }
 	end
 	local PENDING = assets.pending
@@ -337,7 +339,7 @@ local function build(ctx: ExampleContext): Built
 		end
 	end
 	local slots: { [string]: GuiObject } = {}
-	local function TileView(item: Readable<{ id: number }>)
+	local function TileView(item: ReadOnlyValue<{ id: number }>)
 		local tile = tilesById[item:peek().id]
 		local kind = Compose.cell(tile.kind)
 		local position = Compose.cell({
@@ -801,7 +803,7 @@ local function build(ctx: ExampleContext): Built
 		dealBoard()
 		message:set("")
 	end
-	local hintSig: Readable<string>? = nil
+	local hintSig: ReadOnlyValue<string>? = nil
 	local function Match3()
 		local hint = Compose.formula(function(use: Use)
 			local said = use(message)

@@ -3,8 +3,8 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
@@ -154,7 +154,7 @@ function Sipworks.build(ctx: ExampleContext)
 			view.column("Blends", {
 				view.watch(function(use: Use): { blendsContent.Blend }
 					return use(visible)
-				end, function(current: Readable<blendsContent.Blend>): GuiObject
+				end, function(current: ReadOnlyValue<blendsContent.Blend>): GuiObject
 					local blend = current:peek()
 					return view.column(blend.id, {
 						view.text(art.of("blend", blend.id).mark, 24),
@@ -348,7 +348,7 @@ function Sipworks.build(ctx: ExampleContext)
 				)
 			end),
 			view.column("Recipes", {
-				view.list(catalog.blends, function(current: Readable<blendsContent.Blend>): GuiObject
+				view.list(catalog.blends, function(current: ReadOnlyValue<blendsContent.Blend>): GuiObject
 					local blend = current:peek()
 					return view.action(blend.id, function(use: Use)
 						return blendName(blend.id, use)

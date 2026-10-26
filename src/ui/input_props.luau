@@ -112,11 +112,11 @@ export type ButtonProps = {
 	name: Shared.ValueString?,
 	compactLabel: Shared.ValueString?,
 	pop: boolean?,
-	appearance: (Shared.ValueString | Shared.Value<string?>)?,
-	controlSize: Inputs.Value<Shared.ControlSize?>?,
-	corners: Inputs.Value<Inputs.ButtonCorners>?,
+	appearance: (Shared.ValueString | Shared.Input<string?>)?,
+	controlSize: Inputs.Input<Shared.ControlSize?>?,
+	corners: Inputs.Input<Inputs.ButtonCorners>?,
 	shape: ("rect" | "circle")?,
-	role: Inputs.Value<Inputs.ButtonRole>?,
+	role: Inputs.Input<Inputs.ButtonRole>?,
 	icon: Shared.ValueString?,
 	trailingIcon: Shared.ValueString?,
 	image: Shared.ValueString?,
@@ -127,9 +127,9 @@ export type ButtonProps = {
 	help: Inputs.Help?,
 	disclose: boolean?,
 	row: Inputs.Row?,
-	textSize: Inputs.Value<string | number>?,
+	textSize: Inputs.Input<string | number>?,
 	underline: ("always" | "hover")?,
-	haptic: Inputs.Value<boolean | Shared.HapticKind>?,
+	haptic: Inputs.Input<boolean | Shared.HapticKind>?,
 	repeatDelay: number?,
 	repeatInterval: number?,
 	shortcut: Inputs.Shortcut?,
@@ -250,11 +250,11 @@ type ToggleShape<ValueField, OnChangeField> = {
 	name: Shared.ValueString?,
 	compactLabel: Shared.ValueString?,
 	pop: boolean?,
-	appearance: (Shared.ValueString | Shared.Value<string?>)?,
-	controlSize: Inputs.Value<Shared.ControlSize?>?,
-	corners: Inputs.Value<Inputs.ButtonCorners>?,
+	appearance: (Shared.ValueString | Shared.Input<string?>)?,
+	controlSize: Inputs.Input<Shared.ControlSize?>?,
+	corners: Inputs.Input<Inputs.ButtonCorners>?,
 	shape: ("rect" | "circle")?,
-	role: Inputs.Value<Inputs.ButtonRole>?,
+	role: Inputs.Input<Inputs.ButtonRole>?,
 	icon: Shared.ValueString?,
 	trailingIcon: Shared.ValueString?,
 	image: Shared.ValueString?,
@@ -265,9 +265,9 @@ type ToggleShape<ValueField, OnChangeField> = {
 	help: Inputs.Help?,
 	disclose: boolean?,
 	row: Inputs.Row?,
-	textSize: Inputs.Value<string | number>?,
+	textSize: Inputs.Input<string | number>?,
 	underline: ("always" | "hover")?,
-	haptic: Inputs.Value<boolean | Shared.HapticKind>?,
+	haptic: Inputs.Input<boolean | Shared.HapticKind>?,
 	repeatDelay: number?,
 	repeatInterval: number?,
 	shortcut: Inputs.Shortcut?,
@@ -283,8 +283,8 @@ type ToggleShape<ValueField, OnChangeField> = {
 	onChange: OnChangeField,
 	[number | Engine.EventKey]: Compose.Child,
 }
-export type ToggleCellProps = ToggleShape<Compose.Cell<boolean>, ((boolean) -> ())?>
-export type ToggleRequestProps = ToggleShape<Inputs.Value<boolean>, (boolean) -> ()>
+export type ToggleCellProps = ToggleShape<Compose.Value<boolean>, ((boolean) -> ())?>
+export type ToggleRequestProps = ToggleShape<Inputs.Input<boolean>, (boolean) -> ()>
 export type ToggleProps = ToggleCellProps | ToggleRequestProps
 type TextInputShape<ValueField, OnChangeField, PresentationField, NumericValueField, OnCommitField> = {
 	Changed: ((string) -> ())?,
@@ -396,7 +396,7 @@ type TextInputShape<ValueField, OnChangeField, PresentationField, NumericValueFi
 	visibleLines: number?,
 	validate: ((string) -> string?)?,
 	maxLength: number?,
-	invalid: Compose.Readable<boolean>?,
+	invalid: Compose.ReadOnlyValue<boolean>?,
 	clearButton: boolean?,
 	clearButtonMode: Inputs.ClearButtonMode?,
 	selectOnFocus: Inputs.SelectOnFocusValue?,
@@ -421,28 +421,28 @@ type TextInputShape<ValueField, OnChangeField, PresentationField, NumericValueFi
 	[number | Engine.EventKey]: Compose.Child,
 }
 export type TextInputCellProps = TextInputShape<
-	Compose.Cell<string>,
+	Compose.Value<string>,
 	((string) -> ())?,
 	("plain" | "search")?,
 	nil?,
 	((string, Inputs.TextCommitReason) -> ())?
 >
 export type TextInputRequestProps = TextInputShape<
-	Inputs.Value<string>,
+	Inputs.Input<string>,
 	(string) -> (),
 	("plain" | "search")?,
 	nil?,
 	((string, Inputs.TextCommitReason) -> ())?
 >
 export type TextInputNumberCellProps = TextInputShape<
-	Compose.Cell<string>,
+	Compose.Value<string>,
 	((string) -> ())?,
 	"number",
 	Inputs.NumberCell,
 	((number, Inputs.CommitReason) -> ())?
 >
 export type TextInputNumberRequestProps = TextInputShape<
-	Inputs.Value<string>,
+	Inputs.Input<string>,
 	(string) -> (),
 	"number",
 	Inputs.NumberCell,
@@ -563,7 +563,7 @@ type NumberInputShape<ValueField, OnChangeField> = {
 	visibleLines: number?,
 	validate: ((string) -> string?)?,
 	maxLength: number?,
-	invalid: Compose.Readable<boolean>?,
+	invalid: Compose.ReadOnlyValue<boolean>?,
 	clearButton: boolean?,
 	clearButtonMode: Inputs.ClearButtonMode?,
 	selectOnFocus: Inputs.SelectOnFocusValue?,
@@ -586,8 +586,8 @@ type NumberInputShape<ValueField, OnChangeField> = {
 	onChange: OnChangeField,
 	[number | Engine.EventKey]: Compose.Child,
 }
-export type NumberInputCellProps = NumberInputShape<Compose.Cell<string>, ((string) -> ())?>
-export type NumberInputRequestProps = NumberInputShape<Inputs.Value<string>, (string) -> ()>
+export type NumberInputCellProps = NumberInputShape<Compose.Value<string>, ((string) -> ())?>
+export type NumberInputRequestProps = NumberInputShape<Inputs.Input<string>, (string) -> ()>
 export type NumberInputProps = NumberInputCellProps | NumberInputRequestProps
 type StepperShape<ValueField, OnChangeField> = {
 	Changed: ((string) -> ())?,
@@ -668,8 +668,8 @@ type StepperShape<ValueField, OnChangeField> = {
 	onChange: OnChangeField,
 	[number | Engine.EventKey]: Compose.Child,
 }
-export type StepperCellProps = StepperShape<Compose.Cell<number>, ((number) -> ())?>
-export type StepperRequestProps = StepperShape<Inputs.Value<number>, (number) -> ()>
+export type StepperCellProps = StepperShape<Compose.Value<number>, ((number) -> ())?>
+export type StepperRequestProps = StepperShape<Inputs.Input<number>, (number) -> ()>
 export type StepperProps = StepperCellProps | StepperRequestProps
 type SliderShape<RangeField, ValueField, OnChangeField, OnCommitField> = {
 	Changed: ((string) -> ())?,
@@ -762,7 +762,7 @@ type SliderShape<RangeField, ValueField, OnChangeField, OnCommitField> = {
 	onCommit: OnCommitField,
 	[number | Engine.EventKey]: Compose.Child,
 }
-export type SliderCellProps = SliderShape<false?, Compose.Cell<number>, ((number) -> ())?, ((number) -> ())?>
+export type SliderCellProps = SliderShape<false?, Compose.Value<number>, ((number) -> ())?, ((number) -> ())?>
 export type SliderRequestProps = SliderShape<false?, Shared.ValueNumber, (number) -> (), ((number) -> ())?>
 export type SliderRangeProps = SliderShape<
 	true,
@@ -879,7 +879,7 @@ type RatingShape<ValueField, OnChangeField, ReadOnlyField> = {
 	readOnly: ReadOnlyField,
 	[number | Engine.EventKey]: Compose.Child,
 }
-export type RatingCellProps = RatingShape<Compose.Cell<number>, ((number) -> ())?, boolean?>
+export type RatingCellProps = RatingShape<Compose.Value<number>, ((number) -> ())?, boolean?>
 export type RatingRequestProps = RatingShape<Shared.ValueNumber, (number) -> (), boolean?>
 export type RatingReadOnlyProps = RatingShape<Shared.ValueNumber, ((number) -> ())?, true>
 export type RatingProps = RatingCellProps | RatingRequestProps | RatingReadOnlyProps
@@ -994,7 +994,7 @@ type LevelPickerShape<ValueField, OnChangeField, ReadOnlyField> = {
 	readOnly: ReadOnlyField,
 	[number | Engine.EventKey]: Compose.Child,
 }
-export type LevelPickerCellProps = LevelPickerShape<Compose.Cell<number>, ((number) -> ())?, boolean?>
+export type LevelPickerCellProps = LevelPickerShape<Compose.Value<number>, ((number) -> ())?, boolean?>
 export type LevelPickerRequestProps = LevelPickerShape<Shared.ValueNumber, (number) -> (), boolean?>
 export type LevelPickerReadOnlyProps = LevelPickerShape<Shared.ValueNumber, ((number) -> ())?, true>
 export type LevelPickerProps = LevelPickerCellProps | LevelPickerRequestProps | LevelPickerReadOnlyProps
@@ -1102,11 +1102,11 @@ type ChipShape<SelectedField, OnToggleField, OnRemoveField> = {
 	name: Shared.ValueString?,
 	compactLabel: Shared.ValueString?,
 	pop: boolean?,
-	appearance: (Shared.ValueString | Shared.Value<string?>)?,
-	controlSize: Inputs.Value<Shared.ControlSize?>?,
-	corners: Inputs.Value<Inputs.ButtonCorners>?,
+	appearance: (Shared.ValueString | Shared.Input<string?>)?,
+	controlSize: Inputs.Input<Shared.ControlSize?>?,
+	corners: Inputs.Input<Inputs.ButtonCorners>?,
 	shape: ("rect" | "circle")?,
-	role: Inputs.Value<Inputs.ButtonRole>?,
+	role: Inputs.Input<Inputs.ButtonRole>?,
 	icon: Shared.ValueString?,
 	trailingIcon: Shared.ValueString?,
 	image: Shared.ValueString?,
@@ -1117,9 +1117,9 @@ type ChipShape<SelectedField, OnToggleField, OnRemoveField> = {
 	help: Inputs.Help?,
 	disclose: boolean?,
 	row: Inputs.Row?,
-	textSize: Inputs.Value<string | number>?,
+	textSize: Inputs.Input<string | number>?,
 	underline: ("always" | "hover")?,
-	haptic: Inputs.Value<boolean | Shared.HapticKind>?,
+	haptic: Inputs.Input<boolean | Shared.HapticKind>?,
 	repeatDelay: number?,
 	repeatInterval: number?,
 	shortcut: Inputs.Shortcut?,
@@ -1131,7 +1131,7 @@ type ChipShape<SelectedField, OnToggleField, OnRemoveField> = {
 	ref: ((TextButton | Frame) -> ())?,
 	editing: Inputs.FlagValue?,
 	removeLabel: Shared.ValueString?,
-	removeFocusFallback: Inputs.Value<GuiObject?>?,
+	removeFocusFallback: Inputs.Input<GuiObject?>?,
 	leading: Shared.Child?,
 	trailing: Shared.Child?,
 	selected: SelectedField,
@@ -1139,7 +1139,7 @@ type ChipShape<SelectedField, OnToggleField, OnRemoveField> = {
 	onRemove: OnRemoveField,
 	[number | Engine.EventKey]: Compose.Child,
 }
-export type ChipCellProps = ChipShape<Compose.Cell<boolean>, ((boolean) -> ())?, (() -> ())?>
+export type ChipCellProps = ChipShape<Compose.Value<boolean>, ((boolean) -> ())?, (() -> ())?>
 export type ChipRequestProps = ChipShape<Shared.ValueBoolean, (boolean) -> (), (() -> ())?>
 export type ChipRemovableProps = ChipShape<nil?, nil?, () -> ()>
 export type ChipProps = ChipCellProps | ChipRequestProps | ChipRemovableProps
@@ -1228,7 +1228,7 @@ type ShortcutHintShape<KeysField, ActionField> = {
 	TextYAlignment: Engine.ValueEnumTextYAlignment?,
 	ref: ((TextLabel | Frame) -> ())?,
 	separator: Shared.ValueString?,
-	controlSize: Inputs.Value<Shared.ControlSize?>?,
+	controlSize: Inputs.Input<Shared.ControlSize?>?,
 	label: Shared.ValueString?,
 	labelPosition: ("start" | "end")?,
 	cap: boolean?,
@@ -1236,7 +1236,7 @@ type ShortcutHintShape<KeysField, ActionField> = {
 	action: ActionField,
 	[number | Engine.EventKey]: Compose.Child,
 }
-export type ShortcutHintKeysProps = ShortcutHintShape<Inputs.Value<{ { string } }>, nil?>
+export type ShortcutHintKeysProps = ShortcutHintShape<Inputs.Input<{ { string } }>, nil?>
 export type ShortcutHintActionProps = ShortcutHintShape<nil?, InputAction>
 export type ShortcutHintProps = ShortcutHintKeysProps | ShortcutHintActionProps
 export type ButtonGuideProps = {
@@ -1306,9 +1306,9 @@ export type ButtonGuideProps = {
 	ZIndex: Engine.ValueNumber?,
 	Style: Engine.ValueEnumFrameStyle?,
 	ref: ((Frame) -> ())?,
-	entries: Inputs.Value<{ Inputs.ButtonGuideEntry }>,
+	entries: Inputs.Input<{ Inputs.ButtonGuideEntry }>,
 	inputs: { string }?,
-	controlSize: Inputs.Value<Shared.ControlSize?>?,
+	controlSize: Inputs.Input<Shared.ControlSize?>?,
 	[number | Engine.EventKey]: Compose.Child,
 }
 export type DateTimePickerProps = {

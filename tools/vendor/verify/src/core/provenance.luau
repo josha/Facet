@@ -55,8 +55,13 @@ export type MemorySink = Sink & {
 	available: boolean,
 }
 
+local function checkedNumber(value: unknown): number
+	assert(type(value) == "number")
+	return value
+end
+
 local function sha256(value: unknown): boolean
-	return type(value) == "string" and #(value :: string) == 64 and string.match(value :: string, "^[0-9a-f]+$") ~= nil
+	return type(value) == "string" and #value == 64 and string.match(value, "^[0-9a-f]+$") ~= nil
 end
 
 local function optionalSha(value: unknown, label: string): string?
@@ -66,7 +71,8 @@ local function optionalSha(value: unknown, label: string): string?
 	if not sha256(value) then
 		error(label .. " must be a lowercase hex sha-256", 3)
 	end
-	return value :: string
+	assert(type(value) == "string")
+	return value
 end
 
 local function text(value: unknown, label: string): string
@@ -114,7 +120,7 @@ local function copyProvenance(value: unknown, label: string): Provenance
 		host = text(raw.host, label .. ".host"),
 		capabilities = Shape.copyStrings(raw.capabilities, label .. ".capabilities"),
 		device = text(raw.device, label .. ".device"),
-		capturedAt = raw.capturedAt :: number,
+		capturedAt = checkedNumber(raw.capturedAt),
 	}
 end
 
@@ -125,7 +131,8 @@ local function copyIdentity(raw: { [string]: unknown }, label: string): Identity
 		if not Shape.nonnegativeInteger(raw.size) then
 			error(label .. ".size must be a non-negative integer", 3)
 		end
-		size = raw.size :: number
+		assert(type(raw.size) == "number")
+		size = raw.size
 	end
 	local provenance = if raw.provenance ~= nil then copyProvenance(raw.provenance, label .. ".provenance") else nil
 	if (digest == nil) ~= (size == nil) then
@@ -148,10 +155,11 @@ local function copyReviewBinding(raw: { [string]: unknown }, label: string): Rev
 			if not sha256(item) then
 				error(label .. ".judged must contain lowercase hex sha-256 values", 3)
 			end
-			table.insert(judged :: { string }, item)
+			table.insert(assert(judged), item)
 		end
 	end
-	return { kind = raw.kind :: ReviewKind?, judged = judged }
+	local kind: ReviewKind? = if raw.kind == "visual" then "visual" elseif raw.kind == "audio" then "audio" else nil
+	return { kind = kind, judged = judged }
 end
 
 local function memorySink(hash: Hasher): MemorySink

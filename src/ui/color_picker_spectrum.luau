@@ -22,7 +22,7 @@ return function(
 	state: PickerState.State,
 	sliders: Sliders.Sliders
 ): () -> Frame
-	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
+	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local color, ring, WHITE = kit.color, kit.ring, kit.WHITE
 	local held, canon, selected = state.held, state.canon, state.selected
@@ -39,7 +39,7 @@ return function(
 		local dragStart: Hsv? = nil
 		local surface: Frame
 		local plane: Frame
-		local planeSize: ComposeTypes.Readable<Vector2>
+		local planeSize: ComposeTypes.ReadOnlyValue<Vector2>
 		local function fractions(position: Vector2): (number?, number?)
 			local at, size = surface.AbsolutePosition, surface.AbsoluteSize
 			if size.X <= 0 or size.Y <= 0 then
@@ -56,7 +56,7 @@ return function(
 			propose({ h = now.h, s = fx, v = 1 - fy })
 		end
 		local function beginDrag(position: Vector2)
-			if not mayEdit() or (gamepad() and read(selected) == (surface :: GuiObject?)) then
+			if not mayEdit() or (gamepad() and ctx.readSource(selected) == (surface :: GuiObject?)) then
 				return
 			end
 			if not dragging:peek() then
@@ -230,7 +230,7 @@ return function(
 			end),
 		})
 		local function planeSelected(use: Use?): boolean
-			return (read(selected, use) :: Instance?) == (surface :: Instance)
+			return (ctx.readSource(selected, use) :: Instance?) == (surface :: Instance)
 		end
 		local stick = V2.zero
 		local stopFrames: (() -> ())? = nil

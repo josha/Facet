@@ -1,5 +1,6 @@
 --!strict
 
+local Reactors = require "../reactive/reactor"
 local Active = require "../ownership/active"
 local Owner = require "../ownership/owner"
 local Types = require "../reactive/types"
@@ -22,8 +23,8 @@ export type Step = {
 }
 export type Options = { steps: { Step }, reducedMotion: Motion.ReducedMotion?, autoplay: boolean? }
 export type Sequence = {
-	completed: Types.Readable<boolean>,
-	running: Types.Readable<boolean>,
+	completed: Types.ReadOnlyValue<boolean>,
+	running: Types.ReadOnlyValue<boolean>,
 	play: () -> (),
 	cancel: () -> (),
 	finish: () -> (),
@@ -34,7 +35,7 @@ type Event = { at: number, order: number, phase: Phase, start: boolean }
 return function(timeline: (Timeline.Options?) -> Timeline.Timeline, ownerOf: (string) -> Owner.Owner)
 	return function(options: Options): Sequence
 		local parent = ownerOf "sequence"
-		local scope = parent.createChild()
+		local scope = Owner.createChild(parent)
 		local function build(): Sequence
 			local phases: { Phase } = {}
 			local events: { Event } = {}
@@ -67,7 +68,8 @@ return function(timeline: (Timeline.Options?) -> Timeline.Timeline, ownerOf: (st
 				}
 				table.insert(phases, phase)
 				event(phase, start, true)
-				for _, child in (step.steps or {}) :: { Step } do
+				local steps: { Step } = step.steps or {}
+				for _, child in steps do
 					phase.finish = compile(child, phase.finish)
 				end
 				local children: { Step } = step.parallel or {}
@@ -94,7 +96,7 @@ return function(timeline: (Timeline.Options?) -> Timeline.Timeline, ownerOf: (st
 				running:set(false)
 				completed:set(false)
 			end
-			scope.own(cancel)
+			Owner.own(scope, cancel)
 			local policy = if options.reducedMotion
 				then Support.sourceOf(options.reducedMotion, "sequence", "reducedMotion")
 				else nil
@@ -131,7 +133,7 @@ return function(timeline: (Timeline.Options?) -> Timeline.Timeline, ownerOf: (st
 				end)
 			end
 			local function advance(elapsed: number)
-				if not running:peek() or scope.isDisposed() then
+				if not running:peek() or Owner.isDisposed(scope) then
 					return
 				end
 				local mine = generation
@@ -146,7 +148,7 @@ return function(timeline: (Timeline.Options?) -> Timeline.Timeline, ownerOf: (st
 						end
 					else
 						sample(phase, phase.finish)
-						if mine ~= generation or scope.isDisposed() then
+						if mine ~= generation or Owner.isDisposed(scope) then
 							return
 						end
 						phase.ended = true
@@ -154,14 +156,14 @@ return function(timeline: (Timeline.Options?) -> Timeline.Timeline, ownerOf: (st
 							invoke(phase.step.onComplete)
 						end
 					end
-					if mine ~= generation or scope.isDisposed() then
+					if mine ~= generation or Owner.isDisposed(scope) then
 						return
 					end
 				end
 				for _, phase in phases do
 					if phase.started and not phase.ended then
 						sample(phase, elapsed)
-						if mine ~= generation or scope.isDisposed() then
+						if mine ~= generation or Owner.isDisposed(scope) then
 							return
 						end
 					end
@@ -175,16 +177,16 @@ return function(timeline: (Timeline.Options?) -> Timeline.Timeline, ownerOf: (st
 			local function finish()
 				advance(duration)
 			end
-			scope.watch(function(use)
+			Owner.watch(scope, function(use)
 				local elapsed = use(clock.elapsed)
 				local reduced = policy ~= nil and policy(use) == true
 				advance(if reduced then duration else elapsed)
 			end)
 			local function play()
-				if scope.isDisposed() then
+				if Owner.isDisposed(scope) then
 					return
 				end
-				scope.reactor:batch(function()
+				Reactors.batch(Owner.reactorOf(scope), function()
 					cancel()
 					cursor = 1
 					for _, phase in phases do
@@ -194,7 +196,7 @@ return function(timeline: (Timeline.Options?) -> Timeline.Timeline, ownerOf: (st
 					running:set(true)
 					local reduced = policy ~= nil
 						and Watch.sample(function(): unknown
-								return assert(policy)(function<T>(value: Types.Readable<T>): T
+								return assert(policy)(function<T>(value: Types.ReadOnlyValue<T>): T
 									return value:peek()
 								end)
 							end)
@@ -212,7 +214,7 @@ return function(timeline: (Timeline.Options?) -> Timeline.Timeline, ownerOf: (st
 		end
 		local ok, result = pcall(Active.withOwner, scope, build)
 		if not ok then
-			scope.dispose()
+			Owner.dispose(scope)
 			error(result, 0)
 		end
 		return result

@@ -1,8 +1,8 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
@@ -40,7 +40,7 @@ return {
 				end, { seconds = 0.4, ease = definition.ease }),
 			})
 		end
-		local function decorative(source: Readable<number>, destination: Readable<number>, use: Use): number
+		local function decorative(source: ReadOnlyValue<number>, destination: ReadOnlyValue<number>, use: Use): number
 			return if use(reduced) or (ctx.reducedMotion and use(ctx.reducedMotion))
 				then use(destination)
 				else use(source)

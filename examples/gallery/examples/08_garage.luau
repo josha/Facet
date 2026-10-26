@@ -1,8 +1,8 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local makeView = require("./showcase_view")
 type Preset = { id: number, name: string, vehicle: string, wheel: string, paint: Color3, stripe: boolean }
 local vehicles = {
@@ -162,7 +162,7 @@ return {
 					key = function(item: Preset)
 						return item.id
 					end,
-					render = function(current: Readable<Preset>): GuiObject
+					render = function(current: ReadOnlyValue<Preset>): GuiObject
 						return view.button("LoadPreset" .. current:peek().id, function(use: Use)
 							return use(current).name
 						end, function()

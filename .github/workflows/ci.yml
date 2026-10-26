@@ -279,7 +279,12 @@ jobs:
           fi
           cmp tools/vendor/verify/UPSTREAM.lock "$base/tools/vendor/verify/UPSTREAM.lock"
           (cd "$base" && lute run "$GITHUB_WORKSPACE/tools/facet" sync verify --check)
-          git archive HEAD bench tests examples tools > "$evidence/measurement.tar"
+          measurement=(bench tests examples tools)
+          if ! cmp -s src/vendor/compose/UPSTREAM.lock "$base/src/vendor/compose/UPSTREAM.lock"; then
+            measurement=(bench/paired_scene.luau bench/paired_workload.luau tests examples tools)
+            echo "The Compose pin differs from the base. Each arm runs its own bench scenarios against its own Compose." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          git archive HEAD "${measurement[@]}" > "$evidence/measurement.tar"
           tar -xf - -C "$base" < "$evidence/measurement.tar"
           git -C "$base" diff --exit-code HEAD -- src
           sha256sum "$evidence/measurement.tar" "$evidence"/*.lock

@@ -15,7 +15,7 @@ export type TargetOptions = {
 	onDrop: ((unknown, Proposal) -> ())
 		| ((unknown, Proposal) -> boolean | "pending")
 		| ((unknown, Proposal) -> (boolean | "pending")?),
-	operation: Shared.Value<Env.DropOperation>?,
+	operation: Shared.Input<Env.DropOperation>?,
 	passThrough: ((unknown) -> boolean)?,
 	focusTarget: GuiObject?,
 	accepts: ((unknown, Proposal) -> (boolean, string?))?,
@@ -61,7 +61,7 @@ export type Session = {
 	travelled: boolean?,
 }
 export type Service = {
-	state: Shared.Cell<Session?>,
+	state: Shared.Value<Session?>,
 	own: (GuiObject) -> (),
 	finish: (boolean?, string?) -> (),
 	hover: (Instance?, RaycastResult?) -> (),

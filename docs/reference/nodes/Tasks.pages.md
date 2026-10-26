@@ -5,7 +5,7 @@ Call inside the app mount.
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 local function pages(app: Facet.App, title: string,
-	hud: (() -> ()) -> GuiObject, body: (Facet.Cell<boolean>) -> GuiObject): Frame
+	hud: (() -> ()) -> GuiObject, body: (Facet.Value<boolean>) -> GuiObject): Frame
 	local C, UI = Facet.Compose, app.UI
 	local path = C.cell({} :: { Facet.NavigationEntry<string> })
 	local back = C.cell(false)

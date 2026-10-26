@@ -352,9 +352,9 @@ local function createHarness(options: {
 	local running = false
 	local runAttachmentBytes = 0
 	local caseIds: { [string]: boolean } = {}
-	local harness = {} :: Harness
+	local harness: Harness
 
-	function harness:suite(name: string, register: () -> ())
+	local function harness_suite(self: Harness, name: string, register: () -> ())
 		if running then
 			error("cannot register a suite while a harness is running", 2)
 		end
@@ -369,7 +369,7 @@ local function createHarness(options: {
 		end
 	end
 
-	function harness:case(name: string, definition: CaseRun | CaseOptions)
+	local function harness_case(self: Harness, name: string, definition: CaseRun | CaseOptions)
 		if running then
 			error("cannot register a case while a harness is running", 2)
 		end
@@ -428,7 +428,7 @@ local function createHarness(options: {
 		})
 	end
 
-	function harness:skip(name: string, reason: string, run: CaseRun?)
+	local function harness_skip(self: Harness, name: string, reason: string, run: CaseRun?)
 		if reason == "" then
 			error("skip reason must not be empty", 2)
 		end
@@ -436,14 +436,14 @@ local function createHarness(options: {
 		current.cases[#current.cases].skipReason = reason
 	end
 
-	function harness:beforeEach(run: CaseRun)
+	local function harness_beforeEach(self: Harness, run: CaseRun)
 		if running then
 			error("cannot register a hook while a harness is running", 2)
 		end
 		table.insert(current.beforeEach, run)
 	end
 
-	function harness:afterEach(run: CaseRun)
+	local function harness_afterEach(self: Harness, run: CaseRun)
 		if running then
 			error("cannot register a hook while a harness is running", 2)
 		end
@@ -466,18 +466,19 @@ local function createHarness(options: {
 				table.insert(missing, requirement)
 			end
 		end
-		local base = {
+		local base: CaseResult = {
+			status = "passed",
 			id = entry.id,
 			source = entry.source,
 			path = path,
 			name = entry.name,
 			durationMicros = 0,
-			failures = {} :: { Failure },
-			steps = {} :: { StepResult },
-			artifacts = {} :: { Artifact },
+			failures = {},
+			steps = {},
+			artifacts = {},
 			limitations = table.clone(entry.limitations),
 			missingCapabilities = missing,
-			skipReason = nil :: string?,
+			skipReason = nil,
 			origin = runOrigin,
 		}
 		if #missing > 0 then
@@ -497,10 +498,10 @@ local function createHarness(options: {
 			}
 		end
 		if entry.skipReason ~= nil then
-			local result = table.clone(base) :: CaseResult
+			local result = table.clone(base)
 			result.status = "skipped"
 			result.skipReason = entry.skipReason
-			return result :: CaseResult
+			return result
 		end
 
 		local failures = base.failures
@@ -509,8 +510,7 @@ local function createHarness(options: {
 		local cleanups: { () -> () } = {}
 		local runtimeSkipReason: string? = nil
 		local started = now()
-		local context = {} :: Context
-		context.id = entry.id
+		local context: Context
 		local deadline = if entry.timeoutSeconds then started + entry.timeoutSeconds else math.huge
 		local host: Operations.Host? = nil
 		local evidence: Types.Evidence = { observations = {}, checkpoints = {}, reviews = {}, measurements = {} }
@@ -537,7 +537,7 @@ local function createHarness(options: {
 			if phase == "cleanup" or phase == "teardown" then
 				cleanupDeadline = now() + (entry.cleanupTimeoutSeconds or 5)
 			end
-			local ok, result: unknown = pcall(invoker, phase, function()
+			local ok, result = pcall(invoker, phase, function()
 				withinDeadline()
 				callback()
 				withinDeadline()
@@ -548,7 +548,7 @@ local function createHarness(options: {
 			if type(result) ~= "table" then
 				return { outcome = "failed", error = "executor invoker returned a non-table result" }
 			end
-			local invocation = result :: InvocationResult
+			local invocation = result
 			if
 				invocation.outcome ~= "returned"
 				and invocation.outcome ~= "failed"
@@ -610,27 +610,27 @@ local function createHarness(options: {
 			return false
 		end
 
-		function context:expect(value: unknown): Expectation
+		local function context_expect(self: Context, value: unknown): Expectation
 			return Matchers.expect(value)
 		end
 
-		function context:defer(cleanup: () -> ())
+		local function context_defer(self: Context, cleanup: () -> ())
 			if type(cleanup) ~= "function" then
 				error("defer requires a cleanup function", 2)
 			end
 			table.insert(cleanups, cleanup)
 		end
 
-		function context:own<T>(resource: Resource<T>)
+		local function context_own<T>(self: Context, resource: Resource<T>)
 			if type(resource) == "function" then
-				table.insert(cleanups, resource :: () -> ())
+				table.insert(cleanups, resource)
 				return
 			end
 			if type(resource) ~= "table" then
 				error("own requires a function or a table carrying dispose or destroy", 2)
 			end
 			local handle = resource :: T & Disposable<T>
-			local release = (handle.dispose or handle.destroy) :: ((T) -> ())?
+			local release = (handle.dispose or handle.destroy)
 			if type(release) ~= "function" then
 				error("own requires a resource with a dispose or destroy method", 2)
 			end
@@ -640,19 +640,19 @@ local function createHarness(options: {
 			end)
 		end
 
-		function context:unsupported(requirement: string): never
+		local function context_unsupported(self: Context, requirement: string): never
 			checkedName("missing requirement", requirement)
 			error({ signal = Unsupported, reason = requirement }, 0)
 		end
 
-		function context:skip(reason: string): never
+		local function context_skip(self: Context, reason: string): never
 			if reason == "" then
 				error("runtime skip reason must not be empty", 2)
 			end
 			error({ signal = RuntimeSkip, reason = reason }, 0)
 		end
 
-		function context:step(name: string, definition: (() -> ()) | StepOptions)
+		local function context_step(self: Context, name: string, definition: (() -> ()) | StepOptions)
 			checkedName("step", name)
 			local actor: string? = nil
 			local stepRun: () -> ()
@@ -698,7 +698,7 @@ local function createHarness(options: {
 			end
 		end
 
-		function context:artifact(name: string, reference: string, mediaType: string?)
+		local function context_artifact(self: Context, name: string, reference: string, mediaType: string?)
 			checkedName("artifact", name)
 			if reference == "" then
 				error("artifact reference must not be empty", 2)
@@ -709,7 +709,7 @@ local function createHarness(options: {
 			table.insert(artifacts, { name = name, reference = reference, mediaType = mediaType })
 		end
 
-		function context:attach(name: string, mediaType: string, text: string)
+		local function context_attach(self: Context, name: string, mediaType: string, text: string)
 			local refusal = Attachment.check(
 				name,
 				mediaType,
@@ -731,11 +731,12 @@ local function createHarness(options: {
 			})
 		end
 
-		function context:remainingSeconds(): number
+		local function context_remainingSeconds(self: Context): number
 			return math.max(0, (if releasing then cleanupDeadline else deadline) - now())
 		end
 
-		function context:perform<I, O>(
+		local function context_perform<I, O>(
+			self: Context,
 			actor: string,
 			operation: Operations.Operation<I, O>,
 			input: I,
@@ -744,7 +745,7 @@ local function createHarness(options: {
 			if deadlineSeconds ~= nil and not (deadlineSeconds > 0 and deadlineSeconds < math.huge) then
 				error("operation deadline must be positive and finite", 2)
 			end
-			local output: O? = nil
+			local output: { O } = {}
 			self:step(operation.kind .. " " .. operation.name, {
 				actor = actor,
 				run = function()
@@ -788,21 +789,22 @@ local function createHarness(options: {
 						stuck(nil)
 					end
 					withinDeadline()
-					output = operation.output(Operations.snapshot(value))
+					output[1] = operation.output(Operations.snapshot(value))
 					table.insert(evidence.observations, {
 						step = #steps + 1,
 						kind = operation.kind,
 						actor = actor,
 						name = operation.name,
-						value = Operations.snapshot(output),
+						value = Operations.snapshot(output[1]),
 						input = payload,
 					})
 				end,
 			})
-			return output :: O
+			return output[1]
 		end
 
-		function context:await<I, O>(
+		local function context_await<I, O>(
+			self: Context,
 			actor: string,
 			operation: Operations.Operation<I, O>,
 			input: I,
@@ -817,7 +819,7 @@ local function createHarness(options: {
 			local awaitLimit = if deadlineSeconds ~= nil then now() + deadlineSeconds else math.huge
 			assert(pollSeconds > 0 and pollSeconds < math.huge, "poll interval must be positive and finite")
 			assert(deadline < math.huge, "await requires a case timeout")
-			local value: O? = nil
+			local values: { O } = {}
 			self:step("await " .. operation.name, {
 				actor = actor,
 				run = function()
@@ -831,7 +833,7 @@ local function createHarness(options: {
 						end
 						local observed = self:perform(actor, operation, input, remaining)
 						if predicate(observed) then
-							value = observed
+							values[1] = observed
 							return
 						end
 						local bound = host
@@ -847,10 +849,10 @@ local function createHarness(options: {
 					end
 				end,
 			})
-			return value :: O
+			return values[1]
 		end
 
-		function context:checkpoint(actor: string, name: string)
+		local function context_checkpoint(self: Context, actor: string, name: string)
 			self:step("checkpoint " .. name, {
 				actor = actor,
 				run = function()
@@ -879,7 +881,7 @@ local function createHarness(options: {
 			})
 		end
 
-		function context:judge(actor: string, checkpoint: string, criterion: string)
+		local function context_judge(self: Context, actor: string, checkpoint: string, criterion: string)
 			self:step("judge " .. criterion, {
 				actor = actor,
 				run = function()
@@ -923,7 +925,13 @@ local function createHarness(options: {
 			})
 		end
 
-		function context:measure(actor: string, name: string, input: Performance.Input, limits: Performance.Limits)
+		local function context_measure(
+			self: Context,
+			actor: string,
+			name: string,
+			input: Performance.Input,
+			limits: Performance.Limits
+		)
 			self:step("measure " .. name, {
 				actor = actor,
 				run = function()
@@ -947,12 +955,29 @@ local function createHarness(options: {
 			})
 		end
 
+		context = {
+			id = entry.id,
+			expect = context_expect,
+			defer = context_defer,
+			own = context_own,
+			unsupported = context_unsupported,
+			skip = context_skip,
+			step = context_step,
+			artifact = context_artifact,
+			attach = context_attach,
+			remainingSeconds = context_remainingSeconds,
+			perform = context_perform,
+			await = context_await,
+			checkpoint = context_checkpoint,
+			judge = context_judge,
+			measure = context_measure,
+		}
 		local setupPassed = true
 		if runOptions.bind ~= nil then
 			setupPassed = record(
 				"setup",
 				invoke("setup", function()
-					local bound = (runOptions.bind :: (Context) -> Operations.Host)(context)
+					local bound = (runOptions.bind)(context)
 					host = bound
 					if bound.close then
 						context:defer(bound.close)
@@ -1013,7 +1038,7 @@ local function createHarness(options: {
 		}
 	end
 
-	function harness:run(runOptions: RunOptions): Report
+	local function harness_run(self: Harness, runOptions: RunOptions): Report
 		if running then
 			error("a harness cannot run recursively", 2)
 		end
@@ -1077,6 +1102,14 @@ local function createHarness(options: {
 		}
 	end
 
+	harness = {
+		suite = harness_suite,
+		case = harness_case,
+		skip = harness_skip,
+		beforeEach = harness_beforeEach,
+		afterEach = harness_afterEach,
+		run = harness_run,
+	}
 	return harness
 end
 
@@ -1163,8 +1196,8 @@ local function runCases(specs: { NamedCase }, options: RunOptions, now: () -> nu
 	for _, spec in specs do
 		local id = spec.id
 		assert(id ~= nil and id ~= "", "runCases requires explicit case ids")
-		assert(known[id :: string] == nil, "duplicate case id: " .. (id :: string))
-		known[id :: string] = spec
+		assert(known[id] == nil, "duplicate case id: " .. id)
+		known[id] = spec
 	end
 	assert(#specs > 0, "case collection is empty")
 	local selected: { [string]: boolean } = {}
@@ -1179,13 +1212,16 @@ local function runCases(specs: { NamedCase }, options: RunOptions, now: () -> nu
 	assert(options.selection == nil, "runCases owns selection; pass case ids explicitly")
 	local harness = createHarness { now = now }
 	for _, spec in specs do
-		if ids == nil or selected[spec.id :: string] then
+		local id = spec.id
+		assert(id ~= nil)
+		if ids == nil or selected[id] then
 			harness:case(spec.name, spec)
 		end
 	end
 	local settings = table.clone(options)
 	settings.environment = table.clone(options.environment or {})
-	local environment = settings.environment :: { [string]: string }
+	local environment = settings.environment
+	assert(environment ~= nil)
 	environment["caseSelection"] = if ids == nil then "all" else "explicit"
 	environment["availableCases"] = tostring(#specs)
 	return harness:run(settings)

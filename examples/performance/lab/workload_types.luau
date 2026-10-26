@@ -7,7 +7,7 @@ type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
-type Readable<T> = { peek: (Readable<T>) -> T }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
 
 export type Row = {
 	id: string,
@@ -33,7 +33,7 @@ export type Context = {
 	rowSize: number?,
 	rowModels: { values: { [string]: NumberCell }, toggles: { [string]: BooleanCell } }?,
 	onRowActivate: ((Row) -> ())?,
-	rowBuilder: (Context, Readable<Row>, { full: boolean }) -> GuiObject,
+	rowBuilder: (Context, ReadOnlyValue<Row>, { full: boolean }) -> GuiObject,
 	themePackages: { ThemePackage }?,
 	themeNames: { string }?,
 }

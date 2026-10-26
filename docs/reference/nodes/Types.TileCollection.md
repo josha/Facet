@@ -14,8 +14,8 @@ The exported Luau types include `Facet`, `ComposeModule`, `ComposeRobloxModule`,
 `CivilDate`, `CivilRange`, `CivilLocale`, `CivilDateModule`,
 and the `Props` and `Spec` contracts of each control. The layout types include
 `Space`, `Padding` and `Extent`. `RowActionsOptions` types collection row action
-callbacks. `SheetDetent` types a sheet detent entry. `Facet.Cell<T>`,
-`Facet.Readable<T>`, `Facet.Runtime`, `Facet.Owner` and `Facet.Use` are the
+callbacks. `SheetDetent` types a sheet detent entry. `Facet.Value<T>`,
+`Facet.ReadOnlyValue<T>`, `Facet.Runtime`, `Facet.Owner` and `Facet.Use` are the
 Compose types. Collection, menu and picker
 contracts keep the item and value types through callbacks. Native properties use
 the Roblox property types. For example, `Size` accepts a `UDim2` or a reactive

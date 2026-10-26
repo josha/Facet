@@ -7,35 +7,35 @@ local NavigationProps = require("./navigation_props")
 
 export type TabFrame = {
 	fit: boolean,
-	placement: ComposeTypes.Formula<string>,
-	visibleTabs: ComposeTypes.Formula<{ Nav.Tab }>,
-	dimensions: ComposeTypes.Readable<Vector2>,
-	layoutUnit: ComposeTypes.Readable<number>,
-	headHeight: ComposeTypes.Cell<number>,
-	footHeight: ComposeTypes.Cell<number>,
-	trailingWidth: ComposeTypes.Cell<number>,
+	placement: ComposeTypes.Value<string>,
+	visibleTabs: ComposeTypes.Value<{ Nav.Tab }>,
+	dimensions: ComposeTypes.ReadOnlyValue<Vector2>,
+	layoutUnit: ComposeTypes.ReadOnlyValue<number>,
+	headHeight: ComposeTypes.Value<number>,
+	footHeight: ComposeTypes.Value<number>,
+	trailingWidth: ComposeTypes.Value<number>,
 	indicatorOf: (ComposeTypes.Use) -> Nav.TabSelectionIndicator?,
 }
 
 export type TabMetrics = {
-	wordWidths: ComposeTypes.Cell<{ [string]: number }>,
-	barExtent: ComposeTypes.Cell<Vector2>,
+	wordWidths: ComposeTypes.Value<{ [string]: number }>,
+	barExtent: ComposeTypes.Value<Vector2>,
 	stacked: (ComposeTypes.Use?) -> boolean,
-	crowded: ComposeTypes.Formula<boolean>,
+	crowded: ComposeTypes.Value<boolean>,
 	labelLine: (ComposeTypes.Use?) -> number,
 	floating: (ComposeTypes.Use?) -> boolean,
 	bottomInset: (ComposeTypes.Use?) -> number,
 	contentGap: (ComposeTypes.Use) -> number,
-	badgeClearances: ComposeTypes.Cell<{ [string]: number }>,
+	badgeClearances: ComposeTypes.Value<{ [string]: number }>,
 	iconGap: (ComposeTypes.Use?) -> number,
 	band: (ComposeTypes.Use?) -> number,
 	tabHeight: (ComposeTypes.Use?) -> number,
 	segmentedTop: (ComposeTypes.Use) -> boolean,
 	plated: (ComposeTypes.Use) -> boolean,
 	inset: (ComposeTypes.Use) -> UDim,
-	stripOverflows: ComposeTypes.Cell<boolean>,
+	stripOverflows: ComposeTypes.Value<boolean>,
 	stripLayout: UIListLayout,
-	stripContent: ComposeTypes.Cell<Vector2>,
+	stripContent: ComposeTypes.Value<Vector2>,
 	railWidth: (ComposeTypes.Use) -> number,
 	floatingSize: (ComposeTypes.Use) -> UDim2,
 	floatingPosition: (ComposeTypes.Use) -> UDim2,
@@ -47,12 +47,12 @@ return function(ctx: Types.Context, spec: NavigationProps.TabViewSpec, view: Tab
 	local fit, placement, visibleTabs = view.fit, view.placement, view.visibleTabs
 	local dimensions, layoutUnit, indicatorOf = view.dimensions, view.layoutUnit, view.indicatorOf
 	local headHeight, footHeight, trailingWidth = view.headHeight, view.footHeight, view.trailingWidth
-	local wordWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
-	local barExtent: ComposeTypes.Cell<Vector2> = Compose.cell(V2.zero)
+	local wordWidths: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
+	local barExtent: ComposeTypes.Value<Vector2> = Compose.cell(V2.zero)
 	local function stacked(use: ComposeTypes.Use?): boolean
 		local choice = read(spec.labelPlacement, use)
 		return not read(spec.iconOnly, use)
-			and string.find(read(placement, use), "bottom") ~= nil
+			and string.find(ctx.readSource(placement, use), "bottom") ~= nil
 			and choice == "belowIcon"
 	end
 	local crowded = Compose.formula(function(use: ComposeTypes.Use): boolean
@@ -81,11 +81,11 @@ return function(ctx: Types.Context, spec: NavigationProps.TabViewSpec, view: Tab
 	local function floating(use: ComposeTypes.Use?): boolean
 		local choice = read(spec.track, use)
 		assert(choice == nil or choice == "automatic" or choice == "floating", "Invalid TabView.track")
-		local place = read(placement, use)
+		local place = ctx.readSource(placement, use)
 		return choice == "floating" and (place == "sidebar" or string.find(place, "bottom") ~= nil)
 	end
 	local function bottomInset(use: ComposeTypes.Use?): number
-		return if floating(use) and read(placement, use) ~= "sidebar"
+		return if floating(use) and ctx.readSource(placement, use) ~= "sidebar"
 			then ctx.metric("controls.tabBottomTrack.bottomInset", use)
 			else 0
 	end
@@ -107,7 +107,7 @@ return function(ctx: Types.Context, spec: NavigationProps.TabViewSpec, view: Tab
 	end
 	local function band(use: ComposeTypes.Use?): number
 		local minimum = ctx.metric("targetSizes.minimum", use)
-		if floating(use) and read(placement, use) ~= "sidebar" then
+		if floating(use) and ctx.readSource(placement, use) ~= "sidebar" then
 			minimum = math.max(minimum, ctx.metric("controls.tabBottomTrack.height", use))
 		end
 		return if stacked(use)
@@ -133,7 +133,7 @@ return function(ctx: Types.Context, spec: NavigationProps.TabViewSpec, view: Tab
 	local function tabHeight(use: ComposeTypes.Use?): number
 		return if spec.controlSize == nil
 				or stacked(use)
-				or (floating(use) and read(placement, use) ~= "sidebar")
+				or (floating(use) and ctx.readSource(placement, use) ~= "sidebar")
 			then band(use)
 			else ctx.controlSize(spec.controlSize, "height", use)
 	end

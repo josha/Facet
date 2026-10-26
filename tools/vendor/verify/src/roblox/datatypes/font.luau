@@ -6,10 +6,10 @@ local Names = require "./names"
 type EnumItem = Enum.EnumItem
 type Enums = Enum.Enums
 
-export type FontValue = typeof(setmetatable(
-	{} :: { Family: string, Weight: EnumItem, Style: EnumItem, Bold: boolean },
-	{} :: { __eq: (FontValue, FontValue) -> boolean, __tostring: (FontValue) -> string }
-))
+local FontValueFields: { Family: string, Weight: EnumItem, Style: EnumItem, Bold: boolean }
+local FontValueMeta: { __eq: (FontValue, FontValue) -> boolean, __tostring: (FontValue) -> string }
+
+export type FontValue = typeof(setmetatable(FontValueFields, FontValueMeta))
 
 export type FontEntry = { family: string, weight: string, style: string }
 export type FontCatalog = { [string]: FontEntry }
@@ -23,6 +23,8 @@ export type FontConstructor = {
 
 local ENUMS = {}
 local BOLD = 600
+local fontEnums: { [unknown]: Enums } = {}
+Names.weak(fontEnums)
 
 local FontKind = Names.behavior("Font", { quoted = true })
 
@@ -34,7 +36,7 @@ local function checkItem(value: unknown, family: string): EnumItem
 	if found ~= family then
 		error(("Invalid type '%s' for enum '%s'"):format(found, family), 4)
 	end
-	return value :: EnumItem
+	return Enum.itemValue(value)
 end
 
 local function quoted(key: unknown): string
@@ -43,7 +45,7 @@ end
 
 FontKind.fields.__index = function(fields: Names.Fields, key: unknown): unknown
 	if key == "Bold" then
-		local weight = (fields.Weight :: EnumItem).Value
+		local weight = Enum.itemValue(fields.Weight).Value
 		if weight == nil then
 			error("Font.Bold requires an enum catalog with FontWeight values", 2)
 		end
@@ -64,7 +66,7 @@ FontKind.meta.__newindex = function(value: unknown, key: unknown, assigned: unkn
 	elseif key == "Style" then
 		fields.Style = checkItem(assigned, "FontStyle")
 	elseif key == "Bold" then
-		local weights = (fields[ENUMS] :: Enums).FontWeight
+		local weights = fontEnums[value].FontWeight
 		fields.Weight = if assigned then weights.Bold else weights.Regular
 	else
 		Names.invalid(quoted(key), "Font")
@@ -81,12 +83,14 @@ end
 
 local function constructor(enums: Enums, catalog: FontCatalog?): FontConstructor
 	local function make(family: string, weight: unknown?, style: unknown?): FontValue
-		return Names.make(FontKind, {
+		local made: FontValue = Names.make(FontKind, {
 			Family = family,
 			Weight = if weight == nil then enums.FontWeight.Regular else checkItem(weight, "FontWeight"),
 			Style = if style == nil then enums.FontStyle.Normal else checkItem(style, "FontStyle"),
 			[ENUMS] = enums,
 		})
+		fontEnums[made] = enums
+		return made
 	end
 
 	return {
@@ -109,9 +113,9 @@ local function constructor(enums: Enums, catalog: FontCatalog?): FontConstructor
 				if catalog == nil then
 					error("Font.fromEnum requires a reflection snapshot with fonts", 2)
 				end
-				error(("%s can't be passed to Font.fromEnum"):format(tostring(font)), 2)
+				return error(("%s can't be passed to Font.fromEnum"):format(tostring(font)), 2)
 			end
-			local found = entry :: FontEntry
+			local found = entry
 			return make(found.family, enums.FontWeight[found.weight], enums.FontStyle[found.style])
 		end,
 	}

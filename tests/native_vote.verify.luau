@@ -45,7 +45,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("accepts, swaps in one change, and proposes none when the chosen side is pressed again", {
 			id = "native_vote::native Vote::accepts, swaps in one change, and proposes none when the chosen side is pressed again",
 			run = function()
-				local value: FixtureComposeTypes.Cell<"down" | "none" | "up"> =
+				local value: FixtureComposeTypes.Value<"down" | "none" | "up"> =
 					Compose.cell("none" :: "down" | "none" | "up")
 				local seen: { string } = {}
 				local world: any
@@ -71,7 +71,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("never paints a refused proposal and never touches the caller's cell", {
 			id = "native_vote::native Vote::never paints a refused proposal and never touches the caller's cell",
 			run = function()
-				local value: FixtureComposeTypes.Cell<"down" | "none" | "up"> =
+				local value: FixtureComposeTypes.Value<"down" | "none" | "up"> =
 					Compose.cell("up" :: "down" | "none" | "up")
 				local asked: { string } = {}
 				local world = mount({
@@ -92,7 +92,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("proposes from a selected side through the keyboard Activate action", {
 			id = "native_vote::native Vote::proposes from a selected side through the keyboard Activate action",
 			run = function()
-				local value: FixtureComposeTypes.Cell<"down" | "none" | "up"> =
+				local value: FixtureComposeTypes.Value<"down" | "none" | "up"> =
 					Compose.cell("none" :: "down" | "none" | "up")
 				local world = mount({
 					value = value,
@@ -115,7 +115,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_vote::native Vote::leaves no stale state when a callback removes the vote",
 			run = function()
 				local show = Compose.cell(true)
-				local value: FixtureComposeTypes.Cell<"down" | "none" | "up"> =
+				local value: FixtureComposeTypes.Value<"down" | "none" | "up"> =
 					Compose.cell("none" :: "down" | "none" | "up")
 				local world = worlds.new(function(UI: FacetControls)
 					return Compose.show(show, function()

@@ -6,8 +6,8 @@ type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
 type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type PaletteExtra = typeof(require("@repo/tools/typecheck/aliases").PaletteExtra)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Size = { height: number, paddingX: number, iconSize: number }
 type Tint = { r: number, g: number, b: number }
 type Need<Fallback> = {
@@ -32,8 +32,8 @@ type Core = { Host: Host, types: RobloxTypes? }
 type Options = {
 	id: string?,
 	label: string?,
-	fraction: (number | Readable<number>)?,
-	heightPx: Readable<number>?,
+	fraction: (number | ReadOnlyValue<number>)?,
+	heightPx: ReadOnlyValue<number>?,
 }
 
 local ornate_gauge = {}

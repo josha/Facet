@@ -29,16 +29,16 @@ UI.VStack {
 Keep `page` in the model. Closing and reopening a surface changes presentation,
 not its child structure. Use navigation controls for a page stack with Back.
 
-In strict Luau, `Facet.Cell<T>` types a writable cell, `Facet.Readable<T>`
+In strict Luau, `Facet.Value<T>` types a writable cell, `Facet.ReadOnlyValue<T>`
 types a value that a `use` call reads, and `Facet.Use` types the `use`
-parameter, `<T>(Facet.Readable<T>) -> T`. When the type checker cannot infer a
+parameter, `<T>(Facet.ReadOnlyValue<T>) -> T`. When the type checker cannot infer a
 `function(use)` body, for example a body that reads cells of two types, give
 the parameter the type: `function(use: Facet.Use)`. A collection `render`
-receives `current: Facet.Readable<Item>`.
+receives `current: Facet.ReadOnlyValue<Item>`.
 
 ```luau
-local coins: Facet.Cell<number> = Compose.cell(0)
-local name: Facet.Cell<string> = Compose.cell("Ann")
+local coins: Facet.Value<number> = Compose.cell(0)
+local name: Facet.Value<string> = Compose.cell("Ann")
 local label = UI.Text "Coins" {
     text = function(use: Facet.Use) return use(name) .. ": " .. use(coins) end,
 }

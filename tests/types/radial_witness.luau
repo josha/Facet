@@ -1,7 +1,7 @@
 --!strict
 local Compose = require("../../src/vendor/compose/core")
 local Radial = require("../../src/ui/radial_types")
-local children: Compose.Cell<{ Radial.RadialItem<string> }> = Compose.cell({})
+local children: Compose.Value<{ Radial.RadialItem<string> }> = Compose.cell({})
 local selected = Compose.cell("first")
 local checked = Compose.cell(false)
 local items: { Radial.RadialItem<string> } = {

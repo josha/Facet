@@ -2,396 +2,160 @@
 --!native
 
 local Diagnostics = require "../diagnostics"
+local Evaluation = require "./evaluation"
+local evaluationCache = Evaluation.cache
+local NodeCast = require "./node"
+local Reactor = require "./reactor"
 local Types = require "./types"
+local Weak = require "../weak"
 local profile = require "./profile"
 local stats = require "./stats"
 local statsOn = stats.state
 local userSpace = require "./userSpace"
 local validationState = userSpace.state
-local metatableOf = (getmetatable :: unknown) :: (unknown) -> unknown
+
+type Node = Types.Node
+type Value<T> = Types.Value<T>
+type Dispose = Types.Dispose
 
 local CLEAN = 0
 local CHECK = 1
 local DIRTY = 2
 
-export type Edge = { Producer | Consumer | number | Edge | nil }
+local observations: { [Node]: (boolean) -> () } = {}
+Weak.keys(observations)
 
-export type Producer = {
+local function kindOf(producer: Node): string
+	return if producer.state ~= nil then "formula" else "cell"
+end
 
-	version: number,
-
-	subscribers: Edge?,
-	lastSubscriber: Edge?,
-
-	refresh: ((Producer) -> ()) | false,
-
-	derived: boolean?,
-}
-
-export type Held<T> = Producer & {
-	value: T,
-}
-
-export type Consumer = {
-	state: number,
-
-	dependencies: { Edge },
-	reads: number,
-	enqueue: ((Consumer) -> ()) | false | nil,
-	enqueueSettle: ((Consumer) -> ()) | false | nil,
-	released: boolean,
-	retry: boolean?,
-	derived: boolean?,
-}
-
-export type Scheduled = Consumer & {
-	queued: boolean,
-	run: (self: Scheduled) -> ...unknown,
-}
-
-export type Tracked = Consumer & {
-	body: (use: Types.Use) -> (),
-}
-
-export type Reactor = {
-
-	batch: <T...>(self: Reactor, body: () -> T...) -> T...,
-
-	settle: (self: Reactor) -> (),
-	pending: (self: Reactor) -> number,
-	__enqueue: (self: Reactor, consumer: Consumer) -> (),
-	__enqueueConsumer: (consumer: Consumer) -> (),
-	__enqueueSettleConsumer: (consumer: Consumer) -> (),
-
-	__reset: (self: Reactor) -> (),
-}
-
-local PRODUCER, CONSUMER, OBSERVED, PREVIOUS, NEXT = 1, 2, 3, 4, 5
-local observations = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Producer]: (boolean) -> () }
-
-type Evaluation = { consumer: Consumer?, order: number }
-
-local evaluations = (
-	setmetatable({} :: { [thread]: Evaluation? }, { __mode = "k" }) :: unknown
-) :: { [thread]: Evaluation? }
-local evaluationOrder = 0
-
-local function evaluationContext(): Consumer?
-	local running = coroutine.running()
-	local own = evaluations[running]
-	if own ~= nil then
-		return own.consumer
-	end
-	local inherited: Evaluation? = nil
-	for thread, context in evaluations do
-		if
-			context ~= nil
-			and coroutine.status(thread) == "normal"
-			and (inherited == nil or context.order > inherited.order)
-		then
-			inherited = context
+local function append(producer: Node, edge: Node)
+	local first = producer.first
+	if first == nil then
+		producer.first = edge
+		edge[3] = edge
+		local observed = observations[producer]
+		if observed then
+			observed(true)
 		end
+		return
 	end
-	return if inherited ~= nil then inherited.consumer else nil
-end
-
-local function activateEvaluation(consumer: Consumer?)
-	evaluationOrder += 1
-	evaluations[coroutine.running()] = { consumer = consumer, order = evaluationOrder }
-end
-
-local function captureEvaluationContext(): Evaluation?
-	return evaluations[coroutine.running()]
-end
-
-local function restoreEvaluationContext(previous: Evaluation?)
-	evaluations[coroutine.running()] = previous
-end
-
-local touched: { Reactor } = {}
-local touchedCount = 0
-
-local function attach(producer: Producer, consumer: Consumer): Edge
-	local tail = producer.lastSubscriber
-	local edge: Edge = { producer, consumer, producer.version, tail, nil }
-	if tail ~= nil then
-		tail[NEXT] = edge
-	else
-		producer.subscribers = edge
+	local last = first[3]
+	if last ~= nil then
+		last[4] = edge
 	end
-	producer.lastSubscriber = edge
-	local observed = observations[producer]
-	if tail == nil and observed then
-		observed(true)
-	end
+	edge[3] = last
+	first[3] = edge
+end
+
+local function attach(producer: Node, consumer: Node): Node
+	local edge: Node = { producer, consumer, nil, nil, version = producer.version }
+	append(producer, edge)
 	return edge
 end
 
-local function detach(edge: Edge)
-	local previous = edge[PREVIOUS] :: Edge?
-	local following = edge[NEXT] :: Edge?
-	local producer = edge[PRODUCER] :: Producer
-	if previous ~= nil then
-		previous[NEXT] = following
-	else
-		producer.subscribers = following
+local function detach(edge: Node)
+	local producer = edge[1]
+	if producer == nil then
+		return
 	end
-	if following ~= nil then
-		following[PREVIOUS] = previous
+	local first = producer.first
+	local previous = edge[3]
+	local following = edge[4]
+	if edge == first then
+		producer.first = following
+		if following ~= nil then
+			following[3] = previous
+		end
 	else
-		producer.lastSubscriber = previous
+		if previous ~= nil then
+			previous[4] = following
+		end
+		if following ~= nil then
+			following[3] = previous
+		elseif first ~= nil then
+			first[3] = previous
+		end
 	end
-	edge[PREVIOUS] = nil
-	edge[NEXT] = nil
-	local observed = observations[producer]
-	if producer.subscribers == nil and observed then
-		observed(false)
+	edge[3] = nil
+	edge[4] = nil
+	if producer.first == nil then
+		local observed = observations[producer]
+		if observed then
+			observed(false)
+		end
 	end
 end
 
-local function trim(consumer: Consumer, from: number)
-	local dependencies = consumer.dependencies
-	for index = #dependencies, from, -1 do
-		detach(dependencies[index])
-		dependencies[index] = nil
+local function trim(consumer: Node, from: number)
+	for index = #consumer, from, -1 do
+		local edge = consumer[index]
+		if edge ~= nil then
+			detach(edge)
+		end
+		consumer[index] = nil
 	end
 end
 
-local function markStale(producer: Producer, state: number)
+local function markStale(producer: Node, state: number)
 	if statsOn.enabled then
-		local kind = if producer.derived then "formula" else "cell"
-		local recorded = producer.subscribers
+		local kind = kindOf(producer)
+		local recorded = producer.first
 		while recorded ~= nil do
-			profile.edge(producer, kind, recorded[CONSUMER] :: Consumer)
-			recorded = recorded[NEXT] :: Edge?
+			profile.edge(producer, kind, recorded[2] or recorded)
+			recorded = recorded[4]
 		end
 	end
 
-	local edge = producer.subscribers
+	local edge = producer.first
+	local scheduled: Types.Reactor? = nil
+	local grouped: Types.Reactor? = nil
 	while edge ~= nil do
-		local consumer: Consumer = edge[CONSUMER] :: Consumer
-		if consumer.state < state or consumer.retry then
-			local wasClean = consumer.state == CLEAN or consumer.retry
-			consumer.retry = false
-			consumer.state = state
-			if wasClean then
-				if consumer.derived then
-					markStale(edge[CONSUMER] :: Producer, CHECK)
-				end
-				local enqueue = consumer.enqueue
-
-				if enqueue then
-					(enqueue :: (Consumer) -> ())(consumer)
+		local consumer = edge[2]
+		if consumer == nil then
+			local reactor = edge.reactor
+			if reactor ~= scheduled then
+				scheduled = reactor
+				Reactor.enqueue(edge)
+			end
+		else
+			local current = consumer.state or CLEAN
+			local retry = consumer.retry
+			if current < state or retry then
+				consumer.retry = false
+				consumer.state = state
+				if current == CLEAN or retry then
+					if consumer.run == nil then
+						markStale(consumer, CHECK)
+					elseif state == DIRTY and consumer.group then
+						local reactor = consumer.reactor
+						if consumer[2] ~= nil then
+							Reactor.enqueue(consumer)
+						elseif reactor ~= grouped then
+							grouped = reactor
+							consumer.source = producer
+							Reactor.enqueue(consumer)
+						end
+					else
+						Reactor.enqueue(consumer)
+					end
 				end
 			end
 		end
-		edge = edge[NEXT] :: Edge?
+		edge = edge[4]
 	end
 end
 
-local function touch(reactor: Reactor)
-	for index = 1, touchedCount do
-		if touched[index] == reactor then
-			return
-		end
-	end
-	touchedCount += 1
-	touched[touchedCount] = reactor
-end
-
-local function settleTouched()
-	if touchedCount == 0 then
-		return
-	end
-	local count = touchedCount
-	touchedCount = 0
-
-	if count == 1 then
-		local only = touched[1]
-		touched[1] = nil
-		only:settle()
-		return
-	end
-
-	local pending = touched
-	touched = {}
-	local errors: { string }? = nil
-	for index = 1, count do
-		local reactor = pending[index]
-		pending[index] = nil
-		local ok, err: unknown = pcall(reactor.settle, reactor)
-		if not ok then
-			if errors == nil then
-				errors = {}
-			end
-			table.insert(errors :: { string }, tostring(err))
-		end
-	end
-
-	local failures = errors
-	if failures == nil then
-		return
-	end
-	if #failures == 1 then
-		error(failures[1], 0)
-	end
-	local parts = { ("Compose: %d scheduling domains failed while settling one write:"):format(#failures) }
-	for index, message in failures do
-		table.insert(parts, ("  [%d] %s"):format(index, message))
-	end
-	error(table.concat(parts, "\n"), 0)
-end
-
-local function recordThenRefresh(consumer: Consumer, producer: Producer)
-	if consumer.released then
-		local refresh = producer.refresh
-		if refresh then
-			(refresh :: (Producer) -> ())(producer)
-		end
-		return
-	end
-
-	local at = consumer.reads
-	local dependencies = consumer.dependencies
-	local edge = dependencies[at]
-	if edge == nil or edge[PRODUCER] ~= producer then
-		at += 1
-		consumer.reads = at
-		edge = dependencies[at]
-		if edge == nil or edge[PRODUCER] ~= producer then
-			trim(consumer, at)
-			edge = attach(producer, consumer)
-			dependencies[at] = edge
-		end
-	end
-
-	local refresh = producer.refresh
-	if refresh then
-		(refresh :: (Producer) -> ())(producer)
-	end
-	edge[OBSERVED] = producer.version
-end
-
-local function observe(producer: Producer)
-	local consumer = evaluationContext()
-	if consumer == nil then
-		Diagnostics.raise("reactive/no-evaluation", "use() was called outside a reactive body", {
-			contract = "use reads a cell or formula and records a dependency, which only means "
-				.. "something while a formula, watch, or bound property is evaluating",
-			fix = "read it with :peek() outside a reactive body, or move the read inside one",
-		})
-		return
-	end
-
-	recordThenRefresh(consumer :: Consumer, producer)
-end
-
-local function dependenciesMoved(consumer: Consumer): boolean
-	local dependencies = consumer.dependencies
-	for index = 1, #dependencies do
-		local edge = dependencies[index]
-		local producer: Producer = edge[PRODUCER] :: Producer
-		local refresh = producer.refresh
-		if refresh then
-			(refresh :: (Producer) -> ())(producer)
-		end
-		if producer.version ~= edge[OBSERVED] then
-			return true
-		end
-	end
-	return false
-end
-
-local function evaluate<A, T>(consumer: Consumer, body: (A) -> T, argument: A): T
-	local running = coroutine.running()
-	local previous = evaluations[running]
-	activateEvaluation(consumer)
-	consumer.reads = 0
-
-	local ok, result
-	if validationState.validating then
-		ok, result = pcall(userSpace.call, body, argument)
-	else
-		ok, result = pcall(body, argument)
-	end
-
-	evaluations[running] = previous
-	if not ok then
-		if consumer.derived then
-			consumer.state = DIRTY
-			consumer.retry = true
-		end
-		error(result, 0)
-	end
-
-	trim(consumer, consumer.reads + 1)
-	return result :: T
-end
-
-local function beginEvaluation(consumer: Consumer): Evaluation?
-	local previous = captureEvaluationContext()
-	activateEvaluation(consumer)
-	consumer.reads = 0
-	return previous
-end
-
-local function finishEvaluation(consumer: Consumer, previous: Evaluation?)
-	restoreEvaluationContext(previous)
-	local dependencies = consumer.dependencies
-	local from = consumer.reads + 1
-	for index = #dependencies, from, -1 do
-		detach(dependencies[index])
-		dependencies[index] = nil
+local function refresh(producer: Node)
+	local update = producer.refresh
+	if update then
+		update(producer)
 	end
 end
 
-local function release(consumer: Consumer)
-	if consumer.released then
-		return
-	end
-	consumer.released = true
-	trim(consumer, 1)
-	consumer.state = CLEAN
-end
-
-local function rearm(consumer: Consumer)
-	if consumer.released or consumer.retry then
-		return
-	end
-	consumer.retry = true
-	for _, edge in consumer.dependencies do
-		local producer = edge[PRODUCER] :: Producer
-		if producer.derived then
-			rearm((producer :: unknown) :: Consumer)
-		end
-	end
-end
-
-local function subscriberCount(producer: Producer): number
-	local total = 0
-	local edge = producer.subscribers
-	while edge ~= nil do
-		total += 1
-		edge = edge[NEXT] :: Edge?
-	end
-	return total
-end
-
-local function untracked<T>(body: () -> T): T
-	local running = coroutine.running()
-	local previous = evaluations[running]
-	activateEvaluation(nil)
-	local ok, result = pcall(body)
-	evaluations[running] = previous
-	if not ok then
-		error(result, 0)
-	end
-	return result :: T
-end
-
-local function notANode(api: string, value: unknown): never
-	local actual = Diagnostics.describe(value)
-	Diagnostics.raise(
+local function notANode(api: string, candidate: unknown): never
+	local actual = Diagnostics.describe(candidate)
+	return Diagnostics.raise(
 		"reactive/not-a-node",
 		("%s was given a %s where a cell or formula was expected"):format(api, actual),
 		{
@@ -403,81 +167,285 @@ local function notANode(api: string, value: unknown): never
 			fix = "a body is called, not read: write source(use) rather than use(source), or wrap it once with Compose.formula(source)",
 		}
 	)
-	error("unreachable", 0)
 end
 
-local function use<T>(readable: Types.Readable<T>): T
-	local producer = (readable :: unknown) :: Held<T>
-	if type(producer) ~= "table" or metatableOf(readable) == nil then
-		notANode("use", producer)
+local function observe(node: Node, value: unknown)
+	if type(value) ~= "table" or node.version == nil then
+		notANode("use", value)
 	end
-	local consumer = evaluationContext()
+	local frame = evaluationCache.frame
+	local consumer = if frame ~= nil
+			and frame.order > 0
+			and evaluationCache.thread == coroutine.running()
+		then frame.consumer
+		else Evaluation.context()
 	if consumer == nil then
-		observe(producer)
-		return producer.value
+		Diagnostics.raise("reactive/no-evaluation", "use() was called outside a reactive body", {
+			contract = "use reads a cell or formula and records a dependency, which only means "
+				.. "something while a formula, watch, or bound property is evaluating",
+			fix = "read it with :peek() outside a reactive body, or move the read inside one",
+		})
+		return
 	end
-
-	recordThenRefresh(consumer, producer)
-	return producer.value
+	if consumer.released then
+		refresh(node)
+		return
+	end
+	local at = consumer.reads
+	if at == nil then
+		refresh(node)
+		return
+	end
+	local edge = consumer[at]
+	if edge == nil or edge[1] ~= node then
+		at += 1
+		consumer.reads = at
+		edge = consumer[at]
+		if edge == nil or edge[1] ~= node then
+			trim(consumer, at)
+			local attached = attach(node, consumer)
+			consumer[at] = attached
+			edge = attached
+		end
+	end
+	local update = node.refresh
+	if update then
+		update(node)
+	end
+	if edge ~= nil then
+		edge.version = node.version
+	end
 end
 
-local function runTracked(consumer: Tracked)
-	local previous = captureEvaluationContext()
-	activateEvaluation(consumer)
+NodeCast.setObserver(observe)
+
+local use = NodeCast.use
+
+local function dependenciesMoved(consumer: Node): boolean
+	for index = 1, #consumer do
+		local edge = consumer[index]
+		if edge ~= nil then
+			local producer = edge[1]
+			if producer ~= nil then
+				refresh(producer)
+				if producer.version ~= edge.version then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+local function evaluate<A, T>(consumer: Node, body: (A) -> T, argument: A): T
+	local previousConsumer, previousOrder = Evaluation.enter(consumer)
 	consumer.reads = 0
 
+	local ok, result
 	if validationState.validating then
-		userSpace.call(consumer.body, use)
+		ok, result = pcall(userSpace.call, body, argument)
 	else
-		consumer.body(use)
+		ok, result = pcall(body, argument)
 	end
 
-	restoreEvaluationContext(previous)
-	local dependencies = consumer.dependencies
-	for index = #dependencies, consumer.reads + 1, -1 do
-		detach(dependencies[index])
-		dependencies[index] = nil
+	Evaluation.leave(previousConsumer, previousOrder)
+	if not ok then
+		if consumer.run == nil then
+			consumer.state = DIRTY
+			consumer.retry = true
+		end
+		error(result, 0)
 	end
+
+	trim(consumer, (consumer.reads or 0) + 1)
+	return result
 end
 
-local function countNotification(producer: Producer)
+local function track(consumer: Node, invoke: (Node) -> ())
+	local previousConsumer, previousOrder = Evaluation.enter(consumer)
+	consumer.reads = 0
+	invoke(consumer)
+	Evaluation.leave(previousConsumer, previousOrder)
+	trim(consumer, (consumer.reads or 0) + 1)
+end
+
+local function release(consumer: Node)
+	if consumer.released then
+		return
+	end
+	consumer.released = true
+	trim(consumer, 1)
+	consumer.state = CLEAN
+end
+
+local function subscriberCount(producer: Node): number
+	local total = 0
+	local edge = producer.first
+	while edge ~= nil do
+		total += 1
+		edge = edge[4]
+	end
+	return total
+end
+
+local function untracked<T>(body: () -> T): T
+	local previousConsumer, previousOrder = Evaluation.enter(nil)
+	local ok, result = pcall(body)
+	Evaluation.leave(previousConsumer, previousOrder)
+	if not ok then
+		error(result, 0)
+	end
+	return result
+end
+
+local function countNotification(producer: Node)
 	if statsOn.enabled then
 		local count = subscriberCount(producer)
 		stats.bump("notifications", count)
-		profile.wake(producer, if producer.derived then "formula" else "cell", count)
+		profile.wake(producer, kindOf(producer), count)
+	end
+end
+
+local LISTENER = {}
+LISTENER.__index = LISTENER
+
+local resume: Node? = nil
+
+local function sweep(producer: Node, reactor: Types.Reactor?, version: number?, from: Node?)
+	local edge = from
+	while edge ~= nil do
+		local following = edge[4]
+		resume = following
+		if edge[2] == nil and edge.reactor == reactor then
+			local listener = edge.listener
+			if listener ~= nil and edge.version ~= version then
+				edge.version = version
+				if statsOn.enabled then
+					stats.bump "watchRuns"
+					profile.enterRun(edge)
+				end
+				listener(producer.value)
+			end
+		end
+		edge = following
+	end
+end
+
+local function runListeners(leader: Node, producer: Node)
+	local version = producer.version
+	local from = producer.first
+	if from == leader and leader[4] == nil then
+		local listener = leader.listener
+		if listener ~= nil and leader.version ~= version then
+			leader.version = version
+			if statsOn.enabled then
+				stats.bump "watchRuns"
+				profile.enterRun(leader)
+			end
+			listener(producer.value)
+		end
+		return
+	end
+	local reactor = leader.reactor
+	local failures: { string }? = nil
+	while from ~= nil do
+		resume = nil
+		local ok, err: unknown = pcall(sweep, producer, reactor, version, from)
+		if ok then
+			break
+		end
+		local collected = failures or {}
+		failures = collected
+		table.insert(collected, tostring(err))
+		from = resume
+	end
+	if failures ~= nil then
+		if #failures == 1 then
+			error(failures[1], 0)
+		end
+		error(("Compose: %d direct bindings failed:\n  %s"):format(#failures, table.concat(failures, "\n  ")), 0)
+	end
+end
+
+function LISTENER.run(leader: Node)
+	local producer = leader[1]
+	if producer == nil or producer.released then
+		return
+	end
+	local update = producer.refresh
+	if update then
+		update(producer)
+	end
+	if producer.first == leader and leader[4] == nil and not statsOn.enabled then
+		local listener = leader.listener
+		local version = producer.version
+		if listener ~= nil and leader.version ~= version then
+			leader.version = version
+			listener(producer.value)
+		end
+		return
+	end
+	runListeners(leader, producer)
+end
+
+local CELL_LISTENER = {}
+CELL_LISTENER.__index = CELL_LISTENER
+
+function CELL_LISTENER.run(leader: Node)
+	local producer = leader[1]
+	if producer == nil then
+		return
+	end
+	if producer.first == leader and leader[4] == nil and not statsOn.enabled then
+		local listener = leader.listener
+		local version = producer.version
+		if listener ~= nil and leader.version ~= version then
+			leader.version = version
+			listener(producer.value)
+		end
+		return
+	end
+	runListeners(leader, producer)
+end
+
+local function listen(reactor: Types.Reactor, producer: Node, listener: (value: unknown) -> ()): Dispose
+	refresh(producer)
+	local edge: Node =
+		{ producer, nil, nil, nil, version = producer.version, reactor = reactor, queued = false, listener = listener }
+	NodeCast.classify(edge, if producer.refresh ~= nil then LISTENER else CELL_LISTENER)
+	if statsOn.enabled then
+		profile.born(edge)
+		stats.bump "watchRuns"
+		profile.enterRun(edge)
+	end
+	listener(producer.value)
+	append(producer, edge)
+	return function()
+		if edge.listener ~= nil then
+			edge.listener = nil
+			detach(edge)
+		end
 	end
 end
 
 return {
-	observations = observations,
-	PRODUCER = PRODUCER,
-	CONSUMER = CONSUMER,
-	OBSERVED = OBSERVED,
-	PREVIOUS = PREVIOUS,
-	NEXT = NEXT,
 	CLEAN = CLEAN,
 	CHECK = CHECK,
 	DIRTY = DIRTY,
+	observations = observations,
 	attach = attach,
 	detach = detach,
 	trim = trim,
 	markStale = markStale,
+	refresh = refresh,
 	notANode = notANode,
-	observe = observe,
+	use = use,
 	dependenciesMoved = dependenciesMoved,
 	evaluate = evaluate,
-	beginEvaluation = beginEvaluation,
-	finishEvaluation = finishEvaluation,
-	evaluationContext = evaluationContext,
-	captureEvaluationContext = captureEvaluationContext,
-	restoreEvaluationContext = restoreEvaluationContext,
-	runTracked = runTracked,
+	track = track,
 	release = release,
-	rearm = rearm,
 	subscriberCount = subscriberCount,
 	untracked = untracked,
-	use = use,
-	touch = touch,
-	settleTouched = settleTouched,
 	countNotification = countNotification,
+	listen = listen,
 }

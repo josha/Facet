@@ -11,27 +11,27 @@ type CivilDate = DTP.CivilDate
 type Range = DTP.Range
 type Spec = InputProps.DateTimePickerProps
 type Use = ComposeTypes.Use
-type Readable<T> = ComposeTypes.Readable<T>
-type Cell<T> = ComposeTypes.Cell<T>
-type Formula<T> = ComposeTypes.Formula<T>
+type ReadOnlyValue<T> = ComposeTypes.ReadOnlyValue<T>
+type Value<T> = ComposeTypes.Value<T>
+type Formula<T> = ComposeTypes.Value<T>
 type Held = { v: CivilDate? | Range }
 export type State = {
-	diagnostics: Cell<{ string }>,
-	value: Readable<CivilDate?>,
-	range: Readable<Range>,
-	minDate: Readable<CivilDate?>,
-	maxDate: Readable<CivilDate?>,
+	diagnostics: Value<{ string }>,
+	value: ReadOnlyValue<CivilDate?>,
+	range: ReadOnlyValue<Range>,
+	minDate: ReadOnlyValue<CivilDate?>,
+	maxDate: ReadOnlyValue<CivilDate?>,
 	enabled: (Use?) -> boolean,
 	interactive: (Use?) -> boolean,
-	today: Cell<CivilDate>,
+	today: Value<CivilDate>,
 	mayEdit: () -> boolean,
 	isDisabled: (CivilDate, Use?) -> boolean,
 	anchorDate: () -> CivilDate,
-	viewMonth: Cell<CivilDate>,
+	viewMonth: Value<CivilDate>,
 	peekMonth: () -> CivilDate,
 	paneMonth: (number, Use?) -> CivilDate,
 	paneGrid: (number, Use?) -> { CivilDate },
-	room: Cell<number>,
+	room: Value<number>,
 	dual: Formula<boolean>,
 	panes: (Use?) -> number,
 	monthClosed: (CivilDate, Use?) -> boolean,
@@ -45,13 +45,13 @@ export type State = {
 	requestPresented: (boolean) -> (),
 	close: (DTP.DismissReason) -> (),
 	choose: (CivilDate) -> (),
-	typedError: Cell<string>,
+	typedError: Value<string>,
 	valueText: Formula<string>,
 	longName: (CivilDate) -> string,
-	preferred: Cell<Enum.PreferredInput> | Cell<unknown>,
+	preferred: Value<Enum.PreferredInput> | Value<unknown>,
 	prefers: (Enum.PreferredInput, Use) -> boolean,
 	typedEntry: Formula<boolean>,
-	selected: Readable<GuiObject?>,
+	selected: ReadOnlyValue<GuiObject?>,
 }
 
 local CELL, GAP = Parts.CELL, Parts.GAP
@@ -73,8 +73,8 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 			ctx.config.onError(message)
 		end
 	end
-	local function legal<T>(key: string, source: Shared.Value<T>?, ok: (unknown) -> boolean): Readable<T>
-		local held: Cell<T> = Compose.cell(read(source))
+	local function legal<T>(key: string, source: Shared.Input<T>?, ok: (unknown) -> boolean): ReadOnlyValue<T>
+		local held: Value<T> = Compose.cell(read(source))
 		local refused = false
 		Compose.watch(function(use: Use)
 			local v: T = read(source, use)
@@ -141,7 +141,7 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 		local m = if use then use(viewMonth) else viewMonth:peek()
 		return civil.addMonths(m, k - 1)
 	end
-	local monthGrids: { Readable<{ CivilDate }> } = {}
+	local monthGrids: { ReadOnlyValue<{ CivilDate }> } = {}
 	for k = 1, if isRange then 2 else 1 do
 		monthGrids[k] = Compose.formula(function(use: Use): { CivilDate }
 			local m = paneMonth(k, use)
@@ -267,7 +267,7 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 		else
 			local bound = (spec.isPresented :: unknown) :: { set: unknown }
 			if type(bound) == "table" and type(bound.set) == "function" then
-				(spec.isPresented :: Cell<boolean>):set(next)
+				(spec.isPresented :: Value<boolean>):set(next)
 			end
 		end
 	end
@@ -374,7 +374,7 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 		local kind = use(preferred)
 		return kind == nil or kind == E.PreferredInput.KeyboardAndMouse
 	end)
-	local selected: Readable<GuiObject?> = if gui and gui.GetPropertyChangedSignal
+	local selected: ReadOnlyValue<GuiObject?> = if gui and gui.GetPropertyChangedSignal
 		then ctx.observe.SelectedObject(gui)
 		else Compose.cell(nil :: GuiObject?)
 

@@ -1,8 +1,8 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
 type CardControls = typeof(require("@repo/tools/typecheck/aliases").CardControls)
@@ -27,7 +27,7 @@ return {
 		local nativeTypes = ctx.types
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
 		local copy = ctx.copy or COPY
-		local viewport: Readable<{ width: number, height: number }> = ctx.viewport
+		local viewport: ReadOnlyValue<{ width: number, height: number }> = ctx.viewport
 			or Compose.cell({ width = 1280, height = 720 })
 		local games: { Game } = table.create(ITEM_COUNT)
 		for index = 1, ITEM_COUNT do
@@ -51,7 +51,7 @@ return {
 		local function record(text: string)
 			last:set(copy.lastPrefix .. text)
 		end
-		local function render(current: Readable<Game>, _placement: unknown, key: Readable<string>): GuiObject
+		local function render(current: ReadOnlyValue<Game>, _placement: unknown, key: ReadOnlyValue<string>): GuiObject
 			local table_: CardControls = {}
 			local card = UI.Card "Card" {
 				image = "rbxassetid://75342910516929",

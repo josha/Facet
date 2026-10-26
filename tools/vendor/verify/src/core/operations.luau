@@ -45,6 +45,13 @@ export type Operation<I, O> = {
 }
 export type Endpoint = { run: (unknown, Request) -> unknown, requires: { string }? }
 
+local readMetatable = (getmetatable :: unknown) :: (unknown) -> unknown
+
+local function checkedNumber(value: unknown): number
+	assert(type(value) == "number")
+	return value
+end
+
 local function operation<I, O>(definition: Operation<I, O>): Operation<I, O>
 	assert(definition.name ~= "", "operation needs a name")
 	assert(definition.kind == "action" or definition.kind == "query", "invalid operation kind")
@@ -69,13 +76,14 @@ local function snapshot(value: unknown, ancestors: { [unknown]: boolean }?): unk
 	if kind == "nil" or kind == "string" or kind == "boolean" then
 		return value
 	elseif kind == "number" then
-		assert(finite(value :: number), "observations must be finite")
+		assert(finite(checkedNumber(value)), "observations must be finite")
 		return value
 	end
 	assert(kind == "table", "observations must be portable values")
-	assert(((getmetatable :: unknown) :: (unknown) -> unknown)(value) == nil, "observations must be plain values")
+	local fields = value :: { [unknown]: unknown }
+	assert(readMetatable(fields) == nil, "observations must be plain values")
 	local numeric, named, count, maximum = false, false, 0, 0
-	for key in value :: { [unknown]: unknown } do
+	for key in fields do
 		if type(key) == "number" then
 			assert(key >= 1 and key % 1 == 0 and finite(key), "observations require dense arrays")
 			numeric, count, maximum = true, count + 1, math.max(maximum, key)
@@ -89,12 +97,12 @@ local function snapshot(value: unknown, ancestors: { [unknown]: boolean }?): unk
 	assert(not seen[value], "observations must not contain cycles")
 	seen[value] = true
 	local copy: { [string | number]: unknown } = {}
-	for key, child in value :: { [unknown]: unknown } do
+	for key, child in fields do
 		assert(type(key) == "string" or type(key) == "number", "observation keys must be strings or numbers")
 		if type(key) == "number" then
 			assert(finite(key), "observation keys must be finite")
 		end
-		copy[key :: string | number] = snapshot(child, seen)
+		copy[key] = snapshot(child, seen)
 	end
 	seen[value] = nil
 	return table.freeze(copy)

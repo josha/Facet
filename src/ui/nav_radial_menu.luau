@@ -35,7 +35,7 @@ export type Session<V> = {
 export type Menu<V> = {
 	spec: RadialProps.RadialMenuSpec<V>,
 	session: Session<V>,
-	preferred: ComposeTypes.Cell<Enum.PreferredInput>?,
+	preferred: ComposeTypes.Value<Enum.PreferredInput>?,
 	painted: (use: ComposeTypes.Use?) -> number,
 	appearance: string,
 	glyphOnly: (item: Radial.RadialItemBase<V>) -> boolean,
@@ -46,12 +46,12 @@ export type Menu<V> = {
 	corner: boolean,
 	ringWidth: (use: ComposeTypes.Use?) -> number?,
 	reduced: (use: ComposeTypes.Use?) -> boolean,
-	opened: ComposeTypes.Cell<boolean>,
-	path: ComposeTypes.Cell<{ string }>,
-	candidate: ComposeTypes.Cell<string?>,
-	interacting: ComposeTypes.Cell<boolean>,
-	naming: ComposeTypes.Cell<boolean>,
-	touchPoint: ComposeTypes.Cell<Vector3?>,
+	opened: ComposeTypes.Value<boolean>,
+	path: ComposeTypes.Value<{ string }>,
+	candidate: ComposeTypes.Value<string?>,
+	interacting: ComposeTypes.Value<boolean>,
+	naming: ComposeTypes.Value<boolean>,
+	touchPoint: ComposeTypes.Value<Vector3?>,
 	holding: Types.Playback,
 	jump: (entries: { string }) -> (),
 	cancel: () -> (),
@@ -62,7 +62,7 @@ export type Menu<V> = {
 	pointing: () -> boolean,
 	isPointer: (input: InputObject) -> boolean,
 	beginPointer: (input: InputObject, onPanel: boolean?, fromLauncher: boolean?) -> (),
-	skin: (node: GuiObject, definition: Radial.SkinImages?, selected: Types.Value<boolean>?) -> (),
+	skin: (node: GuiObject, definition: Radial.SkinImages?, selected: Types.Input<boolean>?) -> (),
 }
 
 return function<V>(ctx: Types.Context, surfaces: Navigation.Surfaces, spec: RadialProps.RadialMenuSpec<V>): Menu<V>
@@ -144,9 +144,9 @@ return function<V>(ctx: Types.Context, surfaces: Navigation.Surfaces, spec: Radi
 	Compose.watch(function(use: ComposeTypes.Use)
 		validate(read(spec.items, use), use, {})
 	end)
-	local opened: ComposeTypes.Cell<boolean> = spec.isPresented or Compose.cell(spec.launcher == false)
-	local path: ComposeTypes.Cell<{ string }> = Compose.cell({})
-	local candidate: ComposeTypes.Cell<string?> = Compose.cell(nil :: string?)
+	local opened: ComposeTypes.Value<boolean> = spec.isPresented or Compose.cell(spec.launcher == false)
+	local path: ComposeTypes.Value<{ string }> = Compose.cell({})
+	local candidate: ComposeTypes.Value<string?> = Compose.cell(nil :: string?)
 	local session: Session<V> = { analog = false, held = false, openedByLauncher = false, launcherGesture = false }
 	local origins: { [string]: Radial.SectorShape } = {}
 	local function jump(entries: { string })
@@ -160,7 +160,7 @@ return function<V>(ctx: Types.Context, surfaces: Navigation.Surfaces, spec: Radi
 	end)
 	local interacting = Compose.cell(false)
 	local naming = Compose.cell(false)
-	local touchPoint: ComposeTypes.Cell<Vector3?> = Compose.cell(nil :: Vector3?)
+	local touchPoint: ComposeTypes.Value<Vector3?> = Compose.cell(nil :: Vector3?)
 	local holding = runtime.timeline({ duration = HOLD, autoplay = false })
 	local function cancel()
 		if session.inspectedUntil == math.huge then
@@ -346,7 +346,7 @@ return function<V>(ctx: Types.Context, surfaces: Navigation.Surfaces, spec: Radi
 			interacting:set(true)
 		end
 	end
-	local function skin(node: GuiObject, definition: Radial.SkinImages?, selected: Types.Value<boolean>?)
+	local function skin(node: GuiObject, definition: Radial.SkinImages?, selected: Types.Input<boolean>?)
 		if not definition then
 			return
 		end

@@ -1,4 +1,5 @@
 --!strict
+--!native
 
 local Active = require "../ownership/active"
 local Children = require "./children"
@@ -13,7 +14,7 @@ type Dispose = Types.Dispose
 
 export type Block = {
 	nodes: { Node },
-	dispose: Dispose,
+	owner: Owner.Owner,
 }
 
 local function nameOf(component: unknown): string
@@ -52,23 +53,33 @@ local function requireNodes(produced: { Node }, label: string): { Node }
 	return produced
 end
 
+local function releaseNodes(mountPoint: Children.MountPoint, nodes: { Node })
+	for index = #nodes, 1, -1 do
+		mountPoint.remove(nodes[index])
+	end
+	for _, node in nodes do
+		Nodes.forget(node)
+	end
+end
+
 local function mountBlock(
 	mountPoint: Children.MountPoint,
 	parentOwner: Owner.Owner,
 	produce: () -> { Node },
 	label: string,
-	at: number?
+	at: number?,
+	detached: boolean?
 ): Block
-	local owner = parentOwner.createChild()
+	local owner = Owner.createChild(parentOwner)
 
 	local ok, produced = pcall(Active.runWith1, owner, produce)
 	if not ok then
-		owner.dispose()
+		Owner.dispose(owner)
 		error(produced, 0)
 	end
 	local okNodes, built = pcall(requireNodes, produced, label)
 	if not okNodes then
-		owner.dispose()
+		Owner.dispose(owner)
 		error(built, 0)
 	end
 
@@ -84,24 +95,22 @@ local function mountBlock(
 		for index = inserted, 1, -1 do
 			pcall(mountPoint.remove, built[index])
 		end
-		owner.dispose()
+		Owner.dispose(owner)
 		error(insertErr, 0)
 	end
 
-	owner.own(function()
-		for index = #built, 1, -1 do
-			mountPoint.remove(built[index])
-		end
-		for _, node in built do
-			Nodes.forget(node)
-		end
-	end)
+	if not detached then
+		Owner.adopt(owner, function()
+			releaseNodes(mountPoint, built)
+		end)
+	end
 
-	return { nodes = built, dispose = owner.dispose }
+	return { nodes = built, owner = owner }
 end
 
 return {
 	mountBlock = mountBlock,
+	releaseNodes = releaseNodes,
 	nameOf = nameOf,
 	requireNodes = requireNodes,
 }

@@ -33,6 +33,11 @@ local TOOL_ITEMS: { [string]: boolean } = {
 	todo_list = true,
 }
 
+local function checkedString(value: unknown): string
+	assert(type(value) == "string")
+	return value
+end
+
 local function tomlString(text: string): string
 	local escaped = string.gsub(text, '[%c"\\]', function(character: string): string
 		return ESCAPES[character] or ("\\u%04X"):format(string.byte(character))
@@ -105,7 +110,7 @@ local function arguments(request: Request, mcp: string?, decode: (text: string) 
 	end
 	if request.model ~= nil then
 		table.insert(argv, "-m")
-		table.insert(argv, request.model :: string)
+		table.insert(argv, request.model)
 	end
 	local sandbox = Schema.optionalText(options.sandbox, label .. ".sandbox")
 	if sandbox ~= nil then
@@ -120,7 +125,7 @@ local function arguments(request: Request, mcp: string?, decode: (text: string) 
 		config(argv, "model_reasoning_effort", tomlString(effort))
 	end
 	if request.instructions ~= nil and request.instructions ~= "" then
-		config(argv, "developer_instructions", tomlString(request.instructions :: string))
+		config(argv, "developer_instructions", tomlString(request.instructions))
 	end
 	if mcp ~= nil then
 		mcpServers(argv, mcp, decode)
@@ -150,8 +155,8 @@ local function textOf(value: unknown): string?
 end
 
 local function count(value: unknown): number
-	if Schema.finite(value) and (value :: number) >= 0 then
-		return value :: number
+	if type(value) == "number" and Schema.finite(value) and value >= 0 then
+		return value
 	end
 	return 0
 end
@@ -196,7 +201,7 @@ local function parse(lines: { Services.Line }, decode: (text: string) -> unknown
 		if string.match(line.text, "^%s*$") ~= nil then
 			continue
 		end
-		local parsed, event: unknown = pcall(decode, line.text)
+		local parsed, event = pcall(decode, line.text)
 		if not parsed or type(event) ~= "table" then
 			transcript.malformed += 1
 			continue
@@ -292,7 +297,7 @@ local function parse(lines: { Services.Line }, decode: (text: string) -> unknown
 	elseif streamError ~= nil then
 		transcript.status = "error"
 		transcript.subtype = "error"
-		transcript.result = string.sub(streamError :: string, 1, RESULT_LIMIT)
+		transcript.result = string.sub(checkedString(streamError), 1, RESULT_LIMIT)
 	elseif completedTurns > 0 and not turnOpen then
 		transcript.status = "success"
 		transcript.subtype = "success"

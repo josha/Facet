@@ -4,7 +4,7 @@ local Commands = require("./command_types")
 local ComposeTypes = require("../vendor/compose/core")
 local gestureOf = require("./gesture_service")
 type Record = { node: GuiObject, active: (ComposeTypes.Use) -> boolean }
-local registries = setmetatable({} :: { [Shared.Context]: Shared.Cell<{ Record }> }, { __mode = "k" })
+local registries = setmetatable({} :: { [Shared.Context]: Shared.Value<{ Record }> }, { __mode = "k" })
 
 return function(ctx: Shared.Context, UI: Commands.Controls)
 	local C, runtime, input, gui = ctx.Compose, ctx.runtime, ctx.config.userInputService, ctx.config.guiService
@@ -13,13 +13,13 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 		registry = C.cell({} :: { Record })
 		registries[ctx] = registry
 	end
-	local scopes = registry :: Shared.Cell<{ Record }>
+	local scopes = registry :: Shared.Value<{ Record }>
 	UI.commandScope = function<K>(root: GuiObject, spec: Commands.CommandSpec<K>): Commands.CommandScope<K>
 		local arbiter = gestureOf(ctx)
 		local owner = assert(C.currentOwner(), "Facet commandScope requires a Compose owner")
 		local current = C.cell(nil :: K?)
 		local version, typing = C.cell(0), C.cell(input ~= nil and not not input:GetFocusedTextBox())
-		local selected: Shared.Readable<GuiObject?> = if gui
+		local selected: Shared.ReadOnlyValue<GuiObject?> = if gui
 			then ctx.observe.SelectedObject(gui)
 			else C.cell(nil :: GuiObject?)
 		local actions: { [string]: InputAction } = {}
@@ -84,7 +84,7 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 		local record: Record = {
 			node = root,
 			active = function(use: Shared.Use): boolean
-				return not owner.isDisposed()
+				return not ComposeTypes.owner.isDisposed(owner)
 					and use(current) ~= nil
 					and not use(typing)
 					and ctx.read(spec.enabled, use) ~= false
@@ -138,9 +138,9 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 		C.watch(function(use: Shared.Use)
 			local targets = ctx.read(spec.targets, use)
 			if targetsOwner then
-				targetsOwner.dispose()
+				ComposeTypes.owner.dispose(targetsOwner)
 			end
-			local child = owner.createChild()
+			local child = ComposeTypes.owner.createChild(owner)
 			targetsOwner = child
 			C.withOwner(child, function()
 				local keys: { [K]: boolean } = {}
@@ -184,7 +184,7 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 		end)
 		C.cleanup(function()
 			if targetsOwner then
-				targetsOwner.dispose()
+				ComposeTypes.owner.dispose(targetsOwner)
 			end
 		end)
 		local supportedKeys: { [string]: boolean } = {}
@@ -216,7 +216,7 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 			current = current,
 			actions = actions,
 			focus = function(key: K): boolean
-				if owner.isDisposed() or gui == nil or ctx.read(spec.enabled) == false then
+				if ComposeTypes.owner.isDisposed(owner) or gui == nil or ctx.read(spec.enabled) == false then
 					return false
 				end
 				for _, target in ctx.read(spec.targets) do
@@ -231,7 +231,7 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 				return false
 			end,
 			clear = function()
-				if not owner.isDisposed() and gui and current:peek() ~= nil then
+				if not ComposeTypes.owner.isDisposed(owner) and gui and current:peek() ~= nil then
 					gui.SelectedObject = nil
 				end
 			end,

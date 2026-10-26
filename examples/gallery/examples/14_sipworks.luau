@@ -1,8 +1,8 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type SipworksModule = typeof(require("@repo/examples/reference/p3_sipworks"))
 type Entry = { id: string, value: string? }
 local loadSipworks: (ModuleScript | string) -> SipworksModule = require

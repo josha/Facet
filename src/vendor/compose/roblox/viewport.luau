@@ -30,9 +30,9 @@ local function createViewport(
 	camera: { ViewportSize: Engine.Vector2 },
 	engine: Engine.Engine?,
 	options: Options?
-): (Compose.Readable<Viewport>, Compose.Readable<boolean>)
+): (Compose.ReadOnlyValue<Viewport>, Compose.ReadOnlyValue<boolean>)
 	local resolved = if engine ~= nil then engine else Engine.ambient()
-	local settings = if options ~= nil then options else {} :: Options
+	local settings: Options = if options ~= nil then options else {}
 	local minimum = if settings.minimumSide ~= nil then settings.minimumSide else DEFAULT_MINIMUM_SIDE
 	local fallback = if settings.fallback ~= nil then settings.fallback else DEFAULT_FALLBACK
 

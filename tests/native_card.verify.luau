@@ -131,7 +131,7 @@ return function(verifyHarness: Verify.Harness)
 					render = function(
 						current: any,
 						_placement: any,
-						key: FixtureComposeTypes.Readable<string>
+						key: FixtureComposeTypes.ReadOnlyValue<string>
 					): GuiObject
 						local entry = {}
 						local card = UI.Card({
@@ -740,9 +740,9 @@ return function(verifyHarness: Verify.Harness)
 				local button = primary(held)
 				hover(heldRoot, true)
 				button.InputBegan:Fire({ UserInputType = Enum.UserInputType.MouseButton1 })
-				world.engine.environment.poke(button, "GuiState", Enum.GuiState.Press)
+				held.engine.environment.poke(button, "GuiState", Enum.GuiState.Press)
 				hover(heldRoot, false)
-				world.engine.environment.poke(button, "GuiState", Enum.GuiState.Idle)
+				held.engine.environment.poke(button, "GuiState", Enum.GuiState.Idle)
 				Verify.expect((attr(heldRoot, "Revealed"))):toBe(true)
 				button.InputEnded:Fire({ UserInputType = Enum.UserInputType.MouseButton1 })
 				Verify.expect((attr(heldRoot, "Revealed"))):toBe(false)
@@ -856,7 +856,7 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
-		local function stacked(reduced: FixtureComposeTypes.Cell<boolean>, container: string?): worlds.World
+		local function stacked(reduced: FixtureComposeTypes.Value<boolean>, container: string?): worlds.World
 			local spec = cardSpec({})
 			spec.image = nil
 			spec.onActivate = nil

@@ -6,12 +6,12 @@ local Theme = require("./theme_types")
 export type ComposeModule = typeof(ComposeTypes)
 export type Runtime = ComposeTypes.Runtime
 export type Source<T> = ComposeTypes.Source<T>
-export type Readable<T> = ComposeTypes.Readable<T>
-export type Cell<T> = ComposeTypes.Cell<T>
+export type ReadOnlyValue<T> = ComposeTypes.ReadOnlyValue<T>
+export type Value<T> = ComposeTypes.Value<T>
 export type Use = ComposeTypes.Use
 export type Child = ComposeTypes.Child
 export type Dispose = ComposeTypes.Dispose
-export type Value<T> = Engine.Value<T>
+export type Input<T> = Engine.Input<T>
 export type ValueString = Engine.ValueString
 export type ValueBoolean = Engine.ValueBoolean
 export type ValueNumber = Engine.ValueNumber
@@ -46,17 +46,17 @@ export type Align = "start" | "center" | "end" | "stretch"
 export type Distribute = "start" | "center" | "end" | "spaceBetween" | "spaceAround" | "spaceEvenly"
 export type Edge = "start" | "center" | "end"
 export type Box = {
-	padding: Value<Padding>?,
-	width: Value<Extent>?,
-	height: Value<Extent>?,
+	padding: Input<Padding>?,
+	width: Input<Extent>?,
+	height: Input<Extent>?,
 }
 export type Flow = {
-	padding: Value<Padding>?,
-	width: Value<Extent>?,
-	height: Value<Extent>?,
-	gap: Value<Space>?,
-	align: Value<Align>?,
-	distribute: Value<Distribute>?,
+	padding: Input<Padding>?,
+	width: Input<Extent>?,
+	height: Input<Extent>?,
+	gap: Input<Space>?,
+	align: Input<Align>?,
+	distribute: Input<Distribute>?,
 	wrap: Engine.ValueBoolean?,
 }
 
@@ -153,32 +153,32 @@ export type Config = {
 	userInputService: UserInputService?,
 	inputParent: Instance?,
 	overlayParent: Instance?,
-	controlSize: Value<ControlSize?>?,
-	theme: Value<Theme.ThemePackage>?,
-	icons: Value<{ [string]: Theme.IconEntry }>?,
-	motionLevel: (Value<MotionLevel> | Value<MotionLevel?>)?,
+	controlSize: Input<ControlSize?>?,
+	theme: Input<Theme.ThemePackage>?,
+	icons: Input<{ [string]: Theme.IconEntry }>?,
+	motionLevel: (Input<MotionLevel> | Input<MotionLevel?>)?,
 	pressHaptic: (HapticEffect | HapticKind)?,
 	onError: ((unknown) -> ())?,
 	environment: EnvironmentPreview?,
 	keyboardNavigation: boolean?,
-	translator: Value<Translator?>?,
-	buttonGuides: Value<boolean>?,
+	translator: Input<Translator?>?,
+	buttonGuides: Input<boolean>?,
 	suspendGameplay: boolean?,
 }
 export type EnvironmentPreview = {
-	preferredInput: Value<(Enum.PreferredInput | string)?>?,
-	touchEnabled: Value<boolean?>?,
-	mouseEnabled: Value<boolean?>?,
-	gamepadEnabled: Value<boolean?>?,
-	keyboardEnabled: Value<boolean?>?,
-	preferredTextSize: Value<(Enum.PreferredTextSize | string)?>?,
-	displaySize: Value<(Enum.DisplaySize | string)?>?,
-	viewportSize: Value<Vector2?>?,
-	viewingDistance: Value<("automatic" | "near" | "ten-foot")?>?,
-	overscanInsets: Value<({ top: number, left: number, bottom: number, right: number } | "none")?>?,
+	preferredInput: Input<(Enum.PreferredInput | string)?>?,
+	touchEnabled: Input<boolean?>?,
+	mouseEnabled: Input<boolean?>?,
+	gamepadEnabled: Input<boolean?>?,
+	keyboardEnabled: Input<boolean?>?,
+	preferredTextSize: Input<(Enum.PreferredTextSize | string)?>?,
+	displaySize: Input<(Enum.DisplaySize | string)?>?,
+	viewportSize: Input<Vector2?>?,
+	viewingDistance: Input<("automatic" | "near" | "ten-foot")?>?,
+	overscanInsets: Input<({ top: number, left: number, bottom: number, right: number } | "none")?>?,
 }
 export type ResolvedConfig = Config & { services: Services }
-export type Read = <T>(Value<T>, Use?) -> T
+export type Read = <T>(Input<T>, Use?) -> T
 export type ModalPortal = { node: Instance, anchor: Instance }
 export type ActionBinding = string | Enum.KeyCode | InputBindingNativeProps
 export type ActionBindings = { ActionBinding } | { Enum.KeyCode } | { InputBindingNativeProps } | { string }
@@ -207,7 +207,7 @@ export type ListRow = {
 	captions: { GuiObject },
 	trailing: { Child }?,
 	described: boolean,
-	controlSize: Value<ControlSize?>?,
+	controlSize: Input<ControlSize?>?,
 }
 export type SkinStateOptions = {
 	disabled: Engine.ValueBoolean?,
@@ -223,7 +223,7 @@ export type ResponderOptions = {
 	resignOnActivate: boolean?,
 }
 export type ResponderState = "passive" | "engaged"
-export type Responder = { state: Readable<ResponderState>, engage: () -> (), resign: () -> () }
+export type Responder = { state: ReadOnlyValue<ResponderState>, engage: () -> (), resign: () -> () }
 export type Context = {
 	runtime: Runtime,
 	Host: Host,
@@ -232,7 +232,7 @@ export type Context = {
 	config: ResolvedConfig,
 	metrics: { textSize: number, controlHeight: number, gap: number, cornerRadius: number },
 	read: Read,
-	readSource: <T>(Readable<T>, Use?) -> T,
+	readSource: <T>(ReadOnlyValue<T>, Use?) -> T,
 	haptic: (kind: unknown) -> HapticEffect?,
 	metric: (string, Use?, boolean?) -> number,
 	phrase: (key: string, source: string, args: { [string]: string | number }, Use?) -> string,
@@ -241,7 +241,7 @@ export type Context = {
 	motionEase: (string, Use?) -> (number) -> number,
 	motionStyle: (string, Use?) -> Enum.EasingStyle,
 	neutralMetrics: (Use?) -> Theme.Metrics,
-	controlSize: (Value<ControlSize?>?, "height" | "paddingX" | "iconSize", Use?) -> number,
+	controlSize: (Input<ControlSize?>?, "height" | "paddingX" | "iconSize", Use?) -> number,
 	pointerOnly: () -> (Use?) -> boolean,
 	hitFloor: () -> (Use?) -> number,
 	tenFoot: () -> (Use?) -> boolean,
@@ -249,14 +249,14 @@ export type Context = {
 	effectiveInput: () -> (Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse",
 	touchFloor: () -> (Use?) -> number,
 	overlayHosts: { [Instance]: Instance },
-	thumbFloor: (Readable<number>) -> (Use?) -> number,
+	thumbFloor: (ReadOnlyValue<number>) -> (Use?) -> number,
 	observe: Observe,
 	observeNative: {
-		AbsoluteContentSize: (UIGridStyleLayout) -> ComposeTypes.Cell<Vector2>,
-		AbsolutePosition: (GuiBase2d) -> ComposeTypes.Cell<Vector2>,
-		AbsoluteSize: (GuiBase2d) -> ComposeTypes.Cell<Vector2>,
-		AbsoluteWindowSize: (ScrollingFrame) -> ComposeTypes.Cell<Vector2>,
-		TextBounds: (TextBox | TextButton | TextLabel) -> ComposeTypes.Cell<Vector2>,
+		AbsoluteContentSize: (UIGridStyleLayout) -> ComposeTypes.Value<Vector2>,
+		AbsolutePosition: (GuiBase2d) -> ComposeTypes.Value<Vector2>,
+		AbsoluteSize: (GuiBase2d) -> ComposeTypes.Value<Vector2>,
+		AbsoluteWindowSize: (ScrollingFrame) -> ComposeTypes.Value<Vector2>,
+		TextBounds: (TextBox | TextButton | TextLabel) -> ComposeTypes.Value<Vector2>,
 	},
 	observeStyled: Observe,
 	shiftRoute: (Instance, () -> ()) -> (),
@@ -275,15 +275,18 @@ export type Context = {
 	text: (TextLabelNativeProps?, boolean?) -> TextLabel,
 	textLayout: (TextLabel | TextButton, boolean?, boolean?) -> (),
 	row: ({ Child }, FrameNativeProps?) -> Frame,
-	layoutUnit: (GuiBase2d, string?) -> ComposeTypes.Readable<number>,
-	layoutSize: (GuiBase2d, ComposeTypes.Readable<number>?) -> ComposeTypes.Readable<Vector2>,
-	layoutBounds: (TextLabel | TextButton | TextBox, ComposeTypes.Readable<number>?) -> ComposeTypes.Readable<Vector2>,
+	layoutUnit: (GuiBase2d, string?) -> ComposeTypes.ReadOnlyValue<number>,
+	layoutSize: (GuiBase2d, ComposeTypes.ReadOnlyValue<number>?) -> ComposeTypes.ReadOnlyValue<Vector2>,
+	layoutBounds: (
+		TextLabel | TextButton | TextBox,
+		ComposeTypes.ReadOnlyValue<number>?
+	) -> ComposeTypes.ReadOnlyValue<Vector2>,
 	column: ({ Child }, FrameNativeProps?) -> Frame,
-	listRow: (ListRow) -> (Frame, Value<UDim2>, (GuiObject) -> ()),
-	icon: (Engine.ValueString, ImageLabelNativeProps?, Value<Theme.SkinState>?) -> ImageLabel,
+	listRow: (ListRow) -> (Frame, Input<UDim2>, (GuiObject) -> ()),
+	icon: (Engine.ValueString, ImageLabelNativeProps?, Input<Theme.SkinState>?) -> ImageLabel,
 	iconVaries: (Engine.ValueString?) -> boolean,
-	modalScopes: Cell<{ Instance }>,
-	modalPortals: Cell<{ ModalPortal }>,
+	modalScopes: Value<{ Instance }>,
+	modalPortals: Value<{ ModalPortal }>,
 	modalPortal: (Instance, Instance) -> (),
 	available: (Instance, Use?) -> boolean,
 	withinModal: (Instance, Use?) -> boolean,

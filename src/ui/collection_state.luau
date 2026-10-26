@@ -9,8 +9,8 @@ local Types = require("./types")
 local CollectionTypes = require("./collection_types")
 export type PooledRow = { node: Frame, owner: ComposeTypes.Owner }
 export type Preparing = {
-	ready: ComposeTypes.Readable<boolean>,
-	painted: ComposeTypes.Cell<boolean>,
+	ready: ComposeTypes.ReadOnlyValue<boolean>,
+	painted: ComposeTypes.Value<boolean>,
 	required: () -> boolean,
 }
 export type View<V, K> = {
@@ -20,27 +20,27 @@ export type View<V, K> = {
 	tree: TreeTypes.Tree<V, K>?,
 	actionsWrapped: boolean?,
 	source: (ComposeTypes.Use) -> { V },
-	viewport: ComposeTypes.Cell<ComposeTypes.OrderedCollectionViewport>,
-	cross: ComposeTypes.Cell<number>,
-	mountedVersion: ComposeTypes.Cell<number>,
-	status: ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus>,
+	viewport: ComposeTypes.Value<ComposeTypes.OrderedCollectionViewport>,
+	cross: ComposeTypes.Value<number>,
+	mountedVersion: ComposeTypes.Value<number>,
+	status: ComposeTypes.Value<ComposeTypes.OrderedCollectionStatus>,
 	controls: ComposeTypes.OrderedCollectionControls<K>,
-	selection: ComposeTypes.Cell<CollectionTypes.Selection<K>>,
-	onlySelected: ComposeTypes.Formula<K?>,
-	coordinator: ComposeTypes.Cell<{}?>,
+	selection: ComposeTypes.Value<CollectionTypes.Selection<K>>,
+	onlySelected: ComposeTypes.Value<K?>,
+	coordinator: ComposeTypes.Value<{}?>,
 	selectionMode: "none" | "single" | "multiple",
 	selectRow: (K, V, InputObject?) -> (),
 	extendSelection: (K?, K) -> (),
-	measured: ComposeTypes.Cell<{ [K]: number }>,
-	containsCards: ComposeTypes.Cell<boolean>,
+	measured: ComposeTypes.Value<{ [K]: number }>,
+	containsCards: ComposeTypes.Value<boolean>,
 	horizontal: boolean,
 	cardsMode: boolean,
-	preferred: ComposeTypes.Readable<Enum.PreferredInput>?,
+	preferred: ComposeTypes.ReadOnlyValue<Enum.PreferredInput>?,
 	frames: ComposeTypes.Frames,
 	reduced: () -> boolean,
 	unit: Frame,
-	unitSize: ComposeTypes.Cell<Vector2>,
-	focusActive: ComposeTypes.Cell<boolean>,
+	unitSize: ComposeTypes.Value<Vector2>,
+	focusActive: ComposeTypes.Value<boolean>,
 	noFocusCandidates: { V },
 	initialFollow: boolean,
 	focusedPath: { string },
@@ -48,14 +48,14 @@ export type View<V, K> = {
 	armPaging: (() -> ())?,
 	scope: ComposeTypes.FocusScope<K>?,
 	mounted: { [K]: Frame? },
-	slotKeys: { [Frame]: ComposeTypes.Readable<K> },
+	slotKeys: { [Frame]: ComposeTypes.ReadOnlyValue<K> },
 	nodeOf: (K) -> Frame?,
 	cellEdits: { [K]: { activation.EditAction } },
-	placed: { [K]: ComposeTypes.Readable<ComposeTypes.Placement> },
+	placed: { [K]: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement> },
 	poolOwner: ComposeTypes.Owner,
 	preparing: { [Frame]: Preparing },
 	retiring: { [Frame]: () -> () },
-	waiting: ComposeTypes.Cell<number>,
+	waiting: ComposeTypes.Value<number>,
 	pool: ComposeTypes.Pool<PooledRow>,
 	mainEdge: (ComposeTypes.Use?) -> number,
 	crossEdge: (ComposeTypes.Use?) -> number,
@@ -105,7 +105,7 @@ local function create<V, K>(
 	local readSource = ctx.readSource
 	local observe = ctx.observe
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
-	local viewport: ComposeTypes.Cell<ComposeTypes.OrderedCollectionViewport> = Compose.cell({ offset = 0, size = 0 })
+	local viewport: ComposeTypes.Value<ComposeTypes.OrderedCollectionViewport> = Compose.cell({ offset = 0, size = 0 })
 	local cross, mountedVersion = Compose.cell(0), Compose.cell(0)
 	local emptyStatus: ComposeTypes.OrderedCollectionStatus = {
 		mode = "windowed",
@@ -121,12 +121,14 @@ local function create<V, K>(
 		following = false,
 		measured = 0,
 	}
-	local status = (spec.status or Compose.cell(emptyStatus)) :: ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus>
+	local status = (spec.status or Compose.cell(emptyStatus)) :: ComposeTypes.Value<
+		ComposeTypes.OrderedCollectionStatus
+	>
 	if status:peek() == nil then
 		status:set(emptyStatus)
 	end
 	local controls: ComposeTypes.OrderedCollectionControls<K> = spec.controls or {}
-	local selection: ComposeTypes.Cell<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
+	local selection: ComposeTypes.Value<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
 	local onlySelected = Compose.formula(function(use: ComposeTypes.Use): K?
 		local only: K? = nil
 		local chosen: CollectionTypes.Selection<K> = use(selection)
@@ -144,13 +146,13 @@ local function create<V, K>(
 	local selectionMode: "none" | "single" | "multiple" = spec.selectionMode
 		or (if spec.selection or spec.onSelectionChange then "single" else "none")
 	local selectRow, extendSelection = createSelection(ctx, spec, source, keyOf, controls, selection, selectionMode)
-	local measured: ComposeTypes.Cell<{ [K]: number }> = Compose.cell({})
+	local measured: ComposeTypes.Value<{ [K]: number }> = Compose.cell({})
 	local containsCards = Compose.cell(false)
 	local horizontal = spec.direction == "horizontal"
 	local cardsMode = spec.itemSize == "cards"
 	assert(not cardsMode or horizontal, 'Facet collection: itemSize = "cards" needs a horizontal list')
 	assert(spec.cards == nil or cardsMode, 'Facet collection: cards needs itemSize = "cards"')
-	local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if ctx.config.userInputService
+	local preferred: ComposeTypes.ReadOnlyValue<Enum.PreferredInput>? = if ctx.config.userInputService
 		then observe.PreferredInput(ctx.config.userInputService)
 		else nil
 	local frames = assert(runtime.host.frames)
@@ -164,12 +166,12 @@ local function create<V, K>(
 		BackgroundTransparency = 1,
 		Visible = false,
 	})
-	local unitSize: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(unit)
+	local unitSize: ComposeTypes.Value<Vector2> = observe.AbsoluteSize(unit)
 	local focusActive = Compose.cell(spec.focus ~= nil or spec.initialFocus ~= nil or spec.autoFocus == true)
 	local noFocusCandidates: { V } = {}
 	local initialFollow = read(spec.follow) == "end" and spec.CanvasPosition == nil
 	local mounted: { [K]: Frame? } = {}
-	local slotKeys: { [Frame]: ComposeTypes.Readable<K> } = {}
+	local slotKeys: { [Frame]: ComposeTypes.ReadOnlyValue<K> } = {}
 	local function nodeOf(key: K): Frame?
 		local node = mounted[key]
 		local slot = if node then slotKeys[node] else nil
@@ -184,12 +186,12 @@ local function create<V, K>(
 		return nil
 	end
 	local cellEdits: { [K]: { activation.EditAction } } = {}
-	local placed: { [K]: ComposeTypes.Readable<ComposeTypes.Placement> } = {}
-	local poolOwner = assert(Compose.currentOwner()).createChild()
+	local placed: { [K]: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement> } = {}
+	local poolOwner = ComposeTypes.owner.createChild(assert(Compose.currentOwner()))
 	local preparing: {
 		[Frame]: {
-			ready: ComposeTypes.Readable<boolean>,
-			painted: ComposeTypes.Cell<boolean>,
+			ready: ComposeTypes.ReadOnlyValue<boolean>,
+			painted: ComposeTypes.Value<boolean>,
 			required: () -> boolean,
 		},
 	} =
@@ -219,7 +221,7 @@ local function create<V, K>(
 	local pool: ComposeTypes.Pool<PooledRow> = Compose.createPool({
 		maxRetained = spec.maxRetained or 32,
 		create = function()
-			local owner = poolOwner.createChild()
+			local owner = Compose.owner.createChild(poolOwner)
 			local node = Compose.withOwner(owner, function()
 				local nativeProps: Types.FrameProps = {
 					BackgroundTransparency = 1,
@@ -236,10 +238,10 @@ local function create<V, K>(
 			end
 		end,
 		destroy = function(record: PooledRow)
-			record.owner.dispose()
+			ComposeTypes.owner.dispose(record.owner)
 		end,
 	})
-	local function edgeOf(gutter: Types.Value<number>?, use: ComposeTypes.Use?): number
+	local function edgeOf(gutter: Types.Input<number>?, use: ComposeTypes.Use?): number
 		return if kind == "grid" then math.ceil(math.max(0, read(gutter or 0, use)) / 2) else 0
 	end
 	local function mainEdge(use: ComposeTypes.Use?): number
@@ -269,7 +271,7 @@ local function create<V, K>(
 		if not spec.hug or spec.slots ~= nil then
 			return columns
 		end
-		local items = source(use or function<T>(readable: ComposeTypes.Readable<T>): T
+		local items = source(use or function<T>(readable: ComposeTypes.ReadOnlyValue<T>): T
 			return readable:peek()
 		end)
 		return math.min(columns, math.max(1, #items))

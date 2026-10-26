@@ -7,6 +7,7 @@ local json = require "@std/json"
 local Eval = require "../src/agent-eval"
 local Mcp = require "../src/lute/studio-mcp"
 local Files = require "../src/lute/files"
+local Wire = require "../src/lute/wire"
 
 local path = process.args[2]
 assert(path ~= nil and #process.args == 2, "usage: lute run tools/scoped-studio-mcp.luau <run scope file>")
@@ -37,7 +38,7 @@ local function dropTransport()
 	end
 end
 local function encode(value: unknown): string
-	return json.serialize(value :: json.Value)
+	return Wire.encode(value)
 end
 local scope = Eval.scopedMcp.create(raw.studio, {
 	call = function(name, arguments): unknown
@@ -47,14 +48,14 @@ local scope = Eval.scopedMcp.create(raw.studio, {
 			transport = Mcp.connect(raw.executable, Files.claimDirectory(raw.directory), deadline)
 		end
 		local limit = math.min(now + callSeconds, deadline)
-		local called, value: unknown = pcall(assert(transport).callRaw, name, encode(arguments), limit)
+		local called, value = pcall(assert(transport).callRaw, name, encode(arguments), limit)
 		if not called then
 			callFailure =
 				"the scoped Studio call failed without a response; it may have been applied; inspect state before repeating it"
 			dropTransport()
 			error(callFailure, 0)
 		end
-		local reply = value :: Mcp.Exchange
+		local reply = value
 		if reply.status ~= "answered" then
 			callFailure = if reply.status == "unanswered"
 				then "the scoped Studio call did not return; it may have been applied; inspect state before repeating it"

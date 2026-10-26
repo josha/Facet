@@ -6,9 +6,11 @@ type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
 type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
 type RowActionsOptions = typeof(require("@repo/tools/typecheck/aliases").RowActionsOptions)
 
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type Sort = { column: string, direction: "ascending" | "descending" }
 type Track = { id: string, name: string, artist: string, length: number, rating: number }
 
@@ -35,9 +37,9 @@ function example.build(ctx: ExampleContext)
 	local baseRows = Compose.cell(table.clone(TRACKS))
 	local filterText = Compose.cell("")
 	local nothingPlaying: string? = nil
-	local nowPlaying: Cell<string?> = Compose.cell(nothingPlaying)
+	local nowPlaying: Value<string?> = Compose.cell(nothingPlaying)
 	local unsorted: Sort? = nil
-	local sortOrder: Cell<Sort?> = Compose.cell(unsorted)
+	local sortOrder: Value<Sort?> = Compose.cell(unsorted)
 	local noWidths: { [string]: number } = {}
 	local columnWidths = Compose.cell(noWidths)
 	local ratings: { [string]: typeof(Compose.cell(0)) } = {}
@@ -104,7 +106,7 @@ function example.build(ctx: ExampleContext)
 		end
 		return baseRows:peek()
 	end
-	local function starCell(item: Readable<Track>)
+	local function starCell(item: ReadOnlyValue<Track>)
 		return UI.Rating "Rating" { value = ratings[item:peek().id], count = 5 }
 	end
 
@@ -237,7 +239,7 @@ function example.build(ctx: ExampleContext)
 				end
 			end,
 
-			rowActions = function(item: Readable<Track>)
+			rowActions = function(item: ReadOnlyValue<Track>)
 				local id = item:peek().id
 				local leading: { RowAction } = {
 					{

@@ -8,52 +8,61 @@ local f32 = Float.f32
 
 type Vector2Value = Vector.Vector2Value
 
-export type UDimValue = typeof(setmetatable(
-	{} :: { Scale: number, Offset: number },
-	{} :: {
-		__add: (UDimValue, UDimValue) -> UDimValue,
-		__sub: (UDimValue, UDimValue) -> UDimValue,
-		__unm: (UDimValue) -> UDimValue,
-		__eq: (UDimValue, UDimValue) -> boolean,
-		__tostring: (UDimValue) -> string,
-	}
-))
+local UDimValueFields: { Scale: number, Offset: number }
+local UDimValueMeta: {
+	__add: (UDimValue, UDimValue) -> UDimValue,
+	__sub: (UDimValue, UDimValue) -> UDimValue,
+	__unm: (UDimValue) -> UDimValue,
+	__eq: (UDimValue, UDimValue) -> boolean,
+	__tostring: (UDimValue) -> string,
+}
 
-export type UDim2Value = typeof(setmetatable(
-	{} :: {
-		X: UDimValue,
-		Y: UDimValue,
-		Width: UDimValue,
-		Height: UDimValue,
-		Lerp: (self: UDim2Value, goal: UDim2Value, alpha: number) -> UDim2Value,
-	},
-	{} :: {
-		__add: (UDim2Value, UDim2Value) -> UDim2Value,
-		__sub: (UDim2Value, UDim2Value) -> UDim2Value,
-		__unm: (UDim2Value) -> UDim2Value,
-		__eq: (UDim2Value, UDim2Value) -> boolean,
-		__tostring: (UDim2Value) -> string,
-	}
-))
+export type UDimValue = typeof(setmetatable(UDimValueFields, UDimValueMeta))
 
-export type RectValue = typeof(setmetatable(
-	{} :: { Min: Vector2Value, Max: Vector2Value, Width: number, Height: number },
-	{} :: {
-		__eq: (RectValue, RectValue) -> boolean,
-		__tostring: (RectValue) -> string,
-	}
-))
+local UDim2ValueFields: {
+	X: UDimValue,
+	Y: UDimValue,
+	Width: UDimValue,
+	Height: UDimValue,
+	Lerp: (self: UDim2Value, goal: UDim2Value, alpha: number) -> UDim2Value,
+}
+local UDim2ValueMeta: {
+	__add: (UDim2Value, UDim2Value) -> UDim2Value,
+	__sub: (UDim2Value, UDim2Value) -> UDim2Value,
+	__unm: (UDim2Value) -> UDim2Value,
+	__eq: (UDim2Value, UDim2Value) -> boolean,
+	__tostring: (UDim2Value) -> string,
+}
+
+export type UDim2Value = typeof(setmetatable(UDim2ValueFields, UDim2ValueMeta))
+
+local RectValueFields: { Min: Vector2Value, Max: Vector2Value, Width: number, Height: number }
+local RectValueMeta: {
+	__eq: (RectValue, RectValue) -> boolean,
+	__tostring: (RectValue) -> string,
+}
+
+export type RectValue = typeof(setmetatable(RectValueFields, RectValueMeta))
 
 local UDimKind = Names.behavior("UDim", { quoted = true })
 local UDim2Kind = Names.behavior "UDim2"
 local RectKind = Names.behavior("Rect", { quoted = true })
 
+local udims: { [unknown]: UDimValue } = {}
+local udim2s: { [unknown]: UDim2Value } = {}
+Names.weak(udims)
+Names.weak(udim2s)
+
 local function udim(scale: number, offset: number): UDimValue
-	return Names.make(UDimKind, { Scale = f32(scale), Offset = Float.int32(offset) })
+	local made: UDimValue = Names.make(UDimKind, { Scale = f32(scale), Offset = Float.int32(offset) })
+	udims[made] = made
+	return made
 end
 
 local function udim2(x: UDimValue, y: UDimValue): UDim2Value
-	return Names.make(UDim2Kind, { X = x, Y = y })
+	local made: UDim2Value = Names.make(UDim2Kind, { X = x, Y = y })
+	udim2s[made] = made
+	return made
 end
 
 local function expect(value: unknown, kind: Names.Behavior, owner: string, position: number)
@@ -88,10 +97,10 @@ local function lerpOffset(a: number, b: number, t: number): number
 	return math.round(a + (b - a) * t)
 end
 
-local udim2Methods: { [string]: unknown } = {
+local udim2Methods: { [unknown]: unknown } = {
 	Lerp = function(self: UDim2Value, goal: unknown, alpha: number): UDim2Value
 		expect(goal, UDim2Kind, "UDim2", 1)
-		local target = goal :: UDim2Value
+		local target = udim2s[goal]
 		local t = f32(alpha)
 		return udim2(
 			udim(
@@ -107,7 +116,7 @@ local udim2Methods: { [string]: unknown } = {
 }
 
 UDim2Kind.fields.__index = function(value: UDim2Value, key: unknown): unknown
-	local method = udim2Methods[key :: string]
+	local method = udim2Methods[key]
 	if method ~= nil then
 		return method
 	elseif key == "Width" then
@@ -161,7 +170,7 @@ local function newUDim2(...: unknown): UDim2Value
 	if Names.is(first, UDimKind) or Names.is(second, UDimKind) then
 		expect(first, UDimKind, "UDim", 1)
 		expect(second, UDimKind, "UDim", 2)
-		return udim2(first :: UDimValue, second :: UDimValue)
+		return udim2(udims[first], udims[second])
 	end
 	local _, _, third, fourth = ...
 	return udim2(
@@ -171,7 +180,7 @@ local function newUDim2(...: unknown): UDim2Value
 end
 
 local UDim2 = {
-	new = newUDim2 :: ((number?, number?, number?, number?) -> UDim2Value) & ((UDimValue, UDimValue) -> UDim2Value),
+	new = newUDim2,
 	fromScale = function(x: unknown?, y: unknown?): UDim2Value
 		return udim2(udim(Float.coerce(x, 1), 0), udim(Float.coerce(y, 2), 0))
 	end,
@@ -196,7 +205,7 @@ local Rect = {
 			if not Vector.isVector2(second) then
 				Names.argument(2, "Vector2", second)
 			end
-			local a, b = first :: Vector2Value, second :: Vector2Value
+			local a, b = Vector.expect2(first, 1), Vector.expect2(second, 2)
 			return rect(a.X, a.Y, b.X, b.Y)
 		end
 		local _, _, third, fourth = ...

@@ -7,8 +7,8 @@ type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type WorldTarget = BasePart | Model | Player
 local desktop = {}
 local screens = require("./screens")
@@ -20,7 +20,7 @@ function desktop.create(
 	runtime: Runtime,
 	views: { [string]: () -> Instance },
 	model: Model,
-	progress: Readable<number>,
+	progress: ReadOnlyValue<number>,
 	options: ControlOptions?,
 	player: Player?
 ): () -> CanvasGroup

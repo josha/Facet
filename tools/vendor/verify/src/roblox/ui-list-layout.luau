@@ -137,7 +137,7 @@ local function measure(
 		end
 	end
 	local order = enum(list, "SortOrder", "Name")
-	table.sort(items, function(left, right): boolean
+	table.sort(items, function(left: Item, right: Item): boolean
 		if order == "LayoutOrder" then
 			local a, b = number(left.object, "LayoutOrder"), number(right.object, "LayoutOrder")
 			return if a == b then left.index < right.index else a < b

@@ -7,6 +7,7 @@ local FixtureBridge = require "./fixture-bridge"
 local Reflection = require "./reflection"
 local UiFakes = require "./ui-fakes"
 local UiLayout = require "./ui-layout"
+local ContentFakes = require "./content-fakes"
 
 export type Property = { datatype: string, scriptability: string, tags: { string } }
 export type ClassEntry = {
@@ -26,6 +27,7 @@ export type Snapshot = {
 	fonts: Datatypes.FontCatalog?,
 }
 export type Options = {
+	content: ContentFakes.Options?,
 	ui: (UiFakes.Options | false)?,
 	layout: UiLayout.Options?,
 	classes: { [string]: Environment.ClassSpec }?,
@@ -46,7 +48,7 @@ local SCHEMA_VERSION = 2
 local libraries: { [Snapshot]: Datatypes.Library } = {}
 setmetatable(libraries, { __mode = "k" })
 
-local function number(value: unknown): number
+local function number(value: unknown): unknown
 	if value == "inf" then
 		return math.huge
 	elseif value == "-inf" then
@@ -55,7 +57,7 @@ local function number(value: unknown): number
 		local zero = 0
 		return zero / zero
 	end
-	return value :: number
+	return value
 end
 
 local function check(condition: boolean, message: string)
@@ -67,13 +69,13 @@ end
 local function validate(snapshot: Snapshot)
 	check(type(snapshot) == "table" and snapshot.schemaVersion == SCHEMA_VERSION, "has an unsupported schema")
 	check(type(snapshot.classes) == "table", "holds no classes")
-	local enums: unknown = snapshot.enums
+	local enums = snapshot.enums
 	if enums ~= nil then
 		check(type(enums) == "table", "enums must be a table")
-		for family, items in enums :: { [unknown]: unknown } do
+		for family, items in enums do
 			check(type(family) == "string" and type(items) == "table", "enum families must be named lists")
-			for _, item in items :: { unknown } do
-				local entry = item :: Fields
+			for _, item in items do
+				local entry = item
 				check(
 					type(item) == "table" and type(entry.name) == "string" and type(entry.value) == "number",
 					"enum items need a name and a value: " .. tostring(family)
@@ -81,9 +83,9 @@ local function validate(snapshot: Snapshot)
 			end
 		end
 	end
-	local colors: unknown = snapshot.brickColors
+	local colors = snapshot.brickColors
 	if colors ~= nil then
-		local fields = colors :: Fields
+		local fields = colors
 		check(
 			type(colors) == "table" and type(fields.colors) == "table" and type(fields.palette) == "table",
 			"brickColors need colors and a palette"
@@ -110,19 +112,20 @@ local function library(snapshot: Snapshot): Datatypes.Library
 	return created
 end
 
-local function components(tagged: Fields): { number }
+local function components(tagged: Fields): { unknown }
 	local raw = tagged.v
 	check(type(raw) == "table", "holds a malformed " .. tostring(tagged["$"]) .. " default")
-	local out: { number } = {}
+	local out: { unknown } = {}
 	for index, item in raw :: { unknown } do
 		out[index] = number(item)
 	end
 	return out
 end
 
-local function enumItem(types: Datatypes.Library, family: unknown, name: unknown): unknown
-	local found, value = pcall(function(): unknown
-		return ((types.Enum :: unknown) :: { [string]: { [string]: unknown } })[family :: string][name :: string]
+local function enumItem(types: Datatypes.Library, family: unknown, name: unknown): Datatypes.EnumMember
+	local found, value = pcall(function(): Datatypes.EnumMember
+		assert(type(family) == "string" and type(name) == "string")
+		return types.Enum[family][name]
 	end)
 	check(found, ("names Enum.%s.%s, which its enums lack"):format(tostring(family), tostring(name)))
 	return value
@@ -137,7 +140,7 @@ local function decodeValue(types: Datatypes.Library, value: unknown): unknown
 	if kind == "bytes" then
 		return (
 			string.gsub(tagged.v :: string, "%x%x", function(pair: string): string
-				return string.char(tonumber(pair, 16) :: number)
+				return string.char(tonumber(pair, 16) or 0)
 			end)
 		)
 	elseif kind == "number" then
@@ -145,15 +148,15 @@ local function decodeValue(types: Datatypes.Library, value: unknown): unknown
 	elseif kind == "EnumItem" then
 		return enumItem(types, tagged.family, tagged.name)
 	elseif kind == "BrickColor" then
-		return types.BrickColor.new(tagged.v :: number)
+		return types.BrickColor.new(tagged.v)
 	elseif kind == "Font" then
 		return types.Font.new(
 			tagged.family :: string,
-			enumItem(types, "FontWeight", tagged.weight) :: Datatypes.EnumMember,
-			enumItem(types, "FontStyle", tagged.style) :: Datatypes.EnumMember
+			enumItem(types, "FontWeight", tagged.weight),
+			enumItem(types, "FontStyle", tagged.style)
 		)
 	elseif kind == "Content" then
-		return if type(tagged.uri) == "string" then types.Content.fromUri(tagged.uri :: string) else types.Content.none
+		return if type(tagged.uri) == "string" then types.Content.fromUri(tagged.uri) else types.Content.none
 	end
 	local v = components(tagged)
 	if kind == "Vector3" then
@@ -171,7 +174,7 @@ local function decodeValue(types: Datatypes.Library, value: unknown): unknown
 	elseif kind == "UDim2" then
 		return types.UDim2.new(v[1], v[2], v[3], v[4])
 	elseif kind == "CFrame" then
-		return (types.CFrame.new :: (...number) -> unknown)(table.unpack(v, 1, 12))
+		return types.CFrame.new(table.unpack(v, 1, 12))
 	elseif kind == "Rect" then
 		return types.Rect.new(v[1], v[2], v[3], v[4])
 	elseif kind == "NumberRange" then
@@ -268,6 +271,7 @@ end
 local function bridge(snapshot: Snapshot, options: Options?): FixtureBridge.Bridge
 	local settings: Options = options or {}
 	return FixtureBridge.create {
+		content = settings.content,
 		database = database(snapshot),
 		typeName = Environment.typeName,
 		enumType = Datatypes.enumType,

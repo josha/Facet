@@ -6,11 +6,11 @@ local Compose = Facet.Compose
 export type Row = { [string]: unknown }
 export type Data = {
 	["ChooseFurniture"]: ((Row, unknown, InputObject?, number?) -> ())?,
-	["InventoryRows"]: Facet.Readable<{ Row }>?,
+	["InventoryRows"]: Facet.ReadOnlyValue<{ Row }>?,
 	["PlaceFurniture"]: ((Row) -> ())?,
 }
 
-local function rows(supplied: Facet.Readable<{ Row }>?, sample: { Row }): (Facet.Use) -> { Row }
+local function rows(supplied: Facet.ReadOnlyValue<{ Row }>?, sample: { Row }): (Facet.Use) -> { Row }
 	return function(use: Facet.Use): { Row }
 		return if supplied then use(supplied) else sample
 	end
@@ -24,7 +24,7 @@ return function(UI: Facet.Controls, data: Data?): GuiObject
 			["label"] = "Furniture",
 			["minWidth"] = 180,
 			["priority"] = "always",
-			["render"] = function(current: Facet.Readable<Row>): GuiObject
+			["render"] = function(current: Facet.ReadOnlyValue<Row>): GuiObject
 				return UI.VStack "name" {
 					gap = "xs",
 					padding = "xs",
@@ -62,7 +62,7 @@ return function(UI: Facet.Controls, data: Data?): GuiObject
 			["id"] = "quantity",
 			["label"] = "Placed",
 			["priority"] = 2,
-			["render"] = function(current: Facet.Readable<Row>): GuiObject
+			["render"] = function(current: Facet.ReadOnlyValue<Row>): GuiObject
 				return UI.VStack "quantity" {
 					gap = "xs",
 					padding = "xs",
@@ -84,7 +84,7 @@ return function(UI: Facet.Controls, data: Data?): GuiObject
 			["id"] = "finish",
 			["label"] = "Next finish",
 			["priority"] = 1,
-			["render"] = function(current: Facet.Readable<Row>): GuiObject
+			["render"] = function(current: Facet.ReadOnlyValue<Row>): GuiObject
 				return UI.VStack "finish" {
 					gap = "xs",
 					padding = "xs",
@@ -205,7 +205,7 @@ return function(UI: Facet.Controls, data: Data?): GuiObject
 						handler(item, key, input, clickCount)
 					end
 				end,
-				rowActions = function(current: Facet.Readable<Row>): Facet.RowActionsOptions
+				rowActions = function(current: Facet.ReadOnlyValue<Row>): Facet.RowActionsOptions
 					return {
 						trailing = {
 							[1] = {

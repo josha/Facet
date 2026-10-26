@@ -17,8 +17,8 @@ type CollectionStatus = {
 	desiredOffset: number?,
 	measured: number,
 }
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
 local BADGES = { "Rally", "Drift", "Circuit", "Sprint", "Endurance" }
@@ -126,7 +126,7 @@ return {
 				Size = function(use: Use)
 					return D2.new(1, 0, 0, use(height))
 				end,
-				render = function(current, placement, key: Readable<string>): GuiObject
+				render = function(current, placement, key: ReadOnlyValue<string>): GuiObject
 					Compose.watch(function(use: Use)
 						local extent = use(placement).size
 						if extent > 1 and cardWidth:peek() ~= extent then

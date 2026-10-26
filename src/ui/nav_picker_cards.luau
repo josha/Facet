@@ -22,7 +22,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, shared: Pi
 			if single.onChanging and single.onChanging((nil :: unknown) :: V, previous) == false then
 				return
 			end
-			local optional = (single.selected :: unknown) :: ComposeTypes.Cell<V?>
+			local optional = (single.selected :: unknown) :: ComposeTypes.Value<V?>
 			runtime:batch(function()
 				optional:set(nil)
 				if single.onChange then
@@ -37,8 +37,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, shared: Pi
 					return option.id or option.value
 				end,
 				render = function(
-					source: ComposeTypes.Readable<Nav.PickerOption<V>>,
-					index: ComposeTypes.Readable<number>
+					source: ComposeTypes.ReadOnlyValue<Nav.PickerOption<V>>,
+					index: ComposeTypes.ReadOnlyValue<number>
 				)
 					local key = tostring(source:peek().id or source:peek().value)
 					local chosen = function(use: ComposeTypes.Use)

@@ -83,7 +83,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			assert(maximum > minimum, "Facet ProgressView max must exceed min")
 			return math.clamp(((read(spec.value, use) :: number) - minimum) / (maximum - minimum), 0, 1)
 		end)
-		local trail: ComposeTypes.Formula<number>?
+		local trail: ComposeTypes.Value<number>?
 		if spec.trail and not indeterminate then
 			local clock = runtime.timeline({ delay = delay, duration = duration, autoplay = false })
 			local previous = progress:peek()
@@ -98,7 +98,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					destination:set(value)
 					clock:seek(duration)
 				else
-					origin:set((trail :: ComposeTypes.Formula<number>):peek())
+					origin:set((trail :: ComposeTypes.Value<number>):peek())
 					destination:set(value)
 					clock:restart()
 				end
@@ -136,7 +136,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			return value
 		end)
 		local function dynamic(source: unknown): boolean
-			return Compose.isReadable(source) or type(source) == "function"
+			return Compose.isValue(source) or type(source) == "function"
 		end
 		local settled = not (
 			indeterminate
@@ -148,11 +148,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			or dynamic(spec.thickness)
 			or dynamic(ctx.config.theme)
 		)
-		local function fixed<T>(body: (ComposeTypes.Use) -> T): Types.Value<T>
+		local function fixed<T>(body: (ComposeTypes.Use) -> T): Types.Input<T>
 			if not settled then
 				return body
 			end
-			return body(function<U>(source: ComposeTypes.Readable<U>): U
+			return body(function<U>(source: ComposeTypes.ReadOnlyValue<U>): U
 				return source:peek()
 			end)
 		end
@@ -224,7 +224,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						Size = function(use: ComposeTypes.Use)
 							local fraction = if motionReduced(use)
 								then use(progress)
-								else math.max(use(trail :: ComposeTypes.Formula<number>), use(progress))
+								else math.max(use(trail :: ComposeTypes.Value<number>), use(progress))
 							return if vertical(use) then D2.fromScale(1, fraction) else D2.fromScale(fraction, 1)
 						end,
 						AnchorPoint = function(use: ComposeTypes.Use)

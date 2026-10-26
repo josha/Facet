@@ -18,12 +18,12 @@ local function newest(versions: string): string?
 	end
 	local chosen: string? = nil
 	local chosenAge = -math.huge
-	for _, entry in entries :: { fs.DirectoryEntry } do
+	for _, entry in entries do
 		local directory = versions .. "/" .. entry.name
 		local executable = directory .. "/RobloxStudioBeta.exe"
 		if entry.type == "dir" and fs.exists(executable) then
 			local read, metadata = pcall(fs.metadata, executable)
-			local modified = if read then (metadata :: fs.FileMetadata).modified:toSeconds() else 0
+			local modified = if read then (metadata).modified:toSeconds() else 0
 			if chosen == nil or modified > chosenAge then
 				chosen = directory
 				chosenAge = modified

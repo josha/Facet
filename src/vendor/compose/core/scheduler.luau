@@ -31,28 +31,41 @@ end
 
 local function checkDelay(seconds: unknown)
 	if type(seconds) ~= "number" or seconds ~= seconds or seconds < 0 or seconds == math.huge then
-		Diagnostics.raise("scheduler/invalid-delay", "a scheduled task needs a finite delay of zero or more seconds", {
-			actual = Diagnostics.describe(seconds),
-			expected = "seconds, e.g. 0.25; zero runs on the next frame",
-		})
+		error(
+			Diagnostics.format(
+				"scheduler/invalid-delay",
+				"a scheduled task needs a finite delay of zero or more seconds",
+				{
+					actual = Diagnostics.describe(seconds),
+					expected = "seconds, e.g. 0.25; zero runs on the next frame",
+				}
+			),
+			0
+		)
 	end
 end
 
 local function checkBody(body: unknown)
 	if type(body) ~= "function" then
-		Diagnostics.raise("scheduler/invalid-body", "a scheduled task needs a function to run", {
-			actual = Diagnostics.describe(body),
-			expected = "a function taking no arguments",
-		})
+		error(
+			Diagnostics.format("scheduler/invalid-body", "a scheduled task needs a function to run", {
+				actual = Diagnostics.describe(body),
+				expected = "a function taking no arguments",
+			}),
+			0
+		)
 	end
 end
 
 local function checkKey(key: unknown)
 	if key == nil or key ~= key then
-		Diagnostics.raise("scheduler/invalid-key", "a replacement key must be a value other than nil or NaN", {
-			actual = Diagnostics.describe(key),
-			expected = "a string, number, boolean or table identifying the work",
-		})
+		error(
+			Diagnostics.format("scheduler/invalid-key", "a replacement key must be a value other than nil or NaN", {
+				actual = Diagnostics.describe(key),
+				expected = "a string, number, boolean or table identifying the work",
+			}),
+			0
+		)
 	end
 end
 
@@ -63,28 +76,31 @@ local function createSchedulers(
 	return function(explicit: Owner.Owner?): Scheduler
 		local parent: Owner.Owner
 		if explicit ~= nil then
-			if type(explicit) ~= "table" or type(explicit.createChild) ~= "function" then
-				Diagnostics.raise("scheduler/invalid-owner", "a scheduler can only be bound to an owner", {
-					actual = Diagnostics.describe(explicit),
-					expected = "an owner from Compose.createOwner or owner.createChild",
-				})
+			if type(explicit) ~= "table" or type(explicit.reactor) ~= "table" then
+				error(
+					Diagnostics.format("scheduler/invalid-owner", "a scheduler can only be bound to an owner", {
+						actual = Diagnostics.describe(explicit),
+						expected = "an owner from Compose.createOwner or Compose.owner.createChild",
+					}),
+					0
+				)
 			end
 			parent = explicit
 		else
 			parent = requireOwner "scheduler"
 		end
 
-		local scope = parent.createChild()
+		local scope = Owner.createChild(parent)
 		local entries: { [Entry]: true } = {}
 		local keyed: { [unknown]: Entry } = {}
 		local count = 0
 		local sequence = 0
 		local frames = host.frames
 		if frames == nil then
-			scope.dispose()
-			Diagnostics.raise("animation/no-frames", "a scheduler needs host.frames", {})
+			Owner.dispose(scope)
+			error(Diagnostics.format("animation/no-frames", "a scheduler needs host.frames", {}), 0)
 		end
-		local loop = frames :: Host.Frames
+		local loop = frames
 		local clock = 0
 		local pump: ownedFrame.Pump
 
@@ -140,7 +156,7 @@ local function createSchedulers(
 			clock += delta
 			drain(clock)
 		end)
-		scope.own(function()
+		Owner.own(scope, function()
 			for entry in entries do
 				entry.live = false
 			end
@@ -152,7 +168,7 @@ local function createSchedulers(
 		local function schedule(key: unknown, seconds: number, body: () -> ()): Cancel
 			checkDelay(seconds)
 			checkBody(body)
-			if scope.isDisposed() then
+			if Owner.isDisposed(scope) then
 				return noop
 			end
 			if key ~= nil then
@@ -206,7 +222,7 @@ local function createSchedulers(
 			pending = function(): number
 				return count
 			end,
-			dispose = scope.dispose,
+			dispose = Owner.disposer(scope),
 		}
 	end
 end

@@ -9,9 +9,9 @@ local cellModule = require "./reactive/cell"
 local userSpace = require "./reactive/userSpace"
 
 export type Options<T, E> = {
-	from: Types.Readable<E>,
+	from: Types.ReadOnlyValue<E>,
 	reduce: (previous: T, event: E) -> T,
-	initial: T?,
+	initial: T,
 	equals: Types.Equals<T>?,
 }
 
@@ -22,13 +22,13 @@ local KNOWN_FIELDS: { [string]: true } = {
 	equals = true,
 }
 
-local function accumulator<T, E>(options: Options<T, E>): Types.Readable<T>
+local function accumulator<T, E>(options: Options<T, E>): Types.ReadOnlyValue<T>
 	local settings = Support.optionsOf(options, "accumulator", "from = ..., reduce = ..., initial = ...")
 	Support.noUnknownFields(settings, "accumulator", KNOWN_FIELDS)
 
 	local owner = Active.current()
 	if owner == nil then
-		Diagnostics.raise("accumulator/no-active-owner", "accumulator ran with no owner to hold it", {
+		return Diagnostics.raise("accumulator/no-active-owner", "accumulator ran with no owner to hold it", {
 			contract = "an accumulator subscribes to its source, and the subscription lives exactly "
 				.. "as long as the owner that created it",
 			fix = "create it inside a component or Compose.withOwner(owner, ...); a process-wide "
@@ -37,7 +37,7 @@ local function accumulator<T, E>(options: Options<T, E>): Types.Readable<T>
 	end
 
 	local source = settings.from
-	if not cellModule.isReadable(source) then
+	if not cellModule.isValue(source) then
 		Diagnostics.raise("accumulator/from-not-readable", "accumulator was given a source it cannot track", {
 			actual = Diagnostics.describe(source),
 			expected = "a cell or a formula",
@@ -58,8 +58,7 @@ local function accumulator<T, E>(options: Options<T, E>): Types.Readable<T>
 
 	local state = cellModule.cell(settings.initial, settings.equals)
 
-	local holder = owner :: OwnerModule.Owner
-	holder.watchStatic(source, function(event: E)
+	OwnerModule.watchStatic(owner, source, function(event: E)
 		state:set(userSpace.call(reduce, state:peek(), event))
 	end)
 

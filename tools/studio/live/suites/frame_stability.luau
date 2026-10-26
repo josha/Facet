@@ -12,11 +12,11 @@ local storage = game:GetService("ReplicatedStorage")
 local stability = (require :: (Instance) -> typeof(require("../frame_stability")))(storage.FacetLive.frame_stability)
 local clipping = (require :: (Instance) -> typeof(require("../text_clipping")))(storage.FacetLive.text_clipping)
 type Sample = { path: string, rect: { number }, text: { number }?, painted: boolean }
-type Readable<T> = { peek: (Readable<T>) -> T }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
 type Context = {
 	dispatch: (string, unknown) -> unknown,
-	active: Readable<string?>,
-	errorMessage: Readable<string?>,
+	active: ReadOnlyValue<string?>,
+	errorMessage: ReadOnlyValue<string?>,
 }
 type Config = {
 	frames: number?,

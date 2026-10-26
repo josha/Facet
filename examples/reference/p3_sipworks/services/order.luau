@@ -1,8 +1,10 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
 
 local clockModule = require("./clock")
 
@@ -29,10 +31,10 @@ function order.new(opts: Opts)
 	local status = Compose.cell("idle")
 	local mode = Compose.cell("paid")
 	local noBlend: string? = nil
-	local blendId: Cell<string?> = Compose.cell(noBlend)
+	local blendId: Value<string?> = Compose.cell(noBlend)
 	local isReady = Compose.cell(false)
 	local noReason: string? = nil
-	local reason: Cell<string?> = Compose.cell(noReason)
+	local reason: Value<string?> = Compose.cell(noReason)
 	local paymentsEnabled = Compose.cell(opts.paymentsEnabled ~= false)
 	local attempts = 0
 	local readyHandle: { cancel: () -> () }? = nil

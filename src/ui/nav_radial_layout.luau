@@ -7,18 +7,18 @@ local ComposeTypes = require("../vendor/compose/core")
 local MenuTypes = require("./nav_radial_menu")
 
 export type Arrangement<V> = {
-	viewport: ComposeTypes.Cell<Vector2>,
-	origin: ComposeTypes.Cell<Vector2>,
+	viewport: ComposeTypes.Value<Vector2>,
+	origin: ComposeTypes.Value<Vector2>,
 	launcher: Instance?,
-	anchorSize: ComposeTypes.Cell<Vector2>?,
-	centerTarget: ComposeTypes.Cell<Vector2>,
-	following: ComposeTypes.Cell<boolean>,
-	center: ComposeTypes.Formula<Vector2>,
+	anchorSize: ComposeTypes.Value<Vector2>?,
+	centerTarget: ComposeTypes.Value<Vector2>,
+	following: ComposeTypes.Value<boolean>,
+	center: ComposeTypes.Value<Vector2>,
 	captionPadding: (use: ComposeTypes.Use) -> number,
-	wordWidths: ComposeTypes.Cell<{ [string]: number }>,
-	layout: ComposeTypes.Formula<Radial.Layout<V>>,
-	sectors: ComposeTypes.Formula<{ Radial.Sector<V> }>,
-	fallback: ComposeTypes.Formula<boolean>,
+	wordWidths: ComposeTypes.Value<{ [string]: number }>,
+	layout: ComposeTypes.Value<Radial.Layout<V>>,
+	sectors: ComposeTypes.Value<{ Radial.Sector<V> }>,
+	fallback: ComposeTypes.Value<boolean>,
 }
 
 return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Arrangement<V>
@@ -35,9 +35,9 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 	local appearance: string = menu.appearance
 	local contentFit: Radial.ContentFit = menu.contentFit
 	local gestureSelection: string = menu.gestureSelection
-	local interacting: ComposeTypes.Cell<boolean> = menu.interacting
-	local path: ComposeTypes.Cell<{ string }> = menu.path
-	local candidate: ComposeTypes.Cell<string?> = menu.candidate
+	local interacting: ComposeTypes.Value<boolean> = menu.interacting
+	local path: ComposeTypes.Value<{ string }> = menu.path
+	local candidate: ComposeTypes.Value<string?> = menu.candidate
 	local layer = ctx.config.overlayParent :: GuiBase2d?
 		or root:FindFirstAncestorWhichIsA("LayerCollector") :: GuiBase2d?
 	local measured = layer ~= nil and layer.AbsoluteSize.X > 0 and layer.AbsoluteSize.Y > 0
@@ -53,7 +53,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 		anchorPosition:set((focal :: GuiObject).AbsolutePosition)
 		anchorSize:set((focal :: GuiObject).AbsoluteSize)
 	end
-	local shelves: { { position: ComposeTypes.Readable<Vector2>, size: ComposeTypes.Readable<Vector2> } } = {}
+	local shelves: { { position: ComposeTypes.ReadOnlyValue<Vector2>, size: ComposeTypes.ReadOnlyValue<Vector2> } } = {}
 	local shelf = if nativeAnchor and not corner then (focal :: Instance).Parent else nil
 	while shelf and shelf ~= layer and shelf:IsA("GuiObject") do
 		table.insert(shelves, {
@@ -131,7 +131,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 			+ (if insets then insets.right or 0 else 0)
 	end
 
-	local wordWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
+	local wordWidths: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
 	local function solve(use: ComposeTypes.Use, flatten: boolean): Radial.Layout<V>
 		local size, at, inner = use(viewport), use(centerTarget), use(innerTarget)
 		local start, sweep = geometry.arc(spec.preset or "donut")

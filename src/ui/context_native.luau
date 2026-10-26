@@ -8,7 +8,7 @@ return function(
 	config: Shared.Config,
 	services: Shared.Services,
 	themes: Theme.Themes,
-	observeStyled: (Instance, string) -> ComposeTypes.Cell<unknown>
+	observeStyled: (Instance, string) -> ComposeTypes.Value<unknown>
 )
 	local Compose, runtime, types, Host = ctx.Compose, ctx.runtime, ctx.types, ctx.Host
 	local Enum = types.Enum
@@ -65,7 +65,7 @@ return function(
 		end)
 		Compose.watch(function(use)
 			use(ancestry)
-			local sources: { ComposeTypes.Readable<boolean> } = {}
+			local sources: { ComposeTypes.ReadOnlyValue<boolean> } = {}
 			local at: Instance? = node
 			while at do
 				if at:IsA("GuiObject") then
@@ -88,9 +88,9 @@ return function(
 		end)
 	end
 	local fades = (setmetatable({}, { __mode = "k" }) :: unknown) :: {
-		[Instance]: { source: ComposeTypes.Cell<{ Shared.Value<number> }>, transparency: (ComposeTypes.Use) -> number },
+		[Instance]: { source: ComposeTypes.Value<{ Shared.Input<number> }>, transparency: (ComposeTypes.Use) -> number },
 	}
-	function ctx.fadeTo(node: Instance, value: Shared.Value<number>): ()
+	function ctx.fadeTo(node: Instance, value: Shared.Input<number>): ()
 		assert(fades[node], "Facet: fadeTo needs a node made by ctx.fade").source:set({ value })
 	end
 	function ctx.fade(
@@ -100,7 +100,7 @@ return function(
 		scrolls: boolean?
 	): Frame
 		local fields = properties
-		local source: ComposeTypes.Cell<{ Shared.Value<number> }> = Compose.cell({ fields.GroupTransparency or 0 })
+		local source: ComposeTypes.Value<{ Shared.Input<number> }> = Compose.cell({ fields.GroupTransparency or 0 })
 		fields.GroupTransparency = nil
 		local node = if scrolls
 			then (Host.ScrollingFrame((properties :: unknown) :: Shared.ScrollingFrameNativeProps) :: unknown) :: Frame
@@ -290,7 +290,7 @@ return function(
 			local recipe = package and (package.chrome or {})[slot]
 			return recipe ~= nil and (recipe.kind ~= "native" and recipe.kind ~= "none" or recipe.shadow ~= nil)
 		end
-		if not Compose.isReadable(config.theme) and type(config.theme) ~= "function" then
+		if not Compose.isValue(config.theme) and type(config.theme) ~= "function" then
 			if not hasSkin() then
 				return nil, nil
 			end

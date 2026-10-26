@@ -1,6 +1,8 @@
 --!strict
 --!native
 
+local freeze: ({}) -> {} = table.freeze
+
 local Children = require "../runtime/children"
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
@@ -56,21 +58,21 @@ export type Controls<K> = {
 export type Options<V, K> = {
 	from: keyed.Source<V>,
 	key: ((value: V, index: number) -> K)?,
-	render: ((value: Types.Readable<V>, placement: Types.Readable<Layout.Placement>, key: K) -> Host.Node)?,
+	render: ((value: Types.ReadOnlyValue<V>, placement: Types.ReadOnlyValue<Layout.Placement>, key: K) -> Host.Node)?,
 	recycle: ((
-		value: Types.Readable<V>,
-		placement: Types.Readable<Layout.Placement>,
-		key: Types.Readable<K>
+		value: Types.ReadOnlyValue<V>,
+		placement: Types.ReadOnlyValue<Layout.Placement>,
+		key: Types.ReadOnlyValue<K>
 	) -> Host.Node)?,
 	mode: Mode?,
-	viewport: (Types.Readable<Viewport> | Types.Body<Viewport>)?,
+	viewport: (Types.ReadOnlyValue<Viewport> | Types.Body<Viewport>)?,
 	direction: Direction?,
-	layout: (LayoutOptions | Types.Readable<LayoutOptions> | Types.Body<LayoutOptions>)?,
+	layout: (LayoutOptions | Types.ReadOnlyValue<LayoutOptions> | Types.Body<LayoutOptions>)?,
 	overscan: number?,
-	measured: (Types.Readable<{ [K]: number }> | Types.Body<{ [K]: number }>)?,
+	measured: (Types.ReadOnlyValue<{ [K]: number }> | Types.Body<{ [K]: number }>)?,
 	follow: ("end" | "none")?,
 	followThreshold: number?,
-	status: Types.Cell<Status>?,
+	status: Types.Value<Status>?,
 	controls: Controls<K>?,
 }
 
@@ -110,9 +112,7 @@ local function numberOr(value: unknown, fallback: number): number
 	return fallback
 end
 
-local function identity<V>(value: V, _index: number): V
-	return value
-end
+local identity = require("../reactive/node").identityKey
 
 local function geometryOptions(value: LayoutOptions): Layout.Options
 	local layoutOptions = Support.optionsOf(value, "OrderedCollection.layout", "kind = ..., itemSize = ...")
@@ -139,7 +139,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 	local settings = Support.optionsOf(options, "OrderedCollection", "from = ..., render = ...")
 	Support.noUnknownFields(settings, "OrderedCollection", KNOWN_FIELDS)
 
-	local source = Support.sourceOf(settings.from, "OrderedCollection", "from") :: Types.Body<{ V }>
+	local source: Types.Body<{ V }> = Support.sourceOf(settings.from, "OrderedCollection", "from")
 	if (settings.render == nil) == (settings.recycle == nil) then
 		Diagnostics.raise("collection/render-or-recycle", "OrderedCollection needs exactly one of render and recycle", {
 			primitive = "OrderedCollection",
@@ -148,23 +148,23 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 			fix = "pass render, or pass recycle when row content can follow a changing key",
 		})
 	end
-	local render: ((Types.Readable<V>, Types.Readable<Layout.Placement>, K) -> Host.Node)? = if settings.render
+	local render: ((Types.ReadOnlyValue<V>, Types.ReadOnlyValue<Layout.Placement>, K) -> Host.Node)? = if settings.render
 			~= nil
 		then Support.builderOf(settings.render, "OrderedCollection", "render")
 		else nil
-	local recycle: ((Types.Readable<V>, Types.Readable<Layout.Placement>, Types.Readable<K>) -> Host.Node)? = if settings.recycle
+	local recycle: ((Types.ReadOnlyValue<V>, Types.ReadOnlyValue<Layout.Placement>, Types.ReadOnlyValue<K>) -> Host.Node)? = if settings.recycle
 			~= nil
 		then Support.builderOf(settings.recycle, "OrderedCollection", "recycle")
 		else nil
 
 	local keyOf: (value: V, index: number) -> K
 	if settings.key ~= nil then
-		keyOf = Support.builderOf(settings.key, "OrderedCollection", "key") :: (value: V, index: number) -> K
+		keyOf = Support.builderOf(settings.key, "OrderedCollection", "key")
 	else
-		keyOf = (identity :: unknown) :: (value: V, index: number) -> K
+		keyOf = identity
 	end
 
-	local mode: Mode = (settings.mode :: Mode?) or "all"
+	local mode: Mode = settings.mode or "all"
 	if mode ~= "all" and mode ~= "windowed" then
 		Diagnostics.raise("collection/unknown-mode", "OrderedCollection was given a mode it does not have", {
 			primitive = "OrderedCollection",
@@ -174,7 +174,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 		})
 	end
 
-	local direction: Direction = (settings.direction :: Direction?) or "vertical"
+	local direction: Direction = settings.direction or "vertical"
 	if direction ~= "vertical" and direction ~= "horizontal" then
 		Diagnostics.raise("collection/unknown-direction", "OrderedCollection was given a direction it does not have", {
 			primitive = "OrderedCollection",
@@ -185,8 +185,8 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 
 	local layoutBody: Types.Body<LayoutOptions>? = nil
 	local initialLayout: Layout.Options
-	if cellModule.isReadable(settings.layout) or type(settings.layout) == "function" then
-		layoutBody = Support.sourceOf(settings.layout, "OrderedCollection", "layout") :: Types.Body<LayoutOptions>
+	if cellModule.isValue(settings.layout) or type(settings.layout) == "function" then
+		layoutBody = Support.sourceOf(settings.layout :: Types.Source<LayoutOptions>, "OrderedCollection", "layout")
 		initialLayout = geometryOptions {}
 	else
 		initialLayout = geometryOptions((settings.layout :: LayoutOptions?) or {})
@@ -195,9 +195,9 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 	local followThreshold = numberOr(settings.followThreshold, 4)
 	local followEnd = settings.follow == "end"
 
-	local viewportBody: Types.Body<Viewport>? = nil
+	local viewportBody: Types.Body<Viewport>
 	if settings.viewport ~= nil then
-		viewportBody = Support.sourceOf(settings.viewport, "OrderedCollection", "viewport") :: Types.Body<Viewport>
+		viewportBody = Support.sourceOf(settings.viewport, "OrderedCollection", "viewport")
 	elseif mode == "windowed" then
 		Diagnostics.raise("collection/no-viewport", 'OrderedCollection mode = "windowed" needs a viewport', {
 			primitive = "OrderedCollection",
@@ -208,8 +208,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 
 	local measuredBody: Types.Body<{ [K]: number }>? = nil
 	if settings.measured ~= nil then
-		measuredBody =
-			Support.sourceOf(settings.measured, "OrderedCollection", "measured") :: Types.Body<{ [K]: number }>
+		measuredBody = Support.sourceOf(settings.measured, "OrderedCollection", "measured")
 	end
 
 	local statusCell = if settings.status == nil
@@ -259,7 +258,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 			return held
 		end
 		local made = Layout.placementOf(geometry, index)
-		table.freeze(made :: {})
+		freeze(made)
 		placements[index] = made
 		return made
 	end
@@ -362,7 +361,8 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 	end
 
 	local function select(use: Types.Use, list: { V }): retain.Selection<V, Layout.Placement, K>
-		local layout = if layoutBody ~= nil then geometryOptions(layoutBody(use)) else initialLayout
+		local readLayout: Types.Body<LayoutOptions>? = layoutBody
+		local layout = if readLayout ~= nil then geometryOptions(readLayout(use)) else initialLayout
 		if
 			list ~= builtFor
 			or layout.columns ~= geometry.columns
@@ -374,8 +374,9 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 			rebuild(list, layout)
 		end
 
-		if measuredBody ~= nil then
-			local sizes = measuredBody(use)
+		local readMeasured: Types.Body<{ [K]: number }>? = measuredBody
+		if readMeasured ~= nil then
+			local sizes = readMeasured(use)
 			if measurementsChanged or sizes ~= appliedFrom then
 				appliedFrom = sizes
 				applyMeasurements(sizes)
@@ -389,7 +390,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 		local viewportSize = extent
 		local offsetRevision: number? = nil
 		if mode == "windowed" then
-			local read = (viewportBody :: Types.Body<Viewport>)(use)
+			local read = viewportBody(use)
 			viewportOffset = numberOr(read.offset, 0)
 			viewportSize = numberOr(read.size, 0)
 			offsetRevision = read.offsetRevision
@@ -417,7 +418,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 		end
 
 		if desiredOffset == nil and mode == "windowed" and anchorKey ~= nil and not scrollChanged then
-			local at = findAnchorIndex(list, anchorKey :: K)
+			local at = findAnchorIndex(list, anchorKey)
 			if at ~= nil then
 				local moved = Layout.offsetOf(geometry, at) - anchorOffset
 				if moved ~= 0 then

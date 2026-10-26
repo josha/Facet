@@ -7,8 +7,8 @@ type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 
 local words = require("./words")
 
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 
 local example = {}
@@ -306,10 +306,10 @@ function example.build(ctx: ExampleContext): Built
 			openResults(phaseSig:peek() == "won", solution, active)
 		end
 	end
-	local statusSig: Readable<string>? = nil
-	local tileStateOf: { [string]: Readable<string> } = {}
+	local statusSig: ReadOnlyValue<string>? = nil
+	local tileStateOf: { [string]: ReadOnlyValue<string> } = {}
 	local keyPathByLetter: { [string]: string } = {}
-	local function statusTag(node: Instance, state: Readable<string>): Instance
+	local function statusTag(node: Instance, state: ReadOnlyValue<string>): Instance
 		local previous: string? = nil
 		Compose.watch(function(use: Use)
 			local value = use(state)

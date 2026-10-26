@@ -110,6 +110,11 @@ local DATAMODELS: { [string]: boolean } = { Edit = true, Server = true, Client =
 
 local digest = Detached.digest
 
+local function checkedString(value: unknown): string
+	assert(type(value) == "string")
+	return value
+end
+
 local function unsent(detail: string, refused: boolean?, expired: boolean?): Response
 	return {
 		ok = false,
@@ -193,7 +198,7 @@ local function attach(options: Options): (Session?, Refusal?)
 	end
 	local transport = options.transport
 		or mcpTransport(
-			executable :: string,
+			checkedString(executable),
 			options.directory or Files.claimDirectory(Files.temporary "verify-attach")
 		)
 	local runDeadline = os.clock() + runSeconds
@@ -202,7 +207,7 @@ local function attach(options: Options): (Session?, Refusal?)
 	local closed: Cleanup? = nil
 
 	local function dispatch(tool: string, argumentsJson: string, cleaning: boolean, replaySafe: boolean?): Response
-		local decoded, fields: unknown = pcall(Wire.parse, argumentsJson)
+		local decoded, fields = pcall(Wire.parse, argumentsJson)
 		if not decoded or type(fields) ~= "table" then
 			return unsent "request arguments are not a JSON object"
 		end
@@ -225,11 +230,11 @@ local function attach(options: Options): (Session?, Refusal?)
 			bytes = bytes,
 			digest = digest(bytes),
 		}
-		local asked, verdict: unknown = pcall(options.authorize, request)
+		local asked, verdict = pcall(options.authorize, request)
 		if not asked then
 			return unsent("authorize raised: " .. tostring(verdict), true)
 		end
-		local decision = verdict :: Authorization
+		local decision = verdict
 		if type(decision) ~= "table" or decision.ok ~= true then
 			return unsent(
 				if type(decision) == "table" and decision.reason ~= nil then decision.reason else "request refused",
@@ -238,9 +243,9 @@ local function attach(options: Options): (Session?, Refusal?)
 		end
 		local slot: { done: boolean, exchange: Mcp.Exchange? } = { done = false, exchange = nil }
 		task.spawn(function()
-			local sent, value: unknown = pcall(transport.call, tool, argumentsJson, limit, replaySafe)
+			local sent, value = pcall(transport.call, tool, argumentsJson, limit, replaySafe)
 			slot.exchange = if sent
-				then value :: Mcp.Exchange
+				then value
 				else { status = "unanswered", detail = "transport raised: " .. tostring(value) }
 			slot.done = true
 		end)
@@ -276,16 +281,16 @@ local function attach(options: Options): (Session?, Refusal?)
 		if exchange.detail ~= nil then
 			return { ok = false, delivery = "answered", refused = false, expired = false, detail = exchange.detail }
 		end
-		local parsed, text: unknown = pcall(Reply.texts, exchange.result)
+		local parsed, text = pcall(Reply.texts, exchange.result)
 		local flagged = type(exchange.result) == "table" and (exchange.result :: { [string]: unknown }).isError == true
 		return {
 			ok = parsed and not flagged,
 			delivery = "answered",
 			refused = false,
 			expired = false,
-			detail = if not parsed then tostring(text) elseif flagged then text :: string else nil,
+			detail = if not parsed then tostring(text) elseif flagged then text else nil,
 			result = exchange.result,
-			text = if parsed then text :: string else nil,
+			text = if parsed then text else nil,
 		}
 	end
 
@@ -300,11 +305,11 @@ local function attach(options: Options): (Session?, Refusal?)
 				else "failed"
 			return nil, refusalOf(kind, response.detail or "Studio listing failed")
 		end
-		local parsed, studios: unknown = pcall(discovered, response.text or "")
+		local parsed, studios = pcall(discovered, response.text or "")
 		if not parsed then
 			return nil, refusalOf("failed", "Studio listing was unreadable: " .. tostring(studios))
 		end
-		return studios :: { StudioInfo }, nil
+		return studios, nil
 	end
 
 	local studios, listing = listed()
@@ -371,10 +376,10 @@ local function attach(options: Options): (Session?, Refusal?)
 			dispatch(CAPTURE, settings.argumentsJson or argumentsFor ',"capture_id":"verify-capture"', false)
 		if response.ok and settings.directory ~= nil then
 			Files.ensureDirectory(settings.directory)
-			local saved, image: unknown =
+			local saved, image =
 				pcall(Reply.saveCapture, response.result, settings.directory, settings.stem or "capture")
 			if saved then
-				response.artifact = image :: Reply.Image
+				response.artifact = image
 			else
 				response.ok = false
 				response.detail = tostring(image)
@@ -425,7 +430,7 @@ local function attach(options: Options): (Session?, Refusal?)
 		response.ok = true
 		response.detail = nil
 		response.text = outcome.text
-		local parsed, found: unknown = pcall(Reply.report, outcome.text or "", runId)
+		local parsed, found = pcall(Reply.report, outcome.text or "", runId)
 		if not parsed then
 			return { response = response, report = nil, problem = tostring(found) }
 		end
@@ -435,7 +440,7 @@ local function attach(options: Options): (Session?, Refusal?)
 				problem = "engine did not return the run-bound report envelope: " .. (outcome.text or ""):sub(1, 1000),
 			}
 		end
-		return { response = response, report = found :: Core.Report, problem = nil }
+		return { response = response, report = found, problem = nil }
 	end
 
 	local function close(): Cleanup
@@ -513,16 +518,16 @@ local function runSession(opened: Session, options: SessionRun, directory: strin
 			end
 			return read.text
 		end)
-		injected = "local progressToken = " .. string.format("%q", (listening :: Progress.Listener).token) .. "; "
+		injected = "local progressToken = " .. string.format("%q", assert(listening).token) .. "; "
 	end
 	local result = opened.report(
 		options.context or "Server",
 		"local runId = " .. token .. "; " .. injected .. options.code,
 		runId,
-		if listening ~= nil then (listening :: Progress.Listener).poll else nil
+		if listening ~= nil then (listening).poll else nil
 	)
 	if listening ~= nil then
-		(listening :: Progress.Listener).finish()
+		(listening).finish()
 	end
 	if result.report == nil then
 		return {
@@ -563,7 +568,8 @@ local function run(options: RunOptions): Core.BatchOutcome
 	settings.directory = settings.directory or directory
 	local session, refusal = attach(settings)
 	if session == nil then
-		local why = refusal :: Refusal
+		local why = refusal
+		assert(why ~= nil)
 		return { status = "faulted", detail = ("attach %s: %s"):format(why.kind, why.detail) }
 	end
 	local opened = session

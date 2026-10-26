@@ -18,9 +18,11 @@ type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 type DropInfo = typeof(require("@repo/tools/typecheck/aliases").DropInfo)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 
 export type Context = {
 	UI: FacetControls,
@@ -30,7 +32,7 @@ export type Context = {
 	types: RobloxTypes,
 	app: App,
 	ctx: ExampleContext?,
-	logical: Readable<{ width: number, height: number }>,
+	logical: ReadOnlyValue<{ width: number, height: number }>,
 	cell: CellFactory,
 	log: (string) -> (...unknown) -> (),
 }

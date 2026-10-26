@@ -4,8 +4,8 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ScreenGuiNativeProps = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiNativeProps)
 type OrderedControls = typeof(require("@repo/tools/typecheck/aliases").OrderedControls)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local Facet = require("../src")
 local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local Compose: ComposeModule = Facet.Compose
@@ -69,7 +69,7 @@ add("hud-binding-storm", function()
 		local label = Compose.formula(function(use: Use)
 			return `{use(rounded)} sps`
 		end)
-		state.owner.watchStatic(label, function()
+		Compose.owner.watchStatic(state.owner, label, function()
 			state.renders += 1
 		end)
 	end)
@@ -83,17 +83,17 @@ end)
 add("settings-churn", function()
 	return reactive(function() end)
 end, function(state)
-	local owner = state.owner.createChild()
+	local owner = Compose.owner.createChild(state.owner)
 	Compose.withOwner(owner, function()
 		local draft, status = Compose.cell(false), Compose.cell("idle")
 		local label = Compose.formula(function(use: Use)
 			return `music: {use(draft) and "on" or "off"} ({use(status)})`
 		end)
-		owner.watchStatic(label, function() end)
+		Compose.owner.watchStatic(owner, label, function() end)
 		draft:set(true)
 		status:set("confirmed")
 	end)
-	owner.dispose()
+	Compose.owner.dispose(owner)
 end, { requirement = "UI-LIFE-002" })
 
 add("collection-mutation", function()
@@ -106,13 +106,13 @@ add("collection-mutation", function()
 			end
 			for key, owner in state.items do
 				if not wanted[key] then
-					owner.dispose()
+					Compose.owner.dispose(owner)
 					state.items[key] = nil
 				end
 			end
 			for _, key in keys do
 				if state.items[key] == nil then
-					local owner = state.owner.createChild()
+					local owner = Compose.owner.createChild(state.owner)
 					Compose.withOwner(owner, function()
 						Compose.cell(key)
 					end)
@@ -139,7 +139,7 @@ add("collection-selection-update", function()
 	for index = 1, 2048 do
 		items[index] = { id = `r{index}`, name = `Row {index}` }
 	end
-	local selection: Facet.Cell<{ [string]: boolean }> = Compose.cell({ r1 = true })
+	local selection: Facet.Value<{ [string]: boolean }> = Compose.cell({ r1 = true })
 	local Host = world.Host
 	world.runtime.mount(function()
 		local spec: Facet.KeyedCollectionSpec<BenchRow, string> = {
@@ -176,7 +176,7 @@ add("sparse-update-under-load", function()
 			local doubled = Compose.formula(function(use: Use)
 				return use(value) * 2
 			end)
-			state.owner.watchStatic(doubled, function() end)
+			Compose.owner.watchStatic(state.owner, doubled, function() end)
 			table.insert(state.signals, value)
 		end
 	end)
@@ -303,7 +303,7 @@ local function tableState(resizing)
 					label = "Racer",
 					minWidth = 80,
 					resizable = true,
-					render = function(current: Readable<BenchRow>): GuiObject
+					render = function(current: ReadOnlyValue<BenchRow>): GuiObject
 						return world.Host.TextLabel({
 							TextSize = 14,
 							Text = function(use: Use)
@@ -316,7 +316,7 @@ local function tableState(resizing)
 					id = "n",
 					label = "N",
 					width = 48,
-					render = function(current: Readable<BenchRow>): GuiObject
+					render = function(current: ReadOnlyValue<BenchRow>): GuiObject
 						return world.Host.TextLabel({
 							TextSize = 14,
 							Text = function(use: Use)
@@ -366,7 +366,7 @@ local function sortableTable()
 	for index = 1, 512 do
 		items[index] = { id = `r{index}`, name = string.format("Racer %04d", index) }
 	end
-	local createSort: (BenchSort?) -> Facet.Cell<BenchSort?> = Compose.cell
+	local createSort: (BenchSort?) -> Facet.Value<BenchSort?> = Compose.cell
 	local sort = createSort(nil)
 	local rows = Compose.cell(items)
 	local controls: OrderedControls = {}
@@ -385,7 +385,7 @@ local function sortableTable()
 					value = function(item: BenchRow): string
 						return string.lower(item.name)
 					end,
-					render = function(current: Readable<BenchRow>): GuiObject
+					render = function(current: ReadOnlyValue<BenchRow>): GuiObject
 						local node = Host.TextLabel({
 							Text = function(use: Use): string
 								return use(current).name

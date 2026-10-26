@@ -20,7 +20,7 @@ return function(
 	kit: Kit.Kit,
 	state: PickerState.State
 ): Swatches
-	local Compose, Host, read, readSource = ctx.Compose, ctx.Host, ctx.read, ctx.readSource
+	local Compose, Host, readSource = ctx.Compose, ctx.Host, ctx.readSource
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local color = kit.color
 	local spec, removing = state.spec, state.removing
@@ -48,7 +48,8 @@ return function(
 	end
 
 	local function gridView(name: string, items: (Use) -> { Item }, removable: boolean, mode: string): Frame
-		local owned: { [Instance]: { item: ComposeTypes.Readable<Item>, index: ComposeTypes.Readable<number> } } = {}
+		local owned: { [Instance]: { item: ComposeTypes.ReadOnlyValue<Item>, index: ComposeTypes.ReadOnlyValue<number> } } =
+			{}
 		local grid: Frame
 		local function removeAt(item: Item, index: number)
 			if not state.mayEdit() then
@@ -63,7 +64,7 @@ return function(
 				landAfterRemoval(grid, index)
 			end
 		end
-		local function saveCell(index: ComposeTypes.Readable<number>): TextButton
+		local function saveCell(index: ComposeTypes.ReadOnlyValue<number>): TextButton
 			local function fresh(use: Use?): boolean
 				local value = readSource(held, use)
 				if value == nil or readSource(editing, use) then
@@ -117,8 +118,8 @@ return function(
 			)
 		end
 		local function cell(
-			source: ComposeTypes.Readable<Item>,
-			index: ComposeTypes.Readable<number>,
+			source: ComposeTypes.ReadOnlyValue<Item>,
+			index: ComposeTypes.ReadOnlyValue<number>,
 			key: string
 		): Instance
 			if key == SAVE_KEY then
@@ -216,8 +217,8 @@ return function(
 		if removable then
 			local function focused(
 				use: Use?
-			): { item: ComposeTypes.Readable<Item>, index: ComposeTypes.Readable<number> }?
-				local node = read(selected, use)
+			): { item: ComposeTypes.ReadOnlyValue<Item>, index: ComposeTypes.ReadOnlyValue<number> }?
+				local node = ctx.readSource(selected, use)
 				return if node then owned[node] else nil
 			end
 			ctx.action(grid, "ColorSwatchRemove", {

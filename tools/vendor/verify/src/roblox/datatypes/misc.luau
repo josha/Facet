@@ -9,41 +9,41 @@ type EnumItem = Enum.EnumItem
 type Enums = Enum.Enums
 type UDim2Value = Udim.UDim2Value
 
-export type TweenInfoValue = typeof(setmetatable(
-	{} :: {
-		Time: number,
-		EasingStyle: EnumItem,
-		EasingDirection: EnumItem,
-		RepeatCount: number,
-		Reverses: boolean,
-		DelayTime: number,
-	},
-	{} :: { __eq: (TweenInfoValue, TweenInfoValue) -> boolean, __tostring: (TweenInfoValue) -> string }
-))
+local TweenInfoValueFields: {
+	Time: number,
+	EasingStyle: EnumItem,
+	EasingDirection: EnumItem,
+	RepeatCount: number,
+	Reverses: boolean,
+	DelayTime: number,
+}
+local TweenInfoValueMeta: { __eq: (TweenInfoValue, TweenInfoValue) -> boolean, __tostring: (TweenInfoValue) -> string }
 
-export type ContentValue = typeof(setmetatable(
-	{} :: { SourceType: EnumItem, Uri: string?, Object: unknown? },
-	{} :: { __eq: (ContentValue, ContentValue) -> boolean, __tostring: (ContentValue) -> string }
-))
+export type TweenInfoValue = typeof(setmetatable(TweenInfoValueFields, TweenInfoValueMeta))
 
-export type FloatCurveKeyValue = typeof(setmetatable(
-	{} :: {
-		Time: number,
-		Value: number,
-		Interpolation: EnumItem,
-		LeftTangent: number?,
-		RightTangent: number?,
-	},
-	{} :: { __eq: (FloatCurveKeyValue, FloatCurveKeyValue) -> boolean, __tostring: (FloatCurveKeyValue) -> string }
-))
+local ContentValueFields: { SourceType: EnumItem, Uri: string?, Object: unknown? }
+local ContentValueMeta: { __eq: (ContentValue, ContentValue) -> boolean, __tostring: (ContentValue) -> string }
 
-export type Path2DControlPointValue = typeof(setmetatable(
-	{} :: { Position: UDim2Value, LeftTangent: UDim2Value, RightTangent: UDim2Value },
-	{} :: {
-		__eq: (Path2DControlPointValue, Path2DControlPointValue) -> boolean,
-		__tostring: (Path2DControlPointValue) -> string,
-	}
-))
+export type ContentValue = typeof(setmetatable(ContentValueFields, ContentValueMeta))
+
+local FloatCurveKeyValueFields: {
+	Time: number,
+	Value: number,
+	Interpolation: EnumItem,
+	LeftTangent: number?,
+	RightTangent: number?,
+}
+local FloatCurveKeyValueMeta: { __eq: (FloatCurveKeyValue, FloatCurveKeyValue) -> boolean, __tostring: (FloatCurveKeyValue) -> string }
+
+export type FloatCurveKeyValue = typeof(setmetatable(FloatCurveKeyValueFields, FloatCurveKeyValueMeta))
+
+local Path2DControlPointValueFields: { Position: UDim2Value, LeftTangent: UDim2Value, RightTangent: UDim2Value }
+local Path2DControlPointValueMeta: {
+	__eq: (Path2DControlPointValue, Path2DControlPointValue) -> boolean,
+	__tostring: (Path2DControlPointValue) -> string,
+}
+
+export type Path2DControlPointValue = typeof(setmetatable(Path2DControlPointValueFields, Path2DControlPointValueMeta))
 
 export type TweenInfoConstructor = {
 	new: (
@@ -77,7 +77,7 @@ local function checkItem(value: unknown, family: string, position: number): Enum
 	if not Enum.isItem(value) or Enum.enumType(value) ~= family then
 		Names.argument(position, "Enum." .. family, value)
 	end
-	return value :: EnumItem
+	return Enum.itemValue(value)
 end
 
 TweenInfoKind.meta.__eq = function(a: TweenInfoValue, b: TweenInfoValue): boolean
@@ -126,10 +126,13 @@ FloatCurveKeyKind.fields.__index = function(_: unknown, key: unknown): unknown
 end
 FloatCurveKeyKind.meta.__newindex = function(value: unknown, key: unknown, assigned: unknown)
 	if key == "LeftTangent" or key == "RightTangent" then
-		if assigned ~= nil and type(assigned) ~= "number" then
+		if type(assigned) == "number" then
+			Names.fields(value)[key] = Float.f32(assigned)
+		elseif assigned == nil then
+			Names.fields(value)[key] = nil
+		else
 			Names.argument(3, "number", assigned)
 		end
-		Names.fields(value)[key] = if assigned == nil then nil else Float.f32(assigned :: number)
 		return
 	end
 	Names.readOnly(key, "FloatCurveKey")

@@ -31,7 +31,7 @@ export type RadialItemBase<V> = {
 	navigation: Navigation?,
 	expansion: Expansion?,
 	dismiss: boolean?,
-	children: Types.Value<{ RadialItem<V> }>?,
+	children: Types.Input<{ RadialItem<V> }>?,
 	onSelect: (() -> ())?,
 }
 export type RadialCheck<V = string> = {
@@ -48,9 +48,9 @@ export type RadialCheck<V = string> = {
 	navigation: Navigation?,
 	expansion: Expansion?,
 	dismiss: boolean?,
-	children: Types.Value<{ RadialItem<V> }>?,
+	children: Types.Input<{ RadialItem<V> }>?,
 	onSelect: (() -> ())?,
-	checked: ComposeTypes.Cell<boolean>,
+	checked: ComposeTypes.Value<boolean>,
 	selected: nil?,
 	value: nil?,
 	onChange: ((boolean) -> ())?,
@@ -69,10 +69,10 @@ export type RadialChoice<V = string> = {
 	navigation: Navigation?,
 	expansion: Expansion?,
 	dismiss: boolean?,
-	children: Types.Value<{ RadialItem<V> }>?,
+	children: Types.Input<{ RadialItem<V> }>?,
 	onSelect: (() -> ())?,
 	checked: nil?,
-	selected: ComposeTypes.Cell<V>,
+	selected: ComposeTypes.Value<V>,
 	value: V,
 	onChange: ((V) -> ())?,
 }
@@ -90,7 +90,7 @@ export type RadialAction<V = string> = {
 	navigation: Navigation?,
 	expansion: Expansion?,
 	dismiss: boolean?,
-	children: Types.Value<{ RadialItem<V> }>?,
+	children: Types.Input<{ RadialItem<V> }>?,
 	onSelect: (() -> ())?,
 	checked: nil?,
 	selected: nil?,
@@ -99,7 +99,7 @@ export type RadialAction<V = string> = {
 }
 export type RadialItem<V = string> = RadialCheck<V> | RadialChoice<V> | RadialAction<V>
 export type RadialMenuOptions<V = string> = {
-	items: Types.Value<{ RadialItem<V> }>,
+	items: Types.Input<{ RadialItem<V> }>,
 	label: Types.ValueString?,
 	icon: Types.ValueString?,
 	launcher: boolean?,
@@ -114,10 +114,10 @@ export type RadialMenuOptions<V = string> = {
 	centerContent: GuiObject | (() -> GuiObject)?,
 	centerPassThrough: boolean?,
 	completion: Completion?,
-	anchor: Types.Value<Anchor>?,
+	anchor: Types.Input<Anchor>?,
 	follow: Follow?,
 	clearance: Types.ValueNumber?,
-	ringWidth: Types.Value<number | RingWidth>?,
+	ringWidth: Types.Input<number | RingWidth>?,
 	iconSize: Types.ValueNumber?,
 	contentFit: ContentFit?,
 	gestureSelection: ("bounded" | "direction")?,
@@ -126,7 +126,7 @@ export type RadialMenuOptions<V = string> = {
 	skin: { item: SkinImages?, center: SkinImages?, launcher: SkinImages?, background: SkinImages? }?,
 	onOpen: (() -> ())?,
 	onClose: (() -> ())?,
-	isPresented: ComposeTypes.Cell<boolean>?,
+	isPresented: ComposeTypes.Value<boolean>?,
 	transition: boolean?,
 	scrim: ("dark" | "light" | "none")?,
 }

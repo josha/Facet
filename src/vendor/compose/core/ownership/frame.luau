@@ -14,10 +14,10 @@ return function(owner: Owner.Owner, subscribe: ((number) -> ()) -> Host.Unsubscr
 			release()
 		end
 	end
-	owner.own(stop)
+	Owner.own(owner, stop)
 	return {
 		start = function()
-			if unsubscribe == nil and not owner.isDisposed() then
+			if unsubscribe == nil and not Owner.isDisposed(owner) then
 				unsubscribe = subscribe(body)
 			end
 		end,

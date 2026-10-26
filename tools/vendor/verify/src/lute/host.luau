@@ -67,7 +67,7 @@ local function create(options: Options, runtime: Runtime?): Verify.Host
 			end
 		end
 
-		local started, result: unknown = pcall(
+		local started, result = pcall(
 			Bounded.runWith,
 			argv,
 			batch.deadlineSeconds or options.deadlineSeconds or 60,
@@ -78,7 +78,7 @@ local function create(options: Options, runtime: Runtime?): Verify.Host
 		if not started then
 			return { status = "faulted", detail = ("the worker could not be started: %s"):format(tostring(result)) }
 		end
-		local outcome = result :: Bounded.Result
+		local outcome = result
 		if outcome.timedOut then
 			return { status = "timed_out", detail = "worker process exceeded its enforced deadline" }
 		end
@@ -92,11 +92,11 @@ local function create(options: Options, runtime: Runtime?): Verify.Host
 				),
 			}
 		end
-		local read, encoded: unknown = pcall(services.fs.read, resultPath)
+		local read, encoded = pcall(services.fs.read, resultPath)
 		if not read then
 			return { status = "faulted", detail = "the worker's report could not be read: " .. tostring(encoded) }
 		end
-		local parsed, payload: unknown = pcall(Wire.parse, encoded :: string)
+		local parsed, payload = pcall(Wire.parse, encoded)
 		if not parsed then
 			return {
 				status = "faulted",
@@ -109,14 +109,15 @@ local function create(options: Options, runtime: Runtime?): Verify.Host
 		return { status = "returned", report = payload }
 	end
 
-	local host = {} :: Verify.Host
-	host.name = options.name or "lute"
-	host.capabilities = options.capabilities or capabilities(services)
-	host.environment = options.environment or { runtime = "lute" }
-	host.now = options.now or services.time.clock
-	host.maxParallelBatches = options.maxParallelBatches
-	host.runBatch = runBatch
-	host.cancelled = options.cancelled
+	local host: Verify.Host = {
+		name = options.name or "lute",
+		capabilities = options.capabilities or capabilities(services),
+		environment = options.environment or { runtime = "lute" },
+		now = options.now or services.time.clock,
+		maxParallelBatches = options.maxParallelBatches,
+		runBatch = runBatch,
+		cancelled = options.cancelled,
+	}
 	host.runQueue = function(parallel: number, take: () -> PlanBatch?, deliver: (number, BatchOutcome) -> ())
 		local finished = 0
 		local errors: { string } = {}
@@ -159,9 +160,9 @@ local function create(options: Options, runtime: Runtime?): Verify.Host
 		local finished = 0
 		for _, batch in pending do
 			services.time.spawn(function()
-				local ok, value: unknown = pcall(host.runBatch, batch)
+				local ok, value = pcall(host.runBatch, batch)
 				outcomes[batch.index] = if ok
-					then value :: BatchOutcome
+					then value
 					else {
 						status = "faulted",
 						detail = "the host raised while running a batch: " .. tostring(value),

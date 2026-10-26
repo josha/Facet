@@ -243,7 +243,7 @@ return function(harness: Verify.Harness)
 							return true
 						end,
 					},
-					render = function(current: Facet.Readable<{ id: number }>): GuiObject
+					render = function(current: Facet.ReadOnlyValue<{ id: number }>): GuiObject
 						return UI.Button { label = tostring(current:peek().id) }
 					end,
 				}
@@ -447,7 +447,7 @@ return function(harness: Verify.Harness)
 					columns = 3,
 					itemSize = 40,
 					controls = controls,
-					render = function(current: Facet.Readable<{ id: number }>): GuiObject
+					render = function(current: Facet.ReadOnlyValue<{ id: number }>): GuiObject
 						return UI.Button { label = tostring(current:peek().id) }
 					end,
 				}
@@ -569,7 +569,7 @@ return function(harness: Verify.Harness)
 							return true
 						end,
 					},
-					render = function(current: Facet.Readable<{ id: number }>): GuiObject
+					render = function(current: Facet.ReadOnlyValue<{ id: number }>): GuiObject
 						return UI.Button { label = tostring(current:peek().id) }
 					end,
 				}
@@ -983,7 +983,7 @@ return function(harness: Verify.Harness)
 							end,
 						}
 					end,
-					render = function(current: Facet.Readable<{ id: number }>): GuiObject
+					render = function(current: Facet.ReadOnlyValue<{ id: number }>): GuiObject
 						return UI.Button "Tile" {
 							label = function(use: Facet.Use)
 								return tostring(use(current).id)

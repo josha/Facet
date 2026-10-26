@@ -7,6 +7,7 @@ local Environment = require "./environment"
 local Layout = require "./ui-layout"
 local Datatypes = require "./datatypes"
 local Values = require "./ui-values"
+local EnumTypes = require "./datatypes/enum"
 
 export type Key = { code: string, down: boolean }
 export type Pointer = { x: number, y: number, button: "left" | "right" | "middle", down: boolean }
@@ -35,7 +36,12 @@ local function pointer(value: unknown): Pointer
 	assert(type(record.y) == "number" and math.abs(record.y) < math.huge, "invalid pointer y")
 	assert(record.button == "left" or record.button == "right" or record.button == "middle", "invalid pointer button")
 	assert(type(record.down) == "boolean", "invalid pointer state")
-	return { x = record.x, y = record.y, button = record.button :: "left" | "right" | "middle", down = record.down }
+	return {
+		x = record.x,
+		y = record.y,
+		button = if record.button == "left" then "left" elseif record.button == "right" then "right" else "middle",
+		down = record.down,
+	}
 end
 local function text(value: unknown): string
 	assert(type(value) == "string", "expected text")
@@ -83,9 +89,8 @@ type Globals = {
 }
 export type GuiTarget = { AbsolutePosition: Vector, AbsoluteSize: Vector }
 local function screenCenter(target: GuiTarget): { x: number, y: number }
-	local globals = (
-		getfenv(0) :: unknown
-	) :: { game: { GetService: (unknown, string) -> { GetGuiInset: (unknown) -> (Vector, Vector) } } }
+	local globals: { game: { GetService: (unknown, string) -> { GetGuiInset: (unknown) -> (Vector, Vector) } } } =
+		getfenv(0)
 	local inset = globals.game:GetService("GuiService"):GetGuiInset()
 	assert(target.AbsoluteSize.X > 0 and target.AbsoluteSize.Y > 0, "GUI target has no rendered area")
 	return {
@@ -96,13 +101,13 @@ end
 
 local function native(): Backend?
 	assert(Native.nativeEngine().context == "client", "virtual input requires a live client")
-	local globals = (getfenv(0) :: unknown) :: Globals
+	local globals: Globals = getfenv(0)
 	local service = globals.game:GetService "UserInputService"
 	local input = service:CreateVirtualInput()
 	if input == nil then
 		return nil
 	end
-	local device = input :: VirtualInput
+	local device = input
 	local keys: { [string]: boolean } = {}
 	local buttons: { [string]: Pointer } = {}
 	local closed = false
@@ -192,7 +197,11 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 	type Drag = { detector: Instance, origin: Position }
 	local dragging: Drag? = nil
 	type Activation = { released: number, count: number }
-	local activations = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Activation }
+	local activations: { [Instance]: Activation } = {}
+	do
+		local weak = activations
+		setmetatable(weak, { __mode = "k" })
+	end
 	local owned: { Environment.Object } = {}
 	local registrations: { () -> () } = {}
 	local function install<O, A..., R...>(object: O, name: string, handler: (O, A...) -> R...)
@@ -533,7 +542,8 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 	end
 	local heldKeys: { [string]: true } = {}
 	local heldInputs: { [string]: Instance } = {}
-	local actionStates = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: boolean }
+	local actionStates: { [Instance]: boolean } = {}
+	setmetatable(actionStates, { __mode = "k" })
 	local function codeName(value: unknown): string
 		return (tostring(value):match "([^%.]+)$" or tostring(value))
 	end
@@ -551,21 +561,24 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 			if action == nil or not action:IsA "InputAction" then
 				unsupported "keyboard InputBinding without a direct InputAction"
 			end
-			local owner = (action :: Instance):FindFirstAncestorWhichIsA "InputContext"
+			local owner = Environment.assertInstance(action):FindFirstAncestorWhichIsA "InputContext"
 			if owner == nil then
 				unsupported "keyboard InputAction outside an InputContext"
 			end
-			local context = owner :: Instance
-			if codeName(env.propertyOf(action :: Instance, "Type")) ~= "Bool" then
+			local context = Environment.assertInstance(owner)
+			if codeName(env.propertyOf(Environment.assertInstance(action), "Type")) ~= "Bool" then
 				unsupported "keyboard InputAction.Type other than Bool"
 			end
-			if env.propertyOf(action :: Instance, "Enabled") == true and env.propertyOf(context, "Enabled") == true then
-				table.insert(found, { action = action :: Instance, context = context })
+			if
+				env.propertyOf(Environment.assertInstance(action), "Enabled") == true
+				and env.propertyOf(context, "Enabled") == true
+			then
+				table.insert(found, { action = Environment.assertInstance(action), context = context })
 			end
 		end
 		table.sort(found, function(left, right)
-			return (env.propertyOf(left.context, "Priority") :: number)
-				> env.propertyOf(right.context, "Priority") :: number
+			return Values.number(env.propertyOf(left.context, "Priority"))
+				> Values.number(env.propertyOf(right.context, "Priority"))
 		end)
 		return found
 	end
@@ -623,7 +636,7 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		env.fire(service, if value.down then "InputBegan" else "InputEnded", object, false)
 		local sunk: number? = nil
 		for _, entry in boundActions(code) do
-			local priority = env.propertyOf(entry.context, "Priority") :: number
+			local priority = Values.number(env.propertyOf(entry.context, "Priority"))
 			if sunk and priority < sunk then
 				break
 			end
@@ -642,7 +655,7 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		if box == nil then
 			unsupported "text input without a focused TextBox"
 		end
-		local target = box :: Instance
+		local target = Environment.assertInstance(box)
 		local current = tostring(target.Text)
 		local length = utf8.len(current) or #current
 		local cursor = env.propertyOf(target, "CursorPosition")
@@ -734,8 +747,8 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 			table.insert(pressedKeys, object)
 		end
 		table.sort(pressedKeys, function(left, right)
-			return (env.propertyOf(left, "KeyCode") :: Datatypes.EnumMember).Value
-				< (env.propertyOf(right, "KeyCode") :: Datatypes.EnumMember).Value
+			return EnumTypes.itemValue(env.propertyOf(left, "KeyCode")).Value
+				< EnumTypes.itemValue(env.propertyOf(right, "KeyCode")).Value
 		end)
 		return pressedKeys
 	end)

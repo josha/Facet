@@ -41,6 +41,23 @@ local function createRuntime(engine: Engine.Engine?): Compose.Runtime
 	return Compose.createRuntime(createHost(engine))
 end
 
+local function designEnvironment(options: {
+	values: typeof(Engine.designEnvironment(HostImpl.readMember).values),
+	service: (string) -> unknown,
+}?): typeof(Engine.designEnvironment(HostImpl.readMember))
+	if options then
+		return {
+			values = options.values,
+			service = options.service,
+			descendants = Engine.descendants,
+			invoke = function(object: unknown, method: string, ...: unknown): ...unknown
+				return Engine.invoke(HostImpl.readMember, object, method, ...)
+			end,
+		}
+	end
+	return Engine.designEnvironment(HostImpl.readMember)
+end
+
 local function animatableTypes(engine: Engine.Engine?): { string }
 	local resolved = if engine ~= nil then engine else Engine.ambient()
 	local names = Codecs.register(resolved)
@@ -55,6 +72,7 @@ end
 return {
 	createHost = createHost,
 	createRuntime = createRuntime,
+	designEnvironment = designEnvironment,
 	animatableTypes = animatableTypes,
 	cleanup = Cleanup.cleanup,
 	createCleanup = Cleanup.createCleanup,

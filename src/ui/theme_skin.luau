@@ -63,7 +63,7 @@ type ImageLayer = {
 type MountedImage = {
 	node: ImageLabel,
 	properties: ImageLayer,
-	caption: ComposeTypes.Cell<ImageLayer>?,
+	caption: ComposeTypes.Value<ImageLayer>?,
 	visible: boolean,
 }
 
@@ -86,7 +86,7 @@ return function(
 	paint: support.Paint,
 	Compose: typeof(ComposeTypes),
 	runtime: ComposeTypes.Runtime,
-	packageOrReadable: Engine.Value<ThemeTypes.ThemePackage>?,
+	packageOrReadable: Engine.Input<ThemeTypes.ThemePackage>?,
 	slot: string,
 	options: ThemeTypes.SkinOptions?
 ): Frame
@@ -108,7 +108,7 @@ return function(
 		local y, yo = axis(resolved.y)
 		return D2.new(x, xo, y, yo)
 	end
-	if not Compose.isReadable(packageOrReadable) and type(packageOrReadable) ~= "function" then
+	if not Compose.isValue(packageOrReadable) and type(packageOrReadable) ~= "function" then
 		local package = read(packageOrReadable) or neutral
 		local chrome = package.chrome
 		local recipe = if chrome then chrome[slot] else nil
@@ -370,7 +370,7 @@ return function(
 			Rotation = initial.Rotation,
 			ImageColor3 = initial.ImageColor3,
 		}
-		local captionSource: ComposeTypes.Cell<ImageLayer>?
+		local captionSource: ComposeTypes.Value<ImageLayer>?
 		local fit = Compose.cell(V2.new(0, 0))
 		if settings.label then
 			local current = Compose.cell(initial)
@@ -482,7 +482,7 @@ return function(
 	end
 	local activeLayers: { ImageLayer } = {}
 	local boundary: GuiObject? = nil
-	local slots: ComposeTypes.Cell<{ number }> = Compose.cell({})
+	local slots: ComposeTypes.Value<{ number }> = Compose.cell({})
 	local mounted: { [number]: MountedImage } = {}
 	local root = Host.Frame "Skin" {
 		Size = settings.Size or D2.fromScale(1, 1),
@@ -493,7 +493,7 @@ return function(
 		ZIndex = settings.ZIndex or 0,
 		Compose.keyed({
 			from = slots,
-			render = function(current: ComposeTypes.Readable<number>)
+			render = function(current: ComposeTypes.ReadOnlyValue<number>)
 				local index = current:peek()
 				local record = createImage(activeLayers[index])
 				mounted[index] = record

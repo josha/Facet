@@ -26,7 +26,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			spec.doubleTapZoom == nil or positive(spec.doubleTapZoom),
 			"Facet UI.ZoomView: doubleTapZoom must be positive and finite"
 		)
-		local zoom: Shared.Cell<number> = spec.zoom or Compose.cell(1)
+		local zoom: Shared.Value<number> = spec.zoom or Compose.cell(1)
 		assert(positive(zoom:peek()), "Facet UI.ZoomView: zoom must be positive and finite")
 		local reduce = reducedMotion(ctx)
 		local ramp = runtime.ramp(zoom:peek(), { ease = ctx.motionEase("zoom") })
@@ -731,7 +731,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		Compose.cleanup(function()
 			arbiter.cancelOwner(root)
 		end)
-		local selected: Shared.Readable<GuiObject?> = if gui
+		local selected: Shared.ReadOnlyValue<GuiObject?> = if gui
 			then ctx.observe.SelectedObject(gui)
 			else Compose.cell(nil :: GuiObject?)
 		local function active(use: Shared.Use): boolean

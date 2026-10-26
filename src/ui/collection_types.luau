@@ -21,7 +21,7 @@ export type Children<V> = ((item: V) -> { V }?) | string
 export type OptionalChildren<V> = { children: Children<V>? }
 export type RequiredChildren<V> = { children: Children<V> }
 export type HierarchyOptions<V, K> = {
-	expanded: ComposeTypes.Cell<Selection<K>>?,
+	expanded: ComposeTypes.Value<Selection<K>>?,
 	onExpansionChange: ((expanded: Selection<K>) -> ())?,
 	indent: Types.ValueNumber?,
 }
@@ -29,13 +29,13 @@ export type Sort = { column: string, direction: "ascending" | "descending" }
 export type RowPredicate<V> = (item: V) -> boolean
 export type Follow = "end" | "none"
 export type RowRender<V, K> = (
-	current: ComposeTypes.Readable<V>,
-	placement: ComposeTypes.Readable<ComposeTypes.Placement>,
-	key: ComposeTypes.Readable<K>
+	current: ComposeTypes.ReadOnlyValue<V>,
+	placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+	key: ComposeTypes.ReadOnlyValue<K>
 ) -> GuiObject
 export type SelectionOptions<V, K> = {
-	selection: ComposeTypes.Cell<Selection<K>>?,
-	selectionFrom: Types.Value<{ V }>?,
+	selection: ComposeTypes.Value<Selection<K>>?,
+	selectionFrom: Types.Input<{ V }>?,
 	selectionIndicator: boolean?,
 	selectionMode: ("none" | "single" | "multiple")?,
 	selectable: RowPredicate<V>?,
@@ -47,7 +47,7 @@ export type ReorderOptions<V, K> = {
 	collectionId: unknown?,
 	drag: ((items: { V }, keys: { K }) -> Env.DraggableSpec)?,
 	drop: Env.DropTargetSpec?,
-	rowDrop: ((ComposeTypes.Readable<V>, K) -> Env.DropTargetSpec?)?,
+	rowDrop: ((ComposeTypes.ReadOnlyValue<V>, K) -> Env.DropTargetSpec?)?,
 	reorderable: boolean?,
 	movable: RowPredicate<V>?,
 	onReorder: ((keys: { K }, slot: number, parentKey: K?) -> ())?,
@@ -60,9 +60,9 @@ export type ReorderOptions<V, K> = {
 }
 export type Activate<V, K> = (item: V, key: K, input: InputObject?, clickCount: number?) -> ()
 export type CollectionOptions<V, K> = {
-	from: Types.Value<{ V }>,
+	from: Types.Input<{ V }>,
 	recycle: boolean?,
-	slots: Types.Value<{ K }>?,
+	slots: Types.Input<{ K }>?,
 	slotControls: SlotControls<K>?,
 	render: RowRender<V, K>?,
 	mode: ComposeTypes.OrderedCollectionMode?,
@@ -74,18 +74,18 @@ export type CollectionOptions<V, K> = {
 	minColumnWidth: Types.ValueNumber?,
 	minColumns: Types.ValueNumber?,
 	hug: boolean?,
-	rowActions: ((current: ComposeTypes.Readable<V>, key: K) -> RowActionsShape?)?,
+	rowActions: ((current: ComposeTypes.ReadOnlyValue<V>, key: K) -> RowActionsShape?)?,
 	overscan: number?,
-	measured: Types.Value<{ [K]: number }>?,
+	measured: Types.Input<{ [K]: number }>?,
 	measure: boolean?,
 	status: (
-		ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus>
-		| ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus?>
+		ComposeTypes.Value<ComposeTypes.OrderedCollectionStatus>
+		| ComposeTypes.Value<ComposeTypes.OrderedCollectionStatus?>
 	)?,
 	controls: ComposeTypes.OrderedCollectionControls<K>?,
-	follow: Types.Value<Follow>?,
+	follow: Types.Input<Follow>?,
 	followThreshold: number?,
-	scrollReset: Types.Value<string>?,
+	scrollReset: Types.Input<string>?,
 	maxRetained: number?,
 	focus: FocusControls<K>?,
 	focusPolicy: ("key" | "index")?,
@@ -96,7 +96,7 @@ export type CollectionOptions<V, K> = {
 	reducedMotion: Types.ValueBoolean?,
 	onActivate: Activate<V, K>?,
 	onReachEnd: (() -> ())?,
-	contentOverflow: Types.Value<"visible" | "clip">?,
+	contentOverflow: Types.Input<"visible" | "clip">?,
 }
 export type Keyed<V, K> = { key: ((item: V, index: number) -> K) | string }
 export type Identity = { key: nil? }
@@ -113,13 +113,13 @@ export type RowEdge = "leading" | "trailing"
 export type RowActionsFields = {
 	actionPlacement: ("trailing" | "bottom")?,
 	swipeEnabled: Types.ValueBoolean?,
-	leading: Types.Value<{ RowAction }>?,
-	trailing: Types.Value<{ RowAction }>?,
+	leading: Types.Input<{ RowAction }>?,
+	trailing: Types.Input<{ RowAction }>?,
 	actionWidth: Types.ValueNumber?,
 	fullSwipe: (boolean | { leading: boolean?, trailing: boolean? })?,
-	open: ComposeTypes.Cell<RowEdge?>?,
+	open: ComposeTypes.Value<RowEdge?>?,
 	onOpenChange: ((edge: RowEdge?) -> ())?,
-	coordinator: ComposeTypes.Cell<{}?>?,
+	coordinator: ComposeTypes.Value<{}?>?,
 	enabled: Types.ValueBoolean?,
 	reducedMotion: Types.ValueBoolean?,
 	editing: Types.ValueBoolean?,
@@ -129,10 +129,10 @@ export type RowActionsContent = { content: Types.GuiInstance | (() -> GuiObject)
 export type CellDraft = { text: string, original: unknown, error: string? }
 export type CellEditorOptions = {
 	editor: "text" | "number" | "toggle" | "menu",
-	value: Types.Value<unknown>,
+	value: Types.Input<unknown>,
 	onChange: (unknown) -> (),
-	draft: ComposeTypes.Cell<CellDraft?>?,
-	editing: ComposeTypes.Cell<boolean>?,
+	draft: ComposeTypes.Value<CellDraft?>?,
+	editing: ComposeTypes.Value<boolean>?,
 	editLabel: Types.ValueString?,
 	validate: ((unknown) -> string?)?,
 	label: Types.ValueString?,
@@ -155,7 +155,7 @@ export type TableColumn<V, K> = {
 	value: ((item: V) -> unknown)?,
 	align: ("start" | "center" | "end")?,
 	wrap: boolean?,
-	draft: ((key: K) -> ComposeTypes.Cell<CellDraft?>)?,
+	draft: ((key: K) -> ComposeTypes.Value<CellDraft?>)?,
 	editLabel: Types.ValueString?,
 	editable: ((item: V) -> boolean)?,
 	validate: ((value: unknown) -> string?)?,
@@ -174,28 +174,28 @@ export type TableOptions<V, K> = {
 	wrapFocus: boolean?,
 	maxRetained: number?,
 	onReachEnd: (() -> ())?,
-	from: Types.Value<{ V }>,
-	columns: Types.Value<{ TableColumn<V, K> }>,
+	from: Types.Input<{ V }>,
+	columns: Types.Input<{ TableColumn<V, K> }>,
 	itemSize: Types.ValueNumber?,
 	gap: Types.ValueNumber?,
 	overscan: number?,
-	sort: ComposeTypes.Cell<Sort?>?,
+	sort: ComposeTypes.Value<Sort?>?,
 	onSortChange: ((sort: Sort) -> ())?,
-	widths: ComposeTypes.Cell<{ [string]: number }>?,
+	widths: ComposeTypes.Value<{ [string]: number }>?,
 	onWidthsChange: ((widths: { [string]: number }) -> ())?,
 	onActivate: Activate<V, K>?,
-	rowActions: ((current: ComposeTypes.Readable<V>, key: K) -> RowActionsShape?)?,
+	rowActions: ((current: ComposeTypes.ReadOnlyValue<V>, key: K) -> RowActionsShape?)?,
 	headerHeight: Types.ValueNumber?,
 	header: boolean?,
 	status: (
-		ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus>
-		| ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus?>
+		ComposeTypes.Value<ComposeTypes.OrderedCollectionStatus>
+		| ComposeTypes.Value<ComposeTypes.OrderedCollectionStatus?>
 	)?,
 	controls: ComposeTypes.OrderedCollectionControls<K>?,
 	focus: FocusControls<K>?,
 	measure: boolean?,
-	measured: Types.Value<{ [K]: number }>?,
-	follow: Types.Value<Follow>?,
+	measured: Types.Input<{ [K]: number }>?,
+	follow: Types.Input<Follow>?,
 	followThreshold: number?,
 	reducedMotion: Types.ValueBoolean?,
 	onCellChange: ((key: K, column: string, value: unknown) -> ())?,

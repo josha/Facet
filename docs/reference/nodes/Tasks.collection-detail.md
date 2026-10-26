@@ -5,9 +5,9 @@ Select one key. [Art](Stage.reference.md) fills its parent.
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 type Item = { id: string, name: string, terms: string }
-local function browse(app: Facet.App, items: { Item }, selected: Facet.Cell<{ [string]: boolean }>,
-	art: (Facet.Readable<Item>) -> GuiObject, action: string, commit: (Item) -> (),
-	back: Facet.Cell<boolean>): Frame
+local function browse(app: Facet.App, items: { Item }, selected: Facet.Value<{ [string]: boolean }>,
+	art: (Facet.ReadOnlyValue<Item>) -> GuiObject, action: string, commit: (Item) -> (),
+	back: Facet.Value<boolean>): Frame
 	local C, UI = Facet.Compose, app.UI
 	local column = C.cell("sidebar" :: "sidebar" | "detail")
 	local chosen = C.formula(function(use: Facet.Use): Item

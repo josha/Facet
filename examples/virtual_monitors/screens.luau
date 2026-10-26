@@ -24,9 +24,11 @@ type StageProps = typeof(require("@repo/tools/typecheck/aliases").StageProps)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type ScrollViewProps = typeof(require("@repo/tools/typecheck/aliases").ScrollViewProps)
 type EnvironmentPreview = typeof(require("@repo/tools/typecheck/aliases").ControlOptions.environment)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Value<T> =
+	ReadOnlyValue<T>
+	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Use = <T>(ReadOnlyValue<T>) -> T
 local modelModule = require("./model")
 type Game = modelModule.Game
 type Toast = modelModule.Toast
@@ -69,7 +71,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 	end
 	local clock = actions.clock or civil.systemClock()
 	local noCard: GuiObject? = nil
-	local selectedCard: Cell<GuiObject?> = Compose.cell(noCard)
+	local selectedCard: Value<GuiObject?> = Compose.cell(noCard)
 	local function rounded(radius: number?): UICorner
 		return Host.UICorner({ CornerRadius = D.new(0, radius or 12) })
 	end
@@ -106,7 +108,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 		end
 		return UI.Button(spec)
 	end
-	local function measure(node: GuiObject, value: Cell<Vector2>): GuiObject
+	local function measure(node: GuiObject, value: Value<Vector2>): GuiObject
 		Compose.cleanup(observation.observeProperty(node, "AbsoluteSize", function()
 			local size = observation.readProperty(node, "AbsoluteSize")
 			if typeof(size) == "Vector2" and size.X > 0 and size.Y > 0 then
@@ -115,13 +117,13 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 		end))
 		return node
 	end
-	local function observeSize(node: GuiObject): Cell<Vector2>
+	local function observeSize(node: GuiObject): Value<Vector2>
 		local value = Compose.cell(V2.new(screens.CANVAS.w, screens.CANVAS.h))
 		measure(node, value)
 		return value
 	end
 	local function collection(
-		source: Cell<number?>,
+		source: Value<number?>,
 		build: (canvas: ((Use) -> Vector2)?) -> ScrollingFrame
 	): ScrollingFrame
 		local canvas = if source:peek() ~= nil
@@ -181,7 +183,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 		return Facet.themes.skin(runtime, actions.theme, "monitorPanel", { types = types })
 	end
 	local function toastFor(app: string): Child
-		local source: Readable<Toast?> = model.toasts[app]
+		local source: ReadOnlyValue<Toast?> = model.toasts[app]
 		return Compose.keyed({
 			from = function(use: Use): { Toast }
 				local toast = use(source)
@@ -190,7 +192,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 			key = function(toast: Toast): number
 				return toast.serial
 			end,
-			render = function(current: Readable<Toast>): GuiObject
+			render = function(current: ReadOnlyValue<Toast>): GuiObject
 				local toast = current:peek()
 				local undo = toast.undo
 				local presented = Compose.formula(function(use: Use)
@@ -221,7 +223,11 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 			end,
 		})
 	end
-	local function shell(name: string, build: (Cell<Vector2>) -> (Child, Child?), collapsed: Readable<boolean>?): Frame
+	local function shell(
+		name: string,
+		build: (Value<Vector2>) -> (Child, Child?),
+		collapsed: ReadOnlyValue<boolean>?
+	): Frame
 		local about = Compose.cell(false)
 		local statusOpen = Compose.cell(false)
 		local presentationKey = name .. (if actions.spatial then ":Spatial" else ":Screen")
@@ -484,7 +490,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 		measure(root, region)
 		return root
 	end
-	local function saveAction(current: Readable<Game?>): CardAction
+	local function saveAction(current: ReadOnlyValue<Game?>): CardAction
 		return {
 			label = function(use: Use)
 				return if use(model.saved)[assert(use(current)).id] then "Saved" else "Save"
@@ -497,7 +503,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 			end,
 		}
 	end
-	local function gameMenu(current: Readable<Game>): CardMenu
+	local function gameMenu(current: ReadOnlyValue<Game>): CardMenu
 		local items: { MenuItem } = {
 			{
 				id = "Share",
@@ -525,7 +531,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 		}
 		return { items = items }
 	end
-	local function gameCard(current: Readable<Game>, placement: Readable<CollectionPlacement>): GuiObject
+	local function gameCard(current: ReadOnlyValue<Game>, placement: ReadOnlyValue<CollectionPlacement>): GuiObject
 		local item = current:peek()
 		local card: Frame
 		local preview: Frame
@@ -595,7 +601,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 		{ id = "load", label = "Load world" },
 		{ id = "join", label = "Join" },
 	}
-	local function detailContent(current: Readable<Game?>): GuiObject
+	local function detailContent(current: ReadOnlyValue<Game?>): GuiObject
 		local selected = current:peek()
 		if not selected then
 			return Host.Frame({ BackgroundTransparency = 1 })
@@ -893,7 +899,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 		end
 		return nil
 	end
-	local function discoverContent(region: Cell<Vector2>, collapsed: Cell<boolean>): (Frame, Frame)
+	local function discoverContent(region: Value<Vector2>, collapsed: Value<boolean>): (Frame, Frame)
 		local dimensions = Compose.cell(V2.new(screens.CANVAS.w, screens.CANVAS.h))
 		local function short(use: Use)
 			return use(region).Y < screens.SHORT_HEIGHT

@@ -627,7 +627,12 @@ function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): n
 				append(log, `Confirming {table.concat(flagged, ", ")} with a fresh complete run.\n`)
 				print(`paired run: confirming {table.concat(flagged, ", ")} with a fresh complete run`)
 				local again = table.clone(invocation)
-				again.flags = table.clone(invocation.flags)
+				again.flags = {}
+				for name, value in invocation.flags do
+					if shard == nil or name ~= "scenes" then
+						again.flags[name] = value
+					end
+				end
 				again.flags.out = out .. "-confirm"
 				again.flags.confirmation = true
 				local confirmed = pairedRun(again, capture)
@@ -1098,6 +1103,43 @@ local function pairedRunFixture(test: Verify.Context, mode: string): ()
 	Verify.expect(#benchesFor(out, "base") + #benchesFor(out, "cand")):toBe(rounds * 2)
 end
 
+local function shardedConfirmationFixture(test: Verify.Context): ()
+	local root = Files.temporaryDirectory("facet-paired-shard-")
+	test:defer(function()
+		Files.remove(root)
+	end)
+	local out = Files.join(root, "out")
+	local counts: { [string]: number } = { base = 0, cand = 0 }
+	local arguments = { "perf", "paired", "run", "--out", out, "--rounds", "6", "--shard", "1/3", "--gate" }
+	for _, label in { "base", "cand" } do
+		table.insert(arguments, label .. "=" .. Files.join(root, label))
+	end
+	local status = pairedRun(Cli.parse(arguments, { "out", "rounds", "shard" }), function(argv, options): Run.Result
+		local tree = assert(options and options.cwd)
+		local label = if tree == Files.join(root, "base") then "base" else "cand"
+		local output = ""
+		if argv[3] == "bench/paired_scene.luau" then
+			local row = Json.object()
+			Json.set(row, "scene", argv[4])
+			Json.set(row, "status", "ok")
+			Json.set(row, "p50", 1)
+			Json.set(row, "p95", 2)
+			local retained = label == "cand"
+			Json.set(row, "memory", memoryFixture(if retained then 2000 else 1000, if retained then 1000 else 0))
+			output = "@@" .. Json.encode(row)
+		else
+			counts[label] += 1
+			Files.write(
+				Files.join(tree, "artifacts/bench.json"),
+				Json.encode(requiredBench(counts[label], label).document)
+			)
+		end
+		return { ok = true, code = 0, stdout = output, stderr = "", timedOut = false }
+	end)
+	Verify.expect(status):toBe(1)
+	Verify.expect(Files.isFile(Files.join(out .. "-confirm", "scenes.jsonl"))):toBe(true)
+end
+
 local REGISTRATIONS: { [string]: (Verify.Harness, string) -> () } = {}
 
 REGISTRATIONS.budgets = function(harness: Verify.Harness, prefix: string): ()
@@ -1453,6 +1495,12 @@ REGISTRATIONS.paired = function(harness: Verify.Harness, prefix: string): ()
 		id = idPrefix .. "paired: a slowdown that does not repeat in the confirmation run passes",
 		run = function(test: Verify.Context): ()
 			pairedRunFixture(test, "flaky")
+		end,
+	})
+	harness:case(prefix .. "paired: a sharded gate confirms a regression with the same shard", {
+		id = idPrefix .. "paired: a sharded gate confirms a regression with the same shard",
+		run = function(test: Verify.Context): ()
+			shardedConfirmationFixture(test)
 		end,
 	})
 	harness:case(prefix .. "paired: invalid calibration stops before the checkpoint", {

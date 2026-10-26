@@ -10,14 +10,14 @@ export type PageLayers = {
 	checkTransition: (Nav.Transition | false?) -> (),
 	layer: (
 		Types.CanvasGroupNativeProps & Types.FrameNativeProps,
-		ComposeTypes.Readable<ComposeTypes.LayerStackState>,
+		ComposeTypes.ReadOnlyValue<ComposeTypes.LayerStackState>,
 		Nav.Transition | false?,
 		(() -> ())?,
 		boolean?,
-		ComposeTypes.Cell<boolean>?,
-		ComposeTypes.Readable<boolean>?
+		ComposeTypes.Value<boolean>?,
+		ComposeTypes.ReadOnlyValue<boolean>?
 	) -> GuiObject,
-	checkedSelection: (ComposeTypes.Cell<string>, { Nav.Tab }, string) -> { [string]: Nav.Tab },
+	checkedSelection: (ComposeTypes.Value<string>, { Nav.Tab }, string) -> { [string]: Nav.Tab },
 }
 
 return function(ctx: Types.Context): PageLayers
@@ -31,12 +31,12 @@ return function(ctx: Types.Context): PageLayers
 	local checkTransition = transitions.check
 	local function layer(
 		properties: Types.CanvasGroupNativeProps & Types.FrameNativeProps,
-		state: ComposeTypes.Readable<ComposeTypes.LayerStackState>,
+		state: ComposeTypes.ReadOnlyValue<ComposeTypes.LayerStackState>,
 		transition: Nav.Transition | false?,
 		hidden: (() -> ())?,
 		immediate: boolean?,
-		prepared: ComposeTypes.Cell<boolean>?,
-		groupReady: ComposeTypes.Readable<boolean>?
+		prepared: ComposeTypes.Value<boolean>?,
+		groupReady: ComposeTypes.ReadOnlyValue<boolean>?
 	): GuiObject
 		if transition == nil or transition == false then
 			local node = Host.Frame(properties)
@@ -52,7 +52,7 @@ return function(ctx: Types.Context): PageLayers
 		local presented = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return use(state).top
 		end)
-		local animatedPresented: ComposeTypes.Readable<boolean> = presented
+		local animatedPresented: ComposeTypes.ReadOnlyValue<boolean> = presented
 		if groupReady then
 			local synchronized = Compose.cell(presented:peek())
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -63,7 +63,7 @@ return function(ctx: Types.Context): PageLayers
 			animatedPresented = synchronized
 		end
 		local frames = ctx.config.services.RunService
-		local arrived: ComposeTypes.Cell<boolean> = prepared or Compose.cell(false)
+		local arrived: ComposeTypes.Value<boolean> = prepared or Compose.cell(false)
 		arrived:set(frames == nil or frames.PreRender == nil or runtime.host.frames == nil)
 		local moving = transitions.create(
 			ctx,
@@ -131,7 +131,7 @@ return function(ctx: Types.Context): PageLayers
 	end
 
 	local function checkedSelection(
-		selection: ComposeTypes.Cell<string>,
+		selection: ComposeTypes.Value<string>,
 		entries: { Nav.Tab },
 		label: string
 	): { [string]: Nav.Tab }

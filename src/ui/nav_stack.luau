@@ -40,7 +40,7 @@ return function(
 		local selectedObject = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil :: GuiObject?)
 		local depth = navigationDepth
 		local rootEntry: Nav.NavigationEntry<P> = { id = "@root" }
-		local errorText: ComposeTypes.Cell<string?> = Compose.cell(nil :: string?)
+		local errorText: ComposeTypes.Value<string?> = Compose.cell(nil :: string?)
 		local accepted = { rootEntry }
 		local reduce = reducedMotion(ctx)
 		local level = motion.level(ctx)
@@ -69,7 +69,7 @@ return function(
 			end
 			return accepted
 		end)
-		local leaving: ComposeTypes.Cell<Nav.NavigationEntry<P>?> = Compose.cell(nil :: Nav.NavigationEntry<P>?)
+		local leaving: ComposeTypes.Value<Nav.NavigationEntry<P>?> = Compose.cell(nil :: Nav.NavigationEntry<P>?)
 		local root: Frame
 		local handoff = false
 		local shownList = entries:peek()
@@ -100,7 +100,8 @@ return function(
 			table.insert(result, departing)
 			return result
 		end)
-		local offsets: ComposeTypes.Cell<{ [Nav.NavigationEntry<P>]: (ComposeTypes.Use?) -> number }> = Compose.cell({})
+		local offsets: ComposeTypes.Value<{ [Nav.NavigationEntry<P>]: (ComposeTypes.Use?) -> number }> =
+			Compose.cell({})
 		local stackReady = false
 		local function pop()
 			local path = table.clone(spec.path:peek())
@@ -114,7 +115,7 @@ return function(
 			local measure = use(offsets)[list[#list]]
 			return if measure then measure(use) else 0
 		end
-		local backdrop: ComposeTypes.Cell<Color3?> = Compose.cell(nil :: Color3?)
+		local backdrop: ComposeTypes.Value<Color3?> = Compose.cell(nil :: Color3?)
 		local moving = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return frontOffset(use) > 0 or use(leaving) ~= nil
 		end)
@@ -143,8 +144,8 @@ return function(
 				from = displayed,
 				retention = "all",
 				render = function(
-					current: ComposeTypes.Readable<Nav.NavigationEntry<P>>,
-					state: ComposeTypes.Readable<ComposeTypes.LayerStackState>
+					current: ComposeTypes.ReadOnlyValue<Nav.NavigationEntry<P>>,
+					state: ComposeTypes.ReadOnlyValue<ComposeTypes.LayerStackState>
 				): Instance
 					local entry = current:peek()
 					local destination = if entry == rootEntry then spec.root else spec.destinations[entry.id]
@@ -172,7 +173,7 @@ return function(
 					local function target(use: ComposeTypes.Use): number
 						return if use(role) == "exiting" or use(entering) and not reduce(use) then 1 else 0
 					end
-					local travel: ComposeTypes.Readable<number> = if animated
+					local travel: ComposeTypes.ReadOnlyValue<number> = if animated
 						then runtime.spring(target, {
 							period = pushSpring.period,
 							damping = pushSpring.damping,
@@ -188,9 +189,9 @@ return function(
 					end, { seconds = ctx.metric("motion.reducedFade"), ease = ctx.motionEase("fade") })
 					local function offset(use: ComposeTypes.Use?): number
 						if not animated or reduce(use) then
-							return if read(role, use) == "exiting" then 1 else 0
+							return if ctx.readSource(role, use) == "exiting" then 1 else 0
 						end
-						return read(travel, use)
+						return ctx.readSource(travel, use)
 					end
 					local registered = table.clone(offsets:peek())
 					registered[entry] = offset

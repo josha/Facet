@@ -2,8 +2,8 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
+	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local expect = Verify.expect
 
@@ -127,7 +127,7 @@ return function(verifyHarness: Verify.Harness)
 				local m = Compose.formula(function(use: Use)
 					return use(s) * 2
 				end)
-				core.owner.watch(function(use: Use)
+				Compose.owner.watch(core.owner, function(use: Use)
 					use(m)
 				end)
 				return { core = core, s = s, n = 0 }

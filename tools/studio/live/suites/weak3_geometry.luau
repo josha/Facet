@@ -78,7 +78,7 @@ local function labelHolder(t: any, text: any, width: any, extra: { [string]: any
 			Name = "Holder",
 			BackgroundTransparency = 1,
 			Size = function(use: any)
-				local value = if Compose.isReadable(width) then use(width) else width
+				local value = if Compose.isValue(width) then use(width) else width
 				return UDim2.fromOffset(value, 40)
 			end,
 			UI.Text(spec),

@@ -20,8 +20,8 @@ type Scene = {
 	passThrough: boolean,
 	scrim: Scrim,
 }
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 
 return {
@@ -98,7 +98,7 @@ return {
 				},
 			}
 		end)
-		local function scene(itemReadable: Readable<Scene>)
+		local function scene(itemReadable: ReadOnlyValue<Scene>)
 			local item = itemReadable:peek()
 			local items: { Radial }
 			local menu = nil

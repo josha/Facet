@@ -42,7 +42,5 @@ end
 local recorded = StudioEdit.run(target, ".lute/tmp/verify-export-probes", function(execute)
 	return Lute.fixture.probeStudio(execute, probes)
 end)
-Lute.fixture.save(output :: string, recorded)
-print(
-	("wrote %d probe results from Studio %s to %s"):format(#probes, tostring(recorded.engineVersion), output :: string)
-)
+Lute.fixture.save(output, recorded)
+print(("wrote %d probe results from Studio %s to %s"):format(#probes, tostring(recorded.engineVersion), output))

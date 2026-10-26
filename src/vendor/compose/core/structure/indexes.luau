@@ -1,6 +1,7 @@
 --!strict
 --!native
 
+local Owners = require "../ownership/owner"
 local Block = require "../runtime/block"
 local Children = require "../runtime/children"
 local Host = require "../host"
@@ -8,26 +9,26 @@ local Support = require "./support"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 
-export type Render<V> = (value: Types.Readable<V>, index: number) -> Host.Node
+export type Render<V> = (value: Types.ReadOnlyValue<V>, index: number) -> Host.Node
 
 type Row<V> = {
 	block: Block.Block,
-	value: Types.Cell<V>,
+	value: Types.Value<V>,
 }
 
 local function indexes<V>(source: Types.Source<{ V }>, render: Render<V>): Children.Directive
-	local from = Support.sourceOf(source, "indexes", "source") :: Types.Body<{ V }>
-	local build = Support.builderOf(render, "indexes", "render") :: Render<V>
+	local from: Types.Body<{ V }> = Support.sourceOf(source, "indexes", "source")
+	local build: Render<V> = Support.builderOf(render, "indexes", "render")
 	return function(mountPoint: Children.MountPoint)
 		local owner = Support.ownerFor "indexes"
 		Support.mountPointOf(mountPoint, "indexes")
 		local rows: { Row<V> } = {}
 
-		owner.own(function()
+		Owners.own(owner, function()
 			table.clear(rows)
 		end)
 
-		owner.watch(function(use)
+		Owners.watch(owner, function(use)
 			local list = from(use)
 			local wanted = #list
 
@@ -46,7 +47,7 @@ local function indexes<V>(source: Types.Source<{ V }>, render: Render<V>): Child
 			end
 
 			for index = #rows, wanted + 1, -1 do
-				rows[index].block.dispose()
+				Owners.dispose(rows[index].block.owner)
 				rows[index] = nil
 			end
 		end)

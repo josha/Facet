@@ -6,14 +6,15 @@ local Owner = require "../ownership/owner"
 
 export type Factory<T> = () -> (T, (() -> ())?)
 
-export type Acquire<T> = typeof(setmetatable({} :: { detached: () -> (T, () -> ()) }, {} :: { __call: (unknown) -> T }))
-
-local function createSharedResource<T>(factory: Factory<T>): Acquire<T>
+local function createSharedResource<T>(factory: Factory<T>)
 	if type(factory) ~= "function" then
-		Diagnostics.raise("async/shared-needs-a-factory", "createSharedResource expects a factory function", {
-			actual = Diagnostics.describe(factory),
-			expected = "function() return value, teardown end",
-		})
+		error(
+			Diagnostics.format("async/shared-needs-a-factory", "createSharedResource expects a factory function", {
+				actual = Diagnostics.describe(factory),
+				expected = "function() return value, teardown end",
+			}),
+			0
+		)
 	end
 
 	local references = 0
@@ -34,7 +35,7 @@ local function createSharedResource<T>(factory: Factory<T>): Acquire<T>
 		value = nil
 
 		if scope ~= nil then
-			scope.dispose()
+			Owner.dispose(scope)
 		end
 	end
 
@@ -43,11 +44,11 @@ local function createSharedResource<T>(factory: Factory<T>): Acquire<T>
 			local scope = Owner.createOwner()
 			local ok, result, dispose = pcall(Active.withOwner, scope, factory)
 			if not ok then
-				scope.dispose()
+				Owner.dispose(scope)
 				error(result, 0)
 			end
 			if dispose ~= nil then
-				scope.own(dispose)
+				Owner.own(scope, dispose)
 			end
 			value = result
 			lifetime = scope
@@ -69,13 +70,20 @@ local function createSharedResource<T>(factory: Factory<T>): Acquire<T>
 	local function acquireOwned(): T
 		local owner = Active.current()
 		if owner == nil then
-			Diagnostics.raise("async/shared-no-owner", "a shared resource was acquired with no owner to release it", {
-				contract = "a reference is released when the owner that took it is disposed",
-				fix = "acquire it inside a component, inside Compose.withOwner(owner, ...), or use its `detached` form and release it yourself",
-			})
+			error(
+				Diagnostics.format(
+					"async/shared-no-owner",
+					"a shared resource was acquired with no owner to release it",
+					{
+						contract = "a reference is released when the owner that took it is disposed",
+						fix = "acquire it inside a component, inside Compose.withOwner(owner, ...), or use its `detached` form and release it yourself",
+					}
+				),
+				0
+			)
 		end
-		local result, release_ = take();
-		(owner :: Owner.Owner).own(release_)
+		local result, release_ = take()
+		Owner.own(owner, release_)
 		return result
 	end
 
@@ -91,5 +99,9 @@ local function createSharedResource<T>(factory: Factory<T>): Acquire<T>
 
 	return acquire
 end
+
+export type Acquire<T> = typeof(createSharedResource(function(): (T, (() -> ())?)
+	error("unreachable", 0)
+end))
 
 return createSharedResource

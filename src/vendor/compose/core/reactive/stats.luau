@@ -1,4 +1,5 @@
 --!strict
+--!native
 
 export type Counters = {
 	cellWrites: number,
@@ -13,7 +14,9 @@ export type Counters = {
 	continuationPasses: number,
 }
 
-local function zeroed(): Counters
+type Record = Counters & { [string]: number }
+
+local function zeroed(): Record
 	return {
 		cellWrites = 0,
 		cellWritesSuppressed = 0,
@@ -28,7 +31,7 @@ local function zeroed(): Counters
 	}
 end
 
-local counters: Counters = zeroed()
+local counters: Record = zeroed()
 local state = { enabled = false }
 
 local function setEnabled(value: boolean)
@@ -44,7 +47,7 @@ local function reset()
 end
 
 local function bump(name: string, amount: number?)
-	local record = counters :: { [string]: number }
+	local record = counters
 	record[name] += if amount ~= nil then amount else 1
 end
 

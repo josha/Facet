@@ -13,7 +13,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	local E, D2 = types.Enum, types.UDim2
 	local bind = shared.bind
 	UI.AsyncImage = ctx.construct("AsyncImage", function(spec: MediaProps.AsyncImageProps): Frame
-		local state: ComposeTypes.Cell<Media.ImageState> = Compose.cell("loading" :: Media.ImageState)
+		local state: ComposeTypes.Value<Media.ImageState> = Compose.cell("loading" :: Media.ImageState)
 		local loaded = Compose.cell("")
 		local failure = Compose.cell(nil :: unknown)
 		local root = Host.Frame(ctx.props(spec, {

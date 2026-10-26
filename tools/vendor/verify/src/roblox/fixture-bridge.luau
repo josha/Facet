@@ -8,6 +8,8 @@ local UiFakes = require "./ui-fakes"
 local UiLayout = require "./ui-layout"
 local PlaceRuntime = require "./place-runtime"
 local Datatypes = require "./datatypes"
+local ContentFakes = require "./content-fakes"
+local LogFakes = require "./log-fakes"
 
 local SERVICE_DEFAULTS: { [string]: { [string]: unknown } } = {
 	GuiService = {
@@ -29,6 +31,7 @@ type UDim2 = Adapter.UDim2
 type CFrame = Adapter.CFrame
 
 export type Options<V2 = Vector2, V3 = Vector3, C3 = Color3, U1 = UDim, U2 = UDim2, CF = CFrame> = {
+	content: ContentFakes.Options?,
 	database: Reflection.Database,
 	typeName: (unknown) -> string,
 	enumType: ((unknown) -> string)?,
@@ -188,6 +191,7 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 	local controller: UiFakes.Controller? = if ui ~= false
 		then UiFakes.attach(environment, ui :: UiFakes.Options?, selection)
 		else nil
+	ContentFakes.attach(environment, settings.content)
 	local library = (settings.library :: unknown) :: Adapter.Library<V2, V3, C3, U1, U2, CF>?
 	if library then
 		local found, member = pcall(function(): unknown
@@ -230,6 +234,7 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 		end
 		local services: { [string]: Environment.Instance } = {}
 		local diagnostics: { PlaceRuntime.Diagnostic } = {}
+		local recordLog: ((string, string) -> ())? = nil
 		local source = function(): string
 			return "fixture"
 		end
@@ -282,6 +287,9 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 			end,
 			record = function(kind: string, text: string, origin: string)
 				table.insert(diagnostics, { kind = kind, text = text, source = origin })
+				if recordLog then
+					recordLog(kind, text)
+				end
 			end,
 			isInstance = Environment.isInstance,
 			datatypes = if settings.library
@@ -303,6 +311,11 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 		}
 		place = value
 		resolveService = value.service
+		if serviceClasses.LogService then
+			recordLog = LogFakes.attach(environment, value.datatypes.Enum.MessageType, function()
+				return value.service "LogService"
+			end)
+		end
 		return value
 	end
 

@@ -2,8 +2,8 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
+type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
 return {
@@ -209,7 +209,7 @@ return {
 					key = function(name)
 						return name
 					end,
-					render = function(name: Readable<string>): GuiObject
+					render = function(name: ReadOnlyValue<string>): GuiObject
 						return UI.Text({
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,

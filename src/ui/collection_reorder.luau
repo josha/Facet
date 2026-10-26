@@ -11,12 +11,16 @@ local Types = require("./types")
 local CollectionTypes = require("./collection_types")
 export type Editor<V, K> = {
 	placement: (K, ComposeTypes.Placement, ComposeTypes.Use) -> ComposeTypes.Placement,
-	position: (K, ComposeTypes.Readable<ComposeTypes.Placement>, Types.ValueBoolean?) -> ComposeTypes.Readable<Vector2>,
-	wrap: (GuiObject, ComposeTypes.Readable<V>, K, boolean?) -> Frame,
+	position: (
+		K,
+		ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+		Types.ValueBoolean?
+	) -> ComposeTypes.ReadOnlyValue<Vector2>,
+	wrap: (GuiObject, ComposeTypes.ReadOnlyValue<V>, K, boolean?) -> Frame,
 	overlay: (boolean?) -> Frame,
-	leading: ComposeTypes.Readable<number>,
-	trailing: ComposeTypes.Readable<number>,
-	header: ComposeTypes.Readable<number>,
+	leading: ComposeTypes.ReadOnlyValue<number>,
+	trailing: ComposeTypes.ReadOnlyValue<number>,
+	header: ComposeTypes.ReadOnlyValue<number>,
 	press: (K, InputObject) -> (),
 	mouseDown: (Vector2) -> (),
 	finish: (InputObject) -> (),
@@ -29,17 +33,17 @@ return function<V, K>(
 	ctx: Types.Context,
 	UI: ControlTypes.BuilderControls,
 	spec: CollectionTypes.ReorderShape<V, K>,
-	source: Types.Value<{ V }>,
+	source: Types.Input<{ V }>,
 	keyOf: (V, number) -> K,
 	controls: ComposeTypes.OrderedCollectionControls<K>,
 	bodyOf: () -> ScrollingFrame,
-	selection: ComposeTypes.Cell<CollectionTypes.Selection<K>>,
-	sort: ComposeTypes.Cell<CollectionTypes.Sort?>,
+	selection: ComposeTypes.Value<CollectionTypes.Selection<K>>,
+	sort: ComposeTypes.Value<CollectionTypes.Sort?>,
 	editing: Types.ValueBoolean?,
 	grid: boolean?,
 	location: (({ K }, number) -> (boolean, number, K?))?,
 	instantLayout: boolean?,
-	reservedSlots: Types.Value<{ K }>?
+	reservedSlots: Types.Input<{ K }>?
 ): Editor<V, K>
 	local read = ctx.read
 	local E = ctx.types.Enum
@@ -138,9 +142,9 @@ return function<V, K>(
 		placement = placement,
 		position = function(
 			key: K,
-			at: ComposeTypes.Readable<ComposeTypes.Placement>,
+			at: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
 			reducedMotion: Types.ValueBoolean?
-		): ComposeTypes.Readable<Vector2>
+		): ComposeTypes.ReadOnlyValue<Vector2>
 			local target = ctx.Compose.formula(function(use: ComposeTypes.Use): Vector2
 				local proposed = placement(key, use(at), use)
 				return ctx.types.Vector2.new(proposed.crossOffset, proposed.offset)

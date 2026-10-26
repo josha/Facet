@@ -1,5 +1,8 @@
 --!strict
 
+local createNodes: (number, NodeData?) -> { NodeData } = table.create
+local createDrains: (number, DrainData?) -> { DrainData } = table.create
+
 local Weak = require "../weak"
 local stats = require "./stats"
 
@@ -162,19 +165,19 @@ local function rowFor(node: unknown, kind: string): NodeRow?
 	return row
 end
 
-local function guarded(body: () -> ())
+local function guarded(body: (State) -> ())
 	local held = state
 	if held == nil or held.broken then
 		return
 	end
-	local ok = pcall(body)
+	local ok = pcall(body, held)
 	if not ok then
 		held.broken = true
 	end
 end
 
 local function write(cell: unknown, suppressed: boolean)
-	guarded(function()
+	guarded(function(held)
 		local row = rowFor(cell, "cell")
 		if row == nil then
 			return
@@ -183,7 +186,7 @@ local function write(cell: unknown, suppressed: boolean)
 			row.writesSuppressed += 1
 		else
 			row.writes += 1
-			(state :: State).cause = row.label or ("cell#%d"):format(row.id)
+			held.cause = row.label or ("cell#%d"):format(row.id)
 		end
 	end)
 end
@@ -280,8 +283,7 @@ local function hostWrite()
 end
 
 local function drain(runs: number, seconds: number)
-	guarded(function()
-		local held = state :: State
+	guarded(function(held)
 		local row: DrainRow = { runs = runs, seconds = seconds, cause = held.cause }
 		held.cause = nil
 		if #held.drains < held.maxDrains then
@@ -310,8 +312,7 @@ local function naming(name: string?)
 end
 
 local function born(node: unknown, name: string?)
-	guarded(function()
-		local held = state :: State
+	guarded(function(held)
 		local row = rowFor(node, "watch")
 		if row ~= nil and row.label == nil then
 			row.label = name or held.pendingLabel
@@ -324,12 +325,14 @@ local function isActive(): boolean
 end
 
 local function start(now: () -> number, options: Options?)
-	local settings: Options = options or ({} :: Options)
+	local settings: Options = options or {}
 	restoreCounters = stats.state.enabled
 	stats.setEnabled(true)
 	clock = now
+	local rows: { [unknown]: NodeRow } = {}
+	Weak.keys(rows)
 	state = {
-		rows = Weak.keys() :: { [unknown]: NodeRow },
+		rows = rows,
 		ordered = {},
 		nextId = 0,
 		droppedRecords = 0,
@@ -530,7 +533,7 @@ local function format(report: Report, limit: number?): string
 end
 
 local function data(report: Report): Data
-	local nodes = table.create(#report.nodes) :: { NodeData }
+	local nodes: { NodeData } = createNodes(#report.nodes)
 	for index, row in report.nodes do
 		local wakes: { WakeData } = {}
 		local targets: { number } = {}
@@ -558,7 +561,7 @@ local function data(report: Report): Data
 			wakes = wakes,
 		}
 	end
-	local drains = table.create(#report.drains) :: { DrainData }
+	local drains: { DrainData } = createDrains(#report.drains)
 	for index, row in report.drains do
 		drains[index] = { runs = row.runs, seconds = row.seconds, cause = row.cause }
 	end
