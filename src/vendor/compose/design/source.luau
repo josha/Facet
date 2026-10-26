@@ -87,6 +87,9 @@ local function datatypeLiteral(datatype: string, value: Literal): string
 	if string.sub(datatype, 1, 5) == "Enum." then
 		return `{datatype}.{tostring(value)}`
 	end
+	if datatype == "Color3" and type(value) == "string" then
+		return `Color3.fromHex {literal((string.gsub(value, "^#", "")))}`
+	end
 	local parts: { string } = {}
 	if type(value) == "table" then
 		for _, component in value do
@@ -924,6 +927,17 @@ function source.parse(code: string, library: Library): Types.Document
 			local item = string.match(path, "^Enum%.[%w_]+%.([%w_]+)$")
 			if item ~= nil then
 				return { literal = item }, nil
+			elseif path == "Color3.fromHex" then
+				local wrapped = peek() == "("
+				if wrapped then
+					take "("
+				end
+				local hex = plain()
+				if wrapped then
+					take ")"
+				end
+				assert(type(hex) == "string", "Color3.fromHex takes text")
+				return { literal = "#" .. hex }, nil
 			elseif string.match(path, "^[%w_]+%.new$") and peek() == "(" then
 				take "("
 				local components: Record = {}

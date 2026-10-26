@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "ed40b1034d0cb14cdf442e1f6129ea6cb12bcc52",
+  "commit": "95bb81aac2f21be1d79a3be1458aac98d93d45ef",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -98,7 +98,7 @@
     "design/link.luau": "523b958f9cb723cdba3c60825607daf2940ede5f2bd85413c1c3aa3307599c2a",
     "design/render.luau": "7b07787735d47b8e4a15b78f3ce284ed088eb30333c1411041f2fdf91b64fd45",
     "design/session.luau": "10daa8a70a9cfd7e7fbb3141a7f4913e3d5545412f55ad4c4c64f478a19de0a1",
-    "design/source.luau": "6d12b0a67701af3210c24700355d3087db5dd05ebbc7ddbed67fd4dbc7b5a390",
+    "design/source.luau": "cf774faaee1cffacddd2dc9ef19c64c881d6bda03f837d4551f8a7c4d6903c42",
     "design/types.luau": "ce4d10ef258995e8390f194356e0a01dec735cd59f2f643983de750d4caaadad",
     "license.luau": "6895ff52a3e5583fabbf3f961d94eece335df5f24d2753189473daf8873e8f36",
     "roblox/cleanup.luau": "506fbbc882f9cccd6d82835ff54aaeac31ca4bee8c66240cb0fd34ea34e97366",
@@ -112,8 +112,8 @@
   },
   "docs": {
     "SKILL.md": "5b00d1daf8a47f8d97e5af9ab3044aca442fa027064015c8e7ffb584b074c7f1",
-    "references/api.md": "81dfed8f47f633a7a1069f0d7d7183a24e8c3b8cbb3256820d59312e475007a7",
-    "references/consumer-guides.md": "d8d1e25b9f42982b317a9f139413ade861a8da28551e6c0198eb9ffb8eb1989a",
-    "references/ownership.md": "0f3a5ba7817f257c03653b8eeddb66af8168b995ecaf711894c5b605197ca4d8"
+    "references/api.md": "1789035a6eedc0f6338803cb610d36ff2ad06c749da5e5df71a0f9ea8524b05e",
+    "references/consumer-guides.md": "faff784864af107ddeb6d9ddb4b121c799092164fe768b2fe404dfa5fd26bfad",
+    "references/ownership.md": "3211128a6cc2c68cffadabcd2f8bcf20a92f5aeeb4d350d4e2854d4e7af61924"
   }
 }
