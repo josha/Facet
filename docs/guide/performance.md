@@ -54,6 +54,15 @@ failed attempt. A second calibration failure fails the job.
 Use the current workflow and producer catalog for exact CI commands and
 required scenes. A selected local run is not complete CI evidence.
 
+## Published results
+
+Each push to `main` publishes the pr arm of its paired performance shards to
+the `perf-results` branch. `lute run tools/facet perf publish` keeps one file
+for each commit under `results/`. It writes `README.md` with the p50, p95 and
+retained heap of every scene, the p50 and p95 of every microbenchmark, the
+change from the previous commit and scene trend charts. The values come from
+the CI Ubuntu runner, so compare them only within that history.
+
 ## Measure runner noise
 
 Run the CI workflow manually with `diagnostic` set to `true`. Set `base` and

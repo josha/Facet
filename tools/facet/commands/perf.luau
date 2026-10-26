@@ -46,6 +46,8 @@ subcommands:
                                 require complete timing and retained heap measurements; invalid evidence exits 2; --gate exits 1 for a consistent latency or retained heap regression; --summary appends the summary and tables as Markdown
   aggregate [--all] [--layout] DUMP.html...
                                 read a MicroProfiler HTML dump's aggregate timer table
+  publish DIR COMMIT DATE PAIRED_DIR...
+                                append the pr arm's paired scene and microbenchmark medians to DIR/results and render DIR/README.md
   spec-timings [OUTCOME.json] [OUTPUT.tsv]
                                 write per-spec case timings from the last gate outcome
 
@@ -1908,8 +1910,59 @@ REGISTRATIONS.affected = function(harness: Verify.Harness, prefix: string)
 	end)
 end
 
-local ORDER =
-	{ "budgets", "metrics", "scenes", "place", "paired", "aggregate", "spec-timings", "footprint", "run", "affected" }
+REGISTRATIONS.publish = function(harness: Verify.Harness, prefix: string)
+	harness:case(
+		prefix .. "publish::records pr medians and renders the change from the previous commit",
+		function(context)
+			local Publish = require("../lib/perf_publish")
+			local root = Files.temporaryDirectory("facet-perf-publish-")
+			local function paired(name: string, p50: number): string
+				local directory = Files.join(root, name)
+				Files.makeDirectory(directory)
+				local rows = {}
+				for round = 1, 3 do
+					for _, label in { "base", "pr" } do
+						table.insert(
+							rows,
+							`\{"label": "{label}", "round": {round}, "row": \{"scene": "settings", "status": "ok", "p50": {p50}, "p95": {p50 * 2}, "memory": \{"mountedRetainedKb": 100\}\}\}`
+						)
+					end
+				end
+				Files.write(Files.join(directory, "scenes.jsonl"), table.concat(rows, "\n") .. "\n")
+				Files.write(
+					Files.join(directory, "bench-pr-1.json"),
+					`\{"results": [\{"name": "churn", "p50_ms": {p50 / 10}, "p95_ms": {p50 / 5}\}, \{"name": "zz-yardstick-cpu", "p50_ms": 1, "p95_ms": 1\}]\}`
+				)
+				return directory
+			end
+			local out = Files.join(root, "published")
+			context:expect(Publish.run(out, "aaaaaaaaaaaa", "2026-10-24", { paired("first", 1) })):toBe(0)
+			context:expect(Publish.run(out, "bbbbbbbbbbbb", "2026-10-25", { paired("second", 1.1) })):toBe(0)
+			local readme = Files.read(Files.join(out, "README.md"))
+			context
+				:expect(string.find(readme, "| settings | 1.1000 | 2.2000 | 100 | +10.0% |", 1, true) ~= nil)
+				:toBe(true)
+			context:expect(string.find(readme, "| churn | 0.1100 | 0.2200 | +10.0% |", 1, true) ~= nil):toBe(true)
+			context:expect(string.find(readme, "zz-yardstick-cpu", 1, true) == nil):toBe(true)
+			context:expect(string.find(readme, "xychart-beta", 1, true) ~= nil):toBe(true)
+			context:expect(Publish.run(out, "c", "2026-10-26", { Files.join(root, "missing") })):toBe(1)
+		end
+	)
+end
+
+local ORDER = {
+	"budgets",
+	"metrics",
+	"scenes",
+	"place",
+	"paired",
+	"aggregate",
+	"spec-timings",
+	"footprint",
+	"run",
+	"affected",
+	"publish",
+}
 
 local function registerAll(harness: Verify.Harness, prefix: string): ()
 	harness:case(prefix .. "the memory gate rejects planted native and Compose leaks", {
@@ -2006,6 +2059,19 @@ local function run(invocation: Cli.Invocation): number
 	local ok, code = pcall(function(): number
 		if subcommand == "budgets" then
 			return budgets()
+		elseif subcommand == "publish" then
+			local positional = invocation.positional
+			local directory, commit, date = positional[2], positional[3], positional[4]
+			if directory == nil or commit == nil or date == nil or positional[5] == nil then
+				print(USAGE)
+				return 2
+			end
+			return require("../lib/perf_publish").run(
+				directory,
+				commit,
+				date,
+				table.move(positional, 5, #positional, 1, {})
+			)
 		elseif subcommand == "metrics" then
 			return metrics()
 		elseif subcommand == "memory" then
