@@ -316,14 +316,14 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 						itemSize = 56,
 						measured = extents,
 						status = status,
-						recycle = item.workload ~= "edit-locality",
 						render = function(current): GuiObject
 							if item.workload == "edit-locality" then
-								local value = values[current:peek().id]
 								return UI.TextInput({
-									value = value,
+									value = function(use: Use): string
+										return use(values[use(current).id])
+									end,
 									onChange = function(next)
-										value:set(next)
+										values[current:peek().id]:set(next)
 									end,
 									Size = T.UDim2.new(1, 0, 0, 56),
 								})

@@ -210,7 +210,7 @@ add("reserved-slot-record-update", function()
 					end,
 				})
 				Compose.watch(function(use: Use)
-					labels[use(key)] = label
+					labels[if type(key) == "string" then key else use(key)] = label
 				end)
 				return label
 			end,
