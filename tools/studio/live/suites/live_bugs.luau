@@ -453,4 +453,67 @@ add("radial-tool-captions-near-phone-edge", {}, function(t: any)
 	t.check("Close restores the launcher", launcher.Visible and t.find(stage, "RadialPanel") == nil)
 end)
 
+add("radial-list-bounds-in-short-room", {}, function(t)
+	local mouse = pointer(t)
+	local chosen = ""
+	local stage = t.mount(function(UI: FacetControls, _Host: RobloxHost, C: ComposeModule)
+		return UI.RadialMenu "Commands" {
+			label = "Crew commands",
+			anchor = { x = 80, y = 60 },
+			clearance = 160,
+			isPresented = C.cell(true),
+			items = {
+				{
+					id = "ready",
+					label = "Ready",
+					onSelect = function()
+						chosen = "ready"
+					end,
+				},
+				{
+					id = "wait",
+					label = "Wait here",
+					onSelect = function()
+						chosen = "wait"
+					end,
+				},
+				{
+					id = "follow",
+					label = "Follow me",
+					onSelect = function()
+						chosen = "follow"
+					end,
+				},
+				{
+					id = "thanks",
+					label = "Thanks",
+					onSelect = function()
+						chosen = "thanks"
+					end,
+				},
+			},
+		}
+	end, { size = Vector2.new(844, 390) })
+	t.settle(30)
+	local panel = t.find(stage, "RadialPanel")
+	t.check("short room uses the list fallback", panel:GetAttribute("Presentation") == "list")
+	t.check("short commands do not fill the wide viewport", panel.AbsoluteSize.X < 500, panel.AbsoluteSize)
+	local close = t.find(stage, "Center")
+	local title = t.find(stage, "SelectionPreview")
+	t.check("title aligns with the list", math.abs(title.AbsolutePosition.X - panel.AbsolutePosition.X) < 1)
+	t.check(
+		"Close aligns with the list",
+		math.abs(close.AbsolutePosition.X + close.AbsoluteSize.X - panel.AbsolutePosition.X - panel.AbsoluteSize.X) < 1
+	)
+	for _, id in { "ready", "wait", "follow", "thanks" } do
+		local button = t.find(stage, id)
+		local caption = button:FindFirstChild("Title", true) or button
+		t.check(id .. " label fits", t.fits(caption))
+		t.inside(id .. " stays inside the list", button, panel, 1)
+	end
+	mouse.click(centre(t.find(stage, "ready")))
+	t.settle(30)
+	t.check("real touch commits the command", chosen == "ready", chosen)
+end)
+
 return cases

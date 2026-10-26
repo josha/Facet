@@ -15,6 +15,7 @@ export type Paint<V> = {
 	focus: ComposeTypes.FocusScope<string>,
 	gui: GuiService?,
 	panel: ScrollingFrame,
+	listWidth: ComposeTypes.ReadOnlyValue<number>,
 }
 
 return function<V>(
@@ -109,6 +110,19 @@ return function<V>(
 		end
 	end)
 	local gui = surfaces.service("GuiService")
+	local listWidth = Compose.formula(function(use: ComposeTypes.Use): number
+		local width = ctx.metric("controls.popup.panelWidth", use)
+		local words = use(wordWidths)
+		for _, sector in use(sectors) do
+			local item = sector.item
+			local icon = item.icon or (item.compactLabel and item.compactLabel.icon)
+			local content = (words[sector.key] or 0)
+				+ captionPadding(use)
+				+ (if icon then ctx.controlSize(nil, "iconSize", use) + ctx.metric("space.s", use) else 0)
+			width = math.max(width, content + 2 * ctx.metric("space.m", use) + 8)
+		end
+		return math.min(width, math.max(0, use(arrangement.viewport).X - 32))
+	end)
 	local attributes: Types.Attributes = {
 		Presentation = function(use: ComposeTypes.Use)
 			return if use(fallback) then "list" else "radial"
@@ -120,10 +134,10 @@ return function<V>(
 			return if use(fallback) then 0 else 1
 		end,
 		Size = function(use: ComposeTypes.Use)
-			return if use(fallback) then D2.new(1, -32, 1, -80) else D2.fromScale(1, 1)
+			return if use(fallback) then D2.new(0, use(listWidth), 1, -80) else D2.fromScale(1, 1)
 		end,
 		Position = function(use: ComposeTypes.Use)
-			return if use(fallback) then D2.fromOffset(16, 48) else D2.fromOffset(0, 0)
+			return if use(fallback) then D2.new(0.5, -use(listWidth) / 2, 0, 48) else D2.fromOffset(0, 0)
 		end,
 		Active = function(use: ComposeTypes.Use)
 			return use(fallback) or not spec.centerPassThrough
@@ -601,5 +615,6 @@ return function<V>(
 		focus = focus,
 		gui = gui,
 		panel = panel,
+		listWidth = listWidth,
 	}
 end

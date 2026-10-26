@@ -94,7 +94,7 @@ return function<V>(
 	end
 	local function centerAt(use: ComposeTypes.Use): UDim2
 		if use(fallback) then
-			return D2.new(1, -16 - painted(use) / 2, 0, 2 + painted(use) / 2)
+			return D2.new(0.5, use(paint.listWidth) / 2 - painted(use) / 2, 0, 2 + painted(use) / 2)
 		end
 		local at = use(center)
 		return D2.fromOffset(at.X, at.Y)
@@ -218,7 +218,7 @@ return function<V>(
 	local function previewPlace(use: ComposeTypes.Use): (UDim2, Vector2)
 		local ring = use(layout)
 		if ring.list then
-			return D2.fromOffset(16, 40), V2.new(0, 1)
+			return D2.new(0.5, -use(paint.listWidth) / 2, 0, 40), V2.new(0, 1)
 		end
 		local at = use(center)
 		do
@@ -272,7 +272,7 @@ return function<V>(
 		Name = "SelectionPreview",
 		Size = function(use: ComposeTypes.Use): UDim2
 			if use(layout).list then
-				return D2.new(1, -32 - 1.5 * painted(use), 0, 0)
+				return D2.fromOffset(math.max(0, use(paint.listWidth) - 1.5 * painted(use)), 0)
 			end
 			return D2.fromOffset(0, 0)
 		end,

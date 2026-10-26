@@ -866,6 +866,41 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
+		verifyHarness:case("list fallback bounds short commands and grows for measured labels within narrow room", {
+			id = "native_radial_controls::native radial interaction policies::list fallback bounds short commands and grows for measured labels within narrow room",
+			run = function()
+				local selected = ""
+				local world = setup({
+					anchor = { x = 80, y = 60 },
+					clearance = 160,
+					items = compass(function(id)
+						selected = id
+					end),
+				})
+				local V2 = world.engine.types.Vector2
+				world.engine.environment.poke(world.find("Modal"), "AbsoluteSize", V2.new(1600, 300))
+				local panel = world.find("RadialPanel")
+				Verify.expect(panel:GetAttribute("Presentation")):toBe("list")
+				Verify.expect(panel.Size.X.Scale):toBe(0)
+				Verify.expect(panel.Size.X.Offset < 800):toBe(true)
+				Verify.expect(panel.Position.X.Offset + panel.Size.X.Offset / 2):toBe(0)
+				Verify.expect(panel.ScrollingEnabled):toBe(true)
+				local previous = panel.Size.X.Offset
+				local measure = world.find("N"):FindFirstChild("CaptionMeasure", true)
+				world.engine.environment.poke(measure, "TextBounds", V2.new(620, 20))
+				Verify.expect(panel.Size.X.Offset > previous):toBe(true)
+				Verify.expect(panel.Size.X.Offset >= 620):toBe(true)
+				world.engine.environment.poke(world.find("Modal"), "AbsoluteSize", V2.new(240, 300))
+				Verify.expect(panel.Size.X.Offset <= 208):toBe(true)
+				Verify.expect(world.find("SelectionPreview").Size.X.Offset < panel.Size.X.Offset):toBe(true)
+				world.find("N").Activated:Fire()
+				Verify.expect(selected):toBe("N")
+				Verify.expect(world.opened:peek()):toBe(true)
+				world.find("CenterHit").Activated:Fire()
+				Verify.expect(world.opened:peek()):toBe(false)
+				world.stop()
+			end,
+		})
 		verifyHarness:case("NRAD-7 state items stay open and completion precedes callbacks", {
 			id = "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
 			run = function()
@@ -1637,9 +1672,9 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(`{center}: {world.find("$navigation") == nil}`):toBe(`{center}: true`)
 					local centre = visibleCenter(world)
 					Verify.expect(`{center}: {centre ~= nil}`):toBe(`{center}: true`)
-					Verify.expect(centre.Position.X.Scale):toBe(1)
+					Verify.expect(centre.Position.X.Scale):toBe(0.5)
 					Verify.expect(centre.Position.X.Offset + centre.Size.X.Offset * (1 - centre.AnchorPoint.X))
-						:toBe(-16)
+						:toBe(world.find("RadialPanel").Size.X.Offset / 2)
 					Verify.expect(centre.Position.Y.Scale):toBe(0)
 					Verify.expect(centre.Size.X.Offset):toBe(centre.Size.Y.Offset)
 					Verify.expect(`{center}: {centre:GetAttribute("label")}`):toBe(`{center}: Close`)
