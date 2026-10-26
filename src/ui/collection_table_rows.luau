@@ -11,6 +11,7 @@ local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
 local Metrics = require("./collection_table_metrics")
 local Columns = require("./collection_table_columns")
+local createHighlight = require("./collection_highlight")
 export type Rows<V, K> = {
 	spec: CollectionTypes.TableShape<V, K>,
 	rowPolicySpec: CollectionTypes.TableShape<V, K>,
@@ -47,6 +48,11 @@ return function<V, K>(
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
 	local spec, rowPolicySpec, selection, coordinator =
 		shared.spec, shared.rowPolicySpec, shared.selection, shared.coordinator
+	local highlight = createHighlight(
+		Compose,
+		selection,
+		spec.selection ~= nil or spec.onSelectionChange ~= nil or spec.selectionMode ~= nil
+	)
 	local rowMeasures, actionGutters, truncatedRows = shared.rowMeasures, shared.actionGutters, shared.truncatedRows
 	local unitScale, scrolledX, editors, field = shared.unitScale, shared.scrolledX, shared.editors, shared.field
 	local tree, editor, laneWidth = shared.tree, shared.editor, shared.laneWidth
@@ -109,9 +115,7 @@ return function<V, K>(
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Attributes = {
-				FacetSelected = function(use: ComposeTypes.Use)
-					return read(selection, use)[use(key)] == true
-				end,
+				FacetSelected = false,
 			} :: EngineTypes.Attributes,
 			lists.list({}, false) :: ComposeTypes.Child,
 			Compose.keyed({
@@ -149,21 +153,9 @@ return function<V, K>(
 						else nil
 					local render: ((ComposeTypes.ReadOnlyValue<K>) -> ComposeTypes.Child)? = if build
 						then function(rowKey: ComposeTypes.ReadOnlyValue<K>): ComposeTypes.Child
-							return Compose.keyed({
-								from = function(use: ComposeTypes.Use): { K }
-									return { use(rowKey) }
-								end,
-								key = function(value: K): K
-									return value
-								end,
-								render = function(
-									_: ComposeTypes.ReadOnlyValue<K>,
-									_index: ComposeTypes.ReadOnlyValue<number>,
-									value: K
-								): GuiObject
-									return build(value)
-								end,
-							})
+							return Compose.switch(rowKey, {}, function(): GuiObject
+								return build(rowKey:peek())
+							end)
 						end
 						else nil
 					local function valueText(use: ComposeTypes.Use): string
@@ -457,8 +449,11 @@ return function<V, K>(
 				painted:RemoveTag("facet-tablerow-alternate")
 			end
 		end)
-		Compose.watch(function(use: ComposeTypes.Use)
-			local on = read(selection, use)[use(key)] == true
+		highlight(key, function(state)
+			local on = state ~= "none"
+			if cellRow:GetAttribute("FacetSelected") ~= on then
+				cellRow:SetAttribute("FacetSelected", on)
+			end
 			if on ~= painted:HasTag("facet-selected") then
 				if on then
 					painted:AddTag("facet-selected")

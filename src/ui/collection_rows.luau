@@ -11,6 +11,7 @@ local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
 local State = require("./collection_state")
 local Slots = require("./collection_slots")
+local createHighlight = require("./collection_highlight")
 return function<V, K>(
 	ctx: Types.Context,
 	UI: ControlTypes.BuilderControls,
@@ -30,6 +31,7 @@ return function<V, K>(
 	local source, viewport, cross = view.source, view.viewport, view.cross
 	local mountedVersion, status, controls, selection = view.mountedVersion, view.status, view.controls, view.selection
 	local coordinator, selectionMode = view.coordinator, view.selectionMode
+	local highlight = createHighlight(Compose, selection, spec.selection ~= nil or selectionMode ~= "none")
 	local measured, containsCards, horizontal = view.measured, view.containsCards, view.horizontal
 	local reduced, focusActive = view.reduced, view.focusActive
 	local liveOverflow = Compose.isValue(spec.contentOverflow) or type(spec.contentOverflow) == "function"
@@ -258,6 +260,7 @@ return function<V, K>(
 						press(keyCell:peek(), value)
 					end))
 				end
+				local selectionHit: TextButton? = nil
 				local children: Types.FrameProps = {
 					Name = "Content",
 					Size = if tree
@@ -311,14 +314,9 @@ return function<V, K>(
 						end,
 						Attributes = {
 							FacetSelectionRequired = selectionMode ~= "none",
-							FacetOnlySelected = function(use: ComposeTypes.Use)
-								return use(view.onlySelected) == use(keyCell)
-							end,
-							FacetSelected = function(use: ComposeTypes.Use)
-								return read(selection, use)[use(keyCell)] == true
-							end,
 						} :: EngineTypes.Attributes,
 					}
+					selectionHit = hit
 					Compose.cleanup(activation.provide(hit, function(input: unknown, clicks: unknown)
 						if not activation.intercepted(hit, input) then
 							select(keyCell:peek(), current, input :: InputObject?, clicks :: number?)
@@ -403,22 +401,39 @@ return function<V, K>(
 				local content = Host.CanvasGroup(groupProperties)
 				local logical = surface or content
 				policy.drop(ctx, spec, current, keyCell:peek(), logical, kind == "grid" or horizontal)
+				local selected = if paintSelection
+						and not carded
+						and ctx.config.theme ~= nil
+					then Compose.cell(false)
+					else nil
 				if paintSelection and not carded then
 					ctx.styled(logical, "TableRow")
 					if kind == "grid" or horizontal then
 						ctx.skin(logical, "control", {
-							selected = function(use: ComposeTypes.Use): boolean
-								return use(selection)[use(keyCell)] == true
-							end,
+							selected = selected,
 						})
 					end
 				end
-				if paintSelection then
-					Compose.watch(function(use: ComposeTypes.Use)
-						if use(selection)[use(keyCell)] == true then
-							logical:AddTag("facet-selected")
-						else
-							logical:RemoveTag("facet-selected")
+				if selectionHit or paintSelection then
+					highlight(keyCell, function(state)
+						local on = state ~= "none"
+						if selectionHit then
+							if selectionHit:GetAttribute("FacetOnlySelected") ~= (state == "only") then
+								selectionHit:SetAttribute("FacetOnlySelected", state == "only")
+							end
+							if selectionHit:GetAttribute("FacetSelected") ~= on then
+								selectionHit:SetAttribute("FacetSelected", on)
+							end
+						end
+						if paintSelection and on ~= logical:HasTag("facet-selected") then
+							if on then
+								logical:AddTag("facet-selected")
+							else
+								logical:RemoveTag("facet-selected")
+							end
+						end
+						if selected then
+							selected:set(on)
 						end
 					end)
 				end

@@ -26,7 +26,6 @@ export type View<V, K> = {
 	status: ComposeTypes.Value<ComposeTypes.OrderedCollectionStatus>,
 	controls: ComposeTypes.OrderedCollectionControls<K>,
 	selection: ComposeTypes.Value<CollectionTypes.Selection<K>>,
-	onlySelected: ComposeTypes.Value<K?>,
 	coordinator: ComposeTypes.Value<{}?>,
 	selectionMode: "none" | "single" | "multiple",
 	selectRow: (K, V, InputObject?) -> (),
@@ -129,19 +128,6 @@ local function create<V, K>(
 	end
 	local controls: ComposeTypes.OrderedCollectionControls<K> = spec.controls or {}
 	local selection: ComposeTypes.Value<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
-	local onlySelected = Compose.formula(function(use: ComposeTypes.Use): K?
-		local only: K? = nil
-		local chosen: CollectionTypes.Selection<K> = use(selection)
-		for key, selected in chosen do
-			if selected then
-				if only ~= nil then
-					return nil
-				end
-				only = key
-			end
-		end
-		return only
-	end)
 	local coordinator = Compose.cell(nil :: {}?)
 	local selectionMode: "none" | "single" | "multiple" = spec.selectionMode
 		or (if spec.selection or spec.onSelectionChange then "single" else "none")
@@ -322,7 +308,6 @@ local function create<V, K>(
 		status = status,
 		controls = controls,
 		selection = selection,
-		onlySelected = onlySelected,
 		coordinator = coordinator,
 		selectionMode = selectionMode,
 		selectRow = selectRow,

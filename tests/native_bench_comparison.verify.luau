@@ -6,6 +6,7 @@ local Parity = require("../bench/comparison/parity")
 local Types = require("../bench/comparison/types")
 local S = require("../bench/comparison/support")
 local NativeApp = require("../bench/native_app")
+local createHighlight = require("../src/ui/collection_highlight")
 local Facet = require("../src")
 
 local function workload(id: string): Types.Workload
@@ -27,6 +28,60 @@ return function(harness: Verify.Harness)
 				end,
 			})
 		end
+		harness:case("collection highlights follow multiple selection and recycled keys until disposal", {
+			id = "native_bench_comparison::collection highlights follow multiple selection and recycled keys until disposal",
+			run = function()
+				local world = NativeApp()
+				local Compose = world.Compose
+				local initial: { [number]: boolean } = { [1] = true }
+				local chosen = Compose.cell(initial)
+				local key = Compose.cell(1)
+				local state = ""
+				local calls = 0
+				local root = Compose.createRootOwner(function()
+					createHighlight(Compose, chosen, true)(key, function(value)
+						calls += 1
+						state = value
+					end)
+				end)
+				Verify.expect(state):toBe("only")
+				chosen:set({ [1] = true, [2] = true })
+				Verify.expect(state):toBe("selected")
+				chosen:set({ [2] = true })
+				Verify.expect(state):toBe("none")
+				key:set(2)
+				Verify.expect(state):toBe("only")
+				chosen:set({ [1] = true })
+				Verify.expect(state):toBe("none")
+				Verify.expect(calls):toBe(5)
+				local edited = chosen:peek()
+				edited[1] = nil
+				edited[2] = true
+				chosen:set(table.clone(edited))
+				Verify.expect(state):toBe("only")
+				Verify.expect(calls):toBe(6)
+				root.dispose()
+				chosen:set({ [1] = true })
+				Verify.expect(calls):toBe(6)
+				world.dispose()
+			end,
+		})
+		harness:case("selection effects run only for changed row indicators", {
+			id = "native_bench_comparison::selection effects run only for changed row indicators",
+			run = function()
+				local world = NativeApp()
+				local scene = workload("inventory-100").prepare(world, "facet")
+				world.Compose.profile.start(os.clock)
+				scene.step(1)
+				local profile = world.Compose.profile.stop()
+				Verify.expect(profile.totals.runs < 20):toBe(true)
+				Verify.expect(profile.totals.schedules < 20):toBe(true)
+				Verify.expect(assert(S.find(world, "1"):FindFirstChild("Content")):HasTag("facet-selected")):toBe(false)
+				Verify.expect(assert(S.find(world, "2"):FindFirstChild("Content")):HasTag("facet-selected")):toBe(true)
+				scene.stop()
+				world.dispose()
+			end,
+		})
 		for _, subject in
 			{
 				{ id = "badges-30-300-updates", member = "Visible" },
@@ -100,6 +155,55 @@ return function(harness: Verify.Harness)
 				observer:Disconnect()
 				Verify.expect(writes):toBe(0)
 				scene.stop()
+				world.dispose()
+			end,
+		})
+		harness:case("custom table cells retain content for a key and release it when the key changes", {
+			id = "native_bench_comparison::custom table cells retain content for a key and release it when the key changes",
+			run = function()
+				type Item = { id: number, label: string }
+				local world = NativeApp()
+				local initial: { Item } = { { id = 1, label = "One" } }
+				local source = world.Compose.cell(initial)
+				local released = 0
+				local columns: { Facet.TableColumn<Item, number> } = {
+					{
+						id = "label",
+						label = "Label",
+						render = function(current, _placement, key)
+							world.Compose.cleanup(function()
+								released += 1
+							end)
+							return world.UI.Text("Cell" .. key:peek()) {
+								text = function(use: Facet.Use): string
+									return use(current).label
+								end,
+							}
+						end,
+					},
+				}
+				local stop = S.mount(world, "facet", function()
+					local spec: Facet.KeyedTableSpec<Item, number> = {
+						from = source,
+						key = function(item)
+							return item.id
+						end,
+						columns = columns,
+						mode = "all",
+					}
+					return world.UI.Table "Cells"(spec)
+				end, function() end)
+				local first = S.find(world, "Cell1")
+				source:set({ { id = 1, label = "Updated" } })
+				Verify.expect(S.find(world, "Cell1")):toBe(first)
+				Verify.expect(first.Text):toBe("Updated")
+				Verify.expect(released):toBe(0)
+				source:set({ { id = 2, label = "Two" } })
+				Verify.expect(world.engine.environment.isAlive(first)):toBe(false)
+				Verify.expect(S.find(world, "Cell2").Text):toBe("Two")
+				Verify.expect(released):toBe(1)
+				stop()
+				Verify.expect(released):toBe(2)
 				world.dispose()
 			end,
 		})
