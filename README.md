@@ -81,6 +81,12 @@ controls create Instances only when a client mounts them.
 [The verification scope](docs/guide/verification-scope.md) states what a run
 covers. The current suite is the evidence. A passing run proves only the selected cases.
 
+## Performance
+
+[![Facet performance on the latest main commit](https://raw.githubusercontent.com/josha/Facet/perf-results/summary.svg)](https://github.com/josha/Facet/blob/perf-results/README.md)
+
+Each push to `main` publishes these numbers. Select the table for every scene and microbenchmark, the change from the previous commit and trend charts.
+
 ## Installing
 
 ### The official Roblox Package
