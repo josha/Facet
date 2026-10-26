@@ -4,10 +4,12 @@ local Cli = require("../lib/cli")
 local Snapshot = require("../lib/snapshot")
 local SnapshotCases = require("../lib/snapshot_cases")
 
-local USAGE = [[usage: lute run tools/facet sync <compose|verify|all> [--check] [--bump COMMIT] [--source REPOSITORY]
+local USAGE =
+	[[usage: lute run tools/facet sync <compose|verify|all> [--check] [--content] [--bump COMMIT] [--source REPOSITORY]
 
 Materialize the exact pinned snapshot of a vendored dependency. The snapshot is tracked, generated and read-only.
-  --check            fail when a file differs from the pin; never fetch
+  --check            fail when a file differs from the pin or is not mode 100644; never fetch
+  --content          with --check, check file contents only and ignore file modes
   --bump COMMIT      move the pin to this full commit and materialize it
   --source DIRECTORY use a local Git repository that contains the pinned commit]]
 
@@ -25,7 +27,7 @@ local function run(invocation: Cli.Invocation): number
 		print(USAGE)
 		return 2
 	end
-	local unknown = Cli.unknownFlags(invocation, { "check", "bump", "source" })
+	local unknown = Cli.unknownFlags(invocation, { "check", "content", "bump", "source" })
 	if unknown ~= nil then
 		print("facet sync: unknown option " .. unknown)
 		return 2
@@ -37,6 +39,7 @@ local function run(invocation: Cli.Invocation): number
 	end
 	local code, message = Snapshot.sync(Snapshot.config(".", target), {
 		check = Cli.switch(invocation, "check"),
+		contentOnly = Cli.switch(invocation, "content"),
 		bump = Cli.flag(invocation, "bump"),
 		source = Cli.flag(invocation, "source"),
 	})

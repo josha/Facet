@@ -3,6 +3,7 @@ local Verify = require("../../vendor/verify/src/core")
 
 local Files = require("./files")
 local Json = require("./json")
+local Run = require("./run")
 local Snapshot = require("./snapshot")
 
 local SnapshotCases = {}
@@ -212,6 +213,34 @@ local function lineEndings(test: Verify.Context): ()
 	end)
 end
 
+local function executableModes(test: Verify.Context)
+	within(test, function(root)
+		local config = fixture(root, "guide")
+		local files: Snapshot.Entries = { ["src/init.luau"] = "return {}\n" }
+		local docs: Snapshot.Entries = { ["SKILL.md"] = "Use the public API.\n" }
+		Snapshot.writeSnapshot(config, files, docs)
+		writePin(config, {
+			repository = "https://github.com/voidmeld/deleted-history",
+			commit = string.rep("a", 40),
+			sha256 = Snapshot.inventory(files),
+			docs = Snapshot.inventory(docs),
+		})
+		assert(Run.git({ "init", "-q" }, root).ok, "git init failed")
+		assert(Run.git({ "add", "." }, root).ok, "git add failed")
+		assert(Run.git({ "update-index", "--chmod=+x", "--", "vendor/src/init.luau" }, root).ok, "chmod failed")
+		local executables = Snapshot.executables(config)
+		test:expect(table.find(executables, "vendor/src/init.luau") ~= nil):toBe(true)
+		local code, message = Snapshot.sync(config, { check = true })
+		test:expect(code):toBe(1)
+		test:expect(string.find(message, "mode 100644", 1, true) ~= nil):toBe(true)
+		test:expect((Snapshot.sync(config, { check = true, contentOnly = true }))):toBe(0)
+		local repaired = Snapshot.sync(config, { check = false })
+		test:expect(repaired):toBe(0)
+		test:expect(Snapshot.executables(config)):toEqual({})
+		test:expect((Snapshot.sync(config, { check = true }))):toBe(0)
+	end)
+end
+
 function SnapshotCases.register(harness: Verify.Harness, prefix: string): ()
 	harness:case(prefix .. "a tracked snapshot needs no upstream history", {
 		id = prefix .. "a tracked snapshot needs no upstream history",
@@ -236,6 +265,10 @@ function SnapshotCases.register(harness: Verify.Harness, prefix: string): ()
 	harness:case(prefix .. "unsafe commits, repositories and archive paths are refused", {
 		id = prefix .. "unsafe commits, repositories and archive paths are refused",
 		run = unsafeInputs,
+	})
+	harness:case(prefix .. "generated files keep mode 100644", {
+		id = prefix .. "generated files keep mode 100644",
+		run = executableModes,
 	})
 	harness:case(prefix .. "a CRLF checkout of LF-pinned text verifies", {
 		id = prefix .. "a CRLF checkout of LF-pinned text verifies",

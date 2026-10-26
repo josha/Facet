@@ -278,7 +278,7 @@ jobs:
             (cd "$base" && lute run "$GITHUB_WORKSPACE/tools/facet" sync verify --bump "$verify_commit")
           fi
           cmp tools/vendor/verify/UPSTREAM.lock "$base/tools/vendor/verify/UPSTREAM.lock"
-          (cd "$base" && lute run "$GITHUB_WORKSPACE/tools/facet" sync verify --check)
+          (cd "$base" && lute run "$GITHUB_WORKSPACE/tools/facet" sync verify --check --content)
           measurement=(bench tests examples tools)
           if ! cmp -s src/vendor/compose/UPSTREAM.lock "$base/src/vendor/compose/UPSTREAM.lock"; then
             measurement=(bench/paired_scene.luau bench/paired_workload.luau tests examples tools)
