@@ -1,5 +1,5 @@
 {
-  "name": "Facet Design",
+  "name": "Compose Design Playground",
   "emitLegacyScripts": true,
   "tree": {
     "$className": "DataModel",
@@ -7,28 +7,17 @@
     "ReplicatedStorage": {
       "Facet": {
         "$path": "../../src"
-      },
-      "FacetDesignModules": {
-        "$path": "modules"
-      },
-      "FacetDesignExamples": {
-        "$path": "examples"
-      }
-    },
-    "Workspace": {
-      "$properties": {
-        "PlayerScriptsUseInputActionSystem": "Enabled"
       }
     },
     "StarterPlayer": {
       "StarterPlayerScripts": {
-        "FacetDesign": {
+        "ComposeDesign": {
           "$path": "play.client.luau"
         }
       }
     },
     "ServerScriptService": {
-      "FacetDesignStorage": {
+      "ComposeDesignStorage": {
         "$path": "storage.server.luau"
       }
     },

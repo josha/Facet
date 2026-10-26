@@ -1875,7 +1875,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 27,
 				options = { "none", "single", "multiple" },
 			},
-			rowActions = { type = "value", label = "Row actions", order = 30, format = "json" },
+			rowActions = { type = "value", label = "Row actions", order = 30, format = "json", perRow = true },
 		},
 	},
 	Text = {

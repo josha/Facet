@@ -27,37 +27,32 @@ Save is explicit. Unsaved changes end when the player leaves.
 
 ## Design and code
 
-The screens in `designs/` were authored with the Facet Design document, export,
-and agent APIs. Each component has an importable `.design.json` file and a
-`.preview.luau` module. Import the JSON file in Facet Design, or select the
-component ModuleScript in the Studio plugin and use source sync.
+The screens in `designs/` are Compose Design modules made with the Facet
+library. Open one in Studio: select its ModuleScript and click **Design** in
+the Compose toolbar. The editor stays linked to the module, so an edit in the
+editor writes the source and an edit to the source updates the editor.
 
-Facet Design's **Insert control** action opens a searchable control gallery.
-The gallery includes layouts, inputs, collections, and overlays. Select a
-container layer before inserting a child.
+Use **Insert** to add a control from the library. Select a container layer
+before inserting a child.
 
-The Furnish document contains one reusable cell template for each table column.
-The name cell contains a title and category. The count cell contains a badge.
-The finish cell contains text. Edit a template once to change every row.
-The table keeps the name column at compact widths and adds the other columns
-when space permits.
+The Furnish design has a cell for each table column. The name cell contains
+a title and a category. The count cell contains a badge. The finish cell
+contains text. Edit a cell once to change every row. The table keeps the name
+column at compact widths and adds the other columns when space permits.
 
-Select the Table and use **Design a cell** to create or open a column template.
-Inside a cell, use a field picker to bind display properties to sample row
-fields. The live rows input and named activation and row action callbacks are
-also properties in the document. These properties round-trip with generated
-Facet code. The inventory menu and swipe actions choose a piece or place it
-in the selected room slot. Selecting a row also chooses the piece.
+A cell binds its text to fields of the `inventoryRows` input. The row actions
+and the table's activation call the `onChooseFurniture` and
+`onPlaceFurniture` outputs with the row. The inventory menu and swipe actions
+choose a piece or place it in the selected room slot. Selecting a row also
+chooses the piece. The search field keeps its text in the design's
+`furnitureQuery` state.
 
-Game code passes `InventoryRows`, `ChooseFurniture`, and `PlaceFurniture` to the
-generated component. It owns filtering, server requests, and durable state.
-The editor supports display bindings and named callbacks. It does not edit
-arbitrary game expressions or write changes back to a data source.
+Game code passes `inventoryRows`, `onChooseFurniture` and `onPlaceFurniture`
+to the generated component. It owns filtering, server requests and durable
+state.
 
-Supported visual source edits round-trip through Facet Design. Custom callbacks
-remain in game code. Home does not add a second document-to-runtime state system.
-Do not run `author.luau` after editing a design unless you intend to regenerate
-all seed designs. To regenerate the checked-in seeds:
+`author.luau` builds the six designs with the Compose Design document API.
+Run it only to regenerate all of them:
 
 ```sh
 lute run examples/facet_home/author.luau
@@ -86,7 +81,7 @@ only room policy and player tasks.
 | Reliability | Reject invalid edits; save and restore layouts | Cloud failures and concurrent published sessions |
 | Adaptation | Compact inventory and wide columns; flat and immersive views | Physical phone, tablet, desktop, and console matrix |
 | Access | Larger text, themes, native focus, complete flat actions | Localization, long strings, assistive input review |
-| Developer experience | Edit reusable cells through Facet Design; bind live rows | More binding types and native source sync evidence |
+| Developer experience | Edit column cells in Compose Design; bind live rows | More binding types and native source sync evidence |
 | Performance | Replace furniture under disposable Compose owners | Long sessions, many players, low-end device budgets |
 | Controls | Use controls in complete furnishing and play tasks | Map the remaining API to relevant future tasks |
 | Ecosystem | Build a self-contained place with documented source | Reusable consumer recipes and maintained device evidence |

@@ -143,10 +143,11 @@ local function classifyOne(key: string, text: string): Field?
 	if DATATYPES[current] then
 		return { type = "datatype", datatype = current }
 	end
-	local qualifier, qualified = string.match(current, "^([%w_]+)%.([%w_]+)$")
+	local plainName = string.gsub(current, "^([%w_%.]+)<.*>$", "%1")
+	local qualifier, qualified = string.match(plainName, "^([%w_]+)%.([%w_]+)$")
 	local here = modules[currentFile]
 	local target = if qualifier and here then here.requires[qualifier] elseif qualifier then nil else currentFile
-	local aliasName = qualified or string.match(current, "^([%w_]+)$")
+	local aliasName = qualified or string.match(plainName, "^([%w_]+)$")
 	local info = if target then modules[target] else nil
 	local aliased = if info and aliasName then info.aliases[aliasName] else nil
 	if target and aliasName and aliased then
@@ -197,7 +198,8 @@ classifyKnown = function(key: string, current: string): Field?
 		else
 			local field = classifyOne(key, part)
 			if field ~= nil and field.type == "choice" then
-				for _, choice in field.options or {} do
+				local choices: { string } = field.options or {}
+				for _, choice in choices do
 					table.insert(options, choice)
 				end
 			elseif field ~= nil and (found == nil or (found.type ~= "string" and field.type == "string")) then

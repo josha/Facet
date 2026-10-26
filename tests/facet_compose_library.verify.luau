@@ -24,7 +24,7 @@ return function(verifyHarness: Verify.Harness)
 		Font: { new: (family: string, weight: unknown) -> unknown },
 		Enum: { [string]: { [string]: unknown } },
 	}
-	type Context = { UI: Facet.Controls, types: Types, runtime: Facet.Runtime }
+	type Context = { UI: Facet.Controls, types: typeof(engines.new().types), runtime: Facet.Runtime }
 	type Engine = typeof(engines.new())
 
 	local function mount(render: (ctx: Context, engine: Engine) -> unknown): { dispose: () -> () }
@@ -64,7 +64,7 @@ return function(verifyHarness: Verify.Harness)
 				udim2 = types.UDim2.new,
 				color = types.Color3.new,
 				font = function(family: string, weight: string): unknown
-					return types.Font.new(family, types.Enum.FontWeight[weight])
+					return types.Font.new(family, types.Enum.FontWeight:FromName(weight))
 				end,
 				enum = function(name: string, item: string): unknown
 					return types.Enum[name][item]
@@ -82,7 +82,8 @@ return function(verifyHarness: Verify.Harness)
 	local function sample(field: Facet.DesignField, preset: Facet.DesignLiteral?): Facet.DesignValue?
 		local kind = field.type
 		local default = if preset ~= nil then preset else field.default
-		if default ~= nil and kind ~= "node" and kind ~= "event" and kind ~= "content" then
+		local bindsOnly = kind == "node" or kind == "event" or kind == "content"
+		if default ~= nil and not bindsOnly then
 			return { literal = default }
 		elseif kind == "string" then
 			return { literal = "Sample" }
@@ -162,9 +163,11 @@ return function(verifyHarness: Verify.Harness)
 			if library.kinds[name].children == "template" then
 				local list = seeded({ kind = name })
 				list.bind = { from = "rows", key = "id" }
-				local row = seeded({ kind = "Text" })
-				row.props.text = { item = "label" }
-				table.insert(list.children, row)
+				if library.kinds[name].template ~= nil then
+					local row = seeded({ kind = "Text" })
+					row.props.text = { item = "label" }
+					table.insert(list.children, row)
+				end
 				table.insert(children, list)
 				continue
 			end
@@ -478,7 +481,8 @@ return function(verifyHarness: Verify.Harness)
 						"Facet.Compose.show(props.offered, function()",
 						"if props.onRetry then",
 						'UI.Text "Text" {',
-						"games: Facet.ReadOnlyValue<{ { id: string, title: string } }>?",
+						"export type GamesItem = { id: string, title: string }",
+						"games: Facet.ReadOnlyValue<{ GamesItem }>?",
 						"\tname: string,",
 					}
 				do

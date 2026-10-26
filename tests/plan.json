@@ -78,22 +78,8 @@
       ]
     },
     {
-      "id": "facet_design_bindings",
-      "locator": "tests/facet_design_bindings.verify.luau",
-      "requires": [
-        "local-luau"
-      ]
-    },
-    {
       "id": "facet_compose_library",
       "locator": "tests/facet_compose_library.verify.luau",
-      "requires": [
-        "local-luau"
-      ]
-    },
-    {
-      "id": "facet_designer",
-      "locator": "tests/facet_designer.verify.luau",
       "requires": [
         "local-luau"
       ]

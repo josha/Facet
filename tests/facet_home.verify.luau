@@ -3,7 +3,6 @@ local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	local fs = require("@std/fs")
-	local source = require("../tools/designer/modules/source")
 
 	verifyHarness:suite("Facet Home dock geometry", function()
 		verifyHarness:case("contains its controls and stays above the viewport edge", {
@@ -46,35 +45,37 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local Facet = require("../src")
 				local engines = require("./lib/native_engine")
-				local session = require("../tools/designer/modules/session")
-				local render = require("../tools/designer/modules/design_render")
+				local Design = Facet.design().Design
 				for _, name in { "Home", "Furnish", "Activities", "People", "Settings", "Wall" } do
-					local value = source.parse(fs.readFileToString(`examples/facet_home/designs/{name}.luau`), name)
+					local code = fs.readFileToString(`examples/facet_home/designs/{name}.luau`)
 					for _, size in { { 389, 762 }, { 430, 932 }, { 1280, 720 } } do
 						local engine = engines.new()
-						local mounted = session.mount(Facet, engine.new("ScreenGui"), {
-							name = name,
-							render = function(ctx)
-								return render.build(value, ctx)
-							end,
-						}, {
-							engine = engine,
-							types = engine.types,
-							config = {
-								width = size[1],
-								height = size[2],
-								input = "Touch",
-								display = "Small",
-								distance = "near",
-								palette = "Dark",
-								textSize = "Medium",
-								motionLevel = "none",
-							},
+						local runtime = Facet.Roblox.createRuntime(engine)
+						local types = engine.types
+						local UI = Facet.controls(runtime, {
+							types = types,
+							motionLevel = "none",
+							environment = { viewportSize = types.Vector2.new(size[1], size[2]) },
 						})
-						Verify.expect(mounted.root.Size.X.Offset):toBe(size[1])
-						Verify.expect(mounted.root.Size.Y.Offset):toBe(size[2])
-						Verify.expect(#mounted.content:GetChildren() > 0):toBe(true)
-						mounted.dispose()
+						local library = Facet.design().library({
+							UI = UI,
+							rgb = types.Color3.fromRGB,
+							udim2 = types.UDim2.new,
+							offset = types.UDim2.fromOffset,
+						})
+						local value = Design.parse(code, library)
+						Verify.expect(Design.emit(value, library, { name = name })):toBe(code)
+						local root: Instance? = nil
+						local stop = runtime.mount(function()
+							local built = Design.render(value, library)
+							if typeof(built) == "Instance" then
+								root = built
+							end
+							return built
+						end, engine.new("ScreenGui"))
+						Verify.expect(#assert(root):GetChildren() > 0):toBe(true)
+						stop()
+						runtime:dispose()
 					end
 				end
 			end,

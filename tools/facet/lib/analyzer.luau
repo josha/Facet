@@ -70,7 +70,7 @@ function Analyzer.isOwnedSource(path: string): boolean
 end
 
 function Analyzer.isPlugin(path: string): boolean
-	return stringext.hasPrefix(path, "tools/designer/")
+	return stringext.hasPrefix(path, "tools/design_playground/")
 end
 
 function Analyzer.isRepository(path: string): boolean

@@ -87,9 +87,6 @@ Facet uses [Compose](https://github.com/voidmeld/compose) for scene composition.
 The [Compose framework comparison](https://github.com/voidmeld/compose/blob/main/docs/framework-comparison.md)
 shows why: frame time and retained memory against the other Roblox UI frameworks.
 
-Facet's target is less than 5% added cost against an equivalent screen that is
-built directly with Compose and Roblox instances.
-
 ## Installing
 
 ### The official Roblox Package
@@ -157,7 +154,7 @@ It starts with the design guide, then routes to the relevant controls and checks
 | [Designing game interfaces with Facet](skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md) | Design principles, game flows, control choices, adaptive interaction and review. |
 | [`docs/guide/README.md`](docs/guide/README.md) | Task-based routes to installation, implementation and verification. |
 | [`docs/guide/choosing-facet.md`](docs/guide/choosing-facet.md) | A comparison of Facet with other Roblox UI libraries. |
-| [`tools/designer/README.md`](tools/designer/README.md) | Facet Design: visual editing, code sync, and human/agent design workflows. |
+| [`tools/design_playground`](tools/design_playground) | The Compose Design playground: the design editor with the Facet library in a play session. |
 | [`docs/reference/api.md`](docs/reference/api.md) | Every property, default, callback and return value. |
 | [`docs/reference/constitution.md`](docs/reference/constitution.md) | The rules anything added to this repository follows. |
 | [`docs/MAINTAINERS.md`](docs/MAINTAINERS.md) | Where a change goes, and what proves it. |
