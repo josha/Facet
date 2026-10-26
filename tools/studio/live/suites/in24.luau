@@ -1975,6 +1975,106 @@ add("stack-pop-retires-until-motion-ends", {}, function(t)
 	)
 end)
 
+add("stack-rebuilt-prefix-enters-without-reversal", {}, function(t)
+	local io = device(t)
+	local viewport = workspace.CurrentCamera.ViewportSize
+	local path
+	local equipmentBodies: { Instance } = {}
+	local detailBody: GuiObject? = nil
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		path = Compose.cell({ { id = "equipment" } })
+		return UI.NavigationStack "Journey" {
+			path = path,
+			backLabel = "Back",
+			root = {
+				title = "Camp",
+				content = function(): Instance
+					return UI.Text({ text = "Camp" })
+				end,
+			},
+			destinations = {
+				equipment = {
+					title = "Equipment",
+					content = function(): Instance
+						local body = UI.Button "Inspect" {
+							label = "Inspect equipment",
+							onActivate = function()
+								path:set({ { id = "equipment" }, { id = "detail" } })
+							end,
+						}
+						table.insert(equipmentBodies, body)
+						return body
+					end,
+				} :: Destination,
+				detail = {
+					title = "Equipment detail",
+					content = function(): Instance
+						local body = Host.Frame "DetailBody" { Size = UDim2.fromScale(1, 1) }
+						detailBody = body
+						return body
+					end,
+				} :: Destination,
+			},
+		}
+	end, {
+		size = Vector2.new(math.min(900, viewport.X), math.min(600, viewport.Y - GuiService:GetGuiInset().Y)),
+		frames = 90,
+		motionLevel = "normal",
+	})
+	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
+	local inspect = visibleNamed(t, gui, "Inspect")
+	t.check("the original equipment page is actionable", inspect ~= nil and #equipmentBodies == 1)
+	if not inspect then
+		return
+	end
+	local samples: { number } = {}
+	local watch = game:GetService("RunService").PreRender:Connect(function()
+		local body = detailBody
+		if body and body.Parent then
+			table.insert(samples, body.AbsolutePosition.X - stage.AbsolutePosition.X)
+		end
+	end)
+	io.click(centre(inspect))
+	t.settle(180)
+	watch:Disconnect()
+	local minimum, reversal = math.huge, 0
+	for index, position in samples do
+		minimum = math.min(minimum, position)
+		if index > 1 then
+			reversal = math.max(reversal, position - samples[index - 1])
+		end
+	end
+	t.note("replacement entry x positions", samples)
+	t.check("native activation replaces the prefix and opens detail", #path:peek() == 2 and #equipmentBodies == 2)
+	t.check("the entry motion is sampled across frames", #samples > 120, #samples)
+	t.check("the incoming detail starts on the trailing side", #samples > 0 and samples[1] > 0.5, samples[1])
+	t.check("the incoming detail never moves left of its resting edge", minimum >= -0.5, minimum)
+	t.check("the incoming detail never reverses toward the right", reversal <= 0.5, reversal)
+	t.check(
+		"the incoming detail settles at its resting edge",
+		#samples > 0 and math.abs(samples[#samples]) <= 0.5,
+		samples[#samples]
+	)
+	local idleSpread = 0
+	for index = math.max(1, #samples - 29), #samples do
+		idleSpread = math.max(idleSpread, math.abs(samples[index] - samples[#samples]))
+	end
+	t.check("the last thirty frames stay settled", idleSpread <= 0.5, idleSpread)
+	local retained = equipmentBodies[2]
+	local back = backButton(t, gui)
+	t.check("the detail exposes native Back", back ~= nil)
+	if back then
+		io.click(centre(back))
+		t.settle(120)
+		t.check(
+			"native Back returns to the replacement equipment entry",
+			#path:peek() == 1 and visibleNamed(t, gui, "Inspect") == retained
+		)
+		t.check("Back reuses the replacement page instance", #equipmentBodies == 2, #equipmentBodies)
+		t.check("the retired detail is disposed", detailBody ~= nil and detailBody.Parent == nil)
+	end
+end)
+
 local function hintProbe(t: any): any
 	local value: any = {}
 	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost)

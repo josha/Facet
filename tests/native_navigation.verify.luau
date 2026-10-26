@@ -3975,7 +3975,7 @@ return function(verifyHarness: Verify.Harness)
 				path:set({ { id = "bad" } })
 				Verify.expect(find(world.screen, "DestinationError") ~= nil):toBe(true)
 				Verify.expect(disposed):toBe(1)
-				find(world.screen, "Back").Activated:Fire()
+				find(find(world.screen, "bad"), "Back").Activated:Fire()
 				Verify.expect(#path:peek()):toBe(0)
 				Verify.expect(find(world.screen, "RootAction") ~= nil):toBe(true)
 				world.stop()
@@ -5299,6 +5299,156 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(root.Position.X.Scale):toBe(0)
 				Verify.expect(root.Visible):toBe(true)
 				world.stop()
+			end,
+		})
+
+		verifyHarness:case("slides replacement paths in without reversing and preserves distinct entry owners", {
+			id = "native_navigation::native navigation controls::slides replacement paths in without reversing and preserves distinct entry owners",
+			run = function()
+				for _, replacementDepth in { 1, 2, 3 } do
+					local first: Navigation.NavigationEntry<number> = { id = "detail", value = 1 }
+					local second: Navigation.NavigationEntry<number> = { id = "detail", value = 2 }
+					local path = Compose.cell({ first, second })
+					local bodies: { [number]: GuiObject } = {}
+					local world = setup(function(UI: FacetControls)
+						local spec: NavigationProps.NavigationStackSpec<number> = {
+							path = path,
+							root = {
+								content = function()
+									return UI.Text { text = "Root" }
+								end,
+							},
+							destinations = {
+								detail = {
+									content = function(entry: Navigation.NavigationEntry<number>?): Instance
+										local value = assert(assert(entry).value)
+										local body = UI.Button { label = tostring(value) }
+										bodies[value] = body
+										return body
+									end,
+								},
+							},
+						}
+						return UI.NavigationStack(spec)
+					end)
+					local outgoing = assert(bodies[2]:FindFirstAncestor("detail")) :: GuiObject
+					world.gui.SelectedObject = bodies[2]
+					local replacement: { Navigation.NavigationEntry<number> } = {}
+					for index = 1, replacementDepth do
+						table.insert(replacement, { id = "detail", value = index + 10 })
+					end
+					path:set(replacement)
+					local incoming = assert(bodies[replacementDepth + 10]:FindFirstAncestor("detail")) :: GuiObject
+					Verify.expect(incoming.Position.X.Scale):toBe(1)
+					Verify.expect(outgoing.Position.X.Scale):toBe(0)
+					Verify.expect(outgoing.Interactable):toBe(false)
+					local previous = 1
+					for _ = 1, 120 do
+						world.engine.heartbeat:Fire(1 / 60)
+						local position = incoming.Position.X.Scale
+						Verify.expect(position >= 0 and position <= previous):toBe(true)
+						if position > 0 then
+							Verify.expect(world.engine.environment.isAlive(VerifyRoblox.assertInstance(outgoing)))
+								:toBe(true)
+							Verify.expect(outgoing.Position.X.Scale):toBeCloseTo(-0.3 * (1 - position), 1e-6)
+						end
+						previous = position
+					end
+					Verify.expect(previous):toBe(0)
+					Verify.expect(world.engine.environment.isAlive(VerifyRoblox.assertInstance(outgoing))):toBe(false)
+					Verify.expect(world.gui.SelectedObject):toBe(bodies[replacementDepth + 10])
+					if replacementDepth > 1 then
+						local retained = bodies[replacementDepth + 9]
+						local back = table.clone(replacement)
+						table.remove(back)
+						path:set(back)
+						world.settle()
+						Verify.expect(world.gui.SelectedObject):toBe(retained)
+						Verify.expect(world.engine.environment.isAlive(VerifyRoblox.assertInstance(retained)))
+							:toBe(true)
+					end
+					world.stop()
+				end
+			end,
+		})
+
+		verifyHarness:case("settles interrupted replacements and retains Back history across motion policies", {
+			id = "native_navigation::native navigation controls::settles interrupted replacements and retains Back history across motion policies",
+			run = function()
+				for _, mode in { "normal", "limited", "none", "false", "custom" } do
+					local path =
+						Compose.cell({ { id = "detail", value = 1 } } :: { Navigation.NavigationEntry<number> })
+					local bodies: { [number]: GuiObject } = {}
+					local world = setup(function(UI: FacetControls)
+						local spec: NavigationProps.NavigationStackSpec<number> = {
+							path = path,
+							transition = if mode == "false"
+								then false
+								elseif mode == "custom" then { seconds = 0.2 }
+								else nil,
+							root = {
+								content = function()
+									return UI.Text { text = "Root" }
+								end,
+							},
+							destinations = {
+								detail = {
+									content = function(entry: Navigation.NavigationEntry<number>?): Instance
+										local value = assert(assert(entry).value)
+										local body = UI.Button { label = tostring(value) }
+										bodies[value] = body
+										return body
+									end,
+								},
+							},
+						}
+						return UI.NavigationStack(spec)
+					end, {
+						motionLevel = if mode == "limited"
+							then "limited"
+							elseif mode == "none" then "none"
+							else "normal",
+					})
+					world.gui.SelectedObject = bodies[1]
+					local retained: Navigation.NavigationEntry<number> = { id = "detail", value = 2 }
+					path:set({ retained, { id = "detail", value = 3 } })
+					local retainedBody = bodies[2]
+					for _ = 1, 4 do
+						world.engine.heartbeat:Fire(1 / 60)
+					end
+					path:set({ retained })
+					world.settle()
+					Verify.expect(bodies[2]):toBe(retainedBody)
+					Verify.expect(world.gui.SelectedObject):toBe(retainedBody)
+					Verify.expect(world.engine.environment.isAlive(VerifyRoblox.assertInstance(bodies[1]))):toBe(false)
+					Verify.expect(world.engine.environment.isAlive(VerifyRoblox.assertInstance(bodies[3]))):toBe(false)
+					path:set({ { id = "detail", value = 4 } })
+					for _ = 1, 4 do
+						world.engine.heartbeat:Fire(1 / 60)
+					end
+					path:set({ { id = "detail", value = 5 } })
+					local incoming = assert(bodies[5]:FindFirstAncestor("detail")) :: GuiObject
+					local previous = incoming.Position.X.Scale
+					for _ = 1, 120 do
+						world.engine.heartbeat:Fire(1 / 60)
+						local position = incoming.Position.X.Scale
+						Verify.expect(position >= 0 and position <= previous):toBe(true)
+						if mode ~= "normal" then
+							Verify.expect(position):toBe(0)
+						end
+						previous = position
+					end
+					Verify.expect(previous):toBe(0)
+					Verify.expect(world.gui.SelectedObject):toBe(bodies[5])
+					for value = 1, 4 do
+						Verify.expect(world.engine.environment.isAlive(VerifyRoblox.assertInstance(bodies[value])))
+							:toBe(false)
+					end
+					path:set({})
+					world.settle()
+					Verify.expect(world.engine.environment.isAlive(VerifyRoblox.assertInstance(bodies[5]))):toBe(false)
+					world.stop()
+				end
 			end,
 		})
 

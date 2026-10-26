@@ -69,7 +69,8 @@ return function(
 			end
 			return accepted
 		end)
-		local leaving: ComposeTypes.Value<Nav.NavigationEntry<P>?> = Compose.cell(nil :: Nav.NavigationEntry<P>?)
+		type Departure = { entry: Nav.NavigationEntry<P>, behind: boolean }
+		local leaving: ComposeTypes.Value<Departure?> = Compose.cell(nil :: Departure?)
 		local root: Frame
 		local handoff = false
 		local shownList = entries:peek()
@@ -85,19 +86,19 @@ return function(
 			end
 			local departing = leaving:peek()
 			if table.find(list, top) == nil and (animated or timing ~= nil) and level() ~= "none" then
-				leaving:set(top)
-			elseif departing and table.find(list, departing) then
+				leaving:set({ entry = top, behind = animated and table.find(former, list[#list]) == nil })
+			elseif departing and table.find(list, departing.entry) then
 				leaving:set(nil)
 			end
 		end)
 		local displayed = Compose.formula(function(use: ComposeTypes.Use)
 			local list = use(entries)
 			local departing = use(leaving)
-			if departing == nil or table.find(list, departing) then
+			if departing == nil or table.find(list, departing.entry) then
 				return list
 			end
 			local result = table.clone(list)
-			table.insert(result, departing)
+			table.insert(result, if departing.behind then #result else #result + 1, departing.entry)
 			return result
 		end)
 		local offsets: ComposeTypes.Value<{ [Nav.NavigationEntry<P>]: (ComposeTypes.Use?) -> number }> =
@@ -110,10 +111,10 @@ return function(
 				spec.path:set(path)
 			end
 		end
-		local function frontOffset(use: ComposeTypes.Use): number
+		local function frontOffset(use: ComposeTypes.Use): (number, boolean)
 			local list = use(displayed)
 			local measure = use(offsets)[list[#list]]
-			return if measure then measure(use) else 0
+			return if measure then measure(use) else 0, measure ~= nil
 		end
 		local backdrop: ComposeTypes.Value<Color3?> = Compose.cell(nil :: Color3?)
 		local moving = Compose.formula(function(use: ComposeTypes.Use): boolean
@@ -325,7 +326,8 @@ return function(
 							end),
 							timing,
 							function()
-								if leaving:peek() == entry then
+								local departure = leaving:peek()
+								if departure and departure.entry == entry then
 									leaving:set(nil)
 								end
 							end,
@@ -416,13 +418,18 @@ return function(
 							root:SetAttribute("FacetSelectionOwner", true)
 							gui.SelectedObject = nil
 						end
+						local departure = use(leaving)
 						if
 							timing == nil
 							and use(role) == "exiting"
-							and offset(use) >= 1
-							and leaving:peek() == entry
+							and departure ~= nil
+							and departure.entry == entry
 						then
-							leaving:set(nil)
+							local front, measured = frontOffset(use)
+							local complete = if departure.behind then measured and front <= 0 else offset(use) >= 1
+							if complete then
+								leaving:set(nil)
+							end
 						end
 					end)
 					local visible, parent = ctx.observe.Visible(panel), ctx.observe.Parent(panel)
