@@ -627,9 +627,11 @@ function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): n
 				append(log, `Confirming {table.concat(flagged, ", ")} with a fresh complete run.\n`)
 				print(`paired run: confirming {table.concat(flagged, ", ")} with a fresh complete run`)
 				local again = table.clone(invocation)
-				again.flags = table.clone(invocation.flags)
-				if shard ~= nil then
-					again.flags.scenes = nil
+				again.flags = {}
+				for name, value in invocation.flags do
+					if shard == nil or name ~= "scenes" then
+						again.flags[name] = value
+					end
 				end
 				again.flags.out = out .. "-confirm"
 				again.flags.confirmation = true
