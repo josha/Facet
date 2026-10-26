@@ -89,7 +89,12 @@ local function copyFields(source: { Types.ItemField }): { Types.ItemField }
 	local list: { Types.ItemField } = {}
 	for at, field in source do
 		local nested = field.fields
-		list[at] = { id = field.id, type = field.type, fields = if nested then copyFields(nested) else nil }
+		list[at] = {
+			id = field.id,
+			type = field.type,
+			fields = if nested then copyFields(nested) else nil,
+			luauType = field.luauType,
+		}
 	end
 	return list
 end
@@ -107,6 +112,7 @@ local function copyContract(contract: Types.Contract): Types.Contract
 			preview = if preview ~= nil then copyLiteral(preview) else nil,
 			fields = fields,
 			required = input.required,
+			luauType = input.luauType,
 		}
 	end
 	local outputs: { Types.Output } = {}
@@ -237,12 +243,39 @@ local function present(value: Value): number
 	return count
 end
 
+local function checkTypeName(name: string?)
+	if name == nil then
+		return
+	end
+	assert(string.match(name, "^[%a_][%w_%.]*$") ~= nil, "A Luau type names a type or a qualified type")
+	assert(
+		string.sub(name, -1) ~= "." and not string.find(name, "..", 1, true),
+		"A Luau type has no empty path segments"
+	)
+	for segment in string.gmatch(name, "[^%.]+") do
+		assert(string.match(segment, "^[%a_][%w_]*$") ~= nil, "A Luau type has identifier path segments")
+	end
+end
+
+local function checkFields(fields: { Types.ItemField }?)
+	if fields == nil then
+		return
+	end
+	for _, field in fields do
+		checkTypeName(field.luauType)
+		checkFields(field.fields)
+	end
+end
+
 local function checkContract(contract: Types.Contract)
 	local seen: { [string]: true } = {}
 	for _, input in contract.inputs do
 		assert(string.match(input.id, IDENTIFIER) ~= nil, "Input ids are lower camel case")
 		assert(not seen[input.id], `Duplicate contract id {input.id}`)
 		seen[input.id] = true
+		checkTypeName(input.luauType)
+		checkFields(input.fields)
+		assert(input.type ~= "slot" or input.luauType == nil, `Slot input {input.id} uses the library return type`)
 		local preview = input.preview
 		assert(preview == nil or plain(preview, 0), `Preview for {input.id} must be plain data`)
 		assert(input.type ~= "slot" or input.kind == "value", `Slot input {input.id} must be a value`)

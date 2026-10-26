@@ -20,7 +20,7 @@ return function(ui: UI.UI)
 	local Theme = require "./theme"(ui)
 	local color = Theme.color
 	local size = Theme.size
-	local LABEL = 84
+	local LABEL = 112
 	local GROUPS = { "Layout", "Auto layout", "Fill", "Text", "Image", "Interaction" }
 
 	local function describe(value: Design.Value?): string
@@ -236,20 +236,22 @@ return function(ui: UI.UI)
 			}
 			return created
 		end
-		local function toggle(on: boolean, activate: () -> ()): Compose.Node
+		local function toggle(on: boolean, set: boolean, activate: () -> ()): Compose.Node
 			local switch = pressable(
 				"Toggle",
 				if on then color.accent else color.raised,
 				if on then color.accent else color.hover,
-				activate
+				activate,
+				if set then 0 else 0.55
 			)
-			ui.set(switch, "Size", ui.values.udim2(0, 30, 0, 18))
-			Theme.corner(switch, 9)
+			ui.set(switch, "Size", ui.values.udim2(0, 36, 0, 22))
+			Theme.corner(switch, 11)
 			local knob = Theme.frame("Knob", color.white)
-			ui.set(knob, "Size", ui.values.udim2(0, 14, 0, 14))
+			ui.set(knob, "Size", ui.values.udim2(0, 18, 0, 18))
 			ui.set(knob, "AnchorPoint", ui.values.vector2(0, 0.5))
-			ui.set(knob, "Position", ui.values.udim2(0, if on then 14 else 2, 0.5, 0))
-			Theme.corner(knob, 7)
+			ui.set(knob, "Position", ui.values.udim2(0, if on then 16 else 2, 0.5, 0))
+			ui.set(knob, "BackgroundTransparency", if set then 0 else 0.35)
+			Theme.corner(knob, 9)
 			ui.set(knob, "Parent", switch)
 			return switch
 		end
@@ -268,6 +270,12 @@ return function(ui: UI.UI)
 				ui.set(segment, "Size", ui.values.udim2(0, 0, 1, 0))
 				ui.set(segment, "Text", humanize(option))
 				ui.set(segment, "TextSize", size.small)
+				ui.set(segment, "TextScaled", true)
+				local cap = ui.new "UITextSizeConstraint"
+				ui.set(cap, "MaxTextSize", size.small)
+				ui.set(cap, "MinTextSize", 8)
+				ui.set(cap, "Parent", segment)
+				Theme.pad(segment, 4, 4, 0, 0)
 				ui.set(segment, "FontFace", if active then Theme.font.bold else Theme.font.medium)
 				ui.set(segment, "TextColor3", if active then color.text else color.secondary)
 				Theme.corner(segment, 3)
@@ -334,6 +342,8 @@ return function(ui: UI.UI)
 				local caption = Theme.label(title, color.secondary, size.small)
 				ui.set(caption, "Name", "Label")
 				ui.set(caption, "Size", ui.values.udim2(0, LABEL - 6, 1, 0))
+				ui.set(caption, "TextWrapped", true)
+				ui.set(caption, "TextTruncate", ui.values.enum("TextTruncate", "AtEnd"))
 				ui.set(caption, "Parent", frame)
 				return frame, caption
 			end
@@ -449,23 +459,28 @@ return function(ui: UI.UI)
 							Theme.pad(pill, 8)
 							ui.set(pill, "Parent", slot)
 						elseif entry.type == "boolean" then
-							local on = if literal ~= nil then literal == true else entry.default == true
-							local switch = toggle(on, function()
+							local fallback = entry.default
+							local defaults = kind.defaults
+							if fallback == nil and defaults then
+								fallback = defaults[key]
+							end
+							local on = if literal ~= nil then literal == true else fallback == true
+							local switch = toggle(on, literal ~= nil, function()
 								session.change(key, { literal = not on })
 							end)
 							ui.set(switch, "AnchorPoint", ui.values.vector2(0, 0.5))
 							ui.set(switch, "Position", ui.values.udim2(0, 0, 0.5, 0))
 							ui.set(switch, "Parent", slot)
-						elseif entry.type == "choice" and #(entry.options or {}) > 4 then
+						elseif entry.type == "choice" and #(entry.options or {}) > 3 then
 							local list = entry.options or {}
-							local current = if type(literal) == "string" then literal else list[1]
+							local current = if type(literal) == "string" then literal else nil
 							local picker = pressable("Picker", color.field, color.hover, function()
-								local at = table.find(list, current) or 0
+								local at = if current then table.find(list, current) or 0 else 0
 								session.change(key, { literal = list[at % #list + 1] })
 							end)
 							ui.set(picker, "Size", ui.values.udim2(1, 0, 1, 0))
-							ui.set(picker, "Text", humanize(current or "") .. "  ▾")
-							ui.set(picker, "TextColor3", color.text)
+							ui.set(picker, "Text", (if current then humanize(current) else "Auto") .. "  ▾")
+							ui.set(picker, "TextColor3", if current then color.text else color.tertiary)
 							ui.set(picker, "TextSize", size.small)
 							ui.set(picker, "FontFace", Theme.font.medium)
 							ui.set(picker, "TextXAlignment", ui.values.enum("TextXAlignment", "Left"))

@@ -722,6 +722,56 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("converts native datatype and enum fields a design sets on a Facet control", {
+			id = "facet_compose_library::converts native datatype and enum fields a design sets on a Facet control",
+			run = function()
+				local button: unknown = nil
+				local session = mount(function(ctx: Context, engine: Engine): unknown
+					local types = ctx.types
+					local library = Kit.library({
+						UI = ctx.UI,
+						rgb = types.Color3.fromRGB,
+						udim2 = types.UDim2.new,
+						offset = types.UDim2.fromOffset,
+						datatype = function(name: string, components: { number }): unknown
+							if name == "UDim2" then
+								return types.UDim2.new(components[1], components[2], components[3], components[4])
+							elseif name == "Vector2" then
+								return types.Vector2.new(components[1], components[2])
+							end
+							return nil
+						end,
+						enumItem = function(enumName: string, item: string): unknown
+							return types.Enum[enumName][item]
+						end,
+					})
+					local value = Design.document.new("Sized", library, "VStack")
+					local id
+					value, id = Design.document.insert(value, library, "n1", "Button")
+					value = Design.document.change(value, library, id, "Size", { literal = { 0, 160, 0, 59 } })
+					value = Design.document.change(value, library, id, "AnchorPoint", { literal = { 0.5, 0.5 } })
+					value = Design.document.change(value, library, id, "AutomaticSize", { literal = "None" })
+					local built = Design.render(value, library, {
+						decorate = function(node: Facet.DesignNode, made: unknown)
+							if node.id == id then
+								button = made
+							end
+						end,
+					})
+					local _ = engine
+					return built
+				end)
+				local made = button
+				if typeof(made) ~= "Instance" or not made:IsA("GuiObject") then
+					error("the Button did not render")
+				end
+				Verify.expect(made.Size.X.Offset):toBe(160)
+				Verify.expect(made.Size.Y.Offset):toBe(59)
+				Verify.expect(made.AnchorPoint.X):toBe(0.5)
+				session.dispose()
+			end,
+		})
+
 		verifyHarness:case("emits Facet source for a design that uses every control", {
 			id = "facet_compose_library::emits Facet source for a design that uses every control",
 			run = function()

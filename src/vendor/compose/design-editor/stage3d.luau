@@ -21,6 +21,7 @@ export type Scene = {
 export type Options = {
 	accent: unknown?,
 	token: ((name: string) -> Design.Literal)?,
+	resolveToken: ((name: string) -> Design.Resolved)?,
 	inputs: { [string]: Design.Literal }?,
 	slots: { [string]: () -> Compose.Node }?,
 }
@@ -228,6 +229,7 @@ return function(ui: UI.UI)
 						inputs = options.inputs,
 						slots = options.slots,
 						token = options.token,
+						resolveToken = options.resolveToken,
 						decorate = function(node: Design.Node, built: Compose.Node)
 							if ui.isA(built, "PVInstance") then
 								runtime.decorate(built, { Attributes = { [ATTRIBUTE] = node.id } })

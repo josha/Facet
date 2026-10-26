@@ -146,6 +146,8 @@ local FIELD_DEFAULTS: { [string]: { [string]: Literal } } = {
 	Image = { sliceCenter = SLICE_CENTER },
 }
 
+local ON_BY_DEFAULT: { [string]: true } = { Visible = true, Interactable = true, AutoLocalize = true, enabled = true }
+
 local function refine(name: string, fields: { [string]: Design.Field }): { [string]: Design.Field }
 	local own = KIND_REQUIRES[name] or {}
 	local defaults = FIELD_DEFAULTS[name] or {}
@@ -162,6 +164,8 @@ local function refine(name: string, fields: { [string]: Design.Field }): { [stri
 		end
 		if defaults[key] ~= nil then
 			field.default = defaults[key]
+		elseif field.default == nil and field.type == "boolean" and ON_BY_DEFAULT[key] then
+			field.default = true
 		end
 	end
 	return fields
@@ -352,6 +356,7 @@ local function create(context: Context): Design.Library
 				elseif spec.container then "list"
 				else "none",
 			slot = contentKey,
+			leaf = if spec.container and spec.category ~= "Layout" then true else nil,
 			category = spec.category,
 			source = if bound then "from" else nil,
 			template = if templated then "render" else nil,
@@ -363,14 +368,12 @@ local function create(context: Context): Design.Library
 					values[key] = copy(value)
 				end
 				local live: Record = {}
-				local typed = derived[name]
+				local entry = derived.controls[name]
+				local typed = if entry then entry.fields else nil
 				for key, resolved in props do
 					local literal = resolved.literal
-					local datatype = if typed
-							and typed[key]
-							and spec.fields[key] == nil
-						then typed[key].datatype
-						else nil
+					local declared = if typed then typed[key] else nil
+					local datatype = if declared and spec.fields[key] == nil then declared.datatype else nil
 					local field = kindFields[key]
 					if resolved.value ~= nil then
 						values[key] = resolved.value
