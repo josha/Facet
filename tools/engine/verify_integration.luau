@@ -662,7 +662,7 @@ harness:suite("Facet gate through Verify", function()
 		context:expect(seen["perf"].tier):toBe("full")
 		context:expect(seen["perf-memory"].tier):toBe("full")
 		context:expect(seen["perf-footprint"].tier):toBe("full")
-		context:expect(seen["perf-memory"].after):toBeNil()
+		context:expect(seen["perf-memory"].after):toEqual({ "perf" })
 		local order: { [string]: number } = {}
 		for index, producer in definition.producers do
 			order[producer.id] = index

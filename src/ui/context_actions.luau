@@ -428,6 +428,8 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		local inputService = config.userInputService
 		if settings.capture and gui and selection and inputService then
 			local steering: { [string]: string } = {}
+			local letters: { [string]: string } = {}
+			local dedicated: { [string]: boolean } = {}
 			for _, binding in keyCodes :: { Shared.ActionBinding } do
 				local code: unknown = if type(binding) == "string"
 					then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
@@ -438,6 +440,11 @@ return function(ctx: Shared.Context, config: Shared.Config)
 					local letter = ({ Up = "W", Down = "S", Left = "A", Right = "D" })[direction]
 					if code == keys[direction] or code == keys["DPad" .. direction] or code == keys[letter] then
 						steering[(code :: Enum.KeyCode).Name] = direction
+						if code == keys[letter] then
+							letters[letter] = direction
+						else
+							dedicated[direction] = true
+						end
 					end
 				end
 			end
@@ -445,6 +452,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			if next(steering) == nil then
 				return action, context
 			end
+			local heldDirections: ComposeTypes.Cell<{ [string]: boolean }> = Compose.cell({})
 			for _, direction in steering do
 				if not table.find(directions, direction) then
 					table.insert(directions, direction)
@@ -475,39 +483,56 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				end
 			end
 			local pinned: GuiObject? = nil
+			local pinnedLetters: { [string]: boolean }? = nil
+			local pinnedDirections: { string } = {}
 			local previous: { [string]: GuiObject? } = {}
 			local function release(): ()
 				local target = pinned
 				if target then
-					for _, direction in directions do
+					for _, direction in pinnedDirections do
 						if nextSelection(target, direction) == target then
 							setNextSelection(target, direction, previous[direction])
 						end
 					end
 				end
 				pinned = nil
+				table.clear(pinnedDirections)
 				table.clear(previous)
 			end
 			Compose.watch(function(use: ComposeTypes.Use)
 				local target: GuiObject? = if use(steerable) then use(selection) else nil
-				if target == pinned then
+				local heldLetters = use(heldDirections)
+				if target == pinned and heldLetters == pinnedLetters then
 					return
 				end
-				if not held() then
+				if target ~= pinned and not held() then
 					viaAction, viaInput = false, false
 				end
 				release()
+				pinnedLetters = heldLetters
 				if target then
 					pinned = target
 					for _, direction in directions do
-						previous[direction] = nextSelection(target, direction)
-						setNextSelection(target, direction, target)
+						if dedicated[direction] or heldLetters[direction] then
+							table.insert(pinnedDirections, direction)
+							previous[direction] = nextSelection(target, direction)
+							setNextSelection(target, direction, target)
+						end
 					end
 				end
 			end)
 			Compose.cleanup(release)
 			runtime.connect(inputService, "InputBegan", function(event: InputObject)
-				if event.KeyCode and steering[event.KeyCode.Name] and steerable:peek() and not viaAction then
+				if event.KeyCode and steering[event.KeyCode.Name] and steerable:peek() then
+					local direction = letters[event.KeyCode.Name]
+					if direction then
+						local heldLetters = table.clone(heldDirections:peek())
+						heldLetters[direction] = true
+						heldDirections:set(heldLetters)
+					end
+					if viaAction then
+						return
+					end
 					viaInput = true
 					if available:peek() and ctx.available(node) and ctx.read(enabledSource) ~= false then
 						onPressed()
@@ -517,6 +542,12 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			local released = settings.onReleased
 			runtime.connect(inputService, "InputEnded", function(event: InputObject)
 				if event.KeyCode and steering[event.KeyCode.Name] then
+					local direction = letters[event.KeyCode.Name]
+					if direction then
+						local heldLetters = table.clone(heldDirections:peek())
+						heldLetters[direction] = nil
+						heldDirections:set(heldLetters)
+					end
 					viaAction, viaInput = false, false
 					if released then
 						released()

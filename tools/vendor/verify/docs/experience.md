@@ -315,6 +315,19 @@ A spec supplies these fields:
 - `deadlineSeconds`.
 - `clock`: an injectable clock. The default is `os.clock`. A gate supplies its own.
 
+When a single timing has yardstick drift, Verify measures it again, up to three attempts in total.
+Each attempt repeats warmup, measures the yardstick before and after, and takes new workload samples.
+The drift threshold and budgets stay the same. The deadline applies to all attempts together.
+Setup and teardown run once. A workload failure or another invalid measurement stops retries.
+A yardstick spread rejection can retry only when drift is also present.
+Persistent drift remains unsupported. A valid run never triggers a retry.
+
+The raw timing result has an `attempts` count. It is 1 without a retry, 2 or 3 after retries, and 0 if setup fails.
+The samples, yardstick readings, summaries and verdicts describe the final attempt.
+`elapsedSeconds` includes all attempts, setup and teardown.
+The case report records the count in a step named `benchmark <name> attempts: <count>`.
+Collection members use the separate collection policy below.
+
 The consumer owns identities, budgets and units. No machine is a universal baseline.
 
 `Benchmark.collection({ name, yardstick, benchmarks, calibrationAttempts? })` is one case whose members share a yardstick.
