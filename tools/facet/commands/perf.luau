@@ -359,13 +359,24 @@ local function samePath(left: string, right: string): boolean
 	return a == b
 end
 
-local function benchmarkCommand(shard: string?): { string }
+local function benchmarkCommand(shard: string?, cases: string?): { string }
 	local argv = { Run.lute(), "run", Files.absolute("tools/facet"), "bench" }
 	if shard ~= nil then
 		table.insert(argv, "--shard")
 		table.insert(argv, shard)
 	end
+	if cases ~= nil then
+		table.insert(argv, "--cases")
+		table.insert(argv, cases)
+	end
 	return argv
+end
+
+local function scenesOf(selected: string?): { string }
+	if selected == "none" then
+		return {}
+	end
+	return if selected ~= nil and selected ~= "" then string.split(selected, ",") else Paired.SCENES
 end
 
 local function benchesFor(out: string, label: string): { Paired.Bench }
@@ -414,8 +425,7 @@ local function pairedReport(invocation: Cli.Invocation, canContinue: boolean?): 
 		print("paired report: evidence is unreadable: " .. tostring(loaded))
 		return 2
 	end
-	local selected = Cli.flag(invocation, "scenes")
-	local sceneList = if selected ~= nil and selected ~= "" then string.split(selected, ",") else Paired.SCENES
+	local sceneList = scenesOf(Cli.flag(invocation, "scenes"))
 	local scope: Paired.Scope =
 		{ rounds = rounds, scenes = sceneList, bench = not Cli.switch(invocation, "skip-bench") }
 	local errors = Paired.validate(scope, loaded.entries, loaded.first, loaded.second, first, second)
@@ -527,19 +537,17 @@ function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): n
 		invocation.flags.scenes = table.concat(share, ",")
 	end
 	local selected = Cli.flag(invocation, "scenes")
-	local sceneList: { string } = if selected ~= nil and selected ~= ""
-		then string.split(selected, ",")
-		else Paired.SCENES
+	local sceneList = scenesOf(selected)
 	local skipBench = Cli.switch(invocation, "skip-bench")
 	local gate = Cli.switch(invocation, "gate")
-	local partial = shard == nil and (selected ~= nil or skipBench)
+	local partial = shard == nil and not Cli.switch(invocation, "confirmation") and (selected ~= nil or skipBench)
 	if gate and (#trees ~= 2 or trees[1].label == trees[2].label or rounds ~= 6 or partial) then
 		print("paired run: --gate requires two distinct arms, --rounds 6, and every scene and the bench or one --shard")
 		return 2
 	end
 	local execute = capture or Run.capture
 	local environment = toolEnvironment(rokitDirectories(), false)
-	local benchCommand = benchmarkCommand(shard)
+	local benchCommand = benchmarkCommand(shard, Cli.flag(invocation, "bench-cases"))
 	local log = Files.join(out, "log.txt")
 	local rows = Files.join(out, "scenes.jsonl")
 	if Files.isDirectory(out) and #Files.list(out) > 0 then
@@ -624,14 +632,36 @@ function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): n
 			local status = pairedReport(report, round < rounds)
 			if status == 1 and round == rounds and not Cli.switch(invocation, "confirmation") then
 				local flagged = table.clone(lastFlagged)
-				append(log, `Confirming {table.concat(flagged, ", ")} with a fresh complete run.\n`)
-				print(`paired run: confirming {table.concat(flagged, ", ")} with a fresh complete run`)
+				append(log, `Confirming {table.concat(flagged, ", ")} with a fresh run of those cases.\n`)
+				print(`paired run: confirming {table.concat(flagged, ", ")} with a fresh run of those cases`)
 				local again = table.clone(invocation)
 				again.flags = {}
 				for name, value in invocation.flags do
-					if shard == nil or name ~= "scenes" then
+					if name ~= "scenes" and name ~= "shard" and name ~= "bench-cases" and name ~= "skip-bench" then
 						again.flags[name] = value
 					end
+				end
+				local named: { [string]: true } = {}
+				local cases: { string } = {}
+				for _, name in flagged do
+					local scene = string.match(name, "^(%S+) %(") or name
+					if table.find(Paired.SCENES, scene) then
+						named[scene] = true
+					else
+						table.insert(cases, name)
+					end
+				end
+				local scenes: { string } = {}
+				for _, scene in Paired.SCENES do
+					if named[scene] then
+						table.insert(scenes, scene)
+					end
+				end
+				again.flags.scenes = if #scenes > 0 then table.concat(scenes, ",") else "none"
+				if #cases > 0 then
+					again.flags["bench-cases"] = table.concat(cases, ",")
+				else
+					again.flags["skip-bench"] = true
 				end
 				again.flags.out = out .. "-confirm"
 				again.flags.confirmation = true
@@ -1052,13 +1082,13 @@ local function pairedRunFixture(test: Verify.Context, mode: string): ()
 	local six = "base,cand,cand,base,base,cand,cand,base,base,cand,cand,base"
 	local three = "base,cand,cand,base,base,cand"
 	local confirmation = if mode == "fail" or mode == "memory" then six elseif mode == "flaky" then three else nil
-	local expected = (if rounds == 6 then six else three) .. (if confirmation then "," .. confirmation else "")
+	local expected = if rounds == 6 then six else three
 	local expectedCalls: { string } = {}
 	local runs: { string } = { if rounds == 6 then six else three }
 	if confirmation then
 		table.insert(runs, confirmation)
 	end
-	for _, run in runs do
+	for index, run in runs do
 		local order = string.split(run, ",")
 		for round = 1, #order // 2 do
 			for _, scene in Paired.SCENES do
@@ -1066,8 +1096,10 @@ local function pairedRunFixture(test: Verify.Context, mode: string): ()
 					table.insert(expectedCalls, order[(round - 1) * 2 + position] .. ":" .. scene)
 				end
 			end
-			for position = 1, 2 do
-				table.insert(expectedCalls, order[(round - 1) * 2 + position] .. ":bench")
+			if index == 1 then
+				for position = 1, 2 do
+					table.insert(expectedCalls, order[(round - 1) * 2 + position] .. ":bench")
+				end
 			end
 		end
 	end
@@ -1137,7 +1169,19 @@ local function shardedConfirmationFixture(test: Verify.Context): ()
 		return { ok = true, code = 0, stdout = output, stderr = "", timedOut = false }
 	end)
 	Verify.expect(status):toBe(1)
-	Verify.expect(Files.isFile(Files.join(out .. "-confirm", "scenes.jsonl"))):toBe(true)
+	local confirmed: { [string]: true } = {}
+	for _, entry in pairedEntries(Files.lines(Files.read(Files.join(out .. "-confirm", "scenes.jsonl")))) do
+		local row = Json.asObject(Json.field(entry, "row"))
+		local scene = if row then Json.field(row, "scene") else nil
+		if type(scene) == "string" then
+			confirmed[scene] = true
+		end
+	end
+	for index, scene in Paired.SCENES do
+		Verify.expect(`{scene} {confirmed[scene] == true}`):toBe(`{scene} {(index - 1) % 3 == 0}`)
+	end
+	Verify.expect(counts.base):toBe(6)
+	Verify.expect(counts.cand):toBe(6)
 end
 
 local REGISTRATIONS: { [string]: (Verify.Harness, string) -> () } = {}
@@ -1497,8 +1541,8 @@ REGISTRATIONS.paired = function(harness: Verify.Harness, prefix: string): ()
 			pairedRunFixture(test, "flaky")
 		end,
 	})
-	harness:case(prefix .. "paired: a sharded gate confirms a regression with the same shard", {
-		id = idPrefix .. "paired: a sharded gate confirms a regression with the same shard",
+	harness:case(prefix .. "paired: a sharded gate confirms only the flagged scenes", {
+		id = idPrefix .. "paired: a sharded gate confirms only the flagged scenes",
 		run = function(test: Verify.Context): ()
 			shardedConfirmationFixture(test)
 		end,
@@ -2096,6 +2140,7 @@ local KNOWN = {
 	"scenes",
 	"shard",
 	"confirmation",
+	"bench-cases",
 	"skip-bench",
 	"all",
 	"layout",
