@@ -96,6 +96,7 @@ local ok, problem = pcall(function()
 		end,
 		warmup = chosen.warmup,
 		iterations = chosen.samples,
+		rehearsals = 2,
 	}, { cycles = Retained.CYCLES })
 	if retained ~= nil then
 		assert(buffer.len(retained) == plantedBytes)
