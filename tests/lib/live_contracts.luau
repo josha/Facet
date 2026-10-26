@@ -381,7 +381,7 @@ local WEIGHTS: { [string]: number } = {
 	["weak3_pointer/color-plane-drag"] = 60,
 }
 
-local SHARDS = 16
+local SHARDS = 24
 
 local function assignments(): { [string]: number }
 	local entries: { { name: string, weight: number } } = {}
