@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "4342dbfd01a15862c70e00f08d4babd190457b69",
+  "commit": "830e84656bdfad1db39f711e10c572945c09bb6c",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "4df9d6a108c895934f1863116dcf59cf3626d1eb05342bab53e26e1f06a86635",
@@ -152,8 +152,8 @@
     "src/roblox/engine-logs.luau": "bc8472a2c1c72527e3a96414505fce1a9a9031a2a4edc2b3db7b69b34e708f40",
     "src/roblox/environment-classes.luau": "3e86d97321c2e4f28eb5adf6475c8438e88201e1b690a1842dcec47317df3561",
     "src/roblox/environment-engine.luau": "748727a16419880dd4af8ae849c8b537794e509a324ee00ca9ba08cf40368da6",
-    "src/roblox/environment-types.luau": "3e41eaa163b067f0ad687a6b57606a768436395ccd9add5a8573bbdfd5ae9ff2",
-    "src/roblox/environment.luau": "ea10b7db78d4ba1b6cd8a7b436975210c3e9a23755472da458c55dc804955921",
+    "src/roblox/environment-types.luau": "4c8977249af3e5751f0357b2980a6d127342777a82b542b9e3449e57b8b3dfbe",
+    "src/roblox/environment.luau": "394a3ef16b4c14e9e6214e76f5ec9755207f10426f6a6a647a9f716f134b1efa",
     "src/roblox/experience-host.luau": "edbf23ec68a36870c8d01a9a59f95fd84142b4900b91e34e6ec6b013204f743a",
     "src/roblox/fixture-bridge.luau": "c01967b3275f47f7054e54ba0ebf6bcfa2917f98fdf5131c5de77ddd521d1ac7",
     "src/roblox/init.luau": "fb41149c89b522f97e79405f32f1327b7d706c4f864d486f94b5584465c5f867",
