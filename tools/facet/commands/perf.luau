@@ -39,7 +39,7 @@ subcommands:
   affected BASE                 run paired performance when its code, fixtures or toolchain change; exit 3 when unchanged
   scenes [--themes]             check that each production (or theme-swap) scene did its work
   place [--no-build]            build examples/performance.project.json and check the place
-  paired run --out DIR [--rounds N] [--scenes a,b] [--skip-bench] [--gate] [--summary FILE] LABEL=WORKTREE...
+  paired run --out DIR [--rounds N] [--scenes a,b | --shard K/N] [--skip-bench] [--gate] [--summary FILE] LABEL=WORKTREE...
                                 run the paired scenes and the bench in each worktree, round by round
                                 --gate requires two arms and six full rounds; pass after three or continue all measurements through six; invalid evidence exits 2, invalid CPU calibration exits 75
   paired report DIR FIRST SECOND --rounds N [--scenes a,b] [--skip-bench] [--gate] [--summary FILE]
@@ -493,14 +493,39 @@ local function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture
 		print(USAGE)
 		return 2
 	end
+	local shard = Cli.flag(invocation, "shard")
+	local shardIndex, shardCount = nil, nil
+	if shard ~= nil then
+		local position, total = string.match(shard, "^(%d+)/(%d+)$")
+		shardIndex, shardCount = tonumber(position), tonumber(total)
+		if shardIndex == nil or shardCount == nil or shardIndex < 1 or shardIndex > shardCount then
+			print("paired run: --shard needs index/count with 1 <= index <= count")
+			return 2
+		end
+		if Cli.flag(invocation, "scenes") ~= nil or Cli.switch(invocation, "skip-bench") then
+			print("paired run: --shard chooses the scenes and the bench; omit --scenes and --skip-bench")
+			return 2
+		end
+		local share: { string } = {}
+		for index, scene in Paired.SCENES do
+			if (index - 1) % shardCount == shardIndex - 1 then
+				table.insert(share, scene)
+			end
+		end
+		invocation.flags.scenes = table.concat(share, ",")
+		if shardIndex ~= 1 then
+			invocation.flags["skip-bench"] = true
+		end
+	end
 	local selected = Cli.flag(invocation, "scenes")
 	local sceneList: { string } = if selected ~= nil and selected ~= ""
 		then string.split(selected, ",")
 		else Paired.SCENES
 	local skipBench = Cli.switch(invocation, "skip-bench")
 	local gate = Cli.switch(invocation, "gate")
-	if gate and (#trees ~= 2 or trees[1].label == trees[2].label or rounds ~= 6 or selected ~= nil or skipBench) then
-		print("paired run: --gate requires two distinct arms, --rounds 6, every scene and the bench")
+	local partial = shard == nil and (selected ~= nil or skipBench)
+	if gate and (#trees ~= 2 or trees[1].label == trees[2].label or rounds ~= 6 or partial) then
+		print("paired run: --gate requires two distinct arms, --rounds 6, and every scene and the bench or one --shard")
 		return 2
 	end
 	local execute = capture or Run.capture
@@ -1899,7 +1924,7 @@ local function registerAll(harness: Verify.Harness, prefix: string): ()
 	end
 end
 
-local VALUES = { "out", "rounds", "scenes", "workspace", "devices", "tap", "summary" }
+local VALUES = { "out", "rounds", "scenes", "shard", "workspace", "devices", "tap", "summary" }
 
 local KNOWN = {
 	"selftest",
@@ -1908,6 +1933,7 @@ local KNOWN = {
 	"out",
 	"rounds",
 	"scenes",
+	"shard",
 	"skip-bench",
 	"all",
 	"layout",
