@@ -132,6 +132,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			toast = { enter = 0.2, exit = 0.2 },
 			radial = { enter = 0.2, exit = 0.12, slot = 0.16 },
 			durations = {
+				pressLift = 0.1,
 				zoom = 0.22,
 				travel = 0.3,
 				travelFade = 0.16,

@@ -105,6 +105,53 @@ return function(
 		end
 	end
 	local paint = Host.TextLabel(paintProps)
+	if node:IsA("ImageLabel") or node:IsA("ImageButton") then
+		local image = node
+		local function property<T>(name: string, read: () -> T): (ComposeTypes.Use) -> T
+			local observed = runtime.observe(image, name)
+			return function(use)
+				use(observed)
+				return read()
+			end
+		end
+		runtime.mount(function()
+			return Host.ImageLabel {
+				Name = "FeedbackImage",
+				Size = D2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Image = property("Image", function()
+					return image.Image
+				end),
+				ImageColor3 = property("ImageColor3", function()
+					return image.ImageColor3
+				end),
+				ImageTransparency = property("ImageTransparency", function()
+					return image.ImageTransparency
+				end),
+				ImageRectOffset = property("ImageRectOffset", function()
+					return image.ImageRectOffset
+				end),
+				ImageRectSize = property("ImageRectSize", function()
+					return image.ImageRectSize
+				end),
+				ScaleType = property("ScaleType", function()
+					return image.ScaleType
+				end),
+				SliceCenter = property("SliceCenter", function()
+					return image.SliceCenter
+				end),
+				SliceScale = property("SliceScale", function()
+					return image.SliceScale
+				end),
+				TileSize = property("TileSize", function()
+					return image.TileSize
+				end),
+				ResampleMode = property("ResampleMode", function()
+					return image.ResampleMode
+				end),
+			}
+		end, paint)
+	end
 	if geometry.reflow then
 		painted = ctx.layoutSize(paint)
 	end
@@ -222,4 +269,5 @@ return function(
 			end),
 		}
 	end, node)
+	return paint
 end

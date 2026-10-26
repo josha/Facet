@@ -6,6 +6,8 @@ export type SourceSpec = Env.DraggableSpec & {
 	mark: boolean?,
 	navigationHint: string?,
 	returnPosition: (() -> Vector2)?,
+	liftValue: Shared.ReadOnlyValue<number>?,
+	liftVisual: GuiObject?,
 }
 export type Proposal = Env.DropInfo & { invalid: string? }
 export type TargetOptions = {
@@ -52,10 +54,12 @@ export type Session = {
 	highlight: Highlight?,
 	status: TextLabel?,
 	previewSize: Vector2?,
+	liftScale: number?,
 	armedPreview: GuiObject?,
 	effectiveInput: ((Shared.Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse")?,
 	stop: (() -> ())?,
 	stopPreview: (() -> ())?,
+	stopLift: (() -> ())?,
 	stopStatus: (() -> ())?,
 	stopTravel: (() -> ())?,
 	travelled: boolean?,

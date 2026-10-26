@@ -49,6 +49,10 @@ local function open(check: Verify.Context, suites: { string }, sources: { [strin
 			end,
 		},
 	})
+	local library = Roblox.reflectionSnapshot.library(snapshot)
+	bridge.environment.fake("ScrollingFrame.GetScrollVelocity", function()
+		return library.Vector2.zero
+	end)
 	check:defer(function()
 		bridge.close()
 	end)
