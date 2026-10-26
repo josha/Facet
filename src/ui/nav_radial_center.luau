@@ -218,7 +218,7 @@ return function<V>(
 	local function previewPlace(use: ComposeTypes.Use): (UDim2, Vector2)
 		local ring = use(layout)
 		if ring.list then
-			return D2.new(0.5, -use(paint.listWidth) / 2, 0, 40), V2.new(0, 1)
+			return D2.new(0.5, -use(paint.listWidth) / 2, 0, 2), V2.zero
 		end
 		local at = use(center)
 		do
@@ -341,7 +341,9 @@ return function<V>(
 	})
 	local textBounds = ctx.layoutSize(preview, layoutUnit)
 	Compose.watch(function(use: ComposeTypes.Use)
-		previewBounds:set(use(textBounds))
+		local bounds = use(textBounds)
+		previewBounds:set(bounds)
+		paint.listHeaderHeight:set(bounds.Y)
 	end)
 	local previewText = ctx.observe.Text(preview)
 	local function previewShown(use: ComposeTypes.Use): boolean

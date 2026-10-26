@@ -873,6 +873,7 @@ return function(verifyHarness: Verify.Harness)
 				local world = setup({
 					anchor = { x = 80, y = 60 },
 					clearance = 160,
+					label = "Crew commands: inspect the route, confirm the crossing and wait for the rest of the team before moving",
 					items = compass(function(id)
 						selected = id
 					end),
@@ -885,6 +886,18 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(panel.Size.X.Offset < 800):toBe(true)
 				Verify.expect(panel.Position.X.Offset + panel.Size.X.Offset / 2):toBe(0)
 				Verify.expect(panel.ScrollingEnabled):toBe(true)
+				local title = world.find("SelectionPreview")
+				Verify.expect(title.AnchorPoint.Y):toBe(0)
+				Verify.expect(title.Position.Y.Offset):toBe(2)
+				world.engine.environment.poke(title, "AbsoluteSize", V2.new(312, 96))
+				Verify.expect(panel.Position.Y.Offset):toBe(106)
+				Verify.expect(panel.Size.Y.Offset):toBe(-138)
+				world.engine.environment.poke(title, "AbsoluteSize", V2.new(312, 59.6))
+				Verify.expect(panel.Position.Y.Offset):toBe(70)
+				Verify.expect(panel.Size.Y.Offset):toBe(-102)
+				world.engine.environment.poke(title, "AbsoluteSize", V2.new(312, 24))
+				Verify.expect(panel.Position.Y.Offset):toBe(48)
+				Verify.expect(panel.Size.Y.Offset):toBe(-80)
 				local previous = panel.Size.X.Offset
 				local measure = world.find("N"):FindFirstChild("CaptionMeasure", true)
 				world.engine.environment.poke(measure, "TextBounds", V2.new(620, 20))
@@ -1739,7 +1752,7 @@ return function(verifyHarness: Verify.Harness)
 					world.engine.types.Vector2.new(180, 180)
 				)
 				local preview = world.find("SelectionPreview")
-				Verify.expect(preview.AnchorPoint):toBe(world.engine.types.Vector2.new(0, 1))
+				Verify.expect(preview.AnchorPoint):toBe(world.engine.types.Vector2.zero)
 				Verify.expect(preview.Position.Y.Scale):toBe(0)
 				Verify.expect(preview.TextXAlignment):toBe(world.engine.types.Enum.TextXAlignment.Left)
 				Verify.expect((preview:IsDescendantOf(world.find("RadialPanel")))):toBe(false)

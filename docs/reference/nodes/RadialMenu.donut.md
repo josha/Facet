@@ -31,6 +31,7 @@ RadialMenu.donut option values and behavior.
   available width with side margins. It keeps vertical scrolling in short room.
   Its path and one round Back/Close control align above the list, with Back/Close
   at the list's top right, for every preset and `center`.
+  A wrapped path grows down from the top. The list starts below that path.
 
 The centre control is a small round `utility` button, 32 pixels across, with
 no plate and no theme control art. A transparent `CenterHit` target around it

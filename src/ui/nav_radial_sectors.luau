@@ -16,6 +16,7 @@ export type Paint<V> = {
 	gui: GuiService?,
 	panel: ScrollingFrame,
 	listWidth: ComposeTypes.ReadOnlyValue<number>,
+	listHeaderHeight: ComposeTypes.Value<number>,
 }
 
 return function<V>(
@@ -110,6 +111,10 @@ return function<V>(
 		end
 	end)
 	local gui = surfaces.service("GuiService")
+	local listHeaderHeight = Compose.cell(0)
+	local function listTop(use: ComposeTypes.Use): number
+		return math.max(48, math.ceil(use(listHeaderHeight)) + 10)
+	end
 	local listWidth = Compose.formula(function(use: ComposeTypes.Use): number
 		local width = ctx.metric("controls.popup.panelWidth", use)
 		local words = use(wordWidths)
@@ -134,10 +139,10 @@ return function<V>(
 			return if use(fallback) then 0 else 1
 		end,
 		Size = function(use: ComposeTypes.Use)
-			return if use(fallback) then D2.new(0, use(listWidth), 1, -80) else D2.fromScale(1, 1)
+			return if use(fallback) then D2.new(0, use(listWidth), 1, -listTop(use) - 32) else D2.fromScale(1, 1)
 		end,
 		Position = function(use: ComposeTypes.Use)
-			return if use(fallback) then D2.new(0.5, -use(listWidth) / 2, 0, 48) else D2.fromOffset(0, 0)
+			return if use(fallback) then D2.new(0.5, -use(listWidth) / 2, 0, listTop(use)) else D2.fromOffset(0, 0)
 		end,
 		Active = function(use: ComposeTypes.Use)
 			return use(fallback) or not spec.centerPassThrough
@@ -616,5 +621,6 @@ return function<V>(
 		gui = gui,
 		panel = panel,
 		listWidth = listWidth,
+		listHeaderHeight = listHeaderHeight,
 	}
 end
