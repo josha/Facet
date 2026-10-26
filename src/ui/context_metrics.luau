@@ -11,6 +11,14 @@ export type Metrics = {
 return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes): Metrics
 	local Compose, types = ctx.Compose, ctx.types
 	local environment = config.environment
+	local reactive = config.guiService ~= nil
+		or config.userInputService ~= nil
+		or Compose.isValue(config.theme)
+		or type(config.theme) == "function"
+	local entries: { [unknown]: unknown } = if environment then environment else {}
+	for _, value in entries do
+		reactive = reactive or Compose.isValue(value) or type(value) == "function"
+	end
 	local defaultMetrics = themes.neutralPackage().metrics
 	local function valueAt(value: unknown, path: string): unknown
 		for key in string.gmatch(path, "[^.]+") do
@@ -32,7 +40,7 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 	function ctx.neutralMetrics(use: ComposeTypes.Use?): Theme.Metrics
 		return if distance(use) then distantMetrics else defaultMetrics
 	end
-	function ctx.metric(path: string, use: ComposeTypes.Use?, authored: boolean?): number
+	local function metric(path: string, use: ComposeTypes.Use?, authored: boolean?): number
 		local package = ctx.read(config.theme, use)
 		local value = assert(
 			metricAt(if package then package.metrics else nil, path) or metricAt(ctx.neutralMetrics(use), path),
@@ -55,6 +63,26 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 		end
 		return value
 	end
+	ctx.runtime:watch(function()
+		local owner = assert(Compose.currentOwner())
+		local values: { [string]: ComposeTypes.ReadOnlyValue<number> } = {}
+		function ctx.metric(path: string, use: ComposeTypes.Use?, authored: boolean?): number
+			if use == nil or not reactive then
+				return metric(path, nil, authored)
+			end
+			local key = if authored then path .. ":authored" else path
+			local value = values[key]
+			if value == nil then
+				value = Compose.withOwner(owner, function()
+					return Compose.formula(function(read: ComposeTypes.Use): number
+						return metric(path, read, authored)
+					end)
+				end)
+				values[key] = value
+			end
+			return use(value)
+		end
+	end)
 	function ctx.phrase(
 		key: string,
 		source: string,

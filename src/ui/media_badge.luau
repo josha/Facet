@@ -99,11 +99,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				node :: ComposeTypes.Child,
 			})
 		end
-		runtime.decorate(pill, {
-			Visible = function(use: ComposeTypes.Use): boolean
-				return read(spec.Visible, use) ~= false and (named or caption(use) ~= "")
-			end,
-		})
+		local visible = Compose.formula(function(use: ComposeTypes.Use): boolean
+			return read(spec.Visible, use) ~= false and (named or caption(use) ~= "")
+		end)
+		runtime.decorate(pill, { Visible = visible })
 		ctx.styled(pill, "badge")
 		if spec.status ~= nil then
 			statusTag(pill, spec.status)

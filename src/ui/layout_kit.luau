@@ -374,7 +374,9 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							if node:IsA("GuiObject") then
 								local order = base + (own[node] or at)
 								stamped[node] = order
-								node.LayoutOrder = order
+								if node.LayoutOrder ~= order then
+									node.LayoutOrder = order
+								end
 							end
 						end
 					end
