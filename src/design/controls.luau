@@ -137,7 +137,21 @@ local controls: { [string]: Types.ControlSpec } = {
 			LayoutOrder = { type = "number", label = "Layout order", order = 14 },
 			presenceLabel = { type = "string", label = "Presence label", order = 15 },
 			backplate = { type = "boolean", label = "Backplate", order = 16 },
-			background = { type = "string", label = "Background role", order = 17 },
+			background = {
+				type = "choice",
+				label = "Background role",
+				order = 17,
+				options = {
+					"surface",
+					"surfaceStrong",
+					"control",
+					"contentStrong",
+					"accent",
+					"success",
+					"warning",
+					"danger",
+				},
+			},
 			controlSize = {
 				type = "choice",
 				label = "Control size",
@@ -548,7 +562,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 23,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-			hourCycle = { type = "number", label = "Hour cycle", order = 24 },
+			hourCycle = { type = "number", label = "Hour cycle", order = 24, default = 12 },
 			placeholder = { type = "string", label = "Placeholder", order = 25 },
 			referenceDate = { type = "value", label = "Reference date", order = 26, format = "json" },
 			locale = { type = "value", label = "Date words", order = 27, format = "json" },
@@ -996,7 +1010,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			corners = { type = "choice", label = "Corners", order = 17, options = { "pill", "square" } },
 			label = { type = "string", label = "Label", order = 18 },
 			placeholder = { type = "string", label = "Placeholder", order = 19 },
-			visibleLines = { type = "number", label = "Visible lines", order = 20 },
 			maxLength = { type = "number", label = "Maximum length", order = 21 },
 			clearButton = { type = "boolean", label = "Clear button", order = 22 },
 			clearButtonMode = {
@@ -1077,8 +1090,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			autoFocus = { type = "boolean", label = "Initial focus", order = 28 },
 			wrapFocus = { type = "boolean", label = "Wrap focus", order = 29 },
 			initialFocus = { type = "string", label = "Initial focus key", order = 30 },
-			dataKey = { type = "string", label = "Live rows input", order = 31 },
-			activationKey = { type = "string", label = "Row activation callback", order = 32 },
 		},
 	},
 	PageView = {
@@ -1164,8 +1175,8 @@ local controls: { [string]: Types.ControlSpec } = {
 		state = "selected",
 		defaults = {
 			options = list(
-				record { label = "First option", value = "first" },
-				record { label = "Second option", value = "second" }
+				record { label = "First option", value = "first", icon = "speaker" },
+				record { label = "Second option", value = "second", icon = "volume" }
 			),
 			selected = "first",
 			style = "segmented",
@@ -1263,7 +1274,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				type = "choice",
 				label = "Presentation",
 				order = 3,
-				options = { "bar", "circular", "spinner" },
+				options = { "bar", "circular", "gauge", "spinner" },
 			},
 			BackgroundColor3 = { type = "color", label = "Background color", order = 4, format = "color" },
 			BackgroundTransparency = { type = "number", label = "Background transparency", order = 5 },
@@ -1864,8 +1875,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 27,
 				options = { "none", "single", "multiple" },
 			},
-			dataKey = { type = "string", label = "Live rows input", order = 28 },
-			activationKey = { type = "string", label = "Row activation callback", order = 29 },
 			rowActions = { type = "value", label = "Row actions", order = 30, format = "json" },
 		},
 	},
@@ -2141,8 +2150,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			autoFocus = { type = "boolean", label = "Initial focus", order = 28 },
 			wrapFocus = { type = "boolean", label = "Wrap focus", order = 29 },
 			initialFocus = { type = "string", label = "Initial focus key", order = 30 },
-			dataKey = { type = "string", label = "Live rows input", order = 31 },
-			activationKey = { type = "string", label = "Row activation callback", order = 32 },
 		},
 	},
 	VirtualList = {
@@ -2195,8 +2202,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			autoFocus = { type = "boolean", label = "Initial focus", order = 26 },
 			wrapFocus = { type = "boolean", label = "Wrap focus", order = 27 },
 			initialFocus = { type = "string", label = "Initial focus key", order = 28 },
-			dataKey = { type = "string", label = "Live rows input", order = 29 },
-			activationKey = { type = "string", label = "Row activation callback", order = 30 },
 		},
 	},
 	Vote = {

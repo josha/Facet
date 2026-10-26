@@ -10,9 +10,10 @@ export type FieldSpec = {
 	order: number,
 	options: { string }?,
 	format: string?,
+	default: Literal?,
 }
 
-export type DerivedField = { type: Design.FieldType, options: { string }?, datatype: string? }
+export type DerivedField = { type: Design.FieldType, options: { string }?, datatype: string?, also: { string }? }
 
 export type DerivedKind = { children: boolean, fields: { [string]: DerivedField } }
 
@@ -41,6 +42,9 @@ export type Context = {
 	datatype: ((name: string, components: { number }) -> unknown)?,
 	enumItem: ((enumName: string, item: string) -> unknown)?,
 	host: ((className: string, name: string, props: { [unknown]: unknown }) -> unknown)?,
+	provide: ((content: unknown) -> unknown)?,
 }
+
+export type StudioKit = Design.Kit
 
 return {}

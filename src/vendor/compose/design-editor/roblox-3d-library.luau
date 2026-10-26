@@ -195,6 +195,12 @@ return function(runtime: Compose.Runtime, environment: Environment.Environment):
 					apply(props.tileV, function(value: Design.Literal?)
 						ui.set(node, "StudsPerTileV", math.max(number(value, 2), 0.01))
 					end)
+					apply(props.offsetU, function(value: Design.Literal?)
+						ui.set(node, "OffsetStudsU", number(value, 0))
+					end)
+					apply(props.offsetV, function(value: Design.Literal?)
+						ui.set(node, "OffsetStudsV", number(value, 0))
+					end)
 				end
 				return node
 			end,
@@ -321,6 +327,8 @@ return function(runtime: Compose.Runtime, environment: Environment.Environment):
 			Texture = surfaceImage("Texture", {
 				tileU = { type = "number", group = "Image", order = 5 },
 				tileV = { type = "number", group = "Image", order = 6 },
+				offsetU = { type = "number", group = "Image", order = 7 },
+				offsetV = { type = "number", group = "Image", order = 8 },
 			}),
 		},
 	}

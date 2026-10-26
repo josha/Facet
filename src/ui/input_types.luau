@@ -24,7 +24,6 @@ export type ButtonRole = "default" | "cancel" | "destructive" | "onIndicator"
 export type ButtonVisualOptions = {
 	label: Shared.ValueString?,
 	name: Shared.ValueString?,
-	compactLabel: Shared.ValueString?,
 	pop: boolean?,
 	appearance: (Shared.ValueString | Shared.Input<string?>)?,
 	controlSize: Input<Shared.ControlSize?>?,
@@ -41,9 +40,13 @@ export type ButtonVisualOptions = {
 	help: Help?,
 	disclose: boolean?,
 	row: Row?,
-	textSize: Input<string | number>?,
+	textSize: Input<number | Shared.TextRole>?,
+}
+export type TextButtonOptions = {
+	compactLabel: Shared.ValueString?,
 	underline: ("always" | "hover")?,
 }
+
 export type ButtonInputOptions = {
 	haptic: Input<boolean | Shared.HapticKind>?,
 	repeatDelay: number?,

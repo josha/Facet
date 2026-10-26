@@ -3,6 +3,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local Engine = require("./engine_types")
 local Theme = require("./theme_types")
 
+export type TextRole = "caption" | "label" | "body" | "heading" | "title" | "control" | "strong" | "numeral"
 export type ComposeModule = typeof(ComposeTypes)
 export type Runtime = ComposeTypes.Runtime
 export type Source<T> = ComposeTypes.Source<T>

@@ -5,6 +5,7 @@ local Design = require("../vendor/compose/design")
 local Types = require("./types")
 local controls = require("./controls")
 local derived = require("./fields")
+local icons = require("../ui/icons")
 
 type Literal = Design.Literal
 type Resolved = Design.Resolved
@@ -100,6 +101,70 @@ local function derivedFields(name: string): { [string]: Types.DerivedField }
 	return if found ~= nil then found.fields else {}
 end
 
+local ICONS: { string } = {}
+for _, set in { icons.BUILTIN, icons.ART } do
+	for iconName in set do
+		table.insert(ICONS, iconName)
+	end
+end
+table.sort(ICONS)
+
+local function picked(key: string, kind: Design.FieldType, options: { string }?): (Design.FieldType, { string }?)
+	if kind == "string" and string.match(key, "[iI]con$") then
+		return "choice", ICONS
+	end
+	return kind, options
+end
+
+local REQUIRES: { [string]: { [string]: { Literal } } } = {
+	corners = { surface = {} },
+	sliceCenter = { scaleMode = { "slice" } },
+	sliceScale = { scaleMode = { "slice" }, sliceCenter = {} },
+	visibleLines = { multiline = { true } },
+	hug = { mode = { "all" } },
+	indicatorPosition = { style = { "radioGroup" } },
+	needle = { presentation = { "gauge" } },
+	sweep = { presentation = { "gauge" } },
+	segments = { presentation = { "bar" } },
+	leading = { zone = { "topbar" } },
+	trailing = { zone = { "topbar" } },
+	edge = { placement = { "side", "adaptive" } },
+	alpha = { onAlphaChange = {} },
+}
+
+local KIND_REQUIRES: { [string]: { [string]: { [string]: { Literal } } } } = {
+	Picker = { maxHeight = { style = { "automatic", "menu", "navigationLink" } } },
+	ProgressView = { diameter = { presentation = { "circular", "gauge", "spinner" } } },
+	Toggle = { mixed = { presentation = { "checkbox" } } },
+}
+
+local FIELD_DEFAULTS: { [string]: { [string]: Literal } } = {
+	NavigationSplitView = { maxSidebarWidth = 480 },
+	ProgressView = { min = 0, sweep = 240 },
+	Image = { sliceCenter = { x0 = 0, y0 = 0, x1 = 1, y1 = 1 } },
+}
+
+local function refine(name: string, fields: { [string]: Design.Field }): { [string]: Design.Field }
+	local own = KIND_REQUIRES[name] or {}
+	local defaults = FIELD_DEFAULTS[name] or {}
+	for key, field in fields do
+		local requires = own[key] or REQUIRES[key]
+		if requires ~= nil then
+			local known = true
+			for other in requires do
+				known = known and fields[other] ~= nil
+			end
+			if known then
+				field.requires = requires
+			end
+		end
+		if defaults[key] ~= nil then
+			field.default = defaults[key]
+		end
+	end
+	return fields
+end
+
 local function plainFields(source: { [string]: Types.DerivedField }): { [string]: Design.Field }
 	local fields: { [string]: Design.Field } = {}
 	local keys: { string } = {}
@@ -110,10 +175,12 @@ local function plainFields(source: { [string]: Types.DerivedField }): { [string]
 	for order, key in keys do
 		local field = source[key]
 		local lower = string.match(key, "^%l") ~= nil
+		local kind, options = picked(key, field.type, field.options)
 		fields[key] = {
-			type = field.type,
-			options = field.options,
+			type = kind,
+			options = options,
 			datatype = if field.type == "color" then "Color3" else field.datatype,
+			also = field.also,
 			group = if lower then "Control" else "Roblox",
 			order = order,
 		}
@@ -125,13 +192,21 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 	local fields: { [string]: Design.Field } = {}
 	local order = 1000
 	for key, field in derivedFields(name) do
+		if
+			spec.fields[string.lower(string.sub(key, 1, 1)) .. string.sub(key, 2)] ~= nil and string.match(key, "^%u")
+		then
+			continue
+		end
 		order += 1
+		local kind, options = picked(key, field.type, field.options)
 		fields[key] = {
-			type = field.type,
-			options = field.options,
+			type = kind,
+			options = options,
 			datatype = if field.type == "color" then "Color3" else field.datatype,
+			also = field.also,
 			group = "More",
 			order = order,
+			advanced = true,
 		}
 	end
 	local typed = derivedFields(name)
@@ -149,10 +224,13 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 		if kind ~= nil and kind ~= own and table.find(also, kind) == nil then
 			table.insert(also, kind)
 		end
+		local kind, options = picked(key, field.type, field.options)
 		fields[key] = {
-			type = field.type,
-			options = field.options,
+			type = kind,
+			options = options,
 			order = field.order,
+			label = field.label,
+			default = field.default,
 			datatype = if field.type == "color" then "Color3" else nil,
 			also = if #also > 0 then also else nil,
 			luauType = if field.format == "padding"
@@ -166,6 +244,23 @@ end
 
 local function seedChildren(spec: Types.ControlSpec): boolean
 	return spec.container == true or spec.content ~= nil
+end
+
+local function seeds(name: string): { Types.Seed }
+	local spec = controls[name]
+	if spec == nil then
+		return {}
+	end
+	local declared = spec.seeds
+	if declared ~= nil then
+		return declared
+	end
+	if not seedChildren(spec) then
+		return {}
+	end
+	local props: { [string]: Types.Literal } = { text = "Make this content yours" }
+	local placeholder: Types.Seed = { kind = "Text", props = props }
+	return { placeholder }
 end
 
 local function create(context: Context): Design.Library
@@ -240,9 +335,11 @@ local function create(context: Context): Design.Library
 	for name, spec in controls do
 		local contentKey = spec.content
 		local templated = TEMPLATE_KINDS[name] == true
+		local kindFields = refine(name, fieldsOf(name, spec))
 		kinds[name] = {
-			fields = fieldsOf(name, spec),
+			fields = kindFields,
 			defaults = spec.defaults,
+			seeds = if spec.seeds ~= nil or contentKey ~= nil then seeds(name) else nil,
 			children = if templated
 				then "template"
 				elseif contentKey ~= nil then "slot"
@@ -268,8 +365,11 @@ local function create(context: Context): Design.Library
 							and spec.fields[key] == nil
 						then typed[key].datatype
 						else nil
+					local field = kindFields[key]
 					if resolved.value ~= nil then
 						values[key] = resolved.value
+					elseif literal ~= nil and field ~= nil and field.type == "color" then
+						values[key] = color(literal)
 					elseif literal ~= nil and datatype ~= nil then
 						values[key] = convert(datatype, literal)
 					elseif literal ~= nil then
@@ -280,6 +380,8 @@ local function create(context: Context): Design.Library
 						live[key] = resolved.callback
 					elseif resolved.node ~= nil then
 						live[key] = resolved.node
+					elseif resolved.slot ~= nil then
+						live[key] = resolved.slot
 					end
 				end
 				local states: { [string]: Compose.Value<unknown> } = {}
@@ -513,6 +615,8 @@ local function create(context: Context): Design.Library
 				local datatype = if field then field.datatype else nil
 				if resolved.value ~= nil then
 					values[key] = resolved.value
+				elseif literal ~= nil and field ~= nil and field.type == "color" then
+					values[key] = color(literal)
 				elseif literal ~= nil and datatype ~= nil then
 					values[key] = convert(datatype, literal)
 				elseif literal ~= nil then
@@ -523,6 +627,8 @@ local function create(context: Context): Design.Library
 					values[key] = resolved.callback
 				elseif resolved.node ~= nil then
 					values[key] = resolved.node
+				elseif resolved.slot ~= nil then
+					values[key] = resolved.slot
 				end
 			end
 			for _, child in children do
@@ -535,7 +641,7 @@ local function create(context: Context): Design.Library
 	for name, entry in derived.controls do
 		if kinds[name] == nil then
 			kinds[name] = {
-				fields = plainFields(entry.fields),
+				fields = refine(name, plainFields(entry.fields)),
 				children = if entry.children then "list" else "none",
 				category = "More",
 				call = "UI." .. name,
@@ -573,27 +679,32 @@ local function create(context: Context): Design.Library
 		cell = "Facet.Value",
 		newCell = "Facet.Compose.cell",
 		show = "Facet.Compose.show",
+		tags = {
+			call = "Facet.tag",
+			apply = function(built: unknown, tags: { string })
+				if typeof(built) == "Instance" then
+					for _, name in tags do
+						built:AddTag(name)
+					end
+				end
+			end,
+		},
 		keyed = "Facet.Compose.keyed",
 		space = "2d",
+		provide = context.provide,
+		categories = {
+			"Layout",
+			"Content",
+			"Input",
+			"Collections",
+			"Navigation",
+			"Overlays",
+			"Status",
+			"More",
+			"Roblox",
+		},
 		kinds = kinds,
 	}
-end
-
-local function seeds(name: string): { Types.Seed }
-	local spec = controls[name]
-	if spec == nil then
-		return {}
-	end
-	local declared = spec.seeds
-	if declared ~= nil then
-		return declared
-	end
-	if not seedChildren(spec) then
-		return {}
-	end
-	local props: { [string]: Types.Literal } = { text = "Make this content yours" }
-	local placeholder: Types.Seed = { kind = "Text", props = props }
-	return { placeholder }
 end
 
 return {

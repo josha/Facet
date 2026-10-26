@@ -18,8 +18,14 @@ export type Editor = {
 	dispose: () -> (),
 }
 
+export type Device = { name: string, size: UI.Point }
+
+export type Preview = { name: string, choices: { string }, initial: string?, select: (choice: string) -> () }
+
 export type Options = {
 	stageSize: UI.Point,
+	devices: { Device }?,
+	previews: { Preview }?,
 	token: ((name: string) -> Design.Literal)?,
 	tokens: { string }?,
 	slots: { [string]: () -> unknown }?,
@@ -256,6 +262,44 @@ return function(ui: UI.UI)
 			)
 			ui.set(button, "Parent", container)
 			return button
+		end
+		local previewOrder = 10
+		local function cycling(name: string, choices: { string }, initial: string?, select: (choice: string) -> ())
+			if #choices == 0 then
+				return
+			end
+			local at = math.max(1, table.find(choices, initial or choices[1]) or 1)
+			local button: Compose.Node? = nil
+			button = action(name, choices[at], previewOrder, leftTools, false, function()
+				at = at % #choices + 1
+				local chosen = choices[at]
+				ui.set(assert(button), "Text", chosen)
+				select(chosen)
+			end)
+			previewOrder += 1
+		end
+		local devices = options.devices
+		if devices and #devices > 0 and stage then
+			local flat = stage
+			local names: { string } = {}
+			for _, device in devices do
+				table.insert(names, device.name)
+			end
+			ui.set(divider(previewOrder), "Parent", leftTools)
+			previewOrder += 1
+			cycling("Device", names, nil, function(choice: string)
+				for _, device in devices do
+					if device.name == choice then
+						flat.resize(device.size)
+					end
+				end
+			end)
+		end
+		local previews = options.previews
+		if previews then
+			for _, preview in previews do
+				cycling(preview.name, preview.choices, preview.initial, preview.select)
+			end
 		end
 		local undo = action("Undo", "Undo", 1, rightTools, false, function()
 			session.undo()

@@ -13,6 +13,7 @@ export type Stage = {
 	zoom: Compose.Value<number>,
 	fit: () -> (),
 	zoomTo: (scale: number, around: UI.Point?) -> (),
+	resize: (size: UI.Point) -> (),
 	dispose: () -> (),
 }
 
@@ -88,11 +89,13 @@ return function(ui: UI.UI)
 		ui.set(camera, "Parent", holder)
 		local zoom = Compose.cell(1)
 		local pan: UI.Point = { X = 0, Y = 0 }
+		local framed: { { instance: Compose.Node, grow: number } } = {}
 		local function centered(name: string, grow: number): Compose.Node
 			local created = frame(name)
 			ui.set(created, "AnchorPoint", ui.values.vector2(0.5, 0.5))
 			ui.set(created, "Position", ui.values.udim2(0.5, 0, 0.5, 0))
 			ui.set(created, "Size", ui.values.udim2(0, width + grow, 0, height + grow))
+			table.insert(framed, { instance = created, grow = grow })
 			return created
 		end
 		for depth, spread in { 24, 12, 4 } do
@@ -345,6 +348,7 @@ return function(ui: UI.UI)
 			Compose.cleanup(release)
 			return box
 		end
+		local started = false
 		local root = Compose.createRootOwner(function()
 			Compose.watch(function(use: Compose.Use)
 				local value = use(session.document)
@@ -354,17 +358,29 @@ return function(ui: UI.UI)
 				end
 				table.clear(nodes)
 				stopDesign = runtime.mount(function(): Compose.Node
-					return Design.render(value, session.library, {
-						inputs = options.inputs,
-						slots = options.slots,
-						token = options.token,
-						decorate = function(node: Design.Node, built: Compose.Node)
-							if ui.isA(built, "GuiObject") then
-								runtime.decorate(built, { Attributes = { [ATTRIBUTE] = node.id } })
-								nodes[node.id] = built
-							end
-						end,
-					})
+					local rendered, content = pcall(function(): unknown
+						return Design.render(value, session.library, {
+							inputs = options.inputs,
+							slots = options.slots,
+							token = options.token,
+							decorate = function(node: Design.Node, built: Compose.Node)
+								if ui.isA(built, "GuiObject") then
+									runtime.decorate(built, { Attributes = { [ATTRIBUTE] = node.id } })
+									nodes[node.id] = built
+								end
+							end,
+						})
+					end)
+					if not rendered then
+						if not started then
+							error(content, 0)
+						end
+						table.clear(nodes)
+						session.problem:set(`This design does not render: {content}`)
+						return nil
+					end
+					local provide = session.library.provide
+					return if provide then provide(content) else content
 				end, surface)
 			end)
 			outline("DesignHover", 1, false, function(use: Compose.Use): string?
@@ -376,6 +392,7 @@ return function(ui: UI.UI)
 				return use(session.selected)
 			end)
 		end, runtime.reactor)
+		started = true
 		local release = Compose.owner.own(ui.owner, root.dispose)
 		local function apply()
 			local scale = zoom:peek()
@@ -486,6 +503,14 @@ return function(ui: UI.UI)
 		local left = ui.connect(overlay, "MouseLeave", function()
 			session.hovered:set(nil)
 		end)
+		local function resize(next: UI.Point)
+			width, height = next.X, next.Y
+			for _, entry in framed do
+				ui.set(entry.instance, "Size", ui.values.udim2(0, width + entry.grow, 0, height + entry.grow))
+			end
+			ui.set(dimensions, "Text", `{width} × {height}`)
+			fit()
+		end
 		return {
 			surface = surface,
 			overlay = overlay,
@@ -493,6 +518,7 @@ return function(ui: UI.UI)
 			zoom = zoom,
 			fit = fit,
 			zoomTo = zoomTo,
+			resize = resize,
 			dispose = function()
 				for _, connection in surfaceInput do
 					connection:Disconnect()

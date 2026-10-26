@@ -44,4 +44,6 @@ return {
 	extend = Library.extend,
 	emit = Source.emit,
 	parse = Source.parse,
+	literal = Source.literal,
+	parseLiteral = Source.parseLiteral,
 }

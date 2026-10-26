@@ -92,11 +92,15 @@ local FAMILIES: { Family } = {
 			Colors = "./color_picker_types",
 		},
 		recipes = {
-			{ name = "ButtonProps", native = "TextButtonProps", parts = with(BUTTON, "Inputs.ButtonOptions") },
+			{
+				name = "ButtonProps",
+				native = "TextButtonProps",
+				parts = with(BUTTON, "Inputs.ButtonOptions", "Inputs.TextButtonOptions"),
+			},
 			{
 				name = "ToggleProps",
 				native = "TextButtonProps",
-				parts = with(BUTTON, "Inputs.ToggleOptions"),
+				parts = with(BUTTON, "Inputs.ToggleOptions", "Inputs.TextButtonOptions"),
 				variants = {
 					{ name = "ToggleCellProps", parts = { "Inputs.CellBinding<boolean>" } },
 					{ name = "ToggleRequestProps", parts = { "Inputs.RequestBinding<boolean>" } },
@@ -176,7 +180,7 @@ local FAMILIES: { Family } = {
 			{
 				name = "ChipProps",
 				native = "TextButtonNativeProps",
-				parts = with(BUTTON, "Inputs.ChipOptions"),
+				parts = with(BUTTON, "Inputs.ChipOptions", "Inputs.TextButtonOptions"),
 				variants = {
 					{ name = "ChipCellProps", parts = { "Inputs.ChipCellSelection" } },
 					{ name = "ChipRequestProps", parts = { "Inputs.ChipRequestSelection" } },
