@@ -46,6 +46,7 @@ export type Kind = {
 	children: Children,
 	template: string?,
 	slot: string?,
+	category: string?,
 	source: string?,
 	key: string?,
 	call: string,

@@ -7,6 +7,7 @@ local Design = require "../design"
 local Stage = require "./stage"
 local Stage3D = require "./stage3d"
 local Layers = require "./layers"
+local LibraryPanel = require "./library-panel"
 local Inspector = require "./inspector"
 
 export type Editor = {
@@ -126,7 +127,11 @@ return function(ui: UI.UI)
 			ui.set(body, "Parent", frame)
 			return frame, body
 		end
-		local _, left = side("LayersPanel", "Layers", 0)
+		local libraryFrame, libraryBody = side("LibraryPanel", "Library", 0)
+		ui.set(libraryFrame, "Size", ui.values.udim2(0, size.side, 0.45, -size.toolbar))
+		local layersFrame, left = side("LayersPanel", "Layers", 0)
+		ui.set(layersFrame, "Position", ui.values.udim2(0, 0, 0.45, 0))
+		ui.set(layersFrame, "Size", ui.values.udim2(0, size.side, 0.55, -size.status))
 		local _, right = side("InspectorPanel", "Design", 1)
 		local center = Theme.frame("StagePanel", color.canvas)
 		ui.set(center, "Position", ui.values.udim2(0, size.side, 0, size.toolbar))
@@ -208,6 +213,7 @@ return function(ui: UI.UI)
 			view = { zoom = built.zoom, fit = built.fit, zoomTo = built.zoomTo, dispose = built.dispose }
 		end
 		local layers = Layers(ui)(session, left)
+		local libraryPanel = LibraryPanel(ui)(session, libraryBody)
 		local inspector = Inspector(ui)(session, right, {
 			tokens = options.tokens,
 			measure = function(id: string, key: string): number?
@@ -250,24 +256,6 @@ return function(ui: UI.UI)
 			)
 			ui.set(button, "Parent", container)
 			return button
-		end
-		local kinds: { string } = {}
-		for name in library.kinds do
-			table.insert(kinds, name)
-		end
-		table.sort(kinds)
-		ui.set(divider(1), "Parent", leftTools)
-		for index, name in kinds do
-			local _ = action(
-				"+ " .. name,
-				`{Theme.glyph[name] or "◇"}  {name}`,
-				index + 1,
-				leftTools,
-				false,
-				function()
-					session.insert(name)
-				end
-			)
 		end
 		local undo = action("Undo", "Undo", 1, rightTools, false, function()
 			session.undo()
@@ -461,6 +449,7 @@ return function(ui: UI.UI)
 				end
 				view.dispose()
 				layers.dispose()
+				libraryPanel.dispose()
 				inspector.dispose()
 				ui.destroy(root)
 			end,

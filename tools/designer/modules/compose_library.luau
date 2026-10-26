@@ -33,6 +33,7 @@ export type Kind = {
 	children: "none" | "list" | "template" | "slot",
 	template: string?,
 	slot: string?,
+	category: string?,
 	source: string?,
 	key: string?,
 	call: string,
@@ -117,10 +118,6 @@ local function fieldsOf(definition: { [string]: unknown }): { [string]: Field }
 				field.options = choices
 			end
 		end
-		local label = descriptor.label
-		if type(label) == "string" then
-			field.group = if type(definition.category) == "string" then definition.category :: string else nil
-		end
 		fields[key] = field
 	end
 	return fields
@@ -170,6 +167,7 @@ local function create(ctx: Context): Library
 			defaults = defaultsOf(definition),
 			children = if TEMPLATE_KINDS[name] then "template" elseif content then "slot" elseif isContainer then "list" else "none",
 			slot = content,
+			category = if type(definition.category) == "string" then definition.category :: string else nil,
 			source = if TEMPLATE_KINDS[name] then "from" else nil,
 			template = if TEMPLATE_KINDS[name] then "render" else nil,
 			key = if TEMPLATE_KINDS[name] then "key" else nil,
