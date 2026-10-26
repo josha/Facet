@@ -153,6 +153,7 @@ export type PhaseResult = {
 }
 
 export type Result = {
+	attempts: number,
 	name: string,
 	unit: Unit,
 	samples: { number },

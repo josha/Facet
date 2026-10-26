@@ -27,17 +27,12 @@ permissions:
 jobs:
   platform:
     if: ${{ !inputs.diagnostic }}
-    name: Full suite (${{ matrix.platform }})
+    name: Full suite (shard ${{ matrix.shard }})
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            platform: Linux
-          - os: macos-latest
-            platform: macOS
-          - os: windows-latest
-            platform: Windows
+        os: [ubuntu-latest]
+        shard: [1, 2, 3, 4]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     defaults:
@@ -88,18 +83,20 @@ jobs:
       - name: Prepare all local gate dependencies
         run: lute run tools/facet types prepare
 
-      - name: Full tier
-        shell: bash
+      - name: Full tier shard
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARDS: 4
         run: |
+          set -o pipefail
           mkdir -p artifacts/verify
-          lute run tools/facet gate --list
-          lute run tools/facet gate full 2>&1 | tee artifacts/verify/ci.log
+          lute run tools/facet gate full --shard "$SHARD/$SHARDS" --weights tools/facet/ci-weights.json --record-weights artifacts/verify/ci-weights.json 2>&1 | tee artifacts/verify/ci.log
 
       - name: Save verification diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: verification-${{ matrix.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: verification-${{ matrix.os }}-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             artifacts/verify/
             artifacts/phase-4/
@@ -108,6 +105,7 @@ jobs:
           retention-days: 7
 
       - name: The model is the library alone
+        if: matrix.shard == 1
         run: lute run tools/facet check library-purity
 
   verify:
@@ -131,11 +129,12 @@ jobs:
           fi
 
   paired-perf:
-    name: ${{ inputs.diagnostic && format('Paired performance ({0}, sample {1})', matrix.os, matrix.sample) || format('Paired performance ({0})', matrix.os) }}
+    name: ${{ inputs.diagnostic && format('Paired performance (shard {0}, sample {1})', matrix.shard, matrix.sample) || format('Paired performance (shard {0})', matrix.shard) }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest]
+        shard: [1, 2, 3]
         sample: ${{ inputs.diagnostic && fromJSON('[1,2,3]') || fromJSON('[1]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
@@ -260,7 +259,7 @@ jobs:
           output=artifacts/perf-paired
           for attempt in 1 2; do
             status=0
-            lute run tools/facet perf paired run --out "$output" --rounds 6 --gate --summary "$output-summary.md" base="$RUNNER_TEMP/base" pr="$GITHUB_WORKSPACE" > "$output-report.txt" 2>&1 || status=$?
+            lute run tools/facet perf paired run --out "$output" --rounds 6 --shard "${{ matrix.shard }}/3" --gate --summary "$output-summary.md" base="$RUNNER_TEMP/base" pr="$GITHUB_WORKSPACE" > "$output-report.txt" 2>&1 || status=$?
             cat "$output-report.txt"
             if [ -f "$output-summary.md" ]; then
               cat "$output-summary.md" >> "$GITHUB_STEP_SUMMARY"
@@ -280,7 +279,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: paired-performance-${{ matrix.os }}-${{ matrix.sample }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: paired-performance-shard${{ matrix.shard }}-${{ matrix.sample }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/perf-paired*
           if-no-files-found: warn
           retention-days: 7

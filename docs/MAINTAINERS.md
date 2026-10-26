@@ -172,6 +172,12 @@ The `plan` producer checks its source coverage. The [CI guide](../tools/studio/C
 defines complete native runs, hosted CI coverage and the final Verify job.
 Hosted CI uses the engine double; native Studio coverage remains deferred.
 
+Hosted CI splits the full tier into four Linux shards with Verify's `--shard`.
+[`tools/facet/ci-weights.json`](../tools/facet/ci-weights.json) holds the
+measured seconds that balance them. Each shard records fresh weights in its
+verification artifact. A release runs the complete full tier on macOS and
+Windows before it publishes.
+
 Commands and test workers share a process budget equal to the host CPU count.
 Each command and each test worker uses one slot. Tests can use a command's slot
 when the command exits. The gate reserves 2 GiB of memory, allows 2 GiB per
