@@ -2353,6 +2353,180 @@ add("picker-cards-live", {}, function(t)
 	t.check("the cards wrap onto more than one line", count > 1, count)
 end)
 
+add("picker-segmented-rightmost-stays-put", {}, function(t)
+	local selected
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		selected = Compose.cell("street")
+		return UI.ScrollView "Inspector" {
+			Size = UDim2.fromOffset(360, 400),
+			gap = "m",
+			UI.Picker "Wheels" {
+				label = "Wheels",
+				selected = selected,
+				options = {
+					{ value = "street", label = "Street" },
+					{ value = "rally", label = "Rally" },
+					{ value = "sport", label = "Sport" },
+				},
+			},
+		}
+	end, { size = Vector2.new(480, 480), frames = 20, motionLevel = "normal" })
+	local picker = t.find(stage, "Wheels")
+	local before = picker.AbsoluteSize
+	selected:set("sport")
+	t.settle(90)
+	local after = picker.AbsoluteSize
+	t.settle(30)
+	local later = picker.AbsoluteSize
+	t.check(
+		"selecting the rightmost segment keeps the picker width",
+		math.abs(after.X - before.X) < 1,
+		{ before, after }
+	)
+	t.check(
+		"the picker stops changing size",
+		math.abs(later.X - after.X) < 0.5 and math.abs(later.Y - after.Y) < 0.5,
+		{ after, later }
+	)
+	local fill = picker:FindFirstChild("SelectionFill", true)
+	if fill and fill.Visible then
+		t.inside("the selection fill stays inside the picker", fill, picker, 0.5)
+	end
+end)
+
+add("picker-segmented-garage-rightmost", {}, function(t)
+	for _, size in { Vector2.new(1280, 720), Vector2.new(844, 390), Vector2.new(390, 844), Vector2.new(1024, 768) } do
+		local stage = t.gallery({ size = size, demo = "garage" })
+		t.settle(20)
+		for _, pair in { { "Wheels", "sport" }, { "VehicleLineup", "sprint" } } do
+			local picker = t.find(stage, pair[1])
+			local last = if picker then picker:FindFirstChild(pair[2], true) else nil
+			if
+				found(
+					t,
+					`{size} {pair[1]}: the picker and its rightmost option were found`,
+					{ "picker", "last" },
+					{ picker = picker, last = last }
+				)
+			then
+				local before = picker.AbsoluteSize
+				require(game:GetService("ReplicatedStorage").FacetLive).click(last)
+				t.settle(90)
+				local after = picker.AbsoluteSize
+				t.settle(60)
+				local later = picker.AbsoluteSize
+				t.check(
+					`{size} {pair[1]}: picking the rightmost option keeps the width`,
+					math.abs(after.X - before.X) < 1,
+					{ before, after }
+				)
+				t.check(
+					`{size} {pair[1]}: the picker stops changing size`,
+					(later - after).Magnitude < 0.5,
+					{ after, later }
+				)
+			end
+		end
+		t.cleanup()
+	end
+end)
+
+add("color-picker-rightmost-mode-stays-put", {}, function(t)
+	for _, size in { Vector2.new(1280, 720), Vector2.new(390, 844) } do
+		local stage = t.gallery({ size = size, demo = "garage" })
+		t.settle(20)
+		local live = require(game:GetService("ReplicatedStorage").FacetLive)
+		local paint = t.find(stage, "Paint")
+		local well = if paint then paint:FindFirstChildWhichIsA("GuiButton", true) else nil
+		if found(t, `{size}: the paint picker opens`, { "paint", "well" }, { paint = paint, well = well }) then
+			live.click(well)
+			t.settle(40)
+			local layer = stage:FindFirstAncestorWhichIsA("ScreenGui")
+			local panel = if layer then layer.Parent:FindFirstChild("ColorPickerModal", true) else nil
+			local modes = if panel then panel:FindFirstChild("Modes", true) else nil
+			local brick = if modes then modes:FindFirstChild("brick", true) else nil
+			if
+				found(
+					t,
+					`{size}: the Bricks mode segment exists`,
+					{ "panel", "modes", "brick" },
+					{ panel = panel, modes = modes, brick = brick }
+				)
+			then
+				live.click(brick)
+				local samples: { Vector2 } = {}
+				for _ = 1, 15 do
+					t.settle(10)
+					table.insert(samples, panel.AbsoluteSize)
+				end
+				local first, last = samples[5], samples[#samples]
+				t.check(
+					`{size}: the panel stops changing size after picking Bricks`,
+					(last - first).Magnitude < 1,
+					samples
+				)
+				t.check(`{size}: the panel fits the screen`, last.X <= size.X and last.Y <= size.Y, last)
+			end
+		end
+		t.cleanup()
+	end
+end)
+
+add("garage-sprint-kart-growth-probe", {}, function(t)
+	for _, size in { Vector2.new(1280, 720), Vector2.new(844, 390), Vector2.new(390, 844) } do
+		local stage = t.gallery({ size = size, demo = "garage" })
+		t.settle(20)
+		local picker = t.find(stage, "VehicleLineup")
+		local kart = if picker then picker:FindFirstChild("sprint", true) else nil
+		if
+			found(t, `{size}: the sprint kart option was found`, { "picker", "kart" }, { picker = picker, kart = kart })
+		then
+			local watched: { GuiObject } = {}
+			for _, node in stage:GetDescendants() do
+				if node:IsA("GuiObject") then
+					table.insert(watched, node)
+				end
+			end
+			require(game:GetService("ReplicatedStorage").FacetLive).click(kart)
+			t.settle(30)
+			local early: { [GuiObject]: Vector2 } = {}
+			for _, node in watched do
+				early[node] = node.AbsoluteSize
+			end
+			local parts: { [BasePart]: Vector3 } = {}
+			local cameras: { [Camera]: CFrame } = {}
+			for _, node in stage:GetDescendants() do
+				if node:IsA("BasePart") then
+					parts[node] = node.Size
+				elseif node:IsA("Camera") then
+					cameras[node] = node.CFrame
+				end
+			end
+			t.settle(300)
+			local growing: { string } = {}
+			for _, node in watched do
+				local before, after = early[node], node.AbsoluteSize
+				if node.Parent and before and (after.X - before.X > 4 or after.Y - before.Y > 4) then
+					table.insert(growing, `{node:GetFullName()}: {before} -> {after}`)
+				end
+			end
+			for part, before in parts do
+				if part.Parent and (part.Size - before).Magnitude > 0.05 then
+					table.insert(growing, `{part:GetFullName()}: {before} -> {part.Size}`)
+				end
+			end
+			for camera, before in cameras do
+				if camera.Parent and (camera.CFrame.Position - before.Position).Magnitude > 0.05 then
+					table.insert(growing, `{camera:GetFullName()} moved: {before.Position} -> {camera.CFrame.Position}`)
+				end
+			end
+			t.note(`{size} growing`, growing)
+			t.check(`{size}: nothing keeps growing after picking Sprint kart`, #growing == 0, growing)
+		end
+		t.cleanup()
+	end
+end)
+
 add("picker-segmented-live", {}, function(t)
 	for _, themeName in { "Neutral", "PixelQuest" } do
 		local package = themeNamed(t, themeName)

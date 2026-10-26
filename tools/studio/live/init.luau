@@ -6,6 +6,10 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
+local function virtualInput(): any
+	return (game:GetService("UserInputService") :: any):CreateVirtualInput()
+end
+
 local HttpService = game:GetService("HttpService")
 local GuiService = game:GetService("GuiService")
 local LogService = game:GetService("LogService")
@@ -609,7 +613,7 @@ local function baseline()
 		if not simulated and input.PreferredInput ~= Enum.PreferredInput.KeyboardAndMouse and frame % 10 == 1 then
 			steady = 0
 			pcall(function()
-				local virtual = (input :: any):CreateVirtualInput()
+				local virtual = virtualInput()
 				virtual:SendMousePosition(Vector2.new(4 + frame % 7, 4))
 			end)
 		end
@@ -897,9 +901,27 @@ local PAD_KEYS: { [string]: Enum.KeyCode } = {
 	StickRight = Enum.KeyCode.D,
 }
 
+function live.click(node: GuiObject, frames: number?)
+	local virtual = virtualInput()
+	local inset = game:GetService("GuiService"):GetGuiInset()
+	local at = node.AbsolutePosition + node.AbsoluteSize / 2 + inset
+	virtual:SendMousePosition(at)
+	for _ = 1, 2 do
+		RunService.RenderStepped:Wait()
+	end
+	virtual:SendMouseButton(at, Enum.UserInputType.MouseButton1, true)
+	for _ = 1, 2 do
+		RunService.RenderStepped:Wait()
+	end
+	virtual:SendMouseButton(at, Enum.UserInputType.MouseButton1, false)
+	for _ = 1, frames or 4 do
+		RunService.RenderStepped:Wait()
+	end
+end
+
 function live.press(names: { string }, frames: number?): string
 	local UserInputService = game:GetService("UserInputService")
-	local virtual = (UserInputService :: any):CreateVirtualInput()
+	local virtual = virtualInput()
 	local seen: { string } = {}
 	local connection = UserInputService.InputBegan:Connect(function(input)
 		table.insert(seen, `{input.UserInputType.Name}:{input.KeyCode.Name}`)
