@@ -63,7 +63,7 @@ export type Kind = {
 	source: string?,
 	key: string?,
 	call: string,
-	build: (props: { [string]: Resolved }, children: { unknown }) -> unknown,
+	build: (props: { [string]: Resolved }, children: { unknown }, name: string) -> unknown,
 }
 
 export type Library = {
@@ -106,6 +106,7 @@ export type Node = {
 	props: { [string]: Value },
 	children: { Node },
 	bind: Bind?,
+	nameField: string?,
 }
 
 export type Document = {

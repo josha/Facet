@@ -70,6 +70,7 @@ local function copyNode(node: Node): Node
 		props = props,
 		children = children,
 		bind = if bind then { from = bind.from, key = bind.key } else nil,
+		nameField = node.nameField,
 	}
 end
 
@@ -289,6 +290,18 @@ function document.validate(value: Document, library: Library): Document
 		highest = math.max(highest, number)
 		local kind = assert(library.kinds[node.kind], `Unknown {library.name} kind {node.kind}`)
 		assert(#node.name > 0 and #node.name <= 120, "A node needs a name")
+		local nameField = node.nameField
+		if nameField ~= nil then
+			local list = assert(collection, `{node.name} takes its name from an item outside a collection template`)
+			local declared = list.fields
+			if declared then
+				local found = false
+				for _, entry in declared do
+					found = found or entry.id == nameField
+				end
+				assert(found, `{node.name} takes its name from unknown item field {nameField}`)
+			end
+		end
 		for key, property in node.props do
 			local field = assert(kind.fields[key], `{node.kind} has no property {key}`)
 			checkValue(value, field, property, collection, key)
@@ -380,6 +393,13 @@ function document.nodes(root: Node): { Row }
 	end
 	visit(root, 0)
 	return rows
+end
+
+function document.nameFrom(value: Document, library: Library, id: string, field: string?): Document
+	local nextValue = copyDocument(value)
+	local node = assert(document.find(nextValue.root, id), "Choose a node")
+	node.nameField = field
+	return document.validate(nextValue, library)
 end
 
 function document.insert(

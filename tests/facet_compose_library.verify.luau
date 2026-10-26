@@ -105,7 +105,7 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end
 			local node: Facet.DesignNode =
-				{ id = `n{nextId}`, kind = seed.kind, name = seed.kind, props = props, children = {} }
+				{ id = `n{nextId}`, kind = seed.kind, name = `{seed.kind}{nextId}`, props = props, children = {} }
 			nextId += 1
 			local nested = seed.children
 			if nested ~= nil then
@@ -186,11 +186,18 @@ return function(verifyHarness: Verify.Harness)
 			id = "facet_compose_library::renders every Facet control through Compose Design",
 			run = function()
 				local built: { [string]: boolean } = {}
+				local misnamed: { string } = {}
 				local mounted = mount(function(ctx: Context)
 					local library = live(ctx)
 					return Design.render(documentWith(names(), library), library, {
 						decorate = function(node: Facet.DesignNode, instance: unknown)
-							if instance ~= nil then
+							if typeof(instance) == "Instance" then
+								built[node.kind] = true
+								local named = instance.Name
+								if named ~= node.name and named ~= node.name .. "Host" then
+									table.insert(misnamed, `{node.kind}: {named} ~= {node.name}`)
+								end
+							elseif instance ~= nil then
 								built[node.kind] = true
 							end
 						end,
@@ -199,6 +206,7 @@ return function(verifyHarness: Verify.Harness)
 				for _, name in names() do
 					Verify.expect(`{name} {built[name] == true}`):toBe(`{name} true`)
 				end
+				Verify.expect(table.concat(misnamed, "\n")):toBe("")
 				mounted.dispose()
 			end,
 		})
@@ -263,7 +271,7 @@ return function(verifyHarness: Verify.Harness)
 				local library = offline()
 				local code = Design.emit(documentWith(names(), library), library, { name = "EveryControl" })
 				for _, name in names() do
-					Verify.expect(string.find(code, `UI.{name} "{name}"`, 1, true) ~= nil):toBe(true)
+					Verify.expect(string.find(code, `UI.{name} "{name}%d+"`) ~= nil):toBe(true)
 				end
 				Verify.expect(Design.parse(code, library).root.kind):toBe("ScrollView")
 			end,

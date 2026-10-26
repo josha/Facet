@@ -149,7 +149,15 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 				table.insert(children, build(child, item))
 			end
 		end
-		local built = kind.build(props, children)
+		local named = node.name
+		local nameField = node.nameField
+		if nameField ~= nil and item ~= nil then
+			local field = item:peek()[nameField]
+			if field ~= nil then
+				named = tostring(field)
+			end
+		end
+		local built = kind.build(props, children, named)
 		local captured = references[node.id]
 		if captured ~= nil then
 			captured:set(built)

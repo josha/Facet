@@ -165,7 +165,7 @@ local function create(context: Context): Design.Library
 			template = if templated then "render" else nil,
 			key = if templated then "key" else nil,
 			call = "UI." .. name,
-			build = function(props: { [string]: Resolved }, children: { unknown }): unknown
+			build = function(props: { [string]: Resolved }, children: { unknown }, nodeName: string): unknown
 				local values: Record = {}
 				for key, value in spec.defaults do
 					values[key] = copy(value)
@@ -391,9 +391,9 @@ local function create(context: Context): Design.Library
 					})
 					values[anchorKey] = trigger
 					values.anchorLabel = nil
-					return UI.VStack(name .. "Host")({ gap = "s", trigger, UI[name](name)(values) })
+					return UI.VStack(nodeName .. "Host")({ gap = "s", trigger, UI[name](nodeName)(values) })
 				end
-				return UI[name](name)(values)
+				return UI[name](nodeName)(values)
 			end,
 		}
 	end

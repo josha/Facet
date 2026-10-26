@@ -363,5 +363,16 @@ return function(runtime: Compose.Runtime, environment: Environment.Environment):
 		},
 	}
 
+	for _, kind in library.kinds do
+		local build = kind.build
+		kind.build = function(props: Props, children: { unknown }, name: string): unknown
+			local built = build(props, children, name)
+			if built ~= nil then
+				ui.set(built, "Name", name)
+			end
+			return built
+		end
+	end
+
 	return library
 end

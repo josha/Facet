@@ -186,7 +186,12 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 	emitNode = function(node: Node, depth: number): string
 		local kind = assert(library.kinds[node.kind])
 		local indent = string.rep("\t", depth)
-		local body = { `{kind.call} {literal(node.name)} ` .. "{" }
+		local nameField = node.nameField
+		local body = {
+			if nameField ~= nil
+				then `{kind.call}(tostring(current:peek().{nameField})) ` .. "{"
+				else `{kind.call} {literal(node.name)} ` .. "{",
+		}
 		local keys: { string } = {}
 		for key in node.props do
 			table.insert(keys, key)
@@ -564,11 +569,30 @@ function source.parse(code: string, library: Library): Types.Document
 		local kind = library.kinds[kindName]
 		local templated = kind.children == "template"
 		local nodeName = take()
-		assert(nodeName.kind == "string", "Every node needs a name")
+		local nameField: string? = nil
+		local nodeTitle: string
+		if nodeName.kind == "symbol" and nodeName.text == "(" then
+			take "tostring"
+			take "("
+			take "current"
+			take ":"
+			take "peek"
+			take "("
+			take ")"
+			take "."
+			nameField = name()
+			take ")"
+			take ")"
+			nodeTitle = kindName
+		else
+			assert(nodeName.kind == "string", "Every node needs a name")
+			nodeTitle = unquote(nodeName.text)
+		end
 		local result: Node = {
 			id = `n{nextId}`,
 			kind = kindName,
-			name = unquote(nodeName.text),
+			name = nodeTitle,
+			nameField = nameField,
 			props = {},
 			children = {},
 		}
