@@ -22,8 +22,10 @@ return function(verifyHarness: Verify.Harness)
 		}
 	end
 
+	local currentEngine: any = nil
 	local function mount(render: (ctx: composeLibrary.Context) -> unknown)
 		local engine = engines.new()
+		currentEngine = engine
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		engine.environment.poke(input, "PreferredInput", engine.types.Enum.PreferredInput.KeyboardAndMouse)
 		input.GetFocusedTextBox = function()
@@ -111,6 +113,60 @@ return function(verifyHarness: Verify.Harness)
 				for _, name in designerLibrary.names() do
 					Verify.expect(`{name} {built[name] == true}`):toBe(`{name} true`)
 				end
+				mounted.dispose()
+			end,
+		})
+
+		verifyHarness:case("edits a Facet design in the Compose design editor", {
+			id = "facet_compose_library::edits a Facet design in the Compose design editor",
+			run = function()
+				local ComposeRoblox = require("../src/vendor/compose/roblox")
+				local DesignEditor = require("../src/vendor/compose/design-editor")
+				local editor
+				local mounted = mount(function(ctx: composeLibrary.Context)
+					local types = ctx.types :: any
+					local library = composeLibrary.create(ctx)
+					local environment = ComposeRoblox.designEnvironment({
+						service = function(name: string)
+							return currentEngine.new(name)
+						end,
+						values = {
+							vector2 = types.Vector2.new,
+							vector3 = types.Vector3.new,
+							udim = types.UDim.new,
+							udim2 = types.UDim2.new,
+							color = types.Color3.new,
+							font = function(family: string, weight: string)
+								return types.Font.new(family, types.Enum.FontWeight[weight])
+							end,
+							enum = function(name: string, item: string)
+								return types.Enum[name][item]
+							end,
+							cframe = function(components: { number })
+								return types.CFrame.new(table.unpack(components))
+							end,
+							raycastParams = function()
+								return nil
+							end,
+						},
+					} :: any)
+					local host = (ctx.UI :: any).VStack("Editor")({ width = "fill" :: "fill" })
+					local document = Design.document.new("Shop", library, "VStack")
+					editor = DesignEditor.create(library, document, host, {
+						runtime = ctx.runtime :: any,
+						environment = environment,
+						stageSize = { X = 480, Y = 320 },
+					})
+					return host
+				end)
+				Verify.expect(editor.session.insert("Button")):toBe(true)
+				Verify.expect(editor.session.change("label", { literal = "Buy" })):toBe(true)
+				local value = editor.session.document:peek()
+				local found = Design.document.find(value.root, editor.session.selected:peek())
+				Verify.expect(found.kind):toBe("Button")
+				Verify.expect(found.props.label.literal):toBe("Buy")
+				Verify.expect(string.find(Design.emit(value, editor.session.library), 'label = "Buy"', 1, true) ~= nil):toBe(true)
+				editor.dispose()
 				mounted.dispose()
 			end,
 		})
