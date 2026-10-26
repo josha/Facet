@@ -3,6 +3,7 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -451,6 +452,97 @@ add("radial-tool-captions-near-phone-edge", {}, function(t: any)
 	mouse.click(centre(t.find(stage, "Center")))
 	t.settle(40)
 	t.check("Close restores the launcher", launcher.Visible and t.find(stage, "RadialPanel") == nil)
+end)
+
+add("radial-list-bounds-in-short-room", {}, function(t)
+	local mouse = pointer(t)
+	local chosen = ""
+	local expand = function() end
+	local stage = t.mount(function(UI: FacetControls, _Host: RobloxHost, C: ComposeModule)
+		local title = C.cell("Crew commands")
+		local waitLabel = C.cell("Wait here")
+		expand = function()
+			title:set(
+				"Crew commands for the next rescue approach: inspect the route, confirm the crossing and wait for the rest of the team before moving to the next checkpoint"
+			)
+			waitLabel:set("Wait here while the advance team checks the next crossing")
+		end
+		return UI.RadialMenu "Commands" {
+			label = title,
+			anchor = { x = 80, y = 60 },
+			clearance = 160,
+			isPresented = C.cell(true),
+			items = {
+				{
+					id = "ready",
+					label = "Ready",
+					onSelect = function()
+						chosen = "ready"
+					end,
+				},
+				{
+					id = "wait",
+					label = waitLabel,
+					onSelect = function()
+						chosen = "wait"
+					end,
+				},
+				{
+					id = "follow",
+					label = "Follow me",
+					onSelect = function()
+						chosen = "follow"
+					end,
+				},
+				{
+					id = "thanks",
+					label = "Thanks",
+					onSelect = function()
+						chosen = "thanks"
+					end,
+				},
+			} :: { RadialItem },
+		}
+	end, { size = Vector2.new(844, 390) })
+	t.settle(30)
+	local panel = t.find(stage, "RadialPanel")
+	t.check("short room uses the list fallback", panel:GetAttribute("Presentation") == "list")
+	t.check("short commands do not fill the wide viewport", panel.AbsoluteSize.X < 500, panel.AbsoluteSize)
+	local close = t.find(stage, "Center")
+	local title = t.find(stage, "SelectionPreview")
+	t.check("title aligns with the list", math.abs(title.AbsolutePosition.X - panel.AbsolutePosition.X) < 1)
+	t.check(
+		"Close aligns with the list",
+		math.abs(close.AbsolutePosition.X + close.AbsoluteSize.X - panel.AbsolutePosition.X - panel.AbsoluteSize.X) < 1
+	)
+	for _, id in { "ready", "wait", "follow", "thanks" } do
+		local button = t.find(stage, id)
+		local caption = button:FindFirstChild("Title", true) or button
+		t.check(id .. " label fits", t.fits(caption))
+		t.inside(id .. " stays inside the list", button, panel, 1)
+	end
+	expand()
+	t.settle(30)
+	t.check(
+		"long title wraps downward",
+		title.AbsoluteSize.Y > 40 and title.AbsolutePosition.Y >= 0,
+		title.AbsoluteSize
+	)
+	t.check(
+		"list clears the wrapped title",
+		panel.AbsolutePosition.Y >= title.AbsolutePosition.Y + title.AbsoluteSize.Y + 8,
+		{
+			titlePosition = title.AbsolutePosition,
+			titleSize = title.AbsoluteSize,
+			panelPosition = panel.AbsolutePosition,
+			gap = panel.AbsolutePosition.Y - title.AbsolutePosition.Y - title.AbsoluteSize.Y,
+		}
+	)
+	local longCaption = t.find(stage, "wait"):FindFirstChild("Title", true) or t.find(stage, "wait")
+	t.check("long command label fits after width growth", t.fits(longCaption))
+	mouse.click(centre(t.find(stage, "ready")))
+	t.settle(30)
+	t.check("real touch commits the command", chosen == "ready", chosen)
 end)
 
 return cases

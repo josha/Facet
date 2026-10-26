@@ -26,8 +26,12 @@ RadialMenu.donut option values and behavior.
   When `anchor` is a GuiObject, that anchor remains interactive in the centre
   while the rest of the page stays blocked. The list fallback keeps its
   Back/Close control and blocks the anchor.
-- The list fallback has one round Back/Close control at the top right, above
-  the list, for every preset and `center`.
+- The list fallback is centered horizontally. It starts at the theme's
+  `controls.popup.panelWidth` and grows for measured labels and icons, up to the
+  available width with side margins. It keeps vertical scrolling in short room.
+  Its path and one round Back/Close control align above the list, with Back/Close
+  at the list's top right, for every preset and `center`.
+  A wrapped path grows down from the top. The list starts below that path.
 
 The centre control is a small round `utility` button, 32 pixels across, with
 no plate and no theme control art. A transparent `CenterHit` target around it
