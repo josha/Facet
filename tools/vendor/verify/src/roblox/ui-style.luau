@@ -14,6 +14,7 @@ export type Controller = {
 	step: () -> (),
 	cached: (() -> ()) -> (),
 	close: () -> (),
+	invalidate: () -> (),
 }
 type Resolved = { sheet: Instance?, value: unknown, present: boolean }
 type Watch = { signal: Environment.Signal<()>, sheet: Instance?, value: unknown }
@@ -33,6 +34,23 @@ local function create(
 	local watches: { [Instance]: { [string]: Watch } } = {}
 	setmetatable(watches, { __mode = "k" })
 	local parsed: { [string]: Selector.Selector } = {}
+	type Index =
+		{ rules: { Instance }, byProperty: { [string]: { Instance } }, connections: { Environment.Connection } }
+	local indexes: { [Instance]: Index } = {}
+	local function forget(sheet: Instance)
+		local index = indexes[sheet]
+		if index then
+			indexes[sheet] = nil
+			for _, connection in index.connections do
+				connection:Disconnect()
+			end
+		end
+	end
+	local function invalidate()
+		for sheet in indexes do
+			forget(sheet)
+		end
+	end
 	local frameScopes: { [Instance]: { sheet: Instance? } }? = nil
 	local frameValues: { [Instance]: { [string]: Resolved } }? = nil
 	local function linkedSheet(object: Instance): Instance?
@@ -95,6 +113,55 @@ local function create(
 		end
 		return result
 	end
+	local function indexOf(sheet: Instance): Index
+		local known = indexes[sheet]
+		if known then
+			return known
+		end
+		local index: Index = { rules = {}, byProperty = {}, connections = {} }
+		local function drop()
+			forget(sheet)
+		end
+		table.insert(index.connections, sheet.ChildAdded:Connect(drop))
+		table.insert(index.connections, sheet.ChildRemoved:Connect(drop))
+		for _, candidate in sheet:GetChildren() do
+			if not candidate:IsA "StyleRule" then
+				continue
+			end
+			table.insert(index.rules, candidate)
+			table.insert(index.connections, candidate:GetPropertyChangedSignal("Selector"):Connect(drop))
+			table.insert(index.connections, candidate:GetPropertyChangedSignal("Priority"):Connect(drop))
+			table.insert(index.connections, candidate.DescendantAdded:Connect(drop))
+			table.insert(index.connections, candidate.DescendantRemoving:Connect(drop))
+			local names: { [string]: boolean } = {}
+			local own = properties[candidate]
+			if own then
+				for name in own do
+					names[name] = true
+				end
+			end
+			for _, descendant in candidate:GetDescendants() do
+				if descendant:IsA "StyleRule" then
+					local nested = properties[descendant]
+					if nested then
+						for name in nested do
+							names[name] = true
+						end
+					end
+				end
+			end
+			for name in names do
+				local list = index.byProperty[name]
+				if list == nil then
+					list = {}
+					index.byProperty[name] = list
+				end
+				table.insert(list, candidate)
+			end
+		end
+		indexes[sheet] = index
+		return index
+	end
 	local resolveFresh: (Instance, string?, string?) -> (Instance?, unknown, boolean)
 	local function resolve(object: Instance, property: string?, phantom: string?): (Instance?, unknown, boolean)
 		local values = frameValues
@@ -126,10 +193,12 @@ local function create(
 		end
 		local winning: number? = nil
 		local present = false
-		for _, candidate in sheet:GetChildren() do
-			if not candidate:IsA "StyleRule" then
-				continue
-			end
+		local index = indexOf(sheet)
+		local candidates: { Instance } = index.rules
+		if property then
+			candidates = index.byProperty[property] or {}
+		end
+		for _, candidate in candidates do
 			local values = properties[candidate] or {}
 			if property == nil and phantom then
 				local source = Values.string(env.propertyOf(candidate, "Selector"))
@@ -138,17 +207,6 @@ local function create(
 				end
 			end
 			local value = if property then values[property] else nil
-			local relevant = property == nil or value ~= nil
-			for _, descendant in candidate:GetDescendants() do
-				if
-					descendant:IsA "StyleRule" and (property == nil or (properties[descendant] or {})[property] ~= nil)
-				then
-					relevant = true
-				end
-			end
-			if not relevant then
-				continue
-			end
 			if #candidate:GetChildren() > 0 then
 				unsupported "nested StyleRules"
 			end
@@ -213,6 +271,7 @@ local function create(
 		return if object:IsPropertyModified(property) then env.propertyOf(object, property) else value
 	end
 	local function close()
+		invalidate()
 		for _, entries in pairs(watches) do
 			for _, watch in entries do
 				watch.signal:DisconnectAll()
@@ -268,6 +327,7 @@ local function create(
 			end
 		end,
 		close = close,
+		invalidate = invalidate,
 	}
 end
 

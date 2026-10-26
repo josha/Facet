@@ -77,6 +77,27 @@ local function substitute(argv: { string }, reportPath: string, job: Gate.Job): 
 	return result
 end
 
+local function numbers(value: unknown): { [string]: number }
+	local result: { [string]: number } = {}
+	if type(value) == "table" then
+		for key, entry in value :: { [unknown]: unknown } do
+			if type(key) == "string" and type(entry) == "number" then
+				result[key] = entry
+			end
+		end
+	end
+	return result
+end
+
+local function readWeights(text: string): Cli.Weights
+	local parsed, value: unknown = pcall(Wire.parse, text)
+	if not parsed or type(value) ~= "table" then
+		return { producers = {}, files = {} }
+	end
+	local fields = value :: { [string]: unknown }
+	return { producers = numbers(fields.producers), files = numbers(fields.files) }
+end
+
 local function create(runtime: Runtime): Gate
 	local defaults = capabilities(runtime)
 	local files = Files.create(runtime.fs)
@@ -350,7 +371,31 @@ local function create(runtime: Runtime): Gate
 			return 2
 		end
 		local only = table.clone(command.only)
-		local narrowed, absent = Cli.narrow(draft, command.files, only)
+		local files = command.files
+		local slot = command.shard
+		if slot ~= nil then
+			local weights: Cli.Weights = { producers = {}, files = {} }
+			local path = command.weights
+			if path ~= nil and runtime.fs.exists(path) then
+				weights = readWeights(runtime.fs.read(path))
+			end
+			local share = Cli.shard(draft, slot, weights, command.tiers)
+			say(
+				("gate: shard %d/%d runs %d producer(s) and %d spec file(s), about %d weighted seconds"):format(
+					slot.index,
+					slot.count,
+					#share.only,
+					#share.files,
+					math.floor(share.load)
+				)
+			)
+			if #share.only == 0 and #share.files == 0 then
+				return 0
+			end
+			only = share.only
+			files = share.files
+		end
+		local narrowed, absent = Cli.narrow(draft, files, only)
 		if narrowed == nil then
 			say(tostring(absent))
 			return 2
@@ -398,6 +443,26 @@ local function create(runtime: Runtime): Gate
 			end
 		end
 		local outcome = run(gate, base)
+		local recordPath = command.recordWeights
+		if recordPath ~= nil then
+			local known: Cli.Weights = { producers = {}, files = {} }
+			if runtime.fs.exists(recordPath) then
+				known = readWeights(runtime.fs.read(recordPath))
+			end
+			local producerTimes: { Cli.ProducerTime } = {}
+			for _, record in outcome.producers do
+				table.insert(producerTimes, {
+					id = record.id,
+					timed = record.status == "passed" and record.kind ~= "tests",
+					durationMicros = record.durationMicros,
+				})
+			end
+			local resultTimes: { Cli.ResultTime } = {}
+			for _, result in outcome.execution.report.results do
+				table.insert(resultTimes, { source = result.source, durationMicros = result.durationMicros })
+			end
+			runtime.fs.write(recordPath, Wire.encode(Cli.measured(known, producerTimes, resultTimes)) .. "\n")
+		end
 		for _, record in outcome.producers do
 			if record.status ~= "passed" and record.status ~= "not_selected" and record.status ~= "deferred" then
 				say(("\n== %s: %s"):format(record.id, record.status))

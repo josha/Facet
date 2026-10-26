@@ -162,7 +162,7 @@ It runs the static checks, the specs in `tests`, the examples and the boundary c
 The spec corpus runs through the `specs` producer of kind `tests`.
 
 ```sh
-lute run tools/gate.luau [--native] [--only producer]... [--tier name]... [--case id]... [--file spec]... [--name text] [--rerun] [--explain id] [--list]
+lute run tools/gate.luau [--native] [--only producer]... [--tier name]... [--case id]... [--file spec]... [--name text] [--rerun] [--explain id] [--list] [--shard index/count] [--weights path] [--record-weights path]
 ```
 
 | Goal | Command |
@@ -217,6 +217,11 @@ end
 | `--rerun` | Repeat what the last run did not pass. |
 | `--explain id` | Explain the last run for a producer or case. |
 | `--list` | List the producers. |
+| `--shard index/count` | Run one of `count` shards. Each producer and each spec file of a `tests` producer goes to exactly one shard. The selected tiers limit the work. A shard with no work exits with 0. |
+| `--weights path` | Balance the shards by the measured seconds in this file. Unmeasured work gets the median weight. |
+| `--record-weights path` | After the run, write the measured seconds of the passed producers and of each spec file to this file. Earlier entries that the run did not measure stay. |
+
+To split a gate across machines, run the same command with `--shard 1/N` to `--shard N/N` on N machines. Give each the same `--weights` file. A shard run is a narrowed run, so the gate is complete only when every shard passes. Refresh the weights file from a recent full run with `--record-weights`.
 
 `options.options` is the `Lute.gate.run` options. `options.usage` replaces the usage line.
 The exit code is 0 for a pass, a narrowed pass or a deferral, 1 for a failed gate or a missing earlier outcome and 2 for a bad flag.
