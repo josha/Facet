@@ -50,7 +50,7 @@ to main. The final **Verify** job requires every shard and the performance check
 to succeed. The **release** workflow runs the full tier on macOS and Windows
 before it publishes. Each performance shard takes every third paired scene with
 `perf paired run --shard K/3`, compares the base and candidate on one runner and
-gates its own scenes. Shard 1 also runs the microbenchmarks. A failed,
+gates its own scenes and every third microbenchmark (`bench --shard K/3`). A failed,
 cancelled or skipped required job
 fails Verify. The manual CI dispatch uses its base and candidate revisions for
 the performance comparison and checks the candidate.
