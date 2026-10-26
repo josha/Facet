@@ -118,6 +118,15 @@ LocalizationTable and translator path, including fixed labels; FormatByKey
 arguments are strings. Disable AutoLocalize for translated and player text.
 Give the app its translator for Facet-owned labels.
 
+## Edit a design module
+
+A screen can be a Compose Design module that the Studio plugin edits with the
+Facet library. Read [Edit a Compose Design module](../compose/references/design.md)
+before you change one, by any route: a file, Studio MCP or Studio Assistant. Keep
+the edit inside the design shapes so the editor stays in sync. Facet's calls are
+`Facet.Compose.show` for a conditional child and `Facet.tag` for a style tag.
+After the edit, run `lute run tools/facet design check <module>`.
+
 ## Verify the task
 
 Use Play, real input, Output, Script Analysis and captures. Test each distinct
