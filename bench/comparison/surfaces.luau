@@ -334,11 +334,16 @@ table.insert(workloads, {
 				pages[#pages].Visible = false
 			end
 			local page = S.stack(world, assert(parent), "Level" .. level)
-			S.text(world, page, "Title", `Level {level}`)
-			S.text(world, page, "PageText" .. level, `Destination {level}`)
+			local bar = S.stack(world, page, "NavigationBar", true)
 			if level > 0 then
-				S.button(world, page, "Back" .. level, "Back", function() end)
+				local back = S.button(world, bar, "Back" .. level, "", function() end)
+				local row = S.stack(world, back, "Content", true)
+				S.create(world, "ImageLabel", "LeadingIcon", row, { Size = world.types.UDim2.fromOffset(20, 20) })
+				S.text(world, row, "Title", "Back")
 			end
+			S.text(world, bar, "Title", `Level {level}`)
+			local destination = S.stack(world, page, "Destination")
+			S.text(world, destination, "PageText" .. level, `Destination {level}`)
 			table.insert(pages, page)
 		end
 		local destinations: { [string]: Facet.NavigationDestination<number> } = {

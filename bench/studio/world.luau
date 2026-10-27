@@ -29,6 +29,7 @@ export type World = {
 	Host: RobloxHost,
 	UI: Facet.Controls,
 	engine: { new: (string) -> Instance, environment: { poke: () -> () } },
+	textService: TextService,
 	target: Instance,
 	types: typeof(types),
 	viewport: { w: number, h: number },
@@ -59,6 +60,7 @@ return function(parent: Instance): World
 			},
 		},
 		target = target,
+		textService = game:GetService("TextService"),
 		types = types,
 		viewport = { w = 800, h = 600 },
 		frame = function()

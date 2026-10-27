@@ -136,9 +136,9 @@ table.insert(workloads, {
 			for _, row in rows do
 				local node = S.stack(world, items, "Player" .. row.id, true)
 				bareRows[row.id] = node
-				S.text(world, node, "Name" .. row.id, row.name)
-				bareScores[row.id] = S.text(world, node, "Score" .. row.id, tostring(row.score))
-				S.text(world, node, "Wins" .. row.id, tostring(row.wins))
+				S.text(world, node, "Name" .. row.id, row.name, true)
+				bareScores[row.id] = S.text(world, node, "Score" .. row.id, tostring(row.score), true)
+				S.text(world, node, "Wins" .. row.id, tostring(row.wins), true)
 			end
 			order()
 		end)
@@ -164,7 +164,7 @@ table.insert(workloads, {
 						assert(source):set(updated)
 					else
 						for _, row in rows do
-							bareScores[row.id].Text = tostring(row.score)
+							S.setText(world, bareScores[row.id], tostring(row.score))
 						end
 						order()
 					end
@@ -195,17 +195,32 @@ table.insert(workloads, {
 table.insert(workloads, {
 	id = "theme-swap-200",
 	iterations = 10,
-	what = "Swap two neutral packages on 200 buttons; Facet updates StyleSheet tokens while bare writes the matching text and plate colours.",
+	what = "Swap two neutral packages on 200 themed buttons; Facet updates its StyleSheet tokens while bare relinks one of two prebuilt theme StyleSheets.",
 	prepare = function(world: Types.World, lane: Types.Lane): Types.Scene
 		local Compose, Host = world.Compose, world.Host
 		local first, second = Facet.themes.neutralPackage(), Facet.themes.neutralPackage()
 		second.style.themes[1].colors.content = { r = 0.8, g = 0.9, b = 1 }
+		local function freeze(value: unknown)
+			if type(value) == "table" then
+				local record = value :: { [unknown]: unknown }
+				if not table.isfrozen(record) then
+					for key, child in record do
+						freeze(key)
+						freeze(child)
+					end
+					table.freeze(record)
+				end
+			end
+		end
+		freeze(first)
+		freeze(second)
 		local theme = S.model(world, lane, first)
 		local UI = if lane == "facet"
 			then Facet.controls(world.runtime, { types = world.types, theme = assert(theme) })
 			else world.UI
 		local sheet: StyleSheet? = nil
-		local buttons: { S.Node } = {}
+		local link: S.Node? = nil
+		local sheets: { Instance } = {}
 		local stop = S.mount(world, lane, function()
 			local children: { Instance } = {}
 			for i = 1, 200 do
@@ -220,31 +235,35 @@ table.insert(workloads, {
 			local props: FrameProps = { Name = "ThemedScreen", table.unpack(content) }
 			return Host.Frame(props)
 		end, function(screen)
-			local root = S.grid(world, screen, "Controls", 10)
-			local paint = first.style.themes[1].colors.content
-			for i = 1, 200 do
-				local button = S.button(world, root, "Themed" .. i, `Action {i}`, function() end)
-				button.TextColor3 = world.types.Color3.new(paint.r, paint.g, paint.b)
-				table.insert(buttons, button)
+			for _, package in { first, second } do
+				world.runtime.mount(function()
+					local made = Facet.themes.createStyleSheet(world.runtime, package, { types = world.types })
+					table.insert(sheets, made)
+					return made
+				end, screen)
 			end
-		end)
+			local made: S.Node = world.engine.new("StyleLink")
+			made.StyleSheet = sheets[1]
+			made.Parent = screen
+			link = made
+			local root = S.grid(world, screen, "Controls", 10)
+			for i = 1, 200 do
+				S.button(world, root, "Themed" .. i, `Action {i}`, function() end)
+			end
+		end, true)
 		return {
 			step = function(index: number)
 				local package = if index % 2 == 1 then second else first
 				if lane == "facet" then
 					assert(theme):set(package)
 				else
-					local paint = package.style.themes[1].colors.content
-					local color = world.types.Color3.new(paint.r, paint.g, paint.b)
-					for _, button in buttons do
-						button.TextColor3 = color
-					end
+					assert(link).StyleSheet = if package == first then sheets[1] else sheets[2]
 				end
 			end,
 			snapshot = function()
 				local color: unknown = if lane == "facet"
 					then assert(sheet):GetAttribute("FacetColor_content")
-					else buttons[1].TextColor3
+					else (assert(link).StyleSheet :: Instance):GetAttribute("FacetColor_content")
 				return tostring(color)
 			end,
 			stop = stop,
