@@ -10,6 +10,30 @@ local ComposeTypes = require("../src/vendor/compose/core")
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 return function(harness: Verify.Harness)
+	harness:case("bound text skips engine auto localization unless the author asks for it", function(t)
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local ctx = context(Facet.Compose, runtime, { types = engine.types } :: Shared.Config)
+		local words = Facet.Compose.cell("Coins 10")
+		local labels: { TextLabel } = {}
+		local stop = runtime.mount(function()
+			local frame = engine.new("Frame")
+			labels = {
+				ctx.text({ Text = "Play" }),
+				ctx.text({ Text = words }),
+				ctx.text({ Text = words, AutoLocalize = true }),
+			}
+			for _, label in labels do
+				label.Parent = frame
+			end
+			return frame
+		end, engine.new("ScreenGui"))
+		t:expect(labels[1].AutoLocalize):toBe(true)
+		t:expect(labels[2].AutoLocalize):toBe(false)
+		t:expect(labels[3].AutoLocalize):toBe(true)
+		stop()
+		runtime:dispose()
+	end)
 	harness:case("stable badge floors include changing native padding without clipping", function(t)
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)
