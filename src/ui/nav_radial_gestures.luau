@@ -243,8 +243,7 @@ return function<V>(
 	end
 	Compose.cleanup(function()
 		cancel()
-		session.aimPointer, session.aimAnalog, session.candidateSector, session.freezeCenter, session.returnSelection =
-			nil, nil, nil, nil, nil
+		session.aimPointer, session.aimAnalog, session.freezeCenter, session.returnSelection = nil, nil, nil, nil
 	end)
 
 	if gui then

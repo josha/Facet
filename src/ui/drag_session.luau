@@ -298,7 +298,24 @@ return function(ctx: Types.Context): Drag.Service
 		local layer = panel.Parent :: GuiBase2d
 		local destination = session.target and targets[session.target]
 		local anchor = destination and (destination.focusTarget or session.target)
-		local point = session.position
+		local held = session.source
+		local camera = ctx.config.services.Workspace and ctx.config.services.Workspace.CurrentCamera
+		local projected: Vector2? = nil
+		local gui = ctx.config.guiService
+		if session.spec.world and camera and not held:IsA("GuiObject") then
+			local pivot = (held :: PVInstance):GetPivot().Position
+			local viewport, visible = camera:WorldToViewportPoint(pivot)
+			if visible then
+				local inset = if layer:IsA("ScreenGui")
+						and not layer.IgnoreGuiInset
+						and gui
+					then gui:GetGuiInset()
+					else V2.zero
+				projected = V2.new(viewport.X, viewport.Y) - inset
+			end
+		end
+		local point = projected
+			or session.position
 			or (if anchor and anchor:IsA("GuiObject") then anchor.AbsolutePosition else session.origin)
 		local at = localPoint(panel, point)
 		local origin = layer.AbsolutePosition
@@ -825,11 +842,40 @@ return function(ctx: Types.Context): Drag.Service
 			created.world = worldVisual(ctx, source, assert(spec.world), created.position)
 		end
 		local statusSource = if spec.world then spec.world.focusTarget else source
-		local layer = statusSource:FindFirstAncestorWhichIsA("LayerCollector")
+		local layer: GuiBase2d? = statusSource:FindFirstAncestorWhichIsA("LayerCollector")
+		local stopScreen: (() -> ())? = nil
+		if spec.world and (layer == nil or not layer:IsA("ScreenGui")) then
+			local overlay = ctx.config.overlayParent
+			if overlay and overlay:IsA("GuiBase2d") then
+				layer = overlay
+			else
+				local players = ctx.config.services.Players
+				local player = players and players.LocalPlayer
+				local playerGui = player and player:FindFirstChildWhichIsA("PlayerGui")
+				if playerGui then
+					local stop, screen = ctx.runtime.mount(function()
+						return ctx.Host.ScreenGui {
+							Name = "FacetWorldDragStatus",
+							ResetOnSpawn = false,
+							DisplayOrder = 1000,
+						}
+					end, playerGui)
+					stopScreen = stop
+					layer = screen :: ScreenGui
+				end
+			end
+		end
 		if layer then
 			local session = created
-			session.stopStatus = ctx.runtime.mount(function()
-				session.effectiveInput = ctx.effectiveInput()
+			local stopMount = ctx.runtime.mount(function()
+				local input = ctx.effectiveInput()
+				session.effectiveInput = input
+				Compose.watch(function(use)
+					input(use)
+					if session.status then
+						updateStatus(session)
+					end
+				end)
 				local label = ctx.styled(
 					ctx.Host.TextLabel {
 						Name = "DragStatusText",
@@ -861,6 +907,12 @@ return function(ctx: Types.Context): Drag.Service
 				}
 				return ctx.styled(ctx.Host.Frame(panelProps), "tooltip")
 			end, layer)
+			session.stopStatus = function()
+				stopMount()
+				if stopScreen then
+					stopScreen()
+				end
+			end
 			updateStatus(session)
 		end
 		activation.consume(press)
