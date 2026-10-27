@@ -19,8 +19,13 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 			local key = shared.recall(if session then session.payload else nil)
 			local index = if key ~= nil then assert(controls.indexOfKey)(key) else nil
 			if index == nil and info.insertion then
-				local before = info.insertion.beforeKey
-				index = if before ~= nil then assert(controls.indexOfKey)(before :: K) else nil
+				local target, empty = shared.slotGap(if session then session.payload else nil, info.insertion)
+				if target and empty then
+					index = if empty < target then target - 1 else target
+				else
+					local before = info.insertion.beforeKey
+					index = if before ~= nil then assert(controls.indexOfKey)(before :: K) else nil
+				end
 			end
 			local at = assert(controls.placementOf)(index or (#read(reservedSlots) + 1))
 			local scale = scaleOf(body)

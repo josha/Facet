@@ -97,6 +97,7 @@ export type Reorder<V, K> = {
 	movable: (V) -> boolean,
 	sourceIndex: ComposeTypes.Value<{ [K]: V }>,
 	recall: (unknown, ComposeTypes.Use?) -> K?,
+	slotGap: (unknown, Env.DropInsertion, ComposeTypes.Use?) -> (number?, number?),
 	begin: (K, Vector2?, boolean?, boolean?) -> (),
 	commitLocal: ({ K }, number) -> (),
 	commit: (...unknown) -> (),
@@ -311,6 +312,40 @@ return function<V, K>(
 		local session = if use then use(drag.state) else drag.state:peek()
 		local live = if use then use(sourceIndex) else sourceIndex:peek()
 		return if live[key] == nil or (session ~= nil and session.source == bodyOf()) then key else nil
+	end
+	local function slotGap(payload: unknown, insertion: Env.DropInsertion, use: ComposeTypes.Use?): (number?, number?)
+		if reservedSlots == nil then
+			return nil, nil
+		end
+		local keys = if type(payload) == "table" then (payload :: { keys: { K }? }).keys else nil
+		if type(keys) == "table" and #keys > 1 then
+			return nil, nil
+		end
+		local live = if use then use(sourceIndex) else sourceIndex:peek()
+		local slots = read(reservedSlots, use)
+		local before = insertion.beforeKey
+		local target: number? = nil
+		if before ~= nil then
+			target = assert(controls.indexOfKey)(before :: K)
+		else
+			local last = 0
+			for index, key in slots do
+				if live[key] ~= nil then
+					last = index
+				end
+			end
+			target = last + 1
+		end
+		if target == nil then
+			return nil, nil
+		end
+		local empty: number? = nil
+		for index, key in slots do
+			if live[key] == nil and (empty == nil or math.abs(index - target) < math.abs(empty - target)) then
+				empty = index
+			end
+		end
+		return target, empty
 	end
 	local function begin(key: K, position: Vector2?, quiet: boolean?, tap: boolean?): ()
 		gesture.lastTap = nil
@@ -763,6 +798,7 @@ return function<V, K>(
 		movable = movable,
 		sourceIndex = sourceIndex,
 		recall = recall,
+		slotGap = slotGap,
 		begin = begin,
 		commitLocal = commitLocal,
 		commit = commit,

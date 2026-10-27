@@ -112,6 +112,7 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 				},
 				"fill"
 			)
+			local shown: ComposeTypes.Value<UDim2?> = Compose.cell(nil :: UDim2?)
 			local attributes: EngineTypes.Attributes = { FacetReservedKey = tostring(key) }
 			local anchor = Host.Frame "SlotAnchor" {
 				BackgroundTransparency = 1,
@@ -119,6 +120,10 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 				Selectable = false,
 				Attributes = attributes,
 				Position = function(use: ComposeTypes.Use): UDim2
+					local item = use(shown)
+					if item then
+						return item
+					end
 					local at = use(placement)
 					return if horizontal
 						then D2.fromOffset(at.offset, at.crossOffset)
@@ -145,7 +150,15 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 				Compose.show(function(use: ComposeTypes.Use): boolean
 					return use(itemForKey) ~= nil
 				end, function()
-					return renderItem(current, placement, key)
+					local rendered = renderItem(current, placement, key)
+					local position = ctx.observe.Position(rendered)
+					Compose.watch(function(use: ComposeTypes.Use)
+						shown:set(use(position))
+					end)
+					Compose.cleanup(function()
+						shown:set(nil)
+					end)
+					return rendered
 				end),
 				anchor,
 			}
