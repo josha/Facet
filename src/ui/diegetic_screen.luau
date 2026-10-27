@@ -6,6 +6,7 @@ local Props = require("./diegetic_types")
 local Geometry = require("./diegetic_geometry")
 local Motion = require("./motion")
 type Layer = { source: ScreenGui, slot: Frame, children: { Instance } }
+local STEADY_FRAME_RATIO = 2
 return function(ctx: Types.Context, UI: Controls.Controls)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local D2, V2, V3, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Vector3, ctx.types.Enum
@@ -25,6 +26,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 		local surface = Compose.cell<<SurfaceGui?>>(nil)
 		local ready = Compose.cell<<Types.ReadOnlyValue<boolean>?>>(nil)
 		local moved, ownsCamera = false, false
+		local lastFrame, previousFrame = 0, math.huge
 		local previous: Camera? = nil
 		local parked: { Camera } = {}
 		local cameraStorage: Folder? = nil
@@ -77,7 +79,6 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 		end
 		local function release()
 			schedule.cancel("readiness")
-			schedule.cancel("departure")
 			restore()
 			restoreCameras()
 			previous = nil
@@ -153,15 +154,30 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 			end
 			assert(surface:peek()).Enabled = true
 			attached:set(true)
-			schedule.replace("departure", 0, function()
-				if attached:peek() and spec.isPresented:peek() then
-					goal:set(1)
-				end
+			Compose.withOwner(assert(layerOwner), function()
+				local painted = runtime.settled {
+					sample = function(): string
+						local sizes = table.create(#layers)
+						for index, layer in layers do
+							sizes[index] = tostring(layer.slot.AbsoluteSize)
+						end
+						return table.concat(sizes, ";")
+					end,
+					ready = function(): boolean
+						return lastFrame <= previousFrame * STEADY_FRAME_RATIO
+					end,
+					timeout = ctx.metric("motion.restLimit"),
+				}
+				Compose.watch(function(use: Types.Use)
+					if use(painted) and attached:peek() and spec.isPresented:peek() then
+						goal:set(1)
+					end
+				end)
 			end)
 		end
-		local function SceneNodes(): { Core.Node }
+		local function SessionNodes(): { Core.Node }
 			layerOwner = assert(Compose.currentOwner())
-			local scene = spec.scene()
+			lastFrame, previousFrame = 0, math.huge
 			local extent = Geometry.fit(ctx.read(spec.bounds), canvas)
 			local plate = Host.Part "Display" {
 				Anchored = true,
@@ -186,7 +202,8 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				FieldOfView = fieldOfView,
 				CFrame = pose,
 			}
-			Compose.cleanup(assert(runtime.host.frames).onFrame(function()
+			Compose.cleanup(assert(runtime.host.frames).onFrame(function(delta: number)
+				previousFrame, lastFrame = lastFrame, delta
 				if ownsCamera and workspace.CurrentCamera == worldCamera then
 					worldCamera.CameraType = E.CameraType.Scriptable
 					worldCamera.CFrame = pose:peek()
@@ -256,12 +273,22 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				layerOwner = nil
 				cameraStorage = nil
 			end)
-			return { scene, storage, plate }
+			return { storage, plate }
+		end
+		local function SceneNodes(): { Core.Node }
+			return { spec.scene() }
+		end
+		local function Session(): Folder
+			return Host.Folder "OwnedSession" { Compose.portal(workspace, SessionNodes) }
 		end
 		local function Scene(): Folder
-			return Host.Folder "OwnedWorld" { Compose.portal(workspace, SceneNodes) }
+			return Host.Folder "OwnedWorld" { Compose.portal(workspace, SceneNodes), Compose.show(live, Session) }
 		end
-		root = Host.Folder "DiegeticScreen" { Compose.show(live, Scene) }
+		local retained = spec.retainScene == true
+		local built = Compose.formula(function(use: Types.Use): boolean
+			return retained or use(live)
+		end)
+		root = Host.Folder "DiegeticScreen" { Compose.show(built, Scene) }
 		Compose.watch(function(use: Types.Use)
 			if not use(spec.isPresented) then
 				goal:set(0)

@@ -953,6 +953,7 @@ local derived: Types.Derived = {
 				layers = { type = "value" },
 				motion = { type = "string" },
 				onUnavailable = { type = "event" },
+				retainScene = { type = "boolean" },
 				surface = { type = "value" },
 			},
 		},
