@@ -343,8 +343,7 @@ local motion: Motion = {
 	travelEase = assert(assert(metrics.easing).travel),
 }
 
-type Running = { target: Node, goal: { [string]: unknown }, left: number }
-type Tweens = { service: Node, running: { [Node]: Running }, live: { [Node]: boolean }, stop: () -> () }
+type Tweens = { service: Node, live: { [Node]: boolean }, stop: () -> () }
 local tweening = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Types.World]: Tweens }
 
 local function tweensFor(world: Types.World): Tweens
@@ -352,62 +351,16 @@ local function tweensFor(world: Types.World): Tweens
 	if existing then
 		return existing
 	end
-	local environment = world.engine.environment
-	local completed = world.types.Enum.PlaybackState.Completed
-	local running: { [Node]: Running } = {}
-	local pending: { [Node]: Running } = {}
-	local beat: Roblox.Connection? = nil
-	local function idle()
-		if next(running) == nil and beat then
-			beat:Disconnect()
-			beat = nil
-		end
-	end
-	local function advance(seconds: number)
-		for tween, entry in table.clone(running) do
-			entry.left -= seconds
-			if entry.left <= 1e-6 then
-				running[tween] = nil
-				for key, value in entry.goal do
-					entry.target[key] = value
-				end
-				environment.poke(tween, "PlaybackState", completed)
-				environment.fire(tween, "Completed", completed)
-			end
-		end
-		idle()
-	end
-	environment.fake("TweenService.Create", function(_service: Roblox.Instance, target: Node, info: unknown, goal)
-		local spec = info :: { Time: number, DelayTime: number }
-		local tween = environment.createEngineInstance("Tween")
-		environment.poke(tween, "Instance", target)
-		environment.poke(tween, "TweenInfo", info)
-		pending[tween :: Node] = { target = target, goal = goal, left = spec.Time + spec.DelayTime }
-		return tween
-	end)
-	environment.fake("TweenBase.Play", function(tween: Roblox.Instance)
-		local node = tween :: Node
-		running[node] = assert(pending[node])
-		pending[node] = nil
-		environment.poke(tween, "PlaybackState", world.types.Enum.PlaybackState.Playing)
-		if beat == nil then
-			beat = environment.heartbeat:Connect(advance)
-		end
-	end)
 	local service: Node = world.engine.new("TweenService")
 	local live: { [Node]: boolean } = {}
 	local created: Tweens = {
 		service = service,
-		running = running,
 		live = live,
 		stop = function()
 			for tween in live do
-				running[tween] = nil
 				tween:Destroy()
 			end
 			table.clear(live)
-			table.clear(pending)
-			idle()
 			service:Destroy()
 			tweening[world] = nil
 		end,
