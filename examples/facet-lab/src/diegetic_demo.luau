@@ -38,6 +38,15 @@ local function Demo(c: Context, fieldOfView: number, motion: string, blocked: bo
 			},
 		}
 	end
+	local function presentedLayers(): { ScreenGui }
+		local app = assert(layer:peek())
+		local list = { app }
+		local backdrop = app.Parent and app.Parent:FindFirstChild("Facet_LabBackdrop")
+		if backdrop and backdrop:IsA("ScreenGui") then
+			table.insert(list, 1, backdrop)
+		end
+		return list
+	end
 	local function Presentation(): Folder
 		local player = assert(layer:peek()):FindFirstAncestorWhichIsA("PlayerGui")
 		assert(player and player:IsA("PlayerGui"), "The Lab presentation requires PlayerGui")
@@ -66,7 +75,7 @@ local function Demo(c: Context, fieldOfView: number, motion: string, blocked: bo
 			rig:set(nil)
 		end)
 		return UI.DiegeticScreen "LabPresentation" {
-			layers = { assert(layer:peek()) },
+			layers = presentedLayers(),
 			isPresented = presented,
 			scene = Room,
 			surface = CFrame.new(0, 2, 0),
