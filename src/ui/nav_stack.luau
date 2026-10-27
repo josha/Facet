@@ -338,16 +338,16 @@ return function(
 							end,
 							not stackReady
 						)
-					elseif spec.transition == false and not prepares then
+					elseif spec.transition == false then
 						local panelProps: Types.FrameNativeProps = {
 							Name = entry.id,
 							BackgroundTransparency = 1,
 							Size = D2.fromScale(1, 1),
 							Visible = function(use: ComposeTypes.Use): boolean
-								return use(role) == "top"
+								return use(prepared) and use(role) == "top"
 							end,
 							Interactable = function(use: ComposeTypes.Use): boolean
-								return use(role) == "top"
+								return use(prepared) and use(role) == "top"
 							end,
 							navigationBar,
 							destinationFrame,

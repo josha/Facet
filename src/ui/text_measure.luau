@@ -173,8 +173,116 @@ local function createNatural(
 	return bounds
 end
 
+local function inline(
+	ctx: Types.Context,
+	label: TextLabel | TextButton,
+	stable: boolean?,
+	styling: ComposeTypes.ReadOnlyValue<number>,
+	wake: () -> ()
+): (words: string) -> Vector2
+	local Compose, Host = ctx.Compose, ctx.Host
+	local service = assert(ctx.config.services.TextService)
+	local shaper: GetTextBoundsParams? = nil
+	local makeShaper = Compose.bindOwner(function()
+		shaper = (
+			((Host :: unknown) :: { GetTextBoundsParams: ({ Width: number }) -> GetTextBoundsParams }).GetTextBoundsParams
+		)({ Width = 0 })
+	end)
+	local unknown = ctx.types.Vector2.new(math.huge, 0)
+	local current = unknown
+	local serial, alive = 0, true
+	local lastWords: string?, lastGeometry = nil, ""
+	local metrics, widest, tallest, heldLength = "", 0, 0, -1
+	local styledAt = -1
+	local markup, face, size, geometry = false, label.FontFace, 0, ""
+	local thread: thread? = nil
+	local release: (() -> ())? = nil
+	local function cancel()
+		if release then
+			release()
+			release = nil
+		end
+		if thread and coroutine.status(thread) == "suspended" and task then
+			pcall(task.cancel, thread)
+		end
+		thread = nil
+	end
+	Compose.cleanup(function()
+		alive = false
+		cancel()
+	end)
+	local function publish(words: string, value: Vector2)
+		if stable then
+			local length = utf8.len(words) or #words
+			if geometry ~= metrics or length ~= heldLength then
+				metrics, widest, tallest, heldLength = geometry, 0, 0, length
+			end
+			widest, tallest = math.max(widest, value.X), math.max(tallest, value.Y)
+			value = ctx.types.Vector2.new(widest, tallest)
+		end
+		current = value
+	end
+	return function(words: string): Vector2
+		if styling:peek() ~= styledAt then
+			styledAt = styling:peek()
+			markup = label.RichText
+			face = label:GetStyled("FontFace") :: Font
+			size = label:GetStyled("TextSize") :: number
+			geometry =
+				`{face.Family}|{face.Weight.Name}|{face.Style.Name}|{size}|{markup}|{label.AutomaticSize.Name}|{label:GetStyled(
+					"TextWrapped"
+				)}|{label:GetStyled("TextTruncate")}|{label:GetStyled("LineHeight")}`
+		end
+		if words == lastWords and geometry == lastGeometry then
+			return current
+		end
+		lastWords, lastGeometry = words, geometry
+		serial += 1
+		local ticket = serial
+		cancel()
+		local known = recall(geometry, words)
+		if known then
+			publish(words, known)
+			return current
+		end
+		local completed = hold(label)
+		release = completed
+		if shaper == nil then
+			makeShaper()
+		end
+		local request = assert(shaper)
+		request.Text, request.RichText, request.Font, request.Size, request.Width = words, markup, face, size, 0
+		local shape = geometry
+		local settled = false
+		local function measure()
+			local ok, value = pcall(service.GetTextBoundsAsync, service, request)
+			if ok then
+				remember(shape, words, value)
+			end
+			if alive and ticket == serial then
+				if ok then
+					publish(words, value)
+				end
+				completed()
+				release = nil
+				if settled then
+					wake()
+				end
+			end
+		end
+		if task and task.spawn then
+			thread = task.spawn(measure)
+		else
+			measure()
+		end
+		settled = true
+		return current
+	end
+end
+
 return {
 	hold = hold,
+	inline = inline,
 	pending = function(node: Instance): boolean
 		return pending[node] ~= nil
 	end,
