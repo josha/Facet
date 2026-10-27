@@ -72,8 +72,8 @@ local function attachLayout(
 		if alive and (face ~= previousFace or points ~= previousSize) then
 			local changed = previousFace ~= nil or previousSize ~= nil
 			previousFace, previousSize = face, points
-			reflow()
-			if changed or label.FontFace ~= face or label.TextSize ~= points then
+			if changed then
+				reflow()
 				deferReflow()
 			end
 		end
@@ -469,7 +469,7 @@ local function attachLayout(
 				measuring.dispose()
 			end
 			if scope == nil then
-				parts:set({})
+				parts:set(if next == "free" then { free = true } else {})
 				scope = Compose.createRootOwner(function()
 					buildFloor(parts, function(probe: () -> ComposeTypes.ReadOnlyValue<number>)
 						unit = probe
@@ -482,7 +482,7 @@ local function attachLayout(
 					buildWrapped(height, assert(unit))
 					parts:set({ height = height })
 				end, runtime.reactor)
-			else
+			elseif not parts:peek().free then
 				parts:set({ free = true })
 			end
 		end
