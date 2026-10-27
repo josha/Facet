@@ -225,7 +225,30 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		local current: RawEntry
 		if entry == nil then
 			local created: RawEntry = { subscribers = {}, count = 0, publishing = 0 }
+			local function single(): unknown
+				local notify = created.subscribers[1].listener
+				if notify ~= nil then
+					notify()
+				end
+				return nil
+			end
 			created.stop = connect(engine.propertyChanged(node, key), function()
+				local only = created.subscribers
+				if #only == 1 then
+					if only[1].listener == nil then
+						return
+					end
+					created.publishing += 1
+					local ok, failure = pcall(single)
+					created.publishing -= 1
+					if created.publishing == 0 and created.count < #only then
+						compactRaw(created)
+					end
+					if not ok then
+						raiseFailures { if failure == nil then "ComposeRoblox raw observation raised nil" else failure }
+					end
+					return
+				end
 				created.publishing += 1
 				local failures: { unknown }? = nil
 				local subscribers = created.subscribers
