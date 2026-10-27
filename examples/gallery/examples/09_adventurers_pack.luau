@@ -4,6 +4,13 @@ type ExampleContext = typeof(require("@repo/examples/types").Context)
 type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
 type Use = <T>(ReadOnlyValue<T>) -> T
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
+type ZStackProps = typeof(require("@repo/tools/typecheck/aliases").ZStackProps)
+type ScrollViewProps = typeof(require("@repo/tools/typecheck/aliases").ScrollViewProps)
+type GridProps = typeof(require("@repo/tools/typecheck/aliases").GridProps)
+type CardSpec = typeof(require("@repo/tools/typecheck/aliases").CardSpec)
+type TextInputProps = typeof(require("@repo/tools/typecheck/aliases").TextInputProps)
 type Entry = { id: string, value: string? }
 local makeView = require("./showcase_view")
 local art = require("./showcase_art")
@@ -33,8 +40,9 @@ return {
 		local entries: { Entry } = {}
 		local equipped = C.cell(outfit)
 		local query, filter, path = C.cell(""), C.cell("all"), C.cell(entries)
+		local resetVersion = C.cell(0)
 		local hotbar = C.cell({ "sword", "lantern", "pick" })
-		local width, loadoutOpen = C.cell(1100), C.cell(false)
+		local width, loadoutOpen, roomy = C.cell(1100), C.cell(false), C.cell(true)
 		local wideAt = UI.environment().scaled(850)
 		local toolPayloads: { [string]: { kind: string, id: string } } = {}
 		local toolOf: { [unknown]: string } = {}
@@ -93,9 +101,11 @@ return {
 			end
 			nextBar[slot] = id
 			hotbar:set(nextBar)
+			notice:set(`Assigned {byId[id].name} to slot {slot}.`)
 			return true
 		end
 		local function reset()
+			resetVersion:set(resetVersion:peek() + 1)
 			equipped:set({ coat = "traveler", boots = "boots", tool = "sword" })
 			hotbar:set({ "sword", "lantern", "pick" })
 			query:set("")
@@ -129,32 +139,130 @@ return {
 				}
 			end, ctx.types.CFrame.lookAt(V3.new(7, 5, 9), V3.new(0, 2, 0)), 240)
 		end
-		local function details(entry: Entry?)
-			local item = byId[assert(entry and entry.value)]
-			return view.page("ItemDetails", item.name, "Compare it with your current equipment.", {
-				portrait(),
-				view.text("Comparison", function(use: Use)
-					local current = byId[use(equipped)[item.slot]]
-					return `Equipped: {current.name}\nWarmth  {current.warmth} → {item.warmth}     Power  {current.power} → {item.power}`
-				end),
-				view.button("EquipItem", function(use: Use)
-					return if use(equipped)[item.slot] == item.id then "Equipped" else "Equip " .. item.name
-				end, function()
-					equip(item.id)
-				end, function(use: Use)
-					return use(equipped)[item.slot] ~= item.id
-				end),
-				view.text("EquipmentNotice", notice),
-			})
-		end
-		local function equipmentArt(item: Item)
+		local function equipmentArt(item: Item, maximum: number?)
+			local cap = if maximum then UI.environment().scaled(maximum) else nil
 			return UI.Image "EquipmentArt" {
 				image = art.equipment,
+				AnchorPoint = ctx.types.Vector2.new(0.5, 0.5),
+				Position = D2.fromScale(0.5, 0.5),
 				scaleMode = "fit",
 				Size = D2.fromScale(1, 1),
 				ImageRectSize = ctx.types.Vector2.new(256, 256),
 				ImageRectOffset = ctx.types.Vector2.new(item.artIndex % 4 * 256, math.floor(item.artIndex / 4) * 256),
+				if cap
+					then Host.UISizeConstraint {
+						MaxSize = function(use: Use)
+							local extent = use(cap)
+							return ctx.types.Vector2.new(extent, extent)
+						end,
+					}
+					else nil,
 			}
+		end
+		local function details(entry: Entry?)
+			local item = byId[assert(entry and entry.value)]
+			local body = UI.ZStack "ItemDetails" { width = "fill", height = "fill" }
+			local room = UI.environment(body)
+			local detailWidth, detailHeight = room.scaled(760), room.scaled(420)
+			local function decision()
+				return UI.VStack "EquipmentDecision" {
+					width = "fill",
+					gap = "s",
+					align = "stretch",
+					view.text("ItemName", item.name, "title"),
+					view.text("Comparison", function(use: Use)
+						local current = byId[use(equipped)[item.slot]]
+						return `Equipped: {current.name}\nWarmth  {current.warmth} → {item.warmth}\nPower  {current.power} → {item.power}`
+					end),
+					UI.Button "EquipItem" {
+						appearance = "emphasis",
+						label = function(use: Use)
+							return if use(equipped)[item.slot] == item.id then "Equipped" else "Equip " .. item.name
+						end,
+						onActivate = function()
+							equip(item.id)
+						end,
+						enabled = function(use: Use)
+							return use(equipped)[item.slot] ~= item.id
+						end,
+					},
+					view.text("EquipmentNotice", notice, "caption"),
+					if item.slot == "tool"
+						then UI.VStack({
+							width = "fill",
+							gap = "s",
+							view.text("AssignTool", "Assign to hotbar", "label"),
+							UI.Grid({
+								columns = 3,
+								gap = "s",
+								view.button("Assign1", "Slot 1", function()
+									assign(item.id, 1)
+								end),
+								view.button("Assign2", "Slot 2", function()
+									assign(item.id, 2)
+								end),
+								view.button("Assign3", "Slot 3", function()
+									assign(item.id, 3)
+								end),
+							} :: GridProps),
+						} :: StackProps)
+						else nil,
+				}
+			end
+			UI.ZStack({
+				Parent = C.static(body),
+				width = "fill",
+				height = "fill",
+				alignH = "center",
+				alignV = "center",
+				C.show(function(use: Use)
+					return use(room.viewportWidth) >= 560
+				end, function()
+					return UI.HStack({
+						width = function(use: Use)
+							return math.min(use(room.viewportWidth), use(detailWidth))
+						end,
+						height = function(use: Use)
+							return math.min(use(room.viewportHeight), use(detailHeight))
+						end,
+						gap = "m",
+						padding = "s",
+						UI.ZStack({
+							width = "fill",
+							height = "fill",
+							UI.fill() :: Child,
+							equipmentArt(item, 420) :: Child,
+						} :: ZStackProps) :: Child,
+						UI.ScrollView({
+							width = 300,
+							height = "fill",
+							padding = "s",
+							UI.VStack "CenteredDecision" {
+								width = "fill",
+								height = "fill",
+								distribute = "center",
+								decision(),
+							},
+						} :: ScrollViewProps) :: Child,
+					} :: StackProps)
+				end, function()
+					return UI.ScrollView({
+						width = "fill",
+						height = "fill",
+						gap = "s",
+						padding = "s",
+						UI.ZStack({
+							width = "fill",
+							height = function(use: Use)
+								return math.max(80, math.min(160, use(room.viewportHeight) * 0.3))
+							end,
+							equipmentArt(item),
+						} :: ZStackProps),
+						decision(),
+					} :: ScrollViewProps)
+				end),
+			} :: ZStackProps)
+			return body
 		end
 		local function bag()
 			local categories: { StringPickerOption } = {
@@ -168,35 +276,57 @@ return {
 				Size = D2.fromScale(1, 1),
 				root = {
 					title = "Adventurer's Pack",
+					chrome = "hidden",
 					content = function(): Instance
 						local measuredWidth = C.cell(600)
 						local env = UI.environment()
-						local cardSize, columnWidth = env.scaled(300), env.scaled(230)
+						local cardSize, columnWidth = env.scaled(104), env.scaled(320)
 						return UI.Screen "BagPage" {
-							gap = "m",
-							view.text("Objective", "Prepare for the frost cave", "title"),
-							UI.ProgressView "Warmth" {
-								label = "Warmth",
-								value = warmth,
-								max = 10,
-								showValue = true,
-							},
-							UI.TextInput "SearchEquipment" {
-								presentation = "search",
-								value = query,
-								placeholder = "Find equipment…",
-							},
-							UI.Picker "EquipmentCategory" {
-								selected = filter,
-								options = categories,
-							},
+							gap = "s",
+							C.show(roomy, function()
+								return UI.VStack({
+									width = "fill",
+									gap = "s",
+									view.text("Objective", "Prepare for the frost cave", "label"),
+									UI.ProgressView "Warmth" {
+										label = "Warmth",
+										value = warmth,
+										max = 10,
+										showValue = true,
+									},
+								} :: StackProps)
+							end),
+							UI.HStack({
+								width = "fill",
+								gap = "s",
+								UI.TextInput "SearchEquipment"({
+									presentation = "search",
+									value = query,
+									placeholder = "Find equipment…",
+									UI.fill(),
+								} :: TextInputProps) :: Child,
+								view.button("EquipmentFilters", function(use: Use)
+									local selected = use(filter)
+									for _, category in categories do
+										if category.value == selected and selected ~= "all" then
+											return `Filters: {category.label}`
+										end
+									end
+									return "Filters"
+								end, function()
+									path:set({ { id = "filters" } })
+								end) :: Child,
+							} :: StackProps),
 							C.show(function(use: Use)
 								return #use(filtered) == 0
 							end, function()
-								return view.text("NoEquipment", "No equipment matches. Try another search.")
+								return view.text("NoEquipment", "No equipment matches. Change the search or filters.")
 							end),
 							UI.VirtualGrid "EquipmentGrid" {
 								from = filtered,
+								scrollReset = function(use: Use)
+									return `{use(resetVersion)}:{use(filter)}:{use(query)}`
+								end,
 								key = "id",
 								measure = true,
 								gap = 12,
@@ -206,7 +336,7 @@ return {
 								columns = function(use: Use)
 									return math.max(1, math.floor(use(measuredWidth) / use(columnWidth)))
 								end,
-								Size = D2.new(1, 0, 0, 310),
+								Size = D2.fromScale(1, 1),
 								UI.fill(),
 								ref = function(node: ScrollingFrame)
 									view.observeWidth(measuredWidth, node)
@@ -214,36 +344,66 @@ return {
 								recycle = false,
 								render = function(current: ReadOnlyValue<Item>): GuiObject
 									local item = current:peek()
-									local card = UI.Card("Item_" .. item.id)({
-										title = item.name,
-										caption = function(use: Use)
-											return `+{item.warmth} warmth · {item.power} power{if use(equipped)[item.slot]
-													== item.id
-												then " · Equipped"
-												else ""}`
-										end,
-										artwork = function()
-											return equipmentArt(item)
-										end,
-										imageAspectRatio = 1.6,
-										AutomaticSize = E.AutomaticSize.Y,
-										Size = D2.new(1, 0, 0, 0),
-										onActivate = function()
-											path:set({ { id = "item", value = item.id } })
-										end,
+									local card = UI.HStack("Item_" .. item.id)({
+										width = "fill",
+										gap = "s",
+										align = "center",
+										UI.ZStack({ width = 80, height = 80, equipmentArt(item) } :: ZStackProps),
+										UI.Card({
+											title = item.name,
+											caption = function(use: Use)
+												return `{item.warmth} warmth · {item.power} power{if use(equipped)[item.slot]
+														== item.id
+													then " · Equipped"
+													else ""}`
+											end,
+											AutomaticSize = E.AutomaticSize.Y,
+											Size = D2.new(1, 0, 0, 0),
+											UI.fill(),
+											onActivate = function()
+												path:set({ { id = "item", value = item.id } })
+											end,
+										} :: CardSpec),
+										if item.slot == "tool"
+											then C.show(wide, function()
+												local move = UI.Button("Move_" .. item.id)({
+													label = "Move",
+													appearance = "utility",
+												})
+												UI.draggable(move, { payload = toolPayloads[item.id], armOnTap = true })
+												return move
+											end)
+											else nil,
 									})
-									if item.slot == "tool" then
-										UI.draggable(card, { payload = toolPayloads[item.id], armOnTap = true })
-									end
 									return card
 								end,
 							},
 						}
 					end,
 				},
-				destinations = { item = { title = "Equipment", content = details } },
+				destinations = {
+					item = { title = "Equipment", content = details },
+					filters = {
+						title = "Equipment filters",
+						content = function()
+							return UI.ScrollView({
+								padding = "m",
+								gap = "m",
+								UI.Picker "EquipmentCategory" { selected = filter, options = categories },
+								view.button("FilterLoadout", "Inspect loadout", function()
+									loadoutOpen:set(true)
+								end),
+								view.button("FilterReset", "Start over", reset),
+								view.button("ShowEquipment", "Show equipment", function()
+									path:set({})
+								end),
+							} :: ScrollViewProps)
+						end,
+					},
+				},
 			}
 		end
+		local belt: () -> Frame
 		local function loadout()
 			return view.page(
 				"LoadoutPage",
@@ -263,10 +423,11 @@ return {
 					end),
 					view.text("ExpeditionNotice", notice),
 					view.button("ResetPack", "Pack again", reset),
+					belt(),
 				}
 			)
 		end
-		local function belt()
+		belt = function()
 			local slots = {}
 			for slot = 1, 3 do
 				local target = view.button("Slot" .. slot, function(use: Use)
@@ -290,13 +451,13 @@ return {
 			return UI.VStack "HotbarDock" {
 				width = "fill",
 				gap = "s",
-				view.text(
-					"HotbarHint",
-					"HOTBAR · Drag a tool here to rearrange it. Select a slot to equip.",
-					"caption"
-				),
+				view.text("HotbarHint", function(use: Use)
+					return if use(wide)
+						then "HOTBAR · Drag a tool here to rearrange it. Select a slot to equip."
+						else "HOTBAR · Assign slots from a tool's details. Select a slot to equip."
+				end, "caption"),
 				UI.Grid "HotbarSlots" {
-					columns = 3,
+					columns = 1,
 					gap = "s",
 					cellHeight = 52,
 					table.unpack(slots),
@@ -304,24 +465,32 @@ return {
 			}
 		end
 		local function screen()
-			return UI.ScrollView "AdventurersPack" {
+			return UI.Screen "AdventurersPack" {
 				padding = "m",
 				gap = "s",
 				ref = function(node)
 					view.observeWidth(width, node)
+					local bodyRoom = UI.environment(node)
+					local toolbarAt = bodyRoom.scaled(500)
+					C.watch(function(use: Use)
+						roomy:set(use(bodyRoom.viewportHeight) >= use(toolbarAt))
+					end)
 				end,
-				UI.HStack {
-					width = "fill",
-					gap = "s",
-					wrap = true,
-					view.button("ShowLoadout", "Inspect loadout", function()
-						loadoutOpen:set(true)
-					end),
-					view.button("ResetInventory", "Start over", reset),
-				},
+				C.show(roomy, function()
+					return UI.HStack({
+						width = "fill",
+						gap = "s",
+						wrap = true,
+						view.button("ShowLoadout", "Inspect loadout", function()
+							loadoutOpen:set(true)
+						end),
+						view.button("ResetInventory", "Start over", reset),
+					} :: StackProps)
+				end),
 				Host.Frame "EquipmentWorkbench" {
 					BackgroundTransparency = 1,
-					Size = D2.new(1, 0, 0, 560),
+					Size = D2.fromScale(1, 1),
+					UI.fill(),
 					Host.Frame "Backpack" {
 						BackgroundTransparency = 1,
 						Size = function(use: Use)
@@ -338,7 +507,6 @@ return {
 						}
 					end),
 				},
-				belt(),
 				UI.Sheet "LoadoutSheet" {
 					title = "Expedition loadout",
 					isPresented = loadoutOpen,
