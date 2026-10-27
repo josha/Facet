@@ -130,11 +130,13 @@ local function attachLayout(
 		end
 	end
 	local refloor: () -> () = function() end
+	local floorApply: () -> () = function() end
 	local function invalidate()
 		if not refreshing then
 			styling:set(styling:peek() + 1)
 			revision:set(revision:peek() + 1)
 			refloor()
+			floorApply()
 			checkStale()
 		end
 	end
@@ -152,6 +154,7 @@ local function attachLayout(
 			geometryChanged()
 		elseif property == "Text" then
 			content:set(label.Text)
+			floorApply()
 			if not measuredFloor() and previousSize ~= nil and label.TextSize ~= previousSize then
 				deferReflow()
 			end
@@ -237,6 +240,7 @@ local function attachLayout(
 				serial += 1
 				last = ""
 				wrappedHeight:set(0)
+				floorApply()
 				finish()
 				return
 			end
@@ -256,6 +260,7 @@ local function attachLayout(
 				serial += 1
 				last = ""
 				wrappedHeight:set(0)
+				floorApply()
 				finish()
 				return
 			end
@@ -291,6 +296,7 @@ local function attachLayout(
 						+ vertical
 					local shrinking = height < wrappedHeight:peek()
 					wrappedHeight:set(height)
+					floorApply()
 					if shrinking then
 						deferReflow()
 					end
@@ -322,10 +328,9 @@ local function attachLayout(
 			return assert(unitProbe)
 		end
 		unitOf(unit)
-		local arrivals = Compose.cell(0)
 		local read = if services.TextService
 			then textMeasure.inline(ctx, label, stable, styling, function()
-				arrivals:set(arrivals:peek() + 1)
+				floorApply()
 			end)
 			else nil
 		local constraint = Host.UISizeConstraint "TextBoundsFloor" {}
@@ -367,25 +372,26 @@ local function attachLayout(
 					"LineHeight"
 				)}|{label.RichText}|{mode.Name}|{free}`
 		end
-		Compose.watch(function(use: ComposeTypes.Use)
-			use(revision)
+		local function apply(use: ComposeTypes.Use?)
+			if use then
+				use(revision)
+			end
 			snapshot()
-			local current = use(parts)
+			local current = (if use then use(parts) else parts:peek())
 			local wrappedHeight = current.height
 			if current.free == nil and wrappedHeight == nil then
 				return
 			end
-			local nativeBounds = if read and current.free then read(use(content)) else nil
-			if nativeBounds then
-				use(arrivals)
-			end
+			local nativeBounds = if read and current.free
+				then read((if use then use(content) else content:peek()))
+				else nil
 			local mode, authoredSize = snapMode, snapSize
-			local measured = nativeBounds or use(bounds)
+			local measured = nativeBounds or (if use then use(bounds) else bounds:peek())
 			if nativeBounds and measured == appliedBounds and revision:peek() == appliedRevision then
 				return
 			end
 			appliedBounds, appliedRevision = nativeBounds, revision:peek()
-			local scale = if nativeBounds then 1 else use(unit())
+			local scale = if nativeBounds then 1 else (if use then use(unit()) else unit():peek())
 			local glyphX, glyphY = measured.X / scale, measured.Y / scale
 			readStyle(mode)
 			local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
@@ -438,7 +444,10 @@ local function attachLayout(
 			)
 			local minimum = types.Vector2.new(
 				if freeX then x else 0,
-				if freeY then y elseif wrappedHeight then use(wrappedHeight) else 0
+				if freeY
+					then y
+					elseif wrappedHeight then (if use then use(wrappedHeight) else wrappedHeight:peek())
+					else 0
 			)
 			local lower = appliedMinimum
 			if maximum.X >= lower.X and maximum.Y >= lower.Y then
@@ -455,7 +464,18 @@ local function attachLayout(
 				end
 			end
 			appliedMinimum, appliedMaximum = minimum, maximum
-		end)
+		end
+		if services.TextService then
+			floorApply = function()
+				apply(nil)
+			end
+			Compose.cleanup(function()
+				floorApply = function() end
+			end)
+			apply(nil)
+		else
+			Compose.watch(apply)
+		end
 		floor = constraint
 		constraint.Parent = label
 		Compose.cleanup(function()
@@ -519,9 +539,11 @@ local function attachLayout(
 					local height = Compose.cell(0)
 					buildWrapped(height, assert(unit))
 					parts:set({ height = height })
+					floorApply()
 				end, runtime.reactor)
 			elseif not parts:peek().free then
 				parts:set({ free = true })
+				floorApply()
 			end
 		end
 		local added = label.ChildAdded:Connect(function(child: Instance)
