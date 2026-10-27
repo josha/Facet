@@ -78,7 +78,6 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 			table.clear(parked)
 		end
 		local function release()
-			schedule.cancel("readiness")
 			restore()
 			restoreCameras()
 			previous = nil
@@ -144,7 +143,6 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 			end
 		end
 		local function transfer()
-			schedule.cancel("readiness")
 			moved = true
 			for _, layer in layers do
 				for _, child in layer.source:GetChildren() do
@@ -320,11 +318,6 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				return
 			end
 			live:set(true)
-			schedule.replace("readiness", ctx.metric("motion.restLimit"), function()
-				if live:peek() and not attached:peek() then
-					refuse("The spatial viewport did not become ready")
-				end
-			end)
 		end)
 		Compose.watch(function(use: Types.Use)
 			local worldCamera = use(camera)
