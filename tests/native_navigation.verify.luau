@@ -58,6 +58,7 @@ return function(verifyHarness: Verify.Harness)
 			runService: boolean?,
 			preRender: boolean?,
 			suspendGameplay: boolean?,
+			tweens: unknown?,
 		}?
 	)
 		local engine = engines.new()
@@ -95,6 +96,7 @@ return function(verifyHarness: Verify.Harness)
 				GuiService = (gui :: unknown) :: GuiService,
 				UserInputService = (input :: unknown) :: UserInputService,
 				RunService = (runService :: unknown) :: RunService?,
+				TweenService = ((if options then options.tweens else nil) :: unknown) :: TweenService?,
 			},
 			theme = options and options.theme,
 			pressHaptic = options and options.pressHaptic and options.pressHaptic(engine),
@@ -191,6 +193,62 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 		end
+		verifyHarness:case(
+			"PageView measures a release from the page in view when a contact stops a selection animation",
+			{
+				id = "native_navigation::page release::contact during selection animation",
+				run = function()
+					local chosen = Compose.cell("one")
+					local created: { { goal: { [string]: any }, cancelled: number } } = {}
+					local tweens = {
+						Create = function(_, _instance: any, _info: any, goal: { [string]: any })
+							local record = { goal = goal, cancelled = 0 }
+							table.insert(created, record)
+							return {
+								Play = function() end,
+								Cancel = function()
+									record.cancelled += 1
+								end,
+							}
+						end,
+					}
+					local world = setup(function(UI: FacetControls)
+						local pages: { Navigation.Tab } = {}
+						for _, id in { "one", "two", "three", "four" } do
+							table.insert(pages, { id = id, content = UI.Text { text = id } })
+						end
+						return UI.PageView {
+							selection = chosen,
+							pages = pages,
+							scrollWheel = true,
+						}
+					end, { tweens = tweens })
+					local pages, V2, E =
+						find(world.screen, "Pages"), world.engine.types.Vector2, world.engine.types.Enum
+					world.engine.environment.poke(pages, "AbsoluteWindowSize", V2.new(320, 160))
+					world.engine.environment.poke(pages, "AbsoluteCanvasSize", V2.new(1280, 160))
+					Verify.expect(pages.CanvasPosition.X):toBe(0)
+					chosen:set("two")
+					Verify.expect(#created):toBe(1)
+					Verify.expect(created[1].goal.CanvasPosition.X):toBe(320)
+					pages.CanvasPosition = V2.new(100, 0)
+					local touch = world.engine.new("InputObject")
+					world.engine.environment.poke(touch, "UserInputType", E.UserInputType.Touch)
+					pages.InputBegan:Fire(touch)
+					Verify.expect(created[1].cancelled):toBe(1)
+					Verify.expect(pages.CanvasPosition.X):toBe(100)
+					world.engine.environment.step(0.02)
+					pages.CanvasPosition = V2.new(130, 0)
+					world.engine.environment.fire(world.input, "InputEnded", touch)
+					world.settle()
+					Verify.expect(pages.CanvasPosition.X):toBe(320)
+					Verify.expect(chosen:peek()):toBe("two")
+					Verify.expect(find(find(world.screen, "Indicators"), "two"):HasTag("facet-selected")):toBe(true)
+					world.stop()
+					Verify.expect(world.engine.census().connections):toBe(0)
+				end,
+			}
+		)
 		verifyHarness:case("PageView interrupts a release snap and keeps the current contact position", {
 			id = "native_navigation::page release::interruption",
 			run = function()
