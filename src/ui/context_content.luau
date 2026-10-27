@@ -5,6 +5,22 @@ local Theme = require("./theme_types")
 local layoutKit = require("./layout_kit")
 local textMeasure = require("./text_measure")
 
+local geometryQueue: { [() -> ()]: boolean } = {}
+local geometryStop: (() -> ())? = nil
+
+local function flushGeometry()
+	local queued = geometryQueue
+	geometryQueue = {}
+	for refresh in queued do
+		refresh()
+	end
+	if next(geometryQueue) == nil and geometryStop then
+		local stop = geometryStop
+		geometryStop = nil
+		stop()
+	end
+end
+
 local function attachLayout(
 	ctx: Shared.Context,
 	label: TextLabel | TextButton,
@@ -92,16 +108,34 @@ local function attachLayout(
 		end
 	end
 	local framed = services.RunService ~= nil and getfenv ~= nil and getfenv(0).game ~= nil
-	local size =
-		runtime.observe(label, "AbsoluteSize", if framed then { frame = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
-	local bounds =
-		runtime.observe(label, "TextBounds", if framed then { frame = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
+	local box = label.AbsoluteSize
+	local bounds = Compose.cell(label.TextBounds)
+	local frameSource = runtime.host.frames
+	local checkStale: () -> () = function() end
+	local function readGeometry()
+		if alive then
+			box = label.AbsoluteSize
+			bounds:set(label.TextBounds)
+			checkStale()
+		end
+	end
+	local function geometryChanged()
+		if not framed or frameSource == nil then
+			readGeometry()
+			return
+		end
+		geometryQueue[readGeometry] = true
+		if geometryStop == nil then
+			geometryStop = frameSource.onFrame(flushGeometry)
+		end
+	end
 	local refloor: () -> () = function() end
 	local function invalidate()
 		if not refreshing then
 			styling:set(styling:peek() + 1)
 			revision:set(revision:peek() + 1)
 			refloor()
+			checkStale()
 		end
 	end
 	local function styleChanged()
@@ -114,6 +148,8 @@ local function attachLayout(
 	local changed = label.Changed:Connect(function(property: string)
 		if property == "FontFace" or property == "TextSize" then
 			styleChanged()
+		elseif property == "AbsoluteSize" or property == "TextBounds" then
+			geometryChanged()
 		elseif property == "Text" then
 			content:set(label.Text)
 			if not measuredFloor() and previousSize ~= nil and label.TextSize ~= previousSize then
@@ -149,10 +185,9 @@ local function attachLayout(
 			end
 		end)
 	end
-	Compose.watch(function(use: ComposeTypes.Use)
-		use(revision)
+	checkStale = function()
 		snapshot()
-		local box, glyph, mode = use(size), use(bounds), snapMode
+		local glyph, mode = bounds:peek(), snapMode
 		local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
 		local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
 		local measured = measuredFloor()
@@ -170,7 +205,8 @@ local function attachLayout(
 		then
 			deferReflow()
 		end
-	end)
+	end
+	checkStale()
 	local function buildWrapped(
 		wrappedHeight: ComposeTypes.Value<number>,
 		unit: () -> ComposeTypes.ReadOnlyValue<number>
@@ -187,6 +223,8 @@ local function attachLayout(
 		end
 		local words =
 			runtime.observe(label, "Text", if framed then { frame = true } else nil) :: ComposeTypes.ReadOnlyValue<string>
+		local wrappedSize =
+			runtime.observe(label, "AbsoluteSize", if framed then { frame = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
 		Compose.cleanup(function()
 			active = false
 			finish()
@@ -202,7 +240,7 @@ local function attachLayout(
 				finish()
 				return
 			end
-			local wide = use(size).X / use(unit())
+			local wide = use(wrappedSize).X / use(unit())
 			local padding = label:FindFirstChildWhichIsA("UIPadding")
 			if padding then
 				local left = padding:GetStyled("PaddingLeft") :: UDim
