@@ -144,7 +144,14 @@ return function(ctx: Types.Context): Drag.Service
 		end
 		local workspace = ctx.config.services.Workspace
 		local camera = if workspace then workspace.CurrentCamera else nil
-		if camera then
+		local world = false
+		for target in targets do
+			if not target:IsA("GuiObject") then
+				world = true
+				break
+			end
+		end
+		if camera and world then
 			local ray = camera:ScreenPointToRay(at.X, at.Y)
 			local params = ctx.types.RaycastParams.new()
 			if not source:IsA("GuiObject") then

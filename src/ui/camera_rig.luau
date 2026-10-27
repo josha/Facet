@@ -141,7 +141,9 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 			table.clear(touchContacts)
 			releaseOrbit, releaseFocus = V3.zero, V3.zero
 		end
+		local travelling = Compose.cell(false)
 		local function request(point: Vector3, orbit: Vector3, duration: number)
+			travelling:set(duration > 0)
 			targetFocus = clampFocus(point)
 			targetOrbit = clampOrbit(orbit)
 			focusRamp.retarget(targetFocus, if reduce() then 0 else duration)
@@ -447,7 +449,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 			period = spring.period,
 			damping = spring.damping,
 			reducedMotion = function(use: Types.Use): boolean
-				return reduce(use) or spec.smoothing ~= true or use(direct) or use(halted)
+				return reduce(use) or spec.smoothing ~= true or use(direct) or use(halted) or use(travelling)
 			end,
 		})
 		local smoothOrbit = runtime.spring(function(use: Types.Use): Vector3
@@ -456,7 +458,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 			period = spring.period,
 			damping = spring.damping,
 			reducedMotion = function(use: Types.Use): boolean
-				return reduce(use) or spec.smoothing ~= true or use(direct) or use(halted)
+				return reduce(use) or spec.smoothing ~= true or use(direct) or use(halted) or use(travelling)
 			end,
 		})
 		local state = Compose.formula(function(use: Types.Use): Props.CameraPose

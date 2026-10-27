@@ -144,6 +144,19 @@ local function fixture(inertia: boolean?, smoothing: boolean?, initial: CameraRi
 end
 
 return function(harness: Verify.Harness)
+	harness:case("cameraRig smoothing does not delay a preset travel", function(t)
+		local smoothed = fixture(nil, true)
+		local direct = fixture(nil, false)
+		t:defer(smoothed.close)
+		t:defer(direct.close)
+		smoothed.rig.preset:set("table")
+		direct.rig.preset:set("table")
+		smoothed.step(6)
+		direct.step(6)
+		local reference = direct.rig.state:peek().distance
+		t:expect(reference < 10):toBe(true)
+		t:expect(math.abs(smoothed.rig.state:peek().distance - reference) < 0.01):toBe(true)
+	end)
 	harness:case("cameraRig clamps initial pose and commanded focus", function(t)
 		local engine = engines.new()
 		local w = fixture(

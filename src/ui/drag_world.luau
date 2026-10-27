@@ -99,6 +99,11 @@ return function(ctx: Types.Context, source: BasePart | Model, spec: Env.Draggabl
 		local hit = assert(world):Raycast(ray.Origin, ray.Direction * 10000)
 		return hit ~= nil and (rawequal(hit.Instance, source) or hit.Instance:IsDescendantOf(source))
 	end
+	local function embodied(): boolean
+		local players = ctx.config.services.Players
+		local player = players and players.LocalPlayer
+		return player ~= nil and player.Character ~= nil
+	end
 	local function claim(pointer: InputObject): boolean
 		if not pointerHit(pointer) then
 			return false
@@ -179,7 +184,7 @@ return function(ctx: Types.Context, source: BasePart | Model, spec: Env.Draggabl
 				and pointerHit(pointer)
 			then
 				pressed = pointer
-				if detected and claim(pointer) then
+				if (detected or not embodied()) and claim(pointer) then
 					begin("pointer", pointer)
 				end
 			end

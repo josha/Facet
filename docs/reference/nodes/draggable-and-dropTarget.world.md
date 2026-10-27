@@ -15,8 +15,9 @@ anchored. Facet moves the held object. The game owns its accepted placement.
 - `maxActivationDistance`: an optional native DragDetector distance. The engine
   default applies when this is absent.
 
-  The engine measures this distance from the player's character. Pointer
-  pickup needs a spawned character; without one, use the `focusTarget` button.
+  The engine measures this distance from the player's character. When the
+  local player has no character, Facet starts pointer and touch pickup from
+  its own pointer raycast instead.
 
 Facet creates a local DragDetector with `TranslatePlane`, `Custom` response,
 and `Everybody` permission. This detector recognizes pointer pickup and release.
