@@ -68,6 +68,8 @@ local function copyNode(node: Node): Node
 		nameInput = node.nameInput,
 		when = node.when,
 		tags = if node.tags then table.clone(node.tags) else nil,
+		hidden = node.hidden,
+		locked = node.locked,
 	}
 end
 

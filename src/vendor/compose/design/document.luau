@@ -395,6 +395,8 @@ function document.validate(value: Document, library: Library): Document
 		highest = math.max(highest, number)
 		local kind = assert(library.kinds[node.kind], `Unknown {library.name} kind {node.kind}`)
 		assert(#node.name > 0 and #node.name <= 120, "A node needs a name")
+		assert(node.hidden == nil or type(node.hidden) == "boolean", "Hidden is a boolean")
+		assert(node.locked == nil or type(node.locked) == "boolean", "Locked is a boolean")
 		local nameField = node.nameField
 		if nameField ~= nil then
 			local list = assert(collection, `{node.name} takes its name from an item outside a collection template`)

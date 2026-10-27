@@ -349,6 +349,22 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 	end
 	local rowTypesAt = #lines + 1
 	local header: Record = { name = value.name, contract = contractLiteral(value.contract) }
+	local editor: Record = {}
+	Read.editorNodes(value.root, "root", function(node: Node, path: string)
+		if node.hidden or node.locked then
+			local flags: Record = {}
+			if node.hidden then
+				flags.hidden = true
+			end
+			if node.locked then
+				flags.locked = true
+			end
+			editor[path] = flags
+		end
+	end)
+	if next(editor) ~= nil then
+		header.editor = editor
+	end
 	local state = value.state
 	if state and #state > 0 then
 		header.state = stateLiteral(state)

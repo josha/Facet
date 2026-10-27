@@ -6,6 +6,72 @@ local Compose = require "../core"
 local Design = require "../design"
 local Datatype = Design.datatype
 
+local function equalLiteral(left: Design.Literal?, right: Design.Literal?): boolean
+	if left == right then
+		return true
+	end
+	if type(left) ~= "table" or type(right) ~= "table" then
+		return false
+	end
+	for key, value in left do
+		if not equalLiteral(value, right[key]) then
+			return false
+		end
+	end
+	for key in right do
+		if left[key] == nil then
+			return false
+		end
+	end
+	return true
+end
+
+local function equalList<T>(left: { T }?, right: { T }?): boolean
+	if left == nil or right == nil then
+		return left == right
+	end
+	if #left ~= #right then
+		return false
+	end
+	for index, item in left do
+		if item ~= right[index] then
+			return false
+		end
+	end
+	return true
+end
+
+local function equalValue(left: Design.Value?, right: Design.Value?): boolean
+	if left == nil or right == nil then
+		return left == right
+	end
+	local args, other = left.args, right.args
+	if args and other then
+		if #args ~= #other then
+			return false
+		end
+		for index, item in args do
+			if not equalLiteral(item, other[index]) then
+				return false
+			end
+		end
+	elseif args ~= other then
+		return false
+	end
+	return equalLiteral(left.literal, right.literal)
+		and left.input == right.input
+		and left.item == right.item
+		and left.output == right.output
+		and left.node == right.node
+		and left.nodeFrom == right.nodeFrom
+		and left.token == right.token
+		and left.state == right.state
+		and left.motion == right.motion
+		and left.play == right.play
+		and equalList(left.fields, right.fields)
+		and equalList(left.nodes, right.nodes)
+end
+
 export type Inspector = {
 	root: Compose.Node,
 	dispose: () -> (),
@@ -293,7 +359,7 @@ return function(ui: UI.UI)
 			return slot
 		end
 		local showAdvanced = Compose.cell(false)
-		local function render(value: Design.Document, id: string, advancedOpen: boolean)
+		local function render(value: Design.Document, id: string, ids: { string }, advancedOpen: boolean)
 			clear()
 			order = 0
 			local node = Design.document.find(value.root, id)
@@ -301,6 +367,48 @@ return function(ui: UI.UI)
 				return
 			end
 			local kind = session.library.kinds[node.kind]
+			local mixed: { [string]: boolean } = {}
+			if #ids > 1 then
+				node = table.clone(node)
+				local props: { [string]: Design.Value } = table.clone(node.props)
+				node.props = props
+				kind = table.clone(kind)
+				kind.fields = table.clone(kind.fields)
+				local function effective(current: Design.Node, key: string): Design.Value?
+					local definition = session.library.kinds[current.kind]
+					local fallback = if definition.defaults then definition.defaults[key] else nil
+					if fallback == nil then
+						fallback = definition.fields[key].default
+					end
+					return current.props[key] or (if fallback ~= nil then { literal = fallback } else nil)
+				end
+				for key, field in table.clone(kind.fields) do
+					local common = effective(node, key)
+					for _, other in ids do
+						local target = assert(Design.document.find(value.root, other), "Choose a node")
+						local definition = session.library.kinds[target.kind]
+						local entry = definition.fields[key]
+						if
+							entry == nil
+							or entry.type ~= field.type
+							or entry.datatype ~= field.datatype
+							or not equalList(entry.options, field.options)
+							or not Design.document.applies(target, definition, key)
+						then
+							kind.fields[key] = nil
+							break
+						end
+						if not equalValue(common, effective(target, key)) then
+							mixed[key] = true
+						end
+					end
+					if mixed[key] or common == nil then
+						props[key] = nil
+					else
+						props[key] = common
+					end
+				end
+			end
 			local header = block("Header", 56)
 			Theme.pad(header, size.gutter, size.gutter, 10, 10)
 			local badge = Theme.frame("Badge", color.accentSoft)
@@ -313,7 +421,7 @@ return function(ui: UI.UI)
 			ui.set(glyph, "TextXAlignment", ui.values.enum("TextXAlignment", "Center"))
 			ui.set(glyph, "Parent", badge)
 			ui.set(badge, "Parent", header)
-			local name = field(node.name, function(text: string)
+			local name = field(if #ids > 1 then `{#ids} selected` else node.name, function(text: string)
 				session.rename(text)
 			end)
 			ui.set(name, "Name", "NodeName")
@@ -361,7 +469,7 @@ return function(ui: UI.UI)
 				ui.set(tags, "Size", ui.values.udim2(1, 0, 1, 0))
 				ui.set(tags, "Parent", editorSlot(tagRow))
 			end
-			if kind.children == "template" then
+			if #ids == 1 and kind.children == "template" then
 				section "Data"
 				local lists: { string } = {}
 				for _, input in value.contract.inputs do
@@ -398,7 +506,7 @@ return function(ui: UI.UI)
 			local extra: { string } = {}
 			local advancedKeys: { string } = {}
 			for key, entry in kind.fields do
-				if not Design.document.applies(node, kind, key) then
+				if #ids == 1 and not Design.document.applies(node, kind, key) then
 					continue
 				end
 				if entry.advanced and node.props[key] == nil then
@@ -436,7 +544,8 @@ return function(ui: UI.UI)
 					for _, key in keys do
 						local entry = kind.fields[key]
 						local property = node.props[key]
-						local line, caption = row(key, entry.label or humanize(key))
+						local label = entry.label or humanize(key)
+						local line, caption = row(key, label .. if mixed[key] then " (Mixed)" else "")
 						local slot = editorSlot(line)
 						local literal = if property then property.literal else nil
 						local contentKind = session.library.contentKind
@@ -572,13 +681,20 @@ return function(ui: UI.UI)
 								local cell = field(tostring(components[index]), function(text: string)
 									local number = tonumber(text)
 									if number then
-										local nextValue: { [string | number]: Design.Literal } = {}
-										for position = 1, 3 do
-											nextValue[position] = if position == index
-												then number
-												else components[position]
-										end
-										session.change(key, { literal = nextValue })
+										session.change(key, function(target: Design.Node): Design.Value
+											local property = target.props[key]
+											local current = if property then property.literal else nil
+											local nextValue: { [string | number]: Design.Literal } = {}
+											for position = 1, 3 do
+												local component = if type(current) == "table"
+													then current[position]
+													else nil
+												nextValue[position] = if position == index
+													then number
+													else component or components[position]
+											end
+											return { literal = nextValue }
+										end)
 									end
 								end, true)
 								ui.set(cell, "Name", axis)
@@ -620,9 +736,9 @@ return function(ui: UI.UI)
 								local cell = Theme.frame(`Component{index}`)
 								ui.set(cell, "LayoutOrder", index)
 								ui.set(cell, "Size", ui.values.udim2(1, 0, 0, 28))
-								local label = Theme.label(tostring(index), color.tertiary, size.small)
-								ui.set(label, "Size", ui.values.udim2(0, 14, 1, 0))
-								ui.set(label, "Parent", cell)
+								local indexLabel = Theme.label(tostring(index), color.tertiary, size.small)
+								ui.set(indexLabel, "Size", ui.values.udim2(0, 14, 1, 0))
+								ui.set(indexLabel, "Parent", cell)
 								local function change(next: Design.Literal)
 									local changed = table.clone(components)
 									changed[index] = next
@@ -709,6 +825,14 @@ return function(ui: UI.UI)
 							ui.set(hint, "Parent", slot)
 						end
 						local available = choices(value, entry, tokens)
+						if mixed[key] then
+							for _, control in ui.descendants(slot) do
+								if ui.isA(control, "TextBox") then
+									ui.set(control, "Text", "")
+									ui.set(control, "PlaceholderText", "Mixed")
+								end
+							end
+						end
 						if #available > 0 then
 							local bound = property ~= nil and literal == nil
 							local link = pressable("Bind", color.panel, color.hover, function()
@@ -813,7 +937,7 @@ return function(ui: UI.UI)
 		end
 		local root = Compose.createRootOwner(function()
 			Compose.watch(function(use: Compose.Use)
-				render(use(session.document), use(session.selected), use(showAdvanced))
+				render(use(session.document), use(session.selected), use(session.selection), use(showAdvanced))
 			end)
 		end, ui.runtime.reactor)
 		local release = Compose.owner.own(ui.owner, root.dispose)

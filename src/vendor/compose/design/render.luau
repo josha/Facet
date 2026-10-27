@@ -348,6 +348,9 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		return {}
 	end
 	build = function(node: Types.Node, item: ReadOnlyValue<Row>?): unknown
+		if context and context.exclude and context.exclude(node) then
+			return nil
+		end
 		local kind = assert(library.kinds[node.kind], `Unknown {library.name} kind {node.kind}`)
 		local props: { [string]: Resolved } = {}
 		local cells: { [string]: true } = {}

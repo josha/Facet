@@ -26,8 +26,20 @@ type RawEntry = {
 	subscribers: { RawSubscriber },
 	count: number,
 	publishing: number,
+	cursor: number,
 	stop: Compose.Unsubscribe?,
 }
+
+local function sweepRaw(subject: RawEntry, subscribers: { RawSubscriber }, last: number): unknown
+	for index = subject.cursor, last do
+		subject.cursor = index + 1
+		local notify = subscribers[index].listener
+		if notify ~= nil then
+			notify()
+		end
+	end
+	return nil
+end
 
 local function compactRaw(subject: RawEntry)
 	local live = 0
@@ -224,7 +236,7 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		local entry = properties[key]
 		local current: RawEntry
 		if entry == nil then
-			local created: RawEntry = { subscribers = {}, count = 0, publishing = 0 }
+			local created: RawEntry = { subscribers = {}, count = 0, publishing = 0, cursor = 1 }
 			local function single(): unknown
 				local notify = created.subscribers[1].listener
 				if notify ~= nil then
@@ -253,19 +265,10 @@ local function createHost(engine: Engine.Engine): Compose.Host
 				local failures: { unknown }? = nil
 				local subscribers = created.subscribers
 				local last = #subscribers
-				local cursor = 1
-				local function sweep(): unknown
-					for index = cursor, last do
-						cursor = index + 1
-						local notify = subscribers[index].listener
-						if notify ~= nil then
-							notify()
-						end
-					end
-					return nil
-				end
-				while cursor <= last do
-					local ok, failure = pcall(sweep)
+				local outer = created.cursor
+				created.cursor = 1
+				while created.cursor <= last do
+					local ok, failure = pcall(sweepRaw, created, subscribers, last)
 					if not ok then
 						local collected = failures or {}
 						failures = collected
@@ -275,6 +278,7 @@ local function createHost(engine: Engine.Engine): Compose.Host
 						)
 					end
 				end
+				created.cursor = outer
 				created.publishing -= 1
 				if created.publishing == 0 and created.count < #subscribers then
 					compactRaw(created)

@@ -369,10 +369,16 @@ return function(ui: UI.UI)
 		end, { { ui.values.enum("KeyCode", "Delete") }, { ui.values.enum("KeyCode", "Backspace") } })
 		local function command(key: string, shifted: boolean?): { { unknown } }
 			local chords: { { unknown } } = {}
-			for _, modifier in { "LeftControl", "LeftMeta", "LeftSuper" } do
+			for _, modifier in { "LeftControl", "RightControl", "LeftMeta", "RightMeta", "LeftSuper", "RightSuper" } do
 				local chord = { ui.values.enum("KeyCode", key), ui.values.enum("KeyCode", modifier) }
 				if shifted then
 					table.insert(chord, ui.values.enum("KeyCode", "LeftShift"))
+					local rightChord = {
+						ui.values.enum("KeyCode", key),
+						ui.values.enum("KeyCode", modifier),
+						ui.values.enum("KeyCode", "RightShift"),
+					}
+					table.insert(chords, rightChord)
 				end
 				table.insert(chords, chord)
 			end
@@ -390,6 +396,14 @@ return function(ui: UI.UI)
 		bind("Paste", function()
 			session.paste()
 		end, command "V")
+		bind("Wrap", function()
+			if not ui.keyDown { "LeftShift", "RightShift" } then
+				session.wrap()
+			end
+		end, command "G")
+		bind("Unwrap", function()
+			session.unwrap()
+		end, command("G", true))
 		bind("MoveUp", function()
 			session.shift(-1)
 		end, { { ui.values.enum("KeyCode", "Up"), ui.values.enum("KeyCode", "LeftAlt") } })
@@ -414,7 +428,7 @@ return function(ui: UI.UI)
 			view.zoomTo(view.zoom:peek() / 1.25)
 		end, command "Minus")
 		bind("Parent", function()
-			session.selectRelative "parent"
+			session.selectMany {}
 		end, { { ui.values.enum("KeyCode", "Escape") } })
 		bind("Child", function()
 			session.selectRelative "child"

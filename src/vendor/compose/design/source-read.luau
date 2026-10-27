@@ -275,6 +275,38 @@ local function contractOf(header: Record): Types.Contract
 	return { inputs = inputs, outputs = outputs }
 end
 
+local function editorNodes(node: Node, path: string, visit: (Node, string) -> ())
+	visit(node, path)
+	local content: { [string]: string } = {}
+	local function templates(value: Literal, at: string)
+		if type(value) ~= "table" then
+			return
+		end
+		local id = value["$template"]
+		if type(id) == "string" and (content[id] == nil or at < content[id]) then
+			content[id] = at
+		end
+		for key, child in value do
+			templates(child, `{at}/{tostring(key)}`)
+		end
+	end
+	for key, property in node.props do
+		if property.literal ~= nil then
+			templates(property.literal, tostring(key))
+		end
+	end
+	local index = 0
+	for _, child in node.children do
+		local slot = content[child.id]
+		if slot then
+			editorNodes(child, `{path}/content/{slot}`, visit)
+		else
+			index += 1
+			editorNodes(child, `{path}/{index}`, visit)
+		end
+	end
+end
+
 function source.parse(code: string, library: Library): Types.Document
 	local tokens = tokenize(code)
 	local at = 1
@@ -968,6 +1000,20 @@ function source.parse(code: string, library: Library): Types.Document
 		end
 	end
 	remap(root)
+	local editor = header.editor
+	if editor ~= nil then
+		assert(type(editor) == "table", "The editor header is a table")
+		editorNodes(root, "root", function(node: Node, path: string)
+			local flags = editor[path]
+			if flags ~= nil then
+				assert(type(flags) == "table", "Editor flags are a table")
+				assert(flags.hidden == nil or type(flags.hidden) == "boolean", "Hidden is a boolean")
+				assert(flags.locked == nil or type(flags.locked) == "boolean", "Locked is a boolean")
+				node.hidden = if flags.hidden == true then true else nil
+				node.locked = if flags.locked == true then true else nil
+			end
+		end)
+	end
 	return Document.validate({
 		schema = "compose-design/1",
 		name = text(header, "name"),
@@ -979,5 +1025,7 @@ function source.parse(code: string, library: Library): Types.Document
 		root = root,
 	}, library)
 end
+
+source.editorNodes = editorNodes
 
 return source

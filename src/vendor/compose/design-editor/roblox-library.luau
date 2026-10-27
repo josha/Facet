@@ -140,6 +140,7 @@ return function(runtime: Compose.Runtime, environment: Environment.Environment):
 
 	local library: Design.Library = {
 		name = "Roblox",
+		containerKind = "Stack",
 		parameter = "Host",
 		parameterType = "nil",
 		prelude = {},
