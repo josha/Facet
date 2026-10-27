@@ -5,6 +5,7 @@ local json = require("@std/json")
 local Cli = require("../lib/cli")
 local Audit = require("../../vendor/verify/src/roblox/ui-audit")
 local Look = require("../lib/look")
+local DesignReview = require("../lib/design_review")
 
 local USAGE = [[usage: lute run tools/facet audit [--device ID]... [--tap TEXT]... [--wait SECONDS]
                                   [--project FILE] [--out DIR] [--keep] [--all]
@@ -20,6 +21,11 @@ properties and reports:
           that overlap, controls that a gamepad cannot reach, hidden focus, a HUD
           zone moved into the play view
   low     broken selection links, too many text sizes or spacing values
+
+A design section follows on each screen. It reports patterns that make a screen
+look generic, such as facts joined in one text, items without a visual and a
+flat type hierarchy. It does not change the score or the exit code. See
+lute run tools/facet docs Review.
 
 Each rule prints its fix once per run. Every screen keeps its score and findings.
 
@@ -119,6 +125,9 @@ local function report(
 	if #lines == 1 then
 		table.insert(lines, "  no finding")
 	end
+	for _, line in DesignReview.lines(DesignReview.analyze(loaded), fixes) do
+		table.insert(lines, line)
+	end
 	return table.concat(lines, "\n"), high, result.score
 end
 
@@ -147,7 +156,9 @@ local function run(invocation: Cli.Invocation): number
 		end
 		local loaded = Look.load(saved)
 		local text, high = report(devices[1], saved, loaded, all)
-		Cli.emit(invocation, (Look.audit(loaded, devices[1]) :: unknown) :: json.Value, text)
+		local value = (Look.audit(loaded, devices[1]) :: unknown) :: { [string]: json.Value }
+		value.design = (DesignReview.analyze(loaded).findings :: unknown) :: json.Value
+		Cli.emit(invocation, (value :: unknown) :: json.Value, text)
 		return if high then 1 else 0
 	end
 	local result = Look.run({
@@ -176,7 +187,14 @@ local function run(invocation: Cli.Invocation): number
 			text ..= "\n  problem: " .. (screen.problem :: string)
 		end
 		table.insert(texts, text)
-		local entry: json.Value = { device = screen.device, label = screen.label, score = score, high = high }
+		local design = DesignReview.analyze(Look.load(screen.dump :: string))
+		local entry: json.Value = {
+			device = screen.device,
+			label = screen.label,
+			score = score,
+			high = high,
+			design = #design.findings,
+		}
 		table.insert(scores, entry)
 		failed = failed or high
 	end
@@ -218,6 +236,29 @@ local function register(harness: Verify.Harness, prefix: string): ()
 			Verify.expect(weak < strong):toBeTrueWith(("weak %d is not below strong %d"):format(weak, strong))
 			Verify.expect(string.find(weakText, "no finding", 1, true) == nil)
 				:toBeTrueWith("the weak reference has no finding")
+		end,
+	})
+	harness:case(prefix .. "the design section reports joined facts without changing the score", {
+		id = prefix .. "the design section reports joined facts without changing the score",
+		run = function(test: Verify.Context)
+			local loaded = Look.decode(Look.sample(false))
+			loaded.elements[3].text = (
+				{
+					content = "Iron Sword • 250 Coins • +4 attack",
+					size = 20,
+					bounds = { width = 200, height = 24 },
+					scaled = false,
+					wrapped = false,
+					bold = false,
+					color = { r = 1, g = 1, b = 1 },
+					transparency = 0,
+				} :: unknown
+			) :: Audit.Text
+			local text, _, score = report("desktop", "shop", loaded, true)
+			local _, _, plain = report("desktop", "shop", Look.decode(Look.sample(false)), true)
+			Verify.expect(string.find(text, "joined-facts", 1, true) ~= nil)
+				:toBeTrueWith("the design section is missing")
+			Verify.expect(score):toBe(plain)
 		end,
 	})
 	harness:case(prefix .. "low findings are hidden unless --all is given", {

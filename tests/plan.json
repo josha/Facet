@@ -61,6 +61,7 @@
     { "id": "tools/run_compare", "locator": "tests/tools/run_compare.verify.luau", "requires": ["lute"] },
     { "id": "play_scroll_target", "locator": "tests/play_scroll_target.verify.luau", "requires": ["local-luau"] },
     { "id": "hud_format", "locator": "tests/hud_format.verify.luau", "requires": ["local-luau"] },
+    { "id": "review", "locator": "tests/review.verify.luau", "requires": ["lute"] },
     { "id": "hud_timer", "locator": "tests/hud_timer.verify.luau", "requires": ["local-luau"] },
     { "id": "hud_typewriter", "locator": "tests/hud_typewriter.verify.luau", "requires": ["local-luau"] },
     {
