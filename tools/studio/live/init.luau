@@ -271,6 +271,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 						Vector3 = Vector3,
 						Color3 = Color3,
 						CFrame = CFrame,
+						RaycastParams = RaycastParams,
 						Rect = Rect,
 						Enum = Enum,
 						Font = Font,

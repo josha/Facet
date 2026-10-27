@@ -4317,6 +4317,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		snippet = 'UI.draggable(card, { payload = "card" })',
 		demonstrates = {
 			"payload",
+			"world",
 			"enabled",
 			"armOnTap",
 			"touchPickup",
@@ -4335,6 +4336,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "reserveSlots", values = { false, true } },
 		},
 		states = {
+			{ name = "world tile placement", props = properties { worldDrag = true } },
 			{ name = "without status labels", props = properties { statusLabels = false } },
 			{ name = "horizontal touch pickup", props = properties { touchPickup = "immediate", touchDragAxis = "X" } },
 		},
@@ -4342,6 +4344,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return { touchPickup = "longPress", touchDragAxis = "XY" }
 		end,
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
+			if p.worldDrag then
+				return require("./world_drag_demo")(c)
+			end
 			return require("./container_transfer_demo")(UI, c.Host, c.Compose, c.types, {
 				scale = p.transferScale,
 				reject = p.rejectTransfer,
@@ -4406,6 +4411,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			"onDrop",
 			"travel",
 			"landing",
+			"worldPlacement",
+			"placement",
 			"accepts",
 			"onReject",
 			"onEnter",

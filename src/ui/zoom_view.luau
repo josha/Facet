@@ -35,7 +35,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		local arbiter = arbiterOf(ctx)
 		local contacts: { [InputObject]: boolean } = {}
 		local capturedContacts: { [InputObject]: boolean } = {}
-		local capturedSource: GuiObject? = nil
+		local capturedSource: Instance? = nil
 		local root: ScrollingFrame
 		local contentPoint, screenPoint = V2.zero, V2.zero
 		local applied = zoom:peek()
@@ -285,7 +285,17 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			end
 			local held = drag.state:peek()
 			local focus = point
-				or (held and (held.position or held.source.AbsolutePosition + held.source.AbsoluteSize / 2))
+				or (
+					held
+					and (
+						held.position
+						or (
+							if held.source:IsA("GuiObject")
+								then held.source.AbsolutePosition + held.source.AbsoluteSize / 2
+								else nil
+						)
+					)
+				)
 			capture(if focus then (focus - root.AbsolutePosition) / math.max(unit:peek(), 0.001) else nil)
 			return request(value, nil, true)
 		end

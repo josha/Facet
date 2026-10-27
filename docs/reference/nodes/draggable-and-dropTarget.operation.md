@@ -25,6 +25,11 @@ native world raycast result. Collection insertion includes `collection`,
 `beforeKey`, `afterKey`, and a zero-based `slot` among the remaining items.
 Pending insertions resolve their neighbor keys again before completion.
 
+World targets can set `worldPlacement` to a CFrame or readable CFrame.
+The same transform appears in `info.worldPlacement`.
+Targets can also set `placement` to a `Facet.SpatialPlacement` or readable
+placement. This supplies `info.placement` for one shared board placement handler.
+
 Screen targets use `PlayerGui:GetGuiObjectsAtPosition` in native visual order.
 Ghosts are excluded. Visible blocking UI prevents world drops, including rejected
 UI targets. A decorative background can explicitly set `FacetDropPassThrough`.

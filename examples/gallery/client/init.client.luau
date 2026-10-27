@@ -97,6 +97,7 @@ local owner = Compose.createRootOwner(function()
 			Color3 = Color3,
 			Vector3 = Vector3,
 			CFrame = CFrame,
+			RaycastParams = RaycastParams,
 			Path2DControlPoint = Path2DControlPoint,
 			FloatCurveKey = FloatCurveKey,
 			Rect = Rect,

@@ -57,6 +57,36 @@ See [the live CI scope](../../tools/studio/CI.md).
 
 ## Live
 
+### World drag evidence
+
+`tests/world_drag.verify.luau` checks shared session policy, world pivots,
+snap, callback parity, pending completion, reduced motion, arbitration, and teardown.
+It uses Verify's block geometry for raycast checks.
+The keyboard and gamepad cases inspect native bindings and dispatch InputAction events.
+They do not prove physical input or native selection navigation.
+
+Verify needs these engine capabilities for complete world pointer evidence:
+
+- Camera `ScreenPointToRay` and `WorldToScreenPoint` projection.
+- DragDetector recognition and cursor rays for mouse, touch, and gamepad.
+- DragDetector `TranslatePlane`, `Custom` response, local permission, and activation distance behavior.
+- Keyboard dispatch while a GuiObject is selected, with native activation and focus traversal.
+- Touch contact dispatch and gamepad dispatch with native selection.
+
+The simulated input backend currently rejects keyboard input while a GuiObject is selected.
+It recognizes UIDragDetector and does not recognize world DragDetector.
+Reflection metadata alone does not supply these behaviors.
+Facet tests do not add implementations for them.
+
+Check the Lab's draggable page with the world tile placement state in Studio.
+Check pointer movement on horizontal and tilted planes, camera changes, UI blocking,
+part occlusion, permission, activation distance, and touch contact identity.
+Check Enter, A, Escape, B, focus navigation, target activation, pending cancellation,
+and disposal during lift, landing, and return.
+Compare wide and compact layouts with theme and device settings available.
+Check reduced motion during each phase.
+Run touch and controller checks on physical devices.
+
 Native geometry, text editing, scrolling, selection, hit testing and input need
 live Studio evidence. Record the actual build and device. Wait for viewport and
 CoreGui insets to settle before checking geometry, but do not discard later

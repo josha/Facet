@@ -255,6 +255,7 @@ export type GestureOptions = GestureTypes.Options
 export type GestureDecision = GestureTypes.Decision
 export type GestureBinding = GestureTypes.Binding
 export type DraggableSpec = EnvironmentTypes.DraggableSpec
+export type WorldDragOptions = EnvironmentTypes.WorldDragOptions
 export type DropTargetSpec = EnvironmentTypes.DropTargetSpec
 export type DropInfo = EnvironmentTypes.DropInfo
 export type DropOperation = EnvironmentTypes.DropOperation

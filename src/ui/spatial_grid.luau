@@ -127,7 +127,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				end
 				for _, item in items:peek() do
 					if
-						not (info.operation == "move" and nodes[spec.key(item)] == info.source)
+						not (info.operation == "move" and rawequal(nodes[spec.key(item)], info.source))
 						and geometry.overlaps(at, spec.placement(item))
 					then
 						info.invalid = "These cells are occupied"
@@ -302,12 +302,13 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 					carried = nil
 					return
 				end
-				carried = active.source
-				if active.mode ~= "armed" then
+				local activeSource = if active.source:IsA("GuiObject") then active.source else nil
+				carried = activeSource
+				if active.mode ~= "armed" or activeSource == nil then
 					return
 				end
 				for _, item in values do
-					if nodes[spec.key(item)] == active.source and gui.SelectedObject == active.source then
+					if nodes[spec.key(item)] == activeSource and gui.SelectedObject == activeSource then
 						local at = spec.placement(item)
 						gui.SelectedObject = cells[(at.row - 1) * spec.columns + at.column]
 					end

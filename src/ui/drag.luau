@@ -10,12 +10,13 @@ local Gesture = require("./gesture_arbitration")
 local scrollLock = require("./scroll_lock")
 local pointerOf = require("./drag_pointer")
 local liftOf = require("./drag_lift")
+local worldOf = require("./drag_world")
 
 return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	local Compose, Host, E = ctx.Compose, ctx.Host, ctx.types.Enum
 	local service = sessionOf(ctx)
 	local arbiter = gestureOf(ctx)
-	UI.gestureArbiter = function(surface: GuiObject): Gesture.Binding
+	UI.gestureArbiter = function(surface: Instance): Gesture.Binding
 		assert(Compose.currentOwner() ~= nil, "Facet UI.gestureArbiter must run inside a Compose owner")
 		Compose.cleanup(function()
 			arbiter.cancelOwner(surface)
@@ -48,9 +49,13 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		end))
 		return true
 	end
-	UI.draggable = function(source: GuiObject, spec: Env.DraggableSpec)
+	UI.draggable = function(source: Env.DropDestination, spec: Env.DraggableSpec)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.draggable must run inside a component or Compose owner")
 		assert(spec.payload ~= nil, "Facet UI.draggable needs a payload")
+		if not source:IsA("GuiObject") then
+			worldOf(ctx, source, spec, service)
+			return
+		end
 		assert(
 			spec.previewScale == nil or (spec.previewScale > 0 and spec.previewScale < math.huge),
 			"Facet UI.draggable previewScale must be positive and finite"

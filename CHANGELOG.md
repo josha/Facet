@@ -1,5 +1,9 @@
 # Current package
 
+World drag sources use `UI.draggable` with `world` options and the shared drop
+session. World targets supply `worldPlacement` through `DropInfo`. See
+[world drag and drop](docs/reference/nodes/draggable-and-dropTarget.world.md).
+
 ## 0.12.0
 
 Facet provides Roblox UI controls built on Compose and native engine APIs.

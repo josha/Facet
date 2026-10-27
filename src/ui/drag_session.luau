@@ -7,7 +7,19 @@ local activation = require("./activation")
 local motion = require("./motion")
 local travel = require("./drag_travel")
 local gestureOf = require("./gesture_service")
+local worldVisual = require("./drag_world_visual")
 local services = setmetatable({} :: { [Types.Context]: Drag.Service }, { __mode = "kv" })
+
+local function payloadOf<T>(value: T, source: Env.DropDestination): unknown
+	if type(value) == "function" then
+		local ok, payload = pcall(value, source)
+		if not ok then
+			error(payload, 0)
+		end
+		return payload
+	end
+	return value
+end
 
 return function(ctx: Types.Context): Drag.Service
 	if services[ctx] then
@@ -134,7 +146,11 @@ return function(ctx: Types.Context): Drag.Service
 		local camera = if workspace then workspace.CurrentCamera else nil
 		if camera then
 			local ray = camera:ScreenPointToRay(at.X, at.Y)
-			local hit = assert(workspace):Raycast(ray.Origin, ray.Direction * 10000)
+			local params = ctx.types.RaycastParams.new()
+			if not source:IsA("GuiObject") then
+				params.FilterDescendantsInstances = { source }
+			end
+			local hit = assert(workspace):Raycast(ray.Origin, ray.Direction * 10000, params)
 			return if hit then ancestor(hit.Instance) else nil, hit
 		end
 		return nil, nil
@@ -148,6 +164,8 @@ return function(ctx: Types.Context): Drag.Service
 			operation = ctx.read(targets[target].operation or "move") :: Env.DropOperation,
 			position = session.position,
 			hit = session.hit,
+			placement = if targets[target].placement then ctx.read(targets[target].placement) else nil,
+			worldPlacement = if targets[target].worldPlacement then ctx.read(targets[target].worldPlacement) else nil,
 			complete = function()
 				return false
 			end,
@@ -287,12 +305,12 @@ return function(ctx: Types.Context): Drag.Service
 			local preview = session.armedPreview
 			local origin = if preview
 					and preview.Parent
-					and (session.target == nil or session.target == session.source)
+					and (session.target == nil or rawequal(session.target, session.source))
 				then preview.AbsolutePosition
 				else point
 			local pickup = localPoint(ghost, origin)
 			local extent = session.previewSize :: Vector2
-			local beside = anchor and anchor:IsA("GuiObject") and session.target ~= session.source
+			local beside = anchor and anchor:IsA("GuiObject") and not rawequal(session.target, session.source)
 			local x = pickup.X.Offset + gap
 			local y = pickup.Y.Offset + gap
 			if beside then
@@ -321,7 +339,7 @@ return function(ctx: Types.Context): Drag.Service
 			math.clamp(at.Y.Offset + ctx.metric("targetSizes.minimum"), gap, math.max(gap, bounds.Y - size.Y - gap))
 		)
 	end
-	function service.own(source: GuiObject)
+	function service.own(source: Env.DropDestination)
 		Compose.cleanup(function()
 			if returning[source] then
 				returning[source]()
@@ -350,7 +368,9 @@ return function(ctx: Types.Context): Drag.Service
 		end
 		local point = if session.spec.returnPosition
 			then session.spec.returnPosition()
-			else session.source.AbsolutePosition + session.source.AbsoluteSize / 2
+			elseif session.source:IsA("GuiObject") then session.source.AbsolutePosition
+				+ session.source.AbsoluteSize / 2
+			else session.origin
 		point = (point or session.origin)
 			- session.pickupSize / 2
 			+ ghost.AnchorPoint
@@ -434,7 +454,9 @@ return function(ctx: Types.Context): Drag.Service
 		end
 		local point = if session.spec.returnPosition
 			then session.spec.returnPosition()
-			else session.source.AbsolutePosition + session.source.AbsoluteSize / 2
+			elseif session.source:IsA("GuiObject") then session.source.AbsolutePosition
+				+ session.source.AbsoluteSize / 2
+			else session.origin
 		point = (point or session.origin)
 			- session.pickupSize / 2
 			+ ghost.AnchorPoint
@@ -516,16 +538,24 @@ return function(ctx: Types.Context): Drag.Service
 				return
 			end
 			concluded = true
+			returning[session.source] = nil
 			session.source:RemoveTag("facet-drag-held")
 			session.source:SetAttribute("FacetDragHeld", nil)
 			if session.spec.onEnd then
 				session.spec.onEnd(accepted == true, reason)
 			end
 		end
-		if accepted or not session.spec.returnTravel then
+		if session.world then
+			local stop = session.world.release(accepted == true, conclude)
+			if not concluded then
+				returning[session.source] = stop
+			end
+		elseif accepted or not session.spec.returnTravel then
 			conclude()
 		end
-		releaseGhost(session, accepted, conclude)
+		if not session.world then
+			releaseGhost(session, accepted, conclude)
+		end
 		if session.highlight then
 			session.highlight:Destroy()
 		end
@@ -577,6 +607,11 @@ return function(ctx: Types.Context): Drag.Service
 				onUpdate(current.payload, proposal, accepted, reason)
 			end
 		end
+		if current.world then
+			local spec = target and targets[target]
+			local placement = spec and spec.worldPlacement
+			current.world.move(current.position, if current.accepted and placement then ctx.read(placement) else nil)
+		end
 		updateStatus(current)
 		state:set(table.clone(current))
 	end
@@ -615,6 +650,22 @@ return function(ctx: Types.Context): Drag.Service
 				spec.onReject(session.payload, reason)
 			end
 			return false
+		end
+		if session.world and not session.travelled then
+			session.world.move(session.position, proposal.worldPlacement)
+			session.pending = true
+			session.pendingTarget = destination
+			destination:SetAttribute("FacetDropState", "pending")
+			state:set(table.clone(session))
+			session.world.land(function()
+				if current ~= session then
+					return
+				end
+				session.pending = false
+				session.travelled = true
+				service.commit(destination)
+			end)
+			return true
 		end
 		if spec.travel and not session.travelled and session.ghost then
 			local ghost = session.ghost
@@ -718,7 +769,7 @@ return function(ctx: Types.Context): Drag.Service
 		return result ~= false
 	end
 	function service.begin(
-		source: GuiObject,
+		source: Env.DropDestination,
 		spec: Drag.SourceSpec,
 		mode: "pointer" | "armed",
 		press: InputObject?,
@@ -731,15 +782,13 @@ return function(ctx: Types.Context): Drag.Service
 		if returning[source] then
 			returning[source]()
 		end
-		local payload = if type(spec.payload) == "function"
-			then (spec.payload :: (GuiObject) -> unknown)(source)
-			else spec.payload
+		local payload = payloadOf(spec.payload, source)
 		if payload == nil then
 			return
 		end
 		local picked = if pickup then pickup.source else source
-		local size = picked.AbsoluteSize
-		local offset = if pickup then pickup.position - picked.AbsolutePosition else size / 2
+		local size = if picked:IsA("GuiObject") then picked.AbsoluteSize else V2.zero
+		local offset = if pickup then pickup.position - pickup.source.AbsolutePosition else size / 2
 		local lift = if spec.liftValue then spec.liftValue:peek() else spec.previewScale or 1
 		local pressedLift = if spec.liftValue then lift else 1
 		local anchor = V2.new(
@@ -750,7 +799,10 @@ return function(ctx: Types.Context): Drag.Service
 			pickupSize = size,
 			liftScale = lift,
 			pickupAnchor = anchor,
-			position = if mode == "pointer" and pickup then pickup.position else nil,
+			position = if mode == "pointer" and pickup
+				then pickup.position
+				elseif mode == "pointer" and press then V2.new(press.Position.X, press.Position.Y)
+				else nil,
 			source = source,
 			spec = spec,
 			mode = mode,
@@ -758,10 +810,15 @@ return function(ctx: Types.Context): Drag.Service
 			press = press,
 			origin = if spec.returnPosition
 				then spec.returnPosition()
-				else source.AbsolutePosition + source.AbsoluteSize / 2,
+				elseif source:IsA("GuiObject") then source.AbsolutePosition + source.AbsoluteSize / 2
+				else V2.zero,
 		}
 		current = created
-		local layer = source:FindFirstAncestorWhichIsA("LayerCollector")
+		if not source:IsA("GuiObject") then
+			created.world = worldVisual(ctx, source, assert(spec.world), created.position)
+		end
+		local statusSource = if spec.world then spec.world.focusTarget else source
+		local layer = statusSource:FindFirstAncestorWhichIsA("LayerCollector")
 		if layer then
 			local session = created
 			session.stopStatus = ctx.runtime.mount(function()
@@ -800,7 +857,7 @@ return function(ctx: Types.Context): Drag.Service
 			updateStatus(session)
 		end
 		activation.consume(press)
-		if preview ~= false then
+		if preview ~= false and source:IsA("GuiObject") then
 			local layer = source:FindFirstAncestorWhichIsA("LayerCollector")
 			if layer then
 				local liftedVisual = if lift ~= 1
