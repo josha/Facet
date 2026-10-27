@@ -1,5 +1,9 @@
 # Current package
 
+A DiegeticScreen waits for a slow first room frame instead of returning to the
+screen. A heavy scene that takes longer than `motion.restLimit` to settle now
+enters the room.
+
 Auto-localization stays on for text that the author gives as a plain string,
 also when a control reads it through a function. Only `UI.Text` and `UI.Badge`
 text that the author binds to a readable or a function turns it off.
