@@ -15,14 +15,25 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>, root: Scrollin
 		local startOffset, dragging = 0, false
 		local samples: { Vector2 } = {}
 		local velocity = 0
+		local writing = false
 		local stopFling: (() -> ())? = nil
+		local stopOffset: (() -> ())? = nil
 		local function halt(): ()
 			if stopFling then
 				stopFling()
 				stopFling = nil
 			end
+			if stopOffset then
+				stopOffset()
+				stopOffset = nil
+			end
 		end
 		ctx.Compose.cleanup(halt)
+		local function write(position: Vector2)
+			writing = true
+			root.CanvasPosition = position
+			writing = false
+		end
 		local function limit(): number
 			return math.max(0, root.CanvasSize.X.Offset - root.AbsoluteWindowSize.X)
 		end
@@ -67,7 +78,7 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>, root: Scrollin
 				table.remove(samples, 1)
 			end
 			if dragging then
-				root.CanvasPosition = V2.new(math.clamp(startOffset - travel, 0, limit()), root.CanvasPosition.Y)
+				write(V2.new(math.clamp(startOffset - travel, 0, limit()), root.CanvasPosition.Y))
 			end
 		end)
 		runtime.connect(input, "InputEnded", function(value: InputObject)
@@ -92,11 +103,16 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>, root: Scrollin
 				velocity = if span > 0 then (first.Y - last.Y) / span else 0
 				if frames.now() - last.X < FLING_WINDOW and math.abs(velocity) > FLING_MINIMUM then
 					local friction = ctx.metric("motion.fling.friction")
+					stopOffset = assert(runtime.host.observation).observeProperty(root, "CanvasPosition", function()
+						if not writing then
+							halt()
+						end
+					end)
 					stopFling = frames.onFrame(function(step: number)
 						velocity *= math.exp(-friction * step)
 						local at = root.CanvasPosition.X
 						local nextX = math.clamp(at + velocity * step, 0, limit())
-						root.CanvasPosition = V2.new(nextX, root.CanvasPosition.Y)
+						write(V2.new(nextX, root.CanvasPosition.Y))
 						if math.abs(velocity) < FLING_STOP or nextX == at then
 							halt()
 						end

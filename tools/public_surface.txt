@@ -37,6 +37,7 @@ Compose : table
   Compose.isValue : function
   Compose.keyed : function
   Compose.labelOf : function
+  Compose.map : function
   Compose.outstandingMounts : function
   Compose.owner : table
   Compose.parseDiagnostic : function
@@ -50,6 +51,7 @@ Compose : table
   Compose.registeredCodecs : function
   Compose.resetWorkCounters : function
   Compose.sample : function
+  Compose.selector : function
   Compose.setWorkCounters : function
   Compose.setYieldChecking : function
   Compose.sharedCell : function
@@ -230,6 +232,7 @@ controls(runtime).ZStack : function
 controls(runtime).ZoomView : function
 controls(runtime).adjustable : function
 controls(runtime).badged : function
+controls(runtime).cameraRig : function
 controls(runtime).commandScope : function
 controls(runtime).countUp : function
 controls(runtime).draggable : function
@@ -260,6 +263,7 @@ type AnchoredOptions
 type App
 type AppOptions
 type AsyncImageProps
+type AuthoredRuleProperties
 type AvatarGroupProps
 type AvatarMember
 type AvatarProps
@@ -271,6 +275,9 @@ type ButtonGuideProps
 type ButtonProps
 type ButtonRole
 type CalloutSpec
+type CameraPose
+type CameraRig
+type CameraRigOptions
 type CardAction
 type CardBadge
 type CardBadges
@@ -357,6 +364,7 @@ type GestureBinding
 type GestureDecision
 type GestureKind
 type GestureOptions
+type Gradient
 type GridProps
 type GroupedOptions
 type HapticKind
@@ -414,6 +422,7 @@ type PopoverSource
 type PopoverSpec
 type Presence
 type ProgressViewProps
+type RGB
 type RadialAction
 type RadialItem
 type RadialMenuSpec
@@ -426,6 +435,7 @@ type RegionProps
 type RowAction
 type RowActionsOptions
 type RowActionsSpec
+type Rule
 type Runtime
 type SafeInsets
 type ScreenProps
@@ -453,6 +463,7 @@ type SpacerProps
 type SpatialGridSpec
 type SpatialPlacement
 type SplitButtonSpec
+type SplitColumn
 type StackProps
 type StageProps
 type Status
@@ -504,6 +515,8 @@ type VoteSpec
 type VoteValue
 type WorldAnchor
 type WorldAnchorOptions
+type WorldAnchorPoint
+type WorldDragOptions
 type WorldMarkerProps
 type ZStackProps
 type Zone

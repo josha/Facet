@@ -7,6 +7,7 @@ local reducedMotion = require("./motion").reduced
 local NavigationProps = require("./navigation_props")
 local pageLayers = require("./nav_page_layers")
 local contacts = require("./input_contacts")
+local settling = require("./settle")
 
 return function(
 	ctx: Types.Context,
@@ -69,7 +70,6 @@ return function(
 			direction = "horizontal",
 			itemSize = width,
 			gap = 0,
-			snap = "item",
 			Active = nativeScroll,
 			ScrollingEnabled = nativeScroll,
 			ScrollBarThickness = 0,
@@ -85,19 +85,8 @@ return function(
 		local target: number? = nil
 		local paused = if spec.autoAdvanceSeconds ~= nil then Compose.cell(false) else nil
 		local hovering = false
-		contacts(ctx, pages, function()
-			target = nil
-			held:set(true)
-			UI.scrollTo(pages, pages.CanvasPosition, { animated = false })
-			if paused then
-				paused:set(true)
-			end
-		end, function()
-			held:set(false)
-			if paused then
-				paused:set(hovering)
-			end
-		end)
+		local cooling = false
+		local later = runtime.scheduler()
 		local parent = ctx.observe.Parent(pages)
 		local available = surfaces.available(pages)
 		local gui = surfaces.service("GuiService")
@@ -108,7 +97,81 @@ return function(
 		local function pageOffset(index: number, box: Vector2, canvas: Vector2): number
 			return math.clamp((index - 1) * box.X, 0, math.max(0, canvas.X - box.X))
 		end
+		local function nearestPage(at: number, box: Vector2): number
+			return math.clamp(math.floor(at / box.X + 0.5) + 1, 1, #spec.pages)
+		end
 		local initialized = Compose.cell(false)
+		local snapTarget = 0
+		local snapping = false
+		local glide = settling(ctx, function()
+			return snapTarget
+		end, ctx.motionSpring("control"))
+		local frames = assert(runtime.host.frames)
+		local startIndex, previous, previousTime, velocity = 1, 0, frames.now(), 0
+		local function stopSnap()
+			snapping = false
+			glide.halt()
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			local offset = use(glide.value)
+			if snapping then
+				pages:ResetScrollVelocity()
+				pages.CanvasPosition = V2.new(offset or snapTarget, 0)
+				if offset == nil then
+					snapping = false
+				end
+			end
+		end)
+		contacts(ctx, pages, function()
+			later.cancel("wheel")
+			stopSnap()
+			target = nil
+			held:set(true)
+			UI.scrollTo(pages, pages.CanvasPosition, { animated = false })
+			pages:ResetScrollVelocity()
+			local box = size:peek()
+			startIndex = if box.X > 0
+				then nearestPage(pages.CanvasPosition.X, box)
+				else indexById[spec.selection:peek()]
+			previous, previousTime, velocity = pages.CanvasPosition.X, frames.now(), 0
+			later.cancel("resume")
+			cooling = false
+			if paused then
+				paused:set(true)
+			end
+		end, function(cancelled)
+			local box, canvas = size:peek(), canvasSize:peek()
+			if initialized:peek() and box.X > 0 then
+				local at = pages.CanvasPosition.X
+				local speed = pages:GetScrollVelocity().X
+				if speed == 0 and frames.now() - previousTime <= ctx.metric("motion.fling.projection") then
+					speed = velocity
+				end
+				local distance = at - pageOffset(startIndex, box, canvas)
+				local direction = if not cancelled
+						and math.abs(speed) >= ctx.metric("motion.fling.bounceSpeed")
+					then math.sign(speed)
+					elseif not cancelled and math.abs(distance) > box.X / 2 then math.sign(distance)
+					else 0
+				local index = math.clamp(startIndex + direction, 1, #spec.pages)
+				snapTarget = pageOffset(index, box, canvas)
+				target = snapTarget
+				pages:ResetScrollVelocity()
+				snapping = true
+				if not glide.launch(at, 0, ctx.motionSpring("control")) then
+					snapping = false
+					pages.CanvasPosition = V2.new(snapTarget, 0)
+				end
+			end
+			cooling = true
+			held:set(false)
+			later.replace("resume", ctx.metric("motion.durations.scrollReveal"), function()
+				cooling = false
+				if paused then
+					paused:set(hovering or held:peek())
+				end
+			end)
+		end)
 		local wasAvailable, lastWidth = false, 0
 		Compose.watch(function(use: ComposeTypes.Use)
 			local box = use(size)
@@ -130,18 +193,49 @@ return function(
 				initialized:set(false)
 				return
 			end
+			stopSnap()
+			later.cancel("wheel")
 			target = pageOffset(indexById[id], box, canvas)
 			if gui and surfaces.within(gui.SelectedObject, pages) then
 				focusPending = true
 			end
 			initialized:set(true)
-			UI.scrollTo(pages, V2.new(target, 0), { animated = wasAvailable and not resized and not reduced(use) })
+			if
+				not UI.scrollTo(
+					pages,
+					V2.new(target, 0),
+					{ animated = wasAvailable and not resized and not reduced(use) }
+				)
+			then
+				target = nil
+			end
 			wasAvailable, lastWidth = true, box.X
 		end)
 		local position = ctx.observe.CanvasPosition(pages)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local at = use(position).X
+			if held:peek() then
+				local now = frames.now()
+				if now > previousTime then
+					velocity = (at - previous) / (now - previousTime)
+				end
+				previous, previousTime = at, now
+			end
 			local box = use(size)
+			if not held:peek() and not target and not snapping and initialized:peek() and box.X > 0 then
+				local index = nearestPage(at, box)
+				local boundary = pageOffset(index, box, canvasSize:peek())
+				if math.abs(at - boundary) >= 0.5 then
+					later.replace("wheel", ctx.metric("motion.durations.scrollReveal"), function()
+						snapTarget, target, snapping = boundary, boundary, true
+						pages:ResetScrollVelocity()
+						if not glide.launch(pages.CanvasPosition.X, 0) then
+							snapping = false
+							pages.CanvasPosition = V2.new(boundary, 0)
+						end
+					end)
+				end
+			end
 			if
 				not use(initialized)
 				or not use(available)
@@ -152,7 +246,7 @@ return function(
 				return
 			end
 			target = nil
-			local index = math.clamp(math.floor(at / box.X + 0.5) + 1, 1, #spec.pages)
+			local index = nearestPage(at, box)
 			if math.abs(at - pageOffset(index, box, use(canvasSize))) < 0.5 then
 				local id = spec.pages[index].id
 				if spec.selection:peek() ~= id then
@@ -181,7 +275,6 @@ return function(
 		end)
 		if paused then
 			local interaction = paused
-			local later = runtime.scheduler()
 			local focused = if gui then ctx.observe.SelectedObject(gui) else nil
 			runtime.connect(pages, "MouseEnter", function()
 				hovering = true
@@ -189,7 +282,7 @@ return function(
 			end)
 			runtime.connect(pages, "MouseLeave", function()
 				hovering = false
-				interaction:set(held:peek())
+				interaction:set(held:peek() or cooling)
 			end)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local seconds = ctx.read(spec.autoAdvanceSeconds, use)

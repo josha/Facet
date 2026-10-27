@@ -2,8 +2,10 @@
 
 local Core = require("../vendor/compose/core")
 local Design = require("../vendor/compose/design/types")
+local Engine = require("../ui/engine_types")
 
 export type Literal = Design.Literal
+export type RobloxTypes = Engine.RobloxTypes
 
 export type FieldSpec = {
 	type: Design.FieldType,
@@ -38,11 +40,7 @@ export type ControlSpec = {
 
 export type Context = {
 	UI: unknown,
-	rgb: (r: number, g: number, b: number) -> unknown,
-	udim2: (xScale: number, xOffset: number, yScale: number, yOffset: number) -> unknown,
-	offset: (x: number, y: number) -> unknown,
-	datatype: ((name: string, components: { number }) -> unknown)?,
-	enumItem: ((enumName: string, item: string) -> unknown)?,
+	types: RobloxTypes?,
 	host: ((className: string, name: string, props: { [unknown]: unknown }) -> unknown)?,
 	provide: ((content: unknown) -> unknown)?,
 	tokens: Tokens?,

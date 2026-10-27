@@ -6,6 +6,7 @@
 `UI.draggable`, collection drags and ScrollView. Call it inside a Compose owner.
 The binding stops its contacts when that owner ends. Control factories on the
 same UserInputService share one arbiter.
+`surface` is an Instance, including a GuiObject, BasePart, or Model.
 
 - `begin(pointer, position, options)` captures `surface` and the screen point.
   It returns false when another surface already owns that InputObject.

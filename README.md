@@ -86,6 +86,26 @@ covers. The current suite is the evidence. A passing run proves only the selecte
 Facet uses [Compose](https://github.com/voidmeld/compose) for scene composition.
 The [Compose framework comparison](https://github.com/voidmeld/compose/blob/main/docs/framework-comparison.md)
 shows why: frame time and retained memory against the other Roblox UI frameworks.
+The [Facet versus bare comparison](docs/performance/facet-vs-bare.md) measures
+game UI workloads with Facet controls and direct Roblox Instances.
+
+These headless cost-model results come from CI run
+[40459850985](https://github.com/josha/Facet/actions/runs/40459850985). A ratio
+divides Facet by bare; lower is smaller.
+
+| Workload | Time vs bare | Heap vs bare |
+| --- | ---: | ---: |
+| button-feedback-50 | 0.16x | 1.78x |
+| mixed-scroll-300 | 1.00x | 3.59x |
+| shop-filter-200 | 1.58x | 2.21x |
+| text-input-200 | 2.29x | 3.11x |
+| main-menu-cold | 2.87x | 1.82x |
+| dialog-50-cycles | 7.37x | — |
+| tabs-5-100-switches | 8.36x | 6.64x |
+| hud-600-frames | 9.47x | 2.15x |
+| badges-30-300-updates | 22.16x | 4.67x |
+| radial-50-cycles | 34.73x | 6.14x |
+| tile-transfer-20 | 59.26x | 6.40x |
 
 ## Installing
 

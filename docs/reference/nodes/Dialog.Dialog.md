@@ -1,6 +1,10 @@
 # Dialog.Dialog
 
 `UI.Dialog` returns an empty anchor Frame. The panel is a modal surface.
+The body is created on the first presentation. Facet retains the detached body
+between presentations and releases it when the dialog's owner ends. Body state
+and text bindings remain available while closed. Each presentation acquires its
+modal commands and restores focus when it closes.
 
 ```luau
 local open = Compose.cell(false)

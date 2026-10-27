@@ -75,10 +75,13 @@ return function(ctx: Types.Context): PageLayers
 			animatedPresented
 		)
 		local content: Frame? = nil
-		if transition.apply then
+		local centered = transition.scale ~= nil
+		if transition.apply or centered then
 			content = Host.Frame {
 				Name = "TransitionContent",
 				BackgroundTransparency = 1,
+				AnchorPoint = if centered then ctx.types.Vector2.new(0.5, 0.5) else nil,
+				Position = if centered then ctx.types.UDim2.fromScale(0.5, 0.5) else nil,
 				Size = ctx.types.UDim2.fromScale(1, 1),
 			}
 			local children: { Types.Child } = {}
@@ -106,7 +109,10 @@ return function(ctx: Types.Context): PageLayers
 			return use(arrived)
 				and use(state).top
 				and not use(moving.interacting)
-				and ((transition.apply == nil and transition.progress == nil) or use(moving.opacity) == 1)
+				and (
+					(transition.apply == nil and transition.progress == nil and transition.scale == nil)
+					or use(moving.opacity) == 1
+				)
 		end
 		local panel = ctx.fade(properties, nil, if properties.BackgroundTransparency == 1 then false else nil)
 		moving.apply(content or panel, panel)

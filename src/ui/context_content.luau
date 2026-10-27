@@ -5,6 +5,22 @@ local Theme = require("./theme_types")
 local layoutKit = require("./layout_kit")
 local textMeasure = require("./text_measure")
 
+local geometryQueue: { [() -> ()]: boolean } = {}
+local geometryStop: (() -> ())? = nil
+
+local function flushGeometry()
+	local queued = geometryQueue
+	geometryQueue = {}
+	for refresh in queued do
+		refresh()
+	end
+	if next(geometryQueue) == nil and geometryStop then
+		local stop = geometryStop
+		geometryStop = nil
+		stop()
+	end
+end
+
 local function attachLayout(
 	ctx: Shared.Context,
 	label: TextLabel | TextButton,
@@ -21,7 +37,7 @@ local function attachLayout(
 	local alive = true
 	local refreshing = false
 	local function measuredFloor(): boolean
-		return services.TextService ~= nil and floor ~= nil and floor.Parent == (label :: Instance)
+		return services.TextService ~= nil and floor ~= nil
 	end
 	local function reflow(metrics: boolean?)
 		local automatic = label.AutomaticSize
@@ -72,20 +88,55 @@ local function attachLayout(
 		if alive and (face ~= previousFace or points ~= previousSize) then
 			local changed = previousFace ~= nil or previousSize ~= nil
 			previousFace, previousSize = face, points
-			reflow()
-			if changed or label.FontFace ~= face or label.TextSize ~= points then
+			if changed then
+				reflow()
 				deferReflow()
 			end
 		end
 	end
 	local revision = Compose.cell(0)
+	local styling = Compose.cell(0)
+	local snapshotAt = -1
+	local snapMode, snapSize, snapWrapped = label.AutomaticSize, label.Size, false
+	local function snapshot()
+		local at = styling:peek()
+		if at ~= snapshotAt then
+			snapshotAt = at
+			snapMode, snapSize = label.AutomaticSize, label.Size
+			snapWrapped = label:GetStyled("TextWrapped") == true
+		end
+	end
 	local framed = services.RunService ~= nil and getfenv ~= nil and getfenv(0).game ~= nil
-	local size =
-		runtime.observe(label, "AbsoluteSize", if framed then { frame = true, poll = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
-	local bounds = ctx.observe.TextBounds(label)
+	local box = label.AbsoluteSize
+	local bounds = Compose.cell(label.TextBounds)
+	local frameSource = runtime.host.frames
+	local checkStale: () -> () = function() end
+	local function readGeometry()
+		if alive then
+			box = label.AbsoluteSize
+			bounds:set(label.TextBounds)
+			checkStale()
+		end
+	end
+	local function geometryChanged()
+		if not framed or frameSource == nil then
+			readGeometry()
+			return
+		end
+		geometryQueue[readGeometry] = true
+		if geometryStop == nil then
+			geometryStop = frameSource.onFrame(flushGeometry)
+		end
+	end
+	local refloor: () -> () = function() end
+	local floorApply: () -> () = function() end
 	local function invalidate()
 		if not refreshing then
+			styling:set(styling:peek() + 1)
 			revision:set(revision:peek() + 1)
+			refloor()
+			floorApply()
+			checkStale()
 		end
 	end
 	local function styleChanged()
@@ -98,8 +149,10 @@ local function attachLayout(
 	local changed = label.Changed:Connect(function(property: string)
 		if property == "FontFace" or property == "TextSize" then
 			styleChanged()
+		elseif property == "AbsoluteSize" or property == "TextBounds" then
+			geometryChanged()
 		elseif property == "Text" then
-			invalidate()
+			floorApply()
 			if not measuredFloor() and previousSize ~= nil and label.TextSize ~= previousSize then
 				deferReflow()
 			end
@@ -133,9 +186,9 @@ local function attachLayout(
 			end
 		end)
 	end
-	Compose.watch(function(use: ComposeTypes.Use)
-		use(revision)
-		local box, glyph, mode = use(size), use(bounds), label.AutomaticSize
+	checkStale = function()
+		snapshot()
+		local glyph, mode = bounds:peek(), snapMode
 		local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
 		local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
 		local measured = measuredFloor()
@@ -153,217 +206,353 @@ local function attachLayout(
 		then
 			deferReflow()
 		end
-	end)
-	if label:FindFirstChildWhichIsA("UISizeConstraint") == nil then
-		local overridden = Compose.cell(false)
-		runtime.connect(label, "ChildAdded", function(child: Instance)
-			if child ~= floor and child:IsA("UISizeConstraint") then
-				overridden:set(true)
+	end
+	checkStale()
+	local function buildWrapped(
+		wrappedHeight: ComposeTypes.Value<number>,
+		unit: () -> ComposeTypes.ReadOnlyValue<number>
+	)
+		local serial, last = 0, ""
+		local active = true
+		local release: (() -> ())? = nil
+		local params: GetTextBoundsParams? = nil
+		local function finish()
+			if release then
+				release()
+				release = nil
+			end
+		end
+		local words =
+			runtime.observe(label, "Text", if framed then { frame = true } else nil) :: ComposeTypes.ReadOnlyValue<string>
+		local wrappedSize =
+			runtime.observe(label, "AbsoluteSize", if framed then { frame = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
+		Compose.cleanup(function()
+			active = false
+			finish()
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(revision)
+			snapshot()
+			local mode = snapMode
+			if not snapWrapped or not (mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY) then
+				serial += 1
+				last = ""
+				wrappedHeight:set(0)
+				floorApply()
+				finish()
+				return
+			end
+			local wide = use(wrappedSize).X / use(unit())
+			local padding = label:FindFirstChildWhichIsA("UIPadding")
+			if padding then
+				local left = padding:GetStyled("PaddingLeft") :: UDim
+				local right = padding:GetStyled("PaddingRight") :: UDim
+				wide -= left.Offset + right.Offset + wide * (left.Scale + right.Scale)
+			end
+			local text = use(words)
+			local font, points, spacing =
+				label:GetStyled("FontFace") :: Font,
+				label:GetStyled("TextSize") :: number,
+				label:GetStyled("LineHeight") :: number
+			if wide <= 0 or text == "" then
+				serial += 1
+				last = ""
+				wrappedHeight:set(0)
+				floorApply()
+				finish()
+				return
+			end
+			local key = `{wide}|{text}|{points}|{spacing}|{font.Family}|{font.Weight.Name}|{font.Style.Name}`
+			if key == last then
+				return
+			end
+			last = key
+			serial += 1
+			local ticket = serial
+			finish()
+			release = textMeasure.hold(label)
+			local request = params
+				or ((Host :: unknown) :: { GetTextBoundsParams: ({ Width: number }) -> GetTextBoundsParams }).GetTextBoundsParams({
+					Width = 0,
+				})
+			params = request
+			request.Text, request.Font, request.Size, request.Width, request.RichText =
+				text, font, points, wide, label.RichText
+			local function measure()
+				local ok, measured = pcall(function()
+					return (services.TextService :: TextService):GetTextBoundsAsync(request)
+				end)
+				if ok and active and alive and ticket == serial and measured.Y > 0 then
+					local lineCount = math.max(1, math.round(measured.Y / points))
+					local inset = label:FindFirstChildWhichIsA("UIPadding")
+					local vertical = if inset
+						then (inset:GetStyled("PaddingTop") :: UDim).Offset
+							+ (inset:GetStyled("PaddingBottom") :: UDim).Offset
+						else 0
+					local height = measured.Y
+						+ math.ceil((lineCount - 1) * points * (math.max(spacing, 1) - 1))
+						+ vertical
+					local shrinking = height < wrappedHeight:peek()
+					wrappedHeight:set(height)
+					floorApply()
+					if shrinking then
+						deferReflow()
+					end
+				end
+				if ticket == serial then
+					finish()
+				end
+			end
+			if task and task.spawn then
+				task.spawn(measure)
+			else
+				measure()
 			end
 		end)
-		runtime.mountFragment(function()
-			return {
-				Compose.show(function(use: ComposeTypes.Use)
-					use(revision)
-					return not use(overridden)
-						and (
-							(
-								label:GetStyled("TextWrapped") == false
-								and label:GetStyled("TextTruncate") == Enum.TextTruncate.None
-							) or (services.TextService ~= nil and label:GetStyled("TextWrapped") == true)
-						)
-				end, function()
-					local nativeBounds = if services.TextService
-						then textMeasure.natural(ctx, label, nil, revision, stable)
-						else nil
-					local unit = ctx.layoutUnit(label, "TextBoundsUnit")
-					local wrappedHeight = Compose.cell(0)
-					local serial, last = 0, ""
-					local active = true
-					local release: (() -> ())? = nil
-					local function finish()
-						if release then
-							release()
-							release = nil
-						end
+	end
+	type Parts = { free: boolean?, height: ComposeTypes.ReadOnlyValue<number>? }
+	local function buildFloor(
+		parts: ComposeTypes.ReadOnlyValue<Parts>,
+		unitOf: (() -> ComposeTypes.ReadOnlyValue<number>) -> ()
+	)
+		local unitProbe: ComposeTypes.ReadOnlyValue<number>? = nil
+		local makeProbe = Compose.bindOwner(function()
+			unitProbe = ctx.layoutUnit(label, "TextBoundsUnit")
+		end)
+		local function unit(): ComposeTypes.ReadOnlyValue<number>
+			if unitProbe == nil then
+				makeProbe()
+			end
+			return assert(unitProbe)
+		end
+		unitOf(unit)
+		local read = if services.TextService
+			then textMeasure.inline(ctx, label, stable, styling, function()
+				floorApply()
+			end)
+			else nil
+		local constraint = Host.UISizeConstraint "TextBoundsFloor" {}
+		local appliedMinimum, appliedMaximum = constraint.MinSize, constraint.MaxSize
+		local appliedBounds: Vector2?, appliedRevision = nil, -1
+		local widest, tallest, metrics = 0, 0, ""
+		local previousText, updated = label.Text, false
+		local previousLength = utf8.len(previousText) or #previousText
+		local lastX, lastY = 0, 0
+		local styled, free, single, styleKey = -1, false, false, ""
+		local insetX, insetY, shareX, shareY = 0, 0, 1, 1
+		local function readInsets()
+			insetX, insetY, shareX, shareY = 0, 0, 1, 1
+			local padding = label:FindFirstChildWhichIsA("UIPadding")
+			if padding then
+				local left, right = padding:GetStyled("PaddingLeft") :: UDim, padding:GetStyled("PaddingRight") :: UDim
+				local top, bottom = padding:GetStyled("PaddingTop") :: UDim, padding:GetStyled("PaddingBottom") :: UDim
+				insetX, insetY = left.Offset + right.Offset, top.Offset + bottom.Offset
+				shareX = math.max(1 - left.Scale - right.Scale, 0.000001)
+				shareY = math.max(1 - top.Scale - bottom.Scale, 0.000001)
+			end
+		end
+		local function readStyle(mode: Enum.AutomaticSize)
+			if not watchPadding then
+				readInsets()
+			end
+			if styled == styling:peek() then
+				return
+			end
+			styled = styling:peek()
+			if watchPadding then
+				readInsets()
+			end
+			free = label:GetStyled("TextWrapped") == false and label:GetStyled("TextTruncate") == Enum.TextTruncate.None
+			single = label:GetStyled("LineHeight") == 1
+			local face = label:GetStyled("FontFace") :: Font
+			styleKey =
+				`{face.Family}|{face.Weight.Name}|{face.Style.Name}|{label:GetStyled("TextSize")}|{label:GetStyled(
+					"LineHeight"
+				)}|{label.RichText}|{mode.Name}|{free}`
+		end
+		local function apply(use: ComposeTypes.Use?)
+			if use then
+				use(revision)
+			end
+			snapshot()
+			local current = (if use then use(parts) else parts:peek())
+			local wrappedHeight = current.height
+			if current.free == nil and wrappedHeight == nil then
+				return
+			end
+			local nativeBounds = if read and current.free then read(label.Text) else nil
+			local mode, authoredSize = snapMode, snapSize
+			local measured = nativeBounds or (if use then use(bounds) else bounds:peek())
+			if nativeBounds and measured == appliedBounds and revision:peek() == appliedRevision then
+				return
+			end
+			appliedBounds, appliedRevision = nativeBounds, revision:peek()
+			local scale = if nativeBounds then 1 else (if use then use(unit()) else unit():peek())
+			local glyphX, glyphY = measured.X / scale, measured.Y / scale
+			readStyle(mode)
+			local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
+			local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
+			freeX, freeY = freeX and free, freeY and free
+			freeY = freeY and (nativeBounds == nil or single)
+			local known = glyphX < math.huge
+			freeX, freeY = freeX and known, freeY and known
+			local x, y =
+				if nativeBounds then glyphX else math.ceil(glyphX), if nativeBounds then glyphY else math.ceil(glyphY)
+			if stable and nativeBounds == nil then
+				local key = styleKey
+				if key ~= metrics then
+					widest, tallest, metrics = 0, 0, key
+					lastX, lastY = 0, 0
+					updated = false
+				end
+				if previousText ~= label.Text then
+					local length = utf8.len(label.Text) or #label.Text
+					if length == previousLength then
+						widest, tallest = math.max(widest, lastX), math.max(tallest, lastY)
+					else
+						widest, tallest = 0, 0
 					end
-					if services.TextService then
-						local words = runtime.observe(label, "Text", if framed then { frame = true } else nil)
-						Compose.cleanup(function()
-							active = false
-							finish()
-						end)
-						Compose.watch(function(use: ComposeTypes.Use)
-							use(revision)
-							local mode = label.AutomaticSize
-							if
-								label:GetStyled("TextWrapped") ~= true
-								or not (mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY)
-							then
-								serial += 1
-								last = ""
-								wrappedHeight:set(0)
-								finish()
-								return
-							end
-							local wide = use(size).X / use(unit)
-							local padding = label:FindFirstChildWhichIsA("UIPadding")
-							if padding then
-								local left = padding:GetStyled("PaddingLeft") :: UDim
-								local right = padding:GetStyled("PaddingRight") :: UDim
-								wide -= left.Offset + right.Offset + wide * (left.Scale + right.Scale)
-							end
-							local text = use(words) :: string
-							local font, points, spacing =
-								label:GetStyled("FontFace") :: Font,
-								label:GetStyled("TextSize") :: number,
-								label:GetStyled("LineHeight") :: number
-							local key =
-								`{wide}|{text}|{points}|{spacing}|{font.Family}|{font.Weight.Name}|{font.Style.Name}`
-							if wide <= 0 or text == "" then
-								serial += 1
-								last = ""
-								wrappedHeight:set(0)
-								finish()
-								return
-							end
-							if key == last then
-								return
-							end
-							last = key
-							serial += 1
-							local ticket = serial
-							finish()
-							release = textMeasure.hold(label)
-							local params = ((Host :: unknown) :: {
-								[string]: (props: { [string]: unknown }) -> Instance,
-							}).GetTextBoundsParams({
-								Text = text,
-								Font = font,
-								Size = points,
-								Width = wide,
-								RichText = label.RichText,
-							})
-							local function measure()
-								local ok, measured = pcall(function()
-									return (services.TextService :: TextService):GetTextBoundsAsync(
-										params :: GetTextBoundsParams
-									)
-								end)
-								if ok and active and alive and ticket == serial and measured.Y > 0 then
-									local lineCount = math.max(1, math.round(measured.Y / points))
-									local inset = label:FindFirstChildWhichIsA("UIPadding")
-									local vertical = if inset
-										then (inset:GetStyled("PaddingTop") :: UDim).Offset + (inset:GetStyled(
-											"PaddingBottom"
-										) :: UDim).Offset
-										else 0
-									local height = measured.Y
-										+ math.ceil((lineCount - 1) * points * (math.max(spacing, 1) - 1))
-										+ vertical
-									local shrinking = height < wrappedHeight:peek()
-									wrappedHeight:set(height)
-									if shrinking then
-										deferReflow()
-									end
-								end
-								if ticket == serial then
-									finish()
-								end
-							end
-							if task and task.spawn then
-								task.spawn(measure)
-							else
-								measure()
-							end
-						end)
-					end
-					local constraint = Host.UISizeConstraint "TextBoundsFloor" {}
-					local widest, tallest, metrics = 0, 0, ""
-					local previousText, updated = label.Text, false
-					local previousLength = utf8.len(previousText) or #previousText
-					local lastX, lastY = 0, 0
-					floor = constraint
-					Compose.cleanup(function()
-						floor = nil
+					previousText, previousLength, updated = label.Text, length, true
+				end
+				if not updated then
+					widest, tallest = 0, 0
+				end
+				lastX, lastY = x, y
+				if freeX then
+					x = math.max(widest, x)
+				end
+				if freeY then
+					y = math.max(tallest, y)
+				end
+			end
+			x, y = (x + insetX) / shareX, (y + insetY) / shareY
+			local maximum = types.Vector2.new(
+				if freeX
+						and glyphX > 0
+						and authoredSize.X.Scale == 0
+					then math.max(x, authoredSize.X.Offset)
+					else math.huge,
+				if freeY
+						and glyphY > 0
+						and authoredSize.Y.Scale == 0
+					then math.max(y, authoredSize.Y.Offset)
+					else math.huge
+			)
+			local minimum = types.Vector2.new(
+				if freeX then x else 0,
+				if freeY
+					then y
+					elseif wrappedHeight then (if use then use(wrappedHeight) else wrappedHeight:peek())
+					else 0
+			)
+			local lower = appliedMinimum
+			if maximum.X >= lower.X and maximum.Y >= lower.Y then
+				if appliedMaximum ~= maximum then
+					constraint.MaxSize = maximum
+				end
+				if lower ~= minimum then
+					constraint.MinSize = minimum
+				end
+			else
+				constraint.MinSize = minimum
+				if appliedMaximum ~= maximum then
+					constraint.MaxSize = maximum
+				end
+			end
+			appliedMinimum, appliedMaximum = minimum, maximum
+		end
+		if services.TextService then
+			floorApply = function()
+				apply(nil)
+			end
+			Compose.cleanup(function()
+				floorApply = function() end
+			end)
+			apply(nil)
+		else
+			Compose.watch(apply)
+		end
+		floor = constraint
+		constraint.Parent = label
+		Compose.cleanup(function()
+			if floor == constraint then
+				floor = nil
+			end
+			constraint:Destroy()
+		end)
+	end
+	if label:FindFirstChildWhichIsA("UISizeConstraint") == nil then
+		local overridden = false
+		local kind = "none"
+		local scope: { dispose: () -> () }? = nil
+		local inner: { dispose: () -> () }? = nil
+		local parts = Compose.cell({} :: Parts)
+		local unit: (() -> ComposeTypes.ReadOnlyValue<number>)? = nil
+		local function release()
+			local measuring, current = inner, scope
+			inner, scope = nil, nil
+			if measuring then
+				measuring.dispose()
+			end
+			if current then
+				current.dispose()
+			end
+		end
+		refloor = function()
+			local next = "none"
+			if not overridden and alive then
+				local wrapped = label:GetStyled("TextWrapped")
+				if wrapped == false and label:GetStyled("TextTruncate") == Enum.TextTruncate.None then
+					next = "free"
+				elseif services.TextService ~= nil and wrapped == true then
+					next = "wrapped"
+				end
+			end
+			if next == kind then
+				return
+			end
+			kind = next
+			if next == "none" then
+				release()
+				parts:set({})
+				return
+			end
+			if inner then
+				local measuring = inner
+				inner = nil
+				measuring.dispose()
+			end
+			if scope == nil then
+				parts:set(if next == "free" then { free = true } else {})
+				scope = Compose.createRootOwner(function()
+					buildFloor(parts, function(probe: () -> ComposeTypes.ReadOnlyValue<number>)
+						unit = probe
 					end)
-					runtime.decorate(constraint, {
-						[Compose.group({ "MaxSize", "MinSize" })] = function(use: ComposeTypes.Use): (Vector2, Vector2)
-							use(revision)
-							local mode, glyph, authoredSize =
-								label.AutomaticSize,
-								if nativeBounds then use(nativeBounds) else use(bounds) / use(unit),
-								label.Size
-							local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
-							local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
-							local free = label:GetStyled("TextWrapped") == false
-								and label:GetStyled("TextTruncate") == Enum.TextTruncate.None
-							freeX, freeY = freeX and free, freeY and free
-							freeY = freeY and (nativeBounds == nil or label:GetStyled("LineHeight") == 1)
-							local known = glyph.X < math.huge
-							freeX, freeY = freeX and known, freeY and known
-							local x, y =
-								if nativeBounds then glyph.X else math.ceil(glyph.X),
-								if nativeBounds then glyph.Y else math.ceil(glyph.Y)
-							if stable and nativeBounds == nil then
-								local face = label:GetStyled("FontFace") :: Font
-								local key = `{face.Family}|{face.Weight.Name}|{face.Style.Name}|{label:GetStyled(
-									"TextSize"
-								)}|{label:GetStyled("LineHeight")}|{label.RichText}|{mode.Name}|{free}`
-								if key ~= metrics then
-									widest, tallest, metrics = 0, 0, key
-									lastX, lastY = 0, 0
-									updated = false
-								end
-								if previousText ~= label.Text then
-									local length = utf8.len(label.Text) or #label.Text
-									if length == previousLength then
-										widest, tallest = math.max(widest, lastX), math.max(tallest, lastY)
-									else
-										widest, tallest = 0, 0
-									end
-									previousText, previousLength, updated = label.Text, length, true
-								end
-								if not updated then
-									widest, tallest = 0, 0
-								end
-								lastX, lastY = x, y
-								if freeX then
-									x = math.max(widest, x)
-								end
-								if freeY then
-									y = math.max(tallest, y)
-								end
-							end
-							local padding = label:FindFirstChildWhichIsA("UIPadding")
-							if padding then
-								local left, right =
-									padding:GetStyled("PaddingLeft") :: UDim, padding:GetStyled("PaddingRight") :: UDim
-								local top, bottom =
-									padding:GetStyled("PaddingTop") :: UDim, padding:GetStyled("PaddingBottom") :: UDim
-								x = (x + left.Offset + right.Offset) / math.max(1 - left.Scale - right.Scale, 0.000001)
-								y = (y + top.Offset + bottom.Offset) / math.max(1 - top.Scale - bottom.Scale, 0.000001)
-							end
-							local maximum = types.Vector2.new(
-								if freeX
-										and glyph.X > 0
-										and authoredSize.X.Scale == 0
-									then math.max(x, authoredSize.X.Offset)
-									else math.huge,
-								if freeY
-										and glyph.Y > 0
-										and authoredSize.Y.Scale == 0
-									then math.max(y, authoredSize.Y.Offset)
-									else math.huge
-							)
-							return maximum,
-								types.Vector2.new(if freeX then x else 0, if freeY then y else use(wrappedHeight))
-						end,
-					})
-					return constraint
-				end),
-			}
-		end, label)
+				end, runtime.reactor)
+			end
+			if next == "wrapped" then
+				inner = Compose.createRootOwner(function()
+					local height = Compose.cell(0)
+					buildWrapped(height, assert(unit))
+					parts:set({ height = height })
+					floorApply()
+				end, runtime.reactor)
+			elseif not parts:peek().free then
+				parts:set({ free = true })
+				floorApply()
+			end
+		end
+		local added = label.ChildAdded:Connect(function(child: Instance)
+			if child ~= floor and child:IsA("UISizeConstraint") and not overridden then
+				overridden = true
+				refloor()
+			end
+		end)
+		Compose.cleanup(function()
+			added:Disconnect()
+			release()
+		end)
+		refloor()
 	end
 	Compose.cleanup(function()
 		alive = false

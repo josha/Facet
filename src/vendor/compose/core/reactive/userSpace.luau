@@ -1,6 +1,8 @@
 --!strict
 --!native
 
+local stats = require "./stats"
+
 local state = { validating = false }
 
 local YIELDED = "Compose: reactive code yielded. Computeds and effects must complete "
@@ -32,6 +34,10 @@ local function call<A..., R...>(fn: (A...) -> R..., ...: A...): R...
 end
 
 local function setValidating(value: boolean)
+	local resume = stats.state.resume
+	if value and resume ~= nil then
+		resume()
+	end
 	state.validating = value
 end
 

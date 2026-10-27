@@ -4,9 +4,9 @@
 local sharedTails: { number } = {}
 local sharedPrevious: { number } = {}
 
-local function longestIncreasingSubsequence(values: { number }, countOf: number?): { [number]: true }
+local function longestIncreasingSubsequence(values: { number }, countOf: number?): { number }
 	local count = if countOf ~= nil then countOf else #values
-	local result: { [number]: true } = {}
+	local result: { number } = {}
 	if count == 0 then
 		return result
 	end
@@ -37,7 +37,7 @@ local function longestIncreasingSubsequence(values: { number }, countOf: number?
 
 	local cursor = tails[length]
 	while cursor ~= 0 and cursor ~= nil do
-		result[cursor] = true
+		table.insert(result, cursor)
 		cursor = previous[cursor]
 	end
 	return result

@@ -168,6 +168,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local touch = function(use: ComposeTypes.Use): boolean
 			return use(touchEnabled) == true or prefersTouch(use)
 		end
+		local inFlow = function(use: ComposeTypes.Use): boolean
+			return reveal == "always" or touch(use)
+		end
 		local revealed = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return reveal == "always" or not hasStop or touch(use) or use(engaged)
 		end)
@@ -187,9 +190,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local scale = Compose.formula(function(use: ComposeTypes.Use): number
 			return if reduced(use) then 1 else use(spring)
 		end)
-		local fade = runtime.tween(function(use: ComposeTypes.Use)
-			return if use(revealed) then 1 else 0
-		end, { seconds = ctx.metric("motion.durations.cardFade") })
+		local fade = if reveal == "always" or not hasStop
+			then Compose.cell(1)
+			else runtime.tween(function(use: ComposeTypes.Use)
+				return if use(revealed) then 1 else 0
+			end, { seconds = ctx.metric("motion.durations.cardFade") })
 		local function eligible(): GuiObject?
 			local card = root
 			if not enabled() or card == nil or card.Parent == nil then
@@ -398,7 +403,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			return table.concat(parts, " · ")
 		end
 		local function closing(use: ComposeTypes.Use): UDim
-			return D.new(0, if media and not revealing and subtitle(use) == "" then ctx.metric("space.s", use) else 0)
+			return D.new(
+				0,
+				if media
+						and subtitle(use) == ""
+						and (not revealing or not inFlow(use))
+					then ctx.metric("space.s", use)
+					else 0
+			)
 		end
 		local function inset(bottom: boolean): UIPadding
 			local function side(use: ComposeTypes.Use): UDim
@@ -510,52 +522,53 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local actionEnabled = function(use: ComposeTypes.Use?): boolean
 			return enabled(use) and ctx.readSource(revealed, use)
 		end
-		local rowChildren: { Types.Child } = {}
-		if primary then
-			local action = primary
-			local button = UI.Button({
-				Name = "Primary",
-				LayoutOrder = 1,
-				label = action.label,
-				icon = action.icon,
-				appearance = "emphasis",
-				busy = action.busy,
-				enabled = function(use: ComposeTypes.Use): boolean
-					return enabled(use) and read(action.enabled, use) ~= false
-				end,
-				onActivate = function()
-					if actionEnabled() then
-						action.onActivate()
-					end
-				end,
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
-			})
-			primaryButton = button
-			local states = table.clone(actionStates:peek())
-			table.insert(states, holding(button))
-			actionStates:set(states)
-			table.insert(rowChildren, button)
-		end
-		if menu then
-			local more = UI.Menu({
-				Name = "More",
-				LayoutOrder = 2,
-				trigger = UI.Button({ label = "", name = menu.label or "More", icon = "more", enabled = enabled }),
-				items = menu.items,
-				isPresented = menuOpen,
-				enabled = enabled,
-			})
-			moreTrigger = more
-			local states = table.clone(actionStates:peek())
-			table.insert(states, holding(more))
-			actionStates:set(states)
-			table.insert(rowChildren, more)
-		end
 		local function tuck(use: ComposeTypes.Use): number
 			return 2 * ctx.metric("radii.panel", use)
 		end
-		local plate: Frame? = nil
-		if revealing then
+		local function actionRow(flowing: boolean): Frame
+			local rowChildren: { Types.Child } = {}
+			local states: { ComposeTypes.ReadOnlyValue<boolean> } = {}
+			if primary then
+				local action = primary
+				local button = UI.Button({
+					Name = "Primary",
+					LayoutOrder = 1,
+					label = action.label,
+					icon = action.icon,
+					appearance = "emphasis",
+					busy = action.busy,
+					enabled = function(use: ComposeTypes.Use): boolean
+						return enabled(use) and read(action.enabled, use) ~= false
+					end,
+					onActivate = function()
+						if actionEnabled() then
+							action.onActivate()
+						end
+					end,
+					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+				})
+				primaryButton = button
+				table.insert(states, holding(button))
+				table.insert(rowChildren, button)
+			end
+			if menu then
+				local more = UI.Menu({
+					Name = "More",
+					LayoutOrder = 2,
+					trigger = UI.Button({ label = "", name = menu.label or "More", icon = "more", enabled = enabled }),
+					items = menu.items,
+					isPresented = menuOpen,
+					enabled = enabled,
+				})
+				moreTrigger = more
+				table.insert(states, holding(more))
+				table.insert(rowChildren, more)
+			end
+			actionStates:set(states)
+			Compose.cleanup(function()
+				primaryButton, moreTrigger = nil, nil
+				actionStates:set({})
+			end)
 			local rowProps: Types.FrameNativeProps = {
 				Name = "Row",
 				BackgroundTransparency = 1,
@@ -605,10 +618,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				"panel"
 			)
 			plateLayer:AddTag("facet-card-part")
-			plate = ctx.fade {
+			if flowing then
+				plateLayer:AddTag("facet-card-inflow")
+			end
+			return ctx.fade {
 				Name = "Reveal",
 				LayoutOrder = 2,
-				ZIndex = 0,
+				AnchorPoint = ctx.types.Vector2.new(0, if flowing then 0 else 1),
+				Position = D2.fromScale(0, if flowing then 0 else 1),
+				ZIndex = if flowing then 0 else 2,
 				BackgroundTransparency = 1,
 				Size = D2.fromScale(1, 0),
 				AutomaticSize = E.AutomaticSize.Y,
@@ -634,6 +652,20 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				return if inLayout() then 1 else factor
 			end,
 		})
+		local layout = Host.UIListLayout({
+			FillDirection = E.FillDirection.Vertical,
+			SortOrder = E.SortOrder.LayoutOrder,
+			Padding = function(use: ComposeTypes.Use)
+				return D.new(0, if reveal == "always" then ctx.metric("space.s", use) else -tuck(use))
+			end,
+		})
+		local actions = if revealing
+			then Compose.show(inFlow, function()
+				return actionRow(true)
+			end, function()
+				return Host.Folder "ActionOverlay" { actionRow(false) }
+			end)
+			else nil
 		local card = Host.Frame(ctx.props(spec, {
 			"image",
 			"artwork",
@@ -674,13 +706,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				FacetMenuOpen = checks.attribute(menuOpen),
 				FacetBody = checks.attribute(if spec.onActivate then "button" else "informational"),
 			},
-			Host.UIListLayout({
-				FillDirection = E.FillDirection.Vertical,
-				SortOrder = E.SortOrder.LayoutOrder,
-				Padding = function(use: ComposeTypes.Use)
-					return D.new(0, if reveal == "always" then ctx.metric("space.s", use) else -tuck(use))
-				end,
-			}) :: Types.Child,
+			layout :: Types.Child,
 			body :: Types.Child,
 			liftScale :: Types.Child,
 			Compose.show(function(use: ComposeTypes.Use): boolean
@@ -697,7 +723,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					return {}
 				end)
 			end) :: Types.Child,
-			plate :: Types.Child,
+			actions :: Types.Child,
 		}))
 		if not media then
 			ctx.styled(card, "panel")

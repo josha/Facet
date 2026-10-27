@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -207,7 +208,182 @@ return function(verifyHarness: Verify.Harness)
 		}
 	end
 
+	local function geometryWorld(reveal: "automatic" | "always")
+		local roots: { VerifyRoblox.Instance } = {}
+		local controls: FixtureContentTypes.CardControls = {}
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame {
+				Size = UDim2.fromOffset(320, 800),
+				UI.Card "Plain" {
+					title = "Course",
+					caption = "Friends playing",
+					onActivate = function() end,
+				},
+				UI.Card "Actions" {
+					title = "Course",
+					caption = "Friends playing",
+					onActivate = function() end,
+					reveal = reveal,
+					controls = controls,
+					primaryAction = { label = "Play", onActivate = function() end },
+				},
+			}
+		end, { motionLevel = "none" }, {
+			layout = {
+				roots = function()
+					return roots
+				end,
+				viewport = function()
+					return { X = 800, Y = 600 }
+				end,
+			},
+		})
+		table.insert(roots, world.screen)
+		assert(world.layout).step()
+		return world, controls
+	end
+
 	verifyHarness:suite("native Card", function()
+		verifyHarness:case(
+			"text card overlays keep a backing plate while touch retains the in-flow paint",
+			function(check)
+				local world = geometryWorld("automatic")
+				check:defer(world.stop)
+				local _, sheet = world.runtime.mount(function()
+					return Facet.themes.createStyleSheet(world.runtime, Facet.themes.neutralPackage(), {
+						types = world.engine.types,
+					})
+				end, world.engine.new("Folder"))
+				local plateLayer = world.find("Plate")
+				check:expect(styleRules.resolve(sheet, plateLayer, "BackgroundTransparency")):toBe(0)
+				check
+					:expect(
+						styleRules.resolve(sheet, world.find("Body", world.find("Actions")), "BackgroundTransparency")
+					)
+					:toBe(1)
+				world.engine.environment.poke(world.input, "TouchEnabled", true)
+				check:expect(styleRules.resolve(sheet, world.find("Plate"), "BackgroundTransparency")):toBe(1)
+				world.engine.environment.poke(world.input, "TouchEnabled", false)
+				check:expect(styleRules.resolve(sheet, world.find("Plate"), "BackgroundTransparency")):toBe(0)
+			end
+		)
+
+		verifyHarness:case("automatic actions overlay the bottom without adding measured height", function(check)
+			local world, controls = geometryWorld("automatic")
+			check:defer(world.stop)
+			local card, plain, reveal = world.find("Actions"), world.find("Plain"), world.find("Reveal")
+			local height = plain.AbsoluteSize.Y
+			check:expect(height > 0):toBe(true)
+			check:expect(card.AbsoluteSize.Y):toBe(height)
+			check:expect(reveal.Parent:IsA("Folder")):toBe(true)
+			check:expect(reveal.AnchorPoint):toBe(world.V2(0, 1))
+			check:expect(reveal.Position):toBe(UDim2.fromScale(0, 1))
+			check:expect(reveal.ZIndex > world.find("Body", card).ZIndex):toBe(true)
+			check:expect(reveal.AbsolutePosition.Y + reveal.AbsoluteSize.Y):toBe(card.AbsolutePosition.Y + height)
+			check:expect(reveal.Interactable):toBe(false)
+			check:expect(fadeKit.of(reveal)):toBe(1)
+			hover(card, true)
+			assert(world.layout).step()
+			check:expect(reveal.Interactable):toBe(true)
+			check:expect(fadeKit.of(reveal)):toBe(0)
+			check:expect(card.AbsoluteSize.Y):toBe(height)
+			hover(card, false)
+			check:expect(assert(controls.enterActions)()):toBe(true)
+			check:expect(world.gui.SelectedObject):toBe(world.find("Primary"))
+			check:expect(reveal.Interactable):toBe(true)
+		end)
+
+		verifyHarness:case("always actions keep their measured height in the layout", function(check)
+			local world = geometryWorld("always")
+			check:defer(world.stop)
+			local card, plain, reveal = world.find("Actions"), world.find("Plain"), world.find("Reveal")
+			check:expect(reveal.Parent):toBe(card)
+			check:expect(reveal.AnchorPoint):toBe(world.V2(0, 0))
+			check:expect(reveal.Interactable):toBe(true)
+			check:expect(fadeKit.of(reveal)):toBe(0)
+			check:expect(card.AbsoluteSize.Y > plain.AbsoluteSize.Y):toBe(true)
+			check:expect(reveal.AbsolutePosition.Y >= world.find("Body", card).AbsoluteSize.Y):toBe(true)
+		end)
+
+		verifyHarness:case(
+			"touch moves automatic actions into the layout and pointer restores the overlay",
+			function(check)
+				local world = geometryWorld("automatic")
+				check:defer(world.stop)
+				local card, plain, reveal = world.find("Actions"), world.find("Plain"), world.find("Reveal")
+				for _, source in { "TouchEnabled", "PreferredInput" } do
+					world.engine.environment.poke(
+						world.input,
+						source,
+						if source == "TouchEnabled" then true else world.engine.types.Enum.PreferredInput.Touch
+					)
+					assert(world.layout).step()
+					reveal = world.find("Reveal")
+					check:expect(reveal.Parent):toBe(card)
+					check:expect(reveal.AnchorPoint):toBe(world.V2(0, 0))
+					check:expect(reveal.Interactable):toBe(true)
+					check:expect(fadeKit.of(reveal)):toBe(0)
+					check:expect(card.AbsoluteSize.Y > plain.AbsoluteSize.Y):toBe(true)
+					world.engine.environment.poke(
+						world.input,
+						source,
+						if source == "TouchEnabled"
+							then false
+							else world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+					)
+					assert(world.layout).step()
+					reveal = world.find("Reveal")
+					check:expect(card.AbsoluteSize.Y):toBe(plain.AbsoluteSize.Y)
+					check:expect(reveal.Parent:IsA("Folder")):toBe(true)
+					check:expect(reveal.Interactable):toBe(false)
+				end
+			end
+		)
+
+		verifyHarness:case("repeated touch switches own one card layout and one reveal without leaks", function(check)
+			local world, card = mount(cardSpec({}))
+			check:defer(function()
+				world.stop()
+				check:expect(world.engine.census().live):toBe(0)
+				check:expect(world.engine.census().connections):toBe(0)
+			end)
+			local layout = card:FindFirstChildWhichIsA("UIListLayout")
+			hover(card, true)
+			hover(card, false)
+			local pointerCensus = world.engine.census()
+			local touchCensus: { live: number, connections: number }? = nil
+			local previous = plate(world)
+			for _ = 1, 5 do
+				for _, touch in { true, false } do
+					world.engine.environment.poke(world.input, "TouchEnabled", touch)
+					local layouts = 0
+					for _, child in card:GetChildren() do
+						if child:IsA("UIListLayout") then
+							layouts += 1
+						end
+					end
+					check:expect(layouts):toBe(1)
+					check:expect(card:FindFirstChildWhichIsA("UIListLayout")):toBe(layout)
+					check:expect(#world.findAll("Reveal", card)):toBe(1)
+					local current = plate(world)
+					check:expect(current ~= previous):toBe(true)
+					check:expect(previous.Parent):toBe(nil)
+					check:expect(current.Parent == card):toBe(touch)
+					hover(card, true)
+					check:expect(plate(world)):toBe(current)
+					hover(card, false)
+					previous = current
+					local census = world.engine.census()
+					if touch and touchCensus == nil then
+						touchCensus = census
+					end
+					local expected = if touch then assert(touchCensus) else pointerCensus
+					check:expect(census.live):toBe(expected.live)
+					check:expect(census.connections):toBe(expected.connections)
+				end
+			end
+		end)
+
 		verifyHarness:case("shows a text card with no art when image and artwork are absent", {
 			id = "native_card::native Card::shows a text card with no art when image and artwork are absent",
 			run = function()
@@ -269,10 +445,10 @@ return function(verifyHarness: Verify.Harness)
 				local acting = cardSpec({})
 				acting.caption = nil
 				local world, root = mount(acting)
-				Verify.expect(plate(world).Parent):toBe(root)
+				Verify.expect(plate(world).Parent.Parent):toBe(root)
 				Verify.expect(fadeKit.layer(world.find("Plate"))):toBe(plate(world))
 				local actingTitle = root:FindFirstChild("Title", true):FindFirstChildWhichIsA("UIPadding")
-				Verify.expect(actingTitle.PaddingBottom.Offset):toBe(0)
+				Verify.expect(actingTitle.PaddingBottom.Offset > 0):toBe(true)
 				world.stop()
 			end,
 		})
@@ -510,7 +686,7 @@ return function(verifyHarness: Verify.Harness)
 				local log: { string } = {}
 				local world, root = mount(cardSpec(log))
 				Verify.expect(world.find("Body").Parent):toBe(root)
-				Verify.expect(fadeKit.layer(primary(world).Parent).Parent):toBe(root)
+				Verify.expect(fadeKit.layer(primary(world).Parent).Parent.Parent):toBe(root)
 				Verify.expect((root:IsA("GuiButton"))):toBe(false)
 				world.find("Body").Activated:Fire()
 				Verify.expect((table.concat(log, ","))):toBe("body")
@@ -966,7 +1142,22 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(styleRules.resolve(sheet, paint, "BackgroundTransparency")):toBe(0)
 						Verify.expect(styleRules.resolve(sheet, paint, "BackgroundColor3")):toBe(rest)
 						Verify.expect(styleRules.resolve(sheet, world.find("Body"), "BackgroundTransparency")):toBe(1)
-						Verify.expect(styleRules.resolve(sheet, world.find("Plate"), "BackgroundTransparency")):toBe(1)
+						Verify.expect(styleRules.resolve(sheet, world.find("Plate"), "BackgroundTransparency")):toBe(0)
+						Verify.expect(world.find("ActionOverlay").Parent):toBe(world.find("Body").Parent)
+						Verify.expect(world.find("Body").Parent):toBe(paint)
+						Verify.expect(root:FindFirstChild("FeedbackMask") ~= nil):toBe(true)
+						Verify.expect(paint:FindFirstChild("FeedbackMask", true)):toBe(nil)
+						for _ = 1, 3 do
+							world.engine.environment.poke(world.input, "TouchEnabled", true)
+							Verify.expect(world.find("Reveal").Parent):toBe(paint)
+							Verify.expect(#world.findAll("Reveal", root)):toBe(1)
+							world.engine.environment.poke(world.input, "TouchEnabled", false)
+							Verify.expect(world.find("ActionOverlay").Parent):toBe(paint)
+							Verify.expect(#world.findAll("Reveal", root)):toBe(1)
+						end
+						hover(root, false)
+						settle(world, 1)
+						Verify.expect(world.find("ActionOverlay").Parent):toBe(root)
 						world.stop()
 					end
 				end,
@@ -1026,7 +1217,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((attr(g.card("i1"), "Browsing"))):toBe(true)
 				Verify.expect((attr(g.card("i1"), "Revealed"))):toBe(true)
 				Verify.expect((attr(g.card("i2"), "Revealed"))):toBe(false)
-				Verify.expect(g.card("i1"):FindFirstChild("Reveal").Parent):toBe(g.card("i1"))
+				Verify.expect(g.card("i1"):FindFirstChild("Reveal", true).Parent.Parent):toBe(g.card("i1"))
 				g.world.gui.SelectedObject = g.hit("i2")
 				Verify.expect((attr(g.card("i1"), "Revealed"))):toBe(false)
 				Verify.expect((attr(g.card("i2"), "Revealed"))):toBe(true)

@@ -953,6 +953,7 @@ local derived: Types.Derived = {
 				layers = { type = "value" },
 				motion = { type = "string" },
 				onUnavailable = { type = "event" },
+				retainScene = { type = "boolean" },
 				surface = { type = "value" },
 			},
 		},
@@ -1457,6 +1458,7 @@ local derived: Types.Derived = {
 				sidebar = { type = "value" },
 				sidebarHeight = { type = "value" },
 				sidebarWidth = { type = "value" },
+				transition = { type = "value" },
 			},
 		},
 		NavigationStack = {

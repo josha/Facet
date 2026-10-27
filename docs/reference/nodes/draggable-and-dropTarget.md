@@ -12,3 +12,4 @@ Open:
 - [draggable-and-dropTarget.operation](draggable-and-dropTarget.operation.md)
 - [draggable-and-dropTarget.payload](draggable-and-dropTarget.payload.md)
 - [draggable-and-dropTarget.statusLabels](draggable-and-dropTarget.statusLabels.md)
+- [World drag and drop](draggable-and-dropTarget.world.md)

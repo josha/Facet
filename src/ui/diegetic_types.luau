@@ -4,6 +4,7 @@ export type DiegeticScreenProps = {
 	layers: { ScreenGui },
 	isPresented: Types.Value<boolean>,
 	scene: () -> Instance,
+	retainScene: boolean?,
 	surface: Types.Input<CFrame>,
 	bounds: Types.Input<Vector2>,
 	camera: Types.Input<CFrame>,

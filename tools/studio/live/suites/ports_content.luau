@@ -1336,7 +1336,7 @@ local function cardIn(t: any, games: any, key: string): any
 		card = card,
 		hit = t.find(cell, "RowHit"),
 		body = card and card:FindFirstChild("Body"),
-		reveal = card and card:FindFirstChild("Reveal"),
+		reveal = card and card:FindFirstChild("Reveal", true),
 		primary = card and t.find(card, "Primary"),
 		more = card and t.find(card, "More"),
 	}
@@ -1421,13 +1421,17 @@ interactive(
 				transparency
 			)
 			local card, body = t.rect(target.card), t.rect(target.body)
+			t.near("the card height matches its body", card.h, body.h, 0.5)
+			if target.reveal then
+				t.near("the reveal is anchored to the card bottom", t.rect(target.reveal).b, card.b, 0.5)
+			end
 			for _, pair in { { "Play", target.primary }, { "More", target.more } } do
 				local node = pair[2]
 				t.check(`{pair[1]} found`, node ~= nil)
 				if node then
 					local r = t.rect(node)
 					t.inside(`{pair[1]} sits inside the card`, r, card, 0.5)
-					t.check(`{pair[1]} sits below the body`, r.y >= body.b - 0.5, { action = r.y, body = body.b })
+					t.check(`{pair[1]} overlays the body`, r.y < body.b, { action = r.y, body = body.b })
 				end
 			end
 			for key, before in value.rects do
@@ -1518,7 +1522,7 @@ add("card-grid-lines-and-corners", {}, function(t)
 		for _, cell in items:GetDescendants() do
 			if cell:IsA("GuiObject") and string.match(cell.Name, "^g%d+$") and cell:FindFirstChild("Content") then
 				local card = t.find(cell, "Card")
-				local plate = card and card:FindFirstChild("Reveal")
+				local plate = card and card:FindFirstChild("Reveal", true)
 				if card and plate then
 					lines += 1
 					t.inside(`{cell.Name} card inside its cell`, card, cell, 0.5)

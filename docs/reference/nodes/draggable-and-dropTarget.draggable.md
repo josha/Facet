@@ -1,9 +1,11 @@
 # draggable-and-dropTarget.draggable
 
-`UI.draggable(source, spec)` lets a player pick up the GuiObject `source`, and
+`UI.draggable(source, spec)` lets a player pick up a GuiObject, BasePart, or Model.
+
 `UI.dropTarget(target, spec)` lets a GuiObject, BasePart, or Model receive it. Call both
-inside a component or a Compose owner; they stop when the owner ends. Every
-input ends in the same drop:
+inside a component or a Compose owner; they stop when the owner ends.
+World sources use [world drag options](draggable-and-dropTarget.world.md).
+For a GuiObject, every input ends in the same drop:
 
 - Pointer: a native `UIDragDetector` with `CustomOffset` recognizes the drag.
   Press the source and move it 6 pixels. A release before that is a
@@ -26,6 +28,8 @@ input ends in the same drop:
 While the source is held it has the `facet-drag-held` tag and the
 `FacetDragHeld` attribute. Every theme hides its text and icons, so its plate
 stays as the empty slot until the drop lands or the source goes back.
+With `previewScale`, press feedback starts before pickup. See
+the [payload options](draggable-and-dropTarget.payload.md) for its timing and release.
 
 ```lua
 local sponsors: { [unknown]: number } = {}

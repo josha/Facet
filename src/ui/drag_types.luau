@@ -6,9 +6,13 @@ export type SourceSpec = Env.DraggableSpec & {
 	mark: boolean?,
 	navigationHint: string?,
 	returnPosition: (() -> Vector2)?,
+	liftValue: Shared.ReadOnlyValue<number>?,
+	liftVisual: GuiObject?,
 }
 export type Proposal = Env.DropInfo & { invalid: string? }
 export type TargetOptions = {
+	placement: Shared.Input<Env.DropPlacement>?,
+	worldPlacement: Shared.Input<CFrame>?,
 	travel: boolean?,
 	landing: ((Env.DropInfo) -> Env.ScrollRect)?,
 	label: Shared.ValueString?,
@@ -31,7 +35,8 @@ export type TargetOptions = {
 export type TargetSpec = TargetOptions & { feedback: boolean? }
 export type RegisteredTarget = TargetOptions & { feedback: (UIStroke | Highlight)? }
 export type Session = {
-	source: GuiObject,
+	source: Env.DropDestination,
+	world: WorldPresentation?,
 	spec: SourceSpec,
 	mode: "pointer" | "armed",
 	payload: unknown,
@@ -52,23 +57,30 @@ export type Session = {
 	highlight: Highlight?,
 	status: TextLabel?,
 	previewSize: Vector2?,
+	liftScale: number?,
 	armedPreview: GuiObject?,
 	effectiveInput: ((Shared.Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse")?,
 	stop: (() -> ())?,
 	stopPreview: (() -> ())?,
+	stopLift: (() -> ())?,
 	stopStatus: (() -> ())?,
 	stopTravel: (() -> ())?,
 	travelled: boolean?,
 }
+export type WorldPresentation = {
+	move: (Vector2?, CFrame?) -> (),
+	land: (() -> ()) -> (),
+	release: (boolean, () -> ()) -> () -> (),
+}
 export type Service = {
 	state: Shared.Value<Session?>,
-	own: (GuiObject) -> (),
+	own: (Env.DropDestination) -> (),
 	finish: (boolean?, string?) -> (),
 	hover: (Instance?, RaycastResult?) -> (),
 	update: (Vector2) -> (),
 	commit: (Instance?, Vector2?) -> boolean,
 	begin: (
-		GuiObject,
+		Env.DropDestination,
 		SourceSpec,
 		"pointer" | "armed",
 		InputObject?,

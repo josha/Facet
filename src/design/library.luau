@@ -7,6 +7,7 @@ local controls = require("./controls")
 local derived = require("./fields")
 local icons = require("../ui/icons")
 local Motion = require("./motion")
+local robloxTypes = require("../ui/roblox_types")
 
 type Literal = Design.Literal
 type Resolved = Design.Resolved
@@ -272,32 +273,53 @@ local function seeds(name: string): { Types.Seed }
 	return { placeholder }
 end
 
+local function color(types: Types.RobloxTypes, value: unknown): unknown
+	if type(value) == "string" and string.match(value, "^#%x%x%x%x%x%x$") then
+		return types.Color3.fromHex(value)
+	end
+	return value
+end
+
+local function enumItem(types: Types.RobloxTypes, enumName: string, item: string): unknown
+	for _, enum in types.Enum:GetEnums() do
+		if tostring(enum) == enumName then
+			return enum:FromName(item)
+		end
+	end
+	return nil
+end
+
+local function construct(types: Types.RobloxTypes, datatype: string, components: { number }): unknown
+	local a, b, c, d = components[1] or 0, components[2] or 0, components[3] or 0, components[4] or 0
+	if datatype == "UDim2" then
+		return types.UDim2.new(a, b, c, d)
+	elseif datatype == "UDim" then
+		return types.UDim.new(a, b)
+	elseif datatype == "Vector2" then
+		return types.Vector2.new(a, b)
+	elseif datatype == "Vector3" then
+		return types.Vector3.new(a, b, c)
+	elseif datatype == "Rect" then
+		return types.Rect.new(a, b, c, d)
+	elseif datatype == "NumberRange" then
+		return types.NumberRange.new(a, b)
+	end
+	return nil
+end
+
 local function create(context: Context): Design.Library
 	local UI = context.UI :: { [string]: Named }
-	local rgb, udim2, offset = context.rgb, context.udim2, context.offset
-
-	local function color(value: unknown): unknown
-		if type(value) == "string" and string.match(value, "^#%x%x%x%x%x%x$") then
-			return rgb(
-				tonumber(string.sub(value, 2, 3), 16) or 0,
-				tonumber(string.sub(value, 4, 5), 16) or 0,
-				tonumber(string.sub(value, 6, 7), 16) or 0
-			)
-		end
-		return value
-	end
+	local types = context.types or robloxTypes()
 
 	local function convert(datatype: string, literal: Literal): unknown
 		if datatype == "Color3" then
-			return color(literal)
+			return color(types, literal)
 		end
 		local enumName = string.match(datatype, "^Enum%.(.+)$")
 		if enumName ~= nil then
-			local lookup = context.enumItem
-			return if lookup ~= nil and type(literal) == "string" then lookup(enumName, literal) else literal
+			return if type(literal) == "string" then enumItem(types, enumName, literal) else literal
 		end
-		local construct = context.datatype
-		if construct == nil or type(literal) ~= "table" then
+		if type(literal) ~= "table" then
 			return literal
 		end
 		local components: { number } = {}
@@ -306,7 +328,7 @@ local function create(context: Context): Design.Library
 				table.insert(components, component)
 			end
 		end
-		return construct(datatype, components)
+		return construct(types, datatype, components)
 	end
 
 	local function stack(children: { unknown }): unknown
@@ -378,7 +400,7 @@ local function create(context: Context): Design.Library
 					if resolved.value ~= nil then
 						values[key] = resolved.value
 					elseif literal ~= nil and field ~= nil and field.type == "color" then
-						values[key] = color(literal)
+						values[key] = color(types, literal)
 					elseif literal ~= nil and datatype ~= nil then
 						values[key] = convert(datatype, literal)
 					elseif literal ~= nil then
@@ -397,7 +419,7 @@ local function create(context: Context): Design.Library
 				for _, key in stateKeys(spec) do
 					local initial = values[key]
 					if name == "ColorPicker" and key == "value" then
-						initial = color(initial)
+						initial = color(types, initial)
 					elseif name == "DateTimePicker" and key == "value" and values.time == true then
 						local moment = record(initial)
 						if moment ~= nil then
@@ -411,7 +433,7 @@ local function create(context: Context): Design.Library
 				end
 				for key, field in spec.fields do
 					if field.format == "color" and states[key] == nil and values[key] ~= nil then
-						values[key] = color(values[key])
+						values[key] = color(types, values[key])
 					end
 				end
 				local setter = SETTERS[name]
@@ -437,8 +459,8 @@ local function create(context: Context): Design.Library
 					local width, height = values.width, values.height
 					local tall = if type(height) == "number" then height else 140
 					values.Size = if width == "fill"
-						then udim2(1, 0, 0, tall)
-						else offset(if type(width) == "number" then width else 240, tall)
+						then types.UDim2.new(1, 0, 0, tall)
+						else types.UDim2.fromOffset(if type(width) == "number" then width else 240, tall)
 					values.width, values.height = nil, nil
 				end
 				local handled = ACTIONS[name]
@@ -632,7 +654,7 @@ local function create(context: Context): Design.Library
 				if resolved.value ~= nil then
 					values[key] = resolved.value
 				elseif literal ~= nil and field ~= nil and field.type == "color" then
-					values[key] = color(literal)
+					values[key] = color(types, literal)
 				elseif literal ~= nil and datatype ~= nil then
 					values[key] = convert(datatype, literal)
 				elseif literal ~= nil then

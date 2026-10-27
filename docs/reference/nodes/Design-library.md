@@ -12,21 +12,6 @@ local UI = Facet.controls(runtime)
 local kit = Facet.design()
 local library = kit.library({
     UI = UI,
-    rgb = Color3.fromRGB,
-    udim2 = UDim2.new,
-    offset = UDim2.fromOffset,
-    datatype = function(name, components)
-        local constructors = { UDim2 = UDim2.new, UDim = UDim.new, Vector2 = Vector2.new }
-        return constructors[name](table.unpack(components))
-    end,
-    enumItem = function(enumName, item)
-        for _, enum in Enum:GetEnums() do
-            if tostring(enum) == enumName then
-                return enum:FromName(item)
-            end
-        end
-        return nil
-    end,
     host = function(className, name, props)
         return runtime.constructors[className](name)(props)
     end,
@@ -60,8 +45,9 @@ Fields:
   contract output.
 - A Roblox enum or datatype prop is a datatype field. Its literal is an enum
   item name, such as `"Y"`, or a list of numbers, such as `{ 1, 0, 0, 48 }`.
-  The context converts it with `enumItem` and `datatype`. Emitted source
-  writes `Enum.AutomaticSize.Y` and `UDim2.new(1, 0, 0, 48)`.
+  The library converts it with the Roblox datatypes in `context.types`. The
+  default is the engine datatypes. In the engine double, pass `ctx.types`.
+  Emitted source writes `Enum.AutomaticSize.Y` and `UDim2.new(1, 0, 0, 48)`.
 - `lute run tools/facet types props` generates the fields from the prop types.
 
 Kinds:

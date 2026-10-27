@@ -42,6 +42,7 @@ export type Node = {
 	state: number?,
 	reads: number?,
 	run: ((Node) -> ())?,
+	runIn: (({ consumer: Node?, order: number }, Node) -> ())?,
 	effect: ((use: Use) -> ())?,
 	listener: ((value: unknown) -> ())?,
 	queued: boolean?,
@@ -50,10 +51,16 @@ export type Node = {
 	reactor: Reactor?,
 	release: (() -> ())?,
 	set: ((Node, unknown) -> ())?,
+	resume: ((Node, unknown) -> ())?,
+	coalesced: Node?,
 	group: boolean?,
 	source: Node?,
 	fastKey: string?,
 	fastNext: Node?,
+	invalidate: ((Node) -> ())?,
+	inherited: unknown?,
+	child: unknown?,
+	base: number?,
 }
 
 return {}

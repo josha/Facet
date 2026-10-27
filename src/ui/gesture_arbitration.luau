@@ -6,17 +6,18 @@ export type Options = {
 	scroll: boolean?,
 	threshold: number?,
 }
-export type Decision = { owner: GuiObject, origin: Vector2, kind: Kind }
+export type Decision = { owner: Instance, origin: Vector2, kind: Kind }
 type Contact = Decision & { options: Options }
 export type Arbiter = {
-	begin: (InputObject, GuiObject, Vector2, Options) -> boolean,
+	begin: (InputObject, Instance, Vector2, Options) -> boolean,
 	move: (InputObject, Vector2) -> Kind?,
-	claim: (InputObject, GuiObject, Kind) -> boolean,
+	claim: (InputObject, Instance, Kind) -> boolean,
 	get: (InputObject) -> Decision?,
-	finish: (InputObject, GuiObject, boolean?) -> Kind?,
-	cancelOwner: (GuiObject) -> (),
-	capture: (GuiObject, () -> ()) -> (),
-	claimCamera: (GuiObject) -> boolean,
+	finish: (InputObject, Instance, boolean?) -> Kind?,
+	cancelOwner: (Instance) -> (),
+	capture: (Instance, () -> ()) -> (),
+	claimCamera: (Instance) -> boolean,
+	busy: () -> boolean,
 }
 export type Binding = {
 	begin: (InputObject, Vector2, Options) -> boolean,
@@ -30,9 +31,12 @@ local arbitration = {}
 function arbitration.new(): Arbiter
 	local contacts: { [InputObject]: Contact } = {}
 	local arbiter = {} :: Arbiter
-	local captureOwner: GuiObject? = nil
-	local cameras: { [GuiObject]: boolean } = {}
-	function arbiter.begin(pointer: InputObject, owner: GuiObject, origin: Vector2, options: Options): boolean
+	local captureOwner: Instance? = nil
+	local cameras: { [Instance]: boolean } = {}
+	function arbiter.busy(): boolean
+		return next(contacts) ~= nil or captureOwner ~= nil
+	end
+	function arbiter.begin(pointer: InputObject, owner: Instance, origin: Vector2, options: Options): boolean
 		local held = contacts[pointer]
 		if held and (held.owner == owner or held.kind ~= "pending" or not owner:IsDescendantOf(held.owner)) then
 			return held.owner == owner
@@ -63,7 +67,7 @@ function arbitration.new(): Arbiter
 			else "pan"
 		return contact.kind
 	end
-	function arbiter.claim(pointer: InputObject, owner: GuiObject, kind: Kind): boolean
+	function arbiter.claim(pointer: InputObject, owner: Instance, kind: Kind): boolean
 		local contact = contacts[pointer]
 		if not contact or contact.owner ~= owner then
 			return false
@@ -84,7 +88,7 @@ function arbitration.new(): Arbiter
 		local contact = contacts[pointer]
 		return if contact then { owner = contact.owner, origin = contact.origin, kind = contact.kind } else nil
 	end
-	function arbiter.finish(pointer: InputObject, owner: GuiObject, cancelled: boolean?): Kind?
+	function arbiter.finish(pointer: InputObject, owner: Instance, cancelled: boolean?): Kind?
 		local contact = contacts[pointer]
 		if not contact or contact.owner ~= owner then
 			return nil
@@ -92,7 +96,7 @@ function arbitration.new(): Arbiter
 		contacts[pointer] = nil
 		return if cancelled then "cancelled" elseif contact.kind == "pending" then "press" else contact.kind
 	end
-	function arbiter.capture(owner: GuiObject, callback: () -> ())
+	function arbiter.capture(owner: Instance, callback: () -> ())
 		assert(captureOwner == nil, "Facet capture callbacks cannot start another capture")
 		captureOwner = owner
 		table.clear(cameras)
@@ -106,7 +110,7 @@ function arbitration.new(): Arbiter
 			error(failure, 0)
 		end
 	end
-	function arbiter.claimCamera(surface: GuiObject): boolean
+	function arbiter.claimCamera(surface: Instance): boolean
 		local owner = captureOwner
 		if not owner or cameras[surface] then
 			return false
@@ -114,7 +118,7 @@ function arbitration.new(): Arbiter
 		cameras[surface] = true
 		return true
 	end
-	function arbiter.cancelOwner(owner: GuiObject)
+	function arbiter.cancelOwner(owner: Instance)
 		for pointer, contact in contacts do
 			if contact.owner == owner then
 				contacts[pointer] = nil

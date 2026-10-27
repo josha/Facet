@@ -11,6 +11,13 @@ icon?, onActivate, enabled?, busy? }`, `menu = { items, label? }`, `reveal`
 (`automatic` or `always`), `browseTarget`, `enabled`, `ringTarget`,
 `badges = { leading?, trailing? }` and `controls`.
 
+With `reveal = "automatic"`, the action row overlays the bottom of the card
+on a pointer device. It uses a plate above the content and adds no layout
+height, even while visible. Hover, focus, press, an open menu or gamepad entry
+reveals the row. Hidden actions are not interactable. Reduced motion switches
+the row without a fade. With `reveal = "always"`, or when touch is available,
+the row stays visible in the layout and reserves its height.
+
 With `onActivate`, the selection ring of the body surrounds the whole card: the
 artwork, the text and the action row. `ringTarget = "media"` rings only the
 artwork. The body keeps the PlayerGui's live focus look (see

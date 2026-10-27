@@ -16,9 +16,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	local E, D2, D, V2 = types.Enum, types.UDim2, types.UDim, types.Vector2
 	local metric, controlSize = ctx.metric, ctx.controlSize
 	local skin = shared.skin
+	local function dynamic(value: unknown): boolean
+		return Compose.isValue(value) or type(value) == "function"
+	end
 	local function statusTag(node: GuiObject, source: Types.Input<Media.Status>?)
 		local previous: string?
-		Compose.watch(function(use: ComposeTypes.Use)
+		local function apply(use: ComposeTypes.Use?)
 			local requested = read(source, use)
 			local status = if requested == nil then "neutral" else requested
 			assert(
@@ -39,7 +42,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			end
 			previous = "facet-status-" .. status
 			node:AddTag(previous :: string)
-		end)
+		end
+		if dynamic(source) then
+			Compose.watch(apply)
+		else
+			apply()
+		end
 	end
 
 	UI.Badge = ctx.construct("Badge", function(spec: MediaProps.BadgeProps): GuiObject
@@ -53,6 +61,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			assert(value == nil or type(value) == "string", "Facet Badge label must be a string")
 			return value or ""
 		end
+		local function height(use: ComposeTypes.Use?): UDim2
+			return D2.fromOffset(0, controlSize(spec.controlSize, "iconSize", use) + 4)
+		end
+		local captionValue = if dynamic(spec.label) then Compose.formula(caption) else nil
+		local label: Types.Input<string> = if captionValue then captionValue else caption()
+		local size: Types.Input<UDim2> = if dynamic(ctx.config.theme) or dynamic(spec.controlSize)
+			then height
+			else height()
 		assert(
 			named or type(spec.label) == "function" or Compose.isValue(spec.label) or caption() ~= "",
 			"Facet Badge requires meaningful text or a named icon"
@@ -61,12 +77,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			spec,
 			{ "label", "status", "icon", "iconPosition", "name", "appearance", "corners", "controlSize", "Visible" },
 			{
-				Text = caption,
-				Attributes = { AccessibleLabel = spec.name or caption },
+				Text = label,
+				Attributes = { AccessibleLabel = spec.name or label },
+				AutoLocalize = if dynamic(spec.label) then false else nil,
 				AutomaticSize = E.AutomaticSize.XY,
-				Size = function(use: ComposeTypes.Use)
-					return D2.fromOffset(0, controlSize(spec.controlSize, "iconSize", use) + 4)
-				end,
+				Size = size,
 			}
 		)
 		local node = ctx.styled(Host.TextLabel(native), "text")
@@ -91,25 +106,25 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			pill = Host.Frame({
 				Name = spec.Name or "Badge",
 				AutomaticSize = E.AutomaticSize.XY,
-				Size = function(use: ComposeTypes.Use)
-					return D2.fromOffset(0, controlSize(spec.controlSize, "iconSize", use) + 4)
-				end,
+				Size = size,
 				lists.list({ gap = 4, align = "center" }, false) :: ComposeTypes.Child,
 				icon :: ComposeTypes.Child,
 				node :: ComposeTypes.Child,
 			})
 		end
+		local function visible(use: ComposeTypes.Use?): boolean
+			return read(spec.Visible, use) ~= false
+				and (named or (if captionValue then read(captionValue, use) else caption(use)) ~= "")
+		end
 		runtime.decorate(pill, {
-			Visible = function(use: ComposeTypes.Use): boolean
-				return read(spec.Visible, use) ~= false and (named or caption(use) ~= "")
-			end,
+			Visible = if dynamic(spec.Visible) or dynamic(spec.label) then Compose.formula(visible) else visible(),
 		})
 		ctx.styled(pill, "badge")
 		if spec.status ~= nil then
 			statusTag(pill, spec.status)
 		end
 		local previousAppearance: string?
-		Compose.watch(function(use: ComposeTypes.Use)
+		local function appearanceTag(use: ComposeTypes.Use?)
 			local appearance = read(spec.appearance, use) or "standard"
 			assert(
 				appearance == "standard" or appearance == "status" or appearance == "utility",
@@ -120,7 +135,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			end
 			previousAppearance = "facet-badge-" .. appearance
 			pill:AddTag(previousAppearance :: string)
-		end)
+		end
+		if dynamic(spec.appearance) then
+			Compose.watch(appearanceTag)
+		else
+			appearanceTag()
+		end
 		if spec.appearance then
 			runtime.mountFragment(function()
 				return {

@@ -16,6 +16,12 @@ A change to the font, text size or layout mode resets the reserved size.
 Wrapped text, truncated text and authored size constraints keep their native
 layout behavior.
 
+Bound text, given as a readable or a function, sets `AutoLocalize` to false
+unless you set `AutoLocalize`. Bound text is usually data, such as a name or a
+count. The engine localizes each change again, and that costs about 15 µs for
+each change that contains letters. To translate bound text, use the controls
+translator or set `AutoLocalize = true`.
+
 Open:
 
 - [Text-fit](Text-fit.md)

@@ -12,14 +12,16 @@ so a PageView can sit inside a vertically scrolling page. This option can be
 bound. Touch swipes, indicators and keyboard navigation remain available.
 
 A horizontal touch inside a page temporarily releases input from enclosing
-scrollers so the native page layout can handle the swipe. Vertical contacts
+scrollers so the native ScrollingFrame can handle the swipe. Vertical contacts
 stay with the list. The original scroller state returns after release, cancel,
 focus loss or owner cleanup. Interactive card content uses the same policy.
 
-`autoAdvanceSeconds = 20` advances to the next page every20 seconds and wraps
+`autoAdvanceSeconds = 20` advances to the next page every 20 seconds and wraps
 after the last page. Give a readable that returns nil to pause an inactive
 carousel. The interval restarts after a manual selection or a pause. Hovering,
 holding a contact, or focusing a control inside a page pauses automatic advance.
+After release, the pause lasts for `motion.durations.scrollReveal` before the
+interval restarts (0.25 seconds in Neutral).
 Compose owns the scheduled work and cancels it when PageView ends. Omit the
 option for manual navigation only. The interval must be finite and positive.
 A retained PageView restores its selected page without animation when its
@@ -39,11 +41,17 @@ While the selection is on a control in a page, Left and Right (and the D-pad
 Left and Right) page back and forward. The selection then moves into the new
 page. Up and Down leave the pages.
 
-Facet's horizontal VirtualList owns native scrolling and item snapping.
+Facet's horizontal VirtualList owns native scrolling.
 The page follows a held touch directly. Snapping waits until all contacts end,
 including contacts that start on a child button. A vertical gesture can scroll
 the surrounding page. The model selection changes when a page reaches its
-boundary. Previous, Next, dots and arrow keys use the shared scroll reveal
+boundary. Release moves at most one page from the start page. The start page is
+the page nearest the view when the contact starts. During a programmatic scroll,
+this page can be different from the selection. A quick flick uses its release
+direction. A slow drag past half a page moves in the drag direction. A shorter
+drag returns to the start page. Release uses the theme's
+`motion.springs.control` spring. A new contact stops that spring at its current
+position. Previous, Next, dots and arrow keys use the shared scroll reveal
 motion. Reduced motion lands without animation. A new contact cancels a
 programmatic scroll. Resize and return from a hidden ancestor restore the
 selected page without animation. Keyboard focus moves after the new page

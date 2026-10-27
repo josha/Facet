@@ -130,9 +130,36 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 				seen[itemKey] = index
 				keys[index] = itemKey
 			end
+			for index = #keys, wanted + 1, -1 do
+				keys[index] = nil
+			end
+
+			local prefix = 0
+			local previousCount = #order
+			while prefix < math.min(previousCount, wanted) and positionOf[keys[prefix + 1]] == prefix + 1 do
+				prefix += 1
+				local entry = entries[order[prefix]]
+				entry.value:set(list[prefix])
+				if readsIndex then
+					entry.index:set(prefix)
+				end
+			end
+			local oldEnd, newEnd = previousCount, wanted
+			while oldEnd > prefix and newEnd > prefix and positionOf[keys[newEnd]] == oldEnd do
+				local entry = entries[order[oldEnd]]
+				entry.value:set(list[newEnd])
+				if readsIndex then
+					entry.index:set(newEnd)
+				end
+				oldEnd -= 1
+				newEnd -= 1
+			end
+			if prefix == wanted and previousCount == wanted then
+				return
+			end
 
 			local removedAny = false
-			for index = #order, 1, -1 do
+			for index = oldEnd, prefix + 1, -1 do
 				local existing = order[index]
 				if seen[existing] == nil then
 					local leaving = entries[existing]
@@ -144,9 +171,9 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 				end
 			end
 			if removedAny then
-				local live = 0
+				local live = prefix
 				local was = #order
-				for index = 1, was do
+				for index = prefix + 1, was do
 					local existing = order[index]
 					if entries[existing] ~= nil then
 						live += 1
@@ -162,7 +189,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			local retained = 0
 			local previousPosition = 0
 			local ordered = true
-			for index = 1, wanted do
+			for index = prefix + 1, newEnd do
 				local itemKey = keys[index]
 				local entry = entries[itemKey]
 				if entry ~= nil then
@@ -183,26 +210,40 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 				end
 			end
 
-			if ordered and retained == wanted and not removedAny and order[wanted + 1] == nil then
+			local middle = newEnd - prefix
+			if ordered and retained == middle and not removedAny and previousCount == wanted then
 				return
 			end
 
-			local stays: { [K]: true }? = nil
+			local stays: { number }? = nil
 			if ordersChildren and not ordered then
-				local staying = longestIncreasingSubsequence(retainedPositions, retained)
-				local held: { [K]: true } = {}
-				for offset = 1, retained do
-					if staying[offset] then
-						held[keys[retainedTargets[offset]]] = true
-					end
-				end
-				stays = held
+				stays = longestIncreasingSubsequence(retainedPositions, retained)
 			end
 
 			local failures: { string }? = nil
-			if stays == nil then
-				local live = 0
-				for index = 1, wanted do
+			if not ordersChildren then
+				local live = prefix
+				for index = prefix + 1, wanted do
+					local itemKey = keys[index]
+					if entries[itemKey] == nil then
+						local ok, err = pcall(mountRow, index, itemKey, live + 1)
+						if not ok then
+							local collected: { string } = failures or {}
+							failures = collected
+							table.insert(collected, tostring(err))
+							continue
+						end
+					end
+					live += 1
+					order[live] = itemKey
+					positionOf[itemKey] = live
+				end
+				for index = #order, live + 1, -1 do
+					order[index] = nil
+				end
+			elseif stays == nil then
+				local live = prefix
+				for index = prefix + 1, newEnd do
 					local itemKey = keys[index]
 					live += 1
 
@@ -217,7 +258,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 						end
 						table.insert(order, live, itemKey)
 						reindex(live, #order)
-					elseif retained < wanted and order[live] ~= itemKey then
+					elseif retained < middle and order[live] ~= itemKey then
 						local from = positionOf[itemKey]
 						table.remove(order, from)
 						table.insert(order, live, itemKey)
@@ -227,12 +268,13 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 						positionOf[itemKey] = live
 					end
 				end
-				for index = #order, live + 1, -1 do
+				for index = #order, live + wanted - newEnd + 1, -1 do
 					order[index] = nil
 				end
 			else
-				local anchor: K? = nil
-				for index = wanted, 1, -1 do
+				local anchor: K? = keys[newEnd + 1]
+				local staying = 1
+				for index = newEnd, prefix + 1, -1 do
 					local itemKey = keys[index]
 					local entry = entries[itemKey]
 
@@ -248,7 +290,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 						end
 						table.insert(order, anchorLive, itemKey)
 						reindex(anchorLive, #order)
-					elseif not stays[itemKey] then
+					elseif index ~= retainedTargets[stays[staying]] then
 						local from = positionOf[itemKey]
 						table.remove(order, from)
 						local destination = if from < anchorLive then anchorLive - 1 else anchorLive
@@ -258,6 +300,8 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 						for offset, node in entry.nodes do
 							mountPoint.moveTo(node, at + offset - 1)
 						end
+					else
+						staying += 1
 					end
 					anchor = itemKey
 				end

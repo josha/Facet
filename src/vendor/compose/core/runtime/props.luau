@@ -176,7 +176,7 @@ local function subscribe(host: Host.Host, node: Node, owner: Owner.Owner, name: 
 			0
 		)
 	end
-	Owner.own(owner, (events).connectEvent(node, name, handler))
+	Owner.adopt(owner, (events).connectEvent(node, name, handler))
 end
 
 local function refuseNodeValue(host: Host.Host, node: Node, key: string, value: unknown)
@@ -536,6 +536,24 @@ local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, 
 	end
 end
 
+type Connect = (Owner.Owner, (unknown) -> ()) -> Types.Node
+
+local mapped: { [unknown]: Connect } = {}
+
+Weak.keys(mapped)
+
+local function map<T, R>(source: Types.ReadOnlyValue<T>, transform: (T) -> R): Types.Body<R>
+	local function body(use: Types.Use): R
+		return transform(use(source))
+	end
+	mapped[body] = function(owner: Owner.Owner, sink: (unknown) -> ()): Types.Node
+		return Owner.listenHeld(owner, source, function(current: T)
+			sink(transform(current))
+		end)
+	end
+	return body
+end
+
 local propertyTargets: { [Host.Host]: Target } = {}
 
 Weak.entries(propertyTargets)
@@ -585,9 +603,8 @@ local function apply(
 	onKey: (string) -> (),
 	created: boolean?
 )
-	local target = propertyTarget(host)
 	local fresh = created == true and not statsOn.enabled and owner.boundary == nil and not owner.disposed
-	local write = target.write
+	local write = host.render.setProperty
 	local replacing = not fresh and fastEdges[node] ~= nil
 	local length = #props
 
@@ -623,10 +640,10 @@ local function apply(
 					end
 					subscribe(host, node, owner, marker.name, value :: (...unknown) -> ())
 				elseif type(value) == "function" or cellModule.isValue(value) then
-					bind(target, node, owner, marker.name, value :: Types.Source<unknown>)
+					bind(propertyTarget(host), node, owner, marker.name, value :: Types.Source<unknown>)
 				else
 					refuseNodeValue(host, node, marker.name, value)
-					writeOnce(target, node, owner, marker.name, value)
+					writeOnce(propertyTarget(host), node, owner, marker.name, value)
 				end
 				continue
 			end
@@ -658,7 +675,7 @@ local function apply(
 			if fresh then
 				write(node, name, value)
 			else
-				writeOnce(target, node, owner, name, value)
+				writeOnce(propertyTarget(host), node, owner, name, value)
 			end
 			continue
 		end
@@ -668,7 +685,7 @@ local function apply(
 			if fresh then
 				write(node, name, literal)
 			else
-				writeOnce(target, node, owner, name, literal)
+				writeOnce(propertyTarget(host), node, owner, name, literal)
 			end
 			continue
 		end
@@ -682,7 +699,7 @@ local function apply(
 				edge.fastNext = fastEdges[node]
 				fastEdges[node] = edge
 			else
-				bind(target, node, owner, name, value :: Types.Source<unknown>)
+				bind(propertyTarget(host), node, owner, name, value :: Types.Source<unknown>)
 			end
 			continue
 		end
@@ -691,15 +708,23 @@ local function apply(
 			if classify(host, node, name) == "event" then
 				subscribe(host, node, owner, name, value :: (...unknown) -> ())
 			elseif fresh then
-				local source = value :: Types.Body<unknown>
-				local watcher = Owner.effectHeld(owner, function(use: Types.Use)
-					write(node, name, source(use))
-				end)
+				local connect = mapped[value]
+				local watcher: Types.Node
+				if connect ~= nil then
+					watcher = connect(owner, function(current: unknown)
+						write(node, name, current)
+					end)
+				else
+					local source = value :: Types.Body<unknown>
+					watcher = Owner.effectHeld(owner, function(use: Types.Use)
+						write(node, name, source(use))
+					end)
+				end
 				watcher.fastKey = name
 				watcher.fastNext = fastEdges[node]
 				fastEdges[node] = watcher
 			else
-				bind(target, node, owner, name, value :: Types.Source<unknown>)
+				bind(propertyTarget(host), node, owner, name, value :: Types.Source<unknown>)
 			end
 			continue
 		end
@@ -708,7 +733,7 @@ local function apply(
 		if fresh then
 			write(node, name, value)
 		else
-			writeOnce(target, node, owner, name, value)
+			writeOnce(propertyTarget(host), node, owner, name, value)
 		end
 	end
 end
@@ -720,4 +745,5 @@ end
 return {
 	apply = apply,
 	forget = forget,
+	map = map,
 }

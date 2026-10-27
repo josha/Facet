@@ -131,6 +131,42 @@ end)
 sample("TextInput", function(state)
 	return state.UI.TextInput({ value = state.Compose.cell("Player") })
 end)
+sample("TextInput-labelled", function(state)
+	return state.UI.TextInput({ value = state.Compose.cell("Player"), label = "Driver" })
+end)
+sample("Badge", function(state)
+	return state.UI.Badge({ label = "Ready", status = "success" })
+end)
+sample("Badge-updating", function(state)
+	return state.UI.Badge({ label = state.Compose.cell("1") })
+end)
+sample("ButtonGuide-hidden", function(state)
+	return state.UI.ButtonGuide({ entries = { { keys = { { "E" } }, label = "Buy" } } })
+end)
+sample("ButtonGuide-shown", function(state)
+	return state.UI.ButtonGuide({
+		inputs = { "KeyboardAndMouse" },
+		entries = { { keys = { { "E" } }, label = "Buy" } },
+	})
+end)
+measure("Buttons-20-input", function(state)
+	local input: UserInputService = state.engine.new("UserInputService")
+	local gui: GuiService = state.engine.new("GuiService")
+	state.runtime.adopt(input)
+	state.runtime.adopt(gui)
+	local UI = state.Facet.controls(state.runtime, {
+		types = state.types,
+		services = {
+			UserInputService = input,
+			GuiService = gui,
+		},
+	})
+	local buttons: { Instance } = {}
+	for index = 1, 20 do
+		buttons[index] = UI.Button({ label = tostring(index) })
+	end
+	return state.Host.Frame({ table.unpack(buttons) })
+end)
 sample("TextInput-focused", function(state)
 	return state.UI.TextInput({ value = state.Compose.cell("Player") })
 end, function(node)

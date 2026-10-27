@@ -2988,6 +2988,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {
 			{ name = "compact: Files opens detail, no Show detail row", cellWidth = 380, props = splitBack(false) },
 			{ name = "compact: the detail NavBar owns Back (compactBack)", cellWidth = 380, props = splitBack(true) },
+			{ name = "compact: zoom between columns", cellWidth = 380, props = splitBack(false, true) },
 		},
 	},
 
@@ -4317,6 +4318,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		snippet = 'UI.draggable(card, { payload = "card" })',
 		demonstrates = {
 			"payload",
+			"world",
 			"enabled",
 			"armOnTap",
 			"touchPickup",
@@ -4335,6 +4337,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "reserveSlots", values = { false, true } },
 		},
 		states = {
+			{ name = "world tile placement", props = properties { worldDrag = true } },
 			{ name = "without status labels", props = properties { statusLabels = false } },
 			{ name = "horizontal touch pickup", props = properties { touchPickup = "immediate", touchDragAxis = "X" } },
 		},
@@ -4342,6 +4345,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return { touchPickup = "longPress", touchDragAxis = "XY" }
 		end,
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
+			if p.worldDrag then
+				return require("./world_drag_demo")(c)
+			end
 			return require("./container_transfer_demo")(UI, c.Host, c.Compose, c.types, {
 				scale = p.transferScale,
 				reject = p.rejectTransfer,
@@ -4406,6 +4412,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			"onDrop",
 			"travel",
 			"landing",
+			"worldPlacement",
+			"placement",
 			"accepts",
 			"onReject",
 			"onEnter",
@@ -6077,6 +6085,7 @@ PAGE_DATA.gestureArbiter = {
 }
 
 PAGE_DATA.DiegeticScreen = require("./diegetic_demo")
+PAGE_DATA.cameraRig = PAGE_DATA.DiegeticScreen
 PAGE_DATA.WorldMarker = require("./world_marker_demo")
 
 PAGE_DATA.ZoomView = require("./zoom_page")

@@ -338,10 +338,12 @@ return function(verifyHarness: Verify.Harness)
 						errorText = failure,
 					})
 				end)
-				local field, line = find(w.node, "Input/Field"), find(w.node, "Message/Validation")
+				local field = find(w.node, "Input/Field")
+				expect((find(w.node, "Message"))):toBeNil()
 				field:CaptureFocus()
 				field.Text = "1.2.3"
 				field:ReleaseFocus(true)
+				local line = find(w.node, "Message/Validation")
 				expect(line.Text):toBe("Enter a valid number.")
 				failure:set("The server refused that number.")
 				expect(line.Text):toBe("The server refused that number.")

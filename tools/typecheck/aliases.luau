@@ -13,6 +13,7 @@ local Runtime = require("../../src/vendor/compose/core/runtime")
 type OutlineRecord = { id: string, children: { OutlineRecord }? }
 
 return (nil :: unknown) :: {
+	CameraRig: Facet.CameraRig,
 	TimerControls: Facet.TimerControls,
 	TypewriterControls: Facet.TypewriterControls,
 	SlotControls: Facet.SlotControls<string>,
@@ -41,6 +42,8 @@ return (nil :: unknown) :: {
 	ScrollingFrameNativeProps: Engine.ScrollingFrameNativeProps,
 	CanvasGroupNativeProps: Engine.CanvasGroupNativeProps,
 	ScreenGuiNativeProps: Engine.ScreenGuiNativeProps,
+	FolderNativeProps: Engine.FolderNativeProps,
+	BillboardGuiNativeProps: Engine.BillboardGuiNativeProps,
 	Attributes: Engine.Attributes,
 	ControlSize: Facet.Value<Shared.ControlSize?>,
 	CoordinatesCell: Facet.Value<{ number }?>,

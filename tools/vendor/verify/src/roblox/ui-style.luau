@@ -3,7 +3,7 @@
 local Environment = require "./environment"
 local Selector = require "./ui-style-selector"
 local Values = require "./ui-values"
-local Names = require "./datatypes/names"
+local Transition = require "./ui-style-transition"
 
 type Instance = Environment.Instance
 export type Properties = { [Instance]: { [string]: unknown } }
@@ -16,9 +16,11 @@ export type Controller = {
 	close: () -> (),
 	invalidate: () -> (),
 }
-type Resolved = { sheet: Instance?, value: unknown, present: boolean }
+type Resolved = { sheet: Instance?, value: unknown, present: boolean, transition: unknown }
 type Watch = { signal: Environment.Signal<()>, sheet: Instance?, value: unknown }
+type Animated = { property: string, phantom: string?, motion: Transition.Motion, dirty: number? }
 local PHANTOMS = { UIPadding = true, UICorner = true, UIStroke = true, UIGradient = true }
+local STYLE_MEMBERS: { [string]: boolean } = { Name = true, GuiState = true }
 
 local function unsupported(detail: string): never
 	error("unsupported_ui_style: " .. detail, 0)
@@ -28,14 +30,75 @@ local function create(
 	env: Environment.Environment,
 	properties: Properties,
 	transitions: Properties,
-	defaults: { [Instance]: unknown },
 	derives: { [Instance]: { Instance } }
 ): Controller
+	local animated: { [Instance]: { [string]: Animated } } = {}
+	setmetatable(animated, { __mode = "k" })
+	local refresh: (boolean?) -> () = function() end
+	local observe: () -> () = function() end
+	local observed: Environment.Connection? = nil
+	local tags: Environment.Connection? = nil
+	local previousTag: { object: Instance, tag: string, present: boolean }? = nil
+	local function hasTag(object: Instance, tag: string): boolean
+		local previous = previousTag
+		return if previous
+				and previous.object == object
+				and previous.tag == tag
+			then previous.present
+			else object:HasTag(tag)
+	end
+	local pendingAt: number? = nil
+	local timed: { [Animated]: Instance } = {}
+	setmetatable(timed, { __mode = "k" })
+	local stale: { [Animated]: Instance } = {}
+	setmetatable(stale, { __mode = "k" })
+	local staleSince: number? = nil
+	local styleGeneration = 0
+	local readsGeneration = -1
+	local function mark(subtree: Instance?)
+		styleGeneration += 1
+		local now = env.now()
+		staleSince = staleSince or now
+		if subtree == nil then
+			for entry, object in pairs(timed) do
+				entry.dirty = entry.dirty or now
+				stale[entry] = object
+			end
+			return
+		end
+		local pending = { subtree }
+		while #pending > 0 do
+			local object = table.remove(pending) :: Instance
+			local entries = animated[object]
+			if entries then
+				for _, entry in entries do
+					if timed[entry] then
+						entry.dirty = entry.dirty or now
+						stale[entry] = object
+					end
+				end
+			end
+			for _, child in env.childrenOf(object) do
+				table.insert(pending, child)
+			end
+		end
+	end
+	local function dirty(subtree: Instance?)
+		pendingAt = nil
+		mark(subtree)
+	end
 	local watches: { [Instance]: { [string]: Watch } } = {}
 	setmetatable(watches, { __mode = "k" })
+	local reads: { [Instance]: { [string]: { sheet: Instance?, value: unknown } } } = {}
+	setmetatable(reads, { __mode = "k" })
 	local parsed: { [string]: Selector.Selector } = {}
-	type Index =
-		{ rules: { Instance }, byProperty: { [string]: { Instance } }, connections: { Environment.Connection } }
+	type Index = {
+		rules: { Instance },
+		byProperty: { [string]: { Instance } },
+		candidates: { [string]: { Instance } },
+		nested: { [Instance]: boolean },
+		connections: { Environment.Connection },
+	}
 	local indexes: { [Instance]: Index } = {}
 	local function forget(sheet: Instance)
 		local index = indexes[sheet]
@@ -50,44 +113,55 @@ local function create(
 		for sheet in indexes do
 			forget(sheet)
 		end
+		refresh(true)
+		dirty()
 	end
 	local frameScopes: { [Instance]: { sheet: Instance? } }? = nil
 	local frameValues: { [Instance]: { [string]: Resolved } }? = nil
-	local function linkedSheet(object: Instance): Instance?
-		local current: Instance? = object
-		while current do
-			local link: Instance? = nil
-			for _, child in current:GetChildren() do
-				if child:IsA "StyleLink" then
-					if link then
-						unsupported "multiple StyleLinks"
-					end
-					link = child
+	local function ownSheet(object: Instance): Instance?
+		local link: Instance? = nil
+		for _, child in env.childrenOf(object) do
+			if child:IsA "StyleLink" then
+				if link then
+					unsupported "multiple StyleLinks"
 				end
+				link = child
 			end
-			if link then
-				local sheet = env.propertyOf(link, "StyleSheet")
-				if sheet ~= nil then
-					local instance = Environment.assertInstance(sheet)
-					assert(instance:IsA "StyleSheet", "StyleLink requires a StyleSheet")
-					return instance
-				end
+		end
+		if link then
+			local sheet = env.propertyOf(link, "StyleSheet")
+			if sheet ~= nil then
+				local instance = Environment.assertInstance(sheet)
+				assert(instance:IsA "StyleSheet", "StyleLink requires a StyleSheet")
+				return instance
 			end
-			current = current.Parent
 		end
 		return nil
 	end
 	local function scope(object: Instance): Instance?
 		local scopes = frameScopes
-		if scopes == nil then
-			return linkedSheet(object)
+		local walked: { Instance } = {}
+		local found: Instance? = nil
+		local current: Instance? = object
+		while current do
+			local known = if scopes then scopes[current] else nil
+			if known then
+				found = known.sheet
+				break
+			end
+			table.insert(walked, current)
+			found = ownSheet(current)
+			if found then
+				break
+			end
+			current = env.parentOf(current)
 		end
-		local known = scopes[object]
-		if known == nil then
-			known = { sheet = linkedSheet(object) }
-			scopes[object] = known
+		if scopes then
+			for _, visited in walked do
+				scopes[visited] = { sheet = found }
+			end
 		end
-		return known.sheet
+		return found
 	end
 	local function token(sheet: Instance, value: unknown): unknown
 		local seen: { [string]: boolean } = {}
@@ -118,8 +192,9 @@ local function create(
 		if known then
 			return known
 		end
-		local index: Index = { rules = {}, byProperty = {}, connections = {} }
+		local index: Index = { rules = {}, byProperty = {}, candidates = {}, nested = {}, connections = {} }
 		local function drop()
+			dirty()
 			forget(sheet)
 		end
 		table.insert(index.connections, sheet.ChildAdded:Connect(drop))
@@ -129,6 +204,7 @@ local function create(
 				continue
 			end
 			table.insert(index.rules, candidate)
+			index.nested[candidate] = #candidate:GetChildren() > 0
 			table.insert(index.connections, candidate:GetPropertyChangedSignal("Selector"):Connect(drop))
 			table.insert(index.connections, candidate:GetPropertyChangedSignal("Priority"):Connect(drop))
 			table.insert(index.connections, candidate.DescendantAdded:Connect(drop))
@@ -137,6 +213,11 @@ local function create(
 			local own = properties[candidate]
 			if own then
 				for name in own do
+					names[name] = true
+				end
+			end
+			for name in pairs(transitions[candidate] or {}) do
+				if name ~= "*" then
 					names[name] = true
 				end
 			end
@@ -162,8 +243,12 @@ local function create(
 		indexes[sheet] = index
 		return index
 	end
-	local resolveFresh: (Instance, string?, string?) -> (Instance?, unknown, boolean)
-	local function resolve(object: Instance, property: string?, phantom: string?): (Instance?, unknown, boolean)
+	local resolveFresh: (Instance, string?, string?) -> (Instance?, unknown, boolean, unknown)
+	local function resolve(
+		object: Instance,
+		property: string?,
+		phantom: string?
+	): (Instance?, unknown, boolean, unknown)
 		local values = frameValues
 		if values == nil then
 			return resolveFresh(object, property, phantom)
@@ -176,27 +261,39 @@ local function create(
 		local key = (property or "") .. "|" .. (phantom or "")
 		local found = entries[key]
 		if found == nil then
-			local sheet, value, present = resolveFresh(object, property, phantom)
-			found = { sheet = sheet, value = value, present = present }
+			local sheet, value, present, transition = resolveFresh(object, property, phantom)
+			found = { sheet = sheet, value = value, present = present, transition = transition }
 			entries[key] = found
 		end
-		return found.sheet, found.value, found.present
+		return found.sheet, found.value, found.present, found.transition
 	end
-	function resolveFresh(object: Instance, property: string?, phantom: string?): (Instance?, unknown, boolean)
+	function resolveFresh(object: Instance, property: string?, phantom: string?): (Instance?, unknown, boolean, unknown)
 		local sheet = scope(object)
 		local result: unknown = if phantom or property == nil then nil else env.defaultPropertyOf(object, property)
 		if sheet == nil then
-			return nil, result, false
+			return nil, result, false, nil
 		end
 		if #(derives[sheet] or {}) > 0 then
 			unsupported "StyleSheet derives"
 		end
 		local winning: number? = nil
+		local transitionPriority: number? = nil
+		local transition: unknown = nil
 		local present = false
 		local index = indexOf(sheet)
 		local candidates: { Instance } = index.rules
 		if property then
-			candidates = index.byProperty[property] or {}
+			local known = index.candidates[property]
+			if known == nil then
+				known = table.clone(index.byProperty[property] or {})
+				for _, candidate in index.rules do
+					if (transitions[candidate] or {})["*"] ~= nil and not table.find(known, candidate) then
+						table.insert(known, candidate)
+					end
+				end
+				index.candidates[property] = known
+			end
+			candidates = known
 		end
 		for _, candidate in candidates do
 			local values = properties[candidate] or {}
@@ -207,12 +304,12 @@ local function create(
 				end
 			end
 			local value = if property then values[property] else nil
-			if #candidate:GetChildren() > 0 then
+			if index.nested[candidate] then
 				unsupported "nested StyleRules"
 			end
 			local matches = false
 			for _, branch in branches(candidate) do
-				if branch.phantom == phantom and Selector.matches(branch, object) then
+				if branch.phantom == phantom and Selector.matches(branch, object, hasTag) then
 					matches = true
 				end
 			end
@@ -220,27 +317,129 @@ local function create(
 				continue
 			end
 			present = true
+			if property then
+				local parameters = (transitions[candidate] or {})[property] or (transitions[candidate] or {})["*"]
+				if parameters ~= nil then
+					local priority = Values.number(env.propertyOf(candidate, "Priority"))
+					if priority == transitionPriority then
+						unsupported("equal-priority transition " .. property)
+					end
+					if transitionPriority == nil or priority > transitionPriority then
+						transitionPriority, transition = priority, parameters
+					end
+				end
+			end
 			if value ~= nil and property then
 				local priority = Values.number(env.propertyOf(candidate, "Priority"))
 				if winning == priority then
 					unsupported("equal-priority property " .. property)
 				end
 				if winning == nil or priority > winning then
-					local transition = (transitions[candidate] or {})[property] or defaults[candidate]
-					if transition ~= nil then
-						transition = token(sheet, transition)
-						local duration = if type(transition) == "table"
-							then rawget(transition, "Time")
-							else Names.fields(transition).Time
-						if Values.number(duration) ~= 0 then
-							unsupported "nonzero property transition"
-						end
-					end
 					winning, result = priority, token(sheet, value)
 				end
 			end
 		end
-		return sheet, result, present
+		return sheet, result, present, token(sheet, transition)
+	end
+	local function animatedValue(object: Instance, property: string, phantom: string?): (Instance?, unknown)
+		local sheet, target, _, parameters = resolve(object, property, phantom)
+		if target == nil and phantom then
+			target = env.defaultClassProperty(phantom, property)
+		end
+		if sheet == nil then
+			animated[object] = nil
+			return nil, target
+		end
+		local timing = Transition.timing(parameters)
+		local key = property .. "|" .. (phantom or "")
+		local entries = animated[object]
+		if entries == nil then
+			entries = {}
+			animated[object] = entries
+		end
+		local entry = entries[key]
+		if entry == nil then
+			observe()
+			entry = {
+				property = property,
+				phantom = phantom,
+				motion = { target = target, origin = target, started = env.now() },
+			}
+			entries[key] = entry
+		else
+			Transition.retarget(entry.motion, target, timing, entry.dirty or env.now())
+			entry.dirty = nil
+			stale[entry] = nil
+		end
+		if timing ~= nil then
+			timed[entry] = object
+		else
+			timed[entry] = nil
+		end
+		return sheet, Transition.sample(entry.motion, env.now())
+	end
+	function refresh(quiet: boolean?)
+		local since = staleSince
+		if since == nil or quiet and since >= env.now() then
+			return
+		end
+		for entry, object in pairs(stale) do
+			if not env.isAlive(object) then
+				stale[entry] = nil
+				timed[entry] = nil
+				animated[object] = nil
+			elseif quiet then
+				pcall(animatedValue, object, entry.property, entry.phantom)
+			else
+				animatedValue(object, entry.property, entry.phantom)
+			end
+		end
+		staleSince = nil
+		for entry in pairs(stale) do
+			local at = entry.dirty
+			if at ~= nil and (staleSince == nil or at < staleSince) then
+				staleSince = at
+			end
+		end
+	end
+	function observe()
+		if observed ~= nil then
+			return
+		end
+		observed = env.observe(function(event: Environment.Event)
+			local object = event.object
+			local subtree: Instance? = nil
+			if
+				not (
+					object:IsA "StyleRule"
+					or object:IsA "StyleSheet"
+					or object:IsA "StyleLink"
+					or object:IsA "StyleDerive"
+				)
+			then
+				local operation = event.operation
+				if operation == "setParent" or (operation == "setProperty" and STYLE_MEMBERS[event.member or ""]) then
+					subtree = object
+				else
+					return
+				end
+			end
+			local now = env.now()
+			if pendingAt == now then
+				mark(subtree)
+				return
+			end
+			refresh(true)
+			dirty(subtree)
+			pendingAt = now
+		end)
+		tags = env.tagChanged:Connect(function(object: Instance, tag: string, present: boolean)
+			previousTag = { object = object, tag = tag, present = not present }
+			refresh(true)
+			previousTag = nil
+			dirty(object)
+			refresh(true)
+		end)
 	end
 	local function phantomValue(object: Instance, className: string, property: string): unknown
 		if not PHANTOMS[className] then
@@ -250,9 +449,8 @@ local function create(
 		if not present then
 			return nil
 		end
-		local fallback = env.defaultClassProperty(className, property)
-		local _, value = resolve(object, property, className)
-		return if value == nil then fallback else value
+		local _, value = animatedValue(object, property, className)
+		return value
 	end
 	local function styled(object: Instance, property: string, selector: string?): unknown
 		if selector then
@@ -267,10 +465,33 @@ local function create(
 			end
 			return value
 		end
-		local _, value = resolve(object, property, nil)
+		local _, value = animatedValue(object, property, nil)
+		local read = reads[object]
+		if read == nil then
+			read = {}
+			reads[object] = read
+		end
+		if read[property] == nil then
+			local ruleSheet, target = resolve(object, property, nil)
+			read[property] = { sheet = ruleSheet, value = target }
+			if ruleSheet ~= nil then
+				observe()
+			end
+		end
 		return if object:IsPropertyModified(property) then env.propertyOf(object, property) else value
 	end
 	local function close()
+		if observed then
+			observed:Disconnect()
+			observed = nil
+		end
+		if tags then
+			tags:Disconnect()
+			tags = nil
+		end
+		for object in pairs(animated) do
+			animated[object] = nil
+		end
 		invalidate()
 		for _, entries in pairs(watches) do
 			for _, watch in entries do
@@ -279,6 +500,9 @@ local function create(
 		end
 		for object in pairs(watches) do
 			watches[object] = nil
+		end
+		for object in pairs(reads) do
+			reads[object] = nil
 		end
 	end
 	return {
@@ -291,12 +515,13 @@ local function create(
 			local entries = watches[object] or {}
 			watches[object] = entries
 			if entries[property] == nil then
-				local sheet, value = resolve(object, property, nil)
+				local sheet, value = animatedValue(object, property, nil)
 				entries[property] = { signal = env.newSignal(), sheet = sheet, value = value }
 			end
 			return entries[property].signal
 		end,
 		step = function()
+			refresh()
 			for object, entries in pairs(watches) do
 				if not env.isAlive(object) then
 					for _, watch in entries do
@@ -305,11 +530,32 @@ local function create(
 					watches[object] = nil
 				else
 					for property, watch in entries do
-						local sheet, value = resolve(object, property, nil)
+						local sheet, value = animatedValue(object, property, nil)
 						if sheet ~= watch.sheet or value ~= watch.value then
 							watch.sheet, watch.value = sheet, value
 							watch.signal:Fire()
 						end
+					end
+				end
+			end
+			if observed ~= nil and readsGeneration == styleGeneration then
+				return
+			end
+			readsGeneration = styleGeneration
+			for object, properties in pairs(reads) do
+				if not env.isAlive(object) or env.signalOf(object, "StyledPropertiesChanged").connections() == 0 then
+					reads[object] = nil
+				else
+					local changed = false
+					for property, read in properties do
+						local sheet, value = resolve(object, property, nil)
+						if sheet ~= read.sheet or value ~= read.value then
+							read.sheet, read.value = sheet, value
+							changed = true
+						end
+					end
+					if changed and object:IsA "GuiObject" then
+						env.fire(object, "StyledPropertiesChanged")
 					end
 				end
 			end

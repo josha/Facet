@@ -87,6 +87,18 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("shared drop sessions", function()
+		verifyHarness:case("a drag with only interface targets casts no world ray", function()
+			local f = fixture()
+			f.register(f.target, {
+				onDrop = function(): boolean
+					return true
+				end,
+			})
+			f.begin({ payload = "item" })
+			f.move(10, 10)
+			Verify.expect(#f.rays):toBe(0)
+			f.stop()
+		end)
 		verifyHarness:case("a separate carried visual keeps the logical pickup geometry", function()
 			local w = fixture()
 			local V2 = w.engine.types.Vector2

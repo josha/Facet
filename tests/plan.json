@@ -6,6 +6,19 @@
     "batchCount": 1
   },
   "units": [
+    { "id": "native_control_memory", "locator": "tests/native_control_memory.verify.luau", "requires": ["local-luau"] },
+    { "id": "world_drag", "locator": "tests/world_drag.verify.luau", "requires": ["local-luau"] },
+    { "id": "native_camera_rig", "locator": "tests/native_camera_rig.verify.luau", "requires": ["local-luau"] },
+    {
+      "id": "tools/bench_compare",
+      "locator": "tests/tools/bench_compare.verify.luau",
+      "requires": ["local-luau", "lute"]
+    },
+    {
+      "id": "native_bench_comparison",
+      "locator": "tests/native_bench_comparison.verify.luau",
+      "requires": ["local-luau"]
+    },
     { "id": "native_fixture", "locator": "tests/native_fixture.verify.luau", "requires": ["local-luau"] },
     { "id": "native_live_primitives", "locator": "tests/native_live_primitives.verify.luau", "requires": ["lute"] },
     { "id": "native_live_contracts", "locator": "tests/native_live_contracts.verify.luau", "requires": ["lute"] },

@@ -69,6 +69,7 @@ function Snapshot.config(root: string, name: Name): Config
 			"tools/agent-eval.luau",
 			"tools/scoped-studio-mcp.luau",
 			"src/benchmark.luau",
+			"src/benchmark-case.luau",
 			"src/benchmark-check.luau",
 			"src/benchmark-store.luau",
 			"src/benchmark-types.luau",

@@ -22,14 +22,49 @@ local CLEAN = 0
 local CHECK = 1
 local DIRTY = 2
 
+local invalidated: { Node } = {}
+
 local observations: { [Node]: (boolean) -> () } = {}
 Weak.keys(observations)
+
+local coalesced: { [Node]: boolean } = {}
+Weak.keys(coalesced)
+
+local function resumeSet(producer: Node)
+	local set = producer.resume
+	if set ~= nil then
+		local edge = producer.first
+		local consumer = if edge ~= nil then edge[2] else nil
+		if consumer ~= nil then
+			consumer.coalesced = nil
+		end
+		producer.resume = nil
+		producer.set = set
+		coalesced[producer] = nil
+	end
+end
+
+statsOn.resume = function()
+	for producer in coalesced do
+		resumeSet(producer)
+	end
+end
+
+local function coalesce(producer: Node, consumer: Node, set: (Node, unknown) -> ())
+	if producer.resume == nil then
+		producer.resume = producer.set
+		producer.set = set
+		consumer.coalesced = producer
+		coalesced[producer] = true
+	end
+end
 
 local function kindOf(producer: Node): string
 	return if producer.state ~= nil then "formula" else "cell"
 end
 
 local function append(producer: Node, edge: Node)
+	resumeSet(producer)
 	local first = producer.first
 	if first == nil then
 		producer.first = edge
@@ -59,6 +94,7 @@ local function detach(edge: Node)
 	if producer == nil then
 		return
 	end
+	resumeSet(producer)
 	local first = producer.first
 	local previous = edge[3]
 	local following = edge[4]
@@ -127,7 +163,9 @@ local function markStale(producer: Node, state: number)
 				end
 				consumer.state = state
 				if current == CLEAN or retry then
-					if consumer.run == nil then
+					if consumer.invalidate ~= nil then
+						table.insert(invalidated, consumer)
+					elseif consumer.run == nil then
 						markStale(consumer, CHECK)
 					elseif state == DIRTY and consumer.group then
 						local reactor = consumer.reactor
@@ -145,6 +183,40 @@ local function markStale(producer: Node, state: number)
 			end
 		end
 		edge = edge[4]
+	end
+end
+
+local function settleTouched()
+	if #invalidated == 0 then
+		Reactor.settleTouched()
+		return
+	end
+	local failures: { string } = {}
+	while #invalidated > 0 do
+		local pending = invalidated
+		invalidated = {}
+		for _, node in pending do
+			local invalidate = node.invalidate
+			if invalidate ~= nil and not node.released then
+				local ok, failure: unknown = pcall(function(): unknown
+					invalidate(node)
+					return nil
+				end)
+				if not ok then
+					table.insert(failures, tostring(failure))
+				end
+			end
+		end
+	end
+	local ok, failure: unknown = pcall(function(): unknown
+		Reactor.settleTouched()
+		return nil
+	end)
+	if not ok then
+		table.insert(failures, tostring(failure))
+	end
+	if #failures > 0 then
+		error(table.concat(failures, "\n"), 0)
 	end
 end
 
@@ -264,6 +336,10 @@ local function evaluate<A, T>(consumer: Node, body: (A) -> T, argument: A): T
 end
 
 local function runEffect(consumer: Node)
+	local producer = consumer.coalesced
+	if producer ~= nil then
+		resumeSet(producer)
+	end
 	local previousConsumer, previousOrder = Evaluation.enter(consumer)
 	consumer.reads = 0
 	local effect = consumer.effect
@@ -279,6 +355,10 @@ local function runEffect(consumer: Node)
 end
 
 local function runEffectIn(frame: Evaluation.Evaluation, consumer: Node)
+	local producer = consumer.coalesced
+	if producer ~= nil then
+		resumeSet(producer)
+	end
 	frame.consumer = consumer
 	consumer.reads = 0
 	local effect = consumer.effect
@@ -484,6 +564,7 @@ end
 
 return {
 	CLEAN = CLEAN,
+	coalesce = coalesce,
 	CHECK = CHECK,
 	DIRTY = DIRTY,
 	observations = observations,
@@ -491,6 +572,7 @@ return {
 	detach = detach,
 	trim = trim,
 	markStale = markStale,
+	settleTouched = settleTouched,
 	refresh = refresh,
 	notANode = notANode,
 	use = use,

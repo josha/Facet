@@ -9,12 +9,14 @@ local gestureOf = require("./gesture_service")
 local Gesture = require("./gesture_arbitration")
 local scrollLock = require("./scroll_lock")
 local pointerOf = require("./drag_pointer")
+local liftOf = require("./drag_lift")
+local worldOf = require("./drag_world")
 
 return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	local Compose, Host, E = ctx.Compose, ctx.Host, ctx.types.Enum
 	local service = sessionOf(ctx)
 	local arbiter = gestureOf(ctx)
-	UI.gestureArbiter = function(surface: GuiObject): Gesture.Binding
+	UI.gestureArbiter = function(surface: Instance): Gesture.Binding
 		assert(Compose.currentOwner() ~= nil, "Facet UI.gestureArbiter must run inside a Compose owner")
 		Compose.cleanup(function()
 			arbiter.cancelOwner(surface)
@@ -47,9 +49,13 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		end))
 		return true
 	end
-	UI.draggable = function(source: GuiObject, spec: Env.DraggableSpec)
+	UI.draggable = function(source: Env.DropDestination, spec: Env.DraggableSpec)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.draggable must run inside a component or Compose owner")
 		assert(spec.payload ~= nil, "Facet UI.draggable needs a payload")
+		if not source:IsA("GuiObject") then
+			worldOf(ctx, source, spec, service)
+			return
+		end
 		assert(
 			spec.previewScale == nil or (spec.previewScale > 0 and spec.previewScale < math.huge),
 			"Facet UI.draggable previewScale must be positive and finite"
@@ -72,6 +78,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local scrolling = false
 		local eligible: boolean? = nil
 		local releaseScrollers: (() -> ())? = nil
+		local lift = if spec.previewScale and spec.previewScale ~= 1
+			then liftOf(ctx, spec.preview or source, spec.previewScale)
+			else nil
 		local function held(): boolean
 			local current = service.state:peek()
 			return current ~= nil and current.source == source
@@ -98,12 +107,32 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				releaseScrollers = nil
 			end
 		end
-		local ownedSpec = table.clone(spec) :: DragTypes.SourceSpec
+		local ownedSpec: DragTypes.SourceSpec = {
+			payload = spec.payload,
+			enabled = spec.enabled,
+			armOnTap = spec.armOnTap,
+			touchPickup = spec.touchPickup,
+			touchDragAxis = spec.touchDragAxis,
+			statusLabels = spec.statusLabels,
+			previewScale = spec.previewScale,
+			preview = spec.preview,
+			hitArea = spec.hitArea,
+			returnTravel = spec.returnTravel,
+			operations = spec.operations,
+			onStart = spec.onStart,
+		}
+		if lift then
+			ownedSpec.liftValue = lift.value
+			ownedSpec.liftVisual = lift.visual
+		end
 		ownedSpec.valid = function()
 			return enabled(nil) and (spec.valid == nil or spec.valid())
 		end
 		ownedSpec.onEnd = function(accepted, reason)
 			active = false
+			if lift then
+				lift.release()
+			end
 			unlock()
 			if spec.onEnd then
 				spec.onEnd(accepted, reason)
@@ -210,6 +239,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				activation.release(value)
 				pressed, dragged, scrolling = value, false, false
 				origin = at
+				if lift then
+					lift.press()
+				end
 			end
 		end)
 		ctx.runtime.connect(source, "TouchLongPress", function(positions: { Vector2 }, phase: Enum.UserInputState)
@@ -242,6 +274,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					begin("pointer")
 				elseif kind == "scroll" or kind == "pan" then
 					scrolling = true
+					if lift then
+						lift.release()
+					end
 				end
 				if active then
 					service.update(position)
@@ -280,10 +315,16 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				then
 					begin("armed")
 				end
+				if value == pressed and not held() and lift then
+					lift.release()
+				end
 			end)
 			ctx.runtime.connect(input, "WindowFocusReleased", function()
 				arbiter.cancelOwner(source)
 				pressed = nil
+				if lift then
+					lift.release()
+				end
 				if held() then
 					service.finish(false, "Window lost focus")
 				end
@@ -303,7 +344,13 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			if service.state:peek() ~= nil or not enabled(nil) then
 				return false
 			end
+			if lift then
+				lift.press()
+			end
 			begin("armed")
+			if not held() and lift then
+				lift.release()
+			end
 			return true
 		end
 		if not keyActivation(source, pickUp) then

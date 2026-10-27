@@ -11,9 +11,6 @@ end)
 local Design = Facet.design().Design
 local library = Facet.design().library({
 	UI = {},
-	rgb = Color3.fromRGB,
-	udim2 = UDim2.new,
-	offset = UDim2.fromOffset,
 })
 players.CharacterAutoLoads = false
 local remote = Instance.new("RemoteFunction")

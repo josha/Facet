@@ -1,6 +1,7 @@
 --!strict
 
 local Types = require "./types"
+local Datatype = require "./datatype"
 
 type Document = Types.Document
 type Node = Types.Node
@@ -13,163 +14,12 @@ local MAX_DEPTH = 32
 local IDENTIFIER = "^%l[%w]*$"
 local OUTPUT = "^on%u[%w]*$"
 local TOKEN = "^%a[%w]*$"
-local DATATYPE_ARITY: { [string]: number } =
-	{ UDim2 = 4, UDim = 2, Vector2 = 2, Vector3 = 3, Rect = 4, NumberRange = 2 }
 
-local document = {}
-
-local function copyLiteral(value: Literal): Literal
-	if type(value) == "table" then
-		local copied: { [string | number]: Literal } = {}
-		for key, item in value do
-			copied[key] = copyLiteral(item)
-		end
-		return copied
-	end
-	return value
-end
-document.copyLiteral = copyLiteral
-
-local function copyArgs(args: { Literal }?): { Literal }?
-	if args == nil then
-		return nil
-	end
-	local copied: { Literal } = {}
-	for index, item in args do
-		copied[index] = copyLiteral(item)
-	end
-	return copied
-end
-
-local function copyValue(value: Value): Value
-	local current = value.literal
-	return {
-		literal = if current ~= nil then copyLiteral(current) else nil,
-		input = value.input,
-		item = value.item,
-		output = value.output,
-		args = copyArgs(value.args),
-		fields = if value.fields then table.clone(value.fields) else nil,
-		node = value.node,
-		nodeFrom = value.nodeFrom,
-		nodes = if value.nodes then table.clone(value.nodes) else nil,
-		token = value.token,
-		state = value.state,
-		motion = value.motion,
-		play = value.play,
-	}
-end
-document.copyValue = copyValue
-
-local function copyNode(node: Node): Node
-	local props: { [string]: Value } = {}
-	for key, value in node.props do
-		props[key] = copyValue(value)
-	end
-	local children: { Node } = {}
-	for index, child in node.children do
-		children[index] = copyNode(child)
-	end
-	local bind = node.bind
-	return {
-		id = node.id,
-		kind = node.kind,
-		name = node.name,
-		props = props,
-		children = children,
-		bind = if bind then { from = bind.from, key = bind.key, row = bind.row } else nil,
-		nameField = node.nameField,
-		nameInput = node.nameInput,
-		when = node.when,
-		tags = if node.tags then table.clone(node.tags) else nil,
-	}
-end
-
-local function copyFields(source: { Types.ItemField }): { Types.ItemField }
-	local list: { Types.ItemField } = {}
-	for at, field in source do
-		local nested = field.fields
-		list[at] = {
-			id = field.id,
-			type = field.type,
-			fields = if nested then copyFields(nested) else nil,
-			luauType = field.luauType,
-		}
-	end
-	return list
-end
-
-local function copyContract(contract: Types.Contract): Types.Contract
-	local inputs: { Types.Input } = {}
-	for index, input in contract.inputs do
-		local source = input.fields
-		local fields: { Types.ItemField }? = if source then copyFields(source) else nil
-		local preview = input.preview
-		inputs[index] = {
-			id = input.id,
-			kind = input.kind,
-			type = input.type,
-			preview = if preview ~= nil then copyLiteral(preview) else nil,
-			fields = fields,
-			required = input.required,
-			luauType = input.luauType,
-		}
-	end
-	local outputs: { Types.Output } = {}
-	for index, output in contract.outputs do
-		local args = output.args
-		outputs[index] = { id = output.id, args = if args then table.clone(args) else nil, row = output.row }
-	end
-	return { inputs = inputs, outputs = outputs }
-end
-
-local function copyState(state: { Types.State }?): { Types.State }?
-	if state == nil then
-		return nil
-	end
-	local copied: { Types.State } = {}
-	for index, entry in state do
-		copied[index] = { id = entry.id, type = entry.type, initial = copyLiteral(entry.initial) }
-	end
-	return copied
-end
-
-local function copySequences(sequences: { Types.Sequence }?): { Types.Sequence }?
-	if sequences == nil then
-		return nil
-	end
-	local copied: { Types.Sequence } = {}
-	for index, sequence in sequences do
-		local steps: { Types.SequenceStep } = {}
-		for at, step in sequence.steps do
-			local target = step.to
-			steps[at] = {
-				delay = step.delay,
-				duration = step.duration,
-				easing = step.easing,
-				state = step.state,
-				to = if target ~= nil then copyLiteral(target) else nil,
-				output = step.output,
-			}
-		end
-		copied[index] = { id = sequence.id, autoplay = sequence.autoplay, steps = steps }
-	end
-	return copied
-end
-
-local function copyDocument(value: Document): Document
-	return {
-		schema = "compose-design/1",
-		name = value.name,
-		library = value.library,
-		nextId = value.nextId,
-		contract = copyContract(value.contract),
-		state = copyState(value.state),
-		sequences = copySequences(value.sequences),
-		root = copyNode(value.root),
-	}
-end
-document.copy = copyDocument
+local Copy = require "./document-copy"
+local copyLiteral, copyValue, copyNode = Copy.literal, Copy.value, Copy.node
+local copyContract, copyState, copySequences = Copy.contract, Copy.state, Copy.sequences
+local copyDocument = Copy.document
+local document = { copy = copyDocument, copyNode = copyNode }
 
 local function plain(value: Literal, depth: number): boolean
 	if type(value) == "string" then
@@ -190,7 +40,6 @@ local function plain(value: Literal, depth: number): boolean
 	end
 	return true
 end
-document.plain = plain
 
 local function inputOf(value: Document, id: string): Types.Input?
 	for _, input in value.contract.inputs do
@@ -212,35 +61,15 @@ local function hasOutput(value: Document, id: string): boolean
 end
 
 local function present(value: Value): number
-	local count = 0
-	if value.literal ~= nil then
-		count += 1
-	end
-	if value.input ~= nil then
-		count += 1
-	end
-	if value.item ~= nil then
-		count += 1
-	end
-	if value.output ~= nil then
-		count += 1
-	end
-	if value.token ~= nil then
-		count += 1
-	end
-	if value.node ~= nil then
-		count += 1
-	end
-	if value.nodeFrom ~= nil then
-		count += 1
-	end
-	if value.state ~= nil then
-		count += 1
-	end
-	if value.play ~= nil then
-		count += 1
-	end
-	return count
+	return (if value.literal ~= nil then 1 else 0)
+		+ (if value.input ~= nil then 1 else 0)
+		+ (if value.item ~= nil then 1 else 0)
+		+ (if value.output ~= nil then 1 else 0)
+		+ (if value.token ~= nil then 1 else 0)
+		+ (if value.node ~= nil then 1 else 0)
+		+ (if value.nodeFrom ~= nil then 1 else 0)
+		+ (if value.state ~= nil then 1 else 0)
+		+ (if value.play ~= nil then 1 else 0)
 end
 
 local function checkTypeName(name: string?)
@@ -335,7 +164,6 @@ local function sequenceOf(value: Document, id: string): Types.Sequence?
 	end
 	return nil
 end
-document.sequenceOf = sequenceOf
 
 local function cellsOf(current: Literal, found: { [string]: true }): { [string]: true }
 	if type(current) == "table" then
@@ -444,14 +272,22 @@ local function checkValue(value: Document, field: Types.Field, property: Value, 
 			if string.sub(datatype, 1, 5) == "Enum." then
 				assert(type(current) == "string", `{key} must name an item of {datatype}`)
 			else
-				local arity = DATATYPE_ARITY[datatype]
+				local arity = Datatype.arity[datatype]
 				local valid = type(current) == "table" and (arity == nil or #current == arity)
 				if valid and type(current) == "table" then
-					for _, component in current do
-						valid = valid and type(component) == "number"
+					for index, component in current do
+						valid = valid
+							and type(index) == "number"
+							and index % 1 == 0
+							and index >= 1
+							and index <= #current
+							and (
+								type(component) == "number"
+								or (field.tokens == true and Datatype.token(component) ~= nil)
+							)
 					end
 				end
-				assert(valid, `{key} must be {arity or "some"} numbers for {datatype}`)
+				assert(valid, `{key} must be {arity or "some"} numeric or token components for {datatype}`)
 			end
 		else
 			assert(field.type == "value", `{key} must be bound`)
@@ -559,6 +395,8 @@ function document.validate(value: Document, library: Library): Document
 		highest = math.max(highest, number)
 		local kind = assert(library.kinds[node.kind], `Unknown {library.name} kind {node.kind}`)
 		assert(#node.name > 0 and #node.name <= 120, "A node needs a name")
+		assert(node.hidden == nil or type(node.hidden) == "boolean", "Hidden is a boolean")
+		assert(node.locked == nil or type(node.locked) == "boolean", "Locked is a boolean")
 		local nameField = node.nameField
 		if nameField ~= nil then
 			local list = assert(collection, `{node.name} takes its name from an item outside a collection template`)
@@ -635,7 +473,9 @@ function document.validate(value: Document, library: Library): Document
 		local rowCollection: Types.Input? = nil
 		local rowId: string? = nil
 		local ordinary = 0
+		local children: { [string]: true } = {}
 		for _, child in node.children do
+			children[child.id] = true
 			if not cells[child.id] then
 				ordinary += 1
 			end
@@ -647,14 +487,8 @@ function document.validate(value: Document, library: Library): Document
 			assert(kind.slot ~= nil, `{node.kind} names no content property`)
 		elseif kind.children == "template" then
 			local bind = node.bind
-			local rows = 0
-			for _, child in node.children do
-				if not cells[child.id] then
-					rows += 1
-				end
-			end
 			assert(
-				rows <= 1 or kind.template == nil or (bind ~= nil and bind.row ~= nil),
+				ordinary <= 1 or kind.template == nil or (bind ~= nil and bind.row ~= nil),
 				`{node.kind} holds one row template`
 			)
 			if bind then
@@ -663,11 +497,7 @@ function document.validate(value: Document, library: Library): Document
 				assert(#bind.key > 0, `{node.kind} needs an item key`)
 				local row = bind.row
 				if row ~= nil then
-					local found = false
-					for _, child in node.children do
-						found = found or child.id == row
-					end
-					assert(found, `{node.kind} repeats unknown row {row}`)
+					assert(children[row], `{node.kind} repeats unknown row {row}`)
 					rowCollection = list
 					rowId = row
 				else
@@ -685,19 +515,9 @@ function document.validate(value: Document, library: Library): Document
 				assert(#bind.key > 0, `{node.kind} needs an item key`)
 				local row = bind.row
 				if row == nil then
-					local rows = 0
-					for _, child in node.children do
-						if not cells[child.id] then
-							rows += 1
-						end
-					end
-					assert(rows == 1, `{node.kind} repeats exactly one row template`)
+					assert(ordinary == 1, `{node.kind} repeats exactly one row template`)
 				else
-					local found = false
-					for _, child in node.children do
-						found = found or child.id == row
-					end
-					assert(found, `{node.kind} repeats unknown row {row}`)
+					assert(children[row], `{node.kind} repeats unknown row {row}`)
 				end
 				rowCollection = list
 				local first: string? = nil
@@ -710,11 +530,7 @@ function document.validate(value: Document, library: Library): Document
 			end
 		end
 		for id in cells do
-			local found = false
-			for _, child in node.children do
-				found = found or child.id == id
-			end
-			assert(found, `{node.name} renders unknown cell {id}`)
+			assert(children[id], `{node.name} renders unknown cell {id}`)
 		end
 		for _, child in node.children do
 			if cells[child.id] then
@@ -1014,6 +830,24 @@ function document.duplicate(value: Document, library: Library, id: string): (Doc
 		nextValue.nextId += 1
 	end
 	table.insert(parent.children, index + 1, twin)
+	return document.validate(nextValue, library), twin.id
+end
+
+function document.paste(
+	value: Document,
+	library: Library,
+	copied: Node,
+	destination: string,
+	at: number?
+): (Document, string)
+	local nextValue = copyDocument(value)
+	local target = assert(document.find(nextValue.root, destination), "Choose a container")
+	local twin = copyNode(copied)
+	for _, row in document.nodes(twin) do
+		row.node.id = `n{nextValue.nextId}`
+		nextValue.nextId += 1
+	end
+	table.insert(target.children, math.clamp(at or #target.children + 1, 1, #target.children + 1), twin)
 	return document.validate(nextValue, library), twin.id
 end
 

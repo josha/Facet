@@ -58,6 +58,7 @@ return function(verifyHarness: Verify.Harness)
 			runService: boolean?,
 			preRender: boolean?,
 			suspendGameplay: boolean?,
+			tweens: unknown?,
 		}?
 	)
 		local engine = engines.new()
@@ -95,6 +96,7 @@ return function(verifyHarness: Verify.Harness)
 				GuiService = (gui :: unknown) :: GuiService,
 				UserInputService = (input :: unknown) :: UserInputService,
 				RunService = (runService :: unknown) :: RunService?,
+				TweenService = ((if options then options.tweens else nil) :: unknown) :: TweenService?,
 			},
 			theme = options and options.theme,
 			pressHaptic = options and options.pressHaptic and options.pressHaptic(engine),
@@ -107,6 +109,14 @@ return function(verifyHarness: Verify.Harness)
 				build(UI, (runtime.constructors :: unknown) :: Shared.Host, engine, gui, runtime),
 			})
 		end, target)
+		for _, node in screen:GetDescendants() do
+			if node:IsA("ScrollingFrame") then
+				engine.environment.fakeOn(node, "GetScrollVelocity", function()
+					return engine.types.Vector2.zero
+				end)
+				engine.environment.fakeOn(node, "ResetScrollVelocity", function() end)
+			end
+		end
 		return {
 			engine = engine,
 			gui = (gui :: unknown) :: GuiService,
@@ -126,6 +136,242 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native navigation controls", function()
+		for _, sample in
+			{
+				{ name = "short flick", distance = 30, seconds = 0.02, idle = 0, expected = "four" },
+				{ name = "slow long drag", distance = 180, seconds = 1, idle = 0, expected = "four" },
+				{ name = "slow short drag", distance = 120, seconds = 1, idle = 0, expected = "three" },
+				{ name = "stopped flick", distance = 30, seconds = 0.02, idle = 0.2, expected = "three" },
+				{ name = "long flick cannot skip", distance = 600, seconds = 0.02, idle = 0, expected = "four" },
+				{ name = "reverse flick", distance = -30, seconds = 0.02, idle = 0, expected = "two" },
+				{ name = "native reverse velocity", distance = 180, seconds = 1, idle = 0, expected = "two" },
+			}
+		do
+			verifyHarness:case("PageView release " .. sample.name, {
+				id = "native_navigation::page release::" .. sample.name,
+				run = function()
+					local chosen = Compose.cell("three")
+					local world = setup(function(UI: FacetControls)
+						local pages: { Navigation.Tab } = {}
+						for _, id in { "one", "two", "three", "four", "five" } do
+							table.insert(pages, { id = id, content = UI.Text { text = id } })
+						end
+						return UI.PageView {
+							selection = chosen,
+							pages = pages,
+							indicatorPlacement = "overlay",
+							scrollWheel = true,
+						}
+					end)
+					local pages, V2, E =
+						find(world.screen, "Pages"), world.engine.types.Vector2, world.engine.types.Enum
+					world.engine.environment.poke(pages, "AbsoluteWindowSize", V2.new(320, 160))
+					world.engine.environment.poke(pages, "AbsoluteCanvasSize", V2.new(1600, 160))
+					local touch = world.engine.new("InputObject")
+					world.engine.environment.poke(touch, "UserInputType", E.UserInputType.Touch)
+					pages.InputBegan:Fire(touch)
+					world.engine.environment.step(sample.seconds)
+					pages.CanvasPosition = V2.new(640 + sample.distance, 0)
+					if sample.name == "native reverse velocity" then
+						world.engine.environment.fakeOn(pages, "GetScrollVelocity", function()
+							return V2.new(-1200, 0)
+						end)
+					end
+					world.engine.environment.step(sample.idle)
+					world.engine.environment.fire(world.input, "InputEnded", touch)
+					Verify.expect(chosen:peek()):toBe("three")
+					Verify.expect(find(find(world.screen, "Indicators"), "three"):HasTag("facet-selected")):toBe(true)
+					Verify.expect(pages.CanvasPosition.X):toBe(640 + sample.distance)
+					world.settle()
+					Verify.expect(chosen:peek()):toBe(sample.expected)
+					Verify.expect(find(find(world.screen, "Indicators"), sample.expected):HasTag("facet-selected"))
+						:toBe(true)
+					Verify.expect(pages.CanvasPosition.X)
+						:toBe(if sample.expected == "four" then 960 elseif sample.expected == "two" then 320 else 640)
+					world.stop()
+					Verify.expect(world.engine.census().connections):toBe(0)
+				end,
+			})
+		end
+		verifyHarness:case(
+			"PageView measures a release from the page in view when a contact stops a selection animation",
+			{
+				id = "native_navigation::page release::contact during selection animation",
+				run = function()
+					local chosen = Compose.cell("one")
+					local created: { { goal: { [string]: any }, cancelled: number } } = {}
+					local tweens = {
+						Create = function(_, _instance: any, _info: any, goal: { [string]: any })
+							local record = { goal = goal, cancelled = 0 }
+							table.insert(created, record)
+							return {
+								Play = function() end,
+								Cancel = function()
+									record.cancelled += 1
+								end,
+							}
+						end,
+					}
+					local world = setup(function(UI: FacetControls)
+						local pages: { Navigation.Tab } = {}
+						for _, id in { "one", "two", "three", "four" } do
+							table.insert(pages, { id = id, content = UI.Text { text = id } })
+						end
+						return UI.PageView {
+							selection = chosen,
+							pages = pages,
+							scrollWheel = true,
+						}
+					end, { tweens = tweens })
+					local pages, V2, E =
+						find(world.screen, "Pages"), world.engine.types.Vector2, world.engine.types.Enum
+					world.engine.environment.poke(pages, "AbsoluteWindowSize", V2.new(320, 160))
+					world.engine.environment.poke(pages, "AbsoluteCanvasSize", V2.new(1280, 160))
+					Verify.expect(pages.CanvasPosition.X):toBe(0)
+					chosen:set("two")
+					Verify.expect(#created):toBe(1)
+					Verify.expect(created[1].goal.CanvasPosition.X):toBe(320)
+					pages.CanvasPosition = V2.new(100, 0)
+					local touch = world.engine.new("InputObject")
+					world.engine.environment.poke(touch, "UserInputType", E.UserInputType.Touch)
+					pages.InputBegan:Fire(touch)
+					Verify.expect(created[1].cancelled):toBe(1)
+					Verify.expect(pages.CanvasPosition.X):toBe(100)
+					world.engine.environment.step(0.02)
+					pages.CanvasPosition = V2.new(130, 0)
+					world.engine.environment.fire(world.input, "InputEnded", touch)
+					world.settle()
+					Verify.expect(pages.CanvasPosition.X):toBe(320)
+					Verify.expect(chosen:peek()):toBe("two")
+					Verify.expect(find(find(world.screen, "Indicators"), "two"):HasTag("facet-selected")):toBe(true)
+					world.stop()
+					Verify.expect(world.engine.census().connections):toBe(0)
+				end,
+			}
+		)
+		verifyHarness:case("PageView interrupts a release snap and keeps the current contact position", {
+			id = "native_navigation::page release::interruption",
+			run = function()
+				local chosen = Compose.cell("one")
+				local world = setup(function(UI: FacetControls)
+					return UI.PageView {
+						selection = chosen,
+						pages = {
+							{ id = "one", content = UI.Text { text = "One" } },
+							{ id = "two", content = UI.Text { text = "Two" } },
+						},
+					}
+				end)
+				local pages, V2, E = find(world.screen, "Pages"), world.engine.types.Vector2, world.engine.types.Enum
+				world.engine.environment.poke(pages, "AbsoluteWindowSize", V2.new(320, 160))
+				world.engine.environment.poke(pages, "AbsoluteCanvasSize", V2.new(640, 160))
+				local touch = world.engine.new("InputObject")
+				world.engine.environment.poke(touch, "UserInputType", E.UserInputType.Touch)
+				pages.InputBegan:Fire(touch)
+				world.engine.environment.step(0.02)
+				pages.CanvasPosition = V2.new(40, 0)
+				world.engine.environment.fire(world.input, "InputEnded", touch)
+				world.engine.environment.step(0.04)
+				local interrupted = pages.CanvasPosition.X
+				Verify.expect(interrupted > 40 and interrupted < 320):toBe(true)
+				pages.InputBegan:Fire(touch)
+				world.settle()
+				Verify.expect(pages.CanvasPosition.X):toBe(interrupted)
+				pages.CanvasPosition = V2.new(20, 0)
+				world.engine.environment.step(0.2)
+				world.engine.environment.fire(world.input, "InputEnded", touch)
+				world.settle()
+				Verify.expect(pages.CanvasPosition.X):toBe(0)
+				Verify.expect(chosen:peek()):toBe("one")
+				world.stop()
+			end,
+		})
+		verifyHarness:case("PageView release stops horizontal mouse inertia at one page", {
+			id = "native_navigation::page release::mouse inertia",
+			run = function()
+				local chosen = Compose.cell("one")
+				local world = setup(function(UI: FacetControls)
+					return UI.PageView {
+						selection = chosen,
+						scrollWheel = true,
+						pages = {
+							{ id = "one", content = UI.Text { text = "One" } },
+							{ id = "two", content = UI.Text { text = "Two" } },
+							{ id = "three", content = UI.Text { text = "Three" } },
+						},
+					}
+				end)
+				local pages, V2, V3, E =
+					find(world.screen, "Pages"),
+					world.engine.types.Vector2,
+					world.engine.types.Vector3,
+					world.engine.types.Enum
+				world.engine.environment.poke(pages, "AbsoluteSize", V2.new(320, 160))
+				world.engine.environment.poke(pages, "AbsoluteWindowSize", V2.new(320, 160))
+				world.engine.environment.poke(pages, "AbsoluteCanvasSize", V2.new(960, 160))
+				local mouse, movement = world.engine.new("InputObject"), world.engine.new("InputObject")
+				world.engine.environment.poke(mouse, "UserInputType", E.UserInputType.MouseButton1)
+				world.engine.environment.poke(mouse, "Position", V3.new(200, 80, 0))
+				world.engine.environment.poke(movement, "UserInputType", E.UserInputType.MouseMovement)
+				world.engine.environment.poke(movement, "Position", V3.new(50, 80, 0))
+				pages.InputBegan:Fire(mouse)
+				world.engine.environment.fire(world.input, "InputBegan", mouse)
+				world.engine.environment.step(0.02)
+				world.engine.environment.fire(world.input, "InputChanged", movement)
+				Verify.expect(pages.CanvasPosition.X):toBe(150)
+				world.engine.environment.fire(world.input, "InputEnded", mouse)
+				world.settle()
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
+				Verify.expect(chosen:peek()):toBe("two")
+				world.settle()
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
+				pages.CanvasPosition = V2.new(450, 0)
+				world.engine.environment.step(0.25)
+				world.settle()
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
+				pages.CanvasPosition = V2.new(520, 0)
+				world.engine.environment.step(0.25)
+				world.settle()
+				Verify.expect(pages.CanvasPosition.X):toBe(640)
+				Verify.expect(chosen:peek()):toBe("three")
+				world.stop()
+			end,
+		})
+		verifyHarness:case("PageView reduced motion settles on release and touch pauses automatic advance", {
+			id = "native_navigation::page release::reduced motion and automatic advance",
+			run = function()
+				local chosen = Compose.cell("one")
+				local world = setup(function(UI: FacetControls)
+					return UI.PageView {
+						selection = chosen,
+						autoAdvanceSeconds = 0.1,
+						pages = {
+							{ id = "one", content = UI.Button "TouchCard" { label = "One" } },
+							{ id = "two", content = UI.Text { text = "Two" } },
+						},
+					}
+				end, { motionLevel = "none" })
+				local pages, V2, E = find(world.screen, "Pages"), world.engine.types.Vector2, world.engine.types.Enum
+				world.engine.environment.poke(pages, "AbsoluteWindowSize", V2.new(320, 160))
+				world.engine.environment.poke(pages, "AbsoluteCanvasSize", V2.new(640, 160))
+				local touch = world.engine.new("InputObject")
+				world.engine.environment.poke(touch, "UserInputType", E.UserInputType.Touch)
+				find(world.screen, "TouchCard").InputBegan:Fire(touch)
+				world.engine.heartbeat:Fire(3)
+				Verify.expect(chosen:peek()):toBe("one")
+				pages.CanvasPosition = V2.new(200, 0)
+				world.engine.environment.fire(world.input, "InputEnded", touch)
+				Verify.expect(chosen:peek()):toBe("two")
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
+				world.engine.heartbeat:Fire(0.2)
+				pages.MouseLeave:Fire(0, 0)
+				Verify.expect(chosen:peek()):toBe("two")
+				world.engine.heartbeat:Fire(0.05)
+				world.engine.heartbeat:Fire(0.1)
+				Verify.expect(chosen:peek()):toBe("one")
+				world.stop()
+			end,
+		})
 		verifyHarness:case("overlay indicators stay over the page and leave the footer empty", function()
 			local chosen = Compose.cell("one")
 			local world = setup(function(UI: FacetControls)

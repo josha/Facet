@@ -779,5 +779,37 @@
       "OutlineColor",
       "OutlineTransparency"
     ]
+  },
+  "DragDetector": {
+    "sha256": "92e6c2d5dbaadfdfd750fa1a420fee657804cccc39d4c2a7c1543f0126eb133a",
+    "writable": [
+      "ActivatedCursorIcon",
+      "ActivatedCursorIconContent",
+      "ApplyAtCenterOfMass",
+      "Axis",
+      "DragFrame",
+      "DragStyle",
+      "Enabled",
+      "GamepadModeSwitchKeyCode",
+      "KeyboardModeSwitchKeyCode",
+      "MaxDragAngle",
+      "MaxDragTranslation",
+      "MaxForce",
+      "MaxTorque",
+      "MinDragAngle",
+      "MinDragTranslation",
+      "Orientation",
+      "PermissionPolicy",
+      "ReferenceInstance",
+      "ResponseStyle",
+      "Responsiveness",
+      "RunLocally",
+      "SecondaryAxis",
+      "TrackballRadialPullFactor",
+      "TrackballRollFactor",
+      "VRSwitchKeyCode",
+      "WorldAxis",
+      "WorldSecondaryAxis"
+    ]
   }
 }

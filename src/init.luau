@@ -8,6 +8,10 @@ local FacetDesignModule = require("@self/design")
 local ControlTypes = require("@self/ui/control_types")
 local DiegeticTypes = require("@self/ui/diegetic_types")
 export type DiegeticScreenProps = DiegeticTypes.DiegeticScreenProps
+local CameraRigTypes = require("@self/ui/camera_rig_types")
+export type CameraPose = CameraRigTypes.CameraPose
+export type CameraRigOptions = CameraRigTypes.CameraRigOptions
+export type CameraRig = CameraRigTypes.CameraRig
 local SharedTypes = require("@self/ui/types")
 local CollectionProps = require("@self/ui/collection_props")
 local SpatialProps = require("@self/ui/spatial_grid_props")
@@ -72,6 +76,7 @@ export type ZoomControls = ZoomTravelTypes.ZoomControls
 export type ZoomRect = ZoomTravelTypes.Rect
 export type TravelProps = ZoomTravelProps.TravelProps
 export type NavigationSplitViewProps = NavigationProps.NavigationSplitViewProps
+export type SplitColumn = NavigationTypes.SplitColumn
 export type ButtonProps = InputProps.ButtonProps
 export type ToggleProps = InputProps.ToggleProps
 export type TextInputProps = InputProps.TextInputProps
@@ -247,12 +252,14 @@ export type InteractionClasses = EnvironmentTypes.InteractionClasses
 export type SafeInsets = EnvironmentTypes.SafeInsets
 export type WorldAnchorOptions = EnvironmentTypes.WorldAnchorOptions
 export type WorldAnchor = EnvironmentTypes.WorldAnchor
+export type WorldAnchorPoint = EnvironmentTypes.WorldAnchorPoint
 export type ScrollOptions = EnvironmentTypes.ScrollOptions
 export type GestureKind = GestureTypes.Kind
 export type GestureOptions = GestureTypes.Options
 export type GestureDecision = GestureTypes.Decision
 export type GestureBinding = GestureTypes.Binding
 export type DraggableSpec = EnvironmentTypes.DraggableSpec
+export type WorldDragOptions = EnvironmentTypes.WorldDragOptions
 export type DropTargetSpec = EnvironmentTypes.DropTargetSpec
 export type DropInfo = EnvironmentTypes.DropInfo
 export type DropOperation = EnvironmentTypes.DropOperation
@@ -272,6 +279,10 @@ export type ThemeDefinition = ThemeTypes.ThemeDefinition
 export type PalettePatch = ThemeTypes.PalettePatch
 export type PaletteExtra = ThemeTypes.PaletteExtra
 export type TypographyPatch = ThemeTypes.TypographyPatch
+export type RGB = ThemeTypes.RGB
+export type Gradient = ThemeTypes.Gradient
+export type Rule = ThemeTypes.Rule
+export type AuthoredRuleProperties = ThemeTypes.AuthoredRuleProperties
 export type CivilDate = CivilTypes.CivilDate
 export type CivilRange = CivilTypes.Range
 export type CivilLocale = CivilTypes.Locale
@@ -340,7 +351,7 @@ export type Facet = {
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "8b93ea4cb00aa5874d88744084b406755edb8c18"
+local COMPOSE_COMMIT = "d6592f915cc32e109c79d66f673c100afd146968"
 local USED = {
 	"boundary",
 	"cell",
@@ -413,34 +424,6 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 			local library = designKit.library({
 				UI = UI,
 				motion = designKit.motion(UI),
-				rgb = Color3.fromRGB,
-				udim2 = UDim2.new,
-				offset = UDim2.fromOffset,
-				datatype = function(name: string, components: { number }): unknown
-					local a, b, c, d = components[1] or 0, components[2] or 0, components[3] or 0, components[4] or 0
-					if name == "UDim2" then
-						return UDim2.new(a, b, c, d)
-					elseif name == "UDim" then
-						return UDim.new(a, b)
-					elseif name == "Vector2" then
-						return Vector2.new(a, b)
-					elseif name == "Vector3" then
-						return Vector3.new(a, b, c)
-					elseif name == "Rect" then
-						return Rect.new(a, b, c, d)
-					elseif name == "NumberRange" then
-						return NumberRange.new(a, b)
-					end
-					return nil
-				end,
-				enumItem = function(enumName: string, item: string): unknown
-					for _, enum in Enum:GetEnums() do
-						if tostring(enum) == enumName then
-							return enum:FromName(item)
-						end
-					end
-					return nil
-				end,
 				host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
 					return runtime.constructors[className](name)(props)
 				end,

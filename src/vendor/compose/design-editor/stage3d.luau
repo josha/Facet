@@ -111,6 +111,20 @@ return function(ui: UI.UI)
 		end
 		ui.set(viewport, "Parent", parent)
 		local nodes: { [string]: Compose.Node } = {}
+		local function blocked(id: string): boolean
+			local node, parentNode = Design.document.find(session.document:peek().root, id)
+			while node do
+				if node.locked or node.hidden then
+					return true
+				end
+				node = parentNode
+				if node then
+					local _, ancestor = Design.document.find(session.document:peek().root, node.id)
+					parentNode = ancestor
+				end
+			end
+			return false
+		end
 		local runtime = ui.runtime
 		local stopDesign: (() -> ())? = nil
 		local yaw, pitch, distance, focus = math.rad(35), math.rad(-28), 28, { X = 0, Y = 1, Z = 0 }
@@ -138,6 +152,42 @@ return function(ui: UI.UI)
 				Math.transform(ui.components(ui.get(camera, "CFrame")), { X = ndc.X * tanX, Y = ndc.Y * tanY, Z = -1 })
 			)
 			return ui.xyz(ui.get(camera, "CFrame"), "Position"), direction
+		end
+		type Bounds = { left: number, top: number, right: number, bottom: number }
+		local function projectedBounds(instance: Compose.Node): Bounds?
+			local frame, extent = boundsOf(instance)
+			local components = ui.components(frame)
+			local origin = ui.xyz(frame, "Position")
+			local at, size = ui.xy(viewport, "AbsolutePosition"), ui.xy(viewport, "AbsoluteSize")
+			local tanY = math.tan(math.rad(ui.number(camera, "FieldOfView")) / 2)
+			local tanX = tanY * size.X / math.max(size.Y, 1)
+			local bounds: Bounds = { left = math.huge, top = math.huge, right = -math.huge, bottom = -math.huge }
+			for _, x in { -0.5, 0.5 } do
+				for _, y in { -0.5, 0.5 } do
+					for _, z in { -0.5, 0.5 } do
+						local corner = Math.vadd(
+							origin,
+							Math.transform(components, { X = extent.X * x, Y = extent.Y * y, Z = extent.Z * z })
+						)
+						local localPoint = ui.vector(
+							ui.call(
+								ui.get(camera, "CFrame"),
+								"PointToObjectSpace",
+								ui.values.vector3(corner.X, corner.Y, corner.Z)
+							)
+						)
+						if localPoint.Z < -0.01 then
+							local px = at.X + (localPoint.X / -localPoint.Z / tanX + 1) * size.X / 2
+							local py = at.Y + (1 - localPoint.Y / -localPoint.Z / tanY) * size.Y / 2
+							bounds.left = math.min(bounds.left, px)
+							bounds.top = math.min(bounds.top, py)
+							bounds.right = math.max(bounds.right, px)
+							bounds.bottom = math.max(bounds.bottom, py)
+						end
+					end
+				end
+			end
+			return if bounds.left < math.huge then bounds else nil
 		end
 		local function nodeOf(instance: Compose.Node?): string?
 			local current = instance
@@ -182,7 +232,7 @@ return function(ui: UI.UI)
 		local function placeGizmo(id: string?)
 			local instance = if id then nodes[id] else nil
 			for part, direction in handles do
-				if instance == nil or ui.get(instance, "Parent") == nil then
+				if instance == nil or ui.get(instance, "Parent") == nil or (id and blocked(id)) then
 					ui.set(part, "Transparency", 1)
 					ui.set(part, "CanQuery", false)
 				else
@@ -207,7 +257,13 @@ return function(ui: UI.UI)
 		end
 		local function pick(point: UI.Point): string?
 			local origin, direction = ray(point)
-			local parameters = ui.values.raycastParams(false, { guides, gizmo })
+			local excluded = { guides, gizmo }
+			for id, instance in nodes do
+				if blocked(id) then
+					table.insert(excluded, instance)
+				end
+			end
+			local parameters = ui.values.raycastParams(false, excluded)
 			local hit = ui.call(
 				world,
 				"Raycast",
@@ -217,6 +273,7 @@ return function(ui: UI.UI)
 			)
 			return if hit then nodeOf(ui.get(hit, "Instance")) else nil
 		end
+		local refreshSelection: () -> () = function() end
 		local root = Compose.createRootOwner(function()
 			Compose.watch(function(use: Compose.Use)
 				local value = use(session.document)
@@ -226,6 +283,9 @@ return function(ui: UI.UI)
 				table.clear(nodes)
 				stopDesign = runtime.mount(function(): Compose.Node
 					return Design.render(value, session.library, {
+						exclude = function(node: Design.Node): boolean
+							return node.hidden == true
+						end,
 						inputs = options.inputs,
 						slots = options.slots,
 						token = options.token,
@@ -239,16 +299,77 @@ return function(ui: UI.UI)
 					})
 				end, world)
 			end)
+			local selectionBoxes: { [string]: Compose.Node } = {}
 			Compose.watch(function(use: Compose.Use)
 				use(session.document)
 				local id = use(session.selected)
-				show(selectedBox, id)
-				placeGizmo(id)
+				local ids = use(session.selection)
+				for _, box in selectionBoxes do
+					ui.destroy(box)
+				end
+				table.clear(selectionBoxes)
+				if #ids > 1 then
+					for _, selected in ids do
+						if nodes[selected] then
+							local box = helper(`Selected_{selected}`, { X = 1, Y = 1, Z = 1 }, accent, 0.95)
+							ui.set(box, "Parent", gizmo)
+							selectionBoxes[selected] = box
+						end
+					end
+				end
+				refreshSelection = function()
+					show(selectedBox, id)
+					if #ids > 1 then
+						local low = { X = math.huge, Y = math.huge, Z = math.huge }
+						local high = { X = -math.huge, Y = -math.huge, Z = -math.huge }
+						for _, selected in ids do
+							local instance = nodes[selected]
+							if instance then
+								show(selectionBoxes[selected], selected)
+								local frame, size = boundsOf(instance)
+								local components = ui.components(frame)
+								local origin = ui.xyz(frame, "Position")
+								for _, x in { -0.5, 0.5 } do
+									for _, y in { -0.5, 0.5 } do
+										for _, z in { -0.5, 0.5 } do
+											local point = Math.vadd(
+												origin,
+												Math.transform(
+													components,
+													{ X = size.X * x, Y = size.Y * y, Z = size.Z * z }
+												)
+											)
+											low = {
+												X = math.min(low.X, point.X),
+												Y = math.min(low.Y, point.Y),
+												Z = math.min(low.Z, point.Z),
+											}
+											high = {
+												X = math.max(high.X, point.X),
+												Y = math.max(high.Y, point.Y),
+												Z = math.max(high.Z, point.Z),
+											}
+										end
+									end
+								end
+							end
+						end
+						if low.X < math.huge then
+							local center = Math.vscale(Math.vadd(low, high), 0.5)
+							local size = Math.vadd(Math.vsub(high, low), { X = 0.15, Y = 0.15, Z = 0.15 })
+							ui.set(selectedBox, "CFrame", ui.values.cframe(Math.frame(center)))
+							ui.set(selectedBox, "Size", ui.values.vector3(size.X, size.Y, size.Z))
+							ui.set(selectedBox, "Transparency", 0.9)
+						end
+					end
+					placeGizmo(id)
+				end
+				refreshSelection()
 			end)
 			Compose.watch(function(use: Compose.Use)
 				use(session.document)
 				local hovered = use(session.hovered)
-				show(hoverBox, if hovered == use(session.selected) then nil else hovered)
+				show(hoverBox, if hovered and table.find(use(session.selection), hovered) then nil else hovered)
 			end)
 		end, runtime.reactor)
 		local release = Compose.owner.own(ui.owner, root.dispose)
@@ -268,14 +389,23 @@ return function(ui: UI.UI)
 		end
 		local UserInputService = ui.service "UserInputService"
 		type Drag = {
-			kind: "orbit" | "pan" | "move",
+			kind: "orbit" | "pan" | "move" | "marquee",
 			from: UI.Point,
 			axis: UI.Vector?,
 			origin: UI.Vector?,
 			start: number?,
+			origins: { [string]: UI.Vector }?,
+			to: UI.Point?,
+			base: { string }?,
 		}
 		local drag: Drag? = nil
 		local moved: UI.Vector? = nil
+		local marquee = Theme.frame("DesignMarquee", accent)
+		ui.set(marquee, "BackgroundTransparency", 0.85)
+		ui.set(marquee, "Visible", false)
+		ui.set(marquee, "ZIndex", 10)
+		Theme.stroke(marquee, accent, 1)
+		ui.set(marquee, "Parent", viewport)
 		local function translate(instance: Compose.Node, target: UI.Vector)
 			local origin = ui.xyz(ui.call(instance, "GetPivot"), "Position")
 			local delta = Math.vsub(target, origin)
@@ -335,7 +465,32 @@ return function(ui: UI.UI)
 					then handles[ui.get(hit, "Instance")]
 					else nil
 				local selected = nodes[session.selected:peek()]
-				if axis and selected then
+				if axis and selected and not blocked(session.selected:peek()) then
+					local origins: { [string]: UI.Vector } = {}
+					local ids: { string } = {}
+					for _, id in session.selection:peek() do
+						local node = Design.document.find(session.document:peek().root, id)
+						local covered = false
+						for _, ancestor in ids do
+							local holder = Design.document.find(session.document:peek().root, ancestor)
+							covered = covered or (holder ~= nil and Design.document.find(holder, id) ~= nil)
+						end
+						if
+							node
+							and nodes[id]
+							and not blocked(id)
+							and not covered
+							and session.library.kinds[node.kind].fields.position
+						then
+							table.insert(ids, id)
+							origins[id] = ui.xyz(ui.call(nodes[id], "GetPivot"), "Position")
+						end
+					end
+					session.selectMany(ids)
+					selected = nodes[session.selected:peek()]
+					if selected == nil then
+						return
+					end
 					local pivot = ui.xyz(ui.call(selected, "GetPivot"), "Position")
 					drag = {
 						kind = "move",
@@ -343,11 +498,38 @@ return function(ui: UI.UI)
 						axis = axis,
 						origin = pivot,
 						start = closestOnAxis(pivot, axis, origin, direction),
+						origins = origins,
 					}
 					moved = nil
 				else
 					local id = pick(point)
-					session.select(id or session.document:peek().root.id)
+					if id then
+						local modified = ui.keyDown {
+							"LeftShift",
+							"RightShift",
+							"LeftControl",
+							"RightControl",
+							"LeftMeta",
+							"RightMeta",
+							"LeftSuper",
+							"RightSuper",
+						}
+						session.select(id, if modified then "toggle" else "replace")
+					else
+						local modified = ui.keyDown {
+							"LeftShift",
+							"RightShift",
+							"LeftControl",
+							"RightControl",
+							"LeftMeta",
+							"RightMeta",
+							"LeftSuper",
+							"RightSuper",
+						}
+						local base = if modified then table.clone(session.selection:peek()) else {}
+						drag = { kind = "marquee", from = point, base = base }
+						session.selectMany(base)
+					end
 				end
 			elseif ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseWheel") then
 				distance = math.clamp(distance * (if ui.xyz(input, "Position").Z > 0 then 0.87 else 1 / 0.87), 2, 600)
@@ -376,6 +558,21 @@ return function(ui: UI.UI)
 				pitch = math.clamp(pitch - delta.Y * 0.008, math.rad(-88), math.rad(88))
 				active.from = point
 				aim()
+			elseif active.kind == "marquee" then
+				active.to = point
+				local at = ui.xy(viewport, "AbsolutePosition")
+				ui.set(
+					marquee,
+					"Position",
+					ui.values.udim2(
+						0,
+						math.min(active.from.X, point.X) - at.X,
+						0,
+						math.min(active.from.Y, point.Y) - at.Y
+					)
+				)
+				ui.set(marquee, "Size", ui.values.udim2(0, math.abs(delta.X), 0, math.abs(delta.Y)))
+				ui.set(marquee, "Visible", true)
 			elseif active.kind == "pan" then
 				local scale = distance * 0.0016
 				local frame = ui.get(camera, "CFrame")
@@ -398,10 +595,13 @@ return function(ui: UI.UI)
 						along = math.round(along)
 					end
 					local target = Math.vadd(origin, Math.vscale(axis, along))
-					translate(selected, target)
+					if active.origins then
+						for id, from in active.origins do
+							translate(nodes[id], Math.vadd(from, Math.vscale(axis, along)))
+						end
+					end
 					moved = target
-					show(selectedBox, session.selected:peek())
-					placeGizmo(session.selected:peek())
+					refreshSelection()
 				end
 			end
 		end))
@@ -417,12 +617,54 @@ return function(ui: UI.UI)
 				return
 			end
 			drag = nil
+			if active.kind == "marquee" then
+				ui.set(marquee, "Visible", false)
+				local ids = table.clone(active.base or {})
+				local point = active.to
+				if point and Math.length(Math.sub(point, active.from)) >= 4 then
+					local left, right = math.min(point.X, active.from.X), math.max(point.X, active.from.X)
+					local top, bottom = math.min(point.Y, active.from.Y), math.max(point.Y, active.from.Y)
+					for id, instance in nodes do
+						if id ~= session.document:peek().root.id and not blocked(id) then
+							local bounds = projectedBounds(instance)
+							if
+								bounds
+								and bounds.left <= right
+								and bounds.right >= left
+								and bounds.top <= bottom
+								and bounds.bottom >= top
+							then
+								table.insert(ids, id)
+							end
+						end
+					end
+				end
+				session.selectMany(ids)
+				return
+			end
 			local target = moved
 			moved = nil
 			if active.kind == "move" and target then
 				local node = Design.document.find(session.document:peek().root, session.selected:peek())
 				if node and session.library.kinds[node.kind].fields.position then
-					session.change("position", { literal = { target.X, target.Y, target.Z } })
+					local origin = active.origin
+					if origin then
+						local delta = Math.vsub(target, origin)
+						session.change("position", function(current: Design.Node): Design.Value
+							local property = current.props.position
+							local literal = if property then property.literal else nil
+							local x = if type(literal) == "table" then literal[1] else nil
+							local y = if type(literal) == "table" then literal[2] else nil
+							local z = if type(literal) == "table" then literal[3] else nil
+							return {
+								literal = {
+									(if type(x) == "number" then x else 0) + delta.X,
+									(if type(y) == "number" then y else 0) + delta.Y,
+									(if type(z) == "number" then z else 0) + delta.Z,
+								},
+							}
+						end)
+					end
 				end
 			end
 		end))

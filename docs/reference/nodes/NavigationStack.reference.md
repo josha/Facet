@@ -74,6 +74,8 @@ Set theme `metrics.motion.distances.parallax = 0` to keep covered pages still
 while the front page slides. It affects all default stacks in that theme.
 See [Tasks.theme](Tasks.theme.md).
 
-Add `transition.apply` to author motion from the shared presentation progress.
+Each page gets its own presentation progress. A pushed page and a popped page
+both move. Set `transition = { scale = 0.5 }` to zoom each page from its
+center. Add `transition.apply` to author motion from the shared presentation progress.
 See [Custom-transitions](Custom-transitions.md) for the callback, lifetime and
 reduced-motion contract.

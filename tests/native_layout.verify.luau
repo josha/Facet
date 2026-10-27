@@ -1019,71 +1019,75 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
 			end,
 		})
-		verifyHarness:case("reflows initial styled metrics without keeping local font overrides", {
-			id = "native_layout::native text layout::reflows initial styled metrics without keeping local font overrides",
-			run = function()
-				local engine: any = engineLib.new()
-				local points = 13
-				local face = engine.types.Font.new("rbxasset://fonts/families/BuilderSans.json")
-				local original = engine.new
-				engine.new = function(className)
-					local node = original(className)
-					if className == "TextLabel" then
-						engine.environment.fakeOn(node, "GetStyled", function(self, property)
-							if property == "FontFace" then
-								return face
-							elseif property == "TextSize" then
-								return points
-							end
-							return self[property]
-						end)
+		verifyHarness:case(
+			"leaves the first layout to the engine and reflows styled metric changes without local font overrides",
+			{
+				id = "native_layout::native text layout::leaves the first layout to the engine and reflows styled metric changes without local font overrides",
+				run = function()
+					local engine: any = engineLib.new()
+					local points = 13
+					local face = engine.types.Font.new("rbxasset://fonts/families/BuilderSans.json")
+					local original = engine.new
+					engine.new = function(className)
+						local node = original(className)
+						if className == "TextLabel" then
+							engine.environment.fakeOn(node, "GetStyled", function(self, property)
+								if property == "FontFace" then
+									return face
+								elseif property == "TextSize" then
+									return points
+								end
+								return self[property]
+							end)
+						end
+						return node
 					end
-					return node
-				end
-				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-				local UI = Facet.controls(
-					runtime,
-					{
-						types = engine.types,
-						services = { RunService = { Heartbeat = engine.heartbeat } },
-					} :: any
-				)
-				local nativeMetrics = {}
-				engine.onWrite(function(node, property, value)
-					if
-						node.Name == "Summary"
-						and property == "AutomaticSize"
-						and value == engine.types.Enum.AutomaticSize.XY
-					then
-						table.insert(nativeMetrics, { node.FontFace, node.TextSize })
-					end
-				end)
-				local stop, result = runtime.mount(function()
-					return UI.Text "Summary" { text = "Page 1 of 3" }
-				end, engine.new("ScreenGui"))
-				local root: any = result
-				local initialFace, initialSize = root.FontFace, root.TextSize
-				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(nativeMetrics[#nativeMetrics][1]):toBe(face)
-				Verify.expect(nativeMetrics[#nativeMetrics][2]):toBe(13)
-				Verify.expect(root.FontFace):toBe(initialFace)
-				Verify.expect(root.TextSize):toBe(initialSize)
-				points = 17
-				root.StyledPropertiesChanged:Fire()
-				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(nativeMetrics[#nativeMetrics][2]):toBe(17)
-				Verify.expect(root.TextSize):toBe(initialSize)
-				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
-				points = 19
-				root.StyledPropertiesChanged:Fire()
-				stop()
-				runtime:dispose()
-				local count = #nativeMetrics
-				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(nativeMetrics):toHaveLength(count)
-				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
-			end,
-		})
+					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+					local UI = Facet.controls(
+						runtime,
+						{
+							types = engine.types,
+							services = { RunService = { Heartbeat = engine.heartbeat } },
+						} :: any
+					)
+					local nativeMetrics = {}
+					engine.onWrite(function(node, property, value)
+						if
+							node.Name == "Summary"
+							and property == "AutomaticSize"
+							and value == engine.types.Enum.AutomaticSize.XY
+						then
+							table.insert(nativeMetrics, { node.FontFace, node.TextSize })
+						end
+					end)
+					local stop, result = runtime.mount(function()
+						return UI.Text "Summary" { text = "Page 1 of 3" }
+					end, engine.new("ScreenGui"))
+					local root: any = result
+					local initialFace, initialSize = root.FontFace, root.TextSize
+					local mounted = #nativeMetrics
+					engine.heartbeat:Fire(1 / 60)
+					Verify.expect(nativeMetrics):toHaveLength(mounted)
+					Verify.expect(root.FontFace):toBe(initialFace)
+					Verify.expect(root.TextSize):toBe(initialSize)
+					points = 17
+					root.StyledPropertiesChanged:Fire()
+					engine.heartbeat:Fire(1 / 60)
+					Verify.expect(nativeMetrics[#nativeMetrics][1]):toBe(face)
+					Verify.expect(nativeMetrics[#nativeMetrics][2]):toBe(17)
+					Verify.expect(root.TextSize):toBe(initialSize)
+					Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
+					points = 19
+					root.StyledPropertiesChanged:Fire()
+					stop()
+					runtime:dispose()
+					local count = #nativeMetrics
+					engine.heartbeat:Fire(1 / 60)
+					Verify.expect(nativeMetrics):toHaveLength(count)
+					Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
+				end,
+			}
+		)
 		verifyHarness:case("measures wrapped automatic-height text again with the styled size when its text changes", {
 			id = "native_layout::native text layout::measures wrapped automatic-height text again with the styled size when its text changes",
 			run = function()
@@ -1264,6 +1268,61 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(list.HorizontalAlignment):toBe(E.HorizontalAlignment.Right)
 					Verify.expect(list.VerticalAlignment):toBe(E.VerticalAlignment.Center)
 					Verify.expect(list.VerticalFlex):toBe(E.UIFlexAlignment.None)
+				end,
+			})
+
+			verifyHarness:case("turns off auto localization only for text the author binds", {
+				id = "native_layout::VStack and HStack::turns off auto localization only for text the author binds",
+				run = function()
+					local words = Compose.cell("Coins 10")
+					local root, _engine, stop = build(nil, function(UI: FacetControls)
+						return UI.VStack {
+							UI.Text "Static" { text = "Play" },
+							UI.Text "Bound" { text = words },
+							UI.Text "Chosen" { text = words, AutoLocalize = true },
+							UI.Picker "Language" {
+								label = "Word language",
+								options = { { value = "en", label = "English" } },
+								selected = Compose.cell("en"),
+								style = "cards",
+							},
+						}
+					end)
+					Verify.expect((root:FindFirstChild("Static", true) :: TextLabel).AutoLocalize):toBe(true)
+					Verify.expect((root:FindFirstChild("Bound", true) :: TextLabel).AutoLocalize):toBe(false)
+					Verify.expect((root:FindFirstChild("Chosen", true) :: TextLabel).AutoLocalize):toBe(true)
+					local found = {}
+					for _, node in root:GetDescendants() do
+						if
+							(node:IsA("TextLabel") or node:IsA("TextButton"))
+							and (node.Text == "Word language" or node.Text == "English")
+						then
+							table.insert(found, `{node.Text}={node.AutoLocalize}`)
+						end
+					end
+					local joined = table.concat(found, ",")
+					Verify.expect(string.find(joined, "Word language=true", 1, true) ~= nil):toBe(true)
+					Verify.expect((string.find(joined, "=false", 1, true))):toBeNil()
+					stop()
+				end,
+			})
+
+			verifyHarness:case("treats a transiently negative computed extent as zero pixels", {
+				id = "native_layout::VStack and HStack::treats a transiently negative computed extent as zero pixels",
+				run = function()
+					local viewport = Compose.cell(0)
+					local root, _engine, stop = build(nil, function(UI: FacetControls)
+						return UI.VStack {
+							width = function(use: Use): number
+								return use(viewport) - 80
+							end,
+							height = 40,
+						}
+					end)
+					Verify.expect(root.Size.X.Offset):toBe(0)
+					viewport:set(400)
+					Verify.expect(root.Size.X.Offset):toBe(320)
+					stop()
 				end,
 			})
 

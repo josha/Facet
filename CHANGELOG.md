@@ -1,5 +1,38 @@
 # Current package
 
+Auto-localization stays on for text that the author gives as a plain string,
+also when a control reads it through a function. Only `UI.Text` and `UI.Badge`
+text that the author binds to a readable or a function turns it off.
+
+A negative pixel width or height, such as a computed extent before the first
+measure, resolves to 0 instead of raising.
+
+Text labels leave their first layout to the engine and read their geometry from
+the `Changed` signal. Text floors apply directly from text, style and
+measurement events instead of through watches. A bound Badge caption is
+computed once per change.
+
+Bound text, given as a readable or a function, sets `AutoLocalize` to false
+unless you set it. Engine auto-localization of each change costs about 15 µs.
+Text floors build without `Compose.show` or a separate measurement watch, and
+text labels observe their geometry by signal instead of by a poll each frame.
+A NavigationStack without transitions shows each page in a plain frame after it
+is ready. `lute run tools/facet build studio-bench` builds a Studio place that
+times the comparison workloads natively.
+
+Facet pins Compose `d6592f9`, which allocates less per watch, shared
+resource and observation. Text layout reruns only its measurement when text
+changes, caches native measurements, and builds measurement parameters on
+demand.
+
+World drag sources use `UI.draggable` with `world` options and the shared drop
+session. World targets supply `worldPlacement` through `DropInfo`. See
+[world drag and drop](docs/reference/nodes/draggable-and-dropTarget.world.md).
+
+`Facet.Compose` now includes `Compose.map` from Compose d74f653.
+`Compose.map(source, transform)` returns a body that transforms the value of one
+cell or formula. A property bound to it updates without dependency tracking.
+
 ## 0.12.0
 
 Facet provides Roblox UI controls built on Compose and native engine APIs.

@@ -163,6 +163,9 @@ return function(
 						return if chromeVisible(use) then ctx.metric("targetSizes.minimum", use) else 0
 					end
 					local role = Compose.formula(function(use: ComposeTypes.Use): string
+						if spec.transition == false then
+							return if use(state).top then "top" else "covered"
+						end
 						local list = use(entries)
 						local at = table.find(list, entry)
 						return if at == nil then "exiting" elseif at == #list then "top" else "covered"
@@ -185,23 +188,27 @@ return function(
 						})
 						else Compose.cell(0)
 					local fading = Compose.cell(stackReady and animated and level() == "limited")
-					local arrival = runtime.tween(function(use: ComposeTypes.Use): number
-						return if use(fading) then 0 else 1
-					end, { seconds = ctx.metric("motion.reducedFade"), ease = ctx.motionEase("fade") })
+					local arrival = if animated
+						then runtime.tween(function(use: ComposeTypes.Use): number
+							return if use(fading) then 0 else 1
+						end, { seconds = ctx.metric("motion.reducedFade"), ease = ctx.motionEase("fade") })
+						else Compose.cell(1)
 					local function offset(use: ComposeTypes.Use?): number
 						if not animated or reduce(use) then
 							return if ctx.readSource(role, use) == "exiting" then 1 else 0
 						end
 						return ctx.readSource(travel, use)
 					end
-					local registered = table.clone(offsets:peek())
-					registered[entry] = offset
-					offsets:set(registered)
-					Compose.cleanup(function()
-						local remaining = table.clone(offsets:peek())
-						remaining[entry] = nil
-						offsets:set(remaining)
-					end)
+					if spec.transition ~= false then
+						local registered = table.clone(offsets:peek())
+						registered[entry] = offset
+						offsets:set(registered)
+						Compose.cleanup(function()
+							local remaining = table.clone(offsets:peek())
+							remaining[entry] = nil
+							offsets:set(remaining)
+						end)
+					end
 					local function placement(use: ComposeTypes.Use): (string, number)
 						local list = use(displayed)
 						local at = table.find(list, entry)
@@ -229,9 +236,7 @@ return function(
 						Text = destination.title or "",
 						Size = D2.fromScale(1, 1),
 						TextTruncate = E.TextTruncate.AtEnd,
-						TextXAlignment = function(use: ComposeTypes.Use)
-							return if use(state).index > 1 then E.TextXAlignment.Center else E.TextXAlignment.Left
-						end,
+						TextXAlignment = if entry ~= rootEntry then E.TextXAlignment.Center else E.TextXAlignment.Left,
 					})
 					runtime.mount(function()
 						local function inset(use: ComposeTypes.Use): UDim
@@ -247,7 +252,7 @@ return function(
 						Visible = chromeVisible,
 						title :: Types.Child,
 						Compose.show(function(use: ComposeTypes.Use)
-							return chromeVisible(use) and use(state).index > 1
+							return chromeVisible(use) and entry ~= rootEntry
 						end, function()
 							return parts.back(ctx, UI, spec.backLabel, pop, {
 								AnchorPoint = V2.new(0, 0.5),
@@ -333,6 +338,21 @@ return function(
 							end,
 							not stackReady
 						)
+					elseif spec.transition == false then
+						local panelProps: Types.FrameNativeProps = {
+							Name = entry.id,
+							BackgroundTransparency = 1,
+							Size = D2.fromScale(1, 1),
+							Visible = function(use: ComposeTypes.Use): boolean
+								return use(prepared) and use(role) == "top"
+							end,
+							Interactable = function(use: ComposeTypes.Use): boolean
+								return use(prepared) and use(role) == "top"
+							end,
+							navigationBar,
+							destinationFrame,
+						}
+						panel = Host.Frame(panelProps)
 					else
 						panel = ctx.fade({
 							Name = entry.id,

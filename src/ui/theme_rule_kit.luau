@@ -5,6 +5,39 @@ local support = require("./theme_support")
 
 local merge, paletteFor, font = support.merge, support.paletteFor, support.font
 
+local states: { [string]: string } = {}
+local tails: { [string]: string } = {}
+
+local function stateOf(selector: string): string
+	local known = states[selector]
+	if known == nil then
+		known = if string.find(selector, ":Press", 1, true)
+			then "press"
+			elseif string.find(selector, ":Hover", 1, true) then "hover"
+			else "normal"
+		states[selector] = known
+	end
+	return known
+end
+
+local function fingerprint(properties: ThemeTypes.RuleProperties): string
+	local names: { string } = {}
+	for name in properties do
+		table.insert(names, name)
+	end
+	table.sort(names)
+	return table.concat(names, "|")
+end
+
+local function tailOf(selector: string): string
+	local known = tails[selector]
+	if known == nil then
+		known = string.match(selector, ", (.+)$") or selector
+		tails[selector] = known
+	end
+	return known
+end
+
 export type NativeRule = {
 	id: string,
 	selector: string,
@@ -145,7 +178,7 @@ return function(
 		local present: { [string]: boolean } = {}
 		local presence: { NativeRule } = {}
 		for _, definition in rules do
-			local selector = string.match(definition.selector, ", (.+)$") or definition.selector
+			local selector = tailOf(definition.selector)
 			if
 				string.sub(selector, -21) == " > .facet-fade-stroke"
 				and selector ~= ".facet-fading > .facet-fade-stroke"
@@ -164,19 +197,18 @@ return function(
 		table.move(presence, 1, #presence, 2, ordered)
 		table.move(rules, 2, #rules, #ordered + 1, ordered)
 		local compact: { NativeRule } = {}
-		local function state(selector: string): string
-			return if string.find(selector, ":Press", 1, true)
-				then "press"
-				elseif string.find(selector, ":Hover", 1, true) then "hover"
-				else "normal"
-		end
+		local compactStates: { string } = {}
+		local compactPrints: { string } = {}
 		for _, definition in ordered do
 			local merged = false
+			local definitionState = stateOf(definition.selector)
+			local signature = fingerprint(definition.properties)
 			for index = #compact, 1, -1 do
 				local previous = compact[index]
 				if
-					support.sameProperties(previous.properties, definition.properties)
-					and state(previous.selector) == state(definition.selector)
+					compactStates[index] == definitionState
+					and compactPrints[index] == signature
+					and support.sameProperties(previous.properties, definition.properties)
 				then
 					previous.selector ..= ", " .. definition.selector
 					merged = true
@@ -195,6 +227,8 @@ return function(
 			end
 			if not merged then
 				table.insert(compact, definition)
+				table.insert(compactStates, definitionState)
+				table.insert(compactPrints, signature)
 			end
 		end
 		for index, definition in compact do

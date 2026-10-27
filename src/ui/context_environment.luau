@@ -155,4 +155,23 @@ return function(
 			return ctx.metric("targetSizes.minimum", use)
 		end
 	end
+	ctx.runtime:watch(function()
+		local pointerOnly, tenFoot, hitFloor, effectiveInput, touchFloor =
+			ctx.pointerOnly(), ctx.tenFoot(), ctx.hitFloor(), ctx.effectiveInput(), ctx.touchFloor()
+		ctx.pointerOnly = function()
+			return pointerOnly
+		end
+		ctx.tenFoot = function()
+			return tenFoot
+		end
+		ctx.hitFloor = function()
+			return hitFloor
+		end
+		ctx.effectiveInput = function()
+			return effectiveInput
+		end
+		ctx.touchFloor = function()
+			return touchFloor
+		end
+	end)
 end

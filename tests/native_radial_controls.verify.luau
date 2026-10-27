@@ -746,6 +746,32 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((engines.connections(hold.Released))):toBe(0)
 			end,
 		})
+		verifyHarness:case("NRAD-1b a gamepad commit works after the radial closes and opens again", {
+			id = "native_radial_controls::native radial interaction policies::NRAD-1b a gamepad commit works after the radial closes and opens again",
+			run = function()
+				local picked = {}
+				local open = Compose.cell(false)
+				local world = setup({
+					isPresented = open,
+					distribution = "compass" :: "compass",
+					items = compass(function(id)
+						table.insert(picked, id)
+					end),
+				})
+				for _ = 1, 2 do
+					open:set(true)
+					world.step(0.5)
+					open:set(false)
+					world.step(0.5)
+				end
+				open:set(true)
+				world.step(0.5)
+				world.find("RadialAim").StateChanged:Fire(world.engine.types.Vector2.new(0, 0.8))
+				world.find("RadialCommit").Pressed:Fire()
+				Verify.expect((table.concat(picked, ","))):toBe("N")
+				world.stop()
+			end,
+		})
 		verifyHarness:case("NRAD-2 ignores foreign touch release and cancels captured touch", {
 			id = "native_radial_controls::native radial interaction policies::NRAD-2 ignores foreign touch release and cancels captured touch",
 			run = function()

@@ -342,7 +342,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					name = "Close",
 					icon = "close",
 					controlSize = spec.controlSize,
-					Size = D2.fromOffset(44, 44),
+					Size = parts.closeTarget(ctx),
 					AutomaticSize = E.AutomaticSize.None,
 					LayoutOrder = 3,
 					onActivate = function()

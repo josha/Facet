@@ -132,6 +132,9 @@ local neutral: ThemeTypes.ThemePackage = {
 			toast = { enter = 0.2, exit = 0.2 },
 			radial = { enter = 0.2, exit = 0.12, slot = 0.16 },
 			durations = {
+				cameraTravel = 0.3,
+				cameraInertia = 0.22,
+				pressLift = 0.1,
 				zoom = 0.22,
 				travel = 0.3,
 				travelFade = 0.16,
@@ -157,6 +160,7 @@ local neutral: ThemeTypes.ThemePackage = {
 				trailSettle = 0.35,
 			},
 			springs = {
+				camera = { period = 0.3, damping = 1 },
 				snappy = { period = 0.2, damping = 1 },
 				quick = { period = 0.18, damping = 1 },
 				travel = { period = 0.18, damping = 1 },
@@ -390,7 +394,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		".facet-sheet >> .facet-card-text >> .facet-card-text, .facet-panel >> .facet-card-text >> .facet-card-text",
 		{ BackgroundColor3 = c("control") }
 	)
-	rule(".facet-card-text >> .facet-card-part", { BackgroundTransparency = 1 })
+	rule(".facet-card-text >> .facet-card-body, .facet-card-text >> .facet-card-inflow", { BackgroundTransparency = 1 })
 	rule(".facet-card-text::UIPadding", {
 		PaddingBottom = types.UDim.new(0, package.metrics.space.s),
 		PaddingLeft = types.UDim.new(0, 0),

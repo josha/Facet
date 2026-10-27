@@ -105,6 +105,53 @@ return function(
 		end
 	end
 	local paint = Host.TextLabel(paintProps)
+	if node:IsA("ImageLabel") or node:IsA("ImageButton") then
+		local image = node
+		local function property<T>(name: string, read: () -> T): (ComposeTypes.Use) -> T
+			local observed = runtime.observe(image, name)
+			return function(use)
+				use(observed)
+				return read()
+			end
+		end
+		runtime.mount(function()
+			return Host.ImageLabel {
+				Name = "FeedbackImage",
+				Size = D2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Image = property("Image", function()
+					return image.Image
+				end),
+				ImageColor3 = property("ImageColor3", function()
+					return image.ImageColor3
+				end),
+				ImageTransparency = property("ImageTransparency", function()
+					return image.ImageTransparency
+				end),
+				ImageRectOffset = property("ImageRectOffset", function()
+					return image.ImageRectOffset
+				end),
+				ImageRectSize = property("ImageRectSize", function()
+					return image.ImageRectSize
+				end),
+				ScaleType = property("ScaleType", function()
+					return image.ScaleType
+				end),
+				SliceCenter = property("SliceCenter", function()
+					return image.SliceCenter
+				end),
+				SliceScale = property("SliceScale", function()
+					return image.SliceScale
+				end),
+				TileSize = property("TileSize", function()
+					return image.TileSize
+				end),
+				ResampleMode = property("ResampleMode", function()
+					return image.ResampleMode
+				end),
+			}
+		end, paint)
+	end
 	if geometry.reflow then
 		painted = ctx.layoutSize(paint)
 	end
@@ -142,24 +189,34 @@ return function(
 					paint.Visible = true
 					dressed:set(true)
 					unmount = runtime.mountFragment(function()
-						local children = node:GetChildren()
+						local mask = Host.UIGradient "FeedbackMask" { Transparency = ctx.types.NumberSequence.new(1) }
+						local children: { Instance } = {}
+						local moving = true
 						local selected = if ctx.config.guiService then ctx.config.guiService.SelectedObject else nil
-						for _, child in children do
+						local function move(child: Instance)
+							local carried = child:IsA("GuiObject")
+								or child:IsA("Folder")
+								or child:IsA("UIGridStyleLayout")
+								or child:IsA("UICorner")
+								or child:IsA("UIStroke")
+								or child:IsA("UIGradient")
+								or child:IsA("UIShadow")
 							if
-								child ~= boundary
+								carried
+								and moving
+								and child ~= boundary
 								and child ~= measurement
-								and (
-									child:IsA("GuiObject")
-									or child:IsA("UIGridStyleLayout")
-									or child:IsA("UICorner")
-									or child:IsA("UIStroke")
-									or child:IsA("UIGradient")
-									or child:IsA("UIShadow")
-								)
+								and child ~= mask
+								and not paint:IsDescendantOf(child)
 							then
-								(child :: Instance).Parent = paint
+								table.insert(children, child)
+								child.Parent = paint
 							end
 						end
+						for _, child in node:GetChildren() do
+							move(child)
+						end
+						runtime.connect(node, "ChildAdded", move)
 						if selected and ctx.config.guiService then
 							ctx.config.guiService.SelectedObject = selected
 						end
@@ -178,6 +235,7 @@ return function(
 							end, paint)
 						end
 						Compose.cleanup(function()
+							moving = false
 							local currentSelection = if ctx.config.guiService
 								then ctx.config.guiService.SelectedObject
 								else nil
@@ -190,7 +248,7 @@ return function(
 								ctx.config.guiService.SelectedObject = currentSelection
 							end
 						end)
-						return { Host.UIGradient "FeedbackMask" { Transparency = ctx.types.NumberSequence.new(1) } }
+						return { mask }
 					end, node)
 				end
 				local frames = ctx.config.services.RunService
@@ -222,4 +280,5 @@ return function(
 			end),
 		}
 	end, node)
+	return paint
 end

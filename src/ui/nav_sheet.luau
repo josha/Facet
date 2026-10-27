@@ -185,9 +185,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				end,
 				panel,
 			}, nil, false)
+			local centered = type(spec.transition) == "table" and spec.transition.scale ~= nil
 			runtime.decorate(panel, {
-				AnchorPoint = V2.zero,
-				Position = D2.fromScale(0, 0),
+				AnchorPoint = if centered then V2.new(0.5, 0.5) else V2.zero,
+				Position = if centered then D2.fromScale(0.5, 0.5) else D2.fromScale(0, 0),
 				Size = D2.fromScale(1, 1),
 			})
 			custom.apply(panel)
