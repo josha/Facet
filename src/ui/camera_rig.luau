@@ -123,7 +123,12 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 		end
 		local function empty(point: Vector2): boolean
 			for _, hit in spec.inputRoot:GetGuiObjectsAtPosition(point.X, point.Y) do
-				if hit.Active or hit:IsA("GuiButton") or hit:IsA("TextBox") then
+				if
+					hit.Active
+					or hit:IsA("GuiButton")
+					or hit:IsA("TextBox")
+					or hit:FindFirstAncestorWhichIsA("SurfaceGui") ~= nil
+				then
 					return false
 				end
 			end

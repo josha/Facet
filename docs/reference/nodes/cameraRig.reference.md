@@ -44,6 +44,8 @@ preset commands, such as Buttons.
 Processed input, GUI hits, GUI selection, text editing, Facet gesture contacts,
 Facet drag sessions and active world DragDetectors block camera input. The
 rig cancels held input on disable, window focus loss or gamepad disconnect.
+Hits on a SurfaceGui block pointer input, including its passive content.
+Empty room space remains available while an interactive DiegeticScreen is presented.
 The native InputContext uses priority 250 and sinks its commands while enabled.
 The game owns other gameplay contexts and must disable them for this task.
 

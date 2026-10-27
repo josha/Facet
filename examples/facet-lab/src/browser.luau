@@ -816,7 +816,7 @@ function browser.mount(opts: MountOpts)
 					collectionEditing(contextFor(pageState(page), true), page.id),
 				})
 		end
-		if data.base ~= nil then
+		if data.base ~= nil or data.make ~= nil then
 			local options = #list(data.axes)
 			for _, st in list(data.states) do
 				options += if st.matrixOnly then 0 else 1

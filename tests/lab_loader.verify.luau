@@ -13,7 +13,8 @@ type Lab = {
 	configure: (string) -> { ok: boolean },
 	report: () -> { errors: { [string]: string }, missing: { string }, values: { [string]: string } },
 }
-type Catalog = { build: (Facet.Controls) -> unknown }
+type BuiltCatalog = { pages: { [string]: { data: { base: unknown, make: unknown } } } }
+type Catalog = { build: (Facet.Controls) -> BuiltCatalog }
 type Settings = { new: (unknown, unknown) -> unknown }
 type Browser = { mount: (unknown) -> Lab }
 return function(harness: Verify.Harness)
@@ -98,6 +99,7 @@ return function(harness: Verify.Harness)
 		local settings = loadLab("lab_settings") :: Settings
 		local lab: Lab
 		local app: Facet.App
+		local built: BuiltCatalog
 		local stop = runtime.mount(function()
 			local theme = Facet.themes.neutralPackage()
 			local context: any = {
@@ -130,12 +132,13 @@ return function(harness: Verify.Harness)
 				services = { Workspace = world, GuiService = gui, UserInputService = input },
 			}
 			C.cleanup(app.dispose)
+			built = catalog.build(app.UI)
 			lab = browser.mount {
 				Facet = Facet,
 				app = app,
 				ctx = context,
 				settings = settings.new(context, input),
-				catalog = catalog.build(app.UI),
+				catalog = built,
 			}
 			return Host.Folder { Name = "LabLoaderOwner" }
 		end, engine.new("Folder"))
@@ -153,6 +156,24 @@ return function(harness: Verify.Harness)
 				target:FindFirstChild("Page_" .. id, true) ~= nil,
 				`Page_{id} did not mount: {lab.report().errors.page or "no page error"}`
 			)
+			if built.pages[id].data.base ~= nil or built.pages[id].data.make ~= nil then
+				local page = assert(target:FindFirstChild("Page_" .. id, true))
+				local playground = assert(page:FindFirstChild("Playground"), `{id} did not mount its playground`)
+				local live = assert(playground:FindFirstChild("Live"), `{id} did not mount its demo host`)
+				local demo = assert(live:FindFirstChild("Live"), `{id} did not mount its demo boundary`)
+				local mounted = false
+				for _, child in demo:GetChildren() do
+					if not child:IsA("UIComponent") then
+						mounted = true
+					end
+				end
+				assert(mounted, `{id} did not mount its demo output`)
+			end
+			if id == "DiegeticScreen" or id == "cameraRig" then
+				local page = assert(target:FindFirstChild("Page_" .. id, true))
+				assert(page:FindFirstChild("SpatialDemo", true), `{id} did not mount SpatialDemo`)
+				assert(page:FindFirstChild("EnterSpatialDemo", true), `{id} did not mount EnterSpatialDemo`)
+			end
 			for page, errors in lab.state.errors do
 				for where, message in errors do
 					refusals[page .. "/" .. where] = message
