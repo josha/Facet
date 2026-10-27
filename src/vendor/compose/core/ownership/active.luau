@@ -24,6 +24,11 @@ end
 
 local function find(create: boolean): Owner.Owner?
 	local running = coroutine.running()
+	local context = Evaluation.context()
+	local last = #threads
+	if context == nil and threads[last] == running then
+		return owners[last]
+	end
 	local explicit: Owner.Owner? = nil
 	local inherited: Owner.Owner? = nil
 	local seen: { [thread]: boolean }? = nil
@@ -50,7 +55,6 @@ local function find(create: boolean): Owner.Owner?
 			end
 		end
 	end
-	local context = Evaluation.context()
 	if context ~= nil then
 		local record = Owner.runScopeOf(context)
 		if record ~= nil and depth() <= record.base then
@@ -75,6 +79,11 @@ end
 
 local function nearest(): Owner.Owner?
 	return find(false)
+end
+
+local function isCurrent(owner: Owner.Owner): boolean
+	local last = #threads
+	return threads[last] == coroutine.running() and owners[last] == owner
 end
 
 local function push(owner: Owner.Owner): thread
@@ -163,6 +172,7 @@ end
 return {
 	current = current,
 	nearest = nearest,
+	isCurrent = isCurrent,
 	depth = depth,
 	withOwner = withOwner,
 	bind = bind,

@@ -215,20 +215,33 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 				return
 			end
 
-			local stays: { [K]: true }? = nil
+			local stays: { number }? = nil
 			if ordersChildren and not ordered then
-				local staying = longestIncreasingSubsequence(retainedPositions, retained)
-				local held: { [K]: true } = {}
-				for offset = 1, retained do
-					if staying[offset] then
-						held[keys[retainedTargets[offset]]] = true
-					end
-				end
-				stays = held
+				stays = longestIncreasingSubsequence(retainedPositions, retained)
 			end
 
 			local failures: { string }? = nil
-			if stays == nil then
+			if not ordersChildren then
+				local live = prefix
+				for index = prefix + 1, wanted do
+					local itemKey = keys[index]
+					if entries[itemKey] == nil then
+						local ok, err = pcall(mountRow, index, itemKey, live + 1)
+						if not ok then
+							local collected: { string } = failures or {}
+							failures = collected
+							table.insert(collected, tostring(err))
+							continue
+						end
+					end
+					live += 1
+					order[live] = itemKey
+					positionOf[itemKey] = live
+				end
+				for index = #order, live + 1, -1 do
+					order[index] = nil
+				end
+			elseif stays == nil then
 				local live = prefix
 				for index = prefix + 1, newEnd do
 					local itemKey = keys[index]
@@ -260,6 +273,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 				end
 			else
 				local anchor: K? = keys[newEnd + 1]
+				local staying = 1
 				for index = newEnd, prefix + 1, -1 do
 					local itemKey = keys[index]
 					local entry = entries[itemKey]
@@ -276,7 +290,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 						end
 						table.insert(order, anchorLive, itemKey)
 						reindex(anchorLive, #order)
-					elseif not stays[itemKey] then
+					elseif index ~= retainedTargets[stays[staying]] then
 						local from = positionOf[itemKey]
 						table.remove(order, from)
 						local destination = if from < anchorLive then anchorLive - 1 else anchorLive
@@ -286,6 +300,8 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 						for offset, node in entry.nodes do
 							mountPoint.moveTo(node, at + offset - 1)
 						end
+					else
+						staying += 1
 					end
 					anchor = itemKey
 				end

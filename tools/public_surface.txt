@@ -37,6 +37,7 @@ Compose : table
   Compose.isValue : function
   Compose.keyed : function
   Compose.labelOf : function
+  Compose.map : function
   Compose.outstandingMounts : function
   Compose.owner : table
   Compose.parseDiagnostic : function

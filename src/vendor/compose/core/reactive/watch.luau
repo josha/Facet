@@ -126,6 +126,22 @@ function TERMINAL.run(leader: Node)
 	end
 end
 
+function TERMINAL.runIn(frame: Evaluation.Evaluation, node: Node)
+	if node.source ~= nil or node.state == Graph.CHECK then
+		TERMINAL.run(node)
+		return
+	end
+	if node.released then
+		return
+	end
+	if statsOn.enabled then
+		stats.bump "watchRuns"
+		profile.enterRun(node)
+	end
+	node.state = Graph.CLEAN
+	Graph.runEffectIn(frame, node)
+end
+
 local GUARDED = {}
 GUARDED.__index = GUARDED
 

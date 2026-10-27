@@ -45,6 +45,11 @@
         "$path": "src/screen.luau"
       }
     },
+    "StarterGui": {
+      "$properties": {
+        "ScreenOrientation": "Sensor"
+      }
+    },
     "StarterPlayer": {
       "StarterPlayerScripts": {
         "FacetConsumer": {
