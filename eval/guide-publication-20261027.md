@@ -105,3 +105,8 @@ Current-main integration and repository checks are recorded under
 Fresh pull-request CI is required before merge. A main-branch merge does not
 turn targeted native coverage into complete release evidence. The dated evidence
 above supersedes earlier receipts only for the scope and snapshots it describes.
+
+The first fresh CI run caught a Linux kit-test setup failure: the Rokit shim
+could not locate Rojo from the temporary kit directory, which has no toolchain
+manifest. The test now launches the pinned tool from the repository and passes
+absolute kit project/output paths. This retains the exported-place assertions.

@@ -363,10 +363,13 @@ local function register(harness: Verify.Harness, prefix: string): ()
 						},
 					})
 				)
-				local docsBuild = Run.capture(
-					{ "rojo", "build", "docs.project.json", "-o", "docs.rbxlx" },
-					{ cwd = out }
-				)
+				local docsBuild = Run.capture({
+					"rojo",
+					"build",
+					Files.join(out, "docs.project.json"),
+					"-o",
+					Files.join(out, "docs.rbxlx"),
+				})
 				Verify.expect(docsBuild.ok):toBeTrueWith(docsBuild.stderr .. docsBuild.stdout)
 				local installed = Lute.model.read(Files.read(Files.join(out, "docs.rbxlx")))
 				for target, contents in chosen.writes do
