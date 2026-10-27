@@ -1458,6 +1458,7 @@ local derived: Types.Derived = {
 				sidebar = { type = "value" },
 				sidebarHeight = { type = "value" },
 				sidebarWidth = { type = "value" },
+				transition = { type = "value" },
 			},
 		},
 		NavigationStack = {

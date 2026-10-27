@@ -57,6 +57,22 @@ UI.NavigationSplitView {
 }
 ```
 
+By default, the compact layout changes its column at once. Set `transition`
+to animate the column change. The pane that opens moves from progress 0 to 1.
+The pane that closes plays the reverse. When `detailVisible` becomes false,
+the detail pane stays until its motion completes. The panes that are present
+when the control mounts show without motion. `transition` takes the
+[Custom-transitions](Custom-transitions.md) table.
+
+```luau
+UI.NavigationSplitView {
+    preferredCompactColumn = column,
+    transition = { scale = 0.5 },
+    sidebar = games,
+    detail = board,
+}
+```
+
 `sidebarWidth` is an optional writable number cell in logical pixels. Its
 default is 360. `minSidebarWidth` defaults to 240, `maxSidebarWidth` to 600,
 `minDetailWidth` to 320. The available width can reduce the sidebar width.

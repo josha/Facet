@@ -21,6 +21,7 @@ export type Transition = {
 	fade: boolean?,
 	progress: ComposeTypes.ReadOnlyValue<number?>?,
 	apply: ((GuiObject, TransitionContext) -> ())?,
+	scale: number?,
 }
 export type SourceTransition = { seconds: Types.ValueNumber?, ease: ComposeTypes.Easing?, source: Input<GuiObject?>? }
 export type MenuTrigger = "activate" | "secondary" | "longPress" | "keyboard" | "gamepad"
@@ -508,5 +509,6 @@ export type NavigationSplitViewOptions = {
 	backLabel: Types.ValueString?,
 	detailLabel: (Types.ValueString | false)?,
 	compactBack: ComposeTypes.Value<boolean>?,
+	transition: Transition | false?,
 }
 return {}

@@ -21,12 +21,17 @@ local function check(spec: Nav.Transition | false?)
 	assert(type(spec) == "table", "Facet transition must be a table or false")
 	for key in spec do
 		assert(
-			table.find({ "seconds", "ease", "motion", "fade", "progress", "apply" }, tostring(key)),
+			table.find({ "seconds", "ease", "motion", "fade", "progress", "apply", "scale" }, tostring(key)),
 			"Unknown Facet transition option: " .. tostring(key)
 		)
 	end
 	assert(spec.apply == nil or type(spec.apply) == "function", "Transition.apply must be a function")
 	assert(spec.fade == nil or type(spec.fade) == "boolean", "Transition.fade must be a boolean")
+	assert(
+		spec.scale == nil or type(spec.scale) == "number" and spec.scale > 0 and spec.scale < math.huge,
+		"Transition.scale must be a positive finite number"
+	)
+	assert(spec.scale == nil or spec.apply == nil, "Transition.scale and Transition.apply cannot be combined")
 end
 
 local function create(
@@ -40,6 +45,7 @@ local function create(
 ): Motion
 	check(spec)
 	local C, runtime = ctx.Compose, ctx.runtime
+	local preset = if spec.scale ~= nil and spec.motion == nil then "zoom" else spec.motion or "tabFade"
 	local level = motion.level(ctx)
 	local mounted = C.cell(immediate == true)
 	local held = C.formula(function(use: Types.Use): number?
@@ -73,9 +79,9 @@ local function create(
 			end
 			return if spec.seconds ~= nil
 				then ctx.read(spec.seconds, use)
-				else ctx.metric("motion.durations." .. (spec.motion or "tabFade"), use)
+				else ctx.metric("motion.durations." .. preset, use)
 		end,
-		ease = spec.ease or ctx.motionEase("fade"),
+		ease = spec.ease or ctx.motionEase(if spec.scale ~= nil then "zoom" else "fade"),
 	})
 	local opacity = C.formula(function(use: Types.Use): number
 		return if disabled or level(use) == "none" then use(target) else use(amount)
@@ -100,6 +106,17 @@ local function create(
 		apply = function(node: GuiObject, container: GuiObject?)
 			if spec.apply then
 				spec.apply(node, { progress = progress, isPresented = presented })
+			end
+			local from = spec.scale
+			if from ~= nil then
+				runtime.mount(function()
+					return ctx.Host.UIScale {
+						Name = "TransitionScale",
+						Scale = function(use: Types.Use): number
+							return from + (1 - from) * use(progress)
+						end,
+					}
+				end, node)
 			end
 			local parent = ctx.observe.Parent(container or node)
 			C.watch(function(use: Types.Use)

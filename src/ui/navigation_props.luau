@@ -1171,6 +1171,7 @@ export type NavigationSplitViewProps = {
 	backLabel: Types.ValueString?,
 	detailLabel: (Types.ValueString | false)?,
 	compactBack: Compose.Value<boolean>?,
+	transition: Nav.Transition | false?,
 	[number | Engine.EventKey]: Compose.Child,
 }
 

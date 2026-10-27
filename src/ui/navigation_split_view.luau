@@ -7,6 +7,8 @@ local scrollLock = require("./scroll_lock")
 local dragSession = require("./drag_session")
 local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
+local pageLayers = require("./nav_page_layers")
+local ComposeTypes = require("../vendor/compose/core")
 
 type Column = Nav.SplitColumn
 type Props = NavigationProps.NavigationSplitViewProps
@@ -19,6 +21,7 @@ type Registry = {
 return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
+	local layers = pageLayers(ctx)
 	UI.NavigationSplitView = ctx.construct("NavigationSplitView", function(spec: Props): Frame
 		assert(spec.axis == nil or spec.axis == "x" or spec.axis == "y", "NavigationSplitView.axis must be x or y")
 		local vertical = spec.axis == "y"
@@ -45,6 +48,9 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		assert(column.set and extent.set, "NavigationSplitView column and pane size require writable cells")
 		local detailLabel, compactBack = spec.detailLabel, spec.compactBack
 		assert(compactBack == nil or compactBack.set, "NavigationSplitView.compactBack requires a writable cell")
+		layers.checkTransition(spec.transition)
+		local transition: Nav.Transition? = if type(spec.transition) == "table" then spec.transition else nil
+		local built = false
 		local root = Host.Frame(ctx.props(spec, {
 			"sidebar",
 			"detail",
@@ -66,6 +72,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			"backLabel",
 			"detailLabel",
 			"compactBack",
+			"transition",
 		}, { Name = "NavigationSplitView", Size = D2.fromScale(1, 1), BackgroundTransparency = 1 }))
 		local size, unit = ctx.layoutSize(root), ctx.layoutUnit(root)
 		local input, tenFoot, hitFloor = ctx.effectiveInput(), ctx.tenFoot(), ctx.hitFloor()
@@ -153,9 +160,63 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		if ctx.config.services.UserInputService then
 			runtime.connect(ctx.config.services.UserInputService, "WindowFocusReleased", finish)
 		end
+		local departed = Compose.cell(false)
+		local prepared: { sidebar: Shared.Value<boolean>, detail: Shared.Value<boolean> } =
+			{ sidebar = Compose.cell(false), detail = Compose.cell(false) }
+		local groupReady = Compose.formula(function(use: Shared.Use): boolean
+			local opening = use(shown) and (not use(compact) or use(selectedColumn) == "detail")
+			return use(if opening then prepared.detail else prepared.sidebar)
+		end)
+		local function pane(properties: Shared.FrameNativeProps, departure: Shared.Value<boolean>?): Frame
+			if not transition then
+				return Host.Frame(properties)
+			end
+			local presented = properties.Visible :: (Shared.Use) -> boolean
+			local state = Compose.formula(function(use: Shared.Use): ComposeTypes.LayerStackState
+				local top = presented(use) and (departure == nil or use(shown))
+				return { index = 1, depthFromTop = if top then 0 else 1, top = top, covered = not top }
+			end)
+			local hidden: (() -> ())? = nil
+			if departure then
+				departure:set(false)
+				Compose.watch(function(use: Shared.Use)
+					if use(state).top then
+						departure:set(false)
+					end
+				end)
+				hidden = function()
+					departure:set(true)
+				end
+			end
+			local arrival: Shared.Value<boolean> = if departure then prepared.detail else prepared.sidebar
+			Compose.cleanup(function()
+				arrival:set(false)
+			end)
+			return layers.layer(
+				properties :: Shared.CanvasGroupNativeProps & Shared.FrameNativeProps,
+				state,
+				transition,
+				hidden,
+				not built,
+				arrival,
+				groupReady
+			) :: Frame
+		end
+		local function reveal(condition: Shared.ReadOnlyValue<boolean>, render: () -> Instance): Shared.Child
+			if not transition then
+				return Compose.show(condition, render)
+			end
+			return Compose.presence(condition, function(_phase: Nav.PresencePhase): Instance
+				return render()
+			end, {
+				exit = function()
+					return { completed = departed }
+				end,
+			})
+		end
 		surfaces.attach(root, {
 			(function()
-				sidebar = Host.Frame {
+				sidebar = pane({
 					Name = "Sidebar",
 					BackgroundTransparency = 1,
 					Visible = function(use: Shared.Use): boolean
@@ -170,11 +231,11 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 							else D2.new(1, 0, 1, -chrome(use))
 					end,
 					build(spec.sidebar),
-				}
+				})
 				return sidebar
 			end)(),
-			Compose.show(shown, function()
-				detail = Host.Frame {
+			reveal(shown, function()
+				detail = pane({
 					Name = "Detail",
 					BackgroundTransparency = 1,
 					Visible = function(use: Shared.Use): boolean
@@ -191,7 +252,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 							else D2.new(1, 0, 1, -chrome(use))
 					end,
 					build(spec.detail),
-				}
+				}, departed)
 				detailVisibility = ctx.observe.Visible(detail)
 				surfaces.keep(spec.detail)
 				return detail
@@ -374,6 +435,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		local previousCompact, previousColumn, previousShown = compact:peek(), selectedColumn:peek(), shown:peek()
 		local pendingFocus = false
 		local handing = false
+		built = true
 		local sidebarVisibility = ctx.observe.Visible(sidebar)
 		Compose.watch(function(use: Shared.Use)
 			local collapsed, current, visible = use(compact), use(selectedColumn), use(shown)

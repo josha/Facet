@@ -9,6 +9,124 @@ local pageLayers = require("../src/ui/nav_page_layers")
 local engines = require("./lib/native_engine")
 
 return function(h: Verify.Harness)
+	h:case("a scale transition grows a pushed page from its center and shrinks it on pop", function()
+		local path = Facet.Compose.cell({} :: { Facet.NavigationEntry<string> })
+		local w = worlds.new(function(UI: Facet.Controls)
+			return UI.NavigationStack {
+				path = path,
+				chrome = "hidden",
+				transition = {
+					scale = 0.5,
+					seconds = 0.4,
+					ease = function(t: number): number
+						return t
+					end,
+				},
+				root = {
+					content = function(): Instance
+						return UI.Button "HomeAction" { label = "Home" }
+					end,
+				},
+				destinations = {
+					details = {
+						content = function(): Instance
+							return UI.Button "DetailAction" { label = "Detail" }
+						end,
+					},
+				},
+			}
+		end)
+		path:set({ { id = "details", value = "item" } })
+		local detail = w.find("DetailAction")
+		local content = detail:FindFirstAncestor("TransitionContent")
+		local scale = content:FindFirstChild("TransitionScale")
+		local page = detail:FindFirstAncestor("details")
+		Verify.expect(content.AnchorPoint.X + content.AnchorPoint.Y):toBe(1)
+		Verify.expect(content.Position.X.Scale + content.Position.Y.Scale):toBe(1)
+		Verify.expect(scale.Scale):toBe(0.5)
+		w.engine.heartbeat:Fire(0.2)
+		Verify.expect(math.abs(scale.Scale - 0.75) < 0.001):toBe(true)
+		Verify.expect(math.abs(fade.of(page) - 0.5) < 0.001):toBe(true)
+		Verify.expect(page.Interactable):toBe(false)
+		w.engine.heartbeat:Fire(0.3)
+		Verify.expect(scale.Scale):toBe(1)
+		Verify.expect(fade.of(page)):toBe(0)
+		Verify.expect(page.Interactable):toBe(true)
+		path:set({})
+		w.engine.heartbeat:Fire(0.2)
+		Verify.expect(w.find("DetailAction")):toBe(detail)
+		Verify.expect(math.abs(scale.Scale - 0.75) < 0.001):toBe(true)
+		Verify.expect(math.abs(fade.of(page) - 0.5) < 0.001):toBe(true)
+		w.engine.heartbeat:Fire(0.3)
+		Verify.expect(w.find("DetailAction")):toBe(nil)
+		w.stop()
+	end)
+	h:case("a compact split view zooms between its columns with the theme zoom timing", function()
+		local column = Facet.Compose.cell("sidebar" :: "sidebar" | "detail")
+		local shown = Facet.Compose.cell(true)
+		local w = worlds.new(function(UI: Facet.Controls)
+			return UI.NavigationSplitView {
+				preferredCompactColumn = column,
+				detailVisible = shown,
+				detailLabel = false,
+				transition = { scale = 0.5 },
+				sidebar = function(): Instance
+					return UI.Button "File" { label = "File" }
+				end,
+				detail = function(): Instance
+					return UI.Button "Inspector" { label = "Inspector" }
+				end,
+			}
+		end)
+		local split = w.find("NavigationSplitView")
+		w.engine.environment.poke(split, "AbsoluteSize", w.engine.types.Vector2.new(400, 600))
+		local sidebar, detail = w.find("Sidebar"), w.find("Detail")
+		local inspector = w.find("Inspector")
+		local sidebarScale = w.find("File"):FindFirstAncestor("TransitionContent"):FindFirstChild("TransitionScale")
+		local detailScale = inspector:FindFirstAncestor("TransitionContent"):FindFirstChild("TransitionScale")
+		Verify.expect(sidebar.Visible and sidebarScale.Scale == 1):toBe(true)
+		Verify.expect(detail.Visible):toBe(false)
+		column:set("detail")
+		Verify.expect(detail.Visible and detailScale.Scale == 0.5):toBe(true)
+		w.engine.heartbeat:Fire(0.11)
+		Verify.expect(detailScale.Scale > 0.5 and detailScale.Scale < 1):toBe(true)
+		Verify.expect(sidebarScale.Scale > 0.5 and sidebarScale.Scale < 1):toBe(true)
+		Verify.expect(sidebar.Visible):toBe(true)
+		w.engine.heartbeat:Fire(0.12)
+		Verify.expect(detailScale.Scale):toBe(1)
+		Verify.expect(sidebar.Visible):toBe(false)
+		shown:set(false)
+		w.engine.heartbeat:Fire(0.11)
+		Verify.expect(w.find("Inspector")):toBe(inspector)
+		Verify.expect(detailScale.Scale > 0.5 and detailScale.Scale < 1):toBe(true)
+		Verify.expect(sidebar.Visible):toBe(true)
+		w.engine.heartbeat:Fire(0.12)
+		Verify.expect(w.find("Inspector")):toBe(nil)
+		Verify.expect(sidebarScale.Scale):toBe(1)
+		w.stop()
+	end)
+	h:case("a split view without a transition changes its compact column at once", function()
+		local column = Facet.Compose.cell("sidebar" :: "sidebar" | "detail")
+		local w = worlds.new(function(UI: Facet.Controls)
+			return UI.NavigationSplitView {
+				preferredCompactColumn = column,
+				detailLabel = false,
+				sidebar = function(): Instance
+					return UI.Button "File" { label = "File" }
+				end,
+				detail = function(): Instance
+					return UI.Button "Inspector" { label = "Inspector" }
+				end,
+			}
+		end)
+		w.engine.environment.poke(w.find("NavigationSplitView"), "AbsoluteSize", w.engine.types.Vector2.new(400, 600))
+		column:set("detail")
+		Verify.expect(w.find("Detail").Visible):toBe(true)
+		Verify.expect(w.find("Sidebar").Visible):toBe(false)
+		Verify.expect(w.find("Detail"):IsA("CanvasGroup")):toBe(false)
+		Verify.expect(w.find("TransitionScale")):toBe(nil)
+		w.stop()
+	end)
 	h:case("a departing custom page waits for the destination's native preparation", function()
 		local C = Facet.Compose
 		local engine = engines.new()
