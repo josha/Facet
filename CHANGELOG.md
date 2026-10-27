@@ -1,5 +1,13 @@
 # Current package
 
+Bound text, given as a readable or a function, sets `AutoLocalize` to false
+unless you set it. Engine auto-localization of each change costs about 15 µs.
+Text floors build without `Compose.show` or a separate measurement watch, and
+text labels observe their geometry by signal instead of by a poll each frame.
+A NavigationStack without transitions shows each page in a plain frame after it
+is ready. `lute run tools/facet build studio-bench` builds a Studio place that
+times the comparison workloads natively.
+
 Facet pins Compose `d6592f9`, which allocates less per watch, shared
 resource and observation. Text layout reruns only its measurement when text
 changes, caches native measurements, and builds measurement parameters on
