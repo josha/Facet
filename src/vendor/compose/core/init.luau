@@ -20,6 +20,7 @@ local InspectReport = require "@self/ownership/report"
 local HostProtocol = require "@self/host"
 local KeyedCacheModule = require "@self/keyed-cache"
 local Keys = require "@self/runtime/keys"
+local Props = require "@self/runtime/props"
 local OwnerModule = require "@self/ownership/owner"
 local PoolModule = require "@self/pool"
 local Root = require "@self/ownership/root"
@@ -326,6 +327,7 @@ return {
 	cell = cellModule.cell,
 	sharedCell = cellModule.cell,
 	formula = formula,
+	map = Props.map,
 	accumulator = AccumulatorModule,
 	selector = SelectorModule,
 	watch = watch,

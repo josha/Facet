@@ -25,6 +25,7 @@ export type Owner = {
 	following: Owner?,
 	release: Dispose?,
 	after: Dispose?,
+	batchRelease: ((subject: unknown) -> ())?,
 	[number]: unknown,
 }
 
@@ -87,10 +88,25 @@ local function isOwner(candidate: unknown): boolean
 end
 
 local function heldSize(entry: Entry): number
-	return #entry // 2
+	return if entry.batchRelease ~= nil then #entry else #entry // 2
 end
 
 local function releaseBatch(batch: Entry, keep: number, failures: { unknown })
+	local release = batch.batchRelease
+	if release ~= nil then
+		for index = #batch, keep + 1, -1 do
+			local subject = batch[index]
+			batch[index] = nil
+			local ok, failure: unknown = pcall(release, subject)
+			if not ok then
+				table.insert(failures, failure)
+			end
+		end
+		if keep == 0 then
+			batch.batchRelease = nil
+		end
+		return
+	end
 	for index = #batch - 1, keep * 2 + 1, -2 do
 		local releaseSubject, subject = batch[index], batch[index + 1]
 		batch[index] = nil
@@ -224,8 +240,19 @@ local function holdSubject(owner: Owner, releaseSubject: (subject: unknown) -> (
 	end
 	local head = owner.head
 	if head == nil or head[1] == nil then
-		attach(owner, { releaseSubject, subject })
+		attach(owner, { subject, batchRelease = releaseSubject })
 		return
+	end
+	local release = head.batchRelease
+	if release == releaseSubject then
+		head[#head + 1] = subject
+		return
+	elseif release ~= nil then
+		for index = #head, 1, -1 do
+			head[index * 2] = head[index]
+			head[index * 2 - 1] = release
+		end
+		head.batchRelease = nil
 	end
 	local size = #head
 	head[size + 1] = releaseSubject
@@ -288,12 +315,8 @@ local function rollbackTo(owner: Owner, token: Entry?)
 	raiseAll(failures)
 end
 
-disposeOwner = function(owner: Owner)
-	if owner.disposed then
-		return
-	end
+local function takeOwner(owner: Owner): Entry?
 	owner.disposed = true
-
 	local parent = owner.parent
 	if parent ~= nil and not parent.disposed and (owner.previous ~= nil or parent.head == owner) then
 		unlink(parent, owner)
@@ -302,27 +325,65 @@ disposeOwner = function(owner: Owner)
 
 	local pending = owner.head
 	owner.head = nil
+	return pending
+end
+
+local function releaseTree(following: { Entry? }, marks: { number }, failures: { unknown })
+	while #marks > 0 do
+		local depth = #marks
+		local entry = following[depth]
+		if entry ~= nil then
+			following[depth] = entry.following
+			entry.previous = nil
+			entry.following = nil
+			if entry.release == nil and entry[1] == nil then
+				if not entry.disposed then
+					marks[depth + 1] = #failures
+					following[depth + 1] = takeOwner(entry)
+				end
+			else
+				releaseEntry(entry, failures)
+			end
+		else
+			local mark = marks[depth]
+			if depth > 1 and #failures - mark > 1 then
+				local nested: { unknown } = {}
+				for index = mark + 1, #failures do
+					table.insert(nested, failures[index])
+					failures[index] = nil
+				end
+				local ok, failure: unknown = pcall(raiseAll, nested)
+				if not ok then
+					table.insert(failures, failure)
+				end
+			end
+			marks[depth] = nil
+			following[depth] = nil
+		end
+	end
+end
+
+disposeOwner = function(owner: Owner)
+	if owner.disposed then
+		return
+	end
+	local pending = takeOwner(owner)
 	if pending == nil then
 		return
 	end
-
 	local failures: { unknown } = {}
-	local function releaseRest()
-		while pending ~= nil do
-			local entry = pending
-			pending = entry.following
-			entry.previous = nil
-			entry.following = nil
-			releaseEntry(entry, failures)
-		end
+	if pending.following == nil and pending[1] ~= nil then
+		releaseBatch(pending, 0, failures)
+	else
+		local following: { Entry? } = { pending }
+		local marks: { number } = { 0 }
+		repeat
+			local ok, failure: unknown = pcall(releaseTree, following, marks, failures)
+			if not ok then
+				table.insert(failures, failure)
+			end
+		until #marks == 0
 	end
-
-	repeat
-		local ok, failure: unknown = pcall(releaseRest)
-		if not ok then
-			table.insert(failures, failure)
-		end
-	until pending == nil
 	raiseAll(failures)
 end
 

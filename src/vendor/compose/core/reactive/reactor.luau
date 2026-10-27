@@ -124,6 +124,45 @@ local function runRest(reactor: Reactor)
 	end
 end
 
+local function runInRest(reactor: Reactor)
+	local queue = reactor.queue
+	local frame = Evaluation.frame()
+	local previousConsumer, previousOrder = Evaluation.enter(nil)
+	while reactor.cursor < reactor.count do
+		local limit = math.min(reactor.count, MAX_RUNS_PER_DRAIN)
+		while reactor.cursor < limit do
+			local cursor = reactor.cursor + 1
+			reactor.cursor = cursor
+			local node = queue[cursor]
+			node.queued = false
+			local runIn = node.runIn
+			if runIn ~= nil then
+				runIn(frame, node)
+			else
+				frame.consumer = previousConsumer
+				local run = node.run
+				if run then
+					run(node)
+				end
+			end
+		end
+		if reactor.cursor >= MAX_RUNS_PER_DRAIN then
+			fail(
+				reactor,
+				(
+					"Compose: watch cascade did not settle after %d runs. A watch is very likely "
+					.. "writing to a cell it also reads; break the loop, or write inside a batch "
+					.. "that ends."
+				):format(MAX_RUNS_PER_DRAIN)
+			)
+			reactor.abandoned = true
+			Evaluation.leave(previousConsumer, previousOrder)
+			return
+		end
+	end
+	Evaluation.leave(previousConsumer, previousOrder)
+end
+
 local function drain(reactor: Reactor): { string }?
 	reactor.errors = nil
 	reactor.abandoned = false
@@ -131,7 +170,9 @@ local function drain(reactor: Reactor): { string }?
 
 	local consumer, at = Evaluation.snapshot()
 	repeat
-		if not xpcall(runRest, catch, reactor) then
+		local first = reactor.queue[reactor.cursor + 1]
+		local run = if first ~= nil and first.runIn ~= nil then runInRest else runRest
+		if not xpcall(run, catch, reactor) then
 			Evaluation.leave(consumer, at)
 			fail(reactor, caught)
 		end
@@ -148,6 +189,10 @@ local function drain(reactor: Reactor): { string }?
 
 	local queue = reactor.queue
 	if reactor.abandoned then
+		local resume = statsOn.resume
+		if resume ~= nil then
+			resume()
+		end
 		for index = cursor + 1, reactor.count do
 			rearm(queue[index])
 		end
@@ -255,9 +300,25 @@ local function runNow(node: Node)
 		return
 	end
 	reactor.batching = true
-	local consumer, at = Evaluation.snapshot()
-	local ok = xpcall(run, catch, node)
-	if not ok then
+	local listener = node.listener
+	local producer = node[1]
+	local direct = listener ~= nil
+		and producer ~= nil
+		and producer.refresh == nil
+		and producer.first == node
+		and node[4] == nil
+		and not statsOn.enabled
+	local consumer: Node? = nil
+	local at = 0
+	local ok: boolean
+	if direct and listener ~= nil and producer ~= nil then
+		node.version = producer.version
+		ok = xpcall(listener, catch, producer.value)
+	else
+		consumer, at = Evaluation.snapshot()
+		ok = xpcall(run, catch, node)
+	end
+	if not ok and not direct then
 		Evaluation.leave(consumer, at)
 	end
 	local errors: { string }? = nil
@@ -282,6 +343,10 @@ local function pending(reactor: Reactor): number
 end
 
 local function reset(reactor: Reactor)
+	local resume = statsOn.resume
+	if resume ~= nil then
+		resume()
+	end
 	local queue = reactor.queue
 	for index = reactor.count, 1, -1 do
 		queue[index].queued = false

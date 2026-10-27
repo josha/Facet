@@ -53,7 +53,17 @@ local function write(self: Node, incoming: unknown)
 		local consumer = first[2]
 		if consumer == nil then
 			if first[4] == nil or onlyListeners(first) then
-				Reactor.runNow(first)
+				local reactor = first.reactor
+				if reactor ~= nil and reactor.batching then
+					if not first.queued then
+						first.queued = true
+						local count = reactor.count + 1
+						reactor.count = count
+						reactor.queue[count] = first
+					end
+				else
+					Reactor.runNow(first)
+				end
 				return
 			end
 		elseif first[4] == nil then
@@ -66,8 +76,18 @@ local function write(self: Node, incoming: unknown)
 			elseif consumer.run ~= nil then
 				consumer.retry = false
 				consumer.state = Graph.DIRTY
-				Reactor.enqueue(consumer)
-				Graph.settleTouched()
+				local reactor = consumer.reactor
+				if reactor ~= nil and reactor.batching then
+					if not consumer.queued then
+						consumer.queued = true
+						local count = reactor.count + 1
+						reactor.count = count
+						reactor.queue[count] = consumer
+					end
+				else
+					Reactor.enqueue(consumer)
+					Graph.settleTouched()
+				end
 				return
 			end
 		end
@@ -86,11 +106,32 @@ end
 local CELL = {}
 CELL.__index = CELL
 
+local set: (Node, unknown) -> ()
+
+local function coalesced(self: Node, incoming: unknown)
+	if self.resume == nil then
+		set(self, incoming)
+	elseif self.value ~= incoming then
+		self.value = incoming
+	end
+end
+
+local function coalescedNumber(self: Node, incoming: unknown)
+	if self.set ~= coalescedNumber then
+		set(self, incoming)
+		return
+	end
+	self.value = incoming
+	if type(incoming) ~= "number" then
+		self.set = coalesced
+	end
+end
+
 function CELL.peek(self: Node): unknown
 	return self.value
 end
 
-function CELL.set(self: Node, incoming: unknown)
+set = function(self: Node, incoming: unknown)
 	local current = self.value
 	if if validationState.validating then userSpace.call(same, current, incoming) else current == incoming then
 		if statsOn.enabled then
@@ -99,10 +140,26 @@ function CELL.set(self: Node, incoming: unknown)
 		return
 	end
 	self.value = incoming
+	local first = self.first
+	local consumer = if first ~= nil then first[2] else nil
+	local state = if consumer ~= nil then consumer.state else nil
+	if
+		state == Graph.DIRTY
+		and consumer ~= nil
+		and consumer.group
+		and not statsOn.enabled
+		and first ~= nil
+		and first[4] == nil
+		and not consumer.retry
+	then
+		if consumer[2] == nil and consumer.queued then
+			Graph.coalesce(self, consumer, if type(incoming) == "number" then coalescedNumber else coalesced)
+		end
+		return
+	end
 	local version = clockState.now + 1
 	clockState.now = version
 	self.version = version
-	local first = self.first
 	if statsOn.enabled then
 		stats.bump "cellWrites"
 		Graph.countNotification(self)
@@ -110,14 +167,22 @@ function CELL.set(self: Node, incoming: unknown)
 	elseif first == nil then
 		return
 	else
-		local consumer = first[2]
 		if consumer == nil then
 			if first[4] == nil or onlyListeners(first) then
-				Reactor.runNow(first)
+				local reactor = first.reactor
+				if reactor ~= nil and reactor.batching then
+					if not first.queued then
+						first.queued = true
+						local count = reactor.count + 1
+						reactor.count = count
+						reactor.queue[count] = first
+					end
+				else
+					Reactor.runNow(first)
+				end
 				return
 			end
 		elseif first[4] == nil then
-			local state = consumer.state
 			if state == Graph.DIRTY and not consumer.retry then
 				return
 			elseif state == Graph.CHECK and not consumer.retry then
@@ -126,8 +191,7 @@ function CELL.set(self: Node, incoming: unknown)
 			elseif consumer.run ~= nil then
 				consumer.retry = false
 				consumer.state = Graph.DIRTY
-				Reactor.enqueue(consumer)
-				Graph.settleTouched()
+				Reactor.runNow(consumer)
 				return
 			end
 		end
@@ -138,6 +202,8 @@ function CELL.set(self: Node, incoming: unknown)
 	Graph.markStale(self, Graph.DIRTY)
 	Graph.settleTouched()
 end
+
+CELL.set = set
 
 function CELL.update(self: Node, change: (previous: unknown) -> unknown)
 	CELL.set(self, userSpace.call(change, self.value))

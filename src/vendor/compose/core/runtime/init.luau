@@ -251,9 +251,11 @@ local function createRuntime(host: Host.Host): Runtime
 
 			local savedInFlight = inFlight
 			inFlight = nil
-			local running = Active.push(owner)
+			local running = if Active.isCurrent(owner) then nil else Active.push(owner)
 			local ok, err: unknown = pcall(applyBuild, label, props, node, owner)
-			Active.pop(owner, running)
+			if running ~= nil then
+				Active.pop(owner, running)
+			end
 			if not ok then
 				Owner.rollbackTo(owner, mark)
 				Owner.rollbackHeld(owner, heldMark)

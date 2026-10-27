@@ -32,9 +32,13 @@ local function zeroed(): Record
 end
 
 local counters: Record = zeroed()
-local state = { enabled = false }
+local state: { enabled: boolean, resume: (() -> ())? } = { enabled = false, resume = nil }
 
 local function setEnabled(value: boolean)
+	local resume = state.resume
+	if value and resume ~= nil then
+		resume()
+	end
 	state.enabled = value
 end
 
