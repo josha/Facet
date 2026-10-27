@@ -5,7 +5,7 @@ return function(harness: Verify.Harness)
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")
 	local Geometry = require("../src/ui/diegetic_geometry")
-	local function fixture(vr: boolean?, interactive: boolean?, rigged: boolean?)
+	local function fixture(vr: boolean?, interactive: boolean?, rigged: boolean?, retainScene: boolean?)
 		local engine, bridge = engines.new()
 		local tracking = bridge.track()
 		local types = engine.types
@@ -52,6 +52,7 @@ return function(harness: Verify.Harness)
 			return hits
 		end
 		local mounted: Folder? = nil
+		local presentation: Folder? = nil
 		local rig: Facet.CameraRig? = nil
 		local function Room(): Model
 			scenes += 1
@@ -75,18 +76,21 @@ return function(harness: Verify.Harness)
 			}
 			local screen =
 				Host.ScreenGui "Application" { ScreenInsets = types.Enum.ScreenInsets.CoreUISafeInsets, content }
+			local display = UI.DiegeticScreen "Presentation" {
+				layers = { screen, backing },
+				isPresented = presented,
+				scene = Room,
+				surface = types.CFrame.new(),
+				bounds = types.Vector2.new(3, 2),
+				camera = if rig then rig.camera else types.CFrame.new(0, 4, 10),
+				interactive = interactive,
+				retainScene = retainScene,
+			}
+			presentation = display
 			local root = Host.Folder "Root" {
 				screen,
 				backing,
-				UI.DiegeticScreen "Presentation" {
-					layers = { screen, backing },
-					isPresented = presented,
-					scene = Room,
-					surface = types.CFrame.new(),
-					bounds = types.Vector2.new(3, 2),
-					camera = if rig then rig.camera else types.CFrame.new(0, 4, 10),
-					interactive = interactive,
-				},
+				display,
 			}
 			mounted = root
 			return root
@@ -127,6 +131,9 @@ return function(harness: Verify.Harness)
 			close = close,
 			scenes = function(): number
 				return scenes
+			end,
+			progress = function(): unknown
+				return assert(presentation):GetAttribute("FacetDiegeticProgress")
 			end,
 		}
 	end
@@ -267,7 +274,56 @@ return function(harness: Verify.Harness)
 		world.engine.heartbeat:Fire(0.6)
 		Verify.expect(camera.CFrame):toBe(matched)
 		world.step(1)
+		world.step(1)
 		Verify.expect(camera.CFrame == matched):toBe(false)
+	end)
+	harness:case("DiegeticScreen starts the entry clock after the presented surface renders", function(context)
+		local world = fixture()
+		context:defer(world.close)
+		world.presented:set(true)
+		world.step(2)
+		local camera = world.workspace.CurrentCamera
+		local matched = camera.CFrame
+		Verify.expect(world.progress()):toBe(0)
+		world.step(1)
+		world.engine.heartbeat:Fire(0.32)
+		Verify.expect(camera.CFrame):toBe(matched)
+		Verify.expect(world.progress()):toBe(0)
+		world.step(1)
+		local first = world.progress()
+		assert(type(first) == "number")
+		Verify.expect(first > 0 and first < 0.15):toBe(true)
+		world.step(240)
+		Verify.expect(world.progress()):toBe(1)
+	end)
+	harness:case("A DiegeticScreen with retainScene keeps one room across presentations", function(context)
+		local world = fixture(nil, nil, nil, true)
+		context:defer(world.close)
+		Verify.expect(world.scenes()):toBe(1)
+		local room = assert(world.workspace:FindFirstChild("Room", true))
+		Verify.expect(world.workspace.CurrentCamera):toBe(world.original)
+		world.presented:set(true)
+		world.step(120)
+		Verify.expect(world.progress()):toBe(1)
+		world.presented:set(false)
+		world.step(240)
+		Verify.expect(world.workspace.CurrentCamera):toBe(world.original)
+		Verify.expect(world.root:FindFirstChild("DiegeticCanvas", true)):toBe(nil)
+		Verify.expect(room:IsDescendantOf(world.workspace)):toBe(true)
+		world.presented:set(true)
+		world.step(2)
+		local camera = world.workspace.CurrentCamera
+		local matched = camera.CFrame
+		world.step(1)
+		world.engine.heartbeat:Fire(0.32)
+		Verify.expect(camera.CFrame):toBe(matched)
+		world.step(120)
+		Verify.expect(world.progress()):toBe(1)
+		Verify.expect(world.scenes()):toBe(1)
+		Verify.expect(world.workspace:FindFirstChild("Room", true)):toBe(room)
+		world.presented:set(false)
+		world.step(240)
+		Verify.expect(room:IsDescendantOf(world.workspace)):toBe(true)
 	end)
 	harness:case("DiegeticScreen preserves each safe canvas and adopts later source children", function(context)
 		local world = fixture()

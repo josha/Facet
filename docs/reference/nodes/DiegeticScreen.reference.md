@@ -9,6 +9,7 @@ instances. It does not mount another application.
 | `layers` | Existing ScreenGui layers. First is the primary application. Include its full-screen backdrop. Facet also moves its associated Composition top-bar layers. |
 | `isPresented` | Writable boolean cell. True enters the world surface. False reverses the current shot. |
 | `scene` | Named factory returning a Compose-owned Instance. Compose mounts it in Workspace for the presentation lifetime. |
+| `retainScene` | Optional. When `true`, Compose mounts the scene with the DiegeticScreen and keeps it in Workspace while `isPresented` is false. Entry and return then do not build the scene again. Default `false`. |
 | `surface` | CFrame value or reactive source for the front face of the display. Local negative Z points out of the screen. |
 | `bounds` | Positive Vector2 physical display bounds. The fixed logical canvas fits inside them without stretching. |
 | `camera` | CFrame value or reactive source for the room camera. After entry settles, CurrentCamera follows this value with CameraType Scriptable. Use `UI.cameraRig(...).camera` for bounded camera input and presets. |
@@ -22,6 +23,10 @@ tapping the display reverses the shot. With `interactive = true`, the display
 accepts application actions while presented. Frame the room camera so that the
 room is visible around the display. An enabled cameraRig receives pointer input
 over empty room space and yields to input over the application surface.
+
+The entry motion starts only after the surface layout is stable for two frames,
+or after the theme `motion.restLimit` time. The motion starts at the matched
+pose, so a slow first frame does not move the camera.
 
 The canvas retains each source layer's ScreenInsets and DisplayOrder. Its size
 is fixed through a shot. A viewport size change safely returns to screen mode.

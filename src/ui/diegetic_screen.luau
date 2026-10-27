@@ -77,7 +77,6 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 		end
 		local function release()
 			schedule.cancel("readiness")
-			schedule.cancel("departure")
 			restore()
 			restoreCameras()
 			previous = nil
@@ -153,15 +152,26 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 			end
 			assert(surface:peek()).Enabled = true
 			attached:set(true)
-			schedule.replace("departure", 0, function()
-				if attached:peek() and spec.isPresented:peek() then
-					goal:set(1)
-				end
+			Compose.withOwner(assert(layerOwner), function()
+				local painted = runtime.settled {
+					sample = function(): string
+						local sizes = table.create(#layers)
+						for index, layer in layers do
+							sizes[index] = tostring(layer.slot.AbsoluteSize)
+						end
+						return table.concat(sizes, ";")
+					end,
+					timeout = ctx.metric("motion.restLimit"),
+				}
+				Compose.watch(function(use: Types.Use)
+					if use(painted) and attached:peek() and spec.isPresented:peek() then
+						goal:set(1)
+					end
+				end)
 			end)
 		end
-		local function SceneNodes(): { Core.Node }
+		local function SessionNodes(): { Core.Node }
 			layerOwner = assert(Compose.currentOwner())
-			local scene = spec.scene()
 			local extent = Geometry.fit(ctx.read(spec.bounds), canvas)
 			local plate = Host.Part "Display" {
 				Anchored = true,
@@ -256,12 +266,22 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				layerOwner = nil
 				cameraStorage = nil
 			end)
-			return { scene, storage, plate }
+			return { storage, plate }
+		end
+		local function SceneNodes(): { Core.Node }
+			return { spec.scene() }
+		end
+		local function Session(): Folder
+			return Host.Folder "OwnedSession" { Compose.portal(workspace, SessionNodes) }
 		end
 		local function Scene(): Folder
-			return Host.Folder "OwnedWorld" { Compose.portal(workspace, SceneNodes) }
+			return Host.Folder "OwnedWorld" { Compose.portal(workspace, SceneNodes), Compose.show(live, Session) }
 		end
-		root = Host.Folder "DiegeticScreen" { Compose.show(live, Scene) }
+		local retained = spec.retainScene == true
+		local built = Compose.formula(function(use: Types.Use): boolean
+			return retained or use(live)
+		end)
+		root = Host.Folder "DiegeticScreen" { Compose.show(built, Scene) }
 		Compose.watch(function(use: Types.Use)
 			if not use(spec.isPresented) then
 				goal:set(0)
