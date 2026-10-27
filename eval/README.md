@@ -151,6 +151,21 @@ events. Arrow keys and Return test engine selection; they do not prove L3,
 other controller bindings, or physical controller behavior.
 
 Judge equivalent player states with anonymous A/B captures in both orders.
+Inspect `outputs/captures.json` before preparing judge inputs. Capture triage
+does not validate UI content, player state, device size, settled motion or custody.
+`unreviewed` means only that the image passed pixel heuristics. Noise and a
+world-only view can pass those heuristics and must not count as UI evidence.
+
+The Play host retains every decoded attempt in `outputs/capture-review`.
+Uniform images and images smaller than 64 pixels on either axis are `unusable`.
+Low-contrast or mostly single-color images are `needs-review`, not blank: sparse
+UI can produce either result. They have a `reviewPath`, but no judge-input `path`.
+Review the retained image with its state, viewport and custody evidence. Record
+the decision and exact image identity before admitting it to a separate matched
+judge bundle. Keep the original image and triage record unchanged. Missing,
+unusable, world-only or unreviewed suspicious captures cannot establish a visual
+win. `capturesKept` counts heuristic candidates, not validated screenshots.
+
 The canonical suite uses the Sol 6.1 Medium judge. Assess hierarchy,
 legibility, composition, coherent art direction, compact layouts, and feedback.
 A beautiful screenshot does not override a broken interaction.
