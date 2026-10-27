@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "e50a4096518be8328d412e240e5abe6f64f6e89f",
+  "commit": "8cd36561bb04f4124d957750929abea9e4fb7c25",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -108,7 +108,7 @@
     "roblox/cleanup.luau": "506fbbc882f9cccd6d82835ff54aaeac31ca4bee8c66240cb0fd34ea34e97366",
     "roblox/codecs.luau": "aa08c6971ddd501f831ccfa87c07d8bec1d3691ba924e7880c4d24c45cced08c",
     "roblox/engine.luau": "eabeeef9dab3d6c0d6a80a5f25c9041fd8715e99124c76e2b4a223a7583b102a",
-    "roblox/host.luau": "a5d6b682f9c15a547a3687d7ca33e6cf82a5084fd9e4ac889e41f4909c203e53",
+    "roblox/host.luau": "c9e64508e28914b629c49a4949a6677c55fabda594cb2584c039f1654909d891",
     "roblox/init.luau": "f4b3adf94e5a0b4bd77e7a4902f373f53e38457fb3e20c1dd233970bae394312",
     "roblox/input.luau": "c1cdace8cc6d002fb89bd82f290f67df10f5db1ac522d3f7009abdd69603ec94",
     "roblox/preferred-input.luau": "3262fe2ad84df92738bf3d046dd47b128027a22bf13bba4c22ebaa98481ec4d5",
@@ -116,9 +116,9 @@
   },
   "docs": {
     "SKILL.md": "a3277af0c096e2c640b1a0fb22c1739ffbf57603e81aab8ec9d7324d9f7ac590",
-    "references/api.md": "99b8470deac4cbdb4dbebcea9870b7ff8ca54526ff248f330aad08f052c0c9aa",
-    "references/consumer-guides.md": "29d67ce0ada476e9f33c41b78e8831de280ef5917b67fd3623b7fc6a8330a26b",
+    "references/api.md": "35239261f6f482bc5368ee430e60f0c122bb32a24b2544dd57095d715fec313e",
+    "references/consumer-guides.md": "722b9881a2d0583989424b355742011f1cfc1956cc9af2b19a6427432c2d5d45",
     "references/design.md": "d071e5bb4b1fc0b056c175cd6c38cd963a53594c700e833270345b32a6e2364c",
-    "references/ownership.md": "5cf7ec7ccf71a40e2a748034e540d7444535aff1da53203a8fc1d3ac7b67e5f6"
+    "references/ownership.md": "c9f52ddf654c6f32c8df82543dcd1632ab8cad1b6f72440aa55d29c7e4588986"
   }
 }

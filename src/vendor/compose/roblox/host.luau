@@ -21,38 +21,6 @@ type StyledEntry = {
 	subscribers: { [Subscriber]: boolean },
 	stopStyled: Compose.Unsubscribe?,
 }
-type RawSubscriber = { listener: (() -> ())? }
-type RawEntry = {
-	subscribers: { RawSubscriber },
-	count: number,
-	publishing: number,
-	cursor: number,
-	stop: Compose.Unsubscribe?,
-}
-
-local function sweepRaw(subject: RawEntry, subscribers: { RawSubscriber }, last: number): unknown
-	for index = subject.cursor, last do
-		subject.cursor = index + 1
-		local notify = subscribers[index].listener
-		if notify ~= nil then
-			notify()
-		end
-	end
-	return nil
-end
-
-local function compactRaw(subject: RawEntry)
-	local live = 0
-	for _, subscriber in subject.subscribers do
-		if subscriber.listener ~= nil then
-			live += 1
-			subject.subscribers[live] = subscriber
-		end
-	end
-	for index = #subject.subscribers, live + 1, -1 do
-		subject.subscribers[index] = nil
-	end
-end
 
 local function raiseFailures(failures: { unknown })
 	if #failures == 1 then
@@ -89,7 +57,6 @@ local function createHost(engine: Engine.Engine): Compose.Host
 	local defaults: DefaultCache = {}
 	local unsampleable: { [string]: true } = {}
 	local styledEntries: { [Node]: StyledEntry } = {}
-	local rawEntries: { [Node]: { [string]: RawEntry } } = {}
 
 	local classified: { [string]: { [string]: Compose.KeyKind } } = {}
 
@@ -232,91 +199,7 @@ local function createHost(engine: Engine.Engine): Compose.Host
 	end
 
 	local function observeProperty(node: Node, key: string, listener: () -> ()): Compose.Unsubscribe
-		local properties: { [string]: RawEntry } = rawEntries[node] or {}
-		local entry = properties[key]
-		local current: RawEntry
-		if entry == nil then
-			local created: RawEntry = { subscribers = {}, count = 0, publishing = 0, cursor = 1 }
-			local function single(): unknown
-				local notify = created.subscribers[1].listener
-				if notify ~= nil then
-					notify()
-				end
-				return nil
-			end
-			created.stop = connect(engine.propertyChanged(node, key), function()
-				local only = created.subscribers
-				if #only == 1 then
-					if only[1].listener == nil then
-						return
-					end
-					created.publishing += 1
-					local ok, failure = pcall(single)
-					created.publishing -= 1
-					if created.publishing == 0 and created.count < #only then
-						compactRaw(created)
-					end
-					if not ok then
-						raiseFailures { if failure == nil then "ComposeRoblox raw observation raised nil" else failure }
-					end
-					return
-				end
-				created.publishing += 1
-				local failures: { unknown }? = nil
-				local subscribers = created.subscribers
-				local last = #subscribers
-				local outer = created.cursor
-				created.cursor = 1
-				while created.cursor <= last do
-					local ok, failure = pcall(sweepRaw, created, subscribers, last)
-					if not ok then
-						local collected = failures or {}
-						failures = collected
-						table.insert(
-							collected,
-							if failure == nil then "ComposeRoblox raw observation raised nil" else failure
-						)
-					end
-				end
-				created.cursor = outer
-				created.publishing -= 1
-				if created.publishing == 0 and created.count < #subscribers then
-					compactRaw(created)
-				end
-				if failures ~= nil then
-					raiseFailures(failures)
-				end
-			end)
-			properties[key] = created
-			rawEntries[node] = properties
-			current = created
-		else
-			current = entry
-		end
-		local subscriber: RawSubscriber = { listener = listener }
-		table.insert(current.subscribers, subscriber)
-		current.count += 1
-		return function()
-			if subscriber.listener == nil then
-				return
-			end
-			subscriber.listener = nil
-			current.count -= 1
-			if current.count == 0 then
-				properties[key] = nil
-				if next(properties) == nil then
-					rawEntries[node] = nil
-				end
-				local stop: Compose.Unsubscribe? = current.stop
-				current.stop = nil
-				if stop then
-					stop()
-				end
-			end
-			if current.publishing == 0 then
-				compactRaw(current)
-			end
-		end
+		return connect(engine.propertyChanged(node, key), listener)
 	end
 
 	local function publish(entry: StyledEntry)
