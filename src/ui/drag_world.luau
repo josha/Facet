@@ -166,7 +166,10 @@ return function(ctx: Types.Context, source: BasePart | Model, spec: Env.Draggabl
 	if area then
 		ctx.runtime.connect(area, "InputBegan", function(pointer: InputObject)
 			if
-				(pointer.UserInputType == E.UserInputType.MouseButton1 or pointer.UserInputType == E.UserInputType.Touch)
+				(
+					pointer.UserInputType == E.UserInputType.MouseButton1
+					or pointer.UserInputType == E.UserInputType.Touch
+				)
 				and service.state:peek() == nil
 				and enabled(nil)
 				and arbiter.begin(pointer, source, at(pointer), { pickup = "immediate" })

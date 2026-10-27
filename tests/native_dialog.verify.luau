@@ -395,60 +395,63 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
-		verifyHarness:case("an Escape returns selection to an opener inside a NavigationStack page, which opens the dialog again", {
-			id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::an Escape returns selection to an opener inside a NavigationStack page, which opens the dialog again",
-			run = function()
-				local open, log, change = caller()
-				open:set(false)
-				local opener: GuiObject
-				local path = Compose.cell({ { id = "detail" } })
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						UI.NavigationStack "App" {
-							path = path,
-							destinations = {
-								detail = {
+		verifyHarness:case(
+			"an Escape returns selection to an opener inside a NavigationStack page, which opens the dialog again",
+			{
+				id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::an Escape returns selection to an opener inside a NavigationStack page, which opens the dialog again",
+				run = function()
+					local open, log, change = caller()
+					open:set(false)
+					local opener: GuiObject
+					local path = Compose.cell({ { id = "detail" } })
+					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+						return Host.Frame({
+							UI.NavigationStack "App" {
+								path = path,
+								destinations = {
+									detail = {
+										content = function(): Instance
+											opener = UI.Button "Opener" {
+												label = "Open",
+												onActivate = function()
+													open:set(true)
+												end,
+											}
+											return opener
+										end,
+									},
+								},
+								root = {
 									content = function(): Instance
-										opener = UI.Button "Opener" {
-											label = "Open",
-											onActivate = function()
-												open:set(true)
-											end,
-										}
-										return opener
+										return UI.Button "Home" { label = "Home" }
 									end,
 								},
 							},
-							root = {
-								content = function(): Instance
-									return UI.Button "Home" { label = "Home" }
-								end,
-							},
-						},
-						UI.Dialog "Confirm"(standard(open, log, change)(UI, Host)),
-					})
-				end, { motionLevel = "none" }, { inputs = true, lastInputType = UserInputType.Keyboard })
-				w.advance(0.1)
-				for cycle = 1, 2 do
-					w.gui.SelectedObject = opener
-					open:set(true)
+							UI.Dialog "Confirm"(standard(open, log, change)(UI, Host)),
+						})
+					end, { motionLevel = "none" }, { inputs = true, lastInputType = UserInputType.Keyboard })
 					w.advance(0.1)
-					Verify.expect(w.gui.SelectedObject ~= opener):toBe(true)
-					key(w, "Escape", true)
-					local back = w.action("ModalBack")
-					if back then
-						back.Pressed:Fire()
+					for cycle = 1, 2 do
+						w.gui.SelectedObject = opener
+						open:set(true)
+						w.advance(0.1)
+						Verify.expect(w.gui.SelectedObject ~= opener):toBe(true)
+						key(w, "Escape", true)
+						local back = w.action("ModalBack")
+						if back then
+							back.Pressed:Fire()
+						end
+						key(w, "Escape", false)
+						w.advance(0.5)
+						Verify.expect((open:peek())):toBe(false)
+						Verify.expect(#path:peek()):toBe(1)
+						Verify.expect(w.gui.SelectedObject):toBe(opener)
+						Verify.expect(#log.changes):toBe(cycle)
 					end
-					key(w, "Escape", false)
-					w.advance(0.5)
-					Verify.expect((open:peek())):toBe(false)
-					Verify.expect(#path:peek()):toBe(1)
-					Verify.expect(w.gui.SelectedObject):toBe(opener)
-					Verify.expect(#log.changes):toBe(cycle)
-				end
-				w.stop()
-			end,
-		})
+					w.stop()
+				end,
+			}
+		)
 	end)
 
 	verifyHarness:suite("native Dialog: initial action", function()
