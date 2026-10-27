@@ -15,6 +15,7 @@ local typography: { [string]: Facet.TypographyPatch } = {
 	heading = { size = 28, font = { family = "rbxasset://fonts/families/Nunito.json", weight = "Bold" } },
 	label = { size = 20, font = { family = "rbxasset://fonts/families/BuilderSans.json", weight = "Bold" } },
 	strong = { size = 20 },
+	numeral = { size = 32, font = { family = "rbxasset://fonts/families/Nunito.json", weight = "Bold" } },
 	body = { size = 18 },
 	caption = { size = 16 },
 }

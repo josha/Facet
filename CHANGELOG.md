@@ -112,6 +112,11 @@ Use the [API reference](docs/reference/api.md) for public contracts and the
 Use the [game UI design guide](skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md)
 for composition, input, and device decisions.
 
+`Facet.review` reports design patterns that make a screen look generic, on a
+live screen or a saved dump; `facet critique` turns captures and those
+findings into a packet for a fresh reviewer. `Facet.themes.define` adds
+`report.advice` for a flat type scale.
+
 The version in `src/init.luau` identifies the source package. A local build does
 not publish it. Run `lute run tools/facet package status` for publication and
 verification status. See [package operations](package/README.md).

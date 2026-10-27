@@ -6,6 +6,7 @@ end
 local typography: { [string]: Facet.TypographyPatch } = {
 	title = { size = 36, font = { family = "rbxasset://fonts/families/Merriweather.json", weight = "Regular" } },
 	heading = { size = 24, font = { family = "rbxasset://fonts/families/Merriweather.json", weight = "Regular" } },
+	numeral = { size = 32, font = { family = "rbxasset://fonts/families/Merriweather.json", weight = "Bold" } },
 }
 local colors: { [string]: { r: number?, g: number?, b: number? } } = {
 	surface = { r = 244 / 255, g = 237 / 255, b = 217 / 255 },

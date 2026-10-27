@@ -115,6 +115,31 @@ local function checkCoverage(
 	return { ok = #missing == 0, missing = missing, covered = covered }
 end
 
+type ScaleAdvice = { role: string, minimum: number?, maximum: number?, message: string }
+
+local TYPE_SCALE_ADVICE: { ScaleAdvice } = {
+	{
+		role = "numeral",
+		minimum = 1.6,
+		message = "numeral is %g px, %.2f times body (%g px), so deciding values read as body text. Give numeral 1.6 times body or more",
+	},
+	{
+		role = "title",
+		minimum = 1.6,
+		message = "title is %g px, %.2f times body (%g px), so a screen has no clear lead. Give title 1.6 times body or more",
+	},
+	{
+		role = "heading",
+		minimum = 1.2,
+		message = "heading is %g px, %.2f times body (%g px), so groups do not separate. Give heading 1.2 times body or more",
+	},
+	{
+		role = "caption",
+		maximum = 0.95,
+		message = "caption is %g px, %.2f times body (%g px), so labels compete with values. Make caption smaller than body",
+	},
+}
+
 return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { string }): Definitions
 	local steps: { [string]: { hover: number, pressed: number } } = {}
 	for _, palette in neutral.style.themes do
@@ -155,6 +180,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 					errors = { { field = "package", message = "Expected a package definition" } },
 					missing = {},
 					contrast = {},
+					advice = {},
 				}
 		end
 		if definition.base ~= nil and type(definition.base) ~= "table" then
@@ -162,7 +188,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		end
 		validate(definition, "package")
 		if #errors > 0 then
-			return nil, { ok = false, errors = errors, missing = {}, contrast = {} }
+			return nil, { ok = false, errors = errors, missing = {}, contrast = {}, advice = {} }
 		end
 		local base = copy(definition.base or neutral)
 		if type(base.style) == "table" and type(base.style.themes) == "table" and #base.style.themes > 1 then
@@ -176,7 +202,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			table.insert(errors, { field = "style.themes", message = "A theme package needs at least one palette" })
 		end
 		if #errors > 0 then
-			return nil, { ok = false, errors = errors, missing = {}, contrast = {} }
+			return nil, { ok = false, errors = errors, missing = {}, contrast = {}, advice = {} }
 		end
 		local typography = package.metrics.typography :: { [string]: unknown }
 		local definedMetrics = (definition :: { metrics: unknown? }).metrics
@@ -446,7 +472,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			checkLinks(recipe, "chrome." .. slot)
 		end
 		if #errors > 0 then
-			return nil, { ok = false, errors = errors, missing = {}, contrast = {} }
+			return nil, { ok = false, errors = errors, missing = {}, contrast = {}, advice = {} }
 		end
 		package.schema = schema
 		local contrast: { ThemeTypes.ContrastResult } = {}
@@ -522,9 +548,32 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			end
 		end
 		if #errors > 0 then
-			return nil, { ok = false, errors = errors, missing = {}, contrast = contrast }
+			return nil, { ok = false, errors = errors, missing = {}, contrast = contrast, advice = {} }
 		end
-		return frozen(package), { ok = true, errors = {}, missing = {}, contrast = contrast }
+		local advice: { ThemeTypes.ThemeIssue } = {}
+		local resolvedTypography = package.metrics.typography :: { [string]: unknown }
+		local function sizeOf(role: string): number?
+			local entry = resolvedTypography[role]
+			local size = if type(entry) == "table" then (entry :: { size: unknown }).size else nil
+			return if type(size) == "number" then size else nil
+		end
+		local body = sizeOf("body")
+		if body ~= nil and body > 0 then
+			for _, rule in TYPE_SCALE_ADVICE do
+				local size = sizeOf(rule.role)
+				if size == nil then
+					continue
+				end
+				local ratio = size / body
+				if (rule.minimum ~= nil and ratio < rule.minimum) or (rule.maximum ~= nil and ratio > rule.maximum) then
+					table.insert(advice, {
+						field = "metrics.typography." .. rule.role,
+						message = rule.message:format(size, ratio, body),
+					})
+				end
+			end
+		end
+		return frozen(package), { ok = true, errors = {}, missing = {}, contrast = contrast, advice = advice }
 	end
 	return { define = define, checkCoverage = checkCoverage }
 end

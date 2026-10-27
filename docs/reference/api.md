@@ -21,6 +21,11 @@ Set target `placement` to supply the same logical `DropInfo.placement` as Spatia
 See [Design library](nodes/Design-library.md).
 Run `lute run tools/facet docs` to read the map.
 
+`Facet.review.screen(options?)` reads the live screen and reports design
+patterns that make it look generic, such as facts joined in one text and
+items without a visual. `review.analyze(snapshot)` is the pure form. See
+[Review](nodes/Review.md).
+
 `Facet.controls(runtime, options?)` returns controls for a Compose Roblox runtime.
 Without options, it returns the controls provided for that runtime in the
 current Compose owner or a parent owner. If no provider exists, it makes fresh

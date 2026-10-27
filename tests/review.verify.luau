@@ -209,6 +209,36 @@ return function(harness: Verify.Harness)
 		t:expect(string.find(report.text, "joined-facts", 1, true) ~= nil):toBe(true)
 	end)
 
+	harness:case("define reports a flat type scale as advice and stays valid", function(t)
+		local themes = require("../src").themes
+		local flat, flatReport = themes.define({ identity = { id = "flat" } })
+		t:expect(flat ~= nil and flatReport.ok):toBe(true)
+		local fields: { [string]: boolean } = {}
+		for _, item in flatReport.advice do
+			fields[item.field] = true
+		end
+		t:expect(fields["metrics.typography.numeral"]):toBe(true)
+		local ThemeTypes = require("../src/ui/theme_types")
+		local tuned: ThemeTypes.ThemeDefinition = {
+			identity = { id = "tuned" },
+			metrics = {
+				typography = {
+					body = { size = 18 },
+					caption = { size = 15 },
+					heading = { size = 24 },
+					title = { size = 32 },
+					numeral = { size = 32 },
+				},
+			},
+		}
+		local _, tunedReport = themes.define(tuned)
+		t:expect(tunedReport.ok):toBe(true)
+		t:expect(#tunedReport.advice):toBe(0)
+		local refusedPackage, refused = themes.define((5 :: unknown) :: ThemeTypes.ThemeDefinition)
+		t:expect(refusedPackage == nil and not refused.ok):toBe(true)
+		t:expect(#refused.advice):toBe(0)
+	end)
+
 	harness:case("a malformed snapshot is refused", function(t)
 		local ok = pcall(function()
 			Rules.analyze((({}) :: unknown) :: Rules.ReviewSnapshot)

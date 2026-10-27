@@ -2,14 +2,16 @@
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 local supplyArt = require(script.Parent.Parent.assets["river-supplies-art"])
 
+export type Fact = { label: string, value: string }
 export type Record = {
 	id: string,
 	name: string,
 	category: string,
-	facts: string,
+	facts: { Fact },
 	value: number,
 	price: string?,
 	ownership: string?,
+	icon: string?,
 }
 export type SubjectRenderer = (Facet.App, Facet.ReadOnlyValue<Record>) -> GuiObject
 export type Order = string
@@ -28,6 +30,61 @@ export type DetailState = {
 	message: Facet.ReadOnlyValue<string>,
 }
 export type DetailCallbacks = { commit: (string) -> (), back: () -> () }
+
+local function factStrip(app: Facet.App, record: Facet.ReadOnlyValue<Record>, size: "compact" | "detail"): GuiObject
+	local C, UI = Facet.Compose, app.UI
+	return UI.HStack "Facts" {
+		width = "fill",
+		wrap = true,
+		gap = if size == "detail" then "l" else "m",
+		C.keyed({
+			from = C.formula(function(use: Facet.Use): { Fact }
+				return use(record).facts
+			end),
+			key = function(fact: Fact): string
+				return fact.label
+			end,
+			render = function(current: Facet.ReadOnlyValue<Fact>): GuiObject
+				return UI.VStack "Fact" {
+					gap = "xs",
+					UI.Text {
+						text = function(use: Facet.Use): string
+							return use(current).value
+						end,
+						textRole = if size == "detail" then "numeral" else "strong",
+					},
+					UI.Text {
+						text = function(use: Facet.Use): string
+							return use(current).label
+						end,
+						textRole = "caption",
+						role = "secondary",
+					},
+				}
+			end,
+		}),
+	}
+end
+
+local function glyph(app: Facet.App, record: Facet.ReadOnlyValue<Record>, size: number): GuiObject
+	local UI = app.UI
+	return UI.VStack "Glyph" {
+		width = size,
+		height = size,
+		surface = "pane",
+		corners = "control",
+		align = "center",
+		distribute = "center",
+		UI.Label {
+			title = function(use: Facet.Use): string
+				return use(record).name
+			end,
+			icon = record:peek().icon or "bag",
+			presentation = "iconOnly",
+			iconSize = math.floor(size * 0.55),
+		},
+	}
+end
 
 local function collectionScreen(app: Facet.App, hasArtwork: boolean, content: GuiObject): Frame
 	local C, UI = Facet.Compose, app.UI
@@ -91,6 +148,18 @@ local function buildDetail(
 		return UI.VStack "SupplyDecision" {
 			width = "fill",
 			gap = "s",
+			C.show(function(): boolean
+				return artwork == nil
+			end, function()
+				return glyph(app, record, 96)
+			end),
+			UI.Text {
+				text = function(use: Facet.Use): string
+					return string.upper(use(record).category)
+				end,
+				textRole = "label",
+				role = "secondary",
+			},
 			UI.Text {
 				text = function(use: Facet.Use): string
 					return use(record).name
@@ -98,17 +167,12 @@ local function buildDetail(
 				textRole = "title",
 				wrap = true,
 			},
-			UI.Text {
-				text = function(use: Facet.Use): string
-					return use(record).category .. " · " .. use(record).facts
-				end,
-				wrap = true,
-			},
+			factStrip(app, record, "detail"),
 			UI.Text {
 				text = function(use: Facet.Use): string
 					return use(record).price or ""
 				end,
-				textRole = "strong",
+				textRole = "numeral",
 				wrap = true,
 			},
 			UI.Text {
@@ -252,17 +316,12 @@ return {
 			local query, category, order = string.lower(use(model.query)), use(model.category), use(model.order)
 			local matches: { Record } = {}
 			for _, record in use(records) do
-				local text = string.lower(
-					record.name
-						.. " "
-						.. record.category
-						.. " "
-						.. record.facts
-						.. " "
-						.. (record.price or "")
-						.. " "
-						.. (record.ownership or "")
-				)
+				local words = { record.name, record.category, record.price or "", record.ownership or "" }
+				for _, fact in record.facts do
+					table.insert(words, fact.label)
+					table.insert(words, fact.value)
+				end
+				local text = string.lower(table.concat(words, " "))
 				if (category == "" or record.category == category) and string.find(text, query, 1, true) then
 					table.insert(matches, record)
 				end
@@ -304,9 +363,8 @@ return {
 				local function title(use: Facet.Use): string
 					return use(current).name
 				end
-				local function subtitle(use: Facet.Use): string
-					local record = use(current)
-					return record.category .. " · " .. record.facts
+				local function category(use: Facet.Use): string
+					return use(current).category
 				end
 				local function price(use: Facet.Use): string
 					return use(current).price or ""
@@ -337,13 +395,16 @@ return {
 									height = recordRoom.scaled(116),
 									art(),
 								}
+							end, function()
+								return glyph(app, current, 64)
 							end),
 							UI.VStack "RecordDecision" {
 								width = "fill",
 								gap = "xs",
 								UI.fill(),
+								UI.Text { text = category, textRole = "caption", role = "secondary", wrap = true },
 								UI.Text { text = title, textRole = "strong", wrap = true },
-								UI.Text { text = subtitle, textRole = "caption", role = "secondary", wrap = true },
+								factStrip(app, current, "compact"),
 								UI.Text { text = price, textRole = "strong", wrap = true },
 								UI.Text {
 									Visible = function(use: Facet.Use): boolean
@@ -372,11 +433,12 @@ return {
 							UI.Card "SupplyCard" {
 								Size = UDim2.new(1, 0, 0, 0),
 								title = title,
-								caption = subtitle,
+								caption = category,
 								artwork = art,
 								imageAspectRatio = 1.65,
 								badges = badges,
 							},
+							factStrip(app, current, "compact"),
 							UI.Button "InspectSupply" {
 								Size = UDim2.new(1, 0, 0, 0),
 								label = actionLabel,
@@ -436,7 +498,10 @@ return {
 					gap = "s",
 					searchInput(search),
 					UI.Button "Filters" {
-						label = "Filters",
+						label = function(use: Facet.Use): string
+							local category = use(model.category)
+							return if category == "" then "Filters" else category
+						end,
 						appearance = "utility",
 						onActivate = function()
 							model.filterPath:set({ { id = "filters" } })
@@ -447,12 +512,8 @@ return {
 					wrap = true,
 					textRole = "caption",
 					text = function(use: Facet.Use): string
-						local category = use(model.category)
-						return `{#use(visible)} in stock · {if category == "" then "All types" else category} · {if use(
-								model.order
-							) == "name"
-							then "Name"
-							else "Lowest cost"}`
+						local count = #use(visible)
+						return `{count} in stock`
 					end,
 				},
 				recordsBody,

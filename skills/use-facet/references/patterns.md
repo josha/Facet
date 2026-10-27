@@ -72,8 +72,9 @@ For products or equipment, use [collection](../examples/collection.luau).
 Use the game's theme and subjects; [Riverbank](../assets/riverbank-theme.luau)
 demonstrates one identity. Call `createModel()` once, pass records
 and `inspect(id)`/`close()` callbacks to `build`. A record has `id`, `name`,
-`category`, useful `facts`, numeric `value` for cost sort and optional `price`
-with its unit, plus optional `ownership` text. Keep price out of facts when separate. Inspect opens detail
+`category`, `facts` (a list of `{ label, value }`, one fact each), numeric `value`
+for cost sort and optional `price` with its unit, plus optional `ownership` text
+and an optional `icon` glyph name for records without art. Keep price out of facts. Inspect opens detail
 without spending; search clear changes only the query, while Reset also restores
 type/sort. The native filter route keeps browse mounted.
 
@@ -84,7 +85,7 @@ rejection/retry and accepted ownership. The larger subject and emphasis action
 make commitment distinct from catalogue Inspect. Both builders accept an optional
 fifth argument, `renderSubject(app, readableRecord) -> GuiObject`. Supply the game's
 image or model there; omission uses Riverbank's native subjects. Pass `false` for
-records whose useful identity is textual; this removes the art allocation.
+records without art; each record then shows its `icon` glyph (default `bag`).
 Keep names, decisive facts, price and ownership outside the art so missing images
 do not remove the decision. The renderer creates a fresh Compose-owned object
 with reactive record bindings; it must not reuse a cached instance.

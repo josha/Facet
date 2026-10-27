@@ -46,6 +46,19 @@ Test focus, selected, disabled, pressed and error states against bright and dark
 backgrounds, with large/translated text and missing art. Preserve targets, labels
 and focus; convey meaning through text or shape as well as color.
 
+## Type scale and recipes
+
+Give the scale real steps. `numeral` holds the deciding values (rating, price,
+reward), so make it 1.6 times `body` or more; `title` leads the screen at the
+same ratio; `caption` sits below `body`. `define` lists a flat scale in
+`report.advice`; resolve it before the first capture.
+
+Keep this game's information recipes beside its theme: a stat block, a price,
+a section header and an item row (see [information display](information-display.md)).
+Give them one or two signature cues from the world, such as a pill emblem
+plate, a stencil eyebrow or a neon hairline, and reuse those cues on every
+screen. Paint and recipes together make the identity.
+
 ## Three ways to use images
 
 | Need | Use | Responsibility |

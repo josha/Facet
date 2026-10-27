@@ -16,15 +16,17 @@ Read the brief and existing game. Identify the player's decision, its accepted
 outcome and the return path. Preserve required behavior and working routes.
 Default to a visually authored game interface. Derive concrete type, material,
 silhouette and subject cues from its world and existing art. A color swap on
-uniform rounded cards is insufficient. Prefer available images or models that
-make game objects recognizable. Choose text-only deliberately when words or
-numbers serve the decision better; give it expressive type, hierarchy and composition.
+uniform rounded cards is insufficient. Give every item, record and stat a visual by default: its image or model, else a
+theme glyph, emblem, swatch, pips or bar. Choose text-only deliberately when
+words serve the decision better; give it expressive type, hierarchy and composition.
+Never join facts in one caption: a value leads in `numeral` and its label follows.
 
 | First task | Read and adapt |
 | --- | --- |
-| Browse records, products or equipment | [Collection](examples/collection.luau): supply game image/model subjects; use `false` for intentional text-only records. [Riverbank](assets/riverbank-theme.luau) is one example identity. |
+| Browse records, products or equipment | [Collection](examples/collection.luau): supply game image/model subjects; use `false` with an `icon` glyph per record when no art exists. [Riverbank](assets/riverbank-theme.luau) is one example identity. |
 | Inspect a selected object | [Inspection](examples/inspection.luau) with its [Field Station theme](assets/field-station-theme.luau): useful subject scale beside a decision |
 | Use image-based surfaces and subjects | [Game themes](references/game-themes.md): optional Pixel Quest theme builder with Collection's subject renderer |
+| Show stats, ranks, records, prices or progress | [Information display](references/information-display.md) recipes and the [Standing](examples/standing.luau) card |
 | Act during play, then open brief help | [Exploration](examples/exploration.luau), using the same Riverbank app/theme as Collection |
 | Another task | [Patterns](references/patterns.md): choose its information relationship and example |
 
@@ -56,8 +58,10 @@ Capture the first complete task in its real world at wide, portrait and short
 sizes before extracting a common page shell or repeating it across destinations.
 
 Reject generic or bland results: could this capture belong to an unrelated game?
-Find the largest visible cause in identity, subject recognition, hierarchy or
-space use. Correct it before copying the layout, then compare actual before/after
+Run the [critique-ui skill](../critique-ui/SKILL.md): it collects captures and
+`Facet.review` findings and has a fresh reviewer score them. In Studio only, run
+`return Facet.review.screen().text` in the Client data model. Correct the
+largest cause before copying the layout, then compare actual before/after
 captures. State what visibly changed; a correction to a HUD
 does not validate a catalogue. Missing captures leave this step unverified.
 
