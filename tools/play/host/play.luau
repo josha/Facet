@@ -715,12 +715,15 @@ local function main(scenario: Scenario, entrySource: string, universal: Scenario
 			tally.passed += 1
 		end
 	end
-	local kept, blank, missing = 0, 0, 0
+	local kept, blank, missing, needsReview, unusable = 0, 0, 0, 0, 0
 	for _, shot in host.shots do
 		if shot.path ~= nil then
 			kept += 1
-		elseif shot.blank then
-			blank += 1
+		elseif shot.classification == "needs-review" then
+			needsReview += 1
+		elseif shot.classification == "unusable" then
+			unusable += 1
+			blank += if shot.blank then 1 else 0
 		else
 			missing += 1
 		end
@@ -733,6 +736,8 @@ local function main(scenario: Scenario, entrySource: string, universal: Scenario
 			capturesKept = kept,
 			capturesBlank = blank,
 			capturesMissing = missing,
+			capturesNeedsReview = needsReview,
+			capturesUnusable = unusable,
 		}
 		for device, tally in byDevice do
 			if device ~= "workspace" then
