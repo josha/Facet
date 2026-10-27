@@ -1,5 +1,9 @@
 # Current package
 
+Auto-localization stays on for text that the author gives as a plain string,
+also when a control reads it through a function. Only `UI.Text` and `UI.Badge`
+text that the author binds to a readable or a function turns it off.
+
 A negative pixel width or height, such as a computed extent before the first
 measure, resolves to 0 instead of raising.
 

@@ -1271,6 +1271,42 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
+			verifyHarness:case("turns off auto localization only for text the author binds", {
+				id = "native_layout::VStack and HStack::turns off auto localization only for text the author binds",
+				run = function()
+					local words = Compose.cell("Coins 10")
+					local root, _engine, stop = build(nil, function(UI: FacetControls)
+						return UI.VStack {
+							UI.Text "Static" { text = "Play" },
+							UI.Text "Bound" { text = words },
+							UI.Text "Chosen" { text = words, AutoLocalize = true },
+							UI.Picker "Language" {
+								label = "Word language",
+								options = { { value = "en", label = "English" } },
+								selected = Compose.cell("en"),
+								style = "cards",
+							},
+						}
+					end)
+					Verify.expect((root:FindFirstChild("Static", true) :: TextLabel).AutoLocalize):toBe(true)
+					Verify.expect((root:FindFirstChild("Bound", true) :: TextLabel).AutoLocalize):toBe(false)
+					Verify.expect((root:FindFirstChild("Chosen", true) :: TextLabel).AutoLocalize):toBe(true)
+					local found = {}
+					for _, node in root:GetDescendants() do
+						if
+							(node:IsA("TextLabel") or node:IsA("TextButton"))
+							and (node.Text == "Word language" or node.Text == "English")
+						then
+							table.insert(found, `{node.Text}={node.AutoLocalize}`)
+						end
+					end
+					local joined = table.concat(found, ",")
+					Verify.expect(string.find(joined, "Word language=true", 1, true) ~= nil):toBe(true)
+					Verify.expect((string.find(joined, "=false", 1, true))):toBeNil()
+					stop()
+				end,
+			})
+
 			verifyHarness:case("treats a transiently negative computed extent as zero pixels", {
 				id = "native_layout::VStack and HStack::treats a transiently negative computed extent as zero pixels",
 				run = function()

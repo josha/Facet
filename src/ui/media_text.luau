@@ -191,6 +191,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		)
 		local defaults: Engine.TextLabelNativeProps = {
 			Text = if cut then read(source) or "" else bind(source, ""),
+			AutoLocalize = if Compose.isValue(source) or type(source) == "function" then false else nil,
 		}
 		if rich then
 			defaults.RichText = true
