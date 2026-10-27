@@ -4,6 +4,11 @@ A slot collection again creates new slot nodes before item watches that look
 them up in the same settle. Compose 147835f keeps an equal-cut-off formula's
 consumers in propagation order.
 
+When the destination of `UI.Travel` changes to a node at the same position and
+size as the content, the content lands in the new destination at once. It does
+not start a flight. A tile that a reserved-slot preview moved into an empty slot
+thus stays visible in place when the drop gives it that slot.
+
 In a collection with `slots`, an accepted payload from another source now
 parts the items at `info.insertion` while it hovers. The items between the
 insertion and the nearest empty reserved slot move one slot toward that empty
