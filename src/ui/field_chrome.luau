@@ -214,44 +214,53 @@ return function(ctx: Shared.Context): Chrome
 			})
 		end
 		table.insert(parts, body)
-		local words = ctx.styled(
-			ctx.text({
-				Name = "Validation",
-				Text = line,
-				Size = D2.new(1, 0, 0, 0),
-				AutomaticSize = E.AutomaticSize.Y,
-				TextWrapped = true,
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) :: ComposeTypes.Child,
-			}),
-			"type-caption"
+		local messageAttached = false
+		table.insert(
+			parts,
+			Compose.show(function(use: ComposeTypes.Use): boolean
+				messageAttached = messageAttached or line(use) ~= ""
+				return messageAttached
+			end, function()
+				local words = ctx.styled(
+					ctx.text({
+						Name = "Validation",
+						Text = line,
+						Size = D2.new(1, 0, 0, 0),
+						AutomaticSize = E.AutomaticSize.Y,
+						TextWrapped = true,
+						Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+					}),
+					"type-caption"
+				)
+				Compose.watch(function(use: ComposeTypes.Use)
+					tagWhile(words, "facet-validation", failure(use) ~= "")
+				end)
+				local lineSize = ctx.observeStyled.TextSize(words)
+				local mark = ctx.icon("status.error", {
+					Name = "MessageMark",
+					Visible = function(use: ComposeTypes.Use)
+						return failure(use) ~= ""
+					end,
+					ScaleType = E.ScaleType.Fit,
+					Size = function(use: ComposeTypes.Use)
+						local size = ctx.metric("iconSizes.small", use)
+						local line = use(lineSize)
+						return D2.fromOffset(size, if line > 0 then line else size)
+					end,
+				})
+				mark:AddTag("facet-icon-error")
+				local message = ctx.row({ mark, words }, {
+					Name = "Message",
+					Size = D2.new(1, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+					Visible = function(use: ComposeTypes.Use)
+						return line(use) ~= ""
+					end,
+				})
+				assert(message:FindFirstChildWhichIsA("UIListLayout")).Padding = D.new(0, 4)
+				return message
+			end)
 		)
-		Compose.watch(function(use: ComposeTypes.Use)
-			tagWhile(words, "facet-validation", failure(use) ~= "")
-		end)
-		local lineSize = ctx.observeStyled.TextSize(words)
-		local mark = ctx.icon("status.error", {
-			Name = "MessageMark",
-			Visible = function(use: ComposeTypes.Use)
-				return failure(use) ~= ""
-			end,
-			ScaleType = E.ScaleType.Fit,
-			Size = function(use: ComposeTypes.Use)
-				local size = ctx.metric("iconSizes.small", use)
-				local line = use(lineSize)
-				return D2.fromOffset(size, if line > 0 then line else size)
-			end,
-		})
-		mark:AddTag("facet-icon-error")
-		local message = ctx.row({ mark, words }, {
-			Name = "Message",
-			Size = D2.new(1, 0, 0, 0),
-			AutomaticSize = E.AutomaticSize.Y,
-			Visible = function(use: ComposeTypes.Use)
-				return line(use) ~= ""
-			end,
-		})
-		assert(message:FindFirstChildWhichIsA("UIListLayout")).Padding = D.new(0, 4)
-		table.insert(parts, message)
 		local native = options.native
 		native.BackgroundTransparency = 1
 		native.Size = native.Size or D2.new(1, 0, 0, 0)
