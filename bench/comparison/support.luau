@@ -146,31 +146,127 @@ local function find(world: Types.World, name: string): Node
 	return node
 end
 
-local function text(world: Types.World, parent: Node, name: string, value: string): Node
-	return create(world, "TextLabel", name, parent, {
+local function tag(node: Node, ...: string)
+	for _, name in { ... } do
+		node:AddTag(name)
+	end
+end
+
+local prepareHold: (Types.World, Node) -> () = function(_world: Types.World, _node: Node) end
+
+local function text(world: Types.World, parent: Node, name: string, value: string, bound: boolean?): Node
+	local node = create(world, "TextLabel", name, nil, {
 		Text = value,
-		AutoLocalize = false,
+		AutoLocalize = if bound then false else nil,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		TextSize = 16,
-		Size = world.types.UDim2.fromOffset(240, 24),
+		Size = world.types.UDim2.fromOffset(0, 0),
+		AutomaticSize = world.types.Enum.AutomaticSize.XY,
 		TextXAlignment = world.types.Enum.TextXAlignment.Left,
 	})
+	tag(node, "facet-text", "facet-type-body")
+	node.Parent = parent
+	if bound then
+		prepareHold(world, node)
+	end
+	return node
 end
 
 local function button(world: Types.World, parent: Node, name: string, label: string, activate: () -> ()): Node
-	local node = create(world, "TextButton", name, parent, {
+	local node = create(world, "TextButton", name, nil, {
 		Text = label,
-		AutoLocalize = false,
 		AutoButtonColor = false,
 		Selectable = true,
-		Size = world.types.UDim2.fromOffset(240, 44),
-		TextSize = 16,
+		Size = world.types.UDim2.fromOffset(0, 0),
+		AutomaticSize = world.types.Enum.AutomaticSize.XY,
 	})
+	tag(node, "facet-button", "facet-role-default")
+	node.Parent = parent
 	node.Activated:Connect(function(...: unknown)
 		activate()
 	end)
 	return node
+end
+
+type Hold = { constraint: Node, widest: number, length: number }
+local holds = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Node]: Hold }
+local widths: { [string]: number } = {}
+
+local function widthOf(world: Types.World, node: Node, value: string, ready: (number) -> ()): number?
+	local service = world.textService
+	if service == nil then
+		local bounds: unknown = node.TextBounds
+		return if typeof(bounds) == "Vector2" then bounds.X else 0
+	end
+	local face, size = node:GetStyled("FontFace"), node:GetStyled("TextSize")
+	local key = `{tostring(face)}|{tostring(size)}|{value}`
+	local known = widths[key]
+	if known ~= nil then
+		return known
+	end
+	local params = world.engine.new("GetTextBoundsParams")
+	params.Text, params.Font, params.Size, params.Width = value, face, size, 0
+	task.spawn(function()
+		local ok, measured: unknown = pcall(service.GetTextBoundsAsync, service, params)
+		if ok and typeof(measured) == "Vector2" then
+			widths[key] = measured.X
+			ready(measured.X)
+		end
+	end)
+	return widths[key]
+end
+
+local function widen(world: Types.World, held: Hold, length: number, width: number)
+	if length == held.length and width > held.widest then
+		held.widest = width
+		held.constraint.MinSize = world.types.Vector2.new(width, 0)
+	end
+end
+
+local function holdFor(world: Types.World, node: Node): Hold
+	local hold = holds[node]
+	if hold == nil then
+		local current = tostring(node.Text)
+		local length = utf8.len(current) or #current
+		local created: Hold = {
+			constraint = create(world, "UISizeConstraint", "Hold", node),
+			widest = 0,
+			length = length,
+		}
+		holds[node] = created
+		hold = created
+		local width = widthOf(world, node, current, function(measured: number)
+			widen(world, created, length, measured)
+		end)
+		if width then
+			widen(world, created, length, width)
+		end
+	end
+	return assert(hold)
+end
+
+prepareHold = function(world: Types.World, node: Node)
+	holdFor(world, node)
+end
+
+local function setText(world: Types.World, node: Node, value: string)
+	local previous = tostring(node.Text)
+	if previous == value then
+		return
+	end
+	local held = holdFor(world, node)
+	node.Text = value
+	local length = utf8.len(value) or #value
+	if length ~= held.length then
+		held.widest, held.length = 0, length
+		held.constraint.MinSize = world.types.Vector2.new(0, 0)
+	end
+	local width = widthOf(world, node, value, function(measured: number)
+		widen(world, held, length, measured)
+	end)
+	if width then
+		widen(world, held, length, width)
+	end
 end
 
 local function stack(world: Types.World, parent: Node?, name: string, horizontal: boolean?): Node
@@ -208,22 +304,63 @@ local function snapshot(world: Types.World, names: { string }): string
 	return table.concat(rows, "\n")
 end
 
-local function mount(world: Types.World, lane: Types.Lane, facet: () -> Instance, bare: (Node) -> ()): () -> ()
+local function themed(world: Types.World, screen: Instance): () -> ()
+	local stop = world.runtime.mount(function()
+		return Facet.themes.createStyleSheet(world.runtime, Facet.themes.neutralPackage(), { types = world.types })
+	end, screen)
+	local sheet = screen:FindFirstChildWhichIsA("StyleSheet")
+	local link: Node = world.engine.new("StyleLink")
+	link.StyleSheet = sheet
+	link.Parent = screen
+	local warm: Node = world.engine.new("Folder")
+	warm.Name = "StateTags"
+	for _, name in { "facet-selected", "facet-disabled", "facet-busy" } do
+		warm:AddTag(name)
+	end
+	warm.Parent = screen
+	return stop
+end
+
+local function mount(
+	world: Types.World,
+	lane: Types.Lane,
+	facet: () -> Instance,
+	bare: (Node) -> (),
+	unthemed: boolean?
+): () -> ()
 	if lane == "facet" then
 		local Host = world.Host
+		local screen: Instance? = nil
 		local stop = world.runtime.mount(function()
 			return world.UI.provide(function()
 				local props: ScreenProps = { Name = "Comparison", facet() }
-				return Host.ScreenGui(props)
+				local made = Host.ScreenGui(props)
+				screen = made
+				return made
 			end)
 		end, world.target)
-		return stop
+		local unstyle = if unthemed then nil else themed(world, assert(screen))
+		return function()
+			if unstyle then
+				unstyle()
+			end
+			stop()
+		end
 	end
 	local screen = create(world, "ScreenGui", "Comparison", world.target, {
 		ZIndexBehavior = world.types.Enum.ZIndexBehavior.Sibling,
 	})
 	bare(screen)
+	local unstyle = if unthemed then nil else themed(world, screen)
+	for _, node in screen:GetDescendants() do
+		if node:IsA("GuiObject") then
+			node:GetStyled("Visible")
+		end
+	end
 	return function()
+		if unstyle then
+			unstyle()
+		end
 		screen:Destroy()
 	end
 end
@@ -272,6 +409,8 @@ return {
 	find = find,
 	text = text,
 	button = button,
+	tag = tag,
+	setText = setText,
 	stack = stack,
 	connect = connect,
 	fire = fire,

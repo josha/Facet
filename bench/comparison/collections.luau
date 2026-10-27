@@ -70,12 +70,14 @@ for _, count in { 100, 500 } do
 					plate.Position = world.types.UDim2.fromOffset((i - 1) % 10 * 64, math.floor((i - 1) / 10) * 52)
 					plates[i] = plate
 					local button = S.button(world, plate, "RowHit", "", function()
-						plates[current]:SetAttribute("selected", false)
+						plates[current]:RemoveTag("facet-selected")
 						current = i
-						plates[current]:SetAttribute("selected", true)
+						plates[current]:AddTag("facet-selected")
 					end)
 					button.Size = world.types.UDim2.fromScale(1, 1)
-					plate:SetAttribute("selected", i == 1)
+					if i == 1 then
+						plate:AddTag("facet-selected")
+					end
 					buttons[i] = button
 					labels[i] = S.text(world, plate, "Slot" .. i, `Item {i}`)
 				end
@@ -107,9 +109,7 @@ for _, count in { 100, 500 } do
 					end
 					local selectedKeys: { string } = {}
 					for i, plate in plates do
-						local active = if lane == "facet"
-							then plate:HasTag("facet-selected")
-							else plate:GetAttribute("selected") == true
+						local active = plate:HasTag("facet-selected")
 						if active then
 							table.insert(selectedKeys, tostring(i))
 						end
@@ -232,7 +232,7 @@ table.insert(workloads, {
 			})
 			local container = assert(scroll)
 			for i = 1, 15 do
-				local row = S.text(world, container, "Pool" .. i, data[i])
+				local row = S.text(world, container, "Pool" .. i, data[i], true)
 				row.Visible = i <= 12
 				row.Size = world.types.UDim2.fromOffset(640, 40)
 				row.Position = world.types.UDim2.fromOffset(0, (i - 1) * 40)
@@ -246,7 +246,7 @@ table.insert(workloads, {
 				for i = 1, 15 do
 					local row = pool[i]
 					local index = first + i - 1
-					row.Text = data[index] or ""
+					S.setText(world, row, data[index] or "")
 					row.Position = world.types.UDim2.fromOffset(0, (index - 1) * 40)
 					row.Visible = index <= last
 				end
@@ -327,7 +327,7 @@ table.insert(workloads, {
 				else
 					table.insert(
 						bareRows,
-						S.text(world, assert(bareContent), "Message" .. index, `Player: message {index}`)
+						S.text(world, assert(bareContent), "Message" .. index, `Player: message {index}`, true)
 					)
 					if #bareRows > 100 then
 						assert(table.remove(bareRows, 1)):Destroy()

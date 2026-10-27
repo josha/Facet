@@ -75,9 +75,9 @@ table.insert(workloads, {
 		end, function(screen)
 			local root = S.stack(world, screen, "HUD", true)
 			bareFill = S.progress(world, root, "Health", 1)
-			bareAmmo = S.text(world, root, "Ammo", "30")
-			bareCoins = S.text(world, root, "Coins", "0")
-			bareTimer = S.text(world, root, "Timer", "0:00")
+			bareAmmo = S.text(world, root, "Ammo", "30", true)
+			bareCoins = S.text(world, root, "Coins", "0", true)
+			bareTimer = S.text(world, root, "Timer", "0:00", true)
 		end)
 		return {
 			step = function(frame: number)
@@ -93,9 +93,9 @@ table.insert(workloads, {
 					assert(timer):set(t)
 				else
 					assert(bareFill).Size = world.types.UDim2.fromScale(h, 1)
-					assert(bareAmmo).Text = a
-					assert(bareCoins).Text = c
-					assert(bareTimer).Text = t
+					S.setText(world, assert(bareAmmo), a)
+					S.setText(world, assert(bareCoins), c)
+					S.setText(world, assert(bareTimer), t)
 				end
 				world.frame()
 			end,
@@ -187,7 +187,9 @@ table.insert(workloads, {
 		end, function(screen)
 			local root = S.grid(world, screen, "Badges", 6)
 			for _, name in names do
-				local node = S.text(world, root, name, "1")
+				local node = S.text(world, root, name, "1", true)
+				node:RemoveTag("facet-type-body")
+				S.tag(node, "facet-badge", "facet-badge-standard")
 				table.insert(nodes, node)
 				S.create(world, "UIPadding", "Padding", node)
 			end
@@ -199,7 +201,7 @@ table.insert(workloads, {
 					if lane == "facet" then
 						values[i]:set(label)
 					else
-						nodes[i].Text = label
+						S.setText(world, nodes[i], label)
 					end
 				end
 			end,
@@ -252,7 +254,7 @@ table.insert(workloads, {
 					root,
 					{ Adornee = anchor, Size = world.types.UDim2.fromOffset(120, 32) }
 				)
-				table.insert(nodes, S.text(world, billboard, name, "Target " .. i))
+				table.insert(nodes, S.text(world, billboard, name, "Target " .. i, true))
 			end
 		end)
 		return {
@@ -262,7 +264,7 @@ table.insert(workloads, {
 					if lane == "facet" then
 						values[i]:set(label)
 					else
-						nodes[i].Text = label
+						S.setText(world, nodes[i], label)
 					end
 				end
 			end,

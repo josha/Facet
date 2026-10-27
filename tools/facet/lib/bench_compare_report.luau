@@ -25,7 +25,7 @@ local function markdown(rows: { Row }, revision: string, descriptions: { { id: s
 		"",
 		"These are headless cost-model numbers from Verify's reflection engine double. They do not measure Roblox engine rendering, native layout, text shaping, StyleSheet paint, input delivery or device performance. Visual and live Studio parity are unverified.",
 		"",
-		"Ratios divide by bare. Lower is smaller. Each time sample runs the full iteration count in the table. Heap is retained Luau heap after all iterations, while the scene is still owned, and after teardown. Writes and Created cover only the timed workload's iterations, measured in a separate instrumented pass. Parent changes and attributes are excluded from Writes, as in Compose's comparison.",
+		"The bare lane is feature-matched. Both lanes link the same theme StyleSheet. Bare Instances carry the same style tags, automatic size and auto-localization setting as the Facet controls. Bare readouts hold their widest same-length width, and bare state changes toggle the same state tags. Ratios divide by bare. Lower is smaller. Each time sample runs the full iteration count in the table. Heap is retained Luau heap after all iterations, while the scene is still owned, and after teardown. Writes and Created cover only the timed workload's iterations, measured in a separate instrumented pass. Parent changes and attributes are excluded from Writes, as in Compose's comparison.",
 		"",
 		"| Workload | Iterations | Framework | Median time (us) | / bare | Median heap (KiB) | / bare | Teardown (KiB) | Writes | Created | Connections | Deferred |",
 		"| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",

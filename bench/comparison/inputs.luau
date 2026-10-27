@@ -72,8 +72,8 @@ table.insert(workloads, {
 			for i = 1, 10 do
 				S.button(world, root, "Toggle" .. i, `Option {i}`, function()
 					bareValues[i] = if bareValues[i] == "0" then "1" else "0"
-					S.find(world, "Value" .. i).Text = bareValues[i]
-				end):SetAttribute("selected", false)
+					S.setText(world, S.find(world, "Value" .. i), bareValues[i])
+				end)
 			end
 			for i = 1, 4 do
 				local slider = S.stack(world, root, "Slider" .. i, true)
@@ -84,7 +84,7 @@ table.insert(workloads, {
 				local drag = S.create(world, "UIDragDetector", "Drag", thumb)
 				S.connect(world, drag, "DragEnd", function()
 					bareValues[10 + i] = "1"
-					S.find(world, "Value" .. (10 + i)).Text = "1"
+					S.setText(world, S.find(world, "Value" .. (10 + i)), "1")
 				end)
 			end
 			for i = 1, 3 do
@@ -98,12 +98,12 @@ table.insert(workloads, {
 					assert(type(label) == "string")
 					S.button(world, picker, option.value .. i, label, function()
 						bareValues[14 + i] = if option.value == "high" then "1" else "0"
-						S.find(world, "Value" .. (14 + i)).Text = bareValues[14 + i]
+						S.setText(world, S.find(world, "Value" .. (14 + i)), bareValues[14 + i])
 					end)
 				end
 			end
 			for i = 1, 17 do
-				S.text(world, root, "Value" .. i, "0")
+				S.text(world, root, "Value" .. i, "0", true)
 			end
 		end)
 		local names = {}
@@ -122,9 +122,9 @@ table.insert(workloads, {
 					end
 				else
 					bareValues[index] = "1"
-					S.find(world, "Value" .. index).Text = "1"
+					S.setText(world, S.find(world, "Value" .. index), "1")
 					if index <= 10 then
-						S.find(world, "Toggle" .. index):SetAttribute("selected", true)
+						S.find(world, "Toggle" .. index):AddTag("facet-selected")
 					elseif index <= 14 then
 						local slider = S.find(world, "Slider" .. (index - 10))
 						assert(slider:FindFirstChild("Fill", true)).Size = world.types.UDim2.fromScale(1, 1)
@@ -265,12 +265,12 @@ table.insert(workloads, {
 			local count = 0
 			S.button(world, stepper, "Decrease", "−", function()
 				count = math.max(0, count - 1)
-				S.find(world, "Value").Text = tostring(count)
+				S.setText(world, S.find(world, "Value"), tostring(count))
 			end)
-			S.text(world, stepper, "Value", "0")
+			S.text(world, stepper, "Value", "0", true)
 			S.button(world, stepper, "Increase", "+", function()
 				count = math.min(100, count + 1)
-				S.find(world, "Value").Text = tostring(count)
+				S.setText(world, S.find(world, "Value"), tostring(count))
 			end)
 			local mode =
 				S.create(world, "ScrollingFrame", "Mode", root, { Size = world.types.UDim2.fromOffset(240, 44) })
@@ -280,7 +280,7 @@ table.insert(workloads, {
 				assert(type(label) == "string")
 				S.button(world, mode, option.value, label, function() end)
 			end
-			S.text(world, root, "Summary", "0:a")
+			S.text(world, root, "Summary", "0:a", true)
 		end)
 		return {
 			step = function(index: number)
@@ -289,10 +289,30 @@ table.insert(workloads, {
 					assert(quantity):set(index)
 					assert(selected):set(choice)
 				else
-					S.find(world, "Value").Text = tostring(index)
-					S.find(world, "Summary").Text = `{index}:{choice}`
-					S.find(world, choice):SetAttribute("selected", true)
-					S.find(world, if choice == "a" then "b" else "a"):SetAttribute("selected", false)
+					S.setText(world, S.find(world, "Value"), tostring(index))
+					S.setText(world, S.find(world, "Summary"), `{index}:{choice}`)
+					local chosen, other = S.find(world, choice), S.find(world, if choice == "a" then "b" else "a")
+					if not chosen:HasTag("facet-selected") then
+						chosen:AddTag("facet-selected")
+					end
+					if other:HasTag("facet-selected") then
+						other:RemoveTag("facet-selected")
+					end
+					local decrease, increase = S.find(world, "Decrease"), S.find(world, "Increase")
+					if (index <= 0) ~= decrease:HasTag("facet-disabled") then
+						if index <= 0 then
+							decrease:AddTag("facet-disabled")
+						else
+							decrease:RemoveTag("facet-disabled")
+						end
+					end
+					if (index >= 100) ~= increase:HasTag("facet-disabled") then
+						if index >= 100 then
+							increase:AddTag("facet-disabled")
+						else
+							increase:RemoveTag("facet-disabled")
+						end
+					end
 				end
 			end,
 			snapshot = function()
