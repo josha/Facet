@@ -212,6 +212,31 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps a menu sheet inside the device safe area of a full-screen overlay", {
+			id = "native_menu::native menu parity with main::keeps a menu sheet inside the device safe area of a full-screen overlay",
+			run = function()
+				local world = labelled({ items = items(8), presentation = "sheet" }, { motionLevel = "none" })
+				local Rect = world.engine.types.Rect
+				world.screen.ScreenInsets = world.engine.types.Enum.ScreenInsets.None
+				world.engine.environment.fakeOn(world.gui, "GetInsetArea", function(_, inset: Enum.ScreenInsets): Rect
+					if inset == world.engine.types.Enum.ScreenInsets.CoreUISafeInsets then
+						return Rect.new(0, 47, 389, 809)
+					end
+					return Rect.new(0, 0, 389, 843)
+				end)
+				local panel = open(world)
+				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(365, 433))
+				world.engine.environment.poke(modalOf(world, panel), "AbsoluteSize", Vector2.new(389, 843))
+				for _ = 1, 30 do
+					world.engine.heartbeat:Fire(FRAME)
+				end
+				local top = panel.Position.Y.Offset
+				Verify.expect(top >= 47):toBe(true)
+				Verify.expect(top + 433 <= 809):toBe(true)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("keeps the pointer anchor through departure", {
 			id = "native_menu::native menu parity with main::keeps the pointer anchor through departure",
 			run = function()

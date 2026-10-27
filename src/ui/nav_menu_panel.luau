@@ -460,6 +460,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				return 0, 0, 0, 0
 			end
 			local screen = layer :: ScreenGui
+			local measured, container, safe = pcall(function(): (Rect, Rect)
+				return guiService:GetInsetArea(screen.ScreenInsets),
+					guiService:GetInsetArea(E.ScreenInsets.CoreUISafeInsets)
+			end)
+			if measured then
+				local near, far = safe.Min - container.Min, container.Max - safe.Max
+				return math.max(0, near.X), math.max(0, near.Y), math.max(0, far.X), math.max(0, far.Y)
+			end
 			if not (screen.IgnoreGuiInset == true or screen.ScreenInsets == E.ScreenInsets.None) then
 				return 0, 0, 0, 0
 			end
