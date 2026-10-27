@@ -310,7 +310,9 @@ return function(
 	local function changesBetween(before: { NativeRule }, after: { NativeRule }): { number }?
 		local known = changesOf[before]
 		if known == nil then
-			known = setmetatable({} :: Changes, { __mode = "k" })
+			local fresh: Changes = {}
+			support.weakKeys(fresh)
+			known = fresh
 			changesOf[before] = known
 		end
 		local cached = known[after]
@@ -336,7 +338,9 @@ return function(
 		end
 		local byPackage = compiledFor[types]
 		if byPackage == nil then
-			byPackage = setmetatable({}, { __mode = "k" })
+			local fresh: { [ThemeTypes.ThemePackage]: { [string]: { NativeRule } } } = {}
+			support.weakKeys(fresh)
+			byPackage = fresh
 			compiledFor[types] = byPackage
 		end
 		local byPalette = byPackage[package]

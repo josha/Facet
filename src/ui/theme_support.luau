@@ -161,6 +161,12 @@ local function sameProperties<T>(left: { [string]: T }, right: { [string]: T }):
 	return true
 end
 
+local WEAK_KEYS = table.freeze({ __mode = "k" })
+
+local function weakKeys<K, V>(made: { [K]: V })
+	setmetatable(made, WEAK_KEYS)
+end
+
 local PALETTES: { [unknown]: unknown } = { style = { themes = true } }
 
 local function deeplySame(left: unknown, right: unknown, ignored: { [unknown]: unknown }?): boolean
@@ -170,14 +176,16 @@ local function deeplySame(left: unknown, right: unknown, ignored: { [unknown]: u
 	if type(left) ~= "table" or type(right) ~= "table" then
 		return left == right
 	end
-	for key, value in left do
+	local leftRecord, rightRecord = left :: { [unknown]: unknown }, right :: { [unknown]: unknown }
+	for key, value in leftRecord do
 		local skip = if ignored then ignored[key] else nil
-		if skip ~= true and not deeplySame(value, right[key], if type(skip) == "table" then skip else nil) then
+		local nested = if type(skip) == "table" then skip :: { [unknown]: unknown } else nil
+		if skip ~= true and not deeplySame(value, rightRecord[key], nested) then
 			return false
 		end
 	end
-	for key in right do
-		if left[key] == nil then
+	for key in rightRecord do
+		if leftRecord[key] == nil then
 			return false
 		end
 	end
@@ -233,7 +241,9 @@ local function sameBesidesPalettes(left: ThemeTypes.ThemePackage?, right: ThemeT
 	end
 	local known = verdicts[left]
 	if known == nil then
-		known = setmetatable({}, { __mode = "k" })
+		local fresh: { [ThemeTypes.ThemePackage]: boolean } = {}
+		weakKeys(fresh)
+		known = fresh
 		verdicts[left] = known
 	end
 	local verdict = known[right]
@@ -280,4 +290,5 @@ return {
 	deeplyFrozen = deeplyFrozen,
 	sameBesidesPalettes = sameBesidesPalettes,
 	sealed = sealed,
+	weakKeys = weakKeys,
 }
