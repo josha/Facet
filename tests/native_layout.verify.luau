@@ -1271,6 +1271,25 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
+			verifyHarness:case("treats a transiently negative computed extent as zero pixels", {
+				id = "native_layout::VStack and HStack::treats a transiently negative computed extent as zero pixels",
+				run = function()
+					local viewport = Compose.cell(0)
+					local root, _engine, stop = build(nil, function(UI: FacetControls)
+						return UI.VStack {
+							width = function(use: Use): number
+								return use(viewport) - 80
+							end,
+							height = 40,
+						}
+					end)
+					Verify.expect(root.Size.X.Offset):toBe(0)
+					viewport:set(400)
+					Verify.expect(root.Size.X.Offset):toBe(320)
+					stop()
+				end,
+			})
+
 			verifyHarness:case(
 				"keeps a keyed child's rows in keyed order between their siblings, and a row's own LayoutOrder wins",
 				{

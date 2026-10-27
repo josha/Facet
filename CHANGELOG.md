@@ -1,5 +1,8 @@
 # Current package
 
+A negative pixel width or height, such as a computed extent before the first
+measure, resolves to 0 instead of raising.
+
 Text labels leave their first layout to the engine and read their geometry from
 the `Changed` signal. Text floors apply directly from text, style and
 measurement events instead of through watches. A bound Badge caption is

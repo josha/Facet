@@ -219,9 +219,12 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	end
 	local extents = { fill = true, hug = true }
 	local function checked(value: Shared.Extent): Shared.Extent
+		if type(value) == "number" and value == value then
+			return math.max(value, 0)
+		end
 		assert(
-			valid(value, extents) or (type(value) == "number" and value >= 0),
-			"Facet width and height must be fill, hug or a number of pixels"
+			valid(value, extents),
+			`Facet width and height must be fill, hug or a number of pixels, got {tostring(value)}`
 		)
 		return value
 	end
