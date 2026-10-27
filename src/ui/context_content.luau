@@ -291,6 +291,8 @@ local function attachLayout(
 			end)
 			else nil
 		local constraint = Host.UISizeConstraint "TextBoundsFloor" {}
+		local appliedMinimum, appliedMaximum = constraint.MinSize, constraint.MaxSize
+		local appliedBounds: Vector2?, appliedRevision = nil, -1
 		local widest, tallest, metrics = 0, 0, ""
 		local previousText, updated = label.Text, false
 		local previousLength = utf8.len(previousText) or #previousText
@@ -341,6 +343,10 @@ local function attachLayout(
 			end
 			local mode, authoredSize = snapMode, snapSize
 			local measured = nativeBounds or use(bounds)
+			if nativeBounds and measured == appliedBounds and revision:peek() == appliedRevision then
+				return
+			end
+			appliedBounds, appliedRevision = nativeBounds, revision:peek()
 			local scale = if nativeBounds then 1 else use(unit())
 			local glyphX, glyphY = measured.X / scale, measured.Y / scale
 			readStyle(mode)
@@ -396,9 +402,9 @@ local function attachLayout(
 				if freeX then x else 0,
 				if freeY then y elseif wrappedHeight then use(wrappedHeight) else 0
 			)
-			local lower = constraint.MinSize
+			local lower = appliedMinimum
 			if maximum.X >= lower.X and maximum.Y >= lower.Y then
-				if constraint.MaxSize ~= maximum then
+				if appliedMaximum ~= maximum then
 					constraint.MaxSize = maximum
 				end
 				if lower ~= minimum then
@@ -406,10 +412,11 @@ local function attachLayout(
 				end
 			else
 				constraint.MinSize = minimum
-				if constraint.MaxSize ~= maximum then
+				if appliedMaximum ~= maximum then
 					constraint.MaxSize = maximum
 				end
 			end
+			appliedMinimum, appliedMaximum = minimum, maximum
 		end)
 		floor = constraint
 		constraint.Parent = label
