@@ -195,7 +195,7 @@ table.insert(workloads, {
 table.insert(workloads, {
 	id = "theme-swap-200",
 	iterations = 10,
-	what = "Swap two neutral packages on 200 themed buttons; Facet updates its StyleSheet tokens while bare relinks one of two prebuilt theme StyleSheets.",
+	what = "Swap two neutral packages on 200 themed buttons. Both lanes build both themes in setup. Facet updates its StyleSheet tokens while bare relinks one of two prebuilt theme StyleSheets.",
 	prepare = function(world: Types.World, lane: Types.Lane): Types.Scene
 		local Compose, Host = world.Compose, world.Host
 		local first, second = Facet.themes.neutralPackage(), Facet.themes.neutralPackage()
@@ -215,6 +215,13 @@ table.insert(workloads, {
 		freeze(first)
 		freeze(second)
 		local theme = S.model(world, lane, first)
+		if lane == "facet" then
+			local holder = world.engine.new("Folder")
+			world.runtime.mount(function()
+				return Facet.themes.createStyleSheet(world.runtime, second, { types = world.types })
+			end, holder)()
+			world.engine.destroy(holder)
+		end
 		local UI = if lane == "facet"
 			then Facet.controls(world.runtime, { types = world.types, theme = assert(theme) })
 			else world.UI

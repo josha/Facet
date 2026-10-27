@@ -61,10 +61,10 @@ return function(ctx: Types.Context): Shared
 			return if source == nil then fallback else source :: T
 		end
 		local live = source :: Types.Input<T>
-		return function(use: ComposeTypes.Use)
+		return Compose.formula(function(use: ComposeTypes.Use): T
 			local value = read(live, use)
 			return if value == nil then fallback else value
-		end
+		end)
 	end
 	return { skin = skin, bind = bind }
 end

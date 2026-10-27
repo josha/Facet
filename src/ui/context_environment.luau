@@ -3,6 +3,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Theme = require("./theme_types")
 local adaptive = require("./adaptive")
+local support = require("./theme_support")
 
 return function(
 	ctx: Shared.Context,
@@ -72,7 +73,7 @@ return function(
 		if authored ~= nil then
 			config.theme = Compose.formula(function(use: ComposeTypes.Use): Theme.ThemePackage
 				return themes.forDistance(ctx.read(authored, use), if distance(use) then "ten-foot" else "near")
-			end)
+			end, support.sameBesidesPalettes)
 		end
 	end)
 	function ctx.hitFloor(): (ComposeTypes.Use?) -> number

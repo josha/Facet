@@ -8,10 +8,16 @@ local preferredInput = require("./preferred_input")
 local support = require("./theme_support")
 local RuleKit = require("./theme_rule_kit")
 
-local read, typesFor, deeplyFrozen, sameProperties =
-	support.read, support.typesFor, support.deeplyFrozen, support.sameProperties
+local read, typesFor, sameProperties = support.read, support.typesFor, support.sameProperties
 
 type NativeRule = RuleKit.NativeRule
+
+local compiledFor = setmetatable(
+	{} :: { [Engine.RobloxTypes]: { [ThemeTypes.ThemePackage]: { [string]: { NativeRule } } } },
+	{ __mode = "k" }
+)
+local internedFor =
+	setmetatable({} :: { [Engine.RobloxTypes]: { [string]: ThemeTypes.RuleProperties } }, { __mode = "k" })
 
 return function(
 	neutral: ThemeTypes.ThemePackage,
@@ -298,35 +304,70 @@ return function(
 		table.clear(awaited)
 	end)
 	local definitions: { [string]: NativeRule } = {}
-	type CompiledRules = {
-		package: ThemeTypes.ThemePackage,
-		palette: string?,
-		rules: { NativeRule },
-	}
-	local compiled: { CompiledRules } = {}
-	local function compiledRules(package: ThemeTypes.ThemePackage, palette: string?): { NativeRule }
-		for index, cached in compiled do
-			if cached.package == package and cached.palette == palette then
-				if index > 1 then
-					table.remove(compiled, index)
-					table.insert(compiled, 1, cached)
-				end
-				return cached.rules
+	local byIdOf = setmetatable({} :: { [{ NativeRule }]: { [string]: NativeRule } }, { __mode = "k" })
+	type Changes = { [{ NativeRule }]: { number }? }
+	local changesOf = setmetatable({} :: { [{ NativeRule }]: Changes }, { __mode = "k" })
+	local function changesBetween(before: { NativeRule }, after: { NativeRule }): { number }?
+		local known = changesOf[before]
+		if known == nil then
+			local fresh: Changes = {}
+			support.weakKeys(fresh)
+			known = fresh
+			changesOf[before] = known
+		end
+		local cached = known[after]
+		if cached ~= nil or #before ~= #after then
+			return cached
+		end
+		local changed: { number } = {}
+		for index, definition in after do
+			local previous = before[index]
+			if previous.id ~= definition.id or previous.selector ~= definition.selector then
+				return nil
 			end
+			if previous.priority ~= definition.priority or previous.properties ~= definition.properties then
+				table.insert(changed, index)
+			end
+		end
+		known[after] = changed
+		return changed
+	end
+	local function compiledRules(package: ThemeTypes.ThemePackage, palette: string?): { NativeRule }
+		if not support.sealed(package) then
+			return rulesFor(package, palette, types)
+		end
+		local byPackage = compiledFor[types]
+		if byPackage == nil then
+			local fresh: { [ThemeTypes.ThemePackage]: { [string]: { NativeRule } } } = {}
+			support.weakKeys(fresh)
+			byPackage = fresh
+			compiledFor[types] = byPackage
+		end
+		local byPalette = byPackage[package]
+		if byPalette == nil then
+			byPalette = {}
+			byPackage[package] = byPalette
+		end
+		local key = palette or ""
+		local cached = byPalette[key]
+		if cached then
+			return cached
 		end
 		local result = rulesFor(package, palette, types)
-		if deeplyFrozen(package, {}) then
-			for _, definition in result do
-				local previous = definitions[definition.id]
-				if previous and sameProperties(previous.properties, definition.properties) then
-					definition.properties = previous.properties
-				end
-			end
-			table.insert(compiled, 1, { package = package, palette = palette, rules = result })
-			if #compiled > 2 then
-				table.remove(compiled)
+		local interned = internedFor[types]
+		if interned == nil then
+			interned = {}
+			internedFor[types] = interned
+		end
+		for _, definition in result do
+			local previous = interned[definition.id]
+			if previous and sameProperties(previous, definition.properties) then
+				definition.properties = previous
+			else
+				interned[definition.id] = definition.properties
 			end
 		end
+		byPalette[key] = result
 		return result
 	end
 	local scaled = setmetatable(
@@ -434,6 +475,9 @@ return function(
 		end
 	end
 	local written: { [string]: TweenInfo } = {}
+	local colors: { [string]: Color3? } = {}
+	local applied: { NativeRule }? = nil
+	local appliedArrivals = 0
 	local initialIds: { [string]: boolean }? = nil
 	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({
 		Compose.keyed({
@@ -485,11 +529,16 @@ return function(
 		end
 		for state, token in TOKENS do
 			local timing = timingFor(package, state :: PaintState, use)
-			written[token] = timing
-			sheet:SetAttribute(token, timing)
+			if written[token] ~= timing then
+				written[token] = timing
+				sheet:SetAttribute(token, timing)
+			end
 		end
 		for token, value in colorTokens do
-			sheet:SetAttribute(token, value)
+			if colors[token] ~= value then
+				colors[token] = value
+				sheet:SetAttribute(token, value)
+			end
 		end
 		local preference = preferenceFor(use)
 		local typography = package.metrics.controls.typography or neutral.metrics.controls.typography
@@ -497,10 +546,36 @@ return function(
 		local textOffset = if textChoice ~= nil
 			then (textRank(textChoice) - textRank(read(nativeTextSize, use))) * typography.preferredSizeStep
 			else 0
-		use(arrivals)
+		local arrived = use(arrivals)
+		local plain = textOffset == 0 and preference >= 1
+		local changes = if plain
+				and applied ~= nil
+				and arrived == appliedArrivals
+			then changesBetween(applied, current)
+			else nil
+		if changes then
+			for _, index in changes do
+				local definition = current[index]
+				local record = mounted[definition.id]
+				if record then
+					apply(record, definition)
+				end
+			end
+			local byId = byIdOf[current]
+			if byId == nil then
+				byId = {}
+				for _, definition in current do
+					byId[definition.id] = definition
+				end
+				byIdOf[current] = byId
+			end
+			definitions = byId
+			applied = current
+			return
+		end
 		local previousIds = ids:peek()
 		local nextIds: { string } = {}
-		table.clear(definitions)
+		definitions = {}
 		for _, compiledDefinition in current do
 			local definition = if textOffset ~= 0
 				then withTextSize(compiledDefinition, textOffset)
@@ -535,6 +610,11 @@ return function(
 		end
 		if structureChanged then
 			ids:set(nextIds)
+		end
+		applied = if plain then current else nil
+		appliedArrivals = arrived
+		if plain then
+			byIdOf[current] = definitions
 		end
 	end)
 	for _, token in TOKENS do

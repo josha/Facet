@@ -164,6 +164,7 @@ local function markStale(producer: Node, state: number)
 				consumer.state = state
 				if current == CLEAN or retry then
 					if consumer.invalidate ~= nil then
+						consumer.announced = consumer.version
 						table.insert(invalidated, consumer)
 					elseif consumer.run == nil then
 						markStale(consumer, CHECK)

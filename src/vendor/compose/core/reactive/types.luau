@@ -58,6 +58,7 @@ export type Node = {
 	fastKey: string?,
 	fastNext: Node?,
 	invalidate: ((Node) -> ())?,
+	announced: number?,
 	inherited: unknown?,
 	child: unknown?,
 	base: number?,
