@@ -12,6 +12,11 @@ anchored. Facet moves the held object. The game owns its accepted placement.
   theme's `present` easing.
 - `focusTarget`: a required GuiObject. Use a labelled Button for pickup by
   keyboard, gamepad, touch, or an accessibility tool.
+- `hitArea`: an optional GuiObject, such as the `focusTarget` in a SurfaceGui
+  over the source. A mouse or touch press on it starts the world drag when the
+  pointer moves past the drag threshold. A press that does not move that far
+  stays a tap, and the GuiObject activates as usual. Use it when an input
+  surface above the source receives the first raycast hit.
 - `maxActivationDistance`: an optional native DragDetector distance. The engine
   default applies when this is absent.
 
