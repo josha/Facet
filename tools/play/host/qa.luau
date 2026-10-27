@@ -37,6 +37,8 @@ export type Shot = {
 	device: string,
 	screen: string,
 	path: string?,
+	reviewPath: string?,
+	classification: Capture.Classification | "missing",
 	width: number,
 	height: number,
 	blank: boolean,
@@ -456,9 +458,12 @@ local function create(context: Context, device: Devices.Device): QA
 	end
 
 	function qa.capture(self: QA, screen: string)
+		local sequence = #context.shots + 1
 		local directory = context.captures .. "/" .. self.device.id
 		fs.createDirectory(directory, { makeParents = true })
 		local target = directory .. "/" .. screen .. ".png"
+		local reviewDirectory = context.outputs .. "/capture-review/" .. self.device.id
+		fs.createDirectory(reviewDirectory, { makeParents = true })
 		if fs.exists(target) then
 			fs.remove(target)
 		end
@@ -466,6 +471,8 @@ local function create(context: Context, device: Devices.Device): QA
 			device = self.device.id,
 			screen = screen,
 			path = nil,
+			reviewPath = nil,
+			classification = "missing",
 			width = 0,
 			height = 0,
 			blank = false,
@@ -475,22 +482,28 @@ local function create(context: Context, device: Devices.Device): QA
 		fs.createDirectory(context.scratch, { makeParents = true })
 		for attempt = 1, 3 do
 			shot.attempts = attempt
-			local stem = ("%s-%s-%d"):format(self.device.id, screen, attempt)
+			local stem = ("%s-%s-%d-%d"):format(self.device.id, screen, sequence, attempt)
 			local response = session.capture({ directory = context.scratch, stem = stem })
 			local artifact = response.artifact
 			if not response.ok or artifact == nil then
 				shot.detail = "the capture failed: " .. tostring(response.detail)
 			else
-				local inspection, problem = Capture.convert(artifact.reference, target)
+				local reviewPath = reviewDirectory .. "/" .. stem .. ".png"
+				local inspection, problem = Capture.convert(artifact.reference, reviewPath)
 				if inspection == nil then
 					shot.detail = problem
 				else
 					shot.width = inspection.width
 					shot.height = inspection.height
 					shot.blank = inspection.blank
+					shot.reviewPath = reviewPath
+					shot.classification = inspection.classification
 					shot.detail = inspection.reason
-					if not inspection.blank then
+					if inspection.classification == "unreviewed" then
+						fs.writeStringToFile(target, fs.readFileToString(reviewPath))
 						shot.path = target
+						break
+					elseif inspection.classification == "needs-review" then
 						break
 					end
 				end
@@ -498,7 +511,15 @@ local function create(context: Context, device: Devices.Device): QA
 			task.wait(1)
 		end
 		if shot.path == nil then
-			context.log(("qa: capture %s/%s was not kept: %s"):format(self.device.id, screen, tostring(shot.detail)))
+			context.log(
+				("qa: capture %s/%s is %s: %s; retained at %s"):format(
+					self.device.id,
+					screen,
+					shot.classification,
+					tostring(shot.detail),
+					tostring(shot.reviewPath)
+				)
+			)
 		end
 		table.insert(context.shots, shot)
 	end

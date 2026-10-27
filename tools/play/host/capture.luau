@@ -7,11 +7,13 @@ local Media = require("../../../tools/vendor/verify/src/codec/image")
 local Png = require("../../facet/lib/raster/png")
 
 export type Raster = Jpeg.Raster
+export type Classification = "unusable" | "needs-review" | "unreviewed"
 
 export type Inspection = {
 	width: number,
 	height: number,
 	blank: boolean,
+	classification: Classification,
 	spread: number,
 	dominant: number,
 	reason: string?,
@@ -36,6 +38,18 @@ local function decode(bytes: string): (Raster?, string?)
 end
 
 local function inspect(raster: Raster): Inspection
+	local uniform = true
+	for offset = raster.channels, buffer.len(raster.data) - 1, raster.channels do
+		for channel = 0, raster.channels - 1 do
+			if buffer.readu8(raster.data, offset + channel) ~= buffer.readu8(raster.data, channel) then
+				uniform = false
+				break
+			end
+		end
+		if not uniform then
+			break
+		end
+	end
 	local luminances: { number } = {}
 	local buckets: { [number]: number } = {}
 	local samples = 0
@@ -70,17 +84,25 @@ local function inspect(raster: Raster): Inspection
 	end
 	local dominant = largest / math.max(1, samples)
 	local reason: string? = nil
+	local classification: Classification = "unreviewed"
 	if raster.width < 64 or raster.height < 64 then
 		reason = ("the capture is only %d x %d pixels"):format(raster.width, raster.height)
+		classification = "unusable"
+	elseif uniform then
+		reason = "the capture is one uniform color"
+		classification = "unusable"
 	elseif spread < 4 then
 		reason = ("the capture has almost no contrast (luminance spread %.1f)"):format(spread)
+		classification = "needs-review"
 	elseif dominant > 0.97 then
 		reason = ("%.1f%% of the capture is one color"):format(dominant * 100)
+		classification = "needs-review"
 	end
 	return {
 		width = raster.width,
 		height = raster.height,
-		blank = reason ~= nil,
+		blank = uniform,
+		classification = classification,
 		spread = spread,
 		dominant = dominant,
 		reason = reason,
@@ -96,9 +118,7 @@ local function convert(source: string, target: string): (Inspection?, string?)
 		return nil, problem
 	end
 	local inspection = inspect(raster :: Raster)
-	if not inspection.blank then
-		fs.writeStringToFile(target, buffer.tostring(Png.encode(raster :: Raster, true)))
-	end
+	fs.writeStringToFile(target, buffer.tostring(Png.encode(raster :: Raster, true)))
 	return inspection, nil
 end
 
