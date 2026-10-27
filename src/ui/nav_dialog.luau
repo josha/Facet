@@ -104,7 +104,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			return read(spec.isPresented, use) == true
 		end
 		local closing: Overlay.DialogDismissReason? = nil
-		local disposed = false
 		local function report(reason: Overlay.DialogDismissReason)
 			if spec.onDismiss then
 				spec.onDismiss(reason)
@@ -149,233 +148,271 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 		end
 		local input = surfaces.service("UserInputService")
+		type Surface = {
+			panel: GuiObject,
+			shown: Nav.Presence,
+			content: GuiObject,
+		}
+		type Presentation = {
+			owner: ComposeTypes.Owner,
+			layer: GuiBase2d,
+			build: (Nav.PresencePhase?) -> Surface,
+		}
+		local presentation: Presentation? = nil
 		surfaces.attach(root, {
 			surfaces.overlay(root, condition, function(phase: Nav.PresencePhase?)
+				local cached = presentation
 				local layer = assert(surfaces.parent(root))
-				local unit = ctx.layoutUnit(layer)
-				local extent = ctx.layoutSize(layer, unit)
-				local keyboardPixels = keyboardInset.reader(ctx, input)
-				local function keyboard(use: ComposeTypes.Use): number
-					return keyboardPixels(use) / use(unit)
+				if cached and cached.layer ~= layer then
+					ComposeTypes.owner.dispose(cached.owner)
+					presentation = nil
+					cached = nil
 				end
-				local function margin(use: ComposeTypes.Use?): number
-					return ctx.metric("space.m", use)
-				end
-				local function widthPx(use: ComposeTypes.Use): number
-					return math.max(0, math.min(parts.width(ctx, spec.width, use), use(extent).X - 2 * margin(use)))
-				end
-				local covering = Compose.cell(false)
-				local function available(use: ComposeTypes.Use): number
-					return math.max(0, use(extent).Y - keyboard(use))
-				end
-				local function padded(use: ComposeTypes.Use): number
-					return surfaces.inset(16, "top", "panel", use) + surfaces.inset(16, "bottom", "panel", use)
-				end
-				local function roomPx(use: ComposeTypes.Use): number
-					local minimum = math.min(ctx.metric("targetSizes.minimum", use), math.max(0, available(use) - 32))
-					local chrome = if use(covering) then padded(use) else 4 * margin(use)
-					return math.max(minimum, available(use) - chrome)
-				end
-				local regions: { GuiObject } = {}
-				if spec.hero then
-					table.insert(regions, parts.media(ctx, spec.hero, "Hero"))
-				end
-				local header: { Types.Child } = {}
-				local plaqued = Compose.cell(false)
-				if spec.title ~= nil then
-					local title = spec.title
-					local heading = ctx.text({
-						Name = "Title",
-						Text = function(use: ComposeTypes.Use)
-							return read(title, use) or ""
-						end,
-						TextWrapped = true,
-						Size = D2.new(1, 0, 0, 0),
-						AutomaticSize = E.AutomaticSize.Y,
-						Visible = function(use: ComposeTypes.Use)
-							return not blank(read(title, use)) and not use(plaqued)
-						end,
-						Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
-					})
-					heading:AddTag("facet-type-heading")
-					table.insert(header, heading)
-				end
-				if closeButton then
-					table.insert(
-						header,
-						UI.Button "Close" {
-							name = "Close",
-							icon = "close",
-							Size = D2.fromOffset(44, 44),
-							AutomaticSize = E.AutomaticSize.None,
-							onActivate = function()
-								propose(false, "close")
-							end,
-						}
-					)
-				end
-				if #header > 0 then
-					local row = ctx.row(
-						header,
-						{ Name = "Header", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
-					)
-					local layout = row:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
-					if layout then
-						layout.VerticalAlignment = E.VerticalAlignment.Center
-					end
-					table.insert(regions, row)
-				end
-				local body: ScrollingFrame? = nil
-				local bodyContent: Frame? = nil
-				if spec.content then
-					local scroller, flow = parts.scroller(
-						ctx,
-						{
-							Name = "Body",
-							BackgroundTransparency = 1,
-							BorderSizePixel = 0,
-							ScrollBarThickness = 4,
-							ScrollingDirection = E.ScrollingDirection.Y,
-							Selectable = false,
-						},
-						{ Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }), spec.content() },
-						{ name = "Content" }
-					)
-					bodyContent = flow
-					body = scroller
-					table.insert(regions, assert(body))
-				end
-				if spec.actionLabel ~= nil then
-					local label = spec.actionLabel
-					table.insert(
-						regions,
-						ctx.styled(
-							ctx.text({
-								Name = "ActionLabel",
+				if cached == nil then
+					local buildOwner = ComposeTypes.owner.createChild(owner)
+					cached = Compose.withOwner(buildOwner, function(): Presentation
+						local unit = ctx.layoutUnit(layer)
+						local extent = ctx.layoutSize(layer, unit)
+						local keyboardPixels = keyboardInset.reader(ctx, input)
+						local function keyboard(use: ComposeTypes.Use): number
+							return keyboardPixels(use) / use(unit)
+						end
+						local function margin(use: ComposeTypes.Use?): number
+							return ctx.metric("space.m", use)
+						end
+						local function widthPx(use: ComposeTypes.Use): number
+							return math.max(
+								0,
+								math.min(parts.width(ctx, spec.width, use), use(extent).X - 2 * margin(use))
+							)
+						end
+						local covering = Compose.cell(false)
+						local function available(use: ComposeTypes.Use): number
+							return math.max(0, use(extent).Y - keyboard(use))
+						end
+						local function padded(use: ComposeTypes.Use): number
+							return surfaces.inset(16, "top", "panel", use) + surfaces.inset(16, "bottom", "panel", use)
+						end
+						local function roomPx(use: ComposeTypes.Use): number
+							local minimum =
+								math.min(ctx.metric("targetSizes.minimum", use), math.max(0, available(use) - 32))
+							local chrome = if use(covering) then padded(use) else 4 * margin(use)
+							return math.max(minimum, available(use) - chrome)
+						end
+						local regions: { GuiObject } = {}
+						if spec.hero then
+							table.insert(regions, parts.media(ctx, spec.hero, "Hero"))
+						end
+						local header: { Types.Child } = {}
+						local plaqued = Compose.cell(false)
+						if spec.title ~= nil then
+							local title = spec.title
+							local heading = ctx.text({
+								Name = "Title",
 								Text = function(use: ComposeTypes.Use)
-									return read(label, use) or ""
+									return read(title, use) or ""
 								end,
 								TextWrapped = true,
 								Size = D2.new(1, 0, 0, 0),
 								AutomaticSize = E.AutomaticSize.Y,
 								Visible = function(use: ComposeTypes.Use)
-									return not blank(read(label, use))
+									return not blank(read(title, use)) and not use(plaqued)
 								end,
-							}),
-							"secondary"
-						)
-					)
-				end
-				local group: parts.ActionGroup? = nil
-				if #actions > 0 then
-					group = parts.actions(ctx, UI, actions, spec.actionLayout, function(use: ComposeTypes.Use)
-						return widthPx(use) - 2 * margin(use)
-					end, press)
-					table.insert(regions, assert(group).frame)
-				end
-				local naturalSize: ComposeTypes.ReadOnlyValue<Vector2> = if bodyContent
-					then ctx.layoutSize(bodyContent, unit)
-					else Compose.cell(V2.zero)
-				local room = parts.room(ctx, regions, body, function(use: ComposeTypes.Use): number
-					return use(naturalSize).Y
-				end, function(use: ComposeTypes.Use)
-					return roomPx(use)
-				end, covering, unit)
-				Compose.watch(function(use: ComposeTypes.Use)
-					local need = use(room.pinned) + use(naturalSize).Y + padded(use)
-					covering:set(need + 2 * ctx.metric("space.xl", use) > available(use))
-				end)
-				if body and spec.contentSelectable ~= false then
-					local scroller = body
-					runtime.decorate(scroller, { Selectable = room.overflowing })
-					scroller:SetAttribute("FacetSelectionOwner", true)
-					local gui = surfaces.service("GuiService")
-					local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
-						then ctx.observe.SelectedObject(gui)
-						else Compose.cell(nil :: GuiObject?)
-					local canvas = ctx.observe.CanvasPosition(scroller)
-					local window = ctx.observe.AbsoluteWindowSize(scroller)
-					local content = ctx.observe.AbsoluteSize(assert(bodyContent))
-					local function step(direction: number)
-						local box = scroller.AbsoluteWindowSize.Y
-						local limit = math.max(0, scroller.AbsoluteCanvasSize.Y - box)
-						local at = scroller.CanvasPosition
-						local target = math.clamp(at.Y + direction * math.max(1, box * 0.8), 0, limit)
-						scroller.CanvasPosition = V2.new(at.X, target)
-					end
-					local function bind(name: string, direction: number, keys: { Enum.KeyCode })
-						ctx.action(scroller, name, keys, function(use: ComposeTypes.Use)
-							if use(selected) ~= scroller or not use(room.overflowing) then
-								return false
+								Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+							})
+							heading:AddTag("facet-type-heading")
+							table.insert(header, heading)
+						end
+						if closeButton then
+							table.insert(
+								header,
+								UI.Button "Close" {
+									name = "Close",
+									icon = "close",
+									Size = D2.fromOffset(44, 44),
+									AutomaticSize = E.AutomaticSize.None,
+									onActivate = function()
+										propose(false, "close")
+									end,
+								}
+							)
+						end
+						if #header > 0 then
+							local row = ctx.row(
+								header,
+								{ Name = "Header", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
+							)
+							local layout = row:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
+							if layout then
+								layout.VerticalAlignment = E.VerticalAlignment.Center
 							end
-							local y = use(canvas).Y
-							local limit = math.max(0, use(content).Y - use(window).Y)
-							return if direction > 0 then y < limit - 0.5 else y > 0.5
-						end, function()
-							step(direction)
-						end, { priority = 3000, capture = true })
-					end
-					surfaces.attach(scroller, {
-						Compose.show(room.overflowing, function()
-							bind("DialogBodyDown", 1, { E.KeyCode.Down, E.KeyCode.DPadDown })
-							bind("DialogBodyUp", -1, { E.KeyCode.Up, E.KeyCode.DPadUp })
-							return Compose.fragment(function()
-								return {}
+							table.insert(regions, row)
+						end
+						local body: ScrollingFrame? = nil
+						local bodyContent: Frame? = nil
+						if spec.content then
+							local scroller, flow = parts.scroller(
+								ctx,
+								{
+									Name = "Body",
+									BackgroundTransparency = 1,
+									BorderSizePixel = 0,
+									ScrollBarThickness = 4,
+									ScrollingDirection = E.ScrollingDirection.Y,
+									Selectable = false,
+								},
+								{ Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }), spec.content() },
+								{ name = "Content" }
+							)
+							bodyContent = flow
+							body = scroller
+							table.insert(regions, assert(body))
+						end
+						if spec.actionLabel ~= nil then
+							local label = spec.actionLabel
+							table.insert(
+								regions,
+								ctx.styled(
+									ctx.text({
+										Name = "ActionLabel",
+										Text = function(use: ComposeTypes.Use)
+											return read(label, use) or ""
+										end,
+										TextWrapped = true,
+										Size = D2.new(1, 0, 0, 0),
+										AutomaticSize = E.AutomaticSize.Y,
+										Visible = function(use: ComposeTypes.Use)
+											return not blank(read(label, use))
+										end,
+									}),
+									"secondary"
+								)
+							)
+						end
+						local group: parts.ActionGroup? = nil
+						if #actions > 0 then
+							group = parts.actions(ctx, UI, actions, spec.actionLayout, function(use: ComposeTypes.Use)
+								return widthPx(use) - 2 * margin(use)
+							end, press)
+							table.insert(regions, assert(group).frame)
+						end
+						local naturalSize: ComposeTypes.ReadOnlyValue<Vector2> = if bodyContent
+							then ctx.layoutSize(bodyContent, unit)
+							else Compose.cell(V2.zero)
+						local room = parts.room(ctx, regions, body, function(use: ComposeTypes.Use): number
+							return use(naturalSize).Y
+						end, function(use: ComposeTypes.Use)
+							return roomPx(use)
+						end, covering, unit)
+						Compose.watch(function(use: ComposeTypes.Use)
+							local need = use(room.pinned) + use(naturalSize).Y + padded(use)
+							covering:set(need + 2 * ctx.metric("space.xl", use) > available(use))
+						end)
+						if body and spec.contentSelectable ~= false then
+							local scroller = body
+							runtime.decorate(scroller, { Selectable = room.overflowing })
+							scroller:SetAttribute("FacetSelectionOwner", true)
+							local gui = surfaces.service("GuiService")
+							local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
+								then ctx.observe.SelectedObject(gui)
+								else Compose.cell(nil :: GuiObject?)
+							local function step(direction: number)
+								local box = scroller.AbsoluteWindowSize.Y
+								local limit = math.max(0, scroller.AbsoluteCanvasSize.Y - box)
+								local at = scroller.CanvasPosition
+								local target = math.clamp(at.Y + direction * math.max(1, box * 0.8), 0, limit)
+								scroller.CanvasPosition = V2.new(at.X, target)
+							end
+							surfaces.attach(scroller, {
+								Compose.show(room.overflowing, function()
+									local canvas = ctx.observe.CanvasPosition(scroller)
+									local window = ctx.observe.AbsoluteWindowSize(scroller)
+									local content = ctx.observe.AbsoluteSize(assert(bodyContent))
+									local function bind(name: string, direction: number, keys: { Enum.KeyCode })
+										ctx.action(scroller, name, keys, function(use: ComposeTypes.Use)
+											if use(selected) ~= scroller or not use(room.overflowing) then
+												return false
+											end
+											local y = use(canvas).Y
+											local limit = math.max(0, use(content).Y - use(window).Y)
+											return if direction > 0 then y < limit - 0.5 else y > 0.5
+										end, function()
+											step(direction)
+										end, { priority = 3000, capture = true })
+									end
+									bind("DialogBodyDown", 1, { E.KeyCode.Down, E.KeyCode.DPadDown })
+									bind("DialogBodyUp", -1, { E.KeyCode.Up, E.KeyCode.DPadUp })
+									return Compose.fragment(function()
+										return {}
+									end)
+								end),
+							})
+						end
+						local function surface(phase: Nav.PresencePhase?): Surface
+							local settled = Compose.cell(false)
+							local held: ComposeTypes.Value<Vector2?> = Compose.cell(nil :: Vector2?)
+							local shown = surfaces.appearance(phase, ctx.motionTiming("dialog"), settled)
+							local panelProps: Types.CanvasGroupNativeProps = {
+								Name = "Panel",
+								AnchorPoint = V2.new(0.5, 0.5),
+								Position = function(use: ComposeTypes.Use)
+									return D2.new(0.5, 0, 0.5, -keyboard(use) / 2)
+								end,
+								Size = function(use: ComposeTypes.Use)
+									if use(covering) then
+										return D2.fromOffset(use(extent).X, available(use))
+									end
+									local box = use(held)
+									return D2.fromOffset(widthPx(use), if box then math.ceil(box.Y) else 0)
+								end,
+								AutomaticSize = function(use: ComposeTypes.Use)
+									return if use(held) or use(covering)
+										then E.AutomaticSize.None
+										else E.AutomaticSize.Y
+								end,
+								BackgroundTransparency = 0,
+								BorderSizePixel = 0,
+								GroupTransparency = function(use: ComposeTypes.Use)
+									return 1 - shown.opacity(use)
+								end,
+								room.frame,
+								ctx.padding(16, 16),
+								ctx.corner(),
+							}
+							local panel = ctx.styled(ctx.fade(panelProps, true), "dialog")
+							ctx.styled(panel, "panel")
+							materialize(ctx, panel, panelProps, function(use: ComposeTypes.Use)
+								local rest = ctx.metric("motion.materialize.modal", use)
+								return if use(settled) then rest + (1 - rest) * shown.travel(use) else 1
+							end, nil, true)
+							local sizes, rested = surfaces.atRest(shown.travel, settled, { panel })
+							Compose.watch(function(use: ComposeTypes.Use)
+								held:set(
+									if use(rested) and shown.travel(use) < 1 then use(sizes[1]) / use(unit) else nil
+								)
 							end)
-						end),
-					})
+							surfaces.skin(panel, "panel", {
+								reserve = function(name: string, use: ComposeTypes.Use): number
+									if not use(covering) or (name ~= "left" and name ~= "right") then
+										return 0
+									end
+									local spare = math.max(0, use(extent).X - widthPx(use))
+									return if name == "left"
+										then math.floor(spare / 2)
+										else spare - math.floor(spare / 2)
+								end,
+								title = spec.title,
+								onCaption = function(on: boolean)
+									plaqued:set(on)
+								end,
+							})
+							return { panel = panel, shown = shown, content = room.frame }
+						end
+						return { owner = buildOwner, layer = layer, build = surface }
+					end)
+					presentation = cached
 				end
-				local settled = Compose.cell(false)
-				local held: ComposeTypes.Value<Vector2?> = Compose.cell(nil :: Vector2?)
-				local shown = surfaces.appearance(phase, ctx.motionTiming("dialog"), settled)
-				local panelProps: Types.CanvasGroupNativeProps = {
-					Name = "Panel",
-					AnchorPoint = V2.new(0.5, 0.5),
-					Position = function(use: ComposeTypes.Use)
-						return D2.new(0.5, 0, 0.5, -keyboard(use) / 2)
-					end,
-					Size = function(use: ComposeTypes.Use)
-						if use(covering) then
-							return D2.fromOffset(use(extent).X, available(use))
-						end
-						local box = use(held)
-						return D2.fromOffset(widthPx(use), if box then math.ceil(box.Y) else 0)
-					end,
-					AutomaticSize = function(use: ComposeTypes.Use)
-						return if use(held) or use(covering) then E.AutomaticSize.None else E.AutomaticSize.Y
-					end,
-					BackgroundTransparency = 0,
-					BorderSizePixel = 0,
-					GroupTransparency = function(use: ComposeTypes.Use)
-						return 1 - shown.opacity(use)
-					end,
-					room.frame,
-					ctx.padding(16, 16),
-					ctx.corner(),
-				}
-				local panel = ctx.styled(ctx.fade(panelProps, true), "dialog")
-				ctx.styled(panel, "panel")
-				materialize(ctx, panel, panelProps, function(use: ComposeTypes.Use)
-					local rest = ctx.metric("motion.materialize.modal", use)
-					return if use(settled) then rest + (1 - rest) * shown.travel(use) else 1
-				end, nil, true)
-				local sizes, rested = surfaces.atRest(shown.travel, settled, { panel })
-				Compose.watch(function(use: ComposeTypes.Use)
-					held:set(if use(rested) and shown.travel(use) < 1 then use(sizes[1]) / use(unit) else nil)
-				end)
-				surfaces.skin(panel, "panel", {
-					reserve = function(name: string, use: ComposeTypes.Use): number
-						if not use(covering) or (name ~= "left" and name ~= "right") then
-							return 0
-						end
-						local spare = math.max(0, use(extent).X - widthPx(use))
-						return if name == "left" then math.floor(spare / 2) else spare - math.floor(spare / 2)
-					end,
-					title = spec.title,
-					onCaption = function(on: boolean)
-						plaqued:set(on)
-					end,
-				})
+				local current = assert(cached).build(phase)
 				local candidates: { parts.Candidate } = {}
 				for _, action in actions do
 					local candidate: parts.Candidate =
@@ -384,7 +421,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				end
 				local initial = parts.initialAction(candidates)
 				Compose.cleanup(function()
-					if disposed or ComposeTypes.owner.isDisposed(owner) then
+					if ComposeTypes.owner.isDisposed(owner) then
 						closing = nil
 						report("cancel")
 						return
@@ -399,8 +436,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						report(reason)
 					end
 				end)
-				return surfaces.modal(function()
-					return panel
+				local modal = surfaces.modal(function()
+					return current.panel
 				end, function()
 					cancel()
 				end, {
@@ -410,13 +447,16 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						propose(false, "outside")
 					end,
 					exiting = if phase then phase.exiting else nil,
-					appearance = shown.opacity,
+					appearance = current.shown.opacity,
 				})
+				Compose.cleanup(function()
+					if current.content.Parent ~= nil then
+						current.content.Parent = nil
+					end
+				end)
+				return modal
 			end, { motion = ctx.motionTiming("dialog") }),
 		})
-		Compose.cleanup(function()
-			disposed = true
-		end)
 		return root
 	end)
 end

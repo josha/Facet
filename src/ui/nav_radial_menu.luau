@@ -151,6 +151,16 @@ return function<V>(ctx: Types.Context, surfaces: Navigation.Surfaces, spec: Radi
 	local origins: { [string]: Radial.SectorShape } = {}
 	local function jump(entries: { string })
 		session.branchOrigin = nil
+		local previous = path:peek()
+		if #previous == #entries then
+			local same = true
+			for index, id in entries do
+				same = same and previous[index] == id
+			end
+			if same then
+				return
+			end
+		end
 		path:set(entries)
 	end
 	Compose.watch(function(use: ComposeTypes.Use)

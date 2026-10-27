@@ -255,7 +255,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 			local age: ComposeTypes.ReadOnlyValue<number>? = nil
 			local activePhase: Nav.PresencePhase? = nil
 			local function render(phase: Nav.PresencePhase?): Instance
-				if phase then
+				if phase and options and options.motion then
 					age = runtime.timeline({ duration = 0.001 }).elapsed
 				end
 				local function themed(): Instance

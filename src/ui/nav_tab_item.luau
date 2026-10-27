@@ -531,13 +531,13 @@ return function(
 					}
 				end),
 				Compose.show(function(use: ComposeTypes.Use)
-					return use(spec.selection) == tab.id
-						and indicatorOf(use) ~= "none"
-						and indicatorOf(use) ~= "pill"
-						and use(placement) == "topBar"
+					return indicatorOf(use) ~= "none" and indicatorOf(use) ~= "pill" and use(placement) == "topBar"
 				end, function()
 					return ctx.styled(
 						Host.Frame "SelectionIndicator" {
+							Visible = function(use: ComposeTypes.Use): boolean
+								return use(spec.selection) == tab.id
+							end,
 							Size = D2.new(1, 0, 0, 2),
 							Position = D2.new(0, 0, 1, -2),
 							BorderSizePixel = 0,

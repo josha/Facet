@@ -406,6 +406,37 @@ return function(harness: Verify.Harness)
 				world.dispose()
 			end,
 		})
+		harness:case("visited tabs reuse their selection indicators", {
+			id = "native_bench_comparison::visited tabs reuse their selection indicators",
+			run = function()
+				local source: Types.Workload? = nil
+				for _, workload in Workloads do
+					if workload.id == "tabs-5-100-switches" then
+						source = workload
+						break
+					end
+				end
+				local workload = assert(source)
+				local world = NativeApp()
+				local scene = workload.prepare(world, "facet")
+				for index = 1, 5 do
+					scene.step(index)
+				end
+				local created = 0
+				local observer = world.engine.environment.observe(function(event)
+					if event.operation == "create" then
+						created += 1
+					end
+				end)
+				for index = 6, workload.iterations do
+					scene.step(index)
+				end
+				observer:Disconnect()
+				scene.stop()
+				world.dispose()
+				Verify.expect(created):toBe(0)
+			end,
+		})
 		harness:case("parity rejects a hidden matching item", {
 			id = "native_bench_comparison::parity rejects a hidden matching item",
 			run = function()

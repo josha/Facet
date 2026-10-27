@@ -22,7 +22,7 @@
     "ColorPicker-open": {
         "connections": 539,
         "instances": 353,
-        "holdings": 2468
+        "holdings": 2470
     },
     "Card-actions": {
         "connections": 25,
@@ -162,7 +162,7 @@
     "ColorPicker-open-reactive-theme": {
         "connections": 539,
         "instances": 377,
-        "holdings": 2741
+        "holdings": 2743
     },
     "Sheet": {
         "connections": 48,

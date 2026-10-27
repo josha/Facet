@@ -132,6 +132,31 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 	end
 
 	local wordWidths: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
+	Compose.watch(function(use: ComposeTypes.Use)
+		local captions: { [string]: boolean } = {}
+		local function visit(items: { Radial.RadialItem<V> }, prefix: string)
+			for _, item in items do
+				local key = prefix .. "/" .. item.id
+				captions[key] = true
+				if item.children then
+					visit(read(item.children, use), if prefix == "" then item.id else key)
+				end
+			end
+		end
+		visit(read(spec.items, use), "")
+		local retained: { [string]: number } = {}
+		local changed = false
+		for key, width in wordWidths:peek() do
+			if captions[key] then
+				retained[key] = width
+			else
+				changed = true
+			end
+		end
+		if changed then
+			wordWidths:set(retained)
+		end
+	end)
 	local function solve(use: ComposeTypes.Use, flatten: boolean): Radial.Layout<V>
 		local size, at, inner = use(viewport), use(centerTarget), use(innerTarget)
 		local start, sweep = geometry.arc(spec.preset or "donut")

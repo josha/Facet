@@ -70,6 +70,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			AutomaticSize = if anchorGui then E.AutomaticSize.None else E.AutomaticSize.XY,
 		}))
 		local layoutUnit = ctx.layoutUnit(root)
+		local owner = assert(Compose.currentOwner())
+		local arrangementOwner = ComposeTypes.owner.createChild(owner)
+		local retainedArrangement: ArrangementTypes.Arrangement<V>? = nil
+		local arrangementLayer: GuiBase2d? = nil
+		local arrangementParent: Instance? = nil
+		local arrangementSpring: { period: number, damping: number }? = nil
 		local timing = ctx.motionTiming("radial")
 		local departure = createPresence(ctx).departure(timing, root, function(): boolean
 			return not menu.reduced() and spec.transition ~= false
@@ -124,7 +130,31 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			surfaces.overlay(root, opened, function(phase: Navigation.PresencePhase?)
 				local arrange: (Types.Context, MenuTypes.Menu<V>, Frame) -> ArrangementTypes.Arrangement<V> =
 					arrangeRing
-				local arrangement = arrange(ctx, menu, root)
+				local layer = surfaces.parent(root)
+				local spring = ctx.motionSpring("quick")
+				local previousSpring = arrangementSpring
+				local timingChanged = previousSpring ~= nil
+					and (previousSpring.period ~= spring.period or previousSpring.damping ~= spring.damping)
+				if
+					retainedArrangement
+					and (arrangementLayer ~= layer or arrangementParent ~= root.Parent or timingChanged)
+				then
+					ComposeTypes.owner.dispose(arrangementOwner)
+					arrangementOwner = ComposeTypes.owner.createChild(owner)
+					retainedArrangement = nil
+				end
+				if retainedArrangement == nil then
+					retainedArrangement = Compose.withOwner(
+						arrangementOwner,
+						function(): ArrangementTypes.Arrangement<V>
+							return arrange(ctx, menu, root)
+						end
+					)
+					arrangementLayer, arrangementParent = layer, root.Parent
+					arrangementSpring = spring
+				end
+				local arrangement = assert(retainedArrangement)
+				arrangement.following:set(false)
 				local paint = paintSectors(ctx, UI, surfaces, lists, menu, arrangement, phase)
 				local hub = buildCenter(ctx, UI, surfaces, menu, arrangement, paint, root, layoutUnit, phase)
 				attachGestures(ctx, surfaces, menu, arrangement, paint, hub)
