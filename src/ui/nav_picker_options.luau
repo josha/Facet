@@ -139,6 +139,20 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		} =
 			{}
 		local currentOrder, chosenOrder = Compose.cell(0), Compose.cell(0)
+		if style == "segmented" and spec.multiple ~= true then
+			Compose.watch(function(use: ComposeTypes.Use)
+				local chosen = 0
+				for index, option in use(options) do
+					if isSelected(option.value, use) then
+						chosen = index
+						break
+					end
+				end
+				local indicator = read(spec.indicator, use)
+				chosenOrder:set(chosen)
+				currentOrder:set(if indicator == "underline" then 0 else chosen)
+			end)
+		end
 		local captionHeights: { [Instance]: number } = {}
 		local tallestCaption = Compose.cell(0)
 		local function measureCaptions(): ()
@@ -528,7 +542,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							button:RemoveTag(family .. "-current")
 						end
 						local order = use(index)
-						if style ~= "segmented" then
+						if style ~= "segmented" or spec.multiple ~= true then
 							return
 						end
 						if chosen then

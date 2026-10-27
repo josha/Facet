@@ -294,11 +294,13 @@ return function(
 			end
 			local order = table.clone(visited:peek())
 			local at = table.find(order, id)
-			if at then
-				table.remove(order, at)
+			if not at or spec.transition ~= false or spec.retention == "top" then
+				if at then
+					table.remove(order, at)
+				end
+				table.insert(order, id)
+				visited:set(order)
 			end
-			table.insert(order, id)
-			visited:set(order)
 			local bookmark = bookmarks[id]
 			handoff = if spec.restoreFocus ~= false
 					and gui
@@ -592,6 +594,21 @@ return function(
 					state: ComposeTypes.ReadOnlyValue<ComposeTypes.LayerStackState>,
 					id: string
 				): Instance
+					if spec.transition == false then
+						local retained = state
+						state = Compose.formula(function(use: ComposeTypes.Use): ComposeTypes.LayerStackState
+							local current = use(retained)
+							local top = use(spec.selection) == id
+							return {
+								index = current.index,
+								depthFromTop = if top then 0 else 1,
+								top = top,
+								covered = not top,
+							}
+						end, function(a: ComposeTypes.LayerStackState?, b: ComposeTypes.LayerStackState?): boolean
+							return a ~= nil and b ~= nil and a.index == b.index and a.top == b.top
+						end)
+					end
 					local step = if spec.placement == "none" then 0 else 1
 					tabDepth += step
 					local ok, built = pcall(function(): Instance

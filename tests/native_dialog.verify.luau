@@ -1130,6 +1130,47 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native Dialog: lifetime", function()
+		verifyHarness:case("reuses its body while closed and releases it with its owner", {
+			id = "native_dialog::native Dialog: lifetime::reuses its body while closed and releases it with its owner",
+			run = function()
+				local open = Compose.cell(false)
+				local message = Compose.cell("First")
+				local built, released = 0, 0
+				local w = mount(function(_, Host: RobloxHost)
+					return {
+						isPresented = open,
+						onPresentedChange = function(value: boolean)
+							open:set(value)
+						end,
+						content = function(): Instance
+							built += 1
+							Compose.cleanup(function()
+								released += 1
+							end)
+							return Host.TextLabel "RetainedBody" { Text = message }
+						end,
+					}
+				end)
+				Verify.expect(built):toBe(0)
+				open:set(true)
+				local panel, body = w.find("Panel"), w.find("RetainedBody")
+				open:set(false)
+				Verify.expect(w.find("Panel")):toBe(nil)
+				Verify.expect(panel.Parent):toBe(nil)
+				Verify.expect(w.action("ModalBack")):toBe(nil)
+				Verify.expect(released):toBe(0)
+				message:set("Changed while closed")
+				open:set(true)
+				Verify.expect(w.find("Panel") ~= panel):toBe(true)
+				Verify.expect(w.find("RetainedBody")):toBe(body)
+				Verify.expect(body.Text):toBe("Changed while closed")
+				Verify.expect(built):toBe(1)
+				w.stop()
+				Verify.expect(released):toBe(1)
+				Verify.expect(w.engine.environment.isAlive(panel)):toBe(false)
+				Verify.expect(w.engine.environment.isAlive(body)):toBe(false)
+			end,
+		})
 		verifyHarness:case(
 			"owner disposal releases physically and reports cancel once; reopen cycles return to baseline",
 			{
