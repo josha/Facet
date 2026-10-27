@@ -555,7 +555,7 @@ return function(
 		end)
 		local prepared: { [string]: ComposeTypes.Value<boolean> } = {}
 		local groupReady: ComposeTypes.ReadOnlyValue<boolean>? = nil
-		if spec.transition and (spec.transition.apply or spec.transition.progress) then
+		if spec.transition and (spec.transition.apply or spec.transition.progress or spec.transition.scale) then
 			for id in byId do
 				prepared[id] = Compose.cell(false)
 			end

@@ -2988,6 +2988,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {
 			{ name = "compact: Files opens detail, no Show detail row", cellWidth = 380, props = splitBack(false) },
 			{ name = "compact: the detail NavBar owns Back (compactBack)", cellWidth = 380, props = splitBack(true) },
+			{ name = "compact: zoom between columns", cellWidth = 380, props = splitBack(false, true) },
 		},
 	},
 

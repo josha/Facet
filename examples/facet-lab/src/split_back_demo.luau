@@ -3,7 +3,7 @@ type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 
 local CatalogTypes = require("./catalog_types")
 
-return function(handoff: boolean): CatalogTypes.Builder
+return function(handoff: boolean, zoom: boolean?): CatalogTypes.Builder
 	return function(c: CatalogTypes.Context): CatalogTypes.Properties
 		local UI = c.UI
 		local column = c.cell("column", "sidebar")
@@ -20,6 +20,9 @@ return function(handoff: boolean): CatalogTypes.Builder
 				}
 			end,
 		}
+		if zoom then
+			props.transition = { scale = 0.5 }
+		end
 		if handoff then
 			props.compactBack = back
 			props.detail = function(): Instance

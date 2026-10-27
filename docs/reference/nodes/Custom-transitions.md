@@ -1,9 +1,18 @@
 # Custom transitions
 
-Sheet, TabView and NavigationStack accept
-`transition = { seconds?, ease?, motion?, fade?, progress?, apply? }`.
+Sheet, TabView, NavigationStack and NavigationSplitView accept
+`transition = { seconds?, ease?, motion?, fade?, progress?, apply?, scale? }`.
 `false` disables presentation motion. Omit the option to keep the control's
-default motion. A table without `apply` gives a fade.
+default motion. A table without `apply` or `scale` gives a fade.
+
+`scale` is a zoom preset. The content scales from `scale` at progress 0 to
+full size at progress 1, around its center. With the default fade, the
+content is transparent at progress 0 and opaque at progress 1. A page that
+leaves plays the reverse. `transition = { scale = 0.5 }` zooms a page in from
+half size. The preset uses the theme's `zoom` duration and `zoom` easing.
+`motion`, `seconds` and `ease` replace them. Facet adds a UIScale named
+`TransitionScale` to the content. You cannot use `scale` with `apply`. To
+combine a zoom with other motion, bind a UIScale in `apply`.
 
 `apply(content, phase)` runs once for each retained presentation. It runs in
 the content's Compose owner. Bind native properties with `runtime.decorate`.

@@ -67,6 +67,8 @@ that uses those Compose tween options.
 `transition = false` disables motion. The pages that are present when the
 stack mounts show without motion.
 
-Add `transition.apply` to author motion from the shared presentation progress.
+Each page gets its own presentation progress. A pushed page and a popped page
+both move. Set `transition = { scale = 0.5 }` to zoom each page from its
+center. Add `transition.apply` to author motion from the shared presentation progress.
 See [Custom-transitions](Custom-transitions.md) for the callback, lifetime and
 reduced-motion contract.
