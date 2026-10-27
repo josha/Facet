@@ -180,7 +180,20 @@ local function attachLayout(
 					local nativeBounds = if services.TextService
 						then textMeasure.natural(ctx, label, nil, revision, stable)
 						else nil
-					local unit = ctx.layoutUnit(label, "TextBoundsUnit")
+					local probe: ComposeTypes.ReadOnlyValue<number>? = if services.TextService
+						then nil
+						else ctx.layoutUnit(label, "TextBoundsUnit")
+					local makeProbe = if probe
+						then nil
+						else Compose.bindOwner(function()
+							probe = ctx.layoutUnit(label, "TextBoundsUnit")
+						end)
+					local function unit(): ComposeTypes.ReadOnlyValue<number>
+						if probe == nil and makeProbe then
+							makeProbe()
+						end
+						return assert(probe)
+					end
 					local wrappedHeight = Compose.cell(0)
 					local serial, last = 0, ""
 					local active = true
@@ -210,7 +223,7 @@ local function attachLayout(
 								finish()
 								return
 							end
-							local wide = use(size).X / use(unit)
+							local wide = use(size).X / use(unit())
 							local padding = label:FindFirstChildWhichIsA("UIPadding")
 							if padding then
 								local left = padding:GetStyled("PaddingLeft") :: UDim
@@ -331,7 +344,7 @@ local function attachLayout(
 							use(revision)
 							local mode, authoredSize = label.AutomaticSize, label.Size
 							local measured = if nativeBounds then use(nativeBounds) else use(bounds)
-							local scale = if nativeBounds then 1 else use(unit)
+							local scale = if nativeBounds then 1 else use(unit())
 							local glyphX, glyphY = measured.X / scale, measured.Y / scale
 							readStyle(mode)
 							local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY

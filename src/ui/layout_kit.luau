@@ -354,6 +354,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	end
 
 	local SPAN = 65536
+	local STEP = 64
 	function kit.ordered(children: { ComposeTypes.Child }, place: ((GuiObject, number) -> ())?): { ComposeTypes.Child }
 		local spaced = false
 		for _, child in children do
@@ -369,15 +370,49 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					local stamped: { [Instance]: number } = {}
 					local own: { [Instance]: number } = {}
 					local watches: { [Instance]: RBXScriptConnection } = {}
+					local function stamp(node: Instance, order: number)
+						stamped[node] = order
+						if node:IsA("GuiObject") and node.LayoutOrder ~= order then
+							node.LayoutOrder = order
+						end
+					end
 					local function restamp()
+						local step = if next(own) == nil
+							then math.clamp(math.floor((SPAN - 1) / (#slot + 1)), 1, STEP)
+							else 1
 						for at, node in slot do
 							if node:IsA("GuiObject") then
-								local order = base + (own[node] or at)
-								stamped[node] = order
-								if node.LayoutOrder ~= order then
-									node.LayoutOrder = order
-								end
+								stamp(node, base + (own[node] or at * step))
 							end
+						end
+					end
+					local function settle(at: number)
+						local node = slot[at]
+						if next(own) ~= nil or not node:IsA("GuiObject") then
+							restamp()
+							return
+						end
+						local before, after = base, base + SPAN
+						for index = at - 1, 1, -1 do
+							local order = stamped[slot[index]]
+							if order then
+								before = order
+								break
+							end
+						end
+						for index = at + 1, #slot do
+							local order = stamped[slot[index]]
+							if order then
+								after = order
+								break
+							end
+						end
+						if after - before < 2 then
+							restamp()
+						elseif after == base + SPAN then
+							stamp(node, before + math.min(STEP, (after - before) // 2))
+						else
+							stamp(node, before + (after - before) // 2)
 						end
 					end
 					local function forget(node: Instance)
@@ -419,13 +454,14 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 									place(gui, index)
 								end
 							end
-							restamp()
+							settle(at or #slot)
 							mountPoint.insert(node, at)
 						end,
 						moveTo = function(node: unknown, at: number)
 							table.remove(slot, assert(table.find(slot, node :: Instance)))
 							table.insert(slot, at, node :: Instance)
-							restamp()
+							stamped[node :: Instance] = nil
+							settle(at)
 							if mountPoint.ordersChildren then
 								mountPoint.moveTo(node, at)
 							end
@@ -433,7 +469,6 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 						remove = function(node: unknown)
 							forget(node :: Instance)
 							mountPoint.remove(node)
-							restamp()
 						end,
 					})
 				end

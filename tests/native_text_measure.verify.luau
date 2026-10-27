@@ -352,7 +352,7 @@ return function(harness: Verify.Harness)
 		second()
 		t:expect(measure.pending(label)):toBe(false)
 	end)
-	harness:case("glyph constraints use font metrics while rendered bounds and the unit probe lag", function(t)
+	harness:case("glyph constraints use font metrics while rendered bounds lag, with no unit probe", function(t)
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)
 		local service = {
@@ -376,10 +376,9 @@ return function(harness: Verify.Harness)
 		end, engine.new("ScreenGui"))
 		local node = assert(label)
 		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
-		local unit = assert(node:FindFirstChild("TextBoundsUnit")) :: Frame
+		t:expect(node:FindFirstChild("TextBoundsUnit")):toBeNil()
 		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(80, 16))
 		engine.environment.poke(VerifyRoblox.assertInstance(node), "TextBounds", engine.types.Vector2.new(9000, 999))
-		engine.environment.poke(VerifyRoblox.assertInstance(unit), "AbsoluteSize", engine.types.Vector2.new(50, 0.5))
 		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(80, 16))
 		t:expect(floor.MaxSize):toEqual(engine.types.Vector2.new(80, 16))
 		node.TextSize = 24
