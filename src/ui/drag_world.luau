@@ -32,6 +32,10 @@ return function(ctx: Types.Context, source: BasePart | Model, spec: Env.Draggabl
 		local session = service.state:peek()
 		return session ~= nil and session.source == source
 	end
+	local function dragging(): boolean
+		local session = service.state:peek()
+		return session ~= nil and session.source == source and session.mode == "pointer"
+	end
 	Compose.watch(function(use)
 		local session = use(service.state)
 		if session == nil or session.source ~= source then
@@ -163,23 +167,30 @@ return function(ctx: Types.Context, source: BasePart | Model, spec: Env.Draggabl
 	}
 	detector.Parent = source
 	local area = options.hitArea
+	local candidate: InputObject? = nil
 	if area then
 		ctx.runtime.connect(area, "InputBegan", function(pointer: InputObject)
 			if
-				(
-					pointer.UserInputType == E.UserInputType.MouseButton1
-					or pointer.UserInputType == E.UserInputType.Touch
-				)
-				and service.state:peek() == nil
-				and enabled(nil)
-				and arbiter.begin(pointer, source, at(pointer), { pickup = "immediate" })
+				pointer.UserInputType == E.UserInputType.MouseButton1
+				or pointer.UserInputType == E.UserInputType.Touch
 			then
-				pressed = pointer
+				candidate = pointer
 			end
 		end)
 	end
 	if input then
 		ctx.runtime.connect(input, "InputBegan", function(pointer: InputObject, processed: boolean)
+			if candidate ~= nil and pointer == candidate then
+				candidate = nil
+				if
+					service.state:peek() == nil
+					and enabled(nil)
+					and arbiter.begin(pointer, source, at(pointer), { pickup = "immediate" })
+				then
+					pressed = pointer
+				end
+				return
+			end
 			local session = service.state:peek()
 			if
 				session
@@ -228,15 +239,18 @@ return function(ctx: Types.Context, source: BasePart | Model, spec: Env.Draggabl
 				activation.consume(pressed)
 				begin("pointer", pressed)
 			end
-			if held() then
+			if dragging() then
 				service.update(at(pointer))
 			end
 		end)
 		ctx.runtime.connect(input, "InputEnded", function(pointer: InputObject)
+			if pointer == candidate then
+				candidate = nil
+			end
 			if pointer ~= pressed then
 				return
 			end
-			if held() then
+			if dragging() then
 				if pointer.UserInputState == E.UserInputState.Cancel then
 					service.finish(false, "Cancelled")
 				else
