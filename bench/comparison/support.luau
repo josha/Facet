@@ -5,7 +5,28 @@ local Roblox = require("../../tools/vendor/verify/src/roblox")
 local Facet = require("../../src")
 type ScreenProps = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiNativeProps)
 
-export type Node = Roblox.Instance & { Activated: Roblox.Signal<>, DragEnd: Roblox.Signal<> }
+export type Node = Roblox.Instance & {
+	Activated: Roblox.Signal<>,
+	DragEnd: Roblox.Signal<>,
+	Completed: Roblox.Signal<unknown>,
+	Pressed: Roblox.Signal<>,
+	StateChanged: Roblox.Signal<unknown>,
+	MouseEnter: Roblox.Signal<>,
+	MouseLeave: Roblox.Signal<>,
+	SelectionGained: Roblox.Signal<>,
+}
+export type Motion = {
+	dialog: { enter: number, exit: number },
+	toast: { enter: number, exit: number },
+	radial: { enter: number, exit: number },
+	travel: number,
+	present: string,
+	travelEase: string,
+}
+type Tweener = { Create: (Tweener, Node, unknown, { [string]: unknown }) -> Node }
+type Playable = { Play: (Playable) -> () }
+export type Path = { SetControlPoints: (Path, { unknown }) -> () }
+type Binding = { name: string, keys: { Enum.KeyCode }, pressed: (() -> ())?, aim: ((unknown) -> ())? }
 type Properties = {
 	Text: string?,
 	AutoLocalize: boolean?,
@@ -154,7 +175,7 @@ end
 
 local prepareHold: (Types.World, Node) -> () = function(_world: Types.World, _node: Node) end
 
-local function text(world: Types.World, parent: Node, name: string, value: string, bound: boolean?): Node
+local function text(world: Types.World, parent: Node, name: string, value: string, bound: boolean?, kind: string?): Node
 	local node = create(world, "TextLabel", name, nil, {
 		Text = value,
 		AutoLocalize = if bound then false else nil,
@@ -164,7 +185,10 @@ local function text(world: Types.World, parent: Node, name: string, value: strin
 		AutomaticSize = world.types.Enum.AutomaticSize.XY,
 		TextXAlignment = world.types.Enum.TextXAlignment.Left,
 	})
-	tag(node, "facet-text", "facet-type-body")
+	tag(node, "facet-text")
+	if kind ~= "" then
+		tag(node, "facet-type-" .. (kind or "body"))
+	end
 	node.Parent = parent
 	if bound then
 		prepareHold(world, node)
@@ -309,6 +333,234 @@ local function snapshot(world: Types.World, names: { string }): string
 	return table.concat(rows, "\n")
 end
 
+local metrics = Facet.themes.neutralPackage().metrics.motion
+local motion: Motion = {
+	dialog = assert(metrics.dialog),
+	toast = assert(metrics.toast),
+	radial = assert(metrics.radial),
+	travel = assert(assert(metrics.durations).travel),
+	present = assert(assert(metrics.easing).present),
+	travelEase = assert(assert(metrics.easing).travel),
+}
+
+type Running = { target: Node, goal: { [string]: unknown }, left: number }
+type Tweens = { service: Node, running: { [Node]: Running }, live: { [Node]: boolean }, stop: () -> () }
+local tweening = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Types.World]: Tweens }
+
+local function tweensFor(world: Types.World): Tweens
+	local existing = tweening[world]
+	if existing then
+		return existing
+	end
+	local environment = world.engine.environment
+	local completed = world.types.Enum.PlaybackState.Completed
+	local running: { [Node]: Running } = {}
+	local pending: { [Node]: Running } = {}
+	local beat: Roblox.Connection? = nil
+	local function idle()
+		if next(running) == nil and beat then
+			beat:Disconnect()
+			beat = nil
+		end
+	end
+	local function advance(seconds: number)
+		for tween, entry in table.clone(running) do
+			entry.left -= seconds
+			if entry.left <= 1e-6 then
+				running[tween] = nil
+				for key, value in entry.goal do
+					entry.target[key] = value
+				end
+				environment.poke(tween, "PlaybackState", completed)
+				environment.fire(tween, "Completed", completed)
+			end
+		end
+		idle()
+	end
+	environment.fake("TweenService.Create", function(_service: Roblox.Instance, target: Node, info: unknown, goal)
+		local spec = info :: { Time: number, DelayTime: number }
+		local tween = environment.createEngineInstance("Tween")
+		environment.poke(tween, "Instance", target)
+		environment.poke(tween, "TweenInfo", info)
+		pending[tween :: Node] = { target = target, goal = goal, left = spec.Time + spec.DelayTime }
+		return tween
+	end)
+	environment.fake("TweenBase.Play", function(tween: Roblox.Instance)
+		local node = tween :: Node
+		running[node] = assert(pending[node])
+		pending[node] = nil
+		environment.poke(tween, "PlaybackState", world.types.Enum.PlaybackState.Playing)
+		if beat == nil then
+			beat = environment.heartbeat:Connect(advance)
+		end
+	end)
+	local service: Node = world.engine.new("TweenService")
+	local live: { [Node]: boolean } = {}
+	local created: Tweens = {
+		service = service,
+		running = running,
+		live = live,
+		stop = function()
+			for tween in live do
+				running[tween] = nil
+				tween:Destroy()
+			end
+			table.clear(live)
+			table.clear(pending)
+			idle()
+			service:Destroy()
+			tweening[world] = nil
+		end,
+	}
+	tweening[world] = created
+	return created
+end
+
+local function animate(
+	world: Types.World,
+	node: Node,
+	seconds: number,
+	ease: string,
+	goal: { [string]: unknown },
+	done: (() -> ())?
+)
+	local tweens = tweensFor(world)
+	local Enum = world.types.Enum
+	local direction, name = string.match(ease, "^(%l+)(%u%a*)$")
+	local style = if direction then (Enum.EasingStyle :: unknown) :: { [string]: Enum.EasingStyle } else nil
+	local info = world.types.TweenInfo.new(
+		seconds,
+		if style and name then style[name] else Enum.EasingStyle.Linear,
+		if direction == "inOut"
+			then Enum.EasingDirection.InOut
+			elseif direction == "in" then Enum.EasingDirection.In
+			else Enum.EasingDirection.Out
+	)
+	local tween = ((tweens.service :: unknown) :: Tweener):Create(node, info, goal)
+	tweens.live[tween] = true
+	tween.Completed:Connect(function()
+		tweens.live[tween] = nil
+		tween:Destroy()
+		if done then
+			done()
+		end
+	end)
+	local playable = (tween :: unknown) :: Playable
+	playable:Play()
+end
+
+local function inputs(world: Types.World, parent: Node, name: string, priority: number, bindings: { Binding }): Node
+	local context = create(world, "InputContext", name)
+	context.Priority = priority
+	context.Sink = true
+	for _, binding in bindings do
+		local action = create(world, "InputAction", binding.name, context)
+		if binding.aim then
+			action.Type = world.types.Enum.InputActionType.Direction2D
+			action.StateChanged:Connect(binding.aim)
+		end
+		for _, key in binding.keys do
+			local bound = create(world, "InputBinding", "InputBinding", action)
+			bound.KeyCode = key
+		end
+		local pressed = binding.pressed
+		if pressed then
+			action.Pressed:Connect(function(...: unknown)
+				pressed()
+			end)
+		end
+	end
+	context.Parent = parent
+	return context
+end
+
+local function trap(world: Types.World, panel: Node)
+	local Stop = world.types.Enum.SelectionBehavior.Stop
+	panel.SelectionGroup = true
+	panel.SelectionBehaviorUp = Stop
+	panel.SelectionBehaviorDown = Stop
+	panel.SelectionBehaviorLeft = Stop
+	panel.SelectionBehaviorRight = Stop
+end
+
+local function focus(world: Types.World, target: Node): () -> ()
+	local gui: Node? = world.guiService
+	if gui == nil then
+		return function() end
+	end
+	local service = gui
+	local previous = service.SelectedObject
+	service.SelectedObject = target
+	return function()
+		if service.SelectedObject == target then
+			service.SelectedObject = previous
+		end
+	end
+end
+
+local function layer(world: Types.World, name: string, dismiss: () -> (), scrimTag: string?): Node
+	local root = create(world, "CanvasGroup", name, nil, {
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = world.types.UDim2.fromScale(1, 1),
+	})
+	root.GroupTransparency = 1
+	root.Active = true
+	root.ZIndex = 100
+	local scrim = create(world, "Frame", "Scrim", root, {
+		BorderSizePixel = 0,
+		Size = world.types.UDim2.fromScale(1, 1),
+	})
+	if scrimTag then
+		tag(scrim, scrimTag)
+	else
+		scrim.BackgroundColor3 = world.types.Color3.new(0, 0, 0)
+		scrim.BackgroundTransparency = 0.55
+	end
+	local outside = create(world, "TextButton", "DismissTarget", root, {
+		Text = "",
+		AutoButtonColor = false,
+		Selectable = false,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = world.types.UDim2.fromScale(1, 1),
+	})
+	outside.Activated:Connect(function(...: unknown)
+		dismiss()
+	end)
+	return root
+end
+
+local function tagged(world: Types.World, name: string): number
+	local count = 0
+	for _, node in world.target:GetDescendants() do
+		if node:HasTag(name) and (not node:IsA("GuiObject") or node.Visible == true) then
+			count += 1
+		end
+	end
+	return count
+end
+
+local function sinks(world: Types.World): number
+	local count = 0
+	for _, node in world.target:GetDescendants() do
+		if node:IsA("InputContext") and node.Sink == true and node.Enabled == true then
+			count += 1
+		end
+	end
+	return count
+end
+
+local function tagsOf(world: Types.World, name: string): string
+	local node = world.target:FindFirstChild(name, true)
+	if node == nil then
+		return "absent"
+	end
+	local names = node:GetTags()
+	table.sort(names)
+	return table.concat(names, ",")
+end
+
 local function themed(world: Types.World, screen: Node): () -> ()
 	local stop = world.runtime.mount(function()
 		return Facet.themes.createStyleSheet(world.runtime, Facet.themes.neutralPackage(), { types = world.types })
@@ -365,6 +617,10 @@ local function mount(
 	return function()
 		if unstyle then
 			unstyle()
+		end
+		local tweens = tweening[world]
+		if tweens then
+			tweens.stop()
 		end
 		screen:Destroy()
 	end
@@ -425,4 +681,13 @@ return {
 	progress = progress,
 	fraction = fraction,
 	setProgress = setProgress,
+	motion = motion,
+	animate = animate,
+	inputs = inputs,
+	trap = trap,
+	focus = focus,
+	layer = layer,
+	tagged = tagged,
+	sinks = sinks,
+	tagsOf = tagsOf,
 }

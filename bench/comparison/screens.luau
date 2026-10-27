@@ -327,7 +327,7 @@ table.insert(workloads, {
 table.insert(workloads, {
 	id = "tile-transfer-20",
 	iterations = 20,
-	what = "Pick up 20 tiles with gamepad activation and drop each into the second grid; Facet also installs pointer drag and cancellation policy.",
+	what = "Pick up 20 tiles with gamepad activation and drop each into the second grid. Both lanes show a drag preview, a held state, a status hint and a cancel input context, and shrink the preview with the theme travel motion after the drop. Facet also installs pointer drop resolution.",
 	prepare = function(world: Types.World, lane: Types.Lane): Types.Scene
 		local UI, Compose, Host = world.UI, world.Compose, world.Host
 		local ids: { number } = {}
@@ -384,11 +384,68 @@ table.insert(workloads, {
 			local props: FrameProps = { Name = "Transfer", table.unpack(content) }
 			return Host.Frame(props)
 		end, function(screen)
+			local Enum = world.types.Enum
 			local source = S.grid(world, screen, "GridA", 5)
 			gridB = S.grid(world, screen, "GridB", 5)
+			local status = S.create(world, "Frame", "DragStatus", screen, {
+				Size = world.types.UDim2.fromOffset(0, 0),
+				AutomaticSize = Enum.AutomaticSize.XY,
+			})
+			status.Visible = false
+			status.ZIndex = 1001
+			status.Position = world.types.UDim2.fromOffset(8, 8)
+			local padding = S.create(world, "UIPadding", "UIPadding", status)
+			for _, side in { "PaddingTop", "PaddingBottom", "PaddingLeft", "PaddingRight" } do
+				padding[side] = world.types.UDim.new(0, 8)
+			end
+			local hint = S.text(world, status, "DragStatusText", "", nil, "")
+			hint.ZIndex = 1002
+			local ghost: S.Node? = nil
+			local cancel: S.Node
+			local function settle(id: number)
+				local tile = bareTiles[id]
+				tile:RemoveTag("facet-drag-held")
+				assert(tile:FindFirstChild("Drag")).Enabled = true
+				cancel.Enabled = false
+				status.Visible = false
+				held = nil
+			end
+			local function pickUp(id: number)
+				local tile = bareTiles[id]
+				local preview = assert(tile:Clone()) :: S.Node
+				preview.Name = "DragGhost"
+				preview.Interactable, preview.Active, preview.Selectable = false, false, false
+				preview.ZIndex = 1000
+				preview.AnchorPoint = world.types.Vector2.new(0.5, 0.5)
+				preview.Parent = screen
+				ghost = preview
+				S.tag(tile, "facet-drag-held")
+				assert(tile:FindFirstChild("Drag")).Enabled = false
+				hint.Text = "Choose a destination · Enter: drop · Esc: cancel · Tab: destination"
+				status.Visible = true
+				cancel.Enabled = true
+				held = id
+			end
+			cancel = S.inputs(world, screen, "FacetDragCancel", 2000, {
+				{
+					name = "DragCancel",
+					keys = { Enum.KeyCode.Escape, Enum.KeyCode.ButtonB },
+					pressed = function()
+						local id = held
+						if id then
+							settle(id)
+							if ghost then
+								ghost:Destroy()
+								ghost = nil
+							end
+						end
+					end,
+				},
+			})
+			cancel.Enabled = false
 			for i = 1, 20 do
 				bareTiles[i] = S.button(world, source, "Tile" .. i, `Tile {i}`, function()
-					held = i
+					pickUp(i)
 				end)
 				S.create(world, "UIDragDetector", "Drag", bareTiles[i])
 				destinations[i] = "GridA"
@@ -397,7 +454,13 @@ table.insert(workloads, {
 				local id = assert(held)
 				bareTiles[id].Parent = gridB
 				destinations[id] = "GridB"
-				held = nil
+				settle(id)
+				local landing = assert(ghost)
+				ghost = nil
+				local scale = S.create(world, "UIScale", "UIScale", landing)
+				S.animate(world, scale, S.motion.travel, S.motion.travelEase, { Scale = 0 }, function()
+					landing:Destroy()
+				end)
 			end)
 		end)
 		local pad =
@@ -414,6 +477,13 @@ table.insert(workloads, {
 					local tile = S.find(world, "Tile" .. i)
 					table.insert(rows, tostring(tile.Text) .. ":" .. tostring(assert(tile.Parent).Name))
 				end
+				local ghosts = 0
+				for _, node in world.target:GetDescendants() do
+					if node.Name == "DragGhost" then
+						ghosts += 1
+					end
+				end
+				table.insert(rows, `held={S.tagged(world, "facet-drag-held")} ghosts={ghosts} sinks={S.sinks(world)}`)
 				return table.concat(rows, "\n")
 			end,
 			stop = stop,
