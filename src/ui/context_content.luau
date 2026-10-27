@@ -637,9 +637,6 @@ return function(
 		for key, value in (properties or {}) :: { [unknown]: unknown } do
 			fields[key] = value
 		end
-		if fields.AutoLocalize == nil and (Compose.isValue(fields.Text) or type(fields.Text) == "function") then
-			fields.AutoLocalize = false
-		end
 		local label = ctx.styled(Host.TextLabel(native), "Text")
 
 		if label.AutomaticSize == Enum.AutomaticSize.None then
@@ -813,9 +810,6 @@ return function(
 		local fields = native :: { [unknown]: unknown }
 		for key, value in (properties or {}) :: { [unknown]: unknown } do
 			fields[key] = value
-		end
-		if fields.AutoLocalize == nil and (Compose.isValue(fields.Text) or type(fields.Text) == "function") then
-			fields.AutoLocalize = false
 		end
 		return ctx.styled(Host.ImageLabel(native), "Icon")
 	end

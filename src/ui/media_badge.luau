@@ -79,6 +79,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			{
 				Text = label,
 				Attributes = { AccessibleLabel = spec.name or label },
+				AutoLocalize = if dynamic(spec.label) then false else nil,
 				AutomaticSize = E.AutomaticSize.XY,
 				Size = size,
 			}
