@@ -37,6 +37,10 @@ Auto-localization stays on for text that the author gives as a plain string,
 also when a control reads it through a function. Only `UI.Text` and `UI.Badge`
 text that the author binds to a readable or a function turns it off.
 
+Unwrapped text builds its font-metric size floor when its text first changes or
+when the engine reports that the text does not fit. Text that never changes uses
+the native automatic size. A `UI.Text` mount costs about 31% less in Studio.
+
 A negative pixel width or height, such as a computed extent before the first
 measure, resolves to 0 instead of raising.
 

@@ -129,6 +129,8 @@ local function attachLayout(
 		end
 	end
 	local refloor: () -> () = function() end
+	local textChanged = false
+	local priorText = label.Text
 	local floorApply: () -> () = function() end
 	local function invalidate()
 		if not refreshing then
@@ -152,6 +154,11 @@ local function attachLayout(
 		elseif property == "AbsoluteSize" or property == "TextBounds" then
 			geometryChanged()
 		elseif property == "Text" then
+			if not textChanged then
+				textChanged = true
+				refloor()
+			end
+			priorText = label.Text
 			floorApply()
 			if not measuredFloor() and previousSize ~= nil and label.TextSize ~= previousSize then
 				deferReflow()
@@ -192,7 +199,7 @@ local function attachLayout(
 		local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
 		local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
 		local measured = measuredFloor()
-		local stale = measured
+		local stale = (measured or services.TextService ~= nil)
 			and freeX
 			and glyph.X > 0
 			and glyph.Y > 0
@@ -204,6 +211,10 @@ local function attachLayout(
 			and box.Y > 0
 			and (stale or (not measured and ((freeX and glyph.X > box.X) or (freeY and glyph.Y > box.Y))))
 		then
+			if not measured and not textChanged and services.TextService ~= nil then
+				textChanged = true
+				refloor()
+			end
 			deferReflow()
 		end
 	end
@@ -331,6 +342,9 @@ local function attachLayout(
 				floorApply()
 			end)
 			else nil
+		if read and stable and priorText ~= label.Text then
+			read(priorText)
+		end
 		local constraint = Host.UISizeConstraint "TextBoundsFloor" {}
 		local appliedMinimum, appliedMaximum = constraint.MinSize, constraint.MaxSize
 		local appliedBounds: Vector2?, appliedRevision = nil, -1
@@ -502,7 +516,11 @@ local function attachLayout(
 			local next = "none"
 			if not overridden and alive then
 				local wrapped = label:GetStyled("TextWrapped")
-				if wrapped == false and label:GetStyled("TextTruncate") == Enum.TextTruncate.None then
+				if
+					wrapped == false
+					and label:GetStyled("TextTruncate") == Enum.TextTruncate.None
+					and (textChanged or services.TextService == nil)
+				then
 					next = "free"
 				elseif services.TextService ~= nil and wrapped == true then
 					next = "wrapped"
