@@ -161,6 +161,29 @@ local function sameProperties<T>(left: { [string]: T }, right: { [string]: T }):
 	return true
 end
 
+local PALETTES: { [unknown]: unknown } = { style = { themes = true } }
+
+local function deeplySame(left: unknown, right: unknown, ignored: { [unknown]: unknown }?): boolean
+	if rawequal(left, right) then
+		return true
+	end
+	if type(left) ~= "table" or type(right) ~= "table" then
+		return left == right
+	end
+	for key, value in left do
+		local skip = if ignored then ignored[key] else nil
+		if skip ~= true and not deeplySame(value, right[key], if type(skip) == "table" then skip else nil) then
+			return false
+		end
+	end
+	for key in right do
+		if left[key] == nil then
+			return false
+		end
+	end
+	return true
+end
+
 local metatableOf = (getmetatable :: unknown) :: (unknown) -> unknown
 local function deeplyFrozen(value: unknown, visited: { [unknown]: boolean }): boolean
 	if type(value) ~= "table" then
@@ -183,6 +206,42 @@ local function deeplyFrozen(value: unknown, visited: { [unknown]: boolean }): bo
 		end
 	end
 	return true
+end
+
+local frozenPackages = setmetatable({} :: { [ThemeTypes.ThemePackage]: boolean }, { __mode = "k" })
+local verdicts =
+	setmetatable({} :: { [ThemeTypes.ThemePackage]: { [ThemeTypes.ThemePackage]: boolean } }, { __mode = "k" })
+
+local function sealed(package: ThemeTypes.ThemePackage): boolean
+	local known = frozenPackages[package]
+	if known == nil then
+		known = deeplyFrozen(package, {})
+		frozenPackages[package] = known
+	end
+	return known
+end
+
+local function sameBesidesPalettes(left: ThemeTypes.ThemePackage?, right: ThemeTypes.ThemePackage?): boolean
+	if left == right then
+		return true
+	end
+	if left == nil or right == nil then
+		return false
+	end
+	if not sealed(left) or not sealed(right) then
+		return deeplySame(left, right, PALETTES)
+	end
+	local known = verdicts[left]
+	if known == nil then
+		known = setmetatable({}, { __mode = "k" })
+		verdicts[left] = known
+	end
+	local verdict = known[right]
+	if verdict == nil then
+		verdict = deeplySame(left, right, PALETTES)
+		known[right] = verdict
+	end
+	return verdict
 end
 
 local function neutralBase(neutral: ThemeTypes.ThemePackage, colors: { [string]: unknown }?): ThemeTypes.Palette
@@ -219,4 +278,6 @@ return {
 	font = font,
 	sameProperties = sameProperties,
 	deeplyFrozen = deeplyFrozen,
+	sameBesidesPalettes = sameBesidesPalettes,
+	sealed = sealed,
 }

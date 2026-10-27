@@ -192,17 +192,19 @@ return function<V, K>(
 				end)
 			end)
 		end
+		local interactable: ComposeTypes.Input<boolean> = if tree == nil and spec.disabled == nil
+			then true
+			else Compose.formula(function(use: ComposeTypes.Use): boolean
+				return (tree == nil or tree.visible(use(keyCell), use))
+					and not policy.disabled(spec.disabled, use(current))
+			end)
 		Compose.withOwner(contentOwner, function()
 			runtime.decorate(node, {
 				Name = tostring(keyCell:peek()),
 				ClipsDescendants = tree ~= nil,
-				Interactable = if tree == nil and spec.disabled == nil
-					then true
-					else function(use: ComposeTypes.Use)
-						return (tree == nil or tree.visible(use(keyCell), use))
-							and not policy.disabled(spec.disabled, use(current))
-					end,
+				Interactable = interactable,
 			})
+			local placed = { index = -1, main = math.huge, cross = math.huge, size = -1, crossSize = -1 }
 			Compose.watch(function(use: ComposeTypes.Use)
 				local at = use(placement)
 				local main, cross = at.offset + (if glide then use(glide) else 0), at.crossOffset
@@ -210,11 +212,20 @@ return function<V, K>(
 					local position = use(reservedPosition)
 					main, cross = position.Y, position.X
 				end
-				node.LayoutOrder = at.index
-				node.Position = if horizontal then D2.fromOffset(main, cross) else D2.fromOffset(cross, main)
-				node.Size = if horizontal
-					then D2.fromOffset(at.size, at.crossSize)
-					else D2.fromOffset(at.crossSize, at.size)
+				if placed.index ~= at.index then
+					placed.index = at.index
+					node.LayoutOrder = at.index
+				end
+				if placed.main ~= main or placed.cross ~= cross then
+					placed.main, placed.cross = main, cross
+					node.Position = if horizontal then D2.fromOffset(main, cross) else D2.fromOffset(cross, main)
+				end
+				if placed.size ~= at.size or placed.crossSize ~= at.crossSize then
+					placed.size, placed.crossSize = at.size, at.crossSize
+					node.Size = if horizontal
+						then D2.fromOffset(at.size, at.crossSize)
+						else D2.fromOffset(at.crossSize, at.size)
+				end
 			end)
 		end)
 		local edits: { activation.EditAction } = {}
@@ -303,10 +314,7 @@ return function<V, K>(
 						Text = "",
 						BackgroundTransparency = 1,
 						Selectable = true,
-						Interactable = function(use: ComposeTypes.Use)
-							return (tree == nil or tree.visible(use(keyCell), use))
-								and not policy.disabled(spec.disabled, use(current))
-						end,
+						Interactable = interactable,
 						Activated = function(input: InputObject?, clicks: number?)
 							if not activation.intercepted(hit, input) then
 								select(keyCell:peek(), current, input, clicks)

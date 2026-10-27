@@ -229,6 +229,44 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("swaps a palette with one token write and no control or rule work", {
+			id = "native_themes_media::native themes and media::swaps a palette with one token write and no control or rule work",
+			run = function()
+				local Facet = require("../src")
+				local engine, runtime = setup()
+				local first = assert((themes.define(themes.neutralPackage())))
+				local tinted = themes.neutralPackage()
+				tinted.style.themes[1].colors.content = { r = 0.8, g = 0.9, b = 1 }
+				local second = assert((themes.define(tinted)))
+				local source = Compose.cell(first)
+				local UI = Facet.controls(runtime, { types = engine.types, theme = source })
+				local stop, result = runtime.mount(function()
+					return Facet.host(runtime).Folder "Screen" {
+						themes.createStyleSheet(runtime, source, { types = engine.types }),
+						UI.Button "Action" { label = "Action", onActivate = function() end },
+					}
+				end, engine.new("Folder"))
+				local sheet = assert((result :: Instance):FindFirstChildWhichIsA("StyleSheet"))
+				source:set(second)
+				source:set(first)
+				local writes: { string } = {}
+				local observer = engine.environment.observe(function(event)
+					if event.operation == "setProperty" or event.operation == "setAttribute" then
+						table.insert(writes, `{event.object.ClassName}.{tostring(event.member)}`)
+					end
+				end)
+				source:set(second)
+				observer:Disconnect()
+				Verify.expect(writes):toEqual({ "StyleSheet.FacetColor_content" })
+				Verify.expect(sheet:GetAttribute("FacetColor_content")):toBe(engine.types.Color3.new(0.8, 0.9, 1))
+				source:set(first)
+				Verify.expect(sheet:GetAttribute("FacetColor_content") == engine.types.Color3.new(0.8, 0.9, 1))
+					:toBe(false)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("mounts a rule only once an instance carries every class its selector names", {
 			id = "native_themes_media::native themes and media::mounts a rule only once an instance carries every class its selector names",
 			run = function()

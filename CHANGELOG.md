@@ -13,6 +13,15 @@ In a collection with `slots`, an external payload whose first key names an
 occupied slot now opens a gap at `info.insertion`. Only a key with an empty
 reserved slot returns the payload to that slot.
 
+A palette-only theme swap does no control work. Controls ignore a package change
+that differs only in palettes. A StyleSheet writes only the color tokens that
+changed and applies only the rules that changed. Compiled rules are shared by
+every StyleSheet for the same frozen package. A swap across 200 buttons costs
+about 15 us instead of about 950 us in the engine double.
+
+Collection rows write LayoutOrder, Position and Size only when they change.
+Text that a function supplies is written only when the result changes.
+
 Auto-localization stays on for text that the author gives as a plain string,
 also when a control reads it through a function. Only `UI.Text` and `UI.Badge`
 text that the author binds to a readable or a function turns it off.
