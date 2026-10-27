@@ -1,5 +1,10 @@
 # Current package
 
+Text labels leave their first layout to the engine and read their geometry from
+the `Changed` signal. Text floors apply directly from text, style and
+measurement events instead of through watches. A bound Badge caption is
+computed once per change.
+
 Bound text, given as a readable or a function, sets `AutoLocalize` to false
 unless you set it. Engine auto-localization of each change costs about 15 µs.
 Text floors build without `Compose.show` or a separate measurement watch, and
