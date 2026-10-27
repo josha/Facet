@@ -64,7 +64,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		local function height(use: ComposeTypes.Use?): UDim2
 			return D2.fromOffset(0, controlSize(spec.controlSize, "iconSize", use) + 4)
 		end
-		local label = if dynamic(spec.label) then caption else caption()
+		local captionValue = if dynamic(spec.label) then Compose.formula(caption) else nil
+		local label: Types.Input<string> = if captionValue then captionValue else caption()
 		local size: Types.Input<UDim2> = if dynamic(ctx.config.theme) or dynamic(spec.controlSize)
 			then height
 			else height()
@@ -111,7 +112,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			})
 		end
 		local function visible(use: ComposeTypes.Use?): boolean
-			return read(spec.Visible, use) ~= false and (named or caption(use) ~= "")
+			return read(spec.Visible, use) ~= false
+				and (named or (if captionValue then read(captionValue, use) else caption(use)) ~= "")
 		end
 		runtime.decorate(pill, {
 			Visible = if dynamic(spec.Visible) or dynamic(spec.label) then Compose.formula(visible) else visible(),

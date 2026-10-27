@@ -5,6 +5,22 @@ local Theme = require("./theme_types")
 local layoutKit = require("./layout_kit")
 local textMeasure = require("./text_measure")
 
+local geometryQueue: { [() -> ()]: boolean } = {}
+local geometryStop: (() -> ())? = nil
+
+local function flushGeometry()
+	local queued = geometryQueue
+	geometryQueue = {}
+	for refresh in queued do
+		refresh()
+	end
+	if next(geometryQueue) == nil and geometryStop then
+		local stop = geometryStop
+		geometryStop = nil
+		stop()
+	end
+end
+
 local function attachLayout(
 	ctx: Shared.Context,
 	label: TextLabel | TextButton,
@@ -72,15 +88,14 @@ local function attachLayout(
 		if alive and (face ~= previousFace or points ~= previousSize) then
 			local changed = previousFace ~= nil or previousSize ~= nil
 			previousFace, previousSize = face, points
-			reflow()
-			if changed or label.FontFace ~= face or label.TextSize ~= points then
+			if changed then
+				reflow()
 				deferReflow()
 			end
 		end
 	end
 	local revision = Compose.cell(0)
 	local styling = Compose.cell(0)
-	local content = Compose.cell(label.Text)
 	local snapshotAt = -1
 	local snapMode, snapSize, snapWrapped = label.AutomaticSize, label.Size, false
 	local function snapshot()
@@ -92,16 +107,36 @@ local function attachLayout(
 		end
 	end
 	local framed = services.RunService ~= nil and getfenv ~= nil and getfenv(0).game ~= nil
-	local size =
-		runtime.observe(label, "AbsoluteSize", if framed then { frame = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
-	local bounds =
-		runtime.observe(label, "TextBounds", if framed then { frame = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
+	local box = label.AbsoluteSize
+	local bounds = Compose.cell(label.TextBounds)
+	local frameSource = runtime.host.frames
+	local checkStale: () -> () = function() end
+	local function readGeometry()
+		if alive then
+			box = label.AbsoluteSize
+			bounds:set(label.TextBounds)
+			checkStale()
+		end
+	end
+	local function geometryChanged()
+		if not framed or frameSource == nil then
+			readGeometry()
+			return
+		end
+		geometryQueue[readGeometry] = true
+		if geometryStop == nil then
+			geometryStop = frameSource.onFrame(flushGeometry)
+		end
+	end
 	local refloor: () -> () = function() end
+	local floorApply: () -> () = function() end
 	local function invalidate()
 		if not refreshing then
 			styling:set(styling:peek() + 1)
 			revision:set(revision:peek() + 1)
 			refloor()
+			floorApply()
+			checkStale()
 		end
 	end
 	local function styleChanged()
@@ -114,8 +149,10 @@ local function attachLayout(
 	local changed = label.Changed:Connect(function(property: string)
 		if property == "FontFace" or property == "TextSize" then
 			styleChanged()
+		elseif property == "AbsoluteSize" or property == "TextBounds" then
+			geometryChanged()
 		elseif property == "Text" then
-			content:set(label.Text)
+			floorApply()
 			if not measuredFloor() and previousSize ~= nil and label.TextSize ~= previousSize then
 				deferReflow()
 			end
@@ -149,10 +186,9 @@ local function attachLayout(
 			end
 		end)
 	end
-	Compose.watch(function(use: ComposeTypes.Use)
-		use(revision)
+	checkStale = function()
 		snapshot()
-		local box, glyph, mode = use(size), use(bounds), snapMode
+		local glyph, mode = bounds:peek(), snapMode
 		local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
 		local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
 		local measured = measuredFloor()
@@ -170,7 +206,8 @@ local function attachLayout(
 		then
 			deferReflow()
 		end
-	end)
+	end
+	checkStale()
 	local function buildWrapped(
 		wrappedHeight: ComposeTypes.Value<number>,
 		unit: () -> ComposeTypes.ReadOnlyValue<number>
@@ -187,6 +224,8 @@ local function attachLayout(
 		end
 		local words =
 			runtime.observe(label, "Text", if framed then { frame = true } else nil) :: ComposeTypes.ReadOnlyValue<string>
+		local wrappedSize =
+			runtime.observe(label, "AbsoluteSize", if framed then { frame = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
 		Compose.cleanup(function()
 			active = false
 			finish()
@@ -199,10 +238,11 @@ local function attachLayout(
 				serial += 1
 				last = ""
 				wrappedHeight:set(0)
+				floorApply()
 				finish()
 				return
 			end
-			local wide = use(size).X / use(unit())
+			local wide = use(wrappedSize).X / use(unit())
 			local padding = label:FindFirstChildWhichIsA("UIPadding")
 			if padding then
 				local left = padding:GetStyled("PaddingLeft") :: UDim
@@ -218,6 +258,7 @@ local function attachLayout(
 				serial += 1
 				last = ""
 				wrappedHeight:set(0)
+				floorApply()
 				finish()
 				return
 			end
@@ -253,6 +294,7 @@ local function attachLayout(
 						+ vertical
 					local shrinking = height < wrappedHeight:peek()
 					wrappedHeight:set(height)
+					floorApply()
 					if shrinking then
 						deferReflow()
 					end
@@ -284,10 +326,9 @@ local function attachLayout(
 			return assert(unitProbe)
 		end
 		unitOf(unit)
-		local arrivals = Compose.cell(0)
 		local read = if services.TextService
 			then textMeasure.inline(ctx, label, stable, styling, function()
-				arrivals:set(arrivals:peek() + 1)
+				floorApply()
 			end)
 			else nil
 		local constraint = Host.UISizeConstraint "TextBoundsFloor" {}
@@ -329,25 +370,24 @@ local function attachLayout(
 					"LineHeight"
 				)}|{label.RichText}|{mode.Name}|{free}`
 		end
-		Compose.watch(function(use: ComposeTypes.Use)
-			use(revision)
+		local function apply(use: ComposeTypes.Use?)
+			if use then
+				use(revision)
+			end
 			snapshot()
-			local current = use(parts)
+			local current = (if use then use(parts) else parts:peek())
 			local wrappedHeight = current.height
 			if current.free == nil and wrappedHeight == nil then
 				return
 			end
-			local nativeBounds = if read and current.free then read(use(content)) else nil
-			if nativeBounds then
-				use(arrivals)
-			end
+			local nativeBounds = if read and current.free then read(label.Text) else nil
 			local mode, authoredSize = snapMode, snapSize
-			local measured = nativeBounds or use(bounds)
+			local measured = nativeBounds or (if use then use(bounds) else bounds:peek())
 			if nativeBounds and measured == appliedBounds and revision:peek() == appliedRevision then
 				return
 			end
 			appliedBounds, appliedRevision = nativeBounds, revision:peek()
-			local scale = if nativeBounds then 1 else use(unit())
+			local scale = if nativeBounds then 1 else (if use then use(unit()) else unit():peek())
 			local glyphX, glyphY = measured.X / scale, measured.Y / scale
 			readStyle(mode)
 			local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
@@ -400,7 +440,10 @@ local function attachLayout(
 			)
 			local minimum = types.Vector2.new(
 				if freeX then x else 0,
-				if freeY then y elseif wrappedHeight then use(wrappedHeight) else 0
+				if freeY
+					then y
+					elseif wrappedHeight then (if use then use(wrappedHeight) else wrappedHeight:peek())
+					else 0
 			)
 			local lower = appliedMinimum
 			if maximum.X >= lower.X and maximum.Y >= lower.Y then
@@ -417,7 +460,18 @@ local function attachLayout(
 				end
 			end
 			appliedMinimum, appliedMaximum = minimum, maximum
-		end)
+		end
+		if services.TextService then
+			floorApply = function()
+				apply(nil)
+			end
+			Compose.cleanup(function()
+				floorApply = function() end
+			end)
+			apply(nil)
+		else
+			Compose.watch(apply)
+		end
 		floor = constraint
 		constraint.Parent = label
 		Compose.cleanup(function()
@@ -469,7 +523,7 @@ local function attachLayout(
 				measuring.dispose()
 			end
 			if scope == nil then
-				parts:set({})
+				parts:set(if next == "free" then { free = true } else {})
 				scope = Compose.createRootOwner(function()
 					buildFloor(parts, function(probe: () -> ComposeTypes.ReadOnlyValue<number>)
 						unit = probe
@@ -481,9 +535,11 @@ local function attachLayout(
 					local height = Compose.cell(0)
 					buildWrapped(height, assert(unit))
 					parts:set({ height = height })
+					floorApply()
 				end, runtime.reactor)
-			else
+			elseif not parts:peek().free then
 				parts:set({ free = true })
+				floorApply()
 			end
 		end
 		local added = label.ChildAdded:Connect(function(child: Instance)
