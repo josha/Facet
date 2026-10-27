@@ -237,6 +237,31 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps row captions clear of the badge and shortcut accessories", {
+			id = "native_menu::native menu parity with main::keeps row captions clear of the badge and shortcut accessories",
+			run = function()
+				local world = labelled({
+					items = {
+						{
+							id = "cost",
+							label = "Sonar",
+							badge = "15 Sparks",
+							description = "Earn Sparks from Lucky Tile or quests.",
+							onSelect = function() end,
+						},
+					},
+				})
+				local row = world.find("cost", open(world))
+				local accessories = row:FindFirstChild("Accessories")
+				local content = row:FindFirstChild("Content")
+				world.engine.environment.poke(accessories, "AbsoluteSize", Vector2.new(126, 24))
+				world.engine.heartbeat:Fire(FRAME)
+				Verify.expect(content.Size.X.Scale):toBe(1)
+				Verify.expect(content.Size.X.Offset):toBe(-134)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("keeps the pointer anchor through departure", {
 			id = "native_menu::native menu parity with main::keeps the pointer anchor through departure",
 			run = function()
