@@ -49,100 +49,217 @@ return function(h: Verify.Harness)
 			w.stop()
 		end)
 	end
-	h:case("a scale transition grows a pushed page from its center and shrinks it on pop", function()
+	local function zoomOf(node: Instance): UIScale?
+		local found = node:FindFirstChild("TransitionScale", true)
+		return if found and found:IsA("UIScale") then found else nil
+	end
+	local function near(value: number, expected: number): boolean
+		return math.abs(value - expected) < 0.001
+	end
+	local function textStable(page: Instance): boolean
+		local texts = 0
+		for _, node in page:GetDescendants() do
+			if node:IsA("TextLabel") or node:IsA("TextButton") then
+				texts += 1
+				local at: Instance? = node
+				while at and at ~= page.Parent do
+					if at:FindFirstChildWhichIsA("UIScale") then
+						return false
+					end
+					at = at.Parent
+				end
+			end
+		end
+		return texts > 0
+	end
+	local function stackWorld(transition: Facet.Transition, opaque: boolean, theme: Facet.ThemePackage?)
 		local path = Facet.Compose.cell({} :: { Facet.NavigationEntry<string> })
-		local w = worlds.new(function(UI: Facet.Controls)
-			return UI.NavigationStack {
-				path = path,
-				chrome = "hidden",
-				transition = {
-					scale = 0.5,
-					seconds = 0.4,
-					ease = function(t: number): number
-						return t
-					end,
-				},
-				root = {
-					content = function(): Instance
-						return UI.Button "HomeAction" { label = "Home" }
-					end,
-				},
-				destinations = {
-					details = {
+		local w = worlds.new(function(UI: Facet.Controls, Host, engine)
+			return Host.Frame {
+				Name = "Backdrop",
+				BackgroundTransparency = if opaque then 0 else 1,
+				BackgroundColor3 = engine.types.Color3.new(0.2, 0.3, 0.4),
+				Size = engine.types.UDim2.fromScale(1, 1),
+				UI.NavigationStack {
+					path = path,
+					chrome = "hidden",
+					transition = transition,
+					root = {
 						content = function(): Instance
-							return UI.Button "DetailAction" { label = "Detail" }
+							return UI.Button "HomeAction" { label = "Home" }
 						end,
+					},
+					destinations = {
+						details = {
+							content = function(): Instance
+								return UI.Button "DetailAction" { label = "Detail" }
+							end,
+						},
 					},
 				},
 			}
-		end)
+		end, if theme then { theme = theme } else nil)
+		return w, path
+	end
+	h:case("a zoom scales only the page backdrop plate while the content fades at full size", function()
+		local w, path = stackWorld({
+			scale = 0.5,
+			seconds = 0.4,
+			ease = function(t: number): number
+				return t
+			end,
+		}, true)
 		path:set({ { id = "details", value = "item" } })
 		local detail = w.find("DetailAction")
-		local content = detail:FindFirstAncestor("TransitionContent")
-		local scale = content:FindFirstChild("TransitionScale")
-		local page = detail:FindFirstAncestor("details")
-		Verify.expect(content.AnchorPoint.X + content.AnchorPoint.Y):toBe(1)
-		Verify.expect(content.Position.X.Scale + content.Position.Y.Scale):toBe(1)
+		local page = assert(detail:FindFirstAncestor("details"))
+		local plate = assert(page:FindFirstChild("TransitionPlate", true)) :: Frame
+		local scale = assert(zoomOf(page))
+		Verify.expect(scale.Parent):toBe(plate)
+		Verify.expect(near(plate.BackgroundColor3.R, 0.2) and near(plate.BackgroundColor3.B, 0.4)):toBe(true)
+		Verify.expect(plate.BackgroundTransparency):toBe(0)
+		Verify.expect(plate.AnchorPoint.X + plate.AnchorPoint.Y):toBe(1)
+		Verify.expect(textStable(page)):toBe(true)
 		Verify.expect(scale.Scale):toBe(0.5)
 		w.engine.heartbeat:Fire(0.2)
-		Verify.expect(math.abs(scale.Scale - 0.75) < 0.001):toBe(true)
-		Verify.expect(math.abs(fade.of(page) - 0.5) < 0.001):toBe(true)
+		Verify.expect(near(scale.Scale, 0.75)):toBe(true)
+		Verify.expect(near(fade.of(page), 0.5)):toBe(true)
+		Verify.expect(textStable(page)):toBe(true)
 		Verify.expect(page.Interactable):toBe(false)
 		w.engine.heartbeat:Fire(0.3)
-		Verify.expect(scale.Scale):toBe(1)
+		Verify.expect(zoomOf(page)):toBe(nil)
+		Verify.expect(page:FindFirstChild("TransitionPlate", true)):toBe(nil)
+		Verify.expect(fade.groups(page)):toBe(0)
 		Verify.expect(fade.of(page)):toBe(0)
 		Verify.expect(page.Interactable):toBe(true)
 		path:set({})
 		w.engine.heartbeat:Fire(0.2)
 		Verify.expect(w.find("DetailAction")):toBe(detail)
-		Verify.expect(math.abs(scale.Scale - 0.75) < 0.001):toBe(true)
-		Verify.expect(math.abs(fade.of(page) - 0.5) < 0.001):toBe(true)
+		local leaving = assert(zoomOf(page))
+		Verify.expect(near(leaving.Scale, 0.75)):toBe(true)
+		Verify.expect(near(fade.of(page), 0.5)):toBe(true)
+		Verify.expect(textStable(page)):toBe(true)
 		w.engine.heartbeat:Fire(0.3)
 		Verify.expect(w.find("DetailAction")):toBe(nil)
+		Verify.expect(zoomOf(w.screen)):toBe(nil)
+		Verify.expect(fade.groups(w.screen)):toBe(0)
 		w.stop()
 	end)
-	h:case("a compact split view zooms between its columns with the theme zoom timing", function()
+	h:case("a zoom without an opaque backdrop is a pure fade", function()
+		local w, path = stackWorld({ scale = 0.5, seconds = 0.4 }, false)
+		path:set({ { id = "details", value = "item" } })
+		local page = w.find("DetailAction"):FindFirstAncestor("details")
+		w.engine.heartbeat:Fire(0.2)
+		Verify.expect(zoomOf(w.screen)):toBe(nil)
+		Verify.expect(w.screen:FindFirstChild("TransitionPlate", true)):toBe(nil)
+		Verify.expect(fade.of(page) > 0 and fade.of(page) < 1):toBe(true)
+		w.engine.heartbeat:Fire(0.3)
+		Verify.expect(fade.of(page)):toBe(0)
+		Verify.expect(fade.groups(w.screen)):toBe(0)
+		w.stop()
+	end)
+	h:case("the default zoom takes its plate range, duration and fade-led curves from theme tokens", function()
+		local package = assert(Facet.themes.define({
+			metrics = {
+				motion = {
+					durations = { zoomPresent = 0.5 },
+					easing = { zoomFade = "linear", zoomScale = "inQuad" },
+					materialize = { zoom = 0.8 },
+				},
+			},
+		}))
+		local w, path = stackWorld({ scale = true }, true, package)
+		path:set({ { id = "details", value = "item" } })
+		local page = w.find("DetailAction"):FindFirstAncestor("details")
+		local scale = assert(zoomOf(page))
+		Verify.expect(near(scale.Scale, 0.8)):toBe(true)
+		w.engine.heartbeat:Fire(0.25)
+		Verify.expect(near(fade.of(page), 0.5)):toBe(true)
+		Verify.expect(near(scale.Scale, 0.85)):toBe(true)
+		Verify.expect(textStable(page)):toBe(true)
+		w.engine.heartbeat:Fire(0.2)
+		Verify.expect(zoomOf(page) ~= nil):toBe(true)
+		w.engine.heartbeat:Fire(0.05)
+		Verify.expect(zoomOf(page)):toBe(nil)
+		Verify.expect(fade.of(page)):toBe(0)
+		w.stop()
+	end)
+	h:case("the neutral zoom leads with opacity and keeps a small scale range", function()
+		local motionTokens = assert(Facet.themes.neutralPackage().metrics.motion)
+		local ease = Facet.Compose.easing
+		local fadeEase = ease[assert(assert(motionTokens.easing).zoomFade)]
+		local scaleEase = ease[assert(assert(motionTokens.easing).zoomScale)]
+		local from = assert(assert(motionTokens.materialize).zoom)
+		local seconds = assert(assert(motionTokens.durations).zoomPresent)
+		Verify.expect(from >= 0.85 and from < 1):toBe(true)
+		Verify.expect(seconds > 0.22):toBe(true)
+		for frame = 1, math.ceil(seconds * 30) do
+			local t = math.min(1, frame / 30 / seconds)
+			local previous = math.max(0, (frame - 1) / 30 / seconds)
+			Verify.expect(fadeEase(t) >= scaleEase(t)):toBe(true)
+			Verify.expect((1 - from) * (scaleEase(t) - scaleEase(previous)) < 0.03):toBe(true)
+		end
+	end)
+	h:case("a compact split view zooms only the incoming pane plate while the outgoing pane fades in place", function()
 		local column = Facet.Compose.cell("sidebar" :: "sidebar" | "detail")
 		local shown = Facet.Compose.cell(true)
-		local w = worlds.new(function(UI: Facet.Controls)
-			return UI.NavigationSplitView {
-				preferredCompactColumn = column,
-				detailVisible = shown,
-				detailLabel = false,
-				transition = { scale = 0.5 },
-				sidebar = function(): Instance
-					return UI.Button "File" { label = "File" }
-				end,
-				detail = function(): Instance
-					return UI.Button "Inspector" { label = "Inspector" }
-				end,
+		local w = worlds.new(function(UI: Facet.Controls, Host, engine)
+			return Host.Frame {
+				Name = "Backdrop",
+				BackgroundTransparency = 0,
+				Size = engine.types.UDim2.fromScale(1, 1),
+				UI.NavigationSplitView {
+					preferredCompactColumn = column,
+					detailVisible = shown,
+					detailLabel = false,
+					transition = { scale = 0.5 },
+					sidebar = function(): Instance
+						return UI.Button "File" { label = "File" }
+					end,
+					detail = function(): Instance
+						return UI.Button "Inspector" { label = "Inspector" }
+					end,
+				},
 			}
 		end)
 		local split = w.find("NavigationSplitView")
 		w.engine.environment.poke(split, "AbsoluteSize", w.engine.types.Vector2.new(400, 600))
 		local sidebar, detail = w.find("Sidebar"), w.find("Detail")
 		local inspector = w.find("Inspector")
-		local sidebarScale = w.find("File"):FindFirstAncestor("TransitionContent"):FindFirstChild("TransitionScale")
-		local detailScale = inspector:FindFirstAncestor("TransitionContent"):FindFirstChild("TransitionScale")
-		Verify.expect(sidebar.Visible and sidebarScale.Scale == 1):toBe(true)
+		local function scaleOf(pane: Instance): number
+			local found = zoomOf(pane)
+			return if found then found.Scale else 1
+		end
+		Verify.expect(sidebar.Visible and zoomOf(sidebar) == nil):toBe(true)
 		Verify.expect(detail.Visible):toBe(false)
 		column:set("detail")
-		Verify.expect(detail.Visible and detailScale.Scale == 0.5):toBe(true)
-		w.engine.heartbeat:Fire(0.11)
-		Verify.expect(detailScale.Scale > 0.5 and detailScale.Scale < 1):toBe(true)
-		Verify.expect(sidebarScale.Scale > 0.5 and sidebarScale.Scale < 1):toBe(true)
-		Verify.expect(sidebar.Visible):toBe(true)
-		w.engine.heartbeat:Fire(0.12)
-		Verify.expect(detailScale.Scale):toBe(1)
+		Verify.expect(detail.Visible):toBe(true)
+		Verify.expect(scaleOf(detail)):toBe(0.5)
+		for _ = 1, 5 do
+			w.engine.heartbeat:Fire(0.03)
+			Verify.expect(scaleOf(sidebar)):toBe(1)
+			Verify.expect(textStable(detail)):toBe(true)
+			Verify.expect(textStable(sidebar)):toBe(true)
+		end
+		Verify.expect(scaleOf(detail) > 0.5 and scaleOf(detail) < 1):toBe(true)
+		Verify.expect(sidebar.Visible and fade.of(sidebar) > 0):toBe(true)
+		w.engine.heartbeat:Fire(0.2)
+		Verify.expect(zoomOf(detail)):toBe(nil)
+		Verify.expect(fade.groups(detail)):toBe(0)
 		Verify.expect(sidebar.Visible):toBe(false)
 		shown:set(false)
-		w.engine.heartbeat:Fire(0.11)
+		for _ = 1, 5 do
+			w.engine.heartbeat:Fire(0.03)
+			Verify.expect(scaleOf(detail)):toBe(1)
+			Verify.expect(textStable(detail)):toBe(true)
+			Verify.expect(textStable(sidebar)):toBe(true)
+		end
 		Verify.expect(w.find("Inspector")):toBe(inspector)
-		Verify.expect(detailScale.Scale > 0.5 and detailScale.Scale < 1):toBe(true)
+		Verify.expect(scaleOf(sidebar) > 0.5 and scaleOf(sidebar) < 1):toBe(true)
 		Verify.expect(sidebar.Visible):toBe(true)
-		w.engine.heartbeat:Fire(0.12)
+		w.engine.heartbeat:Fire(0.2)
 		Verify.expect(w.find("Inspector")):toBe(nil)
-		Verify.expect(sidebarScale.Scale):toBe(1)
+		Verify.expect(zoomOf(split)):toBe(nil)
+		Verify.expect(fade.groups(split)):toBe(0)
 		w.stop()
 	end)
 	h:case("a split view without a transition changes its compact column at once", function()

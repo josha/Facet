@@ -5,14 +5,16 @@ Sheet, TabView, NavigationStack and NavigationSplitView accept
 `false` disables presentation motion. Omit the option to keep the control's
 default motion. A table without `apply` or `scale` gives a fade.
 
-`scale` is a zoom preset. The content scales from `scale` at progress 0 to
-full size at progress 1, around its center. With the default fade, the
-content is transparent at progress 0 and opaque at progress 1. A page that
-leaves plays the reverse. `transition = { scale = 0.5 }` zooms a page in from
-half size. The preset uses the theme's `zoom` duration and `zoom` easing.
-`motion`, `seconds` and `ease` replace them. Facet adds a UIScale named
-`TransitionScale` to the content. You cannot use `scale` with `apply`. To
-combine a zoom with other motion, bind a UIScale in `apply`.
+`scale` is a zoom preset. The page content does not scale, so its text does
+not step between sizes. The content fades in at full size on
+`easing.zoomFade`. Behind it, a plate in the color of the nearest opaque
+ancestor grows from `scale` to full size around its center on
+`easing.zoomScale`. A leaving page plays the reverse. `scale = true` starts the
+plate at theme `motion.materialize.zoom`. The duration is
+`durations.zoomPresent`. `motion`, `seconds` and `ease` replace them. The plate
+is a Frame named `TransitionPlate` with a UIScale named `TransitionScale`. It
+exists only during motion. Without an opaque ancestor, and in a Sheet, the
+zoom is a fade. You cannot use `scale` with `apply`.
 
 `apply(content, phase)` runs once for each retained presentation. It runs in
 the content's Compose owner. Bind native properties with `runtime.decorate`.
@@ -61,8 +63,7 @@ uses a short fade, including when `fade = false`. Under no motion, visibility ch
 derive large motion directly from `isPresented`; use `progress` so this
 adaptation applies to the authored effect.
 
-Use this hook for a 2D page turn, staggered menu rows, item detail
-entrances, and matching page exits. The Custom transitions lab page opens
+The Custom transitions lab page opens
 directly on an interactive journal: an opaque leaf turns across a fixed spine,
 with a bound cover, shaded paper,
 a curved fold, pointer/touch dragging, and Previous/Next actions. The print stays

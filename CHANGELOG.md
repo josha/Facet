@@ -22,6 +22,17 @@ about 15 us instead of about 950 us in the engine double.
 Collection rows write LayoutOrder, Position and Size only when they change.
 Text that a function supplies is written only when the result changes.
 
+The `transition.scale` zoom no longer scales the page content, so text does not
+step between sizes during motion. The content fades in at full size. A plate in
+the color of the nearest opaque ancestor grows behind it. The plate and its
+`TransitionScale` UIScale exist only during motion. Without an opaque ancestor,
+and in a Sheet, the zoom is a fade. `scale = true` starts the plate at the
+theme value `motion.materialize.zoom` (0.92 in Facet Neutral). The zoom uses
+the new theme tokens `motion.durations.zoomPresent` (0.3 seconds),
+`motion.easing.zoomFade` (`outCubic`) for opacity and `motion.easing.zoomScale`
+(`outSine`) for the plate, so the fade leads. In a compact NavigationSplitView,
+only the pane that opens zooms. The pane that closes only fades.
+
 Auto-localization stays on for text that the author gives as a plain string,
 also when a control reads it through a function. Only `UI.Text` and `UI.Badge`
 text that the author binds to a readable or a function turns it off.

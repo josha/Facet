@@ -21,7 +21,7 @@ export type Transition = {
 	fade: boolean?,
 	progress: ComposeTypes.ReadOnlyValue<number?>?,
 	apply: ((GuiObject, TransitionContext) -> ())?,
-	scale: number?,
+	scale: (number | true)?,
 }
 export type SourceTransition = { seconds: Types.ValueNumber?, ease: ComposeTypes.Easing?, source: Input<GuiObject?>? }
 export type MenuTrigger = "activate" | "secondary" | "longPress" | "keyboard" | "gamepad"

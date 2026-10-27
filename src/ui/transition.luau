@@ -11,6 +11,7 @@ export type Motion = {
 	completed: Types.ReadOnlyValue<boolean>,
 	visible: Types.ReadOnlyValue<boolean>,
 	interacting: Types.ReadOnlyValue<boolean>,
+	scale: Types.ReadOnlyValue<number>?,
 	apply: (GuiObject, GuiObject?) -> (),
 }
 
@@ -28,8 +29,10 @@ local function check(spec: Nav.Transition | false?)
 	assert(spec.apply == nil or type(spec.apply) == "function", "Transition.apply must be a function")
 	assert(spec.fade == nil or type(spec.fade) == "boolean", "Transition.fade must be a boolean")
 	assert(
-		spec.scale == nil or type(spec.scale) == "number" and spec.scale > 0 and spec.scale < math.huge,
-		"Transition.scale must be a positive finite number"
+		spec.scale == nil
+			or spec.scale == true
+			or type(spec.scale) == "number" and spec.scale > 0 and spec.scale < math.huge,
+		"Transition.scale must be true or a positive finite number"
 	)
 	assert(spec.scale == nil or spec.apply == nil, "Transition.scale and Transition.apply cannot be combined")
 end
@@ -41,11 +44,14 @@ local function create(
 	immediate: boolean?,
 	ready: Types.ReadOnlyValue<boolean>?,
 	disabled: boolean?,
-	targetPresented: Types.ReadOnlyValue<boolean>?
+	targetPresented: Types.ReadOnlyValue<boolean>?,
+	holdOnExit: boolean?
 ): Motion
 	check(spec)
 	local C, runtime = ctx.Compose, ctx.runtime
-	local preset = if spec.scale ~= nil and spec.motion == nil then "zoom" else spec.motion or "tabFade"
+	local zooms = spec.scale ~= nil
+	local shaped = zooms and spec.ease == nil
+	local preset = if zooms and spec.motion == nil then "zoomPresent" else spec.motion or "tabFade"
 	local level = motion.level(ctx)
 	local mounted = C.cell(immediate == true)
 	local held = C.formula(function(use: Types.Use): number?
@@ -81,16 +87,53 @@ local function create(
 				then ctx.read(spec.seconds, use)
 				else ctx.metric("motion.durations." .. preset, use)
 		end,
-		ease = spec.ease or ctx.motionEase(if spec.scale ~= nil then "zoom" else "fade"),
+		ease = spec.ease or if shaped then C.easing.linear else ctx.motionEase("fade"),
 	})
+	local function shape(role: string, value: number, use: Types.Use): number
+		return if shaped and not use(interacting) then ctx.motionEase(role, use)(value) else value
+	end
 	local opacity = C.formula(function(use: Types.Use): number
-		return if disabled or level(use) == "none" then use(target) else use(amount)
+		return if disabled or level(use) == "none" then use(target) else shape("zoomFade", use(amount), use)
 	end)
+	local function animates(use: Types.Use): boolean
+		return not disabled and level(use) == "normal" and (ready == nil or use(ready))
+	end
 	local progress = C.formula(function(use: Types.Use): number
-		return if not disabled and level(use) == "normal" and (ready == nil or use(ready)) then use(opacity) else 1
+		return if animates(use) then use(opacity) else 1
 	end)
+	local scale: Types.ReadOnlyValue<number>? = nil
+	local authored = spec.scale
+	if authored ~= nil then
+		local growth = C.formula(function(use: Types.Use): number
+			return if animates(use) then shape("zoomScale", use(amount), use) else 1
+		end)
+		local function origin(use: Types.Use): number
+			return if type(authored) == "number" then authored else ctx.metric("motion.materialize.zoom", use)
+		end
+		local zoomed = C.formula(function(use: Types.Use): number
+			local from, grown = origin(use), use(growth)
+			return if grown >= 1 then 1 else from + (1 - from) * grown
+		end)
+		if holdOnExit then
+			local departing: Types.Value<number?> = C.cell(nil :: number?)
+			C.watch(function(use: Types.Use)
+				if use(presented) then
+					departing:set(nil)
+				elseif departing:peek() == nil then
+					departing:set(zoomed:peek())
+				end
+			end)
+			scale = C.formula(function(use: Types.Use): number
+				local kept = use(departing)
+				return if kept ~= nil then kept else use(zoomed)
+			end)
+		else
+			scale = zoomed
+		end
+	end
 	return {
 		interacting = interacting,
+		scale = scale,
 		progress = progress,
 		opacity = opacity,
 		transparency = C.formula(function(use: Types.Use): number
@@ -106,17 +149,6 @@ local function create(
 		apply = function(node: GuiObject, container: GuiObject?)
 			if spec.apply then
 				spec.apply(node, { progress = progress, isPresented = presented })
-			end
-			local from = spec.scale
-			if from ~= nil then
-				runtime.mount(function()
-					return ctx.Host.UIScale {
-						Name = "TransitionScale",
-						Scale = function(use: Types.Use): number
-							return from + (1 - from) * use(progress)
-						end,
-					}
-				end, node)
 			end
 			local parent = ctx.observe.Parent(container or node)
 			C.watch(function(use: Types.Use)
