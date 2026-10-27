@@ -189,6 +189,11 @@ local function button(world: Types.World, parent: Node, name: string, label: str
 end
 
 type Hold = { constraint: Node, widest: number, length: number }
+type Styled = { GetStyled: (Styled, string) -> unknown }
+
+local function styled(node: Node, key: string): unknown
+	return ((node :: unknown) :: Styled):GetStyled(key)
+end
 local holds = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Node]: Hold }
 local widths: { [string]: number } = {}
 
@@ -198,7 +203,7 @@ local function widthOf(world: Types.World, node: Node, value: string, ready: (nu
 		local bounds: unknown = node.TextBounds
 		return if typeof(bounds) == "Vector2" then bounds.X else 0
 	end
-	local face, size = node:GetStyled("FontFace"), node:GetStyled("TextSize")
+	local face, size = styled(node, "FontFace"), styled(node, "TextSize")
 	local key = `{tostring(face)}|{tostring(size)}|{value}`
 	local known = widths[key]
 	if known ~= nil then
@@ -304,7 +309,7 @@ local function snapshot(world: Types.World, names: { string }): string
 	return table.concat(rows, "\n")
 end
 
-local function themed(world: Types.World, screen: Instance): () -> ()
+local function themed(world: Types.World, screen: Node): () -> ()
 	local stop = world.runtime.mount(function()
 		return Facet.themes.createStyleSheet(world.runtime, Facet.themes.neutralPackage(), { types = world.types })
 	end, screen)
@@ -339,7 +344,7 @@ local function mount(
 				return made
 			end)
 		end, world.target)
-		local unstyle = if unthemed then nil else themed(world, assert(screen))
+		local unstyle = if unthemed then nil else themed(world, (assert(screen) :: unknown) :: Node)
 		return function()
 			if unstyle then
 				unstyle()
@@ -354,7 +359,7 @@ local function mount(
 	local unstyle = if unthemed then nil else themed(world, screen)
 	for _, node in screen:GetDescendants() do
 		if node:IsA("GuiObject") then
-			node:GetStyled("Visible")
+			((node :: unknown) :: Styled):GetStyled("Visible")
 		end
 	end
 	return function()

@@ -201,12 +201,15 @@ table.insert(workloads, {
 		local first, second = Facet.themes.neutralPackage(), Facet.themes.neutralPackage()
 		second.style.themes[1].colors.content = { r = 0.8, g = 0.9, b = 1 }
 		local function freeze(value: unknown)
-			if type(value) == "table" and not table.isfrozen(value) then
-				for key, child in value :: { [unknown]: unknown } do
-					freeze(key)
-					freeze(child)
+			if type(value) == "table" then
+				local record = value :: { [unknown]: unknown }
+				if not table.isfrozen(record) then
+					for key, child in record do
+						freeze(key)
+						freeze(child)
+					end
+					table.freeze(record)
 				end
-				table.freeze(value)
 			end
 		end
 		freeze(first)
