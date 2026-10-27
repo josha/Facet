@@ -21,7 +21,7 @@ local function attachLayout(
 	local alive = true
 	local refreshing = false
 	local function measuredFloor(): boolean
-		return services.TextService ~= nil and floor ~= nil and floor.Parent == (label :: Instance)
+		return services.TextService ~= nil and floor ~= nil
 	end
 	local function reflow(metrics: boolean?)
 		local automatic = label.AutomaticSize
@@ -80,6 +80,17 @@ local function attachLayout(
 	end
 	local revision = Compose.cell(0)
 	local styling = Compose.cell(0)
+	local content = Compose.cell(label.Text)
+	local snapshotAt = -1
+	local snapMode, snapSize, snapWrapped = label.AutomaticSize, label.Size, false
+	local function snapshot()
+		local at = styling:peek()
+		if at ~= snapshotAt then
+			snapshotAt = at
+			snapMode, snapSize = label.AutomaticSize, label.Size
+			snapWrapped = label:GetStyled("TextWrapped") == true
+		end
+	end
 	local framed = services.RunService ~= nil and getfenv ~= nil and getfenv(0).game ~= nil
 	local size =
 		runtime.observe(label, "AbsoluteSize", if framed then { frame = true, poll = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
@@ -101,9 +112,7 @@ local function attachLayout(
 		if property == "FontFace" or property == "TextSize" then
 			styleChanged()
 		elseif property == "Text" then
-			if not refreshing then
-				revision:set(revision:peek() + 1)
-			end
+			content:set(label.Text)
 			if not measuredFloor() and previousSize ~= nil and label.TextSize ~= previousSize then
 				deferReflow()
 			end
@@ -139,7 +148,8 @@ local function attachLayout(
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
 		use(revision)
-		local box, glyph, mode = use(size), use(bounds), label.AutomaticSize
+		snapshot()
+		local box, glyph, mode = use(size), use(bounds), snapMode
 		local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
 		local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
 		local measured = measuredFloor()
@@ -178,7 +188,7 @@ local function attachLayout(
 						)
 				end, function()
 					local nativeBounds = if services.TextService
-						then textMeasure.natural(ctx, label, nil, revision, stable)
+						then textMeasure.natural(ctx, label, nil, revision, stable, styling, content)
 						else nil
 					local probe: ComposeTypes.ReadOnlyValue<number>? = if services.TextService
 						then nil
@@ -205,16 +215,21 @@ local function attachLayout(
 						end
 					end
 					if services.TextService then
-						local words = runtime.observe(label, "Text", if framed then { frame = true } else nil)
+						local words: ComposeTypes.ReadOnlyValue<string>? = nil
+						local observeWords = Compose.bindOwner(function()
+							words =
+								runtime.observe(label, "Text", if framed then { frame = true } else nil) :: ComposeTypes.ReadOnlyValue<string>
+						end)
 						Compose.cleanup(function()
 							active = false
 							finish()
 						end)
 						Compose.watch(function(use: ComposeTypes.Use)
-							use(revision)
-							local mode = label.AutomaticSize
+							use(styling)
+							snapshot()
+							local mode = snapMode
 							if
-								label:GetStyled("TextWrapped") ~= true
+								not snapWrapped
 								or not (mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY)
 							then
 								serial += 1
@@ -223,6 +238,7 @@ local function attachLayout(
 								finish()
 								return
 							end
+							use(revision)
 							local wide = use(size).X / use(unit())
 							local padding = label:FindFirstChildWhichIsA("UIPadding")
 							if padding then
@@ -230,7 +246,10 @@ local function attachLayout(
 								local right = padding:GetStyled("PaddingRight") :: UDim
 								wide -= left.Offset + right.Offset + wide * (left.Scale + right.Scale)
 							end
-							local text = use(words) :: string
+							if words == nil then
+								observeWords()
+							end
+							local text = use(assert(words))
 							local font, points, spacing =
 								label:GetStyled("FontFace") :: Font,
 								label:GetStyled("TextSize") :: number,
@@ -342,7 +361,8 @@ local function attachLayout(
 					runtime.decorate(constraint, {
 						[Compose.group({ "MaxSize", "MinSize" })] = function(use: ComposeTypes.Use): (Vector2, Vector2)
 							use(revision)
-							local mode, authoredSize = label.AutomaticSize, label.Size
+							snapshot()
+							local mode, authoredSize = snapMode, snapSize
 							local measured = if nativeBounds then use(nativeBounds) else use(bounds)
 							local scale = if nativeBounds then 1 else use(unit())
 							local glyphX, glyphY = measured.X / scale, measured.Y / scale

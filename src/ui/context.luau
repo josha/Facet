@@ -27,15 +27,16 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	}
 	local ctx = (fields :: unknown) :: Shared.Context
 	local track = installConstruct(ctx)
+	local function peek<U>(source: ComposeTypes.ReadOnlyValue<U>): U
+		return source:peek()
+	end
 	local function read<T>(value: T | ComposeTypes.Source<T>, use: ComposeTypes.Use?): T
 		if Compose.isValue(value) then
 			local source = value :: ComposeTypes.ReadOnlyValue<T>
 			return if use then use(source) else source:peek()
 		elseif type(value) == "function" then
 			local body = value :: ComposeTypes.Body<T>
-			return body(use or function<U>(source: ComposeTypes.ReadOnlyValue<U>): U
-				return source:peek()
-			end)
+			return body(use or peek)
 		end
 		return value :: T
 	end
