@@ -260,6 +260,7 @@ type AnchoredOptions
 type App
 type AppOptions
 type AsyncImageProps
+type AuthoredRuleProperties
 type AvatarGroupProps
 type AvatarMember
 type AvatarProps
@@ -357,6 +358,7 @@ type GestureBinding
 type GestureDecision
 type GestureKind
 type GestureOptions
+type Gradient
 type GridProps
 type GroupedOptions
 type HapticKind
@@ -414,6 +416,7 @@ type PopoverSource
 type PopoverSpec
 type Presence
 type ProgressViewProps
+type RGB
 type RadialAction
 type RadialItem
 type RadialMenuSpec
@@ -426,6 +429,7 @@ type RegionProps
 type RowAction
 type RowActionsOptions
 type RowActionsSpec
+type Rule
 type Runtime
 type SafeInsets
 type ScreenProps
@@ -453,6 +457,7 @@ type SpacerProps
 type SpatialGridSpec
 type SpatialPlacement
 type SplitButtonSpec
+type SplitColumn
 type StackProps
 type StageProps
 type Status
@@ -504,6 +509,7 @@ type VoteSpec
 type VoteValue
 type WorldAnchor
 type WorldAnchorOptions
+type WorldAnchorPoint
 type WorldMarkerProps
 type ZStackProps
 type Zone
