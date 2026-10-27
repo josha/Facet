@@ -49,7 +49,7 @@ return function(harness: Verify.Harness)
 				end,
 			},
 		}
-		local target = engine.new("Folder")
+		local target = engine.new("PlayerGui")
 		local modules: { [string]: unknown } = {}
 		local loadLab: (string) -> unknown
 		local names = {

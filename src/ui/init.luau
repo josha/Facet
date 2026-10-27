@@ -56,6 +56,7 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 	require("@self/zoom_view")(ctx, UI)
 	require("@self/travel")(ctx, UI, surfaces)
 	require("@self/diegetic_screen")(ctx, UI)
+	require("@self/camera_rig")(ctx, UI)
 	require("@self/world_marker")(ctx, UI)
 	return freeze(UI)
 end

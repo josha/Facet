@@ -4,7 +4,7 @@ return function(harness: Verify.Harness)
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")
 	local Geometry = require("../src/ui/diegetic_geometry")
-	local function fixture(vr: boolean?, interactive: boolean?)
+	local function fixture(vr: boolean?, interactive: boolean?, rigged: boolean?)
 		local engine, bridge = engines.new()
 		local tracking = bridge.track()
 		local types = engine.types
@@ -33,7 +33,7 @@ return function(harness: Verify.Harness)
 				end
 			end
 		end)
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime = Facet.Roblox.createRuntime(bridge.engine)
 		local Host = Facet.host(runtime)
 		local UI = Facet.controls(
 			runtime,
@@ -44,11 +44,21 @@ return function(harness: Verify.Harness)
 		local scenes = 0
 		local target = engine.new("PlayerGui")
 		local mounted: Folder? = nil
+		local rig: Facet.CameraRig? = nil
 		local function Room(): Model
 			scenes += 1
 			return Host.Model "Room" { Host.Part "Table" { Anchored = true } }
 		end
 		local function Application(): Folder
+			if rigged then
+				rig = UI.cameraRig {
+					inputRoot = target,
+					initial = { focus = types.Vector3.zero, yaw = 0, pitch = 0, distance = 10 },
+					focusBounds = { min = types.Vector3.new(-2, -2, -2), max = types.Vector3.new(2, 2, 2) },
+					distanceBounds = types.Vector2.new(2, 20),
+					enabled = presented,
+				}
+			end
 			local content = UI.Text "Counter" { text = counter }
 			local backing = Host.ScreenGui "Backdrop" {
 				ScreenInsets = types.Enum.ScreenInsets.None,
@@ -66,7 +76,7 @@ return function(harness: Verify.Harness)
 					scene = Room,
 					surface = types.CFrame.new(),
 					bounds = types.Vector2.new(3, 2),
-					camera = types.CFrame.new(0, 4, 10),
+					camera = if rig then rig.camera else types.CFrame.new(0, 4, 10),
 					interactive = interactive,
 				},
 			}
@@ -102,6 +112,7 @@ return function(harness: Verify.Harness)
 			otherCamera = otherCamera,
 			presented = presented,
 			counter = counter,
+			rig = rig,
 			step = step,
 			close = close,
 			scenes = function(): number
@@ -109,6 +120,23 @@ return function(harness: Verify.Harness)
 			end,
 		}
 	end
+	harness:case("DiegeticScreen follows a cameraRig focus without rebuilding its live scene", function(context)
+		local world = fixture(nil, true, true)
+		context:defer(world.close)
+		world.presented:set(true)
+		world.step(120)
+		local camera = world.workspace.CurrentCamera
+		local before = camera.CFrame
+		local rig = assert(world.rig)
+		rig.focus:set(world.types.Vector3.new(1, 1, 1))
+		world.step(120)
+		Verify.expect(camera.CFrame):toBe(rig.camera:peek())
+		Verify.expect(camera.CFrame == before):toBe(false)
+		Verify.expect(world.scenes()):toBe(1)
+		world.presented:set(false)
+		world.step(240)
+		Verify.expect(world.workspace.CurrentCamera):toBe(world.original)
+	end)
 	harness:case(
 		"DiegeticScreen moves the same live content and restores its original camera and host",
 		function(context)

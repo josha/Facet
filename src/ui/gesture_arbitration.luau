@@ -17,6 +17,7 @@ export type Arbiter = {
 	cancelOwner: (Instance) -> (),
 	capture: (Instance, () -> ()) -> (),
 	claimCamera: (Instance) -> boolean,
+	busy: () -> boolean,
 }
 export type Binding = {
 	begin: (InputObject, Vector2, Options) -> boolean,
@@ -32,6 +33,9 @@ function arbitration.new(): Arbiter
 	local arbiter = {} :: Arbiter
 	local captureOwner: Instance? = nil
 	local cameras: { [Instance]: boolean } = {}
+	function arbiter.busy(): boolean
+		return next(contacts) ~= nil or captureOwner ~= nil
+	end
 	function arbiter.begin(pointer: InputObject, owner: Instance, origin: Vector2, options: Options): boolean
 		local held = contacts[pointer]
 		if held and (held.owner == owner or held.kind ~= "pending" or not owner:IsDescendantOf(held.owner)) then

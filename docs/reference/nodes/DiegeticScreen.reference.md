@@ -11,7 +11,7 @@ instances. It does not mount another application.
 | `scene` | Named factory returning a Compose-owned Instance. Compose mounts it in Workspace for the presentation lifetime. |
 | `surface` | CFrame value or reactive source for the front face of the display. Local negative Z points out of the screen. |
 | `bounds` | Positive Vector2 physical display bounds. The fixed logical canvas fits inside them without stretching. |
-| `camera` | CFrame value or reactive source for the room camera at the end of entry. |
+| `camera` | CFrame value or reactive source for the room camera at the end of entry. Use `UI.cameraRig(...).camera` for bounded camera input and presets. |
 | `fieldOfView` | Vertical field of view, default 48 degrees. Must be between zero and 180. |
 | `motion` | Theme motion role, default `move`. Reduced motion uses the end pose directly. |
 | `onUnavailable` | Optional callback with a failure reason. The interface returns to its original screen hosts. |
@@ -30,3 +30,8 @@ VR entry is unavailable until a comfort presentation is supplied.
 The scene and camera framing belong to the consumer. SurfaceGui, Camera,
 GuiService:GetInsetArea and Compose portal, spring, settled and scheduler own
 the native rendering, ownership, motion and readiness mechanisms.
+
+Use [cameraRig](cameraRig.reference.md) to orbit, pan and zoom in the room.
+Bind its `enabled` option to the camera task and pass its `camera` value here.
+Use `interactive = true` with an explicit return command when the surface has
+camera reset and preset controls.

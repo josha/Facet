@@ -230,6 +230,7 @@ controls(runtime).ZStack : function
 controls(runtime).ZoomView : function
 controls(runtime).adjustable : function
 controls(runtime).badged : function
+controls(runtime).cameraRig : function
 controls(runtime).commandScope : function
 controls(runtime).countUp : function
 controls(runtime).draggable : function
@@ -272,6 +273,9 @@ type ButtonGuideProps
 type ButtonProps
 type ButtonRole
 type CalloutSpec
+type CameraPose
+type CameraRig
+type CameraRigOptions
 type CardAction
 type CardBadge
 type CardBadges
