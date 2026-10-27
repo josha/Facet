@@ -159,6 +159,18 @@ return function(ctx: Types.Context, source: BasePart | Model, spec: Env.Draggabl
 	detector.Parent = source
 	if input then
 		ctx.runtime.connect(input, "InputBegan", function(pointer: InputObject, processed: boolean)
+			local session = service.state:peek()
+			if
+				session
+				and session.source == source
+				and session.mode == "pointer"
+				and pointer.UserInputType == E.UserInputType.Touch
+				and pressed ~= nil
+				and pressed.UserInputType ~= E.UserInputType.Touch
+			then
+				pressed = pointer
+				return
+			end
 			if
 				(not processed or detected)
 				and enabled(nil)
