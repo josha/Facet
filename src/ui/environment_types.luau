@@ -73,7 +73,13 @@ export type ScrollOptions = { animated: boolean? }
 export type ScrollRect = { x: number, y: number, w: number, h: number }
 export type DropOperation = "copy" | "move" | "apply"
 export type DropDestination = GuiObject | BasePart | Model
-export type WorldDragOptions = { plane: CFrame, lift: number?, focusTarget: GuiObject, maxActivationDistance: number? }
+export type WorldDragOptions = {
+	plane: CFrame,
+	lift: number?,
+	focusTarget: GuiObject,
+	hitArea: GuiObject?,
+	maxActivationDistance: number?,
+}
 export type DropInsertion = { collection: unknown, beforeKey: unknown?, afterKey: unknown?, slot: number }
 export type DropPlacement = { column: number, row: number, width: number, height: number }
 export type DropInfo = {

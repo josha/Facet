@@ -12,12 +12,14 @@ anchored. Facet moves the held object. The game owns its accepted placement.
   theme's `present` easing.
 - `focusTarget`: a required GuiObject. Use a labelled Button for pickup by
   keyboard, gamepad, touch, or an accessibility tool.
+- `hitArea`: an optional GuiObject, such as a SurfaceGui `focusTarget` over
+  the source. A press on it that moves past the drag threshold starts the
+  drag. A shorter press stays a tap.
 - `maxActivationDistance`: an optional native DragDetector distance. The engine
   default applies when this is absent.
 
-  The engine measures this distance from the player's character. When the
-  local player has no character, Facet starts pointer and touch pickup from
-  its own pointer raycast instead.
+  The engine measures it from the character. Without a character, Facet
+  starts pointer pickup from its own raycast.
 
 Facet creates a local DragDetector with `TranslatePlane`, `Custom` response,
 and `Everybody` permission. This detector recognizes pointer pickup and release.

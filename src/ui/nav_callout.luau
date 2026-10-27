@@ -180,7 +180,7 @@ return function(
 							UI.Button "Close" {
 								name = "Close",
 								icon = "close",
-								Size = D2.fromOffset(44, 44),
+								Size = parts.closeTarget(ctx),
 								AutomaticSize = E.AutomaticSize.None,
 								onActivate = function()
 									retire("dismissed")

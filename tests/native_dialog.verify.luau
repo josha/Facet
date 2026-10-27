@@ -394,6 +394,64 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
+
+		verifyHarness:case(
+			"an Escape returns selection to an opener inside a NavigationStack page, which opens the dialog again",
+			{
+				id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::an Escape returns selection to an opener inside a NavigationStack page, which opens the dialog again",
+				run = function()
+					local open, log, change = caller()
+					open:set(false)
+					local opener: GuiObject
+					local path = Compose.cell({ { id = "detail" } })
+					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+						return Host.Frame({
+							UI.NavigationStack "App" {
+								path = path,
+								destinations = {
+									detail = {
+										content = function(): Instance
+											opener = UI.Button "Opener" {
+												label = "Open",
+												onActivate = function()
+													open:set(true)
+												end,
+											}
+											return opener
+										end,
+									},
+								},
+								root = {
+									content = function(): Instance
+										return UI.Button "Home" { label = "Home" }
+									end,
+								},
+							},
+							UI.Dialog "Confirm"(standard(open, log, change)(UI, Host)),
+						})
+					end, { motionLevel = "none" }, { inputs = true, lastInputType = UserInputType.Keyboard })
+					w.advance(0.1)
+					for cycle = 1, 2 do
+						w.gui.SelectedObject = opener
+						open:set(true)
+						w.advance(0.1)
+						Verify.expect(w.gui.SelectedObject ~= opener):toBe(true)
+						key(w, "Escape", true)
+						local back = w.action("ModalBack")
+						if back then
+							back.Pressed:Fire()
+						end
+						key(w, "Escape", false)
+						w.advance(0.5)
+						Verify.expect((open:peek())):toBe(false)
+						Verify.expect(#path:peek()):toBe(1)
+						Verify.expect(w.gui.SelectedObject):toBe(opener)
+						Verify.expect(#log.changes):toBe(cycle)
+					end
+					w.stop()
+				end,
+			}
+		)
 	end)
 
 	verifyHarness:suite("native Dialog: initial action", function()
@@ -479,6 +537,23 @@ return function(verifyHarness: Verify.Harness)
 				local bare = mount(standard(open, log, change, { actions = {} }))
 				Verify.expect(bare.find("Close") ~= nil):toBe(true)
 				bare.stop()
+			end,
+		})
+
+		verifyHarness:case("the icon close control meets the theme's minimum target at ten-foot distance", {
+			id = "native_dialog::native Dialog: the caller's fact decides::the icon close control meets the theme's minimum target at ten-foot distance",
+			run = function()
+				local open, log, change = caller()
+				local themes = require("../src/ui/themes")(Compose)
+				local far = themes.forDistance(themes.neutralPackage(), "ten-foot")
+				local minimum = far.metrics.targetSizes.minimum
+				Verify.expect(minimum > 44):toBe(true)
+				local options: Types.Config = { theme = assert(themes.define(far)) }
+				local w = mount(standard(open, log, change, { closeButton = true }), options)
+				local close = w.find("Close")
+				Verify.expect(close.Size.X.Offset):toBe(minimum)
+				Verify.expect(close.Size.Y.Offset):toBe(minimum)
+				w.stop()
 			end,
 		})
 

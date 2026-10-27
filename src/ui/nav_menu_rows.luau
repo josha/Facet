@@ -196,6 +196,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 		end)
 		local accessories: { Types.Child } = {}
+		local accessoryWidth: ((ComposeTypes.Use) -> number)? = nil
 		if item.badge ~= nil then
 			table.insert(
 				accessories,
@@ -232,23 +233,36 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			table.insert(accessories, shortcut)
 		end
 		if #accessories > 0 then
-			surfaces.attach(row, {
-				Host.Frame "Accessories" {
-					BackgroundTransparency = 1,
-					AnchorPoint = V2.new(1, 0.5),
-					Position = D2.new(1, if item.checked or item.selected or item.marked then -32 else 0, 0.5, 0),
-					Size = D2.fromOffset(0, 0),
-					AutomaticSize = E.AutomaticSize.XY,
-					ZIndex = 2,
-					Host.UIListLayout({
-						FillDirection = E.FillDirection.Horizontal,
-						SortOrder = E.SortOrder.LayoutOrder,
-						VerticalAlignment = E.VerticalAlignment.Center,
-						Padding = D.new(0, 8),
-					}),
-					table.unpack(accessories),
-				},
-			})
+			local marked = if item.checked or item.selected or item.marked then 32 else 0
+			local accessoryFrame = Host.Frame "Accessories" {
+				BackgroundTransparency = 1,
+				AnchorPoint = V2.new(1, 0.5),
+				Position = D2.new(1, -marked, 0.5, 0),
+				Size = D2.fromOffset(0, 0),
+				AutomaticSize = E.AutomaticSize.XY,
+				ZIndex = 2,
+				Host.UIListLayout({
+					FillDirection = E.FillDirection.Horizontal,
+					SortOrder = E.SortOrder.LayoutOrder,
+					VerticalAlignment = E.VerticalAlignment.Center,
+					Padding = D.new(0, 8),
+				}),
+				table.unpack(accessories),
+			}
+			surfaces.attach(row, { accessoryFrame })
+			local content = row:FindFirstChild("Content")
+			if content then
+				local reserved = ctx.observe.AbsoluteSize(accessoryFrame)
+				local function width(use: ComposeTypes.Use): number
+					return use(reserved).X + marked + 8
+				end
+				accessoryWidth = width
+				runtime.decorate(content, {
+					Size = function(use: ComposeTypes.Use): UDim2
+						return D2.new(1, -width(use), 0, 0)
+					end,
+				})
+			end
 		end
 		local avatar = item.avatar
 		local rowContent = row:FindFirstChild("Content")
@@ -307,6 +321,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				end
 				if wordsBox and wordsNatural then
 					width = width - use(wordsBox).X + use(wordsNatural).X
+				end
+				if accessoryWidth then
+					width += accessoryWidth(use)
 				end
 				local next = table.clone(widths:peek())
 				next[rowKey] = width

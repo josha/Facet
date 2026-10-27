@@ -229,7 +229,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 								UI.Button "Close" {
 									name = "Close",
 									icon = "close",
-									Size = D2.fromOffset(44, 44),
+									Size = parts.closeTarget(ctx),
 									AutomaticSize = E.AutomaticSize.None,
 									onActivate = function()
 										propose(false, "close")

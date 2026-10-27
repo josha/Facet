@@ -336,6 +336,70 @@ return function(h: Verify.Harness)
 		Verify.expect(info.target):toBe(w.target)
 		Verify.expect(info.worldPlacement):toBe(w.goal)
 	end)
+	h:case("a press on the world hit area drags past the threshold and leaves a tap to the button", function(test)
+		local w = fixture(test, "none")
+		local controlOptions: Facet.ControlOptions = {
+			types = w.engine.types,
+			motionLevel = "none",
+			userInputService = w.input,
+			guiService = w.gui,
+			inputParent = w.screen,
+			services = { Workspace = w.world },
+		}
+		local UI = Facet.controls(w.runtime, controlOptions)
+		local starts, ended = 0, 0
+		local stop = w.runtime.mount(function()
+			local Host = w.ctx.Host
+			local slot = Host.TextButton { Name = "SlotButton" }
+			local tile = Host.Part { Anchored = true, Parent = Facet.Compose.static(w.world) }
+			local options: Facet.WorldDragOptions = {
+				plane = w.engine.types.CFrame.identity,
+				focusTarget = slot,
+				hitArea = slot,
+			}
+			UI.draggable(tile, {
+				payload = "tile",
+				world = options,
+				onStart = function()
+					starts += 1
+				end,
+				onEnd = function()
+					ended += 1
+				end,
+			})
+			local panel: Native.FrameNativeProps = { slot }
+			return Host.Frame(panel)
+		end, w.screen)
+		test:defer(stop)
+		local slot = Roblox.assertInstance(assert(w.screen:FindFirstChild("SlotButton", true)))
+		local input = Roblox.assertInstance(w.input)
+		local function pointer(x: number): { [string]: unknown }
+			return {
+				UserInputType = w.engine.types.Enum.UserInputType.MouseButton1,
+				UserInputState = w.engine.types.Enum.UserInputState.Begin,
+				Position = w.engine.types.Vector3.new(x, 10, 0),
+			}
+		end
+		local function move(x: number): { [string]: unknown }
+			return {
+				UserInputType = w.engine.types.Enum.UserInputType.MouseMovement,
+				Position = w.engine.types.Vector3.new(x, 10, 0),
+			}
+		end
+		local tap = pointer(10)
+		w.engine.environment.fire(slot, "InputBegan", tap)
+		w.engine.environment.fire(input, "InputChanged", move(12))
+		Verify.expect(starts):toBe(0)
+		w.engine.environment.fire(input, "InputEnded", tap)
+		Verify.expect(starts):toBe(0)
+		local press = pointer(10)
+		w.engine.environment.fire(slot, "InputBegan", press)
+		w.engine.environment.fire(input, "InputChanged", move(30))
+		Verify.expect(starts):toBe(1)
+		Verify.expect(ended):toBe(0)
+		w.engine.environment.fire(input, "InputEnded", press)
+		Verify.expect(ended):toBe(1)
+	end)
 	h:case("world pending completion validates once and ignores late replies", function(test)
 		local w = fixture(test, "none")
 		local legal = true

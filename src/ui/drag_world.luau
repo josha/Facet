@@ -162,6 +162,22 @@ return function(ctx: Types.Context, source: BasePart | Model, spec: Env.Draggabl
 		end,
 	}
 	detector.Parent = source
+	local area = options.hitArea
+	if area then
+		ctx.runtime.connect(area, "InputBegan", function(pointer: InputObject)
+			if
+				(
+					pointer.UserInputType == E.UserInputType.MouseButton1
+					or pointer.UserInputType == E.UserInputType.Touch
+				)
+				and service.state:peek() == nil
+				and enabled(nil)
+				and arbiter.begin(pointer, source, at(pointer), { pickup = "immediate" })
+			then
+				pressed = pointer
+			end
+		end)
+	end
 	if input then
 		ctx.runtime.connect(input, "InputBegan", function(pointer: InputObject, processed: boolean)
 			local session = service.state:peek()
@@ -191,16 +207,28 @@ return function(ctx: Types.Context, source: BasePart | Model, spec: Env.Draggabl
 		end)
 		ctx.runtime.connect(input, "InputChanged", function(pointer: InputObject)
 			if
-				held()
-				and pressed
-				and (
-					pointer == pressed
-					or (
+				not pressed
+				or (
+					pointer ~= pressed
+					and not (
 						pressed.UserInputType == E.UserInputType.MouseButton1
 						and pointer.UserInputType == E.UserInputType.MouseMovement
 					)
 				)
 			then
+				return
+			end
+			if
+				area
+				and not held()
+				and service.state:peek() == nil
+				and enabled(nil)
+				and arbiter.move(pressed, at(pointer)) == "drag"
+			then
+				activation.consume(pressed)
+				begin("pointer", pressed)
+			end
+			if held() then
 				service.update(at(pointer))
 			end
 		end)
