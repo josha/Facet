@@ -65,8 +65,8 @@ Also name what works and must stay (`keep`), so a revision does not lose it.
   "schema": "facet-critique/1",
   "screens": [
     {
-      "id": "desktop-shop",
-      "firstLook": "The 40 px headline, not the parts or prices.",
+      "id": "desktop-seed-shop",
+      "firstLook": "The 40 px headline, not the seeds or their prices.",
       "scores": { "lead": 2, "numbers": 1, "visuals": 1, "identity": 2, "economy": 3 },
       "verdict": "revise",
       "fixes": [
@@ -74,9 +74,9 @@ Also name what works and must stay (`keep`), so a revision does not lose it.
           "rank": 1,
           "level": "must",
           "tag": "item-without-visual",
-          "element": "each part row",
-          "problem": "Five identical text rows; the player reads every name to find a motor.",
-          "move": "Give each part its icon or Stage model at 64 px beside the name; remove the row plates."
+          "element": "each seed row",
+          "problem": "Five identical text rows; the player reads every name to find the sunflower.",
+          "move": "Give each seed packet its image at 64 px beside the name; remove the row plates."
         }
       ],
       "keep": ["Back and Close placement"]

@@ -1,0 +1,31 @@
+{
+  "schema": "facet-critic-case/1",
+  "id": "bench-garage-detail",
+  "source": "FacetBench guide-pixelquest-20261027, player-02, desktop garage detail",
+  "labeler": "draft by Claude, 2026-10-27; confirm or overwrite",
+  "capture": "capture.jpg",
+  "device": "desktop",
+  "brief": "Neon sci-fi racing game. Garage detail: the player inspects one kart and picks it for the next race.",
+  "label": {
+    "verdict": "revise",
+    "scores": {
+      "lead": 3,
+      "numbers": 1,
+      "visuals": 3,
+      "identity": 2,
+      "economy": 2
+    },
+    "must": [
+      "numbers-buried",
+      "joined-facts",
+      "crowded"
+    ],
+    "should": [
+      "generic-identity",
+      "stranded-space",
+      "lead-unclear"
+    ],
+    "notes": "The model helps but is small; speed/handling/boost in one caption; five equal utility buttons crowd the commit."
+  },
+  "dump": "dump.json"
+}

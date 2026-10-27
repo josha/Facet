@@ -1,0 +1,28 @@
+{
+  "schema": "facet-critic-case/1",
+  "labeler": "draft by Claude, 2026-10-27; confirm or overwrite",
+  "capture": "capture.jpg",
+  "device": "desktop",
+  "id": "collection-glyph-rows",
+  "source": "Facet Studio capture, 2026-10-27: examples/collection.luau with renderSubject false (glyphs)",
+  "brief": "River restoration game. Supply catalogue: the player compares supplies and opens one to add it to the field kit.",
+  "betterThan": "collection-glyph-rows-flat",
+  "label": {
+    "verdict": "revise",
+    "scores": {
+      "lead": 4,
+      "numbers": 3,
+      "visuals": 3,
+      "identity": 3,
+      "economy": 2
+    },
+    "must": [
+      "stranded-space"
+    ],
+    "should": [
+      "generic-identity",
+      "commit-unclear"
+    ],
+    "notes": "One lead per row and a glyph plate, but each row leaves two thirds of its width empty and the rows are tall."
+  }
+}

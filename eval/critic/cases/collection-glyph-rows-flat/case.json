@@ -1,0 +1,28 @@
+{
+  "schema": "facet-critic-case/1",
+  "labeler": "draft by Claude, 2026-10-27; confirm or overwrite",
+  "capture": "capture.jpg",
+  "device": "desktop",
+  "id": "collection-glyph-rows-flat",
+  "source": "Facet Studio capture, 2026-10-27: the first glyph version, before the plate and name fixes",
+  "brief": "River restoration game. Supply catalogue: the player compares supplies and opens one to add it to the field kit.",
+  "label": {
+    "verdict": "revise",
+    "scores": {
+      "lead": 2,
+      "numbers": 3,
+      "visuals": 2,
+      "identity": 2,
+      "economy": 2
+    },
+    "must": [
+      "competing-leads",
+      "stranded-space"
+    ],
+    "should": [
+      "item-without-visual",
+      "generic-identity"
+    ],
+    "notes": "Name, facts and price share one size; the glyph has no plate."
+  }
+}

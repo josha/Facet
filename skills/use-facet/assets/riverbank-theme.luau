@@ -15,7 +15,7 @@ local typography: { [string]: Facet.TypographyPatch } = {
 	heading = { size = 28, font = { family = "rbxasset://fonts/families/Nunito.json", weight = "Bold" } },
 	label = { size = 20, font = { family = "rbxasset://fonts/families/BuilderSans.json", weight = "Bold" } },
 	strong = { size = 20 },
-	numeral = { size = 32, font = { family = "rbxasset://fonts/families/Nunito.json", weight = "Bold" } },
+	numeral = { size = 44, font = { family = "rbxasset://fonts/families/Nunito.json", weight = "Bold" } },
 	body = { size = 18 },
 	caption = { size = 16 },
 }
@@ -29,10 +29,10 @@ local definition: Facet.ThemeDefinition = {
 				name = "Meadow",
 				colors = colors,
 				extra = {
-					control = rgb(222, 234, 208),
-					controlHover = rgb(205, 225, 187),
-					controlPressed = rgb(189, 211, 169),
-					controlSelected = rgb(184, 215, 162),
+					control = rgb(201, 220, 184),
+					controlHover = rgb(188, 210, 170),
+					controlPressed = rgb(175, 199, 156),
+					controlSelected = rgb(160, 204, 130),
 					onSelected = rgb(29, 60, 48),
 					contentSecondary = rgb(68, 91, 71),
 					hairline = rgb(75, 111, 76),

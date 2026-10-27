@@ -30,14 +30,28 @@ UI.VStack { surface = "panel", padding = "l", gap = "s",
 
 ## After
 
+![Before, in the Riverbank theme](rank-card-before-themed.png)
+![After, while placing](rank-card-after.png)
+![After, once placed](rank-card-after-placed.png)
+
 [standing.luau](../../examples/standing.luau) builds the card:
 
 - `MODE` eyebrow in `label`, secondary.
-- An emblem (the tier glyph at 64 px on a pill `pane`) beside the rating as a
-  `numeral`, with the tier name as a `heading` under it.
+- An emblem (the tier glyph at 64 px on a `surface` pill) beside the rating as
+  the one `numeral`, with the tier name as a `heading` under it.
 - While placing: segmented pips and the goal sentence. After placement: three
-  stat blocks (glyph, numeral, caption) and a bar toward the next tier.
+  stat blocks (glyph, `heading` value, caption) and a bar toward the next tier.
 
-The after capture belongs here as `rank-card-after.png` once it is taken in
-Studio with the game's theme. Review it with the critique-ui skill before
-you reuse the layout.
+`Facet.review` reports nothing on either state. The first captures did not
+look like this. Each fix came from looking at a capture:
+
+| First capture | Cause | Fix |
+|---|---|---|
+| The rating barely larger than the tier | `numeral` at 32 px beside a 28 px `heading` | The theme gives `numeral` 44 px |
+| The emblem plate invisible | a `pane` plate on a `panel` of nearly the same color | A `surface` plate |
+| No pips | the theme `control` color matched the panel | A darker `control` in the theme |
+| "Next tier" past the card edge | a fill-width column in a row without `UI.fill()` | `UI.fill()` in the column |
+| Record values as large as the rating (`competing-peaks`) | the stat blocks used `numeral` | Stat values use `heading` under a hero |
+
+Open: empty segments draw one continuous track, so the ten slots do not show
+before the first game. The goal sentence carries it for now.

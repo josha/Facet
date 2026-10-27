@@ -32,6 +32,8 @@ Each recipe uses `local C, UI = Facet.Compose, app.UI`.
 ### Stat block
 
 A glyph, the value, then the label. Use three or four in a row for a record.
+Under a hero value, such as a rating, the stat values use `heading` so the
+hero stays the one lead; alone, they use `numeral`.
 
 ```luau
 local function stat(name: string, icon: string, value: (Facet.Use) -> string): Frame
@@ -39,7 +41,7 @@ local function stat(name: string, icon: string, value: (Facet.Use) -> string): F
 		align = "center",
 		gap = "xs",
 		UI.Label { title = name, icon = icon, presentation = "iconOnly", iconSize = 28 },
-		UI.Text { text = value, textRole = "numeral" },
+		UI.Text { text = value, textRole = "heading" },
 		UI.Text { text = name, textRole = "caption", role = "secondary" },
 	}
 end
@@ -78,10 +80,10 @@ Subject first, then the name, then a strip of facts, then the price. The
 
 | Part | Treatment |
 |---|---|
-| Subject | `Image`, `Stage` or, without art, a glyph on a `pane` plate |
+| Subject | `Image`, `Stage` or, without art, a glyph on a plate that contrasts with the row |
 | Category | `caption` or `label`, secondary, above the name |
-| Name | `strong` in a row, `title` in detail |
-| Facts | an `HStack` of value (`strong`) over label (`caption`); in detail the value is `numeral` |
+| Name | `heading` in a row (one step above the fact values), `title` in detail |
+| Facts | an `HStack` of value (`strong`) over label (`caption`); in detail the value is `heading` |
 | Price | `Label` with the currency glyph |
 
 Use a Table when players compare many facts across many items.

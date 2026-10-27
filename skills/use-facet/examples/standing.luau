@@ -19,7 +19,7 @@ local function stat(UI: Facet.Controls, name: string, icon: string, value: (Face
 		align = "center",
 		gap = "xs",
 		UI.Label { title = name, icon = icon, presentation = "iconOnly", iconSize = 28 },
-		UI.Text { text = value, textRole = "numeral" },
+		UI.Text { text = value, textRole = "heading" },
 		UI.Text { text = name, textRole = "caption", role = "secondary" },
 	}
 end
@@ -54,9 +54,9 @@ function Standing.build(app: Facet.App, standing: Facet.ReadOnlyValue<Standing>)
 			gap = "l",
 			align = "center",
 			UI.VStack "Emblem" {
-				width = 112,
-				height = 112,
-				surface = "pane",
+				width = 120,
+				height = 120,
+				surface = "surface",
 				corners = "pill",
 				align = "center",
 				distribute = "center",
@@ -82,6 +82,7 @@ function Standing.build(app: Facet.App, standing: Facet.ReadOnlyValue<Standing>)
 			UI.VStack "Rating" {
 				width = "fill",
 				gap = "xs",
+				UI.fill(),
 				UI.Text "Value" {
 					text = function(use: Facet.Use): string
 						return Facet.format.grouped(use(standing).rating)
@@ -107,7 +108,7 @@ function Standing.build(app: Facet.App, standing: Facet.ReadOnlyValue<Standing>)
 							1
 						)
 					end,
-					endLabel = "Next tier",
+					endLabel = standing:peek().tier.next or "Next tier",
 				},
 			},
 		},

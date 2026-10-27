@@ -168,7 +168,11 @@ local function screenMarkdown(screen: PacketScreen): { string }
 			table.insert(lines, ("- %s: `%s`"):format(entry.label, path))
 		end
 	end
-	table.insert(lines, ("- Rule findings: %d"):format(screen.findings))
+	if screen.design ~= nil then
+		table.insert(lines, ("- Rule findings: %d"):format(screen.findings))
+	else
+		table.insert(lines, "- Rule findings: none run (no interface dump); judge from the capture")
+	end
 	table.insert(lines, "")
 	return lines
 end
@@ -447,8 +451,9 @@ function Critique.score(cases: string, run: string): Score
 				table.insert(scored.missed, tag)
 			end
 		end
+		local should = stringSet(Json.field(label, "should"))
 		for tag in found do
-			if not must[tag] then
+			if not must[tag] and not should[tag] then
 				table.insert(scored.extra, tag)
 			end
 		end

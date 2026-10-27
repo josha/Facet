@@ -61,9 +61,11 @@ local function report(packet: Critique.Packet): string
 	for _, screen in packet.screens do
 		table.insert(
 			lines,
-			("  %s: %d rule finding(s)%s"):format(
+			("  %s: %s%s"):format(
 				screen.id,
-				screen.findings,
+				if screen.design ~= nil
+					then ("%d rule finding(s)"):format(screen.findings)
+					else "no dump, rules not run",
 				if screen.problem then "; " .. (screen.problem :: string) else ""
 			)
 		)

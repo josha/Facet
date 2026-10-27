@@ -51,7 +51,7 @@ local function factStrip(app: Facet.App, record: Facet.ReadOnlyValue<Record>, si
 						text = function(use: Facet.Use): string
 							return use(current).value
 						end,
-						textRole = if size == "detail" then "numeral" else "strong",
+						textRole = if size == "detail" then "heading" else "strong",
 					},
 					UI.Text {
 						text = function(use: Facet.Use): string
@@ -71,7 +71,7 @@ local function glyph(app: Facet.App, record: Facet.ReadOnlyValue<Record>, size: 
 	return UI.VStack "Glyph" {
 		width = size,
 		height = size,
-		surface = "pane",
+		surface = "surface",
 		corners = "control",
 		align = "center",
 		distribute = "center",
@@ -403,7 +403,7 @@ return {
 								gap = "xs",
 								UI.fill(),
 								UI.Text { text = category, textRole = "caption", role = "secondary", wrap = true },
-								UI.Text { text = title, textRole = "strong", wrap = true },
+								UI.Text { text = title, textRole = "heading", wrap = true },
 								factStrip(app, current, "compact"),
 								UI.Text { text = price, textRole = "strong", wrap = true },
 								UI.Text {
