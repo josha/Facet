@@ -17,67 +17,66 @@ return function<K>(
 			paint("none")
 		end
 	end
-	local rows: { [K]: { [Paint]: boolean } } = {}
-	local previous: CollectionTypes.Selection<K> = {}
-	local previousOnly: K? = nil
-	local function only(chosen: CollectionTypes.Selection<K>): K?
-		local result: K? = nil
-		for key, selected in chosen do
-			if selected then
-				if result ~= nil then
-					return nil
-				end
-				result = key
-			end
-		end
-		return result
-	end
-	local function paint(key: K, state: State)
-		local indicators = rows[key]
-		if indicators then
-			for indicator in indicators do
-				indicator(state)
-			end
-		end
-	end
-	Compose.watch(function(use: ComposeTypes.Use)
-		local chosen = table.clone(use(selection))
-		local sole = only(chosen)
-		for key, selected in previous do
-			if selected and chosen[key] ~= true then
-				paint(key, "none")
-			end
-		end
-		for key, selected in chosen do
-			if selected and (previous[key] ~= true or (key == sole) ~= (key == previousOnly)) then
-				paint(key, if key == sole then "only" else "selected")
-			end
-		end
-		previous, previousOnly = chosen, sole
-	end)
+	type Indicator = { key: K, paint: Paint }
+	local owner = assert(Compose.currentOwner())
+	local multiple = {}
+	local rows: { [Indicator]: boolean } = {}
+	local isOnly: ((K | {} | nil) -> ComposeTypes.ReadOnlyValue<boolean>)? = nil
 	return function(key: ComposeTypes.ReadOnlyValue<K>, render: Paint)
-		local held: K? = nil
-		local function forget()
-			if held ~= nil then
-				local indicators = rows[held]
-				if indicators then
-					indicators[render] = nil
-					if next(indicators) == nil then
-						rows[held] = nil
-					end
+		if isOnly == nil then
+			isOnly = Compose.withOwner(owner, function()
+				local function createSole(initial: K | {} | nil): ComposeTypes.Value<K | {} | nil>
+					return Compose.cell(initial, rawequal)
 				end
+				local sole = createSole(nil)
+				local selected = Compose.selector(sole)
+				local wasMultiple = false
+				Compose.owner.watchStatic(owner, selection, function(chosen)
+					local result: K? = nil
+					local many = false
+					for candidate, on in chosen do
+						if on then
+							if result ~= nil then
+								many = true
+								break
+							end
+							result = candidate
+						end
+					end
+					sole:set(if many then multiple else result)
+					if many or wasMultiple then
+						for row in rows do
+							row.paint(if chosen[row.key] ~= true then "none" elseif many then "selected" else "only")
+						end
+					end
+					wasMultiple = many
+				end)
+				return selected
+			end)
+		end
+		local selected = assert(isOnly)
+		local state: State? = nil
+		local function paint(nextState: State)
+			if nextState ~= state then
+				state = nextState
+				render(nextState)
 			end
 		end
-		Compose.watch(function(use: ComposeTypes.Use)
-			local now = use(key)
-			forget()
-			held = now
-			local indicators = rows[now] or {}
-			rows[now] = indicators
-			indicators[render] = true
-			local chosen = selection:peek()
-			render(if chosen[now] ~= true then "none" elseif now == only(chosen) then "only" else "selected")
+		local row: Indicator = { key = key:peek(), paint = paint }
+		rows[row] = true
+		local rowOwner = assert(Compose.currentOwner())
+		local stop: (() -> ())? = nil
+		Compose.owner.watchStatic(rowOwner, key, function(now)
+			row.key = now
+			if stop then
+				stop()
+			end
+			stop = Compose.owner.watchStatic(rowOwner, selected(now), function(only)
+				paint(if only then "only" elseif selection:peek()[now] == true then "selected" else "none")
+			end)
 		end)
-		Compose.cleanup(forget)
+		Compose.cleanup(function()
+			rows[row] = nil
+		end)
 	end
 end
