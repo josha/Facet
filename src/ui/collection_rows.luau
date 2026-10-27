@@ -424,17 +424,20 @@ return function<V, K>(
 					end
 				end
 				if selectionHit or paintSelection then
+					local shownOnly: boolean?, shownOn: boolean? = nil, nil
 					highlight(keyCell, function(state)
-						local on = state ~= "none"
+						local on, only = state ~= "none", state == "only"
 						if selectionHit then
-							if selectionHit:GetAttribute("FacetOnlySelected") ~= (state == "only") then
-								selectionHit:SetAttribute("FacetOnlySelected", state == "only")
+							if shownOnly ~= only then
+								selectionHit:SetAttribute("FacetOnlySelected", only)
 							end
-							if selectionHit:GetAttribute("FacetSelected") ~= on then
+							if shownOn ~= on then
 								selectionHit:SetAttribute("FacetSelected", on)
 							end
 						end
-						if paintSelection and on ~= logical:HasTag("facet-selected") then
+						local changed = (shownOn == true) ~= on
+						shownOnly, shownOn = only, on
+						if paintSelection and changed then
 							if on then
 								logical:AddTag("facet-selected")
 							else
