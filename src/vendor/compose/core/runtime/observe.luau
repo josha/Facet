@@ -6,13 +6,20 @@ local Types = require "../reactive/types"
 local Cell = require "../reactive/cell"
 local Reactor = require "../reactive/reactor"
 
-local sharedResource = require "../async/shared"
-
 export type Options = { frame: boolean?, poll: boolean?, styled: boolean? }
 type Entry = { live: boolean, read: () -> unknown, value: Types.Value<unknown> }
+type Record = {
+	node: Host.Node,
+	key: string,
+	properties: { [string]: Record },
+	value: Types.Value<unknown>,
+	references: number,
+	unsubscribe: Host.Unsubscribe?,
+	entry: Entry?,
+}
 
 return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reactor.Reactor)
-	local entries: { [Host.Node]: { [string]: sharedResource.Acquire<Types.Value<unknown>> } } = {}
+	local entries: { [Host.Node]: { [string]: Record } } = {}
 	local pending: { [Entry]: boolean } = {}
 	local polling: { [Entry]: boolean } = {}
 	local stop: Host.Unsubscribe? = nil
@@ -23,6 +30,47 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 			release()
 		end
 	end
+	local function releaseRecord(subject: unknown)
+		local record = subject :: Record
+		record.references -= 1
+		if record.references > 0 then
+			return
+		end
+		local properties = record.properties
+		if properties[record.key] == record then
+			properties[record.key] = nil
+			if next(properties) == nil and entries[record.node] == properties then
+				entries[record.node] = nil
+			end
+		end
+		local entry = record.entry
+		if entry ~= nil then
+			entry.live = false
+			pending[entry], polling[entry] = nil, nil
+			idle()
+		end
+		local unsubscribe = record.unsubscribe
+		record.unsubscribe = nil
+		if unsubscribe ~= nil then
+			unsubscribe()
+		end
+	end
+	local spare: { [Entry]: boolean } = {}
+	local changed: { Entry } = {}
+	local readings: { unknown } = {}
+	local published = 0
+	local function publish()
+		local count = published
+		published = 0
+		for index = 1, count do
+			local entry = changed[index]
+			if entry.live then
+				entry.value:set(readings[index])
+			end
+		end
+		table.clear(changed)
+		table.clear(readings)
+	end
 	local function schedule()
 		if stop then
 			return
@@ -30,31 +78,36 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 		local frames = assert(host.frames, "Compose frame observation requires host.frames")
 		stop = frames.onFrame(function()
 			local queued = pending
-			pending = {}
+			pending = spare
 			for entry in polling do
 				queued[entry] = true
 			end
-			local snapshots: { { entry: Entry, value: unknown } } = {}
-			local failures: { unknown } = {}
+			local failures: { unknown }? = nil
+			local count = 0
 			for entry in queued do
 				if entry.live then
 					local ok, value = pcall(entry.read)
-					if ok then
-						table.insert(snapshots, { entry = entry, value = value })
-					else
-						table.insert(failures, value)
+					if not ok then
+						local collected = failures or {}
+						failures = collected
+						table.insert(collected, value)
+					elseif value ~= entry.value:peek() then
+						count += 1
+						changed[count] = entry
+						readings[count] = value
 					end
 				end
 			end
-			Reactor.batch(reactor, function()
-				for _, snapshot in snapshots do
-					if snapshot.entry.live then
-						snapshot.entry.value:set(snapshot.value)
-					end
-				end
-			end)
+			table.clear(queued)
+			spare = queued
+			if count > 0 then
+				published = count
+				Reactor.batch(reactor, publish)
+			end
 			idle()
-			Owner.raiseAll(failures)
+			if failures ~= nil then
+				Owner.raiseAll(failures)
+			end
 		end)
 	end
 	return function(node: Host.Node, property: string, options: Options?): Types.ReadOnlyValue<unknown>
@@ -86,55 +139,55 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 		local key = property
 			.. (if styled then "\0styled" else "")
 			.. (if poll then "\0poll" elseif framed then "\0frame" else "")
+		local owner = ownerOf "observe"
 		local properties = entries[node]
 		if properties == nil then
 			properties = {}
 			entries[node] = properties
 		end
-		local acquire: sharedResource.Acquire<Types.Value<unknown>>? = properties[key]
-		if acquire == nil then
-			acquire = sharedResource(function(): (Types.Value<unknown>, (() -> ())?)
-				local owner = ownerOf "observe"
-				Owner.own(owner, function()
-					properties[key] = nil
-					if next(properties) == nil then
-						entries[node] = nil
+		local record = properties[key]
+		if record == nil then
+			local value = Cell.cell(read(node, property))
+			local created: Record = {
+				node = node,
+				key = key,
+				properties = properties,
+				value = value,
+				references = 0,
+				unsubscribe = nil,
+				entry = nil,
+			}
+			if framed then
+				local entry: Entry = {
+					live = true,
+					read = function()
+						return read(node, property)
+					end,
+					value = value,
+				}
+				created.entry = entry
+				created.unsubscribe = subscribe(node, property, function()
+					if entry.live then
+						pending[entry] = true
+						schedule()
 					end
 				end)
-				local value = Cell.cell(read(node, property))
-				if framed then
-					local entry: Entry = {
-						live = true,
-						read = function()
-							return read(node, property)
-						end,
-						value = value,
-					}
-					Owner.own(owner, function()
-						entry.live = false
-						pending[entry], polling[entry] = nil, nil
-						idle()
-					end)
-					local release = subscribe(node, property, function()
-						if entry.live then
-							pending[entry] = true
-							schedule()
-						end
-					end)
-					Owner.own(owner, release)
-					pending[entry] = true
-					if poll then
-						polling[entry] = true
-					end
-					schedule()
-					return value, nil
+				pending[entry] = true
+				if poll then
+					polling[entry] = true
 				end
-				return value, subscribe(node, property, function()
+				schedule()
+			else
+				created.unsubscribe = subscribe(node, property, function()
 					value:set(read(node, property))
 				end)
-			end)
-			properties[key] = assert(acquire)
+			end
+			properties[key] = created
+			record = created
 		end
-		return assert(acquire)()
+		local held = assert(record)
+		held.references += 1
+		Owner.holdSubject(owner, releaseRecord, held)
+		return held.value
 	end
 end

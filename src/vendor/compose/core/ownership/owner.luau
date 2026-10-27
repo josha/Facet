@@ -2,12 +2,10 @@
 --!native
 
 local Types = require "../reactive/types"
-local Weak = require "../weak"
 local Inspect = require "./inspect"
 local Reactor = require "../reactive/reactor"
 local watchModule = require "../reactive/watch"
 local NodeCast = require "../reactive/node"
-local Evaluation = require "../reactive/evaluation"
 
 type Dispose = Types.Dispose
 
@@ -180,10 +178,7 @@ local function link(owner: Owner, release: Dispose, after: Dispose?): Entry
 	return entry
 end
 
-export type RunScope = { child: Owner?, base: number, inherited: Owner }
-
-local runScopes: { [unknown]: RunScope } = {}
-Weak.keys(runScopes)
+export type RunScope = { child: Owner?, base: number?, inherited: Owner? }
 
 local activationDepth: () -> number = function(): number
 	return 0
@@ -197,8 +192,11 @@ local function installCurrentOwner(current: () -> Owner?)
 	currentOwner = current
 end
 
-local function runScopeOf(consumer: unknown): RunScope?
-	return runScopes[consumer]
+local function runScopeOf(consumer: Types.Node): RunScope?
+	if consumer.inherited ~= nil then
+		return (consumer :: unknown) :: RunScope
+	end
+	return nil
 end
 
 local function createOwner(inherited: Reactor.Reactor?, parent: Owner?): Owner
@@ -498,58 +496,41 @@ local function watchTerminal(owner: Owner, body: (use: Types.Use) -> (), after: 
 	end, nil, after)
 end
 
-local function scopedRuns(
-	owner: Owner,
-	body: (use: Types.Use) -> (),
-	after: Dispose?
-): ((use: Types.Use) -> (), Dispose)
-	local record: RunScope = { child = nil, base = 0, inherited = owner }
-	local function releaseChild()
-		local current = record.child
-		if current then
-			record.child = nil
-			disposeOwner(current)
-		end
+local function releaseScope(node: Types.Node)
+	local child = node.child
+	if child ~= nil then
+		node.child = nil
+		disposeOwner(child :: Owner)
 	end
-	local registered = false
-	local function scoped(use: Types.Use)
-		if record.child ~= nil then
-			releaseChild()
-		end
-		if not registered then
-			local consumer = Evaluation.context()
-			if consumer ~= nil then
-				runScopes[consumer] = record
-				registered = true
-			end
-		end
-		record.base = activationDepth()
-		body(use)
-	end
-	local function released()
-		releaseChild()
-		if after ~= nil then
-			after()
-		end
-	end
-	return scoped, released
 end
+
+watchModule.installScope(function(node: Types.Node)
+	releaseScope(node)
+	node.base = activationDepth()
+end, releaseScope)
 
 local function watch(owner: Owner, body: (use: Types.Use) -> (), label: string?, after: Dispose?): Dispose
 	if Inspect.isActive() then
 		Inspect.watch(owner)
 	end
-	local scoped, released = scopedRuns(owner, body, after)
 	local boundary = owner.boundary
-	if boundary == nil then
-		return startWatch(owner, watchModule.watch, scoped, label, released)
-	end
-	return startWatch(owner, watchModule.watchGuarded, function(use: Types.Use)
-		local ok, err: unknown = pcall(scoped, use)
-		if not ok then
-			boundary.report(err)
+	local run = if boundary == nil
+		then body
+		else function(use: Types.Use)
+			local ok, err: unknown = pcall(body, use)
+			if not ok then
+				boundary.report(err)
+			end
 		end
-	end, label, released)
+	if after == nil then
+		return own(owner, watchModule.watchScoped(reactorOf(owner), run, label, owner, boundary ~= nil))
+	end
+	local ok, dispose = pcall(watchModule.watchScoped, reactorOf(owner), run, label, owner, boundary ~= nil)
+	if not ok then
+		after()
+		error(dispose, 0)
+	end
+	return own(owner, dispose, after)
 end
 
 local function disposer(owner: Owner): Dispose
@@ -563,7 +544,7 @@ local function scopeOwner(record: RunScope): Owner
 	if child then
 		return child
 	end
-	local created = createChild(record.inherited)
+	local created = createChild(assert(record.inherited))
 	record.child = created
 	return created
 end

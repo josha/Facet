@@ -1,5 +1,10 @@
 # Current package
 
+Facet pins Compose `d6592f9`, which allocates less per watch, shared
+resource and observation. Text layout reruns only its measurement when text
+changes, caches native measurements, and builds measurement parameters on
+demand.
+
 World drag sources use `UI.draggable` with `world` options and the shared drop
 session. World targets supply `worldPlacement` through `DropInfo`. See
 [world drag and drop](docs/reference/nodes/draggable-and-dropTarget.world.md).

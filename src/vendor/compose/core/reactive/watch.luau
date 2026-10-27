@@ -14,12 +14,22 @@ type Node = Types.Node
 type Reactor = Types.Reactor
 type Dispose = Types.Dispose
 
+local enterScope: (Node) -> () = function(_node: Node) end
+local leaveScope: (Node) -> () = function(_node: Node) end
+
+local function installScope(enter: (Node) -> (), leave: (Node) -> ())
+	enterScope, leaveScope = enter, leave
+end
+
 local function rerun(node: Node)
 	if statsOn.enabled then
 		stats.bump "watchRuns"
 		profile.enterRun(node)
 	end
 	node.state = Graph.CLEAN
+	if node.inherited ~= nil then
+		enterScope(node)
+	end
 	Graph.runEffect(node)
 end
 
@@ -156,13 +166,16 @@ function GUARDED.run(node: Node)
 	rerun(node)
 end
 
-local function begin(reactor: Reactor, body: Body, class: {}, label: string?): Node
+local function begin(reactor: Reactor, body: Body, class: {}, label: string?, scope: unknown?): Node
 	local node: Node = {
 		state = Graph.DIRTY,
 		reactor = reactor,
 		effect = body,
 		released = false,
 		queued = false,
+		inherited = scope,
+		child = nil,
+		base = nil,
 	}
 	NodeCast.classify(node, class)
 	if statsOn.enabled then
@@ -173,6 +186,9 @@ local function begin(reactor: Reactor, body: Body, class: {}, label: string?): N
 	if not ok then
 		Evaluation.leave(consumer, at)
 		Graph.release(node)
+		if node.child ~= nil then
+			leaveScope(node)
+		end
 		error(err, 0)
 	end
 	return node
@@ -188,14 +204,17 @@ local function releaseHeld(subject: unknown)
 	end
 end
 
-local function start(reactor: Reactor, body: Body, class: {}, label: string?): Dispose
-	local node = begin(reactor, body, class, label)
+local function start(reactor: Reactor, body: Body, class: {}, label: string?, scope: unknown?): Dispose
+	local node = begin(reactor, body, class, label, scope)
 	return function()
 		if node.released then
 			return
 		end
 		Graph.release(node)
 		node.queued = false
+		if node.child ~= nil then
+			leaveScope(node)
+		end
 	end
 end
 
@@ -205,6 +224,10 @@ end
 
 local function watchGuarded(reactor: Reactor, body: Body, label: string?): Dispose
 	return start(reactor, body, GUARDED, label)
+end
+
+local function watchScoped(reactor: Reactor, body: Body, label: string?, scope: unknown, guarded: boolean): Dispose
+	return start(reactor, body, if guarded then GUARDED else WATCH, label, scope)
 end
 
 local function watchTerminal(reactor: Reactor, body: Body): Dispose
@@ -230,6 +253,8 @@ end
 return {
 	watch = watch,
 	watchGuarded = watchGuarded,
+	watchScoped = watchScoped,
+	installScope = installScope,
 	watchStatic = watchStatic,
 	listenEdge = listenEdge,
 	unlisten = Graph.unlisten,
