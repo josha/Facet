@@ -73,10 +73,11 @@ export type ScrollOptions = { animated: boolean? }
 export type ScrollRect = { x: number, y: number, w: number, h: number }
 export type DropOperation = "copy" | "move" | "apply"
 export type DropDestination = GuiObject | BasePart | Model
+export type WorldDragOptions = { plane: CFrame, lift: number?, focusTarget: GuiObject, maxActivationDistance: number? }
 export type DropInsertion = { collection: unknown, beforeKey: unknown?, afterKey: unknown?, slot: number }
 export type DropPlacement = { column: number, row: number, width: number, height: number }
 export type DropInfo = {
-	source: GuiObject,
+	source: DropDestination,
 	target: DropDestination,
 	mode: "pointer" | "armed",
 	operation: DropOperation,
@@ -84,10 +85,12 @@ export type DropInfo = {
 	hit: RaycastResult?,
 	insertion: DropInsertion?,
 	placement: DropPlacement?,
+	worldPlacement: CFrame?,
 	complete: (accepted: boolean, reason: string?) -> boolean,
 }
 export type DraggableSpec = {
 	payload: unknown,
+	world: WorldDragOptions?,
 	enabled: Types.ValueBoolean?,
 	armOnTap: boolean?,
 	touchPickup: ("longPress" | "immediate")?,
@@ -103,6 +106,8 @@ export type DraggableSpec = {
 	onEnd: ((accepted: boolean, reason: string?) -> ())?,
 }
 export type DropTargetSpec = {
+	placement: Types.Input<DropPlacement>?,
+	worldPlacement: Types.Input<CFrame>?,
 	travel: boolean?,
 	landing: ((info: DropInfo) -> ScrollRect)?,
 	label: Types.ValueString?,
@@ -130,8 +135,8 @@ export type EnvironmentControls = {
 	focusRing: (playerGui: PlayerGui) -> Frame,
 	focusSection: (group: GuiObject, options: FocusSectionOptions?) -> (),
 	responder: (root: Instance, options: ResponderOptions?) -> Responder,
-	gestureArbiter: (surface: GuiObject) -> Gesture.Binding,
-	draggable: (source: GuiObject, spec: DraggableSpec) -> (),
+	gestureArbiter: (surface: Instance) -> Gesture.Binding,
+	draggable: (source: DropDestination, spec: DraggableSpec) -> (),
 	dropTarget: (target: DropDestination, spec: DropTargetSpec) -> (),
 	worldAnchor: (options: WorldAnchorOptions) -> WorldAnchor,
 	scrollTo: (frame: ScrollingFrame, position: ScrollPosition, options: ScrollOptions?) -> boolean,

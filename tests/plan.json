@@ -6,6 +6,7 @@
     "batchCount": 1
   },
   "units": [
+    { "id": "world_drag", "locator": "tests/world_drag.verify.luau", "requires": ["local-luau"] },
     {
       "id": "tools/bench_compare",
       "locator": "tests/tools/bench_compare.verify.luau",

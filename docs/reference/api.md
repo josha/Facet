@@ -9,6 +9,12 @@ motion policy and theme tokens.
 
 Open the [documentation map](nodes/Map.md).
 
+`UI.draggable` accepts a GuiObject, BasePart, or Model. For world sources, use
+`Facet.WorldDragOptions` in `spec.world`. Targets can supply `worldPlacement`,
+which also appears in `DropInfo`. See [world drag and drop](nodes/draggable-and-dropTarget.world.md).
+Set target `placement` to supply the same logical `DropInfo.placement` as SpatialGrid.
+`UI.gestureArbiter` accepts an Instance surface for shared world and UI claims.
+
 `Facet.design()` returns the design kit: `Design` (Compose Design), `library(context)`, `controls`, `seeds` and `motion(UI)`. `motion(UI)` gives a library context the `Facet.DesignMotion` that moves designed values and plays designed sequences with the theme's motion. `Facet.DesignSequence` and `Facet.DesignPlayer` type a designed sequence and its player.
 
 `Facet.composeDesign()` returns the `Facet.DesignStudioKit` that the Compose Design Studio plugin opens. It loads the design editor on first use and gives the plugin the Facet controls, the theme StyleSheet around the staged design, Phone, Tablet, Desktop and Console sizes, and Theme and Text size previews. `Facet.DesignField` types one field of a design kind. `Facet.tag(instance, tags)` adds style tags to an instance and returns it; Compose Design emits it for a node's style tags. A game's own design tokens reach the library through `Facet.design().library({ ..., tokens = { path = "T.", require = 'local T = require(...)' } })`: colors, numbers, gaps, padding, widths and heights accept `{ token = "space.md" }`, and the source writes `T.space.md` with the require in its prelude.

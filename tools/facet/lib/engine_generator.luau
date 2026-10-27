@@ -38,12 +38,12 @@ end
 
 Generator.CLASSES = sortedUnique(
 	words(
-		"BindableFunction ClickDetector HapticEffect Highlight Part PointLight StyleLink WedgePart Weld Model Sound Camera CanvasGroup Folder Frame GuiObject GuiButton ImageButton ImageLabel InputAction InputBinding InputContext Path2D ScrollingFrame ScreenGui BillboardGui SurfaceGui StyleRule StyleSheet TextBox TextButton TextLabel UIAspectRatioConstraint UICorner UIDragDetector UIFlexItem UIGradient UIGridLayout UIListLayout UIPadding UIPageLayout UIScale UIShadow UISizeConstraint UIStroke UITextSizeConstraint ViewportFrame WorldModel"
+		"BindableFunction ClickDetector DragDetector HapticEffect Highlight Part PointLight StyleLink WedgePart Weld Model Sound Camera CanvasGroup Folder Frame GuiObject GuiButton ImageButton ImageLabel InputAction InputBinding InputContext Path2D ScrollingFrame ScreenGui BillboardGui SurfaceGui StyleRule StyleSheet TextBox TextButton TextLabel UIAspectRatioConstraint UICorner UIDragDetector UIFlexItem UIGradient UIGridLayout UIListLayout UIPadding UIPageLayout UIScale UIShadow UISizeConstraint UIStroke UITextSizeConstraint ViewportFrame WorldModel"
 	)
 )
 
 Generator.DATATYPES = words(
-	"UDim UDim2 Vector2 Vector3 Color3 CFrame Enum Font Rect ColorSequence ColorSequenceKeypoint NumberSequence NumberSequenceKeypoint NumberRange Path2DControlPoint FloatCurveKey TweenInfo"
+	"UDim UDim2 Vector2 Vector3 Color3 CFrame RaycastParams Enum Font Rect ColorSequence ColorSequenceKeypoint NumberSequence NumberSequenceKeypoint NumberRange Path2DControlPoint FloatCurveKey TweenInfo"
 )
 
 Generator.OBSERVED = words(

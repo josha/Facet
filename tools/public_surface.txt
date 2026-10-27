@@ -510,6 +510,7 @@ type VoteValue
 type WorldAnchor
 type WorldAnchorOptions
 type WorldAnchorPoint
+type WorldDragOptions
 type WorldMarkerProps
 type ZStackProps
 type Zone

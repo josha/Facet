@@ -9,6 +9,7 @@ return function(): Shared.RobloxTypes
 		Vector3 = Vector3,
 		Color3 = Color3,
 		CFrame = CFrame,
+		RaycastParams = RaycastParams,
 		Enum = Enum,
 		Font = Font,
 		Rect = Rect,
