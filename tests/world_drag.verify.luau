@@ -386,19 +386,83 @@ return function(h: Verify.Harness)
 				Position = w.engine.types.Vector3.new(x, 10, 0),
 			}
 		end
+		local function press(pointerObject: { [string]: unknown })
+			local screen = pointerObject.Position
+			pointerObject.Position = w.engine.types.Vector3.new(400, 300, 0)
+			w.engine.environment.fire(slot, "InputBegan", pointerObject)
+			pointerObject.Position = screen
+			w.engine.environment.fire(input, "InputBegan", pointerObject, true)
+		end
 		local tap = pointer(10)
-		w.engine.environment.fire(slot, "InputBegan", tap)
+		press(tap)
 		w.engine.environment.fire(input, "InputChanged", move(12))
 		Verify.expect(starts):toBe(0)
 		w.engine.environment.fire(input, "InputEnded", tap)
 		Verify.expect(starts):toBe(0)
-		local press = pointer(10)
-		w.engine.environment.fire(slot, "InputBegan", press)
+		local held = pointer(10)
+		press(held)
 		w.engine.environment.fire(input, "InputChanged", move(30))
 		Verify.expect(starts):toBe(1)
 		Verify.expect(ended):toBe(0)
-		w.engine.environment.fire(input, "InputEnded", press)
+		w.engine.environment.fire(input, "InputEnded", held)
 		Verify.expect(ended):toBe(1)
+	end)
+	h:case("a tap on a Facet Button that is the hit area and focus target arms pickup", function(test)
+		local w = fixture(test, "none")
+		local controlOptions: Facet.ControlOptions = {
+			types = w.engine.types,
+			motionLevel = "none",
+			userInputService = w.input,
+			guiService = w.gui,
+			inputParent = w.screen,
+			services = { Workspace = w.world },
+		}
+		local UI = Facet.controls(w.runtime, controlOptions)
+		local modes: { string } = {}
+		local ends: { string } = {}
+		local stop = w.runtime.mount(function()
+			local Host = w.ctx.Host
+			local slot = UI.Button "SlotButton" { label = "Tile" }
+			local tile = Host.Part { Anchored = true, Parent = Facet.Compose.static(w.world) }
+			local options: Facet.WorldDragOptions = {
+				plane = w.engine.types.CFrame.identity,
+				focusTarget = slot,
+				hitArea = slot,
+			}
+			UI.draggable(tile, {
+				payload = "tile",
+				world = options,
+				onStart = function(_payload: unknown, mode: "pointer" | "armed")
+					table.insert(modes, mode)
+				end,
+				onEnd = function(_accepted: boolean, reason: string?)
+					table.insert(ends, reason or "")
+				end,
+			})
+			local panel: Native.FrameNativeProps = { slot }
+			return Host.Frame(panel)
+		end, w.screen)
+		test:defer(stop)
+		local slot = Roblox.assertInstance(assert(w.screen:FindFirstChild("SlotButton", true)))
+		local input = Roblox.assertInstance(w.input)
+		local tap = {
+			UserInputType = w.engine.types.Enum.UserInputType.MouseButton1,
+			UserInputState = w.engine.types.Enum.UserInputState.Begin,
+			Position = w.engine.types.Vector3.new(10, 10, 0),
+		}
+		tap.Position = w.engine.types.Vector3.new(400, 300, 0)
+		w.engine.environment.fire(slot, "InputBegan", tap)
+		tap.Position = w.engine.types.Vector3.new(10, 10, 0)
+		w.engine.environment.fire(input, "InputBegan", tap, true)
+		w.engine.environment.fire(input, "InputChanged", {
+			UserInputType = w.engine.types.Enum.UserInputType.MouseMovement,
+			Position = w.engine.types.Vector3.new(10, 10, 0),
+		})
+		w.engine.environment.fire(slot, "Activated", tap, 1)
+		w.engine.environment.fire(input, "InputEnded", tap)
+		Verify.expect(#modes):toBe(1)
+		Verify.expect(modes[1]):toBe("armed")
+		Verify.expect(#ends):toBe(0)
 	end)
 	h:case("world pending completion validates once and ignores late replies", function(test)
 		local w = fixture(test, "none")
