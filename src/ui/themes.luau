@@ -132,6 +132,8 @@ local neutral: ThemeTypes.ThemePackage = {
 			toast = { enter = 0.2, exit = 0.2 },
 			radial = { enter = 0.2, exit = 0.12, slot = 0.16 },
 			durations = {
+				cameraTravel = 0.3,
+				cameraInertia = 0.22,
 				pressLift = 0.1,
 				zoom = 0.22,
 				travel = 0.3,
@@ -158,6 +160,7 @@ local neutral: ThemeTypes.ThemePackage = {
 				trailSettle = 0.35,
 			},
 			springs = {
+				camera = { period = 0.3, damping = 1 },
 				snappy = { period = 0.2, damping = 1 },
 				quick = { period = 0.18, damping = 1 },
 				travel = { period = 0.18, damping = 1 },

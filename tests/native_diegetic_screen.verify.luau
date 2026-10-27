@@ -1,10 +1,11 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Roblox = require("../tools/vendor/verify/src/roblox")
 return function(harness: Verify.Harness)
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")
 	local Geometry = require("../src/ui/diegetic_geometry")
-	local function fixture(vr: boolean?, interactive: boolean?)
+	local function fixture(vr: boolean?, interactive: boolean?, rigged: boolean?)
 		local engine, bridge = engines.new()
 		local tracking = bridge.track()
 		local types = engine.types
@@ -33,7 +34,7 @@ return function(harness: Verify.Harness)
 				end
 			end
 		end)
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime = Facet.Roblox.createRuntime(bridge.engine)
 		local Host = Facet.host(runtime)
 		local UI = Facet.controls(
 			runtime,
@@ -43,12 +44,29 @@ return function(harness: Verify.Harness)
 		local counter = Facet.Compose.cell("Same live content")
 		local scenes = 0
 		local target = engine.new("PlayerGui")
+		local hits: { GuiObject } = {}
+		input.GetMouseLocation = function(): Vector2
+			return types.Vector2.new(30, 30)
+		end
+		target.GetGuiObjectsAtPosition = function(): { GuiObject }
+			return hits
+		end
 		local mounted: Folder? = nil
+		local rig: Facet.CameraRig? = nil
 		local function Room(): Model
 			scenes += 1
 			return Host.Model "Room" { Host.Part "Table" { Anchored = true } }
 		end
 		local function Application(): Folder
+			if rigged then
+				rig = UI.cameraRig {
+					inputRoot = target,
+					initial = { focus = types.Vector3.zero, yaw = 0, pitch = 0, distance = 10 },
+					focusBounds = { min = types.Vector3.new(-2, -2, -2), max = types.Vector3.new(2, 2, 2) },
+					distanceBounds = types.Vector2.new(2, 20),
+					enabled = presented,
+				}
+			end
 			local content = UI.Text "Counter" { text = counter }
 			local backing = Host.ScreenGui "Backdrop" {
 				ScreenInsets = types.Enum.ScreenInsets.None,
@@ -66,7 +84,7 @@ return function(harness: Verify.Harness)
 					scene = Room,
 					surface = types.CFrame.new(),
 					bounds = types.Vector2.new(3, 2),
-					camera = types.CFrame.new(0, 4, 10),
+					camera = if rig then rig.camera else types.CFrame.new(0, 4, 10),
 					interactive = interactive,
 				},
 			}
@@ -98,10 +116,13 @@ return function(harness: Verify.Harness)
 			engine = engine,
 			types = types,
 			workspace = workspace,
+			input = input,
+			hits = hits,
 			original = original,
 			otherCamera = otherCamera,
 			presented = presented,
 			counter = counter,
+			rig = rig,
 			step = step,
 			close = close,
 			scenes = function(): number
@@ -109,6 +130,69 @@ return function(harness: Verify.Harness)
 			end,
 		}
 	end
+	harness:case("DiegeticScreen keeps its settled room camera Scriptable and follows the camera input", function(t)
+		local world = fixture(nil, true, true)
+		t:defer(world.close)
+		world.presented:set(true)
+		world.step(120)
+		local camera = world.workspace.CurrentCamera
+		local rig = assert(world.rig)
+		Verify.expect(camera.CFrame):toBe(rig.camera:peek())
+		Verify.expect(camera.CameraType):toBe(world.types.Enum.CameraType.Scriptable)
+		camera.CameraType = world.types.Enum.CameraType.Fixed
+		camera.CFrame = world.types.CFrame.new(0, 2.5, 2.45)
+		world.step(1)
+		Verify.expect(world.workspace.CurrentCamera):toBe(camera)
+		Verify.expect(camera.CameraType):toBe(world.types.Enum.CameraType.Scriptable)
+		Verify.expect(camera.CFrame):toBe(rig.camera:peek())
+		rig.focus:set(world.types.Vector3.new(1, 1, 1))
+		world.step(120)
+		Verify.expect(camera.CFrame):toBe(rig.camera:peek())
+	end)
+	harness:case("DiegeticScreen lets wheel input zoom over empty room and yields over the app surface", function(t)
+		local world = fixture(nil, true, true)
+		t:defer(world.close)
+		world.presented:set(true)
+		world.step(120)
+		local rig = assert(world.rig)
+		local wheel = world.engine.new("InputObject")
+		world.engine.environment.poke(wheel, "UserInputType", world.types.Enum.UserInputType.MouseWheel)
+		world.engine.environment.poke(wheel, "Position", world.types.Vector3.new(0, 0, 1))
+		world.engine.environment.fire(Roblox.assertInstance(world.input), "InputChanged", wheel, false)
+		world.step(1)
+		Verify.expect(rig.state:peek().distance):toBe(2)
+		Verify.expect(world.workspace.CurrentCamera.CFrame):toBe(rig.camera:peek())
+		local content = assert(world.root:FindFirstChild("Counter", true))
+		assert(content:IsA("TextLabel"))
+		Verify.expect(content.Active):toBe(false)
+		table.insert(world.hits, content)
+		world.engine.environment.poke(wheel, "Position", world.types.Vector3.new(0, 0, -1))
+		world.engine.environment.fire(Roblox.assertInstance(world.input), "InputChanged", wheel, true)
+		world.engine.environment.fire(Roblox.assertInstance(world.input), "InputChanged", wheel, false)
+		world.step(1)
+		Verify.expect(rig.state:peek().distance):toBe(2)
+		table.clear(world.hits)
+		world.engine.environment.fire(Roblox.assertInstance(world.input), "InputChanged", wheel, false)
+		world.step(1)
+		Verify.expect(rig.state:peek().distance):toBe(10)
+	end)
+	harness:case("DiegeticScreen follows a cameraRig focus without rebuilding its live scene", function(context)
+		local world = fixture(nil, true, true)
+		context:defer(world.close)
+		world.presented:set(true)
+		world.step(120)
+		local camera = world.workspace.CurrentCamera
+		local before = camera.CFrame
+		local rig = assert(world.rig)
+		rig.focus:set(world.types.Vector3.new(1, 1, 1))
+		world.step(120)
+		Verify.expect(camera.CFrame):toBe(rig.camera:peek())
+		Verify.expect(camera.CFrame == before):toBe(false)
+		Verify.expect(world.scenes()):toBe(1)
+		world.presented:set(false)
+		world.step(240)
+		Verify.expect(world.workspace.CurrentCamera):toBe(world.original)
+	end)
 	harness:case(
 		"DiegeticScreen moves the same live content and restores its original camera and host",
 		function(context)

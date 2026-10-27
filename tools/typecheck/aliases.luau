@@ -13,6 +13,7 @@ local Runtime = require("../../src/vendor/compose/core/runtime")
 type OutlineRecord = { id: string, children: { OutlineRecord }? }
 
 return (nil :: unknown) :: {
+	CameraRig: Facet.CameraRig,
 	TimerControls: Facet.TimerControls,
 	TypewriterControls: Facet.TypewriterControls,
 	SlotControls: Facet.SlotControls<string>,

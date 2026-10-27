@@ -6084,6 +6084,7 @@ PAGE_DATA.gestureArbiter = {
 }
 
 PAGE_DATA.DiegeticScreen = require("./diegetic_demo")
+PAGE_DATA.cameraRig = PAGE_DATA.DiegeticScreen
 PAGE_DATA.WorldMarker = require("./world_marker_demo")
 
 PAGE_DATA.ZoomView = require("./zoom_page")

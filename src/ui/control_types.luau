@@ -18,6 +18,7 @@ local ContentProps = require("./content_props")
 local EffectProps = require("./effect_props")
 local ZoomTravelProps = require("./zoom_travel_props")
 local DiegeticTypes = require("./diegetic_types")
+local CameraRigTypes = require("./camera_rig_types")
 
 local commandControls: Commands.Controls
 local effectControls: Effects.Controls
@@ -112,6 +113,7 @@ export type Controls = {
 	provide: <R...>(body: () -> R...) -> R...,
 	WorldMarker: Constructor<HudProps.WorldMarkerProps, Frame>,
 	DiegeticScreen: Constructor<DiegeticTypes.DiegeticScreenProps, Folder>,
+	cameraRig: (CameraRigTypes.CameraRigOptions) -> CameraRigTypes.CameraRig,
 	Timer: Constructor<HudProps.TimerProps, TextLabel>,
 	Typewriter: Constructor<HudProps.TypewriterProps, TextLabel>,
 	commandScope: typeof(commandControls.commandScope),
@@ -209,6 +211,7 @@ export type Controls = {
 export type BuilderControls = {
 	scrollTo: typeof(environmentControls.scrollTo),
 	DiegeticScreen: Constructor<DiegeticTypes.DiegeticScreenProps, Folder>,
+	cameraRig: (CameraRigTypes.CameraRigOptions) -> CameraRigTypes.CameraRig,
 	Button: Constructor<InputProps.ButtonProps, TextButton>,
 	Toggle: Constructor<InputProps.ToggleProps, TextButton>,
 	TextInput: Constructor<InputProps.TextInputProps, TextBox | Frame>,

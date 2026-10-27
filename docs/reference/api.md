@@ -56,6 +56,10 @@ radial command. See [menu items](nodes/Menu-and-SplitButton.items.md) and
 Move an existing live application onto a world surface with
 [DiegeticScreen](nodes/DiegeticScreen.reference.md).
 
+Use [cameraRig](nodes/cameraRig.reference.md) for bounded room camera input,
+reset and focus presets. `Facet.CameraRigOptions`, `Facet.CameraPose` and
+`Facet.CameraRig` type its options, pose and Compose-owned handle.
+
 Use [SpatialGrid](nodes/SpatialGrid.reference.md) for keyed inventory items
 with explicit cell footprints. `Facet.SpatialGridSpec<V, K>` types the control;
 `Facet.SpatialPlacement` types both item positions and `DropInfo.placement`.

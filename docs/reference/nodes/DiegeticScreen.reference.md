@@ -11,15 +11,17 @@ instances. It does not mount another application.
 | `scene` | Named factory returning a Compose-owned Instance. Compose mounts it in Workspace for the presentation lifetime. |
 | `surface` | CFrame value or reactive source for the front face of the display. Local negative Z points out of the screen. |
 | `bounds` | Positive Vector2 physical display bounds. The fixed logical canvas fits inside them without stretching. |
-| `camera` | CFrame value or reactive source for the room camera at the end of entry. |
+| `camera` | CFrame value or reactive source for the room camera. After entry settles, CurrentCamera follows this value with CameraType Scriptable. Use `UI.cameraRig(...).camera` for bounded camera input and presets. |
 | `fieldOfView` | Vertical field of view, default 48 degrees. Must be between zero and 180. |
 | `motion` | Theme motion role, default `move`. Reduced motion uses the end pose directly. |
 | `onUnavailable` | Optional callback with a failure reason. The interface returns to its original screen hosts. |
 | `interactive` | Optional. When `true`, presses on the tablet reach the live app's controls, and the screen returns only when the game sets `isPresented` to false. The surface is hosted beside the first layer so that it receives input. The canvas maps u = 0 to the plate's local +X on its Front face, which is the engine's SurfaceGui mapping; account for it when you project a canvas point into the world. Default `false`: a press anywhere on the tablet returns to the screen. |
 
-The surface uses native SurfaceGui input and a queryable display part. Tapping
-the display reverses the shot. While pulled back, the display is a return target;
-it does not accept application actions until it fills the screen again.
+The surface uses native SurfaceGui input and a queryable display part. By default,
+tapping the display reverses the shot. With `interactive = true`, the display
+accepts application actions while presented. Frame the room camera so that the
+room is visible around the display. An enabled cameraRig receives pointer input
+over empty room space and yields to input over the application surface.
 
 The canvas retains each source layer's ScreenInsets and DisplayOrder. Its size
 is fixed through a shot. A viewport size change safely returns to screen mode.
@@ -30,3 +32,8 @@ VR entry is unavailable until a comfort presentation is supplied.
 The scene and camera framing belong to the consumer. SurfaceGui, Camera,
 GuiService:GetInsetArea and Compose portal, spring, settled and scheduler own
 the native rendering, ownership, motion and readiness mechanisms.
+
+Use [cameraRig](cameraRig.reference.md) to orbit, pan and zoom in the room.
+Bind its `enabled` option to the camera task and pass its `camera` value here.
+Use `interactive = true` with an explicit return command when the surface has
+camera reset and preset controls.

@@ -175,16 +175,23 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 					return pose * ctx.types.CFrame.new(0, 0, 0.005)
 				end,
 			}
+			local pose = Compose.formula(function(use: Types.Use): CFrame
+				local p = if reduce(use) then use(goal) else math.clamp(use(progress), 0, 1)
+				local matched = Geometry.match(ctx.read(spec.surface, use), extent, fieldOfView, ctx.types.CFrame)
+				return matched:Lerp(ctx.read(spec.camera, use), p)
+			end)
 			local worldCamera = Host.Camera "DiegeticCamera" {
 				CameraType = E.CameraType.Scriptable,
 				FieldOfViewMode = E.FieldOfViewMode.Vertical,
 				FieldOfView = fieldOfView,
-				CFrame = function(use: Types.Use): CFrame
-					local p = if reduce(use) then use(goal) else math.clamp(use(progress), 0, 1)
-					local matched = Geometry.match(ctx.read(spec.surface, use), extent, fieldOfView, ctx.types.CFrame)
-					return matched:Lerp(ctx.read(spec.camera, use), p)
-				end,
+				CFrame = pose,
 			}
+			Compose.cleanup(assert(runtime.host.frames).onFrame(function()
+				if ownsCamera and workspace.CurrentCamera == worldCamera then
+					worldCamera.CameraType = E.CameraType.Scriptable
+					worldCamera.CFrame = pose:peek()
+				end
+			end))
 			local storage = Host.Folder "Cameras" { worldCamera }
 			cameraStorage = storage
 			local interactive = spec.interactive == true

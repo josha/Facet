@@ -45,6 +45,12 @@ return function(verifyHarness: Verify.Harness)
 						return
 					end
 					local engine = engineLib.new()
+					local input: UserInputService = engine.new("UserInputService")
+					local gui: GuiService = engine.new("GuiService")
+					local world: Workspace = engine.new("Workspace")
+					engine.environment.fakeOn(input, "GetFocusedTextBox", function(): TextBox?
+						return nil
+					end)
 					local hapticPlays = 0
 					local hapticCapture = engine.environment.onCreate(function(effect)
 						if effect:IsA("HapticEffect") then
@@ -58,7 +64,10 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 					local Compose: ComposeModule, Host = Facet.Compose, runtime.constructors
-					local UI = Facet.controls(runtime, { types = engine.types })
+					local UI = Facet.controls(runtime, {
+						types = engine.types,
+						services = { UserInputService = input, GuiService = gui, Workspace = world },
+					})
 					local facade = table.clone(Facet)
 					facade.Roblox = table.clone(Facet.Roblox)
 					facade.themes = table.clone(Facet.themes)
