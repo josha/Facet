@@ -50,6 +50,7 @@ Compose : table
   Compose.registeredCodecs : function
   Compose.resetWorkCounters : function
   Compose.sample : function
+  Compose.selector : function
   Compose.setWorkCounters : function
   Compose.setYieldChecking : function
   Compose.sharedCell : function

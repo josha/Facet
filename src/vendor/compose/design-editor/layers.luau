@@ -39,7 +39,7 @@ return function(ui: UI.UI)
 		local name = Theme.label("", color.secondary, size.text)
 		ui.set(name, "Name", "Title")
 		ui.set(name, "Position", ui.values.udim2(0, 22, 0, 0))
-		ui.set(name, "Size", ui.values.udim2(1, -22, 1, 0))
+		ui.set(name, "Size", ui.values.udim2(1, -74, 1, 0))
 		ui.set(name, "Parent", button)
 		return { button = button, glyph = glyph, name = name }
 	end
@@ -54,6 +54,47 @@ return function(ui: UI.UI)
 		ui.set(scroller, "Parent", parent)
 		local rows: { [string]: Row } = {}
 		local UserInputService = ui.service "UserInputService"
+		local menu = Theme.frame("LayerContextMenu", color.panel)
+		ui.set(menu, "Size", ui.values.udim2(0, 160, 0, 64))
+		ui.set(menu, "Visible", false)
+		ui.set(menu, "ZIndex", 30)
+		ui.set(menu, "Parent", parent)
+		local menuConnections: { UI.Connection } = {}
+		table.insert(
+			menuConnections,
+			ui.connect(UserInputService, "InputBegan", function(input: Compose.Node)
+				if ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1") then
+					local point = Theme.point(input)
+					local at, extent = ui.xy(menu, "AbsolutePosition"), ui.xy(menu, "AbsoluteSize")
+					if point.X < at.X or point.Y < at.Y or point.X > at.X + extent.X or point.Y > at.Y + extent.Y then
+						ui.set(menu, "Visible", false)
+					end
+				end
+			end)
+		)
+		for index, action in { "Wrap", "Unwrap" } do
+			local button = ui.new "TextButton"
+			ui.set(button, "Name", action)
+			ui.set(button, "Text", action)
+			ui.set(button, "TextColor3", color.text)
+			ui.set(button, "BackgroundColor3", color.panel)
+			ui.set(button, "BorderSizePixel", 0)
+			ui.set(button, "Size", ui.values.udim2(1, 0, 0, 32))
+			ui.set(button, "Position", ui.values.udim2(0, 0, 0, (index - 1) * 32))
+			ui.set(button, "ZIndex", 31)
+			ui.set(button, "Parent", menu)
+			table.insert(
+				menuConnections,
+				ui.connect(button, "Activated", function()
+					ui.set(menu, "Visible", false)
+					if action == "Wrap" then
+						session.wrap()
+					else
+						session.unwrap()
+					end
+				end)
+			)
+		end
 		local indicator = Theme.frame("DropIndicator", color.accent)
 		ui.set(indicator, "Size", ui.values.udim2(1, -16, 0, 2))
 		ui.set(indicator, "Visible", false)
@@ -62,6 +103,7 @@ return function(ui: UI.UI)
 		type Drop = { destination: string, before: number?, into: boolean }
 		type Drag = { id: string, start: UI.Point, active: boolean, drop: Drop? }
 		local dragging: Drag? = nil
+		local consumed: string? = nil
 		local function dropAt(point: UI.Point, moving: string): (Drop?, Row?)
 			local value = session.document:peek()
 			for id, entry in rows do
@@ -79,8 +121,23 @@ return function(ui: UI.UI)
 					end
 					local before = if fraction <= 0.5 then index else (index or 0) + 1
 					local _, from, origin = Design.document.find(value.root, moving)
-					if from == parentNode and origin and before and origin < before then
-						before -= 1
+					if from == parentNode and origin and before then
+						local removed = 0
+						for position, child in parentNode.children do
+							if
+								position < before
+								and (
+									child.id == moving
+									or (
+										table.find(session.selection:peek(), moving)
+										and table.find(session.selection:peek(), child.id)
+									)
+								)
+							then
+								removed += 1
+							end
+						end
+						before -= removed
 					end
 					return { destination = parentNode.id, before = before, into = false }, entry
 				end
@@ -118,9 +175,9 @@ return function(ui: UI.UI)
 			end
 			table.clear(rows)
 		end
-		local function paint(selected: string, hovered: string?)
+		local function paint(selected: { string }, hovered: string?)
 			for id, entry in rows do
-				local active = id == selected
+				local active = table.find(selected, id) ~= nil
 				ui.set(entry.button, "BackgroundColor3", if active then color.accentSoft else color.hover)
 				ui.set(entry.button, "BackgroundTransparency", if active then 0 elseif id == hovered then 0.4 else 1)
 				ui.set(entry.name, "TextColor3", if active then color.text else color.secondary)
@@ -131,6 +188,7 @@ return function(ui: UI.UI)
 		local root = Compose.createRootOwner(function()
 			Compose.watch(function(use: Compose.Use)
 				local value = use(session.document)
+				ui.set(menu, "Visible", false)
 				clear()
 				for order, entry in Design.document.nodes(value.root) do
 					local node = entry.node
@@ -143,19 +201,76 @@ return function(ui: UI.UI)
 					ui.set(padding, "PaddingRight", ui.values.udim(0, 6))
 					ui.set(padding, "Parent", created.button)
 					local id = node.id
+					for index, action in { "Hide", "Lock" } do
+						local toggle = ui.new "TextButton"
+						local active = if action == "Hide" then node.hidden else node.locked
+						ui.set(toggle, "Name", action)
+						ui.set(
+							toggle,
+							"Text",
+							if action == "Hide"
+								then (if active then "○" else "◉")
+								else (if active then "▣" else "□")
+						)
+						ui.set(toggle, "TextColor3", if active then color.accent else color.tertiary)
+						ui.set(toggle, "BackgroundTransparency", 1)
+						ui.set(toggle, "Size", ui.values.udim2(0, 24, 1, 0))
+						ui.set(toggle, "Position", ui.values.udim2(1, -54 + (index - 1) * 24, 0, 0))
+						ui.set(toggle, "Parent", created.button)
+						table.insert(
+							connections,
+							ui.connect(toggle, "Activated", function()
+								if action == "Hide" then
+									session.hide(id, not active)
+								else
+									session.lock(id, not active)
+								end
+							end)
+						)
+					end
 					table.insert(
 						connections,
-						ui.connect(created.button, "Activated", function()
-							session.select(id)
+						ui.connect(created.button, "Activated", function(input: Compose.Node?)
+							if consumed == id then
+								consumed = nil
+								return
+							end
+							if dragging and dragging.active then
+								return
+							end
+							local shift = ui.modified(input, { "Shift" })
+							local command = ui.modified(input, { "Ctrl", "Meta" })
+							session.select(id, if command then "toggle" elseif shift then "range" else "replace")
 						end)
 					)
 					table.insert(
 						connections,
 						ui.connect(created.button, "InputBegan", function(input: Compose.Node)
+							if ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton2") then
+								if not table.find(session.selection:peek(), id) then
+									session.select(id)
+								end
+								local point = Theme.point(input)
+								local origin = ui.xy(parent, "AbsolutePosition")
+								local extent = ui.xy(parent, "AbsoluteSize")
+								ui.set(
+									menu,
+									"Position",
+									ui.values.udim2(
+										0,
+										math.clamp(point.X - origin.X, 0, math.max(0, extent.X - 160)),
+										0,
+										math.clamp(point.Y - origin.Y, 0, math.max(0, extent.Y - 64))
+									)
+								)
+								ui.set(menu, "Visible", true)
+								return
+							end
 							if
 								ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1")
 								and node.id ~= value.root.id
 							then
+								consumed = nil
 								dragging = { id = id, start = Theme.point(input), active = false, drop = nil }
 							end
 						end)
@@ -177,11 +292,11 @@ return function(ui: UI.UI)
 					rows[id] = created
 					ui.set(created.button, "Parent", scroller)
 				end
-				paint(session.selected:peek(), session.hovered:peek())
+				paint(session.selection:peek(), session.hovered:peek())
 			end)
 			Compose.watch(function(use: Compose.Use)
 				use(session.document)
-				paint(use(session.selected), use(session.hovered))
+				paint(use(session.selection), use(session.hovered))
 			end)
 		end, ui.runtime.reactor)
 		local release = Compose.owner.own(ui.owner, root.dispose)
@@ -208,8 +323,8 @@ return function(ui: UI.UI)
 			showDrop(nil, nil, { X = 0, Y = 0 })
 			local drop = drag.drop
 			if drag.active and drop then
+				consumed = drag.id
 				session.move(drag.id, drop.destination, drop.before)
-				session.select(drag.id)
 			end
 		end)
 		return {
@@ -219,6 +334,10 @@ return function(ui: UI.UI)
 				moved:Disconnect()
 				ended:Disconnect()
 				clear()
+				for _, connection in menuConnections do
+					connection:Disconnect()
+				end
+				ui.destroy(menu)
 				ui.destroy(indicator)
 				ui.destroy(scroller)
 			end,

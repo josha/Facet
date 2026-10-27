@@ -7,6 +7,13 @@ export type Point = { X: number, Y: number }
 export type Vector = { X: number, Y: number, Z: number }
 export type Connection = { Disconnect: (self: Connection) -> () }
 
+local MODIFIER_KEYS: { [string]: { string } } = {
+	Shift = { "LeftShift", "RightShift" },
+	Ctrl = { "LeftControl", "RightControl" },
+	Meta = { "LeftMeta", "RightMeta", "LeftSuper", "RightSuper" },
+	Alt = { "LeftAlt", "RightAlt" },
+}
+
 local function create(runtime: Compose.Runtime, environment: Environment.Environment, library: boolean?)
 	local owner = Compose.createOwner(runtime.reactor)
 	local owners: { [Compose.Node]: Compose.Owner } = {}
@@ -118,6 +125,34 @@ local function create(runtime: Compose.Runtime, environment: Environment.Environ
 			return values.color(r / 255, g / 255, b / 255)
 		end,
 		service = environment.service,
+		modified = function(input: Compose.Node?, kinds: { string }): boolean
+			for _, kind in kinds do
+				if input ~= nil then
+					if call(input, "IsModifierKeyDown", values.enum("ModifierKey", kind)) == true then
+						return true
+					end
+				else
+					local keys: { string } = MODIFIER_KEYS[kind] or {}
+					for _, key in keys do
+						if
+							call(environment.service "UserInputService", "IsKeyDown", values.enum("KeyCode", key))
+							== true
+						then
+							return true
+						end
+					end
+				end
+			end
+			return false
+		end,
+		keyDown = function(keys: { string }): boolean
+			for _, key in keys do
+				if call(environment.service "UserInputService", "IsKeyDown", values.enum("KeyCode", key)) == true then
+					return true
+				end
+			end
+			return false
+		end,
 		descendants = environment.descendants,
 		new = new,
 		get = get,

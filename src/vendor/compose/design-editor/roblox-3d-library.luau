@@ -209,6 +209,7 @@ return function(runtime: Compose.Runtime, environment: Environment.Environment):
 
 	local library: Design.Library = {
 		name = "Roblox3D",
+		containerKind = "Model",
 		parameter = "Host",
 		parameterType = "nil",
 		prelude = {},

@@ -67,7 +67,7 @@ local function write(self: Node, incoming: unknown)
 				consumer.retry = false
 				consumer.state = Graph.DIRTY
 				Reactor.enqueue(consumer)
-				Reactor.settleTouched()
+				Graph.settleTouched()
 				return
 			end
 		end
@@ -76,7 +76,7 @@ local function write(self: Node, incoming: unknown)
 		return
 	end
 	Graph.markStale(self, Graph.DIRTY)
-	Reactor.settleTouched()
+	Graph.settleTouched()
 end
 
 local function same(current: unknown, incoming: unknown): boolean
@@ -127,7 +127,7 @@ function CELL.set(self: Node, incoming: unknown)
 				consumer.retry = false
 				consumer.state = Graph.DIRTY
 				Reactor.enqueue(consumer)
-				Reactor.settleTouched()
+				Graph.settleTouched()
 				return
 			end
 		end
@@ -136,7 +136,7 @@ function CELL.set(self: Node, incoming: unknown)
 		return
 	end
 	Graph.markStale(self, Graph.DIRTY)
-	Reactor.settleTouched()
+	Graph.settleTouched()
 end
 
 function CELL.update(self: Node, change: (previous: unknown) -> unknown)

@@ -22,6 +22,8 @@ local CLEAN = 0
 local CHECK = 1
 local DIRTY = 2
 
+local invalidated: { Node } = {}
+
 local observations: { [Node]: (boolean) -> () } = {}
 Weak.keys(observations)
 
@@ -127,7 +129,9 @@ local function markStale(producer: Node, state: number)
 				end
 				consumer.state = state
 				if current == CLEAN or retry then
-					if consumer.run == nil then
+					if consumer.invalidate ~= nil then
+						table.insert(invalidated, consumer)
+					elseif consumer.run == nil then
 						markStale(consumer, CHECK)
 					elseif state == DIRTY and consumer.group then
 						local reactor = consumer.reactor
@@ -145,6 +149,40 @@ local function markStale(producer: Node, state: number)
 			end
 		end
 		edge = edge[4]
+	end
+end
+
+local function settleTouched()
+	if #invalidated == 0 then
+		Reactor.settleTouched()
+		return
+	end
+	local failures: { string } = {}
+	while #invalidated > 0 do
+		local pending = invalidated
+		invalidated = {}
+		for _, node in pending do
+			local invalidate = node.invalidate
+			if invalidate ~= nil and not node.released then
+				local ok, failure: unknown = pcall(function(): unknown
+					invalidate(node)
+					return nil
+				end)
+				if not ok then
+					table.insert(failures, tostring(failure))
+				end
+			end
+		end
+	end
+	local ok, failure: unknown = pcall(function(): unknown
+		Reactor.settleTouched()
+		return nil
+	end)
+	if not ok then
+		table.insert(failures, tostring(failure))
+	end
+	if #failures > 0 then
+		error(table.concat(failures, "\n"), 0)
 	end
 end
 
@@ -491,6 +529,7 @@ return {
 	detach = detach,
 	trim = trim,
 	markStale = markStale,
+	settleTouched = settleTouched,
 	refresh = refresh,
 	notANode = notANode,
 	use = use,

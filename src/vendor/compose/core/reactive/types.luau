@@ -54,6 +54,7 @@ export type Node = {
 	source: Node?,
 	fastKey: string?,
 	fastNext: Node?,
+	invalidate: ((Node) -> ())?,
 }
 
 return {}

@@ -1,6 +1,7 @@
 --!strict
 
 local AccumulatorModule = require "@self/accumulator"
+local SelectorModule = require "@self/selector"
 local Active = require "@self/ownership/active"
 local AnimationCodec = require "@self/animation/codec"
 local AnimationEasing = require "@self/animation/easing"
@@ -326,6 +327,7 @@ return {
 	sharedCell = cellModule.cell,
 	formula = formula,
 	accumulator = AccumulatorModule,
+	selector = SelectorModule,
 	watch = watch,
 	sample = sample,
 	isValue = cellModule.isValue,

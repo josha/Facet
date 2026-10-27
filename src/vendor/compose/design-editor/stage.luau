@@ -135,6 +135,20 @@ return function(ui: UI.UI)
 		ui.set(holder, "Parent", parent)
 		local nodes: { [string]: Compose.Node } = {}
 		local UserInputService = ui.service "UserInputService"
+		local function blocked(id: string): boolean
+			local node, parentNode = Design.document.find(session.document:peek().root, id)
+			while node do
+				if node.locked or node.hidden then
+					return true
+				end
+				node = parentNode
+				if node then
+					local _, ancestor = Design.document.find(session.document:peek().root, node.id)
+					parentNode = ancestor
+				end
+			end
+			return false
+		end
 		type Resize = {
 			corner: UI.Point,
 			from: UI.Point,
@@ -185,6 +199,70 @@ return function(ui: UI.UI)
 		type Drop = { destination: string, before: number, edge: UI.Point, along: UI.Point }
 		type Carry = { id: string, start: UI.Point, active: boolean, drop: Drop? }
 		local carrying: Carry? = nil
+		type Marquee = { from: UI.Point, to: UI.Point, base: { string } }
+		local marquee: Marquee? = nil
+		local marqueeBox = frame "DesignMarquee"
+		ui.set(marqueeBox, "BackgroundColor3", accent)
+		ui.set(marqueeBox, "BackgroundTransparency", 0.85)
+		ui.set(marqueeBox, "Visible", false)
+		ui.set(marqueeBox, "ZIndex", 2005)
+		Theme.stroke(marqueeBox, accent, 1)
+		ui.set(marqueeBox, "Parent", overlay)
+		local function updateMarquee(point: UI.Point)
+			local active = marquee
+			if active == nil then
+				return
+			end
+			active.to = point
+			local left, top = math.min(active.from.X, point.X), math.min(active.from.Y, point.Y)
+			local right, bottom = math.max(active.from.X, point.X), math.max(active.from.Y, point.Y)
+			local origin, factor = ui.xy(overlay, "AbsolutePosition"), scaleOf(overlay)
+			ui.set(marqueeBox, "Position", ui.values.udim2(0, (left - origin.X) / factor, 0, (top - origin.Y) / factor))
+			ui.set(marqueeBox, "Size", ui.values.udim2(0, (right - left) / factor, 0, (bottom - top) / factor))
+			ui.set(marqueeBox, "Visible", true)
+		end
+		local function finishMarquee()
+			local active = marquee
+			marquee = nil
+			ui.set(marqueeBox, "Visible", false)
+			if active == nil then
+				return
+			end
+			local ids = table.clone(active.base)
+			if Math.length(Math.sub(active.to, active.from)) >= 4 then
+				local left, top = math.min(active.from.X, active.to.X), math.min(active.from.Y, active.to.Y)
+				local right, bottom = math.max(active.from.X, active.to.X), math.max(active.from.Y, active.to.Y)
+				for id, instance in nodes do
+					if id ~= session.document:peek().root.id and not blocked(id) and ui.get(instance, "Parent") then
+						local at, extent = ui.xy(instance, "AbsolutePosition"), ui.xy(instance, "AbsoluteSize")
+						local x1 = math.max(at.X, left)
+						local y1 = math.max(at.Y, top)
+						local x2 = math.min(at.X + extent.X, right)
+						local y2 = math.min(at.Y + extent.Y, bottom)
+						local current: Compose.Node? = instance
+						local visible = true
+						while current and ui.isA(current, "GuiObject") do
+							visible = visible and ui.get(current, "Visible") ~= false
+							if ui.get(current, "ClipsDescendants") then
+								local origin, size = ui.xy(current, "AbsolutePosition"), ui.xy(current, "AbsoluteSize")
+								x1 = math.max(x1, origin.X)
+								y1 = math.max(y1, origin.Y)
+								x2 = math.min(x2, origin.X + size.X)
+								y2 = math.min(y2, origin.Y + size.Y)
+							end
+							if current == surface then
+								break
+							end
+							current = ui.get(current, "Parent")
+						end
+						if visible and x1 <= x2 and y1 <= y2 then
+							table.insert(ids, id)
+						end
+					end
+				end
+			end
+			session.selectMany(ids)
+		end
 		local marker = frame "DesignDropMarker"
 		ui.set(marker, "BackgroundTransparency", 0)
 		ui.set(marker, "BackgroundColor3", accent)
@@ -211,6 +289,8 @@ return function(ui: UI.UI)
 					and kind
 					and kind.children == "list"
 					and kind.leaf ~= true
+					and not blocked(id)
+					and not table.find(session.selection:peek(), id)
 					and Design.document.find(movingNode, id) == nil
 					and ui.get(instance, "Parent")
 					and contains(instance, point, surface)
@@ -232,7 +312,7 @@ return function(ui: UI.UI)
 			local before, count = 1, 0
 			local edge = if across then at.X else at.Y
 			for _, child in container.children do
-				if child.id ~= moving then
+				if child.id ~= moving and not table.find(session.selection:peek(), child.id) then
 					count += 1
 					local instance = nodes[child.id]
 					if instance then
@@ -279,10 +359,15 @@ return function(ui: UI.UI)
 			local drop = if active and active.active then active.drop else nil
 			if active and drop then
 				session.move(active.id, drop.destination, drop.before)
+			elseif active and not active.active then
+				session.select(active.id)
 			end
 		end
 		local function startResize(corner: UI.Point, from: UI.Point)
 			local id = session.selected:peek()
+			if #session.selection:peek() ~= 1 or blocked(id) then
+				return
+			end
 			local instance: Compose.Node? = nodes[id]
 			local node = Design.document.find(session.document:peek().root, id)
 			if instance == nil or node == nil then
@@ -354,11 +439,11 @@ return function(ui: UI.UI)
 		end
 		local runtime = ui.runtime
 		local stopDesign: (() -> ())? = nil
-		local function pick(point: UI.Point): string
-			local value = session.document:peek()
-			local chosen, deepest = value.root.id, -1
+		local function pick(point: UI.Point): string?
+			local chosen: string? = nil
+			local deepest = -1
 			for id, instance in nodes do
-				if ui.get(instance, "Parent") and contains(instance, point, surface) then
+				if not blocked(id) and ui.get(instance, "Parent") and contains(instance, point, surface) then
 					local depth = depthOf(instance, surface)
 					if depth > deepest then
 						chosen, deepest = id, depth
@@ -371,7 +456,7 @@ return function(ui: UI.UI)
 			name: string,
 			thickness: number,
 			handles: boolean,
-			target: (Compose.Use) -> string?
+			target: (Compose.Use) -> { string }
 		): Compose.Node
 			local box = frame(name)
 			ui.set(box, "Visible", false)
@@ -420,10 +505,10 @@ return function(ui: UI.UI)
 				end
 				table.clear(connections)
 			end
-			local shown: Compose.Node? = nil
+			local shown: { Compose.Node } = {}
 			local function place()
-				local instance = shown
-				if instance == nil or ui.get(instance, "Parent") == nil then
+				local instance = shown[1]
+				if instance == nil or ui.get(instance, "Parent") == nil or ui.get(instance, "Visible") == false then
 					ui.set(box, "Visible", false)
 					return
 				end
@@ -432,8 +517,24 @@ return function(ui: UI.UI)
 					Math.sub(ui.xy(instance, "AbsolutePosition"), ui.xy(overlay, "AbsolutePosition")),
 					1 / factor
 				)
-				local size = Math.scale(ui.xy(instance, "AbsoluteSize"), 1 / factor)
-				ui.set(box, "Position", ui.values.udim2(0, at.X, 0, at.Y))
+				local extent = Math.scale(ui.xy(instance, "AbsoluteSize"), 1 / factor)
+				local left = at.X
+				local top = at.Y
+				local right = at.X + extent.X
+				local bottom = at.Y + extent.Y
+				for _, other in shown do
+					local point = Math.scale(
+						Math.sub(ui.xy(other, "AbsolutePosition"), ui.xy(overlay, "AbsolutePosition")),
+						1 / factor
+					)
+					local otherSize = Math.scale(ui.xy(other, "AbsoluteSize"), 1 / factor)
+					left = math.min(left, point.X)
+					top = math.min(top, point.Y)
+					right = math.max(right, point.X + otherSize.X)
+					bottom = math.max(bottom, point.Y + otherSize.Y)
+				end
+				local size = { X = right - left, Y = bottom - top }
+				ui.set(box, "Position", ui.values.udim2(0, left, 0, top))
 				ui.set(box, "Size", ui.values.udim2(0, size.X, 0, size.Y))
 				ui.set(box, "Visible", true)
 				ui.set(ring, "Thickness", thickness / factor)
@@ -456,14 +557,19 @@ return function(ui: UI.UI)
 			end
 			Compose.watch(function(use: Compose.Use)
 				release()
-				local id = target(use)
-				shown = if id then nodes[id] else nil
-				local canResize = resizable(id) ~= nil
+				local ids = target(use)
+				table.clear(shown)
+				for _, id in ids do
+					if nodes[id] then
+						table.insert(shown, nodes[id])
+					end
+				end
+				local id = ids[1]
+				local canResize = #ids == 1 and resizable(id) ~= nil and not blocked(id)
 				for _, grip in grips do
 					ui.set(grip, "Visible", canResize)
 				end
-				local instance = shown
-				if instance then
+				for _, instance in shown do
 					table.insert(connections, ui.changed(instance, "AbsolutePosition", place))
 					table.insert(connections, ui.changed(instance, "AbsoluteSize", place))
 					table.insert(connections, ui.changed(overlay, "AbsolutePosition", place))
@@ -487,6 +593,9 @@ return function(ui: UI.UI)
 				stopDesign = runtime.mount(function(): Compose.Node
 					local rendered, content = pcall(function(): unknown
 						return Design.render(value, session.library, {
+							exclude = function(node: Design.Node): boolean
+								return node.hidden == true
+							end,
 							inputs = options.inputs,
 							slots = options.slots,
 							token = options.token,
@@ -528,13 +637,33 @@ return function(ui: UI.UI)
 					return if provide then provide(content) else content
 				end, surface)
 			end)
-			outline("DesignHover", 1, false, function(use: Compose.Use): string?
+			outline("DesignHover", 1, false, function(use: Compose.Use): { string }
 				local id = use(session.hovered)
-				return if id == use(session.selected) then nil else id
+				return if id and not table.find(use(session.selection), id) then { id } else {}
 			end)
-			outline("DesignSelected", 1.5, true, function(use: Compose.Use): string?
+			outline("DesignSelected", 1.5, true, function(use: Compose.Use): { string }
 				use(session.document)
-				return use(session.selected)
+				return use(session.selection)
+			end)
+			local perNode: { Compose.Node } = {}
+			Compose.watch(function(use: Compose.Use)
+				use(session.document)
+				local ids = use(session.selection)
+				for _, box in perNode do
+					ui.destroy(box)
+				end
+				table.clear(perNode)
+				if #ids > 1 then
+					for _, id in ids do
+						table.insert(
+							perNode,
+							outline(`DesignSelected_{id}`, 1, false, function(read: Compose.Use): { string }
+								read(session.document)
+								return { id }
+							end)
+						)
+					end
+				end
 			end)
 		end, runtime.reactor)
 		started = true
@@ -573,6 +702,14 @@ return function(ui: UI.UI)
 			apply()
 		end
 		local panning: UI.Point? = nil
+		local function beginMarquee(point: UI.Point, input: Compose.Node)
+			local picked = pick(point)
+			if picked == nil or picked == session.document:peek().root.id then
+				local additive = ui.modified(input, { "Shift", "Ctrl", "Meta" })
+				marquee =
+					{ from = point, to = point, base = if additive then table.clone(session.selection:peek()) else {} }
+			end
+		end
 		local surfaceInput: { UI.Connection } = {}
 		if ui.isA(parent, "GuiObject") then
 			table.insert(
@@ -592,47 +729,56 @@ return function(ui: UI.UI)
 						and ui.call(UserInputService, "IsKeyDown", ui.values.enum("KeyCode", "Space")) == true
 					if middle or spaced then
 						panning = toGui(input)
+					elseif ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1") then
+						beginMarquee(toGui(input), input)
 					end
 				end)
 			)
 		end
-		table.insert(
-			surfaceInput,
-			ui.connect(UserInputService, "InputChanged", function(input: Compose.Node)
-				if resizing and ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseMovement") then
-					updateResize(toGui(input))
-					return
-				end
-				if carrying and ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseMovement") then
-					carry(toGui(input))
-					return
-				end
-				local from = panning
-				if from and ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseMovement") then
-					local at = toGui(input)
-					pan = Math.add(pan, Math.sub(at, from))
-					panning = at
-					apply()
-				end
-			end)
-		)
-		table.insert(
-			surfaceInput,
-			ui.connect(UserInputService, "InputEnded", function(input: Compose.Node)
-				if
-					ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton3")
-					or ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1")
-				then
-					panning = nil
-				end
-				if ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1") and resizing then
-					finishResize()
-				end
-				if ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1") and carrying then
-					finishCarry()
-				end
-			end)
-		)
+		local function onPointerChanged(input: Compose.Node)
+			if marquee and ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseMovement") then
+				updateMarquee(toGui(input))
+				return
+			end
+			if resizing and ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseMovement") then
+				updateResize(toGui(input))
+				return
+			end
+			if carrying and ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseMovement") then
+				carry(toGui(input))
+				return
+			end
+			local from = panning
+			if from and ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseMovement") then
+				local at = toGui(input)
+				pan = Math.add(pan, Math.sub(at, from))
+				panning = at
+				apply()
+			end
+		end
+		local function onPointerEnded(input: Compose.Node)
+			if ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1") and marquee then
+				finishMarquee()
+			end
+			if
+				ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton3")
+				or ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1")
+			then
+				panning = nil
+			end
+			if ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1") and resizing then
+				finishResize()
+			end
+			if ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1") and carrying then
+				finishCarry()
+			end
+		end
+		for _, source in { UserInputService, parent } do
+			if source == UserInputService or ui.isA(source, "GuiObject") then
+				table.insert(surfaceInput, ui.connect(source, "InputChanged", onPointerChanged))
+				table.insert(surfaceInput, ui.connect(source, "InputEnded", onPointerEnded))
+			end
+		end
 		local began = ui.connect(overlay, "InputBegan", function(input: Compose.Node)
 			if
 				ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1")
@@ -644,8 +790,24 @@ return function(ui: UI.UI)
 					startResize(grip.corner, point)
 				elseif ui.call(UserInputService, "IsKeyDown", ui.values.enum("KeyCode", "Space")) ~= true then
 					local picked = pick(point)
-					session.select(picked)
-					if picked ~= session.document:peek().root.id then
+					if picked == nil or picked == session.document:peek().root.id then
+						beginMarquee(point, input)
+						return
+					end
+					local modified = ui.modified(input, { "Shift", "Ctrl", "Meta" })
+					if modified then
+						session.select(picked, "toggle")
+					elseif not table.find(session.selection:peek(), picked) then
+						session.select(picked)
+					end
+					if not modified then
+						local movable: { string } = {}
+						for _, id in session.selection:peek() do
+							if not blocked(id) then
+								table.insert(movable, id)
+							end
+						end
+						session.selectMany(movable)
 						carrying = { id = picked, start = point, active = false, drop = nil }
 					end
 				end

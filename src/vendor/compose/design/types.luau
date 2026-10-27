@@ -5,6 +5,7 @@ local Core = require "../core"
 type ReadOnlyValue<T> = Core.ReadOnlyValue<T>
 
 export type Literal = string | number | boolean | { [string | number]: Literal }
+export type DatatypeComponent = number | { token: string }
 
 export type Value = {
 	literal: Literal?,
@@ -125,6 +126,7 @@ export type Library = {
 	keyed: string?,
 	categories: { string }?,
 	contentKind: string?,
+	containerKind: string?,
 	tags: { call: string, apply: (built: unknown, tags: { string }) -> () }?,
 	space: ("2d" | "3d")?,
 	provide: ((content: unknown) -> unknown)?,
@@ -167,6 +169,8 @@ export type Node = {
 	nameInput: string?,
 	when: string?,
 	tags: { string }?,
+	hidden: boolean?,
+	locked: boolean?,
 }
 
 export type Document = {
@@ -197,6 +201,7 @@ export type RenderContext = {
 	token: ((name: string) -> Literal)?,
 	resolveToken: ((name: string) -> Resolved)?,
 	decorate: ((node: Node, built: unknown) -> ())?,
+	exclude: ((node: Node) -> boolean)?,
 	players: ((players: { [string]: Player }) -> ())?,
 }
 
