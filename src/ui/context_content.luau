@@ -93,8 +93,9 @@ local function attachLayout(
 	end
 	local framed = services.RunService ~= nil and getfenv ~= nil and getfenv(0).game ~= nil
 	local size =
-		runtime.observe(label, "AbsoluteSize", if framed then { frame = true, poll = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
-	local bounds = ctx.observe.TextBounds(label)
+		runtime.observe(label, "AbsoluteSize", if framed then { frame = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
+	local bounds =
+		runtime.observe(label, "TextBounds", if framed then { frame = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
 	local refloor: () -> () = function() end
 	local function invalidate()
 		if not refreshing then
