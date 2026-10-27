@@ -1,5 +1,13 @@
 # Current package
 
+In a collection with `slots`, an accepted payload from another source now
+parts the items at `info.insertion` while it hovers. The items between the
+insertion and the nearest empty reserved slot move one slot toward that empty
+slot. The items return when the payload leaves. The landing of a drop with
+`travel` uses the same slot. Each node from `slotControls.nodeOfKey` follows the
+displayed position of its item, so content that you place on a slot node moves
+with the item.
+
 A DiegeticScreen waits for a slow first room frame instead of returning to the
 screen. A heavy scene that takes longer than `motion.restLimit` to settle now
 enters the room.

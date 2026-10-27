@@ -130,6 +130,15 @@ return function<V, K>(
 				return at
 			end
 			local index = assert(controls.indexOfKey)(key)
+			local target, empty = shared.slotGap(session.payload, proposal, use)
+			if index and target and empty then
+				if index >= target and index < empty then
+					return assert(controls.placementOf)(index + 1)
+				elseif index < target and index > empty then
+					return assert(controls.placementOf)(index - 1)
+				end
+				return at
+			end
 			local before = proposal.beforeKey
 			local start = if before ~= nil then assert(controls.indexOfKey)(before :: K) else nil
 			if index and start and index >= start then

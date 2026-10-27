@@ -521,6 +521,131 @@ return function(harness: Verify.Harness)
 			w.finish()
 		end,
 	})
+	harness:case("a foreign payload parts reserved slots toward the empty slot and drops at its insertion", {
+		id = "container_transfer::drop gap::reserved slots part toward the empty slot",
+		run = function(t)
+			local engine = engineLib.new()
+			local C, V2 = Facet.Compose, engine.types.Vector2
+			local runtime = Facet.Roblox.createRuntime(engine)
+			t:defer(function()
+				runtime:dispose()
+			end)
+			local screen, playerGui = engine.new("ScreenGui"), engine.new("PlayerGui")
+			screen.Parent = playerGui
+			local controls: ComposeTypes.OrderedCollectionControls<string> = {}
+			local anchors: Facet.SlotControls<string> = {}
+			local UI = table.clone(Facet.controls(runtime, { types = engine.types }))
+			local ctx = context(C, runtime, { types = engine.types })
+			require("../src/ui/collections")(ctx, UI)
+			local dropped: { Facet.DropInsertion } = {}
+			local stop, mounted = runtime.mount(function()
+				return UI.VirtualList {
+					from = { "1", "2", "4", "5" },
+					key = function(item: string): string
+						return item
+					end,
+					slots = { "1", "2", "3", "4", "5" },
+					slotControls = anchors,
+					collectionId = "rack-slots",
+					direction = "horizontal",
+					mode = "all" :: "all",
+					itemSize = 40,
+					controls = controls,
+					reorderable = true,
+					onReorder = function() end,
+					drag = function(items: { string }, keys: { string }): Facet.DraggableSpec
+						return {
+							payload = { collection = "rack", items = items, keys = keys },
+							previewScale = 1.9,
+							touchPickup = "immediate",
+							returnTravel = true,
+						}
+					end,
+					drop = {
+						travel = true,
+						accepts = function(): (boolean, string?)
+							return true, nil
+						end,
+						onDrop = function(_payload: unknown, info: Facet.DropInfo): boolean
+							table.insert(dropped, assert(info.insertion))
+							return true
+						end,
+					},
+					render = function(current: Facet.ReadOnlyValue<string>): GuiObject
+						return UI.ZStack("RackSlot" .. current:peek()) { width = "fill", height = "fill" }
+					end,
+				}
+			end, screen)
+			t:defer(stop)
+			local rack = mounted :: ScrollingFrame
+			engine.environment.poke(FixtureRoblox.assertInstance(rack), "AbsoluteSize", V2.new(300, 40))
+			engine.environment.poke(FixtureRoblox.assertInstance(rack), "AbsoluteWindowSize", V2.new(300, 40))
+			local function settle()
+				for _ = 1, 240 do
+					engine.heartbeat:Fire(1 / 60)
+				end
+			end
+			local function anchor(key: string): number
+				return assert(assert(anchors.nodeOfKey)(key)).Position.X.Offset
+			end
+			local function slot(index: number): number
+				return assert(controls.placementOf)(index).offset
+			end
+			settle()
+			local rest = { anchor("1"), anchor("2"), anchor("4"), anchor("5") }
+			local source = engine.new("TextButton")
+			source.Parent = screen
+			engine.environment.poke(FixtureRoblox.assertInstance(source), "AbsolutePosition", V2.new(400, 100))
+			engine.environment.poke(FixtureRoblox.assertInstance(source), "AbsoluteSize", V2.new(40, 40))
+			local session = sessionOf(ctx)
+			local function enter()
+				session.begin(
+					source,
+					{ payload = { collection = "board", keys = { "tile:9" } } },
+					"pointer",
+					nil,
+					nil,
+					{ position = V2.new(420, 120), source = source }
+				)
+				playerGui.GetGuiObjectsAtPosition = function()
+					return { rack }
+				end
+				session.update(V2.new(slot(2) + 1, 20))
+				session.hover(rack, nil)
+			end
+			enter()
+			t:expect(assert(session.state:peek()).accepted):toBe(true)
+			local moved = 0
+			for _ = 1, 30 do
+				engine.heartbeat:Fire(1 / 60)
+				if anchor("2") ~= rest[2] then
+					moved += 1
+				end
+			end
+			t:expect(moved > 1):toBe(true)
+			settle()
+			t:expect(anchor("1")):toBe(rest[1])
+			t:expect(math.abs(anchor("2") - slot(3)) < 0.5):toBe(true)
+			t:expect(anchor("4")):toBe(rest[3])
+			t:expect(anchor("5")):toBe(rest[4])
+			playerGui.GetGuiObjectsAtPosition = function()
+				return {}
+			end
+			session.update(V2.new(420, 120))
+			session.hover(nil, nil)
+			settle()
+			t:expect(math.abs(anchor("2") - rest[2]) < 0.001):toBe(true)
+			session.finish(false)
+			enter()
+			settle()
+			t:expect(session.commit(rack)):toBe(true)
+			settle()
+			t:expect(#dropped):toBe(1)
+			t:expect(dropped[1].slot):toBe(1)
+			t:expect(dropped[1].beforeKey):toBe("2")
+			t:expect(dropped[1].afterKey):toBe("1")
+		end,
+	})
 	harness:suite("container travel", function()
 		harness:case("hover opens a collection slot with sampled spring reflow and restores it on leave", function()
 			local engine = engineLib.new()
