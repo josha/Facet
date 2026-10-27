@@ -94,6 +94,10 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 				result[key] = value
 			end
 		end
+		local text = result.Text
+		if result.AutoLocalize == nil and (Compose.isValue(text) or type(text) == "function") then
+			result.AutoLocalize = false
+		end
 		return (result :: unknown) :: P
 	end
 	function ctx.construct<F>(control: string, build: F): F & ((string) -> F)
