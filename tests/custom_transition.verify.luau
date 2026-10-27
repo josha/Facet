@@ -9,6 +9,46 @@ local pageLayers = require("../src/ui/nav_page_layers")
 local engines = require("./lib/native_engine")
 
 return function(h: Verify.Harness)
+	for _, variant in { "default", "crossfade", "zoom" } do
+		h:case(`a {variant} push yields focus that another surface claims before the page arrives`, function()
+			local path = Facet.Compose.cell({} :: { Facet.NavigationEntry<string> })
+			local w = worlds.new(function(UI: Facet.Controls)
+				return UI.VStack {
+					UI.Button "Start" { label = "Start" } :: Instance,
+					UI.Button "Hud" { label = "Hud" } :: Instance,
+					UI.NavigationStack {
+						path = path,
+						chrome = "hidden",
+						transition = if variant == "zoom"
+							then { scale = 0.5 }
+							elseif variant == "crossfade" then { seconds = 0.3 }
+							else nil,
+						root = {
+							content = function(): Instance
+								return UI.Button "HomeAction" { label = "Home" }
+							end,
+						},
+						destinations = {
+							match = {
+								content = function(): Instance
+									return UI.Button "MatchAction" { label = "Match" }
+								end,
+							},
+						},
+					},
+				}
+			end)
+			w.gui.SelectedObject = w.find("Start")
+			path:set({ { id = "match", value = "one" } })
+			w.gui.SelectedObject = w.find("Hud")
+			for _ = 1, 60 do
+				w.engine.heartbeat:Fire(1 / 60)
+			end
+			local selected = w.gui.SelectedObject
+			Verify.expect(if selected then selected.Name else "nil"):toBe("Hud")
+			w.stop()
+		end)
+	end
 	h:case("a scale transition grows a pushed page from its center and shrinks it on pop", function()
 		local path = Facet.Compose.cell({} :: { Facet.NavigationEntry<string> })
 		local w = worlds.new(function(UI: Facet.Controls)
