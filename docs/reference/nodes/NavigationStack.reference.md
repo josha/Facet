@@ -46,7 +46,8 @@ that owns its header, such as a NavBar with Close, starts on its body. When
 the body has no control yet, the page starts on Close and moves to the first
 body control that mounts later, such as a collection row, while the player
 has not moved the selection. A page that the player returns to selects its
-last control again.
+last control again. If a surface outside the stack takes the
+selection while a page moves, the page does not take it back.
 
 The navigation bar title is inset on both sides by the control's horizontal
 padding (`controlSizes.regular.paddingX`), so a root page's leading title

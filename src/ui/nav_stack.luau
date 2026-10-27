@@ -74,6 +74,7 @@ return function(
 		local root: Frame
 		local handoff = false
 		local shownList = entries:peek()
+		local changedFrom: { selected: GuiObject? }? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local list = use(entries)
 			local former = shownList
@@ -83,6 +84,9 @@ return function(
 				handoff = true
 				root:SetAttribute("FacetSelectionOwner", true)
 				gui.SelectedObject = nil
+			end
+			if top ~= list[#list] and gui then
+				changedFrom = { selected = gui.SelectedObject :: GuiObject? }
 			end
 			local departing = leaving:peek()
 			if table.find(list, top) == nil and (animated or timing ~= nil) and level() ~= "none" then
@@ -513,6 +517,13 @@ return function(
 					local function claims(selected: GuiObject?, pushed: boolean): boolean
 						return selected ~= nil and (pushed or surfaces.within(selected, root))
 					end
+					local function claimedElsewhere(selected: GuiObject?): boolean
+						local origin = changedFrom
+						return origin ~= nil
+							and selected ~= nil
+							and selected ~= origin.selected
+							and not surfaces.within(selected, root)
+					end
 					local provisional = Compose.cell(nil :: GuiObject?)
 					Compose.watch(function(use: ComposeTypes.Use)
 						local top = use(role) == "top"
@@ -532,6 +543,11 @@ return function(
 							and (handoff or focusing(use) or claims(gui.SelectedObject, previousTop == nil))
 						then
 							handoff = false
+							if claimedElsewhere(gui.SelectedObject) then
+								root:SetAttribute("FacetSelectionOwner", false)
+								previousTop = top
+								return
+							end
 							local back = recall()
 							local usable = back and back.Visible and back.Selectable and back.Interactable
 							local target = if usable then back else landing()
