@@ -277,25 +277,37 @@ return function(harness: Verify.Harness)
 		world.step(1)
 		Verify.expect(camera.CFrame == matched):toBe(false)
 	end)
-	harness:case("DiegeticScreen starts the entry clock after the presented surface renders", function(context)
-		local world = fixture()
-		context:defer(world.close)
-		world.presented:set(true)
-		world.step(2)
-		local camera = world.workspace.CurrentCamera
-		local matched = camera.CFrame
-		Verify.expect(world.progress()):toBe(0)
-		world.step(1)
-		world.engine.heartbeat:Fire(0.32)
-		Verify.expect(camera.CFrame):toBe(matched)
-		Verify.expect(world.progress()):toBe(0)
-		world.step(1)
-		local first = world.progress()
-		assert(type(first) == "number")
-		Verify.expect(first > 0 and first < 0.15):toBe(true)
-		world.step(240)
-		Verify.expect(world.progress()):toBe(1)
-	end)
+	for calm = 0, 1 do
+		harness:case(
+			`DiegeticScreen starts the entry clock after a slow frame {calm} frames after the transfer`,
+			function(context)
+				local world = fixture()
+				context:defer(world.close)
+				world.presented:set(true)
+				world.step(2)
+				local camera = world.workspace.CurrentCamera
+				local matched = camera.CFrame
+				Verify.expect(world.progress()):toBe(0)
+				world.step(calm)
+				world.engine.heartbeat:Fire(0.32)
+				Verify.expect(camera.CFrame):toBe(matched)
+				Verify.expect(world.progress()):toBe(0)
+				local first = 0
+				for _ = 1, 10 do
+					world.step(1)
+					local current = world.progress()
+					assert(type(current) == "number")
+					if current > 0 then
+						first = current
+						break
+					end
+				end
+				Verify.expect(first > 0 and first < 0.15):toBe(true)
+				world.step(240)
+				Verify.expect(world.progress()):toBe(1)
+			end
+		)
+	end
 	harness:case("A DiegeticScreen with retainScene keeps one room across presentations", function(context)
 		local world = fixture(nil, nil, nil, true)
 		context:defer(world.close)

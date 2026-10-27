@@ -6,6 +6,7 @@ local Props = require("./diegetic_types")
 local Geometry = require("./diegetic_geometry")
 local Motion = require("./motion")
 type Layer = { source: ScreenGui, slot: Frame, children: { Instance } }
+local STEADY_FRAME_RATIO = 2
 return function(ctx: Types.Context, UI: Controls.Controls)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local D2, V2, V3, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Vector3, ctx.types.Enum
@@ -25,6 +26,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 		local surface = Compose.cell<<SurfaceGui?>>(nil)
 		local ready = Compose.cell<<Types.ReadOnlyValue<boolean>?>>(nil)
 		local moved, ownsCamera = false, false
+		local lastFrame, previousFrame = 0, math.huge
 		local previous: Camera? = nil
 		local parked: { Camera } = {}
 		local cameraStorage: Folder? = nil
@@ -161,6 +163,9 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 						end
 						return table.concat(sizes, ";")
 					end,
+					ready = function(): boolean
+						return lastFrame <= previousFrame * STEADY_FRAME_RATIO
+					end,
 					timeout = ctx.metric("motion.restLimit"),
 				}
 				Compose.watch(function(use: Types.Use)
@@ -172,6 +177,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 		end
 		local function SessionNodes(): { Core.Node }
 			layerOwner = assert(Compose.currentOwner())
+			lastFrame, previousFrame = 0, math.huge
 			local extent = Geometry.fit(ctx.read(spec.bounds), canvas)
 			local plate = Host.Part "Display" {
 				Anchored = true,
@@ -196,7 +202,8 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				FieldOfView = fieldOfView,
 				CFrame = pose,
 			}
-			Compose.cleanup(assert(runtime.host.frames).onFrame(function()
+			Compose.cleanup(assert(runtime.host.frames).onFrame(function(delta: number)
+				previousFrame, lastFrame = lastFrame, delta
 				if ownsCamera and workspace.CurrentCamera == worldCamera then
 					worldCamera.CameraType = E.CameraType.Scriptable
 					worldCamera.CFrame = pose:peek()

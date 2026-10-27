@@ -24,9 +24,11 @@ accepts application actions while presented. Frame the room camera so that the
 room is visible around the display. An enabled cameraRig receives pointer input
 over empty room space and yields to input over the application surface.
 
-The entry motion starts only after the surface layout is stable for two frames,
-or after the theme `motion.restLimit` time. The motion starts at the matched
-pose, so a slow first frame does not move the camera.
+The entry motion starts only after the surface layout is stable for two frames
+with steady frame times, or after the theme `motion.restLimit` time. A frame
+that takes more than twice as long as the frame before it restarts this wait.
+The motion starts at the matched pose, so a slow frame after the surface
+transfer does not move the camera.
 
 The canvas retains each source layer's ScreenInsets and DisplayOrder. Its size
 is fixed through a shot. A viewport size change safely returns to screen mode.
