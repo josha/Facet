@@ -7,15 +7,19 @@ only the controls and contracts needed to build it.
 | --- | --- |
 | Facet repository | `skills/use-facet/SKILL.md` |
 | Exported author kit | `.agents/skills/use-facet/SKILL.md` |
+| Studio author kit | `ServerStorage.FacetDocs.skills["use-facet"]["SKILL.md"].Value` |
 
-The skill starts with the player's decision and return path. Its pattern and
-compact-composition references distinguish subject, records, comparison, forms,
-outcomes and gameplay commands. It routes game themes, advanced interactions
-and typed examples without loading every capability before the first screen.
+The skill defaults to distinctive game UI: Collection with game subjects,
+Inspection for a selected object, or an optional Pixel Quest theme builder paired
+with Collection. Derive type, material and shape from the game; a color swap on
+uniform cards is insufficient. Text-led tasks still need expressive hierarchy.
+Read patterns for another relationship and compact compositions when needed;
+do not load every reference before building the first screen.
 
 Use [Map](Map.md) for recipes and exact control contracts. Capture the task in
-its real world at wide, portrait and short sizes, inspect attention and useful
-content, then correct the largest observed problem before copying the structure.
+its real world at wide, portrait and short sizes. Reject generic results and fix
+one visible cause before sharing the structure. Keep sequential steps inside a
+stable navigation surface.
 A passing typecheck or a control catalog is not a visual or behavioral review.
 
 Older design chapters remain available for background reading. They are not a

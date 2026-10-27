@@ -2,18 +2,19 @@
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 export type Callbacks = { scan: () -> (), command: ("map" | "journal") -> () }
 local pages = {
-	{ "Find the beacon", "Follow the ridge to the stone beacon." },
+	{ "Survey the river", "Follow the bank to a survey marker and scan the water." },
 	{
-		"Survey the site",
-		"Approach the beacon, then scan to record a discovery.",
+		"Choose supplies",
+		"Inspect plants, tools and habitats before spending seeds. Match each supply to the river's needs.",
 	},
 	{
-		"Keep exploring",
-		"Use Field kit for your map, journal, or this guide.",
+		"Restore a stretch",
+		"Place supplies from your field kit. Survey again to see what changed; keep discoveries in your journal.",
 	},
 }
 
 return {
+	theme = require(script.Parent.Parent.assets["riverbank-theme"]),
 	build = function(app: Facet.App, inputParent: Instance, callbacks: Callbacks): Frame
 		local Compose, UI = Facet.Compose, app.UI
 		local Host = Facet.host(app.runtime)
@@ -84,15 +85,15 @@ return {
 					gap = "m",
 					padding = stripPadding,
 					surface = "panel",
-					UI.Text "Place" { text = "NORTH RIDGE", textRole = "strong" },
-					UI.Text "Goal" { text = "Find the beacon", textRole = "caption" },
+					UI.Text "Place" { text = "RIVERBANK", textRole = "strong" },
+					UI.Text "Goal" { text = "Survey the river", textRole = "caption" },
 				},
 				UI.HStack "CompactObjective" {
 					height = 44,
 					align = "center",
 					padding = stripPadding,
 					surface = "panel",
-					UI.Text "Goal" { text = "Find the beacon", textRole = "strong" },
+					UI.Text "Goal" { text = "Survey the river", textRole = "strong" },
 				},
 			},
 			UI.Region "PrimaryAction" {
@@ -102,7 +103,7 @@ return {
 					width = env.scaled(140),
 					align = "stretch",
 					UI.Button "ScanButton" {
-						label = "Scan beacon",
+						label = "Scan water",
 						appearance = "emphasis",
 						shortcutHint = scan,
 						enabled = available,
@@ -162,7 +163,7 @@ return {
 		end)
 		local guide = UI.Sheet "FieldGuide" {
 			isPresented = guideOpen,
-			title = "Field guide",
+			title = "Riverbank / Field guide",
 			placement = "center",
 			width = "narrow",
 			closeButton = true,
@@ -176,7 +177,7 @@ return {
 					gap = "m",
 					UI.Text {
 						text = function(use: Facet.Use)
-							return `SURVEY BASICS · {use(page)} / {#pages}`
+							return `RIVER RESTORATION · {use(page)} / {#pages}`
 						end,
 						textRole = "caption",
 						wrap = true,

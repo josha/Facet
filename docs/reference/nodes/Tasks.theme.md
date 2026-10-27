@@ -2,7 +2,8 @@
 
 <!-- aliases: themePackage | ThemeDefinition | custom theme | theme definition | visual identity | art direction -->
 
-Define paint here; layout and game art establish the focal area.
+Build this game's identity with [use-facet](Design.guide.md). This palette is a
+base; type, materials, recognizable subjects and composition complete the task.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -30,7 +31,6 @@ local app = Facet.app({ name = "Game", theme = theme })
 script.Destroying:Connect(app.dispose)
 ```
 
-Use the game's palette, type and subject art. This theme keeps covered pages
-still (`parallax = 0`); omit that patch for the base page-to-page movement.
-It applies to all default stacks using the theme. See [Theme-identity](Theme-identity.md)
+`parallax = 0` keeps covered pages still in all default stacks using this theme.
+Omit it for base movement. See [Theme-identity](Theme-identity.md)
 and [Themes.tokens](Themes.tokens.md).

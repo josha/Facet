@@ -20,22 +20,23 @@ local relics: { Relic } = {
 	{
 		id = "sun",
 		name = "Sun prism",
-		subtitle = "Ceremonial stone",
-		description = "Light gathers along its carved edges. Its broad silhouette makes the small marks easy to inspect.",
-		trait = "Warm light · carved stone",
+		subtitle = "East Observatory · amber",
+		description = "Recovered from the East Observatory. The brass cradle still carries the surveyors' sun marks.",
+		trait = "Warm light · brass cradle",
 		color = Color3.fromRGB(197, 133, 68),
 	},
 	{
 		id = "tide",
 		name = "Tide lens",
-		subtitle = "Polished sea glass",
-		description = "A smooth lens recovered from a tidal chamber. Its cool body catches the light differently from the stone.",
+		subtitle = "Tidal chamber · sea glass",
+		description = "Found below the tide line. The lens once guided returning survey boats through the reef.",
 		trait = "Cool light · polished glass",
 		color = Color3.fromRGB(78, 137, 147),
 	},
 }
 
 return {
+	theme = require(script.Parent.Parent.assets["field-station-theme"]),
 	build = function(app: Facet.App, state: State, callbacks: Callbacks): Frame
 		local C, UI = Facet.Compose, app.UI
 		local model: InspectionModel = state.inspection
@@ -92,7 +93,7 @@ return {
 					label = function(use: Facet.Use)
 						return if use(state.accepted) == use(chosen).id
 							then "Selected for display"
-							else "Use this object"
+							else "Display this relic"
 					end,
 					appearance = "emphasis",
 					busy = state.busy,
@@ -105,7 +106,7 @@ return {
 				},
 				UI.Text { text = state.message, textRole = "caption", wrap = true },
 				UI.DisclosureGroup "ObjectNotes" {
-					label = "Object notes",
+					label = "Field notes",
 					expanded = notesExpanded,
 					content = function(): Instance
 						return UI.Text {
@@ -134,7 +135,7 @@ return {
 			render = function(current)
 				return UI.Card "RelicCard" {
 					title = function(use: Facet.Use)
-						return use(current).name
+						return (if use(selection)[use(current).id] then "Selected: " else "") .. use(current).name
 					end,
 					caption = function(use: Facet.Use)
 						return use(current).subtitle
@@ -173,7 +174,7 @@ return {
 					width = "fill",
 					height = "fill",
 					alignH = "center",
-					alignV = "start",
+					alignV = "center",
 					UI.fill(),
 				}
 				local room = UI.environment(body)
@@ -185,12 +186,13 @@ return {
 					width = "fill",
 					height = "fill",
 					alignH = "center",
+					alignV = "center",
 					C.show(sideBySide, function()
 						return UI.HStack "SubjectAndDecision" {
 							width = "fill",
-							maxWidth = 900,
+							maxWidth = 960,
 							height = function(use: Facet.Use): number
-								return math.min(500, use(room.viewportHeight))
+								return math.max(0, use(room.viewportHeight))
 							end,
 							gap = "m",
 							padding = "s",
@@ -229,19 +231,40 @@ return {
 			UI.fill(),
 		}
 		UI.NavigationSplitView "RelicPanes"(panes)
-		local close: GuiObject = UI.Button { label = "Close", appearance = "utility", onActivate = callbacks.close }
+		local close: GuiObject = UI.Button {
+			label = "Close",
+			appearance = "utility",
+			onActivate = function()
+				callbacks.close()
+			end,
+		}
 		local navigation: Facet.NavBarSpec = {
-			title = "Relic archive",
+			title = "Field Station / Relics",
 			titleSize = "heading",
 			onBack = back,
 			trailing = close,
 		}
-		return UI.Screen "RelicInspection" {
+		local canvas = UI.ZStack "ArchiveCanvas" {
+			width = "fill",
+			height = "fill",
+			UI.fill(),
+		}
+		local room = UI.environment(canvas)
+		UI.VStack "ArchivePanel" {
+			Parent = C.static(canvas),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			width = "fill",
+			maxWidth = 1240,
+			height = function(use: Facet.Use): number
+				return math.max(0, math.min(720, use(room.viewportHeight)))
+			end,
 			surface = "surface",
-			gap = 0,
 			padding = "s",
+			gap = 0,
 			UI.NavBar(navigation),
 			taskBody,
 		}
+		return UI.Screen "RelicInspection" { padding = "m", canvas }
 	end,
 }

@@ -19,9 +19,8 @@ Set `chrome = "hidden"` on a destination when that page owns its header.
 The page uses the full stack rectangle, with no stack title or Back bar.
 Set it on the stack to use this default for all pages, including the root.
 A destination's `chrome = "automatic"` overrides the stack default.
-Both settings can be readables. An absent option keeps the current behaviour,
-including Back above an untitled child. The root never has a
-stack Back command.
+Both settings accept readables. Omitting them keeps Back above an untitled child.
+The root never has stack Back.
 
 Hidden chrome keeps route history, page motion, Escape, gamepad B and selection
 restoration. On touch, a one-finger right swipe from the left edge goes
@@ -58,8 +57,8 @@ lines up with the Back label of the pages above it.
 A push slides the new page in from the trailing edge. The covered page moves
 30 percent to the leading edge and dims. The covered page keeps its full
 width, so its controls do not change size. A pop plays the reverse. The popped
-page stays until its motion completes. It cannot be interacted with, and it
-cannot hold the selection. While a page moves, both pages are opaque. Each page
+page stays until motion completes, without input or selection. While a page
+moves, both pages are opaque. Each page
 gets the background color of the nearest opaque container of the stack. A
 separate black shade frame dims the covered page from 0 to 0.1 opacity. The page
 content does not change its transparency. At rest, the pages are transparent. A stack that fills its ScreenGui does not
@@ -74,8 +73,8 @@ Set theme `metrics.motion.distances.parallax = 0` to keep covered pages still
 while the front page slides. It affects all default stacks in that theme.
 See [Tasks.theme](Tasks.theme.md).
 
-Each page gets its own presentation progress. A pushed page and a popped page
-both move. Set `transition = { scale = 0.5 }` to zoom each page from its
-center. Add `transition.apply` to author motion from the shared presentation progress.
+Pages have presentation progress on push and pop. Set
+`transition = { scale = 0.5 }` to zoom from its center. Add `transition.apply`
+to author motion from progress.
 See [Custom-transitions](Custom-transitions.md) for the callback, lifetime and
 reduced-motion contract.

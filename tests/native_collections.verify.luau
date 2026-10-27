@@ -2666,6 +2666,12 @@ return function(verifyHarness: Verify.Harness)
 						local card = assert(slot:FindFirstChild("Card", true)) :: Frame
 						local group = assert(card:FindFirstAncestor("Content")) :: CanvasGroup
 						local inset = assert(group:FindFirstChildWhichIsA("UIPadding")) :: UIPadding
+						local surface = assert(card.Parent) :: Frame
+						local mainAxis = if horizontal
+							then engine.types.Enum.AutomaticSize.X
+							else engine.types.Enum.AutomaticSize.Y
+						Verify.expect(surface.AutomaticSize):toBe(mainAxis)
+						Verify.expect(group.AutomaticSize):toBe(mainAxis)
 						Verify.expect(group.Position.X.Offset + inset.PaddingLeft.Offset):toBe(0)
 						Verify.expect(group.Position.Y.Offset + inset.PaddingTop.Offset):toBe(0)
 						Verify.expect(group.Size.X.Offset):toBe(2 * inset.PaddingLeft.Offset)

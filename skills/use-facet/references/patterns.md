@@ -1,7 +1,7 @@
 # Compose for the decision
 
-Choose the leading task pattern and give it the game's own visual character.
-Shared type and paint do not require a shared page layout.
+Choose the leading task pattern and express the game's character through subject
+scale, type, shape and composition. Shared paint alone does not establish identity.
 
 | Player task | Composition and interaction | Starting point |
 | --- | --- | --- |
@@ -28,10 +28,6 @@ Shared type and paint do not require a shared page layout.
 | Subject with contextual layers | ZStack for shared bounds; Composition/Region for screen regions | Reserve input clearance; use complete smaller forms |
 | Collection and selected detail | NavigationSplitView | Detail step with Back instead of squeezed columns |
 
-A settings form can be a VStack of sections with aligned rows. A leaderboard
-needs shared columns; independent HStacks do not share column sizing. An object
-inventory can use visual cells and a Table for comparing their statistics.
-
 Bound available space before using fill. Two fill-width children in a hugging
 HStack do not divide a row; use `fill`'s native flex contract within a bound.
 HStack `align = "center"` centers children vertically, while text alignment acts
@@ -50,50 +46,65 @@ Allocate hands for simultaneous touch actions; steering may belong opposite
 acceleration and braking. Pointer/controller can need prompts instead of a
 permanent touch pad. Preserve hold, release, cancel and simultaneous input.
 
-Choose the surface bound from content, target size, localization and viewing
-distance; the viewport supplies the limit. Full-width rows are useful inside
-a sensible list, but a few words do not require a viewport-wide popup. A table
-or comparison may need most of the screen.
+Choose the surface bound from content, targets, localization and viewing distance;
+the viewport supplies the limit. Use surplus room deliberately:
 
-Inspect generated fallback forms: ring/list, sidebar/bar, split/detail and
-floating panel/scrolling task. If public options cannot correct a poor fallback,
-record the library gap. Do not shrink text, disable accessibility or modify
-private children to hide it.
+| Task needs | Use the extra room for |
+| --- | --- |
+| A few choices or a brief decision | Center the complete bounded task, including title and actions |
+| Inspection or customization | Enlarge the useful subject beside a readable decision column |
+| A task connected to gameplay | A bounded panel that retains useful world context |
+| Dense comparison or editing | A full task with aligned columns or useful working space |
+
+A content `maxWidth` inside an opaque full-screen surface does not bound the
+composition. Align its navigation, body and actions together. Empty space should
+separate groups or frame a subject, not leave the task stranded on one side.
+
+If public options cannot correct a poor fallback, record the library gap.
+Do not shrink text, disable accessibility or modify private children to hide it.
 
 ## Transfer a complete example
 
-Art should show the actual subject's distinguishing shape, condition or variation.
-Fit the camera and allocate enough space to see the difference. When art supplies
-no decision or identity, let comparison or outcome lead.
+Fit the art's camera and scale to reveal shape, condition or variation;
+otherwise let comparison or outcome lead.
 
-Inspection measures the bounded detail body, bounds the wide subject/decision
-group, and uses a complete narrow step. Keep its State table across page builds
-to retain selection and the compact step. Mount its page through NavigationStack
-(`Tasks.pages`) for input and focus ownership; Screen alone supplies layout.
-For searchable catalogs, start with [collection](../examples/collection.luau):
-call `createModel()` once, pass readable records and `inspect(id)`/`close()`
-callbacks to `build`. Each record has `id`, `name`, `category`, visible `facts`
-and numeric `value` for cost sort. Keep units in facts. The native filter route
-keeps browse mounted; do not replace it with an expanding chrome stack. Search
-clear changes only the query; Reset search and filters also restores type/sort.
-The caller owns the detail route and game commitment.
+For products or equipment, use [collection](../examples/collection.luau).
+Use the game's theme and subjects; [Riverbank](../assets/riverbank-theme.luau)
+demonstrates one identity. Call `createModel()` once, pass records
+and `inspect(id)`/`close()` callbacks to `build`. A record has `id`, `name`,
+`category`, useful `facts`, numeric `value` for cost sort and optional `price`
+with its unit, plus optional `ownership` text. Keep price out of facts when separate. Inspect opens detail
+without spending; search clear changes only the query, while Reset also restores
+type/sort. The native filter route keeps browse mounted.
+
+In the caller's detail destination, call `buildDetail(app, record, state,
+callbacks)`: `record` is a readable Record; state has readable `accepted`, `busy`
+and `message`; callbacks are `commit(id)` and `back()`. The game owns requests,
+rejection/retry and accepted ownership. The larger subject and emphasis action
+make commitment distinct from catalogue Inspect. Both builders accept an optional
+fifth argument, `renderSubject(app, readableRecord) -> GuiObject`. Supply the game's
+image or model there; omission uses Riverbank's native subjects. Pass `false` for
+records whose useful identity is textual; this removes the art allocation.
+Keep names, decisive facts, price and ownership outside the art so missing images
+do not remove the decision. The renderer creates a fresh Compose-owned object
+with reactive record bindings; it must not reuse a cached instance.
+Mount Exploration's gameplay
+HUD in the stack's root with the same app/theme. Its Field kit opens the temporary
+guide; a child task correctly suspends those gameplay commands.
+
+Inspection demonstrates a selected subject in an archive; Collection demonstrates
+visual product browsing. Keep Inspection's State table across builds. Mount task pages through
+NavigationStack (`Tasks.pages`) for input/focus ownership; Screen supplies layout.
 
 Settings takes accepted values and `save(draft, complete)`. The game must settle
 that callback with real acceptance/rejection and apply the result. Outcome takes
 already accepted data; it neither grants rewards nor implements a claim request.
 All examples need the new game's callbacks and visual identity.
 
-Keep durable models outside disposable pages, and separate unrelated scroll
-positions. Back goes one level; Close leaves the task. Test restoration of focus
-and gameplay. When compact steps become wide panes, give shared facts one
-visible owner instead of joining two complete compact documents.
+Keep models outside disposable pages and unrelated scroll positions separate.
+Back goes one level; Close leaves the task. Test restored focus/gameplay.
+When compact steps become wide panes, give shared facts one visible owner.
 
-Use a strong focal element, an obvious next action and quieter support.
-Simultaneous gameplay can need an action group. Remove repeated headings and
-state. Align related edges; use spacing to express relationships. A floating
-panel needs outer space and bottom padding; a docked sheet can meet its edge;
-a full task can use the screen. Preserve world visibility when it serves the task.
-
-Copy `examples` and `assets` as sibling folders. Inspection requires
-`script.Parent.Parent.assets["relic-art"]`; map their parent into the Roblox tree.
+Copy `examples` and `assets` as sibling folders and map their parent into Roblox.
+The examples require their theme and subject-art modules.
 Art fabrication need not enter the layout-reading context.

@@ -77,10 +77,10 @@ The [collection example](../examples/collection.luau) implements search, type,
 sort, active-filter summary, result count, reset and empty recovery. Its bounded
 browse keeps search and Filters on one row. Filters opens a separate native
 navigation step with Back and Show results, rather than growing above the list.
-The retained model keeps query, filters, selection and scroll on return. Records
-use one left-aligned Button with an internal subtitle; an external caption cannot
-reserve room for decisive facts. Supply realistic records and an inspect callback;
-keep commitment in the selected detail.
+The retained model keeps query, filters, selection and scroll on return. Wide
+records use visual Cards; narrow or short bodies put a thumbnail beside the
+name, facts, price and Inspect. Both forms preserve the same decision and model.
+Supply the game's records and art; keep commitment in the selected detail.
 
 Opening optional content must give it useful room. In short height, condense the
 summary or use a detail step with Back so the requested records are visible.
@@ -89,9 +89,9 @@ below the fold. Keep accepted state and a clear route back to the main decision.
 
 ## Correct the actual view
 
-Inspect portrait and short-height captures independently, on entry and after
-rotation. Locate the first useful item, recognizable subject, and action with
-its consequence. Fix the largest composition fault before copying the layout.
+Apply the skill's capture correction loop to portrait and short height separately,
+on entry and after rotation. The first useful item, recognizable subject and
+action with its consequence must survive the smaller form.
 
 Use actual Touch and controller input to confirm native-control clearance,
 hold/release/cancel, focus/Back, large text, and rejection. Rotation preserves

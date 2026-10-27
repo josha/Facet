@@ -1,36 +1,50 @@
 # A theme for this game
 
-Design from the game's world, objects, audience and tone. Choose a few concrete
-relationships: the type that carries identity, quiet surfaces for reading, an
-accent for the main action, and art or materials that belong to the subject.
-For an existing game, extend its identity. A stock package is a usable base, not
-the visual brief. A field journal, sports broadcast and workshop can use the
-same controls while having different typography, materials and compositions.
+Build a recognizable game interface. Inspect the world and available art before
+choosing type, materials, silhouettes and subject treatment. River restoration
+can use botanical labels and recognizable tools; an archive can use printed
+headings and specimens on paper. Uniform rounded cards with changed colors do
+not establish that identity. Keep an existing theme when it already fits.
 
-Build the theme alongside one representative complete task. Establish first,
-second and third attention through subject scale, type, grouping and space.
-Do not compensate for weak hierarchy with more gradients, textures or borders.
-Use distinct task layouts under a coherent theme; not every page needs a panel.
+Prefer useful existing images or models for game objects. Text-only can serve
+word or number comparisons better; it still needs deliberate typography, graphic
+hierarchy and composition. Neither custom art nor an image-heavy theme is mandatory.
+
+Build the theme with one complete task. Let subject or outcome lead, decisive
+facts support it, and commitment stand apart from navigation. Carry the same
+identity into a dense task and a temporary surface using their own compositions.
+More borders, gradients or decorative assets do not repair weak hierarchy.
 
 ## Theme contracts
 
-Start with `Tasks.theme`, then retrieve only the contract needed from
-`Themes.definition`, `Themes.palette`, `Themes.art` and `Themes.chrome`.
-Define one game package with `Facet.themes.define`; inspect its returned package
-and report. Set semantic palette roles, typography roles, spacing, targets,
-icons and motion there. Use `textRole` in controls so access adjustments work.
-Avoid scattered native paint overrides that defeat the live StyleSheet.
+Collection and Exploration share Riverbank's identity across supply decisions,
+the dense catalogue and temporary guide. Start the existing app with
+`Facet.app({ name = "Riverbank", theme = Collection.theme })` and use that app
+for all three. Inspection's Field Station archive is an alternative game.
+Local fonts and native subjects need no uploaded art; replace these cues with
+the new game's own.
 
-Motion should explain the relationship. A child page can shift its parent;
-a task opened over gameplay can leave the HUD still. `Tasks.theme` shows
-`metrics.motion.distances.parallax = 0` for that second choice. It affects all
-default navigation stacks in the theme. Check both directions, interruption
-and reduced motion; a settled capture cannot show an unwanted background slide.
+For a custom visual identity, read a complete task with its theme:
 
-Theme contrast validation covers semantic color pairs. It does not prove text
-contrast over an image or the scene. Test focus, selected, disabled, pressed and
-error states against actual backgrounds. Use text or shape as well as color.
-Keep target sizes, readable labels and visible focus while changing the style.
+| Reference | Task or theme treatment |
+| --- | --- |
+| Riverbank | Collection and Exploration: native supply models, botanical type, pale material, distinct cost and commitment; catalogue, detail and temporary field guide use different footprints |
+| Pixel Quest | Optional theme builder: image-backed wood plates, pixel borders, green selection and square focus brackets; apply it to Collection with the game's subject renderer |
+
+Use Collection's complete task structure with either visual or text-led records.
+Retrieve `Tasks.theme` for a new definition's contract, then only the needed
+`Themes.definition`, `Themes.palette`,
+`Themes.art` or `Themes.chrome` details. Define one package with
+`Facet.themes.define` and inspect its package and report. Put semantic palette,
+typography, targets and motion there. Use `textRole` so access adjustments work.
+
+Check both navigation directions, interruption and reduced motion; settled
+captures do not validate motion.
+
+Theme validation checks semantic color pairs, not text over imagery or the world.
+Test focus, selected, disabled, pressed and error states against bright and dark
+backgrounds, with large/translated text and missing art. Preserve targets, labels
+and focus; convey meaning through text or shape as well as color.
 
 ## Three ways to use images
 
@@ -40,59 +54,31 @@ Keep target sizes, readable labels and visible focus while changing the style.
 | Subject art, portraits or illustrations | Image or AsyncImage | Fit/crop, useful scale, loading/failure state and an accessible label |
 | Game-specific framing or decoration | Host image/frame composition | Bounds, clipping, layering and input clearance; it does not replace a control |
 
-Use `Themes.art` for asset and recipe definitions, `Themes.chrome` for focus and
-state treatment. `Themes.skin` describes the runtime helper for control authors;
-ordinary game authors configure the package instead of calling it per control.
-
-For image skins, keep edge art away from text and give the reading area a quiet
-center. Nine-slice preserves corners while the surface changes size. Tiles suit
-repeating materials; layered recipes can combine an edge and a fill. Choose the
-recipe from the art, rather than stretching an entire ornate image over each
-button. Assets need usable permissions and real content IDs; do not invent IDs.
-
-The following is an asset/chrome fragment for a `ThemeDefinition`, not a complete
-theme. `ownedAsset` is the game's accessible image, and the four slice coordinates
-must come from that image's border geometry:
+Pixel Quest's [theme builder](../../../examples/themes/pixel_quest.luau) is an
+optional image-treatment reference. In an exported kit it lives under
+`examples/themes/` at the kit root, outside `.agents/skills`. In Studio:
 
 ```luau
-assets = {
-    panel = {
-        contentId = ownedAsset,
-        sliceCenter = { x0 = left, y0 = top, x1 = right, y1 = bottom },
-        sliceScale = 1,
-        resample = "default",
-    },
-},
-chrome = {
-    panel = { kind = "nineSlice", asset = "panel" },
-},
+local docs = game.ServerStorage.FacetDocs
+print(docs.examples.themes["pixel_quest.luau"].Value)
 ```
 
-Skin patches use `asset`, not native `Image`, `ImageColor3` or `SliceCenter`
-properties. Asset references can supply tint and rotation. Theme skin states
-include default, hover, pressed, selected and disabled. Read the recipe contract
-for content insets and focus treatment; do not assume an image supplies them.
-RadialMenu's separate `skin` API accepts simpler images and states, not the
-ThemeDefinition skin recipe or arbitrary image-shaped hit targets.
+The builder returns `theme, report = PixelQuest.build(Facet.themes)`; check
+`report.ok and theme`, then pass `theme` to the existing app. Pair it with
+Collection's complete browse/detail task and supply the game's own subjects.
+Read individual `Themes.pixel_quest` contracts only when needed.
 
-For standalone Image, choose fit/fill/crop/stretch/tile/slice deliberately.
-Bound `scaleMode` cannot switch to tile/slice; circular images cannot use slice.
-AsyncImage native fields belong in `imageProperties`; its loader can return
-cancellation. Keep a useful placeholder or fallback and ignore stale loads.
-Routes: `Image.reference`, `Image.props`, `AsyncImage.reference`, `AsyncImage.props`.
+Keep the theme's image slices, content insets, selected paint and focus
+together. Changing only the palette loses that relationship. Check actual asset
+access and missing-art behavior; theme validation cannot prove either. Derive slices and
+insets from replacement art, and preserve readable selected labels.
 
-## Test the identity, not just the asset
+For another catalogue, pass its image/model factory to Collection's
+`renderSubject` argument in browse and detail. Keep the name, decisive facts,
+price and ownership readable without the image. RadialMenu uses separate `skin`
+options; subject images use `Image.reference` or `AsyncImage.reference`.
 
-Use the theme in a main task, a dense task and a temporary surface. Capture them
-over the real world at wide and constrained sizes. Check translated text, large
-text, controller focus, disabled actions, keyboard, missing/slow art and bright
-and dark scene regions. Ten-foot metric scaling does not automatically scale
-every art inset. Limited motion can retain paint transitions; use the actual
-motion contract rather than assuming all animation stops.
-
-Prefer a small reusable asset set. Theme stylesheets preload package assets
-unless an asset is marked lazy; avoid loading unrelated large art for every
-screen. Pause hidden live subjects, cancel obsolete loads and dispose owned
-resources. Measure frame timing and retained memory after completed returns.
-An image theme is optional: ship it only if it strengthens identity and remains
-legible, responsive and within the game's performance budget.
+Ten-foot metrics do not scale every art inset; limited motion can retain paint
+transitions. Use their actual contracts. Keep reusable assets small; non-lazy
+theme assets preload. Pause hidden live subjects, dispose owned resources and
+measure frame timing and retained memory after completed returns.
