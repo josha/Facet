@@ -160,6 +160,8 @@ return function<V, K>(
 						node.Enabled = false
 					elseif node:IsA("InputContext") then
 						node.Enabled = false
+					elseif node:IsA("UIScale") and node.Name == "PressLift" then
+						node.Scale = 1
 					end
 				end
 				copy.Name = "Reorderable"

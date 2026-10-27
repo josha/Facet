@@ -42,8 +42,9 @@ return function<V, K>(shared: State.Reorder<V, K>): Pointer<K>
 			return
 		end
 		local row = shared.rowNodes[key]
+		local touch = value.UserInputType == E.UserInputType.Touch
 		local options: DragTypes.SourceSpec? = nil
-		if value.UserInputType == E.UserInputType.Touch and spec.drag then
+		if (touch or value.UserInputType == E.UserInputType.MouseButton1) and spec.drag then
 			local items, keys = {}, {}
 			local selected = read(shared.selection)
 			for index, item in read(spec.selectionFrom or source) do
@@ -53,23 +54,28 @@ return function<V, K>(shared: State.Reorder<V, K>): Pointer<K>
 					table.insert(keys, candidate)
 				end
 			end
-			if #keys == 0 then
+			if #keys > 0 then
+				options = table.clone(spec.drag(items, keys)) :: DragTypes.SourceSpec
+				gesture.pressTransfer = {
+					key = key,
+					pointer = value,
+					options = options :: DragTypes.SourceSpec,
+					keys = keys,
+					items = items,
+				}
+			elseif touch then
 				return
 			end
-			options = table.clone(spec.drag(items, keys)) :: DragTypes.SourceSpec
-			gesture.touchTransfer =
-				{ key = key, pointer = value, options = options :: DragTypes.SourceSpec, keys = keys, items = items }
 		end
+		local touchOptions = if touch then options else nil
 		if
 			row
 			and (value.UserInputType == E.UserInputType.MouseButton1 or value.UserInputType == E.UserInputType.Touch)
 		then
 			if
 				not arbiter.begin(value, row, V2.new(at.X, at.Y), {
-					pickup = if value.UserInputType == E.UserInputType.Touch
-						then (options and options.touchPickup) or "longPress"
-						else "immediate",
-					axis = (options and options.touchDragAxis)
+					pickup = if touch then (touchOptions and touchOptions.touchPickup) or "longPress" else "immediate",
+					axis = (touchOptions and touchOptions.touchDragAxis)
 						or (if grid then "XY" elseif shared.horizontal then "X" else "Y"),
 					scroll = true,
 				})
@@ -88,10 +94,15 @@ return function<V, K>(shared: State.Reorder<V, K>): Pointer<K>
 				pointerOffset = nativeOrigin - V2.new(at.X, at.Y)
 			end
 			gesture.pickupPosition = pressOrigin
-		elseif value.UserInputType == E.UserInputType.Touch and (editing == nil or editing == false) then
+		elseif touch and (editing == nil or editing == false) then
 			disarm()
 			gesture.touchKey, gesture.touchOrigin, gesture.pendingInput = key, V2.new(at.X, at.Y), value
 			gesture.pickupPosition = gesture.touchOrigin
+		else
+			return
+		end
+		if input and options then
+			shared.lift(key, options.previewScale)
 		end
 	end
 	local function moveMouse(position: Vector2)
@@ -120,6 +131,9 @@ return function<V, K>(shared: State.Reorder<V, K>): Pointer<K>
 		pressed, pressOrigin, nativeOrigin = nil, nil, nil
 		pointerOffset = V2.new()
 		local move = moving:peek()
+		if move == nil then
+			shared.settle()
+		end
 		if move and move.pointer and not move.keyboard then
 			if value.UserInputState == E.UserInputState.Cancel then
 				cancel()
@@ -156,6 +170,7 @@ return function<V, K>(shared: State.Reorder<V, K>): Pointer<K>
 					end
 					if kind == "scroll" or kind == "pan" or (position - gesture.touchOrigin).Magnitude > SLOP then
 						disarm()
+						shared.settle()
 					end
 					return
 				end
@@ -211,6 +226,12 @@ return function<V, K>(shared: State.Reorder<V, K>): Pointer<K>
 				end
 				if gesture.touchOrigin and value == gesture.pendingInput then
 					disarm()
+				end
+				if
+					moving:peek() == nil
+					and (value == gesture.pendingInput or value.UserInputType == E.UserInputType.MouseButton1)
+				then
+					shared.settle()
 				end
 				if
 					gesture.captured

@@ -11,6 +11,7 @@ local InputProps = require("./input_props")
 local pointerOf = require("./drag_pointer")
 local State = require("./collection_reorder_state")
 local Pointer = require("./collection_reorder_pointer")
+local liftOf = require("./drag_lift")
 local TAP = 3
 return function<V, K>(
 	shared: State.Reorder<V, K>,
@@ -432,6 +433,15 @@ return function<V, K>(
 			end
 			return false
 		end))
+		if spec.drag then
+			local lift = liftOf(ctx, row, shared.liftScale)
+			shared.lifts[key] = lift
+			Compose.cleanup(function()
+				if shared.lifts[key] == lift then
+					shared.lifts[key] = nil
+				end
+			end)
+		end
 		Compose.cleanup(function()
 			if rowNodes[key] == frame then
 				rowNodes[key] = nil
