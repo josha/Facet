@@ -361,7 +361,7 @@ return function<V, K>(
 					end
 					children.Name = "Surface"
 					children.Attributes = nil
-					children.AutomaticSize = E.AutomaticSize.XY
+					children.AutomaticSize = if horizontal then E.AutomaticSize.X else E.AutomaticSize.Y
 					surface = Host.Frame(children)
 					local function crossPadding(use: ComposeTypes.Use): UDim
 						local x = edges(use)
@@ -397,6 +397,7 @@ return function<V, K>(
 				end
 				groupProperties.AutomaticSize = if read(spec.contentOverflow) == "clip"
 					then E.AutomaticSize.None
+					elseif carded then (if horizontal then E.AutomaticSize.X else E.AutomaticSize.Y)
 					else E.AutomaticSize.XY
 				local content = Host.CanvasGroup(groupProperties)
 				local logical = surface or content

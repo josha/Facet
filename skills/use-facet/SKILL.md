@@ -1,155 +1,75 @@
 ---
 name: use-facet
-description: Build, change, style or test Roblox game UI and Studio plugin interfaces with Facet. Use Facet from the first UI code, including prototypes and projects without Facet installed. Do not use for non-Roblox UI or Roblox work without UI.
+description: Design, build and refine Roblox game UI and Studio plugin interfaces with Facet, including touch, pointer and controller use.
 ---
 
 # Use Facet
 
-## Start with one task
+**Find the capability first: Facet → Compose → native Roblox → custom code.**
+Search Facet controls, options and helpers. Use Compose for composition, state
+and lifetime, then native Roblox for an unmet need. Build custom behavior only
+for the remaining gap.
 
-Read [game UI design](references/GAME_UI_DESIGN_GUIDE.md) once. It defines the
-design principles and the capture correction loop. For the next task, read its
-chapter and recipe from the table below, then the cards for the controls you use.
-Do not load chapters for later work. Include Input when choosing input or access
-behavior, and Adaptive manipulation for gestures or value adjustment.
-Recipes show behavior and ownership; cards define exact options.
+## Start with a complete task
 
-Build one small playable loop before expanding menus: enter, act through normal
-input, observe the actual game effect and accepted result, then return.
-Use representative content in the most constrained supported context.
-Check Client and Server errors, repair persistent Edit scripts, restart Play
-and repeat. Capture gameplay and UI together, correct the composition, then
-reuse the working structure. If capture is unavailable, report visual review
-as unverified and continue useful functional checks; bounds do not prove appearance.
+Read the brief and existing game. Identify the player's decision, its accepted
+outcome and the return path. Preserve required behavior and working routes.
+Default to a visually authored game interface. Derive concrete type, material,
+silhouette and subject cues from its world and existing art. A color swap on
+uniform rounded cards is insufficient. Prefer available images or models that
+make game objects recognizable. Choose text-only deliberately when words or
+numbers serve the decision better; give it expressive type, hierarchy and composition.
 
-## Find the contract
-
-In Studio, read StringValue `Value`s under `ServerStorage.FacetDocs`.
-Folders follow repository paths: `Tasks.hud` is
-`docs/reference/nodes/Tasks.hud.md`. With filesystem access, use
-`lute run tools/facet docs <node>` or `docs --search TEXT`.
-Read `<Control>.card` for the entry point, then follow its props or reference
-link for exact options. `Icons.names` lists each built-in glyph, for example
-`coin`, `gem`, `star`, `gift` and `chat`. These nodes are available in the
-installed docs and CLI. Use `Map` only when the task has no known route.
-
-| Need | Read |
+| First task | Read and adapt |
 | --- | --- |
-| First mount or existing Compose integration | `Mounting.Facet.app` |
-| First gameplay HUD or lobby hub: readouts and primary action | [Game flows](references/game-ui/GAME_FLOWS_AND_INFORMATION.md), then `Tasks.hud` (its `action` zone puts the primary action in thumb reach on a phone) |
-| Destination from gameplay, input ownership and Back | [Layout](references/game-ui/LAYOUT_AND_NAVIGATION.md), then `Tasks.pages` |
-| Gamepad entry into a passive HUD | `responder` |
-| Mixed input, text size or viewing distance | [Input](references/game-ui/INPUT_FOCUS_AND_ACCESS.md), then `environment` |
-| Gestures or value adjustment across inputs | [Adaptive manipulation](references/game-ui/ADAPTIVE_INTERACTION_AND_DIRECT_MANIPULATION.md), then the control's input contract |
-| Shop, inventory or garage: collection and selected detail | [Collections](references/game-ui/COLLECTIONS_AND_ACTIONS.md), then `Tasks.collection-detail`, then `Card.badges` for price, affordability and owned state |
-| Quick chat, emotes or another quick choice during play | `RadialMenu.card` |
-| Boolean settings or named choices | [Choices](references/game-ui/CHOICES_AND_INPUT.md), then `Toggle.card`, `Picker.card` |
-| Inspection art beside a decision and action | `Tasks.inspect`, then `Stage.card` |
-| Container and text sizing | `Layout-options`, `Text.card`, `fill` |
-| A bounded interruption or dirty dismissal | [Surfaces](references/game-ui/SURFACES_INFORMATION_AND_FEEDBACK.md), then `Tasks.sheet`, `Sheet.dismissal` |
-| Visual system | `Tasks.theme` |
-| Glyphs for currency, rewards, shop, chat or vehicles | `Icons.names` |
-| Transitions and reward motion | [Motion](references/game-ui/MOTION_AND_FEEDBACK.md), then `Custom-transitions` |
-| Server-accepted state | `Tasks.state` |
-| Confirming a purchase the server must accept | `Tasks.confirm` |
-| Reactive types or collection signatures | `Types.reactive` |
-| Lower-corner controls and movement clearance | `Tasks.safe-layout` |
-| Missing signature | The control's card or props node |
+| Browse records, products or equipment | [Collection](examples/collection.luau): supply game image/model subjects; use `false` for intentional text-only records. [Riverbank](assets/riverbank-theme.luau) is one example identity. |
+| Inspect a selected object | [Inspection](examples/inspection.luau) with its [Field Station theme](assets/field-station-theme.luau): useful subject scale beside a decision |
+| Use image-based surfaces and subjects | [Game themes](references/game-themes.md): optional Pixel Quest theme builder with Collection's subject renderer |
+| Act during play, then open brief help | [Exploration](examples/exploration.luau), using the same Riverbank app/theme as Collection |
+| Another task | [Patterns](references/patterns.md): choose its information relationship and example |
 
-Batch independent known nodes for the current task. Follow a card's links rather
-than guessing node names. Do not reread nodes already in context or load the
-whole reference. Use implementation source only to diagnose a contradiction
-with a named contract. Report missing installed docs instead of inventing options.
+Read [runtime essentials](references/runtime.md) once. Transfer the example's
+relationships and ownership, then supply this game's identity, records and
+callbacks. Keep a fitting existing theme. Examples are alternatives, not required
+skins or decoration quotas. Read only the chosen route; subject-art implementation
+can remain outside the layout-reading context.
 
-## Build one owned tree
+For phone support, use [compact compositions](references/compact-compositions.md)
+before building the first form. Budget the body after navigation and native
+controls so useful content and its action appear before a long introduction.
 
-Locate the installed Facet module. In Studio-only work, edit persistent scripts
-in Edit mode; Play changes are temporary. In a filesystem project follow the
-[filesystem workflow](references/FILESYSTEM_WORKFLOW.md).
+Use [capability routes](references/choose.md) for the exact contract needed;
+search unknown names with `lute run tools/facet docs --search TERM`.
+Retain answers. Do not read the whole manual or guess filenames.
 
-Use `Facet.Compose` and `Facet.Roblox` for a new game. In an existing Compose
-game, call `Facet.bind(Compose, ComposeRoblox)` with that same copy. Create one
-`Facet.app`, call `app.mount` once, and reuse `app.UI`. Screens, pages and
-overlays are components, branches or portals of that tree.
+For richer navigation, forms or spatial UI, use
+[advanced compositions](references/advanced-compositions.md) as needed.
 
-Name `app.runtime.constructors` `Host`. Put Host-created children in the
-parent's positional child list. A node-valued property such as `Parent` needs
-`Compose.static(node)` when that node is Compose-owned.
-Compose owns state, branching, motion and cleanup. Read cells with `use` in
-property functions and `peek` in callbacks; write with `set` or `update`.
-Create branch-owned reactive values inside the branch. Keep durable row state,
-selection and drafts in the model.
-Separate rapidly changing gameplay readouts from inventory and settings state.
-Update only changed values; a timer tick should not rebuild a page or refresh
-every record. Reuse small components and data-driven artwork across objects.
+Use typed constructors and reactive callbacks. Keep durable selection, drafts
+and accepted state outside disposable pages. Give unrelated tasks separate
+scroll state. Connect request, pending, rejection, retry and acceptance to real
+game behavior. Demonstration callbacks do not implement a production transaction.
 
-Use strict Luau, concrete shared types and named constructors. Native properties
-keep Roblox names; Facet options use lower camel case. Do not cast through `any`.
-Check unfamiliar native constructors, datatype operations and members with a
-small native probe before sharing that code. Use the intended data model and
-inspect the result or error; a strict directive does not execute the path.
+## Correct the task before sharing its layout
 
-## Apply the library
+Capture the first complete task in its real world at wide, portrait and short
+sizes before extracting a common page shell or repeating it across destinations.
 
-Use Facet controls for their supported behavior. Host objects supply game art,
-minimaps and Stage scene content, not a replacement button or input system.
-For a need, look in this order: a Facet control or option, then Compose for state
-and lifetime, then a native engine object through Host. Write a custom mechanism
-only when none of these supports the behavior.
-Read the [Compose skill](../compose/SKILL.md) only for an operation outside this path.
+Reject generic or bland results: could this capture belong to an unrelated game?
+Find the largest visible cause in identity, subject recognition, hierarchy or
+space use. Correct it before copying the layout, then compare actual before/after
+captures. State what visibly changed; a correction to a HUD
+does not validate a catalogue. Missing captures leave this step unverified.
 
-The theme owns paint, typography, spacing and motion. Use semantic roles and
-tokens. Host objects and Stage supply game artwork; sample sizes and cameras
-apply to the sample's subject. Use stable model keys in VirtualList, VirtualGrid
-and Table. Keep HUD Region nodes stable and branch inside their forms.
+Share theme, controls and accepted-state behavior. Give each task its own
+footprint: a subject and decision, useful collection space, or a brief floating
+confirmation. Keep sequential steps inside one stable navigation surface.
 
-Container options do not apply to every control. `width`, `height`, `gap` and
-`padding` belong to layout containers; Text and Button have no `width` option.
-Use parent `align = "stretch"` for the cross axis or a `UI.fill()` child for
-remaining space along the stack. Use native `Size` and `AutomaticSize` for an
-explicit leaf size. Wrapped Text fills its bounded parent's width and grows
-vertically; short readouts can hug without wrapping. Read `Text.card` before
-making a text helper. Do not use TextScaled or game-specific measurement loops
-to hide a sizing fault.
+Exercise acceptance, rejection, cancellation and return through real input.
+Inspect restored subjects and state. Check affected compact forms, large text,
+focus and native-control clearance using runtime essentials. Measure performance
+after successful returns. Report tested scope; missing evidence stays unverified.
 
-The game owns server validation and accepted state. Distinguish a draft, a
-pending request, acceptance and rejection. Sending is not saving. Keep one keyed
-LocalizationTable and translator path, including fixed labels; FormatByKey
-arguments are strings. Disable AutoLocalize for translated and player text.
-Give the app its translator for Facet-owned labels.
-
-## Edit a design module
-
-A screen can be a Compose Design module that the Studio plugin edits with the
-Facet library. Read [Edit a Compose Design module](../compose/references/design.md)
-before you change one, by any route: a file, Studio MCP or Studio Assistant. Keep
-the edit inside the design shapes so the editor stays in sync. Facet's calls are
-`Facet.Compose.show` for a conditional child and `Facet.tag` for a style tag.
-After the edit, run `lute run tools/facet design check <module>`.
-
-## Verify the task
-
-Use Play, real input, Output, Script Analysis and captures. Test each distinct
-pattern at wide, narrow and short sizes, including both phone orientations.
-Check completion, cancellation, rejection, return, gamepad focus, touch clearance
-and an open viewport change. Elapsed time or a changed label does not prove a
-game effect. The design guide explains visual and player review.
-
-In Studio, splice literal Source fragments instead of passing code through
-pattern replacements. This preserves `%` in code and rejects missing or duplicate
-matches. Apply changes to a local string; write Source after they all validate.
-
-```luau
-local function replaceOnce(source: string, old: string, replacement: string): string
-    assert(old ~= "", "Empty source fragment")
-    local first, last = string.find(source, old, 1, true)
-    assert(first and last, "Source fragment not found")
-    assert(not string.find(source, old, first + 1, true), "Source fragment is not unique")
-    return string.sub(source, 1, first - 1) .. replacement .. string.sub(source, last + 1)
-end
-```
-
-Save through the normal project workflow. Report the build, inputs and paths
-tested, with their limits. A screenshot or targeted check is not complete evidence.
-
-In the Facet repository, follow [AGENTS.md](../../AGENTS.md) before changes.
+For a Compose Design module, read [the design editing contract](../compose/references/design.md)
+before changing it. Keep its design shapes and run `lute run tools/facet design check <module>`
+so the Studio editor stays in sync.

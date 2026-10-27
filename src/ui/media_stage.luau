@@ -46,7 +46,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		end
 	end
 	local function stageLive(
-		stage: ViewportFrame
+		stage: ViewportFrame,
+		displayed: ComposeTypes.ReadOnlyValue<boolean>
 	): (ComposeTypes.ReadOnlyValue<boolean>, ComposeTypes.ReadOnlyValue<boolean>)
 		local owner = assert(Compose.currentOwner())
 		local moving = Compose.cell(false)
@@ -151,9 +152,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		runtime.connect(stage, "AncestryChanged", locate)
 		locate()
 		return Compose.formula(function(use: ComposeTypes.Use): boolean
-			return use(visible) and not use(moving)
+			return use(displayed) and use(visible) and not use(moving)
 		end),
-			near
+			Compose.formula(function(use: ComposeTypes.Use): boolean
+				return use(displayed) and use(near)
+			end)
 	end
 
 	UI.Stage = ctx.construct("Stage", function(spec: MediaProps.StageProps): ViewportFrame
@@ -185,7 +188,47 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			} :: Engine.ViewportFrameNativeProps
 		)
 		local stage = ctx.styled(Host.ViewportFrame(native), "panel")
-		local live, shown = stageLive(stage)
+		local initialCamera = stage.CurrentCamera
+		local cameraSource: Engine.ValueCameraOptional = if Compose.isValue(native.CurrentCamera)
+				or type(native.CurrentCamera) == "function"
+			then native.CurrentCamera :: Engine.ValueCameraOptional
+			else function(): Camera?
+				return initialCamera
+			end
+		local ancestry = Compose.cell(0)
+		local displayed = Compose.cell(true)
+		runtime.connect(stage, "AncestryChanged", function()
+			ancestry:set(ancestry:peek() + 1)
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(ancestry)
+			local sources: { ComposeTypes.ReadOnlyValue<boolean> } = {}
+			local at: Instance? = stage
+			while at do
+				if at:IsA("GuiObject") then
+					table.insert(sources, ctx.observe.Visible(at))
+				elseif at:IsA("LayerCollector") then
+					table.insert(sources, ctx.observe.Enabled(at))
+					break
+				end
+				at = at.Parent
+			end
+			Compose.watch(function(read: ComposeTypes.Use)
+				for _, source in sources do
+					if not read(source) then
+						displayed:set(false)
+						return
+					end
+				end
+				displayed:set(true)
+			end)
+		end)
+		runtime.decorate(stage, {
+			CurrentCamera = function(use: ComposeTypes.Use): Camera?
+				return if use(displayed) then ctx.read(cameraSource, use) else nil
+			end,
+		})
+		local live, shown = stageLive(stage, displayed)
 		stage:SetAttribute("FacetLive", live:peek())
 		Compose.watch(function(use: ComposeTypes.Use)
 			stage:SetAttribute("FacetLive", use(live))

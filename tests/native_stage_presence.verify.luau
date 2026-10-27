@@ -132,6 +132,103 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Stage presence", function()
+		verifyHarness:case("releases the camera while an ancestor is hidden and restores the retained scene", {
+			id = "native_stage_presence::native Stage presence::releases the camera while an ancestor is hidden and restores the retained scene",
+			run = function()
+				local w = scene({ lazy = true })
+				local stage, feed = w.find("Stage1"), w.find("Feed")
+				local camera = stage.CurrentCamera
+				feed.Visible = false
+				w.advance(0.3, 18)
+				Verify.expect(stage.CurrentCamera):toBe(nil)
+				Verify.expect(stage:GetAttribute("FacetLive")):toBe(false)
+				Verify.expect(w.log.builds):toBe(0)
+				feed.Visible = true
+				w.advance(0.3, 18)
+				Verify.expect(stage.CurrentCamera):toBe(camera)
+				Verify.expect(w.log.builds):toBe(1)
+				local part = w.find("Spinner")
+				local screen = feed.Parent
+				local hidden = w.engine.new("Frame")
+				hidden.Visible = false
+				hidden.Parent = screen
+				stage.Parent = hidden
+				Verify.expect(stage.CurrentCamera):toBe(nil)
+				Verify.expect(stage:GetAttribute("FacetLive")):toBe(false)
+				stage.Parent = feed
+				Verify.expect(stage.CurrentCamera):toBe(camera)
+				hidden.Visible = true
+				hidden.Visible = false
+				Verify.expect(stage:GetAttribute("FacetLive")):toBe(true)
+				for _ = 1, 2 do
+					screen.Enabled = false
+					local writes = w.log.writes
+					w.advance(0.3, 18)
+					Verify.expect(stage.CurrentCamera):toBe(nil)
+					Verify.expect(stage:GetAttribute("FacetLive")):toBe(false)
+					Verify.expect(w.log.writes):toBe(writes)
+					screen.Enabled = true
+					w.advance(0.3, 18)
+					Verify.expect(stage.CurrentCamera):toBe(camera)
+					Verify.expect(stage:GetAttribute("FacetLive")):toBe(true)
+					Verify.expect(w.find("Spinner")):toBe(part)
+					Verify.expect(w.log.builds):toBe(1)
+				end
+				w.stop()
+			end,
+		})
+		verifyHarness:case("restores the authored external camera without taking ownership of it", {
+			id = "native_stage_presence::native Stage presence::restores the authored external camera without taking ownership of it",
+			run = function()
+				local w = overlay.new(function(UI, Host, engine)
+					local camera = engine.new("Camera")
+					camera.Name = "ExternalCamera"
+					return Host.Frame "Holder" { camera, UI.Stage "ExternalStage" { camera = camera } }
+				end)
+				local stage, camera = w.find("ExternalStage"), w.find("ExternalCamera")
+				local holder = w.find("Holder")
+				holder.Visible = false
+				Verify.expect(stage.CurrentCamera):toBe(nil)
+				Verify.expect(camera.Parent):toBe(holder)
+				holder.Visible = true
+				Verify.expect(stage.CurrentCamera):toBe(camera)
+				Verify.expect(camera.Parent):toBe(holder)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("preserves native camera overrides and reads their latest value on return", {
+			id = "native_stage_presence::native Stage presence::preserves native camera overrides and reads their latest value on return",
+			run = function()
+				local selected = Compose.cell(nil :: Camera?)
+				local w = overlay.new(function(UI, Host, engine)
+					local camera = engine.new("Camera")
+					camera.Name = "NativeCamera"
+					selected:set(camera)
+					local properties: Types.FrameNativeProps = {
+						camera,
+						UI.Stage "BoundCamera" { CurrentCamera = selected },
+						UI.Stage "StaticCamera" { CurrentCamera = Compose.static(camera) },
+					}
+					return Host.Frame "Holder"(properties)
+				end)
+				local holder, camera = w.find("Holder"), w.find("NativeCamera")
+				local bound, static = w.find("BoundCamera"), w.find("StaticCamera")
+				Verify.expect(bound.CurrentCamera):toBe(camera)
+				Verify.expect(static.CurrentCamera):toBe(camera)
+				holder.Visible = false
+				selected:set(nil)
+				selected:set(camera)
+				Verify.expect(bound.CurrentCamera):toBe(nil)
+				selected:set(nil)
+				holder.Visible = true
+				Verify.expect(bound.CurrentCamera):toBe(nil)
+				Verify.expect(static.CurrentCamera):toBe(camera)
+				selected:set(camera)
+				Verify.expect(bound.CurrentCamera):toBe(camera)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("cancels retired lazy scenes before the replacement uses the next frame budget", {
 			id = "native_stage_presence::native Stage presence::cancels retired lazy scenes before the replacement uses the next frame budget",
 			run = function()

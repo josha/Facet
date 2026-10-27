@@ -18,13 +18,14 @@ agent can run the author commands there:
 
   Packages/Facet/                  the library, from src/
   docs/, examples/blocks/          the API reference, consumer guides and starter blocks
+  examples/themes/                optional theme source for adaptation
   tools/facet/                     the author commands: info, docs, lint, preview and audit,
                                    and kit.json with the source commit of the kit
   tools/play/                      the Studio play host that preview and audit use
   tools/vendor/verify/             Verify (MIT), which the play host and audit use
   tools/typecheck/roblox.d.luau    the pinned Roblox definitions for lint --types
   .agents/skills/                  the use-facet and compose skills
-  StudioDocs/                      the same documentation as native StringValues
+  StudioDocs/                      the documentation and skill source as native StringValues
 
 Map Packages to ReplicatedStorage.Packages in the Rojo project. For Studio-only
 authoring, map StudioDocs to ServerStorage.FacetDocs. Its folders follow the
@@ -182,9 +183,11 @@ local function plan(): Plan
 	result.writes["tools/facet/commands/init.luau"] = commandsInit(present)
 	result.writes["tools/facet/README.md"] = [[# Facet author tools
 
-Start with `lute run tools/facet docs Design.guide` for the required design
-reading in the use-facet skill. Then open the map and matching task recipes,
-then a card or option node only for a missing detail. Do not reread a node.
+Start with `.agents/skills/use-facet/SKILL.md`. Choose one complete task and give
+it the game's visual identity. Retrieve a card or option node only for a missing contract.
+In Studio, read the same skill and example source under `ServerStorage.FacetDocs`.
+Theme builders are optional references to adapt to the game's existing app.
+Do not reread a node.
 Use `lute run tools/facet project [directory]` to find application files.
 These commands need neither rg nor a Git checkout.
 Run `lute run tools/facet verify --tap TEXT...` for types, lint, build,
@@ -206,9 +209,16 @@ audit and screenshot paths. Use `--static` when Studio is unavailable.
 	tree(result, "skills/use-facet", ".agents/skills/use-facet")
 	tree(result, "skills/compose", ".agents/skills/compose")
 	for _, source in result.copies do
+		local extension = Files.extension(source)
 		if
-			Files.extension(source) == ".md"
-			and (string.sub(source, 1, 5) == "docs/" or string.sub(source, 1, 7) == "skills/")
+			(extension == ".md" and (string.sub(source, 1, 5) == "docs/" or string.sub(source, 1, 7) == "skills/"))
+			or (
+				extension == ".luau"
+				and (
+					string.sub(source, 1, #"skills/use-facet/") == "skills/use-facet/"
+					or string.sub(source, 1, #"examples/themes/") == "examples/themes/"
+				)
+			)
 		then
 			result.writes[Files.join("StudioDocs", source .. ".txt")] = Files.text(source)
 		end
@@ -343,6 +353,38 @@ local function register(harness: Verify.Harness, prefix: string): ()
 				end)
 				local again = write(out, plan(), false)
 				local missingReferences: { string } = {}
+				Files.write(
+					Files.join(out, "docs.project.json"),
+					Json.pretty({
+						name = "KitDocs",
+						tree = {
+							["$className"] = "DataModel",
+							ServerStorage = { FacetDocs = { ["$path"] = "StudioDocs" } },
+						},
+					})
+				)
+				local docsBuild = Run.capture({
+					"rojo",
+					"build",
+					Files.join(out, "docs.project.json"),
+					"-o",
+					Files.join(out, "docs.rbxlx"),
+				})
+				Verify.expect(docsBuild.ok):toBeTrueWith(docsBuild.stderr .. docsBuild.stdout)
+				local installed = Lute.model.read(Files.read(Files.join(out, "docs.rbxlx")))
+				for target, contents in chosen.writes do
+					if string.sub(target, 1, #"StudioDocs/") == "StudioDocs/" then
+						local path = "ServerStorage/FacetDocs/" .. string.sub(target, #"StudioDocs/" + 1, -5)
+						local node = Lute.model.find(installed, path)
+						if
+							node == nil
+							or node.className ~= "StringValue"
+							or node.properties.Value.value ~= contents
+						then
+							table.insert(missingReferences, path)
+						end
+					end
+				end
 				for _, source in
 					{
 						"skills/use-facet/SKILL.md",
@@ -371,6 +413,24 @@ local function register(harness: Verify.Harness, prefix: string): ()
 					local target = Files.join(out, ".agents/skills/use-facet/references", relative)
 					if not Files.isFile(target) or Files.read(target) ~= Files.read(source) then
 						table.insert(missingReferences, relative)
+					end
+				end
+				for _, relative in Files.walk("skills/use-facet") do
+					if Files.extension(relative) == ".md" or Files.extension(relative) == ".luau" then
+						local source = Files.join("skills/use-facet", relative)
+						local target = Files.join(out, "StudioDocs", source .. ".txt")
+						if not Files.isFile(target) or Files.read(target) ~= Files.text(source) then
+							table.insert(missingReferences, "StudioDocs/" .. source)
+						end
+					end
+				end
+				for _, relative in Files.walk("examples/themes") do
+					if Files.extension(relative) == ".luau" then
+						local source = Files.join("examples/themes", relative)
+						local target = Files.join(out, "StudioDocs", source .. ".txt")
+						if not Files.isFile(target) or Files.read(target) ~= Files.text(source) then
+							table.insert(missingReferences, "StudioDocs/" .. source)
+						end
 					end
 				end
 				Files.remove(out)

@@ -1,6 +1,8 @@
 # TextInput.card
 
-Edit text.
+<!-- aliases: TextInput | UI.TextInput | TextField | TextField.card | text field | search field -->
+
+Edit text with TextInput.
 
 Inside an app mount, set `local UI = app.UI`.
 

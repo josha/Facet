@@ -1,20 +1,20 @@
 # Facet documentation
 
-Before UI work, read [Design.guide](Design.guide.md) and the relevant use-facet
-design chapters.
+Use [Design.guide](Design.guide.md) for the current skill's task-based design routes.
 
 Read the recipe for the current task. Follow more detail only when needed.
 Never reread a node already in context.
 
-In Studio, read `ServerStorage.FacetDocs.docs.reference.nodes["<path>.md"].Value`
-in Edit mode. A control starts at `<Control>.card`; its options are
-`<Control>.props`. Link labels below are paths. Batch independent, already
-identified nodes in one bounded, labeled read. Follow dependent links only for
-the missing detail.
+In Studio Edit mode, read
+`ServerStorage.FacetDocs.docs.reference.nodes["<path>.md"].Value`.
+Start at `<Control>.card`, then `<Control>.props` for options. Batch independent,
+already identified nodes in one bounded, labeled read; follow dependent links
+only for the missing detail.
 With shell access, use `lute run tools/facet docs <path>` or `docs --search TEXT`.
 
 | Player task | Recipe |
 | --- | --- |
+| Enter from a world-visible lobby | [Tasks.hub](Tasks.hub.md) |
 | Track an objective and use its command | [Tasks.hud](Tasks.hud.md) |
 | Browse objects and selected detail | [Tasks.collection-detail](Tasks.collection-detail.md) |
 | Inspect art beside a decision | [Tasks.inspect](Tasks.inspect.md) |

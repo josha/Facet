@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -175,6 +176,35 @@ return function(verifyHarness: Verify.Harness)
 							elseif id == "ComposeRoblox" then facade.Roblox
 							else facade
 					end
+					if entry.file == "docs/reference/nodes/Composition.examples.md" then
+						local app = facade.app({})
+						t:defer(app.dispose)
+						env.app, env.UI = app, app.UI
+						env.beginAction = engine.new("InputAction")
+						env.requestDeparture, env.requestRecord = noop, noop
+						env.selected = Compose.cell("basalt")
+						env.tasks = function()
+							return app.UI.Text { text = "Tasks" }
+						end
+						env.specimenFields = function()
+							return app.UI.Text { text = "Volcanic rock" }
+						end
+						env.specimenModel = function(rt, world)
+							rt.constructors.Part {
+								Parent = Compose.static(world),
+								Anchored = true,
+								Size = engine.types.Vector3.new(2, 2, 2),
+							}
+						end
+						for _, name in { "hub", "inspect", "pages" } do
+							local body = fs.readFileToString("docs/reference/nodes/Tasks." .. name .. ".md")
+							local code = assert(string.match(body, "```luau\n(.-)\n```"))
+							env[name] = Lute.chunk.load(
+								code .. "\nreturn " .. name,
+								{ environment = env, name = "Tasks." .. name }
+							)()
+						end
+					end
 					local bindings = {}
 					for key in env do
 						table.insert(bindings, `local {key}=env[{string.format("%q", key)}]`)
@@ -194,12 +224,37 @@ return function(verifyHarness: Verify.Harness)
 								.. "\nend",
 							{ name = entry.file }
 						)() :: (unknown) -> unknown
-						local stop = runtime.mount(function()
+						local stop, mounted = runtime.mount(function()
 							local node = factory(env)
 							return if type(node) == "table" and (node :: { [string]: unknown }).ClassName
 								then (node :: unknown) :: Instance
 								else Host.Frame({})
 						end, engine.new("ScreenGui"))
+						if entry.file == "docs/reference/nodes/adjustable.md" then
+							local row = (mounted :: unknown) :: Frame
+							local readout = row:FindFirstChild("Angle")
+							assert(readout and readout:IsA("GuiObject"))
+							Verify.expect(readout.Selectable):toBe(true)
+							for _, child in readout:GetDescendants() do
+								if child:IsA("GuiObject") then
+									Verify.expect(child.Selectable):toBe(false)
+								end
+							end
+							local left, right = row:FindFirstChild("Left"), row:FindFirstChild("Right")
+							assert(left and left:IsA("GuiButton") and right and right:IsA("GuiButton"))
+							local text = readout:FindFirstChildWhichIsA("TextLabel", true)
+							assert(text)
+							Verify.expect(left.Interactable):toBe(false)
+							engine.environment.fire(VerifyRoblox.assertInstance(right), "Activated")
+							Verify.expect(text.Text):toBe("Angle 15°")
+							engine.environment.fire(VerifyRoblox.assertInstance(left), "Activated")
+							Verify.expect(text.Text):toBe("Angle 0°")
+							for _ = 1, 6 do
+								engine.environment.fire(VerifyRoblox.assertInstance(right), "Activated")
+							end
+							Verify.expect(text.Text):toBe("Angle 90°")
+							Verify.expect(right.Interactable):toBe(false)
+						end
 						for _, sheet in sheets do
 							assert(sheet.Parent ~= nil, "StyleSheet was referenced without parenting")
 						end

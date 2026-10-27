@@ -10,7 +10,9 @@ UI.CellEditor "Name" { editor = "text", value = "Kart", onChange = function(valu
 
 Key options: `editor`, `value`, `onChange`, `draft`, `validate`.
 
-Check an unknown value before reading its fields.
+`onChange` proposes a value; check its type before reading fields. Keep a draft
+per record and field outside recycled rows. Read [CellEditor.draft](CellEditor.draft.md)
+for rejection, conflicts and cancellation.
 
 Related controls: [Controls](Controls.md).
 

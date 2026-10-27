@@ -7,10 +7,14 @@ VirtualList-and-VirtualGrid.selection option values and behavior.
   callback. Otherwise it defaults to none.
 - `onSelectionChange(nextMap)`, `onActivate(item, key)` and `onReachEnd`
   connect control events to domain behavior.
-- When the selection mode is not `none`, one mouse click selects a row. A
+- With `onSelectionChange`, the caller must write `selection:set(nextMap)` to
+  accept the proposal. Without it, the collection updates the selection cell.
+- Outside Edit mode, when the selection mode is not `none`, one mouse click selects a row. A
   double click, Return, a gamepad press or a touch tap runs `onActivate`. A
   double click keeps the selection. When the mode is `none`, each activation
   runs `onActivate`. Table rows follow the same rule.
+- In Edit mode with selection enabled, activation changes eligible row selection instead of
+  calling `onActivate`. Selection is not a game commitment such as Buy or Equip.
 - A selected row paints the theme's selected color. A [Card](Card.title.md)
   row shows it on the card's own plate, and the collection paints no plate
   under the card.

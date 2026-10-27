@@ -8,7 +8,7 @@ Inside an app mount, set `local UI = app.UI`.
 UI.Chip "Chip" { label = "Ready", selected = Facet.Compose.cell(false) }
 ```
 
-Key options: `label`, `selected`, `onChange`, `onRemove`.
+Key options: `label`, `selected`, `onToggle`, `onRemove`.
 
 Choose one binding shape.
 

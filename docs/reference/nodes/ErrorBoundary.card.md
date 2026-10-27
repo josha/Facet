@@ -5,7 +5,12 @@ Show a fallback when a child fails.
 Inside an app mount, set `local UI = app.UI`.
 
 ```luau
-UI.ErrorBoundary "Guard" { view = function() return UI.Text { text = "Ready" } end, fallback = function() return UI.Text { text = "Try again" } end }
+UI.ErrorBoundary "Guard" {
+    view = function() return UI.Text { text = "Ready" } end,
+    fallback = function(_failure: unknown, retry: () -> ())
+        return UI.Button { label = "Try again", onActivate = function() retry() end }
+    end,
+}
 ```
 
 Key options: `view`, `fallback`, `onError`.

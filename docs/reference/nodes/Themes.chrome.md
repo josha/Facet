@@ -2,6 +2,8 @@
 
 Focus artwork, chrome state art, selected plates and their engine limits.
 
+For image assets and surface recipes, read [Themes.art](Themes.art.md).
+
 | Field | Meaning |
 |---|---|
 | `kind` | `"ring"` (the default): a stroke just outside the control. `"glow"`: a native `UIShadow` halo, which the engine paints over the control. `"nineSlice"`: the `asset` art, sliced around the control. `"brackets"`: a square stroke masked by a `UIGradient` to its two ends, like `[ ]`. |

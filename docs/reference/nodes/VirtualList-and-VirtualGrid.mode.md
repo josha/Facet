@@ -19,7 +19,7 @@ VirtualList-and-VirtualGrid.mode option values and behavior.
 | `measured` | An optional readable map from key to extent; overrides observed measurements. |
 | `follow` | `none` or `end`, or a readable of one, with an optional `followThreshold`. |
 | `status` | An optional writable Compose collection status cell. A cell that holds `nil` is filled with the empty status record. |
-| `controls` | An optional table that the control fills with the Compose `indexOfKey`, `placementOf` and `offsetOf`. |
+| `controls` | An optional table that the control fills with the Compose `indexOfKey`, `placementOf` and `offsetOf`; see [geometry, units and handle lifetime](Collections.placement.md). |
 | `maxRetained` | The pool keeps at most `32` row hosts by default. |
 
 Rows prepare inside a native CanvasGroup. A new row stays transparent until

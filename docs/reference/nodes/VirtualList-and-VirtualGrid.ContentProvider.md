@@ -40,3 +40,5 @@ list shrank, and leaves focus alone while a row is being dragged. With `wrapFocu
 `focus.previous()` and the arrow and D-pad actions wrap at the two ends of the
 collection. A list wraps only along its scrolling axis. A grid wraps in its row
 and its column, with the column count that its layout uses.
+
+Read the full [FocusControls method contract](Collections.focus-controls.md) for returns and lifetime.

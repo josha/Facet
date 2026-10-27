@@ -34,4 +34,6 @@ Keep the current slot mounted for an item that must remain available.
   peak is `motion.scales.travelLift`. Use it with `path = "arc"` for a shuffle.
 - `onStarted(destination)`: reports the start after the delay. On interruption
   it reports the new destination. The game can play its own sound here.
-- `onLanded(destination)`: reports placement. It does not change game state.
+- `onLanded(destination)`: reports placement, including the immediate initial
+  placement. It can run during construction, before the returned anchor is
+  assigned. The callback may change `destination`. It does not change game state.

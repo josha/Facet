@@ -8,7 +8,7 @@ Inside an app mount, set `local UI = app.UI`.
 UI.Region "Region" { zone = "topRight", rank = 1, UI.Text { text = "Ready" } }
 ```
 
-Key options: `zone`, `rank`, `priority`.
+Key options: `zone`, `rank`, `mayDrop`.
 
 Put Region inside Composition.
 

@@ -15,7 +15,7 @@ when the owner ends.
 | `onAdjust(direction)` | Required. `direction` is -1 or 1. |
 | `axis` | `"horizontal"` (the default) takes Left and Right, `"vertical"` takes Up and Down, `"none"` takes no arrows and leaves only the shoulders. |
 | `repeats` | `true`: a held key or button adjusts again after 0.4 seconds, then every 0.1 seconds, like the built-in value controls. The default is `false`: one step for each press. |
-| `canAdjust(direction, use?)` | Optional. `false` makes a press of that arrow do nothing, for example at a limit; the arrow still belongs to the node while it is selected. |
+| `canAdjust(direction, use?)` | Optional. `false` prevents adjustment in that direction, for example at a limit, and leaves that direction free for native selection navigation. |
 | `enabled`, `disabled`, `busy` | Values or readables. A disabled control takes no keys. |
 
 The actions have the priority of the built-in value controls, so a higher
@@ -24,12 +24,26 @@ An unknown `axis` causes an error.
 
 ```luau
 local angle = Compose.cell(0)
-local function turn(direction: number)
-	angle:set(angle:peek() + direction * 15)
+local function canTurn(direction: number, use: Facet.Use?): boolean
+	local value = if use then use(angle) else angle:peek()
+	return if direction < 0 then value > 0 else value < 90
 end
-local row = UI.HStack "Turn" {
-	UI.Button "Left" { label = "Turn left", onActivate = function() turn(-1) end },
-	UI.Button "Right" { label = "Turn right", onActivate = function() turn(1) end },
+local function turn(direction: number)
+	angle:set(math.clamp(angle:peek() + direction * 15, 0, 90))
+end
+local readout = UI.VStack "Angle" {
+	UI.Text { text = function(use: Facet.Use) return `Angle {use(angle)}°` end },
 }
-UI.adjustable(row, { onAdjust = turn, axis = "none", repeats = true })
+UI.adjustable(readout, { onAdjust = turn, canAdjust = canTurn, repeats = true })
+return UI.HStack "Turn" {
+	UI.Button "Left" {
+		label = "Turn left", onActivate = function() turn(-1) end,
+		enabled = function(use: Facet.Use) return canTurn(-1, use) end,
+	},
+	readout :: unknown,
+	UI.Button "Right" {
+		label = "Turn right", onActivate = function() turn(1) end,
+		enabled = function(use: Facet.Use) return canTurn(1, use) end,
+	},
+}
 ```

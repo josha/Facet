@@ -3,6 +3,10 @@
 Both take a numeric `value`, `min` (default `0`), `max` (default `1`), `step`,
 `format`, `onChange`, `enabled` and `label`. The maximum must be more than the
 minimum. A specified step must be positive. The Stepper step default is `1`.
+With `onChange`, the control requests the value and does not write even a
+writable cell. Accept the change by writing your model. Without `onChange`,
+the control writes its writable value. `onCommit` reports a completed Slider
+gesture; it does not mean the game accepted or saved that value.
 The Slider default is continuous values.
 
 A Stepper is one selection stop: the Stepper itself takes the selection, Left

@@ -11,7 +11,7 @@ name.
 | `heightClass(height)` | `"short"` below 600, `"medium"` below 1000, else `"tall"`. |
 | `orientationFor(width, height)` | `"landscape"`, `"portrait"` or `"square"`. This is a shape fact. |
 | `axisFor(width, { stackAbove? })` | `"x"` at or above `stackAbove` (default 600), else `"y"`. |
-| `columnsFor(available, minColumnWidth, gap?)` | The number of columns of at least `minColumnWidth` that fit, at least 1. |
+| `columnsFor(available, minColumnWidth, gap?)` | How many columns fit the requested minimum width and gap. Returns at least 1, even when one column cannot fit that minimum. |
 | `sizeClassAtLeast(value, target)` | `true` when `value` ranks at or above `target` in `compact < regular < wide`. |
 | `isTenFoot({ displaySize?, touch?, mouse?, tenFootInterface?, viewingDistance? })` | `viewingDistance` `"ten-foot"` or `"near"` decides. Otherwise `true` for `GuiService:IsTenFootInterface()` or a `Large` display, when there is no touch and no mouse. A large desk monitor with a mouse is near, and so is Studio, which reports `IsTenFootInterface()` true on a desktop. |
 | `overscanInsets(width, height)` | The console overscan margins for a viewport: `{ top, left, bottom, right }` of 60/1080 of the height and 90/1920 of the width, rounded. |
