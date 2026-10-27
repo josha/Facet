@@ -317,8 +317,12 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				and use(available)
 				and withinModal(node, use)
 		end
-		local enabled = Compose.formula(enabledBody)
-		local enabledBinding = enabled
+		local enabled = if conditional ~= nil
+				and ctx.config.services.GuiService == nil
+				and config.userInputService == nil
+			then nil
+			else Compose.formula(enabledBody)
+		local enabledBinding = enabled or enabledBody
 		local reservedBound: { [string]: boolean } = {}
 		for _, binding in keyCodes :: { Shared.ActionBinding } do
 			local code: unknown = if type(binding) == "string"
