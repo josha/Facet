@@ -97,6 +97,9 @@ return function(
 		local function pageOffset(index: number, box: Vector2, canvas: Vector2): number
 			return math.clamp((index - 1) * box.X, 0, math.max(0, canvas.X - box.X))
 		end
+		local function nearestPage(at: number, box: Vector2): number
+			return math.clamp(math.floor(at / box.X + 0.5) + 1, 1, #spec.pages)
+		end
 		local initialized = Compose.cell(false)
 		local snapTarget = 0
 		local snapping = false
@@ -126,7 +129,10 @@ return function(
 			held:set(true)
 			UI.scrollTo(pages, pages.CanvasPosition, { animated = false })
 			pages:ResetScrollVelocity()
-			startIndex = indexById[spec.selection:peek()]
+			local box = size:peek()
+			startIndex = if box.X > 0
+				then nearestPage(pages.CanvasPosition.X, box)
+				else indexById[spec.selection:peek()]
 			previous, previousTime, velocity = pages.CanvasPosition.X, frames.now(), 0
 			later.cancel("resume")
 			cooling = false
@@ -217,7 +223,7 @@ return function(
 			end
 			local box = use(size)
 			if not held:peek() and not target and not snapping and initialized:peek() and box.X > 0 then
-				local index = math.clamp(math.floor(at / box.X + 0.5) + 1, 1, #spec.pages)
+				local index = nearestPage(at, box)
 				local boundary = pageOffset(index, box, canvasSize:peek())
 				if math.abs(at - boundary) >= 0.5 then
 					later.replace("wheel", ctx.metric("motion.durations.scrollReveal"), function()
@@ -240,7 +246,7 @@ return function(
 				return
 			end
 			target = nil
-			local index = math.clamp(math.floor(at / box.X + 0.5) + 1, 1, #spec.pages)
+			local index = nearestPage(at, box)
 			if math.abs(at - pageOffset(index, box, use(canvasSize))) < 0.5 then
 				local id = spec.pages[index].id
 				if spec.selection:peek() ~= id then

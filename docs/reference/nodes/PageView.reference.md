@@ -45,9 +45,11 @@ Facet's horizontal VirtualList owns native scrolling.
 The page follows a held touch directly. Snapping waits until all contacts end,
 including contacts that start on a child button. A vertical gesture can scroll
 the surrounding page. The model selection changes when a page reaches its
-boundary. Release moves at most one page from the selected page. A quick flick
-uses its release direction. A slow drag past half a page moves in the drag
-direction. A shorter drag returns to the selected page. Release uses the theme's
+boundary. Release moves at most one page from the start page. The start page is
+the page nearest the view when the contact starts. During a programmatic scroll,
+this page can be different from the selection. A quick flick uses its release
+direction. A slow drag past half a page moves in the drag direction. A shorter
+drag returns to the start page. Release uses the theme's
 `motion.springs.control` spring. A new contact stops that spring at its current
 position. Previous, Next, dots and arrow keys use the shared scroll reveal
 motion. Reduced motion lands without animation. A new contact cancels a
