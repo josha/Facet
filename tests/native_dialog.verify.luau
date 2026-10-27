@@ -537,6 +537,23 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("the icon close control meets the theme's minimum target at ten-foot distance", {
+			id = "native_dialog::native Dialog: the caller's fact decides::the icon close control meets the theme's minimum target at ten-foot distance",
+			run = function()
+				local open, log, change = caller()
+				local themes = require("../src/ui/themes")(Compose)
+				local far = themes.forDistance(themes.neutralPackage(), "ten-foot")
+				local minimum = far.metrics.targetSizes.minimum
+				Verify.expect(minimum > 44):toBe(true)
+				local options: Types.Config = { theme = assert(themes.define(far)) }
+				local w = mount(standard(open, log, change, { closeButton = true }), options)
+				local close = w.find("Close")
+				Verify.expect(close.Size.X.Offset):toBe(minimum)
+				Verify.expect(close.Size.Y.Offset):toBe(minimum)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case(
 			"the close button proposes: refused keeps the same surface and focus, accepted reports close",
 			{

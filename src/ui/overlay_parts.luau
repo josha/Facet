@@ -181,6 +181,19 @@ function parts.checkActions(
 	return #(actions :: { unknown })
 end
 
+function parts.closeTarget(ctx: Types.Context): (ComposeTypes.Use) -> UDim2
+	return function(use: ComposeTypes.Use): UDim2
+		local side = math.max(44, ctx.metric("targetSizes.minimum", use))
+		return ctx.types.UDim2.fromOffset(side, side)
+	end
+end
+
+function parts.closeRow(ctx: Types.Context): (ComposeTypes.Use) -> UDim2
+	return function(use: ComposeTypes.Use): UDim2
+		return ctx.types.UDim2.new(1, 0, 0, math.max(44, ctx.metric("targetSizes.minimum", use)))
+	end
+end
+
 function parts.usable(ctx: Types.Context, action: Overlay.Action?, use: ComposeTypes.Use?): boolean
 	return action ~= nil and ctx.read(action.enabled, use) ~= false and ctx.read(action.busy, use) ~= true
 end

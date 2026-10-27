@@ -71,7 +71,7 @@ return function(
 				icon = "close",
 				appearance = if overHero then "inverse" else nil,
 				LayoutOrder = 2,
-				Size = D2.fromOffset(44, 44),
+				Size = parts.closeTarget(ctx),
 				AutomaticSize = E.AutomaticSize.None,
 				onActivate = activate,
 			})

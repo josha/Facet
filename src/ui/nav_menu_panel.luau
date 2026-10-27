@@ -248,7 +248,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						name = "Close",
 						icon = "close",
 						LayoutOrder = 2147483647,
-						Size = D2.new(1, 0, 0, 44),
+						Size = parts.closeRow(ctx),
 						AutomaticSize = E.AutomaticSize.None,
 						onActivate = close,
 					}
