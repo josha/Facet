@@ -3,6 +3,7 @@
 local Core = require "../core"
 local Types = require "./types"
 local Document = require "./document"
+local Datatype = require "./datatype"
 
 type ReadOnlyValue<T> = Core.ReadOnlyValue<T>
 type Use = Core.Use
@@ -37,6 +38,7 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 	local outputs: { [string]: (args: { Literal }) -> () } = if context and context.outputs then context.outputs else {}
 	local slots: { [string]: () -> unknown } = if context and context.slots then context.slots else {}
 	local token = if context then context.token else nil
+	local resolveToken = if context then context.resolveToken else nil
 	local decorate = if context then context.decorate else nil
 	local inputs: { [string]: Literal } = {}
 	for _, input in value.contract.inputs do
@@ -222,6 +224,54 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			}
 		end
 		if current ~= nil then
+			if definition ~= nil and definition.type == "datatype" and type(current) == "table" then
+				local components: { [number]: Resolved } = {}
+				local reactive = false
+				for index, component in current do
+					local tokenName = Datatype.token(component)
+					if tokenName ~= nil and type(index) == "number" then
+						local resolver = resolveToken
+						local resolved: Resolved = if resolver
+							then resolver(tokenName)
+							else {
+								literal = assert(token, "This design reads theme tokens; supply a token resolver")(
+									tokenName
+								),
+							}
+						components[index] = resolved
+						reactive = reactive or resolved.readable ~= nil
+					end
+				end
+				if next(components) == nil then
+					if definition.perRow then
+						local literal = current
+						return {
+							literal = current,
+							value = function(each: ReadOnlyValue<Row>): unknown
+								return withCallbacks(literal, each, owner)
+							end,
+						}
+					end
+					return { literal = current }
+				end
+				local function numeric(use: Use?): Literal
+					local result: { [string | number]: Literal } = table.clone(current)
+					for index, resolved in components do
+						local readable = resolved.readable
+						local number = if readable
+							then (if use then use(readable) else readable:peek())
+							else if resolved.value ~= nil then resolved.value else resolved.literal
+						assert(type(number) == "number", `Datatype component {index} needs a numeric token`)
+						result[index] = number
+					end
+					return result
+				end
+				return if reactive
+					then { readable = Core.formula(function(use: Use): Literal?
+						return numeric(use)
+					end) }
+					else { literal = numeric(nil) }
+			end
 			if definition ~= nil and definition.perRow then
 				local literal = current
 				return {

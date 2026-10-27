@@ -4,6 +4,7 @@ local UI = require "./ui"
 
 local Compose = require "../core"
 local Design = require "../design"
+local Datatype = Design.datatype
 
 export type Inspector = {
 	root: Compose.Node,
@@ -596,6 +597,69 @@ return function(ui: UI.UI)
 							end)
 							ui.set(box, "Size", ui.values.udim2(1, 0, 1, 0))
 							ui.set(box, "Parent", slot)
+						elseif
+							entry.type == "datatype"
+							and entry.datatype ~= nil
+							and Datatype.arity[entry.datatype] ~= nil
+						then
+							local arity = Datatype.arity[entry.datatype]
+							local defaults = kind.defaults
+							local fallback = if defaults then defaults[key] else entry.default
+							local current = if type(literal) == "table"
+								then literal
+								else if type(fallback) == "table" then fallback else {}
+							local components: { [string | number]: Design.Literal } = {}
+							for index = 1, arity do
+								components[index] = current[index] or 0
+							end
+							ui.set(line, "Size", ui.values.udim2(1, 0, 0, arity * 32))
+							Theme.list(slot, ui.values.enum("FillDirection", "Vertical"), 4)
+							for index = 1, arity do
+								local component = components[index]
+								local name = Datatype.token(component)
+								local cell = Theme.frame(`Component{index}`)
+								ui.set(cell, "LayoutOrder", index)
+								ui.set(cell, "Size", ui.values.udim2(1, 0, 0, 28))
+								local label = Theme.label(tostring(index), color.tertiary, size.small)
+								ui.set(label, "Size", ui.values.udim2(0, 14, 1, 0))
+								ui.set(label, "Parent", cell)
+								local function change(next: Design.Literal)
+									local changed = table.clone(components)
+									changed[index] = next
+									session.change(key, { literal = changed })
+								end
+								local box = field(name or tostring(component), function(text: string)
+									local number = tonumber(text)
+									if number then
+										change(number)
+									elseif text == "" then
+										change(0)
+									end
+								end, true)
+								ui.set(
+									box,
+									"Size",
+									ui.values.udim2(1, if entry.tokens and #tokens > 0 then -38 else -18, 1, 0)
+								)
+								ui.set(box, "Position", ui.values.udim2(0, 18, 0, 0))
+								ui.set(box, "TextColor3", if name then color.accent else color.text)
+								ui.set(box, "Parent", cell)
+								if entry.tokens and #tokens > 0 then
+									local bind = pressable("Bind", color.panel, color.hover, function()
+										local at = if name then table.find(tokens, name) or 0 else 0
+										local reference: { [string | number]: Design.Literal } =
+											{ token = tokens[at % #tokens + 1] }
+										change(reference)
+									end, 1)
+									ui.set(bind, "Size", ui.values.udim2(0, 20, 1, 0))
+									ui.set(bind, "Position", ui.values.udim2(1, -20, 0, 0))
+									ui.set(bind, "Text", "◆")
+									ui.set(bind, "TextSize", size.small)
+									ui.set(bind, "TextColor3", if name then color.accent else color.tertiary)
+									ui.set(bind, "Parent", cell)
+								end
+								ui.set(cell, "Parent", slot)
+							end
 						elseif entry.type == "value" or entry.type == "datatype" then
 							local box = field(
 								if literal ~= nil then Design.literal(literal) else "",

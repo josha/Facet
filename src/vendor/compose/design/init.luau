@@ -8,8 +8,10 @@ local Render = require "@self/render"
 local Session = require "@self/session"
 local Source = require "@self/source"
 local Types = require "@self/types"
+local Datatype = require "@self/datatype"
 
 export type Literal = Types.Literal
+export type DatatypeComponent = Types.DatatypeComponent
 export type Value = Types.Value
 export type Field = Types.Field
 export type FieldType = Types.FieldType
@@ -42,6 +44,7 @@ export type LinkStatus = Link.Status
 
 return {
 	document = Document,
+	datatype = Datatype,
 	history = History,
 	render = Render,
 	session = Session,

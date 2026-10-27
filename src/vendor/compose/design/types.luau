@@ -5,6 +5,7 @@ local Core = require "../core"
 type ReadOnlyValue<T> = Core.ReadOnlyValue<T>
 
 export type Literal = string | number | boolean | { [string | number]: Literal }
+export type DatatypeComponent = number | { token: string }
 
 export type Value = {
 	literal: Literal?,
