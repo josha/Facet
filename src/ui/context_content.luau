@@ -517,13 +517,14 @@ local function attachLayout(
 			local next = "none"
 			if not overridden and alive then
 				local wrapped = label:GetStyled("TextWrapped")
+				local measuring = services.TextService ~= nil
 				if
 					wrapped == false
 					and label:GetStyled("TextTruncate") == Enum.TextTruncate.None
-					and (textChanged or services.TextService == nil)
+					and (textChanged or not measuring)
 				then
 					next = "free"
-				elseif services.TextService ~= nil and wrapped == true then
+				elseif measuring and wrapped == true then
 					next = "wrapped"
 				end
 			end
