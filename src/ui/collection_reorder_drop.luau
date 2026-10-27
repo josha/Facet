@@ -16,12 +16,8 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 	if reservedSlots and destination.landing == nil then
 		destination.landing = function(info: Env.DropInfo): Env.ScrollRect
 			local session = drag.state:peek()
-			local payload = if session then session.payload else nil
-			local data = if type(payload) == "table" then payload :: { keys: { K }? } else nil
-			local key = if data and data.keys then data.keys[1] else nil
-			local index = if key ~= nil and table.find(read(reservedSlots), key)
-				then assert(controls.indexOfKey)(key)
-				else nil
+			local key = shared.recall(if session then session.payload else nil)
+			local index = if key ~= nil then assert(controls.indexOfKey)(key) else nil
 			if index == nil and info.insertion then
 				local before = info.insertion.beforeKey
 				index = if before ~= nil then assert(controls.indexOfKey)(before :: K) else nil

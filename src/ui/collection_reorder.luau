@@ -126,7 +126,7 @@ return function<V, K>(
 		if proposal then
 			local data = if type(session.payload) == "table" then session.payload :: { keys: { K }? } else nil
 			local keys = if data then data.keys else nil
-			if reservedSlots and keys and table.find(read(reservedSlots, use), keys[1]) then
+			if shared.recall(session.payload, use) ~= nil then
 				return at
 			end
 			local index = assert(controls.indexOfKey)(key)

@@ -216,6 +216,311 @@ return function(harness: Verify.Harness)
 			end,
 		}
 	end
+	local function liftRack(kind: string)
+		local engine = engineLib.new()
+		local C, V2, V3, E = Facet.Compose, engine.types.Vector2, engine.types.Vector3, engine.types.Enum
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local input = engine.new("UserInputService")
+		local playerGui, screen = engine.new("PlayerGui"), engine.new("ScreenGui")
+		screen.Parent = playerGui
+		playerGui.GetGuiObjectsAtPosition = function()
+			return {}
+		end
+		local UI = Facet.controls(runtime, { types = engine.types, userInputService = input })
+		local starts = 0
+		local stop, mounted = runtime.mount(function()
+			return UI.VirtualList "Rack" {
+				from = C.cell({ "A", "B", "C" }),
+				key = function(item: string): string
+					return item
+				end,
+				direction = "horizontal",
+				mode = "all" :: "all",
+				itemSize = 40,
+				reorderable = true,
+				onReorder = function() end,
+				drag = function(items: { string }, keys: { string }): Facet.DraggableSpec
+					return {
+						payload = { collection = "rack", items = items, keys = keys },
+						previewScale = 1.9,
+						touchPickup = "immediate",
+						touchDragAxis = "XY",
+						returnTravel = true,
+						onStart = function()
+							starts += 1
+						end,
+					}
+				end,
+				render = function(current: Facet.ReadOnlyValue<string>): GuiObject
+					return UI.Button "Tile" { label = current:peek() }
+				end,
+			}
+		end, screen)
+		local body = mounted :: ScrollingFrame
+		engine.environment.poke(FixtureRoblox.assertInstance(body), "AbsoluteWindowSize", V2.new(200, 40))
+		engine.environment.poke(FixtureRoblox.assertInstance(body), "AbsoluteSize", V2.new(200, 40))
+		local cell = assert(body:FindFirstChild("A", true))
+		local row = assert(cell:FindFirstChild("Reorderable", true)) :: Frame
+		engine.environment.poke(FixtureRoblox.assertInstance(row), "AbsoluteSize", V2.new(40, 40))
+		local tile = assert(row:FindFirstChild("Tile", true)) :: GuiObject
+		engine.environment.poke(FixtureRoblox.assertInstance(tile), "AbsoluteSize", V2.new(40, 40))
+		local pointer = (
+			{
+				UserInputType = if kind == "Touch" then E.UserInputType.Touch else E.UserInputType.MouseButton1,
+				UserInputState = E.UserInputState.Begin,
+				Position = V3.new(20, 20, 0),
+			} :: unknown
+		) :: InputObject
+		local began = (tile.InputBegan :: unknown) :: { Fire: (unknown, InputObject) -> () }
+		return {
+			engine = engine,
+			input = input,
+			screen = screen,
+			tile = tile,
+			pointer = pointer,
+			starts = function(): number
+				return starts
+			end,
+			scaler = function(): UIScale
+				return assert(tile:FindFirstChild("PressLift", true)) :: UIScale
+			end,
+			press = function()
+				began:Fire(pointer)
+			end,
+			move = function(x: number)
+				pointer.UserInputState = E.UserInputState.Change
+				pointer.Position = V3.new(x, 20, 0)
+				if kind == "Touch" then
+					input.InputChanged:Fire(pointer)
+				else
+					local movement = (
+						{
+							UserInputType = E.UserInputType.MouseMovement,
+							UserInputState = E.UserInputState.Change,
+							Position = V3.new(x, 20, 0),
+						} :: unknown
+					) :: InputObject
+					input.InputChanged:Fire(movement)
+					local detector = assert(tile:FindFirstChild("FacetCollectionDrag")) :: UIDragDetector
+					local continued = (detector.DragContinue :: unknown) :: { Fire: (unknown, Vector2) -> () }
+					continued:Fire(V2.new(x, 20))
+				end
+			end,
+			release = function()
+				pointer.UserInputState = E.UserInputState.End
+				input.InputEnded:Fire(pointer)
+			end,
+			stop = function()
+				stop()
+				runtime:dispose()
+			end,
+		}
+	end
+	for _, kind in { "MouseButton1", "Touch" } do
+		harness:case("a reorderable collection row lifts on " .. kind .. " press and settles on release", {
+			id = "container_transfer::press lift::collection settles " .. kind,
+			run = function(t)
+				local w = liftRack(kind)
+				t:defer(w.stop)
+				if kind == "MouseButton1" then
+					local detector = assert(w.tile:FindFirstChild("FacetCollectionDrag")) :: UIDragDetector
+					local started = (detector.DragStart :: unknown) :: { Fire: (unknown, Vector2) -> () }
+					w.press()
+					started:Fire(w.engine.types.Vector2.new(20, 20))
+				else
+					w.press()
+				end
+				local scaler = w.scaler()
+				t:expect(scaler.Scale):toBe(1)
+				w.engine.environment.step(0.04)
+				t:expect(scaler.Scale > 1 and scaler.Scale < 1.9):toBe(true)
+				w.engine.environment.step(1)
+				t:expect(scaler.Scale):toBe(1.9)
+				t:expect(w.starts()):toBe(0)
+				t:expect(w.screen:FindFirstChild("DragGhost")):toBeNil()
+				w.release()
+				w.engine.environment.step(0.04)
+				t:expect(scaler.Scale > 1 and scaler.Scale < 1.9):toBe(true)
+				w.engine.environment.step(1)
+				t:expect(scaler.Scale):toBe(1)
+				t:expect(w.starts()):toBe(0)
+			end,
+		})
+		harness:case("a pressed collection row carries its lift into the drag ghost on " .. kind, {
+			id = "container_transfer::press lift::collection handoff " .. kind,
+			run = function(t)
+				local w = liftRack(kind)
+				t:defer(w.stop)
+				local detector = assert(w.tile:FindFirstChild("FacetCollectionDrag")) :: UIDragDetector
+				local started = (detector.DragStart :: unknown) :: { Fire: (unknown, Vector2) -> () }
+				w.press()
+				if kind == "MouseButton1" then
+					started:Fire(w.engine.types.Vector2.new(20, 20))
+				end
+				w.engine.environment.step(0.04)
+				local lifted = w.scaler().Scale
+				t:expect(lifted > 1 and lifted < 1.9):toBe(true)
+				w.move(40)
+				t:expect(w.starts()):toBe(1)
+				local ghost = assert(w.screen:FindFirstChild("DragGhost")) :: GuiObject
+				local transform = assert(ghost:FindFirstChildWhichIsA("UIScale"))
+				t:expect(math.abs(transform.Scale - lifted) < 0.001):toBe(true)
+				w.engine.environment.step(1)
+				t:expect(math.abs(transform.Scale - 1.9) < 0.001):toBe(true)
+				w.release()
+			end,
+		})
+	end
+	local function gapRack(slotted: boolean, accepted: boolean)
+		local engine = engineLib.new()
+		local C, V2 = Facet.Compose, engine.types.Vector2
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local screen, playerGui = engine.new("ScreenGui"), engine.new("PlayerGui")
+		screen.Parent = playerGui
+		local controls: ComposeTypes.OrderedCollectionControls<string> = {}
+		local UI = table.clone(Facet.controls(runtime, { types = engine.types }))
+		local ctx = context(C, runtime, { types = engine.types })
+		require("../src/ui/collections")(ctx, UI)
+		local proposals: { number } = {}
+		local stop, mounted = runtime.mount(function()
+			return UI.VirtualList {
+				from = { "1", "2", "3" },
+				key = function(item: string): string
+					return item
+				end,
+				slots = if slotted then { "1", "2", "3", "4" } else nil,
+				direction = "horizontal",
+				mode = "all" :: "all",
+				itemSize = 40,
+				controls = controls,
+				reorderable = true,
+				onReorder = function() end,
+				drag = function(items: { string }, keys: { string }): Facet.DraggableSpec
+					return {
+						payload = { collection = "rack", items = items, keys = keys },
+						previewScale = 1.9,
+						touchPickup = "immediate",
+						returnTravel = true,
+					}
+				end,
+				drop = {
+					travel = true,
+					accepts = function(): (boolean, string?)
+						return accepted, if accepted then nil else "Rack locked"
+					end,
+					onUpdate = function(_payload: unknown, info: Facet.DropInfo)
+						if info.insertion then
+							table.insert(proposals, info.insertion.slot)
+						end
+					end,
+					onDrop = function(): boolean
+						return true
+					end,
+				},
+				render = function(current: Facet.ReadOnlyValue<string>): GuiObject
+					return UI.Button { label = current:peek() }
+				end,
+			}
+		end, screen)
+		local rack = mounted :: ScrollingFrame
+		engine.environment.poke(FixtureRoblox.assertInstance(rack), "AbsoluteSize", V2.new(300, 40))
+		engine.environment.poke(FixtureRoblox.assertInstance(rack), "AbsoluteWindowSize", V2.new(300, 40))
+		local function settle()
+			for _ = 1, 240 do
+				engine.heartbeat:Fire(1 / 60)
+			end
+		end
+		settle()
+		local source = engine.new("TextButton")
+		source.Parent = screen
+		engine.environment.poke(FixtureRoblox.assertInstance(source), "AbsolutePosition", V2.new(400, 100))
+		engine.environment.poke(FixtureRoblox.assertInstance(source), "AbsoluteSize", V2.new(40, 40))
+		local session = sessionOf(ctx)
+		return {
+			rack = rack,
+			settle = settle,
+			proposals = proposals,
+			offset = function(key: string): number
+				return (assert(rack:FindFirstChild(key, true)) :: GuiObject).Position.X.Offset
+			end,
+			placement = function(index: number): number
+				return assert(controls.placementOf)(index).offset
+			end,
+			enter = function(index: number)
+				session.begin(
+					source,
+					{ payload = { collection = "board", keys = { "2" } } },
+					"pointer",
+					nil,
+					nil,
+					{ position = V2.new(420, 120), source = source }
+				)
+				playerGui.GetGuiObjectsAtPosition = function()
+					return { rack }
+				end
+				session.update(V2.new(assert(controls.placementOf)(index).offset + 1, 20))
+				session.hover(rack, nil)
+			end,
+			leave = function()
+				playerGui.GetGuiObjectsAtPosition = function()
+					return {}
+				end
+				session.update(V2.new(420, 120))
+				session.hover(nil, nil)
+			end,
+			finish = function()
+				session.finish(false)
+			end,
+			stop = function()
+				stop()
+				runtime:dispose()
+			end,
+		}
+	end
+	for _, slotted in { false, true } do
+		local suffix = if slotted then " with reserved slots" else ""
+		harness:case("an accepted external payload parts a reorderable collection at its insertion" .. suffix, {
+			id = "container_transfer::drop gap::opens and closes" .. suffix,
+			run = function(t)
+				local w = gapRack(slotted, true)
+				t:defer(w.stop)
+				local first, second, third = w.offset("1"), w.offset("2"), w.offset("3")
+				w.enter(2)
+				t:expect(w.proposals[#w.proposals]):toBe(1)
+				local moved = false
+				for _ = 1, 30 do
+					w.settle()
+					moved = moved or w.offset("2") ~= second
+				end
+				t:expect(moved):toBe(true)
+				t:expect(w.offset("1")):toBe(first)
+				t:expect(math.abs(w.offset("2") - w.placement(3)) < 0.5):toBe(true)
+				t:expect(math.abs(w.offset("3") - w.placement(4)) < 0.5):toBe(true)
+				t:expect(w.rack:FindFirstChild("InsertionLine", true) ~= nil):toBe(true)
+				w.leave()
+				w.settle()
+				t:expect(math.abs(w.offset("2") - second) < 0.001):toBe(true)
+				t:expect(math.abs(w.offset("3") - third) < 0.001):toBe(true)
+				t:expect(w.rack:FindFirstChild("InsertionLine", true)):toBeNil()
+				w.finish()
+			end,
+		})
+	end
+	harness:case("a rejected external payload opens no gap in a reorderable collection", {
+		id = "container_transfer::drop gap::rejected",
+		run = function(t)
+			local w = gapRack(false, false)
+			t:defer(w.stop)
+			local first, second, third = w.offset("1"), w.offset("2"), w.offset("3")
+			w.enter(2)
+			w.settle()
+			t:expect(w.offset("1")):toBe(first)
+			t:expect(w.offset("2")):toBe(second)
+			t:expect(w.offset("3")):toBe(third)
+			t:expect(w.rack:FindFirstChild("InsertionLine", true)):toBeNil()
+			w.finish()
+		end,
+	})
 	harness:suite("container travel", function()
 		harness:case("hover opens a collection slot with sampled spring reflow and restores it on leave", function()
 			local engine = engineLib.new()

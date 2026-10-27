@@ -12,6 +12,7 @@ local sessionOf = require("./drag_session")
 local DragTypes = require("./drag_types")
 local Env = require("./environment_types")
 local reducedMotion = require("./motion").reduced
+local DragLift = require("./drag_lift")
 export type Move<V, K> = {
 	preview: GuiObject?,
 	key: K,
@@ -37,7 +38,7 @@ export type Gesture<V, K> = {
 	keyboardTarget: TextButton?,
 	touchKey: K?,
 	touchOrigin: Vector2?,
-	touchTransfer: { key: K, pointer: InputObject, options: DragTypes.SourceSpec, keys: { K }, items: { V } }?,
+	pressTransfer: { key: K, pointer: InputObject, options: DragTypes.SourceSpec, keys: { K }, items: { V } }?,
 	releaseScrollers: (() -> ())?,
 	gestureOwner: GuiObject?,
 }
@@ -88,9 +89,14 @@ export type Reorder<V, K> = {
 	focus: ComposeTypes.ReadOnlyValue<GuiObject?>,
 	pluginGui: Instance?,
 	disarm: () -> (),
+	lifts: { [K]: DragLift.Lift },
+	liftScale: ComposeTypes.Value<number>,
+	lift: (K, number?) -> (),
+	settle: () -> (),
 	cancel: () -> (),
 	movable: (V) -> boolean,
 	sourceIndex: ComposeTypes.Value<{ [K]: V }>,
+	recall: (unknown, ComposeTypes.Use?) -> K?,
 	begin: (K, Vector2?, boolean?, boolean?) -> (),
 	commitLocal: ({ K }, number) -> (),
 	commit: (...unknown) -> (),
@@ -199,7 +205,7 @@ return function<V, K>(
 		keyboardTarget = nil,
 		touchKey = nil,
 		touchOrigin = nil,
-		touchTransfer = nil,
+		pressTransfer = nil,
 		releaseScrollers = nil,
 		gestureOwner = nil,
 	}
@@ -211,6 +217,27 @@ return function<V, K>(
 	local function disarm()
 		gesture.touchKey, gesture.touchOrigin = nil, nil
 	end
+	local lifts: { [K]: DragLift.Lift } = {}
+	local liftScale = Compose.cell(1)
+	local lifted: K? = nil
+	local function settle()
+		local key = lifted
+		lifted = nil
+		local raised = if key ~= nil then lifts[key] else nil
+		if raised then
+			raised.release()
+		end
+	end
+	local function lift(key: K, scale: number?)
+		settle()
+		local raised = lifts[key]
+		if raised == nil or scale == nil or scale == 1 then
+			return
+		end
+		liftScale:set(scale)
+		lifted = key
+		raised.press()
+	end
 	local function clearMove()
 		if gesture.gestureOwner then
 			arbiter.cancelOwner(gesture.gestureOwner)
@@ -219,9 +246,10 @@ return function<V, K>(
 		local move, selected = moving:peek(), gui and gui.SelectedObject
 		local restore = move ~= nil and move.keyboard and selected == gesture.keyboardTarget
 		gesture.captured = nil
-		gesture.touchTransfer = nil
+		gesture.pressTransfer = nil
 		gesture.selectedPickup = false
 		disarm()
+		settle()
 		if gesture.releaseScrollers then
 			gesture.releaseScrollers()
 			gesture.releaseScrollers = nil
@@ -271,6 +299,19 @@ return function<V, K>(
 		end
 		return result
 	end)
+	local function recall(payload: unknown, use: ComposeTypes.Use?): K?
+		if reservedSlots == nil or type(payload) ~= "table" then
+			return nil
+		end
+		local keys = (payload :: { keys: { K }? }).keys
+		local key = if type(keys) == "table" then keys[1] else nil
+		if key == nil or table.find(read(reservedSlots, use), key) == nil then
+			return nil
+		end
+		local session = if use then use(drag.state) else drag.state:peek()
+		local live = if use then use(sourceIndex) else sourceIndex:peek()
+		return if live[key] == nil or (session ~= nil and session.source == bodyOf()) then key else nil
+	end
 	local function begin(key: K, position: Vector2?, quiet: boolean?, tap: boolean?): ()
 		gesture.lastTap = nil
 		local session = drag.state:peek()
@@ -323,7 +364,7 @@ return function<V, K>(
 				indices[candidate] = true
 			end
 		end
-		local prepared = if position ~= nil or tap then gesture.touchTransfer else nil
+		local prepared = if position ~= nil or tap then gesture.pressTransfer else nil
 		if prepared and prepared.key == key and prepared.pointer == gesture.pendingInput then
 			keys, items = table.clone(prepared.keys), table.clone(prepared.items)
 			table.clear(indices)
@@ -389,6 +430,10 @@ return function<V, K>(
 			local valid, ended = options.valid, options.onEnd
 			options = table.clone(options)
 			options.mark = false
+			local raised = if lifted == key then lifts[key] else nil
+			if raised and raised.held() then
+				options.liftValue = raised.value
+			end
 			choosingDestination:set(false)
 			if spec.drag and (spec.onReorder or spec.drop) then
 				options.navigationHint = "Y: choose destination"
@@ -710,9 +755,14 @@ return function<V, K>(
 		focus = focus,
 		pluginGui = pluginGui,
 		disarm = disarm,
+		lifts = lifts,
+		liftScale = liftScale,
+		lift = lift,
+		settle = settle,
 		cancel = cancel,
 		movable = movable,
 		sourceIndex = sourceIndex,
+		recall = recall,
 		begin = begin,
 		commitLocal = commitLocal,
 		commit = commit,

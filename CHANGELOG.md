@@ -4,6 +4,15 @@ A DiegeticScreen waits for a slow first room frame instead of returning to the
 screen. A heavy scene that takes longer than `motion.restLimit` to settle now
 enters the room.
 
+A reorderable collection row with a `drag` `previewScale` now lifts when you
+press it with a mouse or touch, as `UI.draggable` does. The lift uses the
+`motion.durations.pressLift` theme token. The row settles when you release it
+without movement. When a drag starts, the drag preview continues the lift.
+
+In a collection with `slots`, an external payload whose first key names an
+occupied slot now opens a gap at `info.insertion`. Only a key with an empty
+reserved slot returns the payload to that slot.
+
 Auto-localization stays on for text that the author gives as a plain string,
 also when a control reads it through a function. Only `UI.Text` and `UI.Badge`
 text that the author binds to a readable or a function turns it off.

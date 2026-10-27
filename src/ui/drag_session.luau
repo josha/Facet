@@ -1067,6 +1067,10 @@ return function(ctx: Types.Context): Drag.Service
 			end
 			current.ghost:Destroy()
 		end
+		if current.stopLift then
+			current.stopLift()
+			current.stopLift = nil
+		end
 		local ghost = image:Clone()
 		local size = image.Size
 		local unit = body:FindFirstChild("LayoutUnit") :: GuiObject?
@@ -1091,12 +1095,29 @@ return function(ctx: Types.Context): Drag.Service
 		)
 		ghost:SetAttribute("FacetDragFeedback", true)
 		ghost.Parent = layer
-		if scale * lift ~= 1 then
+		local liftValue = current.spec.liftValue
+		if liftValue then
+			local active = current
+			local stopScale, mounted = ctx.runtime.mount(function()
+				return ctx.Host.UIScale { Scale = scale * liftValue:peek() }
+			end, ghost)
+			local transform = mounted :: UIScale
+			active.stopPreview = stopScale
+			active.stopLift = ctx.runtime.mountFragment(function()
+				Compose.watch(function(use)
+					local magnification = use(liftValue)
+					transform.Scale = scale * magnification
+					active.previewSize = extent * magnification
+					active.liftScale = magnification
+				end)
+				return {}
+			end, ghost)
+		elseif scale * lift ~= 1 then
 			current.stopPreview = ctx.runtime.mount(function()
 				return ctx.Host.UIScale { Scale = scale * lift }
 			end, ghost)
 		end
-		current.previewSize = extent * lift
+		current.previewSize = extent * (current.liftScale or lift)
 		current.armedPreview = if current.mode == "armed" then image else nil
 		ghost.Position = localPoint(ghost, current.position or current.origin)
 		current.ghost = ghost
