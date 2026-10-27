@@ -8,7 +8,7 @@ local Raster = require("./raster")
 local Jpeg = require("./raster/jpeg")
 
 export type Screen = { id: string, device: string, label: string, capture: string?, dump: string? }
-export type PacketOptions = { out: string, brief: string?, screens: { Screen }, rubric: string? }
+export type PacketOptions = { out: string, brief: string?, screens: { Screen }, rubric: string?, rules: boolean? }
 export type PacketScreen = {
 	id: string,
 	device: string,
@@ -195,7 +195,7 @@ function Critique.packet(options: PacketOptions): Packet
 				entry.problem = "the dump does not load: " .. tostring(loaded)
 			end
 		end
-		if dump ~= nil then
+		if dump ~= nil and options.rules ~= false then
 			local report = DesignReview.analyze(dump)
 			entry.findings = #report.findings
 			local lines = { report.text, "", "Text outline, top to bottom:" }
@@ -384,15 +384,19 @@ local function overall(screen: unknown): number?
 	if scores == nil then
 		return nil
 	end
-	local sum, count = 0, 0
+	local sum = 0
 	for _, dimension in Critique.DIMENSIONS do
 		local value = Json.numberField(scores, dimension)
-		if value ~= nil then
-			sum += value
-			count += 1
+		if value == nil then
+			return nil
 		end
+		sum += value
 	end
-	return if count > 0 then sum / count else nil
+	return sum / #Critique.DIMENSIONS
+end
+
+function Critique.safeId(id: string): boolean
+	return string.match(id, "^[%w][%w%-_%.]*$") ~= nil and string.find(id, "..", 1, true) == nil
 end
 
 function Critique.score(cases: string, run: string): Score
@@ -403,6 +407,7 @@ function Critique.score(cases: string, run: string): Score
 	end
 	local agreements, recallSum, recallCount, errorSum, errorCount = 0, 0, 0, 0, 0
 	local overalls: { [string]: number } = {}
+	local seenIds: { [string]: boolean } = {}
 	local preferences: { { better: string, worse: string } } = {}
 	for _, entry in Files.list(cases) do
 		local folder = Files.join(cases, entry.name)
@@ -410,8 +415,17 @@ function Critique.score(cases: string, run: string): Score
 		if not Files.isFile(casePath) then
 			continue
 		end
-		local case = Json.decode(Files.read(casePath))
+		local decoded, case = pcall(Json.decode, Files.read(casePath))
+		if not decoded then
+			table.insert(result.problems, entry.name .. ": case.json does not parse")
+			continue
+		end
 		local id = Json.stringField(case, "id") or entry.name
+		if not Critique.safeId(id) or seenIds[id] then
+			table.insert(result.problems, id .. ": the case id is unsafe or repeated")
+			continue
+		end
+		seenIds[id] = true
 		local label = Json.objectField(case, "label")
 		local worse = Json.stringField(case, "betterThan")
 		if worse ~= nil then
@@ -506,6 +520,8 @@ function Critique.score(cases: string, run: string): Score
 			result.pairs += 1
 			if better > worse then
 				ordered += 1
+			elseif better == worse then
+				ordered += 0.5
 			end
 		end
 	end

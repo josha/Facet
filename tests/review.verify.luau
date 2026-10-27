@@ -168,7 +168,7 @@ return function(harness: Verify.Harness)
 			return rules(Rules.analyze(snapshot()))
 		end
 		t:expect(rows(false, true)["record-without-visual"]):toBe(1)
-		t:expect(rows(false, false)["record-without-visual"]):toBe(1)
+		t:expect(rows(false, false)["record-without-visual"]):toBe(nil)
 		t:expect(rows(true, true)["record-without-visual"]):toBe(nil)
 	end)
 
@@ -237,6 +237,55 @@ return function(harness: Verify.Harness)
 		local refusedPackage, refused = themes.define((5 :: unknown) :: ThemeTypes.ThemeDefinition)
 		t:expect(refusedPackage == nil and not refused.ok):toBe(true)
 		t:expect(#refused.advice):toBe(0)
+	end)
+
+	harness:case("ranges, ratios, bullet lists and times are not joined facts", function(t)
+		t:expect(#Rules.segments("Lap 2 / 3")):toBe(1)
+		t:expect(#Rules.segments("HP 80 / 100")):toBe(1)
+		t:expect(#Rules.segments("Level 5 – 10")):toBe(1)
+		local add, snapshot = scene()
+		add(nil, "TextLabel", 0, 0, 400, 60, { text = "• +10 speed\n• +5 grip\n• +2 boost" })
+		add(nil, "TextLabel", 0, 80, 400, 20, { text = "00:00:00" })
+		add(nil, "TextLabel", 0, 120, 400, 20, { text = "Lap 2 / 3" })
+		local counts = rules(Rules.analyze(snapshot()))
+		t:expect(counts["joined-facts"]):toBe(nil)
+		t:expect(counts["zero-wall"]):toBe(nil)
+	end)
+
+	harness:case("parallel values in sibling groups are not competing peaks", function(t)
+		local add, snapshot = scene()
+		local card = add(nil, "Frame", 0, 0, 900, 300, { opaque = true, fill = PANEL })
+		for column, name in { "Wins", "Losses", "Draws" } do
+			local block = add(card, "Frame", column * 200, 20, 160, 120)
+			local value = add(
+				block,
+				"TextLabel",
+				column * 200,
+				20,
+				160,
+				56,
+				{ text = tostring(column * 3), size = 48, bold = true }
+			)
+			local _ = value
+			add(block, "TextLabel", column * 200, 80, 160, 20, { text = name, size = 15 })
+		end
+		t:expect(rules(Rules.analyze(snapshot()))["competing-peaks"]):toBe(nil)
+	end)
+
+	harness:case("a subject image counts toward the used area of a surface", function(t)
+		local add, snapshot = scene()
+		local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+		add(page, "TextLabel", 40, 40, 300, 30, { text = "Pulse", size = 40, bold = true })
+		add(page, "TextLabel", 40, 90, 300, 20, { text = "Grip", size = 16 })
+		add(page, "ViewportFrame", 500, 100, 1300, 900, { image = true })
+		t:expect(rules(Rules.analyze(snapshot()))["stranded-content"]):toBe(nil)
+	end)
+
+	harness:case("a parent cycle does not stop the analysis", function(t)
+		local add, snapshot = scene()
+		add(2, "Frame", 0, 0, 400, 400, { opaque = true })
+		add(1, "TextLabel", 0, 0, 400, 20, { text = "Coins · 40" })
+		t:expect(#Rules.analyze(snapshot()).findings >= 1):toBe(true)
 	end)
 
 	harness:case("a malformed snapshot is refused", function(t)

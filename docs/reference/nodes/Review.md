@@ -9,8 +9,9 @@ agents, not a runtime feature.
 - `review.screen(options?) -> ReviewReport` collects the LocalPlayer's
   PlayerGui (or `options.root`) and analyzes it. Run it on the client.
 - `review.collect(options?) -> ReviewSnapshot` returns the snapshot only. It
-  reads styled values (`GetStyled`), effective visibility, absolute rectangles
-  and the `facet-type-*` tag of each Text.
+  reads ScreenGuis only, styled values (`GetStyled`), effective visibility,
+  absolute rectangles, the rendered size of scaled text under `UIScale` and
+  the `facet-type-*` tag of each Text.
 - `review.analyze(snapshot) -> ReviewReport` analyzes a snapshot. It is pure.
 - `review.fixes` maps each rule to its fix.
 
@@ -24,8 +25,8 @@ summary).
 | `joined-facts` | One text that joins facts with a middle dot, a bullet, a vertical bar, a spaced slash or an en dash. Medium when a fact has a number. |
 | `numbers-unemphasized` | Three or more texts with numbers, none larger than the common size or bold. |
 | `flat-hierarchy` | The largest text is less than 1.35 times the common size. |
-| `competing-peaks` | Two different texts share the lead size in one plate. |
-| `record-without-visual` | Three or more sibling records of one width (two texts, or 56 px tall) where fewer than half have an image or model. |
+| `competing-peaks` | Two different texts share the lead size in one plate. The same slot in sibling groups, such as three stat values, counts once. |
+| `record-without-visual` | Three or more sibling items (plates or controls) of one width, with two texts or 56 px tall, where fewer than half have an image of 32 px or more. |
 | `nested-surface` | A plate in a plate of nearly the same color. |
 | `zero-wall` | Three or more zeros that are at least half of the numbers. |
 | `single-weight` | Six or more texts in one font and one weight. |
@@ -35,11 +36,13 @@ A finding is a prompt to look, not a verdict. A rule can find a deliberate
 choice. The rules do not judge subject, art or identity. The critique-ui skill
 pairs this report with captures for that judgment.
 
-In Studio during Play, run it in the Client data model:
+In Studio during Play, run `return Facet.review.screen().text` in the Client
+data model through a Studio tool, or `print(Facet.review.screen().text)` in
+the command bar. The pure form takes any snapshot:
 
 ```luau
-local Facet = require(game.ReplicatedStorage.Packages.Facet)
-return Facet.review.screen().text
+local report = Facet.review.analyze({ width = 1920, height = 1080, elements = {} })
+assert(#report.findings == 0)
 ```
 
 `lute run tools/facet audit` and `lute run tools/facet critique` apply the

@@ -59,7 +59,7 @@ local FIXES: { [string]: string } = table.freeze({
 		.. RECIPES,
 	["flat-hierarchy"] = "The largest text is close to the common text size, so nothing leads. Choose the one thing to see first and make it clearly larger (1.6 times body or more); quiet the rest.",
 	["competing-peaks"] = "Two different texts share the largest size in one group, so they compete. Keep one peak per group: make one the lead and set the other as a label in caption or label.",
-	["record-without-visual"] = "Repeated items have no visual, so the player reads every name to tell them apart. Give each item its image or model, or else a glyph from the theme icon set, beside its name. If the rows are only facts to compare, drop the plates and align the facts in columns. "
+	["record-without-visual"] = "Repeated items have no visual, so the player reads every name to tell them apart. Give each item its image or model, or else a glyph from the theme icon set, beside its name. Rows that only compare facts belong in a Table. "
 		.. RECIPES,
 	["nested-surface"] = "A plate sits inside a plate of nearly the same color. Keep one plate per layer; separate groups with space or one hairline.",
 	["zero-wall"] = "Most numbers on this screen are zero. Replace an all-zero record with its goal: what the player does next and how far it is.",
@@ -75,24 +75,72 @@ local function clean(content: string): string
 	return plain
 end
 
-local function segments(content: string): { string }
-	local marked = " " .. content .. " "
-	for _, separator in SEPARATORS do
-		marked = string.gsub(marked, separator, "\0")
-	end
+local function split(line: string): { string }
+	local text = " " .. line .. " "
 	local parts: { string } = {}
-	for part in string.gmatch(marked .. "\0", "([^\0]*)\0") do
+	local start, position = 1, 1
+	while true do
+		local found: number?, finish: number?, separator: string? = nil, nil, nil
+		for _, candidate in SEPARATORS do
+			local i, j = string.find(text, candidate, position, true)
+			if i ~= nil and (found == nil or i < (found :: number)) then
+				found, finish, separator = i, j, candidate
+			end
+		end
+		if found == nil or finish == nil then
+			break
+		end
+		local before = string.sub(text, found - 1, found - 1)
+		local after = string.sub(text, finish + 1, finish + 1)
+		local range = (separator == " / " or separator == " – ")
+			and string.match(before, "%d") ~= nil
+			and string.match(after, "%d") ~= nil
+		if not range then
+			table.insert(parts, string.sub(text, start, found - 1))
+			start = finish + 1
+		end
+		position = finish + 1
+	end
+	table.insert(parts, string.sub(text, start))
+	local kept: { string } = {}
+	for _, part in parts do
 		local trimmed = string.gsub(string.gsub(part, "^%s+", ""), "%s+$", "")
 		if trimmed ~= "" then
-			table.insert(parts, trimmed)
+			table.insert(kept, trimmed)
 		end
 	end
-	return parts
+	return kept
+end
+
+local function lines(content: string): { string }
+	local plain = string.gsub(content, "<[^>]+>", "")
+	local found: { string } = {}
+	for line in string.gmatch(plain .. "\n", "([^\n]*)\n") do
+		local item = string.gsub(string.gsub(line, "%s+", " "), "^ ", "")
+		item = string.gsub(item, "^[•·%-%*] ", "")
+		item = string.gsub(item, " $", "")
+		if item ~= "" then
+			table.insert(found, item)
+		end
+	end
+	return found
+end
+
+local function segments(content: string): { string }
+	local found = lines(content)
+	if #found ~= 1 then
+		return if #found == 0 then {} else { content }
+	end
+	return split(found[1])
 end
 
 local function numbers(content: string): { number }
 	local found: { number } = {}
-	for token in string.gmatch(content, "%d[%d,]*%.?%d*") do
+	local rest = string.gsub(content, "%d+:%d+[:%d%.]*", function(time: string): string
+		table.insert(found, if string.find(time, "[1-9]") then 1 else 0)
+		return " "
+	end)
+	for token in string.gmatch(rest, "%d[%d,]*%.?%d*") do
 		local value = tonumber((string.gsub(token, ",", "")))
 		if value ~= nil then
 			table.insert(found, value)
@@ -133,7 +181,9 @@ local function median(values: { number }): number
 end
 
 local function quote(content: string): string
-	local short = if #content > 48 then string.sub(content, 1, 45) .. "..." else content
+	local length = utf8.len(content) or #content
+	local cut = if length > 48 then (utf8.offset(content, 46) or 46) - 1 else #content
+	local short = if length > 48 then string.sub(content, 1, cut) .. "..." else content
 	return '"' .. short .. '"'
 end
 
@@ -143,7 +193,9 @@ type Prepared = {
 	texts: { ReviewElement },
 	plates: { ReviewElement },
 	plateOf: (ReviewElement) -> ReviewElement?,
+	parentOf: (ReviewElement) -> number?,
 	descendantTexts: (ReviewElement) -> { ReviewElement },
+	descendantImages: (ReviewElement) -> { ReviewElement },
 	hasImage: (ReviewElement) -> boolean,
 }
 
@@ -170,11 +222,15 @@ local function prepare(snapshot: ReviewSnapshot): Prepared
 	for _, element in snapshot.elements do
 		byIndex[element.index] = element
 	end
+	local function parentOf(element: ReviewElement): number?
+		local parent = element.parent
+		return if parent ~= nil and parent < element.index then parent else nil
+	end
 	for _, element in snapshot.elements do
 		if not shown(element, snapshot.width, snapshot.height) then
 			continue
 		end
-		local parent = element.parent
+		local parent = parentOf(element)
 		if parent ~= nil then
 			local list = children[parent]
 			if list == nil then
@@ -192,7 +248,7 @@ local function prepare(snapshot: ReviewSnapshot): Prepared
 		end
 	end
 	local function plateOf(element: ReviewElement): ReviewElement?
-		local parent = element.parent
+		local parent = parentOf(element)
 		while parent ~= nil do
 			local ancestor = byIndex[parent]
 			if ancestor == nil then
@@ -201,13 +257,13 @@ local function prepare(snapshot: ReviewSnapshot): Prepared
 			if isPlate(ancestor) and shown(ancestor, snapshot.width, snapshot.height) then
 				return ancestor
 			end
-			parent = ancestor.parent
+			parent = parentOf(ancestor)
 		end
 		return nil
 	end
 	local descendants: { [number]: { ReviewElement } } = {}
 	for _, text in texts do
-		local parent = text.parent
+		local parent = parentOf(text)
 		while parent ~= nil do
 			local list = descendants[parent]
 			if list == nil then
@@ -216,10 +272,10 @@ local function prepare(snapshot: ReviewSnapshot): Prepared
 			end
 			table.insert(list, text)
 			local ancestor = byIndex[parent]
-			parent = if ancestor then ancestor.parent else nil
+			parent = if ancestor then parentOf(ancestor) else nil
 		end
 	end
-	local imaged: { [number]: boolean } = {}
+	local images: { [number]: { ReviewElement } } = {}
 	for _, element in snapshot.elements do
 		if not element.image or not shown(element, snapshot.width, snapshot.height) then
 			continue
@@ -229,9 +285,14 @@ local function prepare(snapshot: ReviewSnapshot): Prepared
 		end
 		local parent: number? = element.index
 		while parent ~= nil do
-			imaged[parent] = true
+			local list = images[parent]
+			if list == nil then
+				list = {}
+				images[parent] = list
+			end
+			table.insert(list, element)
 			local ancestor = byIndex[parent]
-			parent = if ancestor then ancestor.parent else nil
+			parent = if ancestor then parentOf(ancestor) else nil
 		end
 	end
 	return {
@@ -248,8 +309,19 @@ local function prepare(snapshot: ReviewSnapshot): Prepared
 			end
 			return list
 		end,
+		parentOf = parentOf,
+		descendantImages = function(element: ReviewElement): { ReviewElement }
+			return images[element.index] or {}
+		end,
 		hasImage = function(element: ReviewElement): boolean
-			return imaged[element.index] == true
+			local floor = math.max(32, element.rect.height * 0.25)
+			local found: { ReviewElement } = images[element.index] or {}
+			for _, image in found do
+				if image.rect.height >= floor and image.rect.width >= 32 then
+					return true
+				end
+			end
+			return false
 		end,
 	}
 end
@@ -283,7 +355,7 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 
 	for _, element in texts do
 		local content = clean(textOf(element).content)
-		if #content > 120 then
+		if #content > 120 or #lines(textOf(element).content) ~= 1 then
 			continue
 		end
 		local parts = segments(content)
@@ -363,8 +435,8 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		end
 		table.insert(list, element)
 	end
-	for _, list in groups do
-		if #list < 3 then
+	for key, list in groups do
+		if key == 0 or #list < 3 then
 			continue
 		end
 		local top = 0
@@ -383,11 +455,32 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		end
 		local peaks: { ReviewElement } = {}
 		local seen: { [string]: boolean } = {}
+		local slots: { [string]: { [number]: boolean } } = {}
 		for _, element in list do
 			local content = clean(textOf(element).content)
-			if textOf(element).size >= 0.92 * top and not seen[content] then
-				seen[content] = true
+			if textOf(element).size < 0.92 * top or seen[content] then
+				continue
+			end
+			seen[content] = true
+			local parent = prepared.parentOf(element) or 0
+			local holder = prepared.byIndex[parent]
+			local slot = element.class .. "|" .. tostring(textOf(element).size)
+			if holder ~= nil then
+				slot ..= ("|%d|%d|%d|%d"):format(
+					math.floor((element.rect.x - holder.rect.x) / 4 + 0.5),
+					math.floor((element.rect.y - holder.rect.y) / 4 + 0.5),
+					math.floor(holder.rect.width / 4 + 0.5),
+					math.floor(holder.rect.height / 4 + 0.5)
+				)
+			end
+			local parents = slots[slot]
+			if parents == nil then
+				slots[slot] = { [parent] = true }
 				table.insert(peaks, element)
+			elseif parents[parent] then
+				table.insert(peaks, element)
+			else
+				parents[parent] = true
 			end
 		end
 		if #peaks >= 2 then
@@ -432,6 +525,7 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		end
 		local pictured = 0
 		local plated = 0
+		local controls = 0
 		for _, element in alike do
 			if prepared.hasImage(element) then
 				pictured += 1
@@ -439,8 +533,12 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 			if isPlate(element) then
 				plated += 1
 			end
+			if element.interactive then
+				controls += 1
+			end
 		end
-		if pictured * 2 < #alike then
+		local items = plated == #alike or controls == #alike
+		if items and pictured * 2 < #alike then
 			local first = alike[1]
 			add(
 				"record-without-visual",
@@ -527,6 +625,11 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		local content = prepared.descendantTexts(plate)
 		if #content < 2 then
 			continue
+		end
+		for _, image in prepared.descendantImages(plate) do
+			if image ~= plate then
+				table.insert(content, image)
+			end
 		end
 		local left, top, right, bottom = math.huge, math.huge, -math.huge, -math.huge
 		for _, element in content do

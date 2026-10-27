@@ -10,6 +10,7 @@ export type ReviewOptions = { root: Instance? }
 type Object = { [string]: unknown }
 
 local ROLE_PREFIX = "facet-type-"
+local ENGINE_GUIS: { [string]: boolean } = { TouchGui = true, Freecam = true, BubbleChat = true, Chat = true }
 
 local function read(object: unknown, key: string): unknown
 	if object == nil then
@@ -103,17 +104,31 @@ end
 
 local function collect(options: ReviewOptions?): ReviewSnapshot
 	local given: ReviewOptions = options or {}
-	local game = dataModel()
+	local game: unknown = nil
+	if given.root ~= nil then
+		local found, model = call(given.root, "FindFirstAncestorWhichIsA", "DataModel")
+		game = if found then model else nil
+	else
+		game = dataModel()
+	end
 	local ok, workspace = call(game, "GetService", "Workspace")
 	local width, height = vector(read(if ok then read(workspace, "CurrentCamera") else nil, "ViewportSize"))
 	local elements: { ReviewElement } = {}
-	local visit: (unknown, number?, boolean) -> ()
-	local function visitChild(child: unknown, parent: number?, shown: boolean)
+	local visit: (unknown, number?, boolean, number) -> ()
+	local function visitChild(child: unknown, parent: number?, shown: boolean, scale: number)
 		do
-			local nextParent, nextShown = parent, shown
+			local nextParent, nextShown, nextScale = parent, shown, scale
 			if isA(child, "LayerCollector") then
+				local name = text(read(child, "Name"))
+				if not isA(child, "ScreenGui") or (name ~= nil and ENGINE_GUIS[name]) then
+					return
+				end
 				nextShown = shown and read(child, "Enabled") ~= false
 			elseif isA(child, "GuiObject") then
+				local found, uiScale = call(child, "FindFirstChildOfClass", "UIScale")
+				if found and uiScale ~= nil then
+					nextScale = scale * number(read(uiScale, "Scale"), 1)
+				end
 				local x, y = vector(read(child, "AbsolutePosition"))
 				local w, h = vector(read(child, "AbsoluteSize"))
 				local visible = shown and read(child, "Visible") ~= false
@@ -140,9 +155,14 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 				if isA(child, "TextLabel") or isA(child, "TextButton") or isA(child, "TextBox") then
 					local face = styled(child, "FontFace")
 					local weight = number(read(read(face, "Weight"), "Value"), 400)
+					local size = number(styled(child, "TextSize"), 14)
+					if styled(child, "TextScaled") == true then
+						local _, boundsHeight = vector(read(child, "TextBounds"))
+						size = if boundsHeight > 0 then boundsHeight / nextScale else size
+					end
 					element.text = {
 						content = text(read(child, "Text")) or "",
-						size = number(styled(child, "TextSize"), 14),
+						size = math.floor(size * nextScale + 0.5),
 						bold = weight >= 600,
 						font = text(read(face, "Family")),
 						role = role(child),
@@ -153,19 +173,19 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 				table.insert(elements, element)
 				nextParent, nextShown = element.index, visible
 			end
-			visit(child, nextParent, nextShown)
+			visit(child, nextParent, nextShown, nextScale)
 		end
 	end
-	visit = function(object: unknown, parent: number?, shown: boolean)
+	visit = function(object: unknown, parent: number?, shown: boolean, scale: number)
 		for _, child in children(object) do
-			visitChild(child, parent, shown)
+			visitChild(child, parent, shown, scale)
 		end
 	end
 	for _, root in roots(given.root) do
-		if isA(root, "GuiObject") then
-			visitChild(root, nil, true)
+		if isA(root, "GuiObject") or isA(root, "LayerCollector") then
+			visitChild(root, nil, true, 1)
 		else
-			visit(root, nil, true)
+			visit(root, nil, true, 1)
 		end
 	end
 	if width <= 0 or height <= 0 then

@@ -125,8 +125,13 @@ local function report(
 	if #lines == 1 then
 		table.insert(lines, "  no finding")
 	end
-	for _, line in DesignReview.lines(DesignReview.analyze(loaded), fixes) do
-		table.insert(lines, line)
+	local reviewed, design = pcall(DesignReview.analyze, loaded)
+	if reviewed then
+		for _, line in DesignReview.lines(design, fixes, all) do
+			table.insert(lines, line)
+		end
+	else
+		table.insert(lines, "  design: not run: " .. tostring(design))
 	end
 	return table.concat(lines, "\n"), high, result.score
 end
@@ -157,7 +162,8 @@ local function run(invocation: Cli.Invocation): number
 		local loaded = Look.load(saved)
 		local text, high = report(devices[1], saved, loaded, all)
 		local value = (Look.audit(loaded, devices[1]) :: unknown) :: { [string]: json.Value }
-		value.design = (DesignReview.analyze(loaded).findings :: unknown) :: json.Value
+		local reviewed, design = pcall(DesignReview.analyze, loaded)
+		value.design = if reviewed then (design.findings :: unknown) :: json.Value else {}
 		Cli.emit(invocation, (value :: unknown) :: json.Value, text)
 		return if high then 1 else 0
 	end
@@ -182,18 +188,19 @@ local function run(invocation: Cli.Invocation): number
 			failed = true
 			continue
 		end
-		local text, high, score = report(screen.device, screen.label, Look.load(screen.dump :: string), all, fixes)
+		local loaded = Look.load(screen.dump :: string)
+		local text, high, score = report(screen.device, screen.label, loaded, all, fixes)
 		if screen.problem ~= nil then
 			text ..= "\n  problem: " .. (screen.problem :: string)
 		end
 		table.insert(texts, text)
-		local design = DesignReview.analyze(Look.load(screen.dump :: string))
+		local reviewed, design = pcall(DesignReview.analyze, loaded)
 		local entry: json.Value = {
 			device = screen.device,
 			label = screen.label,
 			score = score,
 			high = high,
-			design = #design.findings,
+			design = if reviewed then (design.findings :: unknown) :: json.Value else {},
 		}
 		table.insert(scores, entry)
 		failed = failed or high

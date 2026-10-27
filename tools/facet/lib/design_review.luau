@@ -44,11 +44,16 @@ function DesignReview.analyze(dump: Audit.Dump): Report
 	return Rules.analyze(DesignReview.snapshot(dump))
 end
 
-function DesignReview.lines(report: Report, printed: { [string]: boolean }?): { string }
+function DesignReview.lines(report: Report, printed: { [string]: boolean }?, all: boolean?): { string }
 	local lines: { string } = {}
 	local order: { string } = {}
 	local grouped: { [string]: { Rules.ReviewFinding } } = {}
+	local shown = 0
 	for _, finding in report.findings do
+		if finding.severity == "low" and all == false then
+			continue
+		end
+		shown += 1
 		local list = grouped[finding.rule]
 		if list == nil then
 			list = {}
@@ -62,9 +67,7 @@ function DesignReview.lines(report: Report, printed: { [string]: boolean }?): { 
 	end
 	table.insert(
 		lines,
-		("  design (%d): patterns that make a screen look generic; they do not change the score"):format(
-			#report.findings
-		)
+		("  design (%d): patterns that make a screen look generic; they do not change the score"):format(shown)
 	)
 	for _, rule in order do
 		local list = grouped[rule]

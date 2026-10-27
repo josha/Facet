@@ -42,7 +42,8 @@ preview. The default devices are desktop and phone-portrait.
   --out DIR       The packet folder. The default is artifacts/facet-critique.
 
 cases builds one blind packet for each calibration case under DIR (each folder
-holds case.json and its capture). The labels stay out of the packet.
+holds case.json and its capture). The labels stay out of the packet. Add
+--no-rules to leave out design.txt, so the score measures the reviewer's own eye.
 compare writes side-by-side captures and the change in rule findings for each
 screen that two packets share.
 score compares the verdict.json in each case packet with the case labels and
@@ -96,14 +97,23 @@ local function cases(invocation: Cli.Invocation): number
 		if not Files.isFile(casePath) then
 			continue
 		end
-		local case = Json.decode(Files.read(casePath))
-		local id = Json.stringField(case, "id") or entry.name
+		local decoded, case = pcall(Json.decode, Files.read(casePath))
+		local id = if decoded then Json.stringField(case, "id") or entry.name else entry.name
+		if not decoded or not Critique.safeId(id) then
+			table.insert(
+				lines,
+				("critique cases: %s: skipped; case.json does not parse or its id is unsafe"):format(entry.name)
+			)
+			failed = true
+			continue
+		end
 		local capture = Json.stringField(case, "capture")
 		local dump = Json.stringField(case, "dump")
 		local device = Json.stringField(case, "device") or "desktop"
 		local packet = Critique.packet({
 			out = Files.join(out, id),
 			brief = Json.stringField(case, "brief"),
+			rules = not Cli.switch(invocation, "no-rules"),
 			screens = {
 				{
 					id = id,
@@ -126,10 +136,21 @@ local function cases(invocation: Cli.Invocation): number
 end
 
 local function run(invocation: Cli.Invocation): number
-	local unknown = Cli.unknownFlags(
-		invocation,
-		{ "device", "tap", "wait", "project", "out", "keep", "capture", "dump", "label", "brief", "cases", "run" }
-	)
+	local unknown = Cli.unknownFlags(invocation, {
+		"device",
+		"tap",
+		"wait",
+		"project",
+		"out",
+		"keep",
+		"capture",
+		"dump",
+		"label",
+		"brief",
+		"cases",
+		"run",
+		"no-rules",
+	})
 	if unknown ~= nil then
 		print("facet critique: unknown flags " .. unknown)
 		print(USAGE)
@@ -307,7 +328,18 @@ local function register(harness: Verify.Harness, prefix: string): ()
 					Json.encode({
 						schema = Critique.SCHEMA,
 						screens = {
-							{ id = id, verdict = verdict, scores = { lead = score, numbers = score }, fixes = fixes },
+							{
+								id = id,
+								verdict = verdict,
+								scores = {
+									lead = score,
+									numbers = score,
+									visuals = score,
+									identity = score,
+									economy = score,
+								},
+								fixes = fixes,
+							},
 						},
 					})
 				)
