@@ -199,7 +199,8 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 				hidden,
 				not built,
 				arrival,
-				groupReady
+				groupReady,
+				true
 			) :: Frame
 		end
 		local function reveal(condition: Shared.ReadOnlyValue<boolean>, render: () -> Instance): Shared.Child

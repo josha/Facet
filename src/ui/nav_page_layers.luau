@@ -15,7 +15,8 @@ export type PageLayers = {
 		(() -> ())?,
 		boolean?,
 		ComposeTypes.Value<boolean>?,
-		ComposeTypes.ReadOnlyValue<boolean>?
+		ComposeTypes.ReadOnlyValue<boolean>?,
+		boolean?
 	) -> GuiObject,
 	checkedSelection: (ComposeTypes.Value<string>, { Nav.Tab }, string) -> { [string]: Nav.Tab },
 }
@@ -29,6 +30,53 @@ return function(ctx: Types.Context): PageLayers
 		return if type(builder) == "function" then builder(entry) else builder
 	end
 	local checkTransition = transitions.check
+	local function plate(panel: GuiObject, scale: ComposeTypes.ReadOnlyValue<number>)
+		local ancestry = Compose.cell(0)
+		runtime.connect(panel, "AncestryChanged", function()
+			ancestry:set(ancestry:peek() + 1)
+		end)
+		local zooming = Compose.formula(function(use: ComposeTypes.Use): boolean
+			return use(scale) ~= 1
+		end)
+		local backdrop = Compose.formula(function(use: ComposeTypes.Use): Color3?
+			if not use(zooming) then
+				return nil
+			end
+			use(ancestry)
+			local at: Instance? = panel.Parent
+			while at do
+				if at:IsA("GuiObject") and (at:GetStyled("BackgroundTransparency") :: number) < 1 then
+					return at:GetStyled("BackgroundColor3") :: Color3
+				end
+				at = at.Parent
+			end
+			return nil
+		end)
+		runtime.mountFragment(function()
+			return {
+				Compose.show(function(use: ComposeTypes.Use): boolean
+					return use(backdrop) ~= nil
+				end, function()
+					local color = assert(backdrop:peek())
+					return Host.Frame "TransitionPlate" {
+						AnchorPoint = ctx.types.Vector2.new(0.5, 0.5),
+						Position = ctx.types.UDim2.fromScale(0.5, 0.5),
+						Size = ctx.types.UDim2.fromScale(1, 1),
+						BorderSizePixel = 0,
+						ZIndex = 0,
+						Interactable = false,
+						BackgroundColor3 = function(use: ComposeTypes.Use): Color3
+							color = use(backdrop) or color
+							return color
+						end,
+						Host.UIScale "TransitionScale" {
+							Scale = scale,
+						},
+					}
+				end),
+			}
+		end, panel)
+	end
 	local function layer(
 		properties: Types.CanvasGroupNativeProps & Types.FrameNativeProps,
 		state: ComposeTypes.ReadOnlyValue<ComposeTypes.LayerStackState>,
@@ -36,7 +84,8 @@ return function(ctx: Types.Context): PageLayers
 		hidden: (() -> ())?,
 		immediate: boolean?,
 		prepared: ComposeTypes.Value<boolean>?,
-		groupReady: ComposeTypes.ReadOnlyValue<boolean>?
+		groupReady: ComposeTypes.ReadOnlyValue<boolean>?,
+		holdOnExit: boolean?
 	): GuiObject
 		if transition == nil or transition == false then
 			local node = Host.Frame(properties)
@@ -72,16 +121,14 @@ return function(ctx: Types.Context): PageLayers
 			immediate,
 			if immediate then nil else arrived,
 			nil,
-			animatedPresented
+			animatedPresented,
+			holdOnExit
 		)
 		local content: Frame? = nil
-		local centered = transition.scale ~= nil
-		if transition.apply or centered then
+		if transition.apply then
 			content = Host.Frame {
 				Name = "TransitionContent",
 				BackgroundTransparency = 1,
-				AnchorPoint = if centered then ctx.types.Vector2.new(0.5, 0.5) else nil,
-				Position = if centered then ctx.types.UDim2.fromScale(0.5, 0.5) else nil,
 				Size = ctx.types.UDim2.fromScale(1, 1),
 			}
 			local children: { Types.Child } = {}
@@ -116,6 +163,10 @@ return function(ctx: Types.Context): PageLayers
 		end
 		local panel = ctx.fade(properties, nil, if properties.BackgroundTransparency == 1 then false else nil)
 		moving.apply(content or panel, panel)
+		local scale = moving.scale
+		if scale then
+			plate(panel, scale)
+		end
 		if not arrived:peek() and runtime.host.frames then
 			local ready = presentationReadiness(ctx, { panel })
 			panel:SetAttribute("FacetPreparing", true)

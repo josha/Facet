@@ -2,9 +2,8 @@
 
 Use `NavigationSplitView` for two related panes. Set `axis = "x"` (the default)
 for side-by-side panes or `axis = "y"` for panes stacked top/bottom. Layouts
-with enough room on that axis show both panes with a resize divider. Compact
-layouts and ten-foot layouts show one pane with
-Back and Show detail controls. A gamepad at near viewing distance can use both
+with enough room on that axis show both panes with a resize divider. Compact and
+ten-foot layouts show one pane with Back and Show detail controls. A gamepad at near viewing distance can use both
 panes.
 
 ```luau
@@ -32,9 +31,7 @@ writes `"detail"`. Set it to `"detail"` when a selection opens the detail pane.
 `backLabel` defaults to `"Back"`; `detailLabel` defaults to `"Show detail"`.
 
 Set `detailLabel = false` when an activation in the sidebar opens the detail
-pane. Then the compact sidebar has no Show detail row and starts at the top of
-the control. The control cannot see what an activation does, so the default
-keeps the row.
+pane. Then the compact sidebar has no Show detail row and starts at the top. The control cannot see what an activation does, so the row is the default.
 
 Set `compactBack` to a writable boolean cell when the page has its own
 `UI.NavBar`. Then the compact detail pane has no Back row of its own. The
@@ -59,15 +56,15 @@ UI.NavigationSplitView {
 
 By default, the compact layout changes its column at once. Set `transition`
 to animate the column change. The pane that opens moves from progress 0 to 1.
-The pane that closes plays the reverse. When `detailVisible` becomes false,
-the detail pane stays until its motion completes. The panes that are present
+The closing pane plays the reverse, but a zoom only fades it. When `detailVisible`
+becomes false, the detail pane stays until its motion completes. The panes that are present
 when the control mounts show without motion. `transition` takes the
 [Custom-transitions](Custom-transitions.md) table.
 
 ```luau
 UI.NavigationSplitView {
     preferredCompactColumn = column,
-    transition = { scale = 0.5 },
+    transition = { scale = true },
     sidebar = games,
     detail = board,
 }

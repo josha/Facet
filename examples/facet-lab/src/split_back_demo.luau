@@ -21,7 +21,7 @@ return function(handoff: boolean, zoom: boolean?): CatalogTypes.Builder
 			end,
 		}
 		if zoom then
-			props.transition = { scale = 0.5 }
+			props.transition = { scale = true }
 		end
 		if handoff then
 			props.compactBack = back
