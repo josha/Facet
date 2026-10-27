@@ -96,7 +96,6 @@ local function attachLayout(
 	end
 	local revision = Compose.cell(0)
 	local styling = Compose.cell(0)
-	local content = Compose.cell(label.Text)
 	local snapshotAt = -1
 	local snapMode, snapSize, snapWrapped = label.AutomaticSize, label.Size, false
 	local function snapshot()
@@ -153,7 +152,6 @@ local function attachLayout(
 		elseif property == "AbsoluteSize" or property == "TextBounds" then
 			geometryChanged()
 		elseif property == "Text" then
-			content:set(label.Text)
 			floorApply()
 			if not measuredFloor() and previousSize ~= nil and label.TextSize ~= previousSize then
 				deferReflow()
@@ -382,9 +380,7 @@ local function attachLayout(
 			if current.free == nil and wrappedHeight == nil then
 				return
 			end
-			local nativeBounds = if read and current.free
-				then read((if use then use(content) else content:peek()))
-				else nil
+			local nativeBounds = if read and current.free then read(label.Text) else nil
 			local mode, authoredSize = snapMode, snapSize
 			local measured = nativeBounds or (if use then use(bounds) else bounds:peek())
 			if nativeBounds and measured == appliedBounds and revision:peek() == appliedRevision then
