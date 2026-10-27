@@ -115,9 +115,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local bare = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return effective(use) == "Gamepad"
 		end)
-		local entries = Compose.formula(function(use: ComposeTypes.Use): { Entry }
-			return check(read(spec.entries, use))
-		end)
+		local entries = spec.entries
+		if kit.dynamic(entries) then
+			Compose.watch(function(use: ComposeTypes.Use)
+				check(read(entries, use))
+			end)
+		else
+			check(read(entries))
+		end
 		local shown: ComposeTypes.Value<Shown> = Compose.cell({})
 		local placed = Compose.cell(0)
 		local hint: (InputProps.ShortcutHintProps) -> TextLabel | Frame = UI.ShortcutHint
@@ -214,46 +219,65 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		})
 		p.Selectable = false
 		p.Active = false
-		p[#p + 1] = Compose.keyed({
-			from = function(use: ComposeTypes.Use): { boolean }
-				return { use(bare) }
-			end,
-			render = function(): Frame
-				return Host.Frame "Entries" {
-					Size = D2.fromOffset(0, 0),
-					AutomaticSize = E.AutomaticSize.XY,
-					BackgroundTransparency = 1,
-					Selectable = false,
-					Host.UIListLayout({
-						FillDirection = E.FillDirection.Horizontal,
-						VerticalAlignment = E.VerticalAlignment.Center,
-						SortOrder = E.SortOrder.LayoutOrder,
-						Padding = function(use: ComposeTypes.Use): UDim
-							return UDim.new(0, ctx.metric("space.m", use))
-						end,
-					}),
-					Compose.keyed({
-						from = entries,
-						key = keyOf,
-						render = render,
-					}),
-				}
-			end,
-		})
+		local function buildEntries(): ComposeTypes.Directive
+			return Compose.keyed({
+				from = function(use: ComposeTypes.Use): { boolean }
+					return { use(bare) }
+				end,
+				render = function(): Frame
+					return Host.Frame "Entries" {
+						Size = D2.fromOffset(0, 0),
+						AutomaticSize = E.AutomaticSize.XY,
+						BackgroundTransparency = 1,
+						Selectable = false,
+						Host.UIListLayout({
+							FillDirection = E.FillDirection.Horizontal,
+							VerticalAlignment = E.VerticalAlignment.Center,
+							SortOrder = E.SortOrder.LayoutOrder,
+							Padding = function(use: ComposeTypes.Use): UDim
+								return UDim.new(0, ctx.metric("space.m", use))
+							end,
+						}),
+						Compose.keyed({
+							from = function(use: ComposeTypes.Use): { Entry }
+								return read(entries, use)
+							end,
+							key = keyOf,
+							render = render,
+						}),
+					}
+				end,
+			})
+		end
 		local root = Host.Frame(p)
 		runtime.connect(root, "AncestryChanged", function()
 			placed:set(placed:peek() + 1)
 		end)
+		local function available(use: ComposeTypes.Use): boolean
+			if read(spec.Visible, use) == false or read(ctx.config.buttonGuides, use) == false then
+				return false
+			end
+			if not accepted[effective(use)] then
+				return false
+			end
+			use(placed)
+			if not ctx.withinModal(root, use) then
+				return false
+			end
+			return true
+		end
+		local attached = false
+		runtime.mountFragment(function()
+			return {
+				Compose.show(function(use: ComposeTypes.Use): boolean
+					attached = attached or available(use)
+					return attached
+				end, buildEntries),
+			}
+		end, root)
 		runtime.decorate(root, {
 			Visible = function(use: ComposeTypes.Use): boolean
-				if read(spec.Visible, use) == false or read(ctx.config.buttonGuides, use) == false then
-					return false
-				end
-				if not accepted[effective(use)] then
-					return false
-				end
-				use(placed)
-				if not ctx.withinModal(root, use) then
+				if not available(use) then
 					return false
 				end
 				for _, live in use(shown) do

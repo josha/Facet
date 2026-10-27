@@ -128,7 +128,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local popSeconds = ctx.metric("motion.durations.buttonPop")
 		local popTimeline = if spec.pop then runtime.timeline({ duration = popSeconds, autoplay = false }) else nil
 		local popReduced = if popTimeline then reducedMotion(ctx) else nil
-		local popStart = Compose.cell(1)
+		local popStart = if popTimeline then Compose.cell(1) else nil
 		local popScale
 		if popTimeline then
 			popTimeline:seek(popSeconds)
@@ -141,7 +141,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end
 				local phase = use(popTimeline.progress)
 				return 1
-					+ (use(popStart) - 1) * (1 - present(phase))
+					+ (use(assert(popStart)) - 1) * (1 - present(phase))
 					+ overshoot * math.sin(math.pi * phase) * math.exp(-decay * phase)
 			end)
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -188,7 +188,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			local live = enabled(spec)
 			if live and node and ctx.available(node) and spec.onActivate then
 				if popTimeline and popScale and popReduced and not held and not popReduced() then
-					popStart:set(popScale:peek())
+					assert(popStart):set(popScale:peek())
 					popTimeline:restart()
 				end
 				spec.onActivate(...)

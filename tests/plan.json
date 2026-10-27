@@ -6,6 +6,7 @@
     "batchCount": 1
   },
   "units": [
+    { "id": "native_control_memory", "locator": "tests/native_control_memory.verify.luau", "requires": ["local-luau"] },
     { "id": "world_drag", "locator": "tests/world_drag.verify.luau", "requires": ["local-luau"] },
     { "id": "native_camera_rig", "locator": "tests/native_camera_rig.verify.luau", "requires": ["local-luau"] },
     {

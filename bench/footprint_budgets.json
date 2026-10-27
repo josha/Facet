@@ -1,212 +1,267 @@
 {
+    "Badge": {
+        "holdings": 28,
+        "connections": 10,
+        "instances": 4
+    },
     "Picker-open": {
-        "connections": 64,
         "instances": 32,
+        "connections": 64,
         "holdings": 295
     },
     "Card-actions-reactive-theme": {
-        "connections": 25,
         "instances": 26,
+        "connections": 25,
         "holdings": 146
     },
     "Button-focused": {
-        "connections": 10,
         "instances": 5,
+        "connections": 10,
         "holdings": 28
     },
     "VirtualList-2-rows": {
-        "connections": 48,
         "instances": 34,
+        "connections": 48,
         "holdings": 209
     },
     "ColorPicker-open": {
-        "connections": 539,
-        "instances": 353,
-        "holdings": 2470
+        "instances": 338,
+        "connections": 518,
+        "holdings": 2419
     },
-    "Card-actions": {
-        "connections": 25,
-        "instances": 24,
-        "holdings": 135
+    "Dialog-reactive-theme": {
+        "instances": 33,
+        "connections": 43,
+        "holdings": 220
     },
     "Picker": {
-        "connections": 16,
         "instances": 9,
+        "connections": 16,
         "holdings": 66
     },
     "TextInput-reactive-theme": {
-        "connections": 4,
         "instances": 3,
+        "connections": 4,
         "holdings": 21
     },
+    "Badge-updating-reactive-theme": {
+        "holdings": 40,
+        "connections": 10,
+        "instances": 4
+    },
     "Card-reactive-theme": {
-        "connections": 7,
         "instances": 10,
+        "connections": 7,
         "holdings": 61
     },
     "VirtualList-1-rows": {
-        "connections": 40,
         "instances": 31,
+        "connections": 40,
         "holdings": 176
     },
     "Menu-1-rows": {
-        "connections": 53,
         "instances": 25,
+        "connections": 53,
         "holdings": 234
     },
     "TextInput-focused-reactive-theme": {
-        "connections": 15,
         "instances": 17,
+        "connections": 15,
         "holdings": 59
     },
     "ColorPicker": {
-        "connections": 13,
         "instances": 9,
+        "connections": 13,
         "holdings": 80
     },
-    "Menu-2-rows": {
-        "connections": 63,
-        "instances": 27,
-        "holdings": 277
+    "ColorPicker-open-reactive-theme": {
+        "instances": 362,
+        "connections": 518,
+        "holdings": 2686
     },
     "Picker-open-reactive-theme": {
-        "connections": 67,
         "instances": 40,
+        "connections": 67,
         "holdings": 348
     },
     "TextInput": {
-        "connections": 4,
         "instances": 2,
+        "connections": 4,
         "holdings": 17
     },
     "Card": {
-        "connections": 7,
         "instances": 10,
+        "connections": 7,
         "holdings": 61
     },
     "ColorPicker-reactive-theme": {
-        "connections": 13,
         "instances": 9,
+        "connections": 13,
         "holdings": 83
     },
     "Sheet-reactive-theme": {
-        "connections": 49,
         "instances": 45,
+        "connections": 49,
         "holdings": 258
     },
-    "Text-reactive-theme": {
-        "connections": 6,
-        "instances": 3,
-        "holdings": 22
-    },
-    "Button-reactive-theme": {
-        "connections": 3,
-        "instances": 3,
-        "holdings": 21
-    },
-    "Button-bounded": {
-        "connections": 6,
-        "instances": 2,
-        "holdings": 20
-    },
-    "VirtualList-1-rows-reactive-theme": {
-        "connections": 40,
-        "instances": 33,
-        "holdings": 187
-    },
-    "VirtualList-2-rows-reactive-theme": {
-        "connections": 48,
-        "instances": 38,
-        "holdings": 231
-    },
-    "TextInput-focused": {
-        "connections": 15,
-        "instances": 16,
-        "holdings": 55
-    },
-    "Slider-reactive-theme": {
-        "connections": 13,
-        "instances": 23,
-        "holdings": 91
-    },
-    "Button-focused-reactive-theme": {
-        "connections": 10,
-        "instances": 7,
-        "holdings": 39
-    },
-    "Picker-reactive-theme": {
-        "connections": 17,
-        "instances": 11,
-        "holdings": 79
-    },
-    "Dialog-reactive-theme": {
-        "connections": 45,
-        "instances": 33,
-        "holdings": 222
-    },
-    "Menu-2-rows-reactive-theme": {
-        "connections": 64,
-        "instances": 35,
-        "holdings": 320
-    },
-    "Menu-1-rows-reactive-theme": {
-        "connections": 54,
-        "instances": 31,
-        "holdings": 267
-    },
-    "Text": {
-        "connections": 6,
-        "instances": 3,
-        "holdings": 22
-    },
-    "ColorPicker-open-reactive-theme": {
-        "connections": 539,
-        "instances": 377,
-        "holdings": 2743
-    },
-    "Sheet": {
-        "connections": 48,
-        "instances": 41,
-        "holdings": 238
-    },
-    "Toggle": {
-        "connections": 3,
-        "instances": 6,
-        "holdings": 21
-    },
-    "Text-fixed": {
-        "connections": 1,
-        "holdings": 4,
-        "instances": 1
-    },
-    "Text-fixed-reactive-theme": {
-        "connections": 1,
-        "instances": 1,
-        "holdings": 4
-    },
-    "Button-bounded-reactive-theme": {
-        "connections": 6,
-        "instances": 4,
-        "holdings": 31
-    },
-    "Button": {
-        "connections": 3,
-        "instances": 1,
-        "holdings": 10
-    },
     "Toggle-reactive-theme": {
-        "connections": 3,
         "instances": 10,
+        "connections": 3,
         "holdings": 45
     },
     "Dialog": {
-        "connections": 45,
         "instances": 30,
-        "holdings": 208
+        "connections": 43,
+        "holdings": 206
+    },
+    "Text-reactive-theme": {
+        "instances": 3,
+        "connections": 6,
+        "holdings": 22
+    },
+    "Card-actions": {
+        "instances": 24,
+        "connections": 25,
+        "holdings": 135
+    },
+    "Menu-2-rows-reactive-theme": {
+        "instances": 35,
+        "connections": 64,
+        "holdings": 320
+    },
+    "Button-bounded": {
+        "instances": 2,
+        "connections": 6,
+        "holdings": 20
+    },
+    "VirtualList-1-rows-reactive-theme": {
+        "instances": 33,
+        "connections": 40,
+        "holdings": 187
+    },
+    "VirtualList-2-rows-reactive-theme": {
+        "instances": 38,
+        "connections": 48,
+        "holdings": 231
+    },
+    "Menu-1-rows-reactive-theme": {
+        "instances": 31,
+        "connections": 54,
+        "holdings": 267
+    },
+    "TextInput-labelled": {
+        "holdings": 47,
+        "connections": 10,
+        "instances": 10
+    },
+    "Toggle": {
+        "instances": 6,
+        "connections": 3,
+        "holdings": 21
+    },
+    "ButtonGuide-hidden-reactive-theme": {
+        "holdings": 10,
+        "connections": 1,
+        "instances": 1
+    },
+    "TextInput-focused": {
+        "instances": 16,
+        "connections": 15,
+        "holdings": 55
+    },
+    "Slider-reactive-theme": {
+        "instances": 23,
+        "connections": 13,
+        "holdings": 91
+    },
+    "Text-fixed": {
+        "holdings": 4,
+        "connections": 1,
+        "instances": 1
+    },
+    "Buttons-20-input": {
+        "holdings": 285,
+        "connections": 49,
+        "instances": 23
+    },
+    "Text-fixed-reactive-theme": {
+        "instances": 1,
+        "connections": 1,
+        "holdings": 4
+    },
+    "Picker-reactive-theme": {
+        "instances": 11,
+        "connections": 17,
+        "holdings": 79
+    },
+    "Button-bounded-reactive-theme": {
+        "instances": 4,
+        "connections": 6,
+        "holdings": 31
+    },
+    "Sheet": {
+        "instances": 41,
+        "connections": 48,
+        "holdings": 238
+    },
+    "Badge-updating": {
+        "holdings": 32,
+        "connections": 10,
+        "instances": 4
+    },
+    "Button": {
+        "instances": 1,
+        "connections": 3,
+        "holdings": 10
+    },
+    "Text": {
+        "instances": 3,
+        "connections": 6,
+        "holdings": 22
+    },
+    "ButtonGuide-shown": {
+        "holdings": 82,
+        "connections": 18,
+        "instances": 13
+    },
+    "Menu-2-rows": {
+        "instances": 27,
+        "connections": 63,
+        "holdings": 277
+    },
+    "TextInput-labelled-reactive-theme": {
+        "holdings": 56,
+        "connections": 10,
+        "instances": 12
+    },
+    "ButtonGuide-hidden": {
+        "holdings": 10,
+        "connections": 1,
+        "instances": 1
+    },
+    "Button-focused-reactive-theme": {
+        "instances": 7,
+        "connections": 10,
+        "holdings": 39
+    },
+    "Badge-reactive-theme": {
+        "holdings": 36,
+        "connections": 10,
+        "instances": 4
+    },
+    "ButtonGuide-shown-reactive-theme": {
+        "holdings": 82,
+        "connections": 18,
+        "instances": 13
+    },
+    "Button-reactive-theme": {
+        "instances": 3,
+        "connections": 3,
+        "holdings": 21
     },
     "Slider": {
-        "connections": 13,
         "instances": 17,
+        "connections": 13,
         "holdings": 70
     }
 }

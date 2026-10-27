@@ -13,6 +13,23 @@ return function(ctx: Types.Context): Shared
 	local runtime, Compose = ctx.runtime, ctx.Compose
 	local themes = bindThemes(Compose)
 	local types, read = ctx.types, ctx.read
+	local presence: { [string]: ComposeTypes.AcquireSharedResource<ComposeTypes.ReadOnlyValue<boolean>> } = {}
+	local function needsSkin(slot: string): ComposeTypes.ReadOnlyValue<boolean>
+		local acquire: ComposeTypes.AcquireSharedResource<ComposeTypes.ReadOnlyValue<boolean>>? = presence[slot]
+		if acquire == nil then
+			acquire = Compose.createSharedResource(function(): (ComposeTypes.ReadOnlyValue<boolean>, (() -> ())?)
+				return Compose.formula(function(use: ComposeTypes.Use): boolean
+					local package = read(ctx.config.theme, use)
+					local chrome = if package then package.chrome else nil
+					local recipe = if chrome then chrome[slot] else nil
+					return recipe ~= nil and (recipe.kind ~= "native" and recipe.kind ~= "none" or recipe.shadow ~= nil)
+				end),
+					nil
+			end)
+			presence[slot] = assert(acquire)
+		end
+		return assert(acquire)()
+	end
 	local function skin(node: GuiObject, slot: string, options: Theme.SkinOptions?): GuiObject
 		local package = ctx.config.theme
 		if not Compose.isValue(package) and type(package) ~= "function" then
@@ -24,8 +41,17 @@ return function(ctx: Types.Context): Shared
 		end
 		local settings: Theme.SkinOptions = options or {}
 		settings.types, settings.target = types, node
-		runtime.mount(function()
-			return themes.skin(runtime, ctx.config.theme, slot, settings)
+		local needed = needsSkin(slot)
+		local attached = false
+		runtime.mountFragment(function()
+			return {
+				Compose.show(function(use: ComposeTypes.Use): boolean
+					attached = attached or use(needed)
+					return attached
+				end, function()
+					return themes.skin(runtime, ctx.config.theme, slot, settings)
+				end),
+			}
 		end, node)
 		return node
 	end
