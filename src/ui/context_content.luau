@@ -79,12 +79,14 @@ local function attachLayout(
 		end
 	end
 	local revision = Compose.cell(0)
+	local styling = Compose.cell(0)
 	local framed = services.RunService ~= nil and getfenv ~= nil and getfenv(0).game ~= nil
 	local size =
 		runtime.observe(label, "AbsoluteSize", if framed then { frame = true, poll = true } else nil) :: ComposeTypes.ReadOnlyValue<Vector2>
 	local bounds = ctx.observe.TextBounds(label)
 	local function invalidate()
 		if not refreshing then
+			styling:set(styling:peek() + 1)
 			revision:set(revision:peek() + 1)
 		end
 	end
@@ -99,7 +101,9 @@ local function attachLayout(
 		if property == "FontFace" or property == "TextSize" then
 			styleChanged()
 		elseif property == "Text" then
-			invalidate()
+			if not refreshing then
+				revision:set(revision:peek() + 1)
+			end
 			if not measuredFloor() and previousSize ~= nil and label.TextSize ~= previousSize then
 				deferReflow()
 			end
@@ -164,7 +168,7 @@ local function attachLayout(
 		runtime.mountFragment(function()
 			return {
 				Compose.show(function(use: ComposeTypes.Use)
-					use(revision)
+					use(styling)
 					return not use(overridden)
 						and (
 							(
@@ -287,29 +291,60 @@ local function attachLayout(
 					Compose.cleanup(function()
 						floor = nil
 					end)
+					local styled, free, single, styleKey = -1, false, false, ""
+					local insetX, insetY, shareX, shareY = 0, 0, 1, 1
+					local function readInsets()
+						insetX, insetY, shareX, shareY = 0, 0, 1, 1
+						local padding = label:FindFirstChildWhichIsA("UIPadding")
+						if padding then
+							local left, right =
+								padding:GetStyled("PaddingLeft") :: UDim, padding:GetStyled("PaddingRight") :: UDim
+							local top, bottom =
+								padding:GetStyled("PaddingTop") :: UDim, padding:GetStyled("PaddingBottom") :: UDim
+							insetX, insetY = left.Offset + right.Offset, top.Offset + bottom.Offset
+							shareX = math.max(1 - left.Scale - right.Scale, 0.000001)
+							shareY = math.max(1 - top.Scale - bottom.Scale, 0.000001)
+						end
+					end
+					local function readStyle(mode: Enum.AutomaticSize)
+						if not watchPadding then
+							readInsets()
+						end
+						if styled == styling:peek() then
+							return
+						end
+						styled = styling:peek()
+						if watchPadding then
+							readInsets()
+						end
+						free = label:GetStyled("TextWrapped") == false
+							and label:GetStyled("TextTruncate") == Enum.TextTruncate.None
+						single = label:GetStyled("LineHeight") == 1
+						local face = label:GetStyled("FontFace") :: Font
+						styleKey =
+							`{face.Family}|{face.Weight.Name}|{face.Style.Name}|{label:GetStyled("TextSize")}|{label:GetStyled(
+								"LineHeight"
+							)}|{label.RichText}|{mode.Name}|{free}`
+					end
 					runtime.decorate(constraint, {
 						[Compose.group({ "MaxSize", "MinSize" })] = function(use: ComposeTypes.Use): (Vector2, Vector2)
 							use(revision)
-							local mode, glyph, authoredSize =
-								label.AutomaticSize,
-								if nativeBounds then use(nativeBounds) else use(bounds) / use(unit),
-								label.Size
+							local mode, authoredSize = label.AutomaticSize, label.Size
+							local measured = if nativeBounds then use(nativeBounds) else use(bounds)
+							local scale = if nativeBounds then 1 else use(unit)
+							local glyphX, glyphY = measured.X / scale, measured.Y / scale
+							readStyle(mode)
 							local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
 							local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
-							local free = label:GetStyled("TextWrapped") == false
-								and label:GetStyled("TextTruncate") == Enum.TextTruncate.None
 							freeX, freeY = freeX and free, freeY and free
-							freeY = freeY and (nativeBounds == nil or label:GetStyled("LineHeight") == 1)
-							local known = glyph.X < math.huge
+							freeY = freeY and (nativeBounds == nil or single)
+							local known = glyphX < math.huge
 							freeX, freeY = freeX and known, freeY and known
 							local x, y =
-								if nativeBounds then glyph.X else math.ceil(glyph.X),
-								if nativeBounds then glyph.Y else math.ceil(glyph.Y)
+								if nativeBounds then glyphX else math.ceil(glyphX),
+								if nativeBounds then glyphY else math.ceil(glyphY)
 							if stable and nativeBounds == nil then
-								local face = label:GetStyled("FontFace") :: Font
-								local key = `{face.Family}|{face.Weight.Name}|{face.Style.Name}|{label:GetStyled(
-									"TextSize"
-								)}|{label:GetStyled("LineHeight")}|{label.RichText}|{mode.Name}|{free}`
+								local key = styleKey
 								if key ~= metrics then
 									widest, tallest, metrics = 0, 0, key
 									lastX, lastY = 0, 0
@@ -335,23 +370,15 @@ local function attachLayout(
 									y = math.max(tallest, y)
 								end
 							end
-							local padding = label:FindFirstChildWhichIsA("UIPadding")
-							if padding then
-								local left, right =
-									padding:GetStyled("PaddingLeft") :: UDim, padding:GetStyled("PaddingRight") :: UDim
-								local top, bottom =
-									padding:GetStyled("PaddingTop") :: UDim, padding:GetStyled("PaddingBottom") :: UDim
-								x = (x + left.Offset + right.Offset) / math.max(1 - left.Scale - right.Scale, 0.000001)
-								y = (y + top.Offset + bottom.Offset) / math.max(1 - top.Scale - bottom.Scale, 0.000001)
-							end
+							x, y = (x + insetX) / shareX, (y + insetY) / shareY
 							local maximum = types.Vector2.new(
 								if freeX
-										and glyph.X > 0
+										and glyphX > 0
 										and authoredSize.X.Scale == 0
 									then math.max(x, authoredSize.X.Offset)
 									else math.huge,
 								if freeY
-										and glyph.Y > 0
+										and glyphY > 0
 										and authoredSize.Y.Scale == 0
 									then math.max(y, authoredSize.Y.Offset)
 									else math.huge
