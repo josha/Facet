@@ -464,6 +464,61 @@ return function(h: Verify.Harness)
 		Verify.expect(modes[1]):toBe("armed")
 		Verify.expect(#ends):toBe(0)
 	end)
+	h:case(
+		"an armed world drag from a SurfaceGui shows its status in the overlay and follows the input type",
+		function(test)
+			local w = fixture(test, "none")
+			local overlay: Frame = w.engine.new("Frame")
+			overlay.Parent = w.screen
+			local controlOptions: Facet.ControlOptions = {
+				types = w.engine.types,
+				motionLevel = "none",
+				userInputService = w.input,
+				guiService = w.gui,
+				inputParent = w.screen,
+				overlayParent = overlay,
+				services = { Workspace = w.world },
+			}
+			local UI = Facet.controls(w.runtime, controlOptions)
+			local surface: SurfaceGui = w.engine.new("SurfaceGui")
+			surface.Parent = w.screen
+			local stop = w.runtime.mount(function()
+				local Host = w.ctx.Host
+				local slot = Host.TextButton { Name = "SlotButton" }
+				local tile = Host.Part { Anchored = true, Parent = Facet.Compose.static(w.world) }
+				local options: Facet.WorldDragOptions = {
+					plane = w.engine.types.CFrame.identity,
+					focusTarget = slot,
+				}
+				UI.draggable(tile, { payload = "tile", world = options })
+				local panel: Native.FrameNativeProps = { slot }
+				return Host.Frame(panel)
+			end, surface)
+			test:defer(stop)
+			local Enum = w.engine.types.Enum
+			w.engine.environment.poke(Roblox.assertInstance(w.input), "PreferredInput", Enum.PreferredInput.Gamepad)
+			local pickup = assert(surface:FindFirstChild("SlotButton", true))
+			w.engine.environment.poke(Roblox.assertInstance(w.gui), "SelectedObject", pickup)
+			local action: Instance? = nil
+			for _, node in w.screen:GetDescendants() do
+				if node:IsA("InputAction") and node.Name == "WorldDragPickUp" then
+					action = node
+				end
+			end
+			w.engine.environment.fire(Roblox.assertInstance(assert(action)), "Pressed")
+			local status = assert(overlay:FindFirstChild("DragStatusText", true))
+			assert(status:IsA("TextLabel"))
+			Verify.expect(surface:FindFirstChild("DragStatusText", true)):toBeNil()
+			Verify.expect(string.find(status.Text, "A: drop", 1, true) ~= nil):toBe(true)
+			w.engine.environment.poke(
+				Roblox.assertInstance(w.input),
+				"PreferredInput",
+				Enum.PreferredInput.KeyboardAndMouse
+			)
+			Verify.expect((string.find(status.Text, "A: drop", 1, true))):toBeNil()
+			Verify.expect(string.find(status.Text, "Enter: drop", 1, true) ~= nil):toBe(true)
+		end
+	)
 	h:case("world pending completion validates once and ignores late replies", function(test)
 		local w = fixture(test, "none")
 		local legal = true

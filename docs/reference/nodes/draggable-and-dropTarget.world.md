@@ -35,12 +35,12 @@ shows the accepted target. The first raycast hit must belong to a target.
 The held source is excluded from that raycast. Other parts and blocking UI
 keep their normal occlusion behavior.
 
-Return or A on the pickup button starts an armed session. Native selection
-chooses a target's `focusTarget`. Return or A places the object. A tap or click
-on the target button uses the same drop command. Escape or B cancels.
-Use native selection links to define the route between buttons.
+Return, A, or a tap on the pickup button starts an armed session. Return, A,
+or a tap on a target's `focusTarget` places the object. Escape or B cancels.
+The status hint follows the input type. Over a SurfaceGui, the status shows
+in `overlayParent` or a Facet ScreenGui. Link targets with native selection.
 
-`DropInfo.source` can now be a GuiObject, BasePart, or Model.
+`DropInfo.source` can be a GuiObject, BasePart, or Model.
 `DropInfo.worldPlacement` contains the target transform when supplied.
 Payload, operation, mode, validation, pending completion, and all callbacks use
 the same shared session as 2D drag and drop. One `onDrop` handler can accept both.
