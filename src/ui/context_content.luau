@@ -25,7 +25,8 @@ local function attachLayout(
 	ctx: Shared.Context,
 	label: TextLabel | TextButton,
 	stable: boolean?,
-	watchPadding: boolean?
+	watchPadding: boolean?,
+	lazy: boolean?
 )
 	local Compose, runtime, types, Host = ctx.Compose, ctx.runtime, ctx.types, ctx.Host
 	local Enum, services = types.Enum, ctx.config.services
@@ -129,7 +130,7 @@ local function attachLayout(
 		end
 	end
 	local refloor: () -> () = function() end
-	local textChanged = false
+	local textChanged = not lazy
 	local priorText = label.Text
 	local floorApply: () -> () = function() end
 	local function invalidate()
@@ -655,11 +656,12 @@ return function(
 		for key, value in (properties or {}) :: { [unknown]: unknown } do
 			fields[key] = value
 		end
+		local bound = Compose.isValue(fields.Text) or type(fields.Text) == "function"
 		local label = ctx.styled(Host.TextLabel(native), "Text")
 
 		if label.AutomaticSize == Enum.AutomaticSize.None then
 			local attach = Compose.bindOwner(function()
-				attachLayout(ctx, label, stable)
+				attachLayout(ctx, label, stable, nil, not bound)
 			end)
 			local stop: ComposeTypes.Dispose?
 			stop = Compose.cleanup(assert(runtime.host.observation).observeProperty(label, "AutomaticSize", function()
@@ -673,7 +675,7 @@ return function(
 				end
 			end))
 		else
-			attachLayout(ctx, label, stable)
+			attachLayout(ctx, label, stable, nil, not bound)
 		end
 
 		return label

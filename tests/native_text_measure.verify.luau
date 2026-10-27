@@ -48,9 +48,9 @@ return function(harness: Verify.Harness)
 			return node
 		end, engine.new("ScreenGui"))
 		local node = assert(label)
-		t:expect(node:FindFirstChild("TextBoundsFloor")):toBeNil()
-		node.Text = "12345"
 		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
+		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(96, 22))
+		node.Text = "12345"
 		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(96, 22))
 		assert(inset).PaddingLeft = engine.types.UDim.new(0, 12)
 		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(100, 22))

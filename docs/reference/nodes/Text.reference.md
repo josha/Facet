@@ -10,10 +10,10 @@ error, and so do `color` and `font`, because the theme owns them. Use `role`
 or `textRole` instead.
 
 Unwrapped text with automatic size keeps its largest measured box while its
-text keeps the same length, so a counting number does not jitter. Text that
-never changes uses the native automatic size. Facet measures it with font
-metrics only after its text first changes, or when the engine reports that the
-text does not fit. Text with a
+text keeps the same length, so a counting number does not jitter. Text given as a
+fixed string uses the native automatic size. Facet measures it with font metrics
+only after its text first changes, or when the engine reports that the text
+does not fit. Text with a
 different length fits again: a wallet that falls from 1,000,000 to 12 shrinks.
 A change to the font, text size or layout mode resets the reserved size.
 Wrapped text, truncated text and authored size constraints keep their native
