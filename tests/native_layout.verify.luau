@@ -1,6 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
+local ThemeTypes = require("../src/ui/theme_types")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -1871,10 +1872,8 @@ return function(verifyHarness: Verify.Harness)
 			verifyHarness:case("keeps room inside its canvas for the theme's plate glow and edge", {
 				id = "native_layout::ScrollView::keeps room inside its canvas for the theme's plate glow and edge",
 				run = function()
-					local function stroke(): any
-						return { selector = ".facet-panel::UIStroke", properties = { Thickness = 2 } }
-					end
-					local glowing = assert((Facet.themes.define({
+					local edge: ThemeTypes.AuthoredRuleProperties = { Thickness = 2 }
+					local definition: Facet.ThemeDefinition = {
 						identity = { id = "glowing" },
 						chrome = {
 							panel = {
@@ -1885,8 +1884,9 @@ return function(verifyHarness: Verify.Harness)
 								},
 							},
 						},
-						rules = { stroke() },
-					} :: any)))
+						rules = { { selector = ".facet-panel::UIStroke", properties = edge } },
+					}
+					local glowing = assert((Facet.themes.define(definition)))
 					local root, _, stop = build({ theme = glowing }, function(UI: FacetControls)
 						return UI.ScrollView({ UI.VStack({ width = "fill", surface = "panel" }) })
 					end)

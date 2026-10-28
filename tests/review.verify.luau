@@ -410,26 +410,26 @@ return function(harness: Verify.Harness)
 	harness:case("collect reads styled text, role tags, fills and effective visibility from instances", function(t)
 		local engineLib = require("./lib/native_engine")
 		local Facet = require("../src")
-		local engine: any = engineLib.new()
+		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local screen = engine.new("ScreenGui")
-		local root: any
 		local stop = runtime.mount(function()
-			root = UI.VStack "Card" {
+			return UI.VStack "Card" {
 				UI.Text "Value" { text = "1000", textRole = "numeral" },
 				UI.Text "Label" { text = "Wins 0 · Losses 0", textRole = "caption" },
 				UI.Text "Hidden" { text = "Hidden 0 · 0", Visible = false },
 			}
-			return root
 		end, screen)
 		local V2 = engine.types.Vector2
-		for _, node in
-			{ root, root:FindFirstChild("Value"), root:FindFirstChild("Label"), root:FindFirstChild("Hidden") }
-		do
+		local card = assert(screen:FindFirstChild("Card", true))
+		for _, name in { "Value", "Label", "Hidden" } do
+			local node = assert(card:FindFirstChild(name))
 			engine.environment.poke(node, "AbsolutePosition", V2.new(10, 10))
 			engine.environment.poke(node, "AbsoluteSize", V2.new(200, 40))
 		end
+		engine.environment.poke(card, "AbsolutePosition", V2.new(10, 10))
+		engine.environment.poke(card, "AbsoluteSize", V2.new(200, 40))
 		local review = require("../src/ui/review")
 		local snapshot = review.collect({ root = screen })
 		local byName: { [string]: Rules.ReviewElement } = {}

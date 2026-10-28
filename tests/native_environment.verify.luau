@@ -267,7 +267,7 @@ return function(verifyHarness: Verify.Harness)
 						},
 					}),
 				}
-				local first: any, second: any
+				local first: unknown, second: unknown
 				local widths: { number } = {}
 				local failures = 0
 				local stop = owned(w.runtime, function()
