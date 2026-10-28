@@ -401,6 +401,77 @@ add("tab-head-accessory-above-rail", {}, function(t)
 	t.check("rail inside the TabView width", s.r <= root.r + 0.5, { strip = s.r, root = root.r })
 end)
 
+add("tab-rail-items-inside-track", {}, function(t)
+	for _, theme in t.themes do
+		for _, width in { 140, 220, 330, false } do
+			for _, textSize in { "Medium", "Largest" } do
+				local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+					local function page(): Instance
+						return Host.Frame({ BackgroundTransparency = 1 })
+					end
+					return UI.TabView "Rail" {
+						selection = Compose.cell("home"),
+						style = "sidebarAdaptable" :: "sidebarAdaptable",
+						placement = "sidebar" :: "sidebar",
+						railWidth = if width then width else nil,
+						controlSize = if width then "large" :: "large" else nil,
+						iconOnly = false,
+						tabs = {
+							{ id = "home", label = "Home", icon = "star", content = page } :: Tab,
+							{ id = "games", label = "Games", icon = "view.grid", content = page } :: Tab,
+							{ id = "profile", label = "Profile", icon = "person", content = page } :: Tab,
+						},
+					}
+				end, {
+					size = Vector2.new(1280, 720),
+					theme = theme.package,
+					environment = { preferredTextSize = textSize },
+				})
+				local label = `{theme.name} rail {width or "automatic"} text {textSize}`
+				local track, content = t.find(stage, "Track"), t.find(stage, "Content")
+				if not (track and content) then
+					t.check(`{label}: rail mounted`, false, { track = track ~= nil, content = content ~= nil })
+					t.cleanup()
+					continue
+				end
+				local rail, page = t.rect(track), t.rect(content)
+				t.check(`{label}: track ends before the page`, rail.r <= page.x + 0.5, { track = rail, page = page.x })
+				for _, id in { "home", "games", "profile" } do
+					local item = t.find(stage, id)
+					if not item then
+						t.check(`{label}: {id} mounted`, false)
+						continue
+					end
+					local box = t.rect(item)
+					if not width then
+						t.check(
+							`{label}: {id} label fits`,
+							item.TextFits,
+							{ text = item.Text, size = item.TextSize, item = box }
+						)
+					end
+					t.check(
+						`{label}: {id} sits inside the track`,
+						box.x >= rail.x - 0.5 and box.r <= rail.r + 0.5 and box.y >= rail.y - 0.5,
+						{ item = box, track = rail }
+					)
+					for _, part in item:GetDescendants() do
+						if part:IsA("GuiObject") and part.Visible and part.BackgroundTransparency < 1 then
+							local fill = t.rect(part)
+							t.check(
+								`{label}: {id} fill {part.Name} sits inside the track`,
+								fill.x >= rail.x - 0.5 and fill.r <= rail.r + 0.5,
+								{ fill = fill, track = rail }
+							)
+						end
+					end
+				end
+				t.cleanup()
+			end
+		end
+	end
+end)
+
 add("circle-button-authored-axes", {}, function(t)
 	for _, rung in { "compact", "regular", "large" } :: { "compact" | "large" | "regular" } do
 		local stage = t.mount(function(UI: FacetControls)
