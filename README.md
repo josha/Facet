@@ -84,8 +84,8 @@ covers. The current suite is the evidence. A passing run proves only the selecte
 ## Performance
 
 Facet uses [Compose](https://github.com/voidmeld/compose) for scene composition.
-The [Compose framework comparison](https://github.com/voidmeld/compose/blob/main/docs/framework-comparison.md)
-shows why: frame time and retained memory against the other Roblox UI frameworks.
+The [Luau library benchmarks](https://github.com/voidmeld/luau-library-benchmarks/blob/main/docs/results.md)
+show why: frame time and retained memory against the other Roblox scene composition libraries.
 The [Facet versus bare comparison](docs/performance/facet-vs-bare.md) measures
 game UI workloads with Facet controls and direct Roblox Instances.
 
