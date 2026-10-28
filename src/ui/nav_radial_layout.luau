@@ -16,6 +16,9 @@ export type Arrangement<V> = {
 	center: ComposeTypes.Value<Vector2>,
 	captionPadding: (use: ComposeTypes.Use) -> number,
 	wordWidths: ComposeTypes.Value<{ [string]: number }>,
+	-- The caption widths from the hidden CaptionMeasure label alone. The ring or
+	-- list choice reads these, so the shape of a list row cannot feed back into it.
+	captionWidths: ComposeTypes.Value<{ [string]: number }>,
 	layout: ComposeTypes.Value<Radial.Layout<V>>,
 	sectors: ComposeTypes.Value<{ Radial.Sector<V> }>,
 	fallback: ComposeTypes.Value<boolean>,
@@ -132,6 +135,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 	end
 
 	local wordWidths: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
+	local captionWidths: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
 	Compose.watch(function(use: ComposeTypes.Use)
 		local captions: { [string]: boolean } = {}
 		local function visit(items: { Radial.RadialItem<V> }, prefix: string)
@@ -155,6 +159,18 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 		end
 		if changed then
 			wordWidths:set(retained)
+		end
+		local measuredRetained: { [string]: number } = {}
+		local measuredChanged = false
+		for key, width in captionWidths:peek() do
+			if captions[key] then
+				measuredRetained[key] = width
+			else
+				measuredChanged = true
+			end
+		end
+		if measuredChanged then
+			captionWidths:set(measuredRetained)
 		end
 	end)
 	local function solve(use: ComposeTypes.Use, flatten: boolean): Radial.Layout<V>
@@ -187,9 +203,17 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 		local padding = ctx.metric("space.s", use)
 		local textSize = ctx.metric("typography.control.size", use)
 		local iconSize = ctx.controlSize(nil, "iconSize", use)
-		local function estimate(item: Radial.RadialItemBase<V>): (number, number)
+		local measuredCaptions = use(captionWidths)
+		-- A caption's width: the measured CaptionMeasure label once it reports,
+		-- else an estimate from the theme's control type size. The measure does
+		-- not depend on the ring, so the ring cannot feed back into it.
+		local function estimate(item: Radial.RadialItemBase<V>, key: string?): (number, number)
 			if glyphOnly(item) then
 				return iconSize, iconSize
+			end
+			local measured = if key then measuredCaptions[key] else nil
+			if measured and measured > 0 then
+				return measured + captionPadding(use), textSize
 			end
 			local label = read(item.label, use) or ""
 			return (utf8.len(label) or #label) * textSize * 0.6 + captionPadding(use), textSize
@@ -252,7 +276,10 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 			do
 				local extent, target = 0, 0
 				for _, probe in geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + 1) do
-					local width, height = estimate((probe.item :: unknown) :: Radial.RadialItemBase<V>)
+					local width, height = estimate(
+						(probe.item :: unknown) :: Radial.RadialItemBase<V>,
+						table.concat(prefix, "/") .. "/" .. probe.item.id
+					)
 					local ux, uy = math.sin(math.rad(probe.angle)), -math.cos(math.rad(probe.angle))
 					local hw, hh = width / 2 + padding, height / 2 + padding
 					local middle = ri + math.abs(hw * ux) + math.abs(hh * uy)
@@ -267,6 +294,30 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 				end
 				local wanted = 2 * math.ceil(math.max(extent, target) / 2)
 				levelBand = math.clamp(math.max(wanted, replaced), floor, band)
+				-- The chord rule above is approximate. Confirm each caption fits its
+				-- wedge with the same box test the ring-or-list choice uses, and widen
+				-- the band until it does or the room runs out.
+				for _ = 1, 24 do
+					if levelBand >= band or appearance ~= "wedges" or contentFit == "none" then
+						break
+					end
+					local short = false
+					for _, probe in geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + levelBand) do
+						local item = (probe.item :: unknown) :: Radial.RadialItemBase<V>
+						if not glyphOnly(item) then
+							local width, height = estimate(item, table.concat(prefix, "/") .. "/" .. probe.item.id)
+							local bounds = geometry.labelBounds(probe, height)
+							if bounds.w < width or bounds.h < height then
+								short = true
+								break
+							end
+						end
+					end
+					if not short then
+						break
+					end
+					levelBand = math.min(band, levelBand + 8)
+				end
 			end
 			ring = ri + levelBand + 4
 			local sectors = geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + levelBand)
@@ -331,14 +382,10 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 					and not glyphOnly(sector.item)
 					and contentFit ~= "none"
 				then
-					local width, height = estimate(sector.item)
+					local width, height = estimate(sector.item, sector.key)
 					local bounds = geometry.labelBounds(sector, height)
-					local measured = use(wordWidths)[sector.key] or 0
-					local captionReady = measured > 0
-					-- The character-count estimate runs wide for short words; once the
-					-- caption is measured, a real width that fits is enough.
-					local fitted = if captionReady then math.min(width, measured + captionPadding(use)) else width
-					list = list or room - inner < width or (captionReady and (bounds.w < fitted or bounds.h < height))
+					local captionReady = (measuredCaptions[sector.key] or 0) > 0
+					list = list or room - inner < width or (captionReady and (bounds.w < width or bounds.h < height))
 				end
 				table.insert(result, sector)
 			end
@@ -391,6 +438,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 		center = center,
 		captionPadding = captionPadding,
 		wordWidths = wordWidths,
+		captionWidths = captionWidths,
 		layout = layout,
 		sectors = sectors,
 		fallback = fallback,

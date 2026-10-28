@@ -126,8 +126,9 @@ ScrollView and card Collections keep room for the theme's plate glow and
 edge, so plates at the canvas edge are not clipped. `UI.environment()` without
 a source returns the app's shared camera environment, also from a property
 function that reruns outside an owner. A NavigationStack page that fails to build
-reports its error to `onError` or the output. RadialMenu judges a measured caption by
-its real width and never lets an icon that several items share replace a
+reports its error to `onError` or the output. RadialMenu sizes its ring from measured captions, paints bands wider than the
+engine's 100-pixel Path2D limit as adjacent strokes so captions stay inside
+their wedges, judges a measured caption by its real width and never lets an icon that several items share replace a
 label.
 
 The version in `src/init.luau` identifies the source package. A local build does

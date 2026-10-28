@@ -335,6 +335,95 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("a ring never shows a caption wider than its wedge", {
+			id = "native_radial_controls::radial full caption fit::a ring never shows a caption wider than its wedge",
+			run = function()
+				local labels = {
+					"Good luck!",
+					"Nice racing!",
+					"Let's go!",
+					"Thanks!",
+					"Watch the bend!",
+					"Great drift!",
+					"One more race?",
+					"Well played!",
+				}
+				for _, perCharacter in { 9, 12 } do
+					local items = {}
+					for index, label in labels do
+						table.insert(items, { id = "m" .. index, label = label, onSelect = function() end })
+					end
+					local world = setup({ items = items, launcher = false })
+					local V2 = world.engine.types.Vector2
+					world.engine.environment.poke(world.find("Modal"), "AbsoluteSize", V2.new(1542, 969))
+					for index, label in labels do
+						world.engine.environment.poke(
+							world.find("m" .. index):FindFirstChild("CaptionMeasure"),
+							"TextBounds",
+							V2.new(perCharacter * #label, 16)
+						)
+					end
+					world.step(1)
+					if world.find("RadialPanel"):GetAttribute("Presentation") == "radial" then
+						for index, label in labels do
+							local button = world.find("m" .. index)
+							Verify.expect(button.Size.X.Offset >= perCharacter * #label):toBeTrueWith(
+								`{label}: a {button.Size.X.Offset} px box for a {perCharacter * #label} px caption`
+							)
+						end
+					end
+					world.stop()
+				end
+			end,
+		})
+
+		verifyHarness:case("paints a band wider than the Path2D thickness limit with adjacent strokes", {
+			id = "native_radial_controls::radial full caption fit::paints a band wider than the Path2D thickness limit with adjacent strokes",
+			run = function()
+				local labels = {
+					"Good luck!",
+					"Nice racing!",
+					"Let's go!",
+					"Thanks!",
+					"Watch the bend!",
+					"Great drift!",
+					"One more race?",
+					"Well played!",
+				}
+				local icons = { "flag", "star", "bolt", "heart", "status.warning", "trophy", "timer", "crown" }
+				local items = {}
+				for index, label in labels do
+					table.insert(
+						items,
+						{ id = "m" .. index, label = label, icon = icons[index], onSelect = function() end }
+					)
+				end
+				local world = setup({ items = items, launcher = false })
+				local V2 = world.engine.types.Vector2
+				world.engine.environment.poke(world.find("Modal"), "AbsoluteSize", V2.new(1542, 969))
+				for index, label in labels do
+					world.engine.environment.poke(
+						world.find("m" .. index):FindFirstChild("CaptionMeasure"),
+						"TextBounds",
+						V2.new(9 * #label, 16)
+					)
+				end
+				world.step(1)
+				local widest, extra = 0, 0
+				for _, node in world.screen:GetDescendants() do
+					if node:IsA("Path2D") and string.find(node.Name, "^Sector") then
+						widest = math.max(widest, node.Thickness)
+						if node.Name ~= "Sector" and node.Visible then
+							extra += 1
+						end
+					end
+				end
+				Verify.expect(widest <= 100):toBeTrueWith(`a {widest} px stroke`)
+				Verify.expect(extra > 0):toBeTrueWith("no adjacent stroke for a band wider than 100")
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("an icon that every item shares never replaces a label that does not fit", {
 			id = "native_radial_controls::radial full caption fit::an icon that every item shares never replaces a label that does not fit",
 			run = function()
@@ -1387,9 +1476,9 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 		verifyHarness:case(
-			"sizes the default ring band from its labels and the theme metrics, never from an engine reading",
+			"sizes the default ring band from its measured captions, never from a painted label reading",
 			{
-				id = "native_radial_controls::native radial interaction policies::sizes the default ring band from its labels and the theme metrics, never from an engine reading",
+				id = "native_radial_controls::native radial interaction policies::sizes the default ring band from its measured captions, never from a painted label reading",
 				run = function()
 					local items = {}
 					for index = 1, 4 do
@@ -1399,16 +1488,23 @@ return function(verifyHarness: Verify.Harness)
 						)
 					end
 					local world = setup({ items = items })
-					local wide = #"Item 1" * 18 * 0.6
+					local V2 = world.engine.types.Vector2
+					local wide = 60
+					for index = 1, 4 do
+						world.engine.environment.poke(
+							world.find("item" .. index):FindFirstChild("CaptionMeasure"),
+							"TextBounds",
+							V2.new(wide, 16)
+						)
+					end
 					local expected = 40 + (wide + 2 * 12 + 2 * 8) / 2
 					local function reach()
 						return 240 - world.find("item1").Position.Y.Offset
 					end
 					Verify.expect(math.abs(reach() - expected) <= 1):toBeTrueWith(`reach {reach()} expected {expected}`)
-					local V2 = world.engine.types.Vector2
 					for round = 1, 3 do
 						for _, node in world.screen:GetDescendants() do
-							if node:IsA("TextLabel") or node:IsA("TextButton") then
+							if (node:IsA("TextLabel") or node:IsA("TextButton")) and node.Name ~= "CaptionMeasure" then
 								world.engine.environment.poke(node, "TextBounds", V2.new(40 * round, 10 * round))
 							end
 						end

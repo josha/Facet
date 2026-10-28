@@ -19,6 +19,8 @@ export type Paint<V> = {
 	listHeaderHeight: ComposeTypes.Value<number>,
 }
 
+local PATH_THICKNESS_LIMIT = 100
+
 return function<V>(
 	ctx: Types.Context,
 	UI: MenuTypes.Controls,
@@ -37,6 +39,7 @@ return function<V>(
 	local following, center = arrangement.following, arrangement.center
 	local captionPadding, wordWidths, sectors, fallback =
 		arrangement.captionPadding, arrangement.wordWidths, arrangement.sectors, arrangement.fallback
+	local captionWidths = arrangement.captionWidths
 	local entry = runtime.timeline({ duration = ctx.metric("motion.radial.enter") })
 	Compose.watch(function(use: ComposeTypes.Use)
 		use(arrangement.centerTarget)
@@ -445,6 +448,14 @@ return function<V>(
 							return V2.new(math.max(full.X, painted.X), math.max(full.Y, painted.Y))
 						end)
 						Compose.watch(function(use: ComposeTypes.Use)
+							local natural = use(fullBounds).X
+							if natural > 0 and captionWidths:peek()[sector.key] ~= natural then
+								local widths = table.clone(captionWidths:peek())
+								widths[sector.key] = natural
+								captionWidths:set(widths)
+							end
+						end)
+						Compose.watch(function(use: ComposeTypes.Use)
 							local width = use(measured).X
 							if width > 0 and wordWidths:peek()[sector.key] ~= width then
 								local widths = table.clone(wordWidths:peek())
@@ -458,11 +469,40 @@ return function<V>(
 							ZIndex = 102,
 						}
 						ctx.styled(paint, "radial-sector")
+						-- The engine clamps Path2D.Thickness to 100, so a wider band is painted
+						-- as several adjacent strokes. Extra strokes are made only when needed.
+						local strokeOwner = Compose.currentOwner()
+						local extraStrokes: { Path2D } = {}
+						local candidate = Compose.cell(false)
+						local function extraStroke(index: number): Path2D
+							local existing = extraStrokes[index]
+							if existing then
+								return existing
+							end
+							local stroke = Compose.withOwner(assert(strokeOwner), function(): Path2D
+								local made = Host.Path2D("SectorBand" .. tostring(index + 1)) {
+									Thickness = paint.Thickness,
+									Closed = false,
+									ZIndex = 102,
+								}
+								ctx.styled(made, "radial-sector")
+								if candidate:peek() then
+									made:AddTag("facet-radial-candidate")
+								end
+								return made
+							end)
+							extraStrokes[index] = stroke
+							return stroke
+						end
 						Compose.watch(function(use: ComposeTypes.Use)
-							if chosen(use) then
-								paint:AddTag("facet-radial-candidate")
-							else
-								paint:RemoveTag("facet-radial-candidate")
+							local on = chosen(use)
+							candidate:set(on)
+							for _, stroke in { paint, table.unpack(extraStrokes) } do
+								if on then
+									stroke:AddTag("facet-radial-candidate")
+								else
+									stroke:RemoveTag("facet-radial-candidate")
+								end
 							end
 						end)
 						local wrapper = ctx.fade({
@@ -560,23 +600,51 @@ return function<V>(
 								widths[live.key] = width
 								fittedWidths:set(widths)
 							end
-							local bounds =
-								geometry.paint(if branch and moving(use, live) then unfold(use, fitted) else fitted)
+							local painted = if branch and moving(use, live) then unfold(use, fitted) else fitted
+							local bounds = geometry.paint(painted)
 							placed:set({ x = bounds.x, y = bounds.y })
 							shape.Size = D2.fromOffset(bounds.w, bounds.h)
-							paint.Thickness = math.max(1, fitted.outer - fitted.inner)
-							local points: { Path2DControlPoint } = {}
-							for _, point in bounds.points do
-								table.insert(
-									points,
-									ctx.types.Path2DControlPoint.new(
-										D2.fromScale(point.x, point.y),
-										D2.fromScale(point.inX, point.inY),
-										D2.fromScale(point.outX, point.outY)
+							local band = math.max(1, fitted.outer - fitted.inner)
+							local strokes = math.max(1, math.ceil(band / PATH_THICKNESS_LIMIT - 1e-6))
+							local function strokePoints(part: Radial.Paint): { Path2DControlPoint }
+								local points: { Path2DControlPoint } = {}
+								for _, point in part.points do
+									local sx, sy = part.w / bounds.w, part.h / bounds.h
+									table.insert(
+										points,
+										ctx.types.Path2DControlPoint.new(
+											D2.fromScale(
+												(point.x * part.w + part.x - bounds.x) / bounds.w,
+												(point.y * part.h + part.y - bounds.y) / bounds.h
+											),
+											D2.fromScale(point.inX * sx, point.inY * sy),
+											D2.fromScale(point.outX * sx, point.outY * sy)
+										)
 									)
-								)
+								end
+								return points
 							end
-							paint:SetControlPoints(points)
+							if strokes == 1 then
+								paint.Thickness = band
+								paint:SetControlPoints(strokePoints(bounds))
+							end
+							local step = (painted.outer - painted.inner) / strokes
+							for index = 1, math.max(strokes, #extraStrokes + 1) do
+								local stroke = if index == 1 then paint else extraStroke(index - 1)
+								if index > strokes then
+									stroke.Visible = false
+								elseif strokes > 1 then
+									local part = table.clone(painted)
+									part.inner = painted.inner + (index - 1) * step
+									part.outer = painted.inner + index * step
+									stroke.Visible = true
+									stroke.Thickness = band / strokes
+									stroke:SetControlPoints(strokePoints(geometry.paint(part)))
+									if index > 1 and stroke.Parent ~= shape then
+										stroke.Parent = shape
+									end
+								end
+							end
 						end)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local bounds = use(placed)
