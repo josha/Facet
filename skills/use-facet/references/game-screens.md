@@ -1,9 +1,8 @@
 # Game screens
 
-Recipes for the screens most games share. Each names its footprint, its
-controls and the mistakes that read as unfinished. Adapt the content and keep
-the relationships. Read this before building the first screen; it replaces
-reading node pages for these choices.
+Tested code for the screens most games share, and the rules every screen
+follows. The recipes show the options they use; read a node card only for a
+control that is not here.
 
 ## Rules for every screen
 
@@ -39,6 +38,55 @@ reading node pages for these choices.
 - **The current choice is marked by more than a tint.** Declare `selection`
   and `onSelection` in the theme palette (see [game themes](game-themes.md));
   Chip, Picker and Collection then draw the chosen item in that color.
+
+## App skeleton
+
+One mount holds the hub, every page and the confirmation dialog. Pages are
+destinations of one NavigationStack with hidden chrome, because each page
+shell owns its header and Back.
+
+```luau
+app.mount(function()
+    local path = C.cell({} :: { Facet.NavigationEntry<string> })
+    local function open(id: string)
+        local nextPath = table.clone(path:peek())
+        table.insert(nextPath, { id = id })
+        path:set(nextPath)
+    end
+    local function back()
+        local nextPath = table.clone(path:peek())
+        table.remove(nextPath)
+        path:set(nextPath)
+    end
+    local confirmOpen, confirmTitle, confirmTerms = C.cell(false), C.cell(""), C.cell("")
+    local onConfirm: () -> () = function() end
+    local function confirm(title: string, terms: string, run: () -> ())
+        confirmTitle:set(title)
+        confirmTerms:set(terms)
+        onConfirm = run
+        confirmOpen:set(true)
+    end
+    local destinations: { [string]: Facet.NavigationDestination<string> } = {
+        Shop = { content = function() return Shop(ctx) end },
+        Garage = { content = function() return Garage(ctx) end },
+    }
+    local actions: { Facet.DialogAction } = {
+        { id = "Cancel", label = "Cancel", role = "cancel", onActivate = function() end },
+        { id = "Confirm", label = "Confirm", role = "default", keepOpen = true, busy = busy, onActivate = function() onConfirm() end },
+    }
+    return Host.Frame "Root" { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+        UI.NavigationStack "Routes" { path = path, chrome = "hidden",
+            root = { content = function() return Hub(ctx) end },
+            destinations = destinations },
+        UI.Dialog "Confirm" { isPresented = confirmOpen, title = confirmTitle, actions = actions,
+            content = function() return UI.Text { text = confirmTerms, wrap = true } end },
+    }
+end)
+```
+
+`ctx` is a table of the shared cells and the `open`, `back` and `confirm`
+functions, passed to each screen module. Close the dialog when the server
+accepts; keep it open with an error line when it rejects.
 
 ## Page shell
 

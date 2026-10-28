@@ -14,8 +14,8 @@ Use this route when you have Studio MCP tools but no shell or filesystem.
 
    The report lists rule findings, their fixes and the six most prominent
    texts. Pass `{ root = someGuiObject }` to review one surface.
-3. Capture the screen with the host's screenshot tool. Capture each supported
-   device size: wide, portrait phone and short landscape.
+3. Capture the screen with the host's screenshot tool, once per screen and
+   device size the host can show. Each capture stays in context.
 4. Write a short brief: the game, the player's task on this screen and its
    decision.
 

@@ -23,7 +23,8 @@ minutes a screen.
 
 1. In Play, in the Client, `return Facet.review.screen().text`. Fix every
    medium or high finding, or name the reason it is deliberate.
-2. Capture once wide and once in portrait.
+2. Capture the screen once. Re-run the review text, not a capture, after
+   small fixes.
 3. Answer in one line each: What leads? Is the current choice marked? Does
    every option of each choice show? Is anything stacked one per row in a wide
    space? Is any plate mostly empty, or any page content on one side? Does the

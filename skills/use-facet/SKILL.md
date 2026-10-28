@@ -39,22 +39,22 @@ the world in view around bounded pages. [Neon Circuit](assets/neon-circuit-theme
 is one example for a night-time sci-fi game; [game themes](references/game-themes.md)
 explains what makes an identity visible and lists fonts that load.
 
-Read [runtime essentials](references/runtime.md) once. Transfer the example's
-relationships and ownership, then supply this game's identity, records and
-callbacks. Keep a fitting existing theme. Examples are alternatives, not required
-skins or decoration quotas. Read only the chosen route; subject-art implementation
-can remain outside the layout-reading context.
+**Read once, at the start, in one call:** this file,
+[runtime essentials](references/runtime.md), the route above and the theme you
+start from. For a whole game that is this file, runtime, game screens and a
+theme asset, about 30,000 characters. Everything you read stays in context for
+the rest of the session, so read nothing else until a screen needs a control
+the recipes do not show; then read only that control's card. Transfer an
+example's relationships and ownership, then supply this game's identity,
+records and callbacks. Examples are alternatives, not required skins.
 
-For phone support, use [compact compositions](references/compact-compositions.md)
-before building the first form. Budget the body after navigation and native
-controls so useful content and its action appear before a long introduction.
-
-Use [capability routes](references/choose.md) for the exact contract needed;
-search unknown names with `lute run tools/facet docs --search TERM`.
-Retain answers. Do not read the whole manual or guess filenames.
-
-For richer navigation, forms or spatial UI, use
-[advanced compositions](references/advanced-compositions.md) as needed.
+Read these only when the case comes up:
+[compact compositions](references/compact-compositions.md) for a phone layout
+the recipes do not cover, [capability routes](references/choose.md) to find a
+control by need, [advanced compositions](references/advanced-compositions.md)
+for richer navigation, forms or spatial UI, and
+[runtime details](references/runtime-details.md). With a shell, search unknown
+names with `lute run tools/facet docs --search TERM`. Do not guess filenames.
 
 Use typed constructors and reactive callbacks. Keep durable selection, drafts
 and accepted state outside disposable pages. Give unrelated tasks separate
@@ -83,12 +83,14 @@ end
 
 - Return small probe results: counts, a few names, one error line. Never return
   `GetChildren()`, a whole tree or a dump.
-- Read the documents for a route in one call, then retain them.
+- Capture a screen when it first works and after its last visual fix. Check
+  smaller changes with `Facet.review.screen().text` or a probe; each capture
+  stays in context like a document.
 
 ## Correct the task before sharing its layout
 
-Capture the first complete task in its real world at wide, portrait and short
-sizes before extracting a common page shell or repeating it across destinations.
+Capture the first complete task in its real world before repeating its layout
+across destinations; check compact forms where the host can show them.
 
 Reject generic or bland results: could this capture belong to an unrelated game?
 Run the [critique-ui skill](../critique-ui/SKILL.md): it collects captures and
