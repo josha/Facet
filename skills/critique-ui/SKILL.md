@@ -26,7 +26,9 @@ minutes a screen.
 2. Capture once wide and once in portrait.
 3. Answer in one line each: What leads? Is the current choice marked? Does
    every option of each choice show? Is anything stacked one per row in a wide
-   space? Could this capture belong to an unrelated game?
+   space? Is any plate mostly empty, or any page content on one side? Does the
+   world show around pages, and do HUD readouts sit on panels? Which three
+   theme cues show here? Could this capture belong to an unrelated game?
 4. Fix the worst answer, then move on.
 
 Run the full loop below when time remains, starting with the screen the player

@@ -23,7 +23,7 @@ Never join facts in one caption: a value leads in `numeral` and its label follow
 
 | First task | Read and adapt |
 | --- | --- |
-| Game screens: hub, shop, garage, customize, HUD, tutorial | [Game screens](references/game-screens.md): footprint, controls and layout for each, and the rules every screen shares |
+| Game screens: hub, shop, garage, customize, HUD, tutorial | [Game screens](references/game-screens.md): the page shell and tested code for each screen, and the rules every screen shares. Read it before the first screen |
 | Browse records, products or equipment | [Collection](examples/collection.luau): supply game image/model subjects; use `false` with an `icon` glyph per record when no art exists. [Riverbank](assets/riverbank-theme.luau) is one example identity. |
 | Inspect a selected object | [Inspection](examples/inspection.luau) with its [Field Station theme](assets/field-station-theme.luau): useful subject scale beside a decision |
 | Use image-based surfaces and subjects | [Game themes](references/game-themes.md): optional Pixel Quest theme builder with Collection's subject renderer |
@@ -32,10 +32,12 @@ Never join facts in one caption: a value leads in `numeral` and its label follow
 | Another task | [Patterns](references/patterns.md): choose its information relationship and example |
 
 Give the theme a display family on `title`, `heading` and `numeral` (and on
-`label` or `control` for short labels), an accent for action and a `selection`
-color for the current choice; resolve `report.advice` before the first capture.
-[Neon Circuit](assets/neon-circuit-theme.luau) is one example for a night-time
-sci-fi game; [game themes](references/game-themes.md) lists fonts that load.
+`label` or `control` for short labels), an accent for action, a `selection`
+color for the current choice, and one visible edge or material on every panel
+through a theme rule; resolve `report.advice` before the first capture. Keep
+the world in view around bounded pages. [Neon Circuit](assets/neon-circuit-theme.luau)
+is one example for a night-time sci-fi game; [game themes](references/game-themes.md)
+explains what makes an identity visible and lists fonts that load.
 
 Read [runtime essentials](references/runtime.md) once. Transfer the example's
 relationships and ownership, then supply this game's identity, records and

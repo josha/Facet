@@ -194,7 +194,9 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 			height = math.max(height, element.rect.y + element.rect.height)
 		end
 	end
-	return { width = width, height = height, elements = elements }
+	local hasInput, input = call(game, "GetService", "UserInputService")
+	local touch = hasInput and read(input, "TouchEnabled") == true
+	return { width = width, height = height, elements = elements, touch = touch }
 end
 
 return table.freeze({

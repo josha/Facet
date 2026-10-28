@@ -37,7 +37,13 @@ function DesignReview.snapshot(dump: Audit.Dump): Snapshot
 			text = text,
 		})
 	end
-	return { width = dump.screen.width, height = dump.screen.height, elements = elements }
+	local input: { string } = dump.screen.input or {}
+	return {
+		width = dump.screen.width,
+		height = dump.screen.height,
+		elements = elements,
+		touch = table.find(input, "touch") ~= nil,
+	}
 end
 
 function DesignReview.analyze(dump: Audit.Dump): Report

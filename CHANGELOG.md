@@ -117,7 +117,10 @@ live screen or a saved dump; `facet critique` turns captures and those
 findings into a packet for a fresh reviewer. `Facet.themes.define` adds
 `report.advice` for a flat type scale and for a display family on only one
 type role. `Facet.review` reports `stacked-choices`: short choices stacked one
-per row in a wide space. `Facet.SkinLayerPatch` types a theme's `chrome` table.
+per row in a wide space; `hollow-plate`, `lopsided-page`, `floating-text` and
+`touch-control-overlap` report empty plates, one-sided pages, HUD text on the
+world and controls over Jump. `Facet.SkinLayerPatch`, `Facet.ThemeRule` and
+`Facet.ThemeRuleProperties` type a theme's `chrome` and `rules` tables.
 
 The version in `src/init.luau` identifies the source package. A local build does
 not publish it. Run `lute run tools/facet package status` for publication and

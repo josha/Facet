@@ -501,6 +501,8 @@ type TextProps
 type TextRole
 type ThemeDefinition
 type ThemePackage
+type ThemeRule
+type ThemeRuleProperties
 type TimerControls
 type TimerProps
 type ToastAction

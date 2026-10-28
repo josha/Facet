@@ -23,7 +23,7 @@ export type ReviewElement = {
 	image: boolean,
 	text: ReviewText?,
 }
-export type ReviewSnapshot = { width: number, height: number, elements: { ReviewElement } }
+export type ReviewSnapshot = { width: number, height: number, elements: { ReviewElement }, touch: boolean? }
 export type ReviewSeverity = "high" | "medium" | "low"
 export type ReviewFinding = {
 	rule: string,
@@ -65,6 +65,10 @@ local FIXES: { [string]: string } = table.freeze({
 	["zero-wall"] = "Most numbers on this screen are zero. Replace an all-zero record with its goal: what the player does next and how far it is.",
 	["single-weight"] = "Every text uses one font and one weight. Give the lead and the values a heavier weight than labels and body text.",
 	["stacked-choices"] = "Short choices are stacked in a narrow column inside a wide space, so the player scrolls past one option per row. Put color swatches, chips and filters in an HStack with wrap = true or a Grid that fills the width, and show a few peer actions in one row. AdaptiveStack turns into this column when its row does not fit.",
+	["hollow-plate"] = "A plate is much larger than what it holds: the content uses a small corner and the rest is empty. Size the plate to its content, put repeated items in a Grid whose column count follows the width, or give the empty room to the subject.",
+	["lopsided-page"] = 'The page content sits on one side of a wide surface and leaves the other side empty. Center a bounded column (width = "fill" with maxWidth, align = "center" on the Screen), or use the room for a second pane such as the selected item\'s detail.',
+	["floating-text"] = "Several texts sit straight on the 3D world with no plate, so the scene shows through and they collide with signs and bright objects. Group HUD readouts on a panel surface, or give each a stroke.",
+	["touch-control-overlap"] = "A control covers the place where Roblox draws the Jump button on touch screens. On touch, raise the bottom of the Composition above the thumb controls with bottom padding, or move the control.",
 	["stranded-content"] = "The content fills a small part of a large surface and sits to one side. Bound the surface to its content or use the space for the subject.",
 })
 
@@ -666,6 +670,234 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 					math.floor(widest)
 				)
 			)
+		end
+	end
+
+	local contentElements: { ReviewElement } = {}
+	for _, element in snapshot.elements do
+		if not shown(element, snapshot.width, snapshot.height) then
+			continue
+		end
+		local text = element.text
+		if
+			element.interactive
+			or (element.image and element.rect.width >= 16 and element.rect.height >= 16)
+			or (text ~= nil and text.transparency < 0.95 and clean(text.content) ~= "")
+		then
+			table.insert(contentElements, element)
+		end
+	end
+	local function within(outer: ReviewRect, element: ReviewElement): boolean
+		local x = element.rect.x + element.rect.width / 2
+		local y = element.rect.y + element.rect.height / 2
+		return x >= outer.x and x <= outer.x + outer.width and y >= outer.y and y <= outer.y + outer.height
+	end
+	local function ancestorOf(candidate: ReviewElement, element: ReviewElement): boolean
+		local parent = prepared.parentOf(element)
+		while parent ~= nil do
+			if parent == candidate.index then
+				return true
+			end
+			local ancestor = prepared.byIndex[parent]
+			parent = if ancestor then prepared.parentOf(ancestor) else nil
+		end
+		return false
+	end
+	local insideCache: { [number]: { ReviewElement } } = {}
+	local function inside(plate: ReviewElement): { ReviewElement }
+		local cached = insideCache[plate.index]
+		if cached ~= nil then
+			return cached
+		end
+		local list: { ReviewElement } = {}
+		for _, element in contentElements do
+			if
+				element ~= plate
+				and area(element.rect) < area(plate.rect)
+				and within(plate.rect, element)
+				and not ancestorOf(element, plate)
+			then
+				table.insert(list, element)
+			end
+		end
+		insideCache[plate.index] = list
+		return list
+	end
+	local function bounds(list: { ReviewElement }, within: ReviewRect): ReviewRect?
+		local left, top, right, bottom = math.huge, math.huge, -math.huge, -math.huge
+		for _, element in list do
+			local rect = element.rect
+			left = math.min(left, math.max(rect.x, within.x))
+			top = math.min(top, math.max(rect.y, within.y))
+			right = math.max(right, math.min(rect.x + rect.width, within.x + within.width))
+			bottom = math.max(bottom, math.min(rect.y + rect.height, within.y + within.height))
+		end
+		if right <= left or bottom <= top then
+			return nil
+		end
+		return { x = left, y = top, width = right - left, height = bottom - top }
+	end
+
+	local fullArea = math.max(1, snapshot.width * snapshot.height)
+	local hollow: { [string]: { ReviewElement } } = {}
+	local hollowOrder: { string } = {}
+	for _, plate in prepared.plates do
+		if plate.interactive or plate.rect.width < 280 or area(plate.rect) < 40000 then
+			continue
+		end
+		if area(plate.rect) >= 0.35 * fullArea then
+			continue
+		end
+		local content = inside(plate)
+		if #content == 0 then
+			continue
+		end
+		local used = bounds(content, plate.rect)
+		if used ~= nil and area(used) < 0.35 * area(plate.rect) then
+			local key = ("%d:%d"):format(math.floor(plate.rect.width / 8), math.floor(plate.rect.height / 8))
+			local group = hollow[key]
+			if group == nil then
+				group = {}
+				hollow[key] = group
+				table.insert(hollowOrder, key)
+			end
+			table.insert(group, plate)
+		end
+	end
+	for _, key in hollowOrder do
+		local group = hollow[key]
+		local first = group[1]
+		local used = bounds(inside(first), first.rect) :: ReviewRect
+		add(
+			"hollow-plate",
+			"medium",
+			first,
+			("%d plate(s) of %dx%d px; the content uses %d%% of each"):format(
+				#group,
+				math.floor(first.rect.width),
+				math.floor(first.rect.height),
+				math.floor(100 * area(used) / area(first.rect))
+			)
+		)
+	end
+
+	if snapshot.width >= 900 then
+		for _, plate in prepared.plates do
+			if plate.rect.width < 0.8 * snapshot.width or area(plate.rect) < 0.6 * fullArea then
+				continue
+			end
+			local content = inside(plate)
+			if #content < 3 then
+				continue
+			end
+			local middle = plate.rect.x + plate.rect.width / 2
+			local leftWeight, rightWeight = 0, 0
+			for _, element in content do
+				local weight = math.min(area(element.rect), area(plate.rect))
+				local center = element.rect.x + element.rect.width / 2
+				if center < middle then
+					leftWeight += weight
+				else
+					rightWeight += weight
+				end
+			end
+			local total = leftWeight + rightWeight
+			if total > 0 and math.max(leftWeight, rightWeight) >= 0.85 * total then
+				add(
+					"lopsided-page",
+					"medium",
+					plate,
+					("%d%% of the content sits in one half of a %d px wide surface"):format(
+						math.floor(100 * math.max(leftWeight, rightWeight) / total),
+						math.floor(plate.rect.width)
+					)
+				)
+			end
+		end
+	end
+
+	local floating: { ReviewElement } = {}
+	for _, element in texts do
+		local text = textOf(element)
+		if text.size < 12 or utf8.len(clean(text.content)) == nil or (utf8.len(clean(text.content)) or 0) < 2 then
+			continue
+		end
+		local backed = prepared.plateOf(element) ~= nil
+		if not backed then
+			for _, plate in prepared.plates do
+				if area(plate.rect) > area(element.rect) and within(plate.rect, element) then
+					backed = true
+					break
+				end
+			end
+		end
+		if backed then
+			continue
+		end
+		local parent = prepared.parentOf(element)
+		local owner = if parent ~= nil then prepared.byIndex[parent] else nil
+		if element.interactive or (owner ~= nil and owner.interactive) then
+			continue
+		end
+		table.insert(floating, element)
+	end
+	if #floating >= 3 then
+		add(
+			"floating-text",
+			"medium",
+			floating[1],
+			("%d texts on the world with no plate, such as %s"):format(
+				#floating,
+				quote(clean(textOf(floating[1]).content))
+			)
+		)
+	end
+
+	if snapshot.touch == true then
+		local small = math.min(snapshot.width, snapshot.height) <= 500
+		local size = if small then 70 else 120
+		local jump: ReviewRect = {
+			x = snapshot.width - (if small then 95 else 170),
+			y = snapshot.height - (if small then 90 else 210),
+			width = size,
+			height = size,
+		}
+		for _, element in snapshot.elements do
+			if not element.interactive or not shown(element, snapshot.width, snapshot.height) then
+				continue
+			end
+			local covered = false
+			local parent = prepared.parentOf(element)
+			while parent ~= nil and not covered do
+				local ancestor = prepared.byIndex[parent]
+				covered = ancestor ~= nil and ancestor.class == "ScrollingFrame"
+				parent = if ancestor then prepared.parentOf(ancestor) else nil
+			end
+			for _, plate in prepared.plates do
+				if plate ~= element and area(plate.rect) >= 0.35 * fullArea and within(plate.rect, element) then
+					covered = true
+					break
+				end
+			end
+			if covered then
+				continue
+			end
+			local rect = element.rect
+			local overlapX = math.min(rect.x + rect.width, jump.x + jump.width) - math.max(rect.x, jump.x)
+			local overlapY = math.min(rect.y + rect.height, jump.y + jump.height) - math.max(rect.y, jump.y)
+			if overlapX > 0 and overlapY > 0 and overlapX * overlapY >= 0.2 * size * size then
+				add(
+					"touch-control-overlap",
+					"medium",
+					element,
+					("a %dx%d px control covers %d%% of the Jump button area"):format(
+						math.floor(rect.width),
+						math.floor(rect.height),
+						math.floor(100 * overlapX * overlapY / (size * size))
+					)
+				)
+				break
+			end
 		end
 	end
 

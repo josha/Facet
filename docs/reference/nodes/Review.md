@@ -31,6 +31,10 @@ summary).
 | `zero-wall` | Three or more zeros that are at least half of the numbers. |
 | `single-weight` | Six or more texts in one font and one weight. |
 | `stacked-choices` | Four or more short interactive choices stacked one per row, each at most 60% of the width of their parent. |
+| `hollow-plate` | A plate 280 pixels or wider whose content uses less than 35% of it; one finding per group of plates of the same size. |
+| `lopsided-page` | On a screen 900 or more wide, a full-width surface with 85% or more of its content in one half. |
+| `floating-text` | Three or more texts with no plate behind them, straight on the world. |
+| `touch-control-overlap` | On a touch screen, a HUD control outside any scroll view and any large panel that covers a fifth or more of the place where Roblox draws Jump. |
 | `stranded-content` | Content that uses less than 40% of a large surface and sits to one side. |
 
 A finding is a prompt to look, not a verdict. A rule can find a deliberate
