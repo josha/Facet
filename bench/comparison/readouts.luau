@@ -59,10 +59,10 @@ table.insert(workloads, {
 		local UI, Compose = world.UI, world.Compose
 		local health, ammo, coins, timer =
 			S.model(world, lane, 1), S.model(world, lane, "30"), S.model(world, lane, "0"), S.model(world, lane, "0:00")
-		local bareFill: S.Node? = nil
-		local bareAmmo: S.Node? = nil
-		local bareCoins: S.Node? = nil
-		local bareTimer: S.Node? = nil
+		local plainFill: S.Node? = nil
+		local plainAmmo: S.Node? = nil
+		local plainCoins: S.Node? = nil
+		local plainTimer: S.Node? = nil
 		local stop = S.mount(world, lane, function()
 			return UI.HStack "HUD" {
 				width = 640,
@@ -74,10 +74,10 @@ table.insert(workloads, {
 			}
 		end, function(screen)
 			local root = S.stack(world, screen, "HUD", true)
-			bareFill = S.progress(world, root, "Health", 1)
-			bareAmmo = S.text(world, root, "Ammo", "30", true)
-			bareCoins = S.text(world, root, "Coins", "0", true)
-			bareTimer = S.text(world, root, "Timer", "0:00", true)
+			plainFill = S.progress(world, root, "Health", 1)
+			plainAmmo = S.text(world, root, "Ammo", "30", true)
+			plainCoins = S.text(world, root, "Coins", "0", true)
+			plainTimer = S.text(world, root, "Timer", "0:00", true)
 		end)
 		return {
 			step = function(frame: number)
@@ -92,10 +92,10 @@ table.insert(workloads, {
 					assert(coins):set(c)
 					assert(timer):set(t)
 				else
-					assert(bareFill).Size = world.types.UDim2.fromScale(h, 1)
-					S.setText(world, assert(bareAmmo), a)
-					S.setText(world, assert(bareCoins), c)
-					S.setText(world, assert(bareTimer), t)
+					assert(plainFill).Size = world.types.UDim2.fromScale(h, 1)
+					S.setText(world, assert(plainAmmo), a)
+					S.setText(world, assert(plainCoins), c)
+					S.setText(world, assert(plainTimer), t)
 				end
 				world.frame()
 			end,

@@ -32,7 +32,7 @@ table.insert(workloads, {
 		end
 		local options: { Facet.PickerOption<string> } =
 			{ { value = "low", label = "Low" }, { value = "high", label = "High" } }
-		local bareValues: { string } = table.create(17, "0")
+		local plainValues: { string } = table.create(17, "0")
 		local stop = S.mount(world, lane, function()
 			local children: { Instance } = {}
 			for i, value in toggles do
@@ -71,8 +71,8 @@ table.insert(workloads, {
 			local root = S.stack(world, screen, "Settings")
 			for i = 1, 10 do
 				S.button(world, root, "Toggle" .. i, `Option {i}`, function()
-					bareValues[i] = if bareValues[i] == "0" then "1" else "0"
-					S.setText(world, S.find(world, "Value" .. i), bareValues[i])
+					plainValues[i] = if plainValues[i] == "0" then "1" else "0"
+					S.setText(world, S.find(world, "Value" .. i), plainValues[i])
 				end)
 			end
 			for i = 1, 4 do
@@ -83,7 +83,7 @@ table.insert(workloads, {
 				local thumb = S.create(world, "Frame", "Thumb", track, { Size = world.types.UDim2.fromOffset(24, 24) })
 				local drag = S.create(world, "UIDragDetector", "Drag", thumb)
 				S.connect(world, drag, "DragEnd", function()
-					bareValues[10 + i] = "1"
+					plainValues[10 + i] = "1"
 					S.setText(world, S.find(world, "Value" .. (10 + i)), "1")
 				end)
 			end
@@ -97,8 +97,8 @@ table.insert(workloads, {
 					local label = option.label
 					assert(type(label) == "string")
 					S.button(world, picker, option.value .. i, label, function()
-						bareValues[14 + i] = if option.value == "high" then "1" else "0"
-						S.setText(world, S.find(world, "Value" .. (14 + i)), bareValues[14 + i])
+						plainValues[14 + i] = if option.value == "high" then "1" else "0"
+						S.setText(world, S.find(world, "Value" .. (14 + i)), plainValues[14 + i])
 					end)
 				end
 			end
@@ -121,7 +121,7 @@ table.insert(workloads, {
 						pickers[index - 14]:set("high")
 					end
 				else
-					bareValues[index] = "1"
+					plainValues[index] = "1"
 					S.setText(world, S.find(world, "Value" .. index), "1")
 					if index <= 10 then
 						S.find(world, "Toggle" .. index):AddTag("facet-selected")

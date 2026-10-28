@@ -1,4 +1,4 @@
-name: Facet versus bare
+name: Facet versus plain
 
 on:
   workflow_dispatch:
@@ -42,8 +42,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: facet-vs-bare-${{ github.run_id }}-${{ github.run_attempt }}
+          name: facet-vs-plain-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            artifacts/facet-vs-bare/
-            docs/performance/facet-vs-bare.md
+            artifacts/facet-vs-plain/
+            docs/performance/facet-vs-plain.md
           if-no-files-found: error

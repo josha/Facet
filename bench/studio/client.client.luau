@@ -3,7 +3,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 type Lane = { median: number }
-type Row = { id: string, status: string, facet: Lane?, bare: Lane? }
+type Row = { id: string, status: string, facet: Lane?, plain: Lane? }
 
 local repo = ReplicatedStorage:WaitForChild("FacetRepo")
 local runner = repo:WaitForChild("bench"):WaitForChild("studio"):WaitForChild("run") :: ModuleScript
@@ -11,18 +11,19 @@ local run = (require(runner) :: unknown) :: (Instance, string?) -> { Row }
 local player = Players.LocalPlayer
 task.wait(2)
 local rows = run(player:WaitForChild("PlayerGui"), nil)
-local lines = { "| Workload | Bare (us) | Facet (us) | Facet / bare | Status |", "| --- | ---: | ---: | ---: | --- |" }
+local lines =
+	{ "| Workload | Plain (us) | Facet (us) | Facet / plain | Status |", "| --- | ---: | ---: | ---: | --- |" }
 for _, row in rows do
-	local facet, bare = row.facet, row.bare
-	if facet and bare then
+	local facet, plain = row.facet, row.plain
+	if facet and plain then
 		table.insert(
 			lines,
 			string.format(
 				"| %s | %.0f | %.0f | %.2fx | %s |",
 				row.id,
-				bare.median,
+				plain.median,
 				facet.median,
-				facet.median / bare.median,
+				facet.median / plain.median,
 				row.status
 			)
 		)

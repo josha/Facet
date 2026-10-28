@@ -200,7 +200,7 @@ table.insert(workloads, {
 table.insert(workloads, {
 	id = "virtual-scroll-2000",
 	iterations = 100,
-	what = "Scroll a fixed 40-pixel row window from top to bottom; the bare lane keeps a small reusable row pool.",
+	what = "Scroll a fixed 40-pixel row window from top to bottom; the plain lane keeps a small reusable row pool.",
 	prepare = function(world: Types.World, lane: Types.Lane): Types.Scene
 		local UI = world.UI
 		local data: { string } = {}
@@ -288,8 +288,8 @@ table.insert(workloads, {
 		local UI, Compose = world.UI, world.Compose
 		local initial: { number } = {}
 		local messages = S.model(world, lane, initial)
-		local bareRows: { S.Node } = {}
-		local bareContent: S.Node? = nil
+		local plainRows: { S.Node } = {}
+		local plainContent: S.Node? = nil
 		local stop = S.mount(world, lane, function()
 			return UI.ScrollView "Chat" {
 				gap = 8,
@@ -313,7 +313,7 @@ table.insert(workloads, {
 				Size = world.types.UDim2.fromOffset(640, 480),
 				AutomaticCanvasSize = world.types.Enum.AutomaticSize.Y,
 			})
-			bareContent = S.stack(world, scroll, "Content")
+			plainContent = S.stack(world, scroll, "Content")
 		end)
 		return {
 			step = function(index: number)
@@ -326,11 +326,11 @@ table.insert(workloads, {
 					assert(messages):set(nextRows)
 				else
 					table.insert(
-						bareRows,
-						S.text(world, assert(bareContent), "Message" .. index, `Player: message {index}`, true)
+						plainRows,
+						S.text(world, assert(plainContent), "Message" .. index, `Player: message {index}`, true)
 					)
-					if #bareRows > 100 then
-						assert(table.remove(bareRows, 1)):Destroy()
+					if #plainRows > 100 then
+						assert(table.remove(plainRows, 1)):Destroy()
 					end
 				end
 			end,

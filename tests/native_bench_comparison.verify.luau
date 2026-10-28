@@ -19,7 +19,7 @@ local function workload(id: string): Types.Workload
 end
 
 return function(harness: Verify.Harness)
-	harness:suite("Facet versus bare", function()
+	harness:suite("Facet versus plain", function()
 		for _, workload in Workloads do
 			harness:case(workload.id, {
 				id = "native_bench_comparison::" .. workload.id,

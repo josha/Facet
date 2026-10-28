@@ -43,10 +43,10 @@ local function median(values: { number }): number
 end
 
 return function(workload: Types.Workload, position: number): Evidence
-	local lanes: { Types.Lane } = if position % 2 == 1 then { "bare", "facet" } else { "facet", "bare" }
+	local lanes: { Types.Lane } = if position % 2 == 1 then { "plain", "facet" } else { "facet", "plain" }
 	local specs: { Benchmark.Spec } = {}
 	for _, lane in lanes do
-		assert(lane == "bare" or lane == "facet")
+		assert(lane == "plain" or lane == "facet")
 		local current: Sample? = nil
 		local spec: Benchmark.Spec = {
 			name = tostring(lane),
@@ -110,8 +110,8 @@ return function(workload: Types.Workload, position: number): Evidence
 			problem = timing.failure or Lute.encode(timing.invalid),
 		}
 	end
-	for _, lane in { "bare", "facet" } do
-		assert(lane == "bare" or lane == "facet")
+	for _, lane in { "plain", "facet" } do
+		assert(lane == "plain" or lane == "facet")
 		local result: Benchmark.Result? = nil
 		for _, candidate in timing.results do
 			if candidate.name == lane then

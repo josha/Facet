@@ -9,12 +9,12 @@ local Report = require("../../tools/facet/lib/bench_compare_report")
 local Run = require("../../tools/facet/lib/run")
 
 return function(harness: Verify.Harness)
-	harness:case("comparison ratios use bare and a zero heap has no ratio", function()
+	harness:case("comparison ratios use plain and a zero heap has no ratio", function()
 		local rows: { Report.Row } = {
 			{
 				workload = "sample",
 				iterations = 20,
-				lane = "bare",
+				lane = "plain",
 				microseconds = 100,
 				mountedKb = 0,
 				teardownKb = 0,
@@ -33,7 +33,7 @@ return function(harness: Verify.Harness)
 			},
 		}
 		local markdown = Report.markdown(rows, "revision", {})
-		Verify.expect(string.find(markdown, "| sample | 20 | bare | 100.000 | 1.00x | 0.000 | — |", 1, true) ~= nil)
+		Verify.expect(string.find(markdown, "| sample | 20 | plain | 100.000 | 1.00x | 0.000 | — |", 1, true) ~= nil)
 			:toBe(true)
 		Verify.expect(string.find(markdown, "| sample | 20 | facet | 250.000 | 2.50x | 10.000 | — |", 1, true) ~= nil)
 			:toBe(true)
@@ -47,7 +47,7 @@ return function(harness: Verify.Harness)
 		end
 	end)
 	harness:case("verify filters parity cases and writes no timing report", function()
-		local directory = Files.temporaryDirectory("facet-bare-parity-")
+		local directory = Files.temporaryDirectory("facet-plain-parity-")
 		local result = Run.capture({
 			Run.lute(),
 			"run",
@@ -69,7 +69,7 @@ return function(harness: Verify.Harness)
 		Files.remove(directory)
 	end)
 	harness:case("an empty filter selection fails without measurements", function()
-		local directory = Files.temporaryDirectory("facet-bare-empty-")
+		local directory = Files.temporaryDirectory("facet-plain-empty-")
 		local result = Run.capture({
 			Run.lute(),
 			"run",

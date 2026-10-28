@@ -5,9 +5,9 @@ local Types = require("./types")
 
 return function(workload: Types.Workload)
 	local snapshots: { string } = {}
-	local lanes: { Types.Lane } = { "bare", "facet" }
+	local lanes: { Types.Lane } = { "plain", "facet" }
 	for _, lane in lanes do
-		assert(lane == "bare" or lane == "facet")
+		assert(lane == "plain" or lane == "facet")
 		local world = NativeApp({ textService = true })
 		local before = world.engine.census()
 		local scene = workload.prepare(world, lane)
@@ -17,7 +17,7 @@ return function(workload: Types.Workload)
 					scene.step(checkpoint)
 				end
 				local snapshot = scene.snapshot()
-				if lane == "bare" then
+				if lane == "plain" then
 					snapshots[checkpoint + 1] = snapshot
 				else
 					local reference = snapshots[checkpoint + 1]
@@ -30,7 +30,7 @@ return function(workload: Types.Workload)
 					end
 					assert(
 						snapshot == reference,
-						`{workload.id} differs at checkpoint {checkpoint}, byte {difference}\nBARE: {string.sub(
+						`{workload.id} differs at checkpoint {checkpoint}, byte {difference}\nPLAIN: {string.sub(
 							reference,
 							difference,
 							difference + 300

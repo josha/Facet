@@ -33,8 +33,8 @@ table.insert(workloads, {
 		local initialSort: Sort? = { column = "name", direction = "ascending" }
 		local sort = S.model(world, lane, initialSort)
 		local controls: Controls = {}
-		local bareRows: { [number]: S.Node } = {}
-		local bareScores: { [number]: S.Node } = {}
+		local plainRows: { [number]: S.Node } = {}
+		local plainScores: { [number]: S.Node } = {}
 		local rows = initial
 		local currentSort: Sort = { column = "name", direction = "ascending" }
 		local function order()
@@ -54,7 +54,7 @@ table.insert(workloads, {
 				end)
 			end
 			for index, row in ordered do
-				bareRows[row.id].LayoutOrder = index
+				plainRows[row.id].LayoutOrder = index
 			end
 		end
 		local columns: { Facet.TableColumn<Player, number> } = {
@@ -135,9 +135,9 @@ table.insert(workloads, {
 			local items = S.stack(world, scroll, "Items")
 			for _, row in rows do
 				local node = S.stack(world, items, "Player" .. row.id, true)
-				bareRows[row.id] = node
+				plainRows[row.id] = node
 				S.text(world, node, "Name" .. row.id, row.name, true)
-				bareScores[row.id] = S.text(world, node, "Score" .. row.id, tostring(row.score), true)
+				plainScores[row.id] = S.text(world, node, "Score" .. row.id, tostring(row.score), true)
 				S.text(world, node, "Wins" .. row.id, tostring(row.wins), true)
 			end
 			order()
@@ -164,7 +164,7 @@ table.insert(workloads, {
 						assert(source):set(updated)
 					else
 						for _, row in rows do
-							S.setText(world, bareScores[row.id], tostring(row.score))
+							S.setText(world, plainScores[row.id], tostring(row.score))
 						end
 						order()
 					end
@@ -176,7 +176,7 @@ table.insert(workloads, {
 				for id = 1, 100 do
 					local position = if lane == "facet"
 						then assert(controls.indexOfKey)(id)
-						else bareRows[id].LayoutOrder
+						else plainRows[id].LayoutOrder
 					table.insert(result, tostring(id) .. ":" .. tostring(position))
 				end
 				local names: { string } = {}
@@ -195,7 +195,7 @@ table.insert(workloads, {
 table.insert(workloads, {
 	id = "theme-swap-200",
 	iterations = 10,
-	what = "Swap two neutral packages on 200 themed buttons. Both lanes build both themes in setup. Facet updates its StyleSheet tokens while bare relinks one of two prebuilt theme StyleSheets.",
+	what = "Swap two neutral packages on 200 themed buttons. Both lanes build both themes in setup. Facet updates its StyleSheet tokens while plain relinks one of two prebuilt theme StyleSheets.",
 	prepare = function(world: Types.World, lane: Types.Lane): Types.Scene
 		local Compose, Host = world.Compose, world.Host
 		local first, second = Facet.themes.neutralPackage(), Facet.themes.neutralPackage()
@@ -336,7 +336,7 @@ table.insert(workloads, {
 		end
 		local targets: { [number]: Facet.Value<Instance> } = {}
 		local destinations: { [number]: string } = {}
-		local bareTiles: { [number]: S.Node } = {}
+		local plainTiles: { [number]: S.Node } = {}
 		local gridB: S.Node? = nil
 		local held: number? = nil
 		local stop = S.mount(world, lane, function()
@@ -403,7 +403,7 @@ table.insert(workloads, {
 			local ghost: S.Node? = nil
 			local cancel: S.Node
 			local function settle(id: number)
-				local tile = bareTiles[id]
+				local tile = plainTiles[id]
 				tile:RemoveTag("facet-drag-held")
 				assert(tile:FindFirstChild("Drag")).Enabled = true
 				cancel.Enabled = false
@@ -411,7 +411,7 @@ table.insert(workloads, {
 				held = nil
 			end
 			local function pickUp(id: number)
-				local tile = bareTiles[id]
+				local tile = plainTiles[id]
 				local preview = assert(tile:Clone()) :: S.Node
 				preview.Name = "DragGhost"
 				preview.Interactable, preview.Active, preview.Selectable = false, false, false
@@ -444,15 +444,15 @@ table.insert(workloads, {
 			})
 			cancel.Enabled = false
 			for i = 1, 20 do
-				bareTiles[i] = S.button(world, source, "Tile" .. i, `Tile {i}`, function()
+				plainTiles[i] = S.button(world, source, "Tile" .. i, `Tile {i}`, function()
 					pickUp(i)
 				end)
-				S.create(world, "UIDragDetector", "Drag", bareTiles[i])
+				S.create(world, "UIDragDetector", "Drag", plainTiles[i])
 				destinations[i] = "GridA"
 			end
 			S.button(world, screen, "Drop", "Move here", function()
 				local id = assert(held)
-				bareTiles[id].Parent = gridB
+				plainTiles[id].Parent = gridB
 				destinations[id] = "GridB"
 				settle(id)
 				local landing = assert(ghost)

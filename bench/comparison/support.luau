@@ -541,7 +541,7 @@ local function mount(
 	world: Types.World,
 	lane: Types.Lane,
 	facet: () -> Instance,
-	bare: (Node) -> (),
+	plain: (Node) -> (),
 	unthemed: boolean?
 ): () -> ()
 	if lane == "facet" then
@@ -566,7 +566,7 @@ local function mount(
 	local screen = create(world, "ScreenGui", "Comparison", world.target, {
 		ZIndexBehavior = world.types.Enum.ZIndexBehavior.Sibling,
 	})
-	bare(screen)
+	plain(screen)
 	local unstyle = if unthemed then nil else themed(world, screen)
 	for _, node in screen:GetDescendants() do
 		if node:IsA("GuiObject") then
