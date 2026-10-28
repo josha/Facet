@@ -149,7 +149,7 @@ override any one of them; the rest come from Facet Neutral. The Neutral values:
 | `distances` | `menuSlide` 32 pixels, `parallax` 0.3, `dim` 0.1 |
 | `easing` (Compose easing names) | `present` `outCubic`, `fade` `outQuad`, `trail` `linear` (a fade that trails its travel), `zoomFade` `outCubic` and `zoomScale` `outSine` (zoom transition content opacity and plate size) |
 | `styles` (EasingStyle names) | `paint` `Quad`, `scroll` `Quad`, `page` `Cubic`, `fling` `Back`, `pulse` `Sine` |
-| Other | `fling.friction` 3, `fling.maxSpeed` 4000 pixels per second (a release velocity is clamped to it before it seeds a settle), `fling.projection` 0.08 seconds (how far a row swipe projects its release), `revealFadeShare` 0.5, `unfoldStart` 0.25, `restLimit` 0.25 |
+| Other | `fling.friction` 3, `fling.maxSpeed` 4000 pixels per second (a release velocity is clamped to it before it seeds a settle), `fling.projection` 0.08 seconds (how far a row swipe projects its release), `revealFadeShare` 0.5, `unfoldStart` 0.25, `restLimit` 0.25, `frameLimit` 0.05 seconds (the most time one frame adds to a navigation transition clock) |
 
 - A role timing is the time a surface takes to arrive (`enter`) and to leave
   (`exit`).

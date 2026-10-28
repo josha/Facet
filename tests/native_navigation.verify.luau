@@ -37,6 +37,12 @@ return function(verifyHarness: Verify.Harness)
 	local function near(actual: number, expected: number): boolean
 		return math.abs(actual - expected) <= 1
 	end
+	local function play(engine: { heartbeat: { Fire: (unknown, number) -> () } }, seconds: number)
+		local steps = math.ceil(seconds * 60)
+		for _ = 1, steps do
+			engine.heartbeat:Fire(seconds / steps)
+		end
+	end
 	local function find(root: any, name: string): any
 		if root.Name == name then
 			return root
@@ -4541,12 +4547,12 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(bar.CanvasPosition.X):toBe(140)
 				local panel = fadeKit.layer(find(world.screen, "BContent"))
 				Verify.expect(panel.ClassName):toBe("Frame")
-				world.engine.heartbeat:Fire(0.2)
+				play(world.engine, 0.2)
 				Verify.expect((fadeKit.of(panel))):toBe(0)
 				selected:set("a")
 				Verify.expect(panel.Interactable):toBe(false)
 				world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
-				world.engine.heartbeat:Fire(0.2)
+				play(world.engine, 0.2)
 				Verify.expect((fadeKit.of(fadeKit.layer(find(world.screen, "AContent"))))):toBe(0)
 				world.stop()
 			end,
@@ -5824,7 +5830,7 @@ return function(verifyHarness: Verify.Harness)
 				world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
 				selection:set("one")
 				Verify.expect(one.Visible):toBe(true)
-				world.engine.heartbeat:Fire(0.16)
+				play(world.engine, 0.16)
 				Verify.expect((fadeKit.of(one))):toBe(0)
 				Verify.expect(two.Visible):toBe(false)
 				world.stop()

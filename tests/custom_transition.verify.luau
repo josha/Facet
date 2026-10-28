@@ -7,8 +7,16 @@ local transitions = require("../src/ui/transition")
 local context = require("../src/ui/context")
 local pageLayers = require("../src/ui/nav_page_layers")
 local engines = require("./lib/native_engine")
+local overlay = require("./lib/overlay_world")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(h: Verify.Harness)
+	local function play(engine: engines.Engine, seconds: number)
+		local steps = math.ceil(seconds * 60)
+		for _ = 1, steps do
+			engine.heartbeat:Fire(seconds / steps)
+		end
+	end
 	for _, variant in { "default", "crossfade", "zoom" } do
 		h:case(`a {variant} push yields focus that another surface claims before the page arrives`, function()
 			local path = Facet.Compose.cell({} :: { Facet.NavigationEntry<string> })
@@ -120,25 +128,25 @@ return function(h: Verify.Harness)
 		Verify.expect(plate.AnchorPoint.X + plate.AnchorPoint.Y):toBe(1)
 		Verify.expect(textStable(page)):toBe(true)
 		Verify.expect(scale.Scale):toBe(0.5)
-		w.engine.heartbeat:Fire(0.2)
+		play(w.engine, 0.2)
 		Verify.expect(near(scale.Scale, 0.75)):toBe(true)
 		Verify.expect(near(fade.of(page), 0.5)):toBe(true)
 		Verify.expect(textStable(page)):toBe(true)
 		Verify.expect(page.Interactable):toBe(false)
-		w.engine.heartbeat:Fire(0.3)
+		play(w.engine, 0.3)
 		Verify.expect(zoomOf(page)):toBe(nil)
 		Verify.expect(page:FindFirstChild("TransitionPlate", true)):toBe(nil)
 		Verify.expect(fade.groups(page)):toBe(0)
 		Verify.expect(fade.of(page)):toBe(0)
 		Verify.expect(page.Interactable):toBe(true)
 		path:set({})
-		w.engine.heartbeat:Fire(0.2)
+		play(w.engine, 0.2)
 		Verify.expect(w.find("DetailAction")):toBe(detail)
 		local leaving = assert(zoomOf(page))
 		Verify.expect(near(leaving.Scale, 0.75)):toBe(true)
 		Verify.expect(near(fade.of(page), 0.5)):toBe(true)
 		Verify.expect(textStable(page)):toBe(true)
-		w.engine.heartbeat:Fire(0.3)
+		play(w.engine, 0.3)
 		Verify.expect(w.find("DetailAction")):toBe(nil)
 		Verify.expect(zoomOf(w.screen)):toBe(nil)
 		Verify.expect(fade.groups(w.screen)):toBe(0)
@@ -148,11 +156,11 @@ return function(h: Verify.Harness)
 		local w, path = stackWorld({ scale = 0.5, seconds = 0.4 }, false)
 		path:set({ { id = "details", value = "item" } })
 		local page = w.find("DetailAction"):FindFirstAncestor("details")
-		w.engine.heartbeat:Fire(0.2)
+		play(w.engine, 0.2)
 		Verify.expect(zoomOf(w.screen)):toBe(nil)
 		Verify.expect(w.screen:FindFirstChild("TransitionPlate", true)):toBe(nil)
 		Verify.expect(fade.of(page) > 0 and fade.of(page) < 1):toBe(true)
-		w.engine.heartbeat:Fire(0.3)
+		play(w.engine, 0.3)
 		Verify.expect(fade.of(page)):toBe(0)
 		Verify.expect(fade.groups(w.screen)):toBe(0)
 		w.stop()
@@ -172,13 +180,13 @@ return function(h: Verify.Harness)
 		local page = w.find("DetailAction"):FindFirstAncestor("details")
 		local scale = assert(zoomOf(page))
 		Verify.expect(near(scale.Scale, 0.8)):toBe(true)
-		w.engine.heartbeat:Fire(0.25)
+		play(w.engine, 0.25)
 		Verify.expect(near(fade.of(page), 0.5)):toBe(true)
 		Verify.expect(near(scale.Scale, 0.85)):toBe(true)
 		Verify.expect(textStable(page)):toBe(true)
-		w.engine.heartbeat:Fire(0.2)
+		play(w.engine, 0.2)
 		Verify.expect(zoomOf(page) ~= nil):toBe(true)
-		w.engine.heartbeat:Fire(0.05)
+		play(w.engine, 0.06)
 		Verify.expect(zoomOf(page)):toBe(nil)
 		Verify.expect(fade.of(page)):toBe(0)
 		w.stop()
@@ -242,7 +250,7 @@ return function(h: Verify.Harness)
 		end
 		Verify.expect(scaleOf(detail) > 0.5 and scaleOf(detail) < 1):toBe(true)
 		Verify.expect(sidebar.Visible and fade.of(sidebar) > 0):toBe(true)
-		w.engine.heartbeat:Fire(0.2)
+		play(w.engine, 0.2)
 		Verify.expect(zoomOf(detail)):toBe(nil)
 		Verify.expect(fade.groups(detail)):toBe(0)
 		Verify.expect(sidebar.Visible):toBe(false)
@@ -256,10 +264,179 @@ return function(h: Verify.Harness)
 		Verify.expect(w.find("Inspector")):toBe(inspector)
 		Verify.expect(scaleOf(sidebar) > 0.5 and scaleOf(sidebar) < 1):toBe(true)
 		Verify.expect(sidebar.Visible):toBe(true)
-		w.engine.heartbeat:Fire(0.2)
+		play(w.engine, 0.2)
 		Verify.expect(w.find("Inspector")):toBe(nil)
 		Verify.expect(zoomOf(split)):toBe(nil)
 		Verify.expect(fade.groups(split)):toBe(0)
+		w.stop()
+	end)
+	h:case("a compact split view holds the leaving pane geometry while a tab bar placement flips at push", function()
+		local column = Facet.Compose.cell("sidebar" :: "sidebar" | "detail")
+		local shown = Facet.Compose.cell(false)
+		local roots: { VerifyRoblox.Instance } = {}
+		local w = worlds.new(
+			function(UI: Facet.Controls, _Host, engine)
+				return UI.TabView {
+					selection = Facet.Compose.cell("games"),
+					placement = function(use: Facet.Use): Facet.TabPlacement
+						return if use(shown) then "none" else "bottomBar"
+					end,
+					tabs = {
+						{
+							id = "games",
+							label = "Games",
+							content = function(): Instance
+								return UI.NavigationSplitView {
+									preferredCompactColumn = column,
+									detailVisible = shown,
+									detailLabel = false,
+									compactBack = Facet.Compose.cell(false),
+									transition = { scale = true },
+									sidebar = function(): Instance
+										return UI.Button "Row" {
+											label = "Row",
+											Size = engine.types.UDim2.fromScale(1, 0.5),
+										}
+									end,
+									detail = function(): Instance
+										return UI.Button "Board" { label = "Board" }
+									end,
+								}
+							end,
+						},
+						{
+							id = "other",
+							label = "Other",
+							content = function(): Instance
+								return UI.Button "Other" { label = "Other" }
+							end,
+						},
+					},
+				}
+			end,
+			nil,
+			{
+				layout = {
+					roots = function()
+						return roots
+					end,
+					viewport = function()
+						return { X = 400, Y = 700 }
+					end,
+				},
+			}
+		)
+		table.insert(roots, w.screen)
+		local layout = assert(w.layout)
+		layout.step()
+		local sidebar, row = w.find("Sidebar"), w.find("Row")
+		local split = w.find("NavigationSplitView")
+		local size, at, rowSize, rowAt =
+			sidebar.AbsoluteSize, sidebar.AbsolutePosition, row.AbsoluteSize, row.AbsolutePosition
+		local before = split.AbsoluteSize
+		Verify.expect(size.X > 0 and size.Y > 0 and rowSize.Y > 0):toBe(true)
+		w.runtime:batch(function()
+			shown:set(true)
+			column:set("detail")
+		end)
+		layout.step()
+		Verify.expect(split.AbsoluteSize.Y > before.Y):toBe(true)
+		local frames = 0
+		while sidebar.Visible and frames < 60 do
+			Verify.expect(sidebar.AbsoluteSize):toBe(size)
+			Verify.expect(sidebar.AbsolutePosition):toBe(at)
+			Verify.expect(row.AbsoluteSize):toBe(rowSize)
+			Verify.expect(row.AbsolutePosition):toBe(rowAt)
+			frames += 1
+			w.engine.heartbeat:Fire(1 / 60)
+			layout.step()
+		end
+		Verify.expect(frames > 3 and not sidebar.Visible):toBe(true)
+		column:set("sidebar")
+		shown:set(false)
+		play(w.engine, 0.5)
+		layout.step()
+		Verify.expect(sidebar.Visible):toBe(true)
+		Verify.expect(sidebar.AbsoluteSize):toBe(size)
+		Verify.expect(split.AbsoluteSize):toBe(before)
+		w.stop()
+	end)
+	local function preparedSplit()
+		local column = Facet.Compose.cell("sidebar" :: "sidebar" | "detail")
+		local shown = Facet.Compose.cell(false)
+		local w = overlay.new(function(UI, Host, engine)
+			return Host.Frame {
+				Name = "Backdrop",
+				BackgroundTransparency = 0,
+				Size = engine.types.UDim2.fromScale(1, 1),
+				UI.NavigationSplitView {
+					preferredCompactColumn = column,
+					detailVisible = shown,
+					detailLabel = false,
+					transition = { scale = true },
+					sidebar = function(): Instance
+						return UI.Button "Row" { label = "Row" }
+					end,
+					detail = function(): Instance
+						return UI.Button "Board" { label = "Board" }
+					end,
+				},
+			}
+		end, nil, { runService = true, preRender = true })
+		w.size(w.find("NavigationSplitView"), 400, 600)
+		w.size(w.find("Sidebar"), 400, 600)
+		w.advance(0.2, 12)
+		w.runtime:batch(function()
+			shown:set(true)
+			column:set("detail")
+		end)
+		return w, w.find("Detail")
+	end
+	h:case("a compact split view reveals the incoming pane only after its layout settles", function()
+		local w, detail = preparedSplit()
+		w.size(detail, 360, 600)
+		w.advance(0.3)
+		local widths = { 380, 400 }
+		local revealed = 0
+		for frame = 1, 40 do
+			if fade.of(detail) < 1 then
+				revealed = if revealed == 0 then frame else revealed
+				Verify.expect(detail.AbsoluteSize.X):toBe(400)
+			end
+			w.size(detail, widths[frame] or 400, 600)
+			w.advance(1 / 60)
+		end
+		Verify.expect(revealed > 2):toBe(true)
+		Verify.expect(fade.of(detail)):toBe(0)
+		w.stop()
+	end)
+	h:case("a compact split view runs the full zoom duration after slow first frames", function()
+		local w, detail = preparedSplit()
+		w.size(detail, 400, 600)
+		local motion = assert(Facet.themes.neutralPackage().metrics.motion)
+		local seconds, limit = assert(assert(motion.durations).zoomPresent), assert(motion.frameLimit)
+		local function opacity(): number
+			return 1 - fade.of(detail)
+		end
+		local waited = 0
+		while opacity() == 0 and waited < 2 do
+			w.advance(1 / 60)
+			waited += 1 / 60
+		end
+		Verify.expect(opacity() > 0 and opacity() < 0.5):toBe(true)
+		Verify.expect(zoomOf(detail) ~= nil):toBe(true)
+		for _ = 1, 2 do
+			w.advance(0.2)
+			Verify.expect(opacity() < 1):toBe(true)
+		end
+		local remaining = 0
+		while opacity() < 1 and remaining < 2 do
+			w.advance(1 / 60)
+			remaining += 1 / 60
+		end
+		Verify.expect(remaining >= seconds - 2 * limit - 1 / 60):toBe(true)
+		Verify.expect(opacity()):toBe(1)
+		Verify.expect(w.find("TransitionScale")):toBe(nil)
 		w.stop()
 	end)
 	h:case("a split view without a transition changes its compact column at once", function()
@@ -305,11 +482,11 @@ return function(h: Verify.Harness)
 		end, engine.new("Folder"))
 		ready:set(false)
 		state:set({ index = 1, depthFromTop = 1, top = false, covered = true })
-		engine.heartbeat:Fire(0.5)
+		play(engine, 0.5)
 		Verify.expect(assert(phase).isPresented:peek()):toBe(false)
 		Verify.expect(assert(phase).progress:peek()):toBe(1)
 		ready:set(true)
-		engine.heartbeat:Fire(0.2)
+		play(engine, 0.2)
 		Verify.expect(math.abs(assert(phase).progress:peek() - 0.5) < 0.001):toBe(true)
 		stop()
 		runtime:dispose()
@@ -338,15 +515,15 @@ return function(h: Verify.Harness)
 		local moving = assert(current)
 		held:set(0.3)
 		Verify.expect(moving.progress:peek()):toBe(0.3)
-		engine.heartbeat:Fire(2)
+		play(engine, 2)
 		Verify.expect(moving.progress:peek()):toBe(0.3)
 		held:set(0.7)
 		Verify.expect(moving.progress:peek()):toBe(0.7)
 		held:set(nil)
 		Verify.expect(moving.progress:peek()):toBe(0.7)
-		engine.heartbeat:Fire(0.2)
+		play(engine, 0.2)
 		Verify.expect(math.abs(moving.progress:peek() - 0.85) < 0.001):toBe(true)
-		engine.heartbeat:Fire(0.3)
+		play(engine, 0.3)
 		Verify.expect(moving.progress:peek()):toBe(1)
 		runtime:batch(function()
 			held:set(0)
@@ -361,7 +538,7 @@ return function(h: Verify.Harness)
 			held:set(nil)
 		end)
 		Verify.expect(moving.progress:peek()):toBe(0)
-		engine.heartbeat:Fire(0.5)
+		play(engine, 0.5)
 		Verify.expect(moving.progress:peek()):toBe(1)
 		stop()
 		runtime:dispose()
@@ -381,12 +558,12 @@ return function(h: Verify.Harness)
 			return node
 		end, engine.new("Folder"))
 		local moving = assert(current)
-		engine.heartbeat:Fire(1)
+		play(engine, 1)
 		Verify.expect(moving.progress:peek()):toBe(1)
 		Verify.expect(moving.opacity:peek()):toBe(0)
 		ready:set(true)
 		Verify.expect(moving.progress:peek()):toBe(0)
-		engine.heartbeat:Fire(0.5)
+		play(engine, 0.5)
 		Verify.expect(moving.progress:peek()):toBe(1)
 		stop()
 		runtime:dispose()
@@ -420,11 +597,11 @@ return function(h: Verify.Harness)
 			}
 		end)
 		path:set({ { id = "details", value = "item" } })
-		w.engine.heartbeat:Fire(0.2)
+		play(w.engine, 0.2)
 		local detail = w.find("DetailAction")
 		path:set({})
 		Verify.expect(w.find("DetailAction")):toBe(detail)
-		w.engine.heartbeat:Fire(0.5)
+		play(w.engine, 0.5)
 		Verify.expect(w.find("DetailAction")):toBe(nil)
 		Verify.expect(w.find("HomeAction") ~= nil):toBe(true)
 		Verify.expect(calls):toBe(2)
@@ -473,7 +650,7 @@ return function(h: Verify.Harness)
 		selection:set("b")
 		local b = w.find("B")
 		Verify.expect((b:FindFirstAncestor("b") :: GuiObject).Interactable):toBe(false)
-		w.engine.heartbeat:Fire(0.1)
+		play(w.engine, 0.1)
 		Verify.expect(fade.of(b:FindFirstAncestor("b"))):toBe(0)
 		Verify.expect((b:FindFirstAncestor("b") :: GuiObject).Interactable):toBe(false)
 		local partial = progress[wrapper].progress:peek()
@@ -481,7 +658,7 @@ return function(h: Verify.Harness)
 		selection:set("a")
 		Verify.expect(w.find("A")):toBe(a)
 		Verify.expect(progress[wrapper].progress:peek()):toBe(partial)
-		w.engine.heartbeat:Fire(0.5)
+		play(w.engine, 0.5)
 		Verify.expect((a:FindFirstAncestor("a") :: GuiObject).Interactable):toBe(true)
 		held:set(1)
 		Verify.expect((a:FindFirstAncestor("a") :: GuiObject).Interactable):toBe(false)
@@ -526,7 +703,7 @@ return function(h: Verify.Harness)
 		Verify.expect(assert(phase).progress:peek()):toBe(1)
 		local opacity = fade.of(w.find("B"):FindFirstAncestor("b"))
 		Verify.expect(opacity > 0 and opacity < 1):toBe(true)
-		w.engine.heartbeat:Fire(0.5)
+		play(w.engine, 0.5)
 		Verify.expect(w.find("A")):toBe(nil)
 		Verify.expect(w.find("B") ~= nil):toBe(true)
 		w.stop()
@@ -556,16 +733,16 @@ return function(h: Verify.Harness)
 		local content = w.find("Kept")
 		Verify.expect(fade.of(w.find("SheetTransition"))):toBe(0)
 		shown:set(false)
-		w.engine.heartbeat:Fire(0.3)
+		play(w.engine, 0.3)
 		Verify.expect(w.find("Kept")):toBe(content)
 		Verify.expect(fade.of(w.find("SheetTransition"))):toBe(0)
 		Verify.expect((w.find("SheetTransition") :: GuiObject).Interactable):toBe(false)
 		shown:set(true)
-		w.engine.heartbeat:Fire(0.9)
+		play(w.engine, 0.9)
 		Verify.expect(w.find("Kept")):toBe(content)
 		Verify.expect(calls):toBe(1)
 		shown:set(false)
-		w.engine.heartbeat:Fire(0.9)
+		play(w.engine, 0.9)
 		Verify.expect(w.find("Kept")):toBe(nil)
 		w.stop()
 	end)

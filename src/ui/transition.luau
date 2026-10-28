@@ -15,6 +15,55 @@ export type Motion = {
 	apply: (GuiObject, GuiObject?) -> (),
 }
 
+local function paced(
+	ctx: Types.Context,
+	source: (Types.Use) -> number,
+	reduced: Types.ReadOnlyValue<boolean>,
+	seconds: (Types.Use?) -> number,
+	ease: (number) -> number
+): Types.ReadOnlyValue<number>
+	local C = ctx.Compose
+	local frames = assert(ctx.runtime.host.frames, "Facet transitions require host frames")
+	local value: Types.Value<number> = C.cell(0)
+	local from, goal, elapsed, length = 0, 0, 0, 1
+	local started = false
+	local stop: (() -> ())? = nil
+	local function halt()
+		local current = stop
+		stop = nil
+		if current then
+			current()
+		end
+	end
+	local function advance(delta: number)
+		elapsed = math.min(elapsed + math.min(delta, ctx.metric("motion.frameLimit")), length)
+		value:set(from + (goal - from) * ease(elapsed / length))
+		if elapsed >= length then
+			halt()
+		end
+	end
+	C.watch(function(use: Types.Use)
+		local wanted = source(use)
+		if not started or use(reduced) then
+			started = true
+			halt()
+			goal = wanted
+			value:set(wanted)
+			return
+		end
+		if wanted == goal then
+			return
+		end
+		from, goal, elapsed, length = value:peek(), wanted, 0, seconds(nil)
+		assert(length > 0 and length < math.huge, "Facet transition seconds must be positive and finite")
+		if stop == nil then
+			stop = frames.onFrame(advance)
+		end
+	end)
+	C.cleanup(halt)
+	return value
+end
+
 local function check(spec: Nav.Transition | false?)
 	if spec == nil or spec == false then
 		return
@@ -48,7 +97,7 @@ local function create(
 	holdOnExit: boolean?
 ): Motion
 	check(spec)
-	local C, runtime = ctx.Compose, ctx.runtime
+	local C = ctx.Compose
 	local zooms = spec.scale ~= nil
 	local shaped = zooms and spec.ease == nil
 	local preset = if zooms and spec.motion == nil then "zoomPresent" else spec.motion or "tabFade"
@@ -69,17 +118,19 @@ local function create(
 			then 1
 			else 0
 	end)
-	local amount = runtime.tween(function(use: Types.Use): number
-		local value = use(held)
-		if value ~= nil and level(use) == "normal" and (ready == nil or use(ready)) then
-			return if use(presented) then value else 1 - value
-		end
-		return use(target)
-	end, {
-		reducedMotion = C.formula(function(use: Types.Use): boolean
+	local amount = paced(
+		ctx,
+		function(use: Types.Use): number
+			local value = use(held)
+			if value ~= nil and level(use) == "normal" and (ready == nil or use(ready)) then
+				return if use(presented) then value else 1 - value
+			end
+			return use(target)
+		end,
+		C.formula(function(use: Types.Use): boolean
 			return use(interacting) and level(use) == "normal"
 		end),
-		seconds = function(use: Types.Use): number
+		function(use: Types.Use?): number
 			if level(use) == "limited" then
 				return ctx.metric("motion.reducedFade", use)
 			end
@@ -87,8 +138,8 @@ local function create(
 				then ctx.read(spec.seconds, use)
 				else ctx.metric("motion.durations." .. preset, use)
 		end,
-		ease = spec.ease or if shaped then C.easing.linear else ctx.motionEase("fade"),
-	})
+		spec.ease or if shaped then C.easing.linear else ctx.motionEase("fade")
+	)
 	local function shape(role: string, value: number, use: Types.Use): number
 		return if shaped and not use(interacting) then ctx.motionEase(role, use)(value) else value
 	end

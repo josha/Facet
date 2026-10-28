@@ -325,6 +325,9 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			if tokens.restLimit ~= nil then
 				number("restLimit", tokens.restLimit, 0, 1)
 			end
+			if tokens.frameLimit ~= nil then
+				number("frameLimit", tokens.frameLimit, 0, 1, true)
+			end
 			for _, key in { "presentFadeIn", "presentFadeOut" } do
 				if tokens[key] ~= nil then
 					number(key, tokens[key], 0, 1, true)

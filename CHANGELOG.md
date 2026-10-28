@@ -1,5 +1,18 @@
 # Current package
 
+In a compact `NavigationSplitView` with a `transition`, the closing pane keeps
+its size and screen position until its motion ends. A tab bar placement or a
+header that changes with the push no longer reflows the closing pane.
+
+A navigation page that mounts for a transition stays hidden until its layout
+and text are stable for two frames. The `motion.restLimit` fallback now counts
+frames at 60 frames per second, so one slow frame no longer reveals a page
+before its layout settles.
+
+Navigation transitions add at most the new theme token `motion.frameLimit`
+(0.05 seconds) to their clock for each frame. A slow first frame on a device
+no longer consumes most of a zoom or fade.
+
 A slot collection again creates new slot nodes before item watches that look
 them up in the same settle. Compose 147835f keeps an equal-cut-off formula's
 consumers in propagation order.

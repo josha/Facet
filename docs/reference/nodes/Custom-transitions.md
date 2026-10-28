@@ -16,9 +16,9 @@ is a Frame named `TransitionPlate` with a UIScale named `TransitionScale`. It
 exists only during motion. Without an opaque ancestor, and in a Sheet, the
 zoom is a fade. You cannot use `scale` with `apply`.
 
-`apply(content, phase)` runs once for each retained presentation. It runs in
-the content's Compose owner. Bind native properties with `runtime.decorate`.
-Do not start a second animation clock or destroy the content in this callback.
+`apply(content, phase)` runs once for each retained presentation, in the
+content's Compose owner. Bind native properties with `runtime.decorate`. Do
+not start a second animation clock or destroy the content in it.
 
 `phase.progress` is a readable number from 0 (absent) to 1 (present).
 `phase.isPresented` is a readable boolean. It changes when the page becomes
@@ -63,14 +63,14 @@ uses a short fade, including when `fade = false`. Under no motion, visibility ch
 derive large motion directly from `isPresented`; use `progress` so this
 adaptation applies to the authored effect.
 
-The Custom transitions lab page opens
-directly on an interactive journal: an opaque leaf turns across a fixed spine,
-with a bound cover, shaded paper,
-a curved fold, pointer/touch dragging, and Previous/Next actions. The print stays
-visible on each face and clips at the turning edge. It does not fade or reflow.
-This native 2D treatment does not project text onto a curved 3D surface. The fold
-is example artwork made from native Frames; it is not a Facet effect API.
-The neutral theme's `pageTurn` duration is 0.65 seconds.
+A page that mounts for a transition stays hidden until its layout and text
+are stable for two frames, or for `motion.restLimit` of frames at 60 per
+second. Then its motion starts. Each frame adds at most `motion.frameLimit`
+seconds (0.05) to the motion clock, so a slow frame does not skip the curve.
+
+The Custom transitions lab page opens on an interactive journal: an opaque
+leaf turns across a fixed spine with pointer/touch dragging and Previous/Next
+actions. The fold is example artwork made from native Frames, not a Facet
+effect API. The neutral theme's `pageTurn` duration is 0.65 seconds.
 Roblox GuiObjects do not supply arbitrary 3D
 perspective: use authored images or a Stage/ViewportFrame for a true 3D book.
-Engine particle effects remain separate from this presentation contract.
