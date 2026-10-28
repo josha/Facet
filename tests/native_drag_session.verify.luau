@@ -257,6 +257,36 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
+		verifyHarness:case("reuses one hidden status panel for the next drag on the same screen", {
+			id = "native_drag_session::shared drop sessions::reuses one hidden status panel for the next drag on the same screen",
+			run = function()
+				local w = fixture()
+				w.engine.environment.poke(w.source, "AbsoluteSize", w.engine.types.Vector2.new(120, 80))
+				w.session.begin(w.source, { payload = "card" }, "armed", nil, nil)
+				local panel = assert(w.screen:FindFirstChild("DragStatus", true))
+				local text = assert(w.screen:FindFirstChild("DragStatusText", true))
+				Verify.expect(panel.Visible):toBe(true)
+				w.session.finish(false)
+				Verify.expect(panel.Visible):toBe(false)
+				for _ = 1, 60 do
+					w.engine.heartbeat:Fire(1 / 120)
+				end
+				w.session.begin(w.source, { payload = "card" }, "armed", nil, nil)
+				Verify.expect(w.screen:FindFirstChild("DragStatus", true)):toBe(panel)
+				Verify.expect(panel.Visible):toBe(true)
+				Verify.expect(string.find(text.Text, "Choose a destination", 1, true) ~= nil):toBe(true)
+				local panels = 0
+				for _, node in w.screen:GetDescendants() do
+					if node.Name == "DragStatus" then
+						panels += 1
+					end
+				end
+				Verify.expect(panels):toBe(1)
+				w.session.finish(false)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("validates on hover and again at release without mutating on a rejected proposal", {
 			id = "native_drag_session::shared drop sessions::validates on hover and again at release without mutating on a rejected proposal",
 			run = function()
