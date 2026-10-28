@@ -144,10 +144,8 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		engine.destroy(node)
 	end
 
-	local function connectEvent<Args...>(node: Node, event: string, handler: (Args...) -> ()): Compose.Unsubscribe
-		local read, found = pcall(function(): unknown
-			return (node :: { [string]: unknown })[event]
-		end)
+	local function signalOf<Args...>(node: Node, event: string): Engine.Signal<Args...>
+		local read, found = pcall(readMember, node, event)
 		local signal = (if read then found else nil) :: Engine.Signal<Args...>?
 		if signal == nil or type(signal.Connect) ~= "function" then
 			error(
@@ -165,7 +163,15 @@ local function createHost(engine: Engine.Engine): Compose.Host
 			)
 		end
 
-		return connect(signal, handler)
+		return signal
+	end
+
+	local function connectEvent<Args...>(node: Node, event: string, handler: (Args...) -> ()): Compose.Unsubscribe
+		return connect(signalOf(node, event), handler)
+	end
+
+	local function attachEvent<Args...>(node: Node, event: string, handler: (Args...) -> ())
+		signalOf(node, event):Connect(handler)
 	end
 
 	local function classifyKey(node: Node, key: string): Compose.KeyKind
@@ -321,6 +327,7 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		},
 		events = {
 			connectEvent = connectEvent,
+			attachEvent = attachEvent,
 			classifyKey = classifyKey,
 		},
 		observation = {
