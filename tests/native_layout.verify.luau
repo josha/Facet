@@ -1872,9 +1872,7 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_layout::ScrollView::keeps room inside its canvas for the theme's plate glow and edge",
 				run = function()
 					local function stroke(): any
-						local properties: any = {}
-						properties.Thickness = 2
-						return { selector = ".facet-panel::UIStroke", properties = properties }
+						return { selector = ".facet-panel::UIStroke", properties = { Thickness = 2 } }
 					end
 					local glowing = assert((Facet.themes.define({
 						identity = { id = "glowing" },
