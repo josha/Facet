@@ -9,6 +9,12 @@ local travel = require("./drag_travel")
 local gestureOf = require("./gesture_service")
 local worldVisual = require("./drag_world_visual")
 local services = setmetatable({} :: { [Types.Context]: Drag.Service }, { __mode = "kv" })
+type StatusPanel = {
+	frame: GuiObject,
+	label: TextLabel,
+	input: (Types.Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse",
+	stop: () -> (),
+}
 
 local function payloadOf<T>(value: T, source: Env.DropDestination): unknown
 	if type(value) == "function" then
@@ -369,10 +375,72 @@ return function(ctx: Types.Context): Drag.Service
 			math.clamp(at.Y.Offset + ctx.metric("targetSizes.minimum"), gap, math.max(gap, bounds.Y - size.Y - gap))
 		)
 	end
+	local panels: { [GuiBase2d]: StatusPanel } = {}
+	local owners = 0
+	local function releasePanels()
+		for layer, panel in panels do
+			panels[layer] = nil
+			panel.stop()
+		end
+	end
+	local function statusPanel(layer: GuiBase2d): StatusPanel
+		local label: TextLabel? = nil
+		local shell: Frame? = nil
+		local input: ((Types.Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse")? = nil
+		local stop = ctx.runtime.mount(function()
+			local effective = ctx.effectiveInput()
+			input = effective
+			local text = ctx.styled(
+				ctx.Host.TextLabel {
+					Name = "DragStatusText",
+					Size = D2.fromOffset(0, 0),
+					AutomaticSize = ctx.types.Enum.AutomaticSize.XY,
+					TextWrapped = true,
+					Text = "Choose a destination",
+					ZIndex = 1002,
+					ctx.Host.UISizeConstraint {
+						MaxSize = V2.new(math.max(1, math.min(280, layer.AbsoluteSize.X - 32)), math.huge),
+					},
+				},
+				"text"
+			)
+			label = text
+			Compose.watch(function(use)
+				effective(use)
+				local session = current
+				if session and session.status == text then
+					updateStatus(session)
+				end
+			end)
+			local panelProps: Types.FrameProps = {
+				Name = "DragStatus",
+				Size = D2.fromOffset(0, 0),
+				AutomaticSize = ctx.types.Enum.AutomaticSize.XY,
+				ZIndex = 1001,
+				Attributes = { FacetDragFeedback = true } :: EngineTypes.Attributes,
+				ctx.Host.UIPadding {
+					PaddingTop = ctx.types.UDim.new(0, ctx.metric("space.s")),
+					PaddingBottom = ctx.types.UDim.new(0, ctx.metric("space.s")),
+					PaddingLeft = ctx.types.UDim.new(0, ctx.metric("space.s")),
+					PaddingRight = ctx.types.UDim.new(0, ctx.metric("space.s")),
+				},
+				text,
+			}
+			local made = ctx.styled(ctx.Host.Frame(panelProps), "tooltip")
+			shell = made
+			return made
+		end, layer)
+		return { frame = assert(shell), label = assert(label), input = assert(input), stop = stop }
+	end
 	function service.own(source: Env.DropDestination)
+		owners += 1
 		Compose.cleanup(function()
 			if returning[source] then
 				returning[source]()
+			end
+			owners -= 1
+			if owners == 0 and current == nil then
+				releasePanels()
 			end
 		end)
 	end
@@ -873,52 +941,31 @@ return function(ctx: Types.Context): Drag.Service
 		end
 		if layer then
 			local session = created
-			local stopMount = ctx.runtime.mount(function()
-				local input = ctx.effectiveInput()
-				session.effectiveInput = input
-				Compose.watch(function(use)
-					input(use)
-					if session.status then
-						updateStatus(session)
+			local panel: StatusPanel
+			if spec.world then
+				local made = statusPanel(layer)
+				panel = made
+				session.stopStatus = function()
+					made.stop()
+					if stopScreen then
+						stopScreen()
 					end
-				end)
-				local label = ctx.styled(
-					ctx.Host.TextLabel {
-						Name = "DragStatusText",
-						Size = D2.fromOffset(0, 0),
-						AutomaticSize = ctx.types.Enum.AutomaticSize.XY,
-						TextWrapped = true,
-						Text = "Choose a destination",
-						ZIndex = 1002,
-						ctx.Host.UISizeConstraint {
-							MaxSize = V2.new(math.max(1, math.min(280, layer.AbsoluteSize.X - 32)), math.huge),
-						},
-					},
-					"text"
-				)
-				session.status = label
-				local panelProps: Types.FrameProps = {
-					Name = "DragStatus",
-					Size = D2.fromOffset(0, 0),
-					AutomaticSize = ctx.types.Enum.AutomaticSize.XY,
-					ZIndex = 1001,
-					Attributes = { FacetDragFeedback = true } :: EngineTypes.Attributes,
-					ctx.Host.UIPadding {
-						PaddingTop = ctx.types.UDim.new(0, ctx.metric("space.s")),
-						PaddingBottom = ctx.types.UDim.new(0, ctx.metric("space.s")),
-						PaddingLeft = ctx.types.UDim.new(0, ctx.metric("space.s")),
-						PaddingRight = ctx.types.UDim.new(0, ctx.metric("space.s")),
-					},
-					label,
-				}
-				return ctx.styled(ctx.Host.Frame(panelProps), "tooltip")
-			end, layer)
-			session.stopStatus = function()
-				stopMount()
-				if stopScreen then
-					stopScreen()
+				end
+			else
+				local cached = panels[layer]
+				if cached == nil or cached.frame.Parent ~= layer then
+					cached = statusPanel(layer)
+					panels[layer] = cached
+				end
+				local shown = cached
+				panel = shown
+				shown.frame.Visible = true
+				session.stopStatus = function()
+					shown.frame.Visible = false
 				end
 			end
+			session.status = panel.label
+			session.effectiveInput = panel.input
 			updateStatus(session)
 		end
 		activation.consume(press)
