@@ -163,7 +163,14 @@ local function classify(host: Host.Host, node: Node, key: string): Host.KeyKind
 	return classifyKey(node, key)
 end
 
-local function subscribe(host: Host.Host, node: Node, owner: Owner.Owner, name: string, handler: (...unknown) -> ())
+local function subscribe(
+	host: Host.Host,
+	node: Node,
+	owner: Owner.Owner,
+	name: string,
+	handler: (...unknown) -> (),
+	fresh: boolean?
+)
 	local events = host.events
 	if events == nil then
 		error(
@@ -175,6 +182,11 @@ local function subscribe(host: Host.Host, node: Node, owner: Owner.Owner, name: 
 			}),
 			0
 		)
+	end
+	local attach = events.attachEvent
+	if fresh and attach ~= nil then
+		attach(node, name, handler)
+		return
 	end
 	Owner.adopt(owner, (events).connectEvent(node, name, handler))
 end
@@ -638,7 +650,7 @@ local function apply(
 							0
 						)
 					end
-					subscribe(host, node, owner, marker.name, value :: (...unknown) -> ())
+					subscribe(host, node, owner, marker.name, value :: (...unknown) -> (), fresh)
 				elseif type(value) == "function" or cellModule.isValue(value) then
 					bind(propertyTarget(host), node, owner, marker.name, value :: Types.Source<unknown>)
 				else
@@ -706,7 +718,7 @@ local function apply(
 
 		if type(value) == "function" then
 			if classify(host, node, name) == "event" then
-				subscribe(host, node, owner, name, value :: (...unknown) -> ())
+				subscribe(host, node, owner, name, value :: (...unknown) -> (), fresh)
 			elseif fresh then
 				local connect = mapped[value]
 				local watcher: Types.Node
