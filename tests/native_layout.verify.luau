@@ -1888,7 +1888,7 @@ return function(verifyHarness: Verify.Harness)
 							},
 						},
 						rules = { stroke() },
-					})))
+					} :: any)))
 					local root, _, stop = build({ theme = glowing }, function(UI: FacetControls)
 						return UI.ScrollView({ UI.VStack({ width = "fill", surface = "panel" }) })
 					end)

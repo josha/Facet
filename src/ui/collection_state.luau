@@ -231,8 +231,7 @@ local function create<V, K>(
 	local function edgeOf(gutter: Types.Input<number>?, use: ComposeTypes.Use?): number
 		return if kind == "grid" then math.ceil(math.max(0, read(gutter or 0, use)) / 2) else 0
 	end
-	-- Cards are plates: keep room for the theme's plate glow and edge inside
-	-- the clipping viewport, as ScrollView does.
+
 	local function plateReach(use: ComposeTypes.Use?): number
 		return themeSupport.plateReach(read(ctx.config.theme, use))
 	end

@@ -16,8 +16,7 @@ export type Arrangement<V> = {
 	center: ComposeTypes.Value<Vector2>,
 	captionPadding: (use: ComposeTypes.Use) -> number,
 	wordWidths: ComposeTypes.Value<{ [string]: number }>,
-	-- The caption widths from the hidden CaptionMeasure label alone. The ring or
-	-- list choice reads these, so the shape of a list row cannot feed back into it.
+
 	captionWidths: ComposeTypes.Value<{ [string]: number }>,
 	layout: ComposeTypes.Value<Radial.Layout<V>>,
 	sectors: ComposeTypes.Value<{ Radial.Sector<V> }>,
@@ -204,9 +203,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 		local textSize = ctx.metric("typography.control.size", use)
 		local iconSize = ctx.controlSize(nil, "iconSize", use)
 		local measuredCaptions = use(captionWidths)
-		-- A caption's width: the measured CaptionMeasure label once it reports,
-		-- else an estimate from the theme's control type size. The measure does
-		-- not depend on the ring, so the ring cannot feed back into it.
+
 		local function estimate(item: Radial.RadialItemBase<V>, key: string?): (number, number)
 			if glyphOnly(item) then
 				return iconSize, iconSize
@@ -294,9 +291,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 				end
 				local wanted = 2 * math.ceil(math.max(extent, target) / 2)
 				levelBand = math.clamp(math.max(wanted, replaced), floor, band)
-				-- The chord rule above is approximate. Confirm each caption fits its
-				-- wedge with the same box test the ring-or-list choice uses, and widen
-				-- the band until it does or the room runs out.
+
 				for _ = 1, 24 do
 					if levelBand >= band or appearance ~= "wedges" or contentFit == "none" then
 						break

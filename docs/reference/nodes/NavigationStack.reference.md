@@ -12,10 +12,8 @@ Supply writable `path`, `root` and `destinations`. Path is an array of
 Preserve entry tables when changing the path. `id` names the destination, not
 a page instance. See [NavigationStack.path](NavigationStack.path.md).
 
-When a destination's content errors, the page shows "This page could not be
-displayed.", the stack root's `FacetError` attribute holds the error, and the
-error goes to the app's `onError`, or to the output as a warning that names
-the page.
+A destination that errors shows an error page and reports to the app's
+`onError`, or warns with the page name.
 
 `backLabel` sets the text of the native Back chrome. Compose `LayerStack` owns
 the retained pages and their disposal.

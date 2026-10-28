@@ -5,8 +5,7 @@ local json = require("@std/json")
 local Cli = require("../lib/cli")
 local Audit = require("../../vendor/verify/src/roblox/ui-audit")
 local Look = require("../lib/look")
--- Loaded when a command needs it: the paired benchmark runs these tools
--- against the base revision's src, which may predate the review rules.
+
 local function designReview()
 	return require("../lib/design_review")
 end

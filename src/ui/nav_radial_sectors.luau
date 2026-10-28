@@ -469,8 +469,7 @@ return function<V>(
 							ZIndex = 102,
 						}
 						ctx.styled(paint, "radial-sector")
-						-- The engine clamps Path2D.Thickness to 100, so a wider band is painted
-						-- as several adjacent strokes. Extra strokes are made only when needed.
+
 						local strokeOwner = Compose.currentOwner()
 						local extraStrokes: { Path2D } = {}
 						local candidate = Compose.cell(false)

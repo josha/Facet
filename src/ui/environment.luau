@@ -708,10 +708,6 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		return environment
 	end
 
-	-- The camera environment is one set of facts for the whole app, shared by
-	-- every owner that asks for it and released with the last of them. A
-	-- property function that calls UI.environment() again when it reruns,
-	-- outside any owner, gets the live shared facts instead of an error.
 	local current: Env.Environment? = nil
 	local acquire = Compose.createSharedResource(function(): (Env.Environment, () -> ())
 		local built: Env.Environment? = nil

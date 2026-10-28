@@ -300,9 +300,6 @@ local function neutralBase(neutral: ThemeTypes.ThemePackage, colors: { [string]:
 	return base
 end
 
--- How far a theme's plates draw past their bounds: the panel and control
--- shadows and the UIStroke that theme rules add. A ScrollingFrame clips its
--- canvas, so a plate that touches the canvas edge loses that part.
 local function plateReach(package: ThemeTypes.ThemePackage?): number
 	if package == nil then
 		return 0

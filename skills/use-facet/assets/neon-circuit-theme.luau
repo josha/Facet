@@ -1,8 +1,5 @@
 --!strict
--- Neon Circuit: one example identity for a night-time sci-fi game. Every panel
--- carries a cyan neon edge and a soft glow, controls are a saturated blue step
--- above the dark surface, magenta marks the current choice, and display type
--- leads titles and values while body text stays readable.
+
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 local function rgb(r: number, g: number, b: number): { r: number, g: number, b: number }
 	return { r = r / 255, g = g / 255, b = b / 255 }
@@ -72,7 +69,7 @@ local chrome: { [string]: Facet.SkinLayerPatch } = {
 		zIndex = -1,
 	},
 }
--- The neon edge: every panel and page surface draws a stroke in the accent.
+
 local function edge(selector: string, thickness: number, transparency: number): Facet.ThemeRule
 	local properties: Facet.ThemeRuleProperties = {}
 	properties.Color = { role = "accent" }
