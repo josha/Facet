@@ -5,7 +5,11 @@ local json = require("@std/json")
 local Cli = require("../lib/cli")
 local Audit = require("../../vendor/verify/src/roblox/ui-audit")
 local Look = require("../lib/look")
-local DesignReview = require("../lib/design_review")
+-- Loaded when a command needs it: the paired benchmark runs these tools
+-- against the base revision's src, which may predate the review rules.
+local function designReview()
+	return require("../lib/design_review")
+end
 
 local USAGE = [[usage: lute run tools/facet audit [--device ID]... [--tap TEXT]... [--wait SECONDS]
                                   [--project FILE] [--out DIR] [--keep] [--all]
@@ -125,9 +129,9 @@ local function report(
 	if #lines == 1 then
 		table.insert(lines, "  no finding")
 	end
-	local reviewed, design = pcall(DesignReview.analyze, loaded)
+	local reviewed, design = pcall(designReview().analyze, loaded)
 	if reviewed then
-		for _, line in DesignReview.lines(design, fixes, all) do
+		for _, line in designReview().lines(design, fixes, all) do
 			table.insert(lines, line)
 		end
 	else
@@ -162,7 +166,7 @@ local function run(invocation: Cli.Invocation): number
 		local loaded = Look.load(saved)
 		local text, high = report(devices[1], saved, loaded, all)
 		local value = (Look.audit(loaded, devices[1]) :: unknown) :: { [string]: json.Value }
-		local reviewed, design = pcall(DesignReview.analyze, loaded)
+		local reviewed, design = pcall(designReview().analyze, loaded)
 		value.design = if reviewed then (design.findings :: unknown) :: json.Value else {}
 		Cli.emit(invocation, (value :: unknown) :: json.Value, text)
 		return if high then 1 else 0
@@ -194,7 +198,7 @@ local function run(invocation: Cli.Invocation): number
 			text ..= "\n  problem: " .. (screen.problem :: string)
 		end
 		table.insert(texts, text)
-		local reviewed, design = pcall(DesignReview.analyze, loaded)
+		local reviewed, design = pcall(designReview().analyze, loaded)
 		local entry: json.Value = {
 			device = screen.device,
 			label = screen.label,

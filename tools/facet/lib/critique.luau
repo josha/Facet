@@ -1,6 +1,5 @@
 --!strict
 local Audit = require("../../vendor/verify/src/roblox/ui-audit")
-local DesignReview = require("./design_review")
 local Files = require("./files")
 local Json = require("./json")
 local Look = require("./look")
@@ -196,7 +195,7 @@ function Critique.packet(options: PacketOptions): Packet
 			end
 		end
 		if dump ~= nil and options.rules ~= false then
-			local report = DesignReview.analyze(dump)
+			local report = require("./design_review").analyze(dump)
 			entry.findings = #report.findings
 			local lines = { report.text, "", "Text outline, top to bottom:" }
 			for _, line in Look.outline(dump, 60) do
