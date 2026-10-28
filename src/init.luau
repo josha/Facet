@@ -284,6 +284,7 @@ export type ThemePackage = ThemeTypes.ThemePackage
 export type ThemeDefinition = ThemeTypes.ThemeDefinition
 export type PalettePatch = ThemeTypes.PalettePatch
 export type PaletteExtra = ThemeTypes.PaletteExtra
+export type SkinLayerPatch = ThemeTypes.SkinLayerPatch
 export type TypographyPatch = ThemeTypes.TypographyPatch
 export type RGB = ThemeTypes.RGB
 export type Gradient = ThemeTypes.Gradient

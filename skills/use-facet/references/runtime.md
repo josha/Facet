@@ -87,7 +87,7 @@ factories return `Instance`; a NavBar trailing node can be stored in a
 | Equal peer buttons in a row | `UI.fill()` inside each Button |
 | Label and trailing value | `UI.Spacer {}` between them in a bounded HStack |
 | Vertically centered content in a fixed-height row | HStack `align = "center"`; text alignment acts inside each label |
-| One group changes row to column | AdaptiveStack |
+| Two or three actions change row to column | AdaptiveStack; many short choices wrap in `HStack { wrap = true }` |
 | Alternative HUD forms | Stable Region with concrete, measurable forms |
 | Large browse area | Bounded VirtualList or VirtualGrid |
 | Button with record facts inside its plate | Bounded native `Size`, `label` and `subtitle`; `caption` is an external annotation that reserves no space |

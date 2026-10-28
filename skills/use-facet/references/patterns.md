@@ -21,7 +21,7 @@ scale, type, shape and composition. Shared paint alone does not establish identi
 | Relationship | Use | When room shrinks |
 | --- | --- | --- |
 | Sequential reading or distinct form sections | VStack; HStack within a related section | Wrap and grow prose; scroll a bounded body |
-| Short status or action row | HStack; AdaptiveStack when order can become a column | Reflow related items together; keep priority |
+| Short status or action row | HStack; AdaptiveStack for two or three actions that can become a column | Reflow related items together; keep priority. Swatches, chips and filters wrap in `HStack { wrap = true }` |
 | Records with attributes to compare | Table with stable keys and meaningful columns | Keep decisive columns; optional detail preserves the selected record |
 | Visual peers identified by shape | Grid for a small fixed arrangement; VirtualGrid for an interactive collection | Reduce columns from readable cell width and target size |
 | Records in rows | VirtualList; Outline for parent/child relationships | Preserve keys, selection and scroll context |

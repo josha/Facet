@@ -15,6 +15,23 @@ judgment, then turns it into concrete changes.
 - After a visual change, to confirm it helped.
 - When asked to review, critique, assess or polish an interface.
 
+## In a timed build
+
+When the whole game must ship in minutes, run this quick pass on each main
+screen as soon as it works, before building the next one. It takes about two
+minutes a screen.
+
+1. In Play, in the Client, `return Facet.review.screen().text`. Fix every
+   medium or high finding, or name the reason it is deliberate.
+2. Capture once wide and once in portrait.
+3. Answer in one line each: What leads? Is the current choice marked? Does
+   every option of each choice show? Is anything stacked one per row in a wide
+   space? Could this capture belong to an unrelated game?
+4. Fix the worst answer, then move on.
+
+Run the full loop below when time remains, starting with the screen the player
+sees most.
+
 ## The loop
 
 1. **Collect evidence.** With a shell and a Rojo project:

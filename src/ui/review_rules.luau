@@ -64,6 +64,7 @@ local FIXES: { [string]: string } = table.freeze({
 	["nested-surface"] = "A plate sits inside a plate of nearly the same color. Keep one plate per layer; separate groups with space or one hairline.",
 	["zero-wall"] = "Most numbers on this screen are zero. Replace an all-zero record with its goal: what the player does next and how far it is.",
 	["single-weight"] = "Every text uses one font and one weight. Give the lead and the values a heavier weight than labels and body text.",
+	["stacked-choices"] = "Short choices are stacked in a narrow column inside a wide space, so the player scrolls past one option per row. Put color swatches, chips and filters in an HStack with wrap = true or a Grid that fills the width, and show a few peer actions in one row. AdaptiveStack turns into this column when its row does not fit.",
 	["stranded-content"] = "The content fills a small part of a large surface and sits to one side. Bound the surface to its content or use the space for the subject.",
 })
 
@@ -614,6 +615,57 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		end
 		if same then
 			add("single-weight", "low", texts[1], ("%d texts in one font and one weight"):format(#texts))
+		end
+	end
+
+	for parentIndex, list in prepared.children do
+		local parent = prepared.byIndex[parentIndex]
+		if parent == nil or parent.rect.width <= 0 then
+			continue
+		end
+		local column: { ReviewElement } = {}
+		local widest = 0
+		for _, child in list do
+			if not child.interactive then
+				continue
+			end
+			local words = prepared.descendantTexts(child)
+			if #words ~= 1 or (utf8.len(clean(textOf(words[1]).content)) or 0) > 24 then
+				continue
+			end
+			table.insert(column, child)
+			widest = math.max(widest, child.rect.width)
+		end
+		if #column < 4 or widest > 0.6 * parent.rect.width then
+			continue
+		end
+		table.sort(column, function(left: ReviewElement, right: ReviewElement): boolean
+			return left.rect.y < right.rect.y
+		end)
+		local run = 1
+		local best = 1
+		for index = 2, #column do
+			local above, below = column[index - 1].rect, column[index].rect
+			local sameColumn = math.abs(above.x - below.x) < 8
+				or math.abs((above.x + above.width / 2) - (below.x + below.width / 2)) < 8
+			if sameColumn and below.y >= above.y + above.height - 2 then
+				run += 1
+				best = math.max(best, run)
+			else
+				run = 1
+			end
+		end
+		if best >= 4 then
+			add(
+				"stacked-choices",
+				"medium",
+				parent,
+				("%d short choices stacked one per row in a %d px wide space; the widest is %d px"):format(
+					best,
+					math.floor(parent.rect.width),
+					math.floor(widest)
+				)
+			)
 		end
 	end
 

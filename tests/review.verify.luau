@@ -239,6 +239,36 @@ return function(harness: Verify.Harness)
 		t:expect(#refused.advice):toBe(0)
 	end)
 
+	harness:case("define advises when only one role carries the display family", function(t)
+		local themes = require("../src").themes
+		local ThemeTypes = require("../src/ui/theme_types")
+		local function typography(roles: { string }): { [string]: ThemeTypes.TypographyPatch }
+			local scale: { [string]: ThemeTypes.TypographyPatch } = {
+				body = { size = 18 },
+				caption = { size = 15 },
+				heading = { size = 24 },
+				numeral = { size = 32 },
+				title = { size = 32 },
+			}
+			for _, role in roles do
+				scale[role].font = { family = "rbxasset://fonts/families/Michroma.json", weight = "Bold" }
+			end
+			return scale
+		end
+		local _, single =
+			themes.define({ identity = { id = "single" }, metrics = { typography = typography({ "title" }) } })
+		local fields: { [string]: boolean } = {}
+		for _, item in single.advice do
+			fields[item.field] = true
+		end
+		t:expect(fields["metrics.typography.title"]):toBe(true)
+		local _, carried = themes.define({
+			identity = { id = "carried" },
+			metrics = { typography = typography({ "title", "heading", "numeral" }) },
+		})
+		t:expect(#carried.advice):toBe(0)
+	end)
+
 	harness:case("ranges, ratios, bullet lists and times are not joined facts", function(t)
 		t:expect(#Rules.segments("Lap 2 / 3")):toBe(1)
 		t:expect(#Rules.segments("HP 80 / 100")):toBe(1)
@@ -272,6 +302,32 @@ return function(harness: Verify.Harness)
 		t:expect(rules(Rules.analyze(snapshot()))["competing-peaks"]):toBe(nil)
 	end)
 
+	harness:case("short choices stacked in a wide space are stacked choices", function(t)
+		local add, snapshot = scene()
+		local panel = add(nil, "Frame", 0, 0, 400, 700, { opaque = true, fill = PANEL })
+		local stack = add(panel, "Frame", 20, 100, 360, 360)
+		for row, name in { "Red", "Amber", "Green", "Cyan", "Blue", "Violet" } do
+			add(stack, "TextButton", 20, 100 + (row - 1) * 56, 80, 48, { text = name, interactive = true })
+		end
+		t:expect(rules(Rules.analyze(snapshot()))["stacked-choices"]):toBe(1)
+	end)
+
+	harness:case("a wrapping row and a hugging menu column are not stacked choices", function(t)
+		local add, snapshot = scene()
+		local panel = add(nil, "Frame", 0, 0, 400, 700, { opaque = true, fill = PANEL })
+		local row = add(panel, "Frame", 20, 100, 360, 110)
+		for index, name in { "Red", "Amber", "Green", "Cyan", "Blue", "Violet" } do
+			local column = (index - 1) % 3
+			local line = (index - 1) // 3
+			add(row, "TextButton", 20 + column * 116, 100 + line * 56, 108, 48, { text = name, interactive = true })
+		end
+		local menu = add(panel, "Frame", 120, 300, 160, 240)
+		for index, name in { "Play", "Garage", "Shop", "Settings" } do
+			add(menu, "TextButton", 120, 300 + (index - 1) * 60, 160, 52, { text = name, interactive = true })
+		end
+		t:expect(rules(Rules.analyze(snapshot()))["stacked-choices"]):toBe(nil)
+	end)
+
 	harness:case("a subject image counts toward the used area of a surface", function(t)
 		local add, snapshot = scene()
 		local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
@@ -300,7 +356,7 @@ return function(harness: Verify.Harness)
 		local Facet = require("../src")
 		local engine: any = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)
-		local UI = Facet.controls(runtime, { types = engine.types } :: any)
+		local UI = Facet.controls(runtime, { types = engine.types })
 		local screen = engine.new("ScreenGui")
 		local root: any
 		local stop = runtime.mount(function()

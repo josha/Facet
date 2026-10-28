@@ -30,6 +30,7 @@ summary).
 | `nested-surface` | A plate in a plate of nearly the same color. |
 | `zero-wall` | Three or more zeros that are at least half of the numbers. |
 | `single-weight` | Six or more texts in one font and one weight. |
+| `stacked-choices` | Four or more short interactive choices stacked one per row, each at most 60% of the width of their parent. |
 | `stranded-content` | Content that uses less than 40% of a large surface and sits to one side. |
 
 A finding is a prompt to look, not a verdict. A rule can find a deliberate

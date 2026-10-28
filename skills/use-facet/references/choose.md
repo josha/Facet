@@ -26,7 +26,7 @@ visual system and image-based surfaces, use [game themes](game-themes.md).
 | Change an independent setting | Toggle; do not use it to navigate |
 | Enter text or a number | TextInput or NumberInput; CellEditor inside a table |
 | Adjust a range or increment | Slider or Stepper; keep a digital alternative to dragging |
-| Pick a color, level, date or rating | ColorPicker, LevelPicker, DateTimePicker or Rating |
+| Pick a color, level, date or rating | Chips with a swatch for a named palette ([game screens](game-screens.md)); ColorPicker for free color; LevelPicker, DateTimePicker or Rating |
 | Inspect optional context | Popover near the source; DisclosureGroup in the reading flow |
 | Complete a temporary task | Sheet or Dialog; Alert for a brief consequential confirmation |
 | Follow a short sequence | PageView; Pagination for actual bounded result pages |
@@ -35,7 +35,7 @@ visual system and image-based surfaces, use [game themes](game-themes.md).
 | Notice a result | Toast for brief feedback; Notice for persistent information; StatusIndicator for state |
 | Make a shared choice | Vote; show local intent separately from accepted shared state |
 | Show an item and its state | Card, Badge or Chip; RowActions for contextual row commands |
-| Arrange a chosen relationship | VStack, HStack, Grid or ZStack; AdaptiveStack for reflow |
+| Arrange a chosen relationship | VStack, HStack, Grid or ZStack; AdaptiveStack for two or three actions that reflow; `HStack { wrap = true }` for chips, swatches and filters |
 | Fit distinct complete forms | ViewThatFits; final form must work at minimum room |
 | Bound extended content | ScrollView; use virtual collections for large record sets |
 | Provide page chrome | Screen and NavBar; chrome does not own navigation history |

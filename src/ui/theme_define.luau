@@ -573,6 +573,30 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				end
 			end
 		end
+		local function familyOf(role: string): string?
+			local entry = resolvedTypography[role]
+			local font = if type(entry) == "table" then (entry :: { font: unknown }).font else nil
+			local family = if type(font) == "table" then (font :: { family: unknown }).family else nil
+			return if type(family) == "string" then family else nil
+		end
+		local bodyFamily = familyOf("body")
+		if bodyFamily ~= nil then
+			local display: { string } = {}
+			for _, role in { "title", "heading", "numeral", "label", "control" } do
+				local family = familyOf(role)
+				if family ~= nil and family ~= bodyFamily then
+					table.insert(display, role)
+				end
+			end
+			if #display == 1 then
+				table.insert(advice, {
+					field = "metrics.typography." .. display[1],
+					message = ("Only %s uses a display family, so the identity stops at one line per screen. Set the same family on heading and numeral, and on label or control for short labels; keep body and caption readable."):format(
+						display[1]
+					),
+				})
+			end
+		end
 		return frozen(package), { ok = true, errors = {}, missing = {}, contrast = contrast, advice = advice }
 	end
 	return { define = define, checkCoverage = checkCoverage }

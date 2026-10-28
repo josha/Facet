@@ -23,12 +23,19 @@ Never join facts in one caption: a value leads in `numeral` and its label follow
 
 | First task | Read and adapt |
 | --- | --- |
+| Game screens: hub, shop, garage, customize, HUD, tutorial | [Game screens](references/game-screens.md): footprint, controls and layout for each, and the rules every screen shares |
 | Browse records, products or equipment | [Collection](examples/collection.luau): supply game image/model subjects; use `false` with an `icon` glyph per record when no art exists. [Riverbank](assets/riverbank-theme.luau) is one example identity. |
 | Inspect a selected object | [Inspection](examples/inspection.luau) with its [Field Station theme](assets/field-station-theme.luau): useful subject scale beside a decision |
 | Use image-based surfaces and subjects | [Game themes](references/game-themes.md): optional Pixel Quest theme builder with Collection's subject renderer |
 | Show stats, ranks, records, prices or progress | [Information display](references/information-display.md) recipes and the [Standing](examples/standing.luau) card |
 | Act during play, then open brief help | [Exploration](examples/exploration.luau), using the same Riverbank app/theme as Collection |
 | Another task | [Patterns](references/patterns.md): choose its information relationship and example |
+
+Give the theme a display family on `title`, `heading` and `numeral` (and on
+`label` or `control` for short labels), an accent for action and a `selection`
+color for the current choice; resolve `report.advice` before the first capture.
+[Neon Circuit](assets/neon-circuit-theme.luau) is one example for a night-time
+sci-fi game; [game themes](references/game-themes.md) lists fonts that load.
 
 Read [runtime essentials](references/runtime.md) once. Transfer the example's
 relationships and ownership, then supply this game's identity, records and
@@ -51,6 +58,30 @@ Use typed constructors and reactive callbacks. Keep durable selection, drafts
 and accepted state outside disposable pages. Give unrelated tasks separate
 scroll state. Connect request, pending, rejection, retry and acceptance to real
 game behavior. Demonstration callbacks do not implement a production transaction.
+
+## Author in Studio without a filesystem
+
+When Studio MCP is the only tool, every byte you send or read back stays in
+context and is paid again on each later call.
+
+- Put each screen in its own ModuleScript (one folder of them, each under
+  about 250 lines) and keep the client script to mounting and routing.
+- Write a script once. Change it afterwards with an exact-text patch; never
+  resend a whole Source or return one. Find text with a line-range read.
+
+```luau
+local function patch(target: LuaSourceContainer, old: string, new: string)
+    local source = target.Source
+    local first, last = string.find(source, old, 1, true)
+    assert(first ~= nil and last ~= nil, "patch: no match")
+    assert(string.find(source, old, last + 1, true) == nil, "patch: more than one match")
+    target.Source = string.sub(source, 1, first - 1) .. new .. string.sub(source, last + 1)
+end
+```
+
+- Return small probe results: counts, a few names, one error line. Never return
+  `GetChildren()`, a whole tree or a dump.
+- Read the documents for a route in one call, then retain them.
 
 ## Correct the task before sharing its layout
 

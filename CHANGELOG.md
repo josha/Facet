@@ -115,7 +115,9 @@ for composition, input, and device decisions.
 `Facet.review` reports design patterns that make a screen look generic, on a
 live screen or a saved dump; `facet critique` turns captures and those
 findings into a packet for a fresh reviewer. `Facet.themes.define` adds
-`report.advice` for a flat type scale.
+`report.advice` for a flat type scale and for a display family on only one
+type role. `Facet.review` reports `stacked-choices`: short choices stacked one
+per row in a wide space. `Facet.SkinLayerPatch` types a theme's `chrome` table.
 
 The version in `src/init.luau` identifies the source package. A local build does
 not publish it. Run `lute run tools/facet package status` for publication and

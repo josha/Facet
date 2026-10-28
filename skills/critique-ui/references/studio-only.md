@@ -19,6 +19,9 @@ Use this route when you have Studio MCP tools but no shell or filesystem.
 4. Write a short brief: the game, the player's task on this screen and its
    decision.
 
+In a timed build, use the quick pass in the [skill](../SKILL.md#in-a-timed-build)
+instead of the full judgment below.
+
 ## Get the judgment
 
 If you can start a separate agent, give it the [critic brief](critic-brief.md),
