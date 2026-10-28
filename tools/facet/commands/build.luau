@@ -26,8 +26,7 @@ targets:
   model [output] [--publisher]     build/Facet.rbxm, its .rbxmx twin and its manifest
   lab                              examples/facet-lab/build/*
   home                             build/Facet-Home.rbxl
-  playground                       build/Compose-Design-Playground.rbxl
-  studio-bench                     build/Facet-StudioBench.rbxl for native comparison timing]]
+  playground                       build/Compose-Design-Playground.rbxl]]
 
 local EXAMPLES = {
 	{ "Facet-SettingsDemo", "00_settings_demo" },
@@ -343,83 +342,6 @@ local function playground(): number
 	return rojo("tools/design_playground/default.project.json", "build/Compose-Design-Playground.rbxl")
 end
 
-local STUDIO_BENCH_STUB = "build/studio-bench/stub.luau"
-
-local function studioBench(): number
-	Files.write(STUDIO_BENCH_STUB, "return {}\n")
-	local function node(fields: { { string | unknown } }): Json.Object
-		local object = Json.object()
-		for _, pair in fields do
-			Json.set(object, pair[1] :: string, pair[2])
-		end
-		return object
-	end
-	local function folder(children: { { string | unknown } }): Json.Object
-		table.insert(children, 1, { "$className", "Folder" })
-		return node(children)
-	end
-	local function path(value: string): Json.Object
-		return node({ { "$path", value } })
-	end
-	local project = node({
-		{ "name", "Facet-StudioBench" },
-		{ "emitLegacyScripts", false },
-		{ "globIgnorePaths", Json.array({ "**/*.verify.luau" }) },
-		{
-			"tree",
-			node({
-				{ "$className", "DataModel" },
-				{ "Players", node({ { "$properties", node({ { "CharacterAutoLoads", false } }) } }) },
-				{
-					"StarterPlayer",
-					node({
-						{
-							"StarterPlayerScripts",
-							node({ { "StudioBench", path("../../bench/studio/client.client.luau") } }),
-						},
-					}),
-				},
-				{
-					"ReplicatedStorage",
-					node({
-						{
-							"FacetRepo",
-							folder({
-								{ "src", path("../../src") },
-								{
-									"bench",
-									folder({
-										{ "comparison", path("../../bench/comparison") },
-										{ "studio", path("../../bench/studio") },
-										{ "native_app", path("stub.luau") },
-									}),
-								},
-								{
-									"tools",
-									folder({
-										{
-											"vendor",
-											folder({
-												{
-													"verify",
-													folder({
-														{ "src", folder({ { "roblox", path("stub.luau") } }) },
-													}),
-												},
-											}),
-										},
-									}),
-								},
-							}),
-						},
-					}),
-				},
-			}),
-		},
-	})
-	return rojo(project, "build/Facet-StudioBench.rbxl", "build/studio-bench/.project.json")
-end
-
 local function home(): number
 	local code = snapshot("compose")
 	if code ~= 0 then
@@ -442,7 +364,6 @@ local TARGETS: { [string]: (Cli.Invocation) -> number } = {
 	lab = lab,
 	home = home,
 	playground = playground,
-	["studio-bench"] = studioBench,
 }
 
 local function refusal(invocation: Cli.Invocation): string?

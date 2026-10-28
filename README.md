@@ -86,43 +86,10 @@ covers. The current suite is the evidence. A passing run proves only the selecte
 Facet uses [Compose](https://github.com/voidmeld/compose) for scene composition.
 The [Luau library benchmarks](https://github.com/voidmeld/luau-library-benchmarks/blob/main/docs/results.md)
 show why: frame time and retained memory against the other Roblox scene composition libraries.
-The [Facet versus plain comparison](docs/performance/facet-vs-plain.md) measures
-game UI workloads with Facet controls and direct Roblox Instances.
-
-These headless cost-model results come from CI run
-[40616605814](https://github.com/josha/Facet/actions/runs/40616605814). The plain lane is
-feature-matched: it links the same theme StyleSheet and does the same visible
-work, with the same tags, automatic size, held readout widths, state tags, modal
-layers, input contexts and native motion. A ratio divides Facet by plain; lower
-is smaller.
-
-| Workload | Time vs plain | Heap vs plain |
-| --- | ---: | ---: |
-| button-feedback-50 | 0.14x | 1.20x |
-| main-menu-cold | 0.93x | 1.03x |
-| mixed-scroll-300 | 1.02x | 2.86x |
-| shop-filter-200 | 1.48x | 1.72x |
-| heavy-screen-20-cycles | 1.67x | 2.97x |
-| progress-20-120-frames | 1.83x | 1.05x |
-| text-input-200 | 2.10x | 1.04x |
-| card-collection-60 | 2.31x | 3.25x |
-| navigation-5-20-cycles | 2.41x | 1.11x |
-| hud-600-frames | 2.54x | 1.03x |
-| virtual-scroll-2000 | 2.56x | 1.98x |
-| chat-append-500 | 3.06x | 1.58x |
-| world-markers-50 | 3.17x | 1.27x |
-| dialog-50-cycles | 3.29x | 1.12x |
-| settings-17-values | 3.93x | 1.52x |
-| badges-30-300-updates | 4.01x | 1.35x |
-| stepper-segments-100 | 4.77x | 1.17x |
-| tabs-5-100-switches | 5.02x | 1.30x |
-| tile-transfer-20 | 5.07x | 1.50x |
-| radial-50-cycles | 5.31x | 1.14x |
-| leaderboard-100 | 5.57x | 5.99x |
-| inventory-500 | 5.68x | 3.38x |
-| inventory-100 | 6.33x | 2.41x |
-| toast-stream-100 | 6.85x | 0.89x |
-| theme-swap-200 | 7.73x | 1.64x |
+The [UI components comparison](https://github.com/voidmeld/luau-library-benchmarks/blob/main/docs/ui-components.md)
+measures game UI tasks with Facet controls and with plain Roblox Instances that
+do the same visible work. It publishes headless results and Roblox Studio client
+results.
 
 ## Installing
 
