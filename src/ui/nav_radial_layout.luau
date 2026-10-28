@@ -270,9 +270,18 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 			end
 			ring = ri + levelBand + 4
 			local sectors = geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + levelBand)
+			local iconUses: { [string]: number } = {}
+			for _, item in shown do
+				local icon = item.icon or (item.compactLabel and item.compactLabel.icon)
+				if type(icon) == "string" then
+					iconUses[icon] = (iconUses[icon] or 0) + 1
+				end
+			end
 			for _, sector in sectors do
 				sector.path = table.clone(prefix)
 				sector.key = table.concat(prefix, "/") .. "/" .. sector.id
+				local icon = sector.item.icon or (sector.item.compactLabel and sector.item.compactLabel.icon)
+				sector.sharedIcon = type(icon) == "string" and (iconUses[icon] or 0) > 1
 			end
 			table.insert(levels, sectors)
 			return sectors
@@ -318,14 +327,18 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 				list = list or sector.size < 44 or sector.outer > room
 				if
 					appearance == "wedges"
-					and not sector.item.icon
+					and (not sector.item.icon or sector.sharedIcon == true)
 					and not glyphOnly(sector.item)
 					and contentFit ~= "none"
 				then
 					local width, height = estimate(sector.item)
 					local bounds = geometry.labelBounds(sector, height)
-					local captionReady = (use(wordWidths)[sector.key] or 0) > 0
-					list = list or room - inner < width or (captionReady and (bounds.w < width or bounds.h < height))
+					local measured = use(wordWidths)[sector.key] or 0
+					local captionReady = measured > 0
+					-- The character-count estimate runs wide for short words; once the
+					-- caption is measured, a real width that fits is enough.
+					local fitted = if captionReady then math.min(width, measured + captionPadding(use)) else width
+					list = list or room - inner < width or (captionReady and (bounds.w < fitted or bounds.h < height))
 				end
 				table.insert(result, sector)
 			end

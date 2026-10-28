@@ -260,6 +260,40 @@ the touch controls; the standings open from a circle Button with a
 `shortcutHint`. Read [HUD-actions](../../../docs/reference/nodes/HUD-actions.md)
 for gamepad routes.
 
+## Quick wheel: chat, emotes, pings
+
+A RadialMenu over the play view, opened from a HUD circle and its own
+InputAction. It is an overlay in the mount, not a NavigationStack page.
+
+```luau
+local chatAction = Host.InputAction "QuickChat" { Type = Enum.InputActionType.Bool,
+    Host.InputBinding { KeyCode = Enum.KeyCode.Q }, Host.InputBinding { KeyCode = Enum.KeyCode.ButtonY } }
+Host.InputContext "Commands" { Parent = playerGui, chatAction }
+local wheelOpen = C.cell(false)
+local items: { Facet.RadialItem<string> } = {}
+for index, message in MESSAGES do -- { short = "GG", text = "Well played!" }
+    items[index] = { id = "chat" .. index, label = message.short, onSelect = function() sendChat(message.text) end }
+end
+-- In the HUD Composition:
+UI.Region "Chat" { zone = "right", rank = 3,
+    UI.Button "Chat" { icon = "chat", shape = "circle", caption = "Chat", shortcutHint = chatAction,
+        onActivate = function() wheelOpen:set(true) end } },
+-- Once in the mount, beside the Composition:
+UI.RadialMenu "QuickChat" { label = "Quick chat", items = items, launcher = false,
+    isPresented = wheelOpen, holdAction = chatAction },
+```
+
+- Wheel labels are one short word, eight characters or fewer: "GG",
+  "Nice!", "Again?". Send the full sentence and show it in a Toast. A label
+  that does not fit its wedge turns the wheel into a list.
+- Give items no icon, or a different icon each. An icon that several items
+  share tells nothing, so Facet never lets it replace a label.
+- With `launcher = false` the ring opens at the centre of the screen, where
+  eight wedges have room. A ring opened from a launcher at the screen edge has
+  less room and turns into a list sooner.
+- In Studio, the `RadialPanel` attribute `Presentation` reads `radial` or
+  `list`; check it once after the wheel opens.
+
 ## Tutorial and first use
 
 A `UI.Callout` anchored to the live target, with the step ("2 of 5"), Back,

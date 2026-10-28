@@ -242,6 +242,62 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
+		verifyHarness:case("shares one camera environment, also with a property function that reruns", {
+			id = "native_environment::environment: reactive facts from engine sources::shares one camera environment, also with a property function that reruns",
+			run = function()
+				local base = world()
+				local scene = base.engine.new("Workspace")
+				local camera = base.engine.new("Camera")
+				camera.Parent = scene
+				base.engine.environment.poke(camera, "ViewportSize", Roblox.Vector2.new(390, 844))
+				scene.CurrentCamera = camera
+				local w = {
+					engine = base.engine,
+					runtime = base.runtime,
+					stop = base.stop,
+					UI = Facet.controls(base.runtime, {
+						types = base.engine.types,
+						guiService = base.gui,
+						userInputService = base.input,
+						services = {
+							Workspace = scene,
+							GuiService = base.gui,
+							UserInputService = base.input,
+							RunService = base.frames,
+						},
+					}),
+				}
+				local first: any, second: any
+				local widths: { number } = {}
+				local failures = 0
+				local stop = owned(w.runtime, function()
+					first = w.UI.environment()
+					second = w.UI.environment()
+					local width = Compose.formula(function(use: Use): number
+						local ok, value = pcall(function()
+							return use(w.UI.environment().viewportWidth)
+						end)
+						if not ok then
+							failures += 1
+							return -1
+						end
+						return value
+					end)
+					Compose.watch(function(use: Use)
+						table.insert(widths, use(width))
+					end)
+				end)
+				Verify.expect(first == second):toBe(true)
+				Verify.expect(w.UI.environment() == first):toBe(true)
+				w.engine.environment.poke(camera, "ViewportSize", Roblox.Vector2.new(1280, 720))
+				Verify.expect(failures):toBe(0)
+				Verify.expect(widths[#widths]):toBe(1280)
+				stop()
+				Verify.expect((pcall(w.UI.environment))):toBe(false)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("requires an owner and stops observing when the owner ends", {
 			id = "native_environment::environment: reactive facts from engine sources::requires an owner and stops observing when the owner ends",
 			run = function()

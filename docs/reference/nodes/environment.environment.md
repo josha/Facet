@@ -2,7 +2,10 @@
 
 `UI.environment(source?) -> Environment` returns readables of the engine facts
 that a screen adapts to. Call it inside a component or a Compose owner. The
-readables stop when the owner ends. `source` is a `GuiBase2d`, whose
+readables stop when the owner ends. Without a `source`, every call returns the
+app's one camera environment while any owner holds it, so a property function
+that calls `UI.environment()` again when it reruns gets live facts. Call it
+once at the top of the component and read its fields with `use`. `source` is a `GuiBase2d`, whose
 `AbsoluteSize` in layout units (divided by the scale of its `UIScale`
 ancestors) is the viewport, or a `Camera`, whose `ViewportSize` is the
 viewport. Without a source it reads the `ViewportSize` of the workspace camera.

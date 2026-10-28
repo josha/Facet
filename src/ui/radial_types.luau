@@ -155,6 +155,9 @@ export type Sector<V = string> = {
 	key: string,
 	index: number,
 	list: boolean,
+	-- True when another item on the same level shows the same icon, so the
+	-- icon does not tell the items apart and cannot stand in for the label.
+	sharedIcon: boolean?,
 }
 export type Layout<V = string> = { sectors: { Sector<V> }, list: boolean, inner: number, path: { string } }
 export type Paint = {

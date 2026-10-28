@@ -4,6 +4,9 @@ An item on the ring shows its icon or its label, never both. It shows the
 icon when its `labelStyle` is `icon`, its `compactLabel.prefer` is set, or it
 is a `buttons` item with an `icon`. It also uses an available icon when the
 complete label and its padding do not fit the content box after `contentFit`.
+An icon that another item on the same level also shows does not tell the
+items apart, so it never replaces a label: that item fits like one without an
+icon. Once a caption is measured, its real width decides the fit.
 Otherwise it shows the label. Hold a touch on an icon, or point at it with
 the mouse, to show the complete label. The list fallback shows both. A ring also uses the list form when it cannot
 fit the complete caption of an action that has no icon.

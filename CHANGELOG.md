@@ -122,6 +122,14 @@ per row in a wide space; `hollow-plate`, `lopsided-page`, `floating-text` and
 world and controls over Jump. `Facet.SkinLayerPatch`, `Facet.ThemeRule` and
 `Facet.ThemeRuleProperties` type a theme's `chrome` and `rules` tables.
 
+ScrollView and card Collections keep room for the theme's plate glow and
+edge, so plates at the canvas edge are not clipped. `UI.environment()` without
+a source returns the app's shared camera environment, also from a property
+function that reruns outside an owner. A NavigationStack page that fails to build
+reports its error to `onError` or the output. RadialMenu judges a measured caption by
+its real width and never lets an icon that several items share replace a
+label.
+
 The version in `src/init.luau` identifies the source package. A local build does
 not publish it. Run `lute run tools/facet package status` for publication and
 verification status. See [package operations](package/README.md).

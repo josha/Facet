@@ -79,7 +79,13 @@ Button's `shortcutHint` shows an action's binding; it does not connect it.
 Gate gameplay commands while `UI.environment().gameplaySuspended` is true. Do
 not bind Escape or gamepad Start. `UI.environment()` gives the viewport size,
 the primary input and `thumbTarget`; choose layout from room and prompts from
-the actual input.
+the actual input. Call it once at the top of a screen function
+(`local env = UI.environment()`) and read `use(env.viewportWidth)` in
+property functions.
+
+A page whose builder errors shows "This page could not be displayed." and
+warns with the page id and the error in the output; read the output after
+each Play.
 
 ## Exact contracts
 

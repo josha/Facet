@@ -1868,6 +1868,48 @@ return function(verifyHarness: Verify.Harness)
 		end)
 
 		verifyHarness:suite("ScrollView", function()
+			verifyHarness:case("keeps room inside its canvas for the theme's plate glow and edge", {
+				id = "native_layout::ScrollView::keeps room inside its canvas for the theme's plate glow and edge",
+				run = function()
+					local function stroke(): any
+						local properties: any = {}
+						properties.Thickness = 2
+						return { selector = ".facet-panel::UIStroke", properties = properties }
+					end
+					local glowing = assert((Facet.themes.define({
+						identity = { id = "glowing" },
+						chrome = {
+							panel = {
+								kind = "native",
+								shadow = {
+									blurRadius = { scale = 0, offset = 18 },
+									offset = { y = { scale = 0, offset = 4 } },
+								},
+							},
+						},
+						rules = { stroke() },
+					})))
+					local root, _, stop = build({ theme = glowing }, function(UI: FacetControls)
+						return UI.ScrollView({ UI.VStack({ width = "fill", surface = "panel" }) })
+					end)
+					local padding = child(root, "UIPadding")
+					Verify.expect(padding ~= nil):toBe(true)
+					Verify.expect(padding.PaddingLeft.Offset):toBe(22)
+					Verify.expect(padding.PaddingTop.Offset):toBe(22)
+					stop()
+					root, _, stop = build({ theme = glowing }, function(UI: FacetControls)
+						return UI.ScrollView({ padding = 8 })
+					end)
+					Verify.expect(child(root, "UIPadding").PaddingRight.Offset):toBe(30)
+					stop()
+					root, _, stop = build(nil, function(UI: FacetControls)
+						return UI.ScrollView({})
+					end)
+					Verify.expect(child(root, "UIPadding")):toBe(nil)
+					stop()
+				end,
+			})
+
 			verifyHarness:case(
 				"keeps a horizontal canvas floor at the native layout extent and respects an authored canvas",
 				{

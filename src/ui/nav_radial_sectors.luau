@@ -77,7 +77,7 @@ return function<V>(
 		end
 		local item = live.item
 		local icon = item.icon ~= nil or (item.compactLabel ~= nil and item.compactLabel.icon ~= nil)
-		if not icon then
+		if not icon or live.sharedIcon == true then
 			return false
 		end
 		local padding = captionPadding(use)

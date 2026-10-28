@@ -308,6 +308,75 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("eight short measured captions keep the ring on a wide screen", {
+			id = "native_radial_controls::radial full caption fit::eight short measured captions keep the ring on a wide screen",
+			run = function()
+				local labels = { "GL", "Nice!", "Go!", "Thanks", "Bend!", "Drift!", "Again?", "GG" }
+				local items = {}
+				for index, label in labels do
+					table.insert(items, { id = "m" .. index, label = label, onSelect = function() end })
+				end
+				local world = setup({ items = items, launcher = false })
+				world.engine.environment.poke(
+					world.find("Modal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(1542, 969)
+				)
+				for index, label in labels do
+					world.engine.environment.poke(
+						world.find("m" .. index):FindFirstChild("CaptionMeasure"),
+						"TextBounds",
+						world.engine.types.Vector2.new(9 * #label, 16)
+					)
+				end
+				world.step(1)
+				Verify.expect(world.find("RadialPanel"):GetAttribute("Presentation")):toBe("radial")
+				world.stop()
+			end,
+		})
+
+		verifyHarness:case("an icon that every item shares never replaces a label that does not fit", {
+			id = "native_radial_controls::radial full caption fit::an icon that every item shares never replaces a label that does not fit",
+			run = function()
+				local labels = {
+					"Good luck!",
+					"Nice racing!",
+					"Let's go!",
+					"Thanks!",
+					"Watch the bend!",
+					"Great drift!",
+					"One more race?",
+					"Well played!",
+				}
+				local items = {}
+				for index, label in labels do
+					table.insert(items, { id = "m" .. index, label = label, icon = "star", onSelect = function() end })
+				end
+				local world = setup({ items = items })
+				world.engine.environment.poke(
+					world.find("Modal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(390, 760)
+				)
+				for index, label in labels do
+					world.engine.environment.poke(
+						world.find("m" .. index):FindFirstChild("CaptionMeasure"),
+						"TextBounds",
+						world.engine.types.Vector2.new(9 * #label, 16)
+					)
+				end
+				world.step(1)
+				local list = world.find("RadialPanel"):GetAttribute("Presentation") == "list"
+				for index in labels do
+					local button = world.find("m" .. index)
+					local glyph = button:FindFirstChild("LeadingIcon", true)
+					local iconOnly = not list and glyph ~= nil and glyph.Visible
+					Verify.expect(iconOnly):toBe(false)
+				end
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("uses the full caption and button padding before choosing a glyph", {
 			id = "native_radial_controls::radial full caption fit::uses the full caption and button padding before choosing a glyph",
 			run = function()
