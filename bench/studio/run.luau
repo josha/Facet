@@ -10,7 +10,7 @@ export type Row = {
 	iterations: number,
 	status: string,
 	facet: Lane?,
-	bare: Lane?,
+	plain: Lane?,
 }
 
 local WARMUP, SAMPLES = 2, 9
@@ -37,19 +37,19 @@ end
 
 local function measure(workload: Types.Workload, parent: Instance): (Lane, Lane, boolean)
 	for _ = 1, WARMUP do
-		sample(workload, "bare", parent)
+		sample(workload, "plain", parent)
 		sample(workload, "facet", parent)
 	end
-	local bare: { number }, facet: { number } = {}, {}
+	local plain: { number }, facet: { number } = {}, {}
 	local same = true
 	for _ = 1, SAMPLES do
-		local bareTime, bareSnapshot = sample(workload, "bare", parent)
+		local plainTime, plainSnapshot = sample(workload, "plain", parent)
 		local facetTime, facetSnapshot = sample(workload, "facet", parent)
-		table.insert(bare, bareTime)
+		table.insert(plain, plainTime)
 		table.insert(facet, facetTime)
-		same = same and bareSnapshot == facetSnapshot
+		same = same and plainSnapshot == facetSnapshot
 	end
-	return { median = median(bare), samples = bare }, { median = median(facet), samples = facet }, same
+	return { median = median(plain), samples = plain }, { median = median(facet), samples = facet }, same
 end
 
 return function(parent: Instance, filter: string?): { Row }
@@ -60,8 +60,8 @@ return function(parent: Instance, filter: string?): { Row }
 		end
 		local row: Row = { id = workload.id, iterations = workload.iterations, status = "measured" }
 		local ok, problem = pcall(function()
-			local bare, facet, same = measure(workload, parent)
-			row.bare, row.facet = bare, facet
+			local plain, facet, same = measure(workload, parent)
+			row.plain, row.facet = plain, facet
 			if not same then
 				row.status = "parity mismatch"
 			end

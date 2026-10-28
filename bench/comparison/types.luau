@@ -3,7 +3,7 @@
 local NativeApp = require("../native_app")
 
 export type World = NativeApp.State
-export type Lane = "bare" | "facet"
+export type Lane = "plain" | "facet"
 export type Scene = {
 	step: (number) -> (),
 	snapshot: () -> string,

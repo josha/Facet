@@ -166,7 +166,7 @@ table.insert(workloads, {
 		local remaining = 0
 		local connection = world.engine.heartbeat:Connect(function(dt: number)
 			local shown = panel
-			if lane == "bare" and shown then
+			if lane == "plain" and shown then
 				remaining -= dt
 				if remaining <= 0 then
 					panel = nil
@@ -642,7 +642,7 @@ table.insert(workloads, {
 		local depth = 0
 		local pages: { S.Node } = {}
 		local parent: S.Node? = nil
-		local function barePush(level: number)
+		local function plainPush(level: number)
 			if #pages > 0 then
 				pages[#pages].Visible = false
 			end
@@ -682,7 +682,7 @@ table.insert(workloads, {
 			}
 		end, function(screen)
 			parent = S.stack(world, screen, "Navigation")
-			barePush(0)
+			plainPush(0)
 		end)
 		return {
 			step = function(index: number)
@@ -697,7 +697,7 @@ table.insert(workloads, {
 					end
 					assert(path):set(nextPath)
 				elseif phase < 5 then
-					barePush(depth)
+					plainPush(depth)
 				else
 					assert(table.remove(pages)):Destroy()
 					pages[#pages].Visible = true

@@ -14,7 +14,7 @@ local Json = require("../../tools/facet/lib/json")
 local Files = require("../../tools/facet/lib/files")
 
 return function(arguments: { string }): number
-	local out = "artifacts/facet-vs-bare"
+	local out = "artifacts/facet-vs-plain"
 	local filter: string? = nil
 	local verify = false
 	local index = 2
@@ -71,7 +71,7 @@ return function(arguments: { string }): number
 	}
 	local function save(complete: boolean)
 		fs.writeStringToFile(out .. "/report.json", Lute.encode({
-			schema = "facet-vs-bare/1",
+			schema = "facet-vs-plain/1",
 			complete = complete,
 			revision = revision,
 			status = Run.gitOutput({ "status", "--porcelain" }),
@@ -120,7 +120,7 @@ return function(arguments: { string }): number
 	fs.writeStringToFile(out .. "/comparison.md", markdown)
 	if filter == nil then
 		fs.createDirectory("docs/performance", { makeParents = true })
-		fs.writeStringToFile("docs/performance/facet-vs-bare.md", markdown)
+		fs.writeStringToFile("docs/performance/facet-vs-plain.md", markdown)
 	end
 	local summary = process.env.GITHUB_STEP_SUMMARY
 	if summary then

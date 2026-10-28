@@ -3,7 +3,7 @@
 local Cli = require("../lib/cli")
 
 local USAGE =
-	"usage: lute run tools/facet bench [--shard K/N] [--cases a,b]\n       lute run tools/facet bench compare [--verify] [--filter text] [--out dir]\n\n--shard runs every Nth microbenchmark and --cases runs only the named ones; both always run the CPU yardstick.\ncompare checks Facet/bare parity before timing and writes JSON and Markdown; --verify checks parity only.\nExit 0 passes, 1 fails and 2 reports a host timing comparison failure or usage error."
+	"usage: lute run tools/facet bench [--shard K/N] [--cases a,b]\n       lute run tools/facet bench compare [--verify] [--filter text] [--out dir]\n\n--shard runs every Nth microbenchmark and --cases runs only the named ones; both always run the CPU yardstick.\ncompare checks Facet/plain parity before timing and writes JSON and Markdown; --verify checks parity only.\nExit 0 passes, 1 fails and 2 reports a host timing comparison failure or usage error."
 
 local command: Cli.Command = {
 	name = "bench",

@@ -86,17 +86,17 @@ covers. The current suite is the evidence. A passing run proves only the selecte
 Facet uses [Compose](https://github.com/voidmeld/compose) for scene composition.
 The [Luau library benchmarks](https://github.com/voidmeld/luau-library-benchmarks/blob/main/docs/results.md)
 show why: frame time and retained memory against the other Roblox scene composition libraries.
-The [Facet versus bare comparison](docs/performance/facet-vs-bare.md) measures
+The [Facet versus plain comparison](docs/performance/facet-vs-plain.md) measures
 game UI workloads with Facet controls and direct Roblox Instances.
 
 These headless cost-model results come from CI run
-[40616605814](https://github.com/josha/Facet/actions/runs/40616605814). The bare lane is
+[40616605814](https://github.com/josha/Facet/actions/runs/40616605814). The plain lane is
 feature-matched: it links the same theme StyleSheet and does the same visible
 work, with the same tags, automatic size, held readout widths, state tags, modal
-layers, input contexts and native motion. A ratio divides Facet by bare; lower
+layers, input contexts and native motion. A ratio divides Facet by plain; lower
 is smaller.
 
-| Workload | Time vs bare | Heap vs bare |
+| Workload | Time vs plain | Heap vs plain |
 | --- | ---: | ---: |
 | button-feedback-50 | 0.14x | 1.20x |
 | main-menu-cold | 0.93x | 1.03x |
