@@ -57,6 +57,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 		local entries: { [K]: Entry<V> } = {}
 		local order: { K } = {}
 		local positionOf: { [K]: number } = {}
+		local itemOf: { [K]: V } = {}
 
 		local uniform = true
 		local keys: { K } = {}
@@ -72,6 +73,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			table.clear(entries)
 			table.clear(order)
 			table.clear(positionOf)
+			table.clear(itemOf)
 			table.clear(keys)
 			table.clear(seen)
 			table.clear(retainedPositions)
@@ -97,7 +99,8 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 		end
 
 		local function mountRow(index: number, itemKey: K, at: number): number
-			local value = cellModule.cell(currentList[index])
+			local item = currentList[index]
+			local value = cellModule.cell(item)
 			local position = if readsIndex then cellModule.cell(index) else UNREAD_INDEX
 			local block = Block.mountBlock(mountPoint, owner, function(): { Host.Node }
 				return { render(value, position, itemKey) }
@@ -108,7 +111,17 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 				uniform = false
 			end
 			entries[itemKey] = { owner = block.owner, nodes = nodes, value = value, index = position }
+			itemOf[itemKey] = item
 			return size
+		end
+
+		local function duplicate(index: number, earlier: number): never
+			return Diagnostics.raise("structure/duplicate-key", "two items in a keyed collection share a key", {
+				index = index,
+				detail = ("the same key is also used at index %d"):format(earlier),
+				contract = "keys identify rows across updates, so they must be unique within one update",
+				fix = "pass a keyOf that returns a stable unique id, e.g. function(item) return item.id end",
+			})
 		end
 
 		Owners.watch(owner, function(use)
@@ -116,19 +129,8 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			currentList = list
 			local wanted = #list
 
-			table.clear(seen)
 			for index = 1, wanted do
-				local itemKey = key(list[index], index)
-				if seen[itemKey] ~= nil then
-					Diagnostics.raise("structure/duplicate-key", "two items in a keyed collection share a key", {
-						index = index,
-						detail = ("the same key is also used at index %d"):format(seen[itemKey]),
-						contract = "keys identify rows across updates, so they must be unique within one update",
-						fix = "pass a keyOf that returns a stable unique id, e.g. function(item) return item.id end",
-					})
-				end
-				seen[itemKey] = index
-				keys[index] = itemKey
+				keys[index] = key(list[index], index)
 			end
 			for index = #keys, wanted + 1, -1 do
 				keys[index] = nil
@@ -136,23 +138,57 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 
 			local prefix = 0
 			local previousCount = #order
-			while prefix < math.min(previousCount, wanted) and positionOf[keys[prefix + 1]] == prefix + 1 do
+			local shared = math.min(previousCount, wanted)
+			while prefix < shared and positionOf[keys[prefix + 1]] == prefix + 1 do
 				prefix += 1
-				local entry = entries[order[prefix]]
-				entry.value:set(list[prefix])
-				if readsIndex then
-					entry.index:set(prefix)
-				end
 			end
 			local oldEnd, newEnd = previousCount, wanted
 			while oldEnd > prefix and newEnd > prefix and positionOf[keys[newEnd]] == oldEnd do
-				local entry = entries[order[oldEnd]]
-				entry.value:set(list[newEnd])
-				if readsIndex then
-					entry.index:set(newEnd)
-				end
 				oldEnd -= 1
 				newEnd -= 1
+			end
+			local shift = newEnd - oldEnd
+
+			table.clear(seen)
+			local laterIndex, laterEarlier = math.huge, 0
+			for index = prefix + 1, newEnd do
+				local itemKey = keys[index]
+				local earlier = seen[itemKey]
+				if earlier ~= nil then
+					duplicate(index, earlier)
+				end
+				local at = positionOf[itemKey]
+				if at ~= nil then
+					if at <= prefix then
+						duplicate(index, at)
+					elseif at > oldEnd and at + shift < laterIndex then
+						laterIndex, laterEarlier = at + shift, index
+					end
+				end
+				seen[itemKey] = index
+			end
+			if laterEarlier ~= 0 then
+				duplicate(laterIndex, laterEarlier)
+			end
+
+			for index = 1, prefix do
+				local itemKey = keys[index]
+				local item = list[index]
+				if itemOf[itemKey] ~= item then
+					itemOf[itemKey] = item
+					entries[itemKey].value:set(item)
+				end
+			end
+			for index = newEnd + 1, wanted do
+				local itemKey = keys[index]
+				local item = list[index]
+				if itemOf[itemKey] ~= item then
+					itemOf[itemKey] = item
+					entries[itemKey].value:set(item)
+				end
+				if readsIndex and shift ~= 0 then
+					entries[itemKey].index:set(index)
+				end
 			end
 			if prefix == wanted and previousCount == wanted then
 				return
@@ -167,6 +203,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 					Owners.dispose(leaving.owner)
 					entries[existing] = nil
 					positionOf[existing] = nil
+					itemOf[existing] = nil
 					removedAny = true
 				end
 			end
@@ -193,7 +230,11 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 				local itemKey = keys[index]
 				local entry = entries[itemKey]
 				if entry ~= nil then
-					entry.value:set(list[index])
+					local item = list[index]
+					if itemOf[itemKey] ~= item then
+						itemOf[itemKey] = item
+						entry.value:set(item)
+					end
 					if readsIndex then
 						entry.index:set(index)
 					end

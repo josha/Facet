@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "1954fd8c1d01cb461ef70337c5cb6b5e351d926d",
+  "commit": "18d2dfe017961398cb215b52f9d8b8a6de8944d5",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "4df9d6a108c895934f1863116dcf59cf3626d1eb05342bab53e26e1f06a86635",
@@ -115,8 +115,8 @@
     "src/lute/memory.luau": "a6c5ad4b3fa027d71b9012d440573923f16ce1710891783d21f281c56b288582",
     "src/lute/model.luau": "2dca443858f3183c53c5c197b2f3eda74a61dc729186b80e7f1a2c9fbdceff31",
     "src/lute/open-cloud.luau": "9203a5db45de81429825fa47703ccb28ba457311281e476601e3b68b8a02d2f9",
-    "src/lute/place.luau": "8039d2993d90ecb16f207ec08d4de78108c8debf01d09ab604230e0bd9b8a02c",
-    "src/lute/platform.luau": "a1dc3a5f16f1509242aa8e993137485e513f287eb13154b2b2a4155edf5b8ef0",
+    "src/lute/place.luau": "cc68913486f1b1a383e4a19fdb190476a06dd681742e542bac7587373cc49815",
+    "src/lute/platform.luau": "c93709f6f9331ffb1380ff17777abe18b1226f92f67a0bfcb28bf1e48d74c485",
     "src/lute/player.luau": "10028444aa0681e1824f3d0ebb85b4963d2fbfd58d6958f6365f9cc03dceff0a",
     "src/lute/powershell.luau": "2b215b354cac14ba24f234dfc192ac4ec80db658a76a8e8b6cd95c0840bde7c5",
     "src/lute/progress-file.luau": "cb9e2e21786adc7723e9105985e373a8293350086856dee8a9ff193605551c51",
