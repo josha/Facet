@@ -36,12 +36,15 @@ return function(options: any?): State
 	end
 	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target = engine.new("Folder")
-	local textService: any = nil
+	local textService: TextService? = nil
 	if measured then
 		textService = engine.new("TextService")
-		engine.environment.fake("TextService.GetTextBoundsAsync", function(_service: any, params: any): any
-			return engine.types.Vector2.new(#params.Text * params.Size * 0.5, params.Size)
-		end)
+		engine.environment.fake(
+			"TextService.GetTextBoundsAsync",
+			function(_service: unknown, params: GetTextBoundsParams): Vector2
+				return engine.types.Vector2.new(#params.Text * params.Size * 0.5, params.Size)
+			end
+		)
 	end
 	local root = Facet.Compose.createRootOwner(function()
 		runtime.adopt(target)

@@ -888,17 +888,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				node:SetAttribute(name, value)
 			end
 		end
-		local selectionApart = iconState == nil and dynamic(spec.selected)
-		local function paintSelected(selected: boolean)
-			tag("facet-selected", selected)
-			if not initialized or previousAttributes.selected ~= selected then
-				previousAttributes.selected = selected
-				node:SetAttribute("selected", selected)
-			end
-		end
 		local function updateState(use)
-			local selected = if selectionApart then false else read(spec.selected, use) == true
-			local busy = read(spec.busy, use) == true
+			local selected, busy = read(spec.selected, use) == true, read(spec.busy, use) == true
 			local available = enabled(spec, use)
 			local role, appearance = read(spec.role, use) or "default", read(spec.appearance, use) or "standard"
 			assert(roles[role], "Facet.Button: invalid semantic role")
@@ -920,9 +911,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			for name: string, tagName in roleTags do
 				tag(tagName, role == name)
 			end
-			if not selectionApart then
-				tag("facet-selected", selected)
-			end
+			tag("facet-selected", selected)
 			tag("facet-busy", busy)
 			tag("facet-shape-circle", spec.shape == "circle")
 			tag("facet-disabled", not available)
@@ -936,9 +925,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			for index, name in CONTROL_RUNGS do
 				tag(rungTags[index], rung == name)
 			end
-			if not selectionApart then
-				attribute("selected", selected)
-			end
+			attribute("selected", selected)
 			attribute("busy", busy)
 			attribute("appearance", appearance)
 			attribute("controlSize", rung or "regular")
@@ -966,17 +953,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			Compose.watch(updateState)
 		else
 			updateState()
-		end
-		if selectionApart then
-			local first = true
-			Compose.watch(function(use: ComposeTypes.Use)
-				local selected = read(spec.selected, use) == true
-				if first then
-					first = false
-					previousAttributes.selected = not selected
-				end
-				paintSelected(selected)
-			end)
 		end
 		if
 			spec.repeatDelay
