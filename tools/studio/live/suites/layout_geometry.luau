@@ -403,7 +403,7 @@ end)
 
 add("tab-rail-items-inside-track", {}, function(t)
 	for _, theme in t.themes do
-		for _, width in { 140, 220, 330, false } do
+		for _, width in { 140, 220, 330, 0 } do
 			for _, textSize in { "Medium", "Largest" } do
 				local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 					local function page(): Instance
@@ -413,8 +413,8 @@ add("tab-rail-items-inside-track", {}, function(t)
 						selection = Compose.cell("home"),
 						style = "sidebarAdaptable" :: "sidebarAdaptable",
 						placement = "sidebar" :: "sidebar",
-						railWidth = if width then width else nil,
-						controlSize = if width then "large" :: "large" else nil,
+						railWidth = if width > 0 then width else nil,
+						controlSize = if width > 0 then "large" :: "large" else nil,
 						iconOnly = false,
 						tabs = {
 							{ id = "home", label = "Home", icon = "star", content = page } :: Tab,
@@ -427,7 +427,7 @@ add("tab-rail-items-inside-track", {}, function(t)
 					theme = theme.package,
 					environment = { preferredTextSize = textSize },
 				})
-				local label = `{theme.name} rail {width or "automatic"} text {textSize}`
+				local label = `{theme.name} rail {if width > 0 then width else "automatic"} text {textSize}`
 				local track, content = t.find(stage, "Track"), t.find(stage, "Content")
 				if not (track and content) then
 					t.check(`{label}: rail mounted`, false, { track = track ~= nil, content = content ~= nil })
@@ -443,7 +443,7 @@ add("tab-rail-items-inside-track", {}, function(t)
 						continue
 					end
 					local box = t.rect(item)
-					if not width then
+					if width == 0 then
 						t.check(
 							`{label}: {id} label fits`,
 							item.TextFits,

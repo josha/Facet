@@ -259,6 +259,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			spec.AutomaticSize == E.AutomaticSize.None
 			or spec.AutomaticSize == E.AutomaticSize.Y
 			or liveWidth
+			or dynamic(spec.AutomaticSize)
 			or (spec.AutomaticSize == nil and typeof(authored) == "UDim2" and widthSet(authored :: UDim2))
 		)
 			and spec.image == nil
@@ -298,6 +299,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			elseif ctx.config.userInputService ~= nil then ctx.touchFloor()
 			else nil
 		local constrainedCaption = bounded
+			and not dynamic(spec.AutomaticSize)
 			and spec.label ~= nil
 			and spec.shape ~= "circle"
 			and (spec.AutomaticSize == nil or rich)
