@@ -9,6 +9,7 @@ local tabMetrics = require("./nav_tab_metrics")
 local textMeasure = require("./text_measure")
 
 export type TabItemView = {
+	isCurrent: (string) -> ComposeTypes.ReadOnlyValue<boolean>,
 	frame: tabMetrics.TabFrame,
 	select: (string) -> (),
 	sectionLabels: { [string]: string },
@@ -34,6 +35,7 @@ return function(
 	local frame = view.frame
 	local fit, placement, visibleTabs = frame.fit, frame.placement, frame.visibleTabs
 	local layoutUnit, indicatorOf, select = frame.layoutUnit, frame.indicatorOf, view.select
+	local isCurrent = view.isCurrent
 	local sectionLabels, tabButtons, tabMeasures, tabLinks =
 		view.sectionLabels, view.tabButtons, view.tabMeasures, view.tabLinks
 	local metrics = view.metrics
@@ -103,7 +105,7 @@ return function(
 				end,
 				selected = function(use: ComposeTypes.Use)
 					local indicator = indicatorOf(use)
-					if use(spec.selection) ~= tab.id or indicator == "none" or indicator == "mark" then
+					if not use(isCurrent(tab.id)) or indicator == "none" or indicator == "mark" then
 						return false
 					end
 					local place = use(placement)
@@ -423,8 +425,9 @@ return function(
 					}) :: Types.Child,
 				})
 			end
+			local shownCurrent, shownFilled = false, false
 			Compose.watch(function(use: ComposeTypes.Use)
-				local current = use(spec.selection) == tab.id
+				local current = use(isCurrent(tab.id))
 				local place = use(placement)
 				local filled = current
 					and indicatorOf(use) ~= "none"
@@ -434,12 +437,20 @@ return function(
 						or string.find(place, "bottom") ~= nil
 						or (spec.style == "sidebarAdaptable" and metrics.segmentedTop(use))
 					)
-				local tags: { [string]: boolean } = { ["facet-tab-current"] = current, ["facet-tab-filled"] = filled }
-				for name, active in tags do
-					if active then
-						button:AddTag(name)
-					elseif button:HasTag(name) then
-						button:RemoveTag(name)
+				if current ~= shownCurrent then
+					shownCurrent = current
+					if current then
+						button:AddTag("facet-tab-current")
+					else
+						button:RemoveTag("facet-tab-current")
+					end
+				end
+				if filled ~= shownFilled then
+					shownFilled = filled
+					if filled then
+						button:AddTag("facet-tab-filled")
+					else
+						button:RemoveTag("facet-tab-filled")
 					end
 				end
 			end)
@@ -450,7 +461,7 @@ return function(
 					end,
 				}),
 				Compose.show(function(use: ComposeTypes.Use): boolean
-					return use(spec.selection) == tab.id
+					return use(isCurrent(tab.id))
 						and indicatorOf(use) == "mark"
 						and (use(placement) == "sidebar" or string.find(use(placement), "bottom") ~= nil)
 				end, function(): Instance
@@ -536,7 +547,7 @@ return function(
 					return ctx.styled(
 						Host.Frame "SelectionIndicator" {
 							Visible = function(use: ComposeTypes.Use): boolean
-								return use(spec.selection) == tab.id
+								return use(isCurrent(tab.id))
 							end,
 							Size = D2.new(1, 0, 0, 2),
 							Position = D2.new(0, 0, 1, -2),

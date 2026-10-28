@@ -226,18 +226,17 @@ return function(ctx: Types.Context): Drag.Service
 		end
 		return scale
 	end
-	local function localPoint(ghost: GuiObject, position: Vector2): UDim2
-		local layer = ghost.Parent
+	local function frameOf(node: GuiObject): (Vector2, number)
+		local layer = node.Parent
 		local origin = if layer and layer:IsA("GuiBase2d") then layer.AbsolutePosition else V2.zero
-		local scale = 1
-		if layer then
-			for _, child in layer:GetChildren() do
-				if child:IsA("UIScale") and child.Scale > 0 then
-					scale = child.Scale
-				end
-			end
-		end
+		return origin, nativeScale(layer)
+	end
+	local function toLocal(origin: Vector2, scale: number, position: Vector2): UDim2
 		return D2.fromOffset((position.X - origin.X) / scale, (position.Y - origin.Y) / scale)
+	end
+	local function localPoint(ghost: GuiObject, position: Vector2): UDim2
+		local origin, scale = frameOf(ghost)
+		return toLocal(origin, scale, position)
 	end
 	local function localExtent(ghost: GuiObject, extent: Vector2): UDim2
 		local scale = nativeScale(ghost.Parent) * nativeScale(ghost)
@@ -263,7 +262,7 @@ return function(ctx: Types.Context): Drag.Service
 		if not label then
 			return
 		end
-		label.Text = if session.spec.statusLabels == false
+		local text = if session.spec.statusLabels == false
 			then ""
 			elseif session.pending then "Waiting for confirmation…"
 			elseif session.accepted then ({ move = "Move", copy = "Copy", apply = "Apply" })[session.operation]
@@ -277,24 +276,30 @@ return function(ctx: Types.Context): Drag.Service
 			and targets[session.target].label
 			and not session.pending
 		then
-			label.Text ..= " to " .. ctx.read(targets[session.target].label)
+			text ..= " to " .. ctx.read(targets[session.target].label)
 		end
 		if session.mode == "armed" and not session.pending then
 			local input = (session.effectiveInput :: (Types.Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse")(nil)
-			if label.Text ~= "" then
-				label.Text ..= " · "
+			if text ~= "" then
+				text ..= " · "
 			end
-			label.Text ..= if input == "Gamepad"
+			text ..= if input == "Gamepad"
 				then "A: drop · B: cancel"
 				elseif input == "Touch" then "Tap a destination"
 				else "Enter: drop · Esc: cancel · Tab: destination"
 			if input == "Gamepad" and session.spec.navigationHint then
-				label.Text ..= " · " .. session.spec.navigationHint
+				text ..= " · " .. session.spec.navigationHint
 			end
 		end
+		if label.Text ~= text then
+			label.Text = text
+		end
 		local panel = label.Parent :: GuiObject
-		panel.Visible = label.Text ~= ""
+		panel.Visible = text ~= ""
 			and (session.pending or session.mode == "armed" or not session.accepted or session.operation ~= "move")
+		if not panel.Visible and session.mode ~= "armed" then
+			return
+		end
 		local layer = panel.Parent :: GuiBase2d
 		local destination = session.target and targets[session.target]
 		local anchor = destination and (destination.focusTarget or session.target)
@@ -317,10 +322,11 @@ return function(ctx: Types.Context): Drag.Service
 		local point = projected
 			or session.position
 			or (if anchor and anchor:IsA("GuiObject") then anchor.AbsolutePosition else session.origin)
-		local at = localPoint(panel, point)
+		local panelOrigin, panelScale = frameOf(panel)
+		local at = toLocal(panelOrigin, panelScale, point)
 		local origin = layer.AbsolutePosition
-		local boundsAt = localPoint(panel, origin + layer.AbsoluteSize)
-		local sizeAt = localPoint(panel, origin + panel.AbsoluteSize)
+		local boundsAt = toLocal(panelOrigin, panelScale, origin + layer.AbsoluteSize)
+		local sizeAt = toLocal(panelOrigin, panelScale, origin + panel.AbsoluteSize)
 		local size = V2.new(sizeAt.X.Offset, sizeAt.Y.Offset)
 		local bounds = V2.new(boundsAt.X.Offset, boundsAt.Y.Offset)
 		local gap = ctx.metric("space.s")

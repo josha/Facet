@@ -217,14 +217,53 @@ local function deeplyFrozen(value: unknown, visited: { [unknown]: boolean }): bo
 end
 
 local frozenPackages = setmetatable({} :: { [ThemeTypes.ThemePackage]: boolean }, { __mode = "k" })
-local verdicts =
-	setmetatable({} :: { [ThemeTypes.ThemePackage]: { [ThemeTypes.ThemePackage]: boolean } }, { __mode = "k" })
+local fingerprints: { [ThemeTypes.ThemePackage]: string } = {}
+weakKeys(fingerprints)
+
+local function keyOrder(left: unknown, right: unknown): boolean
+	local leftType, rightType = type(left), type(right)
+	if leftType ~= rightType then
+		return leftType < rightType
+	end
+	return tostring(left) < tostring(right)
+end
+
+local function describe(value: unknown, ignored: { [unknown]: unknown }?, parts: { string })
+	if type(value) ~= "table" then
+		table.insert(parts, typeof(value))
+		table.insert(parts, ":")
+		table.insert(parts, tostring(value))
+		table.insert(parts, ";")
+		return
+	end
+	local record = value :: { [unknown]: unknown }
+	local keys: { unknown } = {}
+	for key in record do
+		if not (ignored and ignored[key] == true) then
+			table.insert(keys, key)
+		end
+	end
+	table.sort(keys, keyOrder)
+	table.insert(parts, "{")
+	for _, key in keys do
+		table.insert(parts, tostring(key))
+		table.insert(parts, "=")
+		local skip = if ignored then ignored[key] else nil
+		describe(record[key], if type(skip) == "table" then skip :: { [unknown]: unknown } else nil, parts)
+	end
+	table.insert(parts, "}")
+end
 
 local function sealed(package: ThemeTypes.ThemePackage): boolean
 	local known = frozenPackages[package]
 	if known == nil then
 		known = deeplyFrozen(package, {})
 		frozenPackages[package] = known
+		if known then
+			local parts: { string } = {}
+			describe(package, PALETTES, parts)
+			fingerprints[package] = table.concat(parts)
+		end
 	end
 	return known
 end
@@ -239,19 +278,7 @@ local function sameBesidesPalettes(left: ThemeTypes.ThemePackage?, right: ThemeT
 	if not sealed(left) or not sealed(right) then
 		return deeplySame(left, right, PALETTES)
 	end
-	local known = verdicts[left]
-	if known == nil then
-		local fresh: { [ThemeTypes.ThemePackage]: boolean } = {}
-		weakKeys(fresh)
-		known = fresh
-		verdicts[left] = known
-	end
-	local verdict = known[right]
-	if verdict == nil then
-		verdict = deeplySame(left, right, PALETTES)
-		known[right] = verdict
-	end
-	return verdict
+	return fingerprints[left] == fingerprints[right]
 end
 
 local function neutralBase(neutral: ThemeTypes.ThemePackage, colors: { [string]: unknown }?): ThemeTypes.Palette

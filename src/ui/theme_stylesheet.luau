@@ -11,6 +11,86 @@ local RuleKit = require("./theme_rule_kit")
 local read, typesFor, sameProperties = support.read, support.typesFor, support.sameProperties
 
 type NativeRule = RuleKit.NativeRule
+type Tokens = { [string]: Color3? }
+
+local tokenDiffs: { [Tokens]: { [Tokens]: { string } } } = {}
+support.weakKeys(tokenDiffs)
+
+local function tokenChanges(before: Tokens, after: Tokens): { string }
+	local known = tokenDiffs[before]
+	if known == nil then
+		local fresh: { [Tokens]: { string } } = {}
+		support.weakKeys(fresh)
+		known = fresh
+		tokenDiffs[before] = fresh
+	end
+	local cached = known[after]
+	if cached == nil then
+		local changed: { string } = {}
+		for token, value in after do
+			if before[token] ~= value then
+				table.insert(changed, token)
+			end
+		end
+		known[after] = changed
+		cached = changed
+	end
+	return cached
+end
+
+type Changes = { [{ NativeRule }]: { number }? }
+local byIdOf: { [{ NativeRule }]: { [string]: NativeRule } } = {}
+support.weakKeys(byIdOf)
+local changesOf: { [{ NativeRule }]: Changes } = {}
+support.weakKeys(changesOf)
+
+local function changesFor(list: { NativeRule }): Changes
+	local known = changesOf[list]
+	if known == nil then
+		local fresh: Changes = {}
+		support.weakKeys(fresh)
+		known = fresh
+		changesOf[list] = fresh
+	end
+	return known
+end
+
+local function changesBetween(before: { NativeRule }, after: { NativeRule }): { number }?
+	local known = changesFor(before)
+	local cached = known[after]
+	if cached ~= nil or #before ~= #after then
+		return cached
+	end
+	local changed: { number } = {}
+	for index, definition in after do
+		local previous = before[index]
+		if previous.id ~= definition.id or previous.selector ~= definition.selector then
+			return nil
+		end
+		if previous.priority ~= definition.priority or previous.properties ~= definition.properties then
+			table.insert(changed, index)
+		end
+	end
+	known[after] = changed
+	changesFor(after)[before] = changed
+	return changed
+end
+
+local function indexById(list: { NativeRule }): { [string]: NativeRule }
+	local byId = byIdOf[list]
+	if byId == nil then
+		local made: { [string]: NativeRule } = {}
+		for _, definition in list do
+			made[definition.id] = definition
+		end
+		byIdOf[list] = made
+		byId = made
+	end
+	return byId
+end
+
+local lastCompiled: { [Engine.RobloxTypes]: { NativeRule } } = {}
+support.weakKeys(lastCompiled)
 
 local compiledFor = setmetatable(
 	{} :: { [Engine.RobloxTypes]: { [ThemeTypes.ThemePackage]: { [string]: { NativeRule } } } },
@@ -304,34 +384,6 @@ return function(
 		table.clear(awaited)
 	end)
 	local definitions: { [string]: NativeRule } = {}
-	local byIdOf = setmetatable({} :: { [{ NativeRule }]: { [string]: NativeRule } }, { __mode = "k" })
-	type Changes = { [{ NativeRule }]: { number }? }
-	local changesOf = setmetatable({} :: { [{ NativeRule }]: Changes }, { __mode = "k" })
-	local function changesBetween(before: { NativeRule }, after: { NativeRule }): { number }?
-		local known = changesOf[before]
-		if known == nil then
-			local fresh: Changes = {}
-			support.weakKeys(fresh)
-			known = fresh
-			changesOf[before] = known
-		end
-		local cached = known[after]
-		if cached ~= nil or #before ~= #after then
-			return cached
-		end
-		local changed: { number } = {}
-		for index, definition in after do
-			local previous = before[index]
-			if previous.id ~= definition.id or previous.selector ~= definition.selector then
-				return nil
-			end
-			if previous.priority ~= definition.priority or previous.properties ~= definition.properties then
-				table.insert(changed, index)
-			end
-		end
-		known[after] = changed
-		return changed
-	end
 	local function compiledRules(package: ThemeTypes.ThemePackage, palette: string?): { NativeRule }
 		if not support.sealed(package) then
 			return rulesFor(package, palette, types)
@@ -368,6 +420,12 @@ return function(
 			end
 		end
 		byPalette[key] = result
+		indexById(result)
+		local previous = lastCompiled[types]
+		if previous ~= nil then
+			changesBetween(previous, result)
+		end
+		lastCompiled[types] = result
 		return result
 	end
 	local scaled = setmetatable(
@@ -475,7 +533,10 @@ return function(
 		end
 	end
 	local written: { [string]: TweenInfo } = {}
-	local colors: { [string]: Color3? } = {}
+	local writtenTokens: { [string]: Color3? }? = nil
+	type TimingMemo = { live: { [string]: TweenInfo }?, snapped: { [string]: TweenInfo }? }
+	local timingMemo: { [ThemeTypes.ThemePackage]: TimingMemo } = {}
+	support.weakKeys(timingMemo)
 	local applied: { NativeRule }? = nil
 	local appliedArrivals = 0
 	local initialIds: { [string]: boolean }? = nil
@@ -527,19 +588,44 @@ return function(
 		if hovering == false then
 			current = withoutHover(current)
 		end
-		for state, token in TOKENS do
-			local timing = timingFor(package, state :: PaintState, use)
+		local explicit = read(settings.transition, use)
+		local snapped = snaps(use)
+		local memo = if explicit == nil then timingMemo[package] else nil
+		local timings: { [string]: TweenInfo }? = if memo then (if snapped then memo.snapped else memo.live) else nil
+		if timings == nil then
+			local made: { [string]: TweenInfo } = {}
+			for state, token in TOKENS do
+				made[token] = timingFor(package, state :: PaintState, use)
+			end
+			timings = made
+			if explicit == nil then
+				local entry: TimingMemo = memo or {}
+				if snapped then
+					entry.snapped = made
+				else
+					entry.live = made
+				end
+				timingMemo[package] = entry
+			end
+		end
+		local resolved: { [string]: TweenInfo } = assert(timings)
+		for token, timing in resolved do
 			if written[token] ~= timing then
 				written[token] = timing
 				sheet:SetAttribute(token, timing)
 			end
 		end
-		for token, value in colorTokens do
-			if colors[token] ~= value then
-				colors[token] = value
+		local previousTokens = writtenTokens
+		if previousTokens == nil then
+			for token, value in colorTokens do
 				sheet:SetAttribute(token, value)
 			end
+		elseif previousTokens ~= colorTokens then
+			for _, token in tokenChanges(previousTokens, colorTokens) do
+				sheet:SetAttribute(token, colorTokens[token])
+			end
 		end
+		writtenTokens = colorTokens
 		local preference = preferenceFor(use)
 		local typography = package.metrics.controls.typography or neutral.metrics.controls.typography
 		local textChoice = read(preferredTextSize :: Engine.Input<Enum.PreferredTextSize | string>?, use)
@@ -561,15 +647,7 @@ return function(
 					apply(record, definition)
 				end
 			end
-			local byId = byIdOf[current]
-			if byId == nil then
-				byId = {}
-				for _, definition in current do
-					byId[definition.id] = definition
-				end
-				byIdOf[current] = byId
-			end
-			definitions = byId
+			definitions = indexById(current)
 			applied = current
 			return
 		end

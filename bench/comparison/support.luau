@@ -235,13 +235,19 @@ local function widthOf(world: Types.World, node: Node, value: string, ready: (nu
 	end
 	local params = world.engine.new("GetTextBoundsParams")
 	params.Text, params.Font, params.Size, params.Width = value, face, size, 0
-	task.spawn(function()
+	local function measure()
 		local ok, measured: unknown = pcall(service.GetTextBoundsAsync, service, params)
+		params:Destroy()
 		if ok and typeof(measured) == "Vector2" then
 			widths[key] = measured.X
 			ready(measured.X)
 		end
-	end)
+	end
+	if task then
+		task.spawn(measure)
+	else
+		measure()
+	end
 	return widths[key]
 end
 

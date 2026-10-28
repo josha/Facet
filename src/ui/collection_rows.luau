@@ -428,7 +428,7 @@ return function<V, K>(
 					highlight(keyCell, function(state)
 						local on, only = state ~= "none", state == "only"
 						if selectionHit then
-							if shownOnly ~= only then
+							if (editor or #edits > 0) and shownOnly ~= only then
 								selectionHit:SetAttribute("FacetOnlySelected", only)
 							end
 							if shownOn ~= on then

@@ -19,7 +19,7 @@ export type Evidence = {
 type Sample = { world: Types.World, scene: Types.Scene }
 
 local function prepare(workload: Types.Workload, lane: Types.Lane): Sample
-	local world = NativeApp()
+	local world = NativeApp({ textService = true })
 	return { world = world, scene = workload.prepare(world, lane) }
 end
 
@@ -125,7 +125,7 @@ return function(workload: Types.Workload, position: number): Evidence
 		local mounted, teardown = {}, {}
 		memory[lane] = {}
 		for _ = 1, 3 do
-			local world = NativeApp()
+			local world = NativeApp({ textService = true })
 			local retained = Lute.memory.measure({
 				setup = function()
 					return { world = world, scene = workload.prepare(world, lane) }
