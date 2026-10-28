@@ -138,6 +138,7 @@ local neutral: ThemeTypes.ThemePackage = {
 				pressLift = 0.1,
 				zoom = 0.22,
 				zoomPresent = 0.3,
+				tabChrome = 0.3,
 				travel = 0.3,
 				travelFade = 0.16,
 				travelStagger = 0.045,

@@ -5,13 +5,19 @@ its size and screen position until its motion ends. A tab bar placement or a
 header that changes with the push no longer reflows the closing pane.
 
 A navigation page that mounts for a transition stays hidden until its layout
-and text are stable for two frames. The `motion.restLimit` fallback now counts
-frames at 60 frames per second, so one slow frame no longer reveals a page
-before its layout settles.
+and text are stable for two frames. The `motion.restLimit` real-time fallback
+starts after the first frame with layout, so the slow mount frame no longer
+reveals a page before its layout settles.
 
-Navigation transitions add at most the new theme token `motion.frameLimit`
-(0.05 seconds) to their clock for each frame. A slow first frame on a device
-no longer consumes most of a zoom or fade.
+A navigation transition absorbs one slow frame in its first
+`motion.frameLimit` seconds (a new theme token, 0.05 seconds): that frame adds
+at most `motion.frameLimit` to the clock. Later frames run in real time. A slow
+mount frame on a device no longer consumes most of a zoom or fade.
+
+A `TabView` placement change to `"none"` slides the bar out over the new theme
+token `motion.durations.tabChrome` (0.3 seconds), and the content grows when the
+bar is gone. A change back slides the bar in. A push that hides the tab bar no
+longer removes it before the push motion starts.
 
 A slot collection again creates new slot nodes before item watches that look
 them up in the same settle. Compose 147835f keeps an equal-cut-off formula's

@@ -46,14 +46,14 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 		laidOut = laidOut or attached
 		return attached and measured and fontsReady(texts)
 	end
-	local sampled = 0
+	local graced = false
 	return ctx.runtime.settled {
 		ready = function(): boolean
 			if prepared() then
-				sampled += 1
-				return true
+				local first = not graced
+				graced = true
+				return not first
 			end
-			sampled = 0
 			if laidOut then
 				return false
 			end
@@ -61,7 +61,8 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 			return waiting >= limit
 		end,
 		sample = function(): string
-			return if sampled > limit or waiting >= limit then "" else snapshot
+			return snapshot
 		end,
+		timeout = ctx.metric("motion.restLimit"),
 	}
 end

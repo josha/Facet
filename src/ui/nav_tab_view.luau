@@ -15,6 +15,7 @@ local tabItem = require("./nav_tab_item")
 local tabAccessories = require("./nav_tab_accessories")
 local presentationReadiness = require("./presentation_readiness")
 local scrollLock = require("./scroll_lock")
+local transition = require("./transition")
 type SelectionLinks = {
 	NextSelectionLeft: GuiObject?,
 	NextSelectionRight: GuiObject?,
@@ -192,7 +193,29 @@ return function(
 			end
 			return home
 		end
-		local placement = Compose.formula(resolvePlacement :: (ComposeTypes.Use) -> string)
+		local requested = Compose.formula(resolvePlacement :: (ComposeTypes.Use) -> string)
+		local placement = Compose.cell(requested:peek())
+		local stowed = Compose.cell(requested:peek() == "none")
+		local stow = transition.paced(
+			ctx,
+			function(use: ComposeTypes.Use): number
+				return if use(stowed) then 1 else 0
+			end,
+			Compose.formula(function(use: ComposeTypes.Use): boolean
+				return tabLevel(use) ~= "normal"
+			end),
+			function(use: ComposeTypes.Use?): number
+				return ctx.metric("motion.durations.tabChrome", use)
+			end,
+			ctx.motionEase("fade")
+		)
+		Compose.watch(function(use: ComposeTypes.Use)
+			local wanted = use(requested)
+			stowed:set(wanted == "none")
+			if wanted ~= "none" or use(stow) >= 1 then
+				placement:set(wanted)
+			end
+		end)
 		local function indicatorOf(use: ComposeTypes.Use): Nav.TabSelectionIndicator?
 			local chosen = read(spec.indicator, use)
 			if (chosen == nil or chosen == "automatic") and spec.style == "sidebarAdaptable" then
@@ -413,6 +436,21 @@ return function(
 			},
 		}
 		scrollLock.own(bar, ctx)
+		local function stowOffset(use: ComposeTypes.Use): UDim2
+			local amount = use(stow)
+			if amount <= 0 then
+				return D2.fromOffset(0, 0)
+			end
+			local place = use(placement)
+			if place == "sidebar" then
+				return D2.fromOffset(-amount * railWidth(use), 0)
+			elseif string.find(place, "bottom") then
+				return D2.fromOffset(0, amount * (band(use) + bottomInset(use) + 2 * INSET))
+			elseif place == "topBar" then
+				return D2.fromOffset(0, -amount * (band(use) + 2 * INSET))
+			end
+			return D2.fromOffset(0, 0)
+		end
 		local bandBox = Host.Frame "TabBand" {
 			ZIndex = 2,
 			BackgroundTransparency = 1,
@@ -429,12 +467,14 @@ return function(
 			end,
 			Position = function(use: ComposeTypes.Use): UDim2
 				if floating(use) then
-					return floatingPosition(use)
+					return floatingPosition(use) + stowOffset(use)
 				end
-				return if use(placement) == "sidebar"
-					then D2.fromOffset(8, use(headHeight))
-					elseif string.find(use(placement), "bottom") then D2.new(0, 0, 1, -band(use))
-					else D2.fromOffset(0, 0)
+				return (
+					if use(placement) == "sidebar"
+						then D2.fromOffset(8, use(headHeight))
+						elseif string.find(use(placement), "bottom") then D2.new(0, 0, 1, -band(use))
+						else D2.fromOffset(0, 0)
+				) + stowOffset(use)
 			end,
 			Host.UIListLayout {
 				FillDirection = E.FillDirection.Horizontal,
@@ -739,10 +779,10 @@ return function(
 			end,
 			Position = function(use: ComposeTypes.Use)
 				if floating(use) then
-					return floatingPosition(use)
+					return floatingPosition(use) + stowOffset(use)
 				end
 				if use(placement) == "sidebar" then
-					return D2.fromOffset(8, use(headHeight))
+					return D2.fromOffset(8, use(headHeight)) + stowOffset(use)
 				end
 				return D2.fromOffset(0, 0)
 			end,

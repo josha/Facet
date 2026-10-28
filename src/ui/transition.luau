@@ -26,7 +26,7 @@ local function paced(
 	local frames = assert(ctx.runtime.host.frames, "Facet transitions require host frames")
 	local value: Types.Value<number> = C.cell(0)
 	local from, goal, elapsed, length = 0, 0, 0, 1
-	local started = false
+	local started, spiking = false, false
 	local stop: (() -> ())? = nil
 	local function halt()
 		local current = stop
@@ -36,7 +36,15 @@ local function paced(
 		end
 	end
 	local function advance(delta: number)
-		elapsed = math.min(elapsed + math.min(delta, ctx.metric("motion.frameLimit")), length)
+		local limit = ctx.metric("motion.frameLimit")
+		local step = delta
+		if spiking and delta > limit then
+			step, spiking = limit, false
+		end
+		elapsed = math.min(elapsed + step, length)
+		if elapsed >= limit then
+			spiking = false
+		end
 		value:set(from + (goal - from) * ease(elapsed / length))
 		if elapsed >= length then
 			halt()
@@ -54,7 +62,7 @@ local function paced(
 		if wanted == goal then
 			return
 		end
-		from, goal, elapsed, length = value:peek(), wanted, 0, seconds(nil)
+		from, goal, elapsed, length, spiking = value:peek(), wanted, 0, seconds(nil), true
 		assert(length > 0 and length < math.huge, "Facet transition seconds must be positive and finite")
 		if stop == nil then
 			stop = frames.onFrame(advance)
@@ -209,4 +217,4 @@ local function create(
 	}
 end
 
-return { check = check, create = create, completions = completions }
+return { check = check, create = create, completions = completions, paced = paced }

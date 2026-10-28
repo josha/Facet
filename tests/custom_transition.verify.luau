@@ -340,7 +340,7 @@ return function(h: Verify.Harness)
 			column:set("detail")
 		end)
 		layout.step()
-		Verify.expect(split.AbsoluteSize.Y > before.Y):toBe(true)
+		Verify.expect(split.AbsoluteSize):toBe(before)
 		local frames = 0
 		while sidebar.Visible and frames < 60 do
 			Verify.expect(sidebar.AbsoluteSize):toBe(size)
@@ -352,6 +352,13 @@ return function(h: Verify.Harness)
 			layout.step()
 		end
 		Verify.expect(frames > 3 and not sidebar.Visible):toBe(true)
+		local grown = 0
+		while split.AbsoluteSize.Y <= before.Y and grown < 60 do
+			grown += 1
+			w.engine.heartbeat:Fire(1 / 60)
+			layout.step()
+		end
+		Verify.expect(split.AbsoluteSize.Y > before.Y):toBe(true)
 		column:set("sidebar")
 		shown:set(false)
 		play(w.engine, 0.5)
@@ -410,7 +417,7 @@ return function(h: Verify.Harness)
 		Verify.expect(fade.of(detail)):toBe(0)
 		w.stop()
 	end)
-	h:case("a compact split view runs the full zoom duration after slow first frames", function()
+	h:case("a compact split view caps only the first zoom frame after a slow mount", function()
 		local w, detail = preparedSplit()
 		w.size(detail, 400, 600)
 		local motion = assert(Facet.themes.neutralPackage().metrics.motion)
@@ -420,21 +427,35 @@ return function(h: Verify.Harness)
 		end
 		local waited = 0
 		while opacity() == 0 and waited < 2 do
-			w.advance(1 / 60)
-			waited += 1 / 60
+			w.advance(0.25)
+			waited += 0.25
 		end
 		Verify.expect(opacity() > 0 and opacity() < 0.5):toBe(true)
 		Verify.expect(zoomOf(detail) ~= nil):toBe(true)
-		for _ = 1, 2 do
-			w.advance(0.2)
-			Verify.expect(opacity() < 1):toBe(true)
-		end
 		local remaining = 0
 		while opacity() < 1 and remaining < 2 do
 			w.advance(1 / 60)
 			remaining += 1 / 60
 		end
-		Verify.expect(remaining >= seconds - 2 * limit - 1 / 60):toBe(true)
+		Verify.expect(remaining >= seconds - limit - 1 / 60):toBe(true)
+		Verify.expect(opacity()):toBe(1)
+		Verify.expect(w.find("TransitionScale")):toBe(nil)
+		w.stop()
+	end)
+	h:case("a compact split view caps one early stall and then finishes on a large step", function()
+		local w, detail = preparedSplit()
+		w.size(detail, 400, 600)
+		local function opacity(): number
+			return 1 - fade.of(detail)
+		end
+		local waited = 0
+		while opacity() == 0 and waited < 2 do
+			w.advance(1 / 60)
+			waited += 1 / 60
+		end
+		Verify.expect(opacity() > 0):toBe(true)
+		w.advance(1)
+		w.advance(1)
 		Verify.expect(opacity()):toBe(1)
 		Verify.expect(w.find("TransitionScale")):toBe(nil)
 		w.stop()

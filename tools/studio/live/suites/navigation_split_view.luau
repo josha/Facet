@@ -666,6 +666,160 @@ local cases: { any } = {
 			end,
 		},
 	},
+	{
+		id = "compact-zoom-chrome-motion",
+		contracts = {},
+		run = function(t: any)
+			local RunService = game:GetService("RunService")
+			local path, column
+			local stage = t.mount(function(UI: any, Host: any, Compose: any)
+				path = Compose.cell({})
+				column = Compose.cell("sidebar")
+				local function Sidebar(): Instance
+					local props: { [any]: any } = { Name = "List", width = "fill" }
+					for index = 1, 12 do
+						table.insert(props, UI.Button { Name = "Row" .. index, label = "Game " .. index })
+					end
+					return UI.VStack(props)
+				end
+				local function Board(): Instance
+					local spin = os.clock()
+					while os.clock() - spin < 0.25 do
+					end
+					local props: { [any]: any } = {
+						Name = "Board",
+						Size = UDim2.fromScale(1, 1),
+						Host.UIGridLayout { CellSize = UDim2.fromOffset(16, 16) },
+					}
+					for index = 1, 400 do
+						table.insert(props, Host.TextLabel { Text = tostring(index), Size = UDim2.fromOffset(16, 16) })
+					end
+					return Host.Frame(props)
+				end
+				local function Play(): Instance
+					return UI.NavigationSplitView {
+						Name = "GamesSplit",
+						transition = { scale = true },
+						sidebar = Sidebar,
+						detail = function(): Instance
+							return UI.NavigationStack {
+								Name = "Matches",
+								chrome = "hidden",
+								transition = { scale = true },
+								path = path,
+								root = {
+									content = function()
+										return UI.Text { text = "Choose a game" }
+									end,
+								},
+								destinations = { game = { content = Board } },
+								Size = UDim2.fromScale(1, 1),
+							}
+						end,
+						detailVisible = function(use: any): boolean
+							return #use(path) > 0
+						end,
+						preferredCompactColumn = column,
+						detailLabel = "Selected game",
+					}
+				end
+				return UI.TabView {
+					Name = "HomeTabs",
+					selection = Compose.cell("play"),
+					style = "sidebarAdaptable",
+					controlSize = "large",
+					placement = function(use: any): string
+						return if #use(path) > 0 then "none" else "bottomBar"
+					end,
+					tabs = {
+						{ id = "play", label = "Games", icon = "view.grid", content = Play },
+						{
+							id = "profile",
+							label = "Profile",
+							icon = "person",
+							content = function()
+								return UI.Text { text = "Profile" }
+							end,
+						},
+					},
+					Size = UDim2.fromScale(1, 1),
+				}
+			end, { size = Vector2.new(390, 760), motionLevel = "normal" })
+			t.settle(30)
+			local band = t.find(stage, "TabBand")
+			local list = t.find(stage, "List")
+			local rest, height = band.AbsolutePosition.Y, list.AbsoluteSize.Y
+			local function record(seconds: number): { { at: number, band: number?, list: number?, board: number? } }
+				local frames = {}
+				local started = os.clock()
+				local connection = RunService.RenderStepped:Connect(function()
+					local board = stage:FindFirstChild("Board", true)
+					local group = if board then board:FindFirstAncestorWhichIsA("CanvasGroup") else nil
+					local sidebar = list:FindFirstAncestor("Sidebar") :: GuiObject?
+					table.insert(frames, {
+						at = os.clock() - started,
+						band = if band.Visible and t.find(stage, "Tabs").Visible then band.AbsolutePosition.Y else nil,
+						list = if sidebar and sidebar.Visible then list.AbsoluteSize.Y else nil,
+						board = if group then group.GroupTransparency else nil,
+					})
+				end)
+				t.settle(math.ceil(seconds * 60))
+				connection:Disconnect()
+				return frames
+			end
+			local function span(frames: { any }, inside: (any) -> boolean): number
+				local first, last = nil, nil
+				for _, frame in frames do
+					if inside(frame) then
+						first = first or frame.at
+						last = frame.at
+					end
+				end
+				return if first then last - first else 0
+			end
+			local function largestStep(frames: { any }): number
+				local largest, previous = 0, nil
+				for _, frame in frames do
+					if frame.band and previous then
+						largest = math.max(largest, math.abs(frame.band - previous))
+					end
+					previous = frame.band or previous
+				end
+				return largest
+			end
+			path:set({ { id = "game", value = 1 } })
+			column:set("detail")
+			local opened = record(1)
+			local travel = 0
+			for _, frame in opened do
+				if frame.band then
+					travel = math.max(travel, frame.band - rest)
+				end
+				if frame.list then
+					t.near("open keeps the leaving list height", frame.list, height, 0.5)
+				end
+			end
+			t.check("open slides the tab bar out", travel > 0, travel)
+			t.check(
+				"open moves the bar in steps",
+				largestStep(opened) <= travel * 0.5,
+				{ step = largestStep(opened), travel = travel }
+			)
+			t.check("open fades the board in over most of its duration", span(opened, function(frame)
+				return frame.board ~= nil and frame.board > 0 and frame.board < 1
+			end) >= 0.15)
+			path:set({})
+			column:set("sidebar")
+			local closed = record(1)
+			t.check("close slides the bar back in steps", largestStep(closed) <= travel * 0.5, largestStep(closed))
+			t.near("close returns the bar to rest", band.AbsolutePosition.Y, rest, 0.5)
+			t.check("close fades the board out over most of its duration", span(closed, function(frame)
+				return frame.board ~= nil and frame.board > 0 and frame.board < 1
+			end) >= 0.15)
+			t.check("close leaves no board behind", stage:FindFirstChild("Board", true) == nil)
+			t.near("close restores the list height", list.AbsoluteSize.Y, height, 0.5)
+		end,
+	},
 }
 
 return cases
