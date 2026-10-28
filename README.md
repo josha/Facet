@@ -90,7 +90,7 @@ The [Facet versus bare comparison](docs/performance/facet-vs-bare.md) measures
 game UI workloads with Facet controls and direct Roblox Instances.
 
 These headless cost-model results come from CI run
-[40607378487](https://github.com/josha/Facet/actions/runs/40607378487). The bare lane is
+[40616605814](https://github.com/josha/Facet/actions/runs/40616605814). The bare lane is
 feature-matched: it links the same theme StyleSheet and does the same visible
 work, with the same tags, automatic size, held readout widths, state tags, modal
 layers, input contexts and native motion. A ratio divides Facet by bare; lower
@@ -98,31 +98,31 @@ is smaller.
 
 | Workload | Time vs bare | Heap vs bare |
 | --- | ---: | ---: |
-| button-feedback-50 | 0.14x | 1.21x |
-| main-menu-cold | 0.94x | 1.05x |
-| mixed-scroll-300 | 0.99x | 2.73x |
-| shop-filter-200 | 1.43x | 1.89x |
-| progress-20-120-frames | 2.06x | 1.16x |
-| text-input-200 | 2.12x | 1.05x |
-| card-collection-60 | 2.13x | 2.04x |
-| world-markers-50 | 2.13x | 1.40x |
-| heavy-screen-20-cycles | 2.41x | 1.69x |
-| hud-600-frames | 2.46x | 1.09x |
-| navigation-5-20-cycles | 2.90x | 1.20x |
-| virtual-scroll-2000 | 3.24x | 1.83x |
-| dialog-50-cycles | 3.42x | 1.20x |
-| chat-append-500 | 3.88x | 1.99x |
-| badges-30-300-updates | 4.28x | 1.41x |
-| settings-17-values | 4.86x | 1.59x |
-| radial-50-cycles | 4.92x | 1.25x |
-| toast-stream-100 | 5.04x | 0.76x |
-| stepper-segments-100 | 5.46x | 1.17x |
-| leaderboard-100 | 5.51x | 6.87x |
-| tabs-5-100-switches | 6.87x | 1.34x |
-| inventory-100 | 7.11x | 2.67x |
-| tile-transfer-20 | 7.96x | 1.27x |
-| inventory-500 | 8.89x | 3.64x |
-| theme-swap-200 | 13.41x | 1.64x |
+| button-feedback-50 | 0.14x | 1.20x |
+| main-menu-cold | 0.93x | 1.03x |
+| mixed-scroll-300 | 1.02x | 2.86x |
+| shop-filter-200 | 1.48x | 1.72x |
+| heavy-screen-20-cycles | 1.67x | 2.97x |
+| progress-20-120-frames | 1.83x | 1.05x |
+| text-input-200 | 2.10x | 1.04x |
+| card-collection-60 | 2.31x | 3.25x |
+| navigation-5-20-cycles | 2.41x | 1.11x |
+| hud-600-frames | 2.54x | 1.03x |
+| virtual-scroll-2000 | 2.56x | 1.98x |
+| chat-append-500 | 3.06x | 1.58x |
+| world-markers-50 | 3.17x | 1.27x |
+| dialog-50-cycles | 3.29x | 1.12x |
+| settings-17-values | 3.93x | 1.52x |
+| badges-30-300-updates | 4.01x | 1.35x |
+| stepper-segments-100 | 4.77x | 1.17x |
+| tabs-5-100-switches | 5.02x | 1.30x |
+| tile-transfer-20 | 5.07x | 1.50x |
+| radial-50-cycles | 5.31x | 1.14x |
+| leaderboard-100 | 5.57x | 5.99x |
+| inventory-500 | 5.68x | 3.38x |
+| inventory-100 | 6.33x | 2.41x |
+| toast-stream-100 | 6.85x | 0.89x |
+| theme-swap-200 | 7.73x | 1.64x |
 
 ## Installing
 
