@@ -88,12 +88,13 @@ return function(harness: Verify.Harness)
 			end
 			local stop = mount()
 			local node = assert(label)
-			local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
-			t:expect(floor.MinSize.X):toBe(56)
+			t:expect(node:FindFirstChild("TextBoundsFloor")):toBeNil()
+			local floor: UISizeConstraint
 			for _, sample in
 				{ { text = "1111", width = 56 }, { text = "9999", width = 64 }, { text = "1011", width = 64 } }
 			do
 				node.Text = sample.text
+				floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
 				t:expect(floor.MinSize.X):toBe(sample.width)
 				t:expect(floor.MaxSize.X):toBe(sample.width)
 			end
@@ -114,6 +115,8 @@ return function(harness: Verify.Harness)
 			t:expect(floor.MinSize.X):toBe(24)
 			stop()
 			stop = mount()
+			t:expect(assert(label):FindFirstChild("TextBoundsFloor")):toBeNil()
+			assert(label).Text = "1001"
 			t:expect((assert(assert(label):FindFirstChild("TextBoundsFloor")) :: UISizeConstraint).MinSize.X):toBe(56)
 			stop()
 			runtime:dispose()
@@ -214,6 +217,9 @@ return function(harness: Verify.Harness)
 			end
 			return Host.Frame { table.unpack(labels) }
 		end, engine.new("ScreenGui"))
+		for _, label in labels do
+			label.Text = "Coins 102"
+		end
 		local writes = 0
 		local connection = engine.onWrite(function(node: Instance, property: string, _value: unknown)
 			if node.Name == "TextBoundsFloor" and (property == "MinSize" or property == "MaxSize") then
@@ -375,6 +381,9 @@ return function(harness: Verify.Harness)
 			return node
 		end, engine.new("ScreenGui"))
 		local node = assert(label)
+		t:expect(node:FindFirstChild("TextBoundsFloor")):toBeNil()
+		node.Text = "Saved!"
+		node.Text = "Saved"
 		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
 		t:expect(node:FindFirstChild("TextBoundsUnit")):toBeNil()
 		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(80, 16))
