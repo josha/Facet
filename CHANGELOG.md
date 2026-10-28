@@ -1,5 +1,9 @@
 # Current package
 
+A slot collection again creates new slot nodes before item watches that look
+them up in the same settle. Compose 147835f keeps an equal-cut-off formula's
+consumers in propagation order.
+
 In a collection with `slots`, an accepted payload from another source now
 parts the items at `info.insertion` while it hovers. The items between the
 insertion and the nearest empty reserved slot move one slot toward that empty

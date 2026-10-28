@@ -104,14 +104,13 @@ end
 
 NodeCast.adopt(FORMULA)
 
-local function settle(self: Node)
-	local announced = self.announced
-	self.announced = nil
+local function cutoff(self: Node)
 	if self.released or self.first == nil then
 		return
 	end
+	local before = self.version
 	local ok = pcall(FORMULA.refresh, self)
-	if not ok or self.version ~= announced then
+	if not ok or self.version ~= before then
 		Graph.markStale(self, Graph.DIRTY)
 	end
 end
@@ -129,7 +128,7 @@ local function formula<T>(body: Body<T>, equals: Equals<T>?): Value<T>
 	}
 	if equals ~= nil then
 		node.equals = NodeCast.eraseEquals(equals)
-		node.invalidate = settle
+		node.cutoff = cutoff
 	end
 	return NodeCast.make(node, FORMULA)
 end

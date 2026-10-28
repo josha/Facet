@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "2bfff237653f55eddfc353513ac527595acd93a0",
+  "commit": "147835f88b216b7348e0ab1a9866a4cfea66af7f",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -43,13 +43,13 @@
     "core/reactive/cell.luau": "d443d8c729fbdfeeeaec21211098f7fe5c3ab372e00cd9f0ad738709f458e6ca",
     "core/reactive/clock.luau": "ad9421eacb56ae0a0a82a53d2bea124fc6d30e6e536f5f3767a6997a0e1fb049",
     "core/reactive/evaluation.luau": "cb0e2dcf87e727fda02a853ef656b6f9add49c4f889d06e9982fec64c18eaf6f",
-    "core/reactive/formula.luau": "25cf71ff7007694ac6bb3b3be9bc7e032d87edc96fda5444281837ac521aee8c",
-    "core/reactive/graph.luau": "12e09b27d88b1d1baf03686673e5e30da73b2d2bbaaa14580f110f35861a9e43",
+    "core/reactive/formula.luau": "410271f4a1a498c9c1ac9576f6fbe90321b4e91ba173bc3c4dccda2500ea209d",
+    "core/reactive/graph.luau": "ea1fbd9e797a1eb7ad2cab139be1278477d16186d8b213be09157edd562e8a6f",
     "core/reactive/node.luau": "fb56d04ae3a4aae26691d1490ad024d0f75ebdf3b81c928ac2df4f7ad3b70992",
     "core/reactive/profile.luau": "c85624d1db4c1a3e0074d5249bc911ce407e01e62172365cb3e05c049216c535",
     "core/reactive/reactor.luau": "cdeb7994529ee4ce3ce0b04b0fe17c48b95bde5f23247e7ac7ce11712472cde6",
     "core/reactive/stats.luau": "fa362700b42c3d4a82cd3852439c09b1d9b25ef850a27d74043e869c09e5501d",
-    "core/reactive/types.luau": "22c50dce558617959f9143413cfcb3e76e59cb9fe59a9a377f61abd23bc92dd7",
+    "core/reactive/types.luau": "188c85ed32e47dd6e57e704e8a755313377e4011fc9ce53000aac144581ac28f",
     "core/reactive/userSpace.luau": "dbf8b8245dab0579b8ba60bc2afcd1aded700fe8595bff9e49f5540d070d3dd2",
     "core/reactive/watch.luau": "3c049bf0d5e7a04335a4ada39e9e719ad5a6f645e58ceb0753eb8a30046ade43",
     "core/runtime/block.luau": "52ea794d09d1eaf098123b9cc2d1193753935b7585d97fd535cc5aab60c12262",
@@ -116,9 +116,9 @@
   },
   "docs": {
     "SKILL.md": "a3277af0c096e2c640b1a0fb22c1739ffbf57603e81aab8ec9d7324d9f7ac590",
-    "references/api.md": "16084b6ab794a8e2da01656a82b12f02683fd104ee2a6adea461a2d2d6082b29",
-    "references/consumer-guides.md": "c47e41bfa8b57e11f1dffa9830ab9736b43839423bdfb486edac8586ab33040d",
+    "references/api.md": "0877fdb0cb8789ab1682168f93b5e94f075c38f51e8f5db486c5e61878d8a826",
+    "references/consumer-guides.md": "4677fd8bc4cf0374cedbeb7db8c9e3a317c0d89b06e59464651319645e40b080",
     "references/design.md": "d071e5bb4b1fc0b056c175cd6c38cd963a53594c700e833270345b32a6e2364c",
-    "references/ownership.md": "4d6d0cd1c6c2fa41343c2201210fed7b0201fbad5f8b47dc0e43bb35afec1aae"
+    "references/ownership.md": "c930a0e8144cf7606ea926164c0051a26ec2808df078fea76527dc063c800471"
   }
 }

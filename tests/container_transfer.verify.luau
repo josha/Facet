@@ -855,6 +855,54 @@ return function(harness: Verify.Harness)
 				t:expect(anchors.nodeOfKey):toBe(nil)
 			end,
 		})
+		harness:case("a growing slot list exposes new slot nodes to items rendered in the same settle", function()
+			local engine = engineLib.new()
+			local C = Facet.Compose
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
+			type Model = { order: { number } }
+			local model = C.cell({ order = { 11, 12, 13 } } :: Model)
+			local anchors: Facet.SlotControls<string> = {}
+			local missing: { string } = {}
+			local stop = runtime.mount(function()
+				local spec = {
+					from = function(use: Facet.Use): { number }
+						return use(model).order
+					end,
+					key = function(_id: number, index: number): string
+						return tostring(index)
+					end,
+					slots = function(use: Facet.Use): { string }
+						local keys: { string } = {}
+						for index in use(model).order do
+							table.insert(keys, tostring(index))
+						end
+						return keys
+					end,
+					slotControls = anchors,
+					mode = "all" :: "all",
+					direction = "horizontal" :: "horizontal",
+					itemSize = 40,
+					render = function(current: Facet.ReadOnlyValue<number>): GuiObject
+						local id = current:peek()
+						C.watch(function(use: Facet.Use)
+							for index, entry in use(model).order do
+								if entry == id and assert(anchors.nodeOfKey)(tostring(index)) == nil then
+									table.insert(missing, tostring(index))
+								end
+							end
+						end)
+						return UI.Button { label = tostring(current:peek()) }
+					end,
+				}
+				return UI.VirtualList((spec :: unknown) :: Facet.KeyedCollectionSpec<number, string>)
+			end, engine.new("ScreenGui"))
+			model:set({ order = { 14, 15, 11, 16, 12, 17, 13 } })
+			Verify.expect(missing):toEqual({})
+			model:set({ order = { 12, 17, 13, 18, 19, 20, 21 } })
+			Verify.expect(missing):toEqual({})
+			stop()
+		end)
 		harness:case("F-026 reserved collection keys retain gaps, recall and release", function()
 			local engine = engineLib.new()
 			local C = Facet.Compose

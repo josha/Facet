@@ -148,6 +148,7 @@ local function markStale(producer: Node, state: number)
 	local grouped: Types.Reactor? = nil
 	while edge ~= nil do
 		local consumer = edge[2]
+		local following = edge[4]
 		if consumer == nil then
 			local reactor = edge.reactor
 			if reactor ~= scheduled then
@@ -163,8 +164,10 @@ local function markStale(producer: Node, state: number)
 				end
 				consumer.state = state
 				if current == CLEAN or retry then
-					if consumer.invalidate ~= nil then
-						consumer.announced = consumer.version
+					local cutoff = consumer.cutoff
+					if cutoff ~= nil then
+						cutoff(consumer)
+					elseif consumer.invalidate ~= nil then
 						table.insert(invalidated, consumer)
 					elseif consumer.run == nil then
 						markStale(consumer, CHECK)
@@ -183,7 +186,7 @@ local function markStale(producer: Node, state: number)
 				end
 			end
 		end
-		edge = edge[4]
+		edge = following
 	end
 end
 
