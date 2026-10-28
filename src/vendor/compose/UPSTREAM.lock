@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "2c8a89896db550326fd4c927479ac1672305bb0d",
+  "commit": "e4fcb69b238929d042726b16f44d2d25278bb7b4",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -65,8 +65,8 @@
     "core/selector.luau": "caa7827cdd14d915e0dd8d33c31f8330e2339df0e8d9f544acbe805cf0fb837a",
     "core/slot.luau": "9f32d9c412bfc311b7401f90c877c2ab1a82320993c51e255ae7badb1293339b",
     "core/structure/fragment.luau": "927369937222895a108ac9ebbc20f0a2418607552da55f00b93c44a8edc5e8bf",
-    "core/structure/indexes.luau": "cd5625bb76805eeccf541edcc53b37ed2c15bb28a3f02d94f9df89a7d260ac07",
-    "core/structure/keyed.luau": "309fa3ebbbed8f1aebf69a0e6786b93314d1e6a411518895e995b3f8888ea186",
+    "core/structure/indexes.luau": "e4e03821a21fe1f51a53964e71f19953917fa125122fe3dc8ead7be5a53a1a14",
+    "core/structure/keyed.luau": "f651d83e15757cefe1b31c44e0b335d9e0625d1fa21d5482fcbcb256ead0c83c",
     "core/structure/layer-stack.luau": "9861df0a9d3d2bce830060391ee0ae5eca91179b385e6e51d32c1f0042914743",
     "core/structure/lis.luau": "3af1b00d98f490bf8dd276c1e3a105a23c3c45361fb501b55448ac216f020a9b",
     "core/structure/mount-budget.luau": "9b757c61c613d15f281a087215fd7bbeced25f52d032ec7acf012e3d9e0faa10",
@@ -116,9 +116,9 @@
   },
   "docs": {
     "SKILL.md": "a3277af0c096e2c640b1a0fb22c1739ffbf57603e81aab8ec9d7324d9f7ac590",
-    "references/api.md": "06cffd796380628e6331dc22559ad64006b9ae56ae656e138246a257c9064f98",
-    "references/consumer-guides.md": "20c6ee24114313532fef5d0df634f236e801e2e698803993bc70c0efeddad0f8",
+    "references/api.md": "f421d54acdad232ad5c212acc5178d8121e72f6a7912534e1a22d64436a201f0",
+    "references/consumer-guides.md": "c2bcb61e05f5fa4c6123999d3321bd37fd5a23b95dba860756d1251b61e5e5bc",
     "references/design.md": "d071e5bb4b1fc0b056c175cd6c38cd963a53594c700e833270345b32a6e2364c",
-    "references/ownership.md": "027bca47882d189930b63bc3b96d9045c5764bfe3444f651313380b933ea4de3"
+    "references/ownership.md": "9c2e90acbba0fe4dd672d2f7c69b7f7d46da04a81835b1de707ba225531d0143"
   }
 }

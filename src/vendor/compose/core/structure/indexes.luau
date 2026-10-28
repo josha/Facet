@@ -12,7 +12,7 @@ local cellModule = require "../reactive/cell"
 export type Render<V> = (value: Types.ReadOnlyValue<V>, index: number) -> Host.Node
 
 type Row<V> = {
-	block: Block.Block,
+	owner: Owners.Owner,
 	value: Types.Value<V>,
 }
 
@@ -23,9 +23,11 @@ local function indexes<V>(source: Types.Source<{ V }>, render: Render<V>): Child
 		local owner = Support.ownerFor "indexes"
 		Support.mountPointOf(mountPoint, "indexes")
 		local rows: { Row<V> } = {}
+		local items: { V } = {}
 
 		Owners.own(owner, function()
 			table.clear(rows)
+			table.clear(items)
 		end)
 
 		Owners.watch(owner, function(use)
@@ -34,21 +36,27 @@ local function indexes<V>(source: Types.Source<{ V }>, render: Render<V>): Child
 
 			for index = 1, wanted do
 				local row = rows[index]
+				local item = list[index]
 				if row ~= nil then
-					row.value:set(list[index])
+					if items[index] ~= item then
+						items[index] = item
+						row.value:set(item)
+					end
 				else
-					local value = cellModule.cell(list[index])
+					local value = cellModule.cell(item)
 					local position = index
 					local block = Block.mountBlock(mountPoint, owner, function(): { Host.Node }
 						return { build(value, position) }
 					end, "indexed row", nil)
-					rows[index] = { block = block, value = value }
+					rows[index] = { owner = block.owner, value = value }
+					items[index] = item
 				end
 			end
 
 			for index = #rows, wanted + 1, -1 do
-				Owners.dispose(rows[index].block.owner)
+				Owners.dispose(rows[index].owner)
 				rows[index] = nil
+				items[index] = nil
 			end
 		end)
 	end
