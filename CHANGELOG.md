@@ -4,15 +4,12 @@ In a compact `NavigationSplitView` with a `transition`, the closing pane keeps
 its size and screen position until its motion ends. A tab bar placement or a
 header that changes with the push no longer reflows the closing pane.
 
-A navigation page that mounts for a transition stays hidden until its layout
-and text are stable for two frames. The `motion.restLimit` real-time fallback
-starts after the first frame with layout, so the slow mount frame no longer
-reveals a page before its layout settles.
-
-A navigation transition absorbs one slow frame in its first
-`motion.frameLimit` seconds (a new theme token, 0.05 seconds): that frame adds
-at most `motion.frameLimit` to the clock. Later frames run in real time. A slow
-mount frame on a device no longer consumes most of a zoom or fade.
+A new theme token, `motion.frameLimit` (0 by default, off), lets a game absorb
+a slow mount frame on a device. When it is above 0, the first frame of a
+navigation transition adds at most `motion.frameLimit` seconds to its clock, and
+the `motion.restLimit` readiness fallback starts after the first frame with
+layout. Later frames run in real time. Keep it at 0 in fixtures that advance one
+large step and expect the motion to finish.
 
 A `TabView` placement change to `"none"` slides the bar out over the new theme
 token `motion.durations.tabChrome` (0.3 seconds), and the content grows when the

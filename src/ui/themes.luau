@@ -125,7 +125,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			presentFadeOut = 0.5,
 			unfoldStart = 0.25,
 			restLimit = 0.25,
-			frameLimit = 0.05,
+			frameLimit = 0,
 			popover = { enter = 0.15, exit = 0.1 },
 			dialog = { enter = 0.2, exit = 0.15 },
 			reveal = { enter = 0.25, exit = 0.2 },

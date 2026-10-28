@@ -64,9 +64,9 @@ derive large motion directly from `isPresented`; use `progress` so this
 adaptation applies to the authored effect.
 
 A page that mounts for a transition stays hidden until its layout and text
-are stable for two frames, or `motion.restLimit` seconds after its first laid
-out frame. One slow frame in the first `motion.frameLimit` seconds adds at most
-that time to the clock, so a slow mount does not skip the curve.
+are stable for two frames, or for `motion.restLimit` seconds. When the theme
+sets `motion.frameLimit` above 0, the first frame adds at most that time to the
+clock, so a slow mount does not skip the curve.
 
 The Custom transitions lab page opens on an interactive journal: an opaque
 leaf turns across a fixed spine with pointer/touch dragging and Previous/Next

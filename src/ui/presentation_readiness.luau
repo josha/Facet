@@ -50,7 +50,7 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 	return ctx.runtime.settled {
 		ready = function(): boolean
 			if prepared() then
-				local first = not graced
+				local first = not graced and ctx.metric("motion.frameLimit") > 0
 				graced = true
 				return not first
 			end

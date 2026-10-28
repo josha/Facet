@@ -37,14 +37,9 @@ local function paced(
 	end
 	local function advance(delta: number)
 		local limit = ctx.metric("motion.frameLimit")
-		local step = delta
-		if spiking and delta > limit then
-			step, spiking = limit, false
-		end
+		local step = if spiking and limit > 0 then math.min(delta, limit) else delta
+		spiking = false
 		elapsed = math.min(elapsed + step, length)
-		if elapsed >= limit then
-			spiking = false
-		end
 		value:set(from + (goal - from) * ease(elapsed / length))
 		if elapsed >= length then
 			halt()
