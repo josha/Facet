@@ -8,7 +8,7 @@ return function(workload: Types.Workload)
 	local lanes: { Types.Lane } = { "bare", "facet" }
 	for _, lane in lanes do
 		assert(lane == "bare" or lane == "facet")
-		local world = NativeApp()
+		local world = NativeApp({ textService = true })
 		local before = world.engine.census()
 		local scene = workload.prepare(world, lane)
 		local ok, problem = pcall(function()

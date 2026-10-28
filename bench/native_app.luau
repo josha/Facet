@@ -22,13 +22,27 @@ export type State = {
 }
 return function(options: any?): State
 	local opts = options or {}
-	local engine = engineLib.new()
+	local measured = opts.textService == true
+	local engine = engineLib.new(if measured
+		then {
+			textFits = function()
+				return true
+			end,
+		}
+		else nil)
 	local elapsed = 0
 	engine.clock = function()
 		return elapsed
 	end
 	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target = engine.new("Folder")
+	local textService: any = nil
+	if measured then
+		textService = engine.new("TextService")
+		engine.environment.fake("TextService.GetTextBoundsAsync", function(_service: any, params: any): any
+			return engine.types.Vector2.new(#params.Text * params.Size * 0.5, params.Size)
+		end)
+	end
 	local root = Facet.Compose.createRootOwner(function()
 		runtime.adopt(target)
 	end, runtime.reactor)
@@ -37,7 +51,11 @@ return function(options: any?): State
 		Compose = Facet.Compose,
 		runtime = runtime,
 		Host = (runtime.constructors :: unknown) :: RobloxHost,
-		UI = Facet.controls(runtime, { types = engine.types }),
+		UI = Facet.controls(runtime, {
+			types = engine.types,
+			services = if textService then { TextService = textService } else nil,
+		}),
+		textService = textService,
 		engine = engine,
 		target = target,
 		types = engine.types,
