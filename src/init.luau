@@ -31,6 +31,12 @@ export type TypewriterControls = HudTypes.TypewriterControls
 export type CompactOptions = format.CompactOptions
 export type GroupedOptions = format.GroupedOptions
 export type DurationOptions = format.DurationOptions
+local review = require("@self/ui/review")
+export type ReviewReport = review.ReviewReport
+export type ReviewSnapshot = review.ReviewSnapshot
+export type ReviewElement = review.ReviewElement
+export type ReviewFinding = review.ReviewFinding
+export type ReviewOptions = review.ReviewOptions
 local NavigationProps = require("@self/ui/navigation_props")
 local OverlayProps = require("@self/ui/overlay_props")
 local RadialProps = require("@self/ui/radial_props")
@@ -278,6 +284,9 @@ export type ThemePackage = ThemeTypes.ThemePackage
 export type ThemeDefinition = ThemeTypes.ThemeDefinition
 export type PalettePatch = ThemeTypes.PalettePatch
 export type PaletteExtra = ThemeTypes.PaletteExtra
+export type SkinLayerPatch = ThemeTypes.SkinLayerPatch
+export type ThemeRule = ThemeTypes.Rule
+export type ThemeRuleProperties = ThemeTypes.AuthoredRuleProperties
 export type TypographyPatch = ThemeTypes.TypographyPatch
 export type RGB = ThemeTypes.RGB
 export type Gradient = ThemeTypes.Gradient
@@ -344,6 +353,7 @@ export type Facet = {
 	pathShapes: typeof(pathShapes),
 	richText: typeof(richText),
 	format: typeof(format),
+	review: typeof(review),
 	recipes: { arithmetic: { parse: (unknown) -> number? } },
 	inputPriority: { belowControls: number, aboveFacet: number },
 	bind: (ComposeModule, ComposeRobloxModule) -> Facet,
@@ -504,6 +514,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		pathShapes = pathShapes,
 		richText = richText,
 		format = format,
+		review = review,
 		recipes = recipes,
 		inputPriority = INPUT_PRIORITY,
 		bind = bind,

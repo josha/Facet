@@ -19,12 +19,12 @@ agent can run the author commands there:
   Packages/Facet/                  the library, from src/
   docs/, examples/blocks/          the API reference, consumer guides and starter blocks
   examples/themes/                optional theme source for adaptation
-  tools/facet/                     the author commands: info, docs, lint, preview and audit,
+  tools/facet/                     the author commands: info, docs, lint, preview, audit and critique,
                                    and kit.json with the source commit of the kit
   tools/play/                      the Studio play host that preview and audit use
   tools/vendor/verify/             Verify (MIT), which the play host and audit use
   tools/typecheck/roblox.d.luau    the pinned Roblox definitions for lint --types
-  .agents/skills/                  the use-facet and compose skills
+  .agents/skills/                  the use-facet, compose and critique-ui skills
   StudioDocs/                      the documentation and skill source as native StringValues
 
 Map Packages to ReplicatedStorage.Packages in the Rojo project. For Studio-only
@@ -34,7 +34,7 @@ The kit refuses
 to replace a path that exists in DIR unless you give --force. The Roblox
 definitions come from the cache that lute run tools/facet types writes.]]
 
-local AUTHOR_COMMANDS = { "info", "docs", "project", "lint", "preview", "audit", "verify" }
+local AUTHOR_COMMANDS = { "info", "docs", "project", "lint", "preview", "audit", "critique", "verify" }
 local DEFINITIONS_LOCK = "tools/typecheck/roblox.lock.json"
 local DEFINITIONS_CACHE = "artifacts/verify/types/roblox.d.luau"
 local OWNED = {
@@ -49,6 +49,7 @@ local OWNED = {
 	"tools/typecheck",
 	".agents/skills/use-facet",
 	".agents/skills/compose",
+	".agents/skills/critique-ui",
 }
 
 export type Plan = { copies: { [string]: string }, writes: { [string]: string }, problems: { string } }
@@ -180,6 +181,17 @@ local function plan(): Plan
 			result.copies[file] = file
 		end
 	end
+	local reviewTool = "tools/facet/lib/design_review.luau"
+	if result.copies[reviewTool] ~= nil then
+		result.copies[reviewTool] = nil
+		result.writes[reviewTool] = (
+			string.gsub(
+				Files.text(reviewTool),
+				'require%("%.%./%.%./%.%./src/ui/review_rules"%)',
+				'require("../../../Packages/Facet/ui/review_rules")'
+			)
+		)
+	end
 	result.writes["tools/facet/commands/init.luau"] = commandsInit(present)
 	result.writes["tools/facet/README.md"] = [[# Facet author tools
 
@@ -192,6 +204,8 @@ Use `lute run tools/facet project [directory]` to find application files.
 These commands need neither rg nor a Git checkout.
 Run `lute run tools/facet verify --tap TEXT...` for types, lint, build,
 audit and screenshot paths. Use `--static` when Studio is unavailable.
+Run `lute run tools/facet critique` with `.agents/skills/critique-ui/SKILL.md`
+to have a fresh reviewer judge how a screen looks.
 ]]
 	local head = Run.capture({ "git", "rev-parse", "HEAD" })
 	local status = Run.capture({ "git", "status", "--porcelain", "--untracked-files=no" })
@@ -208,6 +222,7 @@ audit and screenshot paths. Use `--static` when Studio is unavailable.
 	definitions(result)
 	tree(result, "skills/use-facet", ".agents/skills/use-facet")
 	tree(result, "skills/compose", ".agents/skills/compose")
+	tree(result, "skills/critique-ui", ".agents/skills/critique-ui")
 	for _, source in result.copies do
 		local extension = Files.extension(source)
 		if
@@ -308,6 +323,20 @@ local function register(harness: Verify.Harness, prefix: string): ()
 				Verify.expect(string.find(init, '"@self/gate"', 1, true) == nil):toBeTrueWith("gate is registered")
 				Verify.expect(chosen.copies[".agents/skills/use-facet/SKILL.md"] ~= nil)
 					:toBeTrueWith("the skill is missing")
+				Verify.expect(chosen.copies[".agents/skills/critique-ui/SKILL.md"] ~= nil)
+					:toBeTrueWith("the critique-ui skill is missing")
+				Verify.expect(chosen.writes["StudioDocs/skills/critique-ui/references/rubric.md.txt"] ~= nil)
+					:toBeTrueWith("the rubric is missing from StudioDocs")
+				Verify.expect(string.find(init, '"@self/critique"', 1, true) ~= nil)
+					:toBeTrueWith("critique is not registered")
+				Verify.expect(
+					string.find(
+						chosen.writes["tools/facet/lib/design_review.luau"] or "",
+						"Packages/Facet/ui/review_rules",
+						1,
+						true
+					) ~= nil
+				):toBeTrueWith("the kit design review does not load the packaged rules")
 				Verify.expect(string.find(chosen.writes["tools/facet/kit.json"] or "", "commit", 1, true) ~= nil)
 					:toBeTrueWith("the kit has no source stamp")
 			end,

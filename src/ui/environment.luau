@@ -435,8 +435,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		return paint
 	end
 
-	UI.environment = function(source: Env.EnvironmentSource?): Env.Environment
-		assert(Compose.currentOwner() ~= nil, "Facet UI.environment must run inside a component or Compose owner")
+	local function build(source: Env.EnvironmentSource?): Env.Environment
 		local node: Instance? = source
 		if node == nil then
 			local world = scene()
@@ -707,6 +706,37 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end) :: unknown) :: ComposeTypes.ReadOnlyValue<Shared.MotionLevel>,
 		})
 		return environment
+	end
+
+	local current: Env.Environment? = nil
+	local acquire = Compose.createSharedResource(function(): (Env.Environment, () -> ())
+		local built: Env.Environment? = nil
+		local scope = Compose.createRootOwner(function()
+			built = build(nil)
+		end, runtime.reactor)
+		local environment = assert(built)
+		current = environment
+		return environment,
+			function()
+				if current == environment then
+					current = nil
+				end
+				scope.dispose()
+			end
+	end)
+	UI.environment = function(source: Env.EnvironmentSource?): Env.Environment
+		local owned = Compose.currentOwner() ~= nil
+		if source == nil and not owned and current ~= nil then
+			return current
+		end
+		assert(
+			owned,
+			"Facet UI.environment must run inside a component or Compose owner. Call it once at the top of the component and read its fields with use()."
+		)
+		if source == nil then
+			return acquire()
+		end
+		return build(source)
 	end
 
 	UI.responder = ctx.responder

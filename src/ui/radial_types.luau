@@ -155,6 +155,8 @@ export type Sector<V = string> = {
 	key: string,
 	index: number,
 	list: boolean,
+
+	sharedIcon: boolean?,
 }
 export type Layout<V = string> = { sectors: { Sector<V> }, list: boolean, inner: number, path: { string } }
 export type Paint = {

@@ -175,12 +175,14 @@ return {
 				return UI.VStack "GuideBody" {
 					width = "fill",
 					gap = "m",
-					UI.Text {
-						text = function(use: Facet.Use)
-							return `RIVER RESTORATION · {use(page)} / {#pages}`
+					UI.Text { text = "RIVER RESTORATION", textRole = "label", role = "secondary" },
+					UI.ProgressView "GuidePages" {
+						value = function(use: Facet.Use): number
+							return use(page)
 						end,
-						textRole = "caption",
-						wrap = true,
+						max = #pages,
+						segments = #pages,
+						showValue = false,
 					},
 					UI.Text {
 						text = function(use: Facet.Use)

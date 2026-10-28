@@ -9,6 +9,7 @@ local initialScroll = require("./scroll_initial")
 local glass = require("./glass")
 local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
+local themeSupport = require("./theme_support")
 export type LayoutControls = ControlTypes.Controls
 
 return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTypes.Controls
@@ -359,6 +360,10 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		return frame
 	end)
 
+	local function plateReach(use: ComposeTypes.Use?): number
+		return themeSupport.plateReach(read(ctx.config.theme, use))
+	end
+
 	UI.ScrollView = ctx.construct("ScrollView", function(spec: LayoutProps.ScrollViewProps): ScrollingFrame
 		local properties, children = split(spec, { "axis", "gap", "padding", "align", "distribute", "width", "height" })
 		local axis = spec.axis or "y"
@@ -396,7 +401,14 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			native.HorizontalScrollBarInset = E.ScrollBarInset.ScrollBar
 		end
 		local flow: Types.Flow = { gap = spec.gap, align = spec.align, distribute = spec.distribute }
-		local insets = kit.insets(spec.padding)
+		local reach = Compose.formula(function(use: ComposeTypes.Use): number
+			return plateReach(use)
+		end)
+		local room = Compose.formula(function(use: ComposeTypes.Use): layoutKit.Room
+			local pixels = use(reach)
+			return { top = pixels, right = pixels, bottom = pixels, left = pixels }
+		end)
+		local insets = if spec.padding ~= nil or reach:peek() > 0 then kit.insets(spec.padding or 0, room) else nil
 		local layout = kit.list(flow, axis ~= "x")
 		local frame =
 			kit.plain(Host.ScrollingFrame(kit.assemble(native, properties, { layout, insets }, children)), properties)

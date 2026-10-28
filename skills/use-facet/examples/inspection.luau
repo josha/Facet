@@ -2,7 +2,16 @@
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 local relicArt = require(script.Parent.Parent.assets["relic-art"])
 
-type Relic = { id: string, name: string, subtitle: string, description: string, trait: string, color: Color3 }
+type Relic = {
+	id: string,
+	name: string,
+	origin: string,
+	material: string,
+	light: string,
+	mount: string,
+	description: string,
+	color: Color3,
+}
 export type InspectionModel = {
 	selection: Facet.Value<{ [string]: boolean }>,
 	column: Facet.Value<"sidebar" | "detail">,
@@ -20,17 +29,21 @@ local relics: { Relic } = {
 	{
 		id = "sun",
 		name = "Sun prism",
-		subtitle = "East Observatory · amber",
+		origin = "East Observatory",
+		material = "Amber",
+		light = "Warm",
+		mount = "Brass cradle",
 		description = "Recovered from the East Observatory. The brass cradle still carries the surveyors' sun marks.",
-		trait = "Warm light · brass cradle",
 		color = Color3.fromRGB(197, 133, 68),
 	},
 	{
 		id = "tide",
 		name = "Tide lens",
-		subtitle = "Tidal chamber · sea glass",
+		origin = "Tidal chamber",
+		material = "Sea glass",
+		light = "Cool",
+		mount = "Polished glass",
 		description = "Found below the tide line. The lens once guided returning survey boats through the reef.",
-		trait = "Cool light · polished glass",
 		color = Color3.fromRGB(78, 137, 147),
 	},
 }
@@ -38,7 +51,7 @@ local relics: { Relic } = {
 return {
 	theme = require(script.Parent.Parent.assets["field-station-theme"]),
 	build = function(app: Facet.App, state: State, callbacks: Callbacks): Frame
-		local C, UI = Facet.Compose, app.UI
+		local C, UI, Host = Facet.Compose, app.UI, Facet.host(app.runtime)
 		local model: InspectionModel = state.inspection
 			or {
 				selection = C.cell({ sun = true }),
@@ -57,6 +70,18 @@ return {
 			end
 			return relics[1]
 		end)
+		local function trait(label: string, field: "material" | "light" | "mount"): Frame
+			return UI.VStack(label) {
+				gap = "xs",
+				UI.Text {
+					text = function(use: Facet.Use): string
+						return use(chosen)[field]
+					end,
+					textRole = "strong",
+				},
+				UI.Text { text = label, textRole = "caption", role = "secondary" },
+			}
+		end
 		local chosenId = C.formula(function(use: Facet.Use): string
 			return use(chosen).id
 		end)
@@ -83,11 +108,13 @@ return {
 					textRole = "title",
 					wrap = true,
 				},
-				UI.Text {
-					text = function(use: Facet.Use)
-						return use(chosen).trait
-					end,
+				UI.HStack "Traits" {
+					width = "fill",
 					wrap = true,
+					gap = "l",
+					trait("Material", "material"),
+					trait("Light", "light"),
+					trait("Mount", "mount"),
 				},
 				UI.Button "CommitRelic" {
 					label = function(use: Facet.Use)
@@ -138,8 +165,17 @@ return {
 						return (if use(selection)[use(current).id] then "Selected: " else "") .. use(current).name
 					end,
 					caption = function(use: Facet.Use)
-						return use(current).subtitle
+						return use(current).origin
 					end,
+					artwork = function(): GuiObject
+						return Host.Frame "Swatch" {
+							BackgroundColor3 = function(use: Facet.Use): Color3
+								return use(current).color
+							end,
+							BorderSizePixel = 0,
+						}
+					end,
+					imageAspectRatio = 5,
 				}
 			end,
 			UI.fill(),

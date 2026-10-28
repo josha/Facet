@@ -1,0 +1,32 @@
+{
+  "schema": "facet-critic-case/1",
+  "id": "bench-shop-text-rows",
+  "source": "FacetBench guide-pixelquest-20261027, player-01, desktop shop",
+  "labeler": "draft by Claude, 2026-10-27; confirm or overwrite",
+  "capture": "capture.jpg",
+  "device": "desktop",
+  "brief": "Neon sci-fi racing game. Parts shop: the player compares parts and buys one to improve the kart.",
+  "label": {
+    "verdict": "revise",
+    "scores": {
+      "lead": 2,
+      "numbers": 1,
+      "visuals": 1,
+      "identity": 2,
+      "economy": 2
+    },
+    "must": [
+      "item-without-visual",
+      "joined-facts",
+      "numbers-buried",
+      "lead-unclear"
+    ],
+    "should": [
+      "generic-identity",
+      "repeated-facts",
+      "stranded-space"
+    ],
+    "notes": "Five identical text rows; prices and stat gains inside sentences; the slogan headline leads; the world outshines the panel."
+  },
+  "dump": "dump.json"
+}

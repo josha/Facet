@@ -300,6 +300,43 @@ local function neutralBase(neutral: ThemeTypes.ThemePackage, colors: { [string]:
 	return base
 end
 
+local function plateReach(package: ThemeTypes.ThemePackage?): number
+	if package == nil then
+		return 0
+	end
+	local reach = 0
+	local chrome = package.chrome or {}
+	for _, slot in { "panel", "control" } do
+		local recipe = chrome[slot]
+		local declared: unknown = if recipe then recipe.shadow else nil
+		local shadow: ThemeTypes.Shadow? = if type(declared) == "string"
+			then (package.style.shadows or {})[declared] or shadowPresets[declared]
+			elseif type(declared) == "table" then declared :: ThemeTypes.Shadow
+			else nil
+		if shadow and shadow.enabled ~= false then
+			local function offsetOf(value: ThemeTypes.ShadowAxis?): number
+				return if value and value.offset then value.offset else 0
+			end
+			local offset, spread = shadow.offset, shadow.spread
+			local dx = math.abs(offsetOf(offset and offset.x)) + offsetOf(spread and spread.x)
+			local dy = math.abs(offsetOf(offset and offset.y)) + offsetOf(spread and spread.y)
+			reach = math.max(reach, offsetOf(shadow.blurRadius) + math.max(dx, dy))
+		end
+	end
+	local rules: { ThemeTypes.Rule } = package.rules or {}
+	for _, rule in rules do
+		local selector = rule.selector
+		local properties = rule.properties or rule.props
+		if type(selector) == "string" and string.find(selector, "::UIStroke", 1, true) and properties then
+			local thickness = properties.Thickness
+			if type(thickness) == "number" then
+				reach = math.max(reach, thickness)
+			end
+		end
+	end
+	return math.ceil(math.max(0, reach))
+end
+
 return {
 	neutralBase = neutralBase,
 	contrast = contrast,
@@ -309,6 +346,7 @@ return {
 	read = read,
 	frozen = frozen,
 	shadowPresets = shadowPresets,
+	plateReach = plateReach,
 	numericMetric = numericMetric,
 	paletteFor = paletteFor,
 	typesFor = typesFor,

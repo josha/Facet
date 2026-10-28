@@ -21,7 +21,7 @@ scale, type, shape and composition. Shared paint alone does not establish identi
 | Relationship | Use | When room shrinks |
 | --- | --- | --- |
 | Sequential reading or distinct form sections | VStack; HStack within a related section | Wrap and grow prose; scroll a bounded body |
-| Short status or action row | HStack; AdaptiveStack when order can become a column | Reflow related items together; keep priority |
+| Short status or action row | HStack; AdaptiveStack for two or three actions that can become a column | Reflow related items together; keep priority. Swatches, chips and filters wrap in `HStack { wrap = true }` |
 | Records with attributes to compare | Table with stable keys and meaningful columns | Keep decisive columns; optional detail preserves the selected record |
 | Visual peers identified by shape | Grid for a small fixed arrangement; VirtualGrid for an interactive collection | Reduce columns from readable cell width and target size |
 | Records in rows | VirtualList; Outline for parent/child relationships | Preserve keys, selection and scroll context |
@@ -72,8 +72,9 @@ For products or equipment, use [collection](../examples/collection.luau).
 Use the game's theme and subjects; [Riverbank](../assets/riverbank-theme.luau)
 demonstrates one identity. Call `createModel()` once, pass records
 and `inspect(id)`/`close()` callbacks to `build`. A record has `id`, `name`,
-`category`, useful `facts`, numeric `value` for cost sort and optional `price`
-with its unit, plus optional `ownership` text. Keep price out of facts when separate. Inspect opens detail
+`category`, `facts` (a list of `{ label, value }`, one fact each), numeric `value`
+for cost sort and optional `price` with its unit, plus optional `ownership` text
+and an optional `icon` glyph name for records without art. Keep price out of facts. Inspect opens detail
 without spending; search clear changes only the query, while Reset also restores
 type/sort. The native filter route keeps browse mounted.
 
@@ -84,7 +85,7 @@ rejection/retry and accepted ownership. The larger subject and emphasis action
 make commitment distinct from catalogue Inspect. Both builders accept an optional
 fifth argument, `renderSubject(app, readableRecord) -> GuiObject`. Supply the game's
 image or model there; omission uses Riverbank's native subjects. Pass `false` for
-records whose useful identity is textual; this removes the art allocation.
+records without art; each record then shows its `icon` glyph (default `bag`).
 Keep names, decisive facts, price and ownership outside the art so missing images
 do not remove the decision. The renderer creates a fresh Compose-owned object
 with reactive record bindings; it must not reuse a cached instance.

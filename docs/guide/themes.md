@@ -24,6 +24,10 @@ local package, report = Facet.themes.define(definition)
 assert(report.ok, "Invalid game theme")
 ```
 
+`report.advice` names type roles that are too close to `body` to lead, such
+as a `numeral` that reads as body text. The definition stays valid; fix the
+sizes before the theme ships.
+
 If validation fails, `define` returns `nil` and a report. It validates the RGB
 channels and the semantic foreground and background contrast pairs. A
 successful numeric contrast check does not prove that every image background or

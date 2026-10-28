@@ -141,6 +141,11 @@ pathShapes : table(frozen)
   pathShapes.ring : function
 recipes : table(frozen)
   recipes.arithmetic : table(frozen)
+review : table(frozen)
+  review.analyze : function
+  review.collect : function
+  review.fixes : table(frozen)
+  review.screen : function
 richText : table(frozen)
   richText.escape : function
 tag : function
@@ -432,6 +437,11 @@ type RatingReadOnlyProps
 type RatingRequestProps
 type ReadOnlyValue
 type RegionProps
+type ReviewElement
+type ReviewFinding
+type ReviewOptions
+type ReviewReport
+type ReviewSnapshot
 type RowAction
 type RowActionsOptions
 type RowActionsSpec
@@ -453,6 +463,7 @@ type ShortcutHintProps
 type Sides
 type SinglePickerSpec
 type SkeletonProps
+type SkinLayerPatch
 type SliderCellProps
 type SliderProps
 type SliderRangeProps
@@ -490,6 +501,8 @@ type TextProps
 type TextRole
 type ThemeDefinition
 type ThemePackage
+type ThemeRule
+type ThemeRuleProperties
 type TimerControls
 type TimerProps
 type ToastAction

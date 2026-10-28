@@ -1,0 +1,31 @@
+{
+  "schema": "facet-critic-case/1",
+  "id": "rank-card-text",
+  "source": "Josh's screenshot, 2026-10-27: a ranked card from a word game",
+  "labeler": "draft by Claude, 2026-10-27; confirm or overwrite",
+  "capture": "capture.jpg",
+  "device": "desktop",
+  "brief": "Word game. Ranked standing card: the player checks the mode, their rating and tier, their record and how to place.",
+  "label": {
+    "verdict": "revise",
+    "scores": {
+      "lead": 2,
+      "numbers": 2,
+      "visuals": 1,
+      "identity": 1,
+      "economy": 2
+    },
+    "must": [
+      "competing-leads",
+      "joined-facts",
+      "stat-without-visual",
+      "zero-wall",
+      "progress-as-text"
+    ],
+    "should": [
+      "boxed-everything",
+      "numbers-buried"
+    ],
+    "notes": "Mode name as loud as the rating; no tier emblem; W/L/D and placement as sentences; card on card."
+  }
+}

@@ -7,6 +7,7 @@ local adaptive = require("./adaptive")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local CollectionTypes = require("./collection_types")
+local themeSupport = require("./theme_support")
 export type PooledRow = { node: Frame, owner: ComposeTypes.Owner }
 export type Preparing = {
 	ready: ComposeTypes.ReadOnlyValue<boolean>,
@@ -230,11 +231,16 @@ local function create<V, K>(
 	local function edgeOf(gutter: Types.Input<number>?, use: ComposeTypes.Use?): number
 		return if kind == "grid" then math.ceil(math.max(0, read(gutter or 0, use)) / 2) else 0
 	end
+
+	local function plateReach(use: ComposeTypes.Use?): number
+		return themeSupport.plateReach(read(ctx.config.theme, use))
+	end
 	local function mainEdge(use: ComposeTypes.Use?): number
 		local edge = edgeOf(spec.gap, use)
 		if not readSource(containsCards, use) then
 			return edge
 		end
+		edge = math.max(edge, plateReach(use))
 		local extent = read(spec.itemSize or 40, use) :: number
 		for _, size in readSource(measured, use) do
 			extent = math.max(extent, size)
@@ -267,6 +273,7 @@ local function create<V, K>(
 		if not readSource(containsCards, use) then
 			return edge
 		end
+		edge = math.max(edge, plateReach(use))
 		local available = readSource(cross, use)
 		local columns = gridColumns(use, available)
 		return math.max(

@@ -27,6 +27,12 @@ scrolling uses the native engine behavior.
 Options: `axis`, `gap`, `padding`,
 `align`, `distribute`, `width` and `height`.
 
+A ScrollingFrame clips its canvas. When the theme's panel or control plates
+draw past their bounds, through a `chrome` shadow or a theme rule's `UIStroke`,
+the ScrollView adds that reach to its padding on every side, so a plate at the
+canvas edge keeps its glow and edge. A Collection of cards does the same. The
+neutral theme draws nothing past its plates and adds no padding.
+
 The native `Active` property defaults to true, so scrolling input does not
 reach 3D controls behind a SurfaceGui. An authored `Active` value takes priority.
 

@@ -305,7 +305,13 @@ export type ThemeDefinition = {
 }
 export type ThemeIssue = { field: string, message: string }
 export type ContrastResult = { pair: string, ratio: number, ok: boolean }
-export type ThemeReport = { ok: boolean, errors: { ThemeIssue }, missing: { string }, contrast: { ContrastResult } }
+export type ThemeReport = {
+	ok: boolean,
+	errors: { ThemeIssue },
+	missing: { string },
+	contrast: { ContrastResult },
+	advice: { ThemeIssue },
+}
 export type CoverageNeed = { name: string, section: string?, kind: "color" | "number"?, fields: { string }? }
 export type CoverageReport = {
 	ok: boolean,

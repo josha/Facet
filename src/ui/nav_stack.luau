@@ -308,6 +308,14 @@ return function(
 							return built
 						end, function(failure)
 							errorText:set(tostring(failure))
+							local report: ((unknown) -> ())? = ctx.config.onError
+							if report then
+								report(failure)
+							else
+								warn(
+									`Facet NavigationStack: the "{entry.id}" page failed to build: {tostring(failure)}`
+								)
+							end
 							return ctx.text({
 								Name = "DestinationError",
 								Text = "This page could not be displayed.",

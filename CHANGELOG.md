@@ -112,6 +112,25 @@ Use the [API reference](docs/reference/api.md) for public contracts and the
 Use the [game UI design guide](skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md)
 for composition, input, and device decisions.
 
+`Facet.review` reports design patterns that make a screen look generic, on a
+live screen or a saved dump; `facet critique` turns captures and those
+findings into a packet for a fresh reviewer. `Facet.themes.define` adds
+`report.advice` for a flat type scale and for a display family on only one
+type role. `Facet.review` reports `stacked-choices`: short choices stacked one
+per row in a wide space; `hollow-plate`, `lopsided-page`, `floating-text` and
+`touch-control-overlap` report empty plates, one-sided pages, HUD text on the
+world and controls over Jump. `Facet.SkinLayerPatch`, `Facet.ThemeRule` and
+`Facet.ThemeRuleProperties` type a theme's `chrome` and `rules` tables.
+
+ScrollView and card Collections keep room for the theme's plate glow and
+edge, so plates at the canvas edge are not clipped. `UI.environment()` without
+a source returns the app's shared camera environment, also from a property
+function that reruns outside an owner. A NavigationStack page that fails to build
+reports its error to `onError` or the output. RadialMenu sizes its ring from measured captions, paints bands wider than the
+engine's 100-pixel Path2D limit as adjacent strokes so captions stay inside
+their wedges, judges a measured caption by its real width and never lets an icon that several items share replace a
+label.
+
 The version in `src/init.luau` identifies the source package. A local build does
 not publish it. Run `lute run tools/facet package status` for publication and
 verification status. See [package operations](package/README.md).

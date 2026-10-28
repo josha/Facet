@@ -10,7 +10,9 @@ For a complete typed definition, open [Tasks.theme](Tasks.theme.md).
 - `define(definition)` derives from `base` (neutral by default) and returns
   `package?, report`. It also accepts a theme package as its input. A chrome
   override can omit `kind` when the base supplies it. Check `report.ok` before
-  use. An accepted theme package is
+  use. `report.advice` lists type-scale problems that do not fail the
+  definition: `numeral` or `title` under 1.6 times `body`, `heading` under 1.2
+  times `body` and `caption` not smaller than `body`. An accepted theme package is
   recursively frozen. Callbacks, cycles and malformed definitions are rejected.
   A type role needs a positive size. Each `metrics.space` step needs a pixel
   size of 0 or more. A chrome shadow name must be a

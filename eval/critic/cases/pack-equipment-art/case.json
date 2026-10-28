@@ -1,0 +1,31 @@
+{
+  "schema": "facet-critic-case/1",
+  "id": "pack-equipment-art",
+  "source": "Facet guide-release pixelquest-repair-20261027, runtime-after-native, pack entry",
+  "labeler": "draft by Claude, 2026-10-27; confirm or overwrite",
+  "capture": "capture.jpg",
+  "device": "desktop",
+  "brief": "Cozy adventure game. Equipment pack: the player equips warm gear before entering a frost cave.",
+  "label": {
+    "verdict": "revise",
+    "scores": {
+      "lead": 2,
+      "numbers": 2,
+      "visuals": 4,
+      "identity": 4,
+      "economy": 2
+    },
+    "must": [
+      "competing-leads",
+      "joined-facts",
+      "item-without-visual"
+    ],
+    "should": [
+      "numbers-buried",
+      "crowded",
+      "stranded-space"
+    ],
+    "notes": "Good item art and material; three 28 px headings compete; item facts in a tiny dotted caption; hotbar slots are text-only."
+  },
+  "dump": "dump.json"
+}

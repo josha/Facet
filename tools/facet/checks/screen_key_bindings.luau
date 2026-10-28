@@ -60,6 +60,11 @@ local READ_ONLY_PROBES: { [string]: string } = {
 
 local PINS: { Pin } = {
 	{
+		path = "skills/use-facet/references/game-screens.md",
+		count = 2,
+		reason = "the quick wheel teaches one QuickChat InputAction with a Q and a ButtonY InputBinding in the game's own InputContext, the hotkey that opens its RadialMenu overlay",
+	},
+	{
 		path = "examples/facet-lab/src/hint_pages.luau",
 		count = 3,
 		reason = "the ShortcutHint variant describes one native F2 InputBinding and the Button shortcutHint states describe a ButtonX and a B InputBinding, each on a detached InputAction; they do not capture screen input",

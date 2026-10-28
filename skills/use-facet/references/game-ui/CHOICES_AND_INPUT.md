@@ -19,7 +19,7 @@ the presentation to the room and input.
 | Exact increments | Stepper |
 | A discrete amount or rating | LevelPicker or Rating |
 | Compact filter or removable selection | Chip |
-| Color with inspection | ColorPicker |
+| Color with inspection | ColorPicker for free color; Chips with a swatch for a named palette |
 | An instant or interval | DateTimePicker |
 
 Tabs navigate; they do not edit a value. A Button performs a command. Shared
@@ -32,7 +32,7 @@ explicit style when the decision needs it: `radioGroup` keeps explanations
 visible, and `cards` can show meaningful visual alternatives. Automatic does
 not select `cards`. Use Picker's `query` for a searchable known set; ComboBox
 requires separate accepted `value`, editable `text` and `acceptCustom` policy.
-Use ColorPicker for a color space; a few named colors can use Picker.
+Use ColorPicker for a color space. A named palette is Chips with a swatch `leading` in a wrapping row; see [game screens](../game-screens.md).
 A horizontal `segmented` strip stays on one row and scrolls when it does not
 fit. To show a menu on a narrow screen instead, use
 `ViewThatFits { segmentedPicker, menuPicker }`.

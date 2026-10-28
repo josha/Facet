@@ -1,0 +1,31 @@
+{
+  "schema": "facet-critic-case/1",
+  "id": "bench-shop-portrait",
+  "source": "FacetBench guide-pixelquest-20261027, player-02, phone-portrait shop",
+  "labeler": "draft by Claude, 2026-10-27; confirm or overwrite",
+  "capture": "capture.jpg",
+  "device": "phone-portrait",
+  "brief": "Neon sci-fi racing game. Parts shop on a portrait phone: the player compares parts and buys one.",
+  "label": {
+    "verdict": "revise",
+    "scores": {
+      "lead": 2,
+      "numbers": 1,
+      "visuals": 1,
+      "identity": 2,
+      "economy": 2
+    },
+    "must": [
+      "item-without-visual",
+      "joined-facts",
+      "numbers-buried"
+    ],
+    "should": [
+      "lead-unclear",
+      "crowded",
+      "generic-identity"
+    ],
+    "notes": "Same failures as desktop, narrower."
+  },
+  "dump": "dump.json"
+}

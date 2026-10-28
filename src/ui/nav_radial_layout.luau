@@ -16,6 +16,8 @@ export type Arrangement<V> = {
 	center: ComposeTypes.Value<Vector2>,
 	captionPadding: (use: ComposeTypes.Use) -> number,
 	wordWidths: ComposeTypes.Value<{ [string]: number }>,
+
+	captionWidths: ComposeTypes.Value<{ [string]: number }>,
 	layout: ComposeTypes.Value<Radial.Layout<V>>,
 	sectors: ComposeTypes.Value<{ Radial.Sector<V> }>,
 	fallback: ComposeTypes.Value<boolean>,
@@ -132,6 +134,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 	end
 
 	local wordWidths: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
+	local captionWidths: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
 	Compose.watch(function(use: ComposeTypes.Use)
 		local captions: { [string]: boolean } = {}
 		local function visit(items: { Radial.RadialItem<V> }, prefix: string)
@@ -155,6 +158,18 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 		end
 		if changed then
 			wordWidths:set(retained)
+		end
+		local measuredRetained: { [string]: number } = {}
+		local measuredChanged = false
+		for key, width in captionWidths:peek() do
+			if captions[key] then
+				measuredRetained[key] = width
+			else
+				measuredChanged = true
+			end
+		end
+		if measuredChanged then
+			captionWidths:set(measuredRetained)
 		end
 	end)
 	local function solve(use: ComposeTypes.Use, flatten: boolean): Radial.Layout<V>
@@ -187,9 +202,15 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 		local padding = ctx.metric("space.s", use)
 		local textSize = ctx.metric("typography.control.size", use)
 		local iconSize = ctx.controlSize(nil, "iconSize", use)
-		local function estimate(item: Radial.RadialItemBase<V>): (number, number)
+		local measuredCaptions = use(captionWidths)
+
+		local function estimate(item: Radial.RadialItemBase<V>, key: string?): (number, number)
 			if glyphOnly(item) then
 				return iconSize, iconSize
+			end
+			local measured = if key then measuredCaptions[key] else nil
+			if measured and measured > 0 then
+				return measured + captionPadding(use), textSize
 			end
 			local label = read(item.label, use) or ""
 			return (utf8.len(label) or #label) * textSize * 0.6 + captionPadding(use), textSize
@@ -252,7 +273,10 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 			do
 				local extent, target = 0, 0
 				for _, probe in geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + 1) do
-					local width, height = estimate((probe.item :: unknown) :: Radial.RadialItemBase<V>)
+					local width, height = estimate(
+						(probe.item :: unknown) :: Radial.RadialItemBase<V>,
+						table.concat(prefix, "/") .. "/" .. probe.item.id
+					)
 					local ux, uy = math.sin(math.rad(probe.angle)), -math.cos(math.rad(probe.angle))
 					local hw, hh = width / 2 + padding, height / 2 + padding
 					local middle = ri + math.abs(hw * ux) + math.abs(hh * uy)
@@ -267,12 +291,43 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 				end
 				local wanted = 2 * math.ceil(math.max(extent, target) / 2)
 				levelBand = math.clamp(math.max(wanted, replaced), floor, band)
+
+				for _ = 1, 24 do
+					if levelBand >= band or appearance ~= "wedges" or contentFit == "none" then
+						break
+					end
+					local short = false
+					for _, probe in geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + levelBand) do
+						local item = (probe.item :: unknown) :: Radial.RadialItemBase<V>
+						if not glyphOnly(item) then
+							local width, height = estimate(item, table.concat(prefix, "/") .. "/" .. probe.item.id)
+							local bounds = geometry.labelBounds(probe, height)
+							if bounds.w < width or bounds.h < height then
+								short = true
+								break
+							end
+						end
+					end
+					if not short then
+						break
+					end
+					levelBand = math.min(band, levelBand + 8)
+				end
 			end
 			ring = ri + levelBand + 4
 			local sectors = geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + levelBand)
+			local iconUses: { [string]: number } = {}
+			for _, item in shown do
+				local icon = item.icon or (item.compactLabel and item.compactLabel.icon)
+				if type(icon) == "string" then
+					iconUses[icon] = (iconUses[icon] or 0) + 1
+				end
+			end
 			for _, sector in sectors do
 				sector.path = table.clone(prefix)
 				sector.key = table.concat(prefix, "/") .. "/" .. sector.id
+				local icon = sector.item.icon or (sector.item.compactLabel and sector.item.compactLabel.icon)
+				sector.sharedIcon = type(icon) == "string" and (iconUses[icon] or 0) > 1
 			end
 			table.insert(levels, sectors)
 			return sectors
@@ -318,13 +373,13 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 				list = list or sector.size < 44 or sector.outer > room
 				if
 					appearance == "wedges"
-					and not sector.item.icon
+					and (not sector.item.icon or sector.sharedIcon == true)
 					and not glyphOnly(sector.item)
 					and contentFit ~= "none"
 				then
-					local width, height = estimate(sector.item)
+					local width, height = estimate(sector.item, sector.key)
 					local bounds = geometry.labelBounds(sector, height)
-					local captionReady = (use(wordWidths)[sector.key] or 0) > 0
+					local captionReady = (measuredCaptions[sector.key] or 0) > 0
 					list = list or room - inner < width or (captionReady and (bounds.w < width or bounds.h < height))
 				end
 				table.insert(result, sector)
@@ -378,6 +433,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 		center = center,
 		captionPadding = captionPadding,
 		wordWidths = wordWidths,
+		captionWidths = captionWidths,
 		layout = layout,
 		sectors = sectors,
 		fallback = fallback,
