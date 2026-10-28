@@ -29,7 +29,9 @@ selection is in that sidebar sets it back to `false` and the top bar returns,
 with the selection kept on its tab. A near screen ignores it and follows
 `sidebarPreference`. Page Back keeps ButtonB when the selection is in the page.
 `placement` sets an explicit choice. `placement = "none"` hides the
-bar and gives the page the whole view. Selection, shoulder navigation and
+bar and gives the page the whole view. A change to `"none"` slides the bar out
+over the theme token `motion.durations.tabChrome`, then the page grows. A change
+back from `"none"` slides the bar in. Selection, shoulder navigation and
 `selection` changes still work; supply your own route to the other tabs, such
 as a Menu. `railWidth`,
 `sidebarPreference`, `sections`, accessories and

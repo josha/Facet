@@ -1,5 +1,21 @@
 # Current package
 
+In a compact `NavigationSplitView` with a `transition`, the closing pane keeps
+its size and screen position until its motion ends. A tab bar placement or a
+header that changes with the push no longer reflows the closing pane.
+
+A new theme token, `motion.frameLimit` (0 by default, off), lets a game absorb
+a slow mount frame on a device. When it is above 0, the first frame of a
+navigation transition adds at most `motion.frameLimit` seconds to its clock, and
+the `motion.restLimit` readiness fallback starts after the first frame with
+layout. Later frames run in real time. Keep it at 0 in fixtures that advance one
+large step and expect the motion to finish.
+
+A `TabView` placement change to `"none"` slides the bar out over the new theme
+token `motion.durations.tabChrome` (0.3 seconds), and the content grows when the
+bar is gone. A change back slides the bar in. A push that hides the tab bar no
+longer removes it before the push motion starts.
+
 A slot collection again creates new slot nodes before item watches that look
 them up in the same settle. Compose 147835f keeps an equal-cut-off formula's
 consumers in propagation order.

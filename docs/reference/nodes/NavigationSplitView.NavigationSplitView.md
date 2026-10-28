@@ -55,11 +55,12 @@ UI.NavigationSplitView {
 ```
 
 By default, the compact layout changes its column at once. Set `transition`
-to animate the column change. The pane that opens moves from progress 0 to 1.
-The closing pane plays the reverse, but a zoom only fades it. When `detailVisible`
-becomes false, the detail pane stays until its motion completes. The panes that are present
-when the control mounts show without motion. `transition` takes the
-[Custom-transitions](Custom-transitions.md) table.
+(a [Custom-transitions](Custom-transitions.md) table) to animate it. The
+opening pane moves from progress 0 to 1 when its layout settles. The closing
+pane plays the reverse at a fixed size and screen position, so a bar that
+changes with the push cannot reflow it. A zoom only fades it. A hidden
+detail pane stays until its motion ends. Panes present at mount do not
+animate.
 
 ```luau
 UI.NavigationSplitView {

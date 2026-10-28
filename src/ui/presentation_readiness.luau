@@ -46,10 +46,13 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 		laidOut = laidOut or attached
 		return attached and measured and fontsReady(texts)
 	end
+	local graced = false
 	return ctx.runtime.settled {
 		ready = function(): boolean
 			if prepared() then
-				return true
+				local first = not graced and ctx.metric("motion.frameLimit") > 0
+				graced = true
+				return not first
 			end
 			if laidOut then
 				return false

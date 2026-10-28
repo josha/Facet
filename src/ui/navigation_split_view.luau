@@ -192,7 +192,24 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			Compose.cleanup(function()
 				arrival:set(false)
 			end)
-			return layers.layer(
+			local origin = ctx.observe.AbsolutePosition(root)
+			local held: Shared.Value<{ size: Vector2, at: Vector2 }?> =
+				Compose.cell(nil :: { size: Vector2, at: Vector2 }?)
+			local size = properties.Size :: (Shared.Use) -> UDim2
+			local position = properties.Position :: (Shared.Use) -> UDim2
+			properties.Size = function(use: Shared.Use): UDim2
+				local frozen = use(held)
+				return if frozen then D2.fromOffset(frozen.size.X, frozen.size.Y) else size(use)
+			end
+			properties.Position = function(use: Shared.Use): UDim2
+				local frozen = use(held)
+				if frozen == nil then
+					return position(use)
+				end
+				local offset = frozen.at - use(origin) / use(unit)
+				return D2.fromOffset(offset.X, offset.Y)
+			end
+			local panel = layers.layer(
 				properties :: Shared.CanvasGroupNativeProps & Shared.FrameNativeProps,
 				state,
 				transition,
@@ -202,6 +219,20 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 				groupReady,
 				true
 			) :: Frame
+			local measured, placed = ctx.observe.AbsoluteSize(panel), ctx.observe.AbsolutePosition(panel)
+			local drawn = ctx.observe.Visible(panel)
+			Compose.watch(function(use: Shared.Use)
+				if use(state).top or not use(drawn) then
+					held:set(nil)
+					return
+				end
+				local area = measured:peek()
+				if held:peek() == nil and area.X > 0 and area.Y > 0 then
+					local scale = unit:peek()
+					held:set({ size = area / scale, at = placed:peek() / scale })
+				end
+			end)
+			return panel
 		end
 		local function reveal(condition: Shared.ReadOnlyValue<boolean>, render: () -> Instance): Shared.Child
 			if not transition then

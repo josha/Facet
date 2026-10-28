@@ -37,6 +37,12 @@ return function(verifyHarness: Verify.Harness)
 	local function near(actual: number, expected: number): boolean
 		return math.abs(actual - expected) <= 1
 	end
+	local function play(engine: { heartbeat: { Fire: (unknown, number) -> () } }, seconds: number)
+		local steps = math.ceil(seconds * 60)
+		for _ = 1, steps do
+			engine.heartbeat:Fire(seconds / steps)
+		end
+	end
 	local function find(root: any, name: string): any
 		if root.Name == name then
 			return root
@@ -1098,6 +1104,61 @@ return function(verifyHarness: Verify.Harness)
 				selected:set("profile")
 				Verify.expect(find(find(root, "games"), "SelectionIndicator")):toBeNil()
 				Verify.expect(find(find(root, "profile"), "SelectionIndicator") ~= nil):toBe(true)
+				world.stop()
+			end,
+		})
+		verifyHarness:case("slides the tab bar out before the content grows and back in when placement returns", {
+			id = "native_navigation::native navigation controls::slides the tab bar out before the content grows and back in when placement returns",
+			run = function()
+				local placement = Compose.cell("bottomBar" :: Navigation.Placement)
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					local spec: NavigationProps.TabViewSpec = {
+						selection = Compose.cell("games"),
+						placement = placement,
+						tabs = {
+							{
+								id = "games",
+								label = "Games",
+								content = function()
+									return Host.Frame {}
+								end,
+							} :: Navigation.Tab,
+							{
+								id = "profile",
+								label = "Profile",
+								content = function()
+									return Host.Frame {}
+								end,
+							} :: Navigation.Tab,
+						},
+					}
+					return UI.TabView "Chrome"(spec)
+				end, { motionLevel = "normal" })
+				local root = find(world.screen, "Chrome") :: Frame
+				world.engine.environment.poke(
+					VerifyRoblox.assertInstance(root),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(390, 760)
+				)
+				world.settle()
+				local band, content = find(root, "TabBand"), assert(root:FindFirstChild("Content")) :: Frame
+				local rest, inset = band.Position, content.Size
+				placement:set("none")
+				Verify.expect(band.Position):toBe(rest)
+				Verify.expect(content.Size):toBe(inset)
+				world.engine.heartbeat:Fire(1 / 60)
+				world.engine.heartbeat:Fire(1 / 60)
+				Verify.expect(band.Position.Y.Offset > rest.Y.Offset):toBe(true)
+				Verify.expect(content.Size):toBe(inset)
+				world.settle()
+				Verify.expect(find(root, "Tabs").Visible):toBe(false)
+				Verify.expect(content.Size):toBe(world.engine.types.UDim2.fromScale(1, 1))
+				placement:set("bottomBar")
+				Verify.expect(find(root, "Tabs").Visible):toBe(true)
+				Verify.expect(content.Size):toBe(inset)
+				Verify.expect(band.Position.Y.Offset > rest.Y.Offset):toBe(true)
+				world.settle()
+				Verify.expect(band.Position):toBe(rest)
 				world.stop()
 			end,
 		})
@@ -4541,12 +4602,12 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(bar.CanvasPosition.X):toBe(140)
 				local panel = fadeKit.layer(find(world.screen, "BContent"))
 				Verify.expect(panel.ClassName):toBe("Frame")
-				world.engine.heartbeat:Fire(0.2)
+				play(world.engine, 0.2)
 				Verify.expect((fadeKit.of(panel))):toBe(0)
 				selected:set("a")
 				Verify.expect(panel.Interactable):toBe(false)
 				world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
-				world.engine.heartbeat:Fire(0.2)
+				play(world.engine, 0.2)
 				Verify.expect((fadeKit.of(fadeKit.layer(find(world.screen, "AContent"))))):toBe(0)
 				world.stop()
 			end,
@@ -5824,7 +5885,7 @@ return function(verifyHarness: Verify.Harness)
 				world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
 				selection:set("one")
 				Verify.expect(one.Visible):toBe(true)
-				world.engine.heartbeat:Fire(0.16)
+				play(world.engine, 0.16)
 				Verify.expect((fadeKit.of(one))):toBe(0)
 				Verify.expect(two.Visible):toBe(false)
 				world.stop()
