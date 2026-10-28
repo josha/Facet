@@ -7,7 +7,9 @@ local Cell = require "../reactive/cell"
 local Reactor = require "../reactive/reactor"
 
 export type Options = { frame: boolean?, poll: boolean?, styled: boolean? }
-type Entry = { live: boolean, read: () -> unknown, value: Types.Value<unknown> }
+
+local SETTLE_FRAMES = 3
+type Entry = { live: boolean, read: () -> unknown, value: Types.Value<unknown>, polls: boolean, quiet: number }
 type Record = {
 	node: Host.Node,
 	key: string,
@@ -92,9 +94,15 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 						failures = collected
 						table.insert(collected, value)
 					elseif value ~= entry.value:peek() then
+						entry.quiet = 0
 						count += 1
 						changed[count] = entry
 						readings[count] = value
+					elseif polling[entry] then
+						entry.quiet += 1
+						if entry.quiet >= SETTLE_FRAMES then
+							polling[entry] = nil
+						end
 					end
 				end
 			end
@@ -164,11 +172,17 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 						return read(node, property)
 					end,
 					value = value,
+					polls = poll,
+					quiet = 0,
 				}
 				created.entry = entry
 				created.unsubscribe = subscribe(node, property, function()
 					if entry.live then
 						pending[entry] = true
+						if entry.polls then
+							entry.quiet = 0
+							polling[entry] = true
+						end
 						schedule()
 					end
 				end)
