@@ -385,12 +385,6 @@ return function(
 					return if segmentedTop(use) then E.UIFlexMode.Shrink else E.UIFlexMode.None
 				end,
 			},
-			Host.UIPadding({
-				PaddingLeft = inset,
-				PaddingRight = inset,
-				PaddingTop = inset,
-				PaddingBottom = inset,
-			}),
 			Host.Frame "Strip" {
 				BackgroundTransparency = 1,
 				Size = function(use: ComposeTypes.Use): UDim2
@@ -399,6 +393,12 @@ return function(
 				AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
 					return if use(placement) == "sidebar" then E.AutomaticSize.Y else E.AutomaticSize.X
 				end,
+				Host.UIPadding({
+					PaddingLeft = inset,
+					PaddingRight = inset,
+					PaddingTop = inset,
+					PaddingBottom = inset,
+				}),
 				stripLayout,
 				tabItem(ctx, UI, surfaces, spec, {
 					isCurrent = isCurrent,

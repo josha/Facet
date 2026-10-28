@@ -19,8 +19,15 @@ return function(
 	local runtime, Host, read = ctx.runtime, ctx.Host, ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local dynamic, hasText = kit.dynamic, kit.hasText
-	local liveWidth = bounded and spec.AutomaticSize == nil and dynamic(spec.Size)
+	local liveAxis = bounded and dynamic(spec.AutomaticSize)
+	local liveWidth = liveAxis or (bounded and spec.AutomaticSize == nil and dynamic(spec.Size))
 	local function sizing<T>(fixed: T, hug: T): Shared.Input<T>
+		if liveAxis then
+			return function(use: ComposeTypes.Use): T
+				local axis = read(spec.AutomaticSize, use)
+				return if axis == E.AutomaticSize.None or axis == E.AutomaticSize.Y then fixed else hug
+			end
+		end
 		if liveWidth then
 			return function(use: ComposeTypes.Use): T
 				local size = read(spec.Size, use) :: UDim2
