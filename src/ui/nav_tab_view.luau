@@ -324,6 +324,7 @@ return function(
 			local tab = read(tabMap, use)[id]
 			return tab ~= nil and read(tab.enabled, use) ~= false
 		end
+		local isCurrent = Compose.selector(spec.selection)
 		local function select(id: string): ()
 			if read(spec.enabled) == false or id == spec.selection:peek() or not tabEnabled(id) then
 				return
@@ -400,6 +401,7 @@ return function(
 				end,
 				stripLayout,
 				tabItem(ctx, UI, surfaces, spec, {
+					isCurrent = isCurrent,
 					frame = frame,
 					select = select,
 					sectionLabels = sectionLabels,
@@ -443,6 +445,8 @@ return function(
 		}
 		Compose.watch(function(use: ComposeTypes.Use)
 			bar:SetAttribute("FacetEntry", use(spec.selection))
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
 			if segmentedTop(use) then
 				root:AddTag("facet-top-tabs")
 				bandBox:AddTag("facet-top-tabs")
@@ -598,7 +602,7 @@ return function(
 						local retained = state
 						state = Compose.formula(function(use: ComposeTypes.Use): ComposeTypes.LayerStackState
 							local current = use(retained)
-							local top = use(spec.selection) == id
+							local top = use(isCurrent(id))
 							return {
 								index = current.index,
 								depthFromTop = if top then 0 else 1,
@@ -803,7 +807,7 @@ return function(
 								icon = tab.icon,
 								enabled = tab.enabled,
 								marked = function(use: ComposeTypes.Use)
-									return use(spec.selection) == tab.id
+									return use(isCurrent(tab.id))
 								end,
 								onSelect = function()
 									select(tab.id)
