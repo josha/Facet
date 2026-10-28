@@ -295,6 +295,17 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 			if target[3] <= 0 or target[4] <= 0 then
 				return
 			end
+			if not moving and previous and previous ~= destination then
+				local settled = true
+				for index = 1, 4 do
+					settled = settled and math.abs(values[index] - target[index]) < 0.5
+				end
+				if settled then
+					inPlace = false
+					land()
+					return
+				end
+			end
 			local same = if previous then common(previous, destination) else common(destination, destination)
 			inPlace = same ~= nil
 			parent = same or overlay

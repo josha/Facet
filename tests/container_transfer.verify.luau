@@ -646,6 +646,200 @@ return function(harness: Verify.Harness)
 			t:expect(dropped[1].afterKey):toBe("1")
 		end,
 	})
+	harness:case("a tile shifted toward an empty reserved slot stays visible in place through the drop landing", {
+		id = "container_transfer::drop gap::shifted tile stays visible through landing",
+		run = function(t)
+			local engine = engineLib.new()
+			local C, V2 = Facet.Compose, engine.types.Vector2
+			local runtime = Facet.Roblox.createRuntime(engine)
+			t:defer(function()
+				runtime:dispose()
+			end)
+			local screen, playerGui = engine.new("ScreenGui"), engine.new("PlayerGui")
+			screen.Parent = playerGui
+			local controls: ComposeTypes.OrderedCollectionControls<string> = {}
+			local anchors: Facet.SlotControls<string> = {}
+			local UI = table.clone(Facet.controls(runtime, { types = engine.types }))
+			local ctx = context(C, runtime, { types = engine.types })
+			require("../src/ui/collections")(ctx, UI)
+			local order = C.cell({ "A", "B", "C", "F", "R", "T" })
+			local held = C.cell({ C = true } :: { [string]: boolean })
+			local rack = C.formula(function(use: Facet.Use): { string }
+				local tiles: { string } = {}
+				for _, id in use(order) do
+					if not use(held)[id] then
+						table.insert(tiles, id)
+					end
+				end
+				return tiles
+			end)
+			local faces: { [string]: GuiObject } = {}
+			local travels: { [string]: GuiObject } = {}
+			local stop, mounted = runtime.mount(function()
+				local list = UI.VirtualList {
+					from = rack,
+					key = function(id: string): string
+						return tostring(assert(table.find(order:peek(), id)))
+					end,
+					slots = function(use: Facet.Use): { string }
+						local keys: { string } = {}
+						for index in use(order) do
+							table.insert(keys, tostring(index))
+						end
+						return keys
+					end,
+					slotControls = anchors,
+					collectionId = "rack-slots",
+					recycle = false,
+					direction = "horizontal",
+					mode = "all" :: "all",
+					itemSize = 40,
+					controls = controls,
+					reorderable = true,
+					onReorder = function() end,
+					drag = function(items: { string }): Facet.DraggableSpec
+						return { payload = { collection = "rack", keys = items }, returnTravel = true }
+					end,
+					drop = {
+						travel = true,
+						accepts = function(): (boolean, string?)
+							return true, nil
+						end,
+						onDrop = function(_payload: unknown, info: Facet.DropInfo): boolean
+							local next = table.clone(order:peek())
+							table.remove(next, assert(table.find(next, "C")))
+							table.insert(next, assert(info.insertion).slot + 1, "C")
+							order:set(next)
+							held:set({})
+							return true
+						end,
+					},
+					render = function(current: Facet.ReadOnlyValue<string>): GuiObject
+						return UI.ZStack("RackSlot" .. current:peek()) { width = "fill", height = "fill" }
+					end,
+				}
+				return list
+			end, screen)
+			t:defer(stop)
+			local body = mounted :: ScrollingFrame
+			engine.environment.poke(FixtureRoblox.assertInstance(body), "AbsoluteSize", V2.new(300, 40))
+			engine.environment.poke(FixtureRoblox.assertInstance(body), "AbsoluteWindowSize", V2.new(300, 40))
+			local function sync()
+				for index in order:peek() do
+					local node = assert(assert(anchors.nodeOfKey)(tostring(index)))
+					local at = V2.new(node.Position.X.Offset, 0)
+					if node.AbsolutePosition ~= at then
+						engine.environment.poke(FixtureRoblox.assertInstance(node), "AbsolutePosition", at)
+					end
+					if node.AbsoluteSize ~= V2.new(40, 40) then
+						engine.environment.poke(FixtureRoblox.assertInstance(node), "AbsoluteSize", V2.new(40, 40))
+					end
+				end
+			end
+			local function frame()
+				sync()
+				engine.heartbeat:Fire(1 / 60)
+				sync()
+			end
+			local function settle()
+				for _ = 1, 240 do
+					frame()
+				end
+			end
+			sync()
+			local stopTravels = runtime.mount(function()
+				for _, id in order:peek() do
+					travels[id] = UI.Travel("Travel" .. id) {
+						destination = function(use: Facet.Use): GuiObject
+							return assert(assert(anchors.nodeOfKey)(tostring(assert(table.find(use(order), id)))))
+						end,
+						content = function(): GuiObject
+							local face = UI.ZStack("Face" .. id) { width = "fill", height = "fill" }
+							faces[id] = face
+							return face
+						end,
+						path = "arc",
+						lift = true,
+					}
+				end
+				return UI.ZStack "Faces" {
+					width = "fill",
+					height = "fill",
+					travels.A,
+					travels.B,
+					travels.C,
+					travels.F,
+					travels.R,
+					travels.T,
+				}
+			end, body)
+			t:defer(stopTravels)
+			local function slot(index: number): number
+				return assert(controls.placementOf)(index).offset
+			end
+			local function shown(node: Instance?): boolean
+				while node and node ~= screen do
+					if node:IsA("GuiObject") and not node.Visible then
+						return false
+					end
+					node = node.Parent
+				end
+				return node == screen
+			end
+			local function check(when: string)
+				local face = faces.F
+				local holder = assert(face.Parent)
+				assert(shown(face), when .. ": F is hidden in " .. holder:GetFullName())
+				assert(
+					holder:GetAttribute("FacetReservedKey") ~= nil,
+					when .. ": F left its slot node for " .. holder:GetFullName()
+				)
+				local origin = if holder:IsA("GuiObject") then holder.AbsolutePosition.X else 0
+				local x = origin + face.Position.X.Offset
+				assert(
+					math.abs(x - slot(3)) < 0.5,
+					when
+						.. ": F is at "
+						.. tostring(x)
+						.. " in "
+						.. holder:GetFullName()
+						.. ", not "
+						.. tostring(slot(3))
+				)
+			end
+			settle()
+			local source = engine.new("TextButton")
+			source.Parent = screen
+			engine.environment.poke(FixtureRoblox.assertInstance(source), "AbsolutePosition", V2.new(400, 100))
+			engine.environment.poke(FixtureRoblox.assertInstance(source), "AbsoluteSize", V2.new(40, 40))
+			local session = sessionOf(ctx)
+			session.begin(
+				source,
+				{ payload = { collection = "board", keys = { "tile:C" } } },
+				"pointer",
+				nil,
+				nil,
+				{ position = V2.new(420, 120), source = source }
+			)
+			playerGui.GetGuiObjectsAtPosition = function()
+				return { body }
+			end
+			session.update(V2.new(slot(5) + 1, 20))
+			session.hover(body, nil)
+			settle()
+			check("hover")
+			t:expect(session.commit(body)):toBe(true)
+			check("commit")
+			for count = 1, 120 do
+				frame()
+				check("frame " .. count)
+			end
+			t:expect(session.state:peek()):toBeNil()
+			t:expect(table.concat(order:peek(), "")):toBe("ABFCRT")
+			settle()
+			check("settled")
+		end,
+	})
 	harness:suite("container travel", function()
 		harness:case("hover opens a collection slot with sampled spring reflow and restores it on leave", function()
 			local engine = engineLib.new()
