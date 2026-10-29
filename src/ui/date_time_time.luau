@@ -146,7 +146,7 @@ return function(
 			{ hour, minute },
 			{ Name = "Fields", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
 		)
-		assert(fields:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Bottom
+		assert(fields:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Top
 		local times: { TimeRow } = {}
 		for minutes = 0, 24 * 60 - 1, minuteStep do
 			table.insert(times, { id = `{minutes // 60}:{minutes % 60}`, hour = minutes // 60, minute = minutes % 60 })
