@@ -170,6 +170,43 @@
     "provider": "openai",
     "transport": "cli",
     "model": "gpt-6.1-sol",
-    "seed": 20261014
+    "seed": 20261014,
+    "rubric": {
+      "instructions": "Judge both interfaces against these game UI design principles. More content on a screen is not better by itself: prefer the interface that shows what changes the next decision, keeps play clear, and expresses this game. Judge only what the screenshots show.",
+      "criteria": [
+        {
+          "id": "intent",
+          "description": "Serves the player's intent: on each screen the situation, choices, action and result are understandable, with no accidental interface difficulty."
+        },
+        {
+          "id": "attention",
+          "description": "Directs attention: what changes the next decision is noticed first, required facts are visible together, and few borders and accents compete."
+        },
+        {
+          "id": "identity",
+          "description": "Makes the game recognizable: its world, objects and tone shape art, framing, type and surfaces, and one visual language carries through HUD, decisions and results instead of generic uniform cards."
+        },
+        {
+          "id": "facts",
+          "description": "Shows each fact once in the smallest form read at a glance: one treatment per kind of fact, values lead and labels follow, objects appear as real art, previews or swatches, and nothing repeats what the state already implies."
+        },
+        {
+          "id": "play",
+          "description": "Protects play: the camera focus area and the space under a held thumb stay clear, HUD content is grouped by meaning on backing surfaces, and controls stay clear of the Roblox top bar and touch controls."
+        },
+        {
+          "id": "adaptation",
+          "description": "Adapts the task to the device without losing decisions, consequences or exits: layout reflows, text stays readable, targets fit the input, and compact forms keep access to every task."
+        },
+        {
+          "id": "continuity",
+          "description": "Keeps identity, location and return paths clear, and is polished: nothing clipped, overlapping, misaligned or placeholder, and plates side by side share height and elevation."
+        },
+        {
+          "id": "outcomes",
+          "description": "Makes outcomes truthful: pending, accepted and rejected states differ, results lead with the personal outcome and accepted gains, and empty or blocked states show the next step."
+        }
+      ]
+    }
   }
 }
