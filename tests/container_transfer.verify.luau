@@ -365,8 +365,10 @@ return function(harness: Verify.Harness)
 				local ghost = assert(w.screen:FindFirstChild("DragGhost")) :: GuiObject
 				local transform = assert(ghost:FindFirstChildWhichIsA("UIScale"))
 				t:expect(math.abs(transform.Scale - lifted) < 0.001):toBe(true)
+				t:expect(w.scaler().Scale):toBe(1)
 				w.engine.environment.step(1)
 				t:expect(math.abs(transform.Scale - 1.9) < 0.001):toBe(true)
+				t:expect(w.scaler().Scale):toBe(1)
 				w.release()
 			end,
 		})
