@@ -1046,18 +1046,37 @@ for _, viewport in viewports do
 					t.check(`readout {index} fits its initial text`, row.readout.TextFits, row.readout.TextBounds)
 				end
 			end
-			for _, value in { "1", "111", "88888", "9" } do
+			local function texts(): { string }
+				local out: { string } = {}
+				for index, row in rows do
+					out[index] = if row.readout:IsA("TextLabel") then row.readout.Text else ""
+				end
+				return out
+			end
+			for _, value in { "11111", "12345", "1", "111", "88888", "9" } do
+				local before = texts()
 				local faults: { [number]: { frame: number, size: Vector2, position: Vector2 } } = {}
 				assert(update)(value, 0.09, 5999)
-				for frame = 1, 30 do
+				RunService.PreRender:Wait()
+				RunService.Heartbeat:Wait()
+				local after = texts()
+				local settled: { { size: Vector2, position: Vector2 } } = {}
+				for index, row in rows do
+					local sameLength = utf8.len(before[index]) == utf8.len(after[index])
+					settled[index] = { size = row.readout.AbsoluteSize, position = row.neighbour.AbsolutePosition }
+					if sameLength and settled[index].size ~= boxes[index].size then
+						faults[index] = { frame = 1, size = settled[index].size, position = settled[index].position }
+					end
+				end
+				for frame = 2, 30 do
 					RunService.PreRender:Wait()
 					RunService.Heartbeat:Wait()
 					for index, row in rows do
 						if
 							faults[index] == nil
 							and (
-								row.readout.AbsoluteSize ~= boxes[index].size
-								or row.neighbour.AbsolutePosition ~= boxes[index].position
+								row.readout.AbsoluteSize ~= settled[index].size
+								or row.neighbour.AbsolutePosition ~= settled[index].position
 							)
 						then
 							faults[index] = {
@@ -1070,10 +1089,11 @@ for _, viewport in viewports do
 				end
 				for index in rows do
 					t.check(
-						`readout {index} keeps its box and neighbour for {value}`,
+						`readout {index} keeps a same-length box and settles in one frame for {value}`,
 						faults[index] == nil,
 						faults[index]
 					)
+					boxes[index] = settled[index]
 				end
 			end
 			t.check("text updates while its box stays reserved", (rows[1].readout :: TextLabel).Text == "9")
