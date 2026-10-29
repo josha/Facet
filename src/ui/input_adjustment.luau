@@ -202,9 +202,19 @@ return function(ctx: Shared.Context, base: Base): Adjustment
 							)
 						end
 					end
+					local function inRow(): boolean
+						local at = node.Parent
+						while at do
+							if at:GetAttribute("FacetCollectionRow") == true then
+								return true
+							end
+							at = at.Parent
+						end
+						return false
+					end
 					local function steers(direction: number): (ComposeTypes.Use) -> boolean
 						return function(use: ComposeTypes.Use): boolean
-							if not active(use) then
+							if not active(use) or inRow() then
 								return false
 							end
 							if adjust.arrows then

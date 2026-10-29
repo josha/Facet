@@ -191,6 +191,7 @@ local SIZES: Axis = { key = "controlSize", values = { DEFAULT, "xsmall", "compac
 local CORNERS: Axis = { key = "corners", values = { DEFAULT, "pill", "square" } }
 local FIELD_APPEARANCE: Axis = { key = "appearance", values = { "standard", "contrast", "utility" } }
 local DISABLED: State = { name = "disabled", props = properties { enabled = false } }
+local panes = require("./split_panes")
 local hintPages = require("./hint_pages")({ sizes = SIZES, none = NONE })
 local strips = require("./strip_overflow")(NONE)
 local function fixed(w: number, h: number?): Properties
@@ -967,8 +968,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			local area = UI.environment(stage)
 			c.app.runtime.decorate(stage, {
 				Size = function(use: Use)
-					local lean = math.abs(math.sin(math.rad(p.rotation or 0)))
-					return UDim2.new(1, 0, 0, math.ceil(math.max(use(area.viewportSize).X, 240) * lean) + 64)
+					local w = math.max(use(area.viewportSize).X, 240)
+					return UDim2.new(1, 0, 0, math.ceil(w * math.abs(math.sin(math.rad(p.rotation)))) + 64)
 				end,
 			})
 			return stage
@@ -2973,32 +2974,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				detailLabel = "Linked files",
 				sidebarWidth = c.cell("width", 320),
 				sidebarHeight = c.cell("height", 220),
-				sidebar = function(): Instance
-					local rows: StackProps = { width = "fill", gap = "xs", padding = "s" }
-					for index, name in { "Files", "Coast 001.png", "Canyon 002.png", "Forest 003.mat" } do
-						rows[#rows + 1] = c.UI.Button {
-							label = name,
-							appearance = if index == 1 then "standard" else "utility",
-							Size = UDim2.fromScale(1, 0),
-						}
-					end
-					return c.UI.VStack(rows)
-				end,
-				detail = function(): Instance
-					return c.UI.VStack {
-						width = "fill",
-						gap = "s",
-						padding = "m",
-						c.UI.Text { text = "Linked files", textRole = "heading" },
-						c.UI.Text {
-							text = "Files that reference the selection appear here. Drag the divider to resize the panes.",
-							textRole = "body",
-							role = "secondary",
-							wrap = true,
-						},
-						c.UI.Button { label = "Linked files" },
-					}
-				end,
+				sidebar = panes(c.UI).sidebar,
+				detail = panes(c.UI).detail,
 			}
 		end,
 		axes = {

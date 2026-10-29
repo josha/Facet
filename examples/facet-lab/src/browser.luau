@@ -169,7 +169,8 @@ function browser.mount(opts: MountOpts)
 		selected: Value<V>,
 		values: { V | { value: V, label: string } },
 		onChange: ((V) -> ())?,
-		enabledFor: ((V) -> ReadOnlyValue<boolean>)?
+		enabledFor: ((V) -> ReadOnlyValue<boolean>)?,
+		row: boolean?
 	): GuiObject
 		local options: { typeof(require("@repo/tools/typecheck/aliases").PickerOption) } = {}
 		for _, v in values do
@@ -184,8 +185,8 @@ function browser.mount(opts: MountOpts)
 			Name = id,
 			label = label,
 			style = "menu",
-			valueAlignment = "start",
-			sizing = "hug",
+			valueAlignment = if row then "end" else "start",
+			sizing = if row then "fill" else "hug",
 			controlSize = "compact",
 			selected = selected,
 			options = options,
@@ -793,8 +794,9 @@ function browser.mount(opts: MountOpts)
 			wrapped({
 				Name = "Title",
 				text = title,
-				textRole = function(use: Use)
-					return if use(compact) then "heading" else "title"
+				textRole = "title",
+				Visible = function(use: Use): boolean
+					return not use(compact)
 				end,
 			}),
 		}
@@ -1043,7 +1045,7 @@ function browser.mount(opts: MountOpts)
 	local function settingPicker(key: string, label: string): GuiObject
 		return dropdown(`Setting_{key}`, label, settings.cells[key], titled(settings.CHOICES[key]), function(value)
 			settings.set(key, value)
-		end)
+		end, nil, true)
 	end
 
 	local MOTION_OPTIONS = {
@@ -1055,14 +1057,14 @@ function browser.mount(opts: MountOpts)
 	local function motionPicker(): GuiObject
 		return dropdown("Setting_motion", "Motion", settings.cells.motion, MOTION_OPTIONS, function(value)
 			settings.set("motion", value)
-		end)
+		end, nil, true)
 	end
 
 	local function SettingsPage(): GuiObject
 		return scroller("Settings", {
 			Header("Settings", "Theme and preview. Every setting is reused public Facet or showcase logic."),
 			section("ThemeSection", "Theme", {
-				dropdown("Theme", "Theme", themeCell, THEMES, setTheme),
+				dropdown("Theme", "Theme", themeCell, THEMES, setTheme, nil, true),
 			}),
 			section("PreviewSection", "Preview", {
 				settingPicker("platform", "Platform"),

@@ -8,6 +8,7 @@ return function(verifyHarness: Verify.Harness)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+	type Attributes = typeof(require("@repo/tools/typecheck/aliases").Attributes)
 	local FixtureCollectionTypes = require("../src/ui/collection_types")
 	local requireDynamic = require :: (any) -> any
 
@@ -237,6 +238,34 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
+
+		verifyHarness:case("the D-pad moves through a collection row instead of adjusting a control in it", {
+			id = "native_focus_stops::an adjustable claims its axis on its own stop only::the D-pad moves through a collection row instead of adjusting a control in it",
+			run = function()
+				local inside, outside = Compose.cell(3), Compose.cell(3)
+				local w = setup(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame "Holder" {
+						Host.Frame "Row" {
+							Attributes = { FacetCollectionRow = true } :: Attributes,
+							UI.Rating("Stars")({
+								value = inside,
+								onChange = function(value: number)
+									inside:set(value)
+								end,
+							}),
+						},
+						UI.Stepper("Loose")({ value = outside, max = 10 }),
+					}
+				end)
+				w.gui.SelectedObject = w.find("Stars")
+				w.press("DPadRight")
+				Verify.expect((inside:peek())):toBe(3)
+				w.gui.SelectedObject = w.find("Loose")
+				w.press("DPadRight")
+				Verify.expect((outside:peek())):toBe(4)
+				w.stop()
+			end,
+		})
 
 		verifyHarness:case("the stick, like the D-pad, leaves a stop under a non-interactable ancestor alone", {
 			id = "native_focus_stops::an adjustable claims its axis on its own stop only::the stick, like the D-pad, leaves a stop under a non-interactable ancestor alone",
