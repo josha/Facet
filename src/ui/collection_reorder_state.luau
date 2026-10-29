@@ -468,6 +468,7 @@ return function<V, K>(
 			local raised = if lifted == key then lifts[key] else nil
 			if raised and raised.held() then
 				options.liftValue = raised.value
+				options.liftCarry = raised.carry
 			end
 			choosingDestination:set(false)
 			if spec.drag and (spec.onReorder or spec.drop) then

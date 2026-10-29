@@ -1012,7 +1012,7 @@ return function(ctx: Types.Context): Drag.Service
 				active.previewSize = source.AbsoluteSize * lift
 				ghost.Position = localPoint(ghost, (created).position or (created).origin)
 				active.ghost = ghost
-				if liftedVisual and spec.liftCarry then
+				if spec.liftValue and spec.liftCarry then
 					spec.liftCarry()
 				end
 				local liftValue = spec.liftValue
@@ -1177,6 +1177,9 @@ return function(ctx: Types.Context): Drag.Service
 		current.armedPreview = if current.mode == "armed" then image else nil
 		ghost.Position = localPoint(ghost, current.position or current.origin)
 		current.ghost = ghost
+		if liftValue and current.spec.liftCarry then
+			current.spec.liftCarry()
+		end
 		raiseStatus(ghost)
 	end
 
