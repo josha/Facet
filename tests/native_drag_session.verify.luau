@@ -146,6 +146,44 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("a raised pickup lands its preview at the destination size", {
+			id = "native_drag_session::shared drop sessions::a raised pickup lands its preview at the destination size",
+			run = function()
+				local w = fixture()
+				local V2 = w.engine.types.Vector2
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsolutePosition", V2.new(20, 30))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsoluteSize", V2.new(50, 50))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.target), "AbsolutePosition", V2.new(200, 200))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.target), "AbsoluteSize", V2.new(40, 40))
+				w.register(w.target, {
+					travel = true,
+					onDrop = function(): boolean
+						return true
+					end,
+				})
+				w.hits({ w.target })
+				w.session.begin(
+					w.source,
+					{ payload = "tile", previewScale = 1.6, liftValue = Facet.Compose.cell(1.1) },
+					"pointer"
+				)
+				local ghost = w.screen:FindFirstChild("DragGhost")
+				local width, height = -1, -1
+				local stop = w.engine.onWrite(function(node, key, value)
+					if node == ghost and key == "Size" and typeof(value) == "UDim2" then
+						width, height = value.X.Offset, value.Y.Offset
+					end
+				end)
+				w.move(220, 220)
+				w.session.commit(nil)
+				for _ = 1, 60 do
+					w.engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(math.abs(width - 40) < 0.5 and math.abs(height - 40) < 0.5):toBe(true)
+				stop:Disconnect()
+				w.stop()
+			end,
+		})
 		verifyHarness:case("magnifies a held preview around its captured contact", {
 			id = "native_drag_session::shared drop sessions::magnifies a held preview around its captured contact",
 			run = function()
