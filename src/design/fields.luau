@@ -1912,6 +1912,7 @@ local derived: Types.Derived = {
 				anchor = { type = "value" },
 				appearance = { type = "choice", options = { "wedges", "buttons" } },
 				buttonSurface = { type = "choice", options = { "native", "none" } },
+				captions = { type = "boolean" },
 				center = { type = "choice", options = { "back", "root", "close", "content", "empty" } },
 				centerContent = { type = "content" },
 				centerLabel = { type = "string" },
