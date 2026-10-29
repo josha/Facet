@@ -409,7 +409,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					},
 					Host.UISizeConstraint({
 						MinSize = function(use: ComposeTypes.Use): Vector2
-							local minimum = floor(use)
+							local minimum = if spec.onOverflow ~= nil then floor(use) else 0
 							return V2.new(minimum, minimum)
 						end,
 					}),
