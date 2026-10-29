@@ -742,14 +742,24 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-appearance-utility", { BackgroundTransparency = 1 })
 	rule(".facet-appearance-utility:Hover", { BackgroundTransparency = 0, BackgroundColor3 = c("controlHover") })
 	rule(".facet-appearance-utility:Press", { BackgroundTransparency = 0, BackgroundColor3 = c("controlPressed") })
+	local function tintInk(opacity: number)
+		local accent, surface = assert(resolved("accent")), assert(resolved("surface"))
+		local tint = types.Color3.new(
+			surface.R + (accent.R - surface.R) * opacity,
+			surface.G + (accent.G - surface.G) * opacity,
+			surface.B + (accent.B - surface.B) * opacity
+		)
+		return if contrast(accent, tint) >= 4.5 then c("accent") else c("content")
+	end
+	local softInk = tintInk(0.2)
 	rule(
 		".facet-appearance-soft",
-		{ BackgroundColor3 = c("accent"), BackgroundTransparency = 0.8, TextColor3 = c("accent") }
+		{ BackgroundColor3 = c("accent"), BackgroundTransparency = 0.8, TextColor3 = softInk }
 	)
 	rule(".facet-appearance-soft:Hover", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0.7 })
 	rule(".facet-appearance-soft:Press", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0.6 })
-	rule(".facet-appearance-soft >> .facet-button-caption", { TextColor3 = c("accent") })
-	rule(".facet-appearance-soft >> .facet-icon", { ImageColor3 = c("accent") })
+	rule(".facet-appearance-soft >> .facet-button-caption", { TextColor3 = softInk })
+	rule(".facet-appearance-soft >> .facet-icon", { ImageColor3 = softInk })
 	local linkInk = if contrast(assert(resolved("accent")), assert(resolved("surface"))) >= 4.5
 		then c("accent")
 		else c("content")

@@ -2358,6 +2358,31 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps a display-only touch overflow chip at the face size", {
+			id = "native_themes_media::native Avatar and AvatarGroup per-input rules::keeps a display-only touch overflow chip at the face size",
+			run = function()
+				local engine, runtime, UI = inputWorld(true)
+				local screen = engine.new("ScreenGui")
+				local roster = {}
+				for index = 1, 4 do
+					roster[index] = { id = `p{index}`, name = `Player {index}` }
+				end
+				local stop = runtime.mount(function()
+					return UI.AvatarGroup "Friends" {
+						items = roster,
+						max = 3,
+						diameter = 28,
+					}
+				end, screen)
+				local chip = find(find(screen, "Friends"), "Overflow")
+				Verify.expect(chip.Selectable):toBe(false)
+				Verify.expect(chip:FindFirstChildWhichIsA("UISizeConstraint").MinSize)
+					:toBe(engine.types.Vector2.new(0, 0))
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("lets gamepad B pass through a selected overflow chip", {
 			id = "native_themes_media::native Avatar and AvatarGroup per-input rules::lets gamepad B pass through a selected overflow chip",
 			run = function()
@@ -2590,8 +2615,8 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(style(sheet, ".facet-appearance-soft").BackgroundTransparency):toBe(0.8)
 						Verify.expect(style(sheet, ".facet-appearance-soft:Hover").BackgroundTransparency):toBe(0.7)
 						Verify.expect(style(sheet, ".facet-appearance-soft:Press").BackgroundTransparency):toBe(0.6)
-						expectColor(".facet-appearance-soft >> .facet-button-caption", "TextColor3", colors.accent)
-						expectColor(".facet-appearance-soft >> .facet-icon", "ImageColor3", colors.accent)
+						expectColor(".facet-appearance-soft >> .facet-button-caption", "TextColor3", colors.content)
+						expectColor(".facet-appearance-soft >> .facet-icon", "ImageColor3", colors.content)
 						Verify.expect(style(sheet, ".facet-appearance-utility").BackgroundTransparency):toBe(1)
 						expectColor(".facet-appearance-utility:Hover", "BackgroundColor3", extra.controlHover)
 						Verify.expect(style(sheet, ".facet-appearance-utility:Hover").BackgroundTransparency):toBe(0)
