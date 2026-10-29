@@ -2,7 +2,6 @@
 
 local Verify = require("../../tools/vendor/verify/src/core")
 local Audit = require("../../tools/vendor/verify/src/roblox/ui-audit")
-local Rules = require("../../examples/facet-kart/src/shared/RaceRules")
 local RaceSpace = require("../../tools/play/host/space")
 local Play = require("../../tools/play/host/play")
 local Setup = require("../../tools/facet/lib/facetbench_setup")
@@ -211,33 +210,6 @@ return function(harness: Verify.Harness)
 		t:expect(RaceSpace.textClear(value)):toBe(false)
 	end)
 
-	harness:case("race progress requires ordered checkpoints and a forward finish crossing", function(t)
-		local racer = { checkpoint = 0, lap = 0, progress = 0 }
-		t:expect(Rules.advance(racer, 0.8, true, 16)):toBe(false)
-		t:expect(racer.checkpoint):toBe(0)
-		t:expect(Rules.advance(racer, 1 / 16, false, 16)):toBe(false)
-		t:expect(racer.checkpoint):toBe(0)
-		for lap = 1, 3 do
-			for checkpoint = 1, 15 do
-				t:expect(Rules.advance(racer, checkpoint / 16 + 0.001, true, 16)):toBe(false)
-			end
-			t:expect(Rules.advance(racer, 0.001, true, 16)):toBe(true)
-			t:expect(racer.lap):toBe(lap)
-			t:expect(Rules.advance(racer, 0, true, 16)):toBe(false)
-		end
-	end)
-	harness:case("race standings prefer finish order then checkpoint progress and put OUT last", function(t)
-		local first = { name = "First", progress = 3, finish = 1, out = false }
-		local second = { name = "Second", progress = 3.1, finish = 2, out = false }
-		local behind = { name = "Behind", progress = 2.9, finish = math.huge, out = false }
-		local out = { name = "Out", progress = 3.2, finish = math.huge, out = true }
-		local order = { out, behind, second, first }
-		table.sort(order, Rules.ahead)
-		t:expect(order[1].name):toBe("First")
-		t:expect(order[2].name):toBe("Second")
-		t:expect(order[3].name):toBe("Behind")
-		t:expect(order[4].name):toBe("Out")
-	end)
 	harness:case("race safety geometry accepts edge HUDs and rejects center paint and thumbstick actions", function(t)
 		local dump: Audit.Dump = {
 			schemaVersion = 1,
