@@ -186,6 +186,7 @@ local ALLOW: { [string]: { [string]: string } } = {
 		controls = "the ZoomView page drives these options from its custom demo",
 		doubleTapZoom = "the ZoomView page drives these options from its custom demo",
 		focus = "the ZoomView page drives these options from its custom demo",
+		followTransition = "custom_transition grows a following ZoomView with a scaled split page reveal",
 		minZoom = "the ZoomView page drives these options from its custom demo",
 		zoom = "the ZoomView page drives these options from its custom demo",
 	},

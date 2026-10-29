@@ -15,6 +15,7 @@ export type ZoomViewOptions = {
 	minZoom: number?,
 	maxZoom: number?,
 	doubleTapZoom: number?,
+	followTransition: boolean?,
 	enabled: Shared.ValueBoolean?,
 	controls: ZoomControls?,
 }

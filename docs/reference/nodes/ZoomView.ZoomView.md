@@ -18,6 +18,10 @@ the viewport. The control uses one UIScale and native scrolling.
   contact point on the board background. Buttons, text boxes, nested scrollers
   and active child surfaces own their taps; rapid activation does not zoom.
 - `enabled`: a boolean or readable, default true.
+- `followTransition`: true scales the shown board with the zoom of the page
+  transition around it, so a `transition = { scale = 0.5 }` page grows the
+  board from half size as it fades in and shrinks it as it leaves. The zoom
+  state and gestures are unchanged.
 - `controls`: an optional `ZoomControls` table. The control sets `fit()` and
   `zoomTo({ x, y, w, h })` and `zoomAt(scale, screenPoint?)`. These calls return false while disabled or locked
   by a child drag, except for one call inside its `onStart` capture scope.

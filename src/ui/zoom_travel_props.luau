@@ -96,6 +96,7 @@ export type ZoomViewProps = {
 	minZoom: number?,
 	maxZoom: number?,
 	doubleTapZoom: number?,
+	followTransition: boolean?,
 	enabled: Shared.ValueBoolean?,
 	controls: ZoomTravel.ZoomControls?,
 	[number | Engine.EventKey]: Compose.Child,
