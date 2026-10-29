@@ -167,6 +167,12 @@ return function(ctx: Types.Context): PageLayers
 		if scale then
 			plate(panel, scale)
 		end
+		local zoom = moving.zoom
+		if zoom then
+			Compose.watch(function(use: ComposeTypes.Use)
+				panel:SetAttribute("FacetTransitionZoom", use(zoom))
+			end)
+		end
 		if not arrived:peek() and runtime.host.frames then
 			local ready = presentationReadiness(ctx, { panel })
 			panel:SetAttribute("FacetPreparing", true)

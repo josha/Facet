@@ -12,6 +12,7 @@ export type Motion = {
 	visible: Types.ReadOnlyValue<boolean>,
 	interacting: Types.ReadOnlyValue<boolean>,
 	scale: Types.ReadOnlyValue<number>?,
+	zoom: Types.ReadOnlyValue<number>?,
 	apply: (GuiObject, GuiObject?) -> (),
 }
 
@@ -156,6 +157,7 @@ local function create(
 		return if animates(use) then use(opacity) else 1
 	end)
 	local scale: Types.ReadOnlyValue<number>? = nil
+	local zoom: Types.ReadOnlyValue<number>? = nil
 	local authored = spec.scale
 	if authored ~= nil then
 		local growth = C.formula(function(use: Types.Use): number
@@ -168,6 +170,7 @@ local function create(
 			local from, grown = origin(use), use(growth)
 			return if grown >= 1 then 1 else from + (1 - from) * grown
 		end)
+		zoom = zoomed
 		if holdOnExit then
 			local departing: Types.Value<number?> = C.cell(nil :: number?)
 			C.watch(function(use: Types.Use)
@@ -188,6 +191,7 @@ local function create(
 	return {
 		interacting = interacting,
 		scale = scale,
+		zoom = zoom,
 		progress = progress,
 		opacity = opacity,
 		transparency = C.formula(function(use: Types.Use): number

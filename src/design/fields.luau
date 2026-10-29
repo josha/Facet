@@ -3412,6 +3412,7 @@ local derived: Types.Derived = {
 				doubleTapZoom = { type = "number" },
 				enabled = { type = "boolean" },
 				focus = { type = "datatype", datatype = "Vector2" },
+				followTransition = { type = "boolean" },
 				maxZoom = { type = "number" },
 				minZoom = { type = "number" },
 				zoom = { type = "value" },

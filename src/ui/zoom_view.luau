@@ -71,23 +71,30 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			scaler :: unknown,
 			content :: unknown,
 		}
-		local props = ctx.props(
-			spec,
-			{ "contentSize", "content", "zoom", "focus", "minZoom", "maxZoom", "doubleTapZoom", "enabled", "controls" },
-			{
-				Name = "ZoomView",
-				Size = D2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				AutomaticCanvasSize = E.AutomaticSize.None,
-				ScrollingDirection = E.ScrollingDirection.XY,
-				ElasticBehavior = E.ElasticBehavior.Never,
-				ScrollBarThickness = 0,
-				Selectable = true,
-				Active = true,
-				ClipsDescendants = true,
-			}
-		) :: Shared.ScrollingFrameProps
+		local props = ctx.props(spec, {
+			"contentSize",
+			"content",
+			"zoom",
+			"focus",
+			"minZoom",
+			"maxZoom",
+			"doubleTapZoom",
+			"enabled",
+			"controls",
+			"followTransition",
+		}, {
+			Name = "ZoomView",
+			Size = D2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			AutomaticCanvasSize = E.AutomaticSize.None,
+			ScrollingDirection = E.ScrollingDirection.XY,
+			ElasticBehavior = E.ElasticBehavior.Never,
+			ScrollBarThickness = 0,
+			Selectable = true,
+			Active = true,
+			ClipsDescendants = true,
+		}) :: Shared.ScrollingFrameProps
 		props.ScrollingEnabled = function(use: Shared.Use): boolean
 			return ctx.read(spec.enabled, use) ~= false and ctx.read(spec.ScrollingEnabled, use) ~= false
 		end
@@ -350,6 +357,21 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			end
 		end)
 		Compose.cleanup(restoreButtons)
+		local function presentation(): number
+			if spec.followTransition ~= true then
+				return 1
+			end
+			local factor = 1
+			local at: Instance? = root.Parent
+			while at do
+				local value: unknown = at:GetAttribute("FacetTransitionZoom")
+				if type(value) == "number" and value > 0 then
+					factor *= value
+				end
+				at = at.Parent
+			end
+			return factor
+		end
 		local function render(delta: number)
 			if restorePending then
 				restoreButtons()
@@ -418,16 +440,17 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				end
 			end
 			fittedArea = area
-			local x, insetX = geometry.axis(area.X, size.X, value, contentPoint.X, screenPoint.X)
-			local y, insetY = geometry.axis(area.Y, size.Y, value, contentPoint.Y, screenPoint.Y)
+			local shown = value * presentation()
+			local x, insetX = geometry.axis(area.X, size.X, shown, contentPoint.X, screenPoint.X)
+			local y, insetY = geometry.axis(area.Y, size.Y, shown, contentPoint.Y, screenPoint.Y)
 			local offset = if reduce() then V2.zero else translation.value:peek()
 			applying = true
-			scaler.Scale = value
+			scaler.Scale = shown
 			canvas.Position = D2.fromOffset(insetX, insetY)
-			root.CanvasSize = D2.fromOffset(math.max(area.X, size.X * value), math.max(area.Y, size.Y * value))
+			root.CanvasSize = D2.fromOffset(math.max(area.X, size.X * shown), math.max(area.Y, size.Y * shown))
 			root.CanvasPosition = V2.new(
-				math.clamp(x - offset.X, 0, math.max(0, size.X * value - area.X)),
-				math.clamp(y - offset.Y, 0, math.max(0, size.Y * value - area.Y))
+				math.clamp(x - offset.X, 0, math.max(0, size.X * shown - area.X)),
+				math.clamp(y - offset.Y, 0, math.max(0, size.Y * shown - area.Y))
 			)
 			applied = value
 			root:SetAttribute("FacetZoom", value)
