@@ -725,9 +725,9 @@ return function(verifyHarness: Verify.Harness)
 				local root, engine, stop = build(nil, function(UI: FacetControls)
 					return UI.ScrollView {
 						UI.Text { text = "Rules" },
-						Compose.show(shown, function()
+						(Compose.show(shown, function()
 							return UI.Button { label = "Retry" }
-						end),
+						end) :: unknown) :: GuiObject,
 					}
 				end)
 				Verify.expect(root.Selectable):toBe(false)
