@@ -177,6 +177,25 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
+		verifyHarness:case("lights the subject from the camera side unless the author sets the light", {
+			id = "native_stage_presence::native Stage presence::lights the subject from the camera side unless the author sets the light",
+			run = function()
+				local w = overlay.new(function(UI, Host, engine)
+					local T = engine.types
+					return Host.Frame "Holder" {
+						UI.Stage "Front" { camera = T.CFrame.lookAt(T.Vector3.new(11, 6, -13), T.Vector3.zero) },
+						UI.Stage "Authored" { LightDirection = T.Vector3.new(1, 0, 0) },
+					}
+				end)
+				local front, authored = w.find("Front"), w.find("Authored")
+				local look = front.CurrentCamera.CFrame.LookVector
+				Verify.expect(front.LightDirection:Dot(look) > 0.7):toBe(true)
+				Verify.expect(front.LightDirection.Y < 0):toBe(true)
+				Verify.expect(authored.LightDirection.X):toBe(1)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("restores the authored external camera without taking ownership of it", {
 			id = "native_stage_presence::native Stage presence::restores the authored external camera without taking ownership of it",
 			run = function()

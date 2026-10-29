@@ -689,6 +689,59 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
+		verifyHarness:case("lets a destination keep its page when the player asks to go back", {
+			id = "native_navigation::native navigation controls::lets a destination keep its page when the player asks to go back",
+			run = function()
+				local path = Compose.cell({} :: { Navigation.NavigationEntry<number> })
+				local dirty = true
+				local asked: { Navigation.NavigationEntry<number> } = {}
+				local world = setup(function(UI: FacetControls)
+					local spec: NavigationProps.NavigationStackSpec<number> = {
+						path = path,
+						transition = false :: false,
+						root = {
+							title = "Home",
+							content = function()
+								return UI.Button "HomeAction" { label = "Open" }
+							end,
+						} :: Navigation.NavigationDestination<number>,
+						destinations = {
+							livery = {
+								title = "Livery",
+								onBack = function(entry: Navigation.NavigationEntry<number>): boolean
+									table.insert(asked, entry)
+									return not dirty
+								end,
+								content = function()
+									return UI.Button "Save" { label = "Save" }
+								end,
+							} :: Navigation.NavigationDestination<number>,
+						},
+					}
+					return UI.NavigationStack "Stack"(spec)
+				end, { motionLevel = "none" })
+				local entry = { id = "livery", value = 7 }
+				path:set({ entry })
+				world.settle()
+				local action = find(world.screen, "NavigationBack")
+				action.Pressed:Fire()
+				world.settle()
+				Verify.expect(#path:peek()):toBe(1)
+				Verify.expect(asked[1]):toBe(entry)
+				find(find(world.screen, "Stack"), "Back").Activated:Fire()
+				world.settle()
+				Verify.expect(#path:peek()):toBe(1)
+				Verify.expect(#asked):toBe(2)
+				dirty = false
+				action.Pressed:Fire()
+				world.settle()
+				Verify.expect(#path:peek()):toBe(0)
+				path:set({ entry })
+				path:set({})
+				Verify.expect(#asked):toBe(3)
+			end,
+		})
+
 		verifyHarness:case("omits owned-page chrome without removing Back or selection restoration", {
 			id = "native_navigation::native navigation controls::omits owned-page chrome without removing Back or selection restoration",
 			run = function()

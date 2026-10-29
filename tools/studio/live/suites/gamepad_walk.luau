@@ -609,4 +609,54 @@ add("pad-row-actions-menu-open-close-and-command", {}, function(t: any)
 	GuiService.SelectedObject = nil
 end, false)
 
+add("pad-back-asks-a-guarded-page-before-leaving", {}, function(t)
+	local path, dirty, asked = nil, true, 0
+	local stage = t.mount(function(UI, _, C)
+		path = C.cell({})
+		return UI.NavigationStack "Stack" {
+			path = path,
+			transition = false,
+			Size = UDim2.fromOffset(640, 400),
+			root = {
+				title = "Home",
+				content = function()
+					return UI.Button "Open" { label = "Open" }
+				end,
+			},
+			destinations = {
+				livery = {
+					title = "Livery",
+					onBack = function(): boolean
+						asked += 1
+						return not dirty
+					end,
+					content = function()
+						return UI.Button "Save" { label = "Save" }
+					end,
+				},
+			},
+		}
+	end, { size = Vector2.new(640, 400) })
+	path:set({ { id = "livery" } })
+	t.settle(10)
+	GuiService.SelectedObject = t.find(stage, "Save")
+	pad(t, { "ButtonB" })
+	t.settle(10)
+	t.check(
+		"B keeps the page while the draft is unsaved",
+		#path:peek() == 1 and asked == 1,
+		{ path = #path:peek(), asked = asked }
+	)
+	dirty = false
+	pad(t, { "ButtonB" })
+	t.settle(10)
+	t.check(
+		"B leaves the page once the draft is saved",
+		#path:peek() == 0 and asked == 2,
+		{ path = #path:peek(), asked = asked }
+	)
+	GuiService.SelectedObject = nil
+	t.cleanup()
+end)
+
 return cases
