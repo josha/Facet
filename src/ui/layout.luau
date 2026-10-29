@@ -487,6 +487,35 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			kit.plain(Host.ScrollingFrame(kit.assemble(native, properties, { layout, insets }, children)), properties)
 		scrollLock.own(frame, ctx)
 		initialScroll(ctx, frame, spec.CanvasPosition)
+		if properties.Selectable == nil then
+			local later = runtime.scheduler()
+			local pending = false
+			local function holds(node: Instance): boolean
+				for _, child in node:GetChildren() do
+					if child:IsA("GuiObject") then
+						if child.Visible and (child.Selectable or holds(child)) then
+							return true
+						end
+					elseif holds(child) then
+						return true
+					end
+				end
+				return false
+			end
+			local function refresh(): ()
+				pending = false
+				frame.Selectable = not holds(frame)
+			end
+			local function queue(): ()
+				if not pending then
+					pending = true
+					later.after(0, refresh)
+				end
+			end
+			runtime.connect(frame, "DescendantAdded", queue)
+			runtime.connect(frame, "DescendantRemoving", queue)
+			refresh()
+		end
 		if axis == "x" and properties.CanvasSize == nil and properties.AutomaticCanvasSize == nil then
 			local content = ctx.observe.AbsoluteContentSize(layout)
 			local unit = ctx.layoutUnit(frame)
