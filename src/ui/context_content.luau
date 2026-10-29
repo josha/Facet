@@ -112,14 +112,25 @@ local function attachLayout(
 	local bounds = Compose.cell(label.TextBounds)
 	local frameSource = runtime.host.frames
 	local checkStale: () -> () = function() end
+	local sizeMoved, boundsMoved = false, false
 	local function readGeometry()
 		if alive then
-			box = label.AbsoluteSize
-			bounds:set(label.TextBounds)
+			if sizeMoved then
+				box = label.AbsoluteSize
+			end
+			if boundsMoved then
+				bounds:set(label.TextBounds)
+			end
+			sizeMoved, boundsMoved = false, false
 			checkStale()
 		end
 	end
-	local function geometryChanged()
+	local function geometryChanged(property: string)
+		if property == "AbsoluteSize" then
+			sizeMoved = true
+		else
+			boundsMoved = true
+		end
 		if not framed or frameSource == nil then
 			readGeometry()
 			return
@@ -153,7 +164,7 @@ local function attachLayout(
 		if property == "FontFace" or property == "TextSize" then
 			styleChanged()
 		elseif property == "AbsoluteSize" or property == "TextBounds" then
-			geometryChanged()
+			geometryChanged(property)
 		elseif property == "Text" then
 			if not textChanged then
 				textChanged = true

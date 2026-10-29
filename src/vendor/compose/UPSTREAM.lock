@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "6b50d4967f1ac710c1c58d74545960d038f22b1f",
+  "commit": "b1c92f3165d88d62b6a196a2eaa548bb4e98689f",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -66,7 +66,7 @@
     "core/slot.luau": "9f32d9c412bfc311b7401f90c877c2ab1a82320993c51e255ae7badb1293339b",
     "core/structure/fragment.luau": "927369937222895a108ac9ebbc20f0a2418607552da55f00b93c44a8edc5e8bf",
     "core/structure/indexes.luau": "e4e03821a21fe1f51a53964e71f19953917fa125122fe3dc8ead7be5a53a1a14",
-    "core/structure/keyed.luau": "f651d83e15757cefe1b31c44e0b335d9e0625d1fa21d5482fcbcb256ead0c83c",
+    "core/structure/keyed.luau": "7f86d6eaa0c472db2da4afafb4dbeace8c23a27286473e115ed227f933dd1939",
     "core/structure/layer-stack.luau": "9861df0a9d3d2bce830060391ee0ae5eca91179b385e6e51d32c1f0042914743",
     "core/structure/lis.luau": "3af1b00d98f490bf8dd276c1e3a105a23c3c45361fb501b55448ac216f020a9b",
     "core/structure/mount-budget.luau": "9b757c61c613d15f281a087215fd7bbeced25f52d032ec7acf012e3d9e0faa10",
@@ -116,9 +116,9 @@
   },
   "docs": {
     "SKILL.md": "a3277af0c096e2c640b1a0fb22c1739ffbf57603e81aab8ec9d7324d9f7ac590",
-    "references/api.md": "a6158da443082bc9d0dab466a8bbbb83a4dc3b690ae24c0cb48d61a1a20e6221",
-    "references/consumer-guides.md": "5e95a3d41a171b103fd9233fbc32862f7b67d180e9e799c18026d1cd47bf6dd4",
+    "references/api.md": "645fa493d42eae80be3105064fb92c07213a4f5ba02ef05d0b1f0f5e7bf5d510",
+    "references/consumer-guides.md": "0df5ec8a759cb3e2e662acc52e165e53d7772837bc82c12beafa65401070ffc0",
     "references/design.md": "d071e5bb4b1fc0b056c175cd6c38cd963a53594c700e833270345b32a6e2364c",
-    "references/ownership.md": "9e187b11f2e825f04e35e4da2b2b7a99860bc570337131f2df7d3bc7fd18fbaa"
+    "references/ownership.md": "ba7a12103c323270a7fa0fad2246625b7fd7dd5e26b64d19be33e9203407d729"
   }
 }

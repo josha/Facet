@@ -30,11 +30,13 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	local function peek<U>(source: ComposeTypes.ReadOnlyValue<U>): U
 		return source:peek()
 	end
+	local isValue = Compose.isValue
 	local function read<T>(value: T | ComposeTypes.Source<T>, use: ComposeTypes.Use?): T
-		if Compose.isValue(value) then
+		local kind = type(value)
+		if kind == "table" and isValue(value) then
 			local source = value :: ComposeTypes.ReadOnlyValue<T>
 			return if use then use(source) else source:peek()
-		elseif type(value) == "function" then
+		elseif kind == "function" then
 			local body = value :: ComposeTypes.Body<T>
 			return body(use or peek)
 		end
