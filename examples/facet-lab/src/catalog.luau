@@ -4150,7 +4150,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {}
 		end,
 		make = function(UI: FacetControls): Instance
-			local panel = UI.VStack {
+			local panel: GuiObject = UI.VStack {
 				Name = "Measured",
 				width = 240,
 				gap = "xs",
