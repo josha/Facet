@@ -161,12 +161,12 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_radial_controls::radial label fit::captions name icon buttons below each target",
 			run = function()
 				for _, captions in { true, false } do
-					local spec: RadialProps.RadialMenuSpec<any> = {
-						appearance = "buttons" :: Radial.Appearance,
+					local look: Radial.RadialAction<string> =
+						{ id = "look", label = "Look", icon = "facet:search", onSelect = function() end }
+					local spec: RadialProps.RadialMenuSpec<string> = {
+						appearance = "buttons",
 						captions = captions,
-						items = {
-							{ id = "look", label = "Look", icon = "facet:search", onSelect = function() end } :: Radial.RadialItem<any>,
-						},
+						items = { look },
 					}
 					local w = setup(spec)
 					local caption = w.find("look"):FindFirstChild("ItemCaption")
