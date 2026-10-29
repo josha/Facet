@@ -31,6 +31,7 @@ export type Options<V, K> = {
 }
 
 local UNREAD_INDEX = cellModule.cell(0)
+local TRIM_TAIL = 8
 
 local KNOWN_FIELDS: { [string]: true } = { from = true, key = true, render = true }
 
@@ -65,6 +66,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 		local retainedPositions: { number } = {}
 		local retainedTargets: { number } = {}
 		local currentList: { V } = {}
+		local base, count = 0, 0
 
 		Owners.own(owner, function()
 			for _, entry in entries do
@@ -79,7 +81,22 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			table.clear(retainedPositions)
 			table.clear(retainedTargets)
 			currentList = {}
+			base, count = 0, 0
 		end)
+
+		local function normalize()
+			if base == 0 then
+				return
+			end
+			table.move(order, base + 1, base + count, 1)
+			for index = count + 1, base + count do
+				order[index] = nil
+			end
+			for index = 1, count do
+				positionOf[order[index]] = index
+			end
+			base = 0
+		end
 
 		local function startOf(liveIndex: number): number
 			if uniform then
@@ -87,7 +104,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			end
 			local position = 1
 			for index = 1, liveIndex - 1 do
-				position += #entries[order[index]].nodes
+				position += #entries[order[base + index]].nodes
 			end
 			return position
 		end
@@ -124,6 +141,93 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			})
 		end
 
+		local function raiseFailures(failures: { string }?)
+			if failures ~= nil then
+				if #failures == 1 then
+					error(failures[1], 0)
+				end
+				error(
+					("Compose: %d keyed row factories failed:\n  %s"):format(#failures, table.concat(failures, "\n  ")),
+					0
+				)
+			end
+		end
+
+		local function trimHead(list: { V }, wanted: number): boolean
+			if count == 0 or wanted == 0 then
+				return false
+			end
+			local first = positionOf[keys[1]]
+			if first == nil then
+				return false
+			end
+			local drop = first - base - 1
+			local kept = count - drop
+			if drop <= 0 or kept > wanted or wanted - kept > TRIM_TAIL then
+				return false
+			end
+			for index = 2, kept do
+				if order[first + index - 1] ~= keys[index] then
+					return false
+				end
+			end
+			for index = kept + 1, wanted do
+				local itemKey = keys[index]
+				if positionOf[itemKey] ~= nil then
+					return false
+				end
+				for earlier = kept + 1, index - 1 do
+					if keys[earlier] == itemKey then
+						return false
+					end
+				end
+			end
+			for at = base + 1, base + drop do
+				local leaving = order[at]
+				local entry = entries[leaving]
+				Block.releaseNodes(mountPoint, entry.nodes)
+				Owners.dispose(entry.owner)
+				entries[leaving] = nil
+				positionOf[leaving] = nil
+				itemOf[leaving] = nil
+				order[at] = nil
+			end
+			base += drop
+			count = kept
+			for index = 1, kept do
+				local itemKey = keys[index]
+				local item = list[index]
+				local entry = entries[itemKey]
+				if itemOf[itemKey] ~= item then
+					itemOf[itemKey] = item
+					entry.value:set(item)
+				end
+				if readsIndex then
+					entry.index:set(index)
+				end
+			end
+			local failures: { string }? = nil
+			for index = kept + 1, wanted do
+				local itemKey = keys[index]
+				local ok, err =
+					pcall(mountRow, index, itemKey, if ordersChildren then startOf(count + 1) else count + 1)
+				if ok then
+					count += 1
+					order[base + count] = itemKey
+					positionOf[itemKey] = base + count
+				else
+					local collected: { string } = failures or {}
+					failures = collected
+					table.insert(collected, tostring(err))
+				end
+			end
+			if base > count then
+				normalize()
+			end
+			raiseFailures(failures)
+			return true
+		end
+
 		Owners.watch(owner, function(use)
 			local list = source(use)
 			currentList = list
@@ -135,6 +239,10 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			for index = #keys, wanted + 1, -1 do
 				keys[index] = nil
 			end
+			if trimHead(list, wanted) then
+				return
+			end
+			normalize()
 
 			local prefix = 0
 			local previousCount = #order
@@ -347,15 +455,8 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 					anchor = itemKey
 				end
 			end
-			if failures ~= nil then
-				if #failures == 1 then
-					error(failures[1], 0)
-				end
-				error(
-					("Compose: %d keyed row factories failed:\n  %s"):format(#failures, table.concat(failures, "\n  ")),
-					0
-				)
-			end
+			count = #order
+			raiseFailures(failures)
 		end)
 	end
 end
