@@ -43,6 +43,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		local frozen = false
 		local frozenCanvas = V2.zero
 		local measured = false
+		local fittedArea: Vector2? = nil
 		local proposing = false
 		local applying = false
 		local captureTarget: number? = nil
@@ -401,11 +402,22 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			if not measured then
 				measured = true
 				contentPoint, screenPoint = ctx.read(spec.focus) or size / 2, area / 2
-				if spec.zoom == nil then
-					value = clamp(geometry.fit(area.X, area.Y, size.X, size.Y))
+				local fitted = geometry.fit(area.X, area.Y, size.X, size.Y)
+				if spec.zoom == nil or zoom:peek() <= fitted then
+					value = clamp(fitted)
 					request(value, true)
 				end
 			end
+			local previous = fittedArea
+			if previous and previous ~= area and not pinchActive then
+				local before = math.min(geometry.fit(previous.X, previous.Y, size.X, size.Y), maximum)
+				if zoom:peek() <= before * (1 + 1e-3) then
+					contentPoint, screenPoint = size / 2, area / 2
+					request(geometry.fit(area.X, area.Y, size.X, size.Y), true, true)
+					value = clamp(ramp.value:peek())
+				end
+			end
+			fittedArea = area
 			local x, insetX = geometry.axis(area.X, size.X, value, contentPoint.X, screenPoint.X)
 			local y, insetY = geometry.axis(area.Y, size.Y, value, contentPoint.Y, screenPoint.Y)
 			local offset = if reduce() then V2.zero else translation.value:peek()
