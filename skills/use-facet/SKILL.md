@@ -54,7 +54,9 @@ the recipes do not cover, [capability routes](references/choose.md) to find a
 control by need, [advanced compositions](references/advanced-compositions.md)
 for richer navigation, forms or spatial UI, and
 [runtime details](references/runtime-details.md). With a shell, search unknown
-names with `lute run tools/facet docs --search TERM`. Do not guess filenames.
+names with `lute run tools/facet docs --search TERM`; without one, read the
+[Controls](../../docs/reference/nodes/Controls.md) index. Do not guess or list
+filenames.
 
 Use typed constructors and reactive callbacks. Keep durable selection, drafts
 and accepted state outside disposable pages. Give unrelated tasks separate
@@ -68,6 +70,9 @@ context and is paid again on each later call.
 
 - Put each screen in its own ModuleScript (one folder of them, each under
   about 250 lines) and keep the client script to mounting and routing.
+  Create the modules that are ready together in one call.
+- Test several screens in one Play session: open each with input, run
+  `Facet.review.screen().text` on it, and read Output once before you stop.
 - Write a script once. Change it afterwards with an exact-text patch; never
   resend a whole Source or return one. Find text with a line-range read.
 

@@ -37,8 +37,7 @@ local function browse(app: Facet.App, items: { Item }, selected: Facet.Value<{ [
 				UI.Text { textRole = "heading", wrap = true, text = function(use) return use(chosen).name end },
 				UI.ZStack({ width = "fill", height = "fill", UI.fill(), art(chosen) } :: Facet.ZStackProps),
 				UI.Text { wrap = true, text = function(use) return use(chosen).terms end },
-				UI.Button { label = action, appearance = "emphasis",
-					onActivate = function() commit(chosen:peek()) end },
+				UI.Button { label = action, appearance = "emphasis", onActivate = function() commit(chosen:peek()) end },
 			} :: Facet.StackProps)
 		end,
 	}
