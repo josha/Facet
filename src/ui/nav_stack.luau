@@ -111,6 +111,11 @@ return function(
 		local stackReady = false
 		local function pop()
 			local path = table.clone(spec.path:peek())
+			local front = path[#path]
+			local destination = if front then spec.destinations[front.id] else nil
+			if destination and destination.onBack and destination.onBack(front) == false then
+				return
+			end
 			if #path > 0 then
 				table.remove(path)
 				spec.path:set(path)

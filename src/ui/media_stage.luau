@@ -269,6 +269,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				end)
 			end
 		end
+		if spec.LightDirection == nil then
+			local frame = runtime.observe(camera, "CFrame") :: ComposeTypes.ReadOnlyValue<CFrame>
+			runtime.decorate(stage, {
+				LightDirection = function(use: ComposeTypes.Use): Vector3
+					local look = use(frame).LookVector
+					return (look + types.Vector3.new(0, -0.6, 0)).Unit
+				end,
+			})
+		end
 		prepareMedia(ctx, stage, spec.ImageTransparency)
 		return stage
 	end)

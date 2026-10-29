@@ -136,7 +136,7 @@ UI.Composition "Hub" {
     } },
     UI.Region "Destinations" { zone = "bottomLeft", rank = 2,
         UI.HStack { gap = "l", circle("Garage", "car", openGarage), circle("Shop", "bag", openShop),
-            circle("Rewards", "gift", openRewards), circle("Menu", "menu", openMenu) },
+            circle("Upgrades", "wrench", openUpgrades), circle("Rewards", "gift", openRewards) },
         UI.HStack { gap = "l", circle("Garage", "car", openGarage), circle("Menu", "menu", openMenu) },
     },
     UI.Region "Race" { zone = "bottomRight", rank = 1,
@@ -154,6 +154,8 @@ Each form is a separate tree, so build each Button once for each form.
   Jump as `touch-control-overlap`.
 - Give a ready reward a `Badge` on its destination. A welcome or status line
   is a `Toast`, not text in the centre of the view.
+- In portrait, keep two or three destinations and put the rest behind one
+  Menu circle; a region's second form is its compact form.
 - Give every bottom corner region a compact second form. On a portrait
   phone the two bottom corners share one row, and a region without a smaller
   form overlaps its neighbor. Run `Facet.review.screen().text` on any screen
@@ -211,9 +213,7 @@ UI.HStack "Body" { width = "fill", gap = "l", align = "start", UI.fill(),
     C.show(wide, function()
         return UI.VStack "Detail" { UI.fill(), surface = "panel", padding = "l", gap = "m",
             preview, -- UI.Stage, 240 to 280 tall
-            UI.HStack "Title" { width = "fill", gap = "s", align = "center",
-                UI.Text { text = name, textRole = "title", wrap = true, UI.fill() },
-                UI.Badge "Rarity" { label = rarity } },
+            UI.Text { text = name, textRole = "title" },
             UI.HStack "Stats" { gap = "xl", stat(speed, "top speed"), stat(steering, "steering"), stat(boost, "boost") },
             UI.Button "Choose" { label = "Race this kart", appearance = "emphasis", Size = UDim2.new(1, 0, 0, 0) },
             UI.HStack "More" { width = "fill", wrap = true, gap = "s", tryButton, favoriteButton, upgradeButton }, -- each Button holds UI.fill()
@@ -256,7 +256,8 @@ UI.VStack "Body" { width = "fill", gap = "s",
 - Shade is a segmented Picker; decals are Chips. Bind the preview's parts to
   the draft so every choice changes the subject at once.
 - One row ends the form: "Unsaved changes" in caption, Revert, and Save in
-  emphasis. Leaving with unsaved changes asks in a Dialog.
+  emphasis. Leaving with unsaved changes asks in a Dialog: the destination's
+  `onBack` returns `false` while the draft is unsaved and presents it.
 - `UI.ColorPicker` is for free color: it shows RGB, HSV and hex fields. Use it
   only when the player may pick any color, not for a named palette.
 

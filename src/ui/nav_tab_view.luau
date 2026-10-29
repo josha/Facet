@@ -204,7 +204,7 @@ return function(
 		local stow = transition.paced(
 			ctx,
 			function(use: ComposeTypes.Use): number
-				return if use(stowed) and not preparation.within(ctx, root, use) then 1 else 0
+				return if use(stowed) then 1 else 0
 			end,
 			Compose.formula(function(use: ComposeTypes.Use): boolean
 				return tabLevel(use) ~= "normal"
@@ -212,7 +212,8 @@ return function(
 			function(use: ComposeTypes.Use?): number
 				return ctx.metric("motion.durations.tabChrome", use)
 			end,
-			ctx.motionEase("fade")
+			ctx.motionEase("fade"),
+			true
 		)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local wanted = use(requested)

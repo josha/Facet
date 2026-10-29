@@ -21,7 +21,8 @@ local function paced(
 	source: (Types.Use) -> number,
 	reduced: Types.ReadOnlyValue<boolean>,
 	seconds: (Types.Use?) -> number,
-	ease: (number) -> number
+	ease: (number) -> number,
+	steady: boolean?
 ): Types.ReadOnlyValue<number>
 	local C = ctx.Compose
 	local frames = assert(ctx.runtime.host.frames, "Facet transitions require host frames")
@@ -38,7 +39,7 @@ local function paced(
 	end
 	local function advance(delta: number)
 		local limit = ctx.metric("motion.frameLimit")
-		local step = if spiking and limit > 0 then math.min(delta, limit) else delta
+		local step = if (spiking or steady) and limit > 0 then math.min(delta, limit) else delta
 		spiking = false
 		elapsed = math.min(elapsed + step, length)
 		value:set(from + (goal - from) * ease(elapsed / length))

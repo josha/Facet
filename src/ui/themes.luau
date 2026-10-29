@@ -769,6 +769,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-appearance-soft:Press", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0.6 })
 	rule(".facet-appearance-soft >> .facet-button-caption", { TextColor3 = softInk })
 	rule(".facet-appearance-soft >> .facet-icon", { ImageColor3 = softInk })
+	rule(
+		".facet-appearance-soft.facet-selected",
+		{ BackgroundColor3 = c("accent"), BackgroundTransparency = 0, TextColor3 = c("onAccent") }
+	)
+	rule(".facet-appearance-soft.facet-selected >> .facet-button-caption", { TextColor3 = c("onAccent") })
+	rule(".facet-appearance-soft.facet-selected >> .facet-icon", { ImageColor3 = c("onAccent") })
 	local linkInk = if contrast(assert(resolved("accent")), assert(resolved("surface"))) >= 4.5
 		then c("accent")
 		else c("content")
@@ -1036,6 +1042,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-segment-current >> .facet-icon", { ImageColor3 = c("onAccent") })
 	rule(".facet-menu-destructive >> .facet-text", { TextColor3 = c("danger") })
 	rule(".facet-appearance-soft >> .facet-text", { TextColor3 = softInk })
+	rule(".facet-appearance-soft.facet-selected >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-appearance-link >> .facet-text", { TextColor3 = linkInk })
 	rule(".facet-quiet-destructive >> .facet-text", { TextColor3 = c("danger") })
 	rule(".facet-menu-item::UICorner", {
