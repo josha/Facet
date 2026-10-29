@@ -115,7 +115,7 @@ local function attachLayout(
 	local checkStale: () -> () = function() end
 	local sizeMoved, boundsMoved = false, false
 	local refloor: () -> () = function() end
-	local textChanged = not lazy
+	local textChanged = not lazy or (warm == true and not framed)
 	local function readGeometry()
 		if alive then
 			if sizeMoved then
