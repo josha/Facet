@@ -199,7 +199,6 @@ export type Controls = {
 	focusRing: typeof(environmentControls.focusRing),
 	focusSection: typeof(environmentControls.focusSection),
 	responder: typeof(environmentControls.responder),
-	layoutSize: typeof(environmentControls.layoutSize),
 	adjustable: (node: GuiObject, options: Inputs.AdjustableOptions) -> (),
 	feedback: (kind: Inputs.HapticKind) -> (),
 	gestureArbiter: typeof(environmentControls.gestureArbiter),

@@ -1,12 +1,11 @@
 ### layoutSize
 
-<!-- aliases: layoutSize | UI.layoutSize -->
+<!-- aliases: layoutSize | environment.layoutSize -->
 
-`UI.layoutSize(node) -> ReadOnlyValue<Vector2>` reads the size of `node` in
-layout pixels: its `AbsoluteSize` divided by the UIScale factors above it.
-Call it inside a component or a Compose owner. While an ancestor page plays a
-`zoom` transition, the value holds its last size at rest, so layout that
-depends on it does not change during the zoom.
+`environment.layoutSize(node)` reads a node's size in layout pixels.
 
-For example, `UI.layoutSize(panel)` inside a component returns a readable that a
-layout formula can `use` to choose a compact arrangement.
+It returns a readable `Vector2`: the node's `AbsoluteSize` divided by the
+UIScale factors above it. Call it on `UI.environment()` inside a component or a
+Compose owner. While an ancestor page plays a `zoom` transition, the value
+holds its last size at rest, so layout that depends on it does not change
+during the zoom.
