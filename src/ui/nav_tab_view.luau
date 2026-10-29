@@ -16,6 +16,7 @@ local tabAccessories = require("./nav_tab_accessories")
 local presentationReadiness = require("./presentation_readiness")
 local scrollLock = require("./scroll_lock")
 local transition = require("./transition")
+local layoutKit = require("./layout_kit")
 type SelectionLinks = {
 	NextSelectionLeft: GuiObject?,
 	NextSelectionRight: GuiObject?,
@@ -241,6 +242,11 @@ return function(
 		end)
 		local headHeight, footHeight, trailingWidth, aboveHeight =
 			Compose.cell(0), Compose.cell(0), Compose.cell(0), Compose.cell(0)
+		local underTopbar = Compose.cell(0)
+		layoutKit.of(ctx).underTopbar(root, underTopbar)
+		local railTop = Compose.formula(function(use: ComposeTypes.Use): number
+			return use(headHeight) + use(underTopbar)
+		end)
 		local visibleTabs = Compose.formula(function(use: ComposeTypes.Use)
 			local customized = read(spec.customization, use)
 			local byId = use(tabMap)
@@ -462,7 +468,7 @@ return function(
 					return D2.new(1, -use(trailingWidth), 0, band(use) + 2 * INSET)
 				end
 				return if use(placement) == "sidebar"
-					then D2.new(0, railWidth(use) - 16, 1, -use(headHeight) - use(footHeight))
+					then D2.new(0, railWidth(use) - 16, 1, -use(railTop) - use(footHeight))
 					else D2.new(1, -use(trailingWidth), 0, band(use))
 			end,
 			Position = function(use: ComposeTypes.Use): UDim2
@@ -471,7 +477,7 @@ return function(
 				end
 				return (
 					if use(placement) == "sidebar"
-						then D2.fromOffset(8, use(headHeight))
+						then D2.fromOffset(8, use(railTop))
 						elseif string.find(use(placement), "bottom") then D2.new(0, 0, 1, -band(use))
 						else D2.fromOffset(0, 0)
 				) + stowOffset(use)
@@ -776,7 +782,7 @@ return function(
 					return floatingSize(use)
 				end
 				if use(placement) == "sidebar" then
-					return D2.new(0, railWidth(use) - 16, 1, -use(headHeight) - use(footHeight))
+					return D2.new(0, railWidth(use) - 16, 1, -use(railTop) - use(footHeight))
 				end
 				return D2.fromOffset(0, 0)
 			end,
@@ -785,7 +791,7 @@ return function(
 					return floatingPosition(use) + stowOffset(use)
 				end
 				if use(placement) == "sidebar" then
-					return D2.fromOffset(8, use(headHeight)) + stowOffset(use)
+					return D2.fromOffset(8, use(railTop)) + stowOffset(use)
 				end
 				return D2.fromOffset(0, 0)
 			end,
