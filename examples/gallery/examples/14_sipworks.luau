@@ -207,7 +207,6 @@ return {
 				return UI.Screen "RecipeLibrary" {
 					padding = "m",
 					gap = "m",
-					view.text("LibraryTitle", "Sipworks", "title"),
 					view.text("LibraryIntro", "A recipe for every kind of afternoon."),
 					UI.TextInput "FindRecipe" {
 						presentation = "search",
@@ -238,7 +237,12 @@ return {
 							local blend = current:peek()
 							return UI.Card("Recipe_" .. blend.id) {
 								title = blend.title,
-								caption = `{catalog.steepMinutes(blend.id)} min · {#catalog.tileBotanicals(blend.id)} botanicals`,
+								caption = (function(): string
+									local count = #catalog.tileBotanicals(blend.id)
+									return `{catalog.steepMinutes(blend.id)} min · {count} {if count == 1
+										then "botanical"
+										else "botanicals"}`
+								end)(),
 								artwork = function()
 									return picture(blend.id, 150)
 								end,

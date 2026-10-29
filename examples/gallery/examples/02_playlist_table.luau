@@ -214,8 +214,11 @@ function example.build(ctx: ExampleContext)
 			},
 		}
 		local noSelection: { [string]: boolean } = {}
+		local viewport = UI.environment()
 		local tracks = UI.Table "Tracks" {
-			Size = UDim2.new(1, 0, 0, 328),
+			Size = function(use: Use): UDim2
+				return UDim2.new(1, 0, 0, math.clamp(use(viewport.viewportHeight) - 360, 328, 720))
+			end,
 			widths = columnWidths,
 			columns = columns,
 
@@ -297,10 +300,24 @@ function example.build(ctx: ExampleContext)
 		end)
 		local hintText =
 			"Type to filter · tap a heading to sort · drag a divider to resize · drag a row to move it · Delete removes the selected rows · swipe a row for its actions"
+		local env = UI.environment()
+		local shownHint = function(use: Use): string
+			local input = use(env.effectiveInput)
+			return if input == "Gamepad"
+				then "Move through the tracks · press A to play · use the row menu to move or remove a track"
+				elseif
+					input == "Touch"
+				then "Type to filter · tap a heading to sort · drag a row to move it · swipe a row for its actions"
+				else hintText
+		end
 		local nowPlayingText = function(use: Use)
 			local track = use(nowPlaying)
 			if track == nil then
-				return "Nothing playing — double-click a row, or press Return on a focused one"
+				local input = use(env.effectiveInput)
+				return if input == "Gamepad"
+					then "Nothing playing — press A on a track"
+					elseif input == "Touch" then "Nothing playing — tap a track to play it"
+					else "Nothing playing — double-click a row, or press Return on a focused one"
 			end
 			return `Now playing — {track}`
 		end
@@ -325,13 +342,12 @@ function example.build(ctx: ExampleContext)
 					end,
 					TextWrapped = true,
 				},
-				UI.Text "Hint" { text = hintText, textRole = "caption", TextWrapped = true },
+				UI.Text "Hint" { text = shownHint, textRole = "caption", TextWrapped = true },
 				UI.Text "NowPlaying" {
 					text = nowPlayingText,
 					textRole = "caption",
 					TextWrapped = true,
 				},
-				UI.Text "Widths" { text = widthsText, textRole = "caption", TextWrapped = true },
 				tracks,
 				UI.Button "Restore" {
 					label = "Restore the original playlist",

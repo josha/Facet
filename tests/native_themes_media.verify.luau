@@ -2617,6 +2617,7 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(style(sheet, ".facet-appearance-soft:Press").BackgroundTransparency):toBe(0.6)
 						expectColor(".facet-appearance-soft >> .facet-button-caption", "TextColor3", colors.content)
 						expectColor(".facet-appearance-soft >> .facet-icon", "ImageColor3", colors.content)
+						expectColor(".facet-appearance-soft >> .facet-text", "TextColor3", colors.content)
 						Verify.expect(style(sheet, ".facet-appearance-utility").BackgroundTransparency):toBe(1)
 						expectColor(".facet-appearance-utility:Hover", "BackgroundColor3", extra.controlHover)
 						Verify.expect(style(sheet, ".facet-appearance-utility:Hover").BackgroundTransparency):toBe(0)
@@ -2654,6 +2655,11 @@ return function(verifyHarness: Verify.Harness)
 							end
 						end
 						Verify.expect(priority(".facet-button:Hover") > priority(".facet-button")):toBe(true)
+						for _, state in { ":Hover", ":Press" } do
+							local disabled = ".facet-menu-destructive.facet-disabled" .. state
+							Verify.expect(style(sheet, disabled).BackgroundTransparency):toBe(1)
+							Verify.expect(priority(disabled) > priority(".facet-menu-destructive" .. state)):toBe(true)
+						end
 						Verify.expect(priority(".facet-quiet-destructive") > priority(".facet-appearance-utility"))
 							:toBe(true)
 						Verify.expect(

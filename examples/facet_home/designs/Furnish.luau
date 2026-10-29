@@ -152,8 +152,8 @@ local function Furnish(UI: Facet.Controls, props: Props): GuiObject
 				wrap = true,
 			},
 			UI.Table "FurnitureInventory" {
+				Size = UDim2.new(1, 0, 0, 340),
 				columns = furnitureInventoryColumns,
-				height = 340,
 				itemSize = 76,
 				onActivate = function(...)
 					if props.onChooseFurniture then
@@ -185,7 +185,6 @@ local function Furnish(UI: Facet.Controls, props: Props): GuiObject
 						},
 					}
 				end,
-				width = "fill",
 				from = props.inventoryRows,
 				key = "id",
 			},

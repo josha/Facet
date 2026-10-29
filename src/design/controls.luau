@@ -1049,10 +1049,9 @@ local controls: { [string]: Types.ControlSpec } = {
 				record { id = "three", label = "Third item" }
 			),
 			gap = 6,
-			height = 220,
 			itemSize = 44,
 			key = "id",
-			width = 320,
+			Size = list(0, 320, 0, 220),
 		},
 		fields = {
 			from = { type = "value", label = "Rows", order = 1, format = "json" },
@@ -1070,8 +1069,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			reorderable = { type = "boolean", label = "Reorder rows", order = 9 },
 			deletable = { type = "boolean", label = "Delete rows", order = 10 },
-			width = { type = "value", label = "Width", order = 11, format = "nativeWidth" },
-			height = { type = "number", label = "Height", order = 12 },
 			BackgroundColor3 = { type = "color", label = "Background color", order = 13, format = "color" },
 			BackgroundTransparency = { type = "number", label = "Background transparency", order = 14 },
 			Visible = { type = "boolean", label = "Visible", order = 15 },
@@ -1837,10 +1834,9 @@ local controls: { [string]: Types.ControlSpec } = {
 				record { id = "one", label = "First item", score = 120 },
 				record { id = "two", label = "Second item", score = 95 }
 			),
-			height = 240,
 			itemSize = 44,
 			key = "id",
-			width = 320,
+			Size = list(0, 320, 0, 240),
 		},
 		fields = {
 			from = { type = "value", label = "Rows", order = 1, format = "json" },
@@ -1850,8 +1846,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			headerHeight = { type = "number", label = "Header height", order = 5 },
 			header = { type = "boolean", label = "Show header", order = 6 },
 			alternatingRows = { type = "boolean", label = "Alternating rows", order = 7 },
-			width = { type = "value", label = "Width", order = 8, format = "nativeWidth" },
-			height = { type = "number", label = "Height", order = 9 },
 			BackgroundColor3 = { type = "color", label = "Background color", order = 10, format = "color" },
 			BackgroundTransparency = { type = "number", label = "Background transparency", order = 11 },
 			Visible = { type = "boolean", label = "Visible", order = 12 },
@@ -2109,10 +2103,9 @@ local controls: { [string]: Types.ControlSpec } = {
 				record { id = "three", label = "Third item" }
 			),
 			gap = 6,
-			height = 220,
 			itemSize = 80,
 			key = "id",
-			width = 320,
+			Size = list(0, 320, 0, 220),
 		},
 		fields = {
 			from = { type = "value", label = "Items", order = 1, format = "json" },
@@ -2127,8 +2120,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 7,
 				options = { "none", "single", "multiple" },
 			},
-			width = { type = "value", label = "Width", order = 8, format = "nativeWidth" },
-			height = { type = "number", label = "Height", order = 9 },
 			BackgroundColor3 = { type = "color", label = "Background color", order = 10, format = "color" },
 			BackgroundTransparency = { type = "number", label = "Background transparency", order = 11 },
 			Visible = { type = "boolean", label = "Visible", order = 12 },
@@ -2163,10 +2154,9 @@ local controls: { [string]: Types.ControlSpec } = {
 				record { id = "three", label = "Third item" }
 			),
 			gap = 6,
-			height = 220,
 			itemSize = 44,
 			key = "id",
-			width = 320,
+			Size = list(0, 320, 0, 220),
 		},
 		fields = {
 			from = { type = "value", label = "Rows", order = 1, format = "json" },
@@ -2182,8 +2172,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			reorderable = { type = "boolean", label = "Reorder rows", order = 7 },
 			deletable = { type = "boolean", label = "Delete rows", order = 8 },
-			width = { type = "value", label = "Width", order = 9, format = "nativeWidth" },
-			height = { type = "number", label = "Height", order = 10 },
 			BackgroundColor3 = { type = "color", label = "Background color", order = 11, format = "color" },
 			BackgroundTransparency = { type = "number", label = "Background transparency", order = 12 },
 			Visible = { type = "boolean", label = "Visible", order = 13 },

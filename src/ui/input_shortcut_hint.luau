@@ -121,14 +121,29 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				"Facet.ShortcutHint: action must be a native InputAction"
 			)
 			local binding = ctx.observe.PreferredBinding(action)
+			local input = ctx.effectiveInput()
+			local function shown(use: ComposeTypes.Use): InputBinding?
+				local value = use(binding)
+				if not value or input(use) ~= "Gamepad" then
+					return value
+				end
+				local key = value.KeyCode
+				local name = if key then key.Name else ""
+				local pad = string.find(name, "^Button") ~= nil
+					or string.find(name, "^DPad") ~= nil
+					or string.find(name, "^Thumbstick") ~= nil
+				return if pad then value else nil
+			end
 			local p = props(spec :: Shared.GuiObjectNativeProps, semantic, {
 				Size = D2.fromOffset(0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
-				BackgroundTransparency = if spec.cap == false then 1 else 0,
+				BackgroundTransparency = function(use: ComposeTypes.Use): number
+					return if spec.cap == false or shown(use) == nil then 1 else 0
+				end,
 			})
 			p[#p + 1] = Compose.keyed({
 				from = function(use: ComposeTypes.Use)
-					local value = use(binding)
+					local value = shown(use)
 					local list: { InputBinding } = if value then { value } else {}
 					return list
 				end,

@@ -5128,6 +5128,33 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps a full-screen alert layout inside the theme's panel insets", {
+			id = "native_navigation::native navigation controls::keeps a full-screen alert layout inside the theme's panel insets",
+			run = function()
+				local shown = Compose.cell(false)
+				local themes = require("../src/ui/themes")(Compose)
+				local package = themes.neutralPackage()
+				package.chrome =
+					{ panel = { kind = "native", contentInsets = { left = 14, right = 14, top = 14, bottom = 14 } } }
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame({
+						UI.Alert({
+							isPresented = shown,
+							title = "Detail",
+							surface = "fullScreen" :: "fullScreen",
+						}),
+					})
+				end, { theme = assert(themes.define(package)) })
+				local V2 = world.engine.types.Vector2
+				shown:set(true)
+				local modal = find(world.screen, "AlertModal")
+				world.engine.environment.poke(modal, "AbsoluteSize", V2.new(800, 600))
+				Verify.expect(find(world.screen, "AlertLayout").Size)
+					:toBe(world.engine.types.UDim2.fromOffset(800 - 28, 600 - 28))
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("expands a source rectangle into full screen and reverses the same Compose-owned snapshot", {
 			id = "native_navigation::native navigation controls::expands a source rectangle into full screen and reverses the same Compose-owned snapshot",
 			run = function()

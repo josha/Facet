@@ -10,6 +10,11 @@ return function(ctx: Context): GuiObject
 	local Compose, Host, UI = ctx.Compose, ctx.Host, ctx.UI
 	local D2, D, V2, C3, E = ctx.D2, ctx.D, ctx.V2, ctx.C3, ctx.E
 	local gameModel = ctx.model.flap
+	local env = UI.environment()
+	local function prompt(use: Use): string
+		local input = use(env.effectiveInput)
+		return if input == "Gamepad" then "Press A" elseif input == "Touch" then "Tap" else "Press Space"
+	end
 	local state = gameModel.state
 	local width, height, tile = flight.WIDTH, flight.HEIGHT, flight.TILE
 	local ink = C3.fromRGB(30, 53, 62)
@@ -170,9 +175,9 @@ return function(ctx: Context): GuiObject
 			text("FlightHint", function(use: Use)
 				local phase = use(state).phase
 				return if phase == "over"
-					then `Score {use(state).score}  ·  Tap to try again`
-					elseif phase == "paused" then "Tap or press Space to resume"
-					else "Tap or press Space to fly"
+					then `Score {use(state).score}  ·  {prompt(use)} to try again`
+					elseif phase == "paused" then `{prompt(use)} to resume`
+					else `{prompt(use)} to fly`
 			end, 17, D2.fromScale(0.06, 0.56), D2.fromScale(0.88, 0.2)),
 		},
 		Host.TextButton "FlapTouch" {
@@ -214,7 +219,9 @@ return function(ctx: Context): GuiObject
 				}
 			),
 			UI.Text "FlightInstructions" {
-				text = "Tap / Space · Fly through the gaps",
+				text = function(use: Use): string
+					return `{prompt(use)} · Fly through the gaps`
+				end,
 				textRole = "caption",
 				role = "secondary",
 				TextWrapped = true,

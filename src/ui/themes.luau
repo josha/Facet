@@ -744,13 +744,21 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-appearance-utility:Hover", { BackgroundTransparency = 0, BackgroundColor3 = c("controlHover") })
 	rule(".facet-appearance-utility:Press", { BackgroundTransparency = 0, BackgroundColor3 = c("controlPressed") })
 	local function tintInk(opacity: number)
-		local accent, surface = assert(resolved("accent")), assert(resolved("surface"))
-		local tint = types.Color3.new(
-			surface.R + (accent.R - surface.R) * opacity,
-			surface.G + (accent.G - surface.G) * opacity,
-			surface.B + (accent.B - surface.B) * opacity
-		)
-		return if contrast(accent, tint) >= 4.5 then c("accent") else c("content")
+		local accent = assert(resolved("accent"))
+		for _, role in { "surface", "surfaceStrong" } do
+			local surface = resolved(role)
+			if surface then
+				local tint = types.Color3.new(
+					surface.R + (accent.R - surface.R) * opacity,
+					surface.G + (accent.G - surface.G) * opacity,
+					surface.B + (accent.B - surface.B) * opacity
+				)
+				if contrast(accent, tint) < 4.5 then
+					return c("content")
+				end
+			end
+		end
+		return c("accent")
 	end
 	local softInk = tintInk(0.2)
 	rule(
@@ -1027,7 +1035,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-segment-current >> .facet-button-caption", { TextColor3 = c("onAccent") })
 	rule(".facet-segment-current >> .facet-icon", { ImageColor3 = c("onAccent") })
 	rule(".facet-menu-destructive >> .facet-text", { TextColor3 = c("danger") })
-	rule(".facet-appearance-soft >> .facet-text", { TextColor3 = c("accent") })
+	rule(".facet-appearance-soft >> .facet-text", { TextColor3 = softInk })
 	rule(".facet-appearance-link >> .facet-text", { TextColor3 = linkInk })
 	rule(".facet-quiet-destructive >> .facet-text", { TextColor3 = c("danger") })
 	rule(".facet-menu-item::UICorner", {
@@ -1044,6 +1052,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(".facet-menu-destructive" .. state .. " >> .facet-button-caption", { TextColor3 = c("onDanger") })
 		rule(".facet-menu-destructive" .. state .. " >> .facet-text", { TextColor3 = c("onDanger") })
 		rule(".facet-menu-destructive" .. state .. " >> .facet-icon", { ImageColor3 = c("onDanger") })
+	end
+	for _, state in { "", ":Hover", ":Press" } do
+		local selector = ".facet-menu-destructive.facet-disabled" .. state
+		rule(selector, { BackgroundTransparency = 1 })
+		rule(selector .. " >> .facet-button-caption", { TextColor3 = c("content") })
+		rule(selector .. " >> .facet-text", { TextColor3 = c("content") })
+		rule(selector .. " >> .facet-icon", { ImageColor3 = c("content") })
 	end
 	rule(".facet-choice-current >> .facet-text", { TextColor3 = c("accent") })
 	rule(".facet-tab-filled >> .facet-text", { TextColor3 = c("onAccent") })

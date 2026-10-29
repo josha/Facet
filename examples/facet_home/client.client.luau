@@ -259,8 +259,7 @@ local stop = runtime.mount(function()
 				appearance = function(use: Use)
 					return if use(route) == name then "soft" else "utility"
 				end,
-				AutomaticSize = Enum.AutomaticSize.None,
-				Size = UDim2.new(0.2, -7, 0, 44),
+				Size = UDim2.fromOffset(0, 44),
 				LayoutOrder = index,
 				onActivate = function()
 					enter(name)
@@ -276,7 +275,7 @@ local stop = runtime.mount(function()
 		AnchorPoint = function(use: Use)
 			return if use(immersive) then Vector2.zero else Vector2.new(0.5, 0)
 		end,
-		Size = UDim2.new(1, -24, 1, -76),
+		Size = UDim2.new(1, -24, 1, -112),
 		Host.UISizeConstraint {
 			MaxSize = function(use: Use)
 				return Vector2.new(if use(immersive) then 600 else 720, 100000)
@@ -288,6 +287,7 @@ local stop = runtime.mount(function()
 			BackgroundTransparency = 1,
 			Host.UIListLayout {
 				FillDirection = Enum.FillDirection.Horizontal,
+				HorizontalFlex = Enum.UIFlexAlignment.Fill,
 				Padding = UDim.new(0, 8),
 				SortOrder = Enum.SortOrder.LayoutOrder,
 			},
@@ -344,7 +344,6 @@ local stop = runtime.mount(function()
 				return if use(panelOpen) then "Explore" else "Open Home"
 			end,
 			appearance = "emphasis",
-			Size = UDim2.fromOffset(118, 44),
 			onActivate = function()
 				if panelOpen:peek() then
 					explore()
