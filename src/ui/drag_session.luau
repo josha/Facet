@@ -1012,6 +1012,9 @@ return function(ctx: Types.Context): Drag.Service
 				active.previewSize = source.AbsoluteSize * lift
 				ghost.Position = localPoint(ghost, (created).position or (created).origin)
 				active.ghost = ghost
+				if liftedVisual and spec.liftCarry then
+					spec.liftCarry()
+				end
 				local liftValue = spec.liftValue
 				if liftValue then
 					local stopLift = ctx.runtime.mountFragment(function()

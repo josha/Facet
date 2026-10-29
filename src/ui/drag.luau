@@ -124,6 +124,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		if lift then
 			ownedSpec.liftValue = lift.value
 			ownedSpec.liftVisual = lift.visual
+			ownedSpec.liftCarry = lift.carry
 		end
 		ownedSpec.valid = function()
 			return enabled(nil) and (spec.valid == nil or spec.valid())

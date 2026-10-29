@@ -11,7 +11,8 @@ The first row holds Back, `leading` and a `center` that fills the remaining
 width. Without `center`, the title shows on one line and truncates. `trailing`
 is one GuiObject. Put a cluster in a Frame. The title and the trailing node
 stay on one row when the full title fits beside the trailing node. When the
-full title does not fit, the trailing node moves to a second row. If the
+full title does not fit, the trailing node moves to a second row. The bar keeps
+its row form while an ancestor `FacetTransitionZoom` is not 1. If the
 trailing cluster is wider than the bar, it scrolls horizontally. Its first
 action stays inside the bar, and later actions are available by scrolling. Without a
 title, the bar uses `controls.popup.panelWidth` as the minimum center width. The

@@ -476,6 +476,32 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps its row form while an ancestor transition zoom is in flight", {
+			id = "native_notice_navbar::native NavBar: the slot form::keeps its row form while an ancestor transition zoom is in flight",
+			run = function()
+				local w = mount(function(UI: FacetControls, Host: RobloxHost)
+					return UI.NavBar "Top" {
+						title = "Shop",
+						trailing = Host.Frame({ Name = "Tools", UI.Button "Close" { label = "Close" } }),
+					}
+				end)
+				local bar = w.find("Top")
+				local layout = bar:FindFirstChildWhichIsA("UIListLayout")
+				w.engine.environment.poke(w.find("TitleMeasure"), "TextBounds", w.Vector2.new(70, 24))
+				w.size(w.find("Trailing"), 40, 40)
+				w.size(bar, 300, 40)
+				Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
+				local page = w.find("Page")
+				page:SetAttribute("FacetTransitionZoom", 0.8)
+				w.size(bar, 90, 40)
+				Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
+				page:SetAttribute("FacetTransitionZoom", 1)
+				w.size(bar, 91, 40)
+				Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Vertical)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("shows Back while a boolean onBack cell is true and writes false", {
 			id = "native_notice_navbar::native NavBar: the slot form::shows Back while a boolean onBack cell is true and writes false",
 			run = function()

@@ -746,12 +746,22 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				end
 			end
 			local natural = if titleMeasure then ctx.observe.TextBounds(titleMeasure) else nil
+			local decided = false
 			Compose.watch(function(use: ComposeTypes.Use)
 				local scale = use(unit)
 				local width = use(box).X / scale
 				if width <= 0 or use(sides).X <= 0 then
 					return
 				end
+				local at: Instance? = root
+				while decided and at do
+					local zoom: unknown = at:GetAttribute("FacetTransitionZoom")
+					if type(zoom) == "number" and zoom ~= 1 then
+						return
+					end
+					at = at.Parent
+				end
+				decided = true
 				local fixed = 0
 				for _, part in before do
 					if use(part.shown) then

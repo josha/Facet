@@ -8,6 +8,7 @@ export type SourceSpec = Env.DraggableSpec & {
 	returnPosition: (() -> Vector2)?,
 	liftValue: Shared.ReadOnlyValue<number>?,
 	liftVisual: GuiObject?,
+	liftCarry: (() -> ())?,
 }
 export type Proposal = Env.DropInfo & { invalid: string? }
 export type TargetOptions = {

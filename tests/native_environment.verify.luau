@@ -1016,6 +1016,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(card.TextTransparency):toBe(1)
 					Verify.expect(transform.Scale):toBe(scale)
 					Verify.expect(ghost.Size):toBe(D2.fromOffset(100, 40))
+					Verify.expect(card:FindFirstChild("PressLift", true).Scale):toBe(1)
 					local left = ghost.Position.X.Offset - ghost.AnchorPoint.X * 100 * scale
 					local top = ghost.Position.Y.Offset - ghost.AnchorPoint.Y * 40 * scale
 					Verify.expect(
@@ -1026,6 +1027,7 @@ return function(verifyHarness: Verify.Harness)
 					w.engine.environment.step(0.1)
 					Verify.expect(transform.Scale):toBe(1.25)
 					Verify.expect(card.Size):toBe(D2.fromOffset(100, 40))
+					Verify.expect(card:FindFirstChild("PressLift", true).Scale):toBe(1)
 					stop()
 					w.stop()
 				end,
