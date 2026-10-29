@@ -871,10 +871,15 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					return
 				end
 				local target = if type(appear) == "string" then named(appear) else first()
-				if target then
-					gui.SelectedObject = target
-				elseif appear == true then
-					gui:Select(group)
+				local placed = pcall(function()
+					if target then
+						gui.SelectedObject = target
+					elseif appear == true then
+						gui:Select(group)
+					end
+				end)
+				if not placed then
+					layer = nil
 				end
 			end
 			runtime.connect(group, "AncestryChanged", claim)
