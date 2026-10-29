@@ -15,8 +15,11 @@ the viewport. The control uses one UIScale and native scrolling.
   `maxZoom` is 4 by default. `minZoom` cannot exceed `maxZoom`.
 - `doubleTapZoom`: the closer scale for a double tap. The default is twice
   fit, bounded by `maxZoom`. Double tap toggles fit and that scale around the
-  contact point on the board background. Buttons, text boxes, nested scrollers
-  and active child surfaces own their taps; rapid activation does not zoom.
+  contact point. Text boxes, nested scrollers and active child surfaces own their
+  taps. A button on the board activates on the first tap of a double tap and the
+  second tap zooms. Set the `FacetOwnsTaps` attribute to true on a button whose
+  second tap has its own meaning, such as inspect then buy; rapid taps on it
+  activate it and do not zoom.
 - `enabled`: a boolean or readable, default true.
 - `followTransition`: true scales the shown board with the zoom of the page
   transition around it, so a `transition = { scale = 0.5 }` page grows the

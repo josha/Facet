@@ -514,7 +514,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 							node:IsA("GuiObject")
 							and (
 								node:IsA("ScrollingFrame")
-								or (tap and (node:IsA("TextBox") or (node.Active and not node:IsA("GuiButton"))))
+								or (
+									tap
+									and (
+										node:IsA("TextBox")
+										or node:GetAttribute("FacetOwnsTaps") == true
+										or (node.Active and not node:IsA("GuiButton"))
+									)
+								)
 							)
 						then
 							return false

@@ -5,6 +5,7 @@ type Use = <T>(ReadOnlyValue<T>) -> T
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 type ZoomControls = typeof(require("@repo/tools/typecheck/aliases").ZoomControls)
+type Attributes = typeof(require("@repo/tools/typecheck/aliases").Attributes)
 type Role = "caption" | "label" | "body" | "heading" | "title" | "control" | "strong" | "numeral"
 local model = require("./model")
 type Node = model.Node
@@ -285,6 +286,7 @@ return function(ctx: Context)
 			BorderSizePixel = 0,
 		}
 		local button = UI.Button("Skill_" .. node.id) {
+			Attributes = { FacetOwnsTaps = true } :: Attributes,
 			name = text("inspect", { name = text(node.id .. "Name") }),
 			SelectionImageObject = C.static(selectionImage),
 			label = "",
