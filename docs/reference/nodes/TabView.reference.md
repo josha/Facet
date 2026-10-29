@@ -16,3 +16,8 @@ Open:
 - [TabView.indicator](TabView.indicator.md)
 - [TabView.selection](TabView.selection.md)
 - [TabView.tabBottomTrack](TabView.tabBottomTrack.md)
+
+A sidebar rail starts below the engine top bar when the TabView reaches the
+top edge of a ScreenGui that does not reserve the top bar, for example under
+`ScreenInsets = DeviceSafeInsets`. Pages beside the rail keep their own
+`Screen` clearance.

@@ -542,6 +542,32 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
+		verifyHarness:case("keeps a sidebar rail below the engine top bar when the page reaches the top edge", {
+			id = "native_content_navigation::native content navigation deltas::keeps a sidebar rail below the engine top bar when the page reaches the top edge",
+			run = function()
+				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.TabView({
+						selection = Compose.cell("home"),
+						placement = "sidebar" :: "sidebar",
+						tabs = tabList(Host),
+					})
+				end, { motionLevel = "none" })
+				local engine = world.engine
+				local T = engine.types
+				engine.environment.fakeOn(world.gui, "GetGuiInset", function()
+					return T.Vector2.new(0, 87), T.Vector2.zero
+				end)
+				local view = world.find("TabView")
+				world.resize(view, 749, 381)
+				engine.environment.poke(view, "AbsolutePosition", T.Vector2.new(0, -87))
+				engine.environment.poke(world.gui, "TopbarInset", T.Rect.new(246, 0, 749, 87))
+				Verify.expect(world.find("TabBand").Position.Y.Offset):toBe(87)
+				engine.environment.poke(world.gui, "TopbarInset", T.Rect.new(0, 0, 0, 0))
+				Verify.expect(world.find("TabBand").Position.Y.Offset):toBe(0)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("clips its tab strip only while the tabs overflow, so a tab's chrome shadow is not cut", {
 			id = "native_content_navigation::native content navigation deltas::clips its tab strip only while the tabs overflow, so a tab's chrome shadow is not cut",
 			run = function()
