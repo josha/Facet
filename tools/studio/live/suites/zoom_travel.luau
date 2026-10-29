@@ -384,7 +384,9 @@ local function recycleSetup(t: Live): RecycleState
 			Position = UDim2.fromOffset(160, 160),
 			render = function(current): GuiObject
 				local slot = UI.Button { Name = `Target{current:peek()}`, label = "Slot", ClipsDescendants = true }
-				targets[current:peek()] = slot
+				C.watch(function(use)
+					targets[use(current)] = slot
+				end)
 				return slot
 			end,
 		}
