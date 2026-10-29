@@ -75,7 +75,7 @@ local function check(spec: Nav.Transition | false?)
 	assert(type(spec) == "table", "Facet transition must be a table or false")
 	for key in spec do
 		assert(
-			table.find({ "seconds", "ease", "motion", "fade", "progress", "apply", "scale" }, tostring(key)),
+			table.find({ "seconds", "ease", "motion", "fade", "progress", "apply", "scale", "zoom" }, tostring(key)),
 			"Unknown Facet transition option: " .. tostring(key)
 		)
 	end
@@ -88,6 +88,11 @@ local function check(spec: Nav.Transition | false?)
 		"Transition.scale must be true or a positive finite number"
 	)
 	assert(spec.scale == nil or spec.apply == nil, "Transition.scale and Transition.apply cannot be combined")
+	assert(
+		spec.zoom == nil or type(spec.zoom) == "number" and spec.zoom > 0 and spec.zoom <= 1,
+		"Transition.zoom must be a number above 0 and at most 1"
+	)
+	assert(spec.zoom == nil or spec.apply == nil, "Transition.zoom and Transition.apply cannot be combined")
 end
 
 local function create(
@@ -102,7 +107,7 @@ local function create(
 ): Motion
 	check(spec)
 	local C = ctx.Compose
-	local zooms = spec.scale ~= nil
+	local zooms = spec.scale ~= nil or spec.zoom ~= nil
 	local shaped = zooms and spec.ease == nil
 	local preset = if zooms and spec.motion == nil then "zoomPresent" else spec.motion or "tabFade"
 	local level = motion.level(ctx)
@@ -158,7 +163,7 @@ local function create(
 	end)
 	local scale: Types.ReadOnlyValue<number>? = nil
 	local zoom: Types.ReadOnlyValue<number>? = nil
-	local authored = spec.scale
+	local authored = spec.zoom or spec.scale
 	if authored ~= nil then
 		local growth = C.formula(function(use: Types.Use): number
 			return if animates(use) then shape("zoomScale", use(amount), use) else 1
@@ -171,7 +176,9 @@ local function create(
 			return if grown >= 1 then 1 else from + (1 - from) * grown
 		end)
 		zoom = zoomed
-		if holdOnExit then
+		if spec.scale == nil then
+			scale = nil
+		elseif holdOnExit then
 			local departing: Types.Value<number?> = C.cell(nil :: number?)
 			C.watch(function(use: Types.Use)
 				if use(presented) then

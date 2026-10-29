@@ -4140,6 +4140,36 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "spread (distribute)", props = properties { distribute = "spaceBetween" } },
 		},
 	},
+	layoutSize = {
+		host = "VStack",
+		family = "layout",
+		alias = "Layout size",
+		purpose = "Reads a node's size in layout pixels, ignoring UIScale above it and holding still while a page zooms.",
+		snippet = "local size = UI.layoutSize(panel)",
+		base = function()
+			return {}
+		end,
+		make = function(UI: FacetControls): Instance
+			local panel = UI.VStack {
+				Name = "Measured",
+				width = 240,
+				gap = "xs",
+				UI.Button({ label = "Measured panel" }),
+			}
+			local size = UI.layoutSize(panel)
+			return UI.VStack {
+				gap = "s",
+				panel,
+				UI.Text {
+					Name = "LayoutSizeReadout",
+					text = function(use: Use): string
+						local value = use(size)
+						return `Layout size {math.round(value.X)} x {math.round(value.Y)}`
+					end,
+				},
+			}
+		end,
+	},
 	focusRing = {
 		host = "TabView",
 		family = "navigation",

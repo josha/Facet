@@ -125,11 +125,15 @@ return function(ctx: Types.Context): PageLayers
 			holdOnExit
 		)
 		local content: Frame? = nil
-		if transition.apply then
+		local pageZoom = if transition.zoom ~= nil then moving.zoom else nil
+		if transition.apply or pageZoom then
 			content = Host.Frame {
 				Name = "TransitionContent",
 				BackgroundTransparency = 1,
+				AnchorPoint = if pageZoom then ctx.types.Vector2.new(0.5, 0.5) else nil,
+				Position = if pageZoom then ctx.types.UDim2.fromScale(0.5, 0.5) else nil,
 				Size = ctx.types.UDim2.fromScale(1, 1),
+				if pageZoom then Host.UIScale "TransitionZoom" { Scale = pageZoom } else nil,
 			}
 			local children: { Types.Child } = {}
 			local entries = (properties :: unknown) :: { [unknown]: unknown }
@@ -157,8 +161,12 @@ return function(ctx: Types.Context): PageLayers
 				and use(state).top
 				and not use(moving.interacting)
 				and (
-					(transition.apply == nil and transition.progress == nil and transition.scale == nil)
-					or use(moving.opacity) == 1
+					(
+						transition.apply == nil
+						and transition.progress == nil
+						and transition.scale == nil
+						and transition.zoom == nil
+					) or use(moving.opacity) == 1
 				)
 		end
 		local panel = ctx.fade(properties, nil, if properties.BackgroundTransparency == 1 then false else nil)

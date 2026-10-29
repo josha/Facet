@@ -449,6 +449,75 @@ return function(h: Verify.Harness)
 		Verify.expect(leaving < settled):toBe(true)
 		w.stop()
 	end)
+	h:case(
+		"a zoom split page grows its detail from the zoom around its center and leaves the sidebar unscaled",
+		function()
+			local column = Facet.Compose.cell("sidebar" :: "sidebar" | "detail")
+			local shown = Facet.Compose.cell(false)
+			local roots: { VerifyRoblox.Instance } = {}
+			local w = worlds.new(
+				function(UI: Facet.Controls)
+					return UI.NavigationSplitView {
+						preferredCompactColumn = column,
+						detailVisible = shown,
+						detailLabel = false,
+						compactBack = Facet.Compose.cell(false),
+						transition = { zoom = 0.5 },
+						sidebar = function(): Instance
+							return UI.Button "Row" { label = "Row" }
+						end,
+						detail = function(): Instance
+							return UI.Button "Board" { label = "Board" }
+						end,
+					}
+				end,
+				nil,
+				{
+					layout = {
+						roots = function()
+							return roots
+						end,
+						viewport = function()
+							return { X = 400, Y = 700 }
+						end,
+					},
+				}
+			)
+			table.insert(roots, w.screen)
+			local layout = assert(w.layout)
+			layout.step()
+			w.runtime:batch(function()
+				shown:set(true)
+				column:set("detail")
+			end)
+			local function zoomIn(name: string): number?
+				local pane = w.find(name)
+				local scale = if pane then w.find("TransitionZoom", pane) else nil
+				return if scale then scale.Scale :: number else nil
+			end
+			local smallest = math.huge
+			for _ = 1, 90 do
+				w.engine.heartbeat:Fire(1 / 60)
+				layout.step()
+				smallest = math.min(smallest, zoomIn("Detail") or math.huge)
+				Verify.expect(zoomIn("Sidebar")):toBe(nil)
+			end
+			Verify.expect(math.abs(smallest - 0.5) < 0.05):toBe(true)
+			Verify.expect(zoomIn("Detail")):toBe(1)
+			local content = assert(w.find("TransitionContent", w.find("Detail")))
+			Verify.expect(content.AnchorPoint):toBe(w.engine.types.Vector2.new(0.5, 0.5))
+			column:set("sidebar")
+			shown:set(false)
+			local leaving = 1
+			for _ = 1, 12 do
+				w.engine.heartbeat:Fire(1 / 60)
+				layout.step()
+				leaving = math.min(leaving, zoomIn("Detail") or leaving)
+			end
+			Verify.expect(leaving < 0.9):toBe(true)
+			w.stop()
+		end
+	)
 	local stallTheme = assert(Facet.themes.define({ metrics = { motion = { frameLimit = 0.05 } } }))
 	local function preparedSplit(stalls: boolean?)
 		local column = Facet.Compose.cell("sidebar" :: "sidebar" | "detail")

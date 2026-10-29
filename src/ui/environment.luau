@@ -740,6 +740,24 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	end
 
 	UI.responder = ctx.responder
+	UI.layoutSize = function(node: GuiBase2d): ComposeTypes.ReadOnlyValue<Vector2>
+		assert(Compose.currentOwner() ~= nil, "Facet UI.layoutSize must run inside a component or Compose owner")
+		local measured = ctx.layoutSize(node)
+		local held: Vector2? = nil
+		return Compose.formula(function(use: ComposeTypes.Use): Vector2
+			local size = use(measured)
+			local at: Instance? = node
+			while at do
+				local zoom: unknown = at:GetAttribute("FacetTransitionZoom")
+				if held and type(zoom) == "number" and zoom ~= 1 then
+					return held
+				end
+				at = at.Parent
+			end
+			held = size
+			return size
+		end)
+	end
 	local SECTION_KEYS = { entry = true, preferred = true, focusOnAppear = true, returnFocus = true }
 	UI.focusSection = function(group: GuiObject, options: Env.FocusSectionOptions?)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.focusSection must run inside a component or Compose owner")

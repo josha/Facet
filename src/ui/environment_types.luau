@@ -141,6 +141,7 @@ export type EnvironmentControls = {
 	focusRing: (playerGui: PlayerGui) -> Frame,
 	focusSection: (group: GuiObject, options: FocusSectionOptions?) -> (),
 	responder: (root: Instance, options: ResponderOptions?) -> Responder,
+	layoutSize: (node: GuiBase2d) -> Types.ReadOnlyValue<Vector2>,
 	gestureArbiter: (surface: Instance) -> Gesture.Binding,
 	draggable: (source: DropDestination, spec: DraggableSpec) -> (),
 	dropTarget: (target: DropDestination, spec: DropTargetSpec) -> (),
