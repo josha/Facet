@@ -7,7 +7,6 @@ local PickerState = require("./color_picker_state")
 
 type Use = ComposeTypes.Use
 type Item = Kit.Item
-type Paint = Kit.Paint
 export type Swatches = { swatchesView: () -> Frame, brickView: () -> Frame }
 
 local GAP, SPACE = Kit.GAP, Kit.SPACE
@@ -163,8 +162,8 @@ return function(
 						state.commit()
 					end
 				end,
-				kit.swatch("Swatch", D2.fromScale(1, 1), function(use: Use): Paint
-					return { color = use(source).color, alpha = 1 }
+				kit.solid("Swatch", D2.fromScale(1, 1), function(use: Use): Color3
+					return use(source).color
 				end) :: Shared.Child,
 				Compose.show(function(use: Use): boolean
 					return chosen(use) and not (removable and use(editing))

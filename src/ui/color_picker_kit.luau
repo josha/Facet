@@ -19,6 +19,7 @@ export type Kit = {
 	DARK: Color3,
 	normalize: (unknown) -> ({ Item }?, string?),
 	ring: (string) -> Frame,
+	solid: (string, Shared.Input<UDim2>, (Use) -> Color3) -> Frame,
 	swatch: (string, Shared.Input<UDim2>, (Use) -> Paint) -> Frame,
 }
 
@@ -192,6 +193,19 @@ local function new(ctx: Shared.Context): Kit
 		)
 	end
 
+	local function solid(name: string, edge: Shared.Input<UDim2>, fill: (Use) -> Color3): Frame
+		return ctx.styled(
+			Host.Frame(name)({
+				Size = edge,
+				BorderSizePixel = 0,
+				BackgroundColor3 = fill,
+				ctx.corner(),
+				Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),
+			}),
+			"color-swatch"
+		)
+	end
+
 	return {
 		chrome = chrome,
 		color = color,
@@ -201,6 +215,7 @@ local function new(ctx: Shared.Context): Kit
 		DARK = DARK,
 		normalize = normalize,
 		ring = ring,
+		solid = solid,
 		swatch = swatch,
 	}
 end
