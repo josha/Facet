@@ -152,6 +152,10 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 							and number(styled(child, "ImageTransparency"), 0) < 0.9
 						),
 				}
+				local hasUnfit, unfit = call(child, "GetAttribute", "FacetUnfit")
+				if hasUnfit and type(unfit) == "string" and unfit ~= "" then
+					element.unfit = unfit
+				end
 				if isA(child, "TextLabel") or isA(child, "TextButton") or isA(child, "TextBox") then
 					local face = styled(child, "FontFace")
 					local weight = number(read(read(face, "Weight"), "Value"), 400)

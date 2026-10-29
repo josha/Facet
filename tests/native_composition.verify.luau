@@ -186,6 +186,25 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("Composition", function()
+		verifyHarness:case("names the regions that would not fit a phone on a larger screen", {
+			id = "native_composition::Composition::names the regions that would not fit a phone on a larger screen",
+			run = function()
+				local root, engine, stop = actionRow({ captions = false })
+				sized(engine, root:FindFirstChild("Zones"), 1920, 1080)
+				Verify.expect(root:GetAttribute("FacetUnfit")):toBeNil()
+				sized(engine, root:FindFirstChild("Circles", true), 330, 44)
+				sized(engine, root:FindFirstChild("Race", true), 200, 44)
+				local unfit = tostring(root:GetAttribute("FacetUnfit"))
+				Verify.expect(root:GetAttribute("FacetUnfit") ~= nil):toBe(true)
+				Verify.expect(string.find(unfit, "358 by 812: Actions, Go", 1, true) ~= nil):toBe(true)
+				Verify.expect((string.find(unfit, "812 by 358", 1, true))):toBeNil()
+				sized(engine, root:FindFirstChild("Circles", true), 156, 44)
+				sized(engine, root:FindFirstChild("Race", true), 80, 44)
+				Verify.expect(root:GetAttribute("FacetUnfit")):toBeNil()
+				stop()
+			end,
+		})
+
 		verifyHarness:case("keeps every zone inside the TV safe area when it is the screen root", {
 			id = "native_composition::Composition::keeps every zone inside the TV safe area when it is the screen root",
 			run = function()

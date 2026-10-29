@@ -134,24 +134,30 @@ UI.Composition "Hub" {
         UI.Label { title = credits, icon = "coin", textSize = "numeral" },
         UI.Label { title = gems, icon = "gem", textSize = "numeral" },
     } },
-    UI.Region "Destinations" { zone = "bottomLeft", rank = 2, UI.HStack { gap = "l",
-        UI.Button "Garage" { icon = "car", shape = "circle", caption = "Garage", onActivate = openGarage },
-        UI.Button "Shop" { icon = "bag", shape = "circle", caption = "Shop", onActivate = openShop },
-        UI.Button "Upgrades" { icon = "wrench", shape = "circle", caption = "Upgrades", onActivate = openUpgrades },
-        UI.Button "Rewards" { icon = "gift", shape = "circle", caption = "Rewards", onActivate = openRewards },
-    } },
+    UI.Region "Destinations" { zone = "bottomLeft", rank = 2,
+        UI.HStack { gap = "l", circle("Garage", "car", openGarage), circle("Shop", "bag", openShop),
+            circle("Rewards", "gift", openRewards), circle("Menu", "menu", openMenu) },
+        UI.HStack { gap = "l", circle("Garage", "car", openGarage), circle("Menu", "menu", openMenu) },
+    },
     UI.Region "Race" { zone = "bottomRight", rank = 1,
-        UI.Button "Race" { label = "ENTER RACE", subtitle = "2 laps", appearance = "emphasis", controlSize = "large", onActivate = queue } },
+        UI.Button "Race" { label = "ENTER RACE", subtitle = "2 laps", appearance = "emphasis", controlSize = "large", onActivate = queue },
+        UI.Button "Race" { label = "RACE", appearance = "emphasis", onActivate = queue } },
 }
 ```
+
+`circle(name, icon, open)` returns
+`UI.Button(name) { icon = icon, shape = "circle", caption = name, onActivate = open }`.
+Each form is a separate tree, so build each Button once for each form.
 
 - On touch the bottom padding lifts every bottom region above the thumbstick
   and Jump; Facet does not measure them. Facet.review reports a control on
   Jump as `touch-control-overlap`.
 - Give a ready reward a `Badge` on its destination. A welcome or status line
   is a `Toast`, not text in the centre of the view.
-- In portrait, keep two or three destinations and put the rest behind one
-  Menu circle; a region's second form is its compact form.
+- Give every bottom corner region a compact second form. On a portrait
+  phone the two bottom corners share one row, and a region without a smaller
+  form overlaps its neighbor. Run `Facet.review.screen().text` on any screen
+  size: `composition-unfit` names the regions that do not fit a phone.
 
 ## Shop and other catalogues
 

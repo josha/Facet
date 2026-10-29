@@ -35,6 +35,7 @@ summary).
 | `lopsided-page` | On a screen 900 or more wide, a full-width surface with 85% or more of its content in one half. |
 | `floating-text` | Three or more texts with no plate behind them, straight on the world. |
 | `touch-control-overlap` | On a touch screen, a HUD control outside any scroll view and any large panel that covers a fifth or more of the place where Roblox draws Jump. |
+| `composition-unfit` | A Composition whose regions would not fit a 358 by 812 or an 812 by 358 phone area at their last form. The detail names the regions. |
 | `stranded-content` | Content that uses less than 40% of a large surface and sits to one side. |
 
 A finding is a prompt to look, not a verdict. A rule can find a deliberate

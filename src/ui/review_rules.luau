@@ -22,6 +22,7 @@ export type ReviewElement = {
 	fillTransparency: number,
 	image: boolean,
 	text: ReviewText?,
+	unfit: string?,
 }
 export type ReviewSnapshot = { width: number, height: number, elements: { ReviewElement }, touch: boolean? }
 export type ReviewSeverity = "high" | "medium" | "low"
@@ -69,6 +70,7 @@ local FIXES: { [string]: string } = table.freeze({
 	["lopsided-page"] = 'The page content sits on one side of a wide surface and leaves the other side empty. Center a bounded column (width = "fill" with maxWidth, align = "center" on the Screen), or use the room for a second pane such as the selected item\'s detail.',
 	["floating-text"] = "Several texts sit straight on the 3D world with no plate, so the scene shows through and they collide with signs and bright objects. Group HUD readouts on a panel surface, or give each a stroke.",
 	["touch-control-overlap"] = "A control covers the place where Roblox draws the Jump button on touch screens. On touch, raise the bottom of the Composition above the thumb controls with bottom padding, or move the control.",
+	["composition-unfit"] = "A HUD Composition does not fit a phone screen: the named regions overlap there even at their last form. Give each of them a compact second form, such as one Menu circle for the destinations, or mayDrop = true for an optional region.",
 	["stranded-content"] = "The content fills a small part of a large surface and sits to one side. Bound the surface to its content or use the space for the subject.",
 })
 
@@ -851,6 +853,12 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 				quote(clean(textOf(floating[1]).content))
 			)
 		)
+	end
+
+	for _, element in snapshot.elements do
+		if element.unfit then
+			add("composition-unfit", "high", element, `does not fit {element.unfit}`)
+		end
 	end
 
 	if snapshot.touch == true then

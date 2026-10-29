@@ -36,6 +36,7 @@ local EXPAND_EDGE: { Overlay.Edge } = { "trailing", "bottom", "leading" }
 local ENGINE_BUTTON = 44
 local ENGINE_MARGIN = 2
 local SETTLE_PASSES = 30
+local PHONES: { { X: number, Y: number } } = { { X = 358, Y = 812 }, { X = 812, Y = 358 } }
 local OUTSIDE = "facet-button-outside"
 
 local function lowered(moved: resolver.Shift, column: number, row: number): number
@@ -1020,6 +1021,26 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				list,
 				if band and strip and strip.X > 0 then band else nil
 			)
+			local unfit: { string } = {}
+			for _, phone in PHONES do
+				if extent.X > phone.X or extent.Y > phone.Y then
+					local _, _, _, missed = resolver.resolve(phone.X, phone.Y, kit.spacing(gap, use), list, nil)
+					if #missed > 0 then
+						local names: { string } = {}
+						for _, index in missed do
+							table.insert(names, regions[index].Name)
+						end
+						table.insert(
+							unfit,
+							`{math.floor(phone.X)} by {math.floor(phone.Y)}: {table.concat(names, ", ")}`
+						)
+					end
+				end
+			end
+			local verdict = if #unfit > 0 then table.concat(unfit, "; ") else nil
+			if root:GetAttribute("FacetUnfit") ~= verdict then
+				root:SetAttribute("FacetUnfit", verdict)
+			end
 			local before = landed:peek()
 			local same = #before == #down
 			for index, value in down do
