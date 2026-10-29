@@ -967,7 +967,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			local area = UI.environment(stage)
 			c.app.runtime.decorate(stage, {
 				Size = function(use: Use)
-					return UDim2.new(1, 0, 0, math.max(use(area.viewportSize).X, 240) + 64)
+					local lean = math.abs(math.sin(math.rad(p.rotation or 0)))
+					return UDim2.new(1, 0, 0, math.ceil(math.max(use(area.viewportSize).X, 240) * lean) + 64)
 				end,
 			})
 			return stage
@@ -2973,10 +2974,30 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				sidebarWidth = c.cell("width", 320),
 				sidebarHeight = c.cell("height", 220),
 				sidebar = function(): Instance
-					return c.UI.Button { label = "Files" }
+					local rows: StackProps = { width = "fill", gap = "xs", padding = "s" }
+					for index, name in { "Files", "Coast 001.png", "Canyon 002.png", "Forest 003.mat" } do
+						rows[#rows + 1] = c.UI.Button {
+							label = name,
+							appearance = if index == 1 then "standard" else "utility",
+							Size = UDim2.fromScale(1, 0),
+						}
+					end
+					return c.UI.VStack(rows)
 				end,
 				detail = function(): Instance
-					return c.UI.Button { label = "Linked files" }
+					return c.UI.VStack {
+						width = "fill",
+						gap = "s",
+						padding = "m",
+						c.UI.Text { text = "Linked files", textRole = "heading" },
+						c.UI.Text {
+							text = "Files that reference the selection appear here. Drag the divider to resize the panes.",
+							textRole = "body",
+							role = "secondary",
+							wrap = true,
+						},
+						c.UI.Button { label = "Linked files" },
+					}
 				end,
 			}
 		end,
@@ -3969,7 +3990,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		family = "collections",
 		demonstrates = VIRTUAL_DEMOS,
 		cellWidth = 460,
-		cellHeight = 220,
+		cellHeight = 148,
 		alias = "Grid (virtualized)",
 		purpose = "Windowed grid of cells for large collections.",
 		alternatives = "UI.Grid for a few cells.",

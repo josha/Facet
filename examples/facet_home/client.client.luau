@@ -69,13 +69,21 @@ local function explore()
 	immersive:set(true)
 	panelOpen:set(false)
 end
+type Visitor = { id: number, name: string }
+local visitors = Compose.cell({} :: { Visitor })
 local function updatePresence()
-	local names = {}
+	local list: { Visitor } = {}
 	for _, visitor in players:GetPlayers() do
-		table.insert(names, visitor.DisplayName .. (if visitor == player then " (you)" else ""))
+		table.insert(list, {
+			id = visitor.UserId,
+			name = visitor.DisplayName .. (if visitor == player then " (you)" else ""),
+		})
 	end
-	table.sort(names)
-	presence:set(table.concat(names, "\n"))
+	table.sort(list, function(a: Visitor, b: Visitor): boolean
+		return a.name < b.name
+	end)
+	visitors:set(list)
+	presence:set(if #list <= 1 then "Just you here for now." else `{#list} people are here.`)
 end
 local connections = {
 	players.PlayerAdded:Connect(updatePresence),
@@ -236,6 +244,37 @@ local stop = runtime.mount(function()
 			action(root, "Garden", explore)
 		elseif name == "People" then
 			text(root, "Presence", presence)
+			local anchor = assert(root:FindFirstChild("Presence", true)) :: GuiObject
+			local list = UI.VStack "Visitors" {
+				width = "fill",
+				gap = "s",
+				LayoutOrder = anchor.LayoutOrder,
+				Compose.keyed({
+					from = visitors,
+					key = function(visitor: Visitor): number
+						return visitor.id
+					end,
+					render = function(current: ReadOnlyValue<Visitor>, index: ReadOnlyValue<number>): GuiObject
+						return UI.HStack "Visitor" {
+							gap = "s",
+							align = "center",
+							LayoutOrder = index,
+							UI.Avatar "Face" {
+								name = current:peek().name,
+								userId = if current:peek().id > 0 then current:peek().id else nil,
+								diameter = 40,
+							},
+							UI.Text "Name" {
+								text = function(use: Use): string
+									return use(current).name
+								end,
+								textRole = "body",
+							},
+						}
+					end,
+				}),
+			}
+			list.Parent = anchor.Parent
 			action(root, "ExploreNeighborhood", explore)
 		elseif name == "Settings" then
 			action(root, "TogglePalette", function()
