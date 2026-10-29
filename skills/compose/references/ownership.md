@@ -1,7 +1,7 @@
 # Ownership and structure
 
-- [Ownership](https://github.com/voidmeld/compose/blob/e4fcb69b238929d042726b16f44d2d25278bb7b4/docs/ownership.md): node custody, disposal and failed-build cleanup.
-- [Reactivity](https://github.com/voidmeld/compose/blob/e4fcb69b238929d042726b16f44d2d25278bb7b4/docs/reactive.md): dependency tracking and scheduling.
-- [Structural API](https://github.com/voidmeld/compose/blob/e4fcb69b238929d042726b16f44d2d25278bb7b4/docs/api.md#structure): conditional branches and collections.
+- [Ownership](https://github.com/voidmeld/compose/blob/6b50d4967f1ac710c1c58d74545960d038f22b1f/docs/ownership.md): node custody, disposal and failed-build cleanup.
+- [Reactivity](https://github.com/voidmeld/compose/blob/6b50d4967f1ac710c1c58d74545960d038f22b1f/docs/reactive.md): dependency tracking and scheduling.
+- [Structural API](https://github.com/voidmeld/compose/blob/6b50d4967f1ac710c1c58d74545960d038f22b1f/docs/api.md#structure): conditional branches and collections.
 
 Choose the resource owner before you build the scene. Components return composition. The root controls their lifetime.

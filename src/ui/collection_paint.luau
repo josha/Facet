@@ -10,42 +10,49 @@ return function(
 	rest: boolean?
 ): ComposeTypes.ReadOnlyValue<boolean>
 	local size = ctx.observe.AbsoluteSize(root)
+	local function painted(node: Instance): boolean
+		if node:IsA("GuiObject") then
+			if not node.Visible then
+				return true
+			end
+			if node:GetAttribute("FacetBuilt") == false then
+				return false
+			end
+			if node:IsA("ViewportFrame") and node:GetAttribute("FacetMediaReady") == false then
+				return false
+			end
+			if
+				(node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox"))
+				and node.Text ~= ""
+				and node.TextTransparency < 1
+			then
+				if textMeasure.pending(node) then
+					return false
+				end
+				local box, bounds = node.AbsoluteSize, node.TextBounds
+				if box.X <= 0 or box.Y <= 0 or bounds.X <= 0 or bounds.Y <= 0 then
+					return false
+				end
+			end
+		end
+		for _, child in node:GetChildren() do
+			if not painted(child) then
+				return false
+			end
+		end
+		return true
+	end
 	local function sample(): boolean
 		local box = root.AbsoluteSize
 		if box.X <= 0 or box.Y <= 0 then
 			return false
 		end
-		local filled = true
-		for _, node in root:GetDescendants() do
-			if node:IsA("GuiObject") then
-				local visible = node.Visible
-				local parent = node.Parent
-				while visible and parent and parent ~= root do
-					if parent:IsA("GuiObject") then
-						visible = parent.Visible
-					end
-					parent = parent.Parent
-				end
-				if visible then
-					filled = filled
-						and node:GetAttribute("FacetBuilt") ~= false
-						and (not node:IsA("ViewportFrame") or node:GetAttribute("FacetMediaReady") ~= false)
-					if
-						(node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox"))
-						and node.Text ~= ""
-						and node.TextTransparency < 1
-					then
-						filled = filled
-							and not textMeasure.pending(node)
-							and node.AbsoluteSize.X > 0
-							and node.AbsoluteSize.Y > 0
-							and node.TextBounds.X > 0
-							and node.TextBounds.Y > 0
-					end
-				end
+		for _, child in root:GetChildren() do
+			if not painted(child) then
+				return false
 			end
 		end
-		return filled
+		return true
 	end
 	if rest and ctx.runtime.host.frames and not sample() then
 		return ctx.runtime.settled {
@@ -57,21 +64,37 @@ return function(
 				return box.X > 0 and box.Y > 0
 			end,
 			ready = sample,
-			sample = function(): string
-				local values = { tostring(root.AbsoluteSize) }
+			sample = function(): { number }
+				local values: { number } = {}
+				local function add(vector: Vector2)
+					table.insert(values, vector.X)
+					table.insert(values, vector.Y)
+				end
+				add(root.AbsoluteSize)
 				local parent = root.Parent
 				if parent and parent:IsA("GuiObject") then
-					table.insert(values, tostring(parent.AbsoluteSize))
+					add(parent.AbsoluteSize)
 				end
 				for _, node in root:GetDescendants() do
 					if node:IsA("GuiObject") then
-						table.insert(values, tostring(node.AbsoluteSize))
+						add(node.AbsoluteSize)
 						if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-							table.insert(values, tostring(node.TextBounds))
+							add(node.TextBounds)
 						end
 					end
 				end
-				return table.concat(values, "|")
+				return values
+			end,
+			equals = function(left: { number }, right: { number }): boolean
+				if #left ~= #right then
+					return false
+				end
+				for index, value in left do
+					if right[index] ~= value then
+						return false
+					end
+				end
+				return true
 			end,
 		}
 	end
