@@ -16,6 +16,7 @@ local presentationReadiness = require("./presentation_readiness")
 local glass = require("./glass")
 local gameplayHold = require("./gameplay_hold")
 local entryUpgrade = require("./entry_upgrade")
+local preparation = require("./preparation")
 
 return function(
 	ctx: Types.Context,
@@ -427,12 +428,12 @@ return function(
 						})
 					end
 					if prepares and not timing then
-						panel:SetAttribute("FacetPreparing", true)
+						preparation.begin(ctx, panel)
 						local ready = presentationReadiness(ctx, { destinationFrame, navigationBar })
 						Compose.watch(function(use: ComposeTypes.Use)
 							if use(ready) then
 								prepared:set(true)
-								panel:SetAttribute("FacetPreparing", false)
+								preparation.finish(ctx, panel)
 								entering:set(false)
 								fading:set(false)
 							end

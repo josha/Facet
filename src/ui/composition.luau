@@ -12,6 +12,7 @@ local presentationReadiness = require("./presentation_readiness")
 local regionPresence = require("./region_presence")
 local extentMatch = require("./extent_match")
 local reservations = require("./reservations")
+local preparation = require("./preparation")
 
 type Declared = {
 	zone: Layout.Zone,
@@ -635,7 +636,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		runtime.connect(root, "AncestryChanged", placed)
 		if preparing then
 			ctx.fadeTo(root, 1)
-			root:SetAttribute("FacetPreparing", true)
+			preparation.begin(ctx, root)
 			local roots: { GuiObject } = {}
 			for _, region in regions do
 				table.insert(roots, region)
@@ -644,7 +645,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(ready) then
 					ctx.fadeTo(root, 0)
-					root:SetAttribute("FacetPreparing", false)
+					preparation.finish(ctx, root)
 				end
 			end)
 		end

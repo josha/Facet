@@ -4,6 +4,7 @@ local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local transitions = require("./transition")
 local presentationReadiness = require("./presentation_readiness")
+local preparation = require("./preparation")
 
 export type PageLayers = {
 	content: <P>(Instance | ((Nav.NavigationEntry<P>?) -> Instance), Nav.NavigationEntry<P>?) -> Instance,
@@ -183,11 +184,11 @@ return function(ctx: Types.Context): PageLayers
 		end
 		if not arrived:peek() and runtime.host.frames then
 			local ready = presentationReadiness(ctx, { panel })
-			panel:SetAttribute("FacetPreparing", true)
+			preparation.begin(ctx, panel)
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(ready) then
 					arrived:set(true)
-					panel:SetAttribute("FacetPreparing", false)
+					preparation.finish(ctx, panel)
 				end
 			end)
 		end
