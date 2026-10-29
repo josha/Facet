@@ -380,6 +380,16 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 				end)
 			end
 			local changed = destination ~= next
+			if not changed and not moving and parent == next then
+				local at: Instance? = next
+				while at do
+					local zoom: unknown = at:GetAttribute("FacetTransitionZoom")
+					if type(zoom) == "number" and zoom ~= 1 then
+						return
+					end
+					at = at.Parent
+				end
+			end
 			destination = next
 			if moving and not changed then
 				target = bounds(destination)

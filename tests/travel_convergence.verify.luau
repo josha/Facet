@@ -446,6 +446,40 @@ return function(harness: Verify.Harness)
 			t:expect(nodes[index].Position.X.Offset):toBe(slots[index].AbsolutePosition.X)
 		end
 	end)
+	harness:case("landed content keeps its size while an ancestor transition zoom is in flight", function(t)
+		local native = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(native)
+		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local screen, page, slot = native.new("ScreenGui"), native.new("Frame"), native.new("Frame")
+		screen.Parent, page.Parent, slot.Parent = native.new("Folder"), screen, page
+		native.new("UIScale").Parent = page
+		native.environment.poke(slot, "AbsoluteSize", native.types.Vector2.new(44, 44))
+		local node: TextLabel
+		local stop = runtime.mount(function()
+			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
+			return UI.Travel {
+				destination = slot,
+				content = function(): GuiObject
+					node = Host.TextLabel { Text = "E" }
+					return node
+				end,
+			}
+		end, page)
+		t:defer(function()
+			stop()
+			runtime:dispose()
+		end)
+		t:expect(node.Parent == slot):toBe(true)
+		local rest = node.Size
+		page:SetAttribute("FacetTransitionZoom", 0.6)
+		native.environment.poke(slot, "AbsoluteSize", native.types.Vector2.new(26, 31))
+		native.heartbeat:Fire(1 / 60)
+		t:expect(node.Size):toBe(rest)
+		page:SetAttribute("FacetTransitionZoom", 1)
+		native.environment.poke(slot, "AbsoluteSize", native.types.Vector2.new(40, 40))
+		native.heartbeat:Fire(1 / 60)
+		t:expect(node.Size):toBe(native.types.UDim2.fromOffset(40, 40))
+	end)
 	harness:case("landed content stays above the slot button", function(t)
 		local native = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(native)
