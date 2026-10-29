@@ -6037,6 +6037,10 @@ for _, name in { "VirtualList", "VirtualGrid", "Outline" } do
 		matrix = false,
 	})
 	table.insert(assert(PAGE_DATA[name].states), {
+		name = "rows that arrive rise into place",
+		props = properties { arrival = "rise" },
+	})
+	table.insert(assert(PAGE_DATA[name].states), {
 		name = "reserved key slot",
 		props = properties {
 			slots = if name == "Outline" then { "folder", "reserved" } else { "1", "reserved", "2" },
