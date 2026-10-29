@@ -217,13 +217,29 @@ return {
 					UI.ZStack "Showroom" {
 						Size = paneSize,
 						AutomaticSize = E.AutomaticSize.None,
-						UI.fill(3),
+						Host.UIFlexItem {
+							FlexMode = E.UIFlexMode.Custom,
+							GrowRatio = function(use: Use): number
+								return if use(wide) then 3 else 2
+							end,
+							ShrinkRatio = function(use: Use): number
+								return if use(wide) then 3 else 2
+							end,
+						},
 						stage,
 					},
 					UI.ScrollView "Inspector" {
 						Size = paneSize,
 						AutomaticSize = E.AutomaticSize.None,
-						UI.fill(2),
+						Host.UIFlexItem {
+							FlexMode = E.UIFlexMode.Custom,
+							GrowRatio = function(use: Use): number
+								return if use(wide) then 2 else 3
+							end,
+							ShrinkRatio = function(use: Use): number
+								return if use(wide) then 2 else 3
+							end,
+						},
 						gap = "m",
 						UI.Picker "VehicleLineup" { label = "Vehicle", selected = vehicle, options = rides },
 						UI.Slider "Turntable" {

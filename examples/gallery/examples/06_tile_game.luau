@@ -937,6 +937,7 @@ function example.build(ctx: ExampleContext): Built
 			)
 		end
 		return UI.Screen "TileGame" {
+			align = "center",
 			UI.ScrollView "Page" {
 				gap = "s",
 				align = "stretch",

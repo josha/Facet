@@ -384,7 +384,11 @@ return function(ctx: Context): (GuiObject, GuiObject)
 				Compose.show(function(use: Use)
 					return not use(short)
 				end, function()
-					return quiet("Hint", "Ask a question or try a prompt below.", "body")
+					return quiet("Hint", function(use: Use): string
+						return if use(width) < 420 and not use(promptUsed)
+							then "Start from a prompt below, then edit it before you send."
+							else "Ask a question or try a prompt below."
+					end, "body")
 				end),
 			},
 		}
@@ -518,7 +522,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 		align = "leading",
 		featureUsed = promptUsed,
 		isPresented = function(use: Use)
-			return #use(chat.messages) == 0 and not use(promptUsed) and not use(short)
+			return #use(chat.messages) == 0 and not use(promptUsed) and not use(short) and use(width) >= 420
 		end,
 		onRetire = function()
 			promptUsed:set(true)

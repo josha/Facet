@@ -2668,6 +2668,12 @@ return function(verifyHarness: Verify.Harness)
 							end
 						end
 						Verify.expect(priority(".facet-button:Hover") > priority(".facet-button")):toBe(true)
+						Verify.expect(style(sheet, ".facet-disabled >> .facet-toggle-indicator").BackgroundTransparency)
+							:toBe(extra.disabledContentOpacity)
+						Verify.expect(
+							priority(".facet-disabled >> .facet-toggle-indicator") > priority(".facet-toggle-indicator")
+						)
+							:toBe(true)
 						for _, state in { ":Hover", ":Press" } do
 							local disabled = ".facet-menu-destructive.facet-disabled" .. state
 							Verify.expect(style(sheet, disabled).BackgroundTransparency):toBe(1)

@@ -86,14 +86,28 @@ return function(
 					local extent, origin = ctx.observe.AbsoluteSize(layer), ctx.observe.AbsolutePosition(layer)
 					local column = ctx.column({
 						body(spec.content),
+						ctx.padding(16, 16),
+					}, { Name = "ExpandedBody", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+					local footer = ctx.column({
 						Compose.show(function(use: ComposeTypes.Use)
 							return read(spec.dismissButton, use) ~= false or use(preferred) == E.PreferredInput.Gamepad
 						end, function()
 							return UI.Button "Close" { label = "Close", onActivate = collapse }
 						end),
-						ctx.padding(16, 16),
-					}, { Name = "ExpandedBody", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+						Host.UIPadding {
+							PaddingLeft = ctx.types.UDim.new(0, 16),
+							PaddingRight = ctx.types.UDim.new(0, 16),
+							PaddingBottom = ctx.types.UDim.new(0, 16),
+						},
+					}, {
+						Name = "ExpandedFooter",
+						AnchorPoint = V2.new(0, 1),
+						Position = D2.fromScale(0, 1),
+						Size = D2.new(1, 0, 0, 0),
+						AutomaticSize = E.AutomaticSize.Y,
+					})
 					local natural = ctx.observe.AbsoluteSize(column)
+					local footerSize = ctx.observe.AbsoluteSize(footer)
 					local chrome = Compose.cell(V2.zero)
 					local target = Compose.formula(function(use: ComposeTypes.Use): Overlay.Rect
 						local room, offset, at, box = use(extent), use(origin), use(rootAt), use(rootBox)
@@ -102,8 +116,10 @@ return function(
 							math.max(box.X, (ctx.metric("controls.popup.panelWidth", use))),
 							math.max(0, room.X - 2 * margin)
 						)
-						local h =
-							math.min(math.max(use(natural).Y + use(chrome).Y, box.Y), math.max(0, room.Y - 2 * margin))
+						local h = math.min(
+							math.max(use(natural).Y + use(footerSize).Y + use(chrome).Y, box.Y),
+							math.max(0, room.Y - 2 * margin)
+						)
 						local x, y = at.X - offset.X, at.Y - offset.Y
 						return {
 							x = math.clamp(x, margin, math.max(margin, room.X - margin - w)),
@@ -134,7 +150,9 @@ return function(
 						Host.ScrollingFrame "ExpandedScroll" {
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
-							Size = D2.fromScale(1, 1),
+							Size = function(use: ComposeTypes.Use)
+								return D2.new(1, 0, 1, -use(footerSize).Y)
+							end,
 							CanvasSize = function(use: ComposeTypes.Use)
 								return D2.fromOffset(0, use(natural).Y)
 							end,
@@ -144,6 +162,7 @@ return function(
 							Selectable = false,
 							column,
 						},
+						footer,
 					}
 					local plate = surfaces.skin(ctx.styled(
 						ctx.fade {
@@ -183,7 +202,7 @@ return function(
 					end)
 					surfaces.atRest(function()
 						return 0
-					end, prepared, { plate, fade, column, content })
+					end, prepared, { plate, fade, column, footer, content })
 					local modal = surfaces.modal(
 						function()
 							return plate

@@ -271,6 +271,19 @@ return function(
 					AutomaticSize = E.AutomaticSize.Y,
 				})
 				assert(content:FindFirstChildWhichIsA("UIListLayout")).HorizontalFlex = E.UIFlexAlignment.Fill
+				local body = Host.ScrollingFrame {
+					Name = "CalloutBody",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = D2.new(1, 0, 0, 0),
+					CanvasSize = D2.new(),
+					AutomaticCanvasSize = E.AutomaticSize.Y,
+					ScrollingDirection = E.ScrollingDirection.Y,
+					ScrollBarThickness = 4,
+					VerticalScrollBarInset = E.ScrollBarInset.None,
+					Selectable = false,
+					content,
+				}
 				local panel = ctx.styled(
 					ctx.fade {
 						Name = "CalloutPanel",
@@ -280,7 +293,7 @@ return function(
 						Size = D2.fromOffset(280, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						ctx.corner(),
-						content,
+						body,
 					},
 					"callout"
 				)
@@ -291,8 +304,8 @@ return function(
 				local layer = assert(surfaces.parent(spec.anchor))
 				local extent = ctx.observe.AbsoluteSize(layer)
 				local origin = ctx.observe.AbsolutePosition(layer)
-				local sizes, rested = surfaces.atRest(presence.travel, settled, { panel })
-				local measured = sizes[1]
+				local sizes, rested = surfaces.atRest(presence.travel, settled, { panel, content })
+				local measured, natural = sizes[1], sizes[2]
 				local function held(use: ComposeTypes.Use): Vector2?
 					return if use(rested) and presence.travel(use) < 1 then use(measured) else nil
 				end
@@ -300,6 +313,21 @@ return function(
 				local function lift(use: ComposeTypes.Use): number
 					return 8 + (if tailed then parts.tailDepth(ctx, use) else 0)
 				end
+				runtime.decorate(body, {
+					Size = function(use: ComposeTypes.Use)
+						local gutter = ctx.metric("space.s", use)
+						local top = use(position).Y - use(origin).Y
+						local bottom = top + use(size).Y
+						local gap = lift(use)
+						local edge = read(spec.edge, use)
+						local room = if edge == "left" or edge == "right"
+							then use(extent).Y - gutter * 2
+							else math.max(top - gap - gutter, use(extent).Y - bottom - gap - gutter)
+						local pad = ctx.metric("space.m", use)
+						local chrome = surfaces.inset(pad, "top", nil, use) + surfaces.inset(pad, "bottom", nil, use)
+						return D2.new(1, 0, 0, math.max(0, math.min(use(natural).Y, room - chrome)))
+					end,
+				})
 				local function above(use: ComposeTypes.Use, floor: number): number
 					use(position)
 					local outermost = 0

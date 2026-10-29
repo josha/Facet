@@ -737,6 +737,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-toggle-on >> .facet-toggle-mark", { BackgroundColor3 = knob })
 	rule(".facet-toggle-check", { ImageColor3 = c("onSelection") })
 	rule(".facet-toggle-checkbox::UIStroke", { Color = c("contentSecondary"), Thickness = 1.5, Transparency = 0.2 })
+	local dimmed = extra.disabledContentOpacity or 0.4
+	rule(".facet-disabled >> .facet-toggle-indicator", { BackgroundTransparency = dimmed })
+	rule(".facet-disabled >> .facet-toggle-mark", { BackgroundTransparency = dimmed })
+	rule(".facet-disabled >> .facet-toggle-check", { ImageTransparency = dimmed })
+	rule(".facet-disabled >> .facet-toggle-checkbox::UIStroke", { Transparency = math.max(0.2, dimmed) })
 	rule(".facet-tooltip", { BackgroundColor3 = c("surfaceStrong"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(".facet-tooltip::UICorner", { CornerRadius = types.UDim.new(0, math.min(6, package.metrics.radii.control)) })
 	rule(".facet-tooltip::UIStroke", { Color = c("hairline"), Transparency = 0.4, Thickness = 1 })

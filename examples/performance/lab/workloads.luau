@@ -506,6 +506,10 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 						return size * use(state.textSize)
 					end,
 					Size = D2.new(1, 0, 0, 30),
+					BackgroundTransparency = 1,
+					TextColor3 = C3.fromRGB(230, 232, 238),
+					TextXAlignment = E.TextXAlignment.Left,
+					Host.UIPadding({ PaddingLeft = types.UDim.new(0, 12) }),
 				})
 			end
 			if name == "locale-textsize-change" then
