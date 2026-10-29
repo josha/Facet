@@ -1,7 +1,7 @@
 # Studio author workflow
 
-Use this workflow within the supplied time limit and tool boundary. It does not
-change the product requirements or provide additional time. Make persistent
+Use this workflow within the supplied tool boundary. It does not change the
+product requirements. Make persistent
 changes in Edit and test them in Play. Keep supplied libraries and documents
 unchanged.
 
@@ -34,13 +34,13 @@ toward the complete brief.
    Check choices and progression in the later tasks that consume them. Repeat
    representative routes with each required input and layout, including a live
    viewport change. Keep decisions, consequences and exits usable.
-   Reserve time for a final restart and the most important complete routes.
+   Keep the place working after each group of changes.
 5. If a tool times out, its action may still have occurred. Inspect state before
    repeating an action. If capture remains unavailable, do not claim visual
    review or spend the remaining attempt on identical retries. Continue useful
    functional checks and repairs with available tools. Report the missing visual
    evidence; do not assume access to tools outside the supplied boundary.
-6. Finish early only when the required work is ready or no useful work can
+6. Stop only when every requirement in the brief works or no useful work can
    proceed with the available tools. Before finishing, check the persistent
    result in a fresh Play session. State which routes you actually operated,
    what failed, and what remains untested or incomplete. Keep implementation,

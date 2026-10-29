@@ -1246,6 +1246,115 @@ handlers.wheel = function(request)
 	return { scrolled = true }
 end
 
+handlers.hold = function(request: Request): unknown
+	local names = request.keys
+	assert(type(names) == "table", "hold needs keys")
+	local seconds = tonumber(request.seconds)
+	assert(seconds ~= nil and seconds > 0 and seconds <= 30, "hold needs 0 to 30 seconds")
+	local codes: { Enum.KeyCode } = {}
+	for _, name in names :: { unknown } do
+		assert(type(name) == "string", "hold keys must be names")
+		table.insert(codes, keyCode(name))
+	end
+	local device = input()
+	for _, code in codes do
+		device:SendKey(true, code, false)
+	end
+	local ok, problem = pcall(task.wait, seconds)
+	for _, code in codes do
+		device:SendKey(false, code, false)
+	end
+	frames(2)
+	if not ok then
+		return { held = false, reason = tostring(problem) }
+	end
+	return { held = true, reason = "" }
+end
+
+handlers.steer = function(request: Request): unknown
+	local path = stringField(request, "path")
+	local raw = request.points
+	assert(type(raw) == "table", "steer needs centerline points")
+	local points: { Vector3 } = {}
+	for _, item in raw :: { unknown } do
+		assert(type(item) == "table", "steer points are { x, z }")
+		local pair = item :: { number }
+		table.insert(points, Vector3.new(pair[1], 0, pair[2]))
+	end
+	assert(#points >= 3, "steer needs at least three points")
+	local seconds = tonumber(request.seconds) or 20
+	local look = tonumber(request.look) or 3
+	local function resolve(): BasePart?
+		local item: Instance? = game
+		for part in string.gmatch(path, "[^%.]+") do
+			item = if item then item:FindFirstChild(part) else nil
+		end
+		if item and item:IsA("Model") then
+			return item.PrimaryPart or item:FindFirstChildWhichIsA("BasePart", true)
+		end
+		return if item and item:IsA("BasePart") then item else nil
+	end
+	local function nearest(position: Vector3): number
+		local flat = Vector3.new(position.X, 0, position.Z)
+		local best, index = math.huge, 1
+		for i, point in points do
+			local distance = (point - flat).Magnitude
+			if distance < best then
+				best, index = distance, i
+			end
+		end
+		return index
+	end
+	local device = input()
+	local held: { [Enum.KeyCode]: boolean } = {}
+	local function set(code: Enum.KeyCode, down: boolean)
+		if (held[code] == true) ~= down then
+			device:SendKey(down, code, false)
+			held[code] = down
+		end
+	end
+	local first = resolve()
+	assert(first, "steer could not find the kart at " .. path)
+	local startIndex = nearest(first.Position)
+	local startPosition = first.Position
+	local advanced = 0
+	local last = startIndex
+	local deadline = os.clock() + seconds
+	while os.clock() < deadline do
+		local root = resolve()
+		if root == nil then
+			break
+		end
+		local index = nearest(root.Position)
+		local step = (index - last) % #points
+		if step < #points / 2 then
+			advanced += step
+		else
+			advanced -= #points - step
+		end
+		last = index
+		local target = points[(index + look - 1) % #points + 1]
+		local offset = root.CFrame:VectorToObjectSpace(target - Vector3.new(root.Position.X, 0, root.Position.Z))
+		local angle = math.atan2(offset.X, -offset.Z)
+		set(Enum.KeyCode.W, true)
+		set(Enum.KeyCode.A, angle < -0.12)
+		set(Enum.KeyCode.D, angle > 0.12)
+		RunService.Heartbeat:Wait()
+	end
+	for code in held do
+		set(code, false)
+	end
+	frames(2)
+	local final = resolve()
+	return {
+		startIndex = startIndex,
+		endIndex = last,
+		advanced = advanced,
+		points = #points,
+		moved = if final then (final.Position - startPosition).Magnitude else 0,
+	}
+end
+
 handlers.reveal = function(request)
 	return reveal(queryOf(request.query), if request.mode == "touch" then "touch" else "wheel")
 end

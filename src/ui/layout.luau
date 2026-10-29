@@ -20,6 +20,67 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	local flowKeys =
 		{ "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface", "status", "corners" }
 	local PLATES: { [string]: string } = { surface = "facet-surface", panel = "facet-panel", pane = "facet-pane" }
+	type FillAxis = "x" | "y" | "none"
+	local function fills(children: { ComposeTypes.Child }): boolean
+		for _, child in children do
+			local node = child :: { IsA: unknown }
+			if type(child) ~= "function" and type(node.IsA) == "function" and (child :: Instance):IsA("UIFlexItem") then
+				return true
+			end
+		end
+		return false
+	end
+	local function withoutAxis(automatic: Enum.AutomaticSize, axis: FillAxis): Enum.AutomaticSize
+		if axis == "x" then
+			return if automatic == E.AutomaticSize.XY
+				then E.AutomaticSize.Y
+				elseif automatic == E.AutomaticSize.X then E.AutomaticSize.None
+				else automatic
+		elseif axis == "y" then
+			return if automatic == E.AutomaticSize.XY
+				then E.AutomaticSize.X
+				elseif automatic == E.AutomaticSize.Y then E.AutomaticSize.None
+				else automatic
+		end
+		return automatic
+	end
+	local function fillRoom(node: Frame, room: ComposeTypes.Value<FillAxis>)
+		local connections: { RBXScriptConnection } = {}
+		local function release()
+			for _, connection in connections do
+				connection:Disconnect()
+			end
+			table.clear(connections)
+		end
+		local function attach()
+			release()
+			local holder = node.Parent
+			if holder == nil or not holder:IsA("GuiObject") or holder:IsA("ScrollingFrame") then
+				room:set("none")
+				return
+			end
+			local layout = holder:FindFirstChildWhichIsA("UIListLayout")
+			if layout == nil then
+				table.insert(connections, holder.ChildAdded:Connect(attach))
+				room:set("none")
+				return
+			end
+			local function update()
+				local axis: FillAxis = if layout.FillDirection == E.FillDirection.Horizontal then "x" else "y"
+				local hug = holder.AutomaticSize
+				local free = hug == E.AutomaticSize.XY
+					or (axis == "x" and hug == E.AutomaticSize.X)
+					or (axis == "y" and hug == E.AutomaticSize.Y)
+				room:set(if free then "none" else axis)
+			end
+			table.insert(connections, layout:GetPropertyChangedSignal("FillDirection"):Connect(update))
+			table.insert(connections, holder:GetPropertyChangedSignal("AutomaticSize"):Connect(update))
+			update()
+		end
+		runtime.connect(node, "AncestryChanged", attach)
+		Compose.cleanup(release)
+		attach()
+	end
 	local function containerProps(spec: unknown, keys: { string }): { [unknown]: unknown }
 		local maxWidth = (spec :: { maxWidth: Types.ValueNumber? }).maxWidth
 		if maxWidth == nil then
@@ -137,7 +198,19 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			flow = table.clone(spec)
 			flow.padding = clearCorners(spec.padding, bend)
 		end
+		local room: ComposeTypes.Value<FillAxis>? = nil
+		if properties.AutomaticSize == nil and fills(children) then
+			local bounded = Compose.cell("none" :: FillAxis)
+			local _, automatic = kit.extent(flow, "hug", "hug")
+			properties.AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
+				return withoutAxis(read(automatic, use), use(bounded))
+			end
+			room = bounded
+		end
 		local frame = kit.stack(children, properties :: Engine.FrameNativeProps, flow, vertical)
+		if room then
+			fillRoom(frame, room)
+		end
 		if box then
 			local measured, size = box, ctx.layoutSize(frame, ctx.layoutUnit(frame, "CornerUnit"))
 			Compose.watch(function(use: ComposeTypes.Use)

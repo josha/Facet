@@ -61,10 +61,11 @@ the type at that boundary; do not cast the whole spec.
 | --- | --- |
 | Bounded paragraph | Parent width; `UI.Text { wrap = true }` |
 | Full-width button | Parent VStack `align = "stretch"`, or `Size = UDim2.new(1, 0, 0, 0)` |
-| Equal peer buttons in a row | `UI.fill()` inside each Button |
+| Equal peer buttons in a row | `UI.fill()` inside each Button; `HStack { width = "fill", wrap = true }` so a narrow row moves a button down instead of clipping its label |
 | Label and trailing value | `UI.Spacer {}` between them in a bounded HStack |
+| Wrapped text beside a badge or value | `UI.fill()` inside the wrapped Text; a Spacer cannot shrink a wrapped Text, which spans the row |
 | Two or three actions that may turn into a column | AdaptiveStack |
-| Many short choices | `HStack { width = "fill", wrap = true }` |
+| Many short choices | `HStack { width = "fill", wrap = true }`; a wrapping row without a width hugs its children and never wraps |
 | A page body | The page shell in [game screens](game-screens.md) |
 
 Stacks hug by default. `width`, `height`, `gap`, `padding` and `maxWidth` are

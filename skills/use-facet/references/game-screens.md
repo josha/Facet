@@ -79,6 +79,7 @@ app.mount(function()
             root = { content = function() return Hub(ctx) end },
             destinations = destinations },
         UI.Dialog "Confirm" { isPresented = confirmOpen, title = confirmTitle, actions = actions,
+            onPresentedChange = function(presented: boolean) confirmOpen:set(presented) end,
             content = function() return UI.Text { text = confirmTerms, wrap = true } end },
     }
 end)
@@ -204,10 +205,12 @@ UI.HStack "Body" { width = "fill", gap = "l", align = "start", UI.fill(),
     C.show(wide, function()
         return UI.VStack "Detail" { UI.fill(), surface = "panel", padding = "l", gap = "m",
             preview, -- UI.Stage, 240 to 280 tall
-            UI.Text { text = name, textRole = "title" },
+            UI.HStack "Title" { width = "fill", gap = "s", align = "center",
+                UI.Text { text = name, textRole = "title", wrap = true, UI.fill() },
+                UI.Badge "Rarity" { label = rarity } },
             UI.HStack "Stats" { gap = "xl", stat(speed, "top speed"), stat(steering, "steering"), stat(boost, "boost") },
             UI.Button "Choose" { label = "Race this kart", appearance = "emphasis", Size = UDim2.new(1, 0, 0, 0) },
-            UI.HStack "More" { gap = "s", tryButton, favoriteButton, upgradeButton },
+            UI.HStack "More" { width = "fill", wrap = true, gap = "s", tryButton, favoriteButton, upgradeButton }, -- each Button holds UI.fill()
         }
     end),
 }

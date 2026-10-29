@@ -7,10 +7,13 @@ Compare Plain Roblox with Facet using the same brief, model, tools, deadline,
 and device requirements. There are no smaller modes or follow-up author turns.
 
 The [brief](tasks/run/brief.md) contains the complete game requirements.
-The [suite](run.json) contains one task and two arms. Both authors use
-Sol 6.1 Medium. Each author gets one prompt and one fresh Studio place.
-Coding, reading guidance, tool calls, play checks, and self-correction all
-consume the same 1800-second window. No operator coaches either author.
+The [suite](run.json) contains one task, two arms and two author agents:
+`codex-sol` (Sol 6.1 Medium) and `claude-opus` (Opus 5.5 Medium). Select one
+author with `--agent ID`, so both arms of a pair use the same model. Each
+author gets one prompt and one fresh Studio place. Coding, reading guidance,
+tool calls, play checks, and self-correction all consume the same 1800-second
+window. The brief does not state the limit; the runner stops the author at the
+deadline. No operator coaches either author.
 
 ## Starting conditions
 
@@ -219,9 +222,9 @@ return. The [comparison cases](compare.luau) check these measurements, complete
 player-outcome coverage, author cost, capture coverage, and both judgment orders.
 Run them on the recorded pair with `lute run tools/facet facetbench compare`.
 Use `--evidence PATH` to select a different pair directory.
-Use `facetbench compare --suite PATH` to check that suite's author and judge
-identity and use its evidence directory. Without `--suite`, comparison keeps
-the canonical Sol identity. A comparison with different author models does
+Use `facetbench compare --suite PATH --agent ID` to check that author's identity
+and use the suite's evidence directory. `--judge-model ID` replaces the suite's
+judge model. Without `--suite`, comparison keeps the canonical Sol identity. A comparison with different author models does
 not pass the same-model requirement.
 The command writes the standard Verify report to
 `artifacts/facetbench/run/comparison.verify.json`. A missing pair fails.

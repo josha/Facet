@@ -49,10 +49,11 @@ factories return `Instance`; a NavBar trailing node can be stored in a
 | --- | --- |
 | Bounded paragraph | Parent width; `UI.Text { wrap = true }` |
 | Full-width primary button | Parent VStack `align = "stretch"` |
-| Equal peer buttons in a row | `UI.fill()` inside each Button |
+| Equal peer buttons in a row | `UI.fill()` inside each Button; `HStack { width = "fill", wrap = true }` so a narrow row moves a button down instead of clipping its label |
 | Label and trailing value | `UI.Spacer {}` between them in a bounded HStack |
+| Wrapped text beside a badge or value | `UI.fill()` inside the wrapped Text; a Spacer cannot shrink a wrapped Text, which spans the row |
 | Vertically centered content in a fixed-height row | HStack `align = "center"`; text alignment acts inside each label |
-| Two or three actions change row to column | AdaptiveStack; many short choices wrap in `HStack { wrap = true }` |
+| Two or three actions change row to column | AdaptiveStack; many short choices wrap in `HStack { width = "fill", wrap = true }`; without a width the row hugs and never wraps |
 | Alternative HUD forms | Stable Region with concrete, measurable forms |
 | Large browse area | Bounded VirtualList or VirtualGrid |
 | Button with record facts inside its plate | Bounded native `Size`, `label` and `subtitle`; `caption` is an external annotation that reserves no space |

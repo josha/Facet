@@ -1327,6 +1327,42 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
+			verifyHarness:case("lets a hugging fill stack take its size along a bounded parent row from the flex", {
+				id = "native_layout::VStack and HStack::lets a hugging fill stack take its size along a bounded parent row from the flex",
+				run = function()
+					local types = require("./lib/native_engine").types
+					local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
+						return UI.VStack {
+							UI.HStack {
+								Name = "Row",
+								width = "fill" :: "fill",
+								Host.Frame { Name = "List", Size = types.UDim2.fromOffset(380, 100) },
+								UI.VStack { Name = "Detail", UI.fill() :: unknown },
+								UI.VStack {
+									Name = "Authored",
+									AutomaticSize = types.Enum.AutomaticSize.XY,
+									UI.fill() :: unknown,
+								},
+							},
+							UI.HStack {
+								Name = "Hug",
+								UI.VStack { Name = "Grown", UI.fill() :: unknown },
+							},
+						}
+					end)
+					local AutomaticSize = engine.types.Enum.AutomaticSize
+					local row = root:FindFirstChild("Row")
+					local detail = row:FindFirstChild("Detail")
+					Verify.expect(detail.AutomaticSize):toBe(AutomaticSize.Y)
+					Verify.expect(row:FindFirstChild("Authored").AutomaticSize):toBe(AutomaticSize.XY)
+					Verify.expect(root:FindFirstChild("Hug"):FindFirstChild("Grown").AutomaticSize)
+						:toBe(AutomaticSize.XY)
+					row:FindFirstChildWhichIsA("UIListLayout").FillDirection = engine.types.Enum.FillDirection.Vertical
+					Verify.expect(detail.AutomaticSize):toBe(AutomaticSize.XY)
+					stop()
+				end,
+			})
+
 			verifyHarness:case(
 				"keeps a keyed child's rows in keyed order between their siblings, and a row's own LayoutOrder wins",
 				{
