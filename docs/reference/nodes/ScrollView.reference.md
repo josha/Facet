@@ -40,3 +40,8 @@ An authored initial `CanvasPosition` is retried when native canvas and window
 bounds arrive. This also applies to virtual collections. After the engine
 accepts the requested offset, later layout changes do not restore it. Touch,
 mouse press or mouse wheel input cancels a pending initial request.
+
+A ScrollView is a gamepad selection stop only while it holds no visible
+selectable descendant, so a directional move from a control inside it goes to
+the next control. A ScrollView of read-only content stays selectable so a
+gamepad can scroll it. An authored `Selectable` overrides this.
