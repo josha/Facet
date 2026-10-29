@@ -569,12 +569,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		local landedZone: Frame? = nil
 		local landedTrailing: Frame? = nil
+		local landedLeading: Frame? = nil
 		if #stripRegions > 0 then
 			landedZone = landingFrame("Landed", E.HorizontalAlignment.Center)
 			for _, region in stripRegions do
 				if declared[region].trailing and landedTrailing == nil then
 					landedTrailing = landingFrame("LandedTrailing", E.HorizontalAlignment.Right)
 					members.topRight = members.topRight or {}
+				end
+				if declared[region].leading and landedLeading == nil then
+					landedLeading = landingFrame("LandedLeading", E.HorizontalAlignment.Left)
+					members.topLeft = members.topLeft or {}
 				end
 			end
 		end
@@ -594,6 +599,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					then { landedZone, table.unpack(children) }
 					elseif zone == "topRight" and landedTrailing then {
 						landedTrailing,
+						table.unpack(children),
+					}
+					elseif zone == "topLeft" and landedLeading then {
+						landedLeading,
 						table.unpack(children),
 					}
 					else children,
@@ -759,7 +768,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					then leadingRow
 					elseif declared[region].trailing then trailingRow
 					else middleRow
-				local landing = if declared[region].trailing then assert(landedTrailing) else assert(landedZone)
+				local landing = if declared[region].trailing
+					then assert(landedTrailing)
+					elseif declared[region].leading then assert(landedLeading)
+					else assert(landedZone)
 				local order = assert(table.find(regions, region))
 				runtime.decorate(region, {
 					Parent = function(use: ComposeTypes.Use): Instance?

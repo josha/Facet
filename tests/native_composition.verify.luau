@@ -350,6 +350,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(trail.Parent.Name):toBe("LandedTrailing")
 				Verify.expect(trail.Parent.Parent.Name):toBe("TopRight")
 				Verify.expect(trail.Parent.LayoutOrder):toBe(0)
+				Verify.expect(lead.Parent.Name):toBe("LandedLeading")
+				Verify.expect(lead.Parent.Parent.Name):toBe("TopLeft")
 				runtime:dispose()
 			end,
 		})
