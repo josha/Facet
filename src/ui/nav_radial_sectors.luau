@@ -376,6 +376,42 @@ return function<V>(
 							end
 						end)
 						buttons[sector.key] = button
+						if spec.captions and appearance == "buttons" then
+							local words = ctx.text({
+								Name = "Text",
+								Text = function(use: ComposeTypes.Use): string
+									return read(currentSector(use).item.label, use) or ""
+								end,
+								Size = D2.fromOffset(0, 0),
+								AutomaticSize = E.AutomaticSize.XY,
+								TextWrapped = false,
+								Interactable = false,
+								ZIndex = 107,
+							})
+							words:AddTag("facet-type-caption")
+							surfaces.attach(button, {
+								ctx.styled(
+									Host.Frame({
+										Name = "ItemCaption",
+										AnchorPoint = V2.new(0.5, 0),
+										Position = function(use: ComposeTypes.Use): UDim2
+											return D2.new(0.5, 0, 1, ctx.metric("space.xs", use))
+										end,
+										Size = D2.fromOffset(0, 0),
+										AutomaticSize = E.AutomaticSize.XY,
+										Interactable = false,
+										Visible = function(use: ComposeTypes.Use): boolean
+											local live = currentSector(use)
+											return not live.list and iconic(use, live)
+										end,
+										ZIndex = 106,
+										ctx.padding(8, 4),
+										words,
+									}),
+									"tooltip"
+								),
+							})
+						end
 						local floor = button:FindFirstChildWhichIsA("UISizeConstraint")
 						if floor then
 							floor:Destroy()

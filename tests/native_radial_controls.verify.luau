@@ -157,6 +157,30 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
+		verifyHarness:case("captions name icon buttons below each target", {
+			id = "native_radial_controls::radial label fit::captions name icon buttons below each target",
+			run = function()
+				for _, captions in { true, false } do
+					local spec: RadialProps.RadialMenuSpec<any> = {
+						appearance = "buttons" :: Radial.Appearance,
+						captions = captions,
+						items = {
+							{ id = "look", label = "Look", icon = "facet:search", onSelect = function() end } :: Radial.RadialItem<any>,
+						},
+					}
+					local w = setup(spec)
+					local caption = w.find("look"):FindFirstChild("ItemCaption")
+					if captions then
+						Verify.expect(caption:FindFirstChild("Text").Text):toBe("Look")
+						Verify.expect(caption.Visible):toBe(true)
+						Verify.expect(caption.Position.Y.Scale):toBe(1)
+					else
+						Verify.expect(caption):toBeNil()
+					end
+					w.stop()
+				end
+			end,
+		})
 		verifyHarness:case("keeps short names on one line inside round item targets", {
 			id = "native_radial_controls::radial label fit::keeps short names on one line inside round item targets",
 			run = function()
