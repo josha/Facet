@@ -255,6 +255,4 @@ experiment's declared publication timing. Record the evaluated source revision
 with the result.
 Commit only the latest [Plain place](latest/plain/game.rbxlx) and
 [Facet place](latest/facet/game.rbxlx). Put the verdict and gaps in the PR description.
-Commit the reviewed latest reports and captures with the places. Keep raw logs and prior generated evidence in the artifact directory. The existing
-[Kart example](../examples/facet-kart/README.md) remains a game example; it is not
-an author starter or a new benchmark result.
+Commit the reviewed latest reports and captures with the places. Keep raw logs and prior generated evidence in the artifact directory.
