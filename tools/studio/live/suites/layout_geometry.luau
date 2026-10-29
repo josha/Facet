@@ -1057,6 +1057,50 @@ add("hugging-fill-stack-keeps-its-share-of-a-bounded-row", {}, function(t)
 	t.cleanup()
 end)
 
+add("review-names-hub-regions-that-overlap-on-a-phone", {}, function(t)
+	local Facet: typeof(require("@repo/tools/typecheck/aliases").FacetModule) = t.Facet
+	local stage = t.mount(function(UI: FacetControls)
+		local function circle(name: string)
+			return UI.Button(name) { icon = "car", shape = "circle", caption = name }
+		end
+		return UI.Composition "Hub" {
+			UI.Region "Destinations" {
+				zone = "bottomLeft",
+				rank = 2,
+				UI.HStack {
+					gap = "l",
+					circle("Garage"),
+					circle("Shop"),
+					circle("Rewards"),
+					circle("More"),
+					circle("Help"),
+				},
+			},
+			UI.Region "Race" {
+				zone = "bottomRight",
+				rank = 1,
+				UI.Button "Race" { label = "ENTER RACE", subtitle = "Solo · vote a track", controlSize = "large" },
+			},
+		}
+	end, { size = Vector2.new(1600, 900) })
+	t.settle(4)
+	local hub = t.find(stage, "Hub")
+	if not hub then
+		t.check("hub mounted", false)
+		t.cleanup()
+		return
+	end
+	local unfit = hub:GetAttribute("FacetUnfit")
+	t.check(
+		"the hub records the regions that overlap on a portrait phone",
+		type(unfit) == "string" and string.find(unfit, "358 by 812: Destinations, Race", 1, true) ~= nil,
+		{ unfit = unfit }
+	)
+	local report = Facet.review.screen({ root = hub }).text
+	t.check("review reports composition-unfit", string.find(report, "composition-unfit", 1, true) ~= nil)
+	t.cleanup()
+end)
+
 add("filled-peer-buttons-wrap-instead-of-clipping", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.HStack "More" {

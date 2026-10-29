@@ -384,6 +384,18 @@ return function(harness: Verify.Harness)
 		t:expect(rules(Rules.analyze(snapshot()))["touch-control-overlap"]):toBe(nil)
 	end)
 
+	harness:case("a Composition that does not fit a phone is reported with its regions", function(t)
+		local add, snapshot = scene()
+		local hub = add(nil, "Frame", 0, 0, 1920, 1080)
+		local fitting = snapshot()
+		t:expect(rules(Rules.analyze(fitting))["composition-unfit"]):toBe(nil)
+		local unfit = snapshot()
+		unfit.elements[hub].unfit = "358 by 812: Destinations, Race"
+		local report = Rules.analyze(unfit)
+		t:expect(rules(report)["composition-unfit"]):toBe(1)
+		t:expect(string.find(report.text, "Destinations, Race", 1, true) ~= nil):toBe(true)
+	end)
+
 	harness:case("a subject image counts toward the used area of a surface", function(t)
 		local add, snapshot = scene()
 		local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
