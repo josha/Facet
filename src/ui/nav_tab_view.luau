@@ -17,6 +17,7 @@ local presentationReadiness = require("./presentation_readiness")
 local scrollLock = require("./scroll_lock")
 local transition = require("./transition")
 local layoutKit = require("./layout_kit")
+local preparation = require("./preparation")
 type SelectionLinks = {
 	NextSelectionLeft: GuiObject?,
 	NextSelectionRight: GuiObject?,
@@ -200,7 +201,7 @@ return function(
 		local stow = transition.paced(
 			ctx,
 			function(use: ComposeTypes.Use): number
-				return if use(stowed) then 1 else 0
+				return if use(stowed) and not preparation.within(ctx, root, use) then 1 else 0
 			end,
 			Compose.formula(function(use: ComposeTypes.Use): boolean
 				return tabLevel(use) ~= "normal"
@@ -768,7 +769,7 @@ return function(
 			}),
 		}
 		Compose.watch(function(use: ComposeTypes.Use)
-			layers:SetAttribute("FacetSettling", use(stowed) and use(placement) ~= "none")
+			layers:SetAttribute("FacetSettling", use(stowed) and use(stow) > 0 and use(placement) ~= "none")
 		end)
 		tabsReady = true
 		local track = Host.Frame "Track" {
@@ -952,12 +953,12 @@ return function(
 			end)
 		end
 		if preparing then
-			root:SetAttribute("FacetPreparing", true)
+			preparation.begin(ctx, root)
 			local ready = presentationReadiness(ctx, { root })
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(ready) then
 					ctx.fadeTo(root, 0)
-					root:SetAttribute("FacetPreparing", false)
+					preparation.finish(ctx, root)
 				end
 			end)
 		end

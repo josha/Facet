@@ -11,6 +11,7 @@ local motion = require("./motion")
 local presentationReady = require("./presentation_readiness")
 local freeze = require("./freeze")
 local OverlayProps = require("./overlay_props")
+local preparation = require("./preparation")
 
 local NOTICE_KEYS = {
 	"message",
@@ -437,13 +438,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			root:SetAttribute("NoticeAccessories", if use(beside) then "beside" else "below")
 		end)
 		if prepares then
-			root:SetAttribute("FacetPreparing", true)
+			preparation.begin(ctx, root)
 			local ready = presentationReady(ctx, { body })
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(ready) and preparing:peek() then
 					preparing:set(false)
 					present:set(true)
-					root:SetAttribute("FacetPreparing", false)
+					preparation.finish(ctx, root)
 				end
 			end)
 		end
