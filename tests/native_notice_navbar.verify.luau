@@ -501,7 +501,7 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-		
+
 		verifyHarness:case("shows Back while a boolean onBack cell is true and writes false", {
 			id = "native_notice_navbar::native NavBar: the slot form::shows Back while a boolean onBack cell is true and writes false",
 			run = function()
