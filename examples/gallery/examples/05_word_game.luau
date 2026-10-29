@@ -449,6 +449,7 @@ function example.build(ctx: ExampleContext): Built
 						then UDim2.fromOffset(0, 44)
 						else UDim2.new(1 / units, -math.ceil(4 * (units - 1) / units), 0, 44),
 					AutomaticSize = Enum.AutomaticSize.None,
+					target = "inline",
 					TextSize = if isCommand then 14 else 16,
 					enabled = playingSig,
 					label = if key == "Enter"

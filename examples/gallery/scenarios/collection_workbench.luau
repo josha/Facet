@@ -1030,7 +1030,8 @@ return {
 				Name = "Palette",
 				align = "center",
 				gap = 0,
-				wrap = false,
+				wrap = true,
+				width = "fill",
 				UI.Text { text = "Label:", textRole = "body" },
 			}
 			for _, option in colors do

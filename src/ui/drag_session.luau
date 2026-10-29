@@ -1092,12 +1092,22 @@ return function(ctx: Types.Context): Drag.Service
 								elseif p > extent - edge then (p - extent + edge) / edge
 								else 0
 						end
+						local speedX, speedY = speed(at.X, size.X), speed(at.Y, size.Y)
+						local armed = session.scrollArmed or {}
+						session.scrollArmed = armed
+						if not armed[node] then
+							local inside = at.X >= 0 and at.Y >= 0 and at.X <= size.X and at.Y <= size.Y
+							armed[node] = session.source:IsDescendantOf(node)
+								or (inside and speedX == 0 and speedY == 0)
+						end
 						local before = node.CanvasPosition
 						local limit = node.AbsoluteCanvasSize - size
-						local next = V2.new(
-							math.clamp(before.X + speed(at.X, size.X) * 600 * delta, 0, math.max(0, limit.X)),
-							math.clamp(before.Y + speed(at.Y, size.Y) * 600 * delta, 0, math.max(0, limit.Y))
-						)
+						local next = if armed[node]
+							then V2.new(
+								math.clamp(before.X + speedX * 600 * delta, 0, math.max(0, limit.X)),
+								math.clamp(before.Y + speedY * 600 * delta, 0, math.max(0, limit.Y))
+							)
+							else before
 						if next ~= before then
 							node.CanvasPosition = next
 							break

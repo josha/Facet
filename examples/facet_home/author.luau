@@ -125,7 +125,7 @@ local function inventory(value: Facet.DesignDocument, body: string): Facet.Desig
 	value = Design.document.setState(value, library, { query })
 	value = Design.document.change(value, library, assert(search).id, "value", { state = "furnitureQuery" })
 	local list
-	value, list = add(value, body, "Table", "FurnitureInventory", { width = "fill", height = 340, itemSize = 76 })
+	value, list = add(value, body, "Table", "FurnitureInventory", { Size = { 1, 0, 0, 340 }, itemSize = 76 })
 	value = Design.document.bind(value, library, list, { from = "inventoryRows", key = "id" })
 	local nameCell, title, caption, quantity, finish
 	value, nameCell = add(value, list, "VStack", "FurnitureCell", { gap = "xs" })

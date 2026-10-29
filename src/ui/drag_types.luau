@@ -67,6 +67,7 @@ export type Session = {
 	stopStatus: (() -> ())?,
 	stopTravel: (() -> ())?,
 	travelled: boolean?,
+	scrollArmed: { [Instance]: boolean }?,
 }
 export type WorldPresentation = {
 	move: (Vector2?, CFrame?) -> (),

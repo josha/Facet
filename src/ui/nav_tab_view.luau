@@ -187,6 +187,9 @@ return function(
 				displaySize = if typeof(display) == "EnumItem" then display.Name else nil,
 				tenFoot = distant,
 			})
+			if home == "bottomBar" and #(read(spec.tabs, use) :: { unknown }) > 5 then
+				return "topBar"
+			end
 			if spec.style == "sidebarAdaptable" and not distant and (home == "sidebar" or home == "topBar") then
 				local choice = read(spec.sidebarPreference, use)
 				if choice and choice ~= "automatic" then
@@ -201,7 +204,7 @@ return function(
 		local stow = transition.paced(
 			ctx,
 			function(use: ComposeTypes.Use): number
-				return if use(stowed) and not preparation.within(ctx, root, use) then 1 else 0
+				return if use(stowed) then 1 else 0
 			end,
 			Compose.formula(function(use: ComposeTypes.Use): boolean
 				return tabLevel(use) ~= "normal"
@@ -209,7 +212,8 @@ return function(
 			function(use: ComposeTypes.Use?): number
 				return ctx.metric("motion.durations.tabChrome", use)
 			end,
-			ctx.motionEase("fade")
+			ctx.motionEase("fade"),
+			true
 		)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local wanted = use(requested)

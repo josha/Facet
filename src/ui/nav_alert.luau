@@ -315,9 +315,12 @@ return function(
 						BackgroundTransparency = 1,
 						Size = function(use: ComposeTypes.Use)
 							local destination = use(offer)
-							return if destination.X > 0 and destination.Y > 0
-								then D2.fromOffset(destination.X, destination.Y)
-								else D2.fromScale(1, 1)
+							if destination.X <= 0 or destination.Y <= 0 then
+								return D2.fromScale(1, 1)
+							end
+							local across = surfaces.inset(0, "left", nil, use) + surfaces.inset(0, "right", nil, use)
+							local down = surfaces.inset(0, "top", nil, use) + surfaces.inset(0, "bottom", nil, use)
+							return D2.fromOffset(destination.X - across, destination.Y - down)
 						end,
 						scroll :: Instance,
 						actionBar,

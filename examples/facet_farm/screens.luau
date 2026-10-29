@@ -265,7 +265,12 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 				UI.Button("Seed_" .. crop.id)({
 					row = {
 						title = crop.label,
-						description = `{crop.cost} coins · grows in {crop.grow} s · sells for {crop.sell} · level {crop.unlock}`,
+						description = function(use: Use): string
+							if modelModule.levelOf(use(farm.xp)) < crop.unlock then
+								return `Unlocks at level {crop.unlock}`
+							end
+							return `{crop.cost} coins · grows in {crop.grow} s · sells for {crop.sell}`
+						end,
 					},
 					enabled = function(use: Use)
 						return modelModule.levelOf(use(farm.xp)) >= crop.unlock
@@ -508,7 +513,9 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 						AutomaticSize = E.AutomaticSize.XY,
 						Size = D2.fromOffset(0, 0),
 						Host.UIListLayout {
-							FillDirection = E.FillDirection.Horizontal,
+							FillDirection = function(use: Use)
+								return if stacked(use) then E.FillDirection.Vertical else E.FillDirection.Horizontal
+							end,
 							HorizontalAlignment = E.HorizontalAlignment.Center,
 							VerticalAlignment = E.VerticalAlignment.Center,
 							SortOrder = E.SortOrder.LayoutOrder,
