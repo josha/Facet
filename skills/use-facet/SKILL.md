@@ -70,9 +70,14 @@ context and is paid again on each later call.
 
 - Put each screen in its own ModuleScript (one folder of them, each under
   about 250 lines) and keep the client script to mounting and routing.
-  Create the modules that are ready together in one call.
-- Test several screens in one Play session: open each with input, run
-  `Facet.review.screen().text` on it, and read Output once before you stop.
+  Write several modules in each call, up to about 1,000 lines: the shared
+  modules together, then three or four screens at a time.
+- Check with one scripted pass, not repeated captures. In one Play session, a
+  probe opens every screen through its real route, collects
+  `Facet.review.screen().text` for each, and returns only findings and errors.
+  Fix all findings, then run the pass once more. `composition-unfit` reports
+  HUD regions that overlap on a phone, also when Studio shows desktop.
+- Stop when the pass is clean on every screen and the game loop works.
 - Write a script once. Change it afterwards with an exact-text patch; never
   resend a whole Source or return one. Find text with a line-range read.
 
@@ -88,9 +93,8 @@ end
 
 - Return small probe results: counts, a few names, one error line. Never return
   `GetChildren()`, a whole tree or a dump.
-- Capture a screen when it first works and after its last visual fix. Check
-  smaller changes with `Facet.review.screen().text` or a probe; each capture
-  stays in context like a document.
+- Capture a screen only when the review pass leaves a visual question; each
+  capture stays in context like a document.
 
 ## Correct the task before sharing its layout
 

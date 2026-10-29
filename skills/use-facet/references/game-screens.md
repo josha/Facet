@@ -109,6 +109,11 @@ end
 On a phone the panel takes the width and the world shows only at the edges.
 Give a long title `wrap = true`; a wide display font needs it at 390.
 
+A landscape phone leaves about 250 points for the body. Show content first:
+put category Chips and filters in one horizontal row or behind one Picker,
+put secondary links in the NavBar `trailing` or a Menu, and keep at least two
+rows of items, or the subject preview, in view before any scrolling.
+
 ## Hub
 
 A `UI.Composition` over the live world. Its readouts sit on panels, never
