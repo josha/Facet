@@ -1,12 +1,12 @@
 # Custom transitions
 
 Sheet, TabView, NavigationStack and NavigationSplitView accept
-`transition = { seconds?, ease?, motion?, fade?, progress?, apply?, scale? }`.
-`false` disables presentation motion. Omit the option to keep the control's
+`transition = { seconds?, ease?, motion?, fade?, progress?, apply?, scale?, zoom? }`.
+`false` disables motion. Omit the option to keep the control's
 default motion. A table without `apply` or `scale` gives a fade.
 
 `scale` is a zoom preset. The page content does not scale, so its text does
-not step between sizes. The content fades in at full size on
+not step. The content fades in at full size on
 `easing.zoomFade`. Behind it, a plate in the color of the nearest opaque
 ancestor grows from `scale` to full size around its center on
 `easing.zoomScale`. A leaving page plays the reverse. `scale = true` starts the
@@ -15,6 +15,8 @@ plate at theme `motion.materialize.zoom`. The duration is
 is a Frame named `TransitionPlate` with a UIScale named `TransitionScale`. It
 exists only during motion. Without an opaque ancestor, and in a Sheet, the
 zoom is a fade. You cannot use `scale` with `apply`.
+
+`zoom`: [Custom-transitions.zoom](Custom-transitions.zoom.md).
 
 `apply(content, phase)` runs once for each retained presentation, in the
 content's Compose owner. Bind native properties with `runtime.decorate`. Do

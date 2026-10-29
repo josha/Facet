@@ -435,6 +435,27 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		return paint
 	end
 
+	local function layoutSize(node: GuiBase2d): ComposeTypes.ReadOnlyValue<Vector2>
+		assert(
+			Compose.currentOwner() ~= nil,
+			"Facet environment.layoutSize must run inside a component or Compose owner"
+		)
+		local measured = ctx.layoutSize(node)
+		local held: Vector2? = nil
+		return Compose.formula(function(use: ComposeTypes.Use): Vector2
+			local size = use(measured)
+			local at: Instance? = node
+			while at do
+				local zoom: unknown = at:GetAttribute("FacetTransitionZoom")
+				if held and type(zoom) == "number" and zoom ~= 1 then
+					return held
+				end
+				at = at.Parent
+			end
+			held = size
+			return size
+		end)
+	end
 	local function build(source: Env.EnvironmentSource?): Env.Environment
 		local node: Instance? = source
 		if node == nil then
@@ -683,6 +704,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end) :: unknown) :: ComposeTypes.ReadOnlyValue<"authored" | "inferred">,
 			metricScale = metricScale,
 			scaled = scaled,
+			layoutSize = layoutSize,
 			overscanInsets = overscan,
 			navPlacement = (derived(function(use): adaptive.NavPlacement
 				return adaptive.navPlacement({

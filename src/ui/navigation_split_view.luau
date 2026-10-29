@@ -168,8 +168,15 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			local opening = use(shown) and (not use(compact) or use(selectedColumn) == "detail")
 			return use(if opening then prepared.detail else prepared.sidebar)
 		end)
+		local sidebarTransition: Nav.Transition? = transition
+		if transition and transition.zoom ~= nil then
+			local still = table.clone(transition)
+			still.zoom = nil
+			sidebarTransition = still
+		end
 		local function pane(properties: Shared.FrameNativeProps, departure: Shared.Value<boolean>?): Frame
-			if not transition then
+			local paneTransition = if departure then transition else sidebarTransition
+			if not paneTransition then
 				return Host.Frame(properties)
 			end
 			local presented = properties.Visible :: (Shared.Use) -> boolean
@@ -213,7 +220,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			local panel = layers.layer(
 				properties :: Shared.CanvasGroupNativeProps & Shared.FrameNativeProps,
 				state,
-				transition,
+				paneTransition,
 				hidden,
 				not built,
 				arrival,

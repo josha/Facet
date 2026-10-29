@@ -40,6 +40,7 @@ export type Environment = {
 	viewingDistanceSource: Types.ReadOnlyValue<"authored" | "inferred">,
 	metricScale: Types.ReadOnlyValue<number>,
 	scaled: (value: number | string, relativeTo: string?) -> Types.ReadOnlyValue<number>,
+	layoutSize: (node: GuiBase2d) -> Types.ReadOnlyValue<Vector2>,
 	overscanInsets: Types.ReadOnlyValue<SafeInsets>,
 	navPlacement: Types.ReadOnlyValue<Adaptive.NavPlacement>,
 	safeInsets: Types.ReadOnlyValue<SafeInsets>,
