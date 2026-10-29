@@ -256,6 +256,28 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			})
 		end
 		local label = textRole(ctx.text(ctx.props(spec, TEXT_KEYS, defaults), true), roleSource)
+		if
+			(spec.TextWrapped == true or (spec.TextWrapped == nil and spec.wrap == true))
+			and not lines
+			and not cut
+			and not fit
+			and spec.Size == nil
+			and spec.AutomaticSize == nil
+		then
+			local function hug()
+				local parent = label.Parent
+				local automatic = if parent and parent:IsA("GuiObject") then parent.AutomaticSize else nil
+				local list = if parent then parent:FindFirstChildWhichIsA("UIListLayout") else nil
+				local row = automatic == E.AutomaticSize.X
+					or automatic == E.AutomaticSize.XY
+						and list ~= nil
+						and list.FillDirection == E.FillDirection.Horizontal
+				label.Size = D2.fromScale(if row then 0 else 1, 0)
+				label.AutomaticSize = if row then E.AutomaticSize.XY else E.AutomaticSize.Y
+			end
+			runtime.connect(label, "AncestryChanged", hug)
+			hug()
+		end
 		if lines then
 			local styledSize = ctx.observeStyled.TextSize(label)
 			local styledLine = ctx.observeStyled.LineHeight(label)

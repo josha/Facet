@@ -71,6 +71,22 @@ local SPOTS: {
 		{ name = "bottom-right", at = UDim2.new(1, -8, 1, -8), edge = nil, pivot = Vector2.one },
 	}
 
+add("wrapped-text-in-a-hugging-row-stays-on-screen", {}, function(t)
+	local stage = t.mount(function(UI: FacetControls)
+		return UI.HStack "Hud" {
+			gap = 8,
+			UI.Text "Coins" { text = "1,250", wrap = true },
+			UI.Text "Menu" { text = "Menu", wrap = true },
+		}
+	end, { size = Vector2.new(390, 844), frames = 20 })
+	local hud, menu = t.find(stage, "Hud"), t.find(stage, "Menu")
+	local s, m, h = t.rect(stage), t.rect(menu), t.rect(hud)
+	t.check("Menu keeps one line", m.h <= (menu:GetStyled("TextSize") :: number) * 1.5 + 0.5, m)
+	t.check("Menu stays inside the phone stage", m.x >= s.x - 0.5 and m.r <= s.r + 0.5, { menu = m, stage = s })
+	t.check("the row hugs its text", h.w < s.w * 0.5, { row = h.w, stage = s.w })
+	t.cleanup()
+end)
+
 add("callout-edge-gap-shift-clamp", {}, function(t)
 	for _, spot in SPOTS do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)

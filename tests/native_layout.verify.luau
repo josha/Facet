@@ -126,6 +126,26 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		verifyHarness:case("sizes wrapped Text to its text in a hugging row and to the width of a stack", {
+			id = "native_layout::native composition rest measurements::sizes wrapped Text to its text in a hugging row and to the width of a stack",
+			run = function()
+				local root, engine, stop = build(nil, function(UI: FacetControls)
+					return UI.VStack "Page" {
+						UI.HStack "Hud" { UI.Text "Menu" { text = "Menu", wrap = true } },
+						UI.VStack "Body" { UI.Text "Copy" { text = "A longer paragraph", wrap = true } },
+					}
+				end)
+				local E, D2 = engine.types.Enum, engine.types.UDim2
+				local menu = root:FindFirstChild("Menu", true)
+				local copy = root:FindFirstChild("Copy", true)
+				Verify.expect(menu.Size):toBe(D2.fromScale(0, 0))
+				Verify.expect(menu.AutomaticSize):toBe(E.AutomaticSize.XY)
+				Verify.expect(menu.TextWrapped):toBe(true)
+				Verify.expect(copy.Size):toBe(D2.fromScale(1, 0))
+				Verify.expect(copy.AutomaticSize):toBe(E.AutomaticSize.Y)
+				stop()
+			end,
+		})
 		verifyHarness:case("keeps a simplified Region rectangle after a scaled viewport round trip", {
 			id = "native_layout::native composition rest measurements::keeps a simplified Region rectangle after a scaled viewport round trip",
 			run = function()
