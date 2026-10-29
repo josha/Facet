@@ -3752,8 +3752,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "windowed, overscan 1", props = properties { mode = "windowed", overscan = 1 } },
 			{ name = "measured rows", props = properties { measure = true } },
 			{ name = "snap to rows", props = properties { snap = "item" } },
-			{ name = "follows the end", props = properties { follow = "end", followThreshold = 24 } },
-			{ name = "rebuilt rows", props = properties { recycle = false } },
+			{ name = "follows the end", props = properties { follow = "end", followThreshold = 24, arrival = "rise" } },
+			{ name = "rebuilt rows", props = properties { recycle = false, arrival = "rise" } },
 			{
 				name = "status + controls + focus",
 				props = function(c: Context)
@@ -3871,7 +3871,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "horizontal", props = properties { direction = "horizontal", itemSize = 120 } },
 			{ name = "measured rows", props = properties { measure = true } },
 			{ name = "gap 8, overscan 3", props = properties { gap = 8, overscan = 3 } },
-			{ name = "follows the end", props = properties { follow = "end", followThreshold = 24 } },
+			{ name = "follows the end", props = properties { follow = "end", followThreshold = 24, arrival = "rise" } },
 			{ name = "rebuilt rows", props = properties { recycle = false } },
 			{
 				name = "selection reported",
@@ -4162,7 +4162,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		host = "TabView",
 		family = "navigation",
 		alias = "Focus section",
-		purpose = "Selection that enters the sidebar from the detail returns to the row last selected there (TV Left, arrow keys).",
+		purpose = "Selection entering the sidebar from the detail returns to its last row (TV Left, arrow keys).",
 		snippet = "UI.focusSection(sidebar)",
 		base = function()
 			return {}
@@ -4467,7 +4467,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		host = "HStack",
 		family = "inputs",
 		alias = "Adjustable game control",
-		purpose = "A game control takes the Slider's keyboard and gamepad adjustment: shoulders, Comma/Period and its arrow axis.",
+		purpose = "A game control takes the Slider's key and pad adjustment: shoulders, Comma/Period and arrows.",
 		snippet = 'UI.adjustable(row, { onAdjust = turn, axis = "none", repeats = true })',
 		demonstrates = { "onAdjust", "canAdjust", "enabled", "disabled", "busy" },
 		base = function()
@@ -5376,7 +5376,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		facet = true,
 		family = "facet",
 		alias = "Structure (show · switch · keyed · presence)",
-		purpose = "Compose mounts and unmounts parts of the tree: a condition, a keyed branch, a keyed list, and an exit phase.",
+		purpose = "Compose mounts and unmounts tree parts: a condition, keyed branch, keyed list and exit phase.",
 		alternatives = "Visible = false when the node must keep its place.",
 		snippet = "Compose.show(loaded, content, placeholder) · Compose.switch(mode, { a = …, b = … }) · Compose.keyed { from, key, render } · Compose.presence(open, build, { exit })",
 		surface = "Facet.Compose",
@@ -6035,10 +6035,6 @@ for _, name in { "VirtualList", "VirtualGrid", "Outline" } do
 		key = "scrollReset",
 		values = { "start", "once", "twice" },
 		matrix = false,
-	})
-	table.insert(assert(PAGE_DATA[name].states), {
-		name = "rows that arrive rise into place",
-		props = properties { arrival = "rise" },
 	})
 	table.insert(assert(PAGE_DATA[name].states), {
 		name = "reserved key slot",
