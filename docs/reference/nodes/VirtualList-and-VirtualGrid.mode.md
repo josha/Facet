@@ -18,6 +18,7 @@ VirtualList-and-VirtualGrid.mode option values and behavior.
 | `measure` | Set `true` to observe the rendered native `AbsoluteSize`, or `false` to keep fixed estimates. Without it, an automatic list row with a native UIListLayout, text or button can grow past `itemSize`. It never shrinks below the estimate. |
 | `measured` | An optional readable map from key to extent; overrides observed measurements. |
 | `follow` | `none` or `end`, or a readable of one, with an optional `followThreshold`. |
+| `arrival` | `none` by default, or a readable of one. `rise` fades a row in and moves it `motion.distances.rowArrival` along the main axis to its place over `motion.durations.rowArrival` when its key enters the source after the first render. Rows present at mount, rows that scroll into view and reduced motion show at once. |
 | `status` | An optional writable Compose collection status cell. A cell that holds `nil` is filled with the empty status record. |
 | `controls` | An optional table that the control fills with the Compose `indexOfKey`, `placementOf` and `offsetOf`; see [geometry, units and handle lifetime](Collections.placement.md). |
 | `maxRetained` | The pool keeps at most `32` row hosts by default. |

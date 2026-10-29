@@ -94,6 +94,7 @@ export type CollectionOptions<V, K> = {
 	wrapFocus: boolean?,
 	snap: ("none" | "item")?,
 	reducedMotion: Types.ValueBoolean?,
+	arrival: Types.Input<"none" | "rise">?,
 	onActivate: Activate<V, K>?,
 	onReachEnd: (() -> ())?,
 	contentOverflow: Types.Input<"visible" | "clip">?,
