@@ -65,7 +65,7 @@ function theme.create(Facet: FacetModule, name: string)
 			controlPressed = if dark then rgb(86, 78, 114) else rgb(211, 214, 203),
 			controlSelected = accent,
 			onSelected = if dark then rgb(28, 22, 46) else rgb(255, 255, 255),
-			contentSecondary = if dark then rgb(174, 168, 188) else rgb(102, 105, 94),
+			contentSecondary = if dark then rgb(174, 168, 188) else rgb(86, 89, 78),
 			hairline = if dark then rgb(66, 61, 88) else rgb(189, 191, 178),
 			hairlineOpacity = 0,
 		}

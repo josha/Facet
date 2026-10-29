@@ -767,7 +767,7 @@ return {
 				Name = "FileCell",
 				width = "fill",
 				height = "hug",
-				align = "center",
+				align = if icon then "start" else "center",
 				gap = "s",
 				padding = if icon then "m" else nil,
 				preview,

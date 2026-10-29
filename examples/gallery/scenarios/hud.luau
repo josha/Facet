@@ -337,8 +337,13 @@ return {
 							onActivate = function()
 								selectedWeapon:set(index)
 							end,
+							Host.UISizeConstraint({ MinSize = V2.new(76, 0) }),
 						}),
-						UI.Badge({ Name = "Ammo" .. index, label = copy["ammo" .. index] }),
+						UI.Badge({
+							Name = "Ammo" .. index,
+							label = copy["ammo" .. index],
+							Host.UISizeConstraint({ MinSize = V2.new(52, 0) }),
+						}),
 					})
 				)
 			end

@@ -29,7 +29,6 @@ targets:
   playground                       build/Compose-Design-Playground.rbxl]]
 
 local EXAMPLES = {
-	{ "Facet-SettingsDemo", "00_settings_demo" },
 	{ "Facet-Ex01-TemperatureConverter", "01_temperature_converter" },
 	{ "Facet-Ex02-PlaylistTable", "02_playlist_table" },
 	{ "Facet-Ex03-SettingsSync", "03_settings_sync" },
@@ -188,7 +187,7 @@ local function places(): number
 	end
 	for index, example in EXAMPLES do
 		local output = `examples/places/{example[2]}.rbxl`
-		local project = world(example[1], { Facet_Example = index - 1 }, GALLERY)
+		local project = world(example[1], { Facet_Example = index }, GALLERY)
 		local code = rojo(project, output, PLACE_PROJECT)
 		if code ~= 0 then
 			return code
@@ -435,7 +434,7 @@ local function register(harness: Verify.Harness, prefix: string): ()
 		{
 			id = prefix .. "a generated place keeps StarterPlayer an object and maps the server only for the showcase",
 			run = function(test: Verify.Context)
-				local plain = Json.encode(world("Plain", { Facet_Example = 0 }, GALLERY))
+				local plain = Json.encode(world("Plain", { Facet_Example = 1 }, GALLERY))
 				local showcase = Json.encode(world("Showcase", { Facet_Showcase = true }, SHOWCASE, true))
 				Verify.expect(string.find(plain, '"StarterPlayer": {}', 1, true) ~= nil)
 					:toBeTrueWith("StarterPlayer is not {}")

@@ -111,7 +111,7 @@ local STATUS: { [string]: string } = { absent = "neutral", present = "warning", 
 
 local TILE_MARK: { [string]: string } = {
 	empty = "",
-	caret = "_",
+	caret = "•",
 	filled = "",
 	absent = "x",
 	present = "~",
@@ -429,6 +429,7 @@ function example.build(ctx: ExampleContext): Built
 					fill,
 					typed,
 					outline,
+					Host.UICorner({}),
 				}
 				tile:AddTag("facet-status-accent")
 				table.insert(tiles, tile)

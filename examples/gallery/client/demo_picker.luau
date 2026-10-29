@@ -52,7 +52,6 @@ local demos: { Demo } = {
 	},
 }
 local EXAMPLES = {
-	[0] = { module = "02_playlist_table", title = "Playlist" },
 	{ module = "01_temperature_converter", title = "Temperature converter" },
 	{ module = "02_playlist_table", title = "Playlist" },
 	{ module = "03_settings_sync", title = "Settings sync" },

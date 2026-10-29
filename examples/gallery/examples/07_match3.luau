@@ -284,7 +284,7 @@ local function build(ctx: ExampleContext): Built
 	end
 	local function failArt()
 		kindHandle[KINDS[1]].state:set("failed")
-		message:set("One tile kind failed to load. Re-request artwork, then deliver artwork.")
+		message:set("One tile kind failed to load. Reload art, then deliver art.")
 	end
 	local artStatus = Compose.formula(function(use: Use)
 		local pending, failed, ready = 0, 0, 0
@@ -844,9 +844,9 @@ local function build(ctx: ExampleContext): Built
 				UI.HStack "Art" {
 					wrap = true,
 					gap = "s",
-					UI.Button "Reload" { label = "Re-request artwork", onActivate = reloadArt },
+					UI.Button "Reload" { label = "Reload art", onActivate = reloadArt },
 					UI.Button "Deliver" {
-						label = "Deliver artwork",
+						label = "Deliver art",
 						onActivate = function()
 							local n = deliverArt()
 							message:set(

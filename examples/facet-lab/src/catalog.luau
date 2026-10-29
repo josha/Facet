@@ -191,6 +191,7 @@ local SIZES: Axis = { key = "controlSize", values = { DEFAULT, "xsmall", "compac
 local CORNERS: Axis = { key = "corners", values = { DEFAULT, "pill", "square" } }
 local FIELD_APPEARANCE: Axis = { key = "appearance", values = { "standard", "contrast", "utility" } }
 local DISABLED: State = { name = "disabled", props = properties { enabled = false } }
+local panes = require("./split_panes")
 local hintPages = require("./hint_pages")({ sizes = SIZES, none = NONE })
 local strips = require("./strip_overflow")(NONE)
 local function fixed(w: number, h: number?): Properties
@@ -967,7 +968,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			local area = UI.environment(stage)
 			c.app.runtime.decorate(stage, {
 				Size = function(use: Use)
-					return UDim2.new(1, 0, 0, math.max(use(area.viewportSize).X, 240) + 64)
+					local w = math.max(use(area.viewportSize).X, 240)
+					return UDim2.new(1, 0, 0, math.ceil(w * math.abs(math.sin(math.rad(p.rotation)))) + 64)
 				end,
 			})
 			return stage
@@ -2972,12 +2974,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				detailLabel = "Linked files",
 				sidebarWidth = c.cell("width", 320),
 				sidebarHeight = c.cell("height", 220),
-				sidebar = function(): Instance
-					return c.UI.Button { label = "Files" }
-				end,
-				detail = function(): Instance
-					return c.UI.Button { label = "Linked files" }
-				end,
+				sidebar = panes(c.UI).sidebar,
+				detail = panes(c.UI).detail,
 			}
 		end,
 		axes = {
@@ -3969,7 +3967,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		family = "collections",
 		demonstrates = VIRTUAL_DEMOS,
 		cellWidth = 460,
-		cellHeight = 220,
+		cellHeight = 148,
 		alias = "Grid (virtualized)",
 		purpose = "Windowed grid of cells for large collections.",
 		alternatives = "UI.Grid for a few cells.",

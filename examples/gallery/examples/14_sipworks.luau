@@ -82,6 +82,7 @@ return {
 					UI.Toggle "FavoriteRecipe" {
 						label = "Saved",
 						presentation = "button",
+						corners = "pill",
 						value = function(use: Use)
 							use(model.favorites.set)
 							return model.favorites.isFavorite(blend.id)
