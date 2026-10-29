@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "07bd74e46440d78a0b8ca62eb243b804d11e77d4",
+  "commit": "442f97b1b9b7df7f5f8608a46c6123b0cc124f6c",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "4df9d6a108c895934f1863116dcf59cf3626d1eb05342bab53e26e1f06a86635",
@@ -198,7 +198,7 @@
     "src/roblox/tween-fakes.luau": "ec9d4096cedd4a9cba862fbd727cf43339208d20a33e45d930fcf6e45693b388",
     "src/roblox/ui-audit-collect.luau": "e1b793a56c336ba34343c84b3600bfb565df8b75a7087396eb7c36465b981f0a",
     "src/roblox/ui-audit-dump.luau": "141579c80d507afd88b8a206fb25d307967001a68c2b3117d38d07c8cb9163c8",
-    "src/roblox/ui-audit.luau": "38708bebb6c57caf3588acd6c2a01451368e1c04bdcbfb1c776f37541dcee082",
+    "src/roblox/ui-audit.luau": "767e9be071574b5b7a5b01e1be0748e73207fa24de920e2a4458c499c78331c7",
     "src/roblox/ui-fakes.luau": "c16e467d63e7d6ed10827d25e4469ee8c6853011139710a128233a1b6ff05c5c",
     "src/roblox/ui-grid-layout.luau": "d3881d7ff6eb42e176ef2cf3f45d0b0be0c56630dcb0e11690f96f9ee6a4eedc",
     "src/roblox/ui-layout.luau": "3c733d6b7a2d76ca7fdb48096a00359d44555b5f8b52a1269472e685f7ea36f2",
