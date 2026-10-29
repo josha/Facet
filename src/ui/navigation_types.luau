@@ -398,6 +398,7 @@ export type NavigationDestination<P = unknown> = {
 	chrome: Input<"automatic" | "hidden">?,
 	initialFocus: (string | () -> string?)?,
 	content: Instance | ((NavigationEntry<P>?) -> Instance),
+	onBack: ((NavigationEntry<P>) -> boolean?)?,
 }
 export type NavigationStackOptions<P = unknown> = {
 	path: ComposeTypes.Value<{ NavigationEntry<P> }>,

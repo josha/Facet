@@ -1343,4 +1343,32 @@ add("travel-scroll-keeps-the-current-destination", { "UI.Travel" }, function(t)
 	end
 end)
 
+add("stage-lights-the-faces-its-camera-sees", {}, function(t)
+	local stage = t.mount(function(UI: FacetControls)
+		return UI.Stage "Preview" {
+			Size = UDim2.fromOffset(320, 240),
+			camera = CFrame.lookAt(Vector3.new(11, 6, -13), Vector3.zero),
+			content = function(_, world: Instance)
+				local part = Instance.new("Part")
+				part.Size = Vector3.new(4, 2, 6)
+				part.Parent = world
+				return nil
+			end,
+		}
+	end, { size = Vector2.new(320, 240) })
+	t.settle(4)
+	local preview = t.find(stage, "Preview")
+	if not preview then
+		t.check("stage mounted", false)
+		t.cleanup()
+		return
+	end
+	local look = preview.CurrentCamera.CFrame.LookVector
+	t.check("the light travels with the camera", preview.LightDirection:Dot(look) > 0.7, {
+		light = tostring(preview.LightDirection),
+		look = tostring(look),
+	})
+	t.cleanup()
+end)
+
 return cases

@@ -24,6 +24,10 @@ Use consistent framing across comparable thumbnails; use a different camera
 when inspection needs detail. Keep camera and scene changes in the same
 Compose owner. No separate render loop is needed for a static preview.
 
+The light comes from the camera side, a little from above, so the faces
+the camera sees are lit from any camera position. Set `LightDirection` to
+light the subject another way.
+
 The content callback mounts into the Stage's WorldModel and can return cleanup.
 Use native constructors from its runtime. The third argument, `live`, is a
 readable boolean. Pause scene animation while it is false: the nearest
