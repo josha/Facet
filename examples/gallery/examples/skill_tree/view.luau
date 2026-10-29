@@ -285,6 +285,7 @@ return function(ctx: Context)
 			BorderSizePixel = 0,
 		}
 		local button = UI.Button("Skill_" .. node.id) {
+			Attributes = { FacetOwnsTaps = true },
 			name = text("inspect", { name = text(node.id .. "Name") }),
 			SelectionImageObject = C.static(selectionImage),
 			label = "",

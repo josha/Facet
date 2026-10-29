@@ -518,7 +518,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 									tap
 									and (
 										node:IsA("TextBox")
-										or node:HasTag("facet-button")
+										or node:GetAttribute("FacetOwnsTaps") == true
 										or (node.Active and not node:IsA("GuiButton"))
 									)
 								)
