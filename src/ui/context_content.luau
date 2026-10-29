@@ -668,12 +668,11 @@ return function(
 		for key, value in (properties or {}) :: { [unknown]: unknown } do
 			fields[key] = value
 		end
-		local bound = Compose.isValue(fields.Text) or type(fields.Text) == "function"
 		local label = ctx.styled(Host.TextLabel(native), "Text")
 
 		if label.AutomaticSize == Enum.AutomaticSize.None then
 			local attach = Compose.bindOwner(function()
-				attachLayout(ctx, label, stable, nil, not bound)
+				attachLayout(ctx, label, stable, nil, true)
 			end)
 			local stop: ComposeTypes.Dispose?
 			stop = Compose.cleanup(assert(runtime.host.observation).observeProperty(label, "AutomaticSize", function()
@@ -687,7 +686,7 @@ return function(
 				end
 			end))
 		else
-			attachLayout(ctx, label, stable, nil, not bound)
+			attachLayout(ctx, label, stable, nil, true)
 		end
 
 		return label
