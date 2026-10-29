@@ -9,6 +9,7 @@ Travel measures the shared container, clipping and scale boundaries at the
 change. With a safe common container, it moves in place. The parent stays the
 same. A clip, scale or native layout boundary routes through the overlay,
 then lands in the new slot. The consumer sets no route flag. Keep slots mounted.
+Landed content keeps its size while an ancestor `FacetTransitionZoom` is not 1.
 Clipping ancestors above the shared container also require the overlay. Content
 is promoted at once, including while it waits for a stagger delay, so a hidden
 old slot cannot hide a waiting tile. The start callback still follows the delay.
