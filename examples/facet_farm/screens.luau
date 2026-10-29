@@ -573,6 +573,7 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 			},
 			UI.Sheet "SeedMarket" {
 				title = "Seed market",
+				closeButton = true,
 				isPresented = farm.marketOpen,
 				detent = Compose.cell("medium"),
 				content = function(): Instance

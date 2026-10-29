@@ -865,7 +865,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-menu-item.facet-selected >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-menu-item.facet-selected >> .facet-icon", { ImageColor3 = c("onAccent") })
 	rule(".facet-radial-sector", { Color3 = c("surfaceStrong") })
-	rule(".facet-radial-sector.facet-radial-candidate", { Color3 = c("controlSelected") })
+	rule(".facet-radial-sector.facet-radial-candidate", { Color3 = c("selection") })
+	rule(".facet-radial-item.facet-radial-candidate >> .facet-button-caption", { TextColor3 = c("onSelection") })
+	rule(".facet-radial-item.facet-radial-candidate >> .facet-text", { TextColor3 = c("onSelection") })
+	rule(".facet-radial-item.facet-radial-candidate >> .facet-icon", { ImageColor3 = c("onSelection") })
 	rule(".facet-radial-item::UIPadding", {
 		PaddingLeft = types.UDim.new(0, 0),
 		PaddingRight = types.UDim.new(0, 0),

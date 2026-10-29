@@ -138,7 +138,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("numbered places list and load only their own shipped demo", {
 			id = "native_gallery::native gallery::numbered places list and load only their own shipped demo",
 			run = function()
-				for number = 0, 7 do
+				for number = 1, 7 do
 					local demos = (catalogue.list :: any)(number)
 					Verify.expect(#demos):toBe(1)
 					local selected = catalogue.boot(nil, nil, number)

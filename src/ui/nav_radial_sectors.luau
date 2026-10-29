@@ -417,6 +417,13 @@ return function<V>(
 						menu.skin(button, spec.skin and spec.skin.item, function(use: ComposeTypes.Use)
 							return use(candidate) == currentSector(use).key
 						end)
+						Compose.watch(function(use: ComposeTypes.Use)
+							if use(candidate) == currentSector(use).key then
+								button:AddTag("facet-radial-candidate")
+							else
+								button:RemoveTag("facet-radial-candidate")
+							end
+						end)
 						local caption = button:FindFirstChild("Title", true)
 						local textNode = if caption and caption:IsA("TextLabel") then caption else button
 						local natural = ctx.styled(
