@@ -58,6 +58,9 @@ local function inspect(root: Instance): ({ Fault }, number)
 			local width = node.AbsoluteSize.X * (1 - left.Scale - right.Scale) - (left.Offset + right.Offset) * unit
 			local height = node.AbsoluteSize.Y * (1 - top.Scale - bottom.Scale) - (top.Offset + bottom.Offset) * unit
 			paddingFits = node.TextBounds.X <= width + 0.5 and node.TextBounds.Y <= height + 0.5
+		elseif not node.TextWrapped and not node.TextScaled and node.TextBounds.X > 0 and node.TextBounds.Y > 0 then
+			paddingFits = node.TextBounds.X <= node.AbsoluteSize.X + 0.5
+				and node.TextBounds.Y <= node.AbsoluteSize.Y + 0.5
 		end
 		if
 			not node:IsA("TextBox")
