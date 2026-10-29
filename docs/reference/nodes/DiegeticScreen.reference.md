@@ -16,7 +16,7 @@ instances. It does not mount another application.
 | `fieldOfView` | Vertical field of view, default 48 degrees. Must be between zero and 180. |
 | `motion` | Theme motion role, default `move`. Reduced motion uses the end pose directly. |
 | `onUnavailable` | Optional callback with a failure reason. The interface returns to its original screen hosts. |
-| `interactive` | Optional. When `true`, presses on the tablet reach the live app's controls, and the screen returns only when the game sets `isPresented` to false. The surface is hosted beside the first layer so that it receives input. The canvas maps u = 0 to the plate's local +X on its Front face, which is the engine's SurfaceGui mapping; account for it when you project a canvas point into the world. Default `false`: a press anywhere on the tablet returns to the screen. |
+| `interactive` | Optional. When `true`, presses on the tablet reach the live app's controls, and the screen returns only when the game sets `isPresented` to false. The surface is hosted beside the first layer so that it receives input. The canvas maps u = 0 to the plate's local +X on its Front face, which is the engine's SurfaceGui mapping; account for it when you project a canvas point into the world. Default `false`: a press anywhere on the tablet returns to the screen. That return target is not a gamepad or keyboard selection stop, so focus stays with the game's own controls. |
 
 The surface uses native SurfaceGui input and a queryable display part. By default,
 tapping the display reverses the shot. With `interactive = true`, the display

@@ -219,6 +219,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					ZIndex = 1000,
+					Selectable = false,
 					onActivate = function()
 						spec.isPresented:set(false)
 					end,
