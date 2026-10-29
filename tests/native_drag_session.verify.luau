@@ -287,6 +287,42 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("a drag that enters a scroller across its edge scrolls only after it reaches the interior", {
+			id = "native_drag_session::shared drop sessions::a drag that enters a scroller across its edge scrolls only after it reaches the interior",
+			run = function()
+				local w = fixture()
+				local V2 = w.engine.types.Vector2
+				local scroller = w.engine.new("ScrollingFrame")
+				scroller.Parent = w.screen
+				w.target.Parent = scroller
+				local node = FixtureRoblox.assertInstance(scroller)
+				w.engine.environment.poke(node, "AbsolutePosition", V2.new(0, 0))
+				w.engine.environment.poke(node, "AbsoluteWindowSize", V2.new(200, 200))
+				w.engine.environment.poke(node, "AbsoluteCanvasSize", V2.new(200, 600))
+				w.register(w.target, {
+					onDrop = function(): boolean
+						return true
+					end,
+				})
+				w.hits({ w.target })
+				w.begin({ payload = "tile" })
+				local function frames()
+					for _ = 1, 10 do
+						w.engine.heartbeat:Fire(1 / 60)
+					end
+				end
+				w.move(100, 195)
+				frames()
+				Verify.expect(scroller.CanvasPosition.Y):toBe(0)
+				w.move(100, 100)
+				frames()
+				Verify.expect(scroller.CanvasPosition.Y):toBe(0)
+				w.move(100, 195)
+				frames()
+				Verify.expect(scroller.CanvasPosition.Y > 0):toBe(true)
+				w.stop()
+			end,
+		})
 		verifyHarness:case("validates on hover and again at release without mutating on a rejected proposal", {
 			id = "native_drag_session::shared drop sessions::validates on hover and again at release without mutating on a rejected proposal",
 			run = function()
