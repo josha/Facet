@@ -5919,6 +5919,88 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps table disclosure while a truncated row scrolls out", {
+			id = "native_collections::Compose native collections::keeps table disclosure while a truncated row scrolls out",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local rows = {}
+				for index = 1, 60 do
+					rows[index] = { id = index, label = "Value " .. index }
+				end
+				local stop, node = runtime.mount(function()
+					return UI.Table({
+						from = rows,
+						key = key,
+						columns = {
+							{ id = "label", label = "Label", width = 180 } :: FixtureCollectionTypes.TableColumn<{ id: number, label: string }, number>,
+						},
+					})
+				end, target)
+				local body = (
+					assert(VerifyRoblox.assertInstance(node):FindFirstChild("Body")) :: unknown
+				) :: ScrollingFrame
+				engine.environment.poke(
+					VerifyRoblox.assertInstance(body),
+					"AbsoluteWindowSize",
+					engine.types.Vector2.new(250, 100)
+				)
+				engine.environment.poke(
+					VerifyRoblox.assertInstance(body.Parent),
+					"AbsoluteSize",
+					body.AbsoluteWindowSize
+				)
+				local function fitAll()
+					for _, item in body:GetDescendants() do
+						if item:IsA("TextLabel") and item.Name == "Undisclosed" and item.TextFits ~= true then
+							engine.environment.poke(VerifyRoblox.assertInstance(item), "TextFits", true)
+						end
+					end
+				end
+				fitAll()
+				local first = assert(body:FindFirstChild("1", true))
+				Verify.expect((first:FindFirstChild("Details", true))):toBeNil()
+				engine.environment.poke(
+					VerifyRoblox.assertInstance(first:FindFirstChild("Undisclosed", true)),
+					"TextFits",
+					false
+				)
+				Verify.expect(first:FindFirstChild("Details", true) ~= nil):toBe(true)
+				body.CanvasPosition = engine.types.Vector2.new(0, 2000)
+				local function mounted(name: string): boolean
+					for _, item in body:GetDescendants() do
+						if item.Name == name and item:FindFirstChild("DisclosingRow", true) then
+							return true
+						end
+					end
+					return false
+				end
+				Verify.expect(mounted("1")):toBe(false)
+				fitAll()
+				local shown: Instance? = nil
+				for _, item in body:GetDescendants() do
+					if item.Name == "DisclosingRow" then
+						shown = item
+						break
+					end
+				end
+				Verify.expect(shown ~= nil):toBe(true)
+				Verify.expect((assert(shown):FindFirstChild("Details", true)) ~= nil):toBe(true)
+				engine.environment.poke(
+					VerifyRoblox.assertInstance(body),
+					"AbsoluteWindowSize",
+					engine.types.Vector2.new(400, 100)
+				)
+				engine.environment.poke(
+					VerifyRoblox.assertInstance(body.Parent),
+					"AbsoluteSize",
+					body.AbsoluteWindowSize
+				)
+				Verify.expect((assert(shown):FindFirstChild("Details", true))):toBeNil()
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("keeps native reorder capture and keyboard drop alive across offscreen autoscroll", {
 			id = "native_collections::Compose native collections::keeps native reorder capture and keyboard drop alive across offscreen autoscroll",
 			run = function()
