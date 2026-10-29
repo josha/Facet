@@ -149,6 +149,7 @@ local neutral: ThemeTypes.ThemePackage = {
 				pageTurn = 0.65,
 				popoverSheetExit = 0.2,
 				rowDeparture = 0.24,
+				rowArrival = 0.24,
 				cardFade = 0.15,
 				regionPop = 0.15,
 				fieldReject = 0.24,
@@ -185,7 +186,7 @@ local neutral: ThemeTypes.ThemePackage = {
 				zoom = 0.92,
 			},
 			scales = { travelLift = 1.08 },
-			distances = { menuSlide = 32, parallax = 0.3, dim = 0.1, travelArc = 48, shakeAngle = 6 },
+			distances = { menuSlide = 32, parallax = 0.3, dim = 0.1, travelArc = 48, shakeAngle = 6, rowArrival = 12 },
 			easing = {
 				present = "outCubic",
 				fade = "outQuad",

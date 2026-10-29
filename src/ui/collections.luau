@@ -53,6 +53,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		"snap",
 		"recycle",
 		"reducedMotion",
+		"arrival",
 		"direction",
 		"itemSize",
 		"cards",

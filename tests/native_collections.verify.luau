@@ -3346,6 +3346,89 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("raises a row whose key arrives after mount into place and shows mounted rows at once", {
+			id = "native_collections::Compose native collections::raises a row whose key arrives after mount into place and shows mounted rows at once",
+			run = function()
+				for _, case in
+					{
+						{ reduced = false, recycle = false },
+						{ reduced = false, recycle = true },
+						{ reduced = true, recycle = false },
+					}
+				do
+					local engine, runtime, UI, target =
+						setup({ motionLevel = if case.reduced then "none" else "normal" })
+					local source = Compose.cell(records(3))
+					local stop, mounted = runtime.mount(function()
+						return UI.VirtualList({
+							from = source,
+							key = key,
+							itemSize = 20,
+							recycle = case.recycle,
+							arrival = "rise" :: "rise",
+							render = function(current): GuiObject
+								return button(UI, current)
+							end,
+						})
+					end, target)
+					local node = VerifyRoblox.assertInstance(mounted)
+					local function row(name: string): GuiObject
+						return (assert(node:FindFirstChild(name, true)) :: unknown) :: GuiObject
+					end
+					local function content(name: string): CanvasGroup
+						return (assert(row(name):FindFirstChild("Content")) :: unknown) :: CanvasGroup
+					end
+					engine.environment.poke(
+						VerifyRoblox.assertInstance(node),
+						"AbsoluteWindowSize",
+						engine.types.Vector2.new(200, 200)
+					)
+					local function paint()
+						for _, painted in assert(node:FindFirstChild("Items")):GetDescendants() do
+							if painted:IsA("GuiObject") then
+								engine.environment.poke(
+									VerifyRoblox.assertInstance(painted),
+									"AbsoluteSize",
+									engine.types.Vector2.new(200, 20)
+								)
+								if painted:IsA("TextLabel") or painted:IsA("TextButton") then
+									engine.environment.poke(
+										VerifyRoblox.assertInstance(painted),
+										"TextBounds",
+										engine.types.Vector2.new(40, 20)
+									)
+								end
+							end
+						end
+						for _ = 1, 4 do
+							engine.heartbeat:Fire(1 / 60)
+						end
+					end
+					paint()
+					local first = row("1")
+					Verify.expect(first.Position.Y.Offset):toBe(0)
+					Verify.expect(content("1").GroupTransparency):toBe(0)
+					source:set(records(4))
+					paint()
+					local fourth = row("4")
+					local rising = fourth.Position.Y.Offset
+					Verify.expect(rising >= 60 and rising <= 72):toBe(true)
+					if not case.reduced then
+						Verify.expect(rising > 60):toBe(true)
+						Verify.expect(content("4").GroupTransparency > 0):toBe(true)
+					end
+					for _ = 1, 30 do
+						engine.heartbeat:Fire(1 / 60)
+					end
+					Verify.expect(fourth.Position.Y.Offset):toBe(60)
+					Verify.expect(content("4").GroupTransparency):toBe(0)
+					Verify.expect(first.Position.Y.Offset):toBe(0)
+					stop()
+					runtime:dispose()
+				end
+			end,
+		})
+
 		verifyHarness:case("lays rows out in layout units under a scaled ancestor, as in a ten-foot preview", {
 			id = "native_collections::Compose native collections::lays rows out in layout units under a scaled ancestor, as in a ten-foot preview",
 			run = function()

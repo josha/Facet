@@ -102,6 +102,57 @@ return function<V, K>(
 		and editor == nil
 		and spec.rowActions == nil
 		and spec.rowDrop == nil
+	local function peekRows(): { V }
+		return source(function<T>(cell: ComposeTypes.ReadOnlyValue<T>): T
+			return cell:peek()
+		end)
+	end
+	local arrivals = spec.arrival ~= nil
+	local latestRows: { V }? = if arrivals then peekRows() else nil
+	local fresh: { [K]: boolean } = {}
+	local clearFresh: (() -> ())? = nil
+	local function syncArrivals(rows: { V }): ()
+		local previous = latestRows
+		if previous == nil or rows == previous then
+			return
+		end
+		latestRows = rows
+		local known = keysOf(previous).index
+		for _, key in keysOf(rows).keys do
+			if known[key] == nil then
+				fresh[key] = true
+			end
+		end
+		if clearFresh == nil and next(fresh) ~= nil then
+			clearFresh = view.frames.onFrame(function()
+				table.clear(fresh)
+				if clearFresh then
+					clearFresh()
+					clearFresh = nil
+				end
+			end)
+		end
+	end
+	if arrivals then
+		Compose.watch(function(use: ComposeTypes.Use)
+			syncArrivals(source(use))
+		end)
+		Compose.cleanup(function()
+			if clearFresh then
+				clearFresh()
+				clearFresh = nil
+			end
+		end)
+	end
+	local function arrived(key: K): boolean
+		if not arrivals then
+			return false
+		end
+		syncArrivals(peekRows())
+		local entering = fresh[key] == true
+		fresh[key] = nil
+		return entering and read(spec.arrival) == "rise" and not reduced()
+	end
 	local function row(
 		rowItem: ComposeTypes.ReadOnlyValue<V>,
 		rowPlacement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
@@ -192,6 +243,8 @@ return function<V, K>(
 				end)
 			end)
 		end
+		local entering = arrived(keyCell:peek())
+		local entrance: ComposeTypes.Value<number>? = if arrivals then Compose.cell(if entering then 0 else 1) else nil
 		local interactable: ComposeTypes.Input<boolean> = if tree == nil and spec.disabled == nil
 			then true
 			else Compose.formula(function(use: ComposeTypes.Use): boolean
@@ -211,6 +264,9 @@ return function<V, K>(
 				if reservedPosition then
 					local position = use(reservedPosition)
 					main, cross = position.Y, position.X
+				end
+				if entrance then
+					main += (1 - use(entrance)) * ctx.metric("motion.distances.rowArrival", use)
 				end
 				if placed.index ~= at.index then
 					placed.index = at.index
@@ -401,7 +457,7 @@ return function<V, K>(
 					}
 				end
 				groupProperties.GroupTransparency = function(use: ComposeTypes.Use): number
-					return if use(painted) then 0 else 1
+					return if use(painted) then 1 - (if entrance then use(entrance) else 1) else 1
 				end
 				groupProperties.AutomaticSize = if read(spec.contentOverflow) == "clip"
 					then E.AutomaticSize.None
@@ -494,6 +550,46 @@ return function<V, K>(
 		end
 		wireSelection(content, keyCell)
 		view.slotKeys[node] = keyCell
+		local stopArrival: (() -> ())? = nil
+		local function settle(): ()
+			if stopArrival then
+				stopArrival()
+				stopArrival = nil
+			end
+			if entrance then
+				entrance:set(1)
+			end
+		end
+		Compose.cleanup(settle)
+		local function animate(): ()
+			local cell = entrance
+			if cell == nil then
+				return
+			end
+			local elapsed = 0
+			local seconds = ctx.metric("motion.durations.rowArrival")
+			local present = ctx.motionEase("present")
+			stopArrival = view.frames.onFrame(function(step: number)
+				if not painted:peek() then
+					return
+				end
+				elapsed = math.min(seconds, elapsed + step)
+				cell:set(present(elapsed / seconds))
+				if elapsed >= seconds then
+					settle()
+				end
+			end)
+		end
+		local function arrive(key: K): ()
+			settle()
+			if entrance and arrived(key) then
+				entrance:set(0)
+				animate()
+			end
+		end
+		if entering then
+			animate()
+		end
 		local held: K? = nil
 		local function follow(use: ComposeTypes.Use)
 			local now = use(keyCell)
@@ -507,6 +603,9 @@ return function<V, K>(
 					view.focusOwned = true
 					gui.SelectedObject = nil
 				end
+			end
+			if arriving then
+				arrive(now)
 			end
 			held = now
 			node.Name = tostring(now)
