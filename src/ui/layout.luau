@@ -514,6 +514,11 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			end
 			runtime.connect(frame, "DescendantAdded", queue)
 			runtime.connect(frame, "DescendantRemoving", queue)
+			local canvas = ctx.observe.AbsoluteCanvasSize(frame)
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(canvas)
+				queue()
+			end)
 			refresh()
 		end
 		if axis == "x" and properties.CanvasSize == nil and properties.AutomaticCanvasSize == nil then

@@ -745,6 +745,26 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("a scroll view rechecks its gamepad stop when hidden content appears", {
+			id = "native_layout::phone layout policy::a scroll view rechecks its gamepad stop when hidden content appears",
+			run = function()
+				local visible = Compose.cell(false)
+				local root, engine, stop = build(nil, function(UI: FacetControls)
+					return UI.ScrollView {
+						UI.Button "Retry" { label = "Retry", Visible = visible },
+					}
+				end)
+				Verify.expect(root.Selectable):toBe(true)
+				visible:set(true)
+				engine.environment.poke(root, "AbsoluteCanvasSize", engine.types.Vector2.new(200, 44))
+				for _ = 1, 3 do
+					engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(root.Selectable):toBe(false)
+				stop()
+			end,
+		})
+
 		verifyHarness:case("a single fitting candidate keeps its authored visibility on phone widths", {
 			id = "native_layout::phone layout policy::a single fitting candidate keeps its authored visibility on phone widths",
 			run = function()
