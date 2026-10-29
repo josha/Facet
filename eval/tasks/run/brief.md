@@ -1,10 +1,10 @@
 # Build a complete kart racing game
 
-You have one uninterrupted attempt and a hard limit of **30 minutes (1800 seconds)**. Build, play, inspect, and improve the game during that time. The author process stops at the deadline. The evaluator freezes the place's Edit data model at that point. There are no follow-up prompts, extensions, or repairs after submission. Finish early if the game is ready.
+You have one uninterrupted attempt. Build, play, inspect, and improve the game until it meets this whole brief. The author process can stop at any point without warning. The evaluator freezes the place's Edit data model at that point, so keep the Edit place in a working state. There are no follow-up prompts, extensions, or repairs after submission.
 
 Start from the blank place open in your supplied Roblox Studio. Studio MCP is your only tool access. Create the world, driving, server logic, game data, and interface directly in the place. Deliver a game that can be played immediately in Studio. Make persistent changes in the Edit data model; Play-only changes are not submitted. Use Play, input, console output, and captures to test. Keep this Studio open; the evaluator handles saving and freezing the place. There is no filesystem project, shell, source sync, or build command for you to use. Use the interface technology specified in your instructions. Do not copy an existing game or inspect another submission or evaluator state.
 
-Use strict Luau. Keep supplied libraries, skills, and reference documents unchanged. Do not add test modes, evaluation hooks, or background edits that continue after the deadline. The server owns game state and validates requests. The place enables the native input action system and permits portrait and landscape orientation.
+Use strict Luau. Keep supplied libraries, skills, and reference documents unchanged. Do not add test modes, evaluation hooks, or background edits that continue after you stop. The server owns game state and validates requests. The place enables the native input action system and permits portrait and landscape orientation.
 
 Make a beautiful sci-fi kart racing game with a neon identity. It should feel like one finished game, with clear hierarchy, readable text, deliberate composition, useful feedback, and consistent visual character. The world and interface should support each other. Give the player a reason to race, earn rewards, improve a kart, and race again. A static mockup, a set of disconnected panels, or buttons that only change their labels is not a working game.
 
@@ -78,4 +78,4 @@ blocking layer over the highlighted action.
 
 Support desktop mouse and keyboard, portrait and landscape phones, tablet touch, and a controller-only console interface. Adapt the layout while preserving the task. Use readable text, safe areas, useful touch targets, clear focus, and reliable Back and Close routes. Respect larger text and reduced motion. Keep controls and important text clear of Roblox's top bar, cutouts, and actual touch controls. Do not bind Roblox's reserved Escape or gamepad Start input.
 
-Check the real game in the supplied Studio, including compact layouts and the route from hub to race and back. Fix the most important problems within the thirty-minute window. The final response should briefly state what works and what remains incomplete; it cannot substitute for the saved game.
+Check the real game in the supplied Studio, including compact layouts and the route from hub to race and back. Fix the most important problems first. The final response should briefly state what works and what remains incomplete; it cannot substitute for the saved game.

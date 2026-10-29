@@ -7,6 +7,7 @@ export type Identity = {
 	suite: string,
 	task: string,
 	agent: string,
+	adapter: string,
 	model: string,
 	seed: number,
 	judgeModel: string,
@@ -16,6 +17,7 @@ local DEFAULT_IDENTITY: Identity = {
 	suite = "facetbench-run",
 	task = "run",
 	agent = "codex-sol",
+	adapter = "codex",
 	model = "gpt-6.1-sol",
 	seed = 1,
 	judgeModel = "gpt-6.1-sol",
@@ -85,7 +87,7 @@ local function cases(results: { Eval.RunResult }, judgments: { Eval.Judgment }, 
 			t:expect(run.suite):toBe(expected.suite)
 			t:expect(run.task):toBe(expected.task)
 			t:expect(run.agent):toBe(expected.agent)
-			t:expect(run.adapter):toBe("codex")
+			t:expect(run.adapter):toBe(expected.adapter)
 			t:expect(run.model):toBe(expected.model)
 			t:expect(run.seed):toBe(expected.seed)
 			t:expect(run.parent):toBe(nil)

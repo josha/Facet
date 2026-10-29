@@ -45,7 +45,8 @@ container options such as `width`; use parent stretch or explicit native sizing.
 Read `Layout-options` and `Text.card` before sharing a sizing helper.
 Use `maxWidth` to keep a reading or decision area
 comfortable in a wide viewport. Use a wrapping HStack (`wrap = true`) when
-peer items can use several rows. Use AdaptiveStack when one group should
+peer items can use several rows, and give it `width = "fill"`: a wrapping row
+that hugs never wraps. Use AdaptiveStack when one group should
 change between a row and a column. It keeps the same children mounted.
 
 Allocate room to the required decision first. Let optional art, introductory

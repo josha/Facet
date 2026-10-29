@@ -979,6 +979,98 @@ add("grid-cell-width-arithmetic", {}, function(t)
 	end
 end)
 
+add("hugging-fill-stack-keeps-its-share-of-a-bounded-row", {}, function(t)
+	local wide
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		wide = Compose.cell(false)
+		return UI.HStack "Row" {
+			width = "fill",
+			gap = "m",
+			align = "start",
+			UI.VStack "List" {
+				width = function(use: Use): number | "fill"
+					return if use(wide) then 380 else "fill"
+				end,
+				Host.Frame { Size = UDim2.new(1, 0, 0, 100) },
+			},
+			Compose.show(wide, function()
+				return UI.VStack "Right" {
+					UI.fill(),
+					UI.VStack "Detail" {
+						width = "fill",
+						surface = "panel",
+						padding = "m",
+						Host.Frame { Name = "Stage", Size = UDim2.new(1, 0, 0, 250) },
+						UI.HStack "Title" {
+							width = "fill",
+							gap = "s",
+							align = "center",
+							UI.Text { text = "Volt Runner", textRole = "title", wrap = true, UI.fill() },
+							UI.Badge "Rarity" { label = "Common" },
+						},
+						UI.Text {
+							text = "Speedster. A balanced starter with a clean racing line, steady through every corner of the circuit.",
+							wrap = true,
+						},
+						UI.HStack "More" {
+							width = "fill",
+							gap = "s",
+							UI.Button "Try" { label = "Test drive", UI.fill() },
+							UI.Button "Fav" { label = "Favourite", UI.fill() },
+							UI.Button "Upgrade" { label = "Upgrades", UI.fill() },
+						},
+					},
+				}
+			end),
+		}
+	end, { size = Vector2.new(958, 600) })
+	t.settle(2)
+	wide:set(true)
+	t.settle(4)
+	local row, right, detail = t.find(stage, "Row"), t.find(stage, "Right"), t.find(stage, "Detail")
+	local title, rarity = t.find(stage, "Title"), t.find(stage, "Rarity")
+	if not (row and right and detail and title and rarity) then
+		t.check("fill row mounted", false)
+		t.cleanup()
+		return
+	end
+	local r, d, ti, b = t.rect(row), t.rect(detail), t.rect(title), t.rect(rarity)
+	t.near("fill stack ends at the row edge", t.rect(right).r, r.r, 1)
+	t.check("fill stack child stays inside the row", d.r <= r.r + 0.5, { detail = d.r, row = r.r })
+	t.check("badge stays inside the title row", b.r <= ti.r + 0.5, { badge = b.r, title = ti.r })
+	t.cleanup()
+end)
+
+add("filled-peer-buttons-wrap-instead-of-clipping", {}, function(t)
+	local stage = t.mount(function(UI: FacetControls)
+		return UI.HStack "More" {
+			width = "fill",
+			wrap = true,
+			gap = "s",
+			UI.Button "Try" { label = "Test drive", icon = "car", UI.fill() },
+			UI.Button "Fav" { label = "Favourite", icon = "heart", UI.fill() },
+			UI.Button "Upgrade" { label = "Upgrades", icon = "wrench", UI.fill() },
+		}
+	end, { size = Vector2.new(243, 400) })
+	t.settle(4)
+	local row = t.find(stage, "More")
+	for _, name in { "Try", "Fav", "Upgrade" } do
+		local button = t.find(stage, name)
+		local label = button and t.find(button, "Title")
+		if not (row and button and label) then
+			t.check(name .. " mounted", false)
+			continue
+		end
+		local bounds, text = t.rect(button), t.rect(label)
+		t.check(name .. " label stays inside its button", text.r <= bounds.r + 0.5 and text.x >= bounds.x - 0.5, {
+			label = text.r,
+			button = bounds.r,
+		})
+		t.check(name .. " stays inside the row", bounds.r <= t.rect(row).r + 0.5, { button = bounds.r })
+	end
+	t.cleanup()
+end)
+
 add("image-button-caption-clear-of-artwork", {}, function(t)
 	for _, theme in t.themes do
 		for _, width in { 180, 240, 320 } do

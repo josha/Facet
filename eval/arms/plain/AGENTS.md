@@ -7,4 +7,4 @@ Build the interface with plain Roblox Instances.
 - Do not add a third-party UI framework or UI library.
 - Studio MCP is the only tool. Edit the place directly in its Edit data model.
   Use Play, captures, input, and console output to check the game on the supplied
-  devices and repair what you see within the deadline.
+  devices and repair what you see.

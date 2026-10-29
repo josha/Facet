@@ -36,6 +36,16 @@ return function(harness: Verify.Harness)
 			t:expect(Json.encode(catalog)):toBe(before)
 		end
 	)
+	harness:case("Studio-only preparation restricts only Codex models when a Claude author is declared", function(t)
+		local requested = Setup.authorModels(Json.decode([[{"agents":[
+			{"adapter":"codex","model":"gpt-6.1-sol"},
+			{"adapter":"claude-code","model":"claude-opus-5-5"}
+		]}]]))
+		t:expect(#requested):toBe(1)
+		t:expect(requested[1]):toBe("gpt-6.1-sol")
+		t:expect(#Setup.authorModels(Json.decode([[{"agents":[{"adapter":"claude-code","model":"claude-opus-5-5"}]}]])))
+			:toBe(0)
+	end)
 	harness:case("Studio-only preparation rejects missing or ambiguous model profiles", function(t)
 		for _, source in
 			{

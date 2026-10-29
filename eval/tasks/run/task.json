@@ -10,6 +10,25 @@
   },
   "checks": [
     {
+      "id": "seal",
+      "kind": "verify",
+      "argv": [
+        "lute",
+        "run",
+        "{task}/../../../tools/facet",
+        "facetbench",
+        "seal",
+        "--evidence",
+        "{evidence}",
+        "--report",
+        "{report}",
+        "--run",
+        "{run}"
+      ],
+      "required": true,
+      "deadlineSeconds": 300
+    },
+    {
       "id": "submission",
       "kind": "verify",
       "argv": [
@@ -26,7 +45,10 @@
         "{run}"
       ],
       "required": true,
-      "deadlineSeconds": 180
+      "deadlineSeconds": 180,
+      "after": [
+        "seal"
+      ]
     },
     {
       "id": "play",

@@ -74,6 +74,8 @@ export type QA = {
 	tap: (self: QA, query: Query) -> (boolean, string),
 	tapVisible: (self: QA, query: Query) -> (boolean, string, Info?),
 	press: (self: QA, key: string) -> (boolean, string),
+	hold: (self: QA, keys: { string }, seconds: number) -> (boolean, string),
+	observe: (self: QA, datamodel: "Edit" | "Client" | "Server", source: string) -> unknown,
 	typeText: (self: QA, query: Query, text: string, submit: boolean?) -> (boolean, string),
 	slide: (self: QA, near: string, fraction: number) -> (boolean, string),
 	selected: (self: QA) -> Info?,
@@ -219,6 +221,22 @@ local function create(context: Context, device: Devices.Device): QA
 		return reply.value
 	end
 
+	function qa.observe(_self: QA, datamodel: "Edit" | "Client" | "Server", source: string): unknown
+		local code = table.concat({
+			"local HttpService = game:GetService('HttpService')",
+			"local ok, result = pcall(function()",
+			source,
+			"end)",
+			"if not ok then return HttpService:JSONEncode({ ok = false, error = tostring(result) }) end",
+			"return HttpService:JSONEncode({ ok = true, value = result })",
+		}, "\n")
+		local reply = execute(datamodel, code)
+		if reply.ok ~= true then
+			error(("observe failed: %s"):format(tostring(reply.error)), 0)
+		end
+		return reply.value
+	end
+
 	function qa.find(self: QA, query: Query, limit: number?): { Info }
 		local value = self:call("find", { query = query, limit = limit or 8 })
 		local found: { Info } = {}
@@ -350,6 +368,11 @@ local function create(context: Context, device: Devices.Device): QA
 	function qa.press(self: QA, key: string): (boolean, string)
 		local value = record(self:call("key", { key = key }))
 		return value.pressed == true, tostring(value.reason or "")
+	end
+
+	function qa.hold(self: QA, keys: { string }, seconds: number): (boolean, string)
+		local value = record(self:call("hold", { keys = keys, seconds = seconds }))
+		return value.held == true, tostring(value.reason or "")
 	end
 
 	function qa.typeText(self: QA, query: Query, text: string, submit: boolean?): (boolean, string)

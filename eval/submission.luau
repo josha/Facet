@@ -6,6 +6,65 @@ local Evidence = require("../tools/vendor/verify/src/evidence")
 local Files = require("../tools/facet/lib/files")
 local Hash = require("../tools/facet/lib/hash")
 local Json = require("../tools/facet/lib/json")
+local PowerShell = require("../tools/vendor/verify/src/lute/powershell")
+local Run = require("../tools/facet/lib/run")
+
+local SAVE = [[
+$ErrorActionPreference = 'Stop'
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class SealWindow {
+	[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
+	[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+	[DllImport("user32.dll")] public static extern bool IsIconic(IntPtr window);
+	[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr window, int command);
+	[DllImport("user32.dll")] public static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
+}
+'@
+$place = '%s'
+$studio = Get-Process -Id %d
+$window = $studio.MainWindowHandle
+if ($window -eq [IntPtr]::Zero) { throw 'the kept Studio has no main window' }
+$before = (Get-Item -LiteralPath $place).LastWriteTimeUtc
+if ([SealWindow]::IsIconic($window)) { [void][SealWindow]::ShowWindow($window, 3) }
+$attempt = 0
+while ((Get-Item -LiteralPath $place).LastWriteTimeUtc -le $before) {
+	$attempt += 1
+	if ($attempt -gt 5) { throw 'Studio did not save the place' }
+	$deadline = (Get-Date).AddSeconds(10)
+	while ([SealWindow]::GetForegroundWindow() -ne $window) {
+		if ((Get-Date) -gt $deadline) { throw 'the kept Studio did not take focus' }
+		[SealWindow]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero)
+		[SealWindow]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)
+		[void][SealWindow]::SetForegroundWindow($window)
+		Start-Sleep -Milliseconds 200
+	}
+	[SealWindow]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero)
+	[SealWindow]::keybd_event(0x53, 0, 0, [UIntPtr]::Zero)
+	[SealWindow]::keybd_event(0x53, 0, 2, [UIntPtr]::Zero)
+	[SealWindow]::keybd_event(0x11, 0, 2, [UIntPtr]::Zero)
+	$deadline = (Get-Date).AddSeconds(30)
+	while (((Get-Item -LiteralPath $place).LastWriteTimeUtc -le $before) -and ((Get-Date) -lt $deadline)) {
+		Start-Sleep -Milliseconds 250
+	}
+}
+$size = -1
+while ($size -ne (Get-Item -LiteralPath $place).Length) {
+	$size = (Get-Item -LiteralPath $place).Length
+	Start-Sleep -Seconds 1
+}
+]]
+
+local function save(evidence: string): string
+	local kept = Json.decode(Files.read(evidence .. "/studio-place.json"))
+	local place = Files.absolute((assert(Json.stringField(kept, "place"), "the kept Studio has no place")))
+	local pid = assert(Json.numberField(kept, "pid"), "the kept Studio has no process")
+	local saved =
+		Run.capture(PowerShell.command(SAVE:format(string.gsub(string.gsub(place, "/", "\\"), "'", "''"), pid)))
+	assert(saved.ok, "could not save the kept Studio place: " .. saved.stderr .. saved.stdout)
+	return place
+end
 
 local function read(directory: string): Core.Report
 	local envelope = Lute.parse(Files.read(directory .. "/submission.verify.json"))
@@ -116,4 +175,12 @@ local function capture(place: string, directory: string, runId: string): Core.Re
 	return validate(place, directory)
 end
 
-return { capture = capture, validate = validate }
+local function seal(evidence: string, runId: string): Core.Report
+	local directory = evidence .. "/submission"
+	if Files.exists(directory .. "/submission.verify.json") then
+		return validate(nil, directory)
+	end
+	return capture(save(evidence), directory, runId)
+end
+
+return { capture = capture, validate = validate, seal = seal }

@@ -6,16 +6,20 @@ local Setup = {}
 
 function Setup.authorModels(suite: unknown): { string }
 	local agents = assert(Json.arrayField(suite, "agents"), "suite must declare its author models")
+	assert(#agents > 0, "suite must declare at least one author model")
 	local names: { string } = {}
 	for _, agent in agents do
-		assert(Json.stringField(agent, "adapter") == "codex", "Studio-only preparation requires the Codex adapter")
+		local adapter = Json.stringField(agent, "adapter")
+		assert(
+			adapter == "codex" or adapter == "claude-code",
+			"Studio-only preparation requires the Codex or Claude Code adapter"
+		)
 		local name = assert(Json.stringField(agent, "model"), "each author must declare its model")
 		assert(name ~= "", "author model must not be empty")
-		if table.find(names, name) == nil then
+		if adapter == "codex" and table.find(names, name) == nil then
 			table.insert(names, name)
 		end
 	end
-	assert(#names > 0, "suite must declare at least one author model")
 	table.sort(names)
 	return names
 end

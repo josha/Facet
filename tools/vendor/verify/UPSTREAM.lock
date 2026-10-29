@@ -1,11 +1,11 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "18d2dfe017961398cb215b52f9d8b8a6de8944d5",
+  "commit": "07bd74e46440d78a0b8ca62eb243b804d11e77d4",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "4df9d6a108c895934f1863116dcf59cf3626d1eb05342bab53e26e1f06a86635",
     "docs/README.md": "a1cfdea3ff39fc01dd90b2527d114f623c0deef9518fff95f2c34193144fa028",
-    "docs/agent-eval.md": "8297e63ad31270c7668f6b42424c8efc91f9add467cd433a111531b223ffb764",
+    "docs/agent-eval.md": "a6fae38a8ad73e43065b223a866df885eba2c1b5ade269fc03bcca2a60ddef11",
     "docs/api.md": "745dd88c72bbf6dbaaff1219cfc805014b22acb8088b13f324b1c8078a51ba7c",
     "docs/checks.md": "a1ee75c8b92b39655d6ca06100b10b560d42b06ed5b62222cd1d199395bc6142",
     "docs/execution.md": "9a0fe7c7bfd34765ad1a5533917ed50700bed707f9470f1e9e36f248163e0142",
@@ -25,7 +25,7 @@
     "src/agent-eval/model.luau": "3979912bf70a66c3f4fcdf46af52e56bd4b6897299462765bf5711e03f2047d0",
     "src/agent-eval/report.luau": "58daac1ac79e65ea458ed1f4c3fa9563892c6a827c88e97dd94df711bf77235c",
     "src/agent-eval/result.luau": "1bf9ef4e3a84871ad466c3bd3a8fd3b240454632423168e64f6f552054e3d423",
-    "src/agent-eval/runner.luau": "1ff8a733d09b4047d3dbb8226e68e3ff51d262b260614c181bd0a578867ff4dd",
+    "src/agent-eval/runner.luau": "c929eda82219858f5727e9cde876ad2b8445b4066f70459cfaa1e016862d59ce",
     "src/agent-eval/schema.luau": "a3beddf12ba8ed3168db0fdfafd61b9b425ac14cf95bcffc22b343b23fe554e1",
     "src/agent-eval/scoped-mcp.luau": "c7027e4f96fddcd3e279419843cb839396dea14353cfa153780777b2778a771e",
     "src/agent-eval/services.luau": "9333484e5791d93159f5168098166dc1845b029834334fdcb0225fc73b739b07",

@@ -41,11 +41,14 @@ end
 return {
 	name = "facetbench",
 	summary = "Prepare the thirty-minute run or compare its recorded evidence with Verify.",
-	usage = "usage: lute run tools/facet facetbench prepare|compare|snapshot|check-submission [--suite PATH --model-catalog PATH --place PATH --evidence PATH --report PATH --run ID]",
-	values = { "place", "evidence", "report", "run", "model-catalog", "suite" },
+	usage = "usage: lute run tools/facet facetbench prepare|compare|snapshot|seal|check-submission [--suite PATH --agent ID --judge-model ID --model-catalog PATH --place PATH --evidence PATH --report PATH --run ID]",
+	values = { "place", "evidence", "report", "run", "model-catalog", "suite", "agent", "judge-model" },
 	run = function(invocation: Cli.Invocation): number
 		local action = invocation.positional[1]
-		if #invocation.positional == 1 and (action == "snapshot" or action == "check-submission") then
+		if
+			#invocation.positional == 1
+			and (action == "snapshot" or action == "seal" or action == "check-submission")
+		then
 			local place = Cli.flag(invocation, "place")
 			local evidence = assert(Cli.flag(invocation, "evidence"), "--evidence is required")
 			local destination = assert(Cli.flag(invocation, "report"), "--report is required")
@@ -56,6 +59,7 @@ return {
 					evidence .. "/submission",
 					runId
 				)
+				elseif action == "seal" then Submission.seal(evidence, runId)
 				else Submission.validate(place, evidence .. "/submission")
 			Lute.gate.writeReport(destination, runId, report)
 			print(Core.format(report))
@@ -68,18 +72,29 @@ return {
 			if suitePath ~= nil then
 				local suite =
 					Eval.decodeSuite(Json.decode(Files.read(suitePath)), Files.absolute(suitePath), Eval.lute.loader())
-				assert(
-					#suite.tasks == 1 and #suite.agents == 1 and #suite.seeds == 1,
-					"compare requires one task, author and seed"
-				)
+				assert(#suite.tasks == 1 and #suite.seeds == 1, "compare requires one task and seed")
+				local chosen = Cli.flag(invocation, "agent")
+				local author = suite.agents[1]
+				if chosen ~= nil then
+					local found: Eval.Agent? = nil
+					for _, agent in suite.agents do
+						if agent.id == chosen then
+							found = agent
+						end
+					end
+					author = assert(found, "the suite has no author " .. chosen)
+				else
+					assert(#suite.agents == 1, "pass --agent ID to choose one of the suite authors")
+				end
 				identity = {
 					suite = suite.id,
 					task = suite.tasks[1].id,
-					agent = suite.agents[1].id,
-					model = assert(suite.agents[1].model, "compare requires an explicit author model"),
+					agent = author.id,
+					adapter = author.adapter,
+					model = assert(author.model, "compare requires an explicit author model"),
 					seed = suite.seeds[1],
 					judgeModel = assert(
-						Json.stringField(suite.judge, "model"),
+						Cli.flag(invocation, "judge-model") or Json.stringField(suite.judge, "model"),
 						"compare requires an explicit judge model"
 					),
 				}
@@ -87,10 +102,26 @@ return {
 			end
 			local evidence: string = Cli.flag(invocation, "evidence") or suiteEvidence or "artifacts/facetbench/run"
 			local files = Eval.lute.loader().files
-			local results = if files.exists(evidence .. "/index.json")
+			local results: { Eval.RunResult } = if files.exists(evidence .. "/index.json")
 				then Eval.load(evidence, files, Lute.parse)
 				else {}
 			local judgments = Eval.judge.load(evidence, files, Lute.parse)
+			if identity ~= nil then
+				local agent = identity.agent
+				local chosenResults: { Eval.RunResult } = {}
+				for _, result in results do
+					if result.agent == agent then
+						table.insert(chosenResults, result)
+					end
+				end
+				local chosenJudgments: { Eval.Judgment } = {}
+				for _, judgment in judgments do
+					if judgment.agent == agent then
+						table.insert(chosenJudgments, judgment)
+					end
+				end
+				results, judgments = chosenResults, chosenJudgments
+			end
 			local report = Core.runCases(Compare.cases(results, judgments, identity), {
 				executor = "recorded-run-comparison",
 				environment = {
@@ -110,18 +141,23 @@ return {
 			return 0
 		end
 		assert(#invocation.positional == 1 and invocation.positional[1] == "prepare", "expected prepare")
-		local codexDirectory = Process.env.CODEX_HOME
-		if codexDirectory == nil then
-			local profile = Process.env.USERPROFILE or Process.env.HOME
-			assert(profile, "pass --model-catalog PATH when the user profile is unavailable")
-			codexDirectory = Files.join(profile, ".codex")
-		end
 		local models = Setup.authorModels(Json.decode(Files.read(Cli.flag(invocation, "suite") or "eval/run.json")))
-		prepareCatalog(Cli.flag(invocation, "model-catalog") or Files.join(codexDirectory, "models_cache.json"), models)
+		if #models > 0 then
+			local codexDirectory = Process.env.CODEX_HOME
+			if codexDirectory == nil then
+				local profile = Process.env.USERPROFILE or Process.env.HOME
+				assert(profile, "pass --model-catalog PATH when the user profile is unavailable")
+				codexDirectory = Files.join(profile, ".codex")
+			end
+			prepareCatalog(
+				Cli.flag(invocation, "model-catalog") or Files.join(codexDirectory, "models_cache.json"),
+				models
+			)
+		end
 		preparePlaces()
 		print(
-			"facetbench: prepared blank places, author guidance, and restricted tool profiles: "
-				.. table.concat(models, ", ")
+			"facetbench: prepared blank places, author guidance, and restricted Codex tool profiles: "
+				.. (if #models > 0 then table.concat(models, ", ") else "none")
 		)
 		return 0
 	end,
