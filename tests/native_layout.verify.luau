@@ -718,6 +718,33 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("a scroll view that holds a control is not itself a gamepad stop", {
+			id = "native_layout::phone layout policy::a scroll view that holds a control is not itself a gamepad stop",
+			run = function()
+				local shown = Compose.cell(true)
+				local root, engine, stop = build(nil, function(UI: FacetControls)
+					return UI.ScrollView {
+						UI.Text { text = "Rules" },
+						Compose.show(shown, function()
+							return UI.Button { label = "Retry" }
+						end),
+					}
+				end)
+				Verify.expect(root.Selectable):toBe(false)
+				shown:set(false)
+				for _ = 1, 3 do
+					engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(root.Selectable):toBe(true)
+				shown:set(true)
+				for _ = 1, 3 do
+					engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(root.Selectable):toBe(false)
+				stop()
+			end,
+		})
+
 		verifyHarness:case("a single fitting candidate keeps its authored visibility on phone widths", {
 			id = "native_layout::phone layout policy::a single fitting candidate keeps its authored visibility on phone widths",
 			run = function()
