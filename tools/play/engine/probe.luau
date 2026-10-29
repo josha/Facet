@@ -180,8 +180,13 @@ end
 
 local function roots(): { LayerCollector }
 	local found: { LayerCollector } = {}
-	for _, child in playerGui():GetChildren() do
-		if child:IsA("LayerCollector") and not EXCLUDED[child.Name] then
+	local gui = playerGui()
+	for _, child in gui:GetDescendants() do
+		if
+			child:IsA("LayerCollector")
+			and not EXCLUDED[child.Name]
+			and child:FindFirstAncestorWhichIsA("LayerCollector") == nil
+		then
 			table.insert(found, child)
 		end
 	end
