@@ -198,6 +198,20 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 	local active = true
 	local buttons: { [GuiButton]: boolean } = {}
 	local activations: { RBXScriptConnection } = {}
+	table.insert(
+		activations,
+		game:GetService("UserInputService").InputBegan:Connect(function(input: InputObject)
+			if input.UserInputType == Enum.UserInputType.Keyboard then
+				stability.stateChange(tracker)
+				table.insert(stateEvents, {
+					frame = tracker.frame + 1,
+					path = "keyboard",
+					before = "idle",
+					after = input.KeyCode.Name,
+				})
+			end
+		end)
+	)
 	local function sampleFrame()
 		if not active then
 			return
@@ -247,7 +261,7 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 					)
 				end
 				local model = { `Visible={node:IsA("GuiObject") and node.Visible}` }
-				for _, attribute in { "value", "selected", "busy", "label", "ToastVisible" } do
+				for _, attribute in { "value", "selected", "busy", "label", "ToastVisible", "FacetPreparing" } do
 					local value = node:GetAttribute(attribute)
 					if value ~= nil then
 						table.insert(model, `{attribute}={value}`)

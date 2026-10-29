@@ -155,7 +155,8 @@ return {
 					}),
 				}),
 				Host.CanvasGroup("WrappedFade")({
-					Size = D2.new(1, 0, 0, 84),
+					Size = D2.new(1, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
 					GroupTransparency = function(use: Use)
 						return 0.65 * math.clamp(use(amount), 0, 1)

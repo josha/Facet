@@ -437,11 +437,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			root:SetAttribute("NoticeAccessories", if use(beside) then "beside" else "below")
 		end)
 		if prepares then
+			root:SetAttribute("FacetPreparing", true)
 			local ready = presentationReady(ctx, { body })
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(ready) and preparing:peek() then
 					preparing:set(false)
 					present:set(true)
+					root:SetAttribute("FacetPreparing", false)
 				end
 			end)
 		end
