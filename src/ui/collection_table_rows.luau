@@ -20,6 +20,7 @@ export type Rows<V, K> = {
 	rowMeasures: ComposeTypes.Value<{ [K]: number }>,
 	actionGutters: ComposeTypes.Value<{ [K]: number }>,
 	truncatedRows: ComposeTypes.Value<{ [K]: { [string]: boolean } }>,
+	mountedRows: { [K]: number },
 	unitScale: ComposeTypes.Value<number>,
 	scrolledX: ComposeTypes.Value<number>,
 	editors: {
@@ -54,6 +55,7 @@ return function<V, K>(
 		spec.selection ~= nil or spec.onSelectionChange ~= nil or spec.selectionMode ~= nil
 	)
 	local rowMeasures, actionGutters, truncatedRows = shared.rowMeasures, shared.actionGutters, shared.truncatedRows
+	local mountedRows = shared.mountedRows
 	local unitScale, scrolledX, editors, field = shared.unitScale, shared.scrolledX, shared.editors, shared.field
 	local tree, editor, laneWidth = shared.tree, shared.editor, shared.laneWidth
 	local metrics, layout = shared.metrics, shared.layout
@@ -68,18 +70,22 @@ return function<V, K>(
 		local cellHeights: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
 		local truncated: ComposeTypes.Value<{ [string]: boolean }> = Compose.cell({})
 		local held: K? = nil
-		local function forget(gone: K?)
-			if gone ~= nil and truncatedRows:peek()[gone] ~= nil then
-				local rows = table.clone(truncatedRows:peek())
-				rows[gone] = nil
-				truncatedRows:set(rows)
+		local function release(gone: K?)
+			if gone ~= nil then
+				local count = (mountedRows[gone] or 1) - 1
+				if count > 0 then
+					mountedRows[gone] = count
+				else
+					mountedRows[gone] = nil
+				end
 			end
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			local now, cells = use(key), use(truncated)
 			if held ~= now then
-				forget(held)
+				release(held)
 				held = now
+				mountedRows[now] = (mountedRows[now] or 0) + 1
 			end
 			local wanted = if next(cells) then cells else nil
 			if truncatedRows:peek()[now] ~= wanted then
@@ -93,7 +99,7 @@ return function<V, K>(
 			end
 		end)
 		Compose.cleanup(function()
-			forget(held)
+			release(held)
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local height = use(minimumRow)

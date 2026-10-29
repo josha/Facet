@@ -129,6 +129,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 		local actionGutters: ComposeTypes.Value<{ [K]: number }> = Compose.cell({})
 		local headerMeasures: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
 		local truncatedRows: ComposeTypes.Value<{ [K]: { [string]: boolean } }> = Compose.cell({})
+		local mountedRows: { [K]: number } = {}
 		local metrics = createMetrics(ctx, spec, ownsToggle, unitScale, headerMeasures)
 		local minimumRow, toolbarHeight, headerHeight = metrics.minimumRow, metrics.toolbarHeight, metrics.headerHeight
 		local topHeight, textInsets = metrics.topHeight, metrics.textInsets
@@ -226,6 +227,24 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			end)
 		local layout = createColumns(ctx, spec, widths, truncatedRows, metrics, ordered, keyOf, field, unitScale)
 		Compose.watch(function(use: ComposeTypes.Use)
+			use(layout.viewportWidth)
+			use(layout.fillWidth)
+			use(layout.collapsed)
+			use(widths)
+			read(if tree then tree.all else spec.from, use)
+			local kept, pruned = {}, false
+			for key, cells in truncatedRows:peek() do
+				if mountedRows[key] then
+					kept[key] = cells
+				else
+					pruned = true
+				end
+			end
+			if pruned then
+				truncatedRows:set(kept)
+			end
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
 			local rows = read(if tree then tree.all else spec.from, use)
 			if next(rowMeasures:peek()) == nil then
 				return
@@ -300,6 +319,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			rowMeasures = rowMeasures,
 			actionGutters = actionGutters,
 			truncatedRows = truncatedRows,
+			mountedRows = mountedRows,
 			unitScale = unitScale,
 			scrolledX = scrolledX,
 			editors = editors,
