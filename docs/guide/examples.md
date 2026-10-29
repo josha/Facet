@@ -64,6 +64,12 @@ regression work. Verify these behaviors:
 - keyboard and gamepad access,
 - teardown.
 
+## Made with Facet
+
+[Word Amigos](made-with-facet.md) is a two-player word game for Roblox. Its
+interface uses only Facet controls. The page lists each control and mechanism
+that the game uses, and the task that each one does.
+
 ## What to copy
 
 Copy the state flow and the native composition of a component. Keep the keys
