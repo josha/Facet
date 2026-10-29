@@ -1558,6 +1558,38 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("hides a keyboard-only binding while the player uses a gamepad", {
+			id = "native_inputs::native input controls::hides a keyboard-only binding while the player uses a gamepad",
+			run = function()
+				local action, keyboard, pad, input
+				local node, stop, engine = world(function(UI: FacetControls, engine)
+					action, keyboard, pad =
+						engine.new("InputAction"), engine.new("InputBinding"), engine.new("InputBinding")
+					keyboard.KeyCode, keyboard.DisplayName = engine.types.Enum.KeyCode.Slash, "/"
+					pad.KeyCode, pad.DisplayName = engine.types.Enum.KeyCode.ButtonY, "Search"
+					engine.environment.poke(action, "PreferredBinding", keyboard)
+					return UI.ShortcutHint({ action = action })
+				end, function(engine)
+					input = (engine.new("UserInputService") :: unknown) :: UserInputService
+					local service = VerifyRoblox.assertInstance(input)
+					engine.environment.poke(service, "PreferredInput", engine.types.Enum.PreferredInput.Gamepad)
+					engine.environment.poke(service, "GamepadEnabled", true)
+					return { services = { UserInputService = input } }
+				end)
+				Verify.expect((find(node, "Key"))):toBe(nil)
+				Verify.expect(node.BackgroundTransparency):toBe(1)
+				engine.environment.poke(action, "PreferredBinding", pad)
+				Verify.expect(find(node, "Key").Text):toBe("Search")
+				Verify.expect(node.BackgroundTransparency):toBe(0)
+				local service = VerifyRoblox.assertInstance(input)
+				engine.environment.poke(service, "PreferredInput", engine.types.Enum.PreferredInput.KeyboardAndMouse)
+				engine.environment.poke(service, "GamepadEnabled", false)
+				engine.environment.poke(action, "PreferredBinding", keyboard)
+				Verify.expect(find(node, "Key").Text):toBe("/")
+				stop()
+			end,
+		})
+
 		verifyHarness:case("names whitespace and named keys instead of showing the layout character", {
 			id = "native_inputs::native input controls::names whitespace and named keys instead of showing the layout character",
 			run = function()

@@ -187,6 +187,9 @@ return function(
 				displaySize = if typeof(display) == "EnumItem" then display.Name else nil,
 				tenFoot = distant,
 			})
+			if home == "bottomBar" and #(read(spec.tabs, use) :: { unknown }) > 5 then
+				return "topBar"
+			end
 			if spec.style == "sidebarAdaptable" and not distant and (home == "sidebar" or home == "topBar") then
 				local choice = read(spec.sidebarPreference, use)
 				if choice and choice ~= "automatic" then

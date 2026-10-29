@@ -270,7 +270,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 			name = displayName,
 			userId = if player and player.UserId > 0 then player.UserId else nil,
 			presence = model.presence,
-			diameter = 36,
+			diameter = 44,
 			onActivate = function()
 				statusOpen:set(true)
 			end,
@@ -984,13 +984,13 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 			end),
 			UI.Text "Count" {
 				text = function(use: Use)
-					return `{#use(model.visibleGames)} games`
+					return `{#use(model.savedGames)} saved`
 				end,
 				textRole = "caption",
 				role = "secondary",
 				TextXAlignment = E.TextXAlignment.Right,
 				Visible = function(use: Use)
-					return not short(use)
+					return not short(use) and use(model.shelf) == "saved"
 				end,
 				UI.fill(),
 			},

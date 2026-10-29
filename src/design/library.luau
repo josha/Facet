@@ -386,12 +386,14 @@ local function create(context: Context): Design.Library
 			call = "UI." .. name,
 			build = function(props: { [string]: Resolved }, children: { unknown }, nodeName: string): unknown
 				local values: Record = {}
-				for key, value in spec.defaults do
-					values[key] = copy(value)
-				end
 				local live: Record = {}
 				local entry = derived.controls[name]
 				local typed = if entry then entry.fields else nil
+				for key, value in spec.defaults do
+					local declared = if typed then typed[key] else nil
+					local datatype = if declared and spec.fields[key] == nil then declared.datatype else nil
+					values[key] = if datatype ~= nil then convert(datatype, value) else copy(value)
+				end
 				for key, resolved in props do
 					local literal = resolved.literal
 					local declared = if typed then typed[key] else nil
@@ -455,7 +457,7 @@ local function create(context: Context): Design.Library
 				if name == "NumberInput" then
 					values.value = Compose.cell(tostring(values.numericValue or 0))
 				end
-				if name == "Image" or spec.nativeSize then
+				if name == "Image" or (spec.nativeSize and (values.width ~= nil or values.height ~= nil)) then
 					local width, height = values.width, values.height
 					local tall = if type(height) == "number" then height else 140
 					values.Size = if width == "fill"

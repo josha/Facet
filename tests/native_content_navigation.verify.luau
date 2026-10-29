@@ -542,6 +542,34 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
+		verifyHarness:case("moves more than five phone tabs from the bottom bar to the top strip", {
+			id = "native_content_navigation::native content navigation deltas::moves more than five phone tabs from the bottom bar to the top strip",
+			run = function()
+				for _, count in { 5, 6 } do
+					local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+						local tabs = {}
+						for index = 1, count do
+							table.insert(
+								tabs,
+								{
+									id = `t{index}`,
+									label = `Tab {index}`,
+									content = function(): Instance
+										return Host.Frame({})
+									end,
+								} :: FixtureNavigationTypes.Tab
+							)
+						end
+						return UI.TabView "Phone" { selection = Compose.cell("t1"), tabs = tabs }
+					end, { motionLevel = "none" })
+					local view = world.find("Phone")
+					world.engine.environment.poke(view, "AbsoluteSize", Vector2.new(390, 800))
+					Verify.expect(view:FindFirstChild("TabBand").Position.Y.Scale):toBe(if count > 5 then 0 else 1)
+					world.stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("keeps a sidebar rail below the engine top bar when the page reaches the top edge", {
 			id = "native_content_navigation::native content navigation deltas::keeps a sidebar rail below the engine top bar when the page reaches the top edge",
 			run = function()
