@@ -368,6 +368,87 @@ return function(h: Verify.Harness)
 		Verify.expect(split.AbsoluteSize):toBe(before)
 		w.stop()
 	end)
+	h:case("a following ZoomView grows with the zoom of a revealing split page and shrinks as it leaves", function()
+		local column = Facet.Compose.cell("sidebar" :: "sidebar" | "detail")
+		local shown = Facet.Compose.cell(false)
+		local roots: { VerifyRoblox.Instance } = {}
+		local w = worlds.new(
+			function(UI: Facet.Controls, Host, engine)
+				return UI.NavigationSplitView {
+					preferredCompactColumn = column,
+					detailVisible = shown,
+					detailLabel = false,
+					compactBack = Facet.Compose.cell(false),
+					transition = { scale = 0.5 },
+					sidebar = function(): Instance
+						return UI.Button "Row" { label = "Row" }
+					end,
+					detail = function(): Instance
+						return UI.ZoomView "Board" {
+							contentSize = engine.types.Vector2.new(400, 400),
+							followTransition = true,
+							Size = engine.types.UDim2.fromScale(1, 1),
+							content = function(): GuiObject
+								return Host.Frame "Cells" {
+									Size = engine.types.UDim2.fromOffset(400, 400),
+								} :: GuiObject
+							end,
+						}
+					end,
+				}
+			end,
+			nil,
+			{
+				layout = {
+					roots = function()
+						return roots
+					end,
+					viewport = function()
+						return { X = 400, Y = 700 }
+					end,
+				},
+			}
+		)
+		table.insert(roots, w.screen)
+		local layout = assert(w.layout)
+		layout.step()
+		w.runtime:batch(function()
+			shown:set(true)
+			column:set("detail")
+		end)
+		local function shownScale(): number?
+			local board = w.find("Board")
+			local scale = if board then w.find("ZoomScale", board) else nil
+			return if scale then scale.Scale :: number else nil
+		end
+		local samples: { number } = {}
+		for _ = 1, 90 do
+			w.engine.heartbeat:Fire(1 / 60)
+			layout.step()
+			local value = shownScale()
+			if value then
+				table.insert(samples, value)
+			end
+		end
+		local settled = samples[#samples]
+		Verify.expect(settled ~= nil and settled > 0):toBe(true)
+		local smallest = math.huge
+		for _, value in samples do
+			smallest = math.min(smallest, value)
+		end
+		Verify.expect(smallest < settled * 0.75):toBe(true)
+		Verify.expect(smallest >= settled * 0.5 - 1e-3):toBe(true)
+		column:set("sidebar")
+		shown:set(false)
+		local leaving = settled
+		for _ = 1, 12 do
+			w.engine.heartbeat:Fire(1 / 60)
+			layout.step()
+			leaving = shownScale() or leaving
+		end
+		Verify.expect(leaving < settled):toBe(true)
+		w.stop()
+	end)
 	local stallTheme = assert(Facet.themes.define({ metrics = { motion = { frameLimit = 0.05 } } }))
 	local function preparedSplit(stalls: boolean?)
 		local column = Facet.Compose.cell("sidebar" :: "sidebar" | "detail")
