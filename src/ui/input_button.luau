@@ -79,6 +79,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		rungTags[index] = "facet-size-" .. name
 	end
 	local escapeRich = richText.escape
+	local idle: ComposeTypes.Directive = function() end
 	UI.Button = ctx.construct("Button", function(spec: InputProps.ButtonProps): TextButton
 		assert(
 			spec.onActivate == nil or type(spec.onActivate) == "function",
@@ -589,55 +590,54 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 							return grows ~= E.AutomaticSize.X and grows ~= E.AutomaticSize.XY
 						end, function()
 							local words = ctx.observe.Text(node)
-							local fits, box = ctx.observe.TextFits(node), ctx.observe.AbsoluteSize(node)
-							local measured: string? = nil
-							Compose.watch(function(use: ComposeTypes.Use)
-								if use(words) == "" then
-									node:RemoveTag("facet-button-tight")
-									return
-								end
-								use(box)
-								use(fits)
-								local width, whole = node.AbsoluteSize.X, node.TextFits and use(captionFits)
-								if not node:HasTag("facet-button-tight") and (whole or width <= 0) then
-									return
-								end
-								local points, face = ctx.observeStyled.TextSize(node), ctx.observeStyled.FontFace(node)
-								local metrics = `{width}|{use(words)}|{use(points)}|{use(face)}`
-								if metrics ~= measured and node:HasTag("facet-button-tight") then
-									measured = metrics
-									local drawn = node.TextBounds.X
-									local unit = 1
-									local at: Instance? = node
-									while at do
-										local transform = at:FindFirstChildWhichIsA("UIScale")
-										if transform then
-											unit *= transform.Scale
+							return Compose.show(function(use: ComposeTypes.Use)
+								return use(words) ~= ""
+							end, function()
+								local fits, box = ctx.observe.TextFits(node), ctx.observe.AbsoluteSize(node)
+								local measured: string? = nil
+								Compose.watch(function(use: ComposeTypes.Use)
+									use(box)
+									use(fits)
+									local width, whole = node.AbsoluteSize.X, node.TextFits and use(captionFits)
+									if not node:HasTag("facet-button-tight") and (whole or width <= 0) then
+										return
+									end
+									local points, face =
+										ctx.observeStyled.TextSize(node), ctx.observeStyled.FontFace(node)
+									local metrics = `{width}|{use(words)}|{use(points)}|{use(face)}`
+									if metrics ~= measured and node:HasTag("facet-button-tight") then
+										measured = metrics
+										local drawn = node.TextBounds.X
+										local unit = 1
+										local at: Instance? = node
+										while at do
+											local transform = at:FindFirstChildWhichIsA("UIScale")
+											if transform then
+												unit *= transform.Scale
+											end
+											at = at.Parent
 										end
-										at = at.Parent
+										local package = read(ctx.config.theme, use)
+										local skin = package and package.chrome and package.chrome.control
+										local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
+										local padding = (
+											2 * ctx.controlSize(spec.controlSize, "paddingX", use)
+											+ (carve.left or 0)
+											+ (carve.right or 0)
+										) * unit
+										if drawn == 0 or (whole and drawn + padding <= width) then
+											node:RemoveTag("facet-button-tight")
+										end
 									end
-									local package = read(ctx.config.theme, use)
-									local skin = package and package.chrome and package.chrome.control
-									local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
-									local padding = (
-										2 * ctx.controlSize(spec.controlSize, "paddingX", use)
-										+ (carve.left or 0)
-										+ (carve.right or 0)
-									) * unit
-									if drawn == 0 or (whole and drawn + padding <= width) then
-										node:RemoveTag("facet-button-tight")
+									if not whole and width > 0 and not node:HasTag("facet-button-tight") then
+										measured = metrics
+										node:AddTag("facet-button-tight")
 									end
-								end
-								if not whole and width > 0 and not node:HasTag("facet-button-tight") then
-									measured = metrics
-									node:AddTag("facet-button-tight")
-								end
-							end)
-							Compose.cleanup(function()
-								node:RemoveTag("facet-button-tight")
-							end)
-							return Compose.fragment(function()
-								return {}
+								end)
+								Compose.cleanup(function()
+									node:RemoveTag("facet-button-tight")
+								end)
+								return idle
 							end)
 						end),
 					}

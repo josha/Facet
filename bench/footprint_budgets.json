@@ -26,8 +26,8 @@
     },
     "ColorPicker-open": {
         "instances": 338,
-        "connections": 518,
-        "holdings": 2419
+        "connections": 420,
+        "holdings": 2010
     },
     "Dialog-reactive-theme": {
         "instances": 33,
@@ -76,8 +76,8 @@
     },
     "ColorPicker-open-reactive-theme": {
         "instances": 362,
-        "connections": 518,
-        "holdings": 2686
+        "connections": 420,
+        "holdings": 2280
     },
     "Picker-open-reactive-theme": {
         "instances": 40,
