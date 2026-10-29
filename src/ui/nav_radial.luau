@@ -40,6 +40,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			"preset",
 			"appearance",
 			"buttonSurface",
+			"captions",
 			"distribution",
 			"navigation",
 			"expansion",

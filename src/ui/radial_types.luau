@@ -106,6 +106,7 @@ export type RadialMenuOptions<V = string> = {
 	preset: Preset?,
 	appearance: Appearance?,
 	buttonSurface: ("native" | "none")?,
+	captions: boolean?,
 	distribution: Distribution?,
 	navigation: Navigation?,
 	expansion: Expansion?,
