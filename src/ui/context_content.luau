@@ -26,7 +26,8 @@ local function attachLayout(
 	label: TextLabel | TextButton,
 	stable: boolean?,
 	watchPadding: boolean?,
-	lazy: boolean?
+	lazy: boolean?,
+	warm: boolean?
 )
 	local Compose, runtime, types, Host = ctx.Compose, ctx.runtime, ctx.types, ctx.Host
 	local Enum, services = types.Enum, ctx.config.services
@@ -113,6 +114,8 @@ local function attachLayout(
 	local frameSource = runtime.host.frames
 	local checkStale: () -> () = function() end
 	local sizeMoved, boundsMoved = false, false
+	local refloor: () -> () = function() end
+	local textChanged = not lazy
 	local function readGeometry()
 		if alive then
 			if sizeMoved then
@@ -122,6 +125,10 @@ local function attachLayout(
 				bounds:set(label.TextBounds)
 			end
 			sizeMoved, boundsMoved = false, false
+			if warm and not textChanged then
+				textChanged = true
+				refloor()
+			end
 			checkStale()
 		end
 	end
@@ -140,8 +147,6 @@ local function attachLayout(
 			geometryStop = frameSource.onFrame(flushGeometry)
 		end
 	end
-	local refloor: () -> () = function() end
-	local textChanged = not lazy
 	local priorText = label.Text
 	local floorApply: () -> () = function() end
 	local function invalidate()
@@ -668,11 +673,12 @@ return function(
 		for key, value in (properties or {}) :: { [unknown]: unknown } do
 			fields[key] = value
 		end
+		local bound = Compose.isValue(fields.Text) or type(fields.Text) == "function"
 		local label = ctx.styled(Host.TextLabel(native), "Text")
 
 		if label.AutomaticSize == Enum.AutomaticSize.None then
 			local attach = Compose.bindOwner(function()
-				attachLayout(ctx, label, stable, nil, true)
+				attachLayout(ctx, label, stable, nil, true, bound)
 			end)
 			local stop: ComposeTypes.Dispose?
 			stop = Compose.cleanup(assert(runtime.host.observation).observeProperty(label, "AutomaticSize", function()
@@ -686,7 +692,7 @@ return function(
 				end
 			end))
 		else
-			attachLayout(ctx, label, stable, nil, true)
+			attachLayout(ctx, label, stable, nil, true, bound)
 		end
 
 		return label
