@@ -86,6 +86,7 @@ return {
 			table.insert(children, view.text("OutpostNotice", notice))
 			return UI.VStack "PowerControls" {
 				width = "fill",
+				maxWidth = 560,
 				gap = "m",
 				table.unpack(children),
 			}

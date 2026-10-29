@@ -394,7 +394,7 @@ return function(ctx: Context)
 		local root = UI.VStack "Ascent" {
 			width = "fill",
 			height = "fill",
-			padding = "s",
+			padding = "m",
 			gap = "s",
 			UI.VStack "MapPanel" {
 				UI.fill(),
@@ -436,6 +436,7 @@ return function(ctx: Context)
 							end
 						end,
 					},
+					UI.Spacer {},
 					UI.Text "SkillPoints" {
 						text = function(use: Use)
 							return text("points", { count = tostring(use(state).points) })
@@ -446,7 +447,7 @@ return function(ctx: Context)
 					UI.Button "ResetTree" {
 						label = text("restartSymbol"),
 						name = text("reset"),
-						appearance = "link",
+						appearance = "utility",
 						AutoLocalize = false,
 						onActivate = function()
 							sequence.cancel()

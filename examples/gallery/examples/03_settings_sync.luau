@@ -93,7 +93,7 @@ function example.build(ctx: ExampleContext)
 				UI.Stepper "Volume" {
 					label = "Volume",
 					min = 0,
-					max = 10,
+					max = 100,
 					value = function(use: Use)
 						return use(draft).volume
 					end,

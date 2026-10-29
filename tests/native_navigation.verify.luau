@@ -2594,6 +2594,30 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("pins a collapsible view's Close below its scrolling content", {
+			id = "native_navigation::native navigation controls::pins a collapsible view's Close below its scrolling content",
+			run = function()
+				local expanded = Compose.cell(true)
+				local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+					return UI.CollapsibleView({
+						expanded = expanded,
+						label = "Summary",
+						content = Host.Frame "Tall" { Size = engine.types.UDim2.fromOffset(200, 2000) },
+					})
+				end)
+				local scroll = find(world.screen, "ExpandedScroll")
+				local footer = find(world.screen, "ExpandedFooter")
+				local close = find(footer, "Close")
+				Verify.expect(close:IsDescendantOf(scroll)):toBe(false)
+				Verify.expect(footer.AnchorPoint):toBe(world.engine.types.Vector2.new(0, 1))
+				world.engine.environment.poke(footer, "AbsoluteSize", world.engine.types.Vector2.new(320, 60))
+				Verify.expect(scroll.Size):toBe(world.engine.types.UDim2.new(1, 0, 1, -60))
+				close.Activated:Fire()
+				Verify.expect(expanded:peek()):toBe(false)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("returns disclosure focus before unmounting its content", {
 			id = "native_navigation::native navigation controls::returns disclosure focus before unmounting its content",
 			run = function()

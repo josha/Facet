@@ -2654,6 +2654,12 @@ return function(verifyHarness: Verify.Harness)
 							end
 						end
 						Verify.expect(priority(".facet-button:Hover") > priority(".facet-button")):toBe(true)
+						Verify.expect(style(sheet, ".facet-disabled >> .facet-toggle-indicator").BackgroundTransparency)
+							:toBe(extra.disabledContentOpacity)
+						Verify.expect(
+							priority(".facet-disabled >> .facet-toggle-indicator") > priority(".facet-toggle-indicator")
+						)
+							:toBe(true)
 						Verify.expect(priority(".facet-quiet-destructive") > priority(".facet-appearance-utility"))
 							:toBe(true)
 						Verify.expect(

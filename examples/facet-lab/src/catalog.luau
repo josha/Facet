@@ -187,7 +187,7 @@ catalog.FAMILIES = table.freeze({
 	{ id = "facet", label = "Facet capabilities" },
 })
 
-local SIZES: Axis = { key = "controlSize", values = { "xsmall", "compact", "regular", "large" } }
+local SIZES: Axis = { key = "controlSize", values = { DEFAULT, "xsmall", "compact", "regular", "large" } }
 local CORNERS: Axis = { key = "corners", values = { DEFAULT, "pill", "square" } }
 local FIELD_APPEARANCE: Axis = { key = "appearance", values = { "standard", "contrast", "utility" } }
 local DISABLED: State = { name = "disabled", props = properties { enabled = false } }

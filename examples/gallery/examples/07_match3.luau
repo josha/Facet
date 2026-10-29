@@ -826,6 +826,7 @@ local function build(ctx: ExampleContext): Built
 			return if use(moves) == 1 then "1 swap" else `{use(moves)} swaps`
 		end)
 		return UI.Screen "Match3" {
+			align = "center",
 			UI.ScrollView "Page" {
 				gap = "s",
 				align = "stretch",
