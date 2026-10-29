@@ -158,9 +158,21 @@ return function<V, K>(
 				local proposed = placement(key, use(at), use)
 				return ctx.types.Vector2.new(proposed.crossOffset, proposed.offset)
 			end)
+			local relaid = ctx.Compose.cell(false)
+			local last = at:peek()
+			local lastShift = target:peek() - ctx.types.Vector2.new(last.crossOffset, last.offset)
+			ctx.Compose.watch(function(use: ComposeTypes.Use)
+				local base, proposed = use(at), use(target)
+				local shift = proposed - ctx.types.Vector2.new(base.crossOffset, base.offset)
+				relaid:set(base.index == last.index and (shift - lastShift).Magnitude <= 0.5)
+				last, lastShift = base, shift
+			end)
 			local spring = ctx.motionSpring("snappy")
 			local function reduced(use: ComposeTypes.Use): boolean
-				return shared.instantLayout == true or shared.motionReduced(use) or read(reducedMotion, use) == true
+				return shared.instantLayout == true
+					or use(relaid)
+					or shared.motionReduced(use)
+					or read(reducedMotion, use) == true
 			end
 			local position = ctx.runtime.spring(function(use: ComposeTypes.Use): Vector2
 				return use(target)

@@ -761,6 +761,9 @@ return function(
 				end,
 			}),
 		}
+		Compose.watch(function(use: ComposeTypes.Use)
+			layers:SetAttribute("FacetSettling", use(stowed) and use(placement) ~= "none")
+		end)
 		tabsReady = true
 		local track = Host.Frame "Track" {
 			ZIndex = 1,

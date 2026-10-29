@@ -131,6 +131,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		local sidebar: Frame
 		local detail: Frame
 		local detailVisibility: Shared.ReadOnlyValue<boolean>? = nil
+		local detailDrawn = Compose.cell(false)
 		local resize: TextButton
 		local function back()
 			column:set("sidebar")
@@ -285,7 +286,14 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 					end,
 					build(spec.detail),
 				}, departed)
-				detailVisibility = ctx.observe.Visible(detail)
+				local drawn = ctx.observe.Visible(detail)
+				detailVisibility = drawn
+				Compose.watch(function(use: Shared.Use)
+					detailDrawn:set(use(drawn))
+				end)
+				Compose.cleanup(function()
+					detailDrawn:set(false)
+				end)
 				surfaces.keep(spec.detail)
 				return detail
 			end),
@@ -516,7 +524,13 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			local handed = compactBack
 			local released = false
 			Compose.watch(function(use: Shared.Use)
-				handed:set(use(compact) and use(shown) and use(selectedColumn) == "detail")
+				handed:set(
+					use(compact)
+						and (
+							(use(shown) and use(selectedColumn) == "detail")
+							or (transition ~= nil and use(detailDrawn))
+						)
+				)
 			end)
 			Compose.watch(function(use: Shared.Use)
 				local requested = use(handed) == false and not released

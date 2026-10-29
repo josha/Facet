@@ -44,7 +44,15 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 		end
 		snapshot = table.concat(parts, ";")
 		laidOut = laidOut or attached
-		return attached and measured and fontsReady(texts)
+		local settling = false
+		for _, root in roots do
+			local at: Instance? = root.Parent
+			while at and not settling do
+				settling = at:GetAttribute("FacetSettling") == true
+				at = at.Parent
+			end
+		end
+		return attached and measured and not settling and fontsReady(texts)
 	end
 	local graced = false
 	return ctx.runtime.settled {
