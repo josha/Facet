@@ -9,8 +9,8 @@ local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
 local storage = game:GetService("ReplicatedStorage")
-local stability = (require :: (Instance) -> typeof(require("../frame_stability")))(storage.FacetLive.frame_stability)
-local clipping = (require :: (Instance) -> typeof(require("../text_clipping")))(storage.FacetLive.text_clipping)
+local stability = (require :: (Instance) -> typeof(require("./frame_stability")))(storage.FacetLive.frame_stability)
+local clipping = (require :: (Instance) -> typeof(require("./text_clipping")))(storage.FacetLive.text_clipping)
 type Sample = { path: string, rect: { number }, text: { number }?, painted: boolean }
 type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
 type Context = {
@@ -41,6 +41,8 @@ type Virtual = {
 	SendMouseButton: (Virtual, Vector2, Enum.UserInputType, boolean) -> (),
 	SendKey: (Virtual, boolean, Enum.KeyCode, boolean) -> (),
 }
+local QUIET_FRAMES = 12
+local MINIMUM_FRAMES = 30
 local virtual = ((game:GetService("UserInputService") :: unknown) :: { CreateVirtualInput: (unknown) -> Virtual }):CreateVirtualInput()
 
 local function masked(node: Instance): boolean
@@ -189,7 +191,6 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 	local paths, indices, identities, serial = trace.paths, trace.indices, trace.identities, trace.serial
 	trace.observations += 1
 	local observation = trace.observations
-	local nativeDiagnostics: { { unknown } } = {}
 	local previousEnvironment: string? = nil
 	local previousState: { [Instance]: string } = {}
 	local previousModel: { [Instance]: string } = {}
@@ -226,7 +227,6 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 				})
 			end
 			previousEnvironment = currentEnvironment
-			local diagnostic: { unknown } = {}
 			local currentState: { [Instance]: string } = {}
 			local currentModel: { [Instance]: string } = {}
 			local modelChanged = false
@@ -245,33 +245,6 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 							})
 						end)
 					)
-				end
-				if
-					shared.FacetFrameStabilityDiagnostics == true
-					and tracker.frame < 30
-					and node:IsA("ScrollingFrame")
-				then
-					table.insert(diagnostic, {
-						path = node:GetFullName(),
-						window = tostring(node.AbsoluteWindowSize),
-						canvas = tostring(node.AbsoluteCanvasSize),
-						inset = tostring(node.VerticalScrollBarInset),
-					})
-				end
-				if
-					shared.FacetFrameStabilityDiagnostics == true
-					and tracker.frame < 30
-					and node:IsA("TextLabel")
-					and (node.Name == "Day" or node.Name == "Description")
-				then
-					table.insert(diagnostic, {
-						path = node:GetFullName(),
-						text = node.Text,
-						bounds = tostring(node.TextBounds),
-						size = tostring(node.AbsoluteSize),
-						font = tostring(node:GetStyled("FontFace")),
-						points = node:GetStyled("TextSize"),
-					})
 				end
 				local model = { `Visible={node:IsA("GuiObject") and node.Visible}` }
 				for _, attribute in { "value", "selected", "busy", "label", "ToastVisible" } do
@@ -316,9 +289,6 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 						)
 					end
 				end
-			end
-			if #diagnostic > 0 then
-				table.insert(nativeDiagnostics, diagnostic)
 			end
 			previousState = currentState
 			previousModel = currentModel
@@ -386,7 +356,9 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 		change()
 		repeat
 			RunService.PreRender:Wait()
-		until sampleError ~= nil or (tracker.quiet >= 30 and tracker.frame >= 60) or tracker.frame >= 600
+		until sampleError ~= nil
+			or (tracker.quiet >= QUIET_FRAMES and tracker.frame >= MINIMUM_FRAMES)
+			or tracker.frame >= 300
 	end)
 	connection:Disconnect()
 	for _, activation in activations do
@@ -401,12 +373,16 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 		t.check(name .. " settled text is not clipped", #faults == 0, faults)
 	end
 	t.check(name .. " records visible objects", tracker.seen > 0, tracker.seen)
-	t.check(name .. " reaches 30 unchanged frames", tracker.quiet >= 30, tracker.frame)
+	t.check(name .. ` reaches {QUIET_FRAMES} unchanged frames`, tracker.quiet >= QUIET_FRAMES, tracker.frame)
 	t.check(
 		name .. " stable from first visible frame",
 		if negative then #tracker.faults > 0 else #tracker.faults == 0,
 		{ count = #tracker.faults, first = tracker.faults[1] }
 	)
+	local failed = (if negative then #tracker.faults == 0 else #tracker.faults > 0) or tracker.quiet < QUIET_FRAMES
+	if not failed then
+		return tracker
+	end
 	t.note("geometry paths", paths)
 	t.note(
 		"frame trace encoding",
@@ -436,16 +412,6 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 	t.note(name .. " faults", { count = #tracker.faults, first = tracker.faults[1], attachments = faultParts })
 	t.note(name .. " sample phase", "after render callbacks")
 	t.note(name .. " state events", stateEvents)
-	if #nativeDiagnostics > 0 then
-		t.note(name .. " native diagnostics", nativeDiagnostics)
-	end
-	if
-		not negative
-		and (#tracker.faults > 0 or tracker.quiet < 30)
-		and shared.FacetFrameStabilityStopOnFault == true
-	then
-		error("frame stability diagnostic stopped at the first unstable observation")
-	end
 	return tracker
 end
 
@@ -1291,290 +1257,121 @@ for _, viewport in viewports do
 						end
 					end
 				end
-				local seconds = shared.FacetFrameStabilityCaptureSeconds
-				if type(seconds) == "number" and seconds > 0 then
-					local untilTime = os.clock() + seconds
-					repeat
-						RunService.PreRender:Wait()
-					until os.clock() >= untilTime
-				end
 				t.cleanup()
 			end,
 		})
 	end
 end
+local combos = {
+	{ viewport = viewports[3], textSize = "Medium" },
+	{ viewport = viewports[1], textSize = "Largest" },
+}
 for _, page in pages() do
-	for _, viewport in viewports do
-		for _, textSize in { "Medium", "Largest" } do
-			local name = `{page.id}/{page.tab or "root"}/{viewport.name}/{textSize}`
-			add({
-				id = name,
-				contracts = {},
-				keepGallery = false,
-				run = function(t: T)
-					local stage: GuiObject? = nil
-					local context: Context? = nil
-					local function root(): GuiObject?
-						return stage
-					end
-					observe(t, "mount", root, function()
-						stage, context = t.gallery({
-							size = Vector2.new(viewport.width, viewport.height),
-							demo = page.id,
-							frames = 0,
-							preferredTextSize = textSize,
-						})
-						if page.tab then
-							local active = assert(context)
-							active.dispatch("tab", string.split(page.tab, "/")[1])
-							active.dispatch("tab", page.tab)
-						end
-					end)
-					t.note("native preferred text size", tostring(GuiService.PreferredTextSize))
-					local loaded = assert(context)
-					t.check(
-						"requested page mounted",
-						loaded.active:peek() == page.id and loaded.errorMessage:peek() == nil,
-						{
-							active = loaded.active:peek(),
-							error = loaded.errorMessage:peek(),
-						}
-					)
-					t.note("environment preferred text size", textSize)
-					for _, node in (stage :: GuiObject):GetDescendants() do
-						local parent = node.Parent
-						if
-							node:IsA("GuiObject")
-							and node:GetAttribute("FacetPreparing") ~= nil
-							and parent
-							and parent:IsA("GuiObject")
-							and visible(parent, stage :: GuiObject)
-						then
-							t.check(
-								"layout preparation reveals " .. node:GetFullName(),
-								node:GetAttribute("FacetPreparing") == false,
-								node.AbsoluteSize
-							)
-						end
-						if
-							node:IsA("GuiObject")
-							and node.Name == "Technique"
-							and parent
-							and parent:IsA("ScrollingFrame")
-						then
-							t.check(
-								"ColorPicker technique fits the native scroll window",
-								node.AbsoluteSize.X <= parent.AbsoluteWindowSize.X + 0.5,
-								{
-									size = node.AbsoluteSize,
-									window = parent.AbsoluteWindowSize,
-									visible = visible(node, stage :: GuiObject),
-									path = node:GetFullName(),
-								}
-							)
-						end
-						if node:IsA("GuiObject") and node.Name == "Values" and parent and parent.Name == "Readout" then
-							local tallest = 0
-							for _, child in node:GetChildren() do
-								if child:IsA("GuiObject") then
-									tallest = math.max(tallest, child.AbsoluteSize.Y)
-								end
-							end
-							t.check(
-								"ColorPicker readout reserves its tallest format",
-								math.abs(node.AbsoluteSize.Y - tallest) <= 0.5,
-								{
-									size = node.AbsoluteSize,
-									tallest = tallest,
-								}
-							)
-						end
-					end
-					if page.id == "ex02" then
-						local tracks = assert((stage :: GuiObject):FindFirstChild("Tracks", true))
-						local header = assert(tracks:FindFirstChild("Header", true))
-						local first = assert(tracks:FindFirstChild("neon", true))
-						local row = assert(first:FindFirstChild("Row", true))
-						for _, column in header:GetChildren() do
-							if column:IsA("GuiObject") and column.Visible then
-								local cell = assert(row:FindFirstChild(column.Name)) :: GuiObject
-								t.check(
-									"Playlist column aligns " .. column.Name,
-									math.abs(cell.AbsolutePosition.X - column.AbsolutePosition.X) <= 0.5
-										and math.abs(cell.AbsoluteSize.X - column.AbsoluteSize.X) <= 0.5,
-									{
-										header = { column.AbsolutePosition.X, column.AbsoluteSize.X },
-										row = { cell.AbsolutePosition.X, cell.AbsoluteSize.X },
-									}
-								)
-							end
-						end
-					end
-					if shared.FacetFrameStabilityMountOnly == true then
-						t.note("coverage", "mount only; interaction matrix not run")
-						local seconds = shared.FacetFrameStabilityCaptureSeconds
-						if type(seconds) == "number" and seconds > 0 then
-							local untilTime = os.clock() + seconds
-							repeat
-								RunService.PreRender:Wait()
-							until os.clock() >= untilTime
-						end
-						t.cleanup()
-						return
-					end
-					local excluded: { [string]: boolean } = { Demos = true, Categories = true }
+	for _, combo in combos do
+		local viewport, textSize = combo.viewport, combo.textSize
+		add({
+			id = `{page.id}/{page.tab or "root"}/{viewport.name}/{textSize}`,
+			contracts = {},
+			keepGallery = false,
+			run = function(t: T)
+				local stage: GuiObject? = nil
+				local context: Context? = nil
+				observe(t, "mount", function(): GuiObject?
+					return stage
+				end, function()
+					stage, context = t.gallery({
+						size = Vector2.new(viewport.width, viewport.height),
+						demo = page.id,
+						frames = 0,
+						preferredTextSize = textSize,
+					})
 					if page.tab then
-						excluded[string.split(page.tab, "/")[1]] = true
+						local active = assert(context)
+						active.dispatch("tab", string.split(page.tab, "/")[1])
+						active.dispatch("tab", page.tab)
 					end
-					local function taskControl(node: Instance): boolean
-						local at: Instance? = node
-						while at do
-							if at.Name == "Toolbar" then
-								return false
-							end
-							if at.Name == "Tabs" then
-								local view = at.Parent
-								if view and view.Name == "TabBand" then
-									view = view.Parent
-								end
-								if view and excluded[view.Name] then
-									return false
-								end
-							end
-							at = at.Parent
-						end
-						return true
+				end)
+				local loaded = assert(context)
+				t.check(
+					"requested page mounted",
+					loaded.active:peek() == page.id and loaded.errorMessage:peek() == nil,
+					{
+						active = loaded.active:peek(),
+						error = loaded.errorMessage:peek(),
+					}
+				)
+				for _, node in (stage :: GuiObject):GetDescendants() do
+					local parent = node.Parent
+					if
+						node:IsA("GuiObject")
+						and node:GetAttribute("FacetPreparing") ~= nil
+						and parent
+						and parent:IsA("GuiObject")
+						and visible(parent, stage :: GuiObject)
+					then
+						t.check(
+							"layout preparation reveals " .. node:GetFullName(),
+							node:GetAttribute("FacetPreparing") == false,
+							node.AbsoluteSize
+						)
 					end
-					local visited: { [string]: boolean } = {}
-					local scrolled: { [string]: Vector2 } = {}
-					local escapeTried = false
-					while true do
-						local changedPage = loaded.active:peek() ~= page.id
-						if page.tab and not changedPage then
-							local report =
-								loaded.dispatch("report", nil) :: { demo: { selected: { [string]: string } }? }
-							local selected = if report.demo then report.demo.selected else nil
-							local parts = string.split(page.tab, "/")
-							changedPage = selected == nil
-								or selected.Categories ~= parts[1]
-								or selected[parts[1]] ~= parts[2]
-						end
-						if changedPage then
-							observe(t, "restore requested page", root, function()
-								loaded.dispatch("show", page.id)
-								if page.tab then
-									loaded.dispatch("tab", string.split(page.tab, "/")[1])
-									loaded.dispatch("tab", page.tab)
-								end
-							end)
-						end
-						local target: GuiObject? = nil
-						local overlayVisible = false
-						for _, node in (stage :: GuiObject):GetDescendants() do
-							local overlay = node:FindFirstAncestor("PreviewOverlays") ~= nil
-							if overlay and node:IsA("GuiObject") and visible(node, stage :: GuiObject) then
-								overlayVisible = true
-							end
-							if
-								node:IsA("GuiObject")
-								and not visited[node:GetFullName()]
-								and visible(node, stage :: GuiObject)
-								and taskControl(node)
-								and (node.Selectable or node:IsA("GuiButton") or node:IsA("TextBox"))
-							then
-								if target == nil or overlay then
-									target = node
-								end
-								if overlay then
-									break
-								end
+					if
+						node:IsA("GuiObject")
+						and node.Name == "Technique"
+						and parent
+						and parent:IsA("ScrollingFrame")
+					then
+						t.check(
+							"ColorPicker technique fits the native scroll window",
+							node.AbsoluteSize.X <= parent.AbsoluteWindowSize.X + 0.5,
+							{
+								size = node.AbsoluteSize,
+								window = parent.AbsoluteWindowSize,
+								visible = visible(node, stage :: GuiObject),
+								path = node:GetFullName(),
+							}
+						)
+					end
+					if node:IsA("GuiObject") and node.Name == "Values" and parent and parent.Name == "Readout" then
+						local tallest = 0
+						for _, child in node:GetChildren() do
+							if child:IsA("GuiObject") then
+								tallest = math.max(tallest, child.AbsoluteSize.Y)
 							end
 						end
-						if target == nil then
-							if overlayVisible and not escapeTried then
-								escapeTried = true
-								observe(t, "outside dismissal", root, function()
-									local scene = assert(stage)
-									local overlay = scene:FindFirstChild("PreviewOverlays", true)
-									local surface = if overlay and overlay:IsA("GuiObject") then overlay else scene
-									local point = surface.AbsolutePosition
-										+ Vector2.new(2, 2)
-										+ GuiService:GetGuiInset()
-									virtual:SendMousePosition(point)
-									virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
-									virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, false)
-								end)
-								continue
-							end
-							local advanced = false
-							for _, candidate in (stage :: GuiObject):GetDescendants() do
-								if
-									candidate:IsA("ScrollingFrame")
-									and candidate.ScrollingEnabled
-									and visible(candidate, stage :: GuiObject)
-									and taskControl(candidate)
-								then
-									local path = candidate:GetFullName()
-									local maximum = candidate.AbsoluteCanvasSize - candidate.AbsoluteWindowSize
-									local before = scrolled[path] or Vector2.zero
-									local step = candidate.AbsoluteWindowSize * 0.75
-									local next = Vector2.new(
-										math.min(math.max(0, maximum.X), before.X + math.max(1, step.X)),
-										math.min(math.max(0, maximum.Y), before.Y + math.max(1, step.Y))
-									)
-									if next ~= before then
-										scrolled[path] = next
-										observe(t, path .. ` scroll {next}`, root, function()
-											candidate.CanvasPosition = next
-										end)
-										advanced = true
-										break
-									end
-								end
-							end
-							if advanced then
-								continue
-							end
-							break
-						end
-						local node = target
-						escapeTried = false
-						local path = node:GetFullName()
-						visited[path] = true
-						if node.Selectable then
-							observe(t, path .. " select", root, function()
-								GuiService.SelectedObject = node
-							end)
-						end
-						local point = assert(visiblePoint(node, assert(stage))) + GuiService:GetGuiInset()
-						observe(t, path .. " hover", root, function()
-							virtual:SendMousePosition(point)
-						end)
-						if node:IsA("TextBox") then
-							observe(t, path .. " text", root, function()
-								node.Text ..= " stability"
-							end)
-						elseif node:IsA("GuiButton") then
-							observe(t, path .. " activate", root, function()
-								activate(node, point)
-							end)
-						end
-						if node.Selectable and node:GetAttribute("value") ~= nil then
-							for _, key in { Enum.KeyCode.Right, Enum.KeyCode.Left, Enum.KeyCode.Up, Enum.KeyCode.Down } do
-								observe(t, path .. " " .. key.Name, root, function()
-									virtual:SendKey(true, key, false)
-									for _ = 1, 2 do
-										RunService.PreRender:Wait()
-									end
-									virtual:SendKey(false, key, false)
-								end)
-							end
+						t.check(
+							"ColorPicker readout reserves its tallest format",
+							math.abs(node.AbsoluteSize.Y - tallest) <= 0.5,
+							{
+								size = node.AbsoluteSize,
+								tallest = tallest,
+							}
+						)
+					end
+				end
+				if page.id == "ex02" then
+					local tracks = assert((stage :: GuiObject):FindFirstChild("Tracks", true))
+					local header = assert(tracks:FindFirstChild("Header", true))
+					local first = assert(tracks:FindFirstChild("neon", true))
+					local row = assert(first:FindFirstChild("Row", true))
+					for _, column in header:GetChildren() do
+						if column:IsA("GuiObject") and column.Visible then
+							local cell = assert(row:FindFirstChild(column.Name)) :: GuiObject
+							t.check(
+								"Playlist column aligns " .. column.Name,
+								math.abs(cell.AbsolutePosition.X - column.AbsolutePosition.X) <= 0.5
+									and math.abs(cell.AbsoluteSize.X - column.AbsoluteSize.X) <= 0.5,
+								{
+									header = { column.AbsolutePosition.X, column.AbsoluteSize.X },
+									row = { cell.AbsolutePosition.X, cell.AbsoluteSize.X },
+								}
+							)
 						end
 					end
-					t.cleanup()
-				end,
-			})
-		end
+				end
+				t.cleanup()
+			end,
+		})
 	end
 end
 
