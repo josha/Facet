@@ -792,7 +792,7 @@ return function(ctx: Types.Context): Drag.Service
 				local goalExtent = V2.new(
 					rect.w * (if session.pickupSize.X > 0 then previewSize.X / session.pickupSize.X else 1),
 					rect.h * (if session.pickupSize.Y > 0 then previewSize.Y / session.pickupSize.Y else 1)
-				) / lift
+				) / (session.liftScale or lift)
 				local goal = localPoint(ghost, V2.new(rect.x, rect.y) + ghost.AnchorPoint * goalExtent)
 				local scaler = ghost:FindFirstChildWhichIsA("UIScale")
 				local capturedScale = nativeScale(ghost)
