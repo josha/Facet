@@ -585,10 +585,14 @@ local function reportEnvironment(suite: string): { [string]: string }
 end
 
 local function baseline()
+	local input = game:GetService("UserInputService")
+	assert(
+		not input.VREnabled,
+		"Studio started play in VR, which disables GUI selection; set the Device Simulator to a non-VR device before the run"
+	)
 	if baselineDevice == "keep" then
 		return
 	end
-	local input = game:GetService("UserInputService")
 	local simulated = false
 	pcall(function()
 		local simulator = game:GetService("StudioDeviceSimulatorService") :: any
