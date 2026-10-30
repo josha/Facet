@@ -133,13 +133,22 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		return inside(node, {})
 	end
 	ctx.withinModal = withinModal
+	local GUI, LAYER, OPEN = 1, 2, 0
+	local gates = setmetatable({} :: { [Instance]: number }, { __mode = "k" })
 	function ctx.available(node: Instance, use: ComposeTypes.Use?): boolean
 		local at: Instance? = node
 		while at do
-			if at:IsA("GuiObject") and (not at.Visible or not at.Interactable) then
-				return false
+			local gate = gates[at]
+			if gate == nil then
+				gate = if at:IsA("GuiObject") then GUI elseif at:IsA("LayerCollector") then LAYER else OPEN
+				gates[at] = gate
 			end
-			if at:IsA("LayerCollector") and not at.Enabled then
+			if gate == GUI then
+				local gui = at :: GuiObject
+				if not gui.Visible or not gui.Interactable then
+					return false
+				end
+			elseif gate == LAYER and not (at :: LayerCollector).Enabled then
 				return false
 			end
 			at = at.Parent

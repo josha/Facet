@@ -39,6 +39,7 @@ return function<V, K>(
 	local preparing, waiting = view.preparing, view.waiting
 	local crossEdge, fullSizes = view.crossEdge, view.fullSizes
 	local slotSource, withSlots = slots.source, slots.wrap
+	local fill, middle, centre = D2.fromScale(1, 1), D2.fromScale(0.5, 0.5), V2.new(0.5, 0.5)
 	local keyedRows = setmetatable({} :: { [{ V }]: { keys: { K }, index: { [K]: number } } }, { __mode = "k" })
 	local function keysOf(rows: { V }): { keys: { K }, index: { [K]: number } }
 		local cached = keyedRows[rows]
@@ -162,16 +163,13 @@ return function<V, K>(
 		local lease = view.pool.acquire()
 		local node = runtime.borrow(lease.value.node) :: Frame
 		local contentOwner = ComposeTypes.owner.createChild(poolOwner)
-		local function retained<T>(row: ComposeTypes.ReadOnlyValue<T>): ComposeTypes.ReadOnlyValue<T>
-			local held = Compose.withOwner(contentOwner, function(): ComposeTypes.Value<T>
-				return Compose.cell(row:peek())
-			end)
-			Compose.watch(function(use: ComposeTypes.Use)
-				held:set(use(row))
-			end)
-			return held
-		end
-		local current, placement = retained(rowItem), retained(rowPlacement)
+		local current, placement = Compose.withOwner(contentOwner, function()
+			return Compose.cell(rowItem:peek()), Compose.cell(rowPlacement:peek())
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			current:set(use(rowItem))
+			placement:set(use(rowPlacement))
+		end)
 		local springPlacement = spec.slots ~= nil or spec.drag ~= nil or spec.drop ~= nil
 		local reservedPosition: ComposeTypes.ReadOnlyValue<Vector2>? = nil
 		local glide: ComposeTypes.Value<number>? = nil
@@ -343,7 +341,7 @@ return function<V, K>(
 							end
 							return D2.new(1, 0, 0, math.max(minimum, extent or 0))
 						end
-						else D2.fromScale(1, 1),
+						else fill,
 					BackgroundTransparency = 1,
 					Attributes = { FacetCollectionRow = true } :: EngineTypes.Attributes,
 					ClipsDescendants = if liveOverflow
@@ -364,9 +362,9 @@ return function<V, K>(
 				then
 					local hit: TextButton
 					hit = Host.TextButton "RowHit" {
-						AnchorPoint = V2.new(0.5, 0.5),
-						Position = D2.fromScale(0.5, 0.5),
-						Size = D2.fromScale(1, 1),
+						AnchorPoint = centre,
+						Position = middle,
+						Size = fill,
 						Text = "",
 						BackgroundTransparency = 1,
 						Selectable = true,
@@ -516,6 +514,7 @@ return function<V, K>(
 		local destroyed = node.Destroying:Connect(function()
 			parked = nil
 		end)
+		local live = true
 		local restore = node.AncestryChanged:Connect(function()
 			if node.Parent and parked == nil then
 				previousParent = node.Parent
@@ -534,6 +533,11 @@ return function<V, K>(
 				if not ok then
 					parked = nil
 				end
+			end
+			if live then
+				mountedVersion:update(function(value)
+					return value + 1
+				end)
 			end
 		end)
 		local function release()
@@ -730,6 +734,7 @@ return function<V, K>(
 			return value + 1
 		end)
 		Compose.cleanup(function()
+			live = false
 			if gui and State.belongsTo(gui.SelectedObject, node) then
 				view.focusOwned = true
 				gui.SelectedObject = nil
@@ -784,11 +789,6 @@ return function<V, K>(
 			else
 				release()
 			end
-		end)
-		runtime.connect(node, "AncestryChanged", function()
-			mountedVersion:update(function(value)
-				return value + 1
-			end)
 		end)
 		return node
 	end

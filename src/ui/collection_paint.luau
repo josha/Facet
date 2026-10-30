@@ -3,6 +3,9 @@ local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 local textMeasure = require("./text_measure")
 
+type Poll = { steps: { [() -> ()]: boolean }, queue: { () -> () }, count: number, stop: (() -> ())? }
+local polls = setmetatable({} :: { [unknown]: Poll }, { __mode = "k" })
+
 return function(
 	ctx: Types.Context,
 	root: GuiObject,
@@ -121,20 +124,28 @@ return function(
 		ctx.Compose.withOwner(nextScope, function()
 			local render = ctx.config.services.RunService and ctx.config.services.RunService.PreRender
 			local frames = ctx.runtime.host.frames
-			local stop: (() -> ())? = nil
+			local waiting = false
+			local poll: Poll
+			local prepare: () -> ()
 			local geometry: { RBXScriptConnection } = {}
 			local function halt()
 				for _, connection in geometry do
 					connection:Disconnect()
 				end
 				table.clear(geometry)
-				local current = stop
-				stop = nil
-				if current then
-					current()
+				if not waiting then
+					return
+				end
+				waiting = false
+				poll.steps[prepare] = nil
+				poll.count -= 1
+				local stop = poll.stop
+				if poll.count == 0 and stop then
+					poll.stop = nil
+					stop()
 				end
 			end
-			local function prepare()
+			prepare = function()
 				if not ready:peek() and sample() then
 					halt()
 					ready:set(true)
@@ -158,15 +169,41 @@ return function(
 			for _, node in root:GetDescendants() do
 				listen(node)
 			end
-			if render then
-				local connection = render:Connect(prepare)
-				stop = function()
-					connection:Disconnect()
-				end
-			elseif frames then
-				stop = frames.onFrame(prepare)
-			else
+			if not render and not frames then
 				prepare()
+				return
+			end
+			local key: unknown = ctx.runtime
+			local found = polls[key]
+			if found == nil then
+				found = { steps = {}, queue = {}, count = 0, stop = nil }
+				polls[key] = found
+			end
+			poll = found
+			waiting = true
+			poll.steps[prepare] = true
+			poll.count += 1
+			if poll.stop == nil then
+				local function run()
+					local queue = poll.queue
+					for step in poll.steps do
+						table.insert(queue, step)
+					end
+					for _, step in queue do
+						if poll.steps[step] then
+							step()
+						end
+					end
+					table.clear(queue)
+				end
+				if render then
+					local connection = render:Connect(run)
+					poll.stop = function()
+						connection:Disconnect()
+					end
+				else
+					poll.stop = assert(frames).onFrame(run)
+				end
 			end
 		end)
 	end)

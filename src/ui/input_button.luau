@@ -182,19 +182,21 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				return
 			end
 			local route = if node then ctx.shiftActivation(node, (...)) else nil
-			if route and enabled(spec) and ctx.available(node) then
+			local live = enabled(spec)
+			local open = live and node and ctx.available(node)
+			if route and open then
 				route()
 				return
 			end
-			local live = enabled(spec)
-			if live and node and ctx.available(node) and spec.onActivate then
+			if open and spec.onActivate then
 				if popTimeline and popScale and popReduced and not held and not popReduced() then
 					assert(popStart):set(popScale:peek())
 					popTimeline:restart()
 				end
 				spec.onActivate(...)
+				open = ctx.available(node)
 			end
-			if live and node and ctx.available(node) then
+			if open then
 				activation.notify(node, ...)
 			end
 		end
