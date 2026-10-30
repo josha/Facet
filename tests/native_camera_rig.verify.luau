@@ -22,6 +22,7 @@ local function fixture(inertia: boolean?, smoothing: boolean?, initial: CameraRi
 	local tracking = bridge.track()
 	local C, V2, V3, E = Facet.Compose, engine.types.Vector2, engine.types.Vector3, engine.types.Enum
 	local player: PlayerGui = engine.new("PlayerGui")
+	player.Parent = engine.new("DataModel")
 	local input: UserInputService = engine.new("UserInputService")
 	local gui: GuiService = engine.new("GuiService")
 	local workspace: Workspace = engine.new("Workspace")
