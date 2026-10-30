@@ -95,6 +95,8 @@ export type Reorder<V, K> = {
 	settle: () -> (),
 	cancel: () -> (),
 	movable: (V) -> boolean,
+	carried: (K) -> ComposeTypes.ReadOnlyValue<boolean>,
+	leads: (K) -> ComposeTypes.ReadOnlyValue<boolean>,
 	sourceIndex: ComposeTypes.Value<{ [K]: V }>,
 	recall: (unknown, ComposeTypes.Use?) -> K?,
 	slotGap: (unknown, Env.DropInsertion, ComposeTypes.Use?) -> (number?, number?),
@@ -671,6 +673,75 @@ return function<V, K>(
 			end
 		end
 	end)
+	type Flag = { cell: ComposeTypes.Value<boolean>, users: number }
+	local function flags(initial: (K) -> boolean): ({ [K]: Flag }, (K) -> ComposeTypes.ReadOnlyValue<boolean>)
+		local cells: { [K]: Flag } = {}
+		return cells,
+			function(key: K): ComposeTypes.ReadOnlyValue<boolean>
+				local entry = cells[key]
+				if entry == nil then
+					local made: Flag = { cell = Compose.cell(initial(key)), users = 0 }
+					cells[key] = made
+					entry = made
+				end
+				local held = assert(entry)
+				held.users += 1
+				Compose.cleanup(function()
+					held.users -= 1
+					if held.users == 0 and cells[key] == held then
+						cells[key] = nil
+					end
+				end)
+				return held.cell
+			end
+	end
+	local carriedCells, carried = flags(function(key: K): boolean
+		local move = moving:peek()
+		return move ~= nil and move.included[key] == true
+	end)
+	local leadCells, leads = flags(function(key: K): boolean
+		local move = moving:peek()
+		return move ~= nil and move.key == key
+	end)
+	local publishedIncluded: { [K]: boolean }? = nil
+	local publishedLead: K? = nil
+	Compose.watch(function(use: ComposeTypes.Use)
+		local move = use(moving)
+		local lead = if move then move.key else nil
+		if lead ~= publishedLead then
+			local before = if publishedLead ~= nil then leadCells[publishedLead] else nil
+			publishedLead = lead
+			if before then
+				before.cell:set(false)
+			end
+			local after = if lead ~= nil then leadCells[lead] else nil
+			if after then
+				after.cell:set(true)
+			end
+		end
+		local included = if move then move.included else nil
+		local previous = publishedIncluded
+		if included == previous then
+			return
+		end
+		publishedIncluded = included
+		if previous then
+			for key in previous do
+				local entry = carriedCells[key]
+				if entry and not (included and included[key]) then
+					entry.cell:set(false)
+				end
+			end
+		end
+		if included then
+			for key, on in included do
+				local entry = carriedCells[key]
+				if entry and on then
+					entry.cell:set(true)
+				end
+			end
+		end
+	end)
 	local pluginGui = ctx.config.inputParent
 	if pluginGui and not pluginGui:IsA("PluginGui") then
 		pluginGui = nil
@@ -797,6 +868,8 @@ return function<V, K>(
 		settle = settle,
 		cancel = cancel,
 		movable = movable,
+		carried = carried,
+		leads = leads,
 		sourceIndex = sourceIndex,
 		recall = recall,
 		slotGap = slotGap,

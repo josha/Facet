@@ -261,11 +261,18 @@ return function<V, K>(
 				end,
 				onActivate = shared.commit,
 			}
-			gesture.keyboardTarget = shared.UI.Button(keyboardTargetProps)
+			local keyboard = Compose.formula(function(use: ComposeTypes.Use): boolean
+				local move = use(moving)
+				return move ~= nil and move.keyboard
+			end)
 			local nativeProps: Types.FrameProps = {
 				Name = "DropFeedback",
 				ZIndex = FEEDBACK_Z,
-				gesture.keyboardTarget :: ComposeTypes.Child,
+				Compose.show(keyboard, function()
+					local target = shared.UI.Button(keyboardTargetProps)
+					gesture.keyboardTarget = target
+					return target
+				end),
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 				ctx.styled(

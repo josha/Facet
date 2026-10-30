@@ -36,6 +36,7 @@ return function<V, K>(
 		else nil
 	local function wrap(row: GuiObject, current: ComposeTypes.ReadOnlyValue<V>, key: K, painted: boolean?): Frame
 		rowKeys[row] = key
+		local carried, lead = shared.carried(key), shared.leads(key)
 		local handleNode: Instance? = nil
 		local function toggle()
 			if moving:peek() then
@@ -77,8 +78,7 @@ return function<V, K>(
 					appearance = "utility",
 					label = "",
 					ctx.icon(function(use: ComposeTypes.Use)
-						local move = use(moving)
-						return if move and move.key == key then "checkmark" elseif grid then "view.grid" else "menu"
+						return if use(lead) then "checkmark" elseif grid then "view.grid" else "menu"
 					end, {
 						Name = "ReorderIcon",
 						AnchorPoint = V2.new(0.5, 0.5),
@@ -207,7 +207,7 @@ return function<V, K>(
 		local confirm = if minusShown then UI.Button(confirmProps) else nil
 		local mark = if shared.marked
 			then ctx.styled(
-				Host.Frame "SelectMark" {
+				Host.Frame("SelectMark")({
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = if grid then D2.fromOffset(22, 22) else D2.new(0, 22, 0.5, 0),
 					Size = D2.fromOffset(18, 18),
@@ -226,7 +226,7 @@ return function<V, K>(
 							end,
 						})
 						else ctx.styled(
-							Host.Frame "Dot" {
+							Host.Frame("Dot")({
 								AnchorPoint = V2.new(0.5, 0.5),
 								Position = D2.fromScale(0.5, 0.5),
 								Size = D2.fromOffset(8, 8),
@@ -234,10 +234,10 @@ return function<V, K>(
 									return use(selection)[key] == true
 								end,
 								ctx.corner(4) :: Types.Child,
-							},
+							}),
 							"fill"
 						)) :: Types.Child,
-				},
+				}),
 				"radio-mark"
 			)
 			else nil
@@ -260,15 +260,11 @@ return function<V, K>(
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = if painted then nil else 1,
 			Attributes = {
-				FacetDragging = function(use: ComposeTypes.Use)
-					local move = use(moving)
-					return move ~= nil and move.included[key] == true
-				end,
+				FacetDragging = carried,
 			} :: EngineTypes.Attributes,
-			Host.Frame "Cells" {
+			Host.Frame("Cells")({
 				Visible = function(use: ComposeTypes.Use)
-					local move = use(moving)
-					return move == nil or not move.included[key]
+					return not use(carried)
 				end,
 				Position = function(use: ComposeTypes.Use)
 					return if grid
@@ -283,7 +279,7 @@ return function<V, K>(
 				end,
 				BackgroundTransparency = 1,
 				row,
-			},
+			}),
 		}
 		for _, control in { handle, minus, confirm, mark } :: { ComposeTypes.Child } do
 			if control then
