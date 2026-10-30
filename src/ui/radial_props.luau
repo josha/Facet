@@ -78,6 +78,7 @@ export type RadialMenuSpec<V = string> = {
 	appearance: Radial.Appearance?,
 	buttonSurface: ("native" | "none")?,
 	captions: boolean?,
+	captionPlacement: Radial.CaptionPlacement?,
 	distribution: Radial.Distribution?,
 	navigation: Radial.Navigation?,
 	expansion: Radial.Expansion?,

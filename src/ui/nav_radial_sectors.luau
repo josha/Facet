@@ -35,6 +35,21 @@ return function<V>(
 	local spec, session = menu.spec, menu.session
 	local reduced, appearance = menu.reduced, menu.appearance
 	local contentFit: Radial.ContentFit = menu.contentFit
+	local placements: { [Radial.CaptionPlacement]: { anchor: Vector2, at: Vector2, gap: Vector2 } } = {
+		below = { anchor = V2.new(0.5, 0), at = V2.new(0.5, 1), gap = V2.new(0, 1) },
+		above = { anchor = V2.new(0.5, 1), at = V2.new(0.5, 0), gap = V2.new(0, -1) },
+		leading = { anchor = V2.new(1, 0.5), at = V2.new(0, 0.5), gap = V2.new(-1, 0) },
+		trailing = { anchor = V2.new(0, 0.5), at = V2.new(1, 0.5), gap = V2.new(1, 0) },
+		topLeading = { anchor = V2.new(1, 1), at = V2.new(0, 0), gap = V2.new(1, 1) },
+		topTrailing = { anchor = V2.new(0, 1), at = V2.new(1, 0), gap = V2.new(-1, 1) },
+	}
+	local chosen: Radial.CaptionPlacement = spec.captionPlacement or "below"
+	local placement = placements[chosen]
+	assert(
+		placement,
+		"Facet.RadialMenu: captionPlacement must be below, above, leading, trailing, topLeading or topTrailing"
+	)
+	local captionAnchor, captionAt, captionGap = placement.anchor, placement.at, placement.gap
 	local preferred, candidate, naming = menu.preferred, menu.candidate, menu.naming
 	local following, center = arrangement.following, arrangement.center
 	local captionPadding, wordWidths, sectors, fallback =
@@ -392,9 +407,10 @@ return function<V>(
 							local plate = ctx.styled(
 								Host.Frame({
 									Name = "ItemCaption",
-									AnchorPoint = V2.new(0.5, 0),
+									AnchorPoint = captionAnchor,
 									Position = function(use: ComposeTypes.Use): UDim2
-										return D2.new(0.5, 0, 1, ctx.metric("space.xs", use))
+										local gap = ctx.metric("space.xs", use)
+										return D2.new(captionAt.X, captionGap.X * gap, captionAt.Y, captionGap.Y * gap)
 									end,
 									Size = D2.fromOffset(0, 0),
 									AutomaticSize = E.AutomaticSize.XY,

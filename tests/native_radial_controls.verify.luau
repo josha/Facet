@@ -181,6 +181,26 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
+		verifyHarness:case("places captions at the top leading corner when asked", {
+			id = "native_radial_controls::radial label fit::places captions at the top leading corner when asked",
+			run = function()
+				local look: Radial.RadialAction<string> =
+					{ id = "look", label = "Look", icon = "facet:search", onSelect = function() end }
+				local spec: RadialProps.RadialMenuSpec<string> = {
+					appearance = "buttons",
+					captions = true,
+					captionPlacement = "topLeading",
+					items = { look },
+				}
+				local w = setup(spec)
+				local caption = w.find("look"):FindFirstChild("ItemCaption")
+				Verify.expect(caption.AnchorPoint.X):toBe(1)
+				Verify.expect(caption.AnchorPoint.Y):toBe(1)
+				Verify.expect(caption.Position.X.Scale):toBe(0)
+				Verify.expect(caption.Position.Y.Scale):toBe(0)
+				w.stop()
+			end,
+		})
 		verifyHarness:case("keeps short names on one line inside round item targets", {
 			id = "native_radial_controls::radial label fit::keeps short names on one line inside round item targets",
 			run = function()

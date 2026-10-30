@@ -41,6 +41,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			"appearance",
 			"buttonSurface",
 			"captions",
+			"captionPlacement",
 			"distribution",
 			"navigation",
 			"expansion",
