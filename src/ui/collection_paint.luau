@@ -145,10 +145,22 @@ return function(
 					stop()
 				end
 			end
+			local arm: (() -> ())? = nil
 			prepare = function()
-				if not ready:peek() and sample() then
+				if ready:peek() then
+					return
+				end
+				if sample() then
 					halt()
 					ready:set(true)
+					return
+				end
+				local start = arm
+				if start and not waiting then
+					local box = root.AbsoluteSize
+					if box.X > 0 and box.Y > 0 then
+						start()
+					end
 				end
 			end
 			ctx.Compose.cleanup(halt)
@@ -173,17 +185,20 @@ return function(
 				prepare()
 				return
 			end
-			local key: unknown = ctx.runtime
-			local found = polls[key]
-			if found == nil then
-				found = { steps = {}, queue = {}, count = 0, stop = nil }
-				polls[key] = found
-			end
-			poll = found
-			waiting = true
-			poll.steps[prepare] = true
-			poll.count += 1
-			if poll.stop == nil then
+			arm = function()
+				local key: unknown = ctx.runtime
+				local found = polls[key]
+				if found == nil then
+					found = { steps = {}, queue = {}, count = 0, stop = nil }
+					polls[key] = found
+				end
+				poll = found
+				waiting = true
+				poll.steps[prepare] = true
+				poll.count += 1
+				if poll.stop ~= nil then
+					return
+				end
 				local function run()
 					local queue = poll.queue
 					for step in poll.steps do
@@ -205,6 +220,7 @@ return function(
 					poll.stop = assert(frames).onFrame(run)
 				end
 			end
+			prepare()
 		end)
 	end)
 	return ready

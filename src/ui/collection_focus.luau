@@ -84,6 +84,8 @@ return function<V, K>(
 	view.scope = focusScope
 	local knownKeys: { K } = {}
 	local priorKeys: { K } = {}
+	local knownRows: { V }? = nil
+	local knownSet: { [K]: boolean } = {}
 	local function liveKeys(rows: { V }?): ({ K }, { [K]: boolean })
 		local keys, present = {}, {}
 		local list: { V } = rows or {}
@@ -97,8 +99,14 @@ return function<V, K>(
 		return keys, present
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
-		local keys = liveKeys(source(use))
+		local rows = source(use)
+		local keys = liveKeys(rows)
+		local set: { [K]: boolean } = {}
+		for _, key in keys do
+			set[key] = true
+		end
 		priorKeys, knownKeys = knownKeys, keys
+		knownRows, knownSet = rows, set
 	end)
 	local function peekRows(): { V }
 		return source(function<T>(value: ComposeTypes.ReadOnlyValue<T>): T
@@ -110,7 +118,11 @@ return function<V, K>(
 		if ancestor ~= nil then
 			return ancestor
 		end
-		local keys, present = liveKeys(peekRows())
+		local rows = peekRows()
+		if rows == knownRows and knownSet[lost] then
+			return nil
+		end
+		local keys, present = liveKeys(rows)
 		if table.find(keys, lost) then
 			return nil
 		end

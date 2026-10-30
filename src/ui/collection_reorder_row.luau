@@ -207,7 +207,7 @@ return function<V, K>(
 		local confirm = if minusShown then UI.Button(confirmProps) else nil
 		local mark = if shared.marked
 			then ctx.styled(
-				Host.Frame("SelectMark")({
+				Host.Frame "SelectMark" {
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = if grid then D2.fromOffset(22, 22) else D2.new(0, 22, 0.5, 0),
 					Size = D2.fromOffset(18, 18),
@@ -226,7 +226,7 @@ return function<V, K>(
 							end,
 						})
 						else ctx.styled(
-							Host.Frame("Dot")({
+							Host.Frame "Dot" {
 								AnchorPoint = V2.new(0.5, 0.5),
 								Position = D2.fromScale(0.5, 0.5),
 								Size = D2.fromOffset(8, 8),
@@ -234,10 +234,10 @@ return function<V, K>(
 									return use(selection)[key] == true
 								end,
 								ctx.corner(4) :: Types.Child,
-							}),
+							},
 							"fill"
 						)) :: Types.Child,
-				}),
+				},
 				"radio-mark"
 			)
 			else nil
@@ -262,7 +262,7 @@ return function<V, K>(
 			Attributes = {
 				FacetDragging = carried,
 			} :: EngineTypes.Attributes,
-			Host.Frame("Cells")({
+			Host.Frame "Cells" {
 				Visible = function(use: ComposeTypes.Use)
 					return not use(carried)
 				end,
@@ -279,7 +279,7 @@ return function<V, K>(
 				end,
 				BackgroundTransparency = 1,
 				row,
-			}),
+			},
 		}
 		for _, control in { handle, minus, confirm, mark } :: { ComposeTypes.Child } do
 			if control then
