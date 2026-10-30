@@ -3,6 +3,8 @@ local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Theme = require("./theme_types")
 
+local pathKeys: { [string]: { string } } = {}
+
 export type Metrics = {
 	metricAt: (unknown, string) -> number?,
 	setDistance: ((ComposeTypes.Use?) -> boolean) -> (),
@@ -21,7 +23,13 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 	end
 	local defaultMetrics = themes.neutralPackage().metrics
 	local function valueAt(value: unknown, path: string): unknown
-		for key in string.gmatch(path, "[^.]+") do
+		local keys = pathKeys[path]
+		if keys == nil then
+			local split = string.split(path, ".")
+			pathKeys[path] = split
+			keys = split
+		end
+		for _, key in assert(keys) do
 			if type(value) ~= "table" then
 				return nil
 			end
@@ -66,12 +74,21 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 	ctx.runtime:watch(function()
 		local owner = assert(Compose.currentOwner())
 		local values: { [string]: ComposeTypes.ReadOnlyValue<number> } = {}
+		local constants: { [string]: number } = {}
 		function ctx.metric(path: string, use: ComposeTypes.Use?, authored: boolean?): number
-			if use == nil or not reactive then
-				return metric(path, nil, authored)
-			end
 			local key = if authored then path .. ":authored" else path
+			if not reactive then
+				local known = constants[key]
+				if known == nil then
+					known = metric(path, nil, authored)
+					constants[key] = known
+				end
+				return assert(known)
+			end
 			local value = values[key]
+			if use == nil then
+				return if value then value:peek() else metric(path, nil, authored)
+			end
 			if value == nil then
 				value = Compose.withOwner(owner, function()
 					return Compose.formula(function(read: ComposeTypes.Use): number

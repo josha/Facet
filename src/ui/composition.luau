@@ -222,6 +222,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local rest = ctx.metric("motion.materialize.modal", use)
 			return if reduced(use) then 1 else rest + (1 - rest) * present(use(pop.progress))
 		end)
+		local resting = Compose.formula(function(use: ComposeTypes.Use): boolean
+			return use(scale) == 1
+		end)
 		local yielding = Compose.cell(false)
 		local lift = Compose.cell(0)
 		local properties = (
@@ -273,7 +276,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local observed, settled = layoutSize(child, unit), Compose.cell(V2.zero)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local size = use(observed)
-				if use(scale) == 1 and not (index == 1 and use(hosted)) then
+				if use(resting) and not (index == 1 and use(hosted)) then
 					settled:set(size)
 				end
 			end)
@@ -283,7 +286,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				local reach = overhang(child, unit)
 				Compose.watch(function(use: ComposeTypes.Use)
 					local value = use(reach)
-					if use(scale) == 1 and not (index == 1 and use(hosted)) then
+					if use(resting) and not (index == 1 and use(hosted)) then
 						hang:set(value)
 					end
 				end)
