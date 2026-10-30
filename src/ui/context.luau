@@ -26,6 +26,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		overlayHosts = setmetatable({}, { __mode = "k" }),
 	}
 	local ctx = (fields :: unknown) :: Shared.Context
+	runtime:watch(function()
+		ctx.lifetime = assert(Compose.currentOwner())
+	end)
 	local track = installConstruct(ctx)
 	local function peek<U>(source: ComposeTypes.ReadOnlyValue<U>): U
 		return source:peek()
