@@ -237,6 +237,20 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("fits a content-sized menu inside a narrow viewport", {
+			id = "native_menu::native menu parity with main::fits a content-sized menu inside a narrow viewport",
+			run = function()
+				local world = labelled({ items = items(3), presentation = "menu" }, { motionLevel = "none" })
+				local panel = open(world)
+				world.engine.environment.poke(modalOf(world, panel), "AbsoluteSize", Vector2.new(200, 600))
+				for _ = 1, 10 do
+					world.engine.heartbeat:Fire(FRAME)
+				end
+				Verify.expect(panel.Size.X.Offset <= 184):toBe(true)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("keeps row captions clear of the badge and shortcut accessories", {
 			id = "native_menu::native menu parity with main::keeps row captions clear of the badge and shortcut accessories",
 			run = function()
