@@ -574,12 +574,17 @@ return function(
 			end,
 		}),
 	})
-	Compose.watch(function(use: ComposeTypes.Use)
+	local compiled = Compose.formula(function(use: ComposeTypes.Use)
 		local package = forDistance(
 			read(packageOrReadable, use) or neutral,
 			if read(distant, use) == true then "ten-foot" else "near"
 		)
-		local current = compiledRules(package, read(settings.theme, use))
+		return { package = package, rules = compiledRules(package, read(settings.theme, use)) }
+	end)
+	Compose.watch(function(use: ComposeTypes.Use)
+		local built = use(compiled)
+		local package = built.package
+		local current = built.rules
 		local colorTokens: { [string]: Color3? } = current[1].tokens or {}
 		local hovering = read(settings.hover, use)
 		if hovering == nil then

@@ -617,6 +617,7 @@ local function apply(
 )
 	local fresh = created == true and not statsOn.enabled and owner.boundary == nil and not owner.disposed
 	local write = host.render.setProperty
+	local liveRead = if host.observation then host.observation.readProperty else nil
 	local replacing = not fresh and fastEdges[node] ~= nil
 	local length = #props
 
@@ -722,14 +723,23 @@ local function apply(
 			elseif fresh then
 				local connect = mapped[value]
 				local watcher: Types.Node
+				local written: unknown = UNWRITTEN
+				local function changed(current: unknown)
+					if written ~= UNWRITTEN and current == written and liveRead ~= nil then
+						local read, live = pcall(liveRead, node, name)
+						if read and live == current then
+							return
+						end
+					end
+					written = current
+					write(node, name, current)
+				end
 				if connect ~= nil then
-					watcher = connect(owner, function(current: unknown)
-						write(node, name, current)
-					end)
+					watcher = connect(owner, changed)
 				else
 					local source = value :: Types.Body<unknown>
 					watcher = Owner.effectHeld(owner, function(use: Types.Use)
-						write(node, name, source(use))
+						changed(source(use))
 					end)
 				end
 				watcher.fastKey = name
