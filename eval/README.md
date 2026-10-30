@@ -46,7 +46,10 @@ Use the common [authoring protocol](authoring.md) for both arms. Record the
 suite, author model, reasoning effort and source revision before launch.
 Use `lute run tools/facet facetbench prepare --suite PATH` to prepare the
 restricted model catalog for that suite's authors. Without `--suite`, prepare
-uses the canonical Sol suite.
+uses the canonical Sol suite. Prepare also rebuilds the Facet author kit in
+`artifacts/facetbench/arm-facet` from the checked-out source. Run it at the
+commit under test, before every pair, and confirm that
+`tools/facet/kit.json` in the kit names that commit.
 
 Check the native camera viewport as well as the simulated screen dimensions.
 A responding Studio with a 1-by-1 camera viewport is not ready. Wake rendering
