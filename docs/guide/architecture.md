@@ -12,6 +12,12 @@ Without options, `Facet.controls(runtime)` first reads a Facet-owned
 object that a provider supplies for the runtime. If none exists, it makes fresh
 controls. Explicit options, including `{}`, always make fresh controls.
 
+The controls object loads a control family when code first reads one of its
+members. For example, the first read of `UI.Button` loads only the Button
+modules. Families that the game does not read stay unloaded. An iteration over
+the controls object loads all families. `require(Facet)` does not load the
+design kit. The first call to `Facet.design()` loads it.
+
 `UI.provide(body)` uses `context.provide` to supply the controls to `body()`
 and its descendant owners. A nested provider replaces the controls for its
 runtime. Other runtimes keep their provided controls. Compose owns the provider

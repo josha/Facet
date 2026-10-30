@@ -1,5 +1,11 @@
 # Current package
 
+`Facet.controls(runtime)` now loads a control family when code first reads one
+of its members. `require(Facet)` and `Facet.controls(runtime)` load 82 Facet
+modules instead of 275. A game that uses only `UI.Button` loads 90. An
+iteration over the controls object still loads all families. The first call to
+`Facet.design()` loads the design kit. The public names and types do not change.
+
 In a compact `NavigationSplitView` with a `transition`, the closing pane keeps
 its size and screen position until its motion ends. A tab bar placement or a
 header that changes with the push no longer reflows the closing pane.

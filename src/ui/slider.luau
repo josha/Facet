@@ -1,5 +1,6 @@
 --!strict
 local pointerDragOf = require("./pointer_drag")
+local inputKit = require("./input_kit")
 local valueModel = require("./input_value")
 local InputTypes = require("./input_types")
 local Shared = require("./types")
@@ -58,7 +59,16 @@ local function finite(value: unknown): boolean
 	return type(value) == "number" and value == value and math.abs(value) < math.huge
 end
 
-return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
+return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
+	local h: Helpers = {
+		enabled = kit.enabled,
+		stopEnabled = kit.stopEnabled,
+		writable = kit.writable,
+		attributes = kit.attributes,
+		valueAttributes = kit.valueAttributes,
+		adjustment = kit.adjustment,
+		paintedPart = kit.paintedPart,
+	}
 	local runtime, Host, Compose, read = ctx.runtime, ctx.Host, ctx.Compose, ctx.read
 	local readSource = ctx.readSource
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum

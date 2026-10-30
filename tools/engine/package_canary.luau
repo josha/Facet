@@ -261,7 +261,7 @@ for _, name in { "LICENSE", "THIRD_PARTY_NOTICES" } do
 	)
 end
 
-local loader = Loader.new()
+local loader = Loader.new(EXTRACT_ROOT)
 local Facet = loader.require("build/.canary/Facet") :: any
 local engines = loader.require("tests/lib/native_engine.luau") :: typeof(require("../../tests/lib/native_engine"))
 local engine = engines.new()

@@ -3,8 +3,6 @@ local Compose = require("@self/vendor/compose/core")
 local Roblox = require("@self/vendor/compose/roblox")
 local ComposeDesign = require("@self/vendor/compose/design/types")
 local FacetDesign = require("@self/design/types")
-local DesignModule = require("@self/vendor/compose/design")
-local FacetDesignModule = require("@self/design")
 local ControlTypes = require("@self/ui/control_types")
 local DiegeticTypes = require("@self/ui/diegetic_types")
 export type DiegeticScreenProps = DiegeticTypes.DiegeticScreenProps
@@ -308,7 +306,7 @@ export type Owner = Compose.Owner
 export type Use = Compose.Use
 export type ComposeModule = typeof(Compose)
 export type ComposeRobloxModule = typeof(Roblox)
-export type DesignModule = typeof(DesignModule)
+export type DesignModule = typeof(require("@self/vendor/compose/design"))
 export type DesignContext = FacetDesign.Context
 export type DesignControlSpec = FacetDesign.ControlSpec
 export type DesignSeed = FacetDesign.Seed
@@ -414,13 +412,23 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		error("Facet.bind: pass the Compose Roblox module from the same Compose copy as the second argument", 2)
 	end
 	local themes = bindThemes(core)
-	local designKit: DesignKit = freeze({
-		Design = DesignModule,
-		library = FacetDesignModule.library,
-		controls = FacetDesignModule.controls,
-		seeds = FacetDesignModule.seeds,
-		motion = FacetDesignModule.motion,
-	})
+	local designKit: DesignKit? = nil
+	local function design(): DesignKit
+		local kit = designKit
+		if kit == nil then
+			local FacetDesignModule = require("@self/design")
+			local made: DesignKit = freeze({
+				Design = require("@self/vendor/compose/design"),
+				library = FacetDesignModule.library,
+				controls = FacetDesignModule.controls,
+				seeds = FacetDesignModule.seeds,
+				motion = FacetDesignModule.motion,
+			})
+			designKit = made
+			return made
+		end
+		return kit
+	end
 	local surface: Facet
 	local function composeDesign(): DesignStudioKit
 		local DesignEditor = require("@self/vendor/compose/design-editor")
@@ -431,9 +439,10 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 			local palette = core.cell("Light")
 			local textSize = core.cell("Medium")
 			local UI = surface.controls(runtime, { theme = theme, environment = { preferredTextSize = textSize } })
-			local library = designKit.library({
+			local kit = design()
+			local library = kit.library({
 				UI = UI,
-				motion = designKit.motion(UI),
+				motion = kit.motion(UI),
 				host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
 					return runtime.constructors[className](name)(props)
 				end,
@@ -490,9 +499,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		COMPOSE_COMMIT = COMPOSE_COMMIT,
 		Compose = core,
 		Roblox = roblox,
-		design = function(): DesignKit
-			return designKit
-		end,
+		design = design,
 		composeDesign = composeDesign,
 		tag = tag,
 		controls = function(runtime: Runtime, options: ControlOptions?): Controls

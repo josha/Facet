@@ -70,5 +70,62 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
+
+		verifyHarness:case("installs each control family on its first read and keeps the full member set", {
+			id = "native_registration::native registration and package contract::installs each control family on its first read and keeps the full member set",
+			run = function()
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local function fresh(): { [string]: unknown }
+					return (Facet.controls(runtime, { types = engine.types }) :: unknown) :: { [string]: unknown }
+				end
+				local complete = fresh()
+				local names: { string } = {}
+				for name, value in complete do
+					Verify.expect(type(name)):toBe("string")
+					Verify.expect(value ~= nil):toBe(true)
+					table.insert(names, name)
+				end
+				Verify.expect(#names > 90):toBe(true)
+				for _, name in names do
+					local controls = fresh()
+					Verify.expect(type(controls[name])):toBe(type(complete[name]))
+				end
+				local lazy = fresh()
+				local metatableOf = (getmetatable :: unknown) :: (unknown) -> { __index: { [string]: unknown } }
+				local members = metatableOf(lazy).__index
+				Verify.expect(rawget(members, "Button")):toBe(nil)
+				Verify.expect(type(lazy.Button)):toBe("function")
+				Verify.expect(type(rawget(members, "Button"))):toBe("function")
+				Verify.expect(rawget(members, "Table")):toBe(nil)
+				Verify.expect(rawget(members, "Text")):toBe(nil)
+				Verify.expect(lazy.Missing):toBe(nil)
+				Verify.expect((table.isfrozen(lazy))):toBe(true)
+				Verify.expect((pcall(function()
+					lazy.Button = nil
+				end))):toBe(false)
+				runtime:dispose()
+			end,
+		})
+
+		verifyHarness:case("a family first read inside a mount stays usable after that mount stops", {
+			id = "native_registration::native registration and package contract::a family first read inside a mount stays usable after that mount stops",
+			run = function()
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local UI = Facet.controls(runtime, { types = engine.types })
+				local stopFirst, firstNode = runtime.mount(function()
+					return UI.Button "First" { label = "First" }
+				end, engine.new("Folder"))
+				Verify.expect((firstNode :: Instance).Name):toBe("First")
+				stopFirst()
+				local stopSecond, secondNode = runtime.mount(function()
+					return UI.Button "Second" { label = "Second" }
+				end, engine.new("Folder"))
+				Verify.expect((secondNode :: Instance).Name):toBe("Second")
+				stopSecond()
+				runtime:dispose()
+			end,
+		})
 	end)
 end

@@ -28,13 +28,28 @@ local function sourceFiles(): { [string]: string }
 	return loaded
 end
 
-local function new(): Lute.Loader
+local function new(preload: string?): Lute.Loader
 	local files = sourceFiles()
+	if preload ~= nil then
+		files = table.clone(files)
+		for _, path in
+			Lute.corpus.discover({
+				listDir = fs.listDirectory,
+				rules = { { root = preload, pattern = "%.luau$" } },
+			})
+		do
+			files[path] = fs.readFileToString(path)
+		end
+	end
 	return Lute.loader.new({
 		files = {
 			exists = function(path: string): boolean
 				local root = string.gsub(string.match(path, "^[^/]+") or path, "%.luau$", "")
-				return files[path] ~= nil or (not ROOTS[root] and fs.exists(path))
+				if files[path] ~= nil then
+					return true
+				end
+				local cached = preload ~= nil and string.sub(path, 1, #preload + 1) == preload .. "/"
+				return not ROOTS[root] and not cached and fs.exists(path)
 			end,
 			readFile = function(path: string): string
 				return files[path] or fs.readFileToString(path)

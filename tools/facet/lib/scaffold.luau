@@ -27,8 +27,8 @@ function Scaffold.plan(kind: string, name: string): Plan
 		edits = {
 			{
 				path = "src/ui/init.luau",
-				before = "\treturn freeze(UI)",
-				insert = `\trequire("@self/{name}")(ctx, UI)\n`,
+				before = "\t}\n\n\tlocal all:",
+				insert = `\t\t\{\n\t\t\tnames = \{ "{display}" \},\n\t\t\tinstall = function()\n\t\t\t\trequire("@self/{name}")(ctx, UI)\n\t\t\tend,\n\t\t\},\n`,
 			},
 			{
 				path = "src/ui/control_types.luau",
