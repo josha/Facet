@@ -43,8 +43,8 @@ a readable contextual list better fits the task. Route: `RadialMenu.donut`.
 ## Temporary tasks
 
 Use **Sheet** for a bounded temporary task. Consider inline disclosure for a few
-related options, Popover for context at its source, and NavigationStack for a
-destination with deeper history. A large central sheet is not automatically a
+related options and Popover for context at its source. A Sheet can contain a
+NavigationStack for deeper history; its root has Close and no Back. A large central sheet is not automatically a
 good phone landscape form.
 
 Choose `side` to keep a subject beside its inspector; `edge` selects left/right.

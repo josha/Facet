@@ -1,6 +1,7 @@
 # Tasks.sheet
 
-Open a short contextual task and return to its source.
+Open a task over play and return to its source. Keep the HUD mounted as a
+sibling of the Sheet when it should stay visible behind the modal.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -27,13 +28,16 @@ script.Destroying:Connect(app.dispose)
 ```
 
 The game applies the value. Close returns to the opener. Leave closeButton
-absent so the visible exit follows placement. Dock when dragging between
-useful task heights helps the player. Test exit and focus return with each input.
+absent so the exit follows placement. Test exit and focus return with each input.
 
-Use [pages](Tasks.pages.md) for recurring destinations and deep browsing,
+Use [pages](Tasks.pages.md) when a destination intentionally replaces play,
 [Popover](Popover.card.md) for an anchored choice, or DisclosureGroup for
 optional inline facts. A short task hugs its content; a large collection needs
-a bounded viewport. NavigationStack fills its viewport and cannot hug.
+a bounded viewport. NavigationStack fills its viewport and cannot hug. For a task with child
+steps, put the stack inside a bounded Sheet, with the opened task as root.
+The root has Close and no Back. Push or replace in one path update; do not
+pop to gameplay and defer opening the next step. See the
+[game screen recipe](../../../skills/use-facet/references/game-screens.md).
 
 Content runs at construction. Use [Compose branches](State.md) for changing
 content. Apply [Sheet.dismissal](Sheet.dismissal.md) to every dirty exit.

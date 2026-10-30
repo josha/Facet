@@ -94,6 +94,8 @@ return function(
 				leaving:set({ entry = top, behind = animated and table.find(former, list[#list]) == nil })
 			elseif departing and table.find(list, departing.entry) then
 				leaving:set(nil)
+			elseif departing and animated and table.find(former, list[#list]) == nil then
+				leaving:set({ entry = departing.entry, behind = true })
 			end
 		end)
 		local displayed = Compose.formula(function(use: ComposeTypes.Use)

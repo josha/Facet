@@ -5783,6 +5783,65 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("places a new push above an interrupted pop", {
+			id = "native_navigation::native navigation controls::places a new push above an interrupted pop",
+			run = function()
+				for _, elapsed in { 0, 4 } do
+					local path = Compose.cell({ { id = "menu" } } :: { Navigation.NavigationEntry<string> })
+					local world = setup(function(UI: FacetControls)
+						return UI.NavigationStack {
+							path = path,
+							root = {
+								content = function()
+									return UI.Button "HUD" { label = "Open" }
+								end,
+							},
+							destinations = {
+								menu = {
+									content = function()
+										return UI.Button { label = "Garage" }
+									end,
+								},
+								garage = {
+									content = function()
+										return UI.Button "Equip" { label = "Equip" }
+									end,
+								},
+							},
+						}
+					end)
+					local menu = find(world.screen, "menu") :: GuiObject
+					local root = find(world.screen, "@root") :: GuiObject
+					world.gui.SelectedObject = menu:FindFirstChildWhichIsA("TextButton", true)
+					path:set({})
+					for _ = 1, elapsed do
+						world.engine.heartbeat:Fire(1 / 60)
+					end
+					path:set({ { id = "garage" } })
+					local garage = find(world.screen, "garage") :: GuiObject
+					Verify.expect(garage.Position.X.Scale):toBe(1)
+					Verify.expect(root.Visible):toBe(false)
+					Verify.expect(menu.Interactable):toBe(false)
+					for _ = 1, 8 do
+						world.engine.heartbeat:Fire(1 / 60)
+						Verify.expect(garage.Position.X.Scale > 0 and garage.Position.X.Scale < 1):toBe(true)
+						Verify.expect(menu.Visible):toBe(true)
+						Verify.expect(menu.Position.X.Scale):toBeCloseTo(-0.3 * (1 - garage.Position.X.Scale), 1e-6)
+						Verify.expect(root.Visible):toBe(false)
+					end
+					world.settle()
+					Verify.expect(world.engine.environment.isAlive(VerifyRoblox.assertInstance(menu))):toBe(false)
+					Verify.expect(garage.Position.X.Scale):toBe(0)
+					Verify.expect(assert(world.gui.SelectedObject).Name):toBe("Equip")
+					path:set({})
+					world.settle()
+					Verify.expect(root.Visible):toBe(true)
+					Verify.expect(assert(world.gui.SelectedObject).Name):toBe("HUD")
+					world.stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("settles interrupted replacements and retains Back history across motion policies", {
 			id = "native_navigation::native navigation controls::settles interrupted replacements and retains Back history across motion policies",
 			run = function()

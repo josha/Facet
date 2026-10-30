@@ -19,12 +19,13 @@ control that is not here.
 - **Key hints are hints.** Give a Button `shortcutHint = action`; never write
   the key into the label ("Standings / L"). A slash between two words in one
   label is two facts.
-- **Destinations are bounded pages over the world.** Shop, garage, livery,
-  upgrades and other places the player browses are `UI.Screen` pages in one
-  `NavigationStack`, built with the page shell below: a centred panel at most
-  about 1000 wide, with the world still visible around it on a wide screen.
-  Never paint the whole screen and leave the content in one corner. A
-  `UI.Sheet` is for a confirmation, a quick pick or a short glance.
+- **Choose presentation separately from navigation.** A HUD button that opens
+  a shop, garage, rewards or menu over play normally presents a centered
+  `UI.Sheet` with Close. Keep the HUD mounted and visible behind it; the modal
+  owns input. The opened task is the root, with no Back. Put a NavigationStack
+  inside the Sheet only when the task has deeper steps. Use a gameplay-rooted
+  page stack only when entering the task intentionally replaces the play view.
+  Task duration and collection size do not decide between a Sheet and a page.
 - **Size plates to what they hold.** A plate that stretches across a wide
   page while its content fills one corner reads as empty. Repeated items go
   in a `UI.Grid` whose column count follows the width; a list goes beside the
@@ -41,14 +42,21 @@ control that is not here.
 
 ## App skeleton
 
-One mount holds the hub, every page and the confirmation dialog. Pages are
-destinations of one NavigationStack with hidden chrome, because each page
-shell owns its header and Back.
+One mount holds the HUD and its task Sheet as siblings. `open` presents a
+new task root; `push` enters a child inside the same open Sheet. Menu → Garage
+uses `push`, so Back returns to Menu. A direct Garage opener makes Garage the
+root. Close dismisses the whole task and returns focus to its HUD opener.
 
 ```luau
 app.mount(function()
+    local rootId, presented = C.cell("Menu"), C.cell(false)
     local path = C.cell({} :: { Facet.NavigationEntry<string> })
     local function open(id: string)
+        path:set({})
+        rootId:set(id)
+        presented:set(true)
+    end
+    local function push(id: string)
         local nextPath = table.clone(path:peek())
         table.insert(nextPath, { id = id })
         path:set(nextPath)
@@ -58,61 +66,86 @@ app.mount(function()
         table.remove(nextPath)
         path:set(nextPath)
     end
-    local confirmOpen, confirmTitle, confirmTerms = C.cell(false), C.cell(""), C.cell("")
-    local onConfirm: () -> () = function() end
-    local function confirm(title: string, terms: string, run: () -> ())
-        confirmTitle:set(title)
-        confirmTerms:set(terms)
-        onConfirm = run
-        confirmOpen:set(true)
+    local function close()
+        presented:set(false)
     end
+    local title = C.formula(function(use: Facet.Use): string
+        local entries = use(path)
+        return if #entries > 0 then entries[#entries].id else use(rootId)
+    end)
+    local ctx = { app = app, UI = UI, Host = Host, open = open,
+        push = push, back = back, close = close }
     local destinations: { [string]: Facet.NavigationDestination<string> } = {
+        Menu = { content = function() return Menu(ctx) end },
         Shop = { content = function() return Shop(ctx) end },
         Garage = { content = function() return Garage(ctx) end },
     }
-    local actions: { Facet.DialogAction } = {
-        { id = "Cancel", label = "Cancel", role = "cancel", onActivate = function() end },
-        { id = "Confirm", label = "Confirm", role = "default", keepOpen = true, busy = busy, onActivate = function() onConfirm() end },
-    }
     return Host.Frame "Root" { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
-        UI.NavigationStack "Routes" { path = path, chrome = "hidden",
-            root = { content = function() return Hub(ctx) end },
-            destinations = destinations },
-        UI.Dialog "Confirm" { isPresented = confirmOpen, title = confirmTitle, actions = actions,
-            onPresentedChange = function(presented: boolean) confirmOpen:set(presented) end,
-            content = function() return UI.Text { text = confirmTerms, wrap = true } end },
+        Hub(ctx),
+        UI.Sheet "Task" { isPresented = presented, placement = "center",
+            width = "wide", detents = { "large" }, title = title,
+            onPresentedChange = function(nextValue: boolean) presented:set(nextValue) end,
+            header = function()
+                return UI.HStack "Header" { width = "fill", gap = "s", align = "center",
+                    C.show(function(use: Facet.Use): boolean return #use(path) > 0 end, function()
+                        return UI.Button "Back" { label = "Back", icon = "chevron.leading",
+                            appearance = "utility", onActivate = back }
+                    end),
+                    UI.Text { text = title, textRole = "heading", wrap = true, UI.fill() },
+                }
+            end,
+            content = function()
+                local roots = {}
+                for id, destination in destinations do
+                    table.insert(roots, C.show(function(use: Facet.Use): boolean
+                        return use(rootId) == id
+                    end, function()
+                        return UI.NavigationStack "Routes" { path = path, chrome = "hidden",
+                            root = destination, destinations = destinations }
+                    end))
+                end
+                return Host.Frame "TaskBody" { Size = UDim2.fromScale(1, 1),
+                    BackgroundTransparency = 1, table.unpack(roots) }
+            end },
     }
 end)
 ```
 
-`ctx` is a table of the shared cells and the `open`, `back` and `confirm`
-functions, passed to each screen module. Close the dialog when the server
-accepts; keep it open with an error line when it rejects.
+The centered Sheet supplies Close beside the custom header. Do not add another
+Close, title or wallet to every body. Keep shared cells, selection and drafts
+outside route content. Do not clear `path` or change `rootId` when closing:
+the departing surface still needs its content. Reset them on the next opener.
+Build the stack inside `content`, so its lifetime belongs to the Sheet.
+For a single-step task, put its body directly in the Sheet without a stack.
+A stack fills its viewport: use a bounded detent such as `large`, not `hug`.
 
-## Page shell
+A menu action must not call Back and defer opening another page. That requests
+a return to the previous page before a second transition. Push a child once,
+or deliberately replace the last entry in one `path:set(nextPath)` when the
+menu should not remain in history. Do not close and reopen the Sheet between
+its steps. Retain existing prefix entry tables when cloning a path.
 
-Every destination uses this shell. The Screen has no `surface`, so the world
-shows at the sides; the panel carries the plate, the title, Back and the
-wallet, and only its body scrolls.
+For an editor, route the visible Back through the destination's `onBack` guard,
+and route Close and `onPresentedChange` through the same dirty-dismissal policy
+in `Sheet.dismissal`. Do not let the simple callbacks above discard a draft.
+Keep purchase confirmations as sibling Dialogs; close only on server acceptance.
+Use `suspendGameplay = true` and gate game commands with
+`UI.environment().gameplaySuspended`. Visible HUD context does not remain
+interactive through a modal.
 
-```luau
-local function page(title: string, back: () -> (), children: { GuiObject }): Frame
-    return UI.Screen(title) { padding = "m", align = "center",
-        UI.VStack "Panel" { width = "fill", maxWidth = 1000, surface = "surface", padding = "l", gap = "m", UI.fill(),
-            UI.NavBar "Header" { title = title, onBack = back, trailing = wallet() },
-            UI.ScrollView "Body" { UI.fill(), UI.VStack "Content" { width = "fill", gap = "m", table.unpack(children) } },
-        },
-    }
-end
-```
+## Task body
 
-On a phone the panel takes the width and the world shows only at the edges.
-Give a long title `wrap = true`; a wide display font needs it at 390.
+The Sheet owns the outer plate, safe room, header and Close. Each body owns its
+layout and scroll boundary. Use a bounded scrolling collection beside a fixed
+detail/commitment group, or a ScrollView for a short form that may overflow.
+Do not wrap every task in another Screen, panel or header.
 
-A landscape phone leaves about 250 points for the body. Show content first:
-put category Chips and filters in one horizontal row or behind one Picker,
-put secondary links in the NavBar `trailing` or a Menu, and keep at least two
-rows of items, or the subject preview, in view before any scrolling.
+On a landscape phone, keep filters compact and keep the subject or at least
+two collection rows visible. Read the containing task's room with
+`UI.environment(container)` when choosing its arrangement; the world viewport
+is wider than a bounded Sheet. Test direct opening, Menu → Garage, Back,
+Close and reopening, including rapid input, reduced motion and a resize.
+Check that the HUD stays visible and no intermediate gameplay frame flashes.
 
 ## Hub
 
@@ -168,7 +201,7 @@ Each form is a separate tree, so build each Button once for each form.
 
 ## Shop and other catalogues
 
-The page shell with category Chips and a Grid of item tiles. The column count
+A Sheet body with category Chips and a Grid of item tiles. The column count
 follows the width; the tile holds a tinted icon tile, the name, the one fact
 that matters and a full-width Buy.
 
@@ -199,8 +232,8 @@ UI.Grid "Parts" { gap = 12, cellHeight = 210,
 
 ## Garage, inventory and other browse-and-inspect screens
 
-In the page shell, the list beside the selected item's detail when the
-viewport is 900 or more wide; on a narrow page the detail is the next step
+Inside the task, put the list beside the selected item's detail when its
+container is 900 or more wide; on a narrow page the detail is the next step
 with Back.
 
 ```luau

@@ -2075,6 +2075,78 @@ add("stack-rebuilt-prefix-enters-without-reversal", {}, function(t)
 	end
 end)
 
+add("stack-push-during-pop-keeps-incoming-in-front", {}, function(t)
+	local io = device(t)
+	local path
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		path = Compose.cell({ { id = "menu" } })
+		return UI.NavigationStack "Journey" {
+			path = path,
+			root = {
+				content = function(): Instance
+					return UI.Button "HUD" { label = "Open" }
+				end,
+			},
+			destinations = {
+				menu = {
+					title = "Menu",
+					content = function(): Instance
+						return UI.Button "Garage" {
+							label = "Garage",
+							onActivate = function()
+								path:set({})
+								task.defer(function()
+									path:set({ { id = "garage" } })
+								end)
+							end,
+						}
+					end,
+				} :: Destination,
+				garage = {
+					title = "Garage",
+					content = function(): Instance
+						return UI.Button "Equip" { label = "Equip" }
+					end,
+				} :: Destination,
+			},
+		}
+	end, { size = Vector2.new(600, 300), frames = 90, motionLevel = "normal" })
+	local journey = t.find(stage, "Journey")
+	local menu = journey:FindFirstChild("menu") :: GuiObject
+	local root = journey:FindFirstChild("@root") :: GuiObject
+	local samples: { number } = {}
+	local flashes, detached = 0, 0
+	local watch = game:GetService("RunService").PreRender:Connect(function()
+		local incoming = journey:FindFirstChild("garage") :: GuiObject?
+		if incoming then
+			table.insert(samples, incoming.Position.X.Scale)
+			if root.Visible then
+				flashes += 1
+			end
+			if menu.Parent and math.abs(menu.Position.X.Scale + 0.3 * (1 - incoming.Position.X.Scale)) > 0.001 then
+				detached += 1
+			end
+		end
+	end)
+	io.click(centre(t.find(stage, "Garage")))
+	t.settle(120)
+	watch:Disconnect()
+	t.note("interrupted pop entry positions", samples)
+	t.check("native activation opens Garage", #path:peek() == 1 and path:peek()[1].id == "garage")
+	t.check("the incoming page starts on the trailing side", #samples > 0 and samples[1] > 0.5, samples[1])
+	t.check("the outgoing page follows the incoming page", detached == 0, detached)
+	t.check("the HUD does not flash beneath the incoming page", flashes == 0, flashes)
+	t.check("the incoming page settles", #samples > 0 and samples[#samples] == 0)
+	t.check("the departing menu is disposed", menu.Parent == nil)
+	local back = backButton(t, stage)
+	t.check("Garage exposes Back", back ~= nil)
+	if back then
+		io.click(centre(back))
+		t.settle(90)
+		t.check("Back restores the HUD", #path:peek() == 0 and root.Visible)
+	end
+end)
+
 local function hintProbe(t: any): any
 	local value: any = {}
 	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost)

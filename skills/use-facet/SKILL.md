@@ -23,7 +23,7 @@ Never join facts in one caption: a value leads in `numeral` and its label follow
 
 | First task | Read and adapt |
 | --- | --- |
-| Game screens: hub, shop, garage, customize, HUD, tutorial | [Game screens](references/game-screens.md): the page shell and tested code for each screen, and the rules every screen shares. Read it before the first screen |
+| Game screens: hub, shop, garage, customize, HUD, tutorial | [Game screens](references/game-screens.md): the task Sheet, navigation and code for each screen, and the rules every screen shares. Read it before the first screen |
 | Browse records, products or equipment | [Collection](examples/collection.luau): supply game image/model subjects; use `false` with an `icon` glyph per record when no art exists. [Riverbank](assets/riverbank-theme.luau) is one example identity. |
 | Inspect a selected object | [Inspection](examples/inspection.luau) with its [Field Station theme](assets/field-station-theme.luau): useful subject scale beside a decision |
 | Use image-based surfaces and subjects | [Game themes](references/game-themes.md): optional Pixel Quest theme builder with Collection's subject renderer |
@@ -111,7 +111,9 @@ does not validate a catalogue. Missing captures leave this step unverified.
 
 Share theme, controls and accepted-state behavior. Give each task its own
 footprint: a subject and decision, useful collection space, or a brief floating
-confirmation. Keep sequential steps inside one stable navigation surface.
+confirmation. Keep sequential steps inside one stable navigation surface. A HUD-launched task
+normally opens a centered Sheet with Close, with the HUD visible behind it.
+NavigationStack belongs inside that surface for child steps; its root has no Back.
 
 Exercise acceptance, rejection, cancellation and return through real input.
 Inspect restored subjects and state. Check affected compact forms, large text,

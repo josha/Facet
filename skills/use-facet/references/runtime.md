@@ -66,7 +66,7 @@ the type at that boundary; do not cast the whole spec.
 | Wrapped text beside a badge or value | `UI.fill()` inside the wrapped Text; a Spacer cannot shrink a wrapped Text, which spans the row |
 | Two or three actions that may turn into a column | AdaptiveStack |
 | Many short choices | `HStack { width = "fill", wrap = true }`; a wrapping row without a width hugs its children and never wraps |
-| A page body | The page shell in [game screens](game-screens.md) |
+| A page body | The task body in [game screens](game-screens.md) |
 
 Stacks hug by default. `width`, `height`, `gap`, `padding` and `maxWidth` are
 container options; Button, Text and TextInput take native `Size`. Bound the
