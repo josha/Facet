@@ -456,25 +456,27 @@ local function attachLayout(
 				end
 			end
 			x, y = (x + insetX) / shareX, (y + insetY) / shareY
-			local maximum = types.Vector2.new(
-				if freeX
-						and glyphX > 0
-						and authoredSize.X.Scale == 0
-					then math.max(x, authoredSize.X.Offset)
-					else math.huge,
-				if freeY
-						and glyphY > 0
-						and authoredSize.Y.Scale == 0
-					then math.max(y, authoredSize.Y.Offset)
-					else math.huge
-			)
-			local minimum = types.Vector2.new(
-				if freeX then x else 0,
-				if freeY
-					then y
-					elseif wrappedHeight then (if use then use(wrappedHeight) else wrappedHeight:peek())
-					else 0
-			)
+			local maximumX = if freeX
+					and glyphX > 0
+					and authoredSize.X.Scale == 0
+				then math.max(x, authoredSize.X.Offset)
+				else math.huge
+			local maximumY = if freeY
+					and glyphY > 0
+					and authoredSize.Y.Scale == 0
+				then math.max(y, authoredSize.Y.Offset)
+				else math.huge
+			local minimumX = if freeX then x else 0
+			local minimumY = if freeY
+				then y
+				elseif wrappedHeight then (if use then use(wrappedHeight) else wrappedHeight:peek())
+				else 0
+			local maximum = if appliedMaximum.X == maximumX and appliedMaximum.Y == maximumY
+				then appliedMaximum
+				else types.Vector2.new(maximumX, maximumY)
+			local minimum = if appliedMinimum.X == minimumX and appliedMinimum.Y == minimumY
+				then appliedMinimum
+				else types.Vector2.new(minimumX, minimumY)
 			local lower = appliedMinimum
 			if maximum.X >= lower.X and maximum.Y >= lower.Y then
 				if appliedMaximum ~= maximum then
