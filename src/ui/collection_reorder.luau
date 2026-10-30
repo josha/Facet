@@ -129,6 +129,9 @@ return function<V, K>(
 			local order = orderOf(move)
 			local offset = if order.offsets then order.offsets[key] else nil
 			if offset ~= nil then
+				if offset == at.offset then
+					return at
+				end
 				local next = table.clone(at)
 				next.offset = offset
 				return next
