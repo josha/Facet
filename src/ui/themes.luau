@@ -291,6 +291,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		ScrollBarImageTransparency = 0.4,
 	})
 	rule(".facet-layout", { BackgroundTransparency = 1 })
+	local materialize = package.metrics.motion.materialize or {}
+	local neutralMaterialize = neutral.metrics.motion.materialize or {}
+	rule(".facet-region-pop", { Scale = 1 })
+	rule(".facet-region-pop#Rest", { Scale = materialize.modal or neutralMaterialize.modal or 1 })
 	rule(".facet-text", {
 		TextColor3 = c("content"),
 		FontFace = f(package.metrics.typography.body.font),

@@ -92,6 +92,34 @@ end
 local lastCompiled: { [Engine.RobloxTypes]: { NativeRule } } = {}
 support.weakKeys(lastCompiled)
 
+local EASING_STYLES: { [string]: string } = {
+	Quad = "Quad",
+	Cubic = "Cubic",
+	Quart = "Quart",
+	Quint = "Quint",
+	Sine = "Sine",
+	Expo = "Exponential",
+	Circ = "Circular",
+	Back = "Back",
+	Elastic = "Elastic",
+	Bounce = "Bounce",
+}
+
+local function easingStyle(name: string): (string, string)
+	if name == "linear" then
+		return "Linear", "Out"
+	end
+	local direction, rest = "Out", name
+	if string.sub(name, 1, 5) == "inOut" then
+		direction, rest = "InOut", string.sub(name, 6)
+	elseif string.sub(name, 1, 3) == "out" then
+		direction, rest = "Out", string.sub(name, 4)
+	elseif string.sub(name, 1, 2) == "in" then
+		direction, rest = "In", string.sub(name, 3)
+	end
+	return EASING_STYLES[rest] or "Quad", direction
+end
+
 local textRules = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [NativeRule]: { [number]: NativeRule } }
 local sizedProperties = (
 	setmetatable({}, { __mode = "k" }) :: unknown
@@ -317,14 +345,23 @@ return function(
 		return if type(value) == "number" and value == value then math.clamp(value, 0, 1) else 1
 	end
 	local defaultTimings: { [string]: TweenInfo } = {}
-	type PaintState = "normal" | "press" | "hover"
+	type PaintState = "normal" | "press" | "hover" | "pop" | "instant"
 	local function timingFor(package: ThemeTypes.ThemePackage, role: PaintState, use: ComposeTypes.Use): TweenInfo
 		local explicit = read(settings.transition, use)
 		local motion = ((package.metrics or {}) :: { motion: ThemeTypes.MotionMetrics? }).motion
 		local normal = if motion and motion.normal then motion.normal else neutral.metrics.motion.normal
 		local seconds
-		if snaps(use) or explicit == false then
+		local style = (motion and motion.styles and motion.styles.paint)
+			or (neutral.metrics.motion.styles :: { [string]: string }).paint
+		local direction = "Out"
+		if role == "instant" or snaps(use) or explicit == false then
 			seconds = 0
+		elseif role == "pop" then
+			local durations = (motion and motion.durations) or {}
+			seconds = durations.regionPop or (neutral.metrics.motion.durations :: { [string]: number }).regionPop
+			local easing = (motion and motion.easing) or {}
+			style, direction =
+				easingStyle(easing.present or (neutral.metrics.motion.easing :: { [string]: string }).present)
 		elseif explicit ~= nil then
 			return explicit
 		elseif role == "normal" then
@@ -333,9 +370,7 @@ return function(
 			local authored = if motion then motion[role] else nil
 			seconds = math.min(authored or neutral.metrics.motion[role], normal)
 		end
-		local style = (motion and motion.styles and motion.styles.paint)
-			or (neutral.metrics.motion.styles :: { [string]: string }).paint
-		local key = `{seconds}|{style}`
+		local key = `{seconds}|{style}|{direction}`
 		local cached: TweenInfo? = defaultTimings[key]
 		if cached then
 			return cached
@@ -343,14 +378,16 @@ return function(
 		local timing = types.TweenInfo.new(
 			seconds,
 			((types.Enum.EasingStyle :: unknown) :: { [string]: Enum.EasingStyle })[style],
-			types.Enum.EasingDirection.Out
+			((types.Enum.EasingDirection :: unknown) :: { [string]: Enum.EasingDirection })[direction]
 		)
 		defaultTimings[key] = timing
 		return timing
 	end
 	local function stateOf(selector: string): PaintState
-		return if string.find(selector, ":Press", 1, true)
-			then "press"
+		return if string.find(selector, ".facet-region-pop#Rest", 1, true)
+			then "instant"
+			elseif string.find(selector, ".facet-region-pop", 1, true) then "pop"
+			elseif string.find(selector, ":Press", 1, true) then "press"
 			elseif string.find(selector, ":Hover", 1, true) then "hover"
 			else "normal"
 	end
@@ -504,8 +541,13 @@ return function(
 		}
 	end
 	local ids = Compose.cell({} :: { string })
-	local TOKENS: { [PaintState]: string } =
-		{ normal = "FacetMotionNormal", press = "FacetMotionPress", hover = "FacetMotionHover" }
+	local TOKENS: { [PaintState]: string } = {
+		normal = "FacetMotionNormal",
+		press = "FacetMotionPress",
+		hover = "FacetMotionHover",
+		pop = "FacetMotionRegionPop",
+		instant = "FacetMotionInstant",
+	}
 	type MountedRule = {
 		node: StyleRule,
 		priority: number,
@@ -524,11 +566,13 @@ return function(
 		local transitions = byTiming[timing]
 		if transitions == nil then
 			local built: { [string]: string } = {}
+			local scales = timing == "FacetMotionRegionPop" or timing == "FacetMotionInstant"
 			for property, value in properties do
 				if
 					typeof(value) == "Color3"
 					or (type(value) == "string" and string.sub(value, 1, 12) == "$FacetColor_")
 					or string.find(property, "Transparency$")
+					or (scales and property == "Scale")
 				then
 					built[property] = "$" .. timing
 				end
