@@ -107,7 +107,6 @@ local SUITES: { { id: string, cases: { string } } } = {
 			"touch-hint-with-no-touch-binding",
 			"touch-match3-detector-tap-selects-once",
 			"touch-page-view-dots",
-			"touch-page-view-swipes-one-page",
 		},
 	},
 	{

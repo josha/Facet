@@ -40,18 +40,6 @@ return function(harness: Verify.Harness)
 		local motion = C.cell("normal" :: Shared.MotionLevel)
 		local theme = Facet.themes.neutralPackage()
 		theme.metrics.motion.typewriter = { grapheme = 0.25, pause = 0.5 }
-		local content: { [string]: string } = {
-			["<b>A&amp;B</b>"] = "A&B",
-			["<i>Go</i>"] = "Go",
-			["e\u{301}!"] = "e\u{301}!",
-			["Next"] = "Next",
-			["Last"] = "Last",
-		}
-		native.onWrite(function(object, key, value)
-			if key == "Text" and type(value) == "string" then
-				native.environment.poke(object, "ContentText", content[value] or value)
-			end
-		end)
 		local controls: Facet.TypewriterControls = {}
 		local label: TextLabel
 		local calls = 0
