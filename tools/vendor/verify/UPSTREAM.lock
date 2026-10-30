@@ -1,12 +1,12 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "6bec327c7d682bae775b1292267bea2690f82d0e",
+  "commit": "bbbb452f55651f764aa8b8b5a3c3cca8a3aa49e9",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "4df9d6a108c895934f1863116dcf59cf3626d1eb05342bab53e26e1f06a86635",
     "docs/README.md": "a1cfdea3ff39fc01dd90b2527d114f623c0deef9518fff95f2c34193144fa028",
     "docs/agent-eval.md": "fdc3f1c52def3146fae783a2fa6cbe895e1c9c44863cb717c3d5eb34746789bf",
-    "docs/api.md": "24b9bf67069a61b42f4a64f9dcebb273cf82d159fe6062c2fcac664fbd2ed17b",
+    "docs/api.md": "242c22afc3b56d5d8107d9a1244fcc630bacf5ff211e382dc1eac83d3bed0c5a",
     "docs/checks.md": "a1ee75c8b92b39655d6ca06100b10b560d42b06ed5b62222cd1d199395bc6142",
     "docs/execution.md": "9a0fe7c7bfd34765ad1a5533917ed50700bed707f9470f1e9e36f248163e0142",
     "docs/experience.md": "00e3d767a29175785ade0a2814a426bf3a86d229c4fa7da46cb1a0793c1de511",
@@ -191,7 +191,7 @@
     "src/roblox/reflection-snapshot.luau": "68696790530a882887e7f65c73568803dd3de65bddd6a382969b2b17a38e9095",
     "src/roblox/reflection.luau": "952db06f9e25d30c09e0f1d01cea5e61b466ae61a1a6cfec8e35ca6792ac8073",
     "src/roblox/report-channel.luau": "35354fd4e1bef71dcaeab1fa98690620524f2e7e36549fac665a38b5726b8bd2",
-    "src/roblox/scheduler.luau": "49b1bed729c465ff8d61ddaacaea196ae384b45041cff44516732c6fa5600f52",
+    "src/roblox/scheduler.luau": "1ac385942e7f561370ae1412a4d955a55408f37d6cc41da46cf6e2d390683363",
     "src/roblox/spatial-fakes.luau": "bcf89eb113e8094614a6b67ca47726959254d9f2e763f0e7b0916df37c48868f",
     "src/roblox/spatial-query-fakes.luau": "c722ccef87db37e0ebb31aaf34373dd79cceeb335265a4535f2ba5a5982e8752",
     "src/roblox/text-metrics.luau": "0652fda4321503603a1ce44ff064f887da361e0e9c61df21788377ac9a720ac9",
