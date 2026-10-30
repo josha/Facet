@@ -92,6 +92,15 @@ end
 local lastCompiled: { [Engine.RobloxTypes]: { NativeRule } } = {}
 support.weakKeys(lastCompiled)
 
+local textRules = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [NativeRule]: { [number]: NativeRule } }
+local sizedProperties = (
+	setmetatable({}, { __mode = "k" }) :: unknown
+) :: { [ThemeTypes.RuleProperties]: { [number]: ThemeTypes.RuleProperties } }
+local sizedRules = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [{ NativeRule }]: { number } }
+type ByTiming = { [string]: { [string]: string } }
+local transitionTables = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: ByTiming }
+type Known = { [ThemeTypes.RuleProperties]: boolean }
+local comparisons = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: Known }
 local compiledFor = setmetatable(
 	{} :: { [Engine.RobloxTypes]: { [ThemeTypes.ThemePackage]: { [string]: { NativeRule } } } },
 	{ __mode = "k" }
@@ -147,23 +156,55 @@ return function(
 		local name = if typeof(value) == "EnumItem" then value.Name else value
 		return ({ Medium = 0, Large = 1, Larger = 2, Largest = 3 } :: { [unknown]: number })[name] or 0
 	end
-	local textRules = (
-		setmetatable({}, { __mode = "k" }) :: unknown
-	) :: { [NativeRule]: { offset: number, rule: NativeRule } }
 	local function withTextSize(definition: NativeRule, offset: number): NativeRule
 		local size = definition.properties.TextSize
 		if offset == 0 or type(size) ~= "number" then
 			return definition
 		end
-		local cached = textRules[definition]
-		if cached and cached.offset == offset then
-			return cached.rule
+		local byOffset = textRules[definition]
+		if byOffset == nil then
+			local fresh: { [number]: NativeRule } = {}
+			byOffset = fresh
+			textRules[definition] = fresh
+		end
+		local known = assert(byOffset)
+		local cached = known[offset]
+		if cached then
+			return cached
+		end
+		local base = definition.properties
+		local bySize = sizedProperties[base]
+		if bySize == nil then
+			local fresh: { [number]: ThemeTypes.RuleProperties } = {}
+			bySize = fresh
+			sizedProperties[base] = fresh
+		end
+		local resized = assert(bySize)
+		local properties = resized[offset]
+		if properties == nil then
+			local made = table.clone(base)
+			made.TextSize = math.max(1, size + offset)
+			resized[offset] = made
+			properties = made
 		end
 		local rule = table.clone(definition)
-		rule.properties = table.clone(definition.properties)
-		rule.properties.TextSize = math.max(1, size + offset)
-		textRules[definition] = { offset = offset, rule = rule }
+		rule.properties = assert(properties)
+		known[offset] = rule
 		return rule
+	end
+	local function sizedIn(rules: { NativeRule }): { number }
+		local cached = sizedRules[rules]
+		if cached then
+			return cached
+		end
+		local indexes: { number } = {}
+		for index, definition in rules do
+			if type(definition.properties.TextSize) == "number" then
+				table.insert(indexes, index)
+			end
+		end
+		sizedRules[rules] = indexes
+		return indexes
 	end
 	local preferredTransparency = settings.preferredTransparency
 	if preferredTransparency == nil then
@@ -468,8 +509,6 @@ return function(
 		timing: string,
 	}
 	local mounted: { [string]: MountedRule } = {}
-	type ByTiming = { [string]: { [string]: string } }
-	local transitionTables = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: ByTiming }
 	local function transitionsFor(properties: ThemeTypes.RuleProperties, timing: string): { [string]: string }
 		local byTiming = transitionTables[properties]
 		if byTiming == nil then
@@ -494,8 +533,6 @@ return function(
 		end
 		return transitions
 	end
-	type Known = { [ThemeTypes.RuleProperties]: boolean }
-	local comparisons = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: Known }
 	local function sameRuleProperties(left: ThemeTypes.RuleProperties, right: ThemeTypes.RuleProperties): boolean
 		local known = comparisons[left]
 		if known == nil then
@@ -539,6 +576,9 @@ return function(
 	support.weakKeys(timingMemo)
 	local applied: { NativeRule }? = nil
 	local appliedArrivals = 0
+	local appliedBase: { NativeRule }? = nil
+	local appliedOffset = 0
+	local appliedPreference = 1
 	local initialIds: { [string]: boolean }? = nil
 	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({
 		Compose.keyed({
@@ -639,6 +679,32 @@ return function(
 			else 0
 		local arrived = use(arrivals)
 		local plain = textOffset == 0 and preference >= 1
+		if
+			appliedBase == current
+			and arrived == appliedArrivals
+			and preference == appliedPreference
+			and textOffset ~= appliedOffset
+		then
+			local resized = table.clone(definitions)
+			for _, index in sizedIn(current) do
+				local definition = withTextSize(current[index], textOffset)
+				if preference < 1 then
+					definition = withPreference(definition, preference)
+				end
+				resized[definition.id] = definition
+				local record = mounted[definition.id]
+				if record then
+					apply(record, definition)
+				end
+			end
+			definitions = resized
+			appliedOffset = textOffset
+			applied = if plain then current else nil
+			if plain then
+				byIdOf[current] = definitions
+			end
+			return
+		end
 		local changes = if plain
 				and applied ~= nil
 				and arrived == appliedArrivals
@@ -654,6 +720,7 @@ return function(
 			end
 			definitions = indexById(current)
 			applied = current
+			appliedBase, appliedOffset, appliedPreference = current, textOffset, preference
 			return
 		end
 		local previousIds = ids:peek()
@@ -696,6 +763,7 @@ return function(
 		end
 		applied = if plain then current else nil
 		appliedArrivals = arrived
+		appliedBase, appliedOffset, appliedPreference = current, textOffset, preference
 		if plain then
 			byIdOf[current] = definitions
 		end
