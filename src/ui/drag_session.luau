@@ -737,6 +737,17 @@ return function(ctx: Types.Context): Drag.Service
 			or shown.mode ~= current.mode
 		then
 			state:set(table.clone(current))
+		else
+			local snapshot = (shown :: unknown) :: { [string]: unknown }
+			local live = (current :: unknown) :: { [string]: unknown }
+			for key in snapshot do
+				if live[key] == nil then
+					snapshot[key] = nil
+				end
+			end
+			for key, value in live do
+				snapshot[key] = value
+			end
 		end
 	end
 	function service.update(position: Vector2)
