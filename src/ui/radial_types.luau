@@ -98,6 +98,7 @@ export type RadialAction<V = string> = {
 	onChange: nil?,
 }
 export type RadialItem<V = string> = RadialCheck<V> | RadialChoice<V> | RadialAction<V>
+export type CaptionPlacement = "below" | "above" | "leading" | "trailing" | "topLeading" | "topTrailing"
 export type RadialMenuOptions<V = string> = {
 	items: Types.Input<{ RadialItem<V> }>,
 	label: Types.ValueString?,
@@ -107,6 +108,7 @@ export type RadialMenuOptions<V = string> = {
 	appearance: Appearance?,
 	buttonSurface: ("native" | "none")?,
 	captions: boolean?,
+	captionPlacement: CaptionPlacement?,
 	distribution: Distribution?,
 	navigation: Navigation?,
 	expansion: Expansion?,
