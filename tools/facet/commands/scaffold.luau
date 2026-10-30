@@ -71,7 +71,7 @@ local function run(invocation: Cli.Invocation): number
 end
 
 local REGISTRY: { [string]: string } = {
-	["src/ui/init.luau"] = "return function(ctx, UI)\n\treturn freeze(UI)\nend\n",
+	["src/ui/init.luau"] = "return function(ctx, UI)\n\tlocal groups = {\n\t}\n\n\tlocal all: { () -> () } = {}\nend\n",
 	["src/ui/control_types.luau"] = "export type Controls = {\n}\n",
 	["src/init.luau"] = "export type ButtonProps = {}\n",
 }
