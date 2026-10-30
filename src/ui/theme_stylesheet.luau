@@ -465,6 +465,11 @@ return function(
 		local previous = lastCompiled[types]
 		if previous ~= nil then
 			changesBetween(previous, result)
+			local before, after = previous[1] and previous[1].tokens, result[1] and result[1].tokens
+			if before and after then
+				tokenChanges(before, after)
+				tokenChanges(after, before)
+			end
 		end
 		lastCompiled[types] = result
 		return result
