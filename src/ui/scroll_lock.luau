@@ -34,7 +34,9 @@ local function take(frame: ScrollingFrame)
 		end),
 	}
 	holds[frame] = created
-	frame.ScrollingEnabled = false
+	if frame.ScrollingEnabled then
+		frame.ScrollingEnabled = false
+	end
 end
 
 local function give(frame: ScrollingFrame)
@@ -46,7 +48,9 @@ local function give(frame: ScrollingFrame)
 	if current.count == 0 then
 		holds[frame] = nil
 		current.watch:Disconnect()
-		frame.ScrollingEnabled = current.saved
+		if frame.ScrollingEnabled ~= current.saved then
+			frame.ScrollingEnabled = current.saved
+		end
 	end
 end
 
