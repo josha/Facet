@@ -31,6 +31,31 @@ local recent: { [string]: { [string]: Vector2 } } = {}
 local older: { [string]: { [string]: Vector2 } } = {}
 local recentCount = 0
 
+local function prepare(
+	request: GetTextBoundsParams,
+	words: string,
+	markup: boolean,
+	face: Font,
+	size: number,
+	width: number
+)
+	if request.Text ~= words then
+		request.Text = words
+	end
+	if request.RichText ~= markup then
+		request.RichText = markup
+	end
+	if request.Font ~= face then
+		request.Font = face
+	end
+	if request.Size ~= size then
+		request.Size = size
+	end
+	if request.Width ~= width then
+		request.Width = width
+	end
+end
+
 local function remember(geometry: string, words: string, value: Vector2)
 	if recentCount >= GENERATION then
 		older, recent, recentCount = recent, {}, 0
@@ -150,7 +175,7 @@ local function createNatural(
 			makeShaper()
 		end
 		local request = assert(shaper)
-		request.Text, request.RichText, request.Font, request.Size, request.Width = words, markup, face, size, 0
+		prepare(request, words, markup, face, size, 0)
 		local shape = geometry
 		local function measure()
 			local ok, value = pcall(service.GetTextBoundsAsync, service, request)
@@ -251,7 +276,7 @@ local function inline(
 			makeShaper()
 		end
 		local request = assert(shaper)
-		request.Text, request.RichText, request.Font, request.Size, request.Width = words, markup, face, size, 0
+		prepare(request, words, markup, face, size, 0)
 		local shape = geometry
 		local settled = false
 		local function measure()
@@ -282,6 +307,7 @@ end
 
 return {
 	hold = hold,
+	prepare = prepare,
 	inline = inline,
 	pending = function(node: Instance): boolean
 		return pending[node] ~= nil

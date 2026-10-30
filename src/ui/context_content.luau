@@ -304,8 +304,7 @@ local function attachLayout(
 					Width = 0,
 				})
 			params = request
-			request.Text, request.Font, request.Size, request.Width, request.RichText =
-				text, font, points, wide, label.RichText
+			textMeasure.prepare(request, text, label.RichText, font, points, wide)
 			local function measure()
 				local ok, measured = pcall(function()
 					return (services.TextService :: TextService):GetTextBoundsAsync(request)
