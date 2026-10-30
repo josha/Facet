@@ -70,7 +70,7 @@ local function frame(): Evaluation
 	return current
 end
 
-local function enter(consumer: Node?): (Node?, number)
+local function enter(consumer: Node?): (Node?, number, Evaluation)
 	local running = coroutine.running()
 	local cached = if running == cache.thread then cache.frame else nil
 	local current: Evaluation = if cached ~= nil then cached else frame()
@@ -81,7 +81,7 @@ local function enter(consumer: Node?): (Node?, number)
 	order += 1
 	current.consumer = consumer
 	current.order = order
-	return previousConsumer, previousOrder
+	return previousConsumer, previousOrder, current
 end
 
 local function snapshot(): (Node?, number)
@@ -90,10 +90,15 @@ local function snapshot(): (Node?, number)
 	return current.consumer, current.order
 end
 
-local function leave(previousConsumer: Node?, previousOrder: number)
-	local running = coroutine.running()
-	local cached = if running == cache.thread then cache.frame else nil
-	local current: Evaluation = if cached ~= nil then cached else frame()
+local function leave(previousConsumer: Node?, previousOrder: number, entered: Evaluation?)
+	local current: Evaluation
+	if entered ~= nil then
+		current = entered
+	else
+		local running = coroutine.running()
+		local cached = if running == cache.thread then cache.frame else nil
+		current = if cached ~= nil then cached else frame()
+	end
 	current.consumer = previousConsumer
 	current.order = previousOrder
 	if previousOrder == 0 then

@@ -316,7 +316,7 @@ local function dependenciesMoved(consumer: Node): boolean
 end
 
 local function evaluate<A, T>(consumer: Node, body: (A) -> T, argument: A): T
-	local previousConsumer, previousOrder = Evaluation.enter(consumer)
+	local previousConsumer, previousOrder, entered = Evaluation.enter(consumer)
 	consumer.reads = 0
 
 	local ok, result
@@ -326,7 +326,7 @@ local function evaluate<A, T>(consumer: Node, body: (A) -> T, argument: A): T
 		ok, result = pcall(body, argument)
 	end
 
-	Evaluation.leave(previousConsumer, previousOrder)
+	Evaluation.leave(previousConsumer, previousOrder, entered)
 	if not ok then
 		if consumer.run == nil then
 			consumer.state = DIRTY
@@ -344,7 +344,7 @@ local function runEffect(consumer: Node)
 	if producer ~= nil then
 		resumeSet(producer)
 	end
-	local previousConsumer, previousOrder = Evaluation.enter(consumer)
+	local previousConsumer, previousOrder, entered = Evaluation.enter(consumer)
 	consumer.reads = 0
 	local effect = consumer.effect
 	if effect then
@@ -354,7 +354,7 @@ local function runEffect(consumer: Node)
 			effect(use)
 		end
 	end
-	Evaluation.leave(previousConsumer, previousOrder)
+	Evaluation.leave(previousConsumer, previousOrder, entered)
 	trim(consumer, (consumer.reads or 0) + 1)
 end
 
@@ -377,10 +377,10 @@ local function runEffectIn(frame: Evaluation.Evaluation, consumer: Node)
 end
 
 local function track(consumer: Node, invoke: (Node) -> ())
-	local previousConsumer, previousOrder = Evaluation.enter(consumer)
+	local previousConsumer, previousOrder, entered = Evaluation.enter(consumer)
 	consumer.reads = 0
 	invoke(consumer)
-	Evaluation.leave(previousConsumer, previousOrder)
+	Evaluation.leave(previousConsumer, previousOrder, entered)
 	trim(consumer, (consumer.reads or 0) + 1)
 end
 
@@ -404,9 +404,9 @@ local function subscriberCount(producer: Node): number
 end
 
 local function untracked<T>(body: () -> T): T
-	local previousConsumer, previousOrder = Evaluation.enter(nil)
+	local previousConsumer, previousOrder, entered = Evaluation.enter(nil)
 	local ok, result = pcall(body)
-	Evaluation.leave(previousConsumer, previousOrder)
+	Evaluation.leave(previousConsumer, previousOrder, entered)
 	if not ok then
 		error(result, 0)
 	end

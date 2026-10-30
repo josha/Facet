@@ -127,7 +127,7 @@ end
 local function runInRest(reactor: Reactor)
 	local queue = reactor.queue
 	local frame = Evaluation.frame()
-	local previousConsumer, previousOrder = Evaluation.enter(nil)
+	local previousConsumer, previousOrder, entered = Evaluation.enter(nil)
 	while reactor.cursor < reactor.count do
 		local limit = math.min(reactor.count, MAX_RUNS_PER_DRAIN)
 		while reactor.cursor < limit do
@@ -156,11 +156,11 @@ local function runInRest(reactor: Reactor)
 				):format(MAX_RUNS_PER_DRAIN)
 			)
 			reactor.abandoned = true
-			Evaluation.leave(previousConsumer, previousOrder)
+			Evaluation.leave(previousConsumer, previousOrder, entered)
 			return
 		end
 	end
-	Evaluation.leave(previousConsumer, previousOrder)
+	Evaluation.leave(previousConsumer, previousOrder, entered)
 end
 
 local function drain(reactor: Reactor): { string }?
