@@ -75,6 +75,47 @@ return function<V, K>(
 		bindKeys(shared, root, body)
 		return root
 	end
+	type Order = {
+		remaining: { K },
+		keys: { K },
+		slot: number,
+		indexes: { [K]: number },
+		offsets: { [K]: number }?,
+	}
+	local lastOrder: Order? = nil
+	local function orderOf(move: { remaining: { K }, keys: { K }, slot: number, rows: { unknown } }): Order
+		local cached = lastOrder
+		if cached and cached.remaining == move.remaining and cached.keys == move.keys and cached.slot == move.slot then
+			return cached
+		end
+		local ordered = table.clone(move.remaining)
+		for index, carried in move.keys do
+			table.insert(ordered, move.slot + index, carried)
+		end
+		local indexes: { [K]: number } = {}
+		for index, candidate in ordered do
+			indexes[candidate] = index
+		end
+		local offsets: { [K]: number }? = nil
+		if not grid and reservedSlots == nil then
+			local measured: { [K]: number } = {}
+			local first = assert(controls.placementOf)(1)
+			local offset = first.offset
+			local gap = if #move.rows > 1 then assert(controls.placementOf)(2).offset - offset - first.size else 0
+			for _, candidate in ordered do
+				measured[candidate] = offset
+				local index = assert(controls.indexOfKey)(candidate)
+				if index then
+					offset += assert(controls.placementOf)(index).size + gap
+				end
+			end
+			offsets = measured
+		end
+		local made: Order =
+			{ remaining = move.remaining, keys = move.keys, slot = move.slot, indexes = indexes, offsets = offsets }
+		lastOrder = made
+		return made
+	end
 	local function placement(key: K, at: ComposeTypes.Placement, use: ComposeTypes.Use): ComposeTypes.Placement
 		local move, proposal = use(moving), use(shared.incoming)
 		local session = use(shared.drag.state)
@@ -85,27 +126,14 @@ return function<V, K>(
 			return at
 		end
 		if move then
-			local ordered = table.clone(move.remaining)
-			for index, carried in move.keys do
-				table.insert(ordered, move.slot + index, carried)
+			local order = orderOf(move)
+			local offset = if order.offsets then order.offsets[key] else nil
+			if offset ~= nil then
+				local next = table.clone(at)
+				next.offset = offset
+				return next
 			end
-			if not grid and reservedSlots == nil then
-				local first = assert(controls.placementOf)(1)
-				local offset = first.offset
-				local gap = if #move.rows > 1 then assert(controls.placementOf)(2).offset - offset - first.size else 0
-				for _, candidate in ordered do
-					if candidate == key then
-						local next = table.clone(at)
-						next.offset = offset
-						return next
-					end
-					local index = assert(controls.indexOfKey)(candidate)
-					if index then
-						offset += assert(controls.placementOf)(index).size + gap
-					end
-				end
-			end
-			local index = table.find(ordered, key)
+			local index = order.indexes[key]
 			if index and reservedSlots then
 				local live: { [K]: boolean } = {}
 				for row, item in read(source, use) do
