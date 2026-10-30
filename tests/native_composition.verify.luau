@@ -719,13 +719,14 @@ return function(verifyHarness: Verify.Harness)
 				local transitionOf = require("./lib/transition")
 				local package = Facet.themes.neutralPackage()
 				local form = Compose.cell(1)
-				local sheet: any = nil
-				local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost, _engine, _gui, runtime)
-					sheet = Facet.themes.createStyleSheet(runtime, package, { types = _engine.types })
+				local sheet: StyleSheet? = nil
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, engine, _gui, runtime)
+					local made = Facet.themes.createStyleSheet(runtime, package, { types = engine.types })
+					sheet = made
 					return Host.Frame {
-						Size = _engine.types.UDim2.fromScale(1, 1),
-						sheet,
-						Host.StyleLink { StyleSheet = Compose.static(sheet) },
+						Size = engine.types.UDim2.fromScale(1, 1),
+						made :: unknown,
+						Host.StyleLink { StyleSheet = Compose.static(made) },
 						UI.Composition "Hud" {
 							gap = 8,
 							padding = 0,
@@ -741,14 +742,17 @@ return function(verifyHarness: Verify.Harness)
 						},
 					}
 				end, nil, { runService = true })
-				local rules: { [string]: any } = {}
-				for _, rule in sheet:GetChildren() do
-					rules[rule.Selector] = rule
+				local rules: { [string]: StyleRule } = {}
+				for _, rule in assert(sheet):GetChildren() do
+					if rule:IsA("StyleRule") then
+						rules[rule.Selector] = rule
+					end
 				end
 				local base, rest = rules[".facet-region-pop"], rules[".facet-region-pop#Rest"]
 				Verify.expect(base:GetProperties().Scale):toBe(1)
-				Verify.expect(rest:GetProperties().Scale):toBe(package.metrics.motion.materialize.modal)
-				Verify.expect(transitionOf(base, "Scale").Time):toBeFloat32(package.metrics.motion.durations.regionPop)
+				Verify.expect(rest:GetProperties().Scale):toBe(assert(package.metrics.motion.materialize).modal)
+				Verify.expect(transitionOf(base, "Scale").Time)
+					:toBeFloat32(assert(package.metrics.motion.durations).regionPop)
 				Verify.expect(transitionOf(rest, "Scale").Time):toBe(0)
 				w.size(w.find("TasksFull"), 240, 130)
 				w.size(w.find("TasksChip"), 90, 30)

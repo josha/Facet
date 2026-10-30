@@ -222,7 +222,7 @@ return function(
 			end
 			local box = root.AbsoluteSize
 			if box.X > 0 and box.Y > 0 then
-				arm()
+				assert(arm)()
 			end
 		end)
 	end)

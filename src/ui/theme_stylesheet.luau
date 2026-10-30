@@ -357,9 +357,9 @@ return function(
 		if role == "instant" or snaps(use) or explicit == false then
 			seconds = 0
 		elseif role == "pop" then
-			local durations = (motion and motion.durations) or {}
+			local durations: { [string]: number } = (motion and motion.durations) or {}
 			seconds = durations.regionPop or (neutral.metrics.motion.durations :: { [string]: number }).regionPop
-			local easing = (motion and motion.easing) or {}
+			local easing: { [string]: string } = (motion and motion.easing) or {}
 			style, direction =
 				easingStyle(easing.present or (neutral.metrics.motion.easing :: { [string]: string }).present)
 		elseif explicit ~= nil then

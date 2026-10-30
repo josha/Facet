@@ -125,7 +125,7 @@ return function<V, K>(
 				knownSet = built
 				set = built
 			end
-			if set[lost] then
+			if assert(set)[lost] then
 				return nil
 			end
 		end
