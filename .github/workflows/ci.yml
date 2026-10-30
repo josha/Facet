@@ -99,9 +99,19 @@ jobs:
           name: verification-${{ matrix.os }}-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             artifacts/verify/
+            !artifacts/verify/places/
             artifacts/phase-4/
             artifacts/bench.json
           if-no-files-found: warn
+          retention-days: 7
+
+      - name: Save built places for a failed shard
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: places-${{ matrix.os }}-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/verify/places/
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: The model is the library alone
@@ -284,10 +294,10 @@ jobs:
             measurement=(bench/paired_scene.luau bench/paired_workload.luau tests examples tools)
             echo "The Compose pin differs from the base. Each arm runs its own bench scenarios against its own Compose." | tee -a "$GITHUB_STEP_SUMMARY"
           fi
-          git archive HEAD "${measurement[@]}" > "$evidence/measurement.tar"
-          tar -xf - -C "$base" < "$evidence/measurement.tar"
+          git archive HEAD "${measurement[@]}" > "$RUNNER_TEMP/measurement.tar"
+          tar -xf - -C "$base" < "$RUNNER_TEMP/measurement.tar"
           git -C "$base" diff --exit-code HEAD -- src
-          sha256sum "$evidence/measurement.tar" "$evidence"/*.lock
+          sha256sum "$RUNNER_TEMP/measurement.tar" "$evidence"/*.lock | tee "$evidence/inputs.sha256"
 
       - name: Select paired performance inputs
         id: paired-inputs
