@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "0739874f02c9767d75780b0af5a13d92fb5172a5",
+  "commit": "f8adfe26b29589b1439a3c9bc69e75a3e9799daf",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "4df9d6a108c895934f1863116dcf59cf3626d1eb05342bab53e26e1f06a86635",
@@ -111,7 +111,7 @@
     "src/lute/hash.luau": "3a2cced5ea4e0cec7c309d486992447b777752d19850ceaf4124d5adeeba2ee1",
     "src/lute/host.luau": "1191cd0d5a7cd6b56895d816a327976eb075f3dba47c9e757e312fc9be96697f",
     "src/lute/init.luau": "be222f51f102a31fbe97fb9907e413d97422ff26403a52ce5e8bb8971707f2e3",
-    "src/lute/loader.luau": "7e77588fad2ba72aa4d227e25ea7bdd89056f6f54ed790eafb06fc8133464020",
+    "src/lute/loader.luau": "4d6ba498055892ff798fbbe192c256d288cd8847f29c80e3a4850934f965cff8",
     "src/lute/memory.luau": "a6c5ad4b3fa027d71b9012d440573923f16ce1710891783d21f281c56b288582",
     "src/lute/model.luau": "2dca443858f3183c53c5c197b2f3eda74a61dc729186b80e7f1a2c9fbdceff31",
     "src/lute/open-cloud.luau": "9203a5db45de81429825fa47703ccb28ba457311281e476601e3b68b8a02d2f9",
