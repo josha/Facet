@@ -3,6 +3,7 @@
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Json = require("../lib/json")
+local Run = require("../lib/run")
 local Core = require("../../vendor/verify/src/core")
 local Eval = require("../../vendor/verify/src/agent-eval")
 local Lute = require("../../vendor/verify/src/lute")
@@ -27,6 +28,9 @@ local function preparePlaces()
 	)
 	local project = Json.decode(Files.read("eval/place.project.json"))
 	Files.write("artifacts/facetbench/run-inputs/default.project.json", Json.pretty(project))
+	local kit =
+		Run.capture({ Run.lute(), "run", "tools/facet", "kit", "--out", "artifacts/facetbench/arm-facet", "--force" })
+	assert(kit.ok, "facetbench: the Facet author kit did not build: " .. kit.stdout .. kit.stderr)
 	local tree = assert(Json.asObject(Json.field(project, "tree")), "blank place has no DataModel")
 	Json.set(tree, "ReplicatedStorage", { Packages = { ["$path"] = "Packages" } })
 	Json.set(tree, "ServerStorage", { FacetDocs = { ["$path"] = "StudioDocs" } })
@@ -156,7 +160,7 @@ return {
 		end
 		preparePlaces()
 		print(
-			"facetbench: prepared blank places, author guidance, and restricted Codex tool profiles: "
+			"facetbench: prepared blank places, the Facet author kit, author guidance, and restricted Codex tool profiles: "
 				.. (if #models > 0 then table.concat(models, ", ") else "none")
 		)
 		return 0
