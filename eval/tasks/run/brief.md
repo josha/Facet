@@ -12,7 +12,7 @@ Make a beautiful sci-fi kart racing game with a neon identity. It should feel li
 
 Create a navigable hub and a real drivable circuit. Let the player enter a queue, leave it before the race begins, and join a race with opponents. Supply local opponents so a solo Studio session is playable. Steering, acceleration, braking, and a drift or boost mechanic must affect the kart in the world. Include an understandable countdown, laps, progress, and a finish condition based on actual racing. Give the player a useful camera and a way to recover a stuck kart.
 
-While driving, show position, lap, and essential race information without covering the road or stealing steering input. Provide a live scoreboard with racers, position, lap, and finish state. Put the leaders first and make the local player easy to find. Make it quick to open and close with keyboard, touch, and controller. At the finish, show the actual order and earned rewards, then return to the hub with those rewards and the chosen loadout intact. Allow another race.
+While driving, show position, lap, and essential race information without covering the road or stealing steering input. Provide a live scoreboard with racers, position, lap, and finish state. Show each racer's avatar headshot beside the name, and give local opponents without an account a distinct placeholder portrait. Put the leaders first and make the local player easy to find. Make it quick to open and close with keyboard, touch, and controller. At the finish, show the actual order and earned rewards, then return to the hub with those rewards and the chosen loadout intact. Allow another race.
 
 ## Prepare a kart
 
@@ -56,7 +56,7 @@ declining, leaving, and ending dialogue when the player walks away.
 
 - **Track voting:** Show track choices with descriptions, live vote counts, and a deadline. Mark the player's vote and allow it to change while voting is open. Include other participants' votes. At the deadline, show the winning track, stop accepting votes, and use the selected track for the next race.
 - **Quick chat:** Open a readable wheel of eight preset messages using Q, gamepad Y, or a visible touch/controller-selectable button. Send the chosen message once, close the wheel, and show the message. Opening or canceling must send nothing. Enforce a five-second cooldown that survives closing and reopening the wheel. Keep driving controls clear and restore focus to its opener.
-- **Party:** Show friends who are online, racing, or offline. Search and clear the list. Invite eligible friends, show pending replies and accepted or declined results, prevent duplicate and offline invitations, and retain accepted party members after filtering or reopening. Supply clearly identified demo participants for a solo session, with accepted and declined replies, so these interactions can be tried without other accounts.
+- **Party:** Show friends with their avatar headshots and whether they are online, racing, or offline. Search and clear the list. Invite eligible friends, show pending replies and accepted or declined results, prevent duplicate and offline invitations, and retain accepted party members after filtering or reopening. Supply clearly identified demo participants for a solo session, with accepted and declined replies, so these interactions can be tried without other accounts.
 
 ## Settings and first use
 

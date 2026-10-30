@@ -172,9 +172,12 @@ judge bundle. Keep the original image and triage record unchanged. Missing,
 unusable, world-only or unreviewed suspicious captures cannot establish a visual
 win. `capturesKept` counts heuristic candidates, not validated screenshots.
 
-The canonical suite uses the Sol 6.1 Medium judge. Assess hierarchy,
-legibility, composition, coherent art direction, compact layouts, and feedback.
-A beautiful screenshot does not override a broken interaction.
+The canonical suite uses the Sol 6.1 Medium judge. The suite's `judge.rubric`
+scores both games against the principles of the
+[game UI design guide](../skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md):
+player intent, attention, game identity, facts at a glance, protected play,
+adaptation, continuity and truthful outcomes. More content on a screen is not
+better by itself. A beautiful screenshot does not override a broken interaction.
 
 The canonical suite uses Sol. For an Astra evaluation, record
 `gpt-6-astra` and `medium` explicitly. The [judge policy](judge.luau) passes
@@ -256,6 +259,6 @@ comparison without committing a history of generated games.
 Keep reusable design changes separate from evaluation results. Follow the
 experiment's declared publication timing. Record the evaluated source revision
 with the result.
-Commit only the latest [Plain place](latest/plain/game.rbxlx) and
-[Facet place](latest/facet/game.rbxlx). Put the verdict and gaps in the PR description.
+Commit only the latest [Plain place](latest/plain/game.rbxl) and
+[Facet place](latest/facet/game.rbxl). Put the verdict and gaps in the PR description.
 Commit the reviewed latest reports and captures with the places. Keep raw logs and prior generated evidence in the artifact directory.
