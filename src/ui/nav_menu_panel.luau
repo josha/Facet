@@ -263,10 +263,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 			local natural = math.clamp(widest + 48, 220, 400)
 			local authored = read(spec.width, use)
-			if authored == nil then
-				return natural
-			end
 			local space = use(room)
+			if authored == nil then
+				return if space > 0 then math.min(natural, space) else natural
+			end
 			local resolved = resolveWidth(authored, natural, space, use)
 			return if space > 0 then math.min(resolved, space) else resolved
 		end
