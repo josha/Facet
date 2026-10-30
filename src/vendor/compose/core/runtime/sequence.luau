@@ -1,34 +1,18 @@
 --!strict
 
+local RuntimeTypes = require "./types"
 local Reactors = require "../reactive/reactor"
 local Active = require "../ownership/active"
 local Owner = require "../ownership/owner"
 local Types = require "../reactive/types"
 local Cell = require "../reactive/cell"
 local Timeline = require "../animation/timeline"
-local Easing = require "../animation/easing"
-local Motion = require "../animation/motion"
 local Support = require "../structure/support"
 local Watch = require "../reactive/watch"
 
-export type Step = {
-	wait: number?,
-	run: (() -> ())?,
-	onComplete: (() -> ())?,
-	tween: { seconds: number, ease: Easing.Easing? }?,
-	timeline: Timeline.Options?,
-	sample: ((number) -> ())?,
-	parallel: { Step }?,
-	steps: { Step }?,
-}
-export type Options = { steps: { Step }, reducedMotion: Motion.ReducedMotion?, autoplay: boolean? }
-export type Sequence = {
-	completed: Types.ReadOnlyValue<boolean>,
-	running: Types.ReadOnlyValue<boolean>,
-	play: () -> (),
-	cancel: () -> (),
-	finish: () -> (),
-}
+export type Step = RuntimeTypes.SequenceStep
+export type Options = RuntimeTypes.SequenceOptions
+export type Sequence = RuntimeTypes.Sequence
 type Phase = { start: number, finish: number, step: Step, clock: Timeline.Timeline?, ended: boolean, started: boolean }
 type Event = { at: number, order: number, phase: Phase, start: boolean }
 

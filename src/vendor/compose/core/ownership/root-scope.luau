@@ -4,15 +4,12 @@ local Active = require "./active"
 local Diagnostics = require "../diagnostics"
 local Owner = require "./owner"
 local Reactor = require "../reactive/reactor"
+local ResourceTypes = require "../resource-types"
 local Types = require "../reactive/types"
 
 type Dispose = Types.Dispose
 
-export type RootScope = {
-	owner: Owner.Owner,
-
-	dispose: Dispose,
-}
+export type RootScope = ResourceTypes.RootScope
 
 local function requireBody(body: unknown, operation: string)
 	if type(body) ~= "function" then

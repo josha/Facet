@@ -2,10 +2,6 @@
 --!native
 
 local Active = require "./ownership/active"
-local Animation = require "./animation/motion"
-local RampModule = require "./animation/ramp"
-local SchedulerModule = require "./scheduler"
-local TimelineModule = require "./animation/timeline"
 local Block = require "@self/block"
 local Children = require "@self/children"
 local Diagnostics = require "./diagnostics"
@@ -16,13 +12,10 @@ local Owner = require "./ownership/owner"
 local Reactor = require "./reactive/reactor"
 local Props = require "@self/props"
 local Root = require "./ownership/root"
+local RuntimeTypes = require "@self/types"
 local Types = require "./reactive/types"
 local Weak = require "./weak"
 local shareFrames = require "./frames"
-local observe = require "@self/observe"
-local settled = require "@self/settled"
-local clock = require "@self/clock"
-local sequence = require "@self/sequence"
 
 export type Node = Host.Node
 type Dispose = Types.Dispose
@@ -32,19 +25,19 @@ export type Child = Node | Children.Directive
 export type Directive = Children.Directive
 export type MountPoint = Children.MountPoint
 export type Props = Props.Props
-export type SpringOptions = Animation.SpringOptions
-export type TimelineOptions = TimelineModule.Options
-export type Timeline = TimelineModule.Timeline
-export type TweenOptions = Animation.TweenOptions
-export type RampOptions = RampModule.Options
-export type Ramp<T> = RampModule.Ramp<T>
-export type Scheduler = SchedulerModule.Scheduler
-export type ObserveOptions = observe.Options
-export type ClockOptions = clock.Options
-export type SettledOptions<T, R = unknown> = settled.Options<T, R>
-export type SequenceOptions = sequence.Options
-export type SequenceStep = sequence.Step
-export type Sequence = sequence.Sequence
+export type SpringOptions = RuntimeTypes.SpringOptions
+export type TimelineOptions = RuntimeTypes.TimelineOptions
+export type Timeline = RuntimeTypes.Timeline
+export type TweenOptions = RuntimeTypes.TweenOptions
+export type RampOptions = RuntimeTypes.RampOptions
+export type Ramp<T> = RuntimeTypes.Ramp<T>
+export type Scheduler = RuntimeTypes.Scheduler
+export type ObserveOptions = RuntimeTypes.ObserveOptions
+export type ClockOptions = RuntimeTypes.ClockOptions
+export type SettledOptions<T, R = unknown> = RuntimeTypes.SettledOptions<T, R>
+export type SequenceOptions = RuntimeTypes.SequenceOptions
+export type SequenceStep = RuntimeTypes.SequenceStep
+export type Sequence = RuntimeTypes.Sequence
 
 export type Component = () -> Node
 
@@ -66,16 +59,16 @@ export type Runtime = {
 	adopt: (node: Node) -> Node,
 	borrow: (node: Node) -> Node,
 
-	spring: <T>(source: Types.Body<T>, options: Animation.SpringOptions?) -> Types.ReadOnlyValue<T>,
+	spring: <T>(source: Types.Body<T>, options: SpringOptions?) -> Types.ReadOnlyValue<T>,
 
-	tween: <T>(source: Types.Body<T>, options: Animation.TweenOptions?) -> Types.ReadOnlyValue<T>,
-	timeline: (options: TimelineModule.Options?) -> TimelineModule.Timeline,
-	ramp: <T>(initial: T, options: RampModule.Options?) -> RampModule.Ramp<T>,
-	scheduler: (owner: Owner.Owner?) -> SchedulerModule.Scheduler,
+	tween: <T>(source: Types.Body<T>, options: TweenOptions?) -> Types.ReadOnlyValue<T>,
+	timeline: (options: TimelineOptions?) -> Timeline,
+	ramp: <T>(initial: T, options: RampOptions?) -> Ramp<T>,
+	scheduler: (owner: Owner.Owner?) -> Scheduler,
 	observe: (node: Node, property: string, options: ObserveOptions?) -> Types.ReadOnlyValue<unknown>,
-	settled: <T, R>(options: settled.Options<T, R>) -> Types.ReadOnlyValue<boolean>,
-	clock: (options: clock.Options?) -> Types.ReadOnlyValue<number>,
-	sequence: (options: sequence.Options) -> sequence.Sequence,
+	settled: <T, R>(options: SettledOptions<T, R>) -> Types.ReadOnlyValue<boolean>,
+	clock: (options: ClockOptions?) -> Types.ReadOnlyValue<number>,
+	sequence: (options: SequenceOptions) -> Sequence,
 
 	reactor: Reactor.Reactor,
 
@@ -606,10 +599,101 @@ local function createRuntime(host: Host.Host): Runtime
 		return node
 	end
 
-	local motion = Animation.createMotion(host, requireOwner)
-	local timelines = TimelineModule.createTimelines(host, requireOwner)
-	local ramp = RampModule.createRamps(motion.tween, requireOwner)
-	local scheduler = SchedulerModule.createSchedulers(host, requireOwner)
+	local motion: RuntimeTypes.Motion? = nil
+	local function motionOf(): RuntimeTypes.Motion
+		local made = motion
+		if made ~= nil then
+			return made
+		end
+		local created = (require "./animation/motion").createMotion(host, requireOwner)
+		motion = created
+		return created
+	end
+
+	local timelines: ((options: TimelineOptions?) -> Timeline)? = nil
+	local function timeline(options: TimelineOptions?): Timeline
+		local made = timelines
+		if made ~= nil then
+			return made(options)
+		end
+		local created = (require "./animation/timeline").createTimelines(host, requireOwner).timeline
+		timelines = created
+		return created(options)
+	end
+
+	local ramps: (<T>(initial: T, options: RampOptions?) -> Ramp<T>)? = nil
+	local function ramp<T>(initial: T, options: RampOptions?): Ramp<T>
+		local made = ramps
+		if made ~= nil then
+			return made(initial, options)
+		end
+		local created = (require "./animation/ramp").createRamps(motionOf().tween, requireOwner)
+		ramps = created
+		return created(initial, options)
+	end
+
+	local schedulers: ((owner: Owner.Owner?) -> Scheduler)? = nil
+	local function scheduler(owner: Owner.Owner?): Scheduler
+		local made = schedulers
+		if made ~= nil then
+			return made(owner)
+		end
+		local created = (require "./scheduler").createSchedulers(host, requireOwner)
+		schedulers = created
+		return created(owner)
+	end
+
+	local observers: ((node: Node, property: string, options: ObserveOptions?) -> Types.ReadOnlyValue<unknown>)? = nil
+	local function observe(node: Node, property: string, options: ObserveOptions?): Types.ReadOnlyValue<unknown>
+		local made = observers
+		if made ~= nil then
+			return made(node, property, options)
+		end
+		local created = (require "@self/observe")(host, requireOwner, reactor)
+		observers = created
+		return created(node, property, options)
+	end
+
+	local settles: (<T, R>(options: SettledOptions<T, R>) -> Types.ReadOnlyValue<boolean>)? = nil
+	local function settled<T, R>(options: SettledOptions<T, R>): Types.ReadOnlyValue<boolean>
+		local made = settles
+		if made ~= nil then
+			return made(options)
+		end
+		local created = (require "@self/settled")(host, requireOwner)
+		settles = created
+		return created(options)
+	end
+
+	local clocks: ((options: ClockOptions?) -> Types.ReadOnlyValue<number>)? = nil
+	local function clock(options: ClockOptions?): Types.ReadOnlyValue<number>
+		local made = clocks
+		if made ~= nil then
+			return made(options)
+		end
+		local created = (require "@self/clock")(host, requireOwner)
+		clocks = created
+		return created(options)
+	end
+
+	local sequences: ((options: SequenceOptions) -> Sequence)? = nil
+	local function sequence(options: SequenceOptions): Sequence
+		local made = sequences
+		if made ~= nil then
+			return made(options)
+		end
+		local created = (require "@self/sequence")(timeline, requireOwner)
+		sequences = created
+		return created(options)
+	end
+
+	local function spring<T>(source: Types.Body<T>, options: SpringOptions?): Types.ReadOnlyValue<T>
+		return motionOf().spring(source, options)
+	end
+
+	local function tween<T>(source: Types.Body<T>, options: TweenOptions?): Types.ReadOnlyValue<T>
+		return motionOf().tween(source, options)
+	end
 
 	local function watch(_self: Runtime, body: (use: Types.Use) -> (), label: string?): Types.Dispose
 		local active = Active.current()
@@ -651,15 +735,15 @@ local function createRuntime(host: Host.Host): Runtime
 		mountFragment = mountFragment,
 		adopt = adopt,
 		borrow = borrow,
-		spring = motion.spring,
-		tween = motion.tween,
-		timeline = timelines.timeline,
+		spring = spring,
+		tween = tween,
+		timeline = timeline,
 		ramp = ramp,
 		scheduler = scheduler,
-		observe = observe(host, requireOwner, reactor),
-		settled = settled(host, requireOwner),
-		clock = clock(host, requireOwner),
-		sequence = sequence(timelines.timeline, requireOwner),
+		observe = observe,
+		settled = settled,
+		clock = clock,
+		sequence = sequence,
 	}
 end
 

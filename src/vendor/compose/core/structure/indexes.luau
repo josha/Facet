@@ -1,6 +1,7 @@
 --!strict
 --!native
 
+local StructureTypes = require "./types"
 local Owners = require "../ownership/owner"
 local Block = require "../runtime/block"
 local Children = require "../runtime/children"
@@ -9,7 +10,7 @@ local Support = require "./support"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 
-export type Render<V> = (value: Types.ReadOnlyValue<V>, index: number) -> Host.Node
+export type Render<V> = StructureTypes.IndexedRender<V>
 
 type Row<V> = {
 	owner: Owners.Owner,

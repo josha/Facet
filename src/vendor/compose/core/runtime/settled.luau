@@ -1,5 +1,6 @@
 --!strict
 
+local RuntimeTypes = require "./types"
 local Host = require "../host"
 local Owner = require "../ownership/owner"
 local Types = require "../reactive/types"
@@ -7,14 +8,7 @@ local Cell = require "../reactive/cell"
 local Support = require "../structure/support"
 local ownedFrame = require "../ownership/frame"
 
-export type Options<T, R = unknown> = {
-	sample: () -> T,
-	frames: number?,
-	equals: Types.Equals<T>?,
-	restart: Types.Source<R>?,
-	ready: (() -> boolean)?,
-	timeout: number?,
-}
+export type Options<T, R = unknown> = RuntimeTypes.SettledOptions<T, R>
 
 return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 	return function<T, R>(options: Options<T, R>): Types.ReadOnlyValue<boolean>

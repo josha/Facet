@@ -31,8 +31,45 @@ local function zeroed(): Record
 	}
 end
 
+export type Recorder = {
+	write: (cell: unknown, suppressed: boolean) -> (),
+	wake: (producer: unknown, kind: string, count: number) -> (),
+	edge: (producer: unknown, producerKind: string, consumer: unknown) -> (),
+	recompute: (formula: unknown) -> (),
+	suppressedRecompute: (formula: unknown) -> (),
+	schedule: (watch: unknown, coalesced: boolean) -> (),
+	enterRun: (watch: unknown) -> (),
+	hostWrite: () -> (),
+	drain: (runs: number, seconds: number) -> (),
+	naming: (name: string?) -> (),
+	born: (node: unknown, name: string?) -> (),
+	nowOrNil: () -> number?,
+}
+
+local function ignore(...: unknown) end
+
+local function never(): number?
+	return nil
+end
+
+local idle: Recorder = {
+	write = ignore,
+	wake = ignore,
+	edge = ignore,
+	recompute = ignore,
+	suppressedRecompute = ignore,
+	schedule = ignore,
+	enterRun = ignore,
+	hostWrite = ignore,
+	drain = ignore,
+	naming = ignore,
+	born = ignore,
+	nowOrNil = never,
+}
+
 local counters: Record = zeroed()
-local state: { enabled: boolean, resume: (() -> ())? } = { enabled = false, resume = nil }
+local state: { enabled: boolean, resume: (() -> ())?, recorder: Recorder } =
+	{ enabled = false, resume = nil, recorder = idle }
 
 local function setEnabled(value: boolean)
 	local resume = state.resume

@@ -7,7 +7,6 @@ local Reactor = require "./reactor"
 local Types = require "./types"
 local clock = require "./clock"
 local clockState = clock.state
-local profile = require "./profile"
 local stats = require "./stats"
 local statsOn = stats.state
 local userSpace = require "./userSpace"
@@ -33,7 +32,7 @@ end
 local function suppress(self: Node)
 	if statsOn.enabled then
 		stats.bump "cellWritesSuppressed"
-		profile.write(self, true)
+		statsOn.recorder.write(self, true)
 	end
 end
 
@@ -46,7 +45,7 @@ local function write(self: Node, incoming: unknown)
 	if statsOn.enabled then
 		stats.bump "cellWrites"
 		Graph.countNotification(self)
-		profile.write(self, false)
+		statsOn.recorder.write(self, false)
 	elseif first == nil then
 		return
 	else
@@ -163,7 +162,7 @@ set = function(self: Node, incoming: unknown)
 	if statsOn.enabled then
 		stats.bump "cellWrites"
 		Graph.countNotification(self)
-		profile.write(self, false)
+		statsOn.recorder.write(self, false)
 	elseif first == nil then
 		return
 	else

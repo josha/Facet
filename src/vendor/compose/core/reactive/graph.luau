@@ -8,7 +8,6 @@ local NodeCast = require "./node"
 local Reactor = require "./reactor"
 local Types = require "./types"
 local Weak = require "../weak"
-local profile = require "./profile"
 local stats = require "./stats"
 local statsOn = stats.state
 local userSpace = require "./userSpace"
@@ -134,59 +133,69 @@ local function trim(consumer: Node, from: number)
 end
 
 local function markStale(producer: Node, state: number)
-	if statsOn.enabled then
-		local kind = kindOf(producer)
-		local recorded = producer.first
-		while recorded ~= nil do
-			profile.edge(producer, kind, recorded[2] or recorded)
-			recorded = recorded[4]
-		end
-	end
-
-	local edge = producer.first
-	local scheduled: Types.Reactor? = nil
-	local grouped: Types.Reactor? = nil
-	while edge ~= nil do
-		local consumer = edge[2]
-		local following = edge[4]
-		if consumer == nil then
-			local reactor = edge.reactor
-			if reactor ~= scheduled then
-				scheduled = reactor
-				Reactor.enqueue(edge)
+	local source: Node? = producer
+	while source ~= nil do
+		local from = source
+		source = nil
+		if statsOn.enabled then
+			local kind = kindOf(from)
+			local recorded = from.first
+			while recorded ~= nil do
+				statsOn.recorder.edge(from, kind, recorded[2] or recorded)
+				recorded = recorded[4]
 			end
-		else
-			local current = consumer.state or CLEAN
-			local retry = consumer.retry
-			if current < state or retry then
-				if retry then
-					consumer.retry = false
+		end
+
+		local edge = from.first
+		local scheduled: Types.Reactor? = nil
+		local grouped: Types.Reactor? = nil
+		while edge ~= nil do
+			local consumer = edge[2]
+			local following = edge[4]
+			if consumer == nil then
+				local reactor = edge.reactor
+				if reactor ~= scheduled then
+					scheduled = reactor
+					Reactor.enqueue(edge)
 				end
-				consumer.state = state
-				if current == CLEAN or retry then
-					local cutoff = consumer.cutoff
-					if cutoff ~= nil then
-						cutoff(consumer)
-					elseif consumer.invalidate ~= nil then
-						table.insert(invalidated, consumer)
-					elseif consumer.run == nil then
-						markStale(consumer, CHECK)
-					elseif state == DIRTY and consumer.group then
-						local reactor = consumer.reactor
-						if consumer[2] ~= nil then
-							Reactor.enqueue(consumer)
-						elseif reactor ~= grouped then
-							grouped = reactor
-							consumer.source = producer
+			else
+				local current = consumer.state or CLEAN
+				local retry = consumer.retry
+				if current < state or retry then
+					if retry then
+						consumer.retry = false
+					end
+					consumer.state = state
+					if current == CLEAN or retry then
+						local cutoff = consumer.cutoff
+						if cutoff ~= nil then
+							cutoff(consumer)
+						elseif consumer.body ~= nil or (consumer.invalidate == nil and consumer.run == nil) then
+							if following == nil then
+								source = consumer
+							else
+								markStale(consumer, CHECK)
+							end
+						elseif consumer.invalidate ~= nil then
+							table.insert(invalidated, consumer)
+						elseif state == DIRTY and consumer.group then
+							local reactor = consumer.reactor
+							if consumer[2] ~= nil then
+								Reactor.enqueue(consumer)
+							elseif reactor ~= grouped then
+								grouped = reactor
+								consumer.source = from
+								Reactor.enqueue(consumer)
+							end
+						else
 							Reactor.enqueue(consumer)
 						end
-					else
-						Reactor.enqueue(consumer)
 					end
 				end
 			end
+			edge = following
 		end
-		edge = following
+		state = CHECK
 	end
 end
 
@@ -247,9 +256,21 @@ local function notANode(api: string, candidate: unknown): never
 	)
 end
 
-local function observe(node: Node, value: unknown)
-	if type(value) ~= "table" or node.version == nil then
-		notANode("use", value)
+local function noEvaluation()
+	Diagnostics.raise("reactive/no-evaluation", "use() was called outside a reactive body", {
+		contract = "use reads a cell or formula and records a dependency, which only means "
+			.. "something while a formula, watch, or bound property is evaluating",
+		fix = "read it with :peek() outside a reactive body, or move the read inside one",
+	})
+end
+
+local function use<T>(value: Types.ReadOnlyValue<T>): T
+	if type(value) ~= "table" then
+		return notANode("use", value)
+	end
+	local node = (value :: unknown) :: Node
+	if node.version == nil then
+		return notANode("use", value)
 	end
 	local frame = evaluationCache.frame
 	local consumer = if frame ~= nil
@@ -258,46 +279,40 @@ local function observe(node: Node, value: unknown)
 		then frame.consumer
 		else Evaluation.context()
 	if consumer == nil then
-		Diagnostics.raise("reactive/no-evaluation", "use() was called outside a reactive body", {
-			contract = "use reads a cell or formula and records a dependency, which only means "
-				.. "something while a formula, watch, or bound property is evaluating",
-			fix = "read it with :peek() outside a reactive body, or move the read inside one",
-		})
-		return
-	end
-	if consumer.released then
-		refresh(node)
-		return
+		noEvaluation()
+		return (node.value :: unknown) :: T
 	end
 	local at = consumer.reads
-	if at == nil then
-		refresh(node)
-		return
+	if consumer.released or at == nil then
+		local update = node.refresh
+		if update then
+			update(node)
+		end
+		return (node.value :: unknown) :: T
 	end
-	local edge = consumer[at]
-	if edge == nil or edge[1] ~= node then
-		at += 1
-		consumer.reads = at
+	local following = at + 1
+	local edge = consumer[following]
+	if edge ~= nil and edge[1] == node then
+		consumer.reads = following
+	else
 		edge = consumer[at]
 		if edge == nil or edge[1] ~= node then
-			trim(consumer, at)
+			consumer.reads = following
+			trim(consumer, following)
 			local attached = attach(node, consumer)
-			consumer[at] = attached
+			consumer[following] = attached
 			edge = attached
 		end
 	end
 	local update = node.refresh
-	if update then
+	if update ~= nil and (node.state ~= CLEAN or node.released) then
 		update(node)
 	end
 	if edge ~= nil then
 		edge.version = node.version
 	end
+	return (node.value :: unknown) :: T
 end
-
-NodeCast.setObserver(observe)
-
-local use = NodeCast.use
 
 local function dependenciesMoved(consumer: Node): boolean
 	for index = 1, #consumer do
@@ -305,7 +320,10 @@ local function dependenciesMoved(consumer: Node): boolean
 		if edge ~= nil then
 			local producer = edge[1]
 			if producer ~= nil then
-				refresh(producer)
+				local update = producer.refresh
+				if update ~= nil and (producer.state ~= CLEAN or producer.released) then
+					update(producer)
+				end
 				if producer.version ~= edge.version then
 					return true
 				end
@@ -316,7 +334,17 @@ local function dependenciesMoved(consumer: Node): boolean
 end
 
 local function evaluate<A, T>(consumer: Node, body: (A) -> T, argument: A): T
-	local previousConsumer, previousOrder = Evaluation.enter(consumer)
+	local running = coroutine.running()
+	local cached = if running == evaluationCache.thread then evaluationCache.frame else nil
+	local current: Evaluation.Evaluation = if cached ~= nil then cached else Evaluation.frame()
+	local previousConsumer, previousOrder = current.consumer, current.order
+	if previousOrder == 0 then
+		evaluationCache.active += 1
+	end
+	local order = evaluationCache.order + 1
+	evaluationCache.order = order
+	current.consumer = consumer
+	current.order = order
 	consumer.reads = 0
 
 	local ok, result
@@ -326,7 +354,13 @@ local function evaluate<A, T>(consumer: Node, body: (A) -> T, argument: A): T
 		ok, result = pcall(body, argument)
 	end
 
-	Evaluation.leave(previousConsumer, previousOrder)
+	current.consumer = previousConsumer
+	current.order = previousOrder
+	if previousOrder == 0 then
+		evaluationCache.active -= 1
+	end
+	evaluationCache.thread = running
+	evaluationCache.frame = current
 	if not ok then
 		if consumer.run == nil then
 			consumer.state = DIRTY
@@ -335,7 +369,10 @@ local function evaluate<A, T>(consumer: Node, body: (A) -> T, argument: A): T
 		error(result, 0)
 	end
 
-	trim(consumer, (consumer.reads or 0) + 1)
+	local reads = consumer.reads or 0
+	if #consumer > reads then
+		trim(consumer, reads + 1)
+	end
 	return result
 end
 
@@ -417,7 +454,7 @@ local function countNotification(producer: Node)
 	if statsOn.enabled then
 		local count = subscriberCount(producer)
 		stats.bump("notifications", count)
-		profile.wake(producer, kindOf(producer), count)
+		statsOn.recorder.wake(producer, kindOf(producer), count)
 	end
 end
 
@@ -437,7 +474,7 @@ local function sweep(producer: Node, reactor: Types.Reactor?, version: number?, 
 				edge.version = version
 				if statsOn.enabled then
 					stats.bump "watchRuns"
-					profile.enterRun(edge)
+					statsOn.recorder.enterRun(edge)
 				end
 				listener(producer.value)
 			end
@@ -455,7 +492,7 @@ local function runListeners(leader: Node, producer: Node)
 			leader.version = version
 			if statsOn.enabled then
 				stats.bump "watchRuns"
-				profile.enterRun(leader)
+				statsOn.recorder.enterRun(leader)
 			end
 			listener(producer.value)
 		end
@@ -529,9 +566,9 @@ local function listenEdge(reactor: Types.Reactor, producer: Node, listener: (val
 		{ producer, nil, nil, nil, version = producer.version, reactor = reactor, queued = false, listener = listener }
 	NodeCast.classify(edge, if producer.refresh ~= nil then LISTENER else CELL_LISTENER)
 	if statsOn.enabled then
-		profile.born(edge)
+		statsOn.recorder.born(edge)
 		stats.bump "watchRuns"
-		profile.enterRun(edge)
+		statsOn.recorder.enterRun(edge)
 	end
 	listener(producer.value)
 	append(producer, edge)
@@ -552,9 +589,9 @@ local function listen(reactor: Types.Reactor, producer: Node, listener: (value: 
 		{ producer, nil, nil, nil, version = producer.version, reactor = reactor, queued = false, listener = listener }
 	NodeCast.classify(edge, if producer.refresh ~= nil then LISTENER else CELL_LISTENER)
 	if statsOn.enabled then
-		profile.born(edge)
+		statsOn.recorder.born(edge)
 		stats.bump "watchRuns"
-		profile.enterRun(edge)
+		statsOn.recorder.enterRun(edge)
 	end
 	listener(producer.value)
 	append(producer, edge)

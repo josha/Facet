@@ -1,5 +1,6 @@
 --!strict
 
+local StructureTypes = require "./types"
 local Owners = require "../ownership/owner"
 local Active = require "../ownership/active"
 local Block = require "../runtime/block"
@@ -10,19 +11,13 @@ local Support = require "./support"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 
-export type Phase = {
-	exiting: Types.ReadOnlyValue<boolean>,
-}
+export type Phase = StructureTypes.PresencePhase
 
-export type Builder = (phase: Phase) -> Host.Node | { Host.Node }
+export type Builder = StructureTypes.PresenceBuilder
 
-export type Exiting = {
-	completed: Types.ReadOnlyValue<boolean>,
-}
+export type Exiting = StructureTypes.Exiting
 
-export type Options = {
-	exit: (nodes: { Host.Node }) -> Exiting,
-}
+export type Options = StructureTypes.PresenceOptions
 
 local KNOWN_FIELDS: { [string]: true } = { exit = true }
 

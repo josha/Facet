@@ -1,21 +1,15 @@
 --!strict
 
+local RuntimeTypes = require "./runtime/types"
 local Active = require "./ownership/active"
 local Diagnostics = require "./diagnostics"
 local Owner = require "./ownership/owner"
 local Host = require "./host"
 local ownedFrame = require "./ownership/frame"
 
-export type Cancel = () -> boolean
+export type Cancel = RuntimeTypes.Cancel
 
-export type Scheduler = {
-	after: (seconds: number, body: () -> ()) -> Cancel,
-	replace: (key: unknown, seconds: number, body: () -> ()) -> Cancel,
-	cancel: (key: unknown) -> boolean,
-	clear: () -> (),
-	pending: () -> number,
-	dispose: () -> (),
-}
+export type Scheduler = RuntimeTypes.Scheduler
 
 type Entry = {
 	due: number,

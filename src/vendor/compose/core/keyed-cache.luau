@@ -1,25 +1,13 @@
 --!strict
 
+local ResourceTypes = require "./resource-types"
 local Owners = require "./ownership/owner"
 local Diagnostics = require "./diagnostics"
 local cacheOptions = require "./ownership/cache-options"
 
-export type Cache<K, T> = {
-	get: (key: K) -> T,
-	peek: (key: K) -> T?,
-	evict: (key: K) -> (),
-	size: () -> number,
+export type Cache<K, T> = ResourceTypes.KeyedCache<K, T>
 
-	keys: () -> { K },
-}
-
-export type Options<K, T> = {
-	build: (key: K) -> T,
-	destroy: (value: T) -> (),
-	maxRetained: number,
-
-	touch: ((key: K, value: T) -> ())?,
-}
+export type Options<K, T> = ResourceTypes.KeyedCacheOptions<K, T>
 
 local function createKeyedCache<K, T>(options: Options<K, T>): Cache<K, T>
 	local owner, maximum = cacheOptions.validate(options, "keyed-cache")

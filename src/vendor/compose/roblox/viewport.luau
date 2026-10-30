@@ -1,14 +1,12 @@
 --!strict
 
 local Compose = require "../core"
+local RobloxTypes = require "./types"
 local Engine = require "./engine"
 
-export type Viewport = { width: number, height: number }
+export type Viewport = RobloxTypes.Viewport
 
-export type Options = {
-	minimumSide: number?,
-	fallback: Viewport?,
-}
+export type Options = RobloxTypes.ViewportOptions
 
 local DEFAULT_MINIMUM_SIDE = 100
 local DEFAULT_FALLBACK: Viewport = { width = 1280, height = 720 }

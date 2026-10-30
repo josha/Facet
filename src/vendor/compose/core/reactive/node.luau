@@ -2,12 +2,15 @@
 --!native
 
 local Types = require "./types"
+local Weak = require "../weak"
 
 type Node = Types.Node
 type Value<T> = Types.Value<T>
 type Equals<T> = Types.Equals<T>
 
 local classes: { [unknown]: true } = {}
+local detachers: { [Node]: () -> () } = {}
+Weak.keys(detachers)
 local metatableOf = (getmetatable :: unknown) :: (unknown) -> unknown
 
 local function adopt(class: {})
@@ -46,18 +49,6 @@ local function nodeOf<T>(value: Types.ReadOnlyValue<T>): Node
 	return (value :: unknown) :: Node
 end
 
-local observe: (node: Node, value: unknown) -> () = function(_node: Node, _value: unknown) end
-
-local function setObserver(observer: (node: Node, value: unknown) -> ())
-	observe = observer
-end
-
-local function use<T>(value: Types.ReadOnlyValue<T>): T
-	local node = (value :: unknown) :: Node
-	observe(node, value)
-	return (node.value :: unknown) :: T
-end
-
 local function read<T>(value: Types.ReadOnlyValue<T>): T
 	return (((value :: unknown) :: Node).value :: unknown) :: T
 end
@@ -82,12 +73,11 @@ local function identityKey<V, K>(value: V, _index: number): K
 end
 
 return {
+	detachers = detachers,
 	releaser = releaser,
 	heldEdge = heldEdge,
 	isNode = isNode,
 	adopt = adopt,
-	use = use,
-	setObserver = setObserver,
 	classify = classify,
 	make = make,
 	asNode = asNode,

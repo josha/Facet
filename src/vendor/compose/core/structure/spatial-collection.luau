@@ -4,61 +4,29 @@
 local createChosenIndices: (number, number?) -> { number } = table.create
 local createStates: (number, Representation?) -> { Representation } = table.create
 
+local StructureTypes = require "./types"
 local Children = require "../runtime/children"
 local Admission = require "../collection/admission"
 local Diagnostics = require "../diagnostics"
 local FramePump = require "../collection/frame-pump"
 local Grid = require "../collection/grid"
-local Host = require "../host"
 local Relevance = require "../collection/relevance"
 local Support = require "./support"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
-local keyed = require "./keyed"
 local retain = require "../collection/retain"
 
-export type Tier = Relevance.Tier
+export type Tier = StructureTypes.SpatialCollectionTier
 
-export type Point = {
-	x: number,
-	y: number,
-	z: number?,
-}
+export type Point = StructureTypes.SpatialCollectionPoint
 
-export type Representation = {
-	tier: number,
-	name: string,
-	distance: number,
-	pinned: boolean,
-}
+export type Representation = StructureTypes.Representation
 
-export type Budget = {
-	mountsPerFrame: number?,
-}
+export type Budget = StructureTypes.SpatialCollectionBudget
 
-export type Status = {
-	total: number,
-	retained: number,
-	queried: number,
-	pending: number,
-	perTier: { number },
-	cells: number,
-}
+export type Status = StructureTypes.SpatialCollectionStatus
 
-export type Options<V, K> = {
-	from: keyed.Source<V>,
-	key: ((value: V, index: number) -> K)?,
-	position: (value: V) -> (number, number, number?),
-	origin: Types.ReadOnlyValue<Point> | Types.Body<Point>,
-	tiers: { Tier },
-	render: (value: Types.ReadOnlyValue<V>, representation: Types.ReadOnlyValue<Representation>, key: K) -> Host.Node,
-	cellSize: number?,
-	hysteresis: number?,
-	importance: ((value: V) -> number)?,
-	pinned: (Types.ReadOnlyValue<{ [K]: boolean }> | Types.Body<{ [K]: boolean }>)?,
-	budget: Budget?,
-	status: Types.Value<Status>?,
-}
+export type Options<V, K> = StructureTypes.SpatialCollectionOptions<V, K>
 
 local KNOWN_FIELDS: { [string]: true } = {
 	from = true,

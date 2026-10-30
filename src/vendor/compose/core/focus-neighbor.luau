@@ -1,9 +1,10 @@
 --!strict
 
+local FocusTypes = require "./focus-types"
 local FocusScope = require "./focus-scope"
 local Diagnostics = require "./diagnostics"
 
-export type FocusRect = { x: number, y: number, width: number, height: number }
+export type FocusRect = FocusTypes.FocusRect
 
 local function focusNeighbor(from: FocusRect, candidates: { FocusRect }, direction: FocusScope.Direction): number?
 	if direction ~= "left" and direction ~= "right" and direction ~= "up" and direction ~= "down" then

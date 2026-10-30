@@ -1,11 +1,9 @@
 --!strict
 
+local StructureTypes = require "../structure/types"
 local Diagnostics = require "../diagnostics"
 
-export type Tier = {
-	name: string,
-	radius: number,
-}
+export type Tier = StructureTypes.SpatialCollectionTier
 
 local function checkTiers(tiers: { Tier }, primitive: string)
 	if #tiers == 0 then
