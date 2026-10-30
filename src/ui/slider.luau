@@ -573,6 +573,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = D2.fromScale(0.5, 0.5),
 					Size = D2.fromScale(1, 1),
+					Host.UIListLayout({
+						HorizontalAlignment = E.HorizontalAlignment.Center,
+						VerticalAlignment = E.VerticalAlignment.Center,
+					}),
 					content :: ComposeTypes.Child,
 				}
 			)

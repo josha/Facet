@@ -32,8 +32,8 @@ Stepper-and-Slider.axis option values and behavior.
   `sliderThumb` art and grows from 24 by 24 to fit its content. You cannot
   use it with `thumbImage`.
 - `trackContent()`: builds a track node once, for example a colour ramp. It
-  replaces the rail and the fill, and fills the track. You cannot use it with
-  `trackImage`.
+  replaces the rail and the fill. Its container fills the touch target and
+  centres the supplied node, preserving its size. You cannot use it with `trackImage`.
 - `rotation`: degrees, or a readable of them. It turns the painted track only.
   The control turns a press back by the same angle, so it reads the value that the
   upright track reads. The label and the readout stay upright.
