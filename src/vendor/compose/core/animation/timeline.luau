@@ -1,35 +1,18 @@
 --!strict
 
+local RuntimeTypes = require "../runtime/types"
 local Reactors = require "../reactive/reactor"
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
 local Owner = require "../ownership/owner"
 local ownedFrame = require "../ownership/frame"
-local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 
-export type Direction = "normal" | "alternate"
+export type Direction = RuntimeTypes.TimelineDirection
 
-export type Options = {
-	duration: number?,
-	delay: number?,
-	repeats: number?,
-	direction: Direction?,
-	scale: number?,
-	autoplay: boolean?,
-}
+export type Options = RuntimeTypes.TimelineOptions
 
-export type Timeline = {
-	progress: Types.ReadOnlyValue<number>,
-	elapsed: Types.ReadOnlyValue<number>,
-	moving: Types.ReadOnlyValue<boolean>,
-	completed: Types.ReadOnlyValue<boolean>,
-	play: (self: Timeline) -> (),
-	pause: (self: Timeline) -> (),
-	seek: (self: Timeline, seconds: number) -> (),
-	restart: (self: Timeline) -> (),
-	setScale: (self: Timeline, scale: number) -> (),
-}
+export type Timeline = RuntimeTypes.Timeline
 
 local function positive(name: string, value: number)
 	local infinite = value == math.huge

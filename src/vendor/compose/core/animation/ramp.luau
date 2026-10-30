@@ -1,21 +1,16 @@
 --!strict
 
+local RuntimeTypes = require "../runtime/types"
 local Reactors = require "../reactive/reactor"
 local Diagnostics = require "../diagnostics"
-local Easing = require "./easing"
 local Motion = require "./motion"
 local Owner = require "../ownership/owner"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 
-export type Options = {
-	ease: Easing.Easing?,
-}
+export type Options = RuntimeTypes.RampOptions
 
-export type Ramp<T> = {
-	value: Types.ReadOnlyValue<T>,
-	retarget: (target: T, seconds: number) -> (),
-}
+export type Ramp<T> = RuntimeTypes.Ramp<T>
 
 local DEFAULT_SECONDS = 0.25
 

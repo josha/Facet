@@ -3,78 +3,30 @@
 
 local freeze: ({}) -> {} = table.freeze
 
+local StructureTypes = require "./types"
 local Children = require "../runtime/children"
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
 local Layout = require "../collection/layout"
 local Support = require "./support"
 local Types = require "../reactive/types"
-local keyed = require "./keyed"
 local retain = require "../collection/retain"
 local cellModule = require "../reactive/cell"
 
-export type Viewport = {
-	offset: number,
-	size: number,
-	offsetRevision: number?,
-}
+export type Viewport = StructureTypes.OrderedCollectionViewport
 
-export type Mode = "all" | "windowed"
-export type Direction = "vertical" | "horizontal"
-export type LayoutKind = "list" | "grid"
-export type Align = "start" | "center" | "end"
+export type Mode = StructureTypes.OrderedCollectionMode
+export type Direction = StructureTypes.OrderedCollectionDirection
+export type LayoutKind = StructureTypes.OrderedCollectionLayoutKind
+export type Align = StructureTypes.OrderedCollectionAlign
 
-export type LayoutOptions = {
-	kind: LayoutKind?,
-	columns: number?,
-	itemSize: number?,
-	gap: number?,
-	crossSize: number?,
-	crossGap: number?,
-}
+export type LayoutOptions = StructureTypes.OrderedCollectionLayout
 
-export type Status = {
-	mode: Mode,
-	direction: Direction,
-	total: number,
-	retained: number,
-	first: number,
-	last: number,
-	firstRow: number,
-	lastRow: number,
-	rowCount: number,
-	extent: number,
-	following: boolean,
-	desiredOffset: number?,
-	measured: number,
-}
+export type Status = StructureTypes.OrderedCollectionStatus
 
-export type Controls<K> = {
-	offsetOf: ((index: number, align: Align?, size: number?) -> number)?,
-	indexOfKey: ((key: K) -> number?)?,
-	placementOf: ((index: number) -> Layout.Placement)?,
-}
+export type Controls<K> = StructureTypes.OrderedCollectionControls<K>
 
-export type Options<V, K> = {
-	from: keyed.Source<V>,
-	key: ((value: V, index: number) -> K)?,
-	render: ((value: Types.ReadOnlyValue<V>, placement: Types.ReadOnlyValue<Layout.Placement>, key: K) -> Host.Node)?,
-	recycle: ((
-		value: Types.ReadOnlyValue<V>,
-		placement: Types.ReadOnlyValue<Layout.Placement>,
-		key: Types.ReadOnlyValue<K>
-	) -> Host.Node)?,
-	mode: Mode?,
-	viewport: (Types.ReadOnlyValue<Viewport> | Types.Body<Viewport>)?,
-	direction: Direction?,
-	layout: (LayoutOptions | Types.ReadOnlyValue<LayoutOptions> | Types.Body<LayoutOptions>)?,
-	overscan: number?,
-	measured: (Types.ReadOnlyValue<{ [K]: number }> | Types.Body<{ [K]: number }>)?,
-	follow: ("end" | "none")?,
-	followThreshold: number?,
-	status: Types.Value<Status>?,
-	controls: Controls<K>?,
-}
+export type Options<V, K> = StructureTypes.OrderedCollectionOptions<V, K>
 
 local KNOWN_FIELDS: { [string]: true } = {
 	from = true,

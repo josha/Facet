@@ -52,6 +52,18 @@ export type Report = {
 local DEFAULT_MAX_OWNERS = 4096
 local DEFAULT_MAX_NODES = 16384
 
+export type Data = {
+	schemaVersion: number,
+	active: boolean,
+	outstandingMounts: number,
+	trackedNodes: number,
+	pending: number,
+	droppedOwners: number,
+	droppedNodes: number,
+	mounts: { OwnerReport },
+	detached: { OwnerReport },
+}
+
 export type Record = {
 	id: number,
 	label: string?,

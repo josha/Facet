@@ -3,84 +3,18 @@
 local createNodes: (number, NodeData?) -> { NodeData } = table.create
 local createDrains: (number, DrainData?) -> { DrainData } = table.create
 
+local Types = require "./types"
 local Weak = require "../weak"
 local stats = require "./stats"
 
-export type Options = {
-	maxNodes: number?,
-	maxDrains: number?,
-}
-
-export type NodeRow = {
-	id: number,
-	kind: string,
-	label: string?,
-	writes: number,
-	writesSuppressed: number,
-	recomputations: number,
-	recomputationsSuppressed: number,
-	runs: number,
-	schedules: number,
-	schedulesCoalesced: number,
-	hostWrites: number,
-	peakFanOut: number,
-
-	wakes: { [number]: number },
-}
-
-export type DrainRow = {
-	runs: number,
-	seconds: number,
-	cause: string?,
-}
-
-export type Report = {
-	active: boolean,
-	seconds: number,
-	nodes: { NodeRow },
-	drains: { DrainRow },
-
-	droppedRecords: number,
-	totals: { [string]: number },
-}
-
-export type WakeData = {
-	to: number,
-	count: number,
-}
-
-export type NodeData = {
-	id: number,
-	kind: string,
-	label: string?,
-	name: string,
-	writes: number,
-	writesSuppressed: number,
-	recomputations: number,
-	recomputationsPublished: number,
-	runs: number,
-	schedules: number,
-	schedulesCoalesced: number,
-	hostWrites: number,
-	peakFanOut: number,
-	wakes: { WakeData },
-}
-
-export type DrainData = {
-	runs: number,
-	seconds: number,
-	cause: string?,
-}
-
-export type Data = {
-	schemaVersion: number,
-	active: boolean,
-	seconds: number,
-	droppedRecords: number,
-	totals: { [string]: number },
-	nodes: { NodeData },
-	drains: { DrainData },
-}
+export type Options = Types.ProfileOptions
+export type NodeRow = Types.ProfileNodeRow
+export type DrainRow = Types.ProfileDrainRow
+export type Report = Types.ProfileReport
+export type WakeData = Types.ProfileWakeData
+export type NodeData = Types.ProfileNodeData
+export type DrainData = Types.ProfileDrainData
+export type Data = Types.ProfileData
 
 type Shape = {
 	derived: boolean?,
@@ -575,6 +509,21 @@ local function data(report: Report): Data
 		drains = drains,
 	}
 end
+
+stats.state.recorder = {
+	write = write,
+	wake = wake,
+	edge = edge,
+	recompute = recompute,
+	suppressedRecompute = suppressedRecompute,
+	schedule = schedule,
+	enterRun = enterRun,
+	hostWrite = hostWrite,
+	drain = drain,
+	naming = naming,
+	born = born,
+	nowOrNil = nowOrNil,
+}
 
 return {
 	start = start,

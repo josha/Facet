@@ -1,11 +1,10 @@
 --!strict
 
-export type Class = "Touch" | "KeyboardAndMouse" | "Gamepad"
+local RobloxTypes = require "./types"
 
-export type Spec = {
-	class: Class,
-	token: string,
-}
+export type Class = RobloxTypes.PreferredInputClass
+
+export type Spec = RobloxTypes.PreferredInputSpec
 
 local touch: Spec = { class = "Touch", token = "touch" }
 local keyboardAndMouse: Spec = { class = "KeyboardAndMouse", token = "keyboard-and-mouse" }

@@ -1,16 +1,14 @@
 --!strict
 --!native
 
+local RuntimeTypes = require "../runtime/types"
+
 local UPDATE_RATE = 120
 local FIXED_STEP = 1 / UPDATE_RATE
 
 local MAX_DELTA = 0.25
 
-export type State = {
-	position: { number },
-	velocity: { number },
-	arity: number,
-}
+export type State = RuntimeTypes.SpringState
 
 local function createState(position: { number }, arity: number): State
 	local start = table.create(arity, 0)

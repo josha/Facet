@@ -5,7 +5,6 @@ local Evaluation = require "./evaluation"
 local Graph = require "./graph"
 local NodeCast = require "./node"
 local Types = require "./types"
-local profile = require "./profile"
 local stats = require "./stats"
 local statsOn = stats.state
 
@@ -24,7 +23,7 @@ end
 local function rerun(node: Node)
 	if statsOn.enabled then
 		stats.bump "watchRuns"
-		profile.enterRun(node)
+		statsOn.recorder.enterRun(node)
 	end
 	node.state = Graph.CLEAN
 	if node.inherited ~= nil then
@@ -86,7 +85,7 @@ local function sweep(leader: Node, producer: Node, from: Node?)
 		then
 			if statsOn.enabled then
 				stats.bump "watchRuns"
-				profile.enterRun(consumer)
+				statsOn.recorder.enterRun(consumer)
 			end
 			consumer.state = Graph.CLEAN
 			Graph.runEffectIn(frame, consumer)
@@ -146,7 +145,7 @@ function TERMINAL.runIn(frame: Evaluation.Evaluation, node: Node)
 	end
 	if statsOn.enabled then
 		stats.bump "watchRuns"
-		profile.enterRun(node)
+		statsOn.recorder.enterRun(node)
 	end
 	node.state = Graph.CLEAN
 	Graph.runEffectIn(frame, node)
@@ -179,7 +178,7 @@ local function begin(reactor: Reactor, body: Body, class: {}, label: string?, sc
 	}
 	NodeCast.classify(node, class)
 	if statsOn.enabled then
-		profile.born(node, label)
+		statsOn.recorder.born(node, label)
 	end
 	local consumer, at = Evaluation.snapshot()
 	local ok, err: unknown = pcall(rerun, node)

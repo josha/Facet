@@ -1,6 +1,7 @@
 --!strict
 --!native
 
+local StructureTypes = require "./types"
 local Owners = require "../ownership/owner"
 local Block = require "../runtime/block"
 local Children = require "../runtime/children"
@@ -11,24 +12,24 @@ local Types = require "../reactive/types"
 local longestIncreasingSubsequence = require "./lis"
 local cellModule = require "../reactive/cell"
 
-export type Render<V, K> = (value: Types.ReadOnlyValue<V>, index: Types.ReadOnlyValue<number>, key: K) -> Host.Node
+export type Render<V, K> = StructureTypes.KeyedRender<V, K>
 
-type Entry<V> = {
+type Entry<V, K> = {
 	owner: Owners.Owner,
 	nodes: { Host.Node },
 	value: Types.Value<V>,
 	index: Types.Value<number>,
+	key: K,
+	item: V,
+	position: number,
+	mark: number,
 }
 
 local identity = require("../reactive/node").identityKey
 
-export type Source<V> = Types.ReadOnlyValue<{ V }> | Types.Body<{ V }>
+export type Source<V> = StructureTypes.KeyedSource<V>
 
-export type Options<V, K> = {
-	from: Source<V>,
-	key: ((value: V, index: number) -> K)?,
-	render: Render<V, K>,
-}
+export type Options<V, K> = StructureTypes.KeyedOptions<V, K>
 
 local UNREAD_INDEX = cellModule.cell(0)
 local TRIM_TAIL = 8
@@ -55,18 +56,17 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 		local owner = Support.ownerFor "keyed"
 		Support.mountPointOf(mountPoint, "keyed")
 		local ordersChildren = mountPoint.ordersChildren
-		local entries: { [K]: Entry<V> } = {}
-		local order: { K } = {}
-		local positionOf: { [K]: number } = {}
-		local itemOf: { [K]: V } = {}
+		local entries: { [K]: Entry<V, K> } = {}
+		local order: { Entry<V, K> } = {}
+		local missing = ({} :: unknown) :: Entry<V, K>
+		local matched: { Entry<V, K> } = {}
 
 		local uniform = true
 		local keys: { K } = {}
-		local seen: { [K]: number } = {}
 		local retainedPositions: { number } = {}
 		local retainedTargets: { number } = {}
 		local currentList: { V } = {}
-		local base, count = 0, 0
+		local base, count, epoch = 0, 0, 0
 
 		Owners.own(owner, function()
 			for _, entry in entries do
@@ -74,10 +74,8 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			end
 			table.clear(entries)
 			table.clear(order)
-			table.clear(positionOf)
-			table.clear(itemOf)
+			table.clear(matched)
 			table.clear(keys)
-			table.clear(seen)
 			table.clear(retainedPositions)
 			table.clear(retainedTargets)
 			currentList = {}
@@ -93,7 +91,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 				order[index] = nil
 			end
 			for index = 1, count do
-				positionOf[order[index]] = index
+				order[index].position = index
 			end
 			base = 0
 		end
@@ -104,18 +102,34 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			end
 			local position = 1
 			for index = 1, liveIndex - 1 do
-				position += #entries[order[base + index]].nodes
+				position += #order[base + index].nodes
 			end
 			return position
 		end
 
 		local function reindex(from: number, to: number)
 			for index = from, to do
-				positionOf[order[index]] = index
+				order[index].position = index
 			end
 		end
 
-		local function mountRow(index: number, itemKey: K, at: number): number
+		local function setIndex(entry: Entry<V, K>, index: number)
+			local cell = entry.index
+			if ((cell :: unknown) :: Types.Node).value ~= index then
+				cell:set(index)
+			end
+		end
+
+		local function earlierIndexOf(itemKey: K, from: number, before: number): number
+			for index = from, before - 1 do
+				if rawequal(keys[index], itemKey) then
+					return index
+				end
+			end
+			return before
+		end
+
+		local function mountRow(index: number, itemKey: K, at: number): Entry<V, K>
 			local item = currentList[index]
 			local value = cellModule.cell(item)
 			local position = if readsIndex then cellModule.cell(index) else UNREAD_INDEX
@@ -123,13 +137,21 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 				return { render(value, position, itemKey) }
 			end, "keyed row", at, true)
 			local nodes = block.nodes
-			local size = #nodes
-			if size ~= 1 then
+			if #nodes ~= 1 then
 				uniform = false
 			end
-			entries[itemKey] = { owner = block.owner, nodes = nodes, value = value, index = position }
-			itemOf[itemKey] = item
-			return size
+			local entry: Entry<V, K> = {
+				owner = block.owner,
+				nodes = nodes,
+				value = value,
+				index = position,
+				key = itemKey,
+				item = item,
+				position = 0,
+				mark = 0,
+			}
+			entries[itemKey] = entry
+			return entry
 		end
 
 		local function duplicate(index: number, earlier: number): never
@@ -153,27 +175,35 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			end
 		end
 
+		local function release(entry: Entry<V, K>)
+			Block.releaseNodes(mountPoint, entry.nodes)
+			Owners.dispose(entry.owner)
+			entries[entry.key] = nil
+			entry.position = 0
+		end
+
 		local function trimHead(list: { V }, wanted: number): boolean
 			if count == 0 or wanted == 0 then
 				return false
 			end
-			local first = positionOf[keys[1]]
-			if first == nil then
+			local head = entries[keys[1]]
+			if head == nil then
 				return false
 			end
+			local first = head.position
 			local drop = first - base - 1
 			local kept = count - drop
 			if drop <= 0 or kept > wanted or wanted - kept > TRIM_TAIL then
 				return false
 			end
 			for index = 2, kept do
-				if order[first + index - 1] ~= keys[index] then
+				if order[first + index - 1].key ~= keys[index] then
 					return false
 				end
 			end
 			for index = kept + 1, wanted do
 				local itemKey = keys[index]
-				if positionOf[itemKey] ~= nil then
+				if entries[itemKey] ~= nil then
 					return false
 				end
 				for earlier = kept + 1, index - 1 do
@@ -183,42 +213,36 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 				end
 			end
 			for at = base + 1, base + drop do
-				local leaving = order[at]
-				local entry = entries[leaving]
-				Block.releaseNodes(mountPoint, entry.nodes)
-				Owners.dispose(entry.owner)
-				entries[leaving] = nil
-				positionOf[leaving] = nil
-				itemOf[leaving] = nil
+				release(order[at])
 				order[at] = nil
 			end
 			base += drop
 			count = kept
 			for index = 1, kept do
-				local itemKey = keys[index]
+				local entry = order[base + index]
 				local item = list[index]
-				local entry = entries[itemKey]
-				if itemOf[itemKey] ~= item then
-					itemOf[itemKey] = item
+				if entry.item ~= item then
+					entry.item = item
 					entry.value:set(item)
 				end
 				if readsIndex then
-					entry.index:set(index)
+					setIndex(entry, index)
 				end
 			end
 			local failures: { string }? = nil
 			for index = kept + 1, wanted do
 				local itemKey = keys[index]
-				local ok, err =
+				local ok, made =
 					pcall(mountRow, index, itemKey, if ordersChildren then startOf(count + 1) else count + 1)
 				if ok then
 					count += 1
-					order[base + count] = itemKey
-					positionOf[itemKey] = base + count
+					local at = base + count
+					order[at] = made
+					made.position = at
 				else
 					local collected: { string } = failures or {}
 					failures = collected
-					table.insert(collected, tostring(err))
+					table.insert(collected, tostring(made))
 				end
 			end
 			if base > count then
@@ -228,13 +252,20 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			return true
 		end
 
-		Owners.watch(owner, function(use)
+		local depth, passes = 0, 0
+		local function reconcile(use: Types.Use)
+			passes += 1
+			local pass = passes
 			local list = source(use)
 			currentList = list
 			local wanted = #list
 
-			for index = 1, wanted do
-				keys[index] = key(list[index], index)
+			if keyOf == nil then
+				table.move((list :: unknown) :: { K }, 1, wanted, 1, keys)
+			else
+				for index = 1, wanted do
+					keys[index] = key(list[index], index)
+				end
 			end
 			for index = #keys, wanted + 1, -1 do
 				keys[index] = nil
@@ -247,55 +278,71 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			local prefix = 0
 			local previousCount = #order
 			local shared = math.min(previousCount, wanted)
-			while prefix < shared and positionOf[keys[prefix + 1]] == prefix + 1 do
+			while prefix < shared and rawequal(order[prefix + 1].key, keys[prefix + 1]) do
 				prefix += 1
 			end
 			local oldEnd, newEnd = previousCount, wanted
-			while oldEnd > prefix and newEnd > prefix and positionOf[keys[newEnd]] == oldEnd do
+			while oldEnd > prefix and newEnd > prefix and rawequal(order[oldEnd].key, keys[newEnd]) do
 				oldEnd -= 1
 				newEnd -= 1
 			end
 			local shift = newEnd - oldEnd
 
-			table.clear(seen)
+			epoch += 1
+			local mark = epoch
+			table.clear(matched)
 			local laterIndex, laterEarlier = math.huge, 0
+			local found = 0
+			local fresh: { [K]: number }? = nil
 			for index = prefix + 1, newEnd do
 				local itemKey = keys[index]
-				local earlier = seen[itemKey]
-				if earlier ~= nil then
-					duplicate(index, earlier)
-				end
-				local at = positionOf[itemKey]
-				if at ~= nil then
+				local entry = entries[itemKey]
+				if entry ~= nil then
+					if entry.mark == mark then
+						duplicate(index, earlierIndexOf(itemKey, prefix + 1, index))
+					end
+					local at = entry.position
 					if at <= prefix then
 						duplicate(index, at)
 					elseif at > oldEnd and at + shift < laterIndex then
 						laterIndex, laterEarlier = at + shift, index
 					end
+					entry.mark = mark
+					matched[index] = entry
+					found += 1
+				else
+					local added = fresh or {}
+					fresh = added
+					local earlier = added[itemKey]
+					if earlier ~= nil then
+						duplicate(index, earlier)
+					end
+					added[itemKey] = index
+					matched[index] = missing
 				end
-				seen[itemKey] = index
 			end
 			if laterEarlier ~= 0 then
 				duplicate(laterIndex, laterEarlier)
 			end
 
 			for index = 1, prefix do
-				local itemKey = keys[index]
+				local entry = order[index]
 				local item = list[index]
-				if itemOf[itemKey] ~= item then
-					itemOf[itemKey] = item
-					entries[itemKey].value:set(item)
+				if entry.item ~= item then
+					entry.item = item
+					entry.value:set(item)
 				end
 			end
 			for index = newEnd + 1, wanted do
-				local itemKey = keys[index]
+				local entry = order[index - shift]
+				matched[index] = entry
 				local item = list[index]
-				if itemOf[itemKey] ~= item then
-					itemOf[itemKey] = item
-					entries[itemKey].value:set(item)
+				if entry.item ~= item then
+					entry.item = item
+					entry.value:set(item)
 				end
 				if readsIndex and shift ~= 0 then
-					entries[itemKey].index:set(index)
+					setIndex(entry, index)
 				end
 			end
 			if prefix == wanted and previousCount == wanted then
@@ -303,27 +350,51 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			end
 
 			local removedAny = false
-			for index = oldEnd, prefix + 1, -1 do
-				local existing = order[index]
-				if seen[existing] == nil then
-					local leaving = entries[existing]
-					Block.releaseNodes(mountPoint, leaving.nodes)
-					Owners.dispose(leaving.owner)
-					entries[existing] = nil
-					positionOf[existing] = nil
-					itemOf[existing] = nil
-					removedAny = true
+			if found < oldEnd - prefix then
+				for index = oldEnd, prefix + 1, -1 do
+					local existing = order[index]
+					if existing.mark ~= mark then
+						release(existing)
+						removedAny = true
+					end
 				end
+			end
+			if fresh == nil and not ordersChildren then
+				for index = prefix + 1, newEnd do
+					local entry = matched[index]
+					local item = list[index]
+					if entry.item ~= item then
+						entry.item = item
+						entry.value:set(item)
+					end
+					if readsIndex then
+						setIndex(entry, index)
+					end
+					order[index] = entry
+					entry.position = index
+				end
+				if shift ~= 0 then
+					for index = newEnd + 1, wanted do
+						local entry = matched[index]
+						order[index] = entry
+						entry.position = index
+					end
+				end
+				for index = #order, wanted + 1, -1 do
+					order[index] = nil
+				end
+				count = wanted
+				return
 			end
 			if removedAny then
 				local live = prefix
 				local was = #order
 				for index = prefix + 1, was do
 					local existing = order[index]
-					if entries[existing] ~= nil then
+					if existing.position ~= 0 then
 						live += 1
 						order[live] = existing
-						positionOf[existing] = live
+						existing.position = live
 					end
 				end
 				for index = was, live + 1, -1 do
@@ -335,18 +406,17 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			local previousPosition = 0
 			local ordered = true
 			for index = prefix + 1, newEnd do
-				local itemKey = keys[index]
-				local entry = entries[itemKey]
-				if entry ~= nil then
+				local entry = matched[index]
+				if entry ~= missing then
 					local item = list[index]
-					if itemOf[itemKey] ~= item then
-						itemOf[itemKey] = item
+					if entry.item ~= item then
+						entry.item = item
 						entry.value:set(item)
 					end
 					if readsIndex then
-						entry.index:set(index)
+						setIndex(entry, index)
 					end
-					local at = positionOf[itemKey]
+					local at = entry.position
 					retained += 1
 					if at < previousPosition then
 						ordered = false
@@ -373,19 +443,23 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			if not ordersChildren then
 				local live = prefix
 				for index = prefix + 1, wanted do
-					local itemKey = keys[index]
-					if entries[itemKey] == nil then
-						local ok, err = pcall(mountRow, index, itemKey, live + 1)
+					local entry = matched[index]
+					if entry == missing then
+						local ok, made = pcall(mountRow, index, keys[index], live + 1)
+						if passes ~= pass then
+							return
+						end
 						if not ok then
 							local collected: { string } = failures or {}
 							failures = collected
-							table.insert(collected, tostring(err))
+							table.insert(collected, tostring(made))
 							continue
 						end
+						entry = made
 					end
 					live += 1
-					order[live] = itemKey
-					positionOf[itemKey] = live
+					order[live] = entry
+					entry.position = live
 				end
 				for index = #order, live + 1, -1 do
 					order[index] = nil
@@ -393,57 +467,64 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			elseif stays == nil then
 				local live = prefix
 				for index = prefix + 1, newEnd do
-					local itemKey = keys[index]
+					local entry = matched[index]
 					live += 1
 
-					if entries[itemKey] == nil then
-						local ok, err = pcall(mountRow, index, itemKey, startOf(live))
+					if entry == missing then
+						local ok, made = pcall(mountRow, index, keys[index], startOf(live))
+						if passes ~= pass then
+							return
+						end
 						if not ok then
 							local collected: { string } = failures or {}
 							failures = collected
-							table.insert(collected, tostring(err))
+							table.insert(collected, tostring(made))
 							live -= 1
 							continue
 						end
-						table.insert(order, live, itemKey)
+						table.insert(order, live, made)
 						reindex(live, #order)
-					elseif retained < middle and order[live] ~= itemKey then
-						local from = positionOf[itemKey]
+					elseif retained < middle and order[live] ~= entry then
+						local from = entry.position
 						table.remove(order, from)
-						table.insert(order, live, itemKey)
+						table.insert(order, live, entry)
 						reindex(math.min(from, live), math.max(from, live))
 					else
-						order[live] = itemKey
-						positionOf[itemKey] = live
+						order[live] = entry
+						entry.position = live
 					end
 				end
 				for index = #order, live + wanted - newEnd + 1, -1 do
 					order[index] = nil
 				end
 			else
-				local anchor: K? = keys[newEnd + 1]
+				local following = matched[newEnd + 1]
+				local anchor: Entry<V, K>? = if newEnd < wanted then following else nil
 				local staying = 1
 				for index = newEnd, prefix + 1, -1 do
-					local itemKey = keys[index]
-					local entry = entries[itemKey]
+					local entry = matched[index]
 
-					local anchorLive = if anchor ~= nil then positionOf[anchor] else #order + 1
+					local anchorLive = if anchor ~= nil then anchor.position else #order + 1
 
-					if entry == nil then
-						local ok, err = pcall(mountRow, index, itemKey, startOf(anchorLive))
+					if entry == missing then
+						local ok, made = pcall(mountRow, index, keys[index], startOf(anchorLive))
+						if passes ~= pass then
+							return
+						end
 						if not ok then
 							local collected: { string } = failures or {}
 							failures = collected
-							table.insert(collected, tostring(err))
+							table.insert(collected, tostring(made))
 							continue
 						end
-						table.insert(order, anchorLive, itemKey)
+						table.insert(order, anchorLive, made)
 						reindex(anchorLive, #order)
+						entry = made
 					elseif index ~= retainedTargets[stays[staying]] then
-						local from = positionOf[itemKey]
+						local from = entry.position
 						table.remove(order, from)
 						local destination = if from < anchorLive then anchorLive - 1 else anchorLive
-						table.insert(order, destination, itemKey)
+						table.insert(order, destination, entry)
 						reindex(math.min(from, destination), math.max(from, destination))
 						local at = startOf(destination)
 						for offset, node in entry.nodes do
@@ -452,11 +533,36 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 					else
 						staying += 1
 					end
-					anchor = itemKey
+					anchor = entry
 				end
 			end
 			count = #order
 			raiseFailures(failures)
+		end
+		Owners.watch(owner, function(use)
+			depth += 1
+			if depth == 1 then
+				local ok, failure = pcall(function(): unknown
+					reconcile(use)
+					return nil
+				end)
+				depth -= 1
+				if not ok then
+					error(failure, 0)
+				end
+				return
+			end
+			local outerKeys, outerMatched = keys, matched
+			keys, matched = {}, {}
+			local ok, failure = pcall(function(): unknown
+				reconcile(use)
+				return nil
+			end)
+			keys, matched = outerKeys, outerMatched
+			depth -= 1
+			if not ok then
+				error(failure, 0)
+			end
 		end)
 	end
 end

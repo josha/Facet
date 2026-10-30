@@ -22,6 +22,89 @@ export type Input<T> = T | Source<T>
 
 export type Equals<T> = (current: T, incoming: T) -> boolean
 
+export type AccumulatorOptions<T, E> = {
+	from: ReadOnlyValue<E>,
+	reduce: (previous: T, event: E) -> T,
+	initial: T,
+	equals: Equals<T>?,
+}
+
+export type ProfileOptions = {
+	maxNodes: number?,
+	maxDrains: number?,
+}
+
+export type ProfileNodeRow = {
+	id: number,
+	kind: string,
+	label: string?,
+	writes: number,
+	writesSuppressed: number,
+	recomputations: number,
+	recomputationsSuppressed: number,
+	runs: number,
+	schedules: number,
+	schedulesCoalesced: number,
+	hostWrites: number,
+	peakFanOut: number,
+
+	wakes: { [number]: number },
+}
+
+export type ProfileDrainRow = {
+	runs: number,
+	seconds: number,
+	cause: string?,
+}
+
+export type ProfileReport = {
+	active: boolean,
+	seconds: number,
+	nodes: { ProfileNodeRow },
+	drains: { ProfileDrainRow },
+
+	droppedRecords: number,
+	totals: { [string]: number },
+}
+
+export type ProfileWakeData = {
+	to: number,
+	count: number,
+}
+
+export type ProfileNodeData = {
+	id: number,
+	kind: string,
+	label: string?,
+	name: string,
+	writes: number,
+	writesSuppressed: number,
+	recomputations: number,
+	recomputationsPublished: number,
+	runs: number,
+	schedules: number,
+	schedulesCoalesced: number,
+	hostWrites: number,
+	peakFanOut: number,
+	wakes: { ProfileWakeData },
+}
+
+export type ProfileDrainData = {
+	runs: number,
+	seconds: number,
+	cause: string?,
+}
+
+export type ProfileData = {
+	schemaVersion: number,
+	active: boolean,
+	seconds: number,
+	droppedRecords: number,
+	totals: { [string]: number },
+	nodes: { ProfileNodeData },
+	drains: { ProfileDrainData },
+}
+
 export type Reactor = {
 	queue: { Node },
 	count: number,
@@ -49,7 +132,6 @@ export type Node = {
 	released: boolean?,
 	retry: boolean?,
 	reactor: Reactor?,
-	release: (() -> ())?,
 	set: ((Node, unknown) -> ())?,
 	resume: ((Node, unknown) -> ())?,
 	coalesced: Node?,

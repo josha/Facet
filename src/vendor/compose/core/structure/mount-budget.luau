@@ -1,30 +1,19 @@
 --!strict
 
+local StructureTypes = require "./types"
 local Owners = require "../ownership/owner"
 local Children = require "../runtime/children"
 local Admission = require "../collection/admission"
 local Diagnostics = require "../diagnostics"
 local FramePump = require "../collection/frame-pump"
-local Host = require "../host"
 local Support = require "./support"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 local keyed = require "./keyed"
 
-export type Status = {
-	total: number,
-	mounted: number,
-	pending: number,
-}
+export type Status = StructureTypes.MountBudgetStatus
 
-export type Options<V, K> = {
-	from: keyed.Source<V>,
-	key: ((value: V, index: number) -> K)?,
-	render: (value: Types.ReadOnlyValue<V>, index: Types.ReadOnlyValue<number>, key: K) -> Host.Node,
-	mountsPerFrame: number,
-	priority: ((value: V, index: number) -> number)?,
-	status: Types.Value<Status>?,
-}
+export type Options<V, K> = StructureTypes.MountBudgetOptions<V, K>
 
 local KNOWN_FIELDS: { [string]: true } = {
 	from = true,

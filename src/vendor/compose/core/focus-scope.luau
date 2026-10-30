@@ -1,5 +1,6 @@
 --!strict
 
+local FocusTypes = require "./focus-types"
 local Active = require "./ownership/active"
 local Diagnostics = require "./diagnostics"
 local Owner = require "./ownership/owner"
@@ -8,29 +9,11 @@ local cellModule = require "./reactive/cell"
 local formula = require "./reactive/formula"
 local Support = require "./structure/support"
 
-export type Options<V, K> = {
-	from: Types.ReadOnlyValue<{ V }> | Types.Body<{ V }>,
-	key: ((value: V, index: number) -> K)?,
-	disabled: ((value: V, index: number) -> boolean)?,
-	position: ((value: V, index: number) -> (number, number))?,
-	wrap: boolean?,
-	initial: K?,
-	autoFocus: boolean?,
-}
+export type Options<V, K> = FocusTypes.Options<V, K>
 
-export type FocusScope<K> = {
-	current: Types.ReadOnlyValue<K?>,
-	focus: (key: K) -> boolean,
-	clear: () -> (),
-	next: () -> K?,
-	previous: () -> K?,
-	move: (direction: Direction) -> K?,
-	first: () -> K?,
-	last: () -> K?,
-	isFocused: (key: K) -> Types.ReadOnlyValue<boolean>,
-}
+export type FocusScope<K> = FocusTypes.FocusScope<K>
 
-export type Direction = "left" | "right" | "up" | "down"
+export type Direction = FocusTypes.Direction
 
 local KNOWN_FIELDS: { [string]: true } = {
 	from = true,

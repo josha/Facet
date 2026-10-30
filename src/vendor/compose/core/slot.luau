@@ -1,15 +1,11 @@
 --!strict
 
+local ResourceTypes = require "./resource-types"
 local Active = require "./ownership/active"
 local Diagnostics = require "./diagnostics"
 local Owner = require "./ownership/owner"
 
-export type Slot = {
-	bind: (key: unknown, attach: (owner: Owner.Owner, release: () -> ()) -> ()) -> boolean,
-	release: (key: unknown) -> boolean,
-	current: () -> unknown,
-	dispose: () -> (),
-}
+export type Slot = ResourceTypes.Slot
 
 local function createSlot(explicit: Owner.Owner?): Slot
 	if explicit ~= nil and (not Owner.isOwner(explicit)) then

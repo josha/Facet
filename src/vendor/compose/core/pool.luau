@@ -1,26 +1,15 @@
 --!strict
 
+local ResourceTypes = require "./resource-types"
 local Owners = require "./ownership/owner"
 local Diagnostics = require "./diagnostics"
 local cacheOptions = require "./ownership/cache-options"
 
-export type Lease<T> = {
-	value: T,
-	release: () -> (),
-}
+export type Lease<T> = ResourceTypes.Lease<T>
 
-export type Pool<T> = {
-	acquire: () -> Lease<T>,
-	idle: () -> number,
-	active: () -> number,
-}
+export type Pool<T> = ResourceTypes.Pool<T>
 
-export type Options<T> = {
-	create: () -> T,
-	destroy: (value: T) -> (),
-	reset: ((value: T) -> ())?,
-	maxRetained: number,
-}
+export type Options<T> = ResourceTypes.PoolOptions<T>
 
 local function createPool<T>(options: Options<T>): Pool<T>
 	local owner, maximum = cacheOptions.validate(options, "pool")
