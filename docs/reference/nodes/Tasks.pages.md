@@ -1,6 +1,7 @@
 # Tasks.pages
 
-Inside app mount:
+Use this inside app mount when a task replaces play. For a panel over play,
+keep the HUD beside a centered [Sheet](Tasks.sheet.md), with navigation inside.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -25,12 +26,12 @@ local function pages(app: Facet.App, title: string,
 end
 ```
 
-Start with [HUD](Tasks.hud.md) or [hub](Tasks.hub.md), with an empty path.
-Opener and gamepad use one callback. NavigationStack owns motion and focus. Close returns to gameplay; NavBar Back follows the body's
-`back`. Screen reaches the glass; NavBar and body stay safe.
+The [HUD](Tasks.hud.md) opener and gamepad use one callback. Close returns to
+gameplay; NavBar Back follows the body's `back`. Screen reaches the glass.
 
-The default stack also moves its covered HUD. For a stationary HUD, use the
-`parallax = 0` theme in [Tasks.theme](Tasks.theme.md). Check both directions.
+The default stack moves and then hides its covered HUD. `parallax = 0` only
+removes that movement; it does not keep the HUD visible. Use a sibling Sheet
+when the task should preserve that context.
 
 Use `suspendGameplay = true`. While the path is nonempty or
 a modal is open, Facet turns off GuiService.TouchControlsEnabled and
@@ -41,5 +42,4 @@ The clock still runs. Keep saved values and drafts outside pages.
 
 Give each body its task layout: [collection/detail](Tasks.collection-detail.md),
 a [form](ScrollView.card.md), or subject and action. Keep commitment with its
-terms; scroll the complete decision when room is short. Give unrelated tasks
-separate scroll state. Use [Sheet](Tasks.sheet.md) for a short task.
+terms. Give unrelated tasks separate scroll state.

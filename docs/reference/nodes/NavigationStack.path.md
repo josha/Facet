@@ -17,6 +17,11 @@ For Back, clone the path, remove its last entry, then set the cell. Clearing
 the path intentionally returns to root. Retain existing entries when their page
 state and focus should survive; use fresh entries for deliberate replacements.
 
+To replace the current destination, clone the path and assign the last entry
+before one `path:set`. Do not pop and defer a push: that requests two changes
+and can expose the previous page between them. For a child, append one entry
+and keep the parent in history.
+
 A destination's `onBack(entry)` runs when the player asks to leave that page
 with B, Escape, the stack Back or an edge swipe. Return `false` to keep the
 page, for example to ask about unsaved changes in a Dialog. A path that the

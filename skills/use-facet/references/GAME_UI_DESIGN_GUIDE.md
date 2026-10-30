@@ -66,8 +66,9 @@ Keep a short choice near its source when it fits. Give a sustained task a page
 or in-world station with enough room and a clear return. Replace unrelated HUD
 groups; retain needed context, such as balance beside cost.
 
-Use a Sheet for temporary, modal focus over the game: a confirm, a quick pick or
-a short glance. When a destination such as a store or garage is a new mode that
+Use a Sheet for modal focus over the game, including a shop or garage opened
+from the HUD. Keep useful HUD context visible behind it. A Sheet can contain
+a NavigationStack for child steps; the task root has Close and no Back. When a destination such as a store or garage is a new mode that
 replaces play for a while, use a page with a Screen `surface`. Its plate reaches
 the glass.
 
