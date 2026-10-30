@@ -46,13 +46,22 @@ local function acquire(ctx: Types.Context, root: GuiObject): (() -> (), () -> ()
 		end
 		return false
 	end
+	local scopeAncestors: { [Instance]: boolean }? = nil
 	local function containsScope(node: Instance): boolean
-		for scope in excluded do
-			if scope:IsDescendantOf(node) then
-				return true
+		local ancestors = scopeAncestors
+		if ancestors == nil then
+			local found: { [Instance]: boolean } = {}
+			for scope in excluded do
+				local at = scope.Parent
+				while at do
+					found[at] = true
+					at = at.Parent
+				end
 			end
+			scopeAncestors = found
+			ancestors = found
 		end
-		return false
+		return assert(ancestors)[node] == true
 	end
 	local function restore(node: GuiObject)
 		if not held[node] then
@@ -151,6 +160,7 @@ local function acquire(ctx: Types.Context, root: GuiObject): (() -> (), () -> ()
 		local scopes = ctx.modalScopes:peek()
 		local top: Instance? = scopes[#scopes]
 		table.clear(excluded)
+		scopeAncestors = nil
 		if top then
 			excluded[top] = true
 			for _, portal in ctx.modalPortals:peek() do
