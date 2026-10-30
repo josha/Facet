@@ -220,7 +220,10 @@ return function(
 					poll.stop = assert(frames).onFrame(run)
 				end
 			end
-			prepare()
+			local box = root.AbsoluteSize
+			if box.X > 0 and box.Y > 0 then
+				arm()
+			end
 		end)
 	end)
 	return ready
