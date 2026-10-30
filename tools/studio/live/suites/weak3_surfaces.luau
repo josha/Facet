@@ -438,6 +438,58 @@ add("slider-custom-knob-footprint", {}, function(t)
 	end
 end)
 
+add("slider-custom-track-centred", {}, function(t)
+	local builds = 0
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		local function slider(name: string, vertical: boolean): Frame
+			return UI.Slider(name) {
+				Position = UDim2.fromOffset(if vertical then 400 else 40, 40),
+				Size = if vertical then UDim2.fromOffset(80, 220) else UDim2.fromOffset(320, 0),
+				axis = if vertical then "y" else "x",
+				value = Compose.cell(40),
+				min = 0,
+				max = 100,
+				trackContent = function(): Instance
+					builds += 1
+					return Host.Frame "Ramp" {
+						Size = if vertical then UDim2.new(0, 6, 1, 0) else UDim2.new(1, 0, 0, 6),
+						BorderSizePixel = 0,
+						BackgroundColor3 = Color3.new(1, 1, 1),
+						Host.UIGradient({ Color = ColorSequence.new(Color3.new(1, 0, 0), Color3.new(0, 1, 0)) }),
+					}
+				end,
+			}
+		end
+		return Host.Frame "Sliders" {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			slider("Horizontal", false),
+			slider("Vertical", true),
+		}
+	end, { size = Vector2.new(600, 320), frames = 20 })
+	for _, name in { "Horizontal", "Vertical" } do
+		local slider = t.find(stage, name)
+		local track, ramp, thumb = t.find(slider, "Track"), t.find(slider, "Ramp"), t.find(slider, "ThumbStop")
+		for _, extent in { 320, 240 } do
+			slider.Size = if name == "Vertical" then UDim2.fromOffset(80, extent) else UDim2.fromOffset(extent, 0)
+			t.settle(10)
+			local railCenter = ramp.AbsolutePosition + ramp.AbsoluteSize / 2
+			local trackCenter = track.AbsolutePosition + track.AbsoluteSize / 2
+			local thumbCenter = thumb.AbsolutePosition + thumb.AbsoluteSize / 2
+			t.near(name .. " custom track stays centred horizontally", railCenter.X, trackCenter.X, 0.5)
+			t.near(name .. " custom track stays centred vertically", railCenter.Y, trackCenter.Y, 0.5)
+			if name == "Vertical" then
+				t.near("vertical thumb runs on the custom track", thumbCenter.X, railCenter.X, 0.5)
+				t.near("vertical custom track keeps its width", ramp.AbsoluteSize.X, 6, 0.5)
+			else
+				t.near("horizontal thumb runs on the custom track", thumbCenter.Y, railCenter.Y, 0.5)
+				t.near("horizontal custom track keeps its height", ramp.AbsoluteSize.Y, 6, 0.5)
+			end
+		end
+	end
+	t.check("each custom track is built once", builds == 2, builds)
+end)
+
 add("slider-rung-thin-rail-whole-target", {}, function(t)
 	t.note("host", host(t))
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
