@@ -2437,7 +2437,7 @@ add("color-picker-hex-selection-settles", {}, function(t)
 			style = "inline",
 			Size = UDim2.fromOffset(380, 0),
 			value = Compose.cell(Color3.fromRGB(218, 195, 145)),
-			modes = { "swatches", "spectrum" },
+			modes = { "swatches", "spectrum" } :: { "swatches" | "spectrum" | "sliders" | "brick" },
 		}
 	end, { size = Vector2.new(600, 600), frames = 30, motionLevel = "normal" })
 	local format = t.find(stage, "Format")
