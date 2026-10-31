@@ -717,7 +717,7 @@ return function<V, K>(
 				ctx,
 				if measureRow then measuredNode else content,
 				measureRow,
-				spec.measure == true or measureRow ~= nil
+				tree == nil and (spec.measure == true or measureRow ~= nil)
 			)
 		end)
 		preparing[node] = {

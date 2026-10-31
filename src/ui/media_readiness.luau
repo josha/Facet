@@ -5,6 +5,7 @@ local motion = require("./motion")
 
 return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: Types.Input<number>?)
 	local Compose = ctx.Compose
+	local reduced = motion.reduced(ctx)
 	local owner = assert(Compose.currentOwner())
 	local scope: ComposeTypes.Owner? = nil
 	local held: Instance? = nil
@@ -56,7 +57,11 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 				local asset = assert(Compose.currentOwner())
 				local fetched = Compose.cell(false)
 				local provider = ctx.config.services and ctx.config.services.ContentProvider
-				if provider and node:IsA("ImageLabel") and node.Image ~= "" and task then
+				if provider and node:IsA("ImageLabel") and node.Image ~= "" then
+					local ok, status = pcall(provider.GetAssetFetchStatus, provider, node.Image)
+					fetched:set(ok and status == ctx.types.Enum.AssetFetchStatus.Success)
+				end
+				if provider and node:IsA("ImageLabel") and node.Image ~= "" and not fetched:peek() and task then
 					local thread = task.defer(function()
 						pcall(function()
 							provider:PreloadAsync({ node }, function(_content: string, status: Enum.AssetFetchStatus)
@@ -76,26 +81,37 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 					end)
 				end
 				node:SetAttribute("FacetMediaReady", false)
-				local ready = ctx.runtime.settled {
-					sample = function(): string
-						return tostring(size:peek())
-					end,
-					ready = function(): boolean
-						local box = size:peek()
-						return box.X > 0
-							and box.Y > 0
-							and node:GetAttribute("FacetBuilt") ~= false
-							and (
-								loaded == nil
-								or (image ~= nil and image:peek() == "")
-								or loaded:peek() == true
-								or fetched:peek()
-							)
-					end,
-					restart = function(use: ComposeTypes.Use): string
-						return if image then tostring(use(image)) else tostring(use(size))
-					end,
-				}
+				local function available(): boolean
+					local box = size:peek()
+					return box.X > 0
+						and box.Y > 0
+						and node:GetAttribute("FacetBuilt") ~= false
+						and (
+							loaded == nil
+							or (image ~= nil and image:peek() == "")
+							or loaded:peek() == true
+							or fetched:peek()
+						)
+				end
+				local ready = if node:IsA("ImageLabel")
+						and row:IsA("CanvasGroup")
+						and row.GroupTransparency == 1
+					then Compose.formula(function(use: ComposeTypes.Use): boolean
+						use(size)
+						use(assert(loaded))
+						use(assert(image))
+						use(fetched)
+						return available()
+					end)
+					else ctx.runtime.settled {
+						sample = function(): string
+							return tostring(size:peek())
+						end,
+						ready = available,
+						restart = function(use: ComposeTypes.Use): string
+							return if image then tostring(use(image)) else tostring(use(size))
+						end,
+					}
 				Compose.watch(function(read: ComposeTypes.Use)
 					node:SetAttribute("FacetMediaReady", read(ready))
 				end)
@@ -106,7 +122,9 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 						return ctx.motionTiming("reveal", use).enter
 					end,
 					ease = ctx.motionEase("fade"),
-					reducedMotion = motion.reduced(ctx),
+					reducedMotion = function(use: ComposeTypes.Use): boolean
+						return reduced(use) or (row:IsA("CanvasGroup") and row.GroupTransparency == 1)
+					end,
 				})
 				local color = ctx.observeStyled.BackgroundColor3(surface or (row :: GuiObject))
 				ctx.runtime.decorate(node, {

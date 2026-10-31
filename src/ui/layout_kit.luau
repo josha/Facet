@@ -556,6 +556,18 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				return read(flow.align, use) == "stretch"
 			end)
 		end
+		if flow.wrap ~= nil then
+			local content = ctx.observe.AbsoluteContentSize(list)
+			local unit = ctx.layoutUnit(frame, "WrapUnit")
+			local liftX, liftY = kit.lifter(frame, "x"), kit.lifter(frame, "y")
+			Compose.watch(function(use: ComposeTypes.Use)
+				local size, scale = use(content), use(unit)
+				local inset = if room then use(room) else { top = 0, right = 0, bottom = 0, left = 0 }
+				local wraps, vertical = read(flow.wrap, use) == true, read(vertical, use)
+				liftX(if wraps and vertical then size.X / scale + inset.left + inset.right else 0)
+				liftY(if wraps and not vertical then size.Y / scale + inset.top + inset.bottom else 0)
+			end)
+		end
 		return kit.plain(frame, properties)
 	end
 	local PLATES = { "facet-panel", "facet-surface", "facet-pane" }

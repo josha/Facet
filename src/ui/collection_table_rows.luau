@@ -299,8 +299,20 @@ return function<V, K>(
 					if not render then
 						metrics.recordHeight(cellHeights, definition.id, content :: TextLabel, CELL_PADDING)
 						local fits = ctx.observe.TextFits(assert(undisclosed))
+						local bounds = ctx.observe.TextBounds(assert(undisclosed))
+						local size = ctx.observe.AbsoluteSize(assert(undisclosed))
 						Compose.watch(function(use: ComposeTypes.Use)
 							local id = use(column).id
+							if
+								tree
+								and (
+									use(size).X <= 0
+									or use(bounds).Y <= 0
+									or use(size).Y < use(bounds).Y + CELL_PADDING * use(unitScale)
+								)
+							then
+								return
+							end
 							local hidden = use(fits) == false
 							if (truncated:peek()[id] == true) ~= hidden then
 								local cells = table.clone(truncated:peek())
