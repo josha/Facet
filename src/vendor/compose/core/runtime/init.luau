@@ -20,6 +20,10 @@ local shareFrames = require "./frames"
 export type Node = Host.Node
 type Dispose = Types.Dispose
 
+local applying = Props.applying
+local inspecting = Inspect.flag
+local tracked = Nodes.tracked
+
 export type Child = Node | Children.Directive
 
 export type Directive = Children.Directive
@@ -124,6 +128,11 @@ local function createRuntime(host: Host.Host): Runtime
 
 	local function destroyOwnedNode(node: Node)
 		Props.forget(node)
+		if tracked.dependents == 0 then
+			render.destroyNode(node)
+			Nodes.forget(node)
+			return
+		end
 		local ok, err: unknown = pcall(Nodes.releaseDependents, node)
 		render.destroyNode(node)
 		Nodes.forget(node)
@@ -149,30 +158,25 @@ local function createRuntime(host: Host.Host): Runtime
 
 		local operation = ("create(%q)"):format(kind)
 
-		local inFlight: string? = nil
-		local function onKey(key: string)
-			inFlight = key
-		end
-
 		local function applyBuild(label: string?, props: Props.Props, node: Node, owner: Owner.Owner)
 			if label ~= nil then
 				Nodes.label(node, label)
-				local naming = host.naming
+				local naming = supplied.naming
 				if naming ~= nil then
-					inFlight = "<name>"
+					applying.key = "<name>"
 					naming.setName(node, label)
-					inFlight = nil
+					applying.key = nil
 				end
 			end
-			Props.apply(host, node, props, owner, onKey, true)
+			Props.apply(supplied, node, props, owner, true)
 
 			local childCount = #props
 			if childCount == 0 then
 				return
 			end
 
-			inFlight = nil
-			local list = Children.createList(host, node)
+			applying.key = nil
+			local list = Children.createList(host, node, supplied)
 			local staticSlot = 0
 			for index = 1, childCount do
 				local child = props[index]
@@ -231,20 +235,21 @@ local function createRuntime(host: Host.Host): Runtime
 				)
 			end
 
-			local owner = requireOwner(operation)
-			local mark = Owner.checkpoint(owner)
+			local resolved, top = Active.resolve()
+			local owner = if resolved ~= nil then resolved else requireOwner(operation)
+			local mark = owner.head
 			local heldMark = Owner.heldCount(owner)
 			local node = render.createNode(kind)
 			Nodes.markOwned(node)
 			Owner.holdSubject(owner, destroyOwnedNode, node)
-			if Inspect.isActive() then
+			if inspecting.active then
 				Inspect.node(owner, node, "owned")
 				Nodes.chargeToOwner(owner, node, "owned")
 			end
 
-			local savedInFlight = inFlight
-			inFlight = nil
-			local running = if Active.isCurrent(owner) then nil else Active.push(owner)
+			local savedKey = applying.key
+			applying.key = nil
+			local running = if top then nil else Active.push(owner)
 			local ok, err: unknown = pcall(applyBuild, label, props, node, owner)
 			if running ~= nil then
 				Active.pop(owner, running)
@@ -252,14 +257,14 @@ local function createRuntime(host: Host.Host): Runtime
 			if not ok then
 				Owner.rollbackTo(owner, mark)
 				Owner.rollbackHeld(owner, heldMark)
-				local key = inFlight
-				inFlight = savedInFlight
+				local key = applying.key
+				applying.key = savedKey
 				if key ~= nil then
 					error(("%s\n  while applying: %s.%s"):format(tostring(err), kind, tostring(key)), 0)
 				end
 				error(err, 0)
 			end
-			inFlight = savedInFlight
+			applying.key = savedKey
 
 			return node
 		end
@@ -493,12 +498,11 @@ local function createRuntime(host: Host.Host): Runtime
 		local parentOwner = requireOwner "decorate"
 		local owner = Owner.createChild(parentOwner)
 
-		local inFlight: string? = nil
+		local savedKey = applying.key
+		applying.key = nil
 		local ok, err: unknown = pcall(function()
 			Active.withOwner(owner, function()
-				Props.apply(host, node, props, owner, function(key: string)
-					inFlight = key
-				end)
+				Props.apply(supplied, node, props, owner)
 
 				if #props > 0 then
 					error(
@@ -513,6 +517,8 @@ local function createRuntime(host: Host.Host): Runtime
 			end)
 		end)
 
+		local inFlight = applying.key
+		applying.key = savedKey
 		if not ok then
 			Owner.dispose(owner)
 			if inFlight ~= nil then
@@ -714,9 +720,7 @@ local function createRuntime(host: Host.Host): Runtime
 		host = supplied,
 		reactor = reactor,
 		watch = watch,
-		batch = function<T...>(_self: Runtime, body: () -> T...): T...
-			return Reactor.batch(reactor, body)
-		end,
+		batch = Reactor.batchMethod(reactor),
 		settle = function(_self: Runtime)
 			Reactor.settle(reactor)
 		end,

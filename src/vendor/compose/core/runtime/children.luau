@@ -8,6 +8,7 @@ type Node = Host.Node
 
 export type ChildList = {
 	host: Host.Host,
+	direct: Host.Host,
 	parent: Node,
 	counts: { number },
 
@@ -27,8 +28,8 @@ export type MountPoint = {
 
 export type Directive = (MountPoint) -> ()
 
-local function createList(host: Host.Host, parent: Node): ChildList
-	return { host = host, parent = parent, counts = {}, total = 0 }
+local function createList(host: Host.Host, parent: Node, direct: Host.Host?): ChildList
+	return { host = host, direct = direct or host, parent = parent, counts = {}, total = 0 }
 end
 
 local function addSlot(list: ChildList): number
@@ -130,7 +131,7 @@ local function mountPointFor(list: ChildList, slot: number): MountPoint
 end
 
 local function insertStatic(list: ChildList, slot: number, node: Node)
-	list.host.render.insertChild(list.parent, node, list.total + 1)
+	list.direct.render.insertChild(list.parent, node, list.total + 1)
 	list.counts[slot] += 1
 	list.total += 1
 end

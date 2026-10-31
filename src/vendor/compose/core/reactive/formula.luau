@@ -57,7 +57,7 @@ function FORMULA.refresh(self: Node)
 			if edge ~= nil then
 				local producer = edge[1]
 				if producer ~= nil then
-					local update = producer.refresh
+					local update = rawget((producer :: unknown) :: { [string]: unknown }, "refresh") :: ((Node) -> ())?
 					if update ~= nil and (producer.state ~= CLEAN or producer.released) then
 						update(producer)
 					end
@@ -119,7 +119,7 @@ function FORMULA.refresh(self: Node)
 		statsOn.recorder.recompute(self)
 	end
 
-	local equals = self.equals
+	local equals = rawget((self :: unknown) :: { [string]: unknown }, "equals") :: ((unknown, unknown) -> boolean)?
 	local unchanged = if equals == nil and not validationState.validating
 		then self.value == incoming
 		else userSpace.call(equals or cellModule.defaultEquals, self.value, incoming)
@@ -186,6 +186,7 @@ local function formula<T>(body: Body<T>, equals: Equals<T>?): Value<T>
 		released = false,
 		retry = false,
 		body = body,
+		refresh = FORMULA.refresh,
 	}
 	if equals ~= nil then
 		node.equals = NodeCast.eraseEquals(equals)

@@ -62,37 +62,56 @@ local function releaseNodes(mountPoint: Children.MountPoint, nodes: { Node })
 	end
 end
 
-local function mountBlock(
+local inserted = 0
+
+local function insertAll(mountPoint: Children.MountPoint, built: { Node }, at: number?)
+	local base = if at ~= nil then at else mountPoint.count() + 1
+	for index, node in built do
+		mountPoint.insert(node, base + index - 1)
+		inserted = index
+	end
+end
+
+local function validNodes(produced: unknown): boolean
+	if type(produced) ~= "table" then
+		return false
+	end
+	for _, node in produced :: { unknown } do
+		local kind = type(node)
+		if kind ~= "table" and kind ~= "userdata" then
+			return false
+		end
+	end
+	return true
+end
+
+local function place(
 	mountPoint: Children.MountPoint,
-	parentOwner: Owner.Owner,
-	produce: () -> { Node },
+	owner: Owner.Owner,
+	ok: boolean,
+	produced: unknown,
 	label: string,
 	at: number?,
 	detached: boolean?
-): Block
-	local owner = Owner.createChild(parentOwner)
-
-	local ok, produced = pcall(Active.runWith1, owner, produce)
+): { Node }
 	if not ok then
 		Owner.dispose(owner)
 		error(produced, 0)
 	end
-	local okNodes, built = pcall(requireNodes, produced, label)
-	if not okNodes then
+	if not validNodes(produced) then
+		local _, failure = pcall(requireNodes, produced :: { Node }, label)
 		Owner.dispose(owner)
-		error(built, 0)
+		error(failure, 0)
 	end
+	local built = produced :: { Node }
 
-	local inserted = 0
-	local insertOk, insertErr: unknown = pcall(function()
-		local base = if at ~= nil then at else mountPoint.count() + 1
-		for index, node in built do
-			mountPoint.insert(node, base + index - 1)
-			inserted = index
-		end
-	end)
+	local outer = inserted
+	inserted = 0
+	local insertOk, insertErr: unknown = pcall(insertAll, mountPoint, built, at)
+	local count = inserted
+	inserted = outer
 	if not insertOk then
-		for index = inserted, 1, -1 do
+		for index = count, 1, -1 do
 			pcall(mountPoint.remove, built[index])
 		end
 		Owner.dispose(owner)
@@ -104,12 +123,48 @@ local function mountBlock(
 			releaseNodes(mountPoint, built)
 		end)
 	end
+	return built
+end
 
-	return { nodes = built, owner = owner }
+local function mountBlock(
+	mountPoint: Children.MountPoint,
+	parentOwner: Owner.Owner,
+	produce: () -> { Node },
+	label: string,
+	at: number?,
+	detached: boolean?
+): Block
+	local owner = Owner.createChild(parentOwner)
+	local running = Active.push(owner)
+	local ok, produced = pcall(produce)
+	Active.pop(owner, running)
+	return { nodes = place(mountPoint, owner, ok, produced, label, at, detached), owner = owner }
+end
+
+local function single<A, B, C>(render: (A, B, C) -> Node, first: A, second: B, third: C): { Node }
+	return { render(first, second, third) }
+end
+
+local function mountRow<A, B, C>(
+	mountPoint: Children.MountPoint,
+	parentOwner: Owner.Owner,
+	render: (A, B, C) -> Node,
+	first: A,
+	second: B,
+	third: C,
+	label: string,
+	at: number?
+): ({ Node }, Owner.Owner)
+	local owner = Owner.createChild(parentOwner)
+	local running = Active.push(owner)
+	local ok, produced = pcall(single, render, first, second, third)
+	Active.pop(owner, running)
+	return place(mountPoint, owner, ok, produced, label, at, true), owner
 end
 
 return {
 	mountBlock = mountBlock,
+	mountRow = mountRow,
 	releaseNodes = releaseNodes,
 	nameOf = nameOf,
 	requireNodes = requireNodes,

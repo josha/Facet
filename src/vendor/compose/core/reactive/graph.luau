@@ -25,6 +25,21 @@ local invalidated: { Node } = {}
 
 local observations: { [Node]: (boolean) -> () } = {}
 Weak.keys(observations)
+local observing = 0
+
+local function observe(producer: Node, callback: ((boolean) -> ())?)
+	local existing = observations[producer]
+	if callback ~= nil and existing == nil then
+		observing += 1
+	elseif callback == nil and existing ~= nil then
+		observing -= 1
+	end
+	if callback == nil then
+		observations[producer] = nil
+	else
+		observations[producer] = callback
+	end
+end
 
 local coalesced: { [Node]: boolean } = {}
 Weak.keys(coalesced)
@@ -33,9 +48,13 @@ local function resumeSet(producer: Node)
 	local set = producer.resume
 	if set ~= nil then
 		local edge = producer.first
-		local consumer = if edge ~= nil then edge[2] else nil
-		if consumer ~= nil then
-			consumer.coalesced = nil
+		if edge ~= nil then
+			local consumer = edge[2]
+			if consumer ~= nil then
+				consumer.coalesced = false
+			else
+				edge.coalesced = false
+			end
 		end
 		producer.resume = nil
 		producer.set = set
@@ -63,16 +82,20 @@ local function kindOf(producer: Node): string
 end
 
 local function append(producer: Node, edge: Node)
-	resumeSet(producer)
 	local first = producer.first
 	if first == nil then
 		producer.first = edge
 		edge[3] = edge
-		local observed = observations[producer]
-		if observed then
-			observed(true)
+		if observing > 0 then
+			local observed = observations[producer]
+			if observed then
+				observed(true)
+			end
 		end
 		return
+	end
+	if producer.resume ~= nil then
+		resumeSet(producer)
 	end
 	local last = first[3]
 	if last ~= nil then
@@ -114,7 +137,7 @@ local function detach(edge: Node)
 	end
 	edge[3] = nil
 	edge[4] = nil
-	if producer.first == nil then
+	if observing > 0 and producer.first == nil then
 		local observed = observations[producer]
 		if observed then
 			observed(false)
@@ -159,24 +182,27 @@ local function markStale(producer: Node, state: number)
 					Reactor.enqueue(edge)
 				end
 			else
+				local fields = (consumer :: unknown) :: { [string]: unknown }
 				local current = consumer.state or CLEAN
-				local retry = consumer.retry
+				local retry = rawget(fields, "retry")
 				if current < state or retry then
 					if retry then
 						consumer.retry = false
 					end
 					consumer.state = state
 					if current == CLEAN or retry then
-						local cutoff = consumer.cutoff
+						local cutoff = rawget(fields, "cutoff")
+						local derived = cutoff == nil and rawget(fields, "body") ~= nil
+						local invalidate = if cutoff == nil and not derived then rawget(fields, "invalidate") else nil
 						if cutoff ~= nil then
-							cutoff(consumer)
-						elseif consumer.body ~= nil or (consumer.invalidate == nil and consumer.run == nil) then
+							(cutoff :: (Node) -> ())(consumer)
+						elseif derived or (invalidate == nil and consumer.run == nil) then
 							if following == nil then
 								source = consumer
 							else
 								markStale(consumer, CHECK)
 							end
-						elseif consumer.invalidate ~= nil then
+						elseif invalidate ~= nil then
 							table.insert(invalidated, consumer)
 						elseif state == DIRTY and consumer.group then
 							local reactor = consumer.reactor
@@ -233,8 +259,12 @@ local function settleTouched()
 	end
 end
 
+local function refresherOf(node: Node): ((Node) -> ())?
+	return rawget((node :: unknown) :: { [string]: unknown }, "refresh") :: ((Node) -> ())?
+end
+
 local function refresh(producer: Node)
-	local update = producer.refresh
+	local update = refresherOf(producer)
 	if update then
 		update(producer)
 	end
@@ -284,7 +314,7 @@ local function use<T>(value: Types.ReadOnlyValue<T>): T
 	end
 	local at = consumer.reads
 	if consumer.released or at == nil then
-		local update = node.refresh
+		local update = refresherOf(node)
 		if update then
 			update(node)
 		end
@@ -304,7 +334,7 @@ local function use<T>(value: Types.ReadOnlyValue<T>): T
 			edge = attached
 		end
 	end
-	local update = node.refresh
+	local update = refresherOf(node)
 	if update ~= nil and (node.state ~= CLEAN or node.released) then
 		update(node)
 	end
@@ -320,7 +350,7 @@ local function dependenciesMoved(consumer: Node): boolean
 		if edge ~= nil then
 			local producer = edge[1]
 			if producer ~= nil then
-				local update = producer.refresh
+				local update = refresherOf(producer)
 				if update ~= nil and (producer.state ~= CLEAN or producer.released) then
 					update(producer)
 				end
@@ -377,11 +407,11 @@ local function evaluate<A, T>(consumer: Node, body: (A) -> T, argument: A): T
 end
 
 local function runEffect(consumer: Node)
-	local producer = consumer.coalesced
-	if producer ~= nil then
-		resumeSet(producer)
+	local producer = rawget((consumer :: unknown) :: { [string]: unknown }, "coalesced")
+	if type(producer) == "table" then
+		resumeSet((producer :: unknown) :: Node)
 	end
-	local previousConsumer, previousOrder = Evaluation.enter(consumer)
+	local frame, previousConsumer, previousOrder = Evaluation.enterFrame(consumer)
 	consumer.reads = 0
 	local effect = consumer.effect
 	if effect then
@@ -391,14 +421,17 @@ local function runEffect(consumer: Node)
 			effect(use)
 		end
 	end
-	Evaluation.leave(previousConsumer, previousOrder)
-	trim(consumer, (consumer.reads or 0) + 1)
+	Evaluation.leaveFrame(frame, previousConsumer, previousOrder)
+	local reads = consumer.reads or 0
+	if #consumer > reads then
+		trim(consumer, reads + 1)
+	end
 end
 
 local function runEffectIn(frame: Evaluation.Evaluation, consumer: Node)
-	local producer = consumer.coalesced
-	if producer ~= nil then
-		resumeSet(producer)
+	local producer = rawget((consumer :: unknown) :: { [string]: unknown }, "coalesced")
+	if type(producer) == "table" then
+		resumeSet((producer :: unknown) :: Node)
 	end
 	frame.consumer = consumer
 	consumer.reads = 0
@@ -410,7 +443,10 @@ local function runEffectIn(frame: Evaluation.Evaluation, consumer: Node)
 			effect(use)
 		end
 	end
-	trim(consumer, (consumer.reads or 0) + 1)
+	local reads = consumer.reads or 0
+	if #consumer > reads then
+		trim(consumer, reads + 1)
+	end
 end
 
 local function track(consumer: Node, invoke: (Node) -> ())
@@ -524,7 +560,10 @@ function LISTENER.run(leader: Node)
 	if producer == nil or producer.released then
 		return
 	end
-	local update = producer.refresh
+	if leader.coalesced then
+		resumeSet(producer)
+	end
+	local update = refresherOf(producer)
 	if update then
 		update(producer)
 	end
@@ -548,6 +587,9 @@ function CELL_LISTENER.run(leader: Node)
 	if producer == nil then
 		return
 	end
+	if leader.coalesced then
+		resumeSet(producer)
+	end
 	if producer.first == leader and leader[4] == nil and not statsOn.enabled then
 		local listener = leader.listener
 		local version = producer.version
@@ -561,10 +603,24 @@ function CELL_LISTENER.run(leader: Node)
 end
 
 local function listenEdge(reactor: Types.Reactor, producer: Node, listener: (value: unknown) -> ()): Node
-	refresh(producer)
-	local edge: Node =
-		{ producer, nil, nil, nil, version = producer.version, reactor = reactor, queued = false, listener = listener }
-	NodeCast.classify(edge, if producer.refresh ~= nil then LISTENER else CELL_LISTENER)
+	local update = refresherOf(producer)
+	if update then
+		update(producer)
+	end
+	local class = if update ~= nil and refresherOf(producer) ~= nil then LISTENER else CELL_LISTENER
+	local edge: Node = {
+		producer,
+		nil,
+		nil,
+		nil,
+		version = producer.version,
+		reactor = reactor,
+		queued = false,
+		listener = listener,
+		coalesced = false,
+		run = class.run,
+	}
+	setmetatable((edge :: unknown) :: {}, class)
 	if statsOn.enabled then
 		statsOn.recorder.born(edge)
 		stats.bump "watchRuns"
@@ -584,10 +640,24 @@ local function unlisten(subject: unknown)
 end
 
 local function listen(reactor: Types.Reactor, producer: Node, listener: (value: unknown) -> ()): Dispose
-	refresh(producer)
-	local edge: Node =
-		{ producer, nil, nil, nil, version = producer.version, reactor = reactor, queued = false, listener = listener }
-	NodeCast.classify(edge, if producer.refresh ~= nil then LISTENER else CELL_LISTENER)
+	local update = refresherOf(producer)
+	if update then
+		update(producer)
+	end
+	local class = if update ~= nil and refresherOf(producer) ~= nil then LISTENER else CELL_LISTENER
+	local edge: Node = {
+		producer,
+		nil,
+		nil,
+		nil,
+		version = producer.version,
+		reactor = reactor,
+		queued = false,
+		listener = listener,
+		coalesced = false,
+		run = class.run,
+	}
+	setmetatable((edge :: unknown) :: {}, class)
 	if statsOn.enabled then
 		statsOn.recorder.born(edge)
 		stats.bump "watchRuns"
@@ -609,6 +679,7 @@ return {
 	CHECK = CHECK,
 	DIRTY = DIRTY,
 	observations = observations,
+	observe = observe,
 	attach = attach,
 	detach = detach,
 	trim = trim,

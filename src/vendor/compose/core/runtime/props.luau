@@ -20,6 +20,8 @@ type Node = Host.Node
 
 local UNWRITTEN = newproxy(false)
 
+local applying: { key: string? } = { key = nil }
+
 export type Props = { [unknown]: unknown }
 
 type Binding = { remaining: number, active: boolean, dispose: (() -> ())?, pendingKey: string?, previous: Binding? }
@@ -475,7 +477,7 @@ local function refuseNodeAttribute(host: Host.Host, node: Node, name: string, va
 	)
 end
 
-local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, source: unknown, onKey: (string) -> ())
+local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, source: unknown)
 	if type(source) ~= "table" then
 		error(
 			Diagnostics.format(
@@ -528,7 +530,7 @@ local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, 
 		deduplicate = true,
 	}
 	for _, name in names do
-		onKey(("%s.%s"):format(ATTRIBUTES, name))
+		applying.key = ("%s.%s"):format(ATTRIBUTES, name)
 		local value = table_[name]
 
 		local literal, isStatic = Keys.readStatic(value)
@@ -547,9 +549,9 @@ local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, 
 	end
 end
 
-type Connect = (Owner.Owner, (unknown) -> ()) -> Types.Node
+type Mapping = { source: Types.ReadOnlyValue<unknown>, transform: (unknown) -> unknown }
 
-local mapped: { [unknown]: Connect } = {}
+local mapped: { [unknown]: Mapping } = {}
 
 Weak.keys(mapped)
 
@@ -557,11 +559,10 @@ local function map<T, R>(source: Types.ReadOnlyValue<T>, transform: (T) -> R): T
 	local function body(use: Types.Use): R
 		return transform(use(source))
 	end
-	mapped[body] = function(owner: Owner.Owner, sink: (unknown) -> ()): Types.Node
-		return Owner.listenHeld(owner, source, function(current: T)
-			sink(transform(current))
-		end)
-	end
+	mapped[body] = {
+		source = (source :: unknown) :: Types.ReadOnlyValue<unknown>,
+		transform = (transform :: unknown) :: (unknown) -> unknown,
+	}
 	return body
 end
 
@@ -606,17 +607,54 @@ local function retireFast(node: Node, key: string)
 	end
 end
 
-local function apply(
+local function bindFunction(
 	host: Host.Host,
 	node: Node,
-	props: Props,
 	owner: Owner.Owner,
-	onKey: (string) -> (),
-	created: boolean?
+	name: string,
+	value: unknown,
+	write: (Node, string, unknown) -> ()
 )
+	local observation = host.observation
+	local liveRead = if observation then observation.readProperty else nil
+	local mapping = mapped[value]
+	local watcher: Types.Node
+	local written: unknown = UNWRITTEN
+	if mapping ~= nil then
+		local transform = mapping.transform
+		watcher = Owner.listenHeld(owner, mapping.source, function(raw: unknown)
+			local current = transform(raw)
+			if written ~= UNWRITTEN and current == written and liveRead ~= nil then
+				local read, live = pcall(liveRead, node, name)
+				if read and live == current then
+					return
+				end
+			end
+			written = current
+			write(node, name, current)
+		end)
+	else
+		local source = value :: Types.Body<unknown>
+		watcher = Owner.effectHeld(owner, function(use: Types.Use)
+			local current = source(use)
+			if written ~= UNWRITTEN and current == written and liveRead ~= nil then
+				local read, live = pcall(liveRead, node, name)
+				if read and live == current then
+					return
+				end
+			end
+			written = current
+			write(node, name, current)
+		end)
+	end
+	watcher.fastKey = name
+	watcher.fastNext = fastEdges[node]
+	fastEdges[node] = watcher
+end
+
+local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Owner, created: boolean?)
 	local fresh = created == true and not statsOn.enabled and owner.boundary == nil and not owner.disposed
 	local write = host.render.setProperty
-	local liveRead = if host.observation then host.observation.readProperty else nil
 	local replacing = not fresh and fastEdges[node] ~= nil
 	local length = #props
 
@@ -626,22 +664,22 @@ local function apply(
 				continue
 			end
 
-			local marker = Keys.readKey(key)
-			if marker ~= nil then
-				onKey(marker.name)
+			local markerKind, markerName, markerNames = Keys.readKey(key)
+			if markerKind ~= nil then
+				applying.key = markerName
 				if replacing then
-					retireFast(node, marker.name)
+					retireFast(node, markerName)
 				end
-				if marker.kind == "group" then
-					bindGroup(host, node, owner, marker.names, value)
-				elseif marker.kind == "event" then
+				if markerKind == "group" then
+					bindGroup(host, node, owner, markerNames :: { string }, value)
+				elseif markerKind == "event" then
 					if type(value) ~= "function" then
 						error(
 							Diagnostics.format(
 								"props/event-needs-handler",
 								"an event key was given something that is not a handler",
 								{
-									event = marker.name,
+									event = markerName,
 									node = Host.describeNode(host, node),
 									actual = Diagnostics.describe(value),
 									expected = "a function",
@@ -650,12 +688,12 @@ local function apply(
 							0
 						)
 					end
-					subscribe(host, node, owner, marker.name, value :: (...unknown) -> (), fresh)
+					subscribe(host, node, owner, markerName, value :: (...unknown) -> (), fresh)
 				elseif type(value) == "function" or cellModule.isValue(value) then
-					bind(propertyTarget(host), node, owner, marker.name, value :: Types.Source<unknown>)
+					bind(propertyTarget(host), node, owner, markerName, value :: Types.Source<unknown>)
 				else
-					refuseNodeValue(host, node, marker.name, value)
-					writeOnce(propertyTarget(host), node, owner, marker.name, value)
+					refuseNodeValue(host, node, markerName, value)
+					writeOnce(propertyTarget(host), node, owner, markerName, value)
 				end
 				continue
 			end
@@ -675,82 +713,55 @@ local function apply(
 		end
 
 		if name == ATTRIBUTES then
-			onKey(ATTRIBUTES)
-			applyAttributes(host, node, owner, value, onKey)
+			applying.key = ATTRIBUTES
+			applyAttributes(host, node, owner, value)
 			continue
 		end
 
-		onKey(name)
+		applying.key = name
 
 		local kind = type(value)
-		if kind == "string" or kind == "boolean" then
-			if fresh then
-				write(node, name, value)
-			else
-				writeOnce(propertyTarget(host), node, owner, name, value)
+		if kind == "table" then
+			if rawget(value :: { [string]: unknown }, "composeValue") == "static" then
+				local literal = rawget(value :: { [string]: unknown }, "value")
+				if fresh then
+					write(node, name, literal)
+				else
+					writeOnce(propertyTarget(host), node, owner, name, literal)
+				end
+				continue
 			end
-			continue
-		end
-
-		local literal, isStatic = Keys.readStatic(value)
-		if isStatic then
-			if fresh then
-				write(node, name, literal)
-			else
-				writeOnce(propertyTarget(host), node, owner, name, literal)
+			if cellModule.isValue(value) then
+				if fresh then
+					local edge = Owner.listenHeld(
+						owner,
+						value :: Types.ReadOnlyValue<unknown>,
+						function(current: unknown)
+							write(node, name, current)
+						end
+					)
+					edge.fastKey = name
+					edge.fastNext = fastEdges[node]
+					fastEdges[node] = edge
+				else
+					bind(propertyTarget(host), node, owner, name, value :: Types.Source<unknown>)
+				end
+				continue
 			end
-			continue
-		end
-
-		if cellModule.isValue(value) then
-			if fresh then
-				local edge = Owner.listenHeld(owner, value :: Types.ReadOnlyValue<unknown>, function(current: unknown)
-					write(node, name, current)
-				end)
-				edge.fastKey = name
-				edge.fastNext = fastEdges[node]
-				fastEdges[node] = edge
-			else
-				bind(propertyTarget(host), node, owner, name, value :: Types.Source<unknown>)
-			end
-			continue
-		end
-
-		if type(value) == "function" then
+			refuseNodeValue(host, node, name, value)
+		elseif kind == "function" then
 			if classify(host, node, name) == "event" then
 				subscribe(host, node, owner, name, value :: (...unknown) -> (), fresh)
 			elseif fresh then
-				local connect = mapped[value]
-				local watcher: Types.Node
-				local written: unknown = UNWRITTEN
-				local function changed(current: unknown)
-					if written ~= UNWRITTEN and current == written and liveRead ~= nil then
-						local read, live = pcall(liveRead, node, name)
-						if read and live == current then
-							return
-						end
-					end
-					written = current
-					write(node, name, current)
-				end
-				if connect ~= nil then
-					watcher = connect(owner, changed)
-				else
-					local source = value :: Types.Body<unknown>
-					watcher = Owner.effectHeld(owner, function(use: Types.Use)
-						changed(source(use))
-					end)
-				end
-				watcher.fastKey = name
-				watcher.fastNext = fastEdges[node]
-				fastEdges[node] = watcher
+				bindFunction(host, node, owner, name, value, write)
 			else
 				bind(propertyTarget(host), node, owner, name, value :: Types.Source<unknown>)
 			end
 			continue
+		elseif kind == "userdata" then
+			refuseNodeValue(host, node, name, value)
 		end
 
-		refuseNodeValue(host, node, name, value)
 		if fresh then
 			write(node, name, value)
 		else
@@ -764,6 +775,7 @@ local function forget(node: Node)
 end
 
 return {
+	applying = applying,
 	apply = apply,
 	forget = forget,
 	map = map,

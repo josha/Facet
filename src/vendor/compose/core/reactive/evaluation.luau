@@ -14,8 +14,10 @@ export type Cache = { thread: thread?, frame: Evaluation?, active: number, order
 
 local cache: Cache = { thread = nil, frame = nil, active = 0, order = 0 }
 
-local function context(): Node?
-	local running = coroutine.running()
+local function contextOn(running: thread): Node?
+	if cache.active == 0 then
+		return nil
+	end
 	if running == cache.thread then
 		local cached = cache.frame
 		if cached ~= nil and cached.order > 0 then
@@ -40,6 +42,10 @@ local function context(): Node?
 		end
 	end
 	return if inherited ~= nil then inherited.consumer else nil
+end
+
+local function context(): Node?
+	return contextOn(coroutine.running())
 end
 
 local function frame(): Evaluation
@@ -83,6 +89,29 @@ local function enter(consumer: Node?): (Node?, number)
 	return previousConsumer, previousOrder
 end
 
+local function enterFrame(consumer: Node?): (Evaluation, Node?, number)
+	local running = coroutine.running()
+	local cached = if running == cache.thread then cache.frame else nil
+	local current: Evaluation = if cached ~= nil then cached else frame()
+	local previousConsumer, previousOrder = current.consumer, current.order
+	if previousOrder == 0 then
+		cache.active += 1
+	end
+	local order = cache.order + 1
+	cache.order = order
+	current.consumer = consumer
+	current.order = order
+	return current, previousConsumer, previousOrder
+end
+
+local function leaveFrame(current: Evaluation, previousConsumer: Node?, previousOrder: number)
+	current.consumer = previousConsumer
+	current.order = previousOrder
+	if previousOrder == 0 then
+		cache.active -= 1
+	end
+end
+
 local function snapshot(): (Node?, number)
 	local cached = cache.frame
 	local current: Evaluation = if cached ~= nil and coroutine.running() == cache.thread then cached else frame()
@@ -104,7 +133,10 @@ return {
 	cache = cache,
 	frame = frame,
 	context = context,
+	contextOn = contextOn,
 	enter = enter,
+	enterFrame = enterFrame,
+	leaveFrame = leaveFrame,
 	snapshot = snapshot,
 	leave = leave,
 }

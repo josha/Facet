@@ -69,7 +69,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 				pump.stop()
 			end
 		end)
-		Graph.observations[producer] = function(observed)
+		Graph.observe(producer, function(observed)
 			pump.stop()
 			if observed and not Owner.isDisposed(owner) then
 				value:set(read())
@@ -77,9 +77,9 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 					pump.start()
 				end
 			end
-		end
+		end)
 		Owner.own(owner, function()
-			Graph.observations[producer] = nil
+			Graph.observe(producer, nil)
 		end)
 		return value
 	end
