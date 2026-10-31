@@ -1,7 +1,10 @@
 # Runtime essentials
 
-Use the installed Facet module and one app with one mount. Pages and overlays
-belong inside that tree. Facet supplies Compose and the Roblox constructors.
+Use the installed Facet module and reuse the application's runtime. The game
+example below uses one app and mount; its pages and overlays belong inside
+that tree. For a plugin or existing host, read `Mounting` and
+[runtime details](runtime-details.md) before choosing the mount target.
+Facet supplies Compose and the Roblox constructors.
 Edit persistent source; Play-only edits are not the delivered change.
 
 ```luau
@@ -101,7 +104,7 @@ each Play.
 
 In Studio, read a node at
 `ServerStorage.FacetDocs.docs.reference.nodes["Button.card.md"].Value`; with a
-shell, `lute run tools/facet docs Button.card`. Read a card only for a control
-the recipes do not show, batch the ones you need in one call and keep the
-answers. [Runtime details](runtime-details.md) covers Sheets, overloaded
+shell, `lute run tools/facet docs Button.card`. Read a card when the needed
+contract is unclear or the example does not cover it. Batch independent reads
+and reuse answers while they remain current. [Runtime details](runtime-details.md) covers Sheets, overloaded
 collections, the top bar, localization and the type checker.

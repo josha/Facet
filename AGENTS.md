@@ -91,6 +91,29 @@ chapters as reference, not as a second required reading path.
 - The current suite is the evidence. A passing run proves only the selected cases. Read the
   [verification scope](docs/guide/verification-scope.md).
 
+## Keep consumer guidance general
+
+For changes to `skills/use-facet`, its linked design guides or `skills/critique-ui`:
+
+- State the user need and the conditions under which the advice applies.
+  Separate an API or lifecycle requirement from a design heuristic or example.
+- Keep evaluation prompts, expected solutions, screen inventories, scoring
+  targets and author time budgets in evaluation material. Do not turn them
+  into consumer requirements. An evaluation failure can reveal a real issue;
+  document the reusable cause rather than its task-specific answer.
+- Check the advice against materially different tasks and one valid case
+  where it should not apply. Include text-led, visually quiet and plugin UI
+  when relevant. If the advice forces one style or structure, narrow it.
+- Keep concrete examples labeled with their assumptions. Sample dimensions,
+  game vocabulary and theme assets are not defaults for unrelated projects.
+- Review warnings against the brief and actual use. A clean heuristic report
+  does not prove visual quality, input behavior or user preference.
+
+Record that reasoning in the change description. For behavioral evaluation,
+use tasks not used to write the guidance, freeze the candidate before running,
+and report failures as well as successes. A task used to revise guidance is
+development evidence, not an independent test of the revised guidance.
+
 ## Internal showcase review
 
 Before you add a demo, identify its player task and visible result.

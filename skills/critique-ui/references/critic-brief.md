@@ -14,10 +14,10 @@ blocks render it lists, and read each design.txt. Then answer the rubric in
 PACKET.md for each screen and write `verdict.json` in the same folder, exactly
 in the form the rubric gives.
 
-Be direct. The author wants the problems a player and a demanding art director
-would see, ranked by how much fixing them improves the screen. Do not soften
-scores to be kind; a 3 means forgettable. Name what works too, so it survives
-the revision.
+Be direct. Rank observable problems by their effect on the task in the brief.
+Respect its visual direction; do not substitute a preferred style. Use the
+rubric's score meanings and explain uncertainty where evidence is missing.
+Name what works too, so it survives the revision.
 
 Packet folder: <PATH>
 

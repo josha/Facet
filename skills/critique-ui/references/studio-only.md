@@ -19,7 +19,7 @@ Use this route when you have Studio MCP tools but no shell or filesystem.
 4. Write a short brief: the game, the player's task on this screen and its
    decision.
 
-In a timed build, use the quick pass in the [skill](../SKILL.md#in-a-timed-build)
+For a focused change, use the quick pass in the [skill](../SKILL.md#quick-review)
 instead of the full judgment below.
 
 ## Get the judgment
