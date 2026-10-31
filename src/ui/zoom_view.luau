@@ -831,11 +831,23 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		Compose.cleanup(function()
 			arbiter.cancelOwner(root)
 		end)
-		local function active(use: Shared.Use): boolean
-			return use(selected) == root and ctx.read(spec.enabled, use) ~= false and not blocked()
+		local function owned(node: Instance?): boolean
+			if not within(node) then
+				return false
+			elseif node == root then
+				return true
+			end
+			local at = if node then node.Parent else nil
+			while at and at ~= root do
+				if at:IsA("ScrollingFrame") and at:GetAttribute("FacetSelectionOwner") == true then
+					return false
+				end
+				at = at.Parent
+			end
+			return true
 		end
 		local function reached(use: Shared.Use): boolean
-			return within(use(selected)) and ctx.read(spec.enabled, use) ~= false and not blocked()
+			return owned(use(selected)) and ctx.read(spec.enabled, use) ~= false and not blocked()
 		end
 		runtime.connect(root, "SelectionGained", function() end)
 		for _, entry in
@@ -848,7 +860,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				step(entry.direction)
 			end, { sink = true, priority = 250 })
 		end
-		ctx.action(root, "ZoomFit", { E.KeyCode.Home, E.KeyCode.ButtonY }, active, function()
+		ctx.action(root, "ZoomFit", { E.KeyCode.Home, E.KeyCode.ButtonY }, reached, function()
 			fit()
 		end, { sink = true, priority = 250 })
 		for _, entry in
@@ -859,7 +871,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				{ name = "PanDown", key = E.KeyCode.S, x = 0, y = 1 },
 			}
 		do
-			ctx.action(root, entry.name, { entry.key }, active, function()
+			ctx.action(root, entry.name, { entry.key }, reached, function()
 				pan(V2.new(entry.x, entry.y) * ctx.metric("controls.zoom.panStep"))
 			end, { sink = true, priority = 250 })
 		end

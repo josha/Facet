@@ -1191,4 +1191,132 @@ return function(harness: Verify.Harness)
 			t:expect(carrier.Parent == second):toBe(true)
 		end)
 	end)
+	harness:suite("ZoomView keys while a control inside it is selected", function()
+		type World = typeof(inputWorld())
+		local function actionOf(world: World, name: string): InputAction
+			local screen = assert(world.outer.Parent)
+			return (assert(screen:FindFirstChild(name, true), name) :: unknown) :: InputAction
+		end
+		local function keysOf(action: InputAction): { string }
+			local keys: { string } = {}
+			for _, binding in action:GetChildren() do
+				if binding:IsA("InputBinding") then
+					table.insert(keys, binding.KeyCode.Name)
+				end
+			end
+			table.sort(keys)
+			return keys
+		end
+		local function contextOf(action: InputAction): InputContext
+			return (assert(action.Parent) :: unknown) :: InputContext
+		end
+		local function board(Host: Shared.Host): GuiObject
+			local shelf = Host.ScrollingFrame {
+				Name = "Shelf",
+				Host.TextButton { Name = "Row", Selectable = true } :: unknown,
+			}
+			shelf:SetAttribute("FacetSelectionOwner", true)
+			return Host.Frame {
+				Name = "Board",
+				Host.TextButton { Name = "Cell", Selectable = true } :: unknown,
+				shelf,
+			}
+		end
+		local function settle(world: World)
+			for _ = 1, 40 do
+				world.engine.heartbeat:Fire(0.016)
+			end
+		end
+		local function pan(world: World, selected: GuiObject, name: string): Vector2
+			world.gui.SelectedObject = selected
+			settle(world)
+			local before = world.view.CanvasPosition
+			world.engine.environment.fire(VerifyRoblox.assertInstance(actionOf(world, name)), "Pressed")
+			settle(world)
+			return world.view.CanvasPosition - before
+		end
+		harness:case("Home and Y fit while a cell is selected", function(t)
+			local world = inputWorld(board)
+			t:defer(world.stop)
+			settle(world)
+			t:expect(world.scale.Scale):toBe(2)
+			local cell = (assert(world.view:FindFirstChild("Cell", true)) :: unknown) :: GuiObject
+			world.gui.SelectedObject = cell
+			t:expect(world.gui.SelectedObject):toBe(cell)
+			local fit = actionOf(world, "ZoomFit")
+			t:expect(keysOf(fit)):toEqual({ "ButtonY", "Home" })
+			t:expect(contextOf(fit).Enabled):toBe(true)
+			world.engine.environment.fire(VerifyRoblox.assertInstance(fit), "Pressed")
+			settle(world)
+			t:expect(math.abs(world.scale.Scale - 0.4) < 0.001):toBe(true)
+		end)
+		harness:case("WASD pans while a cell is selected, as it pans with the empty view selected", function(t)
+			local empty = inputWorld()
+			t:defer(empty.stop)
+			settle(empty)
+			local full = inputWorld(board)
+			t:defer(full.stop)
+			settle(full)
+			local cell = (assert(full.view:FindFirstChild("Cell", true)) :: unknown) :: GuiObject
+			for _, name in { "PanRight", "PanDown", "PanLeft", "PanUp" } do
+				local reference = pan(empty, empty.view, name)
+				t:expect(reference.Magnitude > 0):toBe(true)
+				local moved = pan(full, cell, name)
+				t:expect((moved - reference).Magnitude < 0.001):toBe(true)
+				t:expect(contextOf(actionOf(full, name)).Enabled):toBe(true)
+			end
+		end)
+		harness:case("a nested selection owner keeps Home, Y and WASD for itself", function(t)
+			local world = inputWorld(board)
+			t:defer(world.stop)
+			settle(world)
+			world.gui.SelectedObject = (assert(world.view:FindFirstChild("Row", true)) :: unknown) :: GuiObject
+			for _, name in { "ZoomFit", "PanUp", "PanLeft", "PanDown", "PanRight" } do
+				t:expect(contextOf(actionOf(world, name)).Enabled):toBe(false)
+			end
+		end)
+		harness:case("a board command bound to W or Y still wins over pan and fit", function(t)
+			local invoked: { string } = {}
+			local scope: Facet.CommandScope<number>? = nil
+			local world = inputWorld(function(Host: Shared.Host, UI: ZoomTypesControls.Controls): GuiObject
+				local root = board(Host)
+				local cell = (assert(root:FindFirstChild("Cell")) :: unknown) :: GuiObject
+				scope = UI.commandScope(root, {
+					targets = { { key = 1, node = cell } },
+					commands = {
+						{
+							id = "PlaceW",
+							keys = { "W" },
+							onInvoke = function()
+								table.insert(invoked, "W")
+							end,
+						},
+						{
+							id = "Recall",
+							keys = { "ButtonY" },
+							onInvoke = function()
+								table.insert(invoked, "Y")
+							end,
+						},
+					},
+				})
+				return root
+			end)
+			t:defer(world.stop)
+			settle(world)
+			local commands = assert(scope)
+			t:expect(commands.focus(1)):toBe(true)
+			for _, pair in { { "PlaceW", "PanUp" }, { "Recall", "ZoomFit" } } do
+				local command = commands.actions[pair[1]]
+				local camera = contextOf(actionOf(world, pair[2]))
+				t:expect(command.Enabled):toBe(true)
+				t:expect(contextOf(command).Enabled):toBe(true)
+				t:expect(contextOf(command).Sink):toBe(true)
+				t:expect(contextOf(command).Priority > camera.Priority):toBe(true)
+			end
+			world.engine.environment.fire(VerifyRoblox.assertInstance(commands.actions.PlaceW), "Pressed")
+			world.engine.environment.fire(VerifyRoblox.assertInstance(commands.actions.Recall), "Pressed")
+			t:expect(invoked):toEqual({ "W", "Y" })
+		end)
+	end)
 end

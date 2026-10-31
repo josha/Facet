@@ -5,8 +5,10 @@ pointer. An empty view is a selection stop: Plus and Minus or the bumpers zoom,
 WASD or the right stick pan, and Home or Y fits. A view that holds a visible
 selectable control is not a stop. Selection that enters it goes to the control
 nearest to the entry edge, or to the descendant that the view's `FacetEntry`
-attribute names. While a control in the view has the selection, Plus and Minus
-or the bumpers zoom and the right stick pans. At the edge of the view, each
+attribute names. While a control in the view has the selection, the same keys
+act on the view, except inside a nested selection owner such as a Collection.
+A game command bound to the same key, such as a letter or Y in a
+`commandScope`, has a higher priority and still wins. At the edge of the view, each
 direction goes to the nearest control outside the view in that direction. An
 authored `NextSelection` link on the control is kept. The
 engine uses the right trigger to start a drag detector, so the triggers do not
