@@ -303,6 +303,11 @@ return function(ctx: Shared.Context): Selection
 			if from == nil or not shown(from) or from:IsDescendantOf(container) then
 				return nil
 			end
+			for _, node in container:GetDescendants() do
+				if node:IsA("GuiObject") and node.Selectable and not hidden(node) then
+					return nil
+				end
+			end
 			return beyond(container, from) or from
 		end
 		if from and table.find(list, from) then

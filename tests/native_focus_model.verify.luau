@@ -863,6 +863,68 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
+		verifyHarness:case("a claim that another writer clears does not select its target again", {
+			id = "native_focus_model::focusSection focusOnAppear keeps its claim while the target is hidden::a claim that another writer clears does not select its target again",
+			run = function()
+				local rackShown = Compose.cell(true)
+				local w, open = match(rackShown)
+				local cleared = 0
+				local connection = w.gui:GetPropertyChangedSignal("SelectedObject"):Connect(function()
+					local current = w.gui.SelectedObject
+					if current and current.Name == "RowHit" and cleared < 50 then
+						cleared += 1
+						w.gui.SelectedObject = nil
+					end
+				end)
+				open:set(true)
+				Verify.expect(cleared):toBe(1)
+				Verify.expect((w.selected())):toBe("nil")
+				rackShown:set(false)
+				rackShown:set(true)
+				Verify.expect(cleared):toBe(2)
+				connection:Disconnect()
+				w.stop()
+			end,
+		})
+		verifyHarness:case("a leaving screen's returnFocus does not take the selection from the next screen's claim", {
+			id = "native_focus_model::focusSection focusOnAppear keeps its claim while the target is hidden::a leaving screen's returnFocus does not take the selection from the next screen's claim",
+			run = function()
+				local home, match, rackShown = Compose.cell(false), Compose.cell(false), Compose.cell(false)
+				local w = setup(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame "Page" {
+						UI.Button "AppMenu" { label = "Menu" } :: unknown,
+						Compose.show(home, function()
+							local root = Host.Frame "Home" { UI.Button "NewGame" { label = "New game" } :: unknown }
+							UI.focusSection(root, { returnFocus = true })
+							return root
+						end),
+						Compose.show(match, function()
+							local root = Host.Frame "Match" {
+								Host.Frame "Rack" {
+									Visible = rackShown,
+									UI.Button "RowHit" { label = "Tile" } :: unknown,
+								},
+							}
+							UI.focusSection(
+								root,
+								{ entry = "nearest", focusOnAppear = "Rack/RowHit", returnFocus = true }
+							)
+							return root
+						end),
+					}
+				end)
+				w.gui.Select = function() end
+				w.gui.SelectedObject = w.find("AppMenu")
+				home:set(true)
+				w.gui.SelectedObject = w.find("NewGame")
+				match:set(true)
+				w.find("Home").Parent = nil
+				Verify.expect((w.selected())):toBe("NewGame")
+				rackShown:set(true)
+				Verify.expect((w.selected())):toBe("RowHit")
+				w.stop()
+			end,
+		})
 	end)
 
 	verifyHarness:suite("ZoomView selection entry and exit", function()
@@ -926,6 +988,28 @@ return function(verifyHarness: Verify.Harness)
 				w.gui.SelectedObject = w.find("RackTile")
 				w.gui.SelectedObject = w.find("Board")
 				Verify.expect((w.selected())):toBe("Cell12")
+				w.stop()
+			end,
+		})
+		verifyHarness:case("entry into a ZoomView whose cells are not interactable stays on the view", {
+			id = "native_focus_model::ZoomView selection entry and exit::entry into a ZoomView whose cells are not interactable stays on the view",
+			run = function()
+				local w = board()
+				local V2 = w.engine.types.Vector2
+				local spotlight = w.engine.new("TextButton")
+				spotlight.Name = "Spotlight"
+				spotlight.Selectable = true
+				spotlight.Parent = w.find("Match")
+				w.engine.environment.poke(spotlight, "AbsolutePosition", V2.new(0, -80))
+				w.engine.environment.poke(spotlight, "AbsoluteSize", V2.new(300, 60))
+				w.find("Cells").Interactable = false
+				w.gui.SelectedObject = w.find("RackTile")
+				w.gui.SelectedObject = w.find("Board")
+				Verify.expect((w.selected())):toBe("Board")
+				w.find("Cells").Interactable = true
+				w.gui.SelectedObject = w.find("RackTile")
+				w.gui.SelectedObject = w.find("Board")
+				Verify.expect((w.selected())):toBe("Cell23")
 				w.stop()
 			end,
 		})

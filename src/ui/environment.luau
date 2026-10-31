@@ -791,6 +791,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	end
 
 	UI.responder = ctx.responder
+	local placements = (setmetatable({}, { __mode = "v" }) :: unknown) :: { claim: GuiObject?, restore: GuiObject? }
 	local SECTION_KEYS = { entry = true, preferred = true, focusOnAppear = true, returnFocus = true }
 	UI.focusSection = function(group: GuiObject, options: Env.FocusSectionOptions?)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.focusSection must run inside a component or Compose owner")
@@ -914,6 +915,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					end
 					return false
 				end
+				local armed = true
 				Compose.watch(function(use: ComposeTypes.Use)
 					if not use(wanted) then
 						hold(false)
@@ -923,7 +925,13 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					use(revision)
 					local target = find(appear)
 					local current: GuiObject? = use(selected)
-					if current ~= nil and current ~= target and current ~= before and showing(current) then
+					if
+						current ~= nil
+						and current ~= target
+						and current ~= before
+						and current ~= placements.restore
+						and showing(current)
+					then
 						wanted:set(false)
 						return
 					end
@@ -931,7 +939,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 						return
 					end
 					use(ctx.observe.Parent(target))
-					local ready = use(runtime.observe(target, "Selectable")) == true
+					local ready = use(runtime.observe(target, "Selectable")) == true and ctx.withinModal(target, use)
 					local at: Instance? = target
 					while at do
 						if at:IsA("GuiObject") then
@@ -942,8 +950,14 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 						end
 						at = at.Parent
 					end
-					if ready and at ~= nil and current ~= target then
-						gui.SelectedObject = target
+					if not ready or at == nil then
+						armed = true
+					elseif armed then
+						armed = false
+						if current ~= target then
+							placements.claim = target
+							gui.SelectedObject = target
+						end
 					end
 				end)
 			end
@@ -965,6 +979,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				local target = first()
 				local placed = pcall(function()
 					if target then
+						placements.claim = target
 						gui.SelectedObject = target
 					else
 						gui:Select(group)
@@ -982,6 +997,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					returned = true
 					local target = before
 					if target and target:FindFirstAncestorWhichIsA("LayerCollector") then
+						placements.restore = target
 						gui.SelectedObject = target
 					elseif target and layer then
 						gui:Select(layer)
@@ -996,6 +1012,10 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 						and not returned
 						and group:FindFirstAncestorWhichIsA("LayerCollector") == nil
 					then
+						if current ~= nil and current == placements.claim then
+							returned = true
+							return
+						end
 						restore()
 						return
 					end
