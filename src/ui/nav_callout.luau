@@ -320,7 +320,7 @@ return function(
 						local bottom = top + use(size).Y
 						local gap = lift(use)
 						local edge = read(spec.edge, use)
-						local room = if edge == "left" or edge == "right"
+						local room = if edge == "leading" or edge == "trailing"
 							then use(extent).Y - gutter * 2
 							else math.max(top - gap - gutter, use(extent).Y - bottom - gap - gutter)
 						local pad = ctx.metric("space.m", use)
