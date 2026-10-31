@@ -94,8 +94,10 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 						)
 				end
 				local ready = if node:IsA("ImageLabel")
-						and row:IsA("CanvasGroup")
-						and row.GroupTransparency == 1
+						and (
+							(row:IsA("CanvasGroup") and row.GroupTransparency == 1)
+							or row:GetAttribute("FacetCollectionReady") == false
+						)
 					then Compose.formula(function(use: ComposeTypes.Use): boolean
 						use(size)
 						use(assert(loaded))
@@ -123,7 +125,9 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 					end,
 					ease = ctx.motionEase("fade"),
 					reducedMotion = function(use: ComposeTypes.Use): boolean
-						return reduced(use) or (row:IsA("CanvasGroup") and row.GroupTransparency == 1)
+						return reduced(use)
+							or (row:IsA("CanvasGroup") and row.GroupTransparency == 1)
+							or row:GetAttribute("FacetCollectionReady") == false
 					end,
 				})
 				local color = ctx.observeStyled.BackgroundColor3(surface or (row :: GuiObject))

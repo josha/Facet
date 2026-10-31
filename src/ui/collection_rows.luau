@@ -287,7 +287,7 @@ return function<V, K>(
 		local actionHeight: ComposeTypes.ReadOnlyValue<number>? = nil
 		local painted = Compose.cell(false)
 		local stop, mountedContent = Compose.withOwner(contentOwner, function()
-			return runtime.mount(function(): CanvasGroup
+			return runtime.mount(function(): GuiObject
 				local rendered = assert(spec.render)(current, placement, keyCell)
 				if tree and not tree.columnar then
 					rendered = tree.wrap(rendered, current, keyCell:peek())
@@ -457,13 +457,15 @@ return function<V, K>(
 				groupProperties.GroupTransparency = function(use: ComposeTypes.Use): number
 					return if use(painted) then 1 - (if entrance then use(entrance) else 1) else 1
 				end
-				groupProperties.AutomaticSize = if read(spec.contentOverflow) == "clip"
+				groupProperties.Attributes =
+					{ FacetCollectionRow = true, FacetCollectionReady = painted } :: EngineTypes.Attributes
+				groupProperties.AutomaticSize = if tree ~= nil or read(spec.contentOverflow) == "clip"
 					then E.AutomaticSize.None
 					elseif carded then (if horizontal then E.AutomaticSize.X else E.AutomaticSize.Y)
 					else E.AutomaticSize.XY
-				local content = Host.CanvasGroup(groupProperties)
+				local content = if tree then ctx.fade(groupProperties) else Host.CanvasGroup(groupProperties)
 				local logical = surface or content
-				policy.drop(ctx, spec, current, keyCell:peek(), logical, kind == "grid" or horizontal)
+				policy.drop(ctx, spec, current, keyCell:peek(), logical, kind == "grid" or horizontal, selectionHit)
 				local selected = if paintSelection
 						and not carded
 						and ctx.config.theme ~= nil
@@ -506,7 +508,7 @@ return function<V, K>(
 				return content
 			end, node)
 		end)
-		local content = mountedContent :: CanvasGroup
+		local content = mountedContent :: GuiObject
 		local parked: Instance? = nil
 		local previousParent: Instance? = node.Parent
 		local released = false

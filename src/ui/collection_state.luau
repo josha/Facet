@@ -185,9 +185,27 @@ local function create<V, K>(
 		{}
 	local retiring: { [Frame]: () -> () } = {}
 	local waiting = Compose.cell(0)
+	local resume: (() -> ())? = nil
+	if tree then
+		Compose.watch(function(use: ComposeTypes.Use)
+			local size = use(viewport).size
+			tree.preview:set(
+				if spec.mode == "all"
+					then math.huge
+					else math.ceil(size / math.max(1, read(spec.itemSize or 40, use) :: number))
+						+ (spec.overscan or 2) * 2
+			)
+		end)
+		Compose.cleanup(function()
+			if resume then
+				resume()
+			end
+		end)
+	end
 	Compose.watch(function(use: ComposeTypes.Use)
 		use(waiting)
 		use(viewport)
+		local pending = tree ~= nil and use(tree.preparing)
 		for _, entry in preparing do
 			if entry.required() and not use(entry.ready) then
 				return
@@ -203,6 +221,18 @@ local function create<V, K>(
 		for node, release in retiring do
 			retiring[node] = nil
 			release()
+		end
+		if pending and resume == nil then
+			resume = frames.onFrame(function()
+				assert(resume)()
+				resume = nil
+				for _, entry in preparing do
+					if entry.required() and not entry.ready:peek() then
+						return
+					end
+				end
+				assert(tree).resume()
+			end)
 		end
 	end)
 	local pool: ComposeTypes.Pool<PooledRow> = Compose.createPool({

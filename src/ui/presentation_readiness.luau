@@ -28,6 +28,12 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 		end
 		local function visit(parent: Instance, visible: boolean)
 			for _, child in parent:GetChildren() do
+				if visible and child:IsA("GuiObject") and child:GetAttribute("FacetCollectionRow") == true then
+					measured = measured
+						and child:GetAttribute("FacetCollectionReady") ~= false
+						and child.Visible
+						and (not child:IsA("CanvasGroup") or child.GroupTransparency < 1)
+				end
 				local shown = visible and (not child:IsA("GuiObject") or child.Visible)
 				record(child, shown)
 				visit(child, shown)
