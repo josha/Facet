@@ -9,6 +9,7 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 	type TextBoxConstructor = typeof(require("@repo/tools/typecheck/aliases").TextBoxConstructor)
+	type TextLabelConstructor = typeof(require("@repo/tools/typecheck/aliases").TextLabelConstructor)
 	type UIScaleConstructor = typeof(require("@repo/tools/typecheck/aliases").UIScaleConstructor)
 	local FixtureComposeTypes = require("../src/vendor/compose/core")
 	local FixtureCollectionTypes = require("../src/ui/collection_types")
@@ -9864,6 +9865,81 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("prepares new outline rows before opening their space", function(t)
+			local now = 0
+			local engine, runtime, UI, target, _, ctx = setup({
+				motionLevel = "normal",
+				clock = function()
+					return now
+				end,
+			})
+			ctx.config.services.RunService = (
+				{ PreRender = engine.heartbeat, Heartbeat = engine.heartbeat } :: unknown
+			) :: RunService
+			local expanded = Compose.cell({} :: { [string]: boolean })
+			local controls: FixtureComposeTypes.OrderedCollectionControls<string> = {}
+			local release: (() -> ())? = nil
+			local stop, root = runtime.mount(function()
+				return UI.Outline {
+					from = { { id = "folder", children = { { id = "child" } } }, { id = "last" } } :: { OutlineRecord },
+					key = "id",
+					children = "children",
+					expanded = expanded,
+					mode = "all",
+					itemSize = 80,
+					controls = controls,
+					render = function(current): GuiObject
+						local caption = ((runtime.constructors.TextLabel :: unknown) :: TextLabelConstructor) {
+							Text = current:peek().id,
+							Size = engine.types.UDim2.new(1, 0, 0, 40),
+						}
+						if current:peek().id == "child" then
+							release = require("../src/ui/text_measure").hold(caption)
+						end
+						return caption
+					end,
+				}
+			end, target)
+			t:defer(function()
+				stop()
+				runtime:dispose()
+			end)
+			local function step()
+				for _, node in ((root :: unknown) :: ScrollingFrame):GetDescendants() do
+					if node:IsA("GuiObject") then
+						engine.environment.poke(
+							VerifyRoblox.assertInstance(node),
+							"AbsoluteSize",
+							engine.types.Vector2.new(400, 40)
+						)
+					end
+					if node:IsA("TextLabel") then
+						engine.environment.poke(
+							VerifyRoblox.assertInstance(node),
+							"TextBounds",
+							engine.types.Vector2.new(80, 20)
+						)
+					end
+				end
+				now += 1 / 60
+				engine.heartbeat:Fire(1 / 60)
+			end
+			for _ = 1, 4 do
+				step()
+			end
+			expanded:set({ folder = true })
+			for _ = 1, 8 do
+				step()
+				t:expect(assert(controls.placementOf)(2).size):toBe(0)
+				t:expect(assert(controls.placementOf)(3).offset):toBe(80)
+			end
+			assert(release)()
+			for _ = 1, 20 do
+				step()
+			end
+			t:expect(assert(controls.placementOf)(2).size):toBe(80)
+		end)
+
 		verifyHarness:case("animates row extent on expansion and collapse and honors reduced motion", {
 			id = "native_collections::outline collections::animates row extent on expansion and collapse and honors reduced motion",
 			run = function()
@@ -10026,7 +10102,7 @@ return function(verifyHarness: Verify.Harness)
 						session.commit(nil)
 						Verify.expect(#drops):toBe(1)
 						session.begin(source, { payload = { kind = "file" } }, "armed", nil, false)
-						local hit = row:FindFirstChild("RowHit")
+						local hit = row:FindFirstChild("RowHit", true)
 						Verify.expect((session.targetOf(hit))):toBe(row)
 						hit.Activated:Fire({ UserInputType = engine.types.Enum.UserInputType.Touch }, 1)
 						Verify.expect(#drops):toBe(2)

@@ -15,6 +15,7 @@ type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Focus = typeof(require("@repo/tools/typecheck/aliases").FocusControls)
 type NavigationEntry = typeof(require("@repo/tools/typecheck/aliases").NavigationEntry)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
 type Value<T> =
 	ReadOnlyValue<T>
@@ -1112,18 +1113,35 @@ return {
 				if id == "linked" then
 					return view("details", id, folder)
 				end
-				return UI.VStack "PrimaryView" {
-					width = "fill",
-					height = "fill",
+				return UI.TabView "PrimaryView" {
+					Size = D2.fromScale(1, 1),
 					UI.fill(),
-					Compose.keyed {
-						from = function(use: Use): { string }
-							return { use(mode) }
-						end,
-						render = function(current: ReadOnlyValue<string>): GuiObject
-							return view(current:peek(), id, folder)
-						end,
-					},
+					selection = mode,
+					placement = "none",
+					retention = "top",
+					tabs = {
+						{
+							id = "icons",
+							label = "Icons",
+							content = function()
+								return view("icons", id, folder)
+							end,
+						},
+						{
+							id = "list",
+							label = "Outline",
+							content = function()
+								return view("list", id, folder)
+							end,
+						},
+						{
+							id = "details",
+							label = "Details",
+							content = function()
+								return view("details", id, folder)
+							end,
+						},
+					} :: { Tab },
 				}
 			end
 			return UI.NavigationStack {

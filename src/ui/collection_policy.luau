@@ -131,7 +131,8 @@ function policy.drop<V, K>(
 	current: ComposeTypes.ReadOnlyValue<V>,
 	key: K,
 	row: GuiObject,
-	horizontal: boolean
+	horizontal: boolean,
+	hit: GuiObject?
 )
 	if not spec.rowDrop then
 		return
@@ -170,9 +171,8 @@ function policy.drop<V, K>(
 			end
 		end
 	end)
-	local hit = row:FindFirstChild("RowHit")
 	if hit then
-		ctx.Compose.cleanup(activation.intercept(hit :: GuiObject, function(): boolean
+		ctx.Compose.cleanup(activation.intercept(hit, function(): boolean
 			local session = service.state:peek()
 			if not session or session.mode ~= "armed" then
 				return false

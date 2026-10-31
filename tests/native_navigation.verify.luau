@@ -6010,6 +6010,78 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
+		verifyHarness:case("keeps the outgoing tab visible until incoming collection rows can paint", function(t)
+			for _, grouped in { true, false } do
+				local selection = Compose.cell("one")
+				local hidden = Compose.cell(1)
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return UI.TabView {
+						selection = selection,
+						placement = "none",
+						retention = "top",
+						tabs = {
+							{
+								id = "one",
+								content = function()
+									return Host.Frame "OneBody" {}
+								end,
+							} :: FixtureNavigationTypes.Tab,
+							{
+								id = "two",
+								content = function()
+									if not grouped then
+										return Host.Frame "TwoBody" {
+											Attributes = {
+												FacetCollectionRow = true,
+												FacetCollectionReady = function(use)
+													return use(hidden) == 0
+												end,
+											} :: Shared.Attributes,
+										}
+									end
+									return Host.CanvasGroup "TwoBody" {
+										Attributes = { FacetCollectionRow = true } :: Shared.Attributes,
+										GroupTransparency = hidden,
+									}
+								end,
+							} :: FixtureNavigationTypes.Tab,
+						},
+					}
+				end, { preRender = true })
+				t:defer(world.stop)
+				local function step()
+					for _, node in world.screen:GetDescendants() do
+						if node:IsA("GuiObject") then
+							world.engine.environment.poke(
+								node,
+								"AbsoluteSize",
+								world.engine.types.Vector2.new(400, 240)
+							)
+						end
+						if node:IsA("TextLabel") or node:IsA("TextButton") then
+							world.engine.environment.poke(node, "TextBounds", world.engine.types.Vector2.new(40, 20))
+						end
+					end
+					world.engine.heartbeat:Fire(1 / 60)
+				end
+				for _ = 1, 30 do
+					step()
+				end
+				local one = fadeKit.layer(find(world.screen, "OneBody"))
+				selection:set("two")
+				for _ = 1, 20 do
+					step()
+					t:expect(fadeKit.of(one)):toBe(0)
+				end
+				hidden:set(0)
+				for _ = 1, 30 do
+					step()
+				end
+				t:expect(find(world.screen, "OneBody")):toBe(nil)
+				t:expect(fadeKit.of(fadeKit.layer(find(world.screen, "TwoBody")))):toBe(0)
+			end
+		end)
+
 		verifyHarness:case("crossfades tab pages without blocking the incoming page and shows the first page at once", {
 			id = "native_navigation::native navigation controls::crossfades tab pages without blocking the incoming page and shows the first page at once",
 			run = function()

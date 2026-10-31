@@ -20,6 +20,9 @@ export type Tree<V, K> = {
 	from: ComposeTypes.ReadOnlyValue<{ V }>,
 	all: ComposeTypes.ReadOnlyValue<{ V }>,
 	columnar: boolean?,
+	preparing: ComposeTypes.Value<boolean>,
+	preview: ComposeTypes.Value<number>,
+	resume: () -> (),
 	visible: (K, ComposeTypes.Use?) -> boolean,
 	ancestor: (K) -> K?,
 	sizes: (ComposeTypes.Use, { [K]: number }, number, number) -> { [K]: number },
@@ -53,6 +56,7 @@ return function<V, K>(
 		return if inputKind(use) == "KeyboardAndMouse" then 0 else ctx.metric("targetSizes.minimum", use)
 	end
 	local clockTarget = C.cell(0)
+	local preparing, preview = C.cell(false), C.cell(0)
 	local clock = runtime.tween(function(use: ComposeTypes.Use): number
 		return use(clockTarget)
 	end, {
@@ -65,7 +69,8 @@ return function<V, K>(
 	local data =
 		C.cell({ nodes = {}, byKey = {}, changing = {}, groups = {}, weights = {}, start = -1 } :: Snapshot<V, K>)
 	local settled = C.formula(function(use: ComposeTypes.Use): boolean
-		return reduced(use) or read(spec.reducedMotion, use) == true or use(clock) >= use(data).start + 1
+		return not use(preparing)
+			and (reduced(use) or read(spec.reducedMotion, use) == true or use(clock) >= use(data).start + 1)
 	end)
 	local animatedWeights = C.formula(function(use: ComposeTypes.Use): { [K]: number }
 		local current = use(data)
@@ -152,6 +157,11 @@ return function<V, K>(
 		end
 		local start = if #changing > 0 then clock:peek() else -1
 
+		local entering = false
+		for _, node in changing do
+			entering = entering or node.visible and weights[node.key] == 0
+		end
+		preparing:set(entering and ctx.config.services.RunService ~= nil)
 		data:set({
 			nodes = nodes,
 			byKey = byKey,
@@ -161,7 +171,7 @@ return function<V, K>(
 			start = start,
 		})
 		if #changing > 0 then
-			clockTarget:set(start + 1)
+			clockTarget:set(if preparing:peek() then start else start + 1)
 		end
 		initialized = true
 	end)
@@ -190,11 +200,25 @@ return function<V, K>(
 	local remainingSiblings = 0
 	local tree: Tree<V, K>
 	tree = {
+		preparing = preparing,
+		preview = preview,
+		resume = function()
+			if preparing:peek() then
+				preparing:set(false)
+				clockTarget:set(data:peek().start + 1)
+			end
+		end,
 		from = C.formula(function(use: ComposeTypes.Use): { V }
 			local rows = {}
 			local snapshot, weights = use(data), use(animatedWeights)
+			local remaining = use(preview)
 			for _, node in snapshot.nodes do
-				if if weights[node.key] ~= nil then weights[node.key] > 0 else node.visible then
+				local shown = if weights[node.key] ~= nil then weights[node.key] > 0 else node.visible
+				local warm = not shown and node.visible and remaining > 0
+				if warm then
+					remaining -= 1
+				end
+				if shown or warm then
 					table.insert(rows, node.item)
 				end
 			end
