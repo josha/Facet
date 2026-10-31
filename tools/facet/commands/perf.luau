@@ -396,6 +396,20 @@ end
 
 local lastFlagged: { string } = {}
 
+local function sceneEntries(out: string, scenes: string?): { Json.Object }
+	local entries: { Json.Object } = {}
+	local path = Files.join(out, "scenes.jsonl")
+	if scenes == "none" and not Files.isFile(path) then
+		return entries
+	end
+	for _, line in Files.lines(Files.read(path)) do
+		if string.find(line, "%S") ~= nil then
+			table.insert(entries, Json.asObject(Json.decode(line)) or Json.object())
+		end
+	end
+	return entries
+end
+
 local function pairedReport(invocation: Cli.Invocation, canContinue: boolean?): number
 	local out, first, second = invocation.positional[3], invocation.positional[4], invocation.positional[5]
 	local rounds = tonumber(Cli.flag(invocation, "rounds") or "")
@@ -413,12 +427,7 @@ local function pairedReport(invocation: Cli.Invocation, canContinue: boolean?): 
 		return 2
 	end
 	local valid, loaded = pcall(function()
-		local entries: { Json.Object } = {}
-		for _, line in Files.lines(Files.read(Files.join(out, "scenes.jsonl"))) do
-			if string.find(line, "%S") ~= nil then
-				table.insert(entries, Json.asObject(Json.decode(line)) or Json.object())
-			end
-		end
+		local entries = sceneEntries(out, Cli.flag(invocation, "scenes"))
 		return { entries = entries, first = benchesFor(out, first), second = benchesFor(out, second) }
 	end)
 	if not valid then
@@ -1539,6 +1548,17 @@ REGISTRATIONS.paired = function(harness: Verify.Harness, prefix: string): ()
 		id = idPrefix .. "paired: a slowdown that does not repeat in the confirmation run passes",
 		run = function(test: Verify.Context): ()
 			pairedRunFixture(test, "flaky")
+		end,
+	})
+	harness:case(prefix .. "paired: a report without scenes reads only the bench", {
+		id = idPrefix .. "paired: a report without scenes reads only the bench",
+		run = function(test: Verify.Context): ()
+			local out = Files.temporaryDirectory("facet-paired-bench-only-")
+			local empty = #sceneEntries(out, "none")
+			local missing = pcall(sceneEntries, out, nil)
+			Files.remove(out)
+			Verify.expect(empty):toBe(0)
+			Verify.expect(missing):toBe(false)
 		end,
 	})
 	harness:case(prefix .. "paired: a sharded gate confirms only the flagged scenes", {
