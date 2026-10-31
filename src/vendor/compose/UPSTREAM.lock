@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "88668fff676fbc4d4736341f1c18aaccc43e974c",
+  "commit": "36acaafa0f600f012656f1bf38182cf22c14e728",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -41,18 +41,18 @@
     "core/ownership/root-scope.luau": "17212fa4aad925f1da488b56d2d370a5333bc88e0711d5b479a4c6b59dc0d811",
     "core/ownership/root.luau": "7e67704ce45584b194ce5586dbc6efc44cdd83b4c8b8de40ea17428a935c3f36",
     "core/pool.luau": "49a2bbaca5d0fbc03af623445919f541ad2d878a5b068959e0cde21b7f81db92",
-    "core/reactive/cell.luau": "038317ca4e6c8e5a5378d532e270809b6fccdb8470c4fbea9224472507e3c61f",
+    "core/reactive/cell.luau": "741b39cc77f2bbcf27fda8d1165be79e5799ebbe0002517be88d1e445963812e",
     "core/reactive/clock.luau": "ad9421eacb56ae0a0a82a53d2bea124fc6d30e6e536f5f3767a6997a0e1fb049",
     "core/reactive/evaluation.luau": "05daae8d8386eaddfb4b2ab7c0e2ef7123cc017a6b49c41cb1c0c3b48e73f85f",
-    "core/reactive/formula.luau": "238c543b91ea0ce94b866de06511cded97ff4e40406d944879e51a5f7714c6f5",
-    "core/reactive/graph.luau": "4ea8c47baa9f0cf1b8eb44ab65099addf225b54606ba4626ce6f1ea4769312b1",
+    "core/reactive/formula.luau": "6cf410fab2acd3f624f6620af063025a4b1b30523eae8051c281bcddbe43fbc9",
+    "core/reactive/graph.luau": "1c573a84bdb2c39b42771cf7bb76d32a6aafde68212fa589cdcfeb94f7b89c9a",
     "core/reactive/node.luau": "30c76f3f4aafbd219db18f7c76e4cb1098cbe19499eb95b2b9affd1277da5bff",
     "core/reactive/profile.luau": "eef77d4f6e704fc7cdd24151445744351f799e4f663a90e569c69331379263cb",
-    "core/reactive/reactor.luau": "08524996ea84e55ad498db06e0980aa9d9a23b6076624b5fc3694302987eb71b",
+    "core/reactive/reactor.luau": "5b7816a330d4b1bb36f3f378abcd252dd1e64d4e57e65408861b21bfb0e6bbe8",
     "core/reactive/stats.luau": "06fc4fe21a6792cc8b73056b8856e1e3aee135fdbf8b87a8fe97f24ef3d6ad43",
     "core/reactive/types.luau": "67a1ce6ea0d3101916e8ef762f6676fba6c2c31fd61e70e865fc55bdd09136a0",
     "core/reactive/userSpace.luau": "dbf8b8245dab0579b8ba60bc2afcd1aded700fe8595bff9e49f5540d070d3dd2",
-    "core/reactive/watch.luau": "72fe08c5fe5e1233cfa7697596c82a03df3b74533079dd1bda9b4043f1efcc67",
+    "core/reactive/watch.luau": "96a956c29cc25f16c801b30bfe332276427d7be7ee9179c75f5fe14ba379290a",
     "core/resource-types.luau": "e50981fc665644e8e15033c632c4a129aa58037c3e798c20d37693ae29c1d414",
     "core/runtime/block.luau": "49b7eb8ede7332ef1df8f3cf1ff1fff1e5d5d07730119cafff1c96f2cdc72c91",
     "core/runtime/children.luau": "3a6d9c0c5fc86a8682192466f7ec95b7dec429818aa4114b4b4ce1095bca77bc",
@@ -121,9 +121,9 @@
   },
   "docs": {
     "SKILL.md": "a3277af0c096e2c640b1a0fb22c1739ffbf57603e81aab8ec9d7324d9f7ac590",
-    "references/api.md": "5529d43c9920c4a4c6d48b1625efb8ee27277ff81eccc14172134923f3c73262",
-    "references/consumer-guides.md": "5ec663f5ac68da629639d7f6ce9c902e57905fc4620c36e9ca29606825e0b4c3",
+    "references/api.md": "0b3cf5dae63016b7ecbf2daef87019fe1cbe20ecf270423ca7bb572af1cbecaf",
+    "references/consumer-guides.md": "edccc6b1cd6dc782581127804ed60ee9eb44991124be2c32e75f76e4f99432bb",
     "references/design.md": "d071e5bb4b1fc0b056c175cd6c38cd963a53594c700e833270345b32a6e2364c",
-    "references/ownership.md": "e77c079e269389a377305e1adad9989138c81d4a6b4c2855f9d269b472982a8b"
+    "references/ownership.md": "1014dd57f8872015721cb452c0267a9fb7b37da59f41a0fd7aa0360582a84dfd"
   }
 }

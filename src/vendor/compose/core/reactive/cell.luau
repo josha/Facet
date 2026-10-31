@@ -75,7 +75,7 @@ local function write(self: Node, incoming: unknown)
 			elseif state == CHECK and not consumer.retry then
 				consumer.state = DIRTY
 				return
-			elseif rawget((consumer :: unknown) :: { [string]: unknown }, "body") == nil and consumer.run ~= nil then
+			elseif consumer.body == nil and consumer.run ~= nil then
 				consumer.retry = false
 				consumer.state = DIRTY
 				local reactor = consumer.reactor
@@ -192,7 +192,7 @@ set = function(self: Node, incoming: unknown)
 			elseif state == CHECK and not consumer.retry then
 				consumer.state = DIRTY
 				return
-			elseif rawget((consumer :: unknown) :: { [string]: unknown }, "body") == nil and consumer.run ~= nil then
+			elseif consumer.body == nil and consumer.run ~= nil then
 				consumer.retry = false
 				consumer.state = DIRTY
 				local reactor = consumer.reactor

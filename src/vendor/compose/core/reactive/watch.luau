@@ -100,7 +100,7 @@ local function sweep(leader: Node, producer: Node, from: Node?)
 end
 
 function TERMINAL.run(leader: Node)
-	local producer = rawget((leader :: unknown) :: { [string]: unknown }, "source") :: Node?
+	local producer = leader.source
 	leader.source = nil
 	if not leader.released then
 		if leader.state == CHECK and not moved(leader) then
@@ -140,7 +140,7 @@ function TERMINAL.run(leader: Node)
 end
 
 function TERMINAL.runIn(frame: Evaluation.Evaluation, node: Node)
-	if rawget((node :: unknown) :: { [string]: unknown }, "source") ~= nil or node.state == CHECK then
+	if node.source ~= nil or node.state == CHECK then
 		TERMINAL.run(node)
 		return
 	end

@@ -134,8 +134,7 @@ local function runInRest(reactor: Reactor)
 			reactor.cursor = cursor
 			local node = queue[cursor]
 			node.queued = false
-			local runIn =
-				rawget((node :: unknown) :: { [string]: unknown }, "runIn") :: ((Evaluation.Evaluation, Node) -> ())?
+			local runIn = node.runIn
 			if runIn ~= nil then
 				runIn(frame, node)
 			else
@@ -181,9 +180,7 @@ local function drain(reactor: Reactor): { string }?
 	end
 	repeat
 		local first = reactor.queue[reactor.cursor + 1]
-		local run = if first ~= nil and rawget((first :: unknown) :: { [string]: unknown }, "runIn") ~= nil
-			then runInRest
-			else runRest
+		local run = if first ~= nil and first.runIn ~= nil then runInRest else runRest
 		if not xpcall(run, catch, reactor) then
 			Evaluation.leave(consumer, at)
 			fail(reactor, caught)
@@ -336,7 +333,7 @@ local function runNow(node: Node)
 	local producer = node[1]
 	local direct = listener ~= nil
 		and producer ~= nil
-		and rawget((producer :: unknown) :: { [string]: unknown }, "refresh") == nil
+		and producer.refresh == nil
 		and producer.first == node
 		and node[4] == nil
 		and not statsOn.enabled

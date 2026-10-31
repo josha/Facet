@@ -182,27 +182,24 @@ local function markStale(producer: Node, state: number)
 					Reactor.enqueue(edge)
 				end
 			else
-				local fields = (consumer :: unknown) :: { [string]: unknown }
 				local current = consumer.state or CLEAN
-				local retry = rawget(fields, "retry")
+				local retry = consumer.retry
 				if current < state or retry then
 					if retry then
 						consumer.retry = false
 					end
 					consumer.state = state
 					if current == CLEAN or retry then
-						local cutoff = rawget(fields, "cutoff")
-						local derived = cutoff == nil and rawget(fields, "body") ~= nil
-						local invalidate = if cutoff == nil and not derived then rawget(fields, "invalidate") else nil
+						local cutoff = consumer.cutoff
 						if cutoff ~= nil then
-							(cutoff :: (Node) -> ())(consumer)
-						elseif derived or (invalidate == nil and consumer.run == nil) then
+							cutoff(consumer)
+						elseif consumer.body ~= nil or (consumer.invalidate == nil and consumer.run == nil) then
 							if following == nil then
 								source = consumer
 							else
 								markStale(consumer, CHECK)
 							end
-						elseif invalidate ~= nil then
+						elseif consumer.invalidate ~= nil then
 							table.insert(invalidated, consumer)
 						elseif state == DIRTY and consumer.group then
 							local reactor = consumer.reactor
@@ -259,12 +256,8 @@ local function settleTouched()
 	end
 end
 
-local function refresherOf(node: Node): ((Node) -> ())?
-	return rawget((node :: unknown) :: { [string]: unknown }, "refresh") :: ((Node) -> ())?
-end
-
 local function refresh(producer: Node)
-	local update = refresherOf(producer)
+	local update = producer.refresh
 	if update then
 		update(producer)
 	end
@@ -314,7 +307,7 @@ local function use<T>(value: Types.ReadOnlyValue<T>): T
 	end
 	local at = consumer.reads
 	if consumer.released or at == nil then
-		local update = refresherOf(node)
+		local update = node.refresh
 		if update then
 			update(node)
 		end
@@ -334,7 +327,7 @@ local function use<T>(value: Types.ReadOnlyValue<T>): T
 			edge = attached
 		end
 	end
-	local update = refresherOf(node)
+	local update = node.refresh
 	if update ~= nil and (node.state ~= CLEAN or node.released) then
 		update(node)
 	end
@@ -350,7 +343,7 @@ local function dependenciesMoved(consumer: Node): boolean
 		if edge ~= nil then
 			local producer = edge[1]
 			if producer ~= nil then
-				local update = refresherOf(producer)
+				local update = producer.refresh
 				if update ~= nil and (producer.state ~= CLEAN or producer.released) then
 					update(producer)
 				end
@@ -407,9 +400,9 @@ local function evaluate<A, T>(consumer: Node, body: (A) -> T, argument: A): T
 end
 
 local function runEffect(consumer: Node)
-	local producer = rawget((consumer :: unknown) :: { [string]: unknown }, "coalesced")
+	local producer = consumer.coalesced
 	if type(producer) == "table" then
-		resumeSet((producer :: unknown) :: Node)
+		resumeSet(producer)
 	end
 	local frame, previousConsumer, previousOrder = Evaluation.enterFrame(consumer)
 	consumer.reads = 0
@@ -429,9 +422,9 @@ local function runEffect(consumer: Node)
 end
 
 local function runEffectIn(frame: Evaluation.Evaluation, consumer: Node)
-	local producer = rawget((consumer :: unknown) :: { [string]: unknown }, "coalesced")
+	local producer = consumer.coalesced
 	if type(producer) == "table" then
-		resumeSet((producer :: unknown) :: Node)
+		resumeSet(producer)
 	end
 	frame.consumer = consumer
 	consumer.reads = 0
@@ -563,7 +556,7 @@ function LISTENER.run(leader: Node)
 	if leader.coalesced then
 		resumeSet(producer)
 	end
-	local update = refresherOf(producer)
+	local update = producer.refresh
 	if update then
 		update(producer)
 	end
@@ -603,11 +596,11 @@ function CELL_LISTENER.run(leader: Node)
 end
 
 local function listenEdge(reactor: Types.Reactor, producer: Node, listener: (value: unknown) -> ()): Node
-	local update = refresherOf(producer)
+	local update = producer.refresh
 	if update then
 		update(producer)
 	end
-	local class = if update ~= nil and refresherOf(producer) ~= nil then LISTENER else CELL_LISTENER
+	local class = if update ~= nil and producer.refresh ~= nil then LISTENER else CELL_LISTENER
 	local edge: Node = {
 		producer,
 		nil,
@@ -640,11 +633,11 @@ local function unlisten(subject: unknown)
 end
 
 local function listen(reactor: Types.Reactor, producer: Node, listener: (value: unknown) -> ()): Dispose
-	local update = refresherOf(producer)
+	local update = producer.refresh
 	if update then
 		update(producer)
 	end
-	local class = if update ~= nil and refresherOf(producer) ~= nil then LISTENER else CELL_LISTENER
+	local class = if update ~= nil and producer.refresh ~= nil then LISTENER else CELL_LISTENER
 	local edge: Node = {
 		producer,
 		nil,
