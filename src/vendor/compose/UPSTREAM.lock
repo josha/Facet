@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "27471e08cd986812bec8153928576e2f2532a061",
+  "commit": "2d03ca1f097bc99efacefa5da74c51fea3ab78e7",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -57,7 +57,7 @@
     "core/runtime/block.luau": "49b7eb8ede7332ef1df8f3cf1ff1fff1e5d5d07730119cafff1c96f2cdc72c91",
     "core/runtime/children.luau": "3a6d9c0c5fc86a8682192466f7ec95b7dec429818aa4114b4b4ce1095bca77bc",
     "core/runtime/clock.luau": "26d75e0c9a87780717de0bc83936a09e5149a8ef5abae5b30052b073d17f825f",
-    "core/runtime/init.luau": "1b7de81222580d3f5993a396df188f7ee6883167f0fcae726c790f021ad875c9",
+    "core/runtime/init.luau": "9654d31e83e337997e4a7bad0e3bdac9e471af979de54d8a334e84e72d9be036",
     "core/runtime/keys.luau": "a6ee1ae6a600203cbe90650815cd45b43c876c11a136eb9c42b5e47e9bc77ac4",
     "core/runtime/observe.luau": "7d4fc8ab618bff83a4cfea5e95d373fd8e35f59ed3648f76898c153d95d0f3bd",
     "core/runtime/props.luau": "d2417faca8e9b4d1948eba0404e552b23416f1210ce15fb4dcb0134972beb7e6",
@@ -121,9 +121,9 @@
   },
   "docs": {
     "SKILL.md": "a3277af0c096e2c640b1a0fb22c1739ffbf57603e81aab8ec9d7324d9f7ac590",
-    "references/api.md": "7138a35ff81b6ce1d18c73fab9b07b29078e40cf94a6dd1a38b6982deea7f349",
-    "references/consumer-guides.md": "b02ff696ef503805a0eabe2c50b8ef37a8b51a49443c0fcbfa4296a69541ddab",
+    "references/api.md": "de67353c297baa46de294f267e12dd145142a88886c56c8ddb25f33764a78acf",
+    "references/consumer-guides.md": "8d77e577e25a7259272255131d2e48725fccb673a9df316f45e72d1858bb4a57",
     "references/design.md": "d071e5bb4b1fc0b056c175cd6c38cd963a53594c700e833270345b32a6e2364c",
-    "references/ownership.md": "ce3152cf6a05d8e69215145f561013e22d81b1f850fdcb008f6ce52559a220b7"
+    "references/ownership.md": "47169ea29bda3722b20c4936c8e051e28756c8dd2ced7fc29868acd95adc30a8"
   }
 }
