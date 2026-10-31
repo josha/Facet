@@ -1533,7 +1533,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(template.Size):toBe(w.engine.types.UDim2.new(1, 4, 1, 4))
 				distance:set("ten-foot")
 				Verify.expect(stroke.Thickness):toBe(4)
-				Verify.expect(halo.Thickness):toBe(2)
+				Verify.expect(halo.Thickness):toBe(4)
 				Verify.expect(template.Size):toBe(w.engine.types.UDim2.new(1, 14, 1, 14))
 				Verify.expect(template.Position):toBe(w.engine.types.UDim2.fromOffset(-7, -7))
 				stop()
@@ -1653,6 +1653,70 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(template:FindFirstChildWhichIsA("UIStroke").Thickness):toBe(3)
 				stop()
 				Verify.expect(E ~= nil):toBe(true)
+			end,
+		})
+
+		verifyHarness:case("rings a circle control as a circle under any recipe corner", {
+			id = "native_environment::focus ring: the engine draws the theme's focus look::rings a circle control as a circle under any recipe corner",
+			run = function()
+				local square = define({ kind = "ring" :: "ring", corner = "square" })
+				local w, template, stop = ring(square, { preferredInput = "Gamepad" })
+				local D, V2 = w.engine.types.UDim, w.engine.types.Vector2
+				local screen = w.engine.new("ScreenGui")
+				local fab = w.engine.new("TextButton")
+				fab:AddTag("facet-shape-circle")
+				local disc = w.engine.new("TextButton")
+				local own = w.engine.new("UICorner")
+				own.CornerRadius = D.new(0, 30)
+				own.Parent = disc
+				local plain = w.engine.new("TextButton")
+				for _, node in { fab, disc, plain } do
+					node.Parent = screen
+				end
+				w.engine.environment.poke(disc, "AbsoluteSize", V2.new(60, 60))
+				local corner = template:FindFirstChildWhichIsA("UICorner")
+				w.gui.SelectedObject = fab
+				Verify.expect(corner.CornerRadius):toBe(D.new(0.5, 0))
+				w.gui.SelectedObject = disc
+				Verify.expect(corner.CornerRadius):toBe(D.new(0.5, 0))
+				w.gui.SelectedObject = plain
+				Verify.expect(corner.CornerRadius):toBe(D.new(0, 0))
+				w.engine.environment.poke(disc, "AbsoluteSize", V2.new(120, 60))
+				w.gui.SelectedObject = disc
+				Verify.expect(corner.CornerRadius):toBe(D.new(0, 0))
+				stop()
+			end,
+		})
+
+		verifyHarness:case("reads the ten-foot ring weight, halo and pulse depth from theme tokens", {
+			id = "native_environment::focus ring: the engine draws the theme's focus look::reads the ten-foot ring weight, halo and pulse depth from theme tokens",
+			run = function()
+				local package, report = Facet.themes.define({
+					base = Facet.themes.neutralPackage(),
+					identity = { id = "focus-tokens" },
+					metrics = {
+						controls = {
+							focusRing = {
+								ringWeight = 3,
+								tenFootStrokeScale = 3,
+								tenFootHaloRatio = 0.5,
+								tenFootGap = 4,
+							},
+						},
+					},
+				})
+				assert(package, report and report.errors[1] and report.errors[1].message)
+				local distance = Compose.cell("near")
+				local w, template, stop = ring(package, { viewingDistance = distance, preferredInput = "Gamepad" })
+				local stroke = template:FindFirstChildWhichIsA("UIStroke")
+				local halo = template:FindFirstChild("Halo")
+				Verify.expect(stroke.Thickness):toBe(3)
+				Verify.expect(halo.Thickness):toBe(2)
+				distance:set("ten-foot")
+				Verify.expect(stroke.Thickness):toBe(9)
+				Verify.expect(halo.Thickness):toBe(5)
+				Verify.expect(template.Size):toBe(w.engine.types.UDim2.new(1, 30, 1, 30))
+				stop()
 			end,
 		})
 

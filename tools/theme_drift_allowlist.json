@@ -146,13 +146,6 @@
       "match": "local black, white = ctx.types.Color3.new(0, 0, 0), ctx.types.Color3.new(1, 1, 1)",
       "status": "structural",
       "reason": "The default focus halo is pure black or pure white, whichever contrasts more with the theme's ring colour, so the ring reads over any scene; the extremes are the point, not a palette role."
-    },
-    {
-      "path": "src/ui/environment.luau",
-      "rule": "stroke",
-      "match": "return math.max(1, math.round(thickness(use) / 2))",
-      "status": "structural",
-      "reason": "The focus halo is half the themed ring thickness with a 1 px floor, so it scales with the ring and its ten-foot size."
     }
   ]
 }

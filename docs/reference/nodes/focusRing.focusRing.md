@@ -18,8 +18,9 @@ before.
 The look takes the shape of the selected control: the control's own
 `UICorner` (a `corners = "pill"` Button, a Slider thumb), a pill for a Chip, a
 circle for a circle Button, and otherwise the theme's `radii.control`. A
-recipe with `corner = "square"` or `corner = "pill"` keeps that shape
-everywhere. The colour is the recipe `color`, or `accent`. A selected object
+recipe with `corner = "square"` or `corner = "pill"` keeps that shape on
+other controls. A circle Button, or a square control whose `UICorner` makes
+it round, always gets a circle look. The colour is the recipe `color`, or `accent`. A selected object
 with a number attribute `FacetFocusHeight` gets a look that many times its own
 height, measured down from its top edge (a Card uses this to ring the whole
 card from its body). A selected object with a string attribute

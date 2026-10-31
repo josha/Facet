@@ -94,11 +94,15 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local function shown(use: ComposeTypes.Use): boolean
 			return use(cursor) ~= true and (use(keyed) or use(env.effectiveInput) == "Gamepad")
 		end
-		local function scaled(use: ComposeTypes.Use, value: number, factor: number): number
-			return if far(use) then math.round(value * factor) else value
+		local function token(use: ComposeTypes.Use, name: string): number
+			return ctx.metric("controls.focusRing." .. name, use)
+		end
+		local function scaled(use: ComposeTypes.Use, value: number, factor: string): number
+			return if far(use) then math.round(value * token(use, factor)) else value
 		end
 		local pulse = Compose.cell(0)
-		local function fade(use: ComposeTypes.Use, depth: number): number
+		local function fade(use: ComposeTypes.Use): number
+			local depth = token(use, if far(use) then "tenFootPulseFraction" else "pulseFraction")
 			return if shown(use) then use(pulse) * depth else 1
 		end
 		local corner = Host.UICorner({})
@@ -119,6 +123,19 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				at = if at == nil then nil elseif name == ".." then at.Parent else at:FindFirstChild(name)
 			end
 			return if at and at:IsA("GuiObject") then at else nil
+		end
+		local function circular(node: GuiObject): boolean
+			if node:HasTag("facet-shape-circle") then
+				return true
+			end
+			local own = node:FindFirstChildWhichIsA("UICorner")
+			local size = node.AbsoluteSize
+			local side = math.min(size.X, size.Y)
+			if own == nil or side <= 0 or math.abs(size.X - size.Y) > 1 then
+				return false
+			end
+			local radius = own.CornerRadius
+			return radius.Scale >= 0.5 or radius.Offset * 2 >= side
 		end
 		local partRevision = Compose.cell(0)
 		local function partShare(target: Instance?): (Vector2?, Vector2?)
@@ -208,7 +225,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			return (current.assets or {})[focus.asset]
 		end
 		local function outset(use: ComposeTypes.Use): number
-			return scaled(use, layer(use).outset or 0, 1.5)
+			return scaled(use, layer(use).outset or 0, "tenFootOutsetScale")
 		end
 		local function stroked(use: ComposeTypes.Use): boolean
 			local kind = layer(use).kind
@@ -217,12 +234,12 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local function thickness(use: ComposeTypes.Use): number
 			local focus = layer(use)
 			if focus.kind == "brackets" then
-				return scaled(use, focus.thickness or 4, 1.5)
+				return scaled(use, focus.thickness or token(use, "bracketWeight"), "tenFootBracketScale")
 			end
-			return scaled(use, focus.thickness or 2, 2)
+			return scaled(use, focus.thickness or token(use, "ringWeight"), "tenFootStrokeScale")
 		end
 		local lift = function(use: ComposeTypes.Use): number
-			return (if far(use) then 3 else 0)
+			return (if far(use) then token(use, "tenFootGap") else 0)
 				+ (if stroked(use) then thickness(use) else 0)
 				+ (if layer(use).kind == "ring" then 0 else outset(use))
 		end
@@ -234,11 +251,15 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end,
 			BlurRadius = function(use: ComposeTypes.Use): UDim
 				local blur = layer(use).blurRadius
-				return D.new(0, math.round(scaled(use, (if blur then blur.offset else nil) or 24, 1.6)))
+				local radius = if blur and blur.offset
+					then scaled(use, blur.offset, "tenFootBlurScale")
+					else token(use, "blur")
+				return D.new(0, math.round(radius))
 			end,
 			Transparency = function(use: ComposeTypes.Use): number
-				local value = layer(use).transparency or 0.25
-				return math.clamp((if far(use) then value * 0.55 else value) + use(pulse) * 0.2, 0, 1)
+				local value = layer(use).transparency or 1 - token(use, "glowOpacity")
+				local level = if far(use) then value * token(use, "tenFootGlowScale") else value
+				return math.clamp(level + use(pulse) * token(use, "glowPulseFraction"), 0, 1)
 			end,
 			ZIndex = function(use: ComposeTypes.Use): number
 				return layer(use).zIndex or -1
@@ -270,7 +291,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				return D2.fromOffset(-grow, -grow)
 			end,
 			ImageTransparency = function(use: ComposeTypes.Use): number
-				return if art(use) then fade(use, 0.35) else 1
+				return if art(use) then fade(use) else 1
 			end,
 			Image = function(use: ComposeTypes.Use): string
 				local asset = art(use)
@@ -286,18 +307,23 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			SliceScale = function(use: ComposeTypes.Use): number
 				local asset = art(use)
 				local base = layer(use).sliceScale or (if asset then asset.sliceScale else nil) or 1
-				return if far(use) then base * 1.5 else base
+				return if far(use) then base * token(use, "tenFootSliceScale") else base
 			end,
 			Host.UICorner({
 				CornerRadius = function(use: ComposeTypes.Use): UDim
 					local shape = layer(use).corner
-					if shape == "square" or art(use) then
+					if art(use) then
+						return D.new(0, 0)
+					end
+					use(reshaped)
+					local target: GuiObject? = use(selected)
+					if target and circular(partOf(target) or target) then
+						return D.new(0.5, 0)
+					elseif shape == "square" then
 						return D.new(0, 0)
 					elseif shape == "pill" then
 						return D.new(0.5, 0)
 					end
-					use(reshaped)
-					local target: GuiObject? = use(selected)
 					local radius = use(themeRadius)
 					if target then
 						local own = (partOf(target) or target):FindFirstChildWhichIsA("UICorner")
@@ -319,7 +345,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				Enabled = stroked,
 				Thickness = thickness,
 				Transparency = function(use: ComposeTypes.Use): number
-					return fade(use, 0.35)
+					return fade(use)
 				end,
 				Host.UIGradient({
 					Name = "Brackets",
@@ -332,7 +358,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 						local target: GuiObject? = use(selected)
 						local shape = partOf(target) or target
 						local width = (if shape then shape.AbsoluteSize.X else 0) + 2 * lift(use)
-						local arm = scaled(use, if type(focus.size) == "number" then focus.size else 12, 1.5)
+						local arm = if type(focus.size) == "number"
+							then scaled(use, focus.size, "tenFootBracketScale")
+							else token(use, "bracketArm")
 						local reach = if width > 0 then math.clamp(arm / width, 0.02, 0.45) else 0.2
 						local K = ctx.types.NumberSequenceKeypoint
 						return ctx.types.NumberSequence.new({
@@ -367,10 +395,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					return layer(use).kind == "ring" and layer(use).halo ~= false
 				end,
 				Thickness = function(use: ComposeTypes.Use): number
-					return math.max(1, math.round(thickness(use) / 2))
+					local ratio = token(use, if far(use) then "tenFootHaloRatio" else "haloRatio")
+					return math.max(1, math.round(thickness(use) * ratio))
 				end,
 				Transparency = function(use: ComposeTypes.Use): number
-					return fade(use, 0.35)
+					return fade(use)
 				end,
 			}),
 			Host.UIShadow((function()
