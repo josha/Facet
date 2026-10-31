@@ -6082,6 +6082,60 @@ return function(verifyHarness: Verify.Harness)
 			end
 		end)
 
+		verifyHarness:case("shows the incoming tab when its collection rows have no area to paint", function(t)
+			local selection = Compose.cell("one")
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				return UI.TabView {
+					selection = selection,
+					placement = "none",
+					retention = "top",
+					tabs = {
+						{
+							id = "one",
+							content = function()
+								return Host.Frame "OneBody" {}
+							end,
+						} :: FixtureNavigationTypes.Tab,
+						{
+							id = "two",
+							content = function()
+								return Host.Frame "TwoBody" {
+									Host.CanvasGroup "EmptyRow" {
+										Attributes = {
+											FacetCollectionRow = true,
+											FacetCollectionReady = false,
+										} :: Shared.Attributes,
+										GroupTransparency = 1,
+									},
+								}
+							end,
+						} :: FixtureNavigationTypes.Tab,
+					},
+				}
+			end, { preRender = true })
+			t:defer(world.stop)
+			local function step()
+				for _, node in world.screen:GetDescendants() do
+					if node:IsA("GuiObject") and node.Name ~= "EmptyRow" then
+						world.engine.environment.poke(node, "AbsoluteSize", world.engine.types.Vector2.new(400, 240))
+					end
+					if node:IsA("TextLabel") or node:IsA("TextButton") then
+						world.engine.environment.poke(node, "TextBounds", world.engine.types.Vector2.new(40, 20))
+					end
+				end
+				world.engine.heartbeat:Fire(1 / 60)
+			end
+			for _ = 1, 30 do
+				step()
+			end
+			selection:set("two")
+			for _ = 1, 60 do
+				step()
+			end
+			t:expect(find(world.screen, "OneBody")):toBe(nil)
+			t:expect(fadeKit.of(fadeKit.layer(find(world.screen, "TwoBody")))):toBe(0)
+		end)
+
 		verifyHarness:case("crossfades tab pages without blocking the incoming page and shows the first page at once", {
 			id = "native_navigation::native navigation controls::crossfades tab pages without blocking the incoming page and shows the first page at once",
 			run = function()
