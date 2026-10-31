@@ -1576,13 +1576,16 @@ return function(verifyHarness: Verify.Harness)
 			t:expect(brackets:FindFirstChild("Halo").Enabled):toBe(false)
 		end)
 
-		verifyHarness:case("paints focus glow outside the selected control instead of over its glyphs", {
-			id = "native_environment::focus ring: the engine draws the theme's focus look::paints focus glow outside the selected control instead of over its glyphs",
+		verifyHarness:case("keeps focus glow inside the border of a control at a clipped viewport edge", {
+			id = "native_environment::focus ring: the engine draws the theme's focus look::keeps focus glow inside the border of a control at a clipped viewport edge",
 			run = function()
 				local glowing = define({ kind = "glow" :: "glow", blurRadius = { offset = 26 }, transparency = 0.25 })
 				local w, template, stop = ring(glowing, { preferredInput = "Gamepad" })
+				local viewport = w.engine.new("ScrollingFrame")
+				viewport.ClipsDescendants = true
+				viewport.Parent = w.engine.new("ScreenGui")
 				local target = w.engine.new("TextButton")
-				target.Parent = w.engine.new("ScreenGui")
+				target.Parent = viewport
 				w.gui.SelectedObject = target
 				Verify.expect(template:FindFirstChild("Glow").Enabled):toBe(false)
 				local shadow = target:FindFirstChild("FacetFocusGlow")
@@ -1590,7 +1593,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(shadow.Enabled):toBe(true)
 				Verify.expect(shadow:IsA("UIStroke")):toBe(true)
 				Verify.expect(shadow.ApplyStrokeMode):toBe(w.engine.types.Enum.ApplyStrokeMode.Border)
-				Verify.expect(shadow.BorderStrokePosition):toBe(w.engine.types.Enum.BorderStrokePosition.Outer)
+				Verify.expect(shadow.BorderStrokePosition):toBe(w.engine.types.Enum.BorderStrokePosition.Inner)
 				Verify.expect(shadow.Thickness):toBe(2)
 				w.gui.SelectedObject = nil
 				Verify.expect(target:FindFirstChild("FacetFocusGlow")):toBeNil()

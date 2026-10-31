@@ -399,7 +399,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 							return Host.UIStroke {
 								Name = "FacetFocusGlow",
 								ApplyStrokeMode = E.ApplyStrokeMode.Border,
-								BorderStrokePosition = E.BorderStrokePosition.Outer,
+								BorderStrokePosition = E.BorderStrokePosition.Inner,
 								Color = color,
 								Enabled = glowProperties.Enabled,
 								Transparency = glowProperties.Transparency,
