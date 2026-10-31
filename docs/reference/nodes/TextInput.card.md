@@ -12,6 +12,10 @@ UI.TextInput "TextInput" { value = Facet.Compose.cell(""), placeholder = "Filter
 
 Key options: `value`, `placeholder`, `onCommit`, `presentation`.
 
+Omit `Size` for a full-width field with its default height. A plain TextInput
+honors an explicit native `Size`: `UDim2.new(1, 0, 0, 0)` makes it zero pixels
+tall. Use a positive height when you need a fixed-size field.
+
 `presentation = "search"` adds the search glyph and an in-field Clear (×)
 that empties only the text. Do not add a separate Clear button. Offer Clear
 search or Reset filters in the no-matches state instead.

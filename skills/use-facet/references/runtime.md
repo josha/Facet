@@ -61,6 +61,7 @@ the type at that boundary; do not cast the whole spec.
 | --- | --- |
 | Bounded paragraph | Parent width; `UI.Text { wrap = true }` |
 | Full-width button | Parent VStack `align = "stretch"`, or `Size = UDim2.new(1, 0, 0, 0)` |
+| Full-width text input | Omit `Size`; TextInput fills its parent width and supplies its own height |
 | Equal peer buttons in a row | `UI.fill()` inside each Button; `HStack { width = "fill", wrap = true }` so a narrow row moves a button down instead of clipping its label |
 | Label and trailing value | `UI.Spacer {}` between them in a bounded HStack |
 | Wrapped text beside a badge or value | `UI.fill()` inside the wrapped Text; a Spacer cannot shrink a wrapped Text, which spans the row |
@@ -72,6 +73,14 @@ Stacks hug by default. `width`, `height`, `gap`, `padding` and `maxWidth` are
 container options; Button, Text and TextInput take native `Size`. Bound the
 space before you use fill. Spacing steps are `xs`, `s`, `m`, `l` and `xl`. Do
 not repair overflow by shrinking all text.
+
+A plain TextInput honors an explicit native `Size`. A zero Y scale and offset
+give it zero height; the auto-sized Button example does not apply to it. Omit
+`Size` for the normal field, or supply a positive height for a fixed-size field.
+After changing field sizing, click or tap the field and type into it. A direct
+`CaptureFocus()` call is useful for diagnosis, but does not test whether the
+user can reach the field. If pointer input fails, inspect the field's bounds,
+clipping and overlays before testing its submission logic.
 
 ## Input
 
