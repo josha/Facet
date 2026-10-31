@@ -1,8 +1,14 @@
 # ZoomView.onStart
 
 Pinch zooms around the contact centre. Wheel pans; Ctrl-wheel zooms around the
-pointer. Select the view itself for keyboard and gamepad input: Plus and Minus
-or the bumpers zoom, WASD or the right stick pan, and Home or Y fits. The
+pointer. An empty view is a selection stop: Plus and Minus or the bumpers zoom,
+WASD or the right stick pan, and Home or Y fits. A view that holds a visible
+selectable control is not a stop. Selection that enters it goes to the control
+nearest to the entry edge, or to the descendant that the view's `FacetEntry`
+attribute names. While a control in the view has the selection, Plus and Minus
+or the bumpers zoom and the right stick pans. At the edge of the view, each
+direction goes to the nearest control outside the view in that direction. An
+authored `NextSelection` link on the control is kept. The
 engine uses the right trigger to start a drag detector, so the triggers do not
 zoom. The arrow keys and D-pad keep native selection. Child controls keep
 activation.

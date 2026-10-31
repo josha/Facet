@@ -888,6 +888,65 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			local input = config.userInputService
 			local before: GuiObject? = nil
 			local layer: LayerCollector? = nil
+			local wanted = Compose.cell(false)
+			if type(appear) == "string" then
+				local hold = ctx.holdSelection(group)
+				local revision = Compose.cell(0)
+				runtime.connect(group, "DescendantAdded", function()
+					revision:set(revision:peek() + 1)
+				end)
+				local function find(name: string): GuiObject?
+					local at: Instance? = group
+					for part in string.gmatch(name, "[^/]+") do
+						at = if at then at:FindFirstChild(part, true) else nil
+					end
+					return if at and at:IsA("GuiObject") then at else nil
+				end
+				local function showing(node: Instance): boolean
+					local at: Instance? = node
+					while at do
+						if at:IsA("GuiObject") and (not at.Visible or not at.Interactable) then
+							return false
+						elseif at:IsA("LayerCollector") then
+							return at.Enabled
+						end
+						at = at.Parent
+					end
+					return false
+				end
+				Compose.watch(function(use: ComposeTypes.Use)
+					if not use(wanted) then
+						hold(false)
+						return
+					end
+					hold(true)
+					use(revision)
+					local target = find(appear)
+					local current: GuiObject? = use(selected)
+					if current ~= nil and current ~= target and current ~= before and showing(current) then
+						wanted:set(false)
+						return
+					end
+					if target == nil then
+						return
+					end
+					use(ctx.observe.Parent(target))
+					local ready = use(runtime.observe(target, "Selectable")) == true
+					local at: Instance? = target
+					while at do
+						if at:IsA("GuiObject") then
+							ready = use(ctx.observe.Visible(at)) and use(ctx.observe.Interactable(at)) and ready
+						elseif at:IsA("LayerCollector") then
+							ready = use(ctx.observe.Enabled(at)) and ready
+							break
+						end
+						at = at.Parent
+					end
+					if ready and at ~= nil and current ~= target then
+						gui.SelectedObject = target
+					end
+				end)
+			end
 			local function claim()
 				local at = group:FindFirstAncestorWhichIsA("LayerCollector")
 				if layer or at == nil then
@@ -899,11 +958,15 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				if not navigating or not appear then
 					return
 				end
-				local target = if type(appear) == "string" then named(appear) else first()
+				if type(appear) == "string" then
+					wanted:set(true)
+					return
+				end
+				local target = first()
 				local placed = pcall(function()
 					if target then
 						gui.SelectedObject = target
-					elseif appear == true then
+					else
 						gui:Select(group)
 					end
 				end)

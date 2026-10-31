@@ -12,6 +12,8 @@ export type Selection = {
 	track: (Instance) -> (),
 	responder: (Instance, Env.ResponderOptions?) -> Env.Responder,
 	spaceActivates: (Instance) -> (ComposeTypes.Use) -> boolean,
+	hold: (GuiObject) -> (boolean) -> (),
+	exits: (GuiObject) -> (),
 }
 
 local RESPONDER_KEYS =
@@ -32,6 +34,7 @@ return function(ctx: Shared.Context): Selection
 		setmetatable({} :: { [Instance]: boolean }, { __mode = "k" }) :: unknown
 	) :: { [Instance]: boolean }
 	local directionKeys = { E.KeyCode.DPadUp, E.KeyCode.DPadDown, E.KeyCode.DPadLeft, E.KeyCode.DPadRight }
+	local holds: { [GuiObject]: boolean } = {}
 
 	local function ordered(parent: Instance): { Instance }
 		local children = parent:GetChildren()
@@ -202,6 +205,95 @@ return function(ctx: Shared.Context): Selection
 		return if index then pool[index] else nil
 	end
 
+	local function nearest(
+		from: ComposeTypes.FocusRect,
+		pool: { GuiObject },
+		direction: ComposeTypes.FocusDirection
+	): GuiObject?
+		local vertical = direction == "up" or direction == "down"
+		local forward = direction == "down" or direction == "right"
+		local reach = (if vertical then from.height else from.width) / 2
+		local rects: { ComposeTypes.FocusRect } = {}
+		local gaps: { number } = {}
+		local closest, depth = math.huge, 0
+		for index, candidate in pool do
+			local rect = rectOf(candidate)
+			local gap = if vertical
+				then (if forward then rect.y - from.y - from.height else from.y - rect.y - rect.height)
+				else (if forward then rect.x - from.x - from.width else from.x - rect.x - rect.width)
+			rects[index], gaps[index] = rect, gap
+			if gap > -reach and gap < closest then
+				closest, depth = gap, if vertical then rect.height else rect.width
+			end
+		end
+		if closest == math.huge then
+			return nil
+		end
+		local band: { GuiObject } = {}
+		local bandRects: { ComposeTypes.FocusRect } = {}
+		for index, candidate in pool do
+			if gaps[index] > -reach and gaps[index] < closest + math.max(depth, 1) then
+				table.insert(band, candidate)
+				table.insert(bandRects, rects[index])
+			end
+		end
+		local index = Compose.focusNeighbor(from, bandRects, direction)
+		return if index then band[index] else band[1]
+	end
+
+	local EXITS: { { direction: ComposeTypes.FocusDirection, property: string } } = {
+		{ direction = "up", property = "NextSelectionUp" },
+		{ direction = "down", property = "NextSelectionDown" },
+		{ direction = "left", property = "NextSelectionLeft" },
+		{ direction = "right", property = "NextSelectionRight" },
+	}
+
+	local function exits(container: GuiObject): ()
+		if gui == nil or not gui.GetPropertyChangedSignal then
+			return
+		end
+		local selected = ctx.observe.SelectedObject(gui)
+		local canvas = runtime.observe(container, "CanvasPosition")
+		Compose.watch(function(use: ComposeTypes.Use)
+			local node = use(selected)
+			if node == nil or node == container or not node:IsDescendantOf(container) then
+				return
+			end
+			use(canvas)
+			use(ctx.observe.AbsolutePosition(node))
+			local inner: { ComposeTypes.FocusRect } = {}
+			local outer: { GuiObject } = {}
+			for _, candidate in scopeOf(node) do
+				if candidate ~= node and candidate ~= container and not candidate:IsA("ScrollingFrame") then
+					if candidate:IsDescendantOf(container) then
+						table.insert(inner, rectOf(candidate))
+					else
+						table.insert(outer, candidate)
+					end
+				end
+			end
+			local from = rectOf(node)
+			local links = (node :: unknown) :: { [string]: GuiObject? }
+			local placed: { [string]: GuiObject } = {}
+			for _, exit in EXITS do
+				if links[exit.property] == nil and Compose.focusNeighbor(from, inner, exit.direction) == nil then
+					local target = nearest(from, outer, exit.direction)
+					if target then
+						links[exit.property] = target
+						placed[exit.property] = target
+					end
+				end
+			end
+			Compose.cleanup(function()
+				for property, target in placed do
+					if links[property] == target then
+						links[property] = nil
+					end
+				end
+			end)
+		end)
+	end
+
 	local function entryOf(container: GuiObject, from: GuiObject?): GuiObject?
 		local list = candidates(container)
 		if list[1] == container then
@@ -238,7 +330,11 @@ return function(ctx: Shared.Context): Selection
 				local across = if vertical
 					then math.abs(at.X + extent.X / 2 - source.X)
 					else math.abs(at.Y + extent.Y / 2 - source.Y)
-				local score = math.max(edge, 0) * 100000 + across
+				local clipped = at.X + extent.X <= box.X
+					or at.X >= box.X + window.X
+					or at.Y + extent.Y <= box.Y
+					or at.Y >= box.Y + window.Y
+				local score = (if clipped then 1e12 else 0) + math.max(edge, 0) * 100000 + across
 				if score < best then
 					best, target = score, candidate
 				end
@@ -461,6 +557,11 @@ return function(ctx: Shared.Context): Selection
 			end
 			if shown(previous.node) and previous.node.Selectable then
 				return
+			end
+			for section in holds do
+				if shown(section) then
+					return
+				end
 			end
 			local target = survivor(previous)
 			if target then
@@ -828,9 +929,24 @@ return function(ctx: Shared.Context): Selection
 		end
 	end
 
+	local function hold(section: GuiObject): (boolean) -> ()
+		Compose.cleanup(function()
+			holds[section] = nil
+		end)
+		return function(active: boolean)
+			if active then
+				holds[section] = true
+			else
+				holds[section] = nil
+			end
+		end
+	end
+
 	return {
 		track = track,
 		responder = responder,
 		spaceActivates = spaceActivates,
+		hold = hold,
+		exits = exits,
 	}
 end

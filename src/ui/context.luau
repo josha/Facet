@@ -57,6 +57,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	installActions(ctx, config)
 	local selected = selection(ctx)
 	ctx.responder, ctx.spaceActivates = selected.responder, selected.spaceActivates
+	ctx.holdSelection, ctx.selectionExits = selected.hold, selected.exits
 	track(selected.track)
 	return ctx
 end

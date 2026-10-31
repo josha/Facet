@@ -99,8 +99,56 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			return ctx.read(spec.enabled, use) ~= false and ctx.read(spec.ScrollingEnabled, use) ~= false
 		end
 		props[#props + 1] = canvas
+		local holding = Compose.cell(false)
+		local selected: Shared.ReadOnlyValue<GuiObject?> = if gui
+			then ctx.observe.SelectedObject(gui)
+			else Compose.cell(nil :: GuiObject?)
+		local built = false
+		local function within(node: Instance?): boolean
+			return built and node ~= nil and (node == root or node:IsDescendantOf(root))
+		end
+		if spec.Selectable == nil then
+			props.Selectable = function(use: Shared.Use): boolean
+				local current = use(selected)
+				return not use(holding) or current == root or not within(current)
+			end
+		end
 		root = Host.ScrollingFrame(props)
-		root:SetAttribute("FacetSelectionOwner", true)
+		built = true
+		if spec.Selectable == nil then
+			local later = runtime.scheduler()
+			local pending = false
+			local function holds(node: Instance): boolean
+				for _, child in node:GetChildren() do
+					if child:IsA("GuiObject") then
+						if child.Visible and (child.Selectable or holds(child)) then
+							return true
+						end
+					elseif holds(child) then
+						return true
+					end
+				end
+				return false
+			end
+			local function refresh(): ()
+				pending = false
+				local held = holds(root)
+				root:SetAttribute("FacetSelectionOwner", not held)
+				holding:set(held)
+			end
+			local function queue(): ()
+				if not pending then
+					pending = true
+					later.after(0, refresh)
+				end
+			end
+			runtime.connect(root, "DescendantAdded", queue)
+			runtime.connect(root, "DescendantRemoving", queue)
+			refresh()
+		else
+			root:SetAttribute("FacetSelectionOwner", true)
+		end
+		ctx.selectionExits(root)
 		local unit = ctx.layoutUnit(root)
 		local function window(): Vector2
 			return root.AbsoluteWindowSize / math.max(unit:peek(), 0.001)
@@ -783,11 +831,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		Compose.cleanup(function()
 			arbiter.cancelOwner(root)
 		end)
-		local selected: Shared.ReadOnlyValue<GuiObject?> = if gui
-			then ctx.observe.SelectedObject(gui)
-			else Compose.cell(nil :: GuiObject?)
 		local function active(use: Shared.Use): boolean
 			return use(selected) == root and ctx.read(spec.enabled, use) ~= false and not blocked()
+		end
+		local function reached(use: Shared.Use): boolean
+			return within(use(selected)) and ctx.read(spec.enabled, use) ~= false and not blocked()
 		end
 		runtime.connect(root, "SelectionGained", function() end)
 		for _, entry in
@@ -796,7 +844,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				{ name = "ZoomOut", key = E.KeyCode.Minus, pad = E.KeyCode.ButtonL1, direction = -1 },
 			}
 		do
-			ctx.action(root, entry.name, { entry.key, entry.pad }, active, function()
+			ctx.action(root, entry.name, { entry.key, entry.pad }, reached, function()
 				step(entry.direction)
 			end, { sink = true, priority = 250 })
 		end
@@ -815,7 +863,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				pan(V2.new(entry.x, entry.y) * ctx.metric("controls.zoom.panStep"))
 			end, { sink = true, priority = 250 })
 		end
-		ctx.action(root, "ZoomPan", { E.KeyCode.Thumbstick2 }, active, function() end, {
+		ctx.action(root, "ZoomPan", { E.KeyCode.Thumbstick2 }, reached, function() end, {
 			sink = true,
 			priority = 250,
 			direction2D = function(value: Vector2)

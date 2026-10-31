@@ -8,6 +8,10 @@ draggable-and-dropTarget.focusOnAppear option values and behavior.
   happens only while the player navigates by selection: something is
   selected, or the preferred input is a gamepad. A pointer or touch player
   gets no selection.
+- A named target keeps its claim while it is hidden or not interactable, for
+  example during an entrance animation. The selection does not go to another
+  control of the screen. When the target shows, it gets the selection. The
+  claim ends when the player selects another visible control.
 - `returnFocus = true` remembers what was selected before the claim. When the
   owner ends and the selection is inside `group` or gone, the selection
   returns there. When that item has left the screen, the first selectable item

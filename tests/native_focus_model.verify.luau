@@ -9,6 +9,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local Facet = require("../src") :: any
 	local engineLib = require("./lib/native_engine")
+	local Vector2 = engineLib.types.Vector2
 	local Compose: ComposeModule = Facet.Compose
 
 	local function setup(build: (any, any) -> any, options: { [string]: any }?): any
@@ -782,6 +783,204 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((w.activateKeys())):toEqual({ "Return", "Space" })
 					w.stop()
 				end
+			end,
+		})
+	end)
+
+	verifyHarness:suite("focusSection focusOnAppear keeps its claim while the target is hidden", function()
+		local function match(rackShown: typeof(Compose.cell(true)))
+			local open = Compose.cell(false)
+			local w = setup(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame "Page" {
+					Compose.show(
+						Compose.formula(function(use): boolean
+							return not use(open)
+						end),
+						function()
+							return UI.Button "NewGame" { label = "New game" }
+						end
+					) :: unknown,
+					Compose.show(open, function()
+						local root = Host.Frame "Match" {
+							UI.Button "AppMenu" { label = "Menu" } :: unknown,
+							Host.Frame "Rack" {
+								Visible = rackShown,
+								UI.Button "RowHit" { label = "Tile" } :: unknown,
+							},
+						}
+						UI.focusSection(root, {
+							entry = "nearest",
+							preferred = "Rack/RowHit",
+							focusOnAppear = "Rack/RowHit",
+							returnFocus = true,
+						})
+						return root
+					end),
+				}
+			end)
+			w.gui.Select = function() end
+			w.gui.SelectedObject = w.find("NewGame")
+			return w, open
+		end
+		verifyHarness:case("an entrance that hides the target does not send the selection to the header", {
+			id = "native_focus_model::focusSection focusOnAppear keeps its claim while the target is hidden::an entrance that hides the target does not send the selection to the header",
+			run = function()
+				local rackShown = Compose.cell(true)
+				local w, open = match(rackShown)
+				open:set(true)
+				Verify.expect((w.selected())):toBe("RowHit")
+				rackShown:set(false)
+				Verify.expect((w.selected())).never:toBe("AppMenu")
+				rackShown:set(true)
+				Verify.expect((w.selected())):toBe("RowHit")
+				w.stop()
+			end,
+		})
+		verifyHarness:case("a target that appears hidden gets the selection when it shows", {
+			id = "native_focus_model::focusSection focusOnAppear keeps its claim while the target is hidden::a target that appears hidden gets the selection when it shows",
+			run = function()
+				local rackShown = Compose.cell(false)
+				local w, open = match(rackShown)
+				open:set(true)
+				Verify.expect((w.selected())).never:toBe("AppMenu")
+				rackShown:set(true)
+				Verify.expect((w.selected())):toBe("RowHit")
+				w.stop()
+			end,
+		})
+		verifyHarness:case("a player who moves before the target shows keeps the move", {
+			id = "native_focus_model::focusSection focusOnAppear keeps its claim while the target is hidden::a player who moves before the target shows keeps the move",
+			run = function()
+				local rackShown = Compose.cell(false)
+				local w, open = match(rackShown)
+				open:set(true)
+				w.gui.SelectedObject = w.find("AppMenu")
+				rackShown:set(true)
+				Verify.expect((w.selected())):toBe("AppMenu")
+				rackShown:set(false)
+				rackShown:set(true)
+				Verify.expect((w.selected())):toBe("AppMenu")
+				w.stop()
+			end,
+		})
+	end)
+
+	verifyHarness:suite("ZoomView selection entry and exit", function()
+		local function board(attributes: { [string]: string }?)
+			local w = setup(function(UI: FacetControls, Host: RobloxHost)
+				local cells: { TextButton } = {}
+				for row = 1, 2 do
+					for column = 1, 3 do
+						table.insert(cells, Host.TextButton { Name = `Cell{row}{column}`, Selectable = true })
+					end
+				end
+				return Host.Frame "Match" {
+					UI.ZoomView "Board" {
+						contentSize = Vector2.new(300, 200),
+						Attributes = attributes,
+						content = function(): GuiObject
+							return Host.Frame "Cells" { table.unpack(cells) }
+						end,
+					} :: unknown,
+					Host.TextButton { Name = "RackTile", Selectable = true },
+					Host.TextButton { Name = "Commands", Selectable = true },
+				}
+			end)
+			local V2 = w.engine.types.Vector2
+			local function place(name: string, x: number, y: number, width: number, height: number)
+				local node = w.find(name)
+				w.engine.environment.poke(node, "AbsolutePosition", V2.new(x, y))
+				w.engine.environment.poke(node, "AbsoluteSize", V2.new(width, height))
+			end
+			place("Board", 0, 0, 300, 200)
+			w.engine.environment.poke(w.find("Board"), "AbsoluteWindowSize", V2.new(300, 200))
+			for row = 1, 2 do
+				for column = 1, 3 do
+					place(`Cell{row}{column}`, (column - 1) * 100, (row - 1) * 100, 100, 100)
+				end
+			end
+			place("RackTile", 200, 230, 60, 60)
+			place("Commands", 0, 320, 300, 40)
+			return w
+		end
+		verifyHarness:case("a ZoomView that holds cells is not a stop: selecting it enters the nearest cell", {
+			id = "native_focus_model::ZoomView selection entry and exit::a ZoomView that holds cells is not a stop: selecting it enters the nearest cell",
+			run = function()
+				local w = board()
+				local view = w.find("Board")
+				Verify.expect((view:GetAttribute("FacetSelectionOwner"))):toBe(false)
+				w.gui.SelectedObject = w.find("RackTile")
+				Verify.expect(view.Selectable):toBe(true)
+				w.gui.SelectedObject = view
+				Verify.expect((w.selected())):toBe("Cell23")
+				Verify.expect(view.Selectable):toBe(false)
+				w.gui.SelectedObject = w.find("RackTile")
+				Verify.expect(view.Selectable):toBe(true)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("FacetEntry names the cell that a ZoomView entry lands on", {
+			id = "native_focus_model::ZoomView selection entry and exit::FacetEntry names the cell that a ZoomView entry lands on",
+			run = function()
+				local w = board({ FacetEntry = "Cell12" })
+				w.gui.SelectedObject = w.find("RackTile")
+				w.gui.SelectedObject = w.find("Board")
+				Verify.expect((w.selected())):toBe("Cell12")
+				w.stop()
+			end,
+		})
+		verifyHarness:case("an empty ZoomView stays a stop and owns its selection", {
+			id = "native_focus_model::ZoomView selection entry and exit::an empty ZoomView stays a stop and owns its selection",
+			run = function()
+				local w = setup(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame "Match" {
+						UI.ZoomView "Board" {
+							contentSize = Vector2.new(300, 200),
+							content = function(): GuiObject
+								return Host.Frame "Art" {}
+							end,
+						} :: unknown,
+						Host.TextButton { Name = "RackTile", Selectable = true },
+					}
+				end)
+				local view = w.find("Board")
+				Verify.expect((view:GetAttribute("FacetSelectionOwner"))):toBe(true)
+				w.gui.SelectedObject = view
+				Verify.expect((w.selected())):toBe("Board")
+				Verify.expect(view.Selectable):toBe(true)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("leaving a ZoomView links each edge cell to the nearest region in that direction", {
+			id = "native_focus_model::ZoomView selection entry and exit::leaving a ZoomView links each edge cell to the nearest region in that direction",
+			run = function()
+				local w = board()
+				local corner, top = w.find("Cell21"), w.find("Cell11")
+				w.gui.SelectedObject = corner
+				Verify.expect(corner.NextSelectionDown):toBe(w.find("RackTile"))
+				Verify.expect(corner.NextSelectionUp):toBe(nil)
+				Verify.expect(corner.NextSelectionLeft):toBe(nil)
+				w.gui.SelectedObject = top
+				Verify.expect(corner.NextSelectionDown):toBe(nil)
+				Verify.expect(top.NextSelectionDown):toBe(nil)
+				w.gui.SelectedObject = w.find("Cell22")
+				Verify.expect(w.find("Cell22").NextSelectionDown):toBe(w.find("RackTile"))
+				w.gui.SelectedObject = w.find("RackTile")
+				Verify.expect(w.find("Cell22").NextSelectionDown):toBe(nil)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("an authored link on a cell wins over the nearest region", {
+			id = "native_focus_model::ZoomView selection entry and exit::an authored link on a cell wins over the nearest region",
+			run = function()
+				local w = board()
+				local corner, commands = w.find("Cell21"), w.find("Commands")
+				corner.NextSelectionDown = commands
+				w.gui.SelectedObject = corner
+				Verify.expect(corner.NextSelectionDown):toBe(commands)
+				w.gui.SelectedObject = w.find("RackTile")
+				Verify.expect(corner.NextSelectionDown):toBe(commands)
+				w.stop()
 			end,
 		})
 	end)
