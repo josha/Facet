@@ -485,6 +485,44 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
+		verifyHarness:case("paints a cached image with its prepared row without a second entrance", function(t)
+			local native = engineLib.new()
+			local runtime = Roblox.createRuntime(native)
+			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local image: ImageLabel? = nil
+			local provider = {
+				GetAssetFetchStatus = function(_self: unknown, _content: string): Enum.AssetFetchStatus
+					return native.types.Enum.AssetFetchStatus.Success
+				end,
+			}
+			local stop = runtime.mount(function()
+				local ctx = context(Compose, runtime, {
+					types = native.types,
+					motionLevel = "normal",
+					services = { ContentProvider = (provider :: unknown) :: ContentProvider },
+				})
+				local row = Host.CanvasGroup { GroupTransparency = 1 }
+				row:SetAttribute("FacetCollectionRow", true)
+				local artwork = Host.ImageLabel { Image = "rbxassetid://10" }
+				image = artwork
+				native.environment.poke(
+					FixtureRoblox.assertInstance(artwork),
+					"AbsoluteSize",
+					native.types.Vector2.new(28, 28)
+				)
+				native.environment.poke(FixtureRoblox.assertInstance(artwork), "IsLoaded", false)
+				require("../src/ui/media_readiness")(ctx, artwork)
+				artwork.Parent = row
+				return row
+			end, native.new("ScreenGui"))
+			t:defer(function()
+				stop()
+				runtime:dispose()
+			end)
+			t:expect(assert(image):GetAttribute("FacetMediaReady")):toBe(true)
+			t:expect(assert(image).ImageTransparency):toBe(0)
+		end)
+
 		verifyHarness:case("reveals a fetched collection image when native IsLoaded stays false", function(t)
 			local prepare = require("../src/ui/media_readiness")
 			local environment = getfenv(prepare)

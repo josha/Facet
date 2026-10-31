@@ -1394,6 +1394,35 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
+			verifyHarness:case(
+				"reserves wrapped row height in a hugging parent and releases it after reflow",
+				function(t)
+					local root, engine, stop = build(nil, function(UI: FacetControls)
+						return UI.VStack "FilterArea" {
+							width = "fill",
+							UI.HStack "Filters" {
+								width = "fill",
+								wrap = true,
+								UI.TextInput { placeholder = "Filter files", value = Compose.cell("") },
+								UI.Button { label = "Clear filter" },
+							},
+							UI.Text { text = "18 of 27 items" },
+						}
+					end)
+					t:defer(stop)
+					local filters = root.Filters
+					local list = filters:FindFirstChildWhichIsA("UIListLayout")
+					for _, height in { 44, 96, 44 } do
+						engine.environment.poke(
+							VerifyRoblox.assertInstance(list),
+							"AbsoluteContentSize",
+							engine.types.Vector2.new(320, height)
+						)
+						t:expect(filters.Lift.MinSize.Y):toBe(height)
+					end
+				end
+			)
+
 			verifyHarness:case("lets a hugging fill stack take its size along a bounded parent row from the flex", {
 				id = "native_layout::VStack and HStack::lets a hugging fill stack take its size along a bounded parent row from the flex",
 				run = function()
