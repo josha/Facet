@@ -10,6 +10,7 @@ Start with the task you are doing. There is no required chapter sequence.
 | Share state and component ownership | [Components](components.md), [client and server](state.md) |
 | Style a game | [Styling](styling.md), [theme packages](themes.md), [skinning](skinning.md) |
 | Understand native input | [Input](input.md) |
+| Show a course map or radar in the HUD | [Minimaps](minimaps.md) |
 | Find a working example | [Examples](examples.md), [made with Facet](made-with-facet.md) |
 | Change Facet itself | [Architecture](architecture.md), [maintainers](../MAINTAINERS.md) |
 | Validate a change | [Verification scope](verification-scope.md), [devices](device-verification.md), [performance](performance.md) |

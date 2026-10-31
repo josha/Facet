@@ -301,7 +301,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	Button = {
 		family = "actions",
 		alias = "Button · IconButton · Link · ButtonGroup",
-		purpose = "Starts an action. Appearance sets emphasis; role carries meaning (destructive).",
+		purpose = "Starts an action; appearance sets emphasis, role carries meaning.",
 		alternatives = "Toggle for an on/off setting; Picker for choosing one value; Menu for many actions.",
 		scenarios = { "action_controls", "shortcut_hint" },
 		snippet = 'UI.Button { label = "Save", appearance = "emphasis" :: string, onActivate = save }',
@@ -463,7 +463,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		family = "actions",
 		matrix = false,
 		alias = "Menu · Dropdown menu",
-		purpose = "A list of actions opened from a trigger; icons, roles, sections, shortcuts, badges and submenus.",
+		purpose = "Actions from a trigger, with icons, roles, sections, shortcuts, badges and submenus.",
 		alternatives = "Picker (menu) to choose a value; RadialMenu for quick gamepad actions.",
 		scenarios = { "menu" },
 		snippet = 'UI.Menu { label = "More", items = { { id = "edit", label = "Edit", onSelect = edit } } }',
@@ -598,7 +598,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		family = "actions",
 		matrix = false,
 		alias = "(Facet-only)",
-		purpose = "A ring of quick actions for gamepad sticks and touch; opens from a launcher or a world anchor.",
+		purpose = "Quick actions for sticks and touch, opened from a launcher or world anchor.",
 		alternatives = "Menu for long or text-heavy lists.",
 		scenarios = { "radial_menu" },
 		cellWidth = 240,
@@ -6085,6 +6085,7 @@ PAGE_DATA.gestureArbiter = {
 PAGE_DATA.DiegeticScreen = require("./diegetic_demo")
 PAGE_DATA.cameraRig = PAGE_DATA.DiegeticScreen
 PAGE_DATA.WorldMarker = require("./world_marker_demo")
+PAGE_DATA.Minimap = require("./minimap_demo").page
 
 PAGE_DATA.ZoomView = require("./zoom_page")
 PAGE_DATA.SpatialGrid = require("./spatial_grid_demo")

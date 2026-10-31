@@ -301,6 +301,10 @@ UI.VStack "Body" { width = "fill", gap = "s",
 
 ## HUD during play
 
+For a course map, radar or spatial overview, use the
+[minimap guide](../../../docs/guide/minimaps.md). It combines Region forms,
+game-owned drawing, an optional opening action and a full-map destination.
+
 A Composition with corner regions on panels: position as a large numeral with its
 total in caption (`topLeft`), lap and time (`topRight`), boost or energy as a
 bar near the thumb that uses it. On a phone nothing sits in the centre or over

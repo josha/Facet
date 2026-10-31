@@ -2,8 +2,8 @@
 
 Use [Design.guide](Design.guide.md) for task-based design routes.
 
-Read the recipe for the current task. Follow more detail only when needed.
-Never reread a node already in context.
+Read the recipe for your task. Follow detail when needed.
+Do not reread nodes in context.
 
 In Studio Edit mode, read
 `ServerStorage.FacetDocs.docs.reference.nodes["<path>.md"].Value`.
@@ -16,6 +16,7 @@ With shell access, use `lute run tools/facet docs <path>` or `docs --search TEXT
 | --- | --- |
 | Enter from a world-visible lobby | [Tasks.hub](Tasks.hub.md) |
 | Track an objective and use its command | [Tasks.hud](Tasks.hud.md) |
+| Show a minimap and open a larger map | [Tasks.minimap](Tasks.minimap.md) |
 | Browse objects and selected detail | [Tasks.collection-detail](Tasks.collection-detail.md) |
 | Inspect art beside a decision | [Tasks.inspect](Tasks.inspect.md) |
 | Open a destination from gameplay and return | [Tasks.pages](Tasks.pages.md) |

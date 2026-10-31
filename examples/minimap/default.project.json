@@ -1,0 +1,19 @@
+{
+  "name": "Facet-Minimap",
+  "emitLegacyScripts": false,
+  "tree": {
+    "$className": "DataModel",
+    "Players": { "$properties": { "CharacterAutoLoads": false } },
+    "StarterGui": { "$properties": { "ScreenOrientation": "Sensor" } },
+    "ReplicatedStorage": {
+      "Facet": { "$path": "../../src" },
+      "MinimapClient": { "$path": "client.client.luau" },
+      "MinimapExample": {
+        "$className": "Folder",
+        "catalog_types": { "$path": "../facet-lab/src/catalog_types.luau" },
+        "minimap_demo": { "$path": "../facet-lab/src/minimap_demo.luau" },
+        "minimap_art": { "$path": "../facet-lab/src/minimap_art.luau" }
+      }
+    }
+  }
+}

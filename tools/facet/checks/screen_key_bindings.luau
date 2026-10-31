@@ -60,6 +60,11 @@ local READ_ONLY_PROBES: { [string]: string } = {
 
 local PINS: { Pin } = {
 	{
+		path = "examples/facet-lab/src/minimap_demo.luau",
+		count = 2,
+		reason = "the minimap recipe owns M and ButtonY bindings in its game InputContext, enabled only while the HUD is available and gameplay input is not suspended",
+	},
+	{
 		path = "skills/use-facet/references/game-screens.md",
 		count = 2,
 		reason = "the quick wheel teaches one QuickChat InputAction with a Q and a ButtonY InputBinding in the game's own InputContext, the hotkey that opens its RadialMenu overlay",
