@@ -715,11 +715,16 @@ return function(ctx: Shared.Context): Selection
 						return
 					end
 					local collector = if root:IsA("LayerCollector") then root else collectorOf(root)
-					local host = (if collector then collector.Parent else nil) :: BasePlayerGui?
-					if host == nil or host.GetGuiObjectsAtPosition == nil then
+					local host: Instance? = if collector
+						then collector:FindFirstAncestorWhichIsA("BasePlayerGui") or collector.Parent
+						else nil
+					local found, method = pcall(function(): unknown
+						return ((host :: unknown) :: { GetGuiObjectsAtPosition: unknown? }).GetGuiObjectsAtPosition
+					end)
+					if host == nil or not found or method == nil then
 						return
 					end
-					local hits = host:GetGuiObjectsAtPosition(event.Position.X, event.Position.Y)
+					local hits = (host :: BasePlayerGui):GetGuiObjectsAtPosition(event.Position.X, event.Position.Y)
 					for _, hit in hits do
 						if inside(hit) then
 							engaged:set(true)
