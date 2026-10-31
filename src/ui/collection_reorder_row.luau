@@ -36,6 +36,7 @@ return function<V, K>(
 		else nil
 	local function wrap(row: GuiObject, current: ComposeTypes.ReadOnlyValue<V>, key: K, painted: boolean?): Frame
 		rowKeys[row] = key
+		local carried, lead = shared.carried(key), shared.leads(key)
 		local handleNode: Instance? = nil
 		local function toggle()
 			if moving:peek() then
@@ -77,8 +78,7 @@ return function<V, K>(
 					appearance = "utility",
 					label = "",
 					ctx.icon(function(use: ComposeTypes.Use)
-						local move = use(moving)
-						return if move and move.key == key then "checkmark" elseif grid then "view.grid" else "menu"
+						return if use(lead) then "checkmark" elseif grid then "view.grid" else "menu"
 					end, {
 						Name = "ReorderIcon",
 						AnchorPoint = V2.new(0.5, 0.5),
@@ -260,15 +260,11 @@ return function<V, K>(
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = if painted then nil else 1,
 			Attributes = {
-				FacetDragging = function(use: ComposeTypes.Use)
-					local move = use(moving)
-					return move ~= nil and move.included[key] == true
-				end,
+				FacetDragging = carried,
 			} :: EngineTypes.Attributes,
 			Host.Frame "Cells" {
 				Visible = function(use: ComposeTypes.Use)
-					local move = use(moving)
-					return move == nil or not move.included[key]
+					return not use(carried)
 				end,
 				Position = function(use: ComposeTypes.Use)
 					return if grid

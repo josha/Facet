@@ -25,6 +25,21 @@ local invalidated: { Node } = {}
 
 local observations: { [Node]: (boolean) -> () } = {}
 Weak.keys(observations)
+local observing = 0
+
+local function observe(producer: Node, callback: ((boolean) -> ())?)
+	local existing = observations[producer]
+	if callback ~= nil and existing == nil then
+		observing += 1
+	elseif callback == nil and existing ~= nil then
+		observing -= 1
+	end
+	if callback == nil then
+		observations[producer] = nil
+	else
+		observations[producer] = callback
+	end
+end
 
 local coalesced: { [Node]: boolean } = {}
 Weak.keys(coalesced)
@@ -33,9 +48,13 @@ local function resumeSet(producer: Node)
 	local set = producer.resume
 	if set ~= nil then
 		local edge = producer.first
-		local consumer = if edge ~= nil then edge[2] else nil
-		if consumer ~= nil then
-			consumer.coalesced = nil
+		if edge ~= nil then
+			local consumer = edge[2]
+			if consumer ~= nil then
+				consumer.coalesced = false
+			else
+				edge.coalesced = false
+			end
 		end
 		producer.resume = nil
 		producer.set = set
@@ -63,16 +82,20 @@ local function kindOf(producer: Node): string
 end
 
 local function append(producer: Node, edge: Node)
-	resumeSet(producer)
 	local first = producer.first
 	if first == nil then
 		producer.first = edge
 		edge[3] = edge
-		local observed = observations[producer]
-		if observed then
-			observed(true)
+		if observing > 0 then
+			local observed = observations[producer]
+			if observed then
+				observed(true)
+			end
 		end
 		return
+	end
+	if producer.resume ~= nil then
+		resumeSet(producer)
 	end
 	local last = first[3]
 	if last ~= nil then
@@ -114,7 +137,7 @@ local function detach(edge: Node)
 	end
 	edge[3] = nil
 	edge[4] = nil
-	if producer.first == nil then
+	if observing > 0 and producer.first == nil then
 		local observed = observations[producer]
 		if observed then
 			observed(false)
@@ -378,10 +401,10 @@ end
 
 local function runEffect(consumer: Node)
 	local producer = consumer.coalesced
-	if producer ~= nil then
+	if type(producer) == "table" then
 		resumeSet(producer)
 	end
-	local previousConsumer, previousOrder = Evaluation.enter(consumer)
+	local frame, previousConsumer, previousOrder = Evaluation.enterFrame(consumer)
 	consumer.reads = 0
 	local effect = consumer.effect
 	if effect then
@@ -391,13 +414,16 @@ local function runEffect(consumer: Node)
 			effect(use)
 		end
 	end
-	Evaluation.leave(previousConsumer, previousOrder)
-	trim(consumer, (consumer.reads or 0) + 1)
+	Evaluation.leaveFrame(frame, previousConsumer, previousOrder)
+	local reads = consumer.reads or 0
+	if #consumer > reads then
+		trim(consumer, reads + 1)
+	end
 end
 
 local function runEffectIn(frame: Evaluation.Evaluation, consumer: Node)
 	local producer = consumer.coalesced
-	if producer ~= nil then
+	if type(producer) == "table" then
 		resumeSet(producer)
 	end
 	frame.consumer = consumer
@@ -410,7 +436,10 @@ local function runEffectIn(frame: Evaluation.Evaluation, consumer: Node)
 			effect(use)
 		end
 	end
-	trim(consumer, (consumer.reads or 0) + 1)
+	local reads = consumer.reads or 0
+	if #consumer > reads then
+		trim(consumer, reads + 1)
+	end
 end
 
 local function track(consumer: Node, invoke: (Node) -> ())
@@ -524,6 +553,9 @@ function LISTENER.run(leader: Node)
 	if producer == nil or producer.released then
 		return
 	end
+	if leader.coalesced then
+		resumeSet(producer)
+	end
 	local update = producer.refresh
 	if update then
 		update(producer)
@@ -548,6 +580,9 @@ function CELL_LISTENER.run(leader: Node)
 	if producer == nil then
 		return
 	end
+	if leader.coalesced then
+		resumeSet(producer)
+	end
 	if producer.first == leader and leader[4] == nil and not statsOn.enabled then
 		local listener = leader.listener
 		local version = producer.version
@@ -561,10 +596,24 @@ function CELL_LISTENER.run(leader: Node)
 end
 
 local function listenEdge(reactor: Types.Reactor, producer: Node, listener: (value: unknown) -> ()): Node
-	refresh(producer)
-	local edge: Node =
-		{ producer, nil, nil, nil, version = producer.version, reactor = reactor, queued = false, listener = listener }
-	NodeCast.classify(edge, if producer.refresh ~= nil then LISTENER else CELL_LISTENER)
+	local update = producer.refresh
+	if update then
+		update(producer)
+	end
+	local class = if update ~= nil and producer.refresh ~= nil then LISTENER else CELL_LISTENER
+	local edge: Node = {
+		producer,
+		nil,
+		nil,
+		nil,
+		version = producer.version,
+		reactor = reactor,
+		queued = false,
+		listener = listener,
+		coalesced = false,
+		run = class.run,
+	}
+	setmetatable((edge :: unknown) :: {}, class)
 	if statsOn.enabled then
 		statsOn.recorder.born(edge)
 		stats.bump "watchRuns"
@@ -584,10 +633,24 @@ local function unlisten(subject: unknown)
 end
 
 local function listen(reactor: Types.Reactor, producer: Node, listener: (value: unknown) -> ()): Dispose
-	refresh(producer)
-	local edge: Node =
-		{ producer, nil, nil, nil, version = producer.version, reactor = reactor, queued = false, listener = listener }
-	NodeCast.classify(edge, if producer.refresh ~= nil then LISTENER else CELL_LISTENER)
+	local update = producer.refresh
+	if update then
+		update(producer)
+	end
+	local class = if update ~= nil and producer.refresh ~= nil then LISTENER else CELL_LISTENER
+	local edge: Node = {
+		producer,
+		nil,
+		nil,
+		nil,
+		version = producer.version,
+		reactor = reactor,
+		queued = false,
+		listener = listener,
+		coalesced = false,
+		run = class.run,
+	}
+	setmetatable((edge :: unknown) :: {}, class)
 	if statsOn.enabled then
 		statsOn.recorder.born(edge)
 		stats.bump "watchRuns"
@@ -609,6 +672,7 @@ return {
 	CHECK = CHECK,
 	DIRTY = DIRTY,
 	observations = observations,
+	observe = observe,
 	attach = attach,
 	detach = detach,
 	trim = trim,

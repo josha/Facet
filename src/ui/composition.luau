@@ -32,6 +32,39 @@ type Declared = {
 	reveal: { host: (Instance) -> (), back: () -> () }?,
 }
 type Placement = { regions: { resolver.Declared }, forms: { number }, landed: { boolean }, riding: boolean }
+type Resolution = {
+	chosen: { number },
+	down: { boolean },
+	moved: resolver.Shift,
+	overflow: { number },
+	packed: resolver.Rows,
+}
+
+local RESOLUTIONS = 16
+local POP_TAG = "facet-region-pop"
+local POP_REST = "Rest"
+
+local function regionsKey(list: { resolver.Declared }): string
+	local parts: { string } = {}
+	for _, entry in list do
+		table.insert(
+			parts,
+			`{entry.zone}:{entry.rank}:{entry.mayDrop}:{entry.leading == true}:{entry.trailing == true}`
+		)
+		for _, size in entry.sizes do
+			table.insert(parts, `{size.x}x{size.y}`)
+		end
+		local hangs = entry.hangs
+		if hangs then
+			table.insert(parts, "h")
+			for _, hang in hangs do
+				table.insert(parts, tostring(hang))
+			end
+		end
+		table.insert(parts, "/")
+	end
+	return table.concat(parts, ",")
+end
 
 local EXPAND_EDGE: { Overlay.Edge } = { "trailing", "bottom", "leading" }
 local ENGINE_BUTTON = 44
@@ -214,14 +247,27 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local form: ComposeTypes.Value<number> = spec.form or Compose.cell(1)
 		form:set(1)
 		local reduced = reducedMotion(ctx)
-		local popSeconds = ctx.metric("motion.durations.regionPop")
-		local present = ctx.motionEase("present")
-		local pop = runtime.timeline({ duration = popSeconds, autoplay = false })
-		pop:seek(popSeconds)
-		local scale = Compose.formula(function(use: ComposeTypes.Use): number
-			local rest = ctx.metric("motion.materialize.modal", use)
-			return if reduced(use) then 1 else rest + (1 - rest) * present(use(pop.progress))
+		local popping = Compose.cell(false)
+		local resting = Compose.formula(function(use: ComposeTypes.Use): boolean
+			return not use(popping)
 		end)
+		local popNode = Host.UIScale "Pop" {}
+		popNode:AddTag(POP_TAG)
+		local popLater = if runtime.host.frames then runtime.scheduler() else nil
+		local function popIn()
+			local later = popLater
+			if later == nil then
+				return
+			end
+			popping:set(true)
+			popNode.Name = POP_REST
+			later.replace("rest", 0, function()
+				popNode.Name = "Pop"
+			end)
+			later.replace("settle", ctx.metric("motion.durations.regionPop"), function()
+				popping:set(false)
+			end)
+		end
 		local yielding = Compose.cell(false)
 		local lift = Compose.cell(0)
 		local properties = (
@@ -273,7 +319,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local observed, settled = layoutSize(child, unit), Compose.cell(V2.zero)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local size = use(observed)
-				if use(scale) == 1 and not (index == 1 and use(hosted)) then
+				if use(resting) and not (index == 1 and use(hosted)) then
 					settled:set(size)
 				end
 			end)
@@ -283,7 +329,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				local reach = overhang(child, unit)
 				Compose.watch(function(use: ComposeTypes.Use)
 					local value = use(reach)
-					if use(scale) == 1 and not (index == 1 and use(hosted)) then
+					if use(resting) and not (index == 1 and use(hosted)) then
 						hang:set(value)
 					end
 				end)
@@ -302,7 +348,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		assert(#sizes > 0, "Facet Region needs at least one form")
 		local floor = ctx.hitFloor()
-		properties[#properties + 1] = Host.UIScale "Pop" { Scale = scale }
+		properties[#properties + 1] = popNode
 		local owner = assert(Compose.currentOwner())
 		local home = properties[1] :: Instance
 		local function returnHome()
@@ -387,7 +433,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local current = use(form)
 			node:SetAttribute("FacetForm", current)
 			if shown ~= nil and current > 0 and current ~= shown and declared[node].animate and not reduced() then
-				pop:restart()
+				popIn()
 			end
 			shown = current
 		end)
@@ -969,6 +1015,32 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end, safe)
 		end
 		local box = layoutSize(safe, safeUnit)
+		local resolutions: { [string]: Resolution } = {}
+		local resolutionCount = 0
+		local function resolved(
+			width: number,
+			height: number,
+			spacing: number,
+			list: { resolver.Declared },
+			listKey: string,
+			band: resolver.Strip?
+		): Resolution
+			local key = `{width},{height},{spacing},{if band then `{band.x},{band.y},{band.lanes}` else "-"}|{listKey}`
+			local known = resolutions[key]
+			if known then
+				return known
+			end
+			local chosen, down, moved, overflow, packed = resolver.resolve(width, height, spacing, list, band)
+			local made: Resolution =
+				{ chosen = chosen, down = down, moved = moved, overflow = overflow, packed = packed }
+			if resolutionCount >= RESOLUTIONS then
+				table.clear(resolutions)
+				resolutionCount = 0
+			end
+			resolutions[key] = made
+			resolutionCount += 1
+			return made
+		end
 		local warned: { [Frame]: boolean } = {}
 		local overflowing: { [Frame]: boolean } = {}
 		local streaks: { [Frame]: number } = {}
@@ -1027,17 +1099,22 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					lanes = stripLanes,
 				}
 				else nil
-			local chosen, down, moved, overflow, packed = resolver.resolve(
+			local spacing = kit.spacing(gap, use)
+			local listKey = regionsKey(list)
+			local result = resolved(
 				extent.X,
 				extent.Y,
-				kit.spacing(gap, use),
+				spacing,
 				list,
+				listKey,
 				if band and strip and strip.X > 0 then band else nil
 			)
+			local chosen, down, moved, overflow, packed =
+				result.chosen, result.down, result.moved, result.overflow, result.packed
 			local unfit: { string } = {}
 			for _, phone in PHONES do
 				if extent.X > phone.X or extent.Y > phone.Y then
-					local _, _, _, missed = resolver.resolve(phone.X, phone.Y, kit.spacing(gap, use), list, nil)
+					local missed = resolved(phone.X, phone.Y, spacing, list, listKey, nil).overflow
 					if #missed > 0 then
 						local names: { string } = {}
 						for _, index in missed do

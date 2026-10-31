@@ -83,7 +83,9 @@ local function hold(ctx: Types.Context, node: Instance, wanted: ComposeTypes.Rea
 			lease.count -= 1
 			if lease.count == 0 then
 				leases[screen] = nil
-				screen.ClipToDeviceSafeArea = lease.clipped
+				if screen.ClipToDeviceSafeArea ~= lease.clipped then
+					screen.ClipToDeviceSafeArea = lease.clipped
+				end
 			end
 		end
 	end
@@ -102,7 +104,9 @@ local function hold(ctx: Types.Context, node: Instance, wanted: ComposeTypes.Rea
 			end
 			lease.count += 1
 			held = screen
-			screen.ClipToDeviceSafeArea = false
+			if screen.ClipToDeviceSafeArea ~= false then
+				screen.ClipToDeviceSafeArea = false
+			end
 		end
 	end
 	runtime.connect(node, "AncestryChanged", acquire)

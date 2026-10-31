@@ -712,6 +712,69 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("pops a region's new form through the theme StyleSheet scale transition", {
+			id = "native_composition::Composition::pops a region's new form through the theme StyleSheet scale transition",
+			run = function()
+				local overlay = require("./lib/overlay_world")
+				local transitionOf = require("./lib/transition")
+				local package = Facet.themes.neutralPackage()
+				local form = Compose.cell(1)
+				local sheet: StyleSheet? = nil
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, engine, _gui, runtime)
+					local made = Facet.themes.createStyleSheet(runtime, package, { types = engine.types })
+					sheet = made
+					return Host.Frame {
+						Size = engine.types.UDim2.fromScale(1, 1),
+						made :: unknown,
+						Host.StyleLink { StyleSheet = Compose.static(made) },
+						UI.Composition "Hud" {
+							gap = 8,
+							padding = 0,
+							topbar = false,
+							UI.Region "Tasks" {
+								zone = "left" :: "left",
+								rank = 1,
+								form = form,
+								reveal = false,
+								Host.Frame { Name = "TasksFull" } :: unknown,
+								Host.Frame { Name = "TasksChip" },
+							},
+						},
+					}
+				end, nil, { runService = true })
+				local rules: { [string]: StyleRule } = {}
+				for _, rule in assert(sheet):GetChildren() do
+					if rule:IsA("StyleRule") then
+						rules[rule.Selector] = rule
+					end
+				end
+				local base, rest = rules[".facet-region-pop"], rules[".facet-region-pop#Rest"]
+				Verify.expect(base:GetProperties().Scale):toBe(1)
+				Verify.expect(rest:GetProperties().Scale):toBe(assert(package.metrics.motion.materialize).modal)
+				Verify.expect(transitionOf(base, "Scale").Time)
+					:toBeFloat32(assert(package.metrics.motion.durations).regionPop)
+				Verify.expect(transitionOf(rest, "Scale").Time):toBe(0)
+				w.size(w.find("TasksFull"), 240, 130)
+				w.size(w.find("TasksChip"), 90, 30)
+				local zones = w.find("Zones")
+				w.size(zones, 800, 400)
+				local pop = w.find("Tasks"):FindFirstChildWhichIsA("UIScale")
+				Verify.expect(pop:HasTag("facet-region-pop")):toBe(true)
+				Verify.expect(pop.Name):toBe("Pop")
+				w.size(zones, 800, 100)
+				Verify.expect((form:peek())):toBe(2)
+				Verify.expect(pop.Name):toBe("Rest")
+				w.advance(1 / 60)
+				Verify.expect(pop.Name):toBe("Pop")
+				w.size(zones, 800, 400)
+				Verify.expect((form:peek())):toBe(1)
+				Verify.expect(pop.Name):toBe("Rest")
+				w.advance(1)
+				Verify.expect(pop.Name):toBe("Pop")
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case(
 			"leaves a Show hidden disc in place of a dropped region that can reveal, unless reveal is off",
 			{

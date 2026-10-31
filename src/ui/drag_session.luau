@@ -689,15 +689,28 @@ return function(ctx: Types.Context): Drag.Service
 			local proposal = info(target)
 			local accepted, reason = validate(target, proposal)
 			current.accepted, current.reason, current.operation = accepted, reason, proposal.operation
-			target:SetAttribute("FacetDropState", if accepted then "accepted" else "rejected")
-			target:SetAttribute("FacetDropReason", reason)
+			local dropState = if accepted then "accepted" else "rejected"
+			if target:GetAttribute("FacetDropState") ~= dropState then
+				target:SetAttribute("FacetDropState", dropState)
+			end
+			if target:GetAttribute("FacetDropReason") ~= reason then
+				target:SetAttribute("FacetDropReason", reason)
+			end
 			local feedback = targets[target].feedback
 			if feedback then
-				((feedback :: unknown) :: { Enabled: boolean }).Enabled = accepted
+				local outline = (feedback :: unknown) :: { Enabled: boolean }
+				if outline.Enabled ~= accepted then
+					outline.Enabled = accepted
+				end
 				if feedback:IsA("UIStroke") then
-					feedback:RemoveTag("facet-drop-accepted")
-					feedback:RemoveTag("facet-drop-rejected")
-					feedback:AddTag(if accepted then "facet-drop-accepted" else "facet-drop-rejected")
+					local shown = if accepted then "facet-drop-accepted" else "facet-drop-rejected"
+					local hidden = if accepted then "facet-drop-rejected" else "facet-drop-accepted"
+					if feedback:HasTag(hidden) then
+						feedback:RemoveTag(hidden)
+					end
+					if not feedback:HasTag(shown) then
+						feedback:AddTag(shown)
+					end
 				end
 			end
 			local onUpdate = targets[target].onUpdate
@@ -711,7 +724,31 @@ return function(ctx: Types.Context): Drag.Service
 			current.world.move(current.position, if current.accepted and placement then ctx.read(placement) else nil)
 		end
 		updateStatus(current)
-		state:set(table.clone(current))
+		local shown = state:peek()
+		if
+			shown == nil
+			or shown.source ~= current.source
+			or shown.target ~= current.target
+			or shown.hit ~= current.hit
+			or shown.accepted ~= current.accepted
+			or shown.reason ~= current.reason
+			or shown.operation ~= current.operation
+			or shown.pending ~= current.pending
+			or shown.mode ~= current.mode
+		then
+			state:set(table.clone(current))
+		else
+			local snapshot = (shown :: unknown) :: { [string]: unknown }
+			local live = (current :: unknown) :: { [string]: unknown }
+			for key in snapshot do
+				if live[key] == nil then
+					snapshot[key] = nil
+				end
+			end
+			for key, value in live do
+				snapshot[key] = value
+			end
+		end
 	end
 	function service.update(position: Vector2)
 		if not current or current.pending then

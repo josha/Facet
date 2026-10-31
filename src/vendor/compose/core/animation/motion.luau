@@ -191,19 +191,22 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 			)
 		end
 
+		local stiffness, drag = Spring.coefficients(period, damping)
 		return animate("spring", source, function(codec, current, target, reference)
-			local live = Spring.createState(current, codec.arity)
+			local arity = codec.arity
+			local live = Spring.createState(current, arity)
+			local position = live.position
 			local function settle()
 				Spring.settle(live, target)
 			end
 			return function(delta: number): boolean
-				Spring.step(live, target, delta, period, damping)
-				for index = 1, codec.arity do
-					current[index] = live.position[index]
+				Spring.advance(live, target, delta, stiffness, drag)
+				for index = 1, arity do
+					current[index] = position[index]
 				end
 				if Spring.atRest(live, target, reference, tolerance) then
 					Spring.settle(live, target)
-					for index = 1, codec.arity do
+					for index = 1, arity do
 						current[index] = target[index]
 					end
 					return true

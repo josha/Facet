@@ -93,6 +93,20 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			spec.target == nil or spec.target == "hit" or spec.target == "thumb" or spec.target == "inline",
 			"Facet.Button: target must be hit, thumb or inline"
 		)
+		local enabledLive = dynamic(spec.enabled) or dynamic(spec.disabled) or dynamic(spec.busy)
+		local enabledSource = if enabledLive
+			then Compose.formula(function(use: ComposeTypes.Use): boolean
+				return enabled(spec, use)
+			end)
+			else nil
+		local enabledFixed = if enabledLive then true else enabled(spec)
+		local function isEnabled(use: ComposeTypes.Use?): boolean
+			local source = enabledSource
+			if source == nil then
+				return enabledFixed
+			end
+			return if use then use(source) else source:peek()
+		end
 		local function cornerRadius(use: ComposeTypes.Use?): UDim
 			local corners = read(spec.corners, use)
 			assert(corners == "pill" or corners == "square", "Facet.Button: corners must be pill or square")
@@ -182,7 +196,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				return
 			end
 			local route = if node then ctx.shiftActivation(node, (...)) else nil
-			local live = enabled(spec)
+			local live = isEnabled()
 			local open = live and node and ctx.available(node)
 			if route and open then
 				route()
@@ -202,7 +216,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		local function shortcutActive(use)
 			local input = ctx.config.services.UserInputService
-			return enabled(spec, use)
+			return isEnabled(use)
 				and node.Visible
 				and node.Parent ~= nil
 				and (not input or not input:GetFocusedTextBox())
@@ -237,13 +251,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			underline == nil or (not rich and spec.compactLabel == nil and spec.shape ~= "circle"),
 			"Facet.Button: underline belongs to a text button with no icon, image, row or compactLabel"
 		)
-		local enabledProperty = if dynamic(spec.enabled)
-				or dynamic(spec.disabled)
-				or dynamic(spec.busy)
-			then function(use: ComposeTypes.Use)
-				return enabled(spec, use)
-			end
-			else enabled(spec)
+		local enabledProperty: Shared.Input<boolean> = if enabledSource then enabledSource else enabledFixed
 		local function controlSize(use)
 			return D2.fromOffset(0, ctx.controlSize(spec.controlSize, "height", use))
 		end
@@ -533,7 +541,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		if not lazyKeyboard then
 			p[#p + 1] = Compose.show(function(use: ComposeTypes.Use)
-				keyboardAttached = keyboardAttached or (read(selectedForKeyboard, use) == true and enabled(spec, use))
+				keyboardAttached = keyboardAttached or (read(selectedForKeyboard, use) == true and isEnabled(use))
 				return keyboardAttached
 			end, function()
 				attachKeyboard()
@@ -656,8 +664,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end)
 		end
 		if hapticSwitch then
+			local appliedHaptic: HapticEffect? = nil
+			local hapticApplied = false
 			Compose.watch(function(use: ComposeTypes.Use)
-				node.PressHapticEffect = ctx.haptic(read(spec.haptic, use)) :: HapticEffect
+				local effect = ctx.haptic(read(spec.haptic, use))
+				if not hapticApplied or effect ~= appliedHaptic then
+					hapticApplied, appliedHaptic = true, effect
+					node.PressHapticEffect = effect :: HapticEffect
+				end
 			end)
 		end
 		if rich and (spec.subtitle ~= nil or spec.hint ~= nil or (spec.row ~= nil and spec.row.description ~= nil)) then
@@ -704,12 +718,12 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end
 				if enabledLive then
 					Compose.watch(function(use: ComposeTypes.Use)
-						if not keyboardAttached and read(selectedForKeyboard, use) == true and enabled(spec, use) then
+						if not keyboardAttached and read(selectedForKeyboard, use) == true and isEnabled(use) then
 							keyboardAttached = true
 							Compose.withOwner(owner, attachKeyboard)
 						end
 					end)
-				elseif enabled(spec) then
+				elseif isEnabled() then
 					keyboardAttached = true
 					attachKeyboard()
 				end
@@ -853,7 +867,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				ctx.skin(node, "control", {
 					selected = spec.selected,
 					disabled = function(use: ComposeTypes.Use)
-						return not enabled(spec, use)
+						return not isEnabled(use)
 					end,
 				})
 			end
@@ -894,7 +908,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		local function updateState(use)
 			local selected, busy = read(spec.selected, use) == true, read(spec.busy, use) == true
-			local available = enabled(spec, use)
+			local available = isEnabled(use)
 			local role, appearance = read(spec.role, use) or "default", read(spec.appearance, use) or "standard"
 			assert(roles[role], "Facet.Button: invalid semantic role")
 			if not initialized then
@@ -985,7 +999,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					return
 				end
 				stopFrame = kit.repeatHeld(assert(runtime.host.frames), repeatDelay, repeatInterval, function(): boolean
-					if not held or not enabled(spec) or not ctx.available(node) then
+					if not held or not isEnabled() or not ctx.available(node) then
 						release()
 						return false
 					end
@@ -1000,7 +1014,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			runtime.connect(node, "InputBegan", function(input)
 				local kind = input.UserInputType.Name
 				if
-					enabled(spec)
+					isEnabled()
 					and (
 						kind == "MouseButton1"
 						or kind == "Touch"

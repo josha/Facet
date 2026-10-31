@@ -227,6 +227,7 @@ export type ResponderState = "passive" | "engaged"
 export type Responder = { state: ReadOnlyValue<ResponderState>, engage: () -> (), resign: () -> () }
 export type Context = {
 	runtime: Runtime,
+	lifetime: ComposeTypes.Owner,
 	Host: Host,
 	Compose: ComposeModule,
 	types: RobloxTypes,

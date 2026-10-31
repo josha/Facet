@@ -72,32 +72,23 @@ local function static(value: unknown): StaticValue
 	return created
 end
 
-export type Marker =
-	{
-		kind: "event" | "property",
-		name: string,
-	}
-	| {
-		kind: "group",
-		name: string,
-		names: { string },
-	}
+export type MarkerKind = "event" | "property" | "group"
 
-local function readKey(key: unknown): Marker?
+local function readKey(key: unknown): (MarkerKind?, string, { string }?)
 	if type(key) ~= "table" then
-		return nil
+		return nil, "", nil
 	end
 	local marker = key :: { [string]: unknown }
 	local kind = rawget(marker, "composeKey")
 	if kind == "event" then
-		return { kind = "event", name = tostring(rawget(marker, "name")) }
+		return "event", tostring(rawget(marker, "name")), nil
 	elseif kind == "property" then
-		return { kind = "property", name = tostring(rawget(marker, "name")) }
+		return "property", tostring(rawget(marker, "name")), nil
 	elseif kind == "group" then
 		local names = rawget(marker, "names") :: { string }
-		return { kind = "group", name = table.concat(names, "+"), names = names }
+		return "group", table.concat(names, "+"), names
 	end
-	return nil
+	return nil, "", nil
 end
 
 local function readStatic(value: unknown): (unknown, boolean)

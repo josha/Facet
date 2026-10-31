@@ -5,7 +5,9 @@ local Types = require "../reactive/types"
 local Inspect = require "./inspect"
 local Reactor = require "../reactive/reactor"
 local watchModule = require "../reactive/watch"
-local NodeCast = require "../reactive/node"
+local Graph = require "../reactive/graph"
+
+local inspecting = Inspect.flag
 
 type Dispose = Types.Dispose
 
@@ -41,6 +43,7 @@ local function new(inherited: Reactor.Reactor?, parent: Owner?): Owner
 end
 
 local detached: Reactor.Reactor? = nil
+local releaseHeld = watchModule.releaseHeld
 
 local function noop() end
 
@@ -89,33 +92,61 @@ local function heldSize(entry: Entry): number
 	return if entry.batchRelease ~= nil then #entry else #entry // 2
 end
 
+local cursor = 0
+
+local function releaseSingles(batch: Entry, release: (subject: unknown) -> (), keep: number)
+	local index = cursor
+	while index > keep do
+		local subject = batch[index]
+		batch[index] = nil
+		index -= 1
+		cursor = index
+		release(subject)
+	end
+end
+
+local function releasePairs(batch: Entry, keep: number)
+	local index = cursor
+	local floor = keep * 2 + 1
+	while index >= floor do
+		local releaseSubject, subject = batch[index], batch[index + 1]
+		batch[index] = nil
+		batch[index + 1] = nil
+		index -= 2
+		cursor = index
+		if type(releaseSubject) == "function" then
+			((releaseSubject :: unknown) :: (subject: unknown) -> ())(subject)
+		end
+	end
+end
+
 local function releaseBatch(batch: Entry, keep: number, failures: { unknown })
+	local outer = cursor
 	local release = batch.batchRelease
 	if release ~= nil then
-		for index = #batch, keep + 1, -1 do
-			local subject = batch[index]
-			batch[index] = nil
-			local ok, failure: unknown = pcall(release, subject)
-			if not ok then
-				table.insert(failures, failure)
+		cursor = #batch
+		while true do
+			local ok, failure: unknown = pcall(releaseSingles, batch, release, keep)
+			if ok then
+				break
 			end
+			table.insert(failures, failure)
 		end
+		cursor = outer
 		if keep == 0 then
 			batch.batchRelease = nil
 		end
 		return
 	end
-	for index = #batch - 1, keep * 2 + 1, -2 do
-		local releaseSubject, subject = batch[index], batch[index + 1]
-		batch[index] = nil
-		batch[index + 1] = nil
-		if type(releaseSubject) == "function" then
-			local ok, failure: unknown = pcall(NodeCast.releaser(releaseSubject), subject)
-			if not ok then
-				table.insert(failures, failure)
-			end
+	cursor = #batch - 1
+	while true do
+		local ok, failure: unknown = pcall(releasePairs, batch, keep)
+		if ok then
+			break
 		end
+		table.insert(failures, failure)
 	end
+	cursor = outer
 end
 
 local function releaseEntry(entry: Entry, failures: { unknown })
@@ -411,7 +442,7 @@ local function createChild(owner: Owner): Owner
 	else
 		attach(owner, child)
 	end
-	if Inspect.isActive() then
+	if inspecting.active then
 		Inspect.child(owner, child)
 	end
 	local boundary = owner.boundary
@@ -445,7 +476,7 @@ local function watchStatic<T>(
 	body: (value: T) -> (),
 	after: Dispose?
 ): Dispose
-	if Inspect.isActive() then
+	if inspecting.active then
 		Inspect.watch(owner)
 	end
 	local boundary = owner.boundary
@@ -463,25 +494,29 @@ local function watchStatic<T>(
 end
 
 local function listenHeld<T>(owner: Owner, producer: Types.ReadOnlyValue<T>, body: (value: T) -> ()): Types.Node
-	if Inspect.isActive() then
+	if inspecting.active then
 		Inspect.watch(owner)
 	end
-	local edge = watchModule.listenEdge(reactorOf(owner), producer, body)
-	holdSubject(owner, watchModule.releaseHeld, edge)
+	local edge = Graph.listenEdge(
+		reactorOf(owner),
+		(producer :: unknown) :: Types.Node,
+		(body :: unknown) :: (value: unknown) -> ()
+	)
+	holdSubject(owner, releaseHeld, edge)
 	return edge
 end
 
 local function effectHeld(owner: Owner, body: (use: Types.Use) -> ()): Types.Node
-	if Inspect.isActive() then
+	if inspecting.active then
 		Inspect.watch(owner)
 	end
 	local node = watchModule.terminalNode(reactorOf(owner), body)
-	holdSubject(owner, watchModule.releaseHeld, node)
+	holdSubject(owner, releaseHeld, node)
 	return node
 end
 
 local function watchTerminal(owner: Owner, body: (use: Types.Use) -> (), after: Dispose?): Dispose
-	if Inspect.isActive() then
+	if inspecting.active then
 		Inspect.watch(owner)
 	end
 	local boundary = owner.boundary
@@ -510,7 +545,7 @@ watchModule.installScope(function(node: Types.Node)
 end, releaseScope)
 
 local function watch(owner: Owner, body: (use: Types.Use) -> (), label: string?, after: Dispose?): Dispose
-	if Inspect.isActive() then
+	if inspecting.active then
 		Inspect.watch(owner)
 	end
 	local boundary = owner.boundary

@@ -35,6 +35,7 @@ type Stack = {
 	container: Frame?,
 	owner: ComposeTypes.Owner?,
 	users: number,
+	retained: boolean,
 }
 
 local KEYS = {
@@ -131,6 +132,18 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		return (gui ~= nil and surfaces.within(gui.SelectedObject, record.row)) or #ctx.modalScopes:peek() > 0
 	end
 
+	local function releaseStack(stack: Stack)
+		local lanes = stacks[stack.layer]
+		if lanes and lanes[stack.lane] == stack then
+			lanes[stack.lane] = nil
+		end
+		local owner = stack.owner
+		stack.owner = nil
+		if owner and not ComposeTypes.owner.isDisposed(owner) then
+			ComposeTypes.owner.dispose(owner)
+		end
+	end
+
 	local function stackFor(layer: GuiBase2d, lane: string): Stack
 		local byLane = stacks[layer] or {}
 		stacks[layer] = byLane
@@ -178,10 +191,17 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			container = nil,
 			owner = nil,
 			users = 0,
+			retained = false,
 		} :: Stack
 		if lane ~= "action" then
-			local scope = Compose.createRootOwner(function(owner)
-				stack.owner = owner
+			local lifetime = ctx.lifetime
+			local retained = not ComposeTypes.owner.isDisposed(lifetime)
+			local owner = if retained
+				then ComposeTypes.owner.createChild(lifetime)
+				else Compose.createRootOwner(function() end, runtime.reactor).owner
+			stack.owner = owner
+			stack.retained = retained
+			Compose.withOwner(owner, function()
 				local _, container = runtime.mount(function()
 					local properties: Types.FrameNativeProps = {
 						Name = "ToastStack",
@@ -210,9 +230,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					}
 					return Host.Frame(properties)
 				end, layer)
-				stack.container = container :: Frame
-			end, runtime.reactor)
-			stack.owner = scope.owner
+				local frame = container :: Frame
+				stack.container = frame
+				runtime.connect(frame, "AncestryChanged", function()
+					if frame.Parent ~= layer then
+						releaseStack(stack)
+					end
+				end)
+			end)
 		end
 		byLane[lane] = stack
 		return stack
@@ -827,14 +852,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local stack = record.stack
 			if stack then
 				stack.users -= 1
-				if stack.users == 0 then
-					if stack.owner then
-						ComposeTypes.owner.dispose(stack.owner)
-					end
-					local lanes = stacks[stack.layer]
-					if lanes then
-						lanes[stack.lane] = nil
-					end
+				if stack.users == 0 and not stack.retained then
+					releaseStack(stack)
 				end
 			end
 		end)

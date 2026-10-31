@@ -17,6 +17,9 @@ type Value<T> = Types.Value<T>
 type Equals<T> = Types.Equals<T>
 type Initial<T> = (() -> T) | T
 
+local DIRTY = Graph.DIRTY
+local CHECK = Graph.CHECK
+
 local function onlyListeners(first: Node): boolean
 	local reactor = first.reactor
 	local edge: Node? = first[4]
@@ -67,14 +70,14 @@ local function write(self: Node, incoming: unknown)
 			end
 		elseif first[4] == nil then
 			local state = consumer.state
-			if state == Graph.DIRTY and not consumer.retry then
+			if state == DIRTY and not consumer.retry then
 				return
-			elseif state == Graph.CHECK and not consumer.retry then
-				consumer.state = Graph.DIRTY
+			elseif state == CHECK and not consumer.retry then
+				consumer.state = DIRTY
 				return
-			elseif consumer.run ~= nil then
+			elseif consumer.body == nil and consumer.run ~= nil then
 				consumer.retry = false
-				consumer.state = Graph.DIRTY
+				consumer.state = DIRTY
 				local reactor = consumer.reactor
 				if reactor ~= nil and reactor.batching then
 					if not consumer.queued then
@@ -94,7 +97,7 @@ local function write(self: Node, incoming: unknown)
 	if first == nil then
 		return
 	end
-	Graph.markStale(self, Graph.DIRTY)
+	Graph.markStale(self, DIRTY)
 	Graph.settleTouched()
 end
 
@@ -143,7 +146,7 @@ set = function(self: Node, incoming: unknown)
 	local consumer = if first ~= nil then first[2] else nil
 	local state = if consumer ~= nil then consumer.state else nil
 	if
-		state == Graph.DIRTY
+		state == DIRTY
 		and consumer ~= nil
 		and consumer.group
 		and not statsOn.enabled
@@ -175,6 +178,8 @@ set = function(self: Node, incoming: unknown)
 						local count = reactor.count + 1
 						reactor.count = count
 						reactor.queue[count] = first
+					elseif not validationState.validating then
+						Graph.coalesce(self, first, if type(incoming) == "number" then coalescedNumber else coalesced)
 					end
 				else
 					Reactor.runNow(first)
@@ -182,15 +187,25 @@ set = function(self: Node, incoming: unknown)
 				return
 			end
 		elseif first[4] == nil then
-			if state == Graph.DIRTY and not consumer.retry then
+			if state == DIRTY and not consumer.retry then
 				return
-			elseif state == Graph.CHECK and not consumer.retry then
-				consumer.state = Graph.DIRTY
+			elseif state == CHECK and not consumer.retry then
+				consumer.state = DIRTY
 				return
-			elseif consumer.run ~= nil then
+			elseif consumer.body == nil and consumer.run ~= nil then
 				consumer.retry = false
-				consumer.state = Graph.DIRTY
-				Reactor.runNow(consumer)
+				consumer.state = DIRTY
+				local reactor = consumer.reactor
+				if reactor ~= nil and reactor.batching then
+					if not consumer.queued then
+						consumer.queued = true
+						local count = reactor.count + 1
+						reactor.count = count
+						reactor.queue[count] = consumer
+					end
+				else
+					Reactor.runNow(consumer)
+				end
 				return
 			end
 		end
@@ -198,7 +213,7 @@ set = function(self: Node, incoming: unknown)
 	if first == nil then
 		return
 	end
-	Graph.markStale(self, Graph.DIRTY)
+	Graph.markStale(self, DIRTY)
 	Graph.settleTouched()
 end
 
@@ -231,6 +246,7 @@ end
 local function start(self: Node)
 	local initializer = self.body
 	self.body = nil
+	self.refresh = nil
 	local class = if self.equals ~= nil then EQUAL else CELL
 	NodeCast.classify(self, class)
 	self.set = class.set
@@ -269,12 +285,22 @@ NodeCast.adopt(CELL)
 NodeCast.adopt(EQUAL)
 NodeCast.adopt(LAZY)
 
+local cellSet = CELL.set
+
 local function cell<T>(initial: Initial<T>, equals: Equals<T>?): Value<T>
+	local version = clockState.now + 1
+	clockState.now = version
+	if equals == nil and type(initial) ~= "function" then
+		return (
+			setmetatable({ version = version, value = initial, first = nil, set = cellSet }, CELL) :: unknown
+		) :: Value<T>
+	end
 	local initializer, value = NodeCast.split(initial)
 	local class = if initializer then LAZY elseif equals ~= nil then EQUAL else CELL
-	local node: Node = { version = clock.next(), value = value, first = nil, set = class.set }
+	local node: Node = { version = version, value = value, first = nil, set = class.set }
 	if initializer then
 		node.body = initializer
+		node.refresh = start
 	end
 	if equals ~= nil then
 		node.equals = NodeCast.eraseEquals(equals)

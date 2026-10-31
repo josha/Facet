@@ -15,6 +15,18 @@ export type Portal = {
 	overlay: (GuiObject, Types.Input<boolean>, (Nav.PresencePhase?) -> Instance, Nav.OverlayOptions?) -> Types.Child,
 }
 
+local function nearestLink(node: Instance): Instance?
+	local at: Instance? = node
+	while at do
+		local link = at:FindFirstChildWhichIsA("StyleLink")
+		if link then
+			return link
+		end
+		at = at.Parent
+	end
+	return nil
+end
+
 return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local departure = presence.departure
@@ -269,6 +281,9 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 						local scope: Instance? = anchor
 						while scope and scope ~= target do
 							local link = scope:FindFirstChildWhichIsA("StyleLink")
+							if link and nearestLink(target) == link then
+								break
+							end
 							if link then
 								local observe = (
 									ctx.observe :: unknown

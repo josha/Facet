@@ -129,6 +129,9 @@ return function<V, K>(
 			local order = orderOf(move)
 			local offset = if order.offsets then order.offsets[key] else nil
 			if offset ~= nil then
+				if offset == at.offset then
+					return at
+				end
 				local next = table.clone(at)
 				next.offset = offset
 				return next
@@ -175,6 +178,43 @@ return function<V, K>(
 		end
 		return at
 	end
+	type Positioned = {
+		key: K,
+		at: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+		aim: ComposeTypes.Value<number>,
+		cross: number,
+		main: number,
+	}
+	local positioned: { [Positioned]: boolean } = {}
+	local function peek<T>(value: ComposeTypes.ReadOnlyValue<T>): T
+		return value:peek()
+	end
+	local wasShifting = false
+	ctx.Compose.watch(function(use: ComposeTypes.Use)
+		local seen: { [unknown]: boolean } = {}
+		local function once<T>(value: ComposeTypes.ReadOnlyValue<T>): T
+			if seen[value] then
+				return value:peek()
+			end
+			seen[value] = true
+			return use(value)
+		end
+		once(moving)
+		once(shared.incoming)
+		local session = once(shared.drag.state)
+		local shifting = session ~= nil and session.target == bodyOf() and session.accepted == true
+		local settled = not shifting and not wasShifting
+		wasShifting = shifting
+		if settled then
+			return
+		end
+		for entry in positioned do
+			local proposed = placement(entry.key, entry.at:peek(), once)
+			if proposed.crossOffset ~= entry.cross or proposed.offset ~= entry.main then
+				entry.aim:set(entry.aim:peek() + 1)
+			end
+		end
+	end)
 	return {
 		placement = placement,
 		position = function(
@@ -182,8 +222,16 @@ return function<V, K>(
 			at: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
 			reducedMotion: Types.ValueBoolean?
 		): ComposeTypes.ReadOnlyValue<Vector2>
+			local entry: Positioned =
+				{ key = key, at = at, aim = ctx.Compose.cell(0), cross = math.huge, main = math.huge }
+			positioned[entry] = true
+			ctx.Compose.cleanup(function()
+				positioned[entry] = nil
+			end)
 			local target = ctx.Compose.formula(function(use: ComposeTypes.Use): Vector2
-				local proposed = placement(key, use(at), use)
+				use(entry.aim)
+				local proposed = placement(key, use(at), peek)
+				entry.cross, entry.main = proposed.crossOffset, proposed.offset
 				return ctx.types.Vector2.new(proposed.crossOffset, proposed.offset)
 			end)
 			local relaid = ctx.Compose.cell(false)

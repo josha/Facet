@@ -243,7 +243,9 @@ local function inline(
 				metrics, widest, tallest, heldLength = geometry, 0, 0, length
 			end
 			widest, tallest = math.max(widest, value.X), math.max(tallest, value.Y)
-			value = ctx.types.Vector2.new(widest, tallest)
+			value = if current.X == widest and current.Y == tallest
+				then current
+				else ctx.types.Vector2.new(widest, tallest)
 		end
 		current = value
 	end

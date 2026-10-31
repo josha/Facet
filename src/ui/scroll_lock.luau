@@ -6,6 +6,7 @@ local scrollLock = {}
 type Layer = {
 	stack: { Instance },
 	held: { [ScrollingFrame]: boolean },
+	frames: { [ScrollingFrame]: boolean }?,
 	connections: { RBXScriptConnection },
 }
 
@@ -34,7 +35,9 @@ local function take(frame: ScrollingFrame)
 		end),
 	}
 	holds[frame] = created
-	frame.ScrollingEnabled = false
+	if frame.ScrollingEnabled then
+		frame.ScrollingEnabled = false
+	end
 end
 
 local function give(frame: ScrollingFrame)
@@ -46,7 +49,9 @@ local function give(frame: ScrollingFrame)
 	if current.count == 0 then
 		holds[frame] = nil
 		current.watch:Disconnect()
-		frame.ScrollingEnabled = current.saved
+		if frame.ScrollingEnabled ~= current.saved then
+			frame.ScrollingEnabled = current.saved
+		end
 	end
 end
 
@@ -90,22 +95,33 @@ local function refresh(layer: Instance, state: Layer)
 			connection:Disconnect()
 		end
 		table.clear(state.connections)
+		state.frames = nil
 		if next(state.held) == nil then
 			layers[layer] = nil
 		end
 		return
 	end
-	for _, node in layer:GetDescendants() do
-		if node:IsA("ScrollingFrame") and not exempt(state, node) then
-			hold(state, node)
+	local frames = state.frames
+	if frames == nil then
+		local found: { [ScrollingFrame]: boolean } = {}
+		for _, node in layer:GetDescendants() do
+			if node:IsA("ScrollingFrame") then
+				found[node] = true
+			end
 		end
-	end
-	if #state.connections == 0 then
+		state.frames = found
+		frames = found
 		table.insert(
 			state.connections,
 			layer.DescendantAdded:Connect(function(node: Instance)
-				if node:IsA("ScrollingFrame") and #state.stack > 0 and not exempt(state, node) then
-					hold(state, node)
+				if node:IsA("ScrollingFrame") then
+					local known = state.frames
+					if known then
+						known[node] = true
+					end
+					if #state.stack > 0 and not exempt(state, node) then
+						hold(state, node)
+					end
 				end
 			end)
 		)
@@ -113,17 +129,26 @@ local function refresh(layer: Instance, state: Layer)
 			state.connections,
 			layer.DescendantRemoving:Connect(function(node: Instance)
 				if node:IsA("ScrollingFrame") then
+					local known = state.frames
+					if known then
+						known[node] = nil
+					end
 					free(state, node)
 				end
 			end)
 		)
+	end
+	for frame in assert(frames) do
+		if not exempt(state, frame) then
+			hold(state, frame)
+		end
 	end
 end
 
 function scrollLock.acquire(layer: Instance, root: Instance)
 	local state = layers[layer]
 	if state == nil then
-		local created: Layer = { stack = {}, held = {}, connections = {} }
+		local created: Layer = { stack = {}, held = {}, frames = nil, connections = {} }
 		layers[layer] = created
 		state = created
 	end

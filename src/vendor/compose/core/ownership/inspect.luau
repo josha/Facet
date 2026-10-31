@@ -95,6 +95,7 @@ export type State = {
 }
 
 local state: State? = nil
+local flag = { active = false }
 
 local function isActive(): boolean
 	return state ~= nil
@@ -240,14 +241,17 @@ local function start(options: Options?)
 		nodeOwner = nodeOwner,
 		broken = false,
 	}
+	flag.active = true
 end
 
 local function stop()
 	state = nil
+	flag.active = false
 	Nodes.resetCharges()
 end
 
 return {
+	flag = flag,
 	isActive = isActive,
 	start = start,
 	stop = stop,

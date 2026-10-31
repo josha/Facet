@@ -133,15 +133,12 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			local item = currentList[index]
 			local value = cellModule.cell(item)
 			local position = if readsIndex then cellModule.cell(index) else UNREAD_INDEX
-			local block = Block.mountBlock(mountPoint, owner, function(): { Host.Node }
-				return { render(value, position, itemKey) }
-			end, "keyed row", at, true)
-			local nodes = block.nodes
+			local nodes, rowOwner = Block.mountRow(mountPoint, owner, render, value, position, itemKey, "keyed row", at)
 			if #nodes ~= 1 then
 				uniform = false
 			end
 			local entry: Entry<V, K> = {
-				owner = block.owner,
+				owner = rowOwner,
 				nodes = nodes,
 				value = value,
 				index = position,
@@ -351,7 +348,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 
 			local removedAny = false
 			if found < oldEnd - prefix then
-				for index = oldEnd, prefix + 1, -1 do
+				for index = prefix + 1, oldEnd do
 					local existing = order[index]
 					if existing.mark ~= mark then
 						release(existing)

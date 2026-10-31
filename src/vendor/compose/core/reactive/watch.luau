@@ -13,6 +13,10 @@ type Node = Types.Node
 type Reactor = Types.Reactor
 type Dispose = Types.Dispose
 
+local CLEAN = Graph.CLEAN
+local CHECK = Graph.CHECK
+local DIRTY = Graph.DIRTY
+
 local enterScope: (Node) -> () = function(_node: Node) end
 local leaveScope: (Node) -> () = function(_node: Node) end
 
@@ -25,7 +29,7 @@ local function rerun(node: Node)
 		stats.bump "watchRuns"
 		statsOn.recorder.enterRun(node)
 	end
-	node.state = Graph.CLEAN
+	node.state = CLEAN
 	if node.inherited ~= nil then
 		enterScope(node)
 	end
@@ -51,8 +55,8 @@ function WATCH.run(node: Node)
 	if node.released then
 		return
 	end
-	if node.state == Graph.CHECK and not moved(node) then
-		node.state = Graph.CLEAN
+	if node.state == CHECK and not moved(node) then
+		node.state = CLEAN
 		return
 	end
 	rerun(node)
@@ -77,7 +81,7 @@ local function sweep(leader: Node, producer: Node, from: Node?)
 			consumer ~= nil
 			and consumer ~= leader
 			and consumer[2] == nil
-			and consumer.state == Graph.DIRTY
+			and consumer.state == DIRTY
 			and consumer.reactor == reactor
 			and not consumer.queued
 			and not consumer.released
@@ -87,7 +91,7 @@ local function sweep(leader: Node, producer: Node, from: Node?)
 				stats.bump "watchRuns"
 				statsOn.recorder.enterRun(consumer)
 			end
-			consumer.state = Graph.CLEAN
+			consumer.state = CLEAN
 			Graph.runEffectIn(frame, consumer)
 		end
 		edge = following
@@ -99,8 +103,8 @@ function TERMINAL.run(leader: Node)
 	local producer = leader.source
 	leader.source = nil
 	if not leader.released then
-		if leader.state == Graph.CHECK and not moved(leader) then
-			leader.state = Graph.CLEAN
+		if leader.state == CHECK and not moved(leader) then
+			leader.state = CLEAN
 		else
 			rerun(leader)
 		end
@@ -136,7 +140,7 @@ function TERMINAL.run(leader: Node)
 end
 
 function TERMINAL.runIn(frame: Evaluation.Evaluation, node: Node)
-	if node.source ~= nil or node.state == Graph.CHECK then
+	if node.source ~= nil or node.state == CHECK then
 		TERMINAL.run(node)
 		return
 	end
@@ -147,7 +151,7 @@ function TERMINAL.runIn(frame: Evaluation.Evaluation, node: Node)
 		stats.bump "watchRuns"
 		statsOn.recorder.enterRun(node)
 	end
-	node.state = Graph.CLEAN
+	node.state = CLEAN
 	Graph.runEffectIn(frame, node)
 end
 
@@ -158,8 +162,8 @@ function GUARDED.run(node: Node)
 	if node.released then
 		return
 	end
-	if node.state == Graph.CHECK and not guardedMoved(node) then
-		node.state = Graph.CLEAN
+	if node.state == CHECK and not guardedMoved(node) then
+		node.state = CLEAN
 		return
 	end
 	rerun(node)
@@ -167,7 +171,7 @@ end
 
 local function begin(reactor: Reactor, body: Body, class: {}, label: string?, scope: unknown?): Node
 	local node: Node = {
-		state = Graph.DIRTY,
+		state = DIRTY,
 		reactor = reactor,
 		effect = body,
 		released = false,

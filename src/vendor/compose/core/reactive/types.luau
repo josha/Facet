@@ -134,7 +134,7 @@ export type Node = {
 	reactor: Reactor?,
 	set: ((Node, unknown) -> ())?,
 	resume: ((Node, unknown) -> ())?,
-	coalesced: Node?,
+	coalesced: (Node | false)?,
 	group: boolean?,
 	source: Node?,
 	fastKey: string?,

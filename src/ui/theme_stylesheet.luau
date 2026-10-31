@@ -92,6 +92,43 @@ end
 local lastCompiled: { [Engine.RobloxTypes]: { NativeRule } } = {}
 support.weakKeys(lastCompiled)
 
+local EASING_STYLES: { [string]: string } = {
+	Quad = "Quad",
+	Cubic = "Cubic",
+	Quart = "Quart",
+	Quint = "Quint",
+	Sine = "Sine",
+	Expo = "Exponential",
+	Circ = "Circular",
+	Back = "Back",
+	Elastic = "Elastic",
+	Bounce = "Bounce",
+}
+
+local function easingStyle(name: string): (string, string)
+	if name == "linear" then
+		return "Linear", "Out"
+	end
+	local direction, rest = "Out", name
+	if string.sub(name, 1, 5) == "inOut" then
+		direction, rest = "InOut", string.sub(name, 6)
+	elseif string.sub(name, 1, 3) == "out" then
+		direction, rest = "Out", string.sub(name, 4)
+	elseif string.sub(name, 1, 2) == "in" then
+		direction, rest = "In", string.sub(name, 3)
+	end
+	return EASING_STYLES[rest] or "Quad", direction
+end
+
+local textRules = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [NativeRule]: { [number]: NativeRule } }
+local sizedProperties = (
+	setmetatable({}, { __mode = "k" }) :: unknown
+) :: { [ThemeTypes.RuleProperties]: { [number]: ThemeTypes.RuleProperties } }
+local sizedRules = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [{ NativeRule }]: { number } }
+type ByTiming = { [string]: { [string]: string } }
+local transitionTables = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: ByTiming }
+type Known = { [ThemeTypes.RuleProperties]: boolean }
+local comparisons = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: Known }
 local compiledFor = setmetatable(
 	{} :: { [Engine.RobloxTypes]: { [ThemeTypes.ThemePackage]: { [string]: { NativeRule } } } },
 	{ __mode = "k" }
@@ -147,23 +184,55 @@ return function(
 		local name = if typeof(value) == "EnumItem" then value.Name else value
 		return ({ Medium = 0, Large = 1, Larger = 2, Largest = 3 } :: { [unknown]: number })[name] or 0
 	end
-	local textRules = (
-		setmetatable({}, { __mode = "k" }) :: unknown
-	) :: { [NativeRule]: { offset: number, rule: NativeRule } }
 	local function withTextSize(definition: NativeRule, offset: number): NativeRule
 		local size = definition.properties.TextSize
 		if offset == 0 or type(size) ~= "number" then
 			return definition
 		end
-		local cached = textRules[definition]
-		if cached and cached.offset == offset then
-			return cached.rule
+		local byOffset = textRules[definition]
+		if byOffset == nil then
+			local fresh: { [number]: NativeRule } = {}
+			byOffset = fresh
+			textRules[definition] = fresh
+		end
+		local known = assert(byOffset)
+		local cached = known[offset]
+		if cached then
+			return cached
+		end
+		local base = definition.properties
+		local bySize = sizedProperties[base]
+		if bySize == nil then
+			local fresh: { [number]: ThemeTypes.RuleProperties } = {}
+			bySize = fresh
+			sizedProperties[base] = fresh
+		end
+		local resized = assert(bySize)
+		local properties = resized[offset]
+		if properties == nil then
+			local made = table.clone(base)
+			made.TextSize = math.max(1, size + offset)
+			resized[offset] = made
+			properties = made
 		end
 		local rule = table.clone(definition)
-		rule.properties = table.clone(definition.properties)
-		rule.properties.TextSize = math.max(1, size + offset)
-		textRules[definition] = { offset = offset, rule = rule }
+		rule.properties = assert(properties)
+		known[offset] = rule
 		return rule
+	end
+	local function sizedIn(rules: { NativeRule }): { number }
+		local cached = sizedRules[rules]
+		if cached then
+			return cached
+		end
+		local indexes: { number } = {}
+		for index, definition in rules do
+			if type(definition.properties.TextSize) == "number" then
+				table.insert(indexes, index)
+			end
+		end
+		sizedRules[rules] = indexes
+		return indexes
 	end
 	local preferredTransparency = settings.preferredTransparency
 	if preferredTransparency == nil then
@@ -276,14 +345,23 @@ return function(
 		return if type(value) == "number" and value == value then math.clamp(value, 0, 1) else 1
 	end
 	local defaultTimings: { [string]: TweenInfo } = {}
-	type PaintState = "normal" | "press" | "hover"
+	type PaintState = "normal" | "press" | "hover" | "pop" | "instant"
 	local function timingFor(package: ThemeTypes.ThemePackage, role: PaintState, use: ComposeTypes.Use): TweenInfo
 		local explicit = read(settings.transition, use)
 		local motion = ((package.metrics or {}) :: { motion: ThemeTypes.MotionMetrics? }).motion
 		local normal = if motion and motion.normal then motion.normal else neutral.metrics.motion.normal
 		local seconds
-		if snaps(use) or explicit == false then
+		local style = (motion and motion.styles and motion.styles.paint)
+			or (neutral.metrics.motion.styles :: { [string]: string }).paint
+		local direction = "Out"
+		if role == "instant" or snaps(use) or explicit == false then
 			seconds = 0
+		elseif role == "pop" then
+			local durations: { [string]: number } = (motion and motion.durations) or {}
+			seconds = durations.regionPop or (neutral.metrics.motion.durations :: { [string]: number }).regionPop
+			local easing: { [string]: string } = (motion and motion.easing) or {}
+			style, direction =
+				easingStyle(easing.present or (neutral.metrics.motion.easing :: { [string]: string }).present)
 		elseif explicit ~= nil then
 			return explicit
 		elseif role == "normal" then
@@ -292,9 +370,7 @@ return function(
 			local authored = if motion then motion[role] else nil
 			seconds = math.min(authored or neutral.metrics.motion[role], normal)
 		end
-		local style = (motion and motion.styles and motion.styles.paint)
-			or (neutral.metrics.motion.styles :: { [string]: string }).paint
-		local key = `{seconds}|{style}`
+		local key = `{seconds}|{style}|{direction}`
 		local cached: TweenInfo? = defaultTimings[key]
 		if cached then
 			return cached
@@ -302,14 +378,16 @@ return function(
 		local timing = types.TweenInfo.new(
 			seconds,
 			((types.Enum.EasingStyle :: unknown) :: { [string]: Enum.EasingStyle })[style],
-			types.Enum.EasingDirection.Out
+			((types.Enum.EasingDirection :: unknown) :: { [string]: Enum.EasingDirection })[direction]
 		)
 		defaultTimings[key] = timing
 		return timing
 	end
 	local function stateOf(selector: string): PaintState
-		return if string.find(selector, ":Press", 1, true)
-			then "press"
+		return if string.find(selector, ".facet-region-pop#Rest", 1, true)
+			then "instant"
+			elseif string.find(selector, ".facet-region-pop", 1, true) then "pop"
+			elseif string.find(selector, ":Press", 1, true) then "press"
 			elseif string.find(selector, ":Hover", 1, true) then "hover"
 			else "normal"
 	end
@@ -424,6 +502,11 @@ return function(
 		local previous = lastCompiled[types]
 		if previous ~= nil then
 			changesBetween(previous, result)
+			local before, after = previous[1] and previous[1].tokens, result[1] and result[1].tokens
+			if before and after then
+				tokenChanges(before, after)
+				tokenChanges(after, before)
+			end
 		end
 		lastCompiled[types] = result
 		return result
@@ -458,8 +541,13 @@ return function(
 		}
 	end
 	local ids = Compose.cell({} :: { string })
-	local TOKENS: { [PaintState]: string } =
-		{ normal = "FacetMotionNormal", press = "FacetMotionPress", hover = "FacetMotionHover" }
+	local TOKENS: { [PaintState]: string } = {
+		normal = "FacetMotionNormal",
+		press = "FacetMotionPress",
+		hover = "FacetMotionHover",
+		pop = "FacetMotionRegionPop",
+		instant = "FacetMotionInstant",
+	}
 	type MountedRule = {
 		node: StyleRule,
 		priority: number,
@@ -468,8 +556,6 @@ return function(
 		timing: string,
 	}
 	local mounted: { [string]: MountedRule } = {}
-	type ByTiming = { [string]: { [string]: string } }
-	local transitionTables = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: ByTiming }
 	local function transitionsFor(properties: ThemeTypes.RuleProperties, timing: string): { [string]: string }
 		local byTiming = transitionTables[properties]
 		if byTiming == nil then
@@ -480,11 +566,13 @@ return function(
 		local transitions = byTiming[timing]
 		if transitions == nil then
 			local built: { [string]: string } = {}
+			local scales = timing == "FacetMotionRegionPop" or timing == "FacetMotionInstant"
 			for property, value in properties do
 				if
 					typeof(value) == "Color3"
 					or (type(value) == "string" and string.sub(value, 1, 12) == "$FacetColor_")
 					or string.find(property, "Transparency$")
+					or (scales and property == "Scale")
 				then
 					built[property] = "$" .. timing
 				end
@@ -494,8 +582,6 @@ return function(
 		end
 		return transitions
 	end
-	type Known = { [ThemeTypes.RuleProperties]: boolean }
-	local comparisons = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: Known }
 	local function sameRuleProperties(left: ThemeTypes.RuleProperties, right: ThemeTypes.RuleProperties): boolean
 		local known = comparisons[left]
 		if known == nil then
@@ -539,6 +625,9 @@ return function(
 	support.weakKeys(timingMemo)
 	local applied: { NativeRule }? = nil
 	local appliedArrivals = 0
+	local appliedBase: { NativeRule }? = nil
+	local appliedOffset = 0
+	local appliedPreference = 1
 	local initialIds: { [string]: boolean }? = nil
 	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({
 		Compose.keyed({
@@ -639,6 +728,32 @@ return function(
 			else 0
 		local arrived = use(arrivals)
 		local plain = textOffset == 0 and preference >= 1
+		if
+			appliedBase == current
+			and arrived == appliedArrivals
+			and preference == appliedPreference
+			and textOffset ~= appliedOffset
+		then
+			local resized = table.clone(definitions)
+			for _, index in sizedIn(current) do
+				local definition = withTextSize(current[index], textOffset)
+				if preference < 1 then
+					definition = withPreference(definition, preference)
+				end
+				resized[definition.id] = definition
+				local record = mounted[definition.id]
+				if record then
+					apply(record, definition)
+				end
+			end
+			definitions = resized
+			appliedOffset = textOffset
+			applied = if plain then current else nil
+			if plain then
+				byIdOf[current] = definitions
+			end
+			return
+		end
 		local changes = if plain
 				and applied ~= nil
 				and arrived == appliedArrivals
@@ -654,6 +769,7 @@ return function(
 			end
 			definitions = indexById(current)
 			applied = current
+			appliedBase, appliedOffset, appliedPreference = current, textOffset, preference
 			return
 		end
 		local previousIds = ids:peek()
@@ -696,6 +812,7 @@ return function(
 		end
 		applied = if plain then current else nil
 		appliedArrivals = arrived
+		appliedBase, appliedOffset, appliedPreference = current, textOffset, preference
 		if plain then
 			byIdOf[current] = definitions
 		end

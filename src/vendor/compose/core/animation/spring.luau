@@ -25,12 +25,11 @@ local function coefficients(period: number, damping: number): (number, number)
 	return frequency * frequency, 2 * damping * frequency
 end
 
-local function step(state: State, target: { number }, delta: number, period: number, damping: number): number
+local function advance(state: State, target: { number }, delta: number, stiffness: number, drag: number): number
 	if delta <= 0 then
 		return 0
 	end
 	local simulated = math.min(delta, MAX_DELTA)
-	local stiffness, drag = coefficients(period, damping)
 
 	local position = state.position
 	local velocity = state.velocity
@@ -50,6 +49,14 @@ local function step(state: State, target: { number }, delta: number, period: num
 	end
 
 	return simulated
+end
+
+local function step(state: State, target: { number }, delta: number, period: number, damping: number): number
+	if delta <= 0 then
+		return 0
+	end
+	local stiffness, drag = coefficients(period, damping)
+	return advance(state, target, delta, stiffness, drag)
 end
 
 local function atRest(state: State, target: { number }, reference: { number }, tolerance: number): boolean
@@ -84,6 +91,7 @@ return {
 	createState = createState,
 	coefficients = coefficients,
 	step = step,
+	advance = advance,
 	atRest = atRest,
 	settle = settle,
 }

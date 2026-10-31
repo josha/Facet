@@ -186,6 +186,7 @@ local function formula<T>(body: Body<T>, equals: Equals<T>?): Value<T>
 		released = false,
 		retry = false,
 		body = body,
+		refresh = FORMULA.refresh,
 	}
 	if equals ~= nil then
 		node.equals = NodeCast.eraseEquals(equals)

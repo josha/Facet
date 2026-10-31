@@ -41,7 +41,9 @@ local function hold(ctx: Types.Context, gui: GuiService?, suspends: boolean): ()
 		end)
 	end
 	lease.touches += 1
-	gui.TouchControlsEnabled = false
+	if gui.TouchControlsEnabled ~= false then
+		gui.TouchControlsEnabled = false
+	end
 	if suspends then
 		lease.suspensions += 1
 		lease.suspended:set(true)
@@ -64,7 +66,9 @@ local function hold(ctx: Types.Context, gui: GuiService?, suspends: boolean): ()
 				lease.watch:Disconnect()
 				lease.watch = nil
 			end
-			gui.TouchControlsEnabled = lease.before
+			if gui.TouchControlsEnabled ~= lease.before then
+				gui.TouchControlsEnabled = lease.before
+			end
 		end
 	end
 end
