@@ -2431,6 +2431,42 @@ add("picker-segmented-garage-rightmost", {}, function(t)
 	end
 end)
 
+add("color-picker-hex-selection-settles", {}, function(t)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		return UI.ColorPicker "Colour" {
+			style = "inline",
+			Size = UDim2.fromOffset(380, 0),
+			value = Compose.cell(Color3.fromRGB(218, 195, 145)),
+			modes = { "swatches", "spectrum" } :: { "swatches" | "spectrum" | "sliders" | "brick" },
+		}
+	end, { size = Vector2.new(600, 600), frames = 30, motionLevel = "normal" })
+	local format = t.find(stage, "Format")
+	local fill = t.find(format, "SelectionFill")
+	local live = require(game:GetService("ReplicatedStorage").FacetLive)
+	for _, name in { "hex", "hsv", "rgb", "hex" } do
+		local segment = format:FindFirstChild(name)
+		live.click(segment)
+		t.settle(60)
+		local size, position = segment.AbsoluteSize, segment.AbsolutePosition
+		local departures, misaligned, overflow = 0, 0, 0
+		for _ = 1, 60 do
+			t.settle(1)
+			departures += if (segment.AbsoluteSize - size).Magnitude > 0.5
+					or (segment.AbsolutePosition - position).Magnitude > 0.5
+				then 1
+				else 0
+			misaligned += if (fill.AbsoluteSize - segment.AbsoluteSize).Magnitude > 1
+					or (fill.AbsolutePosition - segment.AbsolutePosition).Magnitude > 1
+				then 1
+				else 0
+			overflow += if format.ScrollingEnabled then 1 else 0
+		end
+		t.check(name .. " keeps its segment geometry after settling", departures == 0, departures)
+		t.check(name .. " keeps the highlight on its segment", misaligned == 0, misaligned)
+		t.check(name .. " does not oscillate into overflow", overflow == 0, overflow)
+	end
+end)
+
 add("color-picker-rightmost-mode-stays-put", {}, function(t)
 	for _, size in { Vector2.new(1280, 720), Vector2.new(390, 844) } do
 		local stage = t.gallery({ size = size, demo = "garage" })

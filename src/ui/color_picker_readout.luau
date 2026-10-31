@@ -181,7 +181,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 			style = "segmented" :: "segmented",
 			options = FORMATS,
 			Size = D2.fromOffset(0, CELL),
-			AutomaticSize = E.AutomaticSize.X,
+			AutomaticSize = E.AutomaticSize.None,
 		}
 		local picker = UI.Picker(formatProps)
 		runtime.mount(function()
