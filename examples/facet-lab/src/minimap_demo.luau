@@ -151,7 +151,7 @@ local function build(c: Context, p: Properties): Frame
 		return UI.Screen "FullMap" {
 			surface = "surface",
 			gap = "s",
-			UI.NavBar {
+			UI.NavBar "MapHeader" {
 				title = if radar then "Radar map" else "Course map",
 				trailing = UI.Button "CloseMap" {
 					label = "Close map",
