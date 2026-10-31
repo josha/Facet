@@ -15,7 +15,6 @@ local Root = require "./ownership/root"
 local RuntimeTypes = require "@self/types"
 local Types = require "./reactive/types"
 local Weak = require "./weak"
-local shareFrames = require "./frames"
 
 export type Node = Host.Node
 type Dispose = Types.Dispose
@@ -98,7 +97,7 @@ local function createRuntime(host: Host.Host): Runtime
 				if key == "frames" then
 					if supplied.frames ~= frameSource then
 						frameSource = supplied.frames
-						shared = if frameSource then shareFrames(frameSource, reactor) else nil
+						shared = if frameSource then (require "./frames")(frameSource, reactor) else nil
 					end
 					return shared
 				end

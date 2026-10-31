@@ -359,7 +359,7 @@ export type Facet = {
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "27471e08cd986812bec8153928576e2f2532a061"
+local COMPOSE_COMMIT = "2d03ca1f097bc99efacefa5da74c51fea3ab78e7"
 local USED = {
 	"boundary",
 	"cell",
