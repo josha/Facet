@@ -5,35 +5,30 @@ description: Assess and improve how a Facet game interface looks, with captures,
 
 # Critique UI
 
-An author grades its own screen too kindly. This skill gets an independent
-judgment, then turns it into concrete changes.
+Review the interface against its brief, intended users and visual direction.
+An independent judgment can expose assumptions, but its scores do not replace
+the owner's intent, input tests or player evidence.
 
 ## When
 
-- After the first complete task works, before you copy its layout to other
-  destinations.
-- After a visual change, to confirm it helped.
+- When a new composition or substantial visual change needs deeper review.
 - When asked to review, critique, assess or polish an interface.
 
-## In a timed build
+## Quick review
 
-When the whole game must ship in minutes, run this quick pass on each main
-screen as soon as it works, before building the next one. It takes about two
-minutes a screen.
+For a focused change, review the affected states and representative supported
+sizes. Scale the evidence to the change; there is no fixed time per screen.
 
-1. In Play, in the Client, `return Facet.review.screen().text`. Fix every
-   medium or high finding, or name the reason it is deliberate.
-2. Capture the screen once. Re-run the review text, not a capture, after
-   small fixes.
-3. Answer in one line each: What leads? Is the current choice marked? Does
-   every option of each choice show? Is anything stacked one per row in a wide
-   space? Is any plate mostly empty, or any page content on one side? Does the
-   world show around pages, and do HUD readouts sit on panels? Which three
-   theme cues show here? Could this capture belong to an unrelated game?
-4. Fix the worst answer, then move on.
+1. In Play, in the Client, `return Facet.review.screen().text`. Investigate
+   findings against the actual task and record justified exceptions.
+2. Capture the changed state in context.
+3. Check whether the user can find the needed facts, distinguish selection,
+   predict the action and return. Check readability, fit and the requested
+   visual direction. Text-led, quiet or full-screen designs can satisfy these.
+4. Fix the most consequential problem, then capture and test the affected state
+   again. A clean automated report cannot confirm a visual repair.
 
-Run the full loop below when time remains, starting with the screen the player
-sees most.
+Use the full loop when independent review would add useful evidence.
 
 ## The loop
 
@@ -46,12 +41,13 @@ sees most.
 
    With a saved screenshot and dump: `--capture shot.png --dump shot.json`.
    With Studio tools only, follow [Studio only](references/studio-only.md).
-   The brief is two or three lines: the game, the player's task and decision.
+   The brief states the task, audience, supported contexts and intended visual
+   direction. Include the owner's constraints, not the author's proposed fixes.
 
-2. **Fix true rule findings first.** design.txt lists rule findings with fixes:
-   facts joined in one text, numbers without emphasis, items without a visual,
-   competing leads. They are cheap to fix. Skip a finding only when the choice
-   is deliberate, and say why.
+2. **Assess rule findings.** design.txt lists heuristic findings, including
+   joined facts, number emphasis and missing visuals. A compact label, text
+   table or restrained type scale can be appropriate. Fix observable problems;
+   record false positives instead of restyling to satisfy the detector.
 
 3. **Get a fresh judgment.** Start a separate agent with
    [the critic brief](references/critic-brief.md) and the packet path only. Do
@@ -70,8 +66,8 @@ sees most.
    lute run tools/facet critique compare artifacts/critique/r1 artifacts/critique/r2
    ```
 
-   Look at the side-by-side images. A fix that adds findings or loses a `keep`
-   item is not done.
+   Look at the side-by-side images. Check that the task improved and useful
+   behavior survived. Investigate new findings; their count alone is not quality.
 
 6. **Stop** when every screen passes, or after three rounds. Report the scores
    and the open fixes. Do not call a screen passed without a verdict.
@@ -81,15 +77,16 @@ sees most.
 - The reviewer sees only the packet: captures, renders, design.txt, brief.
 - One fresh reviewer per round. Do not reuse a reviewer that saw an earlier
   round; it anchors on its first view.
-- A taste conflict between the verdict and the game owner's stated direction
-  goes to the owner. Follow the owner.
-- Every item, record and stat carries a visual by default: its image or model,
-  else a theme glyph, emblem, swatch, pips or bar. Text-only needs a reason.
+- Follow the owner's stated direction when a reviewer prefers another style.
+  Ask only when a material design choice remains unresolved by the brief.
+- Judge images, models, glyphs, text and numbers by how they serve the task.
+  Do not require decoration, unique branding or a visual for every record.
 - Captures do not prove motion, input or reachability. Test those separately.
 
 ## Calibrate the reviewer
 
 A critic is useful only when it agrees with the game owner's eye. Keep labeled
 cases and measure agreement with `lute run tools/facet critique cases` and
-`lute run tools/facet critique score`. The Facet repository explains the case
-format in `eval/critic/README.md`.
+`lute run tools/facet critique score`. Keep cases used to revise the rubric
+separate from unseen cases used to assess it. The score describes that sample,
+not a universal measure of design quality.

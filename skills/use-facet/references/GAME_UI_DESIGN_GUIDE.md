@@ -3,8 +3,10 @@
 Facet supplies reusable behavior. The game supplies purpose and visual character.
 Start with the player experience, then choose interaction, composition and controls.
 A HUD, contextual choice, planning screen and celebration need different compositions.
-Share a visual language without forcing them into one template. Read this guide
-once, then use the skill's task table for the next chapter and API route.
+Share a visual language without forcing them into one template. Read the sections
+relevant to the task, then use the skill's task table for the API route.
+The brief and established art direction set the target. These principles guide
+tradeoffs; examples and automated design advice do not prescribe a house style.
 
 ## Principles
 
@@ -66,11 +68,12 @@ Keep a short choice near its source when it fits. Give a sustained task a page
 or in-world station with enough room and a clear return. Replace unrelated HUD
 groups; retain needed context, such as balance beside cost.
 
-Use a Sheet for modal focus over the game, including a shop or garage opened
-from the HUD. Keep useful HUD context visible behind it. A Sheet can contain
-a NavigationStack for child steps; the task root has Close and no Back. When a destination such as a store or garage is a new mode that
-replaces play for a while, use a page with a Screen `surface`. Its plate reaches
-the glass.
+Use a Sheet when the task needs modal focus over the game. Keep HUD context
+visible when it helps the decision. A Sheet can contain a NavigationStack for
+child steps; the task root has Close and no Back. Use a page when entering a
+different mode replaces the play view. A Screen with `surface` paints to the
+edges. A HUD opener alone does not determine the presentation: a contextual
+command, persistent tool and full-screen map have different needs.
 
 Keep frequent safe actions direct. Add review or recovery in proportion to
 consequence. Disclose optional detail without hiding commitment terms. A
@@ -96,18 +99,18 @@ inspection, comparison and results. Use the [layout chapter](game-ui/LAYOUT_AND_
 to choose that relationship before adding containers.
 
 Keep related content close and comparable facts aligned. Use space to separate
-groups without boxing every fact. Plates side by side share one height, and one
-layer shares one elevation: all flat, or all lifted by one shadow
-(`Theme-identity`). A mismatch reads as an error, not as emphasis. Reserve strong
+groups without boxing every fact. Align comparable groups and use elevation
+consistently to explain relationships. Different sizes or surfaces can express
+different roles; equal height and uniform shadows are not requirements. Reserve strong
 accent for the important action or state. Keep stable meanings for color and icons.
 Distinguish focus, selection, equipped, pending and unavailable beyond color.
 
-Show each fact once, in the smallest form the player reads at a glance. Omit
-what the state already implies: a price means the item is not owned, so an
-owned item needs no Owned label. Use a familiar glyph with an accessible name
-for a state the player learns once, such as equipped or locked; keep words for
-names, numbers and new terms. Do not repeat on a card what its title, art or
-selected detail already says. Show one kind of fact one way everywhere, such as
+Present facts in a form the player can read and compare. Repeat a fact when
+distance, scrolling or a consequential action makes it useful. Price does not
+establish ownership: an owned item can still be sold or bought again. Show
+ownership, availability and selection when those states affect the decision.
+Use familiar glyphs with accessible names or clear text labels; neither is
+required for every fact. Show one kind of fact consistently, such as
 every price in one treatment, so the eye compares values. A second color can
 add a second fact at a glance, such as rarity or a price the player cannot pay
 yet, when it means the same thing on every item, keeps the fact readable on
@@ -146,15 +149,12 @@ Composition handles TopbarInset and its fallback; read `HUD-actions` to match
 Roblox's row. A marker may occupy the focus area when locating that target is
 the task. End commands and notices when their context ends.
 
-A portrait phone has a short top bar strip and narrow corners. A wide readout
-that does not fit the strip lands below the bar. When it is too wide for the
-top row, it moves under the corner columns and spans the screen. There it
-covers the ground ahead of the player, lines up with no other panel, and a
-bar in it can become a short stub. Give such a region a short form, such as
-one line of text, that fits beside one top corner. Composition then keeps it
-in the top row, beside that corner. Keep the bar in the forms for wider screens.
-Check portrait in Studio with real text, also while an optional goal shows.
-`lute run tools/facet audit` reports a zone that moved into the view as `hud-in-view`.
+Provide compact Region forms when the preferred arrangement cannot fit.
+Choose what remains from the information needed during play; text, a bar or
+a contextual cue can each be appropriate. Check simultaneous regions with
+real labels and native controls at supported sizes. Investigate `hud-in-view`
+findings from `lute run tools/facet audit` against the game's actual focus area;
+a world marker and an unrelated status panel can need different placement.
 
 Composition is passive. Gameplay keeps the movement stick and D-pad.
 Give HUD tasks explicit gamepad actions and visible input hints. The opened

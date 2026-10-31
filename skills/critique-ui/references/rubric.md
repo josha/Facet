@@ -4,21 +4,24 @@ Judge the screens as a player of this game would see them. Use the capture for
 the whole impression, the squint render for what leads, and the blocks render
 for layout. Use design.txt as evidence, not as the verdict: a rule can find a
 deliberate choice and miss a real problem.
+Judge the requested visual direction, including restrained, familiar or
+text-led designs. Do not penalize an appropriate design for lacking an example's
+art, large numerals, borders, exposed world or screen structure.
 
 ## Answer these for each screen
 
 1. **First look.** In one second, what does the eye land on? Is it the most
    important thing for the player's decision on this screen?
-2. **Lead.** Does each group have one lead? Is the largest or brightest element
-   the most important fact, or is it a title, a filter or a Back button?
-3. **Numbers.** Are the deciding values (price, stat, rating, reward, time)
-   the heroes: large numerals with a small label or unit? Or are they words in
-   a sentence such as "Speed 88 · Handling 76"?
-4. **Visuals.** Does every item, record and stat carry a visual that tells it
-   apart: its image or model, a glyph, an emblem, a swatch, pips or a bar?
-   Text-only items need a clear reason.
-5. **Identity.** Could this screen belong to an unrelated game? Name the cue in
-   type, material, shape, color or subject that makes it this game.
+2. **Lead.** Does emphasis help the user's task? A title can lead orientation;
+   equal-weight rows can support comparison. Identify actual competing demands.
+3. **Numbers.** Are relevant values, units and relationships readable and easy
+   to compare at the intended density? Large numerals, aligned table cells and
+   compact sentences are possible treatments, not requirements.
+4. **Visuals.** Does the representation help recognition or understanding?
+   Images, models, glyphs, charts and text are alternatives. Do not request a
+   visual where it adds no information or useful character.
+5. **Identity.** Does the screen fit the brief and established visual language?
+   Name evidence of consistency or conflict; uniqueness is not a requirement.
 6. **Economy.** What can go without losing the decision: repeated facts, a
    wall of zeros, boxes inside boxes, an introduction above the choice?
 7. **Space.** Does the space go to the subject and the decision, or is content
@@ -28,8 +31,11 @@ deliberate choice and miss a real problem.
 
 ## Scores
 
-Score each dimension 1 to 5. 5 is shippable in a commercial game; 3 is
-competent and forgettable; 1 is broken or generic.
+Score each dimension 1 to 5 against the brief. 5 means it serves the task well;
+4 means no material issue is visible; 3 means a specific issue impairs the task;
+2 means major difficulty; 1 means the task is obstructed. Give evidence for
+each requested fix. When a dimension has no relevant content, record that in
+`keep` and use 4; do not invent a need for numbers or art to increase the score.
 
 | Dimension | Covers questions |
 |---|---|
@@ -40,7 +46,8 @@ competent and forgettable; 1 is broken or generic.
 | `economy` | 6, 7 |
 
 The verdict is `pass` only when every score is 4 or more. Otherwise it is
-`revise`.
+`revise`. This is the critique tool's review convention, not proof of usability
+or a universal release threshold. Report missing evidence separately.
 
 ## Fixes
 
@@ -55,6 +62,10 @@ of these tags:
 `item-without-visual`, `stat-without-visual`, `progress-as-text`,
 `generic-identity`, `boxed-everything`, `stranded-space`, `zero-wall`,
 `commit-unclear`, `low-contrast`, `crowded`, `repeated-facts`.
+
+Tags classify an observed problem; their names do not impose design rules.
+For example, `item-without-visual` needs evidence that recognition suffers,
+and `joined-facts` needs evidence that the combined text impairs reading.
 
 Also name what works and must stay (`keep`), so a revision does not lose it.
 

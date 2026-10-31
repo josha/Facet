@@ -41,6 +41,12 @@ Press Play. The gallery settings select the theme, the palette, the motion
 preference and the viewing-distance preview. The preview scales the controls.
 Use the Studio emulators to check the actual viewport and input.
 
+## Minimap
+
+For a race course HUD, proximity radar and full map, use the
+[minimap example](minimaps.md#try-the-example). Its standalone project and the
+Lab's Minimap patterns page share the same component and replaceable drawing.
+
 ## Virtual monitors
 
 The virtual monitors showcase uses the same composition path for its UI and

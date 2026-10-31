@@ -1,18 +1,18 @@
 # Theme-identity
 
-Turn the art direction of a game into a theme that reads over its world.
+Turn the brief's art direction into a readable theme. The examples below are
+conditional design choices, not required colors, type sizes or surface treatments.
 
 - Map the art direction to roles. A brief such as "dark metal, cyan and
   violet neon" becomes a dark `surface`, a cyan `accent`, a violet
   `controlSelected` and a cyan `hairline`. Give `controlHover` and
   `controlPressed` the hue of `control`. An extra that you omit keeps the
   blue-gray value of the dark Neutral palette.
-- Keep plates visible over the scene: `control` and `surfaceStrong` must be
-  clearly lighter than a dark world, and `content` pale. Faint text and plates
-  that vanish into the scene read as unfinished.
-- Use a legible font family and a few sizes. At 1080p, keep body text at 18 or
-  more, captions and HUD labels at 15 or more, and HUD numbers at 20 or more.
-  Smaller text reads as unfinished on a TV and is hard to read on a phone. Check clocks and numbers in the chosen font: some display fonts
+- Keep text and controls readable against their actual backgrounds. Dark and
+  light themes need different contrast relationships; a backing plate can help
+  over a changing scene. Check focus, selection, disabled and error states too.
+- Use legible fonts and a scale suited to the content and viewing distance.
+  Resolution alone does not establish physical readability. Check clocks and numbers in the chosen font: some display fonts
   draw a colon so thin that "24:51" reads as "2451" at small sizes. Wide display
   fonts can also make ordinary captions compete with headings and force short
   labels to wrap. Start with the base readable family; express character
@@ -29,17 +29,16 @@ Turn the art direction of a game into a theme that reads over its world.
 - Keep selection, ownership and purchase emphasis distinct. A quiet Owned
   state must not compete with Buy. Preserve the words as well as any color
   difference. Use stable icons or category marks when they help identify items.
-- Choose a surface for the task. Give recurring destinations a readable
-  [page](Tasks.pages.md), with art and comparison space. Use a content-sized
-  Sheet for a short interruption. A large empty panel makes a small decision
-  harder to scan; a small scrolling window hides a collection's useful choices.
+- Choose a surface from the task's relationship to play, input ownership and
+  space needs. A [page](Tasks.pages.md) can replace the play view; a Sheet can
+  hold a modal task. Task duration alone does not decide the surface. Allow
+  enough room for comparison, reading and accessible controls.
 - Use quiet boundaries when they help separate items from their container.
   Reserve strong outlines for the current selection or action; equal bright
   strokes on every nested panel erase that hierarchy.
-- Choose elevation for the whole theme, not per element. Neutral plates are
-  flat. When `chrome.panel.shadow` lifts panels, give `chrome.control.shadow` a
-  matching shadow, or keep both flat and separate plates by value. A shadow on
-  panels but not on the Buttons beside them reads as an error.
+- Use elevation consistently to express relationships. `chrome.panel.shadow`
+  and `chrome.control.shadow` can differ when panels and controls have different
+  roles. Flat surfaces can also work; judge separation in the actual task.
 - `rules` add native StyleSheet rules. `{ role = "accent" }` and
   `{ metric = "..." }` follow palette and distance changes.
 - Check `report` before you pass the package to the app.

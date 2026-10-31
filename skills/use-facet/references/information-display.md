@@ -1,29 +1,27 @@
 # Information display
 
-Show each fact in the form the player reads at a glance. A value leads; its
-label is small; every item and stat carries a visual. These recipes replace
-the most common generic pattern: several facts joined in one caption.
+Choose a representation from what the user needs to recognize, read or compare.
+These recipes illustrate possible treatments. A dense table, sentence, quiet
+readout or visual card can each be appropriate; preserve the brief's priorities.
 
-## Rules
+## Decision criteria
 
-- **One fact, one element.** Do not join facts with ` · `, ` • `, ` | ` or
-  ` / `. `Facet.review` reports it as `joined-facts`.
-- **Value leads, label follows.** Put the deciding number in `numeral` (or
-  `strong` inside a dense row) and its label or unit in `caption` beside or
-  under it. Never "Speed 88" in body type.
-- **A visual by default.** Every item, record and stat gets its image or
-  model, else a theme glyph (`UI.Label { presentation = "iconOnly" }` with a
-  name from Icons.names), an emblem, a swatch, pips or a bar. Text-only is an
-  exception with a reason, such as a word list in a word game.
-- **One lead per group.** The mode name, a filter or a title must not match
-  the size of the value the player came for.
-- **A goal, not a wall of zeros.** When a record is empty, show what the
-  player does next and how far it is.
-- **One plate per layer.** Separate groups with space or one hairline, not a
-  card inside a card.
+- Separate facts when alignment, scanning or independent updates benefit.
+  Compact summaries and related values can share a label. Punctuation alone
+  does not make a display unclear; inspect `joined-facts` findings in context.
+- Emphasize the information needed for the decision. `numeral` suits a leading
+  value; `strong` or body text can suit dense comparisons. Keep units and labels
+  readable. A title or instruction can lead when orientation is the task.
+- Use art for recognition, swatches for color, and bars or pips when magnitude
+  matters. Text and aligned numbers can be clearer than decorative glyphs.
+- Distinguish a meaningful zero from missing data or an empty state. Keep a
+  zero that affects the decision; offer a next step when there is no record.
+- Use space, alignment and surfaces to explain grouping. Nested surfaces need
+  a useful relationship, not a blanket prohibition.
 
-The theme must make `numeral` clearly larger than `body` (1.6 times or more);
-`Facet.themes.define` reports a flat scale in `report.advice`.
+Choose type contrast for density and viewing distance. `Facet.themes.define`
+can report a flat scale in `report.advice`; assess readability and hierarchy
+in the actual task instead of treating its threshold as a required ratio.
 
 ## Recipes
 
@@ -51,13 +49,14 @@ UI.HStack "Record" { width = "fill", distribute = "spaceEvenly",
 
 ### Rank and rating
 
-An emblem leads the row, the rating is the numeral and the tier name is the
-label. Progress to the next tier is a bar, not a sentence. See
+When tier recognition matters, an emblem can lead beside the rating and tier
+name. Use a bar for relative progress or text for exact requirements. See
 [standing](../examples/standing.luau) for the complete card.
 
 ### Placement and other goals
 
-Replace "Provisional · 0 of 10 ranked games" with pips and the next step.
+For a small fixed number of steps, pips can accompany the exact goal. This
+example uses ten placement games; use the real task's requirement.
 
 ```luau
 UI.ProgressView "Placements" { value = placed, max = 10, segments = 10 }
@@ -98,15 +97,15 @@ scale matters.
 
 A fixed-width rank numeral, the `Avatar`, the name in `strong`, a `Spacer {}`
 and the score as a numeral at the end. Mark the player's own row with
-selection paint, not a word.
+selection paint and an accessible identification such as "You" when needed.
 
 ### Balance in the HUD
 
 `UI.Label { title = Facet.format.compact(coins), icon = "coin", textSize = "numeral" }`
-in the free strip beside the top bar. One balance per glyph; do not repeat it
-in other groups.
+can fit in the free strip beside the top bar. Repeat the balance at a distant
+purchase decision when it helps; compact notation must not hide required precision.
 
 ## Before and after
 
-The [rank card pair](before-after/rank-card.md) applies these rules to a real
-screen.
+The [rank card pair](before-after/rank-card.md) shows choices for one game's
+standing card. It does not establish a required treatment for all records.

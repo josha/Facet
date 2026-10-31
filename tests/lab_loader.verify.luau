@@ -21,6 +21,7 @@ return function(harness: Verify.Harness)
 	harness:case("real Lab loader mounts every page and rejects new refusals", function(t)
 		local engine = engineLib.new()
 		local C = Facet.Compose
+		local motion = C.cell("none" :: "normal" | "limited" | "none")
 		local runtime = Facet.Roblox.createRuntime(engine)
 		local Host = (runtime.constructors :: unknown) :: typeof(require("../tools/typecheck/aliases").RobloxHost)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
@@ -126,7 +127,7 @@ return function(harness: Verify.Harness)
 				types = engine.types,
 				parent = context.inputTarget,
 				theme = context.theme,
-				motionLevel = "none",
+				motionLevel = motion,
 				guiService = gui,
 				userInputService = input,
 				services = { Workspace = world, GuiService = gui, UserInputService = input },
@@ -199,6 +200,63 @@ return function(harness: Verify.Harness)
 		Verify.expect(lab.report().values.stripSettingsOpen):toBe("true")
 		stripSignal:Fire()
 		Verify.expect(lab.report().values.stripSettingsOpen):toBe("false")
+		Verify.expect(lab.open("Minimap").ok):toBe(true)
+		local mapPage = assert(target:FindFirstChild("Page_Minimap", true))
+		local mapDemo = assert(mapPage:FindFirstChild("MinimapDemo", true))
+		local function pressMap(name: string)
+			local button = assert(mapDemo:FindFirstChild(name, true), name)
+			local signal = ((button :: unknown) :: { Activated: engineLib.Signal<> }).Activated
+			signal:Fire()
+		end
+		pressMap("PauseMap")
+		Verify.expect(lab.report().values.mapRunning):toBe("true")
+		pressMap("PauseMap")
+		Verify.expect(lab.report().values.mapRunning):toBe("false")
+		pressMap("AdvanceMap")
+		local advanced = lab.report().values.mapProgress
+		Verify.expect(advanced ~= "0.15"):toBe(true)
+		pressMap("OpenMap")
+		assert(mapDemo:FindFirstChild("FullMap", true), "minimap full map did not open")
+		local hud = assert(mapDemo:FindFirstChild("MinimapHUD", true))
+		assert(hud:FindFirstChild("CourseArt", true), "minimap HUD art was removed during expansion")
+		assert(mapDemo:FindFirstChild("MapZoom", true), "minimap zoom view missing")
+		pressMap("CloseMap")
+		Verify.expect(lab.report().values.mapProgress):toBe(advanced)
+		assert(hud:FindFirstChild("CourseArt", true), "minimap HUD art missing after close")
+		motion:set("normal")
+		engine.environment.poke(mapDemo, "AbsoluteSize", engine.types.Vector2.new(600, 460))
+		pressMap("OpenMap")
+		for _ = 1, 60 do
+			engine.heartbeat:Fire(1 / 60)
+		end
+		local expansion = assert(mapDemo:FindFirstChild("MapExpansion", true)) :: UIScale
+		Verify.expect(expansion.Scale):toBe(1)
+		pressMap("CloseMap")
+		engine.heartbeat:Fire(1 / 60)
+		assert(mapDemo:FindFirstChild("MapBoard", true), "closing removed map art before the animation finished")
+		assert(expansion.Scale > 0 and expansion.Scale < 1, "closing map must shrink")
+		for _ = 1, 60 do
+			engine.heartbeat:Fire(1 / 60)
+		end
+		assert(mapDemo:FindFirstChild("FullMap", true) == nil, "closed map was not released after shrinking")
+		motion:set("none")
+		Verify.expect(lab.configure("radar=true").ok):toBe(true)
+		mapDemo = assert(mapPage:FindFirstChild("MinimapDemo", true))
+		pressMap("OpenMap")
+		pressMap("RadarRange")
+		pressMap("RadarHeading")
+		pressMap("CloseMap")
+		pressMap("OpenMap")
+		Verify.expect(lab.report().values.mapRange):toBe("80")
+		Verify.expect(lab.report().values.mapHeadingUp):toBe("true")
+		pressMap("CloseMap")
+		Verify.expect(lab.configure("expandable=false").ok):toBe(true)
+		mapDemo = assert(mapPage:FindFirstChild("MinimapDemo", true))
+		assert(mapDemo:FindFirstChild("OpenMapSurface", true) == nil, "passive minimap has surface opener")
+		assert(mapDemo:FindFirstChild("OpenMap", true) == nil, "passive minimap has open button")
+		assert(mapDemo:FindFirstChild("MapFallback", true) == nil, "passive minimap has fallback button")
+		local mapCommands = assert(mapDemo:FindFirstChild("MinimapCommands"))
+		Verify.expect((mapCommands :: InputContext).Enabled):toBe(false)
 		for location, message in refusals do
 			if location == "focusSection/helper" and message == "Facet UI.Button: unknown option 'width'." then
 				t:attach("baseline-focusSection", "text/plain", location .. ": " .. message)

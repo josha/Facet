@@ -3,6 +3,11 @@
 A ranked-mode card in a word game. The player checks their standing and how
 to improve it.
 
+This is one design case, not a prescription for every record display. Its
+emblem, type sizes, pips and theme suit this standing card. Other tasks can
+use text, exact counts or dense tables. A clean automated report does not by
+itself establish that the revision is better.
+
 ## Before
 
 ![Before](rank-card-before.png)

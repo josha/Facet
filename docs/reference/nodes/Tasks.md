@@ -6,6 +6,7 @@ pages; read another recipe only for a missing pattern. Each recipe names its con
 Open:
 
 - [Tasks.hud](Tasks.hud.md)
+- [Tasks.minimap](Tasks.minimap.md)
 - [Tasks.pages](Tasks.pages.md)
 - [Tasks.notices](Tasks.notices.md)
 - [Tasks.progress](Tasks.progress.md)

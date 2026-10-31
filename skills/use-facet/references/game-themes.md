@@ -1,10 +1,11 @@
 # A theme for this game
 
-Build a recognizable game interface. Inspect the world and available art before
-choosing type, materials, silhouettes and subject treatment. River restoration
+Follow the brief and established visual language. Inspect the world and available
+art before choosing type, materials, silhouettes and subject treatment. River restoration
 can use botanical labels and recognizable tools; an archive can use printed
-headings and specimens on paper. Uniform rounded cards with changed colors do
-not establish that identity. Keep an existing theme when it already fits.
+headings and specimens on paper. These are examples, not required levels of
+decoration. A restrained or familiar interface can fit the task. Keep an
+existing theme when it already fits.
 
 Prefer useful existing images or models for game objects. Text-only can serve
 word or number comparisons better; it still needs deliberate typography, graphic
@@ -17,10 +18,11 @@ More borders, gradients or decorative assets do not repair weak hierarchy.
 
 ## Theme contracts
 
-Collection and Exploration share Riverbank's identity across supply decisions,
-the dense catalogue and temporary guide. Start the existing app with
+Collection and Exploration demonstrate Riverbank's identity across supply
+decisions, a catalogue and a temporary guide. To run that example, start it with
 `Facet.app({ name = "Riverbank", theme = Collection.theme })` and use that app
-for all three. Inspection's Field Station archive is an alternative game.
+for all three. This does not require a new app or theme in an existing project.
+Inspection's Field Station archive is an alternative game.
 Local fonts and native subjects need no uploaded art; replace these cues with
 the new game's own.
 
@@ -49,47 +51,34 @@ and focus; convey meaning through text or shape as well as color.
 
 ## Type scale and recipes
 
-Give the scale real steps. `numeral` holds the deciding values (rating, price,
-reward), so make it 1.6 times `body` or more; `title` leads the screen at the
-same ratio; `caption` sits below `body`. `define` lists a flat scale in
-`report.advice`; resolve it before the first capture.
+Choose type roles from information priority, density and viewing distance.
+`numeral` can emphasize a deciding value; not every number needs that role.
+Readable tables may use a restrained scale. `define` reports flat scales and
+limited font variation in `report.advice`; inspect the result rather than
+treating those heuristics as mandatory ratios or font-family counts.
 
-Make the identity visible on every screen, not only in the palette. A dark
-theme with dark plates and one accent reads as bland however good its type is.
-Look at a capture and name three cues that show on every screen; if a screen
-shows none, add them:
+Use visual cues where they serve the intended identity and task:
 
-- **An edge or material on every panel.** A theme rule draws it everywhere:
-  `{ selector = ".facet-panel::UIStroke", properties = { Color = { role = "accent" }, Thickness = 1.5, Transparency = 0.3 } }`.
-  A panel glow (`chrome.panel.shadow`) at 0.35 transparency or less shows; at
-  0.55 it vanishes.
-- **Controls a clear step above the surface,** saturated in the game's hue,
-  not grey on grey.
-- **The accent repeated where the player acts:** every affordable Buy and the
-  primary action in `emphasis`, the current choice in `selection`.
-- **Category colors** for item glyph tiles, rarity or slots, from the world.
-- **The world in view.** Pages are bounded panels; the scene around them is
-  part of the identity.
+- Type, spacing, shape, imagery and material can establish character. A single
+  readable family or an undecorated panel can be deliberate.
+- Edges, fills or shadows can distinguish surfaces when needed. Choose their
+  strength from the actual background and states, not a universal opacity.
+- Use action emphasis to express priority. Use `selection` with `onSelection`
+  for selected paint and retain a non-color cue for meaning.
+- Category colors can help recognition when stable and accessible. Labels
+  remain useful when the category is unfamiliar.
+- Keep the world visible when it informs the task; an opaque page or a docked
+  plugin panel can be appropriate when the task needs that working space.
 
-Carry the identity past the title. Put the display family on `title`,
-`heading` and `numeral`, and a condensed or display family on `label` or
-`control` for short labels; keep `body` and `caption` in a readable family.
-`define` advises when only one role differs from `body`. Give action one
-accent, the current choice a `selection` color with `onSelection`, and
-panels one treatment (a hairline, a glow or a material), the same everywhere.
+Verify fonts in the target runtime with actual labels, numerals, punctuation
+and supported languages. A missing family can fall back silently; a family
+that loads can still have unsuitable glyphs. Do not treat an example's font
+list as a permanent list of platform capabilities.
 
-A font family that does not exist falls back to Builder Sans without an
-error, so check a capture. These families load: Michroma, Zekton, Oswald,
-TitilliumWeb, RobotoCondensed, Montserrat, Jura, GothamSSm, Nunito,
-Merriweather, BuilderSans. Sarpanch draws a colon like a period, so keep
-clocks out of it. Orbitron, Exo2, Rajdhani, Audiowide and Kanit are not
-Roblox families.
-
-Keep this game's information recipes beside its theme: a stat block, a price,
-a section header and an item row (see [information display](information-display.md)).
-Give them one or two signature cues from the world, such as a pill emblem
-plate, a stencil eyebrow or a neon hairline, and reuse those cues on every
-screen. Paint and recipes together make the identity.
+Keep useful information recipes beside the theme, such as a stat block, price,
+section header or row (see [information display](information-display.md)).
+Share stable meanings and treatments without forcing every screen to contain
+the same decorations or content.
 
 ## Three ways to use images
 
