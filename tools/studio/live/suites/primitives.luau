@@ -20,7 +20,7 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 			local present = false
 			t.mount(function(UI: FacetControls, Host: RobloxHost)
 				present = UI.VStack ~= nil
-				return Host.Frame({})
+				return Host.Frame {}
 			end)
 			t.cleanup()
 			t.check("this build has the layout constructors", present)
@@ -45,7 +45,7 @@ add("screen-padding-and-gap", {}, function(t)
 		return UI.Screen "Screen" {
 			padding = "m",
 			gap = "s",
-			box(Host, "A", 10, 10) :: unknown,
+			box(Host, "A", 10, 10),
 			box(Host, "B", 10, 10),
 		}
 	end, { size = Vector2.new(400, 300) })
@@ -58,7 +58,7 @@ add("screen-padding-and-gap", {}, function(t)
 		return UI.VStack "Stack" {
 			gap = "s",
 			padding = "m",
-			box(Host, "A", 20, 20) :: unknown,
+			box(Host, "A", 20, 20),
 			box(Host, "B", 20, 20),
 		}
 	end, { size = Vector2.new(400, 300) })
@@ -71,7 +71,7 @@ add("grid-cells-and-gaps", {}, function(t)
 			columns = 2,
 			gap = 4,
 			cellHeight = 30,
-			box(Host, "A", 0, 30) :: unknown,
+			box(Host, "A", 0, 30),
 			box(Host, "B", 0, 30),
 			box(Host, "C", 0, 30),
 		}
@@ -87,7 +87,7 @@ add("grid-cells-and-gaps", {}, function(t)
 	t.near("C is in the first column", c.AbsolutePosition.X, a.AbsolutePosition.X, 0.5)
 	t.cleanup()
 	stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		local cells = {}
+		local cells: { Instance } = {}
 		for index = 1, 4 do
 			table.insert(cells, box(Host, "Cell" .. index, 0, 30))
 		end
@@ -96,7 +96,7 @@ add("grid-cells-and-gaps", {}, function(t)
 			gap = 6,
 			cellHeight = 30,
 			Size = UDim2.fromOffset(210, 0),
-			table.unpack((cells :: unknown) :: { unknown }),
+			table.unpack(cells),
 		}
 	end, { size = Vector2.new(400, 300) })
 	local grid = t.find(stage, "Grid")
@@ -106,7 +106,7 @@ add("grid-cells-and-gaps", {}, function(t)
 	t.near("row pitch is cell height plus gap", c4.AbsolutePosition.Y - c1.AbsolutePosition.Y, 36, 1)
 	t.cleanup()
 	stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		local cells = {}
+		local cells: { Instance } = {}
 		for index = 1, 6 do
 			table.insert(cells, box(Host, "Cell" .. index, 0, 30))
 		end
@@ -116,7 +116,7 @@ add("grid-cells-and-gaps", {}, function(t)
 			padding = { left = "xs" },
 			aspectRatio = 1.5,
 			Size = UDim2.fromOffset(300, 0),
-			table.unpack((cells :: unknown) :: { unknown }),
+			table.unpack(cells),
 		}
 	end, { size = Vector2.new(400, 400) })
 	grid = t.find(stage, "Grid")
@@ -137,7 +137,7 @@ add("zstack-alignment", {}, function(t)
 				alignH = "end" :: "end",
 				alignV = "start" :: "start",
 				box(Host, "E", 20, 20),
-			} :: unknown,
+			},
 			UI.ZStack "Mid" {
 				width = 200,
 				height = 100,
@@ -161,7 +161,7 @@ add("stack-distribution", {}, function(t)
 			return UI.HStack "Row" {
 				width = 600,
 				distribute = mode :: "center" | "end" | "spaceAround" | "spaceBetween" | "spaceEvenly" | "start",
-				box(Host, "A", 100, 20) :: unknown,
+				box(Host, "A", 100, 20),
 				box(Host, "B", 100, 20),
 				box(Host, "C", 100, 20),
 			}
@@ -176,7 +176,7 @@ add("stack-distribution", {}, function(t)
 		return UI.VStack "Column" {
 			height = 300,
 			distribute = "end" :: "end",
-			box(Host, "A", 20, 20) :: unknown,
+			box(Host, "A", 20, 20),
 			box(Host, "B", 20, 20),
 		}
 	end, { size = Vector2.new(300, 400) })
@@ -193,7 +193,7 @@ add("fill-and-extents", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.HStack "Row" {
 			width = 600,
-			box(Host, "Fixed", 100, 20) :: unknown,
+			box(Host, "Fixed", 100, 20),
 			box(Host, "One", 0, 20, { UI.fill() }),
 			box(Host, "Two", 0, 20, { UI.fill(2) }),
 		}
@@ -225,18 +225,18 @@ end)
 
 add("scroll-view-canvas-and-stretch", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		local children = {}
+		local children: { Instance } = {}
 		for index = 1, 12 do
 			table.insert(
 				children,
-				UI.Text({ Name = "Line" .. index, text = string.rep("Wrapped text ", 6), TextWrapped = true })
+				UI.Text { Name = "Line" .. index, text = string.rep("Wrapped text ", 6), TextWrapped = true }
 			)
 		end
 		return UI.ScrollView "Scroll" {
 			width = 240,
 			height = 200,
 			align = "stretch" :: "stretch",
-			table.unpack((children :: unknown) :: { unknown }),
+			table.unpack(children),
 		}
 	end, { size = Vector2.new(400, 400) })
 	local scroll, line = t.find(stage, "Scroll"), t.find(stage, "Line1")

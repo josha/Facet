@@ -15,7 +15,7 @@ export type Metrics = {
 	topHeight: ComposeTypes.Value<number>,
 	recordHeight: (ComposeTypes.Value<{ [string]: number }>, string, TextLabel | TextButton, number) -> (),
 	textInsets: TextLabel,
-	textInsetSize: ComposeTypes.Value<Vector2>,
+	textInsetSize: ComposeTypes.ReadOnlyValue<Vector2>,
 }
 return function<V, K>(
 	ctx: Types.Context,
@@ -26,6 +26,7 @@ return function<V, K>(
 ): Metrics
 	local Compose = ctx.Compose
 	local read = ctx.read
+	local readNumber = ctx.read<<number>>
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
 	local input = ctx.config.userInputService
 	local preferredInput: ComposeTypes.ReadOnlyValue<Enum.PreferredInput>? = if input
@@ -39,9 +40,9 @@ return function<V, K>(
 		return math.ceil(ctx.metric("typography.body.size", use) * ctx.metric("typography.body.lineHeight", use))
 	end
 
-	local minimumRow = Compose.formula(function(use: ComposeTypes.Use)
+	local minimumRow = Compose.formula(function(use: ComposeTypes.Use): number
 		if spec.itemSize ~= nil then
-			return read(spec.itemSize, use)
+			return readNumber(spec.itemSize, use)
 		end
 		if touchRows(use) then
 			local lines = 1
@@ -81,7 +82,7 @@ return function<V, K>(
 		if spec.header == false then
 			return 0
 		end
-		local size = read(spec.headerHeight, use) or 40
+		local size = if spec.headerHeight == nil then 40 else readNumber(spec.headerHeight, use)
 		if coarse(use) then
 			size = math.max(size, 44)
 		end

@@ -16,7 +16,7 @@ return function(harness: Verify.Harness)
 				return focused
 			end
 			local UI = Facet.controls(runtime, { types = engine.types, userInputService = input, guiService = gui })
-			local Host = (runtime.constructors :: unknown) :: typeof(require("../tools/typecheck/aliases").RobloxHost)
+			local Host = Facet.host(runtime)
 			local scope: Scope?
 			local first: GuiObject?, second: GuiObject?, chat: TextBox?
 			local letters, placed, returned = { "A", "A" }, 0, 0
@@ -24,8 +24,7 @@ return function(harness: Verify.Harness)
 				local a = UI.Button "First" { label = "First cell" }
 				local b = UI.Button "Second" { label = "Second cell" }
 				local text = UI.TextInput "Chat" { value = Facet.Compose.cell(""), placeholder = "Chat" }
-				local children: { GuiObject } = { a, b, text }
-				local root = Host.Frame(children)
+				local root = Host.Frame { a, b, text }
 				first, second = a, b
 				chat = if text:IsA("TextBox") then text else text:FindFirstChildWhichIsA("TextBox", true) :: TextBox?
 				local targets: { Facet.CommandTarget<number> } = { { key = 1, node = a }, { key = 2, node = b } }
@@ -176,6 +175,65 @@ return function(harness: Verify.Harness)
 				end
 			)
 		end
+		harness:case("letter commands keep the advanced cell when native navigation runs before InputBegan", function()
+			local engine = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local input, gui = engine.new("UserInputService"), engine.new("GuiService")
+			local down = false
+			input.GetFocusedTextBox = function()
+				return nil
+			end
+			input.IsKeyDown = function(_, key: Enum.KeyCode)
+				return down and key == engine.types.Enum.KeyCode.A
+			end
+			local UI = Facet.controls(runtime, { types = engine.types, userInputService = input, guiService = gui })
+			local scope: Scope?
+			local first: GuiObject?, second: GuiObject?
+			local placed: { number } = {}
+			local stop = runtime.mount(function()
+				local a = UI.Button "First" { label = "First cell" }
+				local b = UI.Button "Second" { label = "Second cell", NextSelectionLeft = Facet.Compose.static(a) }
+				first, second = a, b
+				local root = UI.HStack { a, b }
+				local targets: { Facet.CommandTarget<number> } = { { key = 1, node = a }, { key = 2, node = b } }
+				scope = UI.commandScope(root, {
+					targets = targets,
+					commands = {
+						{
+							id = "Letter",
+							keys = { "A" },
+							onInvoke = function(key: number)
+								table.insert(placed, key)
+								assert(scope).focus(math.min(2, key + 1))
+							end,
+						},
+					},
+				})
+				return root
+			end, engine.new("ScreenGui"))
+			local commands = assert(scope)
+			local event =
+				{ KeyCode = engine.types.Enum.KeyCode.A, UserInputType = engine.types.Enum.UserInputType.Keyboard }
+			commands.focus(1)
+			down = true
+			input.InputBegan:Fire(event)
+			down = false
+			input.InputEnded:Fire(event)
+			Verify.expect(gui.SelectedObject):toBe(second)
+			down = true
+			gui.SelectedObject = first
+			input.InputBegan:Fire(event)
+			down = false
+			input.InputEnded:Fire(event)
+			Verify.expect(#placed):toBe(2)
+			Verify.expect(placed[1]):toBe(1)
+			Verify.expect(placed[2]):toBe(2)
+			Verify.expect(gui.SelectedObject):toBe(second)
+			gui.SelectedObject = first
+			Verify.expect(commands.current:peek()):toBe(1)
+			stop()
+			runtime:dispose()
+		end)
 		harness:case("a W command leaves selection links unpinned and DPadDown reaches the neighbour below", function()
 			local engine = engineLib.new()
 			local runtime = Facet.Roblox.createRuntime(engine)
@@ -250,7 +308,7 @@ return function(harness: Verify.Harness)
 				return nil
 			end
 			local UI = Facet.controls(runtime, { types = engine.types, userInputService = input, guiService = gui })
-			local Host = (runtime.constructors :: unknown) :: typeof(require("../tools/typecheck/aliases").RobloxHost)
+			local Host = Facet.host(runtime)
 			local parent: Facet.CommandScope<number>?
 			local child: Facet.CommandScope<number>?
 			local enabled = Facet.Compose.cell(true)
@@ -342,7 +400,7 @@ return function(harness: Verify.Harness)
 				return nil
 			end
 			local UI = Facet.controls(runtime, { types = engine.types, userInputService = input, guiService = gui })
-			local Host = (runtime.constructors :: unknown) :: typeof(require("../tools/typecheck/aliases").RobloxHost)
+			local Host = Facet.host(runtime)
 			local shown = Facet.Compose.cell(false)
 			local scope: Facet.CommandScope<number>?
 			local calls, dismissed = 0, 0
@@ -362,8 +420,7 @@ return function(harness: Verify.Harness)
 					end,
 				}
 				local dialog = UI.Dialog(dialogSpec)
-				local children: { GuiObject } = { cell, dialog }
-				local root = Host.Frame(children)
+				local root = Host.Frame { cell, dialog }
 				local targets: { Facet.CommandTarget<number> } = { { key = 1, node = cell } }
 				local spec: Facet.CommandSpec<number> = {
 					targets = targets,
@@ -399,7 +456,7 @@ return function(harness: Verify.Harness)
 			local engine = engineLib.new()
 			local runtime = Facet.Roblox.createRuntime(engine)
 			local UI = Facet.controls(runtime, { types = engine.types })
-			local Host = (runtime.constructors :: unknown) :: typeof(require("../tools/typecheck/aliases").RobloxHost)
+			local Host = Facet.host(runtime)
 			local ok, message = pcall(function()
 				runtime.mount(function()
 					local root = Host.Frame {}

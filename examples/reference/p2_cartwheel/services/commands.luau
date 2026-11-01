@@ -1,10 +1,8 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 
 local commands = {}
 
@@ -25,9 +23,9 @@ export type Feedback = { type: string, reason: string?, context: { command: stri
 export type Entry = { id: string, ok: boolean, reason: string? }
 export type Opts = {
 	Compose: ComposeModule,
-	clock: { after: (number, () -> ()) -> unknown },
+	clock: { read after: (number, () -> ()) -> unknown },
 	feedback: ((Feedback) -> ())?,
-	strings: { t: (string) -> string }?,
+	strings: { read t: (string) -> string }?,
 	latency: number?,
 	toast: ((string, string) -> ())?,
 }

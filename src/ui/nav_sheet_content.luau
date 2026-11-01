@@ -14,7 +14,7 @@ export type SheetContent = {
 	usable: (Overlay.Action?) -> boolean,
 	press: (Overlay.Action) -> (),
 	panelWidth: ComposeTypes.Value<number>,
-	contentSize: ComposeTypes.Value<Vector2>,
+	contentSize: ComposeTypes.ReadOnlyValue<Vector2>,
 	room: parts.Room,
 	entry: () -> GuiObject?,
 	guide: Frame?,
@@ -23,10 +23,11 @@ export type SheetContent = {
 
 return function(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	surfaces: Nav.Surfaces
 ): (NavigationProps.SheetSpec, sheetGesture.Gesture) -> SheetContent
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
+	local readString = read<<string?>>
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	return function(spec: NavigationProps.SheetSpec, gesture: sheetGesture.Gesture): SheetContent
 		local grabber, canDismiss, close, unit, extent =
@@ -81,12 +82,12 @@ return function(
 			local frame = parts.media(ctx, current, "Hero")
 			if current.content then
 				local children: { Types.Child } = {
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
-					Host.UIPadding({
+					Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder },
+					Host.UIPadding {
 						PaddingLeft = ctx.types.UDim.new(0, 16),
 						PaddingRight = ctx.types.UDim.new(0, 16),
 						PaddingBottom = ctx.types.UDim.new(0, 12),
-					}),
+					},
 				}
 				if overHero then
 					table.insert(
@@ -148,12 +149,12 @@ return function(
 								return not use(plaqued)
 							end,
 							Text = function(use: ComposeTypes.Use)
-								return read(spec.title, use) or ""
+								return readString(spec.title, use) or ""
 							end,
 							TextWrapped = true,
 							Size = D2.new(1, 0, 0, 0),
 							AutomaticSize = E.AutomaticSize.Y,
-							Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+							Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 						}),
 						"type-heading"
 					)
@@ -162,7 +163,7 @@ return function(
 				local custom = spec.header
 				local node: Instance = if type(custom) == "function" then custom() else custom
 				if node:IsA("GuiObject") then
-					surfaces.attach(node, { Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) })
+					surfaces.attach(node, { Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill } })
 				end
 				table.insert(header, node)
 			end
@@ -171,19 +172,19 @@ return function(
 				table.insert(header, close)
 			end
 			if #header > 0 then
-				local row: Types.FrameNativeProps = {
+				local row: Types.FrameProps = {
 					Name = "Header",
 					BackgroundTransparency = 1,
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 				}
-				row[#row + 1] = Host.UIListLayout({
+				row[#row + 1] = Host.UIListLayout {
 					FillDirection = E.FillDirection.Horizontal,
 					HorizontalAlignment = E.HorizontalAlignment.Right,
 					VerticalAlignment = E.VerticalAlignment.Center,
 					SortOrder = E.SortOrder.LayoutOrder,
 					Padding = ctx.types.UDim.new(0, 8),
-				})
+				}
 				for _, child in header do
 					row[#row + 1] = child
 				end
@@ -208,7 +209,7 @@ return function(
 				PaddingBottom = ctx.types.UDim.new(0, inset),
 			}
 		end
-		local bodyLayout = Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder })
+		local bodyLayout = Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder }
 		local bodyPadding = contentPadding()
 		local bodyChildren: { Types.Child } = { bodyLayout }
 		local content: Instance = if type(spec.content) == "function" then spec.content() else spec.content
@@ -224,14 +225,14 @@ return function(
 		end
 		if hero and not sticky then
 			table.insert(bodyChildren, heroFrame())
-			local inner: Types.FrameNativeProps = {
+			local inner: Types.FrameProps = {
 				Name = "Inset",
 				BackgroundTransparency = 1,
 				LayoutOrder = 2,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 			}
-			inner[#inner + 1] = Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder })
+			inner[#inner + 1] = Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder }
 			inner[#inner + 1] = contentPadding()
 			inner[#inner + 1] = bodyContent
 			table.insert(bodyChildren, Host.Frame(inner))
@@ -239,8 +240,8 @@ return function(
 			table.insert(bodyChildren, bodyPadding)
 			table.insert(bodyChildren, bodyContent)
 		end
-		local flex = Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
-		local bodyProps: Types.ScrollingFrameNativeProps = {
+		local flex = Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill }
+		local bodyProps: Types.ScrollingFrameProps = {
 			Name = "SheetContent",
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
@@ -362,22 +363,23 @@ return function(
 				end,
 				AutomaticSize = E.AutomaticSize.Y,
 				Visible = present,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = E.FillDirection.Horizontal,
 					HorizontalAlignment = if spec.guideAlignment == "start"
 						then E.HorizontalAlignment.Left
 						else E.HorizontalAlignment.Right,
 					SortOrder = E.SortOrder.LayoutOrder,
-				}),
+				},
 				guide,
 			}
 			guideRegion, guidePresent, guideSize = region, present, ctx.layoutSize(region, unit)
 		end
 		local function guideReserve(use: ComposeTypes.Use): number
-			if guidePresent == nil or guideSize == nil or not use(guidePresent) then
+			local present, size = guidePresent, guideSize
+			if present == nil or size == nil or not use(present) then
 				return 0
 			end
-			return use(guideSize).Y + 8
+			return use(size).Y + 8
 		end
 		linkDismissal()
 		local contentSize = ctx.observe.AbsoluteContentSize(bodyLayout)

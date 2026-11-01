@@ -3,11 +3,9 @@
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type Placement = "automatic" | "sidebar" | "topBar" | "bottomBar" | "bottomBarCompact" | "none"
 type Entry = typeof(require("@repo/examples/types").DemoTab)
 type CategoryLayout = typeof(require("@repo/examples/types").CategoryLayout)
@@ -62,13 +60,13 @@ return function(ctx: ExampleContext, id: string, groups: { Entry })
 			})
 		end
 		if not outer then
-			return UI.TabView({
+			return UI.TabView {
 				Name = key,
 				selection = selected,
 				tabs = tabs,
 				shoulderNavigation = "content",
 				Size = UDim2.fromScale(1, 1),
-			})
+			}
 		end
 		local home, distant = Compose.cell("automatic"), Compose.cell(false)
 		local effective = Compose.formula(function(use: Use): string
@@ -78,7 +76,7 @@ return function(ctx: ExampleContext, id: string, groups: { Entry })
 			end
 			return if choice == "side" then "sidebar" else "topBar"
 		end)
-		local view = UI.TabView({
+		local view = UI.TabView {
 			Name = key,
 			selection = selected,
 			tabs = tabs,
@@ -88,7 +86,7 @@ return function(ctx: ExampleContext, id: string, groups: { Entry })
 				return if place == use(home) then "automatic" else placementOf(place)
 			end,
 			Size = UDim2.fromScale(1, 1),
-		})
+		}
 		local env = UI.environment(view)
 		Compose.watch(function(use: Use)
 			home:set(use(env.navPlacement))

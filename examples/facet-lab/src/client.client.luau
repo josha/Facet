@@ -6,7 +6,7 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 type FacetModule = typeof(require("@repo/tools/typecheck/aliases").FacetModule)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type ThemeModule = typeof(require("@repo/examples/types").ThemeModule)
 local loadTheme: (ModuleScript) -> ThemeModule = require
 
@@ -30,7 +30,7 @@ local lab_sweep = require(script.Parent.lab_sweep)
 local buildCatalog = (
 	catalog.build :: unknown
 ) :: (typeof(require("@repo/tools/typecheck/aliases").Controls)) -> browser.CatalogData
-local runSweep: (unknown, PlayerGui, { string }, unknown) -> unknown = lab_sweep.run
+local runSweep: (unknown, PlayerGui, { string }, lab_sweep.Dependencies?) -> unknown = lab_sweep.run
 local Compose: ComposeModule = Facet.Compose
 
 pcall(function()
@@ -261,16 +261,15 @@ local handlers: { [string]: (string?) -> string } = {
 		sweepJob = { running = true, completed = {}, current = nil }
 		local job = sweepJob
 		task.spawn(function()
-			local ok, result = pcall(runSweep, lab, playerGui, ids, {
-				runtime = runtime,
-				inputPriority = Facet.inputPriority.aboveFacet,
-				progress = function(row, complete)
+			local dependencies: lab_sweep.Dependencies = {
+				progress = function(row: { id: string }, complete: boolean)
 					job.current = row.id
 					if complete then
 						job.completed[row.id] = row
 					end
 				end,
-			})
+			}
+			local ok, result = pcall(runSweep, lab, playerGui, ids, dependencies)
 			job.running = false
 			if ok then
 				job.result = result

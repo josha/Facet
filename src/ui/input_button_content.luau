@@ -19,6 +19,7 @@ return function(
 	local runtime, Host, read = ctx.runtime, ctx.Host, ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local dynamic, hasText = kit.dynamic, kit.hasText
+	local readText = ctx.read<<string>>
 	local liveAxis = bounded and dynamic(spec.AutomaticSize)
 	local liveWidth = liveAxis or (bounded and spec.AutomaticSize == nil and dynamic(spec.Size))
 	local function sizing<T>(fixed: T, hug: T): Shared.Input<T>
@@ -106,21 +107,21 @@ return function(
 						end
 						else D2.new(1, 0, 1, radius()),
 					ScaleType = if spec.imageFraming == "fit" then E.ScaleType.Fit else E.ScaleType.Crop,
-					Host.UICorner({
+					Host.UICorner {
 						CornerRadius = if live
 							then function(use: ComposeTypes.Use)
 								return D.new(0, radius(use))
 							end
 							else D.new(0, radius()),
-					}),
+					},
 					if hugs
 						then nil
-						else Host.UIAspectRatioConstraint({
+						else Host.UIAspectRatioConstraint {
 							AspectRatio = spec.imageAspectRatio or 16 / 9,
 							AspectType = E.AspectType.FitWithinMaxSize,
-						}),
+						},
 				},
-				if hugs then nil else Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+				if hugs then nil else Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 			}
 		)
 		if hugs then
@@ -181,7 +182,7 @@ return function(
 		local function caption(name: string, text: Shared.Input<string>): TextLabel
 			local live = dynamic(text)
 			local function words(use: ComposeTypes.Use?): string
-				return read(text, use) or ""
+				return readText(text, use) or ""
 			end
 			local function shown(use: ComposeTypes.Use?): boolean
 				local value = read(text, use)
@@ -206,19 +207,19 @@ return function(
 				if bounded then
 					runtime.decorate(made, { TextTruncate = sizing(E.TextTruncate.AtEnd, E.TextTruncate.None) })
 					runtime.mount(function()
-						return Host.UIFlexItem({ FlexMode = sizing(E.UIFlexMode.Shrink, E.UIFlexMode.None) })
+						return Host.UIFlexItem { FlexMode = sizing(E.UIFlexMode.Shrink, E.UIFlexMode.None) }
 					end, made)
 				end
 			end
 			return made
 		end
 		if spec.row then
-			rowCaptions = { caption("Title", label) }
+			table.insert(rowCaptions, caption("Title", label))
 			if description then
 				table.insert(rowCaptions, caption("Description", description))
 			end
 		else
-			local function secondary(): ComposeTypes.Child
+			local function secondary(): ComposeTypes.Child?
 				local text = assert(description)
 				if not dynamic(text) then
 					return if hasText(text) then caption("Description", text) else nil
@@ -240,8 +241,8 @@ return function(
 						elseif stacked then sizing(E.AutomaticSize.Y, E.AutomaticSize.XY)
 						else E.AutomaticSize.XY,
 					(if stacked
-						then Host.UIFlexItem({ FlexMode = sizing(E.UIFlexMode.Fill, E.UIFlexMode.None) })
-						else nil) :: ComposeTypes.Child,
+						then Host.UIFlexItem { FlexMode = sizing(E.UIFlexMode.Fill, E.UIFlexMode.None) }
+						else nil),
 				})
 				else caption("Title", label)
 			if imageCard then
@@ -327,7 +328,7 @@ return function(
 		contentFrame.AutomaticSize = E.AutomaticSize.None
 		p[#p + 1] = Host.UISizeConstraint "ContentFloor" {
 			MinSize = function(use: ComposeTypes.Use): Vector2
-				local package = read(ctx.config.theme, use)
+				local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 				local skin = package and package.chrome and package.chrome.control
 				local insets: ThemeTypes.Insets = if read(spec.appearance, use) == "utility"
 					then {}
@@ -339,13 +340,13 @@ return function(
 			end,
 		}
 		runtime.mount(function()
-			return Host.UIAspectRatioConstraint({
+			return Host.UIAspectRatioConstraint {
 				AspectRatio = 1,
 				AspectType = E.AspectType.ScaleWithParentSize,
-			})
+			}
 		end, glyph)
 		runtime.mount(function()
-			return Host.UISizeConstraint({ MinSize = V2.new(1, 1) })
+			return Host.UISizeConstraint { MinSize = V2.new(1, 1) }
 		end, glyph)
 	end
 	p[#p + 1] = contentFrame

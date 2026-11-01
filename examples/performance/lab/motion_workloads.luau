@@ -6,8 +6,10 @@ type OrderedControls = typeof(require("@repo/tools/typecheck/aliases").OrderedCo
 type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
 type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
+type Record = { id: string, index: number }
+local noRecord: Record? = nil
 local motion = {}
 
 function motion.create(ctx: Context, name: string, _dataset)
@@ -41,25 +43,25 @@ function motion.create(ctx: Context, name: string, _dataset)
 		countWork = false,
 		motionTransactions = 0,
 		springsMoving = nil :: number?,
-		rows = nil :: ReadOnlyValue<{ unknown }>?,
+		rows = nil :: ReadOnlyValue<{ read [number]: unknown }>?,
 	}
 	local function label(text: TextValue, size: number, name: string?)
-		return Host.TextLabel({
+		return Host.TextLabel {
 			Name = name or "Text",
 			Text = text,
 			TextSize = size,
 			Size = D2.new(1, 0, 0, size + 4),
 			BackgroundTransparency = 1,
 			TextXAlignment = E.TextXAlignment.Left,
-		})
+		}
 	end
 	local function screen(children: { Instance }): Frame
 		local properties: FrameProps = {
 			Name = "Motion",
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ Padding = types.UDim.new(0, 4), SortOrder = E.SortOrder.LayoutOrder }),
-			Host.UIPadding({ PaddingLeft = types.UDim.new(0, 6), PaddingTop = types.UDim.new(0, 6) }),
+			Host.UIListLayout { Padding = types.UDim.new(0, 4), SortOrder = E.SortOrder.LayoutOrder },
+			Host.UIPadding { PaddingLeft = types.UDim.new(0, 6), PaddingTop = types.UDim.new(0, 6) },
 		}
 		for index, node in children do
 			runtime.decorate(node, { LayoutOrder = index })
@@ -95,7 +97,7 @@ function motion.create(ctx: Context, name: string, _dataset)
 		state.springs, state.targets = {}, {}
 		state.beats, state.beatCallbacks = 0, 0
 		function state.build()
-			local chips = { Name = "Chips", Size = D2.new(1, 0, 0, 24), BackgroundTransparency = 1 }
+			local chips: FrameProps = { Name = "Chips", Size = D2.new(1, 0, 0, 24), BackgroundTransparency = 1 }
 			for index = 1, 24 do
 				local target = Compose.cell(0)
 				local spring = runtime.spring(function(use: Use)
@@ -105,16 +107,16 @@ function motion.create(ctx: Context, name: string, _dataset)
 					damping = if index % 2 == 0 then 1 else 0.7,
 				})
 				state.targets[index], state.springs[index] = target, spring
-				local chip = Host.Frame({
+				local chip: Frame = Host.Frame {
 					Name = `Chip{index}`,
 					Size = D2.fromOffset(24, 24),
 					Position = function(use: Use)
 						return D2.new(0, (index - 1) * 28, use(spring) / 24, 0)
 					end,
 					BorderSizePixel = 0,
-				})
+				}
 				table.insert(state.nodes, chip)
-				table.insert(chips, chip)
+				chips[#chips + 1] = chip
 			end
 			state.timeline = runtime.timeline({ duration = 0.3, autoplay = false })
 			state.beatIndex = -1
@@ -210,7 +212,7 @@ function motion.create(ctx: Context, name: string, _dataset)
 	state.groups = {}
 	function state.batch()
 		state.generation += 1
-		local records = table.create(30)
+		local records: { Record } = table.create(30, noRecord)
 		for index = 1, 30 do
 			records[index] = { id = `g{state.generation}-{index}`, index = index }
 		end
@@ -256,16 +258,18 @@ function motion.create(ctx: Context, name: string, _dataset)
 		local list = Host.Frame "List" {
 			Size = D2.new(1, 0, 0, 600),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
+			Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder },
 			Compose.keyed({
-				from = state.items,
-				key = function(item)
+				from = function(use: Use): { Record }
+					return use(state.items)
+				end,
+				key = function(item: Record): string
 					return item.id
 				end,
-				render = function(current: ReadOnlyValue<{ id: string, index: number }>): GuiObject
+				render = function(current: ReadOnlyValue<Record>): GuiObject
 					local record = current:peek()
 					local hold = (record.index - 1) * 0.02
-					local group = Host.CanvasGroup({
+					local group = Host.CanvasGroup {
 						Name = `Row-{record.id}`,
 						Size = D2.new(1, 0, 0, 20),
 						LayoutOrder = record.index,
@@ -274,7 +278,7 @@ function motion.create(ctx: Context, name: string, _dataset)
 							return 1 - math.clamp((use(state.entry.elapsed) - hold) / 0.2, 0, 1)
 						end,
 						label(record.id, 14, "T"),
-					})
+					}
 					state.groups[record.id] = group
 					Compose.cleanup(function()
 						state.groups[record.id] = nil
@@ -340,7 +344,8 @@ function motion.create(ctx: Context, name: string, _dataset)
 			state.popsSeen += 1
 		end
 		if state.n % 30 == 0 then
-			local first, last = state.groups[`g{state.generation}-1`], state.groups[`g{state.generation}-30`]
+			local first: CanvasGroup? = state.groups[`g{state.generation}-1`]
+			local last: CanvasGroup? = state.groups[`g{state.generation}-30`]
 			if first and last and first.GroupTransparency < last.GroupTransparency then
 				state.staggerHeld += 1
 			end

@@ -3,25 +3,25 @@
 local Active = require "./ownership/active"
 local Owner = require "./ownership/owner"
 local Diagnostics = require "./diagnostics"
+local Dynamic = require "./dynamic"
 local Graph = require "./reactive/graph"
-local NodeCast = require "./reactive/node"
+local Nodes = require "./reactive/node"
 local Types = require "./reactive/types"
-local clock = require "./reactive/clock"
-
-local makeProjection: (Types.Node, {}) -> Types.Value<boolean> = NodeCast.make
+type Projection = Types.NodeData<boolean> & Types.ReadOnlyValue<boolean>
 
 local PROJECTION = {}
 PROJECTION.__index = PROJECTION
 
-function PROJECTION.peek(node: Types.Node): unknown
+function PROJECTION.peek<T>(self: Types.Cache<T>): T
+	local node: Types.Node = self
 	local refresh = node.refresh
 	if refresh ~= nil then
 		refresh(node)
 	end
-	return node.value
+	return Nodes.readCached(self)
 end
 
-NodeCast.adopt(PROJECTION)
+Nodes.adopt(PROJECTION)
 
 local function selector<K>(source: Types.ReadOnlyValue<K>): (K) -> Types.ReadOnlyValue<boolean>
 	local owner = Active.current()
@@ -33,26 +33,26 @@ local function selector<K>(source: Types.ReadOnlyValue<K>): (K) -> Types.ReadOnl
 	end
 	local router: Types.Node = { state = Graph.DIRTY, reads = 0, retry = false, released = false }
 	local readable: Types.ReadOnlyValue<K>? = source
-	local projections: { [K]: Types.Node } = {}
-	local nilProjection: Types.Node? = nil
+	local projections: { [K]: Projection } = {}
+	local nilProjection: Projection? = nil
 	local current: K? = nil
 	local failure: unknown = nil
 	local failed = false
 	local function requireLive()
 		if router.released then
-			Diagnostics.raise("reactive/disposed-selector", "a disposed selector cannot be read", {
+			return Diagnostics.raise("reactive/disposed-selector", "a disposed selector cannot be read", {
 				contract = "selector disposal permanently releases its source and projections",
 				fix = "keep reads within the selector owner's lifetime",
 			})
 		end
 	end
-	local function projectionOf(key: K?): Types.Node?
+	local function projectionOf(key: K?): Projection?
 		return if key == nil then nilProjection else projections[key]
 	end
-	local function publish(node: Types.Node?, value: boolean)
+	local function publish(node: Projection?, value: boolean)
 		if node ~= nil and node.value ~= value then
 			node.value = value
-			node.version = clock.next()
+			node.version = Graph.nextVersion()
 			Graph.markStale(node, Graph.DIRTY)
 		end
 	end
@@ -122,15 +122,16 @@ local function selector<K>(source: Types.ReadOnlyValue<K>): (K) -> Types.ReadOnl
 		requireLive()
 		local existing = projectionOf(key)
 		if existing ~= nil then
-			local value = makeProjection(existing, PROJECTION)
-			return value
+			return existing
 		end
-		local node: Types.Node = { version = clock.next(), value = rawequal(current, key), refresh = refreshProjection }
-		local value = makeProjection(node, PROJECTION)
+		local node: Types.NodeData<boolean> =
+			{ version = Graph.nextVersion(), value = nil, cache = nil, refresh = refreshProjection }
+		Dynamic.cache(node, rawequal(current, key))
+		local value = setmetatable(node, PROJECTION)
 		if key == nil then
-			nilProjection = node
+			nilProjection = value
 		else
-			projections[key] = node
+			projections[key] = value
 		end
 		return value
 	end

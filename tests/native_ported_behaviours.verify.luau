@@ -5,10 +5,7 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
-	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	local cells = require("./lib/cells")
-	local FixtureCollectionTypes = require("../src/ui/collection_types")
 
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")
@@ -34,7 +31,10 @@ return function(verifyHarness: Verify.Harness)
 		return nil
 	end
 
-	local function world(build: (any, any, any) -> any, options: { [string]: any }?): any
+	local function world(
+		build: (Facet.Controls, Facet.Host, engines.Engine) -> Facet.Child,
+		options: { [string]: any }?
+	): any
 		local o: { [string]: any } = options or {}
 		local engine: any = engines.new({
 			measureText = function(node: any): any
@@ -48,18 +48,15 @@ return function(verifyHarness: Verify.Harness)
 			return nil
 		end
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-		local UI: any = Facet.controls(
-			runtime,
-			{
-				types = engine.types,
-				services = { GuiService = gui, UserInputService = input },
-				theme = o.theme,
-				environment = o.environment,
-			} :: any
-		)
+		local UI = Facet.controls(runtime, {
+			types = engine.types,
+			services = { GuiService = gui, UserInputService = input },
+			theme = o.theme,
+			environment = o.environment,
+		})
 		local stop, screen: any = runtime.mount(function()
-			return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
-				build(UI, runtime.constructors, engine),
+			return Facet.host(runtime).ScreenGui({
+				build(UI, Facet.host(runtime), engine),
 			})
 		end, engine.new("Folder"))
 		return {
@@ -86,13 +83,13 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_ported_behaviours::Card ring::a selected card keeps the live shared focus look and asks it to reach the whole card, or the artwork",
 				run = function()
 					for _, target in { "card", "media" } do
-						local w = world(function(UI: FacetControls)
+						local w = world(function(UI)
 							return UI.Card "C" {
 								image = "rbxassetid://1",
 								title = "Track",
 								onActivate = function() end,
 								primaryAction = { label = "Play", onActivate = function() end },
-								ringTarget = if target == "media" then "media" :: "media" else nil,
+								ringTarget = if target == "media" then "media" else nil,
 								Size = UDim2.fromOffset(160, 0),
 							}
 						end)
@@ -110,7 +107,7 @@ return function(verifyHarness: Verify.Harness)
 						w.stop()
 					end
 					expect(function()
-						local w = world(function(UI: FacetControls)
+						local w = world(function(UI)
 							return UI.Card({ image = "rbxassetid://1", title = "T", ringTarget = "shadow" } :: any)
 						end)
 						w.stop()
@@ -120,30 +117,34 @@ return function(verifyHarness: Verify.Harness)
 		)
 	end)
 
+	type Row = { [string]: unknown }
+
 	verifyHarness:suite("Table editable cells", function()
 		verifyHarness:case("each editor proposes through onCellChange, a no-op commit proposes nothing, rows re-seed", {
 			id = "native_ported_behaviours::Table editable cells::each editor proposes through onCellChange, a no-op commit proposes nothing, rows re-seed",
 			run = function()
-				local rows = Compose.cell({
+				local seed: { Row } = {
 					{ id = "a", name = "Ada", laps = 3, ready = false, tier = "gold" },
 					{ id = "b", name = "Bo", laps = 5, ready = true, tier = "silver" },
-				})
-				local proposals = {}
-				local w = world(function(UI: FacetControls)
-					return UI.Table "T" {
+				}
+				local rows = Compose.cell(seed)
+				local proposals: { string } = {}
+				local w = world(function(UI)
+					local spec: Facet.KeyedTableSpec<Row, string> = {
+						Name = "T",
 						from = rows,
 						key = "id",
 						scrolls = false,
 						columns = {
-							{ id = "name", label = "Name", editor = "text" } :: FixtureCollectionTypes.TableColumn<any, any>,
-							{ id = "laps", label = "Laps", editor = "number", min = 0, max = 99 } :: FixtureCollectionTypes.TableColumn<any, any>,
-							{ id = "ready", label = "Ready", editor = "toggle" } :: FixtureCollectionTypes.TableColumn<any, any>,
+							{ id = "name", label = "Name", editor = "text" },
+							{ id = "laps", label = "Laps", editor = "number", min = 0, max = 99 },
+							{ id = "ready", label = "Ready", editor = "toggle" },
 							{
 								id = "tier",
 								label = "Tier",
 								editor = "menu",
 								options = { { value = "gold", label = "Gold" }, { value = "silver", label = "Silver" } },
-							} :: FixtureCollectionTypes.TableColumn<any, any>,
+							},
 						},
 						onCellChange = function(key, column, value)
 							table.insert(proposals, `{key}.{column}={tostring(value)}`)
@@ -158,6 +159,7 @@ return function(verifyHarness: Verify.Harness)
 							rows:set(nextRows)
 						end,
 					}
+					return UI.Table(spec)
 				end)
 				w.step(3)
 				local function editor(column: string): any
@@ -221,7 +223,7 @@ return function(verifyHarness: Verify.Harness)
 					w.UI.Table {
 						from = rows,
 						key = "id",
-						columns = { { id = "x", editor = "text" } :: FixtureCollectionTypes.TableColumn<any, any> },
+						columns = { { id = "x", editor = "text" } },
 					}
 				end):toThrow()
 				expect(function()
@@ -229,7 +231,7 @@ return function(verifyHarness: Verify.Harness)
 						from = rows,
 						key = "id",
 						onCellChange = print,
-						columns = { { id = "x", editor = "menu" } :: FixtureCollectionTypes.TableColumn<any, any> },
+						columns = { { id = "x", editor = "menu" } },
 					}
 				end):toThrow()
 				w.stop()
@@ -238,11 +240,13 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("Table edit mode", function()
-		local function editableTable(input: string, editing: any?): (any, { string })
-			local rows = Compose.cell({ { id = "a", ready = false } })
-			local proposals = {}
-			local w = world(function(UI: FacetControls)
-				return UI.Table "T" {
+		local function editableTable(input: string, editing: Facet.Input<boolean>?): (any, { string })
+			local seed: { Row } = { { id = "a", ready = false } }
+			local rows = Compose.cell(seed)
+			local proposals: { string } = {}
+			local w = world(function(UI)
+				local spec: Facet.KeyedTableSpec<Row, string> = {
+					Name = "T",
 					from = rows,
 					key = "id",
 					scrolls = false,
@@ -250,13 +254,14 @@ return function(verifyHarness: Verify.Harness)
 					onReorder = function() end,
 					editing = editing,
 					columns = {
-						{ id = "id" } :: FixtureCollectionTypes.TableColumn<any, any>,
-						{ id = "ready", editor = "toggle" } :: FixtureCollectionTypes.TableColumn<any, any>,
+						{ id = "id" },
+						{ id = "ready", editor = "toggle" },
 					},
 					onCellChange = function(key, column, value)
 						table.insert(proposals, `{key}.{column}={tostring(value)}`)
 					end,
 				}
+				return UI.Table(spec)
 			end, { environment = { preferredInput = input } })
 			w.step(3)
 			return w, proposals
@@ -322,7 +327,7 @@ return function(verifyHarness: Verify.Harness)
 			{
 				id = "native_ported_behaviours::bounded text buttons::a long Button label wraps in a supplied phone cell width and keeps its natural width without one",
 				run = function()
-					local w = world(function(UI: FacetControls, Host: RobloxHost)
+					local w = world(function(UI, Host)
 						local label = "Allow friends to join my race from the lobby and choose their next race"
 						return Host.Frame {
 							Size = UDim2.fromOffset(180, 400),
@@ -343,13 +348,13 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("a Button with a subtitle keeps its authored width and wraps both captions inside it", {
 			id = "native_ported_behaviours::bounded text buttons::a Button with a subtitle keeps its authored width and wraps both captions inside it",
 			run = function()
-				local w = world(function(UI: FacetControls, Host: RobloxHost)
+				local w = world(function(UI, Host)
 					return Host.Frame {
 						Size = UDim2.fromOffset(401, 400),
 						UI.Button "Card" {
 							label = "Boost Board",
 							subtitle = "HELP · 2 energy",
-							controlSize = "large" :: "large",
+							controlSize = "large",
 							Size = UDim2.fromOffset(117, 0),
 						},
 						UI.Button "Loose" { label = "Boost Board", subtitle = "HELP · 2 energy" },
@@ -379,14 +384,14 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("the underline sits below the copy, and a long description counts toward the fit", {
 			id = "native_ported_behaviours::StepIndicator room::the underline sits below the copy, and a long description counts toward the fit",
 			run = function()
-				local w = world(function(UI: FacetControls)
+				local w = world(function(UI)
 					return UI.StepIndicator "Steps" {
 						steps = {
 							{ id = "a", label = "Cart" },
 							{ id = "b", label = "Ship", description = "Address and speed of delivery for the order" },
 						},
 						current = "a",
-						sizing = "fill" :: "fill",
+						sizing = "fill",
 					}
 				end)
 				local root = find(w.screen, "Steps")

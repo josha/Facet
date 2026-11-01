@@ -18,11 +18,13 @@ local function remote(name: string): BindableFunction
 	return node
 end
 local root = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("Facet_Lab")
-local options = shared.LabFocusWalk or {}
+type FocusOptions = { only: string?, stick: boolean?, up: number? }
+local options: FocusOptions = shared.LabFocusWalk or {}
 local summary = {}
 local report = L.case("facet-lab", "focus-walk", function()
 	for _, id in HttpService:JSONDecode(remote("pages"):Invoke()) do
-		if options.only and not string.find(id, options.only, 1, true) then
+		local only = options.only
+		if only and not string.find(id, only, 1, true) then
 			continue
 		end
 		remote("open"):Invoke(id)
@@ -33,7 +35,12 @@ local report = L.case("facet-lab", "focus-walk", function()
 		local paths = focus.paths(root, stops)
 		local atlas = focus.atlas(root, "lab/" .. id, stops, paths)
 		atlas.lint = lint
-		local function merge(family, moves, offsets, scenes)
+		local function merge(
+			family: string,
+			moves: { [string]: { [string]: string? } },
+			offsets: { [string]: { [string]: unknown } },
+			scenes: { [string]: { [string]: unknown } }
+		)
 			atlas.moves[family] = atlas.moves[family] or {}
 			atlas.offsets[family] = atlas.offsets[family] or {}
 			atlas.scenes[family] = atlas.scenes[family] or {}
@@ -47,9 +54,13 @@ local report = L.case("facet-lab", "focus-walk", function()
 		if options.stick ~= false then
 			merge("stick", focus.walk(root, stops, paths, { "StickUp", "StickDown", "StickLeft", "StickRight" }, atlas))
 		end
-		if options.up then
-			local moves, offsets, scenes = L.signal("focus-upstream", function()
-				return focus.walkUp(root, stops, paths, options.up, atlas)
+		local upTimeout = options.up
+		if upTimeout then
+			local moves: { [string]: string? } = {}
+			local offsets: { [string]: unknown } = {}
+			local scenes: { [string]: unknown } = {}
+			L.signal("focus-upstream", function()
+				moves, offsets, scenes = focus.walkUp(root, stops, paths, upTimeout, atlas)
 			end)
 			for path, target in moves do
 				atlas.moves.dpad[path].DPadUp = target

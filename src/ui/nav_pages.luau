@@ -7,7 +7,7 @@ local tabView = require("./nav_tab_view")
 local navigationStack = require("./nav_stack")
 local pageView = require("./nav_page_view")
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces): ()
 	local layers = pageLayers(ctx)
 	tabView(ctx, UI, surfaces, layers)
 	navigationStack(ctx, UI, surfaces, layers)

@@ -356,7 +356,7 @@ return function(ui: UI.UI)
 				connections,
 				ui.connect(inputAction, "Pressed", function()
 					local UserInputService = ui.service "UserInputService"
-					local focused: Compose.Node? = ui.call(UserInputService, "GetFocusedTextBox")
+					local focused = ui.optionalNode(ui.call(UserInputService, "GetFocusedTextBox"))
 					if not focused then
 						run()
 					end

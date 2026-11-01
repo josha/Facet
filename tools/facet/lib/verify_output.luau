@@ -11,7 +11,7 @@ export type Filter = { device: string?, rule: string?, step: string?, page: numb
 local function finding(line: string): (string?, string?, string?, string?)
 	local device, step, body = string.match(line, "^(%S+) ([^:]+): (.+)$")
 	if device == nil or step == nil or body == nil then
-		return nil
+		return nil, nil, nil, nil
 	end
 	local rule = string.match(body, "^%a+ %[(.-)%]")
 		or (if string.sub(body, 1, 8) == "problem:" then "problem" else nil)
@@ -39,7 +39,8 @@ function Output.query(lines: { string }, filter: Filter): { string }
 	for _, line in matches do
 		local short = if #line > 700 then string.sub(line, 1, 680) .. " [shortened]" else line
 		if bytes + #short + 1 > 3500 or #pages[#pages] >= 20 then
-			table.insert(pages, {})
+			local nextPage: { string } = {}
+			table.insert(pages, nextPage)
 			bytes = 0
 		end
 		table.insert(pages[#pages], short)

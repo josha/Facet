@@ -1,4 +1,10 @@
 --!strict
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+type StringRadialItem = typeof(require("@repo/tools/typecheck/aliases").StringRadialItem)
+type StringRadialAction = typeof(require("@repo/tools/typecheck/aliases").StringRadialAction)
+type NavigationEntry = typeof(require("@repo/tools/typecheck/aliases").NavigationEntry)
+type NavigationStackSpec = typeof(require("@repo/tools/typecheck/aliases").NavigationStackSpec)
+type ShortcutHintActionProps = typeof(require("@repo/tools/typecheck/aliases").ShortcutHintActionProps)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -10,8 +16,10 @@ type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").Scre
 type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
+type PathCell = typeof(require("@repo/src/vendor/compose/core").cell<<{ NavigationEntry }>>({}))
+type Built = { read screen: () -> Instance } | (() -> Instance)
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -250,27 +258,29 @@ local function hits(at: Vector2): { GuiObject }
 end
 
 local function example(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
-	local built
+	local built: Built
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local ctx = t.context(UI, Host, Compose, env)
 		if patch then
 			patch(ctx)
 		end
-		built = (require :: any)(storage:WaitForChild("FacetExamples"):WaitForChild(name)).build(ctx)
-		return if type(built) == "function" then built() else built.screen()
+		local current: Built = (require :: any)(storage:WaitForChild("FacetExamples"):WaitForChild(name)).build(ctx)
+		built = current
+		return if type(current) == "function" then current() else current.screen()
 	end, { frames = 20, size = size })
 	return stage, built
 end
 
 local function scenario(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
-	local built
+	local built: Built
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local ctx = t.context(UI, Host, Compose, env)
 		if patch then
 			patch(ctx)
 		end
-		built = t.scenario(name).build(ctx)
-		return if type(built) == "function" then built() else built.screen()
+		local current: Built = t.scenario(name).build(ctx)
+		built = current
+		return if type(current) == "function" then current() else current.screen()
 	end, { frames = 20, size = size })
 	return stage, built
 end
@@ -351,7 +361,7 @@ local function stackProbe(t: any): any
 	local value: any = {}
 	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.path = Compose.cell({})
-		return UI.NavigationStack "Journey" {
+		local props: NavigationStackSpec = {
 			path = value.path,
 			backLabel = "Back",
 			root = {
@@ -360,7 +370,8 @@ local function stackProbe(t: any): any
 					return UI.Button "Next" {
 						label = "Next",
 						onActivate = function()
-							local nextPath = table.clone(value.path:peek())
+							local path: PathCell = value.path
+							local nextPath = table.clone(path:peek())
 							table.insert(nextPath, { id = "detail", value = "coast" })
 							value.path:set(nextPath)
 						end,
@@ -376,6 +387,7 @@ local function stackProbe(t: any): any
 				} :: Destination,
 			},
 		}
+		return UI.NavigationStack "Journey"(props)
 	end, { size = Vector2.new(900, 600), frames = 20 })
 	value.gui = value.stage:FindFirstAncestorWhichIsA("LayerCollector")
 	return value
@@ -459,7 +471,7 @@ local function pagesProbe(t: any): any
 	local value: any = { played = {}, pageNodes = {} }
 	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		value.selection = Compose.cell("one")
-		local pages = {}
+		local pages: { Tab } = {}
 		for _, id in { "one", "two", "three" } do
 			local page = Host.Frame "Course" {
 				BackgroundTransparency = 1,
@@ -482,7 +494,7 @@ local function pagesProbe(t: any): any
 			Position = UDim2.fromOffset(20, 200),
 			Size = UDim2.fromOffset(340, 420),
 			BackgroundTransparency = 1,
-			UI.PageView "Courses" { pages = pages, selection = value.selection } :: unknown,
+			UI.PageView "Courses" { pages = pages, selection = value.selection },
 			UI.Button "Below" { label = "Below", Position = UDim2.fromOffset(0, 440) },
 		}
 	end, { frames = 20 })
@@ -623,7 +635,7 @@ add("page-view-affordances", {}, function(t)
 	local indicators = t.find(value.stage, "Indicators")
 	t.check("the dots mount", indicators ~= nil)
 	if indicators then
-		local dots = {}
+		local dots: { GuiObject } = {}
 		for _, node in indicators:GetDescendants() do
 			if node:IsA("GuiButton") and t.visible(node) then
 				table.insert(dots, node)
@@ -637,7 +649,7 @@ add("page-view-affordances", {}, function(t)
 				dot.AbsoluteSize
 			)
 		end
-		table.sort(dots, function(a, b)
+		table.sort(dots, function(a: GuiObject, b: GuiObject)
 			return a.AbsolutePosition.X < b.AbsolutePosition.X
 		end)
 		if #dots == 3 then
@@ -682,13 +694,13 @@ add(
 		local io = device(t)
 		local value = pagesProbe(t)
 		local indicators = t.find(value.stage, "Indicators")
-		local dots = {}
+		local dots: { GuiObject } = {}
 		for _, node in (indicators and indicators:GetDescendants() or {}) do
 			if node:IsA("GuiButton") and t.visible(node) then
 				table.insert(dots, node)
 			end
 		end
-		table.sort(dots, function(a, b)
+		table.sort(dots, function(a: GuiObject, b: GuiObject)
 			return a.AbsolutePosition.X < b.AbsolutePosition.X
 		end)
 		t.check("three dots on the phone", #dots == 3, #dots)
@@ -754,8 +766,8 @@ add("component-setup-error-and-throwing-cleanup", {}, function(t)
 	end, target)
 	t.settle(2)
 	t.check("the component mounts", target:FindFirstChild("Owner") ~= nil)
-	local stopped, why = pcall(function(): unknown
-		return stop()
+	local stopped, why = pcall(function()
+		stop()
 	end)
 	t.settle(2)
 	t.note("stop with a throwing cleanup", { ok = stopped, error = tostring(why), order = order })
@@ -831,7 +843,7 @@ add("image-tile-slice-resample", {}, function(t)
 				scaleMode = "tile" :: "tile",
 				tileSize = { width = 16, height = 16 },
 				Size = UDim2.fromOffset(64, 64),
-			} :: unknown,
+			},
 			UI.Image "Slice" {
 				image = IMAGE,
 				scaleMode = "slice" :: "slice",
@@ -892,27 +904,29 @@ add("image-tile-slice-resample", {}, function(t)
 	end
 	local Facet = t.Facet
 	local refused = {}
-	for name, spec in
-		{
-			tileWithoutSize = { image = IMAGE, scaleMode = "tile" :: "tile" },
-			sizeWithoutTile = { image = IMAGE, tileSize = { width = 8, height = 8 } },
-			sliceWithoutCenter = { image = IMAGE, scaleMode = "slice" :: "slice" },
-			centerWithoutSlice = { image = IMAGE, sliceCenter = { x0 = 1, y0 = 1, x1 = 2, y1 = 2 } },
-			fractionalTile = { image = IMAGE, scaleMode = "tile" :: "tile", tileSize = { width = 1.5, height = 8 } },
-			circleSlice = {
-				image = IMAGE,
-				scaleMode = "slice" :: "slice",
-				sliceCenter = { x0 = 1, y0 = 1, x1 = 2, y1 = 2 },
-				shape = "circle" :: "circle",
-			},
-			unknownMode = { image = IMAGE, scaleMode = "zoom" :: "zoom" },
-		}
-	do
+	local invalidSpecs: { [string]: unknown } = {
+		tileWithoutSize = { image = IMAGE, scaleMode = "tile" :: "tile" },
+		sizeWithoutTile = { image = IMAGE, tileSize = { width = 8, height = 8 } },
+		sliceWithoutCenter = { image = IMAGE, scaleMode = "slice" :: "slice" },
+		centerWithoutSlice = { image = IMAGE, sliceCenter = { x0 = 1, y0 = 1, x1 = 2, y1 = 2 } },
+		fractionalTile = { image = IMAGE, scaleMode = "tile" :: "tile", tileSize = { width = 1.5, height = 8 } },
+		circleSlice = {
+			image = IMAGE,
+			scaleMode = "slice" :: "slice",
+			sliceCenter = { x0 = 1, y0 = 1, x1 = 2, y1 = 2 },
+			shape = "circle" :: "circle",
+		},
+		unknownMode = { image = IMAGE, scaleMode = "zoom" :: "zoom" },
+	}
+	for name, spec in invalidSpecs do
 		local ok = pcall(function()
 			local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 			local stop = runtime.mount(function()
 				local UI = Facet.controls(runtime, {})
-				return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor) "Refusal" { UI.Image(spec) }
+				return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)(
+					{ UI.Image(spec) },
+					"Refusal"
+				)
 			end, Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui)
 			stop()
 			runtime:dispose()
@@ -930,9 +944,12 @@ end)
 add("image-scale-mode-renders", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.HStack "Row" {
-			UI.Image "Fit" { image = IMAGE, scaleMode = "fit" :: "fit", Size = UDim2.fromOffset(120, 40) } :: unknown,
+			UI.Image "Fit" { image = IMAGE, scaleMode = "fit" :: "fit", Size = UDim2.fromOffset(120, 40) },
 			UI.Image "Crop" { image = IMAGE, scaleMode = "crop" :: "crop", Size = UDim2.fromOffset(120, 40) },
-			UI.Image "Stretch" { image = IMAGE, scaleMode = "stretch" :: "stretch", Size = UDim2.fromOffset(120, 40) },
+			UI.Image(
+				{ image = IMAGE, scaleMode = "stretch" :: "stretch", Size = UDim2.fromOffset(120, 40) },
+				"Stretch"
+			),
 		}
 	end, { frames = 30 })
 	for _, name in { "Fit", "Crop", "Stretch" } do
@@ -949,13 +966,12 @@ add("image-scale-mode-renders", {}, function(t)
 end)
 add("icon-clamped-to-content-box", {}, function(t)
 	for _, entry in t.themes do
-		for _, case in
-			{
-				{ key = "icon-only", size = UDim2.fromOffset(20, 20) },
-				{ key = "tight", size = UDim2.fromOffset(52, 44), label = "Go" },
-				{ key = "room", size = UDim2.fromOffset(220, 60), label = "Continue" },
-			}
-		do
+		local sizes: { { key: string, size: UDim2, label: string? } } = {
+			{ key = "icon-only", size = UDim2.fromOffset(20, 20) },
+			{ key = "tight", size = UDim2.fromOffset(52, 44), label = "Go" },
+			{ key = "room", size = UDim2.fromOffset(220, 60), label = "Continue" },
+		}
+		for _, case in sizes do
 			local where = `{entry.name} {case.key}`
 			local stage = t.mount(function(UI: FacetControls)
 				return UI.Button "Back" {
@@ -1028,14 +1044,14 @@ local function sortable(t: any, count: number, editing: boolean?): any
 				end,
 				Size = UDim2.fromScale(1, 1),
 				render = function(current): GuiObject
-					return UI.Button({
+					return UI.Button {
 						Name = "Row" .. current:peek().id,
 						label = "Row " .. current:peek().id,
 						Size = UDim2.fromScale(1, 1),
 						onActivate = function()
 							table.insert(value.activated, current:peek().id)
 						end,
-					})
+					}
 				end,
 			},
 		}
@@ -1295,7 +1311,7 @@ add("feedback-motion-is-paint-only", {}, function(t)
 		value.expanded = Compose.cell(false)
 		return UI.VStack "Column" {
 			gap = "s",
-			UI.Text "Above" { text = "Above" } :: unknown,
+			UI.Text "Above" { text = "Above" },
 			UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end },
 			UI.Text "Middle" { text = "Middle" },
 			UI.TextInput "Field" {
@@ -1429,13 +1445,13 @@ add("card-lift-keeps-every-layout-frame", {}, function(t)
 		for _, id in { "Cyan", "Violet", "Amber" } do
 			table.insert(
 				children,
-				UI.Card(id) {
+				UI.Card(id)({
 					title = id,
 					image = if id == "Amber" then "rbxassetid://1" else nil,
 					imageAspectRatio = 8,
 					caption = "Compare this track and choose your vote.",
 					primaryAction = { label = "Vote", onActivate = function() end },
-				}
+				})
 			)
 		end
 		return UI.VStack "Cards" { width = 740, gap = "m", table.unpack(children) }
@@ -1507,11 +1523,11 @@ add("sheet-reserves-card-feedback-clearance", {}, function(t)
 				for _, id in { "Cyan", "Violet", "Amber" } do
 					table.insert(
 						children,
-						UI.Card(id) {
+						UI.Card(id)({
 							title = id,
 							caption = "Compare this track and choose your vote.",
 							primaryAction = { label = "Vote", onActivate = function() end },
-						}
+						})
 					)
 				end
 				return UI.VStack "Cards" { width = "fill", gap = "m", table.unpack(children) }
@@ -1621,15 +1637,16 @@ add("radial-lift-is-paint-only", {}, function(t)
 	local value: any = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.open = Compose.cell(true)
-		local items = {}
+		local items: { StringRadialItem } = {}
 		for _, id in { "N", "E", "S", "W" } do
-			table.insert(items, {
+			local item: StringRadialAction = {
 				id = id,
-				slot = id :: "N" | "E" | "S" | "W",
 				label = id,
 				completion = "stay" :: "stay",
+				slot = id :: "N" | "E" | "S" | "W",
 				onSelect = function() end,
-			})
+			}
+			table.insert(items, item)
 		end
 		return UI.RadialMenu "Quick" { isPresented = value.open, items = items }
 	end, { size = Vector2.new(800, 600), frames = 60, motionLevel = "normal" })
@@ -1677,14 +1694,15 @@ add("fade-group-uses-group-transparency", {}, function(t)
 		t.check("the Animate button mounts", false)
 		return
 	end
-	local samples, childFades = {}, {}
-	local group
+	local samples: { number } = {}
+	local childFades: { number } = {}
+	local group: CanvasGroup?
 	local watcher = game:GetService("RunService").RenderStepped:Connect(function()
 		group = group or stage:FindFirstChild("DetailArrival", true)
 		if group then
 			table.insert(samples, group.GroupTransparency)
 			local label = group:FindFirstChild("DetailPanel", true)
-			if label then
+			if label and label:IsA("TextLabel") then
 				table.insert(childFades, label.TextTransparency)
 			end
 		end
@@ -1707,7 +1725,7 @@ add("fade-group-uses-group-transparency", {}, function(t)
 		steady and #childFades > 0,
 		childFades
 	)
-	local exits = {}
+	local exits: { number } = {}
 	local exitWatch = game:GetService("RunService").RenderStepped:Connect(function()
 		if group and group.Parent then
 			table.insert(exits, group.GroupTransparency)
@@ -1719,7 +1737,7 @@ add("fade-group-uses-group-transparency", {}, function(t)
 	t.note("group transparency on exit", exits)
 	local rising = #exits > 1 and exits[#exits] > exits[1]
 	t.check("the exit fades the group out before removing it", rising, exits)
-	t.check("the group leaves once it has faded", group.Parent == nil or not t.visible(group))
+	t.check("the group leaves once it has faded", group == nil or group.Parent == nil or not t.visible(group))
 	t.note("runs", built.report().runs)
 end)
 
@@ -1767,8 +1785,12 @@ end)
 
 add("press-feedback-reaches-the-device", {}, function(t)
 	local io = device(t)
-	local effect
-	local built
+	local effect: HapticEffect
+	local built: {
+		read screen: () -> Instance,
+		read effects: { read press: HapticEffect },
+		read steps: { read readHistory: () -> { string } },
+	}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		effect = Host.HapticEffect "PressClick" { Type = Enum.HapticEffectType.UIClick }
 		local Haptic =
@@ -1777,7 +1799,7 @@ add("press-feedback-reaches-the-device", {}, function(t)
 		return Host.Frame "Holder" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			effect :: unknown,
+			effect,
 			Haptic.VStack "Plain" {
 				Position = UDim2.fromOffset(600, 40),
 				Haptic.Button "Saves" { label = "Save", haptic = true },
@@ -1835,7 +1857,7 @@ add("presence-retires-until-exit", {}, function(t)
 				onActivate = function()
 					value.shown:set(not value.shown:peek())
 				end,
-			} :: unknown,
+			},
 			Host.Frame "Region" {
 				Position = UDim2.fromOffset(0, 80),
 				Size = UDim2.fromOffset(200, 100),
@@ -1916,7 +1938,7 @@ add("stack-pop-retires-until-motion-ends", {}, function(t)
 	local value: any = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.path = Compose.cell({})
-		return UI.NavigationStack "Journey" {
+		local props: NavigationStackSpec = {
 			path = value.path,
 			root = {
 				title = "Plan",
@@ -1938,6 +1960,7 @@ add("stack-pop-retires-until-motion-ends", {}, function(t)
 				} :: Destination,
 			},
 		}
+		return UI.NavigationStack "Journey"(props)
 	end, { size = Vector2.new(900, 600), frames = 20, motionLevel = "normal" })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	io.click(centre(visibleNamed(t, gui, "Next")))
@@ -1978,18 +2001,18 @@ end)
 add("stack-rebuilt-prefix-enters-without-reversal", {}, function(t)
 	local io = device(t)
 	local viewport = workspace.CurrentCamera.ViewportSize
-	local path
+	local path: PathCell
 	local equipmentBodies: { Instance } = {}
 	local detailBody: GuiObject? = nil
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-		path = Compose.cell({ { id = "equipment" } })
-		return UI.NavigationStack "Journey" {
+		path = Compose.cell<<{ NavigationEntry }>>({ { id = "equipment" } })
+		local props: NavigationStackSpec = {
 			path = path,
 			backLabel = "Back",
 			root = {
 				title = "Camp",
 				content = function(): Instance
-					return UI.Text({ text = "Camp" })
+					return UI.Text { text = "Camp" }
 				end,
 			},
 			destinations = {
@@ -2016,6 +2039,7 @@ add("stack-rebuilt-prefix-enters-without-reversal", {}, function(t)
 				} :: Destination,
 			},
 		}
+		return UI.NavigationStack "Journey"(props)
 	end, {
 		size = Vector2.new(math.min(900, viewport.X), math.min(600, viewport.Y - GuiService:GetGuiInset().Y)),
 		frames = 90,
@@ -2077,10 +2101,10 @@ end)
 
 add("stack-push-during-pop-keeps-incoming-in-front", {}, function(t)
 	local io = device(t)
-	local path
+	local path: PathCell
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		path = Compose.cell({ { id = "menu" } })
-		return UI.NavigationStack "Journey" {
+		path = Compose.cell<<{ NavigationEntry }>>({ { id = "menu" } })
+		local props: NavigationStackSpec = {
 			path = path,
 			root = {
 				content = function(): Instance
@@ -2110,6 +2134,7 @@ add("stack-push-during-pop-keeps-incoming-in-front", {}, function(t)
 				} :: Destination,
 			},
 		}
+		return UI.NavigationStack "Journey"(props)
 	end, { size = Vector2.new(600, 300), frames = 90, motionLevel = "normal" })
 	local journey = t.find(stage, "Journey")
 	local menu = journey:FindFirstChild("menu") :: GuiObject
@@ -2152,21 +2177,25 @@ local function hintProbe(t: any): any
 	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		value.action = Host.InputAction "Go" {
 			Type = Enum.InputActionType.Bool,
-			Host.InputBinding({ KeyCode = Enum.KeyCode.K, DisplayName = "K" }) :: unknown,
-			Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonX }),
+			Host.InputBinding { KeyCode = Enum.KeyCode.K, DisplayName = "K" },
+			Host.InputBinding { KeyCode = Enum.KeyCode.ButtonX },
 		}
 		value.shifted = Host.InputAction "Shifted" {
 			Type = Enum.InputActionType.Bool,
-			Host.InputBinding({ KeyCode = Enum.KeyCode.J, PrimaryModifier = Enum.KeyCode.LeftShift }) :: unknown,
-			Host.InputBinding({ KeyCode = Enum.KeyCode.J, PrimaryModifier = Enum.KeyCode.RightShift }),
+			Host.InputBinding { KeyCode = Enum.KeyCode.J, PrimaryModifier = Enum.KeyCode.LeftShift },
+			Host.InputBinding { KeyCode = Enum.KeyCode.J, PrimaryModifier = Enum.KeyCode.RightShift },
 		}
+		local action: InputAction = value.action
+		local shifted: InputAction = value.shifted
+		local hint: ShortcutHintActionProps = { action = action }
+		local shiftedHint: ShortcutHintActionProps = { action = shifted }
 		return Host.Frame "Holder" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Host.InputContext "Hints" { value.action :: unknown, value.shifted } :: unknown,
+			Host.InputContext "Hints" { value.action, value.shifted },
 			UI.VStack "Column" {
-				UI.ShortcutHint "Hint" { action = value.action } :: unknown,
-				UI.ShortcutHint "ShiftHint" { action = value.shifted },
+				UI.ShortcutHint "Hint"(hint),
+				UI.ShortcutHint "ShiftHint"(shiftedHint),
 			},
 		}
 	end, { frames = 16 })
@@ -2361,7 +2390,7 @@ local function multiline(t: any, touchDevice: boolean?): any
 					end,
 					multiline = true,
 					visibleLines = 4,
-				} :: unknown,
+				},
 				UI.Text "Below" { text = "Below" },
 			},
 		}
@@ -2454,7 +2483,7 @@ add("multiline-grows-with-hard-breaks", {}, function(t)
 			Position = UDim2.fromOffset(20, 200),
 			Size = UDim2.fromOffset(300, 400),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
 			UI.TextInput "Notes" {
 				value = value.text,
 				onChange = function(text)

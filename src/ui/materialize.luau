@@ -61,7 +61,7 @@ local function materialize(
 	runtime.mountFragment(function()
 		return {
 			Compose.show(moving, function()
-				local suspended = {}
+				local suspended: { Instance } = {}
 				local _, holder = runtime.mount(function()
 					return Host.Folder "PresentationConstraints" {}
 				end, panel)

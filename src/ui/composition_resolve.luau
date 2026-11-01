@@ -22,7 +22,10 @@ export type Declared = {
 export type Strip = { x: number, y: number, lanes: number? }
 export type Shift = { top: number, bottom: number, hang: number, leanTop: number, leanBottom: number }
 export type Rows = { top: number, bottom: number }
+type Edge = "top" | "bottom"
 type Stacked = { top: boolean, bottom: boolean }
+
+local EDGE_ROWS: { [number]: Edge } = { [1] = "top", [3] = "bottom" }
 
 local CELLS: { [string]: { number } } = {
 	topLeft = { 1, 1 },
@@ -122,8 +125,8 @@ local function resolve(
 		for key, row in FLOWS do
 			local items = flowItems[key]
 			if items then
-				local edge = if row == 1 then "top" else "bottom"
-				local room = if stack[edge] then width else (between(row, edge))
+				local edge: Edge = if row == 1 then "top" else "bottom"
+				local room = if if edge == "top" then stack.top else stack.bottom then width else (between(row, edge))
 				local widest, total, lineW, lineH = 0, -gap, -1, 0
 				for _, item in items do
 					if lineW >= 0 and lineW + gap + item.x <= room then
@@ -198,7 +201,7 @@ local function resolve(
 			top = math.max(zoneH[5] or 0, zoneH[13] or 0),
 			bottom = math.max(zoneH[7] or 0, zoneH[15] or 0),
 		}
-		local squeezed = { top = false, bottom = false }
+		local squeezed: { [Edge]: boolean } = { top = false, bottom = false }
 		for column = 1, 3 do
 			local top, middle, bottom = column * 4 + 1, column * 4 + 2, column * 4 + 3
 			for row, key in { top, middle, bottom } do
@@ -208,10 +211,10 @@ local function resolve(
 					room = math.max(lane, if opposite > 0 then width - opposite - gap else width)
 				end
 				if column == 2 then
-					local edge = if row == 1 then "top" elseif row == 3 then "bottom" else nil
+					local edge: Edge? = if row == 1 then "top" elseif row == 3 then "bottom" else nil
 					room = between(row, edge)
 					local wide = zoneW[key] or 0
-					if edge and stack[edge] then
+					if edge and (if edge == "top" then stack.top else stack.bottom) then
 						room = width
 					elseif wide > room then
 						if edge then
@@ -272,25 +275,36 @@ local function resolve(
 		if chosen == nil then
 			for edge in squeezed do
 				local _, _, _, lone = between(if edge == "top" then 1 else 3, edge)
-				if squeezed[edge] and not stack[edge] and lean[edge] == 0 and lone ~= 0 then
-					local next = { top = lean.top, bottom = lean.bottom }
+				if
+					squeezed[edge]
+					and not (if edge == "top" then stack.top else stack.bottom)
+					and lean[edge] == 0
+					and lone ~= 0
+				then
+					local next: { [string]: number } = { top = lean.top, bottom = lean.bottom }
 					next[edge] = lone
 					return resolve(width, height, gap, regions, strip, stack, next)
 				end
 			end
 			for edge in squeezed do
-				if squeezed[edge] and not stack[edge] and corner[edge] > 0 then
+				if squeezed[edge] and not (if edge == "top" then stack.top else stack.bottom) and corner[edge] > 0 then
 					local next: Stacked = { top = stack.top, bottom = stack.bottom }
-					next[edge] = true
+					if edge == "top" then
+						next.top = true
+					else
+						next.bottom = true
+					end
 					return resolve(width, height, gap, regions, strip, next, lean)
 				end
 			end
 			shift.top = if stack.top and (zoneW[9] or 0) > 0 then corner.top + gap else 0
 			shift.bottom = if stack.bottom and (zoneW[11] or 0) > 0 then corner.bottom + gap else 0
 			shift.hang = hang
-			for row, edge in { [1] = "top", [3] = "bottom" } do
+			for row, edge in EDGE_ROWS do
 				local _, direction, side = between(row, edge)
-				local offset = if stack[edge] or direction == 0 then 0 else direction * (side + gap) / 2
+				local offset = if (if edge == "top" then stack.top else stack.bottom) or direction == 0
+					then 0
+					else direction * (side + gap) / 2
 				if edge == "top" then
 					shift.leanTop = offset
 				else

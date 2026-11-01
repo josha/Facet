@@ -1,11 +1,11 @@
 --!strict
 
-local StructureTypes = require "../structure/types"
+local CoreTypes = require "../types"
 local Prefix = require "./prefix"
 
 export type Kind = "list" | "grid"
 
-export type Placement = StructureTypes.Placement
+export type Placement = CoreTypes.Placement
 
 export type Geometry = {
 	count: number,
@@ -69,7 +69,7 @@ local function totalExtent(self: Geometry): number
 		return self.rowCount * (self.rowSize + self.gap) - self.gap
 	end
 
-	return (self.rows :: Prefix.Prefix).sum - self.gap
+	return assert(self.rows).sum - self.gap
 end
 
 local function setItemSize(self: Geometry, index: number, size: number): boolean
@@ -83,7 +83,7 @@ local function setItemSize(self: Geometry, index: number, size: number): boolean
 		materialise(self)
 	end
 
-	local itemSizes = self.itemSizes :: { number }
+	local itemSizes = assert(self.itemSizes)
 	if itemSizes[index] == size then
 		return false
 	end
@@ -106,14 +106,14 @@ local function setItemSize(self: Geometry, index: number, size: number): boolean
 		end
 	end
 
-	return Prefix.set(self.rows :: Prefix.Prefix, row, rowSize + self.gap)
+	return Prefix.set(assert(self.rows), row, rowSize + self.gap)
 end
 
 local function rowSpan(self: Geometry, row: number): (number, number)
 	if self.uniform then
 		return (row - 1) * (self.rowSize + self.gap), self.rowSize
 	end
-	local rows = self.rows :: Prefix.Prefix
+	local rows = assert(self.rows)
 	return Prefix.startOf(rows, row), Prefix.extentOf(rows, row) - self.gap
 end
 
@@ -128,7 +128,7 @@ local function rowAt(self: Geometry, offset: number): number
 		end
 		return math.clamp(math.floor(offset / stride) + 1, 1, self.rowCount)
 	end
-	local row = Prefix.find(self.rows :: Prefix.Prefix, offset)
+	local row = Prefix.find(assert(self.rows), offset)
 	return math.clamp(row, 1, self.rowCount)
 end
 

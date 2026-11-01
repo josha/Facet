@@ -1,14 +1,15 @@
 --!strict
 
 local Diagnostics = require "./diagnostics"
+local Types = require "./reactive/types"
 
-export type Size = { width: number, height: number }
-export type Insets = { left: number?, top: number?, right: number?, bottom: number? }
-export type Anchor = { x: number, y: number }
-export type Frame = { left: number, top: number, right: number, bottom: number, width: number, height: number }
-export type Bounds = { left: number, top: number, right: number, bottom: number }
-export type FitOptions = { min: Size?, max: Size?, anchor: Anchor? }
-export type ClearOptions<R> = { within: unknown?, reserved: { R }? }
+export type Size = Types.GeometrySize
+export type Insets = Types.GeometryInsets
+export type Anchor = Types.GeometryAnchor
+export type Frame = Types.GeometryFrame
+export type Bounds = Types.GeometryBounds
+export type FitOptions = Types.GeometryFitOptions
+export type ClearOptions<R> = Types.GeometryClearOptions<R>
 
 local CENTER: Anchor = { x = 0.5, y = 0.5 }
 
@@ -24,33 +25,38 @@ local function number(value: unknown, name: string, minimum: number?): number
 		or value >= math.huge
 		or (minimum ~= nil and value < minimum)
 	then
-		error(
-			Diagnostics.format("geometry/invalid-number", ("%s must be a finite number"):format(name), {
-				actual = Diagnostics.describe(value),
-				expected = if minimum ~= nil
-					then ("a finite number of %s or more"):format(tostring(minimum))
-					else "a finite number",
-			}),
-			0
-		)
+		return Diagnostics.raise("geometry/invalid-number", ("%s must be a finite number"):format(name), {
+			actual = Diagnostics.describe(value),
+			expected = if minimum ~= nil
+				then ("a finite number of %s or more"):format(tostring(minimum))
+				else "a finite number",
+		})
 	end
 	return value
 end
 
 local function bounds(value: unknown, name: string): Bounds
 	if type(value) ~= "table" then
-		Diagnostics.raise("geometry/invalid-rect", ("%s must be a rect"):format(name), {
+		return Diagnostics.raise("geometry/invalid-rect", ("%s must be a rect"):format(name), {
 			actual = Diagnostics.describe(value),
 			expected = "{ left, top, right, bottom } with finite numbers",
 		})
 	end
-	local rect = value :: Bounds
-	number(rect.left, name .. ".left")
-	number(rect.top, name .. ".top")
-	number(rect.right, name .. ".right")
-	number(rect.bottom, name .. ".bottom")
+	assert(type(value) == "table")
+	local fields: { [string]: unknown } = {}
+	for key, field in value do
+		if type(key) == "string" then
+			fields[key] = field
+		end
+	end
+	local rect: Bounds = {
+		left = number(fields.left, name .. ".left"),
+		top = number(fields.top, name .. ".top"),
+		right = number(fields.right, name .. ".right"),
+		bottom = number(fields.bottom, name .. ".bottom"),
+	}
 	if rect.right < rect.left or rect.bottom < rect.top then
-		Diagnostics.raise("geometry/invalid-rect", ("%s has a negative extent"):format(name), {
+		return Diagnostics.raise("geometry/invalid-rect", ("%s has a negative extent"):format(name), {
 			actual = ("left %s, right %s, top %s, bottom %s"):format(
 				tostring(rect.left),
 				tostring(rect.right),
@@ -64,17 +70,16 @@ local function bounds(value: unknown, name: string): Bounds
 	return rect
 end
 
-local function size(value: unknown, name: string): Size
+local function size(value: Size, name: string): Size
 	if type(value) ~= "table" then
-		Diagnostics.raise("geometry/invalid-size", ("%s must be a size"):format(name), {
+		return Diagnostics.raise("geometry/invalid-size", ("%s must be a size"):format(name), {
 			actual = Diagnostics.describe(value),
 			expected = "{ width, height } with finite numbers of zero or more",
 		})
 	end
-	local result = value :: Size
-	number(result.width, name .. ".width", 0)
-	number(result.height, name .. ".height", 0)
-	return result
+	number(value.width, name .. ".width", 0)
+	number(value.height, name .. ".height", 0)
+	return value
 end
 
 local function build(left: number, top: number, width: number, height: number): Frame
@@ -87,7 +92,7 @@ local function safeArea(viewport: Size, insets: Insets?, margin: number?): Frame
 	local left, top, right, bottom = 0, 0, 0, 0
 	if insets ~= nil then
 		if type(insets) ~= "table" then
-			Diagnostics.raise("geometry/invalid-insets", "insets must be a table", {
+			return Diagnostics.raise("geometry/invalid-insets", "insets must be a table", {
 				actual = Diagnostics.describe(insets),
 				expected = "{ left?, top?, right?, bottom? } with numbers of zero or more",
 			})
@@ -112,7 +117,7 @@ local function fit(available: Bounds, desired: Size, options: FitOptions?): Fram
 	local minimum = if settings.min ~= nil then size(settings.min, "min") else nil
 	local maximum = if settings.max ~= nil then size(settings.max, "max") else nil
 	if minimum ~= nil and maximum ~= nil and (minimum.width > maximum.width or minimum.height > maximum.height) then
-		Diagnostics.raise("geometry/invalid-limits", "the minimum size exceeds the maximum size", {
+		return Diagnostics.raise("geometry/invalid-limits", "the minimum size exceeds the maximum size", {
 			actual = ("min %sx%s, max %sx%s"):format(
 				tostring(minimum.width),
 				tostring(minimum.height),
@@ -134,7 +139,7 @@ local function fit(available: Bounds, desired: Size, options: FitOptions?): Fram
 			or anchor.y < 0
 			or anchor.y > 1
 		then
-			Diagnostics.raise("geometry/invalid-anchor", "an anchor needs x and y fractions between 0 and 1", {
+			return Diagnostics.raise("geometry/invalid-anchor", "an anchor needs x and y fractions between 0 and 1", {
 				actual = Diagnostics.describe(settings.anchor),
 				expected = "{ x = 0.5, y = 0.5 } centers; { x = 0, y = 0 } is the top left",
 			})
@@ -182,7 +187,7 @@ end
 
 local function firstClear<T, R>(candidates: { T }, options: ClearOptions<R>?): (T?, number?)
 	if type(candidates) ~= "table" then
-		Diagnostics.raise("geometry/invalid-candidates", "candidates must be a list of rects", {
+		return Diagnostics.raise("geometry/invalid-candidates", "candidates must be a list of rects", {
 			actual = Diagnostics.describe(candidates),
 			expected = "an array of { left, top, right, bottom } in preference order",
 		})
@@ -190,15 +195,16 @@ local function firstClear<T, R>(candidates: { T }, options: ClearOptions<R>?): (
 	local settings: ClearOptions<R> = if options ~= nil then options else {}
 	local within = if settings.within ~= nil then bounds(settings.within, "within") else nil
 	local reserved: { R } = if settings.reserved ~= nil then settings.reserved else {}
+	local regions: { Bounds } = {}
 	for index, region in reserved do
-		bounds(region, ("reserved[%d]"):format(index))
+		regions[index] = bounds(region, ("reserved[%d]"):format(index))
 	end
 	for index, candidate in candidates do
-		bounds(candidate, ("candidates[%d]"):format(index))
-		local clear = within == nil or encloses(within, (candidate :: unknown) :: Bounds)
+		local rect = bounds(candidate, ("candidates[%d]"):format(index))
+		local clear = within == nil or encloses(within, rect)
 		if clear then
-			for _, region in reserved do
-				if intersects((candidate :: unknown) :: Bounds, (region :: unknown) :: Bounds) then
+			for _, region in regions do
+				if intersects(rect, region) then
 					clear = false
 					break
 				end

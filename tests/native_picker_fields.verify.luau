@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Facet = require("../src")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -68,7 +69,7 @@ return function(verifyHarness: Verify.Harness)
 		built.options = built.options or THREE
 		local target = engine.new("Folder")
 		local stop, screen: any = runtime.mount(function()
-			return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+			return Facet.host(runtime).ScreenGui({
 				UI.Picker "P"(built),
 			})
 		end, target)
@@ -103,12 +104,12 @@ return function(verifyHarness: Verify.Harness)
 					local UI: any = controls(Compose, runtime, { types = engine.types })
 					local before = engine.census()
 					local stop = runtime.mount(function()
-						return UI.Picker("P")({
+						return UI.Picker "P" {
 							style = style :: "cards" | "inline" | "menu" | "segmented",
 							selected = Compose.cell("normal"),
 							options = THREE,
 							hint = "Change it any time",
-						})
+						}
 					end, engine.new("ScreenGui"))
 					stop()
 					expect(`{style} {engine.census().connections - before.connections}`):toBe(`{style} 0`)

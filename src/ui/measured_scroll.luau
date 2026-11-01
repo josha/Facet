@@ -7,7 +7,7 @@ local MEASURE = 100000
 
 return function(
 	ctx: Types.Context,
-	props: Types.ScrollingFrameNativeProps,
+	props: Types.ScrollingFrameProps,
 	children: { Types.Child },
 	options: { hug: boolean?, name: string?, rest: boolean? }?
 ): (
@@ -19,7 +19,7 @@ return function(
 )
 	local Host, Compose, E, D2 = ctx.Host, ctx.Compose, ctx.types.Enum, ctx.types.UDim2
 	local hug = options ~= nil and options.hug == true
-	local flowProps: Types.FrameNativeProps = {
+	local flowProps: Types.FrameProps = {
 		Name = if options and options.name then options.name else "Flow",
 		BackgroundTransparency = 1,
 		Size = if hug then D2.fromOffset(0, 0) else D2.new(1, 0, 0, 0),

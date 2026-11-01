@@ -7,7 +7,6 @@ return function(verifyHarness: Verify.Harness)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
-	local FixtureOverlayTypes = require("../src/ui/overlay_types")
 
 	local materialize = require("./lib/materialize")
 	local fadeKit = require("./lib/fade")
@@ -195,8 +194,16 @@ return function(verifyHarness: Verify.Harness)
 		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
 			local opener = UI.Button "Opener" { label = "About" }
 			gui.SelectedObject = opener
-			return Host.Frame({
-				opener :: unknown,
+			local done: Facet.DialogAction = {
+				id = "Done",
+				label = "Done",
+				role = "cancel",
+				onActivate = function()
+					open:set(false)
+				end,
+			}
+			return Host.Frame {
+				opener,
 				UI.Dialog "About" {
 					isPresented = open,
 					onPresentedChange = function(value: boolean)
@@ -206,20 +213,17 @@ return function(verifyHarness: Verify.Harness)
 					content = function(): Instance
 						return Host.TextLabel "Line" { Text = "Three apps." }
 					end,
-					actions = {
-						{
-							id = "Done",
-							label = "Done",
-							role = "cancel" :: "cancel",
-							onActivate = function()
-								open:set(false)
-							end,
-						} :: FixtureOverlayTypes.DialogAction,
-					},
+					actions = { done },
 				},
-			})
+			}
 		end, options, setup)
 		return w, open
+	end
+
+	local function saveMenu(UI: FacetControls, presentation: "sheet"?): Facet.Child
+		local save: Facet.MenuCommand = { id = "save", label = "Save", onSelect = function() end }
+		local spec: Facet.MenuSpec = { label = "Actions", presentation = presentation, items = { save } }
+		return UI.Menu "Commands"(spec)
 	end
 
 	local function fadeOf(w: any): number
@@ -228,7 +232,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("presentation motion: Calendar", function()
-		local dateCell: (Facet.CivilDate?) -> Compose.Value<Facet.CivilDate?> = Compose.cell
 		local configurations: { Types.Config } = {
 			{ motionLevel = "normal" },
 			{ motionLevel = "limited" },
@@ -239,16 +242,17 @@ return function(verifyHarness: Verify.Harness)
 			verifyHarness:case(`prepares calendar layout and masks panel and scrim together in {level} motion`, {
 				id = `native_presentation_motion::presentation motion: Calendar::prepares calendar layout and masks panel and scrim together in {level} motion`,
 				run = function()
-					local value = dateCell({ year = 2026, month = 10, day = 7, hour = 9, minute = 0 })
-					local w = overlay.new(function(UI, Host, engine, _, _)
+					local initial: Facet.CivilDate? = { year = 2026, month = 10, day = 7, hour = 9, minute = 0 }
+					local value = Compose.cell(initial)
+					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 						return Host.Frame {
 							UI.DateTimePicker "Session" {
 								value = value,
-								onChange = function(nextValue)
+								onChange = function(nextValue: Facet.CivilDate?)
 									value:set(nextValue)
 								end,
 								time = true,
-								clock = function()
+								clock = function(): Facet.CivilDate
 									return { year = 2026, month = 10, day = 7 }
 								end,
 							},
@@ -299,11 +303,12 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local open = Compose.cell(false)
 				local w = overlay.new(function(UI: FacetControls)
-					return UI.Alert "Reset" {
+					local reset: Facet.AlertSpec = {
 						isPresented = open,
 						title = "Reset look?",
 						actions = { { id = "cancel", label = "Cancel" } },
 					}
+					return UI.Alert "Reset"(reset)
 				end)
 				open:set(true)
 				local panel = w.find("AlertPanel")
@@ -413,7 +418,7 @@ return function(verifyHarness: Verify.Harness)
 					local opener = UI.Button "Opener" { label = "Open" }
 					gui.SelectedObject = opener
 					return Host.Frame {
-						opener :: unknown,
+						opener,
 						UI.Dialog "Late" {
 							isPresented = open,
 							closeButton = false,
@@ -554,7 +559,7 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				}
 				gui.SelectedObject = view
-				return Host.Frame({ view :: unknown, UI.Button "Other" { label = "Other" } })
+				return Host.Frame { view, UI.Button "Other" { label = "Other" } }
 			end, options, setup)
 			return w, expanded
 		end
@@ -1104,7 +1109,7 @@ return function(verifyHarness: Verify.Harness)
 				local node = ctx.fade({
 					Name = "Faded",
 					GroupTransparency = amount,
-					((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Child" {},
+					Facet.host(runtime).Frame({}, "Child"),
 				})
 				ctx.skin(node, "panel")
 				return node
@@ -1171,11 +1176,8 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("reveals a menu with settled overflowing text after measurement completes", {
 			id = "native_presentation_motion::menu overflow does not block presentation",
 			run = function(context)
-				local w = overlay.new(function(UI)
-					return UI.Menu "Commands" {
-						label = "Actions",
-						items = { { id = "save", label = "Save", onSelect = function() end } },
-					}
+				local w = overlay.new(function(UI: FacetControls)
+					return saveMenu(UI, nil)
 				end, nil, { runService = true, preRender = true })
 				context:defer(w.stop)
 				w.find("Trigger").Activated:Fire()
@@ -1201,13 +1203,8 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("holds panel height through a one-frame row measurement handoff and accepts stable reflow", {
 			id = "native_presentation_motion::presentation motion: Menu measurement::holds panel height through a one-frame row measurement handoff and accepts stable reflow",
 			run = function()
-				local w = overlay.new(function(UI, Host)
-					return Host.Frame {
-						UI.Menu "Commands" {
-							label = "Actions",
-							items = { { id = "save", label = "Save", onSelect = function() end } },
-						},
-					}
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame { saveMenu(UI, nil) }
 				end)
 				w.find("Trigger").Activated:Fire()
 				local panel, rows = w.find("MenuPanel"), w.find("MenuRows")
@@ -1235,14 +1232,8 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("keeps a SurfaceGui menu and scrim until its sheet departure completes", {
 			id = "native_presentation_motion::presentation motion: disabled modal opener::keeps a SurfaceGui menu and scrim until its sheet departure completes",
 			run = function()
-				local w = overlay.new(function(UI, Host)
-					return Host.SurfaceGui "WorldUI" {
-						UI.Menu "Commands" {
-							label = "Actions",
-							presentation = "sheet",
-							items = { { id = "save", label = "Save", onSelect = function() end } },
-						},
-					}
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return Host.SurfaceGui "WorldUI" { saveMenu(UI, "sheet") }
 				end)
 				local layer = w.find("WorldUI")
 				w.size(layer, 390, 844)
@@ -1268,14 +1259,10 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("clips a SurfaceGui to its canvas while a presentation is on it", {
 			id = "native_presentation_motion::presentation motion: disabled modal opener::clips a SurfaceGui to its canvas while a presentation is on it",
 			run = function()
-				local w = overlay.new(function(UI, Host)
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.SurfaceGui "WorldUI" {
 						ClipsDescendants = false,
-						UI.Menu "Commands" {
-							label = "Actions",
-							presentation = "sheet",
-							items = { { id = "save", label = "Save", onSelect = function() end } },
-						},
+						saveMenu(UI, "sheet"),
 					}
 				end)
 				local layer = w.find("WorldUI")

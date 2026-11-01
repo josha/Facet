@@ -9,7 +9,7 @@ local freeze = require("./freeze")
 local InputProps = require("./input_props")
 local decoration = require("./native_decoration")
 
-type ButtonFactory = Types.Constructor<InputProps.ButtonProps, TextButton>
+type ButtonFactory = Types.Constructor<InputProps.ButtonPropsInput, TextButton>
 type UIControls = { Button: ButtonFactory }
 type BackPlace = {
 	AnchorPoint: Vector2?,
@@ -227,7 +227,7 @@ function parts.call<A...>(fn: (A...) -> (), settle: (() -> ())?, ...: A...)
 end
 
 function parts.width(ctx: Types.Context, preset: Types.Input<Overlay.WidthPreset?>?, use: ComposeTypes.Use?): number
-	local chosen = ctx.read(preset, use) or "automatic"
+	local chosen = ctx.read<<Overlay.WidthPreset?>>(preset, use) or "automatic"
 	local key = parts.WIDTHS[chosen]
 	assert(key, `Facet width must be automatic, narrow or wide, not {tostring(chosen)}`)
 	return ctx.metric(key, use)
@@ -264,7 +264,7 @@ function parts.media(ctx: Types.Context, media: Overlay.Media | Overlay.Hero, na
 		)
 	end
 	local height = media.height
-	local props: Types.FrameNativeProps = {
+	local props: Types.FrameProps = {
 		Name = name or "Media",
 		BorderSizePixel = 0,
 		BackgroundTransparency = if media.background then 0 else 1,
@@ -281,7 +281,7 @@ function parts.media(ctx: Types.Context, media: Overlay.Media | Overlay.Hero, na
 	end
 	local ratio = media.aspectRatio
 	if ratio and not height then
-		props[#props + 1] = Host.UIAspectRatioConstraint({ AspectRatio = ratio, DominantAxis = E.DominantAxis.Width })
+		props[#props + 1] = Host.UIAspectRatioConstraint { AspectRatio = ratio, DominantAxis = E.DominantAxis.Width }
 	end
 	return Host.Frame(props)
 end
@@ -312,9 +312,9 @@ function parts.actions(
 ): ActionGroup
 	local Compose, Host, E, D2 = ctx.Compose, ctx.Host, ctx.types.Enum, ctx.types.UDim2
 	local function modeOf(use: ComposeTypes.Use?): Overlay.ActionLayout
-		local mode = ctx.read(layout, use) or "automatic"
+		local mode = ctx.read<<Overlay.ActionLayout?>>(layout, use) or "automatic"
 		assert(table.find(parts.ACTION_LAYOUTS, mode), "Facet actionLayout must be automatic, row or stacked")
-		return mode :: Overlay.ActionLayout
+		return mode
 	end
 	modeOf()
 	local rowHeight = height or 44
@@ -331,12 +331,12 @@ function parts.actions(
 		end
 		return use(measured) > offered(use)
 	end)
-	local props: Types.FrameNativeProps = {
+	local props: Types.FrameProps = {
 		Name = "Actions",
 		BackgroundTransparency = 1,
 		Size = D2.new(1, 0, 0, 0),
 		AutomaticSize = E.AutomaticSize.Y,
-		Host.UIListLayout({
+		Host.UIListLayout {
 			FillDirection = function(use: ComposeTypes.Use)
 				return if use(stacked) then E.FillDirection.Vertical else E.FillDirection.Horizontal
 			end,
@@ -345,10 +345,10 @@ function parts.actions(
 			end,
 			SortOrder = E.SortOrder.LayoutOrder,
 			Padding = ctx.types.UDim.new(0, 8),
-		}),
+		},
 	}
 	for index, action in actions do
-		local button = UI.Button({
+		local button = UI.Button {
 			Name = action.id,
 			label = action.label,
 			role = action.role,
@@ -370,7 +370,7 @@ function parts.actions(
 			onActivate = function()
 				press(action)
 			end,
-		})
+		}
 		props[#props + 1] = button
 		table.insert(widths, ctx.observe.TextBounds(button))
 	end
@@ -448,7 +448,7 @@ function parts.room(
 			end,
 		})
 	end
-	local props: Types.ScrollingFrameNativeProps = {
+	local props: Types.ScrollingFrameProps = {
 		Name = "Room",
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -463,7 +463,7 @@ function parts.room(
 		Size = function(use: ComposeTypes.Use)
 			return if filling(use) or use(tight) then D2.new(1, 0, 0, maximum(use)) else D2.new(1, 0, 0, 0)
 		end,
-		Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = ctx.types.UDim.new(0, gap) }),
+		Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder, Padding = ctx.types.UDim.new(0, gap) },
 	}
 	for index, region in regions do
 		ctx.runtime.decorate(region, { LayoutOrder = index })
@@ -619,7 +619,9 @@ function parts.back(
 		label = label or "Back",
 		icon = "chevron.leading",
 		appearance = "utility",
-		onActivate = onActivate,
+		onActivate = function(_input: InputObject?, _clicks: number?)
+			onActivate()
+		end,
 		AnchorPoint = at.AnchorPoint,
 		Position = at.Position,
 		Size = at.Size,
@@ -644,7 +646,7 @@ function parts.tailSize(ctx: Types.Context, use: ComposeTypes.Use?): number
 end
 
 local function tailArt(ctx: Types.Context, use: ComposeTypes.Use?): ThemeTypes.SkinLayer?
-	local package = ctx.read(ctx.config.theme, use)
+	local package = ctx.read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 	local recipe = package and package.chrome and package.chrome.panelTail
 	return if recipe and recipe.kind == "fill" then recipe else nil
 end
@@ -726,7 +728,7 @@ function parts.tail(
 		return if panel.role == "floating" then tailArt(ctx, use) else nil
 	end
 	local function skinned(use: ComposeTypes.Use): boolean
-		local package = ctx.read(ctx.config.theme, use)
+		local package = ctx.read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 		local recipe = package and package.chrome and package.chrome.panel
 		return panel.role == "floating" and recipe ~= nil and recipe.kind ~= "native" and recipe.kind ~= "none"
 	end
@@ -850,13 +852,13 @@ function parts.tail(
 						end,
 					}
 					ctx.skin(graphic, "panelTail")
-					local chrome = Host.Frame(name .. "Chrome") {
+					local chrome = Host.Frame(name .. "Chrome")({
 						Size = D2.fromScale(1, 1),
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						ZIndex = 0,
 						graphic,
-					}
+					})
 					local boundary = decoration(Compose, ctx.runtime, ctx.types, panel.node, chrome)
 					boundary:AddTag("facet-independent-fade")
 					return boundary

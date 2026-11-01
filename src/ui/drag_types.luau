@@ -3,7 +3,6 @@ local Shared = require("./types")
 local Env = require("./environment_types")
 
 export type SourceSpec = Env.DraggableSpec & {
-	mark: boolean?,
 	navigationHint: string?,
 	returnPosition: (() -> Vector2)?,
 	liftValue: Shared.ReadOnlyValue<number>?,

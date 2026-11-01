@@ -4,7 +4,7 @@ local ComposeTypes = require("../vendor/compose/core")
 
 type Surfaces = ComposeTypes.Value<{ [GuiObject]: boolean }>
 
-local registries = setmetatable({} :: { [Types.Context]: Surfaces }, { __mode = "k" })
+local registries: { [Types.Context]: Surfaces } = setmetatable({}, { __mode = "k" })
 
 local function registry(ctx: Types.Context): Surfaces
 	local surfaces = registries[ctx]

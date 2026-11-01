@@ -66,11 +66,11 @@ table.insert(workloads, {
 				end,
 				width = 200,
 				render = function(current)
-					return UI.Text("Name" .. current:peek().id) {
+					return UI.Text("Name" .. current:peek().id)({
 						text = function(use: Facet.Use)
 							return use(current).name
 						end,
-					}
+					})
 				end,
 			},
 			{
@@ -81,11 +81,11 @@ table.insert(workloads, {
 				end,
 				width = 100,
 				render = function(current)
-					return UI.Text("Score" .. current:peek().id) {
+					return UI.Text("Score" .. current:peek().id)({
 						text = function(use: Facet.Use)
 							return tostring(use(current).score)
 						end,
-					}
+					})
 				end,
 			},
 			{
@@ -96,18 +96,18 @@ table.insert(workloads, {
 				end,
 				width = 100,
 				render = function(current)
-					return UI.Text("Wins" .. current:peek().id) {
+					return UI.Text("Wins" .. current:peek().id)({
 						text = function(use: Facet.Use)
 							return tostring(use(current).wins)
 						end,
-					}
+					})
 				end,
 			},
 		}
 		local stop = S.mount(world, lane, function()
 			local spec: Facet.KeyedTableSpec<Player, number> = {
 				from = assert(source),
-				key = function(row)
+				key = function(row: Player): number
 					return row.id
 				end,
 				columns = columns,
@@ -231,7 +231,7 @@ table.insert(workloads, {
 		local stop = S.mount(world, lane, function()
 			local children: { Instance } = {}
 			for i = 1, 200 do
-				table.insert(children, UI.Button("Themed" .. i) { label = `Action {i}`, onActivate = function() end })
+				table.insert(children, UI.Button("Themed" .. i)({ label = `Action {i}`, onActivate = function() end }))
 			end
 			sheet = Facet.themes.createStyleSheet(world.runtime, assert(theme), { types = world.types })
 			local content: { Facet.Child } = {
@@ -292,9 +292,9 @@ table.insert(workloads, {
 					for i = 1, 200 do
 						table.insert(
 							children,
-							UI.Button("Action" .. i) { label = `Action {i}`, onActivate = function() end }
+							UI.Button("Action" .. i)({ label = `Action {i}`, onActivate = function() end })
 						)
-						table.insert(children, UI.Text("Detail" .. i) { text = `Detail {i}` })
+						table.insert(children, UI.Text("Detail" .. i)({ text = `Detail {i}` }))
 					end
 					return UI.ScrollView "Heavy" {
 						gap = 8,
@@ -368,8 +368,8 @@ table.insert(workloads, {
 						destinations[id] = "GridA"
 						local props: FolderProps = {
 							Name = "TileOwner" .. id,
-							Compose.portal(source, function(): { unknown }
-								local tile = UI.Button("Tile" .. id) { label = `Tile {id}` }
+							Compose.portal(source, function(): { Instance }
+								local tile = UI.Button("Tile" .. id)({ label = `Tile {id}` })
 								UI.draggable(tile, { payload = id })
 								Compose.watch(function(use: Facet.Use)
 									tile.Parent = use(targets[id])

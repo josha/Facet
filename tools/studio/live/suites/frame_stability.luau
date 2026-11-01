@@ -4,6 +4,9 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+local function traceback(message: string): string
+	return debug.traceback(message, 2)
+end
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
@@ -12,7 +15,7 @@ local storage = game:GetService("ReplicatedStorage")
 local stability = (require :: (Instance) -> typeof(require("../frame_stability")))(storage.FacetLive.frame_stability)
 local clipping = (require :: (Instance) -> typeof(require("../text_clipping")))(storage.FacetLive.text_clipping)
 type Sample = { path: string, rect: { number }, text: { number }?, painted: boolean }
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Context = {
 	dispatch: (string, unknown) -> unknown,
 	active: ReadOnlyValue<string?>,
@@ -356,10 +359,10 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 	local sampleError: string? = nil
 	local connection = RunService.PreRender:Connect(function()
 		task.defer(function()
-			local ok, problem = xpcall(function()
+			local ok, problem = xpcall(function(): boolean
 				sampleFrame()
-				return nil
-			end, debug.traceback)
+				return true
+			end, traceback)
 			if not ok then
 				sampleError = tostring(problem)
 				active = false
@@ -788,8 +791,8 @@ add({
 			return Host.Frame {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 16) } :: unknown,
-				UI.Text { text = "Updates", textRole = "heading", LayoutOrder = 1 } :: unknown,
+				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 16) },
+				UI.Text { text = "Updates", textRole = "heading", LayoutOrder = 1 },
 				Compose.show(shown, function()
 					return UI.Notice "Update" {
 						LayoutOrder = 2,
@@ -1017,19 +1020,18 @@ for _, viewport in viewports do
 					now = at
 				end
 				local children: { Instance } = {}
-				for index, control in
-					{
-						UI.Text { text = words },
-						UI.Timer {
-							deadline = 6000,
-							now = function(): number
-								return now
-							end,
-						},
-						UI.ProgressView { value = progress, showValue = true, endLabel = "ready" },
-						UI.Badge { label = words },
-					}
-				do
+				local controls: { GuiObject } = {
+					UI.Text { text = words },
+					UI.Timer {
+						deadline = 6000,
+						now = function(): number
+							return now
+						end,
+					},
+					UI.ProgressView { value = progress, showValue = true, endLabel = "ready" },
+					UI.Badge { label = words },
+				}
+				for index, control in controls do
 					local neighbour = Host.Frame "Neighbour" { Size = UDim2.fromOffset(20, 20) }
 					control.LayoutOrder, neighbour.LayoutOrder = 1, 2
 					table.insert(rows, { readout = control, neighbour = neighbour :: GuiObject })

@@ -10,7 +10,7 @@ export type PageLayers = {
 	content: <P>(Instance | ((Nav.NavigationEntry<P>?) -> Instance), Nav.NavigationEntry<P>?) -> Instance,
 	checkTransition: (Nav.Transition | false?) -> (),
 	layer: (
-		Types.CanvasGroupNativeProps & Types.FrameNativeProps,
+		Types.CanvasGroupProps,
 		ComposeTypes.ReadOnlyValue<ComposeTypes.LayerStackState>,
 		Nav.Transition | false?,
 		(() -> ())?,
@@ -79,7 +79,7 @@ return function(ctx: Types.Context): PageLayers
 		end, panel)
 	end
 	local function layer(
-		properties: Types.CanvasGroupNativeProps & Types.FrameNativeProps,
+		properties: Types.CanvasGroupProps,
 		state: ComposeTypes.ReadOnlyValue<ComposeTypes.LayerStackState>,
 		transition: Nav.Transition | false?,
 		hidden: (() -> ())?,
@@ -89,7 +89,7 @@ return function(ctx: Types.Context): PageLayers
 		holdOnExit: boolean?
 	): GuiObject
 		if transition == nil or transition == false then
-			local node = Host.Frame(properties)
+			local node = Host.Frame((properties :: unknown) :: Types.FrameNativeProps)
 			if hidden then
 				Compose.watch(function(use: ComposeTypes.Use)
 					if not use(state).top then
@@ -140,7 +140,7 @@ return function(ctx: Types.Context): PageLayers
 			local entries = (properties :: unknown) :: { [unknown]: unknown }
 			for index, child in entries do
 				if type(index) == "number" then
-					children[index] = child :: Types.Child
+					children[index] = properties[index]
 				end
 			end
 			for index in entries do

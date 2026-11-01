@@ -2,22 +2,24 @@
 
 local fs = require("@std/fs")
 local process = require("@std/process")
-local json = require("@std/json")
+local Json = require("./json")
 
-type Node = { [string]: unknown }
-export type Project = { name: string, tree: { [string]: Node } }
+type Node = Json.Object
+export type Project = Json.Object
 
 local function build(suites: { string }): Project
-	local project = (json.deserialize(fs.readFileToString("examples/gallery.project.json")) :: unknown) :: Project
+	local project = assert(Json.asObject(Json.decode(fs.readFileToString("examples/gallery.project.json"))))
+	local tree = assert(Json.objectField(project, "tree"))
+	local workspace = assert(Json.objectField(tree, "Workspace"))
 	project.name = "Facet-Live"
 	local revision = process.run({ "git", "rev-parse", "HEAD" })
 	local status = process.run({ "git", "status", "--porcelain", "--untracked-files=no" })
 	assert(revision.ok and status.ok, "cannot record the live build revision")
-	project.tree.Workspace["$attributes"] = {
+	workspace["$attributes"] = {
 		Facet_Demos = fs.readFileToString("tools/studio/live/fixture_demos.json"),
 		Facet_SourceStamp = string.gsub(revision.stdout, "%s+$", "") .. (if status.stdout == "" then "" else "+dirty"),
 	}
-	local storage = project.tree.ReplicatedStorage
+	local storage = assert(Json.objectField(tree, "ReplicatedStorage"))
 	storage.FacetLive = { ["$path"] = "../tools/studio/live" }
 	storage.FacetVerify = { ["$path"] = "../tools/vendor/verify/src" }
 	storage.FacetConsumerScreen = { ["$path"] = "consumer/src/screen.luau" }

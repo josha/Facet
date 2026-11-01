@@ -138,13 +138,13 @@ add("disabled-subtree", {}, function(t: any)
 		return Host.Frame "Area" {
 			Size = UDim2.fromOffset(400, 300),
 			Interactable = false,
-			UI.Button "Inner" { label = "Inside" } :: unknown,
+			UI.Button "Inner" { label = "Inside" },
 			UI.Toggle "Check" { label = "Option", value = t.Facet.Compose.cell(false) },
 		}
 	end)
 	t.settle(10)
 	for _, name in { "Inner", "Check" } do
-		local node = t.find(stage, name)
+		local node: GuiObject? = t.find(stage, name)
 		local target = if node and node:IsA("GuiButton")
 			then node
 			else node and node:FindFirstChildWhichIsA("GuiButton", true)
@@ -281,7 +281,7 @@ local function clicks(t: any, where: string)
 	for _, id in demos() do
 		api("show", id)
 		t.settle(30)
-		local visited = {}
+		local visited: { [GuiObject]: boolean } = {}
 		local function reveal(node: any)
 			local at = node.Parent
 			while at and at ~= layer do

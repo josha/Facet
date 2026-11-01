@@ -2,6 +2,7 @@
 local CatalogTypes = require("./catalog_types")
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Context = CatalogTypes.Context
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 
 type Point = { x: number?, y: number?, clearance: number?, visible: boolean, onscreen: boolean?, occluded: boolean? }
 type Spot = { x: number, y: number, onscreen: boolean, label: string }
@@ -35,28 +36,33 @@ local function Demo(c: Context, edge: "clamp" | "hide", arrow: boolean): Instanc
 			onscreen = s.onscreen,
 		})
 	end
+	local frame = Host.Frame "Field" {
+		Size = UDim2.new(1, 0, 0, 200),
+		BackgroundTransparency = 1,
+
+		UI.WorldMarker "Marker" {
+			anchor = anchor,
+			edge = edge,
+			arrow = arrow,
+			margin = "s",
+			UI.Badge { label = "Golden grass", status = "warning" },
+		},
+	}
+	field = frame
+	local sizeChanged = frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(project)
+	local positionChanged = frame:GetPropertyChangedSignal("AbsolutePosition"):Connect(project)
+	Compose.cleanup(function()
+		field = nil
+		sizeChanged:Disconnect()
+		positionChanged:Disconnect()
+	end)
+	task.defer(project)
 	return UI.VStack "MarkerDemo" {
 		gap = "s",
 		align = "stretch",
-		Host.Frame "Field" {
-			Size = UDim2.new(1, 0, 0, 200),
-			BackgroundTransparency = 1,
-			ref = function(node: Frame)
-				field = node
-				node:GetPropertyChangedSignal("AbsoluteSize"):Connect(project)
-				node:GetPropertyChangedSignal("AbsolutePosition"):Connect(project)
-				task.defer(project)
-			end,
-			UI.WorldMarker "Marker" {
-				anchor = anchor,
-				edge = edge,
-				arrow = arrow,
-				margin = "s",
-				UI.Badge { label = "Golden grass", status = "warning" },
-			},
-		},
+		frame,
 		UI.Text {
-			text = function(use)
+			text = function(use: Use)
 				return SPOTS[use(spot)].label
 			end,
 		},

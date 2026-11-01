@@ -1,15 +1,14 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 return {
 	title = "Time-based easing",
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local Host, UI, Compose: ComposeModule, runtime = ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
 		local D, D2, C3, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Color3, ctx.types.Enum
 		local reduced, race, gallery, panel = Compose.cell(false), Compose.cell(0), Compose.cell(0), Compose.cell(0)
@@ -60,13 +59,13 @@ return {
 			toggle(panel, counts.panel)
 		end
 		local function label(name: string, text: string | ((Use) -> string)): GuiObject
-			return UI.Text({
+			return UI.Text {
 				Name = name,
 				text = text,
 				TextWrapped = true,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
-			})
+			}
 		end
 		local function screen()
 			local children: { Child } = {
@@ -102,11 +101,11 @@ return {
 						Size = D2.new(1, 0, 0, 68),
 						BackgroundTransparency = 1,
 						label("Caption", lane.name),
-						Host.Frame("Track")({
+						Host.Frame "Track" {
 							Position = D2.fromOffset(0, 32),
 							Size = D2.new(1, 0, 0, 32),
 							BackgroundTransparency = 1,
-							Host.Frame("Marker")({
+							Host.Frame "Marker" {
 								Size = D2.fromOffset(28, 28),
 								BorderSizePixel = 0,
 								BackgroundColor3 = C3.fromRGB(64, 144, 255),
@@ -114,8 +113,8 @@ return {
 									local v = decorative(lane.value, gallery, use)
 									return D2.new(v, -28 * v, 0, 0)
 								end,
-							}),
-						}),
+							},
+						},
 					})
 				)
 			end
@@ -123,10 +122,10 @@ return {
 			table.insert(children, UI.Button "FlyPanel" { label = "Fly the panel", onActivate = fly })
 			table.insert(
 				children,
-				Host.Frame("PanelLane")({
+				Host.Frame "PanelLane" {
 					Size = D2.new(1, 0, 0, 48),
 					BackgroundTransparency = 1,
-					Host.Frame("Puck")({
+					Host.Frame "Puck" {
 						Size = D2.fromOffset(32, 32),
 						BackgroundColor3 = C3.fromRGB(80, 180, 160),
 						BorderSizePixel = 0,
@@ -134,19 +133,19 @@ return {
 							local v = decorative(panelFlight, panel, use)
 							return D2.new(v, -32 * v, 0, 0)
 						end,
-					}),
-				})
+					},
+				}
 			)
 			table.insert(
 				children,
-				Host.Frame("GrowingPanel")({
+				Host.Frame "GrowingPanel" {
 					BackgroundColor3 = C3.fromRGB(80, 180, 160),
 					BorderSizePixel = 0,
 					Size = function(use: Use)
 						return D2.new(1, 0, 0, 64 + 64 * decorative(panelFlight, panel, use))
 					end,
 					label("PanelCaption", "The plate doubles its height on the same curve, in the same action."),
-				})
+				}
 			)
 			return UI.ScrollView "TimeCurves" {
 				padding = 16,

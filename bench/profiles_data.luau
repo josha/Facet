@@ -2,23 +2,25 @@
 
 local device_profiles = {}
 
+type Facts = { [string]: any }
+
 export type Profile = {
 	name: string,
 	title: string,
 	viewport: { w: number, h: number },
 	insets: { top: number, bottom: number, left: number, right: number },
 
-	facts: { [string]: any },
+	facts: Facts,
 }
 
 local NO_OVERSCAN = { top = 0, bottom = 0, left = 0, right = 0 }
-local TOUCH_FACTS = {
+local TOUCH_FACTS: Facts = {
 	preferredInput = "Touch",
 	capabilities = { keyboard = false, mouse = false, touch = true, gamepad = false },
 	displaySize = "Small",
 	overscanInsets = NO_OVERSCAN,
 }
-local DESKTOP_FACTS = {
+local DESKTOP_FACTS: Facts = {
 	preferredInput = "KeyboardAndMouse",
 	capabilities = { keyboard = true, mouse = true, touch = false, gamepad = false },
 	displaySize = "Medium",

@@ -3,10 +3,11 @@
 type Destination = typeof(require("@repo/tools/typecheck/aliases").Destination)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
-type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
+type RadialItem = typeof(require("@repo/tools/typecheck/aliases").StringRadialItem)
+type RadialChoice = typeof(require("@repo/tools/typecheck/aliases").StringRadialChoice)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 local theme = require("./theme")
 local modelModule = require("./model")
@@ -25,7 +26,8 @@ return function(ctx: Context): (GuiObject, GuiObject)
 	for _, entry in theme.ACCENTS do
 		accents[entry.id] = entry.label
 		table.insert(accentOptions, { value = entry.id, label = entry.label })
-		table.insert(accentItems, { id = entry.id, label = entry.label, selected = model.palette, value = entry.id })
+		local accent: RadialChoice = { id = entry.id, label = entry.label, selected = model.palette, value = entry.id }
+		table.insert(accentItems, accent)
 	end
 	local spins = { "Off", "Slow", "Medium", "Fast" }
 	local turnSteps = { 15, 30, 45, 90 }
@@ -62,7 +64,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 					width = "fill",
 					height = "fill",
 					padding = { top = 5, left = 6, right = 6, bottom = 4 },
-					Host.UICorner({ CornerRadius = ctx.D.new(0, 8) }),
+					Host.UICorner { CornerRadius = ctx.D.new(0, 8) },
 					quiet(id .. "Label", title, "caption", {
 						TextWrapped = false,
 						Size = D2.new(1, 0, 0, 14),
@@ -112,7 +114,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 		}
 		local rows: StackProps = { Name = "SummaryFacts", width = "fill", gap = "s" }
 		for _, fact in values do
-			rows[#rows + 1] = UI.HStack({
+			rows[#rows + 1] = UI.HStack {
 				Name = "Summary" .. fact.id,
 				width = "fill",
 				gap = "s",
@@ -121,7 +123,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 					Size = D2.new(0.5, -4, 0, 0),
 					TextXAlignment = E.TextXAlignment.Right,
 				}),
-			})
+			}
 		end
 		rows[#rows + 1] = button("Done", "Done", function()
 			model.avatarSummary:set(false)
@@ -163,7 +165,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 		UI.adjustable(row, { onAdjust = model.turn, axis = "none", repeats = true })
 		return row
 	end
-	local hatModes: { "swatches" | "spectrum" } = { "swatches", "spectrum" }
+	local hatModes: { "brick" | "sliders" | "spectrum" | "swatches" } = { "swatches", "spectrum" }
 	local preview = UI.ZStack "PreviewPanel" {
 		Size = function(use: Use)
 			return if wide(use) then D2.new(1, -settingsWidth(use) - 16, 1, 0) else D2.new(1, 0, 0, previewHeight(use))
@@ -268,12 +270,12 @@ return function(ctx: Context): (GuiObject, GuiObject)
 			return if wide(use) then D2.new(0, settingsWidth(use), 1, 0) else D2.new(1, 0, 1, -previewHeight(use) - 16)
 		end,
 		ctx.rounded(),
-		Host.UIPadding({
+		Host.UIPadding {
 			PaddingLeft = ctx.D.new(0, 12),
 			PaddingRight = ctx.D.new(0, 12),
 			PaddingTop = ctx.D.new(0, 12),
 			PaddingBottom = ctx.D.new(0, 12),
-		}),
+		},
 		UI.NavigationStack "SettingsStack" {
 			path = model.avatarPath,
 			root = {

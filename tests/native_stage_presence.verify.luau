@@ -4,9 +4,9 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-	type Use = <T>(ReadOnlyValue<T>) -> T
 
+	local Facet = require("../src")
+	type Use = Facet.Use
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
 	local Types = require("../src/ui/types")
@@ -26,8 +26,8 @@ return function(verifyHarness: Verify.Harness)
 							BackgroundColor3 = engine.types.Color3.new(0.7, 0.2, 0.1),
 						},
 						UI.Stage "Scene" {
-							content = function(runtime, world)
-								local part = runtime.constructors.Part "Complete" {}
+							content = function(_runtime: Facet.Runtime, world: WorldModel): (() -> ())?
+								local part = Host.Part "Complete" {}
 								assert(typeof(part) == "Instance")
 								part.Parent = world
 								return nil
@@ -77,13 +77,14 @@ return function(verifyHarness: Verify.Harness)
 
 	local function scene(options: { lazy: boolean?, count: number? }?): any
 		local o: { lazy: boolean?, count: number? } = options or {}
-		local log = { builds = 0, writes = 0, lives = {} :: { any } }
+		local log: { builds: number, writes: number, lives: { Facet.ReadOnlyValue<boolean> } } =
+			{ builds = 0, writes = 0, lives = {} }
 		local w = overlay.new(function(UI: FacetControls, Host)
-			local stages = {}
+			local stages: { Facet.Child } = {}
 			for index = 1, o.count or 1 do
 				table.insert(
 					stages,
-					UI.Stage({
+					UI.Stage {
 						Name = "Stage" .. index,
 						lazy = o.lazy,
 						content = function(
@@ -101,22 +102,22 @@ return function(verifyHarness: Verify.Harness)
 									clock:pause()
 								end
 							end)
-							local part = Host.Part({
+							local part = Host.Part {
 								Name = "Spinner",
 								Transparency = function(use: Use)
 									return use(clock.progress)
 								end,
-							})
+							}
 							part:GetPropertyChangedSignal("Transparency"):Connect(function()
 								log.writes += 1
 							end)
 							part.Parent = world
 							return nil
 						end,
-					})
+					}
 				)
 			end
-			return Host.ScrollingFrame({ Name = "Feed", table.unpack((stages :: unknown) :: { unknown }) })
+			return Host.ScrollingFrame { Name = "Feed", table.unpack(stages) }
 		end)
 		local V = w.Vector2
 		local feed = w.find("Feed")
@@ -256,18 +257,18 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI, Host)
 					return Host.Frame {
 						Compose.show(original, function()
-							local stages = {}
+							local stages: { Facet.Child } = {}
 							for index = 1, 8 do
 								table.insert(
 									stages,
-									UI.Stage({
+									UI.Stage {
 										Name = "Retired" .. index,
 										lazy = true,
 										content = function()
 											retired += 1
 											return nil
 										end,
-									})
+									}
 								)
 							end
 							return Host.Frame { table.unpack(stages) }
@@ -368,26 +369,26 @@ return function(verifyHarness: Verify.Harness)
 				local gate = Compose.cell(true)
 				local builds = 0
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.ScrollingFrame({
+					return Host.ScrollingFrame {
 						Name = "Feed",
 						Compose.show(gate, function()
-							local stages = {}
+							local stages: { Facet.Child } = {}
 							for index = 1, 3 do
 								table.insert(
 									stages,
-									UI.Stage({
+									UI.Stage {
 										Name = "Stage" .. index,
 										lazy = true,
 										content = function(): (() -> ())?
 											builds += 1
 											return nil
 										end,
-									})
+									}
 								)
 							end
-							return Host.Frame({ Name = "Cards", table.unpack((stages :: unknown) :: { unknown }) })
+							return Host.Frame { Name = "Cards", table.unpack(stages) }
 						end),
-					})
+					}
 				end)
 				local V = w.Vector2
 				local feed = w.find("Feed")

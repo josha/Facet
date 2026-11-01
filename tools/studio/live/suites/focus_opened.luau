@@ -4,12 +4,21 @@ local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
 local pageIdentity = require(storage.FacetLive.focus_page)
 
-local PAD = {
+local PAD: Keys = {
 	open = "ButtonA",
 	close = "ButtonB",
 	moves = { "DPadDown", "DPadLeft", "DPadRight", "StickUp", "StickDown", "StickLeft", "StickRight" },
 }
-local KEYS = { open = "Return", close = "Escape", moves = { "Up", "Down", "Left", "Right" } }
+type Keys = {
+	open: string,
+	close: string,
+	moves: { string },
+	up: string?,
+	closeFrom: string?,
+	onPage: (() -> boolean)?,
+	restorePage: (() -> ())?,
+}
+local KEYS: Keys = { open = "Return", close = "Escape", moves = { "Up", "Down", "Left", "Right" } }
 
 local CASES: {
 	{
@@ -85,7 +94,7 @@ for _, spec in CASES do
 			local focus = (require :: any)(storage.FacetLive.focus)
 			local root = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 			local options = shared.FacetFocusOpened or {}
-			local keys = table.clone(if options.keys then KEYS else PAD)
+			local keys: Keys = table.clone(if options.keys then KEYS else PAD)
 			keys.up = if options.keys then nil else options.up
 			keys.closeFrom = if spec.inline then "trigger" else nil
 			if spec.inline then

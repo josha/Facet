@@ -25,12 +25,13 @@ local CORNER_OVERLAP = 0.25
 
 return function(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	surfaces: Nav.Surfaces,
 	spec: NavigationProps.TabViewSpec,
 	view: TabItemView
 ): Types.Child
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
+	local readText = read<<string?>>
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local frame = view.frame
 	local fit, placement, visibleTabs = frame.fit, frame.placement, frame.visibleTabs
@@ -52,7 +53,7 @@ return function(
 			index: ComposeTypes.ReadOnlyValue<number>
 		): Instance
 			local tab = current:peek()
-			local button = UI.Button({
+			local button = UI.Button {
 				Name = tab.id,
 				controlSize = spec.controlSize,
 				label = function(use: ComposeTypes.Use)
@@ -114,8 +115,13 @@ return function(
 				onActivate = function()
 					select(tab.id)
 				end,
-			})
+			}
 			button:AddTag("facet-tab-item")
+			local content = button:FindFirstChild("Content")
+			if content ~= nil and content:IsA("GuiObject") then
+				content.AnchorPoint = ctx.types.Vector2.new(0.5, 0.5)
+				content.Position = D2.fromScale(0.5, 0.5)
+			end
 			do
 				local measure = ctx.text({
 					Name = "LabelMeasure",
@@ -131,7 +137,7 @@ return function(
 							else ctx.metric("typography.control.size", use)
 					end,
 				})
-				surfaces.attach(button, { measure :: Types.Child })
+				surfaces.attach(button, { measure })
 				local natural = textMeasure.natural(ctx, measure, function()
 					local bounds = ctx.observe.TextBounds(measure)
 					return Compose.formula(function(use: ComposeTypes.Use): Vector2
@@ -285,7 +291,7 @@ return function(
 			if tab.badge ~= nil and glyph then
 				local icon = glyph :: GuiObject
 				local corner = UI.badged(
-					Host.Frame({ Name = "Anchor", BackgroundTransparency = 1, Size = D2.fromScale(1, 1) }),
+					Host.Frame { Name = "Anchor", BackgroundTransparency = 1, Size = D2.fromScale(1, 1) },
 					badgeOf
 				)
 				local sealSize = Compose.cell(V2.zero)
@@ -306,7 +312,7 @@ return function(
 					end,
 					Position = function(use: ComposeTypes.Use): UDim2
 						local across, up = reach(use)
-						local anchor = read(use(current).badgeAnchor, use) or "topTrailing"
+						local anchor = readText(use(current).badgeAnchor, use) or "topTrailing"
 						assert(
 							table.find({ "topLeading", "topTrailing", "bottomLeading", "bottomTrailing" }, anchor),
 							"Invalid TabView tab.badgeAnchor"
@@ -326,7 +332,7 @@ return function(
 				if holder then
 					runtime.decorate(holder, {
 						Position = function(use: ComposeTypes.Use): UDim2
-							local anchor = read(use(current).badgeAnchor, use) or "topTrailing"
+							local anchor = readText(use(current).badgeAnchor, use) or "topTrailing"
 							return D2.fromScale(
 								if string.find(anchor, "Leading") then 0 else 1,
 								if string.find(anchor, "bottom") then 1 else 0
@@ -357,7 +363,7 @@ return function(
 				end
 				local flow = icon.Parent and icon.Parent:FindFirstChildWhichIsA("UIListLayout")
 				Compose.watch(function(use: ComposeTypes.Use)
-					local anchor = read(use(current).badgeAnchor, use) or "topTrailing"
+					local anchor = readText(use(current).badgeAnchor, use) or "topTrailing"
 					local _, up, ratio = reach(use)
 					local clearance = if string.find(anchor, "bottom")
 						then up + use(sealSize).Y * ratio / 2 + ctx.metric("space.xs", use)
@@ -399,13 +405,13 @@ return function(
 						Compose.show(function(use: ComposeTypes.Use): boolean
 							return badgeOf(use) ~= nil
 						end, function()
-							return UI.Badge({
+							return UI.Badge {
 								Name = "Count",
 								LayoutOrder = 900,
 								label = function(use: ComposeTypes.Use): string
 									return badgeOf(use) or ""
 								end,
-							})
+							}
 						end),
 					}
 				end, row)
@@ -413,7 +419,7 @@ return function(
 			local indicator = tab.indicator
 			if indicator then
 				surfaces.attach(button, {
-					UI.StatusIndicator({
+					UI.StatusIndicator {
 						Name = "Status",
 						status = indicator.status,
 						form = indicator.form,
@@ -422,7 +428,7 @@ return function(
 						AnchorPoint = V2.new(1, 0),
 						Position = D2.new(1, -4, 0, 4),
 						ZIndex = 3,
-					}) :: Types.Child,
+					},
 				})
 			end
 			local shownCurrent, shownFilled = false, false
@@ -455,11 +461,11 @@ return function(
 				end
 			end)
 			surfaces.attach(button, {
-				Host.UISizeConstraint({
+				Host.UISizeConstraint {
 					MinSize = function(use: ComposeTypes.Use)
 						return V2.new(band(use), tabHeight(use))
 					end,
-				}),
+				},
 				Compose.show(function(use: ComposeTypes.Use): boolean
 					return use(isCurrent(tab.id))
 						and indicatorOf(use) == "mark"

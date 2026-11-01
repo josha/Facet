@@ -1,13 +1,30 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Bdd = require("../tools/vendor/verify/src/bdd")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
+local ComposeTypes = require("../src/vendor/compose/core")
 
 return function(verifyHarness: Verify.Harness)
+	local test = Bdd.create(verifyHarness)
+	local describe, it, expect = test.describe, test.it, test.expect
 	local nativeDrag = require("./lib/native_drag")
 
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	local requireDynamic = require :: (any) -> any
+	type ExampleContext = typeof(require("@repo/examples/types").Context)
+	type Screen = { read screen: () -> Instance }
+	local scenarios = {
+		table_virtualized = require("../examples/gallery/scenarios/table_virtualized"),
+		row_actions = require("../examples/gallery/scenarios/row_actions"),
+		virtual_grid = require("../examples/gallery/scenarios/virtual_grid"),
+		virtual_hgrid = require("../examples/gallery/scenarios/virtual_hgrid"),
+		variable_extents = require("../examples/gallery/scenarios/variable_extents"),
+		measured_extents = require("../examples/gallery/scenarios/measured_extents"),
+		card_rail = require("../examples/gallery/scenarios/card_rail"),
+		collection_workbench = require("../examples/gallery/scenarios/collection_workbench"),
+	}
 
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
@@ -26,30 +43,37 @@ return function(verifyHarness: Verify.Harness)
 		return nil
 	end
 
-	local function mount(name: string, size: { width: number, height: number }?, nativePaint: boolean?)
+	local function mount<G>(
+		definition: { read build: (ExampleContext) -> G & Screen },
+		size: { width: number, height: number }?,
+		nativePaint: boolean?
+	)
 		local engine = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target, guiService = engine.new("Folder"), engine.new("GuiService")
 		local inputService = engine.new("UserInputService")
 		engine.environment.poke(inputService, "PreferredInput", engine.types.Enum.PreferredInput.KeyboardAndMouse)
-		local keys = {}
+		local keys: { [string]: boolean } = {}
 		inputService.GetFocusedTextBox = function()
 			return nil
 		end
 		inputService.IsKeyDown = function(_, code)
-			return keys[code.Name] == true
+			local name = code.Name
+			assert(type(name) == "string")
+			return keys[name] == true
 		end
+		local runService = ({ Heartbeat = engine.heartbeat } :: unknown) :: RunService
 		local viewport = Compose.cell(size or { width = 1280, height = 720 })
 		local baseline = engine.census()
-		local ctx = {
+		local ctx: ExampleContext = {
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (runtime.constructors :: unknown) :: RobloxHost,
+			Host = Facet.host(runtime),
 			types = engine.types,
 			viewport = viewport,
 			guiService = guiService,
-			runService = { Heartbeat = engine.heartbeat },
+			runService = runService,
 			UI = Facet.controls(runtime, {
 				types = engine.types,
 				viewport = viewport,
@@ -57,9 +81,7 @@ return function(verifyHarness: Verify.Harness)
 				services = {
 					GuiService = guiService,
 					UserInputService = inputService,
-					RunService = if nativePaint
-						then ({ Heartbeat = engine.heartbeat } :: unknown) :: RunService
-						else nil,
+					RunService = if nativePaint then runService else nil,
 				},
 				inputParent = target,
 				motionLevel = "none",
@@ -71,12 +93,13 @@ return function(verifyHarness: Verify.Harness)
 				},
 			}),
 		}
-		local built
+		local built: (G & Screen)? = nil
 		local stop, node: any = runtime.mount(function()
-			built = requireDynamic("../examples/gallery/scenarios/" .. name).build(ctx)
-			return ctx.Host.ScreenGui({ built.screen() })
+			local result = definition.build(ctx)
+			built = result
+			return ctx.Host.ScreenGui { result.screen() }
 		end, target)
-		return built,
+		return assert(built),
 			node,
 			function()
 				stop()
@@ -93,10 +116,13 @@ return function(verifyHarness: Verify.Harness)
 			}
 	end
 
-	local function action(root, name: string)
+	local function action(root: Instance, name: string): InputAction?
 		for _, child in root:GetChildren() do
 			if child:IsA("InputContext") and child.Name == "Facet" .. name and child.Enabled then
-				return child:FindFirstChild(name)
+				local found = child:FindFirstChild(name)
+				if found and found:IsA("InputAction") then
+					return found
+				end
 			end
 		end
 		return nil
@@ -127,65 +153,63 @@ return function(verifyHarness: Verify.Harness)
 		detector.DragEnd:Fire()
 	end
 
-	verifyHarness:suite("native gallery collections", function()
-		verifyHarness:case("mounts table commands while native paint preparation owns the body", {
+	describe("native gallery collections", function()
+		it("mounts table commands while native paint preparation owns the body", {
 			id = "native_gallery_collections::native gallery collections::mounts table commands while native paint preparation owns the body",
 			run = function()
-				local _, node, stop, engine = mount("table_virtualized", nil, true)
+				local _, node, stop, engine = mount(scenarios.table_virtualized, nil, true)
 				local body = find(node, "Body")
-				Verify.expect(body:IsA("ScrollingFrame")):toBe(true)
+				expect(body:IsA("ScrollingFrame")):toBe(true)
 				viewport(body, engine, 800, 440)
-				Verify.expect(find(node, "ToolbarScroll") ~= nil):toBe(true)
+				expect(find(node, "ToolbarScroll") ~= nil):toBe(true)
 				stop()
 			end,
 		})
-		verifyHarness:case("reveals distant entrants selects an unmounted range and moves keyed rows", {
+		it("reveals distant entrants selects an unmounted range and moves keyed rows", {
 			id = "native_gallery_collections::native gallery collections::reveals distant entrants selects an unmounted range and moves keyed rows",
 			run = function()
-				local built, node, stop, engine, world = mount("table_virtualized")
+				local built, node, stop, engine, world = mount(scenarios.table_virtualized)
 				local tableNode, body = find(node, "Collection"), find(node, "Body")
 				engine.environment.poke(tableNode, "AbsoluteSize", engine.types.Vector2.new(800, 440))
 				viewport(body, engine, 800, 400)
 				nativeDrag.measure(body, engine.environment)
-				Verify.expect(built.report().count):toBe(2000)
-				Verify.expect(built.report().status.retained < 30):toBe(true)
-				Verify.expect(contains(node, "Entrant") and contains(node, "Team") and contains(node, "Best lap"))
-					:toBe(true)
-				Verify.expect(contains(node, "Rustbucket") and contains(node, "#1")):toBe(true)
-				Verify.expect((find(node, "Columns"))):toBe(nil)
-				Verify.expect((find(node, "TextSize"))):toBe(nil)
+				expect(built.report().count):toBe(2000)
+				expect(built.report().status.retained < 30):toBe(true)
+				expect(contains(node, "Entrant") and contains(node, "Team") and contains(node, "Best lap")):toBe(true)
+				expect(contains(node, "Rustbucket") and contains(node, "#1")):toBe(true)
+				expect((find(node, "Columns"))):toBe(nil)
+				expect((find(node, "TextSize"))):toBe(nil)
 				find(node, "Range").Activated:Fire()
-				Verify.expect(built.report().selectedCount):toBe(201)
-				Verify.expect(built.report().selection.e900 and built.report().selection.e1100):toBe(true)
-				Verify.expect((find(body, "e1500"))):toBe(nil)
+				expect(built.report().selectedCount):toBe(201)
+				expect(built.report().selection.e900 and built.report().selection.e1100):toBe(true)
+				expect((find(body, "e1500"))):toBe(nil)
 				find(node, "Move").Activated:Fire()
-				Verify.expect(built.report().rows[1499].id):toBe("e1500")
-				Verify.expect(built.report().moves):toBe(1)
+				expect(built.report().rows[1499].id):toBe("e1500")
+				expect(built.report().moves):toBe(1)
 				find(node, "Reveal").Activated:Fire()
-				Verify.expect(body.CanvasPosition.Y > 40000):toBe(true)
-				Verify.expect(find(body, "e1500") ~= nil):toBe(true)
-				Verify.expect(built.report().status.first > 1400):toBe(true)
-				Verify.expect(
-					string.find(find(node, "Status").Text, tostring(built.report().status.first), 1, true) ~= nil
+				expect(body.CanvasPosition.Y > 40000):toBe(true)
+				expect(find(body, "e1500") ~= nil):toBe(true)
+				expect(built.report().status.first > 1400):toBe(true)
+				expect(string.find(find(node, "Status").Text, tostring(built.report().status.first), 1, true) ~= nil):toBe(
+					true
 				)
-					:toBe(true)
-				Verify.expect((find(node, "Edit"))):toBeNil()
+				expect((find(node, "Edit"))):toBeNil()
 				engine.environment.poke(world.input, "PreferredInput", engine.types.Enum.PreferredInput.Touch)
 				find(node, "Edit").Activated:Fire()
-				Verify.expect(find(find(body, "e1500"), "Move").Visible):toBe(true)
-				Verify.expect(built.report().selectedCount):toBe(201)
+				expect(find(find(body, "e1500"), "Move").Visible):toBe(true)
+				expect(built.report().selectedCount):toBe(201)
 				find(node, "Reset").Activated:Fire()
-				Verify.expect(built.report().selectedCount):toBe(0)
-				Verify.expect(built.report().rows[1500].id):toBe("e1500")
-				Verify.expect(body.CanvasPosition.Y):toBe(0)
+				expect(built.report().selectedCount):toBe(0)
+				expect(built.report().rows[1500].id):toBe("e1500")
+				expect(body.CanvasPosition.Y):toBe(0)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("shows seeded mail state and applies idempotent read visible flag and chosen deletion", {
+		it("shows seeded mail state and applies idempotent read visible flag and chosen deletion", {
 			id = "native_gallery_collections::native gallery collections::shows seeded mail state and applies idempotent read visible flag and chosen deletion",
 			run = function()
-				local built, node, stop, engine = mount("row_actions")
+				local built, node, stop, engine = mount(scenarios.row_actions)
 				local list = find(node, "Mail_list")
 				local body = find(list, "Collection")
 				viewport(body, engine, 700, 240)
@@ -198,111 +222,120 @@ return function(verifyHarness: Verify.Harness)
 						preview = find(row, "Preview").Text,
 					}
 				end
-				Verify.expect((mail(find(list, "Row_m1")))):toEqual({
+				expect((mail(find(list, "Row_m1")))):toEqual({
 					unread = true,
 					flagged = false,
 					from = "Ari Foyer",
 					subject = "Kickoff notes",
 					preview = "Quick recap from the sync — three follow-ups, none urgent.",
 				})
-				Verify.expect(mail(find(list, "Row_m2")).unread):toBe(false)
-				Verify.expect(mail(find(list, "Row_m3")).flagged):toBe(true)
-				Verify.expect((contains(find(list, "Row_m1"), "Unread · "))):toBe(false)
-				Verify.expect((find(find(list, "Row_m1"), "Flag"):IsA("ImageLabel"))):toBe(true)
-				Verify.expect((find(find(list, "Row_m1"), "Unread"):IsA("GuiObject"))):toBe(true)
-				Verify.expect((find(find(list, "Row_m1"), "Subject"):HasTag("facet-type-label"))):toBe(true)
-				Verify.expect((find(find(list, "Row_m1"), "Preview"):HasTag("facet-type-caption"))):toBe(true)
-				Verify.expect((find(find(list, "Row_m1"), "From"):HasTag("facet-type-body"))):toBe(true)
-				Verify.expect(built.report().surfaces.list.status.extent):toBe(6 * 76 + 5 * 8)
+				expect(mail(find(list, "Row_m2")).unread):toBe(false)
+				expect(mail(find(list, "Row_m3")).flagged):toBe(true)
+				expect((contains(find(list, "Row_m1"), "Unread · "))):toBe(false)
+				expect((find(find(list, "Row_m1"), "Flag"):IsA("ImageLabel"))):toBe(true)
+				expect((find(find(list, "Row_m1"), "Unread"):IsA("GuiObject"))):toBe(true)
+				expect((find(find(list, "Row_m1"), "Subject"):HasTag("facet-type-label"))):toBe(true)
+				expect((find(find(list, "Row_m1"), "Preview"):HasTag("facet-type-caption"))):toBe(true)
+				expect((find(find(list, "Row_m1"), "From"):HasTag("facet-type-body"))):toBe(true)
+				expect(built.report().surfaces.list.status.extent):toBe(6 * 76 + 5 * 8)
 				for _ = 1, 2 do
 					swipe(find(list, "Row_m1"), engine, 10, 300)
 				end
-				Verify.expect(built.report().surfaces.list.read.m1):toBe(true)
-				Verify.expect(mail(find(list, "Row_m1")).unread):toBe(false)
+				expect(built.report().surfaces.list.read.m1):toBe(true)
+				expect(mail(find(list, "Row_m1")).unread):toBe(false)
 				local row = find(list, "Row_m1")
 				swipe(row, engine, 240, 100)
 				find(row, "flag").Activated:Fire()
-				Verify.expect(mail(row).flagged):toBe(true)
+				expect(mail(row).flagged):toBe(true)
 				find(list, "Jump").Activated:Fire()
-				Verify.expect(body.CanvasPosition.Y > 0):toBe(true)
-				Verify.expect(built.report().surfaces.list.status.total):toBe(6)
-				Verify.expect(built.report().surfaces.list.status.retained):toBe(6)
-				Verify.expect((find(list, "Columns"))):toBe(nil)
+				expect(body.CanvasPosition.Y > 0):toBe(true)
+				expect(built.report().surfaces.list.status.total):toBe(6)
+				expect(built.report().surfaces.list.status.retained):toBe(6)
+				expect((find(list, "Columns"))):toBe(nil)
 				swipe(find(list, "Row_m4"), engine, 300, 10)
-				Verify.expect(built.report().surfaces.list.count):toBe(5)
-				Verify.expect((find(list, "Row_m4"))):toBe(nil)
-				Verify.expect(find(list, "Row_m3") ~= nil and find(list, "Row_m5") ~= nil):toBe(true)
+				expect(built.report().surfaces.list.count):toBe(5)
+				expect((find(list, "Row_m4"))):toBe(nil)
+				expect(find(list, "Row_m3") ~= nil and find(list, "Row_m5") ~= nil):toBe(true)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("uses mail table activation editing and native row reorder with independent state", {
+		it("uses mail table activation editing and native row reorder with independent state", {
 			id = "native_gallery_collections::native gallery collections::uses mail table activation editing and native row reorder with independent state",
 			run = function()
-				local built, node, stop, engine, world = mount("row_actions")
+				local built, node, stop, engine, world = mount(scenarios.row_actions)
 				find(node, "table").Activated:Fire()
 				local page = find(node, "Mail_table")
 				local tableNode, body = find(page, "Collection"), find(page, "Body")
 				engine.environment.poke(tableNode, "AbsoluteSize", engine.types.Vector2.new(800, 440))
 				viewport(body, engine, 800, 400)
 				nativeDrag.measure(body, engine.environment)
-				Verify.expect(contains(page, "From") and contains(page, "Subject")):toBe(true)
-				Verify.expect((contains(find(body, "m1"), "Ari Foyer"))):toBe(true)
+				expect(contains(page, "From") and contains(page, "Subject")):toBe(true)
+				expect((contains(find(body, "m1"), "Ari Foyer"))):toBe(true)
 				find(find(body, "m1"), "RowHit").Activated:Fire()
-				Verify.expect(built.report().surfaces.table.read.m1):toBe(true)
-				Verify.expect(built.report().surfaces.list.read.m1):toBe(false)
-				Verify.expect(find(find(body, "m1"), "Unread").Visible):toBe(false)
-				Verify.expect(find(find(body, "m2"), "Subject").Text):toBe("Order confirmed")
-				Verify.expect((find(find(body, "m1"), "Move"))):toBeNil()
-				Verify.expect((find(page, "Edit"))):toBeNil()
+				expect(built.report().surfaces.table.read.m1):toBe(true)
+				expect(built.report().surfaces.list.read.m1):toBe(false)
+				expect(find(find(body, "m1"), "Unread").Visible):toBe(false)
+				expect(find(find(body, "m2"), "Subject").Text):toBe("Order confirmed")
+				expect((find(find(body, "m1"), "Move"))):toBeNil()
+				expect((find(page, "Edit"))):toBeNil()
 				engine.environment.poke(world.input, "PreferredInput", engine.types.Enum.PreferredInput.Touch)
 				find(page, "Edit").Activated:Fire()
 				local handle = find(find(body, "m1"), "Move")
-				Verify.expect(handle.Visible):toBe(true)
+				expect(handle.Visible):toBe(true)
 				local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
 				detector.DragStart:Fire(engine.types.Vector2.new(10, 10))
 				detector.DragContinue:Fire(engine.types.Vector2.new(10, 250))
 				detector.DragEnd:Fire()
-				Verify.expect(built.report().surfaces.table.moves):toBe(1)
-				Verify.expect(built.report().surfaces.table.rows[1].id ~= "m1"):toBe(true)
+				expect(built.report().surfaces.table.moves):toBe(1)
+				expect(built.report().surfaces.table.rows[1].id ~= "m1"):toBe(true)
 				find(page, "Jump").Activated:Fire()
-				Verify.expect(body.CanvasPosition.Y > 0):toBe(true)
-				Verify.expect(built.report().surfaces.table.status.first > 0):toBe(true)
+				expect(body.CanvasPosition.Y > 0):toBe(true)
+				expect(built.report().surfaces.table.status.first > 0):toBe(true)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("changes grid columns and rendered text through relevant native toolbar actions", {
+		it("changes grid columns and rendered text through relevant native toolbar actions", {
 			id = "native_gallery_collections::native gallery collections::changes grid columns and rendered text through relevant native toolbar actions",
 			run = function()
-				for _, name in { "virtual_grid", "virtual_hgrid" } do
-					local built, node, stop, engine = mount(name)
+				local entries: { { name: string, definition: typeof(scenarios.virtual_grid) } } = {
+					{ name = "virtual_grid", definition = scenarios.virtual_grid },
+					{ name = "virtual_hgrid", definition = scenarios.virtual_hgrid },
+				}
+				for _, entry in entries do
+					local name = entry.name
+					local built, node, stop, engine = mount(entry.definition)
 					local body = find(node, "Collection")
 					viewport(body, engine, 640, 320)
 					local before = built.report().status.rowCount
 					find(node, "Columns").Activated:Fire()
-					Verify.expect(built.report().status.rowCount):toBe(before * 2)
+					expect(built.report().status.rowCount):toBe(before * 2)
 					local item = find(body, "Item_1")
 					find(node, "TextSize").Activated:Fire()
-					Verify.expect(item.TextSize):toBe(24)
+					expect(item.TextSize):toBe(24)
 					find(node, "Jump").Activated:Fire()
-					Verify.expect(
-						if name == "virtual_hgrid" then body.CanvasPosition.X > 0 else body.CanvasPosition.Y > 0
+					expect(if name == "virtual_hgrid" then body.CanvasPosition.X > 0 else body.CanvasPosition.Y > 0):toBe(
+						true
 					)
-						:toBe(true)
-					Verify.expect(built.report().status.retained < 100):toBe(true)
+					expect(built.report().status.retained < 100):toBe(true)
 					find(node, "Reverse").Activated:Fire()
-					Verify.expect(built.report().rows[1].id):toBe("5000")
+					expect(built.report().rows[1].id):toBe("5000")
 					stop()
 				end
 			end,
 		})
 
-		verifyHarness:case("keeps variable and native measured posts anchored across all text offsets", {
+		it("keeps variable and native measured posts anchored across all text offsets", {
 			id = "native_gallery_collections::native gallery collections::keeps variable and native measured posts anchored across all text offsets",
 			run = function()
-				for _, name in { "variable_extents", "measured_extents" } do
-					local built, node, stop, engine = mount(name)
+				local entries: { { name: string, definition: typeof(scenarios.variable_extents) } } = {
+					{ name = "variable_extents", definition = scenarios.variable_extents },
+					{ name = "measured_extents", definition = scenarios.measured_extents },
+				}
+				for _, entry in entries do
+					local name = entry.name
+					local built, node, stop, engine = mount(entry.definition)
 					local body = find(node, "Collection")
 					viewport(body, engine, 600, 320)
 					find(node, "Jump").Activated:Fire()
@@ -310,8 +343,8 @@ return function(verifyHarness: Verify.Harness)
 					local originalExtent = built.report().status.extent
 					for _, offset in { 4, 10, 14, 0 } do
 						find(node, "TextOffset" .. offset).Activated:Fire()
-						Verify.expect(find(body, "PostTitle").TextSize):toBe(15 + offset)
-						Verify.expect(find(body, "PostBody").TextSize):toBe(13 + offset)
+						expect(find(body, "PostTitle").TextSize):toBe(15 + offset)
+						expect(find(body, "PostBody").TextSize):toBe(13 + offset)
 						if name == "measured_extents" then
 							local post = find(body, "Post_" .. first)
 							engine.environment.poke(
@@ -320,140 +353,142 @@ return function(verifyHarness: Verify.Harness)
 								engine.types.Vector2.new(600, 100 + offset * 4)
 							)
 						end
-						Verify.expect(built.report().status.first):toBe(first)
-						Verify.expect(built.report().status.retained < 20):toBe(true)
+						expect(built.report().status.first):toBe(first)
+						expect(built.report().status.retained < 20):toBe(true)
 					end
 					if name == "variable_extents" then
 						find(node, "TextOffset14").Activated:Fire()
-						Verify.expect(built.report().status.extent > originalExtent):toBe(true)
+						expect(built.report().status.extent > originalExtent):toBe(true)
 						find(node, "Mode").Activated:Fire()
-						Verify.expect(built.report().extents["1"]):toBe(84)
-						Verify.expect(built.report().status.first):toBe(first)
+						expect(built.report().extents["1"]):toBe(84)
+						expect(built.report().status.first):toBe(first)
 					else
-						Verify.expect(built.report().status.measured > 0):toBe(true)
+						expect(built.report().status.measured > 0):toBe(true)
 					end
-					Verify.expect(built.report().built >= built.report().mounted):toBe(true)
-					Verify.expect(find(node, "Actions"):FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(true)
-					Verify.expect(find(node, "Toolbar").AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+					expect(built.report().built >= built.report().mounted):toBe(true)
+					expect(find(node, "Actions"):FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(true)
+					expect(find(node, "Toolbar").AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
 					stop()
 				end
 			end,
 		})
 
-		verifyHarness:case("moves the collection toolbar beside the rows when the page is short and wide", {
+		it("moves the collection toolbar beside the rows when the page is short and wide", {
 			id = "native_gallery_collections::native gallery collections::moves the collection toolbar beside the rows when the page is short and wide",
 			run = function()
-				local _, node, stop, engine = mount("measured_extents")
+				local _, node, stop, engine = mount(scenarios.measured_extents)
 				local scroll = find(node, "ToolbarScroll")
 				local page = scroll.Parent
 				local layout = page:FindFirstChildWhichIsA("UIListLayout")
 				local collection = find(page, "Collection")
-				Verify.expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Vertical)
+				expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Vertical)
 				engine.environment.poke(page, "AbsoluteSize", engine.types.Vector2.new(644, 213))
-				Verify.expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Horizontal)
-				Verify.expect(math.abs(scroll.Size.X.Scale - 0.4) < 1e-6):toBe(true)
-				Verify.expect(scroll.Size.Y.Scale):toBe(1)
-				Verify.expect(scroll.AutomaticCanvasSize):toBe(engine.types.Enum.AutomaticSize.Y)
-				Verify.expect(collection.Size.Y.Scale):toBe(1)
+				expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Horizontal)
+				expect(math.abs(scroll.Size.X.Scale - 0.4) < 1e-6):toBe(true)
+				expect(scroll.Size.Y.Scale):toBe(1)
+				expect(scroll.AutomaticCanvasSize):toBe(engine.types.Enum.AutomaticSize.Y)
+				expect(collection.Size.Y.Scale):toBe(1)
 				engine.environment.poke(page, "AbsoluteSize", engine.types.Vector2.new(401, 560))
-				Verify.expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Vertical)
-				Verify.expect(scroll.Size.X.Scale):toBe(1)
-				Verify.expect(scroll.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
-				Verify.expect(collection.Size.X.Scale):toBe(1)
+				expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Vertical)
+				expect(scroll.Size.X.Scale):toBe(1)
+				expect(scroll.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+				expect(collection.Size.X.Scale):toBe(1)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("renders three racing shelves with measured widths track art and native selection", {
+		it("renders three racing shelves with measured widths track art and native selection", {
 			id = "native_gallery_collections::native gallery collections::renders three racing shelves with measured widths track art and native selection",
 			run = function()
-				local built, node, stop, engine = mount("card_rail")
+				local built, node, stop, engine = mount(scenarios.card_rail)
 				for _, name in { "Rail", "WeekendRail", "RecommendedRail" } do
 					local rail = find(node, name)
 					viewport(rail, engine, 400, 300)
-					Verify.expect(built.report().rails[name].itemExtent):toBe(352)
-					Verify.expect(built.report().rails[name].status.total):toBe(400)
-					Verify.expect(built.report().rails[name].status.retained < 12):toBe(true)
-					Verify.expect(contains(rail, "Livery 001") and contains(rail, "Rally")):toBe(true)
+					expect(built.report().rails[name].itemExtent):toBe(352)
+					expect(built.report().rails[name].status.total):toBe(400)
+					expect(built.report().rails[name].status.retained < 12):toBe(true)
+					expect(contains(rail, "Livery 001") and contains(rail, "Rally")):toBe(true)
 					local preview = find(rail, "Preview")
-					Verify.expect(preview:FindFirstChildWhichIsA("UIAspectRatioConstraint").AspectRatio):toBe(16 / 9)
-					Verify.expect(#find(preview, "Track"):GetControlPoints()):toBe(17)
+					expect(preview:FindFirstChildWhichIsA("UIAspectRatioConstraint").AspectRatio):toBe(16 / 9)
+					expect(#find(preview, "Track"):GetControlPoints()):toBe(17)
 					find(rail, "Card_c1").Activated:Fire()
-					Verify.expect(built.report().selectedKey):toBe("c1")
+					expect(built.report().selectedKey):toBe("c1")
 				end
 				viewport(find(node, "Rail"), engine, 1000, 300)
-				Verify.expect(built.report().rails.Rail.itemExtent):toBe(244)
-				Verify.expect(built.report().rails.WeekendRail.itemExtent):toBe(352)
-				Verify.expect((contains(find(node, "Selected"), "Selected: Livery 001 · Rally"))):toBe(true)
-				Verify.expect(built.report().shelves):toBe(3)
+				expect(built.report().rails.Rail.itemExtent):toBe(244)
+				expect(built.report().rails.WeekendRail.itemExtent):toBe(352)
+				expect((contains(find(node, "Selected"), "Selected: Livery 001 · Rally"))):toBe(true)
+				expect(built.report().shelves):toBe(3)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("opens the mail row menu with Shift+Return on a selected row and runs a chosen item", {
+		it("opens the mail row menu with Shift+Return on a selected row and runs a chosen item", {
 			id = "native_gallery_collections::native gallery collections::opens the mail row menu with Shift+Return on a selected row and runs a chosen item",
 			run = function()
-				local built, node, stop, engine, world = mount("row_actions")
+				local built, node, stop, engine, world = mount(scenarios.row_actions)
 				local list = find(node, "Mail_list")
 				viewport(find(list, "Collection"), engine, 700, 240)
 				local row = find(list, "Row_m1")
 				engine.environment.poke(row, "AbsoluteSize", engine.types.Vector2.new(700, 112))
 				local content = find(row, "Item_m1")
-				Verify.expect((action(world.target, "RowActionsToggle"))):toBeNil()
+				expect((action(world.target, "RowActionsToggle"))):toBeNil()
 				world.gui.SelectedObject = content
-				Verify.expect(world.gui.SelectedObject):toBe(content)
-				local toggle = action(world.target, "RowActionsToggle")
-				Verify.expect(toggle ~= nil):toBe(true)
+				expect(world.gui.SelectedObject):toBe(content)
+				local toggle = assert(action(world.target, "RowActionsToggle"))
+				expect(toggle ~= nil):toBe(true)
 				local binding = toggle:FindFirstChildWhichIsA("InputBinding")
-				Verify.expect(binding.KeyCode):toBe(engine.types.Enum.KeyCode.Return)
-				Verify.expect(
+				assert(binding and binding:IsA("InputBinding"))
+				expect(binding.KeyCode):toBe(engine.types.Enum.KeyCode.Return)
+				expect(
 					binding.PrimaryModifier == engine.types.Enum.KeyCode.LeftShift
 						or binding.PrimaryModifier == engine.types.Enum.KeyCode.RightShift
 				):toBe(true)
-				Verify.expect((find(world.target, "MenuPanel"))):toBeNil()
-				toggle.Pressed:Fire()
+				expect((find(world.target, "MenuPanel"))):toBeNil()
+				engine.environment.fire(VerifyRoblox.assertInstance(toggle), "Pressed")
 				local panel = find(world.target, "MenuPanel")
-				Verify.expect(panel ~= nil):toBe(true)
+				expect(panel ~= nil):toBe(true)
 				for _, id in { "leading:read", "trailing:delete", "trailing:flag" } do
-					Verify.expect(find(panel, id) ~= nil):toBe(true)
+					expect(find(panel, id) ~= nil):toBe(true)
 				end
-				Verify.expect(contains(panel, "Mark read") and contains(panel, "Delete") and contains(panel, "Flag"))
-					:toBe(true)
-				Verify.expect(built.report().surfaces.list.read.m1):toBe(false)
-				Verify.expect(built.report().surfaces.list.count):toBe(6)
+				expect(contains(panel, "Mark read") and contains(panel, "Delete") and contains(panel, "Flag")):toBe(
+					true
+				)
+				expect(built.report().surfaces.list.read.m1):toBe(false)
+				expect(built.report().surfaces.list.count):toBe(6)
 				find(panel, "trailing:flag").Activated:Fire()
-				Verify.expect((find(world.target, "MenuPanel"))):toBeNil()
-				Verify.expect(built.report().surfaces.list.flagged.m1):toBe(true)
-				Verify.expect(built.report().surfaces.list.count):toBe(6)
+				expect((find(world.target, "MenuPanel"))):toBeNil()
+				expect(built.report().surfaces.list.flagged.m1):toBe(true)
+				expect(built.report().surfaces.list.count):toBe(6)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("selects a mail table row in edit mode, deletes it from the toolbar and swipes a row open", {
+		it("selects a mail table row in edit mode, deletes it from the toolbar and swipes a row open", {
 			id = "native_gallery_collections::native gallery collections::selects a mail table row in edit mode, deletes it from the toolbar and swipes a row open",
 			run = function()
-				local built, node, stop, engine, world = mount("row_actions")
+				local built, node, stop, engine, world = mount(scenarios.row_actions)
 				find(node, "table").Activated:Fire()
 				local page = find(node, "Mail_table")
 				local tableNode, body = find(page, "Collection"), find(page, "Body")
 				engine.environment.poke(tableNode, "AbsoluteSize", engine.types.Vector2.new(800, 440))
 				viewport(body, engine, 800, 400)
 				nativeDrag.measure(body, engine.environment)
-				Verify.expect(find(find(body, "m2"), "SelectMark").Visible):toBe(false)
+				expect(find(find(body, "m2"), "SelectMark").Visible):toBe(false)
 				engine.environment.poke(world.input, "PreferredInput", engine.types.Enum.PreferredInput.Touch)
 				find(page, "Edit").Activated:Fire()
-				Verify.expect(find(find(body, "m2"), "SelectMark").Visible):toBe(true)
+				expect(find(find(body, "m2"), "SelectMark").Visible):toBe(true)
 				find(find(body, "m2"), "RowHit").Activated:Fire(
 					{ UserInputType = engine.types.Enum.UserInputType.Touch },
 					1
 				)
-				Verify.expect(find(find(find(body, "m2"), "SelectMark"), "Check").Visible):toBe(true)
+				expect(find(find(find(body, "m2"), "SelectMark"), "Check").Visible):toBe(true)
 				find(page, "DeleteSelected").Activated:Fire({ UserInputType = engine.types.Enum.UserInputType.Touch })
-				Verify.expect(built.report().surfaces.table.count):toBe(5)
+				expect(built.report().surfaces.table.count):toBe(5)
 				for _, item in built.report().surfaces.table.rows do
-					Verify.expect(item.id ~= "m2"):toBe(true)
+					expect(item.id ~= "m2"):toBe(true)
 				end
-				Verify.expect((find(body, "m2"))):toBeNil()
+				expect((find(body, "m2"))):toBeNil()
 				find(page, "Edit").Activated:Fire()
 				engine.environment.poke(
 					world.input,
@@ -465,227 +500,221 @@ return function(verifyHarness: Verify.Harness)
 					order[index] = item.id
 				end
 				local row = find(find(body, "m1"), "Row_m1")
-				Verify.expect(find(row, "trailing").Visible):toBe(false)
+				expect(find(row, "trailing").Visible):toBe(false)
 				engine.environment.poke(row, "AbsoluteSize", engine.types.Vector2.new(800, 100))
 				local detector = row:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
 				detector.DragStart:Fire(engine.types.Vector2.new(700, 50))
 				detector.DragContinue:Fire(engine.types.Vector2.new(520, 50))
 				detector.DragEnd:Fire()
-				Verify.expect(find(row, "trailing").Visible):toBe(true)
-				Verify.expect(find(find(row, "trailing"), "delete") ~= nil):toBe(true)
-				Verify.expect(built.report().surfaces.table.moves):toBe(0)
-				Verify.expect(built.report().surfaces.table.count):toBe(5)
+				expect(find(row, "trailing").Visible):toBe(true)
+				expect(find(find(row, "trailing"), "delete") ~= nil):toBe(true)
+				expect(built.report().surfaces.table.moves):toBe(0)
+				expect(built.report().surfaces.table.count):toBe(5)
 				for index, item in built.report().surfaces.table.rows do
-					Verify.expect(item.id):toBe(order[index])
+					expect(item.id):toBe(order[index])
 				end
-				Verify.expect(built.report().surfaces.table.read.m1):toBe(false)
+				expect(built.report().surfaces.table.read.m1):toBe(false)
 				stop()
 			end,
 		})
 
-		verifyHarness:case(
-			"mounts the virtual mail surface alone and swipes deletes and opens row menus from each input",
-			{
-				id = "native_gallery_collections::native gallery collections::mounts the virtual mail surface alone and swipes deletes and opens row menus from each input",
-				run = function()
-					local built, node, stop, engine, world = mount("row_actions")
-					Verify.expect(find(node, "Mail_list").Parent.Visible):toBe(true)
-					Verify.expect((find(node, "Mail_virtual"))):toBeNil()
-					find(node, "virtual").Activated:Fire()
-					Verify.expect(built.report().active):toBe("virtual")
-					local page = find(node, "Mail_virtual")
-					Verify.expect(page.Parent.Visible):toBe(true)
-					Verify.expect(find(node, "Mail_list").Parent.Visible):toBe(false)
-					Verify.expect((find(node, "Mail_table"))):toBeNil()
-					local body = find(page, "Collection")
-					Verify.expect((body:IsA("ScrollingFrame"))):toBe(true)
-					viewport(body, engine, 700, 480)
-					Verify.expect(built.report().surfaces.virtual.count):toBe(6)
-					local row = find(page, "Row_m1")
-					engine.environment.poke(row, "AbsoluteSize", engine.types.Vector2.new(700, 112))
-					local detector = row:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
-					detector.DragStart:Fire(engine.types.Vector2.new(650, 50))
-					detector.DragContinue:Fire(engine.types.Vector2.new(520, 50))
-					detector.DragEnd:Fire()
-					Verify.expect(find(row, "trailing").Visible):toBe(true)
-					Verify.expect(built.report().surfaces.virtual.count):toBe(6)
-					swipe(find(page, "Row_m4"), engine, 300, 10)
-					Verify.expect(built.report().surfaces.virtual.count):toBe(5)
-					Verify.expect((find(page, "Row_m4"))):toBeNil()
-					local content = find(find(page, "Row_m3"), "Item_m3")
-					world.gui.SelectedObject = content
-					local delete = action(world.target, "RowActionsDelete")
-					Verify.expect(delete ~= nil):toBe(true)
-					delete.Pressed:Fire()
-					Verify.expect(built.report().surfaces.virtual.count):toBe(4)
-					Verify.expect((find(page, "Row_m3"))):toBeNil()
-					for _, item in built.report().surfaces.virtual.rows do
-						Verify.expect(item.id ~= "m3" and item.id ~= "m4"):toBe(true)
-					end
-					local second = find(find(page, "Row_m2"), "Item_m2")
-					world.gui.SelectedObject = second
-					local reveal = action(world.target, "RowActionsReveal")
-					local keys = {}
-					for _, binding in reveal:GetChildren() do
-						table.insert(keys, binding.KeyCode.Name)
-					end
-					table.sort(keys)
-					Verify.expect(keys):toEqual({ "ButtonX", "Menu" })
-					reveal.Pressed:Fire()
-					local panel = find(world.target, "MenuPanel")
-					Verify.expect(panel ~= nil):toBe(true)
-					Verify.expect(find(panel, "leading:read") ~= nil and find(panel, "trailing:flag") ~= nil):toBe(true)
-					Verify.expect(built.report().surfaces.virtual.count):toBe(4)
-					local held = find(page, "Row_m5")
-					engine.environment.poke(held, "AbsoluteSize", engine.types.Vector2.new(700, 112))
-					local heldDetector = held:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
-					heldDetector.DragStart:Fire(engine.types.Vector2.new(650, 50))
-					heldDetector.DragContinue:Fire(engine.types.Vector2.new(560, 50))
-					stop()
-					Verify.expect((find(world.target, "MenuPanel"))):toBeNil()
-					local after = engine.census()
-					Verify.expect(after.live):toBe(world.baseline.live)
-					Verify.expect(after.connections):toBe(world.baseline.connections)
-				end,
-			}
-		)
+		it("mounts the virtual mail surface alone and swipes deletes and opens row menus from each input", {
+			id = "native_gallery_collections::native gallery collections::mounts the virtual mail surface alone and swipes deletes and opens row menus from each input",
+			run = function()
+				local built, node, stop, engine, world = mount(scenarios.row_actions)
+				expect(find(node, "Mail_list").Parent.Visible):toBe(true)
+				expect((find(node, "Mail_virtual"))):toBeNil()
+				find(node, "virtual").Activated:Fire()
+				expect(built.report().active):toBe("virtual")
+				local page = find(node, "Mail_virtual")
+				expect(page.Parent.Visible):toBe(true)
+				expect(find(node, "Mail_list").Parent.Visible):toBe(false)
+				expect((find(node, "Mail_table"))):toBeNil()
+				local body = find(page, "Collection")
+				expect((body:IsA("ScrollingFrame"))):toBe(true)
+				viewport(body, engine, 700, 480)
+				expect(built.report().surfaces.virtual.count):toBe(6)
+				local row = find(page, "Row_m1")
+				engine.environment.poke(row, "AbsoluteSize", engine.types.Vector2.new(700, 112))
+				local detector = row:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
+				detector.DragStart:Fire(engine.types.Vector2.new(650, 50))
+				detector.DragContinue:Fire(engine.types.Vector2.new(520, 50))
+				detector.DragEnd:Fire()
+				expect(find(row, "trailing").Visible):toBe(true)
+				expect(built.report().surfaces.virtual.count):toBe(6)
+				swipe(find(page, "Row_m4"), engine, 300, 10)
+				expect(built.report().surfaces.virtual.count):toBe(5)
+				expect((find(page, "Row_m4"))):toBeNil()
+				local content = find(find(page, "Row_m3"), "Item_m3")
+				world.gui.SelectedObject = content
+				local delete = assert(action(world.target, "RowActionsDelete"))
+				expect(delete ~= nil):toBe(true)
+				engine.environment.fire(VerifyRoblox.assertInstance(delete), "Pressed")
+				expect(built.report().surfaces.virtual.count):toBe(4)
+				expect((find(page, "Row_m3"))):toBeNil()
+				for _, item in built.report().surfaces.virtual.rows do
+					expect(item.id ~= "m3" and item.id ~= "m4"):toBe(true)
+				end
+				local second = find(find(page, "Row_m2"), "Item_m2")
+				world.gui.SelectedObject = second
+				local reveal = assert(action(world.target, "RowActionsReveal"))
+				local keys = {}
+				for _, binding in reveal:GetChildren() do
+					assert(binding:IsA("InputBinding"))
+					table.insert(keys, binding.KeyCode.Name)
+				end
+				table.sort(keys)
+				expect(keys):toEqual({ "ButtonX", "Menu" })
+				engine.environment.fire(VerifyRoblox.assertInstance(reveal), "Pressed")
+				local panel = find(world.target, "MenuPanel")
+				expect(panel ~= nil):toBe(true)
+				expect(find(panel, "leading:read") ~= nil and find(panel, "trailing:flag") ~= nil):toBe(true)
+				expect(built.report().surfaces.virtual.count):toBe(4)
+				local held = find(page, "Row_m5")
+				engine.environment.poke(held, "AbsoluteSize", engine.types.Vector2.new(700, 112))
+				local heldDetector = held:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
+				heldDetector.DragStart:Fire(engine.types.Vector2.new(650, 50))
+				heldDetector.DragContinue:Fire(engine.types.Vector2.new(560, 50))
+				stop()
+				expect((find(world.target, "MenuPanel"))):toBeNil()
+				local after = engine.census()
+				expect(after.live):toBe(world.baseline.live)
+				expect(after.connections):toBe(world.baseline.connections)
+			end,
+		})
 
-		verifyHarness:case("drops the mail heading on a short landscape and keeps the first row on every surface", {
+		it("drops the mail heading on a short landscape and keeps the first row on every surface", {
 			id = "native_gallery_collections::native gallery collections::drops the mail heading on a short landscape and keeps the first row on every surface",
 			run = function()
-				local tall, tallNode, stopTall = mount("row_actions", { width = 1280, height = 720 })
-				Verify.expect(find(find(tallNode, "Mail_list"), "Title").Visible):toBe(true)
-				Verify.expect(tall.report().surfaces.list.count):toBe(6)
+				local tall, tallNode, stopTall = mount(scenarios.row_actions, { width = 1280, height = 720 })
+				expect(find(find(tallNode, "Mail_list"), "Title").Visible):toBe(true)
+				expect(tall.report().surfaces.list.count):toBe(6)
 				stopTall()
-				local built, node, stop, engine, world = mount("row_actions", { width = 844, height = 390 })
+				local built, node, stop, engine, world = mount(scenarios.row_actions, { width = 844, height = 390 })
 				for _, kind in { "list", "table", "virtual" } :: { "list" | "table" | "virtual" } do
 					find(node, kind).Activated:Fire()
 					local page = find(node, "Mail_" .. kind)
 					local title = find(find(page, "Toolbar"), "Title")
-					Verify.expect(title.Visible):toBe(false)
-					Verify.expect(find(page, "Collection"):FindFirstChildWhichIsA("UIFlexItem").FlexMode)
-						:toBe(engine.types.Enum.UIFlexMode.Fill)
+					expect(title.Visible):toBe(false)
+					expect(find(page, "Collection"):FindFirstChildWhichIsA("UIFlexItem").FlexMode):toBe(
+						engine.types.Enum.UIFlexMode.Fill
+					)
 					local body = if kind == "table" then find(page, "Body") else find(page, "Collection")
 					viewport(body, engine, 844, 200)
-					Verify.expect(find(body, "Row_m1") ~= nil):toBe(true)
-					Verify.expect(built.report().surfaces[kind].status.first):toBe(1)
+					expect(find(body, "Row_m1") ~= nil):toBe(true)
+					expect(built.report().surfaces[kind].status.first):toBe(1)
 				end
 				world.viewport:set({ width = 844, height = 720 })
-				Verify.expect(find(find(node, "Mail_virtual"), "Title").Visible):toBe(true)
+				expect(find(find(node, "Mail_virtual"), "Title").Visible):toBe(true)
 				stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("file library workbench", function()
-		local function file(model, key)
-			for _, item in model.rows:peek() do
-				if item.id == tostring(key) then
+	describe("file library workbench", function()
+		local function file<T>(
+			rows: { read [number]: T & { read id: string } },
+			key: string | number
+		): T & { read id: string }
+			for _, item in rows do
+				local identified: { read id: string } = item
+				if identified.id == tostring(key) then
 					return item
 				end
 			end
 			error("Missing file " .. tostring(key))
 		end
-		verifyHarness:case(
-			"keeps field permission independent of coarse selection mode with one demo permission toggle",
-			{
-				id = "native_gallery_collections::file library workbench::keeps field permission independent of coarse selection mode with one demo permission toggle",
-				run = function()
-					local built, node, stop, engine, world = mount("collection_workbench")
-					for _, input in { "KeyboardAndMouse", "Touch", "Gamepad" } do
-						engine.environment.poke(
-							world.input,
-							"PreferredInput",
-							(engine.types.Enum.PreferredInput :: any)[input]
+		it("keeps field permission independent of coarse selection mode with one demo permission toggle", {
+			id = "native_gallery_collections::file library workbench::keeps field permission independent of coarse selection mode with one demo permission toggle",
+			run = function()
+				local built, node, stop, engine, world = mount(scenarios.collection_workbench)
+				for _, input in { "KeyboardAndMouse", "Touch", "Gamepad" } do
+					engine.environment.poke(
+						world.input,
+						"PreferredInput",
+						(engine.types.Enum.PreferredInput :: any)[input]
+					)
+					for _, mode in { "icons", "list", "details" } do
+						find(find(node, "ViewMode"), mode).Activated:Fire()
+						local collection = find(node, "primary")
+						engine.environment.poke(collection, "AbsoluteSize", engine.types.Vector2.new(800, 400))
+						viewport(if mode == "details" then find(collection, "Body") else collection, engine, 800, 400)
+						local coarse = input ~= "KeyboardAndMouse"
+						expect(find(node, "Edit").Visible):toBe(coarse)
+						expect(find(collection, "Rename") ~= nil):toBe(true)
+						require("../src/ui/activation").edits(find(collection, "Rename"))[1].onActivate()
+						expect(find(collection, "Rename"):FindFirstChildWhichIsA("TextBox", true).TextEditable):toBe(
+							true
 						)
-						for _, mode in { "icons", "list", "details" } do
-							find(find(node, "ViewMode"), mode).Activated:Fire()
-							local collection = find(node, "primary")
-							engine.environment.poke(collection, "AbsoluteSize", engine.types.Vector2.new(800, 400))
-							viewport(
-								if mode == "details" then find(collection, "Body") else collection,
-								engine,
-								800,
-								400
-							)
-							local coarse = input ~= "KeyboardAndMouse"
-							Verify.expect(find(node, "Edit").Visible):toBe(coarse)
-							Verify.expect(find(collection, "Rename") ~= nil):toBe(true)
-							require("../src/ui/activation").edits(find(collection, "Rename"))[1].onActivate()
-							Verify.expect(
-								find(collection, "Rename"):FindFirstChildWhichIsA("TextBox", true).TextEditable
-							)
-								:toBe(true)
-							if coarse then
-								find(node, "Edit").Activated:Fire()
-								Verify.expect(find(collection, "Rename") ~= nil):toBe(true)
-							end
-							find(node, "EnableEditing").Activated:Fire()
-							Verify.expect((built.model.editingEnabled:peek())):toBe(false)
-							Verify.expect(
-								find(collection, "Rename"):FindFirstChildWhichIsA("TextBox", true).TextEditable
-							)
-								:toBe(false)
-							Verify.expect(find(collection, "CellActions").Visible):toBe(false)
-							Verify.expect(find(node, "Create").Interactable):toBe(false)
-							Verify.expect(find(node, "LabelGreen").Interactable):toBe(false)
-							find(node, "EnableEditing").Activated:Fire()
-							Verify.expect(find(collection, "CellActions").Visible):toBe(coarse)
-							if coarse then
-								find(node, "Edit").Activated:Fire()
-							end
-							Verify.expect(find(collection, "Rename") ~= nil):toBe(true)
-							if mode == "details" then
-								Verify.expect((contains(collection, "Kind"))):toBe(true)
-							end
-							if coarse then
-								find(node, "Edit").Activated:Fire()
-							end
+						if coarse then
+							find(node, "Edit").Activated:Fire()
+							expect(find(collection, "Rename") ~= nil):toBe(true)
+						end
+						find(node, "EnableEditing").Activated:Fire()
+						expect((built.model.editingEnabled:peek())):toBe(false)
+						expect(find(collection, "Rename"):FindFirstChildWhichIsA("TextBox", true).TextEditable):toBe(
+							false
+						)
+						expect(find(collection, "CellActions").Visible):toBe(false)
+						expect(find(node, "Create").Interactable):toBe(false)
+						expect(find(node, "LabelGreen").Interactable):toBe(false)
+						find(node, "EnableEditing").Activated:Fire()
+						expect(find(collection, "CellActions").Visible):toBe(coarse)
+						if coarse then
+							find(node, "Edit").Activated:Fire()
+						end
+						expect(find(collection, "Rename") ~= nil):toBe(true)
+						if mode == "details" then
+							expect((contains(collection, "Kind"))):toBe(true)
+						end
+						if coarse then
+							find(node, "Edit").Activated:Fire()
 						end
 					end
-					stop()
-				end,
-			}
-		)
+				end
+				stop()
+			end,
+		})
 
-		verifyHarness:case("keeps compact icons in multiple columns and binds the grid size slider", {
+		it("keeps compact icons in multiple columns and binds the grid size slider", {
 			id = "native_gallery_collections::file library workbench::keeps compact icons in multiple columns and binds the grid size slider",
 			run = function()
-				local built, node, stop, engine, world = mount("collection_workbench", { width = 390, height = 844 })
+				local built, node, stop, engine, world =
+					mount(scenarios.collection_workbench, { width = 390, height = 844 })
 				engine.environment.poke(world.input, "PreferredInput", engine.types.Enum.PreferredInput.Touch)
 				local grid = find(node, "primary")
 				viewport(grid, engine, 350, 400)
 				local first, second = find(grid, "1"), find(grid, "2")
-				Verify.expect(second.Position.Y.Offset):toBe(first.Position.Y.Offset)
-				Verify.expect(second.Position.X.Offset > first.Position.X.Offset):toBe(true)
+				expect(second.Position.Y.Offset):toBe(first.Position.Y.Offset)
+				expect(second.Position.X.Offset > first.Position.X.Offset):toBe(true)
 				find(node, "Edit").Activated:Fire()
-				Verify.expect(find(first, "Cells").Size.X.Offset):toBe(0)
+				expect(find(first, "Cells").Size.X.Offset):toBe(0)
 				find(node, "ShowFilters").Activated:Fire()
 				world.gui.SelectedObject = find(world.target, "GridSize")
-				Verify.expect(world.gui.SelectedObject):toBeNil()
+				expect(world.gui.SelectedObject):toBeNil()
 				engine.environment.poke(
 					world.input,
 					"PreferredInput",
 					engine.types.Enum.PreferredInput.KeyboardAndMouse
 				)
 				world.gui.SelectedObject = find(world.target, "GridSize")
-				local increase = action(world.target, "Increase")
-				Verify.expect(increase ~= nil):toBe(true)
-				increase.Pressed:Fire()
-				increase.Released:Fire()
-				Verify.expect((built.model.gridSize:peek())):toBe(160)
+				local increase = assert(action(world.target, "Increase"))
+				expect(increase ~= nil):toBe(true)
+				engine.environment.fire(VerifyRoblox.assertInstance(increase), "Pressed")
+				engine.environment.fire(VerifyRoblox.assertInstance(increase), "Released")
+				expect((built.model.gridSize:peek())):toBe(160)
 				built.model.gridSize:set(260)
-				Verify.expect(second.Position.Y.Offset > first.Position.Y.Offset):toBe(true)
+				expect(second.Position.Y.Offset > first.Position.Y.Offset):toBe(true)
 				built.model.mode:set("list")
-				Verify.expect(find(world.target, "GridSize").Visible):toBe(false)
+				expect(find(world.target, "GridSize").Visible):toBe(false)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("moves selected files through native collection reorder and gates all writes", {
+		it("moves selected files through native collection reorder and gates all writes", {
 			id = "native_gallery_collections::file library workbench::moves selected files through native collection reorder and gates all writes",
 			run = function()
-				local built, node, stop, engine, world = mount("collection_workbench")
+				local built, node, stop, engine, world = mount(scenarios.collection_workbench)
 				local model = built.model
 				model.mode:set("list")
 				local body = find(node, "primary")
@@ -710,15 +739,15 @@ return function(verifyHarness: Verify.Harness)
 				detector.DragStart:Fire(engine.types.Vector2.new(10, 10))
 				detector.DragContinue:Fire(engine.types.Vector2.new(10, 1000))
 				detector.DragEnd:Fire()
-				Verify.expect(model.rows:peek()[4].id ~= "1"):toBe(true)
-				local moved = {}
+				expect(model.rows:peek()[4].id ~= "1"):toBe(true)
+				local moved: { number } = {}
 				for i, item in model.rows:peek() do
 					if item.id == "1" or item.id == "2" then
 						table.insert(moved, i)
 					end
 				end
-				Verify.expect(moved[2]):toBe(moved[1] + 1)
-				local hiddenBefore = {}
+				expect(moved[2]):toBe(moved[1] + 1)
+				local hiddenBefore: { string } = {}
 				for _, item in model.rows:peek() do
 					if not string.find(item.name, "Coast", 1, true) then
 						table.insert(hiddenBefore, item.id)
@@ -726,13 +755,13 @@ return function(verifyHarness: Verify.Harness)
 				end
 				model.query:set("Coast")
 				model.reorder({ "1" }, 0)
-				local hiddenAfter, visible = {}, {}
+				local hiddenAfter: { string }, visible: { string } = {}, {}
 				for _, item in model.rows:peek() do
 					table.insert(if string.find(item.name, "Coast", 1, true) then visible else hiddenAfter, item.id)
 				end
-				Verify.expect(hiddenAfter):toEqual(hiddenBefore)
-				Verify.expect(visible[1]):toBe("1")
-				Verify.expect(visible[2]):toBe("5")
+				expect(hiddenAfter):toEqual(hiddenBefore)
+				expect(visible[1]):toBe("1")
+				expect(visible[2]):toBe("5")
 				local before = model.rows:peek()
 				find(node, "EnableEditing").Activated:Fire()
 				model.change("1", "name", "Blocked")
@@ -741,15 +770,15 @@ return function(verifyHarness: Verify.Harness)
 				model.reorder({ "1" }, 2)
 				built.steps.create()
 				built.steps.undo()
-				Verify.expect((model.rows:peek())):toBe(before)
+				expect((model.rows:peek())):toBe(before)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("labels the whole selection across filtering and deletes it once with undo", {
+		it("labels the whole selection across filtering and deletes it once with undo", {
 			id = "native_gallery_collections::file library workbench::labels the whole selection across filtering and deletes it once with undo",
 			run = function()
-				local built, node, stop = mount("collection_workbench")
+				local built, node, stop = mount(scenarios.collection_workbench)
 				local model, selected = built.model, {}
 				local labeled = 0
 				for _, item in model.rows:peek() do
@@ -757,79 +786,81 @@ return function(verifyHarness: Verify.Harness)
 						labeled += 1
 					end
 				end
-				Verify.expect(labeled):toBe(2)
-				Verify.expect(find(node, "LabelGreen").Interactable):toBe(false)
+				expect(labeled):toBe(2)
+				expect(find(node, "LabelGreen").Interactable):toBe(false)
 				for i = 1, 10 do
 					selected[tostring(i)] = true
 				end
 				model.selection:set(selected)
-				Verify.expect(find(node, "LabelGreen").Interactable):toBe(true)
+				expect(find(node, "LabelGreen").Interactable):toBe(true)
 				model.query:set("001")
 				find(node, "LabelGreen").Activated:Fire()
 				for i = 1, 10 do
-					Verify.expect(file(model, i).color):toBe("Green")
+					expect(file(model.rows:peek(), i).color):toBe("Green")
 				end
 				model.change("11", "color", "Red")
-				Verify.expect(file(model, "11").color):toBe("Red")
-				Verify.expect(file(model, "1").color):toBe("Green")
+				expect(file(model.rows:peek(), "11").color):toBe("Red")
+				expect(file(model.rows:peek(), "1").color):toBe("Green")
 				model.change(nil, "color", "None")
 				for i = 1, 10 do
-					Verify.expect(file(model, i).color):toBe("None")
+					expect(file(model.rows:peek(), i).color):toBe("None")
 				end
 				model.query:set("missing")
 				find(node, "Delete").Activated:Fire()
-				Verify.expect(built.report().count):toBe(17)
-				Verify.expect((next(model.selection:peek()))):toBeNil()
+				expect(built.report().count):toBe(17)
+				expect((next(model.selection:peek()))):toBeNil()
 				built.steps.undo()
-				Verify.expect(built.report().count):toBe(27)
+				expect(built.report().count):toBe(27)
 				for i = 1, 10 do
-					Verify.expect(model.selection:peek()[tostring(i)]):toBe(true)
+					expect(model.selection:peek()[tostring(i)]):toBe(true)
 				end
 				stop()
 			end,
 		})
 
-		verifyHarness:case("keeps Linked and Inbox in the visible compact Views menu", {
+		it("keeps Linked and Inbox in the visible compact Views menu", {
 			id = "native_gallery_collections::file library workbench::keeps Linked and Inbox in the visible compact Views menu",
 			run = function()
-				local built, node, stop, _, world = mount("collection_workbench", { width = 390, height = 844 })
+				local built, node, stop, _, world = mount(scenarios.collection_workbench, { width = 390, height = 844 })
 				local menu = find(node, "ViewOptions")
-				Verify.expect(menu.Parent.Name):toBe("Toolbar")
-				Verify.expect(menu.Visible and menu.Parent.Visible):toBe(true)
-				Verify.expect((find(node, "Filters"))):toBeNil()
+				expect(menu.Parent.Name):toBe("Toolbar")
+				expect(menu.Visible and menu.Parent.Visible):toBe(true)
+				expect((find(node, "Filters"))):toBeNil()
 				for _, name in { "linked", "inbox" } do
 					find(menu, "Trigger").Activated:Fire()
 					find(find(world.target, "MenuPanel"), name).Activated:Fire()
-					Verify.expect((find(world.target, "MenuPanel"))):toBeNil()
+					expect((find(world.target, "MenuPanel"))):toBeNil()
 				end
-				Verify.expect(built.model.linked:peek() and built.model.transfers:peek()):toBe(true)
+				expect(built.model.linked:peek() and built.model.transfers:peek()):toBe(true)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("opens compact file options in a sheet without consuming the file pane", {
+		it("opens compact file options in a sheet without consuming the file pane", {
 			id = "native_gallery_collections::file library workbench::opens compact file options in a sheet without consuming the file pane",
 			run = function()
-				local _, node, stop, engine, world = mount("collection_workbench", { width = 390, height = 640 })
-				Verify.expect(find(node, "CollectionWorkbench").AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
-				Verify.expect(find(node, "Contents"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.Y):toBe(320)
-				Verify.expect(find(node, "Create").Visible):toBe(false)
-				Verify.expect(find(node, "FileActions").Visible):toBe(true)
+				local _, node, stop, engine, world =
+					mount(scenarios.collection_workbench, { width = 390, height = 640 })
+				expect(find(node, "CollectionWorkbench").AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+				expect(find(node, "Contents"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.Y):toBe(320)
+				expect(find(node, "Create").Visible):toBe(false)
+				expect(find(node, "FileActions").Visible):toBe(true)
 				find(node, "ShowFilters").Activated:Fire()
 				local filters = find(world.target, "Filters")
-				Verify.expect(filters ~= nil):toBe(true)
-				Verify.expect((filters:IsDescendantOf(find(node, "CollectionWorkbench")))):toBe(false)
+				expect(filters ~= nil):toBe(true)
+				expect((filters:IsDescendantOf(find(node, "CollectionWorkbench")))):toBe(false)
 				find(world.target, "CloseFileOptions").Activated:Fire()
-				Verify.expect((find(world.target, "Filters"))):toBeNil()
+				expect((find(world.target, "Filters"))):toBeNil()
 				stop()
 			end,
 		})
 
-		verifyHarness:case("keeps split panes mounted with independent folder histories", {
+		it("keeps split panes mounted with independent folder histories", {
 			id = "native_gallery_collections::file library workbench::keeps split panes mounted with independent folder histories",
 			run = function()
 				for _, width in { 1280, 390 } do
-					local built, node, stop, engine = mount("collection_workbench", { width = width, height = 844 })
+					local built, node, stop, engine =
+						mount(scenarios.collection_workbench, { width = width, height = 844 })
 					local model = built.model
 					model.linked:set(true)
 					model.transfers:set(true)
@@ -840,82 +871,81 @@ return function(verifyHarness: Verify.Harness)
 					viewport(body, engine, 440, 200)
 					body.CanvasPosition = engine.types.Vector2.new(0, 80)
 					local scroll = body.CanvasPosition
-					model.openFolder(file(model, "environments"))
-					Verify.expect(find(node, "Views")):toBe(views)
-					Verify.expect(find(node, "PrimaryViews")):toBe(primary)
-					Verify.expect(find(node, "InboxView")):toBe(inbox)
-					Verify.expect(find(node, "LinkedView")):toBe(linked)
-					Verify.expect(find(linked, "linked")):toBe(linkedTable)
-					Verify.expect(body.CanvasPosition):toBe(scroll)
-					Verify.expect(#model.linkedPath:peek()):toBe(0)
-					Verify.expect(find(node, "Folders"):IsDescendantOf(primary)):toBe(true)
-					Verify.expect(find(node, "LinkedFolders"):IsDescendantOf(linked)):toBe(true)
-					model.openFolder(file(model, "materials"), "linked")
-					Verify.expect(model.path:peek()[1].value):toBe("environments")
-					Verify.expect(model.linkedPath:peek()[1].value):toBe("materials")
+					model.openFolder(file(model.rows:peek(), "environments"))
+					expect(find(node, "Views")):toBe(views)
+					expect(find(node, "PrimaryViews")):toBe(primary)
+					expect(find(node, "InboxView")):toBe(inbox)
+					expect(find(node, "LinkedView")):toBe(linked)
+					expect(find(linked, "linked")):toBe(linkedTable)
+					expect(body.CanvasPosition):toBe(scroll)
+					expect(#model.linkedPath:peek()):toBe(0)
+					expect(find(node, "Folders"):IsDescendantOf(primary)):toBe(true)
+					expect(find(node, "LinkedFolders"):IsDescendantOf(linked)):toBe(true)
+					model.openFolder(file(model.rows:peek(), "materials"), "linked")
+					expect(model.path:peek()[1].value):toBe("environments")
+					expect(model.linkedPath:peek()[1].value):toBe("materials")
 					model.path:set({})
-					Verify.expect(model.linkedPath:peek()[1].value):toBe("materials")
+					expect(model.linkedPath:peek()[1].value):toBe("materials")
 					model.remove({ "materials" })
-					Verify.expect(#model.linkedPath:peek()):toBe(0)
-					Verify.expect(find(node, "Views")):toBe(views)
+					expect(#model.linkedPath:peek()):toBe(0)
+					expect(find(node, "Views")):toBe(views)
 					stop()
 				end
 			end,
 		})
 
-		verifyHarness:case("splits Files Inbox and Linked independently and navigates all three when compact", {
+		it("splits Files Inbox and Linked independently and navigates all three when compact", {
 			id = "native_gallery_collections::file library workbench::splits Files Inbox and Linked independently and navigates all three when compact",
 			run = function()
-				local built, node, stop, engine = mount("collection_workbench")
+				local built, node, stop, engine = mount(scenarios.collection_workbench)
 				local views, primary = find(node, "Views"), find(node, "PrimaryViews")
 				built.model.linked:set(true)
 				built.model.transfers:set(true)
 				engine.environment.poke(views, "AbsoluteSize", engine.types.Vector2.new(1280, 600))
 				engine.environment.poke(primary, "AbsoluteSize", engine.types.Vector2.new(760, 600))
-				Verify.expect(views:FindFirstChild("Resize").Visible and primary:FindFirstChild("Resize").Visible)
-					:toBe(true)
-				Verify.expect(views:FindFirstChild("Sidebar").Size.X.Offset):toBe(760)
+				expect(views:FindFirstChild("Resize").Visible and primary:FindFirstChild("Resize").Visible):toBe(true)
+				expect(views:FindFirstChild("Sidebar").Size.X.Offset):toBe(760)
 				local detector = primary:FindFirstChild("Resize"):FindFirstChildWhichIsA("UIDragDetector")
 				detector.DragStart:Fire(engine.types.Vector2.new(360, 200))
 				detector.DragContinue:Fire(engine.types.Vector2.new(400, 200))
 				detector.DragEnd:Fire(engine.types.Vector2.new(400, 200))
-				Verify.expect(primary:FindFirstChild("Sidebar").Size.X.Offset):toBe(400)
-				Verify.expect(views:FindFirstChild("Sidebar").Size.X.Offset):toBe(760)
+				expect(primary:FindFirstChild("Sidebar").Size.X.Offset):toBe(400)
+				expect(views:FindFirstChild("Sidebar").Size.X.Offset):toBe(760)
 				local files, inbox, linked =
 					find(node, "PrimaryView"), find(node, "InboxView"), find(node, "LinkedView")
 				engine.environment.poke(views, "AbsoluteSize", engine.types.Vector2.new(390, 700))
 				engine.environment.poke(primary, "AbsoluteSize", engine.types.Vector2.new(390, 660))
-				Verify.expect(views:FindFirstChild("Resize").Visible or primary:FindFirstChild("Resize").Visible)
-					:toBe(false)
-				Verify.expect(views:FindFirstChild("Sidebar").Visible and primary:FindFirstChild("Sidebar").Visible)
-					:toBe(true)
-				Verify.expect((find(views:FindFirstChild("NavigationBar"), "ShowDetail"):GetAttribute("label")))
-					:toBe("Open linked view")
+				expect(views:FindFirstChild("Resize").Visible or primary:FindFirstChild("Resize").Visible):toBe(false)
+				expect(views:FindFirstChild("Sidebar").Visible and primary:FindFirstChild("Sidebar").Visible):toBe(true)
+				expect((find(views:FindFirstChild("NavigationBar"), "ShowDetail"):GetAttribute("label"))):toBe(
+					"Open linked view"
+				)
 				find(views:FindFirstChild("NavigationBar"), "ShowDetail").Activated:Fire()
-				Verify.expect(views:FindFirstChild("Detail").Visible and not views:FindFirstChild("Sidebar").Visible)
-					:toBe(true)
+				expect(views:FindFirstChild("Detail").Visible and not views:FindFirstChild("Sidebar").Visible):toBe(
+					true
+				)
 				find(views:FindFirstChild("NavigationBar"), "Back").Activated:Fire()
 				find(primary:FindFirstChild("NavigationBar"), "ShowDetail").Activated:Fire()
-				Verify.expect(primary:FindFirstChild("Detail").Visible):toBe(true)
-				Verify.expect(
+				expect(primary:FindFirstChild("Detail").Visible):toBe(true)
+				expect(
 					find(node, "PrimaryView") == files
 						and find(node, "InboxView") == inbox
 						and find(node, "LinkedView") == linked
 				):toBe(true)
 				built.model.transfers:set(false)
-				Verify.expect(primary:FindFirstChild("Sidebar").Visible):toBe(true)
-				Verify.expect((find(node, "InboxView"))):toBeNil()
+				expect(primary:FindFirstChild("Sidebar").Visible):toBe(true)
+				expect((find(node, "InboxView"))):toBeNil()
 				stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("file library folders", function()
-		verifyHarness:case("opens folders with desktop double click or touch and gamepad activation, then goes back", {
+	describe("file library folders", function()
+		it("opens folders with desktop double click or touch and gamepad activation, then goes back", {
 			id = "native_gallery_collections::file library folders::opens folders with desktop double click or touch and gamepad activation, then goes back",
 			run = function()
 				for _, inputName in { "MouseButton1", "Touch", "Gamepad1" } do
-					local built, node, stop, engine, world = mount("collection_workbench")
+					local built, node, stop, engine, world = mount(scenarios.collection_workbench)
 					local model = built.model
 					model.query:set("Environments")
 					local body = find(node, "primary")
@@ -929,18 +959,18 @@ return function(verifyHarness: Verify.Harness)
 					}
 					hit.Activated:Fire(input, 1)
 					if inputName == "MouseButton1" then
-						Verify.expect(#model.path:peek()):toBe(0)
+						expect(#model.path:peek()):toBe(0)
 						hit.Activated:Fire(input, 2)
 					end
-					Verify.expect(model.path:peek()[1].value):toBe("environments")
-					Verify.expect((next(model.selection:peek()))):toBeNil()
+					expect(model.path:peek()[1].value):toBe("environments")
+					expect((next(model.selection:peek()))):toBeNil()
 					world.gui.SelectedObject = find(find(node, "Folders"), "Back")
-					local back = action(world.target, "NavigationBack")
-					Verify.expect(back ~= nil):toBe(true)
-					back.Pressed:Fire()
-					back.Released:Fire()
-					Verify.expect(#model.path:peek()):toBe(0)
-					Verify.expect((action(world.target, "NavigationBack"))):toBeNil()
+					local back = assert(action(world.target, "NavigationBack"))
+					expect(back ~= nil):toBe(true)
+					engine.environment.fire(VerifyRoblox.assertInstance(back), "Pressed")
+					engine.environment.fire(VerifyRoblox.assertInstance(back), "Released")
+					expect(#model.path:peek()):toBe(0)
+					expect((action(world.target, "NavigationBack"))):toBeNil()
 					stop()
 				end
 			end,
@@ -951,7 +981,7 @@ return function(verifyHarness: Verify.Harness)
 		type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 		type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 		type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
-		type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+		type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 		type Use = <T>(ReadOnlyValue<T>) -> T
 
 		local Facet = require("../src")
@@ -996,7 +1026,7 @@ return function(verifyHarness: Verify.Harness)
 					Facet = Facet,
 					Compose = Compose,
 					runtime = runtime,
-					Host = (runtime.constructors :: unknown) :: RobloxHost,
+					Host = Facet.host(runtime),
 					UI = Facet.controls(
 						runtime,
 						{
@@ -1055,80 +1085,9 @@ return function(verifyHarness: Verify.Harness)
 			target.Activated:Fire()
 		end
 
-		verifyHarness:suite("native parity reference applications", function()
-			verifyHarness:suite("Gallery examples", function()
-				local function nativeContext(): (any, any, any)
-					local engine: any = engineLib.new()
-					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-					local viewport = Compose.cell({ width = 1280, height = 720 })
-					local target = engine.new("Folder")
-					local guiService = engine.new("GuiService")
-					local ctx: { [string]: any } = {
-						Facet = Facet,
-						Compose = Compose,
-						runtime = runtime,
-						Host = (runtime.constructors :: unknown) :: RobloxHost,
-						types = engine.types,
-						viewport = viewport,
-						inputTarget = target,
-						worldTarget = engine.new("Folder"),
-						guiService = guiService,
-						runService = { Heartbeat = engine.heartbeat },
-					}
-					return ctx, engine, target
-				end
-
-				local function mountGallery(kind: string, name: string): (any, any, () -> (), any, any)
-					local ctx, engine = nativeContext()
-					local path = if kind == "example" then "examples/" else "scenarios/"
-					local built
-					local host = engine.new("ScreenGui")
-					local stop, node = ctx.runtime.mount(function()
-						gallery.configure(ctx)
-						ctx.UI = Facet.controls(
-							ctx.runtime,
-							{
-								types = engine.types,
-								viewport = ctx.viewport,
-								guiService = ctx.guiService,
-								motionLevel = (
-										Compose.formula(function(use: Use): "normal" | "limited" | "none"
-											return if ctx.reducedMotion and use(ctx.reducedMotion)
-												then "none"
-												else "normal"
-										end) :: unknown
-									) :: MotionLevel,
-							} :: any
-						)
-						built = (require :: any)("../examples/gallery/" .. path .. name).build(ctx)
-						if built.dispose then
-							Compose.cleanup(built.dispose)
-						end
-						return built.screen()
-					end, host)
-					return built, node, function()
-						stop()
-						ctx.runtime:dispose()
-					end, ctx, engine
-				end
-			end)
-
-			verifyHarness:suite("Documentation and tooling", function()
-				local function files(root: string, suffix: string, out: { string }): { string }
-					for _, entry in fs.listDirectory(root) do
-						local path = root .. "/" .. entry.name
-						if entry.type == "dir" then
-							files(path, suffix, out)
-						elseif string.sub(entry.name, -#suffix) == suffix then
-							table.insert(out, path)
-						end
-					end
-					return out
-				end
-			end)
-
-			verifyHarness:suite("Tables and radial menus", function()
-				local function controlsFor(engine: any, target: any, extra: { [string]: any }?): (any, any, any, any)
+		describe("native parity reference applications", function()
+			describe("Tables and radial menus", function()
+				local function controlsFor(engine: any, target: any, extra: { [string]: any }?)
 					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 					local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 					input.GetFocusedTextBox = function()
@@ -1152,32 +1111,30 @@ return function(verifyHarness: Verify.Harness)
 					return runtime, Facet.controls(runtime, config :: any), gui, input
 				end
 
-				local function mountGallery(module: any): any
+				local function mountGallery()
 					local engine = engineLib.new()
 					local target = engine.new("Folder")
 					local viewport = Compose.cell({ width = 1280, height = 720 })
 					local runtime, UI, gui = controlsFor(engine, target, { viewport = viewport })
-					local ctx = {
+					local ctx: ExampleContext = {
 						Facet = Facet,
 						Compose = Compose,
 						runtime = runtime,
-						Host = (runtime.constructors :: unknown) :: RobloxHost,
+						Host = Facet.host(runtime),
 						types = engine.types,
 						viewport = viewport,
 						guiService = gui,
-						runService = { Heartbeat = engine.heartbeat },
 						UI = UI,
 					}
-					local built
+					local built: typeof(playlistExample.build(ctx))? = nil
 					local stop, node: any = runtime.mount(function()
-						built = module.build(ctx)
-						if built.dispose then
-							Compose.cleanup(built.dispose)
-						end
-						return ctx.Host.ScreenGui "DemoScreen" { built.screen() }
+						local result = playlistExample.build(ctx)
+						built = result
+						Compose.cleanup(result.dispose)
+						return ctx.Host.ScreenGui "DemoScreen" { result.screen() }
 					end, target)
 					return {
-						built = built,
+						built = assert(built),
 						node = node,
 						engine = engine,
 						target = target,
@@ -1192,7 +1149,7 @@ return function(verifyHarness: Verify.Harness)
 					return engine.types.Vector2.new(x, y)
 				end
 
-				verifyHarness:suite("Playlist example", function()
+				describe("Playlist example", function()
 					local function prepare(world: any): any
 						local body = find(world.node, "Body")
 						world.engine.environment.poke(body, "AbsoluteSize", vector(world.engine, 900, 288))
@@ -1217,41 +1174,43 @@ return function(verifyHarness: Verify.Harness)
 							count or 1
 					end
 
-					verifyHarness:case("explains empty filter results and an empty playlist without losing Restore", {
+					it("explains empty filter results and an empty playlist without losing Restore", {
 						id = "native_gallery_collections::Playlist example::explains empty filter results and an empty playlist without losing Restore",
 						run = function()
-							local world = mountGallery(playlistExample)
+							local world = mountGallery()
 							prepare(world)
 							local message = find(world.node, "EmptyResult")
-							Verify.expect(message ~= nil):toBe(true)
-							Verify.expect(message.Visible):toBe(false)
+							expect(message ~= nil):toBe(true)
+							expect(message.Visible):toBe(false)
 							world.built.filterText:set("zz-no-match")
-							Verify.expect(#world.built.from:peek()):toBe(0)
-							Verify.expect(message.Visible):toBe(true)
-							Verify.expect(message.Text)
-								:toBe("No tracks match this filter. Clear the filter to show all tracks.")
-							Verify.expect(message.TextWrapped):toBe(true)
+							expect(#world.built.from:peek()):toBe(0)
+							expect(message.Visible):toBe(true)
+							expect(message.Text):toBe(
+								"No tracks match this filter. Clear the filter to show all tracks."
+							)
+							expect(message.TextWrapped):toBe(true)
 							world.built.filterText:set("")
-							Verify.expect(message.Visible):toBe(false)
-							Verify.expect(#world.built.from:peek()):toBe(6)
+							expect(message.Visible):toBe(false)
+							expect(#world.built.from:peek()):toBe(6)
 							for _, id in { "neon", "drift", "turbo", "pit", "photo", "apex" } do
 								world.built.removeTrack(id)
 							end
-							Verify.expect(message.Visible):toBe(true)
-							Verify.expect(message.Text)
-								:toBe("No tracks in this playlist. Restore the original playlist to add them again.")
-							Verify.expect(find(world.node, "Restore").Visible):toBe(true)
+							expect(message.Visible):toBe(true)
+							expect(message.Text):toBe(
+								"No tracks in this playlist. Restore the original playlist to add them again."
+							)
+							expect(find(world.node, "Restore").Visible):toBe(true)
 							press(world.node, "Restore")
-							Verify.expect(message.Visible):toBe(false)
-							Verify.expect(#world.built.from:peek()):toBe(6)
+							expect(message.Visible):toBe(false)
+							expect(#world.built.from:peek()):toBe(6)
 							world.stop()
 						end,
 					})
 
-					verifyHarness:case("aligns name artist and rating columns under their headers", {
+					it("aligns name artist and rating columns under their headers", {
 						id = "native_gallery_collections::Playlist example::aligns name artist and rating columns under their headers",
 						run = function()
-							local world = mountGallery(playlistExample)
+							local world = mountGallery()
 							local body = prepare(world)
 							for _, label in body:GetDescendants() do
 								if label:IsA("TextLabel") then
@@ -1262,159 +1221,76 @@ return function(verifyHarness: Verify.Harness)
 							local header = find(world.node, "Header")
 							local row = find(body, "neon")
 							local cells = find(row, "Row")
-							Verify.expect(header.Position.X.Offset):toBe(find(row, "Cells").Position.X.Offset)
-							Verify.expect(header.Size.X.Offset)
-								:toBe(body.AbsoluteWindowSize.X + find(row, "Cells").Size.X.Offset)
+							expect(header.Position.X.Offset):toBe(find(row, "Cells").Position.X.Offset)
+							expect(header.Size.X.Offset):toBe(
+								body.AbsoluteWindowSize.X + find(row, "Cells").Size.X.Offset
+							)
 							local E = world.engine.types.Enum
 							local allocated = 0
 							for _, id in { "name", "artist", "rating" } do
 								local width = header:FindFirstChild(id).Size.X.Offset
 								allocated += width
-								Verify.expect(width >= (if id == "rating" then 144 elseif id == "name" then 90 else 72))
-									:toBe(true)
-								Verify.expect(cells:FindFirstChild(id).Size):toBe(header:FindFirstChild(id).Size)
-								Verify.expect(header:FindFirstChild(id):FindFirstChildWhichIsA("UIFlexItem").FlexMode)
-									:toBe(if id ~= "rating" then E.UIFlexMode.Fill else E.UIFlexMode.None)
+								expect(width >= (if id == "rating" then 144 elseif id == "name" then 90 else 72)):toBe(
+									true
+								)
+								expect(cells:FindFirstChild(id).Size):toBe(header:FindFirstChild(id).Size)
+								expect(header:FindFirstChild(id):FindFirstChildWhichIsA("UIFlexItem").FlexMode):toBe(
+									if id ~= "rating" then E.UIFlexMode.Fill else E.UIFlexMode.None
+								)
 							end
-							Verify.expect(allocated):toBe(header.Size.X.Offset)
+							expect(allocated):toBe(header.Size.X.Offset)
 							world.built.columnWidths:set({ name = 290 })
-							Verify.expect(header:FindFirstChild("name").Size.X.Offset):toBe(290)
-							Verify.expect(cells:FindFirstChild("name").Size.X.Offset):toBe(290)
-							Verify.expect(cells:FindFirstChild("rating").Size.X.Offset):toBe(144)
-							Verify.expect(world.built.widths()):toBe("Name 290px · Artist auto · Rating locked")
+							expect(header:FindFirstChild("name").Size.X.Offset):toBe(290)
+							expect(cells:FindFirstChild("name").Size.X.Offset):toBe(290)
+							expect(cells:FindFirstChild("rating").Size.X.Offset):toBe(144)
+							expect(world.built.widths()):toBe("Name 290px · Artist auto · Rating locked")
 							world.stop()
 						end,
 					})
 
-					verifyHarness:case(
-						"plays on a double click Return or touch tap while a single or slow click only selects",
-						{
-							id = "native_gallery_collections::Playlist example::plays on a double click Return or touch tap while a single or slow click only selects",
-							run = function()
-								local world = mountGallery(playlistExample)
-								local body = prepare(world)
-								local label = find(world.node, "NowPlaying")
-								local function hit(id: string): any
-									return find(find(body, id), "RowHit")
-								end
-								local function selected(id: string): boolean
-									return find(find(body, id), "Row"):GetAttribute("FacetSelected") == true
-								end
-								Verify.expect(label.Text)
-									:toBe("Nothing playing — double-click a row, or press Return on a focused one")
-								hit("neon").Activated:Fire(click(world, "mouse", 1))
-								Verify.expect((selected("neon"))):toBe(true)
-								Verify.expect((world.built.nowPlaying:peek())):toBeNil()
-								Verify.expect(label.Text)
-									:toBe("Nothing playing — double-click a row, or press Return on a focused one")
-								hit("neon").Activated:Fire(click(world, "mouse", 2))
-								Verify.expect((world.built.nowPlaying:peek())):toBe("Neon Straightaway")
-								Verify.expect(label.Text):toBe("Now playing — Neon Straightaway")
-								Verify.expect((selected("neon"))):toBe(true)
-								hit("drift").Activated:Fire(click(world, "mouse", 1))
-								hit("drift").Activated:Fire(click(world, "mouse", 1))
-								Verify.expect(label.Text):toBe("Now playing — Neon Straightaway")
-								Verify.expect((selected("drift"))):toBe(true)
-								Verify.expect((selected("neon"))):toBe(false)
-								hit("turbo").Activated:Fire(click(world, "touch", 1))
-								Verify.expect(label.Text):toBe("Now playing — Turbo Cascade")
-								hit("pit").Activated:Fire(click(world, "key", 1))
-								Verify.expect(label.Text):toBe("Now playing — Pit Lane Shuffle")
-								press(world.node, "Restore")
-								Verify.expect((world.built.nowPlaying:peek())):toBeNil()
-								Verify.expect(label.Text)
-									:toBe("Nothing playing — double-click a row, or press Return on a focused one")
-								world.stop()
-							end,
-						}
-					)
-				end)
-			end)
-
-			verifyHarness:suite("Collections", function()
-				type Stage = {
-					engine: any,
-					UI: any,
-					Host: any,
-					gui: any,
-					input: any,
-					screen: any,
-					writes: () -> number,
-					stop: () -> (),
-				}
-
-				local function id(item: any): number
-					return item.id
-				end
-
-				local function press(w: Stage, name: string)
-					w.screen:FindFirstChild("Facet" .. name):FindFirstChild(name).Pressed:Fire()
-				end
-			end)
-
-			verifyHarness:suite("NavigationStack and CollapsibleView", function()
-				type StackWorld = {
-					engine: any,
-					runtime: any,
-					gui: any,
-					input: any,
-					screen: any,
-					baseline: { live: number, connections: number },
-					stop: () -> (),
-				}
-
-				local function world(build: (any, any) -> any, options: { [string]: any }?): StackWorld
-					local engine: any = engineLib.new()
-					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-					local gui = engine.new("GuiService")
-					local input = engine.new("UserInputService")
-					input.GetFocusedTextBox = function()
-						return nil
-					end
-					input.IsKeyDown = function()
-						return false
-					end
-					local config: { [string]: any } = {
-						types = engine.types,
-						guiService = gui,
-						services = { GuiService = gui, UserInputService = input },
-					}
-					for key, value in (options or {}) :: { [string]: any } do
-						config[key] = value
-					end
-					local target = engine.new("Folder")
-					local baseline = engine.census()
-					local UI = Facet.controls(runtime, config :: any)
-					local Host = (runtime.constructors :: unknown) :: RobloxHost
-					local stop, screen: any = runtime.mount(function()
-						return Host.ScreenGui({ build(UI, Host) })
-					end, target)
-					return {
-						engine = engine,
-						runtime = runtime,
-						gui = gui,
-						input = input,
-						screen = screen,
-						baseline = baseline,
-						stop = function()
-							stop()
-							runtime:dispose()
+					it("plays on a double click Return or touch tap while a single or slow click only selects", {
+						id = "native_gallery_collections::Playlist example::plays on a double click Return or touch tap while a single or slow click only selects",
+						run = function()
+							local world = mountGallery()
+							local body = prepare(world)
+							local label = find(world.node, "NowPlaying")
+							local function hit(id: string): any
+								return find(find(body, id), "RowHit")
+							end
+							local function selected(id: string): boolean
+								return find(find(body, id), "Row"):GetAttribute("FacetSelected") == true
+							end
+							expect(label.Text):toBe(
+								"Nothing playing — double-click a row, or press Return on a focused one"
+							)
+							hit("neon").Activated:Fire(click(world, "mouse", 1))
+							expect((selected("neon"))):toBe(true)
+							expect((world.built.nowPlaying:peek())):toBeNil()
+							expect(label.Text):toBe(
+								"Nothing playing — double-click a row, or press Return on a focused one"
+							)
+							hit("neon").Activated:Fire(click(world, "mouse", 2))
+							expect((world.built.nowPlaying:peek())):toBe("Neon Straightaway")
+							expect(label.Text):toBe("Now playing — Neon Straightaway")
+							expect((selected("neon"))):toBe(true)
+							hit("drift").Activated:Fire(click(world, "mouse", 1))
+							hit("drift").Activated:Fire(click(world, "mouse", 1))
+							expect(label.Text):toBe("Now playing — Neon Straightaway")
+							expect((selected("drift"))):toBe(true)
+							expect((selected("neon"))):toBe(false)
+							hit("turbo").Activated:Fire(click(world, "touch", 1))
+							expect(label.Text):toBe("Now playing — Turbo Cascade")
+							hit("pit").Activated:Fire(click(world, "key", 1))
+							expect(label.Text):toBe("Now playing — Pit Lane Shuffle")
+							press(world.node, "Restore")
+							expect((world.built.nowPlaying:peek())):toBeNil()
+							expect(label.Text):toBe(
+								"Nothing playing — double-click a row, or press Return on a focused one"
+							)
+							world.stop()
 						end,
-					}
-				end
-
-				local function find(root: any, name: string): any
-					if root.Name == name then
-						return root
-					end
-					for _, child in root:GetChildren() do
-						local found = find(child, name)
-						if found then
-							return found
-						end
-					end
-					return nil
-				end
+					})
+				end)
 			end)
 		end)
 	end)(verifyHarness)

@@ -4,11 +4,11 @@ local Types = require("./types")
 
 type Literal = Types.Literal
 
-local function list(...: Literal): { Literal }
+local function list(...: Literal): Literal
 	return { ... }
 end
 
-local function record(fields: { [string]: Literal }): Literal
+local function record(fields: { [string | number]: Literal }): Literal
 	return fields
 end
 

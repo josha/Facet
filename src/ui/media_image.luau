@@ -10,12 +10,13 @@ local MediaShared = require("./media_shared")
 return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShared.Shared)
 	local Host, Compose = ctx.Host, ctx.Compose
 	local types, read = ctx.types, ctx.read
+	local readString = read<<string?>>
+	local bindString = shared.bind<<string>>
 	local E, D2 = types.Enum, types.UDim2
 	local controlSize = ctx.controlSize
-	local bind = shared.bind
 	UI.Image = ctx.construct("Image", function(spec: MediaProps.ImageProps): ImageLabel
 		local keys = { "image", "tint", "scaleMode", "tileSize", "sliceCenter", "sliceScale", "resample", "shape" }
-		local declared = read(spec.scaleMode)
+		local declared = readString(spec.scaleMode)
 		local live = Compose.isValue(spec.scaleMode) or type(spec.scaleMode) == "function"
 		assert(
 			not live or (spec.tileSize == nil and spec.sliceCenter == nil),
@@ -72,21 +73,21 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			tile = E.ScaleType.Tile,
 			slice = E.ScaleType.Slice,
 		}
-		local defaults: Engine.ImageLabelNativeProps = {
+		local defaults: Engine.ImageLabelProps = {
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			Image = bind(spec.image, ""),
+			Image = bindString(spec.image, ""),
 			Size = function(use: ComposeTypes.Use): UDim2
 				local side = controlSize(nil, "height", use)
 				return D2.fromOffset(side, side)
 			end,
 		}
 		if spec.tint ~= nil then
-			defaults.ImageColor3 = spec.tint :: Types.Input<Color3>
+			defaults.ImageColor3 = spec.tint
 		end
 		if spec.scaleMode ~= nil then
 			defaults.ScaleType = function(use: ComposeTypes.Use): Enum.ScaleType
-				local mode = read(spec.scaleMode, use)
+				local mode = readString(spec.scaleMode, use)
 				assert(
 					not live or (mode ~= "tile" and mode ~= "slice"),
 					"Facet UI.Image: a bound scaleMode cannot be tile or slice, which need static geometry"
@@ -109,7 +110,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		end
 		if spec.resample ~= nil then
 			defaults.ResampleMode = function(use: ComposeTypes.Use): Enum.ResamplerMode
-				local mode = read(spec.resample, use) or "default"
+				local mode = readString(spec.resample, use) or "default"
 				assert(
 					mode == "default" or mode == "pixelated",
 					"Facet UI.Image: resample must be default or pixelated"
@@ -118,8 +119,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			end
 		end
 		if spec.shape == "circle" then
-			defaults[#defaults + 1] = Host.UICorner({ CornerRadius = ctx.round })
-			defaults[#defaults + 1] = Host.UIAspectRatioConstraint({ AspectRatio = 1 })
+			defaults[#defaults + 1] = Host.UICorner { CornerRadius = ctx.round }
+			defaults[#defaults + 1] = Host.UIAspectRatioConstraint { AspectRatio = 1 }
 		end
 		local image = Host.ImageLabel(ctx.props(spec, keys, defaults))
 		prepareMedia(ctx, image, spec.ImageTransparency)

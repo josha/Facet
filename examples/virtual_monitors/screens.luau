@@ -4,7 +4,7 @@ type FacetModule = typeof(require("@repo/tools/typecheck/aliases").FacetModule)
 type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
-type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").StringMenuItem)
 type MenuSpec = typeof(require("@repo/tools/typecheck/aliases").MenuSpec)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
@@ -24,11 +24,16 @@ type StageProps = typeof(require("@repo/tools/typecheck/aliases").StageProps)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type ScrollViewProps = typeof(require("@repo/tools/typecheck/aliases").ScrollViewProps)
 type EnvironmentPreview = typeof(require("@repo/tools/typecheck/aliases").ControlOptions.environment)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+type ChipRequestProps = typeof(require("@repo/tools/typecheck/aliases").ChipRequestProps)
+type MenuCommand = typeof(require("@repo/tools/typecheck/aliases").MenuCommand)
+type MonitorPresencePickerSpec = typeof(require("@repo/tools/typecheck/aliases").MonitorPresencePickerSpec)
+type RatingProps = typeof(require("@repo/tools/typecheck/aliases").RatingRequestProps)
+type ShortcutHintActionProps = typeof(require("@repo/tools/typecheck/aliases").ShortcutHintActionProps)
+type StringPickerSpec = typeof(require("@repo/tools/typecheck/aliases").StringPickerSpec)
+type TextInputCellProps = typeof(require("@repo/tools/typecheck/aliases").TextInputCellProps)
 local modelModule = require("./model")
 type Game = modelModule.Game
 type Toast = modelModule.Toast
@@ -46,10 +51,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 	local model = actions.model
 	local types: RobloxTypes = actions.types or getfenv(0)
 	local D, D2, V2, C3, CF, E = types.UDim, types.UDim2, types.Vector2, types.Color3, types.CFrame, types.Enum
-	local environment: EnvironmentPreview = nil
-	if actions.spatial then
-		environment = { viewingDistance = "near" }
-	end
+	local environment: EnvironmentPreview = if actions.spatial then { viewingDistance = "near" } else nil
 	local UI = Facet.controls(runtime, {
 		types = types,
 		services = actions.services,
@@ -73,7 +75,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 	local noCard: GuiObject? = nil
 	local selectedCard: Value<GuiObject?> = Compose.cell(noCard)
 	local function rounded(radius: number?): UICorner
-		return Host.UICorner({ CornerRadius = D.new(0, radius or 12) })
+		return Host.UICorner { CornerRadius = D.new(0, radius or 12) }
 	end
 	local function words(name: string, value: TextValue, role: TextRole?, extras: TextExtras?): GuiObject
 		local spec: TextProps = {
@@ -100,7 +102,14 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 		return words(name, value, role or "caption", spec)
 	end
 	local function button(name: string, label: TextValue, activate: () -> (), extras: ButtonProps?): TextButton
-		local spec: ButtonProps = { Name = name, label = label, onActivate = activate, Size = D2.fromOffset(0, 36) }
+		local spec: ButtonProps = {
+			Name = name,
+			label = label,
+			onActivate = function()
+				activate()
+			end,
+			Size = D2.fromOffset(0, 36),
+		}
 		if extras then
 			for key, item in extras do
 				spec[if type(key) == "number" then #spec + 1 else key] = item
@@ -168,7 +177,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 		return Compose.boundary(function()
 			return UI.Stage(spec)
 		end, function()
-			return UI.Text({
+			return UI.Text {
 				Name = name .. "Unavailable",
 				text = "Preview unavailable",
 				textRole = "label",
@@ -176,7 +185,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 				Size = spec.Size,
 				Position = spec.Position,
 				AutomaticSize = E.AutomaticSize.None,
-			})
+			}
 		end)
 	end
 	local function panelShadow(): Frame
@@ -239,7 +248,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 			end
 		end)
 		local region = Compose.cell(V2.new(screens.CANVAS.w, screens.CANVAS.h))
-		local function wide(use: Use)
+		local function wide(use: Use): boolean
 			return use(region).X >= 860
 		end
 		local function switchAppearance()
@@ -277,23 +286,22 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 		}
 		local presenceWords: { [string]: string } = { online = "Online", away = "Away", busy = "Busy" }
 		local menuShown = Compose.cell(false)
-		local menuItems: { MenuItem } = {
-			{
-				id = "Presentation",
-				label = "Switch presentation",
-				onSelect = model.toggleMode,
-			},
-			{ id = "Appearance", label = "Switch appearance", onSelect = switchAppearance },
-			{
-				id = "About",
-				label = "About",
-				onSelect = function()
-					about:set(true)
-				end,
-			},
+		local presentation: MenuCommand = {
+			id = "Presentation",
+			label = "Switch presentation",
+			onSelect = model.toggleMode,
 		}
+		local appearance: MenuCommand = { id = "Appearance", label = "Switch appearance", onSelect = switchAppearance }
+		local aboutItem: MenuCommand = {
+			id = "About",
+			label = "About",
+			onSelect = function()
+				about:set(true)
+			end,
+		}
+		local menuItems: { MenuItem } = { presentation, appearance, aboutItem }
 		if actions.spatial then
-			local focusItem: MenuItem = {
+			local focusItem: MenuCommand = {
 				id = "Focus",
 				label = function(use: Use)
 					return if use(model.focused) == name then "All monitors" else "Focus"
@@ -427,6 +435,14 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 				align = "end",
 				maxWidth = 280,
 				content = function(): Instance
+					local presenceProps: MonitorPresencePickerSpec = {
+						selected = model.presence,
+						onChange = function()
+							statusOpen:set(false)
+						end,
+						style = "radioGroup",
+						options = presenceOptions,
+					}
 					return UI.VStack "PresenceCard" {
 						width = "fill",
 						gap = "s",
@@ -434,7 +450,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 							gap = "s",
 							align = "center",
 							UI.StatusIndicator "PresenceDot" {
-								status = function(use: Use)
+								status = function(use: Use): "success" | "warning" | "error"
 									local presence = use(model.presence)
 									return if presence == "online"
 										then "success"
@@ -450,14 +466,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 								rich = true,
 							},
 						},
-						UI.Picker "Presence" {
-							selected = model.presence,
-							onChange = function()
-								statusOpen:set(false)
-							end,
-							style = "radioGroup",
-							options = presenceOptions,
-						},
+						UI.Picker "Presence"(presenceProps),
 					}
 				end,
 			},
@@ -504,31 +513,30 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 		}
 	end
 	local function gameMenu(current: ReadOnlyValue<Game>): CardMenu
-		local items: { MenuItem } = {
-			{
-				id = "Share",
-				label = "Share",
-				onSelect = function()
-					model.notify("Discover", `Link to {current:peek().title} copied`)
-				end,
-			},
-			{
-				id = "Hide",
-				label = "Not interested",
-				onSelect = function()
-					model.hide(current:peek())
-				end,
-			},
-			{ divider = true },
-			{
-				id = "Report",
-				label = "Report",
-				role = "destructive",
-				onSelect = function()
-					model.notify("Discover", `Thanks. We will review {current:peek().title}.`)
-				end,
-			},
+		local share: MenuCommand = {
+			id = "Share",
+			label = "Share",
+			onSelect = function()
+				model.notify("Discover", `Link to {current:peek().title} copied`)
+			end,
 		}
+		local hide: MenuCommand = {
+			id = "Hide",
+			label = "Not interested",
+			onSelect = function()
+				model.hide(current:peek())
+			end,
+		}
+		local report: MenuCommand = {
+			id = "Report",
+			label = "Report",
+			role = "destructive",
+			onSelect = function()
+				model.notify("Discover", `Thanks. We will review {current:peek().title}.`)
+			end,
+		}
+		local divider: { divider: true, id: string? } = { divider = true }
+		local items: { MenuItem } = { share, hide, divider, report }
 		return { items = items }
 	end
 	local function gameCard(current: ReadOnlyValue<Game>, placement: ReadOnlyValue<CollectionPlacement>): GuiObject
@@ -604,25 +612,24 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 	local function detailContent(current: ReadOnlyValue<Game?>): GuiObject
 		local selected = current:peek()
 		if not selected then
-			return Host.Frame({ BackgroundTransparency = 1 })
+			return Host.Frame { BackgroundTransparency = 1 }
 		end
-		local playItems: { MenuItem } = {
-			{
-				id = "Friends",
-				label = if #selected.friends > 0 then `Join friends ({#selected.friends})` else "Join friends",
-				enabled = #selected.friends > 0,
-				onSelect = function()
-					model.launchGame(selected.id, "Joining your friends")
-				end,
-			},
-			{
-				id = "Private",
-				label = "Start a private server",
-				onSelect = function()
-					model.launchGame(selected.id, "Starting a private server")
-				end,
-			},
+		local joinFriends: MenuCommand = {
+			id = "Friends",
+			label = if #selected.friends > 0 then `Join friends ({#selected.friends})` else "Join friends",
+			enabled = #selected.friends > 0,
+			onSelect = function()
+				model.launchGame(selected.id, "Joining your friends")
+			end,
 		}
+		local privateServer: MenuCommand = {
+			id = "Private",
+			label = "Start a private server",
+			onSelect = function()
+				model.launchGame(selected.id, "Starting a private server")
+			end,
+		}
+		local playItems: { MenuItem } = { joinFriends, privateServer }
 		local sectionOptions: { PickerOption } = {
 			{ value = "about", label = "About" },
 			{ value = "similar", label = "Similar games" },
@@ -672,6 +679,17 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 			end
 		end
 		local perPage = 6
+		local sectionProps: StringPickerSpec = {
+			selected = model.detailTab,
+			onChange = function(value)
+				model.detailTab:set(value)
+			end,
+			style = "segmented",
+			sizing = "hug",
+			Size = D2.fromOffset(0, 44),
+			AutomaticSize = E.AutomaticSize.X,
+			options = sectionOptions,
+		}
 		local pageCount = math.max(1, math.ceil(#similar / perPage))
 		return UI.VStack "GameDetails" {
 			width = "fill",
@@ -706,7 +724,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 			end, function()
 				return UI.StepIndicator "LaunchSteps" {
 					steps = function(use: Use): { Step }
-						local stage = launching(use).stage
+						local stage = assert(launching(use)).stage
 						local steps: { Step } = {}
 						for index, step in launchSteps do
 							local entry: Step = {
@@ -772,17 +790,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 			UI.HStack "DetailsTabs" {
 				width = "fill",
 				gap = "s",
-				UI.Picker "DetailSection" {
-					selected = model.detailTab,
-					onChange = function(value)
-						model.detailTab:set(value)
-					end,
-					style = "segmented",
-					sizing = "hug",
-					Size = D2.fromOffset(0, 44),
-					AutomaticSize = E.AutomaticSize.X,
-					options = sectionOptions,
-				},
+				UI.Picker "DetailSection"(sectionProps),
 				UI.Spacer "TabsGap" { minLength = "s" },
 				button("SaveDetail", saveAction(current).label, function()
 					model.save(assert(current:peek()))
@@ -791,6 +799,18 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 			Compose.show(function(use: Use)
 				return tab(use) == "about"
 			end, function()
+				local ratingProps: RatingProps = {
+					value = function(use: Use)
+						return use(model.ratings)[selected.id] or selected.stars
+					end,
+					count = 5,
+					allowZero = false,
+					onChange = function(value)
+						model.rate(selected.id, value)
+					end,
+					Size = D2.new(1, 0, 0, 44),
+					AutomaticSize = E.AutomaticSize.None,
+				}
 				return UI.VStack "AboutGame" {
 					width = "fill",
 					gap = "s",
@@ -816,18 +836,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 					sparkline(),
 					quiet("Rating", selected.rating .. " recommend this game · " .. selected.players, "label"),
 					words("YourRating", "Your rating", "label"),
-					UI.Rating "Stars" {
-						value = function(use: Use)
-							return use(model.ratings)[selected.id] or selected.stars
-						end,
-						count = 5,
-						allowZero = false,
-						onChange = function(value)
-							model.rate(selected.id, value)
-						end,
-						Size = D2.new(1, 0, 0, 44),
-						AutomaticSize = E.AutomaticSize.None,
-					},
+					UI.Rating "Stars"(ratingProps),
 					quiet(
 						"RatingExplanation",
 						"The rating is the share of players who would recommend this game to a friend."
@@ -847,7 +856,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 							end,
 						},
 					}
-					return UI.RowActions({
+					return UI.RowActions {
 						Name = "SimilarRow_" .. candidate.id,
 						Size = D2.new(1, 0, 0, 42),
 						content = function(): GuiObject
@@ -861,7 +870,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 							)
 						end,
 						trailing = trailing,
-					})
+					}
 				end
 				return UI.VStack "SimilarGames" {
 					width = "fill",
@@ -932,10 +941,10 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 			Released = function()
 				local editor = body:FindFirstChild("Editor", true)
 				if editor and editor:IsA("TextBox") then
-					editor:CaptureFocus()
+					(editor :: TextBox):CaptureFocus()
 				end
 			end,
-			Host.InputBinding({ KeyCode = E.KeyCode.Slash }),
+			Host.InputBinding { KeyCode = E.KeyCode.Slash },
 		}
 		local chips: ScrollViewProps = {
 			Name = "Genres",
@@ -948,7 +957,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 		}
 		for _, option in genreOptions do
 			local value = option.value
-			chips[#chips + 1] = UI.Chip({
+			local chipProps: ChipRequestProps = {
 				Name = "Genre_" .. value,
 				label = option.label,
 				selected = function(use: Use)
@@ -957,7 +966,8 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 				onToggle = function()
 					model.genre:set(value)
 				end,
-			})
+			}
+			chips[#chips + 1] = UI.Chip(chipProps)
 		end
 		local savedShelf = button("Saved", "Saved", function()
 			model.shelf:set("saved")
@@ -967,7 +977,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 			end,
 		})
 		local shelves = UI.HStack "Shelves" {
-			width = function(use: Use)
+			width = function(use: Use): "hug" | "fill"
 				return if short(use) and not compact(use) then "hug" else "fill"
 			end,
 			gap = "s",
@@ -996,9 +1006,9 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 			},
 		}
 		UI.dropTarget(shelves, {
-			accepts = function(payload: unknown): boolean
+			accepts = function(payload: unknown): (boolean, string?)
 				local game = draggedGame(payload)
-				return game ~= nil and not model.saved:peek()[game.id]
+				return game ~= nil and not model.saved:peek()[game.id], nil
 			end,
 			onDrop = function(payload: unknown)
 				local game = draggedGame(payload)
@@ -1031,6 +1041,24 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 				child,
 			}
 		end
+		local sortProps: StringPickerSpec = {
+			selected = model.sort,
+			onChange = function(value)
+				model.sort:set(value)
+			end,
+			options = sortOptions,
+			style = "menu",
+			Size = function(use: Use)
+				return if compact(use) then D2.new(1, 0, 0, 44) else D2.fromOffset(if short(use) then 150 else 180, 44)
+			end,
+			AutomaticSize = E.AutomaticSize.None,
+		}
+		local shortcutProps: ShortcutHintActionProps = {
+			action = focusSearch,
+			Visible = function(use: Use)
+				return not compact(use) and not use(touchEnabled)
+			end,
+		}
 		body = UI.VStack "DiscoverBody" {
 			width = "fill",
 			height = "fill",
@@ -1045,7 +1073,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 					value = model.searchSelection,
 					text = model.query,
 					acceptCustom = function()
-						return true
+						return true, nil
 					end,
 					options = function(use: Use): { PickerOption }
 						local query, choices: { PickerOption } = use(model.query):lower(), {}
@@ -1074,32 +1102,14 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 						return if compact(use) then D2.new(1, 0, 0, 44) else D2.fromOffset(0, 44)
 					end,
 					AutomaticSize = E.AutomaticSize.None,
-					Host.UIFlexItem({
+					Host.UIFlexItem {
 						FlexMode = function(use: Use)
 							return if compact(use) then E.UIFlexMode.None else E.UIFlexMode.Fill
 						end,
-					}),
+					},
 				},
-				UI.ShortcutHint "SearchShortcut" {
-					action = focusSearch,
-					Visible = function(use: Use)
-						return not compact(use) and not use(touchEnabled)
-					end,
-				},
-				UI.Picker "Sort" {
-					selected = model.sort,
-					onChange = function(value)
-						model.sort:set(value)
-					end,
-					options = sortOptions,
-					style = "menu",
-					Size = function(use: Use)
-						return if compact(use)
-							then D2.new(1, 0, 0, 44)
-							else D2.fromOffset(if short(use) then 150 else 180, 44)
-					end,
-					AutomaticSize = E.AutomaticSize.None,
-				},
+				UI.ShortcutHint "SearchShortcut"(shortcutProps),
+				UI.Picker "Sort"(sortProps),
 				shelves,
 			},
 			UI.ScrollView(chips),
@@ -1131,7 +1141,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 									Position = D2.new(0.42, 8, 0, 18),
 									Size = D2.new(0.58, -28, 0, 0),
 									AutomaticSize = E.AutomaticSize.Y,
-									Host.UISizeConstraint({ MaxSize = V2.new(520, 1000000) }),
+									Host.UISizeConstraint { MaxSize = V2.new(520, 1000000) },
 									quiet("FeaturedGenre", item.genre),
 									words("FeaturedTitle", item.title, "heading"),
 									quiet("FeaturedDescription", item.description, "body"),
@@ -1206,7 +1216,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 				return use(model.shelf) == "browse"
 			end, function()
 				return feedFrame(collection(model.discoveryScroll, function(canvas)
-					return UI.VirtualGrid "Games" {
+					local gridProps = {
 						scrollReset = function(use: Use)
 							return use(model.sort) .. "\0" .. use(model.genre) .. "\0" .. use(model.query)
 						end,
@@ -1225,6 +1235,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 						ScrollBarThickness = 5,
 						CanvasPosition = canvas,
 					}
+					return UI.VirtualGrid "Games"(gridProps)
 				end))
 			end),
 			Compose.show(function(use: Use)
@@ -1251,7 +1262,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 						id = "session",
 						label = "Session",
 						width = 120,
-						value = function(item)
+						value = function(item: Game)
 							local session = model.sessions:peek()[item.id]
 							return if session then civil.format(session) else "—"
 						end,
@@ -1273,7 +1284,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 						render = function(current): GuiObject
 							local id = current:peek().id
 							local draft = Compose.cell(model.notes:peek()[id] or "")
-							return UI.TextInput({
+							local noteProps: TextInputCellProps = {
 								Name = "Note_" .. id,
 								value = draft,
 								placeholder = "Add a note",
@@ -1285,11 +1296,12 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 								onCancel = function()
 									draft:set(model.notes:peek()[id] or "")
 								end,
-							})
+							}
+							return UI.TextInput(noteProps)
 						end,
 					},
 				}
-				return feedFrame(UI.Table "SavedGames" {
+				local savedTable = UI.Table "SavedGames" {
 					from = model.savedGames,
 					key = "id",
 					selection = model.savedSelection,
@@ -1308,44 +1320,46 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 					end,
 					Size = D2.fromScale(1, 1),
 					columns = savedColumns,
-				})
+				}
+				return feedFrame(savedTable)
 			end),
 		}
 		measure(body, dimensions)
+		local gameDetail = UI.Alert "GameDetail" {
+			surface = "fullScreen",
+			transition = { source = selectedCard, seconds = 0.32, ease = Compose.easing.outCubic },
+			item = model.selectedGame,
+			title = detailTitle,
+			content = function(payload): Instance
+				local presentedGame = Compose.cell(payload)
+				Compose.watch(function(use: Use)
+					local selected = use(model.selectedGame)
+					if selected then
+						presentedGame:set(selected)
+					end
+				end)
+				return Host.Frame "DetailSelection" {
+					BackgroundTransparency = 1,
+					Size = D2.new(1, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+					Compose.keyed({
+						from = function(use: Use): { Game }
+							return { use(presentedGame) }
+						end,
+						key = function(item: Game): string
+							return item.id
+						end,
+						render = detailContent,
+					}),
+				}
+			end,
+			actions = detailActions,
+		}
 		return body,
 			UI.ZStack "Overlays" {
 				width = "fill",
 				height = "fill",
-				UI.Alert "GameDetail" {
-					surface = "fullScreen",
-					transition = { source = selectedCard, seconds = 0.32, ease = Compose.easing.outCubic },
-					item = model.selectedGame,
-					title = detailTitle,
-					content = function(payload): Instance
-						local presentedGame = Compose.cell(payload)
-						Compose.watch(function(use: Use)
-							local selected = use(model.selectedGame)
-							if selected then
-								presentedGame:set(selected)
-							end
-						end)
-						return Host.Frame "DetailSelection" {
-							BackgroundTransparency = 1,
-							Size = D2.new(1, 0, 0, 0),
-							AutomaticSize = E.AutomaticSize.Y,
-							Compose.keyed({
-								from = function(use: Use)
-									return { use(presentedGame) }
-								end,
-								key = function(item)
-									return item.id
-								end,
-								render = detailContent,
-							}),
-						}
-					end,
-					actions = detailActions,
-				},
+				gameDetail,
 				toastFor("Discover"),
 			}
 	end
@@ -1393,7 +1407,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 	end
 	local function Flap(): Frame
 		return shell("Flap", function()
-			return require("./flap")(ctx)
+			return require("./flap")(ctx), nil
 		end)
 	end
 	local views: { [string]: () -> Instance } = { Discover = Discover, Avatar = Avatar, Chat = Chat, Flap = Flap }

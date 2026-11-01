@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Facet = require("../src")
 
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -109,11 +110,11 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_settle::settle: row actions::a fast swipe that opens the tray keeps moving on the first frame after release",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls)
-					return UI.RowActions({
+					return UI.RowActions {
 						fullSwipe = false,
 						content = UI.Button "Body" { label = "Row" } :: GuiObject,
 						trailing = { { id = "Archive", label = "Archive" } :: FixtureCollectionTypes.RowAction },
-					})
+					}
 				end)
 				local content = w.find("Content")
 				local node = content.Parent
@@ -138,11 +139,11 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_settle::settle: row actions::a grab mid-settle starts the finger from the painted offset",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls)
-					return UI.RowActions({
+					return UI.RowActions {
 						fullSwipe = false,
 						content = UI.Button "Body" { label = "Row" } :: GuiObject,
 						trailing = { { id = "Archive", label = "Archive" } :: FixtureCollectionTypes.RowAction },
-					})
+					}
 				end)
 				local content = w.find("Content")
 				local node = content.Parent
@@ -175,7 +176,7 @@ return function(verifyHarness: Verify.Harness)
 			local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 			local stop = runtime.mount(function()
 				build(context(Compose, runtime, { types = engine.types, services = {}, motionLevel = "normal" }))
-				return ((runtime.constructors.Folder :: unknown) :: FolderConstructor)({})
+				return Facet.host(runtime).Folder({})
 			end, engine.new("Folder"))
 			return engine, function()
 				stop()

@@ -1,8 +1,8 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
@@ -11,10 +11,20 @@ type ScrollViewProps = typeof(require("@repo/tools/typecheck/aliases").ScrollVie
 type GridProps = typeof(require("@repo/tools/typecheck/aliases").GridProps)
 type CardSpec = typeof(require("@repo/tools/typecheck/aliases").CardSpec)
 type TextInputProps = typeof(require("@repo/tools/typecheck/aliases").TextInputProps)
+type Item = {
+	id: string,
+	name: string,
+	slot: string,
+	warmth: number,
+	power: number,
+	color: { number },
+	artIndex: number?,
+}
 type Entry = { id: string, value: string? }
+local searchPresentation: "search" = "search"
 local makeView = require("./showcase_view")
 local art = require("./showcase_art")
-local items = {
+local items: { Item } = {
 	{ id = "traveler", name = "Traveler's coat", slot = "coat", warmth = 1, power = 0, color = { 117, 89, 63 } },
 	{ id = "frostcoat", name = "Frostguard coat", slot = "coat", warmth = 6, power = 0, color = { 77, 156, 189 } },
 	{ id = "embercoat", name = "Ember cloak", slot = "coat", warmth = 3, power = 2, color = { 209, 107, 70 } },
@@ -24,7 +34,6 @@ local items = {
 	{ id = "lantern", name = "Sunstone lantern", slot = "tool", warmth = 2, power = 1, color = { 247, 193, 82 } },
 	{ id = "pick", name = "Glacier pick", slot = "tool", warmth = 0, power = 8, color = { 113, 199, 211 } },
 }
-type Item = typeof(items[1])
 local byId: { [string]: Item } = {}
 for index, item in items do
 	item.artIndex = index - 1
@@ -35,6 +44,9 @@ return {
 	build = function(ctx: ExampleContext)
 		local UI, Host, C = ctx.UI, ctx.Host, ctx.Compose
 		local V3, C3, E, D2 = ctx.types.Vector3, ctx.types.Color3, ctx.types.Enum, ctx.types.UDim2
+		local function paint(color: { number }): Color3
+			return C3.fromRGB(color[1], color[2], color[3])
+		end
 		local view = makeView(ctx)
 		local outfit: { [string]: string } = { coat = "traveler", boots = "boots", tool = "sword" }
 		local entries: { Entry } = {}
@@ -118,7 +130,7 @@ return {
 				return Host.Model "ExplorerModel" {
 					view.part("Snow", V3.new(6, 0.2, 5), V3.new(0, -0.1, 0), C3.fromRGB(208, 224, 232)),
 					view.part("Coat", V3.new(1.9, 2.1, 1), V3.new(0, 2.3, 0), function(use: Use)
-						return C3.fromRGB(table.unpack(byId[use(equipped).coat].color))
+						return paint(byId[use(equipped).coat].color)
 					end),
 					view.part(
 						"Head",
@@ -128,19 +140,20 @@ return {
 						{ Shape = E.PartType.Ball }
 					),
 					view.part("LeftBoot", V3.new(0.8, 1.3, 1.2), V3.new(-0.55, 0.65, 0.15), function(use: Use)
-						return C3.fromRGB(table.unpack(byId[use(equipped).boots].color))
+						return paint(byId[use(equipped).boots].color)
 					end),
 					view.part("RightBoot", V3.new(0.8, 1.3, 1.2), V3.new(0.55, 0.65, 0.15), function(use: Use)
-						return C3.fromRGB(table.unpack(byId[use(equipped).boots].color))
+						return paint(byId[use(equipped).boots].color)
 					end),
 					view.part("Tool", V3.new(0.35, 2.8, 0.35), V3.new(1.4, 2.2, 0), function(use: Use)
-						return C3.fromRGB(table.unpack(byId[use(equipped).tool].color))
+						return paint(byId[use(equipped).tool].color)
 					end),
 				}
 			end, ctx.types.CFrame.lookAt(V3.new(7, 5, 9), V3.new(0, 2, 0)), 240)
 		end
 		local function equipmentArt(item: Item, maximum: number?)
 			local cap = if maximum then UI.environment().scaled(maximum) else nil
+			local artIndex = item.artIndex or 0
 			return UI.Image "EquipmentArt" {
 				image = art.equipment,
 				AnchorPoint = ctx.types.Vector2.new(0.5, 0.5),
@@ -148,7 +161,7 @@ return {
 				scaleMode = "fit",
 				Size = D2.fromScale(1, 1),
 				ImageRectSize = ctx.types.Vector2.new(256, 256),
-				ImageRectOffset = ctx.types.Vector2.new(item.artIndex % 4 * 256, math.floor(item.artIndex / 4) * 256),
+				ImageRectOffset = ctx.types.Vector2.new(artIndex % 4 * 256, math.floor(artIndex / 4) * 256),
 				if cap
 					then Host.UISizeConstraint {
 						MaxSize = function(use: Use)
@@ -299,12 +312,15 @@ return {
 							UI.HStack({
 								width = "fill",
 								gap = "s",
-								UI.TextInput "SearchEquipment"({
-									presentation = "search",
-									value = query,
-									placeholder = "Find equipment…",
-									UI.fill(),
-								} :: TextInputProps) :: Child,
+								UI.TextInput(
+									{
+										presentation = searchPresentation,
+										value = query,
+										placeholder = "Find equipment…",
+										UI.fill(),
+									} :: TextInputProps,
+									"SearchEquipment"
+								) :: Child,
 								view.button("EquipmentFilters", function(use: Use)
 									local selected = use(filter)
 									for _, category in categories do
@@ -337,8 +353,8 @@ return {
 									return math.max(1, math.floor(use(measuredWidth) / use(columnWidth)))
 								end,
 								Size = D2.fromScale(1, 1),
-								UI.fill(),
 								ref = function(node: ScrollingFrame)
+									UI.fill().Parent = node
 									view.observeWidth(measuredWidth, node)
 								end,
 								recycle = false,
@@ -428,7 +444,7 @@ return {
 			)
 		end
 		belt = function()
-			local slots = {}
+			local slots: { Instance } = {}
 			for slot = 1, 3 do
 				local target = view.button("Slot" .. slot, function(use: Use)
 					return `{slot} · {byId[use(hotbar)[slot]].name}`
@@ -437,7 +453,7 @@ return {
 				end)
 				UI.dropTarget(target, {
 					accepts = function(payload: unknown)
-						return toolOf[payload] ~= nil
+						return toolOf[payload] ~= nil, nil
 					end,
 					onDrop = function(payload: unknown)
 						local id = toolOf[payload]

@@ -7,6 +7,7 @@ return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
+	local Facet = require("../src")
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
 	local datatypes = require("./lib/native_engine").types
@@ -33,7 +34,7 @@ return function(verifyHarness: Verify.Harness)
 		local function helped(): (any, { number })
 			local count = { 0 }
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({
+				return Host.Frame {
 					Name = "Screen",
 					UI.Button "Post" {
 						label = "Post",
@@ -42,7 +43,7 @@ return function(verifyHarness: Verify.Harness)
 							count[1] += 1
 						end,
 					},
-				})
+				}
 			end, { motionLevel = "none" })
 			place(w.find("Post"), w.engine.environment)
 			return w, count
@@ -86,7 +87,7 @@ return function(verifyHarness: Verify.Harness)
 	verifyHarness:suite("full-value disclosure of truncated text", function()
 		local function label(spec: { [any]: any }): any
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({ Name = "Screen", UI.Text "Name"(spec) })
+				return Host.Frame { Name = "Screen", UI.Text "Name"(spec) }
 			end, { motionLevel = "none" })
 			place(w.find("Name"), w.engine.environment)
 			return w
@@ -120,13 +121,13 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_overlay_reach::full-value disclosure of truncated text::a keyboard or gamepad selection on the row that holds the label discloses it",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
+					return Host.Frame {
 						Name = "Screen",
 						UI.Button "Row" {
 							label = "",
-							UI.Text "Name"({ text = LONG, truncate = "end" :: "end", disclose = true }),
+							UI.Text "Name" { text = LONG, truncate = "end" :: "end", disclose = true },
 						},
-					})
+					}
 				end, { motionLevel = "none" })
 				place(w.find("Name"), w.engine.environment)
 				w.engine.environment.poke(w.find("Name"), "TextFits", false)
@@ -142,10 +143,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_overlay_reach::full-value disclosure of truncated text::a truncated Button label outranks its help on the same engagement",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
+					return Host.Frame {
 						Name = "Screen",
 						UI.Button "Post" { label = LONG, disclose = true, help = "Posts it" },
-					})
+					}
 				end, { motionLevel = "none" })
 				local post = w.find("Post")
 				place(post, w.engine.environment)
@@ -177,7 +178,7 @@ return function(verifyHarness: Verify.Harness)
 						{ { disclose = true }, { disclose = true, hint = "Shown on the HUD" }, {} } :: { { disclose: boolean?, hint: string? } }
 					do
 						local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-							return Host.Frame({
+							return Host.Frame {
 								Name = "Screen",
 								UI.Toggle "Music" {
 									label = LONG,
@@ -185,7 +186,7 @@ return function(verifyHarness: Verify.Harness)
 									disclose = case.disclose,
 									hint = case.hint,
 								},
-							})
+							}
 						end, { motionLevel = "none" })
 						local music = w.find("Music")
 						place(music, w.engine.environment)
@@ -211,11 +212,11 @@ return function(verifyHarness: Verify.Harness)
 	verifyHarness:suite("auto reveal of truncated text (restored from 0.11)", function()
 		local function revealing(count: number, reduced: boolean): any
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				local children: { any } = {}
+				local children: { Facet.Child } = {}
 				for index = 1, count do
-					table.insert(children, UI.Text("Name" .. index)({ text = LONG, reveal = "auto" :: "auto" }))
+					table.insert(children, UI.Text("Name" .. index)({ text = LONG, reveal = "auto" }))
 				end
-				return Host.Frame({ Name = "Screen", table.unpack((children :: unknown) :: { unknown }) })
+				return Host.Frame { Name = "Screen", table.unpack(children) }
 			end, { motionLevel = if reduced then "none" else "normal" })
 			for index = 1, count do
 				local name = w.find("Name" .. index)

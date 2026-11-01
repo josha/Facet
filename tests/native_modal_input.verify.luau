@@ -9,7 +9,12 @@ return function(verifyHarness: Verify.Harness)
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
 
-	local function dialog(UI: any, Host: any, name: string, open: any): any
+	local function dialog(
+		UI: FacetControls,
+		Host: RobloxHost,
+		name: string,
+		open: typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+	): GuiObject
 		return UI.Dialog(name)({
 			isPresented = open,
 			onPresentedChange = function(value: boolean)
@@ -61,7 +66,7 @@ return function(verifyHarness: Verify.Harness)
 					local open, detail = Compose.cell(false), Compose.cell(false)
 					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, engine)
 						return Host.Frame {
-							UI.Button "Opener" { label = "Open" } :: unknown,
+							UI.Button "Opener" { label = "Open" },
 							UI.Sheet {
 								isPresented = open,
 								title = "Equipment",
@@ -118,7 +123,7 @@ return function(verifyHarness: Verify.Harness)
 						placement = "center",
 						content = function()
 							return Host.Frame {
-								Host.Frame "Branch" { UI.Button "Inspect" { label = "Inspect" } } :: unknown,
+								Host.Frame "Branch" { UI.Button "Inspect" { label = "Inspect" } },
 								UI.Button "Equip" { label = "Equip" },
 							}
 						end,
@@ -228,7 +233,7 @@ return function(verifyHarness: Verify.Harness)
 				local open, child, detail = Compose.cell(false), Compose.cell(false), Compose.cell(false)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, engine)
 					return Host.Frame {
-						UI.Button "Opener" { label = "Open" } :: unknown,
+						UI.Button "Opener" { label = "Open" },
 						UI.Sheet {
 							isPresented = open,
 							title = "Equipment",
@@ -245,7 +250,7 @@ return function(verifyHarness: Verify.Harness)
 										return control
 									end, function()
 										return UI.Button "Inspect" { label = "Inspect" }
-									end) :: unknown,
+									end),
 									UI.Sheet {
 										isPresented = child,
 										title = "Details",
@@ -318,8 +323,8 @@ return function(verifyHarness: Verify.Harness)
 				return "none"
 			end
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				local hud = Host.ScreenGui({
-					UI.Button "Map" { label = "Map" } :: unknown,
+				local hud = Host.ScreenGui {
+					UI.Button "Map" { label = "Map" },
 					UI.Dialog {
 						isPresented = open,
 						title = "Shop",
@@ -328,7 +333,7 @@ return function(verifyHarness: Verify.Harness)
 							return Host.Frame { UI.Button "Buy" { label = "Buy" } }
 						end,
 					},
-				})
+				}
 				local responder = UI.responder(hud)
 				resign = responder.resign
 				state = function(): string
@@ -351,7 +356,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("outside dismissal accepts pointer input while gamepad remains preferred", function()
 			local open = Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({ dialog(UI, Host, "About", open) })
+				return Host.Frame { dialog(UI, Host, "About", open) }
 			end)
 			w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 			open:set(true)
@@ -369,10 +374,10 @@ return function(verifyHarness: Verify.Harness)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				local children: { Instance } = {}
 				for index = 1, 200 do
-					table.insert(children, Host.TextButton({ Name = `Outside{index}`, Selectable = true }))
+					table.insert(children, Host.TextButton { Name = `Outside{index}`, Selectable = true })
 				end
 				table.insert(children, dialog(UI, Host, "Many controls", open))
-				return Host.Frame({ table.unpack(children) })
+				return Host.Frame { table.unpack(children) }
 			end, { motionLevel = "none" })
 			local walks, writes = 0, 0
 			local descendants = w.screen.GetDescendants
@@ -426,12 +431,12 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("nested modal leases restore each outside control's values", function()
 			local outer, inner = Compose.cell(false), Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({
+				return Host.Frame {
 					Host.TextButton "Enabled" { Interactable = true, Selectable = true },
 					Host.TextButton "Disabled" { Interactable = false, Selectable = false },
 					dialog(UI, Host, "Outer", outer),
 					dialog(UI, Host, "Inner", inner),
-				})
+				}
 			end, { motionLevel = "none" })
 			local enabled, disabled = w.find("Enabled"), w.find("Disabled")
 			outer:set(true)
@@ -459,10 +464,10 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("a deferred change signal for the modal's own write keeps the prior values", function()
 			local open = Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({
+				return Host.Frame {
 					Host.TextButton "Outside" { Interactable = true, Selectable = true },
 					dialog(UI, Host, "Deferred", open),
-				})
+				}
 			end, { motionLevel = "none" })
 			local button = w.find("Outside")
 			open:set(true)
@@ -477,11 +482,11 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("moving a leased control into the top modal releases every nested owner", function()
 			local outer, inner = Compose.cell(false), Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({
+				return Host.Frame {
 					Host.TextButton "Move" { Interactable = true, Selectable = true },
 					dialog(UI, Host, "Outer", outer),
 					dialog(UI, Host, "Inner", inner),
-				})
+				}
 			end, { motionLevel = "none" })
 			local button = w.find("Move")
 			local parent = button.Parent
@@ -506,9 +511,9 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("portal leases follow the anchor across modal ancestry changes", function()
 			local open = Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({
+				return Host.Frame {
 					Host.Frame "Outside" {},
-					UI.Dialog({
+					UI.Dialog {
 						isPresented = open,
 						onPresentedChange = function(value: boolean)
 							open:set(value)
@@ -516,20 +521,20 @@ return function(verifyHarness: Verify.Harness)
 						title = "Portal",
 						content = function(): Instance
 							local anchor = Host.TextButton "PortalAnchor" { Selectable = true }
-							return Host.Frame({
+							return Host.Frame {
 								anchor :: Instance,
-								UI.Callout({
+								UI.Callout {
 									anchor = anchor,
 									isPresented = true,
 									content = function(): Instance
 										return Host.TextButton "PortalAction" { Selectable = true }
 									end,
 									onRetire = function() end,
-								}),
-							})
+								},
+							}
 						end,
-					}),
-				})
+					},
+				}
 			end, { motionLevel = "none" })
 			open:set(true)
 			local anchor, action = w.find("PortalAnchor"), w.find("PortalAction")
@@ -551,7 +556,7 @@ return function(verifyHarness: Verify.Harness)
 				local outer, inner = Compose.cell(false), Compose.cell(false)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _engine, gui)
 					gui.TouchControlsEnabled = enabled
-					return Host.Frame({ dialog(UI, Host, "Outer", outer), dialog(UI, Host, "Inner", inner) })
+					return Host.Frame { dialog(UI, Host, "Outer", outer), dialog(UI, Host, "Inner", inner) }
 				end, { motionLevel = "none" })
 				outer:set(true)
 				Verify.expect(w.gui.TouchControlsEnabled):toBe(false)
@@ -570,7 +575,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local open = Compose.cell(true)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({ dialog(UI, Host, "About", open) })
+					return Host.Frame { dialog(UI, Host, "About", open) }
 				end)
 				local modal = modalOf(w, "About")
 				Verify.expect(modal.Active):toBe(true)
@@ -591,7 +596,7 @@ return function(verifyHarness: Verify.Harness)
 					gui.GetGuiInset = function()
 						return near, far
 					end
-					return Host.Frame({ dialog(UI, Host, "About", open) })
+					return Host.Frame { dialog(UI, Host, "About", open) }
 				end)
 				w.screen.ScreenInsets = w.Enum.ScreenInsets.CoreUISafeInsets
 				w.screen.IgnoreGuiInset = false

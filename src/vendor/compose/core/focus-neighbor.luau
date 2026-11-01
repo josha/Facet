@@ -1,14 +1,14 @@
 --!strict
 
-local FocusTypes = require "./focus-types"
+local CoreTypes = require "./types"
 local FocusScope = require "./focus-scope"
 local Diagnostics = require "./diagnostics"
 
-export type FocusRect = FocusTypes.FocusRect
+export type FocusRect = CoreTypes.FocusRect
 
 local function focusNeighbor(from: FocusRect, candidates: { FocusRect }, direction: FocusScope.Direction): number?
 	if direction ~= "left" and direction ~= "right" and direction ~= "up" and direction ~= "down" then
-		Diagnostics.raise("focus-neighbor/unknown-direction", "focusNeighbor needs a known direction", {
+		return Diagnostics.raise("focus-neighbor/unknown-direction", "focusNeighbor needs a known direction", {
 			expected = '"left", "right", "up", or "down"',
 		})
 	end

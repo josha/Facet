@@ -4,7 +4,7 @@
 local createChosenIndices: (number, number?) -> { number } = table.create
 local createStates: (number, Representation?) -> { Representation } = table.create
 
-local StructureTypes = require "./types"
+local CoreTypes = require "../types"
 local Children = require "../runtime/children"
 local Admission = require "../collection/admission"
 local Diagnostics = require "../diagnostics"
@@ -16,17 +16,17 @@ local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 local retain = require "../collection/retain"
 
-export type Tier = StructureTypes.SpatialCollectionTier
+export type Tier = CoreTypes.SpatialCollectionTier
 
-export type Point = StructureTypes.SpatialCollectionPoint
+export type Point = CoreTypes.SpatialCollectionPoint
 
-export type Representation = StructureTypes.Representation
+export type Representation = CoreTypes.Representation
 
-export type Budget = StructureTypes.SpatialCollectionBudget
+export type Budget = CoreTypes.SpatialCollectionBudget
 
-export type Status = StructureTypes.SpatialCollectionStatus
+export type Status = CoreTypes.SpatialCollectionStatus
 
-export type Options<V, K> = StructureTypes.SpatialCollectionOptions<V, K>
+export type Options<V, K> = CoreTypes.SpatialCollectionOptions<V, K>
 
 local KNOWN_FIELDS: { [string]: true } = {
 	from = true,
@@ -55,7 +55,7 @@ local function numberOr(value: unknown, fallback: number): number
 	return fallback
 end
 
-local identity = require("../reactive/node").identityKey
+local identity = require("../reactive/graph").identityKey
 
 local function spatialCollection<V, K>(options: Options<V, K>): Children.Directive
 	local settings = Support.optionsOf(
@@ -72,7 +72,7 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 
 	local tiers = settings.tiers
 	if type(tiers) ~= "table" then
-		Diagnostics.raise("collection/no-tiers", "SpatialCollection was given no tier list", {
+		return Diagnostics.raise("collection/no-tiers", "SpatialCollection was given no tier list", {
 			primitive = "SpatialCollection",
 			actual = Diagnostics.describe(tiers),
 			expected = '{ { name = "full", radius = 100 }, ... }',

@@ -3,17 +3,20 @@
 local Active = require "../ownership/active"
 local Diagnostics = require "../diagnostics"
 local Owner = require "../ownership/owner"
+local CoreTypes = require "../types"
 
 export type Factory<T> = () -> (T, (() -> ())?)
 
-type State = {
-	factory: Factory<unknown>,
+export type Acquire<T> = CoreTypes.AcquireSharedResource<T>
+
+type State<T> = {
+	factory: Factory<T>,
 	references: number,
-	value: unknown,
+	value: { value: T }?,
 	lifetime: Owner.Owner?,
 }
 
-local function release(state: State)
+local function release<T>(state: State<T>)
 	state.references -= 1
 	if state.references > 0 then
 		return
@@ -26,11 +29,7 @@ local function release(state: State)
 	end
 end
 
-local function releaseHeld(subject: unknown)
-	release(subject :: State)
-end
-
-local function take(state: State): unknown
+local function take<T>(state: State<T>): T
 	if state.lifetime == nil then
 		local scope = Owner.createOwner()
 		local ok, result, dispose = pcall(Active.withOwner, scope, state.factory)
@@ -41,22 +40,23 @@ local function take(state: State): unknown
 		if dispose ~= nil then
 			Owner.own(scope, dispose)
 		end
-		state.value = result
+		state.value = { value = result }
 		state.lifetime = scope
 	end
 	state.references += 1
-	return state.value
+	return assert(state.value).value
 end
 
-local function acquireOwned(state: State): unknown
+local function acquireOwned<T>(state: State<T>, releaseHeld: (unknown) -> ()): T
 	local owner = Active.current()
 	if owner == nil then
-		error(
-			Diagnostics.format("async/shared-no-owner", "a shared resource was acquired with no owner to release it", {
+		return Diagnostics.raise(
+			"async/shared-no-owner",
+			"a shared resource was acquired with no owner to release it",
+			{
 				contract = "a reference is released when the owner that took it is disposed",
 				fix = "acquire it inside a component, inside Compose.withOwner(owner, ...), or use its `detached` form and release it yourself",
-			}),
-			0
+			}
 		)
 	end
 	local result = take(state)
@@ -64,32 +64,26 @@ local function acquireOwned(state: State): unknown
 	return result
 end
 
-local Acquire = {
-	__call = function(self: unknown): unknown
-		return acquireOwned((self :: { state: State }).state)
-	end,
-}
-
-local function createSharedResource<T>(factory: Factory<T>)
+local function createSharedResource<T>(factory: Factory<T>): Acquire<T>
 	if type(factory) ~= "function" then
-		error(
-			Diagnostics.format("async/shared-needs-a-factory", "createSharedResource expects a factory function", {
-				actual = Diagnostics.describe(factory),
-				expected = "function() return value, teardown end",
-			}),
-			0
-		)
+		return Diagnostics.raise("async/shared-needs-a-factory", "createSharedResource expects a factory function", {
+			actual = Diagnostics.describe(factory),
+			expected = "function() return value, teardown end",
+		})
 	end
-	local state: State = {
-		factory = (factory :: unknown) :: Factory<unknown>,
+	local state: State<T> = {
+		factory = factory,
 		references = 0,
 		value = nil,
 		lifetime = nil,
 	}
+	local function releaseHeld(_subject: unknown)
+		release(state)
+	end
 	local acquire = setmetatable({
 		state = state,
 		detached = function(): (T, () -> ())
-			local value = take(state) :: T
+			local value = take(state)
 			local released = false
 			return value,
 				function()
@@ -100,12 +94,12 @@ local function createSharedResource<T>(factory: Factory<T>)
 					release(state)
 				end
 		end,
-	}, (Acquire :: unknown) :: { __call: (unknown) -> T })
+	}, {
+		__call = function(_self: unknown): T
+			return acquireOwned(state, releaseHeld)
+		end,
+	})
 	return acquire
 end
-
-export type Acquire<T> = typeof(createSharedResource(function(): (T, (() -> ())?)
-	error("unreachable", 0)
-end))
 
 return createSharedResource

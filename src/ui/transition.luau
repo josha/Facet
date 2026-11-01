@@ -2,7 +2,7 @@
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local motion = require("./motion")
-local completions = setmetatable({} :: { [Nav.PresencePhase]: Types.ReadOnlyValue<boolean> }, { __mode = "k" })
+local completions: { [Nav.PresencePhase]: Types.ReadOnlyValue<boolean> } = setmetatable({}, { __mode = "k" })
 
 export type Motion = {
 	progress: Types.ReadOnlyValue<number>,
@@ -29,6 +29,7 @@ local function paced(
 	local value: Types.Value<number> = C.cell(0)
 	local from, goal, elapsed, length = 0, 0, 0, 1
 	local started, spiking = false, false
+	local previousFrame = if steady then frames.now() else 0
 	local stop: (() -> ())? = nil
 	local function halt()
 		local current = stop
@@ -38,6 +39,13 @@ local function paced(
 		end
 	end
 	local function advance(delta: number)
+		if steady then
+			local now = frames.now()
+			if now > previousFrame then
+				delta = math.min(delta, now - previousFrame)
+			end
+			previousFrame = now
+		end
 		local limit = ctx.metric("motion.frameLimit")
 		local step = if (spiking or steady) and limit > 0 then math.min(delta, limit) else delta
 		spiking = false
@@ -60,6 +68,7 @@ local function paced(
 			return
 		end
 		from, goal, elapsed, length, spiking = value:peek(), wanted, 0, seconds(nil), true
+		previousFrame = if steady then frames.now() else 0
 		assert(length > 0 and length < math.huge, "Facet transition seconds must be positive and finite")
 		if stop == nil then
 			stop = frames.onFrame(advance)
@@ -73,8 +82,9 @@ local function check(spec: Nav.Transition | false?)
 	if spec == nil or spec == false then
 		return
 	end
-	assert(type(spec) == "table", "Facet transition must be a table or false")
-	for key in spec do
+	local options: unknown = spec
+	assert(type(options) == "table", "Facet transition must be a table or false")
+	for key in options do
 		assert(
 			table.find({ "seconds", "ease", "motion", "fade", "progress", "apply", "scale", "zoom" }, tostring(key)),
 			"Unknown Facet transition option: " .. tostring(key)
@@ -145,7 +155,7 @@ local function create(
 				return ctx.metric("motion.reducedFade", use)
 			end
 			return if spec.seconds ~= nil
-				then ctx.read(spec.seconds, use)
+				then ctx.read<<number>>(spec.seconds, use)
 				else ctx.metric("motion.durations." .. preset, use)
 		end,
 		spec.ease or if shaped then C.easing.linear else ctx.motionEase("fade")

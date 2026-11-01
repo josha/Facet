@@ -1,15 +1,13 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 local makeView = require("./showcase_view")
 local rules = require("./outpost_terminal/rules")
 return {
 	title = "Outpost",
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Host, C = ctx.UI, ctx.Host, ctx.Compose
 		local V3, V2, CF, C3, E, D2 =
 			ctx.types.Vector3, ctx.types.Vector2, ctx.types.CFrame, ctx.types.Color3, ctx.types.Enum, ctx.types.UDim2
@@ -77,7 +75,9 @@ return {
 			table.insert(
 				children,
 				view.actions({
-					view.button("ApplyPower", "Apply power", apply, function(use: Use)
+					view.button("ApplyPower", "Apply power", function()
+						apply()
+					end, function(use: Use)
 						return use(verdict).ok
 					end),
 					view.button("ResetPower", "Reset", reset),
@@ -129,15 +129,24 @@ return {
 			}
 		end
 		local function world()
-			local target = ctx.worldTarget
-			local camera: Camera? = nil
-			if target and target:IsA("Workspace") then
-				camera = target.CurrentCamera
-			end
-			local oldFrame, oldType, oldFov, oldFovMode, oldFocus
+			local target = assert(ctx.worldTarget)
+			local camera = if target:IsA("Workspace") then target.CurrentCamera else nil
+			local saved: {
+				frame: CFrame,
+				kind: Enum.CameraType,
+				fov: number,
+				mode: Enum.FieldOfViewMode,
+				focus: CFrame,
+			}? =
+				nil
 			if camera then
-				oldFrame, oldType, oldFov, oldFovMode, oldFocus =
-					camera.CFrame, camera.CameraType, camera.FieldOfView, camera.FieldOfViewMode, camera.Focus
+				saved = {
+					frame = camera.CFrame,
+					kind = camera.CameraType,
+					fov = camera.FieldOfView,
+					mode = camera.FieldOfViewMode,
+					focus = camera.Focus,
+				}
 				camera.CameraType = E.CameraType.Scriptable
 				camera.FieldOfViewMode = E.FieldOfViewMode.Vertical
 				camera.FieldOfView = 55
@@ -146,12 +155,12 @@ return {
 				ctx.sceneVisible:set(true)
 			end
 			C.cleanup(function()
-				if camera then
-					camera.CFrame = oldFrame
-					camera.CameraType = oldType
-					camera.FieldOfView = oldFov
-					camera.FieldOfViewMode = oldFovMode
-					camera.Focus = oldFocus
+				if camera and saved then
+					camera.CFrame = saved.frame
+					camera.CameraType = saved.kind
+					camera.FieldOfView = saved.fov
+					camera.FieldOfViewMode = saved.mode
+					camera.Focus = saved.focus
 				end
 				if ctx.sceneVisible then
 					ctx.sceneVisible:set(false)
@@ -159,7 +168,7 @@ return {
 			end)
 			local stop = ctx.runtime.mount(function()
 				return model(6000)
-			end, ctx.worldTarget)
+			end, target)
 			C.cleanup(stop)
 			local canvas = C.cell(V2.new(720, 520))
 			local bounds = C.cell({ at = V2.zero, size = V2.zero })
@@ -179,9 +188,10 @@ return {
 			end
 			measure()
 			if camera then
-				local viewport = C.cell(camera.ViewportSize)
-				local connection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-					viewport:set(camera.ViewportSize)
+				local live = camera
+				local viewport = C.cell(live.ViewportSize)
+				local connection = live:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+					viewport:set(live.ViewportSize)
 				end)
 				C.cleanup(function()
 					connection:Disconnect()
@@ -198,17 +208,17 @@ return {
 					local layer = terminalBounds:FindFirstAncestorWhichIsA("ScreenGui")
 					local function slope(point: Vector2)
 						local ray = if layer and layer.IgnoreGuiInset
-							then camera:ViewportPointToRay(point.X, point.Y)
-							else camera:ScreenPointToRay(point.X, point.Y)
-						local direction = camera.CFrame:VectorToObjectSpace(ray.Direction)
+							then live:ViewportPointToRay(point.X, point.Y)
+							else live:ScreenPointToRay(point.X, point.Y)
+						local direction = live.CFrame:VectorToObjectSpace(ray.Direction)
 						return V2.new(direction.X / -direction.Z, direction.Y / -direction.Z)
 					end
 					local first, last = slope(rectangle.at), slope(rectangle.at + rectangle.size)
 					local distance = math.max(size.X / (last.X - first.X), size.Y / (first.Y - last.Y)) * 1.02 / 100
 					local middle = slope(rectangle.at + rectangle.size / 2)
 					local from = V3.new(middle.X * distance, 6003 - middle.Y * distance, -1.175 - distance)
-					camera.CFrame = CF.new(from) * CF.Angles(0, math.pi, 0)
-					camera.Focus = CF.new(0, 6003, -1)
+					live.CFrame = CF.new(from) * CF.Angles(0, math.pi, 0)
+					live.Focus = CF.new(0, 6003, -1)
 				end)
 			end
 			local stopConsole, console = ctx.runtime.mount(function()
@@ -216,7 +226,7 @@ return {
 					local size = use(canvas)
 					return V3.new(size.X / 100, size.Y / 100, 0.35)
 				end, V3.new(0, 6003, -1), C3.fromRGB(28, 39, 54))
-			end, ctx.worldTarget)
+			end, target)
 			C.cleanup(stopConsole)
 			local stopSurface = ctx.runtime.mount(function()
 				local style =
@@ -244,7 +254,7 @@ return {
 						},
 					},
 				}
-			end, ctx.inputTarget)
+			end, assert(ctx.inputTarget))
 			C.cleanup(stopSurface)
 			return UI.VStack "WorldView" {
 				width = "fill",

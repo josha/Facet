@@ -33,7 +33,7 @@ return function<V, K>(
 	unitScale: ComposeTypes.ReadOnlyValue<number>
 ): Columns<V, K>
 	local Compose, Host = ctx.Compose, ctx.Host
-	local read = ctx.read
+	local readColumns = ctx.read<<{ CollectionTypes.TableColumn<V, K> }>>
 	local readSource = ctx.readSource
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local viewportWidth = Compose.cell(0)
@@ -84,7 +84,7 @@ return function<V, K>(
 		return column.minWidth or 48
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
-		local columns = read(spec.columns, use)
+		local columns = readColumns(spec.columns, use)
 		local primary = columns[1]
 		local style = typography(use(font), use(points), use(unitScale))
 		local padding = metrics.textInsets:FindFirstChildWhichIsA("UIPadding")
@@ -118,7 +118,7 @@ return function<V, K>(
 		return math.clamp(width, minimumOf(column), column.maxWidth or 1000000)
 	end
 	local collapsed = Compose.formula(function(use: ComposeTypes.Use)
-		local columns, offer, resized = read(spec.columns, use), use(viewportWidth), readSource(widths, use)
+		local columns, offer, resized = readColumns(spec.columns, use), use(viewportWidth), readSource(widths, use)
 		local hidden: { [string]: boolean } = {}
 		local candidates: { { id: string, width: number, priority: number } } = {}
 		local needed = 0
@@ -132,7 +132,7 @@ return function<V, K>(
 				table.insert(candidates, { id = column.id, width = width, priority = column.priority })
 			end
 		end
-		table.sort(candidates, function(a, b)
+		table.sort(candidates, function(a: { priority: number }, b: { priority: number }): boolean
 			return a.priority > b.priority
 		end)
 		if offer > 0 then
@@ -180,7 +180,7 @@ return function<V, K>(
 			return 0
 		end
 		local hidden, resized, flexible = use(collapsed), readSource(widths, use), 0
-		for _, column in read(spec.columns, use) do
+		for _, column in readColumns(spec.columns, use) do
 			if not hidden[column.id] and resized[column.id] == nil and column.width == nil then
 				flexible += 1
 			end
@@ -189,7 +189,7 @@ return function<V, K>(
 	end)
 	local narrowest = Compose.formula(function(use: ComposeTypes.Use): number
 		local hidden, resized, total = use(collapsed), readSource(widths, use), 0
-		for _, column in read(spec.columns, use) do
+		for _, column in readColumns(spec.columns, use) do
 			if not hidden[column.id] then
 				total += boundedWidth(column, resized[column.id] or column.width or minimumOf(column))
 			end
@@ -238,7 +238,8 @@ return function<V, K>(
 		end
 		local result: { [string]: number } = {}
 		local flexible: { CollectionTypes.TableColumn<V, K> } = {}
-		local lower, columns, hidden, resized = 0, read(spec.columns, use), use(collapsed), readSource(widths, use)
+		local lower, columns, hidden, resized =
+			0, readColumns(spec.columns, use), use(collapsed), readSource(widths, use)
 		for _, column in columns do
 			if not hidden[column.id] then
 				local fixed = resized[column.id] or column.width
@@ -319,7 +320,7 @@ return function<V, K>(
 			Size = function(use: ComposeTypes.Use)
 				return D2.new(0, use(widthsOf(use(current).id).allocated) or columnWidth(current, use) or 0, 1, 0)
 			end,
-			Host.UISizeConstraint({
+			Host.UISizeConstraint {
 				MinSize = function(use: ComposeTypes.Use)
 					return V2.new(minimumOf(use(current)), 0)
 				end,
@@ -329,12 +330,12 @@ return function<V, K>(
 						1000000
 					)
 				end,
-			}) :: ComposeTypes.Child,
-			Host.UIFlexItem({
+			},
+			Host.UIFlexItem {
 				FlexMode = function(use: ComposeTypes.Use)
 					return if columnWidth(current, use) == nil then E.UIFlexMode.Fill else E.UIFlexMode.None
 				end,
-			}),
+			},
 			content,
 			extra,
 			more,

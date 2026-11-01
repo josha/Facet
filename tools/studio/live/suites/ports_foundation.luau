@@ -3,7 +3,9 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type ButtonProps = typeof(require("@repo/tools/typecheck/aliases").ButtonProps)
+type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
@@ -237,14 +239,14 @@ interactive(
 			return Host.Frame "Board" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				UI.Menu({
+				UI.Menu {
 					Name = "Options",
 					label = "Options",
 					items = { item("a", "Alpha"), item("b", "Beta"), item("c", "Gamma") },
 					isPresented = value.open,
 					Position = UDim2.fromOffset(120, 80),
-				}) :: unknown,
-				UI.Picker({
+				},
+				UI.Picker {
 					Name = "Speed",
 					style = "menu" :: "menu",
 					selected = Compose.cell("normal"),
@@ -255,7 +257,7 @@ interactive(
 					},
 					Position = UDim2.fromOffset(480, 80),
 					Size = UDim2.fromOffset(200, 44),
-				}),
+				},
 			}
 		end, { theme = dense, size = Vector2.new(800, 600), frames = 20 })
 		value.stage = stage
@@ -344,7 +346,7 @@ local function startPicker(t: any, size: Vector2): any
 					controlSize = "compact" :: "compact",
 					options = OPTIONS,
 					selected = Compose.cell("normal"),
-				} :: unknown,
+				},
 				UI.Button "Reset" { label = "Reset" },
 			},
 		}
@@ -636,7 +638,7 @@ add("selection-marks", {}, function(t: any)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return UI.VStack "Board" {
 			gap = "s",
-			UI.Chip "Pick" { label = "Pick", selected = Compose.cell(true) } :: unknown,
+			UI.Chip "Pick" { label = "Pick", selected = Compose.cell(true) },
 			UI.Toggle "Check" {
 				label = "Check",
 				presentation = "checkbox" :: "checkbox",
@@ -753,7 +755,7 @@ interactive(
 					appearance = "link" :: "link",
 					underline = "hover" :: "hover",
 					Position = UDim2.fromOffset(200, 200),
-				} :: unknown,
+				},
 				UI.Button "Always" {
 					label = "Terms",
 					appearance = "link" :: "link",
@@ -842,7 +844,7 @@ interactive(
 		t.note("points", { value.DarkPoint, value.LightPoint })
 		return value
 	end,
-	(function()
+	(function(): { [string]: (any, any) -> () }
 		local function stateCheck(name: string, state: Enum.GuiState, label: string)
 			return function(t: any, value: any)
 				local button = value.buttons[name]
@@ -880,7 +882,7 @@ add("strong-divider-and-pane", {}, function(t: any)
 		return Host.Frame "Board" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
-			hairline :: unknown,
+			hairline,
 			strong,
 			pane,
 		}
@@ -917,7 +919,7 @@ add("dim-disabled-plates", {}, function(t: any)
 	desktop(t)
 	local package = authored(t, "Dim", { dimDisabledPlates = true })
 	local colors = package.style.themes[1].colors
-	local looks = {
+	local looks: { { name: string, props: ButtonProps } } = {
 		{ name = "Standard", props = {} },
 		{ name = "Emphasis", props = { appearance = "emphasis" } },
 		{ name = "Soft", props = { appearance = "soft" } },
@@ -925,29 +927,27 @@ add("dim-disabled-plates", {}, function(t: any)
 		{ name = "Destructive", props = { role = "destructive" :: "destructive" } },
 	}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-		local rows = { Name = "Board", gap = "s" }
+		local rows: StackProps = { Name = "Board", gap = "s" }
 		for _, look in looks do
 			for _, on in { true, false } do
-				local props = table.clone(look.props)
-				props.Name = look.name .. (if on then "On" else "Off")
-				props.label = look.name
-				props.enabled = on
-				table.insert(rows, UI.Button(props))
+				local props: ButtonProps = {
+					Name = look.name .. (if on then "On" else "Off"),
+					label = look.name,
+					enabled = on,
+					appearance = look.props.appearance,
+					role = look.props.role,
+				}
+				rows[#rows + 1] = UI.Button(props)
 			end
 		end
-		table.insert(
-			rows,
+		rows[#rows + 1] =
 			UI.Toggle "BoxOn" { label = "Box", presentation = "checkbox" :: "checkbox", value = Compose.cell(true) }
-		)
-		table.insert(
-			rows,
-			UI.Toggle "BoxOff" {
-				label = "Box",
-				presentation = "checkbox" :: "checkbox",
-				value = Compose.cell(true),
-				enabled = false,
-			}
-		)
+		rows[#rows + 1] = UI.Toggle "BoxOff" {
+			label = "Box",
+			presentation = "checkbox" :: "checkbox",
+			value = Compose.cell(true),
+			enabled = false,
+		}
 		return UI.VStack(rows)
 	end, { theme = package, size = Vector2.new(800, 900), frames = 30 })
 	local page = toColor(colors.surface)
@@ -1005,7 +1005,7 @@ interactive(
 					onActivate = function()
 						value.clicks += 1
 					end,
-				} :: unknown,
+				},
 				UI.Chip "TinyChip" {
 					label = "Tag",
 					controlSize = "xsmall" :: "xsmall",
@@ -1065,7 +1065,7 @@ add("utility-stroke", {}, function(t: any)
 		return Host.Frame "Board" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
-			UI.Button "Util" { label = "Utility", appearance = "utility", Position = UDim2.fromOffset(200, 200) } :: unknown,
+			UI.Button "Util" { label = "Utility", appearance = "utility", Position = UDim2.fromOffset(200, 200) },
 			UI.Button "Plain" { label = "Standard", Position = UDim2.fromOffset(400, 200) },
 		}
 	end, { theme = package, size = Vector2.new(800, 600), frames = 20 })

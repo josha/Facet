@@ -2,8 +2,7 @@
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type OptionalNumberCell = typeof(require("@repo/tools/typecheck/aliases").OptionalNumberCell)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 
 local example = { title = "Temperature Converter" }
 local function acceptNumeric(proposed: string): string?

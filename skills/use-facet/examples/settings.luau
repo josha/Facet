@@ -245,6 +245,9 @@ return {
 				}
 			end,
 		}
-		return Host.Frame "Settings" { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), settings, resolution }
+		return Host.Frame(
+			{ BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), settings, resolution },
+			"Settings"
+		)
 	end,
 }

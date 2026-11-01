@@ -54,7 +54,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			callback()
 		end
 	end
-	local shiftRoutes = setmetatable({} :: { [Instance]: () -> () }, { __mode = "k" })
+	local shiftRoutes: { [Instance]: () -> () } = setmetatable({}, { __mode = "k" })
 	function ctx.shiftRoute(root: Instance, handler: () -> ()): ()
 		shiftRoutes[root] = handler
 		Compose.cleanup(function()
@@ -106,7 +106,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		end)
 	end
 	local function withinModal(node: Instance, use: ComposeTypes.Use?): boolean
-		local scopes = ctx.read(ctx.modalScopes, use)
+		local scopes = ctx.readSource(ctx.modalScopes, use)
 		local modal: Instance? = scopes[#scopes]
 		if modal == nil then
 			return true
@@ -134,7 +134,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 	end
 	ctx.withinModal = withinModal
 	local GUI, LAYER, OPEN = 1, 2, 0
-	local gates = setmetatable({} :: { [Instance]: number }, { __mode = "k" })
+	local gates: { [Instance]: number } = setmetatable({}, { __mode = "k" })
 	function ctx.available(node: Instance, use: ComposeTypes.Use?): boolean
 		local at: Instance? = node
 		while at do
@@ -157,8 +157,11 @@ return function(ctx: Shared.Context, config: Shared.Config)
 	end
 	type ActionGroup = {
 		context: InputContext,
+	}
+	type ActionScope = {
 		parent: ComposeTypes.Value<Instance?>,
 		available: ComposeTypes.Value<boolean>,
+		groups: { [string]: ActionGroup },
 	}
 	function ctx.reserveKeys(handler: Shared.ReservedKeyHandler): ()
 		local input = config.userInputService
@@ -185,9 +188,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		end
 		return { Enum.UserInputType.Gamepad1 }
 	end
-	local actionGroups = (
-		setmetatable({}, { __mode = "k" }) :: unknown
-	) :: { [ComposeTypes.Owner]: { [Instance]: { [string]: ActionGroup } } }
+	local actionScopes: { [ComposeTypes.Owner]: { [Instance]: ActionScope } } = setmetatable({}, { __mode = "k" })
 	function ctx.action(
 		node: Instance,
 		name: string,
@@ -198,27 +199,16 @@ return function(ctx: Shared.Context, config: Shared.Config)
 	)
 		local settings: ActionSettings = actionSettings or {}
 		local owner = assert(Compose.currentOwner(), "Facet action requires a Compose owner")
-		local group: ActionGroup? = nil
-		if settings.group then
-			local byNode = actionGroups[owner]
-			if byNode == nil then
-				byNode = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [string]: ActionGroup } }
-				actionGroups[owner] = byNode
-			end
-			local named = byNode[node]
-			if named == nil then
-				named = {}
-				byNode[node] = named
-			end
-			group = named[settings.group]
+		local byNode = actionScopes[owner]
+		if byNode == nil then
+			local nodes: { [Instance]: ActionScope } = setmetatable({}, { __mode = "k" })
+			actionScopes[owner] = nodes
+			byNode = nodes
 		end
-		local parent: ComposeTypes.Value<Instance?>
-		local available: ComposeTypes.Value<boolean>
-		if group then
-			parent, available = group.parent, group.available
-		else
-			parent = Compose.cell(nil :: Instance?)
-			available = Compose.cell(false)
+		local scope = byNode[node]
+		if scope == nil then
+			local parent: ComposeTypes.Value<Instance?> = Compose.cell(nil :: Instance?)
+			local available = Compose.cell(false)
 			local ancestryOwner: ComposeTypes.Owner?
 			local function locate()
 				if ComposeTypes.owner.isDisposed(owner) then
@@ -272,12 +262,19 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			end
 			locate()
 			runtime.connect(node, "AncestryChanged", locate)
+			local created: ActionScope = { parent = parent, available = available, groups = {} }
+			scope = created
+			byNode[node] = created
 		end
+		local activeScope = assert(scope)
+		local parent, available = activeScope.parent, activeScope.available
+		local groups = activeScope.groups
+		local group = if settings.group then groups[settings.group] else nil
 		local gui = config.guiService
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local stale = false
 		local viaAction, viaInput = false, false
-		local p: Shared.InputActionNativeProps = {
+		local p: Shared.InputActionProps = {
 			Name = name,
 			Type = if settings.direction2D then Enum.InputActionType.Direction2D else Enum.InputActionType.Bool,
 			StateChanged = settings.direction2D :: ((unknown) -> ())?,
@@ -286,7 +283,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 					return
 				end
 				viaAction = true
-				if available:peek() and ctx.available(node) and ctx.read(enabledSource) ~= false then
+				if ctx.readSource(available) and ctx.available(node) and ctx.read(enabledSource) ~= false then
 					onPressed()
 				end
 			end,
@@ -358,7 +355,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 						return
 					end
 					viaInput = true
-					if available:peek() and ctx.available(node) and ctx.read(enabledSource) ~= false then
+					if ctx.readSource(available) and ctx.available(node) and ctx.read(enabledSource) ~= false then
 						onPressed()
 					end
 				end,
@@ -427,8 +424,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				end,
 				action,
 			})
-			local byNode = actionGroups[owner][node]
-			byNode[settings.group] = { context = context, parent = parent, available = available }
+			groups[settings.group] = { context = context }
 		else
 			context = Host.InputContext("Facet" .. name)({
 				Parent = parent,
@@ -518,6 +514,15 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				if target == pinned and heldLetters == pinnedLetters then
 					return
 				end
+				if target and pinned and target ~= pinned and not viaAction and not viaInput then
+					for letter in letters do
+						local code = ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[letter]
+						if inputService:IsKeyDown(code) then
+							gui.SelectedObject = pinned
+							return
+						end
+					end
+				end
 				if target ~= pinned and not held() then
 					viaAction, viaInput = false, false
 				end
@@ -547,7 +552,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 						return
 					end
 					viaInput = true
-					if available:peek() and ctx.available(node) and ctx.read(enabledSource) ~= false then
+					if ctx.readSource(available) and ctx.available(node) and ctx.read(enabledSource) ~= false then
 						onPressed()
 					end
 				end

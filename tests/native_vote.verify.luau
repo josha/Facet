@@ -14,14 +14,14 @@ return function(verifyHarness: Verify.Harness)
 
 	local SEGMENT: { [string]: string } = { up = "Opt1", down = "Opt2" }
 
-	local function mount(spec: any, extra: ((any) -> { any })?): any
+	local function mount(spec: any, extra: ((Facet.Controls) -> { Facet.Child })?): any
 		return worlds.new(function(UI: FacetControls, Host: RobloxHost)
-			local children: { any } = { UI.Vote "V"(spec) }
-			local additions: { any } = if extra then extra(UI) else {}
+			local children: { Facet.Child } = { UI.Vote "V"(spec) }
+			local additions: { Facet.Child } = if extra then extra(UI) else {}
 			for _, node in additions do
 				table.insert(children, node)
 			end
-			return Host.Frame({ Name = "Row", table.unpack((children :: unknown) :: { unknown }) })
+			return Host.Frame { Name = "Row", table.unpack(children) }
 		end)
 	end
 
@@ -119,13 +119,13 @@ return function(verifyHarness: Verify.Harness)
 					Compose.cell("none" :: "down" | "none" | "up")
 				local world = worlds.new(function(UI: FacetControls)
 					return Compose.show(show, function()
-						return UI.Vote("V")({
+						return UI.Vote "V" {
 							value = value,
 							onChange = function(nextValue: "down" | "none" | "up")
 								value:set(nextValue)
 								show:set(false)
 							end,
-						})
+						}
 					end)
 				end)
 				world.find("Opt1").Activated:Fire()

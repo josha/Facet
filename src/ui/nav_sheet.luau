@@ -38,7 +38,7 @@ local KEYS = {
 	"guide",
 	"guideAlignment",
 }
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local readSource = ctx.readSource
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
@@ -132,7 +132,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				return D2.fromOffset(left, top), D2.new(1, -left - right, 0, math.max(0, height))
 			end,
 		})
-		local panelProps: Types.CanvasGroupNativeProps = {
+		local panelProps: Types.CanvasGroupProps = {
 			Name = "SheetPanel",
 			BackgroundTransparency = 0,
 			BorderSizePixel = 0,
@@ -282,7 +282,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 			local fontsReady = fontReadiness(ctx, { panel })
 			local settled = runtime.settled {
-				ready = fontsReady,
+				ready = function(): boolean
+					return fontsReady()
+				end,
 				sample = function(): string
 					return string.format(
 						"%d %d %d %d %d %s",

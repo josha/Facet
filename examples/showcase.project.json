@@ -12,6 +12,7 @@
         "Facet_NativeStyle": true
       },
       "$properties": {
+        "UseNewLuauTypeSolver": "Enabled",
         "FilteringEnabled": true,
         "PlayerScriptsUseInputActionSystem": "Enabled"
       },

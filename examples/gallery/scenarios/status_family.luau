@@ -2,14 +2,12 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 
 return {
 	title = "Status",
 	ledgerRows = {},
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI = ctx.UI
 		local Host = ctx.Host
 		local Compose: ComposeModule = ctx.Compose
@@ -43,13 +41,13 @@ return {
 		end
 		return {
 			screen = function()
-				local padding = Host.UIPadding({
+				local padding = Host.UIPadding {
 					PaddingTop = UDim.new(0, 16),
 					PaddingBottom = UDim.new(0, 16),
 					PaddingLeft = UDim.new(0, 16),
 					PaddingRight = UDim.new(0, 16),
-				})
-				local frame = Host.Frame("StatusFamily")({
+				}
+				local frame = Host.Frame "StatusFamily" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					padding,
@@ -63,7 +61,7 @@ return {
 						marks.section(),
 						badges.section(),
 					},
-				})
+				}
 				local top, bottom, measure = reserved(frame)
 				ctx.runtime.decorate(padding, {
 					PaddingTop = function(use: Use)
@@ -92,12 +90,12 @@ return {
 						connection:Disconnect()
 					end
 				end)
-				return Host.Frame("StatusPage")({
+				return Host.Frame "StatusPage" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					frame,
 					notices.affixed(),
-				})
+				}
 			end,
 			notices = notices,
 			reset = reset,

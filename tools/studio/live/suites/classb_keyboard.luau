@@ -1,4 +1,9 @@
 --!strict
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
+type NavigationEntry = typeof(require("@repo/tools/typecheck/aliases").NavigationEntry)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -160,11 +165,11 @@ local function ordered(parent: Instance): { Instance }
 	if not sorted then
 		return children
 	end
-	local index = {}
+	local index: { [Instance]: number } = {}
 	for position, child in children do
 		index[child] = position
 	end
-	table.sort(children, function(a, b)
+	table.sort(children, function(a: Instance, b: Instance): boolean
 		local left = if a:IsA("GuiObject") then a.LayoutOrder else 0
 		local right = if b:IsA("GuiObject") then b.LayoutOrder else 0
 		if left ~= right then
@@ -209,11 +214,13 @@ local function bindings(root: Instance): string
 end
 
 local function scenario(t: any, name: string, size: any, options: { [string]: any }?): (any, any)
-	local built
+	local built: { read screen: () -> Instance } | (() -> Instance)
 	local config: { [string]: any } = options or {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
-		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
-		return if type(built) == "function" then built() else built.screen()
+		local current: { read screen: () -> Instance } | (() -> Instance) = t.scenario(name)
+			.build(t.context(UI, Host, Compose, env))
+		built = current
+		return if type(current) == "function" then current() else current.screen()
 	end, { size = size, theme = config.theme, frames = config.frames or 20 })
 	return stage, built
 end
@@ -261,7 +268,7 @@ for _, width in { 390, 1280 } do
 	})
 end
 
-local function button(UI: any, name: string, label: string?): any
+local function button(UI: FacetControls, name: string, label: string?): TextButton
 	return UI.Button(name)({ label = label or name })
 end
 
@@ -270,10 +277,10 @@ interactive("chrome-strips-dpad", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.Screen "Page" {
 			gap = "m",
-			UI.HStack "Bar" { gap = "s", button(UI, "Left") :: unknown, button(UI, "Right") } :: unknown,
+			UI.HStack "Bar" { gap = "s", button(UI, "Left"), button(UI, "Right") },
 			button(UI, "A", "Content A"),
 			button(UI, "B", "Content B"),
-			UI.HStack "Foot" { gap = "s", button(UI, "FootLeft", "Left") :: unknown, button(UI, "FootRight", "Right") },
+			UI.HStack "Foot" { gap = "s", button(UI, "FootLeft", "Left"), button(UI, "FootRight", "Right") },
 		}
 	end, { size = Vector2.new(900, 600), frames = 12 })
 	value.stage = stage
@@ -313,17 +320,17 @@ end, {
 add("tab-scrolls-host-to-selection", {}, function(t)
 	local before = traversals()
 	local stage = t.mount(function(UI: FacetControls)
-		local rows = {}
+		local rows: { Instance } = {}
 		for index = 1, 12 do
-			rows[index] = UI.Button({
+			rows[index] = UI.Button {
 				Name = "Btn" .. index,
 				label = "Row " .. index,
 				Size = UDim2.new(1, 0, 0, 40),
 				AutomaticSize = Enum.AutomaticSize.None,
-			})
+			}
 		end
 		return UI.Screen "S" {
-			UI.ScrollView "List" { height = 160, width = 300, table.unpack((rows :: unknown) :: { unknown }) },
+			UI.ScrollView "List" { height = 160, width = 300, table.unpack(rows) },
 		}
 	end, { size = Vector2.new(400, 300), frames = 12 })
 	local action = newTraversal(before)
@@ -358,7 +365,7 @@ end)
 add("slider-selection-ring-on-track", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.Screen "S" {
-			UI.Button "Before" { label = "Before" } :: unknown,
+			UI.Button "Before" { label = "Before" },
 			UI.Slider "Vol" {
 				label = "Volume",
 				value = Compose.cell(0.5),
@@ -445,7 +452,7 @@ interactive("slider-between-controls-by-arrows", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.Screen "S" {
-			UI.HStack "VolumeRow" { gap = "s", button(UI, "Volume") :: unknown, button(UI, "Mute") } :: unknown,
+			UI.HStack "VolumeRow" { gap = "s", button(UI, "Volume"), button(UI, "Mute") },
 			UI.Slider "Brightness" {
 				label = "Brightness",
 				value = Compose.cell(40),
@@ -453,7 +460,7 @@ interactive("slider-between-controls-by-arrows", {}, function(t)
 				max = 100,
 				Size = UDim2.fromOffset(400, 0),
 			},
-			UI.HStack "QualityRow" { gap = "s", button(UI, "Quality") :: unknown, button(UI, "Apply") },
+			UI.HStack "QualityRow" { gap = "s", button(UI, "Quality"), button(UI, "Apply") },
 		}
 	end, { size = Vector2.new(700, 400), frames = 12 })
 	value.stage = stage
@@ -619,11 +626,11 @@ interactive("hud-dpad-reaches-actions-1920", {}, hudDpad(Vector2.new(1920, 1080)
 
 local VIEWPORTS = { Vector2.new(390, 844), Vector2.new(667, 375) }
 
-local function formScreen(UI: any, Compose: any): any
+local function formScreen(UI: FacetControls, Compose: ComposeModule): GuiObject
 	return UI.Screen "S" {
 		UI.ScrollView "Form" {
 			gap = "s",
-			UI.Text "Heading" { text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) } :: unknown,
+			UI.Text "Heading" { text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) },
 			UI.TextInput "Name" { value = Compose.cell(""), placeholder = PSEUDO, Size = UDim2.new(1, 0, 0, 44) },
 			UI.Slider "Volume" { label = PSEUDO, value = Compose.cell(0.5), min = 0, max = 1, step = 0.1 },
 			UI.TextInput "Email" {
@@ -648,7 +655,7 @@ local function formScreen(UI: any, Compose: any): any
 				gap = "s",
 				wrap = true,
 				width = "fill" :: "fill",
-				UI.Button "Save" { label = PSEUDO_ACTION, TextWrapped = true } :: unknown,
+				UI.Button "Save" { label = PSEUDO_ACTION, TextWrapped = true },
 				UI.Button "Later" { label = PSEUDO_SECONDARY, TextWrapped = true },
 			},
 		},
@@ -841,7 +848,7 @@ add("mixed-script-lines-grow-monotonically", {}, function(t)
 				local function line(name: string, text: string): any
 					return UI.Text(name)({ text = text, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) })
 				end
-				return UI.Screen "S" { line("Cjk", CJK) :: unknown, line("Emoji", EMOJI), line("Mixed", MIXED) }
+				return UI.Screen "S" { line("Cjk", CJK), line("Emoji", EMOJI), line("Mixed", MIXED) }
 			end, { size = Vector2.new(390, 844), theme = grown(t, base, offset), frames = 12 })
 			t.settle(6)
 			local found = t.offenders(stage, stage)
@@ -918,7 +925,7 @@ add("role-fills-win-at-rest", {}, function(t)
 	for _, entry in shipped(t) do
 		local stage = t.mount(function(UI: FacetControls)
 			return UI.Screen "S" {
-				UI.Button "Delete" { label = "Delete", role = "destructive" :: "destructive" } :: unknown,
+				UI.Button "Delete" { label = "Delete", role = "destructive" :: "destructive" },
 				UI.Button "Cancel" { label = "Cancel", role = "cancel" :: "cancel" },
 				UI.Button "Plain" { label = "Plain" },
 			}
@@ -972,7 +979,7 @@ add("circle-corner-wins-in-every-package", {}, function(t)
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			return UI.Screen "S" {
 				gap = "s",
-				UI.Button "Plain" { label = "x", shape = "circle" :: "circle" } :: unknown,
+				UI.Button "Plain" { label = "x", shape = "circle" :: "circle" },
 				UI.Button "Danger" {
 					label = "x",
 					shape = "circle" :: "circle",
@@ -1049,7 +1056,7 @@ add("level-picker-strip-target", {}, function(t)
 	for _, entry in shipped(t) do
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			return UI.Screen "S" {
-				UI.LevelPicker "Bars" { value = Compose.cell(3), count = 10 } :: unknown,
+				UI.LevelPicker "Bars" { value = Compose.cell(3), count = 10 },
 				UI.LevelPicker "Glyphs" { value = Compose.cell(2), count = 5, segment = "glyph" :: "glyph" },
 				UI.Rating "Stars" { value = Compose.cell(3) },
 			}
@@ -1087,7 +1094,8 @@ add("level-picker-showcase-marks-have-area", {}, function(t)
 	for _, size in SHOWCASE do
 		local where = `{size.X}x{size.Y}`
 		local stage = scenario(t, "level_picker", size)
-		local blank, count = {}, {}
+		local blank: { string } = {}
+		local count: { [string]: number } = {}
 		for _, node in stage:GetDescendants() do
 			if node:IsA("GuiObject") and string.match(node.Name, "^Level%d+$") then
 				local picker = node.Parent and node.Parent.Parent
@@ -1099,9 +1107,9 @@ add("level-picker-showcase-marks-have-area", {}, function(t)
 			end
 		end
 		t.check(`{where} every mark paints a rectangle with area`, #blank == 0, blank)
-		for picker, want in
+		local expected: { [string]: number } =
 			{ BalancedBars = 10, FidelityBars = 3, TintedBars = 10, DifficultyGlyphs = 5, TrophyIcons = 3 }
-		do
+		for picker, want in expected do
 			t.check(`{where} {picker} has all {want} marks`, count[picker] == want, count[picker])
 		end
 		t.cleanup()
@@ -1113,7 +1121,7 @@ add("level-picker-showcase-marks-have-area", {}, function(t)
 				gap = 8,
 				align = "center" :: "center",
 				width = "fill" :: "fill",
-				UI.LevelPicker "Quality" { value = value, count = 10 } :: unknown,
+				UI.LevelPicker "Quality" { value = value, count = 10 },
 				UI.Stepper "QualityStep" { value = value, min = 0, max = 10 },
 			},
 		}
@@ -1132,7 +1140,7 @@ add("rating-fits-a-table-cell", {}, function(t)
 					Size = UDim2.fromOffset(132, 48),
 					BackgroundTransparency = 1,
 					UI.Rating "Fill" { value = Compose.cell(3), Size = UDim2.fromScale(1, 1) },
-				} :: unknown,
+				},
 				Host.Frame "Plain" {
 					Size = UDim2.fromOffset(132, 48),
 					BackgroundTransparency = 1,
@@ -1273,16 +1281,14 @@ add("slider-rest-idle-resize-clearance", {}, function(t)
 	end
 	atRest("at rest")
 	local writes = 0
-	local connections = {}
+	local connections: { RBXScriptConnection } = {}
 	for _, node in { track, fill, thumb } do
-		table.insert(
-			connections,
-			node.Changed:Connect(function(name)
-				if name ~= "AbsolutePosition" and name ~= "AbsoluteSize" and name ~= "GuiState" then
-					writes += 1
-				end
-			end)
-		)
+		local connection: RBXScriptConnection = node.Changed:Connect(function(name: string)
+			if name ~= "AbsolutePosition" and name ~= "AbsoluteSize" and name ~= "GuiState" then
+				writes += 1
+			end
+		end)
+		table.insert(connections, connection)
 	end
 	t.settle(30)
 	for _, connection in connections do

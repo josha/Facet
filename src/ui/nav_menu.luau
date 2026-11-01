@@ -12,8 +12,9 @@ local registerPicker = require("./nav_picker")
 local registerSplitButton = require("./nav_split_button")
 local registerComboBox = require("./nav_combo_box")
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
+	local readText = read<<string?>>
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local itemModel = MenuItems(ctx)
 	local checkWidth, menuItems, advice = itemModel.checkWidth, itemModel.menuItems, itemModel.advice
@@ -39,12 +40,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		"controls",
 	}
 	local function buildMenu<V>(spec: NavigationProps.MenuSpec<V>, wrap: boolean): GuiObject
+		local readItems = read<<{ Nav.MenuItem<V> }>>
 		assert(
 			spec.closeButton == nil or type(spec.closeButton) == "boolean",
 			"Facet UI.Menu: closeButton must be a boolean"
 		)
 		assert(spec.items ~= nil, "Menu requires items")
-		menuItems(read(spec.items))
+		menuItems(readItems(spec.items))
 		assert(
 			spec.edge == nil or table.find({ "top", "bottom", "leading", "trailing" }, spec.edge),
 			"Facet UI.Menu: edge must be top, bottom, leading or trailing"
@@ -61,7 +63,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		checkWidth(read(spec.width))
 		if spec.controls then
 			spec.controls.diagnostics = function(): { string }
-				return advice(read(spec.items), "items", 0, {})
+				return advice(readItems(spec.items), "items", 0, {})
 			end
 		end
 		if spec.label ~= nil and spec.trigger ~= nil then
@@ -154,7 +156,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				triggerProps.ClipsDescendants = true
 				local attributes: Types.Attributes = {
 					FacetLabel = function(use: ComposeTypes.Use)
-						return read(triggerProps.label, use)
+						return readText(triggerProps.label, use)
 					end,
 				}
 				triggerProps.Attributes = attributes
@@ -166,7 +168,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					AnchorPoint = V2.new(1, 0.5),
 					Position = D2.new(1, 20, 0.5, 0),
 					BackgroundTransparency = 1,
-				}) :: Types.Child
+				})
 			end
 			local button = UI.Button(triggerProps)
 			if spec.disclosure then
@@ -181,6 +183,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				trigger,
 			}))
 		else
+			assert(authored ~= nil)
 			trigger = authored
 			root = authored
 			local native = ctx.props(spec, MENU_KEYS, {})
@@ -188,7 +191,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local children: { Types.Child } = {}
 			for key, value in (native :: unknown) :: { [unknown]: unknown } do
 				if type(key) == "number" then
-					table.insert(children, value :: Types.Child)
+					local child = native[key]
+					if child ~= nil then
+						table.insert(children, child)
+					end
 				elseif type(key) == "string" then
 					properties[key] = value
 				end

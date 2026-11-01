@@ -1,9 +1,8 @@
 --!strict
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type ToolValue = typeof(require("@repo/examples/facet_farm/types").ToolCell)
 type Use = <T>(ReadOnlyValue<T>) -> T
 local model = {}
 
@@ -28,7 +27,7 @@ export type Farm = {
 	xp: Value<number>,
 	plots: Value<{ Plot }>,
 	now: Value<number>,
-	tool: Value<Tool>,
+	tool: ToolValue,
 	seed: Value<CropId>,
 	marketOpen: Value<boolean>,
 	blend: ReadOnlyValue<number>?,
@@ -103,7 +102,7 @@ function model.new(Compose: ComposeModule, clock: (() -> number)?): Farm
 	local time = clock or os.clock
 	local plots: { Plot } = {}
 	for index = 1, model.COLUMNS * model.ROWS do
-		table.insert(plots, { id = "Plot" .. index, index = index, state = "grass" })
+		plots[index] = { id = "Plot" .. index, index = index, state = "grass" }
 	end
 	local initialTool: Tool = "plow"
 	local initialSeed: CropId = "wheat"
@@ -111,7 +110,7 @@ function model.new(Compose: ComposeModule, clock: (() -> number)?): Farm
 	local noBlend: ReadOnlyValue<number>? = nil
 	local noToast: Toast? = nil
 	local noCue: Cue? = nil
-	local tool: Value<Tool> = Compose.cell(initialTool)
+	local tool: ToolValue = Compose.cell(initialTool)
 	local seed: Value<CropId> = Compose.cell(initialSeed)
 	local view: Value<View> = Compose.cell(initialView)
 	local toast: Value<Toast?> = Compose.cell(noToast)

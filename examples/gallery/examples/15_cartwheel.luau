@@ -1,8 +1,8 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type CartwheelModule = typeof(require("@repo/examples/reference/p2_cartwheel"))
 type CartwheelData = typeof(require("@repo/examples/reference/p2_cartwheel/content/data"))
 
@@ -88,14 +88,14 @@ return {
 					end,
 				},
 			}
-			local contents = {}
+			local contents: { Instance } = {}
 			for _, item in current:peek().items do
 				table.insert(
 					contents,
 					view.text("Potion", `{item.bottles} × {assert(data.potionById(item.potion)).name}`)
 				)
 			end
-			return UI.VStack("Order_" .. id) {
+			return UI.VStack("Order_" .. id)({
 				width = "fill",
 				padding = "m",
 				gap = "s",
@@ -139,17 +139,17 @@ return {
 						return (status == "new" or status == "ready")
 							and use(model.commands.status(verb .. ":" .. id)) ~= "pending"
 					end),
-					UI.RadialMenu("Actions_" .. id) {
+					UI.RadialMenu("Actions_" .. id)({
 						label = "Order actions",
 						contentFit = "radial",
 						ringWidth = "wide",
 						center = "empty",
 						scrim = "dark",
 						items = actions,
-					},
+					}),
 				}),
 				UI.Divider {},
-			}
+			})
 		end
 		local function column(status: string, title: string)
 			local rows = C.formula(function(use: Use)
@@ -160,7 +160,7 @@ return {
 						table.insert(result, brew)
 					end
 				end
-				table.sort(result, function(a, b)
+				table.sort(result, function(a: Brew, b: Brew)
 					if a.id == priority then
 						return b.id ~= priority
 					elseif b.id == priority then
@@ -171,7 +171,7 @@ return {
 				end)
 				return result
 			end)
-			return UI.Screen("Lane_" .. status) {
+			return UI.Screen("Lane_" .. status)({
 				gap = "s",
 				padding = "s",
 				view.text("LaneHeading", function(use: Use)
@@ -200,7 +200,7 @@ return {
 						)
 					end),
 				},
-			}
+			})
 		end
 		local function summary()
 			return UI.VStack "SummaryBody" {

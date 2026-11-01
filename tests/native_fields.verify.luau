@@ -1,25 +1,26 @@
 --!strict
 local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
+local Bdd = require("../tools/vendor/verify/src/bdd")
+local InputProps = require("../src/ui/input_props")
+local Shared = require("../src/ui/types")
 
 return function(verifyHarness: Verify.Harness)
+	local test = Bdd.create(verifyHarness)
+	local describe, it, expect = test.describe, test.it, test.expect
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
-	type TextLabelConstructor = typeof(require("@repo/tools/typecheck/aliases").TextLabelConstructor)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-	type Use = <T>(ReadOnlyValue<T>) -> T
-
 	local Compose = require("../src/vendor/compose/core")
+	type Use = Compose.Use
+
 	local Roblox = require("../src/vendor/compose/roblox")
 	local context = require("../src/ui/context")
-	local register = require("../src/ui/inputs")
+	local Facet = require("../src")
 	local themes = require("../src/ui/themes")
 	local engineLib = require("./lib/native_engine")
-	local expect = Verify.expect
 
-	verifyHarness:case("collects late fade content on the configured native frame", {
+	it("collects late fade content on the configured native frame", {
 		id = "native_fields::fade lifetime::collects late content on the configured native frame",
 		run = function()
 			local engine = engineLib.new()
@@ -34,7 +35,7 @@ return function(verifyHarness: Verify.Harness)
 				})
 				local panel = ctx.fade({ GroupTransparency = 0.5 }, true)
 				runtime.mount(function()
-					local child = ctx.Host.Frame "Late" {}
+					local child = ctx.Host.Frame { Name = "Late" }
 					late = child
 					return child
 				end, panel)
@@ -42,27 +43,26 @@ return function(verifyHarness: Verify.Harness)
 			end, engine.new("ScreenGui"))
 			local panel = (mounted :: unknown) :: Frame
 			local child = assert(late)
-			Verify.expect(child.Parent == panel):toBe(true)
+			expect(child.Parent == panel):toBe(true)
 			frames:Fire(1 / 60)
-			Verify.expect(child.Parent == panel:FindFirstChild("Fade")):toBe(true)
+			expect(child.Parent == panel:FindFirstChild("Fade")):toBe(true)
 			stop()
 			runtime:dispose()
-			Verify.expect(frameEngine.census().connections):toBe(0)
-			Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
+			expect(frameEngine.census().connections):toBe(0)
+			expect(engineLib.connections(engine.heartbeat)):toBe(0)
 		end,
 	})
 
-	local function world(build: (any, any, any) -> any, options: any?): any
+	local function world(build: (FacetControls, engineLib.Engine, Compose.Runtime) -> Compose.Node, options: any?): any
 		local engine: any = engineLib.new()
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-		local UI: any = {}
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
-		local config: any = options or {}
+		local config: Shared.Config = options or {}
 		config.types = engine.types
-		config.services = { GuiService = gui, UserInputService = input, RunService = config.runService }
+		config.services =
+			{ GuiService = gui, UserInputService = input, RunService = if options then options.runService else nil }
 		config.guiService = gui
-		local ctx = context(Compose, runtime, config)
-		register(ctx, UI)
+		local UI = Facet.controls(runtime, config)
 		local screen = engine.new("ScreenGui")
 		local stop, node: any = runtime.mount(function()
 			return build(UI, engine, runtime)
@@ -110,7 +110,7 @@ return function(verifyHarness: Verify.Harness)
 		return nil
 	end
 
-	local function refused(build: (any) -> any): string?
+	local function refused(build: (FacetControls) -> Compose.Node): string?
 		local ok, err = pcall(function()
 			local w = world(function(UI: FacetControls)
 				return build(UI)
@@ -121,7 +121,7 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function selectable(root: any): { string }
-		local out = {}
+		local out: { string } = {}
 		local function visit(node: any)
 			if node:IsA("GuiObject") and node.Selectable == true and node.Visible ~= false then
 				table.insert(out, node.Name)
@@ -134,12 +134,12 @@ return function(verifyHarness: Verify.Harness)
 		return out
 	end
 
-	verifyHarness:suite("native field chrome", function()
-		verifyHarness:case("a field with no chrome keys keeps its native TextBox root", {
+	describe("native field chrome", function()
+		it("a field with no chrome keys keeps its native TextBox root", {
 			id = "native_fields::native field chrome::a field with no chrome keys keeps its native TextBox root",
 			run = function()
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Name")({ value = Compose.cell(""), placeholder = "Your name" })
+					return UI.TextInput "Name" { value = Compose.cell(""), placeholder = "Your name" }
 				end)
 				expect(w.node.ClassName):toBe("TextBox")
 				expect(w.node.Name):toBe("Name")
@@ -151,12 +151,12 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("the label sits above its field, and a tap or a finger on it puts the caret in the field", {
+		it("the label sits above its field, and a tap or a finger on it puts the caret in the field", {
 			id = "native_fields::native field chrome::the label sits above its field, and a tap or a finger on it puts the caret in the field",
 			run = function()
 				for _, route in { "pointer", "touch" } do
 					local w = world(function(UI: FacetControls)
-						return UI.TextInput("Name")({ value = Compose.cell(""), label = "Display name" })
+						return UI.TextInput "Name" { value = Compose.cell(""), label = "Display name" }
 					end)
 					local label, plate = find(w.node, "Label"), find(w.node, "Input")
 					local field = find(plate, "Field")
@@ -175,16 +175,16 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a disabled field's label follows it: no press or hover affordance, live both ways", {
+		it("a disabled field's label follows it: no press or hover affordance, live both ways", {
 			id = "native_fields::native field chrome::a disabled field's label follows it: no press or hover affordance, live both ways",
 			run = function()
 				local enabled = Compose.cell(false)
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Name")({
+					return UI.TextInput "Name" {
 						value = Compose.cell(""),
 						label = "Display name",
 						enabled = enabled,
-					})
+					}
 				end)
 				local label, field = find(w.node, "Label"), find(w.node, "Input/Field")
 				expect(label.Interactable):toBe(false)
@@ -199,11 +199,11 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("the label fits its text and adds no focus stop", {
+		it("the label fits its text and adds no focus stop", {
 			id = "native_fields::native field chrome::the label fits its text and adds no focus stop",
 			run = function()
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Name")({ value = Compose.cell(""), label = "Display name" })
+					return UI.TextInput "Name" { value = Compose.cell(""), label = "Display name" }
 				end)
 				expect((table.concat(selectable(w.node), " "))):toBe("Field")
 				local label = find(w.node, "Label")
@@ -216,30 +216,30 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("the required mark is part of the label's words, bound or static; optional paints no word", {
+		it("the required mark is part of the label's words, bound or static; optional paints no word", {
 			id = "native_fields::native field chrome::the required mark is part of the label's words, bound or static; optional paints no word",
 			run = function()
 				local words = Compose.cell("Display name")
 				local w = world(function(UI: FacetControls, _, runtime)
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.TextInput("Static")({
+					return runtime.constructors.Frame {
+						UI.TextInput "Static" {
 							value = Compose.cell(""),
 							label = "Display name",
 							requiredMark = "required" :: "required",
-						}) :: unknown,
-						UI.TextInput("Bound")({
+						},
+						UI.TextInput "Bound" {
 							value = Compose.cell(""),
 							label = function(use: Use)
 								return use(words)
 							end,
 							requiredMark = "required" :: "required",
-						}),
-						UI.TextInput("Optional")({
+						},
+						UI.TextInput "Optional" {
 							value = Compose.cell(""),
 							label = "Display name",
 							requiredMark = "optional" :: "optional",
-						}),
-					})
+						},
+					}
 				end)
 				expect(find(w.node, "Static/Label/Title").Text):toBe("Display name *")
 				expect((deep(find(w.node, "Static"), "RequiredMark"))):toBeNil()
@@ -253,17 +253,17 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
-	verifyHarness:suite("native field message line", function()
-		verifyHarness:case("an error replaces the hint, in the danger role, beside a mark, and the field holds still", {
+	describe("native field message line", function()
+		it("an error replaces the hint, in the danger role, beside a mark, and the field holds still", {
 			id = "native_fields::native field message line::an error replaces the hint, in the danger role, beside a mark, and the field holds still",
 			run = function()
 				local failure = Compose.cell("")
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Name")({
+					return UI.TextInput "Name" {
 						value = Compose.cell(""),
 						hint = "Shown to other players",
 						errorText = failure,
-					})
+					}
 				end)
 				local line, mark = find(w.node, "Message/Validation"), find(w.node, "Message/MessageMark")
 				local plate = find(w.node, "Input")
@@ -287,15 +287,15 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("the error mark is floored at the icon rung and painted the message's colour", {
+		it("the error mark is floored at the icon rung and painted the message's colour", {
 			id = "native_fields::native field message line::the error mark is floored at the icon rung and painted the message's colour",
 			run = function()
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Name")({
+					return UI.TextInput "Name" {
 						value = Compose.cell(""),
 						hint = "Shown to other players",
 						errorText = "That name is taken.",
-					})
+					}
 				end)
 				local mark = find(w.node, "Message/MessageMark")
 				local line = find(w.node, "Message/Validation")
@@ -324,19 +324,20 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("the caller's error outranks the numeric field's own rejection line", {
+		it("the caller's error outranks the numeric field's own rejection line", {
 			id = "native_fields::native field message line::the caller's error outranks the numeric field's own rejection line",
 			run = function()
 				local failure = Compose.cell("")
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Laps")({
+					local numberProps: InputProps.TextInputNumberCellProps = {
 						value = Compose.cell("3"),
 						numericValue = Compose.cell(3),
 						presentation = "number" :: "number",
 						min = 1,
 						max = 9,
 						errorText = failure,
-					})
+					}
+					return UI.TextInput "Laps"(numberProps)
 				end)
 				local field = find(w.node, "Input/Field")
 				expect((find(w.node, "Message"))):toBeNil()
@@ -354,52 +355,49 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
-	verifyHarness:suite("native field accessories", function()
+	describe("native field accessories", function()
 		local function accessories(pasted: { count: number }, value: any): any
 			return world(function(UI: FacetControls, _, runtime)
-				return UI.TextInput("Name")({
+				return UI.TextInput "Name" {
 					value = value,
 					clearButtonMode = "always" :: "always",
-					leading = ((runtime.constructors.TextLabel :: unknown) :: TextLabelConstructor)({
+					leading = runtime.constructors.TextLabel {
 						Name = "Mark",
 						Text = "@",
-					}),
-					trailing = UI.Button("Paste")({
+					},
+					trailing = UI.Button "Paste" {
 						label = "Paste",
 						onActivate = function()
 							pasted.count += 1
 						end,
-					}),
-				})
+					},
+				}
 			end)
 		end
 
-		verifyHarness:case(
-			"a static leading mark is not a stop; the clear and the trailing action are, in that order",
-			{
-				id = "native_fields::native field accessories::a static leading mark is not a stop; the clear and the trailing action are, in that order",
-				run = function()
-					local w = accessories({ count = 0 }, Compose.cell("Ada"))
-					local plate = find(w.node, "Input")
-					local order = {}
-					for _, name in selectable(plate) do
-						table.insert(order, name)
+		it("a static leading mark is not a stop; the clear and the trailing action are, in that order", {
+			id = "native_fields::native field accessories::a static leading mark is not a stop; the clear and the trailing action are, in that order",
+			run = function()
+				local w = accessories({ count = 0 }, Compose.cell("Ada"))
+				local plate = find(w.node, "Input")
+				local order: { string } = {}
+				for _, name in selectable(plate) do
+					table.insert(order, name)
+				end
+				table.sort(order, function(a, b)
+					local function at(name: string): number
+						local node = find(plate, name) or find(plate, "Trailing/" .. name)
+						return node.LayoutOrder
+							+ (if node.Parent.Name == "Trailing" then node.Parent.LayoutOrder else 0)
 					end
-					table.sort(order, function(a, b)
-						local function at(name: string): number
-							local node = find(plate, name) or find(plate, "Trailing/" .. name)
-							return node.LayoutOrder
-								+ (if node.Parent.Name == "Trailing" then node.Parent.LayoutOrder else 0)
-						end
-						return at(a) < at(b)
-					end)
-					expect((table.concat(order, " "))):toBe("Field Clear Paste")
-					w.stop()
-				end,
-			}
-		)
+					return at(a) < at(b)
+				end)
+				expect((table.concat(order, " "))):toBe("Field Clear Paste")
+				w.stop()
+			end,
+		})
 
-		verifyHarness:case("the trailing action and the clear fire on activation without changing the other", {
+		it("the trailing action and the clear fire on activation without changing the other", {
 			id = "native_fields::native field accessories::the trailing action and the clear fire on activation without changing the other",
 			run = function()
 				local pasted = { count = 0 }
@@ -417,11 +415,11 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a search field keeps native editing beside its icon and clear button", {
+		it("a search field keeps native editing beside its icon and clear button", {
 			id = "native_fields::native field accessories::a search field keeps native editing beside its icon and clear button",
 			run = function()
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Find")({ value = Compose.cell(""), presentation = "search" :: "search" })
+					return UI.TextInput "Find" { value = Compose.cell(""), presentation = "search" :: "search" }
 				end)
 				local glyph = w.node:FindFirstChild("SearchIcon", true)
 				expect(glyph ~= nil):toBe(true)
@@ -441,15 +439,15 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a search field keeps its leading mark beside a trailing action, and refuses a second one", {
+		it("a search field keeps its leading mark beside a trailing action, and refuses a second one", {
 			id = "native_fields::native field accessories::a search field keeps its leading mark beside a trailing action, and refuses a second one",
 			run = function()
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Find")({
+					return UI.TextInput "Find" {
 						value = Compose.cell("rally"),
 						presentation = "search" :: "search",
-						trailing = UI.Button("Filter")({ label = "Filter", onActivate = function() end }),
-					})
+						trailing = UI.Button "Filter" { label = "Filter", onActivate = function() end },
+					}
 				end)
 				local plate = find(w.node, "Input")
 				local glyph, field = find(plate, "SearchIcon"), find(plate, "Field")
@@ -459,13 +457,13 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 				local ok, err = pcall(function()
 					local nested = world(function(UI: FacetControls, _, runtime)
-						return UI.TextInput("Twice")({
+						return UI.TextInput "Twice" {
 							value = Compose.cell(""),
 							presentation = "search" :: "search",
-							leading = ((runtime.constructors.TextLabel :: unknown) :: TextLabelConstructor)({
+							leading = runtime.constructors.TextLabel {
 								Text = "@",
-							}),
-						})
+							},
+						}
 					end)
 					nested.stop()
 				end)
@@ -476,22 +474,22 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
-	verifyHarness:suite("native field vocabulary", function()
-		verifyHarness:case("appearance paints the plate a published surface; a bound word repaints in place", {
+	describe("native field vocabulary", function()
+		it("appearance paints the plate a published surface; a bound word repaints in place", {
 			id = "native_fields::native field vocabulary::appearance paints the plate a published surface; a bound word repaints in place",
 			run = function()
 				for word, tag in
 					{ standard = "facet-field", contrast = "facet-control", utility = "facet-appearance-utility" } :: { [string]: string }
 				do
 					local w = world(function(UI: FacetControls)
-						return UI.TextInput("Name")({ value = Compose.cell(""), appearance = word })
+						return UI.TextInput "Name" { value = Compose.cell(""), appearance = word }
 					end)
 					expect(`{word}: {find(w.node, "Input"):HasTag(tag)}`):toBe(`{word}: true`)
 					w.stop()
 				end
 				local word = Compose.cell("standard")
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Name")({ value = Compose.cell(""), appearance = word })
+					return UI.TextInput "Name" { value = Compose.cell(""), appearance = word }
 				end)
 				local plate = find(w.node, "Input")
 				word:set("contrast")
@@ -510,12 +508,12 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("corners ride a native UICorner, and square is a radius of zero", {
+		it("corners ride a native UICorner, and square is a radius of zero", {
 			id = "native_fields::native field vocabulary::corners ride a native UICorner, and square is a radius of zero",
 			run = function()
 				local function corner(word: ("pill" | "square")?): any
 					local w = world(function(UI: FacetControls)
-						return UI.TextInput("Name")({ value = Compose.cell(""), corners = word, label = "Name" })
+						return UI.TextInput "Name" { value = Compose.cell(""), corners = word, label = "Name" }
 					end)
 					local found = find(w.node, "Input/Corners")
 					local radius = if found then found.CornerRadius else nil
@@ -529,15 +527,15 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a named rung shrinks the plate, reserves a whole target, and the label still focuses", {
+		it("a named rung shrinks the plate, reserves a whole target, and the label still focuses", {
 			id = "native_fields::native field vocabulary::a named rung shrinks the plate, reserves a whole target, and the label still focuses",
 			run = function()
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Name")({
+					return UI.TextInput "Name" {
 						value = Compose.cell(""),
 						controlSize = "compact" :: "compact",
 						label = "Name",
-					})
+					}
 				end)
 				local target = find(w.node, "Input+target")
 				local plate = find(target, "Input")
@@ -550,7 +548,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("an unknown chrome word is a build error that names the key", {
+		it("an unknown chrome word is a build error that names the key", {
 			id = "native_fields::native field vocabulary::an unknown chrome word is a build error that names the key",
 			run = function()
 				for key, bad in
@@ -567,7 +565,8 @@ return function(verifyHarness: Verify.Harness)
 					local err = refused(function(UI: FacetControls)
 						local spec: any = { value = Compose.cell("") }
 						spec[key] = bad
-						return UI.TextInput "Name"(spec)
+						local textInput = UI.TextInput
+						return textInput(spec, "Name")
 					end)
 					expect(`{key}: {err ~= nil}`):toBe(`{key}: true`)
 					expect(`{key}: {string.find(tostring(err), key, 1, true) ~= nil}`):toBe(`{key}: true`)
@@ -575,19 +574,17 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("closing the screen leaves no field node or connection behind", {
+		it("closing the screen leaves no field node or connection behind", {
 			id = "native_fields::native field vocabulary::closing the screen leaves no field node or connection behind",
 			run = function()
 				local engine: any = engineLib.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local UI: any = {}
 				local input = engine.new("UserInputService")
-				local ctx = context(Compose, runtime, { types = engine.types, services = { UserInputService = input } })
-				register(ctx, UI)
+				local UI = Facet.controls(runtime, { types = engine.types, services = { UserInputService = input } })
 				local screen = engine.new("ScreenGui")
 				local before = engine.census()
 				local stop = runtime.mount(function()
-					return UI.NumberInput("Fee")({
+					return UI.NumberInput "Fee" {
 						value = Compose.cell("1"),
 						numericValue = Compose.cell(1),
 						label = "Fee",
@@ -600,7 +597,7 @@ return function(verifyHarness: Verify.Harness)
 						selectOnFocus = "all",
 						min = 0,
 						max = 9,
-					})
+					}
 				end, screen)
 				stop()
 				local after = engine.census()
@@ -612,20 +609,20 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
-	verifyHarness:suite("native TextInput readOnly, selectOnFocus and visibleLines", function()
-		verifyHarness:case("a read-only field keeps its stop and contrast, refuses every edit and commits nothing", {
+	describe("native TextInput readOnly, selectOnFocus and visibleLines", function()
+		it("a read-only field keeps its stop and contrast, refuses every edit and commits nothing", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::a read-only field keeps its stop and contrast, refuses every edit and commits nothing",
 			run = function()
 				local value, commits = Compose.cell("Ada"), 0
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Name")({
+					return UI.TextInput "Name" {
 						value = value,
 						readOnly = true,
 						clearButtonMode = "always" :: "always",
 						onCommit = function()
 							commits += 1
 						end,
-					})
+					}
 				end)
 				local field = w.node
 				expect(field.TextEditable):toBe(false)
@@ -643,17 +640,17 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a function readOnly flips live on the same editor, keeping the draft and the edit", {
+		it("a function readOnly flips live on the same editor, keeping the draft and the edit", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::a function readOnly flips live on the same editor, keeping the draft and the edit",
 			run = function()
 				local lock, value = Compose.cell(false), Compose.cell("Ada")
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Name")({
+					return UI.TextInput "Name" {
 						value = value,
 						readOnly = function(use: Use)
 							return use(lock)
 						end,
-					})
+					}
 				end)
 				local field = w.node
 				field:CaptureFocus()
@@ -673,12 +670,12 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("enabled and readOnly compose onto TextEditable in either order and recover", {
+		it("enabled and readOnly compose onto TextEditable in either order and recover", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::enabled and readOnly compose onto TextEditable in either order and recover",
 			run = function()
 				local enabled, lock = Compose.cell(true), Compose.cell(true)
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Name")({ value = Compose.cell(""), enabled = enabled, readOnly = lock })
+					return UI.TextInput "Name" { value = Compose.cell(""), enabled = enabled, readOnly = lock }
 				end)
 				local field = w.node
 				expect(field.TextEditable):toBe(false)
@@ -697,72 +694,67 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("readOnly refuses anything but a boolean", {
+		it("readOnly refuses anything but a boolean", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::readOnly refuses anything but a boolean",
 			run = function()
 				expect(refused(function(UI: FacetControls)
-					return UI.TextInput("Name")({ value = Compose.cell(""), readOnly = "yes" :: any })
+					return UI.TextInput "Name" { value = Compose.cell(""), readOnly = "yes" :: any }
 				end) ~= nil):toBe(true)
 			end,
 		})
 
-		verifyHarness:case(
-			"the selectOnFocus policy lands on the same editor, live, and an illegal live word keeps the last",
-			{
-				id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::the selectOnFocus policy lands on the same editor, live, and an illegal live word keeps the last",
-				run = function()
-					local policy = Compose.cell("all" :: "all" | "end" | "none")
-					local w = world(function(UI: FacetControls)
-						return UI.TextInput("Name")({ value = Compose.cell("12.5 km"), selectOnFocus = policy })
-					end)
-					local field = w.node
-					expect((field:GetAttribute("selectOnFocus"))):toBe("all")
-					policy:set("end")
-					expect((field:GetAttribute("selectOnFocus"))):toBe("end")
-					expect(w.node == field):toBe(true)
-					local ok, err = pcall(function()
-						policy:set("everything" :: any)
-					end)
-					expect(ok):toBe(false)
-					expect(string.find(tostring(err), "selectOnFocus: one of none | all | end", 1, true) ~= nil):toBe(
-						true
-					)
-					expect((field:GetAttribute("selectOnFocus"))):toBe("end")
-					field:CaptureFocus()
-					expect(`{field.CursorPosition} {field.SelectionStart}`):toBe("8 -1")
-					w.stop()
-					local plain = world(function(UI: FacetControls)
-						return UI.TextInput("Name")({ value = Compose.cell("") })
-					end)
-					expect((plain.node:GetAttribute("selectOnFocus"))):toBeNil()
-					plain.stop()
-				end,
-			}
-		)
+		it("the selectOnFocus policy lands on the same editor, live, and an illegal live word keeps the last", {
+			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::the selectOnFocus policy lands on the same editor, live, and an illegal live word keeps the last",
+			run = function()
+				local policy = Compose.cell("all" :: "all" | "end" | "none")
+				local w = world(function(UI: FacetControls)
+					return UI.TextInput "Name" { value = Compose.cell("12.5 km"), selectOnFocus = policy }
+				end)
+				local field = w.node
+				expect((field:GetAttribute("selectOnFocus"))):toBe("all")
+				policy:set("end")
+				expect((field:GetAttribute("selectOnFocus"))):toBe("end")
+				expect(w.node == field):toBe(true)
+				local ok, err = pcall(function()
+					policy:set("everything" :: any)
+				end)
+				expect(ok):toBe(false)
+				expect(string.find(tostring(err), "selectOnFocus: one of none | all | end", 1, true) ~= nil):toBe(true)
+				expect((field:GetAttribute("selectOnFocus"))):toBe("end")
+				field:CaptureFocus()
+				expect(`{field.CursorPosition} {field.SelectionStart}`):toBe("8 -1")
+				w.stop()
+				local plain = world(function(UI: FacetControls)
+					return UI.TextInput "Name" { value = Compose.cell("") }
+				end)
+				expect((plain.node:GetAttribute("selectOnFocus"))):toBeNil()
+				plain.stop()
+			end,
+		})
 
-		verifyHarness:case("an unknown initial selectOnFocus word fails before mount", {
+		it("an unknown initial selectOnFocus word fails before mount", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::an unknown initial selectOnFocus word fails before mount",
 			run = function()
 				for _, word in { "everything", 1 :: any } do
 					local err = refused(function(UI: FacetControls)
-						return UI.TextInput("Name")({ value = Compose.cell(""), selectOnFocus = word :: any })
+						return UI.TextInput "Name" { value = Compose.cell(""), selectOnFocus = word :: any }
 					end)
 					expect(`{tostring(word)} {err ~= nil}`):toBe(`{tostring(word)} true`)
 				end
 			end,
 		})
 
-		verifyHarness:case("the box is the count of lines it was told; one line is shorter and still multiline", {
+		it("the box is the count of lines it was told; one line is shorter and still multiline", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::the box is the count of lines it was told; one line is shorter and still multiline",
 			run = function()
 				local heights = {}
 				for _, count in { 1, 3, 5 } do
 					local w = world(function(UI: FacetControls)
-						return UI.TextInput("Name")({
+						return UI.TextInput "Name" {
 							value = Compose.cell(""),
 							multiline = true,
 							visibleLines = count,
-						})
+						}
 					end)
 					local viewport = find(w.node, "Input/Viewport")
 					heights[count] = viewport.Size.Y.Offset
@@ -773,12 +765,12 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("past the count the box holds still while the editor grows inside it, on the same editor", {
+		it("past the count the box holds still while the editor grows inside it, on the same editor", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::past the count the box holds still while the editor grows inside it, on the same editor",
 			run = function()
 				local value = Compose.cell("")
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Name")({ value = value, multiline = true, visibleLines = 3 })
+					return UI.TextInput "Name" { value = value, multiline = true, visibleLines = 3 }
 				end)
 				local viewport = find(w.node, "Input/Viewport")
 				local field = find(viewport, "Measure/Flow/Field")
@@ -802,31 +794,28 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case(
-			"the caret line stays in view: at the end the box shows the last line, back at the top the first",
-			{
-				id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::the caret line stays in view: at the end the box shows the last line, back at the top the first",
-				run = function()
-					local value = Compose.cell(string.rep("a line of notes\n", 20))
-					local w = world(function(UI: FacetControls)
-						return UI.TextInput("Name")({ value = value, multiline = true, visibleLines = 3 })
-					end)
-					local V = w.engine.types.Vector2
-					local viewport = find(w.node, "Input/Viewport")
-					local field = find(viewport, "Measure/Flow/Field")
-					w.engine.environment.poke(viewport, "AbsoluteWindowSize", V.new(300, 60))
-					w.engine.environment.poke(viewport, "AbsoluteCanvasSize", V.new(300, 420))
-					w.engine.environment.poke(field, "TextBounds", V.new(280, 420))
-					field.CursorPosition = #field.Text + 1
-					expect(viewport.CanvasPosition.Y):toBe(360)
-					field.CursorPosition = 1
-					expect(viewport.CanvasPosition.Y):toBe(0)
-					w.stop()
-				end,
-			}
-		)
+		it("the caret line stays in view: at the end the box shows the last line, back at the top the first", {
+			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::the caret line stays in view: at the end the box shows the last line, back at the top the first",
+			run = function()
+				local value = Compose.cell(string.rep("a line of notes\n", 20))
+				local w = world(function(UI: FacetControls)
+					return UI.TextInput "Name" { value = value, multiline = true, visibleLines = 3 }
+				end)
+				local V = w.engine.types.Vector2
+				local viewport = find(w.node, "Input/Viewport")
+				local field = find(viewport, "Measure/Flow/Field")
+				w.engine.environment.poke(viewport, "AbsoluteWindowSize", V.new(300, 60))
+				w.engine.environment.poke(viewport, "AbsoluteCanvasSize", V.new(300, 420))
+				w.engine.environment.poke(field, "TextBounds", V.new(280, 420))
+				field.CursorPosition = #field.Text + 1
+				expect(viewport.CanvasPosition.Y):toBe(360)
+				field.CursorPosition = 1
+				expect(viewport.CanvasPosition.Y):toBe(0)
+				w.stop()
+			end,
+		})
 
-		verifyHarness:case("a title that the engine left shorter than its text is measured again on the next frame", {
+		it("a title that the engine left shorter than its text is measured again on the next frame", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::a title that the engine left shorter than its text is measured again on the next frame",
 			run = function()
 				local listeners: { () -> () } = {}
@@ -846,7 +835,7 @@ return function(verifyHarness: Verify.Harness)
 					},
 				}
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Name")({ value = Compose.cell(""), label = "Handle" })
+					return UI.TextInput "Name" { value = Compose.cell(""), label = "Handle" }
 				end, { runService = frames })
 				local V = w.engine.types.Vector2
 				local title = find(w.node, "Label/Title")
@@ -868,23 +857,23 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("an authored root size wins over the line count", {
+		it("an authored root size wins over the line count", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::an authored root size wins over the line count",
 			run = function()
 				local w = world(function(UI: FacetControls, engine)
-					return UI.TextInput("Name")({
+					return UI.TextInput "Name" {
 						value = Compose.cell(""),
 						multiline = true,
 						visibleLines = 3,
 						Size = engine.types.UDim2.fromOffset(300, 200),
-					})
+					}
 				end)
 				expect(w.node.Size.Y.Offset):toBe(200)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("a line count is a multiline fact and a whole number of at least one", {
+		it("a line count is a multiline fact and a whole number of at least one", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::a line count is a multiline fact and a whole number of at least one",
 			run = function()
 				for _, bad in
@@ -899,14 +888,15 @@ return function(verifyHarness: Verify.Harness)
 						for key, entry in bad do
 							spec[key] = entry
 						end
-						return UI.TextInput "Name"(spec)
+						local textInput = UI.TextInput
+						return textInput(spec, "Name")
 					end)
 					expect(err ~= nil):toBe(true)
 				end
 			end,
 		})
 
-		verifyHarness:case("reveals a focused field when its sheet viewport shrinks above the keyboard", {
+		it("reveals a focused field when its sheet viewport shrinks above the keyboard", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::reveals a focused field when its sheet viewport shrinks above the keyboard",
 			run = function()
 				local worlds = require("./lib/content_world")
@@ -939,7 +929,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("does not count viewport reveal twice when the keyboard also covers the field", {
+		it("does not count viewport reveal twice when the keyboard also covers the field", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::does not count viewport reveal twice when the keyboard also covers the field",
 			run = function()
 				local worlds = require("./lib/content_world")
@@ -965,15 +955,15 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a focused field scrolls its page up out from under the touch keyboard", {
+		it("a focused field scrolls its page up out from under the touch keyboard", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::a focused field scrolls its page up out from under the touch keyboard",
 			run = function()
 				local worlds = require("./lib/content_world")
 				local w = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.ScrollingFrame({
+					return Host.ScrollingFrame {
 						Name = "Page",
-						UI.TextInput("Name")({ value = Compose.cell("Ada") }),
-					})
+						UI.TextInput "Name" { value = Compose.cell("Ada") },
+					}
 				end)
 				local V2 = w.engine.types.Vector2
 				local page, field = w.find("Page"), w.find("Name")

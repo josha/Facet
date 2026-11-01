@@ -9,9 +9,12 @@ type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
 type Constructors = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime.constructors)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ToolOption = typeof(require("@repo/examples/facet_farm/types").ToolPickerOption)
+type RadialChoice = typeof(require("@repo/examples/facet_farm/types").ToolRadialChoice)
+type RadialItem = typeof(require("@repo/examples/facet_farm/types").ToolRadialItem)
+type StringValue = typeof(require("@repo/tools/typecheck/aliases").StringReadOnlyValue)
+type NumberValue = typeof(require("@repo/tools/typecheck/aliases").NumberReadOnlyValue)
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 local modelModule = require("./model")
 local theme = require("./theme")
 
@@ -27,7 +30,7 @@ type Types = {
 
 local screens = {}
 
-local TOOLS: { PickerOption } = {
+local TOOLS: { ToolOption } = {
 	{ value = "plow", label = "Plow" },
 	{ value = "plant", label = "Plant" },
 	{ value = "harvest", label = "Harvest" },
@@ -176,7 +179,7 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 				Compose.show(function(use: Use)
 					return stage(use) ~= "grass"
 				end, function()
-					local rows = {}
+					local rows: { Child } = {}
 					for row = 1, 3 do
 						local y = 0.25 * row
 						table.insert(
@@ -199,14 +202,14 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 					}
 				end),
 				Compose.keyed({
-					from = function(use: Use)
+					from = function(use: Use): { string }
 						local state = stage(use)
 						if state == "grass" or state == "plowed" then
 							return {}
 						end
 						return { assert(plot(use).crop) .. ":" .. state }
 					end,
-					render = function(current): GuiObject
+					render = function(current: StringValue): GuiObject
 						local crop, state = string.match(current:peek(), "^(%w+):(%w+)$")
 						return cropArt(assert(crop), assert(state))
 					end,
@@ -238,7 +241,7 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 		})
 	end
 
-	local plots = {}
+	local plots: { Child } = {}
 	for index = 1, modelModule.COLUMNS * modelModule.ROWS do
 		table.insert(plots, plotView(index))
 	end
@@ -255,10 +258,11 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 	end
 	local toolItems: { RadialItem } = {}
 	for _, tool in TOOLS do
-		table.insert(toolItems, { id = tool.value, label = tool.label, selected = farm.tool, value = tool.value })
+		local item: RadialChoice = { id = tool.value, label = tool.label, selected = farm.tool, value = tool.value }
+		table.insert(toolItems, item)
 	end
 	local function marketRows()
-		local rows = {}
+		local rows: { Child } = {}
 		for _, crop in modelModule.CROPS do
 			table.insert(
 				rows,
@@ -593,11 +597,11 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 				actions = levelUpActions,
 			},
 			Compose.keyed({
-				from = function(use: Use)
+				from = function(use: Use): { number }
 					local toast = use(farm.toast)
 					return if toast then { toast.serial } else {}
 				end,
-				render = function(current: ReadOnlyValue<number>): GuiObject
+				render = function(current: NumberValue): GuiObject
 					local serial = current:peek()
 					return UI.Toast("Toast" .. serial)({
 						isPresented = function(use: Use)

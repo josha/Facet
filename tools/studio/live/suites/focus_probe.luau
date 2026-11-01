@@ -22,14 +22,22 @@ local function live(): any
 	return (require :: any)(storage:WaitForChild("FacetLive"))
 end
 
-local function box(Host: any, name: string, x: number, y: number, w: number, h: number, selectable: boolean?)
-	return Host.Frame({
+local function box(
+	Host: RobloxHost,
+	name: string,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	selectable: boolean?
+): Frame
+	return Host.Frame {
 		Name = name,
 		Position = UDim2.fromOffset(x, y),
 		Size = UDim2.fromOffset(w, h),
 		Selectable = selectable ~= false,
 		BackgroundTransparency = 0.5,
-	})
+	}
 end
 
 local function move(t: any, from: GuiObject, key: string): string
@@ -48,13 +56,13 @@ end
 
 add("F1-overlap-vs-near", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "Source", 300, 600, 600, 44) :: unknown,
+			box(Host, "Source", 300, 600, 600, 44),
 			box(Host, "NearOutOfSpan", 100, 520, 44, 44),
 			box(Host, "FarInSpan", 500, 200, 300, 44),
-		})
+		}
 	end, { size = Vector2.new(1200, 800) })
 	local source = t.find(world, "Source")
 	each(t, source, { "StickUp" }, "stick from Source")
@@ -63,14 +71,14 @@ end)
 
 add("F2-m2-with-control-frames", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "Lap", 71, 272, 633, 44) :: unknown,
+			box(Host, "Lap", 71, 272, 633, 44),
 			box(Host, "Tilt", 164, 402, 392, 44),
 			box(Host, "Rear", 17, 480, 44, 190),
 			box(Host, "Boost", 17, 700, 687, 44),
-		})
+		}
 	end, { size = Vector2.new(1542, 900) })
 	each(t, t.find(world, "Boost"), { "StickUp", "Up" }, "from Boost")
 	each(t, t.find(world, "Rear"), { "StickUp", "StickDown", "StickRight", "DPadRight", "Down" }, "from Rear")
@@ -79,13 +87,13 @@ end)
 
 add("F3-stick-honours-links", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "A", 100, 100, 100, 44) :: unknown,
+			box(Host, "A", 100, 100, 100, 44),
 			box(Host, "B", 300, 100, 100, 44),
 			box(Host, "C", 100, 300, 100, 44),
-		})
+		}
 	end, { size = Vector2.new(800, 600) })
 	local a, c = t.find(world, "A"), t.find(world, "C")
 	a.NextSelectionRight = a
@@ -98,19 +106,19 @@ end)
 
 add("F4-drag-detector-phantom", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "Top", 100, 100, 300, 44) :: unknown,
-			Host.Frame({
+			box(Host, "Top", 100, 100, 300, 44),
+			Host.Frame {
 				Name = "Track",
 				Position = UDim2.fromOffset(100, 250),
 				Size = UDim2.fromOffset(300, 44),
 				Selectable = false,
-				Host.UIDragDetector({ Name = "Drag" }),
-			}),
+				Host.UIDragDetector { Name = "Drag" },
+			},
 			box(Host, "Bottom", 100, 400, 300, 44),
-		})
+		}
 	end, { size = Vector2.new(800, 600) })
 	local top = t.find(world, "Top")
 	t.note("detector enabled: Down from Top", move(t, top, "DPadDown"))
@@ -122,20 +130,20 @@ end)
 
 add("F5-selection-group-column", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "Tilt", 164, 402, 392, 44) :: unknown,
-			Host.Frame({
+			box(Host, "Tilt", 164, 402, 392, 44),
+			Host.Frame {
 				Name = "Column",
 				Position = UDim2.fromOffset(17, 480),
 				Size = UDim2.fromOffset(687, 264),
 				BackgroundTransparency = 1,
 				SelectionGroup = true,
-				box(Host, "Rear", 0, 0, 44, 190) :: unknown,
+				box(Host, "Rear", 0, 0, 44, 190),
 				box(Host, "Boost", 0, 220, 687, 44),
-			}),
-		})
+			},
+		}
 	end, { size = Vector2.new(1542, 900) })
 	local boost = t.find(world, "Boost")
 	t.note("group Escape: Up from Boost", move(t, boost, "StickUp"))
@@ -149,16 +157,16 @@ end)
 
 add("F6-offscreen-scroll-child", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		local rows = {}
+		local rows: { Frame } = {}
 		for index = 1, 12 do
 			table.insert(rows, box(Host, `Row{index}`, 0, (index - 1) * 60, 300, 44))
 		end
-		return Host.ScrollingFrame({
+		return Host.ScrollingFrame {
 			Name = "Scroller",
 			Size = UDim2.fromOffset(320, 200),
 			CanvasSize = UDim2.fromOffset(0, 720),
-			table.unpack((rows :: unknown) :: { unknown }),
-		})
+			table.unpack(rows),
+		}
 	end, { size = Vector2.new(800, 600) })
 	local scroller = t.find(world, "Scroller")
 	t.note("Down from Row3 (Row4 partly clipped)", move(t, t.find(world, "Row3"), "DPadDown"))
@@ -175,24 +183,24 @@ end)
 
 add("F7-rotated-and-canvasgroup", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "Top", 200, 100, 300, 44) :: unknown,
-			Host.Frame({
+			box(Host, "Top", 200, 100, 300, 44),
+			Host.Frame {
 				Name = "Rotated",
 				Position = UDim2.fromOffset(200, 250),
 				Size = UDim2.fromOffset(300, 44),
 				Rotation = 20,
 				Selectable = true,
-			}),
-			Host.CanvasGroup({
+			},
+			Host.CanvasGroup {
 				Name = "Group",
 				Position = UDim2.fromOffset(200, 400),
 				Size = UDim2.fromOffset(300, 60),
 				box(Host, "InGroup", 0, 8, 300, 44),
-			}),
-		})
+			},
+		}
 	end, { size = Vector2.new(800, 600) })
 	local top = t.find(world, "Top")
 	t.note("Down from Top", move(t, top, "DPadDown"))
@@ -202,12 +210,12 @@ end)
 
 add("F8-sink-context-on-dpad-and-stick", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "A", 100, 100, 100, 44) :: unknown,
+			box(Host, "A", 100, 100, 100, 44),
 			box(Host, "B", 300, 100, 100, 44),
-		})
+		}
 	end, { size = Vector2.new(800, 600) })
 	local heard = 0
 	local context = Instance.new("InputContext")
@@ -235,12 +243,12 @@ end)
 
 add("F9-arrow-keys-drive-engine", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "A", 100, 100, 100, 44) :: unknown,
+			box(Host, "A", 100, 100, 100, 44),
 			box(Host, "B", 300, 100, 100, 44),
-		})
+		}
 	end, { size = Vector2.new(800, 600) })
 	t.note("Right arrow from A", move(t, t.find(world, "A"), "Right"))
 	GuiService.SelectedObject = nil
@@ -248,23 +256,23 @@ end)
 
 add("F10-l1-r1-with-selection", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Host.Frame({
+			Host.Frame {
 				Name = "G1",
 				Size = UDim2.fromOffset(300, 60),
 				SelectionGroup = true,
 				box(Host, "A", 0, 0, 100, 44),
-			}) :: unknown,
-			Host.Frame({
+			},
+			Host.Frame {
 				Name = "G2",
 				Position = UDim2.fromOffset(400, 0),
 				Size = UDim2.fromOffset(300, 60),
 				SelectionGroup = true,
 				box(Host, "B", 0, 0, 100, 44),
-			}),
-		})
+			},
+		}
 	end, { size = Vector2.new(800, 600) })
 	t.note("ButtonL1 from A", move(t, t.find(world, "A"), "ButtonL1"))
 	GuiService.SelectedObject = nil
@@ -272,15 +280,15 @@ end)
 
 add("E1-input-actions-while-selected", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			box(Host, "A", 300, 100, 100, 44),
-		})
+		}
 	end, { size = Vector2.new(800, 600) })
 	local a = t.find(world, "A")
 	a.NextSelectionLeft = a
-	local heard = {}
+	local heard: { [string]: number } = {}
 	local context = Instance.new("InputContext")
 	context.Priority = 10000
 	context.Sink = true
@@ -313,13 +321,13 @@ end)
 
 add("E2-wired-candidates-first", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "A", 16, 100, 741, 44) :: unknown,
+			box(Host, "A", 16, 100, 741, 44),
 			box(Host, "B", 16, 154, 741, 44),
 			box(Host, "X", 1100, 242, 62, 50),
-		})
+		}
 	end, { size = Vector2.new(1200, 800) })
 	local a, x = t.find(world, "A"), t.find(world, "X")
 	t.note("plain: Down from A", move(t, a, "DPadDown"))
@@ -334,13 +342,13 @@ end)
 
 add("F12-out-of-beam-alignment", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "S", 100, 500, 100, 44) :: unknown,
+			box(Host, "S", 100, 500, 100, 44),
 			box(Host, "Near", 430, 250, 40, 44),
 			box(Host, "Aligned", 1030, 200, 40, 44),
-		})
+		}
 	end, { size = Vector2.new(1200, 800) })
 	t.note("Right from S: Near (40 deg) or Aligned (18 deg)", move(t, t.find(world, "S"), "DPadRight"))
 	GuiService.SelectedObject = nil
@@ -348,21 +356,28 @@ end)
 
 add("F12-sweep", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "S", 100, 400, 100, 44) :: unknown,
+			box(Host, "S", 100, 400, 100, 44),
 			box(Host, "A", 0, 0, 10, 10),
 			box(Host, "B", 0, 0, 10, 10),
 			box(Host, "C", 0, 0, 10, 10),
-		})
+		}
 	end, { size = Vector2.new(1400, 900) })
 	local source = t.find(world, "S")
 	local frames = { t.find(world, "A"), t.find(world, "B"), t.find(world, "C") }
 	for _, node in { source, table.unpack(frames) } do
 		node.SelectionGained:Connect(function() end)
 	end
-	local options = shared.FacetFocusSweep or {}
+	local options: {
+		view: string?,
+		seed: number?,
+		count: number?,
+		pairs: boolean?,
+		grid: { b: { number }, ys: { number }, xs: { number }, size: { number } }?,
+	} = shared.FacetFocusSweep
+		or {}
 	local view = options.view or "right"
 	local key = if view == "left" then "DPadLeft" elseif view == "down" then "DPadDown" else "DPadRight"
 	local function place(node: GuiObject, x: number, y: number, w: number, h: number)
@@ -376,12 +391,12 @@ add("F12-sweep", function(t)
 	end
 	place(source, 100, 400, 100, 44)
 	local random = Random.new(options.seed or 12)
-	local trials = {}
+	local trials: { { [string]: { number } | string } } = {}
 	local count = options.count or 90
 	local used = options.pairs and 2 or 3
 	frames[3].Visible = used == 3
 	for trial = 1, count do
-		local rects = {}
+		local rects: { [string]: { number } | string } = {}
 		for index = 1, used do
 			local node = frames[index]
 			local w, h = random:NextInteger(30, 220), random:NextInteger(30, 140)
@@ -410,10 +425,9 @@ add("F12-sweep", function(t)
 			for x = grid.xs[1], grid.xs[2], grid.xs[3] do
 				place(frames[1], x, y, grid.size[1], grid.size[2])
 				t.settle(2)
-				table.insert(
-					trials,
+				local trial: { [string]: { number } | string } =
 					{ A = { x, y, grid.size[1], grid.size[2] }, B = grid.b, pick = move(t, source, key) }
-				)
+				table.insert(trials, trial)
 			end
 		end
 	end
@@ -423,23 +437,23 @@ end)
 
 add("F14-scroll-strip-vs-its-tabs", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "Above", 200, 200, 100, 44) :: unknown,
+			box(Host, "Above", 200, 200, 100, 44),
 			box(Host, "Left", 0, 420, 100, 44),
 			box(Host, "Side", 0, 303, 100, 44),
-			Host.ScrollingFrame({
+			Host.ScrollingFrame {
 				Name = "Strip",
 				Position = UDim2.fromOffset(150, 300),
 				Size = UDim2.fromOffset(500, 50),
 				CanvasSize = UDim2.fromOffset(500, 0),
 				Selectable = true,
-				box(Host, "T1", 10, 3, 80, 44) :: unknown,
+				box(Host, "T1", 10, 3, 80, 44),
 				box(Host, "T2", 100, 3, 80, 44),
 				box(Host, "T3", 190, 3, 80, 44),
-			}),
-		})
+			},
+		}
 	end, { size = Vector2.new(1000, 700) })
 	local strip = t.find(world, "Strip")
 	local seen: { string } = {}
@@ -473,14 +487,14 @@ end)
 
 add("F15-lane-is-span-or-centre-line", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "S", 100, 400, 100, 44) :: unknown,
+			box(Host, "S", 100, 400, 100, 44),
 			box(Host, "EdgeOverlap", 400, 350, 60, 60),
 			box(Host, "CentreLine", 900, 380, 60, 60),
 			box(Host, "OutNear", 260, 330, 60, 40),
-		})
+		}
 	end, { size = Vector2.new(1200, 800) })
 	for _, name in { "S", "EdgeOverlap", "CentreLine", "OutNear" } do
 		t.find(world, name).SelectionGained:Connect(function() end)
@@ -495,21 +509,21 @@ end)
 
 add("F16-scroll-container-in-lane-vs-control-out-of-lane", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "Above", 100, 20, 300, 44) :: unknown,
+			box(Host, "Above", 100, 20, 300, 44),
 			box(Host, "Right", 600, 120, 100, 44),
-			Host.ScrollingFrame({
+			Host.ScrollingFrame {
 				Name = "Scroller",
 				Position = UDim2.fromOffset(100, 100),
 				Size = UDim2.fromOffset(320, 200),
 				CanvasSize = UDim2.fromOffset(0, 800),
 				Selectable = true,
-				box(Host, "Clipped", 0, 250, 300, 44) :: unknown,
+				box(Host, "Clipped", 0, 250, 300, 44),
 				box(Host, "Shown", 0, 60, 300, 44),
-			}),
-		})
+			},
+		}
 	end, { size = Vector2.new(1000, 800) })
 	for _, name in { "Above", "Right", "Clipped", "Shown" } do
 		t.find(world, name).SelectionGained:Connect(function() end)
@@ -533,20 +547,20 @@ end)
 
 add("F6b-clipped-scroll-child-from-outside", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			box(Host, "Above", 100, 20, 300, 44) :: unknown,
-			Host.ScrollingFrame({
+			box(Host, "Above", 100, 20, 300, 44),
+			Host.ScrollingFrame {
 				Name = "Scroller",
 				Position = UDim2.fromOffset(100, 100),
 				Size = UDim2.fromOffset(320, 200),
 				CanvasSize = UDim2.fromOffset(0, 800),
 				Selectable = false,
 				box(Host, "Clipped", 0, 250, 300, 44),
-			}),
+			},
 			box(Host, "Far", 100, 700, 300, 44),
-		})
+		}
 	end, { size = Vector2.new(800, 800) })
 	t.note("Down from Above (Clipped below the window, Far visible)", move(t, t.find(world, "Above"), "DPadDown"))
 	GuiService.SelectedObject = nil
@@ -554,13 +568,13 @@ end)
 
 add("F11-selection-image-part", function(t)
 	local world = t.mount(function(_, Host: RobloxHost)
-		return Host.Frame({
+		return Host.Frame {
 			Name = "Row",
 			Position = UDim2.fromOffset(100, 100),
 			Size = UDim2.fromOffset(600, 60),
 			Selectable = true,
-			Host.Frame({ Name = "Part", Position = UDim2.fromOffset(300, 8), Size = UDim2.fromOffset(44, 44) }),
-		})
+			Host.Frame { Name = "Part", Position = UDim2.fromOffset(300, 8), Size = UDim2.fromOffset(44, 44) },
+		}
 	end, { size = Vector2.new(800, 600) })
 	GuiService.SelectedObject = t.find(world, "Row")
 	t.settle(5)
@@ -575,8 +589,8 @@ local ALL = { "DPadDown", "DPadLeft", "DPadRight", "StickUp", "StickDown", "Stic
 
 local function rowScene(t: any, inner: { { string | number } }, sibling: boolean): Instance
 	return t.mount(function(_, Host: RobloxHost)
-		local children: { unknown } = {}
-		local nested: { unknown } = {}
+		local children: { Frame } = {}
+		local nested: { Frame } = {}
 		for _, item in inner do
 			local node = box(
 				Host,
@@ -588,24 +602,24 @@ local function rowScene(t: any, inner: { { string | number } }, sibling: boolean
 			)
 			table.insert(if sibling then children else nested, node)
 		end
-		local row = Host.Frame({
+		local row = Host.Frame {
 			Name = "Row",
 			Position = UDim2.fromOffset(100, 300),
 			Size = UDim2.fromOffset(800, 60),
 			Selectable = true,
 			BackgroundTransparency = 0.5,
 			table.unpack(nested),
-		})
-		return Host.Frame({
+		}
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			row :: unknown,
+			row,
 			box(Host, "Above", 100, 200, 800, 44),
 			box(Host, "Below", 100, 400, 800, 44),
 			box(Host, "LeftOut", 20, 308, 60, 44),
 			box(Host, "RightOut", 920, 308, 60, 44),
 			table.unpack(children),
-		})
+		}
 	end, { size = Vector2.new(1000, 700) })
 end
 

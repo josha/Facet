@@ -4,7 +4,7 @@ local Commands = require("./command_types")
 local ComposeTypes = require("../vendor/compose/core")
 local gestureOf = require("./gesture_service")
 type Record = { node: GuiObject, active: (ComposeTypes.Use) -> boolean }
-local registries = setmetatable({} :: { [Shared.Context]: Shared.Value<{ Record }> }, { __mode = "k" })
+local registries: { [Shared.Context]: Shared.Value<{ Record }> } = setmetatable({}, { __mode = "k" })
 
 return function(ctx: Shared.Context, UI: Commands.Controls)
 	local C, runtime, input, gui = ctx.Compose, ctx.runtime, ctx.config.userInputService, ctx.config.guiService
@@ -74,11 +74,12 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 			current:set(targetKey(use))
 		end)
 		if input then
+			local activeInput = input
 			runtime.connect(input, "TextBoxFocused", function()
 				typing:set(true)
 			end)
 			runtime.connect(input, "TextBoxFocusReleased", function()
-				typing:set(not not input:GetFocusedTextBox())
+				typing:set(not not activeInput:GetFocusedTextBox())
 			end)
 		end
 		local record: Record = {
@@ -223,7 +224,7 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 					if target.key == key then
 						local node = selectable(target.node)
 						if node then
-							gui.SelectedObject = node
+							assert(gui).SelectedObject = node
 							return true
 						end
 					end

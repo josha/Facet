@@ -169,7 +169,7 @@
     "package-build": 5.5,
     "package-canary": 0.9,
     "package-status": 1,
-    "perf": 71.8,
+    "perf": 100,
     "perf-footprint": 1.7,
     "perf-memory": 0.6,
     "perf-place": 0.6,
@@ -184,7 +184,7 @@
     "theme-artifacts": 1.8,
     "theme-drift": 4.4,
     "type-policy": 7.7,
-    "types": 129.5,
+    "types": 640,
     "vendor": 0.6,
     "verify-integration": 31,
     "word-data": 0.5

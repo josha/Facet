@@ -1,4 +1,5 @@
 --!strict
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type SequenceSpec = typeof(require("@repo/tools/typecheck/aliases").SequenceSpec)
 type SequenceStep = typeof(require("@repo/tools/typecheck/aliases").SequenceStep)
 type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -115,11 +116,21 @@ return function(UI: Controls, Host: Host, C: Compose, showPulse: boolean?): Fram
 		},
 	}
 	local sequence = UI.sequence(sequenceSpec)
-	return UI.VStack("RewardSequence")({
+	return UI.VStack "RewardSequence" {
 		gap = "s",
 		UI.HStack {
-			UI.Button "RewardPlay" { label = "Play reward", onActivate = sequence.play },
-			UI.Button "RewardFinish" { label = "Finish", onActivate = sequence.finish },
+			UI.Button "RewardPlay" {
+				label = "Play reward",
+				onActivate = function()
+					sequence.play()
+				end,
+			},
+			UI.Button "RewardFinish" {
+				label = "Finish",
+				onActivate = function()
+					sequence.finish()
+				end,
+			},
 			UI.Button "RewardCancel" {
 				label = "Cancel",
 				onActivate = function()
@@ -136,16 +147,16 @@ return function(UI: Controls, Host: Host, C: Compose, showPulse: boolean?): Fram
 		UI.Flash "RowSweep" { target = row, progress = sweep, mode = "sweep" },
 		UI.Flash {
 			target = tiles[2],
-			progress = C.formula(function(use): number
+			progress = C.formula(function(use: Use): number
 				return if showPulse == false then 0 else use(pulse)
 			end),
 		},
 		UI.Text "RewardTotal" {
-			text = C.formula(function(use)
+			text = C.formula(function(use: Use)
 				return `Total: {math.floor(use(total) + 0.5)}`
 			end),
 		},
 		UI.ProgressView "RewardCharge" { value = shownCharge, presentation = "bar" },
 		UI.Text "RewardState" { text = status },
-	})
+	}
 end

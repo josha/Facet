@@ -6,7 +6,7 @@ type FacetControls = FacetTypes.Controls
 type NumberCell = FacetTypes.Value<number>
 type StringCell = FacetTypes.Value<string>
 type TimerControls = FacetTypes.TimerControls
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = FacetTypes.ReadOnlyValue<T>
 type Use = <T>(ReadOnlyValue<T>) -> T
 type Model = {
 	phase: StringCell,

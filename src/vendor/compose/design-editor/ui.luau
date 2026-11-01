@@ -14,6 +14,18 @@ local MODIFIER_KEYS: { [string]: { string } } = {
 	Alt = { "LeftAlt", "RightAlt" },
 }
 
+local function node(value: unknown): Compose.Node
+	assert(
+		type(value) == "table" or type(value) == "userdata",
+		"Design editor expected a host reference, got " .. type(value)
+	)
+	return value
+end
+
+local function optionalNode(value: unknown): Compose.Node?
+	return if value == nil then nil else node(value)
+end
+
 local function create(runtime: Compose.Runtime, environment: Environment.Environment, library: boolean?)
 	local owner = Compose.createOwner(runtime.reactor)
 	local owners: { [Compose.Node]: Compose.Owner } = {}
@@ -21,19 +33,19 @@ local function create(runtime: Compose.Runtime, environment: Environment.Environ
 	local observation = assert(runtime.host.observation, "Design editor requires host observation")
 	local render = runtime.host.render
 	local disposed = false
-	local function get(node: Compose.Node, key: string): unknown
-		return observation.readProperty(node, key)
+	local function get(subject: unknown, key: string): unknown
+		return environment.read(subject, key)
 	end
-	local function number(node: Compose.Node, key: string): number
+	local function number(node: unknown, key: string): number
 		local value = get(node, key)
 		return if type(value) == "number" then value else 0
 	end
-	local function text(node: Compose.Node, key: string): string
+	local function text(node: unknown, key: string): string
 		local value = get(node, key)
 		return if type(value) == "string" then value else ""
 	end
-	local function call(node: Compose.Node, method: string, ...: unknown): ...unknown
-		return environment.invoke(node, method, ...)
+	local function call(subject: unknown, method: string, ...: unknown): ...unknown
+		return environment.invoke(node(subject), method, ...)
 	end
 	local function destroy(node: Compose.Node)
 		local owned = owners[node]
@@ -49,23 +61,24 @@ local function create(runtime: Compose.Runtime, environment: Environment.Environ
 		owners[node] = nil
 		Compose.owner.dispose(owned)
 	end
-	local function set(node: Compose.Node, key: string, value: unknown)
+	local function set(subject: unknown, key: string, value: unknown)
+		local target = node(subject)
 		if key == "Parent" then
-			local previous = if library then get(node, "Parent") else parents[node]
+			local previous = if library then get(target, "Parent") else parents[target]
 			if previous == value then
 				return
 			end
 			if previous ~= nil then
-				render.removeChild(previous, node)
+				render.removeChild(node(previous), target)
 			end
 			if not library then
-				parents[node] = value
+				parents[target] = optionalNode(value)
 			end
 			if value ~= nil then
-				render.insertChild(value, node)
+				render.insertChild(node(value), target)
 			end
 		else
-			render.setProperty(node, key, value)
+			render.setProperty(target, key, value)
 		end
 	end
 	local function new(kind: string): Compose.Node
@@ -79,9 +92,10 @@ local function create(runtime: Compose.Runtime, environment: Environment.Environ
 		owners[node] = scope
 		return node
 	end
-	local function connect<A...>(node: Compose.Node, event: string, handler: (A...) -> ()): Connection
+	local function connect<A...>(subject: unknown, event: string, handler: (A...) -> ()): Connection
+		local target = node(subject)
 		local function subscribe(): () -> ()
-			return runtime.connect(node, event, handler)
+			return runtime.connect(target, event, handler)
 		end
 		local stop = if library then subscribe() else Compose.withOwner(owner, subscribe)
 		return {
@@ -97,11 +111,11 @@ local function create(runtime: Compose.Runtime, environment: Environment.Environ
 	local function vector(value: unknown): Vector
 		return { X = number(value, "X"), Y = number(value, "Y"), Z = number(value, "Z") }
 	end
-	local function isA(node: Compose.Node, kind: string): boolean
-		return node ~= nil and call(node, "IsA", kind) == true
+	local function isA(subject: unknown, kind: string): boolean
+		return (type(subject) == "table" or type(subject) == "userdata") and call(subject, "IsA", kind) == true
 	end
-	local function changed(node: Compose.Node, property: string, listener: () -> ()): Connection
-		local stop = observation.observeProperty(node, property, listener)
+	local function changed(subject: unknown, property: string, listener: () -> ()): Connection
+		local stop = observation.observeProperty(node(subject), property, listener)
 		return {
 			Disconnect = function(_self: Connection)
 				stop()
@@ -124,8 +138,12 @@ local function create(runtime: Compose.Runtime, environment: Environment.Environ
 			local b = tonumber(string.sub(hex, 6, 7), 16) or 0
 			return values.color(r / 255, g / 255, b / 255)
 		end,
-		service = environment.service,
-		modified = function(input: Compose.Node?, kinds: { string }): boolean
+		node = node,
+		optionalNode = optionalNode,
+		service = function(name: string): Compose.Node
+			return node(environment.service(name))
+		end,
+		modified = function(input: unknown, kinds: { string }): boolean
 			for _, kind in kinds do
 				if input ~= nil then
 					if call(input, "IsModifierKeyDown", values.enum("ModifierKey", kind)) == true then
@@ -153,7 +171,13 @@ local function create(runtime: Compose.Runtime, environment: Environment.Environ
 			end
 			return false
 		end,
-		descendants = environment.descendants,
+		descendants = function(subject: unknown): { Compose.Node }
+			local result: { Compose.Node } = {}
+			for _, child in environment.descendants(node(subject)) do
+				table.insert(result, node(child))
+			end
+			return result
+		end,
 		new = new,
 		get = get,
 		set = set,
@@ -175,10 +199,10 @@ local function create(runtime: Compose.Runtime, environment: Environment.Environ
 		changed = changed,
 		point = point,
 		vector = vector,
-		xy = function(node: Compose.Node, property: string): Point
+		xy = function(node: unknown, property: string): Point
 			return point(get(node, property))
 		end,
-		xyz = function(node: Compose.Node, property: string): Vector
+		xyz = function(node: unknown, property: string): Vector
 			return vector(get(node, property))
 		end,
 		dispose = function()
@@ -208,4 +232,4 @@ end
 
 export type UI = typeof(create(...))
 
-return { create = create }
+return { create = create, node = node }

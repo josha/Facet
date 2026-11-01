@@ -1,6 +1,7 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 
 return {
@@ -22,7 +23,7 @@ return {
 				reduced = if ctx.reducedMotion then ctx.reducedMotion:peek() else false,
 			}
 		end
-		local function command(cell, value)
+		local function command(cell: BooleanCell, value: boolean)
 			cell:set(value)
 			return report()
 		end
@@ -38,15 +39,15 @@ return {
 				rootPath, controller = nil, nil
 				table.clear(records)
 			end)
-			local root = Host.Frame("SkeletonRecipe")({
+			local root = Host.Frame "SkeletonRecipe" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				},
 				UI.Text "Title" {
 					LayoutOrder = 1,
 					BackgroundTransparency = 1,
@@ -70,17 +71,17 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				Host.Frame("Commands")({
+				Host.Frame "Commands" {
 					LayoutOrder = 3,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(0, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}),
+					},
 					UI.Button "Load" {
 						LayoutOrder = 1,
 						label = "Loading",
@@ -109,8 +110,8 @@ return {
 							motion(false)
 						end,
 					},
-				}),
-				Host.Frame({
+				},
+				Host.Frame {
 					LayoutOrder = 4,
 					Name = "Pending",
 					BackgroundTransparency = 1,
@@ -120,16 +121,16 @@ return {
 						Compose.cleanup(function()
 							table.clear(records)
 						end)
-						return Host.Frame("Placeholders")({
+						return Host.Frame "Placeholders" {
 							BackgroundTransparency = 1,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
-							Host.UIListLayout({
+							Host.UIListLayout {
 								FillDirection = Enum.FillDirection.Vertical,
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 16),
-							}),
-							Host.Frame({
+							},
+							Host.Frame {
 								LayoutOrder = 1,
 								Name = "First",
 								BackgroundTransparency = 1,
@@ -141,7 +142,7 @@ return {
 										corners = "panel",
 									}
 								end),
-							}),
+							},
 							UI.Skeleton "Face" {
 								LayoutOrder = 2,
 								form = "circle",
@@ -154,7 +155,7 @@ return {
 								form = "line",
 								lines = 3,
 							},
-						})
+						}
 					end, function()
 						return UI.Text "ReadyCopy" {
 							BackgroundTransparency = 1,
@@ -167,14 +168,14 @@ return {
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}
 					end),
-				}),
-			})
+				},
+			}
 			return root
 		end
 		return {
 			section = section,
 			screen = function()
-				return Host.Frame("Skeleton")({
+				return Host.Frame "Skeleton" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					UI.ScrollView "Content" {
@@ -184,7 +185,7 @@ return {
 						ScrollBarThickness = 6,
 						section(),
 					},
-				})
+				}
 			end,
 			report = report,
 			steps = {

@@ -36,7 +36,7 @@ export type State = {
 	currentPaint: (Use) -> Paint,
 	gui: GuiService?,
 	selected: ComposeTypes.ReadOnlyValue<GuiObject?>,
-	preferred: Value<Enum.PreferredInput> | Value<unknown>,
+	preferred: ComposeTypes.ReadOnlyValue<Enum.PreferredInput> | Value<unknown>,
 	touch: (Use?) -> boolean,
 	gamepad: (Use?) -> boolean,
 	presented: (Use?) -> boolean,
@@ -69,7 +69,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 		refuse("`allowEmpty` is true or false.")
 	end
 	local allowEmpty = spec.allowEmpty == true
-	local initial: Color3? = read(spec.value)
+	local initial: Color3? = read<<Color3?>>(spec.value)
 	if not (isColor(initial) or (initial == nil and allowEmpty)) then
 		refuse("`value` is a Color3 (or a readable one); nil only with `allowEmpty = true`.")
 	end
@@ -176,7 +176,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 	end
 	local held = Compose.cell(initial)
 	Compose.watch(function(use: Use)
-		local value: Color3? = read(spec.value, use)
+		local value: Color3? = read<<Color3?>>(spec.value, use)
 		if legalColor(value) then
 			held:set(value)
 		else

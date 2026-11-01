@@ -6,7 +6,7 @@ return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	local FixtureNavigationTypes = require("../src/ui/navigation_types")
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Facet = require("../src")
@@ -46,7 +46,11 @@ return function(verifyHarness: Verify.Harness)
 											return UI.TabView "Inner" {
 												selection = Compose.cell("x"),
 												tabs = {
-													{ id = "x", label = "Swipe actions", content = Host.Frame "X" {} } :: FixtureNavigationTypes.Tab,
+													{
+														id = "x",
+														label = "Swipe actions",
+														content = Host.Frame "X" {},
+													} :: FixtureNavigationTypes.Tab,
 													{ id = "y", label = "Permissions", content = Host.Frame "Y" {} } :: FixtureNavigationTypes.Tab,
 												},
 											}

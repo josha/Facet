@@ -76,7 +76,8 @@ end
 local function kit(name: string, open: () -> Workspace): Kit
 	return {
 		name = name,
-		edit = function(parent: Compose.Node, documentName: string, link: Design.LinkStore?): DesignTypes.OpenDesign
+		edit = function(subject: unknown, documentName: string, link: Design.LinkStore?): DesignTypes.OpenDesign
+			local parent = UI.node(subject)
 			local workspace = open()
 			local library = workspace.library
 			local initial = Design.document.new(documentName, library, workspace.root)

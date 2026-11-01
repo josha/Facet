@@ -12,7 +12,7 @@ export type EditAction = {
 	onActivate: () -> (),
 }
 
-local editors = setmetatable({} :: { [Instance]: EditAction }, { __mode = "k" })
+local editors: { [Instance]: EditAction } = setmetatable({}, { __mode = "k" })
 
 function activation.provideEdit(node: Instance, action: EditAction): () -> ()
 	editors[node] = action
@@ -34,9 +34,9 @@ function activation.edits(root: Instance): { EditAction }
 	return result
 end
 
-type Listener = (...unknown) -> ()
+type Listener = (InputObject?, number?) -> ()
 
-local owned = setmetatable({} :: { [Instance]: { Listener } }, { __mode = "k" })
+local owned: { [Instance]: { Listener } } = setmetatable({}, { __mode = "k" })
 
 function activation.mark(node: Instance)
 	if owned[node] == nil then
@@ -66,7 +66,7 @@ function activation.listen(node: Instance, listener: Listener): () -> ()
 	end
 end
 
-local interceptors = setmetatable({} :: { [Instance]: { (unknown) -> boolean } }, { __mode = "k" })
+local interceptors: { [Instance]: { (unknown) -> boolean } } = setmetatable({}, { __mode = "k" })
 
 function activation.intercept(node: Instance, listener: (unknown) -> boolean): () -> ()
 	local listeners = interceptors[node] or {}
@@ -92,7 +92,7 @@ function activation.intercepted(node: Instance, input: unknown): boolean
 	return false
 end
 
-local activators = setmetatable({} :: { [Instance]: Listener }, { __mode = "k" })
+local activators: { [Instance]: Listener } = setmetatable({}, { __mode = "k" })
 
 function activation.provide(node: Instance, activate: Listener): () -> ()
 	activators[node] = activate
@@ -103,26 +103,26 @@ function activation.provide(node: Instance, activate: Listener): () -> ()
 	end
 end
 
-function activation.trigger(node: Instance, ...: unknown): boolean
+function activation.trigger(node: Instance, input: InputObject?, clicks: number?): boolean
 	local activate = activators[node]
 	if activate == nil then
 		return false
 	end
-	activate(...)
+	activate(input, clicks)
 	return true
 end
 
-function activation.notify(node: Instance, ...: unknown)
+function activation.notify(node: Instance, input: InputObject?, clicks: number?)
 	local list = owned[node]
 	if list == nil then
 		return
 	end
 	for _, listener in table.clone(list) do
-		listener(...)
+		listener(input, clicks)
 	end
 end
 
-local consumed = setmetatable({} :: { [unknown]: boolean }, { __mode = "k" })
+local consumed: { [unknown]: boolean } = setmetatable({}, { __mode = "k" })
 
 function activation.consume(input: unknown)
 	if input ~= nil then
@@ -140,7 +140,7 @@ function activation.consumed(input: unknown): boolean
 	return input ~= nil and consumed[input] == true
 end
 
-local pressers = setmetatable({} :: { [Instance]: (InputObject) -> () }, { __mode = "k" })
+local pressers: { [Instance]: (InputObject) -> () } = setmetatable({}, { __mode = "k" })
 
 function activation.providePress(node: Instance, press: (InputObject) -> ()): () -> ()
 	pressers[node] = press
@@ -158,7 +158,7 @@ function activation.press(node: Instance, input: InputObject)
 	end
 end
 
-local drags = setmetatable({} :: { [Instance]: (string, Vector2?) -> boolean }, { __mode = "k" })
+local drags: { [Instance]: (string, Vector2?) -> boolean } = setmetatable({}, { __mode = "k" })
 
 function activation.provideDrag(node: Instance, listener: (string, Vector2?) -> boolean): () -> ()
 	drags[node] = listener

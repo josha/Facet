@@ -28,7 +28,7 @@ return function(verifyHarness: Verify.Harness)
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (runtime.constructors :: unknown) :: RobloxHost,
+			Host = Facet.host(runtime),
 			types = engine.types,
 			viewport = Compose.cell({ width = 1280, height = 720 }),
 			inputTarget = engine.new("Folder"),
@@ -129,10 +129,13 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local ctx, engine, problems = context()
 				local target = engine.new("Folder")
-				local stop, node: any = ctx.runtime.mount(function()
-					gallery.configure(ctx)
+				local runtime: ComposeRuntime = ctx.runtime
+				local configure: (any) -> () = gallery.configure
+				local function render(): Instance
+					configure(ctx)
 					return build(ctx)
-				end, target)
+				end
+				local stop, node: any = runtime.mount(render, target)
 				settle(engine, 10)
 				local pressed, failures = press(engine, node, problems)
 				Verify.expect((table.concat(failures, "\n"))):toBe("")

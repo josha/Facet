@@ -1,13 +1,13 @@
 --!strict
 
-local ResourceTypes = require "./resource-types"
+local CoreTypes = require "./types"
 local Owners = require "./ownership/owner"
 local Diagnostics = require "./diagnostics"
 local cacheOptions = require "./ownership/cache-options"
 
-export type Cache<K, T> = ResourceTypes.KeyedCache<K, T>
+export type Cache<K, T> = CoreTypes.KeyedCache<K, T>
 
-export type Options<K, T> = ResourceTypes.KeyedCacheOptions<K, T>
+export type Options<K, T> = CoreTypes.KeyedCacheOptions<K, T>
 
 local function createKeyedCache<K, T>(options: Options<K, T>): Cache<K, T>
 	local owner, maximum = cacheOptions.validate(options, "keyed-cache")
@@ -49,7 +49,7 @@ local function createKeyedCache<K, T>(options: Options<K, T>): Cache<K, T>
 
 	local function get(key: K): T
 		if disposed then
-			Diagnostics.raise("keyed-cache/disposed", "a disposed cache cannot build or return entries", {
+			return Diagnostics.raise("keyed-cache/disposed", "a disposed cache cannot build or return entries", {
 				contract = "the cache shares its owner's lifetime",
 			})
 		end

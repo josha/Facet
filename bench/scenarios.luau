@@ -1,16 +1,28 @@
 --!strict
+type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-type ScreenGuiNativeProps = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiNativeProps)
+type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
+type ScreenGuiProps = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiProps)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type OrderedControls = typeof(require("@repo/tools/typecheck/aliases").OrderedControls)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 local Facet = require("../src")
 local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local Compose: ComposeModule = Facet.Compose
 local nativeApp = require("./native_app")
 local authoringMotion = require("./authoring_motion")
+type RampState = {
+	read Host: RobloxHost,
+	read types: RobloxTypes,
+	read runtime: ComposeRuntime,
+	read target: Instance,
+	read frame: (number?) -> (),
+}
 type BenchRow = { id: string, name: string }
 type BenchSort = { column: string, direction: "ascending" | "descending" }
 
@@ -99,8 +111,8 @@ end, { requirement = "UI-LIFE-002" })
 add("collection-mutation", function()
 	return reactive(function(state)
 		state.items, state.keys, state.n = {}, {}, 50
-		state.apply = function(keys)
-			local wanted = {}
+		state.apply = function(keys: { string })
+			local wanted: { [string]: boolean } = {}
 			for _, key in keys do
 				wanted[key] = true
 			end
@@ -149,11 +161,11 @@ add("collection-selection-update", function()
 			selectionMode = "single",
 			itemSize = 40,
 			render = function(current)
-				return Host.TextLabel({
+				return Host.TextLabel {
 					Text = function(use: Use): string
 						return use(current).name
 					end,
-				})
+				}
 			end,
 		}
 		return world.UI.VirtualList(spec)
@@ -204,11 +216,11 @@ add("reserved-slot-record-update", function()
 			mode = "all",
 			itemSize = 40,
 			render = function(current, _placement, key)
-				local label = Host.TextLabel({
+				local label = Host.TextLabel {
 					Text = function(use: Use): string
 						return use(current).name
 					end,
-				})
+				}
 				Compose.watch(function(use: Use)
 					labels[if type(key) == "string" then key else use(key)] = label
 				end)
@@ -221,7 +233,8 @@ add("reserved-slot-record-update", function()
 	return { rows = rows, labels = labels, n = 0, frame = world.frame, dispose = world.dispose }
 end, function(state)
 	state.n += 1
-	local rows = table.clone(state.rows:peek())
+	local current: { BenchRow } = state.rows:peek()
+	local rows = table.clone(current)
 	local index = (state.n - 1) % #rows + 1
 	local previous = rows[index]
 	local name = `Updated {state.n}`
@@ -235,15 +248,15 @@ add("mounted-slice-update-storm", function()
 	local world = nativeApp()
 	world.speed, world.n = Compose.cell(0), 0
 	world.runtime.mount(function()
-		return world.Host.ScreenGui({
-			world.Host.TextLabel({
+		return world.Host.ScreenGui {
+			world.Host.TextLabel {
 				Text = function(use: Use)
 					return `{use(world.speed)} sps`
 				end,
 				TextSize = 18,
-			}) :: unknown,
-			world.UI.Button({ label = "Boost", onActivate = function() end }),
-		})
+			},
+			world.UI.Button { label = "Boost", onActivate = function() end },
+		}
 	end, world.target)
 	return world
 end, function(state)
@@ -256,26 +269,27 @@ end)
 
 local function rampTree(Host: RobloxHost, depth: number, index: number): GuiObject
 	if depth == 0 then
-		return Host.TextLabel({ Name = `T{index}`, Text = "leaf" })
+		return Host.TextLabel { Name = `T{index}`, Text = "leaf" }
 	end
-	local children = { Name = `V{index}`, Host.UIListLayout({}) :: unknown }
+	local children: { Name: string, [number]: Child } = { Name = `V{index}`, Host.UIListLayout {} }
 	for child = 1, 3 do
 		table.insert(children, rampTree(Host, depth - 1, child))
 	end
-	return Host.Frame(children)
+	return Host.Frame((children :: unknown) :: FrameProps)
 end
+local rampSetup: () -> RampState = nativeApp
 for _, inherited in { false, true } do
-	add(if inherited then "mount-ramp-inherited" else "mount-ramp", nativeApp, function(state)
-		local stop = state.runtime.mount(function()
-			return state.Host.ScreenGui({
-				state.Host.CanvasGroup({
-					Interactable = not inherited,
-					GroupColor3 = if inherited
-						then state.types.Color3.fromRGB(119, 190, 255)
-						else state.types.Color3.new(1, 1, 1),
-					rampTree(state.Host, 7, 1),
-				}),
-			})
+	add(if inherited then "mount-ramp-inherited" else "mount-ramp", rampSetup, function(state: RampState)
+		local stop = state.runtime.mount(function(): ScreenGui
+			local color = if inherited
+				then state.types.Color3.fromRGB(119, 190, 255)
+				else state.types.Color3.new(1, 1, 1)
+			local group: CanvasGroup = state.Host.CanvasGroup {
+				Interactable = not inherited,
+				GroupColor3 = color,
+				rampTree(state.Host, 7, 1),
+			}
+			return state.Host.ScreenGui { group }
 		end, state.target)
 		stop()
 		state.frame()
@@ -283,57 +297,59 @@ for _, inherited in { false, true } do
 	end, { samples = 60, warmup = 5 })
 end
 
-local function tableState(resizing)
+local function tableState(resizing: boolean)
 	local world = nativeApp({ viewport = { w = 800, h = 600 } })
-	local items = {}
+	local items: { BenchRow } = {}
 	for index = 1, 8 do
 		items[index] = { id = `r{index}`, name = `Racer {index}` }
 	end
 	world.rows, world.selected, world.n = Compose.cell(items), Compose.cell({}), if resizing then 0 else 8
 	world.widths = Compose.cell({ name = 600, n = 48 })
 	world.runtime.mount(function()
-		local tableNode = world.UI.Table({
+		local columns: { Facet.TableColumn<BenchRow, string> } = {
+			{
+				id = "name",
+				label = "Racer",
+				minWidth = 80,
+				resizable = true,
+				render = function(current: ReadOnlyValue<BenchRow>): GuiObject
+					return world.Host.TextLabel {
+						TextSize = 14,
+						Text = function(use: Use)
+							return use(current).name
+						end,
+					}
+				end,
+			},
+			{
+				id = "n",
+				label = "N",
+				width = 48,
+				render = function(current: ReadOnlyValue<BenchRow>): GuiObject
+					return world.Host.TextLabel {
+						TextSize = 14,
+						Text = function(use: Use)
+							return use(current).name
+						end,
+					}
+				end,
+			},
+		}
+		local spec: Facet.KeyedTableSpec<BenchRow, string> = {
 			from = world.rows,
 			key = function(item: BenchRow): string
 				return item.id
 			end,
-			columns = {
-				{
-					id = "name",
-					label = "Racer",
-					minWidth = 80,
-					resizable = true,
-					render = function(current: ReadOnlyValue<BenchRow>): GuiObject
-						return world.Host.TextLabel({
-							TextSize = 14,
-							Text = function(use: Use)
-								return use(current).name
-							end,
-						})
-					end,
-				} :: Facet.TableColumn<BenchRow, string>,
-				{
-					id = "n",
-					label = "N",
-					width = 48,
-					render = function(current: ReadOnlyValue<BenchRow>): GuiObject
-						return world.Host.TextLabel({
-							TextSize = 14,
-							Text = function(use: Use)
-								return use(current).name
-							end,
-						})
-					end,
-				} :: Facet.TableColumn<BenchRow, string>,
-			},
+			columns = columns,
 			itemSize = 40,
 			header = resizing == true,
-			selectionMode = (if resizing then "none" else "multiple") :: "none" | "multiple",
+			selectionMode = if resizing then "none" else "multiple",
 			selection = world.selected,
 			widths = world.widths,
-		})
+		}
+		local tableNode = world.UI.Table(spec)
 		world.tableNode = tableNode
-		return world.Host.ScreenGui({ tableNode :: unknown })
+		return world.Host.ScreenGui { tableNode }
 	end, world.target)
 	world.engine.environment.poke(world.tableNode, "AbsoluteSize", world.types.Vector2.new(800, 600))
 	for _, child in world.tableNode:GetChildren() do
@@ -348,7 +364,8 @@ add("table-mutation", function()
 	return tableState(false)
 end, function(state)
 	state.n += 1
-	local items = table.clone(state.rows:peek())
+	local current: { BenchRow } = state.rows:peek()
+	local items = table.clone(current)
 	local key = `r{state.n}`
 	items[((state.n - 1) % 8) + 1] = { id = key, name = `Racer {state.n}` }
 	state.rows:set(items)
@@ -366,42 +383,44 @@ local function sortableTable()
 	for index = 1, 512 do
 		items[index] = { id = `r{index}`, name = string.format("Racer %04d", index) }
 	end
-	local createSort: (BenchSort?) -> Facet.Value<BenchSort?> = Compose.cell
-	local sort = createSort(nil)
+	local initialSort: BenchSort? = nil
+	local sort: Facet.Value<BenchSort?> = Compose.cell(initialSort)
 	local rows = Compose.cell(items)
 	local controls: OrderedControls = {}
 	local label: TextLabel? = nil
 	local Host = world.Host
 	world.runtime.mount(function()
-		return world.UI.Table({
+		local columns: { Facet.TableColumn<BenchRow, string> } = {
+			{
+				id = "name",
+				value = function(item: BenchRow): string
+					return string.lower(item.name)
+				end,
+				render = function(current: ReadOnlyValue<BenchRow>): GuiObject
+					local node = Host.TextLabel {
+						Text = function(use: Use): string
+							return use(current).name
+						end,
+					}
+					if current:peek().id == "r1" then
+						label = node
+					end
+					return node
+				end,
+			},
+		}
+		local spec: Facet.KeyedTableSpec<BenchRow, string> = {
 			Name = "BenchTable",
 			from = rows,
 			key = function(item: BenchRow): string
 				return item.id
 			end,
-			columns = {
-				{
-					id = "name",
-					value = function(item: BenchRow): string
-						return string.lower(item.name)
-					end,
-					render = function(current: ReadOnlyValue<BenchRow>): GuiObject
-						local node = Host.TextLabel({
-							Text = function(use: Use): string
-								return use(current).name
-							end,
-						})
-						if current:peek().id == "r1" then
-							label = node
-						end
-						return node
-					end,
-				},
-			},
+			columns = columns,
 			itemSize = 40,
 			sort = sort,
 			controls = controls,
-		})
+		}
+		return world.UI.Table(spec)
 	end, world.target)
 	local tableNode = assert(VerifyRoblox.assertInstance(world.target):FindFirstChild("BenchTable"))
 	world.engine.environment.poke(
@@ -431,7 +450,8 @@ end, { requirement = "UI-RUNTIME-002", samples = 500, warmup = 50 })
 
 add("table-source-refresh", sortableTable, function(state)
 	state.n += 1
-	local rows = table.clone(state.rows:peek())
+	local current: { BenchRow } = state.rows:peek()
+	local rows = table.clone(current)
 	local name = `Racer {state.n}`
 	rows[1] = { id = "r1", name = name }
 	state.rows:set(rows)
@@ -439,7 +459,7 @@ add("table-source-refresh", sortableTable, function(state)
 	assert(state.label.Text == name and state.controls.indexOfKey("r1") == 1, "table refresh lost its updated row")
 end, { requirement = "UI-RUNTIME-002", samples = 500, warmup = 50 })
 
-local function descendant(node, className)
+local function descendant(node: Instance, className: string): Instance?
 	for _, child in node:GetChildren() do
 		if child.ClassName == className then
 			return child
@@ -475,11 +495,11 @@ add("billboard-nameplate-storm", function()
 	local world = nativeApp()
 	world.health, world.n = Compose.cell("100"), 0
 	world.runtime.mount(function()
-		return world.Host.BillboardGui({
+		return world.Host.BillboardGui {
 			Size = world.types.UDim2.fromOffset(300, 96),
-			world.Host.TextLabel({ Text = "Racer", TextSize = 18 }) :: unknown,
-			world.Host.TextLabel({ Text = world.health, TextSize = 14 }),
-		})
+			world.Host.TextLabel { Text = "Racer", TextSize = 18 },
+			world.Host.TextLabel { Text = world.health, TextSize = 14 },
+		}
 	end, world.target)
 	return world
 end, function(state)
@@ -495,12 +515,12 @@ add("textinput-typing-storm", function()
 	world.value, world.builds = Compose.cell(""), 0
 	local _, field = world.runtime.mount(function()
 		world.builds += 1
-		return world.UI.TextInput({
+		return world.UI.TextInput {
 			value = world.value,
 			placeholder = "type",
 			maxLength = 64,
 			onChange = function() end,
-		})
+		}
 	end, world.target)
 	world.field = field
 	return world
@@ -541,11 +561,11 @@ add("outline-measured-update", function()
 			measured = measured,
 			overscan = 0,
 			render = function(current)
-				return Host.TextLabel({
+				return Host.TextLabel {
 					Text = function(use: Use): string
 						return use(current).name
 					end,
-				})
+				}
 			end,
 		}
 		return world.UI.Outline(spec)
@@ -568,7 +588,8 @@ add("outline-measured-update", function()
 end, function(state)
 	state.n += 1
 	local height = if state.n % 2 == 0 then 60 else 64
-	local sizes = table.clone(state.measured:peek())
+	local current: { [string]: number } = state.measured:peek()
+	local sizes = table.clone(current)
 	sizes.r1 = height
 	state.measured:set(sizes)
 	state.frame()
@@ -580,9 +601,9 @@ add("timer-readout-storm", function()
 	local world = nativeApp()
 	local label: TextLabel? = nil
 	world.runtime.mount(function()
-		local children: ScreenGuiNativeProps = {}
+		local children: ScreenGuiProps = {}
 		for index = 1, 64 do
-			local timer = world.UI.Timer({ start = 0 })
+			local timer = world.UI.Timer { start = 0 }
 			children[index] = timer
 			if index == 1 then
 				label = timer
@@ -630,7 +651,7 @@ for _, automatic in { false, true } do
 		state.run()
 	end)
 end
-table.sort(scenarios, function(a, b)
+table.sort(scenarios, function(a: Scenario, b: Scenario)
 	return a.name < b.name
 end)
 return scenarios

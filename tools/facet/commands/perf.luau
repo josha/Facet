@@ -525,7 +525,8 @@ function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): n
 		return 2
 	end
 	local shard = Cli.flag(invocation, "shard")
-	local shardIndex, shardCount = nil, nil
+	local shardIndex: number? = nil
+	local shardCount: number? = nil
 	if shard ~= nil then
 		local position, total = string.match(shard, "^(%d+)/(%d+)$")
 		shardIndex, shardCount = tonumber(position), tonumber(total)

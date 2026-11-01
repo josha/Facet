@@ -1,7 +1,7 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 local rows = { VERSION = "native-perf-rows/2", ITEM_SIZE = 56, COMPACT_ITEM_SIZE = 152 }
 function rows.estimate(ctx)
@@ -38,28 +38,28 @@ function rows.build(ctx: { [string]: any }, current: ReadOnlyValue<any>, options
 			return use(current).imageKey
 		end
 	end
-	local children = {
+	local children: { [string | number]: unknown } = {
 		Size = function(use: Use)
 			return D2.new(1, 0, 0, use(minimum))
 		end,
 		AutomaticSize = E.AutomaticSize.Y,
 		BackgroundTransparency = 1,
-		Host.UIListLayout({
+		Host.UIListLayout {
 			FillDirection = E.FillDirection.Horizontal,
 			VerticalAlignment = E.VerticalAlignment.Center,
 			SortOrder = E.SortOrder.LayoutOrder,
 			Wraps = true,
 			Padding = T.UDim.new(0, 8),
-		}),
+		},
 		if full then UI.AsyncImage(image) else Host.ImageLabel(image),
 		Host.Frame "Copy" {
 			LayoutOrder = 2,
 			Size = D2.fromOffset(0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 			BackgroundTransparency = 1,
-			Host.UISizeConstraint({ MinSize = T.Vector2.new(120, 40) }) :: unknown,
-			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
-			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = T.UDim.new(0, 2) }),
+			Host.UISizeConstraint { MinSize = T.Vector2.new(120, 40) } :: unknown,
+			Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
+			Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder, Padding = T.UDim.new(0, 2) },
 			UI.Text "Title" {
 				TextSize = if full then nil else 16,
 				LayoutOrder = 1,
@@ -90,32 +90,29 @@ function rows.build(ctx: { [string]: any }, current: ReadOnlyValue<any>, options
 		},
 	}
 	if full then
-		table.insert(
-			children,
-			UI.Stepper "Rate" {
-				LayoutOrder = 4,
-				label = "Rate",
-				value = value,
-				min = 0,
-				max = 1,
-				step = 0.05,
-				format = function(next: number)
-					return string.format("%d%%", math.floor(next * 100 + 0.5))
-				end,
-			}
-		)
-		table.insert(
-			children,
-			UI.Button "Open" {
-				LayoutOrder = 5,
-				label = "Open",
-				onActivate = function()
-					if ctx.onRowActivate then
-						ctx.onRowActivate(current:peek())
-					end
-				end,
-			}
-		)
+		local rate = UI.Stepper "Rate" {
+			LayoutOrder = 4,
+			label = "Rate",
+			value = value,
+			min = 0,
+			max = 1,
+			step = 0.05,
+			format = function(next: number)
+				return string.format("%d%%", math.floor(next * 100 + 0.5))
+			end,
+		}
+		children[#children + 1] = rate
+		local open = UI.Button "Open" {
+			LayoutOrder = 5,
+			label = "Open",
+			onActivate = function()
+				local onRowActivate: ((unknown) -> ())? = ctx.onRowActivate
+				if onRowActivate then
+					onRowActivate(current:peek())
+				end
+			end,
+		}
+		children[#children + 1] = open
 	end
 	local node = Host.Frame(children)
 	if full then

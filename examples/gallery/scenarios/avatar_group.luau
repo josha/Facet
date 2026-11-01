@@ -3,10 +3,9 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSizeValue)
-type ControlSizeCell = typeof(require("@repo/tools/typecheck/aliases").ControlSize)
 type Member = typeof(require("@repo/tools/typecheck/aliases").AvatarMember)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+type Layout = "stacked" | "spread" | "ellipsis"
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 
 local function initialMembers(): { Member }
@@ -28,9 +27,10 @@ return {
 		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
-		local initialSize: ControlSize = "regular"
-		local items, variant = Compose.cell(initialMembers()), Compose.cell("stacked")
-		local size: ControlSizeCell = Compose.cell(initialSize)
+		local initialSize: ControlSize? = "regular"
+		local initialLayout: Layout = "stacked"
+		local items, variant = Compose.cell(initialMembers()), Compose.cell(initialLayout)
+		local size = Compose.cell(initialSize)
 		local activations = Compose.cell(0)
 		local record: Frame? = nil
 		local function report()
@@ -61,7 +61,7 @@ return {
 			items:set(initialMembers())
 			return report()
 		end
-		local function setVariant(value)
+		local function setVariant(value: Layout)
 			variant:set(value)
 			return report()
 		end
@@ -93,11 +93,11 @@ return {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				},
 				UI.Text "Title" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -119,11 +119,11 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				Compose.OrderedCollection({
+				Compose.OrderedCollection {
 					from = function(use: Use)
 						return { use(variant) }
 					end,
-					key = function(value)
+					key = function(value: Layout)
 						return value
 					end,
 					render = function(current, placement, key): GuiObject
@@ -141,36 +141,44 @@ return {
 							end,
 						}
 					end,
-				}),
+				},
 				Host.Frame "RosterActions" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(0, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}),
+					},
 					UI.Button "Reorder" {
 						LayoutOrder = 1,
 						label = "Reorder",
-						onActivate = reorder,
+						onActivate = function()
+							reorder()
+						end,
 					},
 					UI.Button "Fewer" {
 						LayoutOrder = 2,
 						label = "Fewer",
-						onActivate = fewer,
+						onActivate = function()
+							fewer()
+						end,
 					},
 					UI.Button "Restore" {
 						LayoutOrder = 3,
 						label = "Restore",
-						onActivate = restore,
+						onActivate = function()
+							restore()
+						end,
 					},
 					UI.Button "ChangePicture" {
 						LayoutOrder = 4,
 						label = "Change picture",
-						onActivate = source,
+						onActivate = function()
+							source()
+						end,
 					},
 				},
 				UI.Picker "Layout" {

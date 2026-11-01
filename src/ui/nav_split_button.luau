@@ -6,12 +6,7 @@ local ControlTypes = require("./control_types")
 local NavigationProps = require("./navigation_props")
 local MenuItems = require("./nav_menu_items")
 
-return function(
-	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
-	surfaces: Nav.Surfaces,
-	buildMenu: MenuItems.BuildMenu
-)
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces, buildMenu: MenuItems.BuildMenu)
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
 	local E, D2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.UDim
 	UI.SplitButton = ctx.construct("SplitButton", function<V>(spec: NavigationProps.SplitButtonSpec<V>): Frame
@@ -27,10 +22,15 @@ return function(
 			return read(spec.enabled, use) ~= false and read(spec.busy, use) ~= true
 		end
 		local function primary()
+			local onActivate = spec.onActivate
 			return UI.Button "Primary" {
 				appearance = "utility",
 				label = spec.label,
-				onActivate = spec.onActivate,
+				onActivate = if onActivate
+					then function()
+						onActivate()
+					end
+					else nil,
 				enabled = spec.enabled,
 				busy = spec.busy,
 				shortcut = spec.shortcut,
@@ -88,7 +88,7 @@ return function(
 								Size = function(use: ComposeTypes.Use)
 									return D2.fromOffset(ctx.metric("strokes.hairline", use), 0)
 								end,
-								Host.UIFlexItem({ ItemLineAlignment = E.ItemLineAlignment.Stretch }),
+								Host.UIFlexItem { ItemLineAlignment = E.ItemLineAlignment.Stretch },
 							},
 							"divider"
 						),

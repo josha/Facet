@@ -1,11 +1,9 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Place = "start" | "center" | "end"
-type Built = typeof(require("@repo/examples/types").Built)
 local COPY = {
 	title = "Containers",
 	sizing = "Sizing: fixed, a quarter, fill",
@@ -26,7 +24,7 @@ return {
 	title = "Containers (View recipes)",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
@@ -35,7 +33,7 @@ return {
 		local reserved = Compose.cell(true)
 		local presses = Compose.cell(0)
 		local function heading(name: string, text: string)
-			return UI.Text({ Name = name, text = text, textRole = "label" })
+			return UI.Text { Name = name, text = text, textRole = "label" }
 		end
 		local function tile(name: string, width: number?, height: number?, extra: Instance?): Frame
 			local node = Host.Frame(name)({
@@ -51,14 +49,14 @@ return {
 			for index, ratio in { 1, 16 / 9, 9 / 16 } do
 				table.insert(
 					ratios,
-					UI.ZStack({
+					UI.ZStack {
 						Name = `Offer{index}`,
 						width = 96,
 						height = 96,
 						alignH = "center",
 						alignV = "center",
 						tile("Subject", 96 * math.min(1, ratio), 96 / math.max(1, ratio)),
-					})
+					}
 				)
 			end
 			local spots: { Frame } = {}
@@ -67,40 +65,40 @@ return {
 				for _, h: Place in places do
 					table.insert(
 						spots,
-						UI.ZStack({
+						UI.ZStack {
 							Name = `{h}-{v}`,
 							width = 48,
 							height = 48,
 							alignH = h,
 							alignV = v,
 							tile("Dot", 16, 16),
-						})
+						}
 					)
 				end
 			end
 			local function three(): { Frame }
 				return { tile("One", 72), tile("Two", 72), tile("Three", 72) }
 			end
-			local scales = {}
+			local scales: { Instance } = {}
 			for index, scale in { 0.75, 1, 1.5 } do
-				local scaled = tile("Tile", 32, 32, Host.UIScale({ Scale = scale }))
+				local scaled = tile("Tile", 32, 32, Host.UIScale { Scale = scale })
 				table.insert(
 					scales,
-					UI.ZStack({
+					UI.ZStack {
 						Name = `Scale{index}`,
 						width = 48,
 						height = 48,
 						alignH = "center",
 						alignV = "center",
 						scaled,
-					})
+					}
 				)
 			end
-			local fades = {}
+			local fades: { Instance } = {}
 			for index, transparency in { 0, 0.25, 0.5, 0.75, 1 } do
 				table.insert(
 					fades,
-					Host.CanvasGroup({
+					Host.CanvasGroup {
 						Name = `Fade{index}`,
 						BackgroundTransparency = 1,
 						GroupTransparency = transparency,
@@ -111,20 +109,20 @@ return {
 							UI.Text "Child" { text = copy.child },
 							tile("Bar", 40),
 						},
-					})
+					}
 				)
 			end
 			local styled = Host.Frame "Styled" {
 				BorderSizePixel = 0,
 				Size = UDim2.fromOffset(120, 56),
-				Host.UICorner({
+				Host.UICorner {
 					TopLeftRadius = UDim.new(0, 16),
 					TopRightRadius = UDim.new(0, 0),
 					BottomLeftRadius = UDim.new(0, 0),
 					BottomRightRadius = UDim.new(0, 16),
-				}),
-				Host.UIStroke({ Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
-				Host.UIShadow({ Name = "Shadow" }),
+				},
+				Host.UIStroke { Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border },
+				Host.UIShadow { Name = "Shadow" },
 			}
 			styled:AddTag("facet-panel")
 			local group = Host.Frame "Group" {
@@ -132,16 +130,16 @@ return {
 				Size = UDim2.fromOffset(0, 0),
 				AutomaticSize = Enum.AutomaticSize.XY,
 				Interactable = groupEnabled,
-				Host.UIPadding({
+				Host.UIPadding {
 					PaddingTop = UDim.new(0, 8),
 					PaddingBottom = UDim.new(0, 8),
 					PaddingLeft = UDim.new(0, 8),
 					PaddingRight = UDim.new(0, 8),
-				}),
+				},
 				UI.Button "Activate" {
 					label = copy.group,
 					onActivate = function()
-						presses:update(function(count)
+						presses:update(function(count: number)
 							return count + 1
 						end)
 					end,
@@ -166,12 +164,12 @@ return {
 						return quarter
 					end)(),
 					(function()
-						local fill = Host.Frame({
+						local fill = Host.Frame {
 							Name = "Fill",
 							BorderSizePixel = 0,
 							Size = UDim2.new(0, 0, 0, 24),
 							UI.fill(),
-						})
+						}
 						fill:AddTag("facet-fill")
 						return fill
 					end)(),
@@ -219,7 +217,7 @@ return {
 				UI.Toggle "Reserved" { label = copy.keep, value = reserved },
 				UI.HStack "Keep" {
 					gap = "s",
-					Host.CanvasGroup({
+					Host.CanvasGroup {
 						Name = "Kept",
 						BackgroundTransparency = 1,
 						Size = UDim2.fromOffset(48, 24),
@@ -228,7 +226,7 @@ return {
 						end,
 						Interactable = reserved,
 						tile("KeptTile", 48),
-					}),
+					},
 					Compose.show(reserved, function()
 						return tile("Removed", 48)
 					end),

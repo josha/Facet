@@ -4,6 +4,18 @@ local Types = require("./types")
 
 export type TextNode = TextLabel | TextButton | TextBox
 
+local function fontOf(node: TextNode): Font
+	local font: unknown = node:GetStyled("FontFace")
+	assert(typeof(font) == "Font", "text font must be a Font")
+	return font
+end
+
+local function sizeOf(node: TextNode): number
+	local size: unknown = node:GetStyled("TextSize")
+	assert(type(size) == "number", "text size must be a number")
+	return size
+end
+
 return function(ctx: Types.Context, roots: { GuiObject }): (texts: { TextNode }?) -> boolean
 	local provider = ctx.config.services.ContentProvider
 	local textService = ctx.config.services.TextService
@@ -13,9 +25,9 @@ return function(ctx: Types.Context, roots: { GuiObject }): (texts: { TextNode }?
 		end
 	end
 	local params = if textService
-		then ((ctx.Host :: unknown) :: { GetTextBoundsParams: ({ Width: number }) -> GetTextBoundsParams }).GetTextBoundsParams({
+		then ctx.Host.GetTextBoundsParams {
 			Width = 0,
-		})
+		}
 		else nil
 	local owner = assert(ctx.Compose.currentOwner())
 	local wanted: string? = nil
@@ -45,8 +57,8 @@ return function(ctx: Types.Context, roots: { GuiObject }): (texts: { TextNode }?
 		local fonts: { [string]: TextNode } = {}
 		local nodes: { TextNode } = texts or collect()
 		for _, node in nodes do
-			local face = node:GetStyled("FontFace") :: Font
-			fonts[`{face.Family}:{face.Weight.Name}:{face.Style.Name}:{node:GetStyled("TextSize")}`] = node
+			local face = fontOf(node)
+			fonts[`{face.Family}:{face.Weight.Name}:{face.Style.Name}:{sizeOf(node)}`] = node
 		end
 		local faces = {}
 		for source in fonts do
@@ -63,18 +75,20 @@ return function(ctx: Types.Context, roots: { GuiObject }): (texts: { TextNode }?
 			wanted = key
 			pending = task.defer(function()
 				if textService and params then
+					local service, request = textService, params
 					for _, node in sources do
-						params.Font = node:GetStyled("FontFace") :: Font
-						params.Size = node:GetStyled("TextSize") :: number
-						params.Text = node.Text
-						params.RichText = node.RichText
+						request.Font = fontOf(node)
+						request.Size = sizeOf(node)
+						request.Text = node.Text
+						request.RichText = node.RichText
 						pcall(function()
-							textService:GetTextBoundsAsync(params)
+							service:GetTextBoundsAsync(request)
 						end)
 					end
 				elseif provider then
+					local content = provider
 					pcall(function()
-						provider:PreloadAsync(sources)
+						content:PreloadAsync(sources)
 					end)
 				end
 				if not Compose.owner.isDisposed(owner) and wanted == key then

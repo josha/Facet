@@ -6,15 +6,9 @@ local Engine = require "./engine"
 
 type Node = Compose.Node
 
-local function readMember(node: Node, key: string): unknown
-	return (node :: { [string]: unknown })[key]
-end
+local readAnyMember = Engine.readMember
 
 type DefaultCache = { [string]: unknown }
-type StyledNode = {
-	GetStyled: (self: StyledNode, property: string) -> unknown,
-	StyledPropertiesChanged: Engine.Signal<()>,
-}
 type Subscriber = { live: boolean, listener: () -> (), stopRaw: Compose.Unsubscribe? }
 type StyledEntry = {
 	live: boolean,
@@ -53,7 +47,20 @@ local function connect<Args...>(signal: Engine.Signal<Args...>, handler: (Args..
 	end
 end
 
+local function connectNative<Args...>(signal: unknown, handler: (Args...) -> ()): Compose.Unsubscribe
+	local connection = Engine.invoke(readAnyMember, signal, "Connect", handler)
+	local disconnected = false
+	return function()
+		if not disconnected then
+			disconnected = true
+			Engine.invoke(readAnyMember, connection, "Disconnect")
+		end
+	end
+end
+
 local function createHost(engine: Engine.Engine): Compose.Host
+	local readMember: (unknown, string) -> unknown = engine.readProperty or readAnyMember
+	local writeMember: (unknown, string, unknown) -> () = engine.writeProperty or Engine.writeMember
 	local defaults: DefaultCache = {}
 	local unsampleable: { [string]: true } = {}
 	local styledEntries: { [Node]: StyledEntry } = {}
@@ -61,11 +68,13 @@ local function createHost(engine: Engine.Engine): Compose.Host
 	local classified: { [string]: { [string]: Compose.KeyKind } } = {}
 
 	local function readClassName(node: Node): string
-		return (node :: Engine.Instance).ClassName
+		local name = readMember(node, "ClassName")
+		assert(type(name) == "string")
+		return name
 	end
 
 	local function hasConnectMethod(value: unknown): boolean
-		return type((value :: { Connect: unknown }).Connect) == "function"
+		return type(readAnyMember(value, "Connect")) == "function"
 	end
 
 	local function classNameOf(node: Node): string
@@ -105,12 +114,10 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		return engine.new(kind)
 	end
 
-	local function setProperty(node: Node, key: string, value: unknown)
-		(node :: { [string]: unknown })[key] = value
-	end
+	local setProperty: (Node, string, unknown) -> () = writeMember
 
 	local function writeAttribute(node: Node, name: string, value: unknown): boolean
-		(node :: Engine.Instance):SetAttribute(name, value)
+		Engine.invoke(readMember, node, "SetAttribute", name, value)
 		return true
 	end
 
@@ -127,16 +134,16 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		if default == nil then
 			return
 		end
-		(node :: { [string]: unknown })[key] = default
+		writeMember(node, key, default)
 	end
 
 	local function insertChild(parent: Node, child: Node, _position: number?)
-		(child :: Engine.Instance).Parent = parent
+		writeMember(child, "Parent", parent)
 	end
 
 	local function removeChild(_parent: Node, child: Node)
-		if (child :: Engine.Instance).Parent ~= nil then
-			(child :: Engine.Instance).Parent = nil
+		if readMember(child, "Parent") ~= nil then
+			writeMember(child, "Parent", nil)
 		end
 	end
 
@@ -144,10 +151,11 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		engine.destroy(node)
 	end
 
-	local function signalOf<Args...>(node: Node, event: string): Engine.Signal<Args...>
+	local function signalOf(node: Node, event: string): unknown
 		local read, found = pcall(readMember, node, event)
-		local signal = (if read then found else nil) :: Engine.Signal<Args...>?
-		if signal == nil or type(signal.Connect) ~= "function" then
+		local signal = (if read then found else nil)
+		local inspected, connected = pcall(hasConnectMethod, signal)
+		if signal == nil or not inspected or not connected then
 			error(
 				Compose.formatDiagnostic(
 					"host/not-an-event",
@@ -167,11 +175,11 @@ local function createHost(engine: Engine.Engine): Compose.Host
 	end
 
 	local function connectEvent<Args...>(node: Node, event: string, handler: (Args...) -> ()): Compose.Unsubscribe
-		return connect(signalOf(node, event), handler)
+		return connectNative(signalOf(node, event), handler)
 	end
 
 	local function attachEvent<Args...>(node: Node, event: string, handler: (Args...) -> ())
-		signalOf(node, event):Connect(handler)
+		Engine.invoke(readAnyMember, signalOf(node, event), "Connect", handler)
 	end
 
 	local function classifyKey(node: Node, key: string): Compose.KeyKind
@@ -239,14 +247,13 @@ local function createHost(engine: Engine.Engine): Compose.Host
 	end
 
 	local function observeStyledProperty(node: Node, key: string, listener: () -> ()): Compose.Unsubscribe
-		local native = node :: StyledNode
 		local entry = styledEntries[node]
 		local current: StyledEntry
 		if entry == nil then
 			local created: StyledEntry = { live = true, subscribers = {} }
 			styledEntries[node] = created
 			local ok, failure = attempt(function()
-				created.stopStyled = connect(native.StyledPropertiesChanged, function()
+				created.stopStyled = connectNative(readMember(node, "StyledPropertiesChanged"), function()
 					publish(created)
 				end)
 			end)
@@ -334,13 +341,13 @@ local function createHost(engine: Engine.Engine): Compose.Host
 			readProperty = readMember,
 			observeProperty = observeProperty,
 			readStyledProperty = function(node: Node, key: string): unknown
-				return (node :: StyledNode):GetStyled(key)
+				return (Engine.invoke(readMember, node, "GetStyled", key))
 			end,
 			observeStyledProperty = observeStyledProperty,
 		},
 		naming = {
 			setName = function(node: Node, label: string)
-				(node :: Engine.Instance).Name = label
+				writeMember(node, "Name", label)
 			end,
 		},
 		frames = {
@@ -349,7 +356,9 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		},
 		describeNode = function(node: Node): string
 			local ok, name = pcall(function()
-				return ("%s %q"):format((node :: Engine.Instance).ClassName, (node :: Engine.Instance).Name)
+				local label = readMember(node, "Name")
+				assert(type(label) == "string")
+				return ("%s %q"):format(readClassName(node), label)
 			end)
 			return if ok then name else tostring(node)
 		end,
@@ -361,5 +370,5 @@ end
 
 return {
 	createHost = createHost,
-	readMember = readMember,
+	readMember = readAnyMember,
 }

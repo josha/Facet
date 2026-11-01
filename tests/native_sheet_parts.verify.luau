@@ -2,8 +2,6 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
-	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 	type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 	type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
@@ -16,13 +14,14 @@ return function(verifyHarness: Verify.Harness)
 
 	local LONG = string.rep("A long line of body copy that wraps across the sheet. ", 40)
 	local noop = function() end
+	local builders: { [unknown]: (Facet.Controls, Facet.Host) -> unknown } = setmetatable({}, { __mode = "k" })
 
 	local function mount(extra: { [string]: any }?, options: any?, setup: overlay.Setup?): any
 		local o = options or {}
 		local detent = Compose.cell(o.detent or "medium")
 		local shown = o.shown or Compose.cell(true)
 		local builds = 0
-		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+		local w = overlay.new(function(UI, Host)
 			local spec: any = {
 				isPresented = shown,
 				detent = detent,
@@ -32,8 +31,9 @@ return function(verifyHarness: Verify.Harness)
 					return Host.TextLabel "Copy" { Text = LONG, TextWrapped = true }
 				end,
 			}
-			for key, value in (extra or {} :: { [string]: any }) do
-				spec[key] = if type(value) == "table" and value.__build then value.__build(UI, Host) else value
+			for key, value in extra or {} do
+				local build = builders[value]
+				spec[key] = if build then build(UI, Host) else value
 			end
 			return UI.Sheet "Sheet"(spec)
 		end, o, setup)
@@ -75,8 +75,10 @@ return function(verifyHarness: Verify.Harness)
 		return `{inset.top} {inset.right} {inset.bottom} {inset.left}`
 	end
 
-	local function built(fn: (any, any) -> any): any
-		return { __build = fn }
+	local function built(fn: (Facet.Controls, Facet.Host) -> unknown): unknown
+		local token = {}
+		builders[token] = fn
+		return token
 	end
 
 	verifyHarness:suite("native Sheet: placement, width, title and close", function()
@@ -131,7 +133,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_sheet_parts::nested-modal-native-input",
 			run = function()
 				local shown, child = Compose.cell(false), Compose.cell(false)
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				local w = overlay.new(function(UI, Host)
 					local props: FrameNativeProps = {
 						Host.TextButton "HUDAction" { Text = "Shop", Selectable = true },
 						UI.Sheet "Shop" {
@@ -171,7 +173,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_sheet_parts::modal-native-input",
 			run = function()
 				local shown = Compose.cell(false)
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				local w = overlay.new(function(UI, Host)
 					local props: FrameNativeProps = {
 						Host.TextButton "HUDAction" { Text = "Shop", Selectable = true, Interactable = true },
 						Host.TextButton "DisabledAction" {
@@ -224,9 +226,9 @@ return function(verifyHarness: Verify.Harness)
 						placement = "center",
 						closeButton = true,
 						initialFocus = case.initialFocus,
-						content = built(function(UI, Host: RobloxHost)
+						content = built(function(UI: Facet.Controls, Host: Facet.Host)
 							return Host.Frame {
-								UI.Button "Blade" { label = "Blade" } :: unknown,
+								UI.Button "Blade" { label = "Blade" },
 								Host.Frame "Speed" { UI.Button "Buy" { label = "Buy speed" } },
 								UI.Button "Storage" { label = "Storage" },
 							}
@@ -255,9 +257,9 @@ return function(verifyHarness: Verify.Harness)
 						calls += 1
 						return "Secret"
 					end,
-					content = built(function(UI, Host: RobloxHost)
+					content = built(function(UI: Facet.Controls, Host: Facet.Host)
 						return Host.Frame {
-							Host.Frame "Folded" { Visible = false, UI.Button "Secret" { label = "Secret" } } :: unknown,
+							Host.Frame "Folded" { Visible = false, UI.Button "Secret" { label = "Secret" } },
 							UI.Button "Visible" { label = "Visible" },
 						}
 					end),
@@ -274,10 +276,10 @@ return function(verifyHarness: Verify.Harness)
 					placement = "center",
 					closeButton = true,
 					header = false,
-					hero = built(function(_, Host: RobloxHost)
+					hero = built(function(_: Facet.Controls, Host: Facet.Host)
 						return { height = 120, content = Host.TextLabel "Banner" { Text = "Lobby" } }
 					end),
-					content = built(function(UI)
+					content = built(function(UI: Facet.Controls)
 						return UI.Button "Continue" { label = "Continue" }
 					end),
 				}, { shown = Compose.cell(false), motionLevel = "none" })
@@ -295,7 +297,7 @@ return function(verifyHarness: Verify.Harness)
 				do
 					local reward = mount({
 						placement = "center",
-						content = built(function(_, Host: RobloxHost)
+						content = built(function(_: Facet.Controls, Host: Facet.Host)
 							return Host.TextLabel "Reward" { Text = "Daily reward" }
 						end),
 						actions = {
@@ -315,7 +317,7 @@ return function(verifyHarness: Verify.Harness)
 				local late = mount({
 					placement = "center",
 					closeButton = true,
-					content = built(function(UI, Host: RobloxHost)
+					content = built(function(UI: Facet.Controls, Host: Facet.Host)
 						return Host.Frame {
 							Compose.show(ready, function()
 								return UI.Button "Row" { label = "Row" }
@@ -366,7 +368,7 @@ return function(verifyHarness: Verify.Harness)
 				local banner: Instance? = nil
 				local w = mount({
 					header = false,
-					hero = built(function(_, Host: RobloxHost)
+					hero = built(function(_: Facet.Controls, Host: Facet.Host)
 						banner = Host.TextLabel "Banner" { Text = "Lobby" }
 						return { height = 140, content = banner }
 					end),
@@ -395,7 +397,7 @@ return function(verifyHarness: Verify.Harness)
 						closeButton = true,
 						hero = { height = 140, image = "rbxassetid://1" },
 						actions = { { id = "Join", label = "Join", onActivate = noop } },
-						content = built(function(UI, Host)
+						content = built(function(UI: Facet.Controls, Host: Facet.Host)
 							return if interactiveBody
 								then UI.Button "Continue" { label = "Continue" }
 								else Host.TextLabel "Copy" { Text = "Lobby details" }
@@ -440,7 +442,17 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("shows Popover Close only for compact or covering modal content and explicit overrides", {
 			id = "native_sheet_parts::native Sheet: placement, width, title and close::shows Popover Close only for compact or covering modal content and explicit overrides",
 			run = function()
-				for _, policy in
+				local policies: {
+					{
+						modal: boolean,
+						closeButton: boolean?,
+						width: number,
+						height: number,
+						bodyWidth: number,
+						bodyHeight: number,
+						expected: boolean,
+					}
+				} =
 					{
 						{
 							modal = true,
@@ -479,9 +491,9 @@ return function(verifyHarness: Verify.Harness)
 							expected = false,
 						},
 					}
-				do
+				for _, policy in policies do
 					local shown = Compose.cell(true)
-					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					local w = overlay.new(function(UI: Facet.Controls, Host: Facet.Host)
 						return UI.Popover {
 							isPresented = shown,
 							onPresentedChange = function(value: boolean)
@@ -757,7 +769,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_sheet_parts::native Sheet: parts::a header replaces the title; header=false removes it; utilities stay",
 			run = function()
 				local w = mount({
-					header = built(function(_, Host: RobloxHost)
+					header = built(function(_: Facet.Controls, Host: Facet.Host)
 						return Host.TextLabel "Custom" { Text = "Lobby" }
 					end),
 					closeButton = true,
@@ -904,7 +916,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = mount({
 					header = false,
 					closeButton = true,
-					hero = built(function(UI: FacetControls)
+					hero = built(function(UI: Facet.Controls)
 						return { height = 200, content = UI.Button "Top" { label = "Top of hero" } }
 					end),
 				})
@@ -929,7 +941,7 @@ return function(verifyHarness: Verify.Harness)
 					local banner: any
 					local w = mount({
 						header = false,
-						hero = built(function(_, Host: RobloxHost)
+						hero = built(function(_: Facet.Controls, Host: Facet.Host)
 							banner = Host.TextLabel "Banner" { Text = "Lobby" }
 							return { height = 140, content = banner }
 						end),
@@ -952,11 +964,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local copy: any, head: any
 				local w = mount({
-					content = built(function(_, Host: RobloxHost)
+					content = built(function(_: Facet.Controls, Host: Facet.Host)
 						copy = Host.TextLabel "Body" { Text = "Body" }
 						return copy
 					end),
-					header = built(function(_, Host: RobloxHost)
+					header = built(function(_: Facet.Controls, Host: Facet.Host)
 						head = Host.TextLabel "Head" { Text = "Head" }
 						return head
 					end),
@@ -1021,7 +1033,7 @@ return function(verifyHarness: Verify.Harness)
 				for _, kind in { "Touch", "MouseButton1" } do
 					for _, ending in { "End", "Cancel", "Destroy" } do
 						local w = mount({
-							content = built(function(UI: FacetControls)
+							content = built(function(UI: Facet.Controls)
 								local function Composer(): Instance
 									return UI.TextInput "Message" {
 										value = Compose.cell("Draft"),
@@ -1069,7 +1081,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_sheet_parts::native Sheet: parts::keyboard submission releases its clearance without waiting for a pointer",
 			run = function()
 				local w = mount({
-					content = built(function(UI: FacetControls)
+					content = built(function(UI: Facet.Controls)
 						local function Composer(): Instance
 							return UI.TextInput "Message" { value = Compose.cell("Draft") }
 						end
@@ -1255,7 +1267,7 @@ return function(verifyHarness: Verify.Harness)
 			end
 			local Facet = require("../src")
 			local runtime = Facet.Roblox.createRuntime(engine)
-			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local Host = Facet.host(runtime)
 			local provider = {
 				PreloadAsync = function(_self: unknown, sources: { Instance })
 					for _, source in sources do
@@ -1455,10 +1467,10 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local shown = Compose.cell(false)
 				local mounted = Compose.cell(true)
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
+				local w = overlay.new(function(UI, Host)
+					return Host.Frame {
 						Compose.show(mounted, function()
-							return UI.Sheet "Sheet"({
+							return UI.Sheet "Sheet" {
 								isPresented = shown,
 								detent = Compose.cell("large"),
 								title = "T",
@@ -1489,9 +1501,9 @@ return function(verifyHarness: Verify.Harness)
 										end,
 									} :: OverlayAction,
 								},
-							})
+							}
 						end),
-					})
+					}
 				end)
 				local baseline = w.engine.census()
 				shown:set(true)
@@ -1517,7 +1529,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local failures = {}
 				local shown = Compose.cell(true)
-				local w = overlay.new(function(UI: FacetControls)
+				local w = overlay.new(function(UI)
 					return UI.Sheet "Sheet" {
 						isPresented = shown,
 						detent = Compose.cell("medium"),
@@ -1736,8 +1748,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_sheet_parts::native Sheet: gestures::disposal mid-drag releases the session and returns to baseline",
 			run = function()
 				local mounted = Compose.cell(false)
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
+				local w = overlay.new(function(UI, Host)
+					return Host.Frame {
 						Compose.show(mounted, function()
 							return UI.Sheet "Sheet" {
 								isPresented = Compose.cell(true),
@@ -1748,7 +1760,7 @@ return function(verifyHarness: Verify.Harness)
 								end,
 							}
 						end),
-					})
+					}
 				end, { motionLevel = "none" })
 				local baseline = w.engine.census()
 				mounted:set(true)
@@ -1901,7 +1913,7 @@ return function(verifyHarness: Verify.Harness)
 						{ header = false, hero = { image = "rbxassetid://1", height = 100, sticky = true } },
 					} :: { any }
 				do
-					extra.content = built(function(UI: FacetControls)
+					extra.content = built(function(UI: Facet.Controls)
 						return UI.VStack {
 							UI.Button "First" { label = "First" },
 							UI.Button "Second" { label = "Second" },
@@ -2283,7 +2295,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((padding())):toBe("42 46 42 46")
 				theme:set((require :: any)("../examples/themes/fantasy_parchment").build(themes))
 				Verify.expect((padding())):toBe("30 34 30 34")
-				local neutral = assert(themes.define(themes.neutralPackage()))
+				local neutral = themes.define(themes.neutralPackage())
+				assert(neutral)
 				theme:set(neutral)
 				Verify.expect((padding())):toBe("12 16 12 16")
 				w.stop()
@@ -2328,8 +2341,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_sheet_parts::native panels: a skinned panel keeps its content inside the art carve::a skinned Dialog and Popover inset by the carve and follow a live theme change",
 			run = function()
 				local theme = Compose.cell(fantasy)
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
+				local w = overlay.new(function(UI, Host)
+					return Host.Frame {
 						UI.Dialog "Confirm" {
 							isPresented = Compose.cell(true),
 							onPresentedChange = noop,
@@ -2337,7 +2350,7 @@ return function(verifyHarness: Verify.Harness)
 							content = function(): Instance
 								return Host.TextLabel "Line" { Text = "Body" }
 							end,
-						} :: unknown,
+						},
 						UI.Popover "Tip" {
 							isPresented = Compose.cell(true),
 							onPresentedChange = noop,
@@ -2346,7 +2359,7 @@ return function(verifyHarness: Verify.Harness)
 								return Host.TextLabel "PopLine" { Text = "Body" }
 							end,
 						},
-					})
+					}
 				end, { theme = theme })
 				local dialog = w.find("Panel")
 				local popover = w.find("PopLine")
@@ -2391,7 +2404,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("a surface without a title draws no plaque", {
 			id = "native_sheet_parts::native panels: the theme title plaque carries the surface title::a surface without a title draws no plaque",
 			run = function()
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				local w = overlay.new(function(UI, Host)
 					return UI.Dialog "Plain" {
 						isPresented = Compose.cell(true),
 						onPresentedChange = noop,

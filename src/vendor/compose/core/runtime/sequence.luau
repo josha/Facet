@@ -1,6 +1,6 @@
 --!strict
 
-local RuntimeTypes = require "./types"
+local CoreTypes = require "../types"
 local Reactors = require "../reactive/reactor"
 local Active = require "../ownership/active"
 local Owner = require "../ownership/owner"
@@ -10,9 +10,9 @@ local Timeline = require "../animation/timeline"
 local Support = require "../structure/support"
 local Watch = require "../reactive/watch"
 
-export type Step = RuntimeTypes.SequenceStep
-export type Options = RuntimeTypes.SequenceOptions
-export type Sequence = RuntimeTypes.Sequence
+export type Step = CoreTypes.SequenceStep
+export type Options = CoreTypes.SequenceOptions
+export type Sequence = CoreTypes.Sequence
 type Phase = { start: number, finish: number, step: Step, clock: Timeline.Timeline?, ended: boolean, started: boolean }
 type Event = { at: number, order: number, phase: Phase, start: boolean }
 
@@ -33,10 +33,17 @@ return function(timeline: (Timeline.Options?) -> Timeline.Timeline, ownerOf: (st
 				if step.tween and step.tween.seconds == 0 then
 					seconds = 0
 				elseif step.timeline or step.tween then
-					local settings: Timeline.Options = if step.timeline
-						then table.clone(step.timeline)
+					local supplied: Timeline.Options = if step.timeline
+						then step.timeline
 						else { duration = assert(step.tween).seconds }
-					settings.autoplay = false
+					local settings: Timeline.Options = {
+						duration = supplied.duration,
+						delay = supplied.delay,
+						scale = supplied.scale,
+						repeats = supplied.repeats,
+						direction = supplied.direction,
+						autoplay = false,
+					}
 					clock = timeline(settings)
 					seconds = ((settings.delay or 0) + (settings.duration or 1) * (settings.repeats or 1))
 						/ (settings.scale or 1)

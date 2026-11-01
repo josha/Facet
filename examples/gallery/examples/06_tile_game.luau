@@ -1,14 +1,13 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 type OptionalNumberCell = typeof(require("@repo/tools/typecheck/aliases").OptionalNumberCell)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 
 local words = require("./words")
 
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 
 local example = {}
 example.title = "Crossword (Scrabble-style)"
@@ -37,7 +36,7 @@ rules.DEAL_ATTEMPTS = DEAL_ATTEMPTS
 rules.MIN_WORD = words.MIN_LENGTH
 rules.MAX_WORD = words.MAX_LENGTH
 
-local VALUES: { [string]: number } = table.freeze({
+local letterValues: { [string]: number } = {
 	A = 1,
 	B = 3,
 	C = 3,
@@ -64,7 +63,8 @@ local VALUES: { [string]: number } = table.freeze({
 	X = 8,
 	Y = 4,
 	Z = 10,
-})
+}
+local VALUES = table.freeze(letterValues)
 rules.VALUES = VALUES
 
 local DISTRIBUTION: { { letter: string, count: number } } = table.freeze({
@@ -528,7 +528,7 @@ local CELL_MARK: { [string]: string } = {
 	committed = "",
 }
 
-function example.build(ctx: ExampleContext): Built
+function example.build(ctx: ExampleContext)
 	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2, Vector2, Color3, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 	local function paletteColor(use: Use, role: string): Color3
@@ -540,7 +540,14 @@ function example.build(ctx: ExampleContext): Built
 				chosen = candidate
 			end
 		end
-		local rgb = chosen.colors[role] or (chosen.extra or {})[role] or chosen.colors.content
+		local extra = (chosen.extra or {})[role]
+		if chosen.colors[role] == nil and type(extra) == "table" then
+			local r, g, b = extra.r, extra.g, extra.b
+			if type(r) == "number" and type(g) == "number" and type(b) == "number" then
+				return Color3.new(r, g, b)
+			end
+		end
+		local rgb = chosen.colors[role] or chosen.colors.content
 		return Color3.new(rgb.r, rgb.g, rgb.b)
 	end
 
@@ -785,7 +792,7 @@ function example.build(ctx: ExampleContext): Built
 			end
 			return rules.validate(use(boardSig), pending, use(turnSig))
 		end)
-		local wordText = Compose.formula(function(use: Use)
+		local wordText = Compose.formula(function(use: Use): string
 			local notice = use(noticeSig)
 			if notice ~= "" then
 				return notice
@@ -796,7 +803,7 @@ function example.build(ctx: ExampleContext): Built
 			end
 			return verdict.message
 		end)
-		local hintText = Compose.formula(function(use: Use)
+		local hintText = Compose.formula(function(use: Use): string
 			local phase = use(phaseSig)
 			if phase == "won" then
 				return `You reached {use(scoreSig)} points in {use(turnSig) - 1} of {TURNS} turns — you win! `
@@ -952,19 +959,19 @@ function example.build(ctx: ExampleContext): Built
 				},
 				UI.Text "Hint" { text = hintText, TextWrapped = true },
 				UI.Text "Word" { text = wordText, TextWrapped = true },
-				UI.Grid "board"({
+				UI.Grid "board" {
 					columns = SIZE,
 					gap = "xs",
 					aspectRatio = 1,
 					table.unpack(cells),
-				}),
+				},
 				UI.Text "RackLabel" { text = "Your rack", TextWrapped = true },
-				UI.Grid "rack"({
+				UI.Grid "rack" {
 					columns = RACK_SIZE,
 					gap = "xs",
 					cellHeight = 56,
 					table.unpack(rackTiles),
-				}),
+				},
 				Compose.OrderedCollection {
 					from = movingTiles,
 					key = function(tile: MovingTile)
@@ -1045,19 +1052,19 @@ function example.build(ctx: ExampleContext): Built
 		end
 		noticeSig:set(`There is no {letter} on your rack.`)
 	end
-	local bindings = {}
+	local bindings: { Child } = {}
 	for i = 0, 25 do
 		local letter = string.char(65 + i)
 		table.insert(
 			bindings,
-			Host.InputAction({
+			Host.InputAction {
 				Name = "Type_" .. letter,
 				Type = Enum.InputActionType.Bool,
 				Pressed = function()
 					typeLetter(letter)
 				end,
-				Host.InputBinding({ KeyCode = assert(Enum.KeyCode:FromName(letter)) }),
-			})
+				Host.InputBinding { KeyCode = assert(Enum.KeyCode:FromName(letter)) },
+			}
 		)
 	end
 	Host.InputContext "CrosswordInput" {

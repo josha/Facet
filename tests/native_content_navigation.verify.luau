@@ -3,10 +3,8 @@ local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
-	type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+	local NavigationProps = require("../src/ui/navigation_props")
 	local FixtureNavigationTypes = require("../src/ui/navigation_types")
 
 	local Facet = require("../src")
@@ -15,18 +13,18 @@ return function(verifyHarness: Verify.Harness)
 	local UDim2 = require("./lib/native_engine").types.UDim2
 	local Vector2 = require("./lib/native_engine").types.Vector2
 
-	local function menuWorld(spec: { [any]: any }, options: { [string]: any }?): any
-		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu "M"(spec) })
+	local function menuWorld(spec: { [any]: any }, options: { [string]: any }?): worlds.World
+		local world = worlds.new(function(UI, Host)
+			return Host.Frame { Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu "M"(spec) }
 		end, options or { motionLevel = "none" })
 		return world
 	end
 
-	local function everywhere(world: any, name: string): any
+	local function everywhere(world: worlds.World, name: string): any
 		return world.find(name, world.screen.Parent)
 	end
 
-	local function openMenu(world: any, select: boolean?)
+	local function openMenu(world: worlds.World, select: boolean?)
 		local trigger = world.find("Trigger")
 		if select then
 			world.input.GetLastInputType = function()
@@ -53,7 +51,7 @@ return function(verifyHarness: Verify.Harness)
 		return out
 	end
 
-	local function place(world: any, panel: any, triggerAt: Vector2, triggerSize: Vector2, panelSize: Vector2)
+	local function place(world: worlds.World, panel: any, triggerAt: Vector2, triggerSize: Vector2, panelSize: Vector2)
 		local trigger = world.find("Trigger")
 		world.engine.environment.poke(trigger, "AbsolutePosition", triggerAt)
 		world.engine.environment.poke(trigger, "AbsoluteSize", triggerSize)
@@ -189,7 +187,7 @@ return function(verifyHarness: Verify.Harness)
 				local world = menuWorld({
 					label = "Options",
 					maxHeight = 200,
-					items = items(20, "row", function(index: number)
+					items = items(20, "row", function(index: number): { [string]: any }
 						return {
 							onSelect = function()
 								table.insert(picked, `row{index}`)
@@ -324,15 +322,16 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("carries a Picker option badge and sectionTitle into menu rows and searchable list rows", {
 			id = "native_content_navigation::native content navigation deltas::carries a Picker option badge and sectionTitle into menu rows and searchable list rows",
 			run = function()
-				local options = Compose.cell({
-					{ value = "a", label = "Alpha", badge = 2 } :: PickerOption,
-					{ value = "b", label = "Beta" } :: PickerOption,
-				})
-				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						Name = "S",
-						UI.Picker({ style = "menu" :: "menu", selected = Compose.cell("a"), options = options }),
-					})
+				local alpha: Facet.PickerOption = { value = "a", label = "Alpha", badge = 2 }
+				local beta: Facet.PickerOption = { value = "b", label = "Beta" }
+				local options = Compose.cell({ alpha, beta })
+				local world = worlds.new(function(UI, Host)
+					local spec: NavigationProps.SinglePickerSpecInput<string> = {
+						style = "menu",
+						selected = Compose.cell("a"),
+						options = options,
+					}
+					return Host.Frame { Name = "S", UI.Picker(spec) }
 				end, { motionLevel = "none" })
 				local panel = openMenu(world)
 				local count = world.find("a", panel):FindFirstChild("Count", true)
@@ -349,25 +348,20 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(table.find(texts, "2") ~= nil):toBe(true)
 				Verify.expect((world.find("b", panel):FindFirstChild("Count", true))):toBeNil()
 				Verify.expect((panel:FindFirstChild("SectionTitle", true))):toBeNil()
-				options:set({
-					{ value = "a", label = "Alpha", badge = 2 } :: PickerOption,
-					{ value = "b", label = "Beta", sectionTitle = "More" } :: PickerOption,
-				})
+				local sectioned: Facet.PickerOption = { value = "b", label = "Beta", sectionTitle = "More" }
+				options:set({ alpha, sectioned })
 				Verify.expect((headings(everywhere(world, "MenuPanel")))):toBe("More")
 				world.stop()
-				local search = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						Name = "S",
-						UI.Picker({
-							style = "navigationLink" :: "navigationLink",
-							query = Compose.cell(""),
-							selected = Compose.cell("a"),
-							options = {
-								{ value = "a", label = "Alpha", sectionTitle = "First" } :: FixtureNavigationTypes.PickerOption<any>,
-								{ value = "b", label = "Beta", badge = "9" } :: FixtureNavigationTypes.PickerOption<any>,
-							},
-						}),
-					})
+				local first: Facet.PickerOption = { value = "a", label = "Alpha", sectionTitle = "First" }
+				local second: Facet.PickerOption = { value = "b", label = "Beta", badge = "9" }
+				local search = worlds.new(function(UI, Host)
+					local spec: NavigationProps.SinglePickerSpecInput<string> = {
+						style = "navigationLink",
+						query = Compose.cell(""),
+						selected = Compose.cell("a"),
+						options = { first, second },
+					}
+					return Host.Frame { Name = "S", UI.Picker(spec) }
 				end, { motionLevel = "none" })
 				search.find("Picker").Activated:Fire()
 				local list = everywhere(search, "Choices")
@@ -381,7 +375,7 @@ return function(verifyHarness: Verify.Harness)
 		local function containers(): (any, any)
 			local scenario = require("../examples/gallery/scenarios/containers") :: any
 			local built: any
-			local world = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine)
+			local world = worlds.new(function(UI, Host, engine)
 				built = scenario.build({ UI = UI, Compose = Compose, Host = Host, types = engine.types })
 				return built.screen()
 			end, { motionLevel = "none" })
@@ -411,7 +405,7 @@ return function(verifyHarness: Verify.Harness)
 					id = id,
 					label = string.upper(string.sub(id, 1, 1)) .. string.sub(id, 2),
 					content = function(): Instance
-						return Host.Frame({ Name = "Page-" .. id })
+						return Host.Frame { Name = "Page-" .. id }
 					end,
 				})
 			end
@@ -425,12 +419,12 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_content_navigation::native content navigation deltas::keeps a disabled tab in the strip and refuses its selection on every route",
 			run = function()
 				local selection = Compose.cell("home")
-				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.TabView({
+				local world = worlds.new(function(UI, Host)
+					return UI.TabView {
 						selection = selection,
 						placement = "topBar" :: "topBar",
 						tabs = tabList(Host, { enabled = false }),
-					})
+					}
 				end, { motionLevel = "none" })
 				local tabs = world.find("Tabs")
 				local feed = world.find("feed", tabs)
@@ -449,12 +443,12 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_content_navigation::native content navigation deltas::shrinks tab words toward the caption role in a filling bottom bar before they truncate",
 			run = function()
 				local selection = Compose.cell("home")
-				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.TabView({
+				local world = worlds.new(function(UI, Host)
+					return UI.TabView {
 						selection = selection,
 						placement = "bottomBar" :: "bottomBar",
 						tabs = tabList(Host),
-					})
+					}
 				end, { motionLevel = "none" })
 				local tabs = world.find("Tabs")
 				local feed = world.find("feed", tabs)
@@ -489,7 +483,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("subtracts the leading glyph and gap from a bottom tab caption budget", {
 			id = "native_content_navigation::native content navigation deltas::subtracts the leading glyph and gap from a bottom tab caption budget",
 			run = function()
-				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+				local world = worlds.new(function(UI, Host)
 					local tabs = tabList(Host)
 					for _, tab in tabs do
 						tab.icon = "settings"
@@ -521,12 +515,12 @@ return function(verifyHarness: Verify.Harness)
 					bare.chrome.control.contentInsets = nil
 					local widths = {}
 					for _, package in { pixel, bare } do
-						local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-							return UI.TabView({
+						local world = worlds.new(function(UI, Host)
+							return UI.TabView {
 								selection = Compose.cell("home"),
 								placement = "sidebar" :: "sidebar",
 								tabs = tabList(Host),
-							})
+							}
 						end, { motionLevel = "none", theme = package })
 						world.resize(world.find("TabView"), 1200, 800)
 						local tabs = world.find("Tabs")
@@ -546,7 +540,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_content_navigation::native content navigation deltas::moves more than five phone tabs from the bottom bar to the top strip",
 			run = function()
 				for _, count in { 5, 6 } do
-					local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+					local world = worlds.new(function(UI, Host)
 						local tabs = {}
 						for index = 1, count do
 							table.insert(
@@ -555,7 +549,7 @@ return function(verifyHarness: Verify.Harness)
 									id = `t{index}`,
 									label = `Tab {index}`,
 									content = function(): Instance
-										return Host.Frame({})
+										return Host.Frame {}
 									end,
 								} :: FixtureNavigationTypes.Tab
 							)
@@ -573,12 +567,12 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("keeps a sidebar rail below the engine top bar when the page reaches the top edge", {
 			id = "native_content_navigation::native content navigation deltas::keeps a sidebar rail below the engine top bar when the page reaches the top edge",
 			run = function()
-				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.TabView({
+				local world = worlds.new(function(UI, Host)
+					return UI.TabView {
 						selection = Compose.cell("home"),
 						placement = "sidebar" :: "sidebar",
 						tabs = tabList(Host),
-					})
+					}
 				end, { motionLevel = "none" })
 				local engine = world.engine
 				local T = engine.types
@@ -599,12 +593,12 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("clips its tab strip only while the tabs overflow, so a tab's chrome shadow is not cut", {
 			id = "native_content_navigation::native content navigation deltas::clips its tab strip only while the tabs overflow, so a tab's chrome shadow is not cut",
 			run = function()
-				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.TabView({
+				local world = worlds.new(function(UI, Host)
+					return UI.TabView {
 						selection = Compose.cell("home"),
 						placement = "topBar" :: "topBar",
 						tabs = tabList(Host),
-					})
+					}
 				end, { motionLevel = "none" })
 				local tabs = world.find("Tabs")
 				world.engine.environment.poke(tabs, "AbsoluteWindowSize", Vector2.new(300, 44))
@@ -621,8 +615,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local selection, inner = Compose.cell("home"), Compose.cell("foryou")
 				local shown = Compose.cell(false)
-				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.TabView({
+				local world = worlds.new(function(UI, Host)
+					return UI.TabView {
 						Name = "Outer",
 						selection = selection,
 						tabs = {
@@ -630,10 +624,10 @@ return function(verifyHarness: Verify.Harness)
 								id = "home",
 								label = "Home",
 								content = function(): Instance
-									return Host.Frame({
+									return Host.Frame {
 										Name = "Branch",
 										Compose.show(shown, function()
-											return UI.TabView({
+											return UI.TabView {
 												Name = "Inner",
 												selection = inner,
 												tabs = {
@@ -641,31 +635,31 @@ return function(verifyHarness: Verify.Harness)
 														id = "foryou",
 														label = "For you",
 														content = function(): Instance
-															return Host.Frame({})
+															return Host.Frame {}
 														end,
 													} :: FixtureNavigationTypes.Tab,
 													{
 														id = "charts",
 														label = "Charts",
 														content = function(): Instance
-															return Host.Frame({})
+															return Host.Frame {}
 														end,
 													} :: FixtureNavigationTypes.Tab,
 												},
-											})
+											}
 										end),
-									})
+									}
 								end,
 							} :: FixtureNavigationTypes.Tab,
 							{
 								id = "feed",
 								label = "Feed",
 								content = function(): Instance
-									return Host.Frame({})
+									return Host.Frame {}
 								end,
 							} :: FixtureNavigationTypes.Tab,
 						},
-					})
+					}
 				end, { motionLevel = "none" })
 				local outer = world.find("Outer")
 				world.engine.environment.poke(outer, "AbsoluteSize", Vector2.new(390, 800))

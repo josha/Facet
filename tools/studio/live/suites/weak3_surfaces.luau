@@ -1,4 +1,7 @@
 --!strict
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type StringPickerSpec = typeof(require("@repo/tools/typecheck/aliases").StringPickerSpec)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -8,6 +11,9 @@ type CivilRangeCell = typeof(require("@repo/tools/typecheck/aliases").CivilRange
 type CivilRange = typeof(require("@repo/tools/typecheck/aliases").CivilRange)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+local function picker(UI: FacetControls, props: StringPickerSpec, name: string?): GuiObject
+	return UI.Picker(props, name)
+end
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -177,42 +183,53 @@ end
 add("dialog-actions-stack-and-row", {}, function(t)
 	local noop = function() end
 	local long = string.rep("Withdraw from the championship ", 3)
-	local forms = {
+	local forms: {
 		{
-			name = "three automatic",
-			spec = {
-				actions = {
-					{ id = "A", label = "One", onActivate = noop },
-					{ id = "B", label = "Two", onActivate = noop },
-					{ id = "C", label = "Three", onActivate = noop },
-				},
+			name: string,
+			spec: {
+				width: "narrow"?,
+				actionLayout: string?,
+				actions: { { id: string, label: string, onActivate: () -> () } },
 			},
-			stacks = true,
-		},
+			stacks: boolean,
+		}
+	} =
 		{
-			name = "narrow explicit row of long labels",
-			spec = {
-				width = "narrow" :: "narrow",
-				actionLayout = "row",
-				actions = {
-					{ id = "A", label = long, onActivate = noop },
-					{ id = "B", label = long, onActivate = noop },
+			{
+				name = "three automatic",
+				spec = {
+					actions = {
+						{ id = "A", label = "One", onActivate = noop },
+						{ id = "B", label = "Two", onActivate = noop },
+						{ id = "C", label = "Three", onActivate = noop },
+					},
 				},
+				stacks = true,
 			},
-			stacks = true,
-		},
-		{
-			name = "explicit row of Yes and No",
-			spec = {
-				actionLayout = "row",
-				actions = {
-					{ id = "A", label = "Yes", onActivate = noop },
-					{ id = "B", label = "No", onActivate = noop },
+			{
+				name = "narrow explicit row of long labels",
+				spec = {
+					width = "narrow" :: "narrow",
+					actionLayout = "row",
+					actions = {
+						{ id = "A", label = long, onActivate = noop },
+						{ id = "B", label = long, onActivate = noop },
+					},
 				},
+				stacks = true,
 			},
-			stacks = false,
-		},
-	}
+			{
+				name = "explicit row of Yes and No",
+				spec = {
+					actionLayout = "row",
+					actions = {
+						{ id = "A", label = "Yes", onActivate = noop },
+						{ id = "B", label = "No", onActivate = noop },
+					},
+				},
+				stacks = false,
+			},
+		}
 	t.note("host", host(t))
 	for _, form in forms do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
@@ -221,22 +238,22 @@ add("dialog-actions-stack-and-row", {}, function(t)
 				onPresentedChange = noop,
 				title = "Leave the race?",
 				content = function()
-					return UI.Text({
+					return UI.Text {
 						Name = "Line",
 						text = "Your lap will not count.",
 						TextWrapped = true,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-					})
+					}
 				end,
 			}
-			for key, value in form.spec do
-				spec[key] = value
-			end
+			spec.width = form.spec.width
+			spec.actionLayout = form.spec.actionLayout
+			spec.actions = form.spec.actions
 			return Host.Frame "Board" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Dialog("Confirm")(spec),
+				UI.Dialog "Confirm"(spec),
 			}
 		end, { size = Vector2.new(1280, 720), frames = 30 })
 		local panel = visibleNamed(t, stage, "Panel")
@@ -253,8 +270,8 @@ add("dialog-actions-stack-and-row", {}, function(t)
 				t.near(`{form.name}: A and B share one row`, rb.y, ra.y, 0.5)
 				t.check(`{form.name}: A and B sit side by side`, not overlap(ra, rb), { a = ra, b = rb })
 			end
-			for _, node in { a, b } do
-				local words = nil
+			for _, node: Instance in { a, b } do
+				local words: (TextLabel | TextButton)? = nil
 				for _, item in node:GetDescendants() do
 					if item:IsA("TextLabel") and item.ContentText ~= "" then
 						words = item
@@ -281,10 +298,10 @@ end)
 
 add("picker-panel-widest-row", {}, function(t)
 	t.note("host", host(t))
-	local open
+	local open: BooleanCell
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		open = Compose.cell(false)
-		return UI.Picker "P" {
+		return picker(UI, {
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(160, 0),
 			style = "menu" :: "menu",
@@ -296,7 +313,7 @@ add("picker-panel-widest-row", {}, function(t)
 				{ value = "b", label = "Bo", avatar = { name = "Bo" }, meta = "Crew", icon = "settings" } :: PickerOption,
 				{ value = "c", label = "Cy", avatar = { name = "Cy" }, icon = "settings" } :: PickerOption,
 			},
-		}
+		}, "P")
 	end, { size = Vector2.new(1280, 720), frames = 20 })
 	open:set(true)
 	t.settle(20)
@@ -343,7 +360,7 @@ end)
 add("navigation-link-one-line", {}, function(t)
 	t.note("host", host(t))
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.Picker "P" {
+		return picker(UI, {
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(480, 0),
 			label = "Track",
@@ -354,7 +371,7 @@ add("navigation-link-one-line", {}, function(t)
 				{ value = "normal", label = "Normal" } :: PickerOption,
 				{ value = "hard", label = "Hard" } :: PickerOption,
 			},
-		}
+		}, "P")
 	end, { size = Vector2.new(1400, 700), frames = 20 })
 	local root = t.find(stage, "P")
 	local trailing = partOf(root, "Trailing")
@@ -387,7 +404,8 @@ end)
 
 add("slider-custom-knob-footprint", {}, function(t)
 	t.note("host", host(t))
-	local builds, value = 0, nil
+	local builds = 0
+	local value: NumberCell
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		value = Compose.cell(50)
 		return UI.Slider "Vol" {
@@ -442,7 +460,7 @@ add("slider-custom-track-centred", {}, function(t)
 	local builds = 0
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		local function slider(name: string, vertical: boolean): Frame
-			return UI.Slider(name) {
+			return UI.Slider(name)({
 				Position = UDim2.fromOffset(if vertical then 400 else 40, 40),
 				Size = if vertical then UDim2.fromOffset(80, 220) else UDim2.fromOffset(320, 0),
 				axis = if vertical then "y" else "x",
@@ -455,10 +473,10 @@ add("slider-custom-track-centred", {}, function(t)
 						Size = if vertical then UDim2.new(0, 6, 1, 0) else UDim2.new(1, 0, 0, 6),
 						BorderSizePixel = 0,
 						BackgroundColor3 = Color3.new(1, 1, 1),
-						Host.UIGradient({ Color = ColorSequence.new(Color3.new(1, 0, 0), Color3.new(0, 1, 0)) }),
+						Host.UIGradient { Color = ColorSequence.new(Color3.new(1, 0, 0), Color3.new(0, 1, 0)) },
 					}
 				end,
-			}
+			})
 		end
 		return Host.Frame "Sliders" {
 			Size = UDim2.fromScale(1, 1),
@@ -496,7 +514,7 @@ add("slider-rung-thin-rail-whole-target", {}, function(t)
 		return Host.Frame "Column" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
-			Host.UIListLayout({ Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+			Host.UIListLayout { Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder },
 			UI.Slider "Regular" { LayoutOrder = 1, Size = UDim2.fromOffset(320, 0), value = Compose.cell(50) },
 			UI.Slider "Compact" {
 				LayoutOrder = 2,
@@ -533,7 +551,7 @@ end)
 add("dtp-draft-footer-rects", {}, function(t)
 	t.note("host", host(t))
 	local civil = t.Facet.civilDate
-	local open
+	local open: BooleanCell
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		open = Compose.cell(false)
 		local range = (function(): CivilRangeCell
@@ -634,7 +652,7 @@ end)
 
 add("color-swatch-square-cells", {}, function(t)
 	t.note("host", host(t))
-	local open
+	local open: BooleanCell
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		open = Compose.cell(false)
 		local value = Compose.cell(Color3.fromRGB(255, 196, 0))
@@ -713,7 +731,7 @@ end)
 local MENU_IDS = { "a", "b", "c" }
 
 local function denseMenu(t: any, theme: any): (any, any)
-	local open
+	local open: BooleanCell
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		open = Compose.cell(false)
 		return UI.Menu "M" {
@@ -772,10 +790,10 @@ end)
 add("picker-dense-pointer-rows-live", {}, function(t)
 	unemulated(t)
 	t.note("pointer host", host(t))
-	local open
+	local open: BooleanCell
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		open = Compose.cell(false)
-		return UI.Picker "P" {
+		return picker(UI, {
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(240, 0),
 			style = "menu" :: "menu",
@@ -786,7 +804,7 @@ add("picker-dense-pointer-rows-live", {}, function(t)
 				{ value = "normal", label = "Normal" } :: PickerOption,
 				{ value = "fast", label = "Fast" } :: PickerOption,
 			},
-		}
+		}, "P")
 	end, { size = Vector2.new(800, 600), theme = dense(t), frames = 20 })
 	open:set(true)
 	t.settle(20)
@@ -814,7 +832,7 @@ add("outline-disclosure-indent", {}, function(t)
 		return Host.Frame "Tree" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromOffset(390, 400),
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
 			UI.DisclosureGroup "G" {
 				label = "Inputs",
 				appearance = "outline" :: "outline",
@@ -822,7 +840,7 @@ add("outline-disclosure-indent", {}, function(t)
 				indent = "m" :: "m",
 				expanded = Compose.cell(true),
 				content = function(): Instance
-					return UI.Text({ Name = "Row", text = "Button", AutomaticSize = Enum.AutomaticSize.XY })
+					return UI.Text { Name = "Row", text = "Button", AutomaticSize = Enum.AutomaticSize.XY }
 				end,
 			},
 		}
@@ -864,8 +882,8 @@ add("picker-start-inline-hug", {}, function(t)
 				Position = UDim2.fromOffset(40, 40),
 				Size = UDim2.fromOffset(0, 0),
 				AutomaticSize = Enum.AutomaticSize.XY,
-				Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal }) :: unknown,
-				UI.Picker "P" {
+				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal },
+				picker(UI, {
 					label = "Motion",
 					style = "menu" :: "menu",
 					valueAlignment = "start" :: "start",
@@ -877,7 +895,7 @@ add("picker-start-inline-hug", {}, function(t)
 						{ value = "normal", label = "Normal" } :: PickerOption,
 						{ value = "fast", label = "Fast" } :: PickerOption,
 					},
-				},
+				}, "P"),
 			}
 		end, { size = Vector2.new(1280, 700), theme = theme, frames = 20 })
 	end
@@ -916,8 +934,8 @@ add("picker-touch-inline-hug", {}, function(t)
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(0, 0),
 			AutomaticSize = Enum.AutomaticSize.XY,
-			Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal }) :: unknown,
-			UI.Picker "P" {
+			Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal },
+			picker(UI, {
 				label = "Motion",
 				style = "menu" :: "menu",
 				valueAlignment = "start" :: "start",
@@ -929,7 +947,7 @@ add("picker-touch-inline-hug", {}, function(t)
 					{ value = "normal", label = "Normal" } :: PickerOption,
 					{ value = "fast", label = "Fast" } :: PickerOption,
 				},
-			},
+			}, "P"),
 		}
 	end, { frames = 20 })
 	local root = t.find(stage, "P")
@@ -982,7 +1000,7 @@ add("sheet-adaptive-side-edge", {}, function(t)
 					placement = "adaptive" :: "adaptive",
 					title = "Inspector",
 					content = function(): Instance
-						return UI.Text({ Name = "Copy", text = "Details", AutomaticSize = Enum.AutomaticSize.XY })
+						return UI.Text { Name = "Copy", text = "Details", AutomaticSize = Enum.AutomaticSize.XY }
 					end,
 				},
 			}
@@ -990,8 +1008,8 @@ add("sheet-adaptive-side-edge", {}, function(t)
 		return stage, nil
 	end
 	local stage = sheet(Vector2.new(1200, 800), false)
-	local samples = {}
-	local panel = nil
+	local samples: { number } = {}
+	local panel: GuiObject? = nil
 	for _ = 1, 90 do
 		t.settle(1)
 		panel = panel or visibleNamed(t, stage, "SheetPanel")
@@ -1058,14 +1076,14 @@ add("tabview-rung-centred", {}, function(t)
 					id = "a",
 					label = "Alpha",
 					content = function()
-						return Host.Frame({ Name = "PA", BackgroundTransparency = 1 })
+						return Host.Frame { Name = "PA", BackgroundTransparency = 1 }
 					end,
 				} :: Tab,
 				{
 					id = "b",
 					label = "Beta",
 					content = function()
-						return Host.Frame({ Name = "PB", BackgroundTransparency = 1 })
+						return Host.Frame { Name = "PB", BackgroundTransparency = 1 }
 					end,
 				} :: Tab,
 			},
@@ -1102,7 +1120,7 @@ interactive(
 				Position = UDim2.fromOffset(40, 40),
 				Size = UDim2.fromOffset(320, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
 				UI.Toggle "Box" {
 					label = "Reduced motion",
 					presentation = "checkbox" :: "checkbox",

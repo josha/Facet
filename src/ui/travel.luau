@@ -8,6 +8,7 @@ local reducedMotion = require("./motion").reduced
 
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
+	local readDestination = ctx.read<<GuiObject>>
 	local D2, V2 = ctx.types.UDim2, ctx.types.Vector2
 	local function build(spec: ZoomTravelProps.TravelProps): Frame
 		assert(type(spec.content) == "function", "Facet UI.Travel: content is required")
@@ -42,7 +43,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 		styleCopy.Parent = node
 		local reduce = reducedMotion(ctx)
 		local owner = assert(Compose.currentOwner())
-		local destination: GuiObject = ctx.read(spec.destination)
+		local destination: GuiObject = readDestination(spec.destination)
 		local watchedDestination: GuiObject? = nil
 		local releaseDestination: (() -> ())? = nil
 		Compose.cleanup(function()
@@ -260,7 +261,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 				assert(index >= 0 and index < math.huge, "Facet UI.Travel: stagger must be finite and nonnegative")
 				return index * ctx.metric("motion.durations.travelStagger")
 			end,
-			reduced = reduce,
+			reduced = function(): boolean
+				return reduce()
+			end,
 			motion = spec.motion or "ease",
 			duration = ctx.metric("motion.durations.travel"),
 			ease = ctx.motionEase("travel"),
@@ -365,7 +368,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 			return { portal }
 		end, anchor)
 		Compose.watch(function(use: Shared.Use)
-			local next: GuiObject = ctx.read(spec.destination, use)
+			local next: GuiObject = readDestination(spec.destination, use)
 			assert(next:IsA("GuiObject"), "Facet UI.Travel: destination must be a GuiObject")
 			ctx.read(ctx.observe.AbsolutePosition(next), use)
 			ctx.read(ctx.observe.AbsoluteSize(next), use)
@@ -407,7 +410,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 			assert(node:IsA("CanvasGroup"), "Facet UI.Travel: transparency requires CanvasGroup content")
 			local group = node
 			local fade = runtime.tween(function(use: Shared.Use)
-				return ctx.read(spec.transparency, use)
+				return ctx.read<<number>>(spec.transparency, use)
 			end, {
 				seconds = ctx.metric("motion.durations.travelFade"),
 				ease = ctx.motionEase("travel"),

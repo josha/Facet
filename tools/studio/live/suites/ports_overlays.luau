@@ -1,4 +1,16 @@
 --!strict
+type Help = typeof(require("@repo/tools/typecheck/aliases").ButtonProps.help)
+type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
+type StringRadialItem = typeof(require("@repo/tools/typecheck/aliases").StringRadialItem)
+type ThemeCell = typeof(require("@repo/tools/typecheck/aliases").ThemeCell)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type MenuSpec = typeof(require("@repo/tools/typecheck/aliases").MenuSpec)
+type StringPickerSpec = typeof(require("@repo/tools/typecheck/aliases").StringPickerSpec)
+type RadialMenuSpec = typeof(require("@repo/tools/typecheck/aliases").RadialMenuSpec)
+type MenuCommand = typeof(require("@repo/tools/typecheck/aliases").MenuCommand)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").StringMenuItem)
+type RadialAction = typeof(require("@repo/tools/typecheck/aliases").StringRadialAction)
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -49,7 +61,8 @@ add("sheet-guarded-dismissal", {}, function(t)
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	local close = t.find(gui, "Close")
 	local draft = t.find(gui, "DraftName")
-	local virtual = UserInputService:CreateVirtualInput()
+	local virtual = assert(UserInputService:CreateVirtualInput(), "native virtual input is unavailable")
+	assert(virtual:IsA("VirtualInput"))
 	local point = close.AbsolutePosition + close.AbsoluteSize / 2 + GuiService:GetGuiInset()
 	virtual:SendMousePosition(point)
 	t.settle(2)
@@ -114,7 +127,8 @@ add("sheet-placement-dismissal", {}, function(t)
 			local trigger = t.find(stage, "OpenTask")
 			GuiService.SelectedObject = trigger
 			t.settle(4)
-			local virtual = UserInputService:CreateVirtualInput()
+			local virtual = assert(UserInputService:CreateVirtualInput(), "native virtual input is unavailable")
+			assert(virtual:IsA("VirtualInput"))
 			local inset = GuiService:GetGuiInset()
 			local probe = trigger.AbsolutePosition + trigger.AbsoluteSize / 2 + inset
 			local observed: Vector3? = nil
@@ -164,7 +178,7 @@ add("sheet-placement-dismissal", {}, function(t)
 			t.check(where .. " native input closes", not shown:peek())
 			t.check(
 				where .. " releases modal selection",
-				GuiService.SelectedObject == nil or not GuiService.SelectedObject:IsDescendantOf(panel)
+				GuiService.SelectedObject == nil or not assert(GuiService.SelectedObject):IsDescendantOf(panel)
 			)
 		end
 	end
@@ -247,10 +261,16 @@ local function contrast(a: Color3, b: Color3): number
 end
 
 local function scenario(t: any, name: string, size: any, theme: any?): (any, any)
-	local built
+	local built: (() -> Instance) | { screen: () -> Instance }?
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
-		return if type(built) == "function" then built() else built.screen()
+		local current = assert(built)
+		if type(current) == "function" then
+			local render: () -> Instance = current
+			return render()
+		end
+		assert(type(current) == "table")
+		return current.screen()
 	end, { size = size, theme = theme, frames = 20 })
 	return stage, built
 end
@@ -311,20 +331,20 @@ local LONG = string.rep(
 	25
 )
 
-local function longContent(UI: any, Host: any, width: number?): any
+local function longContent(UI: FacetControls, Host: RobloxHost, width: number?): Frame
 	return Host.Frame "Words" {
 		BackgroundTransparency = 1,
 		Size = if width then UDim2.fromOffset(width, 0) else UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-		UI.Text({
+		Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
+		UI.Text {
 			Name = "Copy",
 			LayoutOrder = 1,
 			text = LONG,
 			TextWrapped = true,
 			Size = UDim2.new(1, 0, 0, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
-		}),
+		},
 		Host.Frame "Spacer" {
 			LayoutOrder = 2,
 			BackgroundTransparency = 1,
@@ -342,22 +362,28 @@ local function copyFits(t: any, where: string, root: any)
 	)
 end
 
-local function longDialog(UI: any, Host: any, Compose: any, opened: any?): any
+local function longDialog(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, opened: BooleanCell?): Frame
+	local actions: { DialogAction } = {
+		{ id = "Stay", label = "Stay", role = "cancel", onActivate = function(): () end },
+		{
+			id = "Leave",
+			label = "Leave",
+			role = "destructive",
+			onActivate = function(): () end,
+		},
+	}
 	return Host.Frame "Board" {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		UI.Dialog "Long" {
 			isPresented = opened or Compose.cell(true),
-			onPresentedChange = function() end,
+			onPresentedChange = function(): () end,
 			title = "Leave the race?",
 			content = function()
 				return longContent(UI, Host)
 			end,
 			actionLabel = "Leaving now forfeits this heat.",
-			actions = {
-				{ id = "Stay", label = "Stay", role = "cancel" :: "cancel", onActivate = function() end } :: OverlayAction,
-				{ id = "Leave", label = "Leave", role = "destructive" :: "destructive", onActivate = function() end } :: OverlayAction,
-			},
+			actions = actions,
 		},
 	}
 end
@@ -432,7 +458,7 @@ add("callout-fixed-width-content-containment", {}, function(t)
 							UI.Text "Instruction" { text = message, wrap = true },
 						}
 					end,
-					onRetire = function() end,
+					onRetire = function(): () end,
 				},
 			}
 		end, { size = size, theme = theme.package, frames = 30 })
@@ -685,21 +711,28 @@ end)
 
 add("help-plate-edges-and-shrinking-window", {}, function(t)
 	local size = t.Facet.Compose.cell(Vector2.new(1280, 720))
-	local buttons = {}
-	local function spot(UI: any, Host: any, name: string, position: UDim2, anchor: Vector2, help: any): any
+	local buttons: { [string]: TextButton } = {}
+	local function spot(
+		UI: FacetControls,
+		Host: RobloxHost,
+		name: string,
+		position: UDim2,
+		anchor: Vector2,
+		help: Help
+	): Frame
 		local button = UI.Button(name)({ label = name, help = help })
 		buttons[name] = button
-		return Host.Frame({
+		return Host.Frame {
 			Name = name .. "Spot",
 			BackgroundTransparency = 1,
 			AnchorPoint = anchor,
 			Position = position,
 			Size = UDim2.fromOffset(0, 0),
 			AutomaticSize = Enum.AutomaticSize.XY,
-			button :: unknown,
-		})
+			button,
+		}
 	end
-	local function help(edge: string?, align: string?): any
+	local function help(edge: "top" | "bottom" | "leading" | "trailing"?, align: "start" | "center" | "end"?): Help
 		return {
 			title = "Boost",
 			body = "Fills the boost meter faster on clean exits.",
@@ -712,7 +745,7 @@ add("help-plate-edges-and-shrinking-window", {}, function(t)
 		return Host.Frame "Board" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			spot(UI, Host, "Below", UDim2.fromOffset(200, 200), Vector2.zero, help("bottom")) :: unknown,
+			spot(UI, Host, "Below", UDim2.fromOffset(200, 200), Vector2.zero, help("bottom")),
 			spot(UI, Host, "Beside", UDim2.fromOffset(600, 200), Vector2.zero, help("trailing", "start")),
 			spot(UI, Host, "Corner", UDim2.new(1, -4, 1, -4), Vector2.one, help("trailing")),
 		}
@@ -896,8 +929,8 @@ add("notice-layout-and-emphasis-paint", {}, function(t)
 	local colors = {}
 	for _, entry in
 		{
-			{ "desktop" :: unknown, Vector2.new(1280, 720), "beside" },
-			{ "phone" :: unknown, Vector2.new(390, 844), "below" },
+			{ "desktop", Vector2.new(1280, 720), "beside" },
+			{ "phone", Vector2.new(390, 844), "below" },
 		}
 	do
 		local where, size, expected = entry[1] :: any, entry[2] :: any, entry[3] :: any
@@ -969,7 +1002,7 @@ add("notice-layout-and-emphasis-paint", {}, function(t)
 		return UI.Notice "Plain" {
 			severity = "info" :: "info",
 			message = "A new track pack is ready to install.",
-			link = { label = "Release notes", onActivate = function() end },
+			link = { label = "Release notes", onActivate = function(): () end },
 		}
 	end, { size = Vector2.new(1280, 720), frames = 12 })
 	local link = t.find(stage, "Link")
@@ -983,17 +1016,18 @@ end)
 add("popover-caps-and-side-hang", {}, function(t)
 	local viewport = device(t, { device = "xbox", width = 1280, height = 720 })
 	t.note("viewport", viewport)
-	local cells, triggers = {}, {}
+	local cells: { [string]: BooleanCell } = {}
+	local triggers: { [string]: TextButton } = {}
 	local function pop(
-		UI: any,
-		Host: any,
-		Compose: any,
+		UI: FacetControls,
+		Host: RobloxHost,
+		Compose: ComposeModule,
 		name: string,
 		anchor: Vector2,
 		position: UDim2,
 		size: UDim2?,
 		long: boolean
-	): any
+	): Frame
 		local opened = Compose.cell(false)
 		cells[name] = opened
 		local trigger = UI.Button(name .. "Button")({
@@ -1002,7 +1036,7 @@ add("popover-caps-and-side-hang", {}, function(t)
 			AutomaticSize = if size then Enum.AutomaticSize.None else nil,
 		})
 		triggers[name] = trigger
-		return Host.Frame({
+		return Host.Frame {
 			Name = name .. "Spot",
 			BackgroundTransparency = 1,
 			AnchorPoint = anchor,
@@ -1012,30 +1046,30 @@ add("popover-caps-and-side-hang", {}, function(t)
 			UI.Popover(name)({
 				isPresented = opened,
 				onPresentedChange = function(nextValue: boolean)
-					opened:set(nextValue)
+					assert(opened):set(nextValue)
 				end,
 				trigger = trigger,
 				maxWidth = if long then 320 else nil,
 				maxHeight = if long then 180 else nil,
-				content = function()
+				content = function(): Instance
 					if long then
 						return longContent(UI, Host, 296)
 					end
-					return UI.Text({
+					return UI.Text {
 						Name = "Words",
 						text = "Short note",
 						AutomaticSize = Enum.AutomaticSize.XY,
 						Size = UDim2.fromOffset(0, 0),
-					})
+					}
 				end,
 			}),
-		})
+		}
 	end
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.Frame "Board" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			pop(UI, Host, Compose, "TopLeft", Vector2.zero, UDim2.fromOffset(8, 8), nil, true) :: unknown,
+			pop(UI, Host, Compose, "TopLeft", Vector2.zero, UDim2.fromOffset(8, 8), nil, true),
 			pop(UI, Host, Compose, "TopRight", Vector2.new(1, 0), UDim2.new(1, -8, 0, 8), nil, true),
 			pop(UI, Host, Compose, "BottomLeft", Vector2.new(0, 1), UDim2.new(0, 8, 1, -8), nil, true),
 			pop(UI, Host, Compose, "BottomRight", Vector2.one, UDim2.new(1, -8, 1, -8), nil, true),
@@ -1156,7 +1190,7 @@ add("sheet-scroll-policy-and-detectors", {}, function(t)
 		"not checked",
 		"flick projection, settle speed, drag slop, input-class cancel and the downward pull at the tallest detent all need a drag or touch, which the runner cannot send"
 	)
-	local detent
+	local detent: StringCell?
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		detent = Compose.cell("medium")
 		return Host.Frame "Board" {
@@ -1194,7 +1228,7 @@ add("sheet-scroll-policy-and-detectors", {}, function(t)
 		body and body.ScrollingEnabled == false,
 		body and body.ScrollingEnabled
 	)
-	detent:set("large")
+	assert(detent):set("large")
 	t.settle(20)
 	t.stable(panel)
 	t.check(
@@ -1212,7 +1246,7 @@ end)
 
 add("sheet-room-hug-hero-short", {}, function(t)
 	t.note("not checked", "the on-screen keyboard lift (the runner has no on-screen keyboard)")
-	for _, entry in { { "desktop" :: unknown, Vector2.new(1280, 720) }, { "phone" :: unknown, Vector2.new(390, 844) } } do
+	for _, entry in { { "desktop", Vector2.new(1280, 720) }, { "phone", Vector2.new(390, 844) } } do
 		t.device({ device = "hd_1080" })
 		GuiService.SelectedObject = nil
 		local where, size = entry[1] :: any, entry[2] :: any
@@ -1333,7 +1367,7 @@ add("snackbar-art-carve", {}, function(t)
 					isPresented = shown,
 					message = "Offline: your times will upload when you reconnect.",
 					icon = "status.warning",
-					action = { label = "Undo", onActivate = function() end },
+					action = { label = "Undo", onActivate = function(): () end },
 					onPresentedChange = function(nextValue: boolean)
 						shown:set(nextValue)
 					end,
@@ -1383,10 +1417,12 @@ add("snackbar-art-carve", {}, function(t)
 end)
 
 add("snackbar-paint-order", {}, function(t)
-	local calloutOn, dialogOn
-	local trigger
+	local calloutOn: BooleanCell?
+	local dialogOn: BooleanCell?
+	local trigger: TextButton?
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-		calloutOn, dialogOn = Compose.cell(false), Compose.cell(false)
+		calloutOn = Compose.cell(false)
+		dialogOn = Compose.cell(false)
 		trigger = UI.Button "HelpTrigger" {
 			label = "Boost",
 			help = { title = "Boost", body = "Fills the boost meter faster." },
@@ -1401,24 +1437,24 @@ add("snackbar-paint-order", {}, function(t)
 				Size = UDim2.fromOffset(0, 0),
 				AutomaticSize = Enum.AutomaticSize.XY,
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 24) }) :: unknown,
+				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 24) },
 				trigger,
 				anchor,
-			} :: unknown,
+			},
 			UI.Callout {
 				anchor = anchor :: GuiObject,
 				isPresented = calloutOn,
 				edge = "bottom" :: "bottom",
 				title = "Welcome to the garage",
 				content = function(): Instance
-					return UI.Text({ text = "Tune your car here before a race." })
+					return UI.Text { text = "Tune your car here before a race." }
 				end,
-				onRetire = function() end,
+				onRetire = function(): () end,
 			},
 			UI.Toast "Snack1" {
 				isPresented = Compose.cell(true),
 				message = "Kart sold. The garage has room for one more.",
-				action = { label = "Undo", onActivate = function() end },
+				action = { label = "Undo", onActivate = function(): () end },
 				closeButton = false,
 			},
 			UI.Dialog "Leave" {
@@ -1426,10 +1462,10 @@ add("snackbar-paint-order", {}, function(t)
 				closeButton = false,
 				title = "Leave the race?",
 				content = function(): Instance
-					return UI.Text({ text = "Your lap will not count." })
+					return UI.Text { text = "Your lap will not count." }
 				end,
 				actions = {
-					{ id = "Stay", label = "Stay", role = "cancel" :: "cancel", onActivate = function() end } :: DialogAction,
+					{ id = "Stay", label = "Stay", role = "cancel" :: "cancel", onActivate = function(): () end } :: DialogAction,
 				},
 			},
 		}
@@ -1438,7 +1474,7 @@ add("snackbar-paint-order", {}, function(t)
 	t.note("layer z-index behavior", tostring(gui.ZIndexBehavior))
 	local row = visibleNamed(t, gui, "Snack")
 	t.check("the action toast row shows", row ~= nil)
-	calloutOn:set(true)
+	assert(calloutOn):set(true)
 	GuiService.SelectedObject = trigger
 	local started = os.clock()
 	local plate = Verify.awaitValue(
@@ -1467,7 +1503,7 @@ add("snackbar-paint-order", {}, function(t)
 		local above, detail = paintsAbove(plate, row)
 		t.check("the help plate paints above the action toast row", above == true, detail)
 	end
-	dialogOn:set(true)
+	assert(dialogOn):set(true)
 	t.settle(30)
 	local modal = visibleNamed(t, gui, "DialogModal")
 	local panel = modal and t.find(modal, "Panel")
@@ -1503,20 +1539,21 @@ add("snackbar-composition-widths", {}, function(t)
 		"Offline: your lap times will upload when you reconnect to the race servers. Keep driving; nothing is lost."
 	for _, entry in
 		{
-			{ "desktop" :: unknown, { device = "xbox", width = 1280, height = 720 } },
-			{ "phone" :: unknown, { device = "iphone_14", orientation = Enum.ScreenOrientation.Portrait } },
+			{ name = "desktop", device = "xbox", width = 1280, height = 720 },
+			{ name = "phone", device = "iphone_14", orientation = Enum.ScreenOrientation.Portrait },
 		}
 	do
-		local where = entry[1] :: any
-		t.note(where .. " viewport", device(t, entry[2] :: any))
-		local cells = {}
+		local where = entry.name
+		t.note(where .. " viewport", device(t, entry))
+		local cells: { [string]: BooleanCell } = {}
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			local function cell(name: string): any
+			local function cell(name: string): BooleanCell
 				local value = Compose.cell(false)
 				cells[name] = value
 				return value
 			end
-			local undo = { label = "Undo", onActivate = function() end }
+			local undo: typeof(require("@repo/tools/typecheck/aliases").ToastSpec.action) =
+				{ label = "Undo", onActivate = function(): () end }
 			local close = cell("WithClose")
 			local function answer(name: string): (boolean) -> ()
 				return function(nextValue: boolean)
@@ -1532,7 +1569,7 @@ add("snackbar-composition-widths", {}, function(t)
 					width = "hug" :: "hug",
 					duration = 60,
 					onPresentedChange = answer("Plain"),
-				} :: unknown,
+				},
 				UI.Toast "WithAction" {
 					isPresented = cell("WithAction"),
 					message = "Kart sold.",
@@ -1704,9 +1741,10 @@ interactive(
 		local value: { [string]: any } = {}
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			value.presented = Compose.cell(false)
-			local items = {}
+			local items: { MenuItem } = {}
 			for index = 1, 3 do
-				table.insert(items, { id = `row{index}`, label = `Row {index}`, onSelect = function() end })
+				local item: MenuCommand = { id = `row{index}`, label = `Row {index}`, onSelect = function(): () end }
+				table.insert(items, item)
 			end
 			return Host.Frame "Board" {
 				Size = UDim2.fromScale(1, 1),
@@ -1780,8 +1818,8 @@ interactive(
 								BackgroundTransparency = 1,
 								Size = UDim2.fromOffset(0, 0),
 								AutomaticSize = Enum.AutomaticSize.XY,
-								Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-								UI.Text({ Name = "Line", text = "Popover body", LayoutOrder = 1 }),
+								Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
+								UI.Text { Name = "Line", text = "Popover body", LayoutOrder = 1 },
 								UI.Button "Inner" { label = "Inner", LayoutOrder = 2 },
 							}
 						end,
@@ -1911,10 +1949,10 @@ end, {
 
 add("popover-capped-follows-a-shrinking-window", {}, function(t)
 	local size = t.Facet.Compose.cell(Vector2.new(1280, 720))
-	local opened
+	local opened: BooleanCell?
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		opened = Compose.cell(false)
-		local rows = {}
+		local rows: { TextButton } = {}
 		for index = 1, 30 do
 			table.insert(rows, UI.Button(`Row{index}`)({ label = `Row {index}`, LayoutOrder = index }))
 		end
@@ -1929,7 +1967,7 @@ add("popover-capped-follows-a-shrinking-window", {}, function(t)
 				UI.Popover "Capped" {
 					isPresented = opened,
 					onPresentedChange = function(nextValue: boolean)
-						opened:set(nextValue)
+						assert(opened):set(nextValue)
 					end,
 					trigger = UI.Button "CappedButton" { label = "Rows" },
 					maxWidth = 220,
@@ -1939,7 +1977,7 @@ add("popover-capped-follows-a-shrinking-window", {}, function(t)
 							BackgroundTransparency = 1,
 							Size = UDim2.fromOffset(0, 0),
 							AutomaticSize = Enum.AutomaticSize.XY,
-							Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+							Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
 							table.unpack(rows),
 						}
 					end,
@@ -1947,7 +1985,7 @@ add("popover-capped-follows-a-shrinking-window", {}, function(t)
 			},
 		}
 	end, { size = size, frames = 20 })
-	opened:set(true)
+	assert(opened):set(true)
 	t.settle(20)
 	local modal = stage:FindFirstChild("CappedModal", true)
 	local panel = modal and modal:FindFirstChild("Panel", true)
@@ -1970,7 +2008,7 @@ add("popover-capped-follows-a-shrinking-window", {}, function(t)
 		t.settle(20)
 		t.stable(panel)
 		local safe = shrink(t.rect(stage), 8, 8, 8, 8)
-		t.check(`at {width} px the popover is still open`, opened:peek() == true and panel.Parent ~= nil)
+		t.check(`at {width} px the popover is still open`, assert(opened):peek() == true and panel.Parent ~= nil)
 		t.inside(`at {width} px the capped panel stays inside the new safe box`, panel, safe, 1)
 		t.check(
 			`at {width} px the panel keeps its caps`,
@@ -1999,7 +2037,9 @@ end
 
 add("sheet-hug-follows-live-copy", {}, function(t)
 	t.device({ device = "hd_1080" })
-	local copy, builds, themeCell = nil, 0, nil
+	local copy: StringCell?
+	local builds = 0
+	local themeCell: ThemeCell?
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		themeCell = env.theme
 		copy = Compose.cell("Two short lines.")
@@ -2013,16 +2053,16 @@ add("sheet-hug-follows-live-copy", {}, function(t)
 				detents = { "hug", "large" } :: { SheetDetent },
 				content = function(): Instance
 					builds += 1
-					return UI.Text({
+					return UI.Text {
 						Name = "Copy",
-						text = copy,
+						text = assert(copy),
 						TextWrapped = true,
 						Size = UDim2.fromOffset(420, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-					})
+					}
 				end,
 				actions = {
-					{ id = "Go", label = "Go", onActivate = function() end } :: OverlayAction,
+					{ id = "Go", label = "Go", onActivate = function(): () end } :: OverlayAction,
 				},
 			},
 		}
@@ -2052,22 +2092,22 @@ add("sheet-hug-follows-live-copy", {}, function(t)
 	local short = panel.AbsoluteSize.Y
 	t.check("the hug sheet is shorter than the large detent", short < 720 * 0.95 - 1, short)
 	fitsWhole("short copy")
-	copy:set(string.rep("Longer copy that wraps onto several lines. ", 8))
+	assert(copy):set(string.rep("Longer copy that wraps onto several lines. ", 8))
 	t.settle(20)
 	t.stable(panel)
 	local tall = panel.AbsoluteSize.Y
 	t.check("longer copy grows the sheet", tall > short + 10, { short, tall })
 	fitsWhole("long copy")
-	copy:set("Two short lines.")
+	assert(copy):set("Two short lines.")
 	t.settle(20)
 	t.stable(panel)
 	t.near("shorter copy shrinks it back", panel.AbsoluteSize.Y, short, 0.5)
 	for cycle = 1, 2 do
-		copy:set(string.rep("Longer copy that wraps onto several lines. ", 8))
+		assert(copy):set(string.rep("Longer copy that wraps onto several lines. ", 8))
 		t.settle(20)
 		t.stable(panel)
 		t.near(`growth cycle {cycle} restores the tall height`, panel.AbsoluteSize.Y, tall, 0.5)
-		copy:set("Two short lines.")
+		assert(copy):set("Two short lines.")
 		t.settle(20)
 		t.stable(panel)
 		t.near(`shrink cycle {cycle} restores the short height`, panel.AbsoluteSize.Y, short, 0.5)
@@ -2080,12 +2120,12 @@ add("sheet-hug-follows-live-copy", {}, function(t)
 	t.settle(60)
 	idleWatch:Disconnect()
 	t.check("resting copy does not reflow again", idleReflows == 0, idleReflows)
-	copy:set(string.rep("Longer copy that wraps onto several lines. ", 8))
+	assert(copy):set(string.rep("Longer copy that wraps onto several lines. ", 8))
 	t.settle(20)
 	t.stable(panel)
 	local above = panel.AbsoluteSize.Y
 	t.check("the longer copy lifts the hug sheet off its minimum height", above > short + 10, { short, above })
-	themeCell:set(grown(t, themeCell:peek(), 14))
+	assert(themeCell):set(grown(t, assert(themeCell):peek(), 14))
 	t.settle(20)
 	t.stable(panel)
 	t.check("larger text re-measures the hug sheet taller", panel.AbsoluteSize.Y > above + 1, {
@@ -2118,7 +2158,7 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 				if device ~= "desktop" then
 					t.device({ device = device })
 				end
-				local opened
+				local opened: BooleanCell?
 				local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule): GuiObject
 					opened = Compose.cell(false)
 					local function content(): Instance
@@ -2140,7 +2180,7 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 									label = "Cancel",
 									role = "cancel" :: "cancel",
 									onActivate = function()
-										opened:set(false)
+										assert(opened):set(false)
 									end,
 								},
 							},
@@ -2151,7 +2191,7 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 							title = "Confirm driver",
 							content = content,
 							onPresentedChange = function(value: boolean)
-								opened:set(value)
+								assert(opened):set(value)
 							end,
 						}
 					elseif kind == "Sheet" then
@@ -2163,24 +2203,27 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 							detents = { "hug" } :: { SheetDetent },
 						}
 					elseif kind == "Menu" then
-						return UI.Menu {
+						local item: MenuCommand =
+							{ id = "Review", label = "Review driver", onSelect = function(): () end }
+						local options: MenuSpec = {
 							isPresented = opened,
 							label = "Options",
 							presentation = "sheet",
-							items = { { id = "Review", label = "Review driver", onSelect = function() end } },
+							items = { item },
 						}
+						return UI.Menu(options)
 					end
 					if kind == "ColorPicker" then
 						return UI.ColorPicker {
 							value = Color3.fromRGB(40, 100, 180),
-							onChange = function() end,
+							onChange = function(): () end,
 							isPresented = opened,
 							onPresentedChange = function(value: boolean)
-								opened:set(value)
+								assert(opened):set(value)
 							end,
 						}
 					elseif kind == "Picker" then
-						return UI.Picker {
+						local options: StringPickerSpec = {
 							style = "menu",
 							selected = Compose.cell("ready"),
 							isPresented = opened,
@@ -2189,25 +2232,27 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 								{ value = "review", label = "Review driver" },
 							},
 						}
+						return UI.Picker(options)
 					elseif kind == "DateTimePicker" then
 						return UI.DateTimePicker {
 							value = { year = 2026, month = 10, day = 15 },
-							onChange = function() end,
+							onChange = function(): () end,
 							isPresented = opened,
 							onPresentedChange = function(value: boolean)
-								opened:set(value)
+								assert(opened):set(value)
 							end,
 						}
 					elseif kind == "CollapsibleView" then
 						return UI.CollapsibleView { label = "Review driver", expanded = opened, content = content }
 					elseif kind == "RadialMenu" then
-						return UI.RadialMenu {
+						local review: RadialAction = { id = "Review", label = "Review", onSelect = function(): () end }
+						local confirm: RadialAction =
+							{ id = "Confirm", label = "Confirm", onSelect = function(): () end }
+						local items: { RadialItem } = { review, confirm }
+						return UI.RadialMenu "RadialMenu" {
 							label = "Race actions",
 							isPresented = opened,
-							items = {
-								{ id = "Review", label = "Review", onSelect = function() end },
-								{ id = "Confirm", label = "Confirm", onSelect = function() end },
-							},
+							items = items,
 						}
 					end
 					local anchor = UI.Button { label = "Details", Position = UDim2.fromOffset(40, 100) }
@@ -2218,7 +2263,7 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 						compact = "popover",
 						maxWidth = 280,
 						onPresentedChange = function(value: boolean)
-							opened:set(value)
+							assert(opened):set(value)
 						end,
 					}
 				end, { emulate = false, motionLevel = "normal", environment = { preferredTextSize = "Largest" } })
@@ -2237,7 +2282,7 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 				local core, safe = reference("CoreSafe", Enum.ScreenInsets.CoreUISafeInsets)
 				local host = stage:FindFirstAncestorWhichIsA("ScreenGui")
 				local clipped = host.ClipToDeviceSafeArea
-				opened:set(true)
+				assert(opened):set(true)
 				t.settle(90)
 				local layer = layerOf(stage)
 				local catcher = t.find(layer, "DismissTarget")
@@ -2257,8 +2302,9 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 				if catcher and panel then
 					geometry.scrim(t, scrim, viewport, safe, panel, kind == "Sheet")
 					if kind == "Sheet" then
-						local copy = t.find(panel, "Copy")
-						t.check(
+						local copy: GuiObject? = t.find(panel, "Copy")
+						local check: (string, boolean, unknown?) -> () = t.check
+						check(
 							"bottom sheet content stays inside core and device safe insets",
 							copy ~= nil
 								and copy.AbsolutePosition.Y >= safe.AbsolutePosition.Y - 1
@@ -2277,7 +2323,7 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 						host.ScreenInsets == Enum.ScreenInsets.None or not host.ClipToDeviceSafeArea
 					)
 				end
-				opened:set(false)
+				assert(opened):set(false)
 				t.settle(60)
 				t.check("closing restores device clipping policy", host.ClipToDeviceSafeArea == clipped)
 				full:Destroy()

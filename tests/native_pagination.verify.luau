@@ -29,12 +29,12 @@ return function(verifyHarness: Verify.Harness)
 
 	local function mount(spec: any, width: number?, digit: number?): (any, any)
 		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-			return Host.Frame({
+			return Host.Frame {
 				Name = "Page",
-				UI.Button({ Name = "Before", label = "Before" }) :: unknown,
+				UI.Button { Name = "Before", label = "Before" },
 				UI.Pagination "P"(spec),
-				UI.Button({ Name = "After", label = "After" }),
-			})
+				UI.Button { Name = "After", label = "After" },
+			}
 		end)
 		local root = world.find("P")
 		if digit then
@@ -133,12 +133,12 @@ return function(verifyHarness: Verify.Harness)
 					}
 					local translator = Compose.cell(spanish :: typeof(spanish)?)
 					local world = worlds.new(function(UI: FacetControls)
-						return UI.Pagination("P")({
+						return UI.Pagination "P" {
 							page = 3,
 							pageCount = 12,
 							form = "label" :: "label",
 							onChange = function() end,
-						})
+						}
 					end, { translator = translator })
 					local label = world.find("P"):FindFirstChild("Label", true)
 					Verify.expect(label.Text):toBe("Página 3 de 12")
@@ -347,7 +347,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local package = require("../examples/themes/fantasy_ornate").build(Facet.themes)
 				local world = worlds.new(function(UI: FacetControls)
-					return UI.Pagination "P"((controlled(5, { pageCount = 200 })))
+					return UI.Pagination((controlled(5, { pageCount = 200 })), "P")
 				end, { theme = package })
 				local root = world.find("P")
 				world.bounds(root:FindFirstChild("DigitMeasure"), 80)
@@ -395,7 +395,7 @@ return function(verifyHarness: Verify.Harness)
 				local asked = 0
 				local world = worlds.new(function(UI: FacetControls)
 					return Compose.show(show, function()
-						return UI.Pagination("P")({
+						return UI.Pagination "P" {
 							page = page,
 							pageCount = count,
 							onChange = function(nextPage: number)
@@ -404,7 +404,7 @@ return function(verifyHarness: Verify.Harness)
 								page:set(nextPage)
 								show:set(false)
 							end,
-						})
+						}
 					end)
 				end)
 				world.find("Next").Activated:Fire()

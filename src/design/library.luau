@@ -12,8 +12,7 @@ local robloxTypes = require("../ui/roblox_types")
 type Literal = Design.Literal
 type Resolved = Design.Resolved
 type Record = { [unknown]: unknown }
-type Construct = (props: Record) -> unknown
-type Named = (name: string) -> Construct
+type Construct = (props: Record, name: string?) -> unknown
 
 export type Context = Types.Context
 
@@ -308,7 +307,7 @@ local function construct(types: Types.RobloxTypes, datatype: string, components:
 end
 
 local function create(context: Context): Design.Library
-	local UI = context.UI :: { [string]: Named }
+	local UI = context.UI :: { [string]: Construct }
 	local types = context.types or robloxTypes()
 
 	local function convert(datatype: string, literal: Literal): unknown
@@ -336,7 +335,7 @@ local function create(context: Context): Design.Library
 		for _, child in children do
 			table.insert(props :: { unknown }, child)
 		end
-		return UI.VStack("Content")(props)
+		return UI.VStack(props, "Content")
 	end
 
 	local function content(children: { unknown }): () -> unknown
@@ -448,10 +447,10 @@ local function create(context: Context): Design.Library
 						end
 					end
 				end
-				if name == "Toggle" and values.mixed ~= nil and states.value ~= nil then
-					local state = states.value
+				local mixedState = states.value
+				if name == "Toggle" and values.mixed ~= nil and mixedState ~= nil then
 					values.onChange = function(value: unknown)
-						state:set(value)
+						mixedState:set(value)
 					end
 				end
 				if name == "NumberInput" then
@@ -580,13 +579,13 @@ local function create(context: Context): Design.Library
 						values.render = template
 					else
 						values.render = function(current: Compose.ReadOnlyValue<Record>): unknown
-							return UI.Text("RowLabel")({
+							return UI.Text({
 								text = function(use: Compose.Use): string
 									local item = use(current)
 									return tostring(item.label or item.name or item.id or "Item")
 								end,
 								TextWrapped = true,
-							})
+							}, "RowLabel")
 						end
 					end
 				end
@@ -627,19 +626,19 @@ local function create(context: Context): Design.Library
 				local anchorKey = spec.anchor
 				if anchorKey ~= nil then
 					local presented = states.isPresented
-					local trigger = UI.Button(name .. "Anchor")({
+					local trigger = UI.Button({
 						label = values.anchorLabel or spec.defaults.anchorLabel or "Open",
 						onActivate = function()
 							if presented ~= nil then
 								presented:set(true)
 							end
 						end,
-					})
+					}, name .. "Anchor")
 					values[anchorKey] = trigger
 					values.anchorLabel = nil
-					return UI.VStack(nodeName .. "Host")({ gap = "s", trigger, UI[name](nodeName)(values) })
+					return UI.VStack({ gap = "s", trigger, UI[name](values, nodeName) }, nodeName .. "Host")
 				end
-				return UI[name](nodeName)(values)
+				return UI[name](values, nodeName)
 			end,
 		}
 	end
@@ -686,7 +685,7 @@ local function create(context: Context): Design.Library
 				category = "More",
 				call = "UI." .. name,
 				build = generic(entry.fields, function(nodeName: string, values: Record): unknown
-					return UI[name](nodeName)(values)
+					return UI[name](values, nodeName)
 				end),
 			}
 		end

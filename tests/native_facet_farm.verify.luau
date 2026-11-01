@@ -30,23 +30,21 @@ return function(verifyHarness: Verify.Harness)
 			return nil
 		end
 		local clock, advance = clockAt(100)
-		local UI = Facet.controls(
-			runtime,
-			{
-				types = engine.types,
-				environment = { viewportSize = engine.types.Vector2.new(width or 1280, height or 720) },
-				theme = theme.create(Facet),
-				motionLevel = "none",
-				services = { GuiService = gui, UserInputService = input },
-			} :: any
-		)
-		local farm
+		local UI = Facet.controls(runtime, {
+			types = engine.types,
+			environment = { viewportSize = engine.types.Vector2.new(width or 1280, height or 720) },
+			theme = theme.create(Facet),
+			motionLevel = "none",
+			services = { GuiService = gui, UserInputService = input },
+		})
+		local made: farmModel.Farm? = nil
 		local stop, screen: any = runtime.mount(function()
-			farm = farmModel.new(Compose, clock)
-			return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
-				screens.farm(Facet, UI, runtime.constructors, engine.types, farm),
+			made = farmModel.new(Compose, clock)
+			return Facet.host(runtime).ScreenGui({
+				screens.farm(Facet, UI, runtime.constructors, engine.types, assert(made)),
 			})
 		end, engine.new("Folder"))
+		local farm = assert(made)
 		return {
 			engine = engine,
 			screen = screen,

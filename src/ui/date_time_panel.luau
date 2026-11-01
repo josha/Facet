@@ -46,10 +46,10 @@ return function(
 			local clamped = Compose.formula(function(use: Use): Range?
 				return civil.clampRange(p.range(use(state.today)), use(state.minDate), use(state.maxDate))
 			end)
-			local chipSpec: InputProps.ChipProps = {
+			local chipSpec: InputProps.ChipRequestProps = {
 				Name = `Preset-{p.id}`,
 				label = p.label,
-				controlSize = "compact" :: "compact",
+				controlSize = "compact",
 				selected = function(use: Use): boolean
 					local c = use(clamped)
 					return c ~= nil and c.start ~= nil and sameRange(use(range), c)
@@ -57,7 +57,7 @@ return function(
 				enabled = function(use: Use): boolean
 					return use(clamped) ~= nil and interactive(use)
 				end,
-				onToggle = function()
+				onToggle = function(_selected: boolean)
 					local c = clamped:peek()
 					if c == nil then
 						return
@@ -99,10 +99,10 @@ return function(
 		local hint = Compose.show(function(use: Use)
 			return state.prefers(E.PreferredInput.Gamepad, use)
 		end, function()
-			local keys: InputProps.ShortcutHintProps = {
+			local keys: InputProps.ShortcutHintKeysProps = {
 				Name = "PageKeys",
 				keys = { { "LB" }, { "RB" } },
-				controlSize = "compact" :: "compact",
+				controlSize = "compact",
 			}
 			local words_ = ctx.styled(ctx.text({ Name = "Words", Text = "Change month" }), "type-caption")
 			return ctx.row({ UI.ShortcutHint(keys), words_ }, { Name = "PageHint", LayoutOrder = hintOrder })
@@ -117,7 +117,9 @@ return function(
 		local function action(name: string, words_: string, fn: () -> (), look: string?): TextButton
 			return UI.Button(name)({
 				label = words_,
-				onActivate = fn,
+				onActivate = function()
+					fn()
+				end,
 				appearance = look,
 				enabled = function(use: Use)
 					return interactive(use)

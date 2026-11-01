@@ -71,7 +71,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				Rotation = function(use: ComposeTypes.Use): number
 					return math.deg(use(heading))
 				end,
-				Host.UICorner({ CornerRadius = types.UDim.new(0.5, 0) }),
+				Host.UICorner { CornerRadius = types.UDim.new(0.5, 0) },
 				ctx.icon("chevron.trailing", {
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = D2.fromScale(0.5, 0.5),
@@ -162,7 +162,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local size = ctx.observe.AbsoluteSize(root)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local point = ctx.readSource(spec.anchor, use) :: Env.WorldAnchorPoint
-			local edge = read(spec.edge, use) or "clamp"
+			local edgeSource = spec.edge
+			local edge = if edgeSource == nil
+				then "clamp"
+				elseif type(edgeSource) == "string" then edgeSource
+				else ctx.readSource(edgeSource, use)
 			assert(EDGES[edge] == true, "Facet WorldMarker edge must be clamp or hide")
 			use(geometry)
 			local factor = use(unit)

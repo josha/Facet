@@ -1,5 +1,6 @@
 --!strict
 local Shared = require("./types")
+local tag = require("./tag")
 
 return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 	local Compose = ctx.Compose
@@ -96,77 +97,72 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 		end
 		return (result :: unknown) :: P
 	end
-	function ctx.construct<F>(control: string, build: F): F & ((string) -> F)
-		assert(type(build) == "function", "Facet constructor requires a builder")
-		local apply = (build :: unknown) :: ({ [unknown]: unknown }) -> unknown
-		local function construct(fields: { [unknown]: unknown }, name: string?): unknown
-			if type(fields) ~= "table" then
-				error(`Facet UI.{control}: expected a property table, got {typeof(fields)}`, 0)
-			end
-			if name then
-				fields = table.clone(fields)
-				assert(fields.Name == nil, "Facet: supply either a constructor name or Name")
-				fields.Name = name
-			end
-			local outer = building
-			building = control
-			if Compose.currentOwner() == nil then
-				building = outer
-				error(
-					`Facet UI.{control}: no owner from Facet's Compose is active. Build controls inside app.mount or runtime.mount. `
-						.. "If the runtime comes from another Compose instance, "
-						.. "bind Facet to that instance with Facet.bind(Compose, Roblox).",
-					0
-				)
-			end
-			for key, value in fields do
-				if type(key) == "string" then
-					if Compose.isValue(value) then
-						if not native[metatableOf(value)] then
-							reject(key)
-						end
-					elseif type(value) == "table" and metatableOf(value) == nil then
-						for _, entry in value :: { [unknown]: unknown } do
-							if type(entry) == "table" and not Compose.isValue(entry) then
-								for field, inner in entry :: { [unknown]: unknown } do
-									if Compose.isValue(inner) and not native[metatableOf(inner)] then
-										reject(`{key}.{tostring(field)}`)
-									end
+	function ctx.build<P, N>(control: string, build: (P) -> N, spec: P?, name: string?): N
+		if spec ~= nil and type(spec) ~= "table" then
+			error(`Facet UI.{control}: expected a property table, got {typeof(spec)}`, 0)
+		end
+		local fields = ((spec or {}) :: unknown) :: { [unknown]: unknown }
+		if name then
+			fields = table.clone(fields)
+			assert(fields.Name == nil, "Facet: supply either a constructor name or Name")
+			fields.Name = name
+		end
+		local outer = building
+		building = control
+		if Compose.currentOwner() == nil then
+			building = outer
+			error(
+				`Facet UI.{control}: no owner from Facet's Compose is active. Build controls inside app.mount or runtime.mount. `
+					.. "If the runtime comes from another Compose instance, "
+					.. "bind Facet to that instance with Facet.bind(Compose, Roblox).",
+				0
+			)
+		end
+		for key, value in fields do
+			if type(key) == "string" then
+				if Compose.isValue(value) then
+					if not native[metatableOf(value)] then
+						reject(key)
+					end
+				elseif type(value) == "table" and metatableOf(value) == nil then
+					for _, entry in value :: { [unknown]: unknown } do
+						if type(entry) == "table" and not Compose.isValue(entry) then
+							for field, inner in entry :: { [unknown]: unknown } do
+								if Compose.isValue(inner) and not native[metatableOf(inner)] then
+									reject(`{key}.{tostring(field)}`)
 								end
-							elseif Compose.isValue(entry) and not native[metatableOf(entry)] then
-								reject(key)
 							end
+						elseif Compose.isValue(entry) and not native[metatableOf(entry)] then
+							reject(key)
 						end
 					end
 				end
 			end
-			local node = apply(fields)
-			building = outer
-			if track and (type(node) == "userdata" or type(node) == "table") then
-				track(node :: Instance)
-			end
-			if fields.ref then
-				assert(type(fields.ref) == "function")
-				local ref = fields.ref :: (unknown) -> ()
-				ref(node)
-			end
-			return node
 		end
-		local function overloaded(first: { [unknown]: unknown } | string?): unknown
-			if type(first) == "string" then
-				return function(fields: { [unknown]: unknown }): unknown
-					return construct(fields, first)
-				end
-			end
-			return construct(first or {}, nil)
+		local node = build((fields :: unknown) :: P)
+		building = outer
+		if track and (type(node) == "userdata" or type(node) == "table") then
+			track(node :: Instance)
 		end
-		return (overloaded :: unknown) :: F & ((string) -> F)
-	end
-	local function styled<N>(node: N & Instance, role: string): N & Instance
-		node:AddTag("facet-" .. string.lower(role))
+		if fields.ref then
+			assert(type(fields.ref) == "function")
+			local ref = fields.ref :: (unknown) -> ()
+			ref(node)
+		end
 		return node
 	end
-	ctx.styled = (styled :: unknown) :: typeof(ctx.styled)
+	local function construct<P, N>(control: string, build: (P) -> N)
+		return function(spec: P | string, name: string?)
+			if type(spec) == "string" then
+				return function(fields: P): N
+					return ctx.build(control, build, fields, spec)
+				end
+			end
+			return ctx.build(control, build, spec, name)
+		end
+	end
+	ctx.construct = (construct :: unknown) :: typeof(ctx.construct)
+	ctx.styled = tag
 	return function(tracker: (Instance) -> ())
 		track = tracker
 	end

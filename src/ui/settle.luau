@@ -17,7 +17,7 @@ return function(ctx: Types.Context, target: () -> number, spring: Spring, reduce
 	local reduce: () -> boolean = reduced or function(): boolean
 		return fallback()
 	end
-	local value: ComposeTypes.Value<number?> = Compose.cell(nil :: number?)
+	local value = Compose.cell<<number?>>(nil)
 	local stop: (() -> ())? = nil
 	local disposed = false
 	local function halt()
@@ -32,7 +32,8 @@ return function(ctx: Types.Context, target: () -> number, spring: Spring, reduce
 		halt()
 		local chosen = override or spring
 		local crossing = chosen.damping >= 1
-		if disposed or frames == nil or reduce() then
+		local frameSource = frames
+		if disposed or frameSource == nil or reduce() then
 			return false
 		end
 		local limit = ctx.metric("motion.fling.maxSpeed")
@@ -40,7 +41,7 @@ return function(ctx: Types.Context, target: () -> number, spring: Spring, reduce
 		state.velocity[1] = math.clamp(velocity, -limit, limit)
 		value:set(from)
 		local mine: (() -> ())? = nil
-		mine = frames.onFrame(function(delta: number)
+		mine = frameSource.onFrame(function(delta: number)
 			if stop ~= mine then
 				return
 			end

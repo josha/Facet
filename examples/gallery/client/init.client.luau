@@ -9,8 +9,7 @@ type Definition = typeof(require("@repo/examples/types").Definition)
 type ThemeModule = typeof(require("@repo/examples/types").ThemeModule)
 local loadDefinition: (ModuleScript) -> Definition = require
 local loadTheme: (ModuleScript) -> ThemeModule = require
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 if not game:IsLoaded() then
 	game.Loaded:Wait()
 end
@@ -147,7 +146,7 @@ local owner = Compose.createRootOwner(function()
 			ResetOnSpawn = false,
 			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 			sheet,
-			Host.StyleLink({ StyleSheet = Facet.Compose.static(sheet) }),
+			Host.StyleLink { StyleSheet = Facet.Compose.static(sheet) },
 			UI.focusRing(playerGui),
 			gallery.build(context),
 		}
@@ -160,7 +159,7 @@ local owner = Compose.createRootOwner(function()
 			IgnoreGuiInset = true,
 			ScreenInsets = Enum.ScreenInsets.None,
 			DisplayOrder = -1,
-			Host.StyleLink({ StyleSheet = Facet.Compose.static(sheet) }),
+			Host.StyleLink { StyleSheet = Facet.Compose.static(sheet) },
 			Host.Frame "Backdrop" {
 				Size = UDim2.fromScale(1, 1),
 				BorderSizePixel = 0,

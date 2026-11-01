@@ -173,7 +173,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		local camera = if externalCamera
 			then spec.camera :: Camera
 			else Host.Camera "Camera" {
-				FieldOfView = bind(spec.fieldOfView, 45),
+				FieldOfView = bind<<number>>(spec.fieldOfView, 45),
 				CFrame = (spec.camera :: Types.Input<CFrame>?)
 					or types.CFrame.lookAt(types.Vector3.new(0, 2, 8), types.Vector3.new(0, 0, 0)),
 			}
@@ -183,7 +183,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			{
 				Size = D2.fromOffset(240, 180),
 				CurrentCamera = Compose.static(camera),
-				world :: ComposeTypes.Child,
+				world,
 				if not externalCamera then camera else nil,
 			} :: Engine.ViewportFrameNativeProps
 		)
@@ -225,7 +225,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		end)
 		runtime.decorate(stage, {
 			CurrentCamera = function(use: ComposeTypes.Use): Camera?
-				return if use(displayed) then ctx.read(cameraSource, use) else nil
+				return if use(displayed) then ctx.read<<Camera?>>(cameraSource, use) else nil
 			end,
 		})
 		local live, shown = stageLive(stage, displayed)

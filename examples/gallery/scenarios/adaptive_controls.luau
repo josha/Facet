@@ -1,15 +1,15 @@
 --!strict
+type SliderRangeProps = typeof(require("@repo/tools/typecheck/aliases").SliderRangeProps)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type TextPropsText = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "Adaptive controls",
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Host, Compose: ComposeModule = ctx.UI, ctx.Host, ctx.Compose
 		local UDim, UDim2, Vector2, Color3, Enum =
 			ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
@@ -49,14 +49,14 @@ return {
 				"caption" | "label" | "body" | "heading" | "title" | "control" | "strong" | "numeral"
 			)?
 		)
-			return UI.Text({
+			return UI.Text {
 				Name = name,
 				text = text,
 				textRole = role or "body",
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				TextWrapped = true,
-			})
+			}
 		end
 		local function reset()
 			volume:set(6)
@@ -76,22 +76,35 @@ return {
 			steer:set(50)
 		end
 		local function sliderShapes()
+			local lapProps: SliderRangeProps = {
+				LayoutOrder = 2,
+				label = "Laps",
+				value = lapWindow,
+				min = 1,
+				max = 20,
+				step = 1,
+				range = true,
+				minGap = 2,
+			}
+			local tiltProps: SliderRangeProps = {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.new(0.6, 0, 0, 0),
+				value = tiltBand,
+				min = 0,
+				max = 100,
+				step = 10,
+				range = true,
+				minGap = 10,
+				rotation = tilt,
+			}
 			return Host.Frame "SliderShapes" {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+				Host.UIListLayout { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder },
 				label("SlidersHeading", "Slider shapes", "heading"),
-				UI.Slider "LapWindow" {
-					LayoutOrder = 2,
-					label = "Laps",
-					value = lapWindow,
-					min = 1,
-					max = 20,
-					step = 1,
-					range = true,
-					minGap = 2,
-				},
+				UI.Slider "LapWindow"(lapProps),
 				UI.Text "TiltCaption" {
 					LayoutOrder = 3,
 					text = "Tilt (a turned range)",
@@ -102,29 +115,18 @@ return {
 					LayoutOrder = 4,
 					Size = UDim2.new(1, 0, 0, 160),
 					BackgroundTransparency = 1,
-					UI.Slider "Tilt" {
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						Position = UDim2.fromScale(0.5, 0.5),
-						Size = UDim2.new(0.6, 0, 0, 0),
-						value = tiltBand,
-						min = 0,
-						max = 100,
-						step = 10,
-						range = true,
-						minGap = 10,
-						rotation = tilt,
-					},
+					UI.Slider "Tilt"(tiltProps),
 				},
 				Host.Frame "BalanceRow" {
 					LayoutOrder = 5,
 					Size = UDim2.new(1, 0, 0, 180),
 					BackgroundTransparency = 1,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						Padding = UDim.new(0, 16),
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						SortOrder = Enum.SortOrder.LayoutOrder,
-					}),
+					},
 					UI.Slider "Balance" {
 						LayoutOrder = 1,
 						label = "Rear",
@@ -173,7 +175,7 @@ return {
 					thumbContent = function(): Instance
 						local knob = Host.Frame "Plate" {
 							Size = UDim2.fromScale(1, 1),
-							Host.UICorner({ CornerRadius = UDim.new(1, 0) }),
+							Host.UICorner { CornerRadius = UDim.new(1, 0) },
 						}
 						knob:AddTag("facet-slider-thumb")
 						local target: GuiObject = knob
@@ -200,7 +202,7 @@ return {
 			{ value = "compose", label = "Compose", icon = "edit" },
 			{ value = "more", label = "More", icon = "more" },
 		}
-		local function plate(node)
+		local function plate(node: GuiObject): GuiObject
 			node:AddTag("facet-control")
 			ctx.runtime.mount(function()
 				return ctx.Facet.themes.skin(ctx.runtime, ctx.theme, "control", { types = ctx.types, target = node })
@@ -208,7 +210,8 @@ return {
 			return node
 		end
 		local function screen()
-			local stats, tiles = {}, {}
+			local stats: { GuiObject } = {}
+			local tiles: { GuiObject } = {}
 			for i = 1, 12 do
 				local value = label("Value", "S" .. i, "caption")
 				ctx.runtime.decorate(value, {
@@ -217,17 +220,17 @@ return {
 				})
 				table.insert(
 					stats,
-					plate(Host.Frame({
+					plate(Host.Frame {
 						Name = "Stat" .. i,
 						LayoutOrder = i,
 						Size = UDim2.fromOffset(72, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						value,
-					}))
+					})
 				)
 			end
 			for i, count in { "3", "9", "1", "7" } do
-				local tile = Host.Frame({
+				local tile = Host.Frame {
 					Name = "Tile" .. i,
 					LayoutOrder = i,
 					Size = UDim2.new(0.25, -6, 0, 44),
@@ -237,22 +240,22 @@ return {
 						AnchorPoint = Vector2.new(1, 0.5),
 						Position = UDim2.new(1, -6, 0.5, 0),
 					},
-				})
+				}
 				table.insert(tiles, plate(tile))
 			end
 			local media = Host.Frame "Media" {
 				Size = UDim2.new(1, 0, 0, 0),
-				Host.UIAspectRatioConstraint({ AspectRatio = 16 / 9, DominantAxis = Enum.DominantAxis.Width }),
+				Host.UIAspectRatioConstraint { AspectRatio = 16 / 9, DominantAxis = Enum.DominantAxis.Width },
 			}
 			media:AddTag("facet-panel")
 			return Host.Frame "AdaptiveScreen" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					HorizontalAlignment = Enum.HorizontalAlignment.Center,
 					Padding = UDim.new(0, 16),
-				}),
+				},
 				UI.ScrollView "BodyScroll" {
 					LayoutOrder = 1,
 					padding = 16,
@@ -278,7 +281,7 @@ return {
 							AutomaticSize = Enum.AutomaticSize.Y,
 							BackgroundTransparency = 1,
 							LayoutOrder = 1,
-							Host.UIListLayout({ Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+							Host.UIListLayout { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder },
 							label("Heading", "Settings", "heading"),
 							divider(),
 							UI.Stepper "Volume" {
@@ -351,10 +354,10 @@ return {
 										Size = UDim2.new(1, 0, 0, 0),
 										AutomaticSize = Enum.AutomaticSize.Y,
 										BackgroundTransparency = 1,
-										Host.UIListLayout({
+										Host.UIListLayout {
 											SortOrder = Enum.SortOrder.LayoutOrder,
 											Padding = UDim.new(0, 8),
-										}),
+										},
 										UI.Toggle "Vsync" {
 											LayoutOrder = 1,
 											label = "Vertical sync",
@@ -385,7 +388,7 @@ return {
 										Size = UDim2.new(1, 0, 0, 0),
 										AutomaticSize = Enum.AutomaticSize.Y,
 										BackgroundTransparency = 1,
-										Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
+										Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
 										UI.Button "OutlineButton" {
 											LayoutOrder = 1,
 											label = "Button",
@@ -407,7 +410,7 @@ return {
 							AutomaticSize = Enum.AutomaticSize.Y,
 							BackgroundTransparency = 1,
 							LayoutOrder = 2,
-							Host.UIListLayout({ Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+							Host.UIListLayout { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder },
 							label("HudHeading", "Status", "heading"),
 							divider(),
 							Host.Frame "Toolbar" {
@@ -439,17 +442,17 @@ return {
 							Host.Frame "CompactRow" {
 								Size = UDim2.new(1, 0, 0, 40),
 								BackgroundTransparency = 1,
-								Host.UIListLayout({
+								Host.UIListLayout {
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									FillDirection = Enum.FillDirection.Horizontal,
 									Padding = UDim.new(0, 6),
-								}),
+								},
 								UI.Button "CmpRoomy" {
 									LayoutOrder = 1,
 									label = "Edit item",
 									Size = UDim2.new(1, -174, 0, 40),
 									onActivate = noop,
-									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Shrink }),
+									Host.UIFlexItem { FlexMode = Enum.UIFlexMode.Shrink },
 								},
 								UI.Button "CmpText" {
 									LayoutOrder = 2,
@@ -485,22 +488,22 @@ return {
 								Size = UDim2.new(1, 0, 0, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
 								BackgroundTransparency = 1,
-								Host.UIListLayout({
+								Host.UIListLayout {
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									FillDirection = Enum.FillDirection.Horizontal,
 									Wraps = true,
 									Padding = UDim.new(0, 4),
-								}),
+								},
 								table.unpack(stats),
 							},
 							Host.Frame "Tiles" {
 								Size = UDim2.new(1, 0, 0, 44),
 								BackgroundTransparency = 1,
-								Host.UIListLayout({
+								Host.UIListLayout {
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									FillDirection = Enum.FillDirection.Horizontal,
 									Padding = UDim.new(0, 8),
-								}),
+								},
 								table.unpack(tiles),
 							},
 							divider(),
@@ -508,11 +511,11 @@ return {
 							Host.Frame "Legend" {
 								Size = UDim2.new(1, 0, 0, 24),
 								BackgroundTransparency = 1,
-								Host.UIGridLayout({
+								Host.UIGridLayout {
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									CellSize = UDim2.new(1 / 3, -4, 1, 0),
 									CellPadding = UDim2.fromOffset(6, 0),
-								}),
+								},
 								label("LegendLow", "Optional", "caption"),
 								label("LegendMid", "Useful", "caption"),
 								label("LegendHigh", "Essential", "caption"),
@@ -520,40 +523,40 @@ return {
 							Host.Frame "Shrink" {
 								Size = UDim2.new(1, 0, 0, 24),
 								BackgroundTransparency = 1,
-								Host.UIListLayout({
+								Host.UIListLayout {
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									FillDirection = Enum.FillDirection.Horizontal,
 									HorizontalFlex = Enum.UIFlexAlignment.Fill,
 									Padding = UDim.new(0, 6),
-								}),
-								plate(Host.Frame({
+								},
+								plate(Host.Frame {
 									LayoutOrder = 1,
 									Name = "Optional",
 									Size = UDim2.fromOffset(140, 24),
-									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Shrink, ShrinkRatio = 2 }),
-								})),
-								plate(Host.Frame({
+									Host.UIFlexItem { FlexMode = Enum.UIFlexMode.Shrink, ShrinkRatio = 2 },
+								}),
+								plate(Host.Frame {
 									LayoutOrder = 2,
 									Name = "Useful",
 									Size = UDim2.fromOffset(140, 24),
-									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Shrink, ShrinkRatio = 1 }),
-								})),
-								plate(Host.Frame({
+									Host.UIFlexItem { FlexMode = Enum.UIFlexMode.Shrink, ShrinkRatio = 1 },
+								}),
+								plate(Host.Frame {
 									LayoutOrder = 3,
 									Name = "Essential",
 									Size = UDim2.fromOffset(140, 16),
-									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.None }),
-								})),
+									Host.UIFlexItem { FlexMode = Enum.UIFlexMode.None },
+								}),
 							},
 							label("SpecTitle", "Row grid", "caption"),
 							Host.Frame "Specs" {
 								Size = UDim2.new(1, 0, 0, 48),
 								BackgroundTransparency = 1,
-								Host.UIGridLayout({
+								Host.UIGridLayout {
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									CellSize = UDim2.new(0.5, -4, 0, 24),
 									CellPadding = UDim2.fromOffset(8, 0),
-								}),
+								},
 								label("SpecAKey", "Columns", "caption"),
 								label("SpecAVal", "align", "caption"),
 								label("SpecBKey", "Span", "caption"),
@@ -567,12 +570,12 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Host.UISizeConstraint({ MaxSize = Vector2.new(620, math.huge) }),
-					Host.UIListLayout({
+					Host.UISizeConstraint { MaxSize = Vector2.new(620, math.huge) },
+					Host.UIListLayout {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						FillDirection = Enum.FillDirection.Horizontal,
 						Padding = UDim.new(0, 8),
-					}),
+					},
 					UI.Button "Save" {
 						LayoutOrder = 1,
 						Size = UDim2.new(1 / 3, -6, 0, 0),

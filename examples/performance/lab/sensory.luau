@@ -1,21 +1,22 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ScrollingFrameProps = typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameProps)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 return function(ctx: ExampleContext)
 	local Compose: ComposeModule, Host, UI, T = ctx.Facet.Compose, ctx.Host, ctx.UI, ctx.types
 	local enabled, readout = Compose.cell(false), Compose.cell("Haptics off; no effects constructed")
-	local anchor = Host.Frame({ Size = T.UDim2.new(1, 0, 1, -80), Position = T.UDim2.fromOffset(0, 80) })
+	local anchor = Host.Frame { Size = T.UDim2.new(1, 0, 1, -80), Position = T.UDim2.fromOffset(0, 80) }
 	local counters =
 		{ enabled = false, built = 0, requests = 0, presses = 0, physicalOutputMeasured = false, arms = {} }
 	local state = { counters = counters }
 	function state.build()
-		return Host.Frame({
+		return Host.Frame {
 			Size = T.UDim2.fromScale(1, 1),
-			UI.Toggle "PerformanceHaptics" { label = "Request native haptics", value = enabled } :: unknown,
-			UI.Text({ text = readout, Position = T.UDim2.fromOffset(0, 40), Size = T.UDim2.new(1, 0, 0, 40) }),
+			UI.Toggle "PerformanceHaptics" { label = "Request native haptics", value = enabled },
+			UI.Text { text = readout, Position = T.UDim2.fromOffset(0, 40), Size = T.UDim2.new(1, 0, 0, 40) },
 			anchor,
-		})
+		}
 	end
 	function state.setEnabled(value)
 		enabled:set(value)
@@ -30,17 +31,17 @@ return function(ctx: ExampleContext)
 			local stop = ctx.runtime.mount(function()
 				local function effect()
 					arm.effectsBuilt += 1
-					local node = Host.HapticEffect({ Type = T.Enum.HapticEffectType.UIClick })
+					local node = Host.HapticEffect { Type = T.Enum.HapticEffectType.UIClick }
 					Compose.cleanup(function()
 						node:Stop()
 					end)
 					return node
 				end
 				local shared = if counters.enabled and name == "sharedEffect" then effect() else nil
-				local children: { [any]: any } =
-					{ Size = T.UDim2.fromScale(1, 1), Host.UIGridLayout({ CellSize = T.UDim2.fromOffset(100, 40) }) }
+				local children: ScrollingFrameProps =
+					{ Size = T.UDim2.fromScale(1, 1), Host.UIGridLayout { CellSize = T.UDim2.fromOffset(100, 40) } }
 				if shared then
-					table.insert(children, shared)
+					children[#children + 1] = shared
 				end
 				for index = 1, 120 do
 					local feedback = if counters.enabled and name == "perLeafEffect" then effect() else shared
@@ -54,15 +55,13 @@ return function(ctx: ExampleContext)
 							arm.requests += 1
 						end
 					end
-					local properties = {
+					local ownEffect = if feedback and feedback ~= shared then feedback else nil
+					children[#children + 1] = UI.Button {
 						label = `Control {index}`,
 						onActivate = activate,
 						PressHapticEffect = if feedback then Compose.static(feedback) else nil,
+						ownEffect,
 					}
-					if feedback and feedback ~= shared then
-						table.insert(properties, feedback)
-					end
-					table.insert(children, UI.Button(properties))
 				end
 				return Host.ScrollingFrame(children)
 			end, anchor)

@@ -1,9 +1,9 @@
 --!strict
 type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
-type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
+type ThemeDefinition = typeof(require("@repo/tools/typecheck/aliases").ThemeDefinition)
 type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
-type Typography = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.metrics.typography.body)
-type Asset = typeof(require("@repo/examples/types").ThemeAsset)
+type Typography = typeof(require("@repo/tools/typecheck/aliases").TypographyPatch)
+type Asset = typeof(require("@repo/tools/typecheck/aliases").ThemeAsset)
 type RGB = { r: number, g: number, b: number }
 type Palette = { colors: { [string]: RGB }, extra: Extra }
 
@@ -93,7 +93,7 @@ local function copyAssets(source: { [string]: Asset }): { [string]: Asset }
 	return out
 end
 
-function fantasy_parchment_stub.definition(themes: Themes): ThemeDefinition
+function fantasy_parchment_stub.definition(themes: Themes, family: string?): ThemeDefinition
 	return {
 		base = themes.neutralPackage(),
 		identity = {
@@ -107,7 +107,7 @@ function fantasy_parchment_stub.definition(themes: Themes): ThemeDefinition
 			themes = { { name = "Parchment", colors = PARCHMENT.colors, extra = PARCHMENT.extra } },
 		},
 		metrics = {
-			typography = typography(FAMILY),
+			typography = typography(family or FAMILY),
 			space = { xs = 4, s = 8, m = 16, l = 26, xl = 42 },
 			controlSizes = {
 				compact = { height = 38, paddingX = 14, iconSize = 18 },
@@ -164,11 +164,10 @@ end
 fantasy_parchment_stub.UNKNOWN_FONT_FAMILY = "rbxasset://fonts/families/NotAShippedFamily.json"
 
 function fantasy_parchment_stub.buildBadFont(themes: Themes)
-	local def = fantasy_parchment_stub.definition(themes)
+	local def = fantasy_parchment_stub.definition(themes, fantasy_parchment_stub.UNKNOWN_FONT_FAMILY)
 	local identity = assert(def.identity)
 	identity.id = fantasy_parchment_stub.id .. "-badfont"
 	identity.displayName = fantasy_parchment_stub.displayName .. " — missing font"
-	assert(def.metrics).typography = typography(fantasy_parchment_stub.UNKNOWN_FONT_FAMILY)
 	return themes.define(def)
 end
 

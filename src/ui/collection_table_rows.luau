@@ -38,14 +38,11 @@ export type Rows<V, K> = {
 	metrics: Metrics.Metrics,
 	layout: Columns.Columns<V, K>,
 }
-return function<V, K>(
-	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
-	shared: Rows<V, K>
-): CollectionTypes.RowRender<V, K>
+return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Rows<V, K>): CollectionTypes.RowRender<V, K>
 	local lists = layoutKit.of(ctx)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
+	local readColumns = ctx.read<<{ CollectionTypes.TableColumn<V, K> }>>
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
 	local spec, rowPolicySpec, selection, coordinator =
 		shared.spec, shared.rowPolicySpec, shared.selection, shared.coordinator
@@ -104,7 +101,7 @@ return function<V, K>(
 		Compose.watch(function(use: ComposeTypes.Use)
 			local height = use(minimumRow)
 			local sizes, hidden = use(cellHeights), use(collapsed)
-			for _, column in read(spec.columns, use) do
+			for _, column in readColumns(spec.columns, use) do
 				if not hidden[column.id] then
 					height = math.max(height, sizes[column.id] or 0)
 				end
@@ -123,10 +120,10 @@ return function<V, K>(
 			Attributes = {
 				FacetSelected = false,
 			} :: EngineTypes.Attributes,
-			lists.list({}, false) :: ComposeTypes.Child,
+			lists.list({}, false),
 			Compose.keyed({
 				from = function(use: ComposeTypes.Use)
-					return read(spec.columns, use)
+					return readColumns(spec.columns, use)
 				end,
 				key = function(column: CollectionTypes.TableColumn<V, K>)
 					return column.id
@@ -223,7 +220,7 @@ return function<V, K>(
 									FillDirection = E.FillDirection.Vertical,
 									VerticalAlignment = E.VerticalAlignment.Center,
 									SortOrder = E.SortOrder.LayoutOrder,
-								} :: ComposeTypes.Child,
+								},
 							},
 							"TableCellInset"
 						)
@@ -356,7 +353,7 @@ return function<V, K>(
 			Name = "DisclosingRow",
 			Size = D2.fromScale(1, 1),
 			ClipsDescendants = true,
-			cellRow :: ComposeTypes.Child,
+			cellRow,
 			Compose.show(function(use: ComposeTypes.Use)
 				return use(disclosureWidth) > 0
 			end, function()
@@ -379,7 +376,7 @@ return function<V, K>(
 							Compose.keyed({
 								from = function(use: ComposeTypes.Use)
 									local hidden, result = use(collapsed), {}
-									for _, column in read(spec.columns, use) do
+									for _, column in readColumns(spec.columns, use) do
 										if hidden[column.id] or use(truncated)[column.id] then
 											table.insert(result, column)
 										end

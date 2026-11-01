@@ -4,22 +4,20 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type PresenceCell = typeof(require("@repo/tools/typecheck/aliases").PresenceCell)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSizeValue)
-type ControlSizeCell = typeof(require("@repo/tools/typecheck/aliases").ControlSize)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Avatars",
 	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
-		local initialSize: ControlSize = "regular"
+		local initialSize: ControlSize? = "regular"
 		local mode, presence =
 			Compose.cell("ready"),
 			(function(value: ("online" | "away" | "busy" | "offline" | "inExperience")?): PresenceCell
 				return Compose.cell(value)
 			end)("online")
-		local size: ControlSizeCell = Compose.cell(initialSize)
+		local size = Compose.cell(initialSize)
 		local attempts, activations, status = Compose.cell(0), Compose.cell(0), Compose.cell("loading")
 		local record: TextButton? = nil
 		local function report()
@@ -34,7 +32,7 @@ return {
 		end
 		local function request(value)
 			mode:set(value)
-			attempts:update(function(count)
+			attempts:update(function(count: number)
 				return count + 1
 			end)
 			return report()
@@ -56,21 +54,21 @@ return {
 				BackgroundTransparency = 1,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
-				Host.UIListLayout({ Padding = D.new(0, 16), SortOrder = E.SortOrder.LayoutOrder }),
-				UI.Text({ text = "Player identity", textRole = "title" }),
-				UI.Text({
+				Host.UIListLayout { Padding = D.new(0, 16), SortOrder = E.SortOrder.LayoutOrder },
+				UI.Text { text = "Player identity", textRole = "title" },
+				UI.Text {
 					text = "Pictures fall back to initials. Presence keeps its meaning when the mark is hidden.",
-				}),
+				},
 				Host.Frame "Faces" {
 					BackgroundTransparency = 1,
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = E.FillDirection.Horizontal,
 						VerticalAlignment = E.VerticalAlignment.Center,
 						Padding = D.new(0, 12),
 						SortOrder = E.SortOrder.LayoutOrder,
-					}),
+					},
 					UI.Avatar "Portrait" {
 						name = "Ada Quill",
 						presence = presence,
@@ -90,7 +88,7 @@ return {
 							status:set(value)
 						end,
 						onActivate = function()
-							activations:update(function(value)
+							activations:update(function(value: number)
 								return value + 1
 							end)
 						end,
@@ -112,7 +110,7 @@ return {
 					label = "Picture",
 					selected = mode,
 					onChange = function()
-						attempts:update(function(count)
+						attempts:update(function(count: number)
 							return count + 1
 						end)
 					end,
@@ -132,13 +130,13 @@ return {
 					selected = size,
 					options = sizeOptions,
 				},
-				UI.Text({
+				UI.Text {
 
 					text = function(use: Use)
 						return "Selected " .. tostring(use(activations)) .. " times"
 					end,
 					textRole = "caption",
-				}),
+				},
 			}
 		end
 		return {

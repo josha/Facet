@@ -8,7 +8,7 @@ return function(runtime: Facet.Runtime, world: WorldModel, chosen: Facet.ReadOnl
 	local function art(id: string): Model
 		local model = Host.Model "Supply" {}
 		local function part(name: string, size: Vector3, at: Vector3, color: Color3, shape: Enum.PartType?): Part
-			return Host.Part(name) {
+			return Host.Part(name)({
 				Parent = C.static(model),
 				Anchored = true,
 				CanCollide = false,
@@ -17,7 +17,7 @@ return function(runtime: Facet.Runtime, world: WorldModel, chosen: Facet.ReadOnl
 				Color = color,
 				Shape = shape or Enum.PartType.Block,
 				Material = Enum.Material.SmoothPlastic,
-			}
+			})
 		end
 		local function rod(name: string, a: Vector3, b: Vector3, width: number, color: Color3)
 			local node = part(name, Vector3.new(width, width, (b - a).Magnitude), (a + b) / 2, color)

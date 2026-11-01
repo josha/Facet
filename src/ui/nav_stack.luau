@@ -20,7 +20,7 @@ local preparation = require("./preparation")
 
 return function(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	surfaces: Nav.Surfaces,
 	layers: pageLayers.PageLayers
 ): ()
@@ -153,7 +153,7 @@ return function(
 			ClipsDescendants = function(use: ComposeTypes.Use): boolean
 				return use(moving) and not (root and glass.fills(root))
 			end,
-			Compose.LayerStack({
+			Compose.LayerStack {
 				from = displayed,
 				retention = "all",
 				render = function(
@@ -254,7 +254,7 @@ return function(
 						local function inset(use: ComposeTypes.Use): UDim
 							return ctx.types.UDim.new(0, ctx.controlSize(nil, "paddingX", use))
 						end
-						return Host.UIPadding({ PaddingLeft = inset, PaddingRight = inset })
+						return Host.UIPadding { PaddingLeft = inset, PaddingRight = inset }
 					end, title)
 					local navigationBar = Host.Frame "NavigationBar" {
 						BackgroundTransparency = 1,
@@ -262,7 +262,7 @@ return function(
 							return D2.new(1, 0, 0, chrome(use))
 						end,
 						Visible = chromeVisible,
-						title :: Types.Child,
+						title,
 						Compose.show(function(use: ComposeTypes.Use)
 							return chromeVisible(use) and entry ~= rootEntry
 						end, function()
@@ -416,7 +416,7 @@ return function(
 								Size = D2.fromScale(1, 1),
 								navigationBar,
 								destinationFrame,
-							} :: Types.Child,
+							},
 							Compose.show(function(use: ComposeTypes.Use)
 								return placement(use) == "beneath"
 							end, function()
@@ -431,7 +431,7 @@ return function(
 										return 1 - dim * (1 - moved)
 									end,
 								}
-							end) :: Types.Child,
+							end),
 						})
 					end
 					if prepares and not timing then
@@ -592,7 +592,7 @@ return function(
 					surfaces.keep(destination.content)
 					return panel
 				end,
-			}),
+			},
 		}))
 		stackReady = true
 		local swipeOrigin: number? = nil

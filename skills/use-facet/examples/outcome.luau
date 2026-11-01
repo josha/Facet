@@ -90,7 +90,7 @@ function Outcome.build(app: Facet.App, state: State, callbacks: Callbacks): Fram
 			end
 			local gains: { Instance } = {}
 			for index, gain in result.gains do
-				gains[index] = UI.VStack("Gain" .. index) {
+				gains[index] = UI.VStack("Gain" .. index)({
 					Size = function(use: Facet.Use): UDim2
 						return if verticalGains(use)
 							then UDim2.new(1, 0, 0, 0)
@@ -100,7 +100,7 @@ function Outcome.build(app: Facet.App, state: State, callbacks: Callbacks): Fram
 					gap = "xs",
 					UI.Text "Value" { text = gain.value, textRole = "numeral", textAlign = "center", wrap = true },
 					UI.Text "Meaning" { text = gain.label, textAlign = "center", wrap = true },
-				}
+				})
 			end
 			local standings = result.standings or {}
 			local columns: { Facet.TableColumn<Standing, string> } = {
@@ -129,6 +129,15 @@ function Outcome.build(app: Facet.App, state: State, callbacks: Callbacks): Fram
 					return UDim2.new(1, 0, 0, math.clamp(use(room.viewportHeight) * 0.3, 140, 240))
 				end,
 			}
+			local contributions: Facet.KeyedTableSpec<Standing, string> = {
+				from = standings,
+				key = "id",
+				columns = columns,
+				selectionMode = "none",
+				header = false,
+				Visible = details,
+				Size = UDim2.new(1, 0, 0, 160),
+			}
 			UI.AdaptiveStack "AcceptedGains" {
 				Parent = C.static(gainsArea),
 				width = "fill",
@@ -154,17 +163,12 @@ function Outcome.build(app: Facet.App, state: State, callbacks: Callbacks): Fram
 						gap = "m",
 						align = "center",
 						UI.Button "BackToOutcome" { label = "Back to outcome", onActivate = summary },
-						UI.Text "AcceptedIdentity" { text = result.title, textRole = "heading", wrap = true, UI.fill() },
+						UI.Text(
+							{ text = result.title, textRole = "heading", wrap = true, UI.fill() },
+							"AcceptedIdentity"
+						),
 					},
-					UI.Table "ContributionDetails" {
-						header = false,
-						from = standings,
-						key = "id",
-						columns = columns,
-						selectionMode = "none",
-						Visible = details,
-						Size = UDim2.new(1, 0, 0, 160),
-					},
+					UI.Table "ContributionDetails" (contributions),
 					UI.Text "ChangeDetails" { text = result.explanation or "", wrap = true, Visible = explanation },
 				},
 				UI.AdaptiveStack "OutcomeAndGains" {
@@ -208,7 +212,7 @@ function Outcome.build(app: Facet.App, state: State, callbacks: Callbacks): Fram
 						label = result.standingsLabel or "Contributions",
 						expanded = details,
 						content = function()
-							return UI.Table "Participants"(records)
+							return UI.Table "Participants" (records)
 						end,
 					}
 					else nil,

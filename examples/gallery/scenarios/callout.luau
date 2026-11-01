@@ -3,9 +3,7 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type Mark = { id: string, requested: BooleanCell, showing: BooleanCell, retired: BooleanCell }
 
 local COPY = {
@@ -40,7 +38,7 @@ return {
 	title = "Coach marks and help",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types
@@ -61,11 +59,11 @@ return {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
-				}),
+				},
 				UI.Text "Title" {
 					LayoutOrder = 1,
 					BackgroundTransparency = 1,
@@ -160,11 +158,11 @@ return {
 				AutomaticSize = Enum.AutomaticSize.XY,
 				AnchorPoint = Vector2.new(1, 0),
 				Position = UDim2.new(1, 0, 0, 0),
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Horizontal,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 0),
-				}),
+				},
 				anchor,
 				Compose.keyed({
 					from = function(use: Use)
@@ -206,11 +204,11 @@ return {
 				AutomaticSize = Enum.AutomaticSize.XY,
 				AnchorPoint = Vector2.new(0, 0),
 				Position = UDim2.new(0, 0, 0, 0),
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Horizontal,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 0),
-				}),
+				},
 				anchor,
 				Compose.keyed({
 					from = function(use: Use)
@@ -281,31 +279,31 @@ return {
 		end
 
 		local function pick(id: string, label: string, onPress: () -> ()): TextButton
-			return UI.Button({
+			return UI.Button {
 				Name = id,
 				label = label,
 				onActivate = function()
 					onPress()
 					readState()
 				end,
-			})
+			}
 		end
 
 		local function Example()
 			return Host.Frame "CalloutDemo" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				Host.UIPadding({
+				Host.UIPadding {
 					PaddingTop = UDim.new(0, 16),
 					PaddingBottom = UDim.new(0, 16),
 					PaddingLeft = UDim.new(0, 16),
 					PaddingRight = UDim.new(0, 16),
-				}),
-				Host.UIListLayout({
+				},
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 12),
-				}),
+				},
 				Host.Frame "Bar" {
 					LayoutOrder = 1,
 					BackgroundTransparency = 1,
@@ -320,7 +318,7 @@ return {
 					LayoutOrder = 2,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
-					Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
+					Host.UIFlexItem { FlexMode = Enum.UIFlexMode.Fill },
 					ScrollBarThickness = 6,
 					UI.Text "Title" {
 						LayoutOrder = 1,
@@ -351,12 +349,12 @@ return {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Horizontal,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
 							Wraps = true,
-						}),
+						},
 						pick("Show", COPY.show, function()
 							ask(tip)
 						end),
@@ -397,17 +395,17 @@ return {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 4),
-						}),
-						Host.UIPadding({
+						},
+						Host.UIPadding {
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
-						}),
+						},
 						UI.Text "QueueTitle" {
 							LayoutOrder = 1,
 							BackgroundTransparency = 1,
@@ -438,17 +436,17 @@ return {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 4),
-						}),
-						Host.UIPadding({
+						},
+						Host.UIPadding {
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
-						}),
+						},
 						UI.Text "StateTitle" {
 							LayoutOrder = 1,
 							BackgroundTransparency = 1,
@@ -491,17 +489,17 @@ return {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 4),
-						}),
-						Host.UIPadding({
+						},
+						Host.UIPadding {
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
-						}),
+						},
 						UI.Text "SaveTitle" {
 							LayoutOrder = 1,
 							BackgroundTransparency = 1,
@@ -532,17 +530,17 @@ return {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 4),
-						}),
-						Host.UIPadding({
+						},
+						Host.UIPadding {
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
-						}),
+						},
 						UI.Text "HelpTitle" {
 							LayoutOrder = 1,
 							BackgroundTransparency = 1,

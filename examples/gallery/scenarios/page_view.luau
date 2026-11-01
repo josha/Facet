@@ -3,7 +3,6 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 local COPY = {
 	title = "Pages and dots",
 	intro = "Swipe one course at a time, choose any dot, or focus the dots and use Left / Right.",
@@ -18,29 +17,29 @@ return {
 	title = "Pages and dots",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
-		local copy = ctx.copy or COPY
+		local copy: { [string]: string } = ctx.copy or COPY
 		local ids = { "coast", "forest", "summit" }
 		local selected = Compose.cell("coast")
 		local picked = Compose.cell("Choose a course.")
 		local function screen()
 			local pages: { Tab } = {}
 			for _, key in ids do
-				local content: Instance = Host.Frame("Course")({
+				local content: Instance = Host.Frame "Course" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 16),
-					}),
-					UI.Text({
+					},
+					UI.Text {
 						LayoutOrder = 1,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -51,18 +50,18 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
-					Host.Frame("Preview")({
+					},
+					Host.Frame "Preview" {
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 160),
 						(function()
-							local backdrop = Host.Frame("Backdrop")({ Size = UDim2.new(1, 0, 1, 0) })
+							local backdrop = Host.Frame "Backdrop" { Size = UDim2.new(1, 0, 1, 0) }
 							backdrop:AddTag("facet-panel")
 							return backdrop
 						end)(),
 						(function()
-							local path = Host.Path2D("Circuit")({ Thickness = 4, ZIndex = 2 })
+							local path = Host.Path2D "Circuit" { Thickness = 4, ZIndex = 2 }
 							path:AddTag("facet-path")
 							local points = {
 								{ x = 0.15, y = 0.5 },
@@ -80,8 +79,8 @@ return {
 							path:SetControlPoints(controls)
 							return path
 						end)(),
-					}),
-					UI.Text({
+					},
+					UI.Text {
 						LayoutOrder = 3,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -92,7 +91,7 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					},
 					UI.Button "Choose" {
 						LayoutOrder = 4,
 						appearance = "emphasis",
@@ -101,14 +100,14 @@ return {
 							picked:set(copy[key])
 						end,
 					},
-				})
+				}
 				table.insert(pages, {
 					id = key,
 					label = copy[key],
 					content = content,
 				})
 			end
-			return Host.Frame("PageView")({
+			return Host.Frame "PageView" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
 				UI.ScrollView "Page" {
@@ -117,7 +116,7 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					ScrollBarThickness = 6,
-					UI.Text({
+					UI.Text {
 						LayoutOrder = 1,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -128,8 +127,8 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
-					UI.Text({
+					},
+					UI.Text {
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -140,7 +139,7 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					},
 					UI.PageView "Courses" {
 						LayoutOrder = 3,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -160,7 +159,7 @@ return {
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
 				},
-			})
+			}
 		end
 		return {
 			screen = screen,

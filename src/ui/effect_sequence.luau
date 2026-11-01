@@ -2,13 +2,14 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Types = require("./effect_types")
-local reducedMotion = require("./motion").reduced
+local Motion = require("./motion")
+local reducedMotion = Motion.reduced
 
 return function(ctx: Shared.Context, UI: Types.Controls)
 	local runtime = ctx.runtime
 	function UI.countUp(value: Shared.Input<number>): Shared.ReadOnlyValue<number>
 		return runtime.tween(function(use: Shared.Use): number
-			local number = ctx.read(value, use)
+			local number = ctx.read<<number>>(value, use)
 			assert(number == number and math.abs(number) < math.huge, "Facet countUp requires a finite value")
 			return number
 		end, {
@@ -19,9 +20,14 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 	end
 	function UI.follow<T>(value: Shared.ReadOnlyValue<T> | (Shared.Use) -> T, role: string): Shared.ReadOnlyValue<T>
 		local spring = ctx.motionSpring(role)
-		return runtime.spring(function(use: Shared.Use): T
-			return ctx.read(value, use)
-		end, { period = spring.period, damping = spring.damping, reducedMotion = reducedMotion(ctx) })
+		local initial = ctx.read<<T>>(value)
+		return Motion.forValue(ctx, initial).spring(function(use: Shared.Use): T
+			return ctx.read<<T>>(value, use)
+		end, {
+			period = spring.period,
+			damping = spring.damping,
+			reducedMotion = reducedMotion(ctx),
+		})
 	end
 	function UI.toward(value: Shared.Value<number>, target: number): (number) -> ()
 		assert(target == target and math.abs(target) < math.huge, "Facet toward requires a finite target")

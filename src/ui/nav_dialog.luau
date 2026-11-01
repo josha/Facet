@@ -25,7 +25,8 @@ local KEYS = {
 	"contentSelectable",
 }
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces): ()
+	local readText = ctx.read<<string?>>
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 
@@ -210,15 +211,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							local heading = ctx.text({
 								Name = "Title",
 								Text = function(use: ComposeTypes.Use)
-									return read(title, use) or ""
+									return readText(title, use) or ""
 								end,
 								TextWrapped = true,
 								Size = D2.new(1, 0, 0, 0),
 								AutomaticSize = E.AutomaticSize.Y,
 								Visible = function(use: ComposeTypes.Use)
-									return not blank(read(title, use)) and not use(plaqued)
+									return not blank(readText(title, use)) and not use(plaqued)
 								end,
-								Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+								Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 							})
 							heading:AddTag("facet-type-heading")
 							table.insert(header, heading)
@@ -261,7 +262,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 									ScrollingDirection = E.ScrollingDirection.Y,
 									Selectable = false,
 								},
-								{ Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }), spec.content() },
+								{ Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder }, spec.content() },
 								{ name = "Content" }
 							)
 							bodyContent = flow
@@ -276,13 +277,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 									ctx.text({
 										Name = "ActionLabel",
 										Text = function(use: ComposeTypes.Use)
-											return read(label, use) or ""
+											return readText(label, use) or ""
 										end,
 										TextWrapped = true,
 										Size = D2.new(1, 0, 0, 0),
 										AutomaticSize = E.AutomaticSize.Y,
 										Visible = function(use: ComposeTypes.Use)
-											return not blank(read(label, use))
+											return not blank(readText(label, use))
 										end,
 									}),
 									"secondary"
@@ -342,7 +343,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 									end
 									bind("DialogBodyDown", 1, { E.KeyCode.Down, E.KeyCode.DPadDown })
 									bind("DialogBodyUp", -1, { E.KeyCode.Up, E.KeyCode.DPadUp })
-									return Compose.fragment(function()
+									return Compose.fragment(function(): { Instance }
 										return {}
 									end)
 								end),
@@ -352,7 +353,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							local settled = Compose.cell(false)
 							local held: ComposeTypes.Value<Vector2?> = Compose.cell(nil :: Vector2?)
 							local shown = surfaces.appearance(phase, ctx.motionTiming("dialog"), settled)
-							local panelProps: Types.CanvasGroupNativeProps = {
+							local panelProps: Types.CanvasGroupProps = {
 								Name = "Panel",
 								AnchorPoint = V2.new(0.5, 0.5),
 								Position = function(use: ComposeTypes.Use)

@@ -76,45 +76,43 @@ return function(
 				end
 				return true
 			end
-			return ctx.styled(
-				UI.Button("Save")({
-					name = "Save colour",
-					appearance = "utility",
-					Size = function(use: Use)
-						local side = state.cellSize(use)
-						return D2.fromOffset(side, side)
-					end,
-					AutomaticSize = E.AutomaticSize.None,
-					LayoutOrder = function(use: Use)
-						return use(index)
-					end,
-					enabled = function(use: Use)
-						return interactive(use) and fresh(use)
-					end,
-					onActivate = function()
-						local value = held:peek()
-						local save = spec.onSaveSwatch
-						if value ~= nil and save ~= nil and fresh() then
-							save(value)
-						end
-					end,
-					ctx.styled(
-						Host.Frame "Plus" {
-							Size = D2.fromScale(1, 1),
-							BackgroundTransparency = 1,
-							ctx.corner() :: Shared.Child,
-							Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),
-							ctx.icon("increment", {
-								Name = "Mark",
-								AnchorPoint = V2.new(0.5, 0.5),
-								Position = D2.fromScale(0.5, 0.5),
-							}),
-						},
-						"color-swatch"
-					),
-				}),
-				"color-cell"
-			)
+			local button: TextButton = UI.Button "Save" {
+				name = "Save colour",
+				appearance = "utility",
+				Size = function(use: Use)
+					local side = state.cellSize(use)
+					return D2.fromOffset(side, side)
+				end,
+				AutomaticSize = E.AutomaticSize.None,
+				LayoutOrder = function(use: Use)
+					return use(index)
+				end,
+				enabled = function(use: Use)
+					return interactive(use) and fresh(use)
+				end,
+				onActivate = function()
+					local value = held:peek()
+					local save = spec.onSaveSwatch
+					if value ~= nil and save ~= nil and fresh() then
+						save(value)
+					end
+				end,
+				ctx.styled(
+					Host.Frame "Plus" {
+						Size = D2.fromScale(1, 1),
+						BackgroundTransparency = 1,
+						ctx.corner(),
+						Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),
+						ctx.icon("increment", {
+							Name = "Mark",
+							AnchorPoint = V2.new(0.5, 0.5),
+							Position = D2.fromScale(0.5, 0.5),
+						}),
+					},
+					"color-swatch"
+				),
+			}
+			return ctx.styled(button, "color-cell")
 		end
 		local function cell(
 			source: ComposeTypes.ReadOnlyValue<Item>,
@@ -164,7 +162,7 @@ return function(
 				end,
 				kit.solid("Swatch", D2.fromScale(1, 1), function(use: Use): Color3
 					return use(source).color
-				end) :: Shared.Child,
+				end),
 				Compose.show(function(use: Use): boolean
 					return chosen(use) and not (removable and use(editing))
 				end, function(): Instance
@@ -199,12 +197,12 @@ return function(
 				return D2.fromOffset(n * state.cellSize(use) + (n - 1) * GAP, 0)
 			end,
 			AutomaticSize = E.AutomaticSize.Y,
-			Host.UIListLayout({
+			Host.UIListLayout {
 				FillDirection = E.FillDirection.Horizontal,
 				SortOrder = E.SortOrder.LayoutOrder,
 				Wraps = true,
 				Padding = D.new(0, GAP),
-			}) :: Shared.Child,
+			},
 			Compose.keyed({
 				from = items,
 				key = function(entry: Item): string
@@ -252,7 +250,7 @@ return function(
 		if removing then
 			table.insert(
 				parts,
-				UI.Button("Edit")({
+				UI.Button "Edit" {
 					label = function(use: Use): string
 						return if use(editing) then "Done" else "Edit"
 					end,
@@ -263,7 +261,7 @@ return function(
 					onActivate = function()
 						editing:set(not editing:peek())
 					end,
-				})
+				}
 			)
 		end
 		table.insert(parts, gridView("Swatches", items, removing, "swatches"))
@@ -283,7 +281,7 @@ return function(
 							return state.brickName(use(held)) or "No engine colour matches"
 						end,
 					}),
-				}, { Name = "NameField", ctx.padding(SPACE, 6) :: Shared.Child }),
+				}, { Name = "NameField", ctx.padding(SPACE, 6) }),
 				"field"
 			),
 			gridView("BrickGrid", function(): { Item }

@@ -38,7 +38,7 @@ return function(spec: Options, read: Read): Model
 		"Facet value control: finite min must be below max"
 	)
 	local function step(): number?
-		local value = read(spec.step)
+		local value = read<<number?>>(spec.step)
 		assert(value == nil or (finite(value) and value > 0), "Facet value control: step must be positive and finite")
 		return value
 	end

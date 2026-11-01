@@ -34,7 +34,7 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 		end
 		held = row
 		if not row then
-			(node :: ImageLabel).ImageTransparency = ctx.read(authored) or 0
+			(node :: ImageLabel).ImageTransparency = ctx.read<<number?>>(authored) or 0
 			local native = node :: GuiObject
 			if not node:IsA("ViewportFrame") then
 				native.BackgroundTransparency = background
@@ -133,7 +133,7 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 				local color = ctx.observeStyled.BackgroundColor3(surface or (row :: GuiObject))
 				ctx.runtime.decorate(node, {
 					ImageTransparency = function(use: ComposeTypes.Use): number
-						return 1 - (1 - (ctx.read(authored, use) or 0)) * use(amount)
+						return 1 - (1 - (ctx.read<<number?>>(authored, use) or 0)) * use(amount)
 					end,
 					BackgroundTransparency = if node:IsA("ViewportFrame")
 						then nil

@@ -1,9 +1,11 @@
 --!strict
 
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-type ModelNativeProps = typeof(require("@repo/tools/typecheck/aliases").ModelNativeProps)
-type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ModelProps = typeof(require("@repo/tools/typecheck/aliases").ModelProps)
+type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ReadOnlyThemePackage)
+type NumberValue = typeof(require("@repo/tools/typecheck/aliases").NumberReadOnlyValue)
+type CFrameValue = typeof(require("@repo/tools/typecheck/aliases").CFrameReadOnlyValue)
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type Piece = { name: string, size: Vector3, frame: CFrame, color: Color3, material: Enum.Material }
 type StandPiece = { name: string, size: Vector3, frame: CFrame }
@@ -58,7 +60,8 @@ local lifetime = Compose.createRootOwner(function()
 		pressHaptic:Destroy()
 	end)
 	local cameraGoal = Compose.cell(CFrame.lookAt(Vector3.new(0, 7.6, -29), Vector3.new(0, 7, 0)))
-	local cameraMotion, modeMotion
+	local cameraMotion: CFrameValue
+	local modeMotion: NumberValue
 	local camera = assert(workspace.CurrentCamera)
 	local viewport = Facet.Roblox.createViewport(camera)
 	local originalCameraType, originalCameraFrame, originalFieldOfView =
@@ -91,7 +94,7 @@ local lifetime = Compose.createRootOwner(function()
 		modeMotion = runtime.tween(function(use: Use)
 			return if use(mode) == "Screen" then 1 else 0
 		end, { seconds = 0.6, ease = Compose.easing.inOutCubic })
-		cameraMotion = runtime.spring(function(use: Use)
+		cameraMotion = runtime.motion(assert(Facet.Roblox.codecs().CFrame) :: any).spring(function(use: Use)
 			return use(cameraGoal)
 		end, { period = 0.65, damping = 1 })
 		local arrival = runtime.spring(function(use: Use)
@@ -102,16 +105,17 @@ local lifetime = Compose.createRootOwner(function()
 			local function goal(use: Use): Color3
 				return if use(dark) then night else day
 			end
-			local animated = runtime.spring(goal, { period = 0.55, damping = 1 })
+			local animated =
+				runtime.motion(assert(Facet.Roblox.codecs().Color3) :: any).spring(goal, { period = 0.55, damping = 1 })
 			return function(use: Use): Color3
 				return if use(reducedMotion) then goal(use) else use(animated)
 			end
 		end
-		local children: ModelNativeProps = {}
+		local children: ModelProps = {}
 		for index, name in screens.APPS do
 			local x, z, yaw = spatial.pose(index, #screens.APPS)
 			local frame = CFrame.new(x, spatial.HEIGHT, z) * CFrame.Angles(0, yaw, 0)
-			local panel = Host.Part({
+			local panel = Host.Part {
 				Name = name,
 				Anchored = true,
 				CanCollide = false,
@@ -122,7 +126,7 @@ local lifetime = Compose.createRootOwner(function()
 				end,
 				Color = Color3.fromRGB(43, 44, 51),
 				Material = Enum.Material.SmoothPlastic,
-			})
+			}
 			parts[name] = panel
 			children[#children + 1] = panel
 			local screenHeight = 10.8 * screens.CANVAS.h / screens.CANVAS.w
@@ -156,7 +160,7 @@ local lifetime = Compose.createRootOwner(function()
 				},
 			}
 			for _, piece in housing do
-				children[#children + 1] = Host.Part({
+				children[#children + 1] = Host.Part {
 					Name = name .. piece.name,
 					Anchored = true,
 					CanCollide = false,
@@ -164,7 +168,7 @@ local lifetime = Compose.createRootOwner(function()
 					CFrame = arrived(piece.frame),
 					Color = piece.color,
 					Material = piece.material,
-				})
+				}
 			end
 			local stand: { StandPiece } = {
 				{
@@ -175,7 +179,7 @@ local lifetime = Compose.createRootOwner(function()
 				{ name = "Foot", size = Vector3.new(3.6, 0.14, 2.8), frame = CFrame.new(0, -6.93, 1.3) },
 			}
 			for _, piece in stand do
-				children[#children + 1] = Host.Part({
+				children[#children + 1] = Host.Part {
 					Name = name .. "Stand" .. piece.name,
 					Anchored = true,
 					CanCollide = false,
@@ -183,24 +187,24 @@ local lifetime = Compose.createRootOwner(function()
 					CFrame = frame * piece.frame,
 					Color = Color3.fromRGB(170, 172, 178),
 					Material = Enum.Material.Metal,
-				})
+				}
 			end
-			children[#children + 1] = Host.Part({
+			children[#children + 1] = Host.Part {
 				Name = name .. "Glow",
 				Anchored = true,
 				CanCollide = false,
 				Transparency = 1,
 				Size = Vector3.new(1, 1, 1),
 				CFrame = frame * CFrame.new(0, 0, 2.4),
-				Host.PointLight({
+				Host.PointLight {
 					Color = if name == "Discover" then Color3.fromRGB(120, 214, 182) else Color3.fromRGB(170, 150, 255),
 					Brightness = function(use: Use)
 						return if use(dark) then 1.6 else 0.25
 					end,
 					Range = 22,
 					Shadows = false,
-				}),
-			})
+				},
+			}
 		end
 		children[#children + 1] = Host.Part "Floor" {
 			Anchored = true,
@@ -291,7 +295,7 @@ local lifetime = Compose.createRootOwner(function()
 					return use(modeProgress) < 1
 				end,
 				sheet,
-				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
+				Host.StyleLink { StyleSheet = Compose.static(sheet) },
 				views[name](),
 			})
 		end, players.LocalPlayer:WaitForChild("PlayerGui"))
@@ -323,7 +327,7 @@ local lifetime = Compose.createRootOwner(function()
 			ScreenInsets = Enum.ScreenInsets.None,
 			Enabled = showing,
 			sheet,
-			Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
+			Host.StyleLink { StyleSheet = Compose.static(sheet) },
 			backdrop,
 		}
 	end, players.LocalPlayer:WaitForChild("PlayerGui"))
@@ -400,7 +404,7 @@ local lifetime = Compose.createRootOwner(function()
 				model.modeChosen = true
 				mode:set(if mode:peek() == "Screen" then "Spatial" else "Screen")
 			end,
-			Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonSelect }),
+			Host.InputBinding { KeyCode = Enum.KeyCode.ButtonSelect },
 		},
 	}
 	Host.InputContext "FacetFlapInput" {
@@ -417,66 +421,64 @@ local lifetime = Compose.createRootOwner(function()
 			Host.InputBinding { KeyCode = Enum.KeyCode.Space },
 		},
 	}
-	Host.BindableFunction "VirtualMonitorsAPI" {
-		Parent = workspace,
-		OnInvoke = Compose.static(function(command: string, argument: unknown)
-			local text = if type(argument) == "string" then argument else nil
-			if command == "mode" and text and (text == "Screen" or text == "Spatial") then
-				model.modeChosen = true
-				mode:set(text)
-			elseif command == "dark" then
-				dark:set(argument == true)
-			elseif command == "accent" and text and (text == "sage" or text == "clay" or text == "iris") then
-				model.palette:set(text)
-			elseif command == "focus" and text then
-				model.focus(text)
-			elseif command == "tab" and text then
-				model.selectedTab:set(text)
-			elseif command == "open" then
-				for _, item in model.catalog.items:peek() do
-					if item.id == argument then
-						model.selectGame(item)
-						model.launchGame(item.id, "Joining a public server")
-					end
+	local api = Host.BindableFunction "VirtualMonitorsAPI" { Parent = workspace }
+	api.OnInvoke = function(command: string, argument: unknown)
+		local text = if type(argument) == "string" then argument else nil
+		if command == "mode" and text and (text == "Screen" or text == "Spatial") then
+			model.modeChosen = true
+			mode:set(text)
+		elseif command == "dark" then
+			dark:set(argument == true)
+		elseif command == "accent" and text and (text == "sage" or text == "clay" or text == "iris") then
+			model.palette:set(text)
+		elseif command == "focus" and text then
+			model.focus(text)
+		elseif command == "tab" and text then
+			model.selectedTab:set(text)
+		elseif command == "open" then
+			for _, item in model.catalog.items:peek() do
+				if item.id == argument then
+					model.selectGame(item)
+					model.launchGame(item.id, "Joining a public server")
 				end
-			elseif command == "close" then
-				model.selectedGame:set(nil)
-			elseif command == "summary" then
-				model.avatarSummary:set(argument == true)
-			elseif command == "about" or command == "status" then
-				local key = model.selectedTab:peek() .. ":" .. mode:peek()
-				local presentation = model.presentations[key]
-				if presentation then
-					if command == "about" then
-						presentation.about:set(argument == true)
-					else
-						presentation.status:set(argument == true)
-					end
-				end
-			elseif command == "appearance" then
-				model.avatarSettingsExpanded:set(argument == true)
-			elseif command == "tips" then
-				model.avatarTipsExpanded:set(argument == true)
-			elseif command == "motion" then
-				model.avatarPath:set(if argument == true then { { id = "motion", value = true } } else {})
-			elseif command == "chat" and text then
-				model.prompt(text)
-				model.chat.send()
-			elseif command == "flap" then
-				model.flapPress()
-			elseif command == "flapPause" then
-				model.flap.pause()
 			end
-			return {
-				mode = mode:peek(),
-				dark = dark:peek(),
-				accent = model.palette:peek(),
-				focused = model.focused:peek(),
-				flap = model.flap.state:peek(),
-				flapBest = model.flap.best:peek(),
-			}
-		end),
-	}
+		elseif command == "close" then
+			model.selectedGame:set(nil)
+		elseif command == "summary" then
+			model.avatarSummary:set(argument == true)
+		elseif command == "about" or command == "status" then
+			local key = model.selectedTab:peek() .. ":" .. mode:peek()
+			local presentation = model.presentations[key]
+			if presentation then
+				if command == "about" then
+					presentation.about:set(argument == true)
+				else
+					presentation.status:set(argument == true)
+				end
+			end
+		elseif command == "appearance" then
+			model.avatarSettingsExpanded:set(argument == true)
+		elseif command == "tips" then
+			model.avatarTipsExpanded:set(argument == true)
+		elseif command == "motion" then
+			model.avatarPath:set(if argument == true then { { id = "motion", value = true } } else {})
+		elseif command == "chat" and text then
+			model.prompt(text)
+			model.chat.send()
+		elseif command == "flap" then
+			model.flapPress()
+		elseif command == "flapPause" then
+			model.flap.pause()
+		end
+		return {
+			mode = mode:peek(),
+			dark = dark:peek(),
+			accent = model.palette:peek(),
+			focused = model.focused:peek(),
+			flap = model.flap.state:peek(),
+			flapBest = model.flap.best:peek(),
+		}
+	end
 end, runtime.reactor)
 script.Destroying:Connect(function()
 	lifetime.dispose()

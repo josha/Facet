@@ -2,12 +2,11 @@
 
 type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 local build = require("./collection_demo")
 local TEAMS = { "Rustbucket", "Chrome Coyote", "Nine Volt", "Paper Lantern", "Bad Weather" }
 return {
 	title = "Virtualized table",
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local rows: { build.Row } = {}
 		for index = 1, 2000 do
 			rows[index] = {

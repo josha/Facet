@@ -35,13 +35,13 @@ hero stays the one lead; alone, they use `numeral`.
 
 ```luau
 local function stat(name: string, icon: string, value: (Facet.Use) -> string): Frame
-	return UI.VStack(name) {
+	return UI.VStack(name)({
 		align = "center",
 		gap = "xs",
 		UI.Label { title = name, icon = icon, presentation = "iconOnly", iconSize = 28 },
 		UI.Text { text = value, textRole = "heading" },
 		UI.Text { text = name, textRole = "caption", role = "secondary" },
-	}
+	})
 end
 UI.HStack "Record" { width = "fill", distribute = "spaceEvenly",
 	stat("Wins", "trophy", wins), stat("Losses", "close", losses), stat("Draws", "flag", draws) }

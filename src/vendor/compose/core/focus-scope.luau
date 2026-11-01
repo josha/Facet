@@ -1,6 +1,6 @@
 --!strict
 
-local FocusTypes = require "./focus-types"
+local CoreTypes = require "./types"
 local Active = require "./ownership/active"
 local Diagnostics = require "./diagnostics"
 local Owner = require "./ownership/owner"
@@ -9,11 +9,11 @@ local cellModule = require "./reactive/cell"
 local formula = require "./reactive/formula"
 local Support = require "./structure/support"
 
-export type Options<V, K> = FocusTypes.Options<V, K>
+export type Options<V, K> = CoreTypes.FocusScopeOptions<V, K>
 
-export type FocusScope<K> = FocusTypes.FocusScope<K>
+export type FocusScope<K> = CoreTypes.FocusScope<K>
 
-export type Direction = FocusTypes.Direction
+export type Direction = CoreTypes.FocusDirection
 
 local KNOWN_FIELDS: { [string]: true } = {
 	from = true,
@@ -25,20 +25,17 @@ local KNOWN_FIELDS: { [string]: true } = {
 	autoFocus = true,
 }
 
-local identity = require("./reactive/node").identityKey
+local identity = require("./reactive/graph").identityKey
 
 local function createFocusScope<V, K>(options: Options<V, K>): FocusScope<K>
 	local settings = Support.optionsOf(options, "createFocusScope", "from = ..., key = ...")
 	Support.noUnknownFields(settings, "createFocusScope", KNOWN_FIELDS)
 	local owner = Active.current()
 	if owner == nil then
-		error(
-			Diagnostics.format("focus-scope/no-active-owner", "createFocusScope ran outside an owner", {
-				contract = "a focus scope lives exactly as long as the component or owner that created it",
-				fix = "create it inside a component or Compose.withOwner(owner, ...)",
-			}),
-			0
-		)
+		return Diagnostics.raise("focus-scope/no-active-owner", "createFocusScope ran outside an owner", {
+			contract = "a focus scope lives exactly as long as the component or owner that created it",
+			fix = "create it inside a component or Compose.withOwner(owner, ...)",
+		})
 	end
 	local source: Types.Body<{ V }> = Support.sourceOf(settings.from, "createFocusScope", "from")
 	local keyOf: (value: V, index: number) -> K = if settings.key == nil
@@ -56,7 +53,7 @@ local function createFocusScope<V, K>(options: Options<V, K>): FocusScope<K>
 	local current: Types.Value<K?> = cellModule.cell(initial)
 	local order: { K } = {}
 	local positions: { [K]: number } = {}
-	local points: { [K]: { x: number, y: number } } = {}
+	local points: { [K]: { number } } = {}
 	local alive = true
 	local holder = owner
 
@@ -76,16 +73,13 @@ local function createFocusScope<V, K>(options: Options<V, K>): FocusScope<K>
 			if disabled == nil or not disabled(value, index) then
 				local key = keyOf(value, index)
 				if positions[key] ~= nil then
-					error(
-						Diagnostics.format(
-							"focus-scope/duplicate-key",
-							"createFocusScope encountered the same key twice",
-							{
-								index = index,
-								contract = "focus candidates have stable unique keys",
-							}
-						),
-						0
+					return Diagnostics.raise(
+						"focus-scope/duplicate-key",
+						"createFocusScope encountered the same key twice",
+						{
+							index = index,
+							contract = "focus candidates have stable unique keys",
+						}
 					)
 				end
 				order[#order + 1] = key
@@ -101,19 +95,16 @@ local function createFocusScope<V, K>(options: Options<V, K>): FocusScope<K>
 						or math.abs(x) == math.huge
 						or math.abs(y) == math.huge
 					then
-						error(
-							Diagnostics.format(
-								"focus-scope/invalid-position",
-								"createFocusScope.position returned invalid coordinates",
-								{
-									index = index,
-									expected = "two finite numbers",
-								}
-							),
-							0
+						return Diagnostics.raise(
+							"focus-scope/invalid-position",
+							"createFocusScope.position returned invalid coordinates",
+							{
+								index = index,
+								expected = "two finite numbers",
+							}
 						)
 					end
-					points[key] = { x = x, y = y }
+					points[key] = { x, y }
 				end
 			end
 		end
@@ -176,20 +167,18 @@ local function createFocusScope<V, K>(options: Options<V, K>): FocusScope<K>
 
 	local function moveDirection(direction: Direction): K?
 		if direction ~= "left" and direction ~= "right" and direction ~= "up" and direction ~= "down" then
-			error(
-				Diagnostics.format("focus-scope/unknown-direction", "focus movement needs a known direction", {
-					actual = Diagnostics.describe(direction),
-					expected = '"left", "right", "up", or "down"',
-				}),
-				0
-			)
+			return Diagnostics.raise("focus-scope/unknown-direction", "focus movement needs a known direction", {
+				actual = Diagnostics.describe(direction),
+				expected = '"left", "right", "up", or "down"',
+			})
 		end
 		if positionOf == nil then
-			error(
-				Diagnostics.format("focus-scope/no-positions", "directional focus movement needs candidate positions", {
+			return Diagnostics.raise(
+				"focus-scope/no-positions",
+				"directional focus movement needs candidate positions",
+				{
 					fix = "pass position = function(item) return item.x, item.y end, or use next/previous",
-				}),
-				0
+				}
 			)
 		end
 		local selected = current:peek()
@@ -197,24 +186,18 @@ local function createFocusScope<V, K>(options: Options<V, K>): FocusScope<K>
 			return first()
 		end
 		local origin = points[selected]
+		local axis = if direction == "left" or direction == "right" then 1 else 2
+		local crossAxis = 3 - axis
+		local sign = if direction == "left" or direction == "up" then -1 else 1
+		local along, across = origin[axis], origin[crossAxis]
 		local best: K? = nil
 		local bestScore = math.huge
 		for _, key in order do
 			if key ~= selected then
 				local point = points[key]
-				local dx, dy = point.x - origin.x, point.y - origin.y
-				local primary, cross: number
-				if direction == "left" then
-					primary, cross = -dx, math.abs(dy)
-				elseif direction == "right" then
-					primary, cross = dx, math.abs(dy)
-				elseif direction == "up" then
-					primary, cross = -dy, math.abs(dx)
-				else
-					primary, cross = dy, math.abs(dx)
-				end
+				local primary = (point[axis] - along) * sign
 				if primary > 0 then
-					local score = primary + cross * 2
+					local score = primary + math.abs(point[crossAxis] - across) * 2
 					if score < bestScore then
 						best, bestScore = key, score
 					end

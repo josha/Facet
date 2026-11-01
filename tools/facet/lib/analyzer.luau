@@ -2,6 +2,7 @@
 
 local stringext = require("@std/stringext")
 local Files = require("./files")
+local Luau = require("./luau")
 
 export type Diagnostic = {
 	file: string,
@@ -70,7 +71,7 @@ function Analyzer.isOwnedSource(path: string): boolean
 end
 
 function Analyzer.isPlugin(path: string): boolean
-	return stringext.hasPrefix(path, "tools/design_playground/")
+	return stringext.hasPrefix(path, "tools/design_playground/") or stringext.hasPrefix(path, "tools/studio/")
 end
 
 function Analyzer.isRepository(path: string): boolean
@@ -395,8 +396,26 @@ function Analyzer.publicNames(source: string): { string }
 end
 
 function Analyzer.named(code: string): string
-	local replaced = string.gsub(code, "UI%.([%w_]+)%({", 'UI.%1("Typed")({', 1)
-	return replaced
+	local parsed = assert(Luau.parse(code))
+	for _, call in Luau.calls(parsed) do
+		if call.callee == nil or string.match(call.callee, "^UI%.%u[%w_]*$") == nil or #call.arguments ~= 1 then
+			continue
+		end
+		local func = assert(Luau.child(call.node, "func"))
+		local head = Luau.location(func)
+		local argument = Luau.location(call.arguments[1])
+		local tail = Luau.location(call.node)
+		return string.sub(code, 1, Luau.offset(parsed, head.endLine, head.endColumn) - 1)
+			.. "("
+			.. string.sub(
+				code,
+				Luau.offset(parsed, argument.beginLine, argument.beginColumn),
+				Luau.offset(parsed, argument.endLine, argument.endColumn) - 1
+			)
+			.. ', "Typed")'
+			.. string.sub(code, Luau.offset(parsed, tail.endLine, tail.endColumn))
+	end
+	return code
 end
 
 function Analyzer.truncate(text: string, limit: number): string

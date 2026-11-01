@@ -2,6 +2,8 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
+type Artifact = { build: (typeof(require("../../src").themes)) -> (ThemePackage?, { ok: boolean }) }
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local fs = require("@std/fs")
 local process = require("@std/process")
@@ -26,7 +28,8 @@ end
 local expected = Lute.parse(fs.readFileToString("installed/expected.json")) :: any
 local function inspect(entry: any)
 	local name = entry.artifact
-	local module = loader.require("installed/" .. name) :: any
+	local loaded = loader.require("installed/" .. name) :: any
+	local module: Artifact = loaded
 	assert(type(module) == "table" and type(module.build) == "function", name .. ": artifact exposes no build(themes)")
 	local package, report = module.build(themes)
 	assert(package and report.ok, name .. ": build() refused the theme package")
@@ -55,7 +58,7 @@ local function inspect(entry: any)
 			sheet = themes.createStyleSheet(runtime, package, { types = engine.types, theme = palette })
 			button = UI.Button({ label = "Play" })
 			return Host.Frame({
-				sheet :: unknown,
+				sheet,
 				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 				UI.Text({ text = "Theme artifact" }),
 				button,

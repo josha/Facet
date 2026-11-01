@@ -1,4 +1,5 @@
 --!strict
+local ThemeTypes = require("./theme_types")
 local ControlTypes = require("./control_types")
 local segmentMetrics = require("./segment_metrics")
 local Types = require("./types")
@@ -13,8 +14,11 @@ local PickerParts = require("./nav_picker_parts")
 
 local RADIO_MARK = 18 + 8
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces, shared: PickerParts.Parts)
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces, shared: PickerParts.Parts)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
+	local readSize = read<<UDim2?>>
+	local readAutomatic = read<<Enum.AutomaticSize?>>
+	local readText = read<<string?>>
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local pickerKeys, derive = shared.keys, shared.derive
 	local layoutWidth, sideChrome, wrapCaptions = shared.layoutWidth, shared.sideChrome, shared.wrapCaptions
@@ -49,12 +53,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local sliding = runtime.spring(function(use: ComposeTypes.Use)
 			return use(currentOrder)
 		end, { period = spring.period, damping = spring.damping, tolerance = 1e-3, reducedMotion = landsWithStrip })
+		local probe: Frame? = nil
 		local _, slot = runtime.mount(function()
-			return Host.Folder "Slide" { Host.Frame "SlideUnit" { Size = D2.fromOffset(1, 1), Visible = false } }
+			probe = Host.Frame "SlideUnit" { Size = D2.fromOffset(1, 1), Visible = false }
+			return Host.Folder "Slide" { probe }
 		end, picker)
-		local probe = (slot :: Instance):FindFirstChild("SlideUnit") :: GuiObject
-		local unit = ctx.observe.AbsoluteSize(probe)
-		local content = ctx.observe.AbsolutePosition(probe)
+		local unit = ctx.observe.AbsoluteSize(assert(probe))
+		local content = ctx.observe.AbsolutePosition(assert(probe))
 		local function rectAt(use: ComposeTypes.Use, order: number): (Vector2?, Vector2?)
 			local scale = use(unit).X
 			scale = if scale > 0 then scale else 1
@@ -79,12 +84,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				fromAt, fromSize = rectAt(use, use(currentOrder))
 				t = 0
 			end
-			if fromAt == nil or fromSize == nil then
+			local origin, extent = fromAt, fromSize
+			if origin == nil or extent == nil then
 				return nil
 			end
-			local place = if t > 0 then fromAt:Lerp(toAt :: Vector2, t) else fromAt
-			local size = if t > 0 then fromSize:Lerp(toSize :: Vector2, t) else fromSize
-			return { place, size }
+			if t > 0 and toAt ~= nil and toSize ~= nil then
+				return { origin:Lerp(toAt, t), extent:Lerp(toSize, t) }
+			end
+			return { origin, extent }
 		end)
 		local function shown(use: ComposeTypes.Use): boolean
 			return read(indicator, use) ~= "underline"
@@ -116,7 +123,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				},
 				"segment-fill"
 			)
-		end, slot :: Instance)
+		end, slot)
 	end
 	local function optionsStyle<V>(
 		spec: NavigationProps.PickerSpec<V>,
@@ -166,8 +173,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end
 		local segmentInput = ctx.effectiveInput()
 		local function authoredHeight(use: ComposeTypes.Use?): number?
-			local size = read(spec.Size, use)
-			local automatic = read(spec.AutomaticSize, use)
+			local size = readSize(spec.Size, use)
+			local automatic = readAutomatic(spec.AutomaticSize, use)
 			if
 				size
 				and size.Y.Scale == 0
@@ -184,7 +191,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			if (spec.controlSize == nil and authoredHeight(use) == nil) or segmentInput(use) == "Touch" then
 				rung = math.max(rung, 44 + 2 * segmentMetrics.inset)
 			end
-			local package = read(ctx.config.theme, use)
+			local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 			local recipe = if package and package.chrome then package.chrome.control else nil
 			local inset = if recipe then recipe.contentInsets else nil
 			local caption = if use then use(tallestCaption) else tallestCaption:peek()
@@ -197,7 +204,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end
 		local fixedOptions = not (Compose.isValue(spec.options) or type(spec.options) == "function")
 		local children: { ComposeTypes.Child } = {
-			Host.UIListLayout({
+			Host.UIListLayout {
 				FillDirection = derive(function(use: ComposeTypes.Use?)
 					return if style ~= "segmented" or read(spec.axis, use) == "y"
 						then E.FillDirection.Vertical
@@ -219,7 +226,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						then E.UIFlexAlignment.Fill
 						else E.UIFlexAlignment.None
 				end, spec.axis, spec.sizing),
-			}),
+			},
 		}
 		if spec.query then
 			table.insert(children, UI.TextInput "Search" { value = spec.query, placeholder = "Search" })
@@ -234,7 +241,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				render = function(
 					source: ComposeTypes.ReadOnlyValue<Nav.PickerOption<V>>,
 					index: ComposeTypes.ReadOnlyValue<number>
-				)
+				): Instance
 					local selected = function(use: ComposeTypes.Use)
 						return isSelected(use(source).value, use)
 					end
@@ -246,13 +253,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							return ""
 						end
 						local option = if use then use(source) else source:peek()
-						return read(option.label, use)
+						return read<<string>>(option.label, use)
 					end
 					local function enabledOf(use: ComposeTypes.Use?): boolean
 						local option = if use then use(source) else source:peek()
 						return read(spec.enabled, use) ~= false and read(option.enabled, use) ~= false
 					end
-					local button = UI.Button({
+					local button = UI.Button {
 						Name = tostring(current.id or current.value),
 						LayoutOrder = if fixed then index:peek() else index,
 						Size = function(use: ComposeTypes.Use)
@@ -264,7 +271,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							local height = if spec.controlSize ~= nil
 								then ctx.controlSize(spec.controlSize, "height", use)
 								else 44
-							local automatic = read(spec.AutomaticSize, use)
+							local automatic = readAutomatic(spec.AutomaticSize, use)
 							local hug = style == "segmented"
 								and (automatic == E.AutomaticSize.X or automatic == E.AutomaticSize.XY)
 							return D2.new(if hug then 0 else 1, 0, 0, height)
@@ -272,7 +279,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						AutomaticSize = if style ~= "segmented"
 							then E.AutomaticSize.Y
 							else derive(function(use: ComposeTypes.Use?)
-								local automatic = read(spec.AutomaticSize, use)
+								local automatic = readAutomatic(spec.AutomaticSize, use)
 								return if across(use)
 									then E.AutomaticSize.X
 									elseif
@@ -293,7 +300,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 								or Compose.isValue(spec.options)
 								or type(spec.options) == "function"
 							then function(use: ComposeTypes.Use)
-								return read(use(source).description, use) or ""
+								return readText(use(source).description, use) or ""
 							end
 							else nil,
 						icon = shared.liveIcon(source),
@@ -315,7 +322,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						onActivate = function()
 							select(source:peek().value)
 						end,
-					})
+					}
 					if sealed then
 						Compose.watch(function(use: ComposeTypes.Use)
 							if labelOf(use) == "" then
@@ -328,7 +335,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					local glyph = if sealed then button:FindFirstChild("LeadingIcon", true) else nil
 					if glyph and (current.badge ~= nil or not fixed) then
 						local corner = UI.badged(
-							Host.Frame({ Name = "Anchor", BackgroundTransparency = 1, Size = D2.fromScale(1, 1) }),
+							Host.Frame { Name = "Anchor", BackgroundTransparency = 1, Size = D2.fromScale(1, 1) },
 							function(use: ComposeTypes.Use): string?
 								local badge = read(use(source).badge, use)
 								return if badge == nil then nil else tostring(badge)
@@ -352,14 +359,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						badgeContent
 						and (current.badge ~= nil or Compose.isValue(spec.options) or type(spec.options) == "function")
 					then
-						runtime.mountFragment(function()
+						runtime.mountFragment(function(): Types.ChildList
 							return {
 								Compose.show(function(use: ComposeTypes.Use)
 									local badge = read(use(source).badge, use)
 									return badge ~= nil and badge ~= "" and not sealed
 								end, function()
 									local last = tostring(read(source:peek().badge))
-									return UI.Badge({
+									return UI.Badge {
 										Name = "Count",
 										LayoutOrder = 900,
 										label = function(use: ComposeTypes.Use): string
@@ -369,7 +376,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 											end
 											return last
 										end,
-									})
+									}
 								end),
 							}
 						end, badgeContent)
@@ -410,7 +417,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							Compose.show(function(use: ComposeTypes.Use)
 								return use(source).indicator ~= nil
 							end, function()
-								return statusUI.StatusIndicator({
+								return statusUI.StatusIndicator {
 									Name = "Status",
 									AnchorPoint = V2.new(1, 0.5),
 									Position = D2.new(1, -8, 0.5, 0),
@@ -419,16 +426,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 										if mark == nil then
 											return "neutral"
 										end
-										local status = read(mark.status, use)
+										local status = read<<Media.Status?>>(mark.status, use)
 										return if status == nil then "neutral" else status
 									end,
-									form = source:peek().indicator
-										and (source:peek().indicator :: Nav.OptionIndicator).form,
+									form = current.indicator and current.indicator.form,
 									count = function(use: ComposeTypes.Use)
 										local mark = use(source).indicator
-										return if mark then read(mark.count, use) else nil
+										return if mark then read<<number?>>(mark.count, use) else nil
 									end,
-								})
+								}
 							end),
 						})
 					end
@@ -436,7 +442,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						or type(spec.indicator) == "function"
 						or spec.indicator == "underline"
 					surfaces.attach(button, {
-						Host.UISizeConstraint({
+						Host.UISizeConstraint {
 							MinSize = function(use: ComposeTypes.Use)
 								local strip = across(use)
 								local width = if strip
@@ -452,7 +458,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 									return V2.new(math.max(44, use(room) - 2 * segmentMetrics.inset), math.huge)
 								end
 								else nil,
-						}),
+						},
 						if underlined
 							then Compose.show(function(use: ComposeTypes.Use)
 								return read(spec.indicator, use) == "underline" and selected(use)
@@ -471,7 +477,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					})
 					if style == "segmented" and not vertical then
 						surfaces.attach(button, {
-							Host.UIFlexItem({
+							Host.UIFlexItem {
 								FlexMode = function(use: ComposeTypes.Use): Enum.UIFlexMode
 									return if read(spec.sizing, use) == "hug"
 										then E.UIFlexMode.None
@@ -480,7 +486,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 											else E.UIFlexMode.Grow
 										else E.UIFlexMode.Fill
 								end,
-							}),
+							},
 						})
 					end
 					if fixed and not (Compose.isValue(current.label) or type(current.label) == "function") then
@@ -508,7 +514,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							return `{use(room) - 2 * segmentMetrics.inset}|{peers(use)}`
 						end, button, true)
 						local caption = button:FindFirstChild("Title", true) or button:FindFirstChild("Label", true)
-						local bounds = if caption and caption:IsA("TextLabel")
+						local bounds: ComposeTypes.ReadOnlyValue<Vector2> = if caption and caption:IsA("TextLabel")
 							then ctx.observe.TextBounds(caption)
 							else ctx.observe.TextBounds(button)
 						local captionUnit = ctx.layoutUnit(button)
@@ -564,7 +570,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 								ctx.text({
 									Name = "SectionTitle",
 									Text = function(use: ComposeTypes.Use)
-										return read(section, use) or ""
+										return readText(section, use) or ""
 									end,
 								}),
 								"type-caption"
@@ -585,14 +591,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local strip = style == "segmented" and spec.label == nil and (spec.Size ~= nil or spec.AutomaticSize ~= nil)
 		local declaredSize, declaredAutomatic = spec.Size, spec.AutomaticSize
 		local function tall(use: ComposeTypes.Use): boolean
-			local sizing = read(declaredAutomatic, use)
+			local sizing = readAutomatic(declaredAutomatic, use)
 			return across(use) and (sizing == E.AutomaticSize.Y or sizing == E.AutomaticSize.XY)
 		end
 		local source = spec
 		if strip then
 			source = table.clone(spec)
-			local fields = (source :: unknown) :: { [string]: unknown }
-			fields.Size, fields.AutomaticSize = nil, nil
+			source.Size, source.AutomaticSize = nil, nil
 		end
 		local defaults: Types.FrameNativeProps = {
 			Name = "Picker",
@@ -600,7 +605,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			Size = if strip
 				then function(use: ComposeTypes.Use): UDim2
 					local rung = ctx.controlSize(spec.controlSize, "height", use)
-					local size: UDim2 = read(declaredSize, use) or D2.new(1, 0, 0, rung)
+					local size: UDim2 = readSize(declaredSize, use) or D2.new(1, 0, 0, rung)
 					if tall(use) then
 						return D2.new(size.X.Scale, size.X.Offset, 0, rung)
 					end
@@ -615,7 +620,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				else D2.new(1, 0, 0, 0),
 			AutomaticSize = if strip
 				then function(use: ComposeTypes.Use): Enum.AutomaticSize
-					local sizing: Enum.AutomaticSize = read(declaredAutomatic, use) or E.AutomaticSize.None
+					local sizing: Enum.AutomaticSize = readAutomatic(declaredAutomatic, use) or E.AutomaticSize.None
 					if tall(use) then
 						return if sizing == E.AutomaticSize.XY then E.AutomaticSize.X else E.AutomaticSize.None
 					end
@@ -656,7 +661,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local fieldLabel: TextLabel? = nil
 		local picker: GuiObject
 		if style == "segmented" and labelled then
-			local fading = (p :: unknown) :: Types.CanvasGroupNativeProps
+			local fading = (p :: unknown) :: Types.CanvasGroupProps
 			fading.GroupTransparency = function(use: ComposeTypes.Use): number
 				return if use(ready) then 0 else 1
 			end
@@ -725,7 +730,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local fields = (p :: unknown) :: { [string]: unknown }
 			local scrolling: { [string]: unknown } = {
 				Size = function(use: ComposeTypes.Use): UDim2
-					local size = read(base, use) or D2.new(1, 0, 0, stripHeight(use))
+					local size = readSize(base, use) or D2.new(1, 0, 0, stripHeight(use))
 					if not across(use) then
 						return size
 					end
@@ -868,7 +873,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local label = ctx.text({
 			Name = "Label",
 			Text = derive(function(use: ComposeTypes.Use?)
-				return read(spec.label, use) or ""
+				return readText(spec.label, use) or ""
 			end, spec.label),
 			Size = D2.new(if vertical then 1 else 0, 0, 0, 0),
 			AutomaticSize = if vertical then E.AutomaticSize.Y else E.AutomaticSize.XY,
@@ -895,7 +900,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end, label)
 		end
 		runtime.mount(function()
-			return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Grow })
+			return Host.UIFlexItem { FlexMode = E.UIFlexMode.Grow }
 		end, label)
 		local row = ctx.row({ label, picker }, outer)
 		local layout = assert(row:FindFirstChildWhichIsA("UIListLayout"))
@@ -914,7 +919,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		if limit then
 			runtime.decorate(limit, { MaxSize = maxSize })
 		else
-			surfaces.attach(picker, { Host.UISizeConstraint({ MaxSize = maxSize }) })
+			surfaces.attach(picker, { Host.UISizeConstraint { MaxSize = maxSize } })
 		end
 		return marked(row)
 	end

@@ -313,7 +313,8 @@ function focus.scene(atlas: any, byPath: { [string]: GuiObject }, view: { [strin
 	if builder == nil then
 		return nil
 	end
-	local rects, gone, added, containerRects = {}, {}, {}, {}
+	local rects, gone, containerRects = {}, {}, {}
+	local added: { { [string]: any } } = {}
 	local known: { [string]: boolean } = {}
 	for index, entry in atlas.stops do
 		known[entry.path] = true
@@ -333,7 +334,7 @@ function focus.scene(atlas: any, byPath: { [string]: GuiObject }, view: { [strin
 			table.insert(added, builder.describe(node, path))
 		end
 	end
-	table.sort(added, function(a, b)
+	table.sort(added, function(a: { [string]: any }, b: { [string]: any })
 		return a.path < b.path
 	end)
 	for path, entry in atlas.containers do
@@ -405,7 +406,7 @@ function focus.walk(
 			return
 		end
 		local byPath = current(root)
-		local added = {}
+		local added: { string } = {}
 		for path in byPath do
 			if not queued[path] then
 				table.insert(added, path)
@@ -571,7 +572,8 @@ function focus.walkUp(
 		if node == nil then
 			continue
 		end
-		local before, view
+		local before: number? = nil
+		local view: { [string]: { number } }? = nil
 		for _ = 1, 5 do
 			if not pcall(function()
 				GuiService.SelectedObject = node
@@ -584,13 +586,14 @@ function focus.walkUp(
 				break
 			end
 		end
-		if before == nil then
+		local arrivedFrom, settledView = before, view
+		if arrivedFrom == nil or settledView == nil then
 			continue
 		end
 		local shownNow = current(root)
 		local was = signature(shownNow)
 		local started = os.clock()
-		while arrivals == before and os.clock() - started < timeout do
+		while arrivals == arrivedFrom and os.clock() - started < timeout do
 			task.wait()
 		end
 		for _ = 1, 8 do
@@ -599,12 +602,12 @@ function focus.walkUp(
 		settle(root)
 		local now = GuiService.SelectedObject
 		local after, named = current(root)
-		local scene = if atlas then focus.scene(atlas, after, view) else nil
-		moves[path] = if arrivals ~= before + 1
-			then `unsettled:{arrivals - before}`
+		local scene = if atlas then focus.scene(atlas, after, settledView) else nil
+		moves[path] = if arrivals ~= arrivedFrom + 1
+			then `unsettled:{arrivals - arrivedFrom}`
 			elseif now and now ~= node then named[now] or pathOf(now, root)
 			else nil
-		offsets[path] = view
+		offsets[path] = settledView
 		scenes[path] = scene
 		if restore and now == node and not same(was, signature(after)) then
 			restore()

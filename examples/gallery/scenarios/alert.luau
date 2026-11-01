@@ -3,11 +3,10 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "Alerts and confirmations",
 	ledgerRows = {},
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types
@@ -51,7 +50,7 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					ScrollBarThickness = 6,
-					UI.Text({
+					UI.Text {
 						LayoutOrder = 1,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -62,8 +61,8 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
-					UI.Text({
+					},
+					UI.Text {
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -73,7 +72,7 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					},
 					UI.Text "Status" {
 						LayoutOrder = 3,
 						BackgroundTransparency = 1,
@@ -88,7 +87,9 @@ return {
 					UI.Button "Open" {
 						LayoutOrder = 4,
 						label = "Replace checkpoint…",
-						onActivate = open,
+						onActivate = function()
+							open()
+						end,
 					},
 					UI.Button "Reset" {
 						LayoutOrder = 5,

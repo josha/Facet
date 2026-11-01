@@ -119,7 +119,7 @@ return function(
 				Size = D2.new(0, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
 				TextTruncate = E.TextTruncate.AtEnd,
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) :: Shared.Child,
+				Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 			})
 		)
 	end
@@ -145,12 +145,12 @@ return function(
 		Name = "Row",
 		Size = if labelled then D2.fromScale(1, 1) else D2.fromOffset(0, 0),
 		AutomaticSize = if labelled then E.AutomaticSize.None else E.AutomaticSize.XY,
-		ctx.padding(if labelled then 10 else 6, 0) :: Shared.Child,
+		ctx.padding(if labelled then 10 else 6, 0),
 	})
 	local layout = assert(row:FindFirstChildWhichIsA("UIListLayout"))
 	layout.VerticalAlignment = E.VerticalAlignment.Center
 	layout.HorizontalAlignment = if labelled then E.HorizontalAlignment.Left else E.HorizontalAlignment.Center
-	local well = UI.Button("Well")({
+	local well = UI.Button "Well" {
 		name = function(use: Use): string
 			return state.semanticName(use)
 		end,
@@ -167,7 +167,7 @@ return function(
 			requestPresented(true)
 		end,
 		row,
-	})
+	}
 	if labelled then
 		chrome.paint("ColorPicker", well, spec)
 	end

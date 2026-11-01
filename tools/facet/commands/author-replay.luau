@@ -71,7 +71,7 @@ local function run(invocation: Cli.Invocation): number
 					return
 				end
 				for index = 1, count do
-					local copy = table.clone(current)
+					local copy: Static.Finding = table.clone(current)
 					copy.location = locations[index] or "additional saved location"
 					table.insert(findings, copy)
 				end
@@ -89,12 +89,13 @@ local function run(invocation: Cli.Invocation): number
 				if severity and rule and message then
 					finish()
 					count, locations = tonumber(quantity) or 1, {}
-					active = {
+					local nextFinding: Static.Finding = {
 						severity = if severity == "error" then "error" else "warning",
 						rule = rule,
 						message = message,
 						location = "",
 					}
+					active = nextFinding
 					table.insert(static, entry)
 				elseif active and string.sub(entry, 1, 4) == "    " then
 					table.insert(static, entry)

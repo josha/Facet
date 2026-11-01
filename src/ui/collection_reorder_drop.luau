@@ -5,6 +5,7 @@ local State = require("./collection_reorder_state")
 return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 	local ctx, spec = shared.ctx, shared.spec
 	local read = ctx.read
+	local readSource = ctx.readSource
 	local moving, incoming, drag = shared.moving, shared.incoming, shared.drag
 	local source, controls, reservedSlots = shared.source, shared.controls, shared.reservedSlots
 	local collectionId, sourceIndex, location = shared.collectionId, shared.sourceIndex, shared.location
@@ -27,7 +28,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 					index = if before ~= nil then assert(controls.indexOfKey)(before :: K) else nil
 				end
 			end
-			local at = assert(controls.placementOf)(index or (#read(reservedSlots) + 1))
+			local at = assert(controls.placementOf)(index or (#read<<{ K }>>(reservedSlots) + 1))
 			local scale = scaleOf(body)
 			local items = body:FindFirstChild("Items") :: GuiObject?
 			local origin = if items then items.AbsolutePosition else body.AbsolutePosition - body.CanvasPosition * scale
@@ -91,7 +92,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		return slot
 	end
 	local function insertion(payload: unknown, info: DragTypes.Proposal)
-		local rows: { V } = read(source)
+		local rows = readSource(source)
 		local data = payload :: { collection: unknown, keys: { K }? }
 		local same = type(payload) == "table" and data.collection == collectionId and info.operation == "move"
 		local move, session = moving:peek(), drag.state:peek()
@@ -125,7 +126,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		if move == nil then
 			return nil
 		end
-		indexRows(read(source), move.keys)
+		indexRows(readSource(source), move.keys)
 		return pointerSlot(position)
 	end)
 	local function localMove(payload: unknown, info: DragTypes.Proposal): boolean
@@ -154,7 +155,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		if info.invalid then
 			return false, info.invalid
 		end
-		if read(shared.sort) ~= nil then
+		if readSource(shared.sort) ~= nil then
 			return false, "Clear sorting before inserting items"
 		end
 		if localMove(payload, info) then
@@ -185,7 +186,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 			leave(payload)
 		end
 	end
-	destination.onUpdate = function(payload, info, accepted, reason)
+	destination.onUpdate = function(payload: unknown, info: DragTypes.Proposal, accepted: boolean, reason: string?): ()
 		local session = drag.state:peek()
 		incoming:set(if accepted and session and session.source ~= body then info.insertion else nil)
 		local move = moving:peek()
@@ -212,7 +213,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 			elseif at < edge then -(edge - at) / edge
 			elseif at > size - edge then (at - size + edge) / edge
 			else 0
-		local rows = read(source)
+		local rows = readSource(source)
 		local last = if #rows > 0 then assert(controls.placementOf)(#rows) else nil
 		local limit = if last then math.max(0, last.offset + last.size - size) else 0
 		local now = axis(body.CanvasPosition)

@@ -21,7 +21,7 @@ function demo.zoom(
 ): Frame
 	local zoom = Compose.cell(0.5)
 	local controls: ZoomControls = {}
-	local children: { unknown } = {}
+	local children: { GuiObject } = {}
 	for index = 1, 169 do
 		local row, col = math.floor((index - 1) / 13), (index - 1) % 13
 		table.insert(
@@ -38,7 +38,7 @@ function demo.zoom(
 			}
 		)
 	end
-	return UI.VStack("ZoomDemo")({
+	return UI.VStack "ZoomDemo" {
 		width = "fill",
 		gap = "s",
 		UI.HStack {
@@ -99,7 +99,7 @@ function demo.zoom(
 				return Host.Frame(props)
 			end,
 		},
-	})
+	}
 end
 
 function demo.travel(UI: Controls, Host: Host, Compose: ComposeModule, path: "straight" | "arc"): Frame
@@ -132,7 +132,7 @@ function demo.travel(UI: Controls, Host: Host, Compose: ComposeModule, path: "st
 	}
 	local origin: GuiObject = start
 	local destination = Compose.cell(origin)
-	return UI.VStack("TravelDemo")({
+	return UI.VStack "TravelDemo" {
 		width = "fill",
 		gap = "l",
 		UI.HStack {
@@ -167,7 +167,7 @@ function demo.travel(UI: Controls, Host: Host, Compose: ComposeModule, path: "st
 				}
 			end,
 		},
-	})
+	}
 end
 
 function demo.many(UI: Controls, Host: Host, Compose: ComposeModule): Frame
@@ -202,7 +202,7 @@ function demo.many(UI: Controls, Host: Host, Compose: ComposeModule): Frame
 		anchor.Parent = board
 	end
 	local flipped = false
-	return UI.VStack("ManyTravel")({
+	return UI.VStack "ManyTravel" {
 		gap = "s",
 		UI.Button {
 			label = "Move 64 items",
@@ -214,7 +214,7 @@ function demo.many(UI: Controls, Host: Host, Compose: ComposeModule): Frame
 			end,
 		},
 		board,
-	})
+	}
 end
 
 function demo.shuffle(UI: Controls, Host: Host, Compose: ComposeModule): Frame
@@ -252,7 +252,7 @@ function demo.shuffle(UI: Controls, Host: Host, Compose: ComposeModule): Frame
 		anchor.Parent = row
 	end
 	local reverse = false
-	return UI.VStack("ShuffleTravel")({
+	return UI.VStack "ShuffleTravel" {
 		gap = "s",
 		UI.Button {
 			label = "Shuffle row",
@@ -272,7 +272,7 @@ function demo.shuffle(UI: Controls, Host: Host, Compose: ComposeModule): Frame
 			AutomaticSize = Enum.AutomaticSize.Y,
 			wrap = true,
 		},
-	})
+	}
 end
 
 return demo

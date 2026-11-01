@@ -8,7 +8,7 @@ local motion = require("./motion")
 local travel = require("./drag_travel")
 local gestureOf = require("./gesture_service")
 local worldVisual = require("./drag_world_visual")
-local services = setmetatable({} :: { [Types.Context]: Drag.Service }, { __mode = "kv" })
+local services: { [Types.Context]: Drag.Service } = setmetatable({}, { __mode = "kv" })
 type StatusPanel = {
 	frame: GuiObject,
 	label: TextLabel,
@@ -42,16 +42,18 @@ return function(ctx: Types.Context): Drag.Service
 
 	local function ancestor(node: Instance?): Instance?
 		while node do
+			local session = current
 			local target = proxies[node] or node
 			local spec = targets[target]
-			local pass = current and spec and spec.passThrough and spec.passThrough(current.payload)
-			if current and spec and spec.collectionAxis and current.mode == "pointer" and current.position then
+			local pass = session and spec and spec.passThrough and spec.passThrough(session.payload)
+			if session and spec and spec.collectionAxis and session.mode == "pointer" and session.position then
+				local position = session.position
 				local axis = spec.collectionAxis
 				local gui = target :: GuiObject
 				local extent = if axis == "X" then gui.AbsoluteSize.X else gui.AbsoluteSize.Y
 				local offset = if axis == "X"
-					then current.position.X - gui.AbsolutePosition.X
-					else current.position.Y - gui.AbsolutePosition.Y
+					then position.X - gui.AbsolutePosition.X
+					else position.Y - gui.AbsolutePosition.Y
 				local parent = target.Parent
 				while parent and not targets[parent] do
 					parent = parent.Parent
@@ -172,13 +174,13 @@ return function(ctx: Types.Context): Drag.Service
 		local session = current :: Drag.Session
 		return {
 			source = session.source,
-			target = target :: Env.DropDestination,
+			target = (target :: unknown) :: Env.DropDestination,
 			mode = session.mode,
 			operation = ctx.read(targets[target].operation or "move") :: Env.DropOperation,
 			position = session.position,
 			hit = session.hit,
-			placement = if targets[target].placement then ctx.read(targets[target].placement) else nil,
-			worldPlacement = if targets[target].worldPlacement then ctx.read(targets[target].worldPlacement) else nil,
+			placement = ctx.read<<Env.DropPlacement?>>(targets[target].placement),
+			worldPlacement = ctx.read<<CFrame?>>(targets[target].worldPlacement),
 			complete = function()
 				return false
 			end,
@@ -219,6 +221,17 @@ return function(ctx: Types.Context): Drag.Service
 				spec.onLeave(session.payload)
 			end
 		end
+	end
+	local function heldScale(ghost: GuiObject, value: number): (() -> (), UIScale)
+		local stop, mounted = ctx.runtime.mount(function()
+			return ctx.Host.UIScale { Scale = value }
+		end, ghost)
+		local created = (mounted :: UIScale):Clone()
+		stop()
+		created.Parent = ghost
+		return function()
+			created:Destroy()
+		end, created
 	end
 	local function nativeScale(node: Instance?): number
 		local scaler = node and node:FindFirstChildWhichIsA("UIScale")
@@ -268,7 +281,7 @@ return function(ctx: Types.Context): Drag.Service
 		if not label then
 			return
 		end
-		local text = if session.spec.statusLabels == false
+		local text: string = if session.spec.statusLabels == false
 			then ""
 			elseif session.pending then "Waiting for confirmation…"
 			elseif session.accepted then ({ move = "Move", copy = "Copy", apply = "Apply" })[session.operation]
@@ -282,13 +295,11 @@ return function(ctx: Types.Context): Drag.Service
 			and targets[session.target].label
 			and not session.pending
 		then
-			text ..= " to " .. ctx.read(targets[session.target].label)
+			text ..= " to " .. ctx.read<<string>>(assert(targets[session.target].label))
 		end
 		if session.mode == "armed" and not session.pending then
 			local input = (session.effectiveInput :: (Types.Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse")(nil)
-			if text ~= "" then
-				text ..= " · "
-			end
+			text ..= if text ~= "" then " · " else ""
 			text ..= if input == "Gamepad"
 				then "A: drop · B: cancel"
 				elseif input == "Touch" then "Tap a destination"
@@ -480,10 +491,7 @@ return function(ctx: Types.Context): Drag.Service
 		if accepted or session.spec.previewScale ~= nil then
 			scale = ghost:FindFirstChildWhichIsA("UIScale")
 			if not scale then
-				local stop, mounted = ctx.runtime.mount(function()
-					return ctx.Host.UIScale {}
-				end, ghost)
-				stopScale, scale = stop, mounted :: UIScale
+				stopScale, scale = heldScale(ghost, 1)
 			end
 			originalScale = assert(scale).Scale
 		end
@@ -566,10 +574,7 @@ return function(ctx: Types.Context): Drag.Service
 		if accepted or session.spec.previewScale ~= nil then
 			scale = ghost:FindFirstChildWhichIsA("UIScale")
 			if not scale then
-				local stop, mounted = ctx.runtime.mount(function()
-					return ctx.Host.UIScale {}
-				end, ghost)
-				stopScale, scale = stop, mounted :: UIScale
+				stopScale, scale = heldScale(ghost, 1)
 			end
 			originalScale = assert(scale).Scale
 		end
@@ -721,7 +726,10 @@ return function(ctx: Types.Context): Drag.Service
 		if current.world then
 			local spec = target and targets[target]
 			local placement = spec and spec.worldPlacement
-			current.world.move(current.position, if current.accepted and placement then ctx.read(placement) else nil)
+			current.world.move(
+				current.position,
+				if current.accepted and placement then ctx.read<<CFrame?>>(placement) else nil
+			)
 		end
 		updateStatus(current)
 		local shown = state:peek()
@@ -833,15 +841,18 @@ return function(ctx: Types.Context): Drag.Service
 				local goal = localPoint(ghost, V2.new(rect.x, rect.y) + ghost.AnchorPoint * goalExtent)
 				local scaler = ghost:FindFirstChildWhichIsA("UIScale")
 				local capturedScale = nativeScale(ghost)
-				local goalScale = if destination:IsA("GuiObject")
-					then effectiveScale(destination, nil) / nativeScale(ghost.Parent)
-					elseif session.pickupSize.Y > 0 and rect.h > 0 then capturedScale * rect.h / session.pickupSize.Y
+				local goalScale = if session.pickupSize.X > 0
+						and session.pickupSize.Y > 0
+						and rect.w > 0
+						and rect.h > 0
+					then capturedScale / (session.liftScale or lift) * math.min(
+						rect.w / session.pickupSize.X,
+						rect.h / session.pickupSize.Y
+					)
 					else capturedScale
 				if not scaler then
-					local stop, mounted = ctx.runtime.mount(function()
-						return ctx.Host.UIScale { Scale = capturedScale }
-					end, ghost)
-					scaler = mounted :: UIScale
+					local stop, created = heldScale(ghost, capturedScale)
+					scaler = created
 					local previous = session.stopPreview
 					session.stopPreview = function()
 						if previous then
@@ -1039,9 +1050,7 @@ return function(ctx: Types.Context): Drag.Service
 				if scaler then
 					scaler.Scale = capturedScale
 				elseif capturedScale ~= 1 then
-					created.stopPreview = ctx.runtime.mount(function()
-						return ctx.Host.UIScale { Scale = capturedScale }
-					end, ghost)
+					created.stopPreview = heldScale(ghost, capturedScale)
 				end
 				local inherited = nativeScale(layer) * baseScale
 				ghost.Size = D2.fromOffset(source.AbsoluteSize.X / inherited, source.AbsoluteSize.Y / inherited)
@@ -1054,12 +1063,15 @@ return function(ctx: Types.Context): Drag.Service
 				end
 				local liftValue = spec.liftValue
 				if liftValue then
+					local transform = ghost:FindFirstChildWhichIsA("UIScale")
+					if not transform then
+						active.stopPreview, transform = heldScale(ghost, capturedScale)
+					end
+					local held: UIScale = assert(transform)
 					local stopLift = ctx.runtime.mountFragment(function()
-						local transform = ghost:FindFirstChildWhichIsA("UIScale")
-							or ctx.Host.UIScale { Parent = Compose.static(ghost) }
 						Compose.watch(function(use)
 							local magnification = use(liftValue)
-							transform.Scale = baseScale * magnification
+							held.Scale = baseScale * magnification
 							active.previewSize = size * magnification
 							active.liftScale = magnification
 						end)
@@ -1201,10 +1213,7 @@ return function(ctx: Types.Context): Drag.Service
 		local liftValue = current.spec.liftValue
 		if liftValue then
 			local active = current
-			local stopScale, mounted = ctx.runtime.mount(function()
-				return ctx.Host.UIScale { Scale = scale * liftValue:peek() }
-			end, ghost)
-			local transform = mounted :: UIScale
+			local stopScale, transform = heldScale(ghost, scale * liftValue:peek())
 			active.stopPreview = stopScale
 			active.stopLift = ctx.runtime.mountFragment(function()
 				Compose.watch(function(use)
@@ -1216,9 +1225,7 @@ return function(ctx: Types.Context): Drag.Service
 				return {}
 			end, ghost)
 		elseif scale * lift ~= 1 then
-			current.stopPreview = ctx.runtime.mount(function()
-				return ctx.Host.UIScale { Scale = scale * lift }
-			end, ghost)
+			current.stopPreview = heldScale(ghost, scale * lift)
 		end
 		current.previewSize = extent * (current.liftScale or lift)
 		current.armedPreview = if current.mode == "armed" then image else nil
@@ -1236,7 +1243,7 @@ return function(ctx: Types.Context): Drag.Service
 		if spec.feedback == false then
 			feedback = nil
 		elseif target:IsA("GuiObject") then
-			feedback = ctx.Host.UIStroke({
+			feedback = ctx.Host.UIStroke {
 				Name = "FacetDropOutline",
 				Enabled = false,
 				Thickness = function(use)
@@ -1244,15 +1251,15 @@ return function(ctx: Types.Context): Drag.Service
 				end,
 				ApplyStrokeMode = ctx.types.Enum.ApplyStrokeMode.Border,
 				BorderStrokePosition = ctx.types.Enum.BorderStrokePosition.Inner,
-			})
+			}
 		else
-			feedback = ctx.Host.Highlight({
+			feedback = ctx.Host.Highlight {
 				Name = "FacetDropHighlight",
 				FillTransparency = 1,
 				Enabled = false,
 				Adornee = Compose.static(target),
 				DepthMode = ctx.types.Enum.HighlightDepthMode.Occluded,
-			})
+			}
 		end
 		if feedback then
 			((feedback :: unknown) :: { Parent: Instance? }).Parent = target

@@ -42,7 +42,7 @@ export type Gesture = {
 	ready: ComposeTypes.Value<boolean>,
 	painted: (ComposeTypes.Use?) -> number,
 	canDismiss: (ComposeTypes.Use?) -> boolean,
-	close: (string) -> (),
+	close: (string) -> boolean,
 	interactive: (string) -> (),
 	lowest: (ComposeTypes.Use?) -> number,
 	standing: (ComposeTypes.Use?) -> number,
@@ -60,7 +60,7 @@ local FLUSH: { [string]: number } = { left = 0, right = 0, bottom = 0 }
 
 return function(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	surfaces: Nav.Surfaces,
 	word: (string) -> string
 ): (
@@ -73,6 +73,7 @@ return function(
 ) -> Gesture
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local readSource = ctx.readSource
+	local readInsets = readSource<<{ [string]: number }>>
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local frames = runtime.host.frames
 	local function now(): number
@@ -166,7 +167,8 @@ return function(
 			return BASE[side] + (if showGrabber(use) and RESERVED[from(use)] == side then HANDLE + 8 else 0)
 		end
 		local function pad(side: string, use: ComposeTypes.Use?): number
-			local safe = if safeInsets then readSource(safeInsets, use)[side] or 0 else 0
+			local insets = safeInsets
+			local safe = if insets then readInsets(insets, use)[side] or 0 else 0
 			local band = if side == "bottom" then 0 else outset(side, use)
 			return surfaces.inset(0, side, nil, use) + reserve(side, use) + safe + band
 		end
@@ -419,7 +421,7 @@ return function(
 		end
 		local gui = ctx.config.guiService
 		if gui and gui.GetInsetArea and layer and layer:IsA("ScreenGui") then
-			local screen = layer :: ScreenGui
+			local screen = layer
 			local band = ctx.observe.TopbarInset(gui)
 			safeInsets = Compose.formula(function(use: ComposeTypes.Use): { [string]: number }
 				use(band)
@@ -511,7 +513,7 @@ return function(
 			local function sideways(): boolean
 				return source == "grip" and from() ~= "bottom"
 			end
-			return Host.UIDragDetector({
+			return Host.UIDragDetector {
 				Name = name,
 				CursorIcon = function(use: ComposeTypes.Use): string
 					if source == "panel" then
@@ -567,7 +569,7 @@ return function(
 						finish(source)
 					end
 				end,
-			})
+			}
 		end
 		local tallest = Compose.formula(function(use: ComposeTypes.Use): boolean
 			local mine = heightOf(selected(use), use)
@@ -580,7 +582,7 @@ return function(
 		end)
 		local grabber = Host.TextButton "Grabber" {
 			SelectionOrder = -2,
-			Attributes = { FacetFocusPart = "DragHandle" } :: Types.Attributes,
+			Attributes = { FacetFocusPart = "DragHandle" },
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = function(use: ComposeTypes.Use): UDim2
 				local side = from(use)
@@ -628,10 +630,10 @@ return function(
 						return if from(use) == "bottom" then D2.fromOffset(36, 5) else D2.fromOffset(5, 36)
 					end,
 					BorderSizePixel = 0,
-					Host.UICorner({ CornerRadius = ctx.round }),
+					Host.UICorner { CornerRadius = ctx.round },
 				},
 				"grabber"
-			) :: Types.Child,
+			),
 		}
 
 		if gui and gui.GetPropertyChangedSignal and preferred then

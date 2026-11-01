@@ -4,7 +4,6 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 local COPY = {
 	title = "Detent sheets",
 	intro = "Open a race briefing. Drag its header to resize, or focus Size and use Left / Right. On a distant screen the panel moves to the center.",
@@ -29,7 +28,7 @@ return {
 	title = "Detent sheets",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types
@@ -95,7 +94,7 @@ return {
 			}
 			local filterDetents: { SheetDetent } = { "medium", "large" }
 			local briefingDetents: { SheetDetent } = { { id = "compact", fraction = 0.35 }, "medium", "large" }
-			return Host.Frame("Sheet")({
+			return Host.Frame "Sheet" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
 				UI.ScrollView "Page" {
@@ -104,7 +103,7 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					ScrollBarThickness = 6,
-					UI.Text({
+					UI.Text {
 						LayoutOrder = 1,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -115,8 +114,8 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
-					UI.Text({
+					},
+					UI.Text {
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -126,7 +125,7 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					},
 					UI.Text "Status" {
 						LayoutOrder = 3,
 						BackgroundTransparency = 1,
@@ -141,7 +140,9 @@ return {
 					UI.Button "Open" {
 						LayoutOrder = 4,
 						label = copy.open,
-						onActivate = open,
+						onActivate = function()
+							open()
+						end,
 					},
 					UI.Button "OpenLobby" {
 						LayoutOrder = 5,
@@ -190,16 +191,16 @@ return {
 					detent = filtersDetent,
 					detents = filterDetents,
 					content = function(): Instance
-						return Host.Frame("FilterList")({
+						return Host.Frame "FilterList" {
 							BackgroundTransparency = 1,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
-							Host.UIListLayout({
+							Host.UIListLayout {
 								FillDirection = Enum.FillDirection.Vertical,
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 16),
-							}),
-							UI.Text({
+							},
+							UI.Text {
 								LayoutOrder = 1,
 								BackgroundTransparency = 1,
 								Size = UDim2.new(1, 0, 0, 0),
@@ -207,7 +208,7 @@ return {
 								text = copy.filtersBody,
 								TextWrapped = true,
 								TextXAlignment = Enum.TextXAlignment.Left,
-							}),
+							},
 							UI.Toggle "Night" {
 								LayoutOrder = 2,
 								label = "Night races only",
@@ -227,7 +228,7 @@ return {
 									filtersShown:set(false)
 								end,
 							},
-						})
+						}
 					end,
 				},
 				UI.Sheet "Briefing" {
@@ -236,15 +237,15 @@ return {
 					detent = detent,
 					detents = briefingDetents,
 					content = function(): Instance
-						return Host.Frame("Details")({
+						return Host.Frame "Details" {
 							BackgroundTransparency = 1,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
-							Host.UIListLayout({
+							Host.UIListLayout {
 								FillDirection = Enum.FillDirection.Vertical,
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 16),
-							}),
+							},
 							UI.Text "Description" {
 								LayoutOrder = 1,
 								BackgroundTransparency = 1,
@@ -256,7 +257,7 @@ return {
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
 							},
-							UI.Text({
+							UI.Text {
 								LayoutOrder = 2,
 								BackgroundTransparency = 1,
 								BorderSizePixel = 0,
@@ -266,13 +267,13 @@ return {
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
-							}),
+							},
 							UI.Toggle "Membership" {
 								LayoutOrder = 3,
 								label = copy.join,
 								value = membership,
 							},
-							UI.Text({
+							UI.Text {
 								LayoutOrder = 4,
 								BackgroundTransparency = 1,
 								BorderSizePixel = 0,
@@ -282,7 +283,7 @@ return {
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
-							}),
+							},
 							UI.Button "Start" {
 								LayoutOrder = 5,
 								Size = UDim2.new(1, 0, 0, 0),
@@ -293,10 +294,10 @@ return {
 									close()
 								end,
 							},
-						})
+						}
 					end,
 				},
-			})
+			}
 		end
 		return {
 			screen = Briefing,

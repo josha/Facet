@@ -1,11 +1,12 @@
 --!strict
+local Weak = require "../weak"
 
 local createNodes: (number, NodeData?) -> { NodeData } = table.create
 local createDrains: (number, DrainData?) -> { DrainData } = table.create
 
 local Types = require "./types"
-local Weak = require "../weak"
-local stats = require "./stats"
+local Nodes = require "./node"
+local stats = require("./evaluation").stats
 
 export type Options = Types.ProfileOptions
 export type NodeRow = Types.ProfileNodeRow
@@ -16,26 +17,19 @@ export type NodeData = Types.ProfileNodeData
 export type DrainData = Types.ProfileDrainData
 export type Data = Types.ProfileData
 
-type Shape = {
-	derived: boolean?,
-	enqueue: unknown,
-}
-
 local DEFAULT_MAX_NODES = 4096
 local DEFAULT_MAX_DRAINS = 256
 local MAX_WAKE_TARGETS = 32
 
 local UNKNOWN_KIND = "node"
 
-local function kindOf(node: unknown): string
-	local shape = node :: Shape
-	local derived = shape.derived
-	if derived == true then
+local function kindOf(shape: Types.Node): string
+	if shape.body ~= nil then
 		return "formula"
-	elseif derived == false then
-		return "cell"
-	elseif shape.enqueue ~= nil then
+	elseif shape.effect ~= nil or shape.listener ~= nil then
 		return "watch"
+	elseif shape.version ~= nil then
+		return "cell"
 	end
 	return UNKNOWN_KIND
 end
@@ -63,6 +57,7 @@ local restoreCounters = false
 local clock: (() -> number)? = nil
 
 local function rowFor(node: unknown, kind: string): NodeRow?
+	node = Nodes.asNode(node) or node
 	local held = state
 	if held == nil then
 		return nil
@@ -137,7 +132,7 @@ local function wake(producer: unknown, kind: string, count: number)
 	end)
 end
 
-local function edge(producer: unknown, producerKind: string, consumer: unknown)
+local function edge(producer: unknown, producerKind: string, consumer: Types.Node)
 	guarded(function()
 		local from = rowFor(producer, producerKind)
 		local to = rowFor(consumer, kindOf(consumer))
@@ -231,7 +226,8 @@ end
 
 local function label(node: unknown, name: string)
 	guarded(function()
-		local row = rowFor(node, kindOf(node))
+		local observed = assert(Nodes.asNode(node), "profiling labels require a registered reactive node")
+		local row = rowFor(observed, kindOf(observed))
 		if row ~= nil then
 			row.label = name
 		end

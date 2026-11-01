@@ -23,7 +23,7 @@ export type Options = {
 	token: ((name: string) -> Design.Literal)?,
 	resolveToken: ((name: string) -> Design.Resolved)?,
 	inputs: { [string]: Design.Literal }?,
-	slots: { [string]: () -> Compose.Node }?,
+	slots: { [string]: () -> unknown }?,
 }
 
 return function(ui: UI.UI)
@@ -196,7 +196,7 @@ return function(ui: UI.UI)
 				if type(id) == "string" then
 					return id
 				end
-				current = ui.get(current, "Parent")
+				current = ui.optionalNode(ui.get(current, "Parent"))
 			end
 			return nil
 		end
@@ -257,7 +257,7 @@ return function(ui: UI.UI)
 		end
 		local function pick(point: UI.Point): string?
 			local origin, direction = ray(point)
-			local excluded = { guides, gizmo }
+			local excluded: { unknown } = { guides, gizmo }
 			for id, instance in nodes do
 				if blocked(id) then
 					table.insert(excluded, instance)
@@ -271,7 +271,7 @@ return function(ui: UI.UI)
 				ui.values.vector3(direction.X * 2000, direction.Y * 2000, direction.Z * 2000),
 				parameters
 			)
-			return if hit then nodeOf(ui.get(hit, "Instance")) else nil
+			return if hit then nodeOf(ui.optionalNode(ui.get(hit, "Instance"))) else nil
 		end
 		local refreshSelection: () -> () = function() end
 		local root = Compose.createRootOwner(function()
@@ -282,7 +282,7 @@ return function(ui: UI.UI)
 				end
 				table.clear(nodes)
 				stopDesign = runtime.mount(function(): Compose.Node
-					return Design.render(value, session.library, {
+					return ui.node(Design.render(value, session.library, {
 						exclude = function(node: Design.Node): boolean
 							return node.hidden == true
 						end,
@@ -290,13 +290,14 @@ return function(ui: UI.UI)
 						slots = options.slots,
 						token = options.token,
 						resolveToken = options.resolveToken,
-						decorate = function(node: Design.Node, built: Compose.Node)
+						decorate = function(node: Design.Node, subject: unknown)
+							local built = ui.node(subject)
 							if ui.isA(built, "PVInstance") then
 								runtime.decorate(built, { Attributes = { [ATTRIBUTE] = node.id } })
 								nodes[node.id] = built
 							end
 						end,
-					})
+					}))
 				end, world)
 			end)
 			local selectionBoxes: { [string]: Compose.Node } = {}
@@ -462,7 +463,7 @@ return function(ui: UI.UI)
 					parameters
 				)
 				local axis = if hit and ui.isA(ui.get(hit, "Instance"), "Part")
-					then handles[ui.get(hit, "Instance")]
+					then handles[ui.node(ui.get(hit, "Instance"))]
 					else nil
 				local selected = nodes[session.selected:peek()]
 				if axis and selected and not blocked(session.selected:peek()) then

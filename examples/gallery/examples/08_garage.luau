@@ -1,8 +1,9 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 local makeView = require("./showcase_view")
 type Preset = { id: number, name: string, vehicle: string, wheel: string, paint: Color3, stripe: boolean }
 local vehicles = {
@@ -21,7 +22,8 @@ return {
 		local UI, Host, C = ctx.UI, ctx.Host, ctx.Compose
 		local V3, CF, C3, E, D2 = ctx.types.Vector3, ctx.types.CFrame, ctx.types.Color3, ctx.types.Enum, ctx.types.UDim2
 		local view = makeView(ctx)
-		local vehicle, wheel, paint = C.cell("comet"), C.cell("street"), C.cell(C3.fromRGB(247, 111, 70))
+		local initialVehicle: string, initialWheel: string = "comet", "street"
+		local vehicle, wheel, paint = C.cell(initialVehicle), C.cell(initialWheel), C.cell(C3.fromRGB(247, 111, 70))
 		local angle, stripe = C.cell(25), C.cell(true)
 		local noPresets: { Preset } = {}
 		local presets, name, presented = C.cell(noPresets), C.cell("Weekend racer"), C.cell(false)
@@ -182,7 +184,7 @@ return {
 		end
 		local function screen()
 			local wide, short = C.cell(true), C.cell(false)
-			local rides = {}
+			local rides: { StringPickerOption } = {}
 			for _, item in vehicles do
 				table.insert(rides, { value = item.id, label = item.label })
 			end
@@ -211,7 +213,7 @@ return {
 					height = "fill",
 					gap = "m",
 					UI.fill(),
-					axis = function(use: Use)
+					axis = function(use: Use): "x" | "y"
 						return if use(wide) then "x" else "y"
 					end,
 					UI.ZStack "Showroom" {

@@ -13,8 +13,13 @@ type Live = {
 	note: (string, unknown) -> (),
 	settle: (number) -> (),
 }
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type IdReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").IdReadOnlyValue)
+type DropTargetSpec = typeof(require("@repo/tools/typecheck/aliases").DropTargetSpec)
 type Item = { id: string }
+local noSlots: { string } = {}
+local noItems: { Item } = {}
+type SlotCell = typeof(require("@repo/src/vendor/compose/core").cell(noSlots))
+type ItemCell = typeof(require("@repo/src/vendor/compose/core").cell(noItems))
 type PreviewSample = { pointer: Vector2, contact: Vector2, rect: { number }, error: number }
 type State = {
 	stage: Instance,
@@ -34,7 +39,7 @@ type State = {
 type Case = {
 	id: string,
 	contracts: { string },
-	setup: (Live) -> State,
+	setup: (Live, boolean?, boolean?) -> State,
 	steps: { [string]: (Live, State) -> () },
 }
 local GuiService = game:GetService("GuiService")
@@ -73,16 +78,24 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 		source, target = button, destination
 		local pickup: GuiObject = button
 		if collection then
-			local rows = C.cell({ { id = "A" }, { id = "B" } })
-			local slots = C.cell({ "A", "B" })
+			local rows: ItemCell = C.cell({ { id = "A" }, { id = "B" } })
+			local slots: SlotCell = C.cell({ "A", "B" })
 			removeSource = function()
 				rows:set({ { id = "B" } })
 			end
 			releaseSlots = function()
 				slots:set({ "B" })
 			end
+			local reservedDrop: DropTargetSpec = {
+				travel = true,
+				onDrop = function()
+					rows:set({ { id = "A" }, { id = "B" } })
+					return true
+				end,
+			}
 			UI.draggable(destination, { payload = { keys = { "A" } }, touchPickup = "immediate", returnTravel = true })
-			pickup = UI.VirtualGrid "SourceRack" {
+			pickup = UI.VirtualGrid {
+				Name = "SourceRack",
 				from = rows,
 				slots = if reserved then slots else nil,
 				key = "id",
@@ -93,19 +106,11 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 				Size = UDim2.fromOffset(160, 88),
 				reorderable = true,
 				onReorder = function() end,
-				drag = function(items: { { id: string } }, _keys: { string }): DraggableSpec
+				drag = function(items: { Item }, _keys: { string }): DraggableSpec
 					return { payload = items[1].id, touchPickup = "immediate" :: "immediate", returnTravel = true }
 				end,
-				drop = if reserved
-					then {
-						travel = true,
-						onDrop = function()
-							rows:set({ { id = "A" }, { id = "B" } })
-							return true
-						end,
-					}
-					else nil,
-				render = function(): GuiObject
+				drop = if reserved then reservedDrop else nil,
+				render = function()
 					return UI.Button "RackTile" { label = "Carry tile" }
 				end,
 			}
@@ -184,10 +189,10 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 			Host.Frame {
 				Size = UDim2.fromOffset(420, 720),
 				BackgroundTransparency = 1,
-				Host.UIScale { Scale = 0.8 } :: unknown,
-				pickup :: unknown,
-				destination :: unknown,
-			} :: unknown,
+				Host.UIScale { Scale = 0.8 },
+				pickup,
+				destination,
+			},
 		}
 		scroll = body
 		return body
@@ -195,7 +200,7 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 	if collection then
 		source = assert(stage:FindFirstChild("Reorderable", true)) :: GuiObject
 	end
-	value = {
+	local state: State = {
 		stage = stage,
 		source = assert(source),
 		target = assert(target),
@@ -209,10 +214,11 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 		releaseSlots = releaseSlots,
 		secondPosition = if reserved then (t.find(stage, "B")).AbsolutePosition else nil,
 	}
-	GuiService.SelectedObject = value.source
-	t.note("source contact", value.source.AbsolutePosition + value.source.AbsoluteSize / 2)
-	t.note("target contact", value.target.AbsolutePosition + value.target.AbsoluteSize / 2)
-	return value
+	value = state
+	GuiService.SelectedObject = state.source
+	t.note("source contact", state.source.AbsolutePosition + state.source.AbsoluteSize / 2)
+	t.note("target contact", state.target.AbsolutePosition + state.target.AbsoluteSize / 2)
+	return state
 end
 
 local cases: { Case } = {
@@ -222,7 +228,7 @@ local cases: { Case } = {
 		setup = function(t)
 			local source: GuiObject?, target: GuiObject?, neighbour: GuiObject?
 			local value: State?
-			local stage = t.mount(function(UI, Host, C)
+			local stage = t.mount(function(UI: Controls, Host: Host, C: Compose): GuiObject
 				local button = UI.Button "Source" {
 					label = "A",
 					Position = UDim2.fromOffset(20, 20),
@@ -236,6 +242,11 @@ local cases: { Case } = {
 					returnTravel = true,
 				})
 				local items: { Item } = { { id = "B" }, { id = "C" } }
+				local rackDrop: DropTargetSpec = {
+					onDrop = function()
+						return true
+					end,
+				}
 				local rack = UI.VirtualGrid "TargetRack" {
 					from = items,
 					key = "id",
@@ -244,12 +255,8 @@ local cases: { Case } = {
 					mode = "all" :: "all",
 					Position = UDim2.fromOffset(160, 120),
 					Size = UDim2.fromOffset(240, 88),
-					drop = {
-						onDrop = function()
-							return true
-						end,
-					},
-					render = function(current: ReadOnlyValue<Item>): GuiObject
+					drop = rackDrop,
+					render = function(current: IdReadOnlyValue)
 						return UI.Button { label = current:peek().id }
 					end,
 				}
@@ -263,10 +270,10 @@ local cases: { Case } = {
 				C.cleanup(function()
 					connection:Disconnect()
 				end)
-				return Host.Frame { Size = UDim2.fromOffset(440, 320), button :: unknown, rack :: unknown }
+				return Host.Frame { Size = UDim2.fromOffset(440, 320), button, rack }
 			end, { size = Vector2.new(480, 400), frames = 30, motionLevel = "normal" })
 			neighbour = t.find(stage, "B")
-			value = {
+			local state: State = {
 				stage = stage,
 				source = assert(source),
 				target = assert(target),
@@ -279,7 +286,8 @@ local cases: { Case } = {
 				secondPosition = assert(neighbour).AbsolutePosition,
 				reflowSamples = {},
 			}
-			return assert(value)
+			value = state
+			return state
 		end,
 		steps = {
 			whileHovering = function(t, value)

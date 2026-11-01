@@ -17,24 +17,24 @@ type Snapshot<V, K> = {
 	weights: { [K]: number },
 }
 export type Tree<V, K> = {
-	from: ComposeTypes.ReadOnlyValue<{ V }>,
-	all: ComposeTypes.ReadOnlyValue<{ V }>,
+	read from: ComposeTypes.ReadOnlyValue<{ V }>,
+	read all: ComposeTypes.ReadOnlyValue<{ V }>,
 	columnar: boolean?,
-	preparing: ComposeTypes.Value<boolean>,
-	preview: ComposeTypes.Value<number>,
-	resume: () -> (),
-	visible: (K, ComposeTypes.Use?) -> boolean,
-	ancestor: (K) -> K?,
-	sizes: (ComposeTypes.Use, { [K]: number }, number, number) -> { [K]: number },
-	wrap: (GuiObject, ComposeTypes.ReadOnlyValue<V>, K) -> GuiObject,
-	bind: (ScrollingFrame, Collections.FocusControls<K>) -> (),
-	toggle: (K) -> (),
-	location: ({ K }, number) -> (boolean, number, K?),
+	read preparing: ComposeTypes.Value<boolean>,
+	read preview: ComposeTypes.Value<number>,
+	read resume: () -> (),
+	read visible: (K, ComposeTypes.Use?) -> boolean,
+	read ancestor: (K) -> K?,
+	read sizes: (ComposeTypes.Use, { [K]: number }, number, number) -> { [K]: number },
+	read wrap: (GuiObject, ComposeTypes.ReadOnlyValue<V>, K) -> GuiObject,
+	read bind: (ScrollingFrame, ComposeTypes.FocusScope<K>) -> (),
+	read toggle: (K) -> (),
+	read location: ({ K }, number) -> (boolean, number, K?),
 }
 
 return function<V, K>(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	spec: Collections.HierarchyOptions<V, K> & Collections.OptionalChildren<V> & {
 		from: Types.Input<{ V }>,
 		disabled: Collections.RowPredicate<V>?,
@@ -44,6 +44,7 @@ return function<V, K>(
 	order: (({ V }, ComposeTypes.Use) -> { V })?
 ): Tree<V, K>
 	local C, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
+	local readNumber = ctx.read<<number>>
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local expanded: ComposeTypes.Value<Collections.Selection<K>> = spec.expanded
 		or C.cell({} :: Collections.Selection<K>)
@@ -56,7 +57,8 @@ return function<V, K>(
 		return if inputKind(use) == "KeyboardAndMouse" then 0 else ctx.metric("targetSizes.minimum", use)
 	end
 	local clockTarget = C.cell(0)
-	local preparing, preview = C.cell(false), C.cell(0)
+	local preparing: ComposeTypes.Value<boolean> = C.cell(false)
+	local preview: ComposeTypes.Value<number> = C.cell(0)
 	local clock = runtime.tween(function(use: ComposeTypes.Use): number
 		return use(clockTarget)
 	end, {
@@ -99,7 +101,7 @@ return function<V, K>(
 			return 0
 		end
 		local destination = if node.visible then 1 else 0
-		local weights = read(animatedWeights, use)
+		local weights = ctx.readSource(animatedWeights, use)
 		return if weights[key] ~= nil then weights[key] else destination
 	end
 	local initialized = false
@@ -134,7 +136,7 @@ return function<V, K>(
 				end
 			end
 		end
-		visit(read(spec.from, use), nil, 0, true)
+		visit(read<<{ V }>>(spec.from, use), nil, 0, true)
 		local weights: { [K]: number } = {}
 		local changing: { Node<V, K> } = {}
 		local groups: { { Node<V, K> } } = {}
@@ -199,7 +201,7 @@ return function<V, K>(
 	local siblingSlots: { [K]: number } = {}
 	local remainingSiblings = 0
 	local tree: Tree<V, K>
-	tree = {
+	local result: Tree<V, K> = {
 		preparing = preparing,
 		preview = preview,
 		resume = function()
@@ -336,7 +338,7 @@ return function<V, K>(
 			local width = C.cell(0)
 			local function left(use: ComposeTypes.Use): number
 				local node = use(data).byKey[key]
-				local step = read(spec.indent, use) or ctx.metric("space.l", use)
+				local step = if spec.indent == nil then ctx.metric("space.l", use) else readNumber(spec.indent, use)
 				assert(step >= 0 and step < math.huge, "Facet outline indent must be a finite non-negative number")
 				return ctx.metric("space.s", use)
 					+ math.min((if node then node.depth else 0) * step, math.max(0, use(width) - side(use) * 3))
@@ -410,8 +412,8 @@ return function<V, K>(
 						math.max(side(use), height) + ctx.metric("space.xs", use) + ctx.metric("space.xs", use)
 					)
 				end,
-				disclosure :: ComposeTypes.Child,
-				unit :: ComposeTypes.Child,
+				disclosure,
+				unit,
 				Host.Frame {
 					Name = "OutlineContent",
 					BackgroundTransparency = 1,
@@ -431,8 +433,8 @@ return function<V, K>(
 						FillDirection = E.FillDirection.Vertical,
 						VerticalAlignment = E.VerticalAlignment.Center,
 						SortOrder = E.SortOrder.LayoutOrder,
-					} :: ComposeTypes.Child,
-					content :: ComposeTypes.Child,
+					},
+					content,
 				},
 			}
 			local bounds = ctx.observe.AbsoluteSize(root)
@@ -444,7 +446,7 @@ return function<V, K>(
 			end)
 			return root
 		end,
-		bind = function(root: ScrollingFrame, controls: Collections.FocusControls<K>)
+		bind = function(root: ScrollingFrame, controls: ComposeTypes.FocusScope<K>)
 			local gui = ctx.config.guiService
 			local selected = if gui then ctx.observe.SelectedObject(gui) else C.cell(nil :: GuiObject?)
 			local drag = sessionOf(ctx)
@@ -457,7 +459,7 @@ return function<V, K>(
 					and (selected.Name == "RowHit" or selected.Name == "Disclosure")
 			end
 			local function current(use: ComposeTypes.Use): Node<V, K>?
-				local key = if controls.current then use(controls.current) else nil
+				local key = use(controls.current)
 				return if key ~= nil then use(data).byKey[key] else nil
 			end
 			local function expands(use: ComposeTypes.Use): boolean
@@ -471,12 +473,12 @@ return function<V, K>(
 					and ((node.branch == true and use(expanded)[node.key] == true) or node.parent ~= nil)
 			end
 			ctx.action(root, "OutlineExpand", { E.KeyCode.Right, E.KeyCode.DPadRight }, expands, function()
-				local key = controls.current and controls.current:peek()
+				local key = controls.current:peek()
 				local node = if key ~= nil then data:peek().byKey[key] else nil
 				if node and node.branch then
 					if not expanded:peek()[node.key] then
 						change(node.key, true)
-					elseif controls.focus then
+					else
 						for _, child in data:peek().nodes do
 							if child.parent == node.key and not policy.disabled(spec.disabled, child.item) then
 								controls.focus(child.key)
@@ -487,17 +489,18 @@ return function<V, K>(
 				end
 			end, { priority = 300, capture = true })
 			ctx.action(root, "OutlineCollapse", { E.KeyCode.Left, E.KeyCode.DPadLeft }, collapses, function()
-				local key = controls.current and controls.current:peek()
+				local key = controls.current:peek()
 				local node = if key ~= nil then data:peek().byKey[key] else nil
 				if node then
 					if node.branch and expanded:peek()[node.key] then
 						change(node.key, false)
-					elseif node.parent ~= nil and controls.focus then
+					elseif node.parent ~= nil then
 						controls.focus(node.parent)
 					end
 				end
 			end, { priority = 300, capture = true })
 		end,
 	}
-	return tree
+	tree = result
+	return result
 end

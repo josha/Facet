@@ -6,7 +6,7 @@ export type Contest = { token: Instance, zone: string }
 type Entry = { edge: Edge, y: number, h: number }
 type Zones = { [string]: boolean }
 
-local layers = setmetatable({} :: { [Instance]: { [unknown]: Entry } }, { __mode = "k" })
+local layers: { [Instance]: { [unknown]: Entry } } = setmetatable({}, { __mode = "k" })
 local claims = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [Instance]: Zones } }
 local noted = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [Instance]: Zones } }
 

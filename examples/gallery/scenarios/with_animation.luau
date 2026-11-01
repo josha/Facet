@@ -1,13 +1,13 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type OrderedPlacement = typeof(require("@repo/tools/typecheck/aliases").OrderedPlacementReadOnly)
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "State-driven motion",
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local Host, UI, Compose: ComposeModule, runtime = ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
 		local D, D2, V2, C3, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 		local target, reduced, runs = Compose.cell(0), Compose.cell(false), Compose.cell(0)
@@ -58,7 +58,7 @@ return {
 			next[1], next[3] = next[3], next[1]
 			order:set(next)
 		end
-		local function color(use: Use, role)
+		local function color(use: Use, role: string)
 			local package = if ctx.theme then use(ctx.theme) else ctx.Facet.themes.neutralPackage()
 			local mode = if ctx.themeMode then use(ctx.themeMode) else package.style.defaultTheme
 			local palette = package.style.themes[1]
@@ -67,17 +67,19 @@ return {
 					palette = candidate
 				end
 			end
-			local rgb = palette.colors[role] or (palette.extra or {})[role] or palette.colors.accent
+			local rgb = palette.colors[role]
+				or (palette.extra and palette.extra.contentSecondary)
+				or palette.colors.accent
 			return C3.new(rgb.r, rgb.g, rgb.b)
 		end
 		local function label(name, text)
-			return UI.Text({
+			return UI.Text {
 				Name = name,
 				text = text,
 				TextWrapped = true,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
-			})
+			}
 		end
 		local function screen()
 			return UI.ScrollView "StateMotion" {
@@ -92,10 +94,10 @@ return {
 					"Decorative",
 					"The puck changes color and position; the card grows; the badge fades, shrinks and turns."
 				),
-				Host.Frame("PuckLane")({
+				Host.Frame "PuckLane" {
 					Size = D2.new(1, 0, 0, 56),
 					BackgroundTransparency = 1,
-					Host.Frame("Puck")({
+					Host.Frame "Puck" {
 						Size = D2.fromOffset(40, 40),
 						BorderSizePixel = 0,
 						Position = function(use: Use)
@@ -108,10 +110,10 @@ return {
 								math.clamp(use(amount), 0, 1)
 							)
 						end,
-						Host.UICorner({ CornerRadius = D.new(1, 0) }),
-					}),
-				}),
-				Host.Frame("GrowingCard")({
+						Host.UICorner { CornerRadius = D.new(1, 0) },
+					},
+				},
+				Host.Frame "GrowingCard" {
 					BorderSizePixel = 0,
 					Size = function(use: Use)
 						return D2.new(1, 0, 0, 64 + 64 * use(amount))
@@ -119,23 +121,23 @@ return {
 					BackgroundColor3 = function(use: Use)
 						return color(use, "accent")
 					end,
-					Host.Frame("Pip")({
+					Host.Frame "Pip" {
 						Size = D2.fromOffset(16, 16),
 						Position = D2.fromOffset(12, 12),
 						BackgroundColor3 = C3.new(1, 1, 1),
 						BorderSizePixel = 0,
-					}),
+					},
 					UI.Text "CardCaption" {
 						text = "The card grows; this pip keeps its size.",
 						Position = D2.fromOffset(40, 8),
 						Size = D2.new(1, -48, 1, -16),
 						TextWrapped = true,
 					},
-				}),
-				Host.Frame("EffectsLane")({
+				},
+				Host.Frame "EffectsLane" {
 					Size = D2.new(1, 0, 0, 100),
 					BackgroundTransparency = 1,
-					Host.CanvasGroup("Badge")({
+					Host.CanvasGroup "Badge" {
 						Position = D2.fromScale(0.5, 0.5),
 						AnchorPoint = V2.new(0.5, 0.5),
 						Size = function(use: Use)
@@ -151,21 +153,21 @@ return {
 						BackgroundColor3 = function(use: Use)
 							return color(use, "accent")
 						end,
-						UI.Text({ text = "GO", Size = D2.fromScale(1, 1), TextXAlignment = E.TextXAlignment.Center }),
-					}),
-				}),
-				Host.CanvasGroup("WrappedFade")({
+						UI.Text { text = "GO", Size = D2.fromScale(1, 1), TextXAlignment = E.TextXAlignment.Center },
+					},
+				},
+				Host.CanvasGroup "WrappedFade" {
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
 					GroupTransparency = function(use: Use)
 						return 0.65 * math.clamp(use(amount), 0, 1)
 					end,
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
+					Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) },
 					label("FadedLabel", "A group fades its label and controls together"),
 					UI.Button "Locked" { label = "Locked", enabled = false },
-				}),
-				Host.Frame("Details")({
+				},
+				Host.Frame "Details" {
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
@@ -177,7 +179,7 @@ return {
 							return if use(arrived) and not use(phase.exiting) then 1 else 0
 						end, { seconds = 0.2 })
 						arrived:set(true)
-						return Host.CanvasGroup("DetailArrival")({
+						return Host.CanvasGroup "DetailArrival" {
 							BackgroundTransparency = 1,
 							Size = D2.new(1, 0, 0, 0),
 							AutomaticSize = E.AutomaticSize.Y,
@@ -188,7 +190,7 @@ return {
 								"DetailPanel",
 								"Detail panel — the same action reveals this information and reverses the cards below."
 							),
-						})
+						}
 					end, {
 						exit = function()
 							return {
@@ -198,21 +200,21 @@ return {
 							}
 						end,
 					}),
-				}),
-				Host.Frame("Cards")({
+				},
+				Host.Frame "Cards" {
 					Size = D2.new(1, 0, 0, 136),
 					BackgroundTransparency = 1,
-					Compose.OrderedCollection({
+					Compose.OrderedCollection {
 						from = order,
 						key = function(name: string)
 							return name
 						end,
-						render = function(current: ReadOnlyValue<string>, placement): GuiObject
+						render = function(current: ReadOnlyValue<string>, placement: OrderedPlacement): GuiObject
 							local origin = if current:peek() == "Alpha"
 								then 0
 								elseif current:peek() == "Bravo" then 1
 								else 2
-							return UI.Button({
+							return UI.Button {
 								Name = current:peek(),
 								label = current,
 								LayoutOrder = function(use: Use)
@@ -222,10 +224,10 @@ return {
 								Position = function(use: Use)
 									return D2.fromOffset(0, (origin + (2 - 2 * origin) * use(amount)) * 48)
 								end,
-							})
+							}
 						end,
-					}),
-				}),
+					},
+				},
 				label(
 					"Informational",
 					"Charge keeps moving to its known destination when decorative motion is reduced."

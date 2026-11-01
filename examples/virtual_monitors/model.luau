@@ -1,11 +1,9 @@
 --!strict
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type CivilDate = typeof(require("@repo/tools/typecheck/aliases").CivilDate)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 local catalogModule = require("./catalog")
 local chatModule = require("./chat_model")
 local flapModule = require("./flap_model")
@@ -33,11 +31,11 @@ export type Model = {
 	savedScroll: Value<number?>,
 	chatScroll: Value<number?>,
 	genre: Value<string>,
-	launch: Value<any>,
+	launch: Value<Launch?>,
 	avatarPath: Value<{ PathEntry }>,
 	sort: Value<string>,
 	shelf: Value<string>,
-	selectedGame: Value<any>,
+	selectedGame: Value<Game?>,
 	detailTab: Value<string>,
 	saved: Value<{ [string]: boolean }>,
 	savedOrder: Value<{ string }>,
@@ -251,7 +249,7 @@ function model.new(Compose: ComposeModule): Model
 		use(sort)
 		discoveryScroll:set(0)
 	end)
-	local visibleGames = Compose.formula(function(use: Use): { Game }
+	local visibleGames: ReadOnlyValue<{ Game }> = Compose.formula(function(use: Use): { Game }
 		local text, chosenGenre, order = use(query):lower(), use(genre), use(sort)
 		local hiddenNow, result: { Game } = use(hidden), {}
 		for _, item in use(catalog.items) do
@@ -273,7 +271,7 @@ function model.new(Compose: ComposeModule): Model
 		end
 		return result
 	end)
-	local savedGames = Compose.formula(function(use: Use): { Game }
+	local savedGames: ReadOnlyValue<{ Game }> = Compose.formula(function(use: Use): { Game }
 		local savedNow, byId, result: { Game } = use(saved), {}, {}
 		for _, item in use(catalog.items) do
 			byId[item.id] = item

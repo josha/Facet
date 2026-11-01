@@ -5,6 +5,13 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
 type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type LapsCell = typeof(require("@repo/src/vendor/compose/core").cell({ { id = "", name = "", laps = 0 } }))
+type ShapeOptions = { editing: boolean?, narrow: boolean?, scrolls: boolean?, reorderable: boolean?, actions: boolean? }
+type StepsBuild = {
+	screen: () -> unknown,
+	steps: { show: () -> (), use: () -> (), reset: () -> () },
+}
 type Case = {
 	id: string,
 	contracts: { string },
@@ -350,7 +357,7 @@ local LAPS = {
 }
 
 add("table-columns-follow-the-header", {}, function(t)
-	local shapes = {
+	local shapes: { { name: string, options: ShapeOptions } } = {
 		{ name = "viewport", options = {} },
 		{ name = "content", options = { scrolls = false } },
 		{ name = "reorderable", options = { reorderable = true, editing = true, actions = true } },
@@ -358,7 +365,8 @@ add("table-columns-follow-the-header", {}, function(t)
 	}
 	for _, theme in t.themes do
 		for _, shape in shapes do
-			local editing, rows
+			local editing: BooleanCell
+			local rows: LapsCell
 			local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 				editing = Compose.cell(shape.options.editing == true)
 				rows = Compose.cell(table.clone(LAPS))
@@ -580,7 +588,7 @@ add("gallery-current-tab-fill-at-first-frame", {}, function(t)
 end)
 
 add("coach-mark-clear-of-share-and-reset-floor", {}, function(t)
-	local built
+	local built: StepsBuild
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		built = t.scenario("callout").build(t.context(UI, Host, Compose, env))
 		return built.screen()

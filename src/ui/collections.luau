@@ -27,7 +27,7 @@ export type BuildList = <V, K>(
 	ScrollPolicy?
 ) -> ScrollingFrame
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
+return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
 	local observe = ctx.observe
@@ -104,7 +104,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		scrollPolicy: ScrollPolicy?
 	): ScrollingFrame
 		assert(
-			spec.contentOverflow == nil or table.find({ "visible", "clip" }, read(spec.contentOverflow)),
+			spec.contentOverflow == nil
+				or table.find({ "visible", "clip" }, read<<"visible" | "clip">>(assert(spec.contentOverflow))),
 			"Facet collection contentOverflow must be visible or clip"
 		)
 		assert(
@@ -127,7 +128,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 			end
 		end
 		local source = function(use: ComposeTypes.Use): { V }
-			return read(if tree then tree.from else spec.from, use)
+			return read<<{ V }>>(if tree then tree.from else spec.from, use)
 		end
 		local view = State.create(ctx, spec, kind, keyOf, tree, actionsWrapped, source)
 		local viewport, cross, status, controls = view.viewport, view.cross, view.status, view.controls
@@ -200,7 +201,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 			local extent = if current and current.extent then current.extent else 0
 			return if extent > 0 then extent + 2 * mainEdge(use) else 0
 		end)
-		local native = ctx.props(spec, behavior, {
+		local native: EngineTypes.ScrollingFrameProps = ctx.props(spec, behavior, {
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = if spec.hug
@@ -231,7 +232,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 				directive,
 			}
 			local function padding(): UIPadding
-				return Host.UIPadding({
+				return Host.UIPadding {
 					PaddingLeft = function(use: ComposeTypes.Use)
 						return ctx.types.UDim.new(0, if horizontal then mainEdge(use) else crossEdge(use))
 					end,
@@ -244,16 +245,16 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 					PaddingBottom = function(use: ComposeTypes.Use)
 						return ctx.types.UDim.new(0, if horizontal then crossEdge(use) else 0)
 					end,
-				})
+				}
 			end
 			nativeProps[#nativeProps + 1] = if kind == "grid"
 				then padding()
 				else Compose.show(function(use: ComposeTypes.Use): boolean
 					return use(view.containsCards)
-				end, padding) :: Types.Child
+				end, padding)
 			return Host.Frame(nativeProps)
 		end)
-		table.insert(native, view.unit)
+		native[#native + 1] = view.unit
 		root = ctx.styled(Host.ScrollingFrame(native), "Collection")
 		Compose.cleanup(function()
 			for node, release in retiring do
@@ -269,8 +270,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 				return overlayReorder(true)
 			end, root)
 		end
-		local size: ComposeTypes.Value<Vector2> = ctx.observeNative.AbsoluteWindowSize(root)
-		local position: ComposeTypes.Value<Vector2> = observe.CanvasPosition(root)
+		local size = ctx.observeNative.AbsoluteWindowSize(root)
+		local position = observe.CanvasPosition(root)
 		local mountParent = observe.Parent(root)
 		local ancestryVersion = Compose.cell(0)
 		runtime.connect(root, "AncestryChanged", function()
@@ -369,7 +370,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 			end)
 		end
 		bindNavigation(ctx, view, root, focusScope, eligible)
-		if spec.onReachEnd then
+		local onReachEnd = spec.onReachEnd
+		if onReachEnd then
 			local previousTotal = -1
 			Compose.watch(function(use: ComposeTypes.Use)
 				local current = use(status)
@@ -380,7 +382,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 					and current.total ~= previousTotal
 				then
 					previousTotal = current.total
-					spec.onReachEnd()
+					onReachEnd()
 				end
 			end)
 		end
@@ -396,7 +398,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		return root
 	end
 	local function construct<V, K>(
-		spec: CollectionProps.CollectionSpec<V, K> | CollectionProps.OutlineSpec<V, K>,
+		spec: { read key: ((V, number) -> K) | string? },
 		kind: ComposeTypes.OrderedCollectionLayoutKind,
 		tree: TreeTypes.Tree<V, K>?,
 		actionsWrapped: boolean?,
@@ -430,15 +432,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		)
 	end
 	local function list<V, K>(spec: CollectionProps.CollectionSpec<V, K>): ScrollingFrame
-		return construct(spec, "list")
+		return construct<<V, K>>(spec, "list")
 	end
 	local function grid<V, K>(spec: CollectionProps.CollectionSpec<V, K>): ScrollingFrame
-		return construct(spec, "grid")
+		return construct<<V, K>>(spec, "grid")
 	end
 
 	UI.Outline = ctx.construct("Outline", function<V, K>(spec: CollectionProps.OutlineSpec<V, K>): ScrollingFrame
 		assert(spec.children ~= nil, "Facet Outline requires children")
-		return construct(spec, "list")
+		return construct<<V, K>>(spec, "list")
 	end) :: ControlTypes.OutlineConstructor
 	UI.VirtualList = ctx.construct("VirtualList", list) :: ControlTypes.CollectionConstructor
 	UI.VirtualGrid = ctx.construct("VirtualGrid", grid) :: ControlTypes.CollectionConstructor
@@ -448,6 +450,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		actionsWrapped: boolean?,
 		scrollPolicy: ScrollPolicy?
 	): ScrollingFrame
-		return construct(spec, "list", tree, actionsWrapped, scrollPolicy)
+		return construct<<V, K>>(spec, "list", tree, actionsWrapped, scrollPolicy)
 	end
 end

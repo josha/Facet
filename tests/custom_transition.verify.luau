@@ -10,7 +10,51 @@ local engines = require("./lib/native_engine")
 local overlay = require("./lib/overlay_world")
 local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
+local function stack(UI: Facet.Controls, spec: Facet.NavigationStackSpec<string>): Frame
+	return UI.NavigationStack(spec)
+end
+
+local function defineTheme(definition: Facet.ThemeDefinition): Facet.ThemePackage
+	local package = Facet.themes.define(definition)
+	return assert(package)
+end
+
 return function(h: Verify.Harness)
+	h:case("steady chrome excludes a delayed heartbeat interval that predates its frame", function()
+		local engine = engines.new()
+		local now = 0
+		engine.clock = function()
+			return now
+		end
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local source = Facet.Compose.cell(0)
+		local progress: Facet.ReadOnlyValue<number>?
+		local root = Facet.Compose.createRootOwner(function()
+			local ctx = context(Facet.Compose, runtime, { types = engine.types })
+			progress = transitions.paced(
+				ctx,
+				function(use)
+					return use(source)
+				end,
+				Facet.Compose.cell(false),
+				function()
+					return 0.3
+				end,
+				function(value)
+					return value
+				end,
+				true
+			)
+		end, runtime.reactor)
+		source:set(1)
+		now = 0.01
+		engine.heartbeat:Fire(0.01)
+		now = 0.02
+		engine.heartbeat:Fire(0.25)
+		Verify.expect(math.abs(assert(progress):peek() - 0.02 / 0.3) < 0.00001):toBe(true)
+		root.dispose()
+		runtime:dispose()
+	end)
 	local function play(engine: engines.Engine, seconds: number)
 		local steps = math.ceil(seconds * 60)
 		for _ = 1, steps do
@@ -24,7 +68,7 @@ return function(h: Verify.Harness)
 				return UI.VStack {
 					UI.Button "Start" { label = "Start" } :: Instance,
 					UI.Button "Hud" { label = "Hud" } :: Instance,
-					UI.NavigationStack {
+					stack(UI, {
 						path = path,
 						chrome = "hidden",
 						transition = if variant == "zoom"
@@ -43,7 +87,7 @@ return function(h: Verify.Harness)
 								end,
 							},
 						},
-					},
+					}),
 				}
 			end)
 			w.gui.SelectedObject = w.find("Start")
@@ -88,7 +132,7 @@ return function(h: Verify.Harness)
 				BackgroundTransparency = if opaque then 0 else 1,
 				BackgroundColor3 = engine.types.Color3.new(0.2, 0.3, 0.4),
 				Size = engine.types.UDim2.fromScale(1, 1),
-				UI.NavigationStack {
+				stack(UI, {
 					path = path,
 					chrome = "hidden",
 					transition = transition,
@@ -104,7 +148,7 @@ return function(h: Verify.Harness)
 							end,
 						},
 					},
-				},
+				}),
 			}
 		end, if theme then { theme = theme } else nil)
 		return w, path
@@ -166,7 +210,7 @@ return function(h: Verify.Harness)
 		w.stop()
 	end)
 	h:case("the default zoom takes its plate range, duration and fade-led curves from theme tokens", function()
-		local package = assert(Facet.themes.define({
+		local package = defineTheme({
 			metrics = {
 				motion = {
 					durations = { zoomPresent = 0.5 },
@@ -174,7 +218,7 @@ return function(h: Verify.Harness)
 					materialize = { zoom = 0.8 },
 				},
 			},
-		}))
+		})
 		local w, path = stackWorld({ scale = true }, true, package)
 		path:set({ { id = "details", value = "item" } })
 		local page = w.find("DetailAction"):FindFirstAncestor("details")
@@ -194,8 +238,9 @@ return function(h: Verify.Harness)
 	h:case("the neutral zoom leads with opacity and keeps a small scale range", function()
 		local motionTokens = assert(Facet.themes.neutralPackage().metrics.motion)
 		local ease = Facet.Compose.easing
-		local fadeEase = ease[assert(assert(motionTokens.easing).zoomFade)]
-		local scaleEase = ease[assert(assert(motionTokens.easing).zoomScale)]
+		local names: { [string]: (number) -> number } = { outCubic = ease.outCubic, outSine = ease.outSine }
+		local fadeEase = assert(names[assert(assert(motionTokens.easing).zoomFade)])
+		local scaleEase = assert(names[assert(assert(motionTokens.easing).zoomScale)])
 		local from = assert(assert(motionTokens.materialize).zoom)
 		local seconds = assert(assert(motionTokens.durations).zoomPresent)
 		Verify.expect(from >= 0.85 and from < 1):toBe(true)
@@ -518,7 +563,7 @@ return function(h: Verify.Harness)
 			w.stop()
 		end
 	)
-	local stallTheme = assert(Facet.themes.define({ metrics = { motion = { frameLimit = 0.05 } } }))
+	local stallTheme = defineTheme({ metrics = { motion = { frameLimit = 0.05 } } })
 	local function preparedSplit(stalls: boolean?)
 		local column = Facet.Compose.cell("sidebar" :: "sidebar" | "detail")
 		local shown = Facet.Compose.cell(false)
@@ -743,7 +788,7 @@ return function(h: Verify.Harness)
 		local path = Facet.Compose.cell({} :: { Facet.NavigationEntry<string> })
 		local calls = 0
 		local w = worlds.new(function(UI: Facet.Controls)
-			return UI.NavigationStack {
+			return stack(UI, {
 				path = path,
 				transition = {
 					seconds = 0.4,
@@ -765,7 +810,7 @@ return function(h: Verify.Harness)
 						end,
 					},
 				},
-			}
+			})
 		end)
 		path:set({ { id = "details", value = "item" } })
 		play(w.engine, 0.2)

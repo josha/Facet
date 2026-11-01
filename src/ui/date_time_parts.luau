@@ -8,7 +8,7 @@ local ComposeTypes = require("../vendor/compose/core")
 type CivilDate = DTP.CivilDate
 type Range = DTP.Range
 type Use = ComposeTypes.Use
-export type Deps = ControlTypes.BuilderControls
+export type Deps = ControlTypes.Controls
 export type Parts = {
 	gui: GuiService?,
 	input: UserInputService?,

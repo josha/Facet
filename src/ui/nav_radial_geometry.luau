@@ -65,7 +65,7 @@ function geometry.sectors<V>(
 	return result
 end
 
-type LabelBounds = { w: number, h: number }
+type LabelBounds = { read w: number, read h: number }
 type LabelFit = {
 	x: number,
 	y: number,
@@ -76,7 +76,7 @@ type LabelFit = {
 	height: number,
 	bounds: LabelBounds,
 }
-local labelFits = setmetatable({} :: { [Radial.SectorShape]: LabelFit }, { __mode = "k" })
+local labelFits: { [Radial.SectorShape]: LabelFit } = setmetatable({}, { __mode = "k" })
 
 function geometry.labelBounds(s: Radial.SectorShape, height: number): LabelBounds
 	local cached = labelFits[s]
@@ -265,41 +265,14 @@ function geometry.paint(s: Radial.SectorShape): Radial.Paint
 		p.inX, p.inY = -p.outX, -p.outY
 	end
 
-	local outline: { pathShapes.PathPoint } = {}
-	for _, radius in { s.outer, s.inner } do
-		local arc = pathShapes.arc(start, span, { radius = radius / s.outer })
-		for _, endpoint in { { 1, -1 }, { #arc, 1 } } do
-			local p, edge = arc[endpoint[1]], endpoint[2]
-			local a = math.rad(s.angle + edge * s.span / 2)
-			p.x = 0.5 + (math.sin(a) * radius - edge * halfGap * math.cos(a)) / (2 * s.outer)
-			p.y = 0.5 + (-math.cos(a) * radius - edge * halfGap * math.sin(a)) / (2 * s.outer)
-		end
-		if radius == s.inner then
-			local reversed: { pathShapes.PathPoint } = {}
-			for i = #arc, 1, -1 do
-				local p = arc[i]
-				p.inX, p.outX = p.outX, p.inX
-				p.inY, p.outY = p.outY, p.inY
-				table.insert(reversed, p)
-			end
-			arc = reversed
-		end
-		arc[1].inX, arc[1].inY = 0, 0
-		arc[#arc].outX, arc[#arc].outY = 0, 0
-		for _, p in arc do
-			table.insert(outline, p)
-		end
+	for _, p in points do
+		p.x = (p.x * 2 * s.outer - s.outer - minX) / w
+		p.y = (p.y * 2 * s.outer - s.outer - minY) / h
+		p.inX *= 2 * s.outer / w
+		p.outX *= 2 * s.outer / w
+		p.inY *= 2 * s.outer / h
+		p.outY *= 2 * s.outer / h
 	end
-	for _, curve in { points, outline } do
-		for _, p in curve do
-			p.x = (p.x * 2 * s.outer - s.outer - minX) / w
-			p.y = (p.y * 2 * s.outer - s.outer - minY) / h
-			p.inX *= 2 * s.outer / w
-			p.outX *= 2 * s.outer / w
-			p.inY *= 2 * s.outer / h
-			p.outY *= 2 * s.outer / h
-		end
-	end
-	return { x = minX, y = minY, w = w, h = h, points = points, outline = outline }
+	return { x = minX, y = minY, w = w, h = h, points = points }
 end
 return geometry

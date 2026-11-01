@@ -318,30 +318,35 @@ end
 
 local function constructors(root: string): { [string]: string }
 	local text = Files.text(Files.join(root, CONTROLS))
-	local modules: { [string]: string } = {}
+	local imports: { [string]: string } = {}
 	for line in string.gmatch(text, "[^\n]+") do
 		local alias, module = string.match(line, '^local ([%w_]+) = require%("%./([%w_]+)"%)')
 		if alias and module then
-			modules[alias] = module
+			imports[alias] = module
 		end
 	end
 	local kinds: { [string]: string } = {}
+	local aliases = assert(modules[CONTROLS]).aliases
 	for line in string.gmatch(text, "[^\n]+") do
 		local kind, alias, typeName = string.match(line, "^\t(%u[%w]*): Constructor<([%w_]+)%.([%w_]+)")
 		if kind == nil then
 			local named, constructor = string.match(line, "^\t(%u[%w]*): ([%w_]+)Constructor,$")
 			if named and constructor then
-				local first = string.find(text, "\ntype " .. constructor .. "Shapes? =")
-					or string.find(text, "\nexport type " .. constructor .. "Shapes? =")
-				if first then
-					local stop = string.find(text, "\n%a", first + 1) or #text
-					local declaration = string.sub(text, first, stop)
-					local specAlias, specName = string.match(declaration, "=.-([%w_]+)%.([%w_]+)")
-					kind, alias, typeName = named, specAlias, specName
+				local declaration = aliases[constructor .. "Constructor"]
+				local seen: { [string]: boolean } = {}
+				while declaration and not seen[declaration] do
+					seen[declaration] = true
+					local specAlias, specName = string.match(declaration, "([%w_]+)%.([%w_]+)")
+					if specAlias then
+						kind, alias, typeName = named, specAlias, specName
+						break
+					end
+					declaration = aliases[trim(declaration)]
 				end
+				assert(kind ~= nil, `Design fields cannot resolve {named}'s constructor properties`)
 			end
 		end
-		local module = if alias then modules[alias] else nil
+		local module = if alias then imports[alias] else nil
 		if kind and module and typeName and kinds[kind] == nil then
 			kinds[kind] = module .. "." .. typeName
 		end

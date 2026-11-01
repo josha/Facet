@@ -1,8 +1,9 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
+local Facet = require("../src")
 local process = require("@std/process")
 local json = require("@std/json")
 local nativeApp = require("./native_app")
@@ -14,38 +15,41 @@ assert(size > 0 and size % 1 == 0 and samples > 0 and samples % 1 == 0, "invalid
 local world = nativeApp()
 local Compose: ComposeModule, Host = world.Compose, world.Host
 local owner = Compose.createOwner(world.runtime.reactor)
+type Row = { id: string, text: string }
 local children = {}
-local stop, root, items
+local stop: (() -> ())?
+local root: Instance?
+local items: Facet.Value<{ Row }>
 local started = os.clock()
 if workload == "children" then
 	for index = 1, size do
 		children[index] = Compose.owner.createChild(owner)
 	end
 else
-	local data = {}
+	local data: { Row } = {}
 	for index = 1, size do
 		data[index] = { id = tostring(index), text = `row {index}` }
 	end
 	items = Compose.cell(data)
 	stop, root = world.runtime.mount(function()
-		return Host.Folder({
+		return Host.Folder {
 			Compose.keyed({
 				from = items,
-				key = function(row: { id: string, text: string }): string
+				key = function(row: Row): string
 					return row.id
 				end,
-				render = function(current: ReadOnlyValue<{ id: string, text: string }>)
-					return Host.TextLabel({
+				render = function(current: ReadOnlyValue<Row>)
+					return Host.TextLabel {
 						Name = function(use: Use)
 							return use(current).id
 						end,
 						Text = function(use: Use)
 							return use(current).text
 						end,
-					})
+					}
 				end,
 			}),
-		})
+		}
 	end, world.target)
 end
 local mountMs = (os.clock() - started) * 1000

@@ -134,6 +134,5 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		return ctx.styled(picker, "color-picker")
 	end
 
-	local constructor = ctx.construct("ColorPicker", build)
-	UI.ColorPicker = (constructor :: unknown) :: Shared.Constructor<Spec, Frame>
+	UI.ColorPicker = ctx.construct("ColorPicker", build)
 end

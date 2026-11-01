@@ -32,9 +32,6 @@ return function(ctx: Types.Context, control: string)
 		end)
 	end
 	return {
-		attribute = function(value: unknown): Types.Input<Types.AttributeValue?>
-			return value :: Types.Input<Types.AttributeValue?>
-		end,
 		note = note,
 		list = function(): { string }
 			return table.clone(diagnostics)

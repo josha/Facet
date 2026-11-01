@@ -163,7 +163,7 @@ add("collection-toolbar-variants", { "risk:collection-toolbar" }, function(t)
 	}
 	for _, variant in variants do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
-			local ctx = {
+			local ctx: { [string]: unknown } = {
 				Facet = t.Facet,
 				Compose = Compose,
 				runtime = env.runtime,
@@ -174,9 +174,13 @@ add("collection-toolbar-variants", { "risk:collection-toolbar" }, function(t)
 				guiService = game:GetService("GuiService"),
 				runService = game:GetService("RunService"),
 			}
-			local built = if variant.module
-				then (require :: any)(folder:WaitForChild(variant.module)).build(ctx)
-				else assert(variant.build)(ctx)
+			local module = variant.module
+			local built
+			if module then
+				built = (require :: any)(folder:WaitForChild(module)).build(ctx)
+			else
+				built = assert(variant.build)(ctx)
+			end
 			return built.screen()
 		end, { size = size, frames = 20 })
 		local scroll = t.find(stage, "ToolbarScroll")

@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Facet = require("../src")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -7,8 +8,6 @@ return function(verifyHarness: Verify.Harness)
 
 	local Compose = require("../src/vendor/compose/core")
 	local Roblox = require("../src/vendor/compose/roblox")
-	local context = require("../src/ui/context")
-	local register = require("../src/ui/inputs")
 	local engineLib = require("./lib/native_engine")
 	local expect = Verify.expect
 
@@ -34,15 +33,13 @@ return function(verifyHarness: Verify.Harness)
 		local o = spec or {}
 		local engine: any = engineLib.new()
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-		local UI: any = {}
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		engine.environment.poke(input, "PreferredInput", engine.types.Enum.PreferredInput.KeyboardAndMouse)
-		local ctx = context(Compose, runtime, {
+		local UI = Facet.controls(runtime, {
 			types = engine.types,
 			services = { GuiService = gui, UserInputService = input },
 			guiService = gui,
 		})
-		register(ctx, UI)
 		local w: any = {
 			engine = engine,
 			runtime = runtime,
@@ -70,13 +67,14 @@ return function(verifyHarness: Verify.Harness)
 				merged[key] = entry
 			end
 		end
+		local props: Facet.NumberInputCellProps = merged
 		local screen = engine.new("ScreenGui")
 		w.screen = screen
 		w.stop = runtime.mount(function()
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+			return Facet.host(runtime).Frame({
 				Name = "Host",
 				Compose.show(w.visible, function()
-					return UI.NumberInput "Laps"(merged)
+					return UI.NumberInput "Laps"(props)
 				end),
 			})
 		end, screen)
@@ -115,16 +113,16 @@ return function(verifyHarness: Verify.Harness)
 				end
 				local engine: any = engineLib.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local UI: any = {}
-				register(context(Compose, runtime, { types = engine.types }), UI)
+				local UI = Facet.controls(runtime, { types = engine.types })
 				for _, key in { "stepButtons", "step", "precision", "prefix", "suffix", "scrub" } do
 					local ok = pcall(function()
 						local stop = runtime.mount(function()
-							local spec: any = { value = Compose.cell("") }
-							spec[key] = if key == "stepButtons" or key == "scrub"
+							local fields: any = { value = Compose.cell("") }
+							fields[key] = if key == "stepButtons" or key == "scrub"
 								then true
 								elseif key == "prefix" or key == "suffix" then "$"
 								else 1
+							local spec: Facet.TextInputCellProps = fields
 							return UI.TextInput "T"(spec)
 						end, engine.new("ScreenGui"))
 						stop()

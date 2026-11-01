@@ -15,16 +15,18 @@ local visible = Compose.cell(true)
 local maximum = Compose.cell(480)
 local stackProps: Facet.StackProps =
 	{ Name = "Toolbar", maxWidth = 480, gap = "m", padding = { left = "xs", top = 4 }, align = "center" }
-local screen: Frame = UI.Screen({
+local screen: Frame = UI.Screen {
 	maxWidth = 640,
 	surface = "surface",
 	gap = gap,
 	padding = "l",
 	distribute = "spaceBetween",
-	UI.Text({ text = "Title" }),
-})
-local named: Frame = UI.Screen("Home")({ padding = 0 })
-local column: Frame = UI.VStack({
+	UI.Text { text = "Title" },
+}
+local named: Frame = UI.Screen "Home" { padding = 0 }
+local optionalChild: Frame? = if visible:peek() then Host.Frame {} else nil
+local optionalChildren: Frame = UI.VStack { optionalChild, nil, Host.Frame {} }
+local column: Frame = UI.VStack {
 	gap = "s",
 	width = width,
 	maxWidth = maximum,
@@ -32,25 +34,25 @@ local column: Frame = UI.VStack({
 	wrap = true,
 	BackgroundTransparency = 0.5,
 	Visible = visible,
-	UI.Button({ label = "Save" }),
-})
+	UI.Button { label = "Save" },
+}
 local row: Frame = UI.HStack(stackProps)
-local readout: Frame = UI.HStack({ surface = "panel", corners = "pill", padding = "s", UI.Text({ text = "12" }) })
-local tile: Frame = UI.VStack({ surface = "pane", corners = 6 })
-local framed: Frame = UI.VStack({ surface = "surface", corners = "panel" })
+local readout: Frame = UI.HStack { surface = "panel", corners = "pill", padding = "s", UI.Text { text = "12" } }
+local tile: Frame = UI.VStack { surface = "pane", corners = 6 }
+local framed: Frame = UI.VStack { surface = "surface", corners = "panel" }
 local adaptiveProps: Facet.AdaptiveStackProps = { maxWidth = maximum, gap = "s", axis = "x" }
 local adaptive: Frame = UI.AdaptiveStack(adaptiveProps)
-local fits: Frame = UI.ViewThatFits({ maxWidth = 480, UI.Text({ text = "Wide" }), UI.Text({ text = "Narrow" }) })
-local layers: Frame = UI.ZStack({ maxWidth = maximum, alignH = "center", alignV = "end", padding = "s" })
-local page: ScrollingFrame = UI.ScrollView({
+local fits: Frame = UI.ViewThatFits { maxWidth = 480, UI.Text { text = "Wide" }, UI.Text { text = "Narrow" } }
+local layers: Frame = UI.ZStack { maxWidth = maximum, alignH = "center", alignV = "end", padding = "s" }
+local page: ScrollingFrame = UI.ScrollView {
 	maxWidth = 640,
 	axis = "y",
 	gap = "s",
 	align = "stretch",
 	ScrollBarThickness = 6,
-})
-local sideways: ScrollingFrame = UI.ScrollView("Rail")({ axis = "x" })
-local grid: Frame = UI.Grid({
+}
+local sideways: ScrollingFrame = UI.ScrollView "Rail" { axis = "x" }
+local grid: Frame = UI.Grid {
 	maxWidth = 640,
 	columns = 3,
 	gap = "s",
@@ -58,23 +60,25 @@ local grid: Frame = UI.Grid({
 	cellHeight = 60,
 	aspectRatio = 1,
 	align = "center",
-})
-local guarded: Frame = UI.ErrorBoundary("Region")({
+}
+local guarded: Frame = UI.ErrorBoundary "Region" {
 	maxWidth = function(use: Facet.Use): number
 		return use(maximum)
 	end,
 	view = function()
-		return Host.Frame({})
+		return Host.Frame {}
 	end,
 	fallback = function(failure: unknown, retry: () -> ())
-		return Host.TextButton({
+		return Host.TextButton {
 			Text = tostring(failure),
-			Activated = retry,
-		})
+			Activated = function(_input: InputObject, _clicks: number)
+				retry()
+			end,
+		}
 	end,
 	onError = function(_failure: unknown) end,
 	width = "fill",
-})
+}
 local flexible: UIFlexItem = UI.fill()
 local weighted: UIFlexItem = UI.fill(2)
 local padding: Facet.Padding = { right = "xl" }
@@ -87,26 +91,26 @@ local dividerProps: Facet.DividerProps = { axis = "x", thickness = "strokes.hair
 local divider: Frame = UI.Divider(dividerProps)
 local spacerProps: Facet.SpacerProps = { minLength = "m" }
 local spacer: Frame = UI.Spacer(spacerProps)
-local adaptive: Frame = UI.AdaptiveStack({ axis = "x", gap = "s" })
-local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Long" }), UI.Text({ text = "L" }) })
+local adaptive: Frame = UI.AdaptiveStack { axis = "x", gap = "s" }
+local fits: Frame = UI.ViewThatFits { UI.Text { text = "Long" }, UI.Text { text = "L" } }
 local chosen: Facet.Value<number> = Compose.cell(1)
-local region: Frame = UI.Region("Tasks")({
+local region: Frame = UI.Region "Tasks" {
 	zone = "left",
 	rank = 2,
 	mayDrop = true,
 	form = chosen,
 	expand = function(): Instance
-		return UI.Text({ text = "Win a round" })
+		return UI.Text { text = "Win a round" }
 	end,
-	UI.Text({ text = "Tasks" }),
-	UI.Text({ text = "1/3" }),
-})
-local hud: Frame = UI.Composition("Hud")({ gap = "s", padding = "m", topbar = visible, region })
+	UI.Text { text = "Tasks" },
+	UI.Text { text = "1/3" },
+}
+local hud: Frame = UI.Composition "Hud" { gap = "s", padding = "m", topbar = visible, region }
 local compactInset = true
 local topInset: Facet.Sides = { top = "xl" }
 local optionalInset: Facet.Sides = { top = if compactInset then "xl" else nil, right = 0, bottom = 0, left = 0 }
-local paddedTop: Frame = UI.VStack("PaddedTop")({ padding = topInset })
-local paddedOptional: Frame = UI.VStack("PaddedOptional")({ padding = optionalInset })
+local paddedTop: Frame = UI.VStack "PaddedTop" { padding = topInset }
+local paddedOptional: Frame = UI.VStack "PaddedOptional" { padding = optionalInset }
 
 return {
 	paddedTop = paddedTop,

@@ -10,18 +10,19 @@ type Lease = {
 	suspended: ComposeTypes.Value<boolean>,
 }
 
-local leases = setmetatable({} :: { [GuiService]: Lease }, { __mode = "k" })
+local leases: { [GuiService]: Lease } = setmetatable({}, { __mode = "k" })
 
 local function leaseFor(ctx: Types.Context, gui: GuiService): Lease
 	local lease = leases[gui]
 	if lease == nil then
-		lease = {
+		local created: Lease = {
 			touches = 0,
 			suspensions = 0,
 			before = true,
-			suspended = ctx.Compose.cell(false),
+			suspended = ctx.Compose.cell<<boolean>>(false),
 		}
-		leases[gui] = lease
+		leases[gui] = created
+		return created
 	end
 	return lease
 end

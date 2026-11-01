@@ -6,6 +6,7 @@ local motion = require("./motion")
 local fontReadiness = require("./font_readiness")
 local arrival = require("./overlay_arrival")
 local textMeasure = require("./text_measure")
+type Departure = { exit: ({ ComposeTypes.Node }) -> ComposeTypes.Exiting }
 
 export type Presence = {
 	appearance: (Nav.PresencePhase?, Nav.MotionTiming, ComposeTypes.ReadOnlyValue<boolean>?) -> Nav.Presence,
@@ -15,7 +16,7 @@ export type Presence = {
 		{ GuiObject },
 		((ComposeTypes.Use) -> string)?
 	) -> ({ ComposeTypes.ReadOnlyValue<Vector2> }, ComposeTypes.ReadOnlyValue<boolean>),
-	departure: (Nav.MotionTiming, GuiObject, () -> boolean) -> ComposeTypes.PresenceOptions,
+	departure: (Nav.MotionTiming, GuiObject, () -> boolean) -> Departure,
 }
 
 return function(ctx: Types.Context): Presence
@@ -63,7 +64,7 @@ return function(ctx: Types.Context): Presence
 		end
 		local last = 0
 		type Anchor = { p: number, o: number }
-		local anchor: ComposeTypes.Value<Anchor> = Compose.cell({ p = 0, o = 0 } :: Anchor)
+		local anchor = Compose.cell<<Anchor>>({ p = 0, o = 0 })
 		local function opacity(use: ComposeTypes.Use?): number
 			local p = raw(use)
 			if level(use) ~= "normal" then
@@ -99,11 +100,12 @@ return function(ctx: Types.Context): Presence
 	): ({ ComposeTypes.ReadOnlyValue<Vector2> }, ComposeTypes.ReadOnlyValue<boolean>)
 		local live: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 		for index, node in nodes do
-			live[index] = (runtime.observe(node, "AbsoluteSize") :: unknown) :: ComposeTypes.ReadOnlyValue<Vector2>
+			live[index] = ctx.observeNative.AbsoluteSize(node)
 		end
 		local fontsReady = fontReadiness(ctx, nodes)
 		local sampled: { Vector2 } = {}
-		local snapshot, complete, allowed = "", false, nil :: boolean?
+		local snapshot, complete = "", false
+		local allowed: boolean? = nil
 		local rested = ctx.runtime.settled {
 			sample = function(): string
 				return snapshot
@@ -177,15 +179,11 @@ return function(ctx: Types.Context): Presence
 		end
 		return false
 	end
-	local function departure(
-		timing: Nav.MotionTiming,
-		anchor: GuiObject,
-		shown: () -> boolean
-	): ComposeTypes.PresenceOptions
+	local function departure(timing: Nav.MotionTiming, anchor: GuiObject, shown: () -> boolean): Departure
 		local level = motion.level(ctx)
 		local scheduler = runtime.scheduler()
 		return {
-			exit = function()
+			exit = function(_nodes: { ComposeTypes.Node })
 				local current = level()
 				if not shown() or not attached(anchor) or current == "none" then
 					scheduler.cancel("exit")

@@ -4,9 +4,9 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-	type Use = <T>(ReadOnlyValue<T>) -> T
 
+	local Facet = require("../src")
+	type Use = Facet.Use
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
 	local reservations = require("../src/ui/reservations")
@@ -43,18 +43,20 @@ return function(verifyHarness: Verify.Harness)
 	type Entry = { c: Caller, message: string?, spec: { [string]: any }? }
 
 	local noop = function() end
-	local UNDO = { label = "Undo", onActivate = noop }
+	local UNDO: Facet.ToastAction = { label = "Undo", onActivate = noop }
 
-	local function mount(list: { Entry }, options: any?): any
-		local o = options or {}
+	type MountOptions = { motionLevel: "normal" | "limited" | "none"?, size: Vector2?, runService: boolean? }
+
+	local function mount(list: { Entry }, options: MountOptions?): any
+		local o: MountOptions = options or {}
 		local gate = Compose.cell(true)
 		local w = overlay.new(
 			function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({
+				return Host.Frame {
 					Name = "Page",
-					UI.Button "Content" { label = "Content" } :: unknown,
+					UI.Button "Content" { label = "Content" },
 					Compose.show(gate, function()
-						local nodes: { any } = {}
+						local nodes: { Facet.Child } = {}
 						for index, entry in list do
 							local spec: any = {
 								isPresented = entry.c.shown,
@@ -66,11 +68,11 @@ return function(verifyHarness: Verify.Harness)
 							for key, value in (entry.spec or {} :: { [string]: any }) do
 								spec[key] = value
 							end
-							table.insert(nodes, UI.Toast(`S{index}`)(spec))
+							table.insert(nodes, UI.Toast(spec, `S{index}`))
 						end
-						return Host.Frame({ Name = "Holder", table.unpack((nodes :: unknown) :: { unknown }) })
+						return Host.Frame { Name = "Holder", table.unpack(nodes) }
 					end),
-				})
+				}
 			end,
 			{ motionLevel = o.motionLevel or "none" },
 			{ size = o.size or Vector2.new(390, 844), runService = o.runService }
@@ -165,7 +167,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((w.rows())):toBe(0)
 				Verify.expect(w.screen:GetAttribute("FacetInsetBottom") or 0):toBe(0)
 				Verify.expect((w.find("S1"):GetAttribute("ToastQueued"))):toBe(false)
-				local stops = {}
+				local stops: { string } = {}
 				local registration = w.find("S1")
 				for _, node in w.screen:GetDescendants() do
 					if node:IsA("GuiObject") and node.Selectable and node:IsDescendantOf(registration) then
@@ -476,7 +478,7 @@ return function(verifyHarness: Verify.Harness)
 						isPresented = shown,
 						message = "Saved",
 						action = UNDO,
-						onPresentedChange = function()
+						onPresentedChange = function(_: boolean): ()
 							error("proposal bug")
 						end,
 					}
@@ -633,9 +635,9 @@ return function(verifyHarness: Verify.Harness)
 				local runs, reasons = 0, {}
 				local shown = Compose.cell(true)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
+					return Host.Frame {
 						Compose.show(shown, function()
-							return Host.Frame({
+							return Host.Frame {
 								UI.Toast "A" {
 									message = "Kart sold",
 									action = {
@@ -649,7 +651,7 @@ return function(verifyHarness: Verify.Harness)
 									)
 										table.insert(reasons, reason)
 									end,
-								} :: unknown,
+								},
 								UI.Toast "B" {
 									message = "Saved",
 									action = UNDO,
@@ -659,9 +661,9 @@ return function(verifyHarness: Verify.Harness)
 										table.insert(reasons, reason)
 									end,
 								},
-							})
+							}
 						end),
-					})
+					}
 				end, { motionLevel = "none" })
 				frames(w, 30)
 				Verify.expect((w.find("A"):GetAttribute("ToastVisible"))):toBe(true)

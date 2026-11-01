@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../../tools/vendor/verify/src/core")
+local Bdd = require("../../tools/vendor/verify/src/bdd")
 local commands = require("../../tools/facet/commands")
 local Loader = require("../lib/loader")
 local Run = require("../../tools/facet/lib/run")
@@ -13,43 +14,46 @@ local system = require("@std/system")
 local process = require("@std/process")
 
 return function(harness: Verify.Harness)
-	harness:case("test workers can fill the CPU budget and respect memory and explicit limits", function()
+	local test = Bdd.create(harness)
+	local describe, it, expect = test.describe, test.it, test.expect
+	it("test workers can fill the CPU budget and respect memory and explicit limits", function()
 		local Policy = require("../../tools/facet/lib/gate")
 		local gibibyte = 1024 ^ 3
-		Verify.expect(Policy.workerCount(3, 16 * gibibyte, 100)):toBe(3)
-		Verify.expect(Policy.workerCount(4, 16 * gibibyte, 100)):toBe(4)
-		Verify.expect(Policy.workerCount(1, 16 * gibibyte, 100)):toBe(1)
-		Verify.expect(Policy.workerCount(16, 64 * gibibyte, 100)):toBe(8)
-		Verify.expect(Policy.workerCount(16, 4 * gibibyte, 100)):toBe(1)
-		Verify.expect(Policy.workerCount(16, 64 * gibibyte, 3)):toBe(3)
-		Verify.expect(Policy.workerCount(3, 16 * gibibyte, 100, 4)):toBe(4)
-		Verify.expect(Policy.workerCount(16, 4 * gibibyte, 100, 8)):toBe(1)
+		expect(Policy.workerCount(3, 16 * gibibyte, 100)):toBe(3)
+		expect(Policy.workerCount(4, 16 * gibibyte, 100)):toBe(4)
+		expect(Policy.workerCount(1, 16 * gibibyte, 100)):toBe(1)
+		expect(Policy.workerCount(16, 64 * gibibyte, 100)):toBe(8)
+		expect(Policy.workerCount(16, 4 * gibibyte, 100)):toBe(1)
+		expect(Policy.workerCount(16, 64 * gibibyte, 3)):toBe(3)
+		expect(Policy.workerCount(3, 16 * gibibyte, 100, 4)):toBe(4)
+		expect(Policy.workerCount(16, 4 * gibibyte, 100, 8)):toBe(1)
 		local sources = { "native_fields", "native_collections", "container_transfer", "hud_timer" }
 		local override = tonumber(process.env.FACET_TEST_WORKERS or "")
-		Verify.expect(Policy.tests("host-worker-units", sources).workers)
-			:toBe(Policy.workerCount(system.threadCount(), system.totalMemory() * 1024 ^ 2, #sources, override))
+		expect(Policy.tests("host-worker-units", sources).workers):toBe(
+			Policy.workerCount(system.threadCount(), system.totalMemory() * 1024 ^ 2, #sources, override)
+		)
 		for _, invalid in { 0, -1, 1.5, math.huge } do
-			Verify.expect(function()
+			expect(function()
 				Policy.workerCount(8, 16 * gibibyte, 100, invalid)
 			end):toThrow("positive integer")
 		end
 	end)
-	harness:case("the gate audits off-reference scenes and preserves reference timing", function()
+	it("the gate audits off-reference scenes and preserves reference timing", function()
 		local Policy = require("../../tools/facet/lib/gate")
 		for _, reference in { false, true } do
 			local found = false
 			for _, producer in Policy.draft(reference).producers do
 				if producer.id == "perf" then
 					found = true
-					Verify.expect(producer.env):toEqual({ FACET_PERF_TIMING = tostring(reference) })
-					Verify.expect(producer.argv):toEqual({ "lute", "run", "tools/facet", "perf", "run" })
-					Verify.expect(producer.requires):toBe(nil)
+					expect(producer.env):toEqual({ FACET_PERF_TIMING = tostring(reference) })
+					expect(producer.argv):toEqual({ "lute", "run", "tools/facet", "perf", "run" })
+					expect(producer.requires):toBe(nil)
 				end
 			end
-			Verify.expect(found):toBe(true)
+			expect(found):toBe(true)
 		end
 	end)
-	harness:case("consumer type cache reuses only matching analyzer, definitions and configuration", function(t)
+	it("consumer type cache reuses only matching analyzer, definitions and configuration", function(_own, t)
 		local sources: { [string]: string } = {
 			["sample.luau"] = "--!strict\nlocal value: number = 1\n",
 			["default.project.json"] = '{"tree":{"Shared":{"$path":"shared"}}}',
@@ -206,7 +210,7 @@ return function(harness: Verify.Harness)
 		standalone()
 		t:expect(analyses):toBe(9)
 	end)
-	harness:case("author replay counts a requested saved report without running a project", function(t)
+	it("author replay counts a requested saved report without running a project", function(_own, t)
 		local root = Files.temporaryDirectory("facet-author-replay")
 		t:defer(function()
 			Files.remove(root)
@@ -243,7 +247,7 @@ return function(harness: Verify.Harness)
 		t:expect(string.find(static, "docs Stack.props", 1, true) ~= nil):toBe(true)
 		t:expect(string.find(static, "Keep this advice", 1, true) ~= nil):toBe(true)
 	end)
-	harness:case("short type diagnostics point to typed options and retain the complete input finding", function(t)
+	it("short type diagnostics point to typed options and retain the complete input finding", function(_own, t)
 		local finding: Static.Finding = {
 			severity = "error",
 			rule = "types",
@@ -255,7 +259,7 @@ return function(harness: Verify.Harness)
 		t:expect(#output < 400):toBe(true)
 		t:expect(#finding.message > 800):toBe(true)
 	end)
-	harness:case("verify rejects a Sheet captured before it enters the viewport", function(t)
+	it("verify rejects a Sheet captured before it enters the viewport", function(_own, t)
 		local Look = require("../../tools/facet/lib/look")
 		local dump = Look.decode(Look.sample(false))
 		local panel = dump.elements[1]
@@ -270,7 +274,7 @@ return function(harness: Verify.Harness)
 		end
 		t:expect(found):toBe(true)
 	end)
-	harness:case("audit reports a HUD zone that moved under a corner into the play view", function(t)
+	it("audit reports a HUD zone that moved under a corner into the play view", function(_own, t)
 		local Look = require("../../tools/facet/lib/look")
 		local dump = Look.decode(Look.sample(false))
 		local template = dump.elements[1]
@@ -302,21 +306,21 @@ return function(harness: Verify.Harness)
 		zone("Bottom", 40, 548, 300, 40)
 		t:expect(covered()):toBe(1)
 	end)
-	harness:case("static output groups by rule message and hint and bounds locations", function(t)
+	it("static output groups by rule message and hint and bounds locations", function(_own, t)
 		local findings: { Static.Finding } = {}
 		for index = 1, 8 do
-			table.insert(findings, {
+			local finding: Static.Finding = {
 				rule = "types",
 				severity = "error",
 				message = "Wrong width",
 				hint = "Use Size",
 				location = `a.luau:{index}`,
-			})
+			}
+			table.insert(findings, finding)
 		end
-		table.insert(
-			findings,
+		local last: Static.Finding =
 			{ rule = "types", severity = "error", message = "Wrong width", hint = "Use fill", location = "b.luau:1" }
-		)
+		table.insert(findings, last)
 		local text = table.concat(Static.render(findings), "\n")
 		local _, messages = string.gsub(text, "Wrong width", "")
 		t:expect(messages):toBe(2)
@@ -329,22 +333,22 @@ return function(harness: Verify.Harness)
 		end
 		t:expect(Static.layoutHint("unknown")):toBe(nil)
 	end)
-	harness:case("live static warnings print counts and a report path without advice or locations", function(t)
+	it("live static warnings print counts and a report path without advice or locations", function(_own, t)
 		local warning: Static.Finding =
 			{ rule = "raw-input", severity = "warning", message = "Advice", location = "a:1" }
 		local result = table.concat(Static.render({ warning, warning }, true), "\n")
 		t:expect(result):toBe("warning [raw-input] 2 finding(s); read artifacts/facet-lint/report.txt")
 		t:expect(string.find(table.concat(Static.render({ warning }), "\n"), "Advice", 1, true) ~= nil):toBe(true)
 	end)
-	harness:case("only stack cascades explained by nested child option errors are hidden", function(t)
-		local source = 'UI.VStack "Rows" {\n UI.Text { width = "fill" },\n}\nUI.VStack { gap = false }'
+	it("only stack cascades explained by nested child option errors are hidden", function(_own, t)
+		local source = 'UI.VStack({\n UI.Text { width = "fill" },\n}, "Rows")\nUI.VStack { gap = false }'
 		local function diagnostic(line: number, column: number, message: string): Analyzer.Diagnostic
 			return { file = "a.luau", line = line, column = column, kind = "TypeError", message = message }
 		end
 		local diagnostics = {
 			diagnostic(1, 1, "None of the overloads for function"),
 			diagnostic(1, 1, "Available overloads: (StackProps) -> Frame"),
-			diagnostic(2, 12, "Expected this to be 'EventKey | number', but got '\"width\"'"),
+			diagnostic(2, 12, "Expected this to be 'number', but got '\"width\"'"),
 			diagnostic(4, 1, "None of the overloads for function"),
 			diagnostic(4, 1, "Available overloads: (StackProps) -> Frame"),
 		}
@@ -365,10 +369,10 @@ return function(harness: Verify.Harness)
 		diagnostics[3].file = "other.luau"
 		t:expect((next(Static.cascades(diagnostics, { ["a.luau"] = source })))):toBe(nil)
 	end)
-	harness:case("first docs call contains the small task map and recoverable node discovery", function()
+	it("first docs call contains the small task map and recoverable node discovery", function()
 		local first = Run.capture({ Run.lute(), "run", "tools/facet", "docs" })
-		Verify.expect(first.ok):toBe(true)
-		Verify.expect(#first.stdout <= 2048):toBe(true)
+		expect(first.ok):toBe(true)
+		expect(#first.stdout <= 2048):toBe(true)
 		for _, text in
 			{
 				"Tasks.collection-detail",
@@ -381,18 +385,18 @@ return function(harness: Verify.Harness)
 				"<Control>.props",
 			}
 		do
-			Verify.expect(string.find(first.stdout, text, 1, true) ~= nil):toBe(true)
+			expect(string.find(first.stdout, text, 1, true) ~= nil):toBe(true)
 		end
 		local theme = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "Theme packages" })
-		Verify.expect(theme.ok):toBe(true)
-		Verify.expect(string.find(theme.stdout, "Resolved 'Theme packages' to Tasks.theme.", 1, true) ~= nil):toBe(true)
+		expect(theme.ok):toBe(true)
+		expect(string.find(theme.stdout, "Resolved 'Theme packages' to Tasks.theme.", 1, true) ~= nil):toBe(true)
 		local layout = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "Sizing and layout" })
-		Verify.expect(layout.ok):toBe(true)
-		Verify.expect(string.find(layout.stdout, "Open one path", 1, true) ~= nil):toBe(true)
+		expect(layout.ok):toBe(true)
+		expect(string.find(layout.stdout, "Open one path", 1, true) ~= nil):toBe(true)
 	end)
-	harness:case(
+	it(
 		"verify accepts BOM and mixed public reactive types and audits saved evidence without Studio",
-		function(context)
+		function(_own, context)
 			local directory = Files.temporaryDirectory("facet-verify-consumer")
 			context:defer(function()
 				Files.remove(directory)
@@ -400,12 +404,12 @@ return function(harness: Verify.Harness)
 			local source = Files.join(directory, "main.client.luau")
 			local project = Files.join(directory, "default.project.json")
 			local dump = Files.join(directory, "dump.json")
-			local text = [[--!strict
+			local text = [=[--!strict
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 local Compose = Facet.Compose
 local app = Facet.app()
 local UI = app.UI
-local Host = app.runtime.constructors
+local Host = Facet.host(app.runtime)
 local UserInputService = game:GetService("UserInputService")
 UserInputService.InputBegan:Connect(function() end)
 UserInputService.InputBegan:Connect(function() end)
@@ -450,7 +454,7 @@ app.mount(function()
     }
     return UI.Screen "Root" { UI.VirtualList "Entries" (spec) }
 end)
-]]
+]=]
 			Files.write(source, "\239\187\191" .. text)
 			Files.write(
 				project,
@@ -483,40 +487,43 @@ end)
 				"--static",
 			}
 			local static = Run.capture(command)
-			Verify.expect(static.ok):toBe(true)
-			Verify.expect(Files.read(source)):toBe(text)
-			Verify.expect(string.find(static.stdout, "not checked (--static)", 1, true) ~= nil):toBe(true)
-			Verify.expect(string.find(static.stdout, "facet lint:", 1, true) == nil):toBe(true)
-			Verify.expect(string.find(static.stdout, "verify: PASS", 1, true) ~= nil):toBe(true)
-			Verify.expect(string.find(static.stdout, "Let controls own activation", 1, true) ~= nil):toBe(true)
+			expect(static.ok):toBeTrueWith(static.stdout .. static.stderr)
+			expect(Files.read(source)):toBe(text)
+			expect(string.find(static.stdout, "not checked (--static)", 1, true) ~= nil):toBeTrueWith(static.stdout)
+			expect(string.find(static.stdout, "facet lint:", 1, true) == nil):toBeTrueWith(static.stdout)
+			expect(string.find(static.stdout, "verify: PASS", 1, true) ~= nil):toBeTrueWith(static.stdout)
+			expect(string.find(static.stdout, "Let controls own activation", 1, true) ~= nil):toBeTrueWith(
+				static.stdout
+			)
 			table.remove(command)
 			for _, argument in { "--dump", dump, "--device", "desktop" } do
 				table.insert(command, argument)
 			end
 			local saved = Run.capture(command)
-			Verify.expect(string.find(saved.stdout, "saved evidence only", 1, true) ~= nil):toBe(true)
-			Verify.expect(
+			expect(string.find(saved.stdout, "saved evidence only", 1, true) ~= nil):toBeTrueWith(saved.stdout)
+			expect(
 				string.find(
 					saved.stdout,
 					"warning [raw-input] 2 finding(s); read artifacts/facet-lint/report.txt",
 					1,
 					true
 				) ~= nil
-			):toBe(true)
-			Verify.expect({
+			):toBeTrueWith(saved.stdout)
+			expect({
 				output = "saved",
 				found = string.find(saved.stdout, "Let controls own activation", 1, true),
 			}):toEqual({ output = "saved" })
 			Files.write(dump, Look.sample(true))
 			local weak = Run.capture(command)
-			Verify.expect(weak.ok):toBe(false)
-			Verify.expect(string.find(weak.stdout, "verify: FAIL", 1, true) ~= nil):toBe(true)
-			Verify.expect(string.find(weak.stdout, "[text-truncated]", 1, true) ~= nil):toBe(true)
-			Verify.expect({ output = "weak", found = string.find(weak.stdout, "Let controls own activation", 1, true) })
-				:toEqual({ output = "weak" })
+			expect(not weak.ok):toBeTrueWith(weak.stdout)
+			expect(string.find(weak.stdout, "verify: FAIL", 1, true) ~= nil):toBeTrueWith(weak.stdout)
+			expect(string.find(weak.stdout, "[text-truncated]", 1, true) ~= nil):toBeTrueWith(weak.stdout)
+			expect({ output = "weak", found = string.find(weak.stdout, "Let controls own activation", 1, true) }):toEqual({
+				output = "weak",
+			})
 			local children: { string } = {}
 			for index = 1, 8 do
-				table.insert(children, ('UI.Text "Bad%d" { text = "Bad", width = "fill" },'):format(index))
+				table.insert(children, ('UI.Text { Name = "Bad%d", text = 1 },'):format(index))
 			end
 			Files.write(
 				source,
@@ -524,20 +531,26 @@ end)
 			)
 			local invalid =
 				Run.capture({ Run.lute(), "run", "tools/facet", "lint", source, "--types", "--project", project })
-			Verify.expect(invalid.ok):toBe(false)
-			Verify.expect(string.find(invalid.stdout, "and 3 more", 1, true) ~= nil):toBe(true)
-			Verify.expect({ output = "invalid", found = string.find(invalid.stdout, "Available overloads", 1, true) })
-				:toEqual({ output = "invalid" })
-			Verify.expect({ output = "invalid", found = string.find(invalid.stdout, "None of the overloads", 1, true) })
-				:toEqual({ output = "invalid" })
+			expect(not invalid.ok):toBeTrueWith(invalid.stdout .. invalid.stderr)
+			expect(string.find(invalid.stdout, "and 3 more", 1, true) ~= nil):toBeTrueWith(invalid.stdout)
+			expect({ output = "invalid", found = string.find(invalid.stdout, "Available overloads", 1, true) }):toEqual({
+				output = "invalid",
+			})
+			expect({ output = "invalid", found = string.find(invalid.stdout, "None of the overloads", 1, true) }):toEqual({
+				output = "invalid",
+			})
 			local report = Files.read("artifacts/facet-lint/report.txt")
-			Verify.expect(string.find(report, "Available overloads", 1, true) ~= nil):toBe(true)
-			Verify.expect(string.find(report, "None of the overloads", 1, true) ~= nil):toBe(true)
-			local _, widths = string.gsub(report, "got '\"width\"'", "")
-			Verify.expect(widths):toBe(8)
+			local _, widths = string.gsub(report, "error %[types%]", "")
+			expect(widths):toBe(8)
+			Files.write(source, text .. '\nUI.VirtualList(42, "BadList")\n')
+			local overloaded =
+				Run.capture({ Run.lute(), "run", "tools/facet", "lint", source, "--types", "--project", project })
+			expect(overloaded.ok):toBe(false)
+			local overloads = Files.read("artifacts/facet-lint/report.txt")
+			expect(string.find(overloads, "error [types]", 1, true) ~= nil):toBeTrueWith(overloads)
 		end
 	)
-	harness:case("author docs bound broad reads and return paths for a batch", function()
+	it("author docs bound broad reads and return paths for a batch", function()
 		local compact = Run.capture({
 			Run.lute(),
 			"run",
@@ -556,43 +569,41 @@ end)
 			"Selection and gamepad focus",
 			"Typed collections",
 		})
-		Verify.expect(compact.ok):toBe(true)
-		Verify.expect(#compact.stdout <= 4096):toBe(true)
-		Verify.expect(string.find(compact.stdout, "Open one path", 1, true) ~= nil):toBe(true)
+		expect(compact.ok):toBe(true)
+		expect(#compact.stdout <= 4096):toBe(true)
+		expect(string.find(compact.stdout, "Open one path", 1, true) ~= nil):toBe(true)
 		local full = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "VirtualList", "VirtualGrid", "--full" })
-		Verify.expect(full.ok):toBe(true)
+		expect(full.ok):toBe(true)
 		local _, lists = string.gsub(full.stdout, "VirtualList.card %-", "")
 		local _, grids = string.gsub(full.stdout, "VirtualGrid.card %-", "")
-		Verify.expect(lists):toBe(1)
-		Verify.expect(grids):toBe(1)
-		Verify.expect(string.find(full.stdout, "```luau", 1, true) == nil):toBe(true)
+		expect(lists):toBe(1)
+		expect(grids):toBe(1)
+		expect(string.find(full.stdout, "```luau", 1, true) == nil):toBe(true)
 		local card = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "VirtualGrid.card" })
-		Verify.expect(card.ok):toBe(true)
-		Verify.expect(string.find(card.stdout, "minColumnWidth", 1, true) ~= nil):toBe(true)
+		expect(card.ok):toBe(true)
+		expect(string.find(card.stdout, "minColumnWidth", 1, true) ~= nil):toBe(true)
 	end)
-	harness:case("author setup and task recipes fit a short first read", function()
+	it("author setup and task recipes fit a short first read", function()
 		local info = Run.capture({ Run.lute(), "run", "tools/facet", "info" })
-		Verify.expect(info.ok):toBe(true)
-		Verify.expect(#info.stdout < 3200):toBe(true)
+		expect(info.ok):toBe(true)
+		expect(#info.stdout < 3200):toBe(true)
 		local recipes = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "Tasks.collection-detail" })
-		Verify.expect(recipes.ok):toBe(true)
-		Verify.expect(#recipes.stdout <= 2048):toBe(true)
-		Verify.expect(string.find(recipes.stdout, "Facet.ReadOnlyValue<Item>", 1, true) ~= nil):toBe(true)
+		expect(recipes.ok):toBe(true)
+		expect(#recipes.stdout <= 2048):toBe(true)
+		expect(string.find(recipes.stdout, "Facet.ReadOnlyValue<Item>", 1, true) ~= nil):toBe(true)
 	end)
-	harness:case(
-		"lint keeps all error locations and full details when it shortens cyclic type errors",
-		function(context)
-			local temporary = Files.temporaryDirectory("facet-lint-output")
-			local directory = Files.join("artifacts/verify", Files.name(temporary))
-			Files.remove(temporary)
-			context:defer(function()
-				Files.remove(directory)
-			end)
-			local source = Files.join(directory, "fault.luau")
-			local project = Files.join(directory, "default.project.json")
-			Files.write(
-				source,
-				[[--!strict
+	it("lint keeps all error locations and full details when it shortens cyclic type errors", function(_own, context)
+		local temporary = Files.temporaryDirectory("facet-lint-output")
+		local directory = Files.join("artifacts/verify", Files.name(temporary))
+		Files.remove(temporary)
+		context:defer(function()
+			Files.remove(directory)
+		end)
+		local source = Files.join(directory, "fault.luau")
+		local project = Files.join(directory, "default.project.json")
+		Files.write(
+			source,
+			[=[--!strict
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 local app = Facet.app()
 local UI = app.UI
@@ -615,51 +626,58 @@ app.mount(function()
     }
     return UI.VirtualList "Entries" (spec)
 end)
-]]
-			)
-			Files.write(
-				project,
-				Json.encode({
-					name = "LintOutput",
-					tree = {
-						["$className"] = "DataModel",
-						ReplicatedStorage = {
-							Packages = {
-								["$className"] = "Folder",
-								Facet = { ["$path"] = Files.join(Files.cwd(), "src") },
-							},
-						},
-						StarterPlayer = {
-							StarterPlayerScripts = { Fault = { ["$path"] = Files.join(Files.cwd(), source) } },
+]=]
+		)
+		Files.write(
+			project,
+			Json.encode({
+				name = "LintOutput",
+				tree = {
+					["$className"] = "DataModel",
+					ReplicatedStorage = {
+						Packages = {
+							["$className"] = "Folder",
+							Facet = { ["$path"] = Files.join(Files.cwd(), "src") },
 						},
 					},
-				})
-			)
-			local argv = { Run.lute(), "run", "tools/facet", "lint", source, "--types", "--project", project }
-			local compact = Run.capture(argv)
-			table.insert(argv, "--verbose")
-			local full = Run.capture(argv)
-			Verify.expect(compact.ok):toBe(false)
-			Verify.expect(full.ok):toBe(false)
-			Verify.expect(string.find(compact.stdout, "function(use: Facet.Use)", 1, true) ~= nil):toBe(true)
-			Verify.expect(string.find(compact.stdout, "[shortened]", 1, true) ~= nil):toBe(true)
-			Verify.expect(#compact.stdout < #full.stdout):toBe(true)
-			local report = Files.read("artifacts/facet-lint/report.txt")
-			local _, reportLocations = string.gsub(report, ": error %[types%]", "")
-			local _, fullLocations = string.gsub(full.stdout, ": error %[types%]", "")
-			Verify.expect(reportLocations):toBe(fullLocations)
-			Verify.expect(string.find(compact.stdout, "artifacts/facet-lint/report.txt", 1, true) ~= nil):toBe(true)
-			Verify.expect(string.find(report, "(*CYCLE*)", 1, true) ~= nil):toBe(true)
-		end
-	)
-	harness:case("the public surface checker detects removed, added and changed exports", function()
-		local result = Run.capture({ Run.lute(), "run", "tools/engine/check_public_surface.luau", "--selftest" })
-		Verify.expect(result.ok):toBe(true)
-		Verify.expect(string.find(result.stdout, "SELFTEST PASS", 1, true) ~= nil):toBe(true)
+					StarterPlayer = {
+						StarterPlayerScripts = { Fault = { ["$path"] = Files.join(Files.cwd(), source) } },
+					},
+				},
+			})
+		)
+		local argv = { Run.lute(), "run", "tools/facet", "lint", source, "--types", "--project", project }
+		local compact = Run.capture(argv)
+		table.insert(argv, "--verbose")
+		local full = Run.capture(argv)
+		expect(compact.ok):toBe(false)
+		expect(full.ok):toBe(false)
+		expect(string.find(compact.stdout, "function(use: Facet.Use)", 1, true) ~= nil):toBeTrueWith(
+			compact.stdout .. compact.stderr
+		)
+		expect(string.find(compact.stdout, "[shortened]", 1, true) ~= nil):toBeTrueWith(
+			compact.stdout .. compact.stderr
+		)
+		expect(#compact.stdout < #full.stdout):toBeTrueWith(
+			`compact={#compact.stdout}, full={#full.stdout}\n{full.stdout}`
+		)
+		local report = Files.read("artifacts/facet-lint/report.txt")
+		local _, reportLocations = string.gsub(report, ": error %[types%]", "")
+		local _, fullLocations = string.gsub(full.stdout, ": error %[types%]", "")
+		expect(reportLocations):toBe(fullLocations)
+		expect(string.find(compact.stdout, "artifacts/facet-lint/report.txt", 1, true) ~= nil):toBeTrueWith(
+			compact.stdout
+		)
+		expect(string.match(report, "t%d+ where t%d+ =") ~= nil):toBeTrueWith(report)
 	end)
-	harness:case("property origins use table syntax and refresh between scans", {
+	it("the public surface checker detects removed, added and changed exports", function()
+		local result = Run.capture({ Run.lute(), "run", "tools/engine/check_public_surface.luau", "--selftest" })
+		expect(result.ok):toBe(true)
+		expect(string.find(result.stdout, "SELFTEST PASS", 1, true) ~= nil):toBe(true)
+	end)
+	it("property origins use table syntax and refresh between scans", {
 		id = "tools/commands::props::syntax and freshness",
-		run = function(context)
+		run = function(_own, context)
 			local root = Files.temporaryDirectory("facet-prop-syntax")
 			context:defer(function()
 				Files.remove(root)
@@ -691,45 +709,45 @@ end)
 ]])
 			)
 			local origins = ControlProps.optionOrigins(root)
-			Verify.expect(origins.ButtonProps.astProbe):toBe("EnabledOptions")
-			Verify.expect(origins.ButtonProps.astOther):toBe("EnabledOptions")
-			Verify.expect(origins.ButtonProps.nestedProbe):toBe(nil)
-			Verify.expect(origins.ButtonProps.labelProbe):toBe(nil)
+			expect(origins.ButtonProps.astProbe):toBe("EnabledOptions")
+			expect(origins.ButtonProps.astOther):toBe("EnabledOptions")
+			expect(origins.ButtonProps.nestedProbe):toBe(nil)
+			expect(origins.ButtonProps.labelProbe):toBe(nil)
 			Files.write(path, withFields(" astReplacement: boolean;\n"))
 			local refreshed = ControlProps.optionOrigins(root)
-			Verify.expect(refreshed.ButtonProps.astProbe):toBe(nil)
-			Verify.expect(refreshed.ButtonProps.astReplacement):toBe("EnabledOptions")
-			Verify.expect(ControlProps.optionOrigins(".").ButtonProps.astReplacement):toBe(nil)
+			expect(refreshed.ButtonProps.astProbe):toBe(nil)
+			expect(refreshed.ButtonProps.astReplacement):toBe("EnabledOptions")
+			expect(ControlProps.optionOrigins(".").ButtonProps.astReplacement):toBe(nil)
 			for _, definition in { "{} & {}", "{} | {}", "string" } do
 				local renamed = string.gsub(source, "export type EnabledOptions", "type OriginalEnabledOptions", 1)
 				Files.write(path, "export type EnabledOptions = " .. definition .. "\n" .. renamed)
 				local ok, problem = pcall(ControlProps.optionOrigins, root)
-				Verify.expect(ok):toBe(false)
-				Verify.expect(string.find(tostring(problem), "must be one table type", 1, true) ~= nil):toBe(true)
+				expect(ok):toBe(false)
+				expect(string.find(tostring(problem), "must be one table type", 1, true) ~= nil):toBe(true)
 			end
 		end,
 	})
-	harness:case("module loader resolves an explicit Luau file before directory candidates", {
+	it("module loader resolves an explicit Luau file before directory candidates", {
 		id = "tools/commands::loader::explicit Luau file",
 		run = function()
 			local loader = Loader.new()
 			local explicit = loader.require("src/ui/rich_text.luau")
-			Verify.expect(loader.require("src/ui/rich_text")):toBe(explicit)
-			Verify.expect(type(explicit)):toBe("table")
+			expect(loader.require("src/ui/rich_text")):toBe(explicit)
+			expect(type(explicit)):toBe("table")
 		end,
 	})
-	harness:case("module loader reports a missing explicit Luau file", {
+	it("module loader reports a missing explicit Luau file", {
 		id = "tools/commands::loader::missing Luau file",
 		run = function()
 			local ok, failure = pcall(Loader.new().require, "tests/lib/missing-macos-loader-fixture.luau")
-			Verify.expect(ok):toBe(false)
-			Verify.expect(string.find(tostring(failure), "no module at ", 1, true) ~= nil):toBe(true)
+			expect(ok):toBe(false)
+			expect(string.find(tostring(failure), "no module at ", 1, true) ~= nil):toBe(true)
 		end,
 	})
 	for _, command in commands do
 		local register = command.register
 		if register then
-			harness:suite(command.name, function()
+			describe(command.name, function()
 				register(harness, "tools/commands::" .. command.name .. "::")
 			end)
 		end

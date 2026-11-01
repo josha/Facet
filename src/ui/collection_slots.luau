@@ -27,7 +27,7 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 		end)
 	end
 	type SlotRecord = { key: K, item: V? }
-	local itemsByKey = if spec.slots ~= nil
+	local itemsByKey: ComposeTypes.ReadOnlyValue<{ [K]: V }>? = if spec.slots ~= nil
 		then Compose.formula(function(use: ComposeTypes.Use): { [K]: V }
 			local items: { [K]: V } = {}
 			for index, item in source(use) do

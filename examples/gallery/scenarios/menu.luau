@@ -2,12 +2,10 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 
 local COPY = {
 	title = "Five ways into one list of verbs",
@@ -63,7 +61,7 @@ return {
 	title = "Menus and their five triggers",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local Facet = ctx.Facet
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
@@ -188,7 +186,7 @@ return {
 		local stateLine = Compose.cell(COPY.closed)
 
 		local function card(entry: Card, conditions: unknown): Frame
-			local menu = UI.Menu({
+			local menu = UI.Menu {
 				Name = entry.id,
 				label = entry.label,
 				items = entry.items(),
@@ -205,22 +203,22 @@ return {
 				onClose = function()
 					stateLine:set(COPY.closed)
 				end,
-			})
+			}
 			return Host.Frame(`Card{entry.id}`)({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
-				}),
-				Host.UIPadding({
+				},
+				Host.UIPadding {
 					PaddingTop = UDim.new(0, 8),
 					PaddingBottom = UDim.new(0, 8),
 					PaddingLeft = UDim.new(0, 8),
 					PaddingRight = UDim.new(0, 8),
-				}),
+				},
 				menu,
 				UI.Text "Routes" {
 					BackgroundTransparency = 1,
@@ -241,17 +239,17 @@ return {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
-				}),
-				Host.UIPadding({
+				},
+				Host.UIPadding {
 					PaddingTop = UDim.new(0, 8),
 					PaddingBottom = UDim.new(0, 8),
 					PaddingLeft = UDim.new(0, 8),
 					PaddingRight = UDim.new(0, 8),
-				}),
+				},
 				UI.Text "Title" {
 					LayoutOrder = 1,
 					BackgroundTransparency = 1,
@@ -289,7 +287,7 @@ return {
 			for _, entry in CARDS do
 				table.insert(cardRow, card(entry, conditions))
 			end
-			return Host.Frame("MenuDemo")({
+			return Host.Frame "MenuDemo" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
 				UI.ScrollView "Page" {
@@ -320,32 +318,32 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
-					Host.Frame("Cards")({
+					Host.Frame "Cards" {
 						Size = UDim2.new(1, 0, 0, 0),
 						BackgroundTransparency = 1,
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							FillDirection = Enum.FillDirection.Vertical,
 							Padding = UDim.new(0, 8),
-						}),
+						},
 						table.unpack(cardRow),
-					}),
-					Host.Frame("IdiomBox")({
+					},
+					Host.Frame "IdiomBox" {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 4),
-						}),
-						Host.UIPadding({
+						},
+						Host.UIPadding {
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
-						}),
+						},
 						UI.Picker "Idiom" {
 							LayoutOrder = 1,
 							label = COPY.idiomTitle,
@@ -369,7 +367,7 @@ return {
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
 						},
-					}),
+					},
 					readout("Opened", COPY.openedTitle, lastOpen),
 					readout("State", COPY.stateTitle, stateLine),
 					readout("Counts", COPY.countsTitle, countsLine),
@@ -387,7 +385,7 @@ return {
 					},
 					readout("Honest", COPY.honestTitle, COPY.honest),
 				},
-			})
+			}
 		end
 
 		return {

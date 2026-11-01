@@ -34,11 +34,18 @@ local function decode(source: string): (Metrics.Face, string)
 	for _, entry in assert(json.asArray(root.sizes)) do
 		local row = assert(json.asObject(entry))
 		local advances, adjustments = numbers(row.advances), numbers(row.adjustments)
-		local starts = if row.starts == nil then nil else numbers(row.starts)
-		local ends = if row.ends == nil then nil else numbers(row.ends)
+		local declaredStarts, declaredEnds = row.starts, row.ends
+		local starts = if declaredStarts == nil then nil else numbers(declaredStarts)
+		local ends = if declaredEnds == nil then nil else numbers(declaredEnds)
 		assert(#advances == #tokens and #adjustments == #pairs)
-		assert(starts == nil or #starts == #tokens)
-		assert(ends == nil or #ends == #tokens)
+		if starts ~= nil then
+			local values: { number } = starts
+			assert(#values == #tokens)
+		end
+		if ends ~= nil then
+			local values: { number } = ends
+			assert(#values == #tokens)
+		end
 		table.insert(sizes, {
 			advances = advances,
 			adjustments = adjustments,
@@ -59,7 +66,7 @@ local function decode(source: string): (Metrics.Face, string)
 end
 
 local DIRECTORY = Path.format(Path.join(Path.dirname(Path.resolve(debug.info(1, "s"))), "fixtures/text"))
-local models: { [string]: Metrics.Model }? = nil
+local models: { [string]: Metrics.Model } = {}
 local richModels: { [string]: Metrics.Model } = {}
 local faces: { [string]: Metrics.Face } = {}
 
@@ -84,21 +91,38 @@ local function richFace(face: Metrics.Face): Metrics.Face
 	return result
 end
 
-local function load(): { [string]: Metrics.Model }
-	if models then
-		return models
+local sources: { [string]: string }? = nil
+
+local function preload()
+	if sources then
+		return
 	end
-	local loaded: { [string]: Metrics.Model } = {}
+	local read: { [string]: string } = {}
 	for _, entry in fs.listDirectory(DIRECTORY) do
-		if entry.type ~= "file" or not entry.name:match "%.json$" then
-			continue
+		local name = entry.name:match "^(.+)%.json$"
+		if entry.type == "file" and name then
+			read[name] = fs.readFileToString(`{DIRECTORY}/{entry.name}`)
 		end
-		local face, key = decode(fs.readFileToString(DIRECTORY .. "/" .. entry.name))
-		loaded[key] = Metrics.create(face)
-		faces[key] = face
 	end
-	models = loaded
-	return loaded
+	sources = read
+end
+
+local function load(key: string): Metrics.Model?
+	local loaded = models[key]
+	if loaded then
+		return loaded
+	end
+	local family, weight, style = key:match "^rbxasset://fonts/families/(%w+)%.json/(%w+)/(%w+)$"
+	local source = if family and sources then sources[`{family}-{weight}-{style}`] else nil
+	if source == nil then
+		return nil
+	end
+	local face, declared = decode(source)
+	assert(declared == key, "text metrics face does not match its key: " .. key)
+	faces[key] = face
+	local model = Metrics.create(face)
+	models[key] = model
+	return model
 end
 
 local ENTITIES: { [string]: string } = { lt = "<", gt = ">", amp = "&", quot = '"', apos = "'" }
@@ -149,11 +173,11 @@ local function modelFor(parameters: Values.TextParameters): (Metrics.Model, numb
 		.. Values.enumName(font.Weight, "FontWeight")
 		.. "/"
 		.. Values.enumName(font.Style, "FontStyle")
-	local plainModels = load()
-	if parameters.RichText and richModels[key] == nil and faces[key] then
-		richModels[key] = Metrics.create(richFace(faces[key]))
+	local model = load(key)
+	if model ~= nil and parameters.RichText then
+		model = richModels[key] or Metrics.create(richFace(faces[key]))
+		richModels[key] = model
 	end
-	local model = (if parameters.RichText then richModels else plainModels)[key]
 	if model == nil then
 		error("unsupported_text_metrics: font " .. key, 0)
 	end
@@ -161,7 +185,7 @@ local function modelFor(parameters: Values.TextParameters): (Metrics.Model, numb
 end
 
 local function create(): (Values.TextParameters, number?) -> unknown
-	load()
+	preload()
 	return function(parameters: Values.TextParameters, unwrappedWidth: number?): unknown
 		local model, size = modelFor(parameters)
 		local text = if parameters.RichText then plain(parameters.Text) else parameters.Text
@@ -176,7 +200,7 @@ local function create(): (Values.TextParameters, number?) -> unknown
 end
 
 local function truncator(): (Values.TextParameters, string, number, boolean) -> number?
-	load()
+	preload()
 	return function(parameters: Values.TextParameters, mode: string, lines: number, wrapped: boolean): number?
 		local model, size = modelFor(parameters)
 		local text = if parameters.RichText then plain(parameters.Text) else parameters.Text
@@ -185,11 +209,11 @@ local function truncator(): (Values.TextParameters, string, number, boolean) -> 
 end
 
 local function heights(): (Values.TextParameters, number, number) -> number
-	load()
+	preload()
 	return function(parameters: Values.TextParameters, lines: number, spacing: number): number
 		local model, size = modelFor(parameters)
 		return model.height(size, lines, spacing)
 	end
 end
 
-return { create = create, truncator = truncator, heights = heights }
+return { create = create, truncator = truncator, heights = heights, decode = decode }

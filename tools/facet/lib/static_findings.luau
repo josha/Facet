@@ -14,7 +14,7 @@ export type Finding = {
 local Static = {}
 
 function Static.option(message: string): string?
-	return string.match(message, "^Expected this to be 'EventKey | number', but got '\"([^\"]+)\"'")
+	return string.match(message, "^Expected this to be 'number', but got '\"([^\"]+)\"'")
 end
 
 function Static.layoutHint(option: string): string?
@@ -67,7 +67,7 @@ function Static.render(findings: { Finding }, warningCounts: boolean?): { string
 		end
 		if first.rule == "types" then
 			local control = string.match(first.message, "([%w_]+)Props") or string.match(first.message, "([%w_]+)Spec")
-			local aliases = {
+			local aliases: { [string]: string } = {
 				TextButton = "Button",
 				TextLabel = "Text",
 				Frame = "<Control>",

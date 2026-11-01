@@ -2,6 +2,7 @@
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ThemeDefinition = typeof(require("@repo/tools/typecheck/aliases").ThemeDefinition)
 type Case = {
 	id: string,
 	contracts: { string },
@@ -55,7 +56,7 @@ add("button-labels-centred-in-every-package", {}, function(t: any)
 			return Host.Frame "Row" {
 				Size = UDim2.fromOffset(600, 80),
 				BackgroundTransparency = 1,
-				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 12) } :: unknown,
+				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 12) },
 				UI.Button "Word" { label = "Play" },
 				UI.Button "Marked" { label = "Next", icon = "chevron.down" },
 			}
@@ -87,7 +88,7 @@ add("described-toggle-fits-a-narrow-row", {}, function(t: any)
 			Size = UDim2.fromOffset(320, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
-			Host.UIListLayout {} :: unknown,
+			Host.UIListLayout {},
 			UI.Toggle "Hints" {
 				row = {
 					title = "Show hints",
@@ -308,11 +309,12 @@ end)
 add("styled-caption-does-not-hide-the-composition", {}, function(t)
 	t.device({ device = "hd_1080" })
 	local Facet: typeof(require("@repo/tools/typecheck/aliases").FacetModule) = t.Facet
-	local theme, report = Facet.themes.define({
+	local definition: ThemeDefinition = {
 		base = Facet.themes.neutralPackage(),
 		identity = { id = "caption-readiness", displayName = "Caption readiness" },
 		style = { defaultTheme = "Caption", themes = { { name = "Caption", colors = {} } } },
-	})
+	}
+	local theme, report = Facet.themes.define(definition)
 	assert(report.ok and theme)
 	local notice = Facet.Compose.cell("Welcome to ION Circuit · session progress stays until you leave")
 	local app = Facet.app({ name = "CaptionReadiness", theme = theme })

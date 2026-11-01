@@ -11,6 +11,7 @@
         "Facet_PerfLabPlace": "Facet-PerformanceLab"
       },
       "$properties": {
+        "UseNewLuauTypeSolver": "Enabled",
         "FilteringEnabled": true,
         "PlayerScriptsUseInputActionSystem": "Enabled"
       },

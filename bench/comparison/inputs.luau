@@ -38,22 +38,22 @@ table.insert(workloads, {
 			for i, value in toggles do
 				table.insert(
 					children,
-					UI.Toggle("Toggle" .. i) { label = `Option {i}`, value = value, presentation = "button" }
+					UI.Toggle("Toggle" .. i)({ label = `Option {i}`, value = value, presentation = "button" })
 				)
 			end
 			for i, value in sliders do
-				table.insert(children, UI.Slider("Slider" .. i) { value = value, min = 0, max = 1, step = 0.1 })
+				table.insert(children, UI.Slider("Slider" .. i)({ value = value, min = 0, max = 1, step = 0.1 }))
 			end
 			for i, selected in pickers do
 				table.insert(
 					children,
-					UI.Picker("Picker" .. i) { selected = assert(selected), options = options, style = "segmented" }
+					UI.Picker("Picker" .. i)({ selected = assert(selected), options = options, style = "segmented" })
 				)
 			end
 			for i = 1, 17 do
 				table.insert(
 					children,
-					UI.Text("Value" .. i) {
+					UI.Text("Value" .. i)({
 						text = function(use: Facet.Use)
 							if i <= 10 then
 								return if use(toggles[i]) then "1" else "0"
@@ -63,7 +63,7 @@ table.insert(workloads, {
 							end
 							return if use(pickers[i - 14]) == "high" then "1" else "0"
 						end,
-					}
+					})
 				)
 			end
 			return UI.VStack "Settings" { width = 640, gap = 8, table.unpack(children) }
@@ -197,7 +197,7 @@ table.insert(workloads, {
 		local stop = S.mount(world, lane, function()
 			local children: { Instance } = {}
 			for i = 1, 50 do
-				table.insert(children, UI.Button("Action" .. i) { label = `Action {i}`, onActivate = function() end })
+				table.insert(children, UI.Button("Action" .. i)({ label = `Action {i}`, onActivate = function() end }))
 			end
 			return UI.Grid "Actions" { columns = 5, gap = 8, table.unpack(children) }
 		end, function(screen)

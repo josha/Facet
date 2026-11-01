@@ -9,6 +9,7 @@
     "Lighting": { "$properties": { "Technology": "Future" } },
     "Workspace": {
       "$properties": {
+        "UseNewLuauTypeSolver": "Enabled",
         "FilteringEnabled": true,
         "PlayerScriptsUseInputActionSystem": "Enabled"
       },

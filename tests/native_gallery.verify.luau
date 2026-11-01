@@ -1,31 +1,33 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Bdd = require("../tools/vendor/verify/src/bdd")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local task = require("@std/task")
 
 return function(verifyHarness: Verify.Harness)
+	local test = Bdd.create(verifyHarness)
+	local describe, it, expect = test.describe, test.it, test.expect
+	local Facet = require("../src")
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ExampleContext = typeof(require("@repo/examples/types").Context)
-	type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	local requireDynamic = require :: (any) -> any
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-	type Use = <T>(ReadOnlyValue<T>) -> T
+	type Use = Facet.Use
 
-	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 	local catalogue = require("../examples/gallery/client/demo_picker")
 	local gallery = require("../examples/gallery/client/screen")
 	local Compose: ComposeModule = Facet.Compose
 
-	local function controlsFor(ctx: ExampleContext)
-		return Facet.controls(ctx.runtime, {
+	local function configureControls(ctx: ExampleContext): ()
+		ctx.UI = Facet.controls(ctx.runtime, {
 			types = ctx.types,
 			viewport = ctx.viewport,
 			guiService = ctx.guiService,
-			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
+			motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-			end) :: unknown) :: MotionLevel,
+			end),
 		})
 	end
 
@@ -40,7 +42,7 @@ return function(verifyHarness: Verify.Harness)
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (runtime.constructors :: unknown) :: RobloxHost,
+			Host = Facet.host(runtime),
 			types = engine.types,
 			viewport = viewport,
 			inputTarget = target,
@@ -48,11 +50,12 @@ return function(verifyHarness: Verify.Harness)
 			guiService = guiService,
 			runService = { Heartbeat = engine.heartbeat },
 		}
-		ctx.UI = controlsFor(ctx)
+		local scope: ExampleContext = ctx
+		configureControls(scope)
 		return ctx, engine, target
 	end
 
-	local function load(kind, name: string)
+	local function load(kind: string, name: string)
 		return requireDynamic(
 			"../examples/gallery/" .. (if kind == "example" then "examples/" else "scenarios/") .. name
 		)
@@ -71,25 +74,40 @@ return function(verifyHarness: Verify.Harness)
 		return nil
 	end
 
-	local function mountExample(name)
-		local ctx, engine, target = nativeContext()
-		local built
-		local stop, node: any = ctx.runtime.mount(function()
-			gallery.configure(ctx)
-			ctx.UI = controlsFor(ctx)
-			built = load("example", name).build(ctx)
-			if built.dispose then
-				Compose.cleanup(built.dispose)
-			end
-			return built.screen()
-		end, target)
-		return built, node, stop, ctx, engine, target
+	local function capture<G>(build: (ExampleContext) -> G)
+		local current: G? = nil
+		return function(ctx: ExampleContext): G
+			local result = build(ctx)
+			current = result
+			return result
+		end, function(): G
+			return assert(current)
+		end
 	end
 
-	verifyHarness:suite("native gallery", function()
-		verifyHarness:case("recreates Sipworks ingredients after collapse without losing gathered state", function(t)
-			local built, root, stop, ctx, engine = mountExample("14_sipworks")
-			t:defer(function()
+	type Screen = { read screen: () -> Instance, read dispose: (() -> ())? }
+	local function mountExample<G>(definition: { read build: (ExampleContext) -> G & Screen })
+		local ctx, engine, target = nativeContext()
+		local built: (G & Screen)? = nil
+		local scope: ExampleContext = ctx
+		local runtime: Facet.Runtime = ctx.runtime
+		local stop, node = runtime.mount(function(): Instance
+			gallery.configure(scope)
+			configureControls(scope)
+			local result = definition.build(scope)
+			built = result
+			if result.dispose then
+				Compose.cleanup(result.dispose)
+			end
+			return result.screen()
+		end, target)
+		return assert(built), node, stop, ctx, engine, target
+	end
+
+	describe("native gallery", function()
+		it("recreates Sipworks ingredients after collapse without losing gathered state", function(own)
+			local built, root, stop, ctx, engine = mountExample(require("../examples/gallery/examples/14_sipworks"))
+			own(function()
 				stop()
 				ctx.runtime:dispose()
 			end)
@@ -109,11 +127,11 @@ return function(verifyHarness: Verify.Harness)
 				engine.heartbeat:Fire(1 / 60)
 			end
 			local replacement = assert(find(root, "Gather_oolong"))
-			t:expect(replacement == original):toBe(false)
-			t:expect(find(root, "FacetError")):toBe(nil)
-			t:expect(replacement:GetAttribute("selected")):toBe(true)
+			expect(replacement == original):toBe(false)
+			expect(find(root, "FacetError")):toBe(nil)
+			expect(replacement:GetAttribute("selected")):toBe(true)
 		end)
-		verifyHarness:case("styles a route load failure with the theme text role", {
+		it("styles a route load failure with the theme text role", {
 			id = "native_gallery::native gallery::styles a route load failure with the theme text role",
 			run = function()
 				local ctx, engine, target = nativeContext()
@@ -125,34 +143,37 @@ return function(verifyHarness: Verify.Harness)
 				ctx.load = function()
 					error("module is not shipped")
 				end
-				local stop, root: any = ctx.runtime.mount(function()
-					return ctx.Host.ScreenGui({ gallery.build(ctx) })
+				local scope: ExampleContext = ctx
+				local runtime: Facet.Runtime = ctx.runtime
+				local stop, root: any = runtime.mount(function(): Instance
+					return scope.Host.ScreenGui { gallery.build(scope) }
 				end, target)
 				local failure = assert(find(root, "DemoFailure"))
-				Verify.expect((failure:HasTag("facet-type-body"))):toBe(true)
-				Verify.expect(string.find(failure.Text, "could not load", 1, true) ~= nil):toBe(true)
+				expect((failure:HasTag("facet-type-body"))):toBe(true)
+				expect(string.find(failure.Text, "could not load", 1, true) ~= nil):toBe(true)
 				stop()
 				ctx.runtime:dispose()
 			end,
 		})
-		verifyHarness:case("numbered places list and load only their own shipped demo", {
+		it("numbered places list and load only their own shipped demo", {
 			id = "native_gallery::native gallery::numbered places list and load only their own shipped demo",
 			run = function()
 				for number = 1, 7 do
-					local demos = (catalogue.list :: any)(number)
-					Verify.expect(#demos):toBe(1)
+					local demos = catalogue.list(number)
+					expect(#demos):toBe(1)
 					local selected = catalogue.boot(nil, nil, number)
-					Verify.expect(demos[1].id):toBe(selected)
+					expect(demos[1].id):toBe(selected)
 					for _, demo in demos do
-						Verify.expect(demo.kind):toBe("example")
-						local built, _, stop = mountExample(demo.module)
-						Verify.expect(built ~= nil):toBe(true)
+						expect(demo.kind):toBe("example")
+						local definition: { read build: (ExampleContext) -> Screen } = load("example", demo.module)
+						local built, _, stop = mountExample(definition)
+						expect(built ~= nil):toBe(true)
 						stop()
 					end
 				end
 			end,
 		})
-		verifyHarness:case("switches the entire gallery catalogue through one native root", {
+		it("switches the entire gallery catalogue through one native root", {
 			id = "native_gallery::native gallery::switches the entire gallery catalogue through one native root",
 			run = function()
 				for _, size in { { 389, 762 }, { 430, 932 }, { 1280, 720 } } do
@@ -162,29 +183,31 @@ return function(verifyHarness: Verify.Harness)
 					ctx.theme = Compose.cell(Facet.themes.neutralPackage())
 					ctx.packages = { Neutral = ctx.theme:peek() }
 					ctx.load = load
-					local sheet
-					local stop, gui = ctx.runtime.mount(function()
+					local sheet: StyleSheet? = nil
+					local scope: ExampleContext = ctx
+					local runtime: Facet.Runtime = ctx.runtime
+					local stop, gui = runtime.mount(function(): Instance
 						sheet = Facet.themes.createStyleSheet(
 							ctx.runtime,
 							ctx.theme,
 							{ types = ctx.types, theme = ctx.themeMode }
 						)
-						return ctx.Host.ScreenGui "FacetGallery" {
-							sheet :: unknown,
-							ctx.Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
-							require("../examples/gallery/client/screen").build(ctx),
+						return scope.Host.ScreenGui "FacetGallery" {
+							sheet,
+							scope.Host.StyleLink { StyleSheet = Compose.static(sheet) },
+							require("../examples/gallery/client/screen").build(scope),
 						}
 					end, target)
 					local root = find(gui, "Gallery")
-					Verify.expect(sheet.Parent):toBe(gui)
-					Verify.expect(find(gui, "StyleLink").StyleSheet):toBe(sheet)
+					expect(assert(sheet).Parent):toBe(gui)
+					expect(find(gui, "StyleLink").StyleSheet):toBe(sheet)
 					local navigation = find(root, "Demos")
-					Verify.expect(find(navigation, "Tabs").Visible):toBe(false)
+					expect(find(navigation, "Tabs").Visible):toBe(false)
 					local button = find(find(root, "Toolbar"), "Showcase")
 					for _, node in find(root, "Toolbar"):GetDescendants() do
-						Verify.expect(node:IsA("TextLabel") and node.Text == "Facet gallery"):toBe(false)
+						expect(node:IsA("TextLabel") and node.Text == "Facet gallery"):toBe(false)
 					end
-					local function pick(id)
+					local function pick(id: string)
 						button.Activated:Fire()
 						local row = find(gui, "Demo-" .. id)
 						if row == nil then
@@ -194,141 +217,158 @@ return function(verifyHarness: Verify.Harness)
 					end
 					for _, demo in catalogue.list() do
 						pick(demo.id)
-						Verify.awaitValue(function()
-							return if ctx.active:peek() == demo.id or ctx.errorMessage:peek() ~= nil then true else nil
-						end, 5, 0.01, { now = os.clock, sleep = task.wait })
+						Verify.awaitValue(
+							function()
+								return if ctx.active:peek() == demo.id or ctx.errorMessage:peek() ~= nil
+									then true
+									else nil
+							end,
+							5,
+							0.01,
+							{
+								now = os.clock,
+								sleep = function(seconds)
+									task.wait(seconds)
+								end,
+							}
+						)
 						engine.heartbeat:Fire(1 / 60)
-						Verify.expect(`selected {ctx.selection:peek()}`):toBe(`selected {demo.id}`)
-						Verify.expect(`active {ctx.active:peek()}; error {ctx.errorMessage:peek()}`)
-							:toBe(`active {demo.id}; error nil`)
-						Verify.expect((ctx.errorMessage:peek())):toBe(nil)
+						expect(`selected {ctx.selection:peek()}`):toBe(`selected {demo.id}`)
+						expect(`active {ctx.active:peek()}; error {ctx.errorMessage:peek()}`):toBe(
+							`active {demo.id}; error nil`
+						)
+						expect((ctx.errorMessage:peek())):toBe(nil)
 					end
 					pick("garage")
-					Verify.expect((ctx.active:peek())):toBe("garage")
+					expect((ctx.active:peek())):toBe("garage")
 					button.Activated:Fire()
-					Verify.expect(find(gui, "Section") ~= nil):toBe(true)
-					Verify.expect(find(gui, "DemoList") ~= nil):toBe(true)
+					expect(find(gui, "Section") ~= nil):toBe(true)
+					expect(find(gui, "DemoList") ~= nil):toBe(true)
 					find(find(gui, "Section"), "settings").Activated:Fire()
-					Verify.expect(find(gui, "Packages") ~= nil):toBe(true)
-					Verify.expect((find(gui, "DemoList"))):toBe(nil)
+					expect(find(gui, "Packages") ~= nil):toBe(true)
+					expect((find(gui, "DemoList"))):toBe(nil)
 					find(find(gui, "Section"), "demos").Activated:Fire()
-					Verify.expect(#find(gui, "DemoList"):GetChildren() > #catalogue.list()):toBe(true)
-					Verify.expect(find(gui, "Demo-garage").Parent):toBe(find(gui, "DemoList"))
-					Verify.expect((find(gui, "SectionTitle"))):toBe(nil)
+					expect(#find(gui, "DemoList"):GetChildren() > #catalogue.list()):toBe(true)
+					expect(find(gui, "Demo-garage").Parent):toBe(find(gui, "DemoList"))
+					expect((find(gui, "SectionTitle"))):toBe(nil)
 					stop()
-					Verify.expect(#target:GetChildren()):toBe(0)
+					expect(#target:GetChildren()):toBe(0)
 					ctx.runtime:dispose()
 				end
 			end,
 		})
-		verifyHarness:case("types, submits and restarts the retained word game through native input", {
+		it("types, submits and restarts the retained word game through native input", {
 			id = "native_gallery::native gallery::types, submits and restarts the retained word game through native input",
 			run = function()
-				local built, node, stop, ctx, _, target = mountExample("05_word_game")
+				local built, node, stop, ctx, _, target =
+					mountExample(require("../examples/gallery/examples/05_word_game"))
 				local answer = built.solution()
 				for i = 1, #answer do
 					find(target, "Type_" .. answer:sub(i, i)).Pressed:Fire()
 				end
 				find(target, "Submit").Pressed:Fire()
-				Verify.expect((built.won())):toBe(true)
-				Verify.expect((built.resultsOpen())):toBe(true)
-				Verify.expect((built.state(1, 1))):toBe("correct")
-				Verify.expect((find(find(node, "tile1_1"), "fill"):HasTag("facet-status-success"))):toBe(true)
+				expect((built.won())):toBe(true)
+				expect((built.resultsOpen())):toBe(true)
+				expect((built.state(1, 1))):toBe("correct")
+				expect((find(find(node, "tile1_1"), "fill"):HasTag("facet-status-success"))):toBe(true)
 				built.restart()
-				Verify.expect((built.phase())):toBe("playing")
-				Verify.expect((built.row(1))):toBe("")
+				expect((built.phase())):toBe("playing")
+				expect((built.row(1))):toBe("")
 				stop()
-				Verify.expect(#target:GetChildren()):toBe(0)
+				expect(#target:GetChildren()):toBe(0)
 				ctx.runtime:dispose()
 			end,
 		})
-		verifyHarness:case("places and undoes a crossword rack tile without losing the rack", {
+		it("places and undoes a crossword rack tile without losing the rack", {
 			id = "native_gallery::native gallery::places and undoes a crossword rack tile without losing the rack",
 			run = function()
-				local built, node, stop, ctx, engine = mountExample("06_tile_game")
+				local built, node, stop, ctx, engine =
+					mountExample(require("../examples/gallery/examples/06_tile_game"))
 				local letter = built.rackLetter(1)
 				find(node, "rt1").Activated:Fire()
 				find(find(node, "cell4_4"), "tap").Activated:Fire()
-				Verify.expect((built.pendingAt(4, 4))):toBe(letter)
-				Verify.expect((built.rackCount())):toBe(6)
+				expect((built.pendingAt(4, 4))):toBe(letter)
+				expect((built.rackCount())):toBe(6)
 				built.undo()
-				Verify.expect((built.pendingAt(4, 4))):toBe(nil)
-				Verify.expect((built.rackCount())):toBe(7)
+				expect((built.pendingAt(4, 4))):toBe(nil)
+				expect((built.rackCount())):toBe(7)
 				stop()
 				ctx.runtime:dispose()
 			end,
 		})
-		verifyHarness:case("runs a match-three drag and releases its native frame subscription", {
+		it("runs a match-three drag and releases its native frame subscription", {
 			id = "native_gallery::native gallery::runs a match-three drag and releases its native frame subscription",
 			run = function()
-				local built, node, stop, ctx, engine = mountExample("07_match3")
-				local tile = find(node, "tile" .. built.tileIdAt(1, 1))
+				local built, node, stop, ctx, engine = mountExample(require("../examples/gallery/examples/07_match3"))
+				local tile = find(node, "tile" .. assert(built.tileIdAt(1, 1)))
 				local drag = find(tile, "SwapDrag")
 				drag.DragStart:Fire(ctx.types.Vector2.zero)
 				drag.DragContinue:Fire(ctx.types.Vector2.new(30, 0))
 				drag.DragEnd:Fire()
-				Verify.expect((built.isResolving())):toBe(true)
+				expect((built.isResolving())):toBe(true)
 				for _ = 1, 240 do
 					engine.heartbeat:Fire(1 / 30)
 				end
-				Verify.expect((built.isResolving())):toBe(false)
-				Verify.expect((built.hasLegalMove())):toBe(true)
-				Verify.expect((built.tickHookActive())):toBe(false)
+				expect((built.isResolving())):toBe(false)
+				expect((built.hasLegalMove())):toBe(true)
+				expect((built.tickHookActive())):toBe(false)
 				built.swap(1, 1, 1, 2)
-				Verify.expect((built.tickHookActive())):toBe(true)
+				expect((built.tickHookActive())):toBe(true)
 				stop()
-				Verify.expect((built.tickHookActive())):toBe(false)
+				expect((built.tickHookActive())):toBe(false)
 				ctx.runtime:dispose()
 			end,
 		})
-		verifyHarness:case("retains optimistic settings and rolls back rejected server data", {
+		it("retains optimistic settings and rolls back rejected server data", {
 			id = "native_gallery::native gallery::retains optimistic settings and rolls back rejected server data",
 			run = function()
-				local built, node, stop, ctx, engine = mountExample("03_settings_sync")
+				local built, node, stop, ctx, engine =
+					mountExample(require("../examples/gallery/examples/03_settings_sync"))
 				find(node, "Music").Activated:Fire()
-				Verify.expect(built.report().draft.music):toBe(true)
-				Verify.expect(built.report().server.music):toBe(false)
+				expect(built.report().draft.music):toBe(true)
+				expect(built.report().server.music):toBe(false)
 				find(node, "Deliver").Activated:Fire()
-				Verify.expect(built.report().server.music):toBe(true)
+				expect(built.report().server.music):toBe(true)
 				find(node, "Invalid").Activated:Fire()
-				Verify.expect(built.report().draft.volume):toBe(99)
+				expect(built.report().draft.volume):toBe(99)
 				find(node, "Deliver").Activated:Fire()
-				Verify.expect(built.report().status):toBe("rejected")
-				Verify.expect(built.report().draft.volume):toBe(10)
+				expect(built.report().status):toBe("rejected")
+				expect(built.report().draft.volume):toBe(10)
 				stop()
 				ctx.runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("selects a playlist row on one click and plays it on a double click or Return", {
+		it("selects a playlist row on one click and plays it on a double click or Return", {
 			id = "native_gallery::native gallery::selects a playlist row on one click and plays it on a double click or Return",
 			run = function()
-				local built, node, stop, ctx, engine = mountExample("02_playlist_table")
+				local built, node, stop, ctx, engine =
+					mountExample(require("../examples/gallery/examples/02_playlist_table"))
 				engine.environment.poke(find(node, "Body"), "AbsoluteWindowSize", ctx.types.Vector2.new(600, 400))
 				local hit = find(node, "RowHit")
 				local row = find(hit.Parent, "Row")
 				local E = ctx.types.Enum
 				local mouse = { UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode:FromValue(0) }
 				hit.Activated:Fire(mouse, 1)
-				Verify.expect((built.nowPlaying:peek())):toBe(nil)
-				Verify.expect((row:GetAttribute("FacetSelected"))):toBe(true)
+				expect((built.nowPlaying:peek())):toBe(nil)
+				expect((row:GetAttribute("FacetSelected"))):toBe(true)
 				hit.Activated:Fire(mouse, 1)
-				Verify.expect((built.nowPlaying:peek())):toBe(nil)
+				expect((built.nowPlaying:peek())):toBe(nil)
 				hit.Activated:Fire(mouse, 2)
 				local playing = built.nowPlaying:peek()
-				Verify.expect(playing ~= nil):toBe(true)
+				expect(playing ~= nil):toBe(true)
 				built.nowPlaying:set(nil)
 				hit.Activated:Fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = E.KeyCode.Return }, 1)
-				Verify.expect((built.nowPlaying:peek())):toBe(playing)
+				expect((built.nowPlaying:peek())):toBe(playing)
 				built.nowPlaying:set(nil)
 				hit.Activated:Fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode:FromValue(0) }, 1)
-				Verify.expect((built.nowPlaying:peek())):toBe(playing)
+				expect((built.nowPlaying:peek())):toBe(playing)
 				stop()
 				ctx.runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("updates and removes the standalone consumer through its controls", {
+		it("updates and removes the standalone consumer through its controls", {
 			id = "native_gallery::native gallery::updates and removes the standalone consumer through its controls",
 			run = function()
 				local ctx, engine, target = nativeContext()
@@ -337,78 +377,89 @@ return function(verifyHarness: Verify.Harness)
 				local stop, node: any = app.mount(function()
 					return require("../examples/consumer/src/screen").build(Facet, app.UI)
 				end)
-				Verify.expect(node.Name):toBe("FacetConsumer")
-				Verify.expect(find(node, "Panel").BackgroundTransparency):toBe(0)
-				Verify.expect((find(node, "Panel"):HasTag("facet-surface"))):toBe(true)
-				Verify.expect(assert(node):FindFirstChildWhichIsA("StyleLink").StyleSheet)
-					:toBe(node:FindFirstChildWhichIsA("StyleSheet"))
+				expect(node.Name):toBe("FacetConsumer")
+				expect(find(node, "Panel").BackgroundTransparency):toBe(0)
+				expect((find(node, "Panel"):HasTag("facet-surface"))):toBe(true)
+				expect(assert(node):FindFirstChildWhichIsA("StyleLink").StyleSheet):toBe(
+					node:FindFirstChildWhichIsA("StyleSheet")
+				)
 				find(node, "Bump").Activated:Fire()
-				Verify.expect(find(node, "Count").Text):toBe("1 tap")
+				expect(find(node, "Count").Text):toBe("1 tap")
 				find(node, "Close").Activated:Fire()
-				Verify.expect((find(node, "Panel"))):toBe(nil)
+				expect((find(node, "Panel"))):toBe(nil)
 				stop()
-				Verify.expect(#target:GetChildren()):toBe(0)
+				expect(#target:GetChildren()):toBe(0)
 				app.dispose()
 				ctx.runtime:dispose()
 			end,
 		})
-		verifyHarness:case("requests native haptics and releases effects when the screen closes", {
+		it("requests native haptics and releases effects when the screen closes", {
 			id = "native_gallery::native gallery::requests native haptics and releases effects when the screen closes",
 			run = function()
 				local ctx, engine, target = nativeContext()
 				local waveforms: { [unknown]: { FloatCurveKey } } = {}
 				engine.environment.onCreate(function(effect)
 					if effect:IsA("HapticEffect") then
-						engine.environment.fakeOn(effect, "SetWaveformKeys", function(_, keys: { FloatCurveKey })
-							waveforms[effect] = keys
-						end)
+						engine.environment.fakeOn(
+							VerifyRoblox.assertInstance(effect),
+							"SetWaveformKeys",
+							function(_, keys: { FloatCurveKey })
+								waveforms[effect] = keys
+							end
+						)
 					end
 				end)
-				local built
-				local stop, node: any = ctx.runtime.mount(function()
-					built = load("fixture", "sensory_feedback").build(ctx)
+				local build, result = capture(require("../examples/gallery/scenarios/sensory_feedback").build)
+				local scope: ExampleContext = ctx
+				local runtime: Facet.Runtime = ctx.runtime
+				local stop, node: any = runtime.mount(function(): Instance
+					local built = build(scope)
 					return built.screen()
 				end, target)
+				local built = result()
 				local plays: { [unknown]: number } = {}
 				local stops: { [unknown]: number } = {}
 				for _, effect in built.effects do
-					engine.environment.fakeOn(effect, "Play", function()
+					engine.environment.fakeOn(VerifyRoblox.assertInstance(effect), "Play", function()
 						plays[effect] = (plays[effect] or 0) + 1
 					end)
-					engine.environment.fakeOn(effect, "Stop", function()
+					engine.environment.fakeOn(VerifyRoblox.assertInstance(effect), "Stop", function()
 						stops[effect] = (stops[effect] or 0) + 1
 					end)
 				end
-				Verify.expect(find(node, "Press").PressHapticEffect):toBe(built.effects.press)
+				expect(find(node, "Press").PressHapticEffect):toBe(built.effects.press)
 				find(node, "Release").Activated:Fire()
-				Verify.expect(plays[built.effects.release]):toBe(1)
-				Verify.expect((built.requests:peek())):toBe(1)
+				expect(plays[built.effects.release]):toBe(1)
+				expect((built.requests:peek())):toBe(1)
 				find(node, "Selection").Activated:Fire()
-				Verify.expect(plays[built.effects.selection]):toBe(1)
+				expect(plays[built.effects.selection]):toBe(1)
 				find(node, "Custom").Activated:Fire()
-				Verify.expect(plays[built.effects.custom]):toBe(1)
-				Verify.expect(#waveforms[built.effects.custom]):toBe(5)
-				Verify.expect((built.requests:peek())):toBe(3)
+				expect(plays[built.effects.custom]):toBe(1)
+				expect(#waveforms[built.effects.custom]):toBe(5)
+				expect((built.requests:peek())):toBe(3)
 				built.playHaptics:set(false)
 				for _, effect in built.effects do
-					Verify.expect(stops[effect]):toBe(1)
+					expect(stops[effect]):toBe(1)
 				end
-				Verify.expect(find(node, "Press").PressHapticEffect):toBe(nil)
+				expect(find(node, "Press").PressHapticEffect):toBe(nil)
 				find(node, "Release").Activated:Fire()
-				Verify.expect(plays[built.effects.release]):toBe(1)
-				Verify.expect((built.requests:peek())):toBe(3)
-				Verify.expect(built.report().motorConfirmed):toBe(false)
+				expect(plays[built.effects.release]):toBe(1)
+				expect((built.requests:peek())):toBe(3)
+				expect(built.report().motorConfirmed):toBe(false)
 				stop()
 				for _, effect in built.effects do
-					Verify.expect(stops[effect]):toBe(2)
-					Verify.expect((effect:isDestroyed())):toBe(true)
+					expect(stops[effect]):toBe(2)
+					expect(engine.environment.isAlive(VerifyRoblox.assertInstance(effect))):toBe(false)
 				end
 				ctx.runtime:dispose()
 			end,
 		})
 
-		local maintained: { { id: string, kind: string, module: string, title: string?, blurb: string? } } =
-			catalogue.list()
+		local maintained: { { read id: string, read kind: string, read module: string, read title: string?, read blurb: string? } } =
+			{}
+		for _, demo in catalogue.list() do
+			table.insert(maintained, demo)
+		end
 		for _, demo in
 			{
 				{ id = "all-controls", kind = "fixture", module = "all_controls" },
@@ -432,24 +483,27 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end
 		end
-		verifyHarness:case("selects a nested all-controls tab by path through the showcase API", {
+		it("selects a nested all-controls tab by path through the showcase API", {
 			id = "native_gallery::native gallery::selects a nested all-controls tab by path through the showcase API",
 			run = function()
 				local ctx, engine, target = nativeContext()
-				local built
-				local stop = ctx.runtime.mount(function()
-					built = load("fixture", "all_controls").build(ctx)
+				local build, result = capture(require("../examples/gallery/scenarios/all_controls").build)
+				local scope: ExampleContext = ctx
+				local runtime: Facet.Runtime = ctx.runtime
+				local stop = runtime.mount(function(): Instance
+					local built = build(scope)
 					return built.screen()
 				end, target)
-				Verify.expect((built.select("actions"))):toBe(true)
-				Verify.expect((built.select("actions/menus"))):toBe(true)
-				Verify.expect(built.report().active):toBe("menus")
-				Verify.expect((built.select("actions/nope"))):toBe(false)
+				local built = result()
+				expect((built.select("actions"))):toBe(true)
+				expect((built.select("actions/menus"))):toBe(true)
+				expect(built.report().active):toBe("menus")
+				expect((built.select("actions/nope"))):toBe(false)
 				stop()
 				ctx.runtime:dispose()
 			end,
 		})
-		verifyHarness:case("reserves the measured shell toolbar height above the demos", {
+		it("reserves the measured shell toolbar height above the demos", {
 			id = "native_gallery::native gallery::reserves the measured shell toolbar height above the demos",
 			run = function()
 				local ctx, engine, target = nativeContext()
@@ -458,100 +512,104 @@ return function(verifyHarness: Verify.Harness)
 				ctx.theme = Compose.cell(Facet.themes.neutralPackage())
 				ctx.packages = { Neutral = ctx.theme:peek() }
 				ctx.load = load
-				local stop, gui = ctx.runtime.mount(function()
-					return ctx.Host.ScreenGui "FacetGallery" {
-						require("../examples/gallery/client/screen").build(ctx),
+				local scope: ExampleContext = ctx
+				local runtime: Facet.Runtime = ctx.runtime
+				local stop, gui = runtime.mount(function(): Instance
+					return scope.Host.ScreenGui "FacetGallery" {
+						require("../examples/gallery/client/screen").build(scope),
 					}
 				end, target)
 				local root = find(gui, "Gallery")
 				local toolbar, demos = root:FindFirstChild("Toolbar"), root:FindFirstChild("Demos")
 				local row = find(toolbar, "Row")
-				Verify.expect(demos.Position.Y.Offset):toBe(56)
+				expect(demos.Position.Y.Offset):toBe(56)
 				engine.environment.poke(row, "AbsoluteSize", ctx.types.Vector2.new(390, 68))
-				Verify.expect(demos.Position.Y.Offset):toBe(80)
-				Verify.expect(demos.Size.Y.Offset):toBe(-80)
-				Verify.expect(toolbar.Size.Y.Offset):toBe(80)
+				expect(demos.Position.Y.Offset):toBe(80)
+				expect(demos.Size.Y.Offset):toBe(-80)
+				expect(toolbar.Size.Y.Offset):toBe(80)
 				engine.environment.poke(row, "AbsoluteSize", ctx.types.Vector2.new(390, 28))
-				Verify.expect(demos.Position.Y.Offset):toBe(56)
+				expect(demos.Position.Y.Offset):toBe(56)
 				stop()
 				ctx.runtime:dispose()
 			end,
 		})
-		verifyHarness:case(
-			"keeps action controls ordered responsive and interactive through native layout properties",
-			{
-				id = "native_gallery::native gallery::keeps action controls ordered responsive and interactive through native layout properties",
-				run = function()
-					local ctx, engine, target = nativeContext()
-					local built
-					local stop, root = ctx.runtime.mount(function()
-						built = load("fixture", "action_controls").build(ctx)
-						return built.screen()
-					end, target)
-					local toolbar = find(root, "Toolbar")
-					Verify.expect(find(root, "Reset").Parent):toBe(toolbar)
-					Verify.expect(find(root, "Enable").Parent):toBe(toolbar)
-					Verify.expect(toolbar:FindFirstChildWhichIsA("UIListLayout").FillDirection)
-						:toBe(ctx.types.Enum.FillDirection.Horizontal)
-					local sections = find(root, "Sections")
-					local layout = sections:FindFirstChildWhichIsA("UIListLayout")
-					Verify.expect(layout.FillDirection):toBe(ctx.types.Enum.FillDirection.Horizontal)
-					Verify.expect(find(root, "Showroom").Size.X.Scale):toBe(0.5)
-					Verify.expect(find(root, "Showroom").LayoutOrder):toBe(1)
-					Verify.expect(find(root, "RaceSetup").LayoutOrder):toBe(2)
-					Verify.expect(find(root, "Hero").AutomaticSize):toBe(ctx.types.Enum.AutomaticSize.Y)
-					Verify.expect(find(root, "Hero"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.Y):toBe(240)
-					Verify.expect(find(root, "Driver1").AutomaticSize):toBe(ctx.types.Enum.AutomaticSize.None)
-					Verify.expect(find(root, "Drivers"):FindFirstChildWhichIsA("UIGridLayout").CellSize.Y.Offset)
-						:toBe(240)
-					Verify.expect(find(root, "Backgrounds"):FindFirstChildWhichIsA("UIGridLayout").CellSize.Y.Offset)
-						:toBe(260)
-					Verify.expect(
-						find(root, "Driver1")
-							:FindFirstChild("Content")
-							:FindFirstChildWhichIsA("UIListLayout").FillDirection
-					):toBe(ctx.types.Enum.FillDirection.Vertical)
-					ctx.viewport:set({ width = 600, height = 720 })
-					Verify.expect(layout.FillDirection):toBe(ctx.types.Enum.FillDirection.Vertical)
-					Verify.expect(find(root, "Showroom").Size.X.Scale):toBe(1)
-					Verify.expect(find(root, "Drivers"):FindFirstChildWhichIsA("UIGridLayout").CellSize.X.Scale):toBe(1)
-					Verify.expect((find(root, "Driver1"):GetAttribute("selected"))):toBe(false)
-					find(root, "Driver1").Activated:Fire()
-					Verify.expect(built.report().status):toBe("Classic driver selected.")
-					Verify.expect((find(root, "Driver1"):GetAttribute("selected"))):toBe(true)
-					Verify.expect((find(root, "Driver2"):GetAttribute("selected"))):toBe(false)
-					find(root, "Enable").Activated:Fire()
-					Verify.expect(find(root, "Save").Interactable):toBe(false)
-					find(root, "Reset").Activated:Fire()
-					find(root, "Save").Activated:Fire()
-					Verify.expect(built.report().busy):toBe(true)
-					engine.heartbeat:Fire(2)
-					Verify.expect(built.report().busy):toBe(false)
-					Verify.expect(built.report().status):toBe("Your race is ready.")
-					find(root, "OverMediaAction").Activated:Fire()
-					Verify.expect(built.report().status):toBe("Replay opened.")
-					find(root, "RungLarge").Activated:Fire()
-					Verify.expect(built.report().controlSize):toBe("large")
-					stop()
-					Verify.expect((built.report())):toBe(nil)
-					ctx.runtime:dispose()
-				end,
-			}
-		)
+		it("keeps action controls ordered responsive and interactive through native layout properties", {
+			id = "native_gallery::native gallery::keeps action controls ordered responsive and interactive through native layout properties",
+			run = function()
+				local ctx, engine, target = nativeContext()
+				local build, result = capture(require("../examples/gallery/scenarios/action_controls").build)
+				local scope: ExampleContext = ctx
+				local runtime: Facet.Runtime = ctx.runtime
+				local stop, root = runtime.mount(function(): Instance
+					local built = build(scope)
+					return built.screen()
+				end, target)
+				local built = result()
+				local toolbar = find(root, "Toolbar")
+				expect(find(root, "Reset").Parent):toBe(toolbar)
+				expect(find(root, "Enable").Parent):toBe(toolbar)
+				expect(toolbar:FindFirstChildWhichIsA("UIListLayout").FillDirection):toBe(
+					ctx.types.Enum.FillDirection.Horizontal
+				)
+				local sections = find(root, "Sections")
+				local layout = sections:FindFirstChildWhichIsA("UIListLayout")
+				expect(layout.FillDirection):toBe(ctx.types.Enum.FillDirection.Horizontal)
+				expect(find(root, "Showroom").Size.X.Scale):toBe(0.5)
+				expect(find(root, "Showroom").LayoutOrder):toBe(1)
+				expect(find(root, "RaceSetup").LayoutOrder):toBe(2)
+				expect(find(root, "Hero").AutomaticSize):toBe(ctx.types.Enum.AutomaticSize.Y)
+				expect(find(root, "Hero"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.Y):toBe(240)
+				expect(find(root, "Driver1").AutomaticSize):toBe(ctx.types.Enum.AutomaticSize.None)
+				expect(find(root, "Drivers"):FindFirstChildWhichIsA("UIGridLayout").CellSize.Y.Offset):toBe(240)
+				expect(find(root, "Backgrounds"):FindFirstChildWhichIsA("UIGridLayout").CellSize.Y.Offset):toBe(260)
+				expect(
+					find(root, "Driver1"):FindFirstChild("Content"):FindFirstChildWhichIsA("UIListLayout").FillDirection
+				):toBe(ctx.types.Enum.FillDirection.Vertical)
+				ctx.viewport:set({ width = 600, height = 720 })
+				expect(layout.FillDirection):toBe(ctx.types.Enum.FillDirection.Vertical)
+				expect(find(root, "Showroom").Size.X.Scale):toBe(1)
+				expect(find(root, "Drivers"):FindFirstChildWhichIsA("UIGridLayout").CellSize.X.Scale):toBe(1)
+				expect((find(root, "Driver1"):GetAttribute("selected"))):toBe(false)
+				find(root, "Driver1").Activated:Fire()
+				expect(assert(built.report()).status):toBe("Classic driver selected.")
+				expect((find(root, "Driver1"):GetAttribute("selected"))):toBe(true)
+				expect((find(root, "Driver2"):GetAttribute("selected"))):toBe(false)
+				find(root, "Enable").Activated:Fire()
+				expect(find(root, "Save").Interactable):toBe(false)
+				find(root, "Reset").Activated:Fire()
+				find(root, "Save").Activated:Fire()
+				expect(assert(built.report()).busy):toBe(true)
+				engine.heartbeat:Fire(2)
+				expect(assert(built.report()).busy):toBe(false)
+				expect(assert(built.report()).status):toBe("Your race is ready.")
+				find(root, "OverMediaAction").Activated:Fire()
+				expect(assert(built.report()).status):toBe("Replay opened.")
+				find(root, "RungLarge").Activated:Fire()
+				expect(assert(built.report()).controlSize):toBe("large")
+				stop()
+				expect((built.report())):toBe(nil)
+				ctx.runtime:dispose()
+			end,
+		})
 	end)
 
-	verifyHarness:suite("Lab container editing", function()
-		verifyHarness:case("changes the model on every container page and restores deleted selections with Undo", {
+	describe("Lab container editing", function()
+		it("changes the model on every container page and restores deleted selections with Undo", {
 			id = "native_gallery::Lab container editing::changes the model on every container page and restores deleted selections with Undo",
 			run = function()
 				local build = require("../examples/facet-lab/src/collection_editing")
 				for _, kind in { "Table", "VirtualList", "VirtualGrid" } do
 					local ctx, engine, target = nativeContext()
 					local values = {}
-					local stop, root = ctx.runtime.mount(function()
-						return build({
+					local scope: ExampleContext = ctx
+					local runtime: Facet.Runtime = ctx.runtime
+					local stop, root = runtime.mount(function(): Instance
+						return (build :: any)({
 							UI = ctx.UI,
 							Compose = Compose,
+							Facet = Facet,
+							Host = ctx.Host,
+							types = ctx.types,
 							ctx = ctx,
 							cell = function(name, initial)
 								values[name] = values[name] or Compose.cell(initial)
@@ -566,17 +624,17 @@ return function(verifyHarness: Verify.Harness)
 						find(root, name).Activated:Fire(nil, 1)
 					end
 					press("NewItem")
-					Verify.expect(#values.editingRows:peek()):toBe(7)
+					expect(#values.editingRows:peek()):toBe(7)
 					values.editingSelection:set({ ["1"] = true, ["3"] = true })
 					press("DeleteSelected")
-					Verify.expect(#values.editingRows:peek()):toBe(5)
-					Verify.expect(values.editingSelection:peek()["1"]):toBeNil()
+					expect(#values.editingRows:peek()):toBe(5)
+					expect(values.editingSelection:peek()["1"]):toBeNil()
 					press("UndoEdit")
-					Verify.expect(#values.editingRows:peek()):toBe(7)
-					Verify.expect(values.editingSelection:peek()["3"]):toBe(true)
+					expect(#values.editingRows:peek()):toBe(7)
+					expect(values.editingSelection:peek()["3"]):toBe(true)
 					values.editingEnabled:set(false)
 					press("DeleteSelected")
-					Verify.expect(#values.editingRows:peek()):toBe(7)
+					expect(#values.editingRows:peek()):toBe(7)
 					stop()
 					ctx.runtime:dispose()
 				end

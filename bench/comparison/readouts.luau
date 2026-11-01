@@ -21,7 +21,7 @@ table.insert(workloads, {
 				stop = S.mount(world, lane, function()
 					local children: { Instance } = { UI.Text "Title" { text = "Outpost", textRole = "title" } }
 					for _, label in labels do
-						table.insert(children, UI.Button(label) { label = label, onActivate = function() end })
+						table.insert(children, UI.Button(label)({ label = label, onActivate = function() end }))
 					end
 					table.insert(children, UI.Text "Footer" { text = "Season 4" })
 					return UI.VStack "Menu" { width = 640, gap = 8, surface = "surface", table.unpack(children) }
@@ -123,7 +123,7 @@ table.insert(workloads, {
 		local stop = S.mount(world, lane, function()
 			local children: { Instance } = {}
 			for i, value in values do
-				table.insert(children, UI.ProgressView("Progress" .. i) { value = value })
+				table.insert(children, UI.ProgressView("Progress" .. i)({ value = value }))
 			end
 			return UI.VStack "Progress" { width = 640, gap = 8, table.unpack(children) }
 		end, function(screen)
@@ -176,11 +176,11 @@ table.insert(workloads, {
 			for i, value in values do
 				table.insert(
 					children,
-					UI.Badge(names[i]) {
+					UI.Badge(names[i])({
 						label = function(use: Facet.Use)
 							return use(value)
 						end,
-					}
+					})
 				)
 			end
 			return UI.Grid "Badges" { columns = 6, gap = 8, table.unpack(children) }
@@ -237,7 +237,7 @@ table.insert(workloads, {
 					Name = "Marker" .. i,
 					Adornee = Compose.static(anchor),
 					Size = world.types.UDim2.fromOffset(120, 32),
-					UI.Text(names[i]) { text = value },
+					UI.Text(names[i])({ text = value }),
 				}
 				table.insert(children, Host.BillboardGui(props))
 			end

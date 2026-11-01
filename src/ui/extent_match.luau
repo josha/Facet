@@ -14,7 +14,8 @@ export type State = { entries: { [unknown]: Entry }, waited: number }
 local extentMatch = {}
 
 function extentMatch.new(): State
-	return { entries = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [unknown]: Entry }, waited = 0 }
+	local entries: { [unknown]: Entry } = setmetatable({}, { __mode = "k" })
+	return { entries = entries, waited = 0 }
 end
 
 function extentMatch.forget(state: State, key: unknown)
@@ -30,7 +31,7 @@ end
 
 function extentMatch.step(
 	state: State,
-	members: { unknown },
+	members: { read [number]: unknown },
 	measured: { [unknown]: number },
 	content: { [unknown]: number },
 	quiet: number?
@@ -42,7 +43,7 @@ function extentMatch.step(
 	for _, key in members do
 		local entry = entries[key]
 		if entry == nil then
-			entry = {
+			local created: Entry = {
 				min = 0,
 				offset = nil,
 				bias = 0,
@@ -52,7 +53,8 @@ function extentMatch.step(
 				quiet = 0,
 				corrected = false,
 			}
-			entries[key] = entry
+			entries[key] = created
+			entry = created
 		end
 		local size, own = measured[key] or 0, content[key] or 0
 		local stable = close(size, entry.lastSize) and close(entry.min, entry.lastMin) and close(own, entry.lastContent)

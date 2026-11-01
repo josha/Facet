@@ -1,7 +1,8 @@
 --!strict
 
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+type StringValue = typeof(require("@repo/tools/typecheck/aliases").StringReadOnlyValue)
+type TilePlacement = typeof(require("@repo/tools/typecheck/aliases").TilePlacement)
 local flight = require("./flap_model")
 local modelModule = require("./model")
 type Context = modelModule.Context
@@ -99,7 +100,7 @@ return function(ctx: Context): GuiObject
 				read = function(_use: Use, column: number, row: number): string?
 					return flight.tileAt(column, row)
 				end,
-				render = function(value, placement): GuiObject
+				render = function(value: StringValue, placement: TilePlacement): GuiObject
 					return Host.Frame(`Tile_{placement.column}_{placement.row}`)({
 						Position = D2.fromScale(placement.x / width, placement.y / height),
 						Size = D2.fromScale(tile / width, tile / height),

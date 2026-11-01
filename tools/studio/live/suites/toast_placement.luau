@@ -14,22 +14,21 @@ return {
 		contracts = {},
 		run = function(t: Live)
 			local gui = game:GetService("GuiService")
-			for _, device in
+			local devices: { { device: string, input: Enum.PreferredInput?, orientation: Enum.ScreenOrientation? } } = {
+				{ device = "hd_1080", input = Enum.PreferredInput.KeyboardAndMouse },
 				{
-					{ device = "hd_1080", input = Enum.PreferredInput.KeyboardAndMouse },
-					{
-						device = "iphone_14",
-						input = Enum.PreferredInput.Touch,
-						orientation = Enum.ScreenOrientation.Portrait,
-					},
-					{
-						device = "iphone_14",
-						input = Enum.PreferredInput.Touch,
-						orientation = Enum.ScreenOrientation.LandscapeLeft,
-					},
-					{ device = "hd_1080", input = Enum.PreferredInput.Gamepad },
-				}
-			do
+					device = "iphone_14",
+					input = Enum.PreferredInput.Touch,
+					orientation = Enum.ScreenOrientation.Portrait,
+				},
+				{
+					device = "iphone_14",
+					input = Enum.PreferredInput.Touch,
+					orientation = Enum.ScreenOrientation.LandscapeLeft,
+				},
+				{ device = "hd_1080", input = Enum.PreferredInput.Gamepad },
+			}
+			for _, device in devices do
 				t.device(device)
 				local app = t.Facet.app({ name = "ToastPlacement", motionLevel = "normal" })
 				local button: GuiButton? = nil
@@ -49,7 +48,7 @@ return {
 							t.Facet.Compose.cleanup(function()
 								live -= 1
 							end)
-							return UI.Text(`{edge}{index}`) { text = `{edge} result {index}`, AutoLocalize = false }
+							return UI.Text(`{edge}{index}`)({ text = `{edge} result {index}`, AutoLocalize = false })
 						end, { position = edge :: "top" | "bottom", width = "hug", duration = 60 })
 					end
 				end

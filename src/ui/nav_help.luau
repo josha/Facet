@@ -21,6 +21,7 @@ return function(
 	portal: overlayPortal.Portal,
 	popover: popoverPlacement.Popover
 ): ()
+	local readText = ctx.read<<string?>>
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local gui, input = kit.gui, kit.input
@@ -93,7 +94,8 @@ return function(
 			finish = finish,
 			change = change,
 			disturb = disturb,
-		}
+		},
+			nil
 	end)
 	help.register(ctx, function(anchor: GuiObject, value: Inputs.Help, plate: help.Plate?)
 		local structured: Inputs.HelpSpec? = if type(value) == "table" and not Compose.isValue(value)
@@ -212,12 +214,12 @@ return function(
 				local label = wrap(ctx.text({
 					Name = "HelpText",
 					Text = function(use: ComposeTypes.Use)
-						return ctx.read(text, use) or ""
+						return readText(text, use) or ""
 					end,
 					TextWrapped = true,
 				}))
 				label:AddTag("facet-type-caption")
-				local panelProps: Types.CanvasGroupNativeProps = {
+				local panelProps: Types.CanvasGroupProps = {
 					Name = plate and plate.name or "Help",
 					GroupTransparency = function(use: ComposeTypes.Use)
 						return 1 - presence.opacity(use)
@@ -228,14 +230,14 @@ return function(
 				}
 				panelProps[#panelProps + 1] = ctx.padding(8, 6)
 				panelProps[#panelProps + 1] =
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = ctx.types.UDim.new(0, 4) })
+					Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder, Padding = ctx.types.UDim.new(0, 4) }
 				if structured and structured.title ~= nil then
 					local title = structured.title
 					local heading = wrap(ctx.text({
 						Name = "HelpTitle",
 						LayoutOrder = 1,
 						Text = function(use: ComposeTypes.Use)
-							return ctx.read(title, use) or ""
+							return readText(title, use) or ""
 						end,
 					}))
 					heading:AddTag("facet-type-heading")
@@ -244,7 +246,7 @@ return function(
 				runtime.decorate(label, {
 					LayoutOrder = 2,
 					Visible = function(use: ComposeTypes.Use)
-						return (ctx.read(text, use) or "") ~= ""
+						return (readText(text, use) or "") ~= ""
 					end,
 				})
 				panelProps[#panelProps + 1] = label

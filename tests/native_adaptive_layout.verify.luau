@@ -3,13 +3,11 @@ local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 
-	local function build(body: (any, any) -> any): (any, any, () -> ())
+	local function build(body: (Facet.Controls, Facet.Host) -> Facet.Child): (any, any, () -> ())
 		local engine: any = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = (engine.new("GuiService") :: unknown) :: GuiService
@@ -17,7 +15,7 @@ return function(verifyHarness: Verify.Harness)
 			Facet.controls(runtime, { types = engine.types, guiService = gui, services = { GuiService = gui } } :: any)
 		local root: any
 		runtime.mount(function()
-			root = body(UI, runtime.constructors)
+			root = body(UI, Facet.host(runtime))
 			return root
 		end, engine.new("ScreenGui"))
 		return root, engine, function()
@@ -36,11 +34,11 @@ return function(verifyHarness: Verify.Harness)
 	verifyHarness:suite("adaptive layout", function()
 		verifyHarness:suite("AdaptiveStack that fits", function()
 			local function toolbar(align: ("center" | "end" | "start" | "stretch")?): (any, any, () -> ())
-				local root, engine, stop = build(function(UI: FacetControls, Host: RobloxHost)
+				local root, engine, stop = build(function(UI, Host)
 					return UI.AdaptiveStack {
 						gap = 20,
 						align = align,
-						Host.Frame { Name = "A" } :: unknown,
+						Host.Frame { Name = "A" },
 						Host.Frame { Name = "B" },
 						Host.Frame { Name = "C" },
 					}
@@ -126,10 +124,10 @@ return function(verifyHarness: Verify.Harness)
 				{
 					id = "native_adaptive_layout::AdaptiveStack that fits::counts no width for a Divider or a filling child and retries a refused row only after a change",
 					run = function()
-						local root, engine, stop = build(function(UI: FacetControls, Host: RobloxHost)
+						local root, engine, stop = build(function(UI, Host)
 							return UI.AdaptiveStack {
 								gap = 20,
-								Host.Frame { Name = "A" } :: unknown,
+								Host.Frame { Name = "A" },
 								UI.Divider "Line" {},
 								Host.Frame { Name = "B", UI.fill() },
 								Host.Frame { Name = "C" },
@@ -161,7 +159,7 @@ return function(verifyHarness: Verify.Harness)
 			verifyHarness:case("measures against the width inside its padding", {
 				id = "native_adaptive_layout::AdaptiveStack that fits::measures against the width inside its padding",
 				run = function()
-					local root, engine, stop = build(function(UI: FacetControls, Host: RobloxHost)
+					local root, engine, stop = build(function(UI, Host)
 						return UI.AdaptiveStack { padding = 10, Host.Frame { Name = "A" } }
 					end)
 					local E = engine.types.Enum
@@ -179,7 +177,7 @@ return function(verifyHarness: Verify.Harness)
 			verifyHarness:case("stays a row along a horizontal scroll axis, where the width is unbounded", {
 				id = "native_adaptive_layout::AdaptiveStack that fits::stays a row along a horizontal scroll axis, where the width is unbounded",
 				run = function()
-					local root, engine, stop = build(function(UI: FacetControls)
+					local root, engine, stop = build(function(UI)
 						return UI.ScrollView { axis = "x" :: "x", UI.AdaptiveStack "Row" {} }
 					end)
 					local row = root:FindFirstChild("Row")

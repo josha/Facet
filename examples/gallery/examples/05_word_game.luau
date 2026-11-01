@@ -1,14 +1,13 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 
 local words = require("./words")
 
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 
 local example = {}
@@ -72,7 +71,8 @@ function rules.evaluate(guess: string, solution: string): { string }
 	return states
 end
 
-local KEY_RANK: { [string]: number } = table.freeze({ absent = 1, present = 2, correct = 3 })
+local keyRanks: { [string]: number } = { absent = 1, present = 2, correct = 3 }
+local KEY_RANK = table.freeze(keyRanks)
 rules.KEY_RANK = KEY_RANK
 
 function rules.strongest(a: string?, b: string?): string?
@@ -166,7 +166,7 @@ local function tileState(rows: { Row }, active: number, r: number, c: number): s
 	return "empty"
 end
 
-function example.build(ctx: ExampleContext): Built
+function example.build(ctx: ExampleContext)
 	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2, Vector2, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 
@@ -330,13 +330,13 @@ function example.build(ctx: ExampleContext): Built
 	end
 
 	local function measure(name: string, sample: string, size: number)
-		local probe = UI.Text(name) {
+		local probe = UI.Text(name)({
 			Visible = false,
 			text = sample,
 			TextSize = size,
 			Size = UDim2.new(),
 			AutomaticSize = Enum.AutomaticSize.XY,
-		}
+		})
 		local bounds = Compose.cell(Vector2.zero)
 		if probe:IsA("TextLabel") then
 			local label = probe
@@ -374,7 +374,7 @@ function example.build(ctx: ExampleContext): Built
 				tileStateOf[`{rr}:{cc}`] = state
 				local fill = Host.Frame "fill" {
 					Size = UDim2.fromScale(1, 1),
-					Host.UICorner({}),
+					Host.UICorner {},
 					UI.Text "ch" {
 						text = function(use: Use)
 							return use(rowsSig)[rr].letters:sub(cc, cc)
@@ -419,18 +419,18 @@ function example.build(ctx: ExampleContext): Built
 					Visible = function(use: Use)
 						return use(state) == "filled"
 					end,
-					Host.UICorner({}),
+					Host.UICorner {},
 					typedRing,
 				}
 				typed:AddTag("facet-status-neutral")
-				local tile = UI.ZStack(`tile{r}_{c}`) {
+				local tile = UI.ZStack(`tile{r}_{c}`)({
 					width = "fill",
 					height = "fill",
 					fill,
 					typed,
 					outline,
-					Host.UICorner({}),
-				}
+					Host.UICorner {},
+				})
 				tile:AddTag("facet-status-accent")
 				table.insert(tiles, tile)
 			end
@@ -444,7 +444,7 @@ function example.build(ctx: ExampleContext): Built
 				local state = Compose.formula(function(use: Use): string
 					return if isCommand then "" else use(keysSig)[key] or "unknown"
 				end)
-				local button = UI.Button("key_" .. key) {
+				local button = UI.Button("key_" .. key)({
 					if ri ~= 3 then nil elseif isCommand then UI.fill(1.5) else UI.fill(),
 					Size = if ri == 3
 						then UDim2.fromOffset(0, 44)
@@ -468,14 +468,14 @@ function example.build(ctx: ExampleContext): Built
 							typeLetter(key)
 						end
 					end,
-				}
+				})
 				statusTag(button, state)
 				table.insert(row, button)
 				keyPathByLetter[key] = `/WordGuess/page/kb/kbrow{ri}/key_{key}`
 			end
 			table.insert(keyRows, UI.HStack("kbrow" .. ri)({ width = "fill", gap = "xs", table.unpack(row) }))
 		end
-		local status = Compose.formula(function(use: Use)
+		local status = Compose.formula(function(use: Use): string
 			local notice = use(noticeSig)
 			if notice ~= "" then
 				return notice
@@ -496,7 +496,7 @@ function example.build(ctx: ExampleContext): Built
 				TextWrapped = true,
 				TextXAlignment = Enum.TextXAlignment.Center,
 			},
-			UI.Grid "board"({
+			UI.Grid "board" {
 				columns = COLS,
 				gap = "xs",
 				cellHeight = function(use: Use): number
@@ -506,14 +506,14 @@ function example.build(ctx: ExampleContext): Built
 				end,
 				width = COLS * 52 - 4,
 				table.unpack(tiles),
-			}),
+			},
 			letterProbe,
 			markProbe,
 			UI.Text "Legend" {
 				text = "v exact spot   ~ different spot   x absent",
 				textRole = "caption",
 			},
-			UI.VStack "kb"({ width = "fill", maxWidth = 640, gap = "s", table.unpack(keyRows) }),
+			UI.VStack "kb" { width = "fill", maxWidth = 640, gap = "s", table.unpack(keyRows) },
 			UI.Button "Restart" {
 				label = "New game",
 				onActivate = function()
@@ -523,19 +523,19 @@ function example.build(ctx: ExampleContext): Built
 		}
 	end
 
-	local bindings = {}
+	local bindings: { Child } = {}
 	for i = 0, 25 do
 		local letter = string.char(65 + i)
 		table.insert(
 			bindings,
-			Host.InputAction({
+			Host.InputAction {
 				Name = "Type_" .. letter,
 				Type = Enum.InputActionType.Bool,
 				Pressed = function()
 					typeLetter(letter)
 				end,
-				Host.InputBinding({ KeyCode = assert(Enum.KeyCode:FromName(letter)) }),
-			})
+				Host.InputBinding { KeyCode = assert(Enum.KeyCode:FromName(letter)) },
+			}
 		)
 	end
 	table.insert(
@@ -543,7 +543,7 @@ function example.build(ctx: ExampleContext): Built
 		Host.InputAction "Submit" {
 			Type = Enum.InputActionType.Bool,
 			Pressed = submit,
-			Host.InputBinding({ KeyCode = Enum.KeyCode.Return }),
+			Host.InputBinding { KeyCode = Enum.KeyCode.Return },
 		}
 	)
 	table.insert(
@@ -551,7 +551,7 @@ function example.build(ctx: ExampleContext): Built
 		Host.InputAction "Backspace" {
 			Type = Enum.InputActionType.Bool,
 			Pressed = backspace,
-			Host.InputBinding({ KeyCode = Enum.KeyCode.Backspace }),
+			Host.InputBinding { KeyCode = Enum.KeyCode.Backspace },
 		}
 	)
 	Host.InputContext "WordGameInput" {

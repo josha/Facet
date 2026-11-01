@@ -219,7 +219,10 @@ local function buildDetail(
 					width = 300,
 					height = "fill",
 					padding = "s",
-					UI.VStack "CenteredDecision" { width = "fill", height = "fill", distribute = "center", decision() },
+					UI.VStack(
+						{ width = "fill", height = "fill", distribute = "center", decision() },
+						"CenteredDecision"
+					),
 				},
 			}
 		end, function()
@@ -451,7 +454,7 @@ return {
 			end,
 			UI.fill(),
 		}
-		local list = if artwork then UI.VirtualGrid "Records"(rows) else UI.VirtualList "Records"(rows)
+		local list = if artwork then UI.VirtualGrid "Records" (rows) else UI.VirtualList "Records" (rows)
 		list.Parent = recordsBody
 		UI.ScrollView "EmptyResults" {
 			Parent = C.static(recordsBody),
@@ -482,7 +485,6 @@ return {
 			placeholder = "Search river supplies",
 			UI.fill(),
 		}
-		local searchInput: (Facet.TextInputCellProps) -> GuiObject = UI.TextInput "Search"
 		local body = UI.ZStack "CollectionBody" {
 			width = "fill",
 			height = "fill",
@@ -496,7 +498,7 @@ return {
 					width = "fill",
 					align = "center",
 					gap = "s",
-					searchInput(search),
+					UI.TextInput "Search" (search),
 					UI.Button "Filters" {
 						label = function(use: Facet.Use): string
 							local category = use(model.category)

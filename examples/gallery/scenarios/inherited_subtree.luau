@@ -1,17 +1,15 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "Nested color and enabled controls",
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local D, D2, C3, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Color3, ctx.types.Enum
 		local live, blend, engaged = Compose.cell(true), Compose.cell(35), Compose.cell(0)
-		local function palette(use: Use, role)
+		local function palette(use: Use, role: string)
 			local package = if ctx.theme then use(ctx.theme) else ctx.Facet.themes.neutralPackage()
 			local mode = if ctx.themeMode then use(ctx.themeMode) else package.style.defaultTheme
 			local chosen = package.style.themes[1]
@@ -20,14 +18,14 @@ return {
 					chosen = candidate
 				end
 			end
-			local rgb = chosen.colors[role] or (chosen.extra or {})[role] or chosen.colors.content
+			local rgb = chosen.colors[role] or (chosen.extra and chosen.extra.contentSecondary) or chosen.colors.content
 			return C3.new(rgb.r, rgb.g, rgb.b)
 		end
 		local tint = Compose.formula(function(use: Use)
 			return palette(use, "contentSecondary"):Lerp(palette(use, "accent"), use(blend) / 100)
 		end)
 		local function label(name, text, color)
-			return UI.Text({
+			return UI.Text {
 				Name = name,
 				text = text,
 				TextColor3 = color,
@@ -37,7 +35,7 @@ return {
 				TextTransparency = function(use: Use)
 					return if use(live) then 0 else 0.5
 				end,
-			})
+			}
 		end
 		local function screen()
 			local after = UI.Button "After" {
@@ -77,19 +75,19 @@ return {
 				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Text({ text = "Nested color and control state", textRole = "title" }),
+				UI.Text { text = "Nested color and control state", textRole = "title" },
 				UI.Toggle "PowerToggle" { label = "Panel power", value = live },
 				UI.Slider "BlendSlider" { label = "Tint", value = blend, min = 0, max = 100, step = 5 },
 				Host.Frame "Panel" {
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
+					Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) },
 					Host.Frame "Row" {
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						BackgroundTransparency = 1,
-						Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
+						Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) },
 						label("HeroTitle", "The title and crest share this panel's live tint", tint),
 						Host.ImageLabel "Crest" {
 							Image = "rbxasset://textures/ui/GuiImagePlaceholder.png",
@@ -105,7 +103,7 @@ return {
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						BackgroundTransparency = 1,
-						Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
+						Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) },
 						label("Sub", "The inner panel keeps its own secondary color", function(use: Use)
 							return palette(use, "contentSecondary")
 						end),
@@ -119,10 +117,10 @@ return {
 					end),
 				},
 				after,
-				UI.Text({
+				UI.Text {
 					text = "Control paint stays independent of the surrounding text tint. Power disables both controls and moves focus to After.",
 					TextWrapped = true,
-				}),
+				},
 			}
 		end
 		return {

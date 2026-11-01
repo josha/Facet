@@ -16,11 +16,9 @@ type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Focus = typeof(require("@repo/tools/typecheck/aliases").FocusControls)
 type NavigationEntry = typeof(require("@repo/tools/typecheck/aliases").NavigationEntry)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type File = {
 	id: string,
 	name: string,
@@ -588,20 +586,20 @@ return {
 				itemSize = 64,
 				measure = true,
 				Size = D2.fromScale(1, 1),
-				drag = function(items: { File }, keys: { string }): DraggableSpec
+				drag = function(items, keys): DraggableSpec
 					return dragFiles(items, keys, "inbox")
 				end,
 				drop = receive("inbox"),
 				movable = function()
 					return editingEnabled:peek() and not refuse:peek()
 				end,
-				onReorder = function(keys: { string }, slot: number, parentKey: string?)
+				onReorder = function(keys, slot, parentKey)
 					local kept: { File }, carried: { File } = {}, {}
 					for _, item in inbox:peek() do
 						table.insert(if table.find(keys, item.id) then carried else kept, item)
 					end
 					local siblings = children(parentKey, kept)
-					local before = siblings[slot + 1]
+					local before = siblings[(slot :: number) + 1]
 					local insertion = #kept + 1
 					if before then
 						for index, item in kept do
@@ -822,10 +820,11 @@ return {
 		end
 
 		local function view(kind: string, id: string, folder: string?): GuiObject
+			local iconView = kind == "icons"
 			local source = Compose.formula(function(use: Use): { File }
 				return visibleRows(use(rows), folder, if id == "linked" then "" else string.lower(use(query)))
 			end)
-			local function drag(items: { File }, keys: { string }): DraggableSpec
+			local function drag(items, keys): DraggableSpec
 				return dragFiles(items, keys, "library")
 			end
 			local drop = receive("library", folder)
@@ -864,13 +863,6 @@ return {
 					then children(item.id, rows:peek())
 					else nil
 			end
-			local function render(
-				current: ReadOnlyValue<File>,
-				placement: unknown,
-				key: ReadOnlyValue<string>
-			): GuiObject
-				return cell(current, placement, key, kind == "icons")
-			end
 			if kind == "details" then
 				local columns: { TableColumn } = {
 					{
@@ -880,11 +872,7 @@ return {
 						value = function(item: File): string
 							return item.name
 						end,
-						render = function(
-							current: ReadOnlyValue<File>,
-							placement: unknown,
-							key: ReadOnlyValue<string>
-						): GuiObject
+						render = function(current: ReadOnlyValue<File>, placement: unknown, key): GuiObject
 							return cell(current, placement, key, false, true)
 						end,
 					},
@@ -910,12 +898,16 @@ return {
 						end,
 					},
 				}
-				return UI.Table {
+				return (UI.Table :: any) {
 					Name = id,
 					collectionId = "library",
-					drag = drag,
+					drag = function(items, keys)
+						return drag(items, keys)
+					end,
 					drop = drop,
-					rowDrop = rowDrop,
+					rowDrop = function(current, key)
+						return rowDrop(current, key)
+					end,
 					from = source,
 					key = "id",
 					selection = selection,
@@ -927,12 +919,18 @@ return {
 					rowDeletable = rowDeletable,
 					reorderable = true,
 					movable = movable,
-					onReorder = onReorder,
-					onDelete = remove,
+					onReorder = function(keys, slot, parentKey)
+						onReorder(keys, slot, parentKey)
+					end,
+					onDelete = function(keys)
+						remove(keys)
+					end,
 					maxRetained = 120,
 					Size = D2.fromScale(1, 1),
 					onActivate = onActivate,
-					rowActions = rowActions,
+					rowActions = function(current, key)
+						return rowActions(current, key)
+					end,
 					children = folderChildren,
 					expanded = expanded,
 					sort = sorts[id],
@@ -940,12 +938,16 @@ return {
 				}
 			end
 			if kind == "icons" then
-				return UI.VirtualGrid {
+				return (UI.VirtualGrid :: any) {
 					Name = id,
 					collectionId = "library",
-					drag = drag,
+					drag = function(items, keys)
+						return drag(items, keys)
+					end,
 					drop = drop,
-					rowDrop = rowDrop,
+					rowDrop = function(current, key)
+						return rowDrop(current, key)
+					end,
 					from = source,
 					key = "id",
 					selection = selection,
@@ -957,20 +959,28 @@ return {
 					rowDeletable = rowDeletable,
 					reorderable = true,
 					movable = movable,
-					onReorder = onReorder,
-					onDelete = remove,
+					onReorder = function(keys, slot, parentKey)
+						onReorder(keys, slot, parentKey)
+					end,
+					onDelete = function(keys)
+						remove(keys)
+					end,
 					maxRetained = 120,
 					Size = D2.fromScale(1, 1),
 					onActivate = onActivate,
-					rowActions = rowActions,
+					rowActions = function(current, key)
+						return rowActions(current, key)
+					end,
 					measure = true,
 					itemSize = 200,
 					gap = 8,
-					render = render,
+					render = function(current: ReadOnlyValue<File>, placement, key): GuiObject
+						return cell(current, placement, key, iconView)
+					end,
 					minColumnWidth = gridSize,
 				}
 			end
-			return UI.Outline {
+			return (UI.Outline :: any) {
 				Name = id,
 				collectionId = "library",
 				drag = drag,
@@ -997,7 +1007,9 @@ return {
 				expanded = expanded,
 				measure = true,
 				gap = 0,
-				render = render,
+				render = function(current: ReadOnlyValue<File>, placement, key): GuiObject
+					return cell(current, placement, key, iconView)
+				end,
 			}
 		end
 		local function button(
@@ -1010,7 +1022,9 @@ return {
 			return UI.Button {
 				Name = name,
 				label = label,
-				onActivate = action,
+				onActivate = function()
+					action()
+				end,
 				enabled = enabled,
 				Visible = visible,
 			}
@@ -1234,7 +1248,7 @@ return {
 			}
 		end
 		local function gridSizeControl(): Frame
-			return UI.Slider "GridSize" {
+			local slider = UI.Slider "GridSize" {
 				label = "Grid size",
 				value = gridSize,
 				min = 140,
@@ -1247,8 +1261,9 @@ return {
 				Visible = function(use: Use): boolean
 					return use(mode) == "icons"
 				end,
-				Host.UISizeConstraint { MaxSize = ctx.types.Vector2.new(400, math.huge) },
 			}
+			Host.UISizeConstraint { MaxSize = ctx.types.Vector2.new(400, math.huge) }.Parent = slider
+			return slider
 		end
 		local operations: { StringPickerOption } =
 			{ { value = "move", label = "Move" }, { value = "copy", label = "Copy" } }

@@ -2,7 +2,7 @@
 local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 
-local pending = setmetatable({} :: { [Instance]: number }, { __mode = "k" })
+local pending: { [Instance]: number } = setmetatable({}, { __mode = "k" })
 
 local function hold(node: Instance): () -> ()
 	pending[node] = (pending[node] or 0) + 1
@@ -94,9 +94,7 @@ local function createNatural(
 	local Compose, Host = ctx.Compose, ctx.Host
 	local shaper: GetTextBoundsParams? = nil
 	local makeShaper = Compose.bindOwner(function()
-		shaper = (
-			((Host :: unknown) :: { GetTextBoundsParams: ({ Width: number }) -> GetTextBoundsParams }).GetTextBoundsParams
-		)({ Width = 0 })
+		shaper = Host.GetTextBoundsParams { Width = 0 }
 	end)
 	local service = ctx.config.services.TextService
 	local bounds = Compose.cell(ctx.types.Vector2.new(math.huge, 0))
@@ -209,9 +207,7 @@ local function inline(
 	local service = assert(ctx.config.services.TextService)
 	local shaper: GetTextBoundsParams? = nil
 	local makeShaper = Compose.bindOwner(function()
-		shaper = (
-			((Host :: unknown) :: { GetTextBoundsParams: ({ Width: number }) -> GetTextBoundsParams }).GetTextBoundsParams
-		)({ Width = 0 })
+		shaper = Host.GetTextBoundsParams { Width = 0 }
 	end)
 	local unknown = ctx.types.Vector2.new(math.huge, 0)
 	local current = unknown

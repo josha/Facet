@@ -4,7 +4,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	local FixtureNavigationTypes = require("../src/ui/navigation_types")
+	local Facet = require("../src")
 
 	local fadeKit = require("./lib/fade")
 	local Compose = require("../src/vendor/compose/core")
@@ -22,13 +22,12 @@ return function(verifyHarness: Verify.Harness)
 	local function alertWorld(options: any?): (any, any)
 		local shown = Compose.cell(false)
 		local w = overlay.new(function(UI: FacetControls)
-			return UI.Alert {
+			local leave: Facet.AlertSpec = {
 				isPresented = shown,
 				title = "Leave?",
-				actions = {
-					{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
-				},
+				actions = { { id = "stay", label = "Stay", role = "cancel" } },
 			}
+			return UI.Alert(leave)
 		end, options)
 		return w, shown
 	end
@@ -91,10 +90,8 @@ return function(verifyHarness: Verify.Harness)
 		type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 		type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 		type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-		local FixtureNavigationTypes = require("../src/ui/navigation_types")
 
 		local fadeKit = require("./lib/fade")
-		local Facet = require("../src")
 		local icons = require("../src/ui/icons")
 		local engineLib = require("./lib/native_engine")
 		local Compose: ComposeModule = Facet.Compose
@@ -107,7 +104,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:suite("native parity media", function()
 			verifyHarness:suite("controls", function()
 				local function session(
-					build: (any, any) -> any,
+					build: (Facet.Controls, Facet.Host) -> Facet.Child,
 					prepare: ((any, any, engineLib.Engine) -> ())?
 				): { [string]: any }
 					local engine: any = engineLib.new()
@@ -123,17 +120,14 @@ return function(verifyHarness: Verify.Harness)
 					if prepare then
 						prepare(gui, input, engine)
 					end
-					local UI = Facet.controls(
-						runtime,
-						{
-							types = engine.types,
-							guiService = gui,
-							services = { GuiService = gui, UserInputService = input },
-						} :: any
-					)
-					local Host = (runtime.constructors :: unknown) :: RobloxHost
+					local UI = Facet.controls(runtime, {
+						types = engine.types,
+						guiService = gui,
+						services = { GuiService = gui, UserInputService = input },
+					})
+					local Host = Facet.host(runtime)
 					local stop, screen: any = runtime.mount(function()
-						return Host.ScreenGui({ build(UI, Host) })
+						return Host.ScreenGui { build(UI, Host) }
 					end, engine.new("Folder"))
 					return {
 						engine = engine,
@@ -172,8 +166,8 @@ return function(verifyHarness: Verify.Harness)
 					run = function()
 						local activations = 0
 						local w = session(function(UI: FacetControls, Host: RobloxHost)
-							return Host.Frame({
-								UI.Button "Plain" { label = "x", onActivate = function() end } :: unknown,
+							return Host.Frame {
+								UI.Button "Plain" { label = "x", onActivate = function() end },
 								UI.Button "Held" {
 									label = "x",
 									pop = true,
@@ -182,7 +176,7 @@ return function(verifyHarness: Verify.Harness)
 										activations += 1
 									end,
 								},
-							})
+							}
 						end)
 						Verify.expect((w.find("Plain"):FindFirstChild("Pop", true))):toBeNil()
 						Verify.expect((w.find("Plain"):FindFirstChildWhichIsA("UIScale"))):toBeNil()
@@ -217,8 +211,8 @@ return function(verifyHarness: Verify.Harness)
 						local function run(reduced: boolean): { [string]: any }
 							local value, number = Compose.cell("2"), Compose.cell(2)
 							local w = session(function(UI: FacetControls, Host: RobloxHost)
-								return Host.Frame({
-									UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end } :: unknown,
+								return Host.Frame {
+									UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end },
 									UI.Button "Busy" { label = "Save", busy = true },
 									UI.TextInput "Field" {
 										value = value,
@@ -227,7 +221,7 @@ return function(verifyHarness: Verify.Harness)
 										min = 1,
 										max = 10,
 									},
-								})
+								}
 							end, function(gui, _, engine)
 								engine.environment.poke(gui, "ReducedMotionEnabled", reduced)
 							end)

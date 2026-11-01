@@ -38,11 +38,11 @@ for _, count in { 100, 500 } do
 					selection = assert(selected),
 					Size = world.types.UDim2.fromOffset(640, 480),
 					render = function(item)
-						return UI.Text("Slot" .. item:peek()) {
+						return UI.Text("Slot" .. item:peek())({
 							text = function(use: Facet.Use)
 								return `Item {use(item)}`
 							end,
-						}
+						})
 					end,
 				}
 				return UI.VirtualGrid "Inventory"(spec)
@@ -142,16 +142,19 @@ table.insert(workloads, {
 				local label = `Item {i}`
 				table.insert(
 					children,
-					UI.Button("Item" .. i) {
+					UI.Button("Item" .. i)({
 						label = label,
 						onActivate = function() end,
 						Visible = function(use: Facet.Use)
 							return matches(label, use(assert(query)))
 						end,
-					}
+					})
 				)
 			end
-			return UI.ScrollView "Shop" { gap = 8, Size = world.types.UDim2.fromOffset(640, 480), table.unpack(children) }
+			return UI.ScrollView(
+				{ gap = 8, Size = world.types.UDim2.fromOffset(640, 480), table.unpack(children) },
+				"Shop"
+			)
 		end, function(screen)
 			local scroll = S.create(world, "ScrollingFrame", "Shop", screen, {
 				Size = world.types.UDim2.fromOffset(640, 480),
@@ -363,11 +366,11 @@ table.insert(workloads, {
 					for i = 1, 60 do
 						table.insert(
 							children,
-							UI.Card("Card" .. i) {
+							UI.Card("Card" .. i)({
 								title = `Kart {i}`,
 								caption = `{i * 10} coins`,
 								image = "rbxassetid://0",
-							}
+							})
 						)
 					end
 					return UI.Grid "Cards" { columns = 6, gap = 8, table.unpack(children) }
@@ -424,11 +427,11 @@ table.insert(workloads, {
 			for i = 1, 300 do
 				local name, label = "Row" .. i, `Row {i}`
 				if i % 3 == 0 then
-					table.insert(children, UI.Card(name) { title = label })
+					table.insert(children, UI.Card(name)({ title = label }))
 				elseif i % 3 == 1 then
-					table.insert(children, UI.Text(name) { text = label })
+					table.insert(children, UI.Text(name)({ text = label }))
 				else
-					table.insert(children, UI.Button(name) { label = label, onActivate = function() end })
+					table.insert(children, UI.Button(name)({ label = label, onActivate = function() end }))
 				end
 			end
 			return UI.ScrollView "Mixed" {

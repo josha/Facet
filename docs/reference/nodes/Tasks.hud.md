@@ -1,6 +1,6 @@
 # Tasks.hud
 
-Mount directly. Pass accepted progress with its subject ("Beacons 2/4") and a bound InputAction.
+Mount accepted progress with its subject ("Beacons 2/4") and a bound InputAction.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -35,7 +35,7 @@ portrait screen, bottom right otherwise. The Button and the bound action
 call activate; `shortcutHint` shows the action's glyph. The game owns its
 InputContext; activate can act in the world or open a
 [destination](Tasks.pages.md). Keep the center and movement controls clear.
-Test short/narrow layouts.
+Test narrow layouts.
 
 [Safe layout](Tasks.safe-layout.md), [HUD actions](HUD-actions.md),
 [minimaps](Tasks.minimap.md),

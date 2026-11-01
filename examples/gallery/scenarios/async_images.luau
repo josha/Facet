@@ -3,8 +3,7 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 type UnknownCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Loading profile pictures",
@@ -34,14 +33,14 @@ return {
 			{ id = "BadAsset", image = "rbxassetid://999999999999999" },
 		}
 		local function picture(index)
-			return UI.AsyncImage({
+			return UI.AsyncImage {
 				Name = pictures[index].id,
 				image = pictures[index].image,
 				onStatus = function(state: "failed" | "loading" | "ready", message: unknown)
 					states[index]:set(state)
 					errors[index]:set(message)
 				end,
-			})
+			}
 		end
 		local function report()
 			return {
@@ -56,12 +55,12 @@ return {
 					gap = 12,
 					BackgroundTransparency = 1,
 					Size = D2.fromScale(1, 1),
-					UI.Text({ LayoutOrder = 1, text = "Loading profile pictures", textRole = "title" }),
-					UI.Text({
+					UI.Text { LayoutOrder = 1, text = "Loading profile pictures", textRole = "title" },
+					UI.Text {
 						LayoutOrder = 2,
 						text = "Pictures keep their space while loading; unavailable pictures keep a placeholder.",
-					}),
-					UI.Text({
+					},
+					UI.Text {
 						LayoutOrder = 3,
 						text = function(use: Use)
 							return string.format(
@@ -71,30 +70,30 @@ return {
 								use(states[3])
 							)
 						end,
-					}),
+					},
 					Host.Frame "Row" {
 						LayoutOrder = 4,
 						BackgroundTransparency = 1,
 						Size = D2.new(1, 0, 0, 48),
-						Host.UIListLayout({
+						Host.UIListLayout {
 							SortOrder = E.SortOrder.LayoutOrder,
 							FillDirection = E.FillDirection.Horizontal,
 							Padding = D.new(0, 12),
-						}),
+						},
 						picture(1),
 						Compose.show(shown, function()
 							return picture(2)
 						end),
 						picture(3),
 					},
-					UI.Button({
+					UI.Button {
 						LayoutOrder = 5,
 						label = "Release second picture",
 						onActivate = function()
 							shown:set(false)
 							states[2]:set("released")
 						end,
-					}),
+					},
 				}
 			end,
 			report = report,

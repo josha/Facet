@@ -5,27 +5,24 @@ type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type VoteCell = typeof(require("@repo/tools/typecheck/aliases").VoteCell)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "Choices and filters",
 	ledgerRows = { "CONTROL-SELECTION" },
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
-		local signal = Compose.cell
-		local enabled = signal(true)
-		local checked = signal(false)
-		local mixed = signal(true)
-		local boost = signal(false)
-		local selected = signal("open")
-		local club = signal(false)
-		local choices = signal({
+		local enabled = Compose.cell(true)
+		local checked = Compose.cell(false)
+		local mixed = Compose.cell(true)
+		local boost = Compose.cell(false)
+		local selected = Compose.cell("open")
+		local club = Compose.cell(false)
+		local choices = Compose.cell({
 			{ id = "open", value = "open", label = "Open races" },
 			{
 				id = "club",
@@ -35,16 +32,16 @@ return {
 				enabled = club,
 			},
 		})
-		local query = signal("")
-		local track = signal("track-1")
-		local tagCoastal, tagForest, tagSnow = signal(true), signal(false), signal(false)
-		local comboValue = signal("road")
-		local comboText = signal("Road")
-		local driver = signal("d3")
-		local driverError = signal("")
-		local mode = signal("sprint")
-		local laps = signal("5")
-		local DRIVERS = {}
+		local query = Compose.cell("")
+		local track = Compose.cell("track-1")
+		local tagCoastal, tagForest, tagSnow = Compose.cell(true), Compose.cell(false), Compose.cell(false)
+		local comboValue = Compose.cell("road")
+		local comboText = Compose.cell("Road")
+		local driver = Compose.cell("d3")
+		local driverError = Compose.cell("")
+		local mode = Compose.cell("sprint")
+		local laps = Compose.cell("5")
+		local DRIVERS: { StringPickerOption } = {}
 		for i, name in { "Ada", "Bo", "Cy", "Dee", "Eli", "Fay", "Gus", "Hal", "Ivy", "Jo", "Kai", "Lu" } do
 			table.insert(DRIVERS, {
 				value = "d" .. i,
@@ -129,7 +126,7 @@ return {
 				enabled = enabled,
 			}
 		end
-		local trackOptions = {}
+		local trackOptions: { StringPickerOption } = {}
 		for _, item in tracks do
 			table.insert(trackOptions, { value = item.id, label = item.label })
 		end
@@ -159,10 +156,10 @@ return {
 					description = "Winter routes are closed.",
 				},
 			}
-			return UI.Menu({
+			return UI.Menu {
 				trigger = trigger,
 				items = items,
-			})
+			}
 		end
 		local function combo()
 			local options: { StringPickerOption } = {
@@ -174,25 +171,25 @@ return {
 				text = comboText,
 				options = options,
 				enabled = enabled,
-				acceptCustom = function(text)
+				acceptCustom = function(text: string)
 					return #text >= 3 and #text <= 24, "Use 3 to 24 characters."
 				end,
 			}
 		end
 		local vote = (function(value: "up" | "down" | "none"): VoteCell
-			return signal(value)
+			return Compose.cell(value)
 		end)("none")
 		local function votes()
-			return Host.Frame("Votes")({
+			return Host.Frame "Votes" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Horizontal,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					VerticalAlignment = Enum.VerticalAlignment.Center,
 					Padding = UDim.new(0, 16),
-				}),
+				},
 				UI.Vote "TrackVote" {
 					LayoutOrder = 1,
 					value = vote,
@@ -209,8 +206,8 @@ return {
 					readOnly = true,
 					controlSize = "compact",
 				},
-				UI.Chip "VoteTag" { LayoutOrder = 3, label = "Rally", selected = signal(false) },
-			})
+				UI.Chip "VoteTag" { LayoutOrder = 3, label = "Rally", selected = Compose.cell(false) },
+			}
 		end
 		local function reset()
 			vote:set("none")
@@ -284,7 +281,7 @@ return {
 			}
 		end
 		local function heading(text)
-			return UI.Text({
+			return UI.Text {
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				Size = UDim2.new(1, 0, 0, 0),
@@ -294,11 +291,11 @@ return {
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
 				TextXAlignment = Enum.TextXAlignment.Left,
-			})
+			}
 		end
 
 		local function caption(id: string, text: string)
-			return UI.Text({
+			return UI.Text {
 				Name = id,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
@@ -309,20 +306,20 @@ return {
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
 				TextXAlignment = Enum.TextXAlignment.Left,
-			})
+			}
 		end
 
 		local function body()
-			return Host.Frame("Body")({
+			return Host.Frame "Body" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
-				UI.Text({
+				},
+				UI.Text {
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -333,7 +330,7 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
+				},
 				UI.Button "Reset" { label = "Reset", onActivate = reset },
 				caption("CapSwitch", "Toggle · switch"),
 				switch(),
@@ -376,10 +373,10 @@ return {
 				heading("Vote on a track"),
 				caption("CapVote", "Vote · up, down or none (press again to clear), and a read-only one"),
 				votes(),
-			})
+			}
 		end
 		local function screen()
-			return Host.Frame("SelectionControls")({
+			return Host.Frame "SelectionControls" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
 				UI.ScrollView "Content" {
@@ -389,7 +386,7 @@ return {
 					ScrollBarThickness = 6,
 					body(),
 				},
-			})
+			}
 		end
 		return {
 			screen = screen,

@@ -1,13 +1,13 @@
 --!strict
 
-local RuntimeTypes = require "./types"
+local CoreTypes = require "../types"
 local Host = require "../host"
 local Owner = require "../ownership/owner"
 local Types = require "../reactive/types"
 local Cell = require "../reactive/cell"
 local Reactor = require "../reactive/reactor"
 
-export type Options = RuntimeTypes.ObserveOptions
+export type Options = CoreTypes.ObserveOptions
 
 local SETTLE_FRAMES = 3
 type Entry = { live: boolean, read: () -> unknown, value: Types.Value<unknown>, polls: boolean, quiet: number }
@@ -19,6 +19,7 @@ type Record = {
 	references: number,
 	unsubscribe: Host.Unsubscribe?,
 	entry: Entry?,
+	release: ((unknown) -> ())?,
 }
 
 return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reactor.Reactor)
@@ -33,8 +34,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 			release()
 		end
 	end
-	local function releaseRecord(subject: unknown)
-		local record = subject :: Record
+	local function releaseRecord(record: Record)
 		record.references -= 1
 		if record.references > 0 then
 			return
@@ -120,7 +120,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 		end)
 	end
 	return function(node: Host.Node, property: string, options: Options?): Types.ReadOnlyValue<unknown>
-		ownerOf "observe"
+		local owner = ownerOf "observe"
 		local observation = assert(host.observation, "Compose observe requires host.observation")
 		local styled = options ~= nil and options.styled == true
 		if styled then
@@ -128,12 +128,6 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 				observation.readStyledProperty,
 				"Compose styled observation requires host.observation.readStyledProperty"
 			)
-		end
-		local function read(target: Host.Node, key: string): unknown
-			if styled then
-				return assert(observation.readStyledProperty)(target, key)
-			end
-			return observation.readProperty(target, key)
 		end
 		local subscribe: (Host.Node, string, () -> ()) -> Host.Unsubscribe = if styled
 			then assert(
@@ -145,10 +139,12 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 		local poll = options ~= nil and options.poll == true
 		assert(not poll or framed, "Compose polling observation requires frame = true")
 		assert(not framed or host.frames ~= nil, "Compose frame observation requires host.frames")
-		local key = property
-			.. (if styled then "\0styled" else "")
-			.. (if poll then "\0poll" elseif framed then "\0frame" else "")
-		local owner = ownerOf "observe"
+		local key = if styled then property .. "\0styled" else property
+		if poll then
+			key ..= "\0poll"
+		elseif framed then
+			key ..= "\0frame"
+		end
 		local properties = entries[node]
 		if properties == nil then
 			properties = {}
@@ -156,6 +152,12 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 		end
 		local record = properties[key]
 		if record == nil then
+			local function read(target: Host.Node, key: string): unknown
+				if styled then
+					return assert(observation.readStyledProperty)(target, key)
+				end
+				return observation.readProperty(target, key)
+			end
 			local value = Cell.cell(read(node, property))
 			local created: Record = {
 				node = node,
@@ -165,7 +167,11 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 				references = 0,
 				unsubscribe = nil,
 				entry = nil,
+				release = nil,
 			}
+			created.release = function(_subject: unknown)
+				releaseRecord(created)
+			end
 			if framed then
 				local entry: Entry = {
 					live = true,
@@ -202,7 +208,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 		end
 		local held = assert(record)
 		held.references += 1
-		Owner.holdSubject(owner, releaseRecord, held)
+		Owner.holdSubject(owner, assert(held.release), held)
 		return held.value
 	end
 end

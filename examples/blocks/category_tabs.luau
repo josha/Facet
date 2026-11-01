@@ -3,7 +3,7 @@ local FacetTypes = require("../../src")
 
 type FacetModule = FacetTypes.Facet
 type FacetControls = FacetTypes.Controls
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = FacetTypes.ReadOnlyValue<T>
 type Use = <T>(ReadOnlyValue<T>) -> T
 type Item = { id: string, name: string, category: string }
 type Model = { items: ReadOnlyValue<{ Item }> }
@@ -47,12 +47,11 @@ return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 		selected = category,
 		options = options,
 	}
-	local picker = (UI.Picker "CategoryTabs" :: unknown) :: (FacetTypes.SinglePickerSpec<string>) -> GuiObject
 	return UI.Screen "Categories" {
 		padding = "m",
 		gap = "m",
 		UI.Text "Title" { text = "Collection", textRole = "title" },
-		picker(pickerSpec),
+		UI.Picker "CategoryTabs"(pickerSpec),
 		UI.VirtualGrid "Items"(itemsSpec),
 	}
 end

@@ -14,7 +14,7 @@ local help = UI.Callout "Help" {
   actions = { { id = "Try", label = "Try", onActivate = function() print("Try") end } },
   onRetire = function(reason) print(reason) end,
 }
-UI.VStack "Prompt" { anchor :: unknown, help :: unknown }
+UI.VStack "Prompt" { anchor, help }
 ```
 
 `actions` takes one or two commands. Each action retires this Callout.

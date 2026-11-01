@@ -42,7 +42,7 @@ local RULES: { Rule } = {
 		id = "any-cast",
 		severity = "error",
 		patterns = { "::%s*any%f[^%w_]" },
-		message = 'Remove the any cast. The named form UI.Control "Name" { ... } type-checks every option.',
+		message = 'Remove the any cast. UI.Control(props, "Name") type-checks every option.',
 	},
 	{
 		id = "reserved-key",
@@ -273,14 +273,15 @@ function UsageLint.project(sources: { { file: string, source: string } }): { Fin
 		for index, raw in lines do
 			local code = stripped(raw)
 			local function note(list: { Finding }, rule: string, message: string)
-				table.insert(list, {
+				local finding: Finding = {
 					rule = rule,
 					severity = "warning",
 					file = entry.file,
 					line = index,
 					text = (string.gsub(raw, "^%s+", "")),
 					message = message,
-				})
+				}
+				table.insert(list, finding)
 			end
 			if string.find(code, "Facet%.app%s*%(") ~= nil or string.find(code, "createRuntime%s*%(") ~= nil then
 				note(runtimes, "one-runtime", "This project makes more than one runtime or app. " .. ONE_TREE)

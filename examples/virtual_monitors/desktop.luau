@@ -4,12 +4,12 @@ type FacetModule = typeof(require("@repo/tools/typecheck/aliases").FacetModule)
 type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type ControlOptions = typeof(require("@repo/tools/typecheck/aliases").ControlOptions)
 type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
-type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
-type WorldTarget = BasePart | Model | Player
+type WorldTargetCell = typeof(require("@repo/tools/typecheck/aliases").WorldTargetCell)
+type Stack = typeof(require("@repo/tools/typecheck/aliases").FacetControls.VStack)
 local desktop = {}
 local screens = require("./screens")
 local modelModule = require("./model")
@@ -22,7 +22,7 @@ function desktop.create(
 	model: Model,
 	progress: ReadOnlyValue<number>,
 	options: ControlOptions?,
-	player: Player?
+	player: (BasePart | Model | Player)?
 ): () -> CanvasGroup
 	local Host, Compose = Facet.host(runtime), Facet.Compose
 	local config: ControlOptions = options or {}
@@ -33,8 +33,7 @@ function desktop.create(
 	local adaptive = Facet.adaptive
 	return function(): CanvasGroup
 		local env = UI.environment()
-		local anchored: WorldTarget? = player
-		local target = Compose.cell(anchored)
+		local target: WorldTargetCell = (Compose.cell :: any)(player)
 		local you = UI.worldAnchor({ target = target, offscreen = "retain" })
 		local tabs: { Tab } = {}
 		local icons: { [string]: string } =
@@ -74,8 +73,8 @@ function desktop.create(
 			local launch = launching(use)
 			return if launch then launch.stage else 1
 		end
-		local function panel(stack: (StackProps) -> Frame, name: string, ...: Child): Frame
-			local plate = stack({ Name = name, gap = "xs", padding = "s", Host.UICorner({}), ... })
+		local function panel(stack: Stack, name: string, ...: Child): Frame
+			local plate = stack({ Name = name, gap = "xs", padding = "s", Host.UICorner {}, ... })
 			plate:AddTag("facet-panel")
 			return plate
 		end

@@ -2,6 +2,7 @@
 type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type NumberValue = typeof(require("@repo/tools/typecheck/aliases").NumberReadOnlyValue)
 type DraggableSpec = typeof(require("@repo/tools/typecheck/aliases").DraggableSpec)
 
 return function(UI: Controls, Host: Host, C: ComposeModule): Frame
@@ -55,7 +56,7 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 				end,
 			}
 		end,
-		render = function(current): GuiObject
+		render = function(current: NumberValue): GuiObject
 			return UI.Button {
 				Name = `RackTile{current:peek()}`,
 				label = string.char(64 + current:peek()),
@@ -63,7 +64,7 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 			}
 		end,
 	}
-	return UI.VStack({
+	return UI.VStack {
 		width = "fill",
 		gap = "s",
 		UI.Text {
@@ -72,5 +73,5 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 		},
 		view,
 		rack,
-	})
+	}
 end

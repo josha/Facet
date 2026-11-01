@@ -1,11 +1,11 @@
 --!strict
 
-local Block = require "../runtime/block"
 local Children = require "../runtime/children"
+local Block = Children.block
 local Host = require "../host"
 local Support = require "./support"
 
-export type Builder = () -> { Host.Node }
+export type Builder = () -> { read [number]: Host.Node }
 
 local function fragment(builder: Builder): Children.Directive
 	local build: Builder = Support.builderOf(builder, "fragment", "builder")

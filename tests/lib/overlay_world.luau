@@ -8,6 +8,7 @@ local Roblox = require("../../src/vendor/compose/roblox")
 local controls = require("../../src/ui")
 local engines = require("./native_engine")
 local Shared = require("../../src/ui/types")
+local Facet = require("../../src")
 
 export type Setup = {
 	inputs: boolean?,
@@ -95,7 +96,7 @@ function world.new(
 	}
 	local UI = controls(Compose, runtime, config)
 	local V = engine.types.Vector2
-	local Host: RobloxHost = (runtime.constructors :: unknown) :: RobloxHost
+	local Host: RobloxHost = Facet.host(runtime)
 	local stop, screen: any = runtime.mount(function()
 		local props: Shared.ScreenGuiNativeProps = {
 			build(UI, Host, engine, gui, runtime),

@@ -232,13 +232,13 @@ return function(verifyHarness: Verify.Harness)
 				local show = Compose.cell(true)
 				local world = worlds.new(function(UI: FacetControls)
 					return Compose.show(show, function()
-						return UI.StepIndicator("Steps")({
+						return UI.StepIndicator "Steps" {
 							steps = workflow(),
 							current = "ship",
 							onSelect = function()
 								show:set(false)
 							end,
-						})
+						}
 					end)
 				end)
 				world.find("Step-pay").Activated:Fire()

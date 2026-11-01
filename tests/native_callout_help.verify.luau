@@ -1,8 +1,14 @@
 --!strict
 local NativeEngine = require("./lib/native_engine")
+local Shared = require("../src/ui/types")
+local OverlayTypes = require("../src/ui/overlay_types")
+local NavigationProps = require("../src/ui/navigation_props")
 local Verify = require("../tools/vendor/verify/src/core")
+local Bdd = require("../tools/vendor/verify/src/bdd")
 
 return function(verifyHarness: Verify.Harness)
+	local test = Bdd.create(verifyHarness)
+	local describe, it, expect = test.describe, test.it, test.expect
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
@@ -26,25 +32,28 @@ return function(verifyHarness: Verify.Harness)
 		return math.abs(actual - expected) <= 1
 	end
 
-	local function tip(Host: any): () -> any
+	local function edgeCell(value: OverlayTypes.Edge): Compose.Value<OverlayTypes.Edge>
+		return Compose.cell(value)
+	end
+
+	local function tip(Host: RobloxHost): () -> TextLabel
 		return function()
 			return Host.TextLabel "Body" { Text = TIP }
 		end
 	end
 
-	local function mount(specOf: (any, any) -> { [any]: any }, options: any?): any
+	local function mount(
+		specOf: (FacetControls, RobloxHost, GuiObject) -> NavigationProps.CalloutSpec,
+		options: Shared.Config?
+	): any
 		return overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			local anchor = UI.Button "Plus" { label = "+" }
-			local spec = specOf(UI, Host)
-			spec.anchor = anchor
-			if spec.onRetire == nil then
-				spec.onRetire = function() end
-			end
-			return Host.Frame({
+			local spec = specOf(UI, Host, anchor)
+			return Host.Frame {
 				Name = "Editor",
-				Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
+				Host.Frame { Name = "Bar", anchor },
 				UI.Callout "Callout"(spec),
-			})
+			}
 		end, options)
 	end
 
@@ -59,7 +68,7 @@ return function(verifyHarness: Verify.Harness)
 		return out
 	end
 
-	verifyHarness:suite("native Callout: callbacks during a show never strand or double-close a plate", function()
+	describe("native Callout: callbacks during a show never strand or double-close a plate", function()
 		local function pair(onShow: (any) -> ()): (any, { string }, any)
 			local reports: { string } = {}
 			local used = Compose.cell(false)
@@ -67,16 +76,16 @@ return function(verifyHarness: Verify.Harness)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				local first = UI.Button "Plus" { label = "+" }
 				local second = UI.Button "Share" { label = "Share" }
-				return Host.Frame({
+				return Host.Frame {
 					Name = "Editor",
-					Host.Frame({ Name = "Bar", first :: unknown, second }) :: unknown,
+					Host.Frame { Name = "Bar", first, second },
 					Compose.show(gate, function()
 						return UI.Callout "First" {
 							anchor = first :: GuiObject,
 							priority = 2,
 							content = tip(Host),
 							featureUsed = used,
-							onShow = function()
+							onShow = function(): ()
 								onShow({ used = used, gate = gate })
 							end,
 							onRetire = function(reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway")
@@ -92,41 +101,41 @@ return function(verifyHarness: Verify.Harness)
 						end,
 						onRetire = function() end,
 					},
-				})
+				}
 			end, { motionLevel = "none" })
 			return w, reports, gate
 		end
 
-		verifyHarness:case("dismissing from inside the plate hands the selection to the anchor at once", {
+		it("dismissing from inside the plate hands the selection to the anchor at once", {
 			id = "native_callout_help::native Callout: callbacks during a show never strand or double-close a plate::dismissing from inside the plate hands the selection to the anchor at once",
 			run = function()
-				local w = mount(function(_, Host: RobloxHost)
-					return { content = tip(Host) }
+				local w = mount(function(_, Host: RobloxHost, anchor: GuiObject)
+					return { anchor = anchor, onRetire = function() end, content = tip(Host) }
 				end)
 				w.advance(0.5)
 				local dismiss = w.find("Dismiss")
-				Verify.expect(dismiss ~= nil):toBe(true)
+				expect(dismiss ~= nil):toBe(true)
 				w.gui.SelectedObject = dismiss
 				dismiss.Activated:Fire()
-				Verify.expect(w.gui.SelectedObject):toBe(w.find("Plus"))
+				expect(w.gui.SelectedObject):toBe(w.find("Plus"))
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("disposal inside onShow releases the queue slot", {
+		it("disposal inside onShow releases the queue slot", {
 			id = "native_callout_help::native Callout: callbacks during a show never strand or double-close a plate::disposal inside onShow releases the queue slot",
 			run = function()
 				local w = pair(function(state)
 					state.gate:set(false)
 				end)
-				Verify.expect((w.find("Body"))):toBeNil()
-				Verify.expect(w.find("SecondBody") ~= nil):toBe(true)
-				Verify.expect(#w.findAll("CalloutPanel")):toBe(1)
+				expect((w.find("Body"))):toBeNil()
+				expect(w.find("SecondBody") ~= nil):toBe(true)
+				expect(#w.findAll("CalloutPanel")):toBe(1)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("an ordinary throw in onShow still shows the plate and keeps the slot accounting", {
+		it("an ordinary throw in onShow still shows the plate and keeps the slot accounting", {
 			id = "native_callout_help::native Callout: callbacks during a show never strand or double-close a plate::an ordinary throw in onShow still shows the plate and keeps the slot accounting",
 			run = function()
 				local failures: { string } = {}
@@ -134,14 +143,14 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					local first = UI.Button "Plus" { label = "+" }
 					local second = UI.Button "Share" { label = "Share" }
-					return Host.Frame({
+					return Host.Frame {
 						Name = "Editor",
-						Host.Frame({ Name = "Bar", first :: unknown, second }) :: unknown,
+						Host.Frame { Name = "Bar", first, second },
 						UI.Callout "First" {
 							anchor = first :: GuiObject,
 							priority = 2,
 							content = tip(Host),
-							onShow = function()
+							onShow = function(): ()
 								error("caller bug")
 							end,
 							onRetire = function(reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway")
@@ -156,77 +165,81 @@ return function(verifyHarness: Verify.Harness)
 							end,
 							onRetire = function() end,
 						},
-					})
+					}
 				end, {
 					onError = function(failure: unknown)
 						table.insert(failures, tostring(failure))
 					end,
 				})
-				Verify.expect(w.find("Body") ~= nil):toBe(true)
-				Verify.expect((w.find("SecondBody"))):toBeNil()
-				Verify.expect(#failures):toBe(1)
-				Verify.expect(string.find(failures[1], "caller bug", 1, true) ~= nil):toBe(true)
+				expect(w.find("Body") ~= nil):toBe(true)
+				expect((w.find("SecondBody"))):toBeNil()
+				expect(#failures):toBe(1)
+				expect(string.find(failures[1], "caller bug", 1, true) ~= nil):toBe(true)
 				w.find("Dismiss").Activated:Fire()
-				Verify.expect((table.concat(reports, ","))):toBe("dismissed")
-				Verify.expect((w.find("Body"))):toBeNil()
-				Verify.expect(w.find("SecondBody") ~= nil):toBe(true)
+				expect((table.concat(reports, ","))):toBe("dismissed")
+				expect((w.find("Body"))):toBeNil()
+				expect(w.find("SecondBody") ~= nil):toBe(true)
 				w.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("native Callout: two worlds and a recycled source keep their own resources", function()
-		verifyHarness:case("disposing one world's callout never touches another world's", {
+	describe("native Callout: two worlds and a recycled source keep their own resources", function()
+		it("disposing one world's callout never touches another world's", {
 			id = "native_callout_help::native Callout: two worlds and a recycled source keep their own resources::disposing one world's callout never touches another world's",
 			run = function()
 				local gate = Compose.cell(true)
 				local a = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					local anchor = UI.Button "Plus" { label = "+" }
-					return Host.Frame({
-						Host.Frame({ anchor :: unknown }) :: unknown,
+					return Host.Frame {
+						Host.Frame { anchor },
 						Compose.show(gate, function()
-							return UI.Callout "Callout"({
+							return UI.Callout "Callout" {
 								anchor = anchor :: GuiObject,
 								content = tip(Host),
 								onRetire = function() end,
-							})
+							}
 						end),
-					})
+					}
 				end)
-				local b = mount(function(_, Host: RobloxHost)
-					return { content = tip(Host) }
+				local b = mount(function(_, Host: RobloxHost, anchor: GuiObject)
+					return { anchor = anchor, onRetire = function() end, content = tip(Host) }
 				end)
-				Verify.expect(a.find("CalloutPanel") ~= nil and b.find("CalloutPanel") ~= nil):toBe(true)
+				expect(a.find("CalloutPanel") ~= nil and b.find("CalloutPanel") ~= nil):toBe(true)
 				gate:set(false)
-				Verify.expect((a.find("CalloutPanel"))):toBeNil()
-				Verify.expect(b.find("CalloutPanel") ~= nil):toBe(true)
+				expect((a.find("CalloutPanel"))):toBeNil()
+				expect(b.find("CalloutPanel") ~= nil):toBe(true)
 				a.stop()
 				b.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("native Callout: rich parts", function()
-		verifyHarness:case("side callouts use the available height and react to edge changes", function(t)
-			local edge = Compose.cell("trailing")
-			local w = mount(function()
-				return { title = "Guide", edge = edge }
+	describe("native Callout: rich parts", function()
+		it("side callouts use the available height and react to edge changes", function(own)
+			local edge = edgeCell("trailing")
+			local w = mount(function(_, _, anchor: GuiObject)
+				local fields: NavigationProps.CalloutSpec =
+					{ anchor = anchor, onRetire = function() end, title = "Guide", edge = edge }
+				return fields
 			end, { motionLevel = "none" })
-			t:defer(w.stop)
+			own(w.stop)
 			w.at(w.find("Plus"), 300, 250)
 			w.size(w.find("Plus"), 80, 44)
 			w.size(w.find("CalloutContent"), 248, 400)
 			w.advance(1 / 60, 3)
 			local body = w.find("CalloutBody")
-			t:expect(body.Size.Y.Offset):toBe(400)
+			expect(body.Size.Y.Offset):toBe(400)
 			edge:set("leading")
-			t:expect(body.Size.Y.Offset):toBe(400)
+			expect(body.Size.Y.Offset):toBe(400)
 			edge:set("top")
-			t:expect(body.Size.Y.Offset < 400):toBe(true)
+			expect(body.Size.Y.Offset < 400):toBe(true)
 		end)
-		verifyHarness:case("fixed width teaching content uses the plate's bounded native cross axis", function(t)
-			local w = mount(function(_, Host: RobloxHost)
+		it("fixed width teaching content uses the plate's bounded native cross axis", function(own)
+			local w = mount(function(_, Host: RobloxHost, anchor: GuiObject)
 				return {
+					anchor = anchor,
+					onRetire = function() end,
 					title = "Open garage",
 					content = function()
 						return Host.Frame "HelpText" {
@@ -244,77 +257,75 @@ return function(verifyHarness: Verify.Harness)
 			end)
 			local content = w.find("CalloutContent")
 			local layout = content:FindFirstChildWhichIsA("UIListLayout")
-			t:expect(layout.FillDirection):toBe(w.Enum.FillDirection.Vertical)
-			t:expect(layout.HorizontalFlex):toBe(w.Enum.UIFlexAlignment.Fill)
-			t:expect(content.Size.X.Scale):toBe(1)
-			t:expect(content.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
-			t:expect(w.find("HelpText").Parent):toBe(content)
-			t:expect(w.find("Instruction").TextWrapped):toBe(true)
+			expect(layout.FillDirection):toBe(w.Enum.FillDirection.Vertical)
+			expect(layout.HorizontalFlex):toBe(w.Enum.UIFlexAlignment.Fill)
+			expect(content.Size.X.Scale):toBe(1)
+			expect(content.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
+			expect(w.find("HelpText").Parent):toBe(content)
+			expect(w.find("Instruction").TextWrapped):toBe(true)
 			w.stop()
 		end)
-		verifyHarness:case(
-			"the full composition paints every part, and one or two actions replace the bottom dismiss",
-			{
-				id = "native_callout_help::native Callout: rich parts::the full composition paints every part, and one or two actions replace the bottom dismiss",
-				run = function()
-					local pressed, reports = {}, {}
-					local w = mount(function(_, Host: RobloxHost)
-						return {
-							content = tip(Host),
-							title = "Try the editor",
-							media = { image = "rbxassetid://1", aspectRatio = 2 },
-							steps = { index = 2, count = 3 },
-							closeButton = true,
-							actions = {
-								{
-									id = "Later",
-									label = "Later",
-									onActivate = function()
-										table.insert(pressed, "Later")
-									end,
-								},
-								{
-									id = "Go",
-									label = "Show me",
-									role = "default" :: "default",
-									onActivate = function()
-										table.insert(pressed, "Go")
-									end,
-								},
+		it("the full composition paints every part, and one or two actions replace the bottom dismiss", {
+			id = "native_callout_help::native Callout: rich parts::the full composition paints every part, and one or two actions replace the bottom dismiss",
+			run = function()
+				local pressed, reports = {}, {}
+				local w = mount(function(_, Host: RobloxHost, anchor: GuiObject)
+					return {
+						anchor = anchor,
+						content = tip(Host),
+						title = "Try the editor",
+						media = { image = "rbxassetid://1", aspectRatio = 2 },
+						steps = { index = 2, count = 3 },
+						closeButton = true,
+						actions = {
+							{
+								id = "Later",
+								label = "Later",
+								onActivate = function(): ()
+									table.insert(pressed, "Later")
+								end,
 							},
-							onRetire = function(reason: string)
-								table.insert(reports, reason)
-							end,
-						}
-					end)
-					local panel = w.find("CalloutPanel")
-					Verify.expect(overlay.find(panel, "Title").Text):toBe("Try the editor")
-					local media = overlay.find(panel, "Media")
-					Verify.expect(media.Size.X.Scale):toBe(1)
-					Verify.expect(media:FindFirstChildWhichIsA("UIAspectRatioConstraint").AspectRatio):toBe(2)
-					Verify.expect(overlay.find(panel, "Steps").Text):toBe("2 of 3")
-					Verify.expect(overlay.find(panel, "Body").Text):toBe(TIP)
-					Verify.expect((table.concat(buttons(panel), ","))):toBe("Actions/Go,Actions/Later,Header/Close")
-					Verify.expect((overlay.find(panel, "Dismiss"))):toBeNil()
-					Verify.expect((overlay.find(panel, "Go"):GetAttribute("appearance"))):toBe("emphasis")
-					Verify.expect((overlay.find(panel, "Later"):GetAttribute("appearance"))):toBe("standard")
-					overlay.find(panel, "Go").Activated:Fire()
-					Verify.expect((table.concat(pressed, ","))):toBe("Go")
-					Verify.expect((table.concat(reports, ","))):toBe("action")
-					Verify.expect((w.find("CalloutPanel"))):toBeNil()
-					w.stop()
-				end,
-			}
-		)
+							{
+								id = "Go",
+								label = "Show me",
+								role = "default" :: "default",
+								onActivate = function(): ()
+									table.insert(pressed, "Go")
+								end,
+							},
+						},
+						onRetire = function(reason: string)
+							table.insert(reports, reason)
+						end,
+					}
+				end)
+				local panel = w.find("CalloutPanel")
+				expect(overlay.find(panel, "Title").Text):toBe("Try the editor")
+				local media = overlay.find(panel, "Media")
+				expect(media.Size.X.Scale):toBe(1)
+				expect(media:FindFirstChildWhichIsA("UIAspectRatioConstraint").AspectRatio):toBe(2)
+				expect(overlay.find(panel, "Steps").Text):toBe("2 of 3")
+				expect(overlay.find(panel, "Body").Text):toBe(TIP)
+				expect((table.concat(buttons(panel), ","))):toBe("Actions/Go,Actions/Later,Header/Close")
+				expect((overlay.find(panel, "Dismiss"))):toBeNil()
+				expect((overlay.find(panel, "Go"):GetAttribute("appearance"))):toBe("emphasis")
+				expect((overlay.find(panel, "Later"):GetAttribute("appearance"))):toBe("standard")
+				overlay.find(panel, "Go").Activated:Fire()
+				expect((table.concat(pressed, ","))):toBe("Go")
+				expect((table.concat(reports, ","))):toBe("action")
+				expect((w.find("CalloutPanel"))):toBeNil()
+				w.stop()
+			end,
+		})
 
-		verifyHarness:case("an action retires its own generation once, and never a newer one it presented", {
+		it("an action retires its own generation once, and never a newer one it presented", {
 			id = "native_callout_help::native Callout: rich parts::an action retires its own generation once, and never a newer one it presented",
 			run = function()
 				local generation, reports = Compose.cell(1), {}
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					local anchor = UI.Button "Plus" { label = "+" }
-					return Host.Frame({
-						Host.Frame({ anchor :: unknown }) :: unknown,
+					return Host.Frame {
+						Host.Frame { anchor },
 						Compose.keyed({
 							from = function(use: any)
 								return { use(generation) }
@@ -327,7 +338,7 @@ return function(verifyHarness: Verify.Harness)
 										{
 											id = "Again",
 											label = "Again",
-											onActivate = function()
+											onActivate = function(): ()
 												generation:set(generation:peek() + 1)
 												error("caller bug after rearm")
 											end,
@@ -341,35 +352,36 @@ return function(verifyHarness: Verify.Harness)
 								}
 							end,
 						}),
-					})
+					}
 				end)
 				local first = w.find("CalloutPanel")
 				local ok = pcall(function()
 					overlay.find(first, "Again").Activated:Fire()
 				end)
-				Verify.expect(ok):toBe(false)
-				Verify.expect((generation:peek())):toBe(2)
+				expect(ok):toBe(false)
+				expect((generation:peek())):toBe(2)
 				local panels = w.findAll("CalloutPanel")
-				Verify.expect(#panels):toBe(1)
-				Verify.expect(panels[1] ~= first):toBe(true)
-				Verify.expect(overlay.find(panels[1], "Body") ~= nil):toBe(true)
-				Verify.expect(#reports):toBe(0)
+				expect(#panels):toBe(1)
+				expect(panels[1] ~= first):toBe(true)
+				expect(overlay.find(panels[1], "Body") ~= nil):toBe(true)
+				expect(#reports):toBe(0)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("a throwing action still retires the presentation it belonged to, exactly once", {
+		it("a throwing action still retires the presentation it belonged to, exactly once", {
 			id = "native_callout_help::native Callout: rich parts::a throwing action still retires the presentation it belonged to, exactly once",
 			run = function()
 				local reports = {}
-				local w = mount(function(_, Host: RobloxHost)
+				local w = mount(function(_, Host: RobloxHost, anchor: GuiObject)
 					return {
+						anchor = anchor,
 						content = tip(Host),
 						actions = {
 							{
 								id = "Boom",
 								label = "Boom",
-								onActivate = function()
+								onActivate = function(): ()
 									error("caller bug")
 								end,
 							},
@@ -381,28 +393,30 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local boom = overlay.find(w.find("CalloutPanel"), "Boom")
 				w.gui.SelectedObject = boom
-				Verify.expect((pcall(function()
+				expect((pcall(function()
 					w.action("Activate").Pressed:Fire()
 				end))):toBe(false)
-				Verify.expect((table.concat(reports, ","))):toBe("action")
-				Verify.expect((w.find("CalloutPanel"))):toBeNil()
+				expect((table.concat(reports, ","))):toBe("action")
+				expect((w.find("CalloutPanel"))):toBeNil()
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("a disabled action cannot fire", {
+		it("a disabled action cannot fire", {
 			id = "native_callout_help::native Callout: rich parts::a disabled action cannot fire",
 			run = function()
 				local fired = false
-				local w = mount(function(_, Host: RobloxHost)
+				local w = mount(function(_, Host: RobloxHost, anchor: GuiObject)
 					return {
+						anchor = anchor,
+						onRetire = function() end,
 						content = tip(Host),
 						actions = {
 							{
 								id = "Nope",
 								label = "Nope",
 								enabled = false,
-								onActivate = function()
+								onActivate = function(): ()
 									fired = true
 								end,
 							},
@@ -410,91 +424,91 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local nope = overlay.find(w.find("CalloutPanel"), "Nope")
-				Verify.expect(nope.Interactable):toBe(false)
+				expect(nope.Interactable):toBe(false)
 				nope.Activated:Fire()
-				Verify.expect(fired):toBe(false)
-				Verify.expect(w.find("CalloutPanel") ~= nil):toBe(true)
+				expect(fired):toBe(false)
+				expect(w.find("CalloutPanel") ~= nil):toBe(true)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case(
-			"closeButton adds a top close and keeps the legacy bottom dismiss when there are no actions",
-			{
-				id = "native_callout_help::native Callout: rich parts::closeButton adds a top close and keeps the legacy bottom dismiss when there are no actions",
-				run = function()
-					local reports = {}
-					local w = mount(function(_, Host: RobloxHost)
-						return {
-							content = tip(Host),
-							closeButton = true,
-							onRetire = function(reason: string)
-								table.insert(reports, reason)
-							end,
-						}
-					end)
-					local panel = w.find("CalloutPanel")
-					Verify.expect((table.concat(buttons(panel), ","))):toBe("CalloutContent/Dismiss,Header/Close")
-					local close = overlay.find(panel, "Close")
-					Verify.expect(close.Size.X.Offset >= 44 and close.Size.Y.Offset >= 44):toBe(true)
-					close.Activated:Fire()
-					Verify.expect((table.concat(reports, ","))):toBe("dismissed")
-					Verify.expect((w.find("CalloutPanel"))):toBeNil()
-					w.stop()
-				end,
-			}
-		)
+		it("closeButton adds a top close and keeps the legacy bottom dismiss when there are no actions", {
+			id = "native_callout_help::native Callout: rich parts::closeButton adds a top close and keeps the legacy bottom dismiss when there are no actions",
+			run = function()
+				local reports = {}
+				local w = mount(function(_, Host: RobloxHost, anchor: GuiObject)
+					return {
+						anchor = anchor,
+						content = tip(Host),
+						closeButton = true,
+						onRetire = function(reason: string)
+							table.insert(reports, reason)
+						end,
+					}
+				end)
+				local panel = w.find("CalloutPanel")
+				expect((table.concat(buttons(panel), ","))):toBe("CalloutContent/Dismiss,Header/Close")
+				local close = overlay.find(panel, "Close")
+				expect(close.Size.X.Offset >= 44 and close.Size.Y.Offset >= 44):toBe(true)
+				close.Activated:Fire()
+				expect((table.concat(reports, ","))):toBe("dismissed")
+				expect((w.find("CalloutPanel"))):toBeNil()
+				w.stop()
+			end,
+		})
 
-		verifyHarness:case("an empty composition and malformed parts are refused by name", {
+		it("an empty composition and malformed parts are refused by name", {
 			id = "native_callout_help::native Callout: rich parts::an empty composition and malformed parts are refused by name",
 			run = function()
 				local print = function() end
-				for index, bad in
+				local malformed: { { [string]: any } } = {
+					{},
+					{ closeButton = true },
+					{ media = { image = "x", aspectRatio = 1, height = 20 } },
+					{ media = { image = "x" } },
+					{ media = { image = "x", aspectRatio = -1 } },
+					{ media = { image = "x", height = 10, scaleMode = "tile" :: "tile" } },
+					{ media = { image = "x", height = 10, extra = 1 } },
+					{ steps = { index = 0, count = 2 } },
+					{ steps = { index = 3, count = 2 } },
+					{ steps = { index = 1.5, count = 2 } },
 					{
-						{} :: { [string]: any },
-						{ closeButton = true },
-						{ media = { image = "x", aspectRatio = 1, height = 20 } },
-						{ media = { image = "x" } },
-						{ media = { image = "x", aspectRatio = -1 } },
-						{ media = { image = "x", height = 10, scaleMode = "tile" :: "tile" } },
-						{ media = { image = "x", height = 10, extra = 1 } },
-						{ steps = { index = 0, count = 2 } },
-						{ steps = { index = 3, count = 2 } },
-						{ steps = { index = 1.5, count = 2 } },
-						{
-							actions = {
-								{ id = "A", label = "A", onActivate = print },
-								{ id = "B", label = "B", onActivate = print },
-								{ id = "C", label = "C", onActivate = print },
-							},
+						actions = {
+							{ id = "A", label = "A", onActivate = print },
+							{ id = "B", label = "B", onActivate = print },
+							{ id = "C", label = "C", onActivate = print },
 						},
-						{
-							actions = {
-								{ id = "A", label = "A", onActivate = print },
-								{ id = "A", label = "B", onActivate = print },
-							},
+					},
+					{
+						actions = {
+							{ id = "A", label = "A", onActivate = print },
+							{ id = "A", label = "B", onActivate = print },
 						},
-						{ actions = { { id = "A", label = "A" } } },
-						{ actions = { { id = "A", label = "A", onActivate = print, role = "primary" :: "primary" } } },
-						{ closeButton = "yes", title = "T" },
-						{ title = 4 },
-					}
-				do
+					},
+					{ actions = { { id = "A", label = "A" } } },
+					{ actions = { { id = "A", label = "A", onActivate = print, role = "primary" :: "primary" } } },
+					{ closeButton = "yes", title = "T" },
+					{ title = 4 },
+				}
+				for index, bad in malformed do
 					local ok = pcall(function()
-						mount(function()
-							return table.clone(bad)
+						mount(function(_, _, anchor: GuiObject)
+							local fields = table.clone(bad)
+							fields.anchor = anchor
+							fields.onRetire = function() end
+							return fields
 						end).stop()
 					end)
-					Verify.expect(`case {index}: {ok}`):toBe(`case {index}: false`)
+					expect(`case {index}: {ok}`):toBe(`case {index}: false`)
 				end
 			end,
 		})
 	end)
 
-	verifyHarness:suite("native help: the structured form and the live plate", function()
+	describe("native help: the structured form and the live plate", function()
 		local function helped(value: any): any
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = value } })
+				return Host.Frame { Name = "Screen", UI.Button "Post" { label = "Post", help = value } }
 			end, { motionLevel = "none" })
 			local post = w.find("Post")
 			w.engine.environment.poke(post, "AbsolutePosition", Vector2.new(300, 200))
@@ -505,14 +519,14 @@ return function(verifyHarness: Verify.Harness)
 			return w
 		end
 
-		verifyHarness:case("a title, a body and a display-only shortcut paint in one plate", {
+		it("a title, a body and a display-only shortcut paint in one plate", {
 			id = "native_callout_help::native help: the structured form and the live plate::a title, a body and a display-only shortcut paint in one plate",
 			run = function()
 				local before = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
+					return Host.Frame {
 						Name = "Screen",
 						UI.Button "Post" { label = "Post", help = "Posts it" },
-					})
+					}
 				end)
 				local post = before.find("Post")
 				before.engine.environment.poke(before.input, "PreferredInput", before.Enum.PreferredInput.Gamepad)
@@ -527,21 +541,21 @@ return function(verifyHarness: Verify.Harness)
 				before.stop()
 				local w =
 					helped({ title = "Post", body = "Posts this avatar", shortcut = { { "Ctrl", "P" }, { "F2" } } })
-				Verify.expect(w.find("HelpTitle").Text):toBe("Post")
-				Verify.expect(w.find("HelpText").Text):toBe("Posts this avatar")
-				Verify.expect(w.find("HelpShortcut").Text):toBe("Ctrl+P or F2")
+				expect(w.find("HelpTitle").Text):toBe("Post")
+				expect(w.find("HelpText").Text):toBe("Posts this avatar")
+				expect(w.find("HelpShortcut").Text):toBe("Ctrl+P or F2")
 				local after = 0
 				for _, node in w.screen:GetDescendants() do
 					if node:IsA("InputContext") then
 						after += 1
 					end
 				end
-				Verify.expect(after):toBe(contexts)
+				expect(after):toBe(contexts)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("edge and align place the plate", {
+		it("edge and align place the plate", {
 			id = "native_callout_help::native help: the structured form and the live plate::edge and align place the plate",
 			run = function()
 				local w = helped({ body = "Posts it", edge = "trailing" :: "trailing", align = "end" :: "end" })
@@ -556,35 +570,36 @@ return function(verifyHarness: Verify.Harness)
 					gap = 6 + LIFT,
 				})
 				local x, y = corner(panel)
-				Verify.expect((near(x, expected.x))):toBe(true)
-				Verify.expect((near(x, 300 + 80 + 6 + LIFT))):toBe(true)
-				Verify.expect((near(y, 200 + 44 - 30))):toBe(true)
+				expect((near(x, expected.x))):toBe(true)
+				expect((near(x, 300 + 80 + 6 + LIFT))):toBe(true)
+				expect((near(y, 200 + 44 - 30))):toBe(true)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("the string form paints exactly as before: no title node", {
+		it("the string form paints exactly as before: no title node", {
 			id = "native_callout_help::native help: the structured form and the live plate::the string form paints exactly as before: no title node",
 			run = function()
 				local w = helped("Posts this avatar")
-				Verify.expect((w.find("HelpTitle"))):toBeNil()
-				Verify.expect((w.find("HelpShortcut"))):toBeNil()
-				Verify.expect(w.find("HelpText").Text):toBe("Posts this avatar")
+				expect((w.find("HelpTitle"))):toBeNil()
+				expect((w.find("HelpShortcut"))):toBeNil()
+				expect(w.find("HelpText").Text):toBe("Posts this avatar")
 				local panel = w.find("Help")
 				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(100, 30))
 				local x, y = corner(panel)
-				Verify.expect((near(y, 200 - 30 - 6 - LIFT))):toBe(true)
-				Verify.expect((near(x, 300 + 40 - 50))):toBe(true)
-				Verify.expect(w.find("HelpTail") ~= nil and w.find("HelpTailSeam") == nil and w.find("Outline") ~= nil)
-					:toBe(true)
-				Verify.expect(w.find("HelpTail").Size.X.Offset):toBe(16)
-				Verify.expect((near(w.find("HelpTail").Position.Y.Offset, 200 - 6 - LIFT))):toBe(true)
-				Verify.expect((w.find("HelpTail"):HasTag("facet-tail"))):toBe(true)
+				expect((near(y, 200 - 30 - 6 - LIFT))):toBe(true)
+				expect((near(x, 300 + 40 - 50))):toBe(true)
+				expect(w.find("HelpTail") ~= nil and w.find("HelpTailSeam") == nil and w.find("Outline") ~= nil):toBe(
+					true
+				)
+				expect(w.find("HelpTail").Size.X.Offset):toBe(16)
+				expect((near(w.find("HelpTail").Position.Y.Offset, 200 - 6 - LIFT))):toBe(true)
+				expect((w.find("HelpTail"):HasTag("facet-tail"))):toBe(true)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("malformed tables are refused by name at construction", {
+		it("malformed tables are refused by name at construction", {
 			id = "native_callout_help::native help: the structured form and the live plate::malformed tables are refused by name at construction",
 			run = function()
 				for index, bad in
@@ -602,31 +617,31 @@ return function(verifyHarness: Verify.Harness)
 					local ok, failure = pcall(function()
 						helped(bad).stop()
 					end)
-					Verify.expect(`case {index}: {ok}`):toBe(`case {index}: false`)
-					Verify.expect(string.find(tostring(failure), "help", 1, true) ~= nil):toBe(true)
+					expect(`case {index}: {ok}`):toBe(`case {index}: false`)
+					expect(string.find(tostring(failure), "help", 1, true) ~= nil):toBe(true)
 				end
 				helped({ title = "Post", body = "" }).stop()
 			end,
 		})
 
-		verifyHarness:case("safe insets that grow under a live plate keep it inside the new safe box", {
+		it("safe insets that grow under a live plate keep it inside the new safe box", {
 			id = "native_callout_help::native help: the structured form and the live plate::safe insets that grow under a live plate keep it inside the new safe box",
 			run = function()
 				local w = helped({ body = "Posts it", edge = "trailing" :: "trailing" })
 				local panel = w.find("Help")
 				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(200, 30))
-				Verify.expect((near((corner(panel)), 386 + LIFT))):toBe(true)
+				expect((near((corner(panel)), 386 + LIFT))):toBe(true)
 				w.engine.environment.poke(w.screen, "AbsoluteSize", Vector2.new(500, 600))
-				Verify.expect((corner(panel)) + 200 <= 500 - 8 + 0.5):toBe(true)
+				expect((corner(panel)) + 200 <= 500 - 8 + 0.5):toBe(true)
 				w.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("native help: the plate arrives as one unit", function()
+	describe("native help: the plate arrives as one unit", function()
 		local function hovered(options: any?): any
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({
+				return Host.Frame {
 					Name = "Screen",
 					UI.Button "Post" {
 						label = "Post",
@@ -637,7 +652,7 @@ return function(verifyHarness: Verify.Harness)
 							edge = "top" :: "top",
 						},
 					},
-				})
+				}
 			end, options)
 			w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 			w.gui.SelectedObject = w.find("Post")
@@ -645,7 +660,7 @@ return function(verifyHarness: Verify.Harness)
 			return w
 		end
 
-		verifyHarness:case("the whole plate fades once at rest over the theme's normal motion duration", {
+		it("the whole plate fades once at rest over the theme's normal motion duration", {
 			id = "native_callout_help::native help: the plate arrives as one unit::the whole plate fades once at rest over the theme's normal motion duration",
 			run = function()
 				local themes = require("../src/ui/themes")(Compose)
@@ -655,7 +670,8 @@ return function(verifyHarness: Verify.Harness)
 					local fadeShare = if duration == 0.2 then 0.6 else 1
 					package.metrics.motion.presentFadeIn = fadeShare
 					assert(package.metrics.motion.easing).present = if duration == 0.2 then "outCubic" else "outQuad"
-					local w = hovered({ theme = assert(themes.define(package)) })
+					local defined = themes.define(package)
+					local w = hovered({ theme = assert(defined) })
 					local panel = w.find("Help")
 					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(120, 60))
 					local labels = { w.find("HelpTitle"), w.find("HelpText"), w.find("HelpShortcut") }
@@ -665,196 +681,201 @@ return function(verifyHarness: Verify.Harness)
 						w.engine.environment.poke(label, "TextBounds", w.Vector2.new(80, 16))
 					end
 					w.advance(0, 2)
-					Verify.expect(fadeKit.of(panel)):toBe(1)
+					expect(fadeKit.of(panel)):toBe(1)
 					local position, anchor = panel.Position, panel.AnchorPoint
 					local previous = 1
-					local easing = Compose.easing[assert(package.metrics.motion.easing).present]
+					local easing = if duration == 0.2 then Compose.easing.outCubic else Compose.easing.outQuad
 					for frame = 1, 24 do
 						w.advance(duration / 24)
 						local alpha = fadeKit.of(panel)
-						Verify.expect(
-							math.abs(alpha - (1 - math.clamp(easing(frame / 24) / easing(fadeShare), 0, 1))) < 1e-6
+						expect(math.abs(alpha - (1 - math.clamp(easing(frame / 24) / easing(fadeShare), 0, 1))) < 1e-6):toBe(
+							true
 						)
-							:toBe(true)
-						Verify.expect(alpha <= previous):toBe(true)
-						Verify.expect(materialize.of(panel).Scale):toBe(1)
-						Verify.expect(panel.Position):toBe(position)
-						Verify.expect(panel.AnchorPoint):toBe(anchor)
-						Verify.expect(panel:FindFirstChild("PresentationContent", true)):toBe(nil)
+						expect(alpha <= previous):toBe(true)
+						expect(materialize.of(panel).Scale):toBe(1)
+						expect(panel.Position):toBe(position)
+						expect(panel.AnchorPoint):toBe(anchor)
+						expect(panel:FindFirstChild("PresentationContent", true)):toBe(nil)
 						local group = panel:FindFirstChild("Fade")
-						Verify.expect(math.abs(group.GroupTransparency - alpha) < 1e-6):toBe(true)
+						expect(math.abs(group.GroupTransparency - alpha) < 1e-6):toBe(true)
 						for index, label in labels do
-							Verify.expect(label:IsDescendantOf(group)):toBe(true)
-							Verify.expect(label.TextTransparency):toBe(0)
-							Verify.expect(label.AbsolutePosition - panel.AbsolutePosition)
-								:toBe(w.Vector2.new(8, 6 + (index - 1) * 16))
+							expect(label:IsDescendantOf(group)):toBe(true)
+							expect(label.TextTransparency):toBe(0)
+							expect(label.AbsolutePosition - panel.AbsolutePosition):toBe(
+								w.Vector2.new(8, 6 + (index - 1) * 16)
+							)
 						end
 						previous = alpha
 					end
-					Verify.expect(fadeKit.of(panel)):toBe(0)
+					expect(fadeKit.of(panel)):toBe(0)
 					w.advance(duration, 24)
-					Verify.expect(fadeKit.of(panel)):toBe(0)
-					Verify.expect(panel.Position):toBe(position)
+					expect(fadeKit.of(panel)):toBe(0)
+					expect(panel.Position):toBe(position)
 					w.stop()
 				end
 			end,
 		})
 
-		verifyHarness:case("reduced motion shows the plate whole once its size has held", {
+		it("reduced motion shows the plate whole once its size has held", {
 			id = "native_callout_help::native help: the plate arrives as one unit::reduced motion shows the plate whole once its size has held",
 			run = function()
 				local w = hovered({ motionLevel = "none" })
 				local panel = w.find("Help")
 				w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(120, 40))
 				w.advance(1 / 60, 2)
-				Verify.expect((fadeKit.of(panel))):toBe(0)
-				Verify.expect(materialize.of(panel).Scale):toBe(1)
+				expect((fadeKit.of(panel))):toBe(0)
+				expect(materialize.of(panel).Scale):toBe(1)
 				w.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("native Callout: the plate and its tail arrive together", function()
-		verifyHarness:case("uses theme arrow artwork on every edge and restores native paint on theme switches", {
+	describe("native Callout: the plate and its tail arrive together", function()
+		it("uses theme arrow artwork on every edge and restores native paint on theme switches", {
 			id = "native_callout_help::skinned-tail-outline-theme-switch",
 			run = function()
 				local neutral = themes.neutralPackage()
 				local ornate = require("../examples/themes/fantasy_ornate").build(themes)
 				local withoutArrow = require("../examples/themes/fantasy_ornate").definition(themes)
 				withoutArrow.chrome.panelTail = nil
-				local framed = assert(themes.define(withoutArrow))
+				local defined = themes.define(withoutArrow)
+				local framed = assert(defined)
 				local selected = Compose.cell(neutral)
-				local edge = Compose.cell("bottom")
-				local w = mount(function()
-					return { title = "Start here", edge = edge }
+				local edge = edgeCell("bottom")
+				local w = mount(function(_, _, anchor: GuiObject)
+					local fields: NavigationProps.CalloutSpec =
+						{ anchor = anchor, onRetire = function() end, title = "Start here", edge = edge }
+					return fields
 				end, { theme = selected, motionLevel = "none" })
 				w.engine.environment.poke(w.find("Plus"), "AbsolutePosition", w.Vector2.new(320, 240))
 				w.engine.environment.poke(w.find("Plus"), "AbsoluteSize", w.Vector2.new(80, 44))
 				w.engine.environment.poke(w.find("CalloutPanel"), "AbsoluteSize", w.Vector2.new(280, 120))
-				local outline = w.find("Outline")
-				for _, side in { "bottom", "top", "leading", "trailing" } do
+				local outline: Path2D = w.find("Outline")
+				local sides: { OverlayTypes.Edge } = { "bottom", "top", "leading", "trailing" }
+				for _, side in sides do
 					edge:set(side)
-					Verify.expect(outline.Closed):toBe(true)
-					Verify.expect(#outline:GetControlPoints()):toBe(11)
+					expect(outline.Closed):toBe(true)
+					expect(#outline:GetControlPoints()):toBe(11)
 					selected:set(ornate)
-					Verify.expect(outline.Closed):toBe(false)
-					Verify.expect(#outline:GetControlPoints()):toBe(0)
-					Verify.expect(outline.Visible):toBe(false)
+					expect(outline.Closed):toBe(false)
+					expect(#outline:GetControlPoints()):toBe(0)
+					expect(outline.Visible):toBe(false)
 					local arrow = w.find("Arrow")
-					local artwork = w.find("ArrowArtwork")
-					Verify.expect(artwork:IsDescendantOf(w.find("CalloutPanel"))):toBe(true)
-					Verify.expect(artwork.ZIndex < w.find("CalloutContent").ZIndex):toBe(true)
-					Verify.expect(arrow.Size.X.Offset):toBe(32)
-					Verify.expect(arrow.Size.Y.Offset):toBe(20)
-					Verify.expect(arrow.Rotation):toBe(({ bottom = 0, top = 180, leading = 90, trailing = -90 })[side])
-					Verify.expect(w.find("ArrowArtwork"):FindFirstChildWhichIsA("ImageLabel", true).Image)
-						:toBe("rbxassetid://70885878191900")
+					local content: GuiObject = w.find("CalloutContent")
+					local artwork: GuiObject = w.find("ArrowArtwork")
+					expect(artwork:IsDescendantOf(w.find("CalloutPanel"))):toBe(true)
+					expect(artwork.ZIndex < content.ZIndex):toBe(true)
+					expect(arrow.Size.X.Offset):toBe(32)
+					expect(arrow.Size.Y.Offset):toBe(20)
+					expect(arrow.Rotation):toBe(({ bottom = 0, top = 180, leading = 90, trailing = -90 })[side])
+					expect(w.find("ArrowArtwork"):FindFirstChildWhichIsA("ImageLabel", true).Image):toBe(
+						"rbxassetid://70885878191900"
+					)
 					selected:set(framed)
-					Verify.expect(outline.Visible):toBe(true)
-					Verify.expect(outline.Closed):toBe(false)
-					Verify.expect(#outline:GetControlPoints()):toBe(3)
+					expect(outline.Visible):toBe(true)
+					expect(outline.Closed):toBe(false)
+					expect(#outline:GetControlPoints()):toBe(3)
 					selected:set(neutral)
-					Verify.expect(outline.Visible):toBe(true)
-					Verify.expect(arrow.Rotation):toBe(45)
+					expect(outline.Visible):toBe(true)
+					expect(arrow.Rotation):toBe(45)
 				end
-				Verify.expect(outline.Closed):toBe(true)
-				Verify.expect(#outline:GetControlPoints()):toBe(11)
+				expect(outline.Closed):toBe(true)
+				expect(#outline:GetControlPoints()):toBe(11)
 				w.stop()
 			end,
 		})
-		verifyHarness:case(
-			"the panel and the tail both wait for the first styled frame and fade over the short duration",
-			{
-				id = "native_callout_help::native Callout: the plate and its tail arrive together::the panel and the tail both wait for the first styled frame and fade over the short duration",
-				run = function()
-					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-						local anchor = UI.Button "Plus" { label = "+" }
-						return Host.Frame({
-							Name = "Editor",
-							Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
-							UI.Callout "Tip" {
-								anchor = anchor :: GuiObject,
-								isPresented = true,
-								content = tip(Host),
-								onRetire = function() end,
-							},
-						})
-					end, nil, { runService = true })
-					local panel, arrow = w.find("CalloutPanel"), w.find("Arrow")
-					local content = w.find("CalloutContent")
-					local contentSize, contentAutomatic = content.Size, content.AutomaticSize
-					Verify.expect(panel.Visible):toBe(false)
-					Verify.expect(arrow.Visible):toBe(false)
-					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(280, 120))
-					w.advance(1 / 60, 2)
-					Verify.expect(fadeKit.of(panel)):toBe(1)
-					Verify.expect(panel.Visible):toBe(true)
-					Verify.expect(arrow.Visible):toBe(true)
-					local previous, intermediate = 1, 0
-					for _ = 1, math.ceil(themes.neutralPackage().metrics.motion.fast * 60) + 1 do
-						w.advance(1 / 60)
-						local alpha = fadeKit.of(panel)
-						Verify.expect(content.Size):toBe(contentSize)
-						Verify.expect(content.AutomaticSize):toBe(contentAutomatic)
-						Verify.expect(alpha <= previous):toBe(true)
-						Verify.expect(panel.Visible):toBe(arrow.Visible)
-						if alpha > 0 and alpha < 1 then
-							intermediate += 1
-						end
-						previous = alpha
+		it("the panel and the tail both wait for the first styled frame and fade over the short duration", {
+			id = "native_callout_help::native Callout: the plate and its tail arrive together::the panel and the tail both wait for the first styled frame and fade over the short duration",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					local anchor = UI.Button "Plus" { label = "+" }
+					return Host.Frame {
+						Name = "Editor",
+						Host.Frame { Name = "Bar", anchor },
+						UI.Callout "Tip" {
+							anchor = anchor :: GuiObject,
+							isPresented = true,
+							content = tip(Host),
+							onRetire = function() end,
+						},
+					}
+				end, nil, { runService = true })
+				local panel, arrow = w.find("CalloutPanel"), w.find("Arrow")
+				local content = w.find("CalloutContent")
+				local contentSize, contentAutomatic = content.Size, content.AutomaticSize
+				expect(panel.Visible):toBe(false)
+				expect(arrow.Visible):toBe(false)
+				w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(280, 120))
+				w.advance(1 / 60, 2)
+				expect(fadeKit.of(panel)):toBe(1)
+				expect(panel.Visible):toBe(true)
+				expect(arrow.Visible):toBe(true)
+				local previous, intermediate = 1, 0
+				for _ = 1, math.ceil(themes.neutralPackage().metrics.motion.fast * 60) + 1 do
+					w.advance(1 / 60)
+					local alpha = fadeKit.of(panel)
+					expect(content.Size):toBe(contentSize)
+					expect(content.AutomaticSize):toBe(contentAutomatic)
+					expect(alpha <= previous):toBe(true)
+					expect(panel.Visible):toBe(arrow.Visible)
+					if alpha > 0 and alpha < 1 then
+						intermediate += 1
 					end
-					Verify.expect(intermediate > 0):toBe(true)
-					Verify.expect((fadeKit.of(panel))):toBe(0)
-					w.stop()
-				end,
-			}
-		)
-		verifyHarness:case(
-			"the plate's own paint waits for its fade group's first drawn frame, so text and panel appear as one",
-			{
-				id = "native_callout_help::native Callout: the plate and its tail arrive together::the plate's own paint waits for its fade group's first drawn frame, so text and panel appear as one",
-				run = function()
-					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-						local anchor = UI.Button "Plus" { label = "+" }
-						return Host.Frame({
-							Name = "Editor",
-							Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
-							UI.Callout "Tip" {
-								anchor = anchor :: GuiObject,
-								isPresented = true,
-								content = tip(Host),
-								onRetire = function() end,
-							},
-						})
-					end, nil, { runService = true })
-					local panel = w.find("CalloutPanel")
-					Verify.expect(panel.Visible):toBe(false)
-					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(280, 120))
-					w.advance(0.01)
-					local group = panel:FindFirstChild("Fade")
-					Verify.expect(group ~= nil and group:IsA("CanvasGroup")):toBe(true)
-					Verify.expect((fadeKit.of(panel))):toBe(1)
-					Verify.expect(group.GroupTransparency > 0.98):toBe(true)
-					w.advance(1 / 60, 2)
-					w.advance(0.01)
-					Verify.expect(fadeKit.of(panel) < 1):toBe(true)
-					Verify.expect(math.abs(group.GroupTransparency - fadeKit.of(panel)) < 1e-6):toBe(true)
-					w.advance(0.2)
-					Verify.expect((panel:FindFirstChild("Fade"))):toBeNil()
-					Verify.expect((fadeKit.of(panel))):toBe(0)
-					w.stop()
-				end,
-			}
-		)
+					previous = alpha
+				end
+				expect(intermediate > 0):toBe(true)
+				expect((fadeKit.of(panel))):toBe(0)
+				w.stop()
+			end,
+		})
+		it("the plate's own paint waits for its fade group's first drawn frame, so text and panel appear as one", {
+			id = "native_callout_help::native Callout: the plate and its tail arrive together::the plate's own paint waits for its fade group's first drawn frame, so text and panel appear as one",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					local anchor = UI.Button "Plus" { label = "+" }
+					return Host.Frame {
+						Name = "Editor",
+						Host.Frame { Name = "Bar", anchor },
+						UI.Callout "Tip" {
+							anchor = anchor :: GuiObject,
+							isPresented = true,
+							content = tip(Host),
+							onRetire = function() end,
+						},
+					}
+				end, nil, { runService = true })
+				local panel = w.find("CalloutPanel")
+				expect(panel.Visible):toBe(false)
+				w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(280, 120))
+				w.advance(0.01)
+				local group = panel:FindFirstChild("Fade")
+				expect(group ~= nil and group:IsA("CanvasGroup")):toBe(true)
+				expect((fadeKit.of(panel))):toBe(1)
+				expect(group.GroupTransparency > 0.98):toBe(true)
+				w.advance(1 / 60, 2)
+				w.advance(0.01)
+				expect(fadeKit.of(panel) < 1):toBe(true)
+				expect(math.abs(group.GroupTransparency - fadeKit.of(panel)) < 1e-6):toBe(true)
+				w.advance(0.2)
+				expect((panel:FindFirstChild("Fade"))):toBeNil()
+				expect((fadeKit.of(panel))):toBe(0)
+				w.stop()
+			end,
+		})
 	end)
 
-	verifyHarness:suite("touch contextual text placement", function()
-		verifyHarness:case("prefers above for default callouts, falls back and honors an explicit edge", {
+	describe("touch contextual text placement", function()
+		it("prefers above for default callouts, falls back and honors an explicit edge", {
 			id = "native_callout_help::touch contextual text placement::prefers above for default callouts, falls back and honors an explicit edge",
 			run = function()
 				for _, edge in { "default", "bottom" } :: { "bottom" | "default" } do
-					local w = mount(function(_, Host: RobloxHost)
-						return { content = tip(Host), edge = if edge == "default" then nil else edge }
+					local w = mount(function(_, Host: RobloxHost, anchor: GuiObject)
+						return {
+							anchor = anchor,
+							onRetire = function() end,
+							content = tip(Host),
+							edge = if edge == "default" then nil else edge,
+						}
 					end, { motionLevel = "none" })
 					local anchor, panel = w.find("Plus"), w.find("CalloutPanel")
 					w.engine.environment.poke(anchor, "AbsolutePosition", Vector2.new(300, 250))
@@ -862,18 +883,18 @@ return function(verifyHarness: Verify.Harness)
 					w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(280, 100))
 					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 					local _, y = corner(panel)
-					Verify.expect(if edge == "default" then y + 100 < 250 else y > 294):toBe(true)
+					expect(if edge == "default" then y + 100 < 250 else y > 294):toBe(true)
 					w.engine.environment.poke(anchor, "AbsolutePosition", Vector2.new(300, 8))
-					Verify.expect(select(2, corner(panel)) > 52):toBe(true)
+					expect(select(2, corner(panel)) > 52):toBe(true)
 					w.engine.environment.poke(anchor, "AbsolutePosition", Vector2.new(300, 250))
 					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.KeyboardAndMouse)
-					Verify.expect(select(2, corner(panel)) > 294):toBe(true)
+					expect(select(2, corner(panel)) > 294):toBe(true)
 					w.stop()
 				end
 			end,
 		})
 
-		verifyHarness:case("keeps long-press help above and flips it when the top has no room", {
+		it("keeps long-press help above and flips it when the top has no room", {
 			id = "native_callout_help::touch contextual text placement::keeps long-press help above and flips it when the top has no room",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
@@ -886,22 +907,22 @@ return function(verifyHarness: Verify.Harness)
 				anchor.TouchLongPress:Fire({ Vector2.new(320, 220) }, w.Enum.UserInputState.Begin)
 				local panel = w.find("Help")
 				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(160, 32))
-				Verify.expect(select(2, corner(panel)) + 32 < 200):toBe(true)
+				expect(select(2, corner(panel)) + 32 < 200):toBe(true)
 				w.engine.environment.poke(anchor, "AbsolutePosition", Vector2.new(300, 8))
 				local x, y = corner(panel)
-				Verify.expect(x >= 320 + 44 or x + 160 <= 320 - 44 or y >= 28 + 44):toBe(true)
+				expect(x >= 320 + 44 or x + 160 <= 320 - 44 or y >= 28 + 44):toBe(true)
 				w.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("help while using the pointer", function()
-		verifyHarness:case("waits for idle movement and all mouse buttons to be released, even over another row", {
+	describe("help while using the pointer", function()
+		it("waits for idle movement and all mouse buttons to be released, even over another row", {
 			id = "native_callout_help::help while using the pointer::waits for idle movement and all mouse buttons to be released, even over another row",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame {
-						UI.Button "First" { label = "First", help = "First help" } :: unknown,
+						UI.Button "First" { label = "First", help = "First help" },
 						UI.Button "Second" { label = "Second", help = "Second help" },
 					}
 				end, { motionLevel = "none" })
@@ -912,37 +933,37 @@ return function(verifyHarness: Verify.Harness)
 				for _ = 1, 4 do
 					w.input.InputChanged:Fire({ UserInputType = E.UserInputType.MouseMovement })
 					w.advance(0.3)
-					Verify.expect((w.find("Help"))):toBeNil()
+					expect((w.find("Help"))):toBeNil()
 				end
 				w.advance(0.2)
-				Verify.expect(w.find("HelpText").Text):toBe("First help")
+				expect(w.find("HelpText").Text):toBe("First help")
 				w.input.InputChanged:Fire({ UserInputType = E.UserInputType.MouseWheel })
-				Verify.expect((w.find("Help"))):toBeNil()
+				expect((w.find("Help"))):toBeNil()
 				w.input.InputBegan:Fire({ UserInputType = E.UserInputType.MouseButton1 })
 				w.engine.environment.poke(w.find("First"), "GuiState", E.GuiState.Idle)
 				w.engine.environment.poke(w.find("Second"), "GuiState", E.GuiState.Hover)
 				w.advance(1)
-				Verify.expect((w.find("Help"))):toBeNil()
+				expect((w.find("Help"))):toBeNil()
 				w.input.InputBegan:Fire({ UserInputType = E.UserInputType.MouseButton2 })
 				w.input.InputEnded:Fire({ UserInputType = E.UserInputType.MouseButton1 })
 				w.advance(1)
-				Verify.expect((w.find("Help"))):toBeNil()
+				expect((w.find("Help"))):toBeNil()
 				w.input.InputEnded:Fire({ UserInputType = E.UserInputType.MouseButton2 })
 				w.advance(0.3)
-				Verify.expect((w.find("Help"))):toBeNil()
+				expect((w.find("Help"))):toBeNil()
 				w.advance(0.2)
-				Verify.expect(w.find("HelpText").Text):toBe("Second help")
+				expect(w.find("HelpText").Text):toBe("Second help")
 				w.stop()
-				Verify.expect((NativeEngine.connections(w.input.InputChanged))):toBe(0)
+				expect((NativeEngine.connections(w.input.InputChanged))):toBe(0)
 			end,
 		})
 
-		verifyHarness:case("shares native GUI mouse activity when plugin input bypasses UserInputService", {
+		it("shares native GUI mouse activity when plugin input bypasses UserInputService", {
 			id = "native_callout_help::help while using the pointer::shares native GUI mouse activity when plugin input bypasses UserInputService",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame {
-						UI.Button "First" { label = "First", help = "First help" } :: unknown,
+						UI.Button "First" { label = "First", help = "First help" },
 						UI.Button "Second" { label = "Second", help = "Second help" },
 					}
 				end, { motionLevel = "none" })
@@ -951,39 +972,40 @@ return function(verifyHarness: Verify.Harness)
 				for _ = 1, 4 do
 					first.MouseMoved:Fire(10, 10)
 					w.advance(0.3)
-					Verify.expect((w.find("Help"))):toBeNil()
+					expect((w.find("Help"))):toBeNil()
 				end
 				local button = { UserInputType = E.UserInputType.MouseButton1 }
 				first.InputBegan:Fire(button)
 				w.engine.environment.poke(first, "GuiState", E.GuiState.Idle)
 				w.engine.environment.poke(second, "GuiState", E.GuiState.Hover)
 				w.advance(1)
-				Verify.expect((w.find("Help"))):toBeNil()
+				expect((w.find("Help"))):toBeNil()
 				first.InputEnded:Fire(button)
 				w.advance(0.5)
-				Verify.expect(w.find("HelpText").Text):toBe("Second help")
+				expect(w.find("HelpText").Text):toBe("Second help")
 				w.input.WindowFocusReleased:Fire()
 				w.advance(1)
-				Verify.expect((w.find("Help"))):toBeNil()
+				expect((w.find("Help"))):toBeNil()
 				w.input.WindowFocused:Fire()
 				w.advance(0.3)
-				Verify.expect((w.find("Help"))):toBeNil()
+				expect((w.find("Help"))):toBeNil()
 				w.advance(0.2)
-				Verify.expect(w.find("HelpText").Text):toBe("Second help")
+				expect(w.find("HelpText").Text):toBe("Second help")
 				w.stop()
-				Verify.expect((NativeEngine.connections(w.input.InputChanged))):toBe(0)
+				expect((NativeEngine.connections(w.input.InputChanged))):toBe(0)
 			end,
 		})
 
-		verifyHarness:case("carries a nested stylesheet to its overlay without restyling sibling content", {
+		it("carries a nested stylesheet to its overlay without restyling sibling content", {
 			id = "native_callout_help::help while using the pointer::carries a nested stylesheet to its overlay without restyling sibling content",
 			run = function()
-				local sheet: any, link
+				local sheet: any
+				local link: StyleLink
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					sheet = Host.StyleSheet {}
 					link = Host.StyleLink { StyleSheet = Compose.static(sheet) }
 					return Host.Frame {
-						sheet :: unknown,
+						sheet,
 						link,
 						UI.Button "Styled" { label = "Styled", help = "Styled help" },
 					}
@@ -992,15 +1014,15 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(0.5)
 				local panel = w.find("Help")
 				local inherited = panel.Parent:FindFirstChildWhichIsA("StyleLink")
-				Verify.expect(inherited ~= nil):toBe(true)
-				Verify.expect(inherited.StyleSheet):toBe(sheet)
-				Verify.expect((w.screen:FindFirstChildWhichIsA("StyleLink"))):toBeNil()
+				expect(inherited ~= nil):toBe(true)
+				expect(inherited.StyleSheet):toBe(sheet)
+				expect((w.screen:FindFirstChildWhichIsA("StyleLink"))):toBeNil()
 				local replacement = w.engine.new("StyleSheet")
 				link.StyleSheet = replacement
-				Verify.expect(inherited.StyleSheet):toBe(replacement)
+				expect(inherited.StyleSheet):toBe(replacement)
 				w.gui.SelectedObject = nil
-				Verify.expect((inherited:isDestroyed())):toBe(true)
-				Verify.expect((sheet:isDestroyed())):toBe(false)
+				expect((inherited:isDestroyed())):toBe(true)
+				expect((sheet:isDestroyed())):toBe(false)
 				w.stop()
 			end,
 		})

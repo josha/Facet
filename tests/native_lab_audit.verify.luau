@@ -3,6 +3,17 @@ local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 local styleProperties = require("./lib/style_properties")
 
+local function record(value: unknown): { [string]: unknown }
+	assert(type(value) == "table")
+	local fields: { [string]: unknown } = {}
+	for key, item in value do
+		if type(key) == "string" then
+			fields[key] = item
+		end
+	end
+	return fields
+end
+
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -79,10 +90,10 @@ return function(verifyHarness: Verify.Harness)
 				for _, width in { 389, 430, 1280 } do
 					for _, mode in { "foundation-dark", "foundation-light" } do
 						local foundation = require("../examples/facet-lab/themes/foundation")
-						local theme = assert(foundation.build(themes, mode))
+						local theme = assert((foundation.build(themes, mode)))
 						local w = worlds.new(function(UI, Host, engine)
 							local environment: { [string]: unknown } = {}
-							for key, value in engine.types do
+							for key, value in record(engine.types) do
 								environment[key] = value
 							end
 							local loaded =
@@ -130,7 +141,7 @@ return function(verifyHarness: Verify.Harness)
 					local initial = engineLib.new()
 					local runService = { Heartbeat = initial.heartbeat }
 					local environment: { [string]: unknown } = {}
-					for key, value in initial.types do
+					for key, value in record(initial.types) do
 						if type(key) == "string" then
 							environment[key] = value
 						end
@@ -153,34 +164,37 @@ return function(verifyHarness: Verify.Harness)
 							continue
 						end
 						local mounted = false
-						local w = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine: engineLib.Engine)
-							runService.Heartbeat = engine.heartbeat
-							local constructor = ((UI :: unknown) :: { [string]: (Props) -> Instance })[id]
-							if constructor == nil then
-								return Host.Folder {}
-							end
-							local c: PageContext = {
-								UI = UI,
-								Host = Host,
-								Compose = Compose,
-								Facet = Facet,
-								types = engine.types,
-								logical = Compose.cell({ width = size[1], height = size[2] }),
-								cell = function<T>(_name: string, initial: T)
-									return Compose.cell(initial)
-								end,
-								log = function(_name: string)
-									return function(...: unknown) end
-								end,
+						local w = worlds.new(
+							function(UI: FacetControls, Host: RobloxHost, engine: engineLib.Engine): Instance
+								runService.Heartbeat = engine.heartbeat
+								local constructor = ((UI) :: { [string]: (Props) -> Instance })[id]
+								if constructor == nil then
+									return Host.Folder {}
+								end
+								local c: PageContext = {
+									UI = UI,
+									Host = Host,
+									Compose = Compose,
+									Facet = Facet,
+									types = engine.types,
+									logical = Compose.cell({ width = size[1], height = size[2] }),
+									cell = function<T>(_name: string, initial: T)
+										return Compose.cell(initial)
+									end,
+									log = function(_name: string)
+										return function(...: unknown) end
+									end,
+								}
+								local props = assert(data.base)(c)
+								local node = if data.make then data.make(UI, props, c) else constructor(props)
+								mounted = true
+								return node
+							end,
+							{
+								environment = { viewportSize = initial.types.Vector2.new(size[1], size[2]) },
+								motionLevel = "none",
 							}
-							local props = assert(data.base)(c)
-							local node = if data.make then data.make(UI, props, c) else constructor(props)
-							mounted = true
-							return node
-						end, {
-							environment = { viewportSize = initial.types.Vector2.new(size[1], size[2]) },
-							motionLevel = "none",
-						})
+						)
 						if mounted then
 							count += 1
 						end
@@ -200,10 +214,12 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local available = Compose.cell(353)
 				local w = worlds.new(function(UI, Host, engine)
-					local props = require("../examples/facet-lab/src/matrix_width")(Compose, {
+					local fields: Facet.ButtonProps = {
 						Name = "LongMatrixButton",
 						label = string.rep("Long label ", 12),
-					}, available, true)
+					}
+					local props =
+						require("../examples/facet-lab/src/matrix_width")(Compose, fields :: any, available, true)
 					local node = UI.Button(props)
 					require("../examples/facet-lab/src/matrix_limit")(
 						Compose,
@@ -239,15 +255,15 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local items = Compose.cell({ { id = "Rating", revision = 0 } })
 				local w = worlds.new(function(UI)
-					return UI.VStack({
+					return UI.VStack {
 						Compose.keyed({
 							from = items,
 							key = require("../examples/facet-lab/src/page_key"),
 							render = function()
-								return UI.Text({ Name = "ResetValue", text = "Before" })
+								return UI.Text { Name = "ResetValue", text = "Before" }
 							end,
 						}),
-					})
+					}
 				end)
 				local old = w.find("ResetValue")
 				old.Text = "After"
@@ -273,9 +289,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local available = Compose.cell(353)
 				local w = worlds.new(function(UI, Host, engine)
+					local fields: Facet.ButtonProps =
+						{ Name = "BoundedLongLabel", label = string.rep("Long label ", 12) }
 					local props = require("../examples/facet-lab/src/matrix_width")(
 						Compose,
-						{ Name = "BoundedLongLabel", label = string.rep("Long label ", 12) },
+						fields :: any,
 						available,
 						true,
 						engine.types,
@@ -298,7 +316,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = worlds.new(function(UI, Host, engine)
 					local props = require("../examples/facet-lab/src/matrix_width")(
 						Compose,
-						{ Name = "CellLabel", label = string.rep("Long label ", 12), value = Compose.cell("Value") },
+						{ Name = "CellLabel", label = string.rep("Long label ", 12), value = Compose.cell("Value") } :: any,
 						available,
 						true,
 						engine.types,
@@ -326,7 +344,7 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Label { title = "Escape receiver" }
 				end)
 				local calls = 0
-				local keys = (w.engine.types.Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode }
+				local keys = (w.engine.types.Enum.KeyCode) :: { [string]: Enum.KeyCode }
 				local release = reservedKeys.add(w.input, keys, {
 					keys = { Escape = true },
 					priority = 2000,
@@ -357,26 +375,26 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_lab_audit::native lab audit: drag and drop::sweep drives Controls picker and checkbox input and verifies configuration",
 			run = function()
 				local sweep = require("../examples/facet-lab/src/lab_sweep")
-				local selected, disabled = Compose.cell("first"), Compose.cell(false)
+				local selected: Facet.Value<string> = Compose.cell("first")
+				local disabled: Facet.Value<boolean> = Compose.cell(false)
 				local w = require("./lib/overlay_world").new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame {
-						UI.Picker {
-							Name = "Axis_style",
-							label = "style",
-							style = "menu" :: "menu",
-							selected = selected,
-							options = {
-								{ id = "first", value = "first", label = "First" } :: FixtureNavigationTypes.PickerOption<string>,
-								{ id = "second", value = "second", label = "Second" } :: FixtureNavigationTypes.PickerOption<string>,
-							},
-						},
-						UI.Toggle {
-							Name = "State_disabled",
-							label = "disabled",
-							presentation = "checkbox" :: "checkbox",
-							value = disabled,
+					local picker: Facet.SinglePickerSpec<string> = {
+						Name = "Axis_style",
+						label = "style",
+						style = "menu" :: "menu",
+						selected = selected,
+						options = {
+							{ id = "first", value = "first", label = "First" } :: FixtureNavigationTypes.PickerOption<string>,
+							{ id = "second", value = "second", label = "Second" } :: FixtureNavigationTypes.PickerOption<string>,
 						},
 					}
+					local toggle: Facet.ToggleCellProps = {
+						Name = "State_disabled",
+						label = "disabled",
+						presentation = "checkbox" :: "checkbox",
+						value = disabled,
+					}
+					return Host.Frame { UI.Picker(picker), UI.Toggle(toggle) }
 				end)
 				local calls = 0
 				local function locate(name: string): GuiButton?
@@ -461,7 +479,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local sweep: any = require("../examples/facet-lab/src/lab_sweep")
 				local w = worlds.new(function(UI)
-					return UI.Button({ Name = "KeepLobby", label = "Stay", role = "cancel" :: "cancel" })
+					return UI.Button { Name = "KeepLobby", label = "Stay", role = "cancel" :: "cancel" }
 				end)
 				Verify.expect(sweep.dismissCommand(w.find("KeepLobby"))):toBe(true)
 				w.find("KeepLobby"):RemoveTag("facet-role-cancel")
@@ -698,7 +716,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = worlds.new(function(UI, Host, engine)
 					local data = loadSource("examples/facet-lab/src/catalog.luau", engine.types).PAGE_DATA
-					local nodes = {}
+					local nodes: { TextLabel } = {}
 					for _, id in { "adaptive", "civilDate" } do
 						Verify.expect(data[id].cellWidth):toBe(360)
 						local node = data[id].make(UI, { width = 700 }, { Facet = Facet })
@@ -707,7 +725,7 @@ return function(verifyHarness: Verify.Harness)
 						table.insert(nodes, node)
 					end
 					Verify.expect(nodes[1].Text):toContain("sizeClass(700) = regular")
-					return UI.VStack({ width = 360, table.unpack(nodes) })
+					return UI.VStack { width = 360, table.unpack(nodes) }
 				end)
 				w.stop()
 			end,
@@ -732,11 +750,9 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local available = Compose.cell(353)
 				local w = worlds.new(function(UI)
-					local props = require("../examples/facet-lab/src/matrix_width")(Compose, {
-						Name = "FixedMatrixControl",
-						width = 460,
-						maxWidth = 280,
-					}, available)
+					local fields: Facet.AdaptiveStackProps =
+						{ Name = "FixedMatrixControl", width = 460, maxWidth = 280 }
+					local props = require("../examples/facet-lab/src/matrix_width")(Compose, fields :: any, available)
 					return UI.AdaptiveStack(props)
 				end)
 				local node = w.find("FixedMatrixControl")
@@ -794,13 +810,13 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("matrix pages display with native Vector2 viewport facts", {
 			id = "native_lab_audit::native lab audit: drag and drop::matrix pages display with native Vector2 viewport facts",
 			run = function()
-				local available = Compose.cell(0)
+				local available: Facet.Value<number> = Compose.cell(0)
 				local w = worlds.new(function(UI, Host, engine)
 					return require("../examples/facet-lab/src/matrix_row")(UI, Compose, {
 						Name = "Cells",
 						width = "fill",
 						wrap = true,
-						Host.TextLabel({ Text = "DefaultButton", Size = engine.types.UDim2.fromOffset(200, 44) }),
+						Host.TextLabel { Text = "DefaultButton", Size = engine.types.UDim2.fromOffset(200, 44) },
 					}, available)
 				end)
 				local row = w.find("Cells")
@@ -840,7 +856,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local engine: any = engineLib.new()
 				local runtime = Facet.Roblox.createRuntime(engine)
-				local Host = runtime.constructors
+				local Host = Facet.host(runtime)
 				local world = engine.new("Folder")
 				local screen = engine.new("ScreenGui")
 				local input = engine.new("UserInputService")
@@ -864,8 +880,9 @@ return function(verifyHarness: Verify.Harness)
 						motionLevel = "none",
 					} :: any
 				)
+				local demo: (unknown) -> Instance = require("../examples/facet-lab/src/drag_drop_demo")
 				local stop, node: any = runtime.mount(function()
-					return require("../examples/facet-lab/src/drag_drop_demo")({
+					return demo({
 						UI = UI,
 						Host = Host,
 						Compose = Compose,
@@ -913,19 +930,15 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("a submenu row shows its chevron beside a shortcut row, and the shortcut row shows none", {
 			id = "native_lab_audit::native lab audit: menu submenu rows::a submenu row shows its chevron beside a shortcut row, and the shortcut row shows none",
 			run = function()
-				local opened = Compose.cell(false)
+				local opened: Facet.Value<boolean> = Compose.cell(false)
 				local w = worlds.new(function(UI: FacetControls)
-					return UI.Menu({
-						isPresented = opened,
-						items = {
-							{ id = "copy", label = "Copy", shortcutLabel = "Ctrl+C", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
-							{
-								id = "share",
-								label = "Share",
-								children = { { id = "mail", label = "Mail", onSelect = function() end } },
-							} :: FixtureNavigationTypes.MenuItem<any>,
-						},
-					})
+					local copy: Facet.MenuCommand =
+						{ id = "copy", label = "Copy", shortcutLabel = "Ctrl+C", onSelect = function() end }
+					local mail: Facet.MenuCommand = { id = "mail", label = "Mail", onSelect = function() end }
+					local share: FixtureNavigationTypes.MenuSubmenu<string> =
+						{ id = "share", label = "Share", children = { mail } }
+					local spec: Facet.MenuSpec<string> = { isPresented = opened, items = { copy, share } }
+					return UI.Menu(spec)
 				end)
 				opened:set(true)
 				local share, copy = w.find("share"), w.find("copy")
@@ -941,10 +954,10 @@ return function(verifyHarness: Verify.Harness)
 	verifyHarness:suite("native lab audit: Slider rung thumb and track floor", function()
 		local function cell(axis: "x" | "y", size: ("xsmall" | "compact" | "regular" | "large")?): (any, number)
 			local w = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine)
-				return Host.Frame({
+				return Host.Frame {
 					Name = "Cell",
 					AutomaticSize = engine.types.Enum.AutomaticSize.XY,
-					UI.Slider("Vol")({
+					UI.Slider "Vol" {
 						label = "Vol",
 						value = Compose.cell(50),
 						min = 0,
@@ -952,8 +965,8 @@ return function(verifyHarness: Verify.Harness)
 						axis = axis,
 						controlSize = size,
 						onChange = function() end,
-					}),
-				})
+					},
+				}
 			end)
 			local thumbs = tagged(w.screen, "facet-slider-thumb")
 			Verify.expect(#thumbs >= 1):toBe(true)
@@ -1000,12 +1013,12 @@ return function(verifyHarness: Verify.Harness)
 						{ xsmall = 4, compact = 4, regular = 6, large = 6, none = 6 } :: { [string]: number }
 					do
 						local w = worlds.new(function(UI: FacetControls)
-							return UI.ProgressView("P")({
+							return UI.ProgressView "P" {
 								value = 0.5,
 								controlSize = if rung == "none"
 									then nil
 									else rung :: "xsmall" | "compact" | "regular" | "large",
-							})
+							}
 						end)
 						Verify.expect(`{rung}={w.find("Track").Size.Y.Offset}`):toBe(`{rung}={px}`)
 						w.stop()
@@ -1017,7 +1030,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_lab_audit::native lab audit: ProgressView rungs::a large ring shows its value in the gauge",
 			run = function()
 				local w = worlds.new(function(UI: FacetControls)
-					return UI.ProgressView("P")({
+					return UI.ProgressView "P" {
 						value = 0.65,
 						presentation = "circular" :: "circular",
 						showValue = true,
@@ -1025,7 +1038,7 @@ return function(verifyHarness: Verify.Harness)
 						format = function(value: number): string
 							return tostring(value)
 						end,
-					})
+					}
 				end)
 				local value = w.find("Value", w.find("Gauge"))
 				Verify.expect(value ~= nil):toBe(true)
@@ -1038,11 +1051,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local ok, err = pcall(function()
 					worlds.new(function(UI: FacetControls)
-						return UI.ProgressView("P")({
+						return UI.ProgressView "P" {
 							value = 0.5,
 							controlSize = "compact" :: "compact",
 							thickness = 8,
-						})
+						}
 					end)
 				end)
 				Verify.expect(ok):toBe(false)
@@ -1061,11 +1074,11 @@ return function(verifyHarness: Verify.Harness)
 					} :: { { [string]: any } }
 				do
 					Verify.expect(worlds.mountError(function(UI: FacetControls)
-						return UI.ProgressView "P"(spec :: any)
+						return UI.ProgressView(spec :: any, "P")
 					end) ~= nil):toBe(true)
 				end
 				Verify.expect((worlds.mountError(function(UI: FacetControls)
-					return UI.ProgressView("P")({ value = 0.5, endLabel = "Done" })
+					return UI.ProgressView "P" { value = 0.5, endLabel = "Done" }
 				end))):toBeNil()
 			end,
 		})
@@ -1079,12 +1092,12 @@ return function(verifyHarness: Verify.Harness)
 				for _, readOnly in { false, true } do
 					for _, rung in { "compact", "large" } :: { "compact" | "large" } do
 						local w = worlds.new(function(UI: FacetControls)
-							return UI.Vote("V")({
+							return UI.Vote "V" {
 								value = "up" :: "up",
 								readOnly = readOnly,
 								controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 								onChange = function() end,
-							})
+							}
 						end)
 						heights[`{readOnly}/{rung}`] = tall(w.find("Opt1", w.find("V")))
 						w.stop()
@@ -1120,48 +1133,48 @@ return function(verifyHarness: Verify.Harness)
 					do
 						local options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } }
 						local w = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-							return Host.Frame({
+							return Host.Frame {
 								Name = "Row",
-								UI.Button("B")({
+								UI.Button "B" {
 									label = "Settings",
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
-								}) :: unknown,
-								UI.Picker("PM")({
+								},
+								UI.Picker "PM" {
 									label = "Theme:",
 									style = "menu" :: "menu",
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 									selected = Compose.cell("a"),
 									options = options,
-								}),
-								UI.Picker("PS")({
+								},
+								UI.Picker "PS" {
 									style = "segmented" :: "segmented",
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 									selected = Compose.cell("a"),
 									options = options,
-								}),
-								UI.TextInput("TI")({
+								},
+								UI.TextInput "TI" {
 									value = Compose.cell("x"),
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
-								}),
-								UI.Toggle("TK")({
+								},
+								UI.Toggle "TK" {
 									label = "Motion",
 									presentation = "checkbox" :: "checkbox",
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 									value = Compose.cell(false),
-								}),
-								UI.Toggle("TC")({
+								},
+								UI.Toggle "TC" {
 									label = "Reduced Motion",
 									presentation = "checkbox" :: "checkbox",
 									appearance = "plain",
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 									value = Compose.cell(false),
-								}),
-								UI.Toggle("TS")({
+								},
+								UI.Toggle "TS" {
 									label = "Music",
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 									value = Compose.cell(false),
-								}),
-							})
+								},
+							}
 						end, { theme = package(name) })
 						local button = w.find("B").Size.Y.Offset
 						Verify.expect(w.find("PS"):FindFirstChild("TargetFloor").MinSize.Y):toBe(button)
@@ -1201,11 +1214,11 @@ return function(verifyHarness: Verify.Harness)
 						{ "warning", "error", "accent", "neutral" } :: { "accent" | "error" | "neutral" | "warning" }
 					do
 						local w = worlds.new(function(UI: FacetControls)
-							return UI.Badge("B")({
+							return UI.Badge "B" {
 								label = "Ready",
 								appearance = "status" :: "status",
 								status = status :: "accent" | "error" | "neutral" | "warning",
-							})
+							}
 						end, { theme = package(name) })
 						Verify.expect(w.find("Status") ~= nil):toBe(true)
 						Verify.expect((w.find("Cutout"))):toBe(nil)
@@ -1228,11 +1241,11 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_lab_audit::native lab audit: Badge status mark::an unplated utility badge draws no status mark",
 			run = function()
 				local w = worlds.new(function(UI: FacetControls)
-					return UI.Badge("B")({
+					return UI.Badge "B" {
 						label = "Ready",
 						appearance = "utility" :: "utility",
 						status = "success" :: "success",
-					})
+					}
 				end)
 				Verify.expect((w.find("Status"))):toBe(nil)
 				w.stop()
@@ -1280,7 +1293,7 @@ return function(verifyHarness: Verify.Harness)
 				local sizes: { [string]: number } = {}
 				for _, rung in { "compact", "regular", "large", "none" } :: { "compact" | "large" | "none" | "regular" } do
 					local w = worlds.new(function(UI: FacetControls)
-						return UI.StepIndicator("S")({
+						return UI.StepIndicator "S" {
 							steps = {
 								{ id = "cart", label = "Cart" },
 								{ id = "pay", label = "Pay" },
@@ -1290,7 +1303,7 @@ return function(verifyHarness: Verify.Harness)
 							controlSize = if rung == "none"
 								then nil
 								else rung :: "xsmall" | "compact" | "regular" | "large",
-						})
+						}
 					end)
 					sizes[rung] = w.find("Cue").Size.Y.Offset
 					w.stop()
@@ -1310,13 +1323,13 @@ return function(verifyHarness: Verify.Harness)
 					local carve = ((theme.chrome or {}).panel or {}).contentInsets or {}
 					for _, appearance in { "standard", "emphasis" } :: { "emphasis" | "standard" } do
 						local w = worlds.new(function(UI: FacetControls)
-							return UI.Notice("Conn")({
+							return UI.Notice "Conn" {
 								title = "Update available",
 								message = "A new track pack is ready.",
 								appearance = appearance :: "emphasis" | "standard",
 								actions = { { id = "Install", label = "Install", onActivate = function() end } },
 								onDismiss = function() end,
-							})
+							}
 						end, { theme = theme })
 						local root = w.find("Conn")
 						local padding = root:FindFirstChildWhichIsA("UIPadding")

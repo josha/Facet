@@ -11,6 +11,8 @@ local installEnvironment = require("./context_environment")
 local installContent = require("./context_content")
 local installNative = require("./context_native")
 local installActions = require("./context_actions")
+local inputRead = require("./input_read")
+local sourceRead = require("./source_read")
 
 return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, options: Shared.Config?): Shared.Context
 	local config, types, services = resolveConfig(Compose, runtime, options)
@@ -30,25 +32,8 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		ctx.lifetime = assert(Compose.currentOwner())
 	end)
 	local track = installConstruct(ctx)
-	local function peek<U>(source: ComposeTypes.ReadOnlyValue<U>): U
-		return source:peek()
-	end
-	local isValue = Compose.isValue
-	local function read<T>(value: T | ComposeTypes.Source<T>, use: ComposeTypes.Use?): T
-		local kind = type(value)
-		if kind == "table" and isValue(value) then
-			local source = value :: ComposeTypes.ReadOnlyValue<T>
-			return if use then use(source) else source:peek()
-		elseif kind == "function" then
-			local body = value :: ComposeTypes.Body<T>
-			return body(use or peek)
-		end
-		return value :: T
-	end
-	ctx.read = read
-	ctx.readSource = function<T>(source: ComposeTypes.ReadOnlyValue<T>, use: ComposeTypes.Use?): T
-		return if use then use(source) else source:peek()
-	end
+	ctx.read = inputRead(Compose.isValue)
+	ctx.readSource = sourceRead
 	local function live(value: unknown): boolean
 		return Compose.isValue(value) or type(value) == "function"
 	end

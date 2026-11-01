@@ -5,15 +5,12 @@ type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
 type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
 type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
 type CollectionStatus = typeof(require("@repo/tools/typecheck/aliases").CollectionStatus)
-type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
+type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type RowActionsSpec = typeof(require("@repo/tools/typecheck/aliases").RowActionsSpec)
-type Built = typeof(require("@repo/examples/types").Built)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 export type Row = {
 	id: string,
 	label: string?,
@@ -46,7 +43,7 @@ export type Options = {
 	columns: { TableColumn }?,
 }
 type Flags = { [string]: boolean }
-return function(ctx: ExampleContext, options: Options): Built
+return function(ctx: ExampleContext, options: Options)
 	local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
 	local D, D2, E, V2 = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum, ctx.types.Vector2
 	local initial: { Row } = options.rows or {}
@@ -141,7 +138,7 @@ return function(ctx: ExampleContext, options: Options): Built
 				label = "Mark read",
 				icon = "checkmark",
 				onActivate = function()
-					markRead(assert(key))
+					markRead(tostring(key))
 				end,
 			},
 		}
@@ -194,7 +191,7 @@ return function(ctx: ExampleContext, options: Options): Built
 		end
 		return result
 	end)
-	local function mailBody(current: ReadOnlyValue<Row>, key: ReadOnlyValue<string>, sender: boolean): GuiObject
+	local function mailBody(current: ReadOnlyValue<Row>, key: ReadOnlyValue<unknown>, sender: boolean): GuiObject
 		local function words(read: (Row) -> string?): (Use) -> string
 			return function(use: Use): string
 				return read(use(current)) or ""
@@ -203,32 +200,32 @@ return function(ctx: ExampleContext, options: Options): Built
 		return Host.Frame "Mail" {
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Host.UIPadding({ PaddingLeft = D.new(0, 4), PaddingRight = D.new(0, 4) }),
-			Host.UIListLayout({
+			Host.UIPadding { PaddingLeft = D.new(0, 4), PaddingRight = D.new(0, 4) },
+			Host.UIListLayout {
 				FillDirection = E.FillDirection.Horizontal,
 				VerticalAlignment = E.VerticalAlignment.Center,
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = D.new(0, 8),
-			}),
+			},
 			UI.StatusIndicator "Unread" {
 				LayoutOrder = 1,
 				form = "dot",
 				status = "accent",
 				name = "Unread",
 				Visible = function(use: Use)
-					return not use(readRows)[use(key)]
+					return not use(readRows)[tostring(use(key))]
 				end,
 			},
 			Host.Frame "Text" {
 				LayoutOrder = 2,
 				BackgroundTransparency = 1,
 				Size = D2.fromScale(0, 1),
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
-				Host.UIListLayout({
+				Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
+				Host.UIListLayout {
 					SortOrder = E.SortOrder.LayoutOrder,
 					VerticalAlignment = E.VerticalAlignment.Center,
 					Padding = D.new(0, 2),
-				}),
+				},
 				UI.Text "From" {
 					LayoutOrder = 1,
 					Visible = sender,
@@ -266,112 +263,10 @@ return function(ctx: ExampleContext, options: Options): Built
 					return ctx.Facet.themes.resolveIcon(package, "flag") or ""
 				end,
 				Visible = function(use: Use)
-					return use(flaggedRows)[use(key)] == true
+					return use(flaggedRows)[tostring(use(key))] == true
 				end,
 			},
 		}
-	end
-	local function row(current: ReadOnlyValue<Row>, placement: unknown, key: ReadOnlyValue<string>): GuiObject
-		mounted:set(mounted:peek() + 1)
-		built:set(built:peek() + 1)
-		Compose.cleanup(function()
-			mounted:set(mounted:peek() - 1)
-		end)
-		if options.variable or options.measure then
-			local post = Host.Frame "Post" {
-				BackgroundTransparency = 1,
-				Size = D2.new(1, 0, 0, 0),
-				AutomaticSize = E.AutomaticSize.Y,
-				Host.UIPadding({
-					PaddingLeft = D.new(0, 10),
-					PaddingRight = D.new(0, 10),
-					PaddingTop = D.new(0, 10),
-					PaddingBottom = D.new(0, 10),
-				}),
-				Host.UIListLayout({ Padding = D.new(0, 4), SortOrder = E.SortOrder.LayoutOrder }),
-				UI.Text "PostTitle" {
-					LayoutOrder = 1,
-					text = function(use: Use): string
-						return use(current).label or ""
-					end,
-					TextSize = function(use: Use)
-						return 15 + use(textOffset)
-					end,
-					TextWrapped = false,
-					TextTruncate = E.TextTruncate.AtEnd,
-					Size = D2.new(1, 0, 0, 0),
-					AutomaticSize = E.AutomaticSize.Y,
-					BackgroundTransparency = 1,
-				},
-				UI.Text "PostBody" {
-					LayoutOrder = 2,
-					text = function(use: Use): string
-						return use(current).description or ""
-					end,
-					TextSize = function(use: Use)
-						return 13 + use(textOffset)
-					end,
-					TextWrapped = options.measure == true,
-					Size = D2.new(1, 0, 0, 0),
-					AutomaticSize = E.AutomaticSize.Y,
-					BackgroundTransparency = 1,
-				},
-			}
-			Compose.watch(function(use: Use)
-				post.Name = "Post_" .. use(key)
-			end)
-			return post
-		end
-		local button = if options.mail
-			then UI.Button({
-				Name = function(use: Use): string
-					return "Item_" .. use(key)
-				end,
-				label = "",
-				name = function(use: Use): string
-					local item = use(current)
-					return (item.subject or "") .. " from " .. (item.from or "")
-				end,
-				Size = D2.fromScale(1, 1),
-				AutomaticSize = E.AutomaticSize.None,
-				onActivate = function()
-					selected:set(key:peek())
-					markRead(key:peek())
-				end,
-				mailBody(current, key, true),
-			})
-			else UI.Button({
-				Name = function(use: Use): string
-					return "Item_" .. use(key)
-				end,
-				label = function(use: Use): string
-					return use(current).label or ""
-				end,
-				TextSize = function(use: Use)
-					return 16 + use(textOffset)
-				end,
-				TextWrapped = true,
-				Size = D2.fromScale(1, 1),
-				AutomaticSize = E.AutomaticSize.None,
-				onActivate = function()
-					selected:set(key:peek())
-				end,
-			})
-		if options.actions then
-			local spec = actions(key:peek())
-			local rowSpec: RowActionsSpec = {
-				Name = spec.Name,
-				coordinator = spec.coordinator,
-				editing = spec.editing,
-				fullSwipe = spec.fullSwipe,
-				leading = spec.leading,
-				trailing = spec.trailing,
-				Size = D2.fromScale(1, 1),
-				content = button,
-			}
-			return UI.RowActions(rowSpec)
-		end
-		return button
 	end
 	local function jump(index: number?)
 		local offsetOf = controls.offsetOf
@@ -426,24 +321,24 @@ return function(ctx: ExampleContext, options: Options): Built
 	local function itemKey(item: Row): string
 		return item.id
 	end
-	local function onDelete(keys: { string })
+	local function onDelete(keys: { read [number]: unknown })
 		for _, key in keys do
-			remove(key)
+			remove(tostring(key))
 		end
 	end
-	local function onActivate(_: Row, key: string)
-		selected:set(key)
+	local function onActivate(_: Row, key)
+		selected:set(tostring(key))
 		if options.mail then
-			markRead(assert(key))
+			markRead(tostring(key))
 		end
 	end
-	local function rowActions(_: ReadOnlyValue<Row>, key: string): RowActions
-		return actions(key)
+	local function rowActions(_: ReadOnlyValue<Row>, key): RowActions
+		return actions(tostring(key))
 	end
-	local function onCellChange(key: string, column: string, value: unknown)
+	local function onCellChange(key, column: string, value: unknown)
 		local nextRows: { Row } = table.clone(rows:peek())
 		for index, item in nextRows do
-			if item.id == key then
+			if item.id == tostring(key) then
 				local nextItem = table.clone(item)
 				local text = if type(value) == "string" then value else nil
 				if column == "team" then
@@ -490,12 +385,11 @@ return function(ctx: ExampleContext, options: Options): Built
 			local widths: Value<{ [string]: number }> = Compose.cell(noWidths)
 			local tableView = UI.Table "Collection" {
 				from = rows,
-				key = itemKey,
+				key = "id",
 				LayoutOrder = 2,
 				Size = collectionSize,
 				status = status,
 				controls = controls,
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 				selection = selection,
 				selectionMode = "multiple",
 				sort = sort,
@@ -511,6 +405,7 @@ return function(ctx: ExampleContext, options: Options): Built
 				onCellChange = if options.editable then onCellChange else nil,
 				columns = options.columns or mailColumns,
 			}
+			Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill }.Parent = tableView
 			collection = tableView
 			local found = tableView:FindFirstChild("Body", true)
 			body = if found and found:IsA("ScrollingFrame") then found else nil
@@ -522,41 +417,125 @@ return function(ctx: ExampleContext, options: Options): Built
 				else function(use: Use): number
 					return 64 + use(textOffset) * 2
 				end
-			local list = if options.grid
-				then UI.VirtualGrid "Collection" {
-					from = rows,
-					key = itemKey,
-					LayoutOrder = 2,
-					Size = collectionSize,
-					status = status,
-					controls = controls,
-					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
-					render = row,
-					itemSize = itemSize,
-					mode = if options.list then "all" else "windowed",
-					gap = 8,
-					columns = columns,
-					direction = if options.horizontal then "horizontal" else "vertical",
-					measure = options.measure,
-					measured = if options.variable then extents else nil,
-				}
-				else UI.VirtualList "Collection" {
-					from = rows,
-					key = itemKey,
-					LayoutOrder = 2,
-					Size = collectionSize,
-					status = status,
-					controls = controls,
-					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
-					render = row,
-					itemSize = itemSize,
-					mode = if options.list then "all" else "windowed",
-					gap = 8,
-					columns = columns,
-					direction = if options.horizontal then "horizontal" else "vertical",
-					measure = options.measure,
-					measured = if options.variable then extents else nil,
-				}
+			local build = if options.grid then UI.VirtualGrid else UI.VirtualList
+			local list = build "Collection" {
+				from = rows,
+				key = "id",
+				LayoutOrder = 2,
+				Size = collectionSize,
+				status = status,
+				controls = controls,
+				render = function(current: ReadOnlyValue<Row>, placement, key): GuiObject
+					mounted:set(mounted:peek() + 1)
+					built:set(built:peek() + 1)
+					Compose.cleanup(function()
+						mounted:set(mounted:peek() - 1)
+					end)
+					if options.variable or options.measure then
+						local post = Host.Frame "Post" {
+							BackgroundTransparency = 1,
+							Size = D2.new(1, 0, 0, 0),
+							AutomaticSize = E.AutomaticSize.Y,
+							Host.UIPadding {
+								PaddingLeft = D.new(0, 10),
+								PaddingRight = D.new(0, 10),
+								PaddingTop = D.new(0, 10),
+								PaddingBottom = D.new(0, 10),
+							},
+							Host.UIListLayout { Padding = D.new(0, 4), SortOrder = E.SortOrder.LayoutOrder },
+							UI.Text "PostTitle" {
+								LayoutOrder = 1,
+								text = function(use: Use): string
+									return use(current).label or ""
+								end,
+								TextSize = function(use: Use)
+									return 15 + use(textOffset)
+								end,
+								TextWrapped = false,
+								TextTruncate = E.TextTruncate.AtEnd,
+								Size = D2.new(1, 0, 0, 0),
+								AutomaticSize = E.AutomaticSize.Y,
+								BackgroundTransparency = 1,
+							},
+							UI.Text "PostBody" {
+								LayoutOrder = 2,
+								text = function(use: Use): string
+									return use(current).description or ""
+								end,
+								TextSize = function(use: Use)
+									return 13 + use(textOffset)
+								end,
+								TextWrapped = options.measure == true,
+								Size = D2.new(1, 0, 0, 0),
+								AutomaticSize = E.AutomaticSize.Y,
+								BackgroundTransparency = 1,
+							},
+						}
+						Compose.watch(function(use: Use)
+							post.Name = "Post_" .. tostring(use(key))
+						end)
+						return post
+					end
+					local button = if options.mail
+						then UI.Button {
+							Name = function(use: Use): string
+								return "Item_" .. tostring(use(key))
+							end,
+							label = "",
+							name = function(use: Use): string
+								local item = use(current)
+								return (item.subject or "") .. " from " .. (item.from or "")
+							end,
+							Size = D2.fromScale(1, 1),
+							AutomaticSize = E.AutomaticSize.None,
+							onActivate = function()
+								selected:set(tostring(key:peek()))
+								markRead(tostring(key:peek()))
+							end,
+							mailBody(current, key, true),
+						}
+						else UI.Button {
+							Name = function(use: Use): string
+								return "Item_" .. tostring(use(key))
+							end,
+							label = function(use: Use): string
+								return use(current).label or ""
+							end,
+							TextSize = function(use: Use)
+								return 16 + use(textOffset)
+							end,
+							TextWrapped = true,
+							Size = D2.fromScale(1, 1),
+							AutomaticSize = E.AutomaticSize.None,
+							onActivate = function()
+								selected:set(tostring(key:peek()))
+							end,
+						}
+					if options.actions then
+						local spec = actions(tostring(key:peek()))
+						local rowSpec: RowActionsSpec = {
+							Name = spec.Name,
+							coordinator = spec.coordinator,
+							editing = spec.editing,
+							fullSwipe = spec.fullSwipe,
+							leading = spec.leading,
+							trailing = spec.trailing,
+							Size = D2.fromScale(1, 1),
+							content = button,
+						}
+						return UI.RowActions(rowSpec)
+					end
+					return button
+				end,
+				itemSize = itemSize,
+				mode = if options.list then "all" else "windowed",
+				gap = 8,
+				columns = columns,
+				direction = if options.horizontal then "horizontal" else "vertical",
+				measure = options.measure,
+				measured = if options.variable then extents else nil,
+			}
+			Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill }.Parent = list
 			collection = list
 			body = list
 		end
@@ -564,7 +543,7 @@ return function(ctx: ExampleContext, options: Options): Built
 		local nativePosition = observe(scroller, "CanvasPosition", function(): Vector2
 			return scroller.CanvasPosition
 		end)
-		local buttons: FrameNativeProps = {
+		local buttons: FrameProps = {
 			Name = "Actions",
 			LayoutOrder = 2,
 			Size = D2.new(1, 0, 0, 0),
@@ -579,13 +558,15 @@ return function(ctx: ExampleContext, options: Options): Built
 			visible: ((Use) -> boolean)?
 		)
 			count += 1
-			buttons[#buttons + 1] = UI.Button({
+			buttons[#buttons + 1] = UI.Button {
 				Name = name,
 				label = label,
-				onActivate = callback,
+				onActivate = function()
+					callback()
+				end,
 				LayoutOrder = count,
 				Visible = visible,
-			})
+			}
 		end
 		if options.entrants then
 			command("Reveal", "Reveal #1500", function()
@@ -636,12 +617,12 @@ return function(ctx: ExampleContext, options: Options): Built
 			end)
 		end
 		command("Reset", "Reset", reset)
-		buttons[#buttons + 1] = Host.UIListLayout({
+		buttons[#buttons + 1] = Host.UIListLayout {
 			FillDirection = E.FillDirection.Horizontal,
 			SortOrder = E.SortOrder.LayoutOrder,
 			Padding = D.new(0, 8),
 			Wraps = true,
-		})
+		}
 		local actionsFrame = Host.Frame(buttons)
 		local titleProbe = UI.Text "TitleLineMeasure" {
 			Visible = false,
@@ -674,19 +655,19 @@ return function(ctx: ExampleContext, options: Options): Built
 		local root = Host.Frame(options.name)({
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Host.UIPadding({
+			Host.UIPadding {
 				PaddingTop = D.new(0, 16),
 				PaddingBottom = D.new(0, 16),
 				PaddingLeft = D.new(0, 16),
 				PaddingRight = D.new(0, 16),
-			}),
-			Host.UIListLayout({
+			},
+			Host.UIListLayout {
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = D.new(0, 8),
 				FillDirection = function(use: Use)
 					return if use(side) then E.FillDirection.Horizontal else E.FillDirection.Vertical
 				end,
-			}),
+			},
 			Host.ScrollingFrame "ToolbarScroll" {
 				LayoutOrder = 1,
 				Size = function(use: Use)
@@ -708,7 +689,7 @@ return function(ctx: ExampleContext, options: Options): Built
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
+					Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) },
 					UI.Text "Title" {
 						LayoutOrder = 1,
 						Visible = function(use: Use): boolean

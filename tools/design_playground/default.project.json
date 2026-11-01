@@ -3,6 +3,7 @@
   "emitLegacyScripts": true,
   "tree": {
     "$className": "DataModel",
+    "Workspace": { "$properties": { "UseNewLuauTypeSolver": "Enabled" } },
     "Lighting": { "$properties": { "Technology": "Future" } },
     "ReplicatedStorage": {
       "Facet": {

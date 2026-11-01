@@ -1,2 +1,3 @@
 --!strict
-return (table.freeze :: unknown) :: <T>(T) -> T
+local freeze: <T>(T & {}) -> T = table.freeze
+return freeze

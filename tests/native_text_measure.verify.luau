@@ -29,7 +29,7 @@ return function(harness: Verify.Harness)
 		local label: TextLabel? = nil
 		local inset: UIPadding? = nil
 		local stop = runtime.mount(function()
-			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local Host = Facet.host(runtime)
 			local node = Host.TextLabel {
 				Text = "88888",
 				TextSize = 16,
@@ -153,6 +153,9 @@ return function(harness: Verify.Harness)
 		end, engine.new("ScreenGui"))
 		engine.heartbeat:Fire(1 / 60)
 		local node = assert(label)
+		local initialFloor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
+		t:expect(initialFloor.MinSize.X):toBe(216)
+		t:expect(initialFloor.MaxSize.X):toBe(216)
 		local writes = 0
 		local connection = engine.onWrite(function(target: Instance, property: string, _value: unknown)
 			if target == node and property == "AutomaticSize" then
@@ -165,7 +168,7 @@ return function(harness: Verify.Harness)
 		engine.heartbeat:Fire(1 / 60)
 		t:expect(writes):toBe(0)
 		t:expect((assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint).MinSize.X):toBe(216)
-		local Host = (runtime.constructors :: unknown) :: RobloxHost
+		local Host = Facet.host(runtime)
 		local stopOverride = runtime.mount(function()
 			return Host.UISizeConstraint { Name = "Authored" }
 		end, node)
@@ -197,7 +200,7 @@ return function(harness: Verify.Harness)
 		)
 		local labels: { TextLabel } = {}
 		local stop = runtime.mount(function()
-			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local Host = Facet.host(runtime)
 			for _, wrapped in { false, true } do
 				local label = ctx.text {
 					Text = "Coins 100",
@@ -292,7 +295,7 @@ return function(harness: Verify.Harness)
 		local words = Facet.Compose.cell("Small")
 		local size = Facet.Compose.cell(engine.types.Vector2.new(80, 18))
 		local observe = runtime.observe
-		runtime.observe = function(node, property, options)
+		runtime.observe = function(node, property, options): Facet.ReadOnlyValue<unknown>
 			if (node :: Instance).Name == "Wallet" then
 				if property == "Text" then
 					return words
@@ -543,7 +546,7 @@ return function(harness: Verify.Harness)
 		)
 		local result: ComposeTypes.ReadOnlyValue<Vector2>? = nil
 		local stop = runtime.mount(function()
-			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local Host = Facet.host(runtime)
 			local node = Host.TextLabel { Text = "Saved", TextSize = 16 }
 			label = node
 			result = measure.natural(ctx, node)

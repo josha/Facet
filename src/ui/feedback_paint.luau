@@ -19,7 +19,7 @@ return function(
 	local painted: ComposeTypes.ReadOnlyValue<Vector2>? = nil
 	local dressed = Compose.cell(false)
 	local function axes(use: ComposeTypes.Use): (boolean, boolean)
-		local value = ctx.read(geometry.AutomaticSize, use) or automatic
+		local value = ctx.read<<Enum.AutomaticSize?>>(geometry.AutomaticSize, use) or automatic
 		return value == E.AutomaticSize.X or value == E.AutomaticSize.XY,
 			value == E.AutomaticSize.Y or value == E.AutomaticSize.XY
 	end
@@ -34,7 +34,7 @@ return function(
 	end)
 	runtime.decorate(node, {
 		Size = function(use: ComposeTypes.Use): UDim2
-			local base = ctx.read(geometry.Size, use) or size
+			local base = ctx.read<<UDim2?>>(geometry.Size, use) or size
 			if not moving(use) then
 				return base
 			end
@@ -53,14 +53,16 @@ return function(
 			)
 		end,
 		AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
-			return if moving(use) then E.AutomaticSize.None else ctx.read(geometry.AutomaticSize, use) or automatic
+			return if moving(use)
+				then E.AutomaticSize.None
+				else ctx.read<<Enum.AutomaticSize?>>(geometry.AutomaticSize, use) or automatic
 		end,
 	})
 	Compose.cleanup(function()
-		node.Size = ctx.read(geometry.Size) or size
-		node.AutomaticSize = ctx.read(geometry.AutomaticSize) or automatic
+		node.Size = ctx.read<<UDim2?>>(geometry.Size) or size
+		node.AutomaticSize = ctx.read<<Enum.AutomaticSize?>>(geometry.AutomaticSize) or automatic
 	end)
-	local paintProps: Types.TextLabelNativeProps = {
+	local paintProps: Types.TextLabelProps = {
 		Name = "FeedbackPaint",
 		Size = if geometry.reflow
 			then function(use: ComposeTypes.Use): UDim2
@@ -75,34 +77,26 @@ return function(
 		Text = "",
 		scale,
 	}
-	for _, property in { "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel", "ZIndex" } do
-		((paintProps :: unknown) :: { [string]: unknown })[property] = (
-			(ctx.observeStyled :: unknown) :: { [string]: (Instance) -> unknown }
-		)[property](node)
-	end
+	paintProps.BackgroundColor3 = ctx.observeStyled.BackgroundColor3(node)
+	paintProps.BackgroundTransparency = ctx.observeStyled.BackgroundTransparency(node)
+	paintProps.BorderColor3 = ctx.observeStyled.BorderColor3(node)
+	paintProps.BorderSizePixel = ctx.observeStyled.BorderSizePixel(node)
+	paintProps.ZIndex = ctx.observeStyled.ZIndex(node)
 	if node:IsA("TextButton") or node:IsA("TextBox") then
-		for _, property in
-			{
-				"Text",
-				"TextColor3",
-				"TextTransparency",
-				"TextStrokeColor3",
-				"TextStrokeTransparency",
-				"FontFace",
-				"TextSize",
-				"TextXAlignment",
-				"TextYAlignment",
-				"TextWrapped",
-				"RichText",
-				"TextScaled",
-				"TextTruncate",
-				"LineHeight",
-			}
-		do
-			((paintProps :: unknown) :: { [string]: unknown })[property] = (
-				(ctx.observeStyled :: unknown) :: { [string]: (Instance) -> unknown }
-			)[property](node)
-		end
+		paintProps.Text = ctx.observeStyled.Text(node)
+		paintProps.TextColor3 = ctx.observeStyled.TextColor3(node)
+		paintProps.TextTransparency = ctx.observeStyled.TextTransparency(node)
+		paintProps.TextStrokeColor3 = ctx.observeStyled.TextStrokeColor3(node)
+		paintProps.TextStrokeTransparency = ctx.observeStyled.TextStrokeTransparency(node)
+		paintProps.FontFace = ctx.observeStyled.FontFace(node)
+		paintProps.TextSize = ctx.observeStyled.TextSize(node)
+		paintProps.TextXAlignment = ctx.observeStyled.TextXAlignment(node)
+		paintProps.TextYAlignment = ctx.observeStyled.TextYAlignment(node)
+		paintProps.TextWrapped = ctx.observeStyled.TextWrapped(node)
+		paintProps.RichText = ctx.observeStyled.RichText(node)
+		paintProps.TextScaled = ctx.observeStyled.TextScaled(node)
+		paintProps.TextTruncate = ctx.observeStyled.TextTruncate(node)
+		paintProps.LineHeight = ctx.observeStyled.LineHeight(node)
 	end
 	local paint = Host.TextLabel(paintProps)
 	if node:IsA("ImageLabel") or node:IsA("ImageButton") then
@@ -226,12 +220,12 @@ return function(
 						) :: { [string]: (Instance) -> ComposeTypes.Value<UDim> }
 						if padding then
 							runtime.mount(function()
-								return Host.UIPadding({
+								return Host.UIPadding {
 									PaddingLeft = observePadding["PaddingLeft"](padding),
 									PaddingRight = observePadding["PaddingRight"](padding),
 									PaddingTop = observePadding["PaddingTop"](padding),
 									PaddingBottom = observePadding["PaddingBottom"](padding),
-								})
+								}
 							end, paint)
 						end
 						Compose.cleanup(function()

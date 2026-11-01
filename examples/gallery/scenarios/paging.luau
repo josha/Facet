@@ -1,10 +1,9 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 local COPY = {
 	title = "Paging",
 	results = "Results",
@@ -21,18 +20,18 @@ return {
 	title = "Paging",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
-		local copy = ctx.copy or COPY
+		local copy: { [string]: string } = ctx.copy or COPY
 		local refuse = Compose.cell(false)
 		local results = Compose.cell(5)
 		local feed = Compose.cell(1)
 		local label = Compose.cell(3)
 		local rtl = Compose.cell(5)
 		local PER_PAGE, TOTAL = 20, 4000
-		local function accept(cell)
+		local function accept(cell: NumberCell)
 			return function(nextPage: number)
 				if not refuse:peek() then
 					cell:set(nextPage)
@@ -47,7 +46,7 @@ return {
 				"body" | "caption" | "control" | "heading" | "label" | "numeral" | "strong" | "title"
 			)?
 		)
-			return UI.Text({
+			return UI.Text {
 				Name = name,
 				LayoutOrder = order,
 				text = text,
@@ -56,18 +55,18 @@ return {
 				AutomaticSize = Enum.AutomaticSize.Y,
 				TextWrapped = true,
 				TextXAlignment = Enum.TextXAlignment.Left,
-			})
+			}
 		end
 		local function section()
-			return Host.Frame("Paging")({
+			return Host.Frame "Paging" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				},
 				caption("Title", copy.title, 1, "heading"),
 				UI.Toggle "Refuse" { LayoutOrder = 2, label = copy.refuse, value = refuse },
 				caption("ResultsTitle", copy.results, 3, "label"),
@@ -114,7 +113,7 @@ return {
 					direction = "rtl",
 					onChange = accept(rtl),
 				},
-			})
+			}
 		end
 		return {
 			section = section,

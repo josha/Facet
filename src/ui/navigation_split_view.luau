@@ -13,8 +13,8 @@ local ComposeTypes = require("../vendor/compose/core")
 type Column = Nav.SplitColumn
 type Props = NavigationProps.NavigationSplitViewProps
 type Registry = {
-	NavigationSplitView: Shared.Constructor<Props, Frame>,
-	Button: Shared.Constructor<InputProps.ButtonProps, TextButton>,
+	NavigationSplitView: Shared.Constructor<NavigationProps.NavigationSplitViewPropsInput, Frame>,
+	Button: Shared.Constructor<InputProps.ButtonPropsInput, TextButton>,
 	adjustable: (GuiObject, Inputs.AdjustableOptions) -> (),
 }
 
@@ -82,7 +82,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		local gamepad = ctx.config.services.GamepadService
 		local cursor = if gamepad then ctx.observe.GamepadCursorEnabled(gamepad) else Compose.cell(false)
 		local resizable = Compose.formula(function(use: Shared.Use): boolean
-			return spec.resizable == nil or read(spec.resizable, use)
+			return spec.resizable == nil or read<<boolean>>(spec.resizable, use)
 		end)
 		local function gutter(use: Shared.Use?): number
 			return if not read(resizable, use)
@@ -91,7 +91,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 				else math.max(28, hitFloor(use))
 		end
 		local shown = Compose.formula(function(use: Shared.Use): boolean
-			return spec.detailVisible == nil or read(spec.detailVisible, use)
+			return spec.detailVisible == nil or read<<boolean>>(spec.detailVisible, use)
 		end)
 		local compact = Compose.formula(function(use: Shared.Use): boolean
 			return tenFoot(use) or along(use(size)) < math.max(breakpoint, minimum + detailMinimum + gutter(use))
@@ -174,7 +174,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			still.zoom = nil
 			sidebarTransition = still
 		end
-		local function pane(properties: Shared.FrameNativeProps, departure: Shared.Value<boolean>?): Frame
+		local function pane(properties: Shared.FrameProps, departure: Shared.Value<boolean>?): Frame
 			local paneTransition = if departure then transition else sidebarTransition
 			if not paneTransition then
 				return Host.Frame(properties)
@@ -218,7 +218,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 				return D2.fromOffset(offset.X, offset.Y)
 			end
 			local panel = layers.layer(
-				properties :: Shared.CanvasGroupNativeProps & Shared.FrameNativeProps,
+				properties :: Shared.CanvasGroupProps & Shared.FrameProps,
 				state,
 				paneTransition,
 				hidden,
@@ -373,7 +373,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 						AnchorPoint = V2.new(0.5, 0.5),
 						Position = D2.fromScale(0.5, 0.5),
 						Size = dimensions(0, 8, 0, 36),
-						Host.UICorner { CornerRadius = ctx.round } :: Shared.Child,
+						Host.UICorner { CornerRadius = ctx.round },
 						ctx.styled(
 							Host.Frame {
 								Name = "Pill",

@@ -13,7 +13,7 @@ local UsageLint = require("../lib/usage_lint")
 local Static = require("../lib/static_findings")
 
 local USAGE =
-	[[usage: lute run tools/facet lint [paths...] [--types] [--verbose] [--project FILE] [--solver new|old] [--rules] [--usage] [--json]
+	[[usage: lute run tools/facet lint [paths...] [--types] [--verbose] [--project FILE] [--solver new] [--rules] [--usage] [--json]
 
 Checks interface code for Facet usage problems: any casts, reserved keys,
 deprecated schedulers, dot calls of cell methods, Instance.new for interface
@@ -26,8 +26,7 @@ finding names the rule, the line and the fix.
                   definitions in tools/typecheck/roblox.d.luau, or downloads
                   and checks the pinned definitions into artifacts/verify/types.
   --project FILE  The Rojo project for --types. The default is default.project.json.
-  --solver NAME   The Luau type solver for --types: new (the default, as in
-                  Studio) or old.
+  --solver NAME   The Luau type solver for --types: new.
   --rules         Lists the rules and exits.
   --verbose       Print source lines, repeated rule advice and full type errors.
                   The default shortens long type errors
@@ -72,8 +71,11 @@ local function hint(message: string): string?
 	if string.find(message, "Sides", 1, true) ~= nil then
 		return 'give a padding table a type on a local, for example local inset: Facet.Sides = { top = "xl" }, and pass padding = inset. A literal inside the options does not check, because padding also takes a readable. Read docs Layout-options.'
 	end
-	if string.find(message, "ReadOnlyValue", 1, true) ~= nil then
-		return "annotate reactive callbacks with function(use: Facet.Use) and type option lists before passing them. Read docs Types.reactive."
+	if
+		string.find(message, "ReadOnlyValue", 1, true) ~= nil
+		or (string.find(message, "read cache:", 1, true) ~= nil and string.find(message, "read peek:", 1, true) ~= nil)
+	then
+		return "check the source value type, annotate reactive callbacks with function(use: Facet.Use), and type option lists before passing them. Read docs Types.reactive."
 	end
 	if string.find(message, "not valid UTF-8", 1, true) ~= nil or string.find(message, "U+feff", 1, true) ~= nil then
 		return "save the file as UTF-8 without a byte order mark. In Windows PowerShell 5.1, Set-Content and Out-File use the system code page, and -Encoding utf8 adds a byte order mark; use [System.IO.File]::WriteAllText(path, text, (New-Object System.Text.UTF8Encoding $false))."
@@ -81,11 +83,11 @@ local function hint(message: string): string?
 	if string.find(message, "Available overloads", 1, true) ~= nil then
 		for _, name in SPEC_TYPES do
 			if string.find(message, name, 1, true) ~= nil then
-				return 'give the spec a type on a local, for example local spec: Facet.KeyedCollectionSpec<Item, string> = { ... }, and pass it: UI.VirtualList "Items" (spec). The checker then names the wrong entry. See docs "Typed collections".'
+				return 'give the spec a type on a local, for example local spec: Facet.KeyedCollectionSpec<Item, string> = { ... }, and pass it: UI.VirtualList(spec, "Items"). The checker then names the wrong entry. See docs "Typed collections".'
 			end
 		end
 	end
-	local option = string.match(message, "^Expected this to be 'EventKey | number', but got '\"([^\"]+)\"'")
+	local option = string.match(message, "^Expected this to be 'number', but got '\"([^\"]+)\"'")
 	if option ~= nil then
 		return Static.layoutHint(option)
 			or ("%s is not an option of this control. Run lute run tools/facet docs <Control>.props for typed options."):format(
@@ -224,13 +226,14 @@ local function run(invocation: Cli.Invocation): number
 		local full = location .. ": error [types] " .. diagnostic.message
 		table.insert(details, withHint(full, diagnostic.message))
 		if not hidden[index] then
-			table.insert(grouped, {
+			local finding: Static.Finding = {
 				rule = "types",
 				severity = "error",
 				message = diagnostic.message,
 				hint = hint(diagnostic.message),
 				location = location,
-			})
+			}
+			table.insert(grouped, finding)
 		end
 	end
 	Files.write("artifacts/facet-lint/report.txt", table.concat(details, "\n") .. "\n")
@@ -253,19 +256,19 @@ local function run(invocation: Cli.Invocation): number
 	return if errors > 0 then 1 else 0
 end
 
-local GOOD = [[--!strict
+local GOOD = [=[--!strict
 local Facet = require(game:GetService("ReplicatedStorage").Packages.Facet)
 local app = Facet.app({ name = "Shop" })
 local UI = app.UI
 local count = Facet.Compose.cell(0)
 app.mount(function()
-	return UI.Screen "Shop" {
-		UI.Button "Buy" { label = "Buy", onActivate = function() count:update(function(n) return n + 1 end) end },
-		UI.Text "Note" { text = "wait(1) and Color3.new in a string are fine", textRole = "caption" },
-	}
+	return UI.Screen({
+		UI.Button({ label = "Buy", onActivate = function() count:update(function(n) return n + 1 end) end }, "Buy"),
+		UI.Text({ text = "wait(1) and Color3.new in a string are fine", textRole = "caption" }, "Note"),
+	}, "Shop")
 end)
 -- Instance.new("Frame") in a comment is fine
-]]
+]=]
 
 local BAD = [[local Facet = require(game:GetService("ReplicatedStorage").Packages.Facet)
 local UserInputService = game:GetService("UserInputService")
@@ -348,9 +351,11 @@ Interface.mount(context)
 			local overload = hint(
 				"Available overloads: <V, K>(KeyedCollectionSpec<V, K>) -> ScrollingFrame; and <V, _K>(IdentityCollectionSpec<V>) -> ScrollingFrame"
 			)
-			local option = hint("Expected this to be 'EventKey | number', but got '\"width\"'")
+			local option = hint("Expected this to be 'number', but got '\"width\"'")
 			local record = hint("Cannot add indexer to table 'Record'")
 			local publicUse = hint("Unknown type 'Facet.Use'")
+			local reactive =
+				hint("Expected Cache<Entry> & { read cache: { read value: Entry }?, read peek: <T>(Cache<T>) -> T }")
 			local encoding = hint("rojo sourcemap failed: [ERROR rojo] File was not valid UTF-8: src/a.luau")
 			Verify.expect(overload ~= nil and string.find(overload, "KeyedCollectionSpec", 1, true) ~= nil)
 				:toBeTrueWith("no spec hint")
@@ -359,6 +364,8 @@ Interface.mount(context)
 				:toBeTrueWith("no record hint")
 			Verify.expect(publicUse ~= nil and string.find(publicUse, "local Facet", 1, true) ~= nil)
 				:toBeTrueWith("no Use hint")
+			Verify.expect(reactive ~= nil and string.find(reactive, "source value type", 1, true) ~= nil)
+				:toBeTrueWith("no reactive source hint")
 			Verify.expect(encoding ~= nil and string.find(encoding, "without a byte order mark", 1, true) ~= nil)
 				:toBeTrueWith("no encoding hint")
 			Verify.expect(hint("Expected identifier when parsing expression, got Unicode character U+feff") ~= nil)
@@ -372,14 +379,14 @@ Interface.mount(context)
 			local counts = UsageLint.usage({
 				{
 					file = "a.luau",
-					source = [[--!strict
+					source = [=[--!strict
 local app = Facet.app({ name = "Game" })
 local Kit = app.UI
-local label = Kit.Text "Coins" { text = Facet.format.compact(1200) }
+local label = Kit.Text({ text = Facet.format.compact(1200) }, "Coins")
 -- UI.Sheet in a comment
 local note = "UI.Toast in a string"
 local steps = UI.sequence({})
-]],
+]=],
 				},
 			})
 			local names = UsageLint.controls(Files.read("src/ui/control_types.luau"))

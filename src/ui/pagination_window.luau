@@ -29,7 +29,7 @@ return function(current: number, count: number, sibling: number, boundary: numbe
 	roles[current] = "current"
 	local out: { Entry } = {}
 	for page, role in roles do
-		local entry: Entry = { page = page, role = role :: Role }
+		local entry: Entry = { page = page, role = role }
 		table.insert(out, entry)
 	end
 	table.sort(out, function(a: Entry, b: Entry): boolean

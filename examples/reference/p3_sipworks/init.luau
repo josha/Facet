@@ -3,7 +3,7 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
@@ -197,7 +197,7 @@ function Sipworks.build(ctx: ExampleContext)
 			gathered[key] = gathered[key] or Compose.cell(false)
 			table.insert(
 				rows,
-				UI.Toggle({
+				UI.Toggle {
 					Name = ingredient.id,
 					value = gathered[key],
 					label = function(use: Use)
@@ -207,7 +207,7 @@ function Sipworks.build(ctx: ExampleContext)
 							measure = i18n.measureAt(locale, measure.value * use(batchSize), measure.unit),
 						})
 					end,
-				})
+				}
 			)
 		end
 		return view.column("Recipe", rows)
@@ -277,7 +277,9 @@ function Sipworks.build(ctx: ExampleContext)
 							return view.action(
 								"Buy",
 								text("detail.unlock", { price = unlock.product.price }),
-								unlock.purchase,
+								function()
+									unlock.purchase()
+								end,
 								function(use: Use)
 									return use(unlock.status) ~= "pending"
 								end
@@ -311,12 +313,12 @@ function Sipworks.build(ctx: ExampleContext)
 					{ n = i18n.numberAt(locale, use(rewards.earned) - use(rewards.spent)) }
 				)
 			end),
-			UI.ProgressView({
+			UI.ProgressView {
 				value = function(use: Use)
 					return math.clamp((use(rewards.earned) - use(rewards.spent)) / 10, 0, 1)
 				end,
 				label = text("rewards.card"),
-			}),
+			},
 			view.action("Redeem", function(use: Use)
 				return i18n.at(
 					use(i18n.locale),
@@ -338,14 +340,11 @@ function Sipworks.build(ctx: ExampleContext)
 			Compose.show(function(use: Use)
 				return not use(unlock.unlocked) and use(unlock.availability) == "available"
 			end, function()
-				return view.action(
-					"Buy",
-					text("book.unlock", { price = unlock.product.price }),
-					unlock.purchase,
-					function(use: Use)
-						return use(unlock.status) ~= "pending"
-					end
-				)
+				return view.action("Buy", text("book.unlock", { price = unlock.product.price }), function()
+					unlock.purchase()
+				end, function(use: Use)
+					return use(unlock.status) ~= "pending"
+				end)
 			end),
 			view.column("Recipes", {
 				view.list(catalog.blends, function(current: ReadOnlyValue<blendsContent.Blend>): GuiObject
@@ -378,7 +377,7 @@ function Sipworks.build(ctx: ExampleContext)
 				Size = ctx.types.UDim2.new(1, 0, 1, -64),
 				tabs = destinations,
 			},
-			UI.Text({
+			UI.Text {
 				text = function(use: Use)
 					local key = use(notice)
 					return if key == "" then "" else i18n.at(use(i18n.locale), key)
@@ -387,7 +386,7 @@ function Sipworks.build(ctx: ExampleContext)
 				Size = ctx.types.UDim2.new(1, -32, 0, 56),
 				AutomaticSize = ctx.types.Enum.AutomaticSize.None,
 				TextWrapped = true,
-			}),
+			},
 			UI.Sheet "Blend" {
 				isPresented = selectedOpen,
 				detent = Compose.cell("large"),

@@ -14,7 +14,8 @@ local Facet = require(ReplicatedStorage:WaitForChild("Facet"))
 local lab = require(ReplicatedStorage:WaitForChild("FacetScenarios"))
 local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 local Host = (runtime.constructors :: unknown) :: RobloxHost
-local neutral = assert(Facet.themes.define(Facet.themes.neutralPackage()))
+local neutral = Facet.themes.define(Facet.themes.neutralPackage())
+assert(neutral, "the neutral theme did not define")
 local packages: { [string]: any } = { ["facet-neutral"] = neutral }
 local folder = ReplicatedStorage:FindFirstChild("FacetThemes")
 if folder then
@@ -53,16 +54,14 @@ local function invoke(command: string, ...: any): any
 	return handler(...)
 end
 local stop = runtime.mount(function()
-	Host.BindableFunction "FacetPerfLabAPI" {
-		Parent = workspace,
-		OnInvoke = Facet.Compose.static(invoke),
-	}
+	local api = Host.BindableFunction "FacetPerfLabAPI" { Parent = workspace }
+	api.OnInvoke = invoke
 	local sheet = Facet.themes.createStyleSheet(runtime, theme)
 	return Host.ScreenGui "FacetPerformanceLab" {
 		ResetOnSpawn = false,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-		sheet :: unknown,
-		Host.StyleLink({ StyleSheet = Facet.Compose.static(sheet) }),
+		sheet,
+		Host.StyleLink { StyleSheet = Facet.Compose.static(sheet) },
 		lab.screen.build({
 			Facet = Facet,
 			runtime = runtime,

@@ -1,4 +1,5 @@
 --!strict
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 
 type Case = {
 	id: string,
@@ -126,7 +127,7 @@ table.insert(cases, {
 	setup = function(t: any)
 		local options = shared.FacetVisual or {}
 		local open: any
-		local selected
+		local selected: StringCell
 		local stage = t.mount(function(UI: any, _Host: any, Compose: any)
 			open = Compose.cell(false)
 			selected = Compose.cell("")

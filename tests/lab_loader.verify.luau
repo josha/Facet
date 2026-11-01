@@ -4,8 +4,10 @@ local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local fs = require("@std/fs")
 local task = require("@std/task")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local Lute = require("../tools/vendor/verify/src/lute")
 local gallery = require("../examples/gallery/client/screen")
+type Context = typeof(require("@repo/examples/types").Context) & { preview: unknown }
 type Lab = {
 	state: { errors: { [string]: { [string]: string } } },
 	pageIds: () -> { string },
@@ -20,10 +22,13 @@ type Browser = { mount: (unknown) -> Lab }
 return function(harness: Verify.Harness)
 	harness:case("real Lab loader mounts every page and rejects new refusals", function(t)
 		local engine = engineLib.new()
+		local function activate(button: Instance)
+			engine.environment.fire(VerifyRoblox.assertInstance(button), "Activated")
+		end
 		local C = Facet.Compose
 		local motion = C.cell("none" :: "normal" | "limited" | "none")
 		local runtime = Facet.Roblox.createRuntime(engine)
-		local Host = (runtime.constructors :: unknown) :: typeof(require("../tools/typecheck/aliases").RobloxHost)
+		local Host = Facet.host(runtime)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		local world = engine.new("Workspace")
 		local camera = engine.new("Camera")
@@ -51,7 +56,7 @@ return function(harness: Verify.Harness)
 				end,
 			},
 		}
-		local target = engine.new("PlayerGui")
+		local target: PlayerGui = engine.new("PlayerGui")
 		local modules: { [string]: unknown } = {}
 		local loadLab: (string) -> unknown
 		local names = {
@@ -103,7 +108,20 @@ return function(harness: Verify.Harness)
 		local built: BuiltCatalog
 		local stop = runtime.mount(function()
 			local theme = Facet.themes.neutralPackage()
-			local context: any = {
+			local themeCell = C.cell(theme)
+			app = Facet.app {
+				runtime = runtime,
+				types = engine.types,
+				parent = target,
+				theme = themeCell,
+				motionLevel = motion,
+				guiService = gui,
+				userInputService = input,
+				services = { Workspace = world, GuiService = gui, UserInputService = input },
+			}
+			C.cleanup(app.dispose)
+			local context: Context = {
+				UI = app.UI,
 				Facet = Facet,
 				Compose = C,
 				runtime = runtime,
@@ -113,8 +131,8 @@ return function(harness: Verify.Harness)
 				guiService = gui,
 				inputTarget = target,
 				worldTarget = world,
-				runService = { Heartbeat = engine.heartbeat },
-				theme = C.cell(theme),
+				runService = ({ Heartbeat = engine.heartbeat } :: unknown) :: RunService,
+				theme = themeCell,
 				themeMode = C.cell(theme.style.defaultTheme),
 				themeName = C.cell("Neutral"),
 				packages = { Neutral = theme },
@@ -122,17 +140,6 @@ return function(harness: Verify.Harness)
 				preview = gallery.preview,
 			}
 			gallery.configure(context)
-			app = Facet.app {
-				runtime = runtime,
-				types = engine.types,
-				parent = context.inputTarget,
-				theme = context.theme,
-				motionLevel = motion,
-				guiService = gui,
-				userInputService = input,
-				services = { Workspace = world, GuiService = gui, UserInputService = input },
-			}
-			C.cleanup(app.dispose)
 			built = catalog.build(app.UI)
 			lab = browser.mount {
 				Facet = Facet,
@@ -186,27 +193,26 @@ return function(harness: Verify.Harness)
 		Verify.expect(lab.configure("+reactive width (tap to change)").ok):toBe(true)
 		local page = assert(target:FindFirstChild("Page_Button", true))
 		local playground = assert(page:FindFirstChild("Playground"))
-		local button = assert(playground:FindFirstChild("Live"):FindFirstChildWhichIsA("GuiButton", true))
-		local buttonSignal = ((button :: unknown) :: { Activated: engineLib.Signal<> }).Activated
+		local live = assert(playground:FindFirstChild("Live"))
+		local button = assert(live:FindFirstChildWhichIsA("GuiButton", true))
 		for _, expected in { "220", "0", "140" } do
-			buttonSignal:Fire()
+			activate(button)
 			Verify.expect(lab.report().values.plainWidth):toBe(expected)
 		end
 		Verify.expect(lab.open("Composition").ok):toBe(true)
 		local composition = assert(target:FindFirstChild("Page_Composition", true))
-		local strip = assert(composition:FindFirstChild("Playground"):FindFirstChild("StripSettingsButton", true))
-		local stripSignal = ((strip :: unknown) :: { Activated: engineLib.Signal<> }).Activated
-		stripSignal:Fire()
+		local stripPlayground = assert(composition:FindFirstChild("Playground"))
+		local strip = assert(stripPlayground:FindFirstChild("StripSettingsButton", true))
+		activate(strip)
 		Verify.expect(lab.report().values.stripSettingsOpen):toBe("true")
-		stripSignal:Fire()
+		activate(strip)
 		Verify.expect(lab.report().values.stripSettingsOpen):toBe("false")
 		Verify.expect(lab.open("Minimap").ok):toBe(true)
 		local mapPage = assert(target:FindFirstChild("Page_Minimap", true))
 		local mapDemo = assert(mapPage:FindFirstChild("MinimapDemo", true))
 		local function pressMap(name: string)
 			local button = assert(mapDemo:FindFirstChild(name, true), name)
-			local signal = ((button :: unknown) :: { Activated: engineLib.Signal<> }).Activated
-			signal:Fire()
+			activate(button)
 		end
 		pressMap("PauseMap")
 		Verify.expect(lab.report().values.mapRunning):toBe("true")
@@ -224,12 +230,17 @@ return function(harness: Verify.Harness)
 		Verify.expect(lab.report().values.mapProgress):toBe(advanced)
 		assert(hud:FindFirstChild("CourseArt", true), "minimap HUD art missing after close")
 		motion:set("normal")
-		engine.environment.poke(mapDemo, "AbsoluteSize", engine.types.Vector2.new(600, 460))
+		engine.environment.poke(
+			VerifyRoblox.assertInstance(mapDemo),
+			"AbsoluteSize",
+			engine.types.Vector2.new(600, 460)
+		)
 		pressMap("OpenMap")
 		for _ = 1, 60 do
 			engine.heartbeat:Fire(1 / 60)
 		end
-		local expansion = assert(mapDemo:FindFirstChild("MapExpansion", true)) :: UIScale
+		local expansion = assert(mapDemo:FindFirstChild("MapExpansion", true))
+		assert(expansion:IsA("UIScale"))
 		Verify.expect(expansion.Scale):toBe(1)
 		pressMap("CloseMap")
 		engine.heartbeat:Fire(1 / 60)
@@ -256,7 +267,8 @@ return function(harness: Verify.Harness)
 		assert(mapDemo:FindFirstChild("OpenMap", true) == nil, "passive minimap has open button")
 		assert(mapDemo:FindFirstChild("MapFallback", true) == nil, "passive minimap has fallback button")
 		local mapCommands = assert(mapDemo:FindFirstChild("MinimapCommands"))
-		Verify.expect((mapCommands :: InputContext).Enabled):toBe(false)
+		assert(mapCommands:IsA("InputContext"))
+		Verify.expect(mapCommands.Enabled):toBe(false)
 		for location, message in refusals do
 			if location == "focusSection/helper" and message == "Facet UI.Button: unknown option 'width'." then
 				t:attach("baseline-focusSection", "text/plain", location .. ": " .. message)

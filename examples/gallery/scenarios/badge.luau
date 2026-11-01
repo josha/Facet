@@ -3,13 +3,10 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSizeValue)
-type ControlSizeCell = typeof(require("@repo/tools/typecheck/aliases").ControlSize)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type BadgeStatus = "neutral" | "info" | "success" | "warning" | "error" | "accent" | "voice" | "contrast"
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 return {
 	title = "Badges",
 	ledgerRows = {},
@@ -20,9 +17,9 @@ return {
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local initialStatus: BadgeStatus = "neutral"
-		local initialRung: ControlSize = "compact"
+		local initialRung: ControlSize? = "compact"
 		local status: Value<BadgeStatus> = Compose.cell(initialStatus)
-		local rung: ControlSizeCell = Compose.cell(initialRung)
+		local rung = Compose.cell(initialRung)
 		local rootPath: unknown, controller: unknown, record: GuiObject? = nil, nil, nil
 		local function report()
 			return { status = status:peek(), controlSize = rung:peek() }
@@ -53,11 +50,11 @@ return {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				},
 				UI.Text "Title" {
 					LayoutOrder = 1,
 					BackgroundTransparency = 1,
@@ -86,13 +83,13 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(0, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 12),
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						Wraps = true,
-					}),
+					},
 					UI.Badge "Standard" {
 						LayoutOrder = 1,
 						label = "Ready",
@@ -143,13 +140,13 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(0, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 24),
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						Wraps = true,
-					}),
+					},
 					UI.badged(UI.Button "Inbox" { LayoutOrder = 1, label = "Inbox" }, 120),
 					UI.badged(UI.Button "Alerts" { LayoutOrder = 2, label = "Alerts", icon = "menu" }, true),
 					UI.badged(UI.Avatar "Friend" { LayoutOrder = 3, name = "Alder" }, 3),

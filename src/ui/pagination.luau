@@ -1,4 +1,5 @@
 --!strict
+local ThemeTypes = require("./theme_types")
 local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Content = require("./content_types")
@@ -14,7 +15,7 @@ local MAX_SAFE = 9007199254740991
 local MAX_WINDOW = 20
 local ARROWS = { "first", "previous", "next", "last" }
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
 	local readSource = ctx.readSource
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
@@ -74,11 +75,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		if spec.controls then
 			spec.controls.diagnostics = checks.list
 		end
-		local pageIn = checks.legal("page", spec.page, isPage, "must be a finite whole number")
+		local pageIn = checks.legal<<number>>("page", spec.page, isPage, "must be a finite whole number")
 		local countIn =
-			checks.legal("pageCount", spec.pageCount, isCount, "must be a whole number of 0 or more, or nil")
-		local nextIn = checks.legal("hasNext", spec.hasNext, isFlag, "must be a boolean")
-		local previousIn = checks.legal("hasPrevious", spec.hasPrevious, isFlag, "must be a boolean")
+			checks.legal<<number?>>("pageCount", spec.pageCount, isCount, "must be a whole number of 0 or more, or nil")
+		local nextIn = checks.legal<<boolean?>>("hasNext", spec.hasNext, isFlag, "must be a boolean")
+		local previousIn = checks.legal<<boolean?>>("hasPrevious", spec.hasPrevious, isFlag, "must be a boolean")
 		local enabled = function(use: ComposeTypes.Use?): boolean
 			return read(spec.enabled, use) ~= false
 		end
@@ -172,7 +173,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local offered = Compose.cell(0)
 		local function pageWidth(page: number, use: ComposeTypes.Use?): number
 			local digit = readSource(digitBounds, use).X / 10
-			local package = read(ctx.config.theme, use)
+			local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 			local skin = package and package.chrome and package.chrome.control
 			local carve = if skin then skin.contentInsets else nil
 			local chrome = 2 * ctx.controlSize("compact", "paddingX", use)
@@ -318,7 +319,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				local entry = source:peek()
 				if entry.kind == "page" then
 					local page = assert(entry.page)
-					local button = UI.Button({
+					local button: TextButton = UI.Button {
 						Name = `Page-{page}`,
 						label = tostring(page),
 						controlSize = "compact",
@@ -335,7 +336,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						onActivate = function()
 							propose("page", page)
 						end,
-					})
+					}
 					pageButtons[page] = button
 					watchFocus(button)
 					Compose.cleanup(function()
@@ -383,7 +384,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					})
 				end
 				local kind = entry.kind
-				local button = UI.Button({
+				local button: TextButton = UI.Button {
 					Name = string.upper(string.sub(kind, 1, 1)) .. string.sub(kind, 2),
 					LayoutOrder = index,
 					label = "",
@@ -399,7 +400,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					onActivate = function()
 						propose(kind)
 					end,
-				})
+				}
 				arrowButtons[kind] = button
 				watchFocus(button)
 				Compose.cleanup(function()
@@ -418,7 +419,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			AutomaticCanvasSize = E.AutomaticSize.X,
 			ScrollingDirection = E.ScrollingDirection.X,
 			ScrollBarThickness = 0,
-			Host.UIListLayout({
+			Host.UIListLayout {
 				FillDirection = E.FillDirection.Horizontal,
 				HorizontalAlignment = E.HorizontalAlignment.Center,
 				VerticalAlignment = E.VerticalAlignment.Center,
@@ -426,7 +427,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				Padding = function(use: ComposeTypes.Use)
 					return ctx.types.UDim.new(0, gap(use))
 				end,
-			}),
+			},
 			items,
 		}
 		if gui and gui.GetPropertyChangedSignal then
@@ -472,7 +473,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				FacetForm = form,
 				FacetDirection = direction,
 			},
-			digits :: Types.Child,
+			digits,
 			ellipsis,
 			widest,
 			row,

@@ -13,7 +13,7 @@ function DesignReview.snapshot(dump: Audit.Dump): Snapshot
 		local text: Rules.ReviewText? = nil
 		local source = element.text
 		if source ~= nil then
-			text = {
+			local description: Rules.ReviewText = {
 				content = source.content,
 				size = source.size,
 				bold = source.bold,
@@ -21,6 +21,7 @@ function DesignReview.snapshot(dump: Audit.Dump): Snapshot
 				color = source.color,
 				transparency = source.transparency,
 			}
+			text = description
 		end
 		local image = element.image
 		table.insert(elements, {

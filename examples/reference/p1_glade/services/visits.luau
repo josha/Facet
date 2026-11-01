@@ -1,7 +1,7 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 
 local seedData = require("../content/seed")
@@ -18,7 +18,8 @@ export type Current = { id: string, wisp: string, glade: string, start: number }
 export type Recent = { id: string, wisp: string, glade: string, finish: number }
 export type Live = { id: string, wisp: string, glade: string }
 export type Seen = { at: number, glade: string }
-export type Dump = { current: { { glade: string, wisp: string, visit: string } }, presented: { string } }
+export type Visited = { glade: string, wisp: string, visit: string }
+export type Dump = { current: { Visited }, presented: { string } }
 type Visit = seedData.Visit
 
 function visits.new(opts: Opts)
@@ -151,11 +152,11 @@ function visits.new(opts: Opts)
 	end
 
 	function service.dump(): Dump
-		local live: { { glade: string, wisp: string, visit: string } } = {}
+		local live: { Visited } = {}
 		for _, entry in currentAll:peek() do
 			table.insert(live, { glade = entry.glade, wisp = entry.wisp, visit = entry.id })
 		end
-		table.sort(live, function(a, b)
+		table.sort(live, function(a: Visited, b: Visited)
 			return a.visit < b.visit
 		end)
 		local shown: { string } = {}

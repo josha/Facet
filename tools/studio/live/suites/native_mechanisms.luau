@@ -4,7 +4,11 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type IdReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").IdReadOnlyValue)
+type NumberReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").NumberReadOnlyValue)
+type Built = (() -> unknown) | { screen: () -> unknown }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
@@ -50,20 +54,23 @@ local function mountModule(
 ): (any, any, string?, FacetControls?)
 	local built, problem
 	local controls: FacetControls?
-	local ok, stage = pcall(t.mount, function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+	local function build(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env: unknown)
 		controls = UI
 		local context = t.context(UI, Host, Compose, env)
 		if context.reducedMotion == nil then
 			context.reducedMotion = Compose.cell(true)
 		end
 		local module = context.load(kind, name)
-		local result = module.build(context)
+		local result: Built = module.build(context)
 		built = result
 		if type(result) == "function" then
 			return result()
 		end
 		return result.screen()
-	end, { size = size, theme = theme, frames = 16 })
+	end
+	local ok, stage = pcall(function()
+		return t.mount(build, { size = size, theme = theme, frames = 16 })
+	end)
 	if not ok then
 		problem = tostring(stage)
 		return nil, nil, problem
@@ -146,7 +153,7 @@ local function fitRun(t: any, kind: string, name: string, size: Vector2, theme: 
 		end
 		found = t.offenders(stage, stage)
 	end
-	local zero = {}
+	local zero: { string } = {}
 	for _, node in stage:GetDescendants() do
 		if node:IsA("GuiButton") and t.visible(node) and node.Active and node.Selectable then
 			if node.AbsoluteSize.X < 1 or node.AbsoluteSize.Y < 1 then
@@ -163,7 +170,7 @@ local function fitRun(t: any, kind: string, name: string, size: Vector2, theme: 
 					t.settle(12)
 				end
 				if node.AbsoluteSize.X < 1 or node.AbsoluteSize.Y < 1 then
-					table.insert(zero, node:GetFullName())
+					zero[#zero + 1] = node:GetFullName()
 				end
 				for frame, position in positions do
 					frame.CanvasPosition = position
@@ -221,7 +228,7 @@ add("native-identity-adaptive-layout", { "UI.Picker", "UI.AvatarGroup" }, functi
 end)
 
 add("scroll-gutter-and-window", {}, function(t)
-	local count
+	local count: NumberCell
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		count = Compose.cell(20)
 		return UI.ScrollView "Scroll" {
@@ -230,21 +237,21 @@ add("scroll-gutter-and-window", {}, function(t)
 			align = "stretch" :: "stretch",
 			Compose.keyed({
 				from = function(use: Use)
-					local list = {}
+					local list: { { id: string } } = {}
 					for index = 1, use(count) do
 						list[index] = { id = tostring(index) }
 					end
 					return list
 				end,
-				key = function(item)
+				key = function(item: { id: string }): string
 					return item.id
 				end,
-				render = function(item, index)
-					return UI.Button({
+				render = function(item: IdReadOnlyValue, index: NumberReadOnlyValue)
+					return UI.Button {
 						Name = "Row" .. item:peek().id,
 						label = "Row " .. item:peek().id,
 						LayoutOrder = index,
-					})
+					}
 				end,
 			}),
 		}
@@ -304,7 +311,7 @@ end)
 add("grid-hugs-its-lines", {}, function(t)
 	for _, count in { 1, 3, 4, 7, 9 } do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-			local cells = {}
+			local cells: { Instance } = {}
 			for index = 1, count do
 				table.insert(cells, box(Host, "Cell" .. index, 0, 0))
 			end
@@ -313,7 +320,7 @@ add("grid-hugs-its-lines", {}, function(t)
 				gap = 8,
 				cellHeight = 40,
 				Size = UDim2.fromOffset(316, 0),
-				table.unpack((cells :: unknown) :: { unknown }),
+				table.unpack(cells),
 			}
 		end, { size = Vector2.new(400, 600) })
 		local grid = t.find(stage, "Grid")
@@ -328,7 +335,7 @@ add("grid-hugs-its-lines", {}, function(t)
 end)
 
 add("text-degrade-cascade", {}, function(t)
-	local width
+	local width: NumberCell
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		width = Compose.cell(360)
 		return Host.Frame "Column" {
@@ -336,17 +343,17 @@ add("text-degrade-cascade", {}, function(t)
 				return UDim2.fromOffset(use(width), 400)
 			end,
 			BackgroundTransparency = 1,
-			Host.UIListLayout({
+			Host.UIListLayout {
 				SortOrder = Enum.SortOrder.LayoutOrder,
 				HorizontalFlex = Enum.UIFlexAlignment.Fill,
-			}) :: unknown,
-			UI.Text({
+			},
+			UI.Text {
 				Name = "Wrap",
 				text = string.rep("Wrap this sentence. ", 6),
 				TextWrapped = true,
 				LayoutOrder = 1,
-			}),
-			UI.Text({
+			},
+			UI.Text {
 				Name = "Cut",
 				text = string.rep("Truncate this sentence. ", 6),
 				TextWrapped = false,
@@ -354,19 +361,19 @@ add("text-degrade-cascade", {}, function(t)
 				AutomaticSize = Enum.AutomaticSize.Y,
 				Size = UDim2.new(1, 0, 0, 0),
 				LayoutOrder = 2,
-			}),
-			UI.Text({
+			},
+			UI.Text {
 				Name = "Unknown",
 				text = "Unknown family text",
 				FontFace = Font.new("rbxasset://fonts/families/DoesNotExist.json"),
 				LayoutOrder = 3,
-			}),
-			UI.Text({
+			},
+			UI.Text {
 				Name = "Rtl",
 				text = "مرحبا بالعالم",
 				TextDirection = Enum.TextDirection.RightToLeft,
 				LayoutOrder = 4,
-			}),
+			},
 		}
 	end, { size = Vector2.new(600, 500), frames = 16 })
 	local wrap, cut, unknown, rtl =
@@ -461,7 +468,7 @@ add("sibling-order-and-hit-testing", {}, function(t)
 				Position = UDim2.fromOffset(20, 20),
 				Size = UDim2.fromOffset(160, 60),
 				ZIndex = 1,
-			} :: unknown,
+			},
 			UI.Button "High" {
 				label = "High",
 				Position = UDim2.fromOffset(80, 40),
@@ -483,14 +490,14 @@ add("sibling-order-and-hit-testing", {}, function(t)
 		return Host.Frame "Base" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.Button "Behind" { label = "Behind", Size = UDim2.fromOffset(200, 60) } :: unknown,
-			UI.Alert({
+			UI.Button "Behind" { label = "Behind", Size = UDim2.fromOffset(200, 60) },
+			UI.Alert {
 				isPresented = Compose.cell(true),
 				title = "On top",
 				actions = {
 					{ id = "ok", label = "OK" } :: AlertAction,
 				},
-			}),
+			},
 		}
 	end, { size = Vector2.new(800, 600), frames = 20 })
 	local panel = visibleNamed(t, stage, "AlertPanel")
@@ -546,13 +553,14 @@ add("sibling-order-and-hit-testing", {}, function(t)
 	local sizes = {}
 	for _, shadow in { false, true } do
 		stage = t.mount(function(_, Host: RobloxHost)
+			local shadows: { Instance } = if shadow then { Host.UIShadow {} } else {}
 			return Host.Frame "Row" {
 				Size = UDim2.fromOffset(400, 100),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) }) :: unknown,
+				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) },
 				Host.Frame "Plate" {
 					Size = UDim2.fromOffset(120, 60),
-					table.unpack((if shadow then { Host.UIShadow({}) } else {} :: unknown) :: { unknown }),
+					table.unpack(shadows),
 				},
 				box(Host, "Next", 40, 40),
 			}

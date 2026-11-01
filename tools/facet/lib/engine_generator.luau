@@ -38,7 +38,7 @@ end
 
 Generator.CLASSES = sortedUnique(
 	words(
-		"BindableFunction ClickDetector DragDetector HapticEffect Highlight Part PointLight StyleLink WedgePart Weld Model Sound Camera CanvasGroup Folder Frame GuiObject GuiButton ImageButton ImageLabel InputAction InputBinding InputContext Path2D ScrollingFrame ScreenGui BillboardGui SurfaceGui StyleRule StyleSheet TextBox TextButton TextLabel UIAspectRatioConstraint UICorner UIDragDetector UIFlexItem UIGradient UIGridLayout UIListLayout UIPadding UIPageLayout UIScale UIShadow UISizeConstraint UIStroke UITextSizeConstraint ViewportFrame WorldModel"
+		"BindableFunction ClickDetector DragDetector GetTextBoundsParams HapticEffect Highlight Part PointLight StyleLink WedgePart Weld Model Sound Camera CanvasGroup Folder Frame GuiObject GuiButton ImageButton ImageLabel InputAction InputBinding InputContext Path2D ScrollingFrame ScreenGui BillboardGui SurfaceGui StyleRule StyleSheet TextBox TextButton TextLabel UIAspectRatioConstraint UICorner UIDragDetector UIFlexItem UIGradient UIGridLayout UIListLayout UIPadding UIPageLayout UIScale UIShadow UISizeConstraint UIStroke UITextSizeConstraint ViewportFrame WorldModel"
 	)
 )
 
@@ -47,11 +47,11 @@ Generator.DATATYPES = words(
 )
 
 Generator.OBSERVED = words(
-	"AnchorPoint AbsoluteContentSize BackgroundColor3 CornerRadius AbsolutePosition AbsoluteSize AbsoluteWindowSize CanvasPosition CurrentPage DisplayImage DisplayName Enabled FontFace GamepadEnabled GamepadCursorEnabled GuiState Interactable KeyCode KeyboardEnabled MouseEnabled Parent Position PreferredBinding PreferredInput PreferredTextSize PreferredTransparency PrimaryModifier ReducedMotionEnabled SecondaryModifier SelectedObject Size Text ContentText TextBounds TextFits TextSize TextColor3 TextXAlignment TextYAlignment TextWrapped RichText TextScaled TextTruncate LineHeight TouchEnabled Visible OnScreenKeyboardVisible OnScreenKeyboardSize AbsoluteCanvasSize Scale CursorPosition TopbarInset ViewportDisplaySize AutomaticSize PaddingTop PaddingBottom"
+	"AnchorPoint AbsoluteContentSize BackgroundColor3 BackgroundTransparency BorderColor3 BorderSizePixel CornerRadius AbsolutePosition AbsoluteSize AbsoluteWindowSize CanvasPosition CurrentPage DisplayImage DisplayName Enabled FontFace GamepadEnabled GamepadCursorEnabled GuiState Interactable KeyCode KeyboardEnabled MouseEnabled Parent Position PreferredBinding PreferredInput PreferredTextSize PreferredTransparency PrimaryModifier ReducedMotionEnabled SecondaryModifier SelectedObject Size Text ContentText TextBounds TextFits TextSize TextColor3 TextTransparency TextStrokeColor3 TextStrokeTransparency TextXAlignment TextYAlignment TextWrapped RichText TextScaled TextTruncate LineHeight TouchEnabled Visible OnScreenKeyboardVisible OnScreenKeyboardSize AbsoluteCanvasSize Scale CursorPosition TopbarInset ViewportDisplaySize ViewportSize AutomaticSize PaddingTop PaddingBottom ZIndex"
 )
 
 Generator.OBSERVED_CLASSES = words(
-	"GamepadService UICorner GuiBase2d GuiObject GuiService UserInputService LayerCollector Instance InputAction InputBinding InputContext TextLabel TextBox TextButton ScrollingFrame UIGridStyleLayout UIPageLayout UIScale UIPadding"
+	"Camera GamepadService UICorner GuiBase2d GuiObject GuiService UserInputService LayerCollector Instance InputAction InputBinding InputContext TextLabel TextBox TextButton ScrollingFrame UIGridStyleLayout UIPageLayout UIScale UIPadding"
 )
 
 Generator.SCHEMA = "tools/typecheck/engine_members.json"
@@ -181,7 +181,8 @@ function Generator.generate(definitions: string, schema: Schema, classes: { stri
 		"export type Input<T> = Compose.Input<T>",
 		"export type StaticValue = typeof(Compose.static(nil))",
 		'export type EventKey = typeof(Compose.event(""))',
-		"export type Constructor<P, N> = ((P) -> N) & ((string) -> (P) -> N)",
+		"export type Constructor<P, N> = (P, string?) -> N",
+		"export type NamedConstructor<P, N> = (P | string, string?) -> N & typeof(setmetatable({} :: {}, {} :: { __call: (unknown, P) -> N }))",
 		"export type AttributeValue = string | boolean | number | UDim | UDim2 | BrickColor | Color3 | Vector2 | Vector3 | CFrame | NumberSequence | ColorSequence | NumberRange | Rect | Font",
 		"export type Attributes = { [string]: Input<AttributeValue?> }",
 		"",
@@ -260,12 +261,14 @@ function Generator.generate(definitions: string, schema: Schema, classes: { stri
 			continue
 		end
 		table.insert(result, ("export type %sNativeProps = {"):format(name))
-		table.move(inherited, 1, #inherited, #result + 1, result)
-		table.insert(result, "\t[number | EventKey]: Compose.Child,")
+		for _, line in inherited do
+			table.insert(result, (string.gsub(line, "^\t", "\tread ")))
+		end
+		table.insert(result, "\tread [number]: Compose.Child?,")
 		table.insert(result, "}")
 		table.insert(result, ("export type %sProps = {"):format(name))
 		table.move(inherited, 1, #inherited, #result + 1, result)
-		table.insert(result, "\t[number | EventKey]: Compose.Child,")
+		table.insert(result, "\t[number]: Compose.Child?,")
 		table.insert(result, ("\tref: ((%s) -> ())?,"):format(name))
 		table.insert(result, "}")
 		table.insert(result, "")
@@ -347,20 +350,22 @@ function Generator.generate(definitions: string, schema: Schema, classes: { stri
 		for _, native in nativeKeys do
 			local names = table.clone(members[key][native])
 			table.sort(names)
-			table.insert(signatures, ("((%s) -> Compose.Value<%s>)"):format(table.concat(names, " | "), native))
+			table.insert(signatures, ("((%s) -> Compose.ReadOnlyValue<%s>)"):format(table.concat(names, " | "), native))
 		end
 		table.insert(result, ("\t%s: %s,"):format(key, table.concat(signatures, " & ")))
 	end
 	table.insert(result, "}")
 	table.insert(result, "")
-	table.insert(result, "export type Host = {")
-	for _, name in selected do
-		if name ~= "GuiObject" and name ~= "GuiButton" then
-			table.insert(result, ("\t%s: Constructor<%sNativeProps, %s>,"):format(name, name, name))
+	for _, host in { { "Host", "NamedConstructor" }, { "NamedHost", "NamedConstructor" } } do
+		table.insert(result, ("export type %s = {"):format(host[1]))
+		for _, name in selected do
+			if name ~= "GuiObject" and name ~= "GuiButton" then
+				table.insert(result, ("\t%s: %s<%sNativeProps, %s>,"):format(name, host[2], name, name))
+			end
 		end
+		table.insert(result, "}")
+		table.insert(result, "")
 	end
-	table.insert(result, "}")
-	table.insert(result, "")
 	table.insert(result, "return {}")
 	table.insert(result, "")
 	return table.concat(result, "\n"), ordered

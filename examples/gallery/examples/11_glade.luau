@@ -1,11 +1,9 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type SupplyModule = typeof(require("@repo/examples/reference/p1_glade/services/supply"))
 local loadSupply: (ModuleScript | string) -> SupplyModule = require
 local makeView = require("./showcase_view")
@@ -88,19 +86,20 @@ return {
 			if not found then
 				return false
 			end
+			local guest = found
 			local collection = table.clone(seen:peek())
-			collection[found.id] = true
+			collection[guest.id] = true
 			local entries = table.clone(journal:peek())
 			table.insert(entries, {
 				id = #entries + 1,
-				text = found.name .. " stopped by for " .. string.lower(found.label) .. " nectar.",
+				text = guest.name .. " stopped by for " .. string.lower(guest.label) .. " nectar.",
 			})
 			ctx.runtime:batch(function()
-				visitor:set(found)
+				visitor:set(guest)
 				seen:set(collection)
 				journal:set(entries)
 				now:set(now:peek() + 45)
-				notice:set(found.name .. " discovered! Find it in your field guide.")
+				notice:set(guest.name .. " discovered! Find it in your field guide.")
 			end)
 			return true
 		end
@@ -155,13 +154,15 @@ return {
 				action: () -> (),
 				enabled: ((Use) -> boolean)?
 			)
-				return UI.Button(name) {
+				return UI.Button(name)({
 					label = label,
-					onActivate = action,
+					onActivate = function()
+						action()
+					end,
 					enabled = enabled,
 					Position = D2.fromScale(x, y),
 					AnchorPoint = V2.new(0.5, 0.5),
-				}
+				})
 			end
 			return UI.ScrollView "Glade" {
 				padding = "l",

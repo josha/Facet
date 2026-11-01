@@ -92,7 +92,7 @@ return function(harness: Verify.Harness)
 		t:expect(string.find(stack, "\nSides = { top:", 1, true) ~= nil):toBe(true)
 		local picker = Props.render("Picker", lookup.Picker)
 		for _, field in
-			{ 'style: ("automatic" | "menu"', "selected: Value<V>", "options: Input<{ PickerOption<V> }>", "onChange:" }
+			{ 'style: ("automatic" | "menu"', "selected: Value<V>", "options: Input<PickerOptions<V>>", "onChange:" }
 		do
 			t:expect(string.find(picker, field, 1, true) ~= nil):toBe(true)
 		end

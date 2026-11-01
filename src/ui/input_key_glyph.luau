@@ -27,16 +27,19 @@ local KEY_NAMES: { [string]: string } = {
 }
 
 return function(ctx: Shared.Context, noKey: Enum.KeyCode): Glyph
-	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
+	local Host, Compose = ctx.Host, ctx.Compose
+	local readContent = ctx.read<<Content?>>
+	local readKey = ctx.read<<Enum.KeyCode?>>
+	local readText = ctx.read<<string?>>
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
 	return function(frameName: string, controlSize: Shared.Input<Shared.ControlSize?>?, parts: Parts): Frame
 		local input = ctx.config.services.UserInputService
 		local nativeImage = Compose.formula(function(use: ComposeTypes.Use): Content | string | nil
-			local content = read(parts.image, use)
+			local content = readContent(parts.image, use)
 			if content and content.SourceType and content.SourceType.Name ~= "None" then
 				return content
 			end
-			local code: Enum.KeyCode? = read(parts.key, use)
+			local code = readKey(parts.key, use)
 			if code and input and input.GetImageForKeyCode then
 				local ok, asset = pcall(input.GetImageForKeyCode, input, code)
 				if ok and type(asset) == "string" and asset ~= "" then
@@ -45,7 +48,7 @@ return function(ctx: Shared.Context, noKey: Enum.KeyCode): Glyph
 			end
 			return nil
 		end)
-		return Host.Frame(frameName) {
+		return Host.Frame(frameName)({
 			Size = D2.fromOffset(0, 0),
 			AutomaticSize = E.AutomaticSize.XY,
 			BackgroundTransparency = 1,
@@ -58,7 +61,7 @@ return function(ctx: Shared.Context, noKey: Enum.KeyCode): Glyph
 				end,
 				render = function(_, _, kind: string): GuiObject
 					if kind ~= "text" then
-						local native: Shared.ImageLabelNativeProps = {
+						local native: Shared.ImageLabelProps = {
 							Name = "Glyph",
 							BackgroundTransparency = 1,
 							Size = function(use: ComposeTypes.Use)
@@ -68,26 +71,30 @@ return function(ctx: Shared.Context, noKey: Enum.KeyCode): Glyph
 						}
 						if kind ~= "Image" then
 							native.ImageContent = function(use: ComposeTypes.Use): Content
-								return use(nativeImage) :: Content
+								local asset = use(nativeImage)
+								assert(typeof(asset) == "Content")
+								return asset
 							end
 							return Host.ImageLabel(native)
 						end
 						native.Image = function(use: ComposeTypes.Use): string
-							return use(nativeImage) :: string
+							local asset = use(nativeImage)
+							assert(type(asset) == "string")
+							return asset
 						end
 						return ctx.styled(Host.ImageLabel(native), "shortcut-glyph")
 					end
 					return ctx.text({
 						Name = "Key",
 						Text = function(use: ComposeTypes.Use): string
-							local custom = read(parts.name, use)
+							local custom = readText(parts.name, use)
 							if custom and custom ~= "" then
 								return custom
 							end
 							local keys: { string } = {}
 							local service = input
 							for _, code in
-								{ read(parts.primary, use), read(parts.secondary, use), read(parts.key, use) }
+								{ readKey(parts.primary, use), readKey(parts.secondary, use), readKey(parts.key, use) }
 							do
 								if code and code ~= noKey then
 									local ok, found = true, KEY_NAMES[code.Name] or ""
@@ -108,6 +115,6 @@ return function(ctx: Shared.Context, noKey: Enum.KeyCode): Glyph
 					})
 				end,
 			}),
-		}
+		})
 	end
 end

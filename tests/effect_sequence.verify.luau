@@ -10,7 +10,7 @@ return function(harness: Verify.Harness)
 		local native = engineLib.new()
 		local C = Facet.Compose
 		local runtime = Facet.Roblox.createRuntime(native)
-		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local Host = Facet.host(runtime)
 		local sequence: EffectTypes.Sequence
 		local count: Facet.ReadOnlyValue<number>
 		local score = C.cell(0)
@@ -146,7 +146,7 @@ return function(harness: Verify.Harness)
 		t:defer(tracking.stop)
 		local runtime = Facet.Roblox.createRuntime(native)
 		local C = Facet.Compose
-		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local Host = Facet.host(runtime)
 		local screen, target = native.new("ScreenGui"), native.new("Frame")
 		screen.Parent = native.new("Folder")
 		target.Parent = screen
@@ -193,7 +193,7 @@ return function(harness: Verify.Harness)
 		local native = engineLib.new()
 		local C = Facet.Compose
 		local runtime = Facet.Roblox.createRuntime(native)
-		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local Host = Facet.host(runtime)
 		local target, charge = C.cell(0), C.cell(0.25)
 		local reduced = C.cell("normal" :: Shared.MotionLevel)
 		local followed: Facet.ReadOnlyValue<number>

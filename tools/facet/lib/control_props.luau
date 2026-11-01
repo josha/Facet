@@ -13,6 +13,7 @@ type Recipe = {
 	variants: { Variant }?,
 	alias: string?,
 	overrides: { [string]: string }?,
+	optionalInputKey: boolean?,
 }
 export type Family = { output: string, modules: { [string]: string }, recipes: { Recipe } }
 
@@ -32,7 +33,12 @@ local FAMILIES: { Family } = {
 		output = "src/ui/spatial_grid_props.luau",
 		modules = { Spatial = "./spatial_grid_types" },
 		recipes = {
-			{ name = "SpatialGridSpec", params = "V, K", native = "FrameProps", parts = { "Spatial.Options<V, K>" } },
+			{
+				name = "SpatialGridSpec",
+				params = "V, K",
+				native = "FrameProps",
+				parts = { "Spatial.Options<V, K>" },
+			},
 		},
 	},
 	{
@@ -205,7 +211,12 @@ local FAMILIES: { Family } = {
 		output = "src/ui/navigation_props.luau",
 		modules = { Nav = "./navigation_types", Inputs = "./input_types" },
 		recipes = {
-			{ name = "MenuSpec", params = "V = string", native = "FrameProps", parts = { "Nav.MenuOptions<V>" } },
+			{
+				name = "MenuSpec",
+				params = "V = string",
+				native = "FrameProps",
+				parts = { "Nav.MenuOptions<V>" },
+			},
 			{
 				name = "PickerSpec",
 				params = "V = string",
@@ -229,7 +240,12 @@ local FAMILIES: { Family } = {
 				native = "TextButtonProps",
 				parts = with(BUTTON, "Nav.CollapsibleViewOptions"),
 			},
-			{ name = "AlertSpec", params = "P = unknown", native = "FrameProps", parts = { "Nav.AlertOptions<P>" } },
+			{
+				name = "AlertSpec",
+				params = "P = unknown",
+				native = "FrameProps",
+				parts = { "Nav.AlertOptions<P>" },
+			},
 			{ name = "SheetSpec", native = "FrameProps", parts = { "Nav.SheetOptions" } },
 			{ name = "CalloutSpec", native = "FrameProps", parts = { "Nav.CalloutOptions" } },
 			{ name = "TabViewSpec", native = "FrameProps", parts = { "Nav.TabViewOptions" } },
@@ -339,6 +355,7 @@ local FAMILIES: { Family } = {
 			{ name = "CellEditorSpec", native = "FrameProps", parts = { "Collections.CellEditorOptions" } },
 			{
 				name = "KeyedTableSpec",
+				optionalInputKey = true,
 				params = "V, K",
 				overrides = { rowActions = "((current: Compose.ReadOnlyValue<V>, key: K) -> RowActionsOptions?)?" },
 				native = "FrameProps",
@@ -469,7 +486,13 @@ type Declared = {
 	requires: { [string]: string },
 }
 
-local function declaredFields(): (string, string, string?, string, Imports) -> { [string]: string }
+local function declaredFields(): (
+	string,
+	string,
+	string?,
+	string,
+	Imports
+) -> ({ [string]: string }, { [string]: string })
 	local modules: { [string]: Declared } = {}
 	local function load(path: string): Declared
 		local found = modules[path]
@@ -508,7 +531,7 @@ local function declaredFields(): (string, string, string?, string, Imports) -> {
 		arguments: string?,
 		alias: string,
 		imports: Imports
-	): { [string]: string }
+	): ({ [string]: string }, { [string]: string })
 		local declared = load(path)
 		local statement = assert(declared.types[name], `control_props: {path} has no type {name}`)
 		local generics: { [string]: string } = {}
@@ -532,6 +555,7 @@ local function declaredFields(): (string, string, string?, string, Imports) -> {
 			return prefix
 		end
 		local result: { [string]: string } = {}
+		local access: { [string]: string } = {}
 		for _, entry in Luau.items(assert(Luau.child(statement, "type")), "entries") do
 			local key = Luau.tokenText(entry, "key")
 			local value = Luau.child(entry, "value")
@@ -565,7 +589,7 @@ local function declaredFields(): (string, string, string?, string, Imports) -> {
 				end
 				return true
 			end)
-			table.sort(edits, function(a, b)
+			table.sort(edits, function(a: { first: number }, b: { first: number }): boolean
 				return a.first > b.first
 			end)
 			local text = string.sub(declared.source, first, last)
@@ -573,8 +597,10 @@ local function declaredFields(): (string, string, string?, string, Imports) -> {
 				text = string.sub(text, 1, edit.first - first) .. edit.text .. string.sub(text, edit.last - first + 2)
 			end
 			result[key] = text
+			local mode = Luau.tokenText(entry, "access")
+			access[key] = if mode then mode .. " " else ""
 		end
-		return result
+		return result, access
 	end
 end
 
@@ -613,11 +639,14 @@ local function generate(family: Family): string
 	end
 	table.insert(lines, "")
 	local blocks = {}
+	local function readOnly(line: string): string
+		return (string.gsub(string.gsub(line, "^\tread ", "\t"), "^\t", "\tread "))
+	end
 	local function body(recipe: Recipe, extra: { string }, tail: { string }?): { string }
 		local out = {}
 		local seen: { [string]: string } = {}
 		local native = assert(recipe.native, `control_props: {recipe.name} has no native root props`)
-		local nativeTypes = readDeclared(ENGINE, native, nil, "Engine", imports)
+		local nativeTypes, nativeAccess = readDeclared(ENGINE, native, nil, "Engine", imports)
 		for _, field in readFields(ENGINE, native) do
 			seen[field] = native
 			table.insert(out, `\t{field}: {nativeTypes[field]},`)
@@ -631,7 +660,7 @@ local function generate(family: Family): string
 			local path = family.modules[part.alias]
 			assert(path, `control_props: {family.output} has no module alias {part.alias}`)
 			local file = "src/ui/" .. string.sub(path, 3) .. ".luau"
-			local declared = readDeclared(file, part.name, part.arguments, part.alias, imports)
+			local declared, access = readDeclared(file, part.name, part.arguments, part.alias, imports)
 			for _, field in readFields(file, part.name) do
 				assert(
 					seen[field] == nil,
@@ -639,18 +668,19 @@ local function generate(family: Family): string
 				)
 				seen[field] = text
 				local override = recipe.overrides and recipe.overrides[field]
-				table.insert(out, `\t{field}: {override or declared[field]},`)
+				table.insert(out, `\t{access[field]}{field}: {override or declared[field]},`)
 			end
 		end
 		if tail then
 			table.move(tail, 1, #tail, #out + 1, out)
 		end
-		table.insert(out, "\t[number | Engine.EventKey]: Compose.Child,")
+		table.insert(out, "\t[number]: Compose.Child?,")
 		return out
 	end
 	local function shapeBlocks(recipe: Recipe, variants: { Variant }, params: string, arguments: string)
 		local order: { string } = {}
 		local types: { { [string]: string } } = {}
+		local modes: { [string]: string } = {}
 		for index, variant in variants do
 			local fields: { [string]: string } = {}
 			for _, text in variant.parts do
@@ -658,12 +688,17 @@ local function generate(family: Family): string
 				local path = family.modules[part.alias]
 				assert(path, `control_props: {family.output} has no module alias {part.alias}`)
 				local file = "src/ui/" .. string.sub(path, 3) .. ".luau"
-				local declared = readDeclared(file, part.name, part.arguments, part.alias, imports)
+				local declared, access = readDeclared(file, part.name, part.arguments, part.alias, imports)
 				for _, field in readFields(file, part.name) do
 					assert(fields[field] == nil, `control_props: {variant.name} receives {field} twice`)
 					if not table.find(order, field) then
 						table.insert(order, field)
 					end
+					assert(
+						modes[field] == nil or modes[field] == access[field],
+						`control_props: {recipe.name}.{field} has conflicting access modes`
+					)
+					modes[field] = access[field]
 					fields[field] = declared[field]
 				end
 			end
@@ -676,7 +711,7 @@ local function generate(family: Family): string
 		for _, field in order do
 			local generic = string.upper(string.sub(field, 1, 1)) .. string.sub(field, 2) .. "Field"
 			table.insert(generics, generic)
-			table.insert(tail, `\t{field}: {generic},`)
+			table.insert(tail, `\t{modes[field]}{field}: {generic},`)
 		end
 		table.insert(blocks, `type {shape}<{leading}{table.concat(generics, ", ")}> = \{`)
 		for _, line in body(recipe, {}, tail) do
@@ -693,6 +728,24 @@ local function generate(family: Family): string
 			table.insert(names, variant.name .. arguments)
 		end
 		table.insert(blocks, `export type {recipe.name}{params} = {table.concat(names, " | ")}`)
+		table.insert(blocks, `type {shape}Input<{leading}{table.concat(generics, ", ")}> = \{`)
+		for _, line in body(recipe, {}, tail) do
+			table.insert(blocks, readOnly(line))
+		end
+		table.insert(blocks, "}")
+		local inputs: { string } = {}
+		for index, variant in variants do
+			local values: { string } = {}
+			for _, field in order do
+				table.insert(values, types[index][field] or "nil")
+			end
+			table.insert(
+				blocks,
+				`export type {variant.name}Input{params} = {shape}Input<{leading}{table.concat(values, ", ")}>`
+			)
+			table.insert(inputs, variant.name .. "Input" .. arguments)
+		end
+		table.insert(blocks, `export type {recipe.name}Input{params} = {table.concat(inputs, " | ")}`)
 	end
 	for _, recipe in family.recipes do
 		local params = if recipe.params then `<{recipe.params}>` else ""
@@ -701,12 +754,27 @@ local function generate(family: Family): string
 			else ""
 		if recipe.alias then
 			table.insert(blocks, `export type {recipe.name}{params} = {recipe.alias}`)
+			local aliasInput = string.gsub(recipe.alias, "[%w_]+", function(name: string): string
+				return if string.sub(name, -4) == "Spec" or string.sub(name, -5) == "Props"
+					then name .. "Input"
+					else name
+			end)
+			table.insert(blocks, `export type {recipe.name}Input{params} = {aliasInput}`)
 		elseif recipe.variants then
 			shapeBlocks(recipe, recipe.variants, params, arguments)
 		else
 			table.insert(blocks, `export type {recipe.name}{params} = \{`)
 			for _, line in body(recipe, {}) do
 				table.insert(blocks, line)
+			end
+			table.insert(blocks, "}")
+			table.insert(blocks, `export type {recipe.name}Input{params} = \{`)
+			for _, line in body(recipe, {}) do
+				local input = readOnly(line)
+				if recipe.optionalInputKey then
+					input = string.gsub(input, "^\tread key: (.*),$", "\tread key: (%1)?,")
+				end
+				table.insert(blocks, input)
 			end
 			table.insert(blocks, "}")
 		end

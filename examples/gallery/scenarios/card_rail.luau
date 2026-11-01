@@ -2,25 +2,12 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
-type CollectionStatus = {
-	mode: "windowed" | "all",
-	direction: "horizontal" | "vertical",
-	total: number,
-	retained: number,
-	first: number,
-	last: number,
-	firstRow: number,
-	lastRow: number,
-	rowCount: number,
-	extent: number,
-	following: boolean,
-	desiredOffset: number?,
-	measured: number,
-}
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type CollectionStatus = typeof(require("@repo/tools/typecheck/aliases").CollectionStatus)
+type Placement = typeof(require("@repo/tools/typecheck/aliases").CollectionPlacement)
+type Card = { id: string, name: string, badge: string }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 local BADGES = { "Rally", "Drift", "Circuit", "Sprint", "Endurance" }
 local COPY = {
 	title = "Card rail — your racing collection",
@@ -33,11 +20,11 @@ local COPY = {
 return {
 	title = "Card rail (horizontal VirtualList)",
 	copy = COPY,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local Compose: ComposeModule, UI, Host = ctx.Compose, ctx.UI, ctx.Host
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local copy = ctx.copy or COPY
-		local cards = {}
+		local cards: { Card } = {}
 		for index = 1, 400 do
 			cards[index] = {
 				id = "c" .. index,
@@ -61,8 +48,8 @@ return {
 			end)
 			return value
 		end
-		local function label(name, text, order, size)
-			return UI.Text({
+		local function label(name: string, text: string | (Use) -> string, order: number, size: number?)
+			return UI.Text {
 				Name = name,
 				text = text,
 				TextSize = size or 18,
@@ -71,9 +58,9 @@ return {
 				AutomaticSize = E.AutomaticSize.Y,
 				TextWrapped = true,
 				BackgroundTransparency = 1,
-			})
+			}
 		end
-		local function rail(name, order)
+		local function rail(name: string, order: number)
 			local cardWidth = Compose.cell(240)
 			local nameProbe = UI.Text "NameMeasure" {
 				Visible = false,
@@ -111,10 +98,10 @@ return {
 				measured = 0,
 			}
 			local status = Compose.cell(initialStatus)
-			local node = UI.VirtualList({
+			local node = UI.VirtualList {
 				Name = name,
 				from = items,
-				key = function(item)
+				key = function(item: Card)
 					return item.id
 				end,
 				direction = "horizontal",
@@ -126,7 +113,7 @@ return {
 				Size = function(use: Use)
 					return D2.new(1, 0, 0, use(height))
 				end,
-				render = function(current, placement, key: ReadOnlyValue<string>): GuiObject
+				render = function(current: ReadOnlyValue<Card>, placement: ReadOnlyValue<Placement>, key): GuiObject
 					Compose.watch(function(use: Use)
 						local extent = use(placement).size
 						if extent > 1 and cardWidth:peek() ~= extent then
@@ -142,29 +129,29 @@ return {
 							pointType.new(D2.fromScale(0.5 + math.cos(angle) * 0.36, 0.5 + math.sin(angle) * 0.36))
 					end
 					track:SetControlPoints(points)
-					return UI.Button({
+					return UI.Button {
 						Name = function(use: Use): string
-							return "Card_" .. use(key)
+							return "Card_" .. tostring(use(key))
 						end,
 						label = "",
 						Size = D2.fromScale(1, 1),
 						AutomaticSize = E.AutomaticSize.None,
 						onActivate = function()
-							selected:set(key:peek())
+							selected:set(tostring(key:peek()))
 						end,
 						Host.Frame "Card" {
 							BackgroundTransparency = 1,
 							Size = D2.new(1, -16, 1, -16),
 							Position = D2.fromOffset(8, 8),
-							Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 2) }),
+							Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 2) },
 							Host.Frame "Preview" {
 								LayoutOrder = 1,
 								Size = D2.new(1, 0, 0, 0),
 								BackgroundTransparency = 0.82,
-								Host.UIAspectRatioConstraint({
+								Host.UIAspectRatioConstraint {
 									AspectRatio = 16 / 9,
 									DominantAxis = E.DominantAxis.Width,
-								}),
+								},
 								track,
 							},
 							UI.Text "Name" {
@@ -192,11 +179,11 @@ return {
 								BackgroundTransparency = 1,
 							},
 						},
-					})
+					}
 				end,
-				nameProbe,
-				badgeProbe,
-			})
+			}
+			nameProbe.Parent = node
+			badgeProbe.Parent = node
 			rails[name] = { node = node, cardWidth = cardWidth, status = status }
 			return node
 		end

@@ -15,13 +15,13 @@ export type Standing = {
 local Standing = {}
 
 local function stat(UI: Facet.Controls, name: string, icon: string, value: (Facet.Use) -> string): Frame
-	return UI.VStack(name) {
+	return UI.VStack(name)({
 		align = "center",
 		gap = "xs",
 		UI.Label { title = name, icon = icon, presentation = "iconOnly", iconSize = 28 },
 		UI.Text { text = value, textRole = "heading" },
 		UI.Text { text = name, textRole = "caption", role = "secondary" },
-	}
+	})
 end
 
 function Standing.build(app: Facet.App, standing: Facet.ReadOnlyValue<Standing>): Frame
@@ -32,7 +32,12 @@ function Standing.build(app: Facet.App, standing: Facet.ReadOnlyValue<Standing>)
 	end
 	local function count(field: "wins" | "losses" | "draws"): (Facet.Use) -> string
 		return function(use: Facet.Use): string
-			return Facet.format.grouped(use(standing).record[field])
+			local record = use(standing).record
+			local value = if field == "wins"
+				then record.wins
+				elseif field == "losses" then record.losses
+				else record.draws
+			return Facet.format.grouped(value)
 		end
 	end
 	return UI.VStack "Standing" {

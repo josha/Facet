@@ -1,4 +1,5 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 
-return setmetatable({} :: { [Instance]: ComposeTypes.ReadOnlyValue<boolean> }, { __mode = "k" })
+local presence: { [Instance]: ComposeTypes.ReadOnlyValue<boolean> } = setmetatable({}, { __mode = "k" })
+return presence

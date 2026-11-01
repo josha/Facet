@@ -3,6 +3,7 @@
   "emitLegacyScripts": false,
   "tree": {
     "$className": "DataModel",
+    "Workspace": { "$properties": { "UseNewLuauTypeSolver": "Enabled" } },
     "Players": { "$properties": { "CharacterAutoLoads": false } },
     "StarterGui": { "$properties": { "ScreenOrientation": "Sensor" } },
     "ReplicatedStorage": {

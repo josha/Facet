@@ -20,7 +20,7 @@ return function(harness: Verify.Harness)
 			local mountedLabel: TextLabel? = nil
 			local stop = runtime.mount(function()
 				local UI = Facet.controls(runtime, { types = native.types })
-				local label = UI.Timer({
+				local label = UI.Timer {
 					deadline = deadline,
 					now = function(): number
 						return at
@@ -32,7 +32,7 @@ return function(harness: Verify.Harness)
 					onComplete = function()
 						calls += 1
 					end,
-				})
+				}
 				mountedLabel = label
 				return label
 			end, native.new("Folder"))

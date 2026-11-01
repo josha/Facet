@@ -222,8 +222,9 @@ return function<V, K>(
 		local node = findSelectable(assert(nodeOf(key)), view.focusedPath, 1)
 		if node and policy.selectionVisible(node) then
 			restoring = true
+			local activeGui = gui
 			pcall(function()
-				gui.SelectedObject = node
+				activeGui.SelectedObject = node
 			end)
 			restoring = false
 		end
@@ -265,7 +266,7 @@ return function<V, K>(
 		use(focusSize)
 		restoreFocus(focusScope.current:peek())
 	end)
-	local selected: ComposeTypes.Value<GuiObject?> = if gui
+	local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
 		then observe.SelectedObject(gui)
 		else Compose.cell(nil :: GuiObject?)
 	Compose.watch(function(use: ComposeTypes.Use)
@@ -353,10 +354,10 @@ return function<V, K>(
 				end
 			else
 				local lost = lastFocused or focusScope.current:peek()
-				local neighbour = if view.focusOwned and lost ~= nil then neighbourOf(lost) else nil
-				if neighbour ~= nil and nodeOf(neighbour) then
-					focusScope.focus(neighbour)
-					restoreFocus(neighbour)
+				local neighbour: K? = if view.focusOwned and lost ~= nil then neighbourOf(lost :: K) else nil
+				if neighbour ~= nil and nodeOf(neighbour :: K) then
+					focusScope.focus(neighbour :: K)
+					restoreFocus(neighbour :: K)
 				else
 					view.focusOwned = false
 				end
@@ -374,7 +375,7 @@ return function<V, K>(
 			target = findSelectable(assert(nodeOf(key)), nil, 1)
 		end
 		if target == nil then
-			local rows: { V } = read(spec.from) or {}
+			local rows = read<<{ V }>>(spec.from)
 			for index, item in rows do
 				local candidate = keyOf(item, index)
 				if nodeOf(candidate) and not policy.disabled(spec.disabled, item) then

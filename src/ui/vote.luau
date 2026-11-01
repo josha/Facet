@@ -1,4 +1,5 @@
 --!strict
+local InputProps = require("./input_props")
 local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Content = require("./content_types")
@@ -11,7 +12,7 @@ local SIDES: { { side: Content.VoteValue, name: string, icon: string, label: str
 	{ side = "down", name = "Opt2", icon = "vote.down", label = "Downvote" },
 }
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local function isVote(value: unknown): boolean
@@ -64,15 +65,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			return D2.fromOffset(length, length)
 		end
 		local function strip(name: string, children: { Types.Child }): Frame
-			local props: Types.FrameNativeProps = {
+			local props: Types.FrameProps = {
 				Name = name,
 				Size = D2.fromOffset(0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = E.FillDirection.Horizontal,
 					SortOrder = E.SortOrder.LayoutOrder,
 					Padding = D.new(0, 4),
-				}) :: Types.Child,
+				},
 			}
 			for _, child in children do
 				props[#props + 1] = child
@@ -102,7 +103,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 							return use(value) == entry.side
 						end,
 					} :: Types.Attributes,
-					Host.UICorner({}) :: Types.Child,
+					Host.UICorner {},
 					ctx.icon(entry.icon, {
 						Name = "Icon",
 						AnchorPoint = V2.new(0.5, 0.5),
@@ -111,17 +112,17 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 							local length = ctx.controlSize(spec.controlSize, "iconSize", use)
 							return D2.fromOffset(length, length)
 						end,
-					}) :: Types.Child,
+					}),
 				})
 				mark(box, entry.side)
-				table.insert(marks, box :: Types.Child)
+				table.insert(marks, box)
 			end
 			local plate = strip("Plate", marks)
 			return plate
 		end, function()
 			local buttons: { Types.Child } = {}
 			for order, entry in SIDES do
-				local button = UI.Button({
+				local buttonProps: InputProps.ButtonPropsInput = {
 					Name = entry.name,
 					LayoutOrder = order,
 					label = "",
@@ -137,33 +138,34 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					end,
 					Size = side,
 					AutomaticSize = E.AutomaticSize.None,
-					Host.UISizeConstraint({
+					Host.UISizeConstraint {
 						MinSize = function(use: ComposeTypes.Use)
 							return V2.new(touchFloor(use), touchFloor(use))
 						end,
-					}) :: Types.Child,
-				})
+					},
+				}
+				local button = UI.Button(buttonProps)
 				mark(button, entry.side)
-				table.insert(buttons, button :: Types.Child)
+				table.insert(buttons, button)
 			end
 			return strip("Choice", buttons)
 		end)
+		local function summaryText(use: ComposeTypes.Use): string
+			local source = spec.summary
+			return if source == nil then "" elseif type(source) == "string" then source else ctx.readSource(source, use)
+		end
 		local summary = ctx.text({
 			Name = "Summary",
 			LayoutOrder = 2,
-			Text = function(use: ComposeTypes.Use): string
-				return read(spec.summary, use) or ""
-			end,
+			Text = summaryText,
 			Visible = function(use: ComposeTypes.Use): boolean
-				local text = read(spec.summary, use)
-				return text ~= nil and text ~= ""
+				local text = summaryText(use)
+				return text ~= ""
 			end,
 			TextWrapped = false,
 			TextTruncate = E.TextTruncate.AtEnd,
 			Attributes = {
-				FacetLabel = function(use: ComposeTypes.Use): string
-					return read(spec.summary, use) or ""
-				end,
+				FacetLabel = summaryText,
 			} :: Types.Attributes,
 		})
 		summary:AddTag("facet-secondary")
@@ -188,22 +190,22 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					return use(readOnly)
 				end,
 			} :: Types.Attributes,
-			Host.UIListLayout({
+			Host.UIListLayout {
 				FillDirection = E.FillDirection.Horizontal,
 				SortOrder = E.SortOrder.LayoutOrder,
 				VerticalAlignment = E.VerticalAlignment.Center,
 				Padding = function(use: ComposeTypes.Use)
 					return D.new(0, ctx.metric("space.s", use))
 				end,
-			}) :: Types.Child,
+			},
 			Host.Frame "Mode" {
 				LayoutOrder = 1,
 				BackgroundTransparency = 1,
 				Size = D2.fromOffset(0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
 				mode,
-			} :: Types.Child,
-			summary :: Types.Child,
+			},
+			summary,
 		}))
 	end)
 end

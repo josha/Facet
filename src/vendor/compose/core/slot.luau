@@ -1,15 +1,15 @@
 --!strict
 
-local ResourceTypes = require "./resource-types"
+local CoreTypes = require "./types"
 local Active = require "./ownership/active"
 local Diagnostics = require "./diagnostics"
 local Owner = require "./ownership/owner"
 
-export type Slot = ResourceTypes.Slot
+export type Slot = CoreTypes.Slot
 
 local function createSlot(explicit: Owner.Owner?): Slot
 	if explicit ~= nil and (not Owner.isOwner(explicit)) then
-		Diagnostics.raise("slot/invalid-owner", "a slot can only be bound to an owner", {
+		return Diagnostics.raise("slot/invalid-owner", "a slot can only be bound to an owner", {
 			actual = Diagnostics.describe(explicit),
 			expected = "an owner from Compose.createOwner or Compose.owner.createChild",
 		})
@@ -44,13 +44,13 @@ local function createSlot(explicit: Owner.Owner?): Slot
 
 	local function bind(key: unknown, attach: (owner: Owner.Owner, release: () -> ()) -> ()): boolean
 		if key == nil or key ~= key then
-			Diagnostics.raise("slot/invalid-key", "a slot key must be a value other than nil or NaN", {
+			return Diagnostics.raise("slot/invalid-key", "a slot key must be a value other than nil or NaN", {
 				actual = Diagnostics.describe(key),
 				expected = "the value the slot holds the attachment for",
 			})
 		end
 		if type(attach) ~= "function" then
-			Diagnostics.raise("slot/invalid-attach", "a slot needs a function that attaches the new value", {
+			return Diagnostics.raise("slot/invalid-attach", "a slot needs a function that attaches the new value", {
 				actual = Diagnostics.describe(attach),
 				expected = "a function receiving the owner for the attachment and a release callback",
 			})

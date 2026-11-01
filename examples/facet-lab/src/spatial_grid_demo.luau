@@ -5,8 +5,8 @@ type Placement = typeof(require("@repo/tools/typecheck/aliases").SpatialPlacemen
 type DropInfo = typeof(require("@repo/tools/typecheck/aliases").DropInfo)
 type DraggableSpec = typeof(require("@repo/tools/typecheck/aliases").DraggableSpec)
 type DropTargetSpec = typeof(require("@repo/tools/typecheck/aliases").DropTargetSpec)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type Item = { id: string, label: string, container: string, at: Placement }
 
 local page: Catalog.PageDefinition = {
@@ -71,12 +71,12 @@ local page: Catalog.PageDefinition = {
 			return nil
 		end
 		local function container(name: string): GuiObject
-			return UI.VStack(name .. "Column") {
+			return UI.VStack(name .. "Column")({
 				gap = 8,
 				width = "hug",
 				height = "hug",
-				UI.Text { text = name, textRole = "heading" } :: unknown,
-				UI.SpatialGrid(name) {
+				UI.Text { text = name, textRole = "heading" },
+				UI.SpatialGrid(name)({
 					columns = 5,
 					rows = 4,
 					cellSize = 48,
@@ -139,8 +139,8 @@ local page: Catalog.PageDefinition = {
 							appearance = "emphasis",
 						}
 					end,
-				} :: unknown,
-			}
+				}),
+			})
 		end
 		return UI.ScrollView "InventoryScroll" {
 			width = "fill",
@@ -154,22 +154,22 @@ local page: Catalog.PageDefinition = {
 					Size = c.types.UDim2.fromScale(1, 0),
 					AutomaticSize = c.types.Enum.AutomaticSize.Y,
 					wrap = true,
-				} :: unknown,
+				},
 				UI.AdaptiveStack "Containers" {
 					width = "fill",
 					height = "hug",
 					gap = 16,
-					container("Inventory") :: unknown,
-					container("Loot") :: unknown,
-				} :: unknown,
+					container("Inventory"),
+					container("Loot"),
+				},
 				UI.Button {
 					label = "Reset inventory",
 					onActivate = function()
 						model:set(initial)
 						notice:set("Inventory reset.")
 					end,
-				} :: unknown,
-			} :: unknown,
+				},
+			},
 		}
 	end,
 }

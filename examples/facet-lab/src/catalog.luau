@@ -1,29 +1,46 @@
 --!strict
-
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
-type CellFactory = typeof(require("@repo/tools/typecheck/aliases").CellFactory)
-type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
-type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-type FacetModule = typeof(require("@repo/tools/typecheck/aliases").FacetModule)
-type App = typeof(require("@repo/tools/typecheck/aliases").App)
-type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSizeValue)
-type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
-type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction)
-type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
-type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
-type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
-type DropInfo = typeof(require("@repo/tools/typecheck/aliases").DropInfo)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
-
 local CatalogTypes = require("./catalog_types")
+
+type ComposeModule = CatalogTypes.ComposeModule
+type RobloxHost = CatalogTypes.RobloxHost
+type RobloxTypes = CatalogTypes.RobloxTypes
+type CellFactory = CatalogTypes.CellFactory
+type BooleanCell = CatalogTypes.BooleanCell
+type FacetControls = CatalogTypes.FacetControls
+type FacetModule = CatalogTypes.FacetModule
+type App = CatalogTypes.App
+type ControlSize = CatalogTypes.ControlSize
+type MenuCheck = CatalogTypes.MenuCheck
+type MenuChoice = CatalogTypes.MenuChoice
+type MenuSubmenu = CatalogTypes.MenuSubmenu
+type ComposeRuntime = CatalogTypes.ComposeRuntime
+type MenuCommand = CatalogTypes.MenuCommand
+type MenuItem = CatalogTypes.MenuItem
+type PickerOption = CatalogTypes.PickerOption
+type OverlayAction = CatalogTypes.OverlayAction
+type DialogAction = CatalogTypes.DialogAction
+type TableColumn = CatalogTypes.TableColumn
+type StackProps = CatalogTypes.StackProps
+type SheetDetent = CatalogTypes.SheetDetent
+type DropInfo = CatalogTypes.DropInfo
+type ReadOnlyValue<T> = CatalogTypes.ReadOnlyValue<T>
+type Value<T> = CatalogTypes.Value<T>
+type Use = CatalogTypes.Use
+
+type RadialMenuSpec = CatalogTypes.RadialMenuSpec
+type RadialItem = CatalogTypes.RadialItem
+type EditableRadialItem = RadialItem & { labelStyle: ("icon" | "text")? }
+type RadialLabProps = RadialMenuSpec & { labelStyle: ("icon" | "text")?, items: { EditableRadialItem } }
+type PopoverSpec = CatalogTypes.PopoverSpec
+type AdaptiveStackProps = CatalogTypes.AdaptiveStackProps
+type CivilDate = CatalogTypes.CivilDate
+type CivilLocale = CatalogTypes.CivilLocale
+type SliderProps = CatalogTypes.SliderProps
+type ToggleCellProps = CatalogTypes.ToggleCellProps
+type SliderCellProps = CatalogTypes.SliderCellProps
+type TextInputCellProps = CatalogTypes.TextInputCellProps
+type ChipCellProps = CatalogTypes.ChipCellProps
+type StringSinglePickerSpec = CatalogTypes.StringSinglePickerSpec
 export type Context = CatalogTypes.Context
 export type Properties = CatalogTypes.Properties
 export type Builder = CatalogTypes.Builder
@@ -36,7 +53,8 @@ export type PageDefinition = CatalogTypes.PageDefinition
 
 local catalog = {}
 
-catalog.NONE = table.freeze({})
+local empty: Properties = {}
+catalog.NONE = table.freeze(empty)
 local NONE = catalog.NONE
 local VIRTUAL_DEMOS = {
 	"selectionFrom",
@@ -62,6 +80,36 @@ local ROWS: { Row } = {
 	{ id = "6", name = "Desert Dunes", laps = 3 },
 }
 
+local function toggleProps(props: ToggleCellProps): ToggleCellProps
+	return props
+end
+
+local function renderSlider(UI: FacetControls, props: SliderProps): Frame
+	if props.range == true then
+		return UI.Slider(props)
+	elseif props.onChange then
+		return UI.Slider(props)
+	else
+		return UI.Slider(props)
+	end
+end
+
+local function sliderProps(props: SliderCellProps): SliderCellProps
+	return props
+end
+
+local function textInputProps(props: TextInputCellProps): TextInputCellProps
+	return props
+end
+
+local function chipProps(props: ChipCellProps): ChipCellProps
+	return props
+end
+
+local function pickerProps(props: StringSinglePickerSpec): StringSinglePickerSpec
+	return props
+end
+
 local function properties(values: Properties): Properties
 	return values
 end
@@ -75,6 +123,27 @@ end
 
 local function stacked(props: StackProps): StackProps
 	return props
+end
+
+local function menuCheck(item: MenuCheck): MenuCheck
+	return item
+end
+
+local function menuChoice(item: MenuChoice): MenuChoice
+	return item
+end
+
+local function menuSubmenu(item: MenuSubmenu): MenuSubmenu
+	return item
+end
+
+local function menuCommand(item: MenuCommand): MenuCommand
+	return item
+end
+
+local function menuDivider(id: string): MenuItem
+	local item: { id: string?, divider: true } = { id = id, divider = true }
+	return item
 end
 
 local function menuList(items: { MenuItem }): { MenuItem }
@@ -116,30 +185,34 @@ local function transferState(c: Context): Properties
 end
 
 local function rowDropState(c: Context): Properties
-	local rows = c.cell("lapCopies", ROWS)
+	local rows: Value<{ Row }> = c.cell("lapCopies", ROWS)
 	return {
 		from = rows,
-		render = function(current)
-			return c.UI.Text({
-				text = function(use)
+		render = function(current: ReadOnlyValue<Row>)
+			return c.UI.Text {
+				text = function(use: Use)
 					local item = use(current)
 					return `{item.name} · {item.laps} laps`
 				end,
 				Size = UDim2.fromScale(1, 1),
 				wrap = true,
-			})
+			}
 		end,
-		drag = function(items)
+		drag = function(items: { Row })
 			return { payload = { route = items[1] }, operations = { "apply" } }
 		end,
-		rowDrop = function(current, key)
+		rowDrop = function(current: ReadOnlyValue<Row>, key: string)
 			return {
-				label = function(use)
+				label = function(use: Use)
 					return use(current).name
 				end,
 				operation = "apply",
 				accepts = function(payload)
-					return type(payload) == "table" and payload.route ~= nil and payload.route.id ~= key
+					if type(payload) ~= "table" then
+						return false
+					end
+					local route = payload.route
+					return route ~= nil and route.id ~= key
 				end,
 				onDrop = function(payload)
 					local nextRows: { Row } = table.clone(rows:peek())
@@ -209,7 +282,7 @@ local function merged(a: Properties, b: Properties): Properties
 end
 
 local function plate(c: Context, tag: string, w: number, h: number): Frame
-	local node = c.Host.Frame({ Size = UDim2.fromOffset(w, h), BorderSizePixel = 0 })
+	local node = c.Host.Frame { Size = UDim2.fromOffset(w, h), BorderSizePixel = 0 }
 	node:AddTag(tag)
 	return node
 end
@@ -233,10 +306,10 @@ end
 
 local function menuItems(c: Context): { MenuItem }
 	return {
-		{ id = "edit", label = "Edit", icon = "edit", onSelect = c.log("onSelect edit") },
-		{ id = "flag", label = "Report", icon = "flag", onSelect = c.log("onSelect flag") },
-		{ id = "d1", divider = true },
-		{
+		menuCommand { id = "edit", label = "Edit", icon = "edit", onSelect = c.log("onSelect edit") },
+		menuCommand { id = "flag", label = "Report", icon = "flag", onSelect = c.log("onSelect flag") },
+		menuDivider("d1"),
+		menuCommand {
 			id = "delete",
 			label = "Delete",
 			icon = "trash",
@@ -250,12 +323,12 @@ local function trigger(c: Context, label: string, overlay: (open: BooleanCell) -
 	local open = c.cell("open", false)
 	return c.UI.VStack(stacked({
 		gap = "xs",
-		c.UI.Button({
+		c.UI.Button {
 			label = label,
 			onActivate = function()
 				open:set(true)
 			end,
-		}),
+		},
 		overlay(open),
 	}))
 end
@@ -276,7 +349,7 @@ local function fieldGroup(
 ): Instance
 	local items: StackProps = { gap = if p.layout == "wrap" then "s" else "xs", wrap = p.layout == "wrap" }
 	for i, label in { "Tire wear", "Fuel use", "Damage" } do
-		items[#items + 1] = UI.Toggle({
+		items[#items + 1] = UI.Toggle(toggleProps {
 			label = label,
 			presentation = presentation,
 			value = c.cell(`{presentation}{i}`, i == 1),
@@ -288,12 +361,12 @@ local function fieldGroup(
 		})
 	end
 	items.width = "fill"
-	return UI.VStack({
+	return UI.VStack {
 		width = 260,
 		gap = "xs",
-		UI.Text({ text = "Show in race", textRole = "label", role = "secondary" }),
+		UI.Text { text = "Show in race", textRole = "label", role = "secondary" },
 		if p.layout == "wrap" then UI.HStack(items) else UI.VStack(items),
-	})
+	}
 end
 
 local PAGE_DATA: { [string]: PageDefinition } = {
@@ -304,7 +377,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		purpose = "Starts an action; appearance sets emphasis, role carries meaning.",
 		alternatives = "Toggle for an on/off setting; Picker for choosing one value; Menu for many actions.",
 		scenarios = { "action_controls", "shortcut_hint" },
-		snippet = 'UI.Button { label = "Save", appearance = "emphasis" :: string, onActivate = save }',
+		snippet = 'UI.Button { label = "Save", appearance = "emphasis", onActivate = save }',
 		base = function(c: Context)
 			return { label = "Button", onActivate = c.log("onActivate") }
 		end,
@@ -362,7 +435,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "thumb target (touch)", props = properties { label = "DRIFT", target = "thumb" } },
 			{
 				name = "inline target (touch)",
-				props = function(c: Context): Properties
+				props = function(c: Context)
 					return merged(
 						merged(
 							fixed(24, 44),
@@ -481,12 +554,13 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{
 				name = "diagnostics controls",
 				props = function(c: Context)
-					local controls: { [string]: any } = {}
+					local controls: { diagnostics: (() -> { string })? } = {}
 					return {
 						controls = controls,
 						onOpen = function()
-							if controls.diagnostics then
-								c.log("diagnostics")(table.concat(controls.diagnostics(), "; "))
+							local diagnostics = controls.diagnostics
+							if diagnostics then
+								c.log("diagnostics")(table.concat(diagnostics(), "; "))
 							end
 						end,
 					}
@@ -497,7 +571,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = function(c: Context)
 					return {
 						label = NONE,
-						trigger = c.UI.Button({ label = "More", icon = "more", shape = "circle" }),
+						trigger = c.UI.Button { label = "More", icon = "more", shape = "circle" },
 					}
 				end,
 			},
@@ -525,29 +599,35 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = function(c: Context)
 					return {
 						items = menuList {
-							{
+							menuCommand {
 								id = "ada",
 								label = "Ada Quill",
 								avatar = { name = "Ada Quill" },
 								onSelect = c.log("ada"),
 							},
-							{ id = "d1", divider = true },
-							{ id = "inbox", label = "Inbox", icon = "flag", badge = 3, onSelect = c.log("inbox") },
-							{
+							menuDivider("d1"),
+							menuCommand {
+								id = "inbox",
+								label = "Inbox",
+								icon = "flag",
+								badge = 3,
+								onSelect = c.log("inbox"),
+							},
+							menuCommand {
 								id = "size",
 								label = "Garage",
 								meta = "12 cars",
 								description = "Your saved builds",
 								onSelect = c.log("garage"),
 							},
-							{
+							menuCommand {
 								id = "rename",
 								label = "Rename",
 								sectionTitle = "Edit",
 								icon = "edit",
 								onSelect = c.log("rename"),
 							},
-							{
+							menuCommand {
 								id = "locked",
 								label = "Locked item",
 								icon = "settings",
@@ -564,10 +644,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					local mode = c.cell("menuMode", "rally")
 					return {
 						items = menuList {
-							{ id = "grid", label = "Show grid", checked = c.cell("menuGrid", true) },
-							{ id = "d1", divider = true },
-							{ id = "road", label = "Road", selected = mode, value = "road" },
-							{ id = "rally", label = "Rally", selected = mode, value = "rally" },
+							menuCheck { id = "grid", label = "Show grid", checked = c.cell("menuGrid", true) },
+							menuDivider("d1"),
+							menuChoice { id = "road", label = "Road", selected = mode, value = "road" },
+							menuChoice { id = "rally", label = "Rally", selected = mode, value = "rally" },
 						},
 					}
 				end,
@@ -585,9 +665,19 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = function(c: Context)
 					return {
 						items = menuList {
-							{ id = "copy", label = "Copy", shortcutLabel = "Ctrl+C", onSelect = c.log("copy") },
-							{ id = "paste", label = "Paste", shortcutLabel = "Ctrl+V", onSelect = c.log("paste") },
-							{ id = "share", label = "Share", children = menuItems(c) },
+							menuCommand {
+								id = "copy",
+								label = "Copy",
+								shortcutLabel = "Ctrl+C",
+								onSelect = c.log("copy"),
+							},
+							menuCommand {
+								id = "paste",
+								label = "Paste",
+								shortcutLabel = "Ctrl+V",
+								onSelect = c.log("paste"),
+							},
+							menuSubmenu { id = "share", label = "Share", children = menuItems(c) },
 						},
 					}
 				end,
@@ -615,19 +705,19 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				label = "settings",
 				icon = "settings",
 				children = {
-					{ id = "sound", label = "Sound", icon = "edit", onSelect = c.log("onSelect sound") },
-					{ id = "video", label = "Video", icon = "flag", onSelect = c.log("onSelect video") },
-					{ id = "input", label = "Input", icon = "person", onSelect = c.log("onSelect input") },
+					menuCommand { id = "sound", label = "Sound", icon = "edit", onSelect = c.log("onSelect sound") },
+					menuCommand { id = "video", label = "Video", icon = "flag", onSelect = c.log("onSelect video") },
+					menuCommand { id = "input", label = "Input", icon = "person", onSelect = c.log("onSelect input") },
 				},
 			}
 			return { label = "Quick actions", icon = "menu", items = items, launcher = true }
 		end,
 
-		make = function(UI: FacetControls, p: Properties): Instance
+		make = function(UI: FacetControls, p: RadialLabProps): Instance
 			local style = p.labelStyle
 			p.labelStyle = nil
 			if style ~= nil then
-				local items: Properties = {}
+				local items: { EditableRadialItem } = {}
 				for _, item in p.items do
 					local copy = table.clone(item)
 					copy.labelStyle = style
@@ -635,7 +725,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end
 				p.items = items
 			end
-			return UI.RadialMenu(p)
+			return (UI.RadialMenu :: any)(p)
 		end,
 		demonstrates = { "labelStyle" },
 		axes = {
@@ -704,11 +794,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = function(c: Context)
 					return {
 						center = "content",
-						centerContent = c.UI.Label({
+						centerContent = c.UI.Label {
 							title = "Kart",
 							icon = "person",
 							presentation = "iconOnly",
-						}),
+						},
 					}
 				end,
 			},
@@ -730,8 +820,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{
 				name = "hold action (InputAction)",
 				props = function(c: Context)
-					local action = c.Host.InputAction({ Name = "LabRadialHold" })
-					c.Host.InputContext({ Name = "LabRadialContext", Parent = workspace :: Instance, action :: unknown })
+					local action = c.Host.InputAction { Name = "LabRadialHold" }
+					c.Host.InputContext { Name = "LabRadialContext", Parent = workspace :: Instance, action }
 					return { holdAction = action }
 				end,
 			},
@@ -751,10 +841,13 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	TextInput = {
 		family = "inputs",
 		valid = function(p: Properties)
-			return not (p.presentation == "number" and p.multiline)
-				and not (p.presentation == "search" and p.leading ~= nil)
-				and not (p.visibleLines ~= nil and not p.multiline)
-				and not ((p.stepButtons or p.prefix or p.scrub) and p.presentation ~= "number")
+			local presentation, multiline, leading, visibleLines =
+				p.presentation, p.multiline, p.leading, p.visibleLines
+			local stepButtons, prefix, scrub = p.stepButtons, p.prefix, p.scrub
+			return not (presentation == "number" and multiline)
+				and not (presentation == "search" and leading ~= nil)
+				and not (visibleLines ~= nil and not multiline)
+				and not ((stepButtons or prefix or scrub) and presentation ~= "number")
 		end,
 		cellWidth = 200,
 		alias = "TextInput · TextArea · SearchInput · InputLabel",
@@ -815,12 +908,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				name = "leading + trailing",
 				props = function(c: Context)
 					return {
-						leading = c.UI.Label({
+						leading = c.UI.Label {
 							title = "Name",
 							icon = "person",
 							presentation = "iconOnly",
-						}),
-						trailing = c.UI.Text({ text = "kg", role = "secondary" }),
+						},
+						trailing = c.UI.Text { text = "kg", role = "secondary" },
 					}
 				end,
 			},
@@ -914,7 +1007,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		purpose = "Pick from suggestions or type a custom value the model accepts or refuses.",
 		alternatives = "Picker (menu) when typing is not allowed.",
 		scenarios = { "selection_controls" },
-		snippet = "UI.ComboBox { value = id, text = text, options = { … }, acceptCustom = validate }",
+		snippet = "UI.ComboBox { value = id, text = text, options = optionList { … }, acceptCustom = validate }",
 		base = function(c: Context)
 			return {
 				value = c.cell("value", "road"),
@@ -953,23 +1046,25 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		base = function(c: Context)
 			return { label = "Volume", value = c.cell("value", 40), min = 0, max = 100, Size = UDim2.fromScale(1, 0) }
 		end,
-		make = function(UI: FacetControls, p: Properties, c: Context): Instance
-			if (p.rotation or 0) % 180 == 0 then
-				return UI.Slider(p)
+		make = function(UI: FacetControls, p: SliderProps, c: Context): Instance
+			local rotation = p.rotation or 0
+			assert(type(rotation) == "number", "Lab slider rotation must be a number")
+			if rotation % 180 == 0 then
+				return renderSlider(UI, p)
 			end
 			p.AnchorPoint = Vector2.new(0.5, 0.5)
 			p.Position = UDim2.fromScale(0.5, 0.5)
-			local stage = c.Host.Frame({
+			local stage = c.Host.Frame {
 				Name = "RotationStage",
 				Size = UDim2.fromScale(1, 0),
 				BackgroundTransparency = 1,
-				UI.Slider(p),
-			})
+				renderSlider(UI, p),
+			}
 			local area = UI.environment(stage)
 			c.app.runtime.decorate(stage, {
 				Size = function(use: Use)
 					local w = math.max(use(area.viewportSize).X, 240)
-					return UDim2.new(1, 0, 0, math.ceil(w * math.abs(math.sin(math.rad(p.rotation)))) + 64)
+					return UDim2.new(1, 0, 0, math.ceil(w * math.abs(math.sin(math.rad(rotation)))) + 64)
 				end,
 			})
 			return stage
@@ -1015,7 +1110,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = function(c: Context)
 					return {
 						thumbContent = function()
-							return c.UI.Badge({ label = "♦", appearance = "status", status = "accent" })
+							return c.UI.Badge { label = "♦", appearance = "status", status = "accent" }
 						end,
 					}
 				end,
@@ -1025,18 +1120,18 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = function(c: Context)
 					return {
 						trackContent = function()
-							return c.Host.Frame({
+							return c.Host.Frame {
 								Size = UDim2.new(1, 0, 0, 6),
 								BorderSizePixel = 0,
 								BackgroundColor3 = Color3.new(1, 1, 1),
-								c.Host.UIGradient({
+								c.Host.UIGradient {
 									Color = ColorSequence.new({
 										ColorSequenceKeypoint.new(0, Color3.fromRGB(230, 57, 70)),
 										ColorSequenceKeypoint.new(0.5, Color3.fromRGB(242, 176, 30)),
 										ColorSequenceKeypoint.new(1, Color3.fromRGB(63, 184, 113)),
 									}),
-								}),
-							})
+								},
+							}
 						end,
 					}
 				end,
@@ -1453,16 +1548,16 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				name = "leading + trailing",
 				props = function(c: Context)
 					return {
-						leading = c.UI.Label({
+						leading = c.UI.Label {
 							title = "Rally",
 							icon = "flag",
 							presentation = "iconOnly",
-						}),
-						trailing = c.UI.Label({
+						},
+						trailing = c.UI.Label {
 							title = "More",
 							icon = "chevron.trailing",
 							presentation = "iconOnly",
-						}),
+						},
 					}
 				end,
 			},
@@ -1844,9 +1939,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		},
 		make = function(UI: FacetControls, p: Properties): Instance
 			local host = if p.host == "button"
-				then UI.Button({ label = "Inbox" })
-				elseif p.host == "avatar" then UI.Avatar({ name = "Ada Quill" })
-				else UI.Button({ label = "Inbox", icon = "flag", shape = "circle" })
+				then UI.Button { label = "Inbox" }
+				elseif p.host == "avatar" then UI.Avatar { name = "Ada Quill" }
+				else UI.Button { label = "Inbox", icon = "flag", shape = "circle" }
 			return UI.badged(host, p.value, { direction = p.direction, status = p.status })
 		end,
 	},
@@ -2052,7 +2147,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = function(c: Context)
 					return {
 						resource = c.Compose.createSharedResource(function()
-							return { value = c.Compose.cell(ART), state = c.Compose.cell("ready") }
+							return { value = c.Compose.cell(ART), state = c.Compose.cell("ready") }, nil
 						end),
 					}
 				end,
@@ -2216,12 +2311,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					return {
 						source = "rbxassetid://999999999999998",
 						placeholder = function(stateNow)
-							return c.UI.Text({
+							return c.UI.Text {
 								text = function(use: Use)
 									return `state: {use(stateNow)}`
 								end,
 								textRole = "caption",
-							})
+							}
 						end,
 					}
 				end,
@@ -2244,7 +2339,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					return {
 						source = NONE,
 						resource = c.Compose.createSharedResource(function()
-							return { value = c.Compose.cell(ART), state = c.Compose.cell("ready") }
+							return { value = c.Compose.cell(ART), state = c.Compose.cell("ready") }, nil
 						end),
 					}
 				end,
@@ -2300,16 +2395,20 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {
 				Size = UDim2.fromOffset(240, 135),
 				camera = CFrame.lookAt(Vector3.new(4, 3, 6), Vector3.zero),
-				content = function(runtime, world, live): (() -> ())?
-					local part = runtime.constructors.Part({
+				content = function(
+					_runtime: ComposeRuntime,
+					world: WorldModel,
+					live: ReadOnlyValue<boolean>
+				): (() -> ())?
+					local part = c.Host.Part {
 						Size = Vector3.new(2, 2, 2),
 						Color = Color3.fromRGB(60, 94, 246),
 						Anchored = true,
-					})
+					}
 					part.Parent = world
 					local spin = game:GetService("RunService").Heartbeat:Connect(function(dt)
 						if live:peek() then
-							(part :: Part).CFrame *= CFrame.Angles(0, dt, 0)
+							part.CFrame *= CFrame.Angles(0, dt, 0)
 						end
 					end)
 					return function()
@@ -2352,7 +2451,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = function(c: Context)
 					return {
 						content = function(): Instance
-							return c.UI.Text({ text = "3 laps · Coastal Circuit", role = "secondary" })
+							return c.UI.Text { text = "3 laps · Coastal Circuit", role = "secondary" }
 						end,
 					}
 				end,
@@ -2410,13 +2509,13 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end
 				return UI.VStack(stacked({
 					gap = "xs",
-					UI.Button({
+					UI.Button {
 						label = "Show for an item",
 						onActivate = function()
 							item:set({ name = "Coastal Circuit" })
 						end,
-					}),
-					UI.Alert(p),
+					},
+					(UI.Alert :: any)(p),
 				}))
 			end
 			return trigger(c, "Show alert", function(open)
@@ -2428,7 +2527,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					end
 				end
 
-				return UI.Alert(p)
+				return (UI.Alert :: any)(p)
 			end)
 		end,
 	},
@@ -2445,12 +2544,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {
 				title = "Leave the lobby?",
 				content = function(): Instance
-					return c.UI.Text({
+					return c.UI.Text {
 						text = "Your spot will be given to another player.",
 						wrap = true,
 						Size = UDim2.fromScale(1, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-					})
+					}
 				end,
 				actions = {
 					{ id = "Stay", label = "Stay", role = "cancel", onActivate = c.log("stay") },
@@ -2502,13 +2601,13 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					return {
 						contentSelectable = true,
 						content = function(): Instance
-							return c.UI.Text({
+							return c.UI.Text {
 								rich = true,
 								wrap = true,
 								text = string.rep("<b>Rule.</b> " .. LONG .. ". ", 12),
 								Size = UDim2.fromScale(1, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
-							})
+							}
 						end,
 					}
 				end,
@@ -2544,8 +2643,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					return c.UI.VStack(stacked({
 						width = "fill",
 						gap = "s",
-						c.UI.Toggle({ label = "Only friends", value = c.cell("friends", false) }),
-						c.UI.Slider({
+						c.UI.Toggle(toggleProps { label = "Only friends", value = c.cell("friends", false) }),
+						c.UI.Slider(sliderProps {
 							Name = "Distance",
 							label = "Distance",
 							value = c.cell("dist", 5),
@@ -2598,7 +2697,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = function(c: Context)
 					return {
 						header = function()
-							return c.UI.Text({ text = "Custom header", textRole = "heading" })
+							return c.UI.Text { text = "Custom header", textRole = "heading" }
 						end,
 					}
 				end,
@@ -2653,14 +2752,14 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				onPresentedChange = function(v)
 					open:set(v)
 				end,
-				trigger = c.UI.Button({ label = "About" }),
+				trigger = c.UI.Button { label = "About" },
 				content = function(): Instance
-					return c.UI.Text({
+					return c.UI.Text {
 						text = "Anchored content with a tail.",
 						wrap = true,
 						Size = UDim2.fromScale(1, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-					})
+					}
 				end,
 				maxWidth = 280,
 			}
@@ -2690,12 +2789,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					return {
 						maxHeight = 120,
 						content = function(): Instance
-							return c.UI.Text({
+							return c.UI.Text {
 								text = string.rep("Anchored content with a tail. ", 12),
 								wrap = true,
 								Size = UDim2.fromScale(1, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
-							})
+							}
 						end,
 					}
 				end,
@@ -2716,17 +2815,17 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end,
 			},
 		},
-		make = function(UI: FacetControls, p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: PopoverSpec & { read isPresented: Value<boolean> }, c: Context): Instance
 			if p.trigger == nil then
 				local open = p.isPresented
 				return UI.VStack(stacked({
 					gap = "xs",
-					UI.Button({
+					UI.Button {
 						label = "Open at a rect",
 						onActivate = function()
 							open:set(true)
 						end,
-					}),
+					},
 					UI.Popover(p),
 				}))
 			end
@@ -2747,14 +2846,14 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {
 				title = "New: lap counter",
 				content = function(): Instance
-					return c.UI.Text({ text = "Press Plus to add a lap." })
+					return c.UI.Text { text = "Press Plus to add a lap." }
 				end,
 				onRetire = c.log("onRetire"),
 			}
 		end,
 
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
-			local anchor = UI.Button({ label = "Plus", onActivate = c.log("plus") })
+			local anchor = UI.Button { label = "Plus", onActivate = c.log("plus") }
 			p.anchor = anchor
 			return UI.VStack(stacked({
 				gap = "xs",
@@ -2816,7 +2915,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		base = function(c: Context)
 			local function page(text)
 				return function()
-					return c.UI.Text({ text = text })
+					return c.UI.Text { text = text }
 				end
 			end
 			return {
@@ -2936,7 +3035,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						customization = { order = { "three", "one", "two" }, hidden = {} },
 						accessories = {
 							foot = function()
-								return c.UI.Button({ label = "Edit", appearance = "utility" })
+								return c.UI.Button { label = "Edit", appearance = "utility" }
 							end,
 						},
 					}
@@ -3008,20 +3107,20 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				root = {
 					title = "Garage",
 					content = function(): Instance
-						return c.UI.Button({
+						return c.UI.Button {
 							label = "Open car",
 							onActivate = function()
 								path:set({ { id = "car", value = "Rally 7" } })
 								c.log("push car")()
 							end,
-						})
+						}
 					end,
 				},
 				destinations = {
 					car = {
 						title = "Car",
 						content = function(entry): Instance
-							return c.UI.Button({ label = `Drive {entry and entry.value or "?"}` })
+							return c.UI.Button { label = `Drive {entry and entry.value or "?"}` }
 						end,
 					},
 				},
@@ -3081,7 +3180,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				title = "Garage",
 				onBack = c.log("onBack"),
 				backLabel = "Back",
-				trailing = c.UI.Button({ label = "Edit", appearance = "utility", onActivate = c.log("edit") }),
+				trailing = c.UI.Button { label = "Edit", appearance = "utility", onActivate = c.log("edit") },
 				Size = UDim2.fromScale(1, 0),
 			}
 		end,
@@ -3101,11 +3200,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				name = "leading slot",
 				props = function(c: Context)
 					return {
-						leading = c.UI.Label({
+						leading = c.UI.Label {
 							title = "Garage",
 							icon = "settings",
 							presentation = "iconOnly",
-						}),
+						},
 					}
 				end,
 			},
@@ -3113,10 +3212,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				name = "centre slot",
 				props = function(c: Context)
 					return {
-						center = c.UI.Picker({
+						center = c.UI.Picker(pickerProps {
 							selected = c.cell("navSeg", "a"),
 							style = "segmented",
-							options = {
+							options = optionList {
 								{ value = "a", label = "Cars" },
 								{ value = "b", label = "Parts" },
 							},
@@ -3135,7 +3234,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		alternatives = "Pagination for result pages.",
 		scenarios = { "page_view" },
 		snippet = 'UI.PageView { selection = page, pages = { { id = "a", label = "A", content = view } } }',
-		base = require("./page_view_demo"),
+		base = require("./page_view_demo") :: any,
 		axes = {},
 		states = {
 			{
@@ -3247,23 +3346,23 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					return c.UI.VStack(stacked({
 						width = "fill",
 						gap = "xs",
-						c.UI.Toggle({
+						c.UI.Toggle(toggleProps {
 							label = "Collisions",
 							value = c.cell("collisions", true),
 							Size = UDim2.fromScale(1, 0),
 						}),
-						c.UI.Toggle({
+						c.UI.Toggle(toggleProps {
 							label = "Catch-up boost",
 							value = c.cell("boost", false),
 							Size = UDim2.fromScale(1, 0),
 						}),
-						c.UI.Text({
+						c.UI.Text {
 							text = "Laps and items follow the track's defaults unless a host changes them.",
 							role = "secondary",
 							wrap = true,
 							Size = UDim2.fromScale(1, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
-						}),
+						},
 					}))
 				end,
 				Size = UDim2.fromScale(1, 0),
@@ -3336,12 +3435,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				label = "Filters",
 				expanded = c.cell("expanded", false),
 				content = function(): Instance
-					return c.UI.VStack({
+					return c.UI.VStack {
 						gap = "s",
 						padding = "m",
-						c.UI.Text({ text = "Panel content" }),
+						c.UI.Text { text = "Panel content" },
 						c.UI.Button "Apply" { label = "Apply" },
-					})
+					}
 				end,
 			}
 		end,
@@ -3408,7 +3507,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = function(c: Context)
 					return {
 						artwork = function()
-							return c.UI.Stage({ camera = CFrame.lookAt(Vector3.new(4, 3, 6), Vector3.zero) })
+							return c.UI.Stage { camera = CFrame.lookAt(Vector3.new(4, 3, 6), Vector3.zero) }
 						end,
 					}
 				end,
@@ -3426,7 +3525,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			local cards: Properties = {
 				gap = "m",
 				columns = function(use: Use)
-					return c.Facet.adaptive.columnsFor(use(c.logical).width - 400, 200, 16)
+					local size = (use(c.logical) :: unknown) :: { width: number }
+					return c.Facet.adaptive.columnsFor(size.width - 400, 200, 16)
 				end,
 				cellHeight = 240,
 				Size = UDim2.fromOffset(720, 0),
@@ -3581,12 +3681,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 							{
 								id = "name",
 								label = "Track",
-								render = function(current): GuiObject
-									return c.UI.Text({
+								render = function(current: ReadOnlyValue<Row>): GuiObject
+									return c.UI.Text {
 										text = function(use: Use)
 											return `▸ {use(current).name}`
 										end,
-									})
+									}
 								end,
 							},
 							{
@@ -3833,16 +3933,16 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				key = "id",
 				itemSize = 44,
 				Size = UDim2.fromScale(1, 1),
-				onActivate = function(r)
+				onActivate = function(r: Row)
 					c.log("onActivate")(r.name)
 				end,
-				render = function(current): GuiObject
-					return c.UI.Text({
+				render = function(current: ReadOnlyValue<Row>): GuiObject
+					return c.UI.Text {
 						text = function(use: Use)
 							return use(current).name
 						end,
 						Size = UDim2.new(1, 0, 0, 44),
-					})
+					}
 				end,
 			}
 		end,
@@ -3981,16 +4081,16 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				itemSize = 64,
 				gap = 8,
 				Size = UDim2.fromScale(1, 1),
-				onActivate = function(r)
+				onActivate = function(r: Row)
 					c.log("onActivate")(r.name)
 				end,
-				render = function(current): GuiObject
-					return c.UI.Button({
+				render = function(current: ReadOnlyValue<Row>): GuiObject
+					return c.UI.Button {
 						label = function(use: Use)
 							return use(current).name
 						end,
 						Size = UDim2.fromScale(1, 1),
-					})
+					}
 				end,
 			}
 		end,
@@ -4031,11 +4131,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		base = function(c: Context)
 			return {
 				content = function(): Instance
-					return c.UI.Button({
+					return c.UI.Button {
 						label = "Swipe or focus this row",
 						appearance = "utility",
 						Size = UDim2.fromScale(1, 1),
-					})
+					}
 				end,
 				leading = { { id = "flag", label = "Flag", icon = "flag", onActivate = c.log("flag") } },
 				trailing = {
@@ -4122,7 +4222,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		base = function(c: Context)
 			local rows = {}
 			for i = 1, 12 do
-				table.insert(rows, c.UI.Button({ label = `Row {i}`, appearance = "utility" }))
+				table.insert(rows, c.UI.Button { label = `Row {i}`, appearance = "utility" })
 			end
 			rows.width = 240
 			rows.height = 180
@@ -4148,12 +4248,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {}
 		end,
 		make = function(UI: FacetControls): Instance
-			return UI.HStack({
+			return UI.HStack {
 				gap = "s",
-				UI.Button({ label = "First" }),
-				UI.Button({ label = "Second" }),
-				UI.Button({ label = "Third" }),
-			})
+				UI.Button { label = "First" },
+				UI.Button { label = "Second" },
+				UI.Button { label = "Third" },
+			}
 		end,
 	},
 	focusSection = {
@@ -4178,7 +4278,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			for index = 1, 4 do
 				table.insert(
 					rows,
-					UI.Button({ Name = `Row {index}`, label = `Row {index}`, Size = UDim2.new(1, 0, 0, 0) })
+					UI.Button { Name = `Row {index}`, label = `Row {index}`, Size = UDim2.new(1, 0, 0, 0) }
 				)
 			end
 			local sidebar = UI.VStack(rows)
@@ -4188,15 +4288,15 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				focusOnAppear = p.focusOnAppear,
 				returnFocus = p.returnFocus,
 			})
-			return UI.HStack({
+			return UI.HStack {
 				gap = "m",
 				sidebar,
 				UI.VStack "Detail" {
 					gap = "xs",
-					UI.Button({ label = "Detail one" }),
-					UI.Button({ label = "Detail two" }),
+					UI.Button { label = "Detail one" },
+					UI.Button { label = "Detail two" },
 				},
-			})
+			}
 		end,
 	},
 	Toast = {
@@ -4240,13 +4340,13 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			end
 			return UI.VStack(stacked({
 				gap = "xs",
-				UI.Button({
+				UI.Button {
 					label = "Toast (top, 3 s)",
 					onActivate = function()
 						add({ message = `Saved ({count + 1})`, duration = 3, readFloor = 1 })
 					end,
-				}),
-				UI.Button({
+				},
+				UI.Button {
 					label = "Priority toast (bottom, hug, fade)",
 					onActivate = function()
 						add({
@@ -4257,8 +4357,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 							fade = true,
 						})
 					end,
-				}),
-				UI.Button({
+				},
+				UI.Button {
 					label = "Toast with an action (Undo)",
 					onActivate = function()
 						add({
@@ -4268,8 +4368,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 							action = { label = "Undo", onActivate = c.log("undo") },
 						})
 					end,
-				}),
-				UI.Button({
+				},
+				UI.Button {
 					label = "Bound action toast (caller decides)",
 					onActivate = function()
 						local shown = c.Compose.cell(true)
@@ -4283,21 +4383,21 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 							action = { label = "Retry", onActivate = c.log("retry") },
 						})
 					end,
-				}),
-				UI.Button({
+				},
+				UI.Button {
 					label = "Keyed toast (replaces)",
 					onActivate = function()
 						add({
 							key = "sync",
 							content = function(): Instance
-								return UI.Text({ text = `Syncing… ({count + 1})` })
+								return UI.Text { text = `Syncing… ({count + 1})` }
 							end,
 						})
 					end,
-				}),
+				},
 				c.Compose.keyed({
 					from = shown,
-					key = function(entry)
+					key = function(entry: { n: number, spec: Properties }, _index: number): number
 						return entry.n
 					end,
 					render = function(entry: ReadOnlyValue<{ n: number, spec: Properties }>): GuiObject
@@ -4368,7 +4468,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		make = function(UI: FacetControls, _p: Properties, c: Context): Instance
 			return UI.provide(function()
 				local inherited = c.Facet.controls(c.app.runtime)
-				return inherited.Button({ label = "Continue", onActivate = c.log("activate") })
+				return inherited.Button { label = "Continue", onActivate = c.log("activate") }
 			end)
 		end,
 	},
@@ -4426,9 +4526,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {}
 		end,
 		make = function(UI: FacetControls, _: Properties, c: Context): Instance
-			local card = UI.Button({ label = "Card" })
-			local open = UI.Button({ label = "Open slot" })
-			local full = UI.Button({ label = "Full slot" })
+			local card = UI.Button { label = "Card" }
+			local open = UI.Button { label = "Open slot" }
+			local full = UI.Button { label = "Full slot" }
 			UI.draggable(card, { payload = "card" })
 			UI.dropTarget(open, {
 				travel = true,
@@ -4458,7 +4558,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				onDrop = c.log("onDrop"),
 				onReject = c.log("onReject"),
 			})
-			return UI.HStack({ gap = "l", card, open, full })
+			return UI.HStack { gap = "l", card, open, full }
 		end,
 	},
 	adjustable = {
@@ -4475,10 +4575,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = { { name = "repeats when held", props = properties { repeats = true } } },
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local angle = 0
-			local readout = UI.Text({ text = "0°" }) :: TextLabel
+			local readout = UI.Text { text = "0°" } :: TextLabel
 			local row = UI.HStack(stacked({
 				gap = "xs",
-				UI.Button({ label = "Dial" }),
+				UI.Button { label = "Dial" },
 				readout,
 			}))
 			UI.adjustable(row, {
@@ -4505,17 +4605,17 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		axes = { { key = "kind", values = { "selection", "impact", "success", "warning", "error" } } },
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local kind = p.kind or "success"
-			return UI.VStack({
+			return UI.VStack {
 				gap = "xs",
-				UI.Button({
+				UI.Button {
 					label = `Play {kind}`,
 					onActivate = function()
 						UI.feedback(kind)
 						c.log("feedback")(kind)
 					end,
-				}),
-				UI.Button({ label = `Press plays {kind}`, haptic = kind }),
-			})
+				},
+				UI.Button { label = `Press plays {kind}`, haptic = kind },
+			}
 		end,
 	},
 	responder = {
@@ -4529,21 +4629,21 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {}
 		end,
 		make = function(UI: FacetControls, _: Properties, c: Context): Instance
-			local hud = UI.VStack({
+			local hud = UI.VStack {
 				gap = "xs",
-				UI.Button({ label = "Map" }),
-				UI.Button({ label = "Bag" }),
-			})
+				UI.Button { label = "Map" },
+				UI.Button { label = "Bag" },
+			}
 			local responder = UI.responder(hud, { passive = true, gameplayGuard = true, traversalWrap = false })
 			return UI.VStack(stacked({
 				gap = "xs",
-				UI.Button({
+				UI.Button {
 					label = "Engage",
 					onActivate = function()
 						responder.engage()
 						c.log("engaged")(true)
 					end,
-				}),
+				},
 				hud,
 			}))
 		end,
@@ -4563,17 +4663,17 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		make = function(UI: FacetControls, p: Properties): Instance
 			local list: Properties = { Name = "List", width = 220, height = 140, gap = "xs" }
 			for i = 1, 20 do
-				table.insert(list, UI.Text({ text = `Line {i}` }))
+				table.insert(list, UI.Text { text = `Line {i}` })
 			end
 			local view = UI.ScrollView(list)
 			return UI.VStack(stacked({
 				gap = "xs",
-				UI.Button({
+				UI.Button {
 					label = `Scroll to {p.position or "top"}`,
 					onActivate = function()
 						UI.scrollTo(view, p.position or "top", { animated = p.animated })
 					end,
-				}),
+				},
 				view,
 			}))
 		end,
@@ -4594,7 +4694,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			local target
 			local list: Properties = { width = 220, height = 140, gap = "xs" }
 			for i = 1, 20 do
-				local line = UI.Text({ text = `Line {i}` })
+				local line = UI.Text { text = `Line {i}` }
 				if i == (p.target or 5) then
 					target = line
 				end
@@ -4602,12 +4702,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			end
 			return UI.VStack(stacked({
 				gap = "xs",
-				UI.Button({
+				UI.Button {
 					label = `Reveal line {p.target or 5}`,
 					onActivate = function()
-						UI.scrollToVisible(target, nil, { animated = p.animated })
+						UI.scrollToVisible(assert(target), nil, { animated = p.animated })
 					end,
-				}),
+				},
 				UI.ScrollView(list),
 			}))
 		end,
@@ -4715,21 +4815,21 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			local vertical = p.vertical
 			p.vertical = nil
 			if vertical then
-				return UI.HStack({
+				return UI.HStack {
 					height = 40,
 					gap = "s",
-					UI.Text({ text = "Left" }),
+					UI.Text { text = "Left" },
 					UI.Divider(p),
-					UI.Text({ text = "Right" }),
-				})
+					UI.Text { text = "Right" },
+				}
 			end
-			return UI.VStack({
+			return UI.VStack {
 				width = 200,
 				gap = "s",
-				UI.Text({ text = "Above" }),
+				UI.Text { text = "Above" },
 				UI.Divider(p),
-				UI.Text({ text = "Below" }),
-			})
+				UI.Text { text = "Below" },
+			}
 		end,
 	},
 	Grid = {
@@ -4742,7 +4842,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		base = function(c: Context)
 			local cells = { columns = 3, gap = "xs", Size = UDim2.fromOffset(300, 0) }
 			for i = 1, 6 do
-				table.insert(cells, c.UI.Button({ label = `Cell {i}`, Size = UDim2.fromScale(1, 1) }))
+				table.insert(cells, c.UI.Button { label = `Cell {i}`, Size = UDim2.fromScale(1, 1) })
 			end
 			return cells
 		end,
@@ -4862,7 +4962,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				width = 140,
 				height = 96,
 				plate(c, "facet-panel", 140, 96),
-				c.UI.Badge({ label = "New", appearance = "status", status = "accent" }),
+				c.UI.Badge { label = "New", appearance = "status", status = "accent" },
 			}
 		end,
 		axes = {
@@ -4892,9 +4992,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return UI.HStack(stacked({
 				align = "center",
 				width = (if room == 360 then 360 else "hug") :: number | "hug",
-				UI.Button({ label = "Back", onActivate = c.log("back") }),
+				UI.Button { label = "Back", onActivate = c.log("back") },
 				UI.Spacer(p),
-				UI.Button({ label = "Done", appearance = "emphasis" :: string, onActivate = c.log("done") }),
+				UI.Button { label = "Done", appearance = "emphasis" :: string, onActivate = c.log("done") },
 			}))
 		end,
 	},
@@ -4911,13 +5011,13 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		axes = { { key = "weight", values = { DEFAULT, 1, 3 } } },
 		states = {},
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
-			return UI.HStack({
+			return UI.HStack {
 				width = 360,
 				gap = "s",
-				UI.Button({ label = "Grows", UI.fill(p.weight) }),
-				UI.Button({ label = "Weight 1", UI.fill(1) }),
-				UI.Button({ label = "Fixed" }),
-			})
+				UI.Button { label = "Grows", UI.fill(p.weight) },
+				UI.Button { label = "Weight 1", UI.fill(1) },
+				UI.Button { label = "Fixed" },
+			}
 		end,
 	},
 	Screen = {
@@ -4955,32 +5055,57 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					env.effectiveInput
 				)}; ` .. `safe insets top {inset.top} (the top bar) — the ScreenGui keeps the root below it`
 			end)
-			local plain = { wrap = true, Size = UDim2.fromScale(1, 0), AutomaticSize = Enum.AutomaticSize.Y }
 			local rows: Properties = { width = "fill", gap = "xs", UI.fill() }
 			for i = 1, 8 do
 				table.insert(
 					rows,
-					UI.Text(merged(plain, { text = `Body row {i} — scrolls inside the remaining height` }))
+					UI.Text {
+						wrap = true,
+						Size = UDim2.fromScale(1, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = `Body row {i} — scrolls inside the remaining height`,
+					}
 				)
 			end
-			table.insert(p, UI.Text(merged(plain, { text = "Screen title (first child)", textRole = "heading" })))
-			table.insert(p, UI.Text(merged(plain, { text = facts, textRole = "caption" })))
+			table.insert(
+				p,
+				UI.Text {
+					wrap = true,
+					Size = UDim2.fromScale(1, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					text = "Screen title (first child)",
+					textRole = "heading",
+				}
+			)
+			table.insert(
+				p,
+				UI.Text {
+					wrap = true,
+					Size = UDim2.fromScale(1, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					text = facts,
+					textRole = "caption",
+				}
+			)
 			if p.surface then
 				table.insert(p, require("./full_bleed_demo")(c))
 			end
 			table.insert(p, UI.ScrollView(rows))
-			table.insert(p, UI.Button({ label = "Continue (last child, stays pinned)", appearance = "emphasis" }))
+			table.insert(p, UI.Button { label = "Continue (last child, stays pinned)", appearance = "emphasis" })
 			local screen = UI.Screen(p)
 			screen:AddTag("facet-panel")
-			return UI.VStack({
+			return UI.VStack {
 				gap = "xs",
 				width = "fill",
-				UI.Text(merged(plain, {
+				UI.Text {
+					wrap = true,
+					Size = UDim2.fromScale(1, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "The plate is the Screen's box (it fills this cell like a ScreenGui); its padding is the gap to the plate edge.",
 					textRole = "caption",
-				})),
-				UI.VStack({ width = "fill", height = 260, screen :: unknown }),
-			})
+				},
+				UI.VStack { width = "fill", height = 260, screen },
+			}
 		end,
 	},
 	ErrorBoundary = {
@@ -4996,30 +5121,30 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = { { name = "view fails", props = properties { fails = true } } },
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local fail = c.Compose.cell(p.fails == true)
-			return UI.ErrorBoundary({
+			return UI.ErrorBoundary {
 				view = function()
 					if fail:peek() then
 						error("the track list could not load", 0)
 					end
-					return UI.Text({ text = "Track list loaded" })
+					return UI.Text { text = "Track list loaded" }
 				end,
 				fallback = function(err, retry)
-					return UI.VStack({
+					return UI.VStack {
 						gap = "xs",
-						UI.Text({ text = `Fallback: {tostring(err)}` }),
-						UI.Button({
+						UI.Text { text = `Fallback: {tostring(err)}` },
+						UI.Button {
 							label = "Retry (succeeds)",
 							onActivate = function()
 								fail:set(false)
 								retry()
 							end,
-						}),
-					})
+						},
+					}
 				end,
 				onError = c.log("onError"),
 				width = p.width or 260,
 				maxWidth = p.maxWidth,
-			})
+			}
 		end,
 		demonstrates = { "view", "fallback", "onError", "width", "height" },
 	},
@@ -5038,13 +5163,13 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {
 				width = "fill",
 				gap = "s",
-				c.UI.Button({ label = "Start race", appearance = "emphasis" }),
-				c.UI.Button({ label = "Garage" }),
-				c.UI.Button({ label = "Leaderboard" }),
-				c.UI.Button({ label = "Settings" }),
+				c.UI.Button { label = "Start race", appearance = "emphasis" },
+				c.UI.Button { label = "Garage" },
+				c.UI.Button { label = "Leaderboard" },
+				c.UI.Button { label = "Settings" },
 			}
 		end,
-		make = function(UI: FacetControls, p: Properties): Instance
+		make = function(UI: FacetControls, p: AdaptiveStackProps): Instance
 			if p.axis ~= "x" then
 				return UI.AdaptiveStack(p)
 			end
@@ -5085,19 +5210,19 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			local UI = c.UI
 			return {
 				width = "fill",
-				UI.HStack({
+				UI.HStack {
 					gap = "s",
-					UI.Button({ label = "Start race", appearance = "emphasis" }),
-					UI.Button({ label = "Garage" }),
-					UI.Button({ label = "Leaderboard" }),
-					UI.Button({ label = "Settings" }),
-				}),
-				UI.HStack({
+					UI.Button { label = "Start race", appearance = "emphasis" },
+					UI.Button { label = "Garage" },
+					UI.Button { label = "Leaderboard" },
+					UI.Button { label = "Settings" },
+				},
+				UI.HStack {
 					gap = "s",
-					UI.Button({ label = "Start", appearance = "emphasis" }),
-					UI.Button({ label = "More" }),
-				}),
-				UI.Button({ label = "Menu" }),
+					UI.Button { label = "Start", appearance = "emphasis" },
+					UI.Button { label = "More" },
+				},
+				UI.Button { label = "Menu" },
 			}
 		end,
 		axes = { { key = "width", values = { "fill", 360, 200, 110 } } },
@@ -5142,7 +5267,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				local form = c.cell("form" .. name, 1)
 				table.insert(forms, form)
 				table.insert(names, name)
-				return UI.Region({
+				return UI.Region {
 					Name = name,
 					zone = zone,
 					rank = rank,
@@ -5150,15 +5275,15 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					form = form,
 					expand = if name == "Round"
 						then function(): Instance
-							return UI.Text({ text = "Round 3 · Capture the flag · 2:14 left" })
+							return UI.Text { text = "Round 3 · Capture the flag · 2:14 left" }
 						end
 						else nil,
 					...,
-				})
+				}
 			end
 			table.insert(
 				p,
-				region("Menu", "topLeft", 1, false, UI.Button({ label = "Open menu" }), UI.Button({ label = "Menu" }))
+				region("Menu", "topLeft", 1, false, UI.Button { label = "Open menu" }, UI.Button { label = "Menu" })
 			)
 			table.insert(
 				p,
@@ -5167,8 +5292,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					"top",
 					2,
 					false,
-					UI.Badge({ label = "Round 3 · Capture the flag" }),
-					UI.Badge({ label = "R3" })
+					UI.Badge { label = "Round 3 · Capture the flag" },
+					UI.Badge { label = "R3" }
 				)
 			)
 			table.insert(
@@ -5178,14 +5303,14 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					"topRight",
 					3,
 					true,
-					UI.HStack({
+					UI.HStack {
 						gap = "xs",
-						UI.Badge({ label = "Rifle 24/90" }),
-						UI.Badge({ label = "Pistol 7/21" }),
-					})
+						UI.Badge { label = "Rifle 24/90" },
+						UI.Badge { label = "Pistol 7/21" },
+					}
 				)
 			)
-			table.insert(p, region("Strip", "topbar", 5, true, UI.Badge({ label = "Top bar strip" })))
+			table.insert(p, region("Strip", "topbar", 5, true, UI.Badge { label = "Top bar strip" }))
 			for _, strip in require("./topbar_demo")(c, p.topbar == true) do
 				table.insert(p, strip)
 			end
@@ -5196,21 +5321,21 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			else
 				table.insert(
 					p,
-					region("Ready", "bottom", 1, false, UI.Button({ label = "Ready up", appearance = "emphasis" }))
+					region("Ready", "bottom", 1, false, UI.Button { label = "Ready up", appearance = "emphasis" })
 				)
 				table.insert(
 					p,
-					region("Fps", "bottomRight", 4, true, UI.Text({ text = "60 FPS", textRole = "caption" }))
+					region("Fps", "bottomRight", 4, true, UI.Text { text = "60 FPS", textRole = "caption" })
 				)
 			end
 			local composition = UI.Composition(p)
-			local plate = UI.VStack({ width = room, height = "fill", composition :: unknown })
+			local plate = UI.VStack { width = room, height = "fill", composition }
 			plate:AddTag("facet-panel")
-			return UI.VStack({
+			return UI.VStack {
 				width = "fill",
 				height = 260,
 				gap = "xs",
-				UI.Text({
+				UI.Text {
 					text = function(use: Use)
 						local parts = {}
 						for i, form in forms do
@@ -5226,9 +5351,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					wrap = true,
 					Size = UDim2.fromScale(1, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-				}),
+				},
 				plate,
-			})
+			}
 		end,
 	},
 	Region = {
@@ -5276,12 +5401,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local form = c.cell("form", 1)
 			local room = p.room or "fill"
-			local composition = UI.Composition({
+			local composition = UI.Composition {
 				topbar = p.zone == "topbar",
 				UI.Region "Neighbour" {
 					zone = "top",
 					rank = 1,
-					UI.Badge({ label = "Neighbour · rank 1 · top" }),
+					UI.Badge { label = "Neighbour · rank 1 · top" },
 				},
 				UI.Region "UnderTest" {
 					zone = p.zone,
@@ -5292,19 +5417,19 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					reveal = p.reveal,
 					form = form,
 					expand = function(): Instance
-						return UI.Text({ text = "Region under test — the full form, disclosed in place" })
+						return UI.Text { text = "Region under test — the full form, disclosed in place" }
 					end,
-					UI.Badge({ label = "Region under test (full form)" }),
-					UI.Badge({ label = "Short form" }),
+					UI.Badge { label = "Region under test (full form)" },
+					UI.Badge { label = "Short form" },
 				},
-			})
-			local plate = UI.VStack({ width = room, height = "fill", composition :: unknown })
+			}
+			local plate = UI.VStack { width = room, height = "fill", composition }
 			plate:AddTag("facet-panel")
-			return UI.VStack({
+			return UI.VStack {
 				width = "fill",
 				height = 200,
 				gap = "xs",
-				UI.Text({
+				UI.Text {
 					text = function(use: Use)
 						local shown = use(form)
 						return `Showing now: {if shown == 0
@@ -5316,9 +5441,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					wrap = true,
 					Size = UDim2.fromScale(1, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-				}),
+				},
 				plate,
-			})
+			}
 		end,
 		demonstrates = { "form", "expand", "leading", "trailing" },
 	},
@@ -5358,14 +5483,14 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				camera = workspace.CurrentCamera,
 			})
 			c.Compose.cleanup(binding.dispose)
-			return UI.Text({
+			return UI.Text {
 				text = function(use: Use)
 					local a = use(binding.anchor)
 					return `x {math.floor(a.x or 0)} y {math.floor(a.y or 0)} clearance {math.floor(a.clearance or 0)} visible {tostring(
 						a.visible
 					)} onscreen {tostring(a.onscreen)}`
 				end,
-			})
+			}
 		end,
 		demonstrates = { "target", "offscreen", "occlusion", "padding", "camera" },
 		surface = "UI.worldAnchor",
@@ -5390,22 +5515,22 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				local loaded = Compose.cell(false)
 				return UI.VStack(stacked({
 					gap = "s",
-					UI.Toggle({ label = "Loaded", value = loaded }),
+					UI.Toggle(toggleProps { label = "Loaded", value = loaded }),
 					Compose.show(loaded, function()
-						return UI.Text({ text = "Coastal Circuit · 3 laps" })
+						return UI.Text { text = "Coastal Circuit · 3 laps" }
 					end, function()
-						return UI.Skeleton({
+						return UI.Skeleton {
 							form = "line",
 							Size = UDim2.fromOffset(180, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
-						})
+						}
 					end),
 				}))
 			elseif kind == "switch" then
 				local mode = Compose.cell("road")
 				return UI.VStack(stacked({
 					gap = "s",
-					UI.Picker({
+					UI.Picker(pickerProps {
 						selected = mode,
 						style = "segmented",
 						options = {
@@ -5415,14 +5540,14 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					}),
 					Compose.switch(mode, {
 						road = function()
-							return UI.Text({ text = "Smooth tarmac" })
+							return UI.Text { text = "Smooth tarmac" }
 						end,
 						rally = function()
-							return UI.Badge({
+							return UI.Badge {
 								label = "Gravel",
 								appearance = "status",
 								status = "warning",
-							})
+							}
 						end,
 					}),
 				}))
@@ -5430,7 +5555,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				local items = Compose.cell({ ROWS[1], ROWS[2], ROWS[3] })
 				return UI.VStack(stacked({
 					gap = "xs",
-					UI.Button({
+					UI.Button {
 						label = "Rotate",
 						controlSize = "compact",
 						onActivate = function()
@@ -5438,19 +5563,19 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 							table.insert(list, assert(table.remove(list, 1)))
 							items:set(list)
 						end,
-					}),
+					},
 					Compose.keyed({
 						from = items,
-						key = function(item)
+						key = function(item: Row, _index: number): string
 							return item.id
 						end,
 						render = function(value: ReadOnlyValue<Row>, index: ReadOnlyValue<number>): GuiObject
-							return UI.Text({
+							return UI.Text {
 								LayoutOrder = index,
 								text = function(use: Use)
 									return `{use(value).name} · {use(value).laps} laps`
 								end,
-							})
+							}
 						end,
 					}),
 				}))
@@ -5458,19 +5583,20 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			local open = Compose.cell(true)
 			return UI.VStack(stacked({
 				gap = "s",
-				UI.Toggle({ label = "Shown", value = open }),
+				UI.Toggle(toggleProps { label = "Shown", value = open }),
 				Compose.presence(open, function(phase)
 					local fade = c.app.runtime.tween(function(use: Use)
 						return if use(phase.exiting) then 1 else 0
 					end, { seconds = 0.3 })
-					return UI.Text({ text = "I fade out before I leave", TextTransparency = fade })
+					return UI.Text { text = "I fade out before I leave", TextTransparency = fade }
 				end, {
 					exit = function()
 						local done = Compose.cell(false)
 						task.delay(0.3, function()
 							done:set(true)
 						end)
-						return { completed = done }
+						local completed: ReadOnlyValue<boolean> = done
+						return { completed = completed }
 					end,
 				}),
 			}))
@@ -5483,7 +5609,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		purpose = "Compose motion on any bound property: a tween with easing or a spring; reduced motion is an option.",
 		alternatives = "The controls' own motion needs nothing.",
 		scenarios = { "component_motion", "with_animation", "time_curves" },
-		snippet = "Size = runtime.spring(function(use) return use(open) and 1 or 0 end, { period = 0.3 })",
+		snippet = "Size = runtime.spring(function(use: Use) return use(open) and 1 or 0 end, { period = 0.3 })",
 		surface = "app.runtime.tween / app.runtime.spring",
 		base = function()
 			return {}
@@ -5506,24 +5632,24 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					body,
 					{ seconds = 0.4, ease = c.Compose.easing.outQuad, reducedMotion = reduced }
 				)
-			local dot = UI.Badge({
+			local dot = UI.Badge {
 				label = "●",
 				appearance = "status",
 				status = "accent",
 				Position = function(use: Use)
 					return UDim2.new(use(motion) * 0.8, 0, 0, 0)
 				end,
-			})
-			local track = UI.ZStack({ width = 300, height = 40, dot :: unknown })
+			}
+			local track = UI.ZStack { width = 300, height = 40, dot }
 			track:AddTag("facet-track")
 			return UI.VStack(stacked({
 				gap = "s",
-				UI.Button({
+				UI.Button {
 					label = "Move",
 					onActivate = function()
 						at:set(not at:peek())
 					end,
-				}),
+				},
 				track,
 			}))
 		end,
@@ -5545,7 +5671,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local a = c.Facet.adaptive
 			local w = p.width or 360
-			return UI.Text({
+			return UI.Text {
 				text = `sizeClass({w}) = {a.sizeClass(w)} · heightClass({w}) = {a.heightClass(w)} · orientationFor({w}, 600) = {a.orientationFor(
 					w,
 					600
@@ -5555,7 +5681,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				wrap = true,
 				Size = UDim2.fromScale(1, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-			})
+			}
 		end,
 	},
 	civilDate = {
@@ -5574,10 +5700,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {},
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local civil = c.Facet.civilDate
-			local d = { year = 2026, month = 2, day = 27 }
-			local locale = { order = p.order or "mdy", separator = "/" }
+			local d: CivilDate = { year = 2026, month = 2, day = 27 }
+			local locale: CivilLocale = { order = p.order or "mdy", separator = "/" }
 			local parsed, why = civil.parse("02/30/2026")
-			return UI.Text({
+			return UI.Text {
 				text = table.concat({
 					`format(+3 days) = {civil.format(civil.addDays(d, 3), locale)}`,
 					`addMonths(Jan 31, 1) = {civil.format(
@@ -5597,7 +5723,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				wrap = true,
 				Size = UDim2.fromScale(1, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-			})
+			}
 		end,
 	},
 
@@ -5703,7 +5829,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			for _, tag in { "Rain", "Night", "Mirror", "Reverse", "Traffic", "Fog" } do
 				table.insert(
 					chips,
-					UI.Chip({
+					UI.Chip(chipProps {
 						label = tag,
 						selected = c.cell(`chip{tag}`, tag == "Night"),
 						controlSize = p.controlSize,
@@ -5742,17 +5868,17 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				if i <= (p.count or 1) then
 					table.insert(
 						row,
-						UI.Button({
+						UI.Button {
 							label = icon,
 							icon = icon,
 							shape = "circle",
 							appearance = "utility",
 							onActivate = c.log(`action {icon}`),
-						})
+						}
 					)
 				end
 			end
-			return UI.NavBar({ title = "Garage", trailing = UI.HStack(row) :: GuiObject, Size = UDim2.fromScale(1, 0) })
+			return UI.NavBar { title = "Garage", trailing = UI.HStack(row) :: GuiObject, Size = UDim2.fromScale(1, 0) }
 		end,
 	},
 	Empty = {
@@ -5774,23 +5900,23 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				["no results"] = { "menu", "No matches", "Nothing matches your filters.", "Clear search" },
 				failed = { "status.warning", "Couldn't load", "Check your connection and try again.", "Retry" },
 			})[p.kind or "empty"]
-			return UI.VStack({
+			return UI.VStack {
 				width = "fill",
 				align = "center",
 				gap = "s",
 				padding = "m",
-				UI.Label({ title = copy[2], icon = copy[1], presentation = "iconOnly", iconSize = 32 }),
-				UI.Text({ text = copy[2], textRole = "strong", textAlign = "center" }),
-				UI.Text({
+				UI.Label { title = copy[2], icon = copy[1], presentation = "iconOnly", iconSize = 32 },
+				UI.Text { text = copy[2], textRole = "strong", textAlign = "center" },
+				UI.Text {
 					text = copy[3],
 					role = "secondary",
 					textAlign = "center",
 					wrap = true,
 					Size = UDim2.fromScale(1, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-				}),
-				UI.Button({ label = copy[4], appearance = "soft", onActivate = c.log(copy[4]) }),
-			})
+				},
+				UI.Button { label = copy[4], appearance = "soft", onActivate = c.log(copy[4]) },
+			}
 		end,
 	},
 	Tooltip = {
@@ -5810,9 +5936,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = { { name = "one sentence", props = properties { plain = true }, across = false } },
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			if p.plain then
-				return UI.Button({ label = "Plus", help = "Adds a lap", onActivate = c.log("plus") })
+				return UI.Button { label = "Plus", help = "Adds a lap", onActivate = c.log("plus") }
 			end
-			return UI.Button({
+			return UI.Button {
 				label = "Plus",
 				onActivate = c.log("plus"),
 				help = {
@@ -5822,7 +5948,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					edge = p.edge,
 					align = p.align,
 				},
-			})
+			}
 		end,
 	},
 	SearchForm = {
@@ -5851,18 +5977,18 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			for _, row in ROWS do
 				table.insert(
 					list,
-					UI.Text({
+					UI.Text {
 						text = `{row.name} · {row.laps} laps`,
 						Visible = function(use: Use)
 							return matches(use, row)
 						end,
-					})
+					}
 				)
 			end
 			return UI.VStack(stacked({
 				width = "fill",
 				gap = "s",
-				UI.TextInput({
+				UI.TextInput(textInputProps {
 					presentation = "search",
 					value = query,
 					placeholder = "Search tracks",
@@ -5883,7 +6009,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					end
 					return true
 				end, function()
-					return UI.Text({ text = "No tracks match", role = "secondary" })
+					return UI.Text { text = "No tracks match", role = "secondary" }
 				end),
 			}))
 		end,
@@ -5906,23 +6032,23 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return UI.VStack(stacked({
 				width = "fill",
 				gap = 0,
-				UI.Button({
+				UI.Button {
 					label = "Garage",
 					row = { description = "12 cars", icon = "settings", value = "Open" },
 					onActivate = c.log("garage"),
 					enabled = p.enabled,
 					controlSize = p.controlSize,
-				}),
-				UI.Divider({}),
-				UI.Toggle({
+				},
+				UI.Divider {},
+				UI.Toggle(toggleProps {
 					label = "Music",
 					row = { description = "Plays in menus", icon = "edit" },
 					value = c.cell("music", true),
 					enabled = p.enabled,
 					controlSize = p.controlSize,
 				}),
-				UI.Divider({}),
-				UI.Slider({
+				UI.Divider {},
+				UI.Slider(sliderProps {
 					label = "Volume",
 					row = { description = "Master", icon = "flag" },
 					value = c.cell("volume", 60),
@@ -5936,98 +6062,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	},
 }
 
-local function hierarchyState(c: any): { [string]: any }
-	local rows = c.cell(
-		"treeRows",
-		{
-			{
-				id = "folder",
-				name = "Championship",
-				laps = 0,
-				children = {
-					{ id = "coast", name = "Coastal Circuit", laps = 3 },
-					{
-						id = "nested",
-						name = "Time trials",
-						laps = 0,
-						children = {
-							{ id = "harbour", name = "Harbour Sprint", laps = 6 },
-						},
-					},
-				},
-			},
-			{ id = "empty", name = "Community races", laps = 0, children = {} },
-			{ id = "readme", name = "Practice loop", laps = 1 },
-		} :: { any }
-	)
-	local expanded = c.cell("expanded", {})
-	return {
-		from = rows,
-		children = "children",
-		expanded = expanded,
-		indent = 24,
-		onExpansionChange = function(value)
-			expanded:set(value)
-			c.log("onExpansionChange")(value)
-		end,
-		onActivate = NONE,
-	}
-end
-for _, name in { "VirtualList", "Table" } do
-	table.insert(
-		assert(PAGE_DATA[name].states),
-		{ name = "expandable hierarchy", props = hierarchyState, across = false }
-	)
-end
-PAGE_DATA.Outline = {
-	demonstrates = { "slots", "slotControls" },
-	family = "collections",
-	alias = "Outline",
-	cellWidth = 340,
-	cellHeight = 280,
-	purpose = "Expand nested groups, select rows, and edit items in one hierarchy.",
-	note = "Expand a group with its arrow; Left/Right collapse or expand the focused row. Selection and expansion settings are below; events go to the log.",
-	alternatives = "VirtualList for flat rows. Table with children for hierarchy with columns.",
-	snippet = 'UI.Outline { from = roots, key = "id", children = "children", expanded = expanded, render = renderCell }',
-	base = function(c: Context)
-		local spec: any = assert(PAGE_DATA.VirtualList.base)(c)
-		for key, value in hierarchyState(c) do
-			spec[key] = if value == NONE then nil else value
-		end
-		spec.selection = c.cell("outlineSelection", {})
-		return spec
-	end,
-	axes = { { key = "selectionMode", values = { "single", "multiple" }, matrix = false } },
-	states = {
-		{ name = "content clipped", props = properties { contentOverflow = "clip" } },
-		{ name = "content visible", props = properties { contentOverflow = "visible" } },
-		{
-			name = "expanded",
-			props = function(c: Context)
-				local expanded = c.cell("expandedExample", { folder = true, nested = true })
-				return {
-					expanded = expanded,
-					onExpansionChange = function(value)
-						expanded:set(value)
-						c.log("onExpansionChange")(value)
-					end,
-				}
-			end,
-		},
-		{ name = "large indentation", props = properties { indent = 48 } },
-		{ name = "reduced motion", props = properties { reducedMotion = true } },
-		{ name = "rebuilt rows", props = properties { recycle = false } },
-		{
-			name = "disabled folder",
-			props = properties {
-				disabled = function(item)
-					return item.id == "folder"
-				end,
-			},
-		},
-	},
-}
-
+local outlines = require("./catalog_outline")(PAGE_DATA, NONE, properties)
+PAGE_DATA.Outline = outlines.outline
+local rewardPage: PageDefinition = outlines.rewardSequence
 for _, name in { "VirtualList", "VirtualGrid", "Outline" } do
 	table.insert(assert(PAGE_DATA[name].axes), {
 		key = "scrollReset",
@@ -6091,12 +6128,12 @@ PAGE_DATA.ZoomView = require("./zoom_page")
 PAGE_DATA.SpatialGrid = require("./spatial_grid_demo")
 PAGE_DATA.CustomTransitions = require("./custom_transition_demo")
 
-PAGE_DATA.Travel = {
+local travelPage: PageDefinition = {
 	family = "layout",
 	purpose = "Move one tile between clipped rows and show its destination.",
 	alternatives = "Use Travel for every item slot change.",
 	snippet = 'UI.Travel { destination = destination, path = "arc", content = Tile }',
-	base = function()
+	base = function(): Properties
 		return { path = "arc", many = false, shuffle = false, recycle = false }
 	end,
 	axes = {
@@ -6131,25 +6168,10 @@ PAGE_DATA.Travel = {
 	end,
 }
 
-PAGE_DATA.RewardSequence = {
-	recipe = true,
-	family = "media",
-	purpose = "Order a reward with lock, sweep, flash, travel, count and refill.",
-	alternatives = "Use Travel for one slot change.",
-	snippet = "local reward = UI.sequence { steps = steps }; reward.play()",
-	base = function()
-		return { pulse = true }
-	end,
-	axes = { { key = "pulse", values = { true, false } } },
-	states = {
-		{ name = "reward sequence", props = properties {} },
-		{ name = "sweep only", props = properties { pulse = false } },
-	},
-	make = function(UI: FacetControls, p: Properties, c: Context): Instance
-		return require("./reward_sequence_demo")(UI, c.Host, c.Compose, p.pulse ~= false)
-	end,
-}
-PAGE_DATA.sequence = PAGE_DATA.RewardSequence
+PAGE_DATA.Travel = travelPage
+
+PAGE_DATA.RewardSequence = rewardPage
+PAGE_DATA.sequence = rewardPage
 PAGE_DATA.shake = require("./shake_demo")
 PAGE_DATA.countUp = require("./motion_pages").countUp
 PAGE_DATA.follow = require("./motion_pages").follow
@@ -6202,20 +6224,20 @@ PAGE_DATA.Typewriter = {
 	end,
 }
 
-local function kindOf(id: string, data: any, UI: any): string
+local function kindOf(id: string, data: PageDefinition?, UI: any): string
 	if UI[id] ~= nil then
 		return "control"
 	end
 	return if data and data.recipe then "recipe" elseif data and data.facet then "facet" else "stale"
 end
 
-export type Page = { id: string, title: string, family: string, kind: string, data: any, helpers: { Page }? }
+export type Page = { id: string, title: string, family: string, kind: string, data: PageDefinition, helpers: { Page }? }
 
-function catalog.build(UI: any): any
+function catalog.build(UI: any)
 	local pages: { [string]: Page } = {}
 	local missing: { string } = {}
 	local stale: { string } = {}
-	local ids = {}
+	local ids: { string } = {}
 	for id in UI do
 		table.insert(ids, id)
 	end
@@ -6225,7 +6247,7 @@ function catalog.build(UI: any): any
 		end
 	end
 	for _, id in ids do
-		local data = PAGE_DATA[id]
+		local data: PageDefinition? = PAGE_DATA[id]
 		local kind = kindOf(id, data, UI)
 		if kind == "stale" then
 			table.insert(stale, id)
@@ -6233,21 +6255,25 @@ function catalog.build(UI: any): any
 		end
 		if data == nil then
 			table.insert(missing, id)
-			data = {
+			local fallback: PageDefinition = {
 				family = "layout",
 				purpose = "No lab data yet: a public capability the lab does not show (coverage fails).",
 				axes = {},
 				states = {},
 			}
+			data = fallback
 		end
-		pages[id] = { id = id, title = data.title or id, family = data.family, kind = kind, data = data }
+		local definition = assert(data)
+		pages[id] =
+			{ id = id, title = definition.title or id, family = definition.family, kind = kind, data = definition }
 	end
 	for id, page in pages do
-		local host = page.data.host and pages[page.data.host]
+		local host = if page.data.host then pages[page.data.host] else nil
 		if host then
-			host.helpers = host.helpers or {}
-			table.insert(host.helpers, page)
-			table.sort(host.helpers, function(a, b)
+			local helpers = host.helpers or {}
+			host.helpers = helpers
+			table.insert(helpers, page)
+			table.sort(helpers, function(a: Page, b: Page)
 				return a.id < b.id
 			end)
 			pages[id] = nil

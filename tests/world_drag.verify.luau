@@ -12,7 +12,7 @@ local Native = require("../src/ui/engine_types")
 
 local function fixture(test: Verify.Context, level: ("normal" | "limited" | "none")?)
 	local engine, bridge = engines.new()
-	local runtime = Facet.Roblox.createRuntime(bridge.engine)
+	local runtime = Facet.Roblox.createRuntime(engine)
 	local world: Workspace = engine.new("Workspace")
 	local screen: ScreenGui = engine.new("ScreenGui")
 	local input: UserInputService = engine.new("UserInputService")
@@ -29,7 +29,7 @@ local function fixture(test: Verify.Context, level: ("normal" | "limited" | "non
 	}
 	local ctx = context(Facet.Compose, runtime, config)
 	local session = sessionOf(ctx)
-	local Host = runtime.constructors
+	local Host = Facet.host(runtime)
 	local source: BasePart = engine.new("Part")
 	source.Anchored = true
 	source.CFrame = engine.types.CFrame.new(0, 1, 0)
@@ -329,9 +329,13 @@ return function(h: Verify.Harness)
 		w.engine.environment.fire(Roblox.assertInstance(actions[1]), "Pressed")
 		w.engine.environment.poke(Roblox.assertInstance(w.gui), "SelectedObject", destination)
 		local drop = assert(w.screen:FindFirstChild("DragDrop", true))
-		w.engine.environment.fire(Roblox.assertInstance(drop), "Pressed")
+		local event: InputObject = w.engine.new("InputObject")
+		event.KeyCode = w.engine.types.Enum.KeyCode.ButtonA
+		event.UserInputType = w.engine.types.Enum.UserInputType.Gamepad1
+		w.engine.environment.fire(Roblox.assertInstance(drop), "Pressed", event)
 		local info = assert(received)
 		Verify.expect(info.mode):toBe("armed")
+		Verify.expect(info.position):toBeNil()
 		Verify.expect(info.source:IsA("BasePart")):toBe(true)
 		Verify.expect(info.target):toBe(w.target)
 		Verify.expect(info.worldPlacement):toBe(w.goal)

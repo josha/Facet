@@ -7,7 +7,7 @@ type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 
 export type Row = {
 	id: string,
@@ -20,22 +20,22 @@ export type Row = {
 	value: number?,
 }
 export type Context = {
-	Facet: FacetModule,
-	runtime: Runtime,
-	Host: Host,
-	UI: Controls,
-	types: RobloxTypes,
-	viewport: { w: number, h: number },
-	frame: ((number?) -> ())?,
-	engine: unknown,
-	target: Instance?,
-	rowCount: number?,
-	rowSize: number?,
+	read Facet: FacetModule,
+	read runtime: Runtime,
+	read Host: Host,
+	read UI: Controls,
+	read types: RobloxTypes,
+	read viewport: { w: number, h: number },
+	read frame: ((number?) -> ())?,
+	read engine: unknown,
+	read target: Instance?,
+	read rowCount: number?,
+	read rowSize: number?,
 	rowModels: { values: { [string]: NumberCell }, toggles: { [string]: BooleanCell } }?,
 	onRowActivate: ((Row) -> ())?,
-	rowBuilder: (Context, ReadOnlyValue<Row>, { full: boolean }) -> GuiObject,
-	themePackages: { ThemePackage }?,
-	themeNames: { string }?,
+	read rowBuilder: (Context, ReadOnlyValue<Row>, { full: boolean }) -> GuiObject,
+	read themePackages: { ThemePackage }?,
+	read themeNames: { string }?,
 }
 
 return (nil :: unknown) :: { Context: Context, Row: Row }

@@ -377,14 +377,15 @@ local WEIGHTS: { [string]: number } = {
 local SHARDS = 24
 
 local function assignments(): { [string]: number }
-	local entries: { { name: string, weight: number } } = {}
+	type Entry = { name: string, weight: number }
+	local entries: { Entry } = {}
 	for _, suite in SUITES do
 		for _, id in suite.cases do
 			local name = `{suite.id}/{id}`
 			table.insert(entries, { name = name, weight = WEIGHTS[name] or 20 })
 		end
 	end
-	table.sort(entries, function(left, right)
+	table.sort(entries, function(left: Entry, right: Entry)
 		if left.weight ~= right.weight then
 			return left.weight > right.weight
 		end

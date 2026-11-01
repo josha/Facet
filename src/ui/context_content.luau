@@ -38,6 +38,8 @@ local function attachLayout(
 	local floor: UISizeConstraint? = nil
 	local alive = true
 	local refreshing = false
+	local textChanged = not lazy
+	local refloor: () -> () = function() end
 	local function measuredFloor(): boolean
 		return services.TextService ~= nil and floor ~= nil
 	end
@@ -87,6 +89,10 @@ local function attachLayout(
 	end
 	local function refreshMetrics()
 		local face, points = label:GetStyled("FontFace") :: Font, label:GetStyled("TextSize") :: number
+		if alive and not textChanged and (face ~= label.FontFace or points ~= label.TextSize) then
+			textChanged = true
+			refloor()
+		end
 		if alive and (face ~= previousFace or points ~= previousSize) then
 			local changed = previousFace ~= nil or previousSize ~= nil
 			previousFace, previousSize = face, points
@@ -97,11 +103,10 @@ local function attachLayout(
 		end
 	end
 	local revision = Compose.cell(0)
-	local styling = Compose.cell(0)
 	local snapshotAt = -1
 	local snapMode, snapSize, snapWrapped = label.AutomaticSize, label.Size, false
 	local function snapshot()
-		local at = styling:peek()
+		local at = revision:peek()
 		if at ~= snapshotAt then
 			snapshotAt = at
 			snapMode, snapSize = label.AutomaticSize, label.Size
@@ -114,8 +119,7 @@ local function attachLayout(
 	local frameSource = runtime.host.frames
 	local checkStale: () -> () = function() end
 	local sizeMoved, boundsMoved = false, false
-	local refloor: () -> () = function() end
-	local textChanged = not lazy or (warm == true and not framed)
+	textChanged = textChanged or (warm == true and not framed)
 	local function readGeometry()
 		if alive then
 			if sizeMoved then
@@ -133,25 +137,25 @@ local function attachLayout(
 		end
 	end
 	local function geometryChanged(property: string)
+		local frames = frameSource
 		if property == "AbsoluteSize" then
 			sizeMoved = true
 		else
 			boundsMoved = true
 		end
-		if not framed or frameSource == nil then
+		if not framed or frames == nil then
 			readGeometry()
 			return
 		end
 		geometryQueue[readGeometry] = true
 		if geometryStop == nil then
-			geometryStop = frameSource.onFrame(flushGeometry)
+			geometryStop = frames.onFrame(flushGeometry)
 		end
 	end
 	local priorText = label.Text
 	local floorApply: () -> () = function() end
 	local function invalidate()
 		if not refreshing then
-			styling:set(styling:peek() + 1)
 			revision:set(revision:peek() + 1)
 			refloor()
 			floorApply()
@@ -354,7 +358,7 @@ local function attachLayout(
 		end
 		unitOf(unit)
 		local read = if services.TextService
-			then textMeasure.inline(ctx, label, stable, styling, function()
+			then textMeasure.inline(ctx, label, stable, revision, function()
 				floorApply()
 			end)
 			else nil
@@ -385,10 +389,10 @@ local function attachLayout(
 			if not watchPadding then
 				readInsets()
 			end
-			if styled == styling:peek() then
+			if styled == revision:peek() then
 				return
 			end
-			styled = styling:peek()
+			styled = revision:peek()
 			if watchPadding then
 				readInsets()
 			end
@@ -620,24 +624,25 @@ return function(
 		local sides: Shared.Sides = { top = vertical, right = horizontal, bottom = vertical, left = horizontal }
 		return assert(layout.insets(sides))
 	end
-	function ctx.round(use: ComposeTypes.Use?, radius: UDim?): UDim
+	function ctx.round(use: ComposeTypes.Use?, ...: UDim?): UDim
+		local radius = ...
 		return if ctx.metric("radii.pill", use) > 0 then radius or types.UDim.new(1, 0) else types.UDim.new(0, 0)
 	end
 	function ctx.corner(radius: number?): UICorner
 		if radius == nil then
-			return Host.UICorner({})
+			return Host.UICorner {}
 		end
-		return Host.UICorner({
+		return Host.UICorner {
 			CornerRadius = function(use: ComposeTypes.Use): UDim
 				return ctx.round(use, types.UDim.new(0, radius))
 			end,
-		})
+		}
 	end
 	function ctx.layoutUnit(parent: GuiBase2d, name: string?): ComposeTypes.ReadOnlyValue<number>
 		local _, probe = runtime.mount(function()
 			return Host.Frame(name or "LayoutUnit")({ Size = types.UDim2.fromOffset(100, 1), Visible = false })
 		end, parent)
-		local size = ctx.observe.AbsoluteSize(probe :: GuiObject)
+		local size = ctx.observe.AbsoluteSize((probe :: unknown) :: GuiObject)
 		return Compose.formula(function(use: ComposeTypes.Use): number
 			local unit = use(size).X / 100
 			return if unit > 0 then unit else 1
@@ -698,10 +703,10 @@ return function(
 
 		return label
 	end
-	function ctx.row(children: { ComposeTypes.Child }, properties: Shared.FrameNativeProps?): Frame
+	function ctx.row(children: Shared.ChildList, properties: Shared.FrameNativeProps?): Frame
 		return layout.stack(children, properties, { gap = 8 }, false)
 	end
-	function ctx.column(children: { ComposeTypes.Child }, properties: Shared.FrameNativeProps?): Frame
+	function ctx.column(children: Shared.ChildList, properties: Shared.FrameNativeProps?): Frame
 		return layout.stack(children, properties, { gap = 8 }, true)
 	end
 	function ctx.listRow(parts: Shared.ListRow): (Frame, Shared.Input<UDim2>, (GuiObject) -> ())
@@ -722,7 +727,7 @@ return function(
 				Name = "Captions",
 				Size = types.UDim2.new(0, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
+				Host.UIFlexItem { FlexMode = Enum.UIFlexMode.Fill },
 			})
 		)
 		table.move(parts.trailing or {}, 1, #(parts.trailing or {}), #columns + 1, columns)
@@ -790,11 +795,10 @@ return function(
 		if requested == "" or string.match(requested, "^rbx") then
 			return false
 		end
-		local package: Theme.IconRegistry = ctx.read(config.theme) or {}
-		local overrides = ctx.read(config.icons)
+		local package: Theme.IconRegistry = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme) or {}
+		local overrides = ctx.read<<{ [string]: Theme.IconEntry }?>>(config.icons)
 		if overrides then
-			package = table.clone(package)
-			package.icons = overrides
+			package = { icons = overrides, assets = package.assets }
 		end
 		local resting = themes.resolveIcon(package, requested, "default")
 		return themes.resolveIcon(package, requested, "hover") ~= resting
@@ -803,28 +807,27 @@ return function(
 			or themes.resolveIcon(package, requested, "disabled") ~= resting
 	end
 	function ctx.icon(
-		name: Shared.Input<string>,
+		name: Shared.Input<string?>,
 		properties: Shared.ImageLabelNativeProps?,
 		state: Shared.Input<Theme.SkinState>?
 	): ImageLabel
 		local function image(use: ComposeTypes.Use?): string
-			local requested = ctx.read(name, use)
-			if requested == "" then
+			local requested = ctx.read<<string?>>(name, use)
+			if requested == nil or requested == "" then
 				return ""
 			end
-			local package: Theme.IconRegistry = ctx.read(config.theme, use) or {}
-			local overrides = ctx.read(config.icons, use)
+			local package: Theme.IconRegistry = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use) or {}
+			local overrides = ctx.read<<{ [string]: Theme.IconEntry }?>>(config.icons, use)
 			if overrides then
-				package = table.clone(package)
-				package.icons = overrides
+				package = { icons = overrides, assets = package.assets }
 			end
 			local asset = if type(requested) == "string" and string.match(requested, "^rbx")
 				then requested
-				else themes.resolveIcon(package, requested, ctx.read(state, use))
+				else themes.resolveIcon(package, requested, ctx.read<<Theme.SkinState?>>(state, use))
 			assert(type(asset) == "string", `Facet icon {tostring(requested)} requires an image asset`)
 			return asset
 		end
-		local native: Shared.ImageLabelNativeProps = {
+		local native: Shared.ImageLabelProps = {
 			Image = if live(name) or live(config.theme) or live(config.icons) or live(state) then image else image(),
 			BackgroundTransparency = 1,
 		}
@@ -833,7 +836,7 @@ return function(
 			return types.UDim2.fromOffset(size, size)
 		end
 		local function resample(use: ComposeTypes.Use?): Enum.ResamplerMode
-			local package = ctx.read(config.theme, use)
+			local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
 			return if package and package.identity.rendering == "pixel"
 				then Enum.ResamplerMode.Pixelated
 				else Enum.ResamplerMode.Default

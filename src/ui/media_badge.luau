@@ -1,4 +1,5 @@
 --!strict
+local ThemeTypes = require("./theme_types")
 local layoutKit = require("./layout_kit")
 local Types = require("./types")
 local Engine = require("./engine_types")
@@ -13,6 +14,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	local Host, runtime, Compose = ctx.Host, ctx.runtime, ctx.Compose
 	local lists = layoutKit.of(ctx)
 	local types, read = ctx.types, ctx.read
+	local readStatus = read<<Media.Status?>>
+	local readNumber = read<<number?>>
+	local readText = read<<string?>>
 	local E, D2, D, V2 = types.Enum, types.UDim2, types.UDim, types.Vector2
 	local metric, controlSize = ctx.metric, ctx.controlSize
 	local skin = shared.skin
@@ -22,7 +26,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	local function statusTag(node: GuiObject, source: Types.Input<Media.Status>?)
 		local previous: string?
 		local function apply(use: ComposeTypes.Use?)
-			local requested = read(source, use)
+			local requested = readStatus(source, use)
 			local status = if requested == nil then "neutral" else requested
 			assert(
 				({
@@ -40,8 +44,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			if previous then
 				node:RemoveTag(previous)
 			end
-			previous = "facet-status-" .. status
-			node:AddTag(previous :: string)
+			local tag = "facet-status-" .. status
+			previous = tag
+			node:AddTag(tag)
 		end
 		if dynamic(source) then
 			Compose.watch(apply)
@@ -57,7 +62,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		)
 		local named = spec.icon ~= nil and type(spec.name) == "string" and spec.name ~= ""
 		local function caption(use: ComposeTypes.Use?): string
-			local value = read(spec.label, use)
+			local value = readText(spec.label, use)
 			assert(value == nil or type(value) == "string", "Facet Badge label must be a string")
 			return value or ""
 		end
@@ -86,7 +91,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		)
 		local node = ctx.styled(Host.TextLabel(native), "text")
 		if spec.icon == nil then
-			Host.UIPadding({}).Parent = node
+			Host.UIPadding {}.Parent = node
 		end
 		ctx.textLayout(node, true, true)
 		local pill: GuiObject = node
@@ -103,14 +108,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			local leading = spec.iconPosition ~= "trailing"
 			icon.LayoutOrder = if leading then 1 else 2
 			node.LayoutOrder = if leading then 2 else 1
-			pill = Host.Frame({
+			pill = Host.Frame {
 				Name = spec.Name or "Badge",
 				AutomaticSize = E.AutomaticSize.XY,
 				Size = size,
-				lists.list({ gap = 4, align = "center" }, false) :: ComposeTypes.Child,
-				icon :: ComposeTypes.Child,
-				node :: ComposeTypes.Child,
-			})
+				lists.list({ gap = 4, align = "center" }, false),
+				icon,
+				node,
+			}
 		end
 		local function visible(use: ComposeTypes.Use?): boolean
 			return read(spec.Visible, use) ~= false
@@ -133,8 +138,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			if previousAppearance then
 				pill:RemoveTag(previousAppearance)
 			end
-			previousAppearance = "facet-badge-" .. appearance
-			pill:AddTag(previousAppearance :: string)
+			local tag = "facet-badge-" .. appearance
+			previousAppearance = tag
+			pill:AddTag(tag)
 		end
 		if dynamic(spec.appearance) then
 			Compose.watch(appearanceTag)
@@ -160,7 +166,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		end
 		if spec.corners then
 			runtime.mount(function()
-				return Host.UICorner({
+				return Host.UICorner {
 					CornerRadius = function(use: ComposeTypes.Use)
 						local radius = read(spec.corners, use)
 						if type(radius) == "string" then
@@ -173,13 +179,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						assert(type(radius) == "number", "Facet Badge invalid corners")
 						return D.new(0, radius)
 					end,
-				})
+				}
 			end, pill)
 		end
 		skin(pill, "badge")
-		if (pill :: Instance) == (node :: Instance) and ctx.config.theme ~= nil then
+		if pill == node and ctx.config.theme ~= nil then
 			local function needsCaption(use: ComposeTypes.Use?): boolean
-				local package = read(ctx.config.theme, use)
+				local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 				local recipe = package and package.chrome and package.chrome.badge
 				return recipe ~= nil and recipe.kind ~= "native" and recipe.kind ~= "none"
 			end
@@ -232,8 +238,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	end)
 
 	UI.StatusIndicator = ctx.construct("StatusIndicator", function(spec: MediaProps.StatusIndicatorProps): TextLabel
-		local size = function(use: ComposeTypes.Use)
-			return read(spec.diameter, use)
+		local size = function(use: ComposeTypes.Use): number
+			return readNumber(spec.diameter, use)
 				or (
 					if spec.controlSize
 						then controlSize(spec.controlSize, "iconSize", use)
@@ -248,82 +254,74 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			)
 			return value
 		end
-		local native = ctx.props(
-			spec,
-			{ "status", "form", "count", "max", "name", "diameter", "controlSize", "cutout" },
-			{
-				Attributes = if spec.name ~= nil
-					then ({ AccessibleLabel = spec.name } :: unknown) :: Engine.Attributes
-					else nil,
-				Size = function(use: ComposeTypes.Use)
-					return D2.fromOffset(
-						if spec.count ~= nil then 0 else size(use),
-						if form(use) == "dash" then math.max(3, size(use) / 3) else size(use)
-					)
+		local attributes: Engine.Attributes? = if spec.name ~= nil then { AccessibleLabel = spec.name } else nil
+		local defaults: Engine.TextLabelNativeProps = {
+			Attributes = attributes,
+			Size = function(use: ComposeTypes.Use)
+				return D2.fromOffset(
+					if spec.count ~= nil then 0 else size(use),
+					if form(use) == "dash" then math.max(3, size(use) / 3) else size(use)
+				)
+			end,
+			AutomaticSize = if spec.count ~= nil
+				then (if spec.Size == nil then E.AutomaticSize.XY else E.AutomaticSize.X)
+				else nil,
+			Text = function(use: ComposeTypes.Use)
+				local count = readNumber(spec.count, use)
+				if count == nil then
+					return ""
+				end
+				assert(
+					type(count) == "number" and count >= 0 and count < math.huge and count % 1 == 0,
+					"Facet StatusIndicator count must be a nonnegative integer"
+				)
+				assert(
+					form(use) == "dot" or form(use) == "square",
+					"Facet StatusIndicator count requires dot or square"
+				)
+				assert(
+					spec.max == nil
+						or (type(spec.max) == "number" and spec.max >= 0 and spec.max < math.huge and spec.max % 1 == 0),
+					"Facet StatusIndicator max must be a nonnegative integer"
+				)
+				return if count > (spec.max or 99) then tostring(spec.max or 99) .. "+" else tostring(count)
+			end,
+			TextXAlignment = E.TextXAlignment.Center,
+			Host.UICorner {
+				CornerRadius = function(use: ComposeTypes.Use)
+					return if form(use) == "square" then D.new(0, 0) else ctx.round(use)
 				end,
-				AutomaticSize = if spec.count ~= nil
-					then (if spec.Size == nil then E.AutomaticSize.XY else E.AutomaticSize.X)
-					else nil,
-				Text = function(use: ComposeTypes.Use)
-					local count = read(spec.count, use)
-					if count == nil then
-						return ""
-					end
-					assert(
-						type(count) == "number" and count >= 0 and count < math.huge and count % 1 == 0,
-						"Facet StatusIndicator count must be a nonnegative integer"
-					)
-					assert(
-						form(use) == "dot" or form(use) == "square",
-						"Facet StatusIndicator count requires dot or square"
-					)
-					assert(
-						spec.max == nil
-							or (
-								type(spec.max) == "number"
-								and spec.max >= 0
-								and spec.max < math.huge
-								and spec.max % 1 == 0
-							),
-						"Facet StatusIndicator max must be a nonnegative integer"
-					)
-					return if count > (spec.max or 99) then tostring(spec.max or 99) .. "+" else tostring(count)
-				end,
-				TextXAlignment = E.TextXAlignment.Center,
-				Host.UICorner({
-					CornerRadius = function(use: ComposeTypes.Use)
-						return if form(use) == "square" then D.new(0, 0) else ctx.round(use)
-					end,
-				}) :: ComposeTypes.Child,
-				Compose.show(function(use: ComposeTypes.Use)
-					return form(use) == "ring"
-				end, function()
-					return ctx.styled(
-						Host.UIStroke "Ring" {
-							ApplyStrokeMode = E.ApplyStrokeMode.Border,
-							BorderStrokePosition = E.BorderStrokePosition.Inner,
-							Thickness = function(use: ComposeTypes.Use)
-								return math.max(2, math.floor(size(use) / 6 + 0.5))
-							end,
-						},
-						"status-ring"
-					)
-				end),
-			} :: Engine.TextLabelNativeProps
-		)
+			},
+			Compose.show(function(use: ComposeTypes.Use)
+				return form(use) == "ring"
+			end, function()
+				return ctx.styled(
+					Host.UIStroke "Ring" {
+						ApplyStrokeMode = E.ApplyStrokeMode.Border,
+						BorderStrokePosition = E.BorderStrokePosition.Inner,
+						Thickness = function(use: ComposeTypes.Use)
+							return math.max(2, math.floor(size(use) / 6 + 0.5))
+						end,
+					},
+					"status-ring"
+				)
+			end),
+		}
+		local native =
+			ctx.props(spec, { "status", "form", "count", "max", "name", "diameter", "controlSize", "cutout" }, defaults)
 		if spec.count ~= nil and spec.Size == nil then
-			native[#native + 1] = Host.UISizeConstraint({
+			native[#native + 1] = Host.UISizeConstraint {
 				MinSize = function(use: ComposeTypes.Use)
 					return V2.new(size(use), size(use))
 				end,
-			})
+			}
 		elseif spec.count == nil then
-			native[#native + 1] = Host.UIAspectRatioConstraint({
+			native[#native + 1] = Host.UIAspectRatioConstraint {
 				AspectRatio = function(use: ComposeTypes.Use)
 					return if form(use) == "dash" then 3 else 1
 				end,
 				AspectType = E.AspectType.FitWithinMaxSize,
-			})
+			}
 		end
 		if spec.cutout then
 			native[#native + 1] = ctx.styled(
@@ -339,7 +337,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			native[#native + 1] = Host.Frame "CountWidthFloor" {
 				BackgroundTransparency = 1,
 				Size = function(use: ComposeTypes.Use): UDim2
-					local package = read(ctx.config.theme, use)
+					local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 					local recipe = if package and package.chrome then package.chrome.badge else nil
 					local insets = if recipe then recipe.contentInsets else nil
 					local horizontal = math.max(8, if insets then insets.left or 0 else 0)

@@ -27,6 +27,9 @@ export type Catalog = {
 }
 
 local PROJECT = "examples/.live-double.project.json"
+local function traceback(message: unknown): string
+	return debug.traceback(tostring(message))
+end
 local CACHE = Roblox.createPlaceCache(Lute.fixture.host)
 
 local function open(check: Verify.Context, suites: { string }, sources: { [string]: string }?)
@@ -60,15 +63,30 @@ local function open(check: Verify.Context, suites: { string }, sources: { [strin
 		bridge.close()
 	end)
 	local engine = bridge.placeEngine()
-	local host = table.clone(Lute.fixture.host)
-	host.readFile = function(path: string): string
-		return if path == PROJECT
-			then project
-			elseif sources and sources[path] then sources[path]
-			else Lute.fixture.host.readFile(path)
-	end
+	local base = Lute.fixture.host
+	local host: typeof(base) = {
+		readFile = function(path: string): string
+			return if path == PROJECT
+				then project
+				elseif sources and sources[path] then sources[path]
+				else base.readFile(path)
+		end,
+		compile = base.compile,
+		load = base.load,
+		encodeJson = base.encodeJson,
+		decodeJson = base.decodeJson,
+	}
 	local cache = if sources then Roblox.createPlaceCache(host) else CACHE
-	local mounted = Roblox.buildPlaceTree(engine, PROJECT, { cache = cache, host = host, files = Lute.fixture.files })
+	local fixtureFiles = Lute.fixture.files
+	local mounted = Roblox.buildPlaceTree(engine, PROJECT, {
+		cache = cache,
+		host = host,
+		files = {
+			exists = fixtureFiles.exists,
+			fileType = fixtureFiles.fileType,
+			listDirectory = fixtureFiles.listDirectory,
+		},
+	})
 	local runtime = Roblox.createPlaceRuntime(engine, mounted, {
 		aliases = { repo = "" },
 		cache = cache,
@@ -139,7 +157,7 @@ local function run(check: Verify.Context, suite: string, id: string, sources: { 
 				else
 					local drive = Lute.chunk.load(source, { environment = runtime.globals })() :: Drive
 					local options: { [string]: unknown } = { only = id, device = "keep" }
-					local ok, result = xpcall(drive, debug.traceback, live, suite, options)
+					local ok, result = xpcall(drive, traceback, live, suite, options)
 					check:expect(ok):toBeTrueWith(tostring(result))
 					interactive = if ok then result :: InteractiveReport else nil
 				end

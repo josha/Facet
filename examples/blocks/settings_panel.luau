@@ -19,7 +19,6 @@ return function(_Facet: FacetModule, UI: FacetControls, model: Model): Instance
 		selected = model.quality,
 		options = options,
 	}
-	local picker = (UI.Picker "Quality" :: unknown) :: (FacetTypes.SinglePickerSpec<string>) -> GuiObject
 	return UI.Screen "Settings" {
 		padding = "m",
 		gap = "m",
@@ -35,7 +34,7 @@ return function(_Facet: FacetModule, UI: FacetControls, model: Model): Instance
 				return `{value}%`
 			end,
 		},
-		picker(pickerSpec),
+		UI.Picker "Quality"(pickerSpec),
 		UI.Button "Reset" {
 			label = "Reset to defaults",
 			appearance = "soft",

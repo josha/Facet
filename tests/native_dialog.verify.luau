@@ -1,13 +1,21 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Bdd = require("../tools/vendor/verify/src/bdd")
+local Facet = require("../src")
 
 return function(verifyHarness: Verify.Harness)
+	local test = Bdd.create(verifyHarness)
+	local describe, it, expect = test.describe, test.it, test.expect
 	type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 
 	local Compose = require("../src/vendor/compose/core")
+	local OverlayProps = require("../src/ui/overlay_props")
+	local Nav = require("../src/ui/navigation_types")
+	local NavProps = require("../src/ui/navigation_props")
+	type Builder = (FacetControls, RobloxHost) -> OverlayProps.DialogSpec
 	local overlay = require("./lib/overlay_world")
 	local fadeKit = require("./lib/fade")
 	local parts = require("../src/ui/overlay_parts")
@@ -18,7 +26,7 @@ return function(verifyHarness: Verify.Harness)
 
 	type Log = { changes: { boolean }, dismissed: { string }, pressed: { string } }
 
-	local function caller(accept: boolean?): (any, Log, (boolean) -> ())
+	local function caller(accept: boolean?): (Compose.Value<boolean>, Log, (boolean) -> ())
 		local open = Compose.cell(true)
 		local log: Log = { changes = {}, dismissed = {}, pressed = {} }
 		return open,
@@ -31,8 +39,13 @@ return function(verifyHarness: Verify.Harness)
 			end
 	end
 
-	local function standard(open: any, log: Log, change: any, extra: { [string]: any }?): (any, any) -> any
-		return function(UI: any, Host: any)
+	local function standard(
+		open: Compose.Value<boolean>,
+		log: Log,
+		change: (boolean) -> (),
+		extra: { [string]: any }?
+	): Builder
+		return function(UI: FacetControls, Host: RobloxHost)
 			local spec: any = {
 				isPresented = open,
 				onPresentedChange = change,
@@ -69,11 +82,11 @@ return function(verifyHarness: Verify.Harness)
 		end
 	end
 
-	local function mount(specOf: (any, any) -> any, options: Types.Config?, setup: overlay.Setup?): any
+	local function mount(specOf: Builder, options: Types.Config?, setup: overlay.Setup?): any
 		return overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
 			local opener = UI.Button "Opener" { label = "Open" }
 			gui.SelectedObject = opener
-			return Host.Frame({ opener :: unknown, UI.Dialog "Confirm"(specOf(UI, Host)) })
+			return Host.Frame { opener, UI.Dialog(specOf(UI, Host), "Confirm") }
 		end, options, setup)
 	end
 
@@ -81,8 +94,8 @@ return function(verifyHarness: Verify.Harness)
 		return overlay.find(w.find("Actions"), id)
 	end
 
-	verifyHarness:suite("native Dialog: one Back press closes one modal", function()
-		verifyHarness:case("restores content after the fade shell ends before materialization", {
+	describe("native Dialog: one Back press closes one modal", function()
+		it("restores content after the fade shell ends before materialization", {
 			id = "native_dialog::native Dialog: one Back press closes one modal::restores content after the fade shell ends before materialization",
 			run = function()
 				local shown, log, change = caller()
@@ -90,28 +103,28 @@ return function(verifyHarness: Verify.Harness)
 				local panel, line = w.find("Panel"), w.find("Line")
 				w.size(panel, 560, 200)
 				w.advance(1, 60)
-				Verify.expect(line:IsDescendantOf(panel)):toBe(true)
-				Verify.expect(w.find("Line")):toBe(line)
+				expect(line:IsDescendantOf(panel)):toBe(true)
+				expect(w.find("Line")):toBe(line)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("fully masks the native preparation frame", {
+		it("fully masks the native preparation frame", {
 			id = "native_dialog::native Dialog: one Back press closes one modal::fully masks the native preparation frame",
 			run = function()
 				local shown, log, change = caller()
 				local w = mount(standard(shown, log, change), nil, { runService = true })
-				Verify.expect(w.find("Fade").GroupTransparency):toBe(1)
+				expect(w.find("Fade").GroupTransparency):toBe(1)
 				w.size(w.find("Panel"), 560, 200)
 				w.advance(1, 60)
-				Verify.expect(w.find("Line") ~= nil):toBe(true)
-				Verify.expect(fadeKit.of(w.find("Panel"))):toBe(0)
-				Verify.expect(w.find("Panel"):FindFirstChild("FadeStroke")):toBe(nil)
-				Verify.expect(w.find("Panel"):HasTag("facet-fading")):toBe(false)
+				expect(w.find("Line") ~= nil):toBe(true)
+				expect(fadeKit.of(w.find("Panel"))):toBe(0)
+				expect(w.find("Panel"):FindFirstChild("FadeStroke")):toBe(nil)
+				expect(w.find("Panel"):HasTag("facet-fading")):toBe(false)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("keeps the panel slot fixed while its paint appears", {
+		it("keeps the panel slot fixed while its paint appears", {
 			id = "native_dialog::native Dialog: one Back press closes one modal::keeps the panel slot fixed while its paint appears",
 			run = function()
 				local shown, log, change = caller()
@@ -119,12 +132,12 @@ return function(verifyHarness: Verify.Harness)
 				local panel = w.find("Panel")
 				w.size(panel, 560, 200)
 				w.advance(1 / 60, 3)
-				Verify.expect(panel.Size.X.Offset):toBe(560)
-				Verify.expect(panel.Size.Y.Offset):toBe(200)
+				expect(panel.Size.X.Offset):toBe(560)
+				expect(panel.Size.Y.Offset):toBe(200)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("converts viewport and held panel bounds to layout units", {
+		it("converts viewport and held panel bounds to layout units", {
 			id = "native_dialog::native Dialog: one Back press closes one modal::converts viewport and held panel bounds to layout units",
 			run = function()
 				local shown, log, change = caller()
@@ -136,12 +149,12 @@ return function(verifyHarness: Verify.Harness)
 					w.size(probe, 100 * 0.513, 0.513)
 				end
 				w.advance(0.5, 30)
-				Verify.expect(panel.Size.X.Offset):toBe(368)
-				Verify.expect(panel.Position.Y.Offset):toBe(0)
+				expect(panel.Size.X.Offset):toBe(368)
+				expect(panel.Position.Y.Offset):toBe(0)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("Back returns selection to an opener beside a NavigationStack", {
+		it("Back returns selection to an opener beside a NavigationStack", {
 			id = "native_dialog::native Dialog: one Back press closes one modal::Back returns selection to an opener beside a NavigationStack",
 			run = function()
 				local open, log, change = caller()
@@ -156,19 +169,20 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 					gui.SelectedObject = opener
-					return Host.Frame({
-						opener :: unknown,
-						UI.NavigationStack "App" {
-							path = Compose.cell({}),
-							destinations = {},
-							root = {
-								content = function(): Instance
-									return UI.Button "Home" { label = "Home" }
-								end,
-							},
+					local stackSpec: NavProps.NavigationStackSpec = {
+						path = Compose.cell({}),
+						destinations = {},
+						root = {
+							content = function(): Instance
+								return UI.Button "Home" { label = "Home" }
+							end,
 						},
-						UI.Dialog "Confirm"(standard(open, log, change)(UI, Host)),
-					})
+					}
+					return Host.Frame {
+						opener,
+						UI.NavigationStack "App"(stackSpec),
+						UI.Dialog(standard(open, log, change)(UI, Host), "Confirm"),
+					}
 				end, { motionLevel = "none" })
 				w.input.IsGamepadButtonDown = function(_, _, key)
 					return held and key == w.Enum.KeyCode.ButtonB
@@ -176,17 +190,17 @@ return function(verifyHarness: Verify.Harness)
 				w.gui.SelectedObject = opener
 				open:set(true)
 				w.advance(0.1)
-				Verify.expect(w.gui.SelectedObject ~= opener):toBe(true)
+				expect(w.gui.SelectedObject ~= opener):toBe(true)
 				held = true
 				w.action("ModalBack").Pressed:Fire()
 				held = false
 				w.advance(0.1)
-				Verify.expect((open:peek())):toBe(false)
-				Verify.expect(w.gui.SelectedObject):toBe(opener)
+				expect((open:peek())):toBe(false)
+				expect(w.gui.SelectedObject):toBe(opener)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("the modal under a closing one ignores the Back press that closed it", {
+		it("the modal under a closing one ignores the Back press that closed it", {
 			id = "native_dialog::native Dialog: one Back press closes one modal::the modal under a closing one ignores the Back press that closed it",
 			run = function()
 				local outerOpen, outerLog, outerChange = caller()
@@ -195,32 +209,32 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
 					local opener = UI.Button "Opener" { label = "Open" }
 					gui.SelectedObject = opener
-					return Host.Frame({
-						opener :: unknown,
-						UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
-						UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
-					})
+					return Host.Frame {
+						opener,
+						UI.Dialog(standard(outerOpen, outerLog, outerChange)(UI, Host), "Outer"),
+						UI.Dialog(standard(innerOpen, innerLog, innerChange)(UI, Host), "Inner"),
+					}
 				end, { motionLevel = "none" })
 				w.input.IsGamepadButtonDown = function(_, _, key)
 					return held and key == w.Enum.KeyCode.ButtonB
 				end
 				w.advance(0.1)
 				w.action("ModalBack").Pressed:Fire()
-				Verify.expect((innerOpen:peek())):toBe(false)
+				expect((innerOpen:peek())):toBe(false)
 				local under = w.action("ModalBack")
-				Verify.expect(under ~= nil):toBe(true)
+				expect(under ~= nil):toBe(true)
 				under.Pressed:Fire()
-				Verify.expect((outerOpen:peek())):toBe(true)
+				expect((outerOpen:peek())):toBe(true)
 				held = false
 				under.Released:Fire()
 				under.Pressed:Fire()
-				Verify.expect((outerOpen:peek())):toBe(false)
+				expect((outerOpen:peek())):toBe(false)
 				w.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("native Dialog: Tab and Escape arrive through UserInputService", function()
+	describe("native Dialog: Tab and Escape arrive through UserInputService", function()
 		local function key(w: any, name: string, began: boolean)
 			local event = { KeyCode = (w.Enum.KeyCode :: any)[name], UserInputType = w.Enum.UserInputType.Keyboard }
 			if began then
@@ -230,7 +244,7 @@ return function(verifyHarness: Verify.Harness)
 			end
 		end
 
-		verifyHarness:case("a Tab the engine keeps from input actions still walks the dialog, one step per press", {
+		it("a Tab the engine keeps from input actions still walks the dialog, one step per press", {
 			id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::a Tab the engine keeps from input actions still walks the dialog, one step per press",
 			run = function()
 				local open, log, change = caller()
@@ -238,10 +252,10 @@ return function(verifyHarness: Verify.Harness)
 					mount(standard(open, log, change), nil, { inputs = true, lastInputType = UserInputType.Keyboard })
 				w.engine.environment.poke(w.input, "KeyboardEnabled", true)
 				local first = w.gui.SelectedObject
-				Verify.expect(first ~= nil):toBe(true)
+				expect(first ~= nil):toBe(true)
 				key(w, "Tab", true)
 				local second = w.gui.SelectedObject
-				Verify.expect(second ~= first):toBe(true)
+				expect(second ~= first):toBe(true)
 				local traverse
 				for _, node in w.screen.Parent:GetDescendants() do
 					if node:IsA("InputAction") and node.Name == "Traverse" then
@@ -249,17 +263,17 @@ return function(verifyHarness: Verify.Harness)
 					end
 				end
 				traverse.Pressed:Fire()
-				Verify.expect(w.gui.SelectedObject):toBe(second)
+				expect(w.gui.SelectedObject):toBe(second)
 				key(w, "Tab", false)
 				traverse.Released:Fire()
 				traverse.Pressed:Fire()
-				Verify.expect(w.gui.SelectedObject ~= second):toBe(true)
+				expect(w.gui.SelectedObject ~= second):toBe(true)
 				traverse.Released:Fire()
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("one Escape closes only the top of two stacked dialogs", {
+		it("one Escape closes only the top of two stacked dialogs", {
 			id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::one Escape closes only the top of two stacked dialogs",
 			run = function()
 				local outerOpen, outerLog, outerChange = caller()
@@ -267,21 +281,21 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
 					local opener = UI.Button "Opener" { label = "Open" }
 					gui.SelectedObject = opener
-					return Host.Frame({
-						opener :: unknown,
-						UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
-						UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
-					})
+					return Host.Frame {
+						opener,
+						UI.Dialog(standard(outerOpen, outerLog, outerChange)(UI, Host), "Outer"),
+						UI.Dialog(standard(innerOpen, innerLog, innerChange)(UI, Host), "Inner"),
+					}
 				end, { motionLevel = "none" }, { inputs = true })
 				w.advance(0.1)
 				key(w, "Escape", true)
 				key(w, "Escape", false)
-				Verify.expect(`{innerOpen:peek()} {outerOpen:peek()}`):toBe("false true")
+				expect(`{innerOpen:peek()} {outerOpen:peek()}`):toBe("false true")
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("an Escape while the Roblox menu is open closes nothing", {
+		it("an Escape while the Roblox menu is open closes nothing", {
 			id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::an Escape while the Roblox menu is open closes nothing",
 			run = function()
 				local open, log, change = caller()
@@ -290,16 +304,16 @@ return function(verifyHarness: Verify.Harness)
 				w.engine.environment.poke(w.gui, "MenuIsOpen", true)
 				key(w, "Escape", true)
 				key(w, "Escape", false)
-				Verify.expect((open:peek())):toBe(true)
+				expect((open:peek())):toBe(true)
 				w.engine.environment.poke(w.gui, "MenuIsOpen", false)
 				key(w, "Escape", true)
 				key(w, "Escape", false)
-				Verify.expect((open:peek())):toBe(false)
+				expect((open:peek())):toBe(false)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("with two Facet control sets, one Escape closes only the dialog that holds the selection", {
+		it("with two Facet control sets, one Escape closes only the dialog that holds the selection", {
 			id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::with two Facet control sets, one Escape closes only the dialog that holds the selection",
 			run = function()
 				local firstOpen, firstLog, firstChange = caller()
@@ -313,9 +327,10 @@ return function(verifyHarness: Verify.Harness)
 					motionLevel = "none",
 				})
 				local stop = w.runtime.mount(function()
-					return ((w.runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
-						other.Dialog "Second"(
-							standard(secondOpen, secondLog, secondChange)(other, w.runtime.constructors)
+					return Facet.host(w.runtime).ScreenGui({
+						other.Dialog(
+							standard(secondOpen, secondLog, secondChange)(other, w.runtime.constructors),
+							"Second"
 						),
 					})
 				end, target)
@@ -324,13 +339,13 @@ return function(verifyHarness: Verify.Harness)
 				w.gui.SelectedObject = overlay.find(panel, "Stay")
 				key(w, "Escape", true)
 				key(w, "Escape", false)
-				Verify.expect(`{firstOpen:peek()} {secondOpen:peek()}`):toBe("true false")
+				expect(`{firstOpen:peek()} {secondOpen:peek()}`):toBe("true false")
 				stop()
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("Tab leaves only a Facet text field, and never with Ctrl, Alt or Meta held", {
+		it("Tab leaves only a Facet text field, and never with Ctrl, Alt or Meta held", {
 			id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::Tab leaves only a Facet text field, and never with Ctrl, Alt or Meta held",
 			run = function()
 				local open, log, change = caller()
@@ -343,7 +358,7 @@ return function(verifyHarness: Verify.Harness)
 				end
 				key(w, "Tab", true)
 				key(w, "Tab", false)
-				Verify.expect(w.gui.SelectedObject):toBe(start)
+				expect(w.gui.SelectedObject):toBe(start)
 				w.input.GetFocusedTextBox = function()
 					return nil
 				end
@@ -355,253 +370,246 @@ return function(verifyHarness: Verify.Harness)
 					down[modifier] = true
 					key(w, "Tab", true)
 					key(w, "Tab", false)
-					Verify.expect(w.gui.SelectedObject):toBe(start)
+					expect(w.gui.SelectedObject):toBe(start)
 					down[modifier] = nil
 				end
 				key(w, "Tab", true)
 				key(w, "Tab", false)
-				Verify.expect(w.gui.SelectedObject ~= start):toBe(true)
+				expect(w.gui.SelectedObject ~= start):toBe(true)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case(
-			"an Escape the engine keeps from input actions closes the dialog once, and not while typing",
-			{
-				id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::an Escape the engine keeps from input actions closes the dialog once, and not while typing",
-				run = function()
-					local open, log, change = caller()
-					local w = mount(standard(open, log, change), { motionLevel = "none" }, { inputs = true })
+		it("an Escape the engine keeps from input actions closes the dialog once, and not while typing", {
+			id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::an Escape the engine keeps from input actions closes the dialog once, and not while typing",
+			run = function()
+				local open, log, change = caller()
+				local w = mount(standard(open, log, change), { motionLevel = "none" }, { inputs = true })
+				w.advance(0.1)
+				w.input.GetFocusedTextBox = function()
+					return w.engine.new("TextBox")
+				end
+				key(w, "Escape", true)
+				key(w, "Escape", false)
+				expect((open:peek())):toBe(true)
+				w.input.GetFocusedTextBox = function()
+					return nil
+				end
+				key(w, "Escape", true)
+				local back = w.action("ModalBack")
+				if back then
+					back.Pressed:Fire()
+				end
+				key(w, "Escape", false)
+				expect((open:peek())):toBe(false)
+				expect(#log.changes):toBe(1)
+				w.stop()
+			end,
+		})
+
+		it("an Escape returns selection to an opener inside a NavigationStack page, which opens the dialog again", {
+			id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::an Escape returns selection to an opener inside a NavigationStack page, which opens the dialog again",
+			run = function()
+				local open, log, change = caller()
+				open:set(false)
+				local opener: GuiObject
+				local entries: { Nav.NavigationEntry } = { { id = "detail" } }
+				local path = Compose.cell(entries)
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					local stackSpec: NavProps.NavigationStackSpec = {
+						path = path,
+						destinations = {
+							detail = {
+								content = function(): Instance
+									opener = UI.Button "Opener" {
+										label = "Open",
+										onActivate = function()
+											open:set(true)
+										end,
+									}
+									return opener
+								end,
+							},
+						},
+						root = {
+							content = function(): Instance
+								return UI.Button "Home" { label = "Home" }
+							end,
+						},
+					}
+					return Host.Frame {
+						UI.NavigationStack "App"(stackSpec),
+						UI.Dialog(standard(open, log, change)(UI, Host), "Confirm"),
+					}
+				end, { motionLevel = "none" }, { inputs = true, lastInputType = UserInputType.Keyboard })
+				w.advance(0.1)
+				for cycle = 1, 2 do
+					w.gui.SelectedObject = opener
+					open:set(true)
 					w.advance(0.1)
-					w.input.GetFocusedTextBox = function()
-						return w.engine.new("TextBox")
-					end
-					key(w, "Escape", true)
-					key(w, "Escape", false)
-					Verify.expect((open:peek())):toBe(true)
-					w.input.GetFocusedTextBox = function()
-						return nil
-					end
+					expect(w.gui.SelectedObject ~= opener):toBe(true)
 					key(w, "Escape", true)
 					local back = w.action("ModalBack")
 					if back then
 						back.Pressed:Fire()
 					end
 					key(w, "Escape", false)
-					Verify.expect((open:peek())):toBe(false)
-					Verify.expect(#log.changes):toBe(1)
-					w.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case(
-			"an Escape returns selection to an opener inside a NavigationStack page, which opens the dialog again",
-			{
-				id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::an Escape returns selection to an opener inside a NavigationStack page, which opens the dialog again",
-				run = function()
-					local open, log, change = caller()
-					open:set(false)
-					local opener: GuiObject
-					local path = Compose.cell({ { id = "detail" } })
-					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame({
-							UI.NavigationStack "App" {
-								path = path,
-								destinations = {
-									detail = {
-										content = function(): Instance
-											opener = UI.Button "Opener" {
-												label = "Open",
-												onActivate = function()
-													open:set(true)
-												end,
-											}
-											return opener
-										end,
-									},
-								},
-								root = {
-									content = function(): Instance
-										return UI.Button "Home" { label = "Home" }
-									end,
-								},
-							},
-							UI.Dialog "Confirm"(standard(open, log, change)(UI, Host)),
-						})
-					end, { motionLevel = "none" }, { inputs = true, lastInputType = UserInputType.Keyboard })
-					w.advance(0.1)
-					for cycle = 1, 2 do
-						w.gui.SelectedObject = opener
-						open:set(true)
-						w.advance(0.1)
-						Verify.expect(w.gui.SelectedObject ~= opener):toBe(true)
-						key(w, "Escape", true)
-						local back = w.action("ModalBack")
-						if back then
-							back.Pressed:Fire()
-						end
-						key(w, "Escape", false)
-						w.advance(0.5)
-						Verify.expect((open:peek())):toBe(false)
-						Verify.expect(#path:peek()):toBe(1)
-						Verify.expect(w.gui.SelectedObject):toBe(opener)
-						Verify.expect(#log.changes):toBe(cycle)
-					end
-					w.stop()
-				end,
-			}
-		)
+					w.advance(0.5)
+					expect((open:peek())):toBe(false)
+					expect(#path:peek()):toBe(1)
+					expect(w.gui.SelectedObject):toBe(opener)
+					expect(#log.changes):toBe(cycle)
+				end
+				w.stop()
+			end,
+		})
 	end)
 
-	verifyHarness:suite("native Dialog: initial action", function()
-		verifyHarness:case("starts on the default action unless it is destructive, then on the safe choice", function()
+	describe("native Dialog: initial action", function()
+		it("starts on the default action unless it is destructive, then on the safe choice", function()
 			local parts = require("../src/ui/overlay_parts")
 			local function pick(list: { parts.Candidate }): string
 				return parts.initialAction(list) or "none"
 			end
-			Verify.expect(pick({
+			expect(pick({
 				{ id = "Later", role = "cancel", usable = true },
 				{ id = "Claim", role = "default", usable = true },
 			})):toBe("Claim")
-			Verify.expect(pick({
+			expect(pick({
 				{ id = "Keep", role = "cancel", usable = true },
 				{ id = "Sell", role = "destructive", usable = true },
 			})):toBe("Keep")
-			Verify.expect(pick({
+			expect(pick({
 				{ id = "Keep", role = "cancel", usable = true },
 				{ id = "Sell", role = "destructive", usable = true, default = true },
 			})):toBe("Keep")
-			Verify.expect(pick({
+			expect(pick({
 				{ id = "Later", role = "cancel", usable = true },
 				{ id = "Claim", role = "default", usable = false },
 			})):toBe("Later")
-			Verify.expect(pick({
+			expect(pick({
 				{ id = "Info", usable = false },
 				{ id = "Delete", role = "destructive", usable = true },
 			})):toBe("none")
-			Verify.expect(pick({
+			expect(pick({
 				{ id = "One", usable = true },
 				{ id = "Two", usable = true, default = true },
 			})):toBe("Two")
 		end)
 	end)
 
-	verifyHarness:suite("native Dialog: the caller's fact decides", function()
-		verifyHarness:case("keeps the claimed selection and parent when the entry fade completes", {
+	describe("native Dialog: the caller's fact decides", function()
+		it("keeps the claimed selection and parent when the entry fade completes", {
 			id = "native_dialog::native Dialog: the caller's fact decides::keeps the claimed selection and parent when the entry fade completes",
 			run = function()
 				local open, log, change = caller()
 				local w = mount(standard(open, log, change), nil, { lastInputType = UserInputType.Keyboard })
 				local stay = actionButton(w, "Leave")
-				Verify.expect(w.find("Fade") ~= nil and stay:IsDescendantOf(w.find("Fade"))):toBe(true)
-				Verify.expect(w.gui.SelectedObject):toBe(stay)
+				expect(w.find("Fade") ~= nil and stay:IsDescendantOf(w.find("Fade"))):toBe(true)
+				expect(w.gui.SelectedObject):toBe(stay)
 				stay.AncestryChanged:Connect(function()
 					if w.gui.SelectedObject == stay then
 						w.gui.SelectedObject = nil
 					end
 				end)
 				w.advance(1, 60)
-				Verify.expect(w.find("Fade").GroupTransparency):toBe(0)
-				Verify.expect(w.gui.SelectedObject):toBe(stay)
+				expect(w.find("Fade").GroupTransparency):toBe(0)
+				expect(w.gui.SelectedObject):toBe(stay)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("a child that arrives while the entry fade runs joins the fading group", {
+		it("a child that arrives while the entry fade runs joins the fading group", {
 			id = "native_dialog::native Dialog: the caller's fact decides::a child that arrives while the entry fade runs joins the fading group",
 			run = function()
 				local open, log, change = caller()
 				local w = mount(standard(open, log, change))
 				local fade = w.find("Fade")
-				Verify.expect(fade ~= nil):toBe(true)
+				expect(fade ~= nil):toBe(true)
 				local late = w.engine.new("Frame")
 				late.Name = "Late"
 				late.Parent = fade.Parent
 				w.advance(1 / 60)
-				Verify.expect(late.Parent):toBe(fade)
+				expect(late.Parent):toBe(fade)
 				w.advance(1, 60)
-				Verify.expect(w.find("Fade").GroupTransparency):toBe(0)
-				Verify.expect(late.Parent):toBe(fade)
+				expect(w.find("Fade").GroupTransparency):toBe(0)
+				expect(late.Parent):toBe(fade)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("a dialog with actions has no close control unless it asks; one without actions keeps it", {
+		it("a dialog with actions has no close control unless it asks; one without actions keeps it", {
 			id = "native_dialog::native Dialog: the caller's fact decides::a dialog with actions has no close control unless it asks; one without actions keeps it",
 			run = function()
 				local open, log, change = caller()
 				local w = mount(standard(open, log, change, { closeButton = true }))
-				Verify.expect((w.find("Close"):IsDescendantOf(w.find("Header")))):toBe(true)
+				expect((w.find("Close"):IsDescendantOf(w.find("Header")))):toBe(true)
 				w.stop()
 				local bare = mount(standard(open, log, change, { actions = {} }))
-				Verify.expect(bare.find("Close") ~= nil):toBe(true)
+				expect(bare.find("Close") ~= nil):toBe(true)
 				bare.stop()
 			end,
 		})
 
-		verifyHarness:case("the icon close control meets the theme's minimum target at ten-foot distance", {
+		it("the icon close control meets the theme's minimum target at ten-foot distance", {
 			id = "native_dialog::native Dialog: the caller's fact decides::the icon close control meets the theme's minimum target at ten-foot distance",
 			run = function()
 				local open, log, change = caller()
 				local themes = require("../src/ui/themes")(Compose)
 				local far = themes.forDistance(themes.neutralPackage(), "ten-foot")
 				local minimum = far.metrics.targetSizes.minimum
-				Verify.expect(minimum > 44):toBe(true)
-				local options: Types.Config = { theme = assert(themes.define(far)) }
+				expect(minimum > 44):toBe(true)
+				local options: Types.Config = { theme = far }
 				local w = mount(standard(open, log, change, { closeButton = true }), options)
 				local close = w.find("Close")
-				Verify.expect(close.Size.X.Offset):toBe(minimum)
-				Verify.expect(close.Size.Y.Offset):toBe(minimum)
+				expect(close.Size.X.Offset):toBe(minimum)
+				expect(close.Size.Y.Offset):toBe(minimum)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case(
-			"the close button proposes: refused keeps the same surface and focus, accepted reports close",
-			{
-				id = "native_dialog::native Dialog: the caller's fact decides::the close button proposes: refused keeps the same surface and focus, accepted reports close",
-				run = function()
-					local open, log, change = caller(false)
-					local w = mount(
-						standard(open, log, change, { closeButton = true }),
-						nil,
-						{ lastInputType = UserInputType.Keyboard }
-					)
-					local panel = w.find("Panel")
-					local close = w.find("Close")
-					w.gui.SelectedObject = close
-					close.Activated:Fire()
-					Verify.expect((w.find("Panel"))):toBe(panel)
-					Verify.expect(w.gui.SelectedObject):toBe(close)
-					Verify.expect(log.changes[#log.changes]):toBe(false)
-					Verify.expect(#log.dismissed):toBe(0)
-					w.stop()
-					local open2, log2, change2 = caller()
-					local w2 = mount(
-						standard(open2, log2, change2, { closeButton = true }),
-						nil,
-						{ lastInputType = UserInputType.Keyboard }
-					)
-					Verify.expect(w2.gui.SelectedObject):toBe(actionButton(w2, "Leave"))
-					w2.find("Close").Activated:Fire()
-					Verify.expect((w2.find("Panel"))):toBe(nil)
-					Verify.expect((table.concat(log2.dismissed, ","))):toBe("close")
-					Verify.expect(w2.gui.SelectedObject):toBe(w2.find("Opener"))
-					w2.stop()
-				end,
-			}
-		)
+		it("the close button proposes: refused keeps the same surface and focus, accepted reports close", {
+			id = "native_dialog::native Dialog: the caller's fact decides::the close button proposes: refused keeps the same surface and focus, accepted reports close",
+			run = function()
+				local open, log, change = caller(false)
+				local w = mount(
+					standard(open, log, change, { closeButton = true }),
+					nil,
+					{ lastInputType = UserInputType.Keyboard }
+				)
+				local panel = w.find("Panel")
+				local close = w.find("Close")
+				w.gui.SelectedObject = close
+				close.Activated:Fire()
+				expect((w.find("Panel"))):toBe(panel)
+				expect(w.gui.SelectedObject):toBe(close)
+				expect(log.changes[#log.changes]):toBe(false)
+				expect(#log.dismissed):toBe(0)
+				w.stop()
+				local open2, log2, change2 = caller()
+				local w2 = mount(
+					standard(open2, log2, change2, { closeButton = true }),
+					nil,
+					{ lastInputType = UserInputType.Keyboard }
+				)
+				expect(w2.gui.SelectedObject):toBe(actionButton(w2, "Leave"))
+				w2.find("Close").Activated:Fire()
+				expect((w2.find("Panel"))):toBe(nil)
+				expect((table.concat(log2.dismissed, ","))):toBe("close")
+				expect(w2.gui.SelectedObject):toBe(w2.find("Opener"))
+				w2.stop()
+			end,
+		})
 
-		verifyHarness:case("Cancel runs an eligible cancel action first; without one it proposes cancel", {
+		it("Cancel runs an eligible cancel action first; without one it proposes cancel", {
 			id = "native_dialog::native Dialog: the caller's fact decides::Cancel runs an eligible cancel action first; without one it proposes cancel",
 			run = function()
 				local open, log, change = caller()
 				local w = mount(standard(open, log, change))
 				w.find("ModalBack").Pressed:Fire()
-				Verify.expect((table.concat(log.pressed, ","))):toBe("Stay")
-				Verify.expect((w.find("Panel"))):toBe(nil)
-				Verify.expect((table.concat(log.dismissed, ","))):toBe("action")
+				expect((table.concat(log.pressed, ","))):toBe("Stay")
+				expect((w.find("Panel"))):toBe(nil)
+				expect((table.concat(log.dismissed, ","))):toBe("action")
 				w.stop()
 				local open2, log2, change2 = caller()
 				local w2 = mount(standard(open2, log2, change2, {
@@ -617,13 +625,13 @@ return function(verifyHarness: Verify.Harness)
 					},
 				}))
 				w2.find("ModalBack").Pressed:Fire()
-				Verify.expect((w2.find("Panel"))):toBe(nil)
-				Verify.expect((table.concat(log2.dismissed, ","))):toBe("cancel")
+				expect((w2.find("Panel"))):toBe(nil)
+				expect((table.concat(log2.dismissed, ","))):toBe("cancel")
 				w2.stop()
 			end,
 		})
 
-		verifyHarness:case("an action that accepts false during its callback closes with reason action", {
+		it("an action that accepts false during its callback closes with reason action", {
 			id = "native_dialog::native Dialog: the caller's fact decides::an action that accepts false during its callback closes with reason action",
 			run = function()
 				local open, log, change = caller()
@@ -640,13 +648,13 @@ return function(verifyHarness: Verify.Harness)
 					},
 				}))
 				actionButton(w, "Leave").Activated:Fire()
-				Verify.expect((w.find("Panel"))):toBe(nil)
-				Verify.expect((table.concat(log.dismissed, ","))):toBe("action")
+				expect((w.find("Panel"))):toBe(nil)
+				expect((table.concat(log.dismissed, ","))):toBe("action")
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("an action press proposes the close after its callback; keepOpen opts out", {
+		it("an action press proposes the close after its callback; keepOpen opts out", {
 			id = "native_dialog::native Dialog: the caller's fact decides::an action press proposes the close after its callback; keepOpen opts out",
 			run = function()
 				local open, log, change = caller()
@@ -670,21 +678,21 @@ return function(verifyHarness: Verify.Harness)
 					},
 				}))
 				actionButton(w, "Apply").Activated:Fire()
-				Verify.expect(#log.changes):toBe(0)
-				Verify.expect(w.find("Panel") ~= nil):toBe(true)
+				expect(#log.changes):toBe(0)
+				expect(w.find("Panel") ~= nil):toBe(true)
 				actionButton(w, "Leave").Activated:Fire()
-				Verify.expect((table.concat(log.pressed, ","))):toBe("Apply,Leave")
-				Verify.expect(#log.changes == 1 and log.changes[1] == false):toBe(true)
-				Verify.expect((table.concat(log.dismissed, ","))):toBe("action")
+				expect((table.concat(log.pressed, ","))):toBe("Apply,Leave")
+				expect(#log.changes == 1 and log.changes[1] == false):toBe(true)
+				expect((table.concat(log.dismissed, ","))):toBe("action")
 				w.stop()
 				local refused, refusedLog, refuse = caller(false)
 				local kept = mount(standard(refused, refusedLog, refuse))
 				actionButton(kept, "Leave").Activated:Fire()
-				Verify.expect(#refusedLog.changes == 1 and refusedLog.changes[1] == false):toBe(true)
-				Verify.expect(kept.find("Panel") ~= nil):toBe(true)
-				Verify.expect((table.concat(refusedLog.dismissed, ","))):toBe("")
+				expect(#refusedLog.changes == 1 and refusedLog.changes[1] == false):toBe(true)
+				expect(kept.find("Panel") ~= nil):toBe(true)
+				expect((table.concat(refusedLog.dismissed, ","))):toBe("")
 				kept.stop()
-				Verify.expect(function()
+				expect(function()
 					parts.checkActions(
 						{} :: any,
 						"UI.Sheet",
@@ -695,7 +703,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a throwing action proposes nothing and leaves the bookkeeping sound", {
+		it("a throwing action proposes nothing and leaves the bookkeeping sound", {
 			id = "native_dialog::native Dialog: the caller's fact decides::a throwing action proposes nothing and leaves the bookkeeping sound",
 			run = function()
 				local open, log, change = caller()
@@ -713,16 +721,16 @@ return function(verifyHarness: Verify.Harness)
 				local ok, failure = pcall(function()
 					actionButton(w, "Boom").Activated:Fire()
 				end)
-				Verify.expect(ok):toBe(false)
-				Verify.expect(string.find(tostring(failure), "caller bug", 1, true) ~= nil):toBe(true)
-				Verify.expect(w.find("Panel") ~= nil):toBe(true)
+				expect(ok):toBe(false)
+				expect(string.find(tostring(failure), "caller bug", 1, true) ~= nil):toBe(true)
+				expect(w.find("Panel") ~= nil):toBe(true)
 				open:set(false)
-				Verify.expect((table.concat(log.dismissed, ","))):toBe("cancel")
+				expect((table.concat(log.dismissed, ","))):toBe("cancel")
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("a throwing proposal is raised and changes nothing", {
+		it("a throwing proposal is raised and changes nothing", {
 			id = "native_dialog::native Dialog: the caller's fact decides::a throwing proposal is raised and changes nothing",
 			run = function()
 				local open, log = caller()
@@ -732,22 +740,22 @@ return function(verifyHarness: Verify.Harness)
 				local ok, failure = pcall(function()
 					w.find("Close").Activated:Fire()
 				end)
-				Verify.expect(ok):toBe(false)
-				Verify.expect(string.find(tostring(failure), "proposal bug", 1, true) ~= nil):toBe(true)
-				Verify.expect(w.find("Panel") ~= nil):toBe(true)
+				expect(ok):toBe(false)
+				expect(string.find(tostring(failure), "proposal bug", 1, true) ~= nil):toBe(true)
+				expect(w.find("Panel") ~= nil):toBe(true)
 				open:set(false)
-				Verify.expect((table.concat(log.dismissed, ","))):toBe("cancel")
+				expect((table.concat(log.dismissed, ","))):toBe("cancel")
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("the backdrop proposes outside; with no callback and no close it only swallows", {
+		it("the backdrop proposes outside; with no callback and no close it only swallows", {
 			id = "native_dialog::native Dialog: the caller's fact decides::the backdrop proposes outside; with no callback and no close it only swallows",
 			run = function()
 				local open, log, change = caller()
 				local w = mount(standard(open, log, change))
 				w.find("DismissTarget").Activated:Fire()
-				Verify.expect((table.concat(log.dismissed, ","))):toBe("outside")
+				expect((table.concat(log.dismissed, ","))):toBe("outside")
 				w.stop()
 				local fact = Compose.cell(true)
 				local w2 = mount(function(_, Host: RobloxHost)
@@ -760,23 +768,23 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end)
-				Verify.expect((w2.find("Close"))):toBe(nil)
+				expect((w2.find("Close"))):toBe(nil)
 				w2.find("DismissTarget").Activated:Fire()
 				w2.find("ModalBack").Pressed:Fire()
-				Verify.expect(w2.find("Panel") ~= nil):toBe(true)
+				expect(w2.find("Panel") ~= nil):toBe(true)
 				fact:set(false)
-				Verify.expect((w2.find("Panel"))):toBe(nil)
+				expect((w2.find("Panel"))):toBe(nil)
 				w2.stop()
 			end,
 		})
 
-		verifyHarness:case("Return fires the default action; a disabled or busy one cannot fire by any route", {
+		it("Return fires the default action; a disabled or busy one cannot fire by any route", {
 			id = "native_dialog::native Dialog: the caller's fact decides::Return fires the default action; a disabled or busy one cannot fire by any route",
 			run = function()
 				local open, log, change = caller()
 				local w = mount(standard(open, log, change))
 				w.action("Shortcut").Pressed:Fire()
-				Verify.expect((table.concat(log.pressed, ","))):toBe("Leave")
+				expect((table.concat(log.pressed, ","))):toBe("Leave")
 				w.stop()
 				local open2, log2, change2 = caller()
 				local w2 = mount(standard(open2, log2, change2, {
@@ -802,17 +810,17 @@ return function(verifyHarness: Verify.Harness)
 						} :: DialogAction,
 					},
 				}))
-				Verify.expect((w2.action("Shortcut"))):toBe(nil)
+				expect((w2.action("Shortcut"))):toBe(nil)
 				actionButton(w2, "Go").Activated:Fire()
-				Verify.expect(#log2.pressed):toBe(0)
+				expect(#log2.pressed):toBe(0)
 				w2.find("ModalBack").Pressed:Fire()
-				Verify.expect(#log2.pressed):toBe(0)
-				Verify.expect((table.concat(log2.dismissed, ","))):toBe("cancel")
+				expect(#log2.pressed):toBe(0)
+				expect((table.concat(log2.dismissed, ","))):toBe("cancel")
 				w2.stop()
 			end,
 		})
 
-		verifyHarness:case("the default action has the emphasis appearance; cancel and destructive keep their paint", {
+		it("the default action has the emphasis appearance; cancel and destructive keep their paint", {
 			id = "native_dialog::native Dialog: the caller's fact decides::the default action has the emphasis appearance; cancel and destructive keep their paint",
 			run = function()
 				local function act(id: string, role: ("default" | "cancel" | "destructive")?): DialogAction
@@ -823,44 +831,46 @@ return function(verifyHarness: Verify.Harness)
 				local w = mount(standard(open, log, change, { actions = list }))
 				local buy, stay = actionButton(w, "Buy"), actionButton(w, "Stay")
 				local sell, later = actionButton(w, "Sell"), actionButton(w, "Later")
-				Verify.expect((buy:GetAttribute("appearance"))):toBe("emphasis")
-				Verify.expect((buy:HasTag("facet-accent"))):toBe(true)
-				Verify.expect((buy:HasTag("facet-role-default"))):toBe(true)
-				Verify.expect((stay:GetAttribute("appearance"))):toBe("standard")
-				Verify.expect((stay:HasTag("facet-accent"))):toBe(false)
-				Verify.expect((stay:HasTag("facet-role-cancel"))):toBe(true)
-				Verify.expect((sell:GetAttribute("appearance"))):toBe("standard")
-				Verify.expect((sell:HasTag("facet-accent"))):toBe(false)
-				Verify.expect((sell:HasTag("facet-role-destructive"))):toBe(true)
-				Verify.expect((later:GetAttribute("appearance"))):toBe("standard")
-				Verify.expect((later:HasTag("facet-accent"))):toBe(false)
+				expect((buy:GetAttribute("appearance"))):toBe("emphasis")
+				expect((buy:HasTag("facet-accent"))):toBe(true)
+				expect((buy:HasTag("facet-role-default"))):toBe(true)
+				expect((stay:GetAttribute("appearance"))):toBe("standard")
+				expect((stay:HasTag("facet-accent"))):toBe(false)
+				expect((stay:HasTag("facet-role-cancel"))):toBe(true)
+				expect((sell:GetAttribute("appearance"))):toBe("standard")
+				expect((sell:HasTag("facet-accent"))):toBe(false)
+				expect((sell:HasTag("facet-role-destructive"))):toBe(true)
+				expect((later:GetAttribute("appearance"))):toBe("standard")
+				expect((later:HasTag("facet-accent"))):toBe(false)
 				w.action("Shortcut").Pressed:Fire()
-				Verify.expect((open:peek())):toBe(false)
+				expect((open:peek())):toBe(false)
 				w.stop()
 				local plainOpen, plainLog, plainChange = caller()
 				local unranked = { act("Retry"), act("Leave") }
 				local plain = mount(standard(plainOpen, plainLog, plainChange, { actions = unranked }))
-				Verify.expect((actionButton(plain, "Retry"):GetAttribute("appearance"))):toBe("standard")
-				Verify.expect((actionButton(plain, "Leave"):GetAttribute("appearance"))):toBe("standard")
+				expect((actionButton(plain, "Retry"):GetAttribute("appearance"))):toBe("standard")
+				expect((actionButton(plain, "Leave"):GetAttribute("appearance"))):toBe("standard")
 				plain.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("native Dialog: composition, layout and the height budget", function()
-		verifyHarness:case("the spec is closed and malformed compositions are refused by name", {
+	describe("native Dialog: composition, layout and the height budget", function()
+		it("the spec is closed and malformed compositions are refused by name", {
 			id = "native_dialog::native Dialog: composition, layout and the height budget::the spec is closed and malformed compositions are refused by name",
 			run = function()
 				local function refuses(spec: any, fragment: string)
 					local ok, failure = pcall(function()
-						local w = mount(function()
+						local build: Builder = function(): OverlayProps.DialogSpec
 							return spec
-						end)
+						end
+						local w = mount(build)
 						w.stop()
 					end)
-					Verify.expect(ok):toBe(false)
-					Verify.expect(`{fragment}: {string.find(tostring(failure), fragment, 1, true) ~= nil}`)
-						:toBe(`{fragment}: true`)
+					expect(ok):toBe(false)
+					expect(`{fragment}: {string.find(tostring(failure), fragment, 1, true) ~= nil}`):toBe(
+						`{fragment}: true`
+					)
 				end
 				local fact = Compose.cell(true)
 				refuses({ title = "T", closeButton = false }, "isPresented")
@@ -899,7 +909,7 @@ return function(verifyHarness: Verify.Harness)
 			w.size(overlay.find(w.find("Body"), "Content"), 400, bodyHeight)
 		end
 
-		verifyHarness:case("a tiny room unpins every region into one scroller: the last action is reachable", {
+		it("a tiny room unpins every region into one scroller: the last action is reachable", {
 			id = "native_dialog::native Dialog: composition, layout and the height budget::a tiny room unpins every region into one scroller: the last action is reachable",
 			run = function()
 				local open, log, change = caller()
@@ -910,12 +920,12 @@ return function(verifyHarness: Verify.Harness)
 				)
 				sized(w, 400)
 				local body, room = w.find("Body"), w.find("Room")
-				Verify.expect(room.ScrollingEnabled):toBe(true)
-				Verify.expect(room.Size.Y.Offset):toBe(160 - 32)
-				Verify.expect(body.ScrollingEnabled):toBe(false)
-				Verify.expect(body.Size.Y.Offset):toBe(400)
-				Verify.expect((actionButton(w, "Leave"):IsDescendantOf(room))):toBe(true)
-				Verify.expect(room.Selectable):toBe(false)
+				expect(room.ScrollingEnabled):toBe(true)
+				expect(room.Size.Y.Offset):toBe(160 - 32)
+				expect(body.ScrollingEnabled):toBe(false)
+				expect(body.Size.Y.Offset):toBe(400)
+				expect((actionButton(w, "Leave"):IsDescendantOf(room))):toBe(true)
+				expect(room.Selectable):toBe(false)
 				local stay, leave = actionButton(w, "Stay"), actionButton(w, "Leave")
 				w.at(room, 16, 32)
 				w.size(room, 288, 96)
@@ -929,84 +939,81 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(1 / 60)
 				w.input.InputBegan:Fire({ KeyCode = w.Enum.KeyCode.DPadDown })
 				w.advance(1 / 10, 6)
-				Verify.expect(w.gui.SelectedObject):toBe(leave)
-				Verify.expect(room.CanvasPosition.Y):toBe(520 + 44 - (32 + 96))
+				expect(w.gui.SelectedObject):toBe(leave)
+				expect(room.CanvasPosition.Y):toBe(520 + 44 - (32 + 96))
 				w.gui.SelectedObject = leave
 				w.at(leave, 16, 84)
 				w.at(stay, 16, -376)
 				w.advance(1 / 60)
 				w.input.InputBegan:Fire({ KeyCode = w.Enum.KeyCode.DPadUp })
 				w.advance(1 / 10, 6)
-				Verify.expect(w.gui.SelectedObject):toBe(stay)
+				expect(w.gui.SelectedObject):toBe(stay)
 				w.advance(1 / 60)
 				w.gui.SelectedObject = leave
 				w.input.InputBegan:Fire({ KeyCode = w.Enum.KeyCode.DPadUp })
 				w.advance(1 / 10, 6)
-				Verify.expect(w.gui.SelectedObject):toBe(leave)
+				expect(w.gui.SelectedObject):toBe(leave)
 				w.engine.environment.poke(w.screen, "AbsoluteSize", Vector2.new(320, 900))
-				Verify.expect(room.ScrollingEnabled):toBe(false)
+				expect(room.ScrollingEnabled):toBe(false)
 				w.gui.SelectedObject = stay
 				w.advance(1 / 60)
 				w.input.InputBegan:Fire({ KeyCode = w.Enum.KeyCode.DPadDown })
 				w.advance(1 / 10, 6)
-				Verify.expect(w.gui.SelectedObject):toBe(stay)
-				Verify.expect(room.ScrollingEnabled):toBe(false)
-				Verify.expect(body.ScrollingEnabled):toBe(true)
+				expect(w.gui.SelectedObject):toBe(stay)
+				expect(room.ScrollingEnabled):toBe(false)
+				expect(body.ScrollingEnabled):toBe(true)
 				w.engine.environment.poke(w.screen, "AbsoluteSize", Vector2.new(320, 90))
-				Verify.expect(room.Size.Y.Offset):toBe(90 - 32)
+				expect(room.Size.Y.Offset):toBe(90 - 32)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("a phone dialog hugs its content and rows two actions that fit", {
+		it("a phone dialog hugs its content and rows two actions that fit", {
 			id = "native_dialog::native Dialog: composition, layout and the height budget::a phone dialog hugs its content and rows two actions that fit",
 			run = function()
 				local open, log, change = caller()
 				local w = mount(standard(open, log, change), nil, { size = Vector2.new(390, 844) })
 				sized(w, 60)
-				Verify.expect(w.find("Body").Size.Y.Offset):toBe(60)
-				Verify.expect(w.find("Panel").Size.X.Offset):toBe(390 - 32)
-				Verify.expect(w.find("Panel").AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
+				expect(w.find("Body").Size.Y.Offset):toBe(60)
+				expect(w.find("Panel").Size.X.Offset):toBe(390 - 32)
+				expect(w.find("Panel").AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
 				w.engine.environment.poke(actionButton(w, "Stay"), "TextBounds", Vector2.new(40, 20))
 				w.engine.environment.poke(actionButton(w, "Leave"), "TextBounds", Vector2.new(48, 20))
 				local list = w.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
-				Verify.expect(list.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
-				Verify.expect(actionButton(w, "Stay").LayoutOrder < actionButton(w, "Leave").LayoutOrder):toBe(true)
+				expect(list.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
+				expect(actionButton(w, "Stay").LayoutOrder < actionButton(w, "Leave").LayoutOrder):toBe(true)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case(
-			"a dialog that cannot keep clear margins covers the safe area so page chrome cannot read as its own",
-			{
-				id = "native_dialog::native Dialog: composition, layout and the height budget::a dialog that cannot keep clear margins covers the safe area so page chrome cannot read as its own",
-				run = function()
-					local open, log, change = caller()
-					local w = mount(standard(open, log, change), nil, { size = Vector2.new(749, 323) })
-					sized(w, 40)
-					local panel, room = w.find("Panel"), w.find("Room")
-					local padding = panel:FindFirstChildWhichIsA("UIPadding")
-					local card = panel.Size.X.Offset
-					Verify.expect(card < 749):toBe(true)
-					Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
-					Verify.expect(padding.PaddingLeft.Offset):toBe(16)
-					sized(w, 180)
-					Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
-					Verify.expect(panel.Size.X.Offset):toBe(749)
-					Verify.expect(panel.Size.Y.Offset):toBe(323)
-					Verify.expect(room.Size.Y.Offset):toBe(323 - 32)
-					Verify.expect(padding.PaddingLeft.Offset):toBe(16 + math.floor((749 - card) / 2))
-					Verify.expect(padding.PaddingRight.Offset):toBe(16 + (749 - card) - math.floor((749 - card) / 2))
-					Verify.expect(w.find("Body").Size.Y.Offset > 180):toBe(true)
-					sized(w, 40)
-					Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
-					Verify.expect(panel.Size.X.Offset):toBe(card)
-					w.stop()
-				end,
-			}
-		)
+		it("a dialog that cannot keep clear margins covers the safe area so page chrome cannot read as its own", {
+			id = "native_dialog::native Dialog: composition, layout and the height budget::a dialog that cannot keep clear margins covers the safe area so page chrome cannot read as its own",
+			run = function()
+				local open, log, change = caller()
+				local w = mount(standard(open, log, change), nil, { size = Vector2.new(749, 323) })
+				sized(w, 40)
+				local panel, room = w.find("Panel"), w.find("Room")
+				local padding = panel:FindFirstChildWhichIsA("UIPadding")
+				local card = panel.Size.X.Offset
+				expect(card < 749):toBe(true)
+				expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
+				expect(padding.PaddingLeft.Offset):toBe(16)
+				sized(w, 180)
+				expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
+				expect(panel.Size.X.Offset):toBe(749)
+				expect(panel.Size.Y.Offset):toBe(323)
+				expect(room.Size.Y.Offset):toBe(323 - 32)
+				expect(padding.PaddingLeft.Offset):toBe(16 + math.floor((749 - card) / 2))
+				expect(padding.PaddingRight.Offset):toBe(16 + (749 - card) - math.floor((749 - card) / 2))
+				expect(w.find("Body").Size.Y.Offset > 180):toBe(true)
+				sized(w, 40)
+				expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
+				expect(panel.Size.X.Offset):toBe(card)
+				w.stop()
+			end,
+		})
 
-		verifyHarness:case("a covering dialog sizes its room from the theme's real panel insets", {
+		it("a covering dialog sizes its room from the theme's real panel insets", {
 			id = "native_dialog::native Dialog: composition, layout and the height budget::a covering dialog sizes its room from the theme's real panel insets",
 			run = function()
 				local open, log, change = caller()
@@ -1014,21 +1021,22 @@ return function(verifyHarness: Verify.Harness)
 				local themes = require("../src/ui/themes")(Compose)
 				local package = themes.neutralPackage()
 				package.chrome = { panel = { kind = "native", contentInsets = insets } }
-				local options: Types.Config = { theme = assert(themes.define(package)) }
+				local defined = themes.define(package)
+				local options: Types.Config = { theme = assert(defined) }
 				local w = mount(standard(open, log, change), options, { size = Vector2.new(749, 323) })
 				sized(w, 180)
 				local panel, room = w.find("Panel"), w.find("Room")
 				local padding = panel:FindFirstChildWhichIsA("UIPadding")
-				Verify.expect(panel.Size.Y.Offset):toBe(323)
-				Verify.expect(padding.PaddingTop.Offset):toBe(24)
-				Verify.expect(padding.PaddingBottom.Offset):toBe(24)
-				Verify.expect(room.Size.Y.Offset):toBe(323 - 48)
-				Verify.expect(padding.PaddingLeft.Offset > 24):toBe(true)
+				expect(panel.Size.Y.Offset):toBe(323)
+				expect(padding.PaddingTop.Offset):toBe(24)
+				expect(padding.PaddingBottom.Offset):toBe(24)
+				expect(room.Size.Y.Offset):toBe(323 - 48)
+				expect(padding.PaddingLeft.Offset > 24):toBe(true)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("stacks two actions when the longer label does not fit its equal share of the row", {
+		it("stacks two actions when the longer label does not fit its equal share of the row", {
 			id = "native_dialog::native Dialog: composition, layout and the height budget::stacks two actions when the longer label does not fit its equal share of the row",
 			run = function()
 				local open, log, change = caller()
@@ -1037,68 +1045,66 @@ return function(verifyHarness: Verify.Harness)
 				local list = w.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
 				w.engine.environment.poke(actionButton(w, "Stay"), "TextBounds", Vector2.new(40, 20))
 				w.engine.environment.poke(actionButton(w, "Leave"), "TextBounds", Vector2.new(200, 20))
-				Verify.expect(list.FillDirection):toBe(w.Enum.FillDirection.Vertical)
+				expect(list.FillDirection):toBe(w.Enum.FillDirection.Vertical)
 				w.engine.environment.poke(actionButton(w, "Leave"), "TextBounds", Vector2.new(48, 20))
-				Verify.expect(list.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
+				expect(list.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case(
-			"automatic actions stack for three; an explicit row that cannot fit falls to the safe stack",
-			{
-				id = "native_dialog::native Dialog: composition, layout and the height budget::automatic actions stack for three; an explicit row that cannot fit falls to the safe stack",
-				run = function()
-					local function three(): any
-						local list = {}
-						for _, id in { "A", "B", "C" } do
-							table.insert(list, { id = id, label = id, onActivate = function() end })
-						end
-						return list
+		it("automatic actions stack for three; an explicit row that cannot fit falls to the safe stack", {
+			id = "native_dialog::native Dialog: composition, layout and the height budget::automatic actions stack for three; an explicit row that cannot fit falls to the safe stack",
+			run = function()
+				local function three(): any
+					local list = {}
+					for _, id in { "A", "B", "C" } do
+						table.insert(list, { id = id, label = id, onActivate = function() end })
 					end
-					local open, log, change = caller()
-					local w = mount(standard(open, log, change, { actions = three() }))
-					local list = w.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
-					Verify.expect(list.FillDirection):toBe(w.Enum.FillDirection.Vertical)
-					Verify.expect(actionButton(w, "A").Size.X.Scale):toBe(1)
-					w.stop()
-					local open2, log2, change2 = caller()
-					local w2 = mount(
-						standard(open2, log2, change2, { actionLayout = "row" }),
-						nil,
-						{ size = Vector2.new(390, 844) }
-					)
-					local list2 = w2.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
-					Verify.expect(list2.FillDirection):toBe(w2.Enum.FillDirection.Horizontal)
-					Verify.expect(actionButton(w2, "Stay").TextTruncate):toBe(w2.Enum.TextTruncate.None)
-					w2.engine.environment.poke(actionButton(w2, "Stay"), "TextBounds", Vector2.new(200, 20))
-					w2.engine.environment.poke(actionButton(w2, "Leave"), "TextBounds", Vector2.new(200, 20))
-					Verify.expect(list2.FillDirection):toBe(w2.Enum.FillDirection.Vertical)
-					Verify.expect(actionButton(w2, "Stay").TextTruncate):toBe(w2.Enum.TextTruncate.AtEnd)
-					w2.stop()
-					local open3, log3, change3 = caller()
-					local open4, log4, change4 = caller()
-					local w4 = mount(
-						standard(open4, log4, change4, { actions = three(), actionLayout = "row", width = "wide" }),
-						nil,
-						{ size = Vector2.new(844, 390) }
-					)
-					Verify.expect(w4.find("Actions"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
-						:toBe(w4.Enum.FillDirection.Horizontal)
-					w4.stop()
-					local w3 = mount(standard(open3, log3, change3, { actionLayout = "stacked" }))
-					Verify.expect(w3.find("Actions"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
-						:toBe(w3.Enum.FillDirection.Vertical)
-					Verify.expect(actionButton(w3, "Stay").LayoutOrder > actionButton(w3, "Leave").LayoutOrder)
-						:toBe(true)
-					w3.stop()
-				end,
-			}
-		)
+					return list
+				end
+				local open, log, change = caller()
+				local w = mount(standard(open, log, change, { actions = three() }))
+				local list = w.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
+				expect(list.FillDirection):toBe(w.Enum.FillDirection.Vertical)
+				expect(actionButton(w, "A").Size.X.Scale):toBe(1)
+				w.stop()
+				local open2, log2, change2 = caller()
+				local w2 = mount(
+					standard(open2, log2, change2, { actionLayout = "row" }),
+					nil,
+					{ size = Vector2.new(390, 844) }
+				)
+				local list2 = w2.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
+				expect(list2.FillDirection):toBe(w2.Enum.FillDirection.Horizontal)
+				expect(actionButton(w2, "Stay").TextTruncate):toBe(w2.Enum.TextTruncate.None)
+				w2.engine.environment.poke(actionButton(w2, "Stay"), "TextBounds", Vector2.new(200, 20))
+				w2.engine.environment.poke(actionButton(w2, "Leave"), "TextBounds", Vector2.new(200, 20))
+				expect(list2.FillDirection):toBe(w2.Enum.FillDirection.Vertical)
+				expect(actionButton(w2, "Stay").TextTruncate):toBe(w2.Enum.TextTruncate.AtEnd)
+				w2.stop()
+				local open3, log3, change3 = caller()
+				local open4, log4, change4 = caller()
+				local w4 = mount(
+					standard(open4, log4, change4, { actions = three(), actionLayout = "row", width = "wide" }),
+					nil,
+					{ size = Vector2.new(844, 390) }
+				)
+				expect(w4.find("Actions"):FindFirstChildWhichIsA("UIListLayout").FillDirection):toBe(
+					w4.Enum.FillDirection.Horizontal
+				)
+				w4.stop()
+				local w3 = mount(standard(open3, log3, change3, { actionLayout = "stacked" }))
+				expect(w3.find("Actions"):FindFirstChildWhichIsA("UIListLayout").FillDirection):toBe(
+					w3.Enum.FillDirection.Vertical
+				)
+				expect(actionButton(w3, "Stay").LayoutOrder > actionButton(w3, "Leave").LayoutOrder):toBe(true)
+				w3.stop()
+			end,
+		})
 	end)
 
-	verifyHarness:suite("native Dialog: reactive width and action layout", function()
-		verifyHarness:case("follows a readable width and a readable actionLayout while presented", {
+	describe("native Dialog: reactive width and action layout", function()
+		it("follows a readable width and a readable actionLayout while presented", {
 			id = "native_dialog::native Dialog: reactive width and action layout::follows a readable width and a readable actionLayout while presented",
 			run = function()
 				local width = Compose.cell("narrow")
@@ -1108,54 +1114,54 @@ return function(verifyHarness: Verify.Harness)
 				local panel = w.find("Panel")
 				local narrow = panel.Size.X.Offset
 				width:set("wide")
-				Verify.expect(panel.Size.X.Offset > narrow):toBe(true)
+				expect(panel.Size.X.Offset > narrow):toBe(true)
 				local list = w.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
-				Verify.expect(list.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
+				expect(list.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
 				layout:set("stacked")
-				Verify.expect(list.FillDirection):toBe(w.Enum.FillDirection.Vertical)
+				expect(list.FillDirection):toBe(w.Enum.FillDirection.Vertical)
 				w.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("native Dialog: a plain overflowing body is one pad stop that scrolls", function()
-		verifyHarness:case("the ring reaches the body, Down scrolls it to the end, and then moves on to the actions", {
+	describe("native Dialog: a plain overflowing body is one pad stop that scrolls", function()
+		it("the ring reaches the body, Down scrolls it to the end, and then moves on to the actions", {
 			id = "native_dialog::native Dialog: a plain overflowing body is one pad stop that scrolls::the ring reaches the body, Down scrolls it to the end, and then moves on to the actions",
 			run = function()
 				local open, log, change = caller()
 				local w = mount(standard(open, log, change))
-				Verify.expect(w.screen:FindFirstChild("FacetDialogBodyDown")):toBe(nil)
-				Verify.expect(w.screen:FindFirstChild("FacetDialogBodyUp")):toBe(nil)
+				expect(w.screen:FindFirstChild("FacetDialogBodyDown")):toBe(nil)
+				expect(w.screen:FindFirstChild("FacetDialogBodyUp")):toBe(nil)
 				w.size(w.find("Header"), 400, 44)
 				w.size(w.find("Actions"), 400, 44)
 				local body = w.find("Body")
 				w.size(overlay.find(body, "Content"), 400, 1500)
 				w.engine.environment.poke(body, "AbsoluteWindowSize", Vector2.new(400, 400))
 				w.engine.environment.poke(body, "AbsoluteCanvasSize", Vector2.new(400, 1500))
-				Verify.expect(body.Selectable):toBe(true)
+				expect(body.Selectable):toBe(true)
 				w.gui.SelectedObject = body
 				local down = w.action("DialogBodyDown")
-				Verify.expect(down ~= nil):toBe(true)
-				Verify.expect((w.action("DialogBodyUp"))):toBe(nil)
+				expect(down ~= nil):toBe(true)
+				expect((w.action("DialogBodyUp"))):toBe(nil)
 				down.Pressed:Fire()
-				Verify.expect(body.CanvasPosition.Y):toBe(320)
+				expect(body.CanvasPosition.Y):toBe(320)
 				for _ = 1, 5 do
 					local again = w.action("DialogBodyDown")
 					if again then
 						again.Pressed:Fire()
 					end
 				end
-				Verify.expect(body.CanvasPosition.Y):toBe(1100)
-				Verify.expect((w.action("DialogBodyDown"))):toBe(nil)
-				Verify.expect(w.action("DialogBodyUp") ~= nil):toBe(true)
+				expect(body.CanvasPosition.Y):toBe(1100)
+				expect((w.action("DialogBodyDown"))):toBe(nil)
+				expect(w.action("DialogBodyUp") ~= nil):toBe(true)
 				w.size(overlay.find(body, "Content"), 400, 40)
-				Verify.expect(w.screen:FindFirstChild("FacetDialogBodyDown")):toBe(nil)
-				Verify.expect(w.screen:FindFirstChild("FacetDialogBodyUp")):toBe(nil)
+				expect(w.screen:FindFirstChild("FacetDialogBodyDown")):toBe(nil)
+				expect(w.screen:FindFirstChild("FacetDialogBodyUp")):toBe(nil)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("Tab and Shift+Tab stop on the overflowing body", {
+		it("Tab and Shift+Tab stop on the overflowing body", {
 			id = "native_dialog::native Dialog: a plain overflowing body is one pad stop that scrolls::Tab and Shift+Tab stop on the overflowing body",
 			run = function()
 				local open, log, change = caller()
@@ -1173,39 +1179,39 @@ return function(verifyHarness: Verify.Harness)
 						traverse = node
 					end
 				end
-				Verify.expect(traverse ~= nil):toBe(true)
+				expect(traverse ~= nil):toBe(true)
 				local visited = {}
 				for _ = 1, 8 do
 					traverse.Pressed:Fire()
 					traverse.Released:Fire()
 					visited[w.gui.SelectedObject] = true
 				end
-				Verify.expect(visited[body]):toBe(true)
+				expect(visited[body]):toBe(true)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("a body that fits offers no stop, and contentSelectable = false never does", {
+		it("a body that fits offers no stop, and contentSelectable = false never does", {
 			id = "native_dialog::native Dialog: a plain overflowing body is one pad stop that scrolls::a body that fits offers no stop, and contentSelectable = false never does",
 			run = function()
 				local open, log, change = caller()
 				local w = mount(standard(open, log, change))
 				w.size(overlay.find(w.find("Body"), "Content"), 400, 40)
-				Verify.expect(w.find("Body").Selectable):toBe(false)
+				expect(w.find("Body").Selectable):toBe(false)
 				w.stop()
 				local open2, log2, change2 = caller()
 				local w2 = mount(standard(open2, log2, change2, { contentSelectable = false }))
 				w2.size(overlay.find(w2.find("Body"), "Content"), 400, 3000)
-				Verify.expect(w2.find("Body").Selectable):toBe(false)
+				expect(w2.find("Body").Selectable):toBe(false)
 				w2.gui.SelectedObject = w2.find("Body")
-				Verify.expect((w2.action("DialogBodyDown"))):toBe(nil)
+				expect((w2.action("DialogBodyDown"))):toBe(nil)
 				w2.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("native Dialog: lifetime", function()
-		verifyHarness:case("reuses its body while closed and releases it with its owner", {
+	describe("native Dialog: lifetime", function()
+		it("reuses its body while closed and releases it with its owner", {
 			id = "native_dialog::native Dialog: lifetime::reuses its body while closed and releases it with its owner",
 			run = function()
 				local open = Compose.cell(false)
@@ -1226,61 +1232,56 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end)
-				Verify.expect(built):toBe(0)
+				expect(built):toBe(0)
 				open:set(true)
 				local panel, body = w.find("Panel"), w.find("RetainedBody")
 				open:set(false)
-				Verify.expect(w.find("Panel")):toBe(nil)
-				Verify.expect(panel.Parent):toBe(nil)
-				Verify.expect(w.action("ModalBack")):toBe(nil)
-				Verify.expect(released):toBe(0)
+				expect(w.find("Panel")):toBe(nil)
+				expect(panel.Parent):toBe(nil)
+				expect(w.action("ModalBack")):toBe(nil)
+				expect(released):toBe(0)
 				message:set("Changed while closed")
 				open:set(true)
-				Verify.expect(w.find("Panel") ~= panel):toBe(true)
-				Verify.expect(w.find("RetainedBody")):toBe(body)
-				Verify.expect(body.Text):toBe("Changed while closed")
-				Verify.expect(built):toBe(1)
+				expect(w.find("Panel") ~= panel):toBe(true)
+				expect(w.find("RetainedBody")):toBe(body)
+				expect(body.Text):toBe("Changed while closed")
+				expect(built):toBe(1)
 				w.stop()
-				Verify.expect(released):toBe(1)
-				Verify.expect(w.engine.environment.isAlive(panel)):toBe(false)
-				Verify.expect(w.engine.environment.isAlive(body)):toBe(false)
+				expect(released):toBe(1)
+				expect(w.engine.environment.isAlive(panel)):toBe(false)
+				expect(w.engine.environment.isAlive(body)):toBe(false)
 			end,
 		})
-		verifyHarness:case(
-			"owner disposal releases physically and reports cancel once; reopen cycles return to baseline",
-			{
-				id = "native_dialog::native Dialog: lifetime::owner disposal releases physically and reports cancel once; reopen cycles return to baseline",
-				run = function()
-					local open, log, change = caller()
-					local shown = Compose.cell(true)
-					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame({
-							Compose.show(shown, function()
-								return UI.Dialog "Confirm"(
-									standard(open, log, change, { closeButton = true })(UI, Host)
-								)
-							end),
-						})
-					end)
-					Verify.expect(w.find("Panel") ~= nil):toBe(true)
-					shown:set(false)
-					Verify.expect((w.find("Panel"))):toBe(nil)
-					Verify.expect((table.concat(log.dismissed, ","))):toBe("cancel")
-					Verify.expect(#log.changes):toBe(0)
-					shown:set(true)
-					open:set(false)
-					local baseline = w.engine.census()
-					for _ = 1, 3 do
-						open:set(true)
-						w.find("Close").Activated:Fire()
-					end
-					local after = w.engine.census()
-					Verify.expect(after.live):toBe(baseline.live)
-					Verify.expect(after.connections):toBe(baseline.connections)
-					Verify.expect((table.concat(log.dismissed, ","))):toBe("cancel,cancel,close,close,close")
-					w.stop()
-				end,
-			}
-		)
+		it("owner disposal releases physically and reports cancel once; reopen cycles return to baseline", {
+			id = "native_dialog::native Dialog: lifetime::owner disposal releases physically and reports cancel once; reopen cycles return to baseline",
+			run = function()
+				local open, log, change = caller()
+				local shown = Compose.cell(true)
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame {
+						Compose.show(shown, function()
+							return UI.Dialog(standard(open, log, change, { closeButton = true })(UI, Host), "Confirm")
+						end),
+					}
+				end)
+				expect(w.find("Panel") ~= nil):toBe(true)
+				shown:set(false)
+				expect((w.find("Panel"))):toBe(nil)
+				expect((table.concat(log.dismissed, ","))):toBe("cancel")
+				expect(#log.changes):toBe(0)
+				shown:set(true)
+				open:set(false)
+				local baseline = w.engine.census()
+				for _ = 1, 3 do
+					open:set(true)
+					w.find("Close").Activated:Fire()
+				end
+				local after = w.engine.census()
+				expect(after.live):toBe(baseline.live)
+				expect(after.connections):toBe(baseline.connections)
+				expect((table.concat(log.dismissed, ","))):toBe("cancel,cancel,close,close,close")
+				w.stop()
+			end,
+		})
 	end)
 end

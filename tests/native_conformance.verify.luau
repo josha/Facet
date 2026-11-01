@@ -10,7 +10,7 @@ return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 	local Compose: ComposeModule = Facet.Compose
-	type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+	type Host = Facet.Host
 	local fixtures: { [string]: (Host) -> { [any]: any } } = {
 		Screen = function()
 			return {}
@@ -34,10 +34,10 @@ return function(verifyHarness: Verify.Harness)
 			return { gap = "s" }
 		end,
 		ViewThatFits = function(Host: Host)
-			return { Host.Frame({}) }
+			return { Host.Frame {} }
 		end,
 		Region = function(Host: Host)
-			return { zone = "top", rank = 1, Host.Frame({}) }
+			return { zone = "top", rank = 1, Host.Frame {} }
 		end,
 		Composition = function()
 			return {}
@@ -131,10 +131,10 @@ return function(verifyHarness: Verify.Harness)
 		ErrorBoundary = function(Host: Host)
 			return {
 				view = function()
-					return Host.Frame({})
+					return Host.Frame {}
 				end,
 				fallback = function()
-					return Host.Frame({})
+					return Host.Frame {}
 				end,
 			}
 		end,
@@ -192,7 +192,7 @@ return function(verifyHarness: Verify.Harness)
 				label = "Details",
 				expanded = Compose.cell(false),
 				content = function(): Instance
-					return Host.Frame({})
+					return Host.Frame {}
 				end,
 			}
 		end,
@@ -201,7 +201,7 @@ return function(verifyHarness: Verify.Harness)
 				label = "Details",
 				expanded = Compose.cell(false),
 				content = function(): Instance
-					return Host.Frame({})
+					return Host.Frame {}
 				end,
 			}
 		end,
@@ -225,7 +225,7 @@ return function(verifyHarness: Verify.Harness)
 				isPresented = Compose.cell(false),
 				source = { rect = { x = 0, y = 0, w = 10, h = 10 } },
 				content = function(): Instance
-					return Host.Frame({})
+					return Host.Frame {}
 				end,
 			}
 		end,
@@ -234,16 +234,16 @@ return function(verifyHarness: Verify.Harness)
 				detent = Compose.cell("medium"),
 				isPresented = Compose.cell(false),
 				content = function(): Instance
-					return Host.Frame({})
+					return Host.Frame {}
 				end,
 			}
 		end,
 		Callout = function(Host: Host)
 			return {
-				anchor = Host.Frame({}),
+				anchor = Host.Frame {},
 				onRetire = function() end,
 				content = function(): Instance
-					return Host.TextLabel({ Text = "Tip" })
+					return Host.TextLabel { Text = "Tip" }
 				end,
 				isPresented = Compose.cell(false),
 			}
@@ -256,7 +256,7 @@ return function(verifyHarness: Verify.Harness)
 						id = "a",
 						label = "A",
 						content = function(): Instance
-							return Host.Frame({})
+							return Host.Frame {}
 						end,
 					} :: FixtureNavigationTypes.Tab,
 				},
@@ -270,7 +270,7 @@ return function(verifyHarness: Verify.Harness)
 						id = "a",
 						title = "A",
 						content = function(): Instance
-							return Host.Frame({})
+							return Host.Frame {}
 						end,
 					} :: FixtureNavigationTypes.Tab,
 				},
@@ -293,7 +293,7 @@ return function(verifyHarness: Verify.Harness)
 				root = {
 					title = "Root",
 					content = function(): Instance
-						return Host.Frame({})
+						return Host.Frame {}
 					end,
 				},
 				destinations = {},
@@ -302,7 +302,7 @@ return function(verifyHarness: Verify.Harness)
 		RowActions = function(Host: Host)
 			return {
 				content = function(): Instance
-					return Host.Frame({})
+					return Host.Frame {}
 				end,
 			}
 		end,
@@ -320,16 +320,16 @@ return function(verifyHarness: Verify.Harness)
 		end,
 	}
 	for _, name in { "VirtualList", "VirtualGrid", "Outline" } do
-		fixtures[name] = function(Host: Host)
+		fixtures[name] = function(Host: Host): { [any]: any }
 			return {
 				children = if name == "Outline" then "children" else nil,
 				from = { { id = "a" } },
-				key = function(item)
+				key = function(item: { id: string }): string
 					return item.id
 				end,
 				itemSize = 24,
 				render = function(): GuiObject
-					return Host.Frame({})
+					return Host.Frame {}
 				end,
 			}
 		end
@@ -356,7 +356,7 @@ return function(verifyHarness: Verify.Harness)
 						local baseline = engine.census()
 						local zIndex, calls, reference, refCalls = Compose.cell(7), 0, nil, 0
 						local stop, node: any = runtime.mount(function()
-							local props = fixtures[name]((runtime.constructors :: unknown) :: Host)
+							local props = fixtures[name](Facet.host(runtime))
 							props.ZIndex = zIndex
 							props.Attributes = { Conformance = name }
 							props.ref = function(value)
@@ -369,7 +369,8 @@ return function(verifyHarness: Verify.Harness)
 							if not named then
 								props.Name = "Caller"
 							end
-							return if named then UI[name]("Caller")(props) else UI[name](props)
+							local dynamic: any = UI
+							return if named then dynamic[name](props, "Caller") else dynamic[name](props)
 						end, root)
 						assert(reference == node, "ref must identify returned root")
 						assert(refCalls == 1, `ref ran {refCalls} times for one build`)

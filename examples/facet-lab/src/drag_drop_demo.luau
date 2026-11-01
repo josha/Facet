@@ -1,5 +1,17 @@
 --!strict
-return function(ctx: any)
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Asset = {
+	id: string,
+	kind: string,
+	assetId: string?,
+	value: Color3?,
+	label: string?,
+	name: string,
+	items: { Asset }?,
+}
+
+return function(ctx: any): Frame
 	local UI, Host, C = ctx.UI, ctx.Host, ctx.Compose
 	local D2, V2, V3, CF, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Vector3, ctx.types.CFrame, ctx.types.Enum
 	local C3 = ctx.types.Color3
@@ -13,15 +25,15 @@ return function(ctx: any)
 	local function panelPadding(use)
 		return if use(short) then "xs" else "m"
 	end
-	local palette = {
+	local palette: { [string]: Color3 } = {
 		Red = C3.fromRGB(245, 92, 97),
 		Green = C3.fromRGB(85, 194, 109),
 		Blue = C3.fromRGB(76, 159, 245),
 		Gray = C3.fromRGB(154, 155, 162),
 		None = C3.fromRGB(180, 180, 180),
 	}
-	local function assets(onStart, onEnd)
-		local records: { any } =
+	local function assets(onStart: (Asset, string) -> (), onEnd: (boolean, string?) -> ())
+		local records: { Asset } =
 			{ { id = "portrait", kind = "image", assetId = "rbxassetid://75342910516929", name = "Portrait" } }
 		for _, name in { "Red", "Green", "Blue" } do
 			table.insert(records, { id = name, kind = "color", value = palette[name], label = name, name = name })
@@ -36,7 +48,7 @@ return function(ctx: any)
 				return D2.new(1, 0, 0, if use(short) then 96 else 120)
 			end,
 			Host.UISizeConstraint { MaxSize = ctx.types.Vector2.new(480, math.huge) },
-			drag = function(items)
+			drag = function(items: { Asset })
 				return {
 					payload = items[1],
 					operations = { "copy", "apply" },
@@ -46,7 +58,7 @@ return function(ctx: any)
 					onEnd = onEnd,
 				}
 			end,
-			render = function(current)
+			render = function(current: ReadOnlyValue<Asset>)
 				local item = current:peek()
 				return UI.VStack {
 					Name = "Asset" .. item.id,
@@ -68,7 +80,9 @@ return function(ctx: any)
 	end
 
 	local notice = C.cell("Choose an asset above, then drag it onto an object below.")
-	local picked, keyboard = C.cell(nil), C.cell(false)
+	local noAsset: Asset? = nil
+	local picked: Value<Asset?> = C.cell(noAsset)
+	local keyboard: Value<boolean> = C.cell(false)
 	local texture, undo = C.cell(""), C.cell(nil)
 	local angle = C.cell(0)
 	local world = ctx.worldTarget
@@ -150,7 +164,7 @@ return function(ctx: any)
 					or (payload.kind == "files" and #payload.items == 1 and payload.items[1].kind == "Image")
 				return image and target == canvas, "Images need the canvas; colors can paint either object"
 			end,
-			onUpdate = function(_, info, accepted, reason)
+			onUpdate = function(_: unknown, info: { mode: string }, accepted: boolean, reason: string?)
 				notice:set(
 					if accepted
 						then (if info.mode == "armed"
@@ -161,7 +175,7 @@ return function(ctx: any)
 						else reason
 				)
 			end,
-			onDrop = function(payload)
+			onDrop = function(payload: Asset)
 				undo:set({
 					target = target,
 					color = target.Color,
@@ -173,7 +187,7 @@ return function(ctx: any)
 					texture:set(
 						if payload.kind == "image"
 							then payload.assetId
-							else payload.items[1].assetId or "rbxassetid://75342910516929"
+							else (payload.items and payload.items[1].assetId) or "rbxassetid://75342910516929"
 					)
 				end
 				notice:set(
@@ -185,7 +199,7 @@ return function(ctx: any)
 				)
 				return true
 			end,
-			onReject = function(_, reason)
+			onReject = function(_: unknown, reason: string?)
 				notice:set(reason or "Drop rejected")
 			end,
 		}
@@ -264,7 +278,7 @@ return function(ctx: any)
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 			},
-			assets(function(payload, mode)
+			assets(function(payload: Asset, mode: string)
 				picked:set(payload)
 				keyboard:set(mode == "armed")
 				notice:set(
@@ -273,7 +287,7 @@ return function(ctx: any)
 						.. " · "
 						.. (if payload.kind == "image" then "Drop on the canvas" else "Drop on either object")
 				)
-			end, function(accepted, reason)
+			end, function(accepted: boolean, reason: string?)
 				picked:set(nil)
 				keyboard:set(false)
 				if not accepted then

@@ -107,6 +107,7 @@ export type DraggableSpec = {
 	preview: GuiObject?,
 	hitArea: GuiObject?,
 	returnTravel: boolean?,
+	mark: boolean?,
 	operations: { DropOperation }?,
 	valid: (() -> boolean)?,
 	onStart: ((payload: unknown, mode: "pointer" | "armed") -> ())?,

@@ -81,6 +81,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 	local escapeRich = richText.escape
 	local idle: ComposeTypes.Directive = function() end
 	UI.Button = ctx.construct("Button", function(spec: InputProps.ButtonProps): TextButton
+		local onActivate = spec.onActivate
 		assert(
 			spec.onActivate == nil or type(spec.onActivate) == "function",
 			"Facet.Button: onActivate must be a function"
@@ -94,7 +95,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			"Facet.Button: target must be hit, thumb or inline"
 		)
 		local enabledLive = dynamic(spec.enabled) or dynamic(spec.disabled) or dynamic(spec.busy)
-		local enabledSource = if enabledLive
+		local enabledSource: ComposeTypes.ReadOnlyValue<boolean>? = if enabledLive
 			then Compose.formula(function(use: ComposeTypes.Use): boolean
 				return enabled(spec, use)
 			end)
@@ -128,7 +129,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			hinted == nil or (hinted.IsA and hinted:IsA("InputAction")),
 			"Facet.Button: shortcutHint must be a native InputAction"
 		)
-		local declaredSize = read(spec.textSize)
+		local declaredSize = read<<(number | Shared.TextRole)?>>(spec.textSize)
 		assert(
 			declaredSize == nil
 				or (type(declaredSize) == "string" and typeRoles[declaredSize])
@@ -169,11 +170,12 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 
 		local node: TextButton
 		local iconState: ComposeTypes.Value<ThemeTypes.SkinState>?
+		local icon, trailingIcon = spec.icon or (spec.row and spec.row.icon), spec.trailingIcon
 		if
-			(spec.icon or spec.trailingIcon)
+			(icon ~= nil or trailingIcon ~= nil)
 			and (
-				ctx.iconVaries(spec.icon or (spec.row and spec.row.icon))
-				or ctx.iconVaries(spec.trailingIcon)
+				ctx.iconVaries(icon)
+				or ctx.iconVaries(trailingIcon)
 				or (spec.row ~= nil and spec.onActivate ~= nil and ctx.iconVaries("chevron.trailing"))
 			)
 		then
@@ -187,32 +189,35 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			repeatDelay > 0 and repeatDelay < math.huge and repeatInterval > 0 and repeatInterval < math.huge,
 			"Facet.Button: repeat timings must be finite and positive"
 		)
-		local function activate(...)
+		local function activate(input: InputObject?, clicks: number?)
 			local pressed: Instance? = node
 			if
-				activation.consumed((...))
-				or (pressed and (help.consume(pressed) or activation.intercepted(pressed, (...))))
+				activation.consumed(input)
+				or (pressed and (help.consume(pressed) or activation.intercepted(pressed, input)))
 			then
 				return
 			end
-			local route = if node then ctx.shiftActivation(node, (...)) else nil
+			local route = if node then ctx.shiftActivation(node, input) else nil
 			local live = isEnabled()
 			local open = live and node and ctx.available(node)
 			if route and open then
 				route()
 				return
 			end
-			if open and spec.onActivate then
+			if open and onActivate then
 				if popTimeline and popScale and popReduced and not held and not popReduced() then
 					assert(popStart):set(popScale:peek())
 					popTimeline:restart()
 				end
-				spec.onActivate(...)
+				onActivate(input, clicks)
 				open = ctx.available(node)
 			end
 			if open then
-				activation.notify(node, ...)
+				activation.notify(node, input, clicks)
 			end
+		end
+		local function activateShortcut()
+			activate(nil, nil)
 		end
 		local function shortcutActive(use)
 			local input = ctx.config.services.UserInputService
@@ -223,7 +228,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		local guiService = ctx.config.services.GuiService
 		local lazyKeyboard = underline ~= "hover"
-		local enabledLive = dynamic(spec.enabled) or dynamic(spec.disabled) or dynamic(spec.busy)
 		local selectedForKeyboard: Shared.Input<boolean>
 		local fallbackSelection: ComposeTypes.Value<boolean>?
 		local function observeSelection(): Shared.Input<boolean>
@@ -255,7 +259,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local function controlSize(use)
 			return D2.fromOffset(0, ctx.controlSize(spec.controlSize, "height", use))
 		end
-		local defaults: Shared.TextButtonNativeProps = {
+		local defaults: Shared.TextButtonProps = {
 			Text = if rich then "" else spec.label or "",
 			Size = if dynamic(ctx.config.theme) or dynamic(spec.controlSize) then controlSize else controlSize(),
 			AutomaticSize = E.AutomaticSize.XY,
@@ -318,9 +322,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			return if spec.target == "inline" then math.min(minimum, ctx.metric("targetSizes.inline", use)) else minimum
 		end
 		if constrainedCaption then
-			p[#p + 1] = Host.UISizeConstraint({
+			p[#p + 1] = Host.UISizeConstraint {
 				MinSize = function(use: ComposeTypes.Use): Vector2
-					local package = read(ctx.config.theme, use)
+					local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 					local skin = package and package.chrome and package.chrome.control
 					local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
 					local minimum = if targetFloor then targetFloor(use) else 0
@@ -348,7 +352,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						minimum
 					)
 				end,
-			})
+			}
 		end
 		if not rich and p.TextTruncate == nil then
 			local automatic = p.AutomaticSize
@@ -360,13 +364,13 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end
 			p.TextTruncate = if dynamic(automatic) then truncate else truncate()
 		end
-		local engaged = Compose.cell(false)
+		local engaged = if underline == "hover" then Compose.cell(false) else nil
 		local fillsGlyph = false
 		if underline ~= nil then
 			p.RichText = true
 			p.Text = function(use: ComposeTypes.Use): string
 				local words = escapeRich(tostring(read(spec.label, use) or ""))
-				return if underline == "always" or use(engaged) then `<u>{words}</u>` else words
+				return if underline == "always" or use(assert(engaged)) then `<u>{words}</u>` else words
 			end
 		end
 		local function sized(label: TextLabel | TextButton)
@@ -390,19 +394,19 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end
 			if dynamic(spec.textSize) then
 				Compose.watch(function(use: ComposeTypes.Use)
-					apply(read(spec.textSize, use))
+					apply(read<<(number | Shared.TextRole)?>>(spec.textSize, use))
 				end)
 			elseif spec.textSize ~= nil then
-				apply(read(spec.textSize))
+				apply(read<<(number | Shared.TextRole)?>>(spec.textSize))
 			end
 		end
-		p.Activated = function(...)
+		p.Activated = function(input: InputObject, clicks: number)
 			if not repeated then
-				activate(...)
+				activate(input, clicks)
 			end
 			repeated = false
 			if spec.Activated then
-				spec.Activated(...)
+				spec.Activated(input, clicks)
 			end
 		end
 
@@ -410,7 +414,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			local given = spec.Size
 			local sizing = spec.AutomaticSize
 			local function floored(use: ComposeTypes.Use?): UDim2
-				local size: UDim2 = read(given, use)
+				local size: UDim2 = read<<UDim2>>(given, use)
 				local automatic = if sizing == nil then E.AutomaticSize.Y else read(sizing, use)
 				local grows = automatic == E.AutomaticSize.Y or automatic == E.AutomaticSize.XY
 				if grows and size.Y.Scale == 0 and size.Y.Offset == 0 then
@@ -445,28 +449,28 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end
 			end
 			p[#p + 1] = Host.UIAspectRatioConstraint(aspect)
-			p[#p + 1] = Host.UICorner({ CornerRadius = ctx.round })
+			p[#p + 1] = Host.UICorner { CornerRadius = ctx.round }
 		elseif spec.corners then
-			p[#p + 1] = Host.UICorner({ CornerRadius = if dynamic(spec.corners) then cornerRadius else cornerRadius() })
+			p[#p + 1] = Host.UICorner { CornerRadius = if dynamic(spec.corners) then cornerRadius else cornerRadius() }
 		end
 		if spec.busy ~= nil then
-			p[#p + 1] = Host.UIPadding({
+			p[#p + 1] = Host.UIPadding {
 				PaddingRight = function(use: ComposeTypes.Use): UDim
 					if read(spec.busy, use) ~= true then
 						return D.new(0, 0)
 					end
-					local package = read(ctx.config.theme, use)
+					local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 					local skin = package and package.chrome and package.chrome.control
 					return D.new(0, 32 + (if skin and skin.contentInsets then skin.contentInsets.right or 0 else 0))
 				end,
-			})
+			}
 			p[#p + 1] = Compose.show(function(use: ComposeTypes.Use)
 				return read(spec.busy, use) == true
 			end, function()
 				local phase =
 					runtime.timeline({ duration = ctx.metric("motion.durations.busyLoop"), repeats = math.huge })
 				local dotsReduced = reducedMotion(ctx)
-				local dots: Shared.FrameNativeProps = {
+				local dots: Shared.FrameProps = {
 					Name = "Busy",
 					Size = D2.fromOffset(18, 18),
 					AnchorPoint = V2.new(0, 0.5),
@@ -501,7 +505,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			local effective = ctx.effectiveInput()
 			local live, binding = ctx.observe.Enabled(hinted), ctx.observe.PreferredBinding(hinted)
 			local function cornerSize(use: ComposeTypes.Use): Shared.ControlSize
-				return SMALLER[read(spec.controlSize, use) or "regular"]
+				return SMALLER[read<<Shared.ControlSize?>>(spec.controlSize, use) or "regular"]
 			end
 			local shortcut = (UI.ShortcutHint :: unknown) :: (InputProps.ShortcutHintProps) -> TextLabel | Frame
 			inputHint = shortcut(({
@@ -535,7 +539,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				function(use: ComposeTypes.Use)
 					return read(selectedForKeyboard, use) == true and shortcutActive(use)
 				end,
-				activate,
+				activateShortcut,
 				{ priority = 5000, conditional = { binding = E.KeyCode.Space, when = ctx.spaceActivates(node) } }
 			)
 		end
@@ -627,7 +631,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 											end
 											at = at.Parent
 										end
-										local package = read(ctx.config.theme, use)
+										local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 										local skin = package and package.chrome and package.chrome.control
 										local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
 										local padding = (
@@ -658,7 +662,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			local state = ctx.observe.GuiState(node)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local now = use(state)
-				engaged:set(
+				assert(engaged):set(
 					now == E.GuiState.Hover or now == E.GuiState.Press or read(selectedForKeyboard, use) == true
 				)
 			end)
@@ -746,7 +750,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		if not rich and ctx.config.theme ~= nil then
 			local function needsCaption(use)
-				local package = read(ctx.config.theme, use)
+				local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 				local recipe = package and package.chrome and package.chrome.control
 				return recipe ~= nil and recipe.kind ~= "native" and recipe.kind ~= "none"
 			end
@@ -872,7 +876,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				})
 			end
 			local function plated(use: ComposeTypes.Use?): boolean
-				local appearance = read(spec.appearance, use)
+				local appearance = read<<string?>>(spec.appearance, use)
 				return appearance ~= "utility" and appearance ~= "link" and read(spec.BackgroundTransparency, use) ~= 1
 			end
 			if dynamic(spec.appearance) or dynamic(spec.BackgroundTransparency) then
@@ -890,6 +894,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local previousTags: { [string]: true? } = {}
 		local previousAttributes: { [string]: boolean | string } = {}
 		local initialized = false
+		local previousRung: Shared.ControlSize? = nil
 		local function tag(name: string, active: boolean)
 			if (previousTags[name] == true) ~= active then
 				previousTags[name] = if active then true else nil
@@ -909,7 +914,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local function updateState(use)
 			local selected, busy = read(spec.selected, use) == true, read(spec.busy, use) == true
 			local available = isEnabled(use)
-			local role, appearance = read(spec.role, use) or "default", read(spec.appearance, use) or "standard"
+			local role, appearance =
+				read<<InputTypes.ButtonRole?>>(spec.role, use) or "default",
+				read<<string?>>(spec.appearance, use) or "standard"
+			local roleChanged = not initialized or previousAttributes.role ~= role
+			local appearanceChanged = not initialized or previousAttributes.appearance ~= appearance
 			assert(roles[role], "Facet.Button: invalid semantic role")
 			if not initialized then
 				for _, name in node:GetTags() do
@@ -926,29 +935,43 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					else "default"
 				iconState:set(visualState)
 			end
-			for name: string, tagName in roleTags do
-				tag(tagName, role == name)
+			if roleChanged then
+				for name: string, tagName in roleTags do
+					tag(tagName, role == name)
+				end
 			end
 			tag("facet-selected", selected)
 			tag("facet-busy", busy)
-			tag("facet-shape-circle", spec.shape == "circle")
+			if not initialized then
+				tag("facet-shape-circle", spec.shape == "circle")
+			end
 			tag("facet-disabled", not available)
-			tag("facet-accent", appearance == "emphasis")
-			tag("facet-appearance-soft", appearance == "soft")
-			tag("facet-appearance-utility", appearance == "utility")
-			tag("facet-appearance-link", appearance == "link")
-			tag("facet-appearance-inverse", appearance == "inverse")
-			tag("facet-quiet-destructive", role == "destructive" and (appearance == "utility" or appearance == "link"))
-			local rung = read(spec.controlSize, use)
-			for index, name in CONTROL_RUNGS do
-				tag(rungTags[index], rung == name)
+			if appearanceChanged then
+				tag("facet-accent", appearance == "emphasis")
+				tag("facet-appearance-soft", appearance == "soft")
+				tag("facet-appearance-utility", appearance == "utility")
+				tag("facet-appearance-link", appearance == "link")
+				tag("facet-appearance-inverse", appearance == "inverse")
+			end
+			if roleChanged or appearanceChanged then
+				tag(
+					"facet-quiet-destructive",
+					role == "destructive" and (appearance == "utility" or appearance == "link")
+				)
+			end
+			local rung = read<<Shared.ControlSize?>>(spec.controlSize, use)
+			if not initialized or previousRung ~= rung then
+				for index, name in CONTROL_RUNGS do
+					tag(rungTags[index], rung == name)
+				end
+				previousRung = rung
 			end
 			attribute("selected", selected)
 			attribute("busy", busy)
 			attribute("appearance", appearance)
 			attribute("controlSize", rung or "regular")
 			attribute("role", role)
-			attribute("label", read(spec.name or spec.label or "", use))
+			attribute("label", read<<string?>>(spec.name or spec.label or "", use) or "")
 			initialized = true
 		end
 		local stateIsDynamic = iconState ~= nil
@@ -1006,7 +1029,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					return true
 				end, function()
 					repeated = true
-					activate()
+					activateShortcut()
 				end)
 			end
 			Compose.cleanup(cancel)
@@ -1080,7 +1103,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				dialogOrder += 1
 				priority -= dialogOrder
 			end
-			ctx.action(node, "Shortcut", bindings, shortcutActive, activate, {
+			ctx.action(node, "Shortcut", bindings, shortcutActive, activateShortcut, {
 				priority = priority,
 				sink = spec.dialogAction ~= nil or modified,
 			})

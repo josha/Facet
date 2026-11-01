@@ -34,7 +34,9 @@ facade.app = function(options: App.AppOptions): App.App
 		touchEnabled = phone,
 		viewingDistance = "automatic",
 	}
-	app = Facet.app(options)
+	local create: (App.AppOptions) -> App.App = Facet.app
+	local created = create(options)
+	app = created
 	return assert(app)
 end
 local hubReference = { Shop = "Shop", Economy = "Economy" }
@@ -58,7 +60,7 @@ environment.require = function(reference: unknown): unknown
 end
 local function load(name: string): unknown
 	local file = workspacePath .. "/src/client/Interface/" .. name .. ".luau"
-	return Lute.chunk.load(fs.readFileToString(file), { name = file, environment = environment })()
+	return (Lute.chunk.load(fs.readFileToString(file), { name = file, environment = environment })())
 end
 modules.Theme = load("Theme")
 modules.Model = load("Model")

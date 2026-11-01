@@ -119,11 +119,11 @@ export type Verdict = {
 	code: string?,
 	message: string?,
 	consumer: string?,
-	total: number,
+	total: number?,
 	detail: string?,
 }
 
-function rules.validate(allocation: { [string]: unknown }): Verdict
+function rules.validate(allocation: { read [string]: unknown }): Verdict
 	local total = 0
 	for id in allocation do
 		if byId[id] == nil then

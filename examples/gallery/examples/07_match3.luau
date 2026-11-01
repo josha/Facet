@@ -1,16 +1,13 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 
 local assets = require("./assets")
 
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 
 local ROWS = 6
 local COLS = 6
@@ -101,7 +98,7 @@ local function cellOf(key: string): (number, number)
 	return assert(tonumber(rs)), assert(tonumber(cs))
 end
 
-local function build(ctx: ExampleContext): Built
+local function build(ctx: ExampleContext)
 	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2, Vector2, Color3, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 	local reducedMotion = ctx.reducedMotion
@@ -335,7 +332,14 @@ local function build(ctx: ExampleContext): Built
 	local function link(id: number, side: "left" | "right" | "up" | "down"): (Use) -> GuiObject?
 		return function(use: Use): GuiObject?
 			local current = use(links)[id]
-			return if current then current[side] else nil
+			if current == nil then
+				return nil
+			end
+			return if side == "left"
+				then current.left
+				elseif side == "right" then current.right
+				elseif side == "up" then current.up
+				else current.down
 		end
 	end
 	local slots: { [string]: GuiObject } = {}
@@ -438,7 +442,7 @@ local function build(ctx: ExampleContext): Built
 						return if use(picked) then 0 else 1
 					end,
 				},
-				onActivate = function(input)
+				onActivate = function(input: InputObject?, _clicks: number?)
 					if
 						input
 						and (
@@ -535,13 +539,13 @@ local function build(ctx: ExampleContext): Built
 				BackgroundTransparency = 1,
 				table.unpack(children),
 			},
-			Compose.OrderedCollection({
+			Compose.OrderedCollection {
 				from = items,
 				key = function(item: { id: number })
 					return item.id
 				end,
 				render = TileView,
-			}),
+			},
 		}
 		syncSelection()
 		return node
@@ -805,7 +809,7 @@ local function build(ctx: ExampleContext): Built
 	end
 	local hintSig: ReadOnlyValue<string>? = nil
 	local function Match3()
-		local hint = Compose.formula(function(use: Use)
+		local hint = Compose.formula(function(use: Use): string
 			local said = use(message)
 			if said ~= "" then
 				return said

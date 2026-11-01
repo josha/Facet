@@ -10,12 +10,12 @@ return function<V, K>(
 	shared: State.Reorder<V, K>,
 	body: ScrollingFrame,
 	insideBody: boolean?,
-	canvasAt: ComposeTypes.Value<Vector2>,
-	bodyAt: ComposeTypes.Value<UDim2>
+	canvasAt: ComposeTypes.ReadOnlyValue<Vector2>,
+	bodyAt: ComposeTypes.ReadOnlyValue<UDim2>
 ): Frame
 	local ctx, spec, gesture = shared.ctx, shared.spec, shared.gesture
 	local Compose, Host = ctx.Compose, ctx.Host
-	local read = ctx.read
+	local readSource = ctx.readSource
 	local D2, V2 = ctx.types.UDim2, ctx.types.Vector2
 	local moving, incoming, choosingDestination, drag =
 		shared.moving, shared.incoming, shared.choosingDestination, shared.drag
@@ -189,7 +189,7 @@ return function<V, K>(
 		end, function()
 			local function placement(use: ComposeTypes.Use)
 				local proposal = use(incoming)
-				local rows = read(source, use)
+				local rows = readSource(source, use)
 				if #rows == 0 then
 					return { offset = 0, size = 44, crossOffset = 0, crossSize = 44 }, true
 				end
@@ -277,7 +277,7 @@ return function<V, K>(
 				BackgroundTransparency = 1,
 				ctx.styled(
 					Host.Frame "DropLine" {
-						Visible = function(use)
+						Visible = function(use: ComposeTypes.Use)
 							local session = use(drag.state)
 							local move = use(moving)
 							return (spec.onReorder ~= nil or spec.drop ~= nil)

@@ -8,7 +8,7 @@ local collapsible = require("./nav_collapsible")
 local alert = require("./nav_alert")
 local callout = require("./nav_callout")
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces): ()
 	local kit = surfaceParts(ctx)
 	disclosure(ctx, UI, surfaces, kit)
 	collapsible(ctx, UI, surfaces, kit)

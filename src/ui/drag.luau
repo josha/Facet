@@ -118,6 +118,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			preview = spec.preview,
 			hitArea = spec.hitArea,
 			returnTravel = spec.returnTravel,
+			mark = spec.mark,
 			operations = spec.operations,
 			onStart = spec.onStart,
 		}
@@ -165,7 +166,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				else position
 		end
 		local pointerInput = pointerDragOf(ctx)
-		local detector = Host.UIDragDetector({
+		local detector = Host.UIDragDetector {
 			Name = "FacetDragDetector",
 			DragStyle = E.UIDragDetectorDragStyle.TranslatePlane,
 			ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
@@ -205,9 +206,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					end
 				end
 			end,
-		})
+		}
 		detector.Parent = source
-		local ended = setmetatable({} :: { [InputObject]: true }, { __mode = "k" })
+		local ended: { [InputObject]: true } = setmetatable({}, { __mode = "k" })
 		ctx.runtime.connect(source, "InputBegan", function(value: InputObject)
 			if value.UserInputType == E.UserInputType.MouseButton1 or value.UserInputType == E.UserInputType.Touch then
 				eligible = false
@@ -361,7 +362,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					and enabled(use)
 					and node ~= nil
 					and (node == source or node:IsDescendantOf(source))
-			end, pickUp, { priority = 250 })
+			end, function()
+				pickUp()
+			end, { priority = 250 })
 		end
 		ctx.action(source, "DragCancel", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use)
 			local current = use(service.state)
@@ -400,12 +403,17 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				end
 			end
 		end)
-		if not keyActivation(focusTarget, drop) then
+		local function dropAtFocus(): boolean
+			return drop(nil)
+		end
+		if not keyActivation(focusTarget, dropAtFocus) then
 			local selected = if gui then ctx.observe.SelectedObject(gui) else nil
 			ctx.action(focusTarget, "DragDrop", { E.KeyCode.Return, E.KeyCode.ButtonA }, function(use)
 				local current = use(service.state)
 				return current ~= nil and current.mode == "armed" and selected ~= nil and use(selected) == focusTarget
-			end, drop, { priority = 250 })
+			end, function()
+				drop(nil)
+			end, { priority = 250 })
 		end
 	end
 end

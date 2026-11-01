@@ -32,7 +32,9 @@ function preferredInput.withheld(input: UserInputService, value: unknown, keyboa
 end
 
 function preferredInput.nudges(input: UserInputService, types: typeof(Enum), changed: () -> ()): () -> ()
-	local began = input.InputBegan:Connect(changed)
+	local began = input.InputBegan:Connect(function(_event: InputObject, _processed: boolean)
+		changed()
+	end)
 	local moved = input.InputChanged:Connect(function(event: InputObject)
 		local kind = event.UserInputType
 		if kind == types.UserInputType.MouseMovement or kind == types.UserInputType.MouseWheel then

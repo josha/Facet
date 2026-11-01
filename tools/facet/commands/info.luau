@@ -14,17 +14,17 @@ It is short. Read the contract of each control that you choose with
 lute run tools/facet docs <Control>. Use --full for the complete control map
 and starter block list.]]
 
-local MOUNT = [[local Facet = require(game:GetService("ReplicatedStorage").Packages.Facet)
+local MOUNT = [=[local Facet = require(game:GetService("ReplicatedStorage").Packages.Facet)
 local Compose = Facet.Compose
 local app = Facet.app({ name = "Counter", parent = playerGui })
 local UI = app.UI
 app.mount(function()
 	local count = Compose.cell(0)
-	return UI.Screen "Counter" {
-		UI.Text "Count" { text = function(use) return tostring(use(count)) end },
-		UI.Button "Add" { label = "Add one", onActivate = function() count:update(function(n) return n + 1 end) end },
-	}
-end)]]
+	return UI.Screen({
+		UI.Text({ text = function(use) return tostring(use(count)) end }, "Count"),
+		UI.Button({ label = "Add one", onActivate = function() count:update(function(n) return n + 1 end) end }, "Add"),
+	}, "Counter")
+end)]=]
 
 local COMPOSE = {
 	{ "Compose.cell(value)", "state that the screen owns; cell:set(value), cell:update(fn), cell:peek()" },
@@ -38,7 +38,7 @@ local COMPOSE = {
 
 local RULES = {
 	"Make one runtime and mount one root. Each screen, panel and overlay is a Compose.show branch or a portal of that tree, switched by Compose state.",
-	'Write controls in the named form, UI.Button "Buy" { ... }, so that strict mode checks every option without casts.',
+	'Write controls as UI.Button(props, "Buy") so that strict mode checks every option.',
 	"Native properties keep their Roblox names (Size, LayoutOrder). Control options use lower camel case (label, onActivate).",
 	"State is Compose cells. Read a cell inside a property function with use(cell). Change it with cell:set(value).",
 	"Put Roblox objects through Host = app.runtime.constructors, for example Host.UIListLayout { ... }.",

@@ -1,23 +1,24 @@
 --!strict
 
-local StructureTypes = require "./types"
+local CoreTypes = require "../types"
 local Owners = require "../ownership/owner"
 local Active = require "../ownership/active"
-local Block = require "../runtime/block"
 local Children = require "../runtime/children"
+local Block = Children.block
 local Diagnostics = require "../diagnostics"
+local Dynamic = require "../dynamic"
 local Host = require "../host"
 local Support = require "./support"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 
-export type Phase = StructureTypes.PresencePhase
+export type Phase = CoreTypes.PresencePhase
 
-export type Builder = StructureTypes.PresenceBuilder
+export type Builder = CoreTypes.PresenceBuilder
 
-export type Exiting = StructureTypes.Exiting
+export type Exiting = CoreTypes.Exiting
 
-export type Options = StructureTypes.PresenceOptions
+export type Options = CoreTypes.PresenceOptions
 
 local KNOWN_FIELDS: { [string]: true } = { exit = true }
 
@@ -38,9 +39,9 @@ local function presence<T>(condition: Types.Source<T>, builder: Builder, options
 		Support.mountPointOf(mountPoint, "presence")
 		local exiting = cellModule.cell(false)
 		local phase: Phase = { exiting = exiting }
-		local current: Block.Block? = nil
+		local current: Children.Block? = nil
 		local shown: boolean? = nil
-		local leaving: Block.Block? = nil
+		local leaving: Children.Block? = nil
 		local stopWatchingExit: (() -> ())? = nil
 
 		local function forgetExit()
@@ -78,8 +79,8 @@ local function presence<T>(condition: Types.Source<T>, builder: Builder, options
 				end
 				current = Block.mountBlock(mountPoint, owner, function(): { Host.Node }
 					local produced = build(phase)
-					if type(produced) == "table" and rawget(produced :: { [unknown]: unknown }, 1) ~= nil then
-						return produced :: { Host.Node }
+					if type(produced) == "table" and Dynamic.raw(produced, 1) ~= nil then
+						return Block.requireNodes(produced, "presence")
 					end
 					return { produced }
 				end, Block.nameOf(build), 1)
@@ -105,20 +106,30 @@ local function presence<T>(condition: Types.Source<T>, builder: Builder, options
 			if not ok then
 				leaving = nil
 				Owners.dispose(departing.owner)
-				Diagnostics.raise("structure/exit-failed", "a presence exit raised instead of returning", {
-					detail = tostring(running),
-					contract = "exit starts the departure and returns something with a completed readable",
-					fix = "return a timeline, or omit exit to dispose immediately",
-				})
+				error(
+					Diagnostics.format("structure/exit-failed", "a presence exit raised instead of returning", {
+						detail = tostring(running),
+						contract = "exit starts the departure and returns something with a completed readable",
+						fix = "return a timeline, or omit exit to dispose immediately",
+					}),
+					0
+				)
 				return
 			end
 			if type(running) ~= "table" or running.completed == nil then
 				leaving = nil
 				Owners.dispose(departing.owner)
-				Diagnostics.raise("structure/exit-not-completable", "a presence exit returned nothing that completes", {
-					actual = Diagnostics.describe(running),
-					expected = "a table with a `completed` readable, such as a timeline",
-				})
+				error(
+					Diagnostics.format(
+						"structure/exit-not-completable",
+						"a presence exit returned nothing that completes",
+						{
+							actual = Diagnostics.describe(running),
+							expected = "a table with a `completed` readable, such as a timeline",
+						}
+					),
+					0
+				)
 				return
 			end
 

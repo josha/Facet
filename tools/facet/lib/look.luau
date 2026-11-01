@@ -58,12 +58,13 @@ function Look.presentationProblems(dump: Audit.Dump): { Audit.Violation }
 			or rect.x + rect.width > room.x + room.width + 1
 			or rect.y + rect.height > room.y + room.height + 1
 		then
-			table.insert(problems, {
+			local problem: Audit.Violation = {
 				rule = "modal-presentation",
 				severity = "high",
 				path = element.path,
 				detail = "the Sheet has not entered the player viewport",
-			})
+			}
+			table.insert(problems, problem)
 		end
 	end
 	return problems
@@ -96,7 +97,8 @@ function Look.run(options: Options, open: ((Play.HostOptions) -> Play.Host)?): R
 	if Files.exists(out) then
 		Files.remove(out)
 	end
-	local host = (open or Play.open)({
+	local createHost: (Play.HostOptions) -> Play.Host = open or Play.open
+	local host = createHost({
 		workspace = Files.cwd(),
 		outputs = out,
 		captures = out .. "/captures",

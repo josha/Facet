@@ -4,9 +4,25 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
+type StringRadialItem = typeof(require("@repo/tools/typecheck/aliases").StringRadialItem)
+type StringRadialAction = typeof(require("@repo/tools/typecheck/aliases").StringRadialAction)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
+type IdRowsCell = typeof(require("@repo/src/vendor/compose/core").cell({ { id = "" } }))
+type IdReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").IdReadOnlyValue)
+type Rect = { x: number, y: number, w: number, h: number, r: number, b: number }
+type Built = (() -> unknown) | { screen: () -> unknown }
+type PlaylistBuild = {
+	screen: () -> unknown,
+	baseRows: { peek: (unknown) -> { { id: string } } },
+	ratingFor: (string) -> { peek: (unknown) -> number },
+}
+local function traceback(message: string): string
+	return debug.traceback(message, 2)
+end
 local GuiService = game:GetService("GuiService")
 local storage = game:GetService("ReplicatedStorage")
 
@@ -54,10 +70,11 @@ local function overlap(a: any, b: any): boolean
 end
 
 local function scenario(t: any, name: string, size: Vector2?, theme: any?): (any, any)
-	local built
+	local built: Built
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
-		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
-		return if type(built) == "function" then built() else built.screen()
+		local result: Built = t.scenario(name).build(t.context(UI, Host, Compose, env))
+		built = result
+		return if type(result) == "function" then result() else result.screen()
 	end, { size = size, theme = theme, frames = 20 })
 	return stage, built
 end
@@ -385,7 +402,7 @@ add("card-rail-distant-and-shelves", {}, function(t)
 			first = first or message
 		end
 	end)
-	local ok, problem = xpcall(function()
+	local ok, problem = xpcall(function(): boolean
 		local live = (require :: any)(assert(script.Parent).Parent)
 		local http = game:GetService("HttpService")
 		local results = {}
@@ -476,9 +493,10 @@ add("card-rail-distant-and-shelves", {}, function(t)
 				)
 			end
 		end
-	end, debug.traceback)
+		return true
+	end, traceback)
 	connection:Disconnect()
-	assert(ok, problem)
+	assert(ok, tostring(problem))
 	t.check("card shelves produce no native layout re-entrancy", reentrant == 0, { count = reentrant, first = first })
 end)
 
@@ -494,20 +512,17 @@ local PICKER_SIZES = {
 add("radial-retiring-branch-refuses-selection", {}, function(t)
 	local live = (require :: any)(assert(script.Parent).Parent)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.RadialMenu({
+		local leaves: { StringRadialItem } = {
+			{ id = "Leaf", label = "Leaf", completion = "stay" },
+			{ id = "Twig", label = "Twig", completion = "stay" },
+		}
+		local branch: StringRadialAction = { id = "Branch", label = "Branch", children = leaves }
+		local other: StringRadialAction = { id = "Other", label = "Other", completion = "stay" }
+		local items: { StringRadialItem } = { branch, other }
+		return UI.RadialMenu "RadialMenu" {
 			isPresented = Compose.cell(true),
-			items = {
-				{
-					id = "Branch",
-					label = "Branch",
-					children = {
-						{ id = "Leaf", label = "Leaf", completion = "stay" :: "stay" },
-						{ id = "Twig", label = "Twig", completion = "stay" :: "stay" },
-					},
-				} :: RadialItem,
-				{ id = "Other", label = "Other", completion = "stay" :: "stay" } :: RadialItem,
-			},
-		})
+			items = items,
+		}
 	end, { size = Vector2.new(900, 700), motionLevel = "normal", frames = 30 })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	local retiring = visibleNamed(t, gui, "Sector-Branch")
@@ -548,7 +563,7 @@ end)
 
 add("playlist-pad-reorder-and-tray-walk", {}, function(t)
 	local live = (require :: any)(assert(script.Parent).Parent)
-	local built
+	local built: PlaylistBuild
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local ctx = t.context(UI, Host, Compose, env)
 		local folder = game:GetService("ReplicatedStorage"):WaitForChild("FacetExamples")
@@ -655,14 +670,14 @@ add("picker-style-sweep", {}, function(t)
 		for _, size in PICKER_SIZES do
 			for _, style in PICKER_STYLES do
 				local where = `{theme.name} {size.X}x{size.Y} {style}`
-				local opened
+				local opened: BooleanCell
 				local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 					opened = Compose.cell(false)
 					return Host.Frame "Column" {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						BackgroundTransparency = 1,
-						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
+						Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) },
 						UI.Picker "Handling" {
 							label = "Handling",
 							style = style :: (
@@ -694,10 +709,10 @@ add("picker-style-sweep", {}, function(t)
 					if panel then
 						t.stable(panel)
 						t.inside(where .. " open panel inside the screen", panel, stage, 1)
-						local rows = {}
+						local rows: { Rect } = {}
 						for _, node in panel:GetDescendants() do
 							if node:IsA("TextButton") and t.visible(node) and node.ContentText ~= "" then
-								table.insert(rows, t.rect(node))
+								rows[#rows + 1] = t.rect(node)
 							end
 						end
 						local crossed = 0
@@ -722,15 +737,15 @@ interactive("grabber-activation-cycles-detents", {}, function(t)
 	t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.detent = Compose.cell("medium")
 		value.shown = Compose.cell(true)
-		return UI.Sheet({
+		return UI.Sheet {
 			isPresented = value.shown,
 			detent = value.detent,
 			detents = { "medium", "large", { id = "short", height = 260 } } :: { SheetDetent },
 			title = "Loadout",
 			content = function(): Instance
-				return UI.Text({ text = "Pick a loadout" })
+				return UI.Text { text = "Pick a loadout" }
 			end,
-		})
+		}
 	end, { frames = 20 })
 	local gui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 	value.grabber = visibleNamed(t, gui, "Grabber")
@@ -783,10 +798,11 @@ add("nested-tabs-fit-a-short-screen", {}, function(t)
 end)
 
 add("virtual-list-clamps-across-tabs", {}, function(t)
-	local rows, selection
+	local rows: IdRowsCell
+	local selection: StringCell
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		rows = Compose.cell((function()
-			local list = {}
+			local list: { { id: string } } = {}
 			for index = 1, 100 do
 				list[index] = { id = tostring(index) }
 			end
@@ -803,13 +819,11 @@ add("virtual-list-clamps-across-tabs", {}, function(t)
 					content = function()
 						return UI.VirtualList "List" {
 							from = rows,
-							key = function(item)
-								return item.id
-							end,
+							key = "id",
 							itemSize = 100,
 							Size = UDim2.fromOffset(300, 300),
-							render = function(current)
-								return UI.Text({ text = "Row " .. current:peek().id, Size = UDim2.fromScale(1, 1) })
+							render = function(current: IdReadOnlyValue)
+								return UI.Text { text = "Row " .. current:peek().id, Size = UDim2.fromScale(1, 1) }
 							end,
 						}
 					end,
@@ -818,7 +832,7 @@ add("virtual-list-clamps-across-tabs", {}, function(t)
 					id = "b",
 					label = "Other",
 					content = function()
-						return Host.Frame({ Size = UDim2.fromOffset(10, 10) })
+						return Host.Frame { Size = UDim2.fromOffset(10, 10) }
 					end,
 				} :: Tab,
 			},
@@ -858,25 +872,25 @@ end)
 add("type-roles-compile-to-native-fonts", {}, function(t)
 	local roles = t.Facet.themes.TYPE_ROLES
 	for _, theme in t.themes do
-		local labels = {}
+		local labels: { [string]: GuiObject } = {}
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-			local children: { unknown } = { Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) }
+			local children: { Instance } = { Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } }
 			for index, role in roles do
-				local label = UI.Text({ Name = role, text = "Sample " .. role, textRole = role, LayoutOrder = index })
+				local label = UI.Text { Name = role, text = "Sample " .. role, textRole = role, LayoutOrder = index }
 				labels[role] = label
 				table.insert(children, label)
 			end
 			return Host.Frame {
 				Size = UDim2.fromOffset(600, 600),
 				BackgroundTransparency = 1,
-				table.unpack((children :: unknown) :: { unknown }),
+				table.unpack(children),
 			}
 		end, { theme = theme.package, size = Vector2.new(600, 600), frames = 10 })
 		local typography = theme.package.metrics.typography
 		for _, role in roles do
 			local label = labels[role]
 			local spec = typography[role]
-			if label and spec then
+			if label and spec and label:IsA("TextLabel") then
 				t.check(
 					`{theme.name} {role} carries its role tag`,
 					label:HasTag("facet-type-" .. role),
@@ -887,8 +901,8 @@ add("type-roles-compile-to-native-fonts", {}, function(t)
 				t.check(`{theme.name} {role} FontFace weight`, face.Weight.Name ~= "", tostring(face))
 				t.check(
 					`{theme.name} {role} TextBounds follow the size`,
-					(label :: TextLabel).TextBounds.Y >= spec.size * 0.9,
-					(label :: TextLabel).TextBounds
+					label.TextBounds.Y >= spec.size * 0.9,
+					label.TextBounds
 				)
 			end
 		end

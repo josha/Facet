@@ -1,15 +1,15 @@
 --!strict
 
-local RuntimeTypes = require "./runtime/types"
+local CoreTypes = require "./types"
 local Active = require "./ownership/active"
 local Diagnostics = require "./diagnostics"
 local Owner = require "./ownership/owner"
 local Host = require "./host"
 local ownedFrame = require "./ownership/frame"
 
-export type Cancel = RuntimeTypes.Cancel
+export type Cancel = CoreTypes.Cancel
 
-export type Scheduler = RuntimeTypes.Scheduler
+export type Scheduler = CoreTypes.Scheduler
 
 type Entry = {
 	due: number,
@@ -25,41 +25,32 @@ end
 
 local function checkDelay(seconds: unknown)
 	if type(seconds) ~= "number" or seconds ~= seconds or seconds < 0 or seconds == math.huge then
-		error(
-			Diagnostics.format(
-				"scheduler/invalid-delay",
-				"a scheduled task needs a finite delay of zero or more seconds",
-				{
-					actual = Diagnostics.describe(seconds),
-					expected = "seconds, e.g. 0.25; zero runs on the next frame",
-				}
-			),
-			0
+		return Diagnostics.raise(
+			"scheduler/invalid-delay",
+			"a scheduled task needs a finite delay of zero or more seconds",
+			{
+				actual = Diagnostics.describe(seconds),
+				expected = "seconds, e.g. 0.25; zero runs on the next frame",
+			}
 		)
 	end
 end
 
 local function checkBody(body: unknown)
 	if type(body) ~= "function" then
-		error(
-			Diagnostics.format("scheduler/invalid-body", "a scheduled task needs a function to run", {
-				actual = Diagnostics.describe(body),
-				expected = "a function taking no arguments",
-			}),
-			0
-		)
+		return Diagnostics.raise("scheduler/invalid-body", "a scheduled task needs a function to run", {
+			actual = Diagnostics.describe(body),
+			expected = "a function taking no arguments",
+		})
 	end
 end
 
 local function checkKey(key: unknown)
 	if key == nil or key ~= key then
-		error(
-			Diagnostics.format("scheduler/invalid-key", "a replacement key must be a value other than nil or NaN", {
-				actual = Diagnostics.describe(key),
-				expected = "a string, number, boolean or table identifying the work",
-			}),
-			0
-		)
+		return Diagnostics.raise("scheduler/invalid-key", "a replacement key must be a value other than nil or NaN", {
+			actual = Diagnostics.describe(key),
+			expected = "a string, number, boolean or table identifying the work",
+		})
 	end
 end
 
@@ -71,13 +62,10 @@ local function createSchedulers(
 		local parent: Owner.Owner
 		if explicit ~= nil then
 			if not Owner.isOwner(explicit) then
-				error(
-					Diagnostics.format("scheduler/invalid-owner", "a scheduler can only be bound to an owner", {
-						actual = Diagnostics.describe(explicit),
-						expected = "an owner from Compose.createOwner or Compose.owner.createChild",
-					}),
-					0
-				)
+				return Diagnostics.raise("scheduler/invalid-owner", "a scheduler can only be bound to an owner", {
+					actual = Diagnostics.describe(explicit),
+					expected = "an owner from Compose.createOwner or Compose.owner.createChild",
+				})
 			end
 			parent = explicit
 		else
@@ -92,7 +80,7 @@ local function createSchedulers(
 		local frames = host.frames
 		if frames == nil then
 			Owner.dispose(scope)
-			error(Diagnostics.format("animation/no-frames", "a scheduler needs host.frames", {}), 0)
+			return Diagnostics.raise("animation/no-frames", "a scheduler needs host.frames", {})
 		end
 		local loop = frames
 		local clock = 0

@@ -26,14 +26,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		return "facet-type-" .. name
 	end
 	local function textRole(node: TextLabel, role: Types.Input<Media.TextRole>?): TextLabel
-		if not Compose.isValue(role) and type(role) ~= "function" then
-			node:AddTag(roleTag(role :: Media.TextRole?))
+		if role == nil or type(role) == "string" then
+			node:AddTag(roleTag(role))
 			return node
 		end
-		local live = role :: Types.Input<Media.TextRole>
 		local previous: string?
 		Compose.watch(function(use: ComposeTypes.Use)
-			local tag = roleTag(read(live, use))
+			local tag = roleTag(read<<Media.TextRole>>(role, use))
 			if previous then
 				node:RemoveTag(previous)
 			end
@@ -80,7 +79,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		end
 		return form(best)
 	end
-	local function fitOf(value: Media.TextFit?): { cap: Media.TextFitBound?, floor: Media.TextFitBound? }?
+	local function fitOf(value: Media.TextSize?): { cap: Media.TextFitBound?, floor: Media.TextFitBound? }?
 		if value == nil then
 			return nil
 		end
@@ -91,7 +90,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			'Facet Text textSize must be a size, a type role, "fit" or { fit = { cap = size, floor = size } }'
 		assert(type(value) == "table" and type(value.fit) == "table", refusal)
 		local band = value.fit
-		for key in band :: { [unknown]: unknown } do
+		local fields: unknown = band
+		assert(type(fields) == "table", refusal)
+		for key in fields do
 			assert(key == "cap" or key == "floor", "Facet Text textSize fit takes only cap and floor")
 		end
 		for _, bound in { band.cap, band.floor } do
@@ -131,13 +132,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		rtl = E.TextDirection.RightToLeft,
 	}
 	UI.Text = ctx.construct("Text", function(spec: MediaProps.TextProps): TextLabel
-		local fields = (spec :: unknown) :: { [string]: unknown }
-		for _, retired in { "color", "font" } do
-			if fields[retired] ~= nil then
-				error(`Facet UI.Text: {retired} is style authority. Use role or textRole.`, 0)
-			end
-		end
-		if fields.label ~= nil or spec.Text ~= nil then
+		if spec.Text ~= nil then
 			error("Facet UI.Text: set the text with text. Remove label and Text.", 0)
 		end
 		local source: Types.Input<string>? = spec.text
@@ -170,13 +165,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				table.find(themes.TYPE_ROLES, size) ~= nil,
 				`Facet Text textSize "{size}" is not a type role; use one of {table.concat(themes.TYPE_ROLES, ", ")}`
 			)
-			sizeRole = size :: Media.TextRole
+			sizeRole = size
 		end
 		assert(
 			sizeRole == nil or spec.textRole == nil,
 			"Facet Text: set the type role one time, with textSize or textRole"
 		)
-		local fit = if pixels == nil and sizeRole == nil then fitOf(size :: Media.TextFit?) else nil
+		local fit = if pixels == nil and sizeRole == nil then fitOf(size) else nil
 		local lines = spec.lines
 		assert(
 			lines == nil or (type(lines) == "number" and lines >= 1 and lines % 1 == 0),
@@ -189,8 +184,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			spec.reveal == nil or (lines == nil and not cut and spec.wrap ~= true and spec.TextWrapped ~= true),
 			"Facet Text reveal needs one line that truncates at the end; remove wrap, lines or the middle cut"
 		)
-		local defaults: Engine.TextLabelNativeProps = {
-			Text = if cut then read(source) or "" else bind(source, ""),
+		local defaults: Engine.TextLabelProps = {
+			Text = if cut then read<<string?>>(source) or "" else bind<<string>>(source, ""),
 			AutoLocalize = if Compose.isValue(source) or type(source) == "function" then false else nil,
 		}
 		if rich then
@@ -210,11 +205,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			defaults.TextDirection = DIRECTION[spec.direction]
 		end
 		if spec.tint ~= nil then
-			defaults.TextColor3 = spec.tint :: Types.Input<Color3>
+			defaults.TextColor3 = spec.tint
 		end
 		if spec.textAlign ~= nil then
 			defaults.TextXAlignment = function(use: ComposeTypes.Use): Enum.TextXAlignment
-				local align = read(spec.textAlign, use) or "start"
+				local align = read<<Media.TextAlign?>>(spec.textAlign, use) or "start"
 				return (assert(ALIGN[align], "Facet Text textAlign must be start, center or end"))
 			end
 		end
@@ -246,14 +241,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			defaults.TextScaled = true
 			defaults.Size = D2.fromScale(1, 1)
 			defaults.AutomaticSize = E.AutomaticSize.None
-			defaults[1] = Host.UITextSizeConstraint({
+			defaults[1] = Host.UITextSizeConstraint {
 				MaxTextSize = function(use: ComposeTypes.Use): number
-					return scale(fit.cap or read(roleSource, use) or "body", use)
+					return scale(fit.cap or read<<Media.TextRole?>>(roleSource, use) or "body", use)
 				end,
 				MinTextSize = function(use: ComposeTypes.Use): number
 					return scale(fit.floor or "caption", use)
 				end,
-			})
+			}
 		end
 		local label = textRole(ctx.text(ctx.props(spec, TEXT_KEYS, defaults), true), roleSource)
 		if
@@ -282,14 +277,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			local styledSize = ctx.observeStyled.TextSize(label)
 			local styledLine = ctx.observeStyled.LineHeight(label)
 			runtime.mount(function()
-				return Host.UISizeConstraint({
+				return Host.UISizeConstraint {
 					Name = "LineClamp",
 					MaxSize = function(use: ComposeTypes.Use): Vector2
 						local inset = label:FindFirstChildWhichIsA("UIPadding")
 						local vertical = if inset then inset.PaddingTop.Offset + inset.PaddingBottom.Offset else 0
 						return V2.new(math.huge, math.ceil(lines * use(styledSize) * use(styledLine)) + vertical)
 					end,
-				})
+				}
 			end, label)
 		end
 		if cut then
@@ -336,7 +331,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			local styledSize = ctx.observeStyled.TextSize(label)
 			local styledFace = ctx.observeStyled.FontFace(label)
 			Compose.watch(function(use: ComposeTypes.Use)
-				local value = read(source, use) or ""
+				local value = read<<string?>>(source, use) or ""
 				use(textSize)
 				use(face)
 				use(styledSize)
@@ -348,10 +343,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		if spec.disclose or spec.reveal then
 			local fits, painted = ctx.observe.TextFits(label), ctx.observe.Text(label)
 			local shown = Compose.cell(false)
-			help.attach(ctx, label, bind(source, ""), {
+			local disclosure = if type(source) == "function" then Compose.formula(source) else source
+			help.attach(ctx, label, bind<<string>>(disclosure, ""), {
 				name = "Disclosure",
 				gate = function(use: ComposeTypes.Use): boolean
-					return not use(fits) or (cut and use(painted) ~= (read(source, use) or ""))
+					return not use(fits) or (cut and use(painted) ~= (read<<string?>>(source, use) or ""))
 				end,
 				shown = shown,
 			})
@@ -378,14 +374,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 
 	local PRESENTATIONS = { titleAndIcon = true, titleOnly = true, iconOnly = true }
 	UI.Label = ctx.construct("Label", function(spec: MediaProps.LabelProps): Frame
-		local fields = (spec :: unknown) :: { [string]: unknown }
-		if fields.text ~= nil or fields.label ~= nil then
-			error("Facet UI.Label: a Label is an icon and a title. Use title, or use UI.Text for plain text.", 0)
-		end
-		local initial = read(spec.title)
+		local initial = read<<string>>(spec.title)
 		assert(
 			type(initial) == "string" and initial ~= "",
-			"Facet UI.Label: title is required and must not be empty. It is the accessible name in every presentation."
+			"Facet UI.Label: title is required and must not be empty. It is the accessible name in every presentation. Use UI.Text for plain text."
 		)
 		local presentation = spec.presentation or "titleAndIcon"
 		if not PRESENTATIONS[presentation] then
@@ -398,11 +390,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		local effective = if spec.icon == nil then "titleOnly" else presentation
 		local icon = spec.icon
 		if type(icon) == "string" and not string.match(icon, "^rbx") then
-			local package: Theme.IconRegistry = read(ctx.config.theme) or {}
-			local overrides = read(ctx.config.icons)
+			local package: Theme.IconRegistry = read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme) or {}
+			local overrides = read<<{ [string]: Theme.IconEntry }?>>(ctx.config.icons)
 			if overrides then
-				package = table.clone(package)
-				package.icons = overrides
+				package = { icons = overrides, assets = package.assets }
 			end
 			local known = themes.resolveIcon(package, icon)
 			assert(known ~= nil, `Facet UI.Label: unknown icon '{icon}'.`)
@@ -410,7 +401,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		local children: { ComposeTypes.Child } = {}
 		if effective ~= "titleOnly" then
 			local iconSize = spec.iconSize
-			local iconProps: Engine.ImageLabelNativeProps = { Name = "Icon" }
+			local iconProps: Engine.ImageLabelProps = { Name = "Icon" }
 			if iconSize ~= nil then
 				assert(
 					(type(iconSize) == "number" and iconSize > 0) or type(iconSize) == "string",
@@ -421,11 +412,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					return D2.fromOffset(pixels, pixels)
 				end
 			end
-			table.insert(children, ctx.icon(icon :: string, iconProps))
+			table.insert(children, ctx.icon(assert(icon), iconProps))
 		end
 		if effective ~= "iconOnly" then
 			local titleSize: Media.TextSize = spec.textSize or "body"
-			table.insert(children, UI.Text("Title")({ text = spec.title, textSize = titleSize }))
+			table.insert(children, UI.Text "Title" { text = spec.title, textSize = titleSize })
 		end
 		if spec.iconPosition == "trailing" then
 			local reversed: { ComposeTypes.Child } = {}
@@ -435,20 +426,20 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			children = reversed
 		end
 		local keys = { "title", "icon", "presentation", "iconSize", "textSize", "gap", "iconPosition" }
-		local root =
-			ctx.row(children, (ctx.props(spec, keys, { Name = "Label" }) :: unknown) :: Engine.FrameNativeProps)
+		local root = ctx.row(children, ctx.props(spec, keys, { Name = "Label" }))
 		local layout = assert(root:FindFirstChildWhichIsA("UIListLayout"))
 		layout.VerticalAlignment = E.VerticalAlignment.Center
-		if spec.gap ~= nil then
+		local gap = spec.gap
+		if gap ~= nil then
 			runtime.decorate(layout, {
 				Padding = function(use: ComposeTypes.Use)
-					return D.new(0, lists.spacing(spec.gap, use))
+					return D.new(0, lists.spacing(gap, use))
 				end,
 			})
 		end
 		root:SetAttribute("FacetPresentation", effective)
 		Compose.watch(function(use: ComposeTypes.Use)
-			root:SetAttribute("AccessibleLabel", read(spec.title, use))
+			root:SetAttribute("AccessibleLabel", read<<string>>(spec.title, use))
 		end)
 		return root
 	end)

@@ -18,7 +18,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-				local Host = (runtime.constructors :: unknown) :: RobloxHost
+				local Host = Facet.host(runtime)
 				local UI = Facet.controls(runtime, { types = engine.types })
 				Verify.expect(((Facet :: unknown) :: { [string]: unknown }).new):toBeNil()
 				Verify.expect((type(UI.Screen))):toBe("function")
@@ -26,21 +26,21 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(((UI :: unknown) :: { [string]: unknown }).When):toBeNil()
 				local shown, label = Compose.cell(true), Compose.cell("Before")
 				local root = engine.new("ScreenGui")
-				local reference: any, calls
-				calls = 0
+				local reference: any
+				local calls = 0
 				local stop, frame: any = runtime.mount(function()
-					return Host.Frame({
+					return Host.Frame {
 						Compose.show(shown, function()
-							return UI.Button("Action")({
+							return UI.Button "Action" {
 								label = label,
 								Attributes = { meaning = "test" } :: FixtureEngineTypes.Attributes,
 								ref = function(node)
 									reference = node
 									calls += 1
 								end,
-							})
+							}
 						end),
-					})
+					}
 				end, root)
 				Verify.expect(reference.ClassName):toBe("TextButton")
 				Verify.expect(reference.Parent):toBe(frame)
@@ -63,16 +63,16 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-				local Host = (runtime.constructors :: unknown) :: RobloxHost
+				local Host = Facet.host(runtime)
 				local ctx = context(Facet.Compose, runtime, { types = engine.types })
 				local root = engine.new("ScreenGui")
 				local action: any, input: any, button: any, activated: number = nil, nil, nil, 0
 				local stop, panel: any = runtime.mount(function()
-					button = Host.TextButton({})
+					button = Host.TextButton {}
 					action, input = ctx.action(button, "Test", { engine.types.Enum.KeyCode.X }, true, function()
 						activated += 1
 					end)
-					return Host.Frame({ button :: unknown })
+					return Host.Frame { button }
 				end, root)
 				Verify.expect(input.Enabled):toBe(true)
 				action.Pressed:Fire()

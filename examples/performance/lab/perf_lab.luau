@@ -8,10 +8,45 @@ type CaptureModule = typeof(require("./capture"))
 type WorkloadsModule = typeof(require("./workloads"))
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type StringReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").StringReadOnlyValue)
+type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
+type MountItem = { id: string, workload: string, count: number }
+type QueueEntry = { id: string, rows: number }
 type Workload = { [string]: any, build: () -> any, step: () -> (), ready: boolean?, counters: any?, n: number? }
+export type CaptureRow = {
+	[string]: unknown,
+	rows: number,
+	datasetDigest: string,
+	viewport: string?,
+	evidenceClass: string,
+	studioVersion: string,
+}
+export type ProbeState = {
+	read selected: string,
+	read playing: boolean,
+	read rows: number,
+	read iterations: number,
+	read queued: number,
+	read captures: number,
+	read active: Workload?,
+	read ready: boolean,
+}
+export type Probe = {
+	read select: (string, number?) -> (),
+	read step: (number) -> (),
+	read run: () -> (),
+	read stop: () -> (),
+	read reset: () -> (),
+	read capture: () -> CaptureRow,
+	read clean: (boolean) -> (),
+	read theme: (string) -> (),
+	read sweep: () -> (),
+	read ramp: () -> (),
+	read state: () -> ProbeState,
+}
 local lab = {}
 lab.VERSION = "native-performance-lab/1"
 lab.WORKLOADS = {
@@ -54,7 +89,8 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 		byId[entry.id] = entry
 		table.insert(choices, { value = entry.id, label = entry.label })
 	end
-	local samples, frameSamples, elapsed, iterations, queue = {}, {}, 0, 0, {}
+	local samples, frameSamples, elapsed, iterations = {}, {}, 0, 0
+	local queue: { QueueEntry } = {}
 	local clean, cleanSamples = Compose.cell(false), false
 	local function resetSamples()
 		samples, frameSamples, elapsed, iterations = {}, {}, 0, 0
@@ -94,8 +130,9 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 			)
 		end
 	end
-	local function capture()
-		local row = table.clone(ctx.captureFacts())
+	local function capture(): CaptureRow
+		local facts: CaptureRow = ctx.captureFacts()
+		local row = table.clone(facts)
 		row.schema = modules.capture.SCHEMA
 		row.frameworkVersion = ctx.Facet.VERSION
 		row.scenarioVersion = lab.VERSION
@@ -104,7 +141,8 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 		row.scenario = selected:peek()
 		row.rows, row.seed, row.content = rowCount:peek(), 1, "normal"
 		row.implementation = if selected:peek() == "dense-scroll-native" then "native-all" else "compose-native"
-		row.theme, row.resourceState = if ctx.themeName then ctx.themeName:peek() else "facet-neutral", "mixed"
+		local themeName: StringReadOnlyValue? = ctx.themeName
+		row.theme, row.resourceState = if themeName then themeName:peek() else "facet-neutral", "mixed"
 		row.datasetDigest = modules.dataset.digest(modules.dataset.build({ count = row.rows, seed = 1 }))
 		row.repeat_, row.warmupFrames, row.captureFrames = #captures + 1, 0, #frameSamples
 		row.cleanCapture, row.profilerScopes = cleanSamples and #frameSamples > 0, false
@@ -123,8 +161,9 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 		local problems = modules.capture.problems(row)
 		assert(#problems == 0, table.concat(problems, "; "))
 		table.insert(captures, row)
-		if ctx.emitCapture then
-			ctx.emitCapture(row)
+		local emitCapture: ((CaptureRow) -> ())? = ctx.emitCapture
+		if emitCapture then
+			emitCapture(row)
 		end
 		readout:set(`Captured {#captures} · JSON written to the output`)
 		return row
@@ -160,8 +199,8 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 		Size = T.UDim2.new(1, 0, 0, 0),
 		AutomaticSize = T.Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
-		Host.UIListLayout({ FillDirection = T.Enum.FillDirection.Horizontal, Padding = T.UDim.new(0, 8), Wraps = true }) :: unknown,
-		UI.Picker({
+		Host.UIListLayout { FillDirection = T.Enum.FillDirection.Horizontal, Padding = T.UDim.new(0, 8), Wraps = true } :: unknown,
+		UI.Picker {
 			label = "Workload",
 			Size = T.UDim2.fromOffset(210, 40),
 			selected = selected,
@@ -171,8 +210,8 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 				selected:set(value)
 				reset()
 			end,
-		}),
-		UI.Picker({
+		},
+		UI.Picker {
 			label = "Rows",
 			Size = T.UDim2.fromOffset(130, 40),
 			selected = rowCount,
@@ -188,8 +227,8 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 				rowCount:set(value)
 				reset()
 			end,
-		}),
-		UI.Button({
+		},
+		UI.Button {
 			Size = T.UDim2.fromOffset(70, 40),
 			label = function(use: Use)
 				return if use(playing) then "Pause" else "Run"
@@ -197,33 +236,33 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 			onActivate = function()
 				playing:set(not playing:peek())
 			end,
-		}),
-		UI.Button({
+		},
+		UI.Button {
 			label = "Step",
 			Size = T.UDim2.fromOffset(70, 40),
 			onActivate = function()
 				sample(1 / 60)
 			end,
-		}),
-		UI.Button({ label = "Reset", Size = T.UDim2.fromOffset(80, 40), onActivate = idle }),
-		UI.Button({ label = "Run all", Size = T.UDim2.fromOffset(80, 40), onActivate = sweep }),
-		UI.Button({ label = "Ramp", Size = T.UDim2.fromOffset(80, 40), onActivate = ramp }),
-		UI.Button({ label = "Stop", Size = T.UDim2.fromOffset(80, 40), onActivate = stop }),
-		UI.Button({ label = "Capture", Size = T.UDim2.fromOffset(80, 40), onActivate = capture }),
+		},
+		UI.Button { label = "Reset", Size = T.UDim2.fromOffset(80, 40), onActivate = idle },
+		UI.Button { label = "Run all", Size = T.UDim2.fromOffset(80, 40), onActivate = sweep },
+		UI.Button { label = "Ramp", Size = T.UDim2.fromOffset(80, 40), onActivate = ramp },
+		UI.Button { label = "Stop", Size = T.UDim2.fromOffset(80, 40), onActivate = stop },
+		UI.Button { label = "Capture", Size = T.UDim2.fromOffset(80, 40), onActivate = capture },
 	}
 	local mount = Host.Frame "Workload" {
 		Size = T.UDim2.new(1, 0, 0, 0),
 		LayoutOrder = 3,
-		Host.UIFlexItem({ FlexMode = T.Enum.UIFlexMode.Fill }) :: unknown,
+		Host.UIFlexItem { FlexMode = T.Enum.UIFlexMode.Fill } :: unknown,
 		BackgroundTransparency = 1,
 		Compose.keyed({
-			from = function(use: Use)
+			from = function(use: Use): { MountItem }
 				return { { id = `{use(selected)}:{use(sequence)}`, workload = use(selected), count = use(rowCount) } }
 			end,
-			key = function(item)
+			key = function(item: MountItem): string
 				return item.id
 			end,
-			render = function(current: ReadOnlyValue<{ id: string, workload: string, count: number }>): GuiObject
+			render = function(current: ReadOnlyValue<MountItem>): GuiObject
 				local item = current:peek()
 				local data = modules.dataset.build({ count = item.count, seed = 1 })
 				local context = table.clone(ctx)
@@ -242,24 +281,24 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 					local progressive = item.workload == "dense-scroll-native" and ctx.heartbeat ~= nil
 					local rows = Compose.cell((if progressive then {} else data) :: { DatasetItem })
 					local function fullList()
-						return Host.ScrollingFrame({
+						return Host.ScrollingFrame {
 							Size = T.UDim2.fromScale(1, 1),
 							AutomaticCanvasSize = T.Enum.AutomaticSize.Y,
-							Host.UIListLayout({ Padding = T.UDim.new(0, 4) }) :: unknown,
+							Host.UIListLayout { Padding = T.UDim.new(0, 4) } :: unknown,
 							workload.disclosure(),
 							Compose.keyed({
 								from = rows,
-								key = function(row)
+								key = function(row: DatasetItem): string
 									return row.id
 								end,
 								render = function(row: ReadOnlyValue<DatasetItem>): GuiObject
 									return modules.rows.build(context, row)
 								end,
 							}),
-						})
+						}
 					end
 					if item.workload == "mount-ramp" then
-						node = Host.Frame({ Size = T.UDim2.fromScale(1, 1) })
+						node = Host.Frame { Size = T.UDim2.fromScale(1, 1) }
 						workload.step = function()
 							local stop = ctx.runtime.mount(fullList, node)
 							stop()
@@ -308,17 +347,17 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 						following = false,
 						measured = 0,
 					})
-					node = UI.VirtualList({
+					node = UI.VirtualList {
 						from = rows,
-						key = function(row)
+						key = function(row: DatasetItem): string
 							return row.id
 						end,
 						itemSize = 56,
 						measured = extents,
 						status = status,
-						render = function(current): GuiObject
+						render = function(current: ReadOnlyValue<DatasetItem>): GuiObject
 							if item.workload == "edit-locality" then
-								return UI.TextInput({
+								return UI.TextInput {
 									value = function(use: Use): string
 										return use(values[use(current).id])
 									end,
@@ -326,18 +365,18 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 										values[current:peek().id]:set(next)
 									end,
 									Size = T.UDim2.new(1, 0, 0, 56),
-								})
+								}
 							end
-							return Host.Frame({
+							return Host.Frame {
 								Size = function(use: Use)
 									return T.UDim2.new(1, 0, 0, use(extents)[use(current).id] or 56)
 								end,
 								modules.rows.build(context, current),
-							})
+							}
 						end,
 						Size = T.UDim2.fromScale(1, 1),
 						if item.workload == "variable-extents" then workload.disclosure() else nil :: unknown,
-					})
+					}
 					if ctx.engine then
 						ctx.engine.environment.poke(node, "AbsoluteWindowSize", T.Vector2.new(800, 400))
 					end
@@ -355,23 +394,21 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 						end
 					end
 				elseif item.workload == "arrange-shapes" then
-					local children = { Host.UIGridLayout({ CellSize = T.UDim2.new(0.5, -4, 0.5, -4) }) }
+					local children: FrameProps = { Host.UIGridLayout { CellSize = T.UDim2.new(0.5, -4, 0.5, -4) } }
 					for shape = 1, 4 do
-						local properties = {
-							Host.UIListLayout({
+						local properties: FrameProps = {
+							Host.UIListLayout {
 								FillDirection = if shape % 2 == 0
 									then T.Enum.FillDirection.Horizontal
 									else T.Enum.FillDirection.Vertical,
 								Wraps = shape > 2,
-							}),
+							},
 						}
 						for index = 1, math.min(item.count, 1000) do
-							table.insert(
-								properties,
-								UI.Text({ text = `Row {index}`, Size = T.UDim2.fromOffset(60, 24) })
-							)
+							properties[#properties + 1] =
+								UI.Text { text = `Row {index}`, Size = T.UDim2.fromOffset(60, 24) }
 						end
-						table.insert(children, Host.Frame(properties))
+						children[#children + 1] = Host.Frame(properties)
 					end
 					children.Size = T.UDim2.fromScale(1, 1)
 					node = Host.Frame(children)
@@ -404,7 +441,7 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 		}),
 	}
 	if ctx.probe then
-		ctx.probe({
+		local probe: Probe = {
 			select = function(id, count)
 				assert(byId[id], "Unknown workload")
 				stop()
@@ -426,8 +463,9 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 				resetSamples()
 			end,
 			theme = function(name)
-				assert(ctx.setTheme, "this place has no theme packages")
-				ctx.setTheme(name)
+				local setTheme: ((string) -> ())? = ctx.setTheme
+				assert(setTheme, "this place has no theme packages")
+				setTheme(name)
 				resetSamples()
 			end,
 			sweep = sweep,
@@ -444,7 +482,9 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 					ready = active ~= nil and active.ready ~= false,
 				}
 			end,
-		})
+		}
+		local publish: (Probe) -> () = ctx.probe
+		publish(probe)
 	end
 	local connection = ctx.heartbeat:Connect(function(dt)
 		if playing:peek() then
@@ -475,15 +515,15 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 	end)
 	local root = Host.Frame "PerformanceLab" {
 		Size = T.UDim2.fromScale(1, 1),
-		Host.UIPadding({
+		Host.UIPadding {
 			PaddingTop = T.UDim.new(0, 8),
 			PaddingBottom = T.UDim.new(0, 8),
 			PaddingLeft = T.UDim.new(0, 8),
 			PaddingRight = T.UDim.new(0, 8),
-		}) :: unknown,
-		Host.UIListLayout({ SortOrder = T.Enum.SortOrder.LayoutOrder, Padding = T.UDim.new(0, 8) }),
+		} :: unknown,
+		Host.UIListLayout { SortOrder = T.Enum.SortOrder.LayoutOrder, Padding = T.UDim.new(0, 8) },
 		toolbar,
-		UI.Text({
+		UI.Text {
 			text = readout,
 			LayoutOrder = 2,
 			Size = T.UDim2.new(1, 0, 0, 40),
@@ -491,7 +531,7 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 			Visible = function(use: Use)
 				return not use(clean)
 			end,
-		}),
+		},
 		mount,
 	}
 	root:AddTag("facet-surface")

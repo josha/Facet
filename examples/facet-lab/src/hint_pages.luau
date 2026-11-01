@@ -42,10 +42,10 @@ return function(shared: Shared): Pages
 			{
 				name = "action (device-adaptive)",
 				props = function(c: Context)
-					local hinted = c.Host.InputAction({
+					local hinted = c.Host.InputAction {
 						Name = "LabSave",
-						c.Host.InputBinding({ KeyCode = Enum.KeyCode.F2, UIButton = nil }),
-					})
+						c.Host.InputBinding { KeyCode = Enum.KeyCode.F2, UIButton = nil },
+					}
 					return { keys = NONE, action = hinted }
 				end,
 			},
@@ -74,7 +74,7 @@ return function(shared: Shared): Pages
 				name = "a disabled action hides",
 				props = function(c: Context)
 					local list = entries()
-					list[1] = { action = c.Host.InputAction({ Name = "LabGuideBuy", Enabled = false }), label = "Buy" }
+					list[1] = { action = c.Host.InputAction { Name = "LabGuideBuy", Enabled = false }, label = "Buy" }
 					return { entries = list }
 				end,
 			},
@@ -88,11 +88,11 @@ return function(shared: Shared): Pages
 		return { guide = { inputs = { "Gamepad", "KeyboardAndMouse" }, entries = entries() }, guideAlignment = "start" }
 	end
 	local function boost(c: Context): unknown
-		return c.Host.InputAction({
+		return c.Host.InputAction {
 			Name = "LabBoost",
-			c.Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonX, UIButton = nil }),
-			c.Host.InputBinding({ KeyCode = Enum.KeyCode.B, UIButton = nil }),
-		})
+			c.Host.InputBinding { KeyCode = Enum.KeyCode.ButtonX, UIButton = nil },
+			c.Host.InputBinding { KeyCode = Enum.KeyCode.B, UIButton = nil },
+		}
 	end
 	local function buttonHint(c: Context): Properties
 		return { label = "Boost", shortcutHint = boost(c) }

@@ -10,6 +10,7 @@ local Files = require("../facet/lib/files")
 local Run = require("../facet/lib/run")
 local gate = require("../facet/lib/gate")
 local Cli = require("../facet/lib/cli")
+local Json = require("../facet/lib/json")
 
 local harness = Verify.createHarness({ source = "facet-verify-integration", now = os.clock })
 local directory = `artifacts/verify/integration-{os.time()}-{math.random(1, 1e9)}`
@@ -127,6 +128,14 @@ local function reporter(id: string, mode: string, expectation: Gate.ReportExpect
 	}
 end
 
+local function widen<T>(list: { T }): { unknown }
+	local out: { unknown } = {}
+	for _, item in list do
+		table.insert(out, item)
+	end
+	return out
+end
+
 local sequence = 0
 local function runGate(
 	entries: { gate.Entry },
@@ -137,8 +146,12 @@ local function runGate(
 	local definition = Gate.define(gate.define(entries, settings.referenceHost == true, `fixture-{sequence}`))
 	local tiers = gate.tiers[settings.tier or "release"]
 	local chosen: Gate.Selection? = if #tiers > 0 then { tiers = tiers } else nil
-	if settings.rerun then
-		chosen = { ids = { settings.rerun }, tiers = if #tiers > 0 then tiers else nil }
+	local rerun = settings.rerun
+	if rerun then
+		local rerunSelection: Gate.Selection = if #tiers > 0
+			then { ids = { rerun }, tiers = tiers }
+			else { ids = { rerun } }
+		chosen = rerunSelection
 	end
 	return Lute.gate.run(definition, { directory = `{directory}/gate`, selection = chosen })
 end
@@ -359,14 +372,18 @@ harness:suite("Facet live CI policy", function()
 					}
 				elseif module == "@std/json" then
 					return json
+				elseif module == "../lib/json" or module == "./json" then
+					return Json
 				elseif module == "../../vendor/verify/src/lute" then
 					return native
 				elseif module == "../../vendor/verify/src/core" then
 					return Verify
 				elseif module == "../lib/live_project" then
-					return Lute.chunk.load(fs.readFileToString("tools/facet/lib/live_project.luau"), {
-						environment = environment,
-					})()
+					return (
+						Lute.chunk.load(fs.readFileToString("tools/facet/lib/live_project.luau"), {
+							environment = environment,
+						})()
+					)
 				elseif module == "../../studio/live/attachment_limits" then
 					return {}
 				end
@@ -645,7 +662,7 @@ harness:suite("Facet gate through Verify", function()
 		end
 	end)
 	harness:case("declares every committed producer once with its tier and suite plan", function(context)
-		local tiers = { fast = 0, full = 0, release = 0 }
+		local tiers: { [string]: number } = { fast = 0, full = 0, release = 0 }
 		local seen: { [string]: Gate.ProducerDraft } = {}
 		local definition = gate.draft(false)
 		for _, producer in definition.producers do
@@ -766,14 +783,17 @@ harness:suite("Facet gate through Verify", function()
 			end)
 			:toThrow()
 		local pieces = Verify.segment("a report payload", 4)
-		context:expect((Verify.reassembleSegments(pieces))):toBe("a report payload")
+		local whole = widen(pieces)
+		context:expect((Verify.reassembleSegments(whole))):toBe("a report payload")
 		local changed = table.clone(pieces)
 		changed[1] = table.clone(changed[1])
 		changed[1].payload = "bad bytes"
-		context:expect((Verify.reassembleSegments(changed))):toBeNil()
+		local altered = widen(changed)
+		context:expect((Verify.reassembleSegments(altered))):toBeNil()
 		local absent = table.clone(pieces)
 		table.remove(absent)
-		context:expect((Verify.reassembleSegments(absent))):toBeNil()
+		local missing = widen(absent)
+		context:expect((Verify.reassembleSegments(missing))):toBeNil()
 	end)
 end)
 
@@ -793,7 +813,8 @@ harness:suite("Native fixture", function()
 		excluded.Parent = model
 		excluded.Archivable = false
 		local copy = assert(model:Clone())
-		local clonedPart = assert(copy:FindFirstChildWhichIsA("BasePart", true))
+		local clonedPart: BasePart = copy:FindFirstChildWhichIsA("BasePart", true)
+		assert(clonedPart)
 		context:expect(copy.PrimaryPart):toBe(clonedPart)
 		context:expect(clonedPart:FindFirstAncestorWhichIsA("Model")):toBe(copy)
 		context:expect(clonedPart:HasTag("fixture")):toBe(true)

@@ -26,12 +26,13 @@ export type Handle = {
 }
 type Entry = { tick: (number) -> (), active: boolean, depth: number }
 type Service = { entries: { Entry }, carriers: { [GuiObject]: Entry }, disconnect: (() -> ())? }
-local services = setmetatable({} :: { [Shared.Runtime]: Service }, { __mode = "k" })
+local services: { [Shared.Runtime]: Service } = setmetatable({}, { __mode = "k" })
 
 return function(ctx: Shared.Context, options: Options): Handle
 	local service = services[ctx.runtime]
 	if not service then
-		service = { entries = {}, carriers = {} }
+		local created: Service = { entries = {}, carriers = {} }
+		service = created
 		services[ctx.runtime] = service
 	end
 	local owner = assert(ctx.Compose.currentOwner())

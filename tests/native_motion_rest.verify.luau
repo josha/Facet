@@ -41,10 +41,10 @@ return function(verifyHarness: Verify.Harness)
 		})
 		local function hovered(): any
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({
+				return Host.Frame {
 					Name = "Screen",
 					UI.Button "Post" { label = "Post", help = "Posts this avatar to the Marketplace" },
-				})
+				}
 			end)
 			local post = w.find("Post")
 			w.engine.environment.poke(FixtureRoblox.assertInstance(post), "AbsolutePosition", Vector2.new(300, 200))
@@ -165,9 +165,9 @@ return function(verifyHarness: Verify.Harness)
 		local function presented(): any
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				local anchor = UI.Button "Plus" { label = "+" }
-				return Host.Frame({
+				return Host.Frame {
 					Name = "Editor",
-					Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
+					Host.Frame { Name = "Bar", anchor },
 					UI.Callout "Tip" {
 						anchor = anchor :: GuiObject,
 						isPresented = true,
@@ -176,7 +176,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 						onRetire = function() end,
 					},
-				})
+				}
 			end, nil, { runService = true })
 			local plus = w.find("Plus")
 			w.engine.environment.poke(FixtureRoblox.assertInstance(plus), "AbsolutePosition", Vector2.new(300, 300))
@@ -246,7 +246,7 @@ return function(verifyHarness: Verify.Harness)
 					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 						local anchor = UI.Button "Anchor" { label = "Save" }
 						return Host.Frame {
-							anchor :: unknown,
+							anchor,
 							UI.Popover "Pop" {
 								isPresented = open,
 								source = { node = anchor :: GuiObject },
@@ -525,10 +525,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_motion_rest::rest tracker::reduced motion also waits for the plate's size to hold, then shows it whole",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
+					return Host.Frame {
 						Name = "Screen",
 						UI.Button "Post" { label = "Post", help = "Posts it" },
-					})
+					}
 				end, { motionLevel = "none" })
 				local post = w.find("Post")
 				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
@@ -554,10 +554,10 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_motion_rest::rest tracker::reduced motion switched on during the wait fades the plate in at scale 1 once its size holds",
 				run = function()
 					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame({
+						return Host.Frame {
 							Name = "Screen",
 							UI.Button "Post" { label = "Post", help = "Posts it" },
-						})
+						}
 					end)
 					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 					w.gui.SelectedObject = w.find("Post")
@@ -581,10 +581,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_motion_rest::rest tracker::rest waits for a size that holds for a frame, not merely a filled one",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
+					return Host.Frame {
 						Name = "Screen",
 						UI.Button "Post" { label = "Post", help = "Posts it" },
-					})
+					}
 				end)
 				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				w.gui.SelectedObject = w.find("Post")
@@ -608,10 +608,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_motion_rest::rest tracker::a layout that never stops moving still enters after 0.25 seconds",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
+					return Host.Frame {
 						Name = "Screen",
 						UI.Button "Post" { label = "Post", help = "Posts it" },
-					})
+					}
 				end)
 				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				w.gui.SelectedObject = w.find("Post")
@@ -643,10 +643,10 @@ return function(verifyHarness: Verify.Harness)
 		} :: MenuItem,
 	}
 
-	local function menu(spec: { [any]: any }): any
+	local function menu(spec: typeof(require("@repo/tools/typecheck/aliases").MenuSpec)): any
 		spec.label = spec.label or "Options"
 		return worlds.new(function(UI: FacetControls, Host: RobloxHost)
-			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu "M"(spec) })
+			return Host.Frame { Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu "M"(spec) }
 		end, {})
 	end
 

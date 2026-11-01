@@ -14,17 +14,14 @@ local function create(owner: Owner.Owner, host: Host.Host, tick: Types.Value<num
 	local pump = ownedFrame(owner, function(body)
 		local frames = host.frames
 		if frames == nil then
-			error(
-				Diagnostics.format(
-					"collection/no-frames",
-					primitive .. " has pending admission work but its host has no frames",
-					{
-						primitive = primitive,
-						contract = "admission over time requires host.frames.onFrame",
-						fix = "implement host.frames or remove the admission budget",
-					}
-				),
-				0
+			return Diagnostics.raise(
+				"collection/no-frames",
+				primitive .. " has pending admission work but its host has no frames",
+				{
+					primitive = primitive,
+					contract = "admission over time requires host.frames.onFrame",
+					fix = "implement host.frames or remove the admission budget",
+				}
 			)
 		end
 		return (frames).onFrame(body)

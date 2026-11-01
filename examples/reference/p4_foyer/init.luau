@@ -3,10 +3,8 @@
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 local Services = require("@self/services")
@@ -195,9 +193,9 @@ function Foyer.build(ctx: ExampleContext)
 					return view.column(friend.id, {
 						image(friend.portraitKey, D2.fromOffset(60, 60)),
 						view.text(friend.handle, 22),
-						UI.StatusIndicator({
+						UI.StatusIndicator {
 							status = if friend.presence == "here" then "success" else "neutral",
-						}),
+						},
 						view.text(friend.presence),
 					})
 				end, function(friend: seed.Friend): string
@@ -261,13 +259,13 @@ function Foyer.build(ctx: ExampleContext)
 				Size = D2.new(1, 0, 1, -64),
 				tabs = destinations,
 			},
-			UI.Text({
+			UI.Text {
 				text = notice,
 				TextWrapped = true,
 				Position = D2.new(0, 16, 1, -60),
 				Size = D2.new(1, -32, 0, 56),
 				AutomaticSize = ctx.types.Enum.AutomaticSize.None,
-			}),
+			},
 			UI.Sheet "WorldDetail" {
 				title = "World",
 				isPresented = detailOpen,

@@ -1,5 +1,9 @@
 # Facet documentation
 
+Theme readers accept `Facet.ReadOnlyThemePackage`, the shallow readonly view of
+`Facet.ThemePackage`. Theme authoring keeps the mutable package type. A frozen
+package does not need a copy before a control reads it.
+
 Use `UI.shake(targets, options?)` for brief feedback on existing tile faces.
 `targets` is a `{ GuiObject }` array or a readable array. `Facet.ShakeOptions`
 accepts an optional nonnegative `intensity` multiplier, default `1`.

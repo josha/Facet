@@ -2,12 +2,11 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type OrderedPlacement = typeof(require("@repo/tools/typecheck/aliases").OrderedPlacementReadOnly)
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+type Item = { id: string, name: string, price: number }
 type CollectionStatus = {
 	mode: "windowed" | "all",
 	direction: "horizontal" | "vertical",
@@ -40,7 +39,7 @@ type Commands = {
 return {
 	title = "Automatic motion",
 	ledgerRows = {},
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types
@@ -54,12 +53,12 @@ return {
 				table.insert(rows, child)
 			end
 			local children: { Instance } = {
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
-				}),
-				UI.Text({
+				},
+				UI.Text {
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -70,22 +69,22 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
+				},
 				Host.Frame "Rows" {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
+					Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) },
 					table.unpack(rows),
 				},
 				props.footer,
 			}
-			return Host.Frame({
+			return Host.Frame {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				table.unpack(children),
-			})
+			}
 		end
 
 		local function arrival(): ReadOnlyValue<number>
@@ -103,11 +102,12 @@ return {
 		local function Inventory()
 			local expanded = Compose.cell(false)
 			local selected = Compose.cell("scanner")
-			local items = Compose.cell({
+			local initialItems: { Item } = {
 				{ id = "scanner", name = "Scanner", price = 40 },
 				{ id = "grapple", name = "Grapple", price = 60 },
 				{ id = "beacon", name = "Beacon", price = 20 },
-			})
+			}
+			local items = Compose.cell(initialItems)
 			local balance = Compose.cell(100)
 			local noStatus: CollectionStatus? = nil
 			local rowStatus: Value<CollectionStatus?> = Compose.cell(noStatus)
@@ -146,9 +146,10 @@ return {
 				expanded:set(not expanded:peek())
 			end
 			commands.reverse, commands.buy = reverse, buy
-			commands.reset = function()
+			local function reset()
 				balance:set(100)
 			end
+			commands.reset = reset
 			Compose.watch(function(use: Use)
 				latest = {
 					expanded = use(expanded),
@@ -158,8 +159,8 @@ return {
 					first = use(items)[1].id,
 				}
 			end)
-			local function ItemRow(current, placement): GuiObject
-				return Host.Frame({
+			local function ItemRow(current: ReadOnlyValue<Item>, placement: OrderedPlacement): GuiObject
+				return Host.Frame {
 					Name = "Card-" .. current:peek().id,
 					LayoutOrder = function(use: Use)
 						return use(placement).index
@@ -178,7 +179,7 @@ return {
 							selected:set(current:peek().id)
 						end,
 					},
-				})
+				}
 			end
 			return Host.Frame "AutomaticMotion" {
 				BackgroundTransparency = 1,
@@ -189,9 +190,9 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					ScrollBarThickness = 6,
-					Section({
+					Section {
 						title = "Equipment",
-						footer = UI.Text({
+						footer = UI.Text {
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
@@ -202,11 +203,11 @@ return {
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
+						},
 						children = {
 							UI.VirtualList "Items" {
 								from = items,
-								key = function(entry)
+								key = function(entry: Item)
 									return entry.id
 								end,
 								mode = "all",
@@ -223,7 +224,7 @@ return {
 								render = ItemRow,
 							},
 						},
-					}),
+					},
 					UI.Toggle "DetailsToggle" { label = "Show details", value = expanded },
 					Host.Frame "Details" {
 						BackgroundTransparency = 1,
@@ -238,13 +239,13 @@ return {
 								BackgroundTransparency = 1,
 								Size = UDim2.new(1, 0, 0, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
-								Host.UIPadding({
+								Host.UIPadding {
 									PaddingTop = UDim.new(0, 8),
 									PaddingBottom = UDim.new(0, 8),
 									PaddingLeft = UDim.new(0, 8),
 									PaddingRight = UDim.new(0, 8),
-								}),
-								UI.Text({
+								},
+								UI.Text {
 									BackgroundTransparency = 1,
 									BorderSizePixel = 0,
 									Size = UDim2.new(1, 0, 0, 0),
@@ -255,7 +256,7 @@ return {
 									TextWrapped = true,
 									TextYAlignment = Enum.TextYAlignment.Top,
 									TextXAlignment = Enum.TextXAlignment.Left,
-								}),
+								},
 							}
 						end),
 					},
@@ -267,7 +268,7 @@ return {
 					UI.Button "Reverse" { label = "Reverse order", onActivate = reverse },
 					UI.Button "Reset" {
 						label = "Reset balance",
-						onActivate = commands.reset,
+						onActivate = reset,
 					},
 				},
 			}

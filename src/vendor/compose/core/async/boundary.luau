@@ -8,13 +8,13 @@ local Support = require "../structure/support"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 
-export type Builder = () -> Host.Node
+export type Builder = () -> Host.Node | Children.Directive
 
-export type Fallback = (failure: unknown, retry: () -> ()) -> Host.Node
+export type Fallback = (failure: unknown, retry: () -> ()) -> Host.Node | Children.Directive
 
 local function boundary(builder: Builder, fallback: Fallback): Children.Directive
 	if type(builder) ~= "function" or type(fallback) ~= "function" then
-		Diagnostics.raise("async/boundary-needs-builders", "boundary expects a builder and a fallback", {
+		return Diagnostics.raise("async/boundary-needs-builders", "boundary expects a builder and a fallback", {
 			expected = "boundary(function() ... end, function(failure, retry) ... end)",
 		})
 	end

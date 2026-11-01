@@ -12,9 +12,9 @@ type Layer = {
 
 type Hold = { count: number, saved: boolean, watch: RBXScriptConnection, inputCount: number, active: boolean? }
 
-local layers = setmetatable({} :: { [Instance]: Layer }, { __mode = "k" })
-local holds = setmetatable({} :: { [ScrollingFrame]: Hold }, { __mode = "k" })
-local owned = setmetatable({} :: { [ScrollingFrame]: boolean }, { __mode = "k" })
+local layers: { [Instance]: Layer } = setmetatable({}, { __mode = "k" })
+local holds: { [ScrollingFrame]: Hold } = setmetatable({}, { __mode = "k" })
+local owned: { [ScrollingFrame]: boolean } = setmetatable({}, { __mode = "k" })
 
 local function take(frame: ScrollingFrame)
 	local current = holds[frame]

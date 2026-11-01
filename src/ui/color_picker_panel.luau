@@ -49,7 +49,7 @@ return function(
 		local builders: { [string]: () -> Frame } =
 			{ swatches = swatchesView, spectrum = planeView, sliders = slidersView, brick = brickView }
 		local shows: { Frame } = {}
-		local technique: Shared.FrameNativeProps = {
+		local technique: Shared.FrameProps = {
 			Name = "Technique",
 			BackgroundTransparency = 1,
 		}
@@ -115,7 +115,7 @@ return function(
 			end,
 		})
 		table.insert(children, measure(readout))
-		local bodyProps: Shared.ScrollingFrameNativeProps = {
+		local bodyProps: Shared.ScrollingFrameProps = {
 			Name = "Body",
 			LayoutOrder = 3,
 			BackgroundTransparency = 1,
@@ -126,7 +126,7 @@ return function(
 				local height = math.ceil(tech(use))
 				return D2.new(1, 0, 0, if overlay then math.min(height, math.max(0, use(room))) else height)
 			end,
-			techniqueNode :: Shared.Child,
+			techniqueNode,
 		}
 		local body: GuiObject
 		if overlay then
@@ -173,7 +173,7 @@ return function(
 			table.insert(actions, UI.Button(cancelProps))
 			table.insert(
 				actions,
-				UI.Button("Apply")({
+				UI.Button "Apply" {
 					label = "Apply",
 					appearance = "emphasis",
 					onActivate = function()
@@ -182,17 +182,17 @@ return function(
 							close("apply")
 						end
 					end,
-				})
+				}
 			)
 		elseif overlay then
 			table.insert(
 				actions,
-				UI.Button("Done")({
+				UI.Button "Done" {
 					label = "Done",
 					onActivate = function()
 						close("activate")
 					end,
-				})
+				}
 			)
 		end
 		if #actions > 0 then
@@ -210,12 +210,12 @@ return function(
 			assert(row:FindFirstChildWhichIsA("UIListLayout")).HorizontalAlignment = E.HorizontalAlignment.Right
 			table.insert(children, measure(row))
 		end
-		local props: Shared.FrameNativeProps = {
+		local props: Shared.FrameProps = {
 			Name = "Panel",
 			BackgroundTransparency = if overlay then 0 else 1,
 			Size = D2.new(1, 0, 0, 0),
 			AutomaticSize = if overlay then E.AutomaticSize.None else E.AutomaticSize.Y,
-			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, SPACE) }),
+			Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, SPACE) },
 		}
 		if overlay then
 			props[#props + 1] = ctx.padding(PAD, PAD)
@@ -224,9 +224,7 @@ return function(
 		for _, child in children do
 			props[#props + 1] = child
 		end
-		local panel = if overlay
-			then ctx.fade((props :: unknown) :: Shared.CanvasGroupNativeProps)
-			else Host.Frame(props)
+		local panel = if overlay then ctx.fade((props :: unknown) :: Shared.CanvasGroupProps) else Host.Frame(props)
 		local visibility: { ComposeTypes.ReadOnlyValue<boolean> } = {}
 		for _, entry in measured do
 			table.insert(visibility, ctx.observe.Visible(entry.node))

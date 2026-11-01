@@ -1,10 +1,11 @@
 --!strict
 type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
-type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
+type ThemeDefinition = typeof(require("@repo/tools/typecheck/aliases").ThemeDefinition)
 type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
-type Typography = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.metrics.typography.body)
+type Typography = typeof(require("@repo/tools/typecheck/aliases").TypographyPatch)
 type SkinLayer = typeof(require("@repo/tools/typecheck/aliases").SkinLayer)
-type Asset = typeof(require("@repo/examples/types").ThemeAsset)
+type AssetVariants = typeof(require("@repo/tools/typecheck/aliases").ThemeAssetVariants)
+type Asset = typeof(require("@repo/tools/typecheck/aliases").ThemeAsset)
 type RGB = { r: number, g: number, b: number }
 type Palette = { colors: { [string]: RGB }, extra: Extra }
 
@@ -218,15 +219,15 @@ local PANEL_LAYERS: { SkinLayer } = {
 }
 
 function layered_test.definition(themes: Themes): ThemeDefinition
+	local buttonAssets: AssetVariants = {
+		default = "ornate_button_default",
+		hover = "ornate_button_hover",
+		pressed = "ornate_button_pressed",
+	}
+	local selectionAssets: AssetVariants =
+		{ default = "ornate_selection_default", selected = "ornate_selection_selected" }
 	local controlLayers: { SkinLayer } = {
-		{
-			kind = "fill",
-			asset = {
-				default = "ornate_button_default",
-				hover = "ornate_button_hover",
-				pressed = "ornate_button_pressed",
-			},
-		},
+		{ kind = "fill", asset = buttonAssets },
 		{
 			kind = "corners",
 			asset = "ornate_corner_tl",
@@ -248,7 +249,7 @@ function layered_test.definition(themes: Themes): ThemeDefinition
 	local selectionLayers: { SkinLayer } = {
 		{
 			kind = "fill",
-			asset = { default = "ornate_selection_default", selected = "ornate_selection_selected" },
+			asset = selectionAssets,
 		},
 	}
 	local fieldLayers: { SkinLayer } = { { kind = "fill", asset = "ornate_field" } }

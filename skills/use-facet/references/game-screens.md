@@ -127,14 +127,14 @@ local items: { Facet.RadialItem<string> } = {}
 for index, message in MESSAGES do
     items[index] = { id = "chat" .. index, label = message.short, onSelect = function() sendChat(message.text) end }
 end
-UI.Region "Chat" { zone = "right", rank = 3,
+local chatRegion = UI.Region "Chat" { zone = "right", rank = 3,
     UI.Button "Chat" { icon = "chat", shape = "circle", caption = "Chat", shortcutHint = chatAction,
-        onActivate = function() wheelOpen:set(true) end } },
-UI.RadialMenu "QuickChat" { label = "Quick chat", items = items, launcher = false,
-    isPresented = wheelOpen, holdAction = chatAction },
+        onActivate = function() wheelOpen:set(true) end } }
+local quickChat = UI.RadialMenu "QuickChat" { label = "Quick chat", items = items, launcher = false,
+    isPresented = wheelOpen, holdAction = chatAction }
 ```
 
-Mount the Region in the HUD Composition and the RadialMenu beside it in the
+Mount `chatRegion` in the HUD Composition and `quickChat` beside it in the
 same mount. Use concise, distinct labels and test localization. Label width,
 item count and available space determine whether the menu can remain radial;
 a character-count rule does not prove fit. Inspect `RadialPanel.Presentation`

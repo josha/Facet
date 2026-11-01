@@ -9,6 +9,14 @@ type InputHostModule = typeof(require("@repo/tools/vendor/verify/src/roblox").in
 type InputBackend = typeof(require("@repo/tools/vendor/verify/src/roblox").inputHost.native())
 local loadCore: (Instance?) -> VerifyCore = require
 local loadRoblox: (Instance?) -> VerifyRoblox = require
+export type Dependencies = {
+	read Verify: VerifyCore?,
+	read InputHost: InputHostModule?,
+	read input: InputBackend?,
+	read wait: ((number?) -> number)?,
+	read reservedKeys: ReservedKeys?,
+	read progress: ((any, boolean) -> ())?,
+}
 local Sweep = {}
 
 function Sweep.failure(node: Instance): string?
@@ -258,8 +266,8 @@ function Sweep.detached(selected: Instance?, root: Instance): boolean
 	return selected ~= nil and not selected:IsDescendantOf(root)
 end
 
-function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: any?): any
-	local deps = supplied or {}
+function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: Dependencies?): any
+	local deps: Dependencies = supplied or {}
 	local modules = game:GetService("ReplicatedStorage"):FindFirstChild("FacetVerify")
 	local Verify: VerifyCore = deps.Verify or loadCore(assert(modules):FindFirstChild("core"))
 	local InputHost: InputHostModule = deps.InputHost or loadRoblox(assert(modules):FindFirstChild("roblox")).inputHost
@@ -692,7 +700,10 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 						else {}
 					while true do
 						local page = pageFor(id)
-						local group = if region and region.Parent then region else page and page:FindFirstChild(section)
+						local group: Instance? = if region and region.Parent
+							then region
+							elseif page then page:FindFirstChild(section)
+							else nil
 						if not group then
 							break
 						end

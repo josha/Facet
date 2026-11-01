@@ -21,7 +21,7 @@ local function byte(x: number): number
 end
 
 return function(engine: Engine): ColorValue
-	local color = {} :: ColorValue
+	local color = {}
 	color.byte = byte
 	function color.channels(c: Color3): (number, number, number)
 		return byte(c.R), byte(c.G), byte(c.B)
@@ -59,7 +59,7 @@ return function(engine: Engine): ColorValue
 			return nil, nil, if allowAlpha then "Use #RGB, #RRGGBB or #RRGGBBAA." else "Use #RGB or #RRGGBB."
 		end
 		local function at(i: number): number
-			return tonumber(string.sub(digits, i, i + 1), 16) :: number
+			return assert(tonumber(string.sub(digits, i, i + 1), 16))
 		end
 		local alpha = if #digits == 8 then at(7) / 255 else nil
 		return color.fromBytes(at(1), at(3), at(5)), alpha, nil

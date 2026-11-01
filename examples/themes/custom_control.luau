@@ -3,7 +3,7 @@ type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage
 type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
 type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
-type ExtraValue = typeof(require("@repo/examples/types").ThemeExtraValue)
+type ExtraValue = typeof(require("@repo/tools/typecheck/aliases").ThemeExtraValue)
 type PaletteExtra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
 type Size = { height: number, paddingX: number, iconSize: number }
 type Tint = { r: number, g: number, b: number }
@@ -62,7 +62,7 @@ table.freeze(SIZE_NEED)
 table.freeze(TINT_NEED)
 custom_control.needs = table.freeze(NEEDS)
 
-local function tintOf(value: ExtraValue): Tint?
+local function tintOf(value: ExtraValue?): Tint?
 	if type(value) == "table" then
 		local r, g, b = value.r, value.g, value.b
 		if type(r) == "number" and type(g) == "number" and type(b) == "number" then
@@ -72,7 +72,7 @@ local function tintOf(value: ExtraValue): Tint?
 	return nil
 end
 
-local function gaugeTint(extra: PaletteExtra): ExtraValue
+local function gaugeTint(extra: PaletteExtra): ExtraValue?
 	return if extra then extra["demo:gaugeTint"] else nil
 end
 
@@ -169,14 +169,14 @@ function custom_control.blueprint(UI: Controls, core: Core, resolved: Resolved, 
 	local track = Host.Frame(name .. "Track")({
 		LayoutOrder = 2,
 		Size = UDim2.new(1, 0, 0, resolved.height),
-		Host.UICorner({}),
+		Host.UICorner {},
 	})
 	track:AddTag("facet-control")
 	return Host.Frame(name)({
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }),
+		Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) },
 		UI.Text(name .. "Label")({
 			text = "Custom gauge (demo:gauge)",
 			textRole = "caption",

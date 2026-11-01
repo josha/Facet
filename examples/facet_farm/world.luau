@@ -1,11 +1,11 @@
 --!strict
-type PartNativeProps = typeof(require("@repo/tools/typecheck/aliases").PartNativeProps)
+type PartProps = typeof(require("@repo/tools/typecheck/aliases").PartProps)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+type StringValue = typeof(require("@repo/tools/typecheck/aliases").StringReadOnlyValue)
 local modelModule = require("./model")
 local theme = require("./theme")
 
@@ -34,7 +34,7 @@ local PITCH = math.rad(50)
 function world.fitFrame(free: Rect, project: (CFrame, Vector3) -> Vector2): CFrame
 	local width = modelModule.COLUMNS * SPACING + 3
 	local depth = modelModule.ROWS * SPACING + 3
-	local corners = {}
+	local corners: { Vector3 } = {}
 	for _, x in { -width / 2, width / 2 } do
 		for _, z in { -depth / 2, depth / 2 } do
 			table.insert(corners, Vector3.new(x, 0, z))
@@ -46,11 +46,16 @@ function world.fitFrame(free: Rect, project: (CFrame, Vector3) -> Vector2): CFra
 	local frame = CFrame.lookAt(target - look * distance, target)
 	for _ = 1, 16 do
 		frame = CFrame.lookAt(target - look * distance, target)
-		local left, right, top, bottom = math.huge, -math.huge, math.huge, -math.huge
+		local left = math.huge
+		local right = -math.huge
+		local top = math.huge
+		local bottom = -math.huge
 		for _, corner in corners do
 			local point = project(frame, corner)
-			left, right = math.min(left, point.X), math.max(right, point.X)
-			top, bottom = math.min(top, point.Y), math.max(bottom, point.Y)
+			left = math.min(left, point.X)
+			right = math.max(right, point.X)
+			top = math.min(top, point.Y)
+			bottom = math.max(bottom, point.Y)
 		end
 
 		local unit = (project(frame, target + frame.RightVector) - project(frame, target)).Magnitude
@@ -77,7 +82,7 @@ function world.mount(
 	local function paint(name: string): Color3
 		return theme.color(Color3, name)
 	end
-	local function part(name: string, props: PartNativeProps): Part
+	local function part(name: string, props: PartProps): Part
 		local native = table.clone(props)
 		native.Name = if props.Name == nil then name else props.Name
 		native.Anchored = if props.Anchored == nil then true else props.Anchored
@@ -204,7 +209,7 @@ function world.mount(
 		return Host.Model(assert(crop) .. assert(state))({ table.unpack(parts) })
 	end
 
-	local function tile(index: number)
+	local function tile(index: number): Model
 		local position = world.plotPosition(index)
 		local function stage(use: Use): string
 			return modelModule.stateAt(use(farm.plots)[index], use(farm.now))
@@ -243,14 +248,14 @@ function world.mount(
 			ground,
 			table.unpack(furrows),
 			Compose.keyed({
-				from = function(use: Use)
+				from = function(use: Use): { string }
 					local state = stage(use)
 					if state == "grass" or state == "plowed" then
 						return {}
 					end
 					return { assert(use(farm.plots)[index].crop) .. ":" .. state }
 				end,
-				render = function(current): Model
+				render = function(current: StringValue): Model
 					return crop(index, current:peek())
 				end,
 			}),

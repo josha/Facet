@@ -1,9 +1,10 @@
 --!strict
+local ThemeTypes = require("./theme_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 
-export type Attach = (Instance, { Types.Child }) -> Instance
+export type Attach = Nav.Attach
 export type Kit = {
 	gui: GuiService?,
 	input: UserInputService?,
@@ -98,17 +99,19 @@ return function(ctx: Types.Context, attach: Attach): Kit
 		return at ~= nil
 	end
 	local function firstSelectable(node: Instance, preferred: string?, skip: ((Instance) -> boolean)?): GuiObject?
-		if node:IsA("GuiObject") and (not node.Visible or not node.Interactable) or (skip and skip(node)) then
+		if skip and skip(node) then
 			return nil
 		end
-		if
-			node:IsA("GuiObject")
-			and node.Visible
-			and node.Selectable
-			and node.Interactable
-			and (not node:IsA("ScrollingFrame") or node:GetAttribute("FacetSelectionOwner") == true)
-		then
-			if preferred == nil or node.Name == preferred then
+		local scrolling = node:IsA("ScrollingFrame")
+		if node:IsA("GuiObject") then
+			if not node.Visible or not node.Interactable then
+				return nil
+			end
+			if
+				node.Selectable
+				and (not scrolling or node:GetAttribute("FacetSelectionOwner") == true)
+				and (preferred == nil or node.Name == preferred)
+			then
 				return node
 			end
 		end
@@ -118,14 +121,18 @@ return function(ctx: Types.Context, attach: Attach): Kit
 				return found
 			end
 		end
-		return if node:IsA("ScrollingFrame")
-				and node.Selectable
-				and (preferred == nil or node.Name == preferred)
-			then node
-			else nil
+		if
+			scrolling
+			and node:IsA("ScrollingFrame")
+			and node.Selectable
+			and (preferred == nil or node.Name == preferred)
+		then
+			return node
+		end
+		return nil
 	end
 	local function inset(authored: number, side: string, slot: string?, use: ComposeTypes.Use?): number
-		local package = ctx.read(ctx.config.theme, use)
+		local package = ctx.read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 		local recipe = if package and package.chrome then package.chrome[slot or "panel"] else nil
 		local carve = if recipe then recipe.contentInsets else nil
 		if carve == nil then
@@ -183,7 +190,7 @@ return function(ctx: Types.Context, attach: Attach): Kit
 			Size = D2.new(1, -32, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 		})
-		attach(panel, { Host.UISizeConstraint({ MaxSize = V2.new(width or 440, math.huge) }) })
+		attach(panel, { Host.UISizeConstraint { MaxSize = V2.new(width or 440, math.huge) } })
 		return panel
 	end
 	return {

@@ -132,7 +132,7 @@ function dataset.build(opts: Options?): { Item }
 		`[perf dataset] unknown content variant '{content}'`
 	)
 	local rng = newRng(seed)
-	local rows = table.create(count)
+	local rows = table.create<<Item>>(count)
 	for i = 1, count do
 		local first = rng.pick(FIRST)
 		local last = rng.pick(LAST)

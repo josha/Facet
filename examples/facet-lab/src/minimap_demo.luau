@@ -9,6 +9,7 @@ type Context = {
 	app: typeof(require("@repo/tools/typecheck/aliases").App),
 	types: typeof(require("@repo/tools/typecheck/aliases").RobloxTypes),
 }
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Phase = typeof(require("@repo/tools/typecheck/aliases").TransitionContext)
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type Entry = { id: string, value: string? }
@@ -76,7 +77,7 @@ local function build(c: Context, p: Properties): Frame
 		local active = C.formula(function(use: Use): boolean
 			return use(form) == index
 		end)
-		return UI.VStack(`MapForm{index}`) {
+		return UI.VStack(`MapForm{index}`)({
 			width = size,
 			gap = "xs",
 			align = "stretch",
@@ -100,7 +101,7 @@ local function build(c: Context, p: Properties): Frame
 			if expandable
 				then UI.Button "OpenMap" { label = "Open map", shortcutHint = action, onActivate = showMap }
 				else nil,
-		}
+		})
 	end
 	local function hud(): Frame
 		return UI.Composition "MinimapHUD" {
@@ -243,7 +244,7 @@ local function build(c: Context, p: Properties): Frame
 							return UDim2.fromScale(center.X, center.Y)
 						end,
 					})
-					runtime.mountFragment(function(): { unknown }
+					runtime.mountFragment(function(): { Child }
 						return {
 							Host.UIScale "MapExpansion" {
 								Scale = function(use: Use): number

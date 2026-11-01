@@ -4,7 +4,7 @@ local FacetTypes = require("../../src")
 type FacetModule = FacetTypes.Facet
 type FacetControls = FacetTypes.Controls
 type SortCell = FacetTypes.Value<{ column: string, direction: "ascending" | "descending" }?>
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = FacetTypes.ReadOnlyValue<T>
 type Player = { id: string, name: string, kills: number, deaths: number, score: number }
 type Model = { players: ReadOnlyValue<{ Player }>, localPlayerId: string }
 

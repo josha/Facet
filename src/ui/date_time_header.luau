@@ -36,14 +36,14 @@ return function(
 		set: (number) -> (),
 		maxHeight: number?
 	): GuiObject
-		local pick = Compose.cell(get(peekMonth()))
+		local pick: ComposeTypes.Value<number> = Compose.cell(get(peekMonth()))
 		Compose.watch(function(use: Use)
 			pick:set(get(use(viewMonth)))
 		end)
 		local items = function(use: Use): { Nav.MenuItem<number> }
 			local out: { Nav.MenuItem<number> } = {}
 			for _, option in options(use) do
-				local item: Nav.MenuItem<number> = {
+				local item: Nav.MenuChoice<number> = {
 					id = tostring(option.value),
 					label = option.label,
 					selected = pick,
@@ -66,7 +66,7 @@ return function(
 			return tostring(now)
 		end
 		local trigger = ctx.styled(
-			UI.Button({
+			UI.Button {
 				Name = menuName,
 				label = wordsOf,
 				trailingIcon = "chevron.down",
@@ -74,10 +74,10 @@ return function(
 				enabled = function(use: Use)
 					return interactive(use)
 				end,
-			}),
+			},
 			"calendar-choice"
 		)
-		return UI.Menu({
+		return UI.Menu {
 			items = items,
 			trigger = trigger :: GuiObject,
 			presentation = "menu" :: "menu",
@@ -86,7 +86,7 @@ return function(
 			enabled = function(use: Use)
 				return interactive(use)
 			end,
-		})
+		}
 	end
 	local function landIn(m: CivilDate)
 		local lo, hi = minDate:peek(), maxDate:peek()
@@ -152,7 +152,7 @@ return function(
 		end
 		local choose_ = ctx.row({ monthMenu, yearMenu }, { Name = "Choose" })
 		runtime.mountFragment(function()
-			return { Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) }
+			return { Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill } }
 		end, choose_)
 		local row = ctx.row({
 			arrow("Previous", "chevron.leading", "Previous month", -1),

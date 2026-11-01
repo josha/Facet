@@ -1,18 +1,16 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
-type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
-type ScrollingFrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameNativeProps)
+type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
+type ScrollingFrameProps = typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameProps)
 
 return {
 	title = "Leaf capabilities",
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local Facet = ctx.Facet
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
@@ -62,7 +60,7 @@ return {
 					table.insert(
 						tiles,
 
-						Host.Frame({
+						Host.Frame {
 							Name = `Tile{row}{col}`,
 							BackgroundTransparency = 1,
 							Size = UDim2.new(0, 140, 0, 56),
@@ -77,26 +75,26 @@ return {
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
-								Host.UIPadding({
+								Host.UIPadding {
 									PaddingTop = UDim.new(0, 4),
 									PaddingBottom = UDim.new(0, 4),
 									PaddingLeft = UDim.new(0, 4),
 									PaddingRight = UDim.new(0, 4),
-								}),
+								},
 							},
-						})
+						}
 					)
 				end
-				local rowProps: FrameNativeProps = {
+				local rowProps: FrameProps = {
 					Name = `BoardRow{row}`,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(0, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}),
+					},
 				}
 				for _, tile in tiles do
 					rowProps[#rowProps + 1] = tile
@@ -108,11 +106,11 @@ return {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				},
 				UI.Text "Title" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -128,12 +126,12 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(0, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}),
+					},
 					UI.Button "Width" {
 						LayoutOrder = 1,
 						label = function(use: Use)
@@ -173,12 +171,12 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-					Host.UIPadding({
+					Host.UIPadding {
 						PaddingTop = UDim.new(0, 4),
 						PaddingBottom = UDim.new(0, 4),
 						PaddingLeft = UDim.new(0, 4),
 						PaddingRight = UDim.new(0, 4),
-					}),
+					},
 				},
 				UI.Text "Marked" {
 					BackgroundTransparency = 1,
@@ -190,12 +188,12 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-					Host.UIPadding({
+					Host.UIPadding {
 						PaddingTop = UDim.new(0, 4),
 						PaddingBottom = UDim.new(0, 4),
 						PaddingLeft = UDim.new(0, 4),
 						PaddingRight = UDim.new(0, 4),
-					}),
+					},
 				},
 				UI.Text "Bold" {
 					BackgroundTransparency = 1,
@@ -207,12 +205,12 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-					Host.UIPadding({
+					Host.UIPadding {
 						PaddingTop = UDim.new(0, 4),
 						PaddingBottom = UDim.new(0, 4),
 						PaddingLeft = UDim.new(0, 4),
 						PaddingRight = UDim.new(0, 4),
-					}),
+					},
 				},
 				UI.Text "Heavy" {
 					BackgroundTransparency = 1,
@@ -224,12 +222,12 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-					Host.UIPadding({
+					Host.UIPadding {
 						PaddingTop = UDim.new(0, 4),
 						PaddingBottom = UDim.new(0, 4),
 						PaddingLeft = UDim.new(0, 4),
 						PaddingRight = UDim.new(0, 4),
-					}),
+					},
 				},
 				UI.Text "Escaped" {
 					BackgroundTransparency = 1,
@@ -303,12 +301,12 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(0, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}),
-					Host.ImageLabel({
+					},
+					Host.ImageLabel {
 						LayoutOrder = 1,
 						Name = "Tiled",
 						ScaleType = Enum.ScaleType.Tile,
@@ -317,8 +315,8 @@ return {
 						BorderSizePixel = 0,
 						Size = UDim2.new(0, 96, 0, 64),
 						Image = ART,
-					}),
-					Host.ImageLabel({
+					},
+					Host.ImageLabel {
 						LayoutOrder = 2,
 						Name = "Sliced",
 						ScaleType = Enum.ScaleType.Slice,
@@ -327,7 +325,7 @@ return {
 						BorderSizePixel = 0,
 						Size = UDim2.new(0, 96, 0, 64),
 						Image = ART,
-					}),
+					},
 				},
 				UI.Text "BoardHeading" {
 					BackgroundTransparency = 1,
@@ -341,7 +339,7 @@ return {
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
 				(function()
-					local boardProps: ScrollingFrameNativeProps = {
+					local boardProps: ScrollingFrameProps = {
 						LayoutOrder = 16,
 						Name = "Board",
 						BackgroundTransparency = 1,
@@ -353,17 +351,17 @@ return {
 							return not use(frozen)
 						end,
 						ScrollBarThickness = 6,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}),
-						Host.UIPadding({
+						},
+						Host.UIPadding {
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
-						}),
+						},
 					}
 					for _, child in board do
 						boardProps[#boardProps + 1] = child

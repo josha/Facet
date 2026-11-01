@@ -4,16 +4,16 @@ local Active = require "./active"
 local Diagnostics = require "../diagnostics"
 local Owner = require "./owner"
 local Reactor = require "../reactive/reactor"
-local ResourceTypes = require "../resource-types"
+local CoreTypes = require "../types"
 local Types = require "../reactive/types"
 
 type Dispose = Types.Dispose
 
-export type RootScope = ResourceTypes.RootScope
+export type RootScope = CoreTypes.RootScope
 
 local function requireBody(body: unknown, operation: string)
 	if type(body) ~= "function" then
-		Diagnostics.raise(
+		return Diagnostics.raise(
 			"owner/root-body-not-a-function",
 			("%s expects a function to run in the root scope"):format(operation),
 			{
@@ -28,9 +28,9 @@ end
 local function unwind(owner: Owner.Owner, failure: unknown): never
 	local ok, disposeError: unknown = pcall(Owner.dispose, owner)
 	if ok then
-		return error(failure, 0)
+		error(failure, 0)
 	end
-	return error(
+	error(
 		("%s\nCompose: the root scope also raised while unwinding it:\n%s"):format(
 			tostring(failure),
 			tostring(disposeError)

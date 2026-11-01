@@ -11,12 +11,12 @@ return function(
 	local C = Facet.Compose
 	local Host = Facet.host(runtime)
 	local function art(sun: boolean): Model
-		local sculpture = Host.Model(if sun then "SunPrism" else "TideLens") {}
+		local sculpture = Host.Model(if sun then "SunPrism" else "TideLens")({})
 		local metal = Color3.fromRGB(70, 67, 58)
 		local brass = Color3.fromRGB(172, 143, 86)
 		local inlay = Color3.fromRGB(228, 215, 172)
 		local function piece(name: string, size: Vector3, at: Vector3, color: Color3, shape: Enum.PartType?): Part
-			return Host.Part(name) {
+			return Host.Part(name)({
 				Parent = C.static(sculpture),
 				Anchored = true,
 				CanCollide = false,
@@ -25,14 +25,14 @@ return function(
 				Color = color,
 				Shape = shape or Enum.PartType.Block,
 				Material = Enum.Material.Metal,
-			}
+			})
 		end
 		if sun then
 			local amber = sunColor
 			local body = piece("Crystal", Vector3.new(1.3, 2.3, 1.25), Vector3.new(0, 0.25, 0), amber)
 			body.Material, body.Transparency = Enum.Material.Glass, 0.12
 			for _, direction in { -1, 1 } do
-				Host.WedgePart("Crown" .. tostring(direction)) {
+				Host.WedgePart("Crown" .. tostring(direction))({
 					Parent = C.static(sculpture),
 					Anchored = true,
 					CanCollide = false,
@@ -42,7 +42,7 @@ return function(
 					Color = amber,
 					Material = Enum.Material.Glass,
 					Transparency = 0.12,
-				}
+				})
 				piece(
 					"Cradle" .. tostring(direction),
 					Vector3.new(0.28, 1.7, 1.7),

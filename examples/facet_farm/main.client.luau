@@ -1,13 +1,13 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 if not game:IsLoaded() then
 	game.Loaded:Wait()
 end
 local storage = game:GetService("ReplicatedStorage")
 local runService = game:GetService("RunService")
+local localPlayer = game:GetService("Players").LocalPlayer
 
 local starterGui = game:GetService("StarterGui")
 for _ = 1, 10 do
@@ -69,7 +69,7 @@ local function openArea(): Rect
 	local viewport = camera.ViewportSize
 	local top = guiService:GetGuiInset().Y
 	local left, right, bottom = 0, viewport.X, viewport.Y
-	local gui = game.Players.LocalPlayer.PlayerGui:FindFirstChild("FacetFarm")
+	local gui = localPlayer.PlayerGui:FindFirstChild("FacetFarm")
 	local controls = guiObject(gui, "Controls")
 	local hud = guiObject(gui, "Hud")
 	if hud and hud.Visible then
@@ -130,7 +130,7 @@ app.mount(function()
 	end)
 	local view = screens.farm(Facet, UI, app.runtime.constructors, types, farm)
 	task.defer(function()
-		local gui = game.Players.LocalPlayer.PlayerGui:WaitForChild("FacetFarm")
+		local gui = localPlayer.PlayerGui:WaitForChild("FacetFarm")
 		follow(guiObject(gui, "Controls"))
 		follow(guiObject(gui, "Hud"))
 		remeasure()

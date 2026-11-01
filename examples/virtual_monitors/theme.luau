@@ -6,7 +6,6 @@ type TypographyPatch = typeof(require("@repo/tools/typecheck/aliases").Typograph
 type ThemeDefinition = typeof(require("@repo/tools/typecheck/aliases").ThemeDefinition)
 type Need = { name: string, section: string?, kind: ("color" | "number")?, fields: { string }? }
 type RGB = { r: number, g: number, b: number }
-type RGBPatch = { r: number?, g: number?, b: number? }
 type Accent = { id: string, label: string, light: RGB, dark: RGB }
 local theme = {}
 theme.ICONS = table.freeze({
@@ -32,9 +31,6 @@ local needs: { Need } = {
 theme.NEEDS = table.freeze(needs)
 local function rgb(r: number, g: number, b: number): RGB
 	return { r = r / 255, g = g / 255, b = b / 255 }
-end
-local function patch(color: RGB): RGBPatch
-	return { r = color.r, g = color.g, b = color.b }
 end
 local accents: { Accent } = {
 	{ id = "sage", label = "Sage", light = rgb(45, 86, 65), dark = rgb(144, 220, 190) },
@@ -72,14 +68,14 @@ function theme.create(Facet: FacetModule, name: string)
 		return {
 			name = theme.paletteName(entry.id, dark),
 			colors = {
-				surface = patch(if dark then rgb(18, 17, 26) else rgb(243, 240, 233)),
-				surfaceStrong = patch(if dark then rgb(32, 30, 44) else rgb(255, 255, 255)),
-				content = patch(if dark then rgb(233, 229, 244) else rgb(45, 46, 42)),
-				contentStrong = patch(if dark then rgb(255, 253, 255) else rgb(26, 32, 29)),
-				accent = patch(accent),
-				onAccent = patch(if dark then rgb(28, 22, 46) else rgb(255, 255, 255)),
-				danger = patch(if dark then rgb(255, 166, 166) else rgb(161, 39, 46)),
-				onDanger = patch(if dark then rgb(42, 15, 15) else rgb(255, 255, 255)),
+				surface = if dark then rgb(18, 17, 26) else rgb(243, 240, 233),
+				surfaceStrong = if dark then rgb(32, 30, 44) else rgb(255, 255, 255),
+				content = if dark then rgb(233, 229, 244) else rgb(45, 46, 42),
+				contentStrong = if dark then rgb(255, 253, 255) else rgb(26, 32, 29),
+				accent = accent,
+				onAccent = if dark then rgb(28, 22, 46) else rgb(255, 255, 255),
+				danger = if dark then rgb(255, 166, 166) else rgb(161, 39, 46),
+				onDanger = if dark then rgb(42, 15, 15) else rgb(255, 255, 255),
 			},
 			extra = extra,
 		}

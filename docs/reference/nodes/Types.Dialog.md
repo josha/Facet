@@ -1,11 +1,8 @@
 # Types.Dialog
 
-The new solver gives a type to the literal items of `Dialog` and `Sheet`
-action arrays without a local. It does not select a member of a union
-item type, such as `MenuItem` and `RadialItem`, for a literal item. It also
-does not infer the value type of a generic constructor, such as `Menu`,
-`Picker`, `RadialMenu` and `Alert`, through a reactive option. These calls
-need the old solver for a check without casts.
+Facet uses the current Luau type solver. In Studio, set Workspace's
+`UseNewLuauTypeSolver` property to `Enabled`. Type action arrays and generic
+control specs on locals when their item or binding type is ambiguous.
 
 ```luau
 local open = Compose.cell(true)
@@ -28,12 +25,10 @@ value: `local initial: string? = nil` and then `Compose.cell(initial)`.
 `Toggle`, `TextInput`, `NumberInput`, `Stepper`, `Slider`, `Rating`,
 `LevelPicker`, `Chip`, `ShortcutHint` and `Picker` accept one of several
 binding shapes. Their constructors have one overload for each shape and one for
-the union, in the direct and in the named form. The root module also exports
+the union, with an optional name argument. The root module also exports
 the type of each shape, for example `ToggleCellProps` and
-`ToggleRequestProps`. In the old solver, a native Instance property of these controls,
-such as `Parent`, takes only a value of that exact class. The new solver checks
-the first shape (a writable cell) without casts. It does not check the other
-shapes or the items of union typed arrays without casts.
+`ToggleRequestProps`. Give a spec the type for its binding shape. Native
+properties, such as `Parent`, keep their Roblox property types.
 
 Drag callbacks receive an `unknown` payload. This includes
 `DraggableSpec.onStart` and the payload argument of every `DropTargetSpec`

@@ -3,6 +3,8 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type ThemeCell = typeof(require("@repo/tools/typecheck/aliases").ThemeCell)
+type UnknownCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
 type Case = {
 	id: string,
 	contracts: { string },
@@ -27,7 +29,7 @@ add("explicit-paint-beats-the-sheet", {}, function(t: any)
 		return Host.Frame "Row" {
 			Size = UDim2.fromOffset(400, 60),
 			BackgroundTransparency = 1,
-			Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) } :: unknown,
+			Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) },
 			UI.Button "Plain" { label = "Plain" },
 			UI.Button "Painted" { label = "Painted", BackgroundColor3 = red, BackgroundTransparency = 0 },
 		}
@@ -49,7 +51,7 @@ end)
 
 add("toggle-follows-a-live-palette", {}, function(t: any)
 	local value = t.Facet.Compose.cell(true)
-	local context
+	local context: { theme: ThemeCell, palette: UnknownCell }
 	local stage = t.mount(function(UI: FacetControls, _, _, ctx)
 		context = ctx
 		return UI.Toggle "Sound" { label = "Sound", value = value }
@@ -122,7 +124,7 @@ add("path-strokes-in-theme-roles", {}, function(t: any)
 			return Host.Frame "Row" {
 				Size = UDim2.fromOffset(300, 80),
 				BackgroundTransparency = 1,
-				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) } :: unknown,
+				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) },
 				UI.Path "Accent" {
 					points = t.Facet.pathShapes.ring(),
 					role = "accent" :: "accent",

@@ -14,7 +14,7 @@ local Slots = require("./collection_slots")
 local createHighlight = require("./collection_highlight")
 return function<V, K>(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	view: State.View<V, K>,
 	editor: reorder.Editor<V, K>?,
 	slots: Slots.Slots<V, K>
@@ -23,6 +23,7 @@ return function<V, K>(
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
 	local readSource = ctx.readSource
+	local readMeasurements = ctx.read<<{ [K]: number }>>
 	local observe = ctx.observe
 	local D2, D, V2, E = ctx.types.UDim2, ctx.types.UDim, ctx.types.Vector2, ctx.types.Enum
 	local gui = ctx.config.guiService
@@ -40,7 +41,7 @@ return function<V, K>(
 	local crossEdge, fullSizes = view.crossEdge, view.fullSizes
 	local slotSource, withSlots = slots.source, slots.wrap
 	local fill, middle, centre = D2.fromScale(1, 1), D2.fromScale(0.5, 0.5), V2.new(0.5, 0.5)
-	local keyedRows = setmetatable({} :: { [{ V }]: { keys: { K }, index: { [K]: number } } }, { __mode = "k" })
+	local keyedRows: { [{ V }]: { keys: { K }, index: { [K]: number } } } = setmetatable({}, { __mode = "k" })
 	local function keysOf(rows: { V }): { keys: { K }, index: { [K]: number } }
 		local cached = keyedRows[rows]
 		if cached == nil then
@@ -178,19 +179,20 @@ return function<V, K>(
 		elseif springPlacement then
 			local position = Compose.cell(V2.new(placement:peek().crossOffset, placement:peek().offset))
 			reservedPosition = position
-			local target: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement> = if editor
-					and (spec.drag or spec.drop)
-				then Compose.formula(function(use: ComposeTypes.Use): ComposeTypes.Placement
-					return editor.placement(use(keyCell), use(placement), use)
+			local target: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement> = placement
+			if editor and (spec.drag or spec.drop) then
+				local activeEditor = editor
+				target = Compose.formula(function(use: ComposeTypes.Use): ComposeTypes.Placement
+					return activeEditor.placement(use(keyCell), use(placement), use)
 				end)
-				else placement
+			end
 			local engine = travelEngine(ctx, {
 				initial = { placement:peek().crossOffset, placement:peek().offset },
-				target = function()
+				target = function(): { number }
 					local at = target:peek()
 					return { at.crossOffset, at.offset }
 				end,
-				sample = function(values)
+				sample = function(values: { number })
 					position:set(V2.new(values[1], values[2]))
 				end,
 				reduced = reduced,
@@ -334,7 +336,7 @@ return function<V, K>(
 							assert(type(minimum) == "number", "Facet.Outline requires a numeric itemSize")
 							local extent = use(measured)[use(keyCell)]
 							if spec.measured ~= nil then
-								local external = read(spec.measured, use)[use(keyCell)]
+								local external = readMeasurements(spec.measured, use)[use(keyCell)]
 								if external ~= nil then
 									extent = external
 								end
@@ -379,9 +381,9 @@ return function<V, K>(
 						} :: EngineTypes.Attributes,
 					}
 					selectionHit = hit
-					Compose.cleanup(activation.provide(hit, function(input: unknown, clicks: unknown)
+					Compose.cleanup(activation.provide(hit, function(input: InputObject?, clicks: number?)
 						if not activation.intercepted(hit, input) then
-							select(keyCell:peek(), current, input :: InputObject?, clicks :: number?)
+							select(keyCell:peek(), current, input, clicks)
 						end
 					end))
 					local function pressed(value: InputObject)
@@ -389,8 +391,9 @@ return function<V, K>(
 					end
 					runtime.connect(hit, "InputBegan", pressed)
 					if editor and ctx.config.inputParent and ctx.config.inputParent:IsA("PluginGui") then
+						local activeEditor = editor
 						runtime.connect(hit, "MouseButton1Down", function(x: number, y: number)
-							editor.mouseDown(V2.new(x, y))
+							activeEditor.mouseDown(V2.new(x, y))
 						end)
 						runtime.connect(hit, "InputEnded", editor.finish)
 					end
@@ -404,7 +407,7 @@ return function<V, K>(
 				if paintSelection and not carded then
 					children.BackgroundTransparency = nil
 				end
-				local groupProperties = (children :: unknown) :: Types.CanvasGroupNativeProps
+				local groupProperties: Types.CanvasGroupProps = (children :: unknown) :: Types.CanvasGroupProps
 				local surface: Frame? = nil
 				if carded then
 					local cardSize = observe.AbsoluteSize(rendered)
@@ -433,7 +436,7 @@ return function<V, K>(
 						local _, y = edges(use)
 						return D.new(0, y)
 					end
-					groupProperties = {
+					local expanded: Types.CanvasGroupProps = {
 						Name = "Content",
 						BackgroundTransparency = 1,
 						Attributes = { FacetCollectionRow = true } :: EngineTypes.Attributes,
@@ -453,6 +456,7 @@ return function<V, K>(
 						},
 						surface,
 					}
+					groupProperties = expanded
 				end
 				groupProperties.GroupTransparency = function(use: ComposeTypes.Use): number
 					return if use(painted) then 1 - (if entrance then use(entrance) else 1) else 1
@@ -658,11 +662,11 @@ return function<V, K>(
 			local measurementUnit: Frame? = if lift
 				then if layoutUnit and layoutUnit:IsA("Frame")
 					then layoutUnit
-					else Host.Frame({
+					else Host.Frame {
 						Name = "MeasurementUnit",
 						Size = D2.fromOffset(1, 1),
 						Visible = false,
-					})
+					}
 				else nil
 			if measurementUnit then
 				measurementUnit.Parent = measuredNode
@@ -761,7 +765,8 @@ return function<V, K>(
 				local window = viewport:peek()
 				for index, nextKey in keyed.keys do
 					if mounted[nextKey] == nil then
-						local at = if controls.placementOf then controls.placementOf(index) else nil
+						local locate = controls.placementOf
+						local at = if locate then locate(index) else nil
 						if
 							spec.mode == "all"
 							or window.size <= 0
@@ -795,7 +800,7 @@ return function<V, K>(
 		return node
 	end
 	local function orderedRows(follow: CollectionTypes.Follow?): ComposeTypes.Child
-		return Compose.OrderedCollection({
+		return Compose.OrderedCollection {
 			from = slotSource,
 			key = function(record: SlotRecord, _index: number): K
 				return record.key
@@ -809,7 +814,12 @@ return function<V, K>(
 			measured = Compose.formula(function(use: ComposeTypes.Use)
 				local sizes = fullSizes(use)
 				return if tree
-					then tree.sizes(use, sizes, read(spec.itemSize or 40, use) :: number, read(spec.gap or 0, use))
+					then tree.sizes(
+						use,
+						sizes,
+						read(spec.itemSize or 40, use) :: number,
+						read<<number>>(spec.gap or 0, use)
+					)
 					else sizes
 			end),
 			follow = follow,
@@ -818,20 +828,28 @@ return function<V, K>(
 				if spec.minColumns ~= nil then
 					local least = read(spec.minColumns, use)
 					assert(
-						spec.minColumnWidth ~= nil and spec.columns == nil and least >= 1 and least % 1 == 0,
+						type(least) == "number"
+							and spec.minColumnWidth ~= nil
+							and spec.columns == nil
+							and least >= 1
+							and least % 1 == 0,
 						"Facet minColumns needs minColumnWidth, a positive whole number and no columns"
 					)
 				end
 				if spec.minColumnWidth ~= nil then
 					local minimum = read(spec.minColumnWidth, use)
 					assert(
-						kind == "grid" and spec.columns == nil and minimum > 0 and minimum < math.huge,
+						type(minimum) == "number"
+							and kind == "grid"
+							and spec.columns == nil
+							and minimum > 0
+							and minimum < math.huge,
 						"Facet minColumnWidth needs a grid, a positive width and no columns"
 					)
 				end
 				local columns = view.gridColumns(use, math.max(0, use(cross) - 2 * crossEdge(use)))
-				local gap: number = read(spec.gap or 0, use)
-				local crossGap: number = read(spec.crossGap or gap, use)
+				local gap: number = read<<number>>(spec.gap or 0, use)
+				local crossGap: number = read<<number>>(spec.crossGap or gap, use)
 				return {
 					kind = kind,
 					columns = columns,
@@ -870,7 +888,7 @@ return function<V, K>(
 						return row(rowItem, rowPlacement, Compose.cell(key), false)
 					end
 				),
-		})
+		}
 	end
 	return orderedRows
 end

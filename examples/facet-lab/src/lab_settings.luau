@@ -1,15 +1,13 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type MotionLevel = typeof(require("@repo/examples/types").MotionLevel)
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 type InputChoice = {
 	preferredInput: string,
 	mouseEnabled: boolean,

@@ -28,9 +28,7 @@ return function(ctx: Shared.Context): Selection
 	local keyboardNavigation = if config.keyboardNavigation == nil
 		then KEYBOARD_NAVIGATION_DEFAULT
 		else config.keyboardNavigation
-	local registry = (
-		setmetatable({} :: { [Instance]: boolean }, { __mode = "k" }) :: unknown
-	) :: { [Instance]: boolean }
+	local registry: { [Instance]: boolean } = setmetatable({}, { __mode = "k" })
 	local directionKeys = { E.KeyCode.DPadUp, E.KeyCode.DPadDown, E.KeyCode.DPadLeft, E.KeyCode.DPadRight }
 
 	local function ordered(parent: Instance): { Instance }
@@ -186,7 +184,8 @@ return function(ctx: Shared.Context): Selection
 		local direction: ComposeTypes.FocusDirection = if vertical
 			then (if dy >= 0 then "down" else "up")
 			else (if dx >= 0 then "right" else "left")
-		local pool, rects = {}, {}
+		local pool: { GuiObject } = {}
+		local rects: { ComposeTypes.FocusRect } = {}
 		for _, candidate in scopeOf(from) do
 			if
 				candidate ~= from
@@ -544,12 +543,12 @@ return function(ctx: Shared.Context): Selection
 		end)
 		local parent = inputHost()
 		if parent then
-			ctx.Host.InputContext({
+			ctx.Host.InputContext {
 				Name = "FacetEntry",
 				Parent = parent,
 				Priority = 30,
 				Sink = false,
-				ctx.Host.InputAction({
+				ctx.Host.InputAction {
 					Name = "Enter",
 					Type = E.InputActionType.Direction2D,
 					StateChanged = function(value: unknown)
@@ -557,9 +556,9 @@ return function(ctx: Shared.Context): Selection
 							enter()
 						end
 					end,
-					ctx.Host.InputBinding({ KeyCode = E.KeyCode.Thumbstick1 }),
-				}),
-			})
+					ctx.Host.InputBinding { KeyCode = E.KeyCode.Thumbstick1 },
+				},
+			}
 			local traversable = Compose.formula(function(use: ComposeTypes.Use): boolean
 				if not keyboardNavigation or use(keyboard) ~= true then
 					return false
@@ -612,13 +611,13 @@ return function(ctx: Shared.Context): Selection
 					viaAction, viaInput = false, false
 				end,
 			})
-			ctx.Host.InputContext({
+			ctx.Host.InputContext {
 				Name = "FacetTraversal",
 				Parent = parent,
 				Priority = 1500,
 				Sink = true,
 				Enabled = traversable,
-				ctx.Host.InputAction({
+				ctx.Host.InputAction {
 					Name = "Traverse",
 					Type = E.InputActionType.Bool,
 					Pressed = function()
@@ -630,9 +629,9 @@ return function(ctx: Shared.Context): Selection
 					Released = function()
 						viaAction, viaInput = false, false
 					end,
-					ctx.Host.InputBinding({ KeyCode = E.KeyCode.Tab }),
-				}),
-			})
+					ctx.Host.InputBinding { KeyCode = E.KeyCode.Tab },
+				},
+			}
 		end
 		return nil, nil
 	end)
@@ -693,7 +692,8 @@ return function(ctx: Shared.Context): Selection
 		end
 		local parent = inputHost()
 		if passive and gui and gui.GetPropertyChangedSignal then
-			local selected = ctx.observe.SelectedObject(gui)
+			local service = gui
+			local selected = ctx.observe.SelectedObject(service)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local current = use(selected)
 				if current == nil then
@@ -706,7 +706,8 @@ return function(ctx: Shared.Context): Selection
 				end
 			end)
 			if input then
-				runtime.connect(input, "InputBegan", function(event: InputObject)
+				local keys = input
+				runtime.connect(keys, "InputBegan", function(event: InputObject)
 					local kind = event.UserInputType
 					if kind ~= E.UserInputType.MouseButton1 and kind ~= E.UserInputType.Touch then
 						return
@@ -732,11 +733,11 @@ return function(ctx: Shared.Context): Selection
 							while at and at ~= root.Parent do
 								if
 									kind ~= E.UserInputType.Touch
-									and input.PreferredInput ~= E.PreferredInput.Touch
+									and keys.PreferredInput ~= E.PreferredInput.Touch
 									and at:IsA("GuiObject")
 									and at.Selectable
 								then
-									gui.SelectedObject = at
+									service.SelectedObject = at
 									break
 								end
 								at = at.Parent
@@ -754,12 +755,12 @@ return function(ctx: Shared.Context): Selection
 					if event.KeyCode ~= E.KeyCode.ButtonA then
 						return
 					end
-					local pressed = gui.SelectedObject
+					local pressed = service.SelectedObject
 					if pressed == nil or not inside(pressed) or not pressed:IsA("GuiButton") then
 						return
 					end
 					local function settle()
-						if gui.SelectedObject == pressed and ctx.withinModal(root) then
+						if service.SelectedObject == pressed and ctx.withinModal(root) then
 							resign()
 						end
 					end
@@ -771,7 +772,7 @@ return function(ctx: Shared.Context): Selection
 				end)
 			end
 			if parent then
-				ctx.Host.InputContext({
+				ctx.Host.InputContext {
 					Name = "FacetResponderCancel",
 					Parent = parent,
 					Priority = 30,
@@ -779,16 +780,16 @@ return function(ctx: Shared.Context): Selection
 					Enabled = function(use: ComposeTypes.Use): boolean
 						return use(engaged)
 					end,
-					ctx.Host.InputAction({
+					ctx.Host.InputAction {
 						Name = "Cancel",
 						Type = E.InputActionType.Bool,
 						Pressed = resign,
-						ctx.Host.InputBinding({ KeyCode = E.KeyCode.ButtonB }),
-						ctx.Host.InputBinding({ KeyCode = E.KeyCode.Escape }),
-					}),
-				})
+						ctx.Host.InputBinding { KeyCode = E.KeyCode.ButtonB },
+						ctx.Host.InputBinding { KeyCode = E.KeyCode.Escape },
+					},
+				}
 				if settings.gameplayGuard ~= false then
-					ctx.Host.InputContext({
+					ctx.Host.InputContext {
 						Name = "FacetGameplayGuard",
 						Parent = parent,
 						Priority = 3000,
@@ -796,20 +797,18 @@ return function(ctx: Shared.Context): Selection
 						Enabled = function(use: ComposeTypes.Use): boolean
 							return use(engaged)
 						end,
-						ctx.Host.InputAction({
+						ctx.Host.InputAction {
 							Name = "Guard",
 							Type = E.InputActionType.Bool,
-							ctx.Host.InputBinding({ KeyCode = E.KeyCode.Space }),
-						}),
-					})
+							ctx.Host.InputBinding { KeyCode = E.KeyCode.Space },
+						},
+					}
 				end
 			end
 		end
-		local state = (
-			Compose.formula(function(use: ComposeTypes.Use): Env.ResponderState
-				return if use(engaged) then "engaged" else "passive"
-			end) :: unknown
-		) :: ComposeTypes.ReadOnlyValue<Env.ResponderState>
+		local state = Compose.formula(function(use: ComposeTypes.Use): Env.ResponderState
+			return if use(engaged) then "engaged" else "passive"
+		end)
 		return table.freeze({
 			state = state,
 			engage = engage,

@@ -1,11 +1,13 @@
 --!strict
 local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
+local Facet = require("../src")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 	type Use = <T>(ReadOnlyValue<T>) -> T
+	type Record = { id: number, label: string }
 
 	local nativeApp = require("../bench/native_app")
 	verifyHarness:suite("native text preference updates", function()
@@ -18,36 +20,37 @@ return function(verifyHarness: Verify.Harness)
 				local package = Compose.cell(world.Facet.themes.neutralPackage())
 				local UI = world.Facet.controls(world.runtime, { types = T, theme = package })
 				local field: TextBox, list: ScrollingFrame, button: TextButton
-				local records = {}
+				local records: { Record } = {}
 				for index = 1, 100 do
 					records[index] = { id = index, label = tostring(index) }
 				end
 				world.runtime.mount(function()
 					local sheet = world.Facet.themes.createStyleSheet(world.runtime, package, { types = T })
-					field = UI.TextInput({ value = text, TextSize = size }) :: TextBox
-					button = UI.Button({ label = "Save", TextSize = size })
-					list = UI.VirtualList({
+					field = UI.TextInput { value = text, TextSize = size } :: TextBox
+					button = UI.Button { label = "Save", TextSize = size }
+					local spec: Facet.KeyedCollectionSpec<Record, number> = {
 						from = records,
 						key = function(row)
 							return row.id
 						end,
 						itemSize = 56,
 						render = function(current): GuiObject
-							return UI.Text({
+							return UI.Text {
 								text = function(use: Use)
 									return use(current).label
 								end,
 								TextSize = size,
-							})
+							}
 						end,
-					})
-					return Host.ScreenGui({
-						sheet :: unknown,
-						Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
+					}
+					list = UI.VirtualList(spec)
+					return Host.ScreenGui {
+						sheet,
+						Host.StyleLink { StyleSheet = Compose.static(sheet) },
 						field,
 						button,
 						list,
-					})
+					}
 				end, world.target)
 				world.engine.environment.poke(
 					FixtureRoblox.assertInstance(list),

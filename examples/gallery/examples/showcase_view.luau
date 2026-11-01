@@ -2,13 +2,13 @@
 
 type DemoTabs = typeof(require("@repo/examples/gallery/scenarios/demo_tabs"))
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 type DemoTab = typeof(require("@repo/examples/types").DemoTab)
-type PartNativeProps = typeof(require("@repo/tools/typecheck/aliases").PartNativeProps)
+type PartProps = typeof(require("@repo/tools/typecheck/aliases").PartProps)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Runtime = typeof(require("@repo/tools/typecheck/aliases").Runtime)
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type Input<T> = T | ReadOnlyValue<T> | (Use) -> T
 type TextRole = "caption" | "label" | "body" | "heading" | "title" | "control" | "strong" | "numeral"
 type Page = { id: string, label: string, content: () -> Instance }
@@ -45,16 +45,22 @@ return function(ctx: ExampleContext)
 		}
 	end
 	function view.button(name: string, label: Input<string>, action: () -> (), enabled: Input<boolean>?)
-		return UI.Button(name)({ label = label, onActivate = action, enabled = enabled })
+		return UI.Button(name)({
+			label = label,
+			onActivate = function()
+				action()
+			end,
+			enabled = enabled,
+		})
 	end
 	function view.part(
 		name: string,
 		size: Input<Vector3>,
 		position: Vector3,
 		color: Input<Color3>,
-		extra: PartNativeProps?
+		extra: PartProps?
 	): Part
-		local props: PartNativeProps = table.clone(extra or {})
+		local props: PartProps = if extra then table.clone(extra) else {}
 		if props.Anchored == nil then
 			props.Anchored = true
 		end
@@ -73,7 +79,7 @@ return function(ctx: ExampleContext)
 		if props.Material == nil then
 			props.Material = E.Material.SmoothPlastic
 		end
-		return Host.Part(name)(props)
+		return Host.Part(props, name)
 	end
 	function view.stage(name: string, content: () -> Instance, camera: CFrame?, height: number?)
 		return UI.Stage(name)({
@@ -85,8 +91,9 @@ return function(ctx: ExampleContext)
 			LightDirection = V3.new(-1, -2, -1),
 			camera = camera or CF.lookAt(V3.new(8, 6, 10), V3.new(0, 1, 0)),
 			fieldOfView = 40,
-			content = function(runtime, world): (() -> ())?
-				return runtime.mount(content, world)
+			content = function(runtime: Runtime, world: WorldModel): (() -> ())?
+				local stop = runtime.mount(content, world)
+				return stop
 			end,
 		})
 	end
@@ -108,7 +115,7 @@ return function(ctx: ExampleContext)
 				id = page.id,
 				label = page.label,
 				scenario = {
-					build = function(): Built
+					build = function()
 						return { screen = page.content }
 					end,
 				},

@@ -3,7 +3,12 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type EntryColumn = typeof(require("@repo/tools/typecheck/aliases").IdNameTableColumn)
+type Entry = { id: string, name: string }
+local noSelection: { [string]: boolean } = {}
+type SelectionCell = typeof(require("@repo/src/vendor/compose/core").cell(noSelection))
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type Case = {
 	id: string,
@@ -28,7 +33,7 @@ add("scroll-view-canvas-covers-rows-and-gaps", {}, function(t: any)
 		return UI.ScrollView "List" {
 			gap = 10,
 			Size = UDim2.fromOffset(300, 100),
-			cell(Host, "A", UDim2.fromOffset(300, 40)) :: unknown,
+			cell(Host, "A", UDim2.fromOffset(300, 40)),
 			cell(Host, "B", UDim2.fromOffset(300, 40)),
 			cell(Host, "C", UDim2.fromOffset(300, 40)),
 		}
@@ -47,7 +52,7 @@ end)
 
 add("horizontal-scroll-view-steps-along-x", {}, function(t: any)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		local cells = {}
+		local cells: { Instance } = {}
 		for index = 1, 5 do
 			table.insert(cells, cell(Host, "Cell" .. index, UDim2.new(0, 60, 1, 0)))
 		end
@@ -55,7 +60,7 @@ add("horizontal-scroll-view-steps-along-x", {}, function(t: any)
 			axis = "x" :: "x",
 			gap = 10,
 			Size = UDim2.fromOffset(200, 120),
-			table.unpack((cells :: unknown) :: { unknown }),
+			table.unpack(cells),
 		}
 	end, { size = Vector2.new(400, 400) })
 	t.settle(10)
@@ -84,12 +89,12 @@ add("fill-stack-preserves-overflow-and-recovers", {}, function(t: any)
 					width = "fill" :: "fill",
 					height = "fill" :: "fill",
 					gap = 0,
-					UI.fill() :: unknown,
+					UI.fill(),
 					Host.Frame { Name = "Header", Size = UDim2.new(1, 0, 0, 500) },
 					UI.VStack "Pane" {
 						width = "fill" :: "fill",
 						height = "fill" :: "fill",
-						UI.fill() :: unknown,
+						UI.fill(),
 						Host.UISizeConstraint { MinSize = Vector2.new(0, 320) },
 						UI.Button { Name = "Last", label = "Last item" },
 					},
@@ -178,9 +183,9 @@ table.insert(cases, {
 	contracts = {},
 	keepGallery = true,
 	setup = function(t: any)
-		workspace.FacetShowcaseAPI:Invoke("show", "files")
+		(workspace:WaitForChild("FacetShowcaseAPI") :: BindableFunction):Invoke("show", "files")
 		t.settle(20)
-		local layer = game:GetService("Players").LocalPlayer.PlayerGui.FacetGallery
+		local layer = game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
 		local outer = t.find(layer, "FileViewport")
 		local inner = t.find(outer, "primary")
 		return { outer = outer, inner = inner, before = 0, edge = 0 }
@@ -234,7 +239,7 @@ table.insert(cases, {
 
 add("selected-scroll-rows", {}, function(t)
 	local gui = game:GetService("GuiService")
-	local select
+	local select: (GuiObject) -> ()
 	local stage = t.mount(function(UI: FacetControls, _: RobloxHost, C)
 		local target = C.cell(nil :: GuiObject?)
 		C.watch(function(use)
@@ -243,7 +248,7 @@ add("selected-scroll-rows", {}, function(t)
 		select = function(node: GuiObject)
 			target:set(node)
 		end
-		local rows = {}
+		local rows: { Instance } = {}
 		for index = 1, 16 do
 			table.insert(rows, UI.Button("Row" .. index)({ label = "Row " .. index, Size = UDim2.fromOffset(260, 44) }))
 		end
@@ -277,7 +282,7 @@ add("compact-gallery-selected-rects", {}, function(t)
 		context.dispatch("input", "Gamepad")
 		t.settle(30)
 		require(game:GetService("ReplicatedStorage").FacetLive).press({ "LeftShift" })
-		local nodes = {}
+		local nodes: { GuiObject } = {}
 		for _, node in stage:GetDescendants() do
 			if
 				node:IsA("GuiButton")
@@ -288,7 +293,7 @@ add("compact-gallery-selected-rects", {}, function(t)
 				table.insert(nodes, node)
 			end
 		end
-		table.sort(nodes, function(a, b)
+		table.sort(nodes, function(a: GuiObject, b: GuiObject)
 			return a.AbsolutePosition.Y < b.AbsolutePosition.Y
 		end)
 		for _, node in nodes do
@@ -296,7 +301,7 @@ add("compact-gallery-selected-rects", {}, function(t)
 			local samples = {}
 			for frame = 1, 6 do
 				t.settle(1)
-				local ancestor = node:FindFirstAncestorWhichIsA("ScrollingFrame")
+				local ancestor = assert(node:FindFirstAncestorWhichIsA("ScrollingFrame"))
 				local top = node.AbsolutePosition.Y - ancestor.AbsolutePosition.Y
 				table.insert(samples, {
 					top = top,
@@ -349,7 +354,7 @@ add("sipworks-native-selection-reveals-cards", {}, function(t)
 					table.insert(nodes, node)
 				end
 			end
-			table.sort(nodes, function(a, b)
+			table.sort(nodes, function(a: GuiObject, b: GuiObject)
 				return a.AbsolutePosition.Y < b.AbsolutePosition.Y
 			end)
 			local node = nodes[1]
@@ -386,17 +391,19 @@ end)
 
 add("table-header-uses-native-scroll-window", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
+		local columns389: { TableColumn } = {
+			{ id = "name", label = "Name", width = 260 },
+			{ id = "id", label = "Identifier", width = 140 },
+		}
 		return UI.Table "Data" {
 			from = { { id = "one", name = "First" } },
 			key = "id",
 			Size = UDim2.fromOffset(180, 200),
-			columns = {
-				{ id = "name", label = "Name", width = 260 },
-				{ id = "id", label = "Identifier", width = 140 },
-			},
+			columns = columns389,
 		}
 	end, { size = Vector2.new(400, 300), frames = 60 })
-	local tableNode = assert(stage:FindFirstChild("Data"))
+	local tableNode: Instance = stage:FindFirstChild("Data")
+	assert(tableNode)
 	local body = assert(tableNode:FindFirstChild("Body")) :: ScrollingFrame
 	local header = assert(tableNode:FindFirstChild("Header")) :: ScrollingFrame
 	t.check("the header uses a native scroll window", header:IsA("ScrollingFrame"))
@@ -420,6 +427,10 @@ add("table-columns-stay-stable-when-vertical-overflow-changes", {}, function(t)
 	local setRows: ((number) -> ())? = nil
 	local stage = t.mount(function(UI: FacetControls, _Host: RobloxHost, Compose: ComposeModule)
 		local count = Compose.cell(1)
+		local columns427: { TableColumn } = {
+			{ id = "name", label = "Name", minWidth = 220 },
+			{ id = "id", label = "Rating", minWidth = 130, priority = 1 },
+		}
 		setRows = function(value: number)
 			count:set(value)
 		end
@@ -433,15 +444,14 @@ add("table-columns-stay-stable-when-vertical-overflow-changes", {}, function(t)
 			end,
 			key = "id",
 			Size = UDim2.fromOffset(354, 200),
-			columns = {
-				{ id = "name", label = "Name", minWidth = 220 },
-				{ id = "id", label = "Rating", minWidth = 130, priority = 1 },
-			},
+			columns = columns427,
 		}
 	end, { size = Vector2.new(400, 300), frames = 60 })
-	local tableNode = assert(stage:FindFirstChild("Data"))
+	local tableNode: Instance = stage:FindFirstChild("Data")
+	assert(tableNode)
 	local body = assert(tableNode:FindFirstChild("Body")) :: ScrollingFrame
-	local rating = assert(assert(tableNode:FindFirstChild("Header")):FindFirstChild("id")) :: GuiObject
+	local ratingHeader = assert(tableNode:FindFirstChild("Header"))
+	local rating = assert(ratingHeader:FindFirstChild("id")) :: GuiObject
 	local shown = rating.Visible
 	t.check("the first collection fits vertically", body.AbsoluteCanvasSize.Y <= body.AbsoluteWindowSize.Y)
 	assert(setRows)(20)
@@ -460,15 +470,19 @@ add("keyboard-selection-keeps-pointer-drag-surfaces-out-of-navigation", {}, func
 			_Host: RobloxHost,
 			Compose: typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 		)
-			return UI.Table "Data" {
-				from = { { id = "one", name = "First" }, { id = "two", name = "Second" } },
+			local columns466: { EntryColumn } = {
+				{ id = "name", label = "Name", width = 180 },
+				{ id = "id", label = "Identifier", width = 140 },
+			}
+			local entries: { Entry } = { { id = "one", name = "First" }, { id = "two", name = "Second" } }
+			local selection: SelectionCell = Compose.cell({})
+			return (UI.Table :: any) {
+				Name = "Data",
+				from = entries,
 				key = "id",
 				Size = UDim2.fromOffset(400, 250),
-				columns = {
-					{ id = "name", label = "Name", width = 180 },
-					{ id = "id", label = "Identifier", width = 140 },
-				},
-				selection = Compose.cell({} :: { [string]: boolean }),
+				columns = columns466,
+				selection = selection,
 				selectionMode = "single" :: "single",
 				reorderable = true,
 				onReorder = function() end,
@@ -503,7 +517,9 @@ add("keyboard-selection-keeps-pointer-drag-surfaces-out-of-navigation", {}, func
 			t.check("Down reaches the next row", selected == second, selected)
 		end
 	end
-	local header = assert(assert(stage:FindFirstChild("Data")):FindFirstChild("Header"))
+	local data: Instance = stage:FindFirstChild("Data")
+	assert(data)
+	local header = assert(data:FindFirstChild("Header"))
 	local firstColumn = assert(header:FindFirstChild("name")) :: GuiObject
 	local firstHeading = assert(firstColumn:FindFirstChild("Sort")) :: GuiObject
 	local secondHeading = assert(assert(header:FindFirstChild("id")):FindFirstChild("Sort")) :: GuiObject
@@ -530,7 +546,7 @@ add("inline-color-picker-keeps-keyboard-selection-in-the-page", {}, function(t)
 		return UI.ScrollView "Page" {
 			Size = UDim2.fromOffset(380, 190),
 			gap = 16,
-			UI.Toggle "Before" { label = "Refuse changes", value = Compose.cell(false) } :: unknown,
+			UI.Toggle "Before" { label = "Refuse changes", value = Compose.cell(false) },
 			UI.ColorPicker "Accent" {
 				label = "Accent",
 				style = "inline" :: "inline",

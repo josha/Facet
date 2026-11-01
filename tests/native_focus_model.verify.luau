@@ -1,18 +1,21 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Bdd = require("../tools/vendor/verify/src/bdd")
 
 return function(verifyHarness: Verify.Harness)
+	local test = Bdd.create(verifyHarness)
+	local describe, it, expect = test.describe, test.it, test.expect
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 
-	local Facet = require("../src") :: any
+	local Facet = require("../src")
+	local EnvironmentTypes = require("../src/ui/environment_types")
 	local engineLib = require("./lib/native_engine")
 	local Compose: ComposeModule = Facet.Compose
 
-	local function setup(build: (any, any) -> any, options: { [string]: any }?): any
-		local engine: any = engineLib.new()
+	local function setup(build: (Facet.Controls, RobloxHost) -> Facet.Child, options: Facet.ControlOptions?)
+		local engine = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
 		local input = engine.new("UserInputService")
@@ -34,9 +37,9 @@ return function(verifyHarness: Verify.Harness)
 			config[key] = value
 		end
 		local UI = Facet.controls(runtime, config)
-		local Host = (runtime.constructors :: unknown) :: RobloxHost
+		local Host = Facet.host(runtime)
 		local stop, screen: any = runtime.mount(function()
-			return Host.ScreenGui({ build(UI, Host) })
+			return Host.ScreenGui { build(UI, Host) }
 		end, parent)
 		local world = { engine = engine, runtime = runtime, gui = gui, input = input, screen = screen, parent = parent }
 		function world.find(name: string, root: any?): any
@@ -76,13 +79,13 @@ return function(verifyHarness: Verify.Harness)
 		return world
 	end
 
-	verifyHarness:suite("Tab traversal priority and the keyboard opt-in", function()
-		verifyHarness:case("only the runtime that owns selection handles a shared native Tab binding", {
+	describe("Tab traversal priority and the keyboard opt-in", function()
+		it("only the runtime that owns selection handles a shared native Tab binding", {
 			id = "native_focus_model::Tab traversal priority and the keyboard opt-in::only the runtime that owns selection handles a shared native Tab binding",
 			run = function()
-				local w = setup(function(UI: FacetControls)
+				local w = setup(function(UI)
 					return UI.Screen "First" {
-						UI.Button "OldA" { label = "Old A" } :: unknown,
+						UI.Button "OldA" { label = "Old A" },
 						UI.Button "OldB" { label = "Old B" },
 					}
 				end)
@@ -94,10 +97,10 @@ return function(verifyHarness: Verify.Harness)
 					inputParent = w.parent,
 					services = { GuiService = w.gui, UserInputService = w.input },
 				})
-				local Host = runtime.constructors
+				local Host = Facet.host(runtime)
 				local stop, screen: any = runtime.mount(function()
 					return Host.ScreenGui {
-						UI.Button "A" { label = "A" } :: unknown,
+						UI.Button "A" { label = "A" },
 						UI.Button "B" { label = "B" },
 						UI.Button "C" { label = "C" },
 					}
@@ -108,56 +111,56 @@ return function(verifyHarness: Verify.Harness)
 						table.insert(contexts, node)
 					end
 				end
-				Verify.expect(contexts):toHaveLength(2)
+				expect(contexts):toHaveLength(2)
 				w.gui.SelectedObject = w.find("A", screen)
-				Verify.expect(first.Enabled):toBe(false)
+				expect(first.Enabled):toBe(false)
 				for _, context in contexts do
 					if context.Enabled then
 						context.Traverse.Pressed:Fire()
 					end
 				end
-				Verify.expect(w.selected()):toBe("B")
+				expect(w.selected()):toBe("B")
 				w.gui.SelectedObject = w.find("OldA")
-				Verify.expect(first.Enabled):toBe(true)
+				expect(first.Enabled):toBe(true)
 				for _, context in contexts do
 					if context.Enabled then
 						context.Traverse.Pressed:Fire()
 					end
 				end
-				Verify.expect(w.selected()):toBe("OldB")
+				expect(w.selected()):toBe("OldB")
 				stop()
 				runtime:dispose()
 				w.stop()
 			end,
 		})
-		verifyHarness:case("keeps native buttons inside an explicit responder in its Tab scope", {
+		it("keeps native buttons inside an explicit responder in its Tab scope", {
 			id = "native_focus_model::Tab traversal priority and the keyboard opt-in::keeps native buttons inside an explicit responder in its Tab scope",
 			run = function()
-				local w = setup(function(UI: FacetControls, Host: RobloxHost)
+				local w = setup(function(UI, Host)
 					local panel = Host.Frame "NativeResponder" {
-						Host.TextButton "NativeA" { Text = "A", Selectable = true } :: unknown,
+						Host.TextButton "NativeA" { Text = "A", Selectable = true },
 						Host.TextButton "NativeB" { Text = "B", Selectable = true },
 					}
 					UI.responder(panel, { passive = false })
 					return Host.Frame {
-						panel :: unknown,
+						panel,
 						UI.Button "Outside" { label = "Outside" },
 					}
 				end)
 				w.gui.SelectedObject = w.find("NativeA")
-				Verify.expect(w.find("FacetTraversal", w.parent).Enabled):toBe(true)
+				expect(w.find("FacetTraversal", w.parent).Enabled):toBe(true)
 				w.tab()
-				Verify.expect(w.selected()):toBe("NativeB")
+				expect(w.selected()):toBe("NativeB")
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("walks Tab by SelectionOrder tier, then document order within a tier", {
+		it("walks Tab by SelectionOrder tier, then document order within a tier", {
 			id = "native_focus_model::Tab traversal priority and the keyboard opt-in::walks Tab by SelectionOrder tier, then document order within a tier",
 			run = function()
-				local w = setup(function(UI: FacetControls)
+				local w = setup(function(UI)
 					return UI.Screen "Page" {
-						UI.Button "A" { label = "A" } :: unknown,
+						UI.Button "A" { label = "A" },
 						UI.Button "Late" { label = "Late", SelectionOrder = 5 },
 						UI.Button "B" { label = "B" },
 						UI.Button "First" { label = "First", SelectionOrder = -1 },
@@ -168,98 +171,95 @@ return function(verifyHarness: Verify.Harness)
 					w.tab()
 					table.insert(names, w.selected())
 				end
-				Verify.expect(names):toEqual({ "First", "A", "B", "Late" })
+				expect(names):toEqual({ "First", "A", "B", "Late" })
 				w.tab()
-				Verify.expect((w.selected())):toBe("First")
+				expect((w.selected())):toBe("First")
 				w.stop()
 			end,
 		})
-		verifyHarness:case("binds Tab only while a keyboard is live and keyboardNavigation is not false", {
+		it("binds Tab only while a keyboard is live and keyboardNavigation is not false", {
 			id = "native_focus_model::Tab traversal priority and the keyboard opt-in::binds Tab only while a keyboard is live and keyboardNavigation is not false",
 			run = function()
-				local w = setup(function(UI: FacetControls)
+				local w = setup(function(UI)
 					return UI.Button "A" { label = "A" }
 				end)
 				local context = w.find("FacetTraversal", w.parent)
-				Verify.expect(context.Enabled):toBe(true)
+				expect(context.Enabled):toBe(true)
 				w.engine.environment.poke(w.input, "KeyboardEnabled", false)
-				Verify.expect(context.Enabled):toBe(false)
+				expect(context.Enabled):toBe(false)
 				w.engine.environment.poke(w.input, "KeyboardEnabled", true)
-				Verify.expect(context.Enabled):toBe(true)
+				expect(context.Enabled):toBe(true)
 				w.stop()
-				local off = setup(function(UI: FacetControls)
+				local off = setup(function(UI)
 					return UI.Button "A" { label = "A" }
 				end, { keyboardNavigation = false })
-				Verify.expect(off.find("FacetTraversal", off.parent).Enabled):toBe(false)
+				expect(off.find("FacetTraversal", off.parent).Enabled):toBe(false)
 				off.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("stick entry", function()
-		verifyHarness:case("a left-stick push enters the selection like a D-pad press; a drift does not", {
+	describe("stick entry", function()
+		it("a left-stick push enters the selection like a D-pad press; a drift does not", {
 			id = "native_focus_model::stick entry::a left-stick push enters the selection like a D-pad press; a drift does not",
 			run = function()
-				local w = setup(function(UI: FacetControls)
+				local w = setup(function(UI)
 					return UI.Screen "Page" {
-						UI.Button "A" { label = "A" } :: unknown,
+						UI.Button "A" { label = "A" },
 						UI.Button "B" { label = "B" },
 					}
 				end)
 				local V2 = w.engine.types.Vector2
 				local context = w.find("FacetEntry", w.parent)
-				Verify.expect(context.Sink):toBe(false)
+				expect(context.Sink):toBe(false)
 				local enter = context:FindFirstChild("Enter")
 				enter.StateChanged:Fire(V2.new(0.2, -0.1))
-				Verify.expect((w.selected())):toBe("nil")
+				expect((w.selected())):toBe("nil")
 				enter.StateChanged:Fire(V2.new(0, -1))
-				Verify.expect((w.selected())):toBe("A")
+				expect((w.selected())):toBe("A")
 				w.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("leaving the gamepad", function()
-		verifyHarness:case(
-			"drops a pad selection when the preferred input leaves the gamepad, so the engine cannot eat typed WASD",
-			{
-				id = "native_focus_model::leaving the gamepad::drops a pad selection when the preferred input leaves the gamepad, so the engine cannot eat typed WASD",
-				run = function()
-					local w = setup(function(UI: FacetControls)
-						return UI.Screen "Page" {
-							UI.Button "Q" { label = "Q" } :: unknown,
-							UI.Button "W" { label = "W" },
-						}
-					end)
-					local E = w.engine.types.Enum
-					local last = E.UserInputType.Gamepad1
-					w.input.GetLastInputType = function()
-						return last
-					end
-					w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
-					w.find("FacetEntry", w.parent)
-						:FindFirstChild("Enter").StateChanged
-						:Fire(w.engine.types.Vector2.new(0, -1))
-					Verify.expect((w.selected())):toBe("Q")
-					w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
-					Verify.expect((w.selected())):toBe("nil")
-					last = E.UserInputType.Keyboard
-					w.tab()
-					Verify.expect((w.selected())):toBe("Q")
-					w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
-					w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
-					Verify.expect((w.selected())):toBe("Q")
-					w.stop()
-				end,
-			}
-		)
+	describe("leaving the gamepad", function()
+		it("drops a pad selection when the preferred input leaves the gamepad, so the engine cannot eat typed WASD", {
+			id = "native_focus_model::leaving the gamepad::drops a pad selection when the preferred input leaves the gamepad, so the engine cannot eat typed WASD",
+			run = function()
+				local w = setup(function(UI)
+					return UI.Screen "Page" {
+						UI.Button "Q" { label = "Q" },
+						UI.Button "W" { label = "W" },
+					}
+				end)
+				local E = w.engine.types.Enum
+				local last = E.UserInputType.Gamepad1
+				w.input.GetLastInputType = function()
+					return last
+				end
+				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
+				w.find("FacetEntry", w.parent)
+					:FindFirstChild("Enter").StateChanged
+					:Fire(w.engine.types.Vector2.new(0, -1))
+				expect((w.selected())):toBe("Q")
+				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
+				expect((w.selected())):toBe("nil")
+				last = E.UserInputType.Keyboard
+				w.tab()
+				expect((w.selected())):toBe("Q")
+				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
+				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
+				expect((w.selected())):toBe("Q")
+				w.stop()
+			end,
+		})
 
-		verifyHarness:case("keeps a first Tab that lands before the preferred input leaves the gamepad", {
+		it("keeps a first Tab that lands before the preferred input leaves the gamepad", {
 			id = "native_focus_model::leaving the gamepad::keeps a first Tab that lands before the preferred input leaves the gamepad",
 			run = function()
-				local w = setup(function(UI: FacetControls)
+				local w = setup(function(UI)
 					return UI.Screen "Page" {
-						UI.Button "Q" { label = "Q" } :: unknown,
+						UI.Button "Q" { label = "Q" },
 						UI.Button "W" { label = "W" },
 					}
 				end)
@@ -269,22 +269,22 @@ return function(verifyHarness: Verify.Harness)
 				end
 				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
 				w.tab()
-				Verify.expect((w.selected())):toBe("Q")
+				expect((w.selected())):toBe("Q")
 				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
-				Verify.expect((w.selected())):toBe("Q")
+				expect((w.selected())):toBe("Q")
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("leaves a game's own pad selection outside Facet alone", {
+		it("leaves a game's own pad selection outside Facet alone", {
 			id = "native_focus_model::leaving the gamepad::leaves a game's own pad selection outside Facet alone",
 			run = function()
 				local own: any
-				local w = setup(function(UI: FacetControls, Host: RobloxHost)
+				local w = setup(function(UI, Host)
 					own = Host.TextButton { Name = "GameMenu", Selectable = true }
 					return Host.Frame {
 						Name = "Legacy",
-						own :: unknown,
+						own,
 						UI.Screen "Page" { UI.Button "Q" { label = "Q" } },
 					}
 				end)
@@ -295,76 +295,75 @@ return function(verifyHarness: Verify.Harness)
 				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
 				w.gui.SelectedObject = own
 				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
-				Verify.expect((w.selected())):toBe("GameMenu")
+				expect((w.selected())):toBe("GameMenu")
 				w.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("focusSection entry rules", function()
-		local function sections(options: { [string]: any }?)
-			local shelf: any
-			local w = setup(function(UI: FacetControls, Host: RobloxHost)
-				shelf = UI.HStack "Shelf" {
-					UI.Button "One" { label = "One" } :: unknown,
+	describe("focusSection entry rules", function()
+		local function sections(options: EnvironmentTypes.FocusSectionOptions?)
+			local w = setup(function(UI, Host)
+				local shelf = UI.HStack "Shelf" {
+					UI.Button "One" { label = "One" },
 					UI.Button "Two" { label = "Two" },
 					UI.Button "Three" { label = "Three" },
 				}
 				UI.focusSection(shelf, options)
 				return Host.Frame "Page" {
-					UI.Button "Outside" { label = "Outside" } :: unknown,
+					UI.Button "Outside" { label = "Outside" },
 					shelf,
 				}
 			end)
 			return w
 		end
-		verifyHarness:case("restores the remembered item, and a preferred item wins the first entry", {
+		it("restores the remembered item, and a preferred item wins the first entry", {
 			id = "native_focus_model::focusSection entry rules::restores the remembered item, and a preferred item wins the first entry",
 			run = function()
 				local w = sections({ preferred = "Two" })
 				w.gui.SelectedObject = w.find("Outside")
 				w.gui.SelectedObject = w.find("Three")
-				Verify.expect((w.selected())):toBe("Two")
+				expect((w.selected())):toBe("Two")
 				w.gui.SelectedObject = w.find("One")
 				w.gui.SelectedObject = w.find("Outside")
 				w.gui.SelectedObject = w.find("Three")
-				Verify.expect((w.selected())):toBe("One")
+				expect((w.selected())):toBe("One")
 				w.stop()
 			end,
 		})
-		verifyHarness:case("entry first lands on the first item every time; nearest leaves the engine's choice", {
+		it("entry first lands on the first item every time; nearest leaves the engine's choice", {
 			id = "native_focus_model::focusSection entry rules::entry first lands on the first item every time; nearest leaves the engine's choice",
 			run = function()
 				local first = sections({ entry = "first" })
 				first.gui.SelectedObject = first.find("Outside")
 				first.gui.SelectedObject = first.find("Three")
-				Verify.expect((first.selected())):toBe("One")
+				expect((first.selected())):toBe("One")
 				first.gui.SelectedObject = first.find("Two")
 				first.gui.SelectedObject = first.find("Outside")
 				first.gui.SelectedObject = first.find("Three")
-				Verify.expect((first.selected())):toBe("One")
+				expect((first.selected())):toBe("One")
 				first.stop()
 				local nearest = sections({ entry = "nearest", preferred = "Two" })
 				nearest.gui.SelectedObject = nearest.find("One")
 				nearest.gui.SelectedObject = nearest.find("Outside")
 				nearest.gui.SelectedObject = nearest.find("Three")
-				Verify.expect((nearest.selected())):toBe("Three")
+				expect((nearest.selected())):toBe("Three")
 				nearest.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("focusSection focusOnAppear and returnFocus", function()
-		verifyHarness:case("lands on the appearing branch and returns to the row that opened it", {
+	describe("focusSection focusOnAppear and returnFocus", function()
+		it("lands on the appearing branch and returns to the row that opened it", {
 			id = "native_focus_model::focusSection focusOnAppear and returnFocus::lands on the appearing branch and returns to the row that opened it",
 			run = function()
 				local open = Compose.cell(false)
-				local w = setup(function(UI: FacetControls, Host: RobloxHost)
+				local w = setup(function(UI, Host)
 					return Host.Frame "Page" {
-						UI.Button "Row" { label = "Row" } :: unknown,
+						UI.Button "Row" { label = "Row" },
 						Compose.show(open, function()
 							local detail = UI.VStack "Detail" {
-								UI.Button "Title" { label = "Title" } :: unknown,
+								UI.Button "Title" { label = "Title" },
 								UI.Button "Back" { label = "Back" },
 							}
 							UI.focusSection(detail, { focusOnAppear = "Back", returnFocus = true })
@@ -374,19 +373,19 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				w.gui.SelectedObject = w.find("Row")
 				open:set(true)
-				Verify.expect((w.selected())):toBe("Back")
+				expect((w.selected())):toBe("Back")
 				open:set(false)
-				Verify.expect((w.selected())):toBe("Row")
+				expect((w.selected())):toBe("Row")
 				w.stop()
 			end,
 		})
-		verifyHarness:case("does not take the selection when nothing is selected (a touch or mouse player)", {
+		it("does not take the selection when nothing is selected (a touch or mouse player)", {
 			id = "native_focus_model::focusSection focusOnAppear and returnFocus::does not take the selection when nothing is selected (a touch or mouse player)",
 			run = function()
 				local open = Compose.cell(false)
-				local w = setup(function(UI: FacetControls, Host: RobloxHost)
+				local w = setup(function(UI, Host)
 					return Host.Frame "Page" {
-						UI.Button "Row" { label = "Row" } :: unknown,
+						UI.Button "Row" { label = "Row" },
 						Compose.show(open, function()
 							local detail = UI.VStack "Detail" { UI.Button "Back" { label = "Back" } }
 							UI.focusSection(detail, { focusOnAppear = true, returnFocus = true })
@@ -395,19 +394,19 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				open:set(true)
-				Verify.expect((w.selected())):toBe("nil")
+				expect((w.selected())):toBe("nil")
 				open:set(false)
-				Verify.expect((w.selected())):toBe("nil")
+				expect((w.selected())):toBe("nil")
 				w.stop()
 			end,
 		})
-		verifyHarness:case("without the keys the selection stays where the engine left it", {
+		it("without the keys the selection stays where the engine left it", {
 			id = "native_focus_model::focusSection focusOnAppear and returnFocus::without the keys the selection stays where the engine left it",
 			run = function()
 				local open = Compose.cell(false)
-				local w = setup(function(UI: FacetControls, Host: RobloxHost)
+				local w = setup(function(UI, Host)
 					return Host.Frame "Page" {
-						UI.Button "Row" { label = "Row" } :: unknown,
+						UI.Button "Row" { label = "Row" },
 						Compose.show(open, function()
 							local detail = UI.VStack "Detail" { UI.Button "Back" { label = "Back" } }
 							UI.focusSection(detail)
@@ -417,24 +416,24 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				w.gui.SelectedObject = w.find("Row")
 				open:set(true)
-				Verify.expect((w.selected())):toBe("Row")
+				expect((w.selected())):toBe("Row")
 				w.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("responder: engage, resign and the gameplay guard (DK-13/DK-15)", function()
-		local function form(options: { [string]: any }?)
+	describe("responder: engage, resign and the gameplay guard (DK-13/DK-15)", function()
+		local function form(options: EnvironmentTypes.ResponderOptions?)
 			local responder: any
 			local presses: { [string]: number } = {}
-			local w = setup(function(UI: FacetControls)
+			local w = setup(function(UI)
 				local hud = UI.Screen "Hud" {
 					UI.Button "One" {
 						label = "One",
 						onActivate = function()
 							presses.one = (presses.one or 0) + 1
 						end,
-					} :: unknown,
+					},
 					UI.Button "Two" {
 						label = "Two",
 						onActivate = function()
@@ -446,15 +445,14 @@ return function(verifyHarness: Verify.Harness)
 				responder = UI.responder(hud, options)
 				return hud
 			end)
-			w.responder, w.presses = responder, presses
-			function w.traversal(): boolean
+			local function traversal(): boolean
 				return w.find("FacetTraversal", w.parent).Enabled
 			end
-			function w.guard(): boolean
+			local function guard(): boolean
 				local guard = w.find("FacetGameplayGuard", w.parent)
 				return guard ~= nil and guard.Enabled
 			end
-			function w.tap(hits: { any }, kind: string?)
+			local function tap(hits: { any }, kind: string?)
 				w.parent.GetGuiObjectsAtPosition = function()
 					return hits
 				end
@@ -465,103 +463,103 @@ return function(verifyHarness: Verify.Harness)
 					Position = w.engine.types.Vector3.new(10, 10, 0),
 				}, true)
 			end
-			return w
+			return w, { responder = responder, presses = presses, traversal = traversal, guard = guard, tap = tap }
 		end
-		verifyHarness:case("a passive surface at rest binds no Tab and no guard: the game keeps the keys", {
+		it("a passive surface at rest binds no Tab and no guard: the game keeps the keys", {
 			id = "native_focus_model::responder: engage, resign and the gameplay guard (DK-13/DK-15)::a passive surface at rest binds no Tab and no guard: the game keeps the keys",
 			run = function()
-				local w = form()
-				Verify.expect((w.responder.state:peek())):toBe("passive")
-				Verify.expect((w.traversal())):toBe(false)
-				Verify.expect((w.guard())):toBe(false)
+				local w, formState = form()
+				expect((formState.responder.state:peek())):toBe("passive")
+				expect((formState.traversal())):toBe(false)
+				expect((formState.guard())):toBe(false)
 				local E = w.engine.types.Enum
 				w.input.InputBegan:Fire(
 					{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.DPadDown },
 					false
 				)
-				Verify.expect((w.selected())):toBe("nil")
+				expect((w.selected())):toBe("nil")
 				w.stop()
 			end,
 		})
-		verifyHarness:case("engage() binds Tab and the guard; the first Tab enters, resign() gives the keys back", {
+		it("engage() binds Tab and the guard; the first Tab enters, resign() gives the keys back", {
 			id = "native_focus_model::responder: engage, resign and the gameplay guard (DK-13/DK-15)::engage() binds Tab and the guard; the first Tab enters, resign() gives the keys back",
 			run = function()
-				local w = form()
-				w.responder.engage()
-				Verify.expect((w.responder.state:peek())):toBe("engaged")
-				Verify.expect((w.traversal())):toBe(true)
-				Verify.expect((w.guard())):toBe(true)
+				local w, formState = form()
+				formState.responder.engage()
+				expect((formState.responder.state:peek())):toBe("engaged")
+				expect((formState.traversal())):toBe(true)
+				expect((formState.guard())):toBe(true)
 				w.tab()
-				Verify.expect((w.selected())):toBe("One")
+				expect((w.selected())):toBe("One")
 				w.tab()
-				Verify.expect((w.selected())):toBe("Two")
-				w.responder.resign()
-				Verify.expect((w.responder.state:peek())):toBe("passive")
-				Verify.expect((w.selected())):toBe("nil")
-				Verify.expect((w.traversal())):toBe(false)
-				Verify.expect((w.guard())):toBe(false)
+				expect((w.selected())):toBe("Two")
+				formState.responder.resign()
+				expect((formState.responder.state:peek())):toBe("passive")
+				expect((w.selected())):toBe("nil")
+				expect((formState.traversal())):toBe(false)
+				expect((formState.guard())):toBe(false)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("a tap on the surface engages on the tapped control; a tap outside resigns", {
+		it("a tap on the surface engages on the tapped control; a tap outside resigns", {
 			id = "native_focus_model::responder: engage, resign and the gameplay guard (DK-13/DK-15)::a tap on the surface engages on the tapped control; a tap outside resigns",
 			run = function()
-				local w = form()
-				w.tap({ w.find("One") })
-				Verify.expect((w.responder.state:peek())):toBe("engaged")
-				Verify.expect((w.selected())):toBe("One")
+				local w, formState = form()
+				formState.tap({ w.find("One") })
+				expect((formState.responder.state:peek())):toBe("engaged")
+				expect((w.selected())):toBe("One")
 				w.tab()
-				Verify.expect((w.selected())):toBe("Two")
-				w.tap({}, "touch")
-				Verify.expect((w.responder.state:peek())):toBe("passive")
-				Verify.expect((w.selected())):toBe("nil")
-				Verify.expect((w.traversal())):toBe(false)
+				expect((w.selected())):toBe("Two")
+				formState.tap({}, "touch")
+				expect((formState.responder.state:peek())):toBe("passive")
+				expect((w.selected())):toBe("nil")
+				expect((formState.traversal())):toBe(false)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("the selection entering the surface engages it; Cancel resigns it", {
+		it("the selection entering the surface engages it; Cancel resigns it", {
 			id = "native_focus_model::responder: engage, resign and the gameplay guard (DK-13/DK-15)::the selection entering the surface engages it; Cancel resigns it",
 			run = function()
-				local w = form()
+				local w, formState = form()
 				w.gui.SelectedObject = w.find("Two")
-				Verify.expect((w.responder.state:peek())):toBe("engaged")
+				expect((formState.responder.state:peek())):toBe("engaged")
 				local cancel = w.find("FacetResponderCancel", w.parent)
-				Verify.expect(cancel.Sink):toBe(false)
+				expect(cancel.Sink):toBe(false)
 				cancel:FindFirstChild("Cancel").Pressed:Fire()
-				Verify.expect((w.responder.state:peek())):toBe("passive")
-				Verify.expect((w.selected())):toBe("nil")
+				expect((formState.responder.state:peek())):toBe("passive")
+				expect((w.selected())):toBe("nil")
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("resignOnActivate gives the selection back to the game after an A press on a button", {
+		it("resignOnActivate gives the selection back to the game after an A press on a button", {
 			id = "native_focus_model::responder: engage, resign and the gameplay guard (DK-13/DK-15)::resignOnActivate gives the selection back to the game after an A press on a button",
 			run = function()
 				local E
 				for _, wanted in { false, true } do
-					local w = form(if wanted then { resignOnActivate = true } else nil)
+					local w, formState = form(if wanted then { resignOnActivate = true } else nil)
 					E = w.engine.types.Enum
 					w.gui.SelectedObject = w.find("Two")
 					w.input.InputEnded:Fire(
 						{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonX },
 						true
 					)
-					Verify.expect((w.selected())):toBe("Two")
+					expect((w.selected())):toBe("Two")
 					w.input.InputEnded:Fire(
 						{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonA },
 						true
 					)
-					Verify.expect((w.selected())):toBe(if wanted then "nil" else "Two")
-					Verify.expect((w.responder.state:peek())):toBe(if wanted then "passive" else "engaged")
+					expect((w.selected())):toBe(if wanted then "nil" else "Two")
+					expect((formState.responder.state:peek())):toBe(if wanted then "passive" else "engaged")
 					w.stop()
 				end
 			end,
 		})
-		verifyHarness:case("a Composition HUD button returns the selection to the game after A", {
+		it("a Composition HUD button returns the selection to the game after A", {
 			id = "native_focus_model::responder: engage, resign and the gameplay guard (DK-13/DK-15)::a Composition HUD button returns the selection to the game after A",
 			run = function()
 				local boosts = 0
-				local w = setup(function(UI: FacetControls)
+				local w = setup(function(UI)
 					return UI.Composition "Hud" {
 						UI.Region "Boost" {
 							zone = "bottomRight",
@@ -582,27 +580,27 @@ return function(verifyHarness: Verify.Harness)
 				end
 				w.gui.SelectedObject = boost
 				w.input.InputEnded:Fire({ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonA }, true)
-				Verify.expect(w.gui.SelectedObject):toBeNil()
+				expect(w.gui.SelectedObject):toBeNil()
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("gameplayGuard = false binds neither the guard nor Space on its buttons", {
+		it("gameplayGuard = false binds neither the guard nor Space on its buttons", {
 			id = "native_focus_model::responder: engage, resign and the gameplay guard (DK-13/DK-15)::gameplayGuard = false binds neither the guard nor Space on its buttons",
 			run = function()
-				local w = form({ gameplayGuard = false })
-				w.responder.engage()
-				Verify.expect((w.guard())):toBe(false)
+				local w, formState = form({ gameplayGuard = false })
+				formState.responder.engage()
+				expect((formState.guard())):toBe(false)
 				w.gui.SelectedObject = w.find("One")
-				Verify.expect((w.activateKeys())):toEqual({ "Return" })
+				expect((w.activateKeys())):toEqual({ "Return" })
 				w.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("a passive HUD (Composition)", function()
+	describe("a passive HUD (Composition)", function()
 		local function hud(passive: boolean?)
-			return setup(function(UI: FacetControls)
+			return setup(function(UI)
 				return UI.Screen "Page" {
 					UI.Composition "Hud" {
 						passive = passive,
@@ -615,15 +613,15 @@ return function(verifyHarness: Verify.Harness)
 				}
 			end)
 		end
-		verifyHarness:case("engageOnPress = false: a tap on the surface leaves it at rest and selects nothing", {
+		it("engageOnPress = false: a tap on the surface leaves it at rest and selects nothing", {
 			id = "native_focus_model::a passive HUD (Composition)::engageOnPress = false: a tap on the surface leaves it at rest and selects nothing",
 			run = function()
 				local state = function(): string
 					return "none"
 				end
-				local w = setup(function(UI: FacetControls)
+				local w = setup(function(UI)
 					local surface = UI.Screen "Hud" {
-						UI.Button "One" { label = "One" } :: unknown,
+						UI.Button "One" { label = "One" },
 						UI.Button "Two" { label = "Two" },
 					}
 					local responder = UI.responder(surface, { engageOnPress = false })
@@ -641,10 +639,10 @@ return function(verifyHarness: Verify.Harness)
 					KeyCode = E.KeyCode:FromValue(0),
 					Position = w.engine.types.Vector3.new(10, 10, 0),
 				}, true)
-				Verify.expect(state()):toBe("passive")
-				Verify.expect((w.selected())):toBe("nil")
+				expect(state()):toBe("passive")
+				expect((w.selected())):toBe("nil")
 				w.gui.SelectedObject = w.find("One")
-				Verify.expect(state()):toBe("engaged")
+				expect(state()):toBe("engaged")
 				w.parent.GetGuiObjectsAtPosition = function()
 					return { w.find("Two") }
 				end
@@ -653,11 +651,11 @@ return function(verifyHarness: Verify.Harness)
 					KeyCode = E.KeyCode:FromValue(0),
 					Position = w.engine.types.Vector3.new(10, 10, 0),
 				}, true)
-				Verify.expect((w.selected())):toBe("Two")
+				expect((w.selected())):toBe("Two")
 				w.stop()
 			end,
 		})
-		verifyHarness:case("the movement stick and the D-pad drive the game: neither enters a Composition HUD", {
+		it("the movement stick and the D-pad drive the game: neither enters a Composition HUD", {
 			id = "native_focus_model::a passive HUD (Composition)::the movement stick and the D-pad drive the game: neither enters a Composition HUD",
 			run = function()
 				local w = hud()
@@ -666,16 +664,16 @@ return function(verifyHarness: Verify.Harness)
 					{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.DPadDown },
 					false
 				)
-				Verify.expect((w.selected())):toBe("nil")
+				expect((w.selected())):toBe("nil")
 				w.find("FacetEntry", w.parent)
 					:FindFirstChild("Enter").StateChanged
 					:Fire(w.engine.types.Vector2.new(0, -1))
-				Verify.expect((w.selected())):toBe("nil")
-				Verify.expect(w.find("FacetTraversal", w.parent).Enabled):toBe(false)
+				expect((w.selected())):toBe("nil")
+				expect(w.find("FacetTraversal", w.parent).Enabled):toBe(false)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("passive = false makes a Composition an ordinary screen the D-pad enters", {
+		it("passive = false makes a Composition an ordinary screen the D-pad enters", {
 			id = "native_focus_model::a passive HUD (Composition)::passive = false makes a Composition an ordinary screen the D-pad enters",
 			run = function()
 				local w = hud(false)
@@ -684,57 +682,54 @@ return function(verifyHarness: Verify.Harness)
 					{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.DPadDown },
 					false
 				)
-				Verify.expect((w.selected())):toBe("Shop")
+				expect((w.selected())):toBe("Shop")
 				w.stop()
 			end,
 		})
-		verifyHarness:case(
-			"a resting HUD beside an always-engaged screen keeps Tab, and the D-pad enters that screen",
-			{
-				id = "native_focus_model::a passive HUD (Composition)::a resting HUD beside an always-engaged screen keeps Tab, and the D-pad enters that screen",
-				run = function()
-					local w = setup(function(UI: FacetControls)
-						local page = UI.Screen "Page" {
-							UI.Composition "Hud" {
-								UI.Region "Wallet" { zone = "topLeft", rank = 1, UI.Button "Shop" { label = "Shop" } },
-							},
-							UI.Button "Play" { label = "Play" },
-						}
-						UI.responder(page, { passive = false })
-						return page
-					end)
-					Verify.expect(w.find("FacetTraversal", w.parent).Enabled):toBe(true)
-					local E = w.engine.types.Enum
-					w.input.InputBegan:Fire(
-						{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.DPadDown },
-						false
-					)
-					Verify.expect((w.selected())):toBe("Play")
-					w.stop()
-				end,
-			}
-		)
-		verifyHarness:case("the game puts the selection in a Composition HUD; Space still reaches the game", {
+		it("a resting HUD beside an always-engaged screen keeps Tab, and the D-pad enters that screen", {
+			id = "native_focus_model::a passive HUD (Composition)::a resting HUD beside an always-engaged screen keeps Tab, and the D-pad enters that screen",
+			run = function()
+				local w = setup(function(UI)
+					local page = UI.Screen "Page" {
+						UI.Composition "Hud" {
+							UI.Region "Wallet" { zone = "topLeft", rank = 1, UI.Button "Shop" { label = "Shop" } },
+						},
+						UI.Button "Play" { label = "Play" },
+					}
+					UI.responder(page, { passive = false })
+					return page
+				end)
+				expect(w.find("FacetTraversal", w.parent).Enabled):toBe(true)
+				local E = w.engine.types.Enum
+				w.input.InputBegan:Fire(
+					{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.DPadDown },
+					false
+				)
+				expect((w.selected())):toBe("Play")
+				w.stop()
+			end,
+		})
+		it("the game puts the selection in a Composition HUD; Space still reaches the game", {
 			id = "native_focus_model::a passive HUD (Composition)::the game puts the selection in a Composition HUD; Space still reaches the game",
 			run = function()
 				local w = hud()
 				w.gui.SelectedObject = w.find("Shop")
-				Verify.expect(w.find("FacetTraversal", w.parent).Enabled):toBe(true)
-				Verify.expect((w.activateKeys())):toEqual({ "Return" })
+				expect(w.find("FacetTraversal", w.parent).Enabled):toBe(true)
+				expect((w.activateKeys())):toEqual({ "Return" })
 				local guard = w.find("FacetGameplayGuard", w.parent)
-				Verify.expect(guard == nil or not guard.Enabled):toBe(true)
+				expect(guard == nil or not guard.Enabled):toBe(true)
 				w.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("traversalWrap (DK-3)", function()
-		verifyHarness:case("traversalWrap = false stops Tab at the last control and Shift+Tab at the first", {
+	describe("traversalWrap (DK-3)", function()
+		it("traversalWrap = false stops Tab at the last control and Shift+Tab at the first", {
 			id = "native_focus_model::traversalWrap (DK-3)::traversalWrap = false stops Tab at the last control and Shift+Tab at the first",
 			run = function()
-				local w = setup(function(UI: FacetControls)
+				local w = setup(function(UI)
 					local page = UI.Screen "Page" {
-						UI.Button "A" { label = "A" } :: unknown,
+						UI.Button "A" { label = "A" },
 						UI.Button "B" { label = "B" },
 					}
 					UI.responder(page, { passive = false, traversalWrap = false })
@@ -742,44 +737,45 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				w.tab()
 				w.tab()
-				Verify.expect((w.selected())):toBe("B")
+				expect((w.selected())):toBe("B")
 				w.tab()
-				Verify.expect((w.selected())):toBe("B")
+				expect((w.selected())):toBe("B")
 				w.input.IsKeyDown = function()
 					return true
 				end
 				w.tab()
-				Verify.expect((w.selected())):toBe("A")
+				expect((w.selected())):toBe("A")
 				w.tab()
-				Verify.expect((w.selected())):toBe("A")
+				expect((w.selected())):toBe("A")
 				w.stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("keyboardNavigation = false", function()
-		verifyHarness:case("binds no Tab and no Space; Return still activates", {
+	describe("keyboardNavigation = false", function()
+		it("binds no Tab and no Space; Return still activates", {
 			id = "native_focus_model::keyboardNavigation = false::binds no Tab and no Space; Return still activates",
 			run = function()
-				local w = setup(function(UI: FacetControls)
+				local w = setup(function(UI)
 					return UI.Screen "Page" { UI.Button "A" { label = "A" } }
 				end, { keyboardNavigation = false })
 				w.gui.SelectedObject = w.find("A")
-				Verify.expect(w.find("FacetTraversal", w.parent).Enabled):toBe(false)
-				Verify.expect((w.activateKeys())):toEqual({ "Return" })
+				expect(w.find("FacetTraversal", w.parent).Enabled):toBe(false)
+				expect((w.activateKeys())):toEqual({ "Return" })
 				w.stop()
 			end,
 		})
-		verifyHarness:case("true (and the default) binds Tab, and Space next to Return on a selected Button", {
+		it("true (and the default) binds Tab, and Space next to Return on a selected Button", {
 			id = "native_focus_model::keyboardNavigation = false::true (and the default) binds Tab, and Space next to Return on a selected Button",
 			run = function()
-				for _, options in { {}, { keyboardNavigation = true } } do
-					local w = setup(function(UI: FacetControls)
+				local options: { Facet.ControlOptions } = { {}, { keyboardNavigation = true } }
+				for _, options in options do
+					local w = setup(function(UI)
 						return UI.Screen "Page" { UI.Button "A" { label = "A" } }
 					end, options)
-					Verify.expect(w.find("FacetTraversal", w.parent).Enabled):toBe(true)
+					expect(w.find("FacetTraversal", w.parent).Enabled):toBe(true)
 					w.gui.SelectedObject = w.find("A")
-					Verify.expect((w.activateKeys())):toEqual({ "Return", "Space" })
+					expect((w.activateKeys())):toEqual({ "Return", "Space" })
 					w.stop()
 				end
 			end,

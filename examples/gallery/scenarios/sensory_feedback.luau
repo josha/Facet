@@ -1,15 +1,14 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 return {
 	title = "Sensory feedback per control",
 	ledgerRows = {},
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local playHaptics, selected, strength = Compose.cell(true), Compose.cell(false), Compose.cell(0.6)
@@ -17,10 +16,10 @@ return {
 			Compose.cell(0), Compose.cell("No feedback requested yet."), Compose.cell("Ready")
 		local history = {}
 		local effects: { [string]: HapticEffect } = {
-			press = Host.HapticEffect("PressEffect")({ Type = E.HapticEffectType.UIClick }),
-			release = Host.HapticEffect("ReleaseEffect")({ Type = E.HapticEffectType.UIClick }),
-			selection = Host.HapticEffect("SelectionEffect")({ Type = E.HapticEffectType.UIHover }),
-			custom = Host.HapticEffect("CustomEffect")({ Type = E.HapticEffectType.Custom }),
+			press = Host.HapticEffect "PressEffect" { Type = E.HapticEffectType.UIClick },
+			release = Host.HapticEffect "ReleaseEffect" { Type = E.HapticEffectType.UIClick },
+			selection = Host.HapticEffect "SelectionEffect" { Type = E.HapticEffectType.UIHover },
+			custom = Host.HapticEffect "CustomEffect" { Type = E.HapticEffectType.Custom },
 		}
 		Compose.watch(function(use: Use)
 			local amplitude = use(strength)
@@ -53,7 +52,7 @@ return {
 			if not nativePress then
 				effects[kind]:Play()
 			end
-			requests:update(function(value)
+			requests:update(function(value: number)
 				return value + 1
 			end)
 			state:set(`Requested {kind} feedback`)
@@ -64,7 +63,7 @@ return {
 			historyText:set(table.concat(history, "\n"))
 		end
 		local function text(name, value, role)
-			return UI.Text({
+			return UI.Text {
 				Name = name,
 				text = value,
 				textRole = role,
@@ -72,14 +71,14 @@ return {
 				AutomaticSize = E.AutomaticSize.Y,
 				TextWrapped = true,
 				TextXAlignment = E.TextXAlignment.Left,
-			})
+			}
 		end
 		local function row(name: string, title: string, description: string, control: Child)
 			return Host.Frame(name)({
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ Padding = D.new(0, 6), SortOrder = E.SortOrder.LayoutOrder }),
+				Host.UIListLayout { Padding = D.new(0, 6), SortOrder = E.SortOrder.LayoutOrder },
 				text("Title", title, "strong"),
 				text("Description", description, "caption"),
 				control,

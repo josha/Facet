@@ -6,7 +6,6 @@ local Inspect = require "./inspect"
 local Host = require "../host"
 local Nodes = require "./nodes"
 local Owner = require "./owner"
-local Root = require "./root"
 
 export type OwnerReport = Inspect.OwnerReport
 export type NodeReport = Inspect.NodeReport
@@ -64,11 +63,11 @@ local function describe(owner: Owner.Owner, record: Inspect.Record, seen: { [unk
 
 	local children: { OwnerReport } = {}
 	if held ~= nil then
-		local sorted: { unknown } = {}
+		local sorted: { Owner.Owner } = {}
 		for candidate in record.children do
 			table.insert(sorted, candidate)
 		end
-		table.sort(sorted, function(left: unknown, right: unknown): boolean
+		table.sort(sorted, function(left: Owner.Owner, right: Owner.Owner): boolean
 			local leftRecord, rightRecord = held.records[left], held.records[right]
 			local leftId = if leftRecord ~= nil then leftRecord.id else 0
 			local rightId = if rightRecord ~= nil then rightRecord.id else 0
@@ -77,7 +76,7 @@ local function describe(owner: Owner.Owner, record: Inspect.Record, seen: { [unk
 		for _, candidate in sorted do
 			local childRecord = held.records[candidate]
 			if childRecord ~= nil then
-				table.insert(children, describe(candidate :: Owner.Owner, childRecord, seen))
+				table.insert(children, describe(candidate, childRecord, seen))
 			end
 		end
 	end
@@ -142,7 +141,7 @@ local function snapshot(): Report
 		if entry == nil then
 			continue
 		end
-		local owner = entry :: Owner.Owner
+		local owner = entry
 		local record = held.records[owner]
 		if record == nil or seen[owner] then
 			continue
@@ -158,7 +157,7 @@ local function snapshot(): Report
 		active = true,
 		mounts = mounts,
 		detached = detached,
-		outstandingMounts = Root.size(),
+		outstandingMounts = Owner.rootSize(),
 		trackedNodes = Nodes.trackedCount(),
 		pending = 0,
 		droppedOwners = held.droppedOwners,

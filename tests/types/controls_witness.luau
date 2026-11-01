@@ -6,6 +6,7 @@ type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureThemeTypes = require("../../src/ui/theme_types")
 local Facet = require("../../src")
+local NavigationProps = require("../../src/ui/navigation_props")
 local Compose: ComposeModule = Facet.Compose
 type Use = <T>(Facet.ReadOnlyValue<T>) -> T
 local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
@@ -15,7 +16,8 @@ local chrome: { [string]: FixtureThemeTypes.SkinLayer } = { control = { kind = "
 themeBase.chrome = chrome
 local themeDefinition: FixtureThemeTypes.ThemeDefinition =
 	{ base = themeBase, chrome = { control = { contentInsets = { left = 8 } } } }
-local theme = assert(Facet.themes.define(themeDefinition))
+local definedTheme = Facet.themes.define(themeDefinition)
+local theme = assert(definedTheme)
 local noTransition: (TweenInfo | false)? = nil
 local themeSheet: StyleSheet =
 	Facet.themes.createStyleSheet(runtime, theme, { transition = Compose.cell(noTransition) })
@@ -25,15 +27,15 @@ local value = Compose.cell(0.5)
 local selected = Compose.cell("home")
 local expanded = Compose.cell(false)
 local function content(): Instance
-	return UI.Text({ text = "Content" })
+	return UI.Text { text = "Content" }
 end
 local function guiContent(): GuiObject
-	return UI.Text({ text = "Content" })
+	return UI.Text { text = "Content" }
 end
 local function nothing() end
 local noAppearance: string? = nil
 local noSize: ("xsmall" | "compact" | "regular" | "large")? = nil
-local button: TextButton = UI.Button({
+local button: TextButton = UI.Button {
 	appearance = Compose.cell(noAppearance),
 	label = text,
 	enabled = enabled,
@@ -43,15 +45,15 @@ local button: TextButton = UI.Button({
 		return use(enabled)
 	end,
 	onActivate = nothing,
-})
-local named: TextButton = UI.Button("Save")({ label = "Save", onActivate = nothing })
-local toggle: TextButton = UI.Toggle({
+}
+local named: TextButton = UI.Button "Save" { label = "Save", onActivate = nothing }
+local toggle: TextButton = UI.Toggle {
 	value = enabled,
 	onChange = function(nextValue: boolean)
 		enabled:set(nextValue)
 	end,
-})
-local input: TextBox | Frame = UI.TextInput({
+}
+local input: GuiObject = UI.TextInput {
 	value = text,
 	onChange = function(nextValue: string)
 		text:set(nextValue)
@@ -59,9 +61,9 @@ local input: TextBox | Frame = UI.TextInput({
 	onCommit = function(nextValue: string, reason: "submit" | "focusLost")
 		text:set(nextValue .. reason)
 	end,
-})
+}
 local noDraft: Facet.CellDraft? = nil
-local cellEditor: Frame = UI.CellEditor({
+local cellEditor: Frame = UI.CellEditor {
 	editor = "text",
 	value = text,
 	draft = Compose.cell(noDraft),
@@ -71,21 +73,21 @@ local cellEditor: Frame = UI.CellEditor({
 	onChange = function(nextValue: unknown)
 		text:set(tostring(nextValue))
 	end,
-})
-local slider: Frame = UI.Slider({
+}
+local slider: Frame = UI.Slider {
 	value = value,
 	min = 0,
 	max = 1,
 	onChange = function(nextValue: number)
 		value:set(nextValue)
 	end,
-})
-local stepper: Frame = UI.Stepper({ value = value, min = 0, max = 10 })
-local rating: TextButton = UI.Rating({ value = value })
-local level: TextButton = UI.LevelPicker({ value = value })
-local chip: GuiObject = UI.Chip({ label = "Amber", selected = enabled })
-local shortcut: GuiObject = UI.ShortcutHint({ keys = { { "Ctrl", "K" } } })
-local label: GuiObject = UI.Text({ text = text })
+}
+local stepper: Frame = UI.Stepper { value = value, min = 0, max = 10 }
+local rating: TextButton = UI.Rating { value = value }
+local level: TextButton = UI.LevelPicker { value = value }
+local chip: GuiObject = UI.Chip { label = "Amber", selected = enabled }
+local shortcut: GuiObject = UI.ShortcutHint { keys = { { "Ctrl", "K" } } }
+local label: GuiObject = UI.Text { text = text }
 local textProps: Facet.TextProps = { text = "Ready", textSize = "caption", role = "secondary" }
 local sized: GuiObject = UI.Text(textProps)
 local labelProps: Facet.LabelProps = { title = text, icon = "checkmark", presentation = "iconOnly", iconSize = 20 }
@@ -104,14 +106,14 @@ local status: GuiObject = UI.StatusIndicator(statusProps)
 local pathProps: Facet.PathProps = { points = Facet.pathShapes.arc(0, 90), role = "accent", thickness = 2 }
 local path: Frame = UI.Path(pathProps)
 local escaped: string = Facet.richText.escape("<b>")
-local progress: GuiObject = UI.ProgressView({ value = value, min = 0, max = 1 })
+local progress: GuiObject = UI.ProgressView { value = value, min = 0, max = 1 }
 local skeletonProps: Facet.SkeletonProps = { form = "line" }
 local skeleton: GuiObject = UI.Skeleton(skeletonProps)
-local image: GuiObject = UI.AsyncImage({ image = "rbxassetid://123" })
+local image: GuiObject = UI.AsyncImage { image = "rbxassetid://123" }
 local avatarProps: Facet.AvatarProps = { name = "Alder", presence = "online" }
 local avatar: GuiObject = UI.Avatar(avatarProps)
-local avatars: GuiObject = UI.AvatarGroup({ items = { { id = "a", name = "Alder" } } })
-local stage: ViewportFrame = UI.Stage({ fieldOfView = 60 })
+local avatars: GuiObject = UI.AvatarGroup { items = { { id = "a", name = "Alder" } } }
+local stage: ViewportFrame = UI.Stage { fieldOfView = 60 }
 local pageCell = Compose.cell(1)
 local paginationProps: Facet.PaginationSpec = {
 	page = pageCell,
@@ -146,13 +148,14 @@ local voteProps: Facet.VoteSpec = {
 }
 local vote: Frame = UI.Vote(voteProps)
 local cardControls: Facet.CardControls = {}
+local hideCommand: Facet.MenuCommand = { id = "hide", label = "Not interested", onSelect = nothing }
 local cardProps: Facet.CardSpec = {
 	image = "rbxassetid://1",
 	title = text,
 	caption = "Friends playing",
 	onActivate = nothing,
 	primaryAction = { label = "Play", onActivate = nothing },
-	menu = { items = { { id = "hide", label = "Not interested", onSelect = nothing } } },
+	menu = { items = { hideCommand } },
 	controls = cardControls,
 }
 local card: Frame = UI.Card(cardProps)
@@ -169,19 +172,19 @@ local cardBadges: Facet.CardBadges = {
 }
 local badgedProps: Facet.CardSpec = { image = "rbxassetid://1", title = text, badges = cardBadges }
 local badgedCard: Frame = UI.Card(badgedProps)
-local sealed: Frame = UI.badged(UI.Button({ label = "Inbox" }), 3)
+local sealed: Frame = UI.badged(UI.Button { label = "Inbox" }, 3)
 local sealOptions: Facet.BadgedOptions = { direction = "rtl", status = "accent" }
-local dotted: Frame = UI.badged(UI.Button({ label = "Daily" }), true, sealOptions)
+local dotted: Frame = UI.badged(UI.Button { label = "Daily" }, true, sealOptions)
 local firstRace: Facet.CivilDate? = { year = 2026, month = 10, day = 4 }
 local raceDay = Compose.cell(firstRace)
-local datePicker: GuiObject = UI.DateTimePicker({
+local datePicker: GuiObject = UI.DateTimePicker {
 	label = "Race day",
 	value = raceDay,
 	onChange = function(next: Facet.CivilDate?)
 		raceDay:set(next)
 	end,
 	min = { year = 2026, month = 1, day = 1 },
-})
+}
 local startPaint: Color3? = Color3.fromRGB(230, 57, 70)
 local paint: Facet.Value<Color3?> = Compose.cell(startPaint)
 local colorProps: Facet.ColorPickerProps = {
@@ -228,7 +231,7 @@ local notice: Frame = UI.Notice(noticeProps)
 local navBarProps: Facet.NavBarSpec = { title = text, onBack = nothing, backLabel = "Back" }
 local navBar: Frame = UI.NavBar(navBarProps)
 local handedBack = Compose.cell(false)
-local handedNavBar: Frame = UI.NavBar({ title = text, onBack = handedBack, backLabel = "Parts" })
+local handedNavBar: Frame = UI.NavBar { title = text, onBack = handedBack, backLabel = "Parts" }
 local snackOpen = Compose.cell(false)
 local snackbarProps: Facet.ToastSpec = {
 	isPresented = snackOpen,
@@ -251,24 +254,27 @@ local toastProps: Facet.ToastSpec = {
 	end,
 }
 local toast: Frame = UI.Toast(toastProps)
-local items = { { id = "save", label = "Save", onSelect = nothing } }
-local menu: GuiObject = UI.Menu({ items = items })
-local split: GuiObject = UI.SplitButton({ label = "Save", onActivate = nothing, items = items })
-local picker: GuiObject = UI.Picker({ selected = selected, options = { { value = "home", label = "Home" } } })
-local combo: GuiObject = UI.ComboBox({
+local saveCommand: Facet.MenuCommand = { id = "save", label = "Save", onSelect = nothing }
+local items: { Facet.MenuItem } = { saveCommand }
+local menu: GuiObject = UI.Menu { items = items }
+local split: GuiObject = UI.SplitButton { label = "Save", onActivate = nothing, items = items }
+local pickerSpec: NavigationProps.SinglePickerSpecInput<string> =
+	{ selected = selected, options = { { value = "home", label = "Home" } } }
+local picker: GuiObject = UI.Picker(pickerSpec)
+local combo: GuiObject = UI.ComboBox {
 	value = selected,
 	text = text,
 	options = { { value = "home", label = "Home" } },
 	acceptCustom = function(candidate: string): (boolean, string?)
 		return #candidate > 0, nil
 	end,
-})
+}
 local tabs: GuiObject =
-	UI.TabView({ selection = selected, tabs = { { id = "home", label = "Home", content = content } } })
-local pages: GuiObject = UI.PageView({ selection = selected, pages = { { id = "home", content = content } } })
+	UI.TabView { selection = selected, tabs = { { id = "home", label = "Home", content = content } } }
+local pages: GuiObject = UI.PageView { selection = selected, pages = { { id = "home", content = content } } }
 local startColumn: "sidebar" | "detail" = "sidebar"
 local entries: Facet.Value<{ { id: string, value: string? } }> = Compose.cell({})
-local split: GuiObject = UI.NavigationSplitView({
+local split: GuiObject = UI.NavigationSplitView {
 	axis = "y",
 	resizable = Compose.cell(true),
 	alwaysShowResizeHandle = true,
@@ -283,8 +289,8 @@ local split: GuiObject = UI.NavigationSplitView({
 	sidebarWidth = Compose.cell(360),
 	detailLabel = false,
 	compactBack = handedBack,
-})
-local stack: GuiObject = UI.NavigationStack({
+}
+local stack: GuiObject = UI.NavigationStack {
 	path = entries,
 	root = { title = "Home", content = content },
 	destinations = {
@@ -296,90 +302,99 @@ local stack: GuiObject = UI.NavigationStack({
 			content = content,
 		},
 	},
-})
-local radial: GuiObject = UI.RadialMenu({ items = items, holdAction = Instance.new("InputAction") })
-local nestedRadial: GuiObject = UI.RadialMenu({ items = require("./radial_witness") })
+}
+local radialSave: Facet.RadialAction = { id = "save", label = "Save", onSelect = nothing }
+local radialItems: { Facet.RadialItem } = { radialSave }
+local radial: GuiObject = UI.RadialMenu "Radial" { items = radialItems, holdAction = Instance.new("InputAction") }
+local nestedRadial: GuiObject = UI.RadialMenu "NestedRadial" { items = require("./radial_witness") }
 local okActions: { AlertAction } = { { id = "ok", label = "OK" } }
-local alert: GuiObject = UI.Alert({
+local alert: GuiObject = UI.Alert {
 	isPresented = expanded,
 	title = Compose.cell("Save"),
 	message = Compose.formula(function()
 		return "Save changes"
 	end),
 	actions = okActions,
-})
-local sheet: GuiObject = UI.Sheet({ isPresented = expanded, detent = "large", content = content })
-local disclosure: GuiObject = UI.DisclosureGroup({ expanded = expanded, content = content })
-local outline: GuiObject = UI.DisclosureGroup({
+}
+local sheet: GuiObject = UI.Sheet { isPresented = expanded, detent = "large", content = content }
+local disclosure: GuiObject = UI.DisclosureGroup { expanded = expanded, content = content }
+local outline: GuiObject = UI.DisclosureGroup {
 	expanded = expanded,
 	content = content,
 	appearance = "outline",
 	textSize = "label",
 	indent = "m",
-})
-local sideSheet: GuiObject = UI.Sheet({
+}
+local sideSheet: GuiObject = UI.Sheet {
 	isPresented = expanded,
 	detent = Compose.cell("large"),
 	content = content,
 	placement = "adaptive",
-})
+}
 local noIndicator: ("automatic" | "pill" | "underline" | "none")? = nil
 local noWidth: number? = nil
 local noBadge: (string | number)? = nil
 local compactTabList: { Facet.Tab } =
 	{ { id = "home", label = "Home", content = content, badge = Compose.cell(noBadge) } }
-local compactTabs: GuiObject = UI.TabView({
+local compactTabs: GuiObject = UI.TabView {
 	selection = selected,
 	controlSize = "xsmall",
 	indicator = Compose.cell(noIndicator),
 	railWidth = Compose.cell(noWidth),
 	tabs = compactTabList,
-})
-local toolbarPicker: GuiObject = UI.Picker({
+}
+local toolbarPickerSpec: NavigationProps.SinglePickerSpecInput<string> = {
 	selected = selected,
 	style = "menu",
 	label = "Motion",
 	valueAlignment = "start",
 	sizing = "hug",
 	options = { { value = "home", label = "Home" } },
-})
-local collapsible: GuiObject = UI.CollapsibleView({ expanded = expanded, content = content })
+}
+local toolbarPicker: GuiObject = UI.Picker(toolbarPickerSpec)
+local collapsible: GuiObject = UI.CollapsibleView { expanded = expanded, content = content }
 local calloutAnchor: GuiObject = button
-local callout: GuiObject = UI.Callout({ anchor = calloutAnchor, content = content, onRetire = nothing })
-local rows = Compose.cell({ { id = "a", title = "Amber" } })
-local list: ScrollingFrame = UI.VirtualList({
+local callout: GuiObject = UI.Callout { anchor = calloutAnchor, content = content, onRetire = nothing }
+type Row = { id: string, title: string }
+local amber: Row = { id = "a", title = "Amber" }
+local rows: Facet.Value<{ Row }> = Compose.cell({ amber })
+local listSpec: Facet.KeyedCollectionSpec<Row, string> = {
 	from = rows,
-	key = function(row: { id: string, title: string }): string
+	key = function(row: Row): string
 		return row.id
 	end,
-	render = function(current: Facet.ReadOnlyValue<{ id: string, title: string }>): GuiObject
-		return UI.Text({
+	render = function(current: Facet.ReadOnlyValue<Row>): GuiObject
+		return UI.Text {
 			text = function(use: Use): string
 				return use(current).title
 			end,
-		})
+		}
 	end,
-})
-local grid: ScrollingFrame = UI.VirtualGrid({ from = Compose.cell({ "Amber" }), render = guiContent, columns = 2 })
-local tableView: GuiObject = UI.Table({
+}
+local list: ScrollingFrame = UI.VirtualList(listSpec)
+local names: Facet.Value<{ string }> = Compose.cell({ "Amber" })
+local gridSpec: Facet.IdentityCollectionSpec<string> = { from = names, render = guiContent, columns = 2 }
+local grid: ScrollingFrame = UI.VirtualGrid(gridSpec)
+local tableSpec: Facet.KeyedTableSpec<Row, string> = {
 	from = rows,
-	key = function(row: { id: string, title: string }): string
+	key = function(row: Row): string
 		return row.id
 	end,
 	columns = {
 		{
 			id = "title",
 			label = "Title",
-			value = function(row: { id: string, title: string }): string
+			value = function(row: Row): string
 				return row.title
 			end,
 		},
 	},
-})
+}
+local tableView: GuiObject = UI.Table(tableSpec)
 type TreeRow = { id: string, title: string, children: { TreeRow }? }
 local treeRows: Facet.Value<{ TreeRow }> = Compose.cell({})
 local openKeys: Facet.Value<{ [string]: boolean }> = Compose.cell({})
-local outline: ScrollingFrame = UI.Outline {
+local outlineSpec: Facet.KeyedOutlineSpec<TreeRow, string> = {
 	from = treeRows,
 	key = "id",
 	children = "children",
@@ -390,7 +405,8 @@ local outline: ScrollingFrame = UI.Outline {
 	onReorder = function(_keys: { string }, _slot: number, _parent: string?) end,
 	render = guiContent,
 }
-local namedOutline: ScrollingFrame = UI.Outline "Hierarchy" {
+local outline: ScrollingFrame = UI.Outline(outlineSpec)
+local namedOutlineSpec: Facet.KeyedOutlineSpec<TreeRow, string> = {
 	from = treeRows,
 	key = function(item: TreeRow): string
 		return item.id
@@ -400,35 +416,38 @@ local namedOutline: ScrollingFrame = UI.Outline "Hierarchy" {
 	end,
 	render = guiContent,
 }
-local fieldList: ScrollingFrame = UI.VirtualList({ from = rows, key = "id", render = guiContent })
-local fieldTable: GuiObject = UI.Table({
+local namedOutline: ScrollingFrame = UI.Outline "Hierarchy"(namedOutlineSpec)
+local fieldListSpec: Facet.KeyedCollectionSpec<Row, string> = { from = rows, key = "id", render = guiContent }
+local fieldList: ScrollingFrame = UI.VirtualList(fieldListSpec)
+local fieldTableSpec: Facet.KeyedTableSpec<Row, string> = {
 	from = rows,
 	key = "id",
 	columns = {
 		{
 			id = "title",
 			label = "Title",
-			value = function(row: { id: string, title: string }): string
+			value = function(row: Row): string
 				return row.title
 			end,
 		},
 	},
-})
-local actions: GuiObject = UI.RowActions({
+}
+local fieldTable: GuiObject = UI.Table(fieldTableSpec)
+local actions: GuiObject = UI.RowActions {
 	actionPlacement = "bottom",
 	content = guiContent,
 	trailing = { { id = "save", label = "Save", onActivate = nothing } },
-})
-local ownedImage: Frame = UI.AsyncImage({
+}
+local ownedImage: Frame = UI.AsyncImage {
 	resource = function(): Facet.ImageResource
 		Compose.cleanup(nothing)
 		return { value = text, state = "ready" }
 	end,
-})
+}
 local noAdornee: Instance? = nil
 local clearedAdornee = Compose.cell(noAdornee)
 local Host = Facet.host(runtime)
-local surface: SurfaceGui = Host.SurfaceGui({ Adornee = clearedAdornee })
+local surface: SurfaceGui = Host.SurfaceGui { Adornee = clearedAdornee }
 local mounted: { GuiObject } = {
 	ownedImage,
 	button,

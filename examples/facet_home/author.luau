@@ -7,7 +7,7 @@ local Design = Kit.Design
 local model = require("./model")
 
 type Literal = Facet.DesignLiteral
-type Props = { [string]: Literal }
+type Props = { [number | string]: Literal }
 type Entry = { kind: string?, id: string, props: Props }
 type Section = {
 	group: string?,
@@ -38,7 +38,7 @@ local function add(
 	value, id = Design.document.insert(value, library, parent, kind)
 	value = Design.document.rename(value, library, id, label)
 	for key, item in props do
-		value = Design.document.change(value, library, id, key, { literal = item })
+		value = Design.document.change(value, library, id, tostring(key), { literal = item })
 	end
 	return value, id
 end
@@ -90,10 +90,9 @@ local function inventory(value: Facet.DesignDocument, body: string): Facet.Desig
 		{ id = "quantity", type = "number" },
 		{ id = "finish", type = "string" },
 	}
-	local preview: { Literal } = {}
-	for _, item in model.catalog do
-		local row: Props = { id = item.id, name = item.name, category = item.category, quantity = 0, finish = "Sage" }
-		table.insert(preview, row)
+	local preview: Props = {}
+	for index, item in model.catalog do
+		preview[index] = { id = item.id, name = item.name, category = item.category, quantity = 0, finish = "Sage" }
 	end
 	value = Design.document.setContract(value, library, {
 		inputs = {
@@ -148,7 +147,7 @@ local function inventory(value: Facet.DesignDocument, body: string): Facet.Desig
 	local nameLimits: Props = { minWidth = 180, priority = "always", sortable = true }
 	local quantityLimits: Props = { priority = 2 }
 	local finishLimits: Props = { priority = 1 }
-	local columns: { Literal } = {
+	local columns: Props = {
 		column("name", "Furniture", 220, nameCell, nameLimits),
 		column("quantity", "Placed", 82, quantity, quantityLimits),
 		column("finish", "Next finish", 110, finish, finishLimits),

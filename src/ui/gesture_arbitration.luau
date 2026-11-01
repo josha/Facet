@@ -30,7 +30,7 @@ local arbitration = {}
 
 function arbitration.new(): Arbiter
 	local contacts: { [InputObject]: Contact } = {}
-	local arbiter = {} :: Arbiter
+	local arbiter = {}
 	local captureOwner: Instance? = nil
 	local cameras: { [Instance]: boolean } = {}
 	function arbiter.busy(): boolean
@@ -43,7 +43,7 @@ function arbitration.new(): Arbiter
 		end
 		local threshold = options.threshold or 6
 		assert(threshold > 0 and threshold < math.huge, "Facet gesture threshold must be finite and positive")
-		contacts[pointer] = { owner = owner, origin = origin, kind = "pending" :: Kind, options = table.clone(options) }
+		contacts[pointer] = { owner = owner, origin = origin, kind = "pending", options = table.clone(options) }
 		return true
 	end
 	function arbiter.move(pointer: InputObject, position: Vector2): Kind?

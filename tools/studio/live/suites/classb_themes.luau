@@ -1,9 +1,13 @@
 --!strict
+type ThemeCell = typeof(require("@repo/tools/typecheck/aliases").ThemeCell)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 local GuiService = game:GetService("GuiService")
 
@@ -55,7 +59,8 @@ add("authored-metric-native-stroke", {}, function(t)
 		{ selector = ".metric-outline", properties = { Thickness = { metric = "strokes.outline" } } },
 	}
 	local package = assert(themes.define(definition))
-	local selected, distant
+	local selected: ThemeCell
+	local distant: BooleanCell
 	local stage = t.mount(function(_UI, Host: RobloxHost, Compose: ComposeModule, env)
 		selected, distant = env.theme, Compose.cell(false)
 		local sheet = themes.createStyleSheet(env.runtime, selected, { tenFoot = distant, transition = false })
@@ -63,7 +68,7 @@ add("authored-metric-native-stroke", {}, function(t)
 		stroke:AddTag("metric-outline")
 		return Host.Frame "Face" {
 			Size = UDim2.fromOffset(140, 80),
-			sheet :: unknown,
+			sheet,
 			Host.StyleLink { StyleSheet = Compose.static(sheet) },
 			stroke,
 		}
@@ -131,7 +136,7 @@ add("skeleton-circle-round-sweep", {}, function(t)
 end)
 
 add("skeleton-band-contained", {}, function(t)
-	local width
+	local width: NumberCell
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		width = Compose.cell(0.5)
 		return Host.Frame "Offer" {
@@ -179,7 +184,7 @@ add("skeleton-parent-alignment", {}, function(t)
 			return UI.VStack "Col" {
 				width = "fill" :: "fill",
 				align = align :: "center" | "end" | "start" | "stretch",
-				UI.Skeleton "One" { form = "line" :: "line", Size = UDim2.fromOffset(120, 0) } :: unknown,
+				UI.Skeleton "One" { form = "line" :: "line", Size = UDim2.fromOffset(120, 0) },
 				UI.Skeleton "Many" { form = "line" :: "line", lines = 3, Size = UDim2.fromOffset(120, 0) },
 			}
 		end, { size = Vector2.new(500, 400) })
@@ -208,7 +213,7 @@ add("stage-not-selectable", {}, function(t)
 		return Host.Frame "Form" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
 			Host.Frame "OnlyStage" {
 				Size = UDim2.fromOffset(260, 200),
 				BackgroundTransparency = 1,
@@ -242,7 +247,7 @@ add("stage-not-selectable", {}, function(t)
 end)
 
 add("stage-panel-paint", {}, function(t)
-	local env
+	local env: { read theme: ThemeCell, read palette: StringCell }
 	local stage = t.mount(function(UI: FacetControls, _, _, e)
 		env = e
 		return UI.Stage "Scene" {}
@@ -265,7 +270,7 @@ end)
 
 add("explicit-gradient-wins-across-swap", {}, function(t)
 	local glossy, scifi = themeNamed(t, "glossy_mobile"), themeNamed(t, "scifi_hud")
-	local env
+	local env: { read theme: ThemeCell, read palette: StringCell }
 	local viewColor = ColorSequence.new(Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 0, 255))
 	local viewAlpha = NumberSequence.new(0.1, 0.3)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, _, e)
@@ -273,7 +278,7 @@ add("explicit-gradient-wins-across-swap", {}, function(t)
 		return Host.Frame "Pair" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
 			UI.Stage "Card" {
 				LayoutOrder = 1,
 				Host.UIGradient "ViewGradient" { Color = viewColor, Rotation = 45, Transparency = viewAlpha },
@@ -386,7 +391,7 @@ add("skinned-selection-hugs-art", {}, function(t)
 end)
 
 add("selection-corners-follow-control", {}, function(t)
-	local env
+	local env: { read theme: ThemeCell, read palette: StringCell }
 	local neutral = t.themes[1].package
 	local ornate = themeNamed(t, "fantasy_ornate")
 	local stage = t.mount(function(UI: FacetControls, _, _, e)
@@ -495,7 +500,8 @@ add("status-round-containment", {}, function(t)
 			t.cleanup()
 		end
 	end
-	local width, height
+	local width: NumberCell
+	local height: NumberCell
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		width, height = Compose.cell(200), Compose.cell(100)
 		return Host.Frame "Offer" {
@@ -503,7 +509,7 @@ add("status-round-containment", {}, function(t)
 				return UDim2.fromOffset(use(width), use(height))
 			end,
 			BackgroundTransparency = 1,
-			UI.StatusIndicator "Dot" { form = "dot" :: "dot", Size = UDim2.fromScale(0.5, 0.5) } :: unknown,
+			UI.StatusIndicator "Dot" { form = "dot" :: "dot", Size = UDim2.fromScale(0.5, 0.5) },
 			UI.StatusIndicator "Dash" {
 				form = "dash" :: "dash",
 				Size = UDim2.fromScale(0.5, 0.5),
@@ -531,7 +537,7 @@ end)
 
 add("status-cutout-hairline", {}, function(t)
 	local pixel = themeNamed(t, "pixel_quest")
-	local env
+	local env: { read theme: ThemeCell, read palette: StringCell }
 	for _, size in { 8, 10, 11, 13, 16, 40 } do
 		for _, form in { "dot", "ring", "square", "dash" } :: { "dash" | "dot" | "ring" | "square" } do
 			local label = `{form} {size}`
@@ -540,7 +546,7 @@ add("status-cutout-hairline", {}, function(t)
 				return Host.Frame "Offer" {
 					Size = UDim2.fromOffset(size * 3, size),
 					BackgroundTransparency = 1,
-					Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal } :: unknown,
+					Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal },
 					UI.StatusIndicator "Mark" {
 						form = form :: "dash" | "dot" | "ring" | "square",
 						diameter = size,

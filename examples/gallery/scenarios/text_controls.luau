@@ -2,14 +2,14 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
+local searchPresentation: "search" = "search"
 return {
 	title = "Writing and search",
 	ledgerRows = { "CONTROL-TEXT" },
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types
@@ -100,7 +100,7 @@ return {
 				AutomaticSize = Enum.AutomaticSize.Y,
 				gap = 16,
 
-				UI.Text({
+				UI.Text {
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -111,16 +111,16 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				Host.Frame("Toolbar")({
+				},
+				Host.Frame "Toolbar" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}),
+					},
 					UI.Button "Enable" {
 						LayoutOrder = 1,
 						label = function(use: Use)
@@ -136,8 +136,8 @@ return {
 						appearance = "utility",
 						onActivate = reset,
 					},
-				}),
-				UI.Text({
+				},
+				UI.Text {
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -148,8 +148,8 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				UI.Text({
+				},
+				UI.Text {
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -159,7 +159,7 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
+				},
 				UI.TextInput "Editor" {
 					value = text,
 					multiline = true,
@@ -185,7 +185,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Text({
+				UI.Text {
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -196,13 +196,13 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
+				},
 				UI.TextInput "Search" {
 					value = query,
-					presentation = "search",
+					presentation = searchPresentation,
 					enabled = enabled,
 				},
-				Compose.OrderedCollection({
+				Compose.OrderedCollection {
 					from = function(use: Use): { string }
 						return use(matches)
 					end,
@@ -210,7 +210,7 @@ return {
 						return name
 					end,
 					render = function(name: ReadOnlyValue<string>): GuiObject
-						return UI.Text({
+						return UI.Text {
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
@@ -221,10 +221,10 @@ return {
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						})
+						}
 					end,
-				}),
-				UI.Text({
+				},
+				UI.Text {
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -235,7 +235,7 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
+				},
 				UI.NumberInput "Laps" {
 					value = draft,
 					numericValue = laps,
@@ -350,7 +350,7 @@ return {
 		end
 		return {
 			screen = function()
-				return Host.Frame("TextControls")({
+				return Host.Frame "TextControls" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					UI.ScrollView "Content" {
@@ -360,7 +360,7 @@ return {
 						ScrollBarThickness = 6,
 						body(),
 					},
-				})
+				}
 			end,
 
 			steps = {

@@ -16,8 +16,9 @@ return function(ctx: Types.Context, source: GuiObject, magnitude: Types.Input<nu
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local held = Compose.cell(false)
 	local carried = Compose.cell(false)
-	local value = runtime.tween(function(use)
-		return if use(held) then ctx.read(magnitude, use) else 1
+	local readMagnitude = ctx.read<<number>>
+	local value = runtime.tween(function(use: ComposeTypes.Use): number
+		return if use(held) then readMagnitude(magnitude, use) else 1
 	end, {
 		seconds = function(use)
 			return ctx.metric("motion.durations.pressLift", use)
@@ -25,12 +26,12 @@ return function(ctx: Types.Context, source: GuiObject, magnitude: Types.Input<nu
 		ease = ctx.motionEase("present"),
 		reducedMotion = motion.reduced(ctx),
 	})
-	local scaler = Host.UIScale({
+	local scaler = Host.UIScale {
 		Name = "PressLift",
 		Scale = function(use: ComposeTypes.Use): number
 			return if use(carried) then 1 else use(value)
 		end,
-	})
+	}
 	local paint = feedbackPaint(ctx, source, scaler, {})
 	return {
 		value = value,

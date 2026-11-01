@@ -1,8 +1,7 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 local example = { title = "Settings Sync" }
 function example.build(ctx: ExampleContext)
 	local UI, Compose = ctx.UI, ctx.Compose
@@ -110,7 +109,9 @@ function example.build(ctx: ExampleContext)
 				UI.Button "Deliver" {
 					label = "Deliver server reply",
 					appearance = "emphasis",
-					onActivate = deliver,
+					onActivate = function()
+						deliver()
+					end,
 				},
 				UI.Button "Reset" { label = "Reset demo", appearance = "link", onActivate = reset },
 				text("Status", status, "caption"),

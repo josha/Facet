@@ -5,6 +5,8 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Tile = { id: string }
 type Cells = typeof(require("@repo/tools/typecheck/aliases").ComposeModule.cell({} :: { Tile }))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+type IdReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").IdReadOnlyValue)
 type Live = {
 	mount: ((FacetControls, RobloxHost, ComposeModule) -> Instance, { frames: number? }) -> Instance,
 	settle: (number) -> (),
@@ -72,12 +74,12 @@ local cases: { Case } = {
 						end
 						tiles:set(remaining)
 					end,
-					render = function(current): GuiObject
+					render = function(current: IdReadOnlyValue): GuiObject
 						return UI.Button {
-							Name = function(use): string
+							Name = function(use: Use): string
 								return `Tile{use(current).id}`
 							end,
-							label = function(use): string
+							label = function(use: Use): string
 								return use(current).id
 							end,
 							Size = UDim2.fromScale(1, 1),

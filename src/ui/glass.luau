@@ -7,7 +7,7 @@ export type Reach = { meets: { [string]: boolean }, glass: { [string]: number } 
 type Lease = { count: number, clipped: boolean }
 
 local SIDES = { "top", "left", "bottom", "right" }
-local leases = setmetatable({} :: { [ScreenGui]: Lease }, { __mode = "k" })
+local leases: { [ScreenGui]: Lease } = setmetatable({}, { __mode = "k" })
 
 local function apart(): Reach
 	return {
@@ -60,10 +60,11 @@ end
 
 local function fills(frame: GuiObject): boolean
 	local screen = frame:FindFirstAncestorWhichIsA("ScreenGui")
-	local inside = if screen then margins(frame, screen) else nil
-	if inside == nil then
+	local measured = if screen then margins(frame, screen) else nil
+	if measured == nil then
 		return false
 	end
+	local inside: { [string]: number } = measured
 	for _, side in SIDES do
 		if inside[side] > 1 then
 			return false

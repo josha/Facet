@@ -1,6 +1,6 @@
 {
   "BasePart": {
-    "sha256": "d67c34968616938f4a9deda21805851b847c9ad8c14580bda1a46a8f7c160904",
+    "sha256": "db65bde126508eb6291759400824f72836c2070b7609cc44145556d5d1bcc15d",
     "writable": [
       "Anchored",
       "AssemblyAngularVelocity",
@@ -88,7 +88,7 @@
     "writable": []
   },
   "Camera": {
-    "sha256": "eb08d2627c4e7dc8f733e959f7fca7a7be23d24add85337ed8304ff6a1cab7ce",
+    "sha256": "2a0c038e5cb21dbc34610adc5be64bbe604e8222a83edf2cc2b2b08c779c0ee6",
     "writable": [
       "CFrame",
       "CameraSubject",
@@ -120,6 +120,38 @@
       "MaxActivationDistance"
     ]
   },
+  "DragDetector": {
+    "sha256": "92e6c2d5dbaadfdfd750fa1a420fee657804cccc39d4c2a7c1543f0126eb133a",
+    "writable": [
+      "ActivatedCursorIcon",
+      "ActivatedCursorIconContent",
+      "ApplyAtCenterOfMass",
+      "Axis",
+      "DragFrame",
+      "DragStyle",
+      "Enabled",
+      "GamepadModeSwitchKeyCode",
+      "KeyboardModeSwitchKeyCode",
+      "MaxDragAngle",
+      "MaxDragTranslation",
+      "MaxForce",
+      "MaxTorque",
+      "MinDragAngle",
+      "MinDragTranslation",
+      "Orientation",
+      "PermissionPolicy",
+      "ReferenceInstance",
+      "ResponseStyle",
+      "Responsiveness",
+      "RunLocally",
+      "SecondaryAxis",
+      "TrackballRadialPullFactor",
+      "TrackballRollFactor",
+      "VRSwitchKeyCode",
+      "WorldAxis",
+      "WorldSecondaryAxis"
+    ]
+  },
   "Folder": {
     "sha256": "1c3846cfb2c2b327c9346ec2eed68e6b8f3c24881b64e5642e18806517b44eb8",
     "writable": []
@@ -137,12 +169,22 @@
       "Style"
     ]
   },
+  "GetTextBoundsParams": {
+    "sha256": "c8372e3dc0da0bee0011694415748c92b5bcc398ac238de589fbdae5eb9a2f99",
+    "writable": [
+      "Font",
+      "RichText",
+      "Size",
+      "Text",
+      "Width"
+    ]
+  },
   "GuiBase": {
     "sha256": "5d0fb6d63f5804aed5dd7b9afb191a817fbcfbf06d6e30046bd8ed203b5d9ea4",
     "writable": []
   },
   "GuiBase2d": {
-    "sha256": "dc7b77ea5fa3967ad9066d282c1d2cd2715ba2061174e58c88e584b1363f5d78",
+    "sha256": "5da436ca6688fe84c75b8858c08252049e0bff4a96f0c23b5c0bf60add711b28",
     "writable": [
       "AutoLocalize",
       "Localize",
@@ -170,7 +212,7 @@
     "writable": []
   },
   "GuiObject": {
-    "sha256": "bb493687dabcb35792764c2fc47b825ef0920c9bcf45717fb6e25ff2028d4075",
+    "sha256": "ad897c760d7c9da565d672fbaf8ca90ba5db5c261f2e7f7d9c74b25301d7053c",
     "writable": [
       "Active",
       "AnchorPoint",
@@ -210,6 +252,18 @@
       "Position",
       "Radius",
       "Type"
+    ]
+  },
+  "Highlight": {
+    "sha256": "f97a847a1b1b7fd00eb04efe486dd4a44b2649ab512862fa98f186c29a63461c",
+    "writable": [
+      "Adornee",
+      "DepthMode",
+      "Enabled",
+      "FillColor",
+      "FillTransparency",
+      "OutlineColor",
+      "OutlineTransparency"
     ]
   },
   "ImageButton": {
@@ -292,7 +346,7 @@
     ]
   },
   "Instance": {
-    "sha256": "c33d7492848cbfc84df6e94edae30c3dbe128ed8a3303fffb33cf6a05b22731e",
+    "sha256": "bead97a54faa90e5aeae6a8b1906ea78a895f18d31a4639e7fc229d2082523c7",
     "writable": [
       "Archivable",
       "Capabilities",
@@ -331,8 +385,9 @@
     ]
   },
   "Model": {
-    "sha256": "67ba595414e32ebdac4d30f589a3d6b22ac0e3c1703232716aa48875f5185ca1",
+    "sha256": "6ea8ce0636606aae5a5e8f11f0f746d5d2f9e5fce3c932fce63469f8ce601dee",
     "writable": [
+      "LevelOfDetail",
       "ModelStreamingMode",
       "PrimaryPart",
       "Scale",
@@ -340,7 +395,7 @@
     ]
   },
   "Object": {
-    "sha256": "c04e2e15f74a1200b4fd8acef94e094f1743fbe2d078392844b7161e9b06bd46",
+    "sha256": "836593bfb256ef43c70d393a421042c9312def115dbcad422ac652780b779536",
     "writable": []
   },
   "PVInstance": {
@@ -405,7 +460,7 @@
     ]
   },
   "Sound": {
-    "sha256": "fe7c51430f13386bb6cdeffddfcc4f910748f5f90e22cf7a1c75f8ab96698112",
+    "sha256": "c5aae9705df6c2d4d4ce83963c86c6d7b7a7299be8ad23fc140231f606a68035",
     "writable": [
       "AudioContent",
       "EmitterSize",
@@ -625,7 +680,7 @@
     ]
   },
   "UIGradient": {
-    "sha256": "1ecf214011efdb21d9a4e0b80d515c52367b2b4b9e57f182c43a90e86cee3b5f",
+    "sha256": "2565dcc0332e28e383d4ed988ecb8dc394d519478c134e9f88252347266d9d31",
     "writable": [
       "Color",
       "Enabled",
@@ -679,7 +734,7 @@
     ]
   },
   "UIPageLayout": {
-    "sha256": "e56a0c574c6c8519c3a8527ef8de18e5aef0c1224d6ea214ab0f63421f489034",
+    "sha256": "96187e4f994c9fa02c0d774e535e51cec46167d4a5968aa81ab9738c4d6b77ed",
     "writable": [
       "Animated",
       "Circular",
@@ -699,12 +754,15 @@
     ]
   },
   "UIShadow": {
-    "sha256": "8c5ef07197696c1ac32cc9dc05e2a8f313229b84691fe96a8d8936bd4f0d3a9b",
+    "sha256": "a4cd4bf4785f3c2a78f9420a644ecb4f3d66f83aa84b6fba78386b8f100df581",
     "writable": [
       "BlurRadius",
       "Color",
       "Enabled",
+      "Inset",
+      "Mode",
       "Offset",
+      "ShowBehindParent",
       "Spread",
       "Transparency",
       "ZIndex"
@@ -765,51 +823,7 @@
     ]
   },
   "WorldRoot": {
-    "sha256": "30236c8a8187fe27b5c0d21f20abdba055f95c2f2220522e93ed11a8abb248c6",
+    "sha256": "6f49529f617f2c423fc5d5c71028e68d8c181f3ef31ad6fb26a6a05e7c262f2b",
     "writable": []
-  },
-  "Highlight": {
-    "sha256": "f97a847a1b1b7fd00eb04efe486dd4a44b2649ab512862fa98f186c29a63461c",
-    "writable": [
-      "Adornee",
-      "DepthMode",
-      "Enabled",
-      "FillColor",
-      "FillTransparency",
-      "OutlineColor",
-      "OutlineTransparency"
-    ]
-  },
-  "DragDetector": {
-    "sha256": "92e6c2d5dbaadfdfd750fa1a420fee657804cccc39d4c2a7c1543f0126eb133a",
-    "writable": [
-      "ActivatedCursorIcon",
-      "ActivatedCursorIconContent",
-      "ApplyAtCenterOfMass",
-      "Axis",
-      "DragFrame",
-      "DragStyle",
-      "Enabled",
-      "GamepadModeSwitchKeyCode",
-      "KeyboardModeSwitchKeyCode",
-      "MaxDragAngle",
-      "MaxDragTranslation",
-      "MaxForce",
-      "MaxTorque",
-      "MinDragAngle",
-      "MinDragTranslation",
-      "Orientation",
-      "PermissionPolicy",
-      "ReferenceInstance",
-      "ResponseStyle",
-      "Responsiveness",
-      "RunLocally",
-      "SecondaryAxis",
-      "TrackballRadialPullFactor",
-      "TrackballRollFactor",
-      "VRSwitchKeyCode",
-      "WorldAxis",
-      "WorldSecondaryAxis"
-    ]
   }
 }

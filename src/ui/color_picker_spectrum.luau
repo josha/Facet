@@ -220,13 +220,14 @@ return function(
 						)
 					end,
 				})
-				return surfaces.attach(preview, {
-					Host.UIScale({
+				surfaces.attach(preview, {
+					Host.UIScale {
 						Scale = function(use: Use): number
 							return use(unit) / use(layerUnit)
 						end,
-					}),
+					},
 				})
+				return preview
 			end),
 		})
 		local function planeSelected(use: Use?): boolean
@@ -291,8 +292,8 @@ return function(
 				stop()
 			end
 		end)
-		local hintProps: InputProps.ShortcutHintProps =
-			{ Name = "StickKey", keys = { { "Right Stick" } }, controlSize = "compact" :: "compact" }
+		local hintProps: InputProps.ShortcutHintKeysProps =
+			{ Name = "StickKey", keys = { { "Right Stick" } }, controlSize = "compact" }
 		local hint = ctx.row({
 			UI.ShortcutHint(hintProps),
 			ctx.styled(ctx.text({ Name = "Words", Text = "Move saturation and brightness" }), "type-caption"),

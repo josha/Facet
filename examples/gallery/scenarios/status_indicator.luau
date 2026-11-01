@@ -5,10 +5,8 @@ type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Status = "neutral" | "info" | "success" | "warning" | "error" | "accent" | "voice" | "contrast"
 type Form = "dot" | "ring" | "square" | "dash"
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 return {
 	title = "Status marks",
 	ledgerRows = {},
@@ -39,7 +37,7 @@ return {
 			Compose.cleanup(function()
 				rootPath, controller, record = nil, nil, nil
 			end)
-			local shapes = {}
+			local shapes: { Instance } = {}
 			local forms: { Form } = { "dot", "ring", "square", "dash" }
 			for index, word: Form in forms do
 				table.insert(
@@ -49,12 +47,12 @@ return {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(0, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.XY,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Horizontal,
 							VerticalAlignment = Enum.VerticalAlignment.Center,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}),
+						},
 						UI.StatusIndicator "Mark" {
 							LayoutOrder = 1,
 							form = word,
@@ -82,32 +80,32 @@ return {
 				{ value = "dot", label = "Dot" },
 				{ value = "ring", label = "Ring" },
 			}
-			local root = Host.Frame("StatusRecipe")({
+			local root = Host.Frame "StatusRecipe" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				},
 				UI.Text "Title" { text = "Status marks", textRole = "heading" },
 				UI.Text "Guide" {
 					text = "Shapes carry meaning alongside color. Counts stop growing at 99+.",
 					role = "secondary",
 				},
-				Host.Frame("Shapes")({
+				Host.Frame "Shapes" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 24),
 						Wraps = true,
-					}),
+					},
 					table.unpack(shapes),
-				}),
+				},
 				UI.Picker "Status" {
 					label = "Status",
 					selected = status,
@@ -118,17 +116,17 @@ return {
 					selected = form,
 					options = shapeOptions,
 				},
-				Host.Frame("Live")({
+				Host.Frame "Live" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 12),
 						Wraps = true,
-					}),
+					},
 					UI.StatusIndicator "Count" {
 						count = count,
 						status = status,
@@ -158,8 +156,8 @@ return {
 							count:set(0)
 						end,
 					},
-				}),
-			})
+				},
+			}
 			return root
 		end
 		return {
@@ -167,7 +165,7 @@ return {
 			reset = reset,
 			report = report,
 			screen = function()
-				return Host.Frame("StatusIndicator")({
+				return Host.Frame "StatusIndicator" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					UI.ScrollView "Content" {
@@ -177,7 +175,7 @@ return {
 						ScrollBarThickness = 6,
 						section(),
 					},
-				})
+				}
 			end,
 			steps = {
 				warning = function()

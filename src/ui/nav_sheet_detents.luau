@@ -79,16 +79,16 @@ return function(ctx: Types.Context): Detents
 		local entries: { Nav.SheetDetent } = spec.detents or { "medium", "large" }
 		assert(#entries > 0, "Invalid Sheet detent")
 		for index, entry in entries do
-			local d: Detent
+			local d: Detent = { id = "", fraction = nil, height = nil, hug = false, index = index }
 			if entry == "medium" then
-				d = { id = "medium", fraction = 0.5, hug = false, index = index }
+				d.id, d.fraction = "medium", 0.5
 			elseif entry == "large" then
-				d = { id = "large", fraction = 0.95, hug = false, index = index }
+				d.id, d.fraction = "large", 0.95
 			elseif entry == "hug" then
-				d = { id = "hug", hug = true, index = index }
+				d.id, d.hug = "hug", true
 			else
 				assert(type(entry) == "table", "Invalid Sheet detent")
-				local custom = (entry :: unknown) :: { [string]: unknown }
+				local custom = entry
 				for key in custom do
 					assert(key == "id" or key == "fraction" or key == "height", "Invalid Sheet detent")
 				end
@@ -104,13 +104,9 @@ return function(ctx: Types.Context): Detents
 						else type(height) == "number" and height > 0 and height < math.huge,
 					"Invalid Sheet detent extent"
 				)
-				d = {
-					id = custom.id :: string,
-					fraction = fraction :: number?,
-					height = height :: number?,
-					hug = false,
-					index = index,
-				}
+				d.id = custom.id
+				d.fraction = fraction
+				d.height = height
 			end
 			assert(not byId[d.id], "Sheet detents require unique ids")
 			byId[d.id] = d

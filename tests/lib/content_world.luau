@@ -8,18 +8,18 @@ local VerifyRoblox = require("../../tools/vendor/verify/src/roblox")
 
 export type World = {
 	layout: VerifyRoblox.UiLayoutController?,
-	engine: any,
-	runtime: any,
+	engine: engineLib.Engine,
+	runtime: ComposeRuntime,
 	gui: any,
 	input: any,
 	screen: any,
-	UI: any,
-	Host: any,
+	UI: Facet.Controls,
+	Host: RobloxHost,
 	stop: () -> (),
 	find: (string, any?) -> any,
 	findAll: (string, any?) -> { any },
 	action: (string) -> any,
-	V2: (number, number) -> any,
+	V2: (number, number) -> Vector2,
 	resize: (any, number, number) -> (),
 	bounds: (any, number, number?) -> (),
 }
@@ -37,7 +37,11 @@ local function find(root: any, name: string): any
 	return nil
 end
 
-local function new(build: (any, any, any) -> any, options: { [string]: any }?, engineOptions: engineLib.Options?): World
+local function new(
+	build: (Facet.Controls, RobloxHost, engineLib.Engine) -> Facet.Child,
+	options: { [string]: any }?,
+	engineOptions: engineLib.Options?
+): World
 	local engine, bridge = engineLib.new(engineOptions)
 	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
@@ -57,10 +61,10 @@ local function new(build: (any, any, any) -> any, options: { [string]: any }?, e
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local Host = Facet.host(runtime)
 	local parent = engine.new("Folder")
 	local stop, screen: any = runtime.mount(function()
-		return Host.ScreenGui({ build(UI, Host, engine) })
+		return Host.ScreenGui { build(UI, Host, engine) }
 	end, parent)
 	local world: World
 	world = {
@@ -99,7 +103,7 @@ local function new(build: (any, any, any) -> any, options: { [string]: any }?, e
 			end
 			return nil
 		end,
-		V2 = function(x: number, y: number): any
+		V2 = function(x: number, y: number): Vector2
 			return engine.types.Vector2.new(x, y)
 		end,
 		resize = function(node: any, x: number, y: number)
@@ -112,16 +116,16 @@ local function new(build: (any, any, any) -> any, options: { [string]: any }?, e
 	return world
 end
 
-local function mountError(build: (any, any) -> any): string?
-	local engine: any = engineLib.new()
+local function mountError(build: (Facet.Controls, RobloxHost) -> Facet.Child): string?
+	local engine = engineLib.new()
 	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local UI =
 		Facet.controls(runtime, { types = engine.types, guiService = gui, services = { GuiService = gui } } :: any)
-	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local Host = Facet.host(runtime)
 	local ok, message = pcall(function()
 		local stop = runtime.mount(function()
-			return Host.ScreenGui({ build(UI, Host) })
+			return Host.ScreenGui { build(UI, Host) }
 		end, engine.new("Folder"))
 		stop()
 	end)

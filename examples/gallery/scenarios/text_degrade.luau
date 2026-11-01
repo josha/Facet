@@ -2,10 +2,8 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 
 local STOPS: { { value: string, width: number? } } = {
 	{ value = "roomy", width = nil },
@@ -49,7 +47,7 @@ return {
 	copy = COPY,
 	stops = STOPS,
 	sortCompact = SORT_COMPACT,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types
@@ -86,7 +84,7 @@ return {
 		end
 
 		local function screen()
-			return Host.Frame("TextDegrade")({
+			return Host.Frame "TextDegrade" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
 				UI.ScrollView "Page" {
@@ -118,21 +116,21 @@ return {
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
 					widthPicker(),
-					Host.Frame("RowPanel")({
+					Host.Frame "RowPanel" {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}),
-						Host.UIPadding({
+						},
+						Host.UIPadding {
 							PaddingTop = UDim.new(0, 16),
 							PaddingBottom = UDim.new(0, 16),
 							PaddingLeft = UDim.new(0, 16),
 							PaddingRight = UDim.new(0, 16),
-						}),
+						},
 						UI.Text "RowHeading" {
 							LayoutOrder = 1,
 							BackgroundTransparency = 1,
@@ -145,18 +143,18 @@ return {
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
 						},
-						Host.Frame("Row")({
+						Host.Frame "Row" {
 							LayoutOrder = 2,
 							BackgroundTransparency = 1,
 							Size = function(use: Use)
 								return UDim2.new(use(rowWidth).Scale, use(rowWidth).Offset, 0, 0)
 							end,
 							AutomaticSize = Enum.AutomaticSize.Y,
-							Host.UIListLayout({
+							Host.UIListLayout {
 								FillDirection = Enum.FillDirection.Horizontal,
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 4),
-							}),
+							},
 							UI.Button "Sort" {
 								LayoutOrder = 1,
 								label = COPY.sortLabel,
@@ -185,23 +183,23 @@ return {
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
 							},
-						}),
-					}),
-					Host.Frame("WrapPanel")({
+						},
+					},
+					Host.Frame "WrapPanel" {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}),
-						Host.UIPadding({
+						},
+						Host.UIPadding {
 							PaddingTop = UDim.new(0, 16),
 							PaddingBottom = UDim.new(0, 16),
 							PaddingLeft = UDim.new(0, 16),
 							PaddingRight = UDim.new(0, 16),
-						}),
+						},
 						UI.Text "WrapHeading" {
 							LayoutOrder = 1,
 							BackgroundTransparency = 1,
@@ -227,7 +225,7 @@ return {
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
 						},
-					}),
+					},
 					UI.Text "Footnote" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -240,7 +238,7 @@ return {
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
 				},
-			})
+			}
 		end
 
 		return {

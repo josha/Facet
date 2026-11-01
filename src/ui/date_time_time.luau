@@ -1,4 +1,5 @@
 --!strict
+local InputProps = require("./input_props")
 local civil = require("./civil_date")
 local Shared = require("./types")
 local DTP = require("./date_time_picker_types")
@@ -48,20 +49,20 @@ return function(
 			step: number,
 			get: (CivilDate) -> number,
 			with: (CivilDate, number) -> CivilDate
-		): TextBox | Frame
-			local text = Compose.cell("")
-			local number = Compose.cell(lo)
+		): GuiObject
+			local text: ComposeTypes.Value<string> = Compose.cell("")
+			local number: ComposeTypes.Value<number> = Compose.cell(lo)
 			Compose.watch(function(use: Use)
 				local v = use(value)
 				local n = if v ~= nil and v.hour ~= nil then get(v) else lo
 				number:set(n)
 				text:set(if v ~= nil then string.format("%02d", n) else "")
 			end)
-			return UI.NumberInput(name)({
+			local props: InputProps.NumberInputCellProps = {
 				label = name,
 				Size = D2.new(0, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+				Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 				value = text,
 				numericValue = number,
 				min = lo,
@@ -85,7 +86,8 @@ return function(
 						commit()
 					end
 				end,
-			})
+			}
+			return UI.NumberInput(props, name)
 		end
 		local function withHour(d: CivilDate, h: number): CivilDate
 			local out = table.clone(d)
@@ -169,7 +171,7 @@ return function(
 				CanvasPosition = V2.new(0, first * ROW),
 				render = function(row: ReadOnlyValue<TimeRow>): GuiObject
 					local t = row:peek()
-					return UI.Button({
+					return UI.Button {
 						Name = "Time",
 						label = civil.formatTime(
 							{ year = 2000, month = 1, day = 1, hour = t.hour, minute = t.minute },
@@ -191,7 +193,7 @@ return function(
 								commit()
 							end
 						end,
-					})
+					}
 				end,
 			}
 			return UI.VirtualList(timesSpec)

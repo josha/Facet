@@ -4,6 +4,7 @@ local ThemeTypes = require("./theme_types")
 local support = require("./theme_support")
 
 local copy, merge, frozen, shadowPresets = support.copy, support.merge, support.frozen, support.shadowPresets
+local easings = (ComposeTypes.easing :: unknown) :: { read [string]: ((number) -> number)? }
 
 export type Definitions = {
 	define: (
@@ -386,7 +387,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				number(path, value, 0, 100000, path ~= "fling.projection")
 			end)
 			each("easing", function(path: string, value: unknown)
-				if type(value) ~= "string" or ComposeTypes.easing[value] == nil then
+				if type(value) ~= "string" or easings[value] == nil then
 					issue(path, "must name a Compose.easing function")
 				end
 			end)

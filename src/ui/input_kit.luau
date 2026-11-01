@@ -2,17 +2,15 @@
 local layoutKit = require("./layout_kit")
 local valueModel = require("./input_value")
 local inputAdjustment = require("./input_adjustment")
-local InputTypes = require("./input_types")
 local Shared = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 
-export type ValueState<T> = {
-	value: Shared.Input<T>,
-	onChange: ((T) -> ())?,
-	readOnly: boolean?,
+export type NumberSpec = {
+	read value: Shared.Input<number>,
+	read onChange: ((number) -> ())?,
+	read readOnly: boolean?,
 }
-export type NumberSpec = { value: Shared.Input<number>, onChange: ((number) -> ())? }
-type Unskinned = typeof(setmetatable({} :: { [unknown]: boolean }, { __mode = "k" }))
+type Unskinned = { [unknown]: boolean }
 export type Kit = {
 	lists: layoutKit.Kit,
 	noKey: Enum.KeyCode,
@@ -67,7 +65,7 @@ return function(ctx: Shared.Context): Kit
 	local read = ctx.read
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
 	local noKey: Enum.KeyCode = assert(E.KeyCode:FromValue(0))
-	local unskinned = setmetatable({} :: { [unknown]: boolean }, { __mode = "k" })
+	local unskinned: Unskinned = setmetatable({}, { __mode = "k" })
 	local typeRoles: { [string]: boolean } = {
 		caption = true,
 		label = true,
@@ -86,12 +84,10 @@ return function(ctx: Shared.Context): Kit
 		return value ~= nil and value ~= ""
 	end
 	local function enabled(spec: inputAdjustment.EnabledSource, use: ComposeTypes.Use?): boolean
-		local state = spec :: InputTypes.EnabledOptions
-		return read(state.enabled, use) ~= false and read(state.disabled, use) ~= true and read(state.busy, use) ~= true
+		return read(spec.enabled, use) ~= false and read(spec.disabled, use) ~= true and read(spec.busy, use) ~= true
 	end
 	local function stopEnabled(spec: inputAdjustment.EnabledSource, use: ComposeTypes.Use?): boolean
-		local state = spec :: InputTypes.EnabledOptions
-		return read(state.enabled, use) ~= false and read(state.disabled, use) ~= true
+		return read(spec.enabled, use) ~= false and read(spec.disabled, use) ~= true
 	end
 	local function writable(source: unknown): boolean
 		return type(source) == "table"
@@ -101,7 +97,7 @@ return function(ctx: Shared.Context): Kit
 	local function requireValue(spec: NumberSpec, kind: "boolean" | "number" | "string", name: string): ()
 		assert(type(read(spec.value)) == kind, `Facet.{name}: value must resolve to a {kind}`)
 		assert(
-			writable(spec.value) or type(spec.onChange) == "function" or (spec :: ValueState<number>).readOnly == true,
+			writable(spec.value) or type(spec.onChange) == "function" or spec.readOnly == true,
 			`Facet.{name}: editing a read-only value requires onChange`
 		)
 	end
@@ -121,16 +117,24 @@ return function(ctx: Shared.Context): Kit
 		runtime.decorate(node, { Attributes = values })
 		return node
 	end
+	local function mapValue<T>(source: Shared.Input<number>, transform: (number) -> T): Shared.Input<T>
+		if type(source) == "number" then
+			return transform(source)
+		elseif type(source) == "function" then
+			return function(use: ComposeTypes.Use): T
+				return transform(source(use))
+			end
+		end
+		return Compose.map(source, transform)
+	end
 	local function valueAttributes(node: GuiObject, spec: NumberSpec, model: valueModel.Model): ()
 		attributes(node, {
-			value = function(use: ComposeTypes.Use)
-				return model.quantize(read(spec.value, use))
-			end,
+			value = mapValue(spec.value, model.quantize),
 			minimum = model.min,
 			maximum = model.max,
-			semanticValue = function(use: ComposeTypes.Use)
-				return `{model.format(read(spec.value, use))} of {model.min} to {model.max}`
-			end,
+			semanticValue = mapValue(spec.value, function(value: number): string
+				return `{model.format(value)} of {model.min} to {model.max}`
+			end),
 		})
 	end
 	local adjustment = inputAdjustment(ctx, {

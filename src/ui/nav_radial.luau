@@ -4,34 +4,33 @@ local Types = require("./types")
 local Navigation = require("./navigation_types")
 local ControlTypes = require("./control_types")
 local RadialProps = require("./radial_props")
+local RadialTypes = require("./radial_types")
 local ComposeTypes = require("../vendor/compose/core")
 local createMenu = require("./nav_radial_menu")
 local arrangeRing = require("./nav_radial_layout")
 local ArrangementTypes = require("./nav_radial_layout")
-local MenuTypes = require("./nav_radial_menu")
 local paintSectors = require("./nav_radial_sectors")
 local buildCenter = require("./nav_radial_center")
 local attachGestures = require("./nav_radial_gestures")
 local createPresence = require("./nav_overlay_presence")
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Navigation.Surfaces)
-	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Navigation.Surfaces)
+	local Host, Compose, runtime = ctx.Host, ctx.Compose, ctx.runtime
+	local readAnchor = ctx.read<<RadialTypes.Anchor?>>
+	local readFlag = ctx.read<<boolean?>>
 	local typeOf: (unknown) -> string = runtime.host.typeNameOf or typeof
 	local lists = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local build = function<V>(spec: RadialProps.RadialMenuSpec<V>): Frame
 		assert(spec.items, "RadialMenu requires items")
-		local menu = createMenu(ctx, surfaces, spec)
+		local menu = createMenu<<V>>(ctx, surfaces, spec)
 		local session = menu.session
 		local opened, scrim, skin = menu.opened, menu.scrim, menu.skin
 		local cancel, close, open = menu.cancel, menu.close, menu.open
 		local back: () -> () = menu.back
 		local isPointer = menu.isPointer
-		local anchored = read(spec.anchor)
-		local anchorGui = if anchored
-				and (typeof(anchored) == "Instance" or (type(anchored) == "table" and anchored.IsA))
-			then anchored :: GuiObject
-			else nil
+		local anchored = readAnchor(spec.anchor)
+		local anchorGui = if typeof(anchored) == "Instance" and anchored:IsA("GuiObject") then anchored else nil
 		local root = Host.Frame(ctx.props(spec, {
 			"items",
 			"label",
@@ -82,7 +81,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local departure = createPresence(ctx).departure(timing, root, function(): boolean
 			return not menu.reduced() and spec.transition ~= false
 		end)
-		local beginDeparture = assert(departure.exit)
+		local beginDeparture = departure.exit
 		departure.exit = function(nodes): ComposeTypes.Exiting
 			timing.exit = ctx.metric("motion.radial.exit")
 			return beginDeparture(nodes)
@@ -104,7 +103,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					label = spec.label or "Quick actions",
 					name = spec.label or "Quick actions",
 					icon = spec.icon or (if spec.label == nil then "more" else nil),
-					shape = if spec.label == nil then "circle" :: "circle" else nil,
+					shape = if spec.label == nil then "circle" else nil,
 					enabled = spec.enabled,
 					InputBegan = function(input: InputObject)
 						if not opened:peek() and isPointer(input) then
@@ -130,8 +129,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end
 		surfaces.attach(root, {
 			surfaces.overlay(root, opened, function(phase: Navigation.PresencePhase?)
-				local arrange: (Types.Context, MenuTypes.Menu<V>, Frame) -> ArrangementTypes.Arrangement<V> =
-					arrangeRing
+				local arrange = arrangeRing<<V>>
 				local layer = surfaces.parent(root)
 				local spring = ctx.motionSpring("quick")
 				local previousSpring = arrangementSpring
@@ -157,9 +155,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				end
 				local arrangement = assert(retainedArrangement)
 				arrangement.following:set(false)
-				local paint = paintSectors(ctx, UI, surfaces, lists, menu, arrangement, phase)
-				local hub = buildCenter(ctx, UI, surfaces, menu, arrangement, paint, root, layoutUnit, phase)
-				attachGestures(ctx, surfaces, menu, arrangement, paint, hub)
+				local paint = paintSectors<<V>>(ctx, UI, surfaces, lists, menu, arrangement, layoutUnit, phase)
+				local hub = buildCenter<<V>>(ctx, UI, surfaces, menu, arrangement, paint, root, layoutUnit, phase)
+				attachGestures<<V>>(ctx, surfaces, menu, arrangement, paint, hub)
 				local viewport, origin, center, layout, fallback =
 					arrangement.viewport,
 					arrangement.origin,
@@ -167,18 +165,16 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					arrangement.layout,
 					arrangement.fallback
 				local hideLauncher = hub.hideLauncher
-				local modal = surfaces.modal(
-					function()
-						return paint.panel
+				local modal = surfaces.modal(function()
+					return paint.panel
+				end, function(_reason: string?)
+					back()
+				end, {
+					keepsGameplay = true,
+					appearance = function(use: ComposeTypes.Use?): number
+						return 1 - if use then paint.transparency(use) else 0
 					end,
-					back,
-					{
-						keepsGameplay = true,
-						appearance = function(use: ComposeTypes.Use?): number
-							return 1 - if use then paint.transparency(use) else 0
-						end,
-					}
-				)
+				})
 				modal:SetAttribute("FacetArrivalGroup", true)
 				surfaces.attach(modal, { hub.centerHit, hub.centerNode, hub.previewPlate, hub.preview })
 				if hideLauncher then
@@ -189,9 +185,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					if scrim == "dark" then
 						catcher:AddTag("facet-radial-scrim")
 					elseif scrim == "none" then
-						local clear = catcher :: GuiObject
-						clear:RemoveTag("facet-scrim")
-						clear.BackgroundTransparency = 1
+						assert(catcher:IsA("GuiObject"))
+						catcher:RemoveTag("facet-scrim")
+						catcher.BackgroundTransparency = 1
 					end
 					runtime.decorate(catcher, {
 						Position = function(use: ComposeTypes.Use)
@@ -218,12 +214,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				if spec.centerPassThrough and (spec.center == "empty" or spec.center == "content") then
 					runtime.decorate(modal, { Active = fallback })
 					if anchorGui then
+						local anchor = anchorGui
 						surfaces.attach(modal, {
 							Compose.show(function(use: ComposeTypes.Use): boolean
 								return not use(fallback)
 							end, function()
-								ctx.modalPortal(anchorGui, modal)
-								return Compose.fragment(function()
+								ctx.modalPortal(anchor, modal)
+								return Compose.fragment(function(): { ComposeTypes.Node }
 									return {}
 								end)
 							end),
@@ -252,7 +249,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							return { right, top, size.X - right, bottom - top }
 						end)
 						surfaces.attach(modal, {
-							Host.TextButton({
+							Host.TextButton {
 								Name = "Dismiss" .. edge,
 								Text = "",
 								BackgroundTransparency = 1,
@@ -269,8 +266,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 									local r = use(rectangle)
 									return D2.fromOffset(r[3], r[4])
 								end,
-								Activated = back,
-							}),
+								Activated = function(_input: InputObject, _count: number)
+									back()
+								end,
+							},
 						})
 					end
 				end
@@ -289,12 +288,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			}),
 		})
 		Compose.watch(function(use: ComposeTypes.Use)
-			local anchor = read(spec.anchor, use)
+			local anchor = readAnchor(spec.anchor, use)
 			if not use(opened) then
 				cancel()
 			end
 			if
-				read(spec.enabled, use) == false
+				readFlag(spec.enabled, use) == false
 				or (typeOf(anchor) ~= "Instance" and type(anchor) == "table" and anchor.visible == false)
 			then
 				close()
@@ -326,5 +325,5 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end
 		return root
 	end
-	UI.RadialMenu = ctx.construct("RadialMenu", build) :: ControlTypes.RadialMenuConstructor
+	UI.RadialMenu = ctx.construct("RadialMenu", build)
 end

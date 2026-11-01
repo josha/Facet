@@ -291,7 +291,7 @@ add("range-knobs-flush", {}, function(t: any)
 				return Host.Frame "Art" {
 					Size = UDim2.fromOffset(side, side),
 					BackgroundColor3 = Color3.new(1, 1, 1),
-					Host.UICorner({ CornerRadius = UDim.new(0.5, 0) }),
+					Host.UICorner { CornerRadius = UDim.new(0.5, 0) },
 				}
 			end
 		end
@@ -299,7 +299,7 @@ add("range-knobs-flush", {}, function(t: any)
 			Size = UDim2.fromOffset(420, 600),
 			Position = UDim2.fromOffset(100, 60),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+			Host.UIListLayout { Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder },
 			UI.Slider "Band" {
 				LayoutOrder = 1,
 				value = value.range,
@@ -412,17 +412,18 @@ add("radial-tool-captions-near-phone-edge", {}, function(t: any)
 	t.device({ device = "iphone_14", orientation = "Portrait", frames = 30 })
 	local mouse = pointer(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		local items: { RadialItem } = {
+			{ id = "plant", label = "Plant", onSelect = function() end },
+			{ id = "harvest", label = "Harvest", onSelect = function() end },
+			{ id = "plow", label = "Plow", onSelect = function() end },
+		}
 		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			UI.RadialMenu "Tools" {
 				Position = UDim2.fromOffset(16, 300),
 				label = "Tools",
-				items = {
-					{ id = "plant", label = "Plant", onSelect = function() end },
-					{ id = "harvest", label = "Harvest", onSelect = function() end },
-					{ id = "plow", label = "Plow", onSelect = function() end },
-				},
+				items = items,
 			},
 		}
 	end, { size = Vector2.new(390, 844), motionLevel = "normal" })

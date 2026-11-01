@@ -1,10 +1,9 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 type Marker = {
 	id: string,
 	label: string,
@@ -17,7 +16,7 @@ type Marker = {
 }
 return {
 	title = "World markers",
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local D, D2, V2, C3, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 		local shifted, crowded, hidden = Compose.cell(false), Compose.cell(false), Compose.cell(false)
@@ -55,11 +54,11 @@ return {
 			return rows
 		end)
 		local function screen()
-			local pins = {}
+			local pins: { TextButton } = {}
 			for index, name in { "A", "B", "C" } do
 				table.insert(
 					pins,
-					UI.Button({
+					UI.Button {
 						Name = name,
 						label = name,
 						Size = D2.fromOffset(64, 48),
@@ -73,7 +72,7 @@ return {
 						onActivate = function()
 							selected:set(geometry:peek()[index].label)
 						end,
-						Host.ImageLabel("Direction")({
+						Host.ImageLabel "Direction" {
 							BackgroundTransparency = 1,
 							Size = D2.fromOffset(16, 16),
 							Position = D2.new(1, -18, 0.5, -8),
@@ -82,25 +81,25 @@ return {
 							Visible = function(use: Use)
 								return use(geometry)[index].edge
 							end,
-						}),
-					})
+						},
+					}
 				)
 			end
-			local map = Host.Frame("Map")({
+			local map = Host.Frame "Map" {
 				Size = D2.new(1, 0, 0, 360),
 				BackgroundTransparency = 1,
-				Host.Frame("HudReservation")({
+				Host.Frame "HudReservation" {
 					Size = D2.new(1, 0, 0, 56),
 					BackgroundColor3 = C3.fromRGB(32, 45, 65),
 					BorderSizePixel = 0,
-					UI.Text({
+					UI.Text {
 						text = "HUD reservation — markers stay below this band",
 						Size = D2.fromScale(1, 1),
 						TextWrapped = true,
-					}),
-				}),
+					},
+				},
 				table.unpack(pins),
-			})
+			}
 			local function measure()
 				if map.AbsoluteSize.X > 0 then
 					size:set(map.AbsoluteSize)
@@ -116,7 +115,7 @@ return {
 				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Text({ text = "A · Objective   B · Ally   C · Supplies", TextWrapped = true }),
+				UI.Text { text = "A · Objective   B · Ally   C · Supplies", TextWrapped = true },
 				map,
 				UI.Toggle "Move" { label = "Move objective offscreen", value = shifted },
 				UI.Toggle "Crowd" { label = "Bring markers together", value = crowded },

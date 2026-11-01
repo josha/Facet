@@ -3,12 +3,13 @@ local Verify = require("../tools/vendor/verify/src/core")
 local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
+	local ThemeTypes = require("../src/ui/theme_types")
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 
 	local fs, Lute = require("@std/fs"), require("../tools/vendor/verify/src/lute")
 	local Facet, engineLib = require("../src"), require("./lib/native_engine")
-	local entries = {}
+	local entries: { { file: string, index: number, code: string } } = {}
 	local files = { "README.md", "docs/reference/api.md" }
 	for _, directory in { "docs/guide", "docs/extending", "docs/reference/nodes" } do
 		for _, entry in fs.listDirectory(directory) do
@@ -64,7 +65,7 @@ return function(verifyHarness: Verify.Harness)
 						hapticCapture:Disconnect()
 					end)
 					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-					local Compose: ComposeModule, Host = Facet.Compose, runtime.constructors
+					local Compose: ComposeModule, Host = Facet.Compose, Facet.host(runtime)
 					local UI = Facet.controls(runtime, {
 						types = engine.types,
 						services = { UserInputService = input, GuiService = gui, Workspace = world },
@@ -75,50 +76,48 @@ return function(verifyHarness: Verify.Harness)
 					facade.Roblox.createRuntime = function()
 						return runtime
 					end
-					facade.controls = function(rt, opt)
-						opt = table.clone(opt or {})
-						assert(opt).types = engine.types
-						return Facet.controls(rt, opt)
+					facade.controls = function(rt: Facet.Runtime, opt: Facet.ControlOptions?)
+						local options: Facet.ControlOptions = if opt then table.clone(opt) else {}
+						options.types = engine.types
+						return Facet.controls(rt, options)
 					end
 					facade.bind = function(core, roblox)
 						Facet.bind(core, roblox)
 						return facade
 					end
 					local playerGui = engine.new("PlayerGui")
-					facade.app = function(opt)
-						opt = table.clone(opt or {})
-						assert(opt).runtime = assert(opt).runtime or runtime
-						assert(opt).types = engine.types
-						assert(opt).parent = assert(opt).parent or playerGui
-						return Facet.app(opt)
+					facade.app = function(opt: Facet.AppOptions?)
+						local options: Facet.AppOptions = if opt then table.clone(opt) else {}
+						options.runtime = options.runtime or runtime
+						options.types = engine.types
+						options.parent = options.parent or playerGui
+						return Facet.app(options)
 					end
 					local sheets = {}
-					facade.themes.createStyleSheet = function(rt, pkg, opt)
-						opt = table.clone(opt or {})
-						assert(opt).types = engine.types
-						local sheet = Facet.themes.createStyleSheet(rt, pkg, opt)
+					facade.themes.createStyleSheet = function(
+						rt: Facet.Runtime,
+						pkg: Facet.Input<Facet.ReadOnlyThemePackage>?,
+						opt: ThemeTypes.ThemeOptions?
+					)
+						local options: ThemeTypes.ThemeOptions = if opt then table.clone(opt) else {}
+						options.types = engine.types
+						local sheet = Facet.themes.createStyleSheet(rt, pkg, options)
 						table.insert(sheets, sheet)
 						return sheet
 					end
-					local env: { [string]: any } = (table.clone(engine.types) :: unknown) :: { [string]: any }
-					for key, value in
-						{
-							Facet = facade,
-							Compose = Compose,
-							runtime = runtime,
-							Host = Host,
-							UI = UI,
-							themes = facade.themes,
-							package = Facet.themes.neutralPackage(),
-							ownedPanelAsset = "rbxassetid://123",
-							themeModule = "theme",
-							terminalPart = engine.new("Part"),
-							playerGui = playerGui,
-							productId = "test",
-						}
-					do
-						env[tostring(key)] = value
-					end
+					local env: { [string]: unknown } = (table.clone(engine.types) :: unknown) :: { [string]: unknown }
+					env.Facet = facade
+					env.Compose = Compose
+					env.runtime = runtime
+					env.Host = Host
+					env.UI = UI
+					env.themes = facade.themes
+					env.package = Facet.themes.neutralPackage()
+					env.ownedPanelAsset = "rbxassetid://123"
+					env.themeModule = "theme"
+					env.terminalPart = engine.new("Part")
+					env.playerGui = playerGui
+					env.productId = "test"
 					local noop = function() end
 					for _, key in
 						{
@@ -138,7 +137,7 @@ return function(verifyHarness: Verify.Harness)
 					env.items = env.rows
 					for _, key in { "renderCard", "Catalog", "ItemDetails" } do
 						env[key] = function()
-							return UI.Text({ text = "Content" })
+							return UI.Text { text = "Content" }
 						end
 					end
 					env.script = { Destroying = engine.heartbeat }
@@ -165,7 +164,7 @@ return function(verifyHarness: Verify.Harness)
 							},
 						},
 					}
-					env.require = function(id)
+					env.require = function(id: unknown): unknown
 						return if id == "theme"
 							then {
 								build = function()
@@ -189,8 +188,8 @@ return function(verifyHarness: Verify.Harness)
 						env.specimenFields = function()
 							return app.UI.Text { text = "Volcanic rock" }
 						end
-						env.specimenModel = function(rt, world)
-							rt.constructors.Part {
+						env.specimenModel = function(rt: Facet.Runtime, world: Instance)
+							Facet.host(rt).Part {
 								Parent = Compose.static(world),
 								Anchored = true,
 								Size = engine.types.Vector3.new(2, 2, 2),
@@ -228,7 +227,7 @@ return function(verifyHarness: Verify.Harness)
 							local node = factory(env)
 							return if type(node) == "table" and (node :: { [string]: unknown }).ClassName
 								then (node :: unknown) :: Instance
-								else Host.Frame({})
+								else Host.Frame {}
 						end, engine.new("ScreenGui"))
 						if entry.file == "docs/reference/nodes/adjustable.md" then
 							local row = (mounted :: unknown) :: Frame

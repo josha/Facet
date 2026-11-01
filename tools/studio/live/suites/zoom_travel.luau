@@ -1,4 +1,5 @@
 --!strict
+type NumberCollectionSpec = typeof(require("@repo/tools/typecheck/aliases").NumberCollectionSpec)
 type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -78,8 +79,8 @@ local function zoomSetup(t: Live, captureCamera: boolean?): ZoomState
 					Name = "StableBoard",
 					Size = UDim2.fromScale(1, 1),
 					BackgroundColor3 = Color3.fromRGB(45, 70, 90),
-					tile :: unknown,
-					UI.Text { text = "BOARD", Position = UDim2.fromOffset(20, 20), Size = UDim2.fromOffset(120, 60) } :: unknown,
+					tile,
+					UI.Text { text = "BOARD", Position = UDim2.fromOffset(20, 20), Size = UDim2.fromOffset(120, 60) },
 				}
 			end,
 		}
@@ -130,7 +131,7 @@ local function collectionCameraSetup(t: Live): ZoomState
 			end,
 		}
 		local tile: TextButton
-		local rack = UI.VirtualGrid {
+		local rackSpec: NumberCollectionSpec = {
 			Name = "ExternalCameraRack",
 			from = { 1 },
 			key = function(id: number): number
@@ -165,6 +166,7 @@ local function collectionCameraSetup(t: Live): ZoomState
 				return tile
 			end,
 		}
+		local rack = UI.VirtualGrid(rackSpec)
 		state = { view = view, tile = tile, samples = {}, additions = 0, removals = 0, scale = 1, pan = Vector2.zero }
 		local sample = RunService.PreRender:Connect(function()
 			local layer = view:FindFirstAncestorWhichIsA("ScreenGui")
@@ -191,7 +193,7 @@ local function collectionCameraSetup(t: Live): ZoomState
 		C.cleanup(function()
 			sample:Disconnect()
 		end)
-		return Host.Frame { Size = UDim2.fromScale(1, 1), view :: unknown, rack :: unknown }
+		return Host.Frame { Size = UDim2.fromScale(1, 1), view, rack }
 	end, { frames = 12, motionLevel = "normal" })
 	return state
 end
@@ -240,9 +242,9 @@ local function travelSetup(t: Live): TravelState
 			Size = UDim2.fromOffset(60, 60),
 			Position = UDim2.fromOffset(20, 80),
 			ClipsDescendants = true,
-			Host.UIPadding { PaddingLeft = UDim.new(0, 12), PaddingTop = UDim.new(0, 1) } :: unknown,
-			Host.UIStroke { Thickness = 3 } :: unknown,
-			UI.Button { Name = "SlotButton", label = "slot", Size = UDim2.fromScale(1, 1) } :: unknown,
+			Host.UIPadding { PaddingLeft = UDim.new(0, 12), PaddingTop = UDim.new(0, 1) },
+			Host.UIStroke { Thickness = 3 },
+			UI.Button { Name = "SlotButton", label = "slot", Size = UDim2.fromScale(1, 1) },
 		}
 		local target = Host.Frame {
 			Name = "TravelTarget",
@@ -300,16 +302,16 @@ local function travelSetup(t: Live): TravelState
 		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			source :: unknown,
-			target :: unknown,
-			travel :: unknown,
+			source,
+			target,
+			travel,
 			UI.Button {
 				Name = "Send",
 				label = "Send",
 				onActivate = function()
 					destination:set(target)
 				end,
-			} :: unknown,
+			},
 			UI.Button {
 				Name = "Return",
 				label = "Return",
@@ -317,7 +319,7 @@ local function travelSetup(t: Live): TravelState
 				onActivate = function()
 					destination:set(source)
 				end,
-			} :: unknown,
+			},
 		}
 	end, { frames = 12, motionLevel = "normal" })
 	table.clear(state.samples)
@@ -372,7 +374,7 @@ local function recycleSetup(t: Live): RecycleState
 		local targets: { [number]: GuiObject } = {}
 		local park = Host.Frame { Name = "Park", Size = UDim2.fromOffset(60, 60), ClipsDescendants = true }
 		local destination = C.cell(park :: GuiObject)
-		local grid = UI.VirtualGrid {
+		local gridSpec: NumberCollectionSpec = {
 			from = rows,
 			key = function(value: number): number
 				return value
@@ -390,6 +392,7 @@ local function recycleSetup(t: Live): RecycleState
 				return slot
 			end,
 		}
+		local grid = UI.VirtualGrid(gridSpec)
 		local content: GuiObject
 		local travel = UI.Travel {
 			destination = destination,
@@ -410,7 +413,7 @@ local function recycleSetup(t: Live): RecycleState
 			targets = targets,
 			content = content,
 		}
-		return Host.Frame { Size = UDim2.fromScale(1, 1), park :: unknown, grid :: unknown, travel :: unknown }
+		return Host.Frame { Size = UDim2.fromScale(1, 1), park, grid, travel }
 	end, { frames = 12, motionLevel = "normal" })
 	return state
 end
@@ -494,7 +497,7 @@ local function shuffleSetup(t: Live): ShuffleState
 		C.cleanup(function()
 			sample:Disconnect()
 		end)
-		return Host.Frame { Size = UDim2.fromScale(1, 1), row :: unknown, button :: unknown }
+		return Host.Frame { Size = UDim2.fromScale(1, 1), row, button }
 	end, { frames = 12, motionLevel = "normal" })
 	return state
 end
@@ -536,118 +539,140 @@ type RecycleCase = {
 	setup: (Live) -> RecycleState,
 	steps: { [string]: (Live, RecycleState) -> () },
 }
-local cases: { ZoomCase | TravelCase | ShuffleCase | RecycleCase } = {
-	{
-		id = "travel-recycled-destination",
-		contracts = { "UI.Travel", "UI.VirtualGrid" },
-		setup = recycleSetup,
-		steps = {
-			afterReplace = function(t: Live, state: RecycleState)
-				t.check(
-					"recycled destination cancels or lands in the new slot",
-					state.content.Parent == nil or state.content.Parent == state.targets[3]
-				)
-			end,
-			afterRemove = afterRecycle,
-		},
-	},
-	{
-		id = "zoom-collection-capture-camera",
-		contracts = { "UI.ZoomView", "UI.VirtualGrid" },
-		setup = collectionCameraSetup,
-		steps = {
-			whileLifted = function(t: Live, state: ZoomState)
-				t.check(
-					"collection capture reaches zoom level",
-					math.abs((state.view:GetAttribute("FacetZoom") :: number) - 2) < 0.001
-				)
-				t.check("collection stays captured", state.captured == true)
-				t.check(
-					"collection preview follows the pointer",
-					state.contactError ~= nil and state.contactError <= 1,
-					state.contactError
-				)
-				t.note("collection camera samples", state.samples)
-			end,
-			afterRelease = function(t: Live, state: ZoomState)
-				t.check("collection release returns fit", (state.view:GetAttribute("FacetZoom") :: number) < 1)
-				t.check("collection capture ends", state.captured == false)
-			end,
-		},
-	},
-	{
-		id = "zoom-capture-camera",
-		contracts = { "UI.ZoomView", "UI.draggable" },
-		setup = function(t: Live): ZoomState
-			return zoomSetup(t, true)
+local travelRecycledDestination: RecycleCase = {
+	id = "travel-recycled-destination",
+	contracts = { "UI.Travel", "UI.VirtualGrid" },
+	setup = recycleSetup,
+	steps = {
+		afterReplace = function(t: Live, state: RecycleState)
+			t.check(
+				"recycled destination cancels or lands in the new slot",
+				state.content.Parent == nil or state.content.Parent == state.targets[3]
+			)
 		end,
-		steps = {
-			whileLifted = function(t: Live, state: ZoomState)
-				t.check(
-					"capture camera reaches zoom level",
-					math.abs(state.view:GetAttribute("FacetZoom") :: number - 2) < 0.001
-				)
-				t.check("source stays captured while camera moves", state.tile:GetAttribute("FacetDragHeld") == true)
-				t.note("capture-camera render samples", state.samples)
-			end,
-			afterRelease = function(t: Live, state: ZoomState)
-				t.note("camera release samples", state.samples)
-				t.note("camera view parent after release", tostring(state.view.Parent))
-				t.note("camera zoom after release", state.view:GetAttribute("FacetZoom"))
-				t.note("camera rectangle after release", {
-					state.view.AbsolutePosition.X,
-					state.view.AbsolutePosition.Y,
-					state.view.AbsoluteSize.X,
-					state.view.AbsoluteSize.Y,
-				})
-				t.check("release returns to fit", (state.view:GetAttribute("FacetZoom") :: number) < 1)
-				t.check("capture ends", state.tile:GetAttribute("FacetDragHeld") ~= true)
-			end,
-		},
+		afterRemove = afterRecycle,
 	},
-	{
-		id = "shuffle-pointer",
-		contracts = { "UI.Travel" },
-		setup = shuffleSetup,
-		steps = { afterShuffle = afterShuffle, afterInterrupt = afterShuffle },
+}
+
+local zoomCollectionCaptureCamera: ZoomCase = {
+	id = "zoom-collection-capture-camera",
+	contracts = { "UI.ZoomView", "UI.VirtualGrid" },
+	setup = collectionCameraSetup,
+	steps = {
+		whileLifted = function(t: Live, state: ZoomState)
+			t.check(
+				"collection capture reaches zoom level",
+				math.abs((state.view:GetAttribute("FacetZoom") :: number) - 2) < 0.001
+			)
+			t.check("collection stays captured", state.captured == true)
+			t.check(
+				"collection preview follows the pointer",
+				state.contactError ~= nil and state.contactError <= 1,
+				state.contactError
+			)
+			t.note("collection camera samples", state.samples)
+		end,
+		afterRelease = function(t: Live, state: ZoomState)
+			t.check("collection release returns fit", (state.view:GetAttribute("FacetZoom") :: number) < 1)
+			t.check("collection capture ends", state.captured == false)
+		end,
 	},
-	{
-		id = "shuffle-gamepad",
-		contracts = { "UI.Travel" },
-		setup = shuffleSetup,
-		steps = { afterShuffle = afterShuffle, afterInterrupt = afterShuffle },
+}
+
+local zoomCaptureCamera: ZoomCase = {
+	id = "zoom-capture-camera",
+	contracts = { "UI.ZoomView", "UI.draggable" },
+	setup = function(t: Live): ZoomState
+		return zoomSetup(t, true)
+	end,
+	steps = {
+		whileLifted = function(t: Live, state: ZoomState)
+			t.check(
+				"capture camera reaches zoom level",
+				math.abs(state.view:GetAttribute("FacetZoom") :: number - 2) < 0.001
+			)
+			t.check("source stays captured while camera moves", state.tile:GetAttribute("FacetDragHeld") == true)
+			t.note("capture-camera render samples", state.samples)
+		end,
+		afterRelease = function(t: Live, state: ZoomState)
+			t.note("camera release samples", state.samples)
+			t.note("camera view parent after release", tostring(state.view.Parent))
+			t.note("camera zoom after release", state.view:GetAttribute("FacetZoom"))
+			t.note("camera rectangle after release", {
+				state.view.AbsolutePosition.X,
+				state.view.AbsolutePosition.Y,
+				state.view.AbsoluteSize.X,
+				state.view.AbsoluteSize.Y,
+			})
+			t.check("release returns to fit", (state.view:GetAttribute("FacetZoom") :: number) < 1)
+			t.check("capture ends", state.tile:GetAttribute("FacetDragHeld") ~= true)
+		end,
 	},
-	{
-		id = "zoom-pointer",
-		contracts = {},
-		setup = zoomSetup,
-		steps = {
-			afterFocusZoom = afterZoom,
-			afterDoubleTap = afterZoom,
-			afterWheelZoom = afterZoom,
-			afterWheelPan = afterPan,
-			afterMousePan = afterPan,
-			afterChildDrag = afterCapture,
-		},
+}
+
+local shufflePointer: ShuffleCase = {
+	id = "shuffle-pointer",
+	contracts = { "UI.Travel" },
+	setup = shuffleSetup,
+	steps = { afterShuffle = afterShuffle, afterInterrupt = afterShuffle },
+}
+
+local shuffleGamepad: ShuffleCase = {
+	id = "shuffle-gamepad",
+	contracts = { "UI.Travel" },
+	setup = shuffleSetup,
+	steps = { afterShuffle = afterShuffle, afterInterrupt = afterShuffle },
+}
+
+local zoomPointer: ZoomCase = {
+	id = "zoom-pointer",
+	contracts = {},
+	setup = function(t: Live): ZoomState
+		return zoomSetup(t)
+	end,
+	steps = {
+		afterFocusZoom = afterZoom,
+		afterDoubleTap = afterZoom,
+		afterWheelZoom = afterZoom,
+		afterWheelPan = afterPan,
+		afterMousePan = afterPan,
+		afterChildDrag = afterCapture,
 	},
-	{
-		id = "zoom-gamepad",
-		contracts = {},
-		setup = zoomSetup,
-		steps = { afterTrigger = afterZoom, afterStick = afterPan, afterFit = afterZoom },
-	},
-	{
-		id = "travel-pointer",
-		contracts = {},
-		setup = travelSetup,
-		steps = { afterSend = afterLanding, afterReverse = afterLanding },
-	},
-	{
-		id = "travel-gamepad",
-		contracts = {},
-		setup = travelSetup,
-		steps = { afterSend = afterLanding, afterReturn = afterLanding },
-	},
+}
+
+local zoomGamepad: ZoomCase = {
+	id = "zoom-gamepad",
+	contracts = {},
+	setup = function(t: Live): ZoomState
+		return zoomSetup(t)
+	end,
+	steps = { afterTrigger = afterZoom, afterStick = afterPan, afterFit = afterZoom },
+}
+
+local travelPointer: TravelCase = {
+	id = "travel-pointer",
+	contracts = {},
+	setup = travelSetup,
+	steps = { afterSend = afterLanding, afterReverse = afterLanding },
+}
+
+local travelGamepad: TravelCase = {
+	id = "travel-gamepad",
+	contracts = {},
+	setup = travelSetup,
+	steps = { afterSend = afterLanding, afterReturn = afterLanding },
+}
+
+local cases: { ZoomCase | TravelCase | ShuffleCase | RecycleCase } = {
+	travelRecycledDestination,
+	zoomCollectionCaptureCamera,
+	zoomCaptureCamera,
+	shufflePointer,
+	shuffleGamepad,
+	zoomPointer,
+	zoomGamepad,
+	travelPointer,
+	travelGamepad,
 }
 
 return cases

@@ -1,10 +1,11 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type SipworksModule = typeof(require("@repo/examples/reference/p3_sipworks"))
 type Entry = { id: string, value: string? }
+local searchPresentation: "search" = "search"
 local loadSipworks: (ModuleScript | string) -> SipworksModule = require
 local makeView = require("./showcase_view")
 local art = require("./showcase_art")
@@ -57,7 +58,7 @@ return {
 		end
 		local function recipe(entry: Entry?)
 			local blend = assert(catalog.blend(assert(entry and entry.value)))
-			local related = {}
+			local related: { Child } = {}
 			for _, measure in catalog.recipeMeasures(blend.id) do
 				local ingredient = assert(catalog.botanical(measure.botanicalId))
 				local key = blend.id .. "/" .. ingredient.id
@@ -118,19 +119,19 @@ return {
 					label = "Gather your ingredients",
 					expanded = C.cell(true),
 					content = function(): Instance
-						local ingredientRows = {}
+						local ingredientRows: { Instance } = {}
 						for _, measure in catalog.recipeMeasures(blend.id) do
 							local ingredient = assert(catalog.botanical(measure.botanicalId))
 							local key = blend.id .. "/" .. ingredient.id
 							table.insert(
 								ingredientRows,
-								UI.Toggle("Gather_" .. ingredient.id) {
+								UI.Toggle("Gather_" .. ingredient.id)({
 									value = gathered[key],
 									presentation = "checkbox",
 									label = function(use: Use)
 										return `{measure.value * use(servings)} {measure.unit} · {ingredient.name}`
 									end,
-								}
+								})
 							)
 						end
 						return UI.VStack {
@@ -146,7 +147,7 @@ return {
 		end
 		local function ingredient(entry: Entry?)
 			local botanical = assert(catalog.botanical(assert(entry and entry.value)))
-			local recipes = {}
+			local recipes: { Child } = {}
 			for _, blend in catalog.blends do
 				if catalog.measureFor(blend.id, botanical.id) then
 					table.insert(
@@ -210,7 +211,7 @@ return {
 					gap = "m",
 					view.text("LibraryIntro", "A recipe for every kind of afternoon."),
 					UI.TextInput "FindRecipe" {
-						presentation = "search",
+						presentation = searchPresentation,
 						value = query,
 						placeholder = "Find a blend or ingredient…",
 					},
@@ -229,14 +230,14 @@ return {
 							return math.max(1, math.floor(use(gridWidth) / use(columnWidth)))
 						end,
 						Size = D2.new(1, 0, 0, 300),
-						UI.fill(),
 						ref = function(node: ScrollingFrame)
+							UI.fill().Parent = node
 							view.observeWidth(gridWidth, node)
 						end,
 						recycle = false,
 						render = function(current): GuiObject
 							local blend = current:peek()
-							return UI.Card("Recipe_" .. blend.id) {
+							return UI.Card("Recipe_" .. blend.id)({
 								title = blend.title,
 								caption = (function(): string
 									local count = #catalog.tileBotanicals(blend.id)
@@ -253,7 +254,7 @@ return {
 								onActivate = function()
 									open(blend.id)
 								end,
-							}
+							})
 						end,
 					},
 				}

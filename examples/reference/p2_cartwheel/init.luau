@@ -1,11 +1,11 @@
 --!strict
 
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
-type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
+type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Draft = { name: string, base: string, essence: string, garnish: string }
@@ -36,7 +36,7 @@ function Cartwheel.build(ctx: ExampleContext)
 	local commands = commandsService.new({
 		Compose = Compose,
 		clock = clock,
-		strings = S,
+		strings = S :: any,
 		toast = function(_: string, message: string)
 			notice:set(message)
 		end,
@@ -99,7 +99,7 @@ function Cartwheel.build(ctx: ExampleContext)
 		})
 	end
 	local function signup()
-		return commands.submit({
+		commands.submit({
 			id = "signup",
 			decide = function()
 				return identity.decide(guild:peek())
@@ -172,15 +172,15 @@ function Cartwheel.build(ctx: ExampleContext)
 		for _, count in series do
 			largest = math.max(largest, count)
 		end
-		local p: FrameNativeProps = { Name = title, BackgroundTransparency = 1, Size = D2.new(1, 0, 0, 140) }
+		local p: FrameProps = { Name = title, BackgroundTransparency = 1, Size = D2.new(1, 0, 0, 140) }
 		for index, count in series do
-			p[#p + 1] = Host.Frame({
+			p[#p + 1] = Host.Frame {
 				Name = tostring(index),
 				Size = D2.new(1 / #series, -2, count / largest, 0),
 				Position = D2.new((index - 1) / #series, 0, 1 - count / largest, 0),
 				BackgroundColor3 = ctx.types.Color3.fromRGB(108, 146, 124),
 				BorderSizePixel = 0,
-			})
+			}
 		end
 		return Host.Frame(p)
 	end
@@ -434,7 +434,7 @@ function Cartwheel.build(ctx: ExampleContext)
 								end,
 								render = function(current: ReadOnlyValue<number>): Instance
 									local index = current:peek()
-									return Host.Part({
+									return Host.Part {
 										Name = "Potion" .. index,
 										Anchored = true,
 										Shape = ctx.types.Enum.PartType.Cylinder,
@@ -442,7 +442,7 @@ function Cartwheel.build(ctx: ExampleContext)
 										CFrame = CF.new(-1.5 + index * 0.5, 2, 0) * CF.Angles(0, 0, math.pi / 2),
 										Color = ctx.types.Color3.fromHSV(index / 7, 0.5, 0.8),
 										Material = ctx.types.Enum.Material.Glass,
-									})
+									}
 								end,
 							}),
 						})
@@ -518,13 +518,13 @@ function Cartwheel.build(ctx: ExampleContext)
 					end
 				end,
 			},
-			UI.Text({
+			UI.Text {
 				text = notice,
 				TextWrapped = true,
 				Position = D2.new(0, 16, 1, -60),
 				Size = D2.new(1, -32, 0, 56),
 				AutomaticSize = ctx.types.Enum.AutomaticSize.None,
-			}),
+			},
 			UI.Sheet "BrewDetail" {
 				title = "Brew",
 				isPresented = detailOpen,

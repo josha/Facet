@@ -7,17 +7,17 @@ local format = require("./format")
 
 return function(ctx: Shared.Context, UI: Controls.Controls)
 	local C, runtime = ctx.Compose, ctx.runtime
+	local readTime = ctx.read<<number?>>
 	UI.Timer = ctx.construct("Timer", function(spec: Props.TimerProps): TextLabel
 		assert((spec.deadline ~= nil) ~= (spec.start ~= nil), "Facet Timer requires either deadline or start")
 		local frames = assert(runtime.host.frames, "Facet Timer requires a runtime clock")
 		local now = spec.now or frames.now
 		local completed, text = C.cell(false), C.cell("")
-		local fields = (
-			ctx.props(spec, { "deadline", "start", "now", "hours", "textRole", "onComplete", "controls" }) :: unknown
-		) :: { [string]: unknown }
-		fields.textRole = spec.textRole
-		fields.text = text
-		local label = UI.Text((fields :: unknown) :: MediaProps.TextProps) :: TextLabel
+		local textProps: MediaProps.TextProps = { text = text, textRole = spec.textRole }
+		local fields =
+			ctx.props(spec, { "deadline", "start", "now", "hours", "textRole", "onComplete", "controls" }, textProps)
+		local label = UI.Text(ctx.props(textProps, { "text", "textRole" }, fields))
+		assert(label:IsA("TextLabel"))
 		if spec.controls then
 			spec.controls.completed = completed
 			C.cleanup(function()
@@ -27,7 +27,7 @@ return function(ctx: Shared.Context, UI: Controls.Controls)
 			end)
 		end
 		C.watch(function(use: Shared.Use)
-			local target = ctx.read(spec.deadline or spec.start, use)
+			local target = readTime(spec.deadline or spec.start, use)
 			assert(
 				target ~= nil and target == target and math.abs(target) < math.huge,
 				"Facet Timer requires a finite time"
