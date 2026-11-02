@@ -1,5 +1,18 @@
 # Current package
 
+Compose Design documents can author more Facet controls without code. A Text
+node can own native constraint children such as `UISizeConstraint`. Dialog,
+Sheet and DisclosureGroup content fields bind a prepared slot input, so the
+control keeps creation and lifetime of lazy content. Sheet `detents`, overlay
+`actions` and RowActions `leading` and `trailing` emit typed tables, for
+example `{ Facet.SheetDetent }` and `{ Facet.DialogAction }`. Toggle offers the
+`button` presentation. Design previews resolve native datatype tokens, for
+example a `UDim2` with token components, with fewer allocations.
+
+A named Alert call such as `UI.Alert "Confirm" { ... }` type-checks in strict
+consumer code without an explicit `<<unknown>>` instantiation. The generated
+Design source for an Alert document now type-checks as emitted.
+
 A `DiegeticScreen` that unmounts while it is presented returns its layers and
 their input contexts to the screen. Before, the app UI was destroyed with the
 display surface.
