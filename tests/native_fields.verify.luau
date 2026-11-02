@@ -698,7 +698,9 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::readOnly refuses anything but a boolean",
 			run = function()
 				expect(refused(function(UI: FacetControls)
-					return UI.TextInput "Name"({ value = Compose.cell(""), readOnly = "yes" } :: any)
+					local readOnly: any = "yes"
+					local props: InputProps.TextInputCellProps = { value = Compose.cell(""), readOnly = readOnly }
+					return UI.TextInput "Name"(props)
 				end) ~= nil):toBe(true)
 			end,
 		})
@@ -735,9 +737,11 @@ return function(verifyHarness: Verify.Harness)
 		it("an unknown initial selectOnFocus word fails before mount", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::an unknown initial selectOnFocus word fails before mount",
 			run = function()
-				for _, word in { "everything", 1 :: any } do
+				local words: { any } = { "everything", 1 }
+				for _, word in words do
 					local err = refused(function(UI: FacetControls)
-						return UI.TextInput "Name"({ value = Compose.cell(""), selectOnFocus = word } :: any)
+						local props: InputProps.TextInputCellProps = { value = Compose.cell(""), selectOnFocus = word }
+						return UI.TextInput "Name"(props)
 					end)
 					expect(`{tostring(word)} {err ~= nil}`):toBe(`{tostring(word)} true`)
 				end

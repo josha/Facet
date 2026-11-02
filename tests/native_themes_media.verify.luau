@@ -2523,12 +2523,13 @@ return function(verifyHarness: Verify.Harness)
 				local screen = engine.new("ScreenGui")
 				local calls = 0
 				local stop = runtime.mount(function()
+					local members: { AvatarMember } = {
+						{ id = "a", name = "A" },
+						{ id = "b", name = "B" },
+						{ id = "c", name = "C" },
+					}
 					return UI.AvatarGroup "Team" {
-						items = {
-							{ id = "a", name = "A" },
-							{ id = "b", name = "B" },
-							{ id = "c", name = "C" },
-						} :: { AvatarMember },
+						items = members,
 						max = 1,
 						onOverflow = function()
 							calls += 1

@@ -58,11 +58,12 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_button_guide::input-class",
 			run = function()
 				local w = guideWorld(function(UI: FacetControls)
+					local guideEntries: { ButtonGuideEntry } = {
+						{ keys = { { "E" } }, label = "Buy" },
+						{ keys = { { "Q" } }, label = "Back" },
+					}
 					return UI.ButtonGuide "Guide" {
-						entries = {
-							{ keys = { { "E" } }, label = "Buy" },
-							{ keys = { { "Q" } }, label = "Back" },
-						} :: { ButtonGuideEntry },
+						entries = guideEntries,
 					}
 				end)
 				local guide = w.find("Guide")
@@ -78,9 +79,10 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 
 				local both = guideWorld(function(UI: FacetControls)
+					local guideEntries: { ButtonGuideEntry } = { { keys = { { "E" } }, label = "Buy" } }
 					return UI.ButtonGuide "Guide" {
 						inputs = { "Gamepad", "KeyboardAndMouse" },
-						entries = { { keys = { { "E" } }, label = "Buy" } } :: { ButtonGuideEntry },
+						entries = guideEntries,
 					}
 				end)
 				local shown = both.find("Guide")
@@ -100,8 +102,9 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_button_guide::no-flash",
 			run = function()
 				local w = guideWorld(function(UI: FacetControls)
+					local guideEntries: { ButtonGuideEntry } = { { keys = { { "E" } }, label = "Buy" } }
 					return UI.ButtonGuide "Guide" {
-						entries = { { keys = { { "E" } }, label = "Buy" } } :: { ButtonGuideEntry },
+						entries = guideEntries,
 					}
 				end)
 				local P = w.Enum.PreferredInput
@@ -183,8 +186,9 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local setting = Compose.cell(true)
 				local w = guideWorld(function(UI: FacetControls)
+					local guideEntries: { ButtonGuideEntry } = { { keys = { { "E" } }, label = "Buy" } }
 					return UI.ButtonGuide "Guide" {
-						entries = { { keys = { { "E" } }, label = "Buy" } } :: { ButtonGuideEntry },
+						entries = guideEntries,
 					}
 				end, { buttonGuides = setting })
 				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
@@ -197,8 +201,9 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 
 				local off = guideWorld(function(UI: FacetControls)
+					local guideEntries: { ButtonGuideEntry } = { { keys = { { "E" } }, label = "Buy" } }
 					return UI.ButtonGuide "Guide" {
-						entries = { { keys = { { "E" } }, label = "Buy" } } :: { ButtonGuideEntry },
+						entries = guideEntries,
 					}
 				end, { buttonGuides = false })
 				off.engine.environment.poke(off.input, "PreferredInput", off.Enum.PreferredInput.Gamepad)
@@ -211,7 +216,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_button_guide::live-entries",
 			run = function()
 				local buy: InputAction, back: InputAction
-				local entries = Compose.cell({} :: { ButtonGuideEntry })
+				local entries: Compose.Value<{ ButtonGuideEntry }> = Compose.cell({})
 				local label = Compose.cell("Buy")
 				local w = guideWorld(function(UI: FacetControls, _, engine: Engine)
 					buy, back = boundAction(engine, "Buy", "ButtonA"), boundAction(engine, "Back", "ButtonB")
@@ -253,9 +258,10 @@ return function(verifyHarness: Verify.Harness)
 						title = "Leave the race?",
 						actions = { { id = "Stay", label = "Stay", role = "cancel" } },
 					}
+					local guideEntries: { ButtonGuideEntry } = { { keys = { { "Y" } }, label = "Map" } }
 					return Host.Frame "Scene" {
 						UI.ButtonGuide "HudGuide" {
-							entries = { { keys = { { "Y" } }, label = "Map" } } :: { ButtonGuideEntry },
+							entries = guideEntries,
 						},
 						UI.Alert(leave),
 					}
@@ -307,6 +313,7 @@ return function(verifyHarness: Verify.Harness)
 					buy = boundAction(engine, "Buy", "ButtonA")
 					local guideEntries: { ButtonGuideEntry } =
 						{ { action = buy, label = "Buy" }, { keys = { { "LB" } }, label = "Tabs" } }
+					local actions: { OverlayAction } = { { id = "Done", label = "Done", onActivate = function() end } }
 					return UI.Sheet "Shop" {
 						isPresented = shown,
 						placement = "center",
@@ -318,7 +325,7 @@ return function(verifyHarness: Verify.Harness)
 								UI.Button "Wheels" { label = "Wheels" },
 							}
 						end,
-						actions = { { id = "Done", label = "Done", onActivate = function() end } } :: { OverlayAction },
+						actions = actions,
 						guide = {
 							entries = guideEntries,
 						},
@@ -362,13 +369,14 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_button_guide::sheet-alignment",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					local guideEntries: { ButtonGuideEntry } = { { keys = { { "LB" } }, label = "Tabs" } }
 					return UI.Sheet "Shop" {
 						isPresented = Compose.cell(true),
 						title = "Shop",
 						content = function(): Instance
 							return Host.TextLabel "Copy" { Text = "Pick a part." }
 						end,
-						guide = { entries = { { keys = { { "LB" } }, label = "Tabs" } } :: { ButtonGuideEntry } },
+						guide = { entries = guideEntries },
 						guideAlignment = "start",
 					}
 				end, { motionLevel = "none" })
@@ -405,8 +413,9 @@ return function(verifyHarness: Verify.Harness)
 				local w = guideWorld(function(UI: FacetControls, _, engine: Engine)
 					buy, binding = engine.new("InputAction"), engine.new("InputBinding")
 					binding.KeyCode = engine.types.Enum.KeyCode.ButtonA
+					local guideEntries: { ButtonGuideEntry } = { { action = buy, label = "Buy" } }
 					return UI.ButtonGuide "Guide" {
-						entries = { { action = buy, label = "Buy" } } :: { ButtonGuideEntry },
+						entries = guideEntries,
 					}
 				end)
 				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
@@ -425,7 +434,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("a keyCode entry draws the platform glyph, else the platform key name", {
 			id = "native_button_guide::key-code",
 			run = function()
-				local entries = Compose.cell({} :: { ButtonGuideEntry })
+				local entries: Compose.Value<{ ButtonGuideEntry }> = Compose.cell({})
 				local w = guideWorld(function(UI: FacetControls)
 					return UI.ButtonGuide "Guide" { entries = entries }
 				end)
@@ -513,6 +522,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local shown = Compose.cell(true)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					local guideEntries: { ButtonGuideEntry } = { { keys = { { "LB" } }, label = "Tabs" } }
 					return UI.Sheet "Shop" {
 						isPresented = shown,
 						detent = "medium",
@@ -520,7 +530,7 @@ return function(verifyHarness: Verify.Harness)
 						content = function(): Instance
 							return Host.TextLabel "Copy" { Text = "Pick a part." }
 						end,
-						guide = { entries = { { keys = { { "LB" } }, label = "Tabs" } } :: { ButtonGuideEntry } },
+						guide = { entries = guideEntries },
 					}
 				end, { motionLevel = "none" })
 				w.engine.environment.poke(w.find("Modal"), "AbsoluteSize", w.Vector2.new(800, 600))

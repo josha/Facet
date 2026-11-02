@@ -679,23 +679,27 @@ return function(verifyHarness: Verify.Harness)
 				local art: Frame = world.find("Card", items:FindFirstChild("art"))
 				local plain: Frame = world.find("Card", items:FindFirstChild("plain"))
 				for _, card in { art, plain } do
-					local surface = card.Parent :: Frame
+					local surface = card.Parent
+					assert(surface and surface:IsA("Frame"))
 					expect(surface.Name):toBe("Surface")
 					expect((surface:HasTag("facet-tablerow"))):toBe(false)
 					expect((surface:HasTag("facet-skinned"))):toBe(false)
 					expect(surface.BackgroundTransparency):toBe(1)
 					expect((card:FindFirstChild("Reveal"))):toBeNil()
 				end
-				local artSurface = art.Parent :: Frame
+				local artSurface = art.Parent
+				assert(artSurface and artSurface:IsA("Frame"))
+				local artBody = art:FindFirstChild("Body")
+				assert(artBody)
 				expect((artSurface:HasTag("facet-selected"))):toBe(true)
 				local chosen = paint(artSurface)
 				expect(chosen ~= nil):toBe(true)
-				expect(paint(art:FindFirstChild("Body") :: Instance)):toBe(chosen)
+				expect(paint(artBody)):toBe(chosen)
 				expect(paint(plain) == chosen):toBe(false)
 				selection:set({ plain = true })
 				expect((artSurface:HasTag("facet-selected"))):toBe(false)
 				expect(paint(plain)):toBe(chosen)
-				expect(paint(art:FindFirstChild("Body") :: Instance) == chosen):toBe(false)
+				expect(paint(artBody) == chosen):toBe(false)
 				world.stop()
 			end,
 		})

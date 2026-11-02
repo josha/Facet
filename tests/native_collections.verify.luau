@@ -10767,19 +10767,15 @@ return function(verifyHarness: Verify.Harness)
 						{ id = "artist", width = 100, priority = 1 },
 						{ id = "rating", width = 100, priority = 2 },
 					}
-					local columns = Compose.cell(definitions)
+					local columns: FixtureComposeTypes.Value<{ FixtureCollectionTypes.TableColumn<string, string> }> =
+						Compose.cell(definitions)
 					local spec: FixtureCollectionProps.IdentityTableSpec<string> = { from = {}, columns = columns }
 					local changes = 0
 					local prepared: createColumns.Columns<string, string>? = nil
 					local stop = runtime.mount(function()
 						local unitScale = Compose.cell(1)
-						local metrics = createMetrics(
-							ctx,
-							(spec :: unknown) :: FixtureCollectionTypes.TableShape<string, string>,
-							false,
-							unitScale,
-							Compose.cell({})
-						)
+						assert(spec.rowActions == nil)
+						local metrics = createMetrics(ctx, spec, false, unitScale, Compose.cell({}))
 						local layout = createColumns(
 							ctx,
 							spec,
@@ -10871,10 +10867,14 @@ return function(verifyHarness: Verify.Harness)
 					local function sample(expected: number)
 						local rowsOfCells: { Instance } = { header, cells }
 						for _, row_ in rowsOfCells do
-							local cell = row_:FindFirstChild("name") :: GuiObject
-							local constraint = cell:FindFirstChildWhichIsA("UISizeConstraint") :: UISizeConstraint
+							local cell = row_:FindFirstChild("name")
+							assert(cell and cell:IsA("GuiObject"))
+							local constraint = cell:FindFirstChildWhichIsA("UISizeConstraint")
+							assert(constraint)
+							local maxWidth = columns:peek()[1].maxWidth
+							assert(maxWidth)
 							expect(cell.Size.X.Offset):toBe(expected)
-							expect(constraint.MaxSize.X <= (columns:peek()[1].maxWidth :: number)):toBe(true)
+							expect(constraint.MaxSize.X <= maxWidth):toBe(true)
 							expect(constraint.MinSize.X):toBe(columns:peek()[1].minWidth)
 						end
 						expectSameColumns(header, cells, { "name" })

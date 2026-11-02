@@ -317,18 +317,19 @@ end, {
 add("tray-grows-with-text-size", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		local trailingActions: { RowAction } = {
+			{
+				id = "delete",
+				label = "Delete",
+				role = "destructive",
+				onActivate = function() end,
+			},
+		}
 		return UI.RowActions "Row" {
 			content = UI.Text { text = "Message", Size = UDim2.fromScale(1, 1) },
 			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
 			onOpenChange = function() end,
-			trailing = {
-				{
-					id = "delete",
-					label = "Delete",
-					role = "destructive" :: "destructive",
-					onActivate = function() end,
-				},
-			} :: { RowAction },
+			trailing = trailingActions,
 			Size = UDim2.fromOffset(360, 56),
 		}
 	end, { frames = 12 })
@@ -647,6 +648,9 @@ end, {
 add("shift-return-opens-row-menu", {}, function(t)
 	local value = { count = 0 }
 	local stage = t.mount(function(UI: FacetControls)
+		local trailingActions: { RowAction } = {
+			{ id = "delete", label = "Delete", role = "destructive", onActivate = function() end },
+		}
 		return UI.RowActions "Row" {
 			content = UI.Button "Content" {
 				label = "Message",
@@ -655,9 +659,7 @@ add("shift-return-opens-row-menu", {}, function(t)
 					value.count += 1
 				end,
 			},
-			trailing = {
-				{ id = "delete", label = "Delete", role = "destructive" :: "destructive", onActivate = function() end },
-			} :: { RowAction },
+			trailing = trailingActions,
 			Size = UDim2.fromOffset(360, 56),
 		}
 	end, { frames = 10 })

@@ -308,7 +308,7 @@ local radialItems: { Facet.RadialItem<string | boolean | nil> } = { radialSave }
 local radialSpec: Facet.RadialMenuSpec<string | boolean | nil> =
 	{ items = radialItems, holdAction = Instance.new("InputAction") }
 local radial: GuiObject = UI.RadialMenu "Radial"(radialSpec)
-local nestedItems = require("./radial_witness") :: { Facet.RadialItem<string | boolean | nil> }
+local nestedItems = require("./radial_witness")
 local nestedSpec: Facet.RadialMenuSpec<string | boolean | nil> = { items = nestedItems }
 local nestedRadial: GuiObject = UI.RadialMenu "NestedRadial"(nestedSpec)
 local okActions: { AlertAction } = { { id = "ok", label = "OK" } }

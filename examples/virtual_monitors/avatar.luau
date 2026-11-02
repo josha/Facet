@@ -62,10 +62,11 @@ return function(ctx: Context): (GuiObject, GuiObject)
 				return D2.new(1, 0, 0, if wide(use) then 48 else 32)
 			end,
 			Compose.show(wide, function()
+				local padding: Sides = { top = 5, left = 6, right = 6, bottom = 4 }
 				local plate = UI.VStack(id .. "Plate")({
 					width = "fill",
 					height = "fill",
-					padding = { top = 5, left = 6, right = 6, bottom = 4 } :: Sides,
+					padding = padding,
 					Host.UICorner { CornerRadius = ctx.D.new(0, 8) },
 					quiet(id .. "Label", title, "caption", {
 						TextWrapped = false,
@@ -140,8 +141,9 @@ return function(ctx: Context): (GuiObject, GuiObject)
 		end
 	end)
 	local function page(name: string, ...: Child): ScrollingFrame
+		local padding: Sides = { top = 16, left = 16, right = 24, bottom = 16 }
 		return UI.ScrollView(name)({
-			padding = { top = 16, left = 16, right = 24, bottom = 16 } :: Sides,
+			padding = padding,
 			gap = 10,
 			ScrollBarThickness = 5,
 			...,

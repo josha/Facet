@@ -110,7 +110,8 @@ return function(verifyHarness: Verify.Harness)
 					w.advance(1 / 60)
 					local fade = fadeKit.of(panel)
 					if fade < 1 then
-						at = at or (panel.Position :: UDim2)
+						local position: UDim2 = panel.Position
+						at = at or position
 						Verify.expect(panel.Position):toBe(at)
 					end
 					sawFading = sawFading or (fade > 0 and fade < 1)

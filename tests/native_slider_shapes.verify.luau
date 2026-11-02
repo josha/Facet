@@ -78,7 +78,8 @@ return function(verifyHarness: Verify.Harness)
 			return Facet.host(runtime).Frame({
 				Name = "Host",
 				Compose.show(w.visible, function()
-					return UI.Slider "Vol"(merged :: any)
+					local props: Facet.SliderProps = merged
+					return UI.Slider "Vol"(props)
 				end),
 			})
 		end, screen)

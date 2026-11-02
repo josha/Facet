@@ -3284,7 +3284,8 @@ return function(verifyHarness: Verify.Harness)
 				expect(skinHost.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
 				local decorations: { GuiObject } = { skin, label }
 				for _, decoration in decorations do
-					local bounds = decoration.Parent :: GuiObject
+					local bounds = decoration.Parent
+					assert(bounds and bounds:IsA("GuiObject"))
 					engine.environment.poke(
 						VerifyRoblox.assertInstance(bounds),
 						"AbsoluteSize",
@@ -3362,7 +3363,9 @@ return function(verifyHarness: Verify.Harness)
 								then engine.types.UDim2.fromOffset(80.25, 44.5)
 								else engine.types.UDim2.fromOffset(81, 45)
 						)
-						expect((decoration.Parent :: GuiObject).Size):toBe(engine.types.UDim2.fromOffset(1, 1))
+						local bounds = decoration.Parent
+						assert(bounds and bounds:IsA("GuiObject"))
+						expect(bounds.Size):toBe(engine.types.UDim2.fromOffset(1, 1))
 					end
 				end
 				local padding = node:FindFirstChildWhichIsA("UIPadding")

@@ -233,8 +233,9 @@ return function(verifyHarness: Verify.Harness)
 				local show = Compose.cell(true)
 				local world = worlds.new(function(UI: FacetControls)
 					return Compose.show(show, function()
+						local steps: { Step } = workflow()
 						return UI.StepIndicator "Steps" {
-							steps = workflow() :: { Step },
+							steps = steps,
 							current = "ship",
 							onSelect = function()
 								show:set(false)

@@ -971,7 +971,8 @@ return function(verifyHarness: Verify.Harness)
 					local refuse = Compose.cell(false)
 					local committed = Compose.cell("nothing yet")
 					local raceDay = Compose.cell(D(2026, 10, 4))
-					local window = Compose.cell({} :: Facet.CivilRange)
+					local initialRange: Facet.CivilRange = {}
+					local window = Compose.cell(initialRange)
 					local function accept(cell: any): (any) -> ()
 						return function(next: any)
 							if not refuse:peek() then
@@ -980,6 +981,16 @@ return function(verifyHarness: Verify.Harness)
 						end
 					end
 					local w = world(function(UI: FacetControls, Host: RobloxHost)
+						local presets: { DateRangePreset } = {
+							{
+								id = "week",
+								label = "This week",
+								range = function(today: CivilDate)
+									local start = civil.addDays(today, -((civil.weekday(today) + 5) % 7))
+									return { start = start, finish = civil.addDays(start, 6) }
+								end,
+							},
+						}
 						return Host.Frame {
 							Name = "Pickers",
 							Host.UIListLayout {},
@@ -1007,16 +1018,7 @@ return function(verifyHarness: Verify.Harness)
 								weekStart = 2,
 								placeholder = "Choose a start and an end",
 								clock = clock,
-								presets = {
-									{
-										id = "week",
-										label = "This week",
-										range = function(today: any)
-											local start = civil.addDays(today, -((civil.weekday(today) + 5) % 7))
-											return { start = start, finish = civil.addDays(start, 6) }
-										end,
-									},
-								} :: { DateRangePreset },
+								presets = presets,
 							},
 						}
 					end, { input = "touch" })

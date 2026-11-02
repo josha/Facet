@@ -51,7 +51,8 @@ local cases: { any } = {
 				local linkedTable = t.find(linked, "linked")
 				local folders = t.find(stage, "Folders")
 				local at, size = linked.AbsolutePosition, linked.AbsoluteSize
-				local divider = views:FindFirstChild("Resize") :: GuiObject
+				local divider = views:FindFirstChild("Resize")
+				assert(divider and divider:IsA("GuiObject"))
 				local dividerAt = divider.AbsolutePosition
 				local primary = t.find(stage, "primary")
 				local row = t.find(primary, "environments")

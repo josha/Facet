@@ -332,19 +332,20 @@ return function(verifyHarness: Verify.Harness)
 								return { use(generation) }
 							end,
 							render = function(): GuiObject
+								local actions: { OverlayAction } = {
+									{
+										id = "Again",
+										label = "Again",
+										onActivate = function(): ()
+											generation:set(generation:peek() + 1)
+											error("caller bug after rearm")
+										end,
+									},
+								}
 								return UI.Callout "Callout" {
 									anchor = anchor :: GuiObject,
 									content = tip(Host),
-									actions = {
-										{
-											id = "Again",
-											label = "Again",
-											onActivate = function(): ()
-												generation:set(generation:peek() + 1)
-												error("caller bug after rearm")
-											end,
-										},
-									} :: { OverlayAction },
+									actions = actions,
 									onRetire = function(
 										reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway"
 									)

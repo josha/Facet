@@ -386,11 +386,12 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_ported_behaviours::StepIndicator room::the underline sits below the copy, and a long description counts toward the fit",
 			run = function()
 				local w = world(function(UI)
+					local steps: { Step } = {
+						{ id = "a", label = "Cart" },
+						{ id = "b", label = "Ship", description = "Address and speed of delivery for the order" },
+					}
 					return UI.StepIndicator "Steps" {
-						steps = {
-							{ id = "a", label = "Cart" },
-							{ id = "b", label = "Ship", description = "Address and speed of delivery for the order" },
-						} :: { Step },
+						steps = steps,
 						current = "a",
 						sizing = "fill",
 					}

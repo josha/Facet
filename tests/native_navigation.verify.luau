@@ -3097,12 +3097,13 @@ return function(verifyHarness: Verify.Harness)
 							{
 								id = "a",
 								content = function(): Instance
+									local tabs: { Tab } = {
+										{ id = "x", label = "Swipe actions", content = Host.Frame "X" {} },
+										{ id = "y", label = "Permissions", content = Host.Frame "Y" {} },
+									}
 									return UI.TabView "Inner" {
 										selection = inner,
-										tabs = {
-											{ id = "x", label = "Swipe actions", content = Host.Frame "X" {} },
-											{ id = "y", label = "Permissions", content = Host.Frame "Y" {} },
-										} :: { Tab },
+										tabs = tabs,
 									}
 								end,
 							},
@@ -5074,47 +5075,49 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local selected = Compose.cell("a")
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					local sidebarTabs: { Tab } = {
+						{
+							id = "a",
+							section = "s",
+							content = function(): Instance
+								return Host.Frame {}
+							end,
+						},
+						{
+							id = "b",
+							section = "s",
+							content = function(): Instance
+								return Host.Frame {}
+							end,
+						},
+					}
+					local collapsedTabs: { Tab } = {
+						{
+							id = "a",
+							label = "Alpha",
+							content = function(): Instance
+								return Host.Frame {}
+							end,
+						},
+						{
+							id = "b",
+							label = "Beta",
+							content = function(): Instance
+								return Host.Frame {}
+							end,
+						},
+					}
 					return Host.Frame {
 						UI.TabView "Sidebar" {
 							selection = selected,
 							placement = "sidebar" :: "sidebar",
 							sections = { { id = "s", label = "Section" } },
-							tabs = {
-								{
-									id = "a",
-									section = "s",
-									content = function(): Instance
-										return Host.Frame {}
-									end,
-								},
-								{
-									id = "b",
-									section = "s",
-									content = function(): Instance
-										return Host.Frame {}
-									end,
-								},
-							} :: { Tab },
+							tabs = sidebarTabs,
 						},
 						UI.TabView "Collapsed" {
 							selection = selected,
 							style = "collapsible" :: "collapsible",
-							tabs = {
-								{
-									id = "a",
-									label = "Alpha",
-									content = function(): Instance
-										return Host.Frame {}
-									end,
-								},
-								{
-									id = "b",
-									label = "Beta",
-									content = function(): Instance
-										return Host.Frame {}
-									end,
-								},
-							} :: { Tab },
+							tabs = collapsedTabs,
 						},
 					}
 				end)

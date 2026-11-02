@@ -1294,11 +1294,12 @@ function browser.mount(opts: MountOpts)
 			controlSize = "compact",
 			Size = UDim2.fromScale(1, 0),
 		})
+		local padding: Sides = { top = "s", left = "s", right = "s" }
 		return UI.VStack "OutlineList" {
 			width = "fill",
 			height = "fill",
 			gap = "s",
-			padding = { top = "s", left = "s", right = "s" } :: Sides,
+			padding = padding,
 			search,
 			UI.Button "L_settings" {
 				label = "Settings",

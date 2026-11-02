@@ -187,8 +187,9 @@ return {
 				heading("SpacingTitle", copy.spacing),
 				UI.HStack "Gap" { gap = "xl", tile("A"), tile("B"), tile("C") },
 				(function()
+					local padding: Sides = { top = 8, bottom = 8, left = 32, right = 8 }
 					local padded = UI.VStack "Padding" {
-						padding = { top = 8, bottom = 8, left = 32, right = 8 } :: Sides,
+						padding = padding,
 						tile("Inset"),
 					}
 					padded:AddTag("facet-panel")

@@ -1786,7 +1786,9 @@ return function(verifyHarness: Verify.Harness)
 							words ..= node.Text
 						end
 					end
-					return words .. "|" .. tostring((button:FindFirstChild("LeadingIcon", true) :: GuiObject).Visible)
+					local icon = button:FindFirstChild("LeadingIcon", true)
+					assert(icon and icon:IsA("GuiObject"))
+					return words .. "|" .. tostring(icon.Visible)
 				end
 				expect((shown(world.find("map")))):toBe("|true")
 				expect((shown(world.find("wave")))):toBe("|true")

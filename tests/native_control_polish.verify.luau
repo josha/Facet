@@ -333,6 +333,22 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_control_polish::native selection paint::applies the selected state during the activation that causes it",
 			run = function()
 				local w = world(function(UI)
+					local tabs: { Tab } = {
+						{
+							id = "one",
+							label = "One",
+							content = function(): Instance
+								return UI.Text "OneBody" { text = "One" }
+							end,
+						},
+						{
+							id = "two",
+							label = "Two",
+							content = function(): Instance
+								return UI.Text "TwoBody" { text = "Two" }
+							end,
+						},
+					}
 					return UI.VStack "Column" {
 						UI.Picker "Segments" {
 							style = "segmented",
@@ -344,22 +360,7 @@ return function(verifyHarness: Verify.Harness)
 							selection = Compose.cell("one"),
 							indicator = "pill",
 							placement = "topBar",
-							tabs = {
-								{
-									id = "one",
-									label = "One",
-									content = function(): Instance
-										return UI.Text "OneBody" { text = "One" }
-									end,
-								},
-								{
-									id = "two",
-									label = "Two",
-									content = function(): Instance
-										return UI.Text "TwoBody" { text = "Two" }
-									end,
-								},
-							} :: { Tab },
+							tabs = tabs,
 						},
 					}
 				end)
@@ -487,10 +488,11 @@ return function(verifyHarness: Verify.Harness)
 				local styleRules = require("./lib/style_rules")
 				local w = world(function(UI, _, engine)
 					local boost = engine.new("InputAction")
+					local action: InputAction = boost
 					local binding = engine.new("InputBinding")
 					binding.KeyCode = engine.types.Enum.KeyCode.E
 					engine.environment.poke(boost, "PreferredBinding", binding)
-					local plate = UI.HStack "Plate" { UI.ShortcutHint "Cap" { action = boost :: InputAction } }
+					local plate = UI.HStack "Plate" { UI.ShortcutHint "Cap" { action = action } }
 					plate:AddTag("facet-accent")
 					return UI.HStack {
 						UI.Button "Race" {

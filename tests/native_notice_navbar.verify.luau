@@ -197,6 +197,16 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local pressed: { string } = {}
 				local w = mount(function(UI: FacetControls)
+					local actions: { OverlayAction } = {
+						{
+							id = "Retry",
+							label = "Retry",
+							role = "default",
+							onActivate = function()
+								table.insert(pressed, "Retry")
+							end,
+						},
+					}
 					return UI.Notice "Sync" {
 						message = "Your changes are not synced",
 						link = {
@@ -205,16 +215,7 @@ return function(verifyHarness: Verify.Harness)
 								table.insert(pressed, "Details")
 							end,
 						},
-						actions = {
-							{
-								id = "Retry",
-								label = "Retry",
-								role = "default" :: "default",
-								onActivate = function()
-									table.insert(pressed, "Retry")
-								end,
-							},
-						} :: { OverlayAction },
+						actions = actions,
 					}
 				end)
 				local notice = w.find("Sync")
@@ -275,17 +276,18 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local pressed = 0
 				local w = mount(function(UI: FacetControls)
+					local actions: { OverlayAction } = {
+						{
+							id = "Retry",
+							label = "Retry",
+							onActivate = function()
+								pressed += 1
+							end,
+						},
+					}
 					return UI.Notice "Sync" {
 						message = "Not synced",
-						actions = {
-							{
-								id = "Retry",
-								label = "Retry",
-								onActivate = function()
-									pressed += 1
-								end,
-							},
-						} :: { OverlayAction },
+						actions = actions,
 					}
 				end)
 				local retry = w.find("Retry")
