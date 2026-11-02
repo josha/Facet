@@ -13,12 +13,14 @@ return function(UI: Facet.Controls)
 	local spatial: (Facet.SpatialGridSpec<string, string>) -> Frame = UI.SpatialGrid "Inventory"
 	local menu: (Facet.MenuSpec<string>) -> GuiObject = UI.Menu "Commands"
 	local split: (Facet.SplitButtonSpec<string>) -> Frame = UI.SplitButton "Actions"
-	local alert: (Facet.AlertSpec<unknown>) -> Frame = UI.Alert "Confirm"
+	local alertSpec: Facet.AlertSpec<unknown> = { isPresented = Facet.Compose.cell(false), actions = {} }
+	local alert: Frame = UI.Alert "Confirm"(alertSpec)
 	local navigation: (Facet.NavigationStackSpec<string>) -> Frame = UI.NavigationStack "Pages"
 	local radial: Controls.RadialMenuBuilder = UI.RadialMenu
 	local direct: TextButton = UI.Button { label = "Save" }
 	local named: TextButton = UI.Button "Save" { label = "Save" }
-	local generic: Frame = (UI.Alert "Confirm")<<unknown>> {
+	local generic: Frame = UI.Alert "Confirm" {
+		title = "Leave this match?",
 		isPresented = Facet.Compose.cell(false),
 		actions = {},
 	}
