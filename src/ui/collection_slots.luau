@@ -11,11 +11,7 @@ export type Slots<V, K> = {
 		(ComposeTypes.ReadOnlyValue<V>, ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>, K) -> GuiObject
 	) -> (ComposeTypes.ReadOnlyValue<Slot<V, K>>, ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>, K) -> GuiObject,
 }
-return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>?
-	if view.spec.slots == nil then
-		assert(view.spec.slotControls == nil, "Facet collection slotControls requires slots")
-		return nil
-	end
+return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 	local Compose, Host = ctx.Compose, ctx.Host
 	local read = ctx.read
 	local D2 = ctx.types.UDim2
@@ -31,16 +27,24 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>?
 		end)
 	end
 	type SlotRecord = { key: K, item: V? }
-	local itemsByKey = Compose.formula(function(use: ComposeTypes.Use): { [K]: V }
-		local items: { [K]: V } = {}
-		for index, item in source(use) do
-			items[keyOf(item, index)] = item
-		end
-		return items
-	end)
+	local itemsByKey: ComposeTypes.ReadOnlyValue<{ [K]: V }>? = if spec.slots ~= nil
+		then Compose.formula(function(use: ComposeTypes.Use): { [K]: V }
+			local items: { [K]: V } = {}
+			for index, item in source(use) do
+				items[keyOf(item, index)] = item
+			end
+			return items
+		end)
+		else nil
 	local slotSource = Compose.formula(function(use: ComposeTypes.Use): { SlotRecord }
 		local result: { SlotRecord } = {}
 		local rows = source(use)
+		if itemsByKey == nil then
+			for index, item in rows do
+				table.insert(result, { key = keyOf(item, index), item = item })
+			end
+			return result
+		end
 		local items = use(itemsByKey)
 		local included: { [K]: boolean } = {}
 		for _, key in read(spec.slots or {}, use) do
@@ -56,7 +60,7 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>?
 		end
 		return result
 	end, function(before: { SlotRecord }?, after: { SlotRecord }): boolean
-		if before == nil or #before ~= #after then
+		if before == nil or spec.slots == nil or #before ~= #after then
 			return false
 		end
 		for index, entry in before do
@@ -76,8 +80,18 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>?
 			placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
 			key: K
 		)
+			if spec.slots == nil then
+				return renderItem(
+					Compose.formula(function(use: ComposeTypes.Use): V
+						return assert(use(record).item)
+					end),
+					placement,
+					key
+				)
+			end
+			local index = assert(itemsByKey)
 			local itemForKey = Compose.formula(function(use: ComposeTypes.Use): V?
-				return use(itemsByKey)[key]
+				return use(index)[key]
 			end)
 			local last = record:peek().item
 			local current = Compose.formula(function(use: ComposeTypes.Use): V
