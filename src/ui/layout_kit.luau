@@ -1,6 +1,5 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
-local bindThemes = require("./themes")
 local Shared = require("./types")
 local extentMatch = require("./extent_match")
 local sizeFloor = require("./size_floor")
@@ -52,7 +51,6 @@ end
 function layoutKit.attach(ctx: Shared.Context): Kit
 	local Host, read, types, config, Compose, runtime =
 		ctx.Host, ctx.read, ctx.types, ctx.config, ctx.Compose, ctx.runtime
-	local themes = bindThemes(Compose)
 	local Enum = types.Enum
 	local kit = {} :: Kit
 	local function live(value: unknown): boolean
@@ -565,7 +563,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				return read(flow.align, use) == "stretch"
 			end)
 		end
-		if flow.wrap ~= nil then
+		if flow.wrap ~= nil and flow.wrap ~= false then
 			local content = ctx.observe.AbsoluteContentSize(list)
 			local unit = ctx.layoutUnit(frame, "WrapUnit")
 			local liftX, liftY = kit.lifter(frame, "x"), kit.lifter(frame, "y")
