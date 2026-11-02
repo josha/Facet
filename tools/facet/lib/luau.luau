@@ -9,7 +9,7 @@ export type Location = {
 	endColumn: number,
 }
 
-export type Node = { [string]: unknown }
+export type Node = { [string | number]: unknown }
 
 export type Trivia = { tag: string, text: string, location: Location }
 
@@ -151,33 +151,26 @@ function Luau.walk(root: Node, visit: (Node) -> boolean)
 		if Luau.kind(node) ~= "" and not visit(node) then
 			return
 		end
-		local keys: { string } = {}
-		local numbered: { Node } = {}
-		for key, value in next, node do
-			if type(value) == "table" then
-				if type(key) == "string" then
-					if
-						not SKIPPED[key]
-						and key ~= "location"
-						and key ~= "leadingTrivia"
-						and key ~= "trailingTrivia"
-					then
-						table.insert(keys, key)
-					end
-				elseif type(key) == "number" then
-					numbered[key] = value :: Node
-				end
-			end
-		end
 		local index = 1
-		while numbered[index] ~= nil do
-			descend(numbered[index])
+		local child = Luau.node(node[index])
+		while child ~= nil do
+			descend(child)
 			index += 1
+			child = Luau.node(node[index])
 		end
-		for _, key in keys do
-			local child = Luau.node(node[key])
-			if child ~= nil then
-				descend(child)
+		for key, value in next, node do
+			if
+				type(key) == "string"
+				and type(value) == "table"
+				and not SKIPPED[key]
+				and key ~= "location"
+				and key ~= "leadingTrivia"
+				and key ~= "trailingTrivia"
+			then
+				local child = Luau.node(value)
+				if child ~= nil then
+					descend(child)
+				end
 			end
 		end
 	end
