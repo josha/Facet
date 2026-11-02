@@ -33,7 +33,8 @@ chapters as reference, not as a second required reading path.
   1. The Roblox engine API reference in
      [creator-docs](https://github.com/Roblox/creator-docs/tree/main/content/en-us/reference/engine).
      Use the native API first and extend it when it falls short.
-  2. Compose (`src/vendor/compose` and its `references/api.md`). Use what it
+  2. Compose (`src/vendor/compose` and the pinned Compose skill reference
+     `skills/compose/references/api.md`). Use what it
      already provides. When Compose is the right home for a missing general
      mechanism, add it upstream in [Compose](https://github.com/voidmeld/compose)
      with a pull request, then re-pin with `lute run tools/facet sync compose`.

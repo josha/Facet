@@ -232,6 +232,21 @@ Screenshots do not prove reachability; simulated dimensions do not prove handhel
 readability. Record the actual build, device, inputs and paths tested.
 Fix shared layout or control causes before copying the pattern elsewhere.
 
+## Reference chapters
+
+These chapters give more detail about one subject. They are optional. Read a
+chapter only when the task needs that subject. The skill's task table stays the
+reading route.
+
+- [Game flows](game-ui/GAME_FLOWS_AND_INFORMATION.md): pace and information need across a flow.
+- [Layout and navigation](game-ui/LAYOUT_AND_NAVIGATION.md): the relationship between surfaces, location and return.
+- [Collections and actions](game-ui/COLLECTIONS_AND_ACTIONS.md): how to represent records and act on them.
+- [Choices and input](game-ui/CHOICES_AND_INPUT.md): how to expose a decision and collect a value.
+- [Surfaces and feedback](game-ui/SURFACES_INFORMATION_AND_FEEDBACK.md): what interrupts, what stays and how a result shows.
+- [Input, focus and access](game-ui/INPUT_FOCUS_AND_ACCESS.md): how each input reaches the same task.
+- [Motion and feedback](game-ui/MOTION_AND_FEEDBACK.md): motion that explains a change.
+- [Adaptive manipulation](game-ui/ADAPTIVE_INTERACTION_AND_DIRECT_MANIPULATION.md): move, reorder, resize and adjust across inputs.
+
 ## Design sources
 
 These sources explain the reasoning. Use the Facet API nodes for implementation.

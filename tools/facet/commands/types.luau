@@ -31,7 +31,7 @@ local USAGE = [[usage: lute run tools/facet types [--solver new] [--flag KEY=VAL
 
 The complete check type checks every tracked and untracked Luau file that Git does not
 ignore, in each Rojo project context, in the Designer plugin context and in the Lute
-context (tools/facet, tests/tools, tools/lute and the vendored Verify Lute runtime). It
+context (tools/facet, tests/tools, tests/lute, tools/lute and the vendored Verify Lute runtime). It
 requires strict directives, zero blocking diagnostics and the rejection of every public
 negative probe. Analysis uses the current Luau solver.
 

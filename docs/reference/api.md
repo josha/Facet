@@ -1,5 +1,10 @@
 # Facet documentation
 
+Start with the [documentation map](nodes/Map.md). It routes each task to a short
+recipe or control node. With a shell, run `lute run tools/facet docs` to read the
+map, or `lute run tools/facet docs --search TEXT` to find a name. This page
+summarizes entry points and types that several nodes share.
+
 Theme readers accept `Facet.ReadOnlyThemePackage`, the shallow readonly view of
 `Facet.ThemePackage`. Theme authoring keeps the mutable package type. A frozen
 package does not need a copy before a control reads it.
@@ -11,8 +16,6 @@ The returned `Facet.Sequence` has `play`, `cancel`, `finish`, `running` and
 `completed`. See [effect sequences](nodes/Effect-sequences.md) for restoration,
 motion policy and theme tokens.
 
-Open the [documentation map](nodes/Map.md).
-
 `UI.draggable` accepts a GuiObject, BasePart, or Model. For world sources, use
 `Facet.WorldDragOptions` in `spec.world`. Targets can supply `worldPlacement`,
 which also appears in `DropInfo`. See [world drag and drop](nodes/draggable-and-dropTarget.world.md).
@@ -23,7 +26,6 @@ Set target `placement` to supply the same logical `DropInfo.placement` as Spatia
 
 `Facet.composeDesign()` returns the `Facet.DesignStudioKit` that the Compose Design Studio plugin opens. It loads the design editor on first use and gives the plugin the Facet controls, the theme StyleSheet around the staged design, Phone, Tablet, Desktop and Console sizes, and Theme and Text size previews. `Facet.DesignField` types one field of a design kind. `Facet.tag(instance, tags)` adds style tags to an instance and returns it; Compose Design emits it for a node's style tags. A game's own design tokens reach the library through `Facet.design().library({ ..., tokens = { path = "T.", require = 'local T = require(...)' } })`: colors, numbers, gaps, padding, widths and heights accept `{ token = "space.md" }`, and the source writes `T.space.md` with the require in its prelude.
 See [Design library](nodes/Design-library.md).
-Run `lute run tools/facet docs` to read the map.
 
 `Facet.review.screen(options?)` reads the live screen and reports design
 patterns that make it look generic, such as facts joined in one text and

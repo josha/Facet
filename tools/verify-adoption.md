@@ -12,7 +12,7 @@ policy and small bindings.
   verdict. `tools/facet/lib/gate.luau` adds the tier names, the deferral policy and
   the build identity.
 - The `suite` producer is a `tests` producer. Verify runs each source in its
-  own Lute worker, four at a time, with a deadline for each source and a
+  own Lute worker, up to eight at a time within the CPU and memory limits, with a deadline for each source and a
   run-bound receipt. `tests/plan.json` lists the sources. There is no committed
   case list. A source that reports no case or a duplicate case fails the
   producer.
