@@ -1,5 +1,5 @@
 [tools]
 rojo = "rojo-rbx/rojo@7.7.0"
-luau-lsp = "JohnnyMorganz/luau-lsp@1.69.0"
+luau-lsp = "JohnnyMorganz/luau-lsp@1.70.1"
 lute = "luau-lang/lute@1.0.1-nightly.20261006"
 stylua = "JohnnyMorganz/StyLua@2.5.2"
