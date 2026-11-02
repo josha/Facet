@@ -1356,7 +1356,7 @@ function browser.mount(opts: MountOpts)
 				local function open()
 					state.compactPath:set({ { id = "page" } })
 				end
-				return UI.NavigationStack "Browse" {
+				return UI.NavigationStack({
 					path = state.compactPath,
 					backLabel = "Controls",
 					Size = UDim2.fromScale(1, 1),
@@ -1391,7 +1391,7 @@ function browser.mount(opts: MountOpts)
 							end,
 						},
 					},
-				}
+				}, "Browse")
 			end),
 		}
 	end

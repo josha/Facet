@@ -1302,7 +1302,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 						end,
 					},
 				}
-				local savedTable = UI.Table "SavedGames" {
+				local savedTable = UI.Table<<Game, string>>({
 					from = model.savedGames,
 					key = "id",
 					selection = model.savedSelection,
@@ -1321,7 +1321,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 					end,
 					Size = D2.fromScale(1, 1),
 					columns = savedColumns,
-				}
+				}, "SavedGames")
 				return feedFrame(savedTable)
 			end),
 		}

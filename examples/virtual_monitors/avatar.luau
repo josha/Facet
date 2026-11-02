@@ -332,12 +332,12 @@ return function(ctx: Context): (GuiObject, GuiObject)
 										end,
 										enabled = model.hat,
 									},
-									UI.RadialMenu "QuickPalette" {
+									UI.RadialMenu<<string>>({
 										label = "Quick accent",
 										appearance = "buttons",
 										Size = D2.new(1, 0, 0, 44),
 										items = accentItems,
-									},
+									}, "QuickPalette"),
 								}
 							end,
 						},

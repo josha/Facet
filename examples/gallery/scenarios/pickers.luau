@@ -246,8 +246,8 @@ return {
 					value = raceDay,
 					onChange = accept(raceDay),
 					onCommit = recordDate,
-					min = { year = 2026, month = 3, day = 1 },
-					max = { year = 2027, month = 11, day = 30 },
+					min = { year = 2026, month = 3, day = 1 } :: CivilDate,
+					max = { year = 2027, month = 11, day = 30 } :: CivilDate,
 					isDateDisabled = function(d: CivilDate): boolean
 						return d.day == 13
 					end,

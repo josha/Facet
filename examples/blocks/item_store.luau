@@ -121,7 +121,7 @@ return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 		},
 		UI.VirtualGrid "Items"(itemsSpec),
 		UI.Text "Result" { text = message, textRole = "body", wrap = true },
-		UI.Alert "ConfirmPurchase"(alertSpec),
+		UI.Alert<<Item>>(alertSpec, "ConfirmPurchase"),
 		UI.Toast "PurchaseToast" {
 			message = confirmation,
 			isPresented = purchased,

@@ -660,7 +660,7 @@ add("color-swatch-square-cells", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		open = Compose.cell(false)
 		local value = Compose.cell(Color3.fromRGB(255, 196, 0))
-		local swatches: { Color3 | { color: Color3, label: string? } } =
+		local swatches: { Color3 | { read color: Color3, read label: string? } } =
 			{ { color = Color3.fromRGB(255, 196, 0) }, { color = Color3.fromRGB(20, 20, 24) } }
 		return UI.ColorPicker "Trim" {
 			Position = UDim2.fromOffset(40, 40),

@@ -383,7 +383,7 @@ return function(ctx: ExampleContext, options: Options)
 			local sort: Value<{ column: string, direction: "ascending" | "descending" }?> = Compose.cell(unsorted)
 			local noWidths: { [string]: number } = {}
 			local widths: Value<{ [string]: number }> = Compose.cell(noWidths)
-			local tableView = UI.Table "Collection" {
+			local tableView = UI.Table<<Row, string>>({
 				from = rows,
 				key = "id",
 				LayoutOrder = 2,
@@ -404,7 +404,7 @@ return function(ctx: ExampleContext, options: Options)
 				alternatingRows = if options.editable then true else nil,
 				onCellChange = if options.editable then onCellChange else nil,
 				columns = options.columns or mailColumns,
-			}
+			}, "Collection")
 			Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill }.Parent = tableView
 			collection = tableView
 			local found = tableView:FindFirstChild("Body", true)

@@ -10768,7 +10768,7 @@ return function(verifyHarness: Verify.Harness)
 						{ id = "rating", width = 100, priority = 2 },
 					}
 					local columns = Compose.cell(definitions)
-					local spec: FixtureCollectionProps.IdentityTableSpec<string> = { from = {}, columns = columns }
+					local spec: FixtureCollectionTypes.TableShape<string, string> = { from = {}, columns = columns }
 					local changes = 0
 					local prepared: createColumns.Columns<string, string>? = nil
 					local stop = runtime.mount(function()

@@ -538,10 +538,10 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 									farm.marketOpen:set(true)
 								end,
 							},
-							UI.RadialMenu "QuickTools" {
+							UI.RadialMenu<<"harvest" | "plant" | "plow">>({
 								label = "Tools",
 								items = toolItems,
-							},
+							}, "QuickTools"),
 						},
 						UI.HStack "Settings" {
 							LayoutOrder = 2,
