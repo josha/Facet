@@ -58,7 +58,7 @@ return function(verifyHarness: Verify.Harness)
 					{ name = "control-motion", samples = 160, warmup = 40 },
 					{ name = "theme-swap-assets", samples = 160, warmup = 40 },
 					{ name = "lab-dense-scroll", samples = 120, warmup = 30 },
-					{ name = "lab-collection-churn", samples = 100, warmup = 25 },
+					{ name = "lab-collection-churn", samples = 600, warmup = 25 },
 					{ name = "adaptive-navigation-images", samples = 120, warmup = 20 },
 					{ name = "navigation-customization", samples = 120, warmup = 20 },
 					{ name = "alert-present-dismiss", samples = 120, warmup = 30 },
