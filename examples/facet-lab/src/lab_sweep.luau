@@ -442,11 +442,7 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 		local delivered = false
 		local connections: { RBXScriptConnection } = {}
 		for _, node in playerGui:GetDescendants() do
-			if
-				(node.Name == "DismissOutside" or node.Name == "DismissTarget")
-				and node:IsA("GuiButton")
-				and shown(node)
-			then
+			if node.Name == "DismissOutside" and node:IsA("GuiButton") and shown(node) then
 				table.insert(
 					connections,
 					node.Activated:Connect(function()
