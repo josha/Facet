@@ -28,15 +28,6 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
 end
 
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
-end
-
 local function box(Host: any, name: string, w: number, h: number, extra: { [string]: any }?): Frame
 	local props: { [string]: any } = { Name = name, Size = UDim2.fromOffset(w, h) }
 	for key, value in (extra or {} :: { [string]: any }) do
@@ -500,7 +491,7 @@ add("sibling-order-and-hit-testing", {}, function(t)
 			},
 		}
 	end, { size = Vector2.new(800, 600), frames = 20 })
-	local panel = visibleNamed(t, stage, "AlertPanel")
+	local panel = t:visibleNamed(stage, "AlertPanel")
 	if panel then
 		t.stable(panel)
 		local behind = t.find(stage, "Behind")
@@ -512,7 +503,7 @@ add("sibling-order-and-hit-testing", {}, function(t)
 			scrimAt ~= nil and (behindAt == nil or scrimAt < behindAt),
 			hits
 		)
-		local scrim = visibleNamed(t, stage, "DismissTarget")
+		local scrim = t:visibleNamed(stage, "DismissTarget")
 		t.check(
 			"the panel paints above its scrim",
 			scrim ~= nil and panel.ZIndex > scrim.ZIndex,

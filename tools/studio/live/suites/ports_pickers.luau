@@ -52,15 +52,6 @@ local function selectedName(): string
 	return if selected then selected.Name else "nil"
 end
 
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
-end
-
 local function overlap(a: any, b: any): boolean
 	local w = math.min(a.r, b.r) - math.max(a.x, b.x)
 	local h = math.min(a.b, b.b) - math.max(a.y, b.y)
@@ -1194,7 +1185,7 @@ local function datePicker(
 end
 
 local function surfaceOf(t: any, layer: any): any
-	local surface = visibleNamed(t, layer, "CalendarSurface")
+	local surface = t:visibleNamed(layer, "CalendarSurface")
 	if surface then
 		t.stable(surface)
 	end
@@ -1423,7 +1414,7 @@ interactive(
 		openNow(t)
 		local layer = layerOf(stage)
 		surfaceOf(t, layer)
-		local days = partOf(visibleNamed(t, layer, "Pane1"), "Days")
+		local days = partOf(t:visibleNamed(layer, "Pane1"), "Days")
 		value.start = gridIndex(t, 2026, 9, 16)
 		value.days = days
 		if not found(t, "the open calendar Days grid was found", { "days" }, { days = days }) then
@@ -1476,7 +1467,7 @@ interactive(
 			openNow(t)
 			local layer = layerOf(stage)
 			surfaceOf(t, layer)
-			value.days = partOf(visibleNamed(t, layer, "Pane1"), "Days")
+			value.days = partOf(t:visibleNamed(layer, "Pane1"), "Days")
 			GuiService.SelectedObject = if value.days then value.days:FindFirstChild(`D{s}`) else nil
 			t.settle(4)
 			watchSelection(value)
@@ -1525,8 +1516,8 @@ interactive(
 
 local function phoneChecks(t: any, where: string, root: any, layer: any, portrait: boolean)
 	local surface = surfaceOf(t, layer)
-	local apply = if surface then visibleNamed(t, surface, "Apply") else nil
-	local days = if surface then partOf(visibleNamed(t, surface, "Pane1"), "Days") else nil
+	local apply = if surface then t:visibleNamed(surface, "Apply") else nil
+	local days = if surface then partOf(t:visibleNamed(surface, "Pane1"), "Days") else nil
 	if
 		not found(
 			t,
@@ -1946,7 +1937,7 @@ interactive(
 	{
 		afterReturn = function(t, value)
 			t.settle(10)
-			local panel = visibleNamed(t, value.layer, "MenuPanel")
+			local panel = t:visibleNamed(value.layer, "MenuPanel")
 			if not panel then
 				t.check("the Year menu opened", false)
 				return
@@ -2273,7 +2264,7 @@ add("picker-menu-scroll-live", {}, function(t)
 	GuiService.SelectedObject = trigger
 	value.open:set(true)
 	t.settle(20)
-	local panel = visibleNamed(t, stage, "MenuPanel")
+	local panel = t:visibleNamed(stage, "MenuPanel")
 	if not found(t, "the Driver menu opened", { "panel" }, { panel = panel }) then
 		return
 	end
@@ -2329,7 +2320,7 @@ interactive(
 		local stage = driverPicker(t, "d3", value)
 		value.open:set(true)
 		t.settle(20)
-		local panel = visibleNamed(t, stage, "MenuPanel")
+		local panel = t:visibleNamed(stage, "MenuPanel")
 		local row = if panel then partOf(panel, "d2") else nil
 		local avatar = partOf(row, "Avatar")
 		if
@@ -2776,8 +2767,8 @@ end
 
 local function openPanel(t: any, layer: any): any
 	t.settle(12)
-	local modal = visibleNamed(t, layer, "ColorPickerModal")
-	local panel = if modal then visibleNamed(t, modal, "Panel") else nil
+	local modal = t:visibleNamed(layer, "ColorPickerModal")
+	local panel = if modal then t:visibleNamed(modal, "Panel") else nil
 	if panel then
 		t.stable(panel)
 	end
@@ -2887,7 +2878,7 @@ add("color-first-visit", {}, function(t)
 		}
 	do
 		local picker = assert(panel:FindFirstChild(visit[1], true))
-		local button = assert(visibleNamed(t, picker, visit[2]), `visible {visit[2]} option was not found`) :: GuiButton
+		local button = assert(t:visibleNamed(picker, visit[2]), `visible {visit[2]} option was not found`) :: GuiButton
 		local activated = false
 		local activation = button.Activated:Connect(function()
 			activated = true
@@ -3407,7 +3398,7 @@ add("color-touch-bubble-room", {}, function(t)
 	assert(inlineValue):set(Color3.new(1, 1, 1))
 	assert(sheetValue):set(Color3.new(1, 1, 1))
 	t.settle(8)
-	local sheetModal = visibleNamed(t, layer, "ColorPickerModal")
+	local sheetModal = t:visibleNamed(layer, "ColorPickerModal")
 	local inlineRoot = t.find(stage, "Inline")
 	for _, entry in
 		{
@@ -3498,7 +3489,7 @@ add("color-phone-sheet-apply-on-screen", {}, function(t)
 			local well = partOf(root, "Well")
 			opens[mode]:set(true)
 			local panel = openPanel(t, layer)
-			local apply = if panel then visibleNamed(t, panel, "Apply") else nil
+			local apply = if panel then t:visibleNamed(panel, "Apply") else nil
 			local readout = if panel then partOf(panel, "Readout") else nil
 			if
 				found(
@@ -3624,8 +3615,8 @@ add("dtp-ten-foot", {}, function(t)
 		end
 	)
 	local surface = surfaceOf(t, layer)
-	local modal = visibleNamed(t, layer, "CalendarModal")
-	local done = if surface then visibleNamed(t, surface, "Done") else nil
+	local modal = t:visibleNamed(layer, "CalendarModal")
+	local done = if surface then t:visibleNamed(surface, "Done") else nil
 	if
 		not found(t, "the ten-foot calendar, its modal and Done were found", { "surface", "modal", "done" }, {
 			surface = surface,
@@ -3668,7 +3659,7 @@ interactive(
 			end
 		)
 		value.stage, value.root, value.layer = stage, root, layer
-		value.open = if root then visibleNamed(t, root, "Open") else nil
+		value.open = if root then t:visibleNamed(root, "Open") else nil
 		if not found(t, "the calendar icon was found", { "open" }, { open = value.open }) then
 			return value
 		end
@@ -3696,7 +3687,7 @@ interactive(
 		end,
 		afterBack = function(t, value)
 			t.settle(12)
-			t.check("ButtonB closes the calendar", visibleNamed(t, value.layer, "CalendarSurface") == nil)
+			t.check("ButtonB closes the calendar", t:visibleNamed(value.layer, "CalendarSurface") == nil)
 			t.check(
 				"the selection returns to the calendar icon",
 				GuiService.SelectedObject == value.open,
@@ -3759,7 +3750,7 @@ interactive(
 		end,
 		afterBack = function(t, value)
 			t.settle(12)
-			t.check("ButtonB closes the colour panel", visibleNamed(t, value.layer, "ColorPickerModal") == nil)
+			t.check("ButtonB closes the colour panel", t:visibleNamed(value.layer, "ColorPickerModal") == nil)
 			t.check("the selection returns to the well", GuiService.SelectedObject == value.target, selectedName())
 			GuiService.SelectedObject = nil
 		end,
@@ -3789,9 +3780,9 @@ interactive(
 		openNow(t)
 		local layer = layerOf(stage)
 		local panel = openPanel(t, layer)
-		local modal = visibleNamed(t, layer, "ColorPickerModal")
-		local done = if panel then visibleNamed(t, panel, "Done") else nil
-		local surface = if panel then visibleNamed(t, panel, "Surface") else nil
+		local modal = t:visibleNamed(layer, "ColorPickerModal")
+		local done = if panel then t:visibleNamed(panel, "Done") else nil
+		local surface = if panel then t:visibleNamed(panel, "Surface") else nil
 		if
 			not found(
 				t,

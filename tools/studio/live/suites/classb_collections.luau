@@ -963,10 +963,6 @@ add("plate-decoration-stays-inside-the-band", {}, function(t)
 	end
 end)
 
-local function within(node: Instance?, root: Instance?): boolean
-	return node ~= nil and root ~= nil and (node == root or node:IsDescendantOf(root))
-end
-
 local function screenCenter(node: any): { number }
 	local inset = GuiService:GetGuiInset()
 	local center = node.AbsolutePosition + node.AbsoluteSize / 2

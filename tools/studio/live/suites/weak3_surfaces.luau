@@ -41,15 +41,6 @@ local function interactive(
 	table.insert(cases, { id = id, contracts = contracts, plan = plan, setup = setup, steps = steps })
 end
 
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
-end
-
 local function layerOf(stage: any): any
 	return stage:FindFirstAncestorWhichIsA("LayerCollector")
 end
@@ -256,7 +247,7 @@ add("dialog-actions-stack-and-row", {}, function(t)
 				UI.Dialog "Confirm"(spec),
 			}
 		end, { size = Vector2.new(1280, 720), frames = 30 })
-		local panel = visibleNamed(t, stage, "Panel")
+		local panel = t:visibleNamed(stage, "Panel")
 		local actions = panel and partOf(panel, "Actions")
 		local a = actions and partOf(actions, "A")
 		local b = actions and partOf(actions, "B")
@@ -317,7 +308,7 @@ add("picker-panel-widest-row", {}, function(t)
 	end, { size = Vector2.new(1280, 720), frames = 20 })
 	open:set(true)
 	t.settle(20)
-	local panel = visibleNamed(t, stage, "MenuPanel")
+	local panel = t:visibleNamed(stage, "MenuPanel")
 	if found(t, "desktop: the menu panel opened", { "panel" }, { panel = panel }) then
 		t.stable(panel)
 		local p = t.rect(panel)
@@ -603,7 +594,7 @@ add("dtp-draft-footer-rects", {}, function(t)
 	open:set(true)
 	t.settle(20)
 	local layer = layerOf(stage)
-	local surface = visibleNamed(t, layer, "CalendarSurface")
+	local surface = t:visibleNamed(layer, "CalendarSurface")
 	local actions = surface and partOf(surface, "Actions")
 	local nodes = {
 		surface = surface,
@@ -669,7 +660,7 @@ add("color-swatch-square-cells", {}, function(t)
 	open:set(true)
 	t.settle(20)
 	local layer = layerOf(stage)
-	local grid = visibleNamed(t, layer, "Swatches")
+	local grid = t:visibleNamed(layer, "Swatches")
 	if found(t, "the swatch grid was found", { "grid" }, { grid = grid }) then
 		t.stable(grid)
 		local cells = {}
@@ -747,7 +738,7 @@ local function denseMenu(t: any, theme: any): (any, any)
 	end, { size = Vector2.new(800, 600), theme = theme, frames = 20 })
 	open:set(true)
 	t.settle(20)
-	return stage, visibleNamed(t, stage, "MenuPanel")
+	return stage, t:visibleNamed(stage, "MenuPanel")
 end
 
 add("menu-dense-pointer-rows-live", {}, function(t)
@@ -764,19 +755,19 @@ add("menu-dense-pointer-rows-live", {}, function(t)
 	emulate(t, "iphone_14", Enum.PreferredInput.Touch, Enum.ScreenOrientation.Portrait)
 	t.note("touch host", host(t))
 	t.settle(10)
-	panel = visibleNamed(t, stage, "MenuPanel") or panel
+	panel = t:visibleNamed(stage, "MenuPanel") or panel
 	pitch(t, "touch arrives", panel, MENU_IDS, 44)
 	unemulated(t)
 	t.note("pointer again host", host(t))
-	panel = visibleNamed(t, stage, "MenuPanel") or panel
+	panel = t:visibleNamed(stage, "MenuPanel") or panel
 	pitch(t, "back to pointer-only", panel, MENU_IDS, 28)
 	emulate(t, "xbox", Enum.PreferredInput.Gamepad)
 	t.note("gamepad host", host(t))
 	t.settle(10)
-	panel = visibleNamed(t, stage, "MenuPanel") or panel
+	panel = t:visibleNamed(stage, "MenuPanel") or panel
 	pitch(t, "a gamepad arrives", panel, MENU_IDS, if GuiService:IsTenFootInterface() then 44 * 1.5 else 44)
 	unemulated(t)
-	panel = visibleNamed(t, stage, "MenuPanel") or panel
+	panel = t:visibleNamed(stage, "MenuPanel") or panel
 	pitch(t, "the gamepad leaves", panel, MENU_IDS, 28)
 	t.cleanup()
 	unemulated(t)
@@ -809,7 +800,7 @@ add("picker-dense-pointer-rows-live", {}, function(t)
 	open:set(true)
 	t.settle(20)
 	local ids = { "slow", "normal", "fast" }
-	local panel = visibleNamed(t, stage, "MenuPanel")
+	local panel = t:visibleNamed(stage, "MenuPanel")
 	if not found(t, "the dense picker menu opened", { "panel" }, { panel = panel }) then
 		return
 	end
@@ -818,10 +809,10 @@ add("picker-dense-pointer-rows-live", {}, function(t)
 	emulate(t, "iphone_14", Enum.PreferredInput.Touch, Enum.ScreenOrientation.Portrait)
 	t.note("touch host", host(t))
 	t.settle(10)
-	panel = visibleNamed(t, stage, "MenuPanel") or panel
+	panel = t:visibleNamed(stage, "MenuPanel") or panel
 	pitch(t, "touch arrives", panel, ids, nil, 44)
 	unemulated(t)
-	panel = visibleNamed(t, stage, "MenuPanel") or panel
+	panel = t:visibleNamed(stage, "MenuPanel") or panel
 	pitch(t, "back to pointer-only", panel, ids, 28)
 	open:set(false)
 end)
@@ -1012,7 +1003,7 @@ add("sheet-adaptive-side-edge", {}, function(t)
 	local panel: GuiObject? = nil
 	for _ = 1, 90 do
 		t.settle(1)
-		panel = panel or visibleNamed(t, stage, "SheetPanel")
+		panel = panel or t:visibleNamed(stage, "SheetPanel")
 		if panel then
 			table.insert(samples, math.round(panel.AbsolutePosition.X - stage.AbsolutePosition.X))
 		end
@@ -1037,7 +1028,7 @@ add("sheet-adaptive-side-edge", {}, function(t)
 	end
 	t.cleanup()
 	stage = sheet(Vector2.new(390, 800), true)
-	panel = visibleNamed(t, stage, "SheetPanel")
+	panel = t:visibleNamed(stage, "SheetPanel")
 	if found(t, "compact: the sheet panel was found", { "panel" }, { panel = panel }) then
 		t.stable(panel)
 		t.check(
@@ -1051,7 +1042,7 @@ add("sheet-adaptive-side-edge", {}, function(t)
 	local phone = emulate(t, "iphone_14", Enum.PreferredInput.Touch, Enum.ScreenOrientation.LandscapeRight)
 	t.note("touch host", phone)
 	stage = sheet(Vector2.new(1200, 800), true)
-	panel = visibleNamed(t, stage, "SheetPanel")
+	panel = t:visibleNamed(stage, "SheetPanel")
 	if found(t, "touch: the sheet panel was found", { "panel" }, { panel = panel }) then
 		t.stable(panel)
 		t.check(

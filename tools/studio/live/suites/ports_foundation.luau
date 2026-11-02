@@ -88,15 +88,6 @@ local function selectedName(): string
 	return if selected then selected.Name else "nil"
 end
 
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
-end
-
 local function overlap(a: any, b: any): boolean
 	local w = math.min(a.r, b.r) - math.max(a.x, b.x)
 	local h = math.min(a.b, b.b) - math.max(a.y, b.y)
@@ -262,7 +253,7 @@ interactive(
 		end, { theme = dense, size = Vector2.new(800, 600), frames = 20 })
 		value.stage = stage
 		t.settle(20)
-		value.panel = visibleNamed(t, stage, "MenuPanel")
+		value.panel = t:visibleNamed(stage, "MenuPanel")
 		return value
 	end,
 	{
@@ -282,7 +273,7 @@ interactive(
 			t.check("the click on row b chose b", value.chosen == "b", value.chosen)
 			value.open:set(true)
 			t.settle(20)
-			value.panel = visibleNamed(t, value.stage, "MenuPanel")
+			value.panel = t:visibleNamed(value.stage, "MenuPanel")
 		end,
 		touch = function(t: any, value: any)
 			t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, restore = "xbox" })
@@ -314,7 +305,7 @@ interactive(
 			t.note("picker trigger point", value.trigger)
 		end,
 		picker = function(t: any, value: any)
-			value.pickerPanel = visibleNamed(t, value.stage, "MenuPanel")
+			value.pickerPanel = t:visibleNamed(value.stage, "MenuPanel")
 			checkRows(t, "pointer picker", value.pickerPanel, PICKER_ROWS, 28)
 		end,
 		pickertouch = function(t: any, value: any)
@@ -462,7 +453,7 @@ add("tab-rung", {}, function(t: any)
 			t.near(`tab {id} is centred in the strip`, r.y + r.h / 2, s.y + s.h / 2, 1)
 		end
 	end
-	local indicator = visibleNamed(t, stage, "SelectionIndicator")
+	local indicator = t:visibleNamed(stage, "SelectionIndicator")
 	local selected = strip:FindFirstChild("a", true)
 	t.check("the underline exists", indicator ~= nil)
 	if indicator and selected then
@@ -498,12 +489,12 @@ interactive(
 		local samples = {}
 		for _ = 1, 40 do
 			task.wait()
-			local panel = visibleNamed(t, stage, "SheetPanel")
+			local panel = t:visibleNamed(stage, "SheetPanel")
 			if panel then
 				table.insert(samples, panel.AbsolutePosition.X)
 			end
 		end
-		local panel = visibleNamed(t, stage, "SheetPanel")
+		local panel = t:visibleNamed(stage, "SheetPanel")
 		t.check("the sheet is shown", panel ~= nil)
 		if not panel then
 			return value
@@ -532,7 +523,7 @@ interactive(
 	{
 		phone = function(t: any, value: any)
 			t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, restore = "xbox" })
-			local panel = visibleNamed(t, value.stage, "SheetPanel")
+			local panel = t:visibleNamed(value.stage, "SheetPanel")
 			t.check("the sheet is shown", panel ~= nil)
 			if panel then
 				t.stable(panel)
@@ -564,7 +555,7 @@ interactive(
 					end,
 				}
 			end, { size = Vector2.new(390, 800), frames = 20 })
-			local panel = visibleNamed(t, stage, "SheetPanel")
+			local panel = t:visibleNamed(stage, "SheetPanel")
 			t.check("the narrow sheet is shown", panel ~= nil)
 			if panel then
 				t.stable(panel)
@@ -698,7 +689,7 @@ add("selection-marks", {}, function(t: any)
 		end
 	end
 	paint("slider fill", fill, "BackgroundColor3", INK)
-	paint("tab underline", visibleNamed(t, stage, "SelectionIndicator"), "BackgroundColor3", INK)
+	paint("tab underline", t:visibleNamed(stage, "SelectionIndicator"), "BackgroundColor3", INK)
 end)
 
 interactive(

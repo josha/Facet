@@ -245,15 +245,6 @@ local function within(node: any, root: any): boolean
 	return node ~= nil and root ~= nil and (node == root or node:IsDescendantOf(root))
 end
 
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
-end
-
 local function buttonNamed(root: Instance, name: string): any
 	for _, node in root:GetDescendants() do
 		if node.Name == name and node:IsA("TextButton") then
@@ -1669,7 +1660,7 @@ add("menu-edge-and-align-place-the-panel", {}, function(t)
 		if trigger then
 			cells[entry.name]:set(true)
 			t.settle(20)
-			local panel = visibleNamed(t, stage, "MenuPanel")
+			local panel = t:visibleNamed(stage, "MenuPanel")
 			t.check(`{entry.name} panel opens`, panel ~= nil)
 			if panel then
 				t.stable(panel)
@@ -1725,7 +1716,7 @@ add("menu-rows-floor-and-lead", {}, function(t)
 	end, { size = Vector2.new(1280, 720), frames = 12 })
 	open:set(true)
 	t.settle(20)
-	local panel = visibleNamed(t, stage, "MenuPanel")
+	local panel = t:visibleNamed(stage, "MenuPanel")
 	t.check("the bounded menu opens", panel ~= nil)
 	if not panel then
 		return
@@ -1808,7 +1799,7 @@ interactive(
 		GuiService.SelectedObject = yearTrigger
 		yearOpen:set(true)
 		t.settle(30)
-		local panel = visibleNamed(t, stage, "MenuPanel")
+		local panel = t:visibleNamed(stage, "MenuPanel")
 		t.check("the year menu opens", panel ~= nil)
 		if panel then
 			t.stable(panel)
@@ -1829,7 +1820,7 @@ interactive(
 		GuiService.SelectedObject = boundedTrigger
 		boundedOpen:set(true)
 		t.settle(30)
-		value.panel = visibleNamed(t, stage, "MenuPanel")
+		value.panel = t:visibleNamed(stage, "MenuPanel")
 		t.check("the bounded menu opens", value.panel ~= nil)
 		if value.panel then
 			t.stable(value.panel)
@@ -1979,7 +1970,7 @@ interactive(
 	{
 		afterReturn = function(t, value)
 			t.settle(30)
-			local page = visibleNamed(t, value.stage, "SelectionControls")
+			local page = t:visibleNamed(value.stage, "SelectionControls")
 			t.check("the Choices page shows", page ~= nil)
 			if not page then
 				GuiService.SelectedObject = nil

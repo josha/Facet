@@ -168,8 +168,17 @@ end
 
 local baselineDevice = "none"
 
+local function visibleNamed(t: { visible: (Instance) -> boolean }, root: Instance, name: string): GuiObject?
+	for _, node in root:GetDescendants() do
+		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
+			return node
+		end
+	end
+	return nil
+end
+
 local function newCase(Facet: any, themes: { any }, record: { [string]: any }, context: any?)
-	local t = {}
+	local t = { visibleNamed = visibleNamed }
 	local cleanups: { () -> () } = {}
 	t.Facet = Facet
 	t.themes = themes

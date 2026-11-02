@@ -33,15 +33,6 @@ local function screenRect(t: any): any
 	return t.rect(layer)
 end
 
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
-end
-
 local function showing(t: any, id: string)
 	local result = api("show", id)
 	t.check(`gallery shows {id}`, result.ok == true and result.current == id, result)
@@ -116,7 +107,7 @@ end
 
 add("collection-toolbar-in-gallery", { "risk:collection-toolbar" }, function(t)
 	showing(t, "collections")
-	local scroll = visibleNamed(t, gallery(), "ToolbarScroll")
+	local scroll = t:visibleNamed(gallery(), "ToolbarScroll")
 	if not scroll then
 		t.check("collection toolbar visible in the gallery", false)
 		return
@@ -127,7 +118,7 @@ end)
 
 add("collection-toolbar-variants", { "risk:collection-toolbar" }, function(t)
 	showing(t, "collections")
-	local reference = visibleNamed(t, gallery(), "ToolbarScroll")
+	local reference = t:visibleNamed(gallery(), "ToolbarScroll")
 	local size = if reference then reference.Parent.AbsoluteSize else Vector2.new(644, 213)
 	local folder = storage:WaitForChild("FacetScenarios")
 	local demo = (require :: any)(folder:WaitForChild("collection_demo"))
@@ -209,7 +200,7 @@ add("shell-reservation-and-settings", { "risk:shell-reservation" }, function(t)
 		local shell = gallery():FindFirstChild("Gallery", true)
 		local toolbar = shell and shell:FindFirstChild("Toolbar")
 		local screen = screenRect(t)
-		local trigger = if toolbar and t.visible(toolbar) then visibleNamed(t, toolbar, "Showcase") else nil
+		local trigger = if toolbar and t.visible(toolbar) then t:visibleNamed(toolbar, "Showcase") else nil
 		if not (shell and toolbar and trigger) then
 			t.check(name .. " Showcase control visible", false, { shell = shell ~= nil, toolbar = toolbar ~= nil })
 			continue
@@ -239,8 +230,8 @@ add("shell-reservation-and-settings", { "risk:shell-reservation" }, function(t)
 		local opened = api("panel", "settings")
 		t.check(name .. " Settings section opens", opened.ok == true and opened.panel == "settings", opened)
 		t.settle(20)
-		local card = visibleNamed(t, gallery(), "ShowcasePanel")
-		local settings = card and visibleNamed(t, card, "Settings")
+		local card = t:visibleNamed(gallery(), "ShowcasePanel")
+		local settings = card and t:visibleNamed(card, "Settings")
 		t.check(name .. " Settings content visible", settings ~= nil, { panel = card ~= nil })
 		if card then
 			local surface = card:FindFirstAncestor("Expanded")
@@ -269,7 +260,7 @@ add("shell-reservation-and-settings", { "risk:shell-reservation" }, function(t)
 			api("panel", nil)
 		end
 		t.settle(40)
-		t.check(name .. " Settings panel closes", visibleNamed(t, gallery(), "ShowcasePanel") == nil)
+		t.check(name .. " Settings panel closes", t:visibleNamed(gallery(), "ShowcasePanel") == nil)
 	end
 	api("theme", "Neutral")
 	t.settle(10)
@@ -278,7 +269,7 @@ end)
 add("word-game-fits-the-phone", {}, function(t)
 	showing(t, "ex05")
 	local root = gallery()
-	local board = visibleNamed(t, root, "board")
+	local board = t:visibleNamed(root, "board")
 	local page = board and board:FindFirstAncestor("page")
 	if not (board and page) then
 		t.check("word game board mounted", false)
@@ -316,7 +307,7 @@ add("word-game-fits-the-phone", {}, function(t)
 		columns = columnCount,
 	})
 	for row = 1, 3 do
-		local keys = visibleNamed(t, root, "kbrow" .. row)
+		local keys = t:visibleNamed(root, "kbrow" .. row)
 		if keys then
 			local k = t.rect(keys)
 			t.check(`keyboard row {row} inside the page width`, k.x >= p.x - 0.5 and k.r <= p.r + 0.5, {

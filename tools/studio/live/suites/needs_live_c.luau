@@ -54,15 +54,6 @@ local function selectedName(): string
 	return if selected then selected.Name else "nil"
 end
 
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
-end
-
 local function overlap(a: any, b: any): boolean
 	local w = math.min(a.r, b.r) - math.max(a.x, b.x)
 	local h = math.min(a.b, b.b) - math.max(a.y, b.y)
@@ -102,7 +93,7 @@ add("callout-page-lateral-sweep", {}, function(t)
 		local stage, built = scenario(t, "callout", size)
 		built.steps.show()
 		t.settle(20)
-		local panel = visibleNamed(t, stage, "CalloutPanel")
+		local panel = t:visibleNamed(stage, "CalloutPanel")
 		t.check(where .. " the tip callout shows", panel ~= nil)
 		local found = t.offenders(stage, stage)
 		local lateral = painted(found.lateral)
@@ -162,7 +153,7 @@ add("radial-list-fallback-fits", {}, function(t)
 			items = radialItems(3, true),
 		}
 	end, { size = Vector2.new(320, 300), frames = 30 })
-	local panel = visibleNamed(t, stage, "RadialPanel")
+	local panel = t:visibleNamed(stage, "RadialPanel")
 	t.check("the menu presents", panel ~= nil)
 	if not panel then
 		return
@@ -193,7 +184,7 @@ interactive("radial-list-scrolls-selection-into-view", {}, function(t)
 			items = radialItems(12, false),
 		}
 	end, { size = Vector2.new(420, 200), frames = 30 })
-	value.panel = visibleNamed(t, stage, "RadialPanel")
+	value.panel = t:visibleNamed(stage, "RadialPanel")
 	t.check(
 		"a 420x200 space presents the list",
 		value.panel ~= nil and value.panel:GetAttribute("Presentation") == "list"
@@ -246,7 +237,7 @@ add("quick-actions-ring-fits-phones", {}, function(t)
 			t.settle(6)
 			built.steps.open()
 			t.settle(30)
-			local panel = visibleNamed(t, stage, "RadialPanel")
+			local panel = t:visibleNamed(stage, "RadialPanel")
 			t.check(`{where} {step} menu presents`, panel ~= nil)
 			if panel then
 				t.stable(panel)
@@ -263,7 +254,7 @@ add("quick-actions-ring-fits-phones", {}, function(t)
 		t.settle(6)
 		built.steps.open()
 		t.settle(30)
-		local panel = visibleNamed(t, stage, "RadialPanel")
+		local panel = t:visibleNamed(stage, "RadialPanel")
 		local kinds = {}
 		for _ = 1, 20 do
 			t.settle(15)
@@ -312,7 +303,7 @@ add("character-commands-ring-or-list", {}, function(t)
 		t.settle(6)
 		built.steps.open()
 		t.settle(30)
-		local panel = visibleNamed(t, stage, "RadialPanel")
+		local panel = t:visibleNamed(stage, "RadialPanel")
 		t.check(where .. " character commands present", panel ~= nil)
 		if panel then
 			t.stable(panel)
@@ -333,8 +324,8 @@ interactive("category-strip-dpad-keeps-page", {}, function(t)
 	local stage, context = t.gallery({ size = Vector2.new(1280, 800), demo = "all-controls" })
 	value.stage, value.context = stage, context
 	t.settle(20)
-	value.basics = visibleNamed(t, stage, "basics")
-	value.inputs = visibleNamed(t, stage, "inputs")
+	value.basics = t:visibleNamed(stage, "basics")
+	value.inputs = t:visibleNamed(stage, "inputs")
 	t.check("Basics and Inputs buttons found", value.basics ~= nil and value.inputs ~= nil)
 	GuiService.SelectedObject = value.basics
 	return value
@@ -347,7 +338,7 @@ end, {
 		t.check("DPadRight from Inputs selects Actions", selectedName() == "actions", selectedName())
 		t.check(
 			"the strip buttons were not rebuilt",
-			value.basics.Parent ~= nil and visibleNamed(t, value.stage, "inputs") == value.inputs
+			value.basics.Parent ~= nil and t:visibleNamed(value.stage, "inputs") == value.inputs
 		)
 		GuiService.SelectedObject = nil
 	end,
@@ -359,7 +350,7 @@ add("gallery-previews-keep-page-and-pad-routes", {}, function(t)
 	local size = Compose.cell(Vector2.new(1280, 800))
 	local stage, context = t.gallery({ size = size, demo = "all-controls" })
 	t.settle(20)
-	local basics, inputs = visibleNamed(t, stage, "basics"), visibleNamed(t, stage, "inputs")
+	local basics, inputs = t:visibleNamed(stage, "basics"), t:visibleNamed(stage, "inputs")
 	if not (basics and inputs) then
 		t.check("Basics and Inputs buttons found", false)
 		return
@@ -377,8 +368,8 @@ add("gallery-previews-keep-page-and-pad-routes", {}, function(t)
 			size:set(preview.size)
 			context.viewingDistance:set(distance)
 			t.settle(20)
-			t.check(`{where} the page tab is the same instance`, visibleNamed(t, stage, "basics") == basics)
-			t.check(`{where} the category tab is the same instance`, visibleNamed(t, stage, "inputs") == inputs)
+			t.check(`{where} the page tab is the same instance`, t:visibleNamed(stage, "basics") == basics)
+			t.check(`{where} the category tab is the same instance`, t:visibleNamed(stage, "inputs") == inputs)
 			GuiService.SelectedObject = basics
 			t.settle(2)
 			local one = game:GetService("HttpService"):JSONDecode(live.press({ "DPadRight" }))
@@ -418,7 +409,7 @@ add("card-rail-distant-and-shelves", {}, function(t)
 			context.inputPreview:set(if run.name == "phone near" then "Touch" else "Gamepad")
 			t.settle(20)
 			for _, tab in { "grids", "cards" } do
-				local button = visibleNamed(t, stage, tab)
+				local button = t:visibleNamed(stage, tab)
 				if button then
 					GuiService.SelectedObject = button
 					t.settle(2)
@@ -426,8 +417,8 @@ add("card-rail-distant-and-shelves", {}, function(t)
 					t.settle(20)
 				end
 			end
-			local rail = visibleNamed(t, stage, "Rail")
-			local weekend = visibleNamed(t, stage, "WeekendRail")
+			local rail = t:visibleNamed(stage, "Rail")
+			local weekend = t:visibleNamed(stage, "WeekendRail")
 			t.check(`{run.name} the Rail and WeekendRail shelves show`, rail ~= nil and weekend ~= nil)
 			if rail and weekend then
 				t.stable(rail)
@@ -525,7 +516,7 @@ add("radial-retiring-branch-refuses-selection", {}, function(t)
 		}
 	end, { size = Vector2.new(900, 700), motionLevel = "normal", frames = 30 })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
-	local retiring = visibleNamed(t, gui, "Sector-Branch")
+	local retiring = t:visibleNamed(gui, "Sector-Branch")
 	local button = retiring and retiring:FindFirstChild("Branch", true)
 	if not (retiring and button) then
 		t.check("the Branch sector and its button were found", false)
@@ -578,7 +569,7 @@ add("playlist-pad-reorder-and-tray-walk", {}, function(t)
 		return table.concat(out, ",")
 	end
 	local body = t.find(stage, "Body")
-	local edit = visibleNamed(t, stage, "Edit")
+	local edit = t:visibleNamed(stage, "Edit")
 	if edit then
 		GuiService.SelectedObject = edit
 		t.settle(2)
@@ -639,7 +630,7 @@ add("playlist-pad-reorder-and-tray-walk", {}, function(t)
 	t.note("reveal actions", live.press({ "ButtonX" }))
 	t.settle(20)
 	local layer = stage:FindFirstAncestorWhichIsA("LayerCollector")
-	local panel = layer and visibleNamed(t, layer, "MenuPanel")
+	local panel = layer and t:visibleNamed(layer, "MenuPanel")
 	local remove = panel and panel:FindFirstChild("trailing:remove", true)
 	t.check("ButtonX opens the row actions menu with Remove", remove ~= nil and t.visible(remove))
 	t.note("walk actions", live.press({ "DPadDown" }))
@@ -704,7 +695,7 @@ add("picker-style-sweep", {}, function(t)
 				if style == "menu" then
 					opened:set(true)
 					t.settle(20)
-					local panel = visibleNamed(t, stage, "MenuPanel") or visibleNamed(t, stage, "SheetPanel")
+					local panel = t:visibleNamed(stage, "MenuPanel") or t:visibleNamed(stage, "SheetPanel")
 					t.check(where .. " open panel shows", panel ~= nil)
 					if panel then
 						t.stable(panel)
@@ -748,7 +739,7 @@ interactive("grabber-activation-cycles-detents", {}, function(t)
 		}
 	end, { frames = 20 })
 	local gui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
-	value.grabber = visibleNamed(t, gui, "Grabber")
+	value.grabber = t:visibleNamed(gui, "Grabber")
 	t.check("the grabber shows", value.grabber ~= nil)
 	GuiService.SelectedObject = value.grabber
 	t.check("the grabber accepts selection", selectedName() == "Grabber", selectedName())
@@ -782,7 +773,7 @@ end, {
 add("nested-tabs-fit-a-short-screen", {}, function(t)
 	local stage, context = t.gallery({ size = Vector2.new(640, 320), demo = "all-controls" })
 	t.settle(10)
-	local navigation = visibleNamed(t, stage, "navigation")
+	local navigation = t:visibleNamed(stage, "navigation")
 	if navigation then
 		(navigation :: any):SetAttribute("FacetLiveProbe", true)
 	end
@@ -838,7 +829,7 @@ add("virtual-list-clamps-across-tabs", {}, function(t)
 			},
 		}
 	end, { size = Vector2.new(600, 500), frames = 20 })
-	local list = visibleNamed(t, stage, "List")
+	local list = t:visibleNamed(stage, "List")
 	if not list then
 		t.check("the list mounts", false)
 		return
@@ -856,7 +847,7 @@ add("virtual-list-clamps-across-tabs", {}, function(t)
 	t.settle(6)
 	selection:set("a")
 	t.settle(12)
-	list = visibleNamed(t, stage, "List")
+	list = t:visibleNamed(stage, "List")
 	local maximum = list.AbsoluteCanvasSize.Y - list.AbsoluteWindowSize.Y
 	t.near("shorter data clamps to the new maximum", list.CanvasPosition.Y, maximum, 1)
 	selection:set("b")
@@ -865,7 +856,7 @@ add("virtual-list-clamps-across-tabs", {}, function(t)
 	t.settle(6)
 	selection:set("a")
 	t.settle(12)
-	list = visibleNamed(t, stage, "List")
+	list = t:visibleNamed(stage, "List")
 	t.near("empty data returns to the top", list and list.CanvasPosition.Y or -1, 0, 0.5)
 end)
 

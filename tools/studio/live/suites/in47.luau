@@ -225,15 +225,6 @@ local function textBox(root: Instance?): TextBox?
 	return root:FindFirstChildWhichIsA("TextBox", true)
 end
 
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
-end
-
 local function hits(at: Vector2): { GuiObject }
 	return ((Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui) :: any):GetGuiObjectsAtPosition(at.X, at.Y)
 end
@@ -360,7 +351,7 @@ add("confirm-dialog-keyboard-to-cancel", {}, function(t: any)
 	t.check("Delete is selected", GuiService.SelectedObject == delete, selectedName())
 	io.key(Enum.KeyCode.Return)
 	t.settle(40)
-	local cancel, confirm = visibleNamed(t, gui, "Cancel"), visibleNamed(t, gui, "Confirm")
+	local cancel, confirm = t:visibleNamed(gui, "Cancel"), t:visibleNamed(gui, "Confirm")
 	t.check("Return on Delete opens the dialog", cancel ~= nil and confirm ~= nil)
 	t.check("the selection lands on Cancel, the safe default", selectedName() == "Cancel", selectedName())
 	io.key(Enum.KeyCode.Right)
@@ -383,7 +374,7 @@ add("confirm-dialog-keyboard-to-cancel", {}, function(t: any)
 	t.settle(40)
 	t.check("Return on Cancel reports a cancel", built.result() == "cancelled", built.result())
 	t.check("the save is kept", built.hasSave() == true)
-	t.check("the dialog is dismissed", visibleNamed(t, gui, "Confirm") == nil)
+	t.check("the dialog is dismissed", t:visibleNamed(gui, "Confirm") == nil)
 	t.note("selection after dismissal", selectedName())
 	t.check("selection returns to Delete", selectedName() == "Delete", selectedName())
 	GuiService.SelectedObject = nil
@@ -565,8 +556,8 @@ add("pad-confirm-dialog-to-cancel", {}, function(t: any)
 	t.settle(3)
 	io.pad("ButtonA")
 	t.settle(40)
-	t.check("gamepad A on Delete opens the dialog", visibleNamed(t, gui, "Confirm") ~= nil)
-	local panel = visibleNamed(t, gui, "AlertPanel") or visibleNamed(t, gui, "Card")
+	t.check("gamepad A on Delete opens the dialog", t:visibleNamed(gui, "Confirm") ~= nil)
+	local panel = t:visibleNamed(gui, "AlertPanel") or t:visibleNamed(gui, "Card")
 	if panel then
 		t.stable(panel, 10)
 	end
@@ -583,13 +574,13 @@ add("pad-confirm-dialog-to-cancel", {}, function(t: any)
 		selectedName() == "Cancel" or selectedName() == "Confirm",
 		selectedName()
 	)
-	GuiService.SelectedObject = visibleNamed(t, gui, "Cancel")
+	GuiService.SelectedObject = t:visibleNamed(gui, "Cancel")
 	t.settle(2)
 	io.pad("ButtonA")
 	t.settle(40)
 	t.check("gamepad A on Cancel reports a cancel", built.result() == "cancelled", built.result())
 	t.check("the save is kept", built.hasSave() == true)
-	t.check("the dialog is dismissed", visibleNamed(t, gui, "Confirm") == nil)
+	t.check("the dialog is dismissed", t:visibleNamed(gui, "Confirm") == nil)
 	t.check("the selection returns to Delete", selectedName() == "Delete", selectedName())
 	built.restore()
 	t.settle(4)
@@ -597,10 +588,10 @@ add("pad-confirm-dialog-to-cancel", {}, function(t: any)
 	t.settle(2)
 	io.pad("ButtonA")
 	t.settle(40)
-	t.check("gamepad A reopens the dialog", visibleNamed(t, gui, "Confirm") ~= nil)
+	t.check("gamepad A reopens the dialog", t:visibleNamed(gui, "Confirm") ~= nil)
 	io.pad("ButtonB")
 	t.settle(40)
-	t.check("gamepad B dismisses the dialog", visibleNamed(t, gui, "Confirm") == nil)
+	t.check("gamepad B dismisses the dialog", t:visibleNamed(gui, "Confirm") == nil)
 	t.check("gamepad B deletes nothing", built.hasSave() == true)
 	t.check("gamepad B returns the selection to Delete", selectedName() == "Delete", selectedName())
 	local seen = stop()
@@ -921,7 +912,7 @@ local function radial(t: any, options: { [string]: any }?): { [string]: any }
 	value.gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	value.open:set(true)
 	t.settle(60)
-	value.panel = visibleNamed(t, value.gui, "RadialPanel")
+	value.panel = t:visibleNamed(value.gui, "RadialPanel")
 	t.check("the radial menu presents", value.panel ~= nil)
 	if value.panel then
 		t.stable(value.panel, 6)
@@ -1196,7 +1187,7 @@ interactive("radial-hot-switch-keeps-open", {}, function(t: any)
 		io.click(centre(launcher))
 		t.settle(40)
 	end
-	menu.panel = visibleNamed(t, menu.gui, "RadialPanel")
+	menu.panel = t:visibleNamed(menu.gui, "RadialPanel")
 	t.check("a mouse click opens the ring", menu.panel ~= nil and menu.open:peek() == true)
 	t.check(
 		"the engine reports keyboard and mouse",
@@ -1936,7 +1927,7 @@ add("touch-never-hovers", {}, function(t: any)
 	)
 	t.check("the button settles back to its rest fill", fill(go) == rest, { fill(go), rest })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
-	t.check("no help panel shows on touch", visibleNamed(t, gui, "HelpText") == nil)
+	t.check("no help panel shows on touch", t:visibleNamed(gui, "HelpText") == nil)
 end)
 
 interactive("hover-arrives-with-a-mouse", {}, function(t: any)
@@ -1981,7 +1972,7 @@ add("help-leaves-with-its-surface", {}, function(t: any)
 		}
 	end, { frames = 30 })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
-	local post = visibleNamed(t, gui, "Post")
+	local post = t:visibleNamed(gui, "Post")
 	t.check("the sheet shows its Post button", post ~= nil)
 	if not post then
 		return
@@ -1989,7 +1980,7 @@ add("help-leaves-with-its-surface", {}, function(t: any)
 	io.move(centre(post))
 	io.move(centre(post) + Vector2.new(1, 0))
 	t.settle(50)
-	local text = visibleNamed(t, gui, "HelpText")
+	local text = t:visibleNamed(gui, "HelpText")
 	t.check(
 		"resting the mouse shows the help",
 		text ~= nil and text.ContentText == "Posts this avatar",
@@ -1997,8 +1988,8 @@ add("help-leaves-with-its-surface", {}, function(t: any)
 	)
 	open:set(false)
 	t.settle(40)
-	t.check("dismissing the surface takes its help with it", visibleNamed(t, gui, "HelpText") == nil)
-	t.check("and its button", visibleNamed(t, gui, "Post") == nil)
+	t.check("dismissing the surface takes its help with it", t:visibleNamed(gui, "HelpText") == nil)
+	t.check("and its button", t:visibleNamed(gui, "Post") == nil)
 end)
 
 local function sliderProbe(t: any): (any, any)

@@ -125,25 +125,6 @@ local function selectables(t: any, root: Instance): { any }
 	return out
 end
 
-local function pathOf(node: Instance, root: Instance?): string
-	local parts = {}
-	local at: Instance? = node
-	while at and at ~= root and not at:IsA("LayerCollector") do
-		table.insert(parts, 1, at.Name)
-		at = at.Parent
-	end
-	return table.concat(parts, "/")
-end
-
-local function firstSelectable(t: any, root: Instance, fragment: string): any
-	for _, node in selectables(t, root) do
-		if string.find(pathOf(node, root), fragment, 1, true) then
-			return node
-		end
-	end
-	return nil
-end
-
 local function buttonNamed(root: Instance, name: string): any
 	for _, node in root:GetDescendants() do
 		if node.Name == name and node:IsA("GuiButton") then
@@ -170,15 +151,6 @@ local function scenario(t: any, name: string, size: any, frames: number?): (any,
 		return if type(result) == "function" then result() else result.screen()
 	end, { size = size, frames = frames or 20 })
 	return stage, built
-end
-
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
 end
 
 local function selectableIn(node: Instance): any
@@ -427,7 +399,7 @@ add("vm-detail-information-scrolls", {}, function(t)
 		value.model.selectGame(item)
 		t.settle(40)
 		local gui = value.stage:FindFirstAncestorWhichIsA("LayerCollector")
-		local details = gui and visibleNamed(t, gui, "GameDetails")
+		local details = gui and t:visibleNamed(gui, "GameDetails")
 		t.check(`{where} the detail opens`, details ~= nil)
 		if details then
 			local panel = details:FindFirstAncestor("AlertPanel")
@@ -453,7 +425,7 @@ add("vm-detail-information-scrolls", {}, function(t)
 					b = scroller.AbsolutePosition.Y + window.Y,
 				}
 				for _, name in { "Sparkline", "DetailsTabs" } do
-					local node = visibleNamed(t, details, name)
+					local node = t:visibleNamed(details, name)
 					t.check(`{where} {name} exists`, node ~= nil)
 					if node then
 						t.inside(`{where} {name} is inside the scroller window at the scroll end`, node, frame, 1)
@@ -518,7 +490,7 @@ end, {
 	afterReturnRecipes = function(t, value)
 		t.settle(30)
 		t.check("Return opens Recipes", value.built.report().active == "recipes", value.built.report().active)
-		local rail = visibleNamed(t, value.stage, "RailChips")
+		local rail = t:visibleNamed(value.stage, "RailChips")
 		value.rail = rail
 		GuiService.SelectedObject = rail and selectableIn(t.find(rail, "Ghost Lap"))
 		t.settle(10)

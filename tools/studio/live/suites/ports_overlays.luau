@@ -199,15 +199,6 @@ local function selectedName(): string
 	return if selected then selected.Name else "nil"
 end
 
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
-end
-
 local function layerOf(stage: any): any
 	return stage:FindFirstAncestorWhichIsA("LayerCollector")
 end
@@ -392,7 +383,7 @@ add("callout-tour-rich-parts", {}, function(t)
 	local stage, built = scenario(t, "overlays", Vector2.new(1280, 720))
 	built.steps.tour()
 	t.settle(30)
-	local panel = visibleNamed(t, stage, "CalloutPanel")
+	local panel = t:visibleNamed(stage, "CalloutPanel")
 	t.check("the tour coach mark shows", panel ~= nil)
 	if not panel then
 		return
@@ -498,7 +489,7 @@ interactive(
 			return longDialog(UI, Host, Compose)
 		end, { frames = 30 })
 		local gui = layerOf(stage)
-		local modal = visibleNamed(t, gui, "DialogModal")
+		local modal = t:visibleNamed(gui, "DialogModal")
 		value.body = modal and t.find(modal, "Body")
 		t.check("the dialog body shows", value.body ~= nil)
 		if not value.body then
@@ -567,7 +558,7 @@ add("dialog-room-desktop-short-phone", {}, function(t)
 	end, { frames = 30 })
 	local gui = layerOf(stage)
 	local layer = t.rect(gui)
-	local modal = visibleNamed(t, gui, "DialogModal")
+	local modal = t:visibleNamed(gui, "DialogModal")
 	local panel = modal and t.find(modal, "Panel")
 	t.check("desktop: the dialog shows", panel ~= nil)
 	if panel then
@@ -624,7 +615,7 @@ add("dialog-room-desktop-short-phone", {}, function(t)
 	gui = layerOf(stage)
 	layer = t.rect(gui)
 	t.note("short layer", { layer.w, layer.h })
-	modal = visibleNamed(t, gui, "DialogModal")
+	modal = t:visibleNamed(gui, "DialogModal")
 	panel = modal and t.find(modal, "Panel")
 	t.check("short: the dialog shows", panel ~= nil)
 	if panel then
@@ -678,7 +669,7 @@ add("dialog-room-desktop-short-phone", {}, function(t)
 	t.settle(30)
 	gui = layerOf(stage)
 	layer = t.rect(gui)
-	modal = visibleNamed(t, gui, "DialogModal")
+	modal = t:visibleNamed(gui, "DialogModal")
 	panel = modal and t.find(modal, "Panel")
 	t.check("phone: the dialog shows", panel ~= nil)
 	if panel then
@@ -756,7 +747,7 @@ add("help-plate-edges-and-shrinking-window", {}, function(t)
 		local started = os.clock()
 		local plate = Verify.awaitValue(
 			function()
-				return visibleNamed(t, stage, "Help")
+				return t:visibleNamed(stage, "Help")
 			end,
 			2,
 			1 / 60,
@@ -811,7 +802,7 @@ add("help-plate-edges-and-shrinking-window", {}, function(t)
 		size:set(Vector2.new(720, 400))
 		t.settle(10)
 		t.stable(plate)
-		local now = visibleNamed(t, stage, "Help")
+		local now = t:visibleNamed(stage, "Help")
 		t.check("the plate stays live while the window shrinks", now ~= nil)
 		if now then
 			t.inside("a shrunken window keeps the plate inside its safe box", now, shrink(t.rect(stage), 8, 8, 8, 8), 1)
@@ -830,7 +821,7 @@ add("help-plate-edges-and-shrinking-window", {}, function(t)
 		t.inside("corner: the plate stays inside the window", plate, shrink(t.rect(stage), 8, 8, 8, 8), 1)
 		size:set(Vector2.new(500, 300))
 		t.settle(10)
-		local now = visibleNamed(t, stage, "Help")
+		local now = t:visibleNamed(stage, "Help")
 		if now then
 			t.stable(now)
 			t.inside("corner: the smaller window keeps the plate inside", now, shrink(t.rect(stage), 8, 8, 8, 8), 1)
@@ -842,7 +833,7 @@ end)
 add("navbar-search-wraps-filter", {}, function(t)
 	local size = t.Facet.Compose.cell(Vector2.new(1280, 720))
 	local stage = scenario(t, "overlays", size)
-	local header = visibleNamed(t, stage, "Header")
+	local header = t:visibleNamed(stage, "Header")
 	t.check("the search bar shows", header ~= nil)
 	if not header then
 		return
@@ -897,7 +888,7 @@ add("notice-affixed-banner-moves-content", {}, function(t)
 	t.settle(10)
 	local waited = t.stable(content, 6, 120)
 	t.check("the page settles with the banner pinned", waited < 120, waited)
-	local banner = visibleNamed(t, stage, "Offline")
+	local banner = t:visibleNamed(stage, "Offline")
 	t.check("the offline banner shows", banner ~= nil)
 	if not banner then
 		return
@@ -935,7 +926,7 @@ add("notice-layout-and-emphasis-paint", {}, function(t)
 	do
 		local where, size, expected = entry[1] :: any, entry[2] :: any, entry[3] :: any
 		local stage = scenario(t, "notice", size)
-		local update = visibleNamed(t, stage, "Update")
+		local update = t:visibleNamed(stage, "Update")
 		t.check(where .. " the Update notice shows", update ~= nil)
 		if update then
 			t.stable(update)
@@ -971,7 +962,7 @@ add("notice-layout-and-emphasis-paint", {}, function(t)
 			end
 		end
 		for _, severity in { "info", "success", "warning", "error" } do
-			local notice = visibleNamed(t, stage, "Severity-" .. severity)
+			local notice = t:visibleNamed(stage, "Severity-" .. severity)
 			local message = notice and t.find(notice, "Message")
 			if notice and message then
 				local fill = styled(notice, "BackgroundColor3")
@@ -1179,8 +1170,8 @@ add("popover-compact-sheet-then-anchored", {}, function(t)
 	if modal then
 		local panel = modal:FindFirstChild("Panel", true)
 		t.check("the anchored panel shows", panel ~= nil and t.visible(panel))
-		t.check("the anchored panel has no close", visibleNamed(t, modal, "Close") == nil)
-		local words = visibleNamed(t, modal, "Body")
+		t.check("the anchored panel has no close", t:visibleNamed(modal, "Close") == nil)
+		local words = t:visibleNamed(modal, "Body")
 		t.check("the content moved to the anchored panel", words ~= nil)
 	end
 end)
@@ -1208,7 +1199,7 @@ add("sheet-scroll-policy-and-detectors", {}, function(t)
 			},
 		}
 	end, { size = Vector2.new(1280, 720), frames = 30 })
-	local panel = visibleNamed(t, stage, "SheetPanel")
+	local panel = t:visibleNamed(stage, "SheetPanel")
 	t.check("the sheet shows", panel ~= nil)
 	if not panel then
 		return
@@ -1253,7 +1244,7 @@ add("sheet-room-hug-hero-short", {}, function(t)
 		local stage, built = scenario(t, "sheet", size)
 		built.steps.lobby()
 		t.settle(30)
-		local panel = visibleNamed(t, stage, "SheetPanel")
+		local panel = t:visibleNamed(stage, "SheetPanel")
 		t.check(where .. " the lobby sheet shows", panel ~= nil)
 		if panel then
 			t.stable(panel)
@@ -1312,7 +1303,7 @@ add("sheet-room-hug-hero-short", {}, function(t)
 	local stage, built = scenario(t, "sheet", Vector2.new(640, 120))
 	built.steps.lobby()
 	t.settle(30)
-	local panel = visibleNamed(t, stage, "SheetPanel")
+	local panel = t:visibleNamed(stage, "SheetPanel")
 	t.check("short: the lobby sheet shows", panel ~= nil)
 	if panel then
 		t.stable(panel)
@@ -1375,7 +1366,7 @@ add("snackbar-art-carve", {}, function(t)
 			}
 		end, { theme = theme.package, frames = 20 })
 		local gui = layerOf(stage)
-		local row = visibleNamed(t, gui, "Snack")
+		local row = t:visibleNamed(gui, "Snack")
 		t.check(theme.name .. " the action toast shows", row ~= nil)
 		if row then
 			t.stable(row)
@@ -1472,14 +1463,14 @@ add("snackbar-paint-order", {}, function(t)
 	end, { frames = 20 })
 	local gui = layerOf(stage)
 	t.note("layer z-index behavior", tostring(gui.ZIndexBehavior))
-	local row = visibleNamed(t, gui, "Snack")
+	local row = t:visibleNamed(gui, "Snack")
 	t.check("the action toast row shows", row ~= nil)
 	assert(calloutOn):set(true)
 	GuiService.SelectedObject = trigger
 	local started = os.clock()
 	local plate = Verify.awaitValue(
 		function()
-			return visibleNamed(t, gui, "Help")
+			return t:visibleNamed(gui, "Help")
 		end,
 		2,
 		1 / 60,
@@ -1491,7 +1482,7 @@ add("snackbar-paint-order", {}, function(t)
 		}
 	)
 	t.note("help appearance seconds", os.clock() - started)
-	local callout = visibleNamed(t, gui, "CalloutPanel")
+	local callout = t:visibleNamed(gui, "CalloutPanel")
 	t.check("the callout shows", callout ~= nil)
 	t.check("the help plate shows", plate ~= nil)
 	if row and callout then
@@ -1505,7 +1496,7 @@ add("snackbar-paint-order", {}, function(t)
 	end
 	assert(dialogOn):set(true)
 	t.settle(30)
-	local modal = visibleNamed(t, gui, "DialogModal")
+	local modal = t:visibleNamed(gui, "DialogModal")
 	local panel = modal and t.find(modal, "Panel")
 	t.check("the dialog shows", panel ~= nil)
 	if not panel then
@@ -1516,8 +1507,8 @@ add("snackbar-paint-order", {}, function(t)
 		local above, detail = paintsAbove(panel, row)
 		t.check("the dialog paints above the action toast row", above == true, detail)
 	end
-	callout = visibleNamed(t, gui, "CalloutPanel")
-	plate = visibleNamed(t, gui, "Help")
+	callout = t:visibleNamed(gui, "CalloutPanel")
+	plate = t:visibleNamed(gui, "Help")
 	t.note("still painted under the dialog", { callout = callout ~= nil, help = plate ~= nil })
 	if callout then
 		local above, detail = paintsAbove(panel, callout)
@@ -1605,7 +1596,7 @@ add("snackbar-composition-widths", {}, function(t)
 		local function show(name: string): any
 			cells[name]:set(true)
 			t.settle(14)
-			local row = visibleNamed(t, gui, if string.find(name, "Plain") then "ToastRow" else "Snack")
+			local row = t:visibleNamed(gui, if string.find(name, "Plain") then "ToastRow" else "Snack")
 			t.check(`{where} {name} shows`, row ~= nil)
 			if row then
 				t.stable(row)
@@ -1769,7 +1760,7 @@ interactive(
 	{
 		opened = function(t, value)
 			t.settle(10)
-			local panel = visibleNamed(t, value.gui, "MenuPanel")
+			local panel = t:visibleNamed(value.gui, "MenuPanel")
 			t.check("ButtonA opened the menu", value.presented:peek() == true and panel ~= nil)
 			local selected = GuiService.SelectedObject
 			t.check(
@@ -1781,7 +1772,7 @@ interactive(
 		closed = function(t, value)
 			t.settle(10)
 			t.check("ButtonB closed the menu", value.presented:peek() == false, value.presented:peek())
-			t.check("no menu panel is drawn", visibleNamed(t, value.gui, "MenuPanel") == nil)
+			t.check("no menu panel is drawn", t:visibleNamed(value.gui, "MenuPanel") == nil)
 			t.check("the selection is back on the trigger", GuiService.SelectedObject == value.trigger, selectedName())
 		end,
 	}
@@ -1839,7 +1830,7 @@ interactive(
 		opened = function(t, value)
 			t.settle(10)
 			local modal = value.gui:FindFirstChild("TipModal", true)
-			local panel = modal and visibleNamed(t, modal, "Panel")
+			local panel = modal and t:visibleNamed(modal, "Panel")
 			t.check("ButtonA on the selected trigger opened the popover", value.open:peek() == true and panel ~= nil)
 			local selected = GuiService.SelectedObject
 			t.check(
@@ -1858,7 +1849,7 @@ interactive(
 			value.open:set(true)
 			t.settle(20)
 			local modal = value.gui:FindFirstChild("TipModal", true)
-			local panel = modal and visibleNamed(t, modal, "Panel")
+			local panel = modal and t:visibleNamed(modal, "Panel")
 			t.check("the popover is open again", panel ~= nil)
 			t.check(
 				"the open panel does not cover its trigger",
@@ -1875,7 +1866,7 @@ interactive(
 				table.concat(value.dismissed, ",") == "cancel,outside",
 				value.dismissed
 			)
-			t.check("it did not reopen", visibleNamed(t, value.gui, "TipModal") == nil)
+			t.check("it did not reopen", t:visibleNamed(value.gui, "TipModal") == nil)
 		end,
 	}
 )
@@ -1892,7 +1883,7 @@ interactive(
 			return longDialog(UI, Host, Compose)
 		end, { frames = 30 })
 		value.gui = layerOf(stage)
-		local modal = visibleNamed(t, value.gui, "DialogModal")
+		local modal = t:visibleNamed(value.gui, "DialogModal")
 		value.panel = modal and t.find(modal, "Panel")
 		value.room = value.panel and t.find(value.panel, "Room")
 		t.check("the short dialog shows with a scrolling room", value.room ~= nil and value.room.ScrollingEnabled)
@@ -1927,7 +1918,7 @@ interactive("sheet-short-room-pad-walk", {}, "press DPadDown until Join is selec
 	local stage, built = scenario(t, "sheet", Vector2.new(640, 120))
 	built.steps.lobby()
 	t.settle(30)
-	value.panel = visibleNamed(t, stage, "SheetPanel")
+	value.panel = t:visibleNamed(stage, "SheetPanel")
 	value.room = value.panel and t.find(value.panel, "Room")
 	t.check("the short sheet shows with a scrolling room", value.room ~= nil and value.room.ScrollingEnabled)
 	t.check("the room is never a selection stop", value.room ~= nil and value.room.Selectable == false)
@@ -2067,7 +2058,7 @@ add("sheet-hug-follows-live-copy", {}, function(t)
 			},
 		}
 	end, { size = Vector2.new(1280, 720), frames = 30 })
-	local panel = visibleNamed(t, stage, "SheetPanel")
+	local panel = t:visibleNamed(stage, "SheetPanel")
 	t.check("the hug sheet shows", panel ~= nil)
 	if not panel then
 		return

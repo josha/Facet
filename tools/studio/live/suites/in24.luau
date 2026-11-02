@@ -39,16 +39,6 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run, keepGallery = false })
 end
 
-local function interactive(
-	id: string,
-	contracts: { string },
-	setup: (any) -> any,
-	steps: { [string]: (any, any) -> () },
-	keepGallery: boolean?
-)
-	table.insert(cases, { id = id, contracts = contracts, setup = setup, steps = steps, keepGallery = keepGallery })
-end
-
 local PAD: { [string]: Enum.KeyCode } = {
 	ButtonA = Enum.KeyCode.Nine,
 	ButtonB = Enum.KeyCode.Zero,
@@ -244,19 +234,6 @@ local function textBox(root: Instance?): TextBox?
 	return root:FindFirstChildWhichIsA("TextBox", true)
 end
 
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
-end
-
-local function hits(at: Vector2): { GuiObject }
-	return ((Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui) :: any):GetGuiObjectsAtPosition(at.X, at.Y)
-end
-
 local function example(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
 	local built: Built
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
@@ -394,7 +371,7 @@ local function stackProbe(t: any): any
 end
 
 local function backButton(t: any, gui: Instance): any
-	local back = visibleNamed(t, gui, "Back")
+	local back = t:visibleNamed(gui, "Back")
 	if back and not back:IsA("GuiButton") then
 		back = back:FindFirstChildWhichIsA("GuiButton", true)
 	end
@@ -404,7 +381,7 @@ end
 add("stack-keyboard-activate-and-back", {}, function(t)
 	local io = device(t)
 	local value = stackProbe(t)
-	local nextButton = visibleNamed(t, value.gui, "Next")
+	local nextButton = t:visibleNamed(value.gui, "Next")
 	t.check("the root shows Next", nextButton ~= nil)
 	if not nextButton then
 		return
@@ -425,12 +402,12 @@ add("stack-keyboard-activate-and-back", {}, function(t)
 	end
 	io.key(Enum.KeyCode.Return)
 	t.settle(40)
-	GuiService.SelectedObject = visibleNamed(t, value.gui, "Next")
+	GuiService.SelectedObject = t:visibleNamed(value.gui, "Next")
 	t.settle(3)
 	io.key(Enum.KeyCode.Return)
 	t.settle(40)
 	t.check("Return pushes again", #value.path:peek() == 1, #value.path:peek())
-	local inner = visibleNamed(t, value.gui, "Inner")
+	local inner = t:visibleNamed(value.gui, "Inner")
 	t.check("the destination's content mounts", inner ~= nil)
 	GuiService.SelectedObject = nil
 end)
@@ -438,7 +415,7 @@ end)
 add("pad-stack-activate-and-back", {}, function(t)
 	local io = device(t)
 	local value = stackProbe(t)
-	local nextButton = visibleNamed(t, value.gui, "Next")
+	local nextButton = t:visibleNamed(value.gui, "Next")
 	if not nextButton then
 		t.check("the root shows Next", false)
 		return
@@ -1651,7 +1628,7 @@ add("radial-lift-is-paint-only", {}, function(t)
 		return UI.RadialMenu "Quick" { isPresented = value.open, items = items }
 	end, { size = Vector2.new(800, 600), frames = 60, motionLevel = "normal" })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
-	local panel = visibleNamed(t, gui, "RadialPanel")
+	local panel = t:visibleNamed(gui, "RadialPanel")
 	t.check("the ring presents", panel ~= nil)
 	if not panel then
 		return
@@ -1963,9 +1940,9 @@ add("stack-pop-retires-until-motion-ends", {}, function(t)
 		return UI.NavigationStack "Journey"(props)
 	end, { size = Vector2.new(900, 600), frames = 20, motionLevel = "normal" })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
-	io.click(centre(visibleNamed(t, gui, "Next")))
+	io.click(centre(t:visibleNamed(gui, "Next")))
 	t.settle(60)
-	local inner = visibleNamed(t, gui, "Inner")
+	local inner = t:visibleNamed(gui, "Inner")
 	t.check("the destination is pushed", inner ~= nil and #value.path:peek() == 1)
 	value.path:set({})
 	t.settle(2)
@@ -2046,7 +2023,7 @@ add("stack-rebuilt-prefix-enters-without-reversal", {}, function(t)
 		motionLevel = "normal",
 	})
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
-	local inspect = visibleNamed(t, gui, "Inspect")
+	local inspect = t:visibleNamed(gui, "Inspect")
 	t.check("the original equipment page is actionable", inspect ~= nil and #equipmentBodies == 1)
 	if not inspect then
 		return
@@ -2092,7 +2069,7 @@ add("stack-rebuilt-prefix-enters-without-reversal", {}, function(t)
 		t.settle(120)
 		t.check(
 			"native Back returns to the replacement equipment entry",
-			#path:peek() == 1 and visibleNamed(t, gui, "Inspect") == retained
+			#path:peek() == 1 and t:visibleNamed(gui, "Inspect") == retained
 		)
 		t.check("Back reuses the replacement page instance", #equipmentBodies == 2, #equipmentBodies)
 		t.check("the retired detail is disposed", detailBody ~= nil and detailBody.Parent == nil)
@@ -2329,9 +2306,9 @@ add(
 		watch:Disconnect()
 		t.note("long press states", presses)
 		t.check("the engine reports a touch long press", table.find(presses, "Begin") ~= nil, presses)
-		t.check("the long press opens the alternatives", visibleNamed(t, gui, "Alternate") ~= nil)
+		t.check("the long press opens the alternatives", t:visibleNamed(gui, "Alternate") ~= nil)
 		t.check("the long press does not run the primary", value.primary == 1, value.primary)
-		local alternate = visibleNamed(t, gui, "Alternate")
+		local alternate = t:visibleNamed(gui, "Alternate")
 		if alternate then
 			io.click(centre(alternate))
 			t.settle(20)

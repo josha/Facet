@@ -79,15 +79,6 @@ local function scenario(t: any, name: string, size: Vector2, patch: ((any) -> ()
 	return stage, built
 end
 
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
-end
-
 local function pseudo(text: string): string
 	local extra = math.ceil(#text * 0.4)
 	local pad = string.rep("~", extra)
@@ -213,7 +204,7 @@ add("settings-sync-compact-phone-every-text-size", {}, function(t)
 			local page = t.find(stage, "SettingsSync")
 			local history = t.find(stage, "History")
 			local volume = t.find(stage, "Volume")
-			local value = volume and visibleNamed(t, volume, "Value")
+			local value = volume and t:visibleNamed(volume, "Value")
 			t.check(
 				where .. " the volume value has a box",
 				value ~= nil and value.AbsoluteSize.X > 0 and value.AbsoluteSize.Y > 0,
@@ -252,8 +243,8 @@ add("confirm-dialog-card-centred", {}, function(t)
 		built.openDialog()
 		t.settle(40)
 		local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
-		local card = visibleNamed(t, gui, "AlertPanel") or visibleNamed(t, gui, "Card")
-		local confirm, cancel = visibleNamed(t, gui, "Confirm"), visibleNamed(t, gui, "Cancel")
+		local card = t:visibleNamed(gui, "AlertPanel") or t:visibleNamed(gui, "Card")
+		local confirm, cancel = t:visibleNamed(gui, "Confirm"), t:visibleNamed(gui, "Cancel")
 		t.check(
 			where .. " the dialog shows its card and both actions",
 			card ~= nil and confirm ~= nil and cancel ~= nil
@@ -283,7 +274,7 @@ add("card-rail-height-includes-scrollbar-band", {}, function(t)
 		local rail = t.find(stage, "Rail")
 		t.check(where .. " the rail mounts", rail ~= nil and rail:IsA("ScrollingFrame"))
 		if rail then
-			local card = visibleNamed(t, rail, "Card_c1")
+			local card = t:visibleNamed(rail, "Card_c1")
 			local inner = card and card:FindFirstChild("Card")
 			t.check(where .. " the first card mounts", card ~= nil and inner ~= nil)
 			if card and inner then
@@ -391,7 +382,7 @@ add("with-animation-pseudo-localized", {}, function(t)
 		end
 		t.settle(12)
 		t.check(where .. " the copy was expanded", changed >= 8, changed)
-		local detail = visibleNamed(t, stage, "DetailPanel")
+		local detail = t:visibleNamed(stage, "DetailPanel")
 		t.check(where .. " the detail panel is open", detail ~= nil)
 		local found = t.offenders(stage, stage)
 		t.check(where .. " no text is clipped", #found.clipped == 0, found.clipped)

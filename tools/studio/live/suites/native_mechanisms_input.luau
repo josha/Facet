@@ -39,15 +39,6 @@ local function watch(value: any)
 	end)
 end
 
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
-end
-
 add("held-button-destruction-cancels", {}, function(t)
 	local value = { down = 0, cancelled = 0, up = 0 }
 	local stage = t.mount(function(UI: FacetControls)
@@ -87,7 +78,7 @@ add("gallery-keyboard-reaches-demos", {}, function(t)
 	value.stage, value.context = stage, context
 	context.dispatch("panel", "demos")
 	t.settle(20)
-	GuiService.SelectedObject = visibleNamed(t, stage, "Demo-all-controls")
+	GuiService.SelectedObject = t:visibleNamed(stage, "Demo-all-controls")
 	t.check("the sidebar demo accepts selection", selectedName() == "Demo-all-controls", selectedName())
 	watch(value)
 	return value
@@ -103,7 +94,7 @@ end, {
 		)
 		value.context.dispatch("panel", "demos")
 		t.settle(10)
-		GuiService.SelectedObject = visibleNamed(t, value.stage, "Demo-collections")
+		GuiService.SelectedObject = t:visibleNamed(value.stage, "Demo-collections")
 	end,
 	afterReturnAgain = function(t, value)
 		t.check(

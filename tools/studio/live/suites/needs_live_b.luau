@@ -27,15 +27,6 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
 end
 
-local function visibleNamed(t: any, root: Instance, name: string): any
-	for _, node in root:GetDescendants() do
-		if node.Name == name and node:IsA("GuiObject") and t.visible(node) then
-			return node
-		end
-	end
-	return nil
-end
-
 local function overlap(a: any, b: any): boolean
 	local w = math.min(a.r, b.r) - math.max(a.x, b.x)
 	local h = math.min(a.b, b.b) - math.max(a.y, b.y)
@@ -266,7 +257,7 @@ add("step-and-clear-targets", {}, function(t)
 			}
 		end, { theme = theme.package, size = Vector2.new(360, 300) })
 		for _, name in { "Decrease", "Increase", "Clear" } do
-			local node = visibleNamed(t, stage, name)
+			local node = t:visibleNamed(stage, name)
 			if node then
 				local input = game:GetService("UserInputService")
 				if name == "Clear" and not (input.TouchEnabled or input.GamepadEnabled) then
@@ -314,7 +305,7 @@ add("picker-long-labels", {}, function(t)
 			end, { size = Vector2.new(width, 300) })
 			local picker = t.find(stage, "Auto")
 			t.stable(picker)
-			local presentation = visibleNamed(t, picker, "Presentation")
+			local presentation = t:visibleNamed(picker, "Presentation")
 			local segmented = presentation ~= nil and presentation:HasTag("facet-segmented")
 			local clipped, labels = 0, 0
 			for _, node in picker:GetDescendants() do
@@ -420,7 +411,7 @@ add("text-degrade-sort-label", {}, function(t)
 	for _, stop in { "roomy", "snug", "tight", "impossible" } do
 		built.steps.setStop(built, stop)
 		t.settle(10)
-		local sort = visibleNamed(t, stage, "Sort")
+		local sort = t:visibleNamed(stage, "Sort")
 		if not sort then
 			t.check(stop .. " Sort found", false)
 			continue
