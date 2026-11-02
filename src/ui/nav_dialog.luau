@@ -3,7 +3,6 @@ local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
-local materialize = require("./materialize")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local freeze = require("./freeze")
@@ -382,10 +381,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							}
 							local panel = ctx.styled(ctx.fade(panelProps, true), "dialog")
 							ctx.styled(panel, "panel")
-							materialize(ctx, panel, panelProps, function(use: ComposeTypes.Use)
-								local rest = ctx.metric("motion.materialize.modal", use)
-								return if use(settled) then rest + (1 - rest) * shown.travel(use) else 1
-							end, nil, true)
 							local sizes, rested = surfaces.atRest(shown.travel, settled, { panel })
 							Compose.watch(function(use: ComposeTypes.Use)
 								held:set(
