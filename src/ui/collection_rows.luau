@@ -17,7 +17,7 @@ return function<V, K>(
 	UI: ControlTypes.Controls,
 	view: State.View<V, K>,
 	editor: reorder.Editor<V, K>?,
-	slots: Slots.Slots<V, K>
+	slots: Slots.Slots<V, K>?
 ): (CollectionTypes.Follow?) -> ComposeTypes.Child
 	type SlotRecord = Slots.Slot<V, K>
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -39,7 +39,6 @@ return function<V, K>(
 	local mounted, cellEdits, placed, poolOwner = view.mounted, view.cellEdits, view.placed, view.poolOwner
 	local preparing, waiting = view.preparing, view.waiting
 	local crossEdge, fullSizes = view.crossEdge, view.fullSizes
-	local slotSource, withSlots = slots.source, slots.wrap
 	local fill, middle, centre = D2.fromScale(1, 1), D2.fromScale(0.5, 0.5), V2.new(0.5, 0.5)
 	local keyedRows: { [{ V }]: { keys: { K }, index: { [K]: number } } } = setmetatable({}, { __mode = "k" })
 	local function keysOf(rows: { V }): { keys: { K }, index: { [K]: number } }
@@ -799,12 +798,13 @@ return function<V, K>(
 		end)
 		return node
 	end
-	local function orderedRows(follow: CollectionTypes.Follow?): ComposeTypes.Child
+	local function orderedRows<T>(
+		rows: ComposeTypes.OrderedCollectionOptions<T, K>,
+		follow: CollectionTypes.Follow?
+	): ComposeTypes.Child
 		return Compose.OrderedCollection {
-			from = slotSource,
-			key = function(record: SlotRecord, _index: number): K
-				return record.key
-			end,
+			from = rows.from,
+			key = rows.key,
 			mode = spec.mode or "windowed",
 			direction = spec.direction or "vertical",
 			viewport = viewport,
@@ -861,34 +861,47 @@ return function<V, K>(
 					crossSize = math.max(0, (use(cross) - 2 * crossEdge(use) - crossGap * (columns - 1)) / columns),
 				}
 			end,
-			recycle = if recycling
-				then function(
-					record: ComposeTypes.ReadOnlyValue<SlotRecord>,
-					rowPlacement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
-					keyCell: ComposeTypes.ReadOnlyValue<K>
-				): GuiObject
-					return row(
-						Compose.formula(function(use: ComposeTypes.Use): V
-							return assert(use(record).item)
-						end),
-						rowPlacement,
-						keyCell,
-						true
-					)
-				end
-				else nil,
-			render = if recycling
-				then nil
-				else withSlots(
-					function(
-						rowItem: ComposeTypes.ReadOnlyValue<V>,
-						rowPlacement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
-						key: K
-					): GuiObject
-						return row(rowItem, rowPlacement, Compose.cell(key), false)
-					end
-				),
+			recycle = rows.recycle,
+			render = rows.render,
 		}
 	end
-	return orderedRows
+	local function render(
+		current: ComposeTypes.ReadOnlyValue<V>,
+		placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+		key: K
+	): GuiObject
+		return row(current, placement, Compose.cell(key), false)
+	end
+	local keys: { K } = {}
+	return function(follow: CollectionTypes.Follow?): ComposeTypes.Child
+		if slots then
+			return orderedRows({
+				from = slots.source,
+				key = function(record: SlotRecord, _index: number): K
+					return record.key
+				end,
+				render = slots.wrap(render),
+			}, follow)
+		end
+		return orderedRows({
+			from = function(use: ComposeTypes.Use): { V }
+				local rows = source(use)
+				keys = keysOf(rows).keys
+				return rows
+			end,
+			key = function(_item: V, index: number): K
+				return keys[index]
+			end,
+			render = if recycling then nil else render,
+			recycle = if recycling
+				then function(
+					current: ComposeTypes.ReadOnlyValue<V>,
+					placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+					key: ComposeTypes.ReadOnlyValue<K>
+				): GuiObject
+					return row(current, placement, key, true)
+				end
+				else nil,
+		}, follow)
+	end
 end
