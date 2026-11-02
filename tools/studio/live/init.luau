@@ -177,8 +177,31 @@ local function visibleNamed(t: { visible: (Instance) -> boolean }, root: Instanc
 	return nil
 end
 
+local function rect(node: any): Rect
+	local at, size = node.AbsolutePosition, node.AbsoluteSize
+	return { x = at.X, y = at.Y, w = size.X, h = size.Y, r = at.X + size.X, b = at.Y + size.Y }
+end
+
+local function clipped(node: any): Rect?
+	local box: Rect = rect(node)
+	local x: number, y: number, r: number, b: number = box.x, box.y, box.r, box.b
+	local at = node.Parent
+	while at and not at:IsA("LayerCollector") do
+		if at:IsA("GuiObject") and (at.ClipsDescendants or at:IsA("ScrollingFrame")) then
+			local clip: Rect = rect(at)
+			x, y = math.max(x, clip.x), math.max(y, clip.y)
+			r, b = math.min(r, clip.r), math.min(b, clip.b)
+		end
+		at = at.Parent
+	end
+	if r - x < 0.5 or b - y < 0.5 then
+		return nil
+	end
+	return { x = x, y = y, w = r - x, h = b - y, r = r, b = b }
+end
+
 local function newCase(Facet: any, themes: { any }, record: { [string]: any }, context: any?)
-	local t = { visibleNamed = visibleNamed }
+	local t = { visibleNamed = visibleNamed, rect = rect, clipped = clipped }
 	local cleanups: { () -> () } = {}
 	t.Facet = Facet
 	t.themes = themes
@@ -244,10 +267,6 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 			end
 		end
 		return out
-	end
-	function t.rect(node: any): Rect
-		local at, size = node.AbsolutePosition, node.AbsoluteSize
-		return { x = at.X, y = at.Y, w = size.X, h = size.Y, r = at.X + size.X, b = at.Y + size.Y }
 	end
 	function t.ruleValue(rule: StyleRule, property: string): unknown
 		local value = rule:GetProperty(property)
@@ -387,23 +406,6 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				return (require :: any)(find(kind, name))
 			end,
 		}
-	end
-	function t.clipped(node: any): Rect?
-		local box: Rect = t.rect(node)
-		local x: number, y: number, r: number, b: number = box.x, box.y, box.r, box.b
-		local at = node.Parent
-		while at and not at:IsA("LayerCollector") do
-			if at:IsA("GuiObject") and (at.ClipsDescendants or at:IsA("ScrollingFrame")) then
-				local clip: Rect = t.rect(at)
-				x, y = math.max(x, clip.x), math.max(y, clip.y)
-				r, b = math.min(r, clip.r), math.min(b, clip.b)
-			end
-			at = at.Parent
-		end
-		if r - x < 0.5 or b - y < 0.5 then
-			return nil
-		end
-		return { x = x, y = y, w = r - x, h = b - y, r = r, b = b }
 	end
 	local function textClipped(node: any): boolean
 		local bounds, size = node.TextBounds, node.AbsoluteSize
