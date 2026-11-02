@@ -81,11 +81,7 @@ local function free(state: Layer, frame: ScrollingFrame)
 end
 
 local function refresh(layer: Instance, state: Layer)
-	local held: { ScrollingFrame } = {}
 	for frame in state.held do
-		table.insert(held, frame)
-	end
-	for _, frame in held do
 		if exempt(state, frame) or not within(frame, layer) then
 			free(state, frame)
 		end
