@@ -87,7 +87,7 @@ local function pointer(t: { settle: (number) -> (), check: (string, boolean) -> 
 		pad.BackgroundTransparency = 1
 		pad.Text = ""
 		pad.Parent = shield
-		shield.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
+		shield.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 		t.settle(2)
 		local seen: Vector3? = nil
 		local watch = UserInputService.InputBegan:Connect(function(input)
@@ -179,7 +179,7 @@ local function device(t: { settle: (number) -> (), check: (string, boolean) -> (
 		pad.BackgroundTransparency = 1
 		pad.Text = ""
 		pad.Parent = shield
-		shield.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
+		shield.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 		t.settle(2)
 		GuiService.SelectedObject = pad
 		t.settle(2)

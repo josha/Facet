@@ -2818,7 +2818,8 @@ add("color-first-visit", {}, function(t)
 		}
 	do
 		local picker = assert(panel:FindFirstChild(visit[1], true))
-		local button = assert(t:visibleNamed(picker, visit[2]), `visible {visit[2]} option was not found`) :: GuiButton
+		local button = assert(t:visibleNamed(picker, visit[2]), `visible {visit[2]} option was not found`)
+		assert(button:IsA("GuiButton"), `{visit[2]} is not a button`)
 		local activated = false
 		local activation = button.Activated:Connect(function()
 			activated = true
