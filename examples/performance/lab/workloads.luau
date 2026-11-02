@@ -129,7 +129,7 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 		name = name,
 		selected = nil :: (Value<string> | Value<{ [string]: boolean }>)?,
 		observed = {} :: { ObservedCell },
-		nodes = {},
+		nodes = {} :: { TextButton },
 		close = nil :: (() -> ())?,
 		focused = nil :: GuiObject?,
 		surface = nil :: { panel: string, items: { [string]: boolean } }?,

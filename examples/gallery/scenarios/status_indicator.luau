@@ -1,10 +1,11 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Status = "neutral" | "info" | "success" | "warning" | "error" | "accent" | "voice" | "contrast"
 type Form = "dot" | "ring" | "square" | "dash"
+type StatusOption = { value: Status, label: string }
+type FormOption = { value: Form, label: string }
 type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 return {
@@ -66,7 +67,7 @@ return {
 					})
 				)
 			end
-			local statusOptions: { PickerOption } = {
+			local statusOptions: { StatusOption } = {
 				{ value = "neutral", label = "Neutral" },
 				{ value = "info", label = "Info" },
 				{ value = "success", label = "Success" },
@@ -76,7 +77,7 @@ return {
 				{ value = "voice", label = "Voice" },
 				{ value = "contrast", label = "Contrast" },
 			}
-			local shapeOptions: { PickerOption } = {
+			local shapeOptions: { FormOption } = {
 				{ value = "dot", label = "Dot" },
 				{ value = "ring", label = "Ring" },
 			}

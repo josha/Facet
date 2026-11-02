@@ -8,6 +8,7 @@ type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 local WRAP_TAGS = { "Rain", "Dust", "Night", "Mirror", "Reverse", "Elimination" }
 local RAIL_TAGS = {
@@ -319,7 +320,7 @@ return {
 						PaddingBottom = UDim.new(0, 6),
 					},
 				})
-				local function styled(property)
+				local function styled<T>(property: string): Value<T>
 					local value = Compose.cell(button:GetStyled(property))
 					local connection = button:GetStyledPropertyChangedSignal(property):Connect(function()
 						value:set(button:GetStyled(property))
@@ -337,8 +338,8 @@ return {
 						TextWrapped = false,
 						Size = UDim2.fromOffset(0, 0),
 						AutomaticSize = Enum.AutomaticSize.XY,
-						FontFace = styled("FontFace"),
-						TextSize = styled("TextSize"),
+						FontFace = styled<<Font>>("FontFace"),
+						TextSize = styled<<number>>("TextSize"),
 					}
 					return measure
 				end, button)

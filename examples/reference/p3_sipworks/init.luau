@@ -115,13 +115,14 @@ function Sipworks.build(ctx: ExampleContext)
 	local visible = Compose.formula(function(use: Use): { blendsContent.Blend }
 		local locale, query, which = use(i18n.locale), use(search), use(section)
 		use(favorites.set)
+		local function localizedName(kind: string, id: string, label: string): string
+			return i18n.nameAt(locale, kind, id, label)
+		end
 		local result: { blendsContent.Blend } = {}
 		for _, blend in catalog.blends do
 			if
 				(which ~= "favorites" or favorites.isFavorite(blend.id))
-				and catalog.matches(blend.id, query, function(kind: string, id: string, label: string): string
-					return i18n.nameAt(locale, kind, id, label)
-				end)
+				and catalog.matches(blend.id, query, localizedName)
 			then
 				table.insert(result, blend)
 			end

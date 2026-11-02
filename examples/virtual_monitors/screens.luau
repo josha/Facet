@@ -6,6 +6,7 @@ type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").StringMenuItem)
 type MenuSpec = typeof(require("@repo/tools/typecheck/aliases").MenuSpec)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
@@ -1075,8 +1076,8 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 					acceptCustom = function()
 						return true, nil
 					end,
-					options = function(use: Use): { PickerOption }
-						local query, choices: { PickerOption } = use(model.query):lower(), {}
+					options = function(use: Use): { StringPickerOption }
+						local query, choices: { StringPickerOption } = use(model.query):lower(), {}
 						if query ~= "" then
 							for _, item in use(model.catalog.items) do
 								if item.title:lower():find(query, 1, true) then
@@ -1311,10 +1312,10 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 					itemSize = 60,
 					reorderable = true,
 					onReorder = model.reorderSaved,
-					dragLabel = function(item)
+					dragLabel = function(item: Game)
 						return item.title
 					end,
-					onActivate = function(item)
+					onActivate = function(item: Game)
 						model.shelf:set("browse")
 						model.selectGame(item)
 					end,

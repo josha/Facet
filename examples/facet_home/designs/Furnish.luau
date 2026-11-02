@@ -160,7 +160,7 @@ local function Furnish(UI: Facet.Controls, props: Props): GuiObject
 						props.onChooseFurniture(...)
 					end
 				end,
-				rowActions = function(current: Facet.ReadOnlyValue<InventoryRowsItem>): Facet.RowActionsOptions?
+				rowActions = function(current: Facet.ReadOnlyValue<InventoryRowsItem>)
 					return {
 						fullSwipe = false,
 						trailing = {
