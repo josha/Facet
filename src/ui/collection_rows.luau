@@ -253,7 +253,6 @@ return function<V, K>(
 			end)
 		Compose.withOwner(contentOwner, function()
 			runtime.decorate(node, {
-				Name = tostring(keyCell:peek()),
 				ClipsDescendants = tree ~= nil,
 				Interactable = interactable,
 			})
@@ -301,7 +300,8 @@ return function<V, K>(
 				then
 					containsCards:set(true)
 				end
-				for _, edit in activation.edits(rendered) do
+				local rowEdits = activation.edits(rendered)
+				for _, edit in rowEdits do
 					local gated = table.clone(edit)
 					gated.enabled = function(use: ComposeTypes.Use?): boolean
 						return edit.enabled(use) and not policy.disabled(spec.disabled, readSource(current, use))
@@ -317,7 +317,8 @@ return function<V, K>(
 						rendered,
 						UI.RowActions,
 						coordinator,
-						kind == "grid"
+						kind == "grid",
+						rowEdits
 					)
 				end
 				if editor then
@@ -637,22 +638,21 @@ return function<V, K>(
 			end)
 		end
 		local measureRow: ((ComposeTypes.Use, Vector2) -> ())? = nil
-		local automatic = measuredNode.AutomaticSize
-		local natural = (
-			measuredNode:FindFirstChildWhichIsA("UIListLayout") ~= nil
-			or measuredNode:IsA("GuiButton")
-			or measuredNode:IsA("TextLabel")
-			or measuredNode:IsA("TextBox")
-		)
-			and (automatic == E.AutomaticSize.XY or automatic == (if horizontal
-				then E.AutomaticSize.X
-				else E.AutomaticSize.Y))
-			and read(spec.contentOverflow) ~= "clip"
-		if
-			spec.measure
-			or (tree and not tree.columnar)
-			or (spec.measure == nil and tree == nil and kind == "list" and natural)
-		then
+		local natural = false
+		if spec.measure == nil and tree == nil and kind == "list" and read(spec.contentOverflow) ~= "clip" then
+			local automatic = measuredNode.AutomaticSize
+			natural = (
+				automatic == E.AutomaticSize.XY
+				or automatic == (if horizontal then E.AutomaticSize.X else E.AutomaticSize.Y)
+			)
+				and (
+					measuredNode:FindFirstChildWhichIsA("UIListLayout") ~= nil
+					or measuredNode:IsA("GuiButton")
+					or measuredNode:IsA("TextLabel")
+					or measuredNode:IsA("TextBox")
+				)
+		end
+		if spec.measure or (tree and not tree.columnar) or natural then
 			local inferred = spec.measure == nil and tree == nil
 			local size = if inferred then nil else observe.AbsoluteSize(measuredNode)
 			local lift = measuredNode:FindFirstChildWhichIsA("UIScale")
