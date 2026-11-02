@@ -11,13 +11,9 @@ local Run = require("../lib/run")
 
 type Say = (string) -> ()
 
-type Link = { start: number, finish: number, label: string, target: string }
-
 local USAGE = [[usage: lute run tools/facet archive private archive <path> [<path> ...] [--root DIR] [--source DIR]
        lute run tools/facet archive private verify [--root DIR]
        lute run tools/facet archive private list [--root DIR]
-       lute run tools/facet archive relink --check
-       lute run tools/facet archive relink --fix
        lute run tools/facet archive --selftest
 
 private -- the private archive for material that leaves the public tree.
@@ -30,50 +26,13 @@ private -- the private archive for material that leaves the public tree.
   --root DIR    archive root (default: Facet-private-archive beside the library root)
   --source DIR  repository root the paths are relative to (default: the current directory)
 
-relink -- turn links into privately archived material into plain text.
-
-WHY THIS EXISTS. Some material does not go public: the decision records, the
-written-up defects, the internal plans, the handoff notes, the raw research
-files, the stage evidence, and the comparison documents that move into the
-private archive. A link whose target is not in the repository is worse than no
-link: a reader clicks it, gets a 404, and learns nothing about why the sentence
-is true.
-
-The repair is mechanical and deliberately minimal. A markdown link whose target
-is in the archived set becomes:
-
-    <link text> `<old path>` (archived privately)
-
-...and nothing else on the line changes. The sentence keeps its wording and its
-citation; only the false promise that you can open the file goes away. When the
-link text is itself the path in a code span, the path is not repeated.
-
-    lute run tools/facet archive relink --check   # report every offender, exit 1 if any
-    lute run tools/facet archive relink --fix     # rewrite them, print before/after counts
-
-Exit 0 = clean (or fixed); 1 = offenders found by --check; 2 = bad invocation.]]
+Exit 0 = success; 1 = archive failure; 2 = bad invocation.]]
 
 local MANIFEST_NAME = "MANIFEST.json"
 local SUMS_NAME = "SHA256SUMS"
 local SCHEMA = "facet-private-archive/1"
 local BOOKKEEPING = { [MANIFEST_NAME] = true, [SUMS_NAME] = true }
 local PRIVATE = "facet archive private"
-local RELINK = "facet archive relink"
-
-local SCANNED_DIRS = { "docs/guide", "docs/extending", "docs/reference" }
-local ARCHIVED_PREFIXES = {
-	"docs/adr/",
-	"docs/lessons/",
-	"docs/plans/",
-	"docs/handoff/",
-	"docs/research/",
-	"artifacts/",
-	".superpowers/",
-	"vendor/",
-}
-local ARCHIVED_FILES = { "docs/INVENTORY.md", "ui_todo.md", "sweep.luau" }
-local PUBLIC_REFERENCE = { "docs/reference/api.md", "docs/reference/constitution.md" }
-local NOTE = "(archived privately)"
 
 local function defaultRoot(): string
 	return Files.join(Files.parent(Files.cwd()), "Facet-private-archive")
@@ -362,323 +321,6 @@ local function show(root: string, say: Say): number
 	return 0
 end
 
-local function whitespaceAt(source: string, index: number): number
-	local byte = string.byte(source, index)
-	if byte == nil then
-		return 0
-	end
-	if byte == 32 or (byte >= 9 and byte <= 13) or (byte >= 28 and byte <= 31) then
-		return 1
-	end
-	local second, third = string.byte(source, index + 1, index + 2)
-	if byte == 0xC2 and (second == 0x85 or second == 0xA0) then
-		return 2
-	end
-	if third == nil then
-		return 0
-	end
-	if byte == 0xE1 and second == 0x9A and third == 0x80 then
-		return 3
-	end
-	if
-		byte == 0xE2
-		and second == 0x80
-		and ((third >= 0x80 and third <= 0x8A) or third == 0xA8 or third == 0xA9 or third == 0xAF)
-	then
-		return 3
-	end
-	if byte == 0xE2 and second == 0x81 and third == 0x9F then
-		return 3
-	end
-	if byte == 0xE3 and second == 0x80 and third == 0x80 then
-		return 3
-	end
-	return 0
-end
-
-local function strip(text: string): string
-	local first = 1
-	while first <= #text do
-		local width = whitespaceAt(text, first)
-		if width == 0 then
-			break
-		end
-		first += width
-	end
-	local last = #text
-	while last >= first do
-		if whitespaceAt(text, last) == 1 then
-			last -= 1
-		elseif last - 1 >= first and whitespaceAt(text, last - 1) == 2 then
-			last -= 2
-		elseif last - 2 >= first and whitespaceAt(text, last - 2) == 3 then
-			last -= 3
-		else
-			break
-		end
-	end
-	return string.sub(text, first, last)
-end
-
-local function stripBackticks(text: string): string
-	local trimmed = string.match(text, "^`*(.-)`*$") or text
-	return trimmed
-end
-
-local function linkAt(source: string, start: number): Link?
-	local index = start + 1
-	while true do
-		local character = string.sub(source, index, index)
-		if character == "" then
-			return nil
-		elseif character == "]" then
-			break
-		elseif character == "[" then
-			local close = index + 1
-			while true do
-				local inner = string.sub(source, close, close)
-				if inner == "" or inner == "[" then
-					return nil
-				elseif inner == "]" then
-					break
-				end
-				close += 1
-			end
-			index = close + 1
-		else
-			index += 1
-		end
-	end
-	local labelEnd = index
-	if string.sub(source, labelEnd + 1, labelEnd + 1) ~= "(" then
-		return nil
-	end
-	local targetStart = labelEnd + 2
-	local cursor = targetStart
-	while true do
-		local character = string.sub(source, cursor, cursor)
-		if character == "" or character == ")" or whitespaceAt(source, cursor) > 0 then
-			break
-		end
-		cursor += 1
-	end
-	if cursor == targetStart then
-		return nil
-	end
-	local target = string.sub(source, targetStart, cursor - 1)
-	local finish: number
-	if string.sub(source, cursor, cursor) == ")" then
-		finish = cursor
-	else
-		local spaced = cursor
-		while whitespaceAt(source, spaced) > 0 do
-			spaced += whitespaceAt(source, spaced)
-		end
-		if spaced == cursor or string.sub(source, spaced, spaced) ~= '"' then
-			return nil
-		end
-		local closing = string.find(source, '"', spaced + 1, true)
-		if closing == nil or string.sub(source, closing + 1, closing + 1) ~= ")" then
-			return nil
-		end
-		finish = closing + 1
-	end
-	return { start = start, finish = finish, label = string.sub(source, start + 1, labelEnd - 1), target = target }
-end
-
-local function links(source: string): { Link }
-	local found: { Link } = {}
-	local index = 1
-	while true do
-		local start = string.find(source, "[", index, true)
-		if start == nil then
-			break
-		end
-		local link = linkAt(source, start)
-		if link ~= nil then
-			table.insert(found, link)
-			index = link.finish + 1
-		else
-			index = start + 1
-		end
-	end
-	return found
-end
-
-local function normalizePath(path: string): string
-	local parts: { string } = {}
-	for _, part in string.split(path, "/") do
-		if part == "" or part == "." then
-			continue
-		end
-		if part == ".." then
-			if #parts > 0 then
-				table.remove(parts)
-			end
-			continue
-		end
-		table.insert(parts, part)
-	end
-	return table.concat(parts, "/")
-end
-
-local function dirname(path: string): string
-	return string.match(path, "^(.*)/[^/]*$") or ""
-end
-
-local function basename(path: string): string
-	return string.match(path, "([^/]*)$") or path
-end
-
-local function resolve(path: string, document: string): string
-	if string.sub(path, 1, 1) == "/" then
-		local rooted = string.gsub(path, "^/+", "")
-		return normalizePath(rooted)
-	end
-	return normalizePath(dirname(document) .. "/" .. path)
-end
-
-local function beforeFragment(target: string): string
-	local hash = string.find(target, "#", 1, true)
-	return if hash then string.sub(target, 1, hash - 1) else target
-end
-
-local function isArchived(target: string, document: string): boolean
-	for _, scheme in { "http://", "https://", "mailto:", "#" } do
-		if stringext.hasPrefix(target, scheme) then
-			return false
-		end
-	end
-	local path = beforeFragment(target)
-	if path == "" then
-		return false
-	end
-	local resolved = resolve(path, document)
-	if table.find(ARCHIVED_FILES, resolved) ~= nil then
-		return true
-	end
-	if stringext.hasPrefix(resolved, "docs/reference/") and table.find(PUBLIC_REFERENCE, resolved) == nil then
-		return true
-	end
-	for _, prefix in ARCHIVED_PREFIXES do
-		if stringext.hasPrefix(resolved, prefix) then
-			return true
-		end
-	end
-	return false
-end
-
-local function replacement(label: string, target: string, document: string): string
-	local pathOnly = beforeFragment(target)
-	local shown = resolve(pathOnly, document)
-	local bare = strip(stripBackticks(strip(label)))
-	local samePath = bare == target
-		or bare == pathOnly
-		or bare == basename(pathOnly)
-		or bare == shown
-		or (string.find(bare, "/", 1, true) ~= nil and resolve(bare, document) == shown)
-	if samePath then
-		return ("`%s` %s"):format(shown, NOTE)
-	end
-	return ("%s `%s` %s"):format(label, shown, NOTE)
-end
-
-local function documents(repository: string): { string }
-	local found: { string } = {}
-	for _, directory in SCANNED_DIRS do
-		for _, entry in Files.list(Files.join(repository, directory)) do
-			if entry.type ~= "file" or string.sub(entry.name, -3) ~= ".md" then
-				continue
-			end
-			local document = directory .. "/" .. entry.name
-			if stringext.hasPrefix(document, "docs/reference/") and table.find(PUBLIC_REFERENCE, document) == nil then
-				continue
-			end
-			table.insert(found, document)
-		end
-	end
-	return found
-end
-
-type Offender = { line: number, target: string }
-
-local function rewrite(document: string, source: string): (string, { Offender }, number)
-	local offenders: { Offender } = {}
-	local parts: { string } = {}
-	local cursor = 1
-	local found = links(source)
-	for _, link in found do
-		if isArchived(link.target, document) then
-			local _, newlines = string.gsub(string.sub(source, 1, link.start - 1), "\n", "")
-			table.insert(offenders, { line = newlines + 1, target = link.target })
-			table.insert(parts, string.sub(source, cursor, link.start - 1))
-			table.insert(parts, replacement(link.label, link.target, document))
-			cursor = link.finish + 1
-		end
-	end
-	table.insert(parts, string.sub(source, cursor))
-	return table.concat(parts), offenders, #found
-end
-
-local function relink(repository: string, mode: "check" | "fix", say: Say): number
-	local totalLinks = 0
-	local totalOffenders = 0
-	local changedFiles = 0
-	local scanned = documents(repository)
-	for _, document in scanned do
-		local path = Files.join(repository, document)
-		local raw = Files.read(path)
-		local source = string.gsub(string.gsub(raw, "\r\n", "\n"), "\r", "\n")
-		local rewritten, offenders, count = rewrite(document, source)
-		totalLinks += count
-		if #offenders == 0 then
-			continue
-		end
-		totalOffenders += #offenders
-		changedFiles += 1
-		for _, offender in offenders do
-			say(("%s:%d: links into archived material -> %s"):format(document, offender.line, offender.target))
-		end
-		if mode == "fix" then
-			local output = if string.find(raw, "\r\n", 1, true) ~= nil
-				then string.gsub(rewritten, "\n", "\r\n")
-				else rewritten
-			Files.write(path, output)
-		end
-	end
-	if mode == "fix" then
-		say(
-			("%s: rewrote %d link(s) in %d file(s); %d documents scanned, %d links read"):format(
-				RELINK,
-				totalOffenders,
-				changedFiles,
-				#scanned,
-				totalLinks
-			)
-		)
-		return 0
-	end
-	if totalOffenders > 0 then
-		say(
-			("%s: FAIL — %d link(s) into archived material in %d file(s) of %d scanned"):format(
-				RELINK,
-				totalOffenders,
-				changedFiles,
-				#scanned
-			)
-		)
-		return 1
-	end
-	say(
-		("%s: PASS — %d documents, %d links, none pointing into archived material"):format(
-			RELINK,
-			#scanned,
-			totalLinks
-		)
-	)
-	return 0
-end
-
 local function collector(): ({ string }, Say)
 	local lines: { string } = {}
 	return lines, function(line: string)
@@ -774,70 +416,6 @@ local function register(harness: Verify.Harness, prefix: string): ()
 			end)
 		end,
 	})
-	harness:case(prefix .. "relink: finds and rewrites links into archived material", {
-		id = prefix .. "relink: finds and rewrites links into archived material",
-		run = function(test: Verify.Context): ()
-			withDirectory(test, function(root: string): ()
-				local guide = table.concat({
-					"See [the plan](../plans/one.md) and [`docs/adr/0001.md`](../adr/0001.md#why).",
-					"Keep [the API](../reference/api.md) and [site](https://example.com/docs/adr/x.md).",
-					'A [nested [label] here](/artifacts/run.json "title") and [inventory](../INVENTORY.md).',
-					"Private [ref](../reference/internal.md), [anchor](#top), [split",
-					"label](../lessons/l.md).",
-					"",
-				}, "\r\n")
-				Files.write(Files.join(root, "docs/guide/one.md"), guide)
-				Files.write(Files.join(root, "docs/guide/clean.md"), "[ok](architecture.md)\n")
-				Files.write(Files.join(root, "docs/reference/internal.md"), "[x](../plans/p.md)\n")
-				local lines, say = collector()
-				local checked = relink(root, "check", say)
-				local fixLines, fixSay = collector()
-				local fixed = relink(root, "fix", fixSay)
-				local after = Files.read(Files.join(root, "docs/guide/one.md"))
-				local expected = table.concat({
-					"See the plan `docs/plans/one.md` (archived privately) and `docs/adr/0001.md` (archived privately).",
-					"Keep [the API](../reference/api.md) and [site](https://example.com/docs/adr/x.md).",
-					"A nested [label] here `artifacts/run.json` (archived privately) and inventory `docs/INVENTORY.md` (archived privately).",
-					"Private ref `docs/reference/internal.md` (archived privately), [anchor](#top), split",
-					"label `docs/lessons/l.md` (archived privately).",
-					"",
-				}, "\r\n")
-				local passLines, passSay = collector()
-				local clean = relink(root, "check", passSay)
-				Verify.expect(checked):toBe(1)
-				Verify.expect(contains(lines, "docs/guide/one.md:1: links into archived material -> ../plans/one.md"))
-					:toBeTrueWith("line 1 offender")
-				Verify.expect(contains(lines, "docs/guide/one.md:4: links into archived material -> ../lessons/l.md"))
-					:toBeTrueWith("multi-line label offender line")
-				Verify.expect(contains(lines, "FAIL — 6 link(s) into archived material in 1 file(s) of 2 scanned"))
-					:toBeTrueWith("check summary")
-				Verify.expect(fixed):toBe(0)
-				Verify.expect(contains(fixLines, "rewrote 6 link(s) in 1 file(s); 2 documents scanned, 10 links read"))
-					:toBeTrueWith("fix summary")
-				Verify.expect(after):toBe(expected)
-				Verify.expect(clean):toBe(0)
-				Verify.expect(contains(passLines, "PASS — 2 documents, 4 links")):toBeTrueWith("pass summary")
-			end)
-		end,
-	})
-	harness:case(prefix .. "relink: link grammar edge cases", {
-		id = prefix .. "relink: link grammar edge cases",
-		run = function(test: Verify.Context): ()
-			local function targets(source: string): { string }
-				local found: { string } = {}
-				for _, link in links(source) do
-					table.insert(found, link.label .. "=>" .. link.target)
-				end
-				return found
-			end
-			Verify.expect(targets('[a](b) [c] (d) [e](f g) [h](i "t")')):toEqual({ "a=>b", "h=>i" })
-			Verify.expect(targets("[[a](x) [b](y)")):toEqual({ "a=>x", "b=>y" })
-			Verify.expect(targets("[a [b [c]] d](z)")):toEqual({})
-			Verify.expect(targets("[](empty) [x]()")):toEqual({ "=>empty" })
-			Verify.expect(targets('[a](b\u{a0}"t")')):toEqual({ "a=>b" })
-			Verify.expect(strip("\u{3000} `x` \u{a0}")):toBe("`x`")
-		end,
-	})
 end
 
 local function runPrivate(invocation: Cli.Invocation): number
@@ -883,15 +461,6 @@ local function run(invocation: Cli.Invocation): number
 			return 2
 		end
 		return runPrivate(invocation)
-	elseif area == "relink" then
-		local check = Cli.switch(invocation, "check")
-		local fix = Cli.switch(invocation, "fix")
-		local unknown = Cli.unknownFlags(invocation, { "check", "fix", "root" })
-		if unknown ~= nil or #invocation.positional > 1 or check == fix then
-			print(USAGE)
-			return 2
-		end
-		return relink(Cli.flag(invocation, "root") or ".", if fix then "fix" else "check", print)
 	end
 	print(USAGE)
 	return 2
@@ -899,7 +468,7 @@ end
 
 local command: Cli.Command = {
 	name = "archive",
-	summary = "Keep the private archive (private archive|verify|list) and relink archived material.",
+	summary = "Keep the private archive (private archive|verify|list).",
 	usage = USAGE,
 	values = { "root", "source" },
 	register = register,
