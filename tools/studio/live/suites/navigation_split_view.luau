@@ -46,17 +46,17 @@ local cases: { any } = {
 					assert(built.model).linked:set(true)
 					return built.screen()
 				end, { size = Vector2.new(width, 700), frames = 30 })
-				local views = t.find(stage, "Views")
-				local linked = t.find(stage, "LinkedView")
+				local views: Instance = t.find(stage, "Views")
+				local linked: GuiObject = t.find(stage, "LinkedView")
 				local linkedTable = t.find(linked, "linked")
 				local folders = t.find(stage, "Folders")
 				local at, size = linked.AbsolutePosition, linked.AbsoluteSize
-				local divider = views:FindFirstChild("Resize")
+				local divider = views:FindFirstChild("Resize") :: GuiObject
 				local dividerAt = divider.AbsolutePosition
 				local primary = t.find(stage, "primary")
 				local row = t.find(primary, "environments")
 				local hit = (t.find(row, "RowHit") :: unknown) :: GuiObject
-				t.check(width .. " folder is visible", t.visible(hit) and t.clipped(hit) ~= nil)
+				t.check(width .. " folder is visible", t.visible(hit) == true and t.clipped(hit) ~= nil)
 				local point = hit.AbsolutePosition + hit.AbsoluteSize / 2 + GuiService:GetGuiInset()
 				local virtual = game:GetService("UserInputService"):CreateVirtualInput()
 				assert(virtual:IsA("VirtualInput"))
@@ -81,7 +81,10 @@ local cases: { any } = {
 				t.check(width .. " opens primary folder", #assert(built.model).path:peek() == 1)
 				t.check(width .. " linked history stays at root", #assert(built.model).linkedPath:peek() == 0)
 				t.check(width .. " split and linked pane stay still throughout motion", steady)
-				t.check(width .. " stack belongs to primary pane", folders:IsDescendantOf(views.Sidebar))
+				t.check(
+					width .. " stack belongs to primary pane",
+					folders:IsDescendantOf(assert(views:FindFirstChild("Sidebar")))
+				)
 				t.cleanup()
 			end
 		end,

@@ -3,7 +3,8 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type IdReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").IdReadOnlyValue)
 local GuiService = game:GetService("GuiService")
 
@@ -162,8 +163,8 @@ add("form-controls-traverse-in-document-order", {}, function(t)
 				style = "segmented" :: "segmented",
 				selected = Compose.cell("a"),
 				options = {
-					{ value = "a", label = "Arcade" } :: PickerOption,
-					{ value = "b", label = "Sim" } :: PickerOption,
+					{ value = "a", label = "Arcade" } :: StringPickerOption,
+					{ value = "b", label = "Sim" } :: StringPickerOption,
 				},
 				indicator = "underline" :: "underline",
 				LayoutOrder = 5,
@@ -256,7 +257,7 @@ add("open-tray-steps-sideways", {}, function(t)
 					role = "destructive" :: "destructive",
 					onActivate = function() end,
 				},
-			},
+			} :: { RowAction },
 			Size = UDim2.fromOffset(480, 56),
 		}
 	end, { frames = 16 })

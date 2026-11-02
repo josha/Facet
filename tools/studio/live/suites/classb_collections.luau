@@ -6,7 +6,8 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
 type SideCell = typeof(require("@repo/tools/typecheck/aliases").SideCell)
 type SortCell = typeof(require("@repo/tools/typecheck/aliases").SortCell)
-type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
+type RowActionsShape = typeof(require("@repo/tools/typecheck/aliases").RowActionsShape)
+type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type NumberMapCell = typeof(require("@repo/tools/typecheck/aliases").NumberMapCell)
@@ -343,7 +344,7 @@ add("cross-axis-fills-the-window", {}, function(t)
 end)
 
 add("fill-column-floors-and-hit-order", {}, function(t)
-	local function mount(width: number, columns: { any }, widths: any?): any
+	local function mount(width: number, columns: { TableColumn }, widths: any?): any
 		t.cleanup()
 		return t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			return UI.Table "Racers" {
@@ -699,7 +700,7 @@ add("tray-actions-meet-the-touch-floor", {}, function(t)
 			trailing = {
 				{ id = "flag", label = "Flag" },
 				{ id = "delete", label = "Delete", role = "destructive" :: "destructive" },
-			},
+			} :: { RowAction },
 		}
 	end, { size = Vector2.new(600, 300), frames = 30 })
 	local row = t.find(stage, "Row")
@@ -744,7 +745,7 @@ local function departureCase(t: any, entry: any, edge: string, scroll: boolean)
 	local actionSize: UDim2? = nil
 	local actionVisible: boolean? = nil
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		local action = {
+		local action: RowAction = {
 			id = "delete",
 			label = "Delete",
 			role = "destructive" :: "destructive",
@@ -904,7 +905,7 @@ add("plate-decoration-stays-inside-the-band", {}, function(t)
 				trailing = {
 					{ id = "flag", label = "Flag" },
 					{ id = "delete", label = "Delete", role = "destructive" :: "destructive" },
-				},
+				} :: { RowAction },
 			}
 		end, { size = Vector2.new(700, 300), theme = entry.package, motionLevel = "normal", frames = 20 })
 		local row = t.find(stage, "Row")
@@ -998,7 +999,7 @@ interactive("tray-keys-and-hover", {}, function(t)
 						table.insert(value.fired, "delete")
 					end,
 				},
-			},
+			} :: { RowAction },
 		}
 	end, { size = Vector2.new(700, 300), frames = 20 })
 	local row = t.find(value.stage, "Row")
@@ -1119,7 +1120,7 @@ interactive("left-reaches-this-rows-minus", {}, function(t)
 			selectionMode = "single" :: "single",
 			editing = Compose.cell(true),
 			columns = columns1109,
-			rowActions = function(_, key): RowActions?
+			rowActions = function(_, key): RowActionsShape?
 				return {
 					editing = Compose.cell(true),
 					trailing = {
@@ -1131,7 +1132,7 @@ interactive("left-reaches-this-rows-minus", {}, function(t)
 								table.insert(value.fired, "delete:" .. tostring(key))
 							end,
 						},
-					},
+					} :: { RowAction },
 				}
 			end,
 		}

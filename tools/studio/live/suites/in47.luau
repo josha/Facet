@@ -1579,7 +1579,7 @@ local function shortcutPair(t: any): any
 			},
 			UI.Button "Shifted" {
 				label = "Shift K",
-				shortcut = { keyCode = "K", modifiers = { shift = true } },
+				shortcut = { keyCode = "K", modifiers = { shift = true :: boolean? } },
 				onActivate = function()
 					value.shifted += 1
 				end,

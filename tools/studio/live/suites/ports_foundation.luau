@@ -3,6 +3,7 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type ButtonProps = typeof(require("@repo/tools/typecheck/aliases").ButtonProps)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
@@ -993,7 +994,8 @@ interactive(
 		desktop(t)
 		local value: { [string]: any } = { clicks = 0 }
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			value.chosen = Compose.cell(false)
+			local chosen: BooleanCell = Compose.cell(false)
+			value.chosen = chosen
 			return Host.Frame "Board" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
@@ -1009,9 +1011,9 @@ interactive(
 				UI.Chip "TinyChip" {
 					label = "Tag",
 					controlSize = "xsmall" :: "xsmall",
-					selected = value.chosen,
-					onToggle = function(next)
-						value.chosen:set(next)
+					selected = chosen,
+					onToggle = function(next: boolean)
+						chosen:set(next)
 					end,
 					Position = UDim2.fromOffset(200, 300),
 				},

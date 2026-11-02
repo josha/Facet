@@ -1264,7 +1264,7 @@ end)
 
 add("slider-rest-idle-resize-clearance", {}, function(t)
 	local width = t.Facet.Compose.cell(Vector2.new(360, 200))
-	local value = t.Facet.Compose.cell(50)
+	local value: NumberCell = t.Facet.Compose.cell(50)
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.Screen "S" {
 			padding = 0,
@@ -1314,7 +1314,7 @@ add("slider-rest-idle-resize-clearance", {}, function(t)
 	})
 	t.note("label to thumb gap at value 0", gap)
 	t.cleanup()
-	local steps = t.Facet.Compose.cell(9)
+	local steps: NumberCell = t.Facet.Compose.cell(9)
 	local stepperStage = t.mount(function(UI: FacetControls)
 		return UI.Screen "S" { UI.Stepper "Qty" { label = "Volume", value = steps, min = 0, max = 100, step = 1 } }
 	end, { size = Vector2.new(400, 200), frames = 12 })

@@ -3,9 +3,10 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
-type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
+type LapTableColumn = typeof(require("@repo/tools/typecheck/aliases").LapTableColumn)
+type RowActionsShape = typeof(require("@repo/tools/typecheck/aliases").RowActionsShape)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type Lap = { id: string, name: string, laps: number }
 type LapsCell = typeof(require("@repo/src/vendor/compose/core").cell({ { id = "", name = "", laps = 0 } }))
 type ShapeOptions = { editing: boolean?, narrow: boolean?, scrolls: boolean?, reorderable: boolean?, actions: boolean? }
 type StepsBuild = {
@@ -372,25 +373,25 @@ add("table-columns-follow-the-header", {}, function(t)
 				rows = Compose.cell(table.clone(LAPS))
 				return UI.Table "Grid" {
 					from = rows,
-					key = function(item)
+					key = function(item: Lap)
 						return item.id
 					end,
 					columns = ({
 						{
 							id = "name",
 							label = "Name",
-							value = function(item)
+							value = function(item: Lap)
 								return item.name
 							end,
-						} :: TableColumn?,
+						} :: LapTableColumn?,
 						{
 							id = "laps",
 							label = "Laps",
 							width = 64,
-							value = function(item)
+							value = function(item: Lap)
 								return item.laps
 							end,
-						} :: TableColumn?,
+						} :: LapTableColumn?,
 						if shape.options.narrow
 							then {
 								id = "team",
@@ -402,12 +403,12 @@ add("table-columns-follow-the-header", {}, function(t)
 								end,
 							}
 							else nil,
-					} :: unknown) :: { TableColumn },
+					} :: unknown) :: { LapTableColumn },
 					scrolls = shape.options.scrolls,
 					reorderable = shape.options.reorderable,
 					editing = editing,
 					rowActions = if shape.options.actions
-						then function(): RowActions
+						then function(): RowActionsShape
 							return {
 								trailing = {
 									{
@@ -453,7 +454,7 @@ add("collapsed-column-details-target", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.Table "Grid" {
 			from = LAPS,
-			key = function(item)
+			key = function(item: Lap)
 				return item.id
 			end,
 			columns = {
@@ -461,19 +462,19 @@ add("collapsed-column-details-target", {}, function(t)
 					id = "a",
 					label = "Alpha",
 					width = 150,
-					value = function(item)
+					value = function(item: Lap)
 						return item.name
 					end,
-				} :: TableColumn,
+				} :: LapTableColumn,
 				{
 					id = "b",
 					label = "Beta",
 					width = 150,
 					priority = 2,
-					value = function(item)
+					value = function(item: Lap)
 						return item.laps
 					end,
-				} :: TableColumn,
+				} :: LapTableColumn,
 				{
 					id = "c",
 					label = "Gamma",
@@ -482,7 +483,7 @@ add("collapsed-column-details-target", {}, function(t)
 					value = function()
 						return "Glade"
 					end,
-				} :: TableColumn,
+				} :: LapTableColumn,
 			},
 			Size = UDim2.fromScale(1, 1),
 		}

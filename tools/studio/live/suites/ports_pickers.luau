@@ -977,7 +977,8 @@ add("slider-range-live", {}, function(t)
 		)
 	then
 		t.stable(track)
-		for _, handle in { lower, upper } do
+		local handles: { GuiObject } = { lower, upper }
+		for _, handle in handles do
 			t.check(
 				`{handle.Name} is at least 44x44 on screen`,
 				handle.AbsoluteSize.X >= 43.5 and handle.AbsoluteSize.Y >= 43.5,
@@ -2245,8 +2246,10 @@ local function driverPicker(t: any, first: string, value: any): any
 				sectionTitle = if i == 1 then "Crew" elseif i == 5 then "Rivals" else nil,
 			})
 		end
-		value.driver = Compose.cell(first)
-		value.open = Compose.cell(false)
+		local driver: StringCell = Compose.cell(first)
+		local open: BooleanCell = Compose.cell(false)
+		value.driver = driver
+		value.open = open
 		value.changes = 0
 		return UI.Picker "Driver" {
 			Position = UDim2.fromOffset(40, 40),
@@ -2256,9 +2259,9 @@ local function driverPicker(t: any, first: string, value: any): any
 			hint = "Who takes the wheel for this race.",
 			style = "menu" :: "menu",
 			maxHeight = 220,
-			selected = value.driver,
+			selected = driver,
 			options = options,
-			isPresented = value.open,
+			isPresented = open,
 			onChange = function()
 				value.changes += 1
 			end,
@@ -3517,7 +3520,8 @@ add("color-phone-sheet-apply-on-screen", {}, function(t)
 				t.inside(`{where}: the panel stays inside the screen`, panel, layer, 1)
 				if turn.name == "portrait" then
 					t.check(`{where}: the panel is a sheet`, placement == "sheet", placement)
-					for _, node in { apply, readout } do
+					local nodes: { GuiObject } = { apply, readout }
+					for _, node in nodes do
 						local seen = t.clipped(node)
 						t.check(
 							`{where}: {node.Name} is fully on screen`,

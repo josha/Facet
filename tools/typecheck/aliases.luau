@@ -2,6 +2,7 @@
 local NavigationTypes = require("../../src/ui/navigation_types")
 local InputTypes = require("../../src/ui/input_types")
 local InputProps = require("../../src/ui/input_props")
+local CollectionProps = require("../../src/ui/collection_props")
 local Civil = require("../../src/ui/civil_date_types")
 local Overlay = require("../../src/ui/overlay_types")
 local RadialTypes = require("../../src/ui/radial_types")
@@ -60,6 +61,7 @@ local function exports(): {
 	BooleanReadOnlyValue: Compose.ReadOnlyValue<boolean>,
 	IdReadOnlyValue: Compose.ReadOnlyValue<{ id: string }>,
 	LapRowReadOnlyValue: Compose.ReadOnlyValue<{ id: number, name: string, laps: number }>,
+	LapRowTableColumn: Facet.TableColumn<{ id: number, name: string, laps: number }, number>,
 	ToggleCellProps: InputProps.ToggleCellProps,
 	ToggleRequestProps: InputProps.ToggleRequestProps,
 	OrderedPlacementReadOnly: Compose.ReadOnlyValue<Compose.Placement>,
@@ -143,6 +145,7 @@ local function exports(): {
 	StringRadialItem: Facet.RadialItem<string>,
 	StringRadialAction: Facet.RadialAction<string>,
 	StringRadialChoice: RadialTypes.RadialChoice<string>,
+	RadialAnchorPoint: RadialTypes.AnchorPoint,
 	StringMenuItem: Facet.MenuItem<string>,
 	NumberMenuItem: Facet.MenuItem<number>,
 	NumberMenuChoice: NavigationTypes.MenuChoice<number>,
@@ -167,6 +170,10 @@ local function exports(): {
 	RobloxTypes: Shared.RobloxTypes,
 	RowAction: Facet.RowAction,
 	RowActions: Facet.RowActionsOptions,
+	DateRangePreset: Facet.DateRangePreset,
+	ColorPickerMode: Facet.ColorPickerMode,
+	HelpSpec: InputTypes.HelpSpec,
+	RowActionsShape: CollectionProps.RowActionsOptions,
 	ScreenGuiConstructor: Engine.NamedConstructor<Engine.ScreenGuiNativeProps, ScreenGui>,
 	ScrollingFrameConstructor: Engine.NamedConstructor<Engine.ScrollingFrameNativeProps, ScrollingFrame>,
 	SheetDetent: Facet.SheetDetent,
@@ -179,6 +186,7 @@ local function exports(): {
 	Tab: Facet.Tab,
 	TableColumn: Facet.TableColumn<any, any>,
 	IdNameTableColumn: Facet.TableColumn<{ id: string, name: string }, string>,
+	LapTableColumn: Facet.TableColumn<{ id: string, name: string, laps: number }, string>,
 	TextBoxConstructor: Engine.NamedConstructor<Engine.TextBoxNativeProps, TextBox>,
 	TextButtonConstructor: Engine.NamedConstructor<Engine.TextButtonNativeProps, TextButton>,
 	TextLabelConstructor: Engine.NamedConstructor<Engine.TextLabelNativeProps, TextLabel>,
