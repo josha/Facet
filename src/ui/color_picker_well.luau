@@ -235,13 +235,14 @@ return function(
 					placement = function(use: Use): string
 						return use(where).edge
 					end,
-				} :: Shared.Attributes,
+				},
 			})
+			local technique = assert(view.panel:FindFirstChild("Technique", true))
+			assert(technique:IsA("GuiObject"))
 			local complete = false
 			local settled = ctx.runtime.settled {
 				sample = function(): string
 					local spot = where:peek()
-					local technique = view.panel:FindFirstChild("Technique", true) :: GuiObject
 					local size = technique.AbsoluteSize
 					local modes = view.panel:FindFirstChild("Modes", true)
 					local strip = if modes then modes:FindFirstChildWhichIsA("UIListLayout", true) else nil

@@ -110,12 +110,6 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		return value
 	end
 
-	local function createNode(kind: string): Node
-		return engine.new(kind)
-	end
-
-	local setProperty: (Node, string, unknown) -> () = writeMember
-
 	local function writeAttribute(node: Node, name: string, value: unknown): boolean
 		Engine.invoke(readMember, node, "SetAttribute", name, value)
 		return true
@@ -145,10 +139,6 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		if readMember(child, "Parent") ~= nil then
 			writeMember(child, "Parent", nil)
 		end
-	end
-
-	local function destroyNode(node: Node)
-		engine.destroy(node)
 	end
 
 	local function signalOf(node: Node, event: string): unknown
@@ -324,13 +314,13 @@ local function createHost(engine: Engine.Engine): Compose.Host
 	return {
 		name = "roblox",
 		render = {
-			createNode = createNode,
-			setProperty = setProperty,
+			createNode = engine.new,
+			setProperty = writeMember,
 			setAttribute = setAttribute,
 			clearProperty = clearProperty,
 			insertChild = insertChild,
 			removeChild = removeChild,
-			destroyNode = destroyNode,
+			destroyNode = engine.destroy,
 		},
 		events = {
 			connectEvent = connectEvent,

@@ -34,8 +34,8 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 		end
 		held = row
 		if not row then
-			(node :: ImageLabel).ImageTransparency = ctx.read<<number?>>(authored) or 0
-			local native = node :: GuiObject
+			node.ImageTransparency = ctx.read<<number?>>(authored) or 0
+			local native = node
 			if not node:IsA("ViewportFrame") then
 				native.BackgroundTransparency = background
 				native.BackgroundColor3 = backgroundColor
@@ -47,9 +47,8 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 		scope = nextScope
 		Compose.withOwner(nextScope, function()
 			local size = ctx.observe.AbsoluteSize(node)
-			local observed = (ctx.observe :: unknown) :: { [string]: (Instance) -> ComposeTypes.Value<unknown> }
-			local loaded = if node:IsA("ImageLabel") then observed.IsLoaded(node) else nil
-			local image = if node:IsA("ImageLabel") then observed.Image(node) else nil
+			local loaded = if node:IsA("ImageLabel") then ctx.observe.IsLoaded(node) else nil
+			local image = if node:IsA("ImageLabel") then ctx.observe.Image(node) else nil
 			Compose.watch(function(use: ComposeTypes.Use)
 				if image then
 					use(image)
@@ -130,7 +129,9 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 							or row:GetAttribute("FacetCollectionReady") == false
 					end,
 				})
-				local color = ctx.observeStyled.BackgroundColor3(surface or (row :: GuiObject))
+				local backdrop = surface or row
+				assert(backdrop:IsA("GuiObject"))
+				local color = ctx.observeStyled.BackgroundColor3(backdrop)
 				ctx.runtime.decorate(node, {
 					ImageTransparency = function(use: ComposeTypes.Use): number
 						return 1 - (1 - (ctx.read<<number?>>(authored, use) or 0)) * use(amount)

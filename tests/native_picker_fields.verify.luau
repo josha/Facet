@@ -1,11 +1,11 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 local Facet = require("../src")
+local Navigation = require("../src/ui/navigation_props")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
-	type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 
 	local Compose = require("../src/vendor/compose/core")
 	local Roblox = require("../src/vendor/compose/roblox")
@@ -92,20 +92,92 @@ return function(verifyHarness: Verify.Harness)
 		find(w.screen, "Trigger").Activated:Fire()
 	end
 
+	verifyHarness:case("single selection uses value equality with fixed and rebuilt options", function(check)
+		local engine, bridge = engines.new()
+		check:defer(function()
+			bridge.close()
+		end)
+		local runtime = Roblox.createRuntime(engine)
+		check:defer(function()
+			runtime:dispose()
+		end)
+		local Host = runtime.constructors
+		local UI = Facet.controls(runtime, { types = engine.types })
+		local equality = {
+			__eq = function(a: { chosen: boolean }, b: { chosen: boolean }): boolean
+				return a.chosen == b.chosen
+			end,
+		}
+		local factories: { (boolean) -> unknown } = {
+			function(chosen)
+				return engine.types.Color3.new(if chosen then 0 else 1, if chosen then 1 else 0, 0)
+			end,
+			function(chosen)
+				return engine.types.Vector2.new(if chosen then 1 else 0, 0)
+			end,
+			function(chosen)
+				return engine.types.UDim2.fromScale(if chosen then 1 else 0, 0)
+			end,
+			function(chosen)
+				return setmetatable({ chosen = chosen }, equality)
+			end,
+		}
+		for _, make in factories do
+			for _, dynamic in { false, true } do
+				local selected = Compose.cell(make(true))
+				local revision = Compose.cell(0)
+				local function options(): { Facet.PickerOption<unknown> }
+					return {
+						{ id = "red", value = make(false), label = "Red" },
+						{ id = "green", value = make(true), label = "Green" },
+					}
+				end
+				local values: Facet.Input<{ Facet.PickerOption<unknown> }> = options()
+				if dynamic then
+					values = function(use: Facet.Use)
+						use(revision)
+						return options()
+					end
+				end
+				local spec: Navigation.SinglePickerSpec<unknown> = {
+					style = "radioGroup",
+					selected = selected,
+					options = values,
+				}
+				local target = engine.new("Folder")
+				local stop = runtime.mount(function()
+					return Host.ScreenGui { UI.Picker "Paint"(spec) }
+				end, target)
+				check:defer(stop)
+				for step = 0, 8 do
+					if step > 0 then
+						revision:set(step)
+					end
+					for _, chosen in { true, false } do
+						selected:set(make(chosen))
+						local red: Frame = assert(target:FindFirstChild("red", true):FindFirstChild("Dot", true))
+						local green: Frame = assert(target:FindFirstChild("green", true):FindFirstChild("Dot", true))
+						check:expect(red.Visible):toBe(not chosen)
+						check:expect(green.Visible):toBe(chosen)
+					end
+				end
+				stop()
+			end
+		end
+	end)
+
 	verifyHarness:suite("native Picker menu field", function()
 		verifyHarness:case("the hint line belongs to the picker: disposal releases it for every style", {
 			id = "native_picker_fields::native Picker menu field::the hint line belongs to the picker: disposal releases it for every style",
 			run = function()
-				for _, style in
-					{ "menu", "segmented", "cards", "inline" } :: { "cards" | "inline" | "menu" | "segmented" }
-				do
+				for _, style in { "menu", "segmented", "cards", "inline" } do
 					local engine: any = engines.new()
 					local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 					local UI: any = controls(Compose, runtime, { types = engine.types })
 					local before = engine.census()
 					local stop = runtime.mount(function()
 						return UI.Picker "P" {
-							style = style :: "cards" | "inline" | "menu" | "segmented",
+							style = style,
 							selected = Compose.cell("normal"),
 							options = THREE,
 							hint = "Change it any time",
@@ -128,8 +200,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("maxHeight bounds the whole panel, ordinary and searchable, and a bad cap is refused", {
 			id = "native_picker_fields::native Picker menu panel::maxHeight bounds the whole panel, ordinary and searchable, and a bad cap is refused",
 			run = function()
-				local w =
-					world({ style = "menu" :: "menu", options = LONG, maxHeight = 96, selected = Compose.cell("v1") })
+				local w = world({ style = "menu", options = LONG, maxHeight = 96, selected = Compose.cell("v1") })
 				open(w)
 				local panel = find(w.screen, "MenuPanel")
 				w.engine.environment.poke(
@@ -140,7 +211,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(panel.Size.Y.Offset <= 96):toBe(true)
 				w.stop()
 				local searchable = world({
-					style = "navigationLink" :: "navigationLink",
+					style = "navigationLink",
 					options = LONG,
 					query = Compose.cell(""),
 					maxHeight = 96,
@@ -161,7 +232,7 @@ return function(verifyHarness: Verify.Harness)
 				)
 				expect(body.Size.Y.Offset):toBe(96 - 16)
 				searchable.stop()
-				local tiny = world({ style = "menu" :: "menu", options = LONG, maxHeight = 10 })
+				local tiny = world({ style = "menu", options = LONG, maxHeight = 10 })
 				open(tiny)
 				local tinyPanel = find(tiny.screen, "MenuPanel")
 				tiny.engine.environment.poke(
@@ -171,10 +242,10 @@ return function(verifyHarness: Verify.Harness)
 				)
 				expect(tinyPanel.Size.Y.Offset >= 44):toBe(true)
 				tiny.stop()
-				for _, bad in { 0, math.huge, 0 / 0, "96" } :: { any } do
-					expect((pcall(world, { style = "menu" :: "menu", maxHeight = bad }))):toBe(false)
+				for _, bad in { 0, math.huge, 0 / 0, "96" } do
+					expect((pcall(world, { style = "menu", maxHeight = bad }))):toBe(false)
 				end
-				expect((pcall(world, { style = "segmented" :: "segmented", maxHeight = 96 }))):toBe(false)
+				expect((pcall(world, { style = "segmented", maxHeight = 96 }))):toBe(false)
 			end,
 		})
 
@@ -183,7 +254,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				for _, preferred in { "Gamepad", "KeyboardAndMouse" } do
 					local w = world(
-						{ style = "menu" :: "menu", options = LONG, maxHeight = 200, selected = Compose.cell("v25") },
+						{ style = "menu", options = LONG, maxHeight = 200, selected = Compose.cell("v25") },
 						preferred
 					)
 					w.input.GetLastInputType = function()
@@ -207,7 +278,7 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local selected = Compose.cell("a")
 					local w = world({
-						style = "menu" :: "menu",
+						style = "menu",
 						selected = selected,
 						options = {
 							{ value = "a", label = "Ada", avatar = { name = "Ada" } },
@@ -243,9 +314,9 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = world({
 					options = {
-						{ value = "easy", label = "Easy", sectionTitle = "Casual" } :: PickerOption,
-						{ value = "normal", label = "Normal", badge = 3, meta = "Crew" } :: PickerOption,
-						{ value = "hard", label = "Hard", sectionTitle = "Ranked", badge = "New" } :: PickerOption,
+						{ value = "easy", label = "Easy", sectionTitle = "Casual" },
+						{ value = "normal", label = "Normal", badge = 3, meta = "Crew" },
+						{ value = "hard", label = "Hard", sectionTitle = "Ranked", badge = "New" },
 					},
 				})
 				w.engine.environment.poke(
@@ -331,13 +402,13 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("corners reach the strip, and a rung shrinks the segments", {
 			id = "native_picker_fields::native Picker segmented vocabulary and the radio mark::corners reach the strip, and a rung shrinks the segments",
 			run = function()
-				local pill = world({ style = "segmented" :: "segmented", corners = "pill" :: "pill" })
+				local pill = world({ style = "segmented", corners = "pill" })
 				expect(find(pill.screen, "Corners").CornerRadius.Scale):toBe(1)
 				pill.stop()
-				local square = world({ style = "segmented" :: "segmented", corners = "square" :: "square" })
+				local square = world({ style = "segmented", corners = "square" })
 				expect(find(square.screen, "Corners").CornerRadius.Scale):toBe(0)
 				square.stop()
-				local compact = world({ style = "segmented" :: "segmented", controlSize = "compact" :: "compact" })
+				local compact = world({ style = "segmented", controlSize = "compact" })
 				expect(find(compact.screen, "P").Size.Y.Offset):toBe(36)
 				for _, key in { "easy", "normal", "hard" } do
 					expect(find(compact.screen, key).Size.Y.Scale):toBe(0)
@@ -349,8 +420,8 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("authored heights keep segments inside the track floor", {
 			id = "native_picker_fields::native Picker segmented vocabulary and the radio mark::authored heights keep segments inside the track floor",
 			run = function()
-				local size = Compose.cell(nil :: UDim2?)
-				local w = world({ style = "segmented" :: "segmented", Size = size })
+				local size = Compose.cell<<UDim2?>>(nil)
+				local w = world({ style = "segmented", Size = size })
 				for _, height in { 44, 80, 20 } do
 					size:set(w.engine.types.UDim2.fromOffset(360, height))
 					local minimum = find(w.screen, "TargetFloor").MinSize.Y
@@ -381,7 +452,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_picker_fields::native Picker cards::each option is a bordered card with its meta, the chosen one plated, on every input",
 			run = function()
 				local selected = Compose.cell("sprint")
-				local w = world({ style = "cards" :: "cards", options = CARDS, selected = selected })
+				local w = world({ style = "cards", options = CARDS, selected = selected })
 				local card = find(w.screen, "Card-endurance")
 				expect((card:HasTag("facet-card-option"))):toBe(true)
 				expect((find(w.screen, "Card-sprint"):HasTag("facet-accent"))):toBe(true)
@@ -402,12 +473,12 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_picker_fields::native Picker cards::choosing the chosen card again clears it only when the selection is not required",
 			run = function()
 				local optional = Compose.cell("sprint")
-				local w = world({ style = "cards" :: "cards", options = CARDS, selected = optional, required = false })
+				local w = world({ style = "cards", options = CARDS, selected = optional, required = false })
 				find(w.screen, "Card-sprint").Activated:Fire()
 				expect((optional:peek())):toBeNil()
 				w.stop()
 				local kept = Compose.cell("sprint")
-				local w2 = world({ style = "cards" :: "cards", options = CARDS, selected = kept })
+				local w2 = world({ style = "cards", options = CARDS, selected = kept })
 				find(w2.screen, "Card-sprint").Activated:Fire()
 				expect((kept:peek())):toBe("sprint")
 				w2.stop()
@@ -418,9 +489,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_picker_fields::native Picker cards::a long radio or card label wraps inside its row instead of running past it",
 			run = function()
 				local LONG = { { value = "a", label = string.rep("A long label ", 12) }, { value = "b", label = "B" } }
-				for _, style in { "radioGroup", "cards" } :: { "cards" | "radioGroup" } do
-					local w =
-						world({ style = style :: "cards" | "radioGroup", options = LONG, selected = Compose.cell("b") })
+				for _, style in { "radioGroup", "cards" } do
+					local w = world({ style = style, options = LONG, selected = Compose.cell("b") })
 					local button = find(w.screen, if style == "cards" then "Card-a" else "a")
 					local box = if style == "cards" then button else find(w.screen, "P")
 					w.engine.environment.poke(box, "AbsoluteSize", w.engine.types.Vector2.new(300, 44))
@@ -470,7 +540,7 @@ return function(verifyHarness: Verify.Harness)
 			{
 				id = "native_picker_fields::native Picker option indicator and search rows::a navigation link opens its list in a panel attached to the control, without dimming the page",
 				run = function()
-					local w = world({ label = "Track", style = "navigationLink" :: "navigationLink" })
+					local w = world({ label = "Track", style = "navigationLink" })
 					w.engine.environment.poke(w.screen, "AbsoluteSize", w.engine.types.Vector2.new(800, 600))
 					local trigger = find(w.screen, "P")
 					w.engine.environment.poke(trigger, "AbsolutePosition", w.engine.types.Vector2.new(100, 100))

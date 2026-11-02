@@ -74,9 +74,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Navigat
 		local owner = assert(Compose.currentOwner())
 		local arrangementOwner = ComposeTypes.owner.createChild(owner)
 		local retainedArrangement: ArrangementTypes.Arrangement<V>? = nil
+		local retainedPaint: paintSectors.Paint<V>? = nil
+		local retainedHub: buildCenter.Hub<V>? = nil
+		local retainedPhase: Navigation.PresencePhase? = nil
 		local arrangementLayer: GuiBase2d? = nil
 		local arrangementParent: Instance? = nil
-		local arrangementSpring: { period: number, damping: number }? = nil
+		local arrangementTheme: unknown = nil
 		local timing = ctx.motionTiming("radial")
 		local departure = createPresence(ctx).departure(timing, root, function(): boolean
 			return not menu.reduced() and spec.transition ~= false
@@ -131,32 +134,44 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Navigat
 			surfaces.overlay(root, opened, function(phase: Navigation.PresencePhase?)
 				local arrange = arrangeRing<<V>>
 				local layer = surfaces.parent(root)
-				local spring = ctx.motionSpring("quick")
-				local previousSpring = arrangementSpring
-				local timingChanged = previousSpring ~= nil
-					and (previousSpring.period ~= spring.period or previousSpring.damping ~= spring.damping)
+				local theme = ctx.read(ctx.config.theme)
+				local parent = root.Parent
 				if
 					retainedArrangement
-					and (arrangementLayer ~= layer or arrangementParent ~= root.Parent or timingChanged)
+					and (
+						arrangementLayer ~= layer
+						or arrangementParent ~= parent
+						or arrangementTheme ~= theme
+						or retainedPhase ~= phase
+					)
 				then
 					ComposeTypes.owner.dispose(arrangementOwner)
 					arrangementOwner = ComposeTypes.owner.createChild(owner)
 					retainedArrangement = nil
+					retainedPaint, retainedHub = nil, nil
 				end
 				if retainedArrangement == nil then
-					retainedArrangement = Compose.withOwner(
+					retainedArrangement, retainedPaint, retainedHub = Compose.withOwner(
 						arrangementOwner,
-						function(): ArrangementTypes.Arrangement<V>
-							return arrange(ctx, menu, root)
+						function(): (ArrangementTypes.Arrangement<V>, paintSectors.Paint<V>, buildCenter.Hub<V>)
+							local arrangement = arrange(ctx, menu, root)
+							local paint =
+								paintSectors<<V>>(ctx, UI, surfaces, lists, menu, arrangement, layoutUnit, phase)
+							local hub =
+								buildCenter<<V>>(ctx, UI, surfaces, menu, arrangement, paint, root, layoutUnit, phase)
+							surfaces.attach(paint.listHeader, { hub.centerHit, hub.centerNode, hub.preview })
+							surfaces.attach(paint.panel, { hub.previewPlate })
+							return arrangement, paint, hub
 						end
 					)
-					arrangementLayer, arrangementParent = layer, root.Parent
-					arrangementSpring = spring
+					arrangementLayer, arrangementParent = layer, parent
+					arrangementTheme = theme
+					retainedPhase = phase
+				else
+					assert(retainedPaint).enter()
 				end
-				local arrangement = assert(retainedArrangement)
+				local arrangement, paint, hub = assert(retainedArrangement), assert(retainedPaint), assert(retainedHub)
 				arrangement.following:set(false)
-				local paint = paintSectors<<V>>(ctx, UI, surfaces, lists, menu, arrangement, layoutUnit, phase)
-				local hub = buildCenter<<V>>(ctx, UI, surfaces, menu, arrangement, paint, root, layoutUnit, phase)
 				attachGestures<<V>>(ctx, surfaces, menu, arrangement, paint, hub)
 				local viewport, origin, center, layout, fallback =
 					arrangement.viewport,
@@ -171,12 +186,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Navigat
 					back()
 				end, {
 					keepsGameplay = true,
+					entry = function()
+						local key = paint.focus.current:peek()
+						return if key then paint.buttons[key] else nil
+					end,
 					appearance = function(use: ComposeTypes.Use?): number
 						return 1 - if use then paint.transparency(use) else 0
 					end,
 				})
 				modal:SetAttribute("FacetArrivalGroup", true)
-				surfaces.attach(modal, { hub.centerHit, hub.centerNode, hub.previewPlate, hub.preview })
 				if hideLauncher then
 					hideLauncher()
 				end
@@ -209,10 +227,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Navigat
 					local at, size = use(position), use(bounds)
 					if size.X > 0 and size.Y > 0 then
 						origin:set(at)
+						if viewport:peek() ~= size then
+							cancel()
+						end
+						viewport:set(size)
 					end
 				end)
 				if spec.centerPassThrough and (spec.center == "empty" or spec.center == "content") then
 					runtime.decorate(modal, { Active = fallback })
+					if catcher then
+						runtime.decorate(catcher, { Active = fallback, ScrollingEnabled = fallback })
+					end
 					if anchorGui then
 						local anchor = anchorGui
 						surfaces.attach(modal, {
@@ -249,10 +274,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Navigat
 							return { right, top, size.X - right, bottom - top }
 						end)
 						surfaces.attach(modal, {
-							Host.TextButton {
-								Name = "Dismiss" .. edge,
-								Text = "",
+							Host.ScrollingFrame {
+								Name = "Shield" .. edge,
 								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								Active = true,
+								CanvasSize = D2.new(),
+								ScrollBarThickness = 0,
 								Selectable = false,
 								ZIndex = 100,
 								Visible = function(use: ComposeTypes.Use)
@@ -266,20 +294,24 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Navigat
 									local r = use(rectangle)
 									return D2.fromOffset(r[3], r[4])
 								end,
-								Activated = function(_input: InputObject, _count: number)
-									back()
-								end,
+								Host.TextButton {
+									Name = "Dismiss" .. edge,
+									Text = "",
+									BackgroundTransparency = 1,
+									BorderSizePixel = 0,
+									Selectable = false,
+									Size = D2.fromScale(1, 1),
+									Activated = function(_input: InputObject, _count: number)
+										back()
+									end,
+								},
 							},
 						})
 					end
 				end
-				Compose.watch(function(use: ComposeTypes.Use)
-					local size = use(bounds)
-					if size.X > 0 and size.Y > 0 then
-						if viewport:peek() ~= size then
-							cancel()
-						end
-						viewport:set(size)
+				Compose.cleanup(function()
+					if paint.panel.Parent then
+						paint.panel.Parent = nil
 					end
 				end)
 				return modal
@@ -290,6 +322,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Navigat
 		Compose.watch(function(use: ComposeTypes.Use)
 			local anchor = readAnchor(spec.anchor, use)
 			if not use(opened) then
+				session.branchOrigin = nil
 				cancel()
 			end
 			if

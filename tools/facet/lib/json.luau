@@ -381,44 +381,23 @@ local SIMPLE_ESCAPES: { [number]: string } = {
 }
 
 local function encodeString(value: string, ascii: boolean): string
-	local parts: { string } = { '"' }
-	local valid = utf8.len(value) ~= nil
-	if not valid then
-		for index = 1, #value do
-			local byte = string.byte(value, index)
-			local escape = SIMPLE_ESCAPES[byte]
-			if escape then
-				table.insert(parts, escape)
-			elseif byte < 0x20 or (ascii and byte >= 0x80) then
-				table.insert(parts, ("\\u%04x"):format(byte))
-			else
-				table.insert(parts, string.char(byte))
-			end
+	local valid = ascii and utf8.len(value) ~= nil
+	local pattern = if valid
+		then '[%z\1-\31"\\\128-\255][\128-\191]*'
+		elseif ascii then '[%z\1-\31"\\\128-\255]'
+		else '[%z\1-\31"\\]'
+	local escaped = string.gsub(value, pattern, function(character: string): string
+		local code = if valid then utf8.codepoint(character) else string.byte(character)
+		local escape = SIMPLE_ESCAPES[code]
+		if escape then
+			return escape
+		elseif code >= 0x10000 then
+			local offset = code - 0x10000
+			return ("\\u%04x\\u%04x"):format(0xD800 + bit32.rshift(offset, 10), 0xDC00 + bit32.band(offset, 0x3FF))
 		end
-	else
-		for _, code in utf8.codes(value) do
-			local escape = SIMPLE_ESCAPES[code]
-			if escape then
-				table.insert(parts, escape)
-			elseif code < 0x20 then
-				table.insert(parts, ("\\u%04x"):format(code))
-			elseif code >= 0x80 and ascii then
-				if code >= 0x10000 then
-					local offset = code - 0x10000
-					table.insert(
-						parts,
-						("\\u%04x\\u%04x"):format(0xD800 + bit32.rshift(offset, 10), 0xDC00 + bit32.band(offset, 0x3FF))
-					)
-				else
-					table.insert(parts, ("\\u%04x"):format(code))
-				end
-			else
-				table.insert(parts, utf8.char(code))
-			end
-		end
-	end
-	table.insert(parts, '"')
-	return table.concat(parts)
+		return ("\\u%04x"):format(code)
+	end)
+	return '"' .. escaped .. '"'
 end
 
 local function encodeNumber(value: number): string

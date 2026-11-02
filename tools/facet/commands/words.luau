@@ -360,7 +360,7 @@ local function fetchSource(root: string, offline: boolean, say: (string) -> ()):
 	if not requested then
 		return nil, ("%s: could not download %s: %s"):format(PREFIX, SOURCE_URL, tostring(response))
 	end
-	local reply = response :: net.Response
+	local reply: net.Response = response
 	if not reply.ok then
 		return nil, ("%s: downloading %s returned HTTP %d"):format(PREFIX, SOURCE_URL, reply.status)
 	end
@@ -386,7 +386,7 @@ local function readSource(archive: string): (Source?, string?)
 	if not inflated then
 		return nil, ("%s: could not decompress the source archive: %s"):format(PREFIX, tostring(tarball))
 	end
-	local listed, entries = pcall(Tar.read, tarball :: string)
+	local listed, entries = pcall(Tar.read, tarball)
 	if not listed then
 		return nil, ("%s: could not read the source archive: %s"):format(PREFIX, tostring(entries))
 	end
@@ -396,7 +396,7 @@ local function readSource(archive: string): (Source?, string?)
 	local version: string? = nil
 	local escapedRoot = string.gsub(SOURCE_ROOT, "%p", "%%%0")
 	local member = "^" .. escapedRoot .. "/final/([a-z_0-9]+)%-words%.(%d+)$"
-	for _, entry in entries :: { Tar.Entry } do
+	for _, entry in entries do
 		if entry.kind ~= "file" then
 			continue
 		end
@@ -412,7 +412,7 @@ local function readSource(archive: string): (Source?, string?)
 		if dialect == nil or tierText == nil then
 			continue
 		end
-		local tier = tonumber(tierText) :: number
+		local tier = assert(tonumber(tierText))
 		local words = byTier[tier]
 		if not contains(ACCEPT_DIALECTS, dialect) or words == nil then
 			continue
@@ -982,7 +982,6 @@ local function register(harness: Verify.Harness, prefix: string): ()
 			Verify.expect(after):toBe("--!strict\nreturn { 1 }\n")
 		end,
 	})
-	WordLists.register(harness, prefix)
 end
 
 local command: Cli.Command = {

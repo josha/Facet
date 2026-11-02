@@ -74,7 +74,7 @@ local function role(object: unknown): string?
 	if not ok or type(tags) ~= "table" then
 		return nil
 	end
-	for _, tag in tags :: { unknown } do
+	for _, tag in tags do
 		if type(tag) == "string" and string.sub(tag, 1, #ROLE_PREFIX) == ROLE_PREFIX then
 			return string.sub(tag, #ROLE_PREFIX + 1)
 		end

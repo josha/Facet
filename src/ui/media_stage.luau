@@ -177,21 +177,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				CFrame = (spec.camera :: Types.Input<CFrame>?)
 					or types.CFrame.lookAt(types.Vector3.new(0, 2, 8), types.Vector3.new(0, 0, 0)),
 			}
-		local native = ctx.props(
-			spec,
-			{ "content", "camera", "fieldOfView", "lazy" },
-			{
-				Size = D2.fromOffset(240, 180),
-				CurrentCamera = Compose.static(camera),
-				world,
-				if not externalCamera then camera else nil,
-			} :: Engine.ViewportFrameNativeProps
-		)
+		local native = ctx.props(spec, { "content", "camera", "fieldOfView", "lazy" }, {
+			Size = D2.fromOffset(240, 180),
+			CurrentCamera = Compose.static(camera),
+			world,
+			if not externalCamera then camera else nil,
+		})
 		local stage = ctx.styled(Host.ViewportFrame(native), "panel")
 		local initialCamera = stage.CurrentCamera
 		local cameraSource: Engine.ValueCameraOptional = if Compose.isValue(native.CurrentCamera)
 				or type(native.CurrentCamera) == "function"
-			then native.CurrentCamera :: Engine.ValueCameraOptional
+			then native.CurrentCamera
 			else function(): Camera?
 				return initialCamera
 			end
@@ -270,7 +266,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			end
 		end
 		if spec.LightDirection == nil then
-			local frame = runtime.observe(camera, "CFrame") :: ComposeTypes.ReadOnlyValue<CFrame>
+			local frame = ctx.observeNative.CFrame(camera)
 			runtime.decorate(stage, {
 				LightDirection = function(use: ComposeTypes.Use): Vector3
 					local look = use(frame).LookVector

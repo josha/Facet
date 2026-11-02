@@ -168,6 +168,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local pointerInput = pointerDragOf(ctx)
 		local detector = Host.UIDragDetector {
 			Name = "FacetDragDetector",
+			Archivable = false,
 			DragStyle = E.UIDragDetectorDragStyle.TranslatePlane,
 			ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 			Enabled = function(use)

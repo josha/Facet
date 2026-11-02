@@ -11,9 +11,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 	local E, D2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.UDim
 	UI.SplitButton = ctx.construct("SplitButton", function<V>(spec: NavigationProps.SplitButtonSpec<V>): Frame
 		local input = surfaces.service("UserInputService")
-		local preferred = if input
-			then ctx.observe.PreferredInput(input) :: ComposeTypes.ReadOnlyValue<Enum.PreferredInput?>
-			else Compose.cell(nil :: Enum.PreferredInput?)
+		local preferred = if input then ctx.observe.PreferredInput(input) else Compose.cell(nil)
 		local touch = Compose.formula(function(use: ComposeTypes.Use)
 			return use(preferred) == E.PreferredInput.Touch
 		end)
@@ -71,7 +69,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 						items = spec.items,
 						enabled = enabled,
 						isPresented = opened,
-						triggers = { "longPress", "secondary", "keyboard", "gamepad" } :: { Nav.MenuTrigger },
+						triggers = { "longPress", "secondary", "keyboard", "gamepad" },
 						onOpen = function()
 							suppressEcho = true
 						end,
@@ -121,5 +119,5 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				end),
 			})
 		)
-	end) :: ControlTypes.SplitButtonConstructor
+	end)
 end

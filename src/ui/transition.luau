@@ -190,7 +190,7 @@ local function create(
 		if spec.scale == nil then
 			scale = nil
 		elseif holdOnExit then
-			local departing: Types.Value<number?> = C.cell(nil :: number?)
+			local departing = C.cell<<number?>>(nil)
 			C.watch(function(use: Types.Use)
 				if use(presented) then
 					departing:set(nil)

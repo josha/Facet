@@ -101,7 +101,6 @@ local stats = {
 	read = read,
 	reset = reset,
 	bump = bump,
-	zeroed = zeroed,
 }
 
 type Node = Types.Node
@@ -127,9 +126,6 @@ local function contextOn(running: thread): Node?
 	local own = evaluations[running]
 	if own ~= nil and own.order > 0 then
 		return own.consumer
-	end
-	if cache.active == 0 then
-		return nil
 	end
 	local inherited: Evaluation? = nil
 	for thread, evaluation in evaluations do
@@ -174,21 +170,6 @@ local function frame(): Evaluation
 	return current
 end
 
-local function enter(consumer: Node?): (Node?, number)
-	local running = coroutine.running()
-	local cached = if running == cache.thread then cache.frame else nil
-	local current: Evaluation = if cached ~= nil then cached else frame()
-	local previousConsumer, previousOrder = current.consumer, current.order
-	if previousOrder == 0 then
-		cache.active += 1
-	end
-	local order = cache.order + 1
-	cache.order = order
-	current.consumer = consumer
-	current.order = order
-	return previousConsumer, previousOrder
-end
-
 local function enterFrame(consumer: Node?): (Evaluation, Node?, number)
 	local running = coroutine.running()
 	local cached = if running == cache.thread then cache.frame else nil
@@ -222,41 +203,24 @@ local function leave(previousConsumer: Node?, previousOrder: number)
 	local running = coroutine.running()
 	local cached = if running == cache.thread then cache.frame else nil
 	local current: Evaluation = if cached ~= nil then cached else frame()
-	current.consumer = previousConsumer
-	current.order = previousOrder
-	if previousOrder == 0 then
+	if previousOrder == 0 and current.order > 0 then
 		cache.active -= 1
 	end
+	current.consumer = previousConsumer
+	current.order = previousOrder
 end
 
 local validation = { validating = false }
 
-local YIELDED = "Compose: reactive code yielded. Computeds and effects must complete "
-	.. "without yielding; use an async resource for work that waits."
-
-type Completion = { done: boolean }
-
-local function finish<R...>(completion: Completion, ...: R...): R...
-	completion.done = true
-	return ...
-end
-
-local function check<R...>(completion: Completion, ...: R...): R...
-	if not completion.done then
-		error(YIELDED, 3)
-	end
-	return ...
-end
+local yieldCheck: typeof(require "./yield-check")? = nil
 
 local function call<A..., R...>(fn: (A...) -> R..., ...: A...): R...
 	if not validation.validating then
 		return fn(...)
 	end
-	local completion: Completion = { done = false }
-	local wrapped = coroutine.wrap(function(...: A...): R...
-		return finish(completion, fn(...))
-	end)
-	return check(completion, wrapped(...))
+	local loaded = yieldCheck or require "./yield-check"
+	yieldCheck = loaded
+	return loaded(fn, ...)
 end
 
 local function setValidating(value: boolean)
@@ -276,7 +240,6 @@ return {
 	frame = frame,
 	context = context,
 	contextOn = contextOn,
-	enter = enter,
 	enterFrame = enterFrame,
 	leaveFrame = leaveFrame,
 	snapshot = snapshot,

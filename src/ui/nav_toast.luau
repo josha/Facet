@@ -8,7 +8,6 @@ local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local toastSchedule = require("./toast_schedule")
 local motion = require("./motion")
-local reducedMotion = motion.reduced
 local reservations = require("./reservations")
 local OverlayProps = require("./overlay_props")
 local arrival = require("./overlay_arrival")
@@ -18,6 +17,9 @@ type Reason = Overlay.ToastDismissReason
 type Record = {
 	spec: OverlayProps.ToastSpec,
 	state: ComposeTypes.Value<string>,
+	root: Frame,
+	slot: Frame?,
+	order: number,
 	stack: Stack?,
 	id: number?,
 	pending: Reason?,
@@ -26,12 +28,11 @@ type Record = {
 	row: GuiObject?,
 }
 type Stack = {
-	schedule: toastSchedule.Schedule,
-	order: ComposeTypes.Value<{ Record }>,
+	schedule: toastSchedule.Schedule<Record, Reason>,
 	inset: ComposeTypes.Value<number>,
 	time: number,
 	stop: (() -> ())?,
-	lane: string,
+	lane: "action" | reservations.Edge,
 	layer: GuiBase2d,
 	container: Frame?,
 	owner: ComposeTypes.Owner?,
@@ -67,9 +68,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 	local gui = surfaces.service("GuiService")
 	local stacks: { [Instance]: { [string]: Stack } } = {}
 	setmetatable(stacks, { __mode = "k" })
-	local actionRows = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: boolean }
-	local actionTokens = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [unknown]: boolean }
+	local actionRows: { [GuiObject]: boolean } = setmetatable({}, { __mode = "k" })
+	local actionTokens: { [unknown]: boolean } = setmetatable({}, { __mode = "k" })
 	local returnTo: GuiObject? = nil
+	local function status(record: Record, value: string)
+		if record.state:peek() ~= value then
+			record.state:set(value)
+			value = record.state:peek()
+			record.root:SetAttribute("ToastVisible", value == "shown")
+			record.root:SetAttribute("ToastQueued", value == "queued")
+		end
+	end
 
 	local function wanted(record: Record): boolean
 		return not record.torn and (record.spec.isPresented == nil or read(record.spec.isPresented) == true)
@@ -77,7 +86,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 
 	local function retire(record: Record, reason: Reason)
 		record.id = nil
-		record.state:set("idle")
+		status(record, "idle")
 		local row, spec = record.row, record.spec
 		if gui and row and surfaces.within(gui.SelectedObject, row) then
 			gui.SelectedObject = if returnTo and returnTo.Parent then returnTo else nil
@@ -127,7 +136,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		if stack.lane ~= "action" or top == nil then
 			return false
 		end
-		local record = top.data :: Record
+		local record = top.data
 		if record.row == nil or record.hovered then
 			return true
 		end
@@ -146,7 +155,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end
 	end
 
-	local function stackFor(layer: GuiBase2d, lane: string): Stack
+	local function stackFor(layer: GuiBase2d, lane: "action" | reservations.Edge): Stack
 		local byLane = stacks[layer] or {}
 		stacks[layer] = byLane
 		local existing = byLane[lane]
@@ -154,37 +163,40 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			return existing
 		end
 		local stack: Stack
-		local schedule = toastSchedule.new({
+		local schedule: toastSchedule.Schedule<Record, Reason> = toastSchedule.new<<Record, Reason>>({
 			maxVisible = if lane == "action" then 1 else nil,
 			now = function(): number
 				return stack.time
 			end,
-			onDismiss = function(entry: toastSchedule.Entry, reason: string)
-				retire(entry.data :: Record, reason :: Reason)
+			onDismiss = function(entry: toastSchedule.Entry<Record>, reason: Reason)
+				retire(entry.data, reason)
 			end,
-			onPropose = function(entry: toastSchedule.Entry, reason: string)
-				finish(entry.data :: Record, reason :: Reason)
+			onPropose = function(entry: toastSchedule.Entry<Record>, reason: Reason)
+				finish(entry.data, reason)
 			end,
 			onChange = function()
 				for _, entry in stack.schedule.queued() do
-					(entry.data :: Record).state:set("queued")
+					status(entry.data, "queued")
 				end
-				local order: { Record } = {}
-				for _, entry in stack.schedule.visible() do
-					local record = entry.data :: Record
-					record.state:set("shown")
-					table.insert(order, record)
+				for index, entry in stack.schedule.visible() do
+					local record = entry.data
+					local order = if lane == "bottom" then -index else index
+					if record.order ~= order then
+						record.order = order
+						if record.slot then
+							record.slot.LayoutOrder = order
+						end
+					end
+					status(record, "shown")
 				end
-				stack.order:set(order)
 				if stack.schedule.isEmpty() and stack.stop then
 					stack.stop()
 					stack.stop = nil
 				end
 			end,
 		})
-		stack = {
+		local created: Stack = {
 			schedule = schedule,
-			order = Compose.cell({} :: { Record }),
 			inset = Compose.cell(0),
 			time = 0,
 			stop = nil,
@@ -194,7 +206,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			owner = nil,
 			users = 0,
 			retained = false,
-		} :: Stack
+		}
+		stack = created
 		if lane ~= "action" then
 			local lifetime = ctx.lifetime
 			local retained = not ComposeTypes.owner.isDisposed(lifetime)
@@ -204,7 +217,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			stack.owner = owner
 			stack.retained = retained
 			Compose.withOwner(owner, function()
-				local _, container = runtime.mount(function()
+				local frame: Frame
+				runtime.mount(function()
 					local properties: Types.FrameNativeProps = {
 						Name = "ToastStack",
 						BackgroundTransparency = 1,
@@ -230,9 +244,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							Padding = UD.new(0, GAP),
 						},
 					}
-					return Host.Frame(properties)
+					frame = Host.Frame(properties)
+					return frame
 				end, layer)
-				local frame = container :: Frame
 				stack.container = frame
 				runtime.connect(frame, "AncestryChanged", function()
 					if frame.Parent ~= layer then
@@ -246,7 +260,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 	end
 
 	local function push(record: Record)
-		local stack = record.stack :: Stack
+		local stack = assert(record.stack)
 		if stack.stop == nil and frames then
 			stack.stop = frames.onFrame(function(dt: number)
 				if not paused(stack) then
@@ -255,7 +269,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				stack.inset:set(
 					if stack.lane == "action"
 						then reservations.reserved(stack.layer, "bottom", actionTokens)
-						else reservations.reserved(stack.layer, stack.lane :: reservations.Edge)
+						else reservations.reserved(stack.layer, stack.lane)
 				)
 				stack.schedule.update()
 			end)
@@ -267,7 +281,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				then math.max(duration, spec.readFloor or toastSchedule.DEFAULTS.readFloor)
 				else math.huge
 		end
-		record.state:set("queued")
 		local id = stack.schedule.push({
 			key = spec.key,
 			priority = spec.priority,
@@ -359,28 +372,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end
 	end
 
-	local function withIcon(icon: string?, message: Instance, hug: boolean): Instance
-		if icon == nil then
-			return message
-		end
-		surfaces.attach(message, { Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill } })
-		local props: Types.FrameNativeProps = {
-			Name = "Body",
-			BackgroundTransparency = 1,
-			Size = if hug then D2.fromOffset(0, 0) else D2.fromScale(1, 0),
-			AutomaticSize = if hug then E.AutomaticSize.XY else E.AutomaticSize.Y,
-			Host.UIListLayout {
-				FillDirection = E.FillDirection.Horizontal,
-				VerticalAlignment = E.VerticalAlignment.Center,
-				SortOrder = E.SortOrder.LayoutOrder,
-				Padding = UD.new(0, 8),
-			},
-			ctx.icon(icon, { Name = "Icon", LayoutOrder = 0 }),
-			message,
-		}
-		return Host.Frame(props)
-	end
-
 	local function limitedSlide(
 		phase: Nav.PresencePhase?,
 		entered: ComposeTypes.ReadOnlyValue<boolean>,
@@ -428,7 +419,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local contentHug = hug and spec.content ~= nil
 		local extent = if contentHug then ctx.layoutSize(stack.layer) else nil
 		local natural: ComposeTypes.ReadOnlyValue<Vector2>? = nil
-		local reduced = reducedMotion(ctx)
 		local level = motion.level(ctx)
 		local body: Instance
 		if spec.content then
@@ -448,13 +438,31 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			if hug then
 				natural = textMeasure.natural(ctx, messageNode)
 			end
-			body = withIcon(spec.icon, messageNode, false)
+			body = messageNode
+			if spec.icon then
+				surfaces.attach(messageNode, { Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill } })
+				body = Host.Frame {
+					Name = "Body",
+					BackgroundTransparency = 1,
+					Size = D2.fromScale(1, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+					Host.UIListLayout {
+						FillDirection = E.FillDirection.Horizontal,
+						VerticalAlignment = E.VerticalAlignment.Center,
+						SortOrder = E.SortOrder.LayoutOrder,
+						Padding = UD.new(0, 8),
+					},
+					ctx.icon(spec.icon, { Name = "Icon", LayoutOrder = 0 }),
+					messageNode,
+				}
+			end
 		end
 		local entered = Compose.cell(false)
 		local slide, opacity = limitedSlide(phase, entered, level)
 		local function amount(use: ComposeTypes.Use): number
-			if reduced(use) then
-				return if level(use) == "none" and phase and use(phase.exiting) then 0 else 1
+			local current = level(use)
+			if current ~= "normal" then
+				return if current == "none" and phase and use(phase.exiting) then 0 else 1
 			end
 			return use(slide)
 		end
@@ -466,9 +474,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			Interactable = false,
 			ZIndex = ROW_Z,
 			AutomaticSize = if contentHug then E.AutomaticSize.XY else E.AutomaticSize.Y,
-			Size = function(use: ComposeTypes.Use)
-				return if contentHug then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
-			end,
+			Size = if contentHug then D2.fromOffset(0, 0) else D2.fromScale(1, 0),
 			body,
 		}
 		props[#props + 1] = ctx.padding(12, 8)
@@ -504,17 +510,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			end
 			return 1 - opacity(use, amount)
 		end)
-		for _, node in row:GetDescendants() do
-			if node:IsA("GuiObject") then
-				node.Selectable = false
+		if spec.content then
+			for _, node in row:GetDescendants() do
+				if node:IsA("GuiObject") then
+					node.Selectable = false
+				end
 			end
 		end
-		local parent = ctx.observe.Parent(row)
-		Compose.watch(function(use: ComposeTypes.Use)
-			if use(parent) then
-				entered:set(true)
-			end
-		end)
 		local lane = Host.Frame "ToastLane" {
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),
@@ -536,12 +538,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
-			LayoutOrder = function(use: ComposeTypes.Use): number
-				local index = table.find(use(stack.order), record) or 0
-				return if bottom then -index else index
-			end,
+			LayoutOrder = record.order,
 			lane,
 		}
+		entered:set(true)
+		record.slot = slot
+		Compose.cleanup(function()
+			if record.slot == slot then
+				record.slot = nil
+			end
+		end)
 		slot:SetAttribute("FacetArrivalGroup", true)
 		return slot
 	end
@@ -597,7 +603,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				end,
 			},
 		})
-		local action = spec.action :: Overlay.ToastAction
+		local action = assert(spec.action)
 		local button = UI.Button "Action" {
 			label = action.label,
 			LayoutOrder = 2,
@@ -677,13 +683,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		ctx.styled(row, "panel")
 		ctx.styled(row, "floating")
 		surfaces.skin(row, "panel")
-		local reduced = reducedMotion(ctx)
 		local level = motion.level(ctx)
 		local shown = Compose.cell(false)
 		local slide, opacity = limitedSlide(phase, shown, level)
 		local function amount(use: ComposeTypes.Use): number
-			if reduced(use) then
-				return if level(use) == "none" and phase and use(phase.exiting) then 0 else 1
+			local current = level(use)
+			if current ~= "normal" then
+				return if current == "none" and phase and use(phase.exiting) then 0 else 1
 			end
 			return use(slide)
 		end
@@ -709,22 +715,21 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end)
 		record.row = row
 		actionRows[row] = true
-		local token = {}
-		actionTokens[token] = true
+		actionTokens[row] = true
 		local at = ctx.observe.AbsolutePosition(row)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local box = use(measured)
 			local offset = use(origin)
 			use(extent)
 			if box.Y > 0 then
-				reservations.set(layer, token, "bottom", use(at).Y - offset.Y, box.Y)
+				reservations.set(layer, row, "bottom", use(at).Y - offset.Y, box.Y)
 			end
 		end)
 		Compose.cleanup(function()
 			if gui and surfaces.within(gui.SelectedObject, row) then
 				gui.SelectedObject = if returnTo and returnTo.Parent then returnTo else nil
 			end
-			reservations.clear(layer, token)
+			reservations.clear(layer, row)
 			actionRows[row] = nil
 			if record.row == row then
 				record.row = nil
@@ -732,7 +737,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end)
 		local selection: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui and gui.GetPropertyChangedSignal
 			then ctx.observe.SelectedObject(gui)
-			else Compose.cell(nil :: GuiObject?)
+			else Compose.cell<<GuiObject?>>(nil)
 		ctx.action(row, "ToastCancel", { E.KeyCode.ButtonB, E.KeyCode.Escape }, function(use: ComposeTypes.Use)
 			local selected = use(selection)
 			return selected ~= nil and surfaces.within(selected, row)
@@ -749,7 +754,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			raiser.NextSelectionDown = target
 			local function unlink()
 				if raiser.NextSelectionDown == target then
-					((raiser :: unknown) :: { NextSelectionDown: GuiObject? }).NextSelectionDown = nil
+					runtime.host.render.setProperty(raiser, "NextSelectionDown", nil)
 				end
 			end
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -802,7 +807,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		root:SetAttribute("FacetOverlayPlaceholder", true)
 		local record: Record = {
 			spec = spec,
-			state = Compose.cell("idle"),
+			state = Compose.cell(""),
+			root = root,
+			slot = nil,
+			order = 0,
 			stack = nil,
 			id = nil,
 			pending = nil,
@@ -810,6 +818,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			hovered = false,
 			row = nil,
 		}
+		status(record, "idle")
 		local armed = wanted(record)
 		local ready = Compose.cell(false)
 		local function sync()
@@ -885,11 +894,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				})
 			end),
 		})
-		Compose.watch(function(use: ComposeTypes.Use)
-			local state = use(record.state)
-			root:SetAttribute("ToastVisible", state == "shown")
-			root:SetAttribute("ToastQueued", state == "queued")
-		end)
 		return root
 	end)
 end

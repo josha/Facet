@@ -9,6 +9,7 @@ local MenuTypes = require("./nav_radial_menu")
 local ArrangementTypes = require("./nav_radial_layout")
 
 export type Paint<V> = {
+	enter: () -> (),
 	transparency: (use: ComposeTypes.Use) -> number,
 	buttons: { [string]: TextButton },
 	iconic: (use: ComposeTypes.Use, live: Radial.Sector<V>) -> boolean,
@@ -17,6 +18,8 @@ export type Paint<V> = {
 	panel: ScrollingFrame,
 	listWidth: ComposeTypes.ReadOnlyValue<number>,
 	listHeaderHeight: ComposeTypes.Value<number>,
+	listHeader: Frame,
+	headerHeight: (ComposeTypes.Use) -> number,
 }
 
 local PATH_THICKNESS_LIMIT = 100
@@ -105,8 +108,8 @@ return function<V>(
 		local button = buttons[live.key]
 		local inset = button and button:FindFirstChildWhichIsA("UIPadding")
 		if inset then
-			local left = inset:GetStyled("PaddingLeft") :: UDim
-			local right = inset:GetStyled("PaddingRight") :: UDim
+			local left: UDim = inset:GetStyled("PaddingLeft")
+			local right: UDim = inset:GetStyled("PaddingRight")
 			padding = left.Offset + right.Offset
 		end
 		local width = math.min(geometry.labelBounds(live, 40).w, use(fittedWidths)[live.key] or math.huge)
@@ -133,9 +136,20 @@ return function<V>(
 	end)
 	local gui = surfaces.service("GuiService")
 	local listHeaderHeight = Compose.cell(0)
-	local function listTop(use: ComposeTypes.Use): number
-		return math.max(48, math.ceil(use(listHeaderHeight)) + 10)
+	local function headerHeight(use: ComposeTypes.Use): number
+		return math.max(
+			ctx.metric("targetSizes.minimum", use),
+			menu.painted(use),
+			math.ceil(use(listHeaderHeight)) + ctx.metric("space.s", use)
+		)
 	end
+	local listHeader = Host.Frame "ListHeader" {
+		BackgroundTransparency = 1,
+		LayoutOrder = -1,
+		Size = function(use: ComposeTypes.Use): UDim2
+			return if use(fallback) then D2.new(1, 0, 0, headerHeight(use)) else D2.fromScale(1, 1)
+		end,
+	}
 	local listWidth = Compose.formula(function(use: ComposeTypes.Use): number
 		local width = ctx.metric("controls.popup.panelWidth", use)
 		local words = use(wordWidths)
@@ -160,10 +174,14 @@ return function<V>(
 			return if use(fallback) then 0 else 1
 		end,
 		Size = function(use: ComposeTypes.Use)
-			return if use(fallback) then D2.new(0, use(listWidth), 1, -listTop(use) - 32) else D2.fromScale(1, 1)
+			if not use(fallback) then
+				return D2.fromScale(1, 1)
+			end
+			local height = headerHeight(use) + #use(sectors) * 48 + 16
+			return D2.fromOffset(use(listWidth), math.min(height, math.max(0, use(arrangement.viewport).Y - 32)))
 		end,
 		Position = function(use: ComposeTypes.Use)
-			return if use(fallback) then D2.new(0.5, -use(listWidth) / 2, 0, listTop(use)) else D2.fromOffset(0, 0)
+			return if use(fallback) then D2.new(0.5, -use(listWidth) / 2, 0, 16) else D2.fromOffset(0, 0)
 		end,
 		Active = function(use: ComposeTypes.Use)
 			return use(fallback) or not spec.centerPassThrough
@@ -180,8 +198,11 @@ return function<V>(
 			return if use(fallback) then 6 else 0
 		end,
 		Attributes = attributes,
+		listHeader,
 		Compose.show(fallback, function()
-			return lists.list({ gap = 4 }, true)
+			return Compose.fragment(function()
+				return { lists.list({ gap = 4 }, true), ctx.padding(8, 8) }
+			end)
 		end),
 		Compose.keyed({
 			from = function(use: ComposeTypes.Use)
@@ -205,8 +226,8 @@ return function<V>(
 				return entries
 			end,
 			render = function(key: ComposeTypes.ReadOnlyValue<string>)
-				local current: ComposeTypes.Value<Radial.Sector<V>?> = Compose.cell(nil :: Radial.Sector<V>?)
-				local fittedShape: ComposeTypes.Value<Radial.SectorShape?> = Compose.cell(nil :: Radial.SectorShape?)
+				local current = Compose.cell<<Radial.Sector<V>?>>(nil)
+				local fittedShape = Compose.cell<<Radial.SectorShape?>>(nil)
 				local painted = Compose.cell(false)
 				local present = Compose.formula(function(use: ComposeTypes.Use): Radial.Sector<V>?
 					local entries = use(sectors)
@@ -316,7 +337,7 @@ return function<V>(
 						end
 						local button = UI.Button {
 							Name = sector.id,
-							corners = if appearance == "buttons" then "pill" :: "pill" else nil,
+							corners = if appearance == "buttons" then "pill" else nil,
 							appearance = if appearance == "wedges" then "utility" else nil,
 							ClipsDescendants = appearance == "wedges",
 							label = function(use: ComposeTypes.Use)
@@ -514,14 +535,12 @@ return function<V>(
 						end)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local natural = use(fullBounds).X
+							local width = use(measured).X
 							if natural > 0 and captionWidths:peek()[sector.key] ~= natural then
 								local widths = table.clone(captionWidths:peek())
 								widths[sector.key] = natural
 								captionWidths:set(widths)
 							end
-						end)
-						Compose.watch(function(use: ComposeTypes.Use)
-							local width = use(measured).X
 							if width > 0 and wordWidths:peek()[sector.key] ~= width then
 								local widths = table.clone(wordWidths:peek())
 								widths[sector.key] = width
@@ -595,7 +614,7 @@ return function<V>(
 							paint,
 						}
 						surfaces.attach(wrapper, { shape })
-						local placed = Compose.cell(nil :: { x: number, y: number }?)
+						local placed = Compose.cell<<{ x: number, y: number }?>>(nil)
 						Compose.watch(function(use: ComposeTypes.Use)
 							if use(present) == nil then
 								return
@@ -636,19 +655,13 @@ return function<V>(
 										{ ring = live.inner, inner = fitted.inner, outer = fitted.outer }
 									ringFits:set(nextFits)
 								end
-								local shown: { [string]: boolean } = {}
-								for _, entry in use(sectors) do
-									shown[entry.key] = true
-								end
 								local fits = use(ringFits)
 								for _, entry in use(sectors) do
 									local fit = fits[entry.key]
 									if entry.inner == live.inner and (fit == nil or fit.ring ~= live.inner) then
 										complete = false
 									end
-								end
-								for key, fit in fits do
-									if shown[key] and fit.ring == live.inner then
+									if fit and fit.ring == live.inner then
 										fitted.inner = math.min(fitted.inner, fit.inner)
 										fitted.outer = math.max(fitted.outer, fit.outer)
 									end
@@ -746,6 +759,12 @@ return function<V>(
 		end
 	end)
 	return {
+		enter = function()
+			entry:restart()
+			if read(selectingInput) then
+				focus.first()
+			end
+		end,
 		transparency = transparency,
 		buttons = buttons,
 		iconic = iconic,
@@ -754,5 +773,7 @@ return function<V>(
 		panel = panel,
 		listWidth = listWidth,
 		listHeaderHeight = listHeaderHeight,
+		listHeader = listHeader,
+		headerHeight = headerHeight,
 	}
 end

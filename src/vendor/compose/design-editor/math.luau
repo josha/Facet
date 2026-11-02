@@ -115,7 +115,6 @@ return {
 	dot = dot,
 	magnitude = magnitude,
 	unit = unit,
-	cross = cross,
 	frame = frame,
 	transform = transform,
 	multiply = multiply,

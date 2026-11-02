@@ -18,6 +18,7 @@ type Swatch = Color3 | { read color: Color3, read label: string? }
 type Fact = { id: string, label: string, value: (Use) -> string }
 return function(ctx: Context): (GuiObject, GuiObject)
 	local Compose, Host, UI, model = ctx.Compose, ctx.Host, ctx.UI, ctx.model
+	local RadialMenu: typeof(require("@repo/tools/typecheck/aliases").RadialMenuBuilder) = UI.RadialMenu
 	local types, D2, V2, C3, CF, E = ctx.types, ctx.D2, ctx.V2, ctx.C3, ctx.CF, ctx.E
 	local words, quiet, button = ctx.words, ctx.quiet, ctx.button
 	local arithmetic = ctx.Facet.recipes.arithmetic
@@ -335,7 +336,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 										end,
 										enabled = model.hat,
 									},
-									UI.RadialMenu<<string>>({
+									RadialMenu<<string>>({
 										label = "Quick accent",
 										appearance = "buttons",
 										Size = D2.new(1, 0, 0, 44),

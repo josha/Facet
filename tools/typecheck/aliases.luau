@@ -2,6 +2,7 @@
 local NavigationTypes = require("../../src/ui/navigation_types")
 local InputTypes = require("../../src/ui/input_types")
 local InputProps = require("../../src/ui/input_props")
+local Controls = require("../../src/ui/control_types")
 local CollectionProps = require("../../src/ui/collection_props")
 local Civil = require("../../src/ui/civil_date_types")
 local Overlay = require("../../src/ui/overlay_types")
@@ -18,6 +19,8 @@ local Runtime = require("../../src/vendor/compose/core/runtime")
 type OutlineRecord = { id: string, children: { OutlineRecord }? }
 
 local function exports(): {
+	AlertBuilder: Controls.AlertBuilder,
+	RadialMenuBuilder: Controls.RadialMenuBuilder,
 	MonitorPresencePickerSpec: Facet.SinglePickerSpec<("online" | "away" | "busy" | "offline" | "inExperience")?>,
 	CameraRig: Facet.CameraRig,
 	TimerControls: Facet.TimerControls,

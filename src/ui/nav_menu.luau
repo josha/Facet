@@ -70,7 +70,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			error("Facet UI.Menu: give label or trigger, not both", 0)
 		end
 		local opened: ComposeTypes.Value<boolean> = spec.isPresented or Compose.cell(false)
-		local pointer: ComposeTypes.Value<Vector2?> = Compose.cell(nil :: Vector2?)
+		local pointer = Compose.cell<<Vector2?>>(nil)
 		local announced = false
 		local function announce(state: boolean)
 			if state == announced then
@@ -115,23 +115,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local root: GuiObject
 		local trigger: GuiObject
 		local automatic = spec.AutomaticSize or (if spec.Size ~= nil then E.AutomaticSize.None else E.AutomaticSize.XY)
-		if authored ~= nil and wrap then
-			trigger = authored
-			root = Host.Frame(ctx.props(spec, MENU_KEYS, {
-				Name = "Menu",
-				BackgroundTransparency = 1,
-				Size = D2.fromOffset(0, 0),
-				AutomaticSize = automatic,
-				trigger,
-			}))
-			if allows("activate") then
-				if activation.marked(trigger) then
-					Compose.cleanup(activation.listen(trigger, open))
-				else
-					runtime.connect(trigger, "Activated", open)
-				end
-			end
-		elseif authored == nil then
+		if authored == nil then
 			local triggerProps: InputProps.ButtonProps = {
 				Name = "Trigger",
 				label = spec.label or "Menu",
@@ -175,6 +159,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				button:AddTag("facet-disclosure")
 			end
 			trigger = button
+		else
+			trigger = authored
+		end
+		if authored == nil or wrap then
 			root = Host.Frame(ctx.props(spec, MENU_KEYS, {
 				Name = "Menu",
 				BackgroundTransparency = 1,
@@ -183,13 +171,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				trigger,
 			}))
 		else
-			assert(authored ~= nil)
-			trigger = authored
 			root = authored
 			local native = ctx.props(spec, MENU_KEYS, {})
 			local properties: { [string]: unknown } = {}
 			local children: { Types.Child } = {}
-			for key, value in (native :: unknown) :: { [unknown]: unknown } do
+			for key, value in native do
 				if type(key) == "number" then
 					local child = native[key]
 					if child ~= nil then
@@ -205,12 +191,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			if #children > 0 then
 				surfaces.attach(trigger, children)
 			end
-			if allows("activate") then
-				if activation.marked(trigger) then
-					Compose.cleanup(activation.listen(trigger, open))
-				else
-					runtime.connect(trigger, "Activated", open)
-				end
+		end
+		if authored ~= nil and allows("activate") then
+			if activation.marked(trigger) then
+				Compose.cleanup(activation.listen(trigger, open))
+			else
+				runtime.connect(trigger, "Activated", open)
 			end
 		end
 		local available = surfaces.available(root)
@@ -233,7 +219,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 					local point = V2.new(input.Position.X, input.Position.Y)
 					local layer = trigger:FindFirstAncestorWhichIsA("ScreenGui")
 					local gui = surfaces.service("GuiService")
-					if layer and (layer :: ScreenGui).IgnoreGuiInset and gui then
+					if layer and (layer).IgnoreGuiInset and gui then
 						point += gui:GetGuiInset()
 					end
 					pointer:set(point)
@@ -274,7 +260,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			end)
 		end
 		local gui = surfaces.service("GuiService")
-		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil :: GuiObject?)
+		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell<<GuiObject?>>(nil)
 		local bindings: { Types.ActionBinding } = {}
 		if allows("keyboard") then
 			table.insert(bindings, E.KeyCode.Menu)
@@ -314,7 +300,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 	end
 	UI.Menu = ctx.construct("Menu", function<V>(spec: NavigationProps.MenuSpec<V>): GuiObject
 		return buildMenu(spec, false)
-	end) :: ControlTypes.MenuConstructor
+	end)
 	registerPicker(ctx, UI, surfaces, buildMenu)
 	registerSplitButton(ctx, UI, surfaces, buildMenu)
 	registerComboBox(ctx, UI, surfaces)

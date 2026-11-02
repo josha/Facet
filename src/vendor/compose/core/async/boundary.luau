@@ -62,7 +62,7 @@ local function boundary(builder: Builder, fallback: Fallback): Children.Directiv
 				Owner.guardWith(child, { report = report })
 
 				local ok, block = pcall(Support.mountBuilder, mountPoint, child, builder, "boundary")
-				if ok then
+				if ok and not reported then
 					current = Owner.disposer(child)
 				else
 					Owner.dispose(child)

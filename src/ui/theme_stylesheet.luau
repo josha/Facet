@@ -137,6 +137,9 @@ local internedFor: { [Engine.RobloxTypes]: { [string]: ThemeTypes.RuleProperties
 	{},
 	{ __mode = "k" }
 )
+type TimingMemo = { [boolean]: { [string]: TweenInfo } }
+type MotionCache = { defaults: { [string]: TweenInfo }, packages: { [ThemeTypes.ReadOnlyThemePackage]: TimingMemo } }
+local timingsFor: { [Engine.RobloxTypes]: MotionCache } = setmetatable({}, { __mode = "k" })
 
 return function(
 	neutral: ThemeTypes.ReadOnlyThemePackage,
@@ -346,28 +349,32 @@ return function(
 		local value = read(preferredTransparency, use)
 		return if type(value) == "number" and value == value then math.clamp(value, 0, 1) else 1
 	end
-	local defaultTimings: { [string]: TweenInfo } = {}
+	local motionCache = timingsFor[types]
+	if motionCache == nil then
+		local fresh: MotionCache = { defaults = {}, packages = setmetatable({}, { __mode = "k" }) }
+		motionCache = fresh
+		timingsFor[types] = motionCache
+	end
+	local defaultTimings = motionCache.defaults
 	type PaintState = "normal" | "press" | "hover" | "pop" | "instant"
 	local function timingFor(
 		package: ThemeTypes.ReadOnlyThemePackage,
 		role: PaintState,
-		use: ComposeTypes.Use
+		explicit: (TweenInfo | false)?,
+		snapped: boolean
 	): TweenInfo
-		local explicit = read<<(TweenInfo | false)?>>(settings.transition, use)
-		local motion = ((package.metrics or {}) :: { motion: ThemeTypes.MotionMetrics? }).motion
+		local motion = package.metrics.motion
 		local normal = if motion and motion.normal then motion.normal else neutral.metrics.motion.normal
 		local seconds
-		local style = (motion and motion.styles and motion.styles.paint)
-			or (neutral.metrics.motion.styles :: { [string]: string }).paint
+		local style = (motion and motion.styles and motion.styles.paint) or assert(neutral.metrics.motion.styles).paint
 		local direction = "Out"
-		if role == "instant" or snaps(use) or explicit == false then
+		if role == "instant" or snapped or explicit == false then
 			seconds = 0
 		elseif role == "pop" then
 			local durations: { [string]: number } = (motion and motion.durations) or {}
-			seconds = durations.regionPop or (neutral.metrics.motion.durations :: { [string]: number }).regionPop
+			seconds = durations.regionPop or assert(neutral.metrics.motion.durations).regionPop
 			local easing: { [string]: string } = (motion and motion.easing) or {}
-			style, direction =
-				easingStyle(easing.present or (neutral.metrics.motion.easing :: { [string]: string }).present)
+			style, direction = easingStyle(easing.present or assert(neutral.metrics.motion.easing).present)
 		elseif explicit ~= nil then
 			return explicit
 		elseif role == "normal" then
@@ -384,8 +391,8 @@ return function(
 		end
 		local timing = types.TweenInfo.new(
 			seconds,
-			((types.Enum.EasingStyle :: unknown) :: { [string]: Enum.EasingStyle })[style],
-			((types.Enum.EasingDirection :: unknown) :: { [string]: Enum.EasingDirection })[direction]
+			assert(types.Enum.EasingStyle:FromName(style)),
+			assert(types.Enum.EasingDirection:FromName(direction))
 		)
 		defaultTimings[key] = timing
 		return timing
@@ -608,34 +615,32 @@ return function(
 			record.priority = definition.priority
 		end
 		local properties = definition.properties
-		local propertiesChanged = record.properties == nil
-			or (record.properties ~= properties and not sameRuleProperties(record.properties, properties))
-		if not propertiesChanged then
+		if
+			record.properties and (record.properties == properties or sameRuleProperties(record.properties, properties))
+		then
 			return
 		end
 		local transitions = transitionsFor(properties, record.timing)
 		local previous = record.transitions
-		local timingChanged = previous ~= transitions and (previous == nil or not sameProperties(previous, transitions))
-		if timingChanged then
+		if previous ~= transitions and (previous == nil or not sameProperties(previous, transitions)) then
 			record.node:SetPropertyTransitions(transitions)
 			record.transitions = transitions
 		end
-		if propertiesChanged or timingChanged then
-			record.node:SetProperties(properties)
-			record.properties = properties
-		end
+		record.node:SetProperties(properties)
+		record.properties = properties
 	end
 	local written: { [string]: TweenInfo } = {}
 	local writtenTokens: { [string]: Color3? }? = nil
-	type TimingMemo = { live: { [string]: TweenInfo }?, snapped: { [string]: TweenInfo }? }
 	local timingMemo: { [ThemeTypes.ReadOnlyThemePackage]: TimingMemo } = {}
 	support.weakKeys(timingMemo)
+	local sharedTimings = motionCache.packages
 	local applied: { NativeRule }? = nil
 	local appliedArrivals = 0
 	local appliedBase: { NativeRule }? = nil
 	local appliedOffset = 0
 	local appliedPreference = 1
 	local initialIds: { [string]: boolean }? = nil
+	local warmed: { [ThemeTypes.ReadOnlyThemePackage]: boolean } = setmetatable({}, { __mode = "k" })
 	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({
 		Compose.keyed({
 			from = ids,
@@ -670,17 +675,35 @@ return function(
 			end,
 		}),
 	})
-	local compiled = Compose.formula(function(use: ComposeTypes.Use)
-		local package = forDistance(
-			read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use) or neutral,
-			if read(distant, use) == true then "ten-foot" else "near"
-		)
-		return { package = package, rules = compiledRules(package, read<<string?>>(settings.theme, use)) }
-	end)
 	Compose.watch(function(use: ComposeTypes.Use)
-		local built = use(compiled)
-		local package = built.package
-		local current = built.rules
+		local authored = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use)
+		if authored and not warmed[authored] then
+			warmed[authored] = true
+			local content: { string } = {}
+			for _, asset in pairs(authored.assets or {}) do
+				local id = asset.content or asset.contentId
+				if type(id) == "string" and id ~= "" and asset.preload ~= "lazy" then
+					table.insert(content, id)
+				end
+			end
+			local provider: ContentProvider? = settings.contentProvider
+			if provider == nil and #content > 0 then
+				local dataModel: DataModel? = getfenv(0).game
+				if dataModel then
+					provider = dataModel:GetService("ContentProvider")
+				end
+			end
+			if provider and #content > 0 then
+				local target = provider
+				if task then
+					task.spawn(target.PreloadAsync, target, content)
+				else
+					target:PreloadAsync(content)
+				end
+			end
+		end
+		local package = forDistance(authored or neutral, if read(distant, use) == true then "ten-foot" else "near")
+		local current = compiledRules(package, read<<string?>>(settings.theme, use))
 		local colorTokens: { [string]: Color3? } = current[1].tokens or {}
 		local hovering = read(settings.hover, use)
 		if hovering == nil then
@@ -691,27 +714,24 @@ return function(
 		end
 		local explicit = read<<(TweenInfo | false)?>>(settings.transition, use)
 		local snapped = snaps(use)
-		local memo = if explicit == nil then timingMemo[package] else nil
-		local timings: { [string]: TweenInfo }? = if memo then (if snapped then memo.snapped else memo.live) else nil
+		local cache = if support.sealed(package) then sharedTimings else timingMemo
+		local memo = if explicit == nil then cache[package] else nil
+		local timings: { [string]: TweenInfo }? = if memo then memo[snapped] else nil
 		if timings == nil then
 			local made: { [string]: TweenInfo } = {}
 			for state, token in TOKENS do
-				made[token] = timingFor(package, state :: PaintState, use)
+				made[token] = timingFor(package, state, explicit, snapped)
 			end
 			timings = made
 			if explicit == nil then
 				local entry: TimingMemo = memo or {}
-				if snapped then
-					entry.snapped = made
-				else
-					entry.live = made
-				end
-				timingMemo[package] = entry
+				entry[snapped] = made
+				cache[package] = entry
 			end
 		end
 		local resolved: { [string]: TweenInfo } = assert(timings)
 		for token, timing in resolved do
-			if written[token] ~= timing then
+			if not rawequal(written[token], timing) and written[token] ~= timing then
 				written[token] = timing
 				sheet:SetAttribute(token, timing)
 			end
@@ -729,7 +749,7 @@ return function(
 		writtenTokens = colorTokens
 		local preference = preferenceFor(use)
 		local typography = package.metrics.controls.typography or neutral.metrics.controls.typography
-		local textChoice = read(preferredTextSize :: Engine.Input<Enum.PreferredTextSize | string>?, use)
+		local textChoice = read(preferredTextSize, use)
 		local textOffset = if textChoice ~= nil
 			then (textRank(textChoice) - textRank(read(nativeTextSize, use))) * typography.preferredSizeStep
 			else 0
@@ -836,35 +856,5 @@ return function(
 			connection:Disconnect()
 		end)
 	end
-	local warmed: { [ThemeTypes.ReadOnlyThemePackage]: boolean } = setmetatable({}, { __mode = "k" })
-	Compose.watch(function(use: ComposeTypes.Use)
-		local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use)
-		if package == nil or warmed[package] then
-			return
-		end
-		warmed[package] = true
-		local content: { string } = {}
-		for _, asset in pairs(package.assets or {}) do
-			local id = asset.content or asset.contentId
-			if type(id) == "string" and id ~= "" and asset.preload ~= "lazy" then
-				table.insert(content, id)
-			end
-		end
-		local provider: ContentProvider? = settings.contentProvider
-		if provider == nil and #content > 0 then
-			local dataModel: DataModel? = getfenv(0).game
-			if dataModel then
-				provider = dataModel:GetService("ContentProvider")
-			end
-		end
-		if provider and #content > 0 then
-			local target = provider
-			if task then
-				task.spawn(target.PreloadAsync, target, content)
-			else
-				target:PreloadAsync(content)
-			end
-		end
-	end)
 	return sheet
 end

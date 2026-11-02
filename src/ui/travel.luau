@@ -32,7 +32,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 		local restingDepth = node.ZIndex
 		local liftScale: UIScale? = nil
 		if spec.lift then
-			liftScale = node:FindFirstChildWhichIsA("UIScale") :: UIScale?
+			liftScale = node:FindFirstChildWhichIsA("UIScale")
 			if not liftScale then
 				liftScale = Host.UIScale { Name = "TravelLift", Parent = Compose.static(node) }
 			end
@@ -70,24 +70,24 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 		local motion: engine.Handle
 		local units: { [GuiBase2d]: Shared.ReadOnlyValue<number> } = {}
 		local function contentInsets(slot: GuiObject): (number, number, number, number)
-			local unit = 1
+			local unit: number = 1
 			local at: Instance? = slot
 			while at do
-				local scale = at:FindFirstChildWhichIsA("UIScale") :: UIScale?
+				local scale = at:FindFirstChildWhichIsA("UIScale")
 				if scale then
-					unit *= scale:GetStyled("Scale") :: number
+					unit *= scale:GetStyled("Scale")
 				end
 				at = at.Parent
 			end
-			local border = if (slot:GetStyled("BorderMode") :: Enum.BorderMode) == ctx.types.Enum.BorderMode.Inset
-				then (slot:GetStyled("BorderSizePixel") :: number) * unit
+			local border: number = if (slot:GetStyled("BorderMode")) == ctx.types.Enum.BorderMode.Inset
+				then (slot:GetStyled("BorderSizePixel")) * unit
 				else 0
 			local left, top, right, bottom = border, border, border, border
-			local padding = slot:FindFirstChildWhichIsA("UIPadding") :: UIPadding?
+			local padding = slot:FindFirstChildWhichIsA("UIPadding")
 			if padding then
 				local size = slot.AbsoluteSize
 				local function pixels(property: string, dimension: number): number
-					local value = padding:GetStyled(property) :: UDim
+					local value: UDim = padding:GetStyled(property)
 					return value.Scale * math.max(0, dimension - border * 2) + value.Offset * unit
 				end
 				left += pixels("PaddingLeft", size.X)
@@ -197,13 +197,13 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 			end
 			moving = false
 			local depth = restingDepth
-			local ownDepth = destination:GetStyled("ZIndex") :: number
+			local ownDepth: number = destination:GetStyled("ZIndex")
 			if ownDepth > restingDepth or destination:IsA("GuiButton") then
 				depth = math.max(depth, ownDepth + 1)
 			end
 			for _, child in destination:GetDescendants() do
 				if child:IsA("GuiObject") and child ~= node and not child:IsDescendantOf(node) then
-					local paintDepth = child:GetStyled("ZIndex") :: number
+					local paintDepth: number = child:GetStyled("ZIndex")
 					if paintDepth >= restingDepth then
 						depth = math.max(depth, paintDepth + 1)
 					end

@@ -6,7 +6,7 @@ type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 
 local words = require("./words")
 
-type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type ReadOnlyString = typeof(require("@repo/tools/typecheck/aliases").StringReadOnlyValue)
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 
@@ -306,10 +306,10 @@ function example.build(ctx: ExampleContext)
 			openResults(phaseSig:peek() == "won", solution, active)
 		end
 	end
-	local statusSig: ReadOnlyValue<string>? = nil
-	local tileStateOf: { [string]: ReadOnlyValue<string> } = {}
+	local statusSig: ReadOnlyString? = nil
+	local tileStateOf: { [string]: ReadOnlyString } = {}
 	local keyPathByLetter: { [string]: string } = {}
-	local function statusTag(node: Instance, state: ReadOnlyValue<string>): Instance
+	local function statusTag(node: Instance, state: ReadOnlyString): Instance
 		local previous: string? = nil
 		Compose.watch(function(use: Use)
 			local value = use(state)
@@ -516,6 +516,9 @@ function example.build(ctx: ExampleContext)
 			UI.VStack "kb" { width = "fill", maxWidth = 640, gap = "s", table.unpack(keyRows) },
 			UI.Button "Restart" {
 				label = "New game",
+				enabled = function(use: Use): boolean
+					return not use(resultOpen)
+				end,
 				onActivate = function()
 					restart()
 				end,

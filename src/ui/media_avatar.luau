@@ -12,7 +12,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local E, D2, D, V2 = types.Enum, types.UDim2, types.UDim, types.Vector2
 	local metric, controlSize = ctx.metric, ctx.controlSize
 	local function initials(name: string?): string
-		local first: string?, last: string?, count = nil, nil, 0
+		local first: string?, last: string, count = nil, "", 0
 		for word in string.gmatch(name or "", "%S+") do
 			first = first or word
 			last = word
@@ -21,10 +21,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local function character(word: string): string
 			return string.sub(word, 1, (utf8.offset(word, 2) or (#word + 1)) - 1)
 		end
-		return if first == nil
-			then ""
-			elseif count == 1 then character(first)
-			else character(first) .. character(last :: string)
+		return if first == nil then "" elseif count == 1 then character(first) else character(first) .. character(last)
 	end
 
 	UI.Avatar = ctx.construct("Avatar", function(spec: MediaProps.AvatarProps): TextButton
@@ -361,7 +358,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 								)
 						end,
 					presence = function(use: ComposeTypes.Use): Media.Presence?
-						return use(current).presence :: Media.Presence?
+						return use(current).presence
 					end,
 					icon = if current:peek().icon
 						then function(use: ComposeTypes.Use): string?
@@ -380,14 +377,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			return ctx.styled(
 				Host.TextButton "Overflow" {
 					Attributes = {
-						AccessibleLabel = (function(use: ComposeTypes.Use): string
+						AccessibleLabel = function(use: ComposeTypes.Use): string
 							local label = read<<string?>>(spec.overflowLabel, use)
 							assert(
 								label == nil or type(label) == "string",
 								"Facet AvatarGroup overflowLabel must be a string"
 							)
 							return label or tostring(#use(items) - maximum) .. " more players"
-						end) :: Engine.Input<Engine.AttributeValue?>,
+						end,
 					},
 					Size = function(use: ComposeTypes.Use)
 						local pixels = size(use)

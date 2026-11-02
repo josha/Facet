@@ -7,16 +7,18 @@ local ControlTypes = require("./control_types")
 local ComposeTypes = require("../vendor/compose/core")
 
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
-	local Host, read = ctx.Host, ctx.read
+	local Host, read, Compose = ctx.Host, ctx.read, ctx.Compose
 	local readValue = read<<number>>
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
 	local lists, enabled = kit.lists, kit.enabled
 	local changed = kit.changed
 	UI.Stepper = ctx.construct("Stepper", function(spec: InputTypes.StepperImplementationProps): Frame
 		kit.requireValue(spec, "number", "Stepper")
-		local modelSpec = table.clone(spec) :: valueModel.Options
-		modelSpec.step = spec.step or 1
-		local model = valueModel(modelSpec, read)
+		local model = valueModel({ min = spec.min, max = spec.max, step = spec.step or 1, format = spec.format }, read)
+		local atLimit = Compose.selector(Compose.formula(function(use: ComposeTypes.Use): number
+			local value = readValue(spec.value, use)
+			return if value ~= value then 2 elseif value <= model.min then -1 elseif value >= model.max then 1 else 0
+		end))
 		local function adjust(direction)
 			if enabled(spec) then
 				changed(spec, model.stepped(readValue(spec.value), direction))
@@ -48,6 +50,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			return button
 		end
 		local controlInsets: Shared.Sides = { left = 2, right = 2 }
+		local readout = ctx.text({
+			Name = "Value",
+			LayoutOrder = 2,
+			Size = D2.fromOffset(40, 44),
+			AutomaticSize = E.AutomaticSize.X,
+			TextXAlignment = E.TextXAlignment.Center,
+			TextYAlignment = E.TextYAlignment.Center,
+			Text = "",
+		})
 		local controls = ctx.styled(
 			Host.Frame "Controls" {
 				LayoutOrder = 2,
@@ -56,21 +67,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				lists.list({ align = "center" }, false),
 				lists.insets(controlInsets),
 				stepButton("Decrease", "decrement", -1, function(use: ComposeTypes.Use)
-					return enabled(spec, use) and readValue(spec.value, use) > model.min
+					return enabled(spec, use) and (use(atLimit(0)) or use(atLimit(1)))
 				end),
-				ctx.text({
-					Name = "Value",
-					LayoutOrder = 2,
-					Size = D2.fromOffset(40, 44),
-					AutomaticSize = E.AutomaticSize.X,
-					TextXAlignment = E.TextXAlignment.Center,
-					TextYAlignment = E.TextYAlignment.Center,
-					Text = function(use: ComposeTypes.Use)
-						return model.format(readValue(spec.value, use))
-					end,
-				}),
+				readout,
 				stepButton("Increase", "increment", 1, function(use: ComposeTypes.Use)
-					return enabled(spec, use) and readValue(spec.value, use) < model.max
+					return enabled(spec, use) and (use(atLimit(0)) or use(atLimit(-1)))
 				end),
 			},
 			"stepper-track"
@@ -123,7 +124,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		}
 		local node = ctx.styled(Host.Frame(p), "stepper")
 		ctx.skin(node, "stepperPlate")
-		kit.valueAttributes(node, spec, model)
+		kit.valueAttributes(node, spec.value, model, readout)
 		if spec.label ~= nil then
 			kit.attributes(node, {
 				AccessibleLabel = function(use: ComposeTypes.Use): string

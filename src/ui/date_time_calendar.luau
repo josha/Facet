@@ -165,8 +165,8 @@ return function(
 		end)
 	end
 
-	local upTarget = Compose.cell(nil :: GuiObject?)
-	local downTarget = Compose.cell(nil :: GuiObject?)
+	local upTarget = Compose.cell<<GuiObject?>>(nil)
+	local downTarget = Compose.cell<<GuiObject?>>(nil)
 	local function shownAway(k: number, i: number, step: number, use: Use): boolean
 		local target = civil.addDays(paneGrid(k, use)[i], step)
 		return cellFor(target, use) ~= nil
@@ -265,7 +265,7 @@ return function(
 			ZIndex = 4,
 			BackgroundTransparency = 1,
 			ctx.corner(DISC),
-			Host.UIStroke({ Thickness = 1 }) :: Shared.Child,
+			Host.UIStroke({ Thickness = 1 }),
 		})
 		ring:AddTag("facet-calendar-today")
 		local number = ctx.text({

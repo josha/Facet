@@ -1,5 +1,33 @@
 --!strict
 
+local sharedModule: typeof(require "@self/async/shared")? = nil
+local geometryModule: typeof(require "@self/geometry")? = nil
+local rootScopeModule: typeof(require "@self/ownership/root-scope")? = nil
+local springModule: typeof(require "@self/animation/spring")? = nil
+local poolModule: typeof(require "@self/pool")? = nil
+local keyedCacheModule: typeof(require "@self/keyed-cache")? = nil
+local slotModule: typeof(require "@self/slot")? = nil
+local accumulatorModule: typeof(require "@self/accumulator")? = nil
+local selectorModule: typeof(require "@self/selector")? = nil
+local boundaryModule: typeof(require "@self/async/boundary")? = nil
+local focusScopeModule: typeof(require "@self/focus-scope")? = nil
+local focusNeighborModule: typeof(require "@self/focus-neighbor")? = nil
+local presenceModule: typeof(require "@self/structure/presence")? = nil
+local showModule: typeof(require "@self/structure/show")? = nil
+local switchModule: typeof(require "@self/structure/switch")? = nil
+local keyedModule: typeof(require "@self/structure/keyed")? = nil
+local indexesModule: typeof(require "@self/structure/indexes")? = nil
+local orderedCollectionModule: typeof(require "@self/structure/ordered-collection")? = nil
+local spatialCollectionModule: typeof(require "@self/structure/spatial-collection")? = nil
+local tileCollectionModule: typeof(require "@self/structure/tile-collection")? = nil
+local layerStackModule: typeof(require "@self/structure/layer-stack")? = nil
+local mountBudgetModule: typeof(require "@self/structure/mount-budget")? = nil
+local fragmentModule: typeof(require "@self/structure/fragment")? = nil
+local portalModule: typeof(require "@self/structure/portal")? = nil
+local reportModule: typeof(require "@self/ownership/report")? = nil
+local inspectModule: typeof(require "@self/ownership/inspect")? = nil
+local profileModule: typeof(require "@self/reactive/profile")? = nil
+
 local Active = require "@self/ownership/active"
 local AnimationCodec = require "@self/animation/codec"
 local AnimationEasing = require "@self/animation/easing"
@@ -140,68 +168,16 @@ export type InspectNode = Types.InspectNodeReport
 export type InspectOwnedCounts = nodes.OwnedCounts
 export type InspectData = Types.InspectData
 
-local function once<T>(load: () -> T): () -> T
-	local loaded: T? = nil
-	return function(): T
-		local value = loaded
-		if value ~= nil then
-			return value
-		end
-		local made = load()
-		loaded = made
-		return made
-	end
-end
-
 type Builder = () -> HostProtocol.Node | Directive
 type NodesBuilder = () -> { read [number]: HostProtocol.Node }
-
-local profileModule = once(function()
-	return require "@self/reactive/profile"
-end)
-local rootScopeModule = once(function()
-	return require "@self/ownership/root-scope"
-end)
-local springModule = once(function()
-	return require "@self/animation/spring"
-end)
-local poolModule = once(function()
-	return require "@self/pool"
-end)
-local keyedCacheModule = once(function()
-	return require "@self/keyed-cache"
-end)
-local slotModule = once(function()
-	return require "@self/slot"
-end)
-local accumulatorModule = once(function()
-	return require "@self/accumulator"
-end)
-local selectorModule = once(function()
-	return require "@self/selector"
-end)
-local boundaryModule = once(function()
-	return require "@self/async/boundary"
-end)
-local focusScopeModule = once(function()
-	return require "@self/focus-scope"
-end)
-local focusNeighborModule = once(function()
-	return require "@self/focus-neighbor"
-end)
-local sharedResourceModule = once(function()
-	return require "@self/async/shared"
-end)
 
 export type AcquireSharedResource<T> = CoreTypes.AcquireSharedResource<T>
 
 local function createSharedResource<T>(factory: SharedResourceFactory<T>): AcquireSharedResource<T>
-	return sharedResourceModule()(factory)
+	local loaded = sharedModule or require "@self/async/shared"
+	sharedModule = loaded
+	return loaded(factory)
 end
-
-local geometryModule = once(function()
-	return require "@self/geometry"
-end)
 
 local geometry = table.freeze {
 	safeArea = function(
@@ -209,79 +185,52 @@ local geometry = table.freeze {
 		insets: Types.GeometryInsets?,
 		margin: number?
 	): Types.GeometryFrame
-		return geometryModule().safeArea(viewport, insets, margin)
+		local loaded = geometryModule or require "@self/geometry"
+		geometryModule = loaded
+		return loaded.safeArea(viewport, insets, margin)
 	end,
 	fit = function(
 		available: Types.GeometryBounds,
 		desired: Types.GeometrySize,
 		options: Types.GeometryFitOptions?
 	): Types.GeometryFrame
-		return geometryModule().fit(available, desired, options)
+		local loaded = geometryModule or require "@self/geometry"
+		geometryModule = loaded
+		return loaded.fit(available, desired, options)
 	end,
 	overlaps = function(a: Types.GeometryBounds, b: Types.GeometryBounds): boolean
-		return geometryModule().overlaps(a, b)
+		local loaded = geometryModule or require "@self/geometry"
+		geometryModule = loaded
+		return loaded.overlaps(a, b)
 	end,
 	contains = function(outer: Types.GeometryBounds, inner: Types.GeometryBounds): boolean
-		return geometryModule().contains(outer, inner)
+		local loaded = geometryModule or require "@self/geometry"
+		geometryModule = loaded
+		return loaded.contains(outer, inner)
 	end,
 	firstClear = function<T, R>(candidates: { T }, options: Types.GeometryClearOptions<R>?): (T?, number?)
-		return geometryModule().firstClear(candidates, options)
+		local loaded = geometryModule or require "@self/geometry"
+		geometryModule = loaded
+		return loaded.firstClear(candidates, options)
 	end,
 }
 
-local inspectModule = once(function()
-	return require "@self/ownership/inspect"
-end)
-local reportModule = once(function()
-	return require "@self/ownership/report"
-end)
-local presenceModule = once(function()
-	return require "@self/structure/presence"
-end)
-local showModule = once(function()
-	return require "@self/structure/show"
-end)
-local switchModule = once(function()
-	return require "@self/structure/switch"
-end)
-local keyedModule = once(function()
-	return require "@self/structure/keyed"
-end)
-local indexesModule = once(function()
-	return require "@self/structure/indexes"
-end)
-local orderedCollectionModule = once(function()
-	return require "@self/structure/ordered-collection"
-end)
-local spatialCollectionModule = once(function()
-	return require "@self/structure/spatial-collection"
-end)
-local tileCollectionModule = once(function()
-	return require "@self/structure/tile-collection"
-end)
-local layerStackModule = once(function()
-	return require "@self/structure/layer-stack"
-end)
-local mountBudgetModule = once(function()
-	return require "@self/structure/mount-budget"
-end)
-local fragmentModule = once(function()
-	return require "@self/structure/fragment"
-end)
-local portalModule = once(function()
-	return require "@self/structure/portal"
-end)
-
 local function withRootOwner<T...>(body: (owner: OwnerModule.Owner) -> T..., reactor: Types.Reactor?): T...
-	return rootScopeModule().withRootOwner(body, reactor)
+	local loaded = rootScopeModule or require "@self/ownership/root-scope"
+	rootScopeModule = loaded
+	return loaded.withRootOwner(body, reactor)
 end
 
 local function createRootOwner(body: (owner: OwnerModule.Owner) -> (), reactor: Types.Reactor?): CoreTypes.RootScope
-	return rootScopeModule().createRootOwner(body, reactor)
+	local loaded = rootScopeModule or require "@self/ownership/root-scope"
+	rootScopeModule = loaded
+	return loaded.createRootOwner(body, reactor)
 end
 
 local function createSpringState(position: { number }, arity: number): CoreTypes.SpringState
-	return springModule().createState(position, arity)
+	local loaded = springModule or require "@self/animation/spring"
+	springModule = loaded
+	return loaded.createState(position, arity)
 end
 
 local function stepSpring(
@@ -291,7 +240,9 @@ local function stepSpring(
 	period: number,
 	damping: number
 ): number
-	return springModule().step(state, target, delta, period, damping)
+	local loaded = springModule or require "@self/animation/spring"
+	springModule = loaded
+	return loaded.step(state, target, delta, period, damping)
 end
 
 local function springAtRest(
@@ -300,42 +251,60 @@ local function springAtRest(
 	reference: { number },
 	tolerance: number
 ): boolean
-	return springModule().atRest(state, target, reference, tolerance)
+	local loaded = springModule or require "@self/animation/spring"
+	springModule = loaded
+	return loaded.atRest(state, target, reference, tolerance)
 end
 
 local function springCoefficients(period: number, damping: number): (number, number)
-	return springModule().coefficients(period, damping)
+	local loaded = springModule or require "@self/animation/spring"
+	springModule = loaded
+	return loaded.coefficients(period, damping)
 end
 
 local function createPool<T>(options: CoreTypes.PoolOptions<T>): CoreTypes.Pool<T>
-	return poolModule()(options)
+	local loaded = poolModule or require "@self/pool"
+	poolModule = loaded
+	return loaded(options)
 end
 
 local function createKeyedCache<K, T>(options: CoreTypes.KeyedCacheOptions<K, T>): CoreTypes.KeyedCache<K, T>
-	return keyedCacheModule()(options)
+	local loaded = keyedCacheModule or require "@self/keyed-cache"
+	keyedCacheModule = loaded
+	return loaded(options)
 end
 
 local function createSlot(explicit: OwnerModule.Owner?): CoreTypes.Slot
-	return slotModule()(explicit)
+	local loaded = slotModule or require "@self/slot"
+	slotModule = loaded
+	return loaded(explicit)
 end
 
 local function accumulator<T, E>(options: Types.AccumulatorOptions<T, E>): Types.ReadOnlyValue<T>
-	return accumulatorModule()(options)
+	local loaded = accumulatorModule or require "@self/accumulator"
+	accumulatorModule = loaded
+	return loaded(options)
 end
 
 local function selector<K>(source: Types.ReadOnlyValue<K>): (K) -> Types.ReadOnlyValue<boolean>
-	return selectorModule()(source)
+	local loaded = selectorModule or require "@self/selector"
+	selectorModule = loaded
+	return loaded(source)
 end
 
 local function boundary(
 	builder: Builder,
 	fallback: (failure: unknown, retry: () -> ()) -> HostProtocol.Node | Directive
 ): Directive
-	return boundaryModule()(builder, fallback)
+	local loaded = boundaryModule or require "@self/async/boundary"
+	boundaryModule = loaded
+	return loaded(builder, fallback)
 end
 
 local function createFocusScope<V, K>(options: CoreTypes.FocusScopeOptions<V, K>): CoreTypes.FocusScope<K>
-	return focusScopeModule()(options)
+	local loaded = focusScopeModule or require "@self/focus-scope"
+	focusScopeModule = loaded
+	return loaded(options)
 end
 
 local function focusNeighbor(
@@ -343,7 +312,9 @@ local function focusNeighbor(
 	candidates: { CoreTypes.FocusRect },
 	direction: CoreTypes.FocusDirection
 ): number?
-	return focusNeighborModule()(from, candidates, direction)
+	local loaded = focusNeighborModule or require "@self/focus-neighbor"
+	focusNeighborModule = loaded
+	return loaded(from, candidates, direction)
 end
 
 local function presence<T>(
@@ -351,75 +322,111 @@ local function presence<T>(
 	builder: CoreTypes.PresenceBuilder,
 	options: CoreTypes.PresenceOptions?
 ): Directive
-	return presenceModule()(condition, builder, options)
+	local loaded = presenceModule or require "@self/structure/presence"
+	presenceModule = loaded
+	return loaded(condition, builder, options)
 end
 
 local function show<T>(condition: Types.Source<T>, builder: Builder, fallback: Builder?): Directive
-	return showModule()(condition, builder, fallback)
+	local loaded = showModule or require "@self/structure/show"
+	showModule = loaded
+	return loaded(condition, builder, fallback)
 end
 
 local function switch<K>(source: Types.Source<K>, branches: { [K]: Builder }, fallback: Builder?): Directive
-	return switchModule()(source, branches, fallback)
+	local loaded = switchModule or require "@self/structure/switch"
+	switchModule = loaded
+	return loaded(source, branches, fallback)
 end
 
 local function keyed<V, K>(options: CoreTypes.KeyedOptions<V, K>): Directive
-	return keyedModule()(options)
+	local loaded = keyedModule or require "@self/structure/keyed"
+	keyedModule = loaded
+	return loaded(options)
 end
 
 local function indexes<V>(source: Types.Source<{ V }>, render: CoreTypes.IndexedRender<V>): Directive
-	return indexesModule()(source, render)
+	local loaded = indexesModule or require "@self/structure/indexes"
+	indexesModule = loaded
+	return loaded(source, render)
 end
 
 local function orderedCollection<V, K>(options: CoreTypes.OrderedCollectionOptions<V, K>): Directive
-	return orderedCollectionModule()(options)
+	local loaded = orderedCollectionModule or require "@self/structure/ordered-collection"
+	orderedCollectionModule = loaded
+	return loaded(options)
 end
 
 local function spatialCollection<V, K>(options: CoreTypes.SpatialCollectionOptions<V, K>): Directive
-	return spatialCollectionModule()(options)
+	local loaded = spatialCollectionModule or require "@self/structure/spatial-collection"
+	spatialCollectionModule = loaded
+	return loaded(options)
 end
 
 local function tileCollection<V>(options: CoreTypes.TileCollectionOptions<V>): Directive
-	return tileCollectionModule()(options)
+	local loaded = tileCollectionModule or require "@self/structure/tile-collection"
+	tileCollectionModule = loaded
+	return loaded(options)
 end
 
 local function layerStack<V, K>(options: CoreTypes.LayerStackOptions<V, K>): Directive
-	return layerStackModule()(options)
+	local loaded = layerStackModule or require "@self/structure/layer-stack"
+	layerStackModule = loaded
+	return loaded(options)
 end
 
 local function mountBudget<V, K>(options: CoreTypes.MountBudgetOptions<V, K>): Directive
-	return mountBudgetModule()(options)
+	local loaded = mountBudgetModule or require "@self/structure/mount-budget"
+	mountBudgetModule = loaded
+	return loaded(options)
 end
 
 local function fragment(builder: NodesBuilder): Directive
-	return fragmentModule()(builder)
+	local loaded = fragmentModule or require "@self/structure/fragment"
+	fragmentModule = loaded
+	return loaded(builder)
 end
 
 local function portal(target: HostProtocol.Node, builder: NodesBuilder): Directive
-	return portalModule()(target, builder)
+	local loaded = portalModule or require "@self/structure/portal"
+	portalModule = loaded
+	return loaded(target, builder)
 end
 
 local function inspectSnapshot(): Types.InspectReport
-	return reportModule().snapshot()
+	local loaded = reportModule or require "@self/ownership/report"
+	reportModule = loaded
+	return loaded.snapshot()
 end
 
 local function inspectOwner(subject: OwnerModule.Owner): Types.InspectOwnerReport?
-	return reportModule().owner(subject)
+	local loaded = reportModule or require "@self/ownership/report"
+	reportModule = loaded
+	return loaded.owner(subject)
 end
 
 local function inspectOwned(subject: OwnerModule.Owner): nodes.OwnedCounts?
-	return reportModule().owned(subject)
+	local loaded = reportModule or require "@self/ownership/report"
+	reportModule = loaded
+	return loaded.owned(subject)
 end
 
 local function inspectNode(subject: HostProtocol.Node): Types.InspectNodeReport
-	return reportModule().node(subject)
+	local loaded = reportModule or require "@self/ownership/report"
+	reportModule = loaded
+	return loaded.node(subject)
 end
 
 local function inspectFormat(report: Types.InspectReport): string
-	return reportModule().format(report)
+	local loaded = reportModule or require "@self/ownership/report"
+	reportModule = loaded
+	return loaded.format(report)
 end
 
 local function inspectData(report: Types.InspectReport): Types.InspectData
-	return reportModule().data(report)
+	local loaded = reportModule or require "@self/ownership/report"
+	reportModule = loaded
+	return loaded.data(report)
 end
 
 local function formula<T>(body: Types.Body<T>, equals: Types.Equals<T>?): Types.Value<T>
@@ -474,7 +481,9 @@ local function cleanup(value: unknown): Types.Dispose
 	end
 	local holder = Active.current()
 	if holder ~= nil and nodes.inspecting.active then
-		inspectModule().cleanup(holder)
+		local loaded = inspectModule or require "@self/ownership/inspect"
+		inspectModule = loaded
+		loaded.cleanup(holder)
 	end
 	return Active.own(teardown, "cleanup")
 end
@@ -539,16 +548,22 @@ end
 
 local inspect = {
 	start = function(options: Types.InspectOptions?)
-		inspectModule().start(options)
+		local loaded = inspectModule or require "@self/ownership/inspect"
+		inspectModule = loaded
+		loaded.start(options)
 	end,
 	stop = function()
-		inspectModule().stop()
+		local loaded = inspectModule or require "@self/ownership/inspect"
+		inspectModule = loaded
+		loaded.stop()
 	end,
 	active = function(): boolean
 		return nodes.inspecting.active
 	end,
 	label = function(owner: Owner, name: string)
-		inspectModule().label(owner, name)
+		local loaded = inspectModule or require "@self/ownership/inspect"
+		inspectModule = loaded
+		loaded.label(owner, name)
 	end,
 	snapshot = inspectSnapshot,
 	owner = inspectOwner,
@@ -560,22 +575,34 @@ local inspect = {
 
 local profile = {
 	start = function(now: () -> number, options: Types.ProfileOptions?)
-		profileModule().start(now, options)
+		local loaded = profileModule or require "@self/reactive/profile"
+		profileModule = loaded
+		loaded.start(now, options)
 	end,
 	stop = function(): Types.ProfileReport
-		return profileModule().stop()
+		local loaded = profileModule or require "@self/reactive/profile"
+		profileModule = loaded
+		return loaded.stop()
 	end,
 	label = function(node: unknown, name: string)
-		profileModule().label(node, name)
+		local loaded = profileModule or require "@self/reactive/profile"
+		profileModule = loaded
+		loaded.label(node, name)
 	end,
 	active = function(): boolean
-		return profileModule().isActive()
+		local loaded = profileModule or require "@self/reactive/profile"
+		profileModule = loaded
+		return loaded.isActive()
 	end,
 	format = function(report: Types.ProfileReport, limit: number?): string
-		return profileModule().format(report, limit)
+		local loaded = profileModule or require "@self/reactive/profile"
+		profileModule = loaded
+		return loaded.format(report, limit)
 	end,
 	data = function(report: Types.ProfileReport): Types.ProfileData
-		return profileModule().data(report)
+		local loaded = profileModule or require "@self/reactive/profile"
+		profileModule = loaded
+		return loaded.data(report)
 	end,
 }
 

@@ -31,8 +31,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				at: ComposeTypes.ReadOnlyValue<Vector2>,
 			},
 		},
-		currentOrder: ComposeTypes.Value<number>,
-		indicator: Types.Input<string>?
+		currentOrder: ComposeTypes.ReadOnlyValue<number>,
+		indicator: Types.Input<Nav.Indicator?>?
 	): ()
 		local reduced = reducedMotion(ctx)
 		local spring = ctx.motionSpring("control")
@@ -45,36 +45,53 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			return math.abs(after.X * before.Y - before.X * after.Y) > 0.5 * math.max(before.Y, after.Y)
 		end
 		local function landsWithStrip(use: ComposeTypes.Use): boolean
-			local order, strip = use(currentOrder), use(laidOut)
-			local reflowed = order == seenOrder and seenStrip ~= nil and reshaped(seenStrip, strip)
+			local strip = use(laidOut)
+			if strip.X <= 0 or strip.Y <= 0 then
+				return true
+			end
+			local order = use(currentOrder)
+			local reflowed = seenStrip == nil or (order == seenOrder and reshaped(seenStrip, strip))
 			seenOrder, seenStrip = order, strip
 			return reduced(use) or reflowed
 		end
 		local sliding = runtime.spring(function(use: ComposeTypes.Use)
-			return use(currentOrder)
+			local strip = use(laidOut)
+			return if strip.X > 0
+					and strip.Y > 0
+					and read(indicator, use) ~= "underline"
+					and not reduced(use)
+				then use(currentOrder)
+				else 0
 		end, { period = spring.period, damping = spring.damping, tolerance = 1e-3, reducedMotion = landsWithStrip })
 		local probe: Frame? = nil
 		local _, slot = runtime.mount(function()
-			probe = Host.Frame "SlideUnit" { Size = D2.fromOffset(1, 1), Visible = false }
+			probe = Host.Frame "SlideUnit" { Size = D2.fromScale(1, 1), Visible = false }
 			return Host.Folder "Slide" { probe }
 		end, picker)
-		local unit = ctx.observe.AbsoluteSize(assert(probe))
+		local basis = ctx.observe.AbsoluteSize(assert(probe))
 		local content = ctx.observe.AbsolutePosition(assert(probe))
 		local function rectAt(use: ComposeTypes.Use, order: number): (Vector2?, Vector2?)
-			local scale = use(unit).X
-			scale = if scale > 0 then scale else 1
-			local room = use(laidOut) / scale
+			local whole = use(basis)
+			if whole.X <= 0 or whole.Y <= 0 then
+				return nil, nil
+			end
+			local room = use(laidOut)
 			for _, box in boxes do
 				if use(box.order) == order then
-					local at = (use(box.at) - use(content)) / scale
-					local size = use(box.size) / scale
+					local at = use(box.at) - use(content)
+					local size = use(box.size)
 					at = V2.new(math.clamp(at.X, 0, room.X), math.clamp(at.Y, 0, room.Y))
-					return at, V2.new(math.min(size.X, room.X - at.X), math.min(size.Y, room.Y - at.Y))
+					size = V2.new(math.min(size.X, room.X - at.X), math.min(size.Y, room.Y - at.Y))
+					return at / whole, size / whole
 				end
 			end
 			return nil, nil
 		end
 		local rect = Compose.formula(function(use: ComposeTypes.Use): { Vector2 }?
+			local strip = use(laidOut)
+			if strip.X <= 0 or strip.Y <= 0 then
+				return nil
+			end
 			local at = use(sliding)
 			local low = math.floor(at)
 			local fromAt, fromSize = rectAt(use, low)
@@ -96,8 +113,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local function shown(use: ComposeTypes.Use): boolean
 			return read(indicator, use) ~= "underline"
 				and not reduced(use)
-				and use(currentOrder) > 0
 				and use(rect) ~= nil
+				and use(currentOrder) ~= 0
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			if shown(use) then
@@ -114,11 +131,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 					Visible = shown,
 					Position = function(use: ComposeTypes.Use): UDim2
 						local box = use(rect)
-						return if box then D2.fromOffset(box[1].X, box[1].Y) else D2.new()
+						return if box then D2.fromScale(box[1].X, box[1].Y) else D2.new()
 					end,
 					Size = function(use: ComposeTypes.Use): UDim2
 						local box = use(rect)
-						return if box then D2.fromOffset(box[2].X, box[2].Y) else D2.new()
+						return if box then D2.fromScale(box[2].X, box[2].Y) else D2.new()
 					end,
 				},
 				"segment-fill"
@@ -145,21 +162,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			},
 		} =
 			{}
-		local currentOrder, chosenOrder = Compose.cell(0), Compose.cell(0)
-		if style == "segmented" and spec.multiple ~= true then
-			Compose.watch(function(use: ComposeTypes.Use)
-				local chosen = 0
+		local multipleOrder = if spec.multiple == true then Compose.cell(0) else nil
+		local chosenOrder = multipleOrder
+			or Compose.formula(function(use: ComposeTypes.Use): number
 				for index, option in use(options) do
 					if isSelected(option.value, use) then
-						chosen = index
-						break
+						return index
 					end
 				end
-				local indicator = read(spec.indicator, use)
-				chosenOrder:set(chosen)
-				currentOrder:set(if indicator == "underline" then 0 else chosen)
+				return 0
 			end)
-		end
 		local captionHeights: { [Instance]: number } = {}
 		local tallestCaption = Compose.cell(0)
 		local function measureCaptions(): ()
@@ -316,9 +328,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 								and (indicator ~= "none" or style == "segmented")
 						end,
 						enabled = derive(enabledOf, if fixed then nil else source, spec.enabled, current.enabled),
-						haptic = function(use: ComposeTypes.Use)
-							return spec.multiple == true or not selected(use)
-						end,
+						haptic = if spec.multiple
+							then true
+							elseif ctx.config.pressHaptic == nil then false
+							else function(use: ComposeTypes.Use)
+								return not selected(use)
+							end,
 						onActivate = function()
 							select(source:peek().value)
 						end,
@@ -390,14 +405,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 										Size = D2.fromOffset(18, 18),
 										LayoutOrder = if trailing then 1000 else 0,
 										BackgroundTransparency = 1,
-										ctx.corner(9) :: Types.Child,
+										ctx.corner(9),
 										ctx.styled(
 											Host.Frame "Dot" {
 												AnchorPoint = V2.new(0.5, 0.5),
 												Position = D2.fromScale(0.5, 0.5),
 												Size = D2.fromOffset(8, 8),
 												Visible = selected,
-												ctx.corner(4) :: Types.Child,
+												ctx.corner(4),
 											},
 											"fill"
 										),
@@ -514,15 +529,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							return `{use(room) - 2 * segmentMetrics.inset}|{peers(use)}`
 						end, button, true)
 						local caption = button:FindFirstChild("Title", true) or button:FindFirstChild("Label", true)
-						local bounds: ComposeTypes.ReadOnlyValue<Vector2> = if caption and caption:IsA("TextLabel")
-							then ctx.observe.TextBounds(caption)
-							else ctx.observe.TextBounds(button)
-						local captionUnit = ctx.layoutUnit(button)
 						local extent = ctx.observe.AbsoluteSize(button)
-						Compose.watch(function(use: ComposeTypes.Use)
-							captionHeights[button] = use(bounds).Y / use(captionUnit)
-							measureCaptions()
-						end)
+						if ctx.config.theme ~= nil then
+							local bounds: ComposeTypes.ReadOnlyValue<Vector2> = if caption
+									and caption:IsA("TextLabel")
+								then ctx.observe.TextBounds(caption)
+								else ctx.observe.TextBounds(button)
+							local captionUnit = ctx.layoutUnit(button)
+							Compose.watch(function(use: ComposeTypes.Use)
+								captionHeights[button] = use(bounds).Y / use(captionUnit)
+								measureCaptions()
+							end)
+						end
 						segmentBoxes[button] =
 							{ order = index, size = extent, at = ctx.observe.AbsolutePosition(button) }
 						Compose.cleanup(function()
@@ -551,15 +569,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 						if style ~= "segmented" or spec.multiple ~= true then
 							return
 						end
+						local selectedOrder = assert(multipleOrder)
 						if chosen then
-							chosenOrder:set(order)
-						elseif chosenOrder:peek() == order then
-							chosenOrder:set(0)
-						end
-						if current then
-							currentOrder:set(order)
-						elseif currentOrder:peek() == order then
-							currentOrder:set(0)
+							selectedOrder:set(order)
+						elseif selectedOrder:peek() == order then
+							selectedOrder:set(0)
 						end
 					end)
 					local section = source:peek().sectionTitle
@@ -770,14 +784,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			local revealed: string? = nil
 			local shownOrder = 0
 			Compose.watch(function(use: ComposeTypes.Use)
-				local order, view = use(chosenOrder), use(window).X
 				if not use(spills) then
 					revealed = nil
 					if scroller.CanvasPosition.X ~= 0 then
 						scroller.CanvasPosition = V2.new(0, scroller.CanvasPosition.Y)
 					end
 					return
-				elseif order <= 0 or view <= 0 then
+				end
+				local order, view = use(chosenOrder), use(window).X
+				if order <= 0 or view <= 0 then
 					return
 				end
 				local chosen: GuiObject? = nil
@@ -821,7 +836,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		if style == "segmented" then
 			picker:AddTag("facet-segmented")
 			if spec.multiple ~= true then
-				slideSelection(picker, segmentBoxes, currentOrder, (spec.indicator :: unknown) :: Types.Input<string>?)
+				slideSelection(picker, segmentBoxes, chosenOrder, spec.indicator)
 			end
 			surfaces.attach(picker, {
 				Host.UISizeConstraint "TargetFloor" {

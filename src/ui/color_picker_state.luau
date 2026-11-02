@@ -57,6 +57,12 @@ export type State = {
 local isColor, unit, writable = Kit.isColor, Kit.unit, Kit.writable
 local MODE_LABEL, MAX_COLUMNS = Kit.MODE_LABEL, Kit.MAX_COLUMNS
 
+local function checkCallback(key: string, value: unknown)
+	if value ~= nil and type(value) ~= "function" then
+		error(`Facet UI.ColorPicker: \`{key}\` is a function.`, 0)
+	end
+end
+
 return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 	local Compose, read, readSource = ctx.Compose, ctx.read, ctx.readSource
 	local E = ctx.types.Enum
@@ -64,7 +70,6 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 	local function refuse(message: string): never
 		error(`Facet UI.ColorPicker: {message}`, 0)
 	end
-	local options = (spec :: unknown) :: { [string]: unknown }
 	if spec.allowEmpty ~= nil and type(spec.allowEmpty) ~= "boolean" then
 		refuse("`allowEmpty` is true or false.")
 	end
@@ -73,21 +78,13 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 	if not (isColor(initial) or (initial == nil and allowEmpty)) then
 		refuse("`value` is a Color3 (or a readable one); nil only with `allowEmpty = true`.")
 	end
-	for _, key in
-		{
-			"onChange",
-			"onCommit",
-			"onAlphaChange",
-			"onPresentedChange",
-			"onDismiss",
-			"onSaveSwatch",
-			"onRemoveSwatch",
-		}
-	do
-		if options[key] ~= nil and type(options[key]) ~= "function" then
-			refuse(`\`{key}\` is a function.`)
-		end
-	end
+	checkCallback("onChange", spec.onChange)
+	checkCallback("onCommit", spec.onCommit)
+	checkCallback("onAlphaChange", spec.onAlphaChange)
+	checkCallback("onPresentedChange", spec.onPresentedChange)
+	checkCallback("onDismiss", spec.onDismiss)
+	checkCallback("onSaveSwatch", spec.onSaveSwatch)
+	checkCallback("onRemoveSwatch", spec.onRemoveSwatch)
 	local readOnlyNow: unknown = read(spec.readOnly)
 	if readOnlyNow ~= nil and type(readOnlyNow) ~= "boolean" then
 		refuse("`readOnly` is a boolean or a readable boolean.")
@@ -128,13 +125,13 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 			or if ctx.types.BrickColor
 				then { "swatches", "spectrum", "sliders", "brick" }
 				else { "swatches", "spectrum", "sliders" }
-		if Compose.isValue(listed) or type(listed) ~= "table" or #(listed :: { unknown }) == 0 then
+		if Compose.isValue(listed) or type(listed) ~= "table" or #listed == 0 then
 			refuse(
 				'`modes` is a non-empty list of "swatches" | "spectrum" | "sliders" | "brick", fixed at construction.'
 			)
 		end
 		local seen: { [string]: boolean } = {}
-		for _, word in listed :: { unknown } do
+		for _, word in assert(listed) do
 			if type(word) ~= "string" or MODE_LABEL[word] == nil or seen[word] then
 				refuse(
 					`\`modes\` names each of "swatches" | "spectrum" | "sliders" | "brick" at most once (got '{tostring(
@@ -142,8 +139,8 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 					)}').`
 				)
 			end
-			seen[word :: string] = true
-			table.insert(modes, word :: string)
+			seen[word] = true
+			table.insert(modes, word)
 		end
 	end
 	local brickMode = table.find(modes, "brick") ~= nil
@@ -185,12 +182,12 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 			)
 		end
 	end)
-	local alphaHeld = Compose.cell(if hasAlpha then read(spec.alpha) :: number else 1)
+	local alphaHeld = Compose.cell(if hasAlpha then read<<number>>(spec.alpha or 1) else 1)
 	if hasAlpha then
 		Compose.watch(function(use: Use)
-			local value: unknown = read(spec.alpha, use)
+			local value = read<<number>>(spec.alpha or 1, use)
 			if unit(value) then
-				alphaHeld:set(value :: number)
+				alphaHeld:set(value)
 			else
 				note("Facet UI.ColorPicker: `alpha` is a number from 0 to 1; keeping the last legal value")
 			end
@@ -262,7 +259,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 	end
 	local function current(): Color3?
 		local value: unknown = read(spec.value)
-		return if isColor(value) then value :: Color3 else nil
+		return if typeof(value) == "Color3" then value else nil
 	end
 	local function propose(next: Hsv): boolean
 		if not mayEdit() then
@@ -365,8 +362,8 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 
 	local gui = ctx.config.services.GuiService
 	local input = ctx.config.services.UserInputService
-	local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil :: GuiObject?)
-	local preferred = if input then ctx.observe.PreferredInput(input) else Compose.cell(nil :: unknown)
+	local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell<<GuiObject?>>(nil)
+	local preferred = if input then ctx.observe.PreferredInput(input) else Compose.cell<<unknown>>(nil)
 	local function touch(use: Use?): boolean
 		return read(preferred, use) == E.PreferredInput.Touch
 	end

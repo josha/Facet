@@ -1,12 +1,16 @@
 --!strict
 
+local codecsModule: typeof(require "@self/codecs")? = nil
+local cleanupModule: typeof(require "@self/cleanup")? = nil
+local viewportModule: typeof(require "@self/viewport")? = nil
+local inputModule: typeof(require "@self/input")? = nil
+
 local Compose = require "./core"
 local Engine = require "@self/engine"
 local HostImpl = require "@self/host"
-local Codecs = require "@self/codecs"
 
-export type Codecs = Codecs.Codecs
-export type CodecSource = Codecs.Source
+export type Codecs = Engine.Codecs
+export type CodecSource = Engine.Source
 export type Engine = Engine.Engine
 export type Signal<A... = ...unknown> = Engine.Signal<A...>
 export type Connection = Engine.Connection
@@ -58,7 +62,9 @@ local function designEnvironment(options: {
 end
 
 local function codecs(engine: CodecSource?): Codecs
-	return Codecs.create(if engine ~= nil then engine else Engine.ambient())
+	local loaded = codecsModule or require "@self/codecs"
+	codecsModule = loaded
+	return loaded.create(if engine ~= nil then engine else Engine.ambient())
 end
 
 local function animatableTypes(engine: Engine.Engine?): { string }
@@ -86,45 +92,16 @@ local function animatableTypes(engine: Engine.Engine?): { string }
 	return names
 end
 
-local cleanupModule: typeof(require "@self/cleanup")? = nil
-local function cleanupOf(): typeof(require "@self/cleanup")
-	local loaded = cleanupModule
-	if loaded ~= nil then
-		return loaded
-	end
-	local required = require "@self/cleanup"
-	cleanupModule = required
-	return required
-end
-
-local viewportModule: typeof(require "@self/viewport")? = nil
-local function viewportOf(): typeof(require "@self/viewport")
-	local loaded = viewportModule
-	if loaded ~= nil then
-		return loaded
-	end
-	local required = require "@self/viewport"
-	viewportModule = required
-	return required
-end
-
-local inputModule: typeof(require "@self/input")? = nil
-local function inputOf(): typeof(require "@self/input")
-	local loaded = inputModule
-	if loaded ~= nil then
-		return loaded
-	end
-	local required = require "@self/input"
-	inputModule = required
-	return required
-end
-
 local function cleanup(value: unknown): Compose.Dispose
-	return cleanupOf().cleanup(value)
+	local loaded = cleanupModule or require "@self/cleanup"
+	cleanupModule = loaded
+	return loaded.cleanup(value)
 end
 
 local function createCleanup(typeName: ((value: unknown) -> string)?): (value: unknown) -> Compose.Dispose
-	return cleanupOf().createCleanup(typeName)
+	local loaded = cleanupModule or require "@self/cleanup"
+	cleanupModule = loaded
+	return loaded.createCleanup(typeName)
 end
 
 local function createViewport(
@@ -132,19 +109,27 @@ local function createViewport(
 	engine: Engine.Engine?,
 	options: Engine.ViewportOptions?
 ): (Compose.ReadOnlyValue<Engine.Viewport>, Compose.ReadOnlyValue<boolean>)
-	return viewportOf().createViewport(camera, engine, options)
+	local loaded = viewportModule or require "@self/viewport"
+	viewportModule = loaded
+	return loaded.createViewport(camera, engine, options)
 end
 
 local function usableViewportSize(size: Engine.Vector2?, minimum: number?): boolean
-	return viewportOf().usableViewportSize(size, minimum)
+	local loaded = viewportModule or require "@self/viewport"
+	viewportModule = loaded
+	return loaded.usableViewportSize(size, minimum)
 end
 
 local function preferredInput(inputService: unknown, engine: Engine.Engine?): Compose.Value<Engine.PreferredInputClass>
-	return inputOf().preferredInput(inputService, engine)
+	local loaded = inputModule or require "@self/input"
+	inputModule = loaded
+	return loaded.preferredInput(inputService, engine)
 end
 
 local function preferredInputSpec(value: unknown): Engine.PreferredInputSpec
-	return inputOf().preferredInputSpec(value)
+	local loaded = inputModule or require "@self/input"
+	inputModule = loaded
+	return loaded.preferredInputSpec(value)
 end
 
 local function __resetForTests()

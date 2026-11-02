@@ -126,6 +126,7 @@ export type Reactor = {
 export type Node = NodeData<unknown> & { read peek: (<S>(Cache<S>) -> S)? }
 
 export type NodeData<T> = {
+	kind: number?,
 	[number]: Node?,
 	version: number?,
 	value: unknown,
@@ -137,8 +138,8 @@ export type NodeData<T> = {
 	equals: unknown,
 	state: number?,
 	reads: number?,
-	run: ((Node) -> ())?,
-	runIn: (({ consumer: Node?, order: number }, Node) -> ())?,
+	run: ((Node, { consumer: Node?, order: number }?) -> ())?,
+	runIn: ((Node, { consumer: Node?, order: number }) -> ())?,
 	effect: ((use: Use) -> ())?,
 	listener: ((unknown, Node?) -> ())?,
 	listenerGroup: boolean?,

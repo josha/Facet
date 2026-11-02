@@ -23,7 +23,7 @@ export type Helpers = {
 	stopEnabled: (Spec | NumberSpec, ComposeTypes.Use?) -> boolean,
 	writable: (unknown) -> boolean,
 	attributes: (Instance, Shared.Attributes) -> Instance,
-	valueAttributes: (GuiObject, NumberSpec, valueModel.Model) -> (),
+	valueAttributes: (GuiObject, Shared.Input<number>, valueModel.Model, TextLabel) -> (),
 	adjustment: (GuiObject, InputTypes.AdjustmentState, (number) -> (), (() -> ())?, number?, number?, Adjust?) -> (),
 	paintedPart: (Shared.FrameProps, Shared.Input<string>?, string, string) -> Frame,
 }
@@ -55,8 +55,8 @@ local SLIDER_KEYS = {
 local THICKNESS: { [string]: number } = { xsmall = 3, compact = 4, regular = 6, large = 8 }
 local KNOB = 24
 
-local function finite(value: unknown): boolean
-	return type(value) == "number" and value == value and math.abs(value) < math.huge
+local function finite(value: unknown): number?
+	return if type(value) == "number" and value == value and math.abs(value) < math.huge then value else nil
 end
 
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
@@ -288,7 +288,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local isRange = spec.range == true
 		local vertical = spec.axis == "y"
 		local mode = spec.thumb or "always"
-		local model = valueModel(spec :: valueModel.Options, read)
+		local model = valueModel(spec, read)
 		local gap = spec.minGap or 0
 		assert(
 			spec.minGap == nil or (finite(spec.minGap) and gap >= 0 and gap <= model.max - model.min),
@@ -299,11 +299,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				return "a range value is { lower, upper }"
 			end
 			local fields = pair :: { [string]: unknown }
-			local lower, upper = fields.lower, fields.upper
-			if not finite(lower) or not finite(upper) then
+			local low, high = finite(fields.lower), finite(fields.upper)
+			if low == nil or high == nil then
 				return "a range value has finite lower and upper numbers"
 			end
-			local low, high = lower :: number, upper :: number
 			if low > high then
 				return `lower {low} is above upper {high}`
 			end
@@ -455,7 +454,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end
 		end
 
-		local gesture: { thumb: Thumb, snapshot: unknown }? = nil
+		local gesture: { thumb: Thumb, snapshot: number | Range }? = nil
 		local function cancel()
 			local active = gesture
 			if active == nil then
@@ -463,11 +462,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end
 			gesture = nil
 			dragging:set(false)
-			if isRange then
-				local snapshot = active.snapshot :: Range
+			local snapshot = active.snapshot
+			if type(snapshot) == "table" then
 				proposePair({ lower = snapshot.lower, upper = snapshot.upper }, active.thumb)
 			else
-				local snapshot = active.snapshot :: number
 				if single() ~= snapshot then
 					if spec.onChange then
 						(spec.onChange :: (number) -> ())(snapshot)
@@ -670,14 +668,13 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				table.insert(trackChildren, handle)
 			end
 		else
-			table.insert(
-				trackChildren,
-				knob(spec, if thumbStop then "ThumbStop" else "Thumb", "value", function(use)
-					return single(use)
-				end, function(use)
-					return fraction(single(use))
-				end, dragging, shown, vertical, thumbStop, extentOf("value"))
-			)
+			local handle = knob(spec, if thumbStop then "ThumbStop" else "Thumb", "value", function(use)
+				return single(use)
+			end, function(use)
+				return fraction(single(use))
+			end, dragging, shown, vertical, thumbStop, extentOf("value"))
+			handles.value = handle
+			table.insert(trackChildren, handle)
 		end
 		table.insert(trackChildren, detector)
 		table.insert(trackChildren, Host.UISizeConstraint { MinSize = V2.new(44, 44) })
@@ -727,13 +724,12 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		local readout = ctx.text({
 			Name = "Value",
-			Text = function(use: ComposeTypes.Use)
-				if isRange then
+			Text = if isRange
+				then function(use: ComposeTypes.Use)
 					local current = pair(use)
 					return `{model.format(current.lower)} – {model.format(current.upper)}`
 				end
-				return model.format(single(use))
-			end,
+				else "",
 		})
 		if not spec.row and not vertical then
 			runtime.decorate(readout, {
@@ -859,18 +855,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		if not isRange then
 			h.attributes(node, {
-				AccessibleLabel = (function(use: ComposeTypes.Use): string
+				AccessibleLabel = function(use: ComposeTypes.Use): string
 					local named = if trackLabel == nil
 						then nil
 						elseif type(trackLabel) == "string" then trackLabel
 						else ctx.readSource(trackLabel, use)
 					return if named and named ~= "" then named else model.format(single(use))
-				end) :: Shared.Input<Shared.AttributeValue?>,
+				end,
 			})
-			node:SetAttribute(
-				"FacetFocusPart",
-				relative(if thumbStop then track:FindFirstChild("ThumbStop") :: Instance else track)
-			)
+			node:SetAttribute("FacetFocusPart", relative(if thumbStop then handles.value else track))
 			h.adjustment(node, (spec :: unknown) :: NumberSpec, function(direction)
 				if proposeSingle(model.stepped(single(), direction)) then
 					commit("value")
@@ -878,7 +871,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end, cancel, model.min, model.max, { vertical = vertical, guard = true })
 		end
 		if isRange then
-			local adjusting: ComposeTypes.Value<Thumb> = Compose.cell("lower" :: Thumb)
+			local adjusting = Compose.cell<<Thumb>>("lower")
 			if selection then
 				local observed = selection
 				Compose.watch(function(use: ComposeTypes.Use)
@@ -980,7 +973,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end,
 			})
 		else
-			h.valueAttributes(node, (spec :: unknown) :: NumberSpec, model)
+			h.valueAttributes(node, single, model, readout)
 		end
 		Compose.cleanup(cancel)
 		return node

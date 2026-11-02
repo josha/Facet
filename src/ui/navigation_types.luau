@@ -298,8 +298,8 @@ export type SheetDetent =
 	"medium"
 	| "large"
 	| "hug"
-	| { id: string, fraction: number, height: nil }
-	| { id: string, fraction: nil, height: number }
+	| { read id: string, read fraction: number, read height: nil }
+	| { read id: string, read fraction: nil, read height: number }
 export type SheetOptions = {
 	transition: Transition | false?,
 	isPresented: ComposeTypes.Value<boolean>,

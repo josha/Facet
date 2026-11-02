@@ -5,7 +5,6 @@ local CoreTypes = require "../types"
 local Owners = require "../ownership/owner"
 local Children = require "../runtime/children"
 local Block = Children.block
-local Host = require "../host"
 local Support = require "./support"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
@@ -45,11 +44,13 @@ local function indexes<V>(source: Types.Source<{ V }>, render: Render<V>): Child
 					end
 				else
 					local value = cellModule.cell(item)
-					local position = index
-					local block = Block.mountBlock(mountPoint, owner, function(): { Host.Node }
-						return { build(value, position) }
-					end, "indexed row", nil)
-					rows[index] = { owner = block.owner, value = value }
+					local node, rowOwner = Block.mountRows(mountPoint, owner, build, value, index, "indexed row")
+					if node ~= nil then
+						Owners.adopt(rowOwner, function()
+							Block.releaseNode(mountPoint, node)
+						end)
+					end
+					rows[index] = { owner = rowOwner, value = value }
 					items[index] = item
 				end
 			end

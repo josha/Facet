@@ -236,6 +236,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 		local writing, disposed, snapshot = false, false, read<<string>>(spec.value)
 		local scrubbing: Scrub? = nil
 		local node: TextBox
+		local displayed = ""
 		local fieldOwner = assert(Compose.currentOwner())
 		local function updateValue(value: string): ()
 			if read<<string>>(spec.value) == value then
@@ -248,8 +249,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			end
 		end
 		local function setText(value: string): ()
-			if node.Text ~= value then
+			if displayed ~= value then
 				writing = true
+				displayed = value
 				node.Text = value
 				writing = false
 			end
@@ -643,6 +645,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			nativeProps[#nativeProps + 1] = clear
 		end
 		node = ctx.styled(Host.TextBox(nativeProps), "text")
+		displayed = node.Text
 		if not framed then
 			ctx.styled(ctx.styled(node, "field"), "text-input")
 		end
@@ -1003,12 +1006,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			end)
 		end
 		Compose.cleanup(assert(runtime.host.observation).observeProperty(node, "Text", function()
+			displayed = node.Text
 			if not writing and editing:peek() then
-				propose(node.Text)
+				propose(displayed)
 			end
 		end))
 		Compose.watch(function(use: ComposeTypes.Use)
 			setText(read<<string>>(spec.value, use))
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
 			if enabled(use) then
 				node:RemoveTag("facet-disabled")
 			else

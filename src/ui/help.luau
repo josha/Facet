@@ -37,14 +37,14 @@ function help.check(ctx: Types.Context, value: unknown)
 	end
 	if fields.shortcut ~= nil then
 		local chords = fields.shortcut
-		local valid = type(chords) == "table" and #(chords :: { unknown }) > 0
+		local valid = type(chords) == "table" and #chords > 0
 		if valid then
-			for _, chord in chords :: { unknown } do
-				if type(chord) ~= "table" or #(chord :: { unknown }) == 0 then
+			for _, chord in chords do
+				if type(chord) ~= "table" or #chord == 0 then
 					valid = false
 					break
 				end
-				for _, key in chord :: { unknown } do
+				for _, key in chord do
 					if type(key) ~= "string" or key == "" then
 						valid = false
 					end

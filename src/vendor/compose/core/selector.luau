@@ -56,17 +56,16 @@ local function selector<K>(source: Types.ReadOnlyValue<K>): (K) -> Types.ReadOnl
 			Graph.markStale(node, Graph.DIRTY)
 		end
 	end
+	local function readSource(use: Types.Use): K
+		return use(assert(readable))
+	end
 	local function update()
 		requireLive()
 		if router.state == Graph.CLEAN then
 			return
 		end
 		router.state = Graph.CLEAN
-		local ok, incoming = pcall(function(): K
-			return Graph.evaluate(router, function(use: Types.Use): K
-				return use(assert(readable))
-			end, Graph.use)
-		end)
+		local ok, incoming = pcall(Graph.evaluate, router, readSource, Graph.use)
 		if not ok then
 			failure, failed = incoming, true
 			router.state = Graph.CLEAN

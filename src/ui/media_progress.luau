@@ -71,29 +71,36 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			)
 		end
 		local indeterminate = spec.value == nil
+		local valueSource = spec.value or 0
 		local timeline = if indeterminate
 			then runtime.timeline({ duration = ctx.metric("motion.durations.progressLoop"), repeats = math.huge })
 			else nil
-		local progress = Compose.formula(function(use: ComposeTypes.Use): number
+		local function progress(use: ComposeTypes.Use): number
 			if timeline then
 				local phase = use(timeline.progress)
 				return if motionReduced(use) then math.floor(phase * 4) / 4 else phase
 			end
 			local minimum, maximum = read<<number?>>(spec.min, use) or 0, read<<number?>>(spec.max, use) or 1
 			assert(maximum > minimum, "Facet ProgressView max must exceed min")
-			return math.clamp(((read<<number?>>(spec.value, use) :: number) - minimum) / (maximum - minimum), 0, 1)
-		end)
+			return math.clamp((read<<number>>(valueSource, use) - minimum) / (maximum - minimum), 0, 1)
+		end
+		if presentation ~= "bar" or spec.showValue or spec.trail or count > 1 then
+			local normalized = Compose.formula(progress)
+			progress = function(use: ComposeTypes.Use): number
+				return use(normalized)
+			end
+		end
 		local trail: ComposeTypes.ReadOnlyValue<number>?
 		if spec.trail and not indeterminate then
 			local clock = runtime.timeline({ delay = delay, duration = duration, autoplay = false })
-			local previous = progress:peek()
+			local previous = read<<number>>(progress)
 			local origin, destination = Compose.cell(previous), Compose.cell(previous)
 			local followed = Compose.formula(function(use: ComposeTypes.Use): number
 				return use(origin) + (use(destination) - use(origin)) * use(clock.progress)
 			end)
 			trail = followed
 			Compose.watch(function(use: ComposeTypes.Use)
-				local value = use(progress)
+				local value = progress(use)
 				if motionReduced(use) or value >= previous then
 					origin:set(value)
 					destination:set(value)
@@ -122,16 +129,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					if indeterminate then
 						return "Loading"
 					end
-					local value = read<<number?>>(spec.value, use)
+					local value = read<<number>>(valueSource, use)
 					return if spec.format
-						then spec.format(value :: number)
-						else tostring(math.floor(use(progress) * 100 + 0.5)) .. "%"
+						then spec.format(value)
+						else tostring(math.floor(progress(use) * 100 + 0.5)) .. "%"
 				end,
 			}, true)
 		end
 		local direction = Compose.formula(function(use: ComposeTypes.Use): Theme.FillDirection
 			local package = read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use)
-			local recipe = if package then ((package.chrome or {}) :: { [string]: Theme.SkinLayer }).barFill else nil
+			local recipe = if package and package.chrome then package.chrome.barFill else nil
 			local value: Theme.FillDirection = if recipe then recipe.direction or "ltr" else "ltr"
 			assert(({ ltr = true, rtl = true, ttb = true, btt = true })[value], "Facet progress invalid fill direction")
 			return value
@@ -139,18 +146,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		local function dynamic(source: unknown): boolean
 			return Compose.isValue(source) or type(source) == "function"
 		end
-		local settled = not (
-			indeterminate
-			or trail ~= nil
-			or dynamic(spec.value)
-			or dynamic(spec.min)
-			or dynamic(spec.max)
-			or dynamic(spec.controlSize)
-			or dynamic(spec.thickness)
-			or dynamic(ctx.config.theme)
-		)
-		local function fixed<T>(body: (ComposeTypes.Use) -> T): Types.Input<T>
-			if not settled then
+		local settled = not (dynamic(spec.controlSize) or dynamic(spec.thickness) or dynamic(ctx.config.theme))
+		local function fixed<T>(body: (ComposeTypes.Use) -> T, changing: boolean?): Types.Input<T>
+			if not settled or changing then
 				return body
 			end
 			return body(function<U>(source: ComposeTypes.ReadOnlyValue<U>): U
@@ -181,9 +179,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			local measured = Compose.cell(V2.zero)
 			local function spansFill(use: ComposeTypes.Use): boolean
 				local package = read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use)
-				local recipe = if package
-					then ((package.chrome or {}) :: { [string]: Theme.SkinLayer }).barFill
-					else nil
+				local recipe = if package and package.chrome then package.chrome.barFill else nil
 				return recipe ~= nil and recipe.span == "fill"
 			end
 			local function ornament(slot: string, use: ComposeTypes.Use): (number, number)
@@ -219,7 +215,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				BackgroundTransparency = 1,
 				ClipsDescendants = true,
 			}
-			if trail then
+			local trailing = trail
+			if trailing then
 				clipped[#clipped + 1] = ctx.styled(
 					Host.Frame "Trail" {
 						BackgroundTransparency = 0.6,
@@ -227,8 +224,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						ZIndex = 0,
 						Size = function(use: ComposeTypes.Use)
 							local fraction = if motionReduced(use)
-								then use(progress)
-								else math.max(use(trail :: ComposeTypes.ReadOnlyValue<number>), use(progress))
+								then progress(use)
+								else math.max(use(trailing), progress(use))
 							return if vertical(use) then D2.fromScale(1, fraction) else D2.fromScale(fraction, 1)
 						end,
 						AnchorPoint = function(use: ComposeTypes.Use)
@@ -245,8 +242,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					"fill"
 				)
 			end
+			local fills: { Frame } = {}
 			for index = 1, count do
-				clipped[#clipped + 1] = ctx.styled(
+				local fill = ctx.styled(
 					Host.Frame {
 						Name = "Fill" .. index,
 						ClipsDescendants = true,
@@ -259,15 +257,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						Size = fixed(function(use: ComposeTypes.Use)
 							local fraction = if indeterminate
 								then 0.3
-								else math.clamp(use(progress) * count - (index - 1), 0, 1)
+								else math.clamp(progress(use) * count - (index - 1), 0, 1)
 							local gap = if count > 1 and fraction > 0 then -2 else 0
 							return if vertical(use)
 								then D2.new(1, 0, fraction / count, gap)
 								else D2.new(fraction / count, gap, 1, 0)
-						end),
+						end, indeterminate or dynamic(spec.value) or dynamic(spec.min) or dynamic(spec.max)),
 						Position = fixed(function(use: ComposeTypes.Use)
 							local position = if indeterminate
-								then (if motionReduced(use) then use(progress) * 0.7 else use(progress) * 1.3 - 0.3)
+								then (if motionReduced(use) then progress(use) * 0.7 else progress(use) * 1.3 - 0.3)
 								else (index - 1) / count
 							if reversed(use) then
 								position = 1 - position
@@ -276,10 +274,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 								if vertical(use) then 0 else position,
 								if vertical(use) then position else 0
 							)
-						end),
+						end, indeterminate),
 					},
 					"fill"
 				)
+				clipped[#clipped + 1] = fill
+				fills[index] = fill
 			end
 			content = skin(
 				ctx.styled(
@@ -303,36 +303,33 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			Compose.watch(function(use: ComposeTypes.Use)
 				measured:set(use(trackSize))
 			end)
-			for _, fill in content:GetDescendants() do
-				if string.match(fill.Name, "^Fill%d+$") then
-					local fillIndex = tonumber(string.match(fill.Name, "%d+$")) :: number
-					skin(fill :: Frame, "barFill", {
-						Size = function(use: ComposeTypes.Use)
-							if spansFill(use) then
-								return D2.fromScale(1, 1)
-							end
-							local fraction = if indeterminate
-								then 0.3
-								else math.clamp(use(progress) * count - (fillIndex - 1), 0, 1)
-							local scale = 1 / math.max(fraction, 0.000001)
-							return if vertical(use) then D2.fromScale(1, scale) else D2.fromScale(scale, 1)
-						end,
-						AnchorPoint = function(use: ComposeTypes.Use)
-							return if reversed(use) and not spansFill(use)
-								then (if vertical(use) then V2.new(0, 1) else V2.new(1, 0))
-								else V2.new(0, 0)
-						end,
-						Position = function(use: ComposeTypes.Use)
-							return if reversed(use) and not spansFill(use)
-								then (if vertical(use) then D2.fromScale(0, 1) else D2.fromScale(1, 0))
-								else D2.fromScale(0, 0)
-						end,
-					})
-				end
+			for fillIndex, fill in fills do
+				skin(fill, "barFill", {
+					Size = function(use: ComposeTypes.Use)
+						if spansFill(use) then
+							return D2.fromScale(1, 1)
+						end
+						local fraction = if indeterminate
+							then 0.3
+							else math.clamp(progress(use) * count - (fillIndex - 1), 0, 1)
+						local scale = 1 / math.max(fraction, 0.000001)
+						return if vertical(use) then D2.fromScale(1, scale) else D2.fromScale(scale, 1)
+					end,
+					AnchorPoint = function(use: ComposeTypes.Use)
+						return if reversed(use) and not spansFill(use)
+							then (if vertical(use) then V2.new(0, 1) else V2.new(1, 0))
+							else V2.new(0, 0)
+					end,
+					Position = function(use: ComposeTypes.Use)
+						return if reversed(use) and not spansFill(use)
+							then (if vertical(use) then D2.fromScale(0, 1) else D2.fromScale(1, 0))
+							else D2.fromScale(0, 0)
+					end,
+				})
 			end
 			skin(content, "barCap", {
 				direction = function(use: ComposeTypes.Use): Theme.FillDirection
-					return use(direction) :: Theme.FillDirection
+					return use(direction)
 				end,
 				fit = function(use: ComposeTypes.Use): number
 					return (ornament("barCap", use))
@@ -377,7 +374,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 								return D2.fromOffset(thickness, thickness)
 							end,
 							BackgroundTransparency = function(use: ComposeTypes.Use)
-								local value = use(progress)
+								local value = progress(use)
 								if not indeterminate then
 									return if index / count <= value then 0 else 0.85
 								end
@@ -408,7 +405,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 							Closed = false,
 							ZIndex = if isTrack then 1 else 2,
 							Visible = function(use: ComposeTypes.Use)
-								return isTrack or indeterminate or use(progress) > 0
+								return isTrack or indeterminate or progress(use) > 0
 							end,
 						},
 						if isTrack then "progress-ring-track" else "progress-ring-fill"
@@ -420,13 +417,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						local points: { pathShapes.PathPoint } = if gauge
 							then pathShapes.arc(
 								-sweep / 2,
-								if isTrack then sweep else math.max(use(progress) * sweep, 0.5),
+								if isTrack then sweep else math.max(progress(use) * sweep, 0.5),
 								{ radius = radius }
 							)
 							elseif isTrack then pathShapes.ring({ radius = radius })
 							else pathShapes.arc(
-								if indeterminate then use(progress) * 360 else 0,
-								if indeterminate then 90 else use(progress) * 360,
+								if indeterminate then progress(use) * 360 else 0,
+								if indeterminate then 90 else progress(use) * 360,
 								{ radius = radius }
 							)
 						local nativePoints: { Path2DControlPoint } = {}
@@ -458,7 +455,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						local pixels = diameter(use)
 						local reach = math.max(0, 1 - 2.5 * thickness(use) / pixels)
 						local nativePoints: { Path2DControlPoint } = {}
-						for _, point in pathShapes.needle(-sweep / 2 + use(progress) * sweep, { radius = reach }) do
+						for _, point in pathShapes.needle(-sweep / 2 + progress(use) * sweep, { radius = reach }) do
 							table.insert(
 								nativePoints,
 								types.Path2DControlPoint.new(

@@ -9,6 +9,7 @@ local sourceRead = require("./source_read")
 export type TextRole = "caption" | "label" | "body" | "heading" | "title" | "control" | "strong" | "numeral"
 export type ComposeModule = typeof(ComposeTypes)
 export type Runtime = ComposeTypes.Runtime
+local runtime: Runtime
 export type Source<T> = ComposeTypes.Source<T>
 export type ReadOnlyValue<T> = ComposeTypes.ReadOnlyValue<T>
 export type Value<T> = ComposeTypes.Value<T>
@@ -21,10 +22,7 @@ export type ValueString = Engine.ValueString
 export type ValueBoolean = Engine.ValueBoolean
 export type ValueNumber = Engine.ValueNumber
 
-export type Constructor<P, N> = (
-	P | string,
-	string?
-) -> N & typeof(setmetatable({} :: {}, {} :: { __call: (unknown, P) -> N }))
+export type Constructor<P, N> = (P | string, string?) -> N & setmetatable<{}, { __call: (unknown, P) -> N }>
 export type GuiButtonInstance = GuiButton | TextButton | ImageButton
 export type GuiInstance =
 	GuiObject
@@ -43,8 +41,13 @@ export type NamedHost = Engine.NamedHost
 export type Attributes = Engine.Attributes
 export type AttributeValue = Engine.AttributeValue
 export type RobloxTypes = Engine.RobloxTypes
-export type Observe = Engine.Observe
-export type Playback = typeof(((nil :: unknown) :: Runtime).timeline())
+export type Observe = Engine.Observe & {
+	CFrame: (Camera) -> ComposeTypes.ReadOnlyValue<CFrame>,
+	Image: (ImageLabel) -> ComposeTypes.ReadOnlyValue<string>,
+	IsLoaded: (ImageLabel) -> ComposeTypes.ReadOnlyValue<boolean>,
+	ScrollBarThickness: (ScrollingFrame) -> ComposeTypes.ReadOnlyValue<number>,
+}
+export type Playback = typeof(runtime.timeline())
 export type ControlSize = "xsmall" | "compact" | "regular" | "large"
 export type SpaceStep = "xs" | "s" | "m" | "l" | "xl"
 export type Space = number | SpaceStep | string
@@ -290,7 +293,7 @@ export type Context = {
 	fade: (CanvasGroupProps, boolean?, boolean?, boolean?) -> Frame,
 	fadeTo: (Instance, Engine.ValueNumber) -> (),
 	text: (TextLabelNativeProps?, boolean?) -> TextLabel,
-	textLayout: (TextLabel | TextButton, boolean?, boolean?) -> (),
+	textLayout: (TextLabel | TextButton, boolean?, boolean?, boolean?) -> (),
 	row: (ChildList, FrameNativeProps?) -> Frame,
 	layoutUnit: (GuiBase2d, string?) -> ComposeTypes.ReadOnlyValue<number>,
 	layoutSize: (GuiBase2d, ComposeTypes.ReadOnlyValue<number>?) -> ComposeTypes.ReadOnlyValue<Vector2>,
@@ -303,6 +306,7 @@ export type Context = {
 	icon: (Input<string?>, ImageLabelNativeProps?, Input<Theme.SkinState>?) -> ImageLabel,
 	iconVaries: (Engine.ValueString?) -> boolean,
 	modalScopes: Value<{ Instance }>,
+	modalReturn: { target: GuiObject? },
 	modalPortals: Value<{ ModalPortal }>,
 	modalPortal: (Instance, Instance) -> (),
 	available: (Instance, Use?) -> boolean,

@@ -313,7 +313,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, buildList: ListTy
 				return body
 			end, selection, sort, editing, false, if tree then tree.location else nil, true)
 		end
-		local rows = createRows(ctx, UI, {
+		local rows = createRows<<V, K>>(ctx, UI, {
 			spec = spec,
 			rowPolicySpec = rowPolicySpec,
 			selection = selection,
@@ -435,7 +435,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, buildList: ListTy
 				end
 			end
 			return 0
-		end)
+		end, if spec.reorderable or spec.drag or spec.drop then editor else nil)
 		local unit = Host.Frame {
 			Name = "LayoutUnit",
 			Size = D2.fromOffset(1, 1),

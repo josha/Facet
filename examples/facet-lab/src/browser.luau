@@ -321,7 +321,9 @@ function browser.mount(opts: MountOpts)
 			merge(out, st.props, c)
 		end
 		for key, value in axisValues do
-			out[key] = value
+			if out[key] == nil then
+				out[key] = value
+			end
 		end
 		local needs: { Source? } = { context }
 		for _, axis in list(page.data.axes) do

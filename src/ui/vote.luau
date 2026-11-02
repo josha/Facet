@@ -102,7 +102,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 						selected = function(use: ComposeTypes.Use): boolean
 							return use(value) == entry.side
 						end,
-					} :: Types.Attributes,
+					},
 					Host.UICorner {},
 					ctx.icon(entry.icon, {
 						Name = "Icon",
@@ -166,7 +166,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			TextTruncate = E.TextTruncate.AtEnd,
 			Attributes = {
 				FacetLabel = summaryText,
-			} :: Types.Attributes,
+			},
 		})
 		summary:AddTag("facet-secondary")
 		return Host.Frame(ctx.props(spec, {
@@ -189,7 +189,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				FacetReadOnly = function(use: ComposeTypes.Use): boolean
 					return use(readOnly)
 				end,
-			} :: Types.Attributes,
+			},
 			Host.UIListLayout {
 				FillDirection = E.FillDirection.Horizontal,
 				SortOrder = E.SortOrder.LayoutOrder,

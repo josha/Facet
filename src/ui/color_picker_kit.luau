@@ -57,7 +57,7 @@ local function new(ctx: Shared.Context): Kit
 		end
 		local out: { Item } = {}
 		local seen: { [string]: boolean } = {}
-		for index, entry in list :: { unknown } do
+		for index, entry in list do
 			local paint: unknown, label: unknown = entry, nil
 			if type(entry) == "table" then
 				local fields = entry :: { [unknown]: unknown }
@@ -68,17 +68,16 @@ local function new(ctx: Shared.Context): Kit
 					end
 				end
 			end
-			if not isColor(paint) or (label ~= nil and type(label) ~= "string") then
+			if typeof(paint) ~= "Color3" or (label ~= nil and type(label) ~= "string") then
 				return nil, `item {index} is a Color3 or \{ color = Color3, label = string? }`
 			end
-			local c = paint :: Color3
-			local words = label :: string?
-			local key = words or color.hex(c)
+			local words = if type(label) == "string" then label else nil
+			local key = words or color.hex(paint)
 			if seen[key] then
 				return nil, `repeats '{key}' (a label or hex is the item's key)`
 			end
 			seen[key] = true
-			table.insert(out, { color = c, label = words, key = key })
+			table.insert(out, { color = paint, label = words, key = key })
 		end
 		return out, nil
 	end

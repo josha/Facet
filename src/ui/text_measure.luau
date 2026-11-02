@@ -2,6 +2,18 @@
 local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 
+type Metrics = {
+	face: Font,
+	size: number,
+	rich: boolean,
+	key: string,
+}
+export type Style = Metrics & {
+	wrapped: boolean,
+	truncate: Enum.TextTruncate,
+	lineHeight: number,
+}
+
 local pending: { [Instance]: number } = setmetatable({}, { __mode = "k" })
 
 local function hold(node: Instance): () -> ()
@@ -20,40 +32,54 @@ local function hold(node: Instance): () -> ()
 	end
 end
 
-local shared = (setmetatable({}, { __mode = "k" }) :: unknown) :: {
+local shared: {
 	[Instance]: ComposeTypes.AcquireSharedResource<ComposeTypes.ReadOnlyValue<Vector2>>,
-}
-local readouts = (setmetatable({}, { __mode = "k" }) :: unknown) :: {
-	[Instance]: ComposeTypes.AcquireSharedResource<ComposeTypes.ReadOnlyValue<Vector2>>,
-}
+} = setmetatable(
+	{},
+	{ __mode = "k" }
+)
 local GENERATION = 4096
 local recent: { [string]: { [string]: Vector2 } } = {}
 local older: { [string]: { [string]: Vector2 } } = {}
 local recentCount = 0
 
-local function prepare(
-	request: GetTextBoundsParams,
-	words: string,
-	markup: boolean,
-	face: Font,
-	size: number,
-	width: number
-)
-	if request.Text ~= words then
-		request.Text = words
-	end
-	if request.RichText ~= markup then
-		request.RichText = markup
-	end
-	if request.Font ~= face then
-		request.Font = face
-	end
-	if request.Size ~= size then
-		request.Size = size
-	end
-	if request.Width ~= width then
-		request.Width = width
-	end
+local function prepare(ctx: Types.Context): (string, boolean, Font, number, number) -> GetTextBoundsParams
+	local params: GetTextBoundsParams? = nil
+	local text: string?, rich: boolean?, font: Font?, points: number?, wide: number? = nil, nil, nil, nil, nil
+	return ctx.Compose.bindOwner(
+		function(words: string, markup: boolean, face: Font, size: number, width: number): GetTextBoundsParams
+			local request: GetTextBoundsParams
+			if params then
+				request = params
+				if text ~= words then
+					request.Text = words
+				end
+				if rich ~= markup then
+					request.RichText = markup
+				end
+				if font ~= face then
+					request.Font = face
+				end
+				if points ~= size then
+					request.Size = size
+				end
+				if wide ~= width then
+					request.Width = width
+				end
+			else
+				request = ctx.Host.GetTextBoundsParams {
+					Text = words,
+					RichText = if markup then true else nil,
+					Font = face,
+					Size = size,
+					Width = if width ~= 0 then width else nil,
+				}
+				params = request
+			end
+			text, rich, font, points, wide = words, markup, face, size, width
+			return request
+		end
+	)
 end
 
 local function remember(geometry: string, words: string, value: Vector2)
@@ -82,140 +108,23 @@ local function recall(geometry: string, words: string): Vector2?
 	return value
 end
 
-local function createNatural(
-	ctx: Types.Context,
-	label: TextLabel | TextButton | TextBox,
-	fallback: (() -> ComposeTypes.ReadOnlyValue<Vector2>)?,
-	revision: ComposeTypes.Value<number>?,
-	stable: boolean?,
-	styling: ComposeTypes.Value<number>?,
-	content: ComposeTypes.ReadOnlyValue<string>?
-): ComposeTypes.ReadOnlyValue<Vector2>
-	local Compose, Host = ctx.Compose, ctx.Host
-	local shaper: GetTextBoundsParams? = nil
-	local makeShaper = Compose.bindOwner(function()
-		shaper = Host.GetTextBoundsParams { Width = 0 }
-	end)
-	local service = ctx.config.services.TextService
-	local bounds = Compose.cell(ctx.types.Vector2.new(math.huge, 0))
-	if service == nil then
-		return if fallback then fallback() else bounds
-	end
-	local text = if revision then nil else ctx.observe.Text(label)
-	local rich = if revision then nil else ctx.observe.RichText(label)
-	local font = if revision then nil else ctx.observeStyled.FontFace(label)
-	local points = if revision then nil else ctx.observeStyled.TextSize(label)
-	local serial, alive = 0, true
-	local lastWords: string?, lastGeometry = nil, ""
-	local metrics, widest, tallest, heldLength = "", 0, 0, -1
-	local styledAt = -1
-	local markup: boolean = false
-	local face: Font = label.FontFace
-	local size: number = 0
-	local geometry = ""
-	local thread: thread? = nil
-	local release: (() -> ())? = nil
-	local function cancel()
-		if release then
-			release()
-			release = nil
-		end
-		if thread and coroutine.status(thread) == "suspended" and task then
-			pcall(task.cancel, thread)
-		end
-		thread = nil
-	end
-	Compose.cleanup(function()
-		alive = false
-		cancel()
-	end)
-	local function publish(words: string, value: Vector2)
-		if stable then
-			local length = utf8.len(words) or #words
-			if geometry ~= metrics or length ~= heldLength then
-				metrics, widest, tallest, heldLength = geometry, 0, 0, length
-			end
-			widest, tallest = math.max(widest, value.X), math.max(tallest, value.Y)
-			value = ctx.types.Vector2.new(widest, tallest)
-		end
-		bounds:set(value)
-	end
-	Compose.watch(function(use: ComposeTypes.Use)
-		if revision then
-			use(revision)
-		end
-		local words = if text then use(text) elseif content then use(content) else label.Text
-		if styling == nil or styling:peek() ~= styledAt or text ~= nil then
-			styledAt = if styling then styling:peek() else -1
-			markup = if rich then use(rich) else label.RichText
-			face = if font then use(font) else label:GetStyled("FontFace") :: Font
-			size = if points then use(points) else label:GetStyled("TextSize") :: number
-			geometry =
-				`{face.Family}|{face.Weight.Name}|{face.Style.Name}|{size}|{markup}|{label.AutomaticSize.Name}|{label:GetStyled(
-					"TextWrapped"
-				)}|{label:GetStyled("TextTruncate")}|{label:GetStyled("LineHeight")}`
-		end
-		if words == lastWords and geometry == lastGeometry then
-			return
-		end
-		lastWords, lastGeometry = words, geometry
-		serial += 1
-		local ticket = serial
-		cancel()
-		local known = recall(geometry, words)
-		if known then
-			publish(words, known)
-			return
-		end
-		local completed = hold(label)
-		release = completed
-		if shaper == nil then
-			makeShaper()
-		end
-		local request = assert(shaper)
-		prepare(request, words, markup, face, size, 0)
-		local shape = geometry
-		local function measure()
-			local ok, value = pcall(service.GetTextBoundsAsync, service, request)
-			if ok then
-				remember(shape, words, value)
-			end
-			if alive and ticket == serial then
-				if ok then
-					publish(words, value)
-				end
-				completed()
-			end
-		end
-		if task and task.spawn then
-			thread = task.spawn(measure)
-		else
-			measure()
-		end
-	end)
-	return bounds
-end
-
 local function inline(
 	ctx: Types.Context,
-	label: TextLabel | TextButton,
+	label: TextLabel | TextButton | TextBox,
 	stable: boolean?,
-	styling: ComposeTypes.ReadOnlyValue<number>,
+	styling: () -> Metrics,
 	wake: () -> ()
 ): (words: string) -> Vector2
-	local Compose, Host = ctx.Compose, ctx.Host
+	local Compose = ctx.Compose
 	local service = assert(ctx.config.services.TextService)
-	local shaper: GetTextBoundsParams? = nil
-	local makeShaper = Compose.bindOwner(function()
-		shaper = Host.GetTextBoundsParams { Width = 0 }
-	end)
+	local prepare = prepare(ctx)
 	local unknown = ctx.types.Vector2.new(math.huge, 0)
 	local current = unknown
 	local serial, alive = 0, true
 	local lastWords: string?, lastGeometry = nil, ""
 	local metrics, widest, tallest, heldLength = "", 0, 0, -1
-	local styledAt = -1
-	local markup, face, size, geometry = false, label.FontFace, 0, ""
+	local geometry = ""
+	local measurement = ""
 	local thread: thread? = nil
 	local release: (() -> ())? = nil
 	local function cancel()
@@ -246,36 +155,37 @@ local function inline(
 		current = value
 	end
 	return function(words: string): Vector2
-		if styling:peek() ~= styledAt then
-			styledAt = styling:peek()
-			markup = label.RichText
-			face = label:GetStyled("FontFace") :: Font
-			size = label:GetStyled("TextSize") :: number
-			geometry =
-				`{face.Family}|{face.Weight.Name}|{face.Style.Name}|{size}|{markup}|{label.AutomaticSize.Name}|{label:GetStyled(
-					"TextWrapped"
-				)}|{label:GetStyled("TextTruncate")}|{label:GetStyled("LineHeight")}`
-		end
+		local style = styling()
+		geometry = style.key
 		if words == lastWords and geometry == lastGeometry then
 			return current
+		end
+		if
+			stable
+			and release
+			and geometry == lastGeometry
+			and lastWords
+			and (utf8.len(words) or #words) == (utf8.len(lastWords) or #lastWords)
+		then
+			return current
+		end
+		if geometry ~= lastGeometry then
+			local face = style.face
+			measurement = `{face.Family}|{face.Weight.Name}|{face.Style.Name}|{style.size}|{style.rich}`
 		end
 		lastWords, lastGeometry = words, geometry
 		serial += 1
 		local ticket = serial
 		cancel()
-		local known = recall(geometry, words)
+		local known = recall(measurement, words)
 		if known then
 			publish(words, known)
 			return current
 		end
 		local completed = hold(label)
 		release = completed
-		if shaper == nil then
-			makeShaper()
-		end
-		local request = assert(shaper)
-		prepare(request, words, markup, face, size, 0)
-		local shape = geometry
+		local request = prepare(words, style.rich, style.face, style.size, 0)
+		local shape = measurement
 		local settled = false
 		local function measure()
 			local ok, value = pcall(service.GetTextBoundsAsync, service, request)
@@ -303,6 +213,38 @@ local function inline(
 	end
 end
 
+local function createNatural(
+	ctx: Types.Context,
+	label: TextLabel | TextButton | TextBox
+): ComposeTypes.ReadOnlyValue<Vector2>
+	local Compose = ctx.Compose
+	local bounds = Compose.cell(ctx.types.Vector2.new(math.huge, 0))
+	local text = ctx.observe.Text(label)
+	local rich = ctx.observe.RichText(label)
+	local font = ctx.observeStyled.FontFace(label)
+	local points = ctx.observeStyled.TextSize(label)
+	local words = ""
+	local style: Metrics? = nil
+	local read: (string) -> Vector2
+	read = inline(ctx, label, false, function(): Metrics
+		return assert(style)
+	end, function()
+		bounds:set(read(words))
+	end)
+	Compose.watch(function(use: ComposeTypes.Use)
+		local markup, face, size = use(rich), use(font), use(points)
+		words = use(text)
+		style = {
+			face = face,
+			size = size,
+			rich = markup,
+			key = `{face.Family}|{face.Weight.Name}|{face.Style.Name}|{size}|{markup}`,
+		}
+		bounds:set(read(words))
+	end)
+	return bounds
+end
+
 return {
 	hold = hold,
 	prepare = prepare,
@@ -313,27 +255,20 @@ return {
 	natural = function(
 		ctx: Types.Context,
 		label: TextLabel | TextButton | TextBox,
-		fallback: (() -> ComposeTypes.ReadOnlyValue<Vector2>)?,
-		revision: ComposeTypes.Value<number>?,
-		stable: boolean?,
-		styling: ComposeTypes.Value<number>?,
-		content: ComposeTypes.ReadOnlyValue<string>?
+		fallback: (() -> ComposeTypes.ReadOnlyValue<Vector2>)?
 	): ComposeTypes.ReadOnlyValue<Vector2>
 		if ctx.config.services.TextService == nil then
 			return if fallback then fallback() else ctx.Compose.cell(ctx.types.Vector2.new(math.huge, 0))
 		end
-		local resources: { [Instance]: ComposeTypes.AcquireSharedResource<ComposeTypes.ReadOnlyValue<Vector2>> } = if stable
-			then readouts
-			else shared
-		local acquire: ComposeTypes.AcquireSharedResource<ComposeTypes.ReadOnlyValue<Vector2>>? = resources[label]
+		local acquire: ComposeTypes.AcquireSharedResource<ComposeTypes.ReadOnlyValue<Vector2>>? = shared[label]
 		if not acquire then
 			acquire = ctx.Compose.createSharedResource(function(): (ComposeTypes.ReadOnlyValue<Vector2>, (() -> ())?)
 				ctx.Compose.cleanup(function()
-					resources[label] = nil
+					shared[label] = nil
 				end)
-				return createNatural(ctx, label, nil, revision, stable, styling, content), nil
+				return createNatural(ctx, label), nil
 			end)
-			resources[label] = acquire
+			shared[label] = acquire
 		end
 		return assert(acquire)()
 	end,

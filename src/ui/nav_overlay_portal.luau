@@ -54,7 +54,6 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 			ancestryOwner = nextOwner
 			Compose.withOwner(nextOwner, function()
 				local sources: { ComposeTypes.ReadOnlyValue<boolean> } = {}
-				local inputs: { [ComposeTypes.ReadOnlyValue<boolean>]: GuiObject } = {}
 				local at: Instance? = anchor
 				local attached = false
 				while at do
@@ -62,10 +61,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 						if at ~= anchor or anchor:GetAttribute("FacetOverlayPlaceholder") ~= true then
 							table.insert(sources, regionPresence[at] or ctx.observe.Visible(at))
 						end
-						local node = at
-						local interactive = ctx.observe.Interactable(node)
-						table.insert(sources, interactive)
-						inputs[interactive] = node
+						table.insert(sources, ctx.observe.Interactable(at))
 					end
 					if at:IsA("LayerCollector") then
 						attached = true
@@ -77,10 +73,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 				Compose.watch(function(use: ComposeTypes.Use)
 					local enabled = attached
 					for _, source in sources do
-						local current = use(source)
-						local node = inputs[source]
-						local held = if node then node:GetAttribute("FacetModalInteractable") else nil
-						if not (if type(held) == "boolean" then held else current) then
+						if not use(source) then
 							enabled = false
 						end
 					end
@@ -160,7 +153,8 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 			return node
 		end
 		local fontsReady = fontReadiness(ctx, surfaces)
-		local snapshot, complete, allowed = "", false, nil :: boolean?
+		local snapshot, complete = "", false
+		local allowed: boolean? = nil
 		local ready = ctx.runtime.settled {
 			sample = function(): string
 				return snapshot
@@ -238,7 +232,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		options: Nav.OverlayOptions?
 	): Types.Child
 		local owner = assert(Compose.currentOwner())
-		local destination = Compose.cell(nil :: Instance?)
+		local destination = Compose.cell<<Instance?>>(nil)
 		destination:set(if options and options.parent then options.parent() else ctx.config.overlayParent)
 		local function locate()
 			if ComposeTypes.owner.isDisposed(owner) then
@@ -285,14 +279,22 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 								break
 							end
 							if link then
-								local observe = (
-									ctx.observe :: unknown
-								) :: { StyleSheet: (StyleLink) -> ComposeTypes.Value<StyleSheet?> }
-								local sheet = observe.StyleSheet(link :: StyleLink)
-								local Links = (Host :: unknown) :: { StyleLink: ({ StyleSheet: unknown }) -> Instance }
-								runtime.mountFragment(function()
-									return { Links.StyleLink { StyleSheet = sheet } }
-								end, node)
+								if link:IsA("StyleLink") then
+									local sheet = runtime.observe(link, "StyleSheet")
+									runtime.mountFragment(function()
+										return {
+											Host.StyleLink {
+												StyleSheet = function(use: ComposeTypes.Use): StyleSheet?
+													local value = use(sheet)
+													return if typeof(value) == "Instance"
+															and value:IsA("StyleSheet")
+														then value
+														else nil
+												end,
+											},
+										}
+									end, node)
+								end
 								break
 							end
 							scope = scope.Parent

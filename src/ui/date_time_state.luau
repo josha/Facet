@@ -64,7 +64,7 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 	local isRange, withTime, draft, overlay = options.isRange, options.withTime, options.draft, options.overlay
 	local months, clock = options.months, options.clock
 
-	local diagnostics = Compose.cell({} :: { string })
+	local diagnostics = Compose.cell<<{ string }>>({})
 	local function note(message: string)
 		local list = table.clone(diagnostics:peek())
 		table.insert(list, message)
@@ -363,7 +363,7 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 	end
 	local preferred = if input and input.GetPropertyChangedSignal
 		then ctx.observe.PreferredInput(input)
-		else Compose.cell(nil :: unknown)
+		else Compose.cell<<unknown>>(nil)
 	local function prefers(kind: Enum.PreferredInput, use: Use): boolean
 		return use(preferred) == kind
 	end
@@ -376,7 +376,7 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 	end)
 	local selected: ReadOnlyValue<GuiObject?> = if gui and gui.GetPropertyChangedSignal
 		then ctx.observe.SelectedObject(gui)
-		else Compose.cell(nil :: GuiObject?)
+		else Compose.cell<<GuiObject?>>(nil)
 
 	return {
 		diagnostics = diagnostics,

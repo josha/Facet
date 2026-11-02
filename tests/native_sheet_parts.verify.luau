@@ -158,11 +158,14 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				shown:set(true)
 				child:set(true)
-				Verify.expect(w.find("HUDAction").Interactable):toBe(false)
-				Verify.expect(w.find("ParentAction").Interactable):toBe(false)
+				w.gui.SelectedObject = w.find("HUDAction")
+				Verify.expect(w.gui.SelectedObject == w.find("HUDAction")):toBe(false)
+				w.gui.SelectedObject = w.find("ParentAction")
+				Verify.expect(w.gui.SelectedObject == w.find("ParentAction")):toBe(false)
 				Verify.expect(w.find("ChildAction").Interactable):toBe(true)
 				child:set(false)
-				Verify.expect(w.find("HUDAction").Interactable):toBe(false)
+				w.gui.SelectedObject = w.find("HUDAction")
+				Verify.expect(w.gui.SelectedObject == w.find("HUDAction")):toBe(false)
 				Verify.expect(w.find("ParentAction").Interactable):toBe(true)
 				shown:set(false)
 				Verify.expect(w.find("HUDAction").Interactable):toBe(true)
@@ -194,8 +197,8 @@ return function(verifyHarness: Verify.Harness)
 				local button = w.find("HUDAction")
 				for _ = 1, 2 do
 					shown:set(true)
-					Verify.expect(button.Interactable):toBe(false)
-					Verify.expect(button.Selectable):toBe(false)
+					w.gui.SelectedObject = button
+					Verify.expect(w.gui.SelectedObject == button):toBe(false)
 					Verify.expect(w.find("Buy").Interactable):toBe(true)
 					shown:set(false)
 					Verify.expect(button.Interactable):toBe(true)
@@ -1903,16 +1906,15 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("links the visible dismissal control directly to content in every placement", {
 			id = "native_sheet_parts::visible-dismissal-selection",
 			run = function()
-				for _, extra in
-					{
-						{},
-						{ placement = "side", edge = "left" },
-						{ placement = "side", edge = "right" },
-						{ placement = "center" },
-						{ dragIndicator = "hidden" },
-						{ header = false, hero = { image = "rbxassetid://1", height = 100, sticky = true } },
-					} :: { any }
-				do
+				local placements: { { [string]: unknown } } = {
+					{},
+					{ placement = "side", edge = "left" },
+					{ placement = "side", edge = "right" },
+					{ placement = "center" },
+					{ dragIndicator = "hidden" },
+					{ header = false, hero = { image = "rbxassetid://1", height = 100, sticky = true } },
+				}
+				for _, extra in placements do
 					extra.content = built(function(UI: Facet.Controls)
 						return UI.VStack {
 							UI.Button "First" { label = "First" },
@@ -1929,9 +1931,10 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(first.NextSelectionUp):toBe(command)
 					Verify.expect(command.SelectionOrder < first.SelectionOrder):toBe(true)
 					Verify.expect(command:IsDescendantOf(panel)):toBe(true)
-					Verify.expect(panel.SelectionGroup):toBe(true)
+					local modal = panel.Parent
+					Verify.expect(modal.SelectionGroup):toBe(true)
 					for _, direction in { "Up", "Down", "Left", "Right" } do
-						Verify.expect(panel["SelectionBehavior" .. direction]):toBe(w.Enum.SelectionBehavior.Stop)
+						Verify.expect(modal["SelectionBehavior" .. direction]):toBe(w.Enum.SelectionBehavior.Stop)
 					end
 					command.Activated:Fire({ UserInputType = w.Enum.UserInputType.MouseButton1 })
 					Verify.expect(w.shown:peek()):toBe(false)

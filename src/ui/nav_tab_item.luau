@@ -53,6 +53,7 @@ return function(
 			index: ComposeTypes.ReadOnlyValue<number>
 		): Instance
 			local tab = current:peek()
+			local topIndicator: Frame? = nil
 			local button = UI.Button {
 				Name = tab.id,
 				controlSize = spec.controlSize,
@@ -106,11 +107,12 @@ return function(
 				end,
 				selected = function(use: ComposeTypes.Use)
 					local indicator = indicatorOf(use)
-					if not use(isCurrent(tab.id)) or indicator == "none" or indicator == "mark" then
+					if indicator == "none" or indicator == "mark" then
 						return false
 					end
 					local place = use(placement)
-					return indicator == "pill" or place == "sidebar" or string.find(place, "bottom") ~= nil
+					return (indicator == "pill" or place == "sidebar" or string.find(place, "bottom") ~= nil)
+						and use(isCurrent(tab.id))
 				end,
 				onActivate = function()
 					select(tab.id)
@@ -434,6 +436,9 @@ return function(
 			local shownCurrent, shownFilled = false, false
 			Compose.watch(function(use: ComposeTypes.Use)
 				local current = use(isCurrent(tab.id))
+				if topIndicator then
+					topIndicator.Visible = current
+				end
 				local place = use(placement)
 				local filled = current
 					and indicatorOf(use) ~= "none"
@@ -467,9 +472,9 @@ return function(
 					end,
 				},
 				Compose.show(function(use: ComposeTypes.Use): boolean
-					return use(isCurrent(tab.id))
-						and indicatorOf(use) == "mark"
+					return indicatorOf(use) == "mark"
 						and (use(placement) == "sidebar" or string.find(use(placement), "bottom") ~= nil)
+						and use(isCurrent(tab.id))
 				end, function(): Instance
 					local insetSelection = Compose.formula(function(use: ComposeTypes.Use): boolean
 						local choice = read(spec.indicatorPlacement, use)
@@ -550,17 +555,19 @@ return function(
 				Compose.show(function(use: ComposeTypes.Use)
 					return indicatorOf(use) ~= "none" and indicatorOf(use) ~= "pill" and use(placement) == "topBar"
 				end, function()
-					return ctx.styled(
+					topIndicator = ctx.styled(
 						Host.Frame "SelectionIndicator" {
-							Visible = function(use: ComposeTypes.Use): boolean
-								return use(isCurrent(tab.id))
-							end,
+							Visible = isCurrent(tab.id):peek(),
 							Size = D2.new(1, 0, 0, 2),
 							Position = D2.new(0, 0, 1, -2),
 							BorderSizePixel = 0,
 						},
 						"selection-indicator"
 					)
+					Compose.cleanup(function()
+						topIndicator = nil
+					end)
+					return topIndicator
 				end),
 			})
 			Compose.watch(function(use: ComposeTypes.Use)

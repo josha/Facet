@@ -102,17 +102,16 @@ return function(ctx: Types.Context, attach: Attach): Kit
 		if skip and skip(node) then
 			return nil
 		end
-		local scrolling = node:IsA("ScrollingFrame")
+		local scrolling: ScrollingFrame? = nil
 		if node:IsA("GuiObject") then
 			if not node.Visible or not node.Interactable then
 				return nil
 			end
-			if
-				node.Selectable
-				and (not scrolling or node:GetAttribute("FacetSelectionOwner") == true)
-				and (preferred == nil or node.Name == preferred)
-			then
-				return node
+			if (preferred == nil or node.Name == preferred) and node.Selectable then
+				if not node:IsA("ScrollingFrame") or node:GetAttribute("FacetSelectionOwner") == true then
+					return node
+				end
+				scrolling = node
 			end
 		end
 		for _, child in node:GetChildren() do
@@ -121,15 +120,7 @@ return function(ctx: Types.Context, attach: Attach): Kit
 				return found
 			end
 		end
-		if
-			scrolling
-			and node:IsA("ScrollingFrame")
-			and node.Selectable
-			and (preferred == nil or node.Name == preferred)
-		then
-			return node
-		end
-		return nil
+		return scrolling
 	end
 	local function inset(authored: number, side: string, slot: string?, use: ComposeTypes.Use?): number
 		local package = ctx.read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)

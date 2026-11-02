@@ -19,6 +19,11 @@ local CORNER_KEYS: { [string]: boolean } = { leading = true, trailing = true }
 return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 	local Host, Compose, read, runtime = ctx.Host, ctx.Compose, ctx.read, ctx.runtime
 	local E, D2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.UDim
+	local inactive = Compose.cell(false)
+	local active = Compose.cell(true)
+	local full = Compose.cell(1)
+	local unselected = Compose.cell<<GuiObject?>>(nil)
+	local noActions: ComposeTypes.Value<{ ComposeTypes.ReadOnlyValue<boolean> }> = Compose.cell({})
 	local function nonempty(value: unknown): boolean
 		return type(value) == "string" and string.find(value, "%S") ~= nil
 	end
@@ -100,11 +105,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			checkBadge("trailing", badges.trailing)
 		end
 		local checks = values(ctx, "Card")
-		local title = checks.legal<<string>>("title", spec.title, nonempty, "must be a nonempty string")
+		local title = if type(spec.title) == "string"
+			then spec.title
+			else checks.legal<<string>>("title", spec.title, nonempty, "must be a nonempty string")
 		local image = if spec.image == nil
 			then ""
+			elseif type(spec.image) == "string" then spec.image
 			else checks.legal<<string>>("image", spec.image, nonempty, "must be a nonempty image string")
-		local caption = checks.legal<<string>>("caption", spec.caption or "", text, "must be a string")
+		local caption = if spec.caption == nil
+			then ""
+			elseif type(spec.caption) == "string" then spec.caption
+			else checks.legal<<string>>("caption", spec.caption, text, "must be a string")
 		local enabled = function(use: ComposeTypes.Use?): boolean
 			return read(spec.enabled, use) ~= false
 		end
@@ -112,19 +123,21 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		local input = ctx.config.services.UserInputService
 		local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
 			then ctx.observe.SelectedObject(gui)
-			else Compose.cell(nil)
-		local touchEnabled = if input then ctx.observe.TouchEnabled(input) else Compose.cell(false)
+			else unselected
+		local touchEnabled = if input then ctx.observe.TouchEnabled(input) else inactive
 		local preferred = if input then ctx.observe.PreferredInput(input) else nil
 		local function prefersTouch(use: ComposeTypes.Use): boolean
 			return preferred ~= nil and use(preferred) == E.PreferredInput.Touch
 		end
-		local hovered, entered, menuOpen = Compose.cell(false), Compose.cell(false), Compose.cell(false)
-		local pressingBody = Compose.cell(false)
+		local hovered = Compose.cell(false)
+		local entered, menuOpen =
+			if revealing then Compose.cell(false) else inactive, if menu then Compose.cell(false) else inactive
+		local pressingBody = if spec.onActivate then Compose.cell(false) else inactive
 		local reduced = reducedMotion(ctx)
 		local root: Frame? = nil
 		local primaryButton: GuiObject?
 		local moreTrigger: GuiObject?
-		local actionStates: ComposeTypes.Value<{ ComposeTypes.ReadOnlyValue<boolean> }> = Compose.cell({})
+		local actionStates = if revealing then Compose.cell({}) else noActions
 		local function holding(button: GuiObject): ComposeTypes.ReadOnlyValue<boolean>
 			local down = Compose.cell(false)
 			local state = ctx.observe.GuiState(button)
@@ -147,26 +160,32 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			end)
 		end
 		local hasStop = spec.onActivate ~= nil or spec.browseTarget ~= nil
-		local focusWithin = Compose.formula(function(use: ComposeTypes.Use): boolean
-			local node, card = use(selected), root
-			return node ~= nil and card ~= nil and within(node, card)
-		end)
-		local browsing = Compose.formula(function(use: ComposeTypes.Use): boolean
-			local node = use(selected)
-			local target: Instance? = if spec.browseTarget then spec.browseTarget() else nil
-			return node ~= nil and target ~= nil and node == target
-		end)
-		local pressing = Compose.formula(function(use: ComposeTypes.Use): boolean
-			if use(pressingBody) then
-				return true
-			end
-			for _, state in use(actionStates) do
-				if use(state) then
+		local focusWithin = if not gui
+			then inactive
+			else Compose.formula(function(use: ComposeTypes.Use): boolean
+				local node, card = use(selected), root
+				return node ~= nil and card ~= nil and within(node, card)
+			end)
+		local browsing = if not spec.browseTarget
+			then inactive
+			else Compose.formula(function(use: ComposeTypes.Use): boolean
+				local node = use(selected)
+				local target: Instance? = if spec.browseTarget then spec.browseTarget() else nil
+				return node ~= nil and target ~= nil and node == target
+			end)
+		local pressing = if not revealing
+			then pressingBody
+			else Compose.formula(function(use: ComposeTypes.Use): boolean
+				if use(pressingBody) then
 					return true
 				end
-			end
-			return false
-		end)
+				for _, state in use(actionStates) do
+					if use(state) then
+						return true
+					end
+				end
+				return false
+			end)
 		local engaged = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return use(hovered) or use(focusWithin) or use(pressing) or use(menuOpen) or use(entered) or use(browsing)
 		end)
@@ -176,59 +195,40 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		local inFlow = function(use: ComposeTypes.Use): boolean
 			return reveal == "always" or touch(use)
 		end
-		local revealed = Compose.formula(function(use: ComposeTypes.Use): boolean
-			return reveal == "always" or not hasStop or touch(use) or use(engaged)
-		end)
+		local revealed = if reveal == "always" or not hasStop
+			then active
+			else Compose.formula(function(use: ComposeTypes.Use): boolean
+				return touch(use) or use(engaged)
+			end)
 		local lifting = Compose.formula(function(use: ComposeTypes.Use): boolean
 			if prefersTouch(use) then
 				return false
 			end
 			return use(engaged)
 		end)
-		local liftTarget = Compose.formula(function(use: ComposeTypes.Use): number
-			return if use(lifting) then ctx.metric("motion.materialize.lift", use) else 1
-		end)
 		local liftSpring = ctx.motionSpring("snappy")
 		local spring = runtime.spring(function(use: ComposeTypes.Use)
-			return use(liftTarget)
+			return if use(lifting) then ctx.metric("motion.materialize.lift", use) else 1
 		end, { period = liftSpring.period, damping = liftSpring.damping })
 		local scale = Compose.formula(function(use: ComposeTypes.Use): number
 			return if reduced(use) then 1 else use(spring)
 		end)
 		local fade = if reveal == "always" or not hasStop
-			then Compose.cell(1)
+			then full
 			else runtime.tween(function(use: ComposeTypes.Use)
 				return if use(revealed) then 1 else 0
 			end, { seconds = ctx.metric("motion.durations.cardFade") })
-		local function eligible(): GuiObject?
+		local function enterActions(): boolean
 			local card = root
 			if not enabled() or card == nil or card.Parent == nil then
-				return nil
+				return false
 			end
-			if primaryButton and primary and read(primary.enabled) ~= false and read(primary.busy) ~= true then
-				return primaryButton
-			end
-			if moreTrigger then
-				return moreTrigger
-			end
-			return nil
-		end
-		local function restore()
-			if not gui then
-				return
-			end
-			local target = if spec.browseTarget then spec.browseTarget() else nil
-			if target and target.Parent then
-				gui.SelectedObject = target
-			elseif root and root.Parent then
-				local body = root:FindFirstChild("Body")
-				if body and body:IsA("GuiObject") and body.Selectable then
-					gui.SelectedObject = body
-				end
-			end
-		end
-		local function enterActions(): boolean
-			local first = eligible()
+			local first = if primaryButton
+					and primary
+					and read(primary.enabled) ~= false
+					and read(primary.busy) ~= true
+				then primaryButton
+				else moreTrigger
 			if first == nil then
 				return false
 			end
@@ -244,7 +244,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			end
 			entered:set(false)
 			if gui and root and within(gui.SelectedObject, root) then
-				restore()
+				local target = if spec.browseTarget then spec.browseTarget() else nil
+				if target and target.Parent then
+					gui.SelectedObject = target
+				elseif root.Parent then
+					local body = root:FindFirstChild("Body")
+					if body and body:IsA("GuiObject") and body.Selectable then
+						gui.SelectedObject = body
+					end
+				end
 			end
 		end
 		if spec.controls then
@@ -385,33 +393,26 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				return live
 			end, artwork)
 		end
-		local titleLabel = ctx.text({
-			Name = "Title",
-			LayoutOrder = 2,
-			Text = title,
-			Size = D2.fromScale(1, 0),
-			AutomaticSize = E.AutomaticSize.Y,
-			TextWrapped = true,
-		})
-		titleLabel:AddTag("facet-type-label")
-		local function subtitle(use: ComposeTypes.Use): string
-			local rest = use(caption)
-			local parts: { string } = {}
-			for _, label in moved(use) do
-				if not string.find(string.lower(rest), string.lower(label), 1, true) then
-					table.insert(parts, label)
+		local subtitle: Types.Input<string> = if not badges
+			then caption
+			else function(use: ComposeTypes.Use): string
+				local rest = read<<string>>(caption, use)
+				local parts: { string } = {}
+				for _, label in moved(use) do
+					if not string.find(string.lower(rest), string.lower(label), 1, true) then
+						table.insert(parts, label)
+					end
 				end
+				if rest ~= "" then
+					table.insert(parts, rest)
+				end
+				return table.concat(parts, " · ")
 			end
-			if rest ~= "" then
-				table.insert(parts, rest)
-			end
-			return table.concat(parts, " · ")
-		end
 		local function closing(use: ComposeTypes.Use): UDim
 			return D.new(
 				0,
 				if media
-						and subtitle(use) == ""
+						and read<<string>>(subtitle, use) == ""
 						and (not revealing or not inFlow(use))
 					then ctx.metric("space.s", use)
 					else 0
@@ -428,27 +429,34 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				PaddingBottom = if bottom then side else closing,
 			}
 		end
-		runtime.mount(function()
-			return inset(false)
-		end, titleLabel)
+		local titleLabel = ctx.text({
+			Name = "Title",
+			LayoutOrder = 2,
+			Text = title,
+			Size = D2.fromScale(1, 0),
+			AutomaticSize = E.AutomaticSize.Y,
+			TextWrapped = true,
+			inset(false),
+		})
+		titleLabel:AddTag("facet-type-label")
 		local captionLabel: TextLabel?
 		if spec.caption ~= nil or badges ~= nil then
 			local label = ctx.text({
 				Name = "Caption",
 				LayoutOrder = 3,
 				Text = subtitle,
-				Visible = function(use: ComposeTypes.Use): boolean
-					return subtitle(use) ~= ""
-				end,
+				Visible = if type(subtitle) == "string"
+					then subtitle ~= ""
+					else function(use: ComposeTypes.Use): boolean
+						return read<<string>>(subtitle, use) ~= ""
+					end,
 				Size = D2.fromScale(1, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				TextWrapped = true,
+				inset(true),
 			})
 			label:AddTag("facet-type-caption")
 			label:AddTag("facet-secondary")
-			runtime.mount(function()
-				return inset(true)
-			end, label)
 			captionLabel = label
 		end
 		local bodyChildren: { Types.Child } = {
@@ -514,9 +522,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				Size = D2.fromScale(1, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				Attributes = {
-					label = function(use: ComposeTypes.Use): string
-						return use(title)
-					end,
+					label = title,
 				},
 			}
 			for _, child in bodyChildren do
@@ -703,15 +709,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			end,
 			Attributes = {
 				FacetReveal = reveal,
-				FacetRevealed = revealed,
+				FacetRevealed = if reveal == "always" or not hasStop then true else revealed,
 				FacetEngaged = engaged,
 				FacetLifting = lifting,
 				FacetHovered = hovered,
-				FacetFocusWithin = focusWithin,
-				FacetPressing = pressing,
-				FacetBrowsing = browsing,
-				FacetEntered = entered,
-				FacetMenuOpen = menuOpen,
+				FacetFocusWithin = if gui then focusWithin else false,
+				FacetPressing = if spec.onActivate or revealing then pressing else false,
+				FacetBrowsing = if spec.browseTarget then browsing else false,
+				FacetEntered = if revealing then entered else false,
+				FacetMenuOpen = if menu then menuOpen else false,
 				FacetBody = if spec.onActivate then "button" else "informational",
 			},
 			layout,
@@ -736,9 +742,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		if not media then
 			ctx.styled(card, "panel")
 			card:AddTag("facet-card-text")
-			runtime.mount(function()
-				return Host.UIPadding {}
-			end, card)
+			Host.UIPadding { Parent = Compose.static(card) }
 		end
 		root = card
 		local extent: ComposeTypes.ReadOnlyValue<Vector2>? = if spec.onActivate or spec.controls
@@ -771,17 +775,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				return { body = use(measured).Y }
 			end)
 		end
-		Compose.watch(function(use: ComposeTypes.Use)
-			if not enabled(use) and entered:peek() then
-				leaveActions()
-			end
-		end)
-		Compose.watch(function(use: ComposeTypes.Use)
-			local node = use(selected)
-			if entered:peek() and not menuOpen:peek() and node ~= nil and not within(node, card) then
-				entered:set(false)
-			end
-		end)
 		if spec.browseTarget then
 			local browseTarget = spec.browseTarget
 			local attachedTo: Instance? = nil
@@ -810,34 +803,45 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			end)
 		end
 		if revealing then
-			ctx.action(card, "CardCancel", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
-				return use(entered) and not use(menuOpen)
-			end, leaveActions, { priority = 1500 })
-		end
-		if input then
-			runtime.connect(input, "InputBegan", function(event: InputObject)
-				if not entered:peek() or menuOpen:peek() then
-					return
+			Compose.watch(function(use: ComposeTypes.Use)
+				if not enabled(use) and entered:peek() then
+					leaveActions()
 				end
-				if
-					event.UserInputType ~= E.UserInputType.MouseButton1
-					and event.UserInputType ~= E.UserInputType.Touch
-				then
-					return
-				end
-				local at, size, point = card.AbsolutePosition, card.AbsoluteSize, event.Position
-				if point.X < at.X or point.Y < at.Y or point.X > at.X + size.X or point.Y > at.Y + size.Y then
+			end)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local node = use(selected)
+				if entered:peek() and not menuOpen:peek() and node ~= nil and not within(node, card) then
 					entered:set(false)
 				end
 			end)
-		end
-		Compose.cleanup(function()
-			if entered:peek() and gui and within(gui.SelectedObject, card) then
-				entered:set(false)
-				local target = if spec.browseTarget then spec.browseTarget() else nil
-				gui.SelectedObject = if target and target.Parent and not within(target, card) then target else nil
+			ctx.action(card, "CardCancel", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
+				return use(entered) and not use(menuOpen)
+			end, leaveActions, { priority = 1500 })
+			if input then
+				runtime.connect(input, "InputBegan", function(event: InputObject)
+					if not entered:peek() or menuOpen:peek() then
+						return
+					end
+					if
+						event.UserInputType ~= E.UserInputType.MouseButton1
+						and event.UserInputType ~= E.UserInputType.Touch
+					then
+						return
+					end
+					local at, size, point = card.AbsolutePosition, card.AbsoluteSize, event.Position
+					if point.X < at.X or point.Y < at.Y or point.X > at.X + size.X or point.Y > at.Y + size.Y then
+						entered:set(false)
+					end
+				end)
 			end
-		end)
+			Compose.cleanup(function()
+				if entered:peek() and gui and within(gui.SelectedObject, card) then
+					entered:set(false)
+					local target = if spec.browseTarget then spec.browseTarget() else nil
+					gui.SelectedObject = if target and target.Parent and not within(target, card) then target else nil
+				end
+			end)
+		end
 		return card
 	end)
 end

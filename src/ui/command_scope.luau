@@ -10,18 +10,18 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 	local C, runtime, input, gui = ctx.Compose, ctx.runtime, ctx.config.userInputService, ctx.config.guiService
 	local registry = registries[ctx]
 	if registry == nil then
-		registry = C.cell({} :: { Record })
+		registry = C.cell<<{ Record }>>({})
 		registries[ctx] = registry
 	end
-	local scopes = registry :: Shared.Value<{ Record }>
+	local scopes = registry
 	UI.commandScope = function<K>(root: GuiObject, spec: Commands.CommandSpec<K>): Commands.CommandScope<K>
 		local arbiter = gestureOf(ctx)
 		local owner = assert(C.currentOwner(), "Facet commandScope requires a Compose owner")
-		local current = C.cell(nil :: K?)
+		local current = C.cell<<K?>>(nil)
 		local version, typing = C.cell(0), C.cell(input ~= nil and not not input:GetFocusedTextBox())
 		local selected: Shared.ReadOnlyValue<GuiObject?> = if gui
 			then ctx.observe.SelectedObject(gui)
-			else C.cell(nil :: GuiObject?)
+			else C.cell<<GuiObject?>>(nil)
 		local actions: { [string]: InputAction } = {}
 		local function refresh()
 			version:update(function(value)
@@ -192,7 +192,7 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 		for _, key in ctx.types.Enum.KeyCode:GetEnumItems() do
 			supportedKeys[key.Name] = true
 		end
-		local ids, bound = {} :: { [string]: boolean }, {} :: { [string]: boolean }
+		local ids: { [string]: boolean }, bound: { [string]: boolean } = {}, {}
 		for _, command in spec.commands do
 			assert(command.id ~= "" and not ids[command.id], "Facet commandScope command ids must be unique")
 			assert(#command.keys > 0, "Facet commandScope commands require keys")

@@ -472,23 +472,15 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			elseif node and node:IsA("Camera") then watched(node, ctx.observe.ViewportSize, V2.zero)
 			else Compose.cell(V2.zero)
 		local unit = if node and node:IsA("GuiBase2d") then ctx.layoutUnit(node) else nil
-		local engineSize: ComposeTypes.ReadOnlyValue<unknown> = if unit
-			then Compose.formula(function(use: ComposeTypes.Use): unknown
-				local size = use(screenSize)
-				return if typeof(size) == "Vector2" then size / use(unit) else size
-			end)
-			else screenSize
 		local forced = if source == nil and config.environment then config.environment.viewportSize else nil
-		local raw: ComposeTypes.ReadOnlyValue<unknown> = if forced == nil
-			then engineSize
-			else Compose.formula(function(use: ComposeTypes.Use): unknown
-				local size = ctx.read(forced, use)
-				return if size == nil then use(engineSize) else size
-			end)
 		local last: Vector2 = V2.zero
 		local viewportSize: ComposeTypes.ReadOnlyValue<Vector2> = Compose.formula(
 			function(use: ComposeTypes.Use): Vector2
-				local size = use(raw)
+				local size = ctx.read(forced, use)
+				if size == nil then
+					local native = use(screenSize)
+					size = if unit and typeof(native) == "Vector2" then native / use(unit) else native
+				end
 				if typeof(size) == "Vector2" and size.X >= 2 and size.Y >= 2 then
 					last = size
 				end

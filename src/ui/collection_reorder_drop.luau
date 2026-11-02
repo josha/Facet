@@ -8,7 +8,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 	local readSource = ctx.readSource
 	local moving, incoming, drag = shared.moving, shared.incoming, shared.drag
 	local source, controls, reservedSlots = shared.source, shared.controls, shared.reservedSlots
-	local collectionId, sourceIndex, location = shared.collectionId, shared.sourceIndex, shared.location
+	local collectionId, itemOf, location = shared.collectionId, shared.itemOf, shared.location
 	local horizontal, scaleOf, alongBody = shared.horizontal, shared.scaleOf, shared.alongBody
 	local axis, crossAxis = shared.axis, shared.crossAxis
 	local focus = shared.focus
@@ -44,12 +44,15 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 	local cachedRows: { V }? = nil
 	local cachedCarried: { K }? = nil
 	local remaining: { K } = {}
-	local rowIndices: { number } = {}
-	local remainingIndex: { [K]: number } = {}
 	local function indexRows(rows: { V }, carried: { K })
 		if rows ~= cachedRows or carried ~= cachedCarried then
 			cachedRows, cachedCarried = rows, carried
-			remaining, rowIndices, remainingIndex = {}, {}, {}
+			local move = moving:peek()
+			if move and move.keys == carried then
+				remaining = move.remaining
+				return
+			end
+			remaining = {}
 			local included: { [K]: boolean } = {}
 			for _, key in carried do
 				included[key] = true
@@ -58,8 +61,6 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 				local key = shared.keyOf(item, index)
 				if not included[key] then
 					table.insert(remaining, key)
-					table.insert(rowIndices, assert(controls.indexOfKey)(key) or index)
-					remainingIndex[key] = #remaining
 				end
 			end
 		end
@@ -68,13 +69,15 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		local slot = 0
 		local offset, across = math.huge, math.huge
 		if position then
-			offset = alongBody(body, position) + axis(body.CanvasPosition)
-			across = crossAxis(position - body.AbsolutePosition) / scaleOf(body) + crossAxis(body.CanvasPosition)
+			local delta, canvas, scale = position - body.AbsolutePosition, body.CanvasPosition, scaleOf(body)
+			offset = axis(delta) / scale + axis(canvas)
+			across = crossAxis(delta) / scale + crossAxis(canvas)
 		end
 		local low, high = 1, #remaining
 		while low <= high do
 			local middle = math.floor((low + high) / 2)
-			local at = assert(controls.placementOf)(rowIndices[middle])
+			local index = assert(controls.indexOfKey)(remaining[middle])
+			local at = assert(controls.placementOf)(assert(index))
 			local crossed = if shared.grid
 				then offset >= at.offset + at.size
 					or (
@@ -106,12 +109,12 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		indexRows(rows, carried)
 		local slot = pointerSlot(info.position)
 		if move and move.keyboard and same then
-			slot = move.slot
+			slot = move.slot:peek()
 		end
 		if info.insertion then
 			local before, after = info.insertion.beforeKey, info.insertion.afterKey
-			local beforeIndex = if before ~= nil then remainingIndex[before :: K] else nil
-			local afterIndex = if after ~= nil then remainingIndex[after :: K] else nil
+			local beforeIndex = if before ~= nil then table.find(remaining, before) else nil
+			local afterIndex = if after ~= nil then table.find(remaining, after) else nil
 			if (before ~= nil or after ~= nil) and beforeIndex == nil and afterIndex == nil then
 				info.invalid = "The insertion neighbors were removed"
 				return
@@ -142,9 +145,8 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		if type(data.keys) ~= "table" or #data.keys == 0 then
 			return false
 		end
-		local live = sourceIndex:peek()
 		for _, key in data.keys do
-			if live[key] == nil then
+			if itemOf(key) == nil then
 				return false
 			end
 		end
@@ -182,6 +184,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 	local leave = destination.onLeave
 	destination.onLeave = function(payload)
 		incoming:set(nil)
+		shared.place(false)
 		if leave then
 			leave(payload)
 		end
@@ -191,11 +194,10 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		incoming:set(if accepted and session and session.source ~= body then info.insertion else nil)
 		local move = moving:peek()
 		local insertion = info.insertion
-		if move and not move.keyboard and insertion and move.slot ~= insertion.slot then
-			local next = table.clone(move)
-			next.slot = insertion.slot
-			moving:set(next)
+		if move and not move.keyboard and insertion then
+			move.slot:set(insertion.slot)
 		end
+		shared.place(accepted)
 		if update then
 			update(payload, info, accepted, reason)
 		end

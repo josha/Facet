@@ -166,11 +166,6 @@ return function<V>(ctx: Types.Context, surfaces: Navigation.Surfaces, spec: Radi
 		end
 		path:set(entries)
 	end
-	Compose.watch(function(use: ComposeTypes.Use)
-		if not use(opened) then
-			session.branchOrigin = nil
-		end
-	end)
 	local interacting = Compose.cell(false)
 	local naming = Compose.cell(false)
 	local touchPoint: ComposeTypes.Value<Vector3?> = Compose.cell(nil :: Vector3?)

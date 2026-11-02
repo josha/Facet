@@ -365,13 +365,6 @@ return function(
 					ctx.fadeTo(panel, function(use: ComposeTypes.Use)
 						return 1 - presence.opacity(use)
 					end)
-					materialize(ctx, panel, {
-						Size = if fullScreen then D2.fromScale(1, 1) else D2.new(1, -32, 0, 0),
-						AutomaticSize = if fullScreen then E.AutomaticSize.None else E.AutomaticSize.Y,
-					}, function(use: ComposeTypes.Use)
-						local rest = ctx.metric("motion.materialize.modal", use)
-						return if use(settled) then rest + (1 - rest) * presence.travel(use) else 1
-					end, nil, true)
 				end
 				local modal = surfaces.modal(function()
 					return panel

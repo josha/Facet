@@ -69,8 +69,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		local function height(use: ComposeTypes.Use?): UDim2
 			return D2.fromOffset(0, controlSize(spec.controlSize, "iconSize", use) + 4)
 		end
-		local captionValue = if dynamic(spec.label) then Compose.formula(caption) else nil
-		local label: Types.Input<string> = if captionValue then captionValue else caption()
+		local label = caption()
 		local size: Types.Input<UDim2> = if dynamic(ctx.config.theme) or dynamic(spec.controlSize)
 			then height
 			else height()
@@ -93,7 +92,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		if spec.icon == nil then
 			Host.UIPadding {}.Parent = node
 		end
-		ctx.textLayout(node, true, true)
+		ctx.textLayout(node, true, true, true)
 		local pill: GuiObject = node
 		if spec.icon then
 			node.Name = "Label"
@@ -117,13 +116,29 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				node,
 			}
 		end
-		local function visible(use: ComposeTypes.Use?): boolean
-			return read(spec.Visible, use) ~= false
-				and (named or (if captionValue then read(captionValue, use) else caption(use)) ~= "")
+		local shown: boolean?
+		local function update(use: ComposeTypes.Use?)
+			local text = caption(use)
+			if text ~= label then
+				label = text
+				if spec.Text == nil then
+					node.Text = text
+				end
+				if spec.name == nil and spec.Attributes == nil then
+					node:SetAttribute("AccessibleLabel", text)
+				end
+			end
+			local visible = read(spec.Visible, use) ~= false and (named or text ~= "")
+			if visible ~= shown then
+				shown = visible
+				pill.Visible = visible
+			end
 		end
-		runtime.decorate(pill, {
-			Visible = if dynamic(spec.Visible) or dynamic(spec.label) then Compose.formula(visible) else visible(),
-		})
+		if dynamic(spec.Visible) or dynamic(spec.label) then
+			Compose.watch(update)
+		else
+			update()
+		end
 		ctx.styled(pill, "badge")
 		if spec.status ~= nil then
 			statusTag(pill, spec.status)

@@ -1,5 +1,11 @@
 # Current package
 
+Named control builders type-check again in strict consumer code. A named call
+such as `UI.Menu "Commands"` returns a generic builder, descriptor fields such
+as `DialogAction` and `SheetDetent` are read-only, and `Facet.RadialMenuBuilder`
+and `Facet.AlertBuilder` type the direct call of `UI.RadialMenu` and
+`UI.Alert`.
+
 Theme readers accept shallow-frozen packages without copying them. Native
 property observations expose read-only values. Controls share these observations
 without treating them as writable cells.

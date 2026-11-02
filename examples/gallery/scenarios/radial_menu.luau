@@ -416,7 +416,8 @@ return {
 			if item.kind == "character" or item.kind == "gestures" then
 				spec.anchor = silhouette
 			end
-			local menuNode = UI.RadialMenu<<string>>(spec, "Commands")
+			local RadialMenu: typeof(require("@repo/tools/typecheck/aliases").RadialMenuBuilder) = UI.RadialMenu
+			local menuNode = RadialMenu<<string>>(spec, "Commands")
 			current, currentPresented = menu, presented
 			Compose.cleanup(function()
 				if current == menu then

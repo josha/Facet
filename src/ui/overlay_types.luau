@@ -31,13 +31,13 @@ export type Action = {
 	read onActivate: () -> (),
 }
 export type DialogAction = {
-	id: string,
-	label: Types.ValueString,
-	role: ActionRole?,
-	enabled: Types.ValueBoolean?,
-	busy: Types.ValueBoolean?,
-	keepOpen: boolean?,
-	onActivate: () -> (),
+	read id: string,
+	read label: Types.ValueString,
+	read role: ActionRole?,
+	read enabled: Types.ValueBoolean?,
+	read busy: Types.ValueBoolean?,
+	read keepOpen: boolean?,
+	read onActivate: () -> (),
 }
 export type ActionLayout = "automatic" | "row" | "stacked"
 export type WidthPreset = "automatic" | "narrow" | "wide"

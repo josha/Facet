@@ -134,8 +134,9 @@ end
 						last = at
 						cursor = at + 1
 					end
-					assert(last, item.path)
-					code = string.sub(code, 1, last - 1) .. "return " .. string.sub(code, last)
+					local tail = string.match(code, "[^\n]*$") or ""
+					local start = last or #code - #tail + 1
+					code = string.sub(code, 1, start - 1) .. "return " .. string.sub(code, start)
 					local component = Lute.chunk.load(
 						"return function()\n" .. code .. "\nend",
 						{ environment = environment, name = item.path }

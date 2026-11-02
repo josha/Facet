@@ -15,6 +15,7 @@ export type Point = UI.Point
 export type Editor = Editor.Editor
 export type Device = Editor.Device
 export type Preview = Editor.Preview
+export type Sequences = Roblox3DLibrary.Sequences
 export type Options = Editor.Options & { environment: Environment.Environment }
 export type Workspace = {
 	runtime: Compose.Runtime,
@@ -23,6 +24,8 @@ export type Workspace = {
 	root: string,
 	stageSize: UI.Point?,
 	devices: { Editor.Device }?,
+	device: string?,
+	bindings: { [string]: Design.Resolved }?,
 	previews: { Editor.Preview }?,
 	token: ((name: string) -> Design.Literal)?,
 	resolveToken: ((name: string) -> Design.Resolved)?,
@@ -94,6 +97,8 @@ local function kit(name: string, open: () -> Workspace): Kit
 				stageSize = workspace.stageSize
 					or if devices ~= nil and devices[1] ~= nil then devices[1].size else { X = 390, Y = 844 },
 				devices = devices,
+				device = workspace.device,
+				bindings = workspace.bindings,
 				previews = workspace.previews,
 				token = workspace.token,
 				resolveToken = workspace.resolveToken,
@@ -126,5 +131,6 @@ return {
 	create = create,
 	kit = kit,
 	robloxLibrary = RobloxLibrary,
-	roblox3DLibrary = Roblox3DLibrary,
+	roblox3DLibrary = Roblox3DLibrary.create,
+	roblox3DSchema = Roblox3DLibrary.schema,
 }

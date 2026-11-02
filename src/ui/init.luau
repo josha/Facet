@@ -7,14 +7,14 @@ local controlEnvironment = require("@self/control_environment")
 type Group = { names: { string }, install: () -> () }
 
 local function once<T>(make: () -> T): () -> T
-	local made: { value: T }? = nil
+	local made = false
+	local value: T
 	return function(): T
-		local box = made
-		if box == nil then
-			box = { value = make() }
-			made = box
+		if not made then
+			value = make()
+			made = true
 		end
-		return (box :: { value: T }).value
+		return value
 	end
 end
 
@@ -27,7 +27,7 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 		end
 	end
 	local ctx = context(Compose, runtime, options)
-	local installed = {} :: { [string]: unknown }
+	local installed: { [string]: unknown } = {}
 	local UI = (installed :: unknown) :: Types.Controls
 	local controls: Types.Controls
 	installed.provide = function<R...>(body: () -> R...): R...
@@ -469,7 +469,7 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 		end
 		table.insert(all, load)
 	end
-	local members = (installed :: unknown) :: { [string]: unknown }
+	local members = installed
 	setmetatable(installed, {
 		__index = function(_: unknown, name: unknown): unknown
 			if type(name) ~= "string" then

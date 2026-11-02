@@ -528,17 +528,4 @@ return {
 	isActive = isActive,
 	format = format,
 	data = data,
-
-	write = write,
-	wake = wake,
-	edge = edge,
-	recompute = recompute,
-	suppressedRecompute = suppressedRecompute,
-	schedule = schedule,
-	enterRun = enterRun,
-	hostWrite = hostWrite,
-	drain = drain,
-	naming = naming,
-	born = born,
-	nowOrNil = nowOrNil,
 }

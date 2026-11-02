@@ -43,14 +43,16 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
 	local readColumns = ctx.read<<{ CollectionTypes.TableColumn<V, K> }>>
+	local readColumn = ctx.read<<CollectionTypes.TableColumn<V, K>>>
+	local readNumber = ctx.read<<number>>
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
 	local spec, rowPolicySpec, selection, coordinator =
 		shared.spec, shared.rowPolicySpec, shared.selection, shared.coordinator
-	local highlight = createHighlight(
-		Compose,
-		selection,
-		spec.selection ~= nil or spec.onSelectionChange ~= nil or spec.selectionMode ~= nil
-	)
+	local highlight = if spec.selection ~= nil
+			or spec.onSelectionChange ~= nil
+			or spec.selectionMode ~= nil
+		then createHighlight(Compose, selection, true)
+		else nil
 	local rowMeasures, actionGutters, truncatedRows = shared.rowMeasures, shared.actionGutters, shared.truncatedRows
 	local mountedRows = shared.mountedRows
 	local unitScale, scrolledX, editors, field = shared.unitScale, shared.scrolledX, shared.editors, shared.field
@@ -59,6 +61,10 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 	local CELL_PADDING, minimumRow = metrics.cellPadding, metrics.minimumRow
 	local collapsed, disclosureWidth = layout.collapsed, layout.disclosureWidth
 	local setPrimaryMeasure = layout.setPrimaryMeasure
+	type Column = CollectionTypes.TableColumn<V, K>
+	local staticColumns = if type(spec.columns) ~= "function" and not Compose.isValue(spec.columns)
+		then readColumns(spec.columns)
+		else nil
 	local function build(
 		current: ComposeTypes.ReadOnlyValue<V>,
 		placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
@@ -113,232 +119,243 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 				rowMeasures:set(nextHeights)
 			end
 		end)
+		local function renderColumn(column: Types.Input<Column>, index: Types.Input<number>)
+			local definition = readColumn(column)
+			local authored = definition.render
+			local editorCell = if authored == nil and definition.editor
+				then editors.render(
+					definition,
+					function(item: V): unknown
+						return field(item, definition)
+					end,
+					assert(spec.onCellChange),
+					function(use: ComposeTypes.Use): boolean
+						return not policy.disabled(spec.disabled, use(current))
+					end
+				)
+				else nil
+			local build: ((K) -> GuiObject)? = if authored
+				then function(value: K): GuiObject
+					return authored(current, placement, Compose.cell(value))
+				end
+				elseif editorCell then function(value: K): GuiObject
+					return editorCell(current, placement, value)
+				end
+				else nil
+			local render: ((ComposeTypes.ReadOnlyValue<K>) -> ComposeTypes.Child)? = if build
+				then function(rowKey: ComposeTypes.ReadOnlyValue<K>): ComposeTypes.Child
+					return Compose.switch(rowKey, {}, function(): GuiObject
+						return build(rowKey:peek())
+					end)
+				end
+				else nil
+			local function valueText(use: ComposeTypes.Use): string
+				local result = field(use(current), readColumn(column, use))
+				return if result == nil then "" else tostring(result)
+			end
+			local function words(use: ComposeTypes.Use): string
+				local lines: { string } = {}
+				for word in string.gmatch(valueText(use), "%S+") do
+					table.insert(lines, word)
+				end
+				return table.concat(lines, "\n")
+			end
+			local function probe(
+				name: string,
+				text: (ComposeTypes.Use) -> string,
+				share: boolean,
+				lines: (ComposeTypes.Use) -> boolean
+			): TextLabel
+				return ctx.styled(
+					ctx.text({
+						Name = name,
+						TextWrapped = false,
+						TextTransparency = 1,
+						Interactable = false,
+						Size = function(use: ComposeTypes.Use)
+							return D2.new(
+								1,
+								if share then use(layout.disclosureShare) else 0,
+								if lines(use) then 0 else 1,
+								0
+							)
+						end,
+						AutomaticSize = function(use: ComposeTypes.Use)
+							return if lines(use) then E.AutomaticSize.Y else E.AutomaticSize.None
+						end,
+						Text = text,
+					}),
+					"TableValue"
+				)
+			end
+			local longestWord = if render
+				then nil
+				else probe("LongestWord", words, false, function()
+					return true
+				end)
+			local undisclosed = if render then nil else probe("Undisclosed", valueText, true, metrics.touchRows)
+			local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
+			local content: GuiObject = if render
+				then ctx.styled(
+					Host.Frame "Inset" {
+						BackgroundTransparency = 1,
+						render(key),
+						Host.UIListLayout {
+							FillDirection = E.FillDirection.Vertical,
+							VerticalAlignment = E.VerticalAlignment.Center,
+							SortOrder = E.SortOrder.LayoutOrder,
+						},
+					},
+					"TableCellInset"
+				)
+				else ctx.styled(
+					ctx.text({
+						Name = "Value",
+						TextXAlignment = function(use: ComposeTypes.Use)
+							local align = readColumn(column, use).align or "start"
+							return if align == "end"
+								then E.TextXAlignment.Right
+								elseif align == "center" then E.TextXAlignment.Center
+								else E.TextXAlignment.Left
+						end,
+						TextTruncate = E.TextTruncate.AtEnd,
+						TextWrapped = function(use: ComposeTypes.Use): boolean
+							return layout.textWrap(readColumn(column, use), use) and use(assert(wordFits)) ~= false
+						end,
+						Size = D2.fromScale(1, 1),
+						AutomaticSize = E.AutomaticSize.None,
+						Text = valueText,
+					}),
+					"TableValue"
+				)
+			if render then
+				local measured = content:FindFirstChildWhichIsA("GuiObject") or content
+				local size = ctx.observe.AbsoluteSize(measured)
+				local owner = assert(Compose.currentOwner())
+				local settled: ComposeTypes.ReadOnlyValue<boolean>? = nil
+				local automatic = ctx.observe.AutomaticSize(measured)
+				local authored: ComposeTypes.ReadOnlyValue<UDim2>? = nil
+				Compose.watch(function(use: ComposeTypes.Use)
+					local sizing = use(automatic)
+					if sizing ~= E.AutomaticSize.Y and sizing ~= E.AutomaticSize.XY then
+						if authored == nil then
+							authored = Compose.withOwner(owner, function()
+								return ctx.observe.Size(measured)
+							end)
+						end
+						if use(assert(authored)).Y.Scale ~= 0 then
+							return
+						end
+					end
+					local pixels = use(size).Y
+					local height = pixels / use(unitScale) + CELL_PADDING
+					local previous = cellHeights:peek()[definition.id]
+					if previous == height or (pixels == 0 and previous == nil and use(minimumRow) >= height) then
+						return
+					end
+					if pixels == 0 and runtime.host.frames then
+						if settled == nil then
+							settled = Compose.withOwner(owner, function()
+								return runtime.settled {
+									restart = size,
+									sample = function(): Vector2
+										return measured.AbsoluteSize
+									end,
+								}
+							end)
+						end
+						if not use(assert(settled)) then
+							return
+						end
+					end
+					local nextHeights = table.clone(cellHeights:peek())
+					nextHeights[definition.id] = height
+					cellHeights:set(nextHeights)
+				end)
+			end
+			if not render and readNumber(index) == 1 then
+				local natural = ctx.observe.TextBounds(assert(undisclosed))
+				Compose.watch(function(use: ComposeTypes.Use)
+					local padding = content:FindFirstChildWhichIsA("UIPadding")
+					local inset = math.max(CELL_PADDING, use(metrics.textInsetSize).X / use(unitScale))
+					if padding then
+						local left: UDim = padding:GetStyled("PaddingLeft")
+						local right: UDim = padding:GetStyled("PaddingRight")
+						inset = left.Offset + right.Offset
+					end
+					setPrimaryMeasure(use(key), assert(undisclosed), math.ceil(use(natural).X / use(unitScale)), inset)
+				end)
+			end
+			if not render then
+				assert(content:IsA("TextLabel"))
+				metrics.recordHeight(cellHeights, definition.id, content, CELL_PADDING)
+				local fits = ctx.observe.TextFits(assert(undisclosed))
+				local bounds = ctx.observe.TextBounds(assert(undisclosed))
+				local size = ctx.observe.AbsoluteSize(assert(undisclosed))
+				Compose.watch(function(use: ComposeTypes.Use)
+					local id = readColumn(column, use).id
+					if
+						tree
+						and (
+							use(size).X <= 0
+							or use(bounds).Y <= 0
+							or use(size).Y < use(bounds).Y + CELL_PADDING * use(unitScale)
+						)
+					then
+						return
+					end
+					local hidden = use(fits) == false
+					if (truncated:peek()[id] == true) ~= hidden then
+						local cells = table.clone(truncated:peek())
+						if hidden then
+							cells[id] = true
+						else
+							cells[id] = nil
+						end
+						truncated:set(cells)
+					end
+				end)
+			end
+			if tree and readNumber(index) == 1 then
+				content = tree.wrap(content, current, key:peek())
+				local outlineSize = ctx.observe.AbsoluteSize(content)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local sizes = table.clone(cellHeights:peek())
+					sizes[definition.id] = use(outlineSize).Y / use(unitScale)
+					cellHeights:set(sizes)
+				end)
+			end
+			local cell = ctx.styled(layout.columnFrame(column, index, content, longestWord, undisclosed), "TableCell")
+			cell.ClipsDescendants = true
+			return cell
+		end
+		local attributes: EngineTypes.Attributes = { FacetSelected = false }
 		local rowProps: Types.FrameProps = {
 			Name = "Row",
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Attributes = {
-				FacetSelected = false,
-			} :: EngineTypes.Attributes,
+			Attributes = attributes,
 			lists.list({}, false),
-			Compose.keyed({
-				from = function(use: ComposeTypes.Use)
-					return readColumns(spec.columns, use)
-				end,
-				key = function(column: CollectionTypes.TableColumn<V, K>)
-					return column.id
-				end,
-				render = function(
-					column: ComposeTypes.ReadOnlyValue<CollectionTypes.TableColumn<V, K>>,
-					index: ComposeTypes.ReadOnlyValue<number>
-				)
-					local definition = column:peek()
-					local authored = definition.render
-					local editorCell = if authored == nil and definition.editor
-						then editors.render(
-							definition,
-							function(item: V): unknown
-								return field(item, definition)
-							end,
-							assert(spec.onCellChange),
-							function(use: ComposeTypes.Use): boolean
-								return not policy.disabled(spec.disabled, use(current))
-							end
-						)
-						else nil
-					local build: ((K) -> GuiObject)? = if authored
-						then function(value: K): GuiObject
-							return authored(current, placement, Compose.cell(value))
-						end
-						elseif editorCell then function(value: K): GuiObject
-							return editorCell(current, placement, value)
-						end
-						else nil
-					local render: ((ComposeTypes.ReadOnlyValue<K>) -> ComposeTypes.Child)? = if build
-						then function(rowKey: ComposeTypes.ReadOnlyValue<K>): ComposeTypes.Child
-							return Compose.switch(rowKey, {}, function(): GuiObject
-								return build(rowKey:peek())
-							end)
-						end
-						else nil
-					local function valueText(use: ComposeTypes.Use): string
-						local result = field(use(current), use(column))
-						return if result == nil then "" else tostring(result)
-					end
-					local function words(use: ComposeTypes.Use): string
-						local lines: { string } = {}
-						for word in string.gmatch(valueText(use), "%S+") do
-							table.insert(lines, word)
-						end
-						return table.concat(lines, "\n")
-					end
-					local function probe(
-						name: string,
-						text: (ComposeTypes.Use) -> string,
-						share: boolean,
-						lines: (ComposeTypes.Use) -> boolean
-					): TextLabel
-						return ctx.styled(
-							ctx.text({
-								Name = name,
-								TextWrapped = false,
-								TextTransparency = 1,
-								Interactable = false,
-								Size = function(use: ComposeTypes.Use)
-									return D2.new(
-										1,
-										if share then use(layout.disclosureShare) else 0,
-										if lines(use) then 0 else 1,
-										0
-									)
-								end,
-								AutomaticSize = function(use: ComposeTypes.Use)
-									return if lines(use) then E.AutomaticSize.Y else E.AutomaticSize.None
-								end,
-								Text = text,
-							}),
-							"TableValue"
-						)
-					end
-					local longestWord = if render
-						then nil
-						else probe("LongestWord", words, false, function()
-							return true
-						end)
-					local undisclosed = if render
-						then nil
-						else probe("Undisclosed", function(use: ComposeTypes.Use): string
-							return valueText(use)
-						end, true, metrics.touchRows)
-					local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
-					local content: GuiObject = if render
-						then ctx.styled(
-							Host.Frame "Inset" {
-								BackgroundTransparency = 1,
-								render(key),
-								Host.UIListLayout {
-									FillDirection = E.FillDirection.Vertical,
-									VerticalAlignment = E.VerticalAlignment.Center,
-									SortOrder = E.SortOrder.LayoutOrder,
-								},
-							},
-							"TableCellInset"
-						)
-						else ctx.styled(
-							ctx.text({
-								Name = "Value",
-								TextXAlignment = function(use: ComposeTypes.Use)
-									local align = use(column).align or "start"
-									return if align == "end"
-										then E.TextXAlignment.Right
-										elseif align == "center" then E.TextXAlignment.Center
-										else E.TextXAlignment.Left
-								end,
-								TextTruncate = E.TextTruncate.AtEnd,
-								TextWrapped = function(use: ComposeTypes.Use): boolean
-									return layout.textWrap(use(column), use) and use(assert(wordFits)) ~= false
-								end,
-								Size = D2.fromScale(1, 1),
-								AutomaticSize = E.AutomaticSize.None,
-								Text = valueText,
-							}),
-							"TableValue"
-						)
-					if render then
-						local measured = content:FindFirstChildWhichIsA("GuiObject") or content
-						local size = ctx.observe.AbsoluteSize(measured)
-						local settled = if runtime.host.frames
-							then runtime.settled {
-								restart = size,
-								sample = function(): Vector2
-									return measured.AbsoluteSize
-								end,
-							}
-							else Compose.cell(true)
-						local automatic = ctx.observe.AutomaticSize(measured)
-						local authored = ctx.observe.Size(measured)
-						Compose.watch(function(use: ComposeTypes.Use)
-							local sizing = use(automatic)
-							if
-								sizing == E.AutomaticSize.Y
-								or sizing == E.AutomaticSize.XY
-								or use(authored).Y.Scale == 0
-							then
-								local height = use(size).Y / use(unitScale) + CELL_PADDING
-								if
-									(use(size).Y > 0 or (use(settled) and measured.AbsoluteSize.Y == 0))
-									and cellHeights:peek()[definition.id] ~= height
-								then
-									local nextHeights = table.clone(cellHeights:peek())
-									nextHeights[definition.id] = height
-									cellHeights:set(nextHeights)
-								end
-							end
-						end)
-					end
-					if not render and index:peek() == 1 then
-						local natural = ctx.observe.TextBounds(assert(undisclosed))
-						Compose.watch(function(use: ComposeTypes.Use)
-							local padding = content:FindFirstChildWhichIsA("UIPadding")
-							local inset = if padding
-								then (padding:GetStyled("PaddingLeft") :: UDim).Offset + (padding:GetStyled(
-									"PaddingRight"
-								) :: UDim).Offset
-								else math.max(CELL_PADDING, use(metrics.textInsetSize).X / use(unitScale))
-							setPrimaryMeasure(
-								use(key),
-								assert(undisclosed),
-								math.ceil(use(natural).X / use(unitScale)),
-								inset
-							)
-						end)
-					end
-					if not render then
-						metrics.recordHeight(cellHeights, definition.id, content :: TextLabel, CELL_PADDING)
-						local fits = ctx.observe.TextFits(assert(undisclosed))
-						local bounds = ctx.observe.TextBounds(assert(undisclosed))
-						local size = ctx.observe.AbsoluteSize(assert(undisclosed))
-						Compose.watch(function(use: ComposeTypes.Use)
-							local id = use(column).id
-							if
-								tree
-								and (
-									use(size).X <= 0
-									or use(bounds).Y <= 0
-									or use(size).Y < use(bounds).Y + CELL_PADDING * use(unitScale)
-								)
-							then
-								return
-							end
-							local hidden = use(fits) == false
-							if (truncated:peek()[id] == true) ~= hidden then
-								local cells = table.clone(truncated:peek())
-								if hidden then
-									cells[id] = true
-								else
-									cells[id] = nil
-								end
-								truncated:set(cells)
-							end
-						end)
-					end
-					if tree and index:peek() == 1 then
-						content = tree.wrap(content, current, key:peek())
-						local outlineSize = ctx.observe.AbsoluteSize(content)
-						Compose.watch(function(use: ComposeTypes.Use)
-							local sizes = table.clone(cellHeights:peek())
-							sizes[definition.id] = use(outlineSize).Y / use(unitScale)
-							cellHeights:set(sizes)
-						end)
-					end
-					local cell =
-						ctx.styled(layout.columnFrame(column, index, content, longestWord, undisclosed), "TableCell")
-					cell.ClipsDescendants = true
-					return cell
-				end,
-			}),
 		}
-		local row = Host.Frame(rowProps)
+		if staticColumns then
+			for index, column in staticColumns do
+				table.insert(rowProps, renderColumn(column, index))
+			end
+		else
+			table.insert(
+				rowProps,
+				Compose.keyed({
+					from = function(use: ComposeTypes.Use)
+						return readColumns(spec.columns, use)
+					end,
+					key = function(column: Column): string
+						return column.id
+					end,
+					render = renderColumn,
+				})
+			)
+		end
+		local row: GuiObject = Host.Frame(rowProps)
 		runtime.decorate(row, {
 			Size = function(use: ComposeTypes.Use)
 				local lane = laneWidth(use)
@@ -358,19 +375,21 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 				return use(disclosureWidth) > 0
 			end, function()
 				local open = Compose.cell(false)
+				local trigger = UI.Button "Details" {
+					icon = "status.info",
+					name = "Show details",
+					appearance = "utility",
+					Size = D2.new(0, 48, 1, 0),
+					Position = D2.new(1, -48, 0, 0),
+					AutomaticSize = E.AutomaticSize.None,
+				}
+				assert(trigger:IsA("GuiButton"))
 				return UI.Popover {
 					isPresented = open,
 					onPresentedChange = function(value: boolean)
 						open:set(value)
 					end,
-					trigger = UI.Button "Details" {
-						icon = "status.info",
-						name = "Show details",
-						appearance = "utility",
-						Size = D2.new(0, 48, 1, 0),
-						Position = D2.new(1, -48, 0, 0),
-						AutomaticSize = E.AutomaticSize.None,
-					} :: GuiButton,
+					trigger = trigger,
 					content = function(): Instance
 						return ctx.column({
 							Compose.keyed({
@@ -429,7 +448,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 		end
 		row = Host.Frame(rowProps)
 		local disclosing = row
-		row = policy.actions(ctx, rowPolicySpec, current, key:peek(), row, UI.RowActions, coordinator) :: Frame
+		row = policy.actions(ctx, rowPolicySpec, current, key:peek(), row, UI.RowActions, coordinator)
 		local actionButton = row:FindFirstChild("CellActions")
 		if actionButton and actionButton:IsA("GuiObject") then
 			local visible = ctx.observe.Visible(actionButton)
@@ -457,26 +476,30 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 				return D2.fromOffset(use(scrolledX), 0)
 			end,
 		})
-		Compose.watch(function(use: ComposeTypes.Use)
-			if read(spec.alternatingRows, use) == true and use(placement).index % 2 == 0 then
-				painted:AddTag("facet-tablerow-alternate")
-			elseif painted:HasTag("facet-tablerow-alternate") then
-				painted:RemoveTag("facet-tablerow-alternate")
-			end
-		end)
-		highlight(key, function(state)
-			local on = state ~= "none"
-			if cellRow:GetAttribute("FacetSelected") ~= on then
-				cellRow:SetAttribute("FacetSelected", on)
-			end
-			if on ~= painted:HasTag("facet-selected") then
-				if on then
-					painted:AddTag("facet-selected")
-				else
-					painted:RemoveTag("facet-selected")
+		if spec.alternatingRows then
+			Compose.watch(function(use: ComposeTypes.Use)
+				if read(spec.alternatingRows, use) == true and use(placement).index % 2 == 0 then
+					painted:AddTag("facet-tablerow-alternate")
+				elseif painted:HasTag("facet-tablerow-alternate") then
+					painted:RemoveTag("facet-tablerow-alternate")
 				end
-			end
-		end)
+			end)
+		end
+		if highlight then
+			highlight(key, function(state)
+				local on = state ~= "none"
+				if cellRow:GetAttribute("FacetSelected") ~= on then
+					cellRow:SetAttribute("FacetSelected", on)
+				end
+				if on ~= painted:HasTag("facet-selected") then
+					if on then
+						painted:AddTag("facet-selected")
+					else
+						painted:RemoveTag("facet-selected")
+					end
+				end
+			end)
+		end
 		if editor then
 			local press = editor.press
 			Compose.cleanup(activation.providePress(row, function(value: InputObject)

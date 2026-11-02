@@ -17,6 +17,7 @@ return {
 	theme = require(script.Parent.Parent.assets["riverbank-theme"]),
 	build = function(app: Facet.App, inputParent: Instance, callbacks: Callbacks): Frame
 		local Compose, UI = Facet.Compose, app.UI
+		local RadialMenu: Facet.RadialMenuBuilder = UI.RadialMenu
 		local Host = Facet.host(app.runtime)
 		local env = UI.environment()
 		local guideOpen, page, menuOpen = Compose.cell(false), Compose.cell(1), Compose.cell(false)
@@ -115,7 +116,7 @@ return {
 				zone = "topbar",
 				trailing = true,
 				rank = 1,
-				UI.RadialMenu<<string>>({
+				RadialMenu<<string>>({
 					label = "Field kit",
 					preset = "top-right",
 					appearance = "buttons",

@@ -1,6 +1,5 @@
 --!strict
 
-local Compose = require "../core"
 local Engine = require "./engine"
 
 local function quaternionFromRotation(rotation: { number }): (number, number, number, number)
@@ -37,19 +36,8 @@ local function rotationFromQuaternion(x: number, y: number, z: number, w: number
 	}
 end
 
-export type Codecs = {
-	Vector2: Compose.Codec<Engine.Vector2>?,
-	Vector3: Compose.Codec<Engine.Vector3>?,
-	Color3: Compose.Codec<Engine.Color3>?,
-	UDim: Compose.Codec<Engine.UDim>?,
-	UDim2: Compose.Codec<Engine.UDim2>?,
-	CFrame: Compose.Codec<Engine.CFrame>?,
-}
-
-export type Source = {
-	read datatypes: Engine.Datatypes,
-	read readCFrame: ((value: Engine.CFrame) -> (number, number, number, { number }))?,
-}
+export type Codecs = Engine.Codecs
+export type Source = Engine.Source
 
 local function create(engine: Source): Codecs
 	local datatypes = engine.datatypes

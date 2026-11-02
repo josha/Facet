@@ -95,7 +95,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			Selectable = true,
 			Active = true,
 			ClipsDescendants = true,
-		}) :: Shared.ScrollingFrameProps
+		})
 		props.ScrollingEnabled = function(use: Shared.Use): boolean
 			return ctx.read(spec.enabled, use) ~= false and ctx.read(spec.ScrollingEnabled, use) ~= false
 		end
@@ -507,7 +507,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			if not player then
 				return true
 			end
-			for _, hit in (player :: PlayerGui):GetGuiObjectsAtPosition(point.X, point.Y) do
+			for _, hit in (player):GetGuiObjectsAtPosition(point.X, point.Y) do
 				if hit == root or hit:IsDescendantOf(root) then
 					local node: Instance? = hit
 					while node and node ~= root do
@@ -786,7 +786,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		end)
 		local selected: Shared.ReadOnlyValue<GuiObject?> = if gui
 			then ctx.observe.SelectedObject(gui)
-			else Compose.cell(nil :: GuiObject?)
+			else Compose.cell(nil)
 		local function active(use: Shared.Use): boolean
 			return use(selected) == root and ctx.read(spec.enabled, use) ~= false and not blocked()
 		end

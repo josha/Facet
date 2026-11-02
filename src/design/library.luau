@@ -68,7 +68,7 @@ local function copy(value: unknown): unknown
 		return value
 	end
 	local result: Record = {}
-	for key, item in value :: Record do
+	for key, item in value do
 		result[key] = copy(item)
 	end
 	return result
@@ -333,7 +333,7 @@ local function create(context: Context): Design.Library
 	local function stack(children: { unknown }): unknown
 		local props: Record = { gap = "s", width = "fill" }
 		for _, child in children do
-			table.insert(props :: { unknown }, child)
+			props[#props + 1] = child
 		end
 		return UI.VStack(props, "Content")
 	end
@@ -616,11 +616,11 @@ local function create(context: Context): Design.Library
 				end
 				if TEMPLATE_KINDS[name] then
 					for _, child in children do
-						table.insert(values :: { unknown }, child)
+						values[#values + 1] = child
 					end
 				elseif contentKey == nil and spec.container and not OWN_CHILDREN[name] then
 					for _, child in children do
-						table.insert(values :: { unknown }, child)
+						values[#values + 1] = child
 					end
 				end
 				local anchorKey = spec.anchor
@@ -671,7 +671,7 @@ local function create(context: Context): Design.Library
 				end
 			end
 			for _, child in children do
-				table.insert(values :: { unknown }, child)
+				values[#values + 1] = child
 			end
 			return build(nodeName, values)
 		end

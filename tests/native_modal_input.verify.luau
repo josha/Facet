@@ -27,16 +27,190 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end
 
-	local function modalOf(w: any, name: string): any
+	local function modalOf(w: { findAll: (string) -> { Instance } }, name: string): Frame
 		for _, modal in w.findAll("DialogModal") do
-			if overlay.find(modal, "Title").Text == name then
+			if modal:IsA("Frame") and overlay.find(modal, "Title").Text == name then
 				return modal
 			end
 		end
-		return nil
+		error(`missing modal {name}`)
 	end
 
 	verifyHarness:suite("native modal: the scrim sinks input", function()
+		for _, touch in { false, true } do
+			verifyHarness:case(
+				`an open Dialog blocks {if touch then "touch" else "wheel"} scrolling until it closes`,
+				function(check)
+					local w = require("./lib/modal_scroll_world")("Dialog")
+					check:defer(w.stop)
+					local before = w.list.CanvasPosition.Y
+					w.open:set(true)
+					w.settle()
+					w.scroll(touch)
+					Verify.expect(w.list.CanvasPosition.Y):toBe(before)
+					Verify.expect(w.page.CanvasPosition.Y):toBe(0)
+					Verify.expect(w.open:peek()):toBe(true)
+					w.open:set(false)
+					w.settle()
+					w.scroll(touch)
+					Verify.expect(w.list.CanvasPosition.Y > before):toBe(true)
+					Verify.expect(w.page.CanvasPosition.Y):toBe(0)
+				end
+			)
+		end
+		verifyHarness:case(
+			"shields block background presses and nested selection stays inside the top modal",
+			function()
+				local Facet = require("../src")
+				local engines = require("./lib/native_engine")
+				local Lute = require("../tools/vendor/verify/src/lute")
+				local roots: { VerifyRoblox.Instance } = {}
+				local engine, bridge = engines.new({
+					layout = {
+						roots = function()
+							return roots
+						end,
+						viewport = function()
+							return { X = 800, Y = 600 }
+						end,
+					},
+				})
+				local data: DataModel = engine.new("DataModel")
+				local player: PlayerGui = engine.new("PlayerGui")
+				local input: UserInputService = engine.new("UserInputService")
+				local gui: GuiService = engine.new("GuiService")
+				player.Parent, input.Parent, gui.Parent = data, data, data
+				table.insert(roots, VerifyRoblox.assertInstance(player))
+				local runtime = Facet.Roblox.createRuntime(engine)
+				local Host = Facet.host(runtime)
+				local UI = Facet.controls(runtime, {
+					types = engine.types,
+					motionLevel = "none",
+					services = {
+						UserInputService = input,
+						GuiService = gui,
+					},
+				})
+				local outer, inner = Compose.cell(false), Compose.cell(false)
+				local presses = 0
+				local outside: TextButton? = nil
+				local scroller: ScrollingFrame? = nil
+				local action: TextButton? = nil
+				local childAction: TextButton? = nil
+				local D2, E = engine.types.UDim2, engine.types.Enum
+				local stop = runtime.mount(function()
+					outside = Host.TextButton "Outside" {
+						Size = D2.fromOffset(120, 44),
+						Position = D2.fromOffset(10, 250),
+						Activated = function()
+							presses += 1
+						end,
+					}
+					scroller = Host.ScrollingFrame "Background" {
+						Size = D2.fromScale(1, 1),
+						CanvasSize = D2.fromOffset(0, 1200),
+						assert(outside),
+					}
+					return Host.ScreenGui {
+						ScreenInsets = E.ScreenInsets.None,
+						ZIndexBehavior = E.ZIndexBehavior.Sibling,
+						assert(scroller),
+						UI.Dialog {
+							title = "Outer",
+							isPresented = outer,
+							closeButton = false,
+							content = function()
+								action = Host.TextButton "Action" { Size = D2.fromOffset(120, 44) }
+								return assert(action)
+							end,
+						},
+						UI.Dialog {
+							title = "Inner",
+							isPresented = inner,
+							closeButton = false,
+							content = function()
+								childAction = Host.TextButton "ChildAction" { Size = D2.fromOffset(120, 44) }
+								return assert(childAction)
+							end,
+						},
+					}
+				end, player)
+				local backend = VerifyRoblox.inputHost.simulated(engine.environment, {
+					playerGui = VerifyRoblox.assertInstance(player),
+					inputService = VerifyRoblox.assertInstance(input),
+					layout = assert(bridge.layout),
+					inset = function()
+						return { X = 0, Y = 0 }
+					end,
+					library = VerifyRoblox.reflectionSnapshot.library(Lute.fixture.load()),
+					activationWindowSeconds = 0.5,
+				})
+				local function settle()
+					for _ = 1, 3 do
+						assert(bridge.layout).step()
+						engine.heartbeat:Fire(1 / 60)
+					end
+				end
+				local function press()
+					backend.pointer({ x = 40, y = 270, button = "left", down = true })
+					backend.pointer({ x = 40, y = 270, button = "left", down = false })
+				end
+				local function selectedName(): string
+					local selected = gui.SelectedObject
+					return if selected then selected.Name else "nil"
+				end
+				settle()
+				press()
+				Verify.expect(presses):toBe(1)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "PreferredInput", E.PreferredInput.Gamepad)
+				gui.SelectedObject = outside
+				outer:set(true)
+				settle()
+				press()
+				Verify.expect(presses):toBe(1)
+				Verify.expect(assert(scroller).ScrollingEnabled):toBe(true)
+				local late: TextButton = engine.new("TextButton")
+				late.Size, late.Position, late.Parent = D2.fromOffset(120, 44), D2.fromOffset(10, 250), scroller
+				local connection = late.Activated:Connect(function()
+					presses += 1
+				end)
+				settle()
+				press()
+				Verify.expect(presses):toBe(1)
+				for _, open in { inner, outer } do
+					if open == inner then
+						gui.SelectedObject = action
+						inner:set(true)
+						settle()
+					end
+					local target = if open == inner then assert(childAction) else assert(action)
+					gui.SelectedObject = target
+					for _, code in { "Up", "Down", "Left", "Right" } do
+						backend.key({ code = code, down = true })
+						backend.key({ code = code, down = false })
+						Verify.expect(selectedName()):toBe(target.Name)
+					end
+					gui.SelectedObject = late
+					Verify.expect(gui.SelectedObject == late):toBe(false)
+					if open == inner then
+						gui.SelectedObject = childAction
+						inner:set(false)
+						settle()
+						Verify.expect(selectedName()):toBe("Action")
+					end
+				end
+				outer:set(false)
+				settle()
+				Verify.expect(selectedName()):toBe("Outside")
+				press()
+				Verify.expect(presses):toBe(2)
+				connection:Disconnect()
+				backend.close()
+				stop()
+				runtime:dispose()
+				bridge.close()
+			end
+		)
 		verifyHarness:case("moves gamepad focus when the selected modal action becomes disabled", function()
 			local open, enabled = Compose.cell(false), Compose.cell(true)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
@@ -369,7 +543,7 @@ return function(verifyHarness: Verify.Harness)
 			Verify.expect(open:peek()):toBe(false)
 			w.stop()
 		end)
-		verifyHarness:case("modal content mounting does not repeat the outside control walk", function()
+		verifyHarness:case("modal content mounting does not walk or mutate outside controls", function()
 			local open = Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				local children: { Instance } = {}
@@ -398,20 +572,20 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end)
 			open:set(true)
-			Verify.expect(walks <= 4):toBe(true)
-			Verify.expect(writes):toBe(400)
+			Verify.expect(walks):toBe(0)
+			Verify.expect(writes):toBe(0)
 			for index = 1, 200 do
 				local button = w.find(`Outside{index}`)
-				Verify.expect(button.Interactable):toBe(false)
-				Verify.expect(button.Selectable):toBe(false)
+				Verify.expect(button.Interactable):toBe(true)
+				Verify.expect(button.Selectable):toBe(true)
 			end
 			local parent = w.find("Outside1").Parent
 			local late = w.engine.new("TextButton")
 			local modal = modalOf(w, "Many controls")
 			local before = walks
 			late.Parent = parent
-			Verify.expect(late.Interactable):toBe(false)
-			Verify.expect(late.Selectable):toBe(false)
+			Verify.expect(late.Interactable):toBe(true)
+			Verify.expect(late.Selectable):toBe(true)
 			for _ = 1, 200 do
 				local label = w.engine.new("TextLabel")
 				label.Parent = modal
@@ -428,7 +602,7 @@ return function(verifyHarness: Verify.Harness)
 			stop:Disconnect()
 			w.stop()
 		end)
-		verifyHarness:case("nested modal leases restore each outside control's values", function()
+		verifyHarness:case("nested modals preserve consumer changes to outside controls", function()
 			local outer, inner = Compose.cell(false), Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame {
@@ -442,12 +616,12 @@ return function(verifyHarness: Verify.Harness)
 			outer:set(true)
 			inner:set(true)
 			outer:set(false)
-			Verify.expect(enabled.Interactable):toBe(false)
-			Verify.expect(enabled.Selectable):toBe(false)
+			Verify.expect(enabled.Interactable):toBe(true)
+			Verify.expect(enabled.Selectable):toBe(true)
 			disabled.Interactable = true
 			disabled.Selectable = true
-			Verify.expect(disabled.Interactable):toBe(false)
-			Verify.expect(disabled.Selectable):toBe(false)
+			Verify.expect(disabled.Interactable):toBe(true)
+			Verify.expect(disabled.Selectable):toBe(true)
 			inner:set(false)
 			Verify.expect(enabled.Interactable):toBe(true)
 			Verify.expect(enabled.Selectable):toBe(true)
@@ -461,7 +635,7 @@ return function(verifyHarness: Verify.Harness)
 			Verify.expect(disabled.Selectable):toBe(false)
 			w.stop()
 		end)
-		verifyHarness:case("a deferred change signal for the modal's own write keeps the prior values", function()
+		verifyHarness:case("deferred background changes remain authoritative after a modal closes", function()
 			local open = Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame {
@@ -471,15 +645,17 @@ return function(verifyHarness: Verify.Harness)
 			end, { motionLevel = "none" })
 			local button = w.find("Outside")
 			open:set(true)
+			button.Interactable = false
+			button.Selectable = false
 			Verify.expect(button.Interactable):toBe(false)
 			w.engine.propertyChanged(button, "Interactable"):Fire()
 			w.engine.propertyChanged(button, "Selectable"):Fire()
 			open:set(false)
-			Verify.expect(button.Interactable):toBe(true)
-			Verify.expect(button.Selectable):toBe(true)
+			Verify.expect(button.Interactable):toBe(false)
+			Verify.expect(button.Selectable):toBe(false)
 			w.stop()
 		end)
-		verifyHarness:case("moving a leased control into the top modal releases every nested owner", function()
+		verifyHarness:case("selection follows a control into the top modal and cannot return behind it", function()
 			local outer, inner = Compose.cell(false), Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame {
@@ -490,25 +666,29 @@ return function(verifyHarness: Verify.Harness)
 			end, { motionLevel = "none" })
 			local button = w.find("Move")
 			local parent = button.Parent
+			w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 			outer:set(true)
 			inner:set(true)
-			Verify.expect(button.Interactable):toBe(false)
+			w.gui.SelectedObject = button
+			Verify.expect(w.gui.SelectedObject == button):toBe(false)
 			button.Parent = nil
 			button.Parent = modalOf(w, "Inner")
 			Verify.expect(button.Interactable):toBe(true)
 			Verify.expect(button.Selectable):toBe(true)
+			w.gui.SelectedObject = button
+			Verify.expect(w.gui.SelectedObject):toBe(button)
 			button.Parent = nil
 			button.Parent = parent
-			Verify.expect(button.Interactable):toBe(false)
-			Verify.expect(button.Selectable):toBe(false)
+			Verify.expect(w.gui.SelectedObject == button):toBe(false)
 			inner:set(false)
-			Verify.expect(button.Interactable):toBe(false)
+			w.gui.SelectedObject = button
+			Verify.expect(w.gui.SelectedObject == button):toBe(false)
 			outer:set(false)
 			Verify.expect(button.Interactable):toBe(true)
 			Verify.expect(button.Selectable):toBe(true)
 			w.stop()
 		end)
-		verifyHarness:case("portal leases follow the anchor across modal ancestry changes", function()
+		verifyHarness:case("portal selection follows its anchor across modal ancestry changes", function()
 			local open = Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame {
@@ -520,9 +700,9 @@ return function(verifyHarness: Verify.Harness)
 						end,
 						title = "Portal",
 						content = function(): Instance
-							local anchor = Host.TextButton "PortalAnchor" { Selectable = true }
+							local anchor: TextButton = Host.TextButton "PortalAnchor" { Selectable = true }
 							return Host.Frame {
-								anchor :: Instance,
+								anchor,
 								UI.Callout {
 									anchor = anchor,
 									isPresented = true,
@@ -536,16 +716,20 @@ return function(verifyHarness: Verify.Harness)
 					},
 				}
 			end, { motionLevel = "none" })
+			w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 			open:set(true)
 			local anchor, action = w.find("PortalAnchor"), w.find("PortalAction")
 			local parent = anchor.Parent
 			Verify.expect(action ~= nil):toBe(true)
 			Verify.expect(action.Interactable):toBe(true)
 			Verify.expect(action.Selectable):toBe(true)
+			w.gui.SelectedObject = action
+			Verify.expect(w.gui.SelectedObject):toBe(action)
 			anchor.Parent = w.find("Outside")
-			Verify.expect(action.Interactable):toBe(false)
-			Verify.expect(action.Selectable):toBe(false)
+			Verify.expect(w.gui.SelectedObject == action):toBe(false)
 			anchor.Parent = parent
+			w.gui.SelectedObject = action
+			Verify.expect(w.gui.SelectedObject):toBe(action)
 			Verify.expect(action.Interactable):toBe(true)
 			Verify.expect(action.Selectable):toBe(true)
 			open:set(false)
@@ -570,7 +754,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(w.gui.TouchControlsEnabled):toBe(enabled)
 			end
 		end)
-		verifyHarness:case("the modal root and safe dismiss target sink input while the scrim stays passive", {
+		verifyHarness:case("the modal root traps selection and its scrolling shield sinks input", {
 			id = "native_modal_input::native modal: the scrim sinks input::the modal root and safe dismiss target sink input while the scrim stays passive",
 			run = function()
 				local open = Compose.cell(true)
@@ -579,8 +763,20 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local modal = modalOf(w, "About")
 				Verify.expect(modal.Active):toBe(true)
-				Verify.expect(overlay.find(modal, "Scrim").Active):toBe(false)
-				Verify.expect(overlay.find(modal, "Scrim"):IsA("Frame")):toBe(true)
+				Verify.expect(modal.SelectionGroup):toBe(true)
+				for _, direction in { "Up", "Down", "Left", "Right" } do
+					Verify.expect(
+						w.engine.environment.propertyOf(
+							VerifyRoblox.assertInstance(modal),
+							"SelectionBehavior" .. direction
+						)
+					):toBe(w.Enum.SelectionBehavior.Stop)
+				end
+				local shield = overlay.find(modal, "Scrim")
+				Verify.expect(shield.Active):toBe(true)
+				Verify.expect(shield:IsA("ScrollingFrame")):toBe(true)
+				Verify.expect(shield.CanvasSize):toBe(w.engine.types.UDim2.new())
+				Verify.expect(shield.ScrollBarThickness):toBe(0)
 				Verify.expect(overlay.find(modal, "DismissTarget").Active):toBe(true)
 				w.stop()
 			end,

@@ -79,9 +79,9 @@ return function(
 		)
 		return UI.Menu {
 			items = items,
-			trigger = trigger :: GuiObject,
-			presentation = "menu" :: "menu",
-			align = "center" :: "center",
+			trigger = trigger,
+			presentation = "menu",
+			align = "center",
 			maxHeight = maxHeight,
 			enabled = function(use: Use)
 				return interactive(use)
@@ -140,7 +140,7 @@ return function(
 			return UI.Button(name)({
 				icon = icon,
 				name = words_,
-				shape = "circle" :: "circle",
+				shape = "circle",
 				appearance = "utility",
 				enabled = function(use: Use)
 					return interactive(use) and state.canPage(delta, use)

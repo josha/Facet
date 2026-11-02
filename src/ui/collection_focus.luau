@@ -169,10 +169,11 @@ return function<V, K>(
 		Compose.watch(function(use: ComposeTypes.Use)
 			local rows = source(use)
 			local key = focusScope.current:peek()
-			if key == nil or slot == nil or (editor and editor.busy()) or indexOf(rows, key) == slot then
+			local wanted = slot
+			if key == nil or wanted == nil or (editor and editor.busy()) or indexOf(rows, key) == wanted then
 				return
 			end
-			local at = math.min(slot :: number, #rows)
+			local at = math.min(wanted, #rows)
 			if rows[at] ~= nil and not policy.disabled(spec.disabled, rows[at]) then
 				focusScope.focus(keyOf(rows[at], at))
 			end
@@ -234,11 +235,11 @@ return function<V, K>(
 		return current.total > 0
 	end)
 	Compose.watch(function(use: ComposeTypes.Use)
-		use(ready)
 		local key = use(focusScope.current)
 		if key == nil then
 			return
 		end
+		use(ready)
 		view.focusOwned = true
 		local arm = view.armPaging
 		if arm then
@@ -260,6 +261,9 @@ return function<V, K>(
 		restoreFocus(key)
 	end)
 	Compose.watch(function(use: ComposeTypes.Use)
+		if gui == nil or not use(focusActive) then
+			return
+		end
 		use(mountedVersion)
 		use(parent)
 		use(focusPosition)
@@ -268,7 +272,7 @@ return function<V, K>(
 	end)
 	local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
 		then observe.SelectedObject(gui)
-		else Compose.cell(nil :: GuiObject?)
+		else Compose.cell<<GuiObject?>>(nil)
 	Compose.watch(function(use: ComposeTypes.Use)
 		local field = use(selected)
 		if
@@ -299,7 +303,6 @@ return function<V, K>(
 		end
 	end)
 	local function renameAction(use: ComposeTypes.Use?): activation.EditAction?
-		readSource(mountedVersion, use)
 		local focused = readSource(selected, use)
 		if
 			(focused and not belongsTo(focused, root))
@@ -309,6 +312,7 @@ return function<V, K>(
 		then
 			return nil
 		end
+		readSource(mountedVersion, use)
 		local key: K? = nil
 		for candidate in readSource(view.selection, use) do
 			if key ~= nil then
@@ -353,11 +357,11 @@ return function<V, K>(
 					end
 				end
 			else
-				local lost = lastFocused or focusScope.current:peek()
-				local neighbour: K? = if view.focusOwned and lost ~= nil then neighbourOf(lost :: K) else nil
-				if neighbour ~= nil and nodeOf(neighbour :: K) then
-					focusScope.focus(neighbour :: K)
-					restoreFocus(neighbour :: K)
+				local lost: K? = lastFocused or focusScope.current:peek()
+				local neighbour: K? = if view.focusOwned and lost ~= nil then neighbourOf(lost) else nil
+				if neighbour ~= nil and nodeOf(neighbour) then
+					focusScope.focus(neighbour)
+					restoreFocus(neighbour)
 				else
 					view.focusOwned = false
 				end
@@ -365,10 +369,10 @@ return function<V, K>(
 		end
 	end)
 	Compose.watch(function(use: ComposeTypes.Use)
-		use(mountedVersion)
 		if gui == nil or use(selected) ~= root then
 			return
 		end
+		use(mountedVersion)
 		local target: GuiObject? = nil
 		local key = focusScope.current:peek()
 		if key ~= nil and nodeOf(key) then

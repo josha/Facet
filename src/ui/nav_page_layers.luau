@@ -46,8 +46,8 @@ return function(ctx: Types.Context): PageLayers
 			use(ancestry)
 			local at: Instance? = panel.Parent
 			while at do
-				if at:IsA("GuiObject") and (at:GetStyled("BackgroundTransparency") :: number) < 1 then
-					return at:GetStyled("BackgroundColor3") :: Color3
+				if at:IsA("GuiObject") and (at:GetStyled("BackgroundTransparency")) < 1 then
+					return at:GetStyled("BackgroundColor3")
 				end
 				at = at.Parent
 			end
@@ -89,7 +89,7 @@ return function(ctx: Types.Context): PageLayers
 		holdOnExit: boolean?
 	): GuiObject
 		if transition == nil or transition == false then
-			local node = Host.Frame((properties :: unknown) :: Types.FrameNativeProps)
+			local node = Host.Frame(properties)
 			if hidden then
 				Compose.watch(function(use: ComposeTypes.Use)
 					if not use(state).top then
@@ -137,7 +137,7 @@ return function(ctx: Types.Context): PageLayers
 				if pageZoom then Host.UIScale "TransitionZoom" { Scale = pageZoom } else nil,
 			}
 			local children: { Types.Child } = {}
-			local entries = (properties :: unknown) :: { [unknown]: unknown }
+			local entries = properties
 			for index, child in entries do
 				if type(index) == "number" then
 					children[index] = properties[index]

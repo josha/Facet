@@ -10,6 +10,7 @@ export type DatatypeComponent = number | { token: string }
 export type Value = {
 	literal: Literal?,
 	input: string?,
+	path: { string }?,
 	item: string?,
 	output: string?,
 	args: { Literal }?,
@@ -81,6 +82,8 @@ export type Kind = {
 	category: string?,
 	source: string?,
 	key: string?,
+	staticRows: boolean?,
+	iteration: { fields: { ItemField } }?,
 	call: string,
 	build: (props: { [string]: Resolved }, children: { unknown }, name: string) -> unknown,
 }
@@ -119,6 +122,7 @@ export type Library = {
 	prelude: { string },
 	returnType: string,
 	readable: string,
+	rowReadable: string?,
 	cell: string,
 	newCell: string?,
 	token: string?,
@@ -136,7 +140,7 @@ export type Library = {
 }
 
 export type InputKind = "value" | "readable" | "cell"
-export type InputType = "string" | "number" | "boolean" | "color" | "image" | "list" | "record" | "slot"
+export type InputType = "string" | "number" | "boolean" | "color" | "image" | "vector3" | "list" | "record" | "slot"
 
 export type ItemField = { id: string, type: InputType, fields: { ItemField }?, luauType: string? }
 
@@ -209,6 +213,7 @@ export type LinkStore = {
 	read: () -> string,
 	write: (expected: string, generated: string) -> boolean,
 	watch: (changed: () -> ()) -> () -> (),
+	read defer: ((save: () -> ()) -> ())?,
 }
 
 export type OpenDesign = { dispose: () -> () }

@@ -35,13 +35,16 @@ return function(verifyHarness: Verify.Harness)
 		find: (string) -> any,
 		step: (number) -> (),
 		stop: () -> (),
+		layout: VerifyRoblox.UiLayoutController?,
 	}
 	local function setup(
 		spec: RadialProps.RadialMenuSpec<string> | ((engines.Engine) -> RadialProps.RadialMenuSpec<string>),
 		animated: boolean?,
-		environment: Shared.EnvironmentPreview?
+		environment: Shared.EnvironmentPreview?,
+		nativeOptions: engines.Options?
 	): World
-		local engine, now = engines.new(), 0
+		local engine, bridge = engines.new(nativeOptions)
+		local now = 0
 		local actual: RadialProps.RadialMenuSpec<string> = if type(spec) == "function" then spec(engine) else spec
 		local gui: GuiService, input: UserInputService = engine.new("GuiService"), engine.new("UserInputService")
 		engine.environment.fakeOn(VerifyRoblox.assertInstance(input), "GetLastInputType", function()
@@ -86,6 +89,7 @@ return function(verifyHarness: Verify.Harness)
 		stopInitialBounds:Disconnect()
 		return {
 			engine = engine,
+			layout = bridge.layout,
 			gui = gui,
 			input = input,
 			screen = screen,
@@ -780,6 +784,7 @@ return function(verifyHarness: Verify.Harness)
 				local UI = controls(Compose, runtime, { types = engine.types, motionLevel = "none" })
 				local opened = Compose.cell(false)
 				local activations = 0
+				local backgroundPresses = 0
 				local stop, screen = runtime.mount(function()
 					local anchor = UI.Button "Toggle" {
 						label = "Toggle actions",
@@ -797,31 +802,43 @@ return function(verifyHarness: Verify.Harness)
 						centerPassThrough = true,
 						items = compass(function() end),
 					}
+					local RadialMenu: typeof(require("@repo/tools/typecheck/aliases").RadialMenuBuilder) = UI.RadialMenu
 					return Facet.host(runtime).ScreenGui {
 						runtime.constructors.ScrollingFrame "AnchorContainer" {
 							Selectable = true,
 							anchor,
 						},
-						UI.Button "Unrelated" { label = "Unrelated" },
-						(UI.RadialMenu :: any)(options),
+						UI.Button "Unrelated" {
+							label = "Unrelated",
+							onActivate = function()
+								backgroundPresses += 1
+							end,
+						},
+						RadialMenu<<string>>(options),
 					}
 				end, engine.new("Folder"))
-				local screenGui = (screen) :: ScreenGui
+				local screenGui = VerifyRoblox.assertInstance(screen)
 				local anchor = screenGui:FindFirstChild("Toggle", true)
 				local unrelated = screenGui:FindFirstChild("Unrelated", true)
 				assert(anchor and anchor:IsA("TextButton") and unrelated and unrelated:IsA("TextButton"))
 				local container = anchor.Parent
 				assert(container and container:IsA("ScrollingFrame"))
-				local activated = (anchor.Activated) :: { Fire: (unknown) -> () }
-				for _ = 1, 3 do
-					activated:Fire()
+				local function activate()
+					engine.environment.fire(VerifyRoblox.assertInstance(anchor), "Activated")
+				end
+				for index = 1, 3 do
+					activate()
 					expect(opened:peek()):toBe(true)
 					expect(anchor.Interactable):toBe(true)
 					expect(container.Interactable):toBe(true)
-					expect(unrelated.Interactable):toBe(false)
-					activated:Fire()
+					expect(unrelated.Interactable):toBe(true)
+					engine.environment.fire(VerifyRoblox.assertInstance(unrelated), "Activated")
+					expect(backgroundPresses):toBe(index - 1)
+					activate()
 					expect(opened:peek()):toBe(false)
 					expect(unrelated.Interactable):toBe(true)
+					engine.environment.fire(VerifyRoblox.assertInstance(unrelated), "Activated")
+					expect(backgroundPresses):toBe(index)
 				end
 				expect(activations):toBe(6)
 				stop()
@@ -1131,16 +1148,18 @@ return function(verifyHarness: Verify.Harness)
 				expect(panel.ScrollingEnabled):toBe(true)
 				local title = world.find("SelectionPreview")
 				expect(title.AnchorPoint.Y):toBe(0)
-				expect(title.Position.Y.Offset):toBe(2)
+				expect(title.Position.Y.Offset >= 0):toBe(true)
+				expect(title.Parent):toBe(world.find("ListHeader"))
 				world.engine.environment.poke(title, "AbsoluteSize", V2.new(312, 96))
-				expect(panel.Position.Y.Offset):toBe(106)
-				expect(panel.Size.Y.Offset):toBe(-138)
+				expect(world.find("ListHeader").Size.Y.Offset):toBe(104)
+				expect(panel.Position.Y.Offset):toBe(16)
+				expect(panel.Size.Y.Offset):toBe(268)
 				world.engine.environment.poke(title, "AbsoluteSize", V2.new(312, 59.6))
-				expect(panel.Position.Y.Offset):toBe(70)
-				expect(panel.Size.Y.Offset):toBe(-102)
+				expect(world.find("ListHeader").Size.Y.Offset):toBe(68)
+				expect(panel.Size.Y.Offset):toBe(268)
 				world.engine.environment.poke(title, "AbsoluteSize", V2.new(312, 24))
-				expect(panel.Position.Y.Offset):toBe(48)
-				expect(panel.Size.Y.Offset):toBe(-80)
+				expect(world.find("ListHeader").Size.Y.Offset):toBe(44)
+				expect(panel.Size.Y.Offset):toBe(252)
 				local previous = panel.Size.X.Offset
 				local measure = world.find("N"):FindFirstChild("CaptionMeasure", true)
 				world.engine.environment.poke(measure, "TextBounds", V2.new(620, 20))
@@ -1154,6 +1173,50 @@ return function(verifyHarness: Verify.Harness)
 				expect(world.opened:peek()):toBe(true)
 				world.find("CenterHit").Activated:Fire()
 				expect(world.opened:peek()):toBe(false)
+				world.stop()
+			end,
+		})
+		it("fits a landscape fallback around its header and options", {
+			id = "native_radial_controls::native radial interaction policies::fits a landscape fallback around its header and options",
+			run = function()
+				local roots: { VerifyRoblox.Instance } = {}
+				local world = setup({ label = "Tools", clearance = 200, items = compass(function() end) }, false, nil, {
+					layout = {
+						roots = function()
+							return roots
+						end,
+						viewport = function()
+							return { X = 844, Y = 390 }
+						end,
+					},
+				})
+				table.insert(roots, VerifyRoblox.assertInstance(world.screen))
+				local layout = assert(world.layout)
+				for _ = 1, 3 do
+					layout.step()
+				end
+				local panel, title, close, last =
+					world.find("RadialPanel"), world.find("SelectionPreview"), world.find("CenterHit"), world.find("W")
+				expect(panel:GetAttribute("Presentation")):toBe("list")
+				expect(title.Text):toBe("Tools")
+				for _, child: GuiObject in { title, close, last } do
+					expect(child:IsDescendantOf(panel)):toBe(true)
+					expect(child.AbsoluteSize.X > 0 and child.AbsoluteSize.Y > 0):toBe(true)
+					expect(child.AbsolutePosition.X >= panel.AbsolutePosition.X):toBe(true)
+					expect(child.AbsolutePosition.Y >= panel.AbsolutePosition.Y):toBe(true)
+					expect(
+						child.AbsolutePosition.X + child.AbsoluteSize.X
+							<= panel.AbsolutePosition.X + panel.AbsoluteSize.X + 0.1
+					):toBe(true)
+					expect(
+						child.AbsolutePosition.Y + child.AbsoluteSize.Y
+							<= panel.AbsolutePosition.Y + panel.AbsoluteSize.Y + 0.1
+					):toBe(true)
+				end
+				expect(title.AbsolutePosition.X + title.AbsoluteSize.X <= close.AbsolutePosition.X):toBe(true)
+				expect(last.AbsolutePosition.Y + last.AbsoluteSize.Y + 8):toBeFloat32(
+					panel.AbsolutePosition.Y + panel.AbsoluteSize.Y
+				)
 				world.stop()
 			end,
 		})
@@ -1226,13 +1289,18 @@ return function(verifyHarness: Verify.Harness)
 				local world = setup({ items = compass(function() end) }, true)
 				world.step(0.3)
 				local panel = world.find("RadialPanel")
+				local modal = world.find("Modal")
 				world.opened:set(false)
 				expect((world.find("RadialPanel"))):toBe(panel)
 				expect(panel.Interactable):toBe(false)
 				world.step(0.3)
 				expect((world.find("RadialPanel"))):toBe(nil)
-				expect((not world.engine.environment.isAlive(panel))):toBe(true)
+				expect(world.engine.environment.isAlive(modal)):toBe(false)
+				expect(panel.Parent):toBe(nil)
+				world.opened:set(true)
+				expect(world.find("RadialPanel")):toBe(panel)
 				world.stop()
+				expect(world.engine.environment.isAlive(panel)):toBe(false)
 			end,
 		})
 		it("NRAD-10 reduced motion closes immediately and releases listeners", {
@@ -1922,10 +1990,9 @@ return function(verifyHarness: Verify.Harness)
 					expect(`{center}: {world.find("$navigation") == nil}`):toBe(`{center}: true`)
 					local centre = visibleCenter(world)
 					expect(`{center}: {centre ~= nil}`):toBe(`{center}: true`)
-					expect(centre.Position.X.Scale):toBe(0.5)
-					expect(centre.Position.X.Offset + centre.Size.X.Offset * (1 - centre.AnchorPoint.X)):toBe(
-						world.find("RadialPanel").Size.X.Offset / 2
-					)
+					expect(centre.Parent):toBe(world.find("ListHeader"))
+					expect(centre.Position.X.Scale):toBe(1)
+					expect(centre.Position.X.Offset + centre.Size.X.Offset * (1 - centre.AnchorPoint.X) <= 0):toBe(true)
 					expect(centre.Position.Y.Scale):toBe(0)
 					expect(centre.Size.X.Offset):toBe(centre.Size.Y.Offset)
 					expect(`{center}: {centre:GetAttribute("label")}`):toBe(`{center}: Close`)
@@ -1990,7 +2057,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(preview.AnchorPoint):toBe(world.engine.types.Vector2.zero)
 				expect(preview.Position.Y.Scale):toBe(0)
 				expect(preview.TextXAlignment):toBe(world.engine.types.Enum.TextXAlignment.Left)
-				expect((preview:IsDescendantOf(world.find("RadialPanel")))):toBe(false)
+				expect((preview:IsDescendantOf(world.find("RadialPanel")))):toBe(true)
 				local panel = world.find("RadialPanel")
 				expect(preview.Position.Y.Offset <= panel.Position.Y.Offset):toBe(true)
 				expect(panel.BackgroundTransparency):toBe(0)

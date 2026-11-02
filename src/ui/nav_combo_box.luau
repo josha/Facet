@@ -142,7 +142,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local row = Host.Frame "Row" {
 			BackgroundTransparency = 1,
 			Size = D2.new(1, 0, 0, 44),
-			editor :: Instance,
+			editor,
 			suggestions,
 		}
 		local root = ctx.column(

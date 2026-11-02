@@ -96,7 +96,8 @@ return function<V>(
 	end
 	local function centerAt(use: ComposeTypes.Use): UDim2
 		if use(fallback) then
-			return D2.new(0.5, use(paint.listWidth) / 2 - painted(use) / 2, 0, 2 + painted(use) / 2)
+			local target = math.max(painted(use), ctx.metric("targetSizes.minimum", use))
+			return D2.new(1, -math.max(8 + painted(use) / 2, target / 2), 0, paint.headerHeight(use) / 2)
 		end
 		local at = use(center)
 		return D2.fromOffset(at.X, at.Y)
@@ -202,7 +203,6 @@ return function<V>(
 		surfaces.attach(panel, { node })
 	end
 	menu.skin(centerNode, spec.skin and spec.skin.center)
-	local panelSize = ctx.observe.AbsoluteSize(panel)
 	local function reachOf(ring: Radial.Layout<V>): number
 		local reach = ring.inner
 		for _, sector in ring.sectors do
@@ -221,7 +221,7 @@ return function<V>(
 	local function previewPlace(use: ComposeTypes.Use): (UDim2, Vector2)
 		local ring = use(layout)
 		if ring.list then
-			return D2.new(0.5, -use(paint.listWidth) / 2, 0, 2), V2.zero
+			return D2.fromOffset(0, math.max(0, (paint.headerHeight(use) - previewSize(use).Y) / 2)), V2.zero
 		end
 		local at = use(center)
 		do
@@ -275,7 +275,7 @@ return function<V>(
 		Name = "SelectionPreview",
 		Size = function(use: ComposeTypes.Use): UDim2
 			if use(layout).list then
-				return D2.fromOffset(math.max(0, use(paint.listWidth) - 1.5 * painted(use)), 0)
+				return D2.new(1, -math.max(painted(use), ctx.metric("targetSizes.minimum", use)) - 8, 0, 0)
 			end
 			return D2.fromOffset(0, 0)
 		end,

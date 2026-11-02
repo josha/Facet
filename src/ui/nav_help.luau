@@ -107,7 +107,7 @@ return function(
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		local held = Compose.cell(false)
-		local touchOffset: ComposeTypes.Value<Vector2?> = Compose.cell(nil :: Vector2?)
+		local touchOffset: ComposeTypes.Value<Vector2?> = Compose.cell<<Vector2?>>(nil)
 		local function press(points: { Vector2 }, phase: Enum.UserInputState)
 			if phase == E.UserInputState.Begin and ctx.read(gate) ~= false then
 				local point = points[1]
@@ -192,7 +192,7 @@ return function(
 				local layer = assert(parent(anchor))
 				local at, bounds = ctx.observe.AbsolutePosition(anchor), ctx.observe.AbsoluteSize(anchor)
 				local extent, origin = ctx.observe.AbsoluteSize(layer), ctx.observe.AbsolutePosition(layer)
-				local widths = Compose.cell({} :: { ComposeTypes.ReadOnlyValue<Vector2> })
+				local widths = Compose.cell<<{ ComposeTypes.ReadOnlyValue<Vector2> }>>({})
 				local function width(use: ComposeTypes.Use): UDim2
 					local widest = 0
 					for _, natural in use(widths) do
@@ -345,7 +345,7 @@ return function(
 						role = "tooltip",
 					}
 				)
-				return Host.Folder "HelpOverlay" { panel :: Instance, table.unpack(tail) }
+				return Host.Folder "HelpOverlay" { panel, table.unpack(tail) }
 			end, { motion = timing }),
 		})
 	end)

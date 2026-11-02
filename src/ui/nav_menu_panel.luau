@@ -11,6 +11,15 @@ local MenuRows = require("./nav_menu_rows")
 
 type MenuEntry<V> = MenuItems.MenuEntry<V>
 
+local function branch<V>(items: { Nav.MenuItem<V> }, id: string): Nav.MenuAction<V>?
+	for _, item in items do
+		if item.divider ~= true and item.id == id then
+			return item
+		end
+	end
+	return nil
+end
+
 return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local readSource = ctx.readSource
@@ -21,6 +30,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 	local itemModel = MenuItems(ctx)
 	local actionItem, menuItems, resolveWidth = itemModel.actionItem, itemModel.menuItems, itemModel.resolveWidth
 	local menuRow = MenuRows(ctx, UI, surfaces)
+	local function padding(use: ComposeTypes.Use): UDim
+		return D.new(0, ctx.metric("space.xs", use))
+	end
 	local function menuPanel<V>(
 		spec: NavigationProps.MenuSpec<V>,
 		close: () -> (),
@@ -101,13 +113,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local current = Compose.formula(function(use: ComposeTypes.Use): { Nav.MenuItem<V> }
 			local items = use(rootItems)
 			for _, id in use(path) do
-				local found: Nav.MenuAction<V>?
-				for _, item in items do
-					if item.divider ~= true and item.id == id then
-						found = item
-						break
-					end
-				end
+				local found = branch(items, id)
 				if not found or not found.children then
 					break
 				end
@@ -118,13 +124,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		Compose.watch(function(use: ComposeTypes.Use)
 			local items, valid = use(rootItems), {}
 			for _, id in path:peek() do
-				local found: Nav.MenuAction<V>?
-				for _, item in items do
-					if item.divider ~= true and item.id == id then
-						found = item
-						break
-					end
-				end
+				local found = branch(items, id)
 				if not found or not found.children then
 					break
 				end
@@ -187,6 +187,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			end,
 			close = close,
 		}
+		local function rowPadding(use: ComposeTypes.Use): UDim
+			return if use(sheeted) then D.new(0, 8) else padding(use)
+		end
 		local rows = Host.Frame "MenuRows" {
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
@@ -231,18 +234,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				end,
 			}),
 			Host.UIPadding {
-				PaddingTop = function(use: ComposeTypes.Use)
-					return D.new(0, if use(sheeted) then 8 else ctx.metric("space.xs", use))
-				end,
-				PaddingBottom = function(use: ComposeTypes.Use)
-					return D.new(0, if use(sheeted) then 8 else ctx.metric("space.xs", use))
-				end,
-				PaddingLeft = function(use: ComposeTypes.Use)
-					return D.new(0, if use(sheeted) then 8 else ctx.metric("space.xs", use))
-				end,
-				PaddingRight = function(use: ComposeTypes.Use)
-					return D.new(0, if use(sheeted) then 8 else ctx.metric("space.xs", use))
-				end,
+				PaddingTop = rowPadding,
+				PaddingBottom = rowPadding,
+				PaddingLeft = rowPadding,
+				PaddingRight = rowPadding,
 			},
 		}
 		if closeCommand ~= nil and closeCommand ~= false then
@@ -454,17 +449,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			timing.exit = if sheet then sheetTiming.exit else popoverTiming.exit
 		end)
 		local guiService = surfaces.service("GuiService")
-		local layerOf = ctx.observe.Parent(modal)
 		local function originOf(use: ComposeTypes.Use): Vector2
 			use(origin)
-			use(layerOf)
+			use(surface)
 			use(extent)
 			use(position)
 			return modal.AbsolutePosition
 		end
 		local function insets(use: ComposeTypes.Use): (number, number, number, number)
 			local guiService = guiService
-			use(layerOf)
+			use(surface)
 			use(extent)
 			local layer = modal:FindFirstAncestorWhichIsA("ScreenGui")
 			if guiService == nil or layer == nil or not layer:IsA("ScreenGui") then
@@ -663,13 +657,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			end),
 		})
 		local focusIn = surfaces.selecting()
-		local placed = ctx.observe.Parent(modal)
 		local windowSize = ctx.observe.AbsoluteSize(scroller)
 		local rowLayout = rows:FindFirstChildWhichIsA("UIListLayout")
 		local laidOut = if rowLayout then ctx.observe.AbsoluteContentSize(rowLayout) else Compose.cell(V2.zero)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local items = use(current)
-			use(placed)
+			use(surface)
 			if gui and not nonmodal and focusIn(use) then
 				local target = if pendingFocus then surfaces.firstSelectable(panel, pendingFocus) else nil
 				if not target then
@@ -804,13 +797,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							prefix = table.clone(prefix),
 							depth = depth,
 						})
-						local found: Nav.MenuAction<V>?
-						for _, item in items do
-							if item.divider ~= true and item.id == selectedId then
-								found = item
-								break
-							end
-						end
+						local found = branch(items, selectedId)
 						if not found or not found.children then
 							break
 						end
@@ -859,18 +846,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 								SortOrder = E.SortOrder.LayoutOrder,
 							},
 							Host.UIPadding {
-								PaddingTop = function(use: ComposeTypes.Use)
-									return D.new(0, ctx.metric("space.xs", use))
-								end,
-								PaddingBottom = function(use: ComposeTypes.Use)
-									return D.new(0, ctx.metric("space.xs", use))
-								end,
-								PaddingLeft = function(use: ComposeTypes.Use)
-									return D.new(0, ctx.metric("space.xs", use))
-								end,
-								PaddingRight = function(use: ComposeTypes.Use)
-									return D.new(0, ctx.metric("space.xs", use))
-								end,
+								PaddingTop = padding,
+								PaddingBottom = padding,
+								PaddingLeft = padding,
+								PaddingRight = padding,
 							},
 							Compose.keyed({
 								from = function(use: ComposeTypes.Use)

@@ -1,7 +1,6 @@
 --!strict
 local Types = require("./types")
 local Nav = require("./navigation_types")
-local Content = require("./content_types")
 local ComposeTypes = require("../vendor/compose/core")
 local motion = require("./motion")
 local adaptive = require("./adaptive")
@@ -18,12 +17,6 @@ local scrollLock = require("./scroll_lock")
 local transition = require("./transition")
 local layoutKit = require("./layout_kit")
 local preparation = require("./preparation")
-type SelectionLinks = {
-	NextSelectionLeft: GuiObject?,
-	NextSelectionRight: GuiObject?,
-	NextSelectionUp: GuiObject?,
-	NextSelectionDown: GuiObject?,
-}
 
 return function(
 	ctx: Types.Context,
@@ -159,9 +152,9 @@ return function(
 		runtime.connect(root, "AncestryChanged", locate)
 		locate()
 		local input = surfaces.service("UserInputService")
-		local primaryInput = if input
-			then ctx.observe.PreferredInput(input) :: ComposeTypes.ReadOnlyValue<Enum.PreferredInput?>
-			else Compose.cell(nil :: Enum.PreferredInput?)
+		local primaryInput: ComposeTypes.ReadOnlyValue<Enum.PreferredInput?> = if input
+			then ctx.observe.PreferredInput(input)
+			else Compose.cell<<Enum.PreferredInput?>>(nil)
 		local tenFoot = ctx.tenFoot()
 		local displaySize = if ctx.config.guiService
 			then ctx.observe.ViewportDisplaySize(ctx.config.guiService)
@@ -204,7 +197,7 @@ return function(
 			end
 			return home
 		end
-		local requested = Compose.formula(resolvePlacement :: (ComposeTypes.Use) -> string)
+		local requested: ComposeTypes.ReadOnlyValue<string> = Compose.formula(resolvePlacement)
 		local placement = Compose.cell(requested:peek())
 		local stowed = Compose.cell(requested:peek() == "none")
 		local stow = transition.paced(
@@ -287,7 +280,7 @@ return function(
 			assert(#ordered > 0, "TabView customization must leave a visible tab")
 			return ordered
 		end)
-		local visited = Compose.cell({} :: { string })
+		local visited = Compose.cell<<{ string }>>({})
 		local tabsReady = false
 		local panels: { [string]: GuiObject } = {}
 		local bookmarks: { [string]: GuiObject? } = {}
@@ -297,12 +290,13 @@ return function(
 		local tabMeasures: { [string]: { position: ComposeTypes.ReadOnlyValue<Vector2>, size: ComposeTypes.ReadOnlyValue<Vector2> } } =
 			{}
 		local gui = surfaces.service("GuiService")
-		local selectedObject = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil :: GuiObject?)
+		local selectedObject = if gui then ctx.observe.SelectedObject(gui) else Compose.cell<<GuiObject?>>(nil)
 		local previous: string?
-		local handoff: string?
+		local handoff = Compose.cell<<string?>>(nil)
+		local needsFocus = Compose.selector(handoff)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local id = use(spec.selection)
-			byId = use(tabMap)
+			local entries = use(tabMap)
 			local allowed = false
 			for _, tab in use(visibleTabs) do
 				if tab.id == id then
@@ -314,27 +308,32 @@ return function(
 				spec.selection:set(use(visibleTabs)[1].id)
 				return
 			end
-			local retained = {}
-			for _, old in visited:peek() do
-				if byId[old] then
-					table.insert(retained, old)
+			if entries ~= byId then
+				byId = entries
+				local retained = {}
+				for _, old in visited:peek() do
+					if byId[old] then
+						table.insert(retained, old)
+					end
 				end
-			end
-			if #retained ~= #visited:peek() then
-				visited:set(retained)
+				if #retained ~= #visited:peek() then
+					visited:set(retained)
+				end
 			end
 			if previous == id then
 				return
 			end
 			local leaving = false
 			local previousPanel = if previous then panels[previous] else nil
-			if gui and previousPanel and surfaces.within(gui.SelectedObject, previousPanel) then
+			local selected = selectedObject:peek()
+			if gui and previous and previousPanel and surfaces.within(selected, previousPanel) then
 				leaving = true
-				bookmarks[previous :: string] = gui.SelectedObject
+				bookmarks[previous] = selected
 			end
-			local order = table.clone(visited:peek())
+			local order = visited:peek()
 			local at = table.find(order, id)
 			if not at or spec.transition ~= false or spec.retention == "top" then
+				order = table.clone(order)
 				if at then
 					table.remove(order, at)
 				end
@@ -342,11 +341,9 @@ return function(
 				visited:set(order)
 			end
 			local bookmark = bookmarks[id]
-			handoff = if spec.restoreFocus ~= false
-					and gui
-					and (leaving or (bookmark and bookmark.Parent))
-				then id
-				else nil
+			handoff:set(
+				if spec.restoreFocus ~= false and gui and (leaving or (bookmark and bookmark.Parent)) then id else nil
+			)
 			if spec.restoreScroll == false and panels[id] then
 				local function reset(node: Instance): ()
 					if node:IsA("ScrollingFrame") then
@@ -501,9 +498,6 @@ return function(
 			bar,
 		}
 		Compose.watch(function(use: ComposeTypes.Use)
-			bar:SetAttribute("FacetEntry", use(spec.selection))
-		end)
-		Compose.watch(function(use: ComposeTypes.Use)
 			if segmentedTop(use) then
 				root:AddTag("facet-top-tabs")
 				bandBox:AddTag("facet-top-tabs")
@@ -546,6 +540,7 @@ return function(
 				reservations.clear(reserved, bar)
 			end
 		end)
+		local setProperty = runtime.host.render.setProperty
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(tabLinks)
 			local vertical = use(placement) == "sidebar"
@@ -557,19 +552,19 @@ return function(
 					if live then
 						table.insert(order, button)
 					else
-						local links = (button :: unknown) :: SelectionLinks
-						links.NextSelectionLeft, links.NextSelectionRight = nil, nil
-						links.NextSelectionUp, links.NextSelectionDown = nil, nil
+						setProperty(button, "NextSelectionLeft", nil)
+						setProperty(button, "NextSelectionRight", nil)
+						setProperty(button, "NextSelectionUp", nil)
+						setProperty(button, "NextSelectionDown", nil)
 					end
 				end
 			end
 			for index, button in order do
 				local before: GuiObject?, after: GuiObject? = order[index - 1], order[index + 1]
-				local links = (button :: unknown) :: SelectionLinks
-				links.NextSelectionLeft = if vertical then nil else before
-				links.NextSelectionRight = if vertical then nil else after
-				links.NextSelectionUp = if vertical then before else nil
-				links.NextSelectionDown = if vertical then after else nil
+				setProperty(button, "NextSelectionLeft", if vertical then nil else before)
+				setProperty(button, "NextSelectionRight", if vertical then nil else after)
+				setProperty(button, "NextSelectionUp", if vertical then before else nil)
+				setProperty(button, "NextSelectionDown", if vertical then after else nil)
 			end
 		end)
 		local barSize, barPosition = ctx.observe.AbsoluteSize(bar), ctx.observe.AbsolutePosition(bar)
@@ -587,17 +582,12 @@ return function(
 			use(ancestry)
 			use(tabLinks)
 			local selected = use(spec.selection)
+			bar:SetAttribute("FacetEntry", selected)
 			local measure = tabMeasures[selected]
-			local button = tabButtons[selected]
-			if not measure or not button or not button.Parent then
+			if not measure then
 				return
 			end
-			use(barSize)
-			use(barPosition)
-			use(measure.position)
-			use(measure.size)
-			local extent, origin, at, size =
-				bar.AbsoluteSize, bar.AbsolutePosition, button.AbsolutePosition, button.AbsoluteSize
+			local extent, origin, at, size = use(barSize), use(barPosition), use(measure.position), use(measure.size)
 			local vertical = use(placement) == "sidebar"
 			local start = if vertical then at.Y - origin.Y else at.X - origin.X
 			local length = if vertical then size.Y else size.X
@@ -655,20 +645,8 @@ return function(
 					state: ComposeTypes.ReadOnlyValue<ComposeTypes.LayerStackState>,
 					id: string
 				): Instance
-					if spec.transition == false then
-						local retained = state
-						state = Compose.formula(function(use: ComposeTypes.Use): ComposeTypes.LayerStackState
-							local current = use(retained)
-							local top = use(isCurrent(id))
-							return {
-								index = current.index,
-								depthFromTop = if top then 0 else 1,
-								top = top,
-								covered = not top,
-							}
-						end, function(a: ComposeTypes.LayerStackState?, b: ComposeTypes.LayerStackState?): boolean
-							return a ~= nil and b ~= nil and a.index == b.index and a.top == b.top
-						end)
+					local function onTop(use: ComposeTypes.Use): boolean
+						return if spec.transition == false then use(isCurrent(id)) else use(state).top
 					end
 					local step = if spec.placement == "none" then 0 else 1
 					tabDepth += step
@@ -685,11 +663,9 @@ return function(
 							Name = id,
 							BackgroundTransparency = 1,
 							Size = D2.fromScale(1, 1),
-							Visible = function(use: ComposeTypes.Use)
-								return use(state).top
-							end,
+							Visible = onTop,
 							SelectionGroup = true,
-							Attributes = { FacetTabPage = spec.placement ~= "none" } :: Types.Attributes,
+							Attributes = { FacetTabPage = spec.placement ~= "none" },
 							built,
 						},
 						state,
@@ -729,19 +705,21 @@ return function(
 						attached:set(attached:peek() + 1)
 					end)
 					Compose.watch(function(use: ComposeTypes.Use)
+						if not use(needsFocus(id)) then
+							return
+						end
 						local service = gui
 						use(attached)
 						if
 							not use(shown)
 							or not use(interactable)
-							or not use(state).top
-							or handoff ~= id
+							or not onTop(use)
 							or not service
 							or panel:FindFirstAncestorWhichIsA("LayerCollector") == nil
 						then
 							return
 						end
-						handoff = nil
+						handoff:set(nil)
 						local bookmark = bookmarks[id]
 						if not bookmark and bookmarkPaths[id] then
 							local node: Instance? = panel

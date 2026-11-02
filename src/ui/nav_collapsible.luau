@@ -47,8 +47,8 @@ return function(
 			local root = UI.Button(buttonSpec)
 			local input = surfaces.service("UserInputService")
 			local preferred = if input
-				then ctx.observe.PreferredInput(input) :: ComposeTypes.ReadOnlyValue<Enum.PreferredInput?>
-				else Compose.cell(nil :: Enum.PreferredInput?)
+				then ctx.observe.PreferredInput(input)
+				else Compose.cell<<Enum.PreferredInput?>>(nil)
 			local prepared, entered = Compose.cell(false), Compose.cell(false)
 			Compose.watch(function(use: ComposeTypes.Use)
 				entered:set(use(spec.expanded) and use(prepared))
@@ -164,6 +164,11 @@ return function(
 						},
 						footer,
 					}
+					local content = Host.Frame "ContentBox" {
+						BackgroundTransparency = 1,
+						Interactable = false,
+						Size = D2.fromScale(1, 1),
+					}
 					local plate = surfaces.skin(ctx.styled(
 						ctx.fade {
 							Name = "Expanded",
@@ -180,17 +185,12 @@ return function(
 								return D2.fromOffset(rect.w, rect.h)
 							end,
 							fade,
-							Host.Frame "ContentBox" {
-								BackgroundTransparency = 1,
-								Interactable = false,
-								Size = D2.fromScale(1, 1),
-							},
+							content,
 							ctx.corner(),
 						},
 						"panel"
 					))
 					ctx.styled(plate, "floating")
-					local content = assert(plate:FindFirstChild("ContentBox", true)) :: GuiObject
 					local plateBox, contentBox = ctx.observe.AbsoluteSize(plate), ctx.observe.AbsoluteSize(content)
 					Compose.watch(function(use: ComposeTypes.Use)
 						use(plateBox)

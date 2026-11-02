@@ -66,16 +66,12 @@ local function layoutHeader(header: Literal): string
 		if type(current) ~= "table" then
 			return literal(current)
 		end
-		local keys = keysOf(current)
-		if #keys == 0 then
-			return "{}"
-		end
 		local single = literal(current)
-		if used + #single <= WIDTH then
+		if single == "{}" or used + #single <= WIDTH then
 			return single
 		end
 		local lines = { "{" }
-		for index, key in keys do
+		for index, key in keysOf(current) do
 			local prefix = prefix(key, index)
 			local width = (depth + 1) * 4 + #prefix + 1
 			table.insert(lines, string.rep("\t", depth + 1) .. prefix .. lay(current[key], depth + 1, width) .. ",")
@@ -227,6 +223,8 @@ local function scalar(library: Library, kind: string): string
 		return "number"
 	elseif kind == "boolean" then
 		return "boolean"
+	elseif kind == "vector3" then
+		return "{ number }"
 	elseif kind == "list" then
 		return "{ { [string]: unknown } }"
 	elseif kind == "record" then
@@ -237,18 +235,40 @@ local function scalar(library: Library, kind: string): string
 	return "string"
 end
 
-local function rowType(library: Library, fields: { Types.ItemField }): string
+local function flatRowType(library: Library, fields: { Types.ItemField }): string
 	local pieces: { string } = {}
 	for _, field in fields do
 		local shape = field.luauType
 		local nested = field.fields
 		if shape == nil and nested ~= nil and #nested > 0 then
-			local child = rowType(library, nested)
+			local child = flatRowType(library, nested)
 			shape = if field.type == "list" then "{ " .. child .. " }" else child
 		end
 		table.insert(pieces, `{field.id}: {shape or scalar(library, field.type)}`)
 	end
 	return "{ " .. table.concat(pieces, ", ") .. " }"
+end
+
+local function rowType(library: Library, fields: { Types.ItemField }, depth: number?, used: number?): string
+	local level = depth or 0
+	local single = flatRowType(library, fields)
+	if (used or 0) + #single <= WIDTH then
+		return single
+	end
+	local lines = { "{" }
+	for _, field in fields do
+		local prefix = string.rep("\t", level + 1) .. field.id .. ": "
+		local shape = field.luauType
+		local nested = field.fields
+		if shape == nil and nested ~= nil and #nested > 0 then
+			local width = (level + 1) * 4 + #field.id + 3
+			local child = rowType(library, nested, level + 1, width + (if field.type == "list" then 2 else 0))
+			shape = if field.type == "list" then "{ " .. child .. " }" else child
+		end
+		table.insert(lines, prefix .. (shape or scalar(library, field.type)) .. ",")
+	end
+	table.insert(lines, string.rep("\t", level) .. "}")
+	return table.concat(lines, "\n")
 end
 
 local function listItemName(input: Types.Input): string
@@ -332,7 +352,8 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		for _, input in value.contract.inputs do
 			local fields = input.fields
 			if input.type == "list" and fields and #fields > 0 then
-				table.insert(lines, `export type {listItemName(input)} = {rowType(library, fields)}`)
+				local prefix = `export type {listItemName(input)} = `
+				table.insert(lines, prefix .. rowType(library, fields, 0, #prefix))
 				table.insert(lines, "")
 			end
 		end
@@ -351,15 +372,14 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 	local header: Record = { name = value.name, contract = contractLiteral(value.contract) }
 	local editor: Record = {}
 	Read.editorNodes(value.root, "root", function(node: Node, path: string)
-		if node.hidden or node.locked then
-			local flags: Record = {}
-			if node.hidden then
-				flags.hidden = true
-			end
-			if node.locked then
-				flags.locked = true
-			end
-			editor[path] = flags
+		local input = if node.nameInput then Document.input(value, node.nameInput) else nil
+		local name = if node.nameField or (input and input.required) then node.name else nil
+		if node.hidden or node.locked or name then
+			editor[path] = {
+				hidden = if node.hidden then true else nil,
+				locked = if node.locked then true else nil,
+				name = name,
+			}
 		end
 	end)
 	if next(editor) ~= nil then
@@ -481,20 +501,35 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			end
 		end
 	end
-	local function itemType(template: Node, from: string): string?
-		local known = rowItemTypes[template.id] or listItemTypes[from]
+	local function itemType(template: Node, from: string?, provided: { Types.ItemField }?): string?
+		local known = rowItemTypes[template.id] or (if from then listItemTypes[from] else nil)
 		if known ~= nil then
 			rowItemTypes[template.id] = known
 			return known
 		end
-		local fields = fieldsOf(from)
-		if fields == nil or #fields == 0 then
+		local fields: { Types.ItemField } = {}
+		if provided ~= nil then
+			for _, field in provided do
+				table.insert(fields, field)
+			end
+		elseif from ~= nil then
+			local found = fieldsOf(from)
+			if found ~= nil then
+				for _, field in found do
+					table.insert(fields, field)
+				end
+			end
+		end
+		if #fields == 0 then
 			return nil
 		end
-		local name = unique(rowBase(template) .. "Item")
+		local name = unique(if provided then "RepeatedItem" else rowBase(template) .. "Item")
 		rowItemTypes[template.id] = name
-		listItemTypes[from] = name
-		table.insert(rowTypeLines, `type {name} = {rowType(library, fields)}`)
+		if from then
+			listItemTypes[from] = name
+		end
+		local prefix = `type {name} = `
+		table.insert(rowTypeLines, prefix .. rowType(library, fields, 0, #prefix))
 		return name
 	end
 	local function keyFunction(template: Node, bind: Types.Bind, depth: number): string
@@ -513,10 +548,10 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		end
 		return `function(row: {typed}): {keyType}\n{tabs(depth + 1)}return row.{bind.key}\n{tabs(depth)}end`
 	end
-	local function rowFunction(template: Node, depth: number, from: string): string
-		local typed = itemType(template, from)
-		local parameter = if typed then `current: {library.readable}<{typed}>` else "current"
-		table.insert(scopes, { fields = fieldsOf(from) })
+	local function rowFunction(template: Node, depth: number, from: string?, provided: { Types.ItemField }?): string
+		local typed = itemType(template, from, provided)
+		local parameter = if typed then `current: {library.rowReadable or library.readable}<{typed}>` else "current"
+		table.insert(scopes, { fields = provided or (if from then fieldsOf(from) else nil) })
 		local written
 		if not rowFunctions then
 			written = returning(parameter, emit(template, depth + 1), depth)
@@ -604,13 +639,7 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			base = "value"
 		end
 		base ..= string.upper(string.sub(key, 1, 1)) .. string.sub(key, 2)
-		local name = base
-		local suffix = 1
-		while rowNames[name] do
-			suffix += 1
-			name = base .. tostring(suffix)
-		end
-		rowNames[name] = true
+		local name = unique(base)
 		local typed = luauType
 		local bound = node.bind
 		if bound ~= nil then
@@ -668,7 +697,8 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		if current ~= nil then
 			return layout(current, depth, used)
 		elseif input then
-			return `props.{input}`
+			local path = property.path
+			return `props.{input}` .. (if path then "." .. table.concat(path, ".") else "")
 		elseif item then
 			return returning("use", `use(current).{item}`, depth)
 		elseif output then
@@ -720,19 +750,23 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		if nameField ~= nil then
 			opening = `{kind.call}(tostring(current:peek().{nameField})) `
 		elseif nameInput ~= nil then
-			opening = `{kind.call}(props.{nameInput} or {literal(node.name)}) `
+			local input = assert(Document.input(value, nameInput))
+			local fallback = if input.required then "" else ` or {literal(node.name)}`
+			opening = `{kind.call}(props.{nameInput}{fallback}) `
 		else
 			opening = `{kind.call} {literal(node.name)} `
 		end
 		local body: { string } = {}
 		local keys: { string } = {}
 		local boundTemplate = kind.children == "template" and node.bind ~= nil
-		for key in node.props do
-			local current = node.props[key].literal
+		local slot = if kind.children == "slot" then kind.slot else nil
+		for key, property in node.props do
+			local current = property.literal
 			local declared = kind.fields[key]
 			local default = if declared then declared.default else nil
 			if
 				not (boundTemplate and (key == kind.source or key == kind.key))
+				and (key ~= slot or current == nil)
 				and not (current ~= nil and default ~= nil and literal(current) == literal(default))
 			then
 				table.insert(keys, key)
@@ -750,10 +784,25 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 				Document.cellsOf(current, cells)
 			end
 			local datatype: string? = if field then field.datatype else nil
-			local written = expression(property, depth + 1, (depth + 1) * 4 + #key + 4)
+			local written: string
 			local luauType: string? = if field then field.luauType else nil
 			local bound = node.bind
 			local itemName = property.item
+			if current ~= nil and field ~= nil and field.perRow and bound ~= nil then
+				local typed = itemType(node, bound.from)
+				local parameter = if typed
+					then `current: {library.rowReadable or library.readable}<{typed}>`
+					else "current"
+				table.insert(scopes, { fields = fieldsOf(bound.from) })
+				written = returning(parameter, layout(current, depth + 2, 0), depth + 1, luauType)
+				table.remove(scopes)
+			elseif current ~= nil and datatype ~= nil then
+				written = datatypeLiteral(library, datatype, current)
+			elseif current ~= nil and type(current) == "table" and luauType and not carriesRow(current) then
+				written = hoist(node, key, luauType, current)
+			else
+				written = expression(property, depth + 1, (depth + 1) * 4 + #key + 4)
+			end
 			if itemName ~= nil and field ~= nil and field.type == "string" then
 				local enclosing = scopes[#scopes]
 				local around: { Types.ItemField } = if enclosing and enclosing.fields then enclosing.fields else {}
@@ -766,18 +815,6 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 				if not textual then
 					written = returning("use", `tostring(use(current).{itemName})`, depth + 1)
 				end
-			end
-			if current ~= nil and field ~= nil and field.perRow and bound ~= nil then
-				local typed = itemType(node, bound.from)
-				local parameter = if typed then `current: {library.readable}<{typed}>` else "current"
-				table.insert(scopes, { fields = fieldsOf(bound.from) })
-				written = returning(parameter, layout(current, depth + 2, 0), depth + 1, luauType)
-				table.remove(scopes)
-			elseif current ~= nil and datatype ~= nil then
-				written = datatypeLiteral(library, datatype, current)
-			elseif current ~= nil and type(current) == "table" and luauType and not carriesRow(current) then
-				local typeName: string = luauType
-				written = hoist(node, key, typeName, current)
 			end
 			table.insert(body, `{inner}{key} = {written},`)
 		end
@@ -813,6 +850,11 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 				for _, child in content do
 					table.insert(body, `{inner}{emit(child, depth + 1)},`)
 				end
+			elseif kind.iteration and template and bind == nil then
+				table.insert(
+					body,
+					`{inner}{templateProp} = {rowFunction(template, depth + 1, nil, kind.iteration.fields)},`
+				)
 			elseif bind and template then
 				local rowId = bind.row or template.id
 				local rowNode = template

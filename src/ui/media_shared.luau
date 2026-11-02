@@ -63,9 +63,9 @@ return function(ctx: Types.Context): Shared
 				return if present == nil then fallback else value
 			end)
 		elseif type(source) ~= "function" then
-			return if source == nil then fallback else source :: T
+			return if source == nil then fallback else source
 		end
-		local live = source :: Types.Input<T>
+		local live = source
 		return function(use: ComposeTypes.Use): T
 			local value = read<<T>>(live, use)
 			local present: unknown = value

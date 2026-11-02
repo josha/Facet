@@ -250,6 +250,8 @@ export type ToastSpec = OverlayProps.ToastSpecInput
 export type DateTimePickerProps = InputProps.DateTimePickerProps
 export type ColorPickerProps = InputProps.ColorPickerProps
 export type Controls = ControlTypes.Controls
+export type AlertBuilder = ControlTypes.AlertBuilder
+export type RadialMenuBuilder = ControlTypes.RadialMenuBuilder
 export type Host = SharedTypes.NamedHost
 export type Child = SharedTypes.Child
 export type Environment = EnvironmentTypes.Environment
@@ -361,7 +363,7 @@ export type Facet = {
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "ee44a2e5499f81790a0d495d3442f99e573bb8c9"
+local COMPOSE_COMMIT = "e3bfb56c21e4b1a284e6e918edcd0ac364d1e569"
 local USED = {
 	"boundary",
 	"cell",

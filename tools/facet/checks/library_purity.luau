@@ -255,6 +255,12 @@ local function inspection(context: Rule.Context, build: boolean): Inspection
 	}
 end
 
+local function checkModel(context: Rule.Context, model: string): { string }
+	local options = inspection(context, false)
+	options.model = model
+	return inspect(options)
+end
+
 local function printVocabulary(context: Rule.Context): number
 	local themes = context.path("examples/themes")
 	if not Files.isDirectory(themes) then
@@ -301,17 +307,13 @@ local function syntheticModel(themesSource: string, stamp: boolean): string
 	}, "\n")
 end
 
-local function withSourceCopy(test: Verify.Context, plant: (string) -> string, body: ({ string }) -> ())
-	local work = Files.temporaryDirectory("facet-purity-selftest-")
-	test:defer(function()
-		Files.remove(work)
-	end)
-	local copy = Files.join(work, "src")
-	Files.copyTree("src", copy)
-	local target = Files.join(copy, PLANT_TARGET)
-	Verify.expect(Files.isFile(target)):toBeTrueWith("the plant target src/" .. PLANT_TARGET .. " does not exist")
-	Files.write(target, plant(Files.read(target)))
-	body(inspect({ root = ".", source = copy, themes = "examples/themes", build = false }))
+local function themesText(): string
+	return Files.text(Files.join("src", PLANT_TARGET))
+end
+
+local function withSource(test: Verify.Context, plant: (string) -> string, body: ({ string }) -> ())
+	local context = Rule.fixture(test, { ["src/" .. PLANT_TARGET] = plant(themesText()) })
+	body(inspect({ root = ".", source = context.path("src"), themes = "examples/themes", build = false }))
 end
 
 local function matching(problems: { string }, fragment: string): { string }
@@ -340,10 +342,6 @@ local function afterFirstLine(source: string, line: string): string
 	return string.sub(source, 1, newline) .. line .. "\n" .. string.sub(source, newline + 1)
 end
 
-local function themesText(): string
-	return Files.text(Files.join("src", PLANT_TARGET))
-end
-
 local function register(harness: Verify.Harness, prefix: string): ()
 	harness:case(prefix .. "the library sources are clean", {
 		id = prefix .. "the library sources are clean",
@@ -356,7 +354,7 @@ local function register(harness: Verify.Harness, prefix: string): ()
 	harness:case(prefix .. "a require of a reference package in src/ bites", {
 		id = prefix .. "a require of a reference package in src/ bites",
 		run = function(test: Verify.Context): ()
-			withSourceCopy(test, function(source: string): string
+			withSource(test, function(source: string): string
 				return 'local ornate = require("../../examples/themes/fantasy_ornate")\n' .. source
 			end, function(problems: { string }): ()
 				bites(problems, "names 'fantasy_ornate' in CODE")
@@ -368,7 +366,7 @@ local function register(harness: Verify.Harness, prefix: string): ()
 	harness:case(prefix .. "a package id inside a diagnostic string bites", {
 		id = prefix .. "a package id inside a diagnostic string bites",
 		run = function(test: Verify.Context): ()
-			withSourceCopy(test, function(source: string): string
+			withSource(test, function(source: string): string
 				return afterFirstLine(source, 'local HINT = "copy the pixel-quest package and edit it"')
 			end, function(problems: { string }): ()
 				bites(problems, "names 'pixel-quest' in CODE")
@@ -380,7 +378,7 @@ local function register(harness: Verify.Harness, prefix: string): ()
 	harness:case(prefix .. "a package id inside a comment is exempt", {
 		id = prefix .. "a package id inside a comment is exempt",
 		run = function(test: Verify.Context): ()
-			withSourceCopy(test, function(source: string): string
+			withSource(test, function(source: string): string
 				return "-- measured live under fantasy-ornate at 1.5x: the frame did not move\n" .. source
 			end, function(problems: { string }): ()
 				exempt(problems, "fantasy-ornate")
@@ -399,6 +397,17 @@ local function register(harness: Verify.Harness, prefix: string): ()
 				build = false,
 			})
 			Verify.expect(#problems == 0):toBeTrueWith("the pristine model is red: " .. Rule.describe(problems))
+		end,
+	})
+	harness:case(prefix .. "a supplied model is checked without a buildable checkout", {
+		id = prefix .. "a supplied model is checked without a buildable checkout",
+		run = function(test: Verify.Context): ()
+			local context = Rule.fixture(test, {
+				["examples/themes/reference.luau"] = 'return { id = "reference-theme" }',
+				["src/init.luau"] = "return {}",
+			})
+			Verify.expect(checkModel(context, syntheticModel(themesText(), true))):toEqual({})
+			bites(checkModel(context, syntheticModel("", false)), "carries no 'facet-neutral' package stamp")
 		end,
 	})
 	harness:case(prefix .. "a second package stamp in the built model bites", {
@@ -460,12 +469,13 @@ local function register(harness: Verify.Harness, prefix: string): ()
 	})
 end
 
-local rule: Rule.Rule = {
+local rule: Rule.Rule & { checkModel: (Rule.Context, string) -> { string } } = {
 	name = "library-purity",
 	summary = "src/ and the built model name no reference theme package in code.",
 	check = function(context: Rule.Context): { string }
 		return inspect(inspection(context, true))
 	end,
+	checkModel = checkModel,
 	register = register,
 }
 

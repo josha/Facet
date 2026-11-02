@@ -193,11 +193,7 @@ local function createSchedulers(
 				return entry ~= nil and retire(entry)
 			end,
 			clear = function()
-				local live: { Entry } = {}
 				for entry in entries do
-					table.insert(live, entry)
-				end
-				for _, entry in live do
 					retire(entry)
 				end
 			end,
