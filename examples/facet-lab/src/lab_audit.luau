@@ -13,8 +13,7 @@ return function(lab: Lab, playerGui: PlayerGui, ids: { string }, options: Option
 			lab.open(id)
 		end
 		task.wait(if opts.visibleOnly then 0.02 else 0.3)
-		local root = playerGui:FindFirstChild("Facet_Lab")
-		local page = root and root:FindFirstChild(`Page_{id}`, true)
+		local page = playerGui:FindFirstChild(`Page_{id}`, true)
 		if page == nil then
 			table.insert(out, `{id}: page did not mount`)
 			continue

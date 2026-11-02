@@ -460,7 +460,7 @@ function browser.mount(opts: MountOpts)
 				gap = "xs",
 				width = (entry.state and entry.state.cellWidth) or data.cellWidth or "hug",
 				height = height or "hug",
-				UI.Text "Label" { text = entry.label, textRole = "caption" },
+				wrapped({ Name = "Label", text = entry.label, textRole = "caption" }),
 				render(page, c, overrides, `{id}C{i}`, height ~= nil, available),
 			}, available)
 		end
@@ -1502,7 +1502,9 @@ function browser.mount(opts: MountOpts)
 			app.runtime:batch(function()
 				state.top:set("catalog")
 				state.selected:set(id)
-				state.compactPath:set({ { id = "page" } })
+				if #state.compactPath:peek() == 0 then
+					state.compactPath:set({ { id = "page" } })
+				end
 			end)
 			return { ok = true, id = id }
 		end,

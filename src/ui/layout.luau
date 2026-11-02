@@ -730,7 +730,11 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			end
 		end
 		if spec.aspectRatio ~= nil then
-			layout[1] = Host.UIAspectRatioConstraint { AspectRatio = spec.aspectRatio }
+			layout[1] = Host.UIAspectRatioConstraint {
+				AspectRatio = spec.aspectRatio,
+				AspectType = E.AspectType.ScaleWithParentSize,
+				DominantAxis = E.DominantAxis.Width,
+			}
 		end
 		local native: Engine.FrameNativeProps = {
 			BorderSizePixel = 0,

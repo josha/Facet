@@ -5,7 +5,13 @@ return function(harness: Verify.Harness)
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")
 	local Geometry = require("../src/ui/diegetic_geometry")
-	local function fixture(vr: boolean?, interactive: boolean?, rigged: boolean?, retainScene: boolean?)
+	local function fixture(
+		vr: boolean?,
+		interactive: boolean?,
+		rigged: boolean?,
+		retainScene: boolean?,
+		shortcut: boolean?
+	)
 		local engine, bridge = engines.new()
 		local tracking = bridge.track()
 		local types = engine.types
@@ -41,6 +47,7 @@ return function(harness: Verify.Harness)
 			{ types = types, services = { Workspace = workspace, GuiService = gui, UserInputService = input } }
 		)
 		local presented = Facet.Compose.cell(false)
+		local displayed = Facet.Compose.cell(true)
 		local counter = Facet.Compose.cell("Same live content")
 		local scenes = 0
 		local target = engine.new("PlayerGui")
@@ -74,23 +81,29 @@ return function(harness: Verify.Harness)
 				DisplayOrder = -1,
 				Host.Frame "Gradient" { Size = types.UDim2.fromScale(1, 1) },
 			}
-			local screen =
-				Host.ScreenGui "Application" { ScreenInsets = types.Enum.ScreenInsets.CoreUISafeInsets, content }
-			local display = UI.DiegeticScreen "Presentation" {
-				layers = { screen, backing },
-				isPresented = presented,
-				scene = Room,
-				surface = types.CFrame.new(),
-				bounds = types.Vector2.new(3, 2),
-				camera = if rig then rig.camera else types.CFrame.new(0, 4, 10),
-				interactive = interactive,
-				retainScene = retainScene,
+			local screen = Host.ScreenGui "Application" {
+				ScreenInsets = types.Enum.ScreenInsets.CoreUISafeInsets,
+				content,
+				if shortcut then UI.Button "Post" { label = "Post", shortcut = { keyCode = "K" } } else nil,
 			}
-			presentation = display
+			local function Display(): Folder
+				local display = UI.DiegeticScreen "Presentation" {
+					layers = { screen, backing },
+					isPresented = presented,
+					scene = Room,
+					surface = types.CFrame.new(),
+					bounds = types.Vector2.new(3, 2),
+					camera = if rig then rig.camera else types.CFrame.new(0, 4, 10),
+					interactive = interactive,
+					retainScene = retainScene,
+				}
+				presentation = display
+				return display
+			end
 			local root = Host.Folder "Root" {
 				screen,
 				backing,
-				display,
+				Facet.Compose.show(displayed, Display),
 			}
 			mounted = root
 			return root
@@ -125,6 +138,7 @@ return function(harness: Verify.Harness)
 			original = original,
 			otherCamera = otherCamera,
 			presented = presented,
+			displayed = displayed,
 			counter = counter,
 			rig = rig,
 			step = step,
@@ -404,6 +418,26 @@ return function(harness: Verify.Harness)
 		Verify.expect(content.Parent):toBe(app)
 		Verify.expect(world.workspace.CurrentCamera):toBe(replacement)
 	end)
+	harness:case(
+		"DiegeticScreen returns its layers and input contexts when it unmounts while presented",
+		function(context)
+			local world = fixture(nil, true, nil, nil, true)
+			context:defer(world.close)
+			local app = assert(world.root:FindFirstChild("Application"))
+			local content = assert(app:FindFirstChild("Counter"))
+			local shortcut = assert(app:FindFirstChild("FacetShortcut"))
+			world.presented:set(true)
+			world.step(120)
+			Verify.expect(content:FindFirstAncestorWhichIsA("SurfaceGui") ~= nil):toBe(true)
+			Verify.expect(shortcut.Parent and shortcut.Parent:IsA("SurfaceGui")):toBe(true)
+			world.displayed:set(false)
+			world.step(1)
+			Verify.expect(content.Parent):toBe(app)
+			Verify.expect(shortcut.Parent):toBe(app)
+			Verify.expect(world.root:FindFirstChild("DiegeticCanvas", true)):toBe(nil)
+			Verify.expect(world.workspace.CurrentCamera):toBe(world.original)
+		end
+	)
 	harness:case("DiegeticScreen returns to its screen when the viewport changes", function(context)
 		local world = fixture()
 		context:defer(world.close)

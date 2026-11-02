@@ -21,7 +21,7 @@ local Sweep = {}
 
 function Sweep.failure(node: Instance): string?
 	local failure = node:GetAttribute("FacetError")
-	if type(failure) == "string" and failure ~= "" then
+	if type(failure) == "string" and failure ~= "" and not node:HasTag("facet-layout") then
 		return failure
 	end
 	if node:IsA("TextLabel") then
@@ -306,8 +306,36 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 		return node.Parent ~= nil
 	end
 	local function pageFor(id: string): any
-		local root = playerGui:FindFirstChild("Facet_Lab")
-		return root and root:FindFirstChild(`Page_{id}`, true)
+		return playerGui:FindFirstChild(`Page_{id}`, true)
+	end
+	local function liveFor(id: string): Instance?
+		local page = pageFor(id)
+		local playground = page and page:FindFirstChild("Playground")
+		return playground and playground:FindFirstChild("Live")
+	end
+	local function settledSnapshot(id: string): { string }
+		local live = liveFor(id)
+		local last = if live then Sweep.snapshot(live) else {}
+		local deadline = os.clock() + 3
+		while os.clock() < deadline do
+			wait(0.2)
+			live = liveFor(id)
+			if live == nil then
+				return {}
+			end
+			local loading = false
+			for _, node in live:GetDescendants() do
+				if (node:IsA("ImageLabel") or node:IsA("ImageButton")) and node.Image ~= "" and not node.IsLoaded then
+					loading = true
+				end
+			end
+			local current = Sweep.snapshot(live)
+			if not loading and Sweep.same(last, current) then
+				return current
+			end
+			last = current
+		end
+		return last
 	end
 	local function reveal(node: GuiObject)
 		gui.SelectedObject = nil
@@ -381,7 +409,10 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 				event.UserInputType == Enum.UserInputType.Touch
 				or event.UserInputType == Enum.UserInputType.MouseButton1
 			then
-				touchInset = Vector2.new(point.x - event.Position.X, point.y - event.Position.Y)
+				local inset = Vector2.new(point.x - event.Position.X, point.y - event.Position.Y)
+				if inset.Magnitude <= gui:GetGuiInset().Magnitude + 8 then
+					touchInset = inset
+				end
 			end
 		end)
 		local ok, err = pcall(function()
@@ -411,7 +442,11 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 		local delivered = false
 		local connections: { RBXScriptConnection } = {}
 		for _, node in playerGui:GetDescendants() do
-			if node.Name == "DismissOutside" and node:IsA("GuiButton") and shown(node) then
+			if
+				(node.Name == "DismissOutside" or node.Name == "DismissTarget")
+				and node:IsA("GuiButton")
+				and shown(node)
+			then
 				table.insert(
 					connections,
 					node.Activated:Connect(function()
@@ -593,7 +628,10 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 								lab.open(other)
 								wait(0.02)
 								lab.open(id)
-								wait(0.15)
+								local deadline = os.clock() + 2
+								repeat
+									wait(0.05)
+								until pageFor(id) ~= nil or os.clock() > deadline
 							end
 						end
 					end
@@ -619,7 +657,33 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 				local function reset(): boolean
 					local page = pageFor(id)
 					local n = page and page:FindFirstChild("Controls") and page.Controls:FindFirstChild("Reset", true)
-					return n ~= nil and press(n)
+					if n == nil then
+						return false
+					end
+					local deadline = os.clock() + 2
+					local last = n.AbsolutePosition
+					while os.clock() < deadline do
+						wait(0.05)
+						local now = n.AbsolutePosition
+						if present(n) and now == last and n.GuiState ~= Enum.GuiState.NonInteractable then
+							break
+						end
+						last = now
+					end
+					local activated = press(n)
+					frames.PreRender:Wait()
+					if pageFor(id) == page then
+						local center = n.AbsolutePosition + n.AbsoluteSize / 2
+						local top = playerGui:GetGuiObjectsAtPosition(center.X, center.Y)[1]
+						note(
+							"unsupported",
+							`Reset press: activated={activated} present={present(n)} top={if top
+								then top:GetFullName()
+								else "nil"}`
+						)
+						return false
+					end
+					return true
 				end
 				lab.open(id)
 				wait(0.25)
@@ -634,7 +698,7 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 					context:expect(#row.faults):toBe(0)
 					return
 				end
-				local baseline = first:FindFirstChild("Playground") and Sweep.snapshot(first.Playground.Live) or {}
+				local baseline = settledSnapshot(id)
 				local initial = Audit(lab, playerGui, { id }, { current = true })
 				if initial ~= "audit: clean" then
 					note("faults", initial)
@@ -791,6 +855,10 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 										reveal(target)
 										gui.SelectedObject = target
 										frames.PreRender:Wait()
+										if gui.SelectedObject ~= target then
+											note("unsupported", `selection refused: {identity}`)
+											return
+										end
 										local hits = 0
 										local connection = target.Activated:Connect(function()
 											hits += 1
@@ -809,7 +877,7 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 											note("unsupported", `Return did not activate: {identity}`)
 										end
 									end)
-									tidy("close", nil)
+									tidy("outside", nil)
 								end
 							else
 								note("disabled", identity)
@@ -859,16 +927,17 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 						end
 					end
 				end
-				attempt("final Reset", reset)
+				tidy("outside", nil)
+				local delivered = attempt("final Reset", reset) == true
 				wait(0.35)
 				local final = pageFor(id)
-				local restored = if final and final:FindFirstChild("Playground")
-					then Sweep.snapshot(final.Playground.Live)
-					else {}
+				local restored = settledSnapshot(id)
 				row.reset = final ~= nil
 					and final:FindFirstChild("Playground") ~= nil
 					and Sweep.same(baseline, restored)
-				if not row.reset then
+				if not delivered then
+					note("unsupported", "final Reset was not delivered")
+				elseif not row.reset then
 					row.resetDifferences = Sweep.difference(baseline, restored)
 					note("faults", "Reset structural snapshot differs")
 				end

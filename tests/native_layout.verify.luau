@@ -2300,6 +2300,20 @@ return function(verifyHarness: Verify.Harness)
 		end)
 
 		describe("Grid", function()
+			it("sets the cell height from the cell width when an aspect ratio is given", {
+				id = "native_layout::Grid::sets the cell height from the cell width when an aspect ratio is given",
+				run = function()
+					local root, engine, stop = build(nil, function(UI, Host)
+						return UI.Grid "Board" { columns = 4, aspectRatio = 1, Host.Frame { Name = "A" } }
+					end)
+					local E = engine.types.Enum
+					local ratio = child(child(root, "UIGridLayout"), "UIAspectRatioConstraint")
+					expect(ratio.AspectRatio):toBe(1)
+					expect(ratio.AspectType):toBe(E.AspectType.ScaleWithParentSize)
+					expect(ratio.DominantAxis):toBe(E.DominantAxis.Width)
+					stop()
+				end,
+			})
 			it("fills columns first with flow column and follows the child count", {
 				id = "native_layout::Grid::fills columns first with flow column and follows the child count",
 				run = function()
