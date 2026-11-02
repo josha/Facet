@@ -563,7 +563,7 @@ return function(verifyHarness: Verify.Harness)
 						onActivate = function()
 							activated += 1
 						end,
-						[Compose.event("MouseEnter")] = function()
+						MouseEnter = function()
 							nativeEvent += 1
 						end,
 					}

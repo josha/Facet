@@ -2,6 +2,7 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
+	type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
@@ -358,7 +359,7 @@ return function(verifyHarness: Verify.Harness)
 										return UI.Text "TwoBody" { text = "Two" }
 									end,
 								},
-							},
+							} :: { Tab },
 						},
 					}
 				end)
@@ -489,7 +490,7 @@ return function(verifyHarness: Verify.Harness)
 					local binding = engine.new("InputBinding")
 					binding.KeyCode = engine.types.Enum.KeyCode.E
 					engine.environment.poke(boost, "PreferredBinding", binding)
-					local plate = UI.HStack "Plate" { UI.ShortcutHint "Cap" { action = boost } }
+					local plate = UI.HStack "Plate" { UI.ShortcutHint "Cap" { action = boost :: InputAction } }
 					plate:AddTag("facet-accent")
 					return UI.HStack {
 						UI.Button "Race" {

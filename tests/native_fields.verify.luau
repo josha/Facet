@@ -356,7 +356,7 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	describe("native field accessories", function()
-		local function accessories(pasted: { count: number }, value: any): any
+		local function accessories(pasted: { count: number }, value: Compose.Value<string>): any
 			return world(function(UI: FacetControls, _, runtime)
 				return UI.TextInput "Name" {
 					value = value,
@@ -698,7 +698,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::readOnly refuses anything but a boolean",
 			run = function()
 				expect(refused(function(UI: FacetControls)
-					return UI.TextInput "Name" { value = Compose.cell(""), readOnly = "yes" :: any }
+					return UI.TextInput "Name"({ value = Compose.cell(""), readOnly = "yes" } :: any)
 				end) ~= nil):toBe(true)
 			end,
 		})
@@ -737,7 +737,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				for _, word in { "everything", 1 :: any } do
 					local err = refused(function(UI: FacetControls)
-						return UI.TextInput "Name" { value = Compose.cell(""), selectOnFocus = word :: any }
+						return UI.TextInput "Name"({ value = Compose.cell(""), selectOnFocus = word } :: any)
 					end)
 					expect(`{tostring(word)} {err ~= nil}`):toBe(`{tostring(word)} true`)
 				end

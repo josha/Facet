@@ -6,6 +6,7 @@ return function(verifyHarness: Verify.Harness)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type CivilDate = typeof(require("@repo/tools/typecheck/aliases").CivilDate)
+	type DateRangePreset = typeof(require("@repo/tools/typecheck/aliases").DateRangePreset)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 	local Compose = require("../src/vendor/compose/core")
@@ -1015,7 +1016,7 @@ return function(verifyHarness: Verify.Harness)
 											return { start = start, finish = civil.addDays(start, 6) }
 										end,
 									},
-								},
+								} :: { DateRangePreset },
 							},
 						}
 					end, { input = "touch" })

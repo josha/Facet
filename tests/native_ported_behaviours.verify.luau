@@ -2,6 +2,7 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
+	type Step = typeof(require("@repo/tools/typecheck/aliases").Step)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
@@ -389,7 +390,7 @@ return function(verifyHarness: Verify.Harness)
 						steps = {
 							{ id = "a", label = "Cart" },
 							{ id = "b", label = "Ship", description = "Address and speed of delivery for the order" },
-						},
+						} :: { Step },
 						current = "a",
 						sizing = "fill",
 					}

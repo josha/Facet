@@ -6,6 +6,7 @@ local Bdd = require("../tools/vendor/verify/src/bdd")
 return function(verifyHarness: Verify.Harness)
 	local test = Bdd.create(verifyHarness)
 	local describe, it, expect = test.describe, test.it, test.expect
+	type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -213,7 +214,7 @@ return function(verifyHarness: Verify.Harness)
 									table.insert(pressed, "Retry")
 								end,
 							},
-						},
+						} :: { OverlayAction },
 					}
 				end)
 				local notice = w.find("Sync")
@@ -284,7 +285,7 @@ return function(verifyHarness: Verify.Harness)
 									pressed += 1
 								end,
 							},
-						},
+						} :: { OverlayAction },
 					}
 				end)
 				local retry = w.find("Retry")

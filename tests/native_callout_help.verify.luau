@@ -11,6 +11,7 @@ return function(verifyHarness: Verify.Harness)
 	local describe, it, expect = test.describe, test.it, test.expect
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+	type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 
 	local materialize = require("./lib/materialize")
 	local fadeKit = require("./lib/fade")
@@ -343,7 +344,7 @@ return function(verifyHarness: Verify.Harness)
 												error("caller bug after rearm")
 											end,
 										},
-									},
+									} :: { OverlayAction },
 									onRetire = function(
 										reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway"
 									)
