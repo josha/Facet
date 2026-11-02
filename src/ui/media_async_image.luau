@@ -8,7 +8,7 @@ local MediaProps = require("./media_props")
 local MediaShared = require("./media_shared")
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShared.Shared)
-	local Host, runtime, Compose = ctx.Host, ctx.runtime, ctx.Compose
+	local Host, Compose = ctx.Host, ctx.Compose
 	local types, read = ctx.types, ctx.read
 	local E, D2 = types.Enum, types.UDim2
 	local bind = shared.bind
@@ -16,7 +16,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		local state = Compose.cell<<Media.ImageState>>("loading")
 		local loaded = Compose.cell("")
 		local failure = Compose.cell<<unknown>>(nil)
-		local root = Host.Frame(ctx.props(spec, {
+		local rootOptions = ctx.props(spec, {
 			"image",
 			"source",
 			"resource",
@@ -26,7 +26,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			"placeholder",
 			"dimmed",
 			"imageProperties",
-		}, { BackgroundTransparency = 1, Size = D2.fromOffset(48, 48) }))
+		}, { BackgroundTransparency = 1, Size = D2.fromOffset(48, 48) })
 		local imageProperties: Engine.ImageLabelProps = spec.imageProperties or {}
 		local imageOptions: Engine.ImageLabelProps = ctx.props(imageProperties, {}, {
 			Name = "Image",
@@ -41,36 +41,33 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			end,
 		})
 		local image = Host.ImageLabel(imageOptions)
-		runtime.mount(function()
-			return image
-		end, root)
-		runtime.mount(function()
-			local placeholder: Engine.FrameProps = {
-				Name = "Placeholder",
-				Size = D2.fromScale(1, 1),
-				BackgroundTransparency = if spec.placeholder then 1 else 0,
-				Visible = function(use: ComposeTypes.Use)
-					return use(state) ~= "ready"
-				end,
-			}
-			local custom = spec.placeholder
-			if custom then
-				placeholder[#placeholder + 1] = Compose.show(function(use: ComposeTypes.Use)
-					return use(state) ~= "ready"
-				end, function()
-					return custom(state)
-				end)
-			end
-			if spec.failureLabel ~= nil then
-				placeholder[#placeholder + 1] = Compose.show(function(use: ComposeTypes.Use)
-					return use(state) == "failed"
-				end, function()
-					return ctx.text({ Text = bind<<string>>(spec.failureLabel, ""), Size = D2.fromScale(1, 1) })
-				end)
-			end
-			local node = Host.Frame(placeholder)
-			return if spec.placeholder then node else ctx.styled(node, "skeleton")
-		end, root)
+		local placeholder: Engine.FrameProps = {
+			Name = "Placeholder",
+			Size = D2.fromScale(1, 1),
+			BackgroundTransparency = if spec.placeholder then 1 else 0,
+			Visible = function(use: ComposeTypes.Use)
+				return use(state) ~= "ready"
+			end,
+		}
+		local custom = spec.placeholder
+		if custom then
+			placeholder[#placeholder + 1] = Compose.show(function(use: ComposeTypes.Use)
+				return use(state) ~= "ready"
+			end, function()
+				return custom(state)
+			end)
+		end
+		if spec.failureLabel ~= nil then
+			placeholder[#placeholder + 1] = Compose.show(function(use: ComposeTypes.Use)
+				return use(state) == "failed"
+			end, function()
+				return ctx.text({ Text = bind<<string>>(spec.failureLabel, ""), Size = D2.fromScale(1, 1) })
+			end)
+		end
+		local node = Host.Frame(placeholder)
+		rootOptions[#rootOptions + 1] = image
+		rootOptions[#rootOptions + 1] = if spec.placeholder then node else ctx.styled(node, "skeleton")
+		local root = Host.Frame(rootOptions)
 		local generation, cancel: (() -> ())? = 0, nil
 		Compose.cleanup(function()
 			generation += 1
