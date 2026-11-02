@@ -455,86 +455,16 @@ return function(ctx: Types.Context): Drag.Service
 			end
 		end)
 	end
-	local function releaseFeedbackGhost(session: Drag.Session, accepted: boolean?)
-		local ghost = session.ghost
-		if not ghost then
-			return
-		end
-		local function destroy()
-			if session.stopPreview then
-				session.stopPreview()
-			end
-			ghost:Destroy()
-		end
-		local gui = ctx.config.guiService
-		local reduced = motion.resolve(
-			ctx.read(ctx.config.motionLevel),
-			gui ~= nil and gui.ReducedMotionEnabled == true
-		) ~= "normal"
-		if reduced or (not accepted and not available(session.source)) or not ghost.Parent then
-			destroy()
-			return
-		end
-		local point = if session.spec.returnPosition
-			then session.spec.returnPosition()
-			elseif session.source:IsA("GuiObject") then session.source.AbsolutePosition
-				+ session.source.AbsoluteSize / 2
-			else session.origin
-		point = (point or session.origin)
-			- session.pickupSize / 2
-			+ ghost.AnchorPoint
-				* (assert(session.previewSize) / (session.liftScale or session.spec.previewScale or 1))
-		local from, goal = ghost.Position, localPoint(ghost, point)
-		local scale: UIScale?
-		local stopScale: (() -> ())?
-		local originalScale = 1
-		if accepted or session.spec.previewScale ~= nil then
-			scale = ghost:FindFirstChildWhichIsA("UIScale")
-			if not scale then
-				stopScale, scale = heldScale(ghost, 1)
-			end
-			originalScale = assert(scale).Scale
-		end
-		local stopMotion: (() -> ())?
-		local stopped = false
-		local function stop()
-			if stopped then
-				return
-			end
-			stopped = true
-			returning[session.source] = nil
-			if stopMotion then
-				stopMotion()
-			end
-			if stopScale then
-				stopScale()
-			end
-			destroy()
-		end
-		returning[session.source] = stop
-		stopMotion = travel(ctx, assert(ghost.Parent), function(progress)
-			if scale then
-				scale.Scale = if accepted
-					then originalScale * (1 - progress)
-					else originalScale
-						* (1 + (1 / (session.liftScale or session.spec.previewScale or 1) - 1) * progress)
-				if not accepted then
-					ghost.Position = from:Lerp(goal, progress)
-				end
-			else
-				ghost.Position = from:Lerp(goal, progress)
-			end
-		end, stop)
-	end
 	local function releaseGhost(session: Drag.Session, accepted: boolean?, complete: () -> ())
-		if not session.spec.returnTravel and not session.travelled then
+		local waits = session.spec.returnTravel or session.travelled
+		if not waits then
 			complete()
-			releaseFeedbackGhost(session, accepted)
-			return
 		end
 		local ghost = session.ghost
 		if not ghost then
-			complete()
+			if waits then
+				complete()
+			end
 			return
 		end
 		local function destroy()
@@ -542,7 +472,9 @@ return function(ctx: Types.Context): Drag.Service
 				session.stopPreview()
 			end
 			ghost:Destroy()
-			complete()
+			if waits then
+				complete()
+			end
 		end
 		local gui = ctx.config.guiService
 		local reduced = motion.resolve(
@@ -551,7 +483,7 @@ return function(ctx: Types.Context): Drag.Service
 		) ~= "normal"
 		if
 			reduced
-			or (session.travelled and accepted)
+			or (waits and session.travelled and accepted)
 			or (not accepted and not available(session.source))
 			or not ghost.Parent
 		then
