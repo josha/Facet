@@ -3781,7 +3781,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 							return r.id ~= "1"
 						end,
 						onDelete = function(keys)
-							local gone, kept = {}, {}
+							local gone: { [string]: boolean } = {}
+							local kept = {}
 							for _, key in keys do
 								gone[key] = true
 							end
@@ -4013,7 +4014,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						deletable = true,
 						editing = c.cell("listEditing", false),
 						onDelete = function(keys)
-							local gone, kept = {}, {}
+							local gone: { [string]: boolean } = {}
+							local kept = {}
 							for _, key in keys do
 								gone[key] = true
 							end
@@ -5262,7 +5264,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			local room = p.room or "fill"
 			local captions = p.captions == true
 			p.room, p.captions = nil, nil
-			local forms, names = {}, {}
+			local forms: { Value<number> } = {}
+			local names: { string } = {}
 			local function region(name: string, zone, rank, mayDrop, ...)
 				local form = c.cell("form" .. name, 1)
 				table.insert(forms, form)

@@ -10,6 +10,8 @@ type WorkloadsModule = typeof(require("./workloads"))
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type StringReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").StringReadOnlyValue)
 type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
+type NumberMapCell = typeof(require("@repo/tools/typecheck/aliases").NumberMapCell)
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
@@ -329,7 +331,9 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 						end
 					end
 				elseif item.workload == "variable-extents" or item.workload == "edit-locality" then
-					local rows, extents, values = Compose.cell(data), Compose.cell({}), {}
+					local extents: NumberMapCell = Compose.cell({})
+					local values: { [string]: StringCell } = {}
+					local rows = Compose.cell(data)
 					for _, row in data do
 						values[row.id] = Compose.cell(row.name)
 					end

@@ -825,10 +825,10 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 						visit(section, false, nil, true)
 						local page = pageFor(id)
 						local group = page and page:FindFirstChild(section)
-						local collections = {}
+						local collections: { ScrollingFrame } = {}
 						for _, node in if group then group:GetDescendants() else {} do
 							if node:IsA("ScrollingFrame") and node:HasTag("facet-collection") then
-								table.insert(collections, node :: ScrollingFrame)
+								table.insert(collections, node)
 							end
 						end
 						if #collections == 0 then

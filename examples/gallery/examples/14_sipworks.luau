@@ -96,7 +96,7 @@ return {
 						label = "Brewing notes",
 						expanded = C.cell(false),
 						content = function(): Instance
-							local rows = {
+							local rows: { Child } = {
 								view.text(
 									"SteepTime",
 									`Steep for {catalog.steepMinutes(blend.id)} minutes.`,
@@ -193,12 +193,13 @@ return {
 			local visible = C.formula(function(use: Use)
 				use(model.favorites.set)
 				local found = {}
+				local function shownName(_kind: string, _id: string, name: string): string
+					return name
+				end
 				for _, blend in catalog.blends do
 					if
 						belongs(blend, category)
-						and catalog.matches(blend.id, use(query), function(_, _, name)
-							return name
-						end)
+						and catalog.matches(blend.id, use(query), shownName)
 					then
 						table.insert(found, blend)
 					end

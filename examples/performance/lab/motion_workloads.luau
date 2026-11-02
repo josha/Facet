@@ -8,6 +8,7 @@ type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
+type Chip = { id: string, name: string }
 type Record = { id: string, index: number }
 local noRecord: Record? = nil
 local motion = {}
@@ -88,7 +89,7 @@ function motion.create(ctx: Context, name: string, _dataset)
 		end
 	end
 	if name == "dense-motion" or name == "dense-motion-churn" then
-		local items = table.create(600)
+		local items: { Chip } = {}
 		for index = 1, 600 do
 			items[index] = { id = `chip{index}`, name = `Racer {index}` }
 		end
@@ -140,7 +141,7 @@ function motion.create(ctx: Context, name: string, _dataset)
 			local height = math.max(120, math.floor(ctx.viewport.h * 0.5))
 			state.list = UI.VirtualList "Roster" {
 				from = rows,
-				key = function(item)
+				key = function(item: Chip)
 					return item.id
 				end,
 				itemSize = 44,

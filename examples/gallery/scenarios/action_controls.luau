@@ -394,13 +394,14 @@ return {
 					status:set("Time trial started.")
 				end,
 			}
+			local raceModes: { StringMenuItem } = { practice, timeTrial }
 			local split = UI.SplitButton "Split" {
 				label = "Start race",
 				enabled = enabled,
 				onActivate = function()
 					status:set("Race started.")
 				end,
-				items = { practice, timeTrial },
+				items = raceModes,
 			}
 			local actions: { AlertAction } = {
 				{

@@ -11,6 +11,12 @@ local QUALITY = "headless (no engine render; property writes only)"
 local HEADLESS_NOTE = "Headless Lute timing is trend screening only — NOT an authoritative device result (§14.3). "
 	.. "deviceMeasurement is the empty slot a real on-device capture fills."
 
+type DeviceRow = {
+	evidenceClass: string,
+	scene: string,
+	metrics: { frameWorkMs: { measured: boolean?, p95_ms: number? }? }?,
+}
+
 type EvidenceClass = {
 	id: string,
 	level: string,
@@ -587,7 +593,7 @@ function perf_runner.checkBudgets(report: any, budgets: any, referenceTiming: bo
 	end
 
 	for className, budget in (budgets.deviceBudgets or {}) do
-		local rows = {}
+		local rows: { DeviceRow } = {}
 		for _, r in report.runs do
 			if r.evidenceClass == className then
 				table.insert(rows, r)
