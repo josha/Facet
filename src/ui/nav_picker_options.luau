@@ -24,7 +24,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 	local layoutWidth, sideChrome, wrapCaptions = shared.layoutWidth, shared.sideChrome, shared.wrapCaptions
 	local function slideSelection(
 		picker: GuiObject,
-		probe: Frame,
 		boxes: {
 			[GuiObject]: {
 				order: ComposeTypes.ReadOnlyValue<number>,
@@ -54,11 +53,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local sliding = runtime.spring(function(use: ComposeTypes.Use)
 			return use(currentOrder)
 		end, { period = spring.period, damping = spring.damping, tolerance = 1e-3, reducedMotion = landsWithStrip })
+		local probe: Frame? = nil
 		local _, slot = runtime.mount(function()
-			return Host.Folder "Slide" {}
+			probe = Host.Frame "SlideUnit" { Size = D2.fromOffset(1, 1), Visible = false }
+			return Host.Folder "Slide" { probe }
 		end, picker)
-		local unit = ctx.observe.AbsoluteSize(probe)
-		local content = ctx.observe.AbsolutePosition(probe)
+		local unit = ctx.observe.AbsoluteSize(assert(probe))
+		local content = ctx.observe.AbsolutePosition(assert(probe))
 		local function rectAt(use: ComposeTypes.Use, order: number): (Vector2?, Vector2?)
 			local scale = use(unit).X
 			scale = if scale > 0 then scale else 1
@@ -702,18 +703,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		else
 			picker = Host.Frame(p)
 		end
-		local width, probe = layoutWidth(picker)
 		local overflows: ComposeTypes.ReadOnlyValue<boolean>? = nil
 		if scrolls then
 			local scroller = picker :: ScrollingFrame
 			scrollLock.own(scroller, ctx)
 			local layout = assert(picker:FindFirstChildWhichIsA("UIListLayout", true))
 			local extent = ctx.observe.AbsoluteContentSize(layout)
-			local unit = ctx.observe.AbsoluteSize(probe)
+			local unit = ctx.layoutUnit(picker)
 			local window = ctx.observe.AbsoluteWindowSize(scroller)
 			local base = p.Size
 			local function scaleOf(use: ComposeTypes.Use): number
-				local scale = use(unit).X
+				local scale = use(unit)
 				return if scale > 0 then scale else 1
 			end
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -813,6 +813,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			return root
 		end
 		if not labelled then
+			local width = layoutWidth(picker)
 			Compose.watch(function(use: ComposeTypes.Use)
 				room:set(use(width))
 			end)
@@ -820,13 +821,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		if style == "segmented" then
 			picker:AddTag("facet-segmented")
 			if spec.multiple ~= true then
-				slideSelection(
-					picker,
-					probe,
-					segmentBoxes,
-					currentOrder,
-					(spec.indicator :: unknown) :: Types.Input<string>?
-				)
+				slideSelection(picker, segmentBoxes, currentOrder, (spec.indicator :: unknown) :: Types.Input<string>?)
 			end
 			surfaces.attach(picker, {
 				Host.UISizeConstraint "TargetFloor" {

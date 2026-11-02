@@ -13,7 +13,7 @@ export type Parts = {
 	keys: { string },
 	appearanceFor: (style: Nav.PickerStyle, word: unknown) -> string?,
 	derive: <T>(compute: (ComposeTypes.Use?) -> T, ...unknown) -> Types.Input<T>,
-	layoutWidth: (node: GuiObject) -> (ComposeTypes.ReadOnlyValue<number>, Frame),
+	layoutWidth: (node: GuiObject) -> ComposeTypes.ReadOnlyValue<number>,
 	wrapWhenLong: (
 		label: TextLabel | TextButton,
 		space: (ComposeTypes.Use) -> string,
@@ -42,7 +42,7 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 		end
 		return compute(nil)
 	end
-	local function layoutWidth(node: GuiObject): (ComposeTypes.ReadOnlyValue<number>, Frame)
+	local function layoutWidth(node: GuiObject): ComposeTypes.ReadOnlyValue<number>
 		local extent = ctx.observe.AbsoluteSize(node)
 		local probe: Frame? = nil
 		ctx.runtime.mount(function()
@@ -54,8 +54,7 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 			local unit = use(pixel).X
 			local width = use(extent).X / (if unit > 0 then unit else 1)
 			return if width > 0 then width else math.huge
-		end),
-			assert(probe)
+		end)
 	end
 
 	local function wrapWhenLong(
