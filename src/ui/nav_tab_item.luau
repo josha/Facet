@@ -54,6 +54,13 @@ return function(
 		): Instance
 			local tab = current:peek()
 			local topIndicator: Frame? = nil
+			local function spread(use: ComposeTypes.Use): boolean
+				return string.find(use(placement), "bottom") ~= nil and (stacked(use) or (fit and not use(crowded)))
+			end
+			local rowed = next(sectionLabels) ~= nil
+			local function share(use: ComposeTypes.Use, height: number): UDim2
+				return D2.new(1 / math.max(1, #use(visibleTabs)), -4, 0, height)
+			end
 			local button = UI.Button {
 				Name = tab.id,
 				controlSize = spec.controlSize,
@@ -84,15 +91,13 @@ return function(
 				Size = function(use: ComposeTypes.Use)
 					local place = use(placement)
 					local height = tabHeight(use)
-					if string.find(place, "bottom") ~= nil and (stacked(use) or (fit and not use(crowded))) then
-						return D2.new(1 / math.max(1, #use(visibleTabs)), -4, 0, height)
+					if spread(use) then
+						return if rowed then D2.new(1, 0, 0, height) else share(use, height)
 					end
 					return if place == "sidebar" then D2.new(1, 0, 0, height) else D2.fromOffset(0, height)
 				end,
 				AutomaticSize = function(use: ComposeTypes.Use)
-					local place = use(placement)
-					return if place == "sidebar"
-							or (string.find(place, "bottom") ~= nil and (stacked(use) or (fit and not use(crowded))))
+					return if use(placement) == "sidebar" or spread(use)
 						then E.AutomaticSize.None
 						else E.AutomaticSize.X
 				end,
@@ -263,7 +268,7 @@ return function(
 						if stacked(use) then
 							return D2.new(1, 0, 0, labelLine(use))
 						end
-						if string.find(use(placement), "bottom") then
+						if spread(use) then
 							local unit = use(layoutUnit)
 							local room = use(contentWidth).X / unit
 								- ctx.controlSize(spec.controlSize, "iconSize", use)
@@ -277,9 +282,7 @@ return function(
 						return D2.fromOffset(0, 0)
 					end,
 					AutomaticSize = function(use: ComposeTypes.Use)
-						return if string.find(use(placement), "bottom")
-							then E.AutomaticSize.None
-							else E.AutomaticSize.XY
+						return if spread(use) then E.AutomaticSize.None else E.AutomaticSize.XY
 					end,
 					TextXAlignment = E.TextXAlignment.Center,
 					TextWrapped = false,
@@ -606,10 +609,16 @@ return function(
 					Name = "TabRow-" .. tab.id,
 					LayoutOrder = index,
 					Size = function(use: ComposeTypes.Use)
-						return if use(placement) == "sidebar" then D2.new(1, 0, 0, 0) else D2.fromOffset(0, band(use))
+						return if use(placement) == "sidebar"
+							then D2.new(1, 0, 0, 0)
+							elseif spread(use) then share(use, band(use))
+							else D2.fromOffset(0, band(use))
 					end,
 					AutomaticSize = function(use: ComposeTypes.Use)
-						return if use(placement) == "sidebar" then E.AutomaticSize.Y else E.AutomaticSize.X
+						return if use(placement) == "sidebar"
+							then E.AutomaticSize.Y
+							elseif spread(use) then E.AutomaticSize.None
+							else E.AutomaticSize.X
 					end,
 				})
 			end

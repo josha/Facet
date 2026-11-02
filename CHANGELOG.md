@@ -1,5 +1,15 @@
 # Current package
 
+A `DiegeticScreen` that unmounts while it is presented returns its layers and
+their input contexts to the screen. Before, the app UI was destroyed with the
+display surface.
+
+A bottom tab bar with a fixed `textSize`, or with `sections`, shows its tab
+titles. Before, the title of each tab could have zero width.
+
+A row copied into its own reorderable collection no longer stops the drag with
+an error when the pointer is past the last row.
+
 Named control builders type-check again in strict consumer code. A named call
 such as `UI.Menu "Commands"` returns a generic builder, descriptor fields such
 as `DialogAction` and `SheetDetent` are read-only, and `Facet.RadialMenuBuilder`

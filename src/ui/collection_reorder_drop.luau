@@ -195,7 +195,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		local move = moving:peek()
 		local insertion = info.insertion
 		if move and not move.keyboard and insertion then
-			move.slot:set(insertion.slot)
+			move.slot:set(math.clamp(insertion.slot, 0, #move.remaining))
 		end
 		shared.place(accepted)
 		if update then

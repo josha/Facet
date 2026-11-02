@@ -4363,6 +4363,60 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("keeps the moving preview in range while a row is copied into its own list", {
+			id = "native_collections::Compose native collections::keeps the moving preview in range while a row is copied into its own list",
+			run = function()
+				local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+				local E, V3 = engine.types.Enum, engine.types.Vector3
+				local slots: { number } = {}
+				local stop, node: any = runtime.mount(function()
+					local listSpec: FixtureCollectionProps.KeyedCollectionSpec<Record, number> = {
+						from = records(10),
+						key = key,
+						itemSize = 20,
+						reorderable = true,
+						onReorder = function() end,
+						collectionId = "copies",
+						drag = function(items: { Record }, keys: { number }): FixtureEnvironmentTypes.DraggableSpec
+							return {
+								payload = { items = items, keys = keys, collection = "copies" },
+								operations = { "copy" } :: { "copy" | "move" | "apply" },
+							}
+						end,
+						drop = {
+							operation = "copy" :: "copy",
+							onDrop = function(_: unknown, info: FixtureEnvironmentTypes.DropInfo): boolean
+								table.insert(slots, assert(info.insertion).slot)
+								return true
+							end,
+						},
+						render = function(current): GuiObject
+							return button(UI, current)
+						end,
+					}
+					return UI.VirtualList(listSpec)
+				end, target)
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", engine.types.Vector2.new(200, 200))
+				nativeDrag.measure(node, engine.environment)
+				nativeDrag.press(node:FindFirstChild("1", true):FindFirstChild("Action", true), {
+					UserInputType = E.UserInputType.MouseButton1,
+					Position = V3.new(50, 10, 0),
+				})
+				nativeDrag.move(ctx.config.userInputService, {
+					UserInputType = E.UserInputType.MouseMovement,
+					Position = V3.new(50, 198, 0),
+				})
+				engine.heartbeat:Fire(1 / 60)
+				nativeDrag.finish(ctx.config.userInputService, {
+					UserInputType = E.UserInputType.MouseButton1,
+					Position = V3.new(50, 198, 0),
+				})
+				expect(slots):toEqual({ 10 })
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		it("hands edge autoscroll to the enclosing scroller once the list can travel no further", {
 			id = "native_collections::Compose native collections::hands edge autoscroll to the enclosing scroller once the list can travel no further",
 			run = function()

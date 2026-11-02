@@ -503,6 +503,57 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps the title of a hugging bottom tab at its natural width", {
+			id = "native_content_navigation::native content navigation deltas::keeps the title of a hugging bottom tab at its natural width",
+			run = function()
+				local world = worlds.new(function(UI, Host)
+					local tabs = tabList(Host)
+					for _, tab in tabs do
+						tab.icon = "settings"
+					end
+					return UI.TabView {
+						selection = Compose.cell("home"),
+						placement = "bottomBar" :: "bottomBar",
+						textSize = 12,
+						tabs = tabs,
+					}
+				end, { motionLevel = "none" })
+				local feed = world.find("feed", world.find("Tabs"))
+				local title = assert(feed:FindFirstChild("Title", true)) :: TextLabel
+				Verify.expect(feed.AutomaticSize.Name):toBe("X")
+				Verify.expect(title.AutomaticSize.Name):toBe("XY")
+				Verify.expect(title.Size.X.Offset):toBe(0)
+				world.stop()
+			end,
+		})
+
+		verifyHarness:case("gives each sectioned bottom tab row its share of the bar", {
+			id = "native_content_navigation::native content navigation deltas::gives each sectioned bottom tab row its share of the bar",
+			run = function()
+				local world = worlds.new(function(UI, Host)
+					local tabs = tabList(Host)
+					for _, tab in tabs do
+						tab.icon = "settings"
+						tab.section = "main"
+					end
+					return UI.TabView {
+						selection = Compose.cell("home"),
+						placement = "bottomBar" :: "bottomBar",
+						sections = { { id = "main", label = "Main" } },
+						tabs = tabs,
+					}
+				end, { motionLevel = "none" })
+				local tabs = world.find("Tabs")
+				local row = world.find("TabRow-feed", tabs)
+				local feed = world.find("feed", row)
+				Verify.expect(row.Size.X.Scale):toBeCloseTo(1 / 3, 1e-6)
+				Verify.expect(row.AutomaticSize.Name):toBe("None")
+				Verify.expect(feed.Size.X.Scale):toBe(1)
+				Verify.expect(feed.AutomaticSize.Name):toBe("None")
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case(
 			"widens a sidebar rail by a skinned theme's content insets so a tab label is not truncated",
 			{

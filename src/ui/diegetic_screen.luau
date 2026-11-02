@@ -64,6 +64,13 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 					end
 				end
 			end
+			if screen then
+				for _, child in screen:GetChildren() do
+					if child:IsA("InputContext") then
+						child.Parent = spec.layers[1]
+					end
+				end
+			end
 		end
 		local function restoreCameras()
 			ownsCamera = false
@@ -108,6 +115,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 					Size = D2.fromOffset(area.Width, area.Height),
 					Visible = ctx.observe.Enabled(source),
 				}
+				Compose.cleanup(restore)
 				local layer: Layer = { source = source, slot = slot, children = {} }
 				known[source] = layer
 				table.insert(layers, layer)

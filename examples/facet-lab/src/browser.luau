@@ -460,7 +460,7 @@ function browser.mount(opts: MountOpts)
 				gap = "xs",
 				width = (entry.state and entry.state.cellWidth) or data.cellWidth or "hug",
 				height = height or "hug",
-				UI.Text "Label" { text = entry.label, textRole = "caption" },
+				wrapped({ Name = "Label", text = entry.label, textRole = "caption" }),
 				render(page, c, overrides, `{id}C{i}`, height ~= nil, available),
 			}, available)
 		end
