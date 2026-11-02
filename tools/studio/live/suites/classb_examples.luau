@@ -1,4 +1,7 @@
 --!strict
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local overlap = support.overlap
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -18,19 +21,7 @@ type KeyInput = {
 	SendTextInput: (KeyInput, string) -> (),
 }
 
-type Case = {
-	id: string,
-	contracts: { string },
-	run: ((any) -> ())?,
-	setup: ((any) -> any)?,
-	steps: { [string]: (any, any) -> () }?,
-	keepGallery: boolean?,
-}
-local cases: { Case } = {}
-
-local function add(id: string, contracts: { string }, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = contracts, run = run })
-end
+local cases, add = suite.new()
 
 local OFFSETS = { 0, 4, 10, 14 }
 
@@ -118,12 +109,6 @@ add("consumer-blurb-grows-with-text-size", {}, function(t)
 		last = height
 	end
 end)
-
-local function overlap(a: any, b: any): boolean
-	local w = math.min(a.r, b.r) - math.max(a.x, b.x)
-	local h = math.min(a.b, b.b) - math.max(a.y, b.y)
-	return w > 0.5 and h > 0.5
-end
 
 add("word-board-holds-glyphs-at-every-text-size", {}, function(t)
 	local phone = Vector2.new(390, 844)

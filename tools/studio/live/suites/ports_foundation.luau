@@ -1,4 +1,8 @@
 --!strict
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local selectedName = support.selectedName
+local overlap = support.overlap
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -10,19 +14,7 @@ type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
-type Case = {
-	id: string,
-	contracts: { string },
-	run: ((any) -> ())?,
-	setup: ((any) -> any)?,
-	steps: { [string]: (any, any) -> () }?,
-	keepGallery: boolean?,
-}
-local cases: { Case } = {}
-
-local function add(id: string, contracts: { string }, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = contracts, run = run })
-end
+local cases, add = suite.new()
 
 local function interactive(
 	id: string,
@@ -81,17 +73,6 @@ local function styled(node: any, property: string): any
 		return value
 	end
 	return node[property]
-end
-
-local function selectedName(): string
-	local selected = GuiService.SelectedObject
-	return if selected then selected.Name else "nil"
-end
-
-local function overlap(a: any, b: any): boolean
-	local w = math.min(a.r, b.r) - math.max(a.x, b.x)
-	local h = math.min(a.b, b.b) - math.max(a.y, b.y)
-	return w > 0.5 and h > 0.5
 end
 
 local function point(node: any): { number }

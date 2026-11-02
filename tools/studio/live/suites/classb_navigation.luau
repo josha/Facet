@@ -1,4 +1,5 @@
 --!strict
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
@@ -22,19 +23,7 @@ type ProgressViewProps = typeof(require("@repo/tools/typecheck/aliases").Progres
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 
-type Case = {
-	id: string,
-	contracts: { string },
-	run: ((any) -> ())?,
-	setup: ((any) -> any)?,
-	steps: { [string]: (any, any) -> () }?,
-	keepGallery: boolean?,
-}
-local cases: { Case } = {}
-
-local function add(id: string, contracts: { string }, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = contracts, run = run })
-end
+local cases, add = suite.new()
 
 local function interactive(
 	id: string,

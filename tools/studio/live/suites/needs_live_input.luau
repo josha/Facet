@@ -1,4 +1,6 @@
 --!strict
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local selectedName = support.selectedName
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -58,11 +60,6 @@ local function t_visible(node: Instance): boolean
 		current = current.Parent
 	end
 	return true
-end
-
-local function selectedName(): string
-	local selected = GuiService.SelectedObject
-	return if selected then selected.Name else "nil"
 end
 
 local function rows(count: number): { { id: string } }

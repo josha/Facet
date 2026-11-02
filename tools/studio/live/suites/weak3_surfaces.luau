@@ -1,4 +1,7 @@
 --!strict
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local overlap = support.overlap
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
 type StringPickerSpec = typeof(require("@repo/tools/typecheck/aliases").StringPickerSpec)
@@ -17,19 +20,7 @@ end
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
-type Case = {
-	id: string,
-	contracts: { string },
-	run: ((any) -> ())?,
-	setup: ((any) -> any)?,
-	steps: { [string]: (any, any) -> () }?,
-	keepGallery: boolean?,
-}
-local cases: { Case } = {}
-
-local function add(id: string, contracts: { string }, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = contracts, run = run })
-end
+local cases, add = suite.new()
 
 local function interactive(
 	id: string,
@@ -61,12 +52,6 @@ local function found(t: any, label: string, names: { string }, nodes: { [string]
 	end
 	t.check(label, #missing == 0, missing)
 	return #missing == 0
-end
-
-local function overlap(a: any, b: any): boolean
-	local w = math.min(a.r, b.r) - math.max(a.x, b.x)
-	local h = math.min(a.b, b.b) - math.max(a.y, b.y)
-	return w > 0.5 and h > 0.5
 end
 
 local function styled(node: any, property: string): any

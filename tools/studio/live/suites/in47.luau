@@ -1,4 +1,10 @@
 --!strict
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local gamepadWatch = support.gamepadWatch
+local centre = support.centre
+local selectedName = support.selectedName
+local textBox = support.textBox
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
 type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
@@ -19,19 +25,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local storage = game:GetService("ReplicatedStorage")
 
-type Case = {
-	id: string,
-	contracts: { string },
-	run: ((any) -> ())?,
-	setup: ((any) -> any)?,
-	steps: { [string]: (any, any) -> () }?,
-	keepGallery: boolean?,
-}
-local cases: { Case } = {}
-
-local function add(id: string, contracts: { string }, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = contracts, run = run })
-end
+local cases, add = suite.new()
 
 local function interactive(
 	id: string,
@@ -64,19 +58,6 @@ local PAD: { [string]: Enum.KeyCode } = {
 	RightStickLeft = Enum.KeyCode.J,
 	RightStickRight = Enum.KeyCode.L,
 }
-
-local function gamepadWatch(): () -> { string }
-	local seen: { string } = {}
-	local connection = UserInputService.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Gamepad1 then
-			table.insert(seen, input.KeyCode.Name)
-		end
-	end)
-	return function()
-		connection:Disconnect()
-		return seen
-	end
-end
 
 local function device(t: any): any
 	local virtual = (UserInputService :: any):CreateVirtualInput()
@@ -204,25 +185,6 @@ local function device(t: any): any
 		t.settle(4)
 	end
 	return io
-end
-
-local function centre(node: GuiObject): Vector2
-	return node.AbsolutePosition + node.AbsoluteSize / 2
-end
-
-local function selectedName(): string
-	local selected = GuiService.SelectedObject
-	return if selected then selected.Name else "nil"
-end
-
-local function textBox(root: Instance?): TextBox?
-	if root == nil then
-		return nil
-	end
-	if root:IsA("TextBox") then
-		return root
-	end
-	return root:FindFirstChildWhichIsA("TextBox", true)
 end
 
 local function hits(at: Vector2): { GuiObject }

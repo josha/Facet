@@ -1,4 +1,8 @@
 --!strict
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local selectedName = support.selectedName
+local overlap = support.overlap
 type Help = typeof(require("@repo/tools/typecheck/aliases").ButtonProps.help)
 type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 type StringRadialItem = typeof(require("@repo/tools/typecheck/aliases").StringRadialItem)
@@ -23,19 +27,7 @@ local UserInputService = game:GetService("UserInputService")
 local Verify = require(game:GetService("ReplicatedStorage").FacetVerify.core)
 local geometry = require(game:GetService("ReplicatedStorage").FacetLive.overlay_geometry)
 
-type Case = {
-	id: string,
-	contracts: { string },
-	run: ((any) -> ())?,
-	setup: ((any) -> any)?,
-	steps: { [string]: (any, any) -> () }?,
-	keepGallery: boolean?,
-}
-local cases: { Case } = {}
-
-local function add(id: string, contracts: { string }, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = contracts, run = run })
-end
+local cases, add = suite.new()
 
 add("sheet-guarded-dismissal", {}, function(t)
 	local shown = t.Facet.Compose.cell(true)
@@ -194,11 +186,6 @@ local function interactive(
 	table.insert(cases, { id = id, contracts = contracts, plan = plan, setup = setup, steps = steps })
 end
 
-local function selectedName(): string
-	local selected = GuiService.SelectedObject
-	return if selected then selected.Name else "nil"
-end
-
 local function layerOf(stage: any): any
 	return stage:FindFirstAncestorWhichIsA("LayerCollector")
 end
@@ -209,12 +196,6 @@ end
 
 local function shrink(rect: any, left: number, top: number, right: number, bottom: number): any
 	return box(rect.x + left, rect.y + top, rect.r - right, rect.b - bottom)
-end
-
-local function overlap(a: any, b: any): boolean
-	local w = math.min(a.r, b.r) - math.max(a.x, b.x)
-	local h = math.min(a.b, b.b) - math.max(a.y, b.y)
-	return w > 0.5 and h > 0.5
 end
 
 local function whole(t: any, node: any): boolean

@@ -1,4 +1,6 @@
 --!strict
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local selectedName = support.selectedName
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -25,11 +27,6 @@ local function add(
 	keepGallery: boolean?
 )
 	table.insert(cases, { id = id, contracts = contracts, setup = setup, steps = steps, keepGallery = keepGallery })
-end
-
-local function selectedName(): string
-	local selected = GuiService.SelectedObject
-	return if selected then selected.Name else "nil"
 end
 
 local function watch(value: any)

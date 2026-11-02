@@ -1,4 +1,9 @@
 --!strict
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local gamepadWatch = support.gamepadWatch
+local centre = support.centre
+local selectedName = support.selectedName
+local textBox = support.textBox
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type StringRadialItem = typeof(require("@repo/tools/typecheck/aliases").StringRadialItem)
 type StringRadialAction = typeof(require("@repo/tools/typecheck/aliases").StringRadialAction)
@@ -60,19 +65,6 @@ local PAD: { [string]: Enum.KeyCode } = {
 	RightStickLeft = Enum.KeyCode.J,
 	RightStickRight = Enum.KeyCode.L,
 }
-
-local function gamepadWatch(): () -> { string }
-	local seen: { string } = {}
-	local connection = UserInputService.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Gamepad1 then
-			table.insert(seen, input.KeyCode.Name)
-		end
-	end)
-	return function()
-		connection:Disconnect()
-		return seen
-	end
-end
 
 local function device(t: any): any
 	local virtual = (UserInputService :: any):CreateVirtualInput()
@@ -213,25 +205,6 @@ local function device(t: any): any
 		t.settle(4)
 	end
 	return io
-end
-
-local function centre(node: GuiObject): Vector2
-	return node.AbsolutePosition + node.AbsoluteSize / 2
-end
-
-local function selectedName(): string
-	local selected = GuiService.SelectedObject
-	return if selected then selected.Name else "nil"
-end
-
-local function textBox(root: Instance?): TextBox?
-	if root == nil then
-		return nil
-	end
-	if root:IsA("TextBox") then
-		return root
-	end
-	return root:FindFirstChildWhichIsA("TextBox", true)
 end
 
 local function example(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)

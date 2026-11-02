@@ -1,4 +1,7 @@
 --!strict
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local selectedName = support.selectedName
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -7,19 +10,7 @@ type Built = (() -> unknown) | { screen: () -> unknown }
 local GuiService = game:GetService("GuiService")
 local storage = game:GetService("ReplicatedStorage")
 
-type Case = {
-	id: string,
-	contracts: { string },
-	run: ((any) -> ())?,
-	setup: ((any) -> any)?,
-	steps: { [string]: (any, any) -> () }?,
-	keepGallery: boolean?,
-}
-local cases: { Case } = {}
-
-local function add(id: string, contracts: { string }, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = contracts, run = run })
-end
+local cases, add = suite.new()
 
 local function interactive(
 	id: string,
@@ -28,11 +19,6 @@ local function interactive(
 	steps: { [string]: (any, any) -> () }
 )
 	table.insert(cases, { id = id, contracts = contracts, setup = setup, steps = steps })
-end
-
-local function selectedName(): string
-	local selected = GuiService.SelectedObject
-	return if selected then selected.Name else "nil"
 end
 
 local function selectedPath(root: Instance?): string

@@ -1,4 +1,7 @@
 --!strict
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local selectedName = support.selectedName
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
@@ -12,19 +15,7 @@ local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
-type Case = {
-	id: string,
-	contracts: { string },
-	run: ((any) -> ())?,
-	setup: ((any) -> any)?,
-	steps: { [string]: (any, any) -> () }?,
-	keepGallery: boolean?,
-}
-local cases: { Case } = {}
-
-local function add(id: string, contracts: { string }, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = contracts, run = run })
-end
+local cases, add = suite.new()
 
 local function interactive(
 	id: string,
@@ -95,11 +86,6 @@ local function grown(t: any, base: any, offset: number): any
 	})
 	assert(package, report and report.errors and report.errors[1] and report.errors[1].message)
 	return package
-end
-
-local function selectedName(): string
-	local selected = GuiService.SelectedObject
-	return if selected then selected.Name else "nil"
 end
 
 local function within(node: Instance?, name: string): boolean

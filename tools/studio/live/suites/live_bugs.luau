@@ -1,4 +1,7 @@
 --!strict
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local centre = support.centre
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -7,19 +10,7 @@ type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
-type Case = {
-	id: string,
-	contracts: { string },
-	run: ((any) -> ())?,
-	setup: ((any) -> any)?,
-	steps: { [string]: (any, any) -> () }?,
-	keepGallery: boolean?,
-}
-local cases: { Case } = {}
-
-local function add(id: string, contracts: { string }, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = contracts, run = run })
-end
+local cases, add = suite.new()
 
 local function pointer(t: any): any
 	local virtual = (UserInputService :: any):CreateVirtualInput()
@@ -89,10 +80,6 @@ local function pointer(t: any): any
 	mouse.virtual = virtual
 	mouse.inset = inset
 	return mouse
-end
-
-local function centre(node: GuiObject): Vector2
-	return node.AbsolutePosition + node.AbsoluteSize / 2
 end
 
 add("mail-row-grip", {}, function(t: any)

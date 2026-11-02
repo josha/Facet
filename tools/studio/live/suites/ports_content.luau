@@ -1,4 +1,7 @@
 --!strict
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local selectedName = support.selectedName
+local overlap = support.overlap
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -236,11 +239,6 @@ local function interactive(
 	table.insert(cases, { id = id, contracts = contracts, plan = plan, setup = setup, steps = steps })
 end
 
-local function selectedName(): string
-	local selected = GuiService.SelectedObject
-	return if selected then selected.Name else "nil"
-end
-
 local function within(node: any, root: any): boolean
 	return node ~= nil and root ~= nil and (node == root or node:IsDescendantOf(root))
 end
@@ -252,12 +250,6 @@ local function buttonNamed(root: Instance, name: string): any
 		end
 	end
 	return nil
-end
-
-local function overlap(a: any, b: any): boolean
-	local w = math.min(a.r, b.r) - math.max(a.x, b.x)
-	local h = math.min(a.b, b.b) - math.max(a.y, b.y)
-	return w > 0.5 and h > 0.5
 end
 
 local function crossings(named: { any }): { string }

@@ -1,23 +1,12 @@
 --!strict
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type ThemeCell = typeof(require("@repo/tools/typecheck/aliases").ThemeCell)
 type UnknownCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
-type Case = {
-	id: string,
-	contracts: { string },
-	run: ((any) -> ())?,
-	setup: ((any) -> any)?,
-	steps: { [string]: (any, any) -> () }?,
-	keepGallery: boolean?,
-}
-local cases: { Case } = {}
-
-local function add(id: string, contracts: { string }, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = contracts, run = run })
-end
+local cases, add = suite.new()
 
 local function first(root: Instance, name: string): any
 	return root:FindFirstChild(name, true)

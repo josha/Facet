@@ -1,4 +1,7 @@
 --!strict
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local selectedName = support.selectedName
+local overlap = support.overlap
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Built = (() -> unknown) | { screen: () -> unknown }
@@ -20,11 +23,6 @@ local function interactive(
 	table.insert(cases, { id = id, contracts = contracts, plan = plan, setup = setup, steps = steps })
 end
 
-local function selectedName(): string
-	local selected = GuiService.SelectedObject
-	return if selected then selected.Name else "nil"
-end
-
 local function grown(t: any, base: any, offset: number): any
 	if offset == 0 then
 		return base
@@ -43,12 +41,6 @@ local function grown(t: any, base: any, offset: number): any
 	})
 	assert(package, report and report.errors and report.errors[1] and report.errors[1].message)
 	return package
-end
-
-local function overlap(a: any, b: any): boolean
-	local w = math.min(a.r, b.r) - math.max(a.x, b.x)
-	local h = math.min(a.b, b.b) - math.max(a.y, b.y)
-	return w > 0.5 and h > 0.5
 end
 
 local function scenario(t: any, name: string, options: { [string]: any }?): (any, any)

@@ -1,4 +1,7 @@
 --!strict
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local selectedName = support.selectedName
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -18,19 +21,7 @@ local VerifyRoblox = (require :: (Instance) -> typeof(require("@repo/tools/vendo
 	game:GetService("ReplicatedStorage"):WaitForChild("FacetVerify"):WaitForChild("roblox")
 )
 
-type Case = {
-	id: string,
-	contracts: { string },
-	run: ((any) -> ())?,
-	setup: ((any) -> any)?,
-	steps: { [string]: (any, any) -> () }?,
-	keepGallery: boolean?,
-}
-local cases: { Case } = {}
-
-local function add(id: string, contracts: { string }, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = contracts, run = run })
-end
+local cases, add = suite.new()
 
 local function interactive(
 	id: string,
@@ -52,11 +43,6 @@ end
 local function rowOf(root: Instance, key: string): any
 	local items = root:FindFirstChild("Items", true)
 	return if items then items:FindFirstChild(key) else nil
-end
-
-local function selectedName(): string
-	local selected = GuiService.SelectedObject
-	return if selected then selected.Name else "nil"
 end
 
 local function selectedRow(): string
