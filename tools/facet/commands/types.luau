@@ -17,6 +17,7 @@ local Files = require("../lib/files")
 local Generator = require("../lib/engine_generator")
 local Hash = require("../lib/hash")
 local Json = require("../lib/json")
+local Parallel = require("../lib/parallel")
 local Run = require("../lib/run")
 local Rule = require("../lib/rule")
 
@@ -52,6 +53,7 @@ local SOLVER_FLAGS: { [string]: { string } } = {
 	new = { "LuauSolverV2=true" },
 }
 local ANALYZER_TIMEOUT = 600
+local ANALYZER_MEMORY_GIB = 2
 local ARGUMENT_BUDGET = if system.win32 then 24000 else 1000000
 local INVENTORY = { "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*.luau" }
 local PROJECTS = { "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*project.json" }
@@ -273,6 +275,16 @@ local function analyze(
 	end
 	Files.write(log, table.concat(outputs))
 	return Analyzer.dedupe(diagnostics), log
+end
+
+local function analyzerLimit(): number
+	local asked = process.env.FACET_TEST_WORKERS
+	local override = if asked ~= nil then tonumber(asked) else nil
+	if override ~= nil and override >= 1 and override % 1 == 0 then
+		return override
+	end
+	local memorySlots = math.floor(system.totalMemory() / 1024 / ANALYZER_MEMORY_GIB)
+	return math.max(1, math.min(system.threadCount(), memorySlots))
 end
 
 local function projects(): { Analyzer.Project }
@@ -681,19 +693,21 @@ local function check(
 	for _, file in targets do
 		targetSet[file] = true
 	end
-	local contexts: { Context } = {}
+	local pending: { Analyzer.Run } = {}
 	for _, run in runs do
-		if #run.targets == 0 then
-			continue
+		if #run.targets > 0 then
+			table.insert(pending, run)
 		end
+	end
+	local contexts = Parallel.map(pending, analyzerLimit(), function(run: Analyzer.Run): Context
 		local diagnostics, log =
 			analyze(run.targets, run.name, run.extra, run.platform, if run.plugin then PLUGIN_LOCK else LOCK, flags)
-		table.insert(contexts, {
+		return {
 			run = run,
 			classified = Analyzer.classify(run, diagnostics, public, targetSet),
 			log = log,
-		})
-	end
+		}
+	end)
 	local probes = if public then negativeProbes(flags) else nil
 	local report = assemble(options, targets, flags, missingStrict, contexts, probes, loadLocks(lute))
 	local reportPath = Files.join(ARTIFACTS, name .. suffix(flags) .. ".json")
