@@ -32,8 +32,8 @@ cases with Verify's computed layout. It checks Screen/VStack padding and gap,
 grid cells and gaps, ZStack alignment, stack distribution and weighted fill.
 The `native_live_contracts` spec adds 33 original live cases for text geometry,
 frame stability, lifecycle, styles, grids and content. Together these specs
-run 38 original live cases. They use Verify's bounded text model: 18 captured
-font faces, integer sizes 1–100, Latin letters, digits, spaces and newlines.
+run 38 original live cases. They use Verify's bounded text model: 23 captured
+font faces, integer sizes 1–100 and the tokens that each face captured.
 Unsupported shaping and text modes raise errors. Upstream Verify checks
 348 shared text layout configurations against Studio.
 

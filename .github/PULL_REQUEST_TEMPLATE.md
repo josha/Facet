@@ -7,7 +7,7 @@
 <!-- Which tier did you run, and what did it say? Paste the result line. An
      affected or fast run is not full evidence; say which one you ran. -->
 
-- Tier run: <!-- affected | fast | full -->
+- Tier run: <!-- affected | fast | full | release -->
 - Result line:
 
 ```
@@ -26,8 +26,8 @@
 ## Consumer impact
 
 <!-- Does this change behavior a game already depends on? Name it here, in the
-     words a consumer would use. If a public surface is retiring, say which
-     entry in `Facet.DEPRECATIONS` covers it. -->
+     words a consumer would use. If a public surface is removed, name it and
+     its replacement. Facet keeps no deprecated aliases. -->
 
 - [ ] No behavior change for existing consumers
 - [ ] Behavior changes; described above

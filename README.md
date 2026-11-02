@@ -61,7 +61,7 @@ Facet draws client-side user interface on native Roblox targets. Mount into:
   up to and uses.
 
 For a target that is not a `ScreenGui`, use the runtime directly, as the
-[API reference](../docs/reference/nodes/Native-targets-and-boundaries.md) shows.
+[API reference](docs/reference/nodes/Native-targets-and-boundaries.md) shows.
 `UI.Stage` holds embedded 3D content, and `UI.worldAnchor` places a control
 beside an object in the world. The
 [Virtual Monitors showcase](examples/virtual_monitors) uses all of these.
@@ -151,7 +151,8 @@ covers this route.
 ## Documentation
 
 Agents building or reviewing UI must use the [use-facet skill](skills/use-facet/SKILL.md).
-It starts with the design guide, then routes to the relevant controls and checks.
+It starts from the requested task, then routes to the runtime essentials, an
+example or pattern, the relevant controls and the checks.
 
 | Document | What it is |
 |---|---|
@@ -197,7 +198,7 @@ credential that is never stored in this repository.
 Facet's state, animation and lifetimes come from
 [Compose](https://github.com/voidmeld/compose), which Facet includes as
 `Facet.Compose`. A game that already uses Compose can pass its own copy with
-[`Facet.bind`](../docs/reference/nodes/Your-own-Compose.md#your-own-compose), so its state and Facet
+[`Facet.bind`](docs/reference/nodes/Your-own-Compose.md#your-own-compose), so its state and Facet
 share one reactive graph.
 
 ## Versioning
