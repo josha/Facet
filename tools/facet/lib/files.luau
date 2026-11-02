@@ -185,7 +185,7 @@ function Files.walk(root: string, options: WalkOptions?): { string }
 	local directories = options ~= nil and options.directories == true
 	local prune: ((string) -> boolean)? = if options then options.prune else nil
 	local function visit(directory: string, prefix: string)
-		for _, entry in Files.list(directory) do
+		for _, entry in if prune == nil then fs.listDirectory(directory) else Files.list(directory) do
 			local relative = if prefix == "" then entry.name else prefix .. "/" .. entry.name
 			local absolute = directory .. "/" .. entry.name
 			local kind = entry.type
