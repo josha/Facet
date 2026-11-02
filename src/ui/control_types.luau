@@ -71,7 +71,9 @@ export type SplitButtonConstructor =
 	& ((string) -> <A>(NavigationProps.SplitButtonSpecInput<A>) -> Frame)
 
 export type AlertBuilder = <P>(NavigationProps.AlertSpecInput<P>, string?) -> Frame
-export type AlertConstructor = AlertBuilder & ((string) -> <C>(NavigationProps.AlertSpecInput<C>) -> Frame)
+export type AlertConstructor =
+	AlertBuilder
+	& ((string) -> setmetatable<{}, { __call: <C>(unknown, NavigationProps.AlertSpecInput<C>) -> Frame }>)
 
 export type NavigationStackConstructor =
 	(<P>(NavigationProps.NavigationStackSpecInput<P>, string?) -> Frame)

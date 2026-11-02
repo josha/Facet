@@ -12,6 +12,18 @@ an error when the pointer is past the last row.
 
 `Grid` with `aspectRatio` sets the cell height from the cell width, as
 documented. Before, the cells fitted inside the control height.
+Compose Design documents can author more Facet controls without code. A Text
+node can own native constraint children such as `UISizeConstraint`. Dialog,
+Sheet and DisclosureGroup content fields bind a prepared slot input, so the
+control keeps creation and lifetime of lazy content. Sheet `detents`, overlay
+`actions` and RowActions `leading` and `trailing` emit typed tables, for
+example `{ Facet.SheetDetent }` and `{ Facet.DialogAction }`. Toggle offers the
+`button` presentation. Design previews resolve native datatype tokens, for
+example a `UDim2` with token components, with fewer allocations.
+
+A named Alert call such as `UI.Alert "Confirm" { ... }` type-checks in strict
+consumer code without an explicit `<<unknown>>` instantiation. The generated
+Design source for an Alert document now type-checks as emitted.
 
 Named control builders type-check again in strict consumer code. A named call
 such as `UI.Menu "Commands"` returns a generic builder, descriptor fields such

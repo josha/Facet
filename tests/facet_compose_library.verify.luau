@@ -4,26 +4,11 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local FacetDesign = require("../src/design")
+	local ComposeDesign = require("../src/vendor/compose/design")
 	local Kit = Facet.design()
 	local Design = Kit.Design
 	local engines = require("./lib/native_engine")
 
-	type Types = {
-		Color3: {
-			fromRGB: (r: number, g: number, b: number) -> unknown,
-			new: (r: number, g: number, b: number) -> unknown,
-		},
-		UDim2: {
-			new: (xScale: number, xOffset: number, yScale: number, yOffset: number) -> unknown,
-			fromOffset: (x: number, y: number) -> unknown,
-		},
-		UDim: { new: (scale: number, offset: number) -> unknown },
-		Vector2: { new: (x: number, y: number) -> unknown },
-		Vector3: { new: (x: number, y: number, z: number) -> unknown },
-		CFrame: { new: (...number) -> unknown },
-		Font: { new: (family: string, weight: unknown) -> unknown },
-		Enum: { [string]: { [string]: unknown } },
-	}
 	type Context = { UI: Facet.Controls, types: typeof(engines.new().types), runtime: Facet.Runtime }
 	type Engine = typeof(engines.new())
 
@@ -275,7 +260,9 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local DesignEditor = require("../src/vendor/compose/design-editor")
 				local editor: DesignEditor.Editor? = nil
+				local runtime: Facet.Runtime? = nil
 				local mounted = mount(function(ctx: Context, engine: Engine)
+					runtime = ctx.runtime
 					local types = ctx.types
 					local library = live(ctx)
 					local environment = designEnvironment(ctx, engine)
@@ -284,6 +271,11 @@ return function(verifyHarness: Verify.Harness)
 						runtime = ctx.runtime,
 						environment = environment,
 						stageSize = { X = 480, Y = 320 },
+						slots = {
+							body = function(): unknown
+								return ctx.UI.Text { text = "Prepared" }
+							end,
+						},
 					})
 					return host
 				end)
@@ -297,6 +289,25 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(found.props.label.literal):toBe("Buy")
 				Verify.expect(string.find(Design.emit(value, opened.session.library), 'label = "Buy"', 1, true) ~= nil)
 					:toBe(true)
+				local library = opened.session.library
+				for _, kind in { "Dialog", "Sheet", "DisclosureGroup" } do
+					opened.session.replace(
+						Design.document.setContract(Design.document.new("Prepared", library, kind), library, {
+							inputs = { { id = "body", kind = "value", type = "slot", required = true } },
+							outputs = {},
+						})
+					)
+					opened.session.select("n1")
+					Verify.expect(opened.session.change("content", { input = "body" })):toBe(true)
+					assert(runtime):settle()
+					Verify.expect(opened.session.problem:peek()):toBe(nil)
+					Verify.expect(assert(opened.stage).nodes.n1 ~= nil):toBe(true)
+					local code = Design.emit(opened.session.document:peek(), library)
+					Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+					Verify.expect(opened.session.content("content", "Text")):toBe(true)
+					Verify.expect(opened.session.undo()):toBe(true)
+					Verify.expect(opened.session.document:peek().root.props.content.input):toBe("body")
+				end
 				opened.dispose()
 				mounted.dispose()
 			end,
@@ -462,6 +473,177 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("round trips native datatype tokens and button toggles", {
+			id = "facet_compose_library::round trips native datatype tokens and button toggles",
+			run = function()
+				local library = Kit.library({
+					UI = {},
+					host = function(): unknown
+						return nil
+					end,
+					tokens = { path = "T.", require = 'local T = require "../DesignTokens"' },
+				})
+				for _, kind in { "Frame", "Button" } do
+					local value = Design.document.new("Tokens", library, kind)
+					for _, key in { "Size", "Position", "AnchorPoint" } do
+						value = Design.document.change(value, library, "n1", key, { token = "example" })
+						local code = Design.emit(value, library)
+						Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+						local parts: Facet.DesignLiteral = if key == "AnchorPoint"
+							then { 0, { token = "values.size.ratio" } }
+							else { 1, 0, 0, { token = "values.size.minimumTouch" } }
+						value = Design.document.change(value, library, "n1", key, { literal = parts })
+					end
+					local code = Design.emit(value, library)
+					Verify.expect(string.find(code, "T.values.size.minimumTouch", 1, true) ~= nil):toBe(true)
+					Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+				end
+				local value = Design.document.change(
+					Design.document.new("Choice", library, "Toggle"),
+					library,
+					"n1",
+					"presentation",
+					{ literal = "button" }
+				)
+				local code = Design.emit(value, library)
+				Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+				value = Design.document.change(value, library, "n1", "presentation", { literal = "checkbox" })
+				value = Design.document.change(value, library, "n1", "mixed", { literal = true })
+				value = Design.document.change(value, library, "n1", "presentation", { literal = "button" })
+				Verify.expect(value.root.props.mixed):toBe(nil)
+				local session = mount(function(ctx: Context): unknown
+					return Design.render(value, live(ctx))
+				end)
+				session.dispose()
+			end,
+		})
+
+		verifyHarness:case("hoists typed action tables for each action control", {
+			id = "facet_compose_library::hoists typed action tables for each action control",
+			run = function()
+				local library = offline()
+				local shapes: { [string]: string } = {
+					Dialog = "{ Facet.DialogAction }",
+					Notice = "{ Facet.OverlayAction }",
+					Sheet = "{ Facet.OverlayAction }",
+					Callout = "{ Facet.OverlayAction }",
+					Alert = "{ Facet.AlertAction }",
+					RowActions = "{ Facet.RowAction }",
+				}
+				for kind, shape in shapes do
+					local value = Design.document.setContract(Design.document.new("Confirm", library, kind), library, {
+						inputs = {},
+						outputs = { { id = "onReady", args = {} } },
+					})
+					local key = if kind == "RowActions" then "leading" else "actions"
+					local actions: Facet.DesignLiteral = {
+						{ id = "ready", label = "I'm ready", onActivate = { ["$output"] = "onReady" } },
+					}
+					value = Design.document.change(value, library, "n1", key, { literal = actions })
+					local code = Design.emit(value, library)
+					Verify.expect(string.find(code, `: {shape} =`, 1, true) ~= nil):toBe(true)
+					Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+				end
+				local value =
+					Design.document.change(Design.document.new("Panel", library, "Sheet"), library, "n1", "detents", {
+						literal = { "medium", { id = "large", fraction = 1 }, { id = "short", height = 180 } },
+					})
+				local code = Design.emit(value, library)
+				Verify.expect(string.find(code, ": { Facet.SheetDetent } =", 1, true) ~= nil):toBe(true)
+				Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+			end,
+		})
+
+		verifyHarness:case("represents fill and constrained Text with native editable children", {
+			id = "facet_compose_library::represents fill and constrained Text with native editable children",
+			run = function()
+				for _, weighted in { false, true } do
+					local session = mount(function(ctx: Context): unknown
+						local library = Kit.library({
+							UI = ctx.UI,
+							types = ctx.types,
+							host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
+								return ctx.runtime.constructors[className](props, name)
+							end,
+						})
+						local value, text = Design.document.insert(
+							Design.document.new("Identity", library, "VStack"),
+							library,
+							"n1",
+							"Text"
+						)
+						local limit
+						value, limit = Design.document.insert(value, library, text, "UISizeConstraint")
+						value = Design.document.change(value, library, limit, "MaxSize", { literal = { 240, 80 } })
+						local fill
+						value, fill = Design.document.insert(value, library, "n1", "UIFlexItem")
+						value = Design.document.change(
+							value,
+							library,
+							fill,
+							"FlexMode",
+							{ literal = if weighted then "Custom" else "Fill" }
+						)
+						if weighted then
+							for _, key in { "GrowRatio", "ShrinkRatio" } do
+								value = Design.document.change(value, library, fill, key, { literal = 2 })
+							end
+						end
+						local code = Design.emit(value, library)
+						Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+						local root = Design.render(value, library)
+						assert(typeof(root) == "Instance")
+						local actual = assert(root:FindFirstChildWhichIsA("UIFlexItem"))
+						local expected = ctx.UI.fill(if weighted then 2 else nil)
+						local read = assert(ctx.runtime.host.observation).readProperty
+						for _, key in { "FlexMode", "GrowRatio", "ShrinkRatio" } do
+							Verify.expect(read(actual, key)):toBe(read(expected, key))
+						end
+						local constraint = root:FindFirstChildWhichIsA("UISizeConstraint", true)
+						Verify.expect(read(assert(constraint), "MaxSize")):toBe(ctx.types.Vector2.new(240, 80))
+						return root
+					end)
+					session.dispose()
+				end
+			end,
+		})
+
+		verifyHarness:case("binds prepared content inputs on lazy controls", {
+			id = "facet_compose_library::binds prepared content inputs on lazy controls",
+			run = function()
+				for _, kind in { "Dialog", "Sheet", "DisclosureGroup" } do
+					local calls = 0
+					local session = mount(function(ctx: Context): unknown
+						local library = live(ctx)
+						local value = Design.document.new("Prepared", library, kind)
+						for _, child in value.root.children do
+							value = Design.document.remove(value, library, child.id)
+						end
+						value = Design.document.setContract(value, library, {
+							inputs = {
+								{ id = "body", kind = "value", type = "slot", required = true },
+							},
+							outputs = {},
+						})
+						value = Design.document.change(value, library, "n1", "content", { input = "body" })
+						local code = Design.emit(value, library)
+						Verify.expect(string.find(code, "content = props.body", 1, true) ~= nil):toBe(true)
+						Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+						return Design.render(value, library, {
+							slots = {
+								body = function(): unknown
+									calls += 1
+									return ctx.UI.Text "PreparedBody" { text = "Prepared" }
+								end,
+							},
+						})
+					end)
+					Verify.expect(calls):toBe(1)
+					session.dispose()
+				end
+			end,
+		})
+
 		verifyHarness:case("designs a Menu trigger and a Button glyph as content subtrees", {
 			id = "facet_compose_library::designs a Menu trigger and a Button glyph as content subtrees",
 			run = function()
@@ -538,7 +720,7 @@ return function(verifyHarness: Verify.Harness)
 				for _, expected in
 					{
 						"local function ChooseGameView(props: Props): GuiObject",
-						"UI.VStack(props.name) {",
+						"UI.VStack(props.name",
 						"Size = UDim2.new(1, 0, 0, 320)",
 						"AutomaticSize = Enum.AutomaticSize.Y",
 						"from = props.games,",
@@ -751,6 +933,46 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(made.Size.Y.Offset):toBe(59)
 				Verify.expect(made.AnchorPoint.X):toBe(0.5)
 				session.dispose()
+			end,
+		})
+
+		verifyHarness:case("renders reactive token components as native datatypes", {
+			id = "facet_compose_library::renders reactive token components as native datatypes",
+			run = function()
+				local initial: Facet.DesignLiteral? = 59
+				local height = Facet.Compose.cell(initial)
+				for _, kind in { "Button", "Frame" } do
+					local made: GuiObject? = nil
+					local session = mount(function(ctx: Context): unknown
+						local library = Kit.library({
+							UI = ctx.UI,
+							types = ctx.types,
+							host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
+								return ctx.runtime.constructors[className](props, name)
+							end,
+							tokens = { path = "T.", require = 'local T = require "../DesignTokens"' },
+						})
+						local value = Design.document.new("Sized", library, kind)
+						local parts: Facet.DesignLiteral = { 0, 160, 0, { token = "size.minimumTouch" } }
+						value = Design.document.change(value, library, "n1", "Size", { literal = parts })
+						value = Design.document.change(value, library, "n1", "AutomaticSize", { literal = "None" })
+						return Design.render(value, library, {
+							resolveToken = function(): ComposeDesign.Resolved
+								return { readable = height }
+							end,
+							decorate = function(_node: Facet.DesignNode, built: unknown)
+								if typeof(built) == "Instance" and built:IsA("GuiObject") then
+									made = built
+								end
+							end,
+						})
+					end)
+					Verify.expect(assert(made).Size.Y.Offset):toBe(59)
+					height:set(72)
+					Verify.expect(assert(made).Size.Y.Offset):toBe(72)
+					session.dispose()
+					height:set(59)
+				end
 			end,
 		})
 
