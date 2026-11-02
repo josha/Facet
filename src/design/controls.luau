@@ -1874,6 +1874,8 @@ local controls: { [string]: Types.ControlSpec } = {
 	},
 	Text = {
 		category = "Content",
+		container = true,
+		seeds = {},
 		defaults = { text = "A little possibility", textRole = "body", wrap = true },
 		fields = {
 			text = { type = "string", label = "Text", order = 1 },
@@ -1989,7 +1991,12 @@ local controls: { [string]: Types.ControlSpec } = {
 		fields = {
 			label = { type = "string", label = "Label", order = 1 },
 			value = { type = "boolean", label = "Initial value", order = 2 },
-			presentation = { type = "choice", label = "Presentation", order = 3, options = { "switch", "checkbox" } },
+			presentation = {
+				type = "choice",
+				label = "Presentation",
+				order = 3,
+				options = { "switch", "checkbox", "button" },
+			},
 			BackgroundColor3 = { type = "color", label = "Background color", order = 4, format = "color" },
 			BackgroundTransparency = { type = "number", label = "Background transparency", order = 5 },
 			Visible = { type = "boolean", label = "Visible", order = 6 },
