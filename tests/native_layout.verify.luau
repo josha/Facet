@@ -2314,22 +2314,6 @@ return function(verifyHarness: Verify.Harness)
 					stop()
 				end,
 			})
-			it("lets the grid size a captioned button in its cell", {
-				id = "native_layout::Grid::lets the grid size a captioned button in its cell",
-				run = function()
-					local cellSize = engineLib.new().types.UDim2.fromScale(1, 1)
-					local root, _, stop = build(nil, function(UI)
-						return UI.Grid "Board" {
-							columns = 4,
-							UI.Button "Cell" { label = "Cell 1", Size = cellSize },
-						}
-					end)
-					local floor = child(assert(root:FindFirstChild("Cell")), "UISizeConstraint")
-					expect(floor.MinSize.X):toBe(0)
-					expect(floor.MinSize.Y):toBe(0)
-					stop()
-				end,
-			})
 			it("fills columns first with flow column and follows the child count", {
 				id = "native_layout::Grid::fills columns first with flow column and follows the child count",
 				run = function()

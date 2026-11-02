@@ -11,9 +11,7 @@ A row copied into its own reorderable collection no longer stops the drag with
 an error when the pointer is past the last row.
 
 `Grid` with `aspectRatio` sets the cell height from the cell width, as
-documented. Before, the cells fitted inside the control height. A captioned
-`Button` in a `Grid` cell lets the grid set its size. Before, a cell narrower
-than the caption floor gave the button zero height.
+documented. Before, the cells fitted inside the control height.
 
 Named control builders type-check again in strict consumer code. A named call
 such as `UI.Menu "Commands"` returns a generic builder, descriptor fields such

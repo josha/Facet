@@ -345,13 +345,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local function targetWidth(minimum: number, use: ComposeTypes.Use?): number
 			return if spec.target == "inline" then math.min(minimum, ctx.metric("targetSizes.inline", use)) else minimum
 		end
-		local gridded = Compose.cell(false)
 		if constrainedCaption then
 			p[#p + 1] = Host.UISizeConstraint {
 				MinSize = function(use: ComposeTypes.Use): Vector2
-					if use(gridded) then
-						return V2.zero
-					end
 					local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 					local skin = package and package.chrome and package.chrome.control
 					local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
@@ -542,13 +538,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end
 		end
 		node = ctx.styled(Host.TextButton(p), "button")
-		if constrainedCaption then
-			local parent = ctx.observe.Parent(node)
-			Compose.watch(function(use: ComposeTypes.Use)
-				local container = use(parent)
-				gridded:set(container ~= nil and container:FindFirstChildWhichIsA("UIGridLayout") ~= nil)
-			end)
-		end
 		if fillsGlyph then
 			node:AddTag("facet-button-glyph")
 		end

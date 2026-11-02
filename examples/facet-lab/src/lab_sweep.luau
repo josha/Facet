@@ -665,7 +665,7 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 					while os.clock() < deadline do
 						wait(0.05)
 						local now = n.AbsolutePosition
-						if present(n) and now == last then
+						if present(n) and now == last and n.GuiState ~= Enum.GuiState.NonInteractable then
 							break
 						end
 						last = now

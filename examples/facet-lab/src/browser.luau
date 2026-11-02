@@ -1502,7 +1502,9 @@ function browser.mount(opts: MountOpts)
 			app.runtime:batch(function()
 				state.top:set("catalog")
 				state.selected:set(id)
-				state.compactPath:set({ { id = "page" } })
+				if #state.compactPath:peek() == 0 then
+					state.compactPath:set({ { id = "page" } })
+				end
 			end)
 			return { ok = true, id = id }
 		end,

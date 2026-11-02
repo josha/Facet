@@ -4857,7 +4857,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "cell height 64", props = properties { cellHeight = 64 } },
 			{ name = "square cells", props = properties { aspectRatio = 1 } },
 			{ name = "padding s", props = properties { padding = "s" } },
-			{ name = "width 200, height 160 (extents)", props = properties { Size = NONE, width = 200, height = 160 } },
+			{
+				name = "width 200, height 160 (extents)",
+				props = properties { Size = NONE, width = 200, height = 160 },
+				across = false,
+			},
 			{ name = "column flow", props = properties { flow = "column" } },
 		},
 	},
