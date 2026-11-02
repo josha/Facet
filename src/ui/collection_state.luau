@@ -213,9 +213,7 @@ local function create<V, K>(
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
 		use(waiting)
-		if next(preparing) ~= nil then
-			use(viewport)
-		end
+		use(viewport)
 		local pending = tree ~= nil and use(tree.preparing)
 		for _, entry in preparing do
 			if entry.required() and not use(entry.ready) then
