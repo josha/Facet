@@ -22,6 +22,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	local UI: ControlTypes.Controls = controls or ({} :: ControlTypes.Controls)
 	local flowKeys =
 		{ "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface", "status", "corners" }
+	table.freeze(flowKeys)
 	local PLATES: { [string]: string } = { surface = "facet-surface", panel = "facet-panel", pane = "facet-pane" }
 	type FillAxis = "x" | "y" | "none"
 	local function fills(children: { ComposeTypes.Child }): boolean

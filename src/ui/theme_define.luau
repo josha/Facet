@@ -191,8 +191,10 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		if #errors > 0 then
 			return nil, { ok = false, errors = errors, missing = {}, contrast = {}, advice = {} }
 		end
-		local base = copy(definition.base or neutral)
+		local base = definition.base or neutral
 		if type(base.style) == "table" and type(base.style.themes) == "table" and #base.style.themes > 1 then
+			base = table.clone(base)
+			base.style = table.clone(base.style)
 			base.style.themes = { base.style.themes[1] }
 		end
 		local package = merge(base, definition)

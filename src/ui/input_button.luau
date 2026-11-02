@@ -80,6 +80,32 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 	end
 	local escapeRich = richText.escape
 	local idle: ComposeTypes.Directive = function() end
+	local function sized(label: TextLabel | TextButton, textSize: Shared.Input<(number | Shared.TextRole)?>?)
+		if textSize == nil then
+			return
+		end
+		local function apply(value: (string | number)?)
+			for role in typeRoles do
+				if value ~= role and label:HasTag("facet-type-" .. role) then
+					label:RemoveTag("facet-type-" .. role)
+				end
+			end
+			if type(value) == "string" then
+				assert(typeRoles[value], "Facet.Button: textSize must be a type role or a positive number")
+				label:AddTag("facet-type-" .. value)
+				label:ResetPropertyToDefault("TextSize")
+			elseif type(value) == "number" then
+				label.TextSize = value
+			end
+		end
+		if dynamic(textSize) then
+			Compose.watch(function(use: ComposeTypes.Use)
+				apply(read<<(number | Shared.TextRole)?>>(textSize, use))
+			end)
+		else
+			apply(read<<(number | Shared.TextRole)?>>(textSize))
+		end
+	end
 	UI.Button = ctx.construct("Button", function(spec: InputProps.ButtonProps): TextButton
 		local onActivate = spec.onActivate
 		assert(
@@ -141,7 +167,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			underline == nil or underline == "always" or underline == "hover",
 			"Facet.Button: underline must be always or hover"
 		)
-		local popSeconds = ctx.metric("motion.durations.buttonPop")
+		local popSeconds = if spec.pop then ctx.metric("motion.durations.buttonPop") else 0
 		local popTimeline = if spec.pop then runtime.timeline({ duration = popSeconds, autoplay = false }) else nil
 		local popReduced = if popTimeline then reducedMotion(ctx) else nil
 		local popStart = if popTimeline then Compose.cell(1) else nil
@@ -182,7 +208,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			local initial: ThemeTypes.SkinState = "default"
 			iconState = Compose.cell(initial)
 		end
-		local held, repeated, elapsed = false, false, 0
+		local held, repeated = false, false
 		local repeatDelay, repeatInterval =
 			spec.repeatDelay or kit.repeatDelay, spec.repeatInterval or kit.repeatInterval
 		assert(
@@ -371,33 +397,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			p.Text = function(use: ComposeTypes.Use): string
 				local words = escapeRich(tostring(read(spec.label, use) or ""))
 				return if underline == "always" or use(assert(engaged)) then `<u>{words}</u>` else words
-			end
-		end
-		local function sized(label: TextLabel | TextButton)
-			local function apply(value: (string | number)?)
-				for role in typeRoles do
-					if value ~= role and label:HasTag("facet-type-" .. role) then
-						label:RemoveTag("facet-type-" .. role)
-					end
-				end
-				if type(value) == "string" then
-					assert(typeRoles[value], "Facet.Button: textSize must be a type role or a positive number")
-					label:AddTag("facet-type-" .. value)
-					label:ResetPropertyToDefault("TextSize")
-				elseif type(value) == "number" then
-					if label:IsA("TextButton") then
-						label.TextSize = value
-					elseif label:IsA("TextLabel") then
-						label.TextSize = value
-					end
-				end
-			end
-			if dynamic(spec.textSize) then
-				Compose.watch(function(use: ComposeTypes.Use)
-					apply(read<<(number | Shared.TextRole)?>>(spec.textSize, use))
-				end)
-			elseif spec.textSize ~= nil then
-				apply(read<<(number | Shared.TextRole)?>>(spec.textSize))
 			end
 		end
 		p.Activated = function(input: InputObject, clicks: number)
@@ -594,7 +593,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			inputHint.Parent = node
 		end
 		if not rich then
-			sized(node)
+			sized(node, spec.textSize)
 			if spec.shape ~= "circle" then
 				local sizing = ctx.observe.AutomaticSize(node)
 				runtime.mountFragment(function()
@@ -975,21 +974,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			initialized = true
 		end
 		local stateIsDynamic = iconState ~= nil
-		for _, source in
-			{
-				spec.selected,
-				spec.busy,
-				spec.enabled,
-				spec.disabled,
-				spec.role,
-				spec.appearance,
-				spec.controlSize,
-				spec.name,
-				spec.label,
-			} :: { unknown }
-		do
-			stateIsDynamic = stateIsDynamic or dynamic(source)
-		end
+			or dynamic(spec.selected)
+			or dynamic(spec.busy)
+			or dynamic(spec.enabled)
+			or dynamic(spec.disabled)
+			or dynamic(spec.role)
+			or dynamic(spec.appearance)
+			or dynamic(spec.controlSize)
+			or dynamic(spec.name)
+			or dynamic(spec.label)
 		if stateIsDynamic then
 			Compose.watch(updateState)
 		else
@@ -1046,7 +1039,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						or input.KeyCode == E.KeyCode.Space
 					)
 				then
-					held, repeated, elapsed = true, false, 0
+					held, repeated = true, false
 					startRepeat()
 					local pointerDown = spec.onPointerDown
 					if pointerDown then

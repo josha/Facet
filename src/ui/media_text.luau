@@ -106,7 +106,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		return band
 	end
 
-	local TEXT_KEYS = {
+	local TEXT_KEYS = table.freeze({
 		"text",
 		"textRole",
 		"role",
@@ -120,7 +120,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		"lines",
 		"disclose",
 		"reveal",
-	}
+	})
 	local ALIGN: { [string]: Enum.TextXAlignment } = {
 		start = E.TextXAlignment.Left,
 		center = E.TextXAlignment.Center,

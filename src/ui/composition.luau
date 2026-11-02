@@ -91,16 +91,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local kit = layoutKit.of(ctx)
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local declared: { [Instance]: Declared } = setmetatable({}, { __mode = "k" })
-	local function layoutSize(
-		node: GuiBase2d,
-		scale: ComposeTypes.ReadOnlyValue<number>?
-	): ComposeTypes.ReadOnlyValue<Vector2>
-		local size = ctx.observe.AbsoluteSize(node)
-		local unit = scale or ctx.layoutUnit(node)
-		return Compose.formula(function(use: ComposeTypes.Use): Vector2
-			return use(size) / use(unit)
-		end)
-	end
+	local layoutSize = ctx.layoutSize
 	local function overhang(
 		content: GuiObject,
 		unit: ComposeTypes.ReadOnlyValue<number>
