@@ -1,4 +1,5 @@
 --!strict
+type Sides = typeof(require("@repo/tools/typecheck/aliases").Sides)
 
 type Destination = typeof(require("@repo/tools/typecheck/aliases").Destination)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
@@ -64,7 +65,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 				local plate = UI.VStack(id .. "Plate")({
 					width = "fill",
 					height = "fill",
-					padding = { top = 5, left = 6, right = 6, bottom = 4 },
+					padding = { top = 5, left = 6, right = 6, bottom = 4 } :: Sides,
 					Host.UICorner { CornerRadius = ctx.D.new(0, 8) },
 					quiet(id .. "Label", title, "caption", {
 						TextWrapped = false,
@@ -140,7 +141,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 	end)
 	local function page(name: string, ...: Child): ScrollingFrame
 		return UI.ScrollView(name)({
-			padding = { top = 16, left = 16, right = 24, bottom = 16 },
+			padding = { top = 16, left = 16, right = 24, bottom = 16 } :: Sides,
 			gap = 10,
 			ScrollBarThickness = 5,
 			...,

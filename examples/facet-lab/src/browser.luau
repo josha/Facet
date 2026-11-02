@@ -1,4 +1,5 @@
 --!strict
+type Sides = typeof(require("@repo/tools/typecheck/aliases").Sides)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -1297,7 +1298,7 @@ function browser.mount(opts: MountOpts)
 			width = "fill",
 			height = "fill",
 			gap = "s",
-			padding = { top = "s", left = "s", right = "s" },
+			padding = { top = "s", left = "s", right = "s" } :: Sides,
 			search,
 			UI.Button "L_settings" {
 				label = "Settings",

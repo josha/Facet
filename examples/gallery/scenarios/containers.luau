@@ -1,4 +1,5 @@
 --!strict
+type Sides = typeof(require("@repo/tools/typecheck/aliases").Sides)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
@@ -187,7 +188,7 @@ return {
 				UI.HStack "Gap" { gap = "xl", tile("A"), tile("B"), tile("C") },
 				(function()
 					local padded = UI.VStack "Padding" {
-						padding = { top = 8, bottom = 8, left = 32, right = 8 },
+						padding = { top = 8, bottom = 8, left = 32, right = 8 } :: Sides,
 						tile("Inset"),
 					}
 					padded:AddTag("facet-panel")

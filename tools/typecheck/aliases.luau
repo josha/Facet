@@ -324,6 +324,7 @@ local function exports(): {
 	ToggleProps: Facet.ToggleProps,
 	TravelProps: Facet.TravelProps,
 	Use: Facet.Use,
+	Sides: Facet.Sides,
 	ViewThatFitsProps: Facet.ViewThatFitsProps,
 	VoteSpec: Facet.VoteSpec,
 	WorldAnchor: Facet.WorldAnchor,
