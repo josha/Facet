@@ -338,12 +338,11 @@ return function(verifyHarness: Verify.Harness)
 						washed += 1
 						local ink = rule.BackgroundColor3
 						local words = style(sheet, ".facet-secondary").TextColor3
-						for _, ground in
-							{
-								style(sheet, ".facet-level-segment").BackgroundColor3,
-								style(sheet, ".facet-pane").BackgroundColor3,
-							}
-						do
+						local grounds: { Color3 } = {
+							style(sheet, ".facet-level-segment").BackgroundColor3,
+							style(sheet, ".facet-pane").BackgroundColor3,
+						}
+						for _, ground in grounds do
 							local alpha = 1 - transparency
 							local seam = {
 								R = ground.R + (ink.R - ground.R) * alpha,

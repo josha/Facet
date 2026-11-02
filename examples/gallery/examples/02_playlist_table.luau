@@ -288,7 +288,7 @@ function example.build(ctx: ExampleContext)
 			end,
 			onReorder = reorder,
 		}
-		local tracks = UI.Table "Tracks"(tableProps)
+		local tracks = UI.Table(tableProps, "Tracks")
 
 		local env = UI.environment()
 		local shownHint = function(use: Use): string

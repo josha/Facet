@@ -19,6 +19,7 @@ type MountEnvironment = {
 type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type Rect = { x: number, y: number, w: number, h: number, r: number, b: number }
+type LiveCase = { id: string, setup: ((unknown) -> unknown)?, contracts: { unknown }?, keepGallery: boolean? }
 type ThemeEntry = { name: string, package: unknown }
 local function virtualInput(): any
 	return (game:GetService("UserInputService") :: any):CreateVirtualInput()
@@ -278,13 +279,13 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 	local function mount(
 		build: (unknown, RobloxHost, ComposeModule, MountEnvironment) -> Frame,
 		options: { [string]: any }?
-	): any
+	): Frame
 		local config: { [string]: any } = options or {}
 		local Compose: ComposeModule = Facet.Compose
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local package = config.theme or themes[1].package
-		local root
+		local root: Frame?
 		local emulate = config.size ~= nil and config.emulate ~= false
 		local stop = runtime.mount(function()
 			local overlay = if emulate
@@ -350,7 +351,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 			runtime:dispose()
 		end)
 		t.settle(config.frames or 8)
-		return root
+		return assert(root)
 	end
 	t.mount = mount
 	function t.context(UI: any, Host: any, Compose: any, env: any): { [string]: any }
@@ -802,13 +803,16 @@ function live.begin(suite: string, id: string, config: { device: string? }?): st
 	live.release()
 	baselineDevice = if config then config.device or "none" else baselineDevice
 	local Facet = (require :: any)(storage:WaitForChild("Facet"))
-	local chosen
-	for _, case in live.cases(suite) do
+	local found: LiveCase?
+	for _, entry in live.cases(suite) do
+		local case: LiveCase = entry
 		if case.id == id then
-			chosen = case
+			found = case
 		end
 	end
-	assert(chosen and chosen.setup, "no interactive case " .. id)
+	local setup = if found then found.setup else nil
+	assert(found and setup, "no interactive case " .. id)
+	local chosen: LiveCase = found
 	local record = { id = chosen.id, contracts = chosen.contracts or {}, checks = {}, notes = {}, steps = {} }
 	local t = newCase(Facet, themeModules(Facet), record)
 	do
@@ -851,7 +855,7 @@ function live.begin(suite: string, id: string, config: { device: string? }?): st
 					t.cleanup()
 				end
 			end)
-			value = chosen.setup(t)
+			value = setup(t)
 			shared.FacetLiveHold = { cleanup = t.cleanup, value = value }
 			shared.FacetLiveSession = { suite = suite, case = chosen, record = record, t = t, value = value }
 			ready = true

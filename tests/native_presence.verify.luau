@@ -104,13 +104,14 @@ return function(verifyHarness: Verify.Harness)
 				end, { motionLevel = "limited" })
 				w.engine.environment.poke(w.find("Modal"), "AbsoluteSize", w.Vector2.new(800, 600))
 				local panel = w.find("SheetPanel")
-				local at = nil
+				local at: UDim2? = nil
 				local sawFading = false
 				for _ = 1, 12 do
 					w.advance(1 / 60)
 					local fade = fadeKit.of(panel)
 					if fade < 1 then
-						at = at or panel.Position
+						local position: UDim2 = panel.Position
+						at = at or position
 						Verify.expect(panel.Position):toBe(at)
 					end
 					sawFading = sawFading or (fade > 0 and fade < 1)

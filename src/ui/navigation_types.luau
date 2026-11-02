@@ -22,7 +22,7 @@ export type Transition = {
 	read progress: ComposeTypes.ReadOnlyValue<number?>?,
 	read apply: ((GuiObject, TransitionContext) -> ())?,
 	read scale: (number | true)?,
-	zoom: number?,
+	read zoom: number?,
 }
 export type SourceTransition = {
 	read seconds: Types.ValueNumber?,
@@ -288,7 +288,7 @@ export type AlertOptions<P = unknown> = {
 	read error: ComposeTypes.Value<string?>?,
 	read icon: Types.ValueString?,
 	read severity: "information" | "warning" | "critical"?,
-	read suppression: { isSuppressed: ComposeTypes.Value<boolean>, label: Types.ValueString? }?,
+	read suppression: { read isSuppressed: ComposeTypes.Value<boolean>, read label: Types.ValueString? }?,
 	read maxWidth: number?,
 	read padding: number?,
 	read surface: "dialog" | "fullScreen"?,
@@ -400,11 +400,11 @@ export type TabViewOptions = {
 }
 export type NavigationEntry<P = unknown> = { id: string, value: P? }
 export type NavigationDestination<P = unknown> = {
-	title: Types.ValueString?,
-	chrome: Input<"automatic" | "hidden">?,
-	initialFocus: (string | () -> string?)?,
-	content: Instance | ((NavigationEntry<P>?) -> Instance),
-	onBack: ((NavigationEntry<P>) -> boolean?)?,
+	read title: Types.ValueString?,
+	read chrome: Input<"automatic" | "hidden">?,
+	read initialFocus: (string | () -> string?)?,
+	read content: Instance | ((NavigationEntry<P>?) -> Instance),
+	read onBack: ((NavigationEntry<P>) -> boolean?)?,
 }
 export type NavigationStackOptions<P = unknown> = {
 	path: ComposeTypes.Value<{ NavigationEntry<P> }>,

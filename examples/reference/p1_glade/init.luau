@@ -2,7 +2,7 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
@@ -195,7 +195,7 @@ function Glade.build(ctx: ExampleContext)
 	end
 	local function detail(): Instance
 		local id = selected:peek()
-		local options: { PickerOption } = {}
+		local options: { StringPickerOption } = {}
 		for _, nectar in seed.NECTARS do
 			table.insert(options, { value = nectar.id, label = L("nectar." .. nectar.id) })
 		end
@@ -371,7 +371,7 @@ function Glade.build(ctx: ExampleContext)
 				commerce.restore()
 			end)
 		)
-		local locales: { PickerOption } = {
+		local locales: { StringPickerOption } = {
 			{ value = "en", label = "English" },
 			{ value = "xa", label = "Expanded" },
 		}

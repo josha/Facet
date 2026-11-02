@@ -121,7 +121,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_scroll_chain::native nested scroll handoff::keeps root elasticity when no ancestor can move and yields empty panes",
 			run = function()
 				local w = world()
-				for _, frame in { w.inner, w.middle, w.root } do
+				local frames: { ScrollingFrame } = { w.inner, w.middle, w.root }
+				for _, frame in frames do
 					frame.CanvasPosition = w.engine.types.Vector2.zero
 				end
 				w.engine.environment.poke(w.inner, "AbsoluteCanvasSize", w.inner.AbsoluteWindowSize)

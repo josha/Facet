@@ -824,8 +824,8 @@ add("panel-insets-reserve-native-padding", {}, function(t)
 				},
 			}
 		end, { theme = theme.package, size = Vector2.new(800, 600) })
-		local panel
-		for _, node in stage.Parent:GetDescendants() do
+		local panel: GuiObject?
+		for _, node: Instance in stage.Parent:GetDescendants() do
 			if node.Name == "AlertPanel" and node:IsA("GuiObject") and t.visible(node) then
 				panel = node
 			end

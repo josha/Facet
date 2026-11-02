@@ -1,5 +1,9 @@
 --!strict
 
+type RangeCell = typeof(require("@repo/tools/typecheck/aliases").RangeCell)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type ColorCell = typeof(require("@repo/tools/typecheck/aliases").ColorCell)
+type ColorPickerMode = typeof(require("@repo/tools/typecheck/aliases").ColorPickerMode)
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -63,8 +67,10 @@ interactive(
 		host(t)
 		local value: any = { commits = {} }
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			value.gap = Compose.cell({ lower = 20, upper = 60 })
-			value.pile = Compose.cell({ lower = 20, upper = 60 })
+			local gap: RangeCell = Compose.cell({ lower = 20, upper = 60 })
+			local pile: RangeCell = Compose.cell({ lower = 20, upper = 60 })
+			value.gap = gap
+			value.pile = pile
 			return Host.Frame "Column" {
 				Size = UDim2.fromOffset(600, 420),
 				Position = UDim2.fromOffset(100, 100),
@@ -73,7 +79,7 @@ interactive(
 				UI.Slider "Gap" {
 					LayoutOrder = 1,
 					Size = UDim2.fromOffset(420, 0),
-					value = value.gap,
+					value = gap,
 					min = 0,
 					max = 100,
 					step = 5,
@@ -86,7 +92,7 @@ interactive(
 				UI.Slider "Pile" {
 					LayoutOrder = 2,
 					Size = UDim2.fromOffset(420, 0),
-					value = value.pile,
+					value = pile,
 					min = 0,
 					max = 100,
 					step = 5,
@@ -168,7 +174,9 @@ interactive(
 		host(t)
 		local value: any = { commits = {}, changes = 0 }
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			value.cell = Compose.cell(Color3.fromHSV(0.5, 0.5, 0.5))
+			local accent: ColorCell = Compose.cell(Color3.fromHSV(0.5, 0.5, 0.5))
+			local modes: { ColorPickerMode } = { "spectrum" }
+			value.cell = accent
 			return Host.Frame "Box" {
 				BackgroundTransparency = 1,
 				Position = UDim2.fromOffset(100, 100),
@@ -177,8 +185,8 @@ interactive(
 				UI.ColorPicker "Accent" {
 					label = "Accent",
 					style = "inline" :: "inline",
-					modes = { "spectrum" :: "spectrum" },
-					value = value.cell,
+					modes = modes,
+					value = accent,
 					onChange = function(next: Color3)
 						value.changes += 1
 						value.cell:set(next)
@@ -308,13 +316,14 @@ interactive(
 		host(t)
 		local value: any = {}
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			value.toggle = Compose.cell(false)
+			local toggle: BooleanCell = Compose.cell(false)
+			value.toggle = toggle
 			return Host.Frame "Column" {
 				Position = UDim2.fromOffset(100, 100),
 				Size = UDim2.fromOffset(360, 300),
 				BackgroundTransparency = 1,
 				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) },
-				UI.Toggle "Toggle" { value = value.toggle, label = "On", LayoutOrder = 1 },
+				UI.Toggle "Toggle" { value = toggle, label = "On", LayoutOrder = 1 },
 				UI.Stepper "Stepper" { value = Compose.cell(2), min = 0, max = 5, LayoutOrder = 2 },
 			}
 		end, { frames = 10 })

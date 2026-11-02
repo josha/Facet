@@ -126,7 +126,7 @@ local function uiHits(code: string, controls: { [string]: boolean }, hits: { Hit
 		if member == nil and string.sub(code, cursor, cursor + 2) == "UI." then
 			member, matchEnd = identifierAt(code, cursor + 3)
 		end
-		if member ~= nil then
+		if type(member) == "string" then
 			if not controls[member] then
 				table.insert(hits, {
 					position = cursor,

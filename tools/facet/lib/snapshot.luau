@@ -500,7 +500,7 @@ function Snapshot.sync(config: Config, request: Request): (number, string)
 		return 1, refusal or "invalid pin"
 	end
 	if request.bump == nil and Snapshot.verify(config, pin) then
-		local executables = if request.contentOnly then {} else Snapshot.executables(config)
+		local executables: { string } = if request.contentOnly then {} else Snapshot.executables(config)
 		if #executables == 0 then
 			return 0, ("%s: pinned dependency verified %s"):format(config.name, pin.commit)
 		elseif request.check then

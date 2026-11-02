@@ -1,6 +1,7 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 local makeView = require("./showcase_view")
@@ -49,7 +50,7 @@ return {
 			notice:set("Restore the door, beacon, and workshop using six power units.")
 		end
 		local function panel()
-			local children = {
+			local children: { Child } = {
 				view.text("Budget", function(use: Use)
 					return `{rules.spent(allocation(use))} / {rules.TOTAL} power units allocated`
 				end, "heading"),

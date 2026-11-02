@@ -9,9 +9,9 @@ type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type Settable<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ColorMode = "brick" | "sliders" | "spectrum" | "swatches"
-type Swatch = Color3 | { color: Color3, label: string? }
+type Swatch = Color3 | { read color: Color3, read label: string? }
 type SwatchItem = { color: Color3, label: string?, key: string }
-type Preset = { id: string, label: string, range: (CivilDate) -> CivilRange }
+type Preset = { read id: string, read label: string, read range: (CivilDate) -> CivilRange }
 local COPY = {
 	title = "Pickers",
 	refuse = "Refuse changes",
@@ -52,6 +52,8 @@ return {
 		local livery = Compose.cell(Color3.fromRGB(220, 40, 60))
 		local fog = Compose.cell(Color3.fromRGB(180, 200, 220))
 		local committed = Compose.cell(COPY.none)
+		local minimumDate: CivilDate = { year = 2026, month = 3, day = 1 }
+		local maximumDate: CivilDate = { year = 2027, month = 11, day = 30 }
 		local TODAY: CivilDate = { year = 2026, month = 9, day = 23 }
 		local initialRaceDay: CivilDate? = { year = 2026, month = 10, day = 4 }
 		local raceDay = Compose.cell(initialRaceDay)
@@ -246,8 +248,8 @@ return {
 					value = raceDay,
 					onChange = accept(raceDay),
 					onCommit = recordDate,
-					min = { year = 2026, month = 3, day = 1 },
-					max = { year = 2027, month = 11, day = 30 },
+					min = minimumDate,
+					max = maximumDate,
 					isDateDisabled = function(d: CivilDate): boolean
 						return d.day == 13
 					end,

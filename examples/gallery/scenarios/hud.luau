@@ -241,7 +241,7 @@ return {
 			clearNotice = function()
 				notice:set(nil)
 			end,
-			advanceTask = function(index, value)
+			advanceTask = function(index: number, value: number)
 				tasks[index]:set(math.clamp(value, 0, 1))
 			end,
 		}

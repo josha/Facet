@@ -4,6 +4,7 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type StringMenuItem = typeof(require("@repo/tools/typecheck/aliases").StringMenuItem)
 type CardControls = typeof(require("@repo/tools/typecheck/aliases").CardControls)
 type Game = { id: string, title: string, players: string }
 local ITEM_COUNT = 60
@@ -93,8 +94,17 @@ return {
 							entry.enterActions()
 						end
 					end,
-					render = function(current: ReadOnlyValue<Game>, _placement, key): GuiObject
+					render = function(current: ReadOnlyValue<Game>, _placement, key: ReadOnlyValue<string>): GuiObject
 						local table_: CardControls = {}
+						local menuItems: { StringMenuItem } = {
+							{
+								id = "hide",
+								label = "Not interested",
+								onSelect = function()
+									record(`hid {key:peek()}`)
+								end,
+							},
+						}
 						local card = UI.Card "Card" {
 							image = "rbxassetid://75342910516929",
 							title = function(use: Use)
@@ -119,17 +129,7 @@ return {
 									record(`play {key:peek()}`)
 								end,
 							},
-							menu = {
-								items = {
-									{
-										id = "hide",
-										label = "Not interested",
-										onSelect = function()
-											record(`hid {key:peek()}`)
-										end,
-									},
-								},
-							},
+							menu = { items = menuItems },
 						}
 						local held: string? = nil
 						local function forget()

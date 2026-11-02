@@ -1,7 +1,7 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 
@@ -69,7 +69,7 @@ return {
 		end)
 
 		local function widthPicker()
-			local options: { PickerOption } = {
+			local options: { StringPickerOption } = {
 				{ value = "roomy", label = COPY.roomy },
 				{ value = "snug", label = COPY.snug },
 				{ value = "tight", label = COPY.tight },

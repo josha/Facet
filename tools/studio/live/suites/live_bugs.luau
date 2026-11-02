@@ -4,6 +4,7 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
+type RadialAnchorPoint = typeof(require("@repo/tools/typecheck/aliases").RadialAnchorPoint)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -208,8 +209,8 @@ add("mail-row-touch-pan", {}, function(t: any)
 		table.insert(kinds, input.UserInputType.Name)
 	end)
 	local row = t.find(stage, "Row_m2")
-	local body = nil
-	for _, node in stage:GetDescendants() do
+	local body: ScrollingFrame?
+	for _, node: Instance in stage:GetDescendants() do
 		if node:IsA("ScrollingFrame") and row:IsDescendantOf(node) then
 			body = node
 		end
@@ -462,6 +463,7 @@ add("radial-list-bounds-in-short-room", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _Host: RobloxHost, C: ComposeModule)
 		local title = C.cell("Crew commands")
 		local waitLabel = C.cell("Wait here")
+		local anchor: RadialAnchorPoint = { x = 80, y = 60 }
 		expand = function()
 			title:set(
 				"Crew commands for the next rescue approach: inspect the route, confirm the crossing and wait for the rest of the team before moving to the next checkpoint"
@@ -470,7 +472,7 @@ add("radial-list-bounds-in-short-room", {}, function(t)
 		end
 		return UI.RadialMenu "Commands" {
 			label = title,
-			anchor = { x = 80, y = 60 },
+			anchor = anchor,
 			clearance = 160,
 			isPresented = C.cell(true),
 			items = {

@@ -31,7 +31,7 @@ local function check(context: Rule.Context): { string }
 		then Files.read(context.path("THIRD_PARTY_NOTICES.md"))
 		else ""
 	for name, lock in LOCKS do
-		local commit = if Files.exists(context.path(lock))
+		local commit: string? = if Files.exists(context.path(lock))
 			then Json.stringField(Json.decode(Files.read(context.path(lock))), "commit")
 			else nil
 		if commit ~= nil and string.find(notices, commit, 1, true) == nil then

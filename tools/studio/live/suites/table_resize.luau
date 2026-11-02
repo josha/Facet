@@ -5,7 +5,7 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type NumberMapCell = typeof(require("@repo/tools/typecheck/aliases").NumberMapCell)
-type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type LapRowTableColumn = typeof(require("@repo/tools/typecheck/aliases").LapRowTableColumn)
 type LapRowReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").LapRowReadOnlyValue)
 type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
@@ -25,7 +25,7 @@ local cases: { Case } = {
 					local Host: RobloxHost
 					local container: Frame
 					local stage = t.mount(function(UI: FacetControls, constructors, Compose: ComposeModule, env)
-						local columns35: { TableColumn } = {
+						local columns35: { LapRowTableColumn } = {
 							{
 								id = "name",
 								label = "Driver",
@@ -60,7 +60,7 @@ local cases: { Case } = {
 							Host.UIScale { Scale = scale },
 							UI.Table "Results" {
 								from = rows,
-								key = function(row)
+								key = function(row: { id: number, name: string, laps: number }): number
 									return row.id
 								end,
 								widths = widths,

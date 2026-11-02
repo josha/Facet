@@ -1,10 +1,11 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSizeValue)
 type Member = typeof(require("@repo/tools/typecheck/aliases").AvatarMember)
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+type LayoutOption = { value: Layout, label: string }
+type SizeOption = { value: ControlSize, label: string }
 type Layout = "stacked" | "spread" | "ellipsis"
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 
@@ -84,7 +85,12 @@ return {
 			return report()
 		end
 		local function section()
-			local sizeOptions: { PickerOption } = {
+			local layoutOptions: { LayoutOption } = {
+				{ value = "stacked", label = "Stacked" },
+				{ value = "spread", label = "Spread" },
+				{ value = "ellipsis", label = "Ellipsis" },
+			}
+			local sizeOptions: { SizeOption } = {
 				{ value = "compact", label = "Compact" },
 				{ value = "regular", label = "Regular" },
 				{ value = "large", label = "Large" },
@@ -184,11 +190,7 @@ return {
 				UI.Picker "Layout" {
 					label = "Layout",
 					selected = variant,
-					options = {
-						{ value = "stacked", label = "Stacked" },
-						{ value = "spread", label = "Spread" },
-						{ value = "ellipsis", label = "Ellipsis" },
-					},
+					options = layoutOptions,
 				},
 				UI.Picker "Size" {
 					label = "Size",

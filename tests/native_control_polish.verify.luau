@@ -2,6 +2,7 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
+	type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
@@ -332,6 +333,22 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_control_polish::native selection paint::applies the selected state during the activation that causes it",
 			run = function()
 				local w = world(function(UI)
+					local tabs: { Tab } = {
+						{
+							id = "one",
+							label = "One",
+							content = function(): Instance
+								return UI.Text "OneBody" { text = "One" }
+							end,
+						},
+						{
+							id = "two",
+							label = "Two",
+							content = function(): Instance
+								return UI.Text "TwoBody" { text = "Two" }
+							end,
+						},
+					}
 					return UI.VStack "Column" {
 						UI.Picker "Segments" {
 							style = "segmented",
@@ -343,22 +360,7 @@ return function(verifyHarness: Verify.Harness)
 							selection = Compose.cell("one"),
 							indicator = "pill",
 							placement = "topBar",
-							tabs = {
-								{
-									id = "one",
-									label = "One",
-									content = function(): Instance
-										return UI.Text "OneBody" { text = "One" }
-									end,
-								},
-								{
-									id = "two",
-									label = "Two",
-									content = function(): Instance
-										return UI.Text "TwoBody" { text = "Two" }
-									end,
-								},
-							},
+							tabs = tabs,
 						},
 					}
 				end)
@@ -449,19 +451,18 @@ return function(verifyHarness: Verify.Harness)
 				w.engine.environment.poke(key, "TextFits", false)
 				expect((key:HasTag("facet-button-tight"))):toBe(true)
 				w.engine.environment.poke(key, "TextFits", true)
-				for _, arrive in
-					{
-						function()
-							key.TextSize = 18
-						end,
-						function()
-							key.FontFace = w.engine.types.Font.fromName("Gotham")
-						end,
-						function()
-							key.Text = "Q"
-						end,
-					}
-				do
+				local arrivals: { () -> () } = {
+					function()
+						key.TextSize = 18
+					end,
+					function()
+						key.FontFace = w.engine.types.Font.fromName("Gotham")
+					end,
+					function()
+						key.Text = "Q"
+					end,
+				}
+				for _, arrive in arrivals do
 					arrive()
 					expect((key:HasTag("facet-button-tight"))):toBe(true)
 					w.engine.environment.poke(key, "AbsoluteSize", w.V2.new(120, 44))
@@ -487,10 +488,11 @@ return function(verifyHarness: Verify.Harness)
 				local styleRules = require("./lib/style_rules")
 				local w = world(function(UI, _, engine)
 					local boost = engine.new("InputAction")
+					local action: InputAction = boost
 					local binding = engine.new("InputBinding")
 					binding.KeyCode = engine.types.Enum.KeyCode.E
 					engine.environment.poke(boost, "PreferredBinding", binding)
-					local plate = UI.HStack "Plate" { UI.ShortcutHint "Cap" { action = boost } }
+					local plate = UI.HStack "Plate" { UI.ShortcutHint "Cap" { action = action } }
 					plate:AddTag("facet-accent")
 					return UI.HStack {
 						UI.Button "Race" {

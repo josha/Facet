@@ -119,6 +119,7 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 	local initialDropTarget: string? = nil
 	local initialScroll: number? = nil
 	local initialRequests: { ImageRequest }? = nil
+	local nodes: { TextButton } = {}
 	local state = {
 		requests = initialRequests,
 		dragMoves = initialDragMoves,
@@ -129,7 +130,7 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 		name = name,
 		selected = nil :: (Value<string> | Value<{ [string]: boolean }>)?,
 		observed = {} :: { ObservedCell },
-		nodes = {},
+		nodes = nodes,
 		close = nil :: (() -> ())?,
 		focused = nil :: GuiObject?,
 		surface = nil :: { panel: string, items: { [string]: boolean } }?,

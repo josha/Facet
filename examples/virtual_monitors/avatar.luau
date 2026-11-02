@@ -1,4 +1,5 @@
 --!strict
+type Sides = typeof(require("@repo/tools/typecheck/aliases").Sides)
 
 type Destination = typeof(require("@repo/tools/typecheck/aliases").Destination)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
@@ -13,6 +14,7 @@ local theme = require("./theme")
 local modelModule = require("./model")
 type Context = modelModule.Context
 type TextValue = modelModule.TextValue
+type Swatch = Color3 | { read color: Color3, read label: string? }
 type Fact = { id: string, label: string, value: (Use) -> string }
 return function(ctx: Context): (GuiObject, GuiObject)
 	local Compose, Host, UI, model = ctx.Compose, ctx.Host, ctx.UI, ctx.model
@@ -60,10 +62,11 @@ return function(ctx: Context): (GuiObject, GuiObject)
 				return D2.new(1, 0, 0, if wide(use) then 48 else 32)
 			end,
 			Compose.show(wide, function()
+				local padding: Sides = { top = 5, left = 6, right = 6, bottom = 4 }
 				local plate = UI.VStack(id .. "Plate")({
 					width = "fill",
 					height = "fill",
-					padding = { top = 5, left = 6, right = 6, bottom = 4 },
+					padding = padding,
 					Host.UICorner { CornerRadius = ctx.D.new(0, 8) },
 					quiet(id .. "Label", title, "caption", {
 						TextWrapped = false,
@@ -138,8 +141,9 @@ return function(ctx: Context): (GuiObject, GuiObject)
 		end
 	end)
 	local function page(name: string, ...: Child): ScrollingFrame
+		local padding: Sides = { top = 16, left = 16, right = 24, bottom = 16 }
 		return UI.ScrollView(name)({
-			padding = { top = 16, left = 16, right = 24, bottom = 16 },
+			padding = padding,
 			gap = 10,
 			ScrollBarThickness = 5,
 			...,
@@ -166,6 +170,12 @@ return function(ctx: Context): (GuiObject, GuiObject)
 		return row
 	end
 	local hatModes: { "brick" | "sliders" | "spectrum" | "swatches" } = { "swatches", "spectrum" }
+	local hatSwatches: { Swatch } = {
+		{ color = C3.fromRGB(218, 195, 145), label = "Straw" },
+		{ color = C3.fromRGB(105, 74, 55), label = "Leather" },
+		{ color = C3.fromRGB(46, 52, 64), label = "Slate" },
+		{ color = C3.fromRGB(176, 58, 46), label = "Brick" },
+	}
 	local preview = UI.ZStack "PreviewPanel" {
 		Size = function(use: Use)
 			return if wide(use) then D2.new(1, -settingsWidth(use) - 16, 1, 0) else D2.new(1, 0, 0, previewHeight(use))
@@ -311,12 +321,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 									UI.ColorPicker "HatColour" {
 										label = "Hat colour",
 										modes = hatModes,
-										swatches = {
-											{ color = C3.fromRGB(218, 195, 145), label = "Straw" },
-											{ color = C3.fromRGB(105, 74, 55), label = "Leather" },
-											{ color = C3.fromRGB(46, 52, 64), label = "Slate" },
-											{ color = C3.fromRGB(176, 58, 46), label = "Brick" },
-										},
+										swatches = hatSwatches,
 										value = function(use: Use)
 											local tint = use(model.hatTint)
 											return C3.fromRGB(tint[1], tint[2], tint[3])
@@ -330,12 +335,12 @@ return function(ctx: Context): (GuiObject, GuiObject)
 										end,
 										enabled = model.hat,
 									},
-									UI.RadialMenu "QuickPalette" {
+									UI.RadialMenu<<string>>({
 										label = "Quick accent",
 										appearance = "buttons",
 										Size = D2.new(1, 0, 0, 44),
 										items = accentItems,
-									},
+									}, "QuickPalette"),
 								}
 							end,
 						},

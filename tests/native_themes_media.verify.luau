@@ -67,6 +67,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 	end)
+	type AvatarMember = typeof(require("@repo/tools/typecheck/aliases").AvatarMember)
 	type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
 
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -1921,7 +1922,7 @@ return function(verifyHarness: Verify.Harness)
 						coroutine.close(thread)
 					end,
 				}
-				local preloaded = {}
+				local preloaded: { { read Image: string } } = {}
 				local UI = media(context(Compose, runtime, {
 					types = engine.types,
 					services = {
@@ -2522,8 +2523,13 @@ return function(verifyHarness: Verify.Harness)
 				local screen = engine.new("ScreenGui")
 				local calls = 0
 				local stop = runtime.mount(function()
+					local members: { AvatarMember } = {
+						{ id = "a", name = "A" },
+						{ id = "b", name = "B" },
+						{ id = "c", name = "C" },
+					}
 					return UI.AvatarGroup "Team" {
-						items = { { id = "a", name = "A" }, { id = "b", name = "B" }, { id = "c", name = "C" } },
+						items = members,
 						max = 1,
 						onOverflow = function()
 							calls += 1

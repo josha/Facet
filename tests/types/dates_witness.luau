@@ -6,12 +6,13 @@ local Compose = require("../../src/vendor/compose/core")
 return function(UI: DatesControls.Controls): ()
 	local noSession: Dates.CivilDate? = nil
 	local session = Compose.cell(noSession)
+	local earliest: Dates.CivilDate = { year = 2026, month = 1, day = 1 }
 	local single: Frame = UI.DateTimePicker "Session" {
 		label = "Play session",
 		time = true,
 		minuteStep = 15,
 		value = session,
-		min = { year = 2026, month = 1, day = 1 },
+		min = earliest,
 		onChange = function(date: Dates.CivilDate?)
 			session:set(date)
 		end,

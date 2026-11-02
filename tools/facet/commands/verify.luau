@@ -140,7 +140,8 @@ local function run(invocation: Cli.Invocation): number
 	local screens: { Look.Screen }
 	if saved ~= nil then
 		print("problem: saved evidence only; current live behavior not checked")
-		screens = { { device = devices[1], label = saved, dump = saved } }
+		local evidence: { Look.Screen } = { { device = devices[1], label = saved, dump = saved } }
+		screens = evidence
 	else
 		local result = Look.run({
 			project = project,

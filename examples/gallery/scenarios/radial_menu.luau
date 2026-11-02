@@ -416,7 +416,7 @@ return {
 			if item.kind == "character" or item.kind == "gestures" then
 				spec.anchor = silhouette
 			end
-			local menuNode = UI.RadialMenu "Commands"(spec)
+			local menuNode = UI.RadialMenu<<string>>(spec, "Commands")
 			current, currentPresented = menu, presented
 			Compose.cleanup(function()
 				if current == menu then

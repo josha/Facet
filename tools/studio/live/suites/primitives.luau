@@ -1,5 +1,6 @@
 --!strict
 
+type Padding = typeof(require("@repo/tools/typecheck/aliases").Padding)
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Case = {
@@ -110,10 +111,11 @@ add("grid-cells-and-gaps", {}, function(t)
 		for index = 1, 6 do
 			table.insert(cells, box(Host, "Cell" .. index, 0, 30))
 		end
+		local padding: Padding = { left = "xs" }
 		return UI.Grid "Grid" {
 			columns = 3,
 			rowGap = "m",
-			padding = { left = "xs" },
+			padding = padding,
 			aspectRatio = 1.5,
 			Size = UDim2.fromOffset(300, 0),
 			table.unpack(cells),

@@ -25,12 +25,12 @@ export type PaginationOptions = {
 }
 export type StepState = "complete" | "current" | "upcoming" | "error"
 export type Step = {
-	id: string,
-	label: string,
-	description: string?,
-	state: StepState?,
-	navigable: boolean?,
-	enabled: boolean?,
+	read id: string,
+	read label: string,
+	read description: string?,
+	read state: StepState?,
+	read navigable: boolean?,
+	read enabled: boolean?,
 }
 export type StepIndicatorOptions = {
 	steps: Input<{ Step }>,
@@ -53,20 +53,20 @@ export type VoteOptions = {
 	controls: Diagnostics?,
 }
 export type CardAction = {
-	label: Types.ValueString,
-	icon: Types.ValueString?,
-	onActivate: () -> (),
-	enabled: Types.ValueBoolean?,
-	busy: Types.ValueBoolean?,
+	read label: Types.ValueString,
+	read icon: Types.ValueString?,
+	read onActivate: () -> (),
+	read enabled: Types.ValueBoolean?,
+	read busy: Types.ValueBoolean?,
 }
-export type CardMenu = { items: Input<{ Nav.MenuItem<string> }>, label: Types.ValueString? }
+export type CardMenu = { read items: Input<{ Nav.MenuItem<string> }>, read label: Types.ValueString? }
 export type CardBadge = {
-	label: Input<string?>?,
-	status: Input<Media.Status>?,
-	icon: Input<string?>?,
-	name: string?,
+	read label: Input<string?>?,
+	read status: Input<Media.Status>?,
+	read icon: Input<string?>?,
+	read name: string?,
 }
-export type CardBadges = { leading: CardBadge?, trailing: CardBadge? }
+export type CardBadges = { read leading: CardBadge?, read trailing: CardBadge? }
 export type CardControls = {
 	diagnostics: (() -> { string })?,
 	enterActions: (() -> boolean)?,

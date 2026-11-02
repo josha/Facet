@@ -1,19 +1,20 @@
 --!strict
 local Compose = require("../../src/vendor/compose/core")
 local Radial = require("../../src/ui/radial_types")
-local children: Compose.Value<{ Radial.RadialItem<string> }> = Compose.cell({})
-local selected = Compose.cell("first")
+type ChoiceValue = string | boolean | nil
+local children: Compose.Value<{ Radial.RadialItem<ChoiceValue> }> = Compose.cell({})
+local selected = Compose.cell<<ChoiceValue>>("first")
 local checked = Compose.cell(false)
-local choice: Radial.RadialChoice<string> = {
+local choice: Radial.RadialChoice<ChoiceValue> = {
 	id = "choice",
 	label = "Choice",
 	selected = selected,
 	value = "first",
-	onChange = function(value: string)
+	onChange = function(value: ChoiceValue)
 		selected:set(value)
 	end,
 }
-local check: Radial.RadialCheck<string> = {
+local check: Radial.RadialCheck<ChoiceValue> = {
 	id = "check",
 	label = "Check",
 	checked = checked,
@@ -21,6 +22,6 @@ local check: Radial.RadialCheck<string> = {
 		checked:set(value)
 	end,
 }
-local parent: Radial.RadialAction<string> = { id = "children", label = "Children", children = children }
-local items: { Radial.RadialItem<string> } = { choice, check, parent }
+local parent: Radial.RadialAction<ChoiceValue> = { id = "children", label = "Children", children = children }
+local items: { Radial.RadialItem<ChoiceValue> } = { choice, check, parent }
 return items

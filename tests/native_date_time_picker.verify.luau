@@ -5,6 +5,8 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+	type CivilDate = typeof(require("@repo/tools/typecheck/aliases").CivilDate)
+	type DateRangePreset = typeof(require("@repo/tools/typecheck/aliases").DateRangePreset)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 	local Compose = require("../src/vendor/compose/core")
@@ -16,11 +18,11 @@ return function(verifyHarness: Verify.Harness)
 	local engines = require("./lib/native_engine")
 	local expect = Verify.expect
 
-	local TODAY = { year = 2026, month = 9, day = 23 }
-	local function clock(): any
+	local TODAY: CivilDate = { year = 2026, month = 9, day = 23 }
+	local function clock(): CivilDate
 		return TODAY
 	end
-	local function D(y: number, m: number, d: number): any
+	local function D(y: number, m: number, d: number): CivilDate
 		return { year = y, month = m, day = d }
 	end
 	local function iso(d: any): string
@@ -968,8 +970,9 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local refuse = Compose.cell(false)
 					local committed = Compose.cell("nothing yet")
-					local raceDay = Compose.cell(D(2026, 10, 4) :: any)
-					local window = Compose.cell({} :: any)
+					local raceDay = Compose.cell(D(2026, 10, 4))
+					local initialRange: Facet.CivilRange = {}
+					local window = Compose.cell(initialRange)
 					local function accept(cell: any): (any) -> ()
 						return function(next: any)
 							if not refuse:peek() then
@@ -978,6 +981,16 @@ return function(verifyHarness: Verify.Harness)
 						end
 					end
 					local w = world(function(UI: FacetControls, Host: RobloxHost)
+						local presets: { DateRangePreset } = {
+							{
+								id = "week",
+								label = "This week",
+								range = function(today: CivilDate)
+									local start = civil.addDays(today, -((civil.weekday(today) + 5) % 7))
+									return { start = start, finish = civil.addDays(start, 6) }
+								end,
+							},
+						}
 						return Host.Frame {
 							Name = "Pickers",
 							Host.UIListLayout {},
@@ -1005,16 +1018,7 @@ return function(verifyHarness: Verify.Harness)
 								weekStart = 2,
 								placeholder = "Choose a start and an end",
 								clock = clock,
-								presets = {
-									{
-										id = "week",
-										label = "This week",
-										range = function(today: any)
-											local start = civil.addDays(today, -((civil.weekday(today) + 5) % 7))
-											return { start = start, finish = civil.addDays(start, 6) }
-										end,
-									},
-								},
+								presets = presets,
 							},
 						}
 					end, { input = "touch" })

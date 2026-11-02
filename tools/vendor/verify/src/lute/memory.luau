@@ -29,6 +29,7 @@ export type Host = {
 	now: () -> number,
 	heap: () -> number,
 	witness: () -> Witness,
+	growStringTable: (() -> { string })?,
 	pressure: () -> (),
 }
 export type Memory = {
@@ -36,7 +37,8 @@ export type Memory = {
 	measure: <T>(spec: Spec<T>, options: Options?) -> Result,
 }
 
-local METHOD = "gc-witness-low-water/2"
+local METHOD = "gc-witness-low-water/5"
+local STRING_TABLE_GROWTH = 300000
 
 local function integer(value: number, minimum: number): boolean
 	return value >= minimum and value < math.huge and value % 1 == 0
@@ -93,8 +95,9 @@ local function create(host: Host): Memory
 						spec.afterRun(state)
 					end
 				end
+				local reading = settle(options)
 				if measuring then
-					mounted = settle(options)
+					mounted = reading
 				end
 			end)
 			local cleaned, cleanupProblem = pcall(function()
@@ -111,6 +114,10 @@ local function create(host: Host): Memory
 				error("memory cleanup failed: " .. tostring(cleanupProblem), 0)
 			end
 		end
+		local anchored = if host.growStringTable then host.growStringTable() else nil
+		if anchored then
+			settle(options)
+		end
 		for _ = 1, rehearsals do
 			exercise()
 		end
@@ -119,12 +126,15 @@ local function create(host: Host): Memory
 		exercise()
 		local teardown = settle(options)
 		local held = assert(mounted)
+		if anchored then
+			assert(#anchored > 0, "memory string table anchor was released")
+		end
 		return {
 			method = METHOD,
 			baseline = baseline,
 			mounted = held,
 			teardown = teardown,
-			mountedRetainedKb = math.max(0, held.heapKb - baseline.heapKb),
+			mountedRetainedKb = math.max(0, held.heapKb - teardown.heapKb),
 			teardownRetainedKb = math.max(0, teardown.heapKb - baseline.heapKb),
 		}
 	end
@@ -136,6 +146,14 @@ local bound = create {
 	now = os.clock,
 	heap = gcinfo,
 	witness = witness,
+	growStringTable = function()
+		local held = table.create(STRING_TABLE_GROWTH, "")
+		for index = 1, STRING_TABLE_GROWTH do
+			held[index] = `capacity{index}`
+		end
+		assert(#held == STRING_TABLE_GROWTH, "memory string table growth failed")
+		return held
+	end,
 	pressure = function()
 		local scratch = buffer.create(8192)
 		assert(buffer.len(scratch) == 8192, "memory pressure allocation failed")

@@ -378,7 +378,7 @@ function Model.build(options: Options?): (boolean, string)
 			Files.remove(temporary)
 		end
 	end
-	local failure = if built then problem else tostring(problem)
+	local failure: string? = if built then problem else tostring(problem)
 	if failure ~= nil then
 		table.insert(lines, failure)
 		return false, table.concat(lines, "\n")

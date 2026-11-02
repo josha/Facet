@@ -5,7 +5,7 @@ type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 type OverlayMedia = typeof(require("@repo/tools/typecheck/aliases").OverlayMedia)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 
@@ -215,7 +215,7 @@ return {
 							end,
 							trigger = UI.Button "Filter" { label = COPY.filter, icon = "menu" },
 							content = function(): Instance
-								local filterOptions: { PickerOption } = {
+								local filterOptions: { StringPickerOption } = {
 									{ value = "all", label = "All races" },
 									{ value = "friends", label = "Friends" },
 									{ value = "ranked", label = "Ranked" },

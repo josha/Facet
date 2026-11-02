@@ -142,8 +142,8 @@ add("consumer-parts-have-rects", {}, function(t)
 	end
 end)
 
-local function radialItems(count: number, long: boolean): { any }
-	local list = {}
+local function radialItems(count: number, long: boolean): { RadialItem }
+	local list: { RadialItem } = {}
 	for index = 1, count do
 		list[index] = {
 			id = "item" .. index,
@@ -193,7 +193,8 @@ interactive("radial-list-scrolls-selection-into-view", {}, function(t)
 			items = radialItems(12, false),
 		}
 	end, { size = Vector2.new(420, 200), frames = 30 })
-	value.panel = visibleNamed(t, stage, "RadialPanel")
+	local panel: ScrollingFrame? = visibleNamed(t, stage, "RadialPanel")
+	value.panel = panel
 	t.check(
 		"a 420x200 space presents the list",
 		value.panel ~= nil and value.panel:GetAttribute("Presentation") == "list"
@@ -201,9 +202,9 @@ interactive("radial-list-scrolls-selection-into-view", {}, function(t)
 	value.visited = {}
 	value.connection = GuiService:GetPropertyChangedSignal("SelectedObject"):Connect(function()
 		local selected = GuiService.SelectedObject
-		if selected and value.panel then
-			local s, w = t.rect(selected), value.panel.AbsolutePosition
-			local window = value.panel.AbsoluteWindowSize
+		if selected and panel then
+			local s, w = t.rect(selected), panel.AbsolutePosition
+			local window = panel.AbsoluteWindowSize
 			table.insert(value.visited, {
 				name = selected.Name,
 				inside = s.y >= w.Y - 0.5 and s.b <= w.Y + window.Y + 0.5,
@@ -518,7 +519,7 @@ add("radial-retiring-branch-refuses-selection", {}, function(t)
 		}
 		local branch: StringRadialAction = { id = "Branch", label = "Branch", children = leaves }
 		local other: StringRadialAction = { id = "Other", label = "Other", completion = "stay" }
-		local items: { StringRadialItem } = { branch, other }
+		local items: { RadialItem } = { branch, other }
 		return UI.RadialMenu "RadialMenu" {
 			isPresented = Compose.cell(true),
 			items = items,

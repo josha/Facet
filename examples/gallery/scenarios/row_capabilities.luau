@@ -130,7 +130,7 @@ return {
 						Size = UDim2.new(1, 0, 0, 56),
 						BackgroundTransparency = 1,
 					},
-					UI.Table "RunSheet" {
+					UI.Table({
 						Position = UDim2.fromOffset(0, 100),
 						Size = UDim2.new(1, 0, 1, -164),
 						from = rows,
@@ -166,7 +166,7 @@ return {
 								trailing = trailing,
 							}
 						end,
-					},
+					}, "RunSheet"),
 					UI.Text "Status" {
 						Position = UDim2.new(0, 0, 1, -56),
 						Size = UDim2.new(1, 0, 0, 56),

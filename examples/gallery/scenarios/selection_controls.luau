@@ -1,7 +1,6 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type VoteCell = typeof(require("@repo/tools/typecheck/aliases").VoteCell)
@@ -103,7 +102,7 @@ return {
 			}
 		end
 		local function segmented()
-			local options: { PickerOption } = {
+			local options: { StringPickerOption } = {
 				{ value = "open", label = "Open" },
 				{ value = "club", label = "Club", enabled = club },
 			}
@@ -115,7 +114,7 @@ return {
 			}
 		end
 		local function popup()
-			local options: { PickerOption } = {
+			local options: { StringPickerOption } = {
 				{ value = "open", label = "Open races" },
 				{ value = "club", label = "Club races", description = "Join a club to unlock.", enabled = club },
 			}
@@ -243,7 +242,7 @@ return {
 			}
 		end
 		local function cards()
-			local options: { PickerOption } = {
+			local options: { StringPickerOption } = {
 				{ value = "sprint", label = "Sprint", description = "Three short laps", meta = "3 laps" },
 				{ value = "endurance", label = "Endurance", description = "A long race", meta = "20 laps" },
 				{
@@ -265,7 +264,7 @@ return {
 			}
 		end
 		local function lapStrip()
-			local options: { PickerOption } = {
+			local options: { StringPickerOption } = {
 				{ value = "3", label = "3" },
 				{ value = "5", label = "5" },
 				{ value = "10", label = "10" },

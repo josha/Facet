@@ -2,6 +2,8 @@
 type Help = typeof(require("@repo/tools/typecheck/aliases").ButtonProps.help)
 type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 type StringRadialItem = typeof(require("@repo/tools/typecheck/aliases").StringRadialItem)
+type HelpSpec = typeof(require("@repo/tools/typecheck/aliases").HelpSpec)
+type NoticeSpec = typeof(require("@repo/tools/typecheck/aliases").NoticeSpec)
 type ThemeCell = typeof(require("@repo/tools/typecheck/aliases").ThemeCell)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type MenuSpec = typeof(require("@repo/tools/typecheck/aliases").MenuSpec)
@@ -54,7 +56,8 @@ add("sheet-guarded-dismissal", {}, function(t)
 			end,
 			content = function()
 				builds += 1
-				return UI.TextInput "DraftName" { value = t.Facet.Compose.cell("Unsaved design") }
+				local draft: StringCell = t.Facet.Compose.cell("Unsaved design")
+				return UI.TextInput "DraftName" { value = draft }
 			end,
 		}
 	end, { frames = 30 })
@@ -492,7 +495,12 @@ interactive(
 	{},
 	"afterDown: press DPadDown once; afterDownMany: press DPadDown 15 more times",
 	function(t)
-		local value = { visits = {} }
+		local value: {
+			visits: { { name: string, canvas: number, limit: number } },
+			body: ScrollingFrame?,
+			connection: RBXScriptConnection?,
+		} =
+			{ visits = {} }
 		device(t, { device = "xbox" })
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return longDialog(UI, Host, Compose)
@@ -999,11 +1007,12 @@ add("notice-layout-and-emphasis-paint", {}, function(t)
 	end
 	t.check("each severity paints its own color", count == 4, colors)
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.Notice "Plain" {
+		local spec: NoticeSpec = {
 			severity = "info" :: "info",
 			message = "A new track pack is ready to install.",
 			link = { label = "Release notes", onActivate = function(): () end },
 		}
+		return UI.Notice "Plain"(spec)
 	end, { size = Vector2.new(1280, 720), frames = 12 })
 	local link = t.find(stage, "Link")
 	t.check(
@@ -1423,9 +1432,10 @@ add("snackbar-paint-order", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		calloutOn = Compose.cell(false)
 		dialogOn = Compose.cell(false)
+		local help: HelpSpec = { title = "Boost", body = "Fills the boost meter faster." }
 		trigger = UI.Button "HelpTrigger" {
 			label = "Boost",
-			help = { title = "Boost", body = "Fills the boost meter faster." },
+			help = help,
 		}
 		local anchor = UI.Button "TourAnchor" { label = "Garage" }
 		return Host.Frame "Board" {
@@ -2298,7 +2308,10 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 						elseif kind == "RadialMenu" then "RadialPanel"
 						else "Panel"
 				)
-				t.check("modal panel and scrim are presented", catcher ~= nil and panel ~= nil and t.visible(panel))
+				t.check(
+					"modal panel and scrim are presented",
+					catcher ~= nil and panel ~= nil and t.visible(panel) == true
+				)
 				if catcher and panel then
 					geometry.scrim(t, scrim, viewport, safe, panel, kind == "Sheet")
 					if kind == "Sheet" then

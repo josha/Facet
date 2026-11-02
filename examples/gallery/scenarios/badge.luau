@@ -1,10 +1,11 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSizeValue)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type BadgeStatus = "neutral" | "info" | "success" | "warning" | "error" | "accent" | "voice" | "contrast"
+type StatusOption = { value: BadgeStatus, label: string }
+type SizeOption = { value: ControlSize, label: string }
 type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 return {
@@ -36,13 +37,13 @@ return {
 			Compose.cleanup(function()
 				rootPath, controller, record = nil, nil, nil
 			end)
-			local statusOptions: { PickerOption } = {
+			local statusOptions: { StatusOption } = {
 				{ value = "neutral", label = "Neutral" },
 				{ value = "warning", label = "Warning" },
 				{ value = "error", label = "Error" },
 				{ value = "voice", label = "Voice" },
 			}
-			local sizeOptions: { PickerOption } = {
+			local sizeOptions: { SizeOption } = {
 				{ value = "compact", label = "Compact" },
 				{ value = "large", label = "Large" },
 			}

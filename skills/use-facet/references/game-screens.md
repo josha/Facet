@@ -130,8 +130,8 @@ end
 local chatRegion = UI.Region "Chat" { zone = "right", rank = 3,
     UI.Button "Chat" { icon = "chat", shape = "circle", caption = "Chat", shortcutHint = chatAction,
         onActivate = function() wheelOpen:set(true) end } }
-local quickChat = UI.RadialMenu "QuickChat" { label = "Quick chat", items = items, launcher = false,
-    isPresented = wheelOpen, holdAction = chatAction }
+local quickChat = UI.RadialMenu<<string>>({ label = "Quick chat", items = items, launcher = false,
+    isPresented = wheelOpen, holdAction = chatAction }, "QuickChat")
 ```
 
 Mount `chatRegion` in the HUD Composition and `quickChat` beside it in the

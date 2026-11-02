@@ -115,7 +115,7 @@ return {
 				zone = "topbar",
 				trailing = true,
 				rank = 1,
-				UI.RadialMenu "QuickActions" {
+				UI.RadialMenu<<string>>({
 					label = "Field kit",
 					preset = "top-right",
 					appearance = "buttons",
@@ -123,7 +123,7 @@ return {
 					holdAction = quick,
 					enabled = available,
 					items = commands,
-				},
+				}, "QuickActions"),
 			},
 		}
 		local navigation: { Facet.OverlayAction } = {

@@ -641,7 +641,7 @@ for _, kind in { "Help", "Callout", "Popover", "Menu", "Picker" } do
 							"attachment variant",
 							{ kind = kind, width = width, preference = preference.Name, x = location.X, y = location.Y }
 						)
-						t.check("anchored panel is visible", panel ~= nil and t.visible(panel))
+						t.check("anchored panel is visible", panel ~= nil and t.visible(panel) == true)
 						if panel then
 							local tailName = if kind == "Help"
 								then "HelpTail"

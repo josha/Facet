@@ -19,6 +19,10 @@ type Options = {
 	disconnectGamepad: (() -> ())?,
 }
 
+local function textBoxText(instance: Instance): string
+	return if instance:IsA("TextBox") then instance.Text else ""
+end
+
 return function(live: any, suite: string, options: Options): any
 	local automaticReport = nil
 	if options.complete and suite ~= "haptics_pair" then
@@ -1117,9 +1121,10 @@ return function(live: any, suite: string, options: Options): any
 		io.click(centre(value.chat))
 		io.hold(Enum.KeyCode.A, 3)
 		io.text("A")
+		local chatBox = value.chat
 		t.note("text entry state", {
-			focused = UserInputService:GetFocusedTextBox() == value.chat,
-			text = if typeof(value.chat) == "Instance" and value.chat:IsA("TextBox") then value.chat.Text else "",
+			focused = UserInputService:GetFocusedTextBox() == chatBox,
+			text = if typeof(chatBox) == "Instance" then textBoxText(chatBox) else "",
 		})
 		live.step("afterChat")
 		io.hold(Enum.KeyCode.Backspace, 3)
