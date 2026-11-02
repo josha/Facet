@@ -13,22 +13,22 @@ export type Media = {
 	background: Input<Color3>?,
 }
 export type Hero = {
-	image: string?,
-	content: (Instance | (() -> Instance))?,
-	aspectRatio: number?,
-	height: (number | string)?,
-	scaleMode: ScaleMode?,
-	background: Input<Color3>?,
-	sticky: boolean?,
+	read image: string?,
+	read content: (Instance | (() -> Instance))?,
+	read aspectRatio: number?,
+	read height: (number | string)?,
+	read scaleMode: ScaleMode?,
+	read background: Input<Color3>?,
+	read sticky: boolean?,
 }
 export type ActionRole = "default" | "cancel" | "destructive"
 export type Action = {
-	id: string,
-	label: Types.ValueString,
-	role: ActionRole?,
-	enabled: Types.ValueBoolean?,
-	busy: Types.ValueBoolean?,
-	onActivate: () -> (),
+	read id: string,
+	read label: Types.ValueString,
+	read role: ActionRole?,
+	read enabled: Types.ValueBoolean?,
+	read busy: Types.ValueBoolean?,
+	read onActivate: () -> (),
 }
 export type DialogAction = {
 	id: string,
@@ -119,7 +119,7 @@ export type ToastDismissReason =
 	| "action"
 	| "close"
 	| "cancel"
-export type ToastAction = { label: Types.ValueString, onActivate: () -> () }
+export type ToastAction = { read label: Types.ValueString, read onActivate: () -> () }
 export type ToastOptions = {
 	message: Types.ValueString?,
 	content: (() -> Instance)?,

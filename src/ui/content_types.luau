@@ -53,13 +53,13 @@ export type VoteOptions = {
 	controls: Diagnostics?,
 }
 export type CardAction = {
-	label: Types.ValueString,
-	icon: Types.ValueString?,
-	onActivate: () -> (),
-	enabled: Types.ValueBoolean?,
-	busy: Types.ValueBoolean?,
+	read label: Types.ValueString,
+	read icon: Types.ValueString?,
+	read onActivate: () -> (),
+	read enabled: Types.ValueBoolean?,
+	read busy: Types.ValueBoolean?,
 }
-export type CardMenu = { items: Input<{ Nav.MenuItem<string> }>, label: Types.ValueString? }
+export type CardMenu = { read items: Input<{ Nav.MenuItem<string> }>, read label: Types.ValueString? }
 export type CardBadge = {
 	label: Input<string?>?,
 	status: Input<Media.Status>?,

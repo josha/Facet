@@ -2540,10 +2540,10 @@ export type ButtonGuideProps = {
 	Visible: Engine.ValueBoolean?,
 	ZIndex: Engine.ValueNumber?,
 	Style: Engine.ValueEnumFrameStyle?,
-	ref: ((Frame) -> ())?,
-	entries: Inputs.Input<{ Inputs.ButtonGuideEntry }>,
-	inputs: { string }?,
-	controlSize: Inputs.Input<Shared.ControlSize?>?,
+	read ref: ((Frame) -> ())?,
+	read entries: Inputs.Input<{ Inputs.ButtonGuideEntry }>,
+	read inputs: { string }?,
+	read controlSize: Inputs.Input<Shared.ControlSize?>?,
 	[number]: Compose.Child?,
 }
 export type ButtonGuidePropsInput = {

@@ -23,7 +23,7 @@ export type Row = {
 	read value: string?,
 	read icon: string?,
 }
-export type Shortcut = { keyCode: string, modifiers: { shift: boolean? }? }
+export type Shortcut = { read keyCode: string, read modifiers: { shift: boolean? }? }
 export type HelpSpec = {
 	title: Shared.ValueString?,
 	body: Shared.ValueString,
@@ -353,10 +353,10 @@ export type ButtonGuideEntry = {
 	label: Shared.ValueString,
 }
 export type ButtonGuideOptions = {
-	ref: ((Frame) -> ())?,
-	entries: Input<{ ButtonGuideEntry }>,
-	inputs: { string }?,
-	controlSize: Input<Shared.ControlSize?>?,
+	read ref: ((Frame) -> ())?,
+	read entries: Input<{ ButtonGuideEntry }>,
+	read inputs: { string }?,
+	read controlSize: Input<Shared.ControlSize?>?,
 }
 export type ButtonGuideImplementationProps = Shared.FrameProps & ButtonGuideOptions
 export type HapticKind = Shared.HapticKind
