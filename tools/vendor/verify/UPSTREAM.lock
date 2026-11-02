@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "72035ed9ab7ed3a06c377dad2153fe2f619a5bb6",
+  "commit": "e9dd8ca08cbf80a3190f02509130dd98e7882626",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "4df9d6a108c895934f1863116dcf59cf3626d1eb05342bab53e26e1f06a86635",
@@ -8,7 +8,7 @@
     "docs/agent-eval.md": "fdc3f1c52def3146fae783a2fa6cbe895e1c9c44863cb717c3d5eb34746789bf",
     "docs/api.md": "c681c7a31f06051d03c7efcc5ff23e6e664349e9895b591cec5d1bcc0ef3bb6b",
     "docs/checks.md": "7a04e866bb9ff705c0d6ae7a15883d58c2cd36cceb42d4d0771b8c5e5a41a7d5",
-    "docs/execution.md": "044dd1db40b4426329a19bde751faf8fe35ccbab0ad9ece47494428d594354cc",
+    "docs/execution.md": "30ebc991d8fcef4a13f79daad8da881e56fca176883acd63195271a559f16610",
     "docs/experience.md": "00e3d767a29175785ade0a2814a426bf3a86d229c4fa7da46cb1a0793c1de511",
     "docs/laws.md": "b114ffdc3abcc1045bbe6b1bbf642eddc2208fc7fbf5a7514a13d9c33cba81f0",
     "docs/lint.md": "b4f3418ecd0554a27c18ae0bab761b0fe96819bce323051a1598f17915d52953",
@@ -114,7 +114,7 @@
     "src/lute/host.luau": "1191cd0d5a7cd6b56895d816a327976eb075f3dba47c9e757e312fc9be96697f",
     "src/lute/init.luau": "be222f51f102a31fbe97fb9907e413d97422ff26403a52ce5e8bb8971707f2e3",
     "src/lute/loader.luau": "4c6d58f16bb7ec452ef1d8ae81aa43abd7835c4ef0ff7f4307daf16c0e61a4d8",
-    "src/lute/memory.luau": "237d67829bc8909fba72789f729aa64ed1822e916e84ae948232afc7da715d6f",
+    "src/lute/memory.luau": "44edbe6af1f1e4825ee81919046c25de09bf48ecfa005c5ad9524d9e3f03c921",
     "src/lute/model.luau": "19956352c55d2447ad38492321ac0665c3b47388b004c717a1839b27bc6c7d75",
     "src/lute/open-cloud.luau": "fdb7f53892410615c548d6a0819403f472a02ee190a3424cd45ff5b332e07dc8",
     "src/lute/place.luau": "b513db9935d239a980c88b86d016c90c13ae20a3b294081a58118501ed70588a",
