@@ -15,7 +15,6 @@ local commands: { Cli.Command } = {
 	require("@self/types"),
 	require("@self/perf"),
 	require("@self/words"),
-	require("@self/git"),
 	require("@self/archive"),
 	require("@self/bench"),
 	require("@self/facetbench"),
