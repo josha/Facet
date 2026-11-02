@@ -78,15 +78,6 @@ local function record(value: unknown): Record?
 	return if type(value) == "table" then value :: Record else nil
 end
 
-local function stateKeys(spec: Types.ControlSpec): { string }
-	local states = spec.states
-	if states ~= nil then
-		return states
-	end
-	local state = spec.state
-	return if state ~= nil then { state } else {}
-end
-
 local OPTION_LISTS: { [string]: true } = { Picker = true, ComboBox = true }
 
 local LITERAL_KINDS: { [string]: string } = {
@@ -197,7 +188,8 @@ end
 local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Design.Field }
 	local fields: { [string]: Design.Field } = {}
 	local order = 1000
-	for key, field in derivedFields(name) do
+	local typed = derivedFields(name)
+	for key, field in typed do
 		if
 			spec.fields[string.lower(string.sub(key, 1, 1)) .. string.sub(key, 2)] ~= nil and string.match(key, "^%u")
 		then
@@ -215,44 +207,53 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 			advanced = true,
 		}
 	end
-	local typed = derivedFields(name)
 	for key, field in spec.fields do
-		local also: { string } = {}
-		if field.format == "spacing" then
-			table.insert(also, "number")
-		elseif field.format == "padding" then
-			table.insert(also, "number")
-			table.insert(also, "table")
-		end
+		local also: { string }? = if field.format == "padding"
+			then { "number", "table" }
+			elseif field.format == "spacing" then { "number" }
+			else nil
 		local runtime = typed[key]
 		local kind = if runtime ~= nil then LITERAL_KINDS[runtime.type] else nil
 		local own = LITERAL_KINDS[field.type]
-		if kind ~= nil and kind ~= own and table.find(also, kind) == nil then
-			table.insert(also, kind)
+		if kind ~= nil and kind ~= own and (also == nil or table.find(also, kind) == nil) then
+			local list = also or {}
+			table.insert(list, kind)
+			also = list
 		end
 		local icon = iconic(key, field.type)
-		fields[key] = {
+		local result: Design.Field = {
 			type = if icon then CHOICE else field.type,
 			options = if icon then ICONS else field.options,
 			order = field.order,
 			label = field.label,
 			default = field.default,
-			perRow = field.perRow,
 			datatype = if field.type == "color" then "Color3" else nil,
-			also = if #also > 0 then also else nil,
-			luauType = if field.format == "padding"
-				then "Facet.Sides"
-				elseif key == "options" and OPTION_LISTS[name] then "{ Facet.PickerOption<string> }"
-				elseif key == "columns" and name == "Table" then "{ Facet.TableColumn<$Item, $Key> }"
-				elseif key == "rowActions" then "Facet.RowActionsOptions?"
-				else nil,
+			also = also,
 		}
+		if field.perRow ~= nil then
+			result.perRow = field.perRow
+		end
+		local luauType = if field.format == "padding"
+			then "Facet.Sides"
+			elseif key == "options" and OPTION_LISTS[name] then "{ Facet.PickerOption<string> }"
+			elseif key == "columns" and name == "Table" then "{ Facet.TableColumn<$Item, $Key> }"
+			elseif key == "rowActions" then "Facet.RowActionsOptions?"
+			elseif name == "Sheet" and key == "detents" then "{ Facet.SheetDetent }"
+			elseif key == "actions" then "{ Facet." .. (if name == "Dialog"
+				then "DialogAction"
+				elseif name == "Alert" then "AlertAction"
+				else "OverlayAction") .. " }"
+			elseif name == "RowActions" and (key == "leading" or key == "trailing") then "{ Facet.RowAction }"
+			else nil
+		if luauType then
+			result.luauType = luauType
+		end
+		fields[key] = result
+	end
+	if spec.content then
+		fields[spec.content] = { type = "content", label = "Content", group = "Control" }
 	end
 	return fields
-end
-
-local function seedChildren(spec: Types.ControlSpec): boolean
-	return spec.container == true or spec.content ~= nil
 end
 
 local function seeds(name: string): { Types.Seed }
@@ -264,7 +265,7 @@ local function seeds(name: string): { Types.Seed }
 	if declared ~= nil then
 		return declared
 	end
-	if not seedChildren(spec) then
+	if spec.container ~= true and spec.content == nil then
 		return {}
 	end
 	local props: { [string]: Types.Literal } = { text = "Make this content yours" }
@@ -288,24 +289,6 @@ local function enumItem(types: Types.RobloxTypes, enumName: string, item: string
 	return nil
 end
 
-local function construct(types: Types.RobloxTypes, datatype: string, components: { number }): unknown
-	local a, b, c, d = components[1] or 0, components[2] or 0, components[3] or 0, components[4] or 0
-	if datatype == "UDim2" then
-		return types.UDim2.new(a, b, c, d)
-	elseif datatype == "UDim" then
-		return types.UDim.new(a, b)
-	elseif datatype == "Vector2" then
-		return types.Vector2.new(a, b)
-	elseif datatype == "Vector3" then
-		return types.Vector3.new(a, b, c)
-	elseif datatype == "Rect" then
-		return types.Rect.new(a, b, c, d)
-	elseif datatype == "NumberRange" then
-		return types.NumberRange.new(a, b)
-	end
-	return nil
-end
-
 local function create(context: Context): Design.Library
 	local UI = context.UI :: { [string]: Construct }
 	local types = context.types or robloxTypes()
@@ -321,13 +304,47 @@ local function create(context: Context): Design.Library
 		if type(literal) ~= "table" then
 			return literal
 		end
-		local components: { number } = {}
+		local a, b, c, d = 0, 0, 0, 0
+		local count = 0
 		for _, component in literal do
 			if type(component) == "number" then
-				table.insert(components, component)
+				count += 1
+				if count == 1 then
+					a = component
+				elseif count == 2 then
+					b = component
+				elseif count == 3 then
+					c = component
+				elseif count == 4 then
+					d = component
+				end
 			end
 		end
-		return construct(types, datatype, components)
+		if datatype == "UDim2" then
+			return types.UDim2.new(a, b, c, d)
+		elseif datatype == "UDim" then
+			return types.UDim.new(a, b)
+		elseif datatype == "Vector2" then
+			return types.Vector2.new(a, b)
+		elseif datatype == "Vector3" then
+			return types.Vector3.new(a, b, c)
+		elseif datatype == "Rect" then
+			return types.Rect.new(a, b, c, d)
+		elseif datatype == "NumberRange" then
+			return types.NumberRange.new(a, b)
+		end
+		return nil
+	end
+
+	local function binding(resolved: Resolved, datatype: string?): unknown
+		local source = resolved.readable
+		if source ~= nil and datatype ~= nil then
+			return function(use: Compose.Use): unknown
+				local current = use(source)
+				return if current ~= nil then convert(datatype, current) else nil
+			end
+		end
+		return source or resolved.callback or resolved.node or resolved.slot
 	end
 
 	local function stack(children: { unknown }): unknown
@@ -394,30 +411,20 @@ local function create(context: Context): Design.Library
 					values[key] = if datatype ~= nil then convert(datatype, value) else copy(value)
 				end
 				for key, resolved in props do
-					local literal = resolved.literal
-					local declared = if typed then typed[key] else nil
-					local datatype = if declared and spec.fields[key] == nil then declared.datatype else nil
 					local field = kindFields[key]
+					local datatype = if field then field.datatype else nil
+					local literal = resolved.literal
 					if resolved.value ~= nil then
 						values[key] = resolved.value
-					elseif literal ~= nil and field ~= nil and field.type == "color" then
-						values[key] = color(types, literal)
-					elseif literal ~= nil and datatype ~= nil then
-						values[key] = convert(datatype, literal)
 					elseif literal ~= nil then
-						values[key] = copy(literal)
-					elseif resolved.readable ~= nil then
-						live[key] = resolved.readable
-					elseif resolved.callback ~= nil then
-						live[key] = resolved.callback
-					elseif resolved.node ~= nil then
-						live[key] = resolved.node
-					elseif resolved.slot ~= nil then
-						live[key] = resolved.slot
+						values[key] = if datatype then convert(datatype, literal) else copy(literal)
+					else
+						live[key] = binding(resolved, datatype)
 					end
 				end
 				local states: { [string]: Compose.Value<unknown> } = {}
-				for _, key in stateKeys(spec) do
+				local stateKey = spec.state
+				for _, key in spec.states or (if stateKey ~= nil then { stateKey } else {}) do
 					local initial = values[key]
 					if name == "ColorPicker" and key == "value" then
 						initial = color(types, initial)
@@ -649,25 +656,18 @@ local function create(context: Context): Design.Library
 		return function(props: { [string]: Resolved }, children: { unknown }, nodeName: string): unknown
 			local values: Record = {}
 			for key, resolved in props do
-				local literal = resolved.literal
 				local field = source[key]
-				local datatype = if field then field.datatype else nil
+				local datatype = if field and field.type == "color"
+					then "Color3"
+					elseif field then field.datatype
+					else nil
+				local literal = resolved.literal
 				if resolved.value ~= nil then
 					values[key] = resolved.value
-				elseif literal ~= nil and field ~= nil and field.type == "color" then
-					values[key] = color(types, literal)
-				elseif literal ~= nil and datatype ~= nil then
-					values[key] = convert(datatype, literal)
 				elseif literal ~= nil then
-					values[key] = copy(literal)
-				elseif resolved.readable ~= nil then
-					values[key] = resolved.readable
-				elseif resolved.callback ~= nil then
-					values[key] = resolved.callback
-				elseif resolved.node ~= nil then
-					values[key] = resolved.node
-				elseif resolved.slot ~= nil then
-					values[key] = resolved.slot
+					values[key] = if datatype then convert(datatype, literal) else copy(literal)
+				else
+					values[key] = binding(resolved, datatype)
 				end
 			end
 			for _, child in children do
@@ -712,11 +712,15 @@ local function create(context: Context): Design.Library
 	if tokens ~= nil then
 		for _, kind in kinds do
 			for key, field in kind.fields do
-				local measure = string.match(key, "[Gg]ap$")
-					or string.match(key, "[Pp]adding")
+				if
+					field.type == "color"
+					or field.type == "number"
+					or field.type == "datatype"
 					or key == "width"
 					or key == "height"
-				if field.type == "color" or field.type == "number" or measure then
+					or string.match(key, "[Gg]ap$")
+					or string.match(key, "[Pp]adding")
+				then
 					field.tokens = true
 				end
 			end

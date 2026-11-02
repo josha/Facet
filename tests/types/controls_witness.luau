@@ -376,6 +376,18 @@ local listSpec: Facet.KeyedCollectionSpec<Row, string> = {
 	end,
 }
 local list: ScrollingFrame = UI.VirtualList(listSpec)
+local history: (string) -> (Facet.KeyedCollectionSpec<Row, string>) -> ScrollingFrame = UI.VirtualList
+local historyList: ScrollingFrame = history "History"(listSpec)
+local historyGrid: (Facet.KeyedCollectionSpec<Row, string>) -> ScrollingFrame = UI.VirtualGrid "HistoryGrid"
+local directHistoryList: ScrollingFrame = UI.VirtualList "DirectHistory" {
+	from = rows,
+	key = function(row: Row): string
+		return row.id
+	end,
+	render = function(current: Facet.ReadOnlyValue<Row>): GuiObject
+		return UI.Text { text = current:peek().title }
+	end,
+}
 local names: Facet.Value<{ string }> = Compose.cell({ "Amber" })
 local gridSpec: Facet.IdentityCollectionSpec<string> = { from = names, render = guiContent, columns = 2 }
 local grid: ScrollingFrame = UI.VirtualGrid(gridSpec)
