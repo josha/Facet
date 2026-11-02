@@ -49,7 +49,7 @@ function Retained.read(value: unknown): (Reading?, string?)
 	end
 	local before, during, after = assert(baseline), assert(mounted), assert(teardown)
 	local live, released = assert(mountedRetained), assert(teardownRetained)
-	if live ~= math.max(0, during - before) or released ~= math.max(0, after - before) then
+	if live ~= math.max(0, during - math.min(before, after)) or released ~= math.max(0, after - before) then
 		return nil, "retained memory deltas do not match their raw heap readings"
 	end
 	return { mounted = live, teardown = released }, nil
