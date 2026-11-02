@@ -216,6 +216,7 @@ local function kinds(): { [string]: Design.Kind }
 				columns = field("number", "Pattern", 3),
 				rows = field("number", "Pattern", 4),
 				radius = field("number", "Pattern", 5),
+				phase = { type = "number", group = "Pattern", order = 15, advanced = true },
 				extent = field("vector3", "Pattern", 6),
 				spacing = field("vector3", "Pattern", 7),
 				position = field("vector3", "Transform", 1),
@@ -854,6 +855,7 @@ local function create(
 				local current: Design.Row = {
 					id = row.id,
 					name = row.name,
+					visible = row.visible,
 					position = vectorLiteral(row.position),
 					rotation = vectorLiteral(row.rotation),
 					size = vectorLiteral(row.size),

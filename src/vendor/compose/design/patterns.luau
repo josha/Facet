@@ -1,19 +1,27 @@
 --!strict
 
 export type Color = string | { number }
-export type Row =
-	{ id: string, name: string, position: { number }, rotation: { number }, size: { number }, color: Color }
+export type Row = {
+	id: string,
+	name: string,
+	position: { number },
+	rotation: { number },
+	size: { number },
+	color: Color,
+	visible: boolean,
+}
 type Vector = { x: number, y: number, z: number }
 type Record = { [string | number]: unknown }
 local ZERO: Vector = { x = 0, y = 0, z = 0 }
 
-local fields: { { id: string, type: "string" | "vector3" | "color", luauType: string? } } = {
+local fields: { { id: string, type: "string" | "vector3" | "color" | "boolean", luauType: string? } } = {
 	{ id = "id", type = "string" },
 	{ id = "name", type = "string" },
 	{ id = "position", type = "vector3" },
 	{ id = "rotation", type = "vector3" },
 	{ id = "size", type = "vector3" },
 	{ id = "color", type = "color", luauType = "unknown" },
+	{ id = "visible", type = "boolean" },
 }
 
 local function number(value: unknown, fallback: number): number
@@ -79,16 +87,20 @@ local function rows(props: { [string | number]: unknown }): { Row }
 	local rotation = triple(props.rotation, ZERO)
 	local size = triple(props.size, { x = 4, y = 1, z = 4 })
 	local radius = number(props.radius, 3)
+	local phase = if props.phase ~= nil then number(props.phase, 0) else nil
 	local indexOrigin = number(props.indexOrigin, 1)
 	assert(indexOrigin % 1 == 0, "A pattern index origin is an integer")
 	local name = props.namePattern or "Item%d"
 	assert(type(name) == "string" and #name <= 160, "A pattern has a short name pattern")
-	local _, placeholders = string.gsub(name, "%%d", "")
+	local _, placeholders = string.gsub(name, "%%0?[1-9]?d", "")
 	assert(
 		placeholders == 1 or (mode == "grid" and placeholders == 2),
 		"A name pattern has one index or two grid indices"
 	)
-	assert(not string.find(string.gsub(name, "%%d", ""), "%%"), "A name pattern contains only %d placeholders")
+	assert(
+		not string.find(string.gsub(name, "%%0?[1-9]?d", ""), "%%"),
+		"A name pattern contains only integer placeholders"
+	)
 	local variants: { Record } = {}
 	if props.variants ~= nil then
 		local data = record(props.variants)
@@ -116,8 +128,13 @@ local function rows(props: { [string | number]: unknown }): { Row }
 		local variant: Record = if #variants > 0 then variants[variantIndex % #variants + 1] else {}
 		for key in variant do
 			assert(
-				key == "position" or key == "rotation" or key == "size" or key == "color" or key == "name",
-				"A pattern variant has position, rotation, size, color or name"
+				key == "position"
+					or key == "rotation"
+					or key == "size"
+					or key == "color"
+					or key == "name"
+					or key == "visible",
+				"A pattern variant has position, rotation, size, color, name or visibility"
 			)
 		end
 		local offset = triple(variant.position, ZERO)
@@ -127,7 +144,7 @@ local function rows(props: { [string | number]: unknown }): { Row }
 		local z: number = offset.z
 		local yaw: number = 0
 		if mode == "radial" then
-			local angle = index / count * math.pi * 2
+			local angle = if phase ~= nil then phase + index * (math.pi * 2 / count) else index / count * math.pi * 2
 			x = math.sin(angle) * radius + x
 			z = math.cos(angle) * radius + z
 			yaw = math.deg(angle)
@@ -149,9 +166,11 @@ local function rows(props: { [string | number]: unknown }): { Row }
 			else string.format(name, index + indexOrigin)
 		local label = variant.name or id
 		assert(type(label) == "string" and #label <= 160, "A pattern variant has a short name")
+		assert(variant.visible == nil or type(variant.visible) == "boolean", "Pattern visibility is a boolean")
 		table.insert(result, {
 			id = id,
 			name = label,
+			visible = variant.visible ~= false,
 			position = {
 				origin.x + (cy * cz + sy * sx * sz) * x + (-cy * sz + sy * sx * cz) * y + sy * cx * z,
 				origin.y + cx * sz * x + cx * cz * y - sx * z,

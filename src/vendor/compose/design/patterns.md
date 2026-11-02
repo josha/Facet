@@ -15,6 +15,16 @@ can preserve authored labels while generated ids retain their stable index ident
 the grid column plus row; its default uses the instance index. `namePattern` accepts one `%d`, or
 two for grid column/row names. `indexOrigin` defaults to one. Invalid values fail explicitly.
 
+Radial `phase` is an optional start angle in radians. When supplied, each angle is `phase + index *
+(2 * pi / count)`, preserving a host's exact angular construction order. Omitting it retains the
+ordinary unshifted radial arithmetic. Integer name placeholders may specify one digit of padding,
+such as `%02d`.
+
+Variants may set `visible = false`. Rows retain their stable ids and geometry, while a template can
+condition its geometry on the boolean `visible` field. A Fragment template with a conditional child
+authors sparse crown stones or missing members without expanding a complete radial pattern into
+literal coordinates. Visibility defaults to true.
+
 The 3D `Pattern` control authors one `render` template with these parameters. Its membership inputs
 are values and rebuild with the document. Host adapters may flatten the authoring group while
 retaining row order. Select the group to translate the whole pattern; position-bound template
