@@ -1,12 +1,12 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type ThemeCell = typeof(require("@repo/tools/typecheck/aliases").ThemeCell)
 type UnknownCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
-local cases, add = suite.new()
+local cases, add = support.new()
 
 local function first(root: Instance, name: string): any
 	return root:FindFirstChild(name, true)

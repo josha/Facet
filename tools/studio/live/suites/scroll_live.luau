@@ -1,5 +1,5 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -11,7 +11,7 @@ local noSelection: { [string]: boolean } = {}
 type SelectionCell = typeof(require("@repo/src/vendor/compose/core").cell(noSelection))
 type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
-local cases, add = suite.new()
+local cases, add = support.new()
 
 local function cell(Host: any, name: string, size: UDim2): any
 	return Host.Frame(name)({ Size = size, BackgroundTransparency = 0.5 })

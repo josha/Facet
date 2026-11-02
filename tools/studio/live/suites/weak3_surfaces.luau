@@ -4,7 +4,6 @@ local layerOf = support.layerOf
 local partOf = support.partOf
 local found = support.found
 local styled = support.styled
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local overlap = support.overlap
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
@@ -24,9 +23,9 @@ end
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
-local interactive = suite.planned(cases)
+local interactive = support.planned(cases)
 
 local function click(node: any): { number }
 	local at, size = node.AbsolutePosition, node.AbsoluteSize

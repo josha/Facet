@@ -1,10 +1,10 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ThemeDefinition = typeof(require("@repo/tools/typecheck/aliases").ThemeDefinition)
-local cases, add = suite.new()
+local cases, add = support.new()
 
 local function drawn(root: Instance, text: string): TextLabel?
 	local best: any = nil

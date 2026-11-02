@@ -1,5 +1,5 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
 local function api(command: string, argument: any): any
 	return (workspace:WaitForChild("FacetShowcaseAPI") :: any):Invoke(command, argument)

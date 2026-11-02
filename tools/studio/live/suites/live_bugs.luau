@@ -1,6 +1,5 @@
 --!strict
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local centre = support.centre
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -10,7 +9,7 @@ type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
 local function pointer(t: any): any
 	local virtual, inset = support.pointer(t)

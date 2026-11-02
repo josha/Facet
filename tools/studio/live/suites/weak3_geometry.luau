@@ -1,7 +1,6 @@
 --!strict
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 local grown = support.grown
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 local overlap = support.overlap
 
@@ -15,7 +14,7 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
 end
 
-local interactive = suite.planned(cases)
+local interactive = support.planned(cases)
 
 local function scenario(t: any, name: string, options: { [string]: any }?): (any, any)
 	local config: { [string]: any } = options or {}

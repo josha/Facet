@@ -1,5 +1,5 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -13,7 +13,7 @@ type StepsBuild = {
 	screen: () -> unknown,
 	steps: { show: () -> (), use: () -> (), reset: () -> () },
 }
-local cases, add = suite.new()
+local cases, add = support.new()
 
 local ZONES = { "Tasks", "Clock", "Rail", "Health", "Actions", "Feed", "Readout", "Weapon", "Rounds", "HudBody" }
 local SIZES = {

@@ -4,7 +4,6 @@ local partOf = support.partOf
 local found = support.found
 local sameColor = support.sameColor
 local styled = support.styled
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 local overlap = support.overlap
 
@@ -31,9 +30,9 @@ local Verify = (require :: (ModuleScript) -> typeof(require("@repo/tools/vendor/
 	game.ReplicatedStorage.FacetVerify.core
 )
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
-local interactive = suite.planned(cases)
+local interactive = support.planned(cases)
 
 local function sameRect(a: any, b: any, tolerance: number?): boolean
 	local margin = tolerance or 0.5

@@ -1,5 +1,5 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 type ThemeCell = typeof(require("@repo/tools/typecheck/aliases").ThemeCell)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
@@ -12,7 +12,7 @@ type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumula
 type Use = <T>(ReadOnlyValue<T>) -> T
 local GuiService = game:GetService("GuiService")
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
 local function themeNamed(t: any, name: string): any
 	for _, entry in t.themes do

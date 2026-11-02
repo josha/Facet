@@ -1,6 +1,5 @@
 --!strict
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local overlap = support.overlap
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -21,7 +20,7 @@ type KeyInput = {
 	SendTextInput: (KeyInput, string) -> (),
 }
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
 local OFFSETS = { 0, 4, 10, 14 }
 

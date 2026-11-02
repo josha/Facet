@@ -1,6 +1,5 @@
 --!strict
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -10,9 +9,9 @@ type Built = (() -> unknown) | { screen: () -> unknown }
 local GuiService = game:GetService("GuiService")
 local storage = game:GetService("ReplicatedStorage")
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
-local interactive = suite.interactive(cases)
+local interactive = support.interactive(cases)
 
 local function selectedPath(root: Instance?): string
 	local selected = GuiService.SelectedObject

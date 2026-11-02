@@ -2,7 +2,6 @@
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 local layerOf = support.layerOf
 local styled = support.styled
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 local overlap = support.overlap
 type Help = typeof(require("@repo/tools/typecheck/aliases").ButtonProps.help)
@@ -29,7 +28,7 @@ local UserInputService = game:GetService("UserInputService")
 local Verify = require(game:GetService("ReplicatedStorage").FacetVerify.core)
 local geometry = require(game:GetService("ReplicatedStorage").FacetLive.overlay_geometry)
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
 add("sheet-guarded-dismissal", {}, function(t)
 	local shown = t.Facet.Compose.cell(true)
@@ -178,7 +177,7 @@ add("sheet-placement-dismissal", {}, function(t)
 	end
 end)
 
-local interactive = suite.planned(cases)
+local interactive = support.planned(cases)
 
 local function box(x: number, y: number, r: number, b: number): any
 	return { x = x, y = y, w = r - x, h = b - y, r = r, b = b }

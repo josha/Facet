@@ -2,7 +2,6 @@
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 local sameColor = support.sameColor
 local styled = support.styled
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 local overlap = support.overlap
 
@@ -16,9 +15,9 @@ type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
-local interactive = suite.planned(cases)
+local interactive = support.planned(cases)
 
 local INK = Color3.new(0.97, 0.97, 0.98)
 local ON_INK = Color3.new(0.07, 0.07, 0.08)

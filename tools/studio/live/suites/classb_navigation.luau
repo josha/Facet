@@ -1,5 +1,5 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
@@ -23,9 +23,9 @@ type ProgressViewProps = typeof(require("@repo/tools/typecheck/aliases").Progres
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
-local interactive = suite.interactive(cases)
+local interactive = support.interactive(cases)
 
 local function tagged(root: Instance, tag: string): { any }
 	local out = {}

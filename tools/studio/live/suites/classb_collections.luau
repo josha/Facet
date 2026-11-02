@@ -1,6 +1,5 @@
 --!strict
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -21,9 +20,9 @@ local VerifyRoblox = (require :: (Instance) -> typeof(require("@repo/tools/vendo
 	game:GetService("ReplicatedStorage"):WaitForChild("FacetVerify"):WaitForChild("roblox")
 )
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
-local interactive = suite.interactive(cases)
+local interactive = support.interactive(cases)
 
 local function rows(count: number): { any }
 	local out = {}

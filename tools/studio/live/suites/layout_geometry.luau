@@ -1,5 +1,5 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type UDim2Cell = typeof(require("@repo/tools/typecheck/aliases").UDim2Cell)
 type CalloutEdgeCell = typeof(require("@repo/tools/typecheck/aliases").CalloutEdgeCell)
@@ -24,7 +24,7 @@ local VerifyRoblox = (require :: (Instance) -> typeof(require("@repo/tools/vendo
 local HudView = (require :: (Instance) -> typeof(require("../hud_view")))(
 	storage:WaitForChild("FacetLive"):WaitForChild("hud_view")
 )
-local cases, add = suite.new()
+local cases, add = support.new()
 
 local function anchored(
 	UI: FacetControls,

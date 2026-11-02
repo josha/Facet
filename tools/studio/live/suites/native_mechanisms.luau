@@ -1,5 +1,5 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -15,7 +15,7 @@ local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
 local function box(Host: any, name: string, w: number, h: number, extra: { [string]: any }?): Frame
 	local props: { [string]: any } = { Name = name, Size = UDim2.fromOffset(w, h) }

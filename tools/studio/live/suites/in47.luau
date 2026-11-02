@@ -3,7 +3,6 @@ local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 local scenario = support.scenario
 local example = support.example
 local fill = support.fill
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local gamepadWatch = support.gamepadWatch
 local centre = support.centre
 local selectedName = support.selectedName
@@ -27,7 +26,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local storage = game:GetService("ReplicatedStorage")
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
 local function interactive(
 	id: string,

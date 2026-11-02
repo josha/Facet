@@ -1,7 +1,6 @@
 --!strict
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
 local grown = support.grown
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
@@ -16,9 +15,9 @@ local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
-local interactive = suite.interactive(cases)
+local interactive = support.interactive(cases)
 
 local SHIPPED = {
 	"Neutral",

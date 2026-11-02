@@ -1,6 +1,5 @@
 --!strict
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 local overlap = support.overlap
 
@@ -30,9 +29,9 @@ end
 local GuiService = game:GetService("GuiService")
 local storage = game:GetService("ReplicatedStorage")
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
-local interactive = suite.interactive(cases)
+local interactive = support.interactive(cases)
 
 local function scenario(t: any, name: string, size: Vector2?, theme: any?): (any, any)
 	local built: Built

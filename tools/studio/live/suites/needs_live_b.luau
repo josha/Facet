@@ -1,6 +1,5 @@
 --!strict
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local overlap = support.overlap
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -16,7 +15,7 @@ type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumula
 type Use = <T>(ReadOnlyValue<T>) -> T
 local Players = game:GetService("Players")
 
-local cases, add = suite.new()
+local cases, add = support.new()
 
 local function scenario(t: any, name: string, size: Vector2?): (any, any)
 	local built: Built
