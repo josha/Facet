@@ -9,7 +9,6 @@ export type Lift = {
 	press: () -> (),
 	release: () -> (),
 	carry: () -> (),
-	held: () -> boolean,
 }
 
 return function(ctx: Types.Context, source: GuiObject, magnitude: Types.Input<number>): Lift
@@ -45,9 +44,6 @@ return function(ctx: Types.Context, source: GuiObject, magnitude: Types.Input<nu
 		end,
 		carry = function()
 			carried:set(true)
-		end,
-		held = function(): boolean
-			return held:peek()
 		end,
 	}
 end
