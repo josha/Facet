@@ -21,7 +21,7 @@ type Scrub = {
 	promoted: boolean,
 }
 
-local TEXT_KEYS = {
+local TEXT_KEYS = table.freeze({
 	"value",
 	"numericValue",
 	"presentation",
@@ -59,7 +59,7 @@ local TEXT_KEYS = {
 	"prefix",
 	"suffix",
 	"scrub",
-}
+})
 local NUMBER_KEYS = { "step", "precision", "stepButtons", "prefix", "suffix", "scrub" }
 local ROOT_KEYS = { "Name", "Size", "Position", "AnchorPoint", "LayoutOrder", "Visible", "ZIndex" }
 local SCRUB_PIXELS = 8
