@@ -50,7 +50,7 @@ return function(verifyHarness: Verify.Harness)
 					{ name = "native-scroll-drag", samples = 160, warmup = 40 },
 					{ name = "dense-hud", samples = 160, warmup = 40 },
 					{ name = "stylesheet-state-churn", samples = 160, warmup = 40 },
-					{ name = "async-image-grid", samples = 120, warmup = 30 },
+					{ name = "async-image-grid", samples = 600, warmup = 30 },
 					{ name = "screen-lifecycle-churn", samples = 120, warmup = 30 },
 					{ name = "theme-swap-flat", samples = 160, warmup = 40 },
 					{ name = "theme-swap-metrics", samples = 160, warmup = 40 },
