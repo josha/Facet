@@ -1,6 +1,7 @@
 --!strict
 local ThemeTypes = require("./theme_types")
 local adaptive = require("./adaptive")
+local frozen = require("./theme_support").frozen
 
 local UNSCALED =
 	{ "TextSize$", "Lines$", "Count$", "Duration$", "Seconds$", "Ratio$", "Fraction$", "Scale$", "Opacity$", "Weight$" }
@@ -35,16 +36,6 @@ local function scaleTable(values: { [string]: number }?, factor: number, round: 
 	return result
 end
 
-local function deepFreeze<T>(value: T): T
-	if type(value) == "table" and not table.isfrozen(value) then
-		for _, child in (value :: unknown) :: { [unknown]: unknown } do
-			deepFreeze(child)
-		end
-		table.freeze(value)
-	end
-	return value
-end
-
 local function tenFoot(
 	package: ThemeTypes.ReadOnlyThemePackage,
 	neutral: ThemeTypes.ReadOnlyThemePackage,
@@ -72,10 +63,7 @@ local function tenFoot(
 		controls[family] = entry
 	end
 	scaled.controls = controls
-	local typography: { [string]: ThemeTypes.Typography } = {}
-	for role, entry in neutral.metrics.typography do
-		typography[role] = entry
-	end
+	local typography = table.clone(neutral.metrics.typography)
 	for role, entry in metrics.typography do
 		typography[role] = entry
 	end
@@ -109,7 +97,7 @@ local function tenFoot(
 		icons = package.icons,
 		rules = package.rules,
 	}
-	return if sealed then deepFreeze(result) else result
+	return if sealed then frozen(result) else result
 end
 
 return function(neutral: ThemeTypes.ReadOnlyThemePackage)
