@@ -99,15 +99,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local function side(name: "top" | "right" | "bottom" | "left"): Shared.Input<UDim>
 			local function pick(use: ComposeTypes.Use?): Shared.Space?
 				local value = read<<Shared.Padding?>>(padding, use)
-				if type(value) == "table" then
-					local sides = value :: Shared.Sides
-					return if name == "top"
-						then sides.top
-						elseif name == "right" then sides.right
-						elseif name == "bottom" then sides.bottom
-						else sides.left
-				end
-				return value
+				return if type(value) == "table" then value[name] else value
 			end
 			return derive(function(use)
 				local value: unknown = pick(use)
