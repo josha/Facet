@@ -61,12 +61,12 @@ export type CardAction = {
 }
 export type CardMenu = { read items: Input<{ Nav.MenuItem<string> }>, read label: Types.ValueString? }
 export type CardBadge = {
-	label: Input<string?>?,
-	status: Input<Media.Status>?,
-	icon: Input<string?>?,
-	name: string?,
+	read label: Input<string?>?,
+	read status: Input<Media.Status>?,
+	read icon: Input<string?>?,
+	read name: string?,
 }
-export type CardBadges = { leading: CardBadge?, trailing: CardBadge? }
+export type CardBadges = { read leading: CardBadge?, read trailing: CardBadge? }
 export type CardControls = {
 	diagnostics: (() -> { string })?,
 	enterActions: (() -> boolean)?,

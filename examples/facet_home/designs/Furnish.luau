@@ -151,7 +151,7 @@ local function Furnish(UI: Facet.Controls, props: Props): GuiObject
 				textRole = "body",
 				wrap = true,
 			},
-			UI.Table<<InventoryRowsItem, string>>({
+			UI.Table "FurnitureInventory" {
 				Size = UDim2.new(1, 0, 0, 340),
 				columns = furnitureInventoryColumns,
 				itemSize = 76,
@@ -160,7 +160,7 @@ local function Furnish(UI: Facet.Controls, props: Props): GuiObject
 						props.onChooseFurniture(...)
 					end
 				end,
-				rowActions = function(current: Facet.ReadOnlyValue<InventoryRowsItem>)
+				rowActions = function(current: Facet.ReadOnlyValue<InventoryRowsItem>): Facet.RowActionsOptions?
 					return {
 						fullSwipe = false,
 						trailing = {
@@ -187,7 +187,7 @@ local function Furnish(UI: Facet.Controls, props: Props): GuiObject
 				end,
 				from = props.inventoryRows,
 				key = "id",
-			}, "FurnitureInventory"),
+			},
 			UI.Text "EmptyFurniture" {
 				text = "No furniture matches. Clear your search.",
 				textRole = "body",

@@ -640,7 +640,8 @@ local function generate(family: Family): string
 	table.insert(lines, "")
 	local blocks = {}
 	local function readOnly(line: string): string
-		return (string.gsub(string.gsub(line, "^\tread ", "\t"), "^\t", "\tread "))
+		local field = string.gsub(string.gsub(line, "^\tread ", "\t"), "^\t", "\tread ")
+		return (string.gsub(field, ": { ([%w_.]+) }(%??),$", ": { read [number]: %1 }%2,"))
 	end
 	local function body(recipe: Recipe, extra: { string }, tail: { string }?): { string }
 		local out = {}
