@@ -197,10 +197,7 @@ return {
 					return name
 				end
 				for _, blend in catalog.blends do
-					if
-						belongs(blend, category)
-						and catalog.matches(blend.id, use(query), shownName)
-					then
+					if belongs(blend, category) and catalog.matches(blend.id, use(query), shownName) then
 						table.insert(found, blend)
 					end
 				end
