@@ -139,12 +139,8 @@ end
 
 function Cli.main(commands: { Command }, arguments: { string }): number
 	local name: string = arguments[1] or "help"
-	local rest: { string } = {}
-	for index = 2, #arguments do
-		table.insert(rest, arguments[index])
-	end
 	if name == "help" or name == "--help" or name == "-h" then
-		local target = rest[1]
+		local target = arguments[2]
 		for _, command in commands do
 			if command.name == target then
 				print(command.usage)
@@ -156,18 +152,14 @@ function Cli.main(commands: { Command }, arguments: { string }): number
 	end
 	for _, command in commands do
 		if command.name == name then
-			if table.find(rest, "--help") ~= nil then
+			if table.find(arguments, "--help", 2) ~= nil then
 				print(command.usage)
 				return 0
 			end
-			if command.register ~= nil and #rest == 1 and rest[1] == "--selftest" then
+			if command.register ~= nil and #arguments == 2 and arguments[2] == "--selftest" then
 				return Gate.selftest("tools/commands", "tools/commands::" .. command.name .. "::")
 			end
-			local forwarded: { string } = { name }
-			for _, argument in rest do
-				table.insert(forwarded, argument)
-			end
-			local invocation = Cli.parse(forwarded, command.values)
+			local invocation = Cli.parse(arguments, command.values)
 			return command.run(invocation)
 		end
 	end
