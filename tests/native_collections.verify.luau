@@ -4396,7 +4396,11 @@ return function(verifyHarness: Verify.Harness)
 					}
 					return UI.VirtualList(listSpec)
 				end, target)
-				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", engine.types.Vector2.new(200, 200))
+				engine.environment.poke(
+					VerifyRoblox.assertInstance(node),
+					"AbsoluteWindowSize",
+					engine.types.Vector2.new(200, 200)
+				)
 				nativeDrag.measure(node, engine.environment)
 				nativeDrag.press(node:FindFirstChild("1", true):FindFirstChild("Action", true), {
 					UserInputType = E.UserInputType.MouseButton1,

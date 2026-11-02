@@ -442,7 +442,11 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 		local delivered = false
 		local connections: { RBXScriptConnection } = {}
 		for _, node in playerGui:GetDescendants() do
-			if node.Name == "DismissOutside" and node:IsA("GuiButton") and shown(node) then
+			if
+				(node.Name == "DismissOutside" or node.Name == "DismissTarget")
+				and node:IsA("GuiButton")
+				and shown(node)
+			then
 				table.insert(
 					connections,
 					node.Activated:Connect(function()
@@ -657,12 +661,29 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 						return false
 					end
 					local deadline = os.clock() + 2
-					while not present(n) and os.clock() < deadline do
+					local last = n.AbsolutePosition
+					while os.clock() < deadline do
 						wait(0.05)
+						local now = n.AbsolutePosition
+						if present(n) and now == last then
+							break
+						end
+						last = now
 					end
-					press(n)
+					local activated = press(n)
 					frames.PreRender:Wait()
-					return pageFor(id) ~= page
+					if pageFor(id) == page then
+						local center = n.AbsolutePosition + n.AbsoluteSize / 2
+						local top = playerGui:GetGuiObjectsAtPosition(center.X, center.Y)[1]
+						note(
+							"unsupported",
+							`Reset press: activated={activated} present={present(n)} top={if top
+								then top:GetFullName()
+								else "nil"}`
+						)
+						return false
+					end
+					return true
 				end
 				lab.open(id)
 				wait(0.25)
@@ -834,6 +855,10 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 										reveal(target)
 										gui.SelectedObject = target
 										frames.PreRender:Wait()
+										if gui.SelectedObject ~= target then
+											note("unsupported", `selection refused: {identity}`)
+											return
+										end
 										local hits = 0
 										local connection = target.Activated:Connect(function()
 											hits += 1
@@ -852,7 +877,7 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 											note("unsupported", `Return did not activate: {identity}`)
 										end
 									end)
-									tidy("close", nil)
+									tidy("outside", nil)
 								end
 							else
 								note("disabled", identity)
@@ -902,7 +927,7 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: De
 						end
 					end
 				end
-				tidy("escape", nil)
+				tidy("outside", nil)
 				local delivered = attempt("final Reset", reset) == true
 				wait(0.35)
 				local final = pageFor(id)
