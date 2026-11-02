@@ -170,9 +170,9 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		end)
 		local sidebarTransition: Nav.Transition? = transition
 		if transition and transition.zoom ~= nil then
-			local still = table.clone(transition)
+			local still: { zoom: unknown } = (table.clone(transition) :: unknown) :: { zoom: unknown }
 			still.zoom = nil
-			sidebarTransition = still
+			sidebarTransition = (still :: unknown) :: Nav.Transition
 		end
 		local function pane(properties: Shared.FrameProps, departure: Shared.Value<boolean>?): Frame
 			local paneTransition = if departure then transition else sidebarTransition

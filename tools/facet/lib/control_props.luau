@@ -293,7 +293,7 @@ local FAMILIES: { Family } = {
 			{
 				name = "KeyedCollectionSpec",
 				params = "V, K",
-				overrides = { rowActions = "((current: Compose.ReadOnlyValue<V>, key: K) -> RowActionsOptions?)?" },
+				overrides = { rowActions = "((current: Compose.ReadOnlyValue<V>, key: K) -> RowActionsOptionsInput?)?" },
 				native = "ScrollingFrameProps",
 				parts = {
 					"Collections.SelectionOptions<V, K>",
@@ -307,7 +307,7 @@ local FAMILIES: { Family } = {
 			{
 				name = "IdentityCollectionSpec",
 				params = "V",
-				overrides = { rowActions = "((current: Compose.ReadOnlyValue<V>, key: V) -> RowActionsOptions?)?" },
+				overrides = { rowActions = "((current: Compose.ReadOnlyValue<V>, key: V) -> RowActionsOptionsInput?)?" },
 				native = "ScrollingFrameProps",
 				parts = {
 					"Collections.SelectionOptions<V, V>",
@@ -321,7 +321,7 @@ local FAMILIES: { Family } = {
 			{
 				name = "KeyedOutlineSpec",
 				params = "V, K",
-				overrides = { rowActions = "((current: Compose.ReadOnlyValue<V>, key: K) -> RowActionsOptions?)?" },
+				overrides = { rowActions = "((current: Compose.ReadOnlyValue<V>, key: K) -> RowActionsOptionsInput?)?" },
 				native = "ScrollingFrameProps",
 				parts = {
 					"Collections.SelectionOptions<V, K>",
@@ -335,7 +335,7 @@ local FAMILIES: { Family } = {
 			{
 				name = "IdentityOutlineSpec",
 				params = "V",
-				overrides = { rowActions = "((current: Compose.ReadOnlyValue<V>, key: V) -> RowActionsOptions?)?" },
+				overrides = { rowActions = "((current: Compose.ReadOnlyValue<V>, key: V) -> RowActionsOptionsInput?)?" },
 				native = "ScrollingFrameProps",
 				parts = {
 					"Collections.SelectionOptions<V, V>",
@@ -357,7 +357,7 @@ local FAMILIES: { Family } = {
 				name = "KeyedTableSpec",
 				optionalInputKey = true,
 				params = "V, K",
-				overrides = { rowActions = "((current: Compose.ReadOnlyValue<V>, key: K) -> RowActionsOptions?)?" },
+				overrides = { rowActions = "((current: Compose.ReadOnlyValue<V>, key: K) -> RowActionsOptionsInput?)?" },
 				native = "FrameProps",
 				parts = {
 					"Collections.SelectionOptions<V, K>",
@@ -371,7 +371,7 @@ local FAMILIES: { Family } = {
 			{
 				name = "IdentityTableSpec",
 				params = "V",
-				overrides = { rowActions = "((current: Compose.ReadOnlyValue<V>, key: V) -> RowActionsOptions?)?" },
+				overrides = { rowActions = "((current: Compose.ReadOnlyValue<V>, key: V) -> RowActionsOptionsInput?)?" },
 				native = "FrameProps",
 				parts = {
 					"Collections.SelectionOptions<V, V>",
