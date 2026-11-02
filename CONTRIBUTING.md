@@ -41,7 +41,7 @@ you remove uses. This command refuses to raise a limit.
 `tools/facet/lib/gate.luau` declares every producer as one Verify gate. Verify runs
 the producers, bounds each process, keeps the logs and writes the outcome.
 Each run writes its outcome to `artifacts/verify/native/gate/latest.json`. Use
-`--list` to see each producer, its tier and the main producer it replaces. Use
+`--list` to see each producer, its kind, its tier and what it proves. Use
 `--only <producer>` for a focused run, `--rerun` to repeat what the last run
 did not pass and `--explain <id>` to see why a producer or a case ran. A
 focused run is not tier evidence. A studio, device or timing producer that exits 2 is `deferred`:
@@ -68,7 +68,9 @@ ramp requires `release`.
 `lute run tools/facet gate spec <spec> ...` runs the named sources below the release
 tier. Use `--tier release` to include the release cases. Each source runs in
 its own Lute worker through the Verify gate. The full gate runs the committed
-plan the same way with four workers. A worker failure, a missing or unreadable
+plan the same way with up to eight workers: at most one for each CPU thread and
+one for each 2 GiB of memory after a 2 GiB reserve. `FACET_TEST_WORKERS`
+overrides the count within those limits. A worker failure, a missing or unreadable
 report, or a source that reports no case fails the producer. Verify stops the worker
 process tree at its deadline.
 
@@ -86,18 +88,19 @@ dependency and is not part of the Facet model. Run
 `lute run tools/facet sync verify --check` to check its files. Change shared testing
 mechanisms in `voidmeld/verify`, then update the pin. The consumer guide is
 [Verify's skill](tools/vendor/verify/.agents/skills/verify/SKILL.md).
+[Verify integration](tools/verify-adoption.md) lists what Verify owns and what
+Facet keeps. [Verify UI fixtures](tools/verify-ui-adoption.md) describes the
+engine fixture boundary.
 
 The [verification scope](docs/guide/verification-scope.md) describes the
 current evidence. The current suite does not claim to equal the tests that
 existed before the native cutover.
 
-The `types` producer runs `lute run tools/facet types` with the old Luau type
-solver at the default analyzer limits. It must report no owned diagnostics and
-must reject all negative probes. Run `lute run tools/facet types --solver new`
-to check the new type solver (`LuauSolverV2`). It is an optional check outside
-the required `types` producer. A passing run needs zero owned diagnostics and
-all negative probes rejected. Compare its failures with main and report them
-separately from the required solver.
+The `types` producer runs `lute run tools/facet types` with the current Luau
+type solver (`LuauSolverV2`) and raised analyzer limits. It must report no owned
+diagnostics and must reject all negative probes. The checker accepts no other
+solver. [Native Luau type checks](tools/typecheck/README.md) describes the
+analysis contexts.
 
 Run `lute run tools/facet bench` when no other verification load runs. Keep the workload
 intent and the checked-in baselines. Report changed measurement boundaries and

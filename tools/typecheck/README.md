@@ -2,9 +2,9 @@
 
 `lute run tools/facet types` checks every tracked and untracked Luau file that Git does not ignore. This includes source, the pinned Compose snapshot, tests, examples, benchmarks and tools. A passing complete check requires strict directives, zero type errors in every analysis context, and rejection of every invalid public probe. There is no diagnostic budget or dependency exemption in the complete check.
 
-The checker first compiles every target with the pinned Lute compiler. It then builds a Rojo sourcemap for each checked-in project. It checks mapped files in each project that includes them. It also checks all files outside those projects. Designer plugin code and Studio injection use the pinned plugin security declarations. Game code uses the pinned game security declarations. The Lute context checks `tools/facet`, `tests/lute`, `tools/lute` and the Lute files of the vendored Verify with `--platform=standard` and the Lute declarations. The checker runs `lute setup` and compares the Lute version with the pin in `rokit.toml`. Only first-party files can fail this context. The JSON report lists each context and its targets.
+The checker first compiles every target with the pinned Lute compiler. It then builds a Rojo sourcemap for each checked-in project. It checks mapped files in each project that includes them. It also checks all files outside those projects. Designer plugin code and Studio injection use the pinned plugin security declarations. Game code uses the pinned game security declarations. The Lute context checks `tools/facet`, `tests/tools`, `tests/lute`, `tools/lute` and the Lute files of the vendored Verify with `--platform=standard` and the Lute declarations. The checker runs `lute setup` and compares the Lute version with the pin in `rokit.toml`. Only first-party files can fail this context. The JSON report lists each context and its targets.
 
-The default check uses the pinned old Luau solver. Use `--solver new` or `--solver both` to select another solver. Every selected solver requires zero diagnostics. New solver reports and logs have a `-v2` suffix.
+The check uses the current Luau solver (`LuauSolverV2`). `--solver new` is the only accepted value. Every context requires zero diagnostics. Reports and logs have a `-v2` suffix.
 
 The public witness uses `Facet.controls(runtime)`, native Roblox properties and return types, Compose cells, and typed callbacks. Negative probes reject invalid behavior fields, native property values, callbacks, constructor inputs and returned-value assumptions in both constructor forms. They also reject nullable text bindings where the engine requires text.
 
@@ -14,7 +14,7 @@ Declare named types at module scope and use those names in parameters, locals an
 
 Native test doubles can expose methods that Roblox instances do not have. Give those methods a named fixture interface. Keep casts for intentionally invalid inputs at the runtime validation test boundary. Do not use `any` to hide an incompatible public contract.
 
-The pinned solver can require explicit `Instance` or `GuiObject` return annotations for content factories. Preserve singleton types for literal options. Give cells the full type of the values they can store. Give arrays their shared entry type when entries have different optional fields.
+The solver can require explicit `Instance` or `GuiObject` return annotations for content factories. Preserve singleton types for literal options. Give cells the full type of the values they can store. Give arrays their shared entry type when entries have different optional fields.
 
 Run `lute run tools/facet types --files src/ui/inputs.luau` while editing a module. This focused mode reports errors in the requested files and records dependency errors separately. It is not complete verification. `--source-only` checks Facet-owned source. `lute run tools/facet types selftest` checks repository inventory, analysis contexts, strict directives and diagnostic policy. It also proves that the analyzer accepts a native `UDim2` and rejects an incompatible scalar assignment.
 
