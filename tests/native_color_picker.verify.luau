@@ -1000,7 +1000,7 @@ return function(verifyHarness: Verify.Harness)
 					{ color = Color3.fromRGB(255, 196, 0), label = "Gold" },
 					{ color = Color3.fromRGB(46, 125, 255), label = "Blue" },
 					{ color = Color3.fromRGB(0, 170, 140), label = "Teal" },
-				} :: { any })
+				} :: { Facet.ColorSwatch })
 				local w = world({}, {
 					build = function(UI: FacetControls, Host: RobloxHost)
 						return Host.Frame "Pickers" {

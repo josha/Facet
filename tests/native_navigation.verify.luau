@@ -6,6 +6,7 @@ local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 return function(verifyHarness: Verify.Harness)
 	local test = Bdd.create(verifyHarness)
 	local describe, it, expect = test.describe, test.it, test.expect
+	type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -3101,7 +3102,7 @@ return function(verifyHarness: Verify.Harness)
 										tabs = {
 											{ id = "x", label = "Swipe actions", content = Host.Frame "X" {} },
 											{ id = "y", label = "Permissions", content = Host.Frame "Y" {} },
-										},
+										} :: { Tab },
 									}
 								end,
 							},
@@ -5093,7 +5094,7 @@ return function(verifyHarness: Verify.Harness)
 										return Host.Frame {}
 									end,
 								},
-							},
+							} :: { Tab },
 						},
 						UI.TabView "Collapsed" {
 							selection = selected,
@@ -5113,7 +5114,7 @@ return function(verifyHarness: Verify.Harness)
 										return Host.Frame {}
 									end,
 								},
-							},
+							} :: { Tab },
 						},
 					}
 				end)

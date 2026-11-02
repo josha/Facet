@@ -15,6 +15,8 @@ local function record(value: unknown): { [string]: unknown }
 end
 
 return function(verifyHarness: Verify.Harness)
+	type Step = typeof(require("@repo/tools/typecheck/aliases").Step)
+	type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -1298,7 +1300,7 @@ return function(verifyHarness: Verify.Harness)
 								{ id = "cart", label = "Cart" },
 								{ id = "pay", label = "Pay" },
 								{ id = "ship", label = "Ship" },
-							},
+							} :: { Step },
 							current = "ship",
 							controlSize = if rung == "none"
 								then nil
@@ -1327,7 +1329,9 @@ return function(verifyHarness: Verify.Harness)
 								title = "Update available",
 								message = "A new track pack is ready.",
 								appearance = appearance :: "emphasis" | "standard",
-								actions = { { id = "Install", label = "Install", onActivate = function() end } },
+								actions = {
+									{ id = "Install", label = "Install", onActivate = function() end },
+								} :: { OverlayAction },
 								onDismiss = function() end,
 							}
 						end, { theme = theme })

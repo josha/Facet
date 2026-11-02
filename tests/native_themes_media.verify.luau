@@ -67,6 +67,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 	end)
+	type AvatarMember = typeof(require("@repo/tools/typecheck/aliases").AvatarMember)
 	type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
 
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -2523,7 +2524,11 @@ return function(verifyHarness: Verify.Harness)
 				local calls = 0
 				local stop = runtime.mount(function()
 					return UI.AvatarGroup "Team" {
-						items = { { id = "a", name = "A" }, { id = "b", name = "B" }, { id = "c", name = "C" } },
+						items = {
+							{ id = "a", name = "A" },
+							{ id = "b", name = "B" },
+							{ id = "c", name = "C" },
+						} :: { AvatarMember },
 						max = 1,
 						onOverflow = function()
 							calls += 1
