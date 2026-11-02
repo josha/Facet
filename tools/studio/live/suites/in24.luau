@@ -41,16 +41,6 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run, keepGallery = false })
 end
 
-local function interactive(
-	id: string,
-	contracts: { string },
-	setup: (any) -> any,
-	steps: { [string]: (any, any) -> () },
-	keepGallery: boolean?
-)
-	table.insert(cases, { id = id, contracts = contracts, setup = setup, steps = steps, keepGallery = keepGallery })
-end
-
 local PAD: { [string]: Enum.KeyCode } = {
 	ButtonA = Enum.KeyCode.Nine,
 	ButtonB = Enum.KeyCode.Zero,
@@ -253,10 +243,6 @@ local function visibleNamed(t: any, root: Instance, name: string): any
 		end
 	end
 	return nil
-end
-
-local function hits(at: Vector2): { GuiObject }
-	return ((Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui) :: any):GetGuiObjectsAtPosition(at.X, at.Y)
 end
 
 local function example(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)

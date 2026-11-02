@@ -16,7 +16,14 @@ type ActionSettings = {
 
 return function(ctx: Shared.Context, config: Shared.Config)
 	local Compose, runtime, Host, Enum = ctx.Compose, ctx.runtime, ctx.Host, ctx.types.Enum
-	type SelectionWaiters = { waiting: { [Instance]: () -> () }, count: number, stop: (() -> ())? }
+	local function bindingKey(binding: Shared.ActionBinding): Enum.KeyCode?
+		return if type(binding) == "string"
+			then assert(Enum.KeyCode:FromName(binding), `Facet action: unknown key '{binding}'`)
+			elseif type(binding) == "table" then ctx.read<<Enum.KeyCode?>>(binding.KeyCode)
+			else binding
+	end
+	local reservedCodes: { [string]: Enum.KeyCode } = setmetatable({}, { __index = Enum.KeyCode })
+	type SelectionWaiters = { waiting: { [unknown]: () -> () }, count: number, stop: (() -> ())? }
 	local selectionWaiters: { [Instance]: SelectionWaiters } = {}
 	function ctx.whenSelected(gui: Instance, node: Instance, callback: () -> ()): ()
 		local observation = assert(runtime.host.observation, "Roblox property observation is required")
@@ -42,9 +49,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		if registry.stop == nil then
 			registry.stop = observation.observeProperty(gui, "SelectedObject", function()
 				local target = observation.readProperty(gui, "SelectedObject")
-				local waiting = if typeof(target) == "Instance" or type(target) == "table"
-					then registry.waiting[target :: Instance]
-					else nil
+				local waiting = registry.waiting[target]
 				if waiting then
 					waiting()
 				end
@@ -88,8 +93,9 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		end
 		return nil
 	end
-	ctx.modalScopes = Compose.cell({} :: { Instance })
-	ctx.modalPortals = Compose.cell({} :: { ModalPortal })
+	ctx.modalScopes = Compose.cell<<{ Instance }>>({})
+	ctx.modalReturn = {}
+	ctx.modalPortals = Compose.cell<<{ ModalPortal }>>({})
 	function ctx.modalPortal(node: Instance, anchor: Instance)
 		local entry = { node = node, anchor = anchor }
 		local entries = table.clone(ctx.modalPortals:peek())
@@ -117,38 +123,43 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				return false
 			end
 			visited[at] = true
-			while at do
-				if at == modal then
+			if at == modal or at:IsDescendantOf(modal) then
+				return true
+			end
+			for _, portal in portals do
+				if (at == portal.node or at:IsDescendantOf(portal.node)) and inside(portal.anchor, visited) then
 					return true
 				end
-				for _, portal in portals do
-					if at == portal.node and inside(portal.anchor, visited) then
-						return true
-					end
-				end
-				at = at.Parent
 			end
 			return false
 		end
 		return inside(node, {})
 	end
 	ctx.withinModal = withinModal
-	local GUI, LAYER, OPEN = 1, 2, 0
-	local gates: { [Instance]: number } = setmetatable({}, { __mode = "k" })
+	local guiGates: { [Instance]: GuiObject } = setmetatable({}, { __mode = "kv" })
+	local layerGates: { [Instance]: LayerCollector } = setmetatable({}, { __mode = "kv" })
+	local openGates: { [Instance]: boolean } = setmetatable({}, { __mode = "k" })
 	function ctx.available(node: Instance, use: ComposeTypes.Use?): boolean
 		local at: Instance? = node
 		while at do
-			local gate = gates[at]
-			if gate == nil then
-				gate = if at:IsA("GuiObject") then GUI elseif at:IsA("LayerCollector") then LAYER else OPEN
-				gates[at] = gate
+			local gui = guiGates[at]
+			local layer = if gui == nil then layerGates[at] else nil
+			if gui == nil and layer == nil and not openGates[at] then
+				if at:IsA("GuiObject") then
+					gui = at
+					guiGates[at] = at
+				elseif at:IsA("LayerCollector") then
+					layer = at
+					layerGates[at] = at
+				else
+					openGates[at] = true
+				end
 			end
-			if gate == GUI then
-				local gui = at :: GuiObject
+			if gui then
 				if not gui.Visible or not gui.Interactable then
 					return false
 				end
-			elseif gate == LAYER and not (at :: LayerCollector).Enabled then
+			elseif layer and not layer.Enabled then
 				return false
 			end
 			at = at.Parent
@@ -168,21 +179,17 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		if input == nil then
 			return
 		end
-		Compose.cleanup(reservedKeys.add(input, (Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode }, handler))
+		Compose.cleanup(reservedKeys.add(input, reservedCodes, handler))
 	end
 	function ctx.navigationGamepads(): { Enum.UserInputType }
 		local service = config.userInputService
-		local probe = (service :: unknown) :: {
-			GetNavigationGamepads: ((UserInputService) -> { Enum.UserInputType })?,
-			GetLastInputType: ((UserInputService) -> Enum.UserInputType)?,
-		}
-		if service and probe.GetNavigationGamepads then
+		if service and service.GetNavigationGamepads then
 			local pads = service:GetNavigationGamepads()
 			if #pads > 0 then
 				return pads
 			end
 		end
-		local last = if service and probe.GetLastInputType then service:GetLastInputType() else nil
+		local last = if service and service.GetLastInputType then service:GetLastInputType() else nil
 		if last and string.find(last.Name, "^Gamepad") then
 			return { last }
 		end
@@ -207,7 +214,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		end
 		local scope = byNode[node]
 		if scope == nil then
-			local parent: ComposeTypes.Value<Instance?> = Compose.cell(nil :: Instance?)
+			local parent = Compose.cell<<Instance?>>(nil)
 			local available = Compose.cell(false)
 			local ancestryOwner: ComposeTypes.Owner?
 			local function locate()
@@ -271,13 +278,11 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		local groups = activeScope.groups
 		local group = if settings.group then groups[settings.group] else nil
 		local gui = config.guiService
-		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local stale = false
 		local viaAction, viaInput = false, false
 		local p: Shared.InputActionProps = {
 			Name = name,
 			Type = if settings.direction2D then Enum.InputActionType.Direction2D else Enum.InputActionType.Bool,
-			StateChanged = settings.direction2D :: ((unknown) -> ())?,
 			Pressed = function()
 				if stale or viaInput then
 					return
@@ -299,12 +304,10 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			return Host.InputBinding(if type(binding) == "table"
 				then binding
 				else {
-					KeyCode = if type(binding) == "string"
-						then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
-						else binding,
+					KeyCode = bindingKey(binding),
 				})
 		end
-		for _, binding in keyCodes :: { Shared.ActionBinding } do
+		for _, binding in keyCodes do
 			p[#p + 1] = bind(binding)
 		end
 		local conditional = settings.conditional
@@ -314,28 +317,20 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			end)
 		end
 		local action = Host.InputAction(p)
+		if settings.direction2D then
+			runtime.connect(action, "StateChanged", settings.direction2D)
+		end
 		local function enabledBody(use: ComposeTypes.Use): boolean
-			if selection then
-				use(selection)
-			end
 			return use(parent) ~= nil
 				and ctx.read(enabledSource, use) ~= false
 				and use(available)
 				and withinModal(node, use)
 		end
-		local enabled = if conditional ~= nil
-				and ctx.config.services.GuiService == nil
-				and config.userInputService == nil
-			then nil
-			else Compose.formula(enabledBody)
-		local enabledBinding = enabled or enabledBody
+		local activationGate: (InputContext | InputAction)? = nil
 		local reservedBound: { [string]: boolean } = {}
-		for _, binding in keyCodes :: { Shared.ActionBinding } do
-			local code: unknown = if type(binding) == "string"
-				then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
-				elseif type(binding) == "table" then binding.KeyCode
-				else binding
-			local codeName = if code ~= nil then (code :: Enum.KeyCode).Name else nil
+		for _, binding in keyCodes do
+			local code = bindingKey(binding)
+			local codeName = if code then code.Name else nil
 			if codeName and reservedKeys.KEYS[codeName] then
 				reservedBound[codeName] = true
 			end
@@ -348,7 +343,8 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				node = node,
 				gui = config.guiService,
 				enabled = function(): boolean
-					return assert(enabled):peek()
+					local gate = activationGate
+					return gate ~= nil and gate.Enabled
 				end,
 				press = function()
 					if viaAction then
@@ -373,48 +369,32 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			return false
 		end
 		if keyInput then
-			local probe = (keyInput :: unknown) :: {
-				IsKeyDown: ((UserInputService, Enum.KeyCode) -> boolean)?,
-				IsGamepadButtonDown: ((UserInputService, Enum.UserInputType, Enum.KeyCode) -> boolean)?,
-			}
 			function held(): boolean
-				for _, binding in keyCodes :: { Shared.ActionBinding } do
-					local code: unknown = if type(binding) == "string"
-						then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
-						elseif type(binding) == "table" then binding.KeyCode
-						else binding
-					if typeof(code) == "EnumItem" or type(code) == "table" then
-						local key = code :: Enum.KeyCode
-						if probe.IsGamepadButtonDown then
+				for _, binding in keyCodes do
+					local key = bindingKey(binding)
+					if key then
+						if keyInput.IsGamepadButtonDown then
 							for _, pad in ctx.navigationGamepads() do
 								if keyInput:IsGamepadButtonDown(pad, key) then
 									return true
 								end
 							end
 						end
-						if probe.IsKeyDown and keyInput:IsKeyDown(key) then
+						if keyInput.IsKeyDown and keyInput:IsKeyDown(key) then
 							return true
 						end
 					end
 				end
 				return false
 			end
-			local wasOn = false
-			Compose.watch(function(use: ComposeTypes.Use)
-				local on = use(assert(enabled))
-				if on and not wasOn then
-					stale = held()
-				end
-				wasOn = on
-			end)
 		end
 		local context: InputContext
 		if group then
 			context = group.context
-			runtime.decorate(action, { Enabled = enabledBinding })
+			runtime.decorate(action, { Enabled = enabledBody })
 			action.Parent = context
 		elseif settings.group then
-			runtime.decorate(action, { Enabled = enabledBinding })
+			runtime.decorate(action, { Enabled = enabledBody })
 			context = Host.InputContext("Facet" .. settings.group)({
 				Parent = parent,
 				Priority = settings.priority or 2000,
@@ -430,26 +410,42 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				Parent = parent,
 				Priority = settings.priority or 2000,
 				Sink = settings.sink ~= false,
-				Enabled = enabledBinding,
+				Enabled = enabledBody,
 				action,
 			})
 		end
+		local gate = if settings.group then action else context
+		activationGate = gate
+		if keyInput then
+			local function changed()
+				if gate.Enabled then
+					stale = held()
+				end
+			end
+			Compose.cleanup(assert(runtime.host.observation).observeProperty(gate, "Enabled", changed))
+			changed()
+		end
 		local inputService = config.userInputService
-		if settings.capture and gui and selection and inputService then
+		if settings.capture and gui and gui.GetPropertyChangedSignal and inputService then
+			local selection = ctx.observe.SelectedObject(gui)
+			local enabled = ctx.observe.Enabled(gate)
 			local steering: { [string]: string } = {}
 			local letters: { [string]: string } = {}
 			local dedicated: { [string]: boolean } = {}
-			for _, binding in keyCodes :: { Shared.ActionBinding } do
-				local code: unknown = if type(binding) == "string"
-					then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
-					elseif type(binding) == "table" then binding.KeyCode
-					else binding
+			for _, binding in keyCodes do
+				local code = bindingKey(binding)
 				for _, direction in { "Up", "Down", "Left", "Right" } do
-					local keys = (Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode }
 					local letter = ({ Up = "W", Down = "S", Left = "A", Right = "D" })[direction]
-					if code == keys[direction] or code == keys["DPad" .. direction] or code == keys[letter] then
-						steering[(code :: Enum.KeyCode).Name] = direction
-						if code == keys[letter] then
+					if
+						code
+						and (
+							code == Enum.KeyCode:FromName(direction)
+							or code == Enum.KeyCode:FromName("DPad" .. direction)
+							or code == Enum.KeyCode:FromName(letter)
+						)
+					then
+						steering[code.Name] = direction
+						if code == Enum.KeyCode:FromName(letter) then
 							letters[letter] = direction
 						else
 							dedicated[direction] = true
@@ -468,7 +464,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				end
 			end
 			local steerable = Compose.formula(function(use: ComposeTypes.Use): boolean
-				return use(assert(enabled)) and use(selection) ~= nil
+				return use(enabled) and use(selection) ~= nil
 			end)
 			local function nextSelection(target: GuiObject, direction: string): GuiObject?
 				if direction == "Up" then
@@ -481,15 +477,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				return target.NextSelectionRight
 			end
 			local function setNextSelection(target: GuiObject, direction: string, value: GuiObject?): ()
-				if direction == "Up" then
-					target.NextSelectionUp = value :: GuiObject
-				elseif direction == "Down" then
-					target.NextSelectionDown = value :: GuiObject
-				elseif direction == "Left" then
-					target.NextSelectionLeft = value :: GuiObject
-				else
-					target.NextSelectionRight = value :: GuiObject
-				end
+				runtime.host.render.setProperty(target, "NextSelection" .. direction, value)
 			end
 			local pinned: GuiObject? = nil
 			local pinnedLetters: { [string]: boolean }? = nil
@@ -516,7 +504,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				end
 				if target and pinned and target ~= pinned and not viaAction and not viaInput then
 					for letter in letters do
-						local code = ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[letter]
+						local code = assert(Enum.KeyCode:FromName(letter))
 						if inputService:IsKeyDown(code) then
 							gui.SelectedObject = pinned
 							return

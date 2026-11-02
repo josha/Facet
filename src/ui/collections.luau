@@ -24,7 +24,8 @@ export type BuildList = <V, K>(
 	CollectionProps.KeyedCollectionSpec<V, K>,
 	TreeTypes.Tree<V, K>?,
 	boolean?,
-	ScrollPolicy?
+	ScrollPolicy?,
+	reorder.Editor<V, K>?
 ) -> ScrollingFrame
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
@@ -101,7 +102,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 		keyOf: (V, number) -> K,
 		tree: TreeTypes.Tree<V, K>?,
 		actionsWrapped: boolean?,
-		scrollPolicy: ScrollPolicy?
+		scrollPolicy: ScrollPolicy?,
+		rowEditor: reorder.Editor<V, K>?
 	): ScrollingFrame
 		assert(
 			spec.contentOverflow == nil
@@ -153,8 +155,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 				writingOffset = false
 			end
 		end
-		local editor: reorder.Editor<V, K>?
-		editor = if spec.drag
+		local editor: reorder.Editor<V, K>? = if spec.drag
 				or spec.drop
 				or spec.reorderable
 				or spec.deletable
@@ -180,7 +181,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 			else nil
 		local overlayReorder = if editor then editor.overlay else nil
 		local slots = createSlots(ctx, view)
-		local orderedRows = createRows(ctx, UI, view, editor, slots)
+		local orderedRows = createRows(ctx, UI, view, editor, slots, rowEditor)
 		local function followOf(use: ComposeTypes.Use?): CollectionTypes.Follow
 			local value = read(spec.follow, use)
 			assert(value == nil or value == "end" or value == "none", "Facet collection follow must be none or end")
@@ -402,7 +403,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 		kind: ComposeTypes.OrderedCollectionLayoutKind,
 		tree: TreeTypes.Tree<V, K>?,
 		actionsWrapped: boolean?,
-		scrollPolicy: ScrollPolicy?
+		scrollPolicy: ScrollPolicy?,
+		rowEditor: reorder.Editor<V, K>?
 	): ScrollingFrame
 		if spec.key == nil then
 			return collection(
@@ -428,7 +430,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 			(key :: unknown) :: (V, number) -> K,
 			tree,
 			actionsWrapped,
-			scrollPolicy
+			scrollPolicy,
+			rowEditor
 		)
 	end
 	local function list<V, K>(spec: CollectionProps.CollectionSpec<V, K>): ScrollingFrame
@@ -448,8 +451,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 		spec: CollectionProps.KeyedCollectionSpec<V, K>,
 		tree: TreeTypes.Tree<V, K>?,
 		actionsWrapped: boolean?,
-		scrollPolicy: ScrollPolicy?
+		scrollPolicy: ScrollPolicy?,
+		rowEditor: reorder.Editor<V, K>?
 	): ScrollingFrame
-		return construct<<V, K>>(spec, "list", tree, actionsWrapped, scrollPolicy)
+		return construct<<V, K>>(spec, "list", tree, actionsWrapped, scrollPolicy, rowEditor)
 	end
 end

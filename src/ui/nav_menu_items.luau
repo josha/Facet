@@ -74,14 +74,14 @@ return function(ctx: Types.Context)
 			return width
 		end
 		if typeof(width) == "UDim" then
-			local udim = width :: UDim
+			local udim: UDim = width
 			return udim.Scale * room + udim.Offset
 		end
 		if typeof(width) == "UDim2" then
-			local udim = (width :: UDim2).X
+			local udim = width.X
 			return udim.Scale * room + udim.Offset
 		end
-		local dim = width :: Nav.MenuDim
+		local dim = width
 		local lower, upper = length(dim.min, use) or 0, length(dim.max, use) or math.huge
 		local value = if dim.type == "fixed"
 			then assert(length(dim.px, use))
@@ -158,7 +158,7 @@ return function(ctx: Types.Context)
 	end
 	local function advice<V>(items: { Nav.MenuItem<V> }, path: string, depth: number, notes: { string }): { string }
 		local readItems = read<<{ Nav.MenuItem<V> }>>
-		local actions, destructive = 0, nil :: number?
+		local actions, destructive: number? = 0, nil
 		for index, item in items do
 			if item.divider ~= true then
 				actions += 1

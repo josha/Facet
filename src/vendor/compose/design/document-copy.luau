@@ -17,34 +17,29 @@ local function copyLiteral(value: Literal): Literal
 	return value
 end
 
-local function copyArgs(args: { Literal }?): { Literal }?
-	if args == nil then
-		return nil
+local function copyValue(value: Value): Value
+	local copied = table.clone(value)
+	if type(copied.literal) == "table" then
+		copied.literal = copyLiteral(copied.literal)
 	end
-	local copied: { Literal } = {}
-	for index, item in args do
-		copied[index] = copyLiteral(item)
+	local args = copied.args
+	if args then
+		local arguments: { Literal } = {}
+		for index, item in args do
+			arguments[index] = copyLiteral(item)
+		end
+		copied.args = arguments
+	end
+	if copied.path then
+		copied.path = table.clone(copied.path)
+	end
+	if copied.fields then
+		copied.fields = table.clone(copied.fields)
+	end
+	if copied.nodes then
+		copied.nodes = table.clone(copied.nodes)
 	end
 	return copied
-end
-
-local function copyValue(value: Value): Value
-	local current = value.literal
-	return {
-		literal = if current ~= nil then copyLiteral(current) else nil,
-		input = value.input,
-		item = value.item,
-		output = value.output,
-		args = copyArgs(value.args),
-		fields = if value.fields then table.clone(value.fields) else nil,
-		node = value.node,
-		nodeFrom = value.nodeFrom,
-		nodes = if value.nodes then table.clone(value.nodes) else nil,
-		token = value.token,
-		state = value.state,
-		motion = value.motion,
-		play = value.play,
-	}
 end
 
 local function copyNode(node: Node): Node

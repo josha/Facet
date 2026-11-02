@@ -13,15 +13,16 @@ local DragTypes = require("./drag_types")
 local Env = require("./environment_types")
 local reducedMotion = require("./motion").reduced
 local DragLift = require("./drag_lift")
+local Dynamic = require("../vendor/compose/core/dynamic")
+local cloneSource: (Env.DraggableSpec) -> DragTypes.SourceSpec = table.clone
 export type Move<V, K> = {
 	preview: GuiObject?,
 	key: K,
 	keys: { K },
 	included: { [K]: boolean },
 	remaining: { K },
-	slot: number,
-	rows: { V },
-	pointer: Vector2?,
+	slot: ComposeTypes.Value<number>,
+	pointer: boolean,
 	keyboard: boolean,
 	tap: boolean,
 	navigationCross: number?,
@@ -59,6 +60,9 @@ export type Reorder<V, K> = {
 	reservedSlots: Types.Input<{ K }>?,
 	gesture: Gesture<V, K>,
 	moving: ComposeTypes.Value<Move<V, K>?>,
+	active: ComposeTypes.ReadOnlyValue<boolean>,
+	keyboard: ComposeTypes.ReadOnlyValue<boolean>,
+	pointerPosition: ComposeTypes.Value<Vector2?>,
 	choosingDestination: ComposeTypes.Value<boolean>,
 	incoming: ComposeTypes.Value<Env.DropInsertion?>,
 	reorderable: boolean,
@@ -95,9 +99,8 @@ export type Reorder<V, K> = {
 	settle: () -> (),
 	cancel: () -> (),
 	movable: (V) -> boolean,
-	carried: (K) -> ComposeTypes.ReadOnlyValue<boolean>,
 	leads: (K) -> ComposeTypes.ReadOnlyValue<boolean>,
-	sourceIndex: ComposeTypes.Value<{ [K]: V }>,
+	itemOf: (K) -> V?,
 	recall: (unknown, ComposeTypes.Use?) -> K?,
 	slotGap: (unknown, Env.DropInsertion, ComposeTypes.Use?) -> (number?, number?),
 	begin: (K, Vector2?, boolean?, boolean?) -> (),
@@ -105,6 +108,8 @@ export type Reorder<V, K> = {
 	commit: (...unknown) -> (),
 	movePointer: (Vector2) -> (),
 	setPointerSlot: ((Vector2) -> number?) -> (),
+	place: (boolean?) -> (),
+	setPlacement: ((boolean?) -> ()) -> (),
 	step: (number, boolean?) -> (),
 	chosen: (ComposeTypes.Use?, boolean?, boolean?) -> { K },
 	canDelete: (ComposeTypes.Use?) -> boolean,
@@ -131,9 +136,19 @@ return function<V, K>(
 	local read = ctx.read
 	local readSource = ctx.readSource
 	local V2, E = ctx.types.Vector2, ctx.types.Enum
-	local moving: ComposeTypes.Value<Move<V, K>?> = Compose.cell(nil :: Move<V, K>?)
+	local moving = Compose.cell<<Move<V, K>?>>(nil)
+	local movingRows: { V }? = nil
+	local noPointer: Vector2? = nil
+	local pointerPosition = Compose.cell(noPointer)
+	local active = Compose.formula(function(use: ComposeTypes.Use): boolean
+		return use(moving) ~= nil
+	end)
+	local keyboard = Compose.formula(function(use: ComposeTypes.Use): boolean
+		local move = use(moving)
+		return move ~= nil and move.keyboard
+	end)
 	local choosingDestination = Compose.cell(false)
-	local incoming: ComposeTypes.Value<Env.DropInsertion?> = Compose.cell(nil :: Env.DropInsertion?)
+	local incoming = Compose.cell<<Env.DropInsertion?>>(nil)
 	local reorderable = spec.reorderable == true or spec.drag ~= nil
 	local drag = sessionOf(ctx)
 	local arbiter = gestureOf(ctx)
@@ -143,6 +158,7 @@ return function<V, K>(
 	local pointerSlot: (Vector2) -> number? = function()
 		return nil
 	end
+	local place: (boolean?) -> () = function() end
 	local deletable = spec.deletable == true
 	local preferred: ComposeTypes.ReadOnlyValue<Enum.PreferredInput>? = if ctx.config.userInputService
 		then ctx.observe.PreferredInput(ctx.config.userInputService)
@@ -183,9 +199,18 @@ return function<V, K>(
 		return if horizontal then position.Y else position.X
 	end
 
+	local owner = assert(Compose.currentOwner())
+	local unitSize: ComposeTypes.ReadOnlyValue<Vector2>? = nil
 	local function scaleOf(body: ScrollingFrame): number
-		local unit = body:FindFirstChild("LayoutUnit") :: GuiObject?
-		local scale = if unit then unit.AbsoluteSize.X else 0
+		if unitSize == nil then
+			local candidate = body:FindFirstChild("LayoutUnit")
+			if candidate and candidate:IsA("GuiObject") then
+				unitSize = Compose.withOwner(owner, function()
+					return ctx.observeNative.AbsoluteSize(candidate)
+				end)
+			end
+		end
+		local scale = if unitSize then unitSize:peek().X else 0
 		return if scale > 0 then scale else 1
 	end
 	local function alongBody(body: ScrollingFrame, position: Vector2): number
@@ -213,11 +238,11 @@ return function<V, K>(
 		releaseScrollers = nil,
 		gestureOwner = nil,
 	}
-	local rowKeys = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: K }
+	local rowKeys: { [Instance]: K } = setmetatable({}, { __mode = "k" })
 	local gui = ctx.config.guiService
 	local focus: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui and gui.GetPropertyChangedSignal
 		then ctx.observe.SelectedObject(gui)
-		else Compose.cell(nil :: GuiObject?)
+		else Compose.cell<<GuiObject?>>(nil)
 	local function disarm()
 		gesture.touchKey, gesture.touchOrigin = nil, nil
 	end
@@ -270,6 +295,9 @@ return function<V, K>(
 			end
 		end
 		moving:set(nil)
+		movingRows = nil
+		place(false)
+		pointerPosition:set(nil)
 		if move and move.preview then
 			move.preview:Destroy()
 		end
@@ -296,40 +324,61 @@ return function<V, K>(
 	local function movable(item: V): boolean
 		return policy.allows(spec.movable, item) and not policy.disabled(spec.disabled, item)
 	end
-	local sourceIndex = Compose.formula(function(use: ComposeTypes.Use): { [K]: V }
-		local result: { [K]: V } = {}
-		for index, item in read(spec.selectionFrom or source, use) do
-			result[keyOf(item, index)] = item
+	local sourceIndex = if spec.selectionFrom ~= nil or reservedSlots ~= nil
+		then Compose.formula(function(use: ComposeTypes.Use): { [K]: V }
+			local result: { [K]: V } = {}
+			for index, item in read(spec.selectionFrom or source, use) do
+				result[keyOf(item, index)] = item
+			end
+			return result
+		end)
+		else nil
+	local function itemOf(key: K): V?
+		if sourceIndex then
+			return sourceIndex:peek()[key]
 		end
-		return result
-	end)
+		local index = assert(controls.indexOfKey)(key)
+		return if index then readSource(source)[index] else nil
+	end
 	local function recall(payload: unknown, use: ComposeTypes.Use?): K?
 		if reservedSlots == nil or type(payload) ~= "table" then
 			return nil
 		end
-		local keys = (payload :: { keys: { K }? }).keys
-		local key = if type(keys) == "table" then keys[1] else nil
-		if key == nil or table.find(read<<{ K }>>(reservedSlots, use), key) == nil then
+		local keys = Dynamic.raw(payload, "keys")
+		local wanted = if type(keys) == "table" then Dynamic.raw(keys, 1) else nil
+		local key: K? = nil
+		for _, candidate in read<<{ K }>>(reservedSlots, use) do
+			if candidate == wanted then
+				key = candidate
+				break
+			end
+		end
+		if key == nil then
 			return nil
 		end
 		local session = if use then use(drag.state) else drag.state:peek()
-		local live = if use then use(sourceIndex) else sourceIndex:peek()
+		local live = if use then use(assert(sourceIndex)) else assert(sourceIndex):peek()
 		return if live[key] == nil or (session ~= nil and session.source == bodyOf()) then key else nil
 	end
 	local function slotGap(payload: unknown, insertion: Env.DropInsertion, use: ComposeTypes.Use?): (number?, number?)
 		if reservedSlots == nil then
 			return nil, nil
 		end
-		local keys = if type(payload) == "table" then (payload :: { keys: { K }? }).keys else nil
+		local keys = if type(payload) == "table" then Dynamic.raw(payload, "keys") else nil
 		if type(keys) == "table" and #keys > 1 then
 			return nil, nil
 		end
-		local live = if use then use(sourceIndex) else sourceIndex:peek()
+		local live = if use then use(assert(sourceIndex)) else assert(sourceIndex):peek()
 		local slots = read(reservedSlots, use)
 		local before = insertion.beforeKey
 		local target: number? = nil
 		if before ~= nil then
-			target = assert(controls.indexOfKey)(before :: K)
+			for _, key in slots do
+				if key == before then
+					target = assert(controls.indexOfKey)(key)
+					break
+				end
+			end
 		else
 			local last = 0
 			for index, key in slots do
@@ -387,8 +436,11 @@ return function<V, K>(
 		end
 		local rows, selected = readSource(source), readSource(selection)
 		for index, item in rows do
-			if keyOf(item, index) == key and not movable(item) then
-				return
+			if keyOf(item, index) == key then
+				if not movable(item) then
+					return
+				end
+				break
 			end
 		end
 		local keys: { K } = {}
@@ -400,6 +452,9 @@ return function<V, K>(
 				table.insert(keys, candidate)
 				table.insert(items, item)
 				indices[candidate] = true
+				if not selected[key] then
+					break
+				end
 			end
 		end
 		local prepared = if position ~= nil or tap then gesture.pressTransfer else nil
@@ -425,18 +480,16 @@ return function<V, K>(
 			end
 		end
 		if #keys > 0 then
-			local options = (
-				if prepared
-						and prepared.key == key
-						and prepared.pointer == gesture.pendingInput
-					then prepared.options
-					elseif spec.drag then spec.drag(items, keys)
-					else {
-						payload = { collection = collectionId, keys = keys, items = items },
-						operations = { "move" :: "move" },
-					}
-			) :: DragTypes.SourceSpec
-			if tap and not options.armOnTap then
+			local supplied: Env.DraggableSpec = if prepared
+					and prepared.key == key
+					and prepared.pointer == gesture.pendingInput
+				then prepared.options
+				elseif spec.drag then spec.drag(items, keys)
+				else {
+					payload = { collection = collectionId, keys = keys, items = items },
+					operations = { "move" },
+				}
+			if tap and not supplied.armOnTap then
 				return
 			end
 			local live = gesture.pendingInput ~= nil
@@ -455,22 +508,21 @@ return function<V, K>(
 			gesture.recycled = false
 			activation.consume(gesture.captured)
 			local nextMove: Move<V, K> = {
-				preview = if options.preview then options.preview:Clone() else nil,
+				preview = if supplied.preview then supplied.preview:Clone() else nil,
 				key = key,
 				keys = keys,
 				included = indices,
 				remaining = remaining,
-				slot = before,
-				rows = rows,
-				pointer = position,
+				slot = Compose.cell(before),
+				pointer = position ~= nil,
 				keyboard = position == nil,
 				tap = tap == true,
 			}
-			local valid, ended = options.valid, options.onEnd
-			options = table.clone(options)
+			local valid, ended = supplied.valid, supplied.onEnd
+			local options = cloneSource(supplied)
 			options.mark = false
 			local raised = if lifted == key then lifts[key] else nil
-			if raised and raised.held() then
+			if raised then
 				options.liftValue = raised.value
 				options.liftCarry = raised.carry
 			end
@@ -482,15 +534,14 @@ return function<V, K>(
 			local origin = if original then original.AbsolutePosition + original.AbsoluteSize / 2 else position
 			options.returnPosition = function()
 				local row = rowNodes[key]
-				return if row and row.Parent then row.AbsolutePosition + row.AbsoluteSize / 2 else origin :: Vector2
+				return if row and row.Parent then row.AbsolutePosition + row.AbsoluteSize / 2 else origin or V2.zero
 			end
 			options.valid = function()
 				if valid and not valid() then
 					return false
 				end
-				local live = sourceIndex:peek()
 				for _, key in keys do
-					local item = live[key]
+					local item = itemOf(key)
 					if item == nil or not movable(item) then
 						return false
 					end
@@ -514,14 +565,18 @@ return function<V, K>(
 						position = if position
 							then gesture.pickupPosition or position
 							else original.AbsolutePosition + original.AbsoluteSize / 2,
-						source = original :: GuiObject,
+						source = original,
 					}
 					else nil
 			)
+			pointerPosition:set(position)
+			movingRows = rows
 			moving:set(nextMove)
 			if position then
 				drag.update(position)
 			end
+			local destination = drag.state:peek()
+			place(destination ~= nil and destination.target == bodyOf() and destination.accepted == true)
 			if
 				position == nil
 				and not quiet
@@ -542,36 +597,32 @@ return function<V, K>(
 			return
 		end
 		local rows = readSource(source)
-		local included, remaining = {}, {}
+		local included, reordered = {}, {}
 		for _, key in keys do
 			included[key] = true
 		end
 		for index, item in rows do
 			local key = keyOf(item, index)
 			if not included[key] then
-				table.insert(remaining, key)
+				table.insert(reordered, key)
 			end
 		end
-		local move = { rows = rows, remaining = remaining, keys = keys, slot = slot }
-		local reordered = table.clone(move.remaining)
-		local visible = {}
+		local count = 0
 		for index, item in rows do
 			local key = keyOf(item, index)
 			if included[key] then
-				table.insert(visible, key)
+				count += 1
+				table.insert(reordered, slot + count, key)
 			end
 		end
-		for index, key in visible do
-			table.insert(reordered, move.slot + index, key)
-		end
-		for index, item in move.rows do
+		for index, item in rows do
 			if not movable(item) and keyOf(item, index) ~= reordered[index] then
 				return
 			end
 		end
-		for index, item in move.rows do
+		for index, item in rows do
 			if keyOf(item, index) ~= reordered[index] then
-				assert(spec.onReorder)(move.keys, move.slot)
+				assert(spec.onReorder)(keys, slot)
 				return
 			end
 		end
@@ -593,17 +644,19 @@ return function<V, K>(
 		if move == nil then
 			return
 		end
-		local nextMove = table.clone(move)
-		nextMove.pointer = position
-		moving:set(nextMove)
+		pointerPosition:set(position)
+		if not move.pointer then
+			local nextMove = table.clone(move)
+			nextMove.pointer = true
+			moving:set(nextMove)
+		end
 		drag.update(position)
 		local session, live = drag.state:peek(), moving:peek()
 		if session and session.target ~= bodyOf() and live then
 			local slot = pointerSlot(position)
-			if slot and live.slot ~= slot then
-				local next = table.clone(live)
-				next.slot = slot
-				moving:set(next)
+			if slot then
+				live.slot:set(slot)
+				place(nil)
 			end
 		end
 	end
@@ -611,33 +664,33 @@ return function<V, K>(
 		local current = moving:peek()
 		local session = drag.state:peek()
 		if current and not (session and session.pending) then
-			local nextMove = table.clone(current)
-			nextMove.slot = math.clamp(current.slot + delta, 0, #current.remaining)
+			local before = current.slot:peek()
+			local target = math.clamp(before + delta, 0, #current.remaining)
 			if grid and along then
 				local function point(slot: number): (number, number)
 					local candidate = current.remaining[slot + 1]
-					local index = if candidate then assert(controls.indexOfKey)(candidate) else #current.rows
+					local index = if candidate then assert(controls.indexOfKey)(candidate) else #readSource(source)
 					local at = assert(controls.placementOf)(index or 1)
 					return at.offset, at.crossOffset + (if candidate then 0 else at.crossSize)
 				end
-				local origin, across = point(current.slot)
+				local origin, across = point(before)
 				across = current.navigationCross or across
 				local nearest, distance = math.huge, math.huge
-				nextMove.slot, nextMove.navigationCross = current.slot, across
+				target, current.navigationCross = before, across
 				for slot = 0, #current.remaining do
 					local offset, cross = point(slot)
 					local forward, side = (offset - origin) * delta, math.abs(cross - across)
 					if forward > 0 and (forward < nearest or (forward == nearest and side < distance)) then
-						nearest, distance, nextMove.slot = forward, side, slot
+						nearest, distance, target = forward, side, slot
 					end
 				end
 			else
-				nextMove.navigationCross = nil
+				current.navigationCross = nil
 			end
-			moving:set(nextMove)
+			current.slot:set(target)
 			local body = bodyOf()
-			local at = current.remaining[nextMove.slot + 1] or current.remaining[nextMove.slot]
-			local index = if at then assert(controls.indexOfKey)(at :: K) else nil
+			local at: K? = current.remaining[target + 1] or current.remaining[target]
+			local index = if at then assert(controls.indexOfKey)(at) else nil
 			if index then
 				canvasOffset(
 					body,
@@ -651,6 +704,9 @@ return function<V, K>(
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
 		local rows, order = readSource(source, use), readSource(sort, use)
+		if reservedSlots then
+			read(reservedSlots, use)
+		end
 		local move = moving:peek()
 		if move then
 			local found = 0
@@ -661,67 +717,63 @@ return function<V, K>(
 			end
 			if order ~= nil or found ~= #move.keys then
 				cancel()
-			elseif rows ~= move.rows then
-				local next = table.clone(move)
-				next.rows, next.remaining = rows, {}
+			elseif rows ~= movingRows then
+				move = table.clone(move)
+				movingRows, move.remaining = rows, {}
 				for index, item in rows do
 					local key = keyOf(item, index)
 					if not move.included[key] then
-						table.insert(next.remaining, key)
+						table.insert(move.remaining, key)
 					end
 				end
-				next.slot = math.min(next.slot, #next.remaining)
-				moving:set(next)
+				move.slot:set(math.min(move.slot:peek(), #move.remaining))
+				moving:set(move)
 			end
 		end
+		place(nil)
 	end)
-	type Flag = { cell: ComposeTypes.Value<boolean>, users: number }
-	local function flags(initial: (K) -> boolean): ({ [K]: Flag }, (K) -> ComposeTypes.ReadOnlyValue<boolean>)
-		local cells: { [K]: Flag } = {}
-		return cells,
-			function(key: K): ComposeTypes.ReadOnlyValue<boolean>
-				local entry = cells[key]
-				if entry == nil then
-					local made: Flag = { cell = Compose.cell(initial(key)), users = 0 }
-					cells[key] = made
-					entry = made
-				end
-				local held = assert(entry)
-				held.users += 1
-				Compose.cleanup(function()
-					held.users -= 1
-					if held.users == 0 and cells[key] == held then
-						cells[key] = nil
-					end
-				end)
-				return held.cell
-			end
+	local leadCells: { [K]: ComposeTypes.Value<boolean> } = {}
+	setmetatable(leadCells, { __mode = "v" })
+	local function leads(key: K): ComposeTypes.ReadOnlyValue<boolean>
+		local entry = leadCells[key]
+		if entry == nil then
+			local move = moving:peek()
+			local made = Compose.cell(move ~= nil and move.key == key)
+			leadCells[key], entry = made, made
+		end
+		return entry
 	end
-	local carriedCells, carried = flags(function(key: K): boolean
-		local move = moving:peek()
-		return move ~= nil and move.included[key] == true
-	end)
-	local leadCells, leads = flags(function(key: K): boolean
-		local move = moving:peek()
-		return move ~= nil and move.key == key
+	local carried = Compose.formula(function(use: ComposeTypes.Use): { [K]: boolean }?
+		local move = use(moving)
+		return if move then move.included else nil
 	end)
 	local publishedIncluded: { [K]: boolean }? = nil
 	local publishedLead: K? = nil
+	local function carry(key: K, held: boolean)
+		local row = rowNodes[key]
+		if row then
+			row:SetAttribute("FacetDragging", held)
+			local cells = row:FindFirstChild("Cells")
+			if cells and cells:IsA("GuiObject") then
+				cells.Visible = not held
+			end
+		end
+	end
 	Compose.watch(function(use: ComposeTypes.Use)
-		local move = use(moving)
+		local included = use(carried)
+		local move = moving:peek()
 		local lead = if move then move.key else nil
 		if lead ~= publishedLead then
 			local before = if publishedLead ~= nil then leadCells[publishedLead] else nil
+			local after = if lead ~= nil then leadCells[lead] else nil
 			publishedLead = lead
 			if before then
-				before.cell:set(false)
+				before:set(false)
 			end
-			local after = if lead ~= nil then leadCells[lead] else nil
 			if after then
-				after.cell:set(true)
+				after:set(true)
 			end
 		end
-		local included = if move then move.included else nil
 		local previous = publishedIncluded
 		if included == previous then
 			return
@@ -729,17 +781,15 @@ return function<V, K>(
 		publishedIncluded = included
 		if previous then
 			for key in previous do
-				local entry = carriedCells[key]
-				if entry and not (included and included[key]) then
-					entry.cell:set(false)
+				if not (included and included[key]) then
+					carry(key, false)
 				end
 			end
 		end
 		if included then
 			for key, on in included do
-				local entry = carriedCells[key]
-				if entry and on then
-					entry.cell:set(true)
+				if on then
+					carry(key, true)
 				end
 			end
 		end
@@ -834,6 +884,9 @@ return function<V, K>(
 		reservedSlots = reservedSlots,
 		gesture = gesture,
 		moving = moving,
+		active = active,
+		keyboard = keyboard,
+		pointerPosition = pointerPosition,
 		choosingDestination = choosingDestination,
 		incoming = incoming,
 		reorderable = reorderable,
@@ -870,9 +923,8 @@ return function<V, K>(
 		settle = settle,
 		cancel = cancel,
 		movable = movable,
-		carried = carried,
 		leads = leads,
-		sourceIndex = sourceIndex,
+		itemOf = itemOf,
 		recall = recall,
 		slotGap = slotGap,
 		begin = begin,
@@ -881,6 +933,12 @@ return function<V, K>(
 		movePointer = movePointer,
 		setPointerSlot = function(slotAt: (Vector2) -> number?)
 			pointerSlot = slotAt
+		end,
+		place = function(accepted)
+			place(accepted)
+		end,
+		setPlacement = function(layout)
+			place = layout
 		end,
 		step = step,
 		chosen = chosen,

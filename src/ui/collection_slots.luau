@@ -2,14 +2,13 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
-local CollectionTypes = require("./collection_types")
 local State = require("./collection_state")
 export type Slot<V, K> = { key: K, item: V? }
 export type Slots<V, K> = {
-	source: ComposeTypes.Value<{ Slot<V, K> }>,
-	wrap: (
+	source: ComposeTypes.Value<{ Slot<V, K> }>?,
+	wrap: ((
 		(ComposeTypes.ReadOnlyValue<V>, ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>, K) -> GuiObject
-	) -> (ComposeTypes.ReadOnlyValue<Slot<V, K>>, ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>, K) -> GuiObject,
+	) -> (ComposeTypes.ReadOnlyValue<Slot<V, K>>, ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>, K) -> GuiObject)?,
 }
 return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 	local Compose, Host = ctx.Compose, ctx.Host
@@ -17,50 +16,59 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 	local D2 = ctx.types.UDim2
 	local spec, source, keyOf, horizontal = view.spec, view.source, view.keyOf, view.horizontal
 	local slotNodes: { [K]: GuiObject } = {}
-	if spec.slotControls then
-		assert(spec.slots ~= nil, "Facet collection slotControls requires slots")
-		spec.slotControls.nodeOfKey = function(key: K): GuiObject?
+	local slotControls = spec.slotControls
+	local reserved = spec.slots
+	if reserved == nil then
+		assert(slotControls == nil, "Facet collection slotControls requires slots")
+		return {}
+	end
+	if slotControls then
+		slotControls.nodeOfKey = function(key: K): GuiObject?
 			return slotNodes[key]
 		end
 		Compose.cleanup(function()
-			(spec.slotControls :: CollectionTypes.SlotControls<K>).nodeOfKey = nil
+			slotControls.nodeOfKey = nil
 		end)
 	end
-	type SlotRecord = { key: K, item: V? }
-	local itemsByKey: ComposeTypes.ReadOnlyValue<{ [K]: V }>? = if spec.slots ~= nil
-		then Compose.formula(function(use: ComposeTypes.Use): { [K]: V }
-			local items: { [K]: V } = {}
-			for index, item in source(use) do
-				items[keyOf(item, index)] = item
-			end
-			return items
-		end)
-		else nil
-	local slotSource = Compose.formula(function(use: ComposeTypes.Use): { SlotRecord }
-		local result: { SlotRecord } = {}
-		local rows = source(use)
-		if itemsByKey == nil then
-			for index, item in rows do
-				table.insert(result, { key = keyOf(item, index), item = item })
-			end
-			return result
+	local itemsByKey = Compose.formula(function(use: ComposeTypes.Use): { [K]: V }
+		local items: { [K]: V } = {}
+		for index, item in source(use) do
+			items[keyOf(item, index)] = item
 		end
+		return items
+	end)
+	local previous: { Slot<V, K> } = {}
+	local slotSource = Compose.formula(function(use: ComposeTypes.Use): { Slot<V, K> }
+		local result: { Slot<V, K> } = {}
+		local records: { [K]: Slot<V, K> } = {}
+		for _, record in previous do
+			records[record.key] = record
+		end
+		previous = result
+		local function append(key: K, item: V?)
+			local record = records[key]
+			if record == nil or not rawequal(record.item, item) then
+				record = { key = key, item = item }
+			end
+			table.insert(result, record)
+		end
+		local rows = source(use)
 		local items = use(itemsByKey)
 		local included: { [K]: boolean } = {}
-		for _, key in read(spec.slots or {}, use) do
+		for _, key in read(reserved, use) do
 			assert(not included[key], "Facet collection slots must have unique keys")
 			included[key] = true
-			table.insert(result, { key = key, item = items[key] })
+			append(key, items[key])
 		end
 		for index, item in rows do
 			local key = keyOf(item, index)
 			if not included[key] then
-				table.insert(result, { key = key, item = item })
+				append(key, item)
 			end
 		end
 		return result
-	end, function(before: { SlotRecord }?, after: { SlotRecord }): boolean
-		if before == nil or spec.slots == nil or #before ~= #after then
+	end, function(before: { Slot<V, K> }?, after: { Slot<V, K> }): boolean
+		if before == nil or #before ~= #after then
 			return false
 		end
 		for index, entry in before do
@@ -76,22 +84,12 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 		K
 	) -> GuiObject)
 		return function(
-			record: ComposeTypes.ReadOnlyValue<SlotRecord>,
+			record: ComposeTypes.ReadOnlyValue<Slot<V, K>>,
 			placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
 			key: K
 		)
-			if spec.slots == nil then
-				return renderItem(
-					Compose.formula(function(use: ComposeTypes.Use): V
-						return assert(use(record).item)
-					end),
-					placement,
-					key
-				)
-			end
-			local index = assert(itemsByKey)
 			local itemForKey = Compose.formula(function(use: ComposeTypes.Use): V?
-				return use(index)[key]
+				return use(itemsByKey)[key]
 			end)
 			local last = record:peek().item
 			local current = Compose.formula(function(use: ComposeTypes.Use): V
@@ -112,7 +110,7 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 				},
 				"fill"
 			)
-			local shown: ComposeTypes.Value<UDim2?> = Compose.cell(nil :: UDim2?)
+			local shown = Compose.cell<<UDim2?>>(nil)
 			local attributes: EngineTypes.Attributes = { FacetReservedKey = tostring(key) }
 			local anchor = Host.Frame "SlotAnchor" {
 				BackgroundTransparency = 1,

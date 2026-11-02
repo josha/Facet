@@ -125,25 +125,6 @@ local function selectables(t: any, root: Instance): { any }
 	return out
 end
 
-local function pathOf(node: Instance, root: Instance?): string
-	local parts = {}
-	local at: Instance? = node
-	while at and at ~= root and not at:IsA("LayerCollector") do
-		table.insert(parts, 1, at.Name)
-		at = at.Parent
-	end
-	return table.concat(parts, "/")
-end
-
-local function firstSelectable(t: any, root: Instance, fragment: string): any
-	for _, node in selectables(t, root) do
-		if string.find(pathOf(node, root), fragment, 1, true) then
-			return node
-		end
-	end
-	return nil
-end
-
 local function buttonNamed(root: Instance, name: string): any
 	for _, node in root:GetDescendants() do
 		if node.Name == name and node:IsA("GuiButton") then

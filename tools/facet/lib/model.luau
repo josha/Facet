@@ -288,20 +288,21 @@ local function rojo(project: unknown, output: string, projectPath: string): stri
 	return nil
 end
 
-function Model.build(options: Options?): (boolean, string)
+function Model.build(options: Options?): (boolean, string, Manifest?)
 	local root = if options and options.root then options.root else "."
 	local output = if options and options.output then options.output else Files.join(root, Model.DEFAULT_OUTPUT)
 	local publisher = options ~= nil and options.publisher == true
 	local checked, verdict = Snapshot.check(root, "compose")
 	if not checked then
-		return false, verdict
+		return false, verdict, nil
 	end
 	local base, extension = string.match(output, "^(.*)%.(rbxmx?)$")
 	if base == nil or extension == nil then
 		return false,
 			("build model: output '%s' must end in .rbxm or .rbxmx (rojo decides the format from the name)"):format(
 				output
-			)
+			),
+			nil
 	end
 	sequence += 1
 	local token = ("%d-%d-%d"):format(os.time(), process.pid(), sequence)
@@ -315,6 +316,7 @@ function Model.build(options: Options?): (boolean, string)
 	local scratch = Files.join(root, (".model_build.%s.project.json"):format(token))
 	local lines: { string } = { verdict }
 	local temporaries: { string } = {}
+	local manifest: Manifest? = nil
 	local built, problem = pcall(function(): string?
 		Files.makeDirectory(Files.join(root, "build"))
 		Model.stage(root, stage, true)
@@ -336,14 +338,15 @@ function Model.build(options: Options?): (boolean, string)
 			Files.move(twinTemporary, twin)
 		end
 		local manifestPath = base .. ".manifest.json"
-		local manifest = Model.writeManifest(root, twin, output, manifestPath)
+		local written = Model.writeManifest(root, twin, output, manifestPath)
+		manifest = written
 		table.insert(
 			lines,
 			("manifest %s: %d instances (%d modules), body %s"):format(
 				Model.shown(root, manifestPath),
-				manifest.instanceCount,
-				manifest.moduleCount,
-				string.sub(manifest.bodyHash, 1, 12)
+				written.instanceCount,
+				written.moduleCount,
+				string.sub(written.bodyHash, 1, 12)
 			)
 		)
 		if publisher then
@@ -381,13 +384,13 @@ function Model.build(options: Options?): (boolean, string)
 	local failure: string? = if built then problem else tostring(problem)
 	if failure ~= nil then
 		table.insert(lines, failure)
-		return false, table.concat(lines, "\n")
+		return false, table.concat(lines, "\n"), nil
 	end
 	table.insert(
 		lines,
 		("built %s (Facet %s, %d modules)"):format(output, Model.readVersion(root), #Model.sourceFiles(root))
 	)
-	return true, table.concat(lines, "\n")
+	return true, table.concat(lines, "\n"), manifest
 end
 
 return table.freeze(Model)

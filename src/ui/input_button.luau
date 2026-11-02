@@ -29,6 +29,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		roleTags[name] = "facet-role-" .. name
 	end
 	local contentGap = 8
+	local lastHeight: number?, lastSize: UDim2?
+	local function heightSize(rung: Shared.Input<Shared.ControlSize?>?, use: ComposeTypes.Use?): UDim2
+		local height = ctx.controlSize(rung, "height", use)
+		if height ~= lastHeight then
+			lastHeight, lastSize = height, D2.fromOffset(0, height)
+		end
+		return assert(lastSize)
+	end
 
 	local buttonKeys = table.freeze({
 		"haptic",
@@ -209,6 +217,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			iconState = Compose.cell(initial)
 		end
 		local held, repeated = false, false
+		local repeatable = spec.repeatDelay ~= nil or spec.repeatInterval ~= nil
 		local repeatDelay, repeatInterval =
 			spec.repeatDelay or kit.repeatDelay, spec.repeatInterval or kit.repeatInterval
 		assert(
@@ -254,21 +263,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		local guiService = ctx.config.services.GuiService
 		local lazyKeyboard = underline ~= "hover"
-		local selectedForKeyboard: Shared.Input<boolean>
+		local selectedForKeyboard: Shared.Input<boolean> = false
 		local fallbackSelection: ComposeTypes.Value<boolean>?
-		local function observeSelection(): Shared.Input<boolean>
-			local selected = ctx.observe.SelectedObject(assert(guiService))
-			return function(use: ComposeTypes.Use)
-				local target = use(selected)
-				return node and target == node or false
-			end
-		end
-		if guiService then
-			selectedForKeyboard = if lazyKeyboard then false else observeSelection()
-		else
-			fallbackSelection = Compose.cell(false)
-			selectedForKeyboard = assert(fallbackSelection)
-		end
 		local rich = spec.icon ~= nil
 			or spec.glyph ~= nil
 			or spec.trailingIcon ~= nil
@@ -283,7 +279,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		)
 		local enabledProperty: Shared.Input<boolean> = if enabledSource then enabledSource else enabledFixed
 		local function controlSize(use)
-			return D2.fromOffset(0, ctx.controlSize(spec.controlSize, "height", use))
+			return heightSize(spec.controlSize, use)
 		end
 		local defaults: Shared.TextButtonProps = {
 			Text = if rich then "" else spec.label or "",
@@ -301,7 +297,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			or spec.AutomaticSize == E.AutomaticSize.Y
 			or liveWidth
 			or dynamic(spec.AutomaticSize)
-			or (spec.AutomaticSize == nil and typeof(authored) == "UDim2" and widthSet(authored :: UDim2))
+			or (spec.AutomaticSize == nil and typeof(authored) == "UDim2" and widthSet(authored))
 		)
 			and spec.image == nil
 			and spec.row == nil
@@ -311,11 +307,13 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				and (spec.TextTruncate == nil or spec.TextTruncate == E.TextTruncate.None)
 			if liveWidth then
 				defaults.AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
-					return if widthSet(read(authored, use) :: UDim2) then E.AutomaticSize.Y else E.AutomaticSize.XY
+					local size: UDim2 = read<<UDim2>>(assert(authored), use)
+					return if widthSet(size) then E.AutomaticSize.Y else E.AutomaticSize.XY
 				end
 				if wraps then
 					defaults.TextWrapped = function(use: ComposeTypes.Use): boolean
-						return widthSet(read(authored, use) :: UDim2)
+						local size: UDim2 = read<<UDim2>>(assert(authored), use)
+						return widthSet(size)
 					end
 				end
 			else
@@ -399,13 +397,16 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				return if underline == "always" or use(assert(engaged)) then `<u>{words}</u>` else words
 			end
 		end
-		p.Activated = function(input: InputObject, clicks: number)
-			if not repeated then
-				activate(input, clicks)
-			end
-			repeated = false
-			if spec.Activated then
-				spec.Activated(input, clicks)
+		p.Activated = activate
+		if repeatable or spec.Activated then
+			p.Activated = function(input: InputObject, clicks: number)
+				if not repeated then
+					activate(input, clicks)
+				end
+				repeated = false
+				if spec.Activated then
+					spec.Activated(input, clicks)
+				end
 			end
 		end
 
@@ -439,7 +440,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			local aspect: EngineTypes.UIAspectRatioConstraintProps = { AspectRatio = 1 }
 			local authored = spec.Size
 			if authored ~= nil and not dynamic(authored) then
-				local size = authored :: UDim2
+				local size: UDim2 = read<<UDim2>>(authored)
 				local wide = size.X.Scale ~= 0 or size.X.Offset ~= 0
 				local tall = size.Y.Scale ~= 0 or size.Y.Offset ~= 0
 				if wide ~= tall then
@@ -506,8 +507,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			local function cornerSize(use: ComposeTypes.Use): Shared.ControlSize
 				return SMALLER[read<<Shared.ControlSize?>>(spec.controlSize, use) or "regular"]
 			end
-			local shortcut = (UI.ShortcutHint :: unknown) :: (InputProps.ShortcutHintProps) -> TextLabel | Frame
-			inputHint = shortcut(({
+			inputHint = UI.ShortcutHint({
 				Name = "ShortcutHint",
 				action = hinted,
 				cap = false,
@@ -521,38 +521,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					end
 					return if use(binding) then true else false
 				end,
-			} :: unknown) :: InputProps.ShortcutHintProps)
+			})
 		end
 		local rowHint = if corner then nil else inputHint
 		local markRow: ((GuiObject) -> ())? = nil
 		if rich then
 			fillsGlyph, markRow = buttonContent(ctx, kit, spec, p, iconState, bounded, sized, rowHint)
 		end
-		local captionFits = Compose.cell(true)
+		local captionFits = if ctx.config.theme ~= nil then Compose.cell(true) else nil
 		local keyboardAttached = false
-		local function attachKeyboard()
-			ctx.action(
-				node,
-				"Activate",
-				{ E.KeyCode.Return },
-				function(use: ComposeTypes.Use)
-					return read(selectedForKeyboard, use) == true and shortcutActive(use)
-				end,
-				activateShortcut,
-				{ priority = 5000, conditional = { binding = E.KeyCode.Space, when = ctx.spaceActivates(node) } }
-			)
-		end
-		if not lazyKeyboard then
-			p[#p + 1] = Compose.show(function(use: ComposeTypes.Use)
-				keyboardAttached = keyboardAttached or (read(selectedForKeyboard, use) == true and isEnabled(use))
-				return keyboardAttached
-			end, function()
-				attachKeyboard()
-				return Compose.fragment(function()
-					return {}
-				end)
-			end)
-		end
 		local hapticSwitch = p.PressHapticEffect == nil and dynamic(spec.haptic)
 		if p.PressHapticEffect == nil and not hapticSwitch then
 			local effect = ctx.haptic(read(spec.haptic))
@@ -595,76 +572,91 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		if not rich then
 			sized(node, spec.textSize)
 			if spec.shape ~= "circle" then
-				local sizing = ctx.observe.AutomaticSize(node)
-				runtime.mountFragment(function()
-					return {
-						Compose.show(function(use: ComposeTypes.Use)
-							local grows = use(sizing)
-							return grows ~= E.AutomaticSize.X and grows ~= E.AutomaticSize.XY
-						end, function()
-							local words = ctx.observe.Text(node)
-							return Compose.show(function(use: ComposeTypes.Use)
-								return use(words) ~= ""
-							end, function()
-								local fits, box = ctx.observe.TextFits(node), ctx.observe.AbsoluteSize(node)
-								local measured: string? = nil
-								Compose.watch(function(use: ComposeTypes.Use)
-									use(box)
-									use(fits)
-									local width, whole = node.AbsoluteSize.X, node.TextFits and use(captionFits)
-									if not node:HasTag("facet-button-tight") and (whole or width <= 0) then
-										return
-									end
-									local points, face =
-										ctx.observeStyled.TextSize(node), ctx.observeStyled.FontFace(node)
-									local metrics = `{width}|{use(words)}|{use(points)}|{use(face)}`
-									if metrics ~= measured and node:HasTag("facet-button-tight") then
-										measured = metrics
-										local drawn = node.TextBounds.X
-										local unit = 1
-										local at: Instance? = node
-										while at do
-											local transform = at:FindFirstChildWhichIsA("UIScale")
-											if transform then
-												unit *= transform.Scale
+				local owner = assert(Compose.currentOwner())
+				local detach: ComposeTypes.Dispose?
+				local attached = false
+				local function attach()
+					local grows = node.AutomaticSize
+					if attached or grows == E.AutomaticSize.X or grows == E.AutomaticSize.XY then
+						return
+					end
+					attached = true
+					if detach then
+						detach()
+						detach = nil
+					end
+					Compose.withOwner(owner, function()
+						local sizing = ctx.observe.AutomaticSize(node)
+						runtime.mountFragment(function()
+							return {
+								Compose.show(function(use: ComposeTypes.Use)
+									local grows = use(sizing)
+									return grows ~= E.AutomaticSize.X and grows ~= E.AutomaticSize.XY
+								end, function()
+									local words = ctx.observe.Text(node)
+									return Compose.show(function(use: ComposeTypes.Use)
+										return use(words) ~= ""
+									end, function()
+										local fits, box = ctx.observe.TextFits(node), ctx.observe.AbsoluteSize(node)
+										local measured: string? = nil
+										Compose.watch(function(use: ComposeTypes.Use)
+											use(box)
+											use(fits)
+											local width, whole =
+												node.AbsoluteSize.X,
+												node.TextFits and (captionFits == nil or use(captionFits))
+											if not node:HasTag("facet-button-tight") and (whole or width <= 0) then
+												return
 											end
-											at = at.Parent
-										end
-										local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
-										local skin = package and package.chrome and package.chrome.control
-										local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
-										local padding = (
-											2 * ctx.controlSize(spec.controlSize, "paddingX", use)
-											+ (carve.left or 0)
-											+ (carve.right or 0)
-										) * unit
-										if drawn == 0 or (whole and drawn + padding <= width) then
+											local points, face =
+												ctx.observeStyled.TextSize(node), ctx.observeStyled.FontFace(node)
+											local metrics = `{width}|{use(words)}|{use(points)}|{use(face)}`
+											if metrics ~= measured and node:HasTag("facet-button-tight") then
+												measured = metrics
+												local drawn = node.TextBounds.X
+												local unit = 1
+												local at: Instance? = node
+												while at do
+													local transform = at:FindFirstChildWhichIsA("UIScale")
+													if transform then
+														unit *= transform.Scale
+													end
+													at = at.Parent
+												end
+												local package =
+													read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
+												local skin = package and package.chrome and package.chrome.control
+												local carve: ThemeTypes.Insets = if skin
+													then skin.contentInsets or {}
+													else {}
+												local padding = (
+													2 * ctx.controlSize(spec.controlSize, "paddingX", use)
+													+ (carve.left or 0)
+													+ (carve.right or 0)
+												) * unit
+												if drawn == 0 or (whole and drawn + padding <= width) then
+													node:RemoveTag("facet-button-tight")
+												end
+											end
+											if not whole and width > 0 and not node:HasTag("facet-button-tight") then
+												measured = metrics
+												node:AddTag("facet-button-tight")
+											end
+										end)
+										Compose.cleanup(function()
 											node:RemoveTag("facet-button-tight")
-										end
-									end
-									if not whole and width > 0 and not node:HasTag("facet-button-tight") then
-										measured = metrics
-										node:AddTag("facet-button-tight")
-									end
-								end)
-								Compose.cleanup(function()
-									node:RemoveTag("facet-button-tight")
-								end)
-								return idle
-							end)
-						end),
-					}
-				end, node)
+										end)
+										return idle
+									end)
+								end),
+							}
+						end, node)
+					end)
+				end
+				detach =
+					Compose.cleanup(assert(runtime.host.observation).observeProperty(node, "AutomaticSize", attach))
+				attach()
 			end
-		end
-		if underline == "hover" then
-			local state = ctx.observe.GuiState(node)
-			Compose.watch(function(use: ComposeTypes.Use)
-				local now = use(state)
-				assert(engaged):set(
-					now == E.GuiState.Hover or now == E.GuiState.Press or read(selectedForKeyboard, use) == true
-				)
-			end)
 		end
 		if hapticSwitch then
 			local appliedHaptic: HapticEffect? = nil
@@ -673,7 +665,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				local effect = ctx.haptic(read(spec.haptic, use))
 				if not hapticApplied or effect ~= appliedHaptic then
 					hapticApplied, appliedHaptic = true, effect
-					node.PressHapticEffect = effect :: HapticEffect
+					runtime.host.render.setProperty(node, "PressHapticEffect", effect)
 				end
 			end)
 		end
@@ -706,20 +698,48 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		local owner = assert(Compose.currentOwner(), "Facet.Button requires a Compose owner")
 		local selectionWired = false
-		local function selectedLazily()
+		local function selectedLazily(...: boolean)
+			local selected = ... ~= false
+			if not guiService then
+				if fallbackSelection then
+					fallbackSelection:set(selected)
+				else
+					local source = Compose.cell(selected)
+					fallbackSelection = source
+					selectedForKeyboard = source
+				end
+			end
 			if selectionWired or ComposeTypes.owner.isDisposed(owner) then
 				return
 			end
 			selectionWired = true
 			Compose.withOwner(owner, function()
 				if guiService then
-					selectedForKeyboard = observeSelection()
+					local selected = ctx.observe.SelectedObject(guiService)
+					selectedForKeyboard = function(use: ComposeTypes.Use): boolean
+						return use(selected) == node
+					end
 				else
 					runtime.connect(node, "SelectionLost", function()
 						assert(fallbackSelection):set(false)
 					end)
 				end
-				if enabledLive then
+				local function attachKeyboard()
+					ctx.action(node, "Activate", { E.KeyCode.Return }, function(use: ComposeTypes.Use)
+						local input = ctx.config.services.UserInputService
+						return read(selectedForKeyboard, use) == true
+							and isEnabled(use)
+							and node.Visible
+							and node.Parent ~= nil
+							and (not input or not input:GetFocusedTextBox())
+					end, function()
+						activate(nil, nil)
+					end, {
+						priority = 5000,
+						conditional = { binding = E.KeyCode.Space, when = ctx.spaceActivates(node) },
+					})
+				end
+				if enabledLive or not lazyKeyboard then
 					Compose.watch(function(use: ComposeTypes.Use)
 						if not keyboardAttached and read(selectedForKeyboard, use) == true and isEnabled(use) then
 							keyboardAttached = true
@@ -732,20 +752,26 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end
 			end)
 		end
-		if lazyKeyboard and guiService then
-			ctx.whenSelected(guiService, node, selectedLazily)
-		elseif not guiService then
-			runtime.connect(node, "SelectionGained", function()
-				assert(fallbackSelection):set(true)
-				if lazyKeyboard then
-					selectedLazily()
-				end
-			end)
-			if not lazyKeyboard then
-				runtime.connect(node, "SelectionLost", function()
-					assert(fallbackSelection):set(false)
-				end)
+		if guiService then
+			if lazyKeyboard then
+				ctx.whenSelected(guiService, node, selectedLazily)
+			else
+				selectedLazily()
 			end
+		else
+			if not lazyKeyboard then
+				selectedLazily(false)
+			end
+			runtime.connect(node, "SelectionGained", selectedLazily)
+		end
+		if underline == "hover" then
+			local state = ctx.observe.GuiState(node)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local now = use(state)
+				assert(engaged):set(
+					now == E.GuiState.Hover or now == E.GuiState.Press or read(selectedForKeyboard, use) == true
+				)
+			end)
 		end
 		if not rich and ctx.config.theme ~= nil then
 			local function needsCaption(use)
@@ -779,7 +805,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				Compose.watch(function(use: ComposeTypes.Use)
 					use(size)
 					use(fits)
-					captionFits:set(not needsCaption(use) or label.TextFits)
+					assert(captionFits):set(not needsCaption(use) or label.TextFits)
 				end)
 				local boundary = decoration(Compose, runtime, ctx.types, node, label, { inset = true })
 				Compose.watch(function(use: ComposeTypes.Use)
@@ -837,7 +863,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				local holder = use(parent)
 				if holder and (holder:IsA("GuiObject") or holder:IsA("ScreenGui")) then
 					local function refresh()
-						local box = observation.readProperty(holder, "AbsoluteSize") :: Vector2
+						local box = observation.readProperty(holder, "AbsoluteSize")
+						assert(typeof(box) == "Vector2")
 						available:set(box.X)
 					end
 					stopParent = observation.observeProperty(holder, "AbsoluteSize", refresh)
@@ -904,10 +931,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end
 			end
 		end
+		local setAttribute = node.SetAttribute
 		local function attribute(name: string, value: boolean | string)
 			if not initialized or previousAttributes[name] ~= value then
 				previousAttributes[name] = value
-				node:SetAttribute(name, value)
+				setAttribute(node, name, value)
 			end
 		end
 		local function updateState(use)
@@ -988,13 +1016,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		else
 			updateState()
 		end
-		if
-			spec.repeatDelay
-			or spec.repeatInterval
-			or spec.onPointerDown
-			or spec.onPointerUp
-			or spec.onPointerCancel
-		then
+		if repeatable or spec.onPointerDown or spec.onPointerUp or spec.onPointerCancel then
 			local stopFrame: (() -> ())?
 			local function release()
 				held = false
@@ -1011,7 +1033,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end
 			end
 			local function startRepeat()
-				if stopFrame or not (spec.repeatDelay or spec.repeatInterval) then
+				if stopFrame or not repeatable then
 					return
 				end
 				stopFrame = kit.repeatHeld(assert(runtime.host.frames), repeatDelay, repeatInterval, function(): boolean

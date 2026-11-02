@@ -62,13 +62,15 @@ local function materialize(
 		return {
 			Compose.show(moving, function()
 				local suspended: { Instance } = {}
-				local _, holder = runtime.mount(function()
-					return Host.Folder "PresentationConstraints" {}
+				local holder: Folder
+				runtime.mount(function()
+					holder = Host.Folder "PresentationConstraints" {}
+					return holder
 				end, panel)
 				for _, child in panel:GetChildren() do
 					if child:IsA("UISizeConstraint") then
 						table.insert(suspended, child)
-						child.Parent = holder :: Instance
+						child.Parent = holder
 					end
 				end
 				runtime.mount(function()
@@ -87,13 +89,14 @@ local function materialize(
 				local parent = panel:FindFirstChild("Fade") or panel
 				local children = parent:GetChildren()
 				local padding = panel:FindFirstChildWhichIsA("UIPadding")
-				local sides = {}
+				local sides: { [string]: UDim } = {}
 				if padding then
 					for _, side in { "Left", "Right", "Top", "Bottom" } do
-						sides[side] = padding:GetStyled("Padding" .. side) :: UDim
+						sides[side] = padding:GetStyled("Padding" .. side)
 					end
 				end
-				local stop, made = runtime.mount(function()
+				local content: Frame
+				local stop = runtime.mount(function()
 					local function contentSize(use: ComposeTypes.Use): Vector2
 						local size = use(natural)
 						local function inset(side: string, length: number): number
@@ -105,7 +108,7 @@ local function materialize(
 							math.max(0, size.Y - inset("Top", size.Y) - inset("Bottom", size.Y))
 						)
 					end
-					return Host.Frame "PresentationContent" {
+					content = Host.Frame "PresentationContent" {
 						Host.UISizeConstraint { MinSize = contentSize, MaxSize = contentSize },
 						BackgroundTransparency = 1,
 						Size = function(use: ComposeTypes.Use)
@@ -118,8 +121,8 @@ local function materialize(
 							return D2.fromScale(at.X, at.Y)
 						end,
 					}
+					return content
 				end, parent)
-				local content = made :: Frame
 				local function freeze(group: Instance)
 					if not group:IsA("CanvasGroup") then
 						return
@@ -165,14 +168,14 @@ local function materialize(
 								and child.Name ~= "ChromeShadow"
 							) or child:IsA("UIGridStyleLayout")
 						then
-							(child :: Instance).Parent = content
+							child.Parent = content
 						end
 					end
 				end)
 				Compose.cleanup(function()
 					keepSelection(function()
 						for _, child in content:GetChildren() do
-							(child :: Instance).Parent = content.Parent
+							child.Parent = content.Parent
 						end
 					end)
 					stop()

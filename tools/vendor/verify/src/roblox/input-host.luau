@@ -10,8 +10,10 @@ local Values = require "./ui-values"
 local EnumTypes = require "./datatypes/enum"
 local Gamepad = require "./input-gamepad"
 local Touch = require "./input-touch"
+local PointerInput = require "./input-pointer"
 local VectorTypes = require "./datatypes/vector"
 local Names = require "./datatypes/names"
+local MODIFIERS = { "PrimaryModifier", "SecondaryModifier" }
 
 export type Key = { code: string, down: boolean }
 export type Pointer = { x: number, y: number, button: "left" | "right" | "middle", down: boolean }
@@ -201,6 +203,7 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 	)
 	local inputTypes, states = library.Enum.UserInputType, library.Enum.UserInputState
 	local none = library.Enum.KeyCode.None
+	local unknownKey = library.Enum.KeyCode:FromName "Unknown"
 	local closed, held = false, false
 	local position: Position = { X = 0, Y = 0 }
 	local buttonPosition: Position = { X = 0, Y = 0 }
@@ -370,10 +373,17 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 	end
 	local function recipients(objects: { Instance }): ({ Instance }, Instance?)
 		local result: { Instance } = {}
+		local barrier: Instance? = nil
 		for _, object in objects do
+			if barrier and not barrier:IsDescendantOf(object) then
+				continue
+			end
 			table.insert(result, object)
 			if button(object) then
 				return result, object
+			end
+			if read(object, "Active") == true then
+				barrier = object
 			end
 		end
 		return result, nil
@@ -589,15 +599,33 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 	end
 	local heldKeys: { [string]: true } = {}
 	local heldInputs: { [string]: Instance } = {}
+	type BoundAction = { action: Instance, context: Instance, binding: Instance }
+	local keyActions: { [string]: { BoundAction } } = {}
 	local selectionRepeats: { [string]: {} } = {}
 	local function codeName(value: unknown): string
 		return (tostring(value):match "([^%.]+)$" or tostring(value))
 	end
-	local function boundActions(code: string): { { action: Instance, context: Instance } }
+	local function boundActions(code: string): { BoundAction }
 		local root = gui:FindFirstAncestorWhichIsA "DataModel" or gui
-		local found: { { action: Instance, context: Instance } } = {}
+		local found: { BoundAction } = {}
 		for _, binding in root:GetDescendants() do
 			if not binding:IsA "InputBinding" or codeName(env.propertyOf(binding, "KeyCode")) ~= code then
+				continue
+			end
+			local matched = true
+			for _, property in MODIFIERS do
+				local modifier = env.propertyOf(binding, property)
+				if
+					modifier ~= nil
+					and modifier ~= none
+					and modifier ~= unknownKey
+					and not heldKeys[codeName(modifier)]
+				then
+					matched = false
+					break
+				end
+			end
+			if not matched then
 				continue
 			end
 			if codeName(env.propertyOf(binding, "Type")) ~= "Automatic" then
@@ -619,7 +647,10 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 				env.propertyOf(Environment.assertInstance(action), "Enabled") == true
 				and env.propertyOf(context, "Enabled") == true
 			then
-				table.insert(found, { action = Environment.assertInstance(action), context = context })
+				table.insert(
+					found,
+					{ action = Environment.assertInstance(action), context = context, binding = binding }
+				)
 			end
 		end
 		table.sort(found, function(left, right)
@@ -629,6 +660,27 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		return found
 	end
 	local function deliverActions(code: string, down: boolean)
+		if not down then
+			for key, actions in keyActions do
+				for _, entry in actions do
+					if key ~= code and env.isAlive(entry.binding) then
+						if
+							codeName(env.propertyOf(entry.binding, "PrimaryModifier")) ~= code
+							and codeName(env.propertyOf(entry.binding, "SecondaryModifier")) ~= code
+						then
+							continue
+						end
+					end
+					if env.isAlive(entry.action) then
+						env.method(entry.action, "Fire")(entry.action, false)
+					end
+				end
+			end
+			keyActions[code] = nil
+			return
+		end
+		local actions: { BoundAction } = {}
+		keyActions[code] = actions
 		local sunk: number? = nil
 		for _, entry in boundActions(code) do
 			local priority = Values.number(env.propertyOf(entry.context, "Priority"))
@@ -637,6 +689,7 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 			end
 			local fire = env.method(entry.action, "Fire")
 			fire(entry.action, down)
+			table.insert(actions, entry)
 			if env.propertyOf(entry.context, "Sink") == true then
 				sunk = priority
 			end
@@ -648,21 +701,26 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		Left = { x = -1, y = 0, name = "Left" },
 		Right = { x = 1, y = 0, name = "Right" },
 	}
-	local function shown(object: Instance): boolean
-		local current: Instance? = object
-		while current and current ~= gui do
-			if current:IsA "GuiObject" and read(current, "Visible") == false then
-				return false
-			end
-			if current:IsA "LayerCollector" and read(current, "Enabled") == false then
-				return false
-			end
-			current = current.Parent
+	local function navigable(object: Instance, memo: { [Instance]: boolean }?): boolean
+		if object == gui then
+			return true
 		end
-		return current == gui
+		local known = if memo then memo[object] else nil
+		if known ~= nil then
+			return known
+		end
+		local parent = env.parentOf(object)
+		local result = parent ~= nil
+			and (not object:IsA "GuiObject" or read(object, "Visible") ~= false and read(object, "Interactable") ~= false)
+			and (not object:IsA "LayerCollector" or read(object, "Enabled") ~= false)
+			and navigable(parent, memo)
+		if memo then
+			memo[object] = result
+		end
+		return result
 	end
 	local function selectable(object: Instance): boolean
-		return object:IsA "GuiObject" and read(object, "Selectable") == true and shown(object) and interactable(object)
+		return object:IsA "GuiObject" and read(object, "Selectable") == true and navigable(object, nil)
 	end
 	local function onScreen(object: Instance): boolean
 		local at = Values.vector(read(object, "AbsolutePosition"))
@@ -699,14 +757,9 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 				end
 			end
 			if chosen then
-				env.poke(self, "SelectedObject", chosen)
+				env.publish(self, "SelectedObject", chosen)
 			end
 		end)
-	end
-	local function center(object: Instance): Position
-		local at = Values.vector(read(object, "AbsolutePosition"))
-		local size = Values.vector(read(object, "AbsoluteSize"))
-		return { X = at.X + size.X / 2, Y = at.Y + size.Y / 2 }
 	end
 	local function groupOf(object: Instance): Instance?
 		local current = object.Parent
@@ -719,20 +772,26 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		return nil
 	end
 	local function nearest(from: Instance, scope: Instance, direction: { x: number, y: number }): Instance?
-		local origin = center(from)
+		local origin = Values.vector(read(from, "AbsolutePosition"))
+		local extent = Values.vector(read(from, "AbsoluteSize"))
+		local x, y = origin.X + extent.X / 2, origin.Y + extent.Y / 2
 		local best: Instance? = nil
 		local bestScore = math.huge
+		local eligible: { [Instance]: boolean } = {}
 		for _, candidate in scope:GetDescendants() do
-			if candidate ~= from and selectable(candidate) then
-				local at = center(candidate)
-				local dx, dy = at.X - origin.X, at.Y - origin.Y
+			if
+				candidate ~= from
+				and candidate:IsA "GuiObject"
+				and read(candidate, "Selectable") == true
+				and navigable(candidate, eligible)
+			then
+				local at = Values.vector(read(candidate, "AbsolutePosition"))
+				local size = Values.vector(read(candidate, "AbsoluteSize"))
+				local dx, dy = at.X + size.X / 2 - x, at.Y + size.Y / 2 - y
 				local along = dx * direction.x + dy * direction.y
-				if along > 0 then
-					local across = math.abs(dx * direction.y - dy * direction.x)
-					local score = along + 2 * across
-					if score < bestScore then
-						best, bestScore = candidate, score
-					end
+				local score = along + 2 * math.abs(dx * direction.y - dy * direction.x)
+				if along > 0 and score < bestScore then
+					best, bestScore = candidate, score
 				end
 			end
 		end
@@ -759,6 +818,15 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		end
 		return nearest(from, gui, direction)
 	end
+	local function accept(selected: Instance, object: Instance)
+		if interactable(selected) then
+			if button(selected) then
+				env.fire(selected, "Activated", object, 1)
+			elseif selected:IsA "TextBox" and read(selected, "TextEditable") ~= false then
+				env.method(selected, "CaptureFocus")(selected)
+			end
+		end
+	end
 	local function deliverSelection(
 		guiService: Instance,
 		selected: Instance,
@@ -770,14 +838,21 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		if down and direction then
 			local target = navigate(selected, direction)
 			if target then
-				env.poke(guiService, "SelectedObject", target)
+				env.publish(guiService, "SelectedObject", target)
 			end
 		elseif down and code == "Escape" then
-			env.poke(guiService, "SelectedObject", nil)
+			env.publish(guiService, "SelectedObject", nil)
+		end
+		if code == "Return" and selected:IsA "TextBox" and read(selected, "TextEditable") ~= false then
+			if down then
+				accept(selected, object)
+			end
+			env.fire(service, if down then "InputBegan" else "InputEnded", object, not down and focusedBox() ~= nil)
+			return
 		end
 		env.fire(service, if down then "InputBegan" else "InputEnded", object, true)
-		if down and code == "Return" and button(selected) and interactable(selected) then
-			env.fire(selected, "Activated", object, 1)
+		if down and code == "Return" then
+			accept(selected, object)
 		end
 	end
 	local navigationKeys: { [string]: boolean } = {
@@ -793,7 +868,7 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		if guiService and Environment.isInstance(selected) and not focusedBox() then
 			local target = navigate(Environment.assertInstance(selected), directions[code])
 			if target then
-				env.poke(guiService, "SelectedObject", target)
+				env.publish(guiService, "SelectedObject", target)
 			end
 		end
 		env.scheduler.delay(0.12, repeatSelection, code, token)
@@ -831,7 +906,7 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 				if current and current ~= stickDirection then
 					local nextTarget = navigate(target, directions[current])
 					if nextTarget then
-						env.poke(guiService, "SelectedObject", nextTarget)
+						env.publish(guiService, "SelectedObject", nextTarget)
 					end
 				end
 				stickDirection = current
@@ -842,7 +917,7 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 				if event == "InputBegan" then
 					local nextTarget = navigate(target, directions[direction])
 					if nextTarget then
-						env.poke(guiService, "SelectedObject", nextTarget)
+						env.publish(guiService, "SelectedObject", nextTarget)
 					end
 					local token = {}
 					selectionRepeats[direction] = token
@@ -854,8 +929,8 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 				if event == "InputBegan" then
 					controllerPress = target
 				elseif event == "InputEnded" then
-					if controllerPress == target and button(target) and interactable(target) then
-						env.fire(target, "Activated", object, 1)
+					if controllerPress == target then
+						accept(target, object)
 					end
 					controllerPress = nil
 				end
@@ -932,7 +1007,7 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 				if box.MultiLine == true then
 					deliverText "\n"
 				else
-					env.method(box, "ReleaseFocus")(box, true)
+					env.method(box, "ReleaseFocus")(box, true, object)
 				end
 			end
 			env.fire(service, if value.down then "InputBegan" else "InputEnded", object, true)
@@ -995,6 +1070,28 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		local minimum = Values.vector(Names.fields(area).Min)
 		return { X = at.X + minimum.X, Y = at.Y + minimum.Y }
 	end
+	local pointerInput: PointerInput.Controller? = nil
+	local function pointerController(): PointerInput.Controller
+		if pointerInput == nil then
+			pointerInput = PointerInput.create(env, {
+				service = service,
+				library = library,
+				input = input,
+				hits = function(at)
+					return hits(at, "movement")
+				end,
+				inset = options.inset,
+				read = read,
+				changed = function()
+					if lastInput ~= inputTypes.MouseWheel then
+						lastInput = inputTypes.MouseWheel
+						env.fire(service, "LastInputTypeChanged", lastInput)
+					end
+				end,
+			})
+		end
+		return assert(pointerInput)
+	end
 	local touch = Touch.create(env, {
 		service = service,
 		activationWindowSeconds = activationWindow,
@@ -1002,7 +1099,12 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		createInput = input,
 		targets = function(at)
 			local inset = options.inset()
-			return recipients(hits({ X = at.X + inset.X, Y = at.Y + inset.Y }, "button"))
+			local objects = hits({ X = at.X + inset.X, Y = at.Y + inset.Y }, "button")
+			local targets, targetButton = recipients(objects)
+			return targets, targetButton, objects
+		end,
+		scroll = function(objects, x, y)
+			return pointerController().drag(objects, x, y)
 		end,
 		processed = processed,
 		detector = detectorFor,
@@ -1018,6 +1120,10 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 	local function createDevice(): Environment.Object
 		local device = env.createEngineObject "VirtualInput"
 		table.insert(owned, device)
+		install(device, "SendPointerAction", function(_self: Environment.Object, at: Position, action: unknown)
+			ensureOpen()
+			pointerController().send(at, fields(action))
+		end)
 		install(device, "SendMousePosition", function(_self: Environment.Object, at: Position)
 			if touchMode() then
 				position = at
@@ -1110,11 +1216,16 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		return layout.objectsAtPosition(gui, x, y)
 	end)
 	local frame = env.heartbeat:Connect(function()
-		if not closed then
-			local objects = hits(position, "movement")
+		if pointerInput then
+			pointerInput.step()
+		end
+		if not closed and #hovered > 0 then
+			layout.step()
+			local inset = options.inset()
+			local objects = layout.objectsAtPosition(gui, position.X - inset.X, position.Y - inset.Y, hovered)
 			local retained: { Instance } = {}
 			for _, object in hovered do
-				if table.find(objects, object) then
+				if table.find(objects, object) and interactable(object) then
 					table.insert(retained, object)
 				end
 			end
@@ -1146,6 +1257,9 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 				return
 			end
 			frame:Disconnect()
+			if pointerInput then
+				pointerInput.close()
+			end
 			touch.close()
 			if options.virtualController then
 				env.poke(service, "GamepadEnabled", previousGamepad)
@@ -1162,6 +1276,7 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 			held = false
 			pressed, hovered, pressedButton = {}, {}, nil
 			table.clear(activations)
+			table.clear(keyActions)
 			for _, object in owned do
 				if env.isAlive(object) then
 					env.releaseObject(object)

@@ -217,7 +217,7 @@ local function truthy(value: unknown): boolean
 		return false
 	end
 	if type(value) == "table" then
-		return next(value :: { [unknown]: unknown }) ~= nil
+		return next(value) ~= nil
 	end
 	return true
 end
@@ -1084,30 +1084,29 @@ local function cmdManifest(env: Environment, invocation: Cli.Invocation): number
 	return 0
 end
 
-local function cmdBuild(env: Environment, invocation: Cli.Invocation): number
-	local built, message =
+local function cmdBuild(env: Environment, invocation: Cli.Invocation): (number, Model.Manifest?)
+	local built, message, manifest =
 		Model.build({ output = env.model, publisher = Cli.switch(invocation, "publisher"), root = env.root })
 	env.say(message)
 	if not built then
-		return 2
+		return 2, nil
 	end
-	local manifest = Model.loadManifest(env.manifest)
 	if manifest == nil then
 		env.say("package build: the builder produced no manifest")
-		return 1
+		return 1, nil
 	end
 	env.say(
 		("  version %s  commit %s\n  sourceHash   %s\n  artifactSha  %s\n  manifest     %s instances, %s modules, body %s"):format(
-			str(raw(manifest, "version")),
-			str(raw(manifest, "sourceCommit")),
-			str(raw(manifest, "sourceHash")),
-			str(raw(manifest, "artifactSha256")),
-			str(raw(manifest, "instanceCount")),
-			str(raw(manifest, "moduleCount")),
-			str(raw(manifest, "bodyHash"))
+			manifest.version,
+			manifest.sourceCommit,
+			manifest.sourceHash,
+			manifest.artifactSha256,
+			str(manifest.instanceCount),
+			str(manifest.moduleCount),
+			manifest.bodyHash
 		)
 	)
-	return 0
+	return 0, manifest
 end
 
 local function cmdStatus(env: Environment): number
@@ -1217,11 +1216,11 @@ local function indented(say: (string) -> (), text: string)
 	end
 end
 
-local function cmdVerify(env: Environment, invocation: Cli.Invocation): number
+local function cmdVerify(env: Environment, invocation: Cli.Invocation, built: Model.Manifest?): number
 	local say = env.say
 	say("package verify")
 	local failures: { string } = {}
-	local manifest = env.build(false)
+	local manifest = built or env.build(false)
 	say(("  [ ok ] build: %d instances, %d modules"):format(manifest.instanceCount, manifest.moduleCount))
 
 	local problems, counts = inspectTree(env.root, manifest)
@@ -1250,7 +1249,7 @@ local function cmdVerify(env: Environment, invocation: Cli.Invocation): number
 		say("  [ ok ] distribution notices: LICENSE and THIRD_PARTY_NOTICES copied from the root files")
 	end
 
-	local findings = purity.check(Rule.context(env.root))
+	local findings = purity.checkModel(Rule.context(env.root), Files.read(env.xml))
 	if #findings == 0 then
 		say("  [ ok ] library purity")
 	else
@@ -1722,14 +1721,14 @@ local function cmdStamp(env: Environment, invocation: Cli.Invocation): number
 	return 0
 end
 
-local function realBuild(root: string, model: string, xml: string, manifest: string): (boolean) -> Model.Manifest
+local function realBuild(root: string, model: string): (boolean) -> Model.Manifest
 	return function(publisher: boolean): Model.Manifest
-		local built, message = Model.build({ output = model, publisher = publisher, root = root })
+		local built, message, manifest = Model.build({ output = model, publisher = publisher, root = root })
 		if not built then
 			print(message)
 			stop(2)
 		end
-		return Model.writeManifest(root, xml, model, manifest)
+		return assert(manifest)
 	end
 end
 
@@ -1757,7 +1756,7 @@ local function environment(invocation: Cli.Invocation): Environment
 			end
 			return stringext.trim(key)
 		end,
-		build = realBuild(root, model, xml, manifest),
+		build = realBuild(root, model),
 		toolchain = toolchain,
 		clock = Assets.realClock(),
 		say = function(line: string)
@@ -1897,9 +1896,9 @@ local function run(invocation: Cli.Invocation): number
 		elseif subcommand == "manifest" then
 			return cmdManifest(env, invocation)
 		elseif subcommand == "build" then
-			local code = cmdBuild(env, invocation)
+			local code, manifest = cmdBuild(env, invocation)
 			if code == 0 and Cli.switch(invocation, "verify") then
-				return cmdVerify(env, invocation)
+				return cmdVerify(env, invocation, manifest)
 			end
 			return code
 		elseif subcommand == "status" then
@@ -2253,13 +2252,12 @@ local function real(): Real
 	return fresh
 end
 
-local function gateBuild(clean: boolean): Json.Object
-	local facts = real()
+local function gateBuild(clean: boolean, facts: Real?): Json.Object
 	return ordered({
-		{ "commit", facts.commit },
+		{ "commit", if facts then facts.commit else GOOD_COMMIT },
 		{ "tree", string.rep("t", 40) },
 		{ "clean", clean },
-		{ "digest", facts.sourceHash },
+		{ "digest", if facts then facts.sourceHash else GOOD_SOURCE_HASH },
 	})
 end
 
@@ -2325,6 +2323,14 @@ local function workspace(test: Verify.Context, script: { Assets.Canned }, decide
 		Files.remove(directory)
 	end)
 	local output: { string } = {}
+	local before = Files.read(DEFAULT_CONFIG)
+	test:defer(function()
+		Verify.expect(Files.read(DEFAULT_CONFIG)):toBe(before)
+		for _, line in output do
+			Verify.expect(string.find(line, SELFTEST_KEY, 1, true) == nil)
+				:toBeTrueWith("the API key reached the output: " .. line)
+		end
+	end)
 	local fake = Assets.fake(script)
 	local model = Files.join(directory, "Facet.rbxm")
 	local xml = Files.join(directory, "Facet.rbxmx")
@@ -2398,18 +2404,6 @@ local function argumentsFor(route: string, baseline: string?): Arguments
 	}
 end
 
-local function within(test: Verify.Context, work: Work, body: () -> ())
-	local before = Files.read(DEFAULT_CONFIG)
-	test:defer(function()
-		Verify.expect(Files.read(DEFAULT_CONFIG)):toBe(before)
-		for _, line in work.output do
-			Verify.expect(string.find(line, SELFTEST_KEY, 1, true) == nil)
-				:toBeTrueWith("the API key reached the output: " .. line)
-		end
-	end)
-	body()
-end
-
 local function invoke(work: Work, command: (Environment, Arguments) -> number, arguments: Arguments): number
 	return guarded(work.env.say, function(): number
 		return command(work.env, arguments)
@@ -2452,28 +2446,25 @@ local function studioCase(
 	revision: string?
 ): ()
 	local work = workspace(test, script, noRefusals)
-	within(test, work, function(): ()
-		saveConfig(work.env.config, baseConfig(424242, "studio"))
-		Files.write(work.env.gate, Json.pretty(gateDocument()))
-		local code = invoke(work, cmdPublish, argumentsFor("studio", baseline))
-		local written = storedReceipts(work, nil)
-		if code ~= expectCode then
-			error(("exit %d, expected %d"):format(code, expectCode), 0)
-		end
-		if revision == nil then
-			Verify.expect(#written == 0):toBeTrueWith(("expected no receipt, found %d"):format(#written))
-			return
-		end
-		Verify.expect(revisionOf(written[#written])):toBe(revision)
-	end)
+	saveConfig(work.env.config, baseConfig(424242, "studio"))
+	Files.write(work.env.gate, Json.pretty(gateDocument()))
+	local code = invoke(work, cmdPublish, argumentsFor("studio", baseline))
+	local written = storedReceipts(work, nil)
+	if code ~= expectCode then
+		error(("exit %d, expected %d"):format(code, expectCode), 0)
+	end
+	if revision == nil then
+		Verify.expect(#written == 0):toBeTrueWith(("expected no receipt, found %d"):format(#written))
+		return
+	end
+	Verify.expect(revisionOf(written[#written])):toBe(revision)
 end
 
 type Reading = { tier: string, status: string, treeDirty: boolean }
 
-type Reader = { label: string, document: () -> string?, want: Reading? }
+type Reader = { label: string, document: string?, want: Reading? }
 
 local function readEvidence(test: Verify.Context, document: string?, want: Reading?): ()
-	local facts = real()
 	local directory = Files.temporaryDirectory("facet-package-gate-")
 	test:defer(function()
 		Files.remove(directory)
@@ -2498,7 +2489,7 @@ local function readEvidence(test: Verify.Context, document: string?, want: Readi
 	if got.tier ~= want.tier or got.status ~= want.status or got.treeDirty ~= want.treeDirty then
 		error(("read %s/%s/%s"):format(str(got.tier), str(got.status), str(got.treeDirty)), 0)
 	end
-	if got.schema ~= GATE_SCHEMA or got.commit ~= facts.commit or got.sourceHash ~= facts.sourceHash then
+	if got.schema ~= GATE_SCHEMA or got.commit ~= GOOD_COMMIT or got.sourceHash ~= GOOD_SOURCE_HASH then
 		error(("the evidence binding reads %s %s %s"):format(str(got.schema), str(got.commit), str(got.sourceHash)), 0)
 	end
 end
@@ -2554,56 +2545,35 @@ register = function(harness: Verify.Harness, prefix: string): ()
 			Verify.expect(string.find(text, "REFUSALS (1)", 1, true) ~= nil):toBeTrueWith(text)
 		end,
 	})
-	local function variant(overrides: () -> { { unknown } }): () -> string?
-		return function(): string?
-			return Json.pretty(gateDocument(overrides()))
-		end
-	end
-	local function literal(text: string?): () -> string?
-		return function(): string?
-			return text
-		end
-	end
-	local function acceptance(verdict: string, releasable: boolean, complete: boolean): () -> { { unknown } }
-		return function(): { { unknown } }
-			return { { "acceptance", gateAcceptance(verdict, releasable, complete) } }
-		end
-	end
 	local readers: { Reader } = {
-		{ label = "an absent file", document = literal(nil) },
+		{ label = "an absent file" },
 		{
 			label = "an outcome with no build binding",
-			document = literal('{"schemaVersion": 1, "gate": "facet", "acceptance": {"releasable": true}}'),
+			document = '{"schemaVersion": 1, "gate": "facet", "acceptance": {"releasable": true}}',
 		},
-		{ label = "an unreadable file", document = literal("{ this is not json") },
+		{ label = "an unreadable file", document = "{ this is not json" },
 		{
 			label = "another gate's outcome",
-			document = variant(function(): { { unknown } }
-				return { { "gate", "another-gate" } }
-			end),
+			document = Json.pretty(gateDocument({ { "gate", "another-gate" } })),
 		},
 		{
 			label = "the releasable outcome",
-			document = variant(function(): { { unknown } }
-				return {}
-			end),
+			document = Json.pretty(gateDocument()),
 			want = { tier = "release", status = "PASS", treeDirty = false },
 		},
 		{
 			label = "an outcome with an environment deferral",
-			document = variant(acceptance("deferred", false, true)),
+			document = Json.pretty(gateDocument({ { "acceptance", gateAcceptance("deferred", false, true) } })),
 			want = { tier = "release", status = "deferred", treeDirty = false },
 		},
 		{
 			label = "a focused outcome",
-			document = variant(acceptance("selected", false, false)),
+			document = Json.pretty(gateDocument({ { "acceptance", gateAcceptance("selected", false, false) } })),
 			want = { tier = "selected", status = "selected", treeDirty = false },
 		},
 		{
 			label = "an outcome from a dirty tree",
-			document = variant(function(): { { unknown } }
-				return { { "build", gateBuild(false) } }
-			end),
+			document = Json.pretty(gateDocument({ { "build", gateBuild(false) } })),
 			want = { tier = "release", status = "PASS", treeDirty = true },
 		},
 	}
@@ -2611,14 +2581,13 @@ register = function(harness: Verify.Harness, prefix: string): ()
 		harness:case(prefix .. ("the gate evidence reader reads " .. reader.label), {
 			id = prefix .. ("the gate evidence reader reads " .. reader.label),
 			run = function(test: Verify.Context): ()
-				readEvidence(test, reader.document(), reader.want)
+				readEvidence(test, reader.document, reader.want)
 			end,
 		})
 	end
 	harness:case(prefix .. "real gate evidence clears every gate check", {
 		id = prefix .. "real gate evidence clears every gate check",
 		run = function(test: Verify.Context): ()
-			local facts = real()
 			local directory = Files.temporaryDirectory("facet-package-gate-")
 			test:defer(function()
 				Files.remove(directory)
@@ -2626,9 +2595,6 @@ register = function(harness: Verify.Harness, prefix: string): ()
 			local path = Files.join(directory, "evidence.json")
 			Files.write(path, Json.pretty(gateDocument()))
 			local publish = goodFacts("publish")
-			publish.argCommit = facts.commit
-			publish.headCommit = facts.commit
-			publish.sourceHash = facts.sourceHash
 			publish.gate = readGateEvidence(path)
 			Files.remove(directory)
 			local gateCodes: { string } = {}
@@ -2644,12 +2610,10 @@ register = function(harness: Verify.Harness, prefix: string): ()
 		id = prefix .. "create --confirm under the real guards refuses with no transport call",
 		run = function(test: Verify.Context): ()
 			local work = workspace(test, {}, decide)
-			within(test, work, function(): ()
-				saveConfig(work.env.config, baseConfig(nil, "open-cloud"))
-				local code = invoke(work, cmdCreate, argumentsFor("open-cloud", nil))
-				Verify.expect(code):toBe(1)
-				Verify.expect(#work.fake.calls):toBe(0)
-			end)
+			saveConfig(work.env.config, baseConfig(nil, "open-cloud"))
+			local code = invoke(work, cmdCreate, argumentsFor("open-cloud", nil))
+			Verify.expect(code):toBe(1)
+			Verify.expect(#work.fake.calls):toBe(0)
 		end,
 	})
 	harness:case(prefix .. "create against the fake records the asset id and one version", {
@@ -2675,27 +2639,25 @@ register = function(harness: Verify.Harness, prefix: string): ()
 					payload = { path = "operations/op-create", done = true, response = CREATED_ASSET },
 				},
 			}, noRefusals)
-			within(test, work, function(): ()
-				saveConfig(work.env.config, baseConfig(nil, "open-cloud"))
-				Files.write(work.env.gate, Json.pretty(gateDocument()))
-				local code = invoke(work, cmdCreate, argumentsFor("open-cloud", nil))
-				local config = loadConfig(work.env.config)
-				local polls = 0
-				for _, call in work.fake.calls do
-					if string.find(call.url, "/operations/", 1, true) ~= nil then
-						polls += 1
-					end
+			saveConfig(work.env.config, baseConfig(nil, "open-cloud"))
+			Files.write(work.env.gate, Json.pretty(gateDocument()))
+			local code = invoke(work, cmdCreate, argumentsFor("open-cloud", nil))
+			local config = loadConfig(work.env.config)
+			local polls = 0
+			for _, call in work.fake.calls do
+				if string.find(call.url, "/operations/", 1, true) ~= nil then
+					polls += 1
 				end
-				local versions = Json.arrayField(config, "versions") or {}
-				local uploaded = work.fake.calls[1]
-				Verify.expect(code):toBe(0)
-				Verify.expect(raw(config, "assetId")):toBe(424242)
-				Verify.expect(polls):toBe(2)
-				Verify.expect(#versions):toBe(1)
-				Verify.expect(Json.stringField(versions[1], "version")):toBe(real().version)
-				Verify.expect(uploaded ~= nil and uploaded.bodyBytes > Files.size(work.env.model))
-					:toBeTrueWith("the POST did not carry the model file")
-			end)
+			end
+			local versions = Json.arrayField(config, "versions") or {}
+			local uploaded = work.fake.calls[1]
+			Verify.expect(code):toBe(0)
+			Verify.expect(raw(config, "assetId")):toBe(424242)
+			Verify.expect(polls):toBe(2)
+			Verify.expect(#versions):toBe(1)
+			Verify.expect(Json.stringField(versions[1], "version")):toBe(real().version)
+			Verify.expect(uploaded ~= nil and uploaded.bodyBytes > Files.size(work.env.model))
+				:toBeTrueWith("the POST did not carry the model file")
 		end,
 	})
 	harness:case(prefix .. "publish against the fake writes a receipt bound to its gate evidence", {
@@ -2719,34 +2681,32 @@ register = function(harness: Verify.Harness, prefix: string): ()
 					payload = { path = "operations/op-publish", done = true, response = published },
 				},
 			}, noRefusals)
-			within(test, work, function(): ()
-				local facts = real()
-				saveConfig(work.env.config, baseConfig(424242, "open-cloud"))
-				Files.write(work.env.gate, Json.pretty(gateDocument()))
-				Files.write(
-					Files.join(work.env.receipts, "0.9.0-0000000.json"),
-					Json.encode(ordered({
-						{ "schema", RECEIPT_SCHEMA },
-						{ "version", "0.9.0" },
-						{ "sourceHash", "old" .. string.rep("0", 61) },
-						{ "operationPath", "operations/op-old" },
-						{ "assetRevision", ordered({ { "revisionId", "1" } }) },
-						{ "publishedAt", "2026-08-01T00:00:00Z" },
-					}))
-				)
-				local code = invoke(work, cmdPublish, argumentsFor("open-cloud", nil))
-				local written = storedReceipts(work, facts.version)
-				local latest = written[#written]
-				if code ~= 0 or latest == nil then
-					error(("exit %d with %d receipts for %s"):format(code, #written, facts.version), 0)
-				end
-				local gateRun = Json.field(latest.receipt, "gateRun")
-				Verify.expect(revisionOf(latest)):toBe("2")
-				Verify.expect(Json.stringField(gateRun, "status")):toBe("PASS")
-				Verify.expect(Json.stringField(gateRun, "commit")):toBe(facts.commit)
-				Verify.expect(string.find(Files.read(latest.path), SELFTEST_KEY, 1, true) == nil)
-					:toBeTrueWith("the API key reached a receipt")
-			end)
+			local facts = real()
+			saveConfig(work.env.config, baseConfig(424242, "open-cloud"))
+			Files.write(work.env.gate, Json.pretty(gateDocument({ { "build", gateBuild(true, facts) } })))
+			Files.write(
+				Files.join(work.env.receipts, "0.9.0-0000000.json"),
+				Json.encode(ordered({
+					{ "schema", RECEIPT_SCHEMA },
+					{ "version", "0.9.0" },
+					{ "sourceHash", "old" .. string.rep("0", 61) },
+					{ "operationPath", "operations/op-old" },
+					{ "assetRevision", ordered({ { "revisionId", "1" } }) },
+					{ "publishedAt", "2026-08-01T00:00:00Z" },
+				}))
+			)
+			local code = invoke(work, cmdPublish, argumentsFor("open-cloud", nil))
+			local written = storedReceipts(work, facts.version)
+			local latest = written[#written]
+			if code ~= 0 or latest == nil then
+				error(("exit %d with %d receipts for %s"):format(code, #written, facts.version), 0)
+			end
+			local gateRun = Json.field(latest.receipt, "gateRun")
+			Verify.expect(revisionOf(latest)):toBe("2")
+			Verify.expect(Json.stringField(gateRun, "status")):toBe("PASS")
+			Verify.expect(Json.stringField(gateRun, "commit")):toBe(facts.commit)
+			Verify.expect(string.find(Files.read(latest.path), SELFTEST_KEY, 1, true) == nil)
+				:toBeTrueWith("the API key reached a receipt")
 		end,
 	})
 	local asset: Assets.Canned =
@@ -2755,15 +2715,13 @@ register = function(harness: Verify.Harness, prefix: string): ()
 		id = prefix .. "studio create records an asset id only after reading it back",
 		run = function(test: Verify.Context): ()
 			local work = workspace(test, { asset }, noRefusals)
-			within(test, work, function(): ()
-				saveConfig(work.env.config, baseConfig(nil, "studio"))
-				local arguments = argumentsFor("studio", nil)
-				arguments.assetId = "424242"
-				local code = invoke(work, cmdCreate, arguments)
-				Verify.expect(code):toBe(0)
-				Verify.expect(raw(loadConfig(work.env.config), "assetId")):toBe(424242)
-				Verify.expect(#work.fake.calls):toBe(1)
-			end)
+			saveConfig(work.env.config, baseConfig(nil, "studio"))
+			local arguments = argumentsFor("studio", nil)
+			arguments.assetId = "424242"
+			local code = invoke(work, cmdCreate, arguments)
+			Verify.expect(code):toBe(0)
+			Verify.expect(raw(loadConfig(work.env.config), "assetId")):toBe(424242)
+			Verify.expect(#work.fake.calls):toBe(1)
 		end,
 	})
 	harness:case(prefix .. "studio publish treats a pre-existing version as no publish", {

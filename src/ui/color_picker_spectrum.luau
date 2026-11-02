@@ -56,7 +56,7 @@ return function(
 			propose({ h = now.h, s = fx, v = 1 - fy })
 		end
 		local function beginDrag(position: Vector2)
-			if not mayEdit() or (gamepad() and ctx.readSource(selected) == (surface :: GuiObject?)) then
+			if not mayEdit() or (gamepad() and ctx.readSource(selected) == surface) then
 				return
 			end
 			if not dragging:peek() then
@@ -231,7 +231,7 @@ return function(
 			end),
 		})
 		local function planeSelected(use: Use?): boolean
-			return (ctx.readSource(selected, use) :: Instance?) == (surface :: Instance)
+			return (ctx.readSource(selected, use)) == surface
 		end
 		local stick = V2.zero
 		local stopFrames: (() -> ())? = nil
@@ -267,7 +267,7 @@ return function(
 				if typeof(value) ~= "Vector2" then
 					return
 				end
-				local direction = value :: Vector2
+				local direction = value
 				if direction.Magnitude < DEADZONE then
 					stick = V2.zero
 					endSession()

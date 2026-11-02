@@ -40,6 +40,22 @@
     { "id": "native_live_contracts_22", "locator": "tests/native_live_contracts_22.verify.luau", "requires": ["lute"] },
     { "id": "native_live_contracts_23", "locator": "tests/native_live_contracts_23.verify.luau", "requires": ["lute"] },
     { "id": "native_live_contracts_24", "locator": "tests/native_live_contracts_24.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_25", "locator": "tests/native_live_contracts_25.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_26", "locator": "tests/native_live_contracts_26.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_27", "locator": "tests/native_live_contracts_27.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_28", "locator": "tests/native_live_contracts_28.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_29", "locator": "tests/native_live_contracts_29.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_30", "locator": "tests/native_live_contracts_30.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_31", "locator": "tests/native_live_contracts_31.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_32", "locator": "tests/native_live_contracts_32.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_33", "locator": "tests/native_live_contracts_33.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_34", "locator": "tests/native_live_contracts_34.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_35", "locator": "tests/native_live_contracts_35.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_36", "locator": "tests/native_live_contracts_36.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_37", "locator": "tests/native_live_contracts_37.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_38", "locator": "tests/native_live_contracts_38.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_39", "locator": "tests/native_live_contracts_39.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts_40", "locator": "tests/native_live_contracts_40.verify.luau", "requires": ["lute"] },
     { "id": "ascent", "locator": "tests/ascent.verify.luau", "requires": ["local-luau"] },
     { "id": "custom_transition", "locator": "tests/custom_transition.verify.luau", "requires": ["local-luau"] },
     { "id": "spatial_grid", "locator": "tests/spatial_grid.verify.luau", "requires": ["local-luau"] },
@@ -516,6 +532,13 @@
     {
       "id": "native_popover",
       "locator": "tests/native_popover.verify.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_segmented",
+      "locator": "tests/native_segmented.verify.luau",
       "requires": [
         "local-luau"
       ]

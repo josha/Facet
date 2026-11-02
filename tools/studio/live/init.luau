@@ -80,7 +80,10 @@ local function traceback(message: string): string
 	return debug.traceback(message, 2)
 end
 
-local function round(value: number): number
+local function round(value: number): number | string
+	if value ~= value or value == math.huge or value == -math.huge then
+		return tostring(value)
+	end
 	return math.floor(value * 100 + 0.5) / 100
 end
 

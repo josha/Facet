@@ -9,7 +9,7 @@ copy.
 ## Compose
 
 **Origin.** [voidmeld/compose](https://github.com/voidmeld/compose), commit
-`ee44a2e5499f81790a0d495d3442f99e573bb8c9`,
+`e3bfb56c21e4b1a284e6e918edcd0ac364d1e569`,
 `src/core` and `src/roblox`.
 
 **Distribution.** `src/vendor/compose` is a generated, read-only snapshot of that
@@ -513,6 +513,6 @@ does not belong in the repository.
 
 The development tree includes Verify from
 [voidmeld/verify](https://github.com/voidmeld/verify), commit
-`9b264b6d04e7701344be56772b08b41bf046273f`, under the MIT License.
+`cad6e74850e7c1f290b7dbf8fc50db9c2691576e`, under the MIT License.
 Its license is in `tools/vendor/verify/LICENSE`. The generated snapshot is
 checked by `lute run tools/facet sync verify --check`. Verify is not included in the Facet model.

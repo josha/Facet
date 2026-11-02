@@ -31,7 +31,6 @@ type Declared = {
 	animate: boolean,
 	reveal: { host: (Instance) -> (), back: () -> () }?,
 }
-type Placement = { regions: { resolver.Declared }, forms: { number }, landed: { boolean }, riding: boolean }
 type Resolution = {
 	chosen: { number },
 	down: { boolean },
@@ -239,11 +238,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		assert(not (spec.leading and spec.trailing), "Facet Region cannot both lead and trail")
 		local form: ComposeTypes.Value<number> = spec.form or Compose.cell(1)
 		form:set(1)
+		local absent = Compose.selector(form)(0)
 		local reduced = reducedMotion(ctx)
-		local popping = Compose.cell(false)
-		local resting = Compose.formula(function(use: ComposeTypes.Use): boolean
-			return not use(popping)
-		end)
+		local popping = false
+		local settles: { (ComposeTypes.Use?) -> () } = {}
 		local popNode = Host.UIScale "Pop" {}
 		popNode:AddTag(POP_TAG)
 		local popLater = if runtime.host.frames then runtime.scheduler() else nil
@@ -252,29 +250,34 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			if later == nil then
 				return
 			end
-			popping:set(true)
+			popping = true
 			popNode.Name = POP_REST
 			later.replace("rest", 0, function()
 				popNode.Name = "Pop"
 			end)
 			later.replace("settle", ctx.metric("motion.durations.regionPop"), function()
-				popping:set(false)
+				popping = false
+				for _, settle in settles do
+					settle()
+				end
 			end)
 		end
 		local yielding = Compose.cell(false)
 		local lift = Compose.cell(0)
-		local properties = (
-			ctx.props(spec, { "zone", "rank", "mayDrop", "form", "expand", "reveal", "leading", "trailing" }, {
+		local properties: Types.FrameProps = ctx.props(
+			spec,
+			{ "zone", "rank", "mayDrop", "form", "expand", "reveal", "leading", "trailing" },
+			{
 				BorderSizePixel = 0,
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
 				Visible = function(use: ComposeTypes.Use): boolean
-					return use(form) > 0 and not use(yielding)
+					return not use(absent) and not use(yielding)
 				end,
-			})
-		) :: Types.FrameProps
+			}
+		)
 		local open, hosted = Compose.cell(false), Compose.cell(false)
-		local richest = properties[1] :: GuiObject?
+		local richest: GuiObject? = nil
 		if spec.mayDrop == true and spec.reveal ~= false then
 			properties[#properties + 1] = ctx.styled(
 				Host.Frame "Reveal" {
@@ -293,16 +296,20 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local hangs: { ComposeTypes.Value<number> } = {}
 		local floors: { () -> boolean } = {}
 		local contents: { GuiObject } = {}
+		local forms: { Frame } = {}
 		local below = zone == "action" or resolver.CELLS[zone][2] == 3
 		for index = 1, #properties do
 			local child = properties[index] :: GuiObject
-			contents[index] = child
 			assert(
 				(type(child) == "table" or typeof(child) == "Instance")
 					and type(child.IsA) == "function"
 					and child:IsA("GuiObject"),
 				"Facet Region forms must be GuiObjects, richest first. Put reactive children inside a stable form."
 			)
+			contents[index] = child
+			if index == 1 then
+				richest = child
+			end
 			floors[index] = kit.follow(child, "y", function(use: ComposeTypes.Use?): number
 				local raised = if use then use(lift) else lift:peek()
 				local away = if use then use(hosted) else hosted:peek()
@@ -310,40 +317,37 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end)
 			local unit = ctx.layoutUnit(child)
 			local observed, settled = layoutSize(child, unit), Compose.cell(V2.zero)
-			Compose.watch(function(use: ComposeTypes.Use)
-				local size = use(observed)
-				if use(resting) and not (index == 1 and use(hosted)) then
-					settled:set(size)
-				end
-			end)
 			sizes[index] = settled
 			local hang = Compose.cell(0)
-			if below then
-				local reach = overhang(child, unit)
-				Compose.watch(function(use: ComposeTypes.Use)
-					local value = use(reach)
-					if use(resting) and not (index == 1 and use(hosted)) then
-						hang:set(value)
-					end
-				end)
+			local reach = if below then overhang(child, unit) else nil
+			local function settle(use: ComposeTypes.Use?)
+				local size = if use then use(observed) else observed:peek()
+				local value = if reach then (if use then use(reach) else reach:peek()) else 0
+				local away = index == 1 and (if use then use(hosted) else hosted:peek())
+				if not popping and not away then
+					settled:set(size)
+					hang:set(value)
+				end
 			end
+			table.insert(settles, settle)
+			Compose.watch(settle)
 			hangs[index] = hang
-			properties[index] = Host.Frame("Form" .. index)({
+			local frame = Host.Frame("Form" .. index)({
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
-				Visible = function(use: ComposeTypes.Use): boolean
-					return use(form) == index
-				end,
+				Visible = form:peek() == index,
 				child,
 			})
+			properties[index] = frame
+			forms[index] = frame
 		end
 		assert(#sizes > 0, "Facet Region needs at least one form")
 		local floor = ctx.hitFloor()
 		properties[#properties + 1] = popNode
 		local owner = assert(Compose.currentOwner())
-		local home = properties[1] :: Instance
+		local home: Instance = forms[1]
 		local function returnHome()
 			if ComposeTypes.owner.isDisposed(owner) then
 				return
@@ -386,7 +390,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				onPresentedChange = function(value: boolean)
 					open:set(value and form:peek() > 1)
 				end,
-				compact = "popover" :: "popover",
+				compact = "popover",
 				edge = edge,
 				content = content,
 				trigger = Host.TextButton "Expand" {
@@ -402,28 +406,30 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				},
 			}
 		end
-		if spec.Size == nil and spec.AutomaticSize == nil then
+		if spec.Size == nil and spec.AutomaticSize == nil and spec.reveal ~= false then
 			properties.AutomaticSize = E.AutomaticSize.None
 			properties.Size = function(use: ComposeTypes.Use): UDim2
 				local index = use(form)
 				local shown = sizes[index]
 				local size = if shown then use(shown) else V2.zero
-				local minimum = if index > 1
-						and spec.reveal ~= false
-						and (#sizes > 1 or spec.expand)
-					then floor(use)
-					else 0
+				local minimum = if index > 1 and (#sizes > 1 or spec.expand) then floor(use) else 0
 				return D2.fromOffset(math.max(size.X, minimum), math.max(size.Y, minimum))
 			end
 		end
 		local node = kit.plain(Host.Frame(properties), spec)
 		local authored = spec.Visible
 		regionPresence[node] = Compose.formula(function(use: ComposeTypes.Use): boolean
-			return use(form) > 0 and read(authored, use) ~= false
+			return not use(absent) and read(authored, use) ~= false
 		end)
 		local shown: number? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local current = use(form)
+			if shown and forms[shown] then
+				forms[shown].Visible = false
+			end
+			if forms[current] then
+				forms[current].Visible = true
+			end
 			node:SetAttribute("FacetForm", current)
 			if shown ~= nil and current > 0 and current ~= shown and declared[node].animate and not reduced() then
 				popIn()
@@ -431,7 +437,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			shown = current
 		end)
 		declared[node] = {
-			zone = zone :: Layout.Zone,
+			zone = zone,
 			rank = rank,
 			mayDrop = spec.mayDrop == true,
 			sizes = sizes,
@@ -462,6 +468,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		rows: ComposeTypes.ReadOnlyValue<resolver.Rows>
 	): Frame
 		local flowing = column == 2 and row ~= 2
+		local wrapping = flowing and (#children ~= 1 or row == 3)
 		local fields: Types.FrameProps = {
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
@@ -472,11 +479,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				return D2.new((column - 1) / 2, leaned(moved, column, row), (row - 1) / 2, lowered(moved, column, row))
 			end,
 			Size = function(use: ComposeTypes.Use): UDim2
-				local packed = if flowing then (if row == 1 then use(rows).top else use(rows).bottom) else 0
+				local packed = if wrapping then (if row == 1 then use(rows).top else use(rows).bottom) else 0
 				return if packed > 0 then D2.fromOffset(math.ceil(packed), 0) else D2.new()
 			end,
 			AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
-				local packed = if flowing then (if row == 1 then use(rows).top else use(rows).bottom) else 0
+				local packed = if wrapping then (if row == 1 then use(rows).top else use(rows).bottom) else 0
 				return if packed > 0 then E.AutomaticSize.Y else E.AutomaticSize.XY
 			end,
 			Host.UIListLayout {
@@ -506,7 +513,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	end
 
 	UI.Composition = ctx.construct("Composition", function(spec: LayoutProps.CompositionProps): Frame
-		local properties = (ctx.props(spec, { "gap", "padding", "topbar", "rows", "passive" })) :: Types.FrameProps
+		local properties: Types.FrameProps = ctx.props(spec, { "gap", "padding", "topbar", "rows", "passive" })
 		local regions: { Frame } = {}
 		local helpers: { Instance } = {}
 		for index = 1, #properties do
@@ -703,8 +710,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			then ctx.observe.TopbarInset(ctx.config.guiService)
 			else nil
 		if #stripRegions > 0 then
-			local screen: ComposeTypes.Value<ScreenGui?> = Compose.cell(nil :: ScreenGui?)
-			local holder: ComposeTypes.Value<Instance?> = Compose.cell(nil :: Instance?)
+			local screen = Compose.cell<<ScreenGui?>>(nil)
+			local holder = Compose.cell<<Instance?>>(nil)
 			local enabled = Compose.cell(true)
 			local owner = assert(Compose.currentOwner())
 			local chain: ComposeTypes.Owner? = nil
@@ -857,9 +864,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		local safeUnit = ctx.layoutUnit(safe)
 		local floor = ctx.hitFloor()
-		local safeBox = layoutSize(safe, safeUnit)
+		local safeSize = ctx.observe.AbsoluteSize(safe)
 		local actionZone = Compose.formula(function(use: ComposeTypes.Use): resolver.Zone
-			local size = use(safeBox)
+			local size = use(safeSize) / use(safeUnit)
 			return if size.Y > size.X then "bottom" else "bottomRight"
 		end)
 		for _, region in actionRegions do
@@ -924,7 +931,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				local unit, space = use(safeUnit), kit.spacing(gap, use)
 				local size = use(zoneSize) / unit
 				local moved = use(shift)
-				local at = (use(safeBox) - size) * anchor
+				local at = (use(safeSize) / unit - size) * anchor
 					+ V2.new(leaned(moved, column, row), lowered(moved, column, row))
 				if column == 2 then
 					return if row == 3
@@ -942,8 +949,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					onPresentedChange = function(value: boolean)
 						open:set(value and #dropped:peek() > 0)
 					end,
-					compact = "popover" :: "popover",
-					edge = (if column == 2 and row == 3 then "top" else EXPAND_EDGE[column]) :: Overlay.Edge,
+					compact = "popover",
+					edge = if column == 2 and row == 3 then "top" else EXPAND_EDGE[column],
 					content = function(): Instance
 						release()
 						local slots: Types.FrameProps = {
@@ -1012,7 +1019,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				})
 			end, safe)
 		end
-		local box = layoutSize(safe, safeUnit)
 		local resolutions: { [string]: Resolution } = {}
 		local resolutionCount = 0
 		local function resolved(
@@ -1044,7 +1050,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local streaks: { [Frame]: number } = {}
 		local later = runtime.scheduler()
 		local last: Vector2? = nil
-		local placement: ComposeTypes.Value<Placement?> = Compose.cell(nil :: Placement?)
+		local placement = Compose.cell<<{ string }>>({}, function(a: { string }, b: { string }): boolean
+			local same = #a == #b
+			for index, zone in a do
+				same = same and zone == b[index]
+			end
+			return same
+		end)
 		local stripUnit = if stripGui then ctx.layoutUnit(stripGui) else nil
 		local stripSize = if stripGui then layoutSize(stripGui, stripUnit) else nil
 		local heights = extentMatch.new()
@@ -1063,7 +1075,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local stepping = beat ~= lastStep or kit.frameless()
 			lastStep = beat
 			local unsettled = false
-			local extent = use(box)
+			local extent = use(safeSize) / use(safeUnit)
 			local rides = riding(use)
 			local list: { resolver.Declared } = {}
 			for index, region in regions do
@@ -1076,7 +1088,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					hanging = hanging or hangs[form] > 0
 				end
 				list[index] = {
-					zone = (if entry.zone == "action" then use(actionZone) else entry.zone) :: resolver.Zone,
+					zone = if entry.zone == "action" then use(actionZone) else entry.zone,
 					rank = entry.rank,
 					mayDrop = entry.mayDrop,
 					sizes = measured,
@@ -1161,7 +1173,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					later.after(2, function()
 						if overflowing[region] and streaks[region] == streak and not warned[region] then
 							warned[region] = true
-							local size = box:peek()
+							local size = safeSize:peek() / safeUnit:peek()
 							warn(
 								`Facet Composition: Region '{region.Name}' does not fit {math.floor(size.X)} by {math.floor(
 									size.Y
@@ -1184,12 +1196,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end
 			local filled: { [string]: boolean } = {}
 			local empty: { [number]: boolean } = {}
+			local occupied: { string } = {}
 			for index, entry in list do
 				local size = if chosen[index] > 0 then entry.sizes[chosen[index]] else nil
+				occupied[index] = ""
 				if size and (size.x <= 0 or size.y <= 0) then
 					empty[index] = true
 				elseif size then
-					filled[placed(index)] = true
+					local home = placed(index)
+					filled[home] = true
+					if extent.X > 0 and extent.Y > 0 and not (entry.zone == "topbar" and rides and not down[index]) then
+						occupied[index] = home
+					end
 				end
 			end
 			for index, region in regions do
@@ -1213,6 +1231,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					end
 					local line: { number } = {}
 					local function close()
+						if #line < 2 then
+							table.clear(line)
+							return
+						end
 						local members: { unknown } = {}
 						local measured: { [unknown]: number } = {}
 						local natural: { [unknown]: number } = {}
@@ -1289,11 +1311,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					pulse:set(pulse:peek() + 1)
 				end)
 			end
-			placement:set(
-				if extent.X > 0 and extent.Y > 0
-					then { regions = list, forms = chosen, landed = down, riding = rides }
-					else nil
-			)
+			placement:set(occupied)
 		end)
 		local ancestry = Compose.cell(0)
 		local function moved()
@@ -1343,14 +1361,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				return
 			end
 			local held: { [string]: boolean } = {}
-			if now and layer.Enabled and use(shown) ~= false then
-				local forms = table.clone(now.forms)
-				for index in forms do
-					if use(regionShown[index]) == false then
-						forms[index] = 0
+			if layer.Enabled and use(shown) ~= false then
+				for index, zone in now do
+					if zone ~= "" and use(regionShown[index]) ~= false then
+						held[zone] = true
 					end
 				end
-				held = resolver.occupied(now.regions, forms, now.landed, now.riding)
 			end
 			local changed = reservations.setZones(layer, root, held) or layer.Parent ~= claimedParent
 			claimedParent = layer.Parent

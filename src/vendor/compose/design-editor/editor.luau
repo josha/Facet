@@ -18,13 +18,15 @@ export type Editor = {
 	dispose: () -> (),
 }
 
-export type Device = { name: string, size: UI.Point }
+export type Device = { name: string, size: UI.Point, select: (() -> ())? }
 
 export type Preview = { name: string, choices: { string }, initial: string?, select: (choice: string) -> () }
 
 export type Options = {
 	stageSize: UI.Point,
 	devices: { Device }?,
+	device: string?,
+	bindings: { [string]: Design.Resolved }?,
 	previews: { Preview }?,
 	token: ((name: string) -> Design.Literal)?,
 	resolveToken: ((name: string) -> Design.Resolved)?,
@@ -207,6 +209,7 @@ return function(ui: UI.UI)
 				accent = color.accent,
 				token = options.token,
 				resolveToken = options.resolveToken,
+				bindings = options.bindings,
 				slots = options.slots,
 			})
 			scene = built
@@ -217,6 +220,7 @@ return function(ui: UI.UI)
 				accent = color.accent,
 				token = options.token,
 				resolveToken = options.resolveToken,
+				bindings = options.bindings,
 				slots = options.slots,
 			})
 			stage = built
@@ -297,10 +301,13 @@ return function(ui: UI.UI)
 			end
 			ui.set(divider(previewOrder), "Parent", leftTools)
 			previewOrder += 1
-			cycling("Device", names, nil, function(choice: string)
+			cycling("Device", names, options.device, function(choice: string)
 				for _, device in devices do
 					if device.name == choice then
 						flat.resize(device.size)
+						if device.select then
+							device.select()
+						end
 					end
 				end
 			end)

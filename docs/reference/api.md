@@ -62,6 +62,12 @@ and overlay host configuration. The provider does not install a StyleSheet.
 radial command. See [menu items](nodes/Menu-and-SplitButton.items.md) and
 [radial items](nodes/RadialMenu.items.md).
 
+`Facet.RadialMenuBuilder` and `Facet.AlertBuilder` type the direct call of
+`UI.RadialMenu` and `UI.Alert`. Luau cannot give an explicit type argument to
+an overloaded function, so assign the control to its builder type first:
+`local RadialMenu: Facet.RadialMenuBuilder = UI.RadialMenu`, then call
+`RadialMenu<<string>>(spec)`.
+
 Move an existing live application onto a world surface with
 [DiegeticScreen](nodes/DiegeticScreen.reference.md).
 

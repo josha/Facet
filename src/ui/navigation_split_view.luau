@@ -41,7 +41,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			assert(value > 0 and value < math.huge, "NavigationSplitView pane limits must be positive finite numbers")
 		end
 		assert(maximum >= minimum, "NavigationSplitView maximum sidebar size must be at least its minimum")
-		local column: Shared.Value<Column> = spec.preferredCompactColumn or Compose.cell("sidebar" :: Column)
+		local column = spec.preferredCompactColumn or Compose.cell<<Column>>("sidebar")
 		local extent: Shared.Value<number> = if vertical
 			then spec.sidebarHeight or Compose.cell(240)
 			else spec.sidebarWidth or Compose.cell(360)
@@ -128,8 +128,8 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		local function chrome(use: Shared.Use): number
 			return if bar(use) then ctx.metric("targetSizes.minimum", use) else 0
 		end
-		local sidebar: Frame
-		local detail: Frame
+		local sidebar: GuiObject
+		local detail: GuiObject
 		local detailVisibility: Shared.ReadOnlyValue<boolean>? = nil
 		local detailDrawn = Compose.cell(false)
 		local resize: TextButton
@@ -180,12 +180,13 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 				scale = transition.scale,
 			}
 		end
-		local function pane(properties: Shared.FrameProps, departure: Shared.Value<boolean>?): Frame
+		local function pane(properties: Shared.CanvasGroupProps, departure: Shared.Value<boolean>?): GuiObject
 			local paneTransition = if departure then transition else sidebarTransition
 			if not paneTransition then
 				return Host.Frame(properties)
 			end
-			local presented = properties.Visible :: (Shared.Use) -> boolean
+			local presented = properties.Visible
+			assert(type(presented) == "function")
 			local state = Compose.formula(function(use: Shared.Use): ComposeTypes.LayerStackState
 				local top = presented(use) and (departure == nil or use(shown))
 				return { index = 1, depthFromTop = if top then 0 else 1, top = top, covered = not top }
@@ -208,9 +209,9 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			end)
 			local origin = ctx.observe.AbsolutePosition(root)
 			local held: Shared.Value<{ size: Vector2, at: Vector2 }?> =
-				Compose.cell(nil :: { size: Vector2, at: Vector2 }?)
-			local size = properties.Size :: (Shared.Use) -> UDim2
-			local position = properties.Position :: (Shared.Use) -> UDim2
+				Compose.cell<<{ size: Vector2, at: Vector2 }?>>(nil)
+			local size, position = properties.Size, properties.Position
+			assert(type(size) == "function" and type(position) == "function")
 			properties.Size = function(use: Shared.Use): UDim2
 				local frozen = use(held)
 				return if frozen then D2.fromOffset(frozen.size.X, frozen.size.Y) else size(use)
@@ -223,16 +224,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 				local offset = frozen.at - use(origin) / use(unit)
 				return D2.fromOffset(offset.X, offset.Y)
 			end
-			local panel = layers.layer(
-				properties :: Shared.CanvasGroupProps & Shared.FrameProps,
-				state,
-				paneTransition,
-				hidden,
-				not built,
-				arrival,
-				groupReady,
-				true
-			) :: Frame
+			local panel = layers.layer(properties, state, paneTransition, hidden, not built, arrival, groupReady, true)
 			local measured, placed = ctx.observe.AbsoluteSize(panel), ctx.observe.AbsolutePosition(panel)
 			local drawn = ctx.observe.Visible(panel)
 			Compose.watch(function(use: Shared.Use)
@@ -327,7 +319,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 				end, function()
 					return UI.Button {
 						Name = "ShowDetail",
-						label = (detailLabel :: Shared.ValueString?) or "Show detail",
+						label = (if detailLabel == false then nil else detailLabel) or "Show detail",
 						appearance = "utility",
 						onActivate = function()
 							column:set("detail")
@@ -359,7 +351,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 					Attributes = {
 						AccessibleLabel = "Resize split. Use L1 and R1, or comma and period.",
 						FacetFocusPart = "Grip",
-					} :: Shared.Attributes,
+					},
 					ctx.styled(
 						Host.Frame {
 							Name = "Line",
@@ -451,12 +443,12 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		surfaces.keep(spec.sidebar)
 		local gui = surfaces.service("GuiService")
 		local selecting = surfaces.selecting()
-		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil :: GuiObject?)
+		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell<<GuiObject?>>(nil)
 		local lastSidebar: GuiObject? = nil
 		local lastDetail: GuiObject? = nil
-		local previousPane: Frame? = nil
+		local previousPane: GuiObject? = nil
 		Compose.watch(function(use: Shared.Use)
-			local current = use(selected) :: GuiObject?
+			local current = use(selected)
 			local pane = if surfaces.within(current, sidebar)
 				then sidebar
 				elseif detail and surfaces.within(current, detail) then detail
@@ -468,20 +460,20 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 				gui.SelectedObject = resize
 				return
 			end
-			if surfaces.within(current, sidebar) then
+			if current and surfaces.within(current, sidebar) then
 				lastSidebar = current
 				if vertical then
-					resize.NextSelectionUp = current :: GuiObject
+					resize.NextSelectionUp = current
 				else
-					resize.NextSelectionLeft = current :: GuiObject
+					resize.NextSelectionLeft = current
 				end
 			end
-			if detail and surfaces.within(current, detail) then
+			if current and detail and surfaces.within(current, detail) then
 				lastDetail = current
 				if vertical then
-					resize.NextSelectionDown = current :: GuiObject
+					resize.NextSelectionDown = current
 				else
-					resize.NextSelectionRight = current :: GuiObject
+					resize.NextSelectionRight = current
 				end
 			end
 		end)

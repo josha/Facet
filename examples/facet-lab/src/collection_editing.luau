@@ -226,6 +226,10 @@ return function(c: Types.Context, kind: string)
 			spec.minColumns = 2
 		end
 	end
+	local construct: (never, string?) -> GuiObject = if kind == "Outline" or kind == "Table"
+		then UI.Table
+		elseif kind == "VirtualGrid" then UI.VirtualGrid
+		else UI.VirtualList
 	return UI.VStack "EditingDemo" {
 		width = "fill",
 		gap = "m",
@@ -310,9 +314,6 @@ return function(c: Types.Context, kind: string)
 				return `{#use(rows)} items · {count} selected`
 			end,
 		},
-		if kind == "Outline" or kind == "Table"
-			then UI.Table(spec)
-			elseif kind == "VirtualGrid" then UI.VirtualGrid(spec)
-			else UI.VirtualList(spec),
+		construct(spec),
 	}
 end

@@ -25,7 +25,7 @@ local function installScope(enter: (Node) -> (), leave: (Node) -> ())
 	enterScope, leaveScope = enter, leave
 end
 
-local function rerun(node: Node)
+local function rerun(node: Node, frame: Evaluation.Evaluation?)
 	if statsOn.enabled then
 		stats.bump "watchRuns"
 		statsOn.recorder.enterRun(node)
@@ -34,7 +34,11 @@ local function rerun(node: Node)
 	if node.inherited ~= nil then
 		enterScope(node)
 	end
-	Graph.runEffect(node)
+	if frame ~= nil then
+		Graph.runEffectIn(frame, node)
+	else
+		Graph.runEffect(node)
+	end
 end
 
 local function moved(node: Node): boolean
@@ -53,8 +57,9 @@ local WATCH = {}
 WATCH.__index = WATCH
 Nodes.adopt(WATCH)
 WATCH.state = CLEAN
+WATCH.kind = 3
 
-function WATCH.run(node: Node)
+function WATCH.run(node: Node, frame: Evaluation.Evaluation?)
 	if node.released then
 		return
 	end
@@ -62,21 +67,23 @@ function WATCH.run(node: Node)
 		node.state = CLEAN
 		return
 	end
-	rerun(node)
+	rerun(node, frame)
 end
+
+WATCH.runIn = WATCH.run
 
 local TERMINAL = {}
 TERMINAL.__index = TERMINAL
 Nodes.adopt(TERMINAL)
 TERMINAL.state = CLEAN
 TERMINAL.group = true
+TERMINAL.kind = 4
 
 local resume: Node? = nil
 
 local function sweep(leader: Node, producer: Node, from: Node?)
 	local reactor = leader.reactor
-	local frame = Evaluation.frame()
-	local previousConsumer, previousOrder = Evaluation.enter(leader)
+	local frame, previousConsumer, previousOrder = Evaluation.enterFrame(leader)
 	local edge = from
 	while edge ~= nil do
 		local following = edge[4]
@@ -101,17 +108,17 @@ local function sweep(leader: Node, producer: Node, from: Node?)
 		end
 		edge = following
 	end
-	Evaluation.leave(previousConsumer, previousOrder)
+	Evaluation.leaveFrame(frame, previousConsumer, previousOrder)
 end
 
-function TERMINAL.run(leader: Node)
+function TERMINAL.run(leader: Node, frame: Evaluation.Evaluation?)
 	local producer = leader.source
 	leader.source = nil
 	if not leader.released then
 		if leader.state == CHECK and not moved(leader) then
 			leader.state = CLEAN
 		else
-			rerun(leader)
+			rerun(leader, frame)
 		end
 	end
 	if producer == nil then
@@ -147,9 +154,9 @@ function TERMINAL.run(leader: Node)
 	end
 end
 
-function TERMINAL.runIn(frame: Evaluation.Evaluation, node: Node)
+function TERMINAL.runIn(node: Node, frame: Evaluation.Evaluation)
 	if node.source ~= nil or node.state == CHECK then
-		TERMINAL.run(node)
+		TERMINAL.run(node, frame)
 		return
 	end
 	if node.released then
@@ -167,8 +174,9 @@ local GUARDED = {}
 GUARDED.__index = GUARDED
 Nodes.adopt(GUARDED)
 GUARDED.state = CLEAN
+GUARDED.kind = 3
 
-function GUARDED.run(node: Node)
+function GUARDED.run(node: Node, frame: Evaluation.Evaluation?)
 	if node.released then
 		return
 	end
@@ -176,8 +184,10 @@ function GUARDED.run(node: Node)
 		node.state = CLEAN
 		return
 	end
-	rerun(node)
+	rerun(node, frame)
 end
+
+GUARDED.runIn = GUARDED.run
 
 local function begin(reactor: Reactor, body: Body, class: {}, label: string?, scope: Types.Owner?): Node
 	local node: Node = {
@@ -195,7 +205,7 @@ local function begin(reactor: Reactor, body: Body, class: {}, label: string?, sc
 		statsOn.recorder.born(node, label)
 	end
 	local consumer, at = Evaluation.snapshot()
-	local ok, err: unknown = pcall(rerun, node)
+	local ok, err: unknown = pcall(rerun, node, nil)
 	if not ok then
 		Evaluation.leave(consumer, at)
 		Graph.release(node)
@@ -240,10 +250,6 @@ local function start(reactor: Reactor, body: Body, class: {}, label: string?, sc
 	end
 end
 
-local function watch(reactor: Reactor, body: Body, label: string?): Dispose
-	return start(reactor, body, WATCH, label)
-end
-
 local function watchGuarded(reactor: Reactor, body: Body, label: string?): Dispose
 	return start(reactor, body, GUARDED, label)
 end
@@ -269,12 +275,10 @@ local function sample<T>(body: () -> T): T
 end
 
 return {
-	watch = watch,
 	watchGuarded = watchGuarded,
 	watchScoped = watchScoped,
 	installScope = installScope,
 	watchStatic = watchStatic,
-	unlisten = Graph.unlisten,
 	terminalNode = terminalNode,
 	releaseHeld = releaseHeld,
 	releaseEdge = releaseEdge,

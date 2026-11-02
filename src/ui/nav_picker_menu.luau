@@ -51,7 +51,7 @@ return function(
 					return if word == "contrast" then "emphasis" elseif word == "utility" then "utility" else "default"
 				end
 				else nil,
-			Attributes = { FacetLabel = valueText } :: Types.Attributes,
+			Attributes = { FacetLabel = valueText },
 			ctx.icon("chevron.up.chevron.down", {
 				Name = "Disclosure",
 				Size = D2.fromOffset(12, 12),
@@ -225,9 +225,9 @@ return function(
 			onPresentedChange = function(value: boolean)
 				opened:set(value)
 			end,
-			trigger = trigger :: GuiButton,
-			edge = "bottom" :: "bottom",
-			align = "end" :: "end",
+			trigger = trigger,
+			edge = "bottom",
+			align = "end",
 			maxWidth = ctx.metric("controls.popup.panelWidth"),
 			maxHeight = spec.maxHeight or 400,
 			title = spec.label,
@@ -261,7 +261,7 @@ return function(
 					end
 					choices = child
 				end
-				local picker = (UI.Picker :: unknown) :: (NavigationProps.PickerSpec<V>) -> GuiObject
+				local picker = UI.Picker
 				return ctx.column({ picker(choices) }, {
 					Name = "PickerSearch",
 					Size = function(use: ComposeTypes.Use)

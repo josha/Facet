@@ -291,6 +291,7 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 	end
 
 	local env = UI.environment()
+	local RadialMenu: typeof(require("@repo/tools/typecheck/aliases").RadialMenuBuilder) = UI.RadialMenu
 	local function blend(use: Use): number
 		if farm.blend then
 			return use(farm.blend)
@@ -538,7 +539,7 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 									farm.marketOpen:set(true)
 								end,
 							},
-							UI.RadialMenu<<"harvest" | "plant" | "plow">>({
+							RadialMenu<<"harvest" | "plant" | "plow">>({
 								label = "Tools",
 								items = toolItems,
 							}, "QuickTools"),

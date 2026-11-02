@@ -7,8 +7,8 @@ type Entry = { edge: Edge, y: number, h: number }
 type Zones = { [string]: boolean }
 
 local layers: { [Instance]: { [unknown]: Entry } } = setmetatable({}, { __mode = "k" })
-local claims = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [Instance]: Zones } }
-local noted = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [Instance]: Zones } }
+local claims: { [Instance]: { [Instance]: Zones } } = setmetatable({}, { __mode = "k" })
+local noted: { [Instance]: { [Instance]: Zones } } = setmetatable({}, { __mode = "k" })
 
 local function publish(layer: Instance)
 	local entries: { [unknown]: Entry } = layers[layer] or {}
@@ -49,7 +49,7 @@ function reservations.reserved(layer: GuiBase2d, edge: Edge, skip: { [unknown]: 
 		local entries = layers[candidate]
 		local shown = candidate == layer or not candidate:IsA("LayerCollector") or candidate.Enabled
 		if entries and shown and candidate:IsA("GuiBase2d") then
-			local origin = (candidate :: GuiBase2d).AbsolutePosition.Y
+			local origin = (candidate).AbsolutePosition.Y
 			for token, entry in entries do
 				if entry.edge == edge and not (skip and skip[token]) then
 					reserved = math.max(
@@ -135,7 +135,7 @@ function reservations.note(token: Instance, other: Instance, zone: string)
 		local from, to = pair[1], pair[2]
 		local byOther = noted[from]
 		if byOther == nil then
-			byOther = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Zones }
+			byOther = (setmetatable({}, { __mode = "k" }))
 			noted[from] = byOther
 		end
 		local list = assert(byOther)

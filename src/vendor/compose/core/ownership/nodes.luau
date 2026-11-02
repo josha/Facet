@@ -9,8 +9,6 @@ type Node = Host.Node
 
 export type Custody = "owned" | "adopted" | "borrowed"
 
-type Counts = { owned: number, adopted: number, borrowed: number }
-
 local custody: { [unknown]: Custody } = {}
 
 Weak.keys(custody)
@@ -35,15 +33,8 @@ local function assertReference(node: Node, operation: string)
 	)
 end
 
-local function mark(node: Node, kind: Custody)
-	custody[node] = kind
-end
-
 local function markOwned(node: Node)
-	local kind = type(node)
-	if kind ~= "table" and kind ~= "userdata" then
-		assertReference(node, "createNode")
-	end
+	assertReference(node, "createNode")
 	custody[node] = "owned"
 end
 
@@ -140,79 +131,25 @@ end
 
 export type OwnedCounts = { ownedNodes: number, borrowedNodes: number }
 
-local charge: { [Node]: { owner: unknown, custody: Custody } } = {}
-
-Weak.keys(charge)
-
-local ownerCounts: { [unknown]: Counts } = {}
-
-Weak.keys(ownerCounts)
-
-local function bucketFor(owner: unknown): Counts
-	local existing = ownerCounts[owner]
-	if existing ~= nil then
-		return existing
-	end
-	local bucket: Counts = { owned = 0, adopted = 0, borrowed = 0 }
-	ownerCounts[owner] = bucket
-	return bucket
-end
-
-local function adjust(bucket: Counts, kind: Custody, delta: number)
-	if kind == "owned" then
-		bucket.owned += delta
-	elseif kind == "adopted" then
-		bucket.adopted += delta
-	else
-		bucket.borrowed += delta
-	end
-end
+type Charges = typeof((require "./charges")(tracked))
+local charges: Charges? = nil
 
 local function chargeToOwner(owner: unknown, node: Node, kind: Custody)
-	if owner == nil then
-		return
-	end
-	local previous = charge[node]
-	if previous ~= nil then
-		local previousBucket = ownerCounts[previous.owner]
-		if previousBucket ~= nil then
-			adjust(previousBucket, previous.custody, -1)
-		end
-	else
-		tracked.charges += 1
-	end
-	charge[node] = { owner = owner, custody = kind }
-	adjust(bucketFor(owner), kind, 1)
-end
-
-local function releaseCharge(node: Node)
-	if tracked.charges == 0 then
-		return
-	end
-	local previous = charge[node]
-	if previous == nil then
-		return
-	end
-	charge[node] = nil
-	tracked.charges -= 1
-	local bucket = ownerCounts[previous.owner]
-	if bucket ~= nil then
-		adjust(bucket, previous.custody, -1)
-	end
+	local loaded = charges or (require "./charges")(tracked)
+	charges = loaded
+	loaded.chargeToOwner(owner, node, kind)
 end
 
 local function resetCharges()
-	table.clear(charge)
-	table.clear(ownerCounts)
-	tracked.charges = 0
+	local loaded = charges
+	if loaded ~= nil then
+		loaded.reset()
+	end
 end
 
 local function ownedCounts(owner: unknown): OwnedCounts
-	local bucket = ownerCounts[owner]
-	if bucket == nil then
-		return { ownedNodes = 0, borrowedNodes = 0 }
-	end
-	return { ownedNodes = bucket.owned + bucket.adopted, borrowedNodes = bucket.borrowed }
+	local loaded = charges
+	return if loaded ~= nil then loaded.ownedCounts(owner) else { ownedNodes = 0, borrowedNodes = 0 }
 end
 
 local function forget(node: Node)
@@ -222,7 +159,10 @@ local function forget(node: Node)
 		tracked.labels -= 1
 	end
 	if tracked.charges > 0 then
-		releaseCharge(node)
+		local loaded = charges
+		if loaded ~= nil then
+			loaded.releaseCharge(node)
+		end
 	end
 	if tracked.dependents > 0 then
 		releaseDependents(node)
@@ -249,7 +189,6 @@ end
 return {
 	inspecting = inspecting,
 	tracked = tracked,
-	mark = mark,
 	markOwned = markOwned,
 	markAdopted = markAdopted,
 	markBorrowed = markBorrowed,
@@ -262,7 +201,6 @@ return {
 	forget = forget,
 	trackedCount = trackedCount,
 	chargeToOwner = chargeToOwner,
-	releaseCharge = releaseCharge,
 	resetCharges = resetCharges,
 	ownedCounts = ownedCounts,
 	resetForTests = resetForTests,

@@ -36,10 +36,7 @@ local function dispatch(input: UserInputService, dispatcher: Dispatcher, event: 
 	if name == nil or not KEYS[name] then
 		return
 	end
-	local probe = (input :: unknown) :: {
-		GetFocusedTextBox: ((UserInputService) -> TextBox?)?,
-		IsKeyDown: ((UserInputService, Enum.KeyCode) -> boolean)?,
-	}
+	local probe = input
 	if not dispatcher.ending[name] then
 		local code = event.KeyCode
 		local connection: RBXScriptConnection
@@ -101,7 +98,7 @@ local function add(input: UserInputService, keyCodes: { [string]: Enum.KeyCode }
 		dispatcher = created
 		dispatchers[input] = created
 	end
-	local current = dispatcher :: Dispatcher
+	local current = dispatcher
 	current.count += 1
 	current.order[handler] = current.count
 	table.insert(current.handlers, handler)

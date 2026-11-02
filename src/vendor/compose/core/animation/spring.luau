@@ -86,8 +86,6 @@ local function settle(state: State, target: { number })
 end
 
 return {
-	UPDATE_RATE = UPDATE_RATE,
-	MAX_DELTA = MAX_DELTA,
 	createState = createState,
 	coefficients = coefficients,
 	step = step,

@@ -1,13 +1,11 @@
 --!strict
 
-local function subjectReference(value: unknown)
+export type Subject = typeof((function(value: unknown)
 	if type(value) == "function" then
 		error "a held subject cannot be a function"
 	end
 	return value
-end
-
-export type Subject = typeof(subjectReference(nil))
+end)(nil))
 
 export type Release = (subject: unknown) -> ()
 

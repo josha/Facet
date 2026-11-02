@@ -76,7 +76,7 @@ return function(
 		end
 		local heights: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 		for _, show in shows do
-			table.insert(heights, runtime.observe(show, "AbsoluteSize") :: ComposeTypes.ReadOnlyValue<Vector2>)
+			table.insert(heights, ctx.observeNative.AbsoluteSize(show))
 		end
 		local techniqueNode = Host.Frame(technique)
 		local unit = ctx.layoutUnit(techniqueNode)
@@ -89,7 +89,7 @@ return function(
 		end
 		local measured: { { node: GuiObject, size: ComposeTypes.ReadOnlyValue<Vector2> } } = {}
 		local function measure(node: GuiObject): GuiObject
-			local size = runtime.observe(node, "AbsoluteSize") :: ComposeTypes.ReadOnlyValue<Vector2>
+			local size = ctx.observeNative.AbsoluteSize(node)
 			table.insert(measured, { node = node, size = size })
 			return node
 		end
@@ -102,7 +102,7 @@ return function(
 			local modeProps: NavigationProps.SinglePickerSpec<string> = {
 				Name = "Modes",
 				selected = modeCell,
-				style = "automatic" :: "automatic",
+				style = "automatic",
 				options = options,
 				LayoutOrder = 1,
 			}
@@ -129,6 +129,7 @@ return function(
 			techniqueNode,
 		}
 		local body: GuiObject
+		local window: ComposeTypes.ReadOnlyValue<Vector2>
 		if overlay then
 			bodyProps.ScrollBarThickness = 4
 			bodyProps.VerticalScrollBarInset = E.ScrollBarInset.ScrollBar
@@ -136,11 +137,11 @@ return function(
 			bodyProps.AutomaticCanvasSize = E.AutomaticSize.Y
 			bodyProps.CanvasSize = D2.fromOffset(0, 0)
 			body = Host.ScrollingFrame(bodyProps)
+			window = ctx.observeNative.AbsoluteWindowSize(body)
 		else
-			body = Host.Frame((bodyProps :: unknown) :: Shared.FrameNativeProps)
+			body = Host.Frame(bodyProps)
+			window = ctx.observeNative.AbsoluteSize(body)
 		end
-		local window =
-			runtime.observe(body, if overlay then "AbsoluteWindowSize" else "AbsoluteSize") :: ComposeTypes.ReadOnlyValue<Vector2>
 		Compose.watch(function(use: Use)
 			local w = use(window).X / use(unit)
 			if w > 0 then
@@ -161,7 +162,7 @@ return function(
 			local cancelProps: InputProps.ButtonProps = {
 				Name = "Cancel",
 				label = "Cancel",
-				role = "cancel" :: "cancel",
+				role = "cancel",
 				onActivate = function()
 					if overlay then
 						close("cancel")
@@ -210,7 +211,7 @@ return function(
 			assert(row:FindFirstChildWhichIsA("UIListLayout")).HorizontalAlignment = E.HorizontalAlignment.Right
 			table.insert(children, measure(row))
 		end
-		local props: Shared.FrameProps = {
+		local props: Shared.CanvasGroupProps = {
 			Name = "Panel",
 			BackgroundTransparency = if overlay then 0 else 1,
 			Size = D2.new(1, 0, 0, 0),
@@ -224,7 +225,7 @@ return function(
 		for _, child in children do
 			props[#props + 1] = child
 		end
-		local panel = if overlay then ctx.fade((props :: unknown) :: Shared.CanvasGroupProps) else Host.Frame(props)
+		local panel = if overlay then ctx.fade(props) else Host.Frame(props)
 		local visibility: { ComposeTypes.ReadOnlyValue<boolean> } = {}
 		for _, entry in measured do
 			table.insert(visibility, ctx.observe.Visible(entry.node))

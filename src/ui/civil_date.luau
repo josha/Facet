@@ -5,7 +5,7 @@ export type CivilDate = Types.CivilDate
 export type Range = Types.Range
 export type Locale = Types.Locale
 export type Module = Types.Module
-local civil_date = {} :: Module
+local civil_date = {}
 
 local english: Locale = {
 	months = table.freeze({
@@ -29,8 +29,8 @@ local english: Locale = {
 }
 civil_date.ENGLISH = freeze(english)
 
-local function int(v: unknown): boolean
-	return type(v) == "number" and v == v and v % 1 == 0 and math.abs(v) < 2 ^ 31
+local function int(v: unknown): number?
+	return if type(v) == "number" and v == v and v % 1 == 0 and math.abs(v) < 2 ^ 31 then v else nil
 end
 
 function civil_date.isLeap(year: number): boolean
@@ -47,24 +47,24 @@ function civil_date.problem(value: unknown, withTime: boolean?): string?
 		return "is a { year, month, day } table"
 	end
 	local fields = value :: { [string]: unknown }
-	if not (int(fields.year) and int(fields.month) and int(fields.day)) then
+	local year, month, day = int(fields.year), int(fields.month), int(fields.day)
+	if year == nil or month == nil or day == nil then
 		return "has whole-number year, month and day"
 	end
-	if (fields.hour ~= nil and not int(fields.hour)) or (fields.minute ~= nil and not int(fields.minute)) then
+	local hour, minute = int(fields.hour), int(fields.minute)
+	if (fields.hour ~= nil and hour == nil) or (fields.minute ~= nil and minute == nil) then
 		return "has an hour 0..23 and a minute 0..59"
 	end
-	local d = value :: CivilDate
-	if d.month < 1 or d.month > 12 or d.day < 1 or d.day > civil_date.daysIn(d.year, d.month) then
-		return `names no calendar day ({d.year}-{d.month}-{d.day})`
+	if month < 1 or month > 12 or day < 1 or day > civil_date.daysIn(year, month) then
+		return `names no calendar day ({year}-{month}-{day})`
 	end
-	if (d.hour == nil) ~= (d.minute == nil) then
+	if (hour == nil) ~= (minute == nil) then
 		return "gives hour and minute together or neither"
 	end
-	local hour, minute = d.hour, d.minute
 	if hour ~= nil and minute ~= nil and not (hour >= 0 and hour < 24 and minute >= 0 and minute < 60) then
 		return "has an hour 0..23 and a minute 0..59"
 	end
-	if withTime == true and d.hour == nil then
+	if withTime == true and hour == nil then
 		return "carries hour and minute when `time = true`"
 	end
 	return nil
@@ -178,7 +178,7 @@ end
 
 function civil_date.systemClock(offsetMinutes: number?): () -> CivilDate
 	return function(): CivilDate
-		local engine = (DateTime :: unknown) :: typeof(DateTime)?
+		local engine: typeof(DateTime)? = DateTime
 		if offsetMinutes ~= nil or engine == nil then
 			local seconds = if engine ~= nil then engine.now().UnixTimestamp else os.time()
 			if offsetMinutes ~= nil then
@@ -200,12 +200,12 @@ function civil_date.formatTime(d: CivilDate, hourCycle: number): string
 	if d.hour == nil then
 		return ""
 	end
-	local minute = pad(d.minute :: number, 2)
+	local minute = pad(assert(d.minute), 2)
 	if hourCycle == 24 then
 		return `{pad(d.hour, 2)}:{minute}`
 	end
-	local h = (d.hour :: number) % 12
-	return `{if h == 0 then 12 else h}:{minute} {if (d.hour :: number) < 12 then "AM" else "PM"}`
+	local h = d.hour % 12
+	return `{if h == 0 then 12 else h}:{minute} {if d.hour < 12 then "AM" else "PM"}`
 end
 
 function civil_date.format(d: CivilDate, locale: Locale?): string
@@ -232,10 +232,10 @@ function civil_date.parse(text: string, locale: Locale?, withTime: boolean?): (C
 	local l: Locale = locale or civil_date.ENGLISH
 	local order = l.order or "mdy"
 	local a, b, c, rest = string.match(text, "^%s*(%d+)%D(%d+)%D(%d+)(.*)$")
-	if a == nil then
+	if a == nil or b == nil or c == nil then
 		return nil, "Enter a date like " .. civil_date.format({ year = 2026, month = 12, day = 31 }, l)
 	end
-	local texts = { a, b :: string, c :: string }
+	local texts = { a, b, c }
 	local parts: { [string]: number } = {}
 	local names: { [string]: string } = { m = "month", d = "day", y = "year" }
 	for i = 1, 3 do
@@ -243,7 +243,7 @@ function civil_date.parse(text: string, locale: Locale?, withTime: boolean?): (C
 		if field == "year" and #texts[i] < 4 then
 			return nil, "Enter a date like " .. civil_date.format({ year = 2026, month = 12, day = 31 }, l)
 		end
-		parts[field] = tonumber(texts[i]) :: number
+		parts[field] = assert(tonumber(texts[i]))
 	end
 	local d: CivilDate = { year = parts.year, month = parts.month, day = parts.day }
 	local trailing: string = string.gsub(rest or "", "^%s+", "")
@@ -253,7 +253,7 @@ function civil_date.parse(text: string, locale: Locale?, withTime: boolean?): (C
 		if h == nil then
 			return nil, "Enter a time like 9:30 AM or 21:30."
 		end
-		local hour, minute = tonumber(h) :: number, tonumber(m) :: number
+		local hour, minute = assert(tonumber(h)), assert(tonumber(m))
 		if meridiem == "AM" or meridiem == "PM" then
 			if hour < 1 or hour > 12 then
 				return nil, "A 12-hour time runs from 1 to 12."
@@ -275,4 +275,5 @@ function civil_date.parse(text: string, locale: Locale?, withTime: boolean?): (C
 	return d, nil
 end
 
-return (table.freeze(civil_date) :: unknown) :: Module
+local exported: Module = freeze(civil_date)
+return exported

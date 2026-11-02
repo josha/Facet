@@ -2330,7 +2330,10 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 						"dismissal input stays inside safe bounds",
 						catcher.AbsolutePosition.Y >= safe.AbsolutePosition.Y - 1
 					)
-					t.check("fullscreen scrim has no input", not scrim:IsA("GuiButton") and not scrim.Active)
+					t.check(
+						"fullscreen scrim blocks input without dismissing",
+						scrim.Active and not scrim:IsA("GuiButton")
+					)
 					t.check(
 						"scrim can paint into device unsafe areas",
 						host.ScreenInsets == Enum.ScreenInsets.None or not host.ClipToDeviceSafeArea

@@ -16,14 +16,12 @@ type Token = { kind: "name" | "string" | "number" | "symbol", text: string }
 
 local function tokenize(code: string): { Token }
 	local tokens: { Token } = {}
-	local function push(kind: "name" | "string" | "number" | "symbol", text: string)
-		table.insert(tokens, { kind = kind, text = text })
-	end
 	local at = 1
 	while at <= #code do
 		local character = string.sub(code, at, at)
-		if string.match(character, "%s") then
-			at += 1
+		local _, space = string.find(code, "^%s+", at)
+		if space then
+			at = space + 1
 		elseif string.sub(code, at, at + 1) == "--" then
 			local stop = string.find(code, "\n", at, true)
 			at = if stop then stop + 1 else #code + 1
@@ -32,21 +30,22 @@ local function tokenize(code: string): { Token }
 			while stop <= #code and string.sub(code, stop, stop) ~= '"' do
 				stop += if string.sub(code, stop, stop) == "\\" then 2 else 1
 			end
-			push("string", string.sub(code, at, stop))
+			tokens[#tokens + 1] = { kind = "string", text = string.sub(code, at, stop) }
 			at = stop + 1
 		elseif string.match(character, "[%a_]") then
 			local word = assert(string.match(code, "^[%w_]+", at))
-			push("name", word)
+			tokens[#tokens + 1] = { kind = "name", text = word }
 			at += #word
 		elseif string.match(code, "^%-?%d", at) then
-			local number = assert(string.match(code, "^%-?[%d%.eE]+", at))
-			push("number", number)
+			local number = string.match(code, "^%-?%d+%.?%d*[eE][%+%-]?%d+", at)
+				or assert(string.match(code, "^%-?%d+%.?%d*", at))
+			tokens[#tokens + 1] = { kind = "number", text = number }
 			at += #number
 		elseif string.sub(code, at, at + 2) == "..." then
-			push("symbol", "...")
+			tokens[#tokens + 1] = { kind = "symbol", text = "..." }
 			at += 3
 		else
-			push("symbol", character)
+			tokens[#tokens + 1] = { kind = "symbol", text = character }
 			at += 1
 		end
 	end
@@ -156,33 +155,27 @@ local function list(record: Record, key: string): { Record }
 end
 
 local function inputKind(name: string): Types.InputKind
-	if name == "readable" then
-		return "readable"
-	elseif name == "cell" then
-		return "cell"
+	if name == "value" or name == "readable" or name == "cell" then
+		return name
 	end
-	assert(name == "value", `Unknown input kind {name}`)
-	return "value"
+	error(`Unknown input kind {name}`, 0)
 end
 
 local function inputType(name: string): Types.InputType
-	if name == "number" then
-		return "number"
-	elseif name == "boolean" then
-		return "boolean"
-	elseif name == "color" then
-		return "color"
-	elseif name == "image" then
-		return "image"
-	elseif name == "list" then
-		return "list"
-	elseif name == "record" then
-		return "record"
-	elseif name == "slot" then
-		return "slot"
+	if
+		name == "string"
+		or name == "number"
+		or name == "boolean"
+		or name == "color"
+		or name == "image"
+		or name == "vector3"
+		or name == "list"
+		or name == "record"
+		or name == "slot"
+	then
+		return name
 	end
-	assert(name == "string", `Unknown input type {name}`)
-	return "string"
+	error(`Unknown input type {name}`, 0)
 end
 
 local function stateFrom(header: Record): { Types.State }?
@@ -438,25 +431,18 @@ function source.parse(code: string, library: Library): Types.Document
 		at = start
 		return nil
 	end
-	local function startsCall(path: string): boolean
-		local offset = 0
-		for index, part in string.split(path, ".") do
-			if index > 1 then
-				if peek(offset) ~= "." then
-					return false
-				end
-				offset += 1
-			end
-			if peek(offset) ~= part then
+	local motion = library.motion
+	local motionTokens = if motion then tokenize(motion.call .. "(") else {}
+	local function startsMotion(): boolean
+		for index, part in motionTokens do
+			if peek(index - 1) ~= part.text then
 				return false
 			end
-			offset += 1
 		end
-		return peek(offset) == "("
+		return true
 	end
 	local function value(): (Value?, Node?)
-		local motion = library.motion
-		if motion ~= nil and startsCall(motion.call) then
+		if motion ~= nil and startsMotion() then
 			dotted()
 			take "("
 			local moving = assert(value(), `{motion.call} moves an input, state or item`)
@@ -497,7 +483,13 @@ function source.parse(code: string, library: Library): Types.Document
 		elseif peek() == "props" then
 			take "props"
 			take "."
-			return { input = name() }, nil
+			local input = name()
+			local path: { string } = {}
+			while peek() == "." do
+				take "."
+				table.insert(path, name())
+			end
+			return { input = input, path = if #path > 0 then path else nil }, nil
 		elseif peek() == "function" then
 			take "function"
 			take "("
@@ -778,7 +770,7 @@ function source.parse(code: string, library: Library): Types.Document
 				take "="
 				local property, template = value()
 				local contentField = kind.fields[prop]
-				if template and contentField and contentField.type == "content" then
+				if template and contentField and contentField.type == "content" and prop ~= kind.slot then
 					local marker: Record = { ["$template"] = template.id }
 					result.props[prop] = { literal = marker }
 					table.insert(pendingCells, template)
@@ -1009,6 +1001,9 @@ function source.parse(code: string, library: Library): Types.Document
 				assert(type(flags) == "table", "Editor flags are a table")
 				assert(flags.hidden == nil or type(flags.hidden) == "boolean", "Hidden is a boolean")
 				assert(flags.locked == nil or type(flags.locked) == "boolean", "Locked is a boolean")
+				if flags.name ~= nil then
+					node.name = text(flags, "name")
+				end
 				node.hidden = if flags.hidden == true then true else nil
 				node.locked = if flags.locked == true then true else nil
 			end

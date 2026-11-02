@@ -538,7 +538,7 @@ return function(verifyHarness: Verify.Harness)
 				for _, expected in
 					{
 						"local function ChooseGameView(props: Props): GuiObject",
-						"UI.VStack(props.name or ",
+						"UI.VStack(props.name) {",
 						"Size = UDim2.new(1, 0, 0, 320)",
 						"AutomaticSize = Enum.AutomaticSize.Y",
 						"from = props.games,",

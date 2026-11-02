@@ -46,13 +46,13 @@ local ARROWS = {
 }
 local DEFAULT_CONTEXTS = { "CharacterContext", "CameraContext", "VehicleContext" }
 
-local function service(name: string): Instance
-	local game = getfenv(0).game :: DataModel?
-	return assert(game, "no game here"):GetService(name)
+local function model(): DataModel
+	local game: DataModel? = getfenv(0).game
+	return assert(game, "no game here")
 end
 
 local function boundActions(): BoundActions
-	return (service("ContextActionService") :: ContextActionService):GetAllBoundActionInfo()
+	return model():GetService("ContextActionService"):GetAllBoundActionInfo()
 end
 
 local contention = {}
@@ -70,9 +70,9 @@ end
 
 function contention.iasPlayerScriptsActive(player: Player?, waitSeconds: number?): boolean
 	local ok, active = pcall(function(): boolean
-		local subject: Player? = player or (service("Players") :: Players).LocalPlayer
-		local folder = (subject :: Player):FindFirstChild("InputContexts")
-			or (subject :: Player):WaitForChild("InputContexts", waitSeconds or 1)
+		local subject = assert(player or model():GetService("Players").LocalPlayer)
+		local folder = subject:FindFirstChild("InputContexts")
+			or subject:WaitForChild("InputContexts", waitSeconds or 1)
 		if folder == nil then
 			return false
 		end
@@ -96,8 +96,8 @@ function contention.cameraKeysContended(boundActionInfo: BoundActions?): boolean
 		end
 		bound = live
 	end
-	for _, info in bound :: BoundActions do
-		for _, code in (info.inputTypes or {}) :: { EnumItem } do
+	for _, info in assert(bound) do
+		for _, code in (info.inputTypes or {}) do
 			if ARROWS[tostring(code)] then
 				return true
 			end
@@ -108,7 +108,7 @@ end
 
 function contention.traversalKeyContended(): boolean
 	local ok, contended = pcall(function()
-		return (service("StarterGui") :: StarterGui):GetCoreGuiEnabled(Enum.CoreGuiType.PlayerList)
+		return model():GetService("StarterGui"):GetCoreGuiEnabled(Enum.CoreGuiType.PlayerList)
 	end)
 	return ok and contended == true
 end
@@ -123,9 +123,11 @@ function contention.disableLegacyControls(playerModuleParent: Instance?, player:
 	end
 	local disabled = pcall(function()
 		local parent: Instance = playerModuleParent
-			or assert((service("Players") :: Players).LocalPlayer:WaitForChild("PlayerScripts", 5), "no PlayerScripts")
+			or assert(model():GetService("Players").LocalPlayer:WaitForChild("PlayerScripts", 5), "no PlayerScripts")
 		local module: Instance = assert(parent:WaitForChild("PlayerModule", 5), "no PlayerModule")
-		local loaded = require(module :: ModuleScript) :: LegacyPlayerModule
+		assert(module:IsA("ModuleScript"))
+		local load: (ModuleScript) -> LegacyPlayerModule = require
+		local loaded = load(module)
 		loaded:GetControls():Disable()
 	end)
 	if disabled then
@@ -136,7 +138,7 @@ function contention.disableLegacyControls(playerModuleParent: Instance?, player:
 		if before["jumpAction"] == nil then
 			return false
 		end
-		(service("ContextActionService") :: ContextActionService):UnbindAction("jumpAction")
+		model():GetService("ContextActionService"):UnbindAction("jumpAction")
 		return contention.freedJumpAction(before, boundActions())
 	end)
 	if ok and freed then
@@ -145,4 +147,4 @@ function contention.disableLegacyControls(playerModuleParent: Instance?, player:
 	return false, "unavailable"
 end
 
-return freeze(contention) :: GamepadContention
+return freeze(contention)

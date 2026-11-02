@@ -11,6 +11,21 @@ return function(verifyHarness: Verify.Harness)
 	local overlay = require("./lib/overlay_world")
 	local reservations = require("../src/ui/reservations")
 	local Vector2 = require("./lib/native_engine").types.Vector2
+	verifyHarness:case("passive Toasts accept Folder overlay targets", function()
+		local engine, bridge = require("./lib/native_engine").new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local Host = Facet.host(runtime)
+		local destination: Folder = engine.new("Folder")
+		local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none", overlayParent = destination })
+		local stop = runtime.mount(function()
+			return Host.ScreenGui { UI.Toast { message = "Saved" } }
+		end, engine.new("Folder"))
+		local message = destination:FindFirstChild("Message", true)
+		Verify.expect(message ~= nil and message:IsA("TextLabel") and message.Text == "Saved"):toBe(true)
+		stop()
+		runtime:dispose()
+		bridge.close()
+	end)
 
 	type Caller = {
 		shown: any,

@@ -12,7 +12,6 @@ return function(
 	measure: ((ComposeTypes.Use, Vector2) -> ())?,
 	rest: boolean?
 ): ComposeTypes.ReadOnlyValue<boolean>
-	local size = ctx.observe.AbsoluteSize(root)
 	local function painted(node: Instance): boolean
 		if node:IsA("GuiObject") then
 			if not node.Visible then
@@ -53,6 +52,7 @@ return function(
 		return painted(root)
 	end
 	if rest and ctx.runtime.host.frames and not sample() then
+		local size = ctx.observe.AbsoluteSize(root)
 		return ctx.runtime.settled {
 			restart = function(use: ComposeTypes.Use): boolean
 				local box = use(size)
@@ -97,138 +97,120 @@ return function(
 		}
 	end
 	local ready = ctx.Compose.cell(false)
-	local owner = assert(ctx.Compose.currentOwner())
-	local scope: ComposeTypes.Owner? = nil
-	ctx.Compose.watch(function(use: ComposeTypes.Use)
-		local box = use(size)
-		if measure then
-			measure(use, box)
-		end
-		if box.X <= 0 or box.Y <= 0 then
-			if scope then
-				ComposeTypes.owner.dispose(scope)
-				scope = nil
+	local render = ctx.config.services.RunService and ctx.config.services.RunService.PreRender
+	local frames = ctx.runtime.host.frames
+	local waiting, closed = false, false
+	local poll: Poll? = nil
+	local geometry: { RBXScriptConnection } = {}
+	local prepare: () -> ()
+	local function listen(node: Instance)
+		if node:IsA("GuiObject") then
+			if node ~= root then
+				table.insert(geometry, node:GetPropertyChangedSignal("AbsoluteSize"):Connect(prepare))
 			end
-			ready:set(false)
+			table.insert(geometry, node:GetPropertyChangedSignal("Visible"):Connect(prepare))
+			if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+				table.insert(geometry, node:GetPropertyChangedSignal("TextBounds"):Connect(prepare))
+			end
 		end
-		if scope or ready:peek() then
+	end
+	local function halt()
+		for _, connection in geometry do
+			connection:Disconnect()
+		end
+		table.clear(geometry)
+		local held = poll
+		if not waiting or held == nil then
 			return
 		end
-		local nextScope = ComposeTypes.owner.createChild(owner)
-		scope = nextScope
-		ctx.Compose.withOwner(nextScope, function()
-			local render = ctx.config.services.RunService and ctx.config.services.RunService.PreRender
-			local frames = ctx.runtime.host.frames
-			local waiting = false
-			local poll: Poll
-			local prepare: () -> ()
-			local geometry: { RBXScriptConnection } = {}
-			local descendants = false
-			local function listen(node: Instance)
-				if node:IsA("GuiObject") then
-					table.insert(geometry, node:GetPropertyChangedSignal("AbsoluteSize"):Connect(prepare))
-					table.insert(geometry, node:GetPropertyChangedSignal("Visible"):Connect(prepare))
-					if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-						table.insert(geometry, node:GetPropertyChangedSignal("TextBounds"):Connect(prepare))
-					end
+		waiting = false
+		held.steps[prepare] = nil
+		held.count -= 1
+		local stop = held.stop
+		if held.count == 0 and stop then
+			held.stop = nil
+			stop()
+		end
+	end
+	local function arm()
+		if waiting or (not render and not frames) then
+			return
+		end
+		local key: unknown = ctx.runtime
+		local found = polls[key]
+		if found == nil then
+			local created: Poll = { steps = {}, queue = {}, count = 0 }
+			found = created
+			polls[key] = found
+		end
+		local held = found
+		poll = held
+		waiting = true
+		held.steps[prepare] = true
+		held.count += 1
+		if held.stop then
+			return
+		end
+		local function run()
+			for step in held.steps do
+				table.insert(held.queue, step)
+			end
+			for _, step in held.queue do
+				if held.steps[step] then
+					step()
 				end
 			end
-			local function halt()
-				for _, connection in geometry do
-					connection:Disconnect()
-				end
-				table.clear(geometry)
-				if not waiting then
-					return
-				end
-				waiting = false
-				poll.steps[prepare] = nil
-				poll.count -= 1
-				local stop = poll.stop
-				if poll.count == 0 and stop then
-					poll.stop = nil
-					stop()
-				end
+			table.clear(held.queue)
+		end
+		if render then
+			local connection = render:Connect(run)
+			held.stop = function()
+				connection:Disconnect()
 			end
-			local arm: (() -> ())? = nil
-			prepare = function()
-				if ready:peek() then
-					return
-				end
-				if sample() then
-					halt()
-					ready:set(true)
-					if scope == nextScope then
-						scope = nil
-					end
-					ComposeTypes.owner.dispose(nextScope)
-					return
-				end
-				local box = root.AbsoluteSize
-				if box.X > 0 and box.Y > 0 then
-					if not descendants then
-						descendants = true
-						for _, node in root:GetDescendants() do
-							listen(node)
-						end
-					end
-					local start = arm
-					if start and not waiting then
-						start()
-					end
-				end
-			end
-			ctx.Compose.cleanup(halt)
-			prepare()
-			if ready:peek() then
-				return
-			end
+		else
+			held.stop = assert(frames).onFrame(run)
+		end
+	end
+	prepare = function()
+		if closed then
+			return
+		end
+		local box = root.AbsoluteSize
+		if box.X <= 0 or box.Y <= 0 then
+			halt()
+			ready:set(false)
+			return
+		end
+		if ready:peek() then
+			return
+		end
+		if sample() then
+			halt()
+			ready:set(true)
+			return
+		end
+		if #geometry == 0 then
 			listen(root)
-			if not render and not frames then
-				prepare()
-				return
+			for _, node in root:GetDescendants() do
+				listen(node)
 			end
-			arm = function()
-				local key: unknown = ctx.runtime
-				local found = polls[key]
-				if found == nil then
-					local created: Poll = { steps = {}, queue = {}, count = 0 }
-					found = created
-					polls[key] = found
-				end
-				poll = found
-				waiting = true
-				poll.steps[prepare] = true
-				poll.count += 1
-				if poll.stop ~= nil then
-					return
-				end
-				local function run()
-					local queue = poll.queue
-					for step in poll.steps do
-						table.insert(queue, step)
-					end
-					for _, step in queue do
-						if poll.steps[step] then
-							step()
-						end
-					end
-					table.clear(queue)
-				end
-				if render then
-					local connection = render:Connect(run)
-					poll.stop = function()
-						connection:Disconnect()
-					end
-				else
-					poll.stop = assert(frames).onFrame(run)
-				end
-			end
-			local box = root.AbsoluteSize
-			if box.X > 0 and box.Y > 0 then
-				assert(arm)()
-			end
-		end)
+		end
+		arm()
+	end
+	local changed = root:GetPropertyChangedSignal("AbsoluteSize"):Connect(prepare)
+	ctx.Compose.cleanup(function()
+		closed = true
+		changed:Disconnect()
+		halt()
 	end)
+	if measure then
+		local size = ctx.observe.AbsoluteSize(root)
+		ctx.Compose.watch(function(use: ComposeTypes.Use)
+			measure(use, use(size))
+			prepare()
+		end)
+	else
+		prepare()
+	end
 	return ready
 end

@@ -201,6 +201,7 @@ end
 
 local function checkValue(value: Document, field: Types.Field, property: Value, collection: Types.Input?, key: string)
 	assert(present(property) == 1, `{key} holds exactly one literal or binding`)
+	assert(property.path == nil or property.input ~= nil, `{key} paths belong to input bindings`)
 	local played = property.play
 	if played ~= nil then
 		assert(sequenceOf(value, played) ~= nil, `{key} plays unknown sequence {played}`)
@@ -296,6 +297,31 @@ local function checkValue(value: Document, field: Types.Field, property: Value, 
 		local declared = assert(inputOf(value, input), `{key} reads unknown input {input}`)
 		assert((field.type == "content") == (declared.type == "slot"), `{key} and input {input} do not match`)
 		assert(field.type ~= "event", `{key} needs an output`)
+		local path = property.path
+		if path ~= nil then
+			assert(
+				#path > 0 and declared.kind == "value" and declared.type == "record",
+				`{key} needs a value record for its input path`
+			)
+			local fields = declared.fields
+			for index, segment in path do
+				assert(string.match(segment, "^[%a_][%w_]*$") ~= nil, `{key} input path needs field identifiers`)
+				local selected: Types.ItemField? = nil
+				for _, candidate in fields or {} do
+					if candidate.id == segment then
+						selected = candidate
+						break
+					end
+				end
+				if fields ~= nil then
+					assert(selected ~= nil, `{key} reads unknown record field {segment}`)
+				end
+				if index < #path and selected ~= nil then
+					assert(selected.type == "record", `{key} crosses a non-record field {segment}`)
+				end
+				fields = if selected then selected.fields else nil
+			end
+		end
 	elseif item then
 		local list = assert(collection, `{key} reads an item outside a collection template`)
 		local fields = list.fields
@@ -485,6 +511,7 @@ function document.validate(value: Document, library: Library): Document
 		elseif kind.children == "slot" then
 			assert(ordinary <= 1 and node.bind == nil, `{node.kind} holds one content node`)
 			assert(kind.slot ~= nil, `{node.kind} names no content property`)
+			assert(ordinary == 0 or node.props[kind.slot] == nil, `{node.kind} already binds its content`)
 		elseif kind.children == "template" then
 			local bind = node.bind
 			assert(
@@ -494,6 +521,12 @@ function document.validate(value: Document, library: Library): Document
 			if bind then
 				local list = assert(listOf(value, bind.from, collection), `{node.kind} binds unknown input {bind.from}`)
 				assert(list.type == "list", `{node.kind} binds {bind.from}, which is not a list`)
+				assert(
+					not kind.staticRows
+						or list.kind == "value"
+						or (inputOf(value, bind.from) == nil and collection ~= nil and collection.kind == "value"),
+					`{node.kind} repeats value lists`
+				)
 				assert(#bind.key > 0, `{node.kind} needs an item key`)
 				local row = bind.row
 				if row ~= nil then
@@ -504,7 +537,18 @@ function document.validate(value: Document, library: Library): Document
 					nested = list
 				end
 			else
-				assert(#node.children == 0, `{node.kind} needs a list input for its template`)
+				local iteration = kind.iteration
+				if iteration then
+					local generated: Types.Input =
+						{ id = node.id, kind = "value", type = "list", fields = iteration.fields }
+					nested = generated
+					for _, property in node.props do
+						local input = if property.input then inputOf(value, property.input) else nil
+						assert(input == nil or input.kind == "value", `{node.kind} geometry inputs are values`)
+					end
+				else
+					assert(#node.children == 0, `{node.kind} needs a list input for its template`)
+				end
 			end
 		else
 			local bind = node.bind
@@ -662,6 +706,9 @@ function document.insert(
 		return created
 	end
 	local node = create { kind = kindName }
+	if container.children == "slot" and container.slot then
+		parent.props[container.slot] = nil
+	end
 	table.insert(parent.children, math.clamp(at or #parent.children + 1, 1, #parent.children + 1), node)
 	return document.validate(nextValue, library), node.id
 end
@@ -691,6 +738,35 @@ function document.applies(node: Node, kind: Types.Kind, key: string): boolean
 	return true
 end
 
+local function changeProperty(node: Node, kind: Types.Kind?, key: string, property: Value?)
+	local previous = node.props[key]
+	local before = if previous and previous.literal ~= nil then cellsOf(previous.literal, {}) else {}
+	if property and kind and kind.children == "slot" and key == kind.slot then
+		for _, child in node.children do
+			before[child.id] = true
+		end
+	end
+	if property then
+		node.props[key] = copyValue(property)
+	else
+		node.props[key] = nil
+	end
+	if next(before) ~= nil then
+		local kept: { [string]: true } = {}
+		for _, other in node.props do
+			if other.literal ~= nil then
+				cellsOf(other.literal, kept)
+			end
+		end
+		for index = #node.children, 1, -1 do
+			local childId = node.children[index].id
+			if before[childId] and not kept[childId] then
+				table.remove(node.children, index)
+			end
+		end
+	end
+end
+
 function document.content(
 	value: Document,
 	library: Library,
@@ -714,35 +790,15 @@ function document.content(
 		children = {},
 	})
 	local marker: Types.Row = { ["$template"] = childId }
-	node.props[key] = { literal = marker }
+	changeProperty(node, kind, key, { literal = marker })
 	return document.validate(nextValue, library), childId
 end
 
 function document.change(value: Document, library: Library, id: string, key: string, property: Value?): Document
 	local nextValue = copyDocument(value)
 	local node = assert(document.find(nextValue.root, id), "Choose a node")
-	local previous = node.props[key]
-	local before = if previous and previous.literal ~= nil then cellsOf(previous.literal, {}) else {}
-	if property then
-		node.props[key] = copyValue(property)
-	else
-		node.props[key] = nil
-	end
-	if next(before) ~= nil then
-		local kept: { [string]: true } = {}
-		for _, other in node.props do
-			if other.literal ~= nil then
-				cellsOf(other.literal, kept)
-			end
-		end
-		for index = #node.children, 1, -1 do
-			local childId = node.children[index].id
-			if before[childId] and not kept[childId] then
-				table.remove(node.children, index)
-			end
-		end
-	end
 	local kind = library.kinds[node.kind]
+	changeProperty(node, kind, key, property)
 	if kind then
 		local requires = if kind.fields[key] then kind.fields[key].requires else nil
 		if property and requires and not document.applies(node, kind, key) then

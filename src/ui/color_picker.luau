@@ -128,7 +128,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				diagnostics = function(use: Use): string
 					return table.concat(use(diagnostics), "\n")
 				end,
-			} :: Shared.Attributes,
+			},
 		})
 		local picker: Frame = root
 		return ctx.styled(picker, "color-picker")

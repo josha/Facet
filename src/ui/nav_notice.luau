@@ -218,7 +218,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				end,
 			},
 		})
-		local bodyChildren: { Types.Child } = { copyFrame }
+		local bodyChildren: { GuiObject } = { copyFrame }
 		if link ~= nil or #actions > 0 then
 			local accessories: { Types.Child } = {}
 			if link then
@@ -243,7 +243,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 						label = action.label,
 						enabled = action.enabled,
 						busy = action.busy,
-						role = if action.role == "destructive" then "destructive" :: "destructive" else nil,
+						role = if action.role == "destructive" then "destructive" else nil,
 						appearance = if action.role == "default" and not emphasis then "emphasis" else nil,
 						controlSize = spec.controlSize,
 						onActivate = function(_input: InputObject?, _clicks: number?)
@@ -283,7 +283,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			Padding = UD.new(0, 8),
 		}
 		for index, child in bodyChildren do
-			runtime.decorate(child :: Instance, { LayoutOrder = index })
+			runtime.decorate(child, { LayoutOrder = index })
 			bodyProps[#bodyProps + 1] = child
 		end
 		local rowChildren: { Types.Child } = {}
@@ -365,13 +365,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			BorderSizePixel = 0,
 			ZIndex = if placement == "affixed" then 50 else nil,
 		}
-		local native = ctx.props(spec, NOTICE_KEYS, defaults) :: { [unknown]: unknown }
+		local native: Types.FrameProps = ctx.props(spec, NOTICE_KEYS, defaults)
 		local restVisible = native.Visible
 		native.Visible = function(use: ComposeTypes.Use): boolean
 			return read(restVisible, use) ~= false
 		end
 		local restSize, restAutomatic, restClip, restInteractable =
-			native.Size, native.AutomaticSize, native.ClipsDescendants, native.Interactable
+			native.Size or D2.new(1, 0, 0, 0),
+			native.AutomaticSize or E.AutomaticSize.Y,
+			native.ClipsDescendants,
+			native.Interactable
 		local inset = Host.UIPadding {
 			PaddingLeft = function(use: ComposeTypes.Use)
 				return UD.new(0, panelCarve(use).left)
@@ -390,11 +393,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local function settled(use: ComposeTypes.Use): boolean
 			return progress(use) >= 1
 		end
-		native.AutomaticSize = function(use: ComposeTypes.Use): unknown
-			return if settled(use) then read(restAutomatic, use) else E.AutomaticSize.None
+		native.AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
+			return if settled(use) then read<<Enum.AutomaticSize>>(restAutomatic, use) else E.AutomaticSize.None
 		end
-		native.Size = function(use: ComposeTypes.Use): unknown
-			local rest = read(restSize, use)
+		native.Size = function(use: ComposeTypes.Use): UDim2
+			local rest = read<<UDim2>>(restSize, use)
 			if settled(use) then
 				return rest
 			end
@@ -408,13 +411,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			local height = tallest + inset.PaddingTop.Offset + inset.PaddingBottom.Offset
 			return D2.new(width.Scale, width.Offset, 0, math.floor(height * progress(use) + 0.5))
 		end
-		native.ClipsDescendants = function(use: ComposeTypes.Use): unknown
+		native.ClipsDescendants = function(use: ComposeTypes.Use): boolean
 			return if settled(use) then read(restClip, use) == true else true
 		end
-		native.Interactable = function(use: ComposeTypes.Use): unknown
+		native.Interactable = function(use: ComposeTypes.Use): boolean
 			return not use(leaving) and not use(preparing) and read(restInteractable, use) ~= false
 		end
-		root = Host.Frame(native :: Types.FrameNativeProps)
+		root = Host.Frame(native)
 		if not prepares then
 			present:set(true)
 		end
@@ -720,10 +723,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			local unit = ctx.layoutUnit(root)
 			local trailingLayout = assert(trailingFrame:FindFirstChildWhichIsA("UIListLayout"))
 			local content = ctx.observe.AbsoluteContentSize(trailingLayout)
-			local scrollStyle = (ctx.observeStyled :: unknown) :: {
-				ScrollBarThickness: (ScrollingFrame) -> ComposeTypes.Value<number>,
-			}
-			local thickness = scrollStyle.ScrollBarThickness(trailingFrame)
+			local thickness = ctx.observeStyled.ScrollBarThickness(trailingFrame)
 			local function offered(use: ComposeTypes.Use): number
 				local width = use(available).X
 				return if width > 0

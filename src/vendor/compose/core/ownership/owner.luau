@@ -14,13 +14,9 @@ local inspecting = Nodes.inspecting
 local inspectModule: typeof(require "./inspect")? = nil
 
 local function inspector(): typeof(require "./inspect")
-	local loaded = inspectModule
-	if loaded ~= nil then
-		return loaded
-	end
-	local required = require "./inspect"
-	inspectModule = required
-	return required
+	local loaded = inspectModule or require "./inspect"
+	inspectModule = loaded
+	return loaded
 end
 
 type Dispose = Types.Dispose
@@ -35,13 +31,6 @@ export type Entry = Owner
 
 local currentOwner: () -> Owner? = function(): Owner?
 	return nil
-end
-
-local function new(inherited: Reactor.Reactor?, parent: Owner?): Owner
-	return {
-		parent = parent or currentOwner(),
-		reactor = inherited or Reactor.create(),
-	}
 end
 
 local detached: Reactor.Reactor? = nil
@@ -206,7 +195,7 @@ local function attach(owner: Owner, entry: Entry)
 end
 
 local function link(owner: Owner, release: Dispose, after: Dispose?): Entry
-	local entry: Entry = { release = release, previous = nil, following = nil }
+	local entry: Entry = { release = release }
 	if after ~= nil then
 		entry.after = after
 	end
@@ -236,7 +225,10 @@ local function runScopeOf(consumer: Types.Node): RunScope?
 end
 
 local function createOwner(inherited: Reactor.Reactor?, parent: Owner?): Owner
-	return new(inherited, parent)
+	return {
+		parent = parent or currentOwner(),
+		reactor = inherited or Reactor.create(),
+	}
 end
 
 local function own(owner: Owner, dispose: Dispose, after: Dispose?): Dispose
@@ -475,6 +467,18 @@ local function startWatch<A, B>(
 	return own(owner, dispose, after)
 end
 
+local function guarded(boundary: Boundary?, body: (Types.Use) -> ()): (Types.Use) -> ()
+	if boundary == nil then
+		return body
+	end
+	return function(use: Types.Use)
+		local ok, failure: unknown = pcall(body, use)
+		if not ok then
+			boundary.report(failure)
+		end
+	end
+end
+
 local function watchStatic<T>(
 	owner: Owner,
 	producer: Types.ReadOnlyValue<T>,
@@ -488,14 +492,15 @@ local function watchStatic<T>(
 	if boundary == nil then
 		return startWatch(owner, watchModule.watchStatic, producer, body, after)
 	end
-	return startWatch(owner, watchModule.watchGuarded, function(use: Types.Use)
-		local ok, err: unknown = pcall(function()
+	return startWatch(
+		owner,
+		watchModule.watchGuarded,
+		guarded(boundary, function(use: Types.Use)
 			body(use(producer))
-		end)
-		if not ok then
-			boundary.report(err)
-		end
-	end, nil, after)
+		end),
+		nil,
+		after
+	)
 end
 
 local function listenHeld(
@@ -520,14 +525,7 @@ local function effectHeld(owner: Owner, body: (use: Types.Use) -> ()): Types.Nod
 		inspector().watch(owner)
 	end
 	local boundary = owner.boundary
-	local run = if boundary == nil
-		then body
-		else function(use: Types.Use)
-			local ok, failure: unknown = pcall(body, use)
-			if not ok then
-				boundary.report(failure)
-			end
-		end
+	local run = guarded(boundary, body)
 	local node = watchModule.terminalNode(reactorOf(owner), run, boundary ~= nil)
 	if node.effect == nil then
 		return nil
@@ -540,16 +538,7 @@ local function watchTerminal(owner: Owner, body: (use: Types.Use) -> (), after: 
 	if inspecting.active then
 		inspector().watch(owner)
 	end
-	local boundary = owner.boundary
-	if boundary == nil then
-		return startWatch(owner, watchModule.watchTerminal, body, nil, after)
-	end
-	return startWatch(owner, watchModule.watchTerminal, function(use: Types.Use)
-		local ok, err: unknown = pcall(body, use)
-		if not ok then
-			boundary.report(err)
-		end
-	end, nil, after)
+	return startWatch(owner, watchModule.watchTerminal, guarded(owner.boundary, body), nil, after)
 end
 
 local function releaseScope(node: Types.Node)
@@ -570,14 +559,7 @@ local function watch(owner: Owner, body: (use: Types.Use) -> (), label: string?,
 		inspector().watch(owner)
 	end
 	local boundary = owner.boundary
-	local run = if boundary == nil
-		then body
-		else function(use: Types.Use)
-			local ok, err: unknown = pcall(body, use)
-			if not ok then
-				boundary.report(err)
-			end
-		end
+	local run = guarded(boundary, body)
 	if after == nil then
 		return own(owner, watchModule.watchScoped(reactorOf(owner), run, label, owner, boundary ~= nil))
 	end

@@ -70,13 +70,19 @@ local function enqueue(node: Node)
 end
 
 local function rearm(node: Node)
-	if node.released or node.retry then
+	local kind = node.kind
+	local formula = kind == 1 or kind == 2
+	if node.released or (if formula then node.state == 3 else node.retry) then
 		return
 	end
-	node.retry = true
+	if formula then
+		node.state = 3
+	else
+		node.retry = true
+	end
 	if node.state == nil then
 		local producer = node[1]
-		if producer ~= nil and producer.state ~= nil then
+		if producer ~= nil and producer.refresh ~= nil then
 			rearm(producer)
 		end
 		return
@@ -84,7 +90,7 @@ local function rearm(node: Node)
 	for index = 1, #node do
 		local edge = node[index]
 		local producer = if edge ~= nil then edge[1] else nil
-		if producer ~= nil and producer.state ~= nil then
+		if producer ~= nil and producer.refresh ~= nil then
 			rearm(producer)
 		end
 	end
@@ -137,10 +143,10 @@ local function runInRest(reactor: Reactor): unknown
 			local node = queue[cursor]
 			node.queued = false
 			local runIn = node.runIn
+			frame.consumer = previousConsumer
 			if runIn ~= nil then
-				runIn(frame, node)
+				runIn(node, frame)
 			else
-				frame.consumer = previousConsumer
 				local run = node.run
 				if run then
 					run(node)
@@ -381,21 +387,6 @@ local function pending(reactor: Reactor): number
 	return reactor.count - reactor.cursor
 end
 
-local function reset(reactor: Reactor)
-	local resume = statsOn.resume
-	if resume ~= nil then
-		resume()
-	end
-	local queue = reactor.queue
-	for index = reactor.count, 1, -1 do
-		queue[index].queued = false
-		queue[index] = nil
-	end
-	reactor.count = 0
-	reactor.cursor = 0
-	reactor.batching = false
-end
-
 return {
 	create = create,
 	enqueue = enqueue,
@@ -405,8 +396,4 @@ return {
 	settle = settle,
 	settleTouched = settleTouched,
 	pending = pending,
-	reset = reset,
-	rearm = rearm,
-	touch = touch,
-	MAX_RUNS_PER_DRAIN = MAX_RUNS_PER_DRAIN,
 }

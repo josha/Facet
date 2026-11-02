@@ -39,12 +39,6 @@ function Field.set(field: Field, x: number, y: number, value: number, channel: n
 	buffer.writef64(field.data, ((y * field.width + x) * field.channels + (channel or 1) - 1) * 8, value)
 end
 
-function Field.copy(field: Field): Field
-	local data = buffer.create(buffer.len(field.data))
-	buffer.copy(data, 0, field.data, 0, buffer.len(field.data))
-	return { width = field.width, height = field.height, channels = field.channels, data = data }
-end
-
 function Field.generate(
 	width: number,
 	height: number,

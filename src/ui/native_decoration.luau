@@ -51,7 +51,7 @@ return function(
 	local at = (runtime.observe(target, "AbsolutePosition", frame) :: unknown) :: ComposeTypes.Value<Vector2>
 	local rotation = (runtime.observe(target, "AbsoluteRotation", frame) :: unknown) :: ComposeTypes.Value<number>
 	local boundaryAt = (runtime.observe(boundary, "AbsolutePosition", frame) :: unknown) :: ComposeTypes.Value<Vector2>
-	local insets = Compose.cell({} :: Insets)
+	local insets = Compose.cell<<Insets>>({})
 	local padding = Compose.cell(target:FindFirstChildWhichIsA("UIPadding"))
 	local function childChanged(child: Instance)
 		if child:IsA("UIPadding") then
@@ -69,7 +69,7 @@ return function(
 		local function refresh()
 			local values: Insets = {}
 			for _, side in { "Left", "Right", "Top", "Bottom" } do
-				values[side] = current:GetStyled("Padding" .. side) :: UDim
+				values[side] = current:GetStyled("Padding" .. side)
 			end
 			insets:set(values)
 		end
@@ -106,7 +106,7 @@ return function(
 			else { x = offset.X + pixels.X, y = offset.Y + pixels.Y, width = pixels.X, height = pixels.Y }
 	end)
 	if target:IsA("ScrollingFrame") then
-		local frame = target :: ScrollingFrame
+		local frame = target
 		local canvas = (runtime.observe(frame, "CanvasPosition") :: unknown) :: ComposeTypes.Value<Vector2>
 		runtime.decorate(boundary, {
 			Position = function(use: ComposeTypes.Use): UDim2

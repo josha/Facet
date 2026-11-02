@@ -204,13 +204,10 @@ end
 
 return {
 	create = create,
-	rowsFor = rowsFor,
 	totalExtent = totalExtent,
 	setItemSize = setItemSize,
 	placementOf = placementOf,
 	offsetOf = offsetOf,
-	rowAt = rowAt,
-	rowSpan = rowSpan,
 	rangeFor = rangeFor,
 	rangeInto = rangeInto,
 }

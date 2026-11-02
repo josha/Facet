@@ -292,6 +292,31 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			return { literal = current }
 		elseif input then
 			local binding = bindings[input]
+			local path = property.path
+			if path ~= nil then
+				if binding ~= nil and binding.value ~= nil then
+					local selected = binding.value
+					for _, segment in path do
+						assert(type(selected) == "table", `Input {input} path crosses a non-record value`)
+						local found: unknown = nil
+						for key, value in selected do
+							if key == segment then
+								found = value
+								break
+							end
+						end
+						selected = found
+					end
+					return { value = selected }
+				end
+				assert(binding == nil or binding.readable == nil, `Input {input} path needs a value record binding`)
+				local selected = if binding then binding.literal else inputs[input]
+				for _, segment in path do
+					assert(type(selected) == "table", `Input {input} path crosses a non-record literal`)
+					selected = selected[segment]
+				end
+				return { literal = selected }
+			end
 			if binding ~= nil then
 				return table.clone(binding)
 			end
@@ -416,6 +441,12 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 				for _, child in content do
 					append(child)
 				end
+			elseif kind.iteration and template and bind == nil then
+				props[assert(kind.template)] = {
+					template = function(row: ReadOnlyValue<Row>): unknown
+						return build(template, row)
+					end,
+				}
 			elseif bind and template then
 				local rowId = bind.row or template.id
 				local rowNode = template

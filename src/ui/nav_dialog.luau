@@ -3,7 +3,6 @@ local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
-local materialize = require("./materialize")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local freeze = require("./freeze")
@@ -351,8 +350,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 						end
 						local function surface(phase: Nav.PresencePhase?): Surface
 							local settled = Compose.cell(false)
-							local held: ComposeTypes.Value<Vector2?> = Compose.cell(nil :: Vector2?)
 							local shown = surfaces.appearance(phase, ctx.motionTiming("dialog"), settled)
+							local sizes: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
+							local held = Compose.formula(function(use: ComposeTypes.Use): Vector2?
+								return if use(settled) and shown.travel(use) < 1 then use(sizes[1]) / use(unit) else nil
+							end)
 							local panelProps: Types.CanvasGroupProps = {
 								Name = "Panel",
 								AnchorPoint = V2.new(0.5, 0.5),
@@ -382,16 +384,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							}
 							local panel = ctx.styled(ctx.fade(panelProps, true), "dialog")
 							ctx.styled(panel, "panel")
-							materialize(ctx, panel, panelProps, function(use: ComposeTypes.Use)
-								local rest = ctx.metric("motion.materialize.modal", use)
-								return if use(settled) then rest + (1 - rest) * shown.travel(use) else 1
-							end, nil, true)
-							local sizes, rested = surfaces.atRest(shown.travel, settled, { panel })
-							Compose.watch(function(use: ComposeTypes.Use)
-								held:set(
-									if use(rested) and shown.travel(use) < 1 then use(sizes[1]) / use(unit) else nil
-								)
-							end)
+							sizes = surfaces.atRest(shown.travel, settled, { panel })
 							surfaces.skin(panel, "panel", {
 								reserve = function(name: string, use: ComposeTypes.Use): number
 									if not use(covering) or (name ~= "left" and name ~= "right") then

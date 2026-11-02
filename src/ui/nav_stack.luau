@@ -38,10 +38,10 @@ return function(
 		)
 		checkTransition(spec.transition)
 		local gui = surfaces.service("GuiService")
-		local selectedObject = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil :: GuiObject?)
+		local selectedObject = if gui then ctx.observe.SelectedObject(gui) else Compose.cell<<GuiObject?>>(nil)
 		local depth = navigationDepth
 		local rootEntry: Nav.NavigationEntry<P> = { id = "@root" }
-		local errorText: ComposeTypes.Value<string?> = Compose.cell(nil :: string?)
+		local errorText = Compose.cell<<string?>>(nil)
 		local accepted = { rootEntry }
 		local reduce = reducedMotion(ctx)
 		local level = motion.level(ctx)
@@ -71,43 +71,47 @@ return function(
 			return accepted
 		end)
 		type Departure = { entry: Nav.NavigationEntry<P>, behind: boolean }
-		local leaving: ComposeTypes.Value<Departure?> = Compose.cell(nil :: Departure?)
+		local leaving = Compose.cell<<Departure?>>(nil)
 		local root: Frame
 		local handoff = false
-		local shownList = entries:peek()
 		local changedFrom: { selected: GuiObject? }? = nil
-		Compose.watch(function(use: ComposeTypes.Use)
-			local list = use(entries)
-			local former = shownList
-			shownList = list
-			local top = former[#former]
-			if top ~= list[#list] and gui and root and surfaces.within(gui.SelectedObject, root) then
-				handoff = true
-				root:SetAttribute("FacetSelectionOwner", true)
-				gui.SelectedObject = nil
-			end
-			if top ~= list[#list] and gui then
-				changedFrom = { selected = gui.SelectedObject :: GuiObject? }
-			end
-			local departing = leaving:peek()
-			if table.find(list, top) == nil and (animated or timing ~= nil) and level() ~= "none" then
-				leaving:set({ entry = top, behind = animated and table.find(former, list[#list]) == nil })
-			elseif departing and table.find(list, departing.entry) then
-				leaving:set(nil)
-			elseif departing and animated and table.find(former, list[#list]) == nil then
-				leaving:set({ entry = departing.entry, behind = true })
-			end
-		end)
-		local displayed = Compose.formula(function(use: ComposeTypes.Use)
-			local list = use(entries)
-			local departing = use(leaving)
-			if departing == nil or table.find(list, departing.entry) then
-				return list
-			end
-			local result = table.clone(list)
-			table.insert(result, if departing.behind then #result else #result + 1, departing.entry)
-			return result
-		end)
+		if gui or animated or timing then
+			local shownList = entries:peek()
+			Compose.watch(function(use: ComposeTypes.Use)
+				local list = use(entries)
+				local former = shownList
+				shownList = list
+				local top = former[#former]
+				if top ~= list[#list] and gui and root and surfaces.within(gui.SelectedObject, root) then
+					handoff = true
+					root:SetAttribute("FacetSelectionOwner", true)
+					gui.SelectedObject = nil
+				end
+				if top ~= list[#list] and gui then
+					changedFrom = { selected = gui.SelectedObject }
+				end
+				local departing = leaving:peek()
+				if table.find(list, top) == nil and (animated or timing ~= nil) and level() ~= "none" then
+					leaving:set({ entry = top, behind = animated and table.find(former, list[#list]) == nil })
+				elseif departing and table.find(list, departing.entry) then
+					leaving:set(nil)
+				elseif departing and animated and table.find(former, list[#list]) == nil then
+					leaving:set({ entry = departing.entry, behind = true })
+				end
+			end)
+		end
+		local displayed: ComposeTypes.ReadOnlyValue<{ Nav.NavigationEntry<P> }> = if spec.transition == false
+			then entries
+			else Compose.formula(function(use: ComposeTypes.Use)
+				local list = use(entries)
+				local departing = use(leaving)
+				if departing == nil or table.find(list, departing.entry) then
+					return list
+				end
+				local result = table.clone(list)
+				table.insert(result, if departing.behind then #result else #result + 1, departing.entry)
+				return result
+			end)
 		local offsets: ComposeTypes.Value<{ [Nav.NavigationEntry<P>]: (ComposeTypes.Use?) -> number }> =
 			Compose.cell({})
 		local stackReady = false
@@ -128,18 +132,20 @@ return function(
 			local measure = use(offsets)[list[#list]]
 			return if measure then measure(use) else 0, measure ~= nil
 		end
-		local backdrop: ComposeTypes.Value<Color3?> = Compose.cell(nil :: Color3?)
-		local moving = Compose.formula(function(use: ComposeTypes.Use): boolean
-			return frontOffset(use) > 0 or use(leaving) ~= nil
-		end)
+		local backdrop = Compose.cell<<Color3?>>(nil)
+		local moving = if spec.transition == false
+			then Compose.cell(false)
+			else Compose.formula(function(use: ComposeTypes.Use): boolean
+				return frontOffset(use) > 0 or use(leaving) ~= nil
+			end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			if not use(moving) then
 				return
 			end
 			local at: Instance? = root and root.Parent
 			while at do
-				if at:IsA("GuiObject") and (at:GetStyled("BackgroundTransparency") :: number) < 1 then
-					backdrop:set(at:GetStyled("BackgroundColor3") :: Color3)
+				if at:IsA("GuiObject") and at:GetStyled("BackgroundTransparency") < 1 then
+					backdrop:set(at:GetStyled("BackgroundColor3"))
 					return
 				end
 				at = at.Parent
@@ -272,12 +278,16 @@ return function(
 							})
 						end),
 					}
-					local barSize = ctx.observeNative.AbsoluteSize(navigationBar)
-					Compose.watch(function(use: ComposeTypes.Use)
-						local large = entry == rootEntry and adaptive.sizeClass(use(barSize).X) ~= "compact"
-						title:RemoveTag(if large then "facet-type-heading" else "facet-type-title")
-						title:AddTag(if large then "facet-type-title" else "facet-type-heading")
-					end)
+					if entry == rootEntry then
+						local barSize = ctx.observeNative.AbsoluteSize(navigationBar)
+						Compose.watch(function(use: ComposeTypes.Use)
+							local large = adaptive.sizeClass(use(barSize).X) ~= "compact"
+							title:RemoveTag(if large then "facet-type-heading" else "facet-type-title")
+							title:AddTag(if large then "facet-type-title" else "facet-type-heading")
+						end)
+					else
+						title:AddTag("facet-type-heading")
+					end
 					if prepareTitle then
 						local fontsReady = fontReadiness(ctx, { title })
 						local settled = runtime.settled {
@@ -449,137 +459,137 @@ return function(
 						entering:set(false)
 						fading:set(false)
 					end
-					Compose.watch(function(use: ComposeTypes.Use)
-						if not use(moving) then
-							return
-						end
-						if gui and surfaces.within(gui.SelectedObject, panel) then
-							handoff = true
-							root:SetAttribute("FacetSelectionOwner", true)
-							gui.SelectedObject = nil
-						end
-						local departure = use(leaving)
-						if
-							timing == nil
-							and use(role) == "exiting"
-							and departure ~= nil
-							and departure.entry == entry
-						then
-							local front, measured = frontOffset(use)
-							local complete = if departure.behind then measured and front <= 0 else offset(use) >= 1
-							if complete then
-								leaving:set(nil)
+					if spec.transition ~= false then
+						Compose.watch(function(use: ComposeTypes.Use)
+							if not use(moving) then
+								return
 							end
-						end
-					end)
-					local visible, parent = ctx.observe.Visible(panel), ctx.observe.Parent(panel)
-					local interactable = ctx.observe.Interactable(panel)
-					local remembered: GuiObject?
-					local rememberedPath: { string } = {}
-					local previousTop: boolean?
-					local focusing = surfaces.selecting()
-					Compose.watch(function(use: ComposeTypes.Use)
-						local selected = use(selectedObject)
-						if selected and selected:IsA("GuiObject") and surfaces.within(selected, panel) then
-							remembered = selected :: GuiObject
-							table.clear(rememberedPath)
-							local at: Instance? = selected
-							while at and at ~= panel do
-								table.insert(rememberedPath, 1, at.Name)
-								at = at.Parent
+							if gui and surfaces.within(gui.SelectedObject, panel) then
+								handoff = true
+								root:SetAttribute("FacetSelectionOwner", true)
+								gui.SelectedObject = nil
 							end
-						end
-					end)
-					local function recall(): GuiObject?
-						if remembered and remembered.Parent then
-							return remembered
-						end
-						local at: Instance? = panel
-						for _, name in rememberedPath do
-							at = if at then at:FindFirstChild(name) else nil
-						end
-						return if at and at ~= panel and at:IsA("GuiObject") then at :: GuiObject else nil
-					end
-					local function contentEntry(): GuiObject?
-						return surfaces.firstSelectable(destinationFrame, nil, function(node: Instance): boolean
-							return node:GetAttribute("FacetNavBar") == true
+							local departure = use(leaving)
+							if
+								timing == nil
+								and use(role) == "exiting"
+								and departure ~= nil
+								and departure.entry == entry
+							then
+								local front, measured = frontOffset(use)
+								local complete = if departure.behind then measured and front <= 0 else offset(use) >= 1
+								if complete then
+									leaving:set(nil)
+								end
+							end
 						end)
 					end
-					local resolved: string | false | nil = nil
-					local function landing(): GuiObject?
-						if resolved == nil then
-							local wanted = destination.initialFocus
-							local name = if type(wanted) == "function" then wanted() else wanted
-							assert(
-								name == nil or type(name) == "string",
-								"Facet.NavigationStack: initialFocus must return a control's name or nil"
-							)
-							resolved = if name then name else false
+					if gui then
+						local guiService: GuiService = gui
+						local visible, parent = ctx.observe.Visible(panel), ctx.observe.Parent(panel)
+						local interactable = ctx.observe.Interactable(panel)
+						local remembered: GuiObject?
+						local rememberedPath: { string } = {}
+						local previousTop: boolean?
+						local focusing = surfaces.selecting()
+						Compose.watch(function(use: ComposeTypes.Use)
+							local selected = use(selectedObject)
+							if selected and selected:IsA("GuiObject") and surfaces.within(selected, panel) then
+								remembered = selected
+								table.clear(rememberedPath)
+								local at: Instance? = selected
+								while at and at ~= panel do
+									table.insert(rememberedPath, 1, at.Name)
+									at = at.Parent
+								end
+							end
+						end)
+						local function recall(): GuiObject?
+							if remembered and remembered.Parent then
+								return remembered
+							end
+							local at: Instance? = panel
+							for _, name in rememberedPath do
+								at = if at then at:FindFirstChild(name) else nil
+							end
+							return if at and at ~= panel and at:IsA("GuiObject") then at else nil
 						end
-						if resolved then
-							for _, node in panel:GetDescendants() do
-								if node.Name == resolved then
-									local found = surfaces.firstSelectable(node)
-									if found then
-										return found
+						local function contentEntry(): GuiObject?
+							return surfaces.firstSelectable(destinationFrame, nil, function(node: Instance): boolean
+								return node:GetAttribute("FacetNavBar") == true
+							end)
+						end
+						local resolved: string | false | nil = nil
+						local function landing(): GuiObject?
+							if resolved == nil then
+								local wanted = destination.initialFocus
+								local name = if type(wanted) == "function" then wanted() else wanted
+								assert(
+									name == nil or type(name) == "string",
+									"Facet.NavigationStack: initialFocus must return a control's name or nil"
+								)
+								resolved = if name then name else false
+							end
+							if resolved then
+								for _, node in panel:GetDescendants() do
+									if node.Name == resolved then
+										local found = surfaces.firstSelectable(node)
+										if found then
+											return found
+										end
 									end
 								end
 							end
+							return contentEntry()
+								or surfaces.firstSelectable(destinationFrame)
+								or surfaces.firstSelectable(panel)
 						end
-						return contentEntry()
-							or surfaces.firstSelectable(destinationFrame)
-							or surfaces.firstSelectable(panel)
-					end
-					local function claims(selected: GuiObject?, pushed: boolean): boolean
-						return selected ~= nil and (pushed or surfaces.within(selected, root))
-					end
-					local function claimedElsewhere(selected: GuiObject?): boolean
-						local origin = changedFrom
-						return origin ~= nil
-							and selected ~= nil
-							and selected ~= origin.selected
-							and not surfaces.within(selected, root)
-					end
-					local provisional = Compose.cell(nil :: GuiObject?)
-					Compose.watch(function(use: ComposeTypes.Use)
-						local top = use(role) == "top"
-						if top and (use(moving) or not use(visible) or not use(interactable)) then
-							return
+						local function claims(selected: GuiObject?, pushed: boolean): boolean
+							return selected ~= nil and (pushed or surfaces.within(selected, root))
 						end
-						if not use(parent) then
-							return
+						local function claimedElsewhere(selected: GuiObject?): boolean
+							local origin = changedFrom
+							return origin ~= nil
+								and selected ~= nil
+								and selected ~= origin.selected
+								and not surfaces.within(selected, root)
 						end
-						if
-							gui
-							and top
-							and use(visible)
-							and use(parent)
-							and previousTop ~= true
-							and (previousTop == false or use(state).index > 1)
-							and (handoff or focusing(use) or claims(gui.SelectedObject, previousTop == nil))
-						then
-							handoff = false
-							if claimedElsewhere(gui.SelectedObject) then
-								root:SetAttribute("FacetSelectionOwner", false)
-								previousTop = top
+						local provisional = Compose.cell<<GuiObject?>>(nil)
+						Compose.watch(function(use: ComposeTypes.Use)
+							local top = use(role) == "top"
+							if top and (use(moving) or not use(visible) or not use(interactable)) then
 								return
 							end
-							local back = recall()
-							local usable = back and back.Visible and back.Selectable and back.Interactable
-							local target = if usable then back else landing()
-							if target ~= nil or surfaces.within(gui.SelectedObject, root) then
-								gui.SelectedObject = target
+							if not use(parent) then
+								return
 							end
-							provisional:set(
-								if not usable and not resolved and target ~= contentEntry() then target else nil
-							)
-							root:SetAttribute("FacetSelectionOwner", false)
-						end
-						previousTop = top
-					end)
-					if gui then
+							if
+								top
+								and previousTop ~= true
+								and (previousTop == false or use(state).index > 1)
+								and (handoff or focusing(use) or claims(guiService.SelectedObject, previousTop == nil))
+							then
+								handoff = false
+								if claimedElsewhere(guiService.SelectedObject) then
+									root:SetAttribute("FacetSelectionOwner", false)
+									previousTop = top
+									return
+								end
+								local back = recall()
+								local usable = back and back.Visible and back.Selectable and back.Interactable
+								local target = if usable then back else landing()
+								if target ~= nil or surfaces.within(guiService.SelectedObject, root) then
+									guiService.SelectedObject = target
+								end
+								provisional:set(
+									if not usable and not resolved and target ~= contentEntry() then target else nil
+								)
+								root:SetAttribute("FacetSelectionOwner", false)
+							end
+							previousTop = top
+						end)
 						entryUpgrade(ctx, {
-							gui = gui,
+							gui = guiService,
 							panel = destinationFrame,
 							held = provisional,
 							entry = contentEntry,

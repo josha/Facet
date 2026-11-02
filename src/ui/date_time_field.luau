@@ -256,16 +256,16 @@ return function(
 			local bounds = ctx.observe.AbsoluteSize(plate)
 			local tenFoot = ctx.tenFoot()
 			local atTenFoot = Compose.formula(tenFoot):peek()
-			local atTouch = (preferred :: ReadOnlyValue<unknown>):peek() == E.PreferredInput.Touch
+			local atTouch = preferred:peek() == E.PreferredInput.Touch
 			local route = Compose.formula(function(use: Use): string
 				if atTenFoot then
 					return "sheet"
 				end
-				local offer = use(extent) :: Vector2
+				local offer = use(extent)
 				return if atTouch and offer.X > 0 and offer.X < 600 then "sheet" else "popover"
 			end)
 			Compose.watch(function(use: Use)
-				local offer = use(extent) :: Vector2
+				local offer = use(extent)
 				room:set(offer.X - 96)
 				routeCell:set(use(route))
 			end)
@@ -340,8 +340,8 @@ return function(
 				end,
 			})
 			local function surfaceSize(use: Use): UDim2
-				local offer = use(extent) :: Vector2
-				local height = (use(content) :: Vector2).Y + carve("top", use) + carve("bottom", use)
+				local offer = use(extent)
+				local height = use(content).Y + carve("top", use) + carve("bottom", use)
 				if offer.Y > 0 then
 					height = math.min(height, offer.Y - 16)
 				end
@@ -354,8 +354,7 @@ return function(
 			local geometry: Shared.CanvasGroupNativeProps = {
 				Size = surfaceSize,
 				Position = function(use: Use)
-					local at, size, offer, offset =
-						use(position) :: Vector2, use(bounds) :: Vector2, use(extent) :: Vector2, use(origin) :: Vector2
+					local at, size, offer, offset = use(position), use(bounds), use(extent), use(origin)
 					local desired = surfaceSize(use)
 					local box = V2.new(offer.X * desired.X.Scale + desired.X.Offset, desired.Y.Offset)
 					if use(route) == "sheet" then

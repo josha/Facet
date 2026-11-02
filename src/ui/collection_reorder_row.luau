@@ -5,9 +5,6 @@ local activation = require("./activation")
 local scrollLock = require("./scroll_lock")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
-local EngineTypes = require("./engine_types")
-local InputTypes = require("./input_types")
-local InputProps = require("./input_props")
 local pointerOf = require("./drag_pointer")
 local State = require("./collection_reorder_state")
 local Pointer = require("./collection_reorder_pointer")
@@ -27,6 +24,11 @@ return function<V, K>(
 	local controlsShown, leading, trailing, header =
 		shared.controlsShown, shared.leading, shared.trailing, shared.header
 	local mode, minusShown = shared.mode, shared.minusShown
+	local fixedCells = shared.editing == nil and not minusShown
+	local cellPosition = if grid then D2.fromOffset(0, header:peek()) else D2.fromOffset(leading:peek(), 0)
+	local cellSize = if grid
+		then D2.new(1, 0, 1, -header:peek())
+		else D2.new(1, -leading:peek() - trailing:peek(), 1, 0)
 	local rowNodes, rowKeys = shared.rowNodes, shared.rowKeys
 	local gui, movable = shared.gui, shared.movable
 	local begin, commit, movePointer = shared.begin, shared.commit, shared.movePointer
@@ -34,9 +36,74 @@ return function<V, K>(
 	local selectedObject: ComposeTypes.ReadOnlyValue<unknown>? = if ctx.config.guiService
 		then ctx.observe.SelectedObject(ctx.config.guiService)
 		else nil
+	local edgeSpring = ctx.motionSpring("snappy")
+	local left: ComposeTypes.ReadOnlyValue<number> = ctx.runtime.spring(function(use: ComposeTypes.Use): number
+		return use(leading)
+	end, { period = edgeSpring.period, damping = edgeSpring.damping })
+	local trailingEdge: ComposeTypes.ReadOnlyValue<number> = ctx.runtime.spring(function(use: ComposeTypes.Use): number
+		return use(trailing)
+	end, { period = edgeSpring.period, damping = edgeSpring.damping })
+	type Access = {
+		current: ComposeTypes.ReadOnlyValue<V>,
+		detector: UIDragDetector?,
+		handleDetector: UIDragDetector?,
+		handle: TextButton?,
+		enabled: boolean?,
+		rowEnabled: boolean?,
+		handleEnabled: boolean?,
+	}
+	local entries: { [K]: Access } = {}
+	local allowed, rowsAllowed, unsorted = false, false, false
+	local focused: unknown = nil
+	local function refresh(entry: Access, item: V?)
+		local enabled = unsorted and (if item ~= nil then movable(item) else movable(entry.current:peek()))
+		local handle = entry.handle
+		if handle and enabled ~= entry.enabled then
+			entry.enabled = enabled
+			handle.Interactable, handle.Selectable = enabled, enabled
+			if enabled then
+				handle:RemoveTag("facet-disabled")
+			else
+				handle:AddTag("facet-disabled")
+			end
+		end
+		local rowEnabled = reorderable and enabled and rowsAllowed
+		if entry.detector and entry.rowEnabled ~= rowEnabled then
+			entry.rowEnabled = rowEnabled
+			entry.detector.Enabled = rowEnabled
+		end
+		local handleEnabled = enabled and allowed and not (handle and rawequal(handle, focused))
+		if entry.handleDetector and entry.handleEnabled ~= handleEnabled then
+			entry.handleEnabled = handleEnabled
+			entry.handleDetector.Enabled = handleEnabled
+		end
+	end
+	Compose.watch(function(use: ComposeTypes.Use)
+		local kind = if preferred then use(preferred) else nil
+		allowed, unsorted = pointerInput(use), use(sort) == nil
+		rowsAllowed = allowed and kind ~= E.PreferredInput.Touch and kind ~= E.PreferredInput.Gamepad
+		focused = if kind == E.PreferredInput.Gamepad and selectedObject then use(selectedObject) else nil
+		local items: { [K]: V } = {}
+		if spec.movable ~= nil or spec.disabled ~= nil then
+			for index, item in ctx.readSource(shared.source, use) do
+				items[shared.keyOf(item, index)] = item
+			end
+		end
+		for key, entry in entries do
+			refresh(entry, items[key])
+		end
+	end)
 	local function wrap(row: GuiObject, current: ComposeTypes.ReadOnlyValue<V>, key: K, painted: boolean?): Frame
 		rowKeys[row] = key
-		local carried, lead = shared.carried(key), shared.leads(key)
+		local entry: Access = { current = current }
+		entries[key] = entry
+		Compose.cleanup(function()
+			if entries[key] == entry then
+				entries[key] = nil
+			end
+		end)
+		local move = moving:peek()
+		local carried = move ~= nil and move.included[key] == true
 		local handleNode: Instance? = nil
 		local function toggle()
 			if moving:peek() then
@@ -45,176 +112,218 @@ return function<V, K>(
 				begin(key)
 			end
 		end
-		local function activate(activation: InputObject?)
-			if
-				activation
-				and (
-					activation.UserInputType == E.UserInputType.MouseButton1
-					or activation.UserInputType == E.UserInputType.Touch
-				)
-			then
-				return
-			end
-			toggle()
-		end
 		local armed = false
-		local confirming = Compose.cell(false)
-		Compose.watch(function(use: ComposeTypes.Use)
-			if not use(controlsShown) and confirming:peek() then
-				confirming:set(false)
+		local confirming = if minusShown then Compose.cell(false) else nil
+		if confirming then
+			Compose.watch(function(use: ComposeTypes.Use)
+				if not use(controlsShown) then
+					confirming:set(false)
+				end
+			end)
+		end
+		local function makeHandle(): TextButton
+			local lead = shared.leads(key)
+			local handleDetector = Host.UIDragDetector {
+				Archivable = false,
+				DragStyle = if grid
+					then E.UIDragDetectorDragStyle.TranslatePlane
+					else E.UIDragDetectorDragStyle.TranslateLine,
+				DragAxis = if shared.horizontal then V2.new(1, 0) else V2.new(0, 1),
+				ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
+				Enabled = false,
+				DragStart = function(position)
+					position = pointerOf(ctx, position)
+					local current = moving:peek()
+					gesture.origin, gesture.travel = position, 0
+					gesture.pickupPosition = position
+					armed = current ~= nil and current.keyboard
+					if not armed then
+						begin(key, position)
+						gesture.selectedPickup = moving:peek() ~= nil
+							and gui ~= nil
+							and handleNode ~= nil
+							and rawequal(gui.SelectedObject, handleNode)
+					end
+				end,
+				DragContinue = function(position)
+					position = pointerOf(ctx, position)
+					if gesture.origin then
+						gesture.travel = math.max(gesture.travel, (position - gesture.origin).Magnitude)
+					end
+					if not armed or gesture.travel >= TAP then
+						movePointer(position)
+					end
+				end,
+				DragEnd = function()
+					local tapped = gesture.origin ~= nil and gesture.travel < TAP
+					gesture.origin = nil
+					if armed then
+						armed = false
+						commit()
+						return
+					end
+					if tapped then
+						shared.cancel()
+						toggle()
+					else
+						commit()
+					end
+				end,
+			}
+			local handle: TextButton
+			local function activate(input: InputObject?, clicks: number?)
+				if
+					activation.consumed(input)
+					or activation.intercepted(handle, input)
+					or not movable(current:peek())
+					or read(sort) ~= nil
+					or not ctx.available(handle)
+				then
+					return
+				end
+				if
+					input == nil
+					or (
+						input.UserInputType ~= E.UserInputType.MouseButton1
+						and input.UserInputType ~= E.UserInputType.Touch
+					)
+				then
+					toggle()
+				end
+				activation.notify(handle, input, clicks)
 			end
-		end)
-		local handle = if reorderable
-			then Compose.show(controlsShown, function()
-				local handleProps: InputProps.ButtonProps = {
-					Name = "Move",
-					Visible = function(use: ComposeTypes.Use)
-						return use(controlsShown) and not use(confirming)
+			local handleProps: Types.TextButtonProps = {
+				Name = "Move",
+				Archivable = false,
+				Visible = if shared.editing == nil and confirming == nil
+					then true
+					else function(use: ComposeTypes.Use)
+						return use(controlsShown) and (confirming == nil or not use(confirming))
 					end,
-					AnchorPoint = V2.new(1, 0),
-					Position = D2.fromScale(1, 0),
-					Size = if grid then D2.fromOffset(44, 44) else D2.new(0, 44, 1, 0),
-					AutomaticSize = E.AutomaticSize.None,
+				AnchorPoint = V2.new(1, 0),
+				Position = D2.fromScale(1, 0),
+				Size = if grid then D2.fromOffset(44, 44) else D2.new(0, 44, 1, 0),
+				AutomaticSize = E.AutomaticSize.None,
+				Text = "",
+				AutoButtonColor = false,
+				Selectable = unsorted and movable(current:peek()),
+				Interactable = unsorted and movable(current:peek()),
+				Attributes = {
 					appearance = "utility",
+					controlSize = "regular",
+					role = "default",
 					label = "",
-					ctx.icon(function(use: ComposeTypes.Use)
-						return if use(lead) then "checkmark" elseif grid then "view.grid" else "menu"
-					end, {
-						Name = "ReorderIcon",
-						AnchorPoint = V2.new(0.5, 0.5),
-						Position = D2.fromScale(0.5, 0.5),
-					}),
-					enabled = function(use: ComposeTypes.Use)
-						return movable(use(current)) and read(sort, use) == nil
-					end,
-					onActivate = activate,
-					ctx.Host.UIDragDetector {
-						DragStyle = if grid
-							then E.UIDragDetectorDragStyle.TranslatePlane
-							else E.UIDragDetectorDragStyle.TranslateLine,
-						DragAxis = if shared.horizontal then V2.new(1, 0) else V2.new(0, 1),
-						ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-						Enabled = function(use: ComposeTypes.Use)
-							local selected = if selectedObject then use(selectedObject) else nil
-							local held = preferred ~= nil
-								and use(preferred) == E.PreferredInput.Gamepad
-								and handleNode ~= nil
-								and rawequal(selected, handleNode)
-							return pointerInput(use) and movable(use(current)) and read(sort, use) == nil and not held
-						end,
-						DragStart = function(position)
-							position = pointerOf(ctx, position)
-							local current = moving:peek()
-							gesture.origin, gesture.travel = position, 0
-							gesture.pickupPosition = position
-							armed = current ~= nil and current.keyboard
-							if not armed then
-								begin(key, position)
-								gesture.selectedPickup = moving:peek() ~= nil
-									and gui ~= nil
-									and handleNode ~= nil
-									and rawequal(gui.SelectedObject, handleNode)
-							end
-						end,
-						DragContinue = function(position)
-							position = pointerOf(ctx, position)
-							if gesture.origin then
-								gesture.travel = math.max(gesture.travel, (position - gesture.origin).Magnitude)
-							end
-							if not armed or gesture.travel >= TAP then
-								movePointer(position)
-							end
-						end,
-						DragEnd = function()
-							local tapped = gesture.origin ~= nil and gesture.travel < TAP
-							gesture.origin = nil
-							if armed then
-								armed = false
-								commit()
-								return
-							end
-							if tapped then
-								shared.cancel()
-								toggle()
-							else
-								commit()
-							end
-						end,
-					},
-				}
-				local handle: TextButton = UI.Button(handleProps)
-				handleNode = handle
-				if handle then
-					ctx.runtime.connect(handle, "InputBegan", function(value: InputObject)
-						if
-							value.UserInputType == E.UserInputType.MouseButton1
-							or value.UserInputType == E.UserInputType.Touch
-						then
-							gesture.pendingInput = value
-							local move = moving:peek()
-							if move and move.pointer and gesture.captured == nil then
-								gesture.captured = value
-								activation.consume(value)
-								if value.UserInputType == E.UserInputType.Touch and not gesture.releaseScrollers then
-									gesture.releaseScrollers = scrollLock.holdAncestors(handle)
-								end
+					selected = false,
+					busy = false,
+				},
+				ctx.icon(function(use: ComposeTypes.Use)
+					return if use(lead) then "checkmark" elseif grid then "view.grid" else "menu"
+				end, {
+					Name = "ReorderIcon",
+					AnchorPoint = V2.new(0.5, 0.5),
+					Position = D2.fromScale(0.5, 0.5),
+				}),
+				Activated = activate,
+				handleDetector,
+			}
+			handle = ctx.styled(Host.TextButton(handleProps), "button")
+			handle:AddTag("facet-appearance-utility")
+			local effect = ctx.haptic(nil)
+			if effect then
+				handle.PressHapticEffect = effect
+			end
+			activation.mark(handle)
+			Compose.cleanup(activation.provide(handle, activate))
+			handleNode = handle
+			rowKeys[handle] = key
+			entry.handle, entry.handleDetector = handle, handleDetector
+			entry.enabled, entry.handleEnabled = nil, nil
+			refresh(entry)
+			Compose.cleanup(function()
+				if entry.handle == handle then
+					entry.handle, entry.handleDetector, handleNode = nil, nil, nil
+				end
+			end)
+			if handle then
+				ctx.runtime.connect(handle, "InputBegan", function(value: InputObject)
+					if
+						value.UserInputType == E.UserInputType.MouseButton1
+						or value.UserInputType == E.UserInputType.Touch
+					then
+						gesture.pendingInput = value
+						local move = moving:peek()
+						if move and move.pointer and gesture.captured == nil then
+							gesture.captured = value
+							activation.consume(value)
+							if value.UserInputType == E.UserInputType.Touch and not gesture.releaseScrollers then
+								gesture.releaseScrollers = scrollLock.holdAncestors(handle)
 							end
 						end
-					end)
-				end
-				return handle
-			end)
+					end
+				end)
+			end
+			return handle
+		end
+		local handle = if not reorderable
+			then nil
+			elseif shared.editing ~= nil then Compose.show(controlsShown, makeHandle)
+			elseif controlsShown:peek() then makeHandle()
 			else nil
 		local function deletableRow(use: ComposeTypes.Use): boolean
 			local item = use(current)
 			return policy.allows(spec.rowDeletable, item) and not policy.disabled(spec.disabled, item)
 		end
-		local minusProps: InputProps.ButtonProps = {
-			Name = "Minus",
-			label = "−",
-			name = "Delete",
-			shape = "circle" :: "circle",
-			role = "destructive" :: InputTypes.ButtonRole,
-			AnchorPoint = V2.new(0.5, 0.5),
-			Position = if grid then D2.fromOffset(22, 22) else D2.new(0, 22, 0.5, 0),
-			Size = D2.fromOffset(28, 28),
-			Visible = controlsShown,
-			enabled = deletableRow,
-			onActivate = function()
-				confirming:set(not confirming:peek())
-			end,
-		}
-		local confirmProps: InputProps.ButtonProps = {
-			Name = "Delete",
-			label = "Delete",
-			role = "destructive" :: InputTypes.ButtonRole,
-			AnchorPoint = V2.new(1, 0),
-			Position = D2.fromScale(1, 0),
-			Size = if grid then D2.fromOffset(88, 44) else D2.new(0, 88, 1, 0),
-			AutomaticSize = E.AutomaticSize.None,
-			Visible = function(use: ComposeTypes.Use)
-				return use(controlsShown) and use(confirming)
-			end,
-			enabled = deletableRow,
-			onActivate = function()
-				confirming:set(false)
-				if spec.onDelete then
-					spec.onDelete({ key })
-				end
-			end,
-		}
-		local minus = if minusShown then UI.Button(minusProps) else nil
-		local confirm = if minusShown then UI.Button(confirmProps) else nil
+		local minus = if minusShown
+			then UI.Button {
+				Name = "Minus",
+				Archivable = false,
+				label = "−",
+				name = "Delete",
+				shape = "circle",
+				role = "destructive",
+				AnchorPoint = V2.new(0.5, 0.5),
+				Position = if grid then D2.fromOffset(22, 22) else D2.new(0, 22, 0.5, 0),
+				Size = D2.fromOffset(28, 28),
+				Visible = controlsShown,
+				enabled = deletableRow,
+				onActivate = function()
+					assert(confirming):set(not assert(confirming):peek())
+				end,
+			}
+			else nil
+		local confirm = if minusShown
+			then UI.Button {
+				Name = "Delete",
+				Archivable = false,
+				label = "Delete",
+				role = "destructive",
+				AnchorPoint = V2.new(1, 0),
+				Position = D2.fromScale(1, 0),
+				Size = if grid then D2.fromOffset(88, 44) else D2.new(0, 88, 1, 0),
+				AutomaticSize = E.AutomaticSize.None,
+				Visible = function(use: ComposeTypes.Use)
+					return use(controlsShown) and confirming ~= nil and use(confirming)
+				end,
+				enabled = deletableRow,
+				onActivate = function()
+					assert(confirming):set(false)
+					if spec.onDelete then
+						spec.onDelete({ key })
+					end
+				end,
+			}
+			else nil
 		local mark = if shared.marked
 			then ctx.styled(
 				Host.Frame "SelectMark" {
+					Archivable = false,
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = if grid then D2.fromOffset(22, 22) else D2.new(0, 22, 0.5, 0),
 					Size = D2.fromOffset(18, 18),
 					BackgroundTransparency = 1,
 					Selectable = false,
 					Visible = shared.markShown,
-					ctx.corner(if mode == "multiple" then 3 else 9) :: Types.Child,
+					ctx.corner(if mode == "multiple" then 3 else 9),
 					(if mode == "multiple"
 						then ctx.icon("checkmark", {
 							Name = "Check",
@@ -233,7 +342,7 @@ return function<V, K>(
 								Visible = function(use: ComposeTypes.Use)
 									return use(selection)[key] == true
 								end,
-								ctx.corner(4) :: Types.Child,
+								ctx.corner(4),
 							},
 							"fill"
 						)),
@@ -242,13 +351,11 @@ return function<V, K>(
 			)
 			else nil
 		local function rightOf(use: ComposeTypes.Use): number
-			return if use(confirming) then 88 else use(trailing)
+			return if confirming and use(confirming) then 88 else use(trailing)
 		end
-		local edgeSpring = ctx.motionSpring("snappy")
-		local left = ctx.runtime.spring(function(use: ComposeTypes.Use)
-			return use(leading)
-		end, { period = edgeSpring.period, damping = edgeSpring.damping })
-		local right = ctx.runtime.spring(rightOf, { period = edgeSpring.period, damping = edgeSpring.damping })
+		local right: ComposeTypes.ReadOnlyValue<number> = if minusShown
+			then ctx.runtime.spring(rightOf, { period = edgeSpring.period, damping = edgeSpring.damping })
+			else trailingEdge
 		local function edges(use: ComposeTypes.Use): Vector2
 			if shared.instantLayout or shared.motionReduced(use) then
 				return V2.new(use(leading), rightOf(use))
@@ -261,27 +368,30 @@ return function<V, K>(
 			BackgroundTransparency = if painted then nil else 1,
 			Attributes = {
 				FacetDragging = carried,
-			} :: EngineTypes.Attributes,
+			},
 			Host.Frame "Cells" {
-				Visible = function(use: ComposeTypes.Use)
-					return not use(carried)
-				end,
-				Position = function(use: ComposeTypes.Use)
-					return if grid
-						then D2.fromOffset(0, use(header))
-						else D2.fromOffset(math.floor(edges(use).X + 0.5), 0)
-				end,
-				Size = function(use: ComposeTypes.Use)
-					local at = edges(use)
-					return if grid
-						then D2.new(1, 0, 1, -use(header))
-						else D2.new(1, -math.floor(at.X + at.Y + 0.5), 1, 0)
-				end,
+				Visible = not carried,
+				Position = if fixedCells
+					then cellPosition
+					else function(use: ComposeTypes.Use)
+						return if grid
+							then D2.fromOffset(0, use(header))
+							else D2.fromOffset(math.floor(edges(use).X + 0.5), 0)
+					end,
+				Size = if fixedCells
+					then cellSize
+					else function(use: ComposeTypes.Use)
+						local at = edges(use)
+						return if grid
+							then D2.new(1, 0, 1, -use(header))
+							else D2.new(1, -math.floor(at.X + at.Y + 0.5), 1, 0)
+					end,
 				BackgroundTransparency = 1,
 				row,
 			},
 		}
-		for _, control in { handle, minus, confirm, mark } :: { ComposeTypes.Child } do
+		local rowControls: { ComposeTypes.Child? } = { handle, minus, confirm, mark }
+		for _, control in rowControls do
 			if control then
 				nativeProps[#nativeProps + 1] = control
 			end
@@ -326,18 +436,10 @@ return function<V, K>(
 		end
 		local detector = Host.UIDragDetector {
 			Name = "FacetCollectionDrag",
+			Archivable = false,
 			DragStyle = E.UIDragDetectorDragStyle.TranslatePlane,
 			ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-			Enabled = function(use: ComposeTypes.Use)
-				return reorderable
-					and pointerInput(use)
-					and movable(use(current))
-					and read(sort, use) == nil
-					and (
-						preferred == nil
-						or (use(preferred) ~= E.PreferredInput.Touch and use(preferred) ~= E.PreferredInput.Gamepad)
-					)
-			end,
+			Enabled = false,
 			DragStart = function(position)
 				position = pointerOf(ctx, position)
 				rowOrigin, rowDragged = position, false
@@ -373,7 +475,7 @@ return function<V, K>(
 						local frames = ctx.runtime.host.frames
 						local now = if frames then frames.now() else os.clock()
 						local previous = gesture.lastTap
-						local position = tapPosition :: Vector2
+						local position = assert(tapPosition)
 						local double = previous ~= nil
 							and previous.key == key
 							and now - previous.at <= 0.5
@@ -381,8 +483,8 @@ return function<V, K>(
 						gesture.lastTap = if double then nil else { key = key, position = position, at = now }
 						local target = hit
 						local layer = frame:FindFirstAncestorWhichIsA("BasePlayerGui")
-						if layer and not double then
-							for _, candidate in (layer :: PlayerGui):GetGuiObjectsAtPosition(position.X, position.Y) do
+						if layer and layer:IsA("BasePlayerGui") and not double then
+							for _, candidate in layer:GetGuiObjectsAtPosition(position.X, position.Y) do
 								if candidate.Name == "EditLabel" and candidate:IsDescendantOf(frame) then
 									target = candidate
 									break
@@ -395,29 +497,20 @@ return function<V, K>(
 				end
 			end,
 		}
+		entry.detector = detector
+		refresh(entry)
 		detector.Parent = row
 		Compose.cleanup(activation.provideDrag(frame, function(phase, position)
 			if phase == "start" then
 				rowOrigin = position
 				gesture.pickupPosition = position
 			elseif phase == "move" and position then
-				if
-					rowOrigin
-					and not moving:peek()
-					and (position - rowOrigin).Magnitude >= 6
-					and gesture.pendingInput
-					and gesture.pendingInput.UserInputType == E.UserInputType.MouseButton1
-					and (
-						grid
-						or spec.drag ~= nil
-						or math.abs(axis(position) - axis(rowOrigin))
-							>= math.abs(crossAxis(position) - crossAxis(rowOrigin))
-					)
-				then
-					begin(key, position)
+				if gesture.pendingInput and gesture.pendingInput.UserInputType == E.UserInputType.MouseButton1 then
+					continueRowDrag(position)
+				elseif moving:peek() then
+					movePointer(position)
 				end
 				if moving:peek() then
-					movePointer(position)
 					return true
 				end
 			elseif phase == "end" then

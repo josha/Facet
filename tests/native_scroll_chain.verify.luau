@@ -62,16 +62,37 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native nested scroll handoff", function()
-		verifyHarness:case("overlapping native input leases retain each scroller's original state", function()
+		for _, touch in { false, true } do
+			verifyHarness:case(
+				`a Sheet shield blocks {if touch then "touch" else "wheel"} input to nested background panes until it closes`,
+				function(check)
+					local w = require("./lib/modal_scroll_world")("Sheet")
+					check:defer(w.stop)
+					local before = w.list.CanvasPosition.Y
+					w.open:set(true)
+					w.settle()
+					w.scroll(touch)
+					Verify.expect(w.list.CanvasPosition.Y):toBe(before)
+					Verify.expect(w.page.CanvasPosition.Y):toBe(0)
+					Verify.expect(w.open:peek()):toBe(true)
+					w.open:set(false)
+					w.settle()
+					w.scroll(touch)
+					Verify.expect(w.list.CanvasPosition.Y > before):toBe(true)
+					Verify.expect(w.page.CanvasPosition.Y):toBe(0)
+				end
+			)
+		end
+		verifyHarness:case("overlapping gesture holds retain each scroller's original state", function()
 			local w = world()
 			w.middle.Active = false
 			w.root.ScrollingEnabled = false
-			local first = scrollLock.holdInputAncestors(w.inner)
-			local second = scrollLock.holdInputAncestors(w.inner)
-			Verify.expect(w.root.Active):toBe(false)
+			local first = scrollLock.holdAncestors(w.inner)
+			local second = scrollLock.holdAncestors(w.inner)
+			Verify.expect(w.root.Active):toBe(true)
 			Verify.expect(w.middle.ScrollingEnabled):toBe(false)
 			first()
-			Verify.expect(w.root.Active):toBe(false)
+			Verify.expect(w.root.Active):toBe(true)
 			Verify.expect(w.middle.ScrollingEnabled):toBe(false)
 			second()
 			Verify.expect(w.root.Active):toBe(true)
@@ -137,7 +158,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("does not escape a disabled ancestor or release a concurrent modal lock", {
+		verifyHarness:case("does not escape a disabled ancestor or release a concurrent gesture hold", {
 			id = "native_scroll_chain::native nested scroll handoff::does not escape a disabled ancestor or release a concurrent modal lock",
 			run = function()
 				local w = world()
@@ -149,13 +170,11 @@ return function(verifyHarness: Verify.Harness)
 				w.middle.ScrollingEnabled = true
 				w.move(touch, 50, 100)
 				Verify.expect(w.inner.ScrollingEnabled):toBe(false)
-				local modal = w.engine.new("Frame")
-				modal.Parent = w.screen
-				scrollLock.acquire(w.screen, modal)
+				local release = scrollLock.holdAncestors(w.inner)
 				w.input.InputEnded:Fire(touch)
-				Verify.expect(w.inner.ScrollingEnabled or w.middle.ScrollingEnabled or w.root.ScrollingEnabled)
-					:toBe(false)
-				scrollLock.release(w.screen, modal)
+				Verify.expect(w.inner.ScrollingEnabled):toBe(true)
+				Verify.expect(w.middle.ScrollingEnabled or w.root.ScrollingEnabled):toBe(false)
+				release()
 				Verify.expect(w.inner.ScrollingEnabled and w.middle.ScrollingEnabled and w.root.ScrollingEnabled)
 					:toBe(true)
 				w.stop()

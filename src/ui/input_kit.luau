@@ -27,7 +27,7 @@ export type Kit = {
 	requireValue: (NumberSpec, "boolean" | "number" | "string", string) -> (),
 	changed: (NumberSpec, number) -> boolean,
 	attributes: (Instance, Shared.Attributes) -> Instance,
-	valueAttributes: (GuiObject, NumberSpec, valueModel.Model) -> (),
+	valueAttributes: (GuiObject, Shared.Input<number>, valueModel.Model, TextLabel) -> (),
 	adjustment: inputAdjustment.Adjustment,
 	paintedPart: (Shared.FrameProps, Shared.Input<string>?, string, string) -> Frame,
 }
@@ -117,25 +117,35 @@ return function(ctx: Shared.Context): Kit
 		runtime.decorate(node, { Attributes = values })
 		return node
 	end
-	local function mapValue<T>(source: Shared.Input<number>, transform: (number) -> T): Shared.Input<T>
-		if type(source) == "number" then
-			return transform(source)
-		elseif type(source) == "function" then
-			return function(use: ComposeTypes.Use): T
-				return transform(source(use))
+	local function valueAttributes(
+		node: GuiObject,
+		source: Shared.Input<number>,
+		model: valueModel.Model,
+		label: TextLabel
+	): ()
+		node:SetAttribute("minimum", model.min)
+		node:SetAttribute("maximum", model.max)
+		local previousValue: number?, previousText: string? = nil, nil
+		local function update(use: ComposeTypes.Use?)
+			local value = read<<number>>(source, use)
+			local quantized = model.quantize(value)
+			local formatted = model.format(value)
+			local text = `{formatted} of {model.min} to {model.max}`
+			if quantized ~= previousValue then
+				node:SetAttribute("value", quantized)
+				previousValue = quantized
+			end
+			if text ~= previousText then
+				label.Text = formatted
+				node:SetAttribute("semanticValue", text)
+				previousText = text
 			end
 		end
-		return Compose.map(source, transform)
-	end
-	local function valueAttributes(node: GuiObject, spec: NumberSpec, model: valueModel.Model): ()
-		attributes(node, {
-			value = mapValue(spec.value, model.quantize),
-			minimum = model.min,
-			maximum = model.max,
-			semanticValue = mapValue(spec.value, function(value: number): string
-				return `{model.format(value)} of {model.min} to {model.max}`
-			end),
-		})
+		if dynamic(source) then
+			Compose.watch(update)
+		else
+			update()
+		end
 	end
 	local adjustment = inputAdjustment(ctx, {
 		attributes = attributes,

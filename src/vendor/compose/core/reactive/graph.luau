@@ -27,12 +27,10 @@ end
 local CLEAN = 0
 local CHECK = 1
 local DIRTY = 2
+local RETRY = 3
 
 local detachers = Nodes.detachers
-local asNode = Nodes.asNode
-local isNode = Nodes.isNode
 local nodeOf = Nodes.nodeOf
-local read = Nodes.read
 local identityKey = Nodes.identityKey
 
 local invalidated: { Node } = {}
@@ -66,7 +64,10 @@ local function resumeSet(producer: Node)
 			if consumer ~= nil then
 				consumer.coalesced = false
 			else
-				edge.coalesced = false
+				local version = edge.version
+				if version ~= nil and version < 0 then
+					edge.version = -version - 1
+				end
 			end
 		end
 		producer.coalescing = nil
@@ -85,22 +86,23 @@ local function coalesce(producer: Node, consumer: Node, set: (Node, unknown) -> 
 	if not producer.coalescing then
 		producer.coalescing = 1
 		Dynamic.write(producer, "set", set)
-		consumer.coalesced = producer
+		if consumer.state == nil then
+			consumer.version = -(consumer.version or 0) - 1
+		else
+			consumer.coalesced = producer
+		end
 		coalesced[producer] = true
 	end
 end
 
 local function kindOf(producer: Node): string
-	return if producer.state ~= nil then "formula" else "cell"
+	return if producer.state ~= nil and producer.refresh ~= nil then "formula" else "cell"
 end
 
 local function append(producer: Node, edge: Node)
 	local first = producer.first
 	if first == nil then
 		producer.first = edge
-		if edge[2] == nil then
-			edge.listenerGroup = true
-		end
 		edge[3] = edge
 		if observing > 0 then
 			local observed = observations[producer]
@@ -144,7 +146,7 @@ local function detach(edge: Node)
 		if following ~= nil then
 			following[3] = previous
 			if following[2] == nil then
-				following.listenerGroup = edge.listenerGroup
+				following.listenerGroup = edge.listenerGroup == true
 			end
 		end
 	else
@@ -205,25 +207,28 @@ local function markStale(producer: Node, state: number)
 				end
 			else
 				local current = consumer.state or CLEAN
-				local retry = consumer.retry
+				local kind = consumer.kind
+				local retry = if kind == 1 or kind == 2 then current == RETRY else consumer.retry
 				if current < state or retry then
-					if retry then
+					if retry and kind ~= 1 and kind ~= 2 then
 						consumer.retry = false
 					end
 					consumer.state = state
 					if current == CLEAN or retry then
-						local cutoff = consumer.cutoff
-						if cutoff ~= nil then
-							cutoff(consumer)
-						elseif consumer.body ~= nil or (consumer.invalidate == nil and consumer.run == nil) then
+						if kind == 1 then
 							if following == nil then
 								source = consumer
 							else
 								markStale(consumer, CHECK)
 							end
-						elseif consumer.invalidate ~= nil then
+						elseif kind == 2 then
+							local cutoff = consumer.cutoff
+							if cutoff ~= nil then
+								cutoff(consumer)
+							end
+						elseif kind == nil then
 							table.insert(invalidated, consumer)
-						elseif state == DIRTY and consumer.group then
+						elseif state == DIRTY and kind == 4 then
 							local reactor = consumer.reactor
 							if consumer[2] ~= nil then
 								Reactor.enqueue(consumer)
@@ -256,32 +261,19 @@ local function settleTouched()
 		for _, node in pending do
 			local invalidate = node.invalidate
 			if invalidate ~= nil and not node.released then
-				local ok, failure: unknown = pcall(function(): unknown
-					invalidate(node)
-					return nil
-				end)
+				local ok, failure: unknown = pcall(invalidate, node)
 				if not ok then
 					table.insert(failures, tostring(failure))
 				end
 			end
 		end
 	end
-	local ok, failure: unknown = pcall(function(): unknown
-		Reactor.settleTouched()
-		return nil
-	end)
+	local ok, failure: unknown = pcall(Reactor.settleTouched)
 	if not ok then
 		table.insert(failures, tostring(failure))
 	end
 	if #failures > 0 then
 		error(table.concat(failures, "\n"), 0)
-	end
-end
-
-local function refresh(producer: Node)
-	local update = producer.refresh
-	if update then
-		update(producer)
 	end
 end
 
@@ -309,14 +301,7 @@ local function noEvaluation()
 	})
 end
 
-local function useWithTracking<T>(value: Types.ReadOnlyValue<T>): T
-	if type(value) ~= "table" then
-		return notANode("use", value)
-	end
-	local node = nodeOf(value)
-	if node.version == nil then
-		return notANode("use", value)
-	end
+local function use<T>(value: Types.ReadOnlyValue<T>): T
 	local frame = evaluationCache.frame
 	local consumer = if frame ~= nil
 			and frame.order > 0
@@ -324,11 +309,18 @@ local function useWithTracking<T>(value: Types.ReadOnlyValue<T>): T
 		then frame.consumer
 		else Evaluation.context()
 	if consumer == nil then
+		if type(value) ~= "table" or nodeOf(value).version == nil then
+			return notANode("use", value)
+		end
 		noEvaluation()
 		return Nodes.readCached(value)
 	end
+	local node: Node = value
 	local at = consumer.reads
-	if consumer.released or at == nil then
+	if at == nil then
+		if type(value) ~= "table" or node.version == nil then
+			return notANode("use", value)
+		end
 		local update = node.refresh
 		if update then
 			update(node)
@@ -337,11 +329,14 @@ local function useWithTracking<T>(value: Types.ReadOnlyValue<T>): T
 	end
 	local following = at + 1
 	local edge = consumer[following]
-	if edge ~= nil and edge[1] == node then
+	if edge ~= nil and rawequal(edge[1], value) then
 		consumer.reads = following
 	else
 		edge = consumer[at]
-		if edge == nil or edge[1] ~= node then
+		if edge == nil or not rawequal(edge[1], value) then
+			if type(value) ~= "table" or node.version == nil then
+				return notANode("use", value)
+			end
 			consumer.reads = following
 			trim(consumer, following)
 			local attached = attach(node, consumer)
@@ -349,8 +344,8 @@ local function useWithTracking<T>(value: Types.ReadOnlyValue<T>): T
 			edge = attached
 		end
 	end
-	local update = node.refresh
-	if update ~= nil and (node.state ~= CLEAN or node.released) then
+	local update = if node.state ~= CLEAN then node.refresh else nil
+	if update ~= nil then
 		update(node)
 	end
 	if edge ~= nil then
@@ -363,41 +358,14 @@ local function useWithTracking<T>(value: Types.ReadOnlyValue<T>): T
 	return cached.value
 end
 
-local function use<T>(value: Types.ReadOnlyValue<T>): T
-	local frame = evaluationCache.frame
-	if frame ~= nil and frame.order > 0 and evaluationCache.thread == coroutine.running() then
-		local consumer = frame.consumer
-		local at = if consumer ~= nil then consumer.reads else nil
-		if consumer ~= nil and at ~= nil and not consumer.released then
-			local following = at + 1
-			local edge = consumer[following]
-			local node = if edge ~= nil then edge[1] else nil
-			if node ~= nil and edge ~= nil and rawequal(node, value) then
-				consumer.reads = following
-				local update = node.refresh
-				if update ~= nil and (node.state ~= CLEAN or node.released) then
-					update(node)
-				end
-				edge.version = node.version
-				local cached = value.cache
-				if cached == nil then
-					return Nodes.readCached(value)
-				end
-				return cached.value
-			end
-		end
-	end
-	return useWithTracking(value)
-end
-
 local function dependenciesMoved(consumer: Node): boolean
 	for index = 1, #consumer do
 		local edge = consumer[index]
 		if edge ~= nil then
 			local producer = edge[1]
 			if producer ~= nil then
-				local update = producer.refresh
-				if update ~= nil and (producer.state ~= CLEAN or producer.released) then
+				local update = if producer.state ~= CLEAN then producer.refresh else nil
+				if update ~= nil then
 					update(producer)
 				end
 				if producer.version ~= edge.version then
@@ -495,21 +463,14 @@ local function runEffectIn(frame: Evaluation.Evaluation, consumer: Node)
 	end
 end
 
-local function track(consumer: Node, invoke: (Node) -> ())
-	local previousConsumer, previousOrder = Evaluation.enter(consumer)
-	consumer.reads = 0
-	invoke(consumer)
-	Evaluation.leave(previousConsumer, previousOrder)
-	trim(consumer, (consumer.reads or 0) + 1)
-end
-
 local function release(consumer: Node)
 	if consumer.released then
 		return
 	end
 	consumer.released = true
+	consumer.reads = nil
 	trim(consumer, 1)
-	consumer.state = CLEAN
+	consumer.state = DIRTY
 end
 
 local function subscriberCount(producer: Node): number
@@ -523,9 +484,9 @@ local function subscriberCount(producer: Node): number
 end
 
 local function untracked<T>(body: () -> T): T
-	local previousConsumer, previousOrder = Evaluation.enter(nil)
+	local frame, previousConsumer, previousOrder = Evaluation.enterFrame(nil)
 	local ok, result = pcall(body)
-	Evaluation.leave(previousConsumer, previousOrder)
+	Evaluation.leaveFrame(frame, previousConsumer, previousOrder)
 	if not ok then
 		error(result, 0)
 	end
@@ -542,6 +503,7 @@ end
 
 local LISTENER = {}
 LISTENER.__index = LISTENER
+LISTENER.listenerGroup = true
 Nodes.adopt(LISTENER)
 
 local resume: Node? = nil
@@ -618,7 +580,7 @@ function LISTENER.run(leader: Node)
 	if producer == nil or producer.released then
 		return
 	end
-	if leader.coalesced then
+	if (leader.version or 0) < 0 then
 		resumeSet(producer)
 	end
 	local update = producer.refresh
@@ -643,6 +605,7 @@ end
 
 local CELL_LISTENER = {}
 CELL_LISTENER.__index = CELL_LISTENER
+CELL_LISTENER.listenerGroup = true
 Nodes.adopt(CELL_LISTENER)
 
 function CELL_LISTENER.run(leader: Node)
@@ -650,7 +613,7 @@ function CELL_LISTENER.run(leader: Node)
 	if producer == nil then
 		return
 	end
-	if leader.coalesced then
+	if (leader.version or 0) < 0 then
 		resumeSet(producer)
 	end
 	if producer.first == leader and rawget(leader, 4) == nil and not statsOn.enabled then
@@ -669,6 +632,35 @@ function CELL_LISTENER.run(leader: Node)
 	runListeners(leader, producer)
 end
 
+local function makeListener(reactor: Types.Reactor, producer: Node): Node
+	local update = producer.refresh
+	if update then
+		update(producer)
+	end
+	local class = if update ~= nil and producer.refresh ~= nil then LISTENER else CELL_LISTENER
+	local edge: Node = { producer, nil, nil, nil, version = producer.version, reactor = reactor }
+	Nodes.classify(edge, class)
+	return edge
+end
+
+local function startListener(edge: Node)
+	local producer, listener = edge[1], edge.listener
+	if producer == nil or listener == nil then
+		return
+	end
+	if statsOn.enabled then
+		statsOn.recorder.born(edge)
+		stats.bump "watchRuns"
+		statsOn.recorder.enterRun(edge)
+	end
+	if edge.subject ~= nil then
+		listener(producer.value, edge)
+	else
+		listener(producer.value)
+	end
+	append(producer, edge)
+end
+
 local function listenEdge(
 	reactor: Types.Reactor,
 	producer: Node,
@@ -678,48 +670,15 @@ local function listenEdge(
 	transform: ((unknown) -> unknown)?,
 	written: unknown
 ): Node
-	local update = producer.refresh
-	if update then
-		update(producer)
+	local edge = makeListener(reactor, producer)
+	edge.listener = listener
+	edge.subject = subject
+	edge.fastKey = key
+	if transform ~= nil then
+		edge.transform = transform
+		edge.written = written
 	end
-	local class = if update ~= nil and producer.refresh ~= nil then LISTENER else CELL_LISTENER
-	local edge: Node = if transform == nil
-		then {
-			producer,
-			nil,
-			nil,
-			nil,
-			version = producer.version,
-			reactor = reactor,
-			queued = false,
-			listener = listener,
-			coalesced = false,
-			subject = subject,
-			fastKey = key,
-		}
-		else {
-			producer,
-			nil,
-			nil,
-			nil,
-			version = producer.version,
-			reactor = reactor,
-			queued = false,
-			listener = listener,
-			coalesced = false,
-			subject = subject,
-			fastKey = key,
-			transform = transform,
-			written = written,
-		}
-	Nodes.classify(edge, class)
-	if statsOn.enabled then
-		statsOn.recorder.born(edge)
-		stats.bump "watchRuns"
-		statsOn.recorder.enterRun(edge)
-	end
-	listener(producer.value, edge)
-	append(producer, edge)
+	startListener(edge)
 	return edge
 end
 
@@ -731,44 +690,17 @@ local function unlisten(edge: Node)
 end
 
 local function listen(reactor: Types.Reactor, producer: Node, listener: (unknown) -> ()): Dispose
-	local update = producer.refresh
-	if update then
-		update(producer)
-	end
-	local class = if update ~= nil and producer.refresh ~= nil then LISTENER else CELL_LISTENER
-	local edge: Node = {
-		producer,
-		nil,
-		nil,
-		nil,
-		version = producer.version,
-		reactor = reactor,
-		queued = false,
-		listener = listener,
-		coalesced = false,
-	}
-	Nodes.classify(edge, class)
-	if statsOn.enabled then
-		statsOn.recorder.born(edge)
-		stats.bump "watchRuns"
-		statsOn.recorder.enterRun(edge)
-	end
-	listener(producer.value)
-	append(producer, edge)
+	local edge = makeListener(reactor, producer)
+	edge.listener = listener
+	startListener(edge)
 	return function()
-		if edge.listener ~= nil then
-			edge.listener = nil
-			detach(edge)
-		end
+		unlisten(edge)
 	end
 end
 
 return {
 	detachers = detachers,
-	isNode = isNode,
-	asNode = asNode,
 	nodeOf = nodeOf,
-	read = read,
 	identityKey = identityKey,
 	clock = clock,
 	nextVersion = nextVersion,
@@ -776,23 +708,18 @@ return {
 	coalesce = coalesce,
 	CHECK = CHECK,
 	DIRTY = DIRTY,
-	observations = observations,
+	RETRY = RETRY,
 	observe = observe,
-	attach = attach,
-	detach = detach,
 	trim = trim,
 	markStale = markStale,
 	settleTouched = settleTouched,
-	refresh = refresh,
 	notANode = notANode,
 	use = use,
 	runEffect = runEffect,
 	runEffectIn = runEffectIn,
 	dependenciesMoved = dependenciesMoved,
 	evaluate = evaluate,
-	track = track,
 	release = release,
-	subscriberCount = subscriberCount,
 	untracked = untracked,
 	countNotification = countNotification,
 	listen = listen,

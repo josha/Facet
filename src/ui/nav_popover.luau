@@ -36,13 +36,6 @@ local PADDING = 8
 return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local function geometry(
-		node: GuiBase2d,
-		property: "AbsoluteSize" | "AbsolutePosition"
-	): ComposeTypes.ReadOnlyValue<Vector2>
-		return runtime.observe(node, property) :: ComposeTypes.ReadOnlyValue<Vector2>
-	end
-
 	local function finite(value: unknown): boolean
 		return type(value) == "number" and value == value and math.abs(value) < math.huge
 	end
@@ -136,7 +129,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			local native = table.clone(props :: { [unknown]: unknown })
 			native.Name = nil
 			if next(native) ~= nil then
-				runtime.decorate(root, native :: Types.GuiObjectNativeProps)
+				runtime.decorate(root, native)
 			end
 		else
 			local frame = Host.Frame(
@@ -269,12 +262,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			local settled = Compose.cell(false)
 			local presence = surfaces.appearance(phase, popoverTiming, settled)
 			local layer = assert(surfaces.parent(root))
-			local extent = geometry(layer, "AbsoluteSize")
-			local origin = geometry(layer, "AbsolutePosition")
+			local extent = ctx.observeNative.AbsoluteSize(layer)
+			local origin = ctx.observeNative.AbsolutePosition(layer)
 			local sourceAt: ComposeTypes.ReadOnlyValue<Vector2>, sourceSize: ComposeTypes.ReadOnlyValue<Vector2>
 			local anchorNode = node or spec.trigger
 			if anchorNode then
-				sourceAt, sourceSize = geometry(anchorNode, "AbsolutePosition"), geometry(anchorNode, "AbsoluteSize")
+				sourceAt, sourceSize =
+					ctx.observeNative.AbsolutePosition(anchorNode), ctx.observeNative.AbsoluteSize(anchorNode)
 			else
 				sourceAt, sourceSize = Compose.cell(V2.zero), Compose.cell(V2.zero)
 			end
@@ -389,7 +383,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							name = "Close",
 							icon = "close",
 							appearance = "utility",
-							shape = "circle" :: "circle",
+							shape = "circle",
 							onActivate = function()
 								propose(false, "cancel")
 							end,
@@ -653,8 +647,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 									and preferred:peek() == E.PreferredInput.Touch
 									and item:peek() == "popover"
 								then
-									local panel = modal:FindFirstChild("Panel", true) :: GuiObject?
-									if panel then
+									local panel = modal:FindFirstChild("Panel", true)
+									if panel and panel:IsA("GuiObject") then
 										local at, size = panel.AbsolutePosition, panel.AbsoluteSize
 										previousRect = { x = at.X, y = at.Y, w = size.X, h = size.Y }
 										if resetRect then
@@ -680,7 +674,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 									found = if found then found:FindFirstChild(part, true) else nil
 								end
 								if found and found:IsA("GuiObject") then
-									gui.SelectedObject = found
+									local target: GuiObject? = found
+									local service: GuiService = gui
+									local function land()
+										if target and target:FindFirstAncestorWhichIsA("LayerCollector") then
+											service.SelectedObject = target
+											target = nil
+										end
+									end
+									land()
+									if target then
+										runtime.connect(modal, "AncestryChanged", land)
+									end
 								end
 							end
 							Compose.cleanup(function()

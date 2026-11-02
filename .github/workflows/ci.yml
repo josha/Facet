@@ -32,7 +32,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     defaults:
@@ -86,24 +86,34 @@ jobs:
       - name: Full tier shard
         env:
           SHARD: ${{ matrix.shard }}
-          SHARDS: 4
+          SHARDS: 8
         run: |
           set -o pipefail
           mkdir -p artifacts/verify
           lute run tools/facet gate full --shard "$SHARD/$SHARDS" --weights tools/facet/ci-weights.json --record-weights artifacts/verify/ci-weights.json 2>&1 | tee artifacts/verify/ci.log
 
-      - name: Save verification diagnostics
+      - name: Save the recorded test weights
         if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-weights-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/verify/ci-weights.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Save verification diagnostics
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: verification-${{ matrix.os }}-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             artifacts/verify/
             !artifacts/verify/places/
+            !artifacts/verify/**/*.rbxl
             artifacts/phase-4/
             artifacts/bench.json
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 3
 
       - name: Save built places for a failed shard
         if: failure()
@@ -112,7 +122,7 @@ jobs:
           name: places-${{ matrix.os }}-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/verify/places/
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 3
 
       - name: The model is the library alone
         if: matrix.shard == 1
@@ -363,10 +373,10 @@ jobs:
           done
 
       - name: Save the paired results
-        if: always()
+        if: failure() || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         uses: actions/upload-artifact@v4
         with:
           name: paired-performance-shard${{ matrix.shard }}-${{ matrix.sample }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/perf-paired*
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 3

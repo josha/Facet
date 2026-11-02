@@ -112,17 +112,12 @@ local SUBSTITUTES: { [number]: string } = {
 local Font = {}
 
 Font.ADVANCE = 6
-Font.HEIGHT = 9
 
 local function glyph(codepoint: number): string
 	if codepoint >= 32 and codepoint <= 126 then
 		return GLYPHS[string.char(codepoint)]
 	end
 	return GLYPHS[SUBSTITUTES[codepoint] or "?"]
-end
-
-function Font.measure(text: string, scale: number?): number
-	return (utf8.len(text) or #text) * Font.ADVANCE * (scale or 1)
 end
 
 function Font.draw(image: Image, x: number, y: number, text: string, color: { number }, scale: number?)

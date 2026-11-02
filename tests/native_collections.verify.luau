@@ -1987,6 +1987,10 @@ return function(verifyHarness: Verify.Harness)
 	local function key(item: KeyedRecord): number
 		return item.id
 	end
+	require("./lib/collection_reorder_regressions")(test, function()
+		local engine, runtime, UI, target, gui, ctx = setup()
+		return engine, runtime, UI, target, gui, ctx
+	end, records)
 
 	local function button(UI: SharedTypes.Controls, current: Compose.ReadOnlyValue<Record>): GuiObject
 		return UI.Button "Action" {
@@ -4994,17 +4998,16 @@ return function(verifyHarness: Verify.Harness)
 					"PreferredInput",
 					E.PreferredInput.Touch
 				)
-				local open: FixtureComposeTypes.Value<("leading" | "trailing")?> =
-					Compose.cell(nil :: ("leading" | "trailing")?)
+				local open = Compose.cell<<("leading" | "trailing")?>>(nil)
 				local stop, page: any = runtime.mount(function()
 					return Host.ScrollingFrame "Page" {
 						Host.ScrollingFrame "Body" {
 							UI.RowActions {
 								Name = "Row",
 								open = open,
-								content = UI.Button "Mail" { label = "Mail" } :: GuiObject,
+								content = UI.Button "Mail" { label = "Mail" },
 								trailing = {
-									{ id = "Delete", label = "Delete", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
+									{ id = "Delete", label = "Delete", onActivate = function() end },
 								},
 							},
 						},
@@ -5028,13 +5031,11 @@ return function(verifyHarness: Verify.Harness)
 				pan(V2.new(120, 24), V2.new(200, 20), E.UserInputState.End)
 				expect((held())):toBe("true true")
 				expect((open:peek())):toBe("trailing")
-				local sheet = engine.new("Frame")
-				sheet.Parent = target
 				pan(V2.new(186, 22), V2.new(200, 20), E.UserInputState.Begin)
-				scrollLock.acquire(target, sheet)
+				local release = scrollLock.holdAncestors(row)
 				pan(V2.new(186, 22), V2.new(200, 20), E.UserInputState.End)
 				expect((held())):toBe("false false")
-				scrollLock.release(target, sheet)
+				release()
 				expect((held())):toBe("true true")
 				open:set(nil)
 				engine.heartbeat:Fire(1 / 60)
@@ -5552,8 +5553,8 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, UI, target, gui = setup()
 				local invoked = 0
 				local stop, node: any = runtime.mount(function()
-					return UI.RowActions {
-						content = UI.Button "Action" { label = "Row" } :: GuiObject,
+					local spec: FixtureCollectionProps.RowActionsSpec = {
+						content = UI.Button "Action" { label = "Row" },
 						leading = {
 							{
 								id = "Read",
@@ -5561,7 +5562,7 @@ return function(verifyHarness: Verify.Harness)
 								onActivate = function()
 									invoked += 1
 								end,
-							} :: FixtureCollectionTypes.RowAction,
+							},
 						},
 						trailing = {
 							{
@@ -5570,9 +5571,10 @@ return function(verifyHarness: Verify.Harness)
 								onActivate = function()
 									invoked += 1
 								end,
-							} :: FixtureCollectionTypes.RowAction,
+							},
 						},
 					}
+					return UI.RowActions(spec)
 				end, target)
 				local original = node:FindFirstChild("Action", true)
 				gui.SelectedObject = original
@@ -5582,7 +5584,7 @@ return function(verifyHarness: Verify.Harness)
 				})
 				local panel = target:FindFirstChild("MenuPanel", true)
 				expect(panel ~= nil):toBe(true)
-				expect(panel.SelectionBehaviorDown):toBe(engine.types.Enum.SelectionBehavior.Stop)
+				expect(panel.Parent.SelectionBehaviorDown):toBe(engine.types.Enum.SelectionBehavior.Stop)
 				expect(target:FindFirstChild("leading:Read", true) ~= nil):toBe(true)
 				expect(target:FindFirstChild("trailing:Save", true) ~= nil):toBe(true)
 				target:FindFirstChild("FacetModalBack"):FindFirstChild("ModalBack").Pressed:Fire()
@@ -7427,6 +7429,7 @@ return function(verifyHarness: Verify.Harness)
 		for _, layout in
 			{
 				"list",
+				"table",
 				"horizontal list",
 				"variable list",
 				"horizontal variable list",
@@ -7457,8 +7460,8 @@ return function(verifyHarness: Verify.Harness)
 							local slotted = string.find(layout, "slotted", 1, true) ~= nil
 							local calls, requestSlot = 0, -1
 							local requestKeys: { number } = {}
-							local mounted: ScrollingFrame? = nil
-							local stop = runtime.mount(function(): ScrollingFrame
+							local mounted: GuiObject? = nil
+							local stop = runtime.mount(function(): GuiObject
 								local spec: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> =
 									{
 										from = source,
@@ -7488,11 +7491,27 @@ return function(verifyHarness: Verify.Harness)
 											return UI.Button { label = "Row" }
 										end,
 									}
-								local collection = if grid then UI.VirtualGrid(spec) else UI.VirtualList(spec)
+								local collection: GuiObject
+								if layout == "table" then
+									local tableSpec: FixtureCollectionProps.KeyedTableSpec<Record, number> = {
+										from = source,
+										key = spec.key,
+										itemSize = 20,
+										columns = { { id = "label", label = "Track" } },
+										reorderable = true,
+										reducedMotion = spec.reducedMotion,
+										onReorder = spec.onReorder,
+									}
+									collection = UI.Table(tableSpec)
+								else
+									collection = if grid then UI.VirtualGrid(spec) else UI.VirtualList(spec)
+								end
 								mounted = collection
 								return collection
 							end, target)
-							local node = assert(mounted)
+							local root = assert(mounted)
+							local node = if layout == "table" then assert(root:FindFirstChild("Body")) else root
+							assert(node:IsA("ScrollingFrame"))
 							engine.environment.poke(
 								VerifyRoblox.assertInstance(node),
 								"AbsoluteWindowSize",
@@ -7525,6 +7544,7 @@ return function(verifyHarness: Verify.Harness)
 								assert(first:FindFirstChild("Move", true)):FindFirstChildWhichIsA("UIDragDetector")
 							)
 							engine.environment.fire(detector, "DragStart", point(firstRest))
+							engine.environment.fire(detector, "DragContinue", point(secondRest))
 							engine.environment.fire(detector, "DragContinue", point(thirdRest))
 							expect(calls):toBe(0)
 							expect(source:peek()[1].id):toBe(1)

@@ -7,16 +7,14 @@ local Host = require "../host"
 local Nodes = require "../ownership/nodes"
 local Owner = require "../ownership/owner"
 local Dynamic = require "../dynamic"
-local Types = require "../reactive/types"
 
 type Node = Host.Node
-type Dispose = Types.Dispose
 
 export type ChildList = {
 	host: Host.Host,
 	direct: Host.Host,
 	parent: Node,
-	counts: { number },
+	[number]: number,
 
 	total: number,
 }
@@ -26,23 +24,41 @@ export type MountPoint = Host.MountPoint
 export type Directive = Host.Directive
 
 local function createList(host: Host.Host, parent: Node, direct: Host.Host?): ChildList
-	return { host = host, direct = direct or host, parent = parent, counts = {}, total = 0 }
+	return { host = host, direct = direct or host, parent = parent, total = 0 }
 end
 
 local function addSlot(list: ChildList): number
-	local index = #list.counts + 1
-	list.counts[index] = 0
+	local index = #list + 1
+	list[index] = 0
 	return index
 end
 
 local function baseOf(list: ChildList, slot: number): number
 	local base = 0
-	local counts = list.counts
 	for index = 1, slot - 1 do
-		base += counts[index]
+		base += list[index]
 	end
 	return base
 end
+
+local function refuse(key: string, how: string): never
+	return Diagnostics.raise("structure/not-a-mount-point", ("a directive %s %q on its mount point"):format(how, key), {
+		key = key,
+		contract = "a child written as a function is a directive, and receives a mount point, "
+			.. "not the parent node",
+		fix = "use insert, moveTo, remove, count, parent, or host; to reach the parent node itself, "
+			.. "read mountPoint.parent",
+	})
+end
+
+local mountPointMetatable = {
+	__index = function(_: unknown, key: string): never
+		return refuse(tostring(key), "read")
+	end,
+	__newindex = function(_: unknown, key: string, _value: unknown): never
+		return refuse(tostring(key), "assigned")
+	end,
+}
 
 local function mountPointFor(list: ChildList, slot: number): MountPoint
 	local host = list.host
@@ -52,11 +68,11 @@ local function mountPointFor(list: ChildList, slot: number): MountPoint
 	local parent = list.parent
 
 	local function count(): number
-		return list.counts[slot]
+		return list[slot]
 	end
 
 	local function insert(node: Node, at: number?)
-		local held = list.counts[slot]
+		local held = list[slot]
 		local within = if at ~= nil then at else held + 1
 		if within < 1 or within > held + 1 then
 			return Diagnostics.raise(
@@ -70,7 +86,7 @@ local function mountPointFor(list: ChildList, slot: number): MountPoint
 			)
 		end
 		render.insertChild(parent, node, baseOf(list, slot) + within)
-		list.counts[slot] = held + 1
+		list[slot] = held + 1
 		list.total += 1
 	end
 
@@ -78,7 +94,7 @@ local function mountPointFor(list: ChildList, slot: number): MountPoint
 		if moveChild == nil then
 			return
 		end
-		local held = list.counts[slot]
+		local held = list[slot]
 		if at < 1 or at > held then
 			return Diagnostics.raise(
 				"structure/position-out-of-range",
@@ -95,7 +111,7 @@ local function mountPointFor(list: ChildList, slot: number): MountPoint
 
 	local function remove(node: Node)
 		render.removeChild(parent, node)
-		list.counts[slot] -= 1
+		list[slot] -= 1
 		list.total -= 1
 	end
 
@@ -109,35 +125,12 @@ local function mountPointFor(list: ChildList, slot: number): MountPoint
 		count = count,
 	}
 
-	local function refuse(key: string, how: string): never
-		return Diagnostics.raise(
-			"structure/not-a-mount-point",
-			("a directive %s %q on its mount point"):format(how, key),
-			{
-				key = key,
-				contract = "a child written as a function is a directive, and receives a mount point, "
-					.. "not the parent node",
-				fix = "use insert, moveTo, remove, count, parent, or host; to reach the parent node itself, "
-					.. "read mountPoint.parent",
-			}
-		)
-	end
-
-	return (
-		setmetatable(mountPoint, {
-			__index = function(_: unknown, key: string): never
-				return refuse(tostring(key), "read")
-			end,
-			__newindex = function(_: unknown, key: string, _value: unknown): never
-				return refuse(tostring(key), "assigned")
-			end,
-		})
-	)
+	return setmetatable(mountPoint, mountPointMetatable)
 end
 
 local function insertStatic(list: ChildList, slot: number, node: Node)
 	list.direct.render.insertChild(list.parent, node, list.total + 1)
-	list.counts[slot] += 1
+	list[slot] += 1
 	list.total += 1
 end
 
@@ -324,6 +317,40 @@ local function mountRow<A, B, C>(
 	return produced, owner
 end
 
+local function rowOutputs(ok: boolean, first: unknown, ...: unknown): (boolean, unknown, { unknown }?)
+	if first ~= nil and select("#", ...) == 0 then
+		return ok, first, nil
+	end
+	return ok, nil, { first, ... }
+end
+
+local function mountRows<A, B>(
+	mountPoint: MountPoint,
+	parentOwner: Owner.Owner,
+	render: (A, B) -> Node,
+	first: A,
+	second: B,
+	label: string
+): (Node?, Owner.Owner)
+	local owner = Owner.createChild(parentOwner)
+	local running = Active.push(owner)
+	local ok, node, nodes = rowOutputs(pcall(render, first, second))
+	Active.pop(owner, running)
+	if nodes ~= nil or not ok then
+		place(mountPoint, owner, ok, if ok then nodes else node, label, nil, nil)
+	elseif type(node) == "table" or type(node) == "userdata" then
+		local inserted, failure = pcall(mountPoint.insert, node, nil)
+		if not inserted then
+			Owner.dispose(owner)
+			error(failure, 0)
+		end
+		return node, owner
+	else
+		place(mountPoint, owner, true, { node }, label, nil, nil)
+	end
+	return nil, owner
+end
+
 local function releaseNode(mountPoint: MountPoint, node: Node)
 	mountPoint.remove(node)
 	Nodes.forget(node)
@@ -333,6 +360,7 @@ return {
 	block = {
 		mountBlock = mountBlock,
 		mountRow = mountRow,
+		mountRows = mountRows,
 		releaseNode = releaseNode,
 		releaseNodes = releaseNodes,
 		nameOf = nameOf,
@@ -340,7 +368,6 @@ return {
 	},
 	createList = createList,
 	addSlot = addSlot,
-	baseOf = baseOf,
 	mountPointFor = mountPointFor,
 	insertStatic = insertStatic,
 	wholeOf = wholeOf,

@@ -4,19 +4,6 @@ local Roblox = require("../../tools/vendor/verify/src/roblox")
 local Lute = require("../../tools/vendor/verify/src/lute")
 local Project = require("../../tools/facet/lib/live_project")
 
-type Check = { name: string, ok: boolean, detail: unknown? }
-type Record = { checks: { Check }, notes: { [string]: unknown } }
-type Context = { cleanup: () -> () }
-type InteractiveStep = { name: string, status: string, message: string? }
-type InteractiveResult = { id: string, status: string, failures: unknown?, steps: { InteractiveStep }? }
-type InteractiveReport = { results: { InteractiveResult } }
-type Drive = (unknown, string, { [string]: unknown }) -> InteractiveReport
-type Case = { id: string, run: ((Context) -> ())?, probe: boolean? }
-type Live = {
-	context: (unknown, { unknown }, Record, Verify.Context?) -> Context,
-	themes: (unknown) -> { unknown },
-	cases: (string) -> { Case },
-}
 export type Descriptor = { id: string, automatic: boolean, interactive: boolean, probe: boolean }
 export type Catalog = {
 	sources: { { id: string, cases: { Descriptor } } },
@@ -27,18 +14,37 @@ export type Catalog = {
 }
 
 local PROJECT = "examples/.live-double.project.json"
-local function traceback(message: unknown): string
-	return debug.traceback(tostring(message))
-end
 local CACHE = Roblox.createPlaceCache(Lute.fixture.host)
+local RUN = [==[
+local storage, suite, id, check, loadDrive = ...
+local live = require(storage:FindFirstChild("FacetLive"))
+for _, case in live.cases(suite) do
+ if case.id ~= id then continue end
+ if case.run then
+  return game:GetService("HttpService"):JSONEncode(live.report(suite, {ids = {id}, device = "keep"}))
+ end
+ return live.case(suite, id, function()
+   local report = loadDrive()(live, suite, {only = id, device = "keep"})
+   check:expect(#report.results > 0):toBe(true)
+   for _, result in report.results do
+    for _, step in result.steps or {} do
+     check:expect(step.status == "passed"):toBeTrueWith(`{result.id}: {step.name}: {tostring(step.message)}`)
+    end
+    check:expect(result.status == "passed"):toBeTrueWith(`{result.id}: {result.status}`)
+   end
+ end)
+end
+error(`unknown live case {suite}/{id}`)
+]==]
 
-local function open(check: Verify.Context, suites: { string }, sources: { [string]: string }?)
+local function open(check: Verify.Context, suites: { string }, sources: { [string]: string }?, controller: boolean?)
 	local project = Lute.encode(Project.build(suites))
 	local roots: { Roblox.Instance } = {}
 	local placed: Roblox.PlaceRuntime? = nil
 	local snapshot = Lute.fixture.load()
 	local bridge = Lute.fixture.bridge(snapshot, {
 		handlerErrors = "raise",
+		ui = { selection = "native" },
 		layout = {
 			roots = function()
 				return roots
@@ -112,6 +118,7 @@ local function open(check: Verify.Context, suites: { string }, sources: { [strin
 		end,
 		library = Roblox.reflectionSnapshot.library(snapshot),
 		activationWindowSeconds = 0.5,
+		virtualController = controller,
 		read = assert(bridge.ui).styled,
 	})
 	check:defer(input.close)
@@ -131,49 +138,31 @@ local function open(check: Verify.Context, suites: { string }, sources: { [strin
 	return { bridge = bridge, engine = engine, runtime = runtime, storage = storage }
 end
 
-local function run(check: Verify.Context, suite: string, id: string, sources: { [string]: string }?)
-	local host = open(check, { suite }, sources)
+local function run(
+	check: Verify.Context,
+	suite: string,
+	id: string,
+	sources: { [string]: string }?,
+	controller: boolean?
+)
+	local deadline = os.clock() + math.min(590, check:remainingSeconds())
+	local host = open(check, { suite }, sources, controller)
 	local bridge, engine, runtime, storage = host.bridge, host.engine, host.runtime, host.storage
-	local record: Record = { checks = {}, notes = {} }
-	local context: Context? = nil
-	local done = false
-	local probe = false
-	local interactive: InteractiveReport? = nil
+	local report: Verify.Report? = nil
 	local source = Lute.fixture.host.readFile("tools/studio/live/interactive.luau")
 	local scheduler = bridge.environment.scheduler
 	local thread = scheduler.spawnTagged({ context = "client", source = `live-double/{suite}/{id}` }, function()
-		local live = runtime.requireInstance(storage:FindFirstChild("FacetLive")) :: Live
-		local facet = runtime.requireInstance(storage:FindFirstChild("Facet")) :: {
-			themes: { define: (unknown) -> unknown, neutralPackage: () -> unknown },
-		}
-		context = live.context(facet, live.themes(facet), record, check)
-		local found = false
-		for _, case in live.cases(suite) do
-			if case.id == id then
-				found = true
-				probe = case.probe == true
-				if case.run then
-					case.run(assert(context))
-				else
-					local drive = Lute.chunk.load(source, { environment = runtime.globals })() :: Drive
-					local options: { [string]: unknown } = { only = id, device = "keep" }
-					local ok, result = xpcall(drive, traceback, live, suite, options)
-					check:expect(ok):toBeTrueWith(tostring(result))
-					interactive = if ok then result :: InteractiveReport else nil
-				end
-			end
-		end
-		assert(found, `unknown live case {suite}/{id}`)
-		done = true
+		local encoded = Lute.chunk.load(RUN, { environment = runtime.globals })(storage, suite, id, check, function()
+			return Lute.chunk.load(source, { environment = runtime.globals })()
+		end)
+		assert(type(encoded) == "string")
+		report = Lute.decode(encoded)
 	end)
 	check:defer(function()
 		scheduler.cancel(thread)
-		if context then
-			context.cleanup()
-		end
 	end)
-	for _ = 1, 3600 do
-		if done or #scheduler.failures > 0 then
+	while os.clock() < deadline do
+		if report or #scheduler.failures > 0 then
 			break
 		end
 		runtime.step(1 / 60)
@@ -181,58 +170,62 @@ local function run(check: Verify.Context, suite: string, id: string, sources: { 
 	check:expect(engine.diagnostics):toEqual({})
 	check:expect(scheduler.failures):toEqual({})
 	check
-		:expect(done)
+		:expect(report ~= nil)
 		:toBeTrueWith(
 			string.format("the case did not finish: %s %s", coroutine.status(thread), debug.traceback(thread))
 		)
-	if interactive then
-		check:expect(#interactive.results > 0):toBeTrueWith(string.sub(Lute.encode(interactive), 1, 1500))
-		for _, result in interactive.results do
-			local steps: { InteractiveStep } = result.steps or {}
-			for _, step in steps do
-				check:expect(step.status == "passed"):toBeTrueWith(`{result.id}: {step.name}: {tostring(step.message)}`)
-			end
-			check:expect(result.status == "passed"):toBeTrueWith(`{result.id}: {result.status}`)
-		end
-		return
+	local complete = assert(report)
+	check:expect(complete.total == 1 and complete.results[1].id == id):toBe(true)
+	for _, step in complete.results[1].steps do
+		pcall(function()
+			check:step(step.name, function()
+				check:expect(step.status == "passed"):toBeTrueWith(`{step.name}: {step.message or step.status}`)
+			end)
+		end)
 	end
-	check:expect(if probe then next(record.notes) ~= nil else #record.checks > 0):toBe(true)
-	for _, result in record.checks do
-		check
-			:expect(result.ok)
-			:toBeTrueWith(if result.detail == nil then result.name else `{result.name}: {Lute.encode(result.detail)}`)
+	check:expect(complete.passed == 1):toBeTrueWith(if complete.passed == 1 then id else Verify.format(complete))
+	for _, artifact in complete.results[1].artifacts do
+		if artifact.content then
+			check:attach(artifact.name, assert(artifact.mediaType), artifact.content)
+		end
 	end
 end
 
 local function catalog(check: Verify.Context): Catalog
-	local plan = Lute.parse(Lute.fixture.host.readFile("tools/studio/live/plan.json")) :: {
-		units: { { id: string, locator: string } },
-	}
+	local plan = Lute.parse(Lute.fixture.host.readFile("tools/studio/live/plan.json"))
+	assert(type(plan) == "table" and type(plan.units) == "table")
 	local suites: { string } = {}
 	for _, unit in plan.units do
+		assert(type(unit) == "table" and type(unit.id) == "string")
 		table.insert(suites, unit.id)
 	end
 	local host = open(check, suites)
-	local live = host.runtime.requireInstance(host.storage:FindFirstChild("FacetLive")) :: {
-		cases: (string) -> { { id: string, run: unknown?, setup: unknown?, probe: boolean? } },
-	}
+	local live = host.runtime.requireInstance(host.storage:FindFirstChild("FacetLive"))
+	assert(type(live) == "table")
+	local casesFor = live.cases
+	assert(type(casesFor) == "function")
 	local result: Catalog = { sources = {}, total = 0, automatic = 0, interactive = 0, probes = 0 }
-	for _, unit in plan.units do
+	for _, id in suites do
 		local entries: { Descriptor } = {}
-		for _, case in live.cases(unit.id) do
+		local cases = casesFor(id)
+		assert(type(cases) == "table")
+		for _, case in cases do
+			assert(type(case) == "table")
+			local caseId = case.id
+			assert(type(caseId) == "string")
 			result.total += 1
 			result.automatic += if case.run then 1 else 0
 			result.interactive += if case.setup then 1 else 0
 			result.probes += if case.probe then 1 else 0
 			table.insert(entries, {
-				id = case.id,
+				id = caseId,
 				automatic = case.run ~= nil,
 				interactive = case.setup ~= nil,
 				probe = case.probe == true,
 			})
 		end
-		check:expect(#entries > 0):toBeTrueWith(unit.id)
-		table.insert(result.sources, { id = unit.id, cases = entries })
+		check:expect(#entries > 0):toBeTrueWith(id)
+		table.insert(result.sources, { id = id, cases = entries })
 	end
 	check:expect(host.engine.diagnostics):toEqual({})
 	return result

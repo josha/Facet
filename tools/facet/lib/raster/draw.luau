@@ -734,10 +734,6 @@ local function distinct(outline: Ink, fill: Ink?): boolean
 	return false
 end
 
-function Draw.point(image: Image, x: number, y: number, ink: Ink)
-	point(image, trunc(x), trunc(y), ink)
-end
-
 function Draw.rectangle(image: Image, xy: Box, fill: Ink?, outline: Ink?, width: number?)
 	local x0, y0, x1, y1 = box(xy)
 	if fill ~= nil then
@@ -784,7 +780,8 @@ end
 local function drawLines(image: Image, xy: { number }, ink: Ink, width: number)
 	local count = #xy // 2
 	if width == 1 then
-		local lastX, lastY = nil :: number?, nil :: number?
+		local lastX: number? = nil
+		local lastY: number? = nil
 		for index = 0, count - 2 do
 			local x0 = trunc(xy[index * 2 + 1])
 			local y0 = trunc(xy[index * 2 + 2])

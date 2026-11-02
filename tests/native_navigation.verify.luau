@@ -1760,7 +1760,7 @@ return function(verifyHarness: Verify.Harness)
 							{
 								id = "Cancel",
 								label = "Cancel",
-								role = "cancel" :: "cancel",
+								role = "cancel",
 								onActivate = function()
 									cancelled += 1
 								end,
@@ -1775,8 +1775,10 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				presented:set(true)
 				local panel = find(world.screen, "AlertPanel")
-				for _, direction in { "Up", "Down", "Left", "Right" } :: { "Down" | "Left" | "Right" | "Up" } do
-					expect(panel["SelectionBehavior" .. direction]):toBe(world.engine.types.Enum.SelectionBehavior.Stop)
+				local modal = find(world.screen, "AlertModal")
+				expect(panel:IsDescendantOf(modal)):toBe(true)
+				for _, direction in { "Up", "Down", "Left", "Right" } do
+					expect(modal["SelectionBehavior" .. direction]):toBe(world.engine.types.Enum.SelectionBehavior.Stop)
 				end
 				expect(assert(world.gui.SelectedObject).Name):toBe("Cancel")
 				local back = find(world.screen, "ModalBack")
@@ -1812,7 +1814,8 @@ return function(verifyHarness: Verify.Harness)
 							},
 						},
 					}
-					return UI.Alert<<{ id: string }>>(controlProps)
+					local Alert: SharedTypes.AlertBuilder = UI.Alert
+					return Alert<<{ id: string }>>(controlProps)
 				end)
 				find(world.screen, "Accept").Activated:Fire()
 				expect((item:peek())):toBe(nil)
@@ -3296,7 +3299,8 @@ return function(verifyHarness: Verify.Harness)
 							return Host.Frame "Recovered" {}
 						end,
 					}
-					return UI.Alert<<{ id: string }>>(controlProps)
+					local Alert: SharedTypes.AlertBuilder = UI.Alert
+					return Alert<<{ id: string }>>(controlProps)
 				end)
 				item:set({ id = "bad" })
 				expect((item:peek())):toBe(nil)

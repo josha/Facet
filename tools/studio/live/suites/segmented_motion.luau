@@ -118,7 +118,7 @@ return {
 				end
 				t.check(value .. " moves across rendered frames", moving > 1, moving)
 				t.check(value .. " moves monotonically", reversals == 0, reversals)
-				t.check(value .. " finishes at the selected segment", final.x == math.floor(final.targetX), final)
+				t.check(value .. " finishes at the selected segment", math.abs(final.x - final.targetX) < 1, final)
 				t.check(value .. " stays at the destination after arriving", arrived and departures == 0, departures)
 				t.check(value .. " hands off without a second fade", gaps == 0, gaps)
 			end

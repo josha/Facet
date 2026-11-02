@@ -49,9 +49,6 @@ local ARTIFACTS = "artifacts/verify/types"
 local LOCK = "tools/typecheck/roblox.lock.json"
 local PLUGIN_LOCK = "tools/typecheck/roblox-plugin.lock.json"
 local DEFAULT_FLAGS = { "LuauTarjanChildLimit=100000", "LuauTypeInferIterationLimit=100000" }
-local SOLVER_FLAGS: { [string]: { string } } = {
-	new = { "LuauSolverV2=true" },
-}
 local ANALYZER_TIMEOUT = 600
 local ANALYZER_MEMORY_GIB = 2
 local ARGUMENT_BUDGET = if system.win32 then 24000 else 1000000
@@ -99,15 +96,17 @@ local function decodeFile(file: string): Json.Object
 	local value, problem = Json.tryDecode(Files.read(file))
 	local object = Json.asObject(value)
 	if problem ~= nil or object == nil then
-		fail(("%s is not a JSON object: %s"):format(file, problem or "wrong shape"))
+		return fail(("%s is not a JSON object: %s"):format(file, problem or "wrong shape"))
 	end
-	return object :: Json.Object
+	return object
 end
 
 local function record(fields: { { string | unknown } }): Json.Object
 	local object = Json.object()
 	for _, pair in fields do
-		Json.set(object, pair[1] :: string, if pair[2] == nil then Json.null else pair[2])
+		local key = pair[1]
+		assert(type(key) == "string")
+		Json.set(object, key, if pair[2] == nil then Json.null else pair[2])
 	end
 	return object
 end
@@ -130,19 +129,11 @@ local function encodeDiagnostics(list: { Analyzer.Diagnostic }): Json.Array
 	return encoded
 end
 
-local function flagsFor(solver: string, overrides: { string }): { string }
+local function flagsFor(overrides: { string }): { string }
 	local flags = table.clone(DEFAULT_FLAGS)
-	table.move(SOLVER_FLAGS[solver], 1, #SOLVER_FLAGS[solver], #flags + 1, flags)
+	table.insert(flags, "LuauSolverV2=true")
 	table.move(overrides, 1, #overrides, #flags + 1, flags)
 	return flags
-end
-
-local function isNewSolver(flags: { string }): boolean
-	return table.find(flags, "LuauSolverV2=true") ~= nil
-end
-
-local function suffix(flags: { string }): string
-	return if isNewSolver(flags) then "-v2" else ""
 end
 
 local function uniqueName(prefix: string): string
@@ -190,14 +181,14 @@ end
 local function prepareLuteTypes(): LuteTypes
 	local pin, base = lutePin(Files.text("rokit.toml"))
 	if pin == nil or base == nil then
-		fail("rokit.toml does not pin lute")
+		return fail("rokit.toml does not pin lute")
 	end
 	local reported = Run.capture({ Run.lute(), "--version" })
 	local version = stringext.trim(reported.stdout)
-	if not reported.ok or not matchesLutePin(version, pin :: string, base :: string) then
+	if not reported.ok or not matchesLutePin(version, pin, base) then
 		fail(("Lute %s differs from the rokit.toml pin %s; run rokit install"):format(version, tostring(pin)))
 	end
-	local problem = aliasProblem(Json.decode(Files.read(".luaurc")), base :: string)
+	local problem = aliasProblem(Json.decode(Files.read(".luaurc")), base)
 	if problem ~= nil then
 		fail(problem)
 	end
@@ -207,13 +198,13 @@ local function prepareLuteTypes(): LuteTypes
 	if not setup.ok then
 		fail("lute setup failed: " .. stringext.trim(setup.stdout .. setup.stderr))
 	end
-	local typedefs = Files.join(home(), ".lute/typedefs", base :: string)
+	local typedefs = Files.join(home(), ".lute/typedefs", base)
 	for _, library in { "std", "lute" } do
 		if not Files.isDirectory(Files.join(typedefs, library)) then
 			fail(("lute setup did not write %s/%s"):format(typedefs, library))
 		end
 	end
-	return { version = version, pin = pin :: string, typedefs = "~/.lute/typedefs/" .. (base :: string) }
+	return { version = version, pin = pin, typedefs = "~/.lute/typedefs/" .. base }
 end
 
 local function definitions(lockFile: string): string
@@ -246,7 +237,7 @@ local function analyze(
 	for _, argument in base do
 		fixed += #argument + 3
 	end
-	local log = Files.join(ARTIFACTS, name .. suffix(flags) .. ".log")
+	local log = Files.join(ARTIFACTS, name .. "-v2.log")
 	local outputs: { string } = {}
 	local diagnostics: { Analyzer.Diagnostic } = {}
 	local root = Files.cwd()
@@ -455,7 +446,7 @@ local PROBE_HEADER = {
 	'local Facet = require("@repo/src")',
 	"local runtime = Facet.Roblox.createRuntime()",
 	"local UI = Facet.controls(runtime)",
-	"local nullableText: Facet.Value<string?> = Facet.Compose.cell(nil :: string?)",
+	"local nullable: string? = nil; local nullableText: Facet.Value<string?> = Facet.Compose.cell(nullable)",
 }
 
 local function probeSource(names: { string }): (string, { [number]: string }, number)
@@ -647,7 +638,7 @@ local function check(
 	projectList: { Analyzer.Project }?,
 	lute: LuteTypes?
 ): boolean
-	local flags = flagsFor(options.solver, options.flags)
+	local flags = flagsFor(options.flags)
 	local public = options.files == nil and not options.sourceOnly
 	local missing: { string } = {}
 	for _, file in targets do
@@ -710,7 +701,7 @@ local function check(
 	end)
 	local probes = if public then negativeProbes(flags) else nil
 	local report = assemble(options, targets, flags, missingStrict, contexts, probes, loadLocks(lute))
-	local reportPath = Files.join(ARTIFACTS, name .. suffix(flags) .. ".json")
+	local reportPath = Files.join(ARTIFACTS, name .. "-v2.json")
 	Files.write(reportPath, Json.pretty(report.document))
 	print(
 		("types (%s solver): %s; %d targets, %d blocking diagnostics, %d dependency diagnostics; %.1fs analyzer wall time"):format(
@@ -763,20 +754,10 @@ local function compileLute(files: { string }): { string }
 end
 
 local function compile(files: { string })
-	local roblox, luteFiles = Analyzer.partition(files)
-	local outputs: { string } = {}
-	local failed = false
-	local luteProblems = compileLute(roblox)
-	for _, problem in compileLute(luteFiles) do
-		table.insert(luteProblems, problem)
-	end
-	if #luteProblems > 0 then
-		table.insert(outputs, table.concat(luteProblems, "\n") .. "\n")
-		failed = true
-	end
+	local problems = compileLute(files)
 	local log = Files.join(ARTIFACTS, "syntax.log")
-	Files.write(log, table.concat(outputs))
-	if failed then
+	Files.write(log, if #problems > 0 then table.concat(problems, "\n") .. "\n" else "")
+	if #problems > 0 then
 		fail(("Pinned runtime compilation failed; see %s"):format(log))
 	end
 end
@@ -891,7 +872,7 @@ local function probeContext(
 end
 
 local function liveSelftest(flags: { string }): number
-	local solver = if isNewSolver(flags) then "new" else "old"
+	local solver = "new"
 	local robloxOk, robloxLog = probeContext(
 		Files.join(ARTIFACTS, uniqueName("_checker_") .. ".luau"),
 		"--!strict\nlocal valid: UDim2 = UDim2.fromOffset(24, 24)\nlocal invalid: string = 42\nreturn valid, invalid\n",
@@ -950,7 +931,7 @@ local function parseOptions(invocation: Cli.Invocation, offset: number): (Option
 		end
 	end
 	local options: Options = {
-		solver = solver :: string,
+		solver = solver,
 		files = if #files > 0 then files else nil,
 		flags = table.clone(overrides),
 		sourceOnly = Cli.switch(invocation, "source-only"),
@@ -959,11 +940,7 @@ local function parseOptions(invocation: Cli.Invocation, offset: number): (Option
 end
 
 local function selftest(): number
-	local code = Gate.selftest("tools/commands", "tools/commands::types::checker::")
-	if code ~= 0 then
-		return code
-	end
-	return Gate.selftest("tools/commands", "tools/commands::types::analyzer new::")
+	return Gate.selftest("tools/commands", "tools/commands::types::")
 end
 
 local function full(options: Options): number
@@ -1032,7 +1009,7 @@ local function run(invocation: Cli.Invocation): number
 		print(("types: FAIL; %s"):format(tostring(code)))
 		return 1
 	end
-	return code :: number
+	return code
 end
 
 local function diagnostic(file: string, line: number?): Analyzer.Diagnostic
@@ -1078,15 +1055,7 @@ local function fixtureReport(
 		log = "all.log",
 	}
 	local probes: Probes? = if public then { count = 1, missed = {}, unexpected = {}, log = "negative.log" } else nil
-	return assemble(
-		options,
-		targets,
-		flagsFor(options.solver, {}),
-		missingStrict or {},
-		{ context },
-		probes,
-		FIXTURE_LOCKS
-	)
+	return assemble(options, targets, flagsFor({}), missingStrict or {}, { context }, probes, FIXTURE_LOCKS)
 end
 
 local function fileList(diagnostics: { Analyzer.Diagnostic }): { string }
@@ -1632,7 +1601,7 @@ local command: Cli.Command = {
 			id = prefix .. name,
 			run = function()
 				prepare()
-				Verify.expect(liveSelftest(flagsFor("new", {}))):toBe(0)
+				Verify.expect(liveSelftest(flagsFor({}))):toBe(0)
 			end,
 		})
 	end,

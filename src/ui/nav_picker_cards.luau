@@ -18,16 +18,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: PickerPar
 			if read(spec.enabled) == false or spec.multiple then
 				return
 			end
-			local single = (spec :: unknown) :: NavigationProps.SinglePickerSpec<V>
+			local single: NavigationProps.SinglePickerSpec<V?> = spec
 			local previous = single.selected:peek()
-			if single.onChanging and single.onChanging((nil :: unknown) :: V, previous) == false then
+			if single.onChanging and single.onChanging(nil, previous) == false then
 				return
 			end
-			local optional = (single.selected :: unknown) :: ComposeTypes.Value<V?>
+			local optional = single.selected
 			runtime:batch(function()
 				optional:set(nil)
 				if single.onChange then
-					single.onChange((nil :: unknown) :: V)
+					single.onChange(nil)
 				end
 			end)
 		end

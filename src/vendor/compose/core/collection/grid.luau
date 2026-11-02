@@ -143,6 +143,5 @@ return {
 	create = create,
 	build = build,
 	query = query,
-	cellOf = cellOf,
 	keyOf = keyOf,
 }

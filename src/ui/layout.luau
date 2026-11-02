@@ -27,12 +27,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	type FillAxis = "x" | "y" | "none"
 	local function fills(children: { ComposeTypes.Child }): boolean
 		for _, child in children do
-			local node = (child :: unknown) :: { IsA: unknown }
-			if
-				type(child) ~= "function"
-				and type(node.IsA) == "function"
-				and ((child :: unknown) :: Instance):IsA("UIFlexItem")
-			then
+			if typeof(child) == "Instance" and child:IsA("UIFlexItem") then
 				return true
 			end
 		end
@@ -462,13 +457,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local scaled = false
 		local filling: { GuiObject } = {}
 		for _, child in children do
-			local node = (child :: unknown) :: GuiObject
-			local gui = (typeof(node) == "Instance" or type(node) == "table")
-				and type(node.IsA) == "function"
-				and node:IsA("GuiObject")
-			if gui and node.Size.Y.Scale > 0 then
+			if typeof(child) == "Instance" and child:IsA("GuiObject") and child.Size.Y.Scale > 0 then
 				scaled = true
-				table.insert(filling, node)
+				table.insert(filling, child)
 			end
 		end
 		local size, automatic = kit.extent(spec, "fill", if axis == "x" and not scaled then "hug" else "fill")
@@ -492,14 +483,15 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			native.HorizontalScrollBarInset = E.ScrollBarInset.ScrollBar
 		end
 		local flow: Types.Flow = { gap = spec.gap, align = spec.align, distribute = spec.distribute }
-		local reach = Compose.formula(function(use: ComposeTypes.Use): number
-			return plateReach(use)
-		end)
-		local room = Compose.formula(function(use: ComposeTypes.Use): layoutKit.Room
-			local pixels = use(reach)
-			return { top = pixels, right = pixels, bottom = pixels, left = pixels }
-		end)
-		local insets = if spec.padding ~= nil or reach:peek() > 0 then kit.insets(spec.padding or 0, room) else nil
+		local insets: UIPadding? = nil
+		if spec.padding ~= nil or plateReach() > 0 then
+			local reach = Compose.formula(plateReach)
+			local room = Compose.formula(function(use: ComposeTypes.Use): layoutKit.Room
+				local pixels = use(reach)
+				return { top = pixels, right = pixels, bottom = pixels, left = pixels }
+			end)
+			insets = kit.insets(spec.padding or 0, room)
+		end
 		local layout = kit.list(flow, axis ~= "x")
 		local frame =
 			kit.plain(Host.ScrollingFrame(kit.assemble(native, properties, { layout, insets }, children)), properties)
@@ -532,11 +524,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			end
 			runtime.connect(frame, "DescendantAdded", queue)
 			runtime.connect(frame, "DescendantRemoving", queue)
-			local canvas = ctx.observe.AbsoluteCanvasSize(frame)
-			Compose.watch(function(use: ComposeTypes.Use)
-				use(canvas)
-				queue()
-			end)
+			Compose.cleanup(assert(runtime.host.observation).observeProperty(frame, "AbsoluteCanvasSize", queue))
 			refresh()
 		end
 		if axis == "x" and properties.CanvasSize == nil and properties.AutomaticCanvasSize == nil then
@@ -693,7 +681,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local size, automatic = kit.extent(spec, "fill", "hug")
 		local flow = spec.flow or "row"
 		assert(flow == "row" or flow == "column", "Facet Grid flow must be row or column")
-		local cells = Compose.cell(0)
+		local cells = if flow == "column" then Compose.cell(0) else nil
 		local function columns(use: ComposeTypes.Use?): number
 			local count = read(spec.columns, use)
 			assert(
@@ -707,7 +695,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			FillDirection = if flow == "column" then E.FillDirection.Vertical else E.FillDirection.Horizontal,
 			FillDirectionMaxCells = function(use: ComposeTypes.Use): number
 				local count = columns(use)
-				if flow == "column" then
+				if cells then
 					return math.max(1, math.ceil(use(cells) / count))
 				end
 				return count
@@ -755,7 +743,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			),
 			properties
 		)
-		if flow == "column" then
+		if cells then
 			local function count()
 				local total = 0
 				for _, child in node:GetChildren() do
@@ -770,14 +758,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			count()
 		end
 
-		local forward = if flow == "column" then "NextSelectionRight" else "NextSelectionDown"
-		local clamped: { [GuiObject]: boolean } = setmetatable({}, { __mode = "k" })
-		local revision = Compose.cell(0)
-		local function bump()
-			revision:set(revision:peek() + 1)
-		end
-		runtime.connect(node, "ChildAdded", bump)
-		runtime.connect(node, "ChildRemoved", bump)
+		local owner, active = assert(Compose.currentOwner(), "Facet Grid selection needs an owner"), false
 		local function selectable(cell: GuiObject): GuiObject?
 			if cell.Selectable then
 				return cell
@@ -789,57 +770,72 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			end
 			return nil
 		end
-		Compose.watch(function(use: ComposeTypes.Use)
-			use(revision)
-			local list: { GuiObject } = {}
-			local index: { [GuiObject]: number } = {}
-			for position, child in node:GetChildren() do
-				if child:IsA("GuiObject") and child.Visible then
-					table.insert(list, child)
-					index[child] = position
+		local function activate(selected: GuiObject?)
+			if active or selected == nil or not selected:IsDescendantOf(node) then
+				return
+			end
+			active = true
+			Compose.withOwner(owner, function()
+				local clamped: { [GuiObject]: GuiObject } = setmetatable({}, { __mode = "kv" })
+				local revision = Compose.cell(0)
+				local function bump()
+					revision:set(revision:peek() + 1)
 				end
-			end
-			table.sort(list, function(a: GuiObject, b: GuiObject): boolean
-				return if a.LayoutOrder ~= b.LayoutOrder then a.LayoutOrder < b.LayoutOrder else index[a] < index[b]
-			end)
-			local total = #list
-			local lanes = columns(use)
-			if flow == "column" then
-				lanes = math.max(1, math.ceil(total / lanes))
-			end
-			local lines = math.ceil(total / lanes)
-			local short = total - (lines - 1) * lanes
-			local last = if lines >= 2 and short < lanes then selectable(list[total]) else nil
-			for position, cell in list do
-				local target = selectable(cell)
-				if target then
-					local line, lane = (position - 1) // lanes + 1, (position - 1) % lanes + 1
-					local fields = (
-						target :: unknown
-					) :: { NextSelectionDown: GuiObject?, NextSelectionRight: GuiObject? }
-					local nextSelection = if forward == "NextSelectionDown"
-						then fields.NextSelectionDown
-						else fields.NextSelectionRight
-					local nextTarget: GuiObject?
-					if last and line == lines - 1 and lane > short then
-						if nextSelection ~= nil and not clamped[target] then
+				runtime.connect(node, "ChildAdded", bump)
+				runtime.connect(node, "ChildRemoved", bump)
+				Compose.watch(function(use: ComposeTypes.Use)
+					use(revision)
+					local list: { GuiObject } = {}
+					local index: { [GuiObject]: number } = {}
+					local orders: { [GuiObject]: number } = {}
+					for position, child in node:GetChildren() do
+						if child:IsA("GuiObject") and child.Visible then
+							table.insert(list, child)
+							index[child], orders[child] = position, child.LayoutOrder
+						end
+					end
+					table.sort(list, function(a: GuiObject, b: GuiObject): boolean
+						return if orders[a] ~= orders[b] then orders[a] < orders[b] else index[a] < index[b]
+					end)
+					local total, lanes = #list, columns(use)
+					if flow == "column" then
+						lanes = math.max(1, math.ceil(total / lanes))
+					end
+					local lines = math.ceil(total / lanes)
+					local short = total - (lines - 1) * lanes
+					local last = if lines >= 2 and short < lanes then selectable(list[total]) else nil
+					for position, cell in list do
+						local clamp = last ~= nil
+							and position > (lines - 2) * lanes + short
+							and position <= (lines - 1) * lanes
+						local target = if clamp then selectable(cell) else clamped[cell]
+						if target == nil then
 							continue
 						end
-						nextTarget = last
-						clamped[target] = true
-					elseif clamped[target] then
-						clamped[target] = nil
-					else
-						continue
+						local nextSelection = if flow == "column"
+							then target.NextSelectionRight
+							else target.NextSelectionDown
+						if clamp and nextSelection ~= nil and clamped[cell] ~= target then
+							continue
+						end
+						local nextTarget = if clamp then last else nil
+						clamped[cell] = if clamp then target else nil
+						if nextSelection ~= nextTarget then
+							runtime.host.render.setProperty(
+								target,
+								if flow == "column" then "NextSelectionRight" else "NextSelectionDown",
+								nextTarget
+							)
+						end
 					end
-					if forward == "NextSelectionDown" then
-						fields.NextSelectionDown = nextTarget
-					else
-						fields.NextSelectionRight = nextTarget
-					end
-				end
-			end
+				end, "Grid selection clamp")
+			end)
+		end
+		runtime.connect(node, "SelectionChanged", function(_selected, _previous, selected: GuiObject?)
+			activate(selected)
 		end)
+		local gui = ctx.config.guiService
+		activate(if gui then gui.SelectedObject else nil)
 		return node
 	end)
 

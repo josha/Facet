@@ -59,28 +59,28 @@
     {
       "path": "src/ui/nav_picker_options.luau",
       "rule": "radius",
-      "match": "ctx.corner(9) :: Types.Child,",
+      "match": "ctx.corner(9),",
       "status": "structural",
       "reason": "The radio indicator is a fixed 18 px circle; radius 9 is half its size."
     },
     {
       "path": "src/ui/nav_picker_options.luau",
       "rule": "radius",
-      "match": "ctx.corner(4) :: Types.Child,",
+      "match": "ctx.corner(4),",
       "status": "structural",
       "reason": "The radio dot is a fixed 8 px circle; radius 4 is half its size."
     },
     {
       "path": "src/ui/collection_reorder_row.luau",
       "rule": "radius",
-      "match": "ctx.corner(if mode == \"multiple\" then 3 else 9) :: Types.Child,",
+      "match": "ctx.corner(if mode == \"multiple\" then 3 else 9),",
       "status": "structural",
       "reason": "The 18 px selection mark is square for multiple selection and a circle for single selection. ctx.corner removes rounding when the theme uses square corners."
     },
     {
       "path": "src/ui/collection_reorder_row.luau",
       "rule": "radius",
-      "match": "ctx.corner(4) :: Types.Child,",
+      "match": "ctx.corner(4),",
       "status": "structural",
       "reason": "The edit-mode selection mark's dot is the 8 px radio dot; radius 4 is half its size."
     },
@@ -122,7 +122,7 @@
     {
       "path": "src/ui/date_time_calendar.luau",
       "rule": "stroke",
-      "match": "Host.UIStroke({ Thickness = 1 }) :: Shared.Child,",
+      "match": "Host.UIStroke({ Thickness = 1 }),",
       "status": "no-metric",
       "reason": "The today ring on a calendar day disc has no theme metric; its colour comes from the theme rule."
     },

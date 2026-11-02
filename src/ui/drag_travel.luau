@@ -4,7 +4,7 @@ local travelEngine = require("./travel_engine")
 local reducedMotion = require("./motion").reduced
 
 return function(ctx: Types.Context, parent: Instance, sample: (number) -> (), complete: () -> ()): () -> ()
-	local stop = ctx.runtime.mount(function()
+	local stop = ctx.runtime.mountFragment(function()
 		local reduced = reducedMotion(ctx)
 		travelEngine(ctx, {
 			initial = { 0 },
@@ -23,7 +23,7 @@ return function(ctx: Types.Context, parent: Instance, sample: (number) -> (), co
 			ease = ctx.motionEase("travel"),
 			spring = ctx.motionSpring("travel"),
 		})
-		return ctx.Host.Folder { Name = "FacetDragTravel" }
+		return {}
 	end, parent)
 	return stop
 end

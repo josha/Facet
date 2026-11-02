@@ -14,8 +14,8 @@ export type Columns<V, K> = {
 	narrowest: ComposeTypes.Value<number>,
 	textWrap: (CollectionTypes.TableColumn<V, K>, ComposeTypes.Use) -> boolean,
 	columnFrame: (
-		ComposeTypes.ReadOnlyValue<CollectionTypes.TableColumn<V, K>>,
-		ComposeTypes.ReadOnlyValue<number>,
+		Types.Input<CollectionTypes.TableColumn<V, K>>,
+		Types.Input<number>,
 		GuiObject,
 		GuiObject?,
 		GuiObject?
@@ -86,11 +86,17 @@ return function<V, K>(
 	Compose.watch(function(use: ComposeTypes.Use)
 		local columns = readColumns(spec.columns, use)
 		local primary = columns[1]
+		if (primary == nil or primary.render ~= nil or primary.editor ~= nil) and next(primaryMeasures) == nil then
+			return
+		end
 		local style = typography(use(font), use(points), use(unitScale))
 		local padding = metrics.textInsets:FindFirstChildWhichIsA("UIPadding")
-		local inset = if padding
-			then (padding:GetStyled("PaddingLeft") :: UDim).Offset + (padding:GetStyled("PaddingRight") :: UDim).Offset
-			else math.max(metrics.cellPadding, use(metrics.textInsetSize).X / use(unitScale))
+		local inset = math.max(metrics.cellPadding, use(metrics.textInsetSize).X / use(unitScale))
+		if padding then
+			local left: UDim = padding:GetStyled("PaddingLeft")
+			local right: UDim = padding:GetStyled("PaddingRight")
+			inset = left.Offset + right.Offset
+		end
 		local current = use(rows)
 		if textCache.size() == 0 then
 			return
@@ -197,40 +203,7 @@ return function<V, K>(
 		return total
 	end)
 	local owner = assert(Compose.currentOwner())
-	local perColumn: {
-		[string]: { allocated: ComposeTypes.ReadOnlyValue<number?>, fixed: ComposeTypes.ReadOnlyValue<number?> },
-	} =
-		{}
-	local allocatedWidths: ComposeTypes.ReadOnlyValue<{ [string]: number }>
-	local function widthsOf(id: string): {
-		allocated: ComposeTypes.ReadOnlyValue<number?>,
-		fixed: ComposeTypes.ReadOnlyValue<number?>,
-	}
-		local found = perColumn[id]
-		if found == nil then
-			Compose.withOwner(owner, function()
-				found = {
-					allocated = Compose.formula(function(use: ComposeTypes.Use): number?
-						return use(allocatedWidths)[id]
-					end),
-					fixed = Compose.formula(function(use: ComposeTypes.Use): number?
-						return readSource(widths, use)[id]
-					end),
-				}
-			end)
-			perColumn[id] = assert(found)
-		end
-		return assert(found)
-	end
-	local function columnWidth(
-		current: ComposeTypes.ReadOnlyValue<CollectionTypes.TableColumn<V, K>>,
-		use: ComposeTypes.Use
-	): number?
-		local column = use(current)
-		local fixed = use(widthsOf(column.id).fixed) or column.width
-		return if fixed ~= nil then boundedWidth(column, fixed) else nil
-	end
-	allocatedWidths = Compose.formula(function(use: ComposeTypes.Use): { [string]: number }
+	local allocatedWidths = Compose.formula(function(use: ComposeTypes.Use): { [string]: number }
 		local filled = use(fillWidth)
 		local offer = if filled > 0 then filled else use(viewportWidth)
 		if offer <= 0 then
@@ -303,39 +276,75 @@ return function<V, K>(
 		assert(value == nil or type(value) == "boolean", "Facet.Table column.wrap must be a boolean")
 		return if value == nil then metrics.touchRows(use) else value
 	end
+	type ColumnLayout = {
+		visible: ComposeTypes.ReadOnlyValue<boolean>,
+		size: ComposeTypes.ReadOnlyValue<UDim2>,
+		minimum: ComposeTypes.ReadOnlyValue<Vector2>,
+		maximum: ComposeTypes.ReadOnlyValue<Vector2>,
+		flex: ComposeTypes.ReadOnlyValue<Enum.UIFlexMode>,
+	}
+	local perColumn: { [string]: ColumnLayout } = {}
 	local function columnFrame(
-		current: ComposeTypes.ReadOnlyValue<CollectionTypes.TableColumn<V, K>>,
-		index: ComposeTypes.ReadOnlyValue<number>,
+		current: Types.Input<CollectionTypes.TableColumn<V, K>>,
+		index: Types.Input<number>,
 		content: GuiObject,
 		extra: GuiObject?,
 		more: GuiObject?
 	): Frame
+		local id = ctx.read<<CollectionTypes.TableColumn<V, K>>>(current).id
+		local found = perColumn[id]
+		if found == nil then
+			found = Compose.withOwner(owner, function(): ColumnLayout
+				local current = Compose.formula(function(use: ComposeTypes.Use): CollectionTypes.TableColumn<V, K>
+					for _, column in readColumns(spec.columns, use) do
+						if column.id == id then
+							return {
+								id = id,
+								width = column.width,
+								minWidth = column.minWidth,
+								maxWidth = column.maxWidth,
+							}
+						end
+					end
+					return { id = id }
+				end)
+				local fixed = Compose.formula(function(use: ComposeTypes.Use): number?
+					local column = use(current)
+					local width = readSource(widths, use)[id] or column.width
+					return if width then boundedWidth(column, width) else nil
+				end)
+				return {
+					visible = Compose.formula(function(use: ComposeTypes.Use): boolean
+						return not use(collapsed)[id]
+					end),
+					size = Compose.formula(function(use: ComposeTypes.Use): UDim2
+						return D2.new(0, use(allocatedWidths)[id] or use(fixed) or 0, 1, 0)
+					end),
+					minimum = Compose.formula(function(use: ComposeTypes.Use): Vector2
+						return V2.new(minimumOf(use(current)), 0)
+					end),
+					maximum = Compose.formula(function(use: ComposeTypes.Use): Vector2
+						return V2.new(
+							math.min(use(allocatedWidths)[id] or 1000000, use(current).maxWidth or 1000000),
+							1000000
+						)
+					end),
+					flex = Compose.formula(function(use: ComposeTypes.Use): Enum.UIFlexMode
+						return if use(fixed) == nil then E.UIFlexMode.Fill else E.UIFlexMode.None
+					end),
+				}
+			end)
+			perColumn[id] = found
+		end
+		local layout = found
 		local nativeProps: Types.FrameProps = {
-			Name = current:peek().id,
-			Visible = function(use: ComposeTypes.Use)
-				return not use(collapsed)[use(current).id]
-			end,
+			Name = id,
+			Visible = layout.visible,
 			LayoutOrder = index,
 			BackgroundTransparency = 1,
-			Size = function(use: ComposeTypes.Use)
-				return D2.new(0, use(widthsOf(use(current).id).allocated) or columnWidth(current, use) or 0, 1, 0)
-			end,
-			Host.UISizeConstraint {
-				MinSize = function(use: ComposeTypes.Use)
-					return V2.new(minimumOf(use(current)), 0)
-				end,
-				MaxSize = function(use: ComposeTypes.Use)
-					return V2.new(
-						math.min(use(widthsOf(use(current).id).allocated) or 1000000, use(current).maxWidth or 1000000),
-						1000000
-					)
-				end,
-			},
-			Host.UIFlexItem {
-				FlexMode = function(use: ComposeTypes.Use)
-					return if columnWidth(current, use) == nil then E.UIFlexMode.Fill else E.UIFlexMode.None
-				end,
-			},
+			Size = layout.size,
+			Host.UISizeConstraint { MinSize = layout.minimum, MaxSize = layout.maximum },
+			Host.UIFlexItem { FlexMode = layout.flex },
 			content,
 			extra,
 			more,
@@ -349,8 +358,9 @@ return function<V, K>(
 			if width <= 0 then
 				return
 			end
-			local style =
-				typography(label:GetStyled("FontFace") :: Font, label:GetStyled("TextSize") :: number, unitScale:peek())
+			local face: Font = label:GetStyled("FontFace")
+			local size: number = label:GetStyled("TextSize")
+			local style = typography(face, size, unitScale:peek())
 			textCache.get(contentKey(label.Text, style)).width = width
 			if style == typography(font:peek(), points:peek(), unitScale:peek()) then
 				setPrimaryMeasure(key, width + inset)

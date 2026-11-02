@@ -513,10 +513,16 @@ add("radial-list-bounds-in-short-room", {}, function(t)
 	t.check("short commands do not fill the wide viewport", panel.AbsoluteSize.X < 500, panel.AbsoluteSize)
 	local close = t.find(stage, "Center")
 	local title = t.find(stage, "SelectionPreview")
-	t.check("title aligns with the list", math.abs(title.AbsolutePosition.X - panel.AbsolutePosition.X) < 1)
+	local row = t.find(stage, "ready")
+	t.check(
+		"title aligns with the list",
+		math.abs(title.AbsolutePosition.X - row.AbsolutePosition.X) < 1,
+		{ title.AbsolutePosition.X, row.AbsolutePosition.X }
+	)
 	t.check(
 		"Close aligns with the list",
-		math.abs(close.AbsolutePosition.X + close.AbsoluteSize.X - panel.AbsolutePosition.X - panel.AbsoluteSize.X) < 1
+		math.abs(close.AbsolutePosition.X + close.AbsoluteSize.X - row.AbsolutePosition.X - row.AbsoluteSize.X) < 1,
+		{ close.AbsolutePosition.X + close.AbsoluteSize.X, row.AbsolutePosition.X + row.AbsoluteSize.X }
 	)
 	for _, id in { "ready", "wait", "follow", "thanks" } do
 		local button = t.find(stage, id)
@@ -531,16 +537,16 @@ add("radial-list-bounds-in-short-room", {}, function(t)
 		title.AbsoluteSize.Y > 40 and title.AbsolutePosition.Y >= 0,
 		title.AbsoluteSize
 	)
-	t.check(
-		"list clears the wrapped title",
-		panel.AbsolutePosition.Y >= title.AbsolutePosition.Y + title.AbsoluteSize.Y + 8,
-		{
-			titlePosition = title.AbsolutePosition,
-			titleSize = title.AbsoluteSize,
-			panelPosition = panel.AbsolutePosition,
-			gap = panel.AbsolutePosition.Y - title.AbsolutePosition.Y - title.AbsoluteSize.Y,
-		}
-	)
+	local firstRow = math.huge
+	for _, id in { "ready", "wait", "follow", "thanks" } do
+		firstRow = math.min(firstRow, t.find(stage, id).AbsolutePosition.Y)
+	end
+	t.check("list clears the wrapped title", firstRow >= title.AbsolutePosition.Y + title.AbsoluteSize.Y + 8, {
+		titlePosition = title.AbsolutePosition,
+		titleSize = title.AbsoluteSize,
+		firstRow = firstRow,
+		gap = firstRow - title.AbsolutePosition.Y - title.AbsoluteSize.Y,
+	})
 	local longCaption = t.find(stage, "wait"):FindFirstChild("Title", true) or t.find(stage, "wait")
 	t.check("long command label fits after width growth", t.fits(longCaption))
 	mouse.click(centre(t.find(stage, "ready")))

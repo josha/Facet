@@ -25,6 +25,7 @@ type Model = {
 }
 
 return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
+	local Alert: FacetTypes.AlertBuilder = UI.Alert
 	local Compose = Facet.Compose
 	local pending: Value<Item?> = Compose.cell(nil :: Item?)
 	local busy = Compose.cell(false)
@@ -121,7 +122,7 @@ return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 		},
 		UI.VirtualGrid "Items"(itemsSpec),
 		UI.Text "Result" { text = message, textRole = "body", wrap = true },
-		UI.Alert<<Item>>(alertSpec, "ConfirmPurchase"),
+		Alert<<Item>>(alertSpec, "ConfirmPurchase"),
 		UI.Toast "PurchaseToast" {
 			message = confirmation,
 			isPresented = purchased,

@@ -18,8 +18,9 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 		or config.userInputService ~= nil
 		or Compose.isValue(config.theme)
 		or type(config.theme) == "function"
-	if environment then
-		for _, value in (environment :: unknown) :: { read [string]: unknown } do
+	local environmentValues: unknown = environment
+	if type(environmentValues) == "table" then
+		for _, value in environmentValues do
 			reactive = reactive or Compose.isValue(value) or type(value) == "function"
 		end
 	end
@@ -59,10 +60,10 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 		if authored ~= true and environment and string.match(path, "^typography%.[^.]+%.size$") then
 			local chosen = ctx.read(environment.preferredTextSize, use)
 			if chosen ~= nil then
-				local ranks = { Medium = 0, Large = 1, Larger = 2, Largest = 3 }
+				local ranks: { [unknown]: number } = { Medium = 0, Large = 1, Larger = 2, Largest = 3 }
 				local function rank(item: unknown): number
-					local name = if typeof(item) == "EnumItem" then (item :: EnumItem).Name else item
-					return (ranks :: { [unknown]: number })[name] or 0
+					local name = if typeof(item) == "EnumItem" then item.Name else item
+					return ranks[name] or 0
 				end
 				local native = if config.guiService then config.guiService.PreferredTextSize else nil
 				return math.max(
@@ -147,10 +148,7 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 	end
 	function ctx.motionStyle(role: string, use: ComposeTypes.Use?): Enum.EasingStyle
 		local name = motionName(`motion.styles.{role}`, use)
-		local style = assert(
-			((types.Enum.EasingStyle :: unknown) :: { [string]: Enum.EasingStyle })[name],
-			`Facet motion style {name} is not an EasingStyle`
-		)
+		local style = assert(types.Enum.EasingStyle:FromName(name), `Facet motion style {name} is not an EasingStyle`)
 		return style
 	end
 	function ctx.controlSize(

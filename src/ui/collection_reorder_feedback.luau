@@ -24,11 +24,11 @@ return function<V, K>(
 	local axis, crossAxis = shared.axis, shared.crossAxis
 	local function dragImage(dropY: (ComposeTypes.Use) -> number): (Frame, number, UDim2)
 		local move = assert(moving:peek())
-		local source = rowNodes[move.key]
+		local rowSource = rowNodes[move.key]
 		local index = assert(controls.indexOfKey)(move.key)
 		local placement = if index then assert(controls.placementOf)(index) else nil
 		local extent = if placement then placement.size else 0
-		local nativeSize = if source then source.AbsoluteSize / scaleOf(body) else V2.zero
+		local nativeSize = if rowSource then rowSource.AbsoluteSize / scaleOf(body) else V2.zero
 		local crossSize = if crossAxis(nativeSize) > 0
 			then crossAxis(nativeSize)
 			elseif placement then placement.crossSize
@@ -47,6 +47,35 @@ return function<V, K>(
 				elseif horizontal then D2.new(0, extent, 1, -inset)
 				else D2.new(1, -inset, 0, extent)
 		end
+		local labelText: Types.ValueString = if #move.keys > 1
+			then tostring(#move.keys) .. " selected"
+			else tostring(move.key)
+		if spec.dragLabel then
+			labelText = function(use: ComposeTypes.Use)
+				local live = use(moving)
+				if live == nil then
+					return ""
+				end
+				if #live.keys > 1 then
+					return tostring(#live.keys) .. " selected"
+				end
+				local index = assert(controls.indexOfKey)(live.key)
+				return if spec.dragLabel and index
+					then spec.dragLabel(readSource(source, use)[index])
+					else tostring(live.key)
+			end
+		end
+		local labelProps: Types.TextLabelProps = {
+			Name = "DragLabel",
+			ZIndex = FEEDBACK_Z + 2,
+			BackgroundTransparency = 0,
+			AnchorPoint = V2.new(1, 0),
+			Position = D2.fromScale(1, 0),
+			Visible = #move.keys > 1,
+			Size = D2.fromOffset(0, 0),
+			Text = labelText,
+		}
+		local label = ctx.styled(if #move.keys > 1 then ctx.text(labelProps) else Host.TextLabel(labelProps), "badge")
 		local imageProps: Types.FrameProps = {
 			Name = "DragImage",
 			ZIndex = FEEDBACK_Z + 1,
@@ -59,24 +88,30 @@ return function<V, K>(
 				elseif horizontal then D2.new(0, extent + stack, 1, 0)
 				else D2.new(1, 0, 0, extent + stack),
 			Position = function(use: ComposeTypes.Use)
-				local live = use(moving)
+				local position = use(shared.pointerPosition)
 				local base = if horizontal then use(bodyAt).X.Offset else use(bodyAt).Y.Offset
 				local window = axis(body.AbsoluteWindowSize) / scaleOf(body)
-				local along = if live and live.pointer
+				local along = if position
 					then math.clamp(
-						shared.alongBody(body, live.pointer) + base - extent / 2,
+						shared.alongBody(body, position) + base - extent / 2,
 						base,
 						math.max(base, base + window - extent - stack)
 					)
 					else dropY(use)
 				local across = 0
 				if grid then
-					local pointer = if live and live.pointer
-						then crossAxis(live.pointer - body.AbsolutePosition) / scaleOf(body) - crossSize / 2
+					local pointer = if position
+						then crossAxis(position - body.AbsolutePosition) / scaleOf(body) - crossSize / 2
 						else (if placement then placement.crossOffset else 0)
-					if live and live.keyboard then
-						local candidate = live.remaining[live.slot + 1]
-						local index = if candidate then assert(controls.indexOfKey)(candidate) else #live.rows
+					if move.keyboard then
+						local live = use(moving)
+						if live == nil then
+							return D2.fromOffset(0, 0)
+						end
+						local candidate = live.remaining[use(live.slot) + 1]
+						local index = if candidate
+							then assert(controls.indexOfKey)(candidate)
+							else #readSource(source, use)
 						local at = assert(controls.placementOf)(index or 1)
 						pointer = at.crossOffset + (if candidate then 0 else at.crossSize) - crossAxis(use(canvasAt))
 					end
@@ -88,33 +123,12 @@ return function<V, K>(
 				end
 				return if horizontal then D2.fromOffset(along, across) else D2.fromOffset(across, along)
 			end,
-			ctx.styled(
-				ctx.text({
-					Name = "DragLabel",
-					ZIndex = FEEDBACK_Z + 2,
-					BackgroundTransparency = 0,
-					AnchorPoint = V2.new(1, 0),
-					Position = D2.fromScale(1, 0),
-					Visible = #move.keys > 1,
-					Text = function(use: ComposeTypes.Use)
-						local live = use(moving)
-						if live == nil then
-							return ""
-						end
-						if #live.keys > 1 then
-							return tostring(#live.keys) .. " selected"
-						end
-						local index = assert(controls.indexOfKey)(live.key)
-						return if spec.dragLabel and index then spec.dragLabel(live.rows[index]) else tostring(live.key)
-					end,
-				}),
-				"badge"
-			),
+			label,
 		}
 		local image = Host.Frame(imageProps)
 		local top = FEEDBACK_Z + 1
 		for layer = layers, 1, -1 do
-			local original = rowNodes[previewKeys[layer]] or source
+			local original = rowNodes[previewKeys[layer]] or rowSource
 			local parent = if original then original.Parent else nil
 			local painted: GuiObject? = if layer == 1 and move.preview
 				then move.preview
@@ -128,6 +142,7 @@ return function<V, K>(
 				end
 				local row = if copy.Name == "Reorderable" then copy else copy:FindFirstChild("Reorderable", true)
 				if row then
+					row:SetAttribute("FacetDragging", nil)
 					for _, name in { "Move", "SelectMark", "Minus", "Confirm" } do
 						local control = row:FindFirstChild(name)
 						if control and control:IsA("GuiObject") then
@@ -172,7 +187,7 @@ return function<V, K>(
 				copy.Parent = image
 			end
 		end
-		(image:FindFirstChild("DragLabel") :: GuiObject).ZIndex = top + 1
+		label.ZIndex = top + 1
 		return image, top + 2, sized(stack)
 	end
 	local rootProps: Types.FrameProps = {
@@ -227,16 +242,14 @@ return function<V, K>(
 				"drop-line"
 			)
 		end),
-		Compose.show(function(use: ComposeTypes.Use)
-			return use(moving) ~= nil
-		end, function()
+		Compose.show(shared.active, function()
 			local function dropY(use: ComposeTypes.Use): number
 				local move = use(moving)
 				if move == nil then
 					return 0
 				end
-				local candidate = move.remaining[move.slot + 1]
-				local index = if candidate then assert(controls.indexOfKey)(candidate) else #move.rows
+				local candidate = move.remaining[use(move.slot) + 1]
+				local index = if candidate then assert(controls.indexOfKey)(candidate) else #readSource(source, use)
 				local at = assert(controls.placementOf)(index or 1)
 				return (if insideBody then 0 elseif horizontal then use(bodyAt).X.Offset else use(bodyAt).Y.Offset)
 					+ at.offset
@@ -253,57 +266,51 @@ return function<V, K>(
 				Size = D2.fromOffset(100, 40),
 				ZIndex = targetZ,
 				Visible = function(use: ComposeTypes.Use)
-					local move = use(moving)
-					return move ~= nil
-						and move.keyboard
+					return use(shared.keyboard)
 						and not use(choosingDestination)
 						and (spec.onReorder ~= nil or spec.drop ~= nil)
 				end,
 				onActivate = shared.commit,
 			}
-			local keyboard = Compose.formula(function(use: ComposeTypes.Use): boolean
-				local move = use(moving)
-				return move ~= nil and move.keyboard
-			end)
 			local nativeProps: Types.FrameProps = {
 				Name = "DropFeedback",
 				ZIndex = FEEDBACK_Z,
-				Compose.show(keyboard, function()
-					local target = shared.UI.Button(keyboardTargetProps)
-					gesture.keyboardTarget = target
-					return target
-				end),
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 				ctx.styled(
 					Host.Frame "DropLine" {
 						Visible = function(use: ComposeTypes.Use)
 							local session = use(drag.state)
-							local move = use(moving)
 							return (spec.onReorder ~= nil or spec.drop ~= nil)
 								and session ~= nil
 								and (
-									(move and move.keyboard and not use(choosingDestination))
+									(use(shared.keyboard) and not use(choosingDestination))
 									or (session.target == body and body:GetAttribute("FacetDropState") == "accepted")
 								)
 						end,
-						Size = function(use: ComposeTypes.Use): UDim2
-							local move = use(moving)
-							if grid and move then
-								local candidate = move.remaining[move.slot + 1]
-								local index = if candidate then assert(controls.indexOfKey)(candidate) else #move.rows
-								local at = assert(controls.placementOf)(index or 1)
-								return if horizontal then D2.fromOffset(at.size, 2) else D2.fromOffset(2, at.size)
-							end
-							return if horizontal then D2.new(0, 2, 1, 0) else D2.new(1, 0, 0, 2)
-						end,
+						Size = if not grid
+							then (if horizontal then D2.new(0, 2, 1, 0) else D2.new(1, 0, 0, 2))
+							else function(use: ComposeTypes.Use): UDim2
+								local move = use(moving)
+								if grid and move then
+									local candidate = move.remaining[use(move.slot) + 1]
+									local index = if candidate
+										then assert(controls.indexOfKey)(candidate)
+										else #readSource(source, use)
+									local at = assert(controls.placementOf)(index or 1)
+									return if horizontal then D2.fromOffset(at.size, 2) else D2.fromOffset(2, at.size)
+								end
+								return if horizontal then D2.new(0, 2, 1, 0) else D2.new(1, 0, 0, 2)
+							end,
 						BorderSizePixel = 0,
 						ZIndex = FEEDBACK_Z,
 						Position = function(use: ComposeTypes.Use)
 							local move = use(moving)
 							if grid and move then
-								local candidate = move.remaining[move.slot + 1]
-								local index = if candidate then assert(controls.indexOfKey)(candidate) else #move.rows
+								local candidate = move.remaining[use(move.slot) + 1]
+								local index = if candidate
+									then assert(controls.indexOfKey)(candidate)
+									else #readSource(source, use)
 								local at = assert(controls.placementOf)(index or 1)
 								local along = at.offset - axis(use(canvasAt))
 								local across = at.crossOffset
@@ -318,6 +325,11 @@ return function<V, K>(
 				),
 				image,
 			}
+			if assert(moving:peek()).keyboard then
+				local target = shared.UI.Button(keyboardTargetProps)
+				gesture.keyboardTarget = target
+				table.insert(nativeProps, target)
+			end
 			return Host.Frame(nativeProps)
 		end),
 	}

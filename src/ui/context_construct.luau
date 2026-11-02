@@ -6,7 +6,7 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 	local Compose = ctx.Compose
 	local building: string? = nil
 	local track: ((Instance) -> ())? = nil
-	local metatableOf = (getmetatable :: unknown) :: (unknown) -> unknown
+	local metatableOf: (unknown) -> unknown = getmetatable
 	local native: { [unknown]: boolean } = {}
 	native[metatableOf(Compose.cell(nil))] = true
 	native[metatableOf(Compose.sharedCell(nil))] = true
@@ -57,9 +57,7 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 		local suggestion = if best then ` Did you mean '{best}'?` else ""
 		return `Facet UI.{building or "control"}: unknown option '{key}'.{suggestion}`
 	end
-	local consumedSets = (
-		setmetatable({} :: { [unknown]: { [string]: boolean } }, { __mode = "k" }) :: unknown
-	) :: { [unknown]: { [string]: boolean } }
+	local consumedSets: { [unknown]: { [string]: boolean } } = setmetatable({}, { __mode = "k" })
 	local function consumedFor(behavioralKeys: { string } | { [string]: boolean }?): { [string]: boolean }
 		local frozen = behavioralKeys ~= nil and table.isfrozen(behavioralKeys)
 		local cached = if frozen then consumedSets[behavioralKeys] else nil
@@ -67,7 +65,7 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 			return cached
 		end
 		local consumed: { [string]: boolean } = { ref = true }
-		for key, value in ((behavioralKeys or {}) :: unknown) :: { [unknown]: unknown } do
+		for key, value in (behavioralKeys or {}) do
 			if type(key) == "number" then
 				assert(type(value) == "string")
 				consumed[value] = true
@@ -125,9 +123,9 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 						reject(key)
 					end
 				elseif type(value) == "table" and metatableOf(value) == nil then
-					for _, entry in value :: { [unknown]: unknown } do
+					for _, entry in value do
 						if type(entry) == "table" and not Compose.isValue(entry) then
-							for field, inner in entry :: { [unknown]: unknown } do
+							for field, inner in entry do
 								if Compose.isValue(inner) and not native[metatableOf(inner)] then
 									reject(`{key}.{tostring(field)}`)
 								end

@@ -6,9 +6,7 @@ type Pointer = {
 	allowed: (ComposeTypes.Use) -> boolean,
 	preferred: ComposeTypes.ReadOnlyValue<Enum.PreferredInput?>,
 }
-local resources = (setmetatable({}, { __mode = "k" }) :: unknown) :: {
-	[Types.Context]: ComposeTypes.AcquireSharedResource<Pointer>,
-}
+local resources: { [Types.Context]: ComposeTypes.AcquireSharedResource<Pointer> } = setmetatable({}, { __mode = "k" })
 
 return function(ctx: Types.Context): ((ComposeTypes.Use) -> boolean, ComposeTypes.ReadOnlyValue<Enum.PreferredInput?>)
 	local acquire = resources[ctx]
@@ -16,10 +14,8 @@ return function(ctx: Types.Context): ((ComposeTypes.Use) -> boolean, ComposeType
 		acquire = ctx.Compose.createSharedResource(function(): (Pointer, (() -> ())?)
 			local Compose, E = ctx.Compose, ctx.types.Enum
 			local input = ctx.config.userInputService or ctx.config.services.UserInputService
-			local preferred = if input
-				then ctx.observe.PreferredInput(input) :: ComposeTypes.ReadOnlyValue<Enum.PreferredInput?>
-				else Compose.cell(nil :: Enum.PreferredInput?)
-			local last = Compose.cell(nil :: Enum.UserInputType?)
+			local preferred = if input then ctx.observe.PreferredInput(input) else Compose.cell(nil)
+			local last = Compose.cell<<Enum.UserInputType?>>(nil)
 			local changed: RBXScriptConnection? = nil
 			if input and input.GetLastInputType then
 				last:set(input:GetLastInputType())

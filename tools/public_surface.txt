@@ -264,6 +264,7 @@ type Adaptive
 type AdaptiveStackProps
 type AdjustableOptions
 type AlertAction
+type AlertBuilder
 type AlertSpec
 type AnchoredOptions
 type App
@@ -432,6 +433,7 @@ type RGB
 type RadialAction
 type RadialChoice
 type RadialItem
+type RadialMenuBuilder
 type RadialMenuSpec
 type RatingCellProps
 type RatingProps

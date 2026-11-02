@@ -17,13 +17,12 @@ return function<V, K>(
 	UI: ControlTypes.Controls,
 	view: State.View<V, K>,
 	editor: reorder.Editor<V, K>?,
-	slots: Slots.Slots<V, K>
+	slots: Slots.Slots<V, K>,
+	rowEditor: reorder.Editor<V, K>?
 ): (CollectionTypes.Follow?) -> ComposeTypes.Child
-	type SlotRecord = Slots.Slot<V, K>
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
 	local readSource = ctx.readSource
-	local readMeasurements = ctx.read<<{ [K]: number }>>
 	local observe = ctx.observe
 	local D2, D, V2, E = ctx.types.UDim2, ctx.types.UDim, ctx.types.Vector2, ctx.types.Enum
 	local gui = ctx.config.guiService
@@ -39,7 +38,6 @@ return function<V, K>(
 	local mounted, cellEdits, placed, poolOwner = view.mounted, view.cellEdits, view.placed, view.poolOwner
 	local preparing, waiting = view.preparing, view.waiting
 	local crossEdge, fullSizes = view.crossEdge, view.fullSizes
-	local slotSource, withSlots = slots.source, slots.wrap
 	local fill, middle, centre = D2.fromScale(1, 1), D2.fromScale(0.5, 0.5), V2.new(0.5, 0.5)
 	local keyedRows: { [{ V }]: { keys: { K }, index: { [K]: number } } } = setmetatable({}, { __mode = "k" })
 	local function keysOf(rows: { V }): { keys: { K }, index: { [K]: number } }
@@ -98,19 +96,20 @@ return function<V, K>(
 			wireSelection(child, key)
 		end
 	end
+	local positionEditor = rowEditor or (if spec.reorderable or spec.drag then editor else nil)
 	local recycling = spec.recycle ~= false
 		and spec.slots == nil
 		and tree == nil
 		and editor == nil
+		and rowEditor == nil
 		and spec.rowActions == nil
 		and spec.rowDrop == nil
-	local function peekRows(): { V }
-		return source(function<T>(cell: ComposeTypes.ReadOnlyValue<T>): T
-			return cell:peek()
-		end)
+	local directRows = (editor ~= nil or rowEditor ~= nil) and spec.slots == nil
+	local function peek<T>(cell: ComposeTypes.ReadOnlyValue<T>): T
+		return cell:peek()
 	end
 	local arrivals = spec.arrival ~= nil
-	local latestRows: { V }? = if arrivals then peekRows() else nil
+	local latestRows: { V }? = if arrivals then source(peek) else nil
 	local fresh: { [K]: boolean } = {}
 	local clearFresh: (() -> ())? = nil
 	local function syncArrivals(rows: { V }): ()
@@ -147,36 +146,28 @@ return function<V, K>(
 		end)
 	end
 	local function arrived(key: K): boolean
-		if not arrivals then
-			return false
-		end
-		syncArrivals(peekRows())
+		syncArrivals(source(peek))
 		local entering = fresh[key] == true
 		fresh[key] = nil
 		return entering and read(spec.arrival) == "rise" and not reduced()
 	end
 	local function row(
 		rowItem: ComposeTypes.ReadOnlyValue<V>,
-		rowPlacement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+		placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
 		keyCell: ComposeTypes.ReadOnlyValue<K>,
 		follows: boolean
 	): GuiObject
 		local lease = view.pool.acquire()
-		local node = runtime.borrow(lease.value.node) :: Frame
-		local contentOwner = ComposeTypes.owner.createChild(poolOwner)
-		local current, placement = Compose.withOwner(contentOwner, function()
-			return Compose.cell(rowItem:peek()), Compose.cell(rowPlacement:peek())
-		end)
-		Compose.watch(function(use: ComposeTypes.Use)
-			current:set(use(rowItem))
-			placement:set(use(rowPlacement))
-		end)
+		local node = lease.value.node
+		runtime.borrow(node)
+		local contentOwner: ComposeTypes.Owner
+		local retained = if follows or directRows then nil else Compose.cell(rowItem:peek())
+		local current = retained or rowItem
 		local springPlacement = spec.slots ~= nil or spec.drag ~= nil or spec.drop ~= nil
 		local reservedPosition: ComposeTypes.ReadOnlyValue<Vector2>? = nil
 		local glide: ComposeTypes.Value<number>? = nil
-		if editor and (spec.reorderable or spec.drag) then
-			reservedPosition = editor.position(keyCell:peek(), placement, spec.reducedMotion)
-		elseif springPlacement then
+		local move: ((ComposeTypes.Placement, K) -> ())? = nil
+		if springPlacement and positionEditor == nil then
 			local position = Compose.cell(V2.new(placement:peek().crossOffset, placement:peek().offset))
 			reservedPosition = position
 			local target: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement> = placement
@@ -205,7 +196,7 @@ return function<V, K>(
 				use(target)
 				engine.retarget()
 			end)
-		elseif tree == nil and kind == "list" then
+		elseif positionEditor == nil and tree == nil and kind == "list" then
 			local offset = Compose.cell(0)
 			glide = offset
 			local stopGlide: (() -> ())? = nil
@@ -217,8 +208,7 @@ return function<V, K>(
 			end
 			Compose.cleanup(halt)
 			local previous, previousKey = placement:peek(), keyCell:peek()
-			Compose.watch(function(use: ComposeTypes.Use)
-				local at, now = use(placement), use(keyCell)
+			move = function(at: ComposeTypes.Placement, now: K)
 				local delta = previous.offset + offset:peek() - at.offset
 				local moved = at.index ~= previous.index and now == previousKey
 				if now ~= previousKey then
@@ -241,9 +231,9 @@ return function<V, K>(
 						halt()
 					end
 				end)
-			end)
+			end
 		end
-		local entering = arrived(keyCell:peek())
+		local entering = arrivals and arrived(keyCell:peek())
 		local entrance: ComposeTypes.Value<number>? = if arrivals then Compose.cell(if entering then 0 else 1) else nil
 		local interactable: ComposeTypes.Input<boolean> = if tree == nil and spec.disabled == nil
 			then true
@@ -251,45 +241,70 @@ return function<V, K>(
 				return (tree == nil or tree.visible(use(keyCell), use))
 					and not policy.disabled(spec.disabled, use(current))
 			end)
-		Compose.withOwner(contentOwner, function()
-			runtime.decorate(node, {
-				Name = tostring(keyCell:peek()),
-				ClipsDescendants = tree ~= nil,
-				Interactable = interactable,
-			})
-			local placed = { index = -1, main = math.huge, cross = math.huge, size = -1, crossSize = -1 }
-			Compose.watch(function(use: ComposeTypes.Use)
-				local at = use(placement)
-				local main, cross = at.offset + (if glide then use(glide) else 0), at.crossOffset
-				if reservedPosition then
-					local position = use(reservedPosition)
-					main, cross = position.Y, position.X
-				end
-				if entrance then
-					main += (1 - use(entrance)) * ctx.metric("motion.distances.rowArrival", use)
-				end
-				if placed.index ~= at.index then
-					placed.index = at.index
-					node.LayoutOrder = at.index
-				end
-				if placed.main ~= main or placed.cross ~= cross then
-					placed.main, placed.cross = main, cross
-					node.Position = if horizontal then D2.fromOffset(main, cross) else D2.fromOffset(cross, main)
-				end
-				if placed.size ~= at.size or placed.crossSize ~= at.crossSize then
-					placed.size, placed.crossSize = at.size, at.crossSize
-					node.Size = if horizontal
-						then D2.fromOffset(at.size, at.crossSize)
-						else D2.fromOffset(at.crossSize, at.size)
-				end
-			end)
-		end)
 		local edits: { activation.EditAction } = {}
 		local measuredNode: GuiObject
 		local actionHeight: ComposeTypes.ReadOnlyValue<number>? = nil
 		local painted = Compose.cell(false)
-		local stop, mountedContent = Compose.withOwner(contentOwner, function()
+		local content: GuiObject
+		local stop = Compose.withOwner(poolOwner, function()
 			return runtime.mount(function(): GuiObject
+				contentOwner = assert(Compose.currentOwner())
+				runtime.decorate(node, {
+					Name = tostring(keyCell:peek()),
+					ClipsDescendants = tree ~= nil,
+					Interactable = interactable,
+				})
+				local placed = { index = -1, main = math.huge, cross = math.huge, size = -1, crossSize = -1 }
+				local position = if positionEditor
+					then positionEditor.position(keyCell:peek(), placement, function(value: Vector2)
+						local main = value.Y
+							+ (
+								if entrance
+									then (1 - entrance:peek()) * ctx.metric("motion.distances.rowArrival")
+									else 0
+							)
+						if placed.main ~= main or placed.cross ~= value.X then
+							placed.main, placed.cross = main, value.X
+							node.Position = if horizontal
+								then D2.fromOffset(main, value.X)
+								else D2.fromOffset(value.X, main)
+						end
+					end, spec.reducedMotion)
+					else nil
+				Compose.owner.watchTerminal(contentOwner, function(use: ComposeTypes.Use)
+					local at = use(placement)
+					if position then
+						if entrance then
+							use(entrance)
+						end
+						position(at)
+					end
+					if move then
+						move(at, use(keyCell))
+					end
+					local main, cross = at.offset + (if glide then use(glide) else 0), at.crossOffset
+					if reservedPosition then
+						local position = use(reservedPosition)
+						main, cross = position.Y, position.X
+					end
+					if entrance then
+						main += (1 - use(entrance)) * ctx.metric("motion.distances.rowArrival", use)
+					end
+					if placed.index ~= at.index then
+						placed.index = at.index
+						node.LayoutOrder = at.index
+					end
+					if position == nil and (placed.main ~= main or placed.cross ~= cross) then
+						placed.main, placed.cross = main, cross
+						node.Position = if horizontal then D2.fromOffset(main, cross) else D2.fromOffset(cross, main)
+					end
+					if placed.size ~= at.size or placed.crossSize ~= at.crossSize then
+						placed.size, placed.crossSize = at.size, at.crossSize
+						node.Size = if horizontal
+							then D2.fromOffset(at.size, at.crossSize)
+							else D2.fromOffset(at.crossSize, at.size)
+					end
+				end)
 				local rendered = assert(spec.render)(current, placement, keyCell)
 				if tree and not tree.columnar then
 					rendered = tree.wrap(rendered, current, keyCell:peek())
@@ -308,7 +323,7 @@ return function<V, K>(
 					end
 					table.insert(edits, gated)
 				end
-				if not view.actionsWrapped then
+				if not view.actionsWrapped and (spec.rowActions ~= nil or #edits > 0) then
 					rendered, actionHeight = policy.actions(
 						ctx,
 						spec,
@@ -328,7 +343,8 @@ return function<V, K>(
 					end))
 				end
 				local selectionHit: TextButton? = nil
-				local children: Types.FrameProps = {
+				local attributes: EngineTypes.Attributes = { FacetCollectionRow = true }
+				local children: Types.CanvasGroupProps = {
 					Name = "Content",
 					Size = if tree
 						then function(use: ComposeTypes.Use): UDim2
@@ -336,7 +352,7 @@ return function<V, K>(
 							assert(type(minimum) == "number", "Facet.Outline requires a numeric itemSize")
 							local extent = use(measured)[use(keyCell)]
 							if spec.measured ~= nil then
-								local external = readMeasurements(spec.measured, use)[use(keyCell)]
+								local external = read<<{ [K]: number }>>(spec.measured, use)[use(keyCell)]
 								if external ~= nil then
 									extent = external
 								end
@@ -345,7 +361,7 @@ return function<V, K>(
 						end
 						else fill,
 					BackgroundTransparency = 1,
-					Attributes = { FacetCollectionRow = true } :: EngineTypes.Attributes,
+					Attributes = attributes,
 					ClipsDescendants = if liveOverflow
 						then function(use: ComposeTypes.Use): boolean
 							return read(spec.contentOverflow, use) == "clip"
@@ -363,6 +379,12 @@ return function<V, K>(
 					or editor
 				then
 					local hit: TextButton
+					local function activate(input: InputObject?, clicks: number?)
+						if not activation.intercepted(hit, input) then
+							select(keyCell:peek(), current, input, clicks)
+						end
+					end
+					local hitAttributes: EngineTypes.Attributes = { FacetSelectionRequired = selectionMode ~= "none" }
 					hit = Host.TextButton "RowHit" {
 						AnchorPoint = centre,
 						Position = middle,
@@ -371,21 +393,11 @@ return function<V, K>(
 						BackgroundTransparency = 1,
 						Selectable = true,
 						Interactable = interactable,
-						Activated = function(input: InputObject?, clicks: number?)
-							if not activation.intercepted(hit, input) then
-								select(keyCell:peek(), current, input, clicks)
-							end
-						end,
-						Attributes = {
-							FacetSelectionRequired = selectionMode ~= "none",
-						} :: EngineTypes.Attributes,
+						Activated = activate,
+						Attributes = hitAttributes,
 					}
 					selectionHit = hit
-					Compose.cleanup(activation.provide(hit, function(input: InputObject?, clicks: number?)
-						if not activation.intercepted(hit, input) then
-							select(keyCell:peek(), current, input, clicks)
-						end
-					end))
+					Compose.cleanup(activation.provide(hit, activate))
 					local function pressed(value: InputObject)
 						activation.press(rendered, value)
 					end
@@ -398,7 +410,7 @@ return function<V, K>(
 						runtime.connect(hit, "InputEnded", editor.finish)
 					end
 					Compose.cleanup(activation.providePress(hit, pressed))
-					table.insert((children :: unknown) :: { unknown }, 1, hit)
+					children[2], children[1] = children[1], hit
 				end
 				local carded = tree == nil
 					and rendered:GetAttribute("FacetBody") ~= nil
@@ -407,7 +419,7 @@ return function<V, K>(
 				if paintSelection and not carded then
 					children.BackgroundTransparency = nil
 				end
-				local groupProperties: Types.CanvasGroupProps = (children :: unknown) :: Types.CanvasGroupProps
+				local groupProperties: Types.CanvasGroupProps = children
 				local surface: Frame? = nil
 				if carded then
 					local cardSize = observe.AbsoluteSize(rendered)
@@ -439,7 +451,7 @@ return function<V, K>(
 					local expanded: Types.CanvasGroupProps = {
 						Name = "Content",
 						BackgroundTransparency = 1,
-						Attributes = { FacetCollectionRow = true } :: EngineTypes.Attributes,
+						Attributes = attributes,
 						Position = function(use: ComposeTypes.Use): UDim2
 							local x, y = edges(use)
 							return D2.fromOffset(-x, -y)
@@ -461,13 +473,12 @@ return function<V, K>(
 				groupProperties.GroupTransparency = function(use: ComposeTypes.Use): number
 					return if use(painted) then 1 - (if entrance then use(entrance) else 1) else 1
 				end
-				groupProperties.Attributes =
-					{ FacetCollectionRow = true, FacetCollectionReady = painted } :: EngineTypes.Attributes
+				groupProperties.Attributes = { FacetCollectionRow = true, FacetCollectionReady = painted }
 				groupProperties.AutomaticSize = if tree ~= nil or read(spec.contentOverflow) == "clip"
 					then E.AutomaticSize.None
 					elseif carded then (if horizontal then E.AutomaticSize.X else E.AutomaticSize.Y)
 					else E.AutomaticSize.XY
-				local content = if tree then ctx.fade(groupProperties) else Host.CanvasGroup(groupProperties)
+				content = if tree then ctx.fade(groupProperties) else Host.CanvasGroup(groupProperties)
 				local logical = surface or content
 				policy.drop(ctx, spec, current, keyCell:peek(), logical, kind == "grid" or horizontal, selectionHit)
 				local selected = if paintSelection
@@ -512,7 +523,6 @@ return function<V, K>(
 				return content
 			end, node)
 		end)
-		local content = mountedContent :: GuiObject
 		local parked: Instance? = nil
 		local previousParent: Instance? = node.Parent
 		local released = false
@@ -555,57 +565,55 @@ return function<V, K>(
 			restore:Disconnect()
 			destroyed:Disconnect()
 			stop()
-			Compose.owner.dispose(contentOwner)
 			lease.release()
 		end
 		wireSelection(content, keyCell)
 		view.slotKeys[node] = keyCell
-		local stopArrival: (() -> ())? = nil
-		local function settle(): ()
-			if stopArrival then
-				stopArrival()
-				stopArrival = nil
-			end
-			if entrance then
-				entrance:set(1)
-			end
-		end
-		Compose.cleanup(settle)
-		local function animate(): ()
+		local arrive: ((K) -> ())? = nil
+		if entrance then
 			local cell = entrance
-			if cell == nil then
-				return
+			local stopArrival: (() -> ())? = nil
+			local function settle(): ()
+				if stopArrival then
+					stopArrival()
+					stopArrival = nil
+				end
+				cell:set(1)
 			end
-			local elapsed = 0
-			local seconds = ctx.metric("motion.durations.rowArrival")
-			local present = ctx.motionEase("present")
-			stopArrival = view.frames.onFrame(function(step: number)
-				if not painted:peek() then
-					return
+			Compose.cleanup(settle)
+			local function animate(): ()
+				local elapsed = 0
+				local seconds = ctx.metric("motion.durations.rowArrival")
+				local present = ctx.motionEase("present")
+				stopArrival = view.frames.onFrame(function(step: number)
+					if not painted:peek() then
+						return
+					end
+					elapsed = math.min(seconds, elapsed + step)
+					cell:set(present(elapsed / seconds))
+					if elapsed >= seconds then
+						settle()
+					end
+				end)
+			end
+			arrive = function(key: K): ()
+				settle()
+				if arrived(key) then
+					cell:set(0)
+					animate()
 				end
-				elapsed = math.min(seconds, elapsed + step)
-				cell:set(present(elapsed / seconds))
-				if elapsed >= seconds then
-					settle()
-				end
-			end)
-		end
-		local function arrive(key: K): ()
-			settle()
-			if entrance and arrived(key) then
-				entrance:set(0)
+			end
+			if entering then
 				animate()
 			end
 		end
-		if entering then
-			animate()
-		end
 		local held: K? = nil
-		local function follow(use: ComposeTypes.Use)
-			local now = use(keyCell)
+		local function follow(now: K)
+			if held == now then
+				return
+			end
 			local gone = held
-			local arriving = gone ~= nil and gone ~= now
-			if gone ~= nil and arriving then
+			if gone ~= nil then
 				if mounted[gone] == node then
 					mounted[gone], placed[gone], cellEdits[gone] = nil, nil, nil
 				end
@@ -614,13 +622,13 @@ return function<V, K>(
 					gui.SelectedObject = nil
 				end
 			end
-			if arriving then
+			if gone ~= nil and arrive then
 				arrive(now)
 			end
 			held = now
 			node.Name = tostring(now)
 			mounted[now], placed[now], cellEdits[now] = node, placement, edits
-			if arriving then
+			if gone ~= nil then
 				if tree == nil and spec.disabled ~= nil then
 					node.Interactable = not policy.disabled(spec.disabled, rowItem:peek())
 				end
@@ -629,12 +637,16 @@ return function<V, K>(
 				end)
 			end
 		end
-		if follows then
-			Compose.watch(follow)
-		else
-			follow(function<T>(readable: ComposeTypes.ReadOnlyValue<T>): T
-				return readable:peek()
+		local owner = assert(Compose.currentOwner())
+		if retained then
+			Compose.owner.watchTerminal(owner, function(use: ComposeTypes.Use)
+				retained:set(use(rowItem))
 			end)
+		end
+		if follows then
+			Compose.owner.watchStatic(owner, keyCell, follow)
+		else
+			follow(keyCell:peek())
 		end
 		local measureRow: ((ComposeTypes.Use, Vector2) -> ())? = nil
 		local automatic = measuredNode.AutomaticSize
@@ -755,9 +767,7 @@ return function<V, K>(
 					return math.max(0, value - 1)
 				end)
 			end
-			local nextRows = source(function<T>(cell: ComposeTypes.ReadOnlyValue<T>): T
-				return cell:peek()
-			end)
+			local nextRows = source(peek)
 			local keyed = keysOf(nextRows)
 			local wanted = held ~= nil and keyed.index[held] ~= nil
 			local pendingReplacement = false
@@ -799,95 +809,112 @@ return function<V, K>(
 		end)
 		return node
 	end
+	local function itemSize(use: ComposeTypes.Use): number
+		local size = read(spec.itemSize or 40, use)
+		assert(type(size) == "number", "Facet collection requires a numeric itemSize")
+		return size
+	end
 	local function orderedRows(follow: CollectionTypes.Follow?): ComposeTypes.Child
-		return Compose.OrderedCollection {
-			from = slotSource,
-			key = function(record: SlotRecord, _index: number): K
+		local render = if recycling
+			then nil
+			else function(
+				current: ComposeTypes.ReadOnlyValue<V>,
+				placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+				key: K
+			): GuiObject
+				return row(current, placement, Compose.cell(key), false)
+			end
+		local function ordered<Item>(rows: ComposeTypes.OrderedCollectionOptions<Item, K>): ComposeTypes.Child
+			return Compose.OrderedCollection {
+				from = rows.from,
+				key = rows.key,
+				mode = spec.mode or "windowed",
+				direction = spec.direction or "vertical",
+				viewport = viewport,
+				status = status,
+				controls = controls,
+				overscan = spec.overscan or 2,
+				measured = Compose.formula(function(use: ComposeTypes.Use)
+					local sizes = fullSizes(use)
+					return if tree
+						then tree.sizes(use, sizes, itemSize(use), read<<number>>(spec.gap or 0, use))
+						else sizes
+				end),
+				follow = follow,
+				followThreshold = spec.followThreshold,
+				layout = function(use: ComposeTypes.Use)
+					if spec.minColumns ~= nil then
+						local least = read(spec.minColumns, use)
+						assert(
+							type(least) == "number"
+								and spec.minColumnWidth ~= nil
+								and spec.columns == nil
+								and least >= 1
+								and least % 1 == 0,
+							"Facet minColumns needs minColumnWidth, a positive whole number and no columns"
+						)
+					end
+					if spec.minColumnWidth ~= nil then
+						local minimum = read(spec.minColumnWidth, use)
+						assert(
+							type(minimum) == "number"
+								and kind == "grid"
+								and spec.columns == nil
+								and minimum > 0
+								and minimum < math.huge,
+							"Facet minColumnWidth needs a grid, a positive width and no columns"
+						)
+					end
+					local columns = view.gridColumns(use, math.max(0, use(cross) - 2 * crossEdge(use)))
+					local gap: number = read<<number>>(spec.gap or 0, use)
+					local crossGap: number = read<<number>>(spec.crossGap or gap, use)
+					return {
+						kind = kind,
+						columns = columns,
+						itemSize = if view.cardsMode then (view.cardLayout(use)) else itemSize(use),
+						gap = if tree then 0 else gap,
+						crossGap = crossGap,
+						crossSize = math.max(0, (use(cross) - 2 * crossEdge(use) - crossGap * (columns - 1)) / columns),
+					}
+				end,
+				render = rows.render,
+				recycle = rows.recycle,
+			}
+		end
+		if spec.slots == nil then
+			local keys: { K } = {}
+			return ordered {
+				from = Compose.formula(function(use: ComposeTypes.Use): { V }
+					local rows = source(use)
+					local current: { V } = table.create(#rows)
+					keys = table.create(#rows)
+					for index, item in rows do
+						table.insert(current, item)
+						keys[#current] = view.keyOf(item, index)
+					end
+					return current
+				end),
+				key = function(_item: V, index: number): K
+					return keys[index]
+				end,
+				render = render,
+				recycle = if recycling
+					then function(
+						current: ComposeTypes.ReadOnlyValue<V>,
+						placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+						key: ComposeTypes.ReadOnlyValue<K>
+					): GuiObject
+						return row(current, placement, key, true)
+					end
+					else nil,
+			}
+		end
+		return ordered {
+			from = assert(slots.source),
+			key = function(record: Slots.Slot<V, K>, _index: number): K
 				return record.key
 			end,
-			mode = spec.mode or "windowed",
-			direction = spec.direction or "vertical",
-			viewport = viewport,
-			status = status,
-			controls = controls,
-			overscan = spec.overscan or 2,
-			measured = Compose.formula(function(use: ComposeTypes.Use)
-				local sizes = fullSizes(use)
-				return if tree
-					then tree.sizes(
-						use,
-						sizes,
-						read(spec.itemSize or 40, use) :: number,
-						read<<number>>(spec.gap or 0, use)
-					)
-					else sizes
-			end),
-			follow = follow,
-			followThreshold = spec.followThreshold,
-			layout = function(use: ComposeTypes.Use)
-				if spec.minColumns ~= nil then
-					local least = read(spec.minColumns, use)
-					assert(
-						type(least) == "number"
-							and spec.minColumnWidth ~= nil
-							and spec.columns == nil
-							and least >= 1
-							and least % 1 == 0,
-						"Facet minColumns needs minColumnWidth, a positive whole number and no columns"
-					)
-				end
-				if spec.minColumnWidth ~= nil then
-					local minimum = read(spec.minColumnWidth, use)
-					assert(
-						type(minimum) == "number"
-							and kind == "grid"
-							and spec.columns == nil
-							and minimum > 0
-							and minimum < math.huge,
-						"Facet minColumnWidth needs a grid, a positive width and no columns"
-					)
-				end
-				local columns = view.gridColumns(use, math.max(0, use(cross) - 2 * crossEdge(use)))
-				local gap: number = read<<number>>(spec.gap or 0, use)
-				local crossGap: number = read<<number>>(spec.crossGap or gap, use)
-				return {
-					kind = kind,
-					columns = columns,
-					itemSize = if view.cardsMode
-						then (view.cardLayout(use))
-						else read(spec.itemSize or 40, use) :: number,
-					gap = if tree then 0 else gap,
-					crossGap = crossGap,
-					crossSize = math.max(0, (use(cross) - 2 * crossEdge(use) - crossGap * (columns - 1)) / columns),
-				}
-			end,
-			recycle = if recycling
-				then function(
-					record: ComposeTypes.ReadOnlyValue<SlotRecord>,
-					rowPlacement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
-					keyCell: ComposeTypes.ReadOnlyValue<K>
-				): GuiObject
-					return row(
-						Compose.formula(function(use: ComposeTypes.Use): V
-							return assert(use(record).item)
-						end),
-						rowPlacement,
-						keyCell,
-						true
-					)
-				end
-				else nil,
-			render = if recycling
-				then nil
-				else withSlots(
-					function(
-						rowItem: ComposeTypes.ReadOnlyValue<V>,
-						rowPlacement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
-						key: K
-					): GuiObject
-						return row(rowItem, rowPlacement, Compose.cell(key), false)
-					end
-				),
+			render = (assert(slots.wrap))(assert(render)),
 		}
 	end
 	return orderedRows

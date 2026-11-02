@@ -61,7 +61,7 @@ local function write(self: Node)
 			elseif state == CHECK and not consumer.retry then
 				consumer.state = DIRTY
 				return
-			elseif consumer.body == nil and consumer.run ~= nil then
+			elseif consumer.run ~= nil then
 				consumer.retry = false
 				consumer.state = DIRTY
 				local reactor = consumer.reactor
@@ -100,6 +100,7 @@ end
 local CELL = {}
 CELL.__index = CELL
 CELL.version = 0
+CELL.state = Graph.CLEAN
 
 function CELL.peek<T>(self: Types.Cache<T>): T
 	local cached = self.cache
@@ -201,7 +202,7 @@ function CELL.set<T>(self: Value<T>, incoming: T)
 			elseif state == CHECK and not consumer.retry then
 				consumer.state = DIRTY
 				return
-			elseif consumer.body == nil and consumer.run ~= nil then
+			elseif consumer.run ~= nil then
 				consumer.retry = false
 				consumer.state = DIRTY
 				local reactor = consumer.reactor
@@ -229,6 +230,7 @@ end
 local EQUAL = {}
 EQUAL.__index = EQUAL
 EQUAL.version = 0
+EQUAL.state = Graph.CLEAN
 
 function EQUAL.set<T>(self: Value<T>, incoming: T)
 	local node: Node = self

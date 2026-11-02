@@ -24,6 +24,7 @@ export type Options = {
 	token: ((name: string) -> Design.Literal)?,
 	resolveToken: ((name: string) -> Design.Resolved)?,
 	inputs: { [string]: Design.Literal }?,
+	bindings: { [string]: Design.Resolved }?,
 	slots: { [string]: () -> unknown }?,
 }
 
@@ -597,6 +598,7 @@ return function(ui: UI.UI)
 								return node.hidden == true
 							end,
 							inputs = options.inputs,
+							bindings = options.bindings,
 							slots = options.slots,
 							token = options.token,
 							resolveToken = options.resolveToken,

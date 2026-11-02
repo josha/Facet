@@ -23,10 +23,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		return type(value) == "number" and value == value and value % 1 == 0 and math.abs(value) <= MAX_SAFE
 	end
 	local function isCount(value: unknown): boolean
-		return value == nil or (isPage(value) and (value :: number) >= 0)
+		return value == nil or (type(value) == "number" and isPage(value) and value >= 0)
 	end
 	local function isFlag(value: unknown): boolean
 		return value == nil or type(value) == "boolean"
+	end
+	local function flag(key: string, source: unknown)
+		assert(isFlag(read(source)), `Facet UI.Pagination: {key} is a boolean or a readable boolean`)
+	end
+	local function windowCount(key: string, value: number?)
+		assert(
+			value == nil or (isPage(value) and value >= 0 and value <= MAX_WINDOW),
+			`Facet UI.Pagination: {key} is a whole number from 0 to {MAX_WINDOW}`
+		)
 	end
 
 	UI.Pagination = ctx.construct("Pagination", function(spec: ContentProps.PaginationSpec): Frame
@@ -39,19 +48,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			isCount(read(spec.pageCount)),
 			"Facet UI.Pagination: pageCount is a whole number of 0 or more, or nil for an unknown count"
 		)
-		for _, key in { "hasNext", "hasPrevious", "enabled" } do
-			assert(
-				isFlag(read((spec :: { [unknown]: unknown })[key])),
-				`Facet UI.Pagination: {key} is a boolean or a readable boolean`
-			)
-		end
-		for _, key in { "siblingCount", "boundaryCount" } do
-			local value = (spec :: { [unknown]: unknown })[key]
-			assert(
-				value == nil or (isPage(value) and (value :: number) >= 0 and (value :: number) <= MAX_WINDOW),
-				`Facet UI.Pagination: {key} is a whole number from 0 to {MAX_WINDOW}`
-			)
-		end
+		flag("hasNext", spec.hasNext)
+		flag("hasPrevious", spec.hasPrevious)
+		flag("enabled", spec.enabled)
+		windowCount("siblingCount", spec.siblingCount)
+		windowCount("boundaryCount", spec.boundaryCount)
 		assert(
 			spec.showFirstLast == nil or type(spec.showFirstLast) == "boolean",
 			"Facet UI.Pagination: showFirstLast is a boolean"
@@ -222,7 +223,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 								local distance = math.abs(entry.page - current)
 								local best = if drop ~= nil then math.abs(pages[drop].page - current) else -1
 								if
-									distance > best or (distance == best and entry.page > pages[drop :: number].page)
+									distance > best
+									or (distance == best and drop ~= nil and entry.page > pages[drop].page)
 								then
 									drop = index
 								end
@@ -296,7 +298,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		local arrowButtons: { [string]: TextButton } = {}
 		local lostFocus = false
 		local lost = Compose.cell(0)
-		local pending = Compose.cell(nil :: GuiObject?)
+		local pending = Compose.cell<<GuiObject?>>(nil)
 		local function watchFocus(button: TextButton)
 			Compose.cleanup(function()
 				if gui and gui.SelectedObject == button then

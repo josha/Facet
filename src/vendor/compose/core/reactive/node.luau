@@ -43,15 +43,6 @@ local function readCached<T>(value: Types.Cache<T>): T
 	return cached.value
 end
 
-local function readCache<T>(value: Types.Cache<T>): T
-	local node: Node = value
-	local refresh = node.refresh
-	if refresh ~= nil then
-		refresh(node)
-	end
-	return readCached(value)
-end
-
 local function read<T>(value: Types.ReadOnlyValue<T>): T
 	return value:peek()
 end
@@ -86,7 +77,6 @@ return {
 	asNode = asNode,
 	nodeOf = nodeOf,
 	read = read,
-	readCache = readCache,
 	readCached = readCached,
 	asValue = asValue,
 	asValueNode = asValueNode,

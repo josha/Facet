@@ -604,10 +604,6 @@ local function declaredFields(): (
 	end
 end
 
-local function camel(name: string): string
-	return string.lower(string.sub(name, 1, 1)) .. string.sub(name, 2)
-end
-
 type Part = { alias: string, name: string, arguments: string?, text: string }
 
 local function parsePart(text: string): Part
@@ -839,7 +835,7 @@ function ControlProps.optionOrigins(root: string): { [string]: { [string]: strin
 					end
 				end
 			end
-			for field in recipe.overrides or {} :: { [string]: string } do
+			for field in recipe.overrides or {} do
 				base[field] = nil
 			end
 			if recipe.variants then
@@ -855,7 +851,7 @@ function ControlProps.optionOrigins(root: string): { [string]: { [string]: strin
 			end
 			if recipe.alias then
 				for name in string.gmatch(recipe.alias, "([%w_]+)[<| ]") do
-					for field, origin in origins[name] or {} :: { [string]: string } do
+					for field, origin in origins[name] or {} do
 						base[field] = base[field] or origin
 					end
 				end

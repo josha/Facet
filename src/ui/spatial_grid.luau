@@ -251,7 +251,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 					ZIndex = 10,
 					Active = false,
 					Selectable = false,
-					Attributes = { FacetDragFeedback = true } :: Types.Attributes,
+					Attributes = { FacetDragFeedback = true },
 					Visible = function(use: Types.Use): boolean
 						local at = use(preview)
 						return use(service.state) ~= nil and at ~= nil and geometry.inside(at, spec.columns, spec.rows)

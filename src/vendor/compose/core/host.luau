@@ -1,25 +1,20 @@
 --!strict
 
-local Diagnostics = require "./diagnostics"
 local Types = require "./reactive/types"
 
-local function nodeReference(value: unknown)
+export type Node = typeof((function(value: unknown)
 	if type(value) == "table" or type(value) == "userdata" then
 		return value
 	end
 	error "a host node must be a table or userdata"
-end
+end)(nil))
 
-export type Node = typeof(nodeReference(nil))
-
-local function plainReference(value: unknown)
+export type Plain = typeof((function(value: unknown)
 	if type(value) == "table" or type(value) == "function" then
 		error "a plain value is neither a table nor a function"
 	end
 	return value
-end
-
-export type Plain = typeof(plainReference(nil))
+end)(nil))
 
 export type EventKey = {
 	composeKey: "event",
@@ -121,14 +116,13 @@ export type Directive = (MountPoint) -> ()
 
 export type Child = Node | Directive
 
-type LooseHost = {
-	name: unknown,
-	render: { [string]: unknown }?,
-	events: { [string]: unknown }?,
-	observation: { [string]: unknown }?,
-	frames: { [string]: unknown }?,
-	naming: { [string]: unknown }?,
-}
+local errorsModule: typeof(require "./host-validation")? = nil
+
+local function fail(code: string, name: string?, actual: unknown?, method: string?)
+	local loaded = errorsModule or require "./host-validation"
+	errorsModule = loaded
+	return loaded(code, name, actual, method)
+end
 
 local REQUIRED_RENDERER = {
 	"createNode",
@@ -141,26 +135,16 @@ local REQUIRED_RENDERER = {
 
 local function validate(host: Host)
 	if type(host) ~= "table" then
-		return Diagnostics.raise("host/not-a-host", "createRuntime expects a host table", {
-			actual = Diagnostics.describe(host),
-			contract = "a host implements the protocol in src/core/host.luau",
-		})
+		return fail("not-a-host", nil, host)
 	end
 	if type(host.name) ~= "string" or host.name == "" then
-		return Diagnostics.raise("host/unnamed", "a host must name itself", {
-			contract = "host.name appears in every diagnostic Compose raises about this host",
-			fix = 'set host.name, e.g. "roblox"',
-		})
+		return fail "unnamed"
 	end
 
-	local loose = host
-
-	if type(loose.render) ~= "table" then
-		return Diagnostics.raise("host/no-renderer", ("host %q has no render capability"):format(host.name), {
-			contract = "render is the one required capability",
-		})
+	if type(host.render) ~= "table" then
+		return fail("no-renderer", host.name)
 	end
-	local renderer = loose.render
+	local renderer = host.render
 	local methods: { [string]: unknown } = {
 		createNode = renderer.createNode,
 		setProperty = renderer.setProperty,
@@ -171,83 +155,41 @@ local function validate(host: Host)
 	}
 	for _, method in REQUIRED_RENDERER do
 		if type(methods[method]) ~= "function" then
-			return Diagnostics.raise(
-				"host/incomplete-renderer",
-				("host %q is missing render.%s"):format(host.name, method),
-				{
-					expected = "a function",
-					actual = Diagnostics.describe(methods[method]),
-					contract = "every method in Renderer is required",
-				}
-			)
+			return fail("incomplete-renderer", host.name, methods[method], method)
 		end
 	end
 
-	local events = loose.events
+	local events = host.events
 	if events ~= nil and type(events.connectEvent) ~= "function" then
-		return Diagnostics.raise(
-			"host/incomplete-events",
-			("host %q declares events without connectEvent"):format(host.name),
-			{
-				contract = "a declared capability must be complete",
-				fix = "either implement connectEvent or omit host.events entirely",
-			}
-		)
+		return fail("incomplete-events", host.name)
 	end
 
-	local observation = loose.observation
+	local observation = host.observation
 	if observation ~= nil then
 		if type(observation.readProperty) ~= "function" or type(observation.observeProperty) ~= "function" then
-			return Diagnostics.raise(
-				"host/incomplete-observation",
-				("host %q declares observation but does not implement it"):format(host.name),
-				{
-					contract = "observation requires both readProperty and observeProperty",
-					fix = "either implement both or omit host.observation entirely",
-				}
-			)
+			return fail("incomplete-observation", host.name)
 		end
 		if observation.readStyledProperty ~= nil or observation.observeStyledProperty ~= nil then
 			if
 				type(observation.readStyledProperty) ~= "function"
 				or type(observation.observeStyledProperty) ~= "function"
 			then
-				return Diagnostics.raise(
-					"host/incomplete-styled-observation",
-					"styled observation requires both host methods",
-					{
-						contract = "readStyledProperty and observeStyledProperty must be supplied together",
-					}
-				)
+				return fail "incomplete-styled-observation"
 			end
 		end
 	end
 
-	local naming = loose.naming
+	local naming = host.naming
 	if naming ~= nil then
 		if type(naming.setName) ~= "function" then
-			return Diagnostics.raise(
-				"host/incomplete-naming",
-				("host %q declares naming but does not implement it"):format(host.name),
-				{
-					contract = "naming requires setName",
-					fix = "either implement setName or omit host.naming entirely",
-				}
-			)
+			return fail("incomplete-naming", host.name)
 		end
 	end
 
-	local frames = loose.frames
+	local frames = host.frames
 	if frames ~= nil then
 		if type(frames.onFrame) ~= "function" or type(frames.now) ~= "function" then
-			return Diagnostics.raise(
-				"host/incomplete-frames",
-				("host %q declares frames but does not implement it"):format(host.name),
-				{
-					contract = "frames requires both onFrame and now",
-					fix = "either implement both or omit host.frames entirely",
-				}
-			)
+			return fail("incomplete-frames", host.name)
 		end
 	end
 end

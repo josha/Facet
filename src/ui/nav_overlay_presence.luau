@@ -33,11 +33,11 @@ return function(ctx: Types.Context): Presence
 				and (arrivalReady == nil or ctx.readSource(arrivalReady, use))
 		end
 		local exiting: ComposeTypes.ReadOnlyValue<boolean> = if phase then phase.exiting else Compose.cell(false)
-		local shown = Compose.cell(false)
+		local shown = if placed() then Compose.cell(false) else nil
 		local fadeIn, fadeOut = ctx.metric("motion.presentFadeIn"), ctx.metric("motion.presentFadeOut")
 		local present, fade = ctx.motionEase("present"), ctx.motionEase("fade")
 		local progress = runtime.tween(function(use: ComposeTypes.Use): number
-			return if use(exiting) or not use(shown) or not placed(use) then 0 else 1
+			return if use(exiting) or (shown and not use(shown)) or not placed(use) then 0 else 1
 		end, {
 			seconds = function(_: ComposeTypes.Use): number
 				if level() == "limited" then
@@ -49,7 +49,9 @@ return function(ctx: Types.Context): Presence
 				return if level() == "limited" then fade(t) else present(t)
 			end,
 		})
-		shown:set(true)
+		if shown then
+			shown:set(true)
+		end
 		local function raw(use: ComposeTypes.Use?): number
 			if not placed(use) then
 				return 0
@@ -148,21 +150,23 @@ return function(ctx: Types.Context): Presence
 			local natural = Compose.cell(size:peek())
 			naturalSizes[index] = natural
 			held[index] = natural
-			Compose.watch(function(use: ComposeTypes.Use)
-				local value = use(size)
-				local resting = use(rested)
-				if not resting or amount() >= 1 then
-					natural:set(if resting then nodes[index].AbsoluteSize else value)
-				end
-			end)
 		end
+		local wasRested = false
 		Compose.watch(function(use: ComposeTypes.Use)
-			if use(rested) then
+			local resting = use(rested)
+			for index, size in live do
+				local value = use(size)
+				if not resting or amount() >= 1 then
+					naturalSizes[index]:set(if resting then nodes[index].AbsoluteSize else value)
+				end
+			end
+			if resting and not wasRested then
 				for index, natural in naturalSizes do
 					natural:set(sampled[index])
 				end
 				ready:set(true)
 			end
+			wasRested = resting
 		end)
 		return held, rested
 	end
