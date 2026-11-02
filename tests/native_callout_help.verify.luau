@@ -674,7 +674,7 @@ return function(verifyHarness: Verify.Harness)
 					local w = hovered({ theme = assert(defined) })
 					local panel = w.find("Help")
 					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(120, 60))
-					local labels = { w.find("HelpTitle"), w.find("HelpText"), w.find("HelpShortcut") }
+					local labels: { TextLabel } = { w.find("HelpTitle"), w.find("HelpText"), w.find("HelpShortcut") }
 					for index, label in labels do
 						w.engine.environment.poke(label, "AbsolutePosition", w.Vector2.new(8, 6 + (index - 1) * 16))
 						w.engine.environment.poke(label, "AbsoluteSize", w.Vector2.new(104, 16))

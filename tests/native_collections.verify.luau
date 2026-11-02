@@ -1195,7 +1195,7 @@ return function(verifyHarness: Verify.Harness)
 							from = function(use)
 								return { use(mode) }
 							end,
-							render = function(current): GuiObject
+							render = function(current: Compose.ReadOnlyValue<string>): GuiObject
 								if current:peek() == "table" then
 									local tableSpec: FixtureCollectionProps.KeyedTableSpec<Row, string> = {
 										Name = "Data",
@@ -10860,14 +10860,15 @@ return function(verifyHarness: Verify.Harness)
 						"AbsoluteWindowSize",
 						w.engine.types.Vector2.new(1000, 240)
 					)
-					local cells = cellRow(body:FindFirstChild("Items"):FindFirstChild("row"))
+					local cells: Instance = cellRow(body:FindFirstChild("Items"):FindFirstChild("row"))
 					local header = w.node:FindFirstChild("Header")
 					local function sample(expected: number)
-						for _, row_ in { header, cells } do
-							local cell = row_:FindFirstChild("name")
-							local constraint = cell:FindFirstChildWhichIsA("UISizeConstraint")
+						local rowsOfCells: { Instance } = { header, cells }
+						for _, row_ in rowsOfCells do
+							local cell = row_:FindFirstChild("name") :: GuiObject
+							local constraint = cell:FindFirstChildWhichIsA("UISizeConstraint") :: UISizeConstraint
 							expect(cell.Size.X.Offset):toBe(expected)
-							expect(constraint.MaxSize.X <= columns:peek()[1].maxWidth):toBe(true)
+							expect(constraint.MaxSize.X <= (columns:peek()[1].maxWidth :: number)):toBe(true)
 							expect(constraint.MinSize.X):toBe(columns:peek()[1].minWidth)
 						end
 						expectSameColumns(header, cells, { "name" })

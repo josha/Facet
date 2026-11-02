@@ -1921,7 +1921,7 @@ return function(verifyHarness: Verify.Harness)
 						coroutine.close(thread)
 					end,
 				}
-				local preloaded = {}
+				local preloaded: { { read Image: string } } = {}
 				local UI = media(context(Compose, runtime, {
 					types = engine.types,
 					services = {

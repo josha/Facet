@@ -449,19 +449,18 @@ return function(verifyHarness: Verify.Harness)
 				w.engine.environment.poke(key, "TextFits", false)
 				expect((key:HasTag("facet-button-tight"))):toBe(true)
 				w.engine.environment.poke(key, "TextFits", true)
-				for _, arrive in
-					{
-						function()
-							key.TextSize = 18
-						end,
-						function()
-							key.FontFace = w.engine.types.Font.fromName("Gotham")
-						end,
-						function()
-							key.Text = "Q"
-						end,
-					}
-				do
+				local arrivals: { () -> () } = {
+					function()
+						key.TextSize = 18
+					end,
+					function()
+						key.FontFace = w.engine.types.Font.fromName("Gotham")
+					end,
+					function()
+						key.Text = "Q"
+					end,
+				}
+				for _, arrive in arrivals do
 					arrive()
 					expect((key:HasTag("facet-button-tight"))):toBe(true)
 					w.engine.environment.poke(key, "AbsoluteSize", w.V2.new(120, 44))

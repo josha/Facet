@@ -127,10 +127,11 @@ local function uiHits(code: string, controls: { [string]: boolean }, hits: { Hit
 			member, matchEnd = identifierAt(code, cursor + 3)
 		end
 		if member ~= nil then
-			if not controls[member] then
+			local name = member :: string
+			if not controls[name] then
 				table.insert(hits, {
 					position = cursor,
-					message = ("`UI.%s` is not a constructor on Facet.controls(runtime)"):format(member),
+					message = ("`UI.%s` is not a constructor on Facet.controls(runtime)"):format(name),
 				})
 			end
 			cursor = matchEnd

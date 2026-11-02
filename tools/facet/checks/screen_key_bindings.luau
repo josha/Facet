@@ -423,7 +423,7 @@ local function astDetection(parsed: Luau.Parsed, screen: boolean): Detection
 			local callee = Luau.dotted(func) or ""
 			if callee == "Instance.new" or string.sub(callee, -13) == ".Instance.new" then
 				local first = arguments[1]
-				local class = if first ~= nil then Luau.stringValue(first) else nil
+				local class: string? = if first ~= nil then Luau.stringValue(first) else nil
 				if class ~= nil and INPUT_CLASSES[class] then
 					add("instance", node, ('Instance.new("%s")'):format(class))
 				end

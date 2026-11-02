@@ -1068,8 +1068,9 @@ return function(verifyHarness: Verify.Harness)
 				expect(w.find("Well/Swatch/Checker").Visible):toBe(true)
 				expect(w.find("Well/Swatch/Plate").BackgroundTransparency):toBeCloseTo(0.5, 1e-4)
 				w.open()
-				for _, swatch in { w.find("Well/Swatch"), w.find("Readout/Head/Preview") } do
-					local paint = swatch:FindFirstChild("Paint")
+				local swatches: { Instance } = { w.find("Well/Swatch"), w.find("Readout/Head/Preview") }
+				for _, swatch in swatches do
+					local paint = swatch:FindFirstChild("Paint") :: Instance
 					expect((paint:IsA("CanvasGroup"))):toBe(true)
 					expect(paint:FindFirstChildWhichIsA("UICorner") ~= nil):toBe(true)
 					expect(paint:FindFirstChild("Checker") ~= nil):toBe(true)

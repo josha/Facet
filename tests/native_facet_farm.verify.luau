@@ -97,7 +97,8 @@ return function(verifyHarness: Verify.Harness)
 				local board, farm = reserve:FindFirstChild("BoardWidth"), reserve:FindFirstChild("FarmWidth")
 				Verify.expect(board.Text):toBe("2D board")
 				Verify.expect(farm.Text):toBe("3D farm")
-				for _, label in { board, farm } do
+				local labels: { TextLabel } = { board, farm }
+				for _, label in labels do
 					Verify.expect(label.TextTransparency):toBe(1)
 					Verify.expect(label.BackgroundTransparency):toBe(1)
 					Verify.expect(label:HasTag("facet-type-control")):toBe(true)

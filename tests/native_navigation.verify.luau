@@ -163,17 +163,17 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	describe("native navigation controls", function()
-		for _, sample in
-			{
-				{ name = "short flick", distance = 30, seconds = 0.02, idle = 0, expected = "four" },
-				{ name = "slow long drag", distance = 180, seconds = 1, idle = 0, expected = "four" },
-				{ name = "slow short drag", distance = 120, seconds = 1, idle = 0, expected = "three" },
-				{ name = "stopped flick", distance = 30, seconds = 0.02, idle = 0.2, expected = "three" },
-				{ name = "long flick cannot skip", distance = 600, seconds = 0.02, idle = 0, expected = "four" },
-				{ name = "reverse flick", distance = -30, seconds = 0.02, idle = 0, expected = "two" },
-				{ name = "native reverse velocity", distance = 180, seconds = 1, idle = 0, expected = "two" },
-			}
-		do
+		type ReleaseSample = { name: string, distance: number, seconds: number, idle: number, expected: string }
+		local samples: { ReleaseSample } = {
+			{ name = "short flick", distance = 30, seconds = 0.02, idle = 0, expected = "four" },
+			{ name = "slow long drag", distance = 180, seconds = 1, idle = 0, expected = "four" },
+			{ name = "slow short drag", distance = 120, seconds = 1, idle = 0, expected = "three" },
+			{ name = "stopped flick", distance = 30, seconds = 0.02, idle = 0.2, expected = "three" },
+			{ name = "long flick cannot skip", distance = 600, seconds = 0.02, idle = 0, expected = "four" },
+			{ name = "reverse flick", distance = -30, seconds = 0.02, idle = 0, expected = "two" },
+			{ name = "native reverse velocity", distance = 180, seconds = 1, idle = 0, expected = "two" },
+		}
+		for _, sample in samples do
 			it("PageView release " .. sample.name, {
 				id = "native_navigation::page release::" .. sample.name,
 				run = function()
@@ -4791,7 +4791,7 @@ return function(verifyHarness: Verify.Harness)
 		it("lets one arrow from the anchor reach a callout plate and B dismiss it back to the anchor", {
 			id = "native_navigation::native navigation controls::lets one arrow from the anchor reach a callout plate and B dismiss it back to the anchor",
 			run = function()
-				local reasons = {}
+				local reasons: { "action" | "dismissed" | "featureUsed" | "seen" | "tapAway" } = {}
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
 					local anchor = UI.Button "Anchor" { label = "Anchor" }
 					return Host.Frame {

@@ -1632,7 +1632,8 @@ return function(verifyHarness: Verify.Harness)
 				local chip = w.engine.new("TextButton")
 				chip:AddTag("facet-chip")
 				local plain = w.engine.new("TextButton")
-				for _, node in { round, chip, plain } do
+				local nodes: { GuiObject } = { round, chip, plain }
+				for _, node in nodes do
 					node.Parent = screen
 				end
 				local corner = template:FindFirstChildWhichIsA("UICorner")

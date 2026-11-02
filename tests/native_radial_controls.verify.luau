@@ -1779,14 +1779,14 @@ return function(verifyHarness: Verify.Harness)
 						{ id = "wave", label = "Wave", icon = "flag", onSelect = function() end } :: Radial.RadialItem<string>,
 					},
 				})
-				local function shown(button)
+				local function shown(button: TextButton)
 					local words: string = button.Text
 					for _, node in button:GetDescendants() do
 						if node:IsA("TextLabel") and node.Visible and node.TextTransparency < 1 then
 							words ..= node.Text
 						end
 					end
-					return words .. "|" .. tostring(button:FindFirstChild("LeadingIcon", true).Visible)
+					return words .. "|" .. tostring((button:FindFirstChild("LeadingIcon", true) :: GuiObject).Visible)
 				end
 				expect((shown(world.find("map")))):toBe("|true")
 				expect((shown(world.find("wave")))):toBe("|true")
