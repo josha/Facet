@@ -25,14 +25,7 @@ local Players = game:GetService("Players")
 
 local cases, add = suite.new()
 
-local function interactive(
-	id: string,
-	contracts: { string },
-	setup: (any) -> any,
-	steps: { [string]: (any, any) -> () }
-)
-	table.insert(cases, { id = id, contracts = contracts, setup = setup, steps = steps })
-end
+local interactive = suite.interactive(cases)
 
 local function tagged(root: Instance, tag: string): { any }
 	local out = {}

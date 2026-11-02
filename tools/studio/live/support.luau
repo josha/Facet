@@ -1,4 +1,9 @@
 --!strict
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Built = { read screen: () -> Instance } | (() -> Instance)
+local storage = game:GetService("ReplicatedStorage")
 
 local GuiService = game:GetService("GuiService")
 
@@ -197,7 +202,107 @@ local function device(t: { settle: (number) -> (), check: (string, boolean) -> (
 	return io
 end
 
+local function layerOf(stage: any): any
+	return stage:FindFirstAncestorWhichIsA("LayerCollector")
+end
+
+local function grown(t: any, base: any, offset: number): any
+	if offset == 0 then
+		return base
+	end
+	local typography = {}
+	for _, role in t.Facet.themes.TYPE_ROLES do
+		local entry = base.metrics.typography[role]
+		if entry then
+			typography[role] = { size = entry.size + offset, font = entry.font, lineHeight = entry.lineHeight }
+		end
+	end
+	local package, report = t.Facet.themes.define({
+		base = base,
+		identity = { id = `{base.identity.id}-plus-{offset}` },
+		metrics = { typography = typography },
+	})
+	assert(package, report and report.errors and report.errors[1] and report.errors[1].message)
+	return package
+end
+
+local function scenario(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
+	local built: Built
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		local ctx = t.context(UI, Host, Compose, env)
+		if patch then
+			patch(ctx)
+		end
+		local current: Built = t.scenario(name).build(ctx)
+		built = current
+		return if type(current) == "function" then current() else current.screen()
+	end, { frames = 20, size = size })
+	return stage, built
+end
+
+local function example(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
+	local built: Built
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		local ctx = t.context(UI, Host, Compose, env)
+		if patch then
+			patch(ctx)
+		end
+		local current: Built = (require :: any)(storage:WaitForChild("FacetExamples"):WaitForChild(name)).build(ctx)
+		built = current
+		return if type(current) == "function" then current() else current.screen()
+	end, { frames = 20, size = size })
+	return stage, built
+end
+
+local function partOf(root: any, name: string): any
+	if root == nil then
+		return nil
+	end
+	return root:FindFirstChild(name) or root:FindFirstChild(name, true)
+end
+
+local function found(t: any, label: string, names: { string }, nodes: { [string]: any }): boolean
+	local missing = {}
+	for _, key in names do
+		if nodes[key] == nil then
+			table.insert(missing, key)
+		end
+	end
+	t.check(label, #missing == 0, missing)
+	return #missing == 0
+end
+
+local function sameColor(a: unknown, b: unknown): boolean
+	return typeof(a) == "Color3"
+		and typeof(b) == "Color3"
+		and math.abs(a.R - b.R) <= 2.5 / 255
+		and math.abs(a.G - b.G) <= 2.5 / 255
+		and math.abs(a.B - b.B) <= 2.5 / 255
+end
+
+local function styled(node: any, property: string): any
+	local ok, value = pcall(function()
+		return node:GetStyled(property)
+	end)
+	if ok and value ~= nil then
+		return value
+	end
+	return node[property]
+end
+
+local function fill(node: any): string
+	return `{node:GetStyled("BackgroundColor3")}|{node:GetStyled("BackgroundTransparency")}`
+end
 return {
+	layerOf = layerOf,
+	grown = grown,
+	scenario = scenario,
+	example = example,
+	partOf = partOf,
+	found = found,
+	sameColor = sameColor,
+	styled = styled,
+	fill = fill,
 	pointer = pointer,
 	device = device,
 	selectedName = selectedName,

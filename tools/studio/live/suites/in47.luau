@@ -1,6 +1,9 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local scenario = support.scenario
+local example = support.example
+local fill = support.fill
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local gamepadWatch = support.gamepadWatch
 local centre = support.centre
 local selectedName = support.selectedName
@@ -14,7 +17,6 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
-type Built = { read screen: () -> Instance } | (() -> Instance)
 local noSelection: { [string]: boolean } = {}
 type SelectionCell = typeof(require("@repo/src/vendor/compose/core").cell(noSelection))
 type TableColumn = typeof(require("@repo/tools/typecheck/aliases").IdNameTableColumn)
@@ -50,34 +52,6 @@ end
 
 local function hits(at: Vector2): { GuiObject }
 	return ((Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui) :: any):GetGuiObjectsAtPosition(at.X, at.Y)
-end
-
-local function example(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
-	local built: Built
-	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
-		local ctx = t.context(UI, Host, Compose, env)
-		if patch then
-			patch(ctx)
-		end
-		local current: Built = (require :: any)(storage:WaitForChild("FacetExamples"):WaitForChild(name)).build(ctx)
-		built = current
-		return if type(current) == "function" then current() else current.screen()
-	end, { frames = 20, size = size })
-	return stage, built
-end
-
-local function scenario(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
-	local built: Built
-	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
-		local ctx = t.context(UI, Host, Compose, env)
-		if patch then
-			patch(ctx)
-		end
-		local current: Built = t.scenario(name).build(ctx)
-		built = current
-		return if type(current) == "function" then current() else current.screen()
-	end, { frames = 20, size = size })
-	return stage, built
 end
 
 local function touch(t: any)
@@ -1668,10 +1642,6 @@ local function guiStates(node: GuiObject): { string }
 		table.insert(seen, node.GuiState.Name)
 	end)
 	return seen
-end
-
-local function fill(node: any): string
-	return `{node:GetStyled("BackgroundColor3")}|{node:GetStyled("BackgroundTransparency")}`
 end
 
 local function paint(node: any): string

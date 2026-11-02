@@ -1,6 +1,6 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local overlap = support.overlap
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)

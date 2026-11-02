@@ -1,6 +1,6 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -12,14 +12,7 @@ local storage = game:GetService("ReplicatedStorage")
 
 local cases, add = suite.new()
 
-local function interactive(
-	id: string,
-	contracts: { string },
-	setup: (any) -> any,
-	steps: { [string]: (any, any) -> () }
-)
-	table.insert(cases, { id = id, contracts = contracts, setup = setup, steps = steps })
-end
+local interactive = suite.interactive(cases)
 
 local function selectedPath(root: Instance?): string
 	local selected = GuiService.SelectedObject

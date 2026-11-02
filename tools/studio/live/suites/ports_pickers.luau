@@ -1,6 +1,10 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local partOf = support.partOf
+local found = support.found
+local sameColor = support.sameColor
+local styled = support.styled
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 local overlap = support.overlap
 
@@ -29,15 +33,7 @@ local Verify = (require :: (ModuleScript) -> typeof(require("@repo/tools/vendor/
 
 local cases, add = suite.new()
 
-local function interactive(
-	id: string,
-	contracts: { string },
-	plan: string,
-	setup: (any) -> any,
-	steps: { [string]: (any, any) -> () }
-)
-	table.insert(cases, { id = id, contracts = contracts, plan = plan, setup = setup, steps = steps })
-end
+local interactive = suite.planned(cases)
 
 local function sameRect(a: any, b: any, tolerance: number?): boolean
 	local margin = tolerance or 0.5
@@ -52,24 +48,6 @@ local function point(node: any, dx: number?, dy: number?): { number }
 	local x = at.X + (if dx then dx else size.X / 2)
 	local y = at.Y + (if dy then dy else size.Y / 2)
 	return { math.floor(x + 0.5), math.floor(y + 0.5) }
-end
-
-local function styled(node: any, property: string): any
-	local ok, value = pcall(function()
-		return node:GetStyled(property)
-	end)
-	if ok and value ~= nil then
-		return value
-	end
-	return node[property]
-end
-
-local function sameColor(a: any, b: any): boolean
-	return typeof(a) == "Color3"
-		and typeof(b) == "Color3"
-		and math.abs(a.R - b.R) <= 2.5 / 255
-		and math.abs(a.G - b.G) <= 2.5 / 255
-		and math.abs(a.B - b.B) <= 2.5 / 255
 end
 
 local function themeNamed(t: any, name: string): any
@@ -125,24 +103,6 @@ end
 
 local function layerOf(stage: any): any
 	return stage:FindFirstAncestorWhichIsA("ScreenGui")
-end
-
-local function partOf(root: any, name: string): any
-	if root == nil then
-		return nil
-	end
-	return root:FindFirstChild(name) or root:FindFirstChild(name, true)
-end
-
-local function found(t: any, label: string, names: { string }, nodes: { [string]: any }): boolean
-	local missing = {}
-	for _, key in names do
-		if nodes[key] == nil then
-			table.insert(missing, key)
-		end
-	end
-	t.check(label, #missing == 0, missing)
-	return #missing == 0
 end
 
 local function gridIndex(t: any, year: number, month: number, day: number, weekStart: number?): number

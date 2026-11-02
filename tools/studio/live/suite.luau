@@ -16,4 +16,29 @@ local function new(): ({ Case }, (string, { string }, (any) -> ()) -> ())
 	return cases, add
 end
 
-return { new = new }
+local function interactive(cases: { Case })
+	local function interactive(
+		id: string,
+		contracts: { string },
+		setup: (any) -> any,
+		steps: { [string]: (any, any) -> () }
+	)
+		table.insert(cases, { id = id, contracts = contracts, setup = setup, steps = steps })
+	end
+	return interactive
+end
+
+local function planned(cases: { Case })
+	local function interactive(
+		id: string,
+		contracts: { string },
+		plan: string,
+		setup: (any) -> any,
+		steps: { [string]: (any, any) -> () }
+	)
+		table.insert(cases, { id = id, contracts = contracts, plan = plan, setup = setup, steps = steps })
+	end
+	return interactive
+end
+
+return { new = new, planned = planned, interactive = interactive }

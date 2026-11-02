@@ -1,6 +1,7 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local grown = support.grown
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
@@ -17,14 +18,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local cases, add = suite.new()
 
-local function interactive(
-	id: string,
-	contracts: { string },
-	setup: (any) -> any,
-	steps: { [string]: (any, any) -> () }
-)
-	table.insert(cases, { id = id, contracts = contracts, setup = setup, steps = steps })
-end
+local interactive = suite.interactive(cases)
 
 local SHIPPED = {
 	"Neutral",
@@ -66,26 +60,6 @@ local function themeNamed(t: any, name: string): any
 		end
 	end
 	return nil
-end
-
-local function grown(t: any, base: any, offset: number): any
-	if offset == 0 then
-		return base
-	end
-	local typography = {}
-	for _, role in t.Facet.themes.TYPE_ROLES do
-		local entry = base.metrics.typography[role]
-		if entry then
-			typography[role] = { size = entry.size + offset, font = entry.font, lineHeight = entry.lineHeight }
-		end
-	end
-	local package, report = t.Facet.themes.define({
-		base = base,
-		identity = { id = `{base.identity.id}-plus-{offset}` },
-		metrics = { typography = typography },
-	})
-	assert(package, report and report.errors and report.errors[1] and report.errors[1].message)
-	return package
 end
 
 local function within(node: Instance?, name: string): boolean

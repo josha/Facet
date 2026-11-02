@@ -1,5 +1,7 @@
 --!strict
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local grown = support.grown
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 local overlap = support.overlap
 
@@ -13,35 +15,7 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
 end
 
-local function interactive(
-	id: string,
-	contracts: { string },
-	plan: string,
-	setup: (any) -> any,
-	steps: { [string]: (any, any) -> () }
-)
-	table.insert(cases, { id = id, contracts = contracts, plan = plan, setup = setup, steps = steps })
-end
-
-local function grown(t: any, base: any, offset: number): any
-	if offset == 0 then
-		return base
-	end
-	local typography = {}
-	for _, role in t.Facet.themes.TYPE_ROLES do
-		local entry = base.metrics.typography[role]
-		if entry then
-			typography[role] = { size = entry.size + offset, font = entry.font, lineHeight = entry.lineHeight }
-		end
-	end
-	local package, report = t.Facet.themes.define({
-		base = base,
-		identity = { id = `{base.identity.id}-plus-{offset}` },
-		metrics = { typography = typography },
-	})
-	assert(package, report and report.errors and report.errors[1] and report.errors[1].message)
-	return package
-end
+local interactive = suite.planned(cases)
 
 local function scenario(t: any, name: string, options: { [string]: any }?): (any, any)
 	local config: { [string]: any } = options or {}

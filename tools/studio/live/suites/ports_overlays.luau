@@ -1,6 +1,8 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local layerOf = support.layerOf
+local styled = support.styled
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 local overlap = support.overlap
 type Help = typeof(require("@repo/tools/typecheck/aliases").ButtonProps.help)
@@ -176,19 +178,7 @@ add("sheet-placement-dismissal", {}, function(t)
 	end
 end)
 
-local function interactive(
-	id: string,
-	contracts: { string },
-	plan: string,
-	setup: (any) -> any,
-	steps: { [string]: (any, any) -> () }
-)
-	table.insert(cases, { id = id, contracts = contracts, plan = plan, setup = setup, steps = steps })
-end
-
-local function layerOf(stage: any): any
-	return stage:FindFirstAncestorWhichIsA("LayerCollector")
-end
+local interactive = suite.planned(cases)
 
 local function box(x: number, y: number, r: number, b: number): any
 	return { x = x, y = y, w = r - x, h = b - y, r = r, b = b }
@@ -205,16 +195,6 @@ local function whole(t: any, node: any): boolean
 	end
 	local full = t.rect(node)
 	return seen.h >= full.h - 1 and seen.w >= full.w - 1
-end
-
-local function styled(node: any, property: string): any
-	local ok, value = pcall(function()
-		return node:GetStyled(property)
-	end)
-	if ok and value ~= nil then
-		return value
-	end
-	return node[property]
 end
 
 local function luminance(color: Color3): number

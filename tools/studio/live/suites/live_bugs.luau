@@ -1,6 +1,6 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local centre = support.centre
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -50,8 +50,7 @@ local function pointer(t: any): any
 	return mouse
 end
 
-add("mail-row-grip", {}, function(t: any)
-	local mouse = pointer(t)
+local function mail(t: any)
 	local value = {}
 	local demo = t.scenario("collection_demo")
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
@@ -80,6 +79,12 @@ add("mail-row-grip", {}, function(t: any)
 	local function read(): { [string]: boolean }
 		return value.built.report().read
 	end
+	return stage, read
+end
+
+add("mail-row-grip", {}, function(t)
+	local mouse = pointer(t)
+	local stage, read = mail(t)
 	local row = t.find(stage, "Row_m1")
 	local grip = row and t.find(row, "SwipeGrip")
 	local mail = row and t.find(row, "Item_m1")
@@ -130,34 +135,7 @@ end)
 add("mail-row-touch-pan", {}, function(t: any)
 	t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, restore = "xbox" })
 	local mouse = pointer(t)
-	local value = {}
-	local demo = t.scenario("collection_demo")
-	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
-		local seed = {}
-		for index = 1, 30 do
-			seed[index] = {
-				id = "m" .. index,
-				from = "Sender " .. index,
-				subject = "Subject " .. index,
-				preview = "Preview " .. index,
-				read = false,
-				flagged = false,
-			}
-		end
-		value.built = demo(t.context(UI, Host, Compose, env), {
-			name = "Mail_list",
-			title = "Mail",
-			rows = seed,
-			count = 30,
-			actions = true,
-			mail = true,
-			list = true,
-		})
-		return value.built.screen()
-	end, { frames = 20, motionLevel = "normal" })
-	local function read(): { [string]: boolean }
-		return value.built.report().read
-	end
+	local stage, read = mail(t)
 	local kinds: { string } = {}
 	local watch = UserInputService.InputBegan:Connect(function(input)
 		table.insert(kinds, input.UserInputType.Name)

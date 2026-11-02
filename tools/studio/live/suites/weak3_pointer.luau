@@ -1,4 +1,6 @@
 --!strict
+local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local partOf = support.partOf
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -46,13 +48,6 @@ local function host(t: any)
 		tenFoot = GuiService:IsTenFootInterface(),
 		textSize = tostring(GuiService.PreferredTextSize),
 	})
-end
-
-local function partOf(root: any, name: string): any
-	if root == nil then
-		return nil
-	end
-	return root:FindFirstChild(name) or root:FindFirstChild(name, true)
 end
 
 interactive(

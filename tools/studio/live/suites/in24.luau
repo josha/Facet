@@ -1,5 +1,8 @@
 --!strict
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local scenario = support.scenario
+local example = support.example
+local fill = support.fill
 local gamepadWatch = support.gamepadWatch
 local centre = support.centre
 local selectedName = support.selectedName
@@ -68,34 +71,6 @@ local function device(t: any): any
 	return io
 end
 
-local function example(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
-	local built: Built
-	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
-		local ctx = t.context(UI, Host, Compose, env)
-		if patch then
-			patch(ctx)
-		end
-		local current: Built = (require :: any)(storage:WaitForChild("FacetExamples"):WaitForChild(name)).build(ctx)
-		built = current
-		return if type(current) == "function" then current() else current.screen()
-	end, { frames = 20, size = size })
-	return stage, built
-end
-
-local function scenario(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
-	local built: Built
-	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
-		local ctx = t.context(UI, Host, Compose, env)
-		if patch then
-			patch(ctx)
-		end
-		local current: Built = t.scenario(name).build(ctx)
-		built = current
-		return if type(current) == "function" then current() else current.screen()
-	end, { frames = 20, size = size })
-	return stage, built
-end
-
 local function touch(t: any)
 	t.device({
 		device = "iphone_14",
@@ -117,10 +92,6 @@ local function onPhone(run: (any) -> ()): (any) -> ()
 		touch(t)
 		run(t)
 	end
-end
-
-local function fill(node: any): string
-	return `{node:GetStyled("BackgroundColor3")}|{node:GetStyled("BackgroundTransparency")}`
 end
 
 local function descendantCount(): number

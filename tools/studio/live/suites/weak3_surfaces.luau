@@ -1,6 +1,10 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local layerOf = support.layerOf
+local partOf = support.partOf
+local found = support.found
+local styled = support.styled
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local overlap = support.overlap
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
@@ -22,47 +26,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local cases, add = suite.new()
 
-local function interactive(
-	id: string,
-	contracts: { string },
-	plan: string,
-	setup: (any) -> any,
-	steps: { [string]: (any, any) -> () }
-)
-	table.insert(cases, { id = id, contracts = contracts, plan = plan, setup = setup, steps = steps })
-end
-
-local function layerOf(stage: any): any
-	return stage:FindFirstAncestorWhichIsA("LayerCollector")
-end
-
-local function partOf(root: any, name: string): any
-	if root == nil then
-		return nil
-	end
-	return root:FindFirstChild(name) or root:FindFirstChild(name, true)
-end
-
-local function found(t: any, label: string, names: { string }, nodes: { [string]: any }): boolean
-	local missing = {}
-	for _, key in names do
-		if nodes[key] == nil then
-			table.insert(missing, key)
-		end
-	end
-	t.check(label, #missing == 0, missing)
-	return #missing == 0
-end
-
-local function styled(node: any, property: string): any
-	local ok, value = pcall(function()
-		return node:GetStyled(property)
-	end)
-	if ok and value ~= nil then
-		return value
-	end
-	return node[property]
-end
+local interactive = suite.planned(cases)
 
 local function click(node: any): { number }
 	local at, size = node.AbsolutePosition, node.AbsoluteSize

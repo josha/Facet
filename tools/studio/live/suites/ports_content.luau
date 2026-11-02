@@ -1,5 +1,6 @@
 --!strict
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 local overlap = support.overlap
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -229,15 +230,7 @@ add("hug-sheet-card-hover-keeps-layout-stable", {}, function(t)
 	t.check("hover and exit keep sheet stable on every frame", movement <= 1, movement)
 end)
 
-local function interactive(
-	id: string,
-	contracts: { string },
-	plan: string,
-	setup: (any) -> any,
-	steps: { [string]: (any, any) -> () }
-)
-	table.insert(cases, { id = id, contracts = contracts, plan = plan, setup = setup, steps = steps })
-end
+local interactive = suite.planned(cases)
 
 local function within(node: any, root: any): boolean
 	return node ~= nil and root ~= nil and (node == root or node:IsDescendantOf(root))

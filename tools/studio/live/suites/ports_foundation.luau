@@ -1,6 +1,8 @@
 --!strict
-local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local support = require(game:GetService("ReplicatedStorage").FacetLive.support)
+local sameColor = support.sameColor
+local styled = support.styled
+local suite = require(game:GetService("ReplicatedStorage").FacetLive.suite)
 local selectedName = support.selectedName
 local overlap = support.overlap
 
@@ -16,15 +18,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local cases, add = suite.new()
 
-local function interactive(
-	id: string,
-	contracts: { string },
-	plan: string,
-	setup: (any) -> any,
-	steps: { [string]: (any, any) -> () }
-)
-	table.insert(cases, { id = id, contracts = contracts, plan = plan, setup = setup, steps = steps })
-end
+local interactive = suite.planned(cases)
 
 local INK = Color3.new(0.97, 0.97, 0.98)
 local ON_INK = Color3.new(0.07, 0.07, 0.08)
@@ -38,14 +32,6 @@ local function toColor(value: any): Color3
 		return value
 	end
 	return Color3.new(value.r, value.g, value.b)
-end
-
-local function sameColor(a: any, b: any): boolean
-	return typeof(a) == "Color3"
-		and typeof(b) == "Color3"
-		and math.abs(a.R - b.R) <= 2.5 / 255
-		and math.abs(a.G - b.G) <= 2.5 / 255
-		and math.abs(a.B - b.B) <= 2.5 / 255
 end
 
 local function channel(value: number): number
@@ -63,16 +49,6 @@ end
 
 local function distance(a: Color3, b: Color3): number
 	return math.abs(a.R - b.R) + math.abs(a.G - b.G) + math.abs(a.B - b.B)
-end
-
-local function styled(node: any, property: string): any
-	local ok, value = pcall(function()
-		return node:GetStyled(property)
-	end)
-	if ok and value ~= nil then
-		return value
-	end
-	return node[property]
 end
 
 local function point(node: any): { number }
