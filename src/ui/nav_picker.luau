@@ -61,9 +61,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 	local chrome = fieldChrome(ctx)
 	local function buildPicker<V>(spec: NavigationProps.PickerSpec<V>): GuiObject
 		local readOptions = read<<Nav.PickerOptions<V>>>
-		local function picker(child: NavigationProps.PickerSpec<V>): GuiObject
-			return UI.Picker(child)
-		end
 		local menu = menus.menu<<V>>
 		local navigationLink = menus.navigationLink<<V>>
 		local cards = cardsStyle<<V>>
@@ -118,7 +115,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			marked.label = function(use: ComposeTypes.Use)
 				return (readText(words, use) or "") .. " *"
 			end
-			return picker(marked)
+			return UI.Picker(marked)
 		end
 		if spec.hint ~= nil or spec.errorText ~= nil then
 			local inner = table.clone(spec)
@@ -132,7 +129,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			shell.ZIndex, inner.ZIndex = inner.ZIndex, nil
 			inner.hint, inner.errorText = nil, nil
 			inner.Name = "Control"
-			local control = picker(inner)
+			local control = UI.Picker(inner)
 			local failure = chrome.errorOf({ errorText = spec.errorText }, nil)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local failing = failure(use) ~= ""
@@ -341,97 +338,63 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							if sizing == E.AutomaticSize.Y or sizing == E.AutomaticSize.XY then 0 else 1
 						)
 					end, automatic)
+					local child: NavigationProps.PickerSpec<V>
 					if spec.multiple then
-						local child: NavigationProps.MultiplePickerSpec<V> = {
+						local multiple: NavigationProps.MultiplePickerSpec<V> = {
 							options = spec.options,
-							query = spec.query,
-							placeholder = spec.placeholder,
-							label = spec.label,
-							required = spec.required,
-							enabled = if retained then enabled else spec.enabled,
-							indicator = spec.indicator,
-							axis = spec.axis,
-							sizing = spec.sizing,
-							iconOnly = spec.iconOnly,
-							textSize = spec.textSize,
-							Name = "Presentation",
-							Visible = if retained then active else nil,
-							style = presentation,
-							isPresented = opened,
-							AutomaticSize = automatic,
-							Size = size,
-							controlSize = spec.controlSize,
-							corners = if presentation == "menu"
-									or presentation == "segmented"
-									or presentation == "navigationLink"
-								then spec.corners
-								else nil,
-							maxHeight = if presentation == "menu" or presentation == "navigationLink"
-								then spec.maxHeight
-								else nil,
-							appearance = if spec.appearance ~= nil
-									and (
-										presentation == "menu"
-										or presentation == "segmented"
-										or presentation == "navigationLink"
-									)
-								then function(use: ComposeTypes.Use): string
-									return translate(readText(spec.appearance, use), presentation) or "utility"
-								end
-								else nil,
-							valueAlignment = spec.valueAlignment,
 							multiple = true,
 							selected = spec.selected,
 							onChanging = spec.onChanging,
 							onChange = spec.onChange,
 						}
-						return presented(picker(child), presentation)
+						child = multiple
 					else
-						local child: NavigationProps.SinglePickerSpec<V> = {
+						local single: NavigationProps.SinglePickerSpec<V> = {
 							options = spec.options,
-							query = spec.query,
-							placeholder = spec.placeholder,
-							label = spec.label,
-							required = spec.required,
-							enabled = if retained then enabled else spec.enabled,
-							indicator = spec.indicator,
-							axis = spec.axis,
-							sizing = spec.sizing,
-							iconOnly = spec.iconOnly,
-							textSize = spec.textSize,
-							Name = "Presentation",
-							Visible = if retained then active else nil,
-							style = presentation,
-							isPresented = opened,
-							AutomaticSize = automatic,
-							Size = size,
-							controlSize = spec.controlSize,
-							corners = if presentation == "menu"
-									or presentation == "segmented"
-									or presentation == "navigationLink"
-								then spec.corners
-								else nil,
-							maxHeight = if presentation == "menu" or presentation == "navigationLink"
-								then spec.maxHeight
-								else nil,
-							appearance = if spec.appearance ~= nil
-									and (
-										presentation == "menu"
-										or presentation == "segmented"
-										or presentation == "navigationLink"
-									)
-								then function(use: ComposeTypes.Use): string
-									return translate(readText(spec.appearance, use), presentation) or "utility"
-								end
-								else nil,
-							valueAlignment = spec.valueAlignment,
 							multiple = false,
 							selected = spec.selected,
 							onChanging = spec.onChanging,
 							onChange = spec.onChange,
 						}
-						return presented(picker(child), presentation)
+						child = single
 					end
+					child.query = spec.query
+					child.placeholder = spec.placeholder
+					child.label = spec.label
+					child.required = spec.required
+					child.enabled = if retained then enabled else spec.enabled
+					child.indicator = spec.indicator
+					child.axis = spec.axis
+					child.sizing = spec.sizing
+					child.iconOnly = spec.iconOnly
+					child.textSize = spec.textSize
+					child.Name = "Presentation"
+					child.Visible = if retained then active else nil
+					child.style = presentation
+					child.isPresented = opened
+					child.AutomaticSize = automatic
+					child.Size = size
+					child.controlSize = spec.controlSize
+					child.corners = if presentation == "menu"
+							or presentation == "segmented"
+							or presentation == "navigationLink"
+						then spec.corners
+						else nil
+					child.maxHeight = if presentation == "menu" or presentation == "navigationLink"
+						then spec.maxHeight
+						else nil
+					child.appearance = if spec.appearance ~= nil
+							and (
+								presentation == "menu"
+								or presentation == "segmented"
+								or presentation == "navigationLink"
+							)
+						then function(use: ComposeTypes.Use): string
+							return translate(readText(spec.appearance, use), presentation) or "utility"
+						end
+						else nil
+					child.valueAlignment = spec.valueAlignment
+					return presented(UI.Picker(child), presentation)
 				end,
 			})
 			props[#props + 1] = measure
