@@ -157,8 +157,7 @@ return function<V, K>(
 	local function row(
 		rowItem: ComposeTypes.ReadOnlyValue<V>,
 		rowPlacement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
-		keyCell: ComposeTypes.ReadOnlyValue<K>,
-		follows: boolean
+		keyCell: ComposeTypes.ReadOnlyValue<K>
 	): GuiObject
 		local lease = view.pool.acquire()
 		local node = runtime.borrow(lease.value.node) :: Frame
@@ -629,7 +628,7 @@ return function<V, K>(
 				end)
 			end
 		end
-		if follows then
+		if recycling then
 			Compose.watch(follow)
 		else
 			follow(function<T>(readable: ComposeTypes.ReadOnlyValue<T>): T
@@ -870,7 +869,7 @@ return function<V, K>(
 		placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
 		key: K
 	): GuiObject
-		return row(current, placement, Compose.cell(key), false)
+		return row(current, placement, Compose.cell(key))
 	end
 	local keys: { K } = {}
 	return function(follow: CollectionTypes.Follow?): ComposeTypes.Child
@@ -893,15 +892,7 @@ return function<V, K>(
 				return keys[index]
 			end,
 			render = if recycling then nil else render,
-			recycle = if recycling
-				then function(
-					current: ComposeTypes.ReadOnlyValue<V>,
-					placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
-					key: ComposeTypes.ReadOnlyValue<K>
-				): GuiObject
-					return row(current, placement, key, true)
-				end
-				else nil,
+			recycle = if recycling then row else nil,
 		}, follow)
 	end
 end
