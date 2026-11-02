@@ -5,6 +5,7 @@ local Nav = require("./navigation_types")
 local NavigationProps = require("./navigation_props")
 
 export type MenuEntry<V> = { key: string, heading: string?, item: Nav.MenuItem<V>?, ruled: boolean? }
+type Draft<V> = Nav.MenuItem<V> & { id: string?, children: Nav.Input<{ Nav.MenuItem<V> }>? }
 export type BuildMenu = <V>(spec: NavigationProps.MenuSpec<V>, wrap: boolean) -> GuiObject
 
 return function(ctx: Types.Context)
@@ -116,13 +117,14 @@ return function(ctx: Types.Context)
 		return true
 	end
 	local function menuItems<V>(items: { Nav.MenuItem<V> }, use: ComposeTypes.Use?): { Nav.MenuItem<V> }
+		local readItems = read<<{ Nav.MenuItem<V> }>>
 		assert(type(items) == "table", "Menu.items must be an array")
 		local result: { Nav.MenuItem<V> } = {}
 		local identifiers: { [string]: boolean } = {}
 		for index = 1, #items do
 			local source = items[index]
-			local copy = table.clone(source)
-			local id = copy.id or tostring(index)
+			local copy = table.clone(source) :: Draft<V>
+			local id: string = source.id or tostring(index)
 			copy.id = id
 			local item: Nav.MenuItem<V> = copy
 			assert(not identifiers[id], `Facet UI.Menu: two items at one level share the id '{id}'`)
@@ -136,7 +138,8 @@ return function(ctx: Types.Context)
 			end
 			if not item.divider then
 				assert(
-					type(read(item.label, use)) == "string" and string.find(read(item.label, use), "%S") ~= nil,
+					type(read(item.label, use)) == "string"
+						and string.find(read<<string>>(item.label, use), "%S") ~= nil,
 					"Menu items require nonempty labels"
 				)
 				assert(not (item.children and item.onSelect), "A menu item cannot have both children and onSelect")
@@ -146,7 +149,7 @@ return function(ctx: Types.Context)
 				)
 				assert(not (item.checked and item.selected), "A menu item cannot be both checked and selected")
 				if item.children then
-					item.children = menuItems(read(item.children, use), use)
+					copy.children = menuItems(readItems(item.children, use), use)
 				end
 			end
 			table.insert(result, item)
@@ -154,6 +157,7 @@ return function(ctx: Types.Context)
 		return result
 	end
 	local function advice<V>(items: { Nav.MenuItem<V> }, path: string, depth: number, notes: { string }): { string }
+		local readItems = read<<{ Nav.MenuItem<V> }>>
 		local actions, destructive = 0, nil :: number?
 		for index, item in items do
 			if item.divider ~= true then
@@ -169,7 +173,7 @@ return function(ctx: Types.Context)
 							`Facet UI.Menu: submenu '{id}' nests {depth + 1} levels deep. The platform guidance advises a single level.`
 						)
 					end
-					advice(read(item.children), `{path}[{index}].children`, depth + 1, notes)
+					advice(readItems(item.children), `{path}[{index}].children`, depth + 1, notes)
 				end
 			end
 		end

@@ -1,6 +1,7 @@
 --!strict
 local civil = require("./civil_date")
 local Shared = require("./types")
+local InputProps = require("./input_props")
 local DTP = require("./date_time_picker_types")
 local ComposeTypes = require("../vendor/compose/core")
 local Parts = require("./date_time_parts")
@@ -263,7 +264,7 @@ return function(
 			end,
 			ZIndex = 4,
 			BackgroundTransparency = 1,
-			ctx.corner(DISC) :: Shared.Child,
+			ctx.corner(DISC),
 			Host.UIStroke({ Thickness = 1 }) :: Shared.Child,
 		})
 		ring:AddTag("facet-calendar-today")
@@ -308,7 +309,7 @@ return function(
 			end
 			return use(downTarget)
 		end
-		cell = UI.Button({
+		local cellProps: InputProps.ButtonPropsInput = {
 			Name = `D{i}`,
 			LayoutOrder = i,
 			label = "",
@@ -342,7 +343,8 @@ return function(
 				number,
 				strike,
 			},
-		})
+		}
+		cell = UI.Button(cellProps)
 		cell:AddTag("facet-calendar-day")
 		if isRange then
 			runtime.connect(cell, "InputBegan", function(event: InputObject)
@@ -390,12 +392,12 @@ return function(
 		local weekdayRow = ctx.row(names, { Name = "Weekdays" })
 		assert(weekdayRow:FindFirstChildWhichIsA("UIListLayout")).Padding = D.new(0, 0)
 		local days: { Shared.Child } = {
-			Host.UIListLayout({
+			Host.UIListLayout {
 				FillDirection = E.FillDirection.Horizontal,
 				Wraps = true,
 				Padding = D.new(0, 0),
 				SortOrder = E.SortOrder.LayoutOrder,
-			}),
+			},
 		}
 		for i = 1, CELLS do
 			table.insert(days, dayCell(k, i))
@@ -480,6 +482,7 @@ return function(
 		turn("CalendarPreviousMonth", -1, { E.KeyCode.ButtonL1, E.KeyCode.Comma })
 		turn("CalendarNextMonth", 1, { E.KeyCode.ButtonR1, E.KeyCode.Period })
 		if gui then
+			local activeGui = gui
 			local last: GuiObject? = selected:peek()
 			Compose.watch(function(use: Use)
 				local now = use(selected)
@@ -489,7 +492,7 @@ return function(
 					local list = cells[1]
 					local target = if list then list[landing()] else nil
 					if target and target ~= now and target.Selectable then
-						gui.SelectedObject = target
+						activeGui.SelectedObject = target
 					end
 				end
 			end)

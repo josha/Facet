@@ -10,7 +10,7 @@ return function(verifyHarness: Verify.Harness)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 	type ScrollingFrameConstructor = typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameConstructor)
 	type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Facet = require("../src") :: any
@@ -78,7 +78,9 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function owned(runtime: any, body: () -> ()): () -> ()
-		local owner = Compose.createRootOwner(body, runtime.reactor)
+		local owner = Compose.createRootOwner(function()
+			body()
+		end, runtime.reactor)
 		return function()
 			owner.dispose()
 		end
@@ -382,8 +384,8 @@ return function(verifyHarness: Verify.Harness)
 				local w, env, stop = console({ environment = { viewingDistance = distance } })
 				local made: { typeof(env.scaled(0)) } = {}
 				local stopScaled = owned(w.runtime, function()
-					table.insert(made, env.scaled(64))
-					table.insert(made, env.scaled("space.m"))
+					table.insert(made, (env.scaled(64)))
+					table.insert(made, (env.scaled("space.m")))
 				end)
 				local portrait, gap = made[1], made[2]
 				Verify.expect((portrait:peek())):toBe(64)
@@ -405,7 +407,7 @@ return function(verifyHarness: Verify.Harness)
 					local w, env, stop = console(options)
 					local made: { typeof(env.scaled(0)) } = {}
 					local stopScaled = owned(w.runtime, function()
-						table.insert(made, env.scaled("controlSizes.regular.height"))
+						table.insert(made, (env.scaled("controlSizes.regular.height")))
 					end)
 					local height = made[1]
 					Verify.expect((env.metricScale:peek())):toBe(1.5)
@@ -438,8 +440,8 @@ return function(verifyHarness: Verify.Harness)
 				local refused = false
 				local stop = owned(w.runtime, function()
 					local env = w.UI.environment()
-					table.insert(made, env.scaled(64, "body"))
-					table.insert(made, env.scaled(64))
+					table.insert(made, (env.scaled(64, "body")))
+					table.insert(made, (env.scaled(64)))
 					refused = not pcall(env.scaled, 64, "shout")
 				end)
 				local face, plain = made[1], made[2]
@@ -460,7 +462,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = world(nil, { environment = { preferredTextSize = preview } })
 				local made: { typeof(w.UI.environment().scaled(0)) } = {}
 				local stop = owned(w.runtime, function()
-					table.insert(made, w.UI.environment().scaled(64, "body"))
+					table.insert(made, (w.UI.environment().scaled(64, "body")))
 				end)
 				local face = made[1]
 				Verify.expect((face:peek())):toBe(64)
@@ -1178,7 +1180,7 @@ return function(verifyHarness: Verify.Harness)
 								table.insert(log, `{payload} {info.mode}`)
 							end,
 						})
-						return ((w.runtime.constructors.Frame :: unknown) :: FrameConstructor)({ card :: unknown, slot })
+						return Facet.host(w.runtime).Frame({ card :: unknown, slot })
 					end, screen)
 					local card, slot = root:FindFirstChild("Card"), root:FindFirstChild("Slot")
 
@@ -1211,14 +1213,14 @@ return function(verifyHarness: Verify.Harness)
 								opened += 1
 							end,
 						}
-						local slot = ((w.runtime.constructors.Frame :: unknown) :: FrameConstructor)({ Name = "Slot" })
+						local slot = Facet.host(w.runtime).Frame({ Name = "Slot" })
 						w.UI.draggable(card, { payload = "card" })
 						w.UI.dropTarget(slot, {
 							onDrop = function(payload, info)
 								table.insert(log, `{payload} {info.mode}`)
 							end,
 						})
-						return ((w.runtime.constructors.ScrollingFrame :: unknown) :: ScrollingFrameConstructor)({
+						return Facet.host(w.runtime).ScrollingFrame({
 							Name = "List",
 							card :: unknown,
 							slot,
@@ -1721,7 +1723,7 @@ return function(verifyHarness: Verify.Harness)
 							function record.Cancel()
 								record.cancelled += 1
 							end
-							table.insert(created, record)
+							table.insert(created, record :: any)
 							return record
 						end,
 					}

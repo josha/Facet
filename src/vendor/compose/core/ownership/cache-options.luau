@@ -10,57 +10,51 @@ local function validate(options: unknown, kind: "pool" | "keyed-cache"): (Owner.
 	local build = if pool then "create" else "build"
 	local hook = if pool then "reset" else "touch"
 	local noun = if pool then "pool" else "cache"
-	local settings = options :: { [string]: unknown }
-	if type(options) ~= "table" or type(settings[build]) ~= "function" or type(settings.destroy) ~= "function" then
-		error(
-			Diagnostics.format(kind .. "/invalid-options", name .. " needs " .. build .. " and destroy functions", {
-				expected = ("{ %s = function, destroy = function, maxRetained = finite number, %s? = function }"):format(
-					build,
-					hook
-				),
-			}),
-			0
-		)
+	local settings: { [unknown]: unknown } = {}
+	if type(options) == "table" then
+		for key, value in options do
+			settings[key] = value
+		end
+	end
+	if type(settings[build]) ~= "function" or type(settings.destroy) ~= "function" then
+		return Diagnostics.raise(kind .. "/invalid-options", name .. " needs " .. build .. " and destroy functions", {
+			expected = ("{ %s = function, destroy = function, maxRetained = finite number, %s? = function }"):format(
+				build,
+				hook
+			),
+		})
 	end
 	for field in settings do
 		if field ~= build and field ~= "destroy" and field ~= "maxRetained" and field ~= hook then
-			error(
-				Diagnostics.format(kind .. "/unknown-option", name .. " was given an option it does not have", {
-					option = tostring(field),
-					expected = `{build}, destroy, maxRetained, {hook}`,
-				}),
-				0
-			)
+			return Diagnostics.raise(kind .. "/unknown-option", name .. " was given an option it does not have", {
+				option = tostring(field),
+				expected = `{build}, destroy, maxRetained, {hook}`,
+			})
 		end
 	end
 	if settings[hook] ~= nil and type(settings[hook]) ~= "function" then
-		error(
-			Diagnostics.format(
-				kind .. "/invalid-" .. hook,
-				`{name}.{hook} must be a function`,
-				{ actual = Diagnostics.describe(settings[hook]) }
-			),
-			0
+		return Diagnostics.raise(
+			kind .. "/invalid-" .. hook,
+			`{name}.{hook} must be a function`,
+			{ actual = Diagnostics.describe(settings[hook]) }
 		)
 	end
 	local owner = Active.current()
 	if owner == nil then
-		error(
-			Diagnostics.format(kind .. "/no-active-owner", name .. " ran outside an owner", {
-				contract = `a {noun} cannot outlive the owner responsible for its resources`,
-				fix = "create it inside a component or Compose.withOwner(owner, ...)",
-			}),
-			0
-		)
+		return Diagnostics.raise(kind .. "/no-active-owner", name .. " ran outside an owner", {
+			contract = `a {noun} cannot outlive the owner responsible for its resources`,
+			fix = "create it inside a component or Compose.withOwner(owner, ...)",
+		})
 	end
 	local limit = settings.maxRetained
 	if type(limit) ~= "number" or limit ~= limit or limit < 0 or math.abs(limit) == math.huge then
-		error(
-			Diagnostics.format(kind .. "/invalid-limit", name .. ".maxRetained must be a finite non-negative number", {
+		return Diagnostics.raise(
+			kind .. "/invalid-limit",
+			name .. ".maxRetained must be a finite non-negative number",
+			{
 				actual = Diagnostics.describe(limit),
 				contract = `a {noun} always has an explicit {if pool then "retained-memory" else "retained-entry"} bound`,
-			}),
-			0
+			}
 		)
 	end
 	return owner, math.floor(limit)

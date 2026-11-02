@@ -1,17 +1,17 @@
 --!strict
 
 export type Fields = {
-	component: string?,
-	node: string?,
-	kind: string?,
-	key: string?,
-	event: string?,
-	index: number?,
-	expected: string?,
-	actual: string?,
-	contract: string?,
-	fix: string?,
-	detail: string?,
+	read component: string?,
+	read node: string?,
+	read kind: string?,
+	read key: string?,
+	read event: string?,
+	read index: number?,
+	read expected: string?,
+	read actual: string?,
+	read contract: string?,
+	read fix: string?,
+	read detail: string?,
 }
 
 local function format(code: string, summary: string, fields: Fields?): string
@@ -40,8 +40,8 @@ local function format(code: string, summary: string, fields: Fields?): string
 	return table.concat(lines, "\n")
 end
 
-local function raise(code: string, summary: string, fields: Fields?, level: number?): never
-	return error(format(code, summary, fields), if level ~= nil then level else 0)
+local function raise<R...>(code: string, summary: string, fields: Fields?, level: number?): R...
+	error(format(code, summary, fields), if level ~= nil then level else 0)
 end
 
 local function describe(value: unknown): string
@@ -84,8 +84,8 @@ local function parse(message: string): Parsed?
 end
 
 return {
-	format = format,
 	raise = raise,
+	format = format,
 	describe = describe,
 	parse = parse,
 }

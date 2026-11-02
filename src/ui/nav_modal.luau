@@ -10,11 +10,10 @@ local navHelp = require("./nav_help")
 
 return function(ctx: Types.Context): Nav.Surfaces
 	local runtime = ctx.runtime
-	local function attach<N>(node: N & Instance, children: { Types.Child }): N & Instance
+	local function attach(node: Instance, children: Types.ChildList)
 		runtime.mountFragment(function()
 			return children
 		end, node)
-		return node
 	end
 	local kit = surfaceKit(ctx, attach)
 	local presence = overlayPresence(ctx)

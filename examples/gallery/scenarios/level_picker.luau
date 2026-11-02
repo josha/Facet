@@ -1,14 +1,10 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Segment = {
 	count: number,
@@ -44,7 +40,7 @@ return {
 	title = "Level pickers",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types
@@ -69,17 +65,17 @@ return {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
-				}),
-				Host.UIPadding({
+				},
+				Host.UIPadding {
 					PaddingTop = UDim.new(0, 8),
 					PaddingBottom = UDim.new(0, 8),
 					PaddingLeft = UDim.new(0, 8),
 					PaddingRight = UDim.new(0, 8),
-				}),
+				},
 				UI.Text "Label" {
 					LayoutOrder = 1,
 					BackgroundTransparency = 1,
@@ -109,12 +105,12 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						Wraps = true,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}),
+					},
 					UI.LevelPicker(pickerId)({
 						value = value,
 						count = spec.count,
@@ -124,13 +120,13 @@ return {
 						tint = spec.tint,
 						allowZero = spec.allowZero,
 					}),
-					UI.Stepper({
+					UI.Stepper {
 
 						Name = `{id}Step`,
 						value = value,
 						min = if spec.allowZero == false then 1 else 0,
 						max = spec.count,
-					}),
+					},
 				},
 			})
 		end
@@ -204,17 +200,17 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 4),
-					}),
-					Host.UIPadding({
+					},
+					Host.UIPadding {
 						PaddingTop = UDim.new(0, 8),
 						PaddingBottom = UDim.new(0, 8),
 						PaddingLeft = UDim.new(0, 8),
 						PaddingRight = UDim.new(0, 8),
-					}),
+					},
 					UI.Text "ReadoutTitle" {
 						LayoutOrder = 1,
 						BackgroundTransparency = 1,

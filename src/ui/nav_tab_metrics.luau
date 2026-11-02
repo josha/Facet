@@ -1,4 +1,5 @@
 --!strict
+local ThemeTypes = require("./theme_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
@@ -35,7 +36,7 @@ export type TabMetrics = {
 	inset: (ComposeTypes.Use) -> UDim,
 	stripOverflows: ComposeTypes.Value<boolean>,
 	stripLayout: UIListLayout,
-	stripContent: ComposeTypes.Value<Vector2>,
+	stripContent: ComposeTypes.ReadOnlyValue<Vector2>,
 	railWidth: (ComposeTypes.Use) -> number,
 	floatingSize: (ComposeTypes.Use) -> UDim2,
 	floatingPosition: (ComposeTypes.Use) -> UDim2,
@@ -43,6 +44,7 @@ export type TabMetrics = {
 
 return function(ctx: Types.Context, spec: NavigationProps.TabViewSpec, view: TabFrame): TabMetrics
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
+	local readNumber = read<<number?>>
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local fit, placement, visibleTabs = view.fit, view.placement, view.visibleTabs
 	local dimensions, layoutUnit, indicatorOf = view.dimensions, view.layoutUnit, view.indicatorOf
@@ -148,7 +150,7 @@ return function(ctx: Types.Context, spec: NavigationProps.TabViewSpec, view: Tab
 		return D.new(0, if plated(use) then INSET else 0)
 	end
 	local stripOverflows = Compose.cell(false)
-	local stripLayout = Host.UIListLayout({
+	local stripLayout = Host.UIListLayout {
 		FillDirection = function(use: ComposeTypes.Use)
 			return if use(placement) == "sidebar" then E.FillDirection.Vertical else E.FillDirection.Horizontal
 		end,
@@ -158,10 +160,10 @@ return function(ctx: Types.Context, spec: NavigationProps.TabViewSpec, view: Tab
 			return if use(placement) == "sidebar" then E.VerticalAlignment.Top else E.VerticalAlignment.Center
 		end,
 		Padding = D.new(0, 4),
-	})
+	}
 	local stripContent = ctx.observeNative.AbsoluteContentSize(stripLayout)
 	local function railWidth(use: ComposeTypes.Use): number
-		local authored = read(spec.railWidth, use)
+		local authored = readNumber(spec.railWidth, use)
 		if authored then
 			return authored
 		end
@@ -182,7 +184,7 @@ return function(ctx: Types.Context, spec: NavigationProps.TabViewSpec, view: Tab
 		end
 		local label = widest / (if unit > 0 then unit else 1)
 		local plate = if indicatorOf(use) == "pill" then 2 * INSET else 0
-		local package = read(ctx.config.theme, use)
+		local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 		local skin = package and package.chrome and package.chrome.control
 		local insets = if skin then skin.contentInsets else nil
 		local carve = if insets then (insets.left or 0) + (insets.right or 0) else 0

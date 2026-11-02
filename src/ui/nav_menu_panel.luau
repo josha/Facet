@@ -11,9 +11,12 @@ local MenuRows = require("./nav_menu_rows")
 
 type MenuEntry<V> = MenuItems.MenuEntry<V>
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces)
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local readSource = ctx.readSource
+	local readText = read<<string?>>
+	local readFlag = read<<boolean?>>
+	local readWidth = read<<Nav.MenuWidth?>>
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local itemModel = MenuItems(ctx)
 	local actionItem, menuItems, resolveWidth = itemModel.actionItem, itemModel.menuItems, itemModel.resolveWidth
@@ -28,6 +31,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		pointer: ComposeTypes.ReadOnlyValue<Vector2?>?,
 		closeCommand: (boolean | "automatic")?
 	): Frame
+		local readItems = read<<{ Nav.MenuItem<V> }>>
+		local actionItem = actionItem<<V>>
+		local menuItems = menuItems<<V>>
 		local popoverTiming, sheetTiming = ctx.motionTiming("popover"), ctx.motionTiming("sheet")
 		local timing: Nav.MotionTiming = motion or { enter = popoverTiming.enter, exit = popoverTiming.exit }
 		local present = ctx.motionEase("present")
@@ -36,8 +42,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local entered = Compose.cell(false)
 		local appearance = if phase then surfaces.appearance(phase, timing, entered) else nil
 		local hitFloor = ctx.hitFloor()
-		local path = Compose.cell({} :: { string })
-		local branchYs = Compose.cell({} :: { number })
+		local path: ComposeTypes.Value<{ string }> = Compose.cell({})
+		local branchYs: ComposeTypes.Value<{ number }> = Compose.cell({})
 		local rowNodes: { [string]: GuiObject } = {}
 		local enter: (string, GuiObject?, { string }?) -> ()
 		local pendingFocus: string?
@@ -64,7 +70,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end)
 		local presentedLevel = 1
 		local function level(use: ComposeTypes.Use?): number
-			if phase and read(phase.exiting, use) then
+			if phase and readSource(phase.exiting, use) then
 				return presentedLevel
 			end
 			local direction: number = if use then use(levelDirection) else levelDirection:peek()
@@ -72,7 +78,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				presentedLevel = 1
 				return 1
 			end
-			if not read(levelReady, use) then
+			if not readSource(levelReady, use) then
 				presentedLevel = 0
 				return 0
 			end
@@ -82,17 +88,17 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local shown: Nav.Presence? = if appearance
 			then {
 				opacity = function(use: ComposeTypes.Use?): number
-					return appearance.opacity(use) * (if read(sheeted, use) then 1 else level(use))
+					return appearance.opacity(use) * (if readSource(sheeted, use) then 1 else level(use))
 				end,
 				travel = function(use: ComposeTypes.Use?): number
-					return appearance.travel(use) * (if read(sheeted, use) then 1 else level(use))
+					return appearance.travel(use) * (if readSource(sheeted, use) then 1 else level(use))
 				end,
 			}
 			else nil
-		local rootItems = Compose.formula(function(use: ComposeTypes.Use)
-			return menuItems(read(spec.items, use), use)
+		local rootItems = Compose.formula(function(use: ComposeTypes.Use): { Nav.MenuItem<V> }
+			return menuItems(readItems(spec.items, use), use)
 		end)
-		local current = Compose.formula(function(use: ComposeTypes.Use)
+		local current = Compose.formula(function(use: ComposeTypes.Use): { Nav.MenuItem<V> }
 			local items = use(rootItems)
 			for _, id in use(path) do
 				local found: Nav.MenuAction<V>?
@@ -105,7 +111,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				if not found or not found.children then
 					break
 				end
-				items = read(found.children, use)
+				items = readItems(found.children, use)
 			end
 			return items
 		end)
@@ -123,7 +129,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					break
 				end
 				table.insert(valid, id)
-				items = read(found.children, use)
+				items = readItems(found.children, use)
 			end
 			if #valid ~= #path:peek() then
 				path:set(valid)
@@ -138,15 +144,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				path:set(previous)
 			end
 		end
-		local widths = Compose.cell({} :: { [string]: number })
+		local widths: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
 		local function landing(items: { Nav.MenuItem<V> }): string?
 			for _, item in items do
 				if item.divider ~= true then
 					local action = actionItem(item)
 					local chosen = if action.selected ~= nil
-						then read(action.selected) == action.value
-						else read(action.marked) == true
-					if chosen and read(action.enabled) ~= false then
+						then readSource(action.selected) == action.value
+						else readFlag(action.marked) == true
+					if chosen and readFlag(action.enabled) ~= false then
 						return tostring(item.id)
 					end
 				end
@@ -159,7 +165,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			for index, item in use(current) do
 				local key = tostring(item.id or index)
 				if item.divider ~= true then
-					local heading = read(actionItem(item).sectionTitle, use)
+					local heading = readText(actionItem(item).sectionTitle, use)
 					if heading ~= nil and heading ~= "" then
 						table.insert(out, { key = "Section:" .. key, heading = heading })
 						afterRow = false
@@ -186,13 +192,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			BorderSizePixel = 0,
 			Size = D2.new(1, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
-			Host.UIListLayout({
+			Host.UIListLayout {
 				FillDirection = E.FillDirection.Vertical,
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = function(use: ComposeTypes.Use)
 					return D.new(0, if use(sheeted) then 8 else 0)
 				end,
-			}),
+			},
 			Compose.show(function()
 				return spec.query ~= nil
 			end, function()
@@ -224,7 +230,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					return menuRow.entry(entrySource, index, rowState)
 				end,
 			}),
-			Host.UIPadding({
+			Host.UIPadding {
 				PaddingTop = function(use: ComposeTypes.Use)
 					return D.new(0, if use(sheeted) then 8 else ctx.metric("space.xs", use))
 				end,
@@ -237,7 +243,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				PaddingRight = function(use: ComposeTypes.Use)
 					return D.new(0, if use(sheeted) then 8 else ctx.metric("space.xs", use))
 				end,
-			}),
+			},
 		}
 		if closeCommand ~= nil and closeCommand ~= false then
 			surfaces.attach(rows, {
@@ -250,7 +256,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						LayoutOrder = 2147483647,
 						Size = parts.closeRow(ctx),
 						AutomaticSize = E.AutomaticSize.None,
-						onActivate = close,
+						onActivate = function(_input: InputObject?, _count: number?)
+							close()
+						end,
 					}
 				end),
 			})
@@ -262,7 +270,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				widest = math.max(widest, width)
 			end
 			local natural = math.clamp(widest + 48, 220, 400)
-			local authored = read(spec.width, use)
+			local authored = readWidth(spec.width, use)
 			local space = use(room)
 			if authored == nil then
 				return if space > 0 then math.min(natural, space) else natural
@@ -422,7 +430,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local extent = ctx.observe.AbsoluteSize(modal)
 		local origin = ctx.observe.AbsolutePosition(modal)
 		local input = surfaces.service("UserInputService")
-		local preferred = if input then ctx.observe.PreferredInput(input) else Compose.cell(nil :: Enum.PreferredInput?)
+		local preferred: ComposeTypes.ReadOnlyValue<Enum.PreferredInput?> = if input
+			then ctx.observe.PreferredInput(input)
+			else Compose.cell(nil)
 		local surface = ctx.observe.Parent(modal)
 		local asSheet = Compose.formula(function(use: ComposeTypes.Use)
 			local presentation = read(spec.presentation, use)
@@ -453,13 +463,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			return modal.AbsolutePosition
 		end
 		local function insets(use: ComposeTypes.Use): (number, number, number, number)
+			local guiService = guiService
 			use(layerOf)
 			use(extent)
 			local layer = modal:FindFirstAncestorWhichIsA("ScreenGui")
-			if guiService == nil or layer == nil then
+			if guiService == nil or layer == nil or not layer:IsA("ScreenGui") then
 				return 0, 0, 0, 0
 			end
-			local screen = layer :: ScreenGui
+			local screen = layer
 			local measured, container, safe = pcall(function(): (Rect, Rect)
 				return guiService:GetInsetArea(screen.ScreenInsets),
 					guiService:GetInsetArea(E.ScreenInsets.CoreUISafeInsets)
@@ -613,7 +624,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			})
 		end
 		local gui = surfaces.service("GuiService")
-		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil :: GuiObject?)
+		local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
+			then ctx.observe.SelectedObject(gui)
+			else Compose.cell(nil)
 		local function selectedBranch(use: ComposeTypes.Use?): Nav.MenuAction<V>?
 			local node = ctx.readSource(selected, use)
 			for _, item in ctx.readSource(current, use) do
@@ -622,7 +635,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					and node
 					and item.id == node.Name
 					and item.children
-					and read(item.enabled, use) ~= false
+					and readFlag(item.enabled, use) ~= false
 				then
 					return item
 				end
@@ -644,7 +657,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				ctx.action(modal, "MenuLeft", { E.KeyCode.Left, E.KeyCode.DPadLeft }, function(use: ComposeTypes.Use)
 					return #use(path) > 0
 				end, back, { priority = 2100, capture = true })
-				return Compose.fragment(function()
+				return Compose.fragment(function(): { ComposeTypes.Node }
 					return {}
 				end)
 			end),
@@ -669,11 +682,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				end
 				if not target then
 					for _, item in items do
-						if item.divider ~= true and read(item.enabled, use) ~= false then
+						if item.divider ~= true and readFlag(item.enabled, use) ~= false then
 							local live = actionItem(item)
 							local chosen = if live.selected
 								then live.selected:peek() == live.value
-								else read(live.marked, use) == true
+								else readFlag(live.marked, use) == true
 							if chosen then
 								target = surfaces.firstSelectable(panel, tostring(live.id))
 								if target then
@@ -685,7 +698,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				end
 				if not target then
 					for _, item in items do
-						if not item.divider and read(item.enabled, use) ~= false then
+						if not item.divider and readFlag(item.enabled, use) ~= false then
 							target = surfaces.firstSelectable(panel, tostring(item.id))
 							if target then
 								break
@@ -777,11 +790,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end)
 		surfaces.attach(modal, {
 			Compose.keyed({
-				from = function(use: ComposeTypes.Use)
+				from = function(use: ComposeTypes.Use): { MenuRows.AncestorLevel<V> }
 					if use(asSheet) then
 						return {}
 					end
-					local levels: { { id: string, items: { Nav.MenuItem<V> }, prefix: { string }, depth: number } } = {}
+					local levels: { MenuRows.AncestorLevel<V> } = {}
 					local items = use(rootItems)
 					local prefix: { string } = {}
 					for depth, selectedId in use(path) do
@@ -801,17 +814,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						if not found or not found.children then
 							break
 						end
-						items = read(found.children, use)
+						items = readItems(found.children, use)
 						table.insert(prefix, selectedId)
 					end
 					return levels
 				end,
-				key = function(level: { id: string, items: { Nav.MenuItem<V> }, prefix: { string }, depth: number })
+				key = function(level: MenuRows.AncestorLevel<V>)
 					return level.id
 				end,
-				render = function(
-					source: ComposeTypes.ReadOnlyValue<{ id: string, items: { Nav.MenuItem<V> }, prefix: { string }, depth: number }>
-				)
+				render = function(source: ComposeTypes.ReadOnlyValue<MenuRows.AncestorLevel<V>>)
 					local ancestorHeight = Compose.cell(0)
 					local ancestor = ctx.styled(
 						Host.ScrollingFrame "AncestorMenu" {
@@ -843,11 +854,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 									return V2.new(280, math.max(44, use(extent).Y - top - bottom - 16))
 								end,
 							},
-							Host.UIListLayout({
+							Host.UIListLayout {
 								FillDirection = E.FillDirection.Vertical,
 								SortOrder = E.SortOrder.LayoutOrder,
-							}),
-							Host.UIPadding({
+							},
+							Host.UIPadding {
 								PaddingTop = function(use: ComposeTypes.Use)
 									return D.new(0, ctx.metric("space.xs", use))
 								end,
@@ -860,7 +871,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 								PaddingRight = function(use: ComposeTypes.Use)
 									return D.new(0, ctx.metric("space.xs", use))
 								end,
-							}),
+							},
 							Compose.keyed({
 								from = function(use: ComposeTypes.Use)
 									return use(source).items

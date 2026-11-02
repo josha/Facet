@@ -221,7 +221,7 @@ end
 
 function seed.charted(): { { id: string, titleKey: string, layout: string, tiles: { Tile } } }
 	local ranked = table.clone(WORLDS)
-	table.sort(ranked, function(a, b)
+	table.sort(ranked, function(a: Tile, b: Tile)
 		if a.approval ~= b.approval then
 			return a.approval > b.approval
 		end

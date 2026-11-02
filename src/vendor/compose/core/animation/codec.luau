@@ -11,61 +11,36 @@ export type Codec<T> = {
 	normalise: ((components: { number }) -> ())?,
 }
 
-local registry: { [string]: unknown } = {}
-
-local function register<T>(typeName: string, codec: Codec<T>)
-	if type(typeName) ~= "string" or typeName == "" then
-		Diagnostics.raise("animation/codec-unnamed", "registerCodec expects a type name", {
-			actual = Diagnostics.describe(typeName),
-			expected = "the string typeof() returns for the values this codec handles",
-		})
-	end
-	if type(codec) ~= "table" or type(codec.arity) ~= "number" or codec.arity < 1 then
-		Diagnostics.raise("animation/codec-invalid", ("the codec for %s is not usable"):format(typeName), {
-			contract = "a codec needs a positive arity, an encode, and a decode",
-		})
-	end
-	if type(codec.encode) ~= "function" or type(codec.decode) ~= "function" then
-		Diagnostics.raise("animation/codec-invalid", ("the codec for %s is not usable"):format(typeName), {
-			contract = "a codec needs a positive arity, an encode, and a decode",
-		})
-	end
-	registry[typeName] = codec
-end
-
-local function codecFor<T>(typeName: string): Codec<T>
-	local codec = registry[typeName]
-	if codec == nil then
-		Diagnostics.raise("animation/no-codec", ("nothing knows how to animate a %s"):format(typeName), {
-			actual = typeName,
-			contract = "animating a value requires a registered codec",
-			fix = ("call Compose.registerCodec(%q, ...), or animate the numbers inside it"):format(typeName),
-		})
-	end
-	return codec :: Codec<T>
-end
-
-local function registered(): { string }
-	local names: { string } = {}
-	for name in registry do
-		table.insert(names, name)
-	end
-	table.sort(names)
-	return names
-end
-
-register("number", {
+local numberCodec: Codec<number> = {
 	arity = 1,
 	encode = function(value: number, out: { number })
+		if type(value) ~= "number" then
+			return Diagnostics.raise("animation/no-codec", "numeric motion requires a number", {
+				actual = Diagnostics.describe(value),
+				fix = "select runtime.motion(codec) for another value type",
+			})
+		end
 		out[1] = value
 	end,
 	decode = function(components: { number }): number
 		return components[1]
 	end,
-})
+}
+
+local function validate<T>(codec: Codec<T>)
+	if type(codec) ~= "table" or type(codec.arity) ~= "number" or codec.arity < 1 or codec.arity % 1 ~= 0 then
+		return Diagnostics.raise("animation/codec-invalid", "the motion codec is not usable", {
+			contract = "a codec needs a positive integer arity, an encode, and a decode",
+		})
+	end
+	if type(codec.encode) ~= "function" or type(codec.decode) ~= "function" then
+		return Diagnostics.raise("animation/codec-invalid", "the motion codec is not usable", {
+			contract = "a codec needs a positive integer arity, an encode, and a decode",
+		})
+	end
+end
 
 return {
-	register = register,
-	codecFor = codecFor,
-	registered = registered,
+	number = numberCodec,
+	validate = validate,
 }

@@ -24,7 +24,7 @@ export type Options = {
 	token: ((name: string) -> Design.Literal)?,
 	resolveToken: ((name: string) -> Design.Resolved)?,
 	inputs: { [string]: Design.Literal }?,
-	slots: { [string]: () -> Compose.Node }?,
+	slots: { [string]: () -> unknown }?,
 }
 
 return function(ui: UI.UI)
@@ -54,7 +54,7 @@ return function(ui: UI.UI)
 			if current == root then
 				break
 			end
-			current = ui.get(current, "Parent")
+			current = ui.optionalNode(ui.get(current, "Parent"))
 		end
 		return true
 	end
@@ -75,7 +75,7 @@ return function(ui: UI.UI)
 			if uiScale then
 				factor *= ui.number(uiScale, "Scale")
 			end
-			current = ui.get(current, "Parent")
+			current = ui.optionalNode(ui.get(current, "Parent"))
 		end
 		return factor
 	end
@@ -253,7 +253,7 @@ return function(ui: UI.UI)
 							if current == surface then
 								break
 							end
-							current = ui.get(current, "Parent")
+							current = ui.optionalNode(ui.get(current, "Parent"))
 						end
 						if visible and x1 <= x2 and y1 <= y2 then
 							table.insert(ids, id)
@@ -590,7 +590,7 @@ return function(ui: UI.UI)
 					stopDesign()
 				end
 				table.clear(nodes)
-				stopDesign = runtime.mount(function(): Compose.Node
+				stopDesign = runtime.mountFragment(function(): { Compose.Child }
 					local rendered, content = pcall(function(): unknown
 						return Design.render(value, session.library, {
 							exclude = function(node: Design.Node): boolean
@@ -603,7 +603,8 @@ return function(ui: UI.UI)
 							players = function(made: { [string]: Design.Player })
 								players = made
 							end,
-							decorate = function(node: Design.Node, built: Compose.Node)
+							decorate = function(node: Design.Node, subject: unknown)
+								local built = ui.node(subject)
 								if ui.isA(built, "GuiObject") then
 									runtime.decorate(built, { Attributes = { [ATTRIBUTE] = node.id } })
 									nodes[node.id] = built
@@ -631,10 +632,10 @@ return function(ui: UI.UI)
 						end
 						table.clear(nodes)
 						session.problem:set(`This design does not render: {content}`)
-						return nil
+						return {}
 					end
 					local provide = session.library.provide
-					return if provide then provide(content) else content
+					return { ui.node(if provide then provide(content) else content) }
 				end, surface)
 			end)
 			outline("DesignHover", 1, false, function(use: Compose.Use): { string }

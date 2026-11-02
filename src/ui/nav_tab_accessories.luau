@@ -34,7 +34,7 @@ return function(
 		trailing = { topBar = true, bottomBar = true, bottomBarCompact = true },
 		aboveBar = { bottomBar = true, bottomBarCompact = true },
 	}
-	local accessories: { [string]: (Nav.Placement) -> Instance? } = spec.accessories or {}
+	local accessories = spec.accessories or {}
 	for slot, build in accessories do
 		assert(
 			slots[slot] and type(build) == "function",
@@ -56,7 +56,7 @@ return function(
 				render = function(current: ComposeTypes.ReadOnlyValue<Nav.Placement>): Instance
 					local built = build(current:peek())
 					if built == nil then
-						return Host.Folder({})
+						return Host.Folder {}
 					end
 					local accessory = Host.Frame("Accessory-" .. slot)({
 						BackgroundTransparency = 1,

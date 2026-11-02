@@ -1,4 +1,10 @@
 --!strict
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
+type PathCell = typeof(require("@repo/src/vendor/compose/core").cell<<{ NavigationEntry }>>({}))
+type StringListCell = typeof(require("@repo/src/vendor/compose/core").cell<<{ string }>>({}))
 type NavigationEntry = typeof(require("@repo/tools/typecheck/aliases").NavigationEntry)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -8,8 +14,11 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Destination = typeof(require("@repo/tools/typecheck/aliases").Destination)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
+type StringPickerSpec = typeof(require("@repo/tools/typecheck/aliases").StringPickerSpec)
+type NavigationStackSpec = typeof(require("@repo/tools/typecheck/aliases").NavigationStackSpec)
+type ProgressViewProps = typeof(require("@repo/tools/typecheck/aliases").ProgressViewProps)
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 
@@ -109,7 +118,7 @@ add("billboard-nameplate", {}, function(t)
 	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local UI = Facet.controls(runtime)
 	local health = Compose.cell("100")
-	local billboard
+	local billboard: BillboardGui
 	local stop = runtime.mount(function()
 		local sheet = Facet.themes.createStyleSheet(runtime)
 		billboard = Host.BillboardGui "Nameplate" {
@@ -117,14 +126,14 @@ add("billboard-nameplate", {}, function(t)
 			AlwaysOnTop = true,
 			Size = UDim2.fromOffset(300, 96),
 			ResetOnSpawn = false,
-			sheet :: unknown,
-			Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
+			sheet,
+			Host.StyleLink { StyleSheet = Compose.static(sheet) },
 			UI.VStack "Plate" {
 				padding = 8,
 				gap = 4,
 				width = "fill" :: "fill",
 				height = "fill" :: "fill",
-				UI.Text "Name" { text = "Razz Raccoon", TextSize = 18 } :: unknown,
+				UI.Text "Name" { text = "Razz Raccoon", TextSize = 18 },
 				UI.Text "Health" { text = health, TextSize = 14 },
 			},
 		}
@@ -186,7 +195,7 @@ local function strip(t: any, control: number, corners: ("pill" | "square")?): (a
 		metrics = { radii = { control = control, panel = 12, pill = 999 } },
 	} :: any))
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.Picker "View" {
+		local props: StringPickerSpec = {
 			selected = Compose.cell("a"),
 			style = "segmented" :: "segmented",
 			corners = corners,
@@ -197,6 +206,7 @@ local function strip(t: any, control: number, corners: ("pill" | "square")?): (a
 				{ value = "c", label = "Tri" } :: PickerOption,
 			},
 		}
+		return UI.Picker "View"(props)
 	end, { size = Vector2.new(600, 300), theme = package, frames = 12 })
 	return stage, tagged(stage, "facet-segmented")[1]
 end
@@ -287,7 +297,7 @@ add("collapsible-safe-edges", {}, function(t)
 	for _, entry in sizes do
 		local size: Vector2? = if typeof(entry) == "Vector2" then entry else nil
 		local where = if size then `{size.X}x{size.Y}` else "native viewport"
-		local expanded
+		local expanded: BooleanCell
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			expanded = Compose.cell(false)
 			return UI.Screen "S" {
@@ -342,7 +352,7 @@ add("navigation-gameplay-lifetime", {}, function(t)
 		gameplay.Parent = Players.LocalPlayer.PlayerGui
 		local acquired, released = 0, 0
 		local disposed: { [string]: boolean } = {}
-		local path
+		local path: PathCell
 		t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			path = Compose.cell({} :: { NavigationEntry })
 			local hasPage = Compose.formula(function(use: Use): boolean
@@ -416,7 +426,7 @@ interactive("navigation-back-pointer", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.path = Compose.cell({ { id = "step", value = 1 } } :: { NavigationEntry })
-		return UI.NavigationStack "Nav" {
+		local props: NavigationStackSpec = {
 			path = value.path,
 			root = {
 				title = "Start",
@@ -435,6 +445,7 @@ interactive("navigation-back-pointer", {}, function(t)
 			backLabel = "Back",
 			transition = false :: false,
 		}
+		return UI.NavigationStack "Nav"(props)
 	end, { size = Vector2.new(800, 600), frames = 20 })
 	local back
 	for _, node in stage:GetDescendants() do
@@ -468,13 +479,13 @@ local function pager(t: any, size: any, reduced: boolean): (any, any)
 	local value = { pageNodes = {} :: { [string]: GuiObject } }
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		value.selection = Compose.cell("one")
-		local pages = {}
+		local pages: { Tab } = {}
 		for _, id in { "one", "two", "three" } do
-			local page = Host.Frame(id) {
+			local page = Host.Frame(id)({
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
 				UI.Button "Play" { label = "Play " .. id },
-			}
+			})
 			value.pageNodes[id] = page
 			table.insert(pages, {
 				id = id,
@@ -578,7 +589,7 @@ end
 add("segment-accent-plate-image-themes", {}, function(t)
 	for _, entry in t.themes do
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-			return UI.Picker "Motion" {
+			local props: StringPickerSpec = {
 				selected = Compose.cell("full"),
 				style = "segmented" :: "segmented",
 				Size = UDim2.fromOffset(360, 44),
@@ -587,6 +598,7 @@ add("segment-accent-plate-image-themes", {}, function(t)
 					{ value = "reduced", label = "Reduced" } :: PickerOption,
 				},
 			}
+			return UI.Picker "Motion"(props)
 		end, { size = Vector2.new(600, 200), theme = entry.package, motionLevel = "normal", frames = 10 })
 		local current = tagged(stage, "facet-segment-current")
 		local plate = sheetRule(stage, ".facet-segment-current")
@@ -688,12 +700,13 @@ add("segment-accent-plate-image-themes", {}, function(t)
 end)
 
 add("underline-follows-rehomed-strip", {}, function(t)
-	local atTop, selected
+	local atTop: BooleanCell
+	local selected: StringCell
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		atTop = Compose.cell(true)
 		selected = Compose.cell("a")
 		local function strip()
-			return UI.Picker "Tabs" {
+			local props: StringPickerSpec = {
 				selected = selected,
 				style = "inline" :: "inline",
 				indicator = "underline" :: "underline",
@@ -703,11 +716,12 @@ add("underline-follows-rehomed-strip", {}, function(t)
 					{ value = "b", label = "Beta" } :: PickerOption,
 				},
 			}
+			return UI.Picker "Tabs"(props)
 		end
 		return UI.VStack "Page" {
 			gap = 0,
 			width = "fill" :: "fill",
-			Compose.show(atTop, strip) :: unknown,
+			Compose.show(atTop, strip),
 			UI.VStack "Body" { Size = UDim2.new(1, 0, 0, 100) },
 			Compose.show(function(use: Use)
 				return not use(atTop)
@@ -760,7 +774,8 @@ add("underline-follows-rehomed-strip", {}, function(t)
 end)
 
 add("tab-reorder-keeps-page-geometry", {}, function(t)
-	local order, builds = nil, 0
+	local order: StringListCell
+	local builds = 0
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		order = Compose.cell({ "home", "feed", "me" })
 		return UI.TabView "TabsFixture" {
@@ -778,7 +793,7 @@ add("tab-reorder-keeps-page-geometry", {}, function(t)
 						builds += 1
 						return UI.VStack "HomeBody" {
 							width = "fill" :: "fill",
-							UI.Button "First" { label = "First" } :: unknown,
+							UI.Button "First" { label = "First" },
 							UI.Button "Second" { label = "Second" },
 						}
 					end,
@@ -864,7 +879,7 @@ add("tab-content-stretches-page", {}, function(t)
 						label = "Home",
 						content = function(): Instance
 							return UI.HStack "HomeBody" {
-								UI.Text { text = "a considerably wider body than a phone offers" } :: unknown,
+								UI.Text { text = "a considerably wider body than a phone offers" },
 								UI.Text { text = "and a second one after it, for good measure" },
 							}
 						end,
@@ -918,7 +933,7 @@ add("progress-track-centring", {}, function(t)
 		return UI.VStack "Column" {
 			width = "fill" :: "fill",
 			gap = 16,
-			UI.ProgressView "Down" { label = "Download", value = Compose.cell(0.35), showValue = true } :: unknown,
+			UI.ProgressView "Down" { label = "Download", value = Compose.cell(0.35), showValue = true },
 			UI.Text "Cap" { text = "Save changes" },
 		}
 	end, { size = Vector2.new(400, 400), frames = 12 })
@@ -932,7 +947,7 @@ add("progress-track-centring", {}, function(t)
 		t.near("the track starts at the row's leading edge", tr.x, r.x, 0.5)
 		t.near("the track ends at the row's trailing edge", tr.r, r.r, 0.5)
 		t.check("the track lies on whole pixels", tr.y % 1 == 0 and tr.h % 1 == 0, { tr.y, tr.h })
-		local title
+		local title: TextLabel?
 		for _, node in header:GetChildren() do
 			if node:IsA("TextLabel") and node ~= value then
 				title = node
@@ -992,7 +1007,7 @@ add("progress-track-beside-trailing-copy", {}, function(t)
 			end
 			local where = `{width} {spec.key}`
 			local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-				local props = {
+				local props: ProgressViewProps = {
 					value = if spec.value ~= nil then Compose.cell(spec.value) else nil,
 					label = spec.label,
 					segments = spec.segments,
@@ -1125,11 +1140,11 @@ end)
 interactive("path-clipped-in-scroll", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		local rows = {}
+		local rows: { Frame } = {}
 		for index = 1, 6 do
 			table.insert(
 				rows,
-				UI.HStack("Row" .. index) {
+				UI.HStack("Row" .. index)({
 					Size = UDim2.new(1, 0, 0, 60),
 					UI.ProgressView "Ring" {
 						presentation = "circular" :: "circular",
@@ -1137,13 +1152,13 @@ interactive("path-clipped-in-scroll", {}, function(t)
 						diameter = 56,
 						thickness = 8,
 					},
-				}
+				})
 			)
 		end
 		return UI.ScrollView "List" {
 			Size = UDim2.fromOffset(300, 150),
 			gap = 0,
-			table.unpack((rows :: unknown) :: { unknown }),
+			table.unpack(rows),
 		}
 	end, { size = Vector2.new(600, 400), frames = 15 })
 	value.list = t.find(stage, "List")
@@ -1195,7 +1210,7 @@ add("pageview-fractional-window-keeps-keyboard-routes", {}, function(t)
 		end
 		local pages: { Tab } = {}
 		for index, id in { "one", "two", "three" } do
-			local button = UI.Button(id) { label = id }
+			local button = UI.Button(id)({ label = id })
 			buttons[index] = button
 			pages[index] = { id = id, content = button }
 		end

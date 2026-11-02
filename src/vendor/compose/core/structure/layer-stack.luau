@@ -1,17 +1,17 @@
 --!strict
 
-local StructureTypes = require "./types"
+local CoreTypes = require "../types"
 local Children = require "../runtime/children"
 local Diagnostics = require "../diagnostics"
 local Support = require "./support"
 local Types = require "../reactive/types"
 local retain = require "../collection/retain"
 
-export type Retention = StructureTypes.LayerStackRetention
+export type Retention = CoreTypes.LayerStackRetention
 
-export type State = StructureTypes.LayerStackState
+export type State = CoreTypes.LayerStackState
 
-export type Options<V, K> = StructureTypes.LayerStackOptions<V, K>
+export type Options<V, K> = CoreTypes.LayerStackOptions<V, K>
 
 local KNOWN_FIELDS: { [string]: true } = {
 	from = true,
@@ -20,7 +20,7 @@ local KNOWN_FIELDS: { [string]: true } = {
 	retention = true,
 }
 
-local identity = require("../reactive/node").identityKey
+local identity = require("../reactive/graph").identityKey
 
 local function sameState(a: State, b: State): boolean
 	return a.index == b.index and a.depthFromTop == b.depthFromTop and a.top == b.top and a.covered == b.covered
@@ -36,16 +36,13 @@ local function layerStack<V, K>(options: Options<V, K>): Children.Directive
 		else Support.builderOf(settings.key, "LayerStack", "key")
 	local retention: Retention = settings.retention or "all"
 	if retention ~= "all" and retention ~= "top" then
-		error(
-			Diagnostics.format(
-				"layer-stack/unknown-retention",
-				"LayerStack was given a retention policy it does not have",
-				{
-					actual = Diagnostics.describe(retention),
-					expected = '"all" or "top"',
-				}
-			),
-			0
+		return Diagnostics.raise(
+			"layer-stack/unknown-retention",
+			"LayerStack was given a retention policy it does not have",
+			{
+				actual = Diagnostics.describe(retention),
+				expected = '"all" or "top"',
+			}
 		)
 	end
 

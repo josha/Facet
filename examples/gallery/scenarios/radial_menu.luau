@@ -2,9 +2,9 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
-type RadialSpec = typeof(require("@repo/tools/typecheck/aliases").RadialSpec)
+type RadialSpec = typeof(require("@repo/tools/typecheck/aliases").RadialMenuSpec)
 type RegionZone = typeof(require("@repo/tools/typecheck/aliases").RegionZone)
-type Radial = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
+type Radial = typeof(require("@repo/tools/typecheck/aliases").StringRadialItem)
 type Fit = "both" | "radial" | "angular" | "none"
 type Corner = "bottom-left" | "bottom-right" | "top-right" | "top-left"
 type Center = "empty" | "back"
@@ -20,8 +20,10 @@ type Scene = {
 	passThrough: boolean,
 	scrim: Scrim,
 }
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Runtime = typeof(require("@repo/tools/typecheck/aliases").Runtime)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 
 return {
@@ -34,7 +36,8 @@ return {
 		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
-		local selected = Compose.cell("corner")
+		local initialKind: string = "corner"
+		local selected = Compose.cell(initialKind)
 		local status = Compose.cell("Ready for a little adventure")
 		local glow = Compose.cell(false)
 		local moving = Compose.cell(false)
@@ -52,7 +55,8 @@ return {
 		local initialFit: Fit = "radial"
 		local fitting = Compose.cell(initialFit)
 		local fitModes: { Fit } = { "both", "radial", "angular", "none" }
-		local fitNames = { both = "Hug content", radial = "Slim band", angular = "Short arcs", none = "Full arcs" }
+		local fitNames: { [Fit]: string } =
+			{ both = "Hug content", radial = "Slim band", angular = "Short arcs", none = "Full arcs" }
 		local advanced = Compose.cell(false)
 		local passThrough = Compose.cell(false)
 		local initialCenter: Center = "empty"
@@ -100,14 +104,12 @@ return {
 		end)
 		local function scene(itemReadable: ReadOnlyValue<Scene>)
 			local item = itemReadable:peek()
-			local items: { Radial }
 			local menu = nil
 			local presented = Compose.cell(false)
 			local turnAngle, unpacked, taken = Compose.cell(0), Compose.cell(false), Compose.cell(false)
 			local stage: GuiObject?
 			local Vector3, CFrame = ctx.types.Vector3, ctx.types.CFrame
 			local spec: RadialSpec = {
-				Name = "Commands",
 				items = {},
 
 				center = "empty",
@@ -127,10 +129,10 @@ return {
 					Visible = function(use: Use)
 						return not use(taken)
 					end,
-					content = function(runtime, world): (() -> ())?
-						return runtime.mount(function()
-							return Host.Model("TrailPack")({
-								Host.Part("Bag")({
+					content = function(runtime: Runtime, world: WorldModel): (() -> ())?
+						local stop = runtime.mount(function()
+							return Host.Model "TrailPack" {
+								Host.Part "Bag" {
 									Anchored = true,
 									CanCollide = false,
 									Color = Color3.fromRGB(91, 121, 80),
@@ -140,16 +142,17 @@ return {
 									CFrame = function(use: Use)
 										return CFrame.Angles(0, math.rad(use(turnAngle)), 0)
 									end,
-								}),
-								Host.Part("Pocket")({
+								},
+								Host.Part "Pocket" {
 									Anchored = true,
 									CanCollide = false,
 									Color = Color3.fromRGB(51, 76, 44),
 									Size = Vector3.new(1.2, 0.75, 0.35),
 									Position = Vector3.new(0, -0.35, 0.6),
-								}),
-							})
+								},
+							}
 						end, world)
+						return stop
 					end,
 				}
 				worldState = function()
@@ -159,14 +162,14 @@ return {
 				spec.anchor = stage
 				spec.ringWidth = "narrow"
 				spec.appearance = if item.separate then "buttons" else "wedges"
-				items = {
+				spec.items = {
 					{
 						id = "inspect",
 						label = "Inspect",
 						icon = "facet:search",
 						completion = "stay",
 						onSelect = function()
-							turnAngle:update(function(value)
+							turnAngle:update(function(value: number)
 								return value + 45
 							end)
 							action("inspect", "A sturdy trail pack. Turn it to inspect the pocket.")()
@@ -178,7 +181,7 @@ return {
 						icon = "menu",
 						completion = "stay",
 						onSelect = function()
-							unpacked:update(function(value)
+							unpacked:update(function(value: boolean)
 								return not value
 							end)
 							action("resize", "The pack expands. The menu adjusts around it.")()
@@ -211,7 +214,7 @@ return {
 						onSelect = action("snack", "A quick snack. Ready to keep exploring."),
 					},
 				}
-				items = {
+				spec.items = {
 					{
 						id = "look",
 						label = "Look",
@@ -238,7 +241,7 @@ return {
 				spec.gestureSelection = "direction"
 				spec.center = "back"
 				spec.appearance = "wedges"
-				items = {
+				spec.items = {
 					{
 						id = "wave",
 						label = "Wave",
@@ -323,7 +326,7 @@ return {
 						onSelect = action("wear", "Your adventure gear is on."),
 					},
 				}
-				items = {
+				spec.items = {
 					{
 						id = "equipment",
 						label = "Equipment",
@@ -352,7 +355,6 @@ return {
 					},
 				}
 			end
-			spec.items = items
 			if item.skin then
 				spec.appearance = "buttons"
 				spec.buttonSurface = "none"
@@ -375,46 +377,46 @@ return {
 					orbit:pause()
 				end
 			end)
-			local silhouette = Host.Frame("Explorer")({
+			local silhouette = Host.Frame "Explorer" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(0, 76, 0, 110),
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = function(use: Use)
 					return UDim2.new(0.5, 32 * math.sin(use(orbit.progress) * math.pi * 2), 0.5, use(bodyY))
 				end,
-				Host.Frame("Head")({
+				Host.Frame "Head" {
 					BackgroundColor3 = Color3.fromRGB(229, 181, 139),
 					Size = UDim2.new(0, 32, 0, 32),
 					AnchorPoint = Vector2.new(0.5, 0),
 					Position = UDim2.new(0.5, 0, 0, 0),
-				}),
-				Host.Frame("Coat")({
+				},
+				Host.Frame "Coat" {
 					BackgroundColor3 = Color3.fromRGB(80, 135, 93),
 					Size = UDim2.new(0, 40, 0, 46),
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.new(0.5, 0, 0.5, 0),
-				}),
-				Host.Frame("Arm")({
+				},
+				Host.Frame "Arm" {
 					Position = UDim2.fromOffset(60, 32),
 					BackgroundColor3 = Color3.fromRGB(80, 135, 93),
 					Size = UDim2.new(0, 12, 0, 42),
 					Rotation = armAngle,
-				}),
-				Host.Frame("LegLeft")({
+				},
+				Host.Frame "LegLeft" {
 					Position = UDim2.fromOffset(22, 80),
 					BackgroundColor3 = Color3.fromRGB(43, 59, 84),
 					Size = UDim2.new(0, 13, 0, 30),
-				}),
-				Host.Frame("LegRight")({
+				},
+				Host.Frame "LegRight" {
 					Position = UDim2.fromOffset(42, 80),
 					BackgroundColor3 = Color3.fromRGB(43, 59, 84),
 					Size = UDim2.new(0, 13, 0, 30),
-				}),
-			})
+				},
+			}
 			if item.kind == "character" or item.kind == "gestures" then
 				spec.anchor = silhouette
 			end
-			local menuNode = UI.RadialMenu(spec)
+			local menuNode = UI.RadialMenu "Commands"(spec)
 			current, currentPresented = menu, presented
 			Compose.cleanup(function()
 				if current == menu then
@@ -425,17 +427,17 @@ return {
 			return UI.Composition "Scene" {
 				LayoutOrder = 3,
 				Size = UDim2.new(1, 0, 0, 260),
-				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Grow }),
+				Host.UIFlexItem { FlexMode = Enum.UIFlexMode.Grow },
 				UI.Region "Subject" {
 					zone = "center",
 					rank = 1,
 					if item.kind == "world"
 						then stage
-						else Host.Frame("Orbit")({
+						else Host.Frame "Orbit" {
 							BackgroundTransparency = 1,
 							Size = UDim2.fromOffset(140, 120),
 							silhouette,
-						}),
+						},
 				},
 				UI.Region "LauncherCorner" {
 					zone = zone,
@@ -444,7 +446,7 @@ return {
 				},
 			}
 		end
-		local modes = {
+		local modes: { StringPickerOption } = {
 			{ value = "corner", label = "Corner commands" },
 			{ value = "gestures", label = "Quick gestures" },
 			{ value = "character", label = "Character commands" },
@@ -464,11 +466,11 @@ return {
 			expanded = advanced,
 			content = function(): Instance
 				local children: { Child } = {
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}),
+					},
 					UI.Button "ContentFit" {
 						label = Compose.formula(function(use: Use)
 							return "Arc shape: " .. fitNames[use(fitting)]
@@ -513,16 +515,16 @@ return {
 						end,
 					},
 				}
-				return Host.Frame({
+				return Host.Frame {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					table.unpack(children),
-				})
+				}
 			end,
 		}
 		local function sceneRows()
-			return Compose.OrderedCollection({
+			return Compose.OrderedCollection {
 				from = function(use: Use)
 					return use(scenes)
 				end,
@@ -530,7 +532,7 @@ return {
 					return s.id
 				end,
 				render = scene,
-			})
+			}
 		end
 		local function controls(): { Child }
 			return {
@@ -539,7 +541,7 @@ return {
 					selected = selected,
 					options = modes,
 				},
-				Host.Frame("InstructionPlate")({
+				Host.Frame "InstructionPlate" {
 					LayoutOrder = 2,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -555,8 +557,8 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
-				}),
-				Host.Frame("ResultPlate")({
+				},
+				Host.Frame "ResultPlate" {
 					LayoutOrder = 4,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -572,7 +574,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
-				}),
+				},
 				disclosure,
 			}
 		end
@@ -584,17 +586,17 @@ return {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
 				ScrollBarThickness = 6,
-				Host.Frame("Body")({
+				Host.Frame "Body" {
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 12),
-					}),
+					},
 					table.unpack(content),
-				}),
+				},
 			}
 		end
 		return {

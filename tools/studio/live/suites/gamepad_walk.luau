@@ -1,4 +1,8 @@
 --!strict
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type NavigationPathCell = typeof(require("@repo/tools/typecheck/aliases").NavigationPathCell)
+type RowsCell = typeof(require("@repo/src/vendor/compose/core").cell({ { id = "", name = "" } }))
+type SelectionCell = typeof(require("@repo/src/vendor/compose/core").cell({ neon = true }))
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -57,7 +61,7 @@ local function walk(t: any, id: string, direction: string, limit: number, seen: 
 	end
 	t.settle(30)
 	local pool = controls(t, layer)
-	table.sort(pool, function(a, b)
+	table.sort(pool, function(a: GuiObject, b: GuiObject)
 		if math.abs(a.AbsolutePosition.Y - b.AbsolutePosition.Y) > 4 then
 			return a.AbsolutePosition.Y < b.AbsolutePosition.Y
 		end
@@ -282,26 +286,26 @@ add("value-control-limit-hands-the-move-to-the-engine", { "input-engine-handoff"
 	local Compose = t.Facet.Compose
 	local value = Compose.cell(8)
 	local stage = t.mount(function(UI: any, Host: any)
-		return Host.Frame({
+		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.Button("Before")({
+			UI.Button "Before" {
 				label = "Before",
 				Position = UDim2.fromOffset(40, 100),
 				Size = UDim2.fromOffset(120, 44),
-			}),
-			UI.Stepper("Step")({
+			},
+			UI.Stepper "Step" {
 				value = value,
 				max = 10,
 				Position = UDim2.fromOffset(220, 100),
 				Size = UDim2.fromOffset(240, 44),
-			}),
-			UI.Button("After")({
+			},
+			UI.Button "After" {
 				label = "After",
 				Position = UDim2.fromOffset(520, 100),
 				Size = UDim2.fromOffset(120, 44),
-			}),
-		})
+			},
+		}
 	end, { size = Vector2.new(800, 300), frames = 12 })
 	local step, before, after = t.find(stage, "Step"), t.find(stage, "Before"), t.find(stage, "After")
 	local function selected(): string
@@ -354,7 +358,8 @@ local function pad(t: any, keys: { string })
 end
 
 add("pad-table-edit-checkbox-reorder-done", {}, function(t: any)
-	local rows, selection
+	local rows: RowsCell
+	local selection: SelectionCell
 	local stage = t.mount(function(UI: any, _: any, C: any)
 		rows = C.cell({
 			{ id = "neon", name = "Neon Straightaway" },
@@ -527,7 +532,7 @@ add("pad-radial-complete-labels-at-each-level", {}, function(t: any)
 end, false)
 
 add("pad-rating-bounded-marks-and-all-values", {}, function(t: any)
-	local value
+	local value: NumberCell
 	local stage = t.mount(function(UI: any, _: any, C: any)
 		value = C.cell(0)
 		return UI.Rating "Rating" {
@@ -610,7 +615,8 @@ add("pad-row-actions-menu-open-close-and-command", {}, function(t: any)
 end, false)
 
 add("pad-back-asks-a-guarded-page-before-leaving", {}, function(t)
-	local path, dirty, asked = nil, true, 0
+	local path: NavigationPathCell
+	local dirty, asked = true, 0
 	local stage = t.mount(function(UI, _, C)
 		path = C.cell({})
 		return UI.NavigationStack "Stack" {

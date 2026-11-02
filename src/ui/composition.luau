@@ -86,9 +86,11 @@ end
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
+	local readPadding = read<<Types.Padding>>
+	local readOverscan = read<<Types.OverscanInsets?>>
 	local kit = layoutKit.of(ctx)
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
-	local declared = setmetatable({} :: { [Instance]: Declared }, { __mode = "k" })
+	local declared: { [Instance]: Declared } = setmetatable({}, { __mode = "k" })
 	local function layoutSize(
 		node: GuiBase2d,
 		scale: ComposeTypes.ReadOnlyValue<number>?
@@ -279,14 +281,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					return use(form) > 0 and not use(yielding)
 				end,
 			})
-		) :: Types.FrameNativeProps
+		) :: Types.FrameProps
 		local open, hosted = Compose.cell(false), Compose.cell(false)
 		local richest = properties[1] :: GuiObject?
 		if spec.mayDrop == true and spec.reveal ~= false then
 			properties[#properties + 1] = ctx.styled(
 				Host.Frame "Reveal" {
 					Size = D2.fromOffset(28, 20),
-					Host.UICorner({ CornerRadius = ctx.round }),
+					Host.UICorner { CornerRadius = ctx.round },
 					ctx.icon("more", {
 						AnchorPoint = V2.new(0.5, 0.5),
 						Position = D2.fromScale(0.5, 0.5),
@@ -469,7 +471,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		rows: ComposeTypes.ReadOnlyValue<resolver.Rows>
 	): Frame
 		local flowing = column == 2 and row ~= 2
-		local fields: Types.FrameNativeProps = {
+		local fields: Types.FrameProps = {
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			AnchorPoint = V2.new((column - 1) / 2, (row - 1) / 2),
@@ -486,7 +488,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				local packed = if flowing then (if row == 1 then use(rows).top else use(rows).bottom) else 0
 				return if packed > 0 then E.AutomaticSize.Y else E.AutomaticSize.XY
 			end,
-			Host.UIListLayout({
+			Host.UIListLayout {
 				SortOrder = E.SortOrder.LayoutOrder,
 				FillDirection = if flowing then E.FillDirection.Horizontal else E.FillDirection.Vertical,
 				Wraps = flowing,
@@ -504,16 +506,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				Padding = function(use: ComposeTypes.Use): UDim
 					return D.new(0, kit.spacing(gap, use))
 				end,
-			}),
+			},
 		}
 		for _, child in children do
 			fields[#fields + 1] = child
 		end
-		return Host.Frame(name)(fields)
+		return Host.Frame(fields, name)
 	end
 
 	UI.Composition = ctx.construct("Composition", function(spec: LayoutProps.CompositionProps): Frame
-		local properties = (ctx.props(spec, { "gap", "padding", "topbar", "rows", "passive" })) :: Types.FrameNativeProps
+		local properties = (ctx.props(spec, { "gap", "padding", "topbar", "rows", "passive" })) :: Types.FrameProps
 		local regions: { Frame } = {}
 		local helpers: { Instance } = {}
 		for index = 1, #properties do
@@ -546,15 +548,20 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		properties.BorderSizePixel = 0
 		properties.Size = if properties.Size == nil then D2.fromScale(1, 1) else properties.Size
 		properties[#properties + 1] = kit.insets(function(use: ComposeTypes.Use): Types.Padding
-			local value = read(base, use)
+			local value = readPadding(base, use)
 			local sides: Types.Sides = if type(value) == "table"
-				then value :: Types.Sides
+				then value
 				else { top = value, right = value, bottom = value, left = value }
-			local margins = read(overscan, use)
+			local margins = readOverscan(overscan, use)
 			local framed = use(direct)
 			local function side(name: "top" | "right" | "bottom" | "left", pixels: number): UDim
 				if framed and type(margins) == "table" then
-					return D.new(0, pixels + (margins[name] or 0))
+					local inset = if name == "top"
+						then margins.top
+						elseif name == "right" then margins.right
+						elseif name == "bottom" then margins.bottom
+						else margins.left
+					return D.new(0, pixels + inset)
 				end
 				return D.new(if framed and margins == nil and distant(use) then FRACTION[name] else 0, pixels)
 			end
@@ -594,25 +601,25 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		local stripLanes = 1 + (if leadsAny then 1 else 0) + (if trailsAny then 1 else 0)
 		local function stripEnd(use: ComposeTypes.Use): number
-			local value = read(base, use)
+			local value = readPadding(base, use)
 			local right: Types.Space? = if type(value) == "table" then value.right else value
 			return math.max(kit.spacing(gap, use), kit.spacing(right, use))
 		end
 		local function landingFrame(name: string, alignment: Enum.HorizontalAlignment): Frame
-			return Host.Frame(name) {
+			return Host.Frame(name)({
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				LayoutOrder = 0,
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					SortOrder = E.SortOrder.LayoutOrder,
 					HorizontalAlignment = alignment,
 					Padding = function(use: ComposeTypes.Use): UDim
 						return D.new(0, kit.spacing(gap, use))
 					end,
-				}),
-			}
+				},
+			})
 		end
 		local landedZone: Frame? = nil
 		local landedTrailing: Frame? = nil
@@ -670,7 +677,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local preparing = frames ~= nil and frames.PreRender ~= nil and runtime.host.frames ~= nil
 		local root = kit.plain(
 			if preparing
-				then ctx.fade((properties :: unknown) :: Types.CanvasGroupNativeProps, false, false)
+				then ctx.fade((properties :: unknown) :: Types.CanvasGroupProps, false, false)
 				else Host.Frame(properties),
 			spec
 		)
@@ -759,10 +766,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				local rect: Rect? = if band then use(band) else nil
 				return read(spec.topbar, use) ~= false and use(holder) ~= nil and rect ~= nil and rect.Width > 0
 			end
-			local function row(name: string, alignment: Enum.HorizontalAlignment, fields: Types.FrameNativeProps): Frame
+			local function row(name: string, alignment: Enum.HorizontalAlignment, fields: Types.FrameProps): Frame
 				fields.BackgroundTransparency = 1
 				fields.BorderSizePixel = 0
-				fields[#fields + 1] = Host.UIListLayout({
+				fields[#fields + 1] = Host.UIListLayout {
 					FillDirection = E.FillDirection.Horizontal,
 					SortOrder = E.SortOrder.LayoutOrder,
 					HorizontalAlignment = alignment,
@@ -770,8 +777,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					Padding = function(use: ComposeTypes.Use): UDim
 						return D.new(0, kit.spacing(gap, use))
 					end,
-				})
-				return Host.Frame(name)(fields)
+				}
+				return Host.Frame(fields, name)
 			end
 			local leadingRow = row("Leading", E.HorizontalAlignment.Left, {
 				LayoutOrder = 1,
@@ -782,7 +789,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local middleRow = row("Middle", E.HorizontalAlignment.Center, {
 				LayoutOrder = 2,
 				Size = D2.fromScale(0, 1),
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+				Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 			})
 			local trailingRow = row("Trailing", E.HorizontalAlignment.Right, {
 				LayoutOrder = 3,
@@ -792,7 +799,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			})
 			local topbarZone = row("Topbar", E.HorizontalAlignment.Left, {
 				Size = D2.fromScale(1, 1),
-				Host.UIPadding({
+				Host.UIPadding {
 					PaddingTop = function(use: ComposeTypes.Use): UDim
 						local rect: Rect? = if band then use(band) else nil
 						local tall = if rect then rect.Height else 0
@@ -805,7 +812,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					PaddingRight = function(use: ComposeTypes.Use): UDim
 						return D.new(0, stripEnd(use))
 					end,
-				}),
+				},
 				leadingRow,
 				middleRow,
 				trailingRow,
@@ -835,13 +842,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					return if host then host.DisplayOrder else 0
 				end,
 				Enabled = enabled,
-				Host.StyleLink({
+				Host.StyleLink {
 					StyleSheet = function(use: ComposeTypes.Use): StyleSheet?
 						local host = use(screen)
 						local link = host and host:FindFirstChildWhichIsA("StyleLink")
 						return if link then link.StyleSheet else nil
 					end,
-				}),
+				},
 				topbarZone,
 			}
 			stripGui = created
@@ -939,7 +946,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					V2.new(if column == 1 then 0 else 1, (row - 1) / 2)
 			end
 			runtime.mount(function()
-				return UI.Popover("Hidden" .. frame.Name) {
+				return UI.Popover("Hidden" .. frame.Name)({
 					isPresented = open,
 					onPresentedChange = function(value: boolean)
 						open:set(value and #dropped:peek() > 0)
@@ -948,17 +955,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					edge = (if column == 2 and row == 3 then "top" else EXPAND_EDGE[column]) :: Overlay.Edge,
 					content = function(): Instance
 						release()
-						local slots: Types.FrameNativeProps = {
+						local slots: Types.FrameProps = {
 							Name = "ZoneHidden",
 							BackgroundTransparency = 1,
 							Size = D2.new(),
 							AutomaticSize = E.AutomaticSize.XY,
-							Host.UIListLayout({
+							Host.UIListLayout {
 								SortOrder = E.SortOrder.LayoutOrder,
 								Padding = function(use: ComposeTypes.Use): UDim
 									return D.new(0, kit.spacing(gap, use))
 								end,
-							}),
+							},
 						}
 						local slotFrames = {}
 						for index, region in dropped:peek() do
@@ -979,7 +986,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 						Compose.cleanup(release)
 						return holder
 					end,
-					trigger = Host.TextButton("ZoneReveal" .. frame.Name) {
+					trigger = Host.TextButton("ZoneReveal" .. frame.Name)({
 						Text = "",
 						BackgroundTransparency = 1,
 						ZIndex = 5,
@@ -1001,7 +1008,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 								AnchorPoint = V2.new(0.5, 0.5),
 								Position = D2.fromScale(0.5, 0.5),
 								Size = D2.fromOffset(28, 20),
-								Host.UICorner({ CornerRadius = ctx.round }),
+								Host.UICorner { CornerRadius = ctx.round },
 								ctx.icon("more", {
 									AnchorPoint = V2.new(0.5, 0.5),
 									Position = D2.fromScale(0.5, 0.5),
@@ -1010,8 +1017,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 							},
 							"badge"
 						),
-					},
-				}
+					}),
+				})
 			end, safe)
 		end
 		local box = layoutSize(safe, safeUnit)
@@ -1371,7 +1378,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end)
 		assert(spec.passive == nil or type(spec.passive) == "boolean", "Facet Composition passive must be a boolean")
 		if spec.passive ~= false then
-			local options = { passive = true, gameplayGuard = false, engageOnPress = false, resignOnActivate = true }
+			local options: Types.ResponderOptions =
+				{ passive = true, gameplayGuard = false, engageOnPress = false, resignOnActivate = true }
 			ctx.responder(root, options)
 			if stripGui then
 				ctx.responder(stripGui, options)

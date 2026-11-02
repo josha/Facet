@@ -1,7 +1,8 @@
 --!strict
 --!native
 
-local RuntimeTypes = require "../runtime/types"
+local CoreTypes = require "../types"
+local Ramp = require "./ramp"
 local Codec = require "./codec"
 local Diagnostics = require "../diagnostics"
 local Easing = require "./easing"
@@ -13,15 +14,15 @@ local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 local watchModule = require "../reactive/watch"
 
-export type ReducedMotion = RuntimeTypes.ReducedMotion
+export type ReducedMotion = CoreTypes.ReducedMotion
 
-export type SpringOptions = RuntimeTypes.SpringOptions
+export type SpringOptions = CoreTypes.SpringOptions
 
-export type Duration = RuntimeTypes.Duration
+export type Duration = CoreTypes.Duration
 
-export type TweenOptions = RuntimeTypes.TweenOptions
+export type TweenOptions = CoreTypes.TweenOptions
 
-export type Motion = RuntimeTypes.Motion
+export type Motion<T> = CoreTypes.Motion<T>
 
 local DEFAULT_PERIOD = 0.5
 local DEFAULT_DAMPING = 1
@@ -31,13 +32,10 @@ local DEFAULT_SECONDS = 0.25
 local function framesOf(host: Host.Host, primitive: string): Host.Frames
 	local frames = host.frames
 	if frames == nil then
-		error(
-			Diagnostics.format("animation/no-frames", ("host %q cannot drive %s"):format(host.name, primitive), {
-				contract = "animation needs a frame loop, which is the host frames capability",
-				fix = "implement host.frames.onFrame and host.frames.now, or animate outside Compose",
-			}),
-			0
-		)
+		return Diagnostics.raise("animation/no-frames", ("host %q cannot drive %s"):format(host.name, primitive), {
+			contract = "animation needs a frame loop, which is the host frames capability",
+			fix = "implement host.frames.onFrame and host.frames.now, or animate outside Compose",
+		})
 	end
 	return frames
 end
@@ -71,8 +69,13 @@ local function policyOf(value: ReducedMotion?, primitive: string): Types.Body<bo
 	return nil
 end
 
-local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Owner.Owner): Motion
-	local function animate<T>(
+local function createMotion<T>(
+	host: Host.Host,
+	ownerOf: (primitive: string) -> Owner.Owner,
+	codec: Codec.Codec<T>
+): Motion<T>
+	Codec.validate(codec)
+	local function animate(
 		primitive: string,
 		source: Types.Body<T>,
 		makeAdvance: (
@@ -87,12 +90,11 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 		local frames = framesOf(host, primitive)
 		local owner = ownerOf(primitive)
 
-		local codec: Codec.Codec<T>
 		local arity = 0
 		local current: { number }
 		local target: { number }
 		local reference: { number }
-		local advance: (delta: number) -> boolean
+		local advance: ((delta: number) -> boolean)? = nil
 		local settleNow: (() -> ())?
 		local output: Types.Value<T>
 		local typeName = ""
@@ -105,15 +107,14 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 			output:set(codec.decode(current))
 		end
 
-		local pump: ownedFrame.Pump
+		local pump: ownedFrame.Pump? = nil
 		local function onFrame(delta: number)
-			local arrived = advance(delta)
+			local arrived = assert(advance)(delta)
 			publish()
 			if arrived then
-				pump.stop()
+				assert(pump).stop()
 			end
 		end
-		pump = ownedFrame(owner, frames.onFrame, onFrame)
 
 		Owner.watch(owner, function(use)
 			local wanted = source(use)
@@ -121,7 +122,6 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 
 			if arity == 0 then
 				typeName = Host.typeNameOf(host, wanted)
-				codec = Codec.codecFor(typeName)
 				arity = codec.arity
 				current = table.create(arity, 0)
 				target = table.create(arity, 0)
@@ -130,24 +130,19 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 				codec.encode(wanted, target)
 				codec.encode(wanted, reference)
 				output = cellModule.cell(wanted)
-				advance, settleNow = makeAdvance(codec, current, target, reference)
-
 				return
 			end
 
 			if Host.typeNameOf(host, wanted) ~= typeName then
-				error(
-					Diagnostics.format(
-						"animation/type-changed",
-						("%s was given a different type mid-flight"):format(primitive),
-						{
-							expected = typeName,
-							actual = Host.typeNameOf(host, wanted),
-							contract = "an animated value keeps one type for its lifetime",
-							fix = "use show or switch to swap between differently-typed values",
-						}
-					),
-					0
+				return Diagnostics.raise(
+					"animation/type-changed",
+					("%s was given a different type mid-flight"):format(primitive),
+					{
+						expected = typeName,
+						actual = Host.typeNameOf(host, wanted),
+						contract = "an animated value keeps one type for its lifetime",
+						fix = "use show or switch to swap between differently-typed values",
+					}
 				)
 			end
 
@@ -156,7 +151,9 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 			end
 			codec.encode(wanted, target)
 			if reduced then
-				pump.stop()
+				if pump then
+					pump.stop()
+				end
 				if settleNow ~= nil then
 					settleNow()
 				end
@@ -170,44 +167,51 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 			if onRetarget ~= nil then
 				onRetarget()
 			end
-			pump.start()
+			if advance == nil then
+				advance, settleNow = makeAdvance(codec, current, target, reference)
+			end
+			if pump == nil then
+				pump = ownedFrame(owner, frames.onFrame, onFrame)
+			end
+			assert(pump).start()
 		end)
 
 		return output
 	end
 
-	local function spring<T>(source: Types.Body<T>, options: SpringOptions?): Types.ReadOnlyValue<T>
+	local function spring(source: Types.Body<T>, options: SpringOptions?): Types.ReadOnlyValue<T>
 		local period = if options ~= nil and options.period ~= nil then options.period else DEFAULT_PERIOD
 		local damping = if options ~= nil and options.damping ~= nil then options.damping else DEFAULT_DAMPING
 		local tolerance = if options ~= nil and options.tolerance ~= nil then options.tolerance else DEFAULT_TOLERANCE
 
 		if period <= 0 then
-			error(
-				Diagnostics.format("animation/bad-period", "a spring needs a positive period", {
-					actual = tostring(period),
-					expected = "seconds for one undamped oscillation, e.g. 0.4",
-				}),
-				0
-			)
+			return Diagnostics.raise("animation/bad-period", "a spring needs a positive period", {
+				actual = tostring(period),
+				expected = "seconds for one undamped oscillation, e.g. 0.4",
+			})
 		end
 
 		local stiffness, drag = Spring.coefficients(period, damping)
 		return animate("spring", source, function(codec, current, target, reference)
 			local arity = codec.arity
-			local live = Spring.createState(current, arity)
-			local position = live.position
+			local position = if codec.normalise then table.clone(current) else current
+			local live: Spring.State = { position = position, velocity = table.create(arity, 0), arity = arity }
 			local function settle()
 				Spring.settle(live, target)
 			end
 			return function(delta: number): boolean
 				Spring.advance(live, target, delta, stiffness, drag)
-				for index = 1, arity do
-					current[index] = position[index]
+				if position ~= current then
+					for index = 1, arity do
+						current[index] = position[index]
+					end
 				end
 				if Spring.atRest(live, target, reference, tolerance) then
 					Spring.settle(live, target)
-					for index = 1, arity do
-						current[index] = target[index]
+					if position ~= current then
+						for index = 1, arity do
+							current[index] = target[index]
+						end
 					end
 					return true
 				end
@@ -217,7 +221,7 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 		end, nil, policyOf(if options ~= nil then options.reducedMotion else nil, "spring"))
 	end
 
-	local function tween<T>(source: Types.Body<T>, options: TweenOptions?): Types.ReadOnlyValue<T>
+	local function tween(source: Types.Body<T>, options: TweenOptions?): Types.ReadOnlyValue<T>
 		local wanted: Duration = if options ~= nil and options.seconds ~= nil then options.seconds else DEFAULT_SECONDS
 		local ease: Easing.Easing
 		if options ~= nil and options.ease ~= nil then
@@ -231,38 +235,34 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 		if type(wanted) == "number" then
 			seconds = wanted
 			if seconds <= 0 then
-				error(
-					Diagnostics.format("animation/bad-duration", "a tween needs a positive duration", {
-						actual = tostring(seconds),
-						expected = "seconds, e.g. 0.25",
-					}),
-					0
-				)
-			end
-		elseif cellModule.isValue(wanted) then
-			local readable = wanted :: Types.ReadOnlyValue<number>
-			durations = function(): number
-				return readable:peek()
+				return Diagnostics.raise("animation/bad-duration", "a tween needs a positive duration", {
+					actual = tostring(seconds),
+					expected = "seconds, e.g. 0.25",
+				})
 			end
 		elseif type(wanted) == "function" then
 			local body = wanted
 			durations = function(): number
 				return watchModule.sample(function()
-					return ((body :: unknown) :: (nil) -> number)(nil)
+					return body(function<T>(value: Types.ReadOnlyValue<T>): T
+						return value:peek()
+					end)
 				end)
 			end
+		elseif cellModule.isValue(wanted) then
+			local readable = wanted
+			durations = function(): number
+				return readable:peek()
+			end
 		else
-			error(
-				Diagnostics.format(
-					"animation/bad-duration",
-					"a tween duration must be seconds or a source of seconds",
-					{
-						actual = type(wanted),
-						expected = "a number, a cell, a formula, or a body, e.g. 0.25",
-						contract = "TweenOptions.seconds is a number or a source of one",
-					}
-				),
-				0
+			return Diagnostics.raise(
+				"animation/bad-duration",
+				"a tween duration must be seconds or a source of seconds",
+				{
+					actual = type(wanted),
+					expected = "a number, a cell, a formula, or a body, e.g. 0.25",
+					contract = "TweenOptions.seconds is a number or a source of one",
+				}
 			)
 		end
 
@@ -277,17 +277,14 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 			onRetarget = function()
 				local length = sampleSeconds()
 				if type(length) ~= "number" or length <= 0 then
-					error(
-						Diagnostics.format(
-							"animation/bad-duration",
-							"a tween's duration source produced a bad length",
-							{
-								actual = tostring(length),
-								expected = "positive seconds, e.g. 0.25",
-								contract = "a duration source yields positive seconds at every retarget",
-							}
-						),
-						0
+					return Diagnostics.raise(
+						"animation/bad-duration",
+						"a tween's duration source produced a bad length",
+						{
+							actual = tostring(length),
+							expected = "positive seconds, e.g. 0.25",
+							contract = "a duration source yields positive seconds at every retarget",
+						}
 					)
 				end
 				seconds = length
@@ -317,6 +314,7 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 	return {
 		spring = spring,
 		tween = tween,
+		ramp = Ramp.createRamps(tween, ownerOf),
 	}
 end
 

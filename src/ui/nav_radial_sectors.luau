@@ -28,6 +28,7 @@ return function<V>(
 	lists: layoutKit.Kit,
 	menu: MenuTypes.Menu<V>,
 	arrangement: ArrangementTypes.Arrangement<V>,
+	layoutUnit: ComposeTypes.ReadOnlyValue<number>,
 	phase: Navigation.PresencePhase?
 ): Paint<V>
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
@@ -84,7 +85,9 @@ return function<V>(
 	local ringFits: ComposeTypes.Value<{ [string]: { ring: number, inner: number, outer: number } }> = Compose.cell({})
 	local fittedWidths: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
 	local function iconSide(use: ComposeTypes.Use): number
-		return if spec.iconSize ~= nil then read(spec.iconSize, use) else ctx.controlSize(nil, "iconSize", use)
+		return if spec.iconSize ~= nil
+			then read<<number>>(spec.iconSize, use)
+			else ctx.controlSize(nil, "iconSize", use)
 	end
 	local function iconic(use: ComposeTypes.Use, live: Radial.Sector<V>): boolean
 		if live.list then
@@ -188,14 +191,17 @@ return function<V>(
 						local key = prefix .. "/" .. item.id
 						table.insert(entries, key)
 						if item.children then
-							visit(read(item.children, use), if prefix == "" then item.id else key)
+							visit(
+								read<<{ Radial.RadialItem<V> }>>(item.children, use),
+								if prefix == "" then item.id else key
+							)
 						end
 					end
 					if spec.center and spec.center ~= "back" and not menu.corner then
 						table.insert(entries, prefix .. "/$navigation")
 					end
 				end
-				visit(read(spec.items, use), "")
+				visit(read<<{ Radial.RadialItem<V> }>>(spec.items, use), "")
 				return entries
 			end,
 			render = function(key: ComposeTypes.ReadOnlyValue<string>)
@@ -308,17 +314,17 @@ return function<V>(
 							local bounds = geometry.labelBounds(use(fittedShape) or live, if iconOnly then 160 else 40)
 							return if iconOnly then bounds.h else bounds.w, bounds.h
 						end
-						local button = UI.Button({
+						local button = UI.Button {
 							Name = sector.id,
 							corners = if appearance == "buttons" then "pill" :: "pill" else nil,
 							appearance = if appearance == "wedges" then "utility" else nil,
 							ClipsDescendants = appearance == "wedges",
 							label = function(use: ComposeTypes.Use)
 								local live = currentSector(use)
-								return if iconic(use, live) then "" else read(live.item.label, use)
+								return if iconic(use, live) then "" else read<<string?>>(live.item.label, use) or ""
 							end,
 							name = function(use: ComposeTypes.Use): string
-								return read(currentSector(use).item.label, use) or ""
+								return read<<string?>>(currentSector(use).item.label, use) or ""
 							end,
 							icon = sector.item.icon or (sector.item.compactLabel and sector.item.compactLabel.icon),
 							AnchorPoint = function(use: ComposeTypes.Use)
@@ -333,7 +339,9 @@ return function<V>(
 							LayoutOrder = function(use: ComposeTypes.Use)
 								return currentSector(use).index
 							end,
-							InputBegan = menu.beginPointer,
+							InputBegan = function(input: InputObject)
+								menu.beginPointer(input)
+							end,
 							MouseEnter = function()
 								if
 									not session.capture
@@ -381,7 +389,7 @@ return function<V>(
 								candidate:set(currentSector().key)
 							end,
 							ZIndex = 105,
-						})
+						}
 						button:AddTag("facet-radial-label")
 						Compose.watch(function(use: ComposeTypes.Use)
 							if use(fallback) then
@@ -395,7 +403,7 @@ return function<V>(
 							local words = ctx.text({
 								Name = "Text",
 								Text = function(use: ComposeTypes.Use): string
-									return read(currentSector(use).item.label, use) or ""
+									return read<<string?>>(currentSector(use).item.label, use) or ""
 								end,
 								Size = D2.fromOffset(0, 0),
 								AutomaticSize = E.AutomaticSize.XY,
@@ -405,7 +413,7 @@ return function<V>(
 							})
 							words:AddTag("facet-type-caption")
 							local plate = ctx.styled(
-								Host.Frame({
+								Host.Frame {
 									Name = "ItemCaption",
 									AnchorPoint = captionAnchor,
 									Position = function(use: ComposeTypes.Use): UDim2
@@ -421,7 +429,7 @@ return function<V>(
 									end,
 									ZIndex = 106,
 									ctx.padding(8, 4),
-								}),
+								},
 								"tooltip"
 							)
 							surfaces.attach(plate, { words })
@@ -478,13 +486,13 @@ return function<V>(
 						local caption = button:FindFirstChild("Title", true)
 						local textNode = if caption and caption:IsA("TextLabel") then caption else button
 						local natural = ctx.styled(
-							Host.TextLabel({
+							Host.TextLabel {
 								Name = "CaptionMeasure",
 								BackgroundTransparency = 1,
 								BorderSizePixel = 0,
 								TextXAlignment = E.TextXAlignment.Left,
 								Text = function(use: ComposeTypes.Use): string
-									return read(currentSector(use).item.label, use) or ""
+									return read<<string?>>(currentSector(use).item.label, use) or ""
 								end,
 								FontFace = ctx.observeStyled.FontFace(textNode),
 								TextSize = ctx.observeStyled.TextSize(textNode),
@@ -494,13 +502,12 @@ return function<V>(
 								Interactable = false,
 								Size = D2.fromOffset(0, 0),
 								AutomaticSize = E.AutomaticSize.XY,
-							}),
+							},
 							"Text"
 						)
 						surfaces.attach(button, { natural })
-						local unit = ctx.layoutUnit(button)
 						local fullBounds, paintedBounds =
-							ctx.layoutBounds(natural, unit), ctx.layoutBounds(textNode, unit)
+							ctx.layoutBounds(natural, layoutUnit), ctx.layoutBounds(textNode, layoutUnit)
 						local measured = Compose.formula(function(use: ComposeTypes.Use): Vector2
 							local full, painted = use(fullBounds), use(paintedBounds)
 							return V2.new(math.max(full.X, painted.X), math.max(full.Y, painted.Y))
@@ -537,11 +544,11 @@ return function<V>(
 								return existing
 							end
 							local stroke = Compose.withOwner(assert(strokeOwner), function(): Path2D
-								local made = Host.Path2D("SectorBand" .. tostring(index + 1)) {
+								local made = Host.Path2D("SectorBand" .. tostring(index + 1))({
 									Thickness = paint.Thickness,
 									Closed = false,
 									ZIndex = 102,
-								}
+								})
 								ctx.styled(made, "radial-sector")
 								if candidate:peek() then
 									made:AddTag("facet-radial-candidate")

@@ -2,6 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local preferredInput = require("./preferred_input")
+local STYLED: ComposeTypes.ObserveOptions = { styled = true }
 
 local GEOMETRY: { [string]: ComposeTypes.ObserveOptions } = {
 	AbsoluteSize = { frame = true, poll = true },
@@ -13,9 +14,81 @@ local GEOMETRY: { [string]: ComposeTypes.ObserveOptions } = {
 	TextFits = { frame = true },
 }
 
+local PREVIEWED: {
+	[string]: {
+		key: string,
+		enum: ("PreferredInput" | "PreferredTextSize" | "DisplaySize")?,
+		read: (Shared.EnvironmentPreview) -> unknown,
+	},
+} =
+	{
+		PreferredInput = {
+			key = "preferredInput",
+			enum = "PreferredInput",
+			read = function(preview)
+				return preview.preferredInput
+			end,
+		},
+		TouchEnabled = {
+			key = "touchEnabled",
+			read = function(preview)
+				return preview.touchEnabled
+			end,
+		},
+		MouseEnabled = {
+			key = "mouseEnabled",
+			read = function(preview)
+				return preview.mouseEnabled
+			end,
+		},
+		GamepadEnabled = {
+			key = "gamepadEnabled",
+			read = function(preview)
+				return preview.gamepadEnabled
+			end,
+		},
+		KeyboardEnabled = {
+			key = "keyboardEnabled",
+			read = function(preview)
+				return preview.keyboardEnabled
+			end,
+		},
+		PreferredTextSize = {
+			key = "preferredTextSize",
+			enum = "PreferredTextSize",
+			read = function(preview)
+				return preview.preferredTextSize
+			end,
+		},
+		ViewportDisplaySize = {
+			key = "displaySize",
+			enum = "DisplaySize",
+			read = function(preview)
+				return preview.displaySize
+			end,
+		},
+	}
+local previewKeys: { [string]: boolean } = { viewportSize = true, viewingDistance = true, overscanInsets = true }
+for _, entry in PREVIEWED do
+	previewKeys[entry.key] = true
+end
+
+local function validatePreview(preview: unknown)
+	if preview == nil or preview == false then
+		return
+	end
+	assert(type(preview) == "table", "Facet.controls: environment must be a table")
+	for key in preview do
+		assert(
+			type(key) == "string" and previewKeys[key],
+			`Facet.controls: unknown environment option '{tostring(key)}'`
+		)
+	end
+end
+
 export type Observation = {
-	preview: { [string]: unknown },
-	observeStyled: (Instance, string) -> ComposeTypes.Value<unknown>,
+	preview: Shared.EnvironmentPreview,
+	observeStyled: (Instance, string) -> ComposeTypes.ReadOnlyValue<unknown>,
 }
 
 return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Services): Observation
@@ -23,29 +96,14 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 	local framed = services.RunService ~= nil and getfenv ~= nil and getfenv(0).game ~= nil
 	local sharedObservations: { [Instance]: { [string]: ComposeTypes.AcquireSharedResource<ComposeTypes.Value<unknown>> } } =
 		{}
-	local preview: { [string]: unknown } = (config.environment or {}) :: { [string]: unknown }
-	local PREVIEWED: { [string]: { key: string, enum: string? } } = {
-		PreferredInput = { key = "preferredInput", enum = "PreferredInput" },
-		TouchEnabled = { key = "touchEnabled" },
-		MouseEnabled = { key = "mouseEnabled" },
-		GamepadEnabled = { key = "gamepadEnabled" },
-		KeyboardEnabled = { key = "keyboardEnabled" },
-		PreferredTextSize = { key = "preferredTextSize", enum = "PreferredTextSize" },
-		ViewportDisplaySize = { key = "displaySize", enum = "DisplaySize" },
-	}
-	local previewKeys: { [string]: boolean } = { viewportSize = true, viewingDistance = true, overscanInsets = true }
-	for _, entry in PREVIEWED do
-		previewKeys[entry.key] = true
-	end
-	for key in preview do
-		assert(previewKeys[key], `Facet.controls: unknown environment option '{tostring(key)}'`)
-	end
+	local preview: Shared.EnvironmentPreview = config.environment or {}
+	validatePreview(config.environment)
 	local function previewed(
 		property: string,
 		engine: ComposeTypes.ReadOnlyValue<unknown>
 	): ComposeTypes.ReadOnlyValue<unknown>
 		local entry = PREVIEWED[property]
-		local source = if entry then preview[entry.key] else nil
+		local source = if entry then entry.read(preview) else nil
 		if source == nil then
 			return engine
 		end
@@ -57,9 +115,10 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 			end
 			if enumName and type(value) == "string" then
 				local item = assert(
-					((Enum :: unknown) :: { [string]: { FromName: (unknown, string) -> EnumItem? } })[enumName]:FromName(
-						value
-					),
+					if enumName == "PreferredInput"
+						then Enum.PreferredInput:FromName(value)
+						elseif enumName == "PreferredTextSize" then Enum.PreferredTextSize:FromName(value)
+						else Enum.DisplaySize:FromName(value),
 					`Facet.controls: environment {entry.key} '{value}' is not a {enumName}`
 				)
 				return item
@@ -67,17 +126,13 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 			return value
 		end)
 	end
-	local function observe(node: Instance, property: string): ComposeTypes.Value<unknown>
+	local function observe(node: Instance, property: string): ComposeTypes.ReadOnlyValue<unknown>
 		local selection = property == "SelectedObject"
 		local preferred = property == "PreferredInput" and node == config.userInputService
 		if not selection and not preferred then
-			return (
-				previewed(
-					property,
-					runtime.observe(node, property, if framed then GEOMETRY[property] else nil)
-				) :: unknown
-			) :: ComposeTypes.Value<unknown>
+			return previewed(property, runtime.observe(node, property, if framed then GEOMETRY[property] else nil))
 		end
+		local input = if preferred then config.userInputService else nil
 		local byProperty = sharedObservations[node]
 		if byProperty == nil then
 			byProperty = {}
@@ -119,16 +174,9 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 						then
 							gui.SelectedObject = nil
 						end
-						if
-							preferred
-							and preferredInput.withheld(
-								node :: UserInputService,
-								current,
-								Enum.PreferredInput.KeyboardAndMouse
-							)
-						then
+						if input and preferredInput.withheld(input, current, Enum.PreferredInput.KeyboardAndMouse) then
 							stopNudges = stopNudges
-								or preferredInput.nudges(node :: UserInputService, Enum, function()
+								or preferredInput.nudges(input, Enum, function()
 									publish(assert(source):peek())
 								end)
 							return
@@ -164,35 +212,28 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 			end)
 			byProperty[property] = acquire
 		end
-		return (previewed(property, assert(acquire)()) :: unknown) :: ComposeTypes.Value<unknown>
+		return previewed(property, assert(acquire)())
 	end
-	local function observers(watch: (Instance, string) -> ComposeTypes.Value<unknown>): Shared.Observe
-		local bound: { [string]: (Instance) -> ComposeTypes.Value<unknown> } = {}
+	local function observers(watch: (Instance, string) -> ComposeTypes.ReadOnlyValue<unknown>): Shared.Observe
+		local bound: { [string]: (Instance) -> ComposeTypes.ReadOnlyValue<unknown> } = {}
 		setmetatable(bound, {
-			__index = function(_, property: string): (Instance) -> ComposeTypes.Value<unknown>
-				local read = function(node: Instance): ComposeTypes.Value<unknown>
+			__index = function(_, property: string): (Instance) -> ComposeTypes.ReadOnlyValue<unknown>
+				local read = function(node: Instance): ComposeTypes.ReadOnlyValue<unknown>
 					return watch(node, property)
 				end
 				bound[property] = read
 				return read
 			end,
 		})
-		return (bound :: unknown) :: Shared.Observe
+		return bound :: Shared.Observe
 	end
 	ctx.selectionHooks = {}
 	ctx.observe = observers(observe)
-	ctx.observeNative = observers(function(node: Instance, property: string): ComposeTypes.Value<unknown>
-		return (runtime.observe(node, property) :: unknown) :: ComposeTypes.Value<unknown>
+	ctx.observeNative = observers(function(node: Instance, property: string): ComposeTypes.ReadOnlyValue<unknown>
+		return runtime.observe(node, property)
 	end)
-	local function observeStyled(node: Instance, property: string): ComposeTypes.Value<unknown>
-		local observation = assert(runtime.host.observation)
-		local readStyled = assert(observation.readStyledProperty)
-		local observeStyled = assert(observation.observeStyledProperty)
-		local value = Compose.cell(readStyled(node, property))
-		Compose.cleanup(observeStyled(node, property, function()
-			value:set(readStyled(node, property))
-		end))
-		return value
+	local function observeStyled(node: Instance, property: string): ComposeTypes.ReadOnlyValue<unknown>
+		return runtime.observe(node, property, STYLED)
 	end
 	ctx.observeStyled = observers(observeStyled)
 	return { preview = preview, observeStyled = observeStyled }

@@ -2,9 +2,9 @@
 
 type Timeline = typeof(require("@repo/tools/typecheck/aliases").Timeline)
 type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-type ModelNativeProps = typeof(require("@repo/tools/typecheck/aliases").ModelNativeProps)
-type PartNativeProps = typeof(require("@repo/tools/typecheck/aliases").PartNativeProps)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ModelProps = typeof(require("@repo/tools/typecheck/aliases").ModelProps)
+type PartProps = typeof(require("@repo/tools/typecheck/aliases").PartProps)
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type HatPiece = { name: string, size: Vector3, height: number, color: "tint" | "shade" | Color3 }
 local Facet = require(game:GetService("ReplicatedStorage").Facet)
@@ -22,7 +22,7 @@ function scenes.card(
 ): () -> ()
 	local Host = Facet.host(runtime)
 	local stop = runtime.mount(function()
-		local nodes: ModelNativeProps = { Name = item.title }
+		local nodes: ModelProps = { Name = item.title }
 		local accent = Color3.new(item.color.r, item.color.g, item.color.b)
 		local variant = (item.index - 1) % 6
 		local clock: Timeline =
@@ -47,7 +47,7 @@ function scenes.card(
 			yaw: number?,
 			material: Enum.Material?
 		)
-			local instance = Host.Part({
+			local instance = Host.Part {
 				Name = name,
 				Anchored = true,
 				CanCollide = false,
@@ -59,12 +59,12 @@ function scenes.card(
 				Color = color,
 				Material = material or Enum.Material.SmoothPlastic,
 				Shape = shape or Enum.PartType.Block,
-			})
+			}
 			nodes[#nodes + 1] = instance
 			return instance
 		end
 		local function wedge(name: string, size: Vector3, cframe: CFrame, color: Color3)
-			nodes[#nodes + 1] = Host.WedgePart({
+			nodes[#nodes + 1] = Host.WedgePart {
 				Name = name,
 				Anchored = true,
 				CanCollide = false,
@@ -72,7 +72,7 @@ function scenes.card(
 				CFrame = cframe,
 				Color = color,
 				Material = Enum.Material.SmoothPlastic,
-			})
+			}
 		end
 		local function pillar(
 			name: string,
@@ -335,7 +335,7 @@ end
 function scenes.discovery(runtime: Runtime, target: Instance): () -> ()
 	local Host = Facet.host(runtime)
 	local stop = runtime.mount(function()
-		local children: ModelNativeProps = { Name = "Afterlight" }
+		local children: ModelProps = { Name = "Afterlight" }
 		local function part(
 			name: string,
 			size: Vector3,
@@ -344,7 +344,7 @@ function scenes.discovery(runtime: Runtime, target: Instance): () -> ()
 			material: Enum.Material?,
 			shape: Enum.PartType?
 		)
-			children[#children + 1] = Host.Part({
+			children[#children + 1] = Host.Part {
 				Name = name,
 				Anchored = true,
 				CanCollide = false,
@@ -353,7 +353,7 @@ function scenes.discovery(runtime: Runtime, target: Instance): () -> ()
 				Color = color,
 				Material = material or Enum.Material.SmoothPlastic,
 				Shape = shape or Enum.PartType.Block,
-			})
+			}
 		end
 		local stone = Color3.fromRGB(65, 82, 97)
 		local grass = Color3.fromRGB(100, 163, 149)
@@ -465,9 +465,9 @@ function scenes.staticAvatar(
 		size: Vector3,
 		position: Vector3,
 		color: Color3 | ((Use) -> Color3),
-		extra: PartNativeProps?
+		extra: PartProps?
 	): Part
-		local props: PartNativeProps = {
+		local props: PartProps = {
 			Name = name,
 			Anchored = true,
 			CanCollide = false,
@@ -733,7 +733,7 @@ function scenes.avatar(
 						return Color3.fromRGB(tint[1] * k, tint[2] * k, tint[3] * k)
 					end
 				end
-				local part = Host.Part({
+				local part = Host.Part {
 					Name = "Hat" .. spec.name,
 					Size = spec.size * fit,
 					Color = color,
@@ -743,15 +743,15 @@ function scenes.avatar(
 					Transparency = function(use: Use)
 						return if use(hat) then 0 else 1
 					end,
-				})
+				}
 				table.insert(pieces, part)
 				table.insert(
 					pieces,
-					Host.Weld({
+					Host.Weld {
 						Part0 = Compose.static(head),
 						Part1 = Compose.static(part),
 						C0 = crownBase * CFrame.new(0, spec.height * fit, 0),
-					})
+					}
 				)
 			end
 			return pieces

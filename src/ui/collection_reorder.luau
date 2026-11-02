@@ -9,6 +9,7 @@ local bindKeys = require("./collection_reorder_keys")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local CollectionTypes = require("./collection_types")
+local Motion = require("./motion")
 export type Editor<V, K> = {
 	placement: (K, ComposeTypes.Placement, ComposeTypes.Use) -> ComposeTypes.Placement,
 	position: (
@@ -31,9 +32,9 @@ export type Editor<V, K> = {
 }
 return function<V, K>(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	spec: CollectionTypes.ReorderShape<V, K>,
-	source: Types.Input<{ V }>,
+	source: ComposeTypes.Source<{ V }>,
 	keyOf: (V, number) -> K,
 	controls: ComposeTypes.OrderedCollectionControls<K>,
 	bodyOf: () -> ScrollingFrame,
@@ -185,6 +186,7 @@ return function<V, K>(
 		cross: number,
 		main: number,
 	}
+	type PositionTarget = { position: Vector2, relaid: boolean }
 	local positioned: { [Positioned]: boolean } = {}
 	local function peek<T>(value: ComposeTypes.ReadOnlyValue<T>): T
 		return value:peek()
@@ -228,38 +230,48 @@ return function<V, K>(
 			ctx.Compose.cleanup(function()
 				positioned[entry] = nil
 			end)
-			local target = ctx.Compose.formula(function(use: ComposeTypes.Use): Vector2
+			if shared.instantLayout then
+				return ctx.Compose.formula(function(use: ComposeTypes.Use): Vector2
+					use(entry.aim)
+					local proposed = placement(key, use(at), peek)
+					entry.cross, entry.main = proposed.crossOffset, proposed.offset
+					return ctx.types.Vector2.new(proposed.crossOffset, proposed.offset)
+				end)
+			end
+			local last: ComposeTypes.Placement? = nil
+			local lastTarget: PositionTarget? = nil
+			local lastShift = ctx.types.Vector2.zero
+			local target = ctx.Compose.formula(function(use: ComposeTypes.Use): PositionTarget
 				use(entry.aim)
-				local proposed = placement(key, use(at), peek)
+				local base = use(at)
+				local proposed = placement(key, base, peek)
 				entry.cross, entry.main = proposed.crossOffset, proposed.offset
-				return ctx.types.Vector2.new(proposed.crossOffset, proposed.offset)
-			end)
-			local relaid = ctx.Compose.cell(false)
-			local last = at:peek()
-			local lastShift = target:peek() - ctx.types.Vector2.new(last.crossOffset, last.offset)
-			ctx.Compose.watch(function(use: ComposeTypes.Use)
-				local base, proposed = use(at), use(target)
-				local shift = proposed - ctx.types.Vector2.new(base.crossOffset, base.offset)
-				relaid:set(base.index == last.index and (shift - lastShift).Magnitude <= 0.5)
+				local wanted = ctx.types.Vector2.new(proposed.crossOffset, proposed.offset)
+				local shift = wanted - ctx.types.Vector2.new(base.crossOffset, base.offset)
+				local previous = lastTarget
+				local relaid = if previous then previous.relaid else true
+				if last and previous and (base ~= last or wanted ~= previous.position) then
+					relaid = base.index == last.index and (shift - lastShift).Magnitude <= 0.5
+				end
 				last, lastShift = base, shift
+				if previous and wanted == previous.position and relaid == previous.relaid then
+					return previous
+				end
+				local made: PositionTarget = { position = wanted, relaid = relaid }
+				lastTarget = made
+				return made
 			end)
 			local spring = ctx.motionSpring("snappy")
 			local function reduced(use: ComposeTypes.Use): boolean
-				return shared.instantLayout == true
-					or use(relaid)
-					or shared.motionReduced(use)
-					or read(reducedMotion, use) == true
+				return use(target).relaid or shared.motionReduced(use) or read(reducedMotion, use) == true
 			end
-			local position = ctx.runtime.spring(function(use: ComposeTypes.Use): Vector2
-				return use(target)
+			return Motion.forValue(ctx, ctx.types.Vector2.zero).spring(function(use: ComposeTypes.Use): Vector2
+				return use(target).position
 			end, {
 				period = spring.period,
 				damping = spring.damping,
 				reducedMotion = reduced,
 			})
-			return ctx.Compose.formula(function(use: ComposeTypes.Use): Vector2
-				return if reduced(use) then use(target) else use(position)
-			end)
 		end,
 		pickUp = function(key: K, input: InputObject?): boolean
 			if not spec.drag or input == nil or input.UserInputType == E.UserInputType.MouseButton1 then

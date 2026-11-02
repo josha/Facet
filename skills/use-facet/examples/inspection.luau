@@ -71,16 +71,20 @@ return {
 			return relics[1]
 		end)
 		local function trait(label: string, field: "material" | "light" | "mount"): Frame
-			return UI.VStack(label) {
+			return UI.VStack(label)({
 				gap = "xs",
 				UI.Text {
 					text = function(use: Facet.Use): string
-						return use(chosen)[field]
+						local relic = use(chosen)
+						return if field == "material"
+							then relic.material
+							elseif field == "light" then relic.light
+							else relic.mount
 					end,
 					textRole = "strong",
 				},
 				UI.Text { text = label, textRole = "caption", role = "secondary" },
-			}
+			})
 		end
 		local chosenId = C.formula(function(use: Facet.Use): string
 			return use(chosen).id
@@ -201,7 +205,7 @@ return {
 						maxWidth = 520,
 						height = "fill",
 						padding = "s",
-						UI.VirtualList "Relics"(list),
+						UI.VirtualList "Relics" (list),
 					},
 				}
 			end,
@@ -266,7 +270,7 @@ return {
 			end,
 			UI.fill(),
 		}
-		UI.NavigationSplitView "RelicPanes"(panes)
+		UI.NavigationSplitView "RelicPanes" (panes)
 		local close: GuiObject = UI.Button {
 			label = "Close",
 			appearance = "utility",

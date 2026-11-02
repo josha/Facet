@@ -19,21 +19,21 @@ return function(ctx: Types.Context): Shared
 		if acquire == nil then
 			acquire = Compose.createSharedResource(function(): (ComposeTypes.ReadOnlyValue<boolean>, (() -> ())?)
 				return Compose.formula(function(use: ComposeTypes.Use): boolean
-					local package = read(ctx.config.theme, use)
+					local package = read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 					local chrome = if package then package.chrome else nil
 					local recipe = if chrome then chrome[slot] else nil
 					return recipe ~= nil and (recipe.kind ~= "native" and recipe.kind ~= "none" or recipe.shadow ~= nil)
 				end),
 					nil
 			end)
-			presence[slot] = assert(acquire)
+			presence[slot] = acquire
 		end
 		return assert(acquire)()
 	end
 	local function skin(node: GuiObject, slot: string, options: Theme.SkinOptions?): GuiObject
 		local package = ctx.config.theme
 		if not Compose.isValue(package) and type(package) ~= "function" then
-			local resolved = read(package)
+			local resolved = read<<Theme.ReadOnlyThemePackage?>>(package)
 			local recipe = if resolved then (resolved.chrome or {})[slot] else nil
 			if recipe == nil or ((recipe.kind == "native" or recipe.kind == "none") and recipe.shadow == nil) then
 				return node
@@ -57,14 +57,20 @@ return function(ctx: Types.Context): Shared
 	end
 
 	local function bind<T>(source: Types.Input<T>?, fallback: T): Types.Input<T>
-		if not Compose.isValue(source) and type(source) ~= "function" then
+		if Compose.isValue(source) then
+			return Compose.map(source :: ComposeTypes.ReadOnlyValue<T>, function(value: T): T
+				local present: unknown = value
+				return if present == nil then fallback else value
+			end)
+		elseif type(source) ~= "function" then
 			return if source == nil then fallback else source :: T
 		end
 		local live = source :: Types.Input<T>
-		return Compose.formula(function(use: ComposeTypes.Use): T
-			local value = read(live, use)
-			return if value == nil then fallback else value
-		end)
+		return function(use: ComposeTypes.Use): T
+			local value = read<<T>>(live, use)
+			local present: unknown = value
+			return if present == nil then fallback else value
+		end
 	end
 	return { skin = skin, bind = bind }
 end

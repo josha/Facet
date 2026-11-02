@@ -1,27 +1,29 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Bdd = require("../tools/vendor/verify/src/bdd")
 local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local ThemeTypes = require("../src/ui/theme_types")
+local EnvironmentTypes = require("../src/ui/environment_types")
+local SharedTypes = require("../src/ui/types")
+local Facet = require("../src")
 
 return function(verifyHarness: Verify.Harness)
-	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+	local test = Bdd.create(verifyHarness)
+	local describe, it, expect = test.describe, test.it, test.expect
+	type ComposeModule = typeof(require("../src/vendor/compose/core"))
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+	type FacetControls = Facet.Controls
+	type RobloxHost = Facet.Host
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-	type Use = <T>(ReadOnlyValue<T>) -> T
+	local ComposeTypes = require("../src/vendor/compose/core")
+	type Use = ComposeTypes.Use
 	type GlassBands = { width: number, height: number, top: number, left: number, bottom: number, right: number }
 
-	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 	local cells = require("./lib/cells")
 	local Compose: ComposeModule = Facet.Compose
 
-	local function make(
-		options: { [string]: any }?,
-		engineOptions: engineLib.Options?
-	): (any, any, any, VerifyRoblox.FixtureBridge)
+	local function make(options: { [string]: any }?, engineOptions: engineLib.Options?)
 		local engine, fixture = engineLib.new(engineOptions)
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = (engine.new("GuiService") :: unknown) :: GuiService
@@ -40,13 +42,13 @@ return function(verifyHarness: Verify.Harness)
 
 	local function build(
 		options: { [string]: any }?,
-		body: (any, any) -> any,
+		body: (FacetControls, RobloxHost) -> ComposeTypes.Child,
 		engineOptions: engineLib.Options?
 	): (any, any, () -> (), any)
 		local engine, runtime, UI = make(options, engineOptions)
 		local root: any
 		local unmount = runtime.mount(function()
-			root = body(UI, runtime.constructors)
+			root = body(UI, Facet.host(runtime))
 			return root
 		end, engine.new("ScreenGui"))
 		return root, engine, function()
@@ -59,11 +61,11 @@ return function(verifyHarness: Verify.Harness)
 		return node:FindFirstChildWhichIsA(className)
 	end
 
-	local function refusal(body: (any, any) -> any): string?
+	local function refusal(body: (FacetControls, RobloxHost) -> ComposeTypes.Node): string?
 		local engine, runtime, UI = make()
 		local ok, message = pcall(function()
 			runtime.mount(function()
-				return body(UI, runtime.constructors)
+				return body(UI, Facet.host(runtime))
 			end, engine.new("ScreenGui"))
 		end)
 		runtime:dispose()
@@ -71,13 +73,13 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function painted(root: any): string
-		local nodes = {}
+		local nodes: { TextLabel } = {}
 		for _, node in root:GetChildren() do
 			if node:IsA("GuiObject") then
 				table.insert(nodes, node)
 			end
 		end
-		table.sort(nodes, function(a, b)
+		table.sort(nodes, function(a: TextLabel, b: TextLabel)
 			return a.LayoutOrder < b.LayoutOrder
 		end)
 		local texts = {}
@@ -94,16 +96,16 @@ return function(verifyHarness: Verify.Harness)
 		return message ~= nil and string.find(message, fragment, 1, true) ~= nil
 	end
 
-	verifyHarness:suite("native composition rest measurements", function()
-		verifyHarness:case("sizes a simplified Region without an automatic parent and hit target feedback loop", {
+	describe("native composition rest measurements", function()
+		it("sizes a simplified Region without an automatic parent and hit target feedback loop", {
 			id = "native_layout::native composition rest measurements::sizes a simplified Region without an automatic parent and hit target feedback loop",
 			run = function()
-				local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
+				local root, engine, stop = build(nil, function(UI, Host)
 					return UI.Composition {
 						UI.Region "Health" {
 							zone = "bottomLeft" :: "bottomLeft",
 							rank = 1,
-							Host.Frame "Full" {} :: unknown,
+							Host.Frame "Full" {},
 							Host.Frame "Compact" {},
 						},
 					}
@@ -114,22 +116,22 @@ return function(verifyHarness: Verify.Harness)
 				engine.environment.poke(full, "AbsoluteSize", V2.new(147, 26))
 				engine.environment.poke(compact, "AbsoluteSize", V2.new(32, 20))
 				engine.environment.poke(root:FindFirstChild("Zones"), "AbsoluteSize", V2.new(80, 200))
-				Verify.expect(region:GetAttribute("FacetForm")):toBe(2)
+				expect(region:GetAttribute("FacetForm")):toBe(2)
 				engine.environment.poke(compact, "AbsoluteSize", V2.new(39, 26))
-				Verify.expect(region.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
-				Verify.expect(region.Size):toBe(engine.types.UDim2.fromOffset(44, 44))
+				expect(region.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
+				expect(region.Size):toBe(engine.types.UDim2.fromOffset(44, 44))
 				local trigger = region:FindFirstChildWhichIsA("TextButton", true)
-				Verify.expect(trigger.Size):toBe(engine.types.UDim2.fromScale(1, 1))
+				expect(trigger.Size):toBe(engine.types.UDim2.fromScale(1, 1))
 				engine.environment.poke(root:FindFirstChild("Zones"), "AbsoluteSize", V2.new(1079, 745))
 				engine.environment.poke(root:FindFirstChild("Zones"), "AbsoluteSize", V2.new(80, 200))
-				Verify.expect(region.Size):toBe(engine.types.UDim2.fromOffset(44, 44))
+				expect(region.Size):toBe(engine.types.UDim2.fromOffset(44, 44))
 				stop()
 			end,
 		})
-		verifyHarness:case("sizes wrapped Text to its text in a hugging row and to the width of a stack", {
+		it("sizes wrapped Text to its text in a hugging row and to the width of a stack", {
 			id = "native_layout::native composition rest measurements::sizes wrapped Text to its text in a hugging row and to the width of a stack",
 			run = function()
-				local root, engine, stop = build(nil, function(UI: FacetControls)
+				local root, engine, stop = build(nil, function(UI)
 					return UI.VStack "Page" {
 						UI.HStack "Hud" { UI.Text "Menu" { text = "Menu", wrap = true } },
 						UI.VStack "Body" { UI.Text "Copy" { text = "A longer paragraph", wrap = true } },
@@ -138,23 +140,23 @@ return function(verifyHarness: Verify.Harness)
 				local E, D2 = engine.types.Enum, engine.types.UDim2
 				local menu = root:FindFirstChild("Menu", true)
 				local copy = root:FindFirstChild("Copy", true)
-				Verify.expect(menu.Size):toBe(D2.fromScale(0, 0))
-				Verify.expect(menu.AutomaticSize):toBe(E.AutomaticSize.XY)
-				Verify.expect(menu.TextWrapped):toBe(true)
-				Verify.expect(copy.Size):toBe(D2.fromScale(1, 0))
-				Verify.expect(copy.AutomaticSize):toBe(E.AutomaticSize.Y)
+				expect(menu.Size):toBe(D2.fromScale(0, 0))
+				expect(menu.AutomaticSize):toBe(E.AutomaticSize.XY)
+				expect(menu.TextWrapped):toBe(true)
+				expect(copy.Size):toBe(D2.fromScale(1, 0))
+				expect(copy.AutomaticSize):toBe(E.AutomaticSize.Y)
 				stop()
 			end,
 		})
-		verifyHarness:case("keeps a simplified Region rectangle after a scaled viewport round trip", {
+		it("keeps a simplified Region rectangle after a scaled viewport round trip", {
 			id = "native_layout::native composition rest measurements::keeps a simplified Region rectangle after a scaled viewport round trip",
 			run = function()
-				local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
+				local root, engine, stop = build(nil, function(UI, Host)
 					return UI.Composition {
 						UI.Region "Health" {
 							zone = "bottomLeft" :: "bottomLeft",
 							rank = 1,
-							Host.Frame "Full" {} :: unknown,
+							Host.Frame "Full" {},
 							Host.Frame "Compact" {},
 						},
 					}
@@ -170,7 +172,7 @@ return function(verifyHarness: Verify.Harness)
 				engine.environment.poke(full, "AbsoluteSize", V2.new(90, 35))
 				engine.environment.poke(compact, "AbsoluteSize", V2.new(41.5, 35))
 				engine.environment.poke(root:FindFirstChild("Zones"), "AbsoluteSize", V2.new(80, 200))
-				Verify.expect(region:GetAttribute("FacetForm")):toBe(2)
+				expect(region:GetAttribute("FacetForm")):toBe(2)
 				local trigger = region:FindFirstChildWhichIsA("TextButton", true)
 				local initial = trigger.Size
 				for _, unit in { 0.94, 0.5, 1 } do
@@ -183,44 +185,44 @@ return function(verifyHarness: Verify.Harness)
 					end
 					engine.environment.poke(full, "AbsoluteSize", V2.new(90 * unit, 35 * unit))
 					engine.environment.poke(compact, "AbsoluteSize", V2.new(41.5 * unit, 35 * unit))
-					Verify.expect(region:GetAttribute("FacetForm")):toBe(2)
-					Verify.expect(trigger.Size):toBe(initial)
+					expect(region:GetAttribute("FacetForm")):toBe(2)
+					expect(trigger.Size):toBe(initial)
 				end
 				stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("stack surfaces", function()
-		verifyHarness:case("paints a stack with the named theme plate and rejects an unknown surface", {
+	describe("stack surfaces", function()
+		it("paints a stack with the named theme plate and rejects an unknown surface", {
 			id = "native_layout::stack surfaces::paints a stack with the named theme plate and rejects an unknown surface",
 			run = function()
-				local root, _, stop = build(nil, function(UI: FacetControls)
+				local root, _, stop = build(nil, function(UI)
 					return UI.VStack "Readouts" { surface = "panel", padding = "s" }
 				end)
-				Verify.expect(table.find(root:GetTags(), "facet-panel") ~= nil):toBe(true)
+				expect(table.find(root:GetTags(), "facet-panel") ~= nil):toBe(true)
 				stop()
-				local plain, _, stopPlain = build(nil, function(UI: FacetControls)
+				local plain, _, stopPlain = build(nil, function(UI)
 					return UI.HStack "Row" {}
 				end)
-				Verify.expect(table.find(plain:GetTags(), "facet-panel")):toBe(nil)
+				expect(table.find(plain:GetTags(), "facet-panel")):toBe(nil)
 				stopPlain()
 				local ok, problem = true, ""
-				local _, _, stopBad = build(nil, function(UI: FacetControls)
+				local _, _, stopBad = build(nil, function(UI)
 					ok, problem = pcall(function()
-						UI.VStack({ surface = "glass" :: any })
+						UI.VStack { surface = "glass" :: any }
 					end)
-					return UI.VStack({})
+					return UI.VStack {}
 				end)
 				stopBad()
-				Verify.expect(ok):toBe(false)
-				Verify.expect(string.find(tostring(problem), "surface must be", 1, true) ~= nil):toBe(true)
+				expect(ok):toBe(false)
+				expect(string.find(tostring(problem), "surface must be", 1, true) ~= nil):toBe(true)
 			end,
 		})
 	end)
 
-	verifyHarness:suite("stack stretch matching", function()
-		verifyHarness:case("gives the children of a hugging stretch stack the width of the widest one", {
+	describe("stack stretch matching", function()
+		it("gives the children of a hugging stretch stack the width of the widest one", {
 			id = "native_layout::stack stretch matching::gives the children of a hugging stretch stack the width of the widest one",
 			run = function()
 				local root, engine, stop = build(nil, function(UI, Host)
@@ -260,23 +262,23 @@ return function(verifyHarness: Verify.Harness)
 						end
 					end
 				end
-				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.None)
+				expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.None)
 				size(row, 80, 80)
 				size(other, 50, 50)
 				settle()
-				Verify.expect(floor(other)):toBe(80)
-				Verify.expect(floor(row)):toBe(0)
+				expect(floor(other)):toBe(80)
+				expect(floor(row)):toBe(0)
 				size(other, 50, 80)
 				settle()
-				Verify.expect(floor(other)):toBe(80)
+				expect(floor(other)):toBe(80)
 				size(row, 30, 30)
 				settle()
-				Verify.expect(floor(row)):toBe(50)
-				Verify.expect(floor(other)):toBe(0)
+				expect(floor(row)):toBe(50)
+				expect(floor(other)):toBe(0)
 				stop()
 			end,
 		})
-		verifyHarness:case("matches lifted children from settled readings through growth and shrinking", {
+		it("matches lifted children from settled readings through growth and shrinking", {
 			id = "native_layout::stack stretch matching::matches lifted children from settled readings through growth and shrinking",
 			run = function()
 				local extentMatch = require("../src/ui/extent_match")
@@ -311,28 +313,28 @@ return function(verifyHarness: Verify.Harness)
 					end
 					return math.huge
 				end
-				Verify.expect(settle() < 80):toBe(true)
+				expect(settle() < 80):toBe(true)
 				button.padding = padding
-				Verify.expect(settle() < 80):toBe(true)
-				Verify.expect(layout(coin)):toBe(103.5)
-				Verify.expect(layout(button)):toBe(103.5)
+				expect(settle() < 80):toBe(true)
+				expect(layout(coin)):toBe(103.5)
+				expect(layout(button)):toBe(103.5)
 				coin.content = 178
-				Verify.expect(settle() < 80):toBe(true)
-				Verify.expect(layout(coin)):toBe(178)
-				Verify.expect(layout(button)):toBe(178)
-				Verify.expect(widest < 200):toBe(true)
+				expect(settle() < 80):toBe(true)
+				expect(layout(coin)):toBe(178)
+				expect(layout(button)):toBe(178)
+				expect(widest < 200):toBe(true)
 				coin.content = 30
-				Verify.expect(settle() < 80):toBe(true)
-				Verify.expect(layout(coin)):toBe(103.5)
-				Verify.expect(layout(button)):toBe(103.5)
+				expect(settle() < 80):toBe(true)
+				expect(layout(coin)):toBe(103.5)
+				expect(layout(button)):toBe(103.5)
 				button.content = 140
-				Verify.expect(settle() < 80):toBe(true)
-				Verify.expect(layout(coin)):toBe(156)
-				Verify.expect(layout(button)):toBe(156)
-				Verify.expect(widest < 200):toBe(true)
+				expect(settle() < 80):toBe(true)
+				expect(layout(coin)):toBe(156)
+				expect(layout(button)):toBe(156)
+				expect(widest < 200):toBe(true)
 			end,
 		})
-		verifyHarness:case("matches the steady children while another one keeps changing", {
+		it("matches the steady children while another one keeps changing", {
 			id = "native_layout::stack stretch matching::matches the steady children while another one keeps changing",
 			run = function()
 				local extentMatch = require("../src/ui/extent_match")
@@ -349,24 +351,24 @@ return function(verifyHarness: Verify.Harness)
 					)
 					lift = mins[narrow] or 0
 				end
-				Verify.expect(lift):toBe(80)
+				expect(lift):toBe(80)
 			end,
 		})
-		verifyHarness:case("stretches a fixed-width stack natively", {
+		it("stretches a fixed-width stack natively", {
 			id = "native_layout::stack stretch matching::stretches a fixed-width stack natively",
 			run = function()
 				local root, engine, stop = build(nil, function(UI, Host)
 					return UI.VStack { align = "stretch", width = 200, Host.Frame { Name = "Row" } }
 				end, {})
-				Verify.expect(child(root, "UIListLayout").HorizontalFlex):toBe(engine.types.Enum.UIFlexAlignment.Fill)
+				expect(child(root, "UIListLayout").HorizontalFlex):toBe(engine.types.Enum.UIFlexAlignment.Fill)
 				stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("stack surface corners", function()
-		local function insets(make: (FacetControls) -> unknown): string
-			local root, _, stop = build(nil, function(UI: FacetControls)
+	describe("stack surface corners", function()
+		local function insets(make: (FacetControls) -> Instance): string
+			local root, _, stop = build(nil, function(UI)
 				return make(UI)
 			end)
 			local padding = child(root, "UIPadding")
@@ -381,72 +383,69 @@ return function(verifyHarness: Verify.Harness)
 			stop()
 			return text
 		end
-		local function pill(UI: FacetControls): unknown
+		local function pill(UI: FacetControls): Instance
 			return UI.VStack "Tag" { surface = "panel", padding = { top = 4, bottom = 4, left = 8, right = 8 } }
 		end
 
-		verifyHarness:case(
-			"widens a rounded surface's longer padding to its corner radius so content clears the curve",
-			{
-				id = "native_layout::stack surface corners::widens a rounded surface's longer padding to its corner radius so content clears the curve",
-				run = function()
-					Verify.expect(insets(pill)):toBe("4 12 4 12")
-					Verify.expect(insets(function(UI: FacetControls): unknown
-						return UI.HStack "Steps" {
-							surface = "panel",
-							padding = { top = "xs", bottom = "xs", left = "s", right = "s" },
-						}
-					end)):toBe("4 12 4 12")
-					Verify.expect(insets(function(UI: FacetControls): unknown
-						return UI.HStack "Square" { surface = "panel", padding = 6 }
-					end)):toBe("6 12 6 12")
-					Verify.expect(insets(function(UI: FacetControls): unknown
-						return UI.VStack "Tall" {
-							surface = "panel",
-							padding = { top = 8, bottom = 8, left = 4, right = 4 },
-						}
-					end)):toBe("12 4 12 4")
-					Verify.expect(insets(function(UI: FacetControls): unknown
-						return UI.HStack "Chip" { surface = "surface", padding = 4 }
-					end)):toBe("4 8 4 8")
-				end,
-			}
-		)
+		it("widens a rounded surface's longer padding to its corner radius so content clears the curve", {
+			id = "native_layout::stack surface corners::widens a rounded surface's longer padding to its corner radius so content clears the curve",
+			run = function()
+				expect(insets(pill)):toBe("4 12 4 12")
+				expect(insets(function(UI): Instance
+					return UI.HStack "Steps" {
+						surface = "panel",
+						padding = { top = "xs", bottom = "xs", left = "s", right = "s" },
+					}
+				end)):toBe("4 12 4 12")
+				expect(insets(function(UI): Instance
+					return UI.HStack "Square" { surface = "panel", padding = 6 }
+				end)):toBe("6 12 6 12")
+				expect(insets(function(UI): Instance
+					return UI.VStack "Tall" {
+						surface = "panel",
+						padding = { top = 8, bottom = 8, left = 4, right = 4 },
+					}
+				end)):toBe("12 4 12 4")
+				expect(insets(function(UI): Instance
+					return UI.HStack "Chip" { surface = "surface", padding = 4 }
+				end)):toBe("4 8 4 8")
+			end,
+		})
 
-		verifyHarness:case("keeps the padding of a surface that already clears its corners, bleeds or has no corners", {
+		it("keeps the padding of a surface that already clears its corners, bleeds or has no corners", {
 			id = "native_layout::stack surface corners::keeps the padding of a surface that already clears its corners, bleeds or has no corners",
 			run = function()
-				local cases: { [string]: (FacetControls) -> unknown } = {
-					["12 12 12 12"] = function(UI: FacetControls): unknown
+				local cases: { [string]: (FacetControls) -> Instance } = {
+					["12 12 12 12"] = function(UI): Instance
 						return UI.VStack "Roomy" { surface = "panel", padding = 12 }
 					end,
-					["16 4 16 4"] = function(UI: FacetControls): unknown
+					["16 4 16 4"] = function(UI): Instance
 						return UI.VStack "Deep" {
 							surface = "panel",
 							padding = { top = 16, bottom = 16, left = 4, right = 4 },
 						}
 					end,
-					["0 0 0 0"] = function(UI: FacetControls): unknown
+					["0 0 0 0"] = function(UI): Instance
 						return UI.VStack "Bleed" { surface = "panel", padding = 0 }
 					end,
-					["4 4 4 4"] = function(UI: FacetControls): unknown
+					["4 4 4 4"] = function(UI): Instance
 						return UI.VStack "Pane" { surface = "pane", padding = 4 }
 					end,
-					none = function(UI: FacetControls): unknown
+					none = function(UI): Instance
 						return UI.VStack "Bare" { surface = "panel" }
 					end,
 				}
 				for expected, make in cases do
-					Verify.expect(insets(make)):toBe(expected)
+					expect(insets(make)):toBe(expected)
 				end
-				Verify.expect(insets(function(UI: FacetControls): unknown
+				expect(insets(function(UI): Instance
 					return UI.VStack "Plain" { padding = 4 }
 				end)):toBe("4 4 4 4")
 			end,
 		})
 	end)
 
-	verifyHarness:suite("stack corners option", function()
+	describe("stack corners option", function()
 		type Corners = number | "pill" | "square" | "control" | "panel"
 		local function measure(root: Instance): string
 			local found = child(root, "UICorner")
@@ -457,8 +456,8 @@ return function(verifyHarness: Verify.Harness)
 			end
 			return table.concat(parts, " ")
 		end
-		local function shaped(make: (FacetControls) -> unknown): string
-			local root, _, stop = build(nil, function(UI: FacetControls)
+		local function shaped(make: (FacetControls) -> Instance): string
+			local root, _, stop = build(nil, function(UI)
 				return make(UI)
 			end)
 			local text = measure(root)
@@ -466,10 +465,10 @@ return function(verifyHarness: Verify.Harness)
 			return text
 		end
 
-		verifyHarness:case("rounds a pill plate and grows its long sides to half its short side", {
+		it("rounds a pill plate and grows its long sides to half its short side", {
 			id = "native_layout::stack corners option::rounds a pill plate and grows its long sides to half its short side",
 			run = function()
-				local root, engine, stop = build(nil, function(UI: FacetControls)
+				local root, engine, stop = build(nil, function(UI)
 					return UI.HStack "Readout" {
 						surface = "panel",
 						corners = "pill",
@@ -477,21 +476,21 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local V2 = engine.types.Vector2
-				Verify.expect(measure(root)):toBe("1,0 4 8 4 8")
+				expect(measure(root)):toBe("1,0 4 8 4 8")
 				engine.environment.poke(root, "AbsoluteSize", V2.new(96, 28))
-				Verify.expect(measure(root)):toBe("1,0 4 14 4 14")
+				expect(measure(root)):toBe("1,0 4 14 4 14")
 				engine.environment.poke(root, "AbsoluteSize", V2.new(28, 96))
-				Verify.expect(measure(root)):toBe("1,0 14 8 14 8")
+				expect(measure(root)):toBe("1,0 14 8 14 8")
 				stop()
 			end,
 		})
 
-		verifyHarness:case("keeps a pill plate as round as a pill Button when the theme has square pills", {
+		it("keeps a pill plate as round as a pill Button when the theme has square pills", {
 			id = "native_layout::stack corners option::keeps a pill plate as round as a pill Button when the theme has square pills",
 			run = function()
 				local square = Facet.themes.neutralPackage()
 				square.metrics.radii.pill = 0
-				local root, engine, stop = build({ theme = square }, function(UI: FacetControls)
+				local root, engine, stop = build({ theme = square }, function(UI)
 					return UI.HStack "Row" {
 						surface = "panel",
 						corners = "pill",
@@ -500,205 +499,203 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local plate = child(root, "UICorner")
 				local button = child(root:FindFirstChild("Boost"), "UICorner")
-				Verify.expect(plate.CornerRadius):toBe(engine.types.UDim.new(1, 0))
-				Verify.expect(plate.CornerRadius):toBe(button.CornerRadius)
+				expect(plate.CornerRadius):toBe(engine.types.UDim.new(1, 0))
+				expect(plate.CornerRadius):toBe(button.CornerRadius)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("takes a theme radius name or a pixel radius and clears content from it", {
+		it("takes a theme radius name or a pixel radius and clears content from it", {
 			id = "native_layout::stack corners option::takes a theme radius name or a pixel radius and clears content from it",
 			run = function()
-				Verify.expect(shaped(function(UI: FacetControls): unknown
+				expect(shaped(function(UI): Instance
 					return UI.HStack "Wide" {
 						surface = "surface",
 						corners = "panel",
 						padding = { top = 4, bottom = 4, left = 8, right = 8 },
 					}
 				end)):toBe("0,12 4 12 4 12")
-				Verify.expect(shaped(function(UI: FacetControls): unknown
+				expect(shaped(function(UI): Instance
 					return UI.HStack "Tight" {
 						surface = "panel",
 						corners = "control",
 						padding = { top = 4, bottom = 4, left = 8, right = 8 },
 					}
 				end)):toBe("0,8 4 8 4 8")
-				Verify.expect(shaped(function(UI: FacetControls): unknown
+				expect(shaped(function(UI): Instance
 					return UI.HStack "Tile" { surface = "pane", corners = 10, padding = 4 }
 				end)):toBe("0,10 4 10 4 10")
-				Verify.expect(shaped(function(UI: FacetControls): unknown
+				expect(shaped(function(UI): Instance
 					return UI.HStack "Flat" {
 						surface = "panel",
 						corners = "square",
 						padding = { top = 4, bottom = 4, left = 8, right = 8 },
 					}
 				end)):toBe("0,0 4 8 4 8")
-				Verify.expect(shaped(function(UI: FacetControls): unknown
+				expect(shaped(function(UI): Instance
 					return UI.VStack "Bare" { surface = "panel", corners = 6 }
 				end)):toBe("0,6 - - - -")
 			end,
 		})
 
-		verifyHarness:case("keeps the theme corner and padding of a stack without corners", {
+		it("keeps the theme corner and padding of a stack without corners", {
 			id = "native_layout::stack corners option::keeps the theme corner and padding of a stack without corners",
 			run = function()
-				local root, _, stop = build(nil, function(UI: FacetControls)
+				local root, _, stop = build(nil, function(UI)
 					return UI.HStack "Steps" {
 						surface = "panel",
 						padding = { top = 4, bottom = 4, left = 8, right = 8 },
 					}
 				end)
-				Verify.expect(measure(root)):toBe("theme 4 12 4 12")
-				Verify.expect(root:FindFirstChild("CornerUnit")):toBe(nil)
+				expect(measure(root)):toBe("theme 4 12 4 12")
+				expect(root:FindFirstChild("CornerUnit")):toBe(nil)
 				stop()
-				Verify.expect(shaped(function(UI: FacetControls): unknown
+				expect(shaped(function(UI): Instance
 					return UI.VStack "Pane" { surface = "pane", padding = 4 }
 				end)):toBe("theme 4 4 4 4")
 			end,
 		})
 
-		verifyHarness:case("follows a corners cell with the corner and the padding", {
+		it("follows a corners cell with the corner and the padding", {
 			id = "native_layout::stack corners option::follows a corners cell with the corner and the padding",
 			run = function()
 				local corners = Compose.cell("panel" :: Corners)
-				local root, engine, stop = build(nil, function(UI: FacetControls)
+				local root, engine, stop = build(nil, function(UI)
 					return UI.HStack "Live" {
 						surface = "panel",
 						corners = corners,
 						padding = { top = 4, bottom = 4, left = 8, right = 8 },
 					}
 				end)
-				Verify.expect(measure(root)):toBe("0,12 4 12 4 12")
+				expect(measure(root)):toBe("0,12 4 12 4 12")
 				corners:set("square")
-				Verify.expect(measure(root)):toBe("0,0 4 8 4 8")
+				expect(measure(root)):toBe("0,0 4 8 4 8")
 				engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(96, 30))
 				corners:set("pill")
-				Verify.expect(measure(root)):toBe("1,0 4 15 4 15")
+				expect(measure(root)):toBe("1,0 4 15 4 15")
 				stop()
 			end,
 		})
 
-		verifyHarness:case("follows the theme radius of a corners name when the theme changes", {
+		it("follows the theme radius of a corners name when the theme changes", {
 			id = "native_layout::stack corners option::follows the theme radius of a corners name when the theme changes",
 			run = function()
 				local theme = Compose.cell(Facet.themes.neutralPackage())
-				local root, _, stop = build({ theme = theme }, function(UI: FacetControls)
+				local root, _, stop = build({ theme = theme }, function(UI)
 					return UI.HStack "Themed" {
 						surface = "surface",
 						corners = "panel",
 						padding = { top = 4, bottom = 4, left = 8, right = 8 },
 					}
 				end)
-				Verify.expect(measure(root)):toBe("0,12 4 12 4 12")
+				expect(measure(root)):toBe("0,12 4 12 4 12")
 				local rounder = Facet.themes.neutralPackage()
 				rounder.metrics.radii.panel = 20
 				theme:set(rounder)
-				Verify.expect(measure(root)):toBe("0,20 4 20 4 20")
-				Verify.expect(root:FindFirstChild("CornerUnit")):toBe(nil)
+				expect(measure(root)):toBe("0,20 4 20 4 20")
+				expect(root:FindFirstChild("CornerUnit")):toBe(nil)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("refuses corners without a surface and an unknown corner value", {
+		it("refuses corners without a surface and an unknown corner value", {
 			id = "native_layout::stack corners option::refuses corners without a surface and an unknown corner value",
 			run = function()
-				local bare = refusal(function(UI: FacetControls): unknown
+				local bare = refusal(function(UI): Instance
 					return UI.VStack "Bare" { corners = "pill" }
 				end)
-				Verify.expect(mentions(bare, "corners need a surface")):toBe(true)
-				local odd = refusal(function(UI: FacetControls): unknown
+				expect(mentions(bare, "corners need a surface")):toBe(true)
+				local odd = refusal(function(UI): Instance
 					return UI.VStack "Odd" { surface = "panel", corners = ("round" :: unknown) :: number }
 				end)
-				Verify.expect(mentions(odd, "corners must be pill, square, control, panel")):toBe(true)
-				local negative = refusal(function(UI: FacetControls): unknown
+				expect(mentions(odd, "corners must be pill, square, control, panel")):toBe(true)
+				local negative = refusal(function(UI): Instance
 					return UI.VStack "Negative" { surface = "panel", corners = -2 }
 				end)
-				Verify.expect(mentions(negative, "corners must be pill, square, control, panel")):toBe(true)
+				expect(mentions(negative, "corners must be pill, square, control, panel")):toBe(true)
 			end,
 		})
 	end)
 
-	verifyHarness:suite("stack surface chrome and status", function()
+	describe("stack surface chrome and status", function()
 		type Status = "neutral" | "info" | "success" | "warning" | "error" | "accent" | "voice" | "contrast"
 		local styleRules = require("./lib/style_rules")
 
-		verifyHarness:case("gives a panel stack the theme's panel chrome, such as its shadow", {
+		it("gives a panel stack the theme's panel chrome, such as its shadow", {
 			id = "native_layout::stack surface chrome and status::gives a panel stack the theme's panel chrome, such as its shadow",
 			run = function()
 				local package = Facet.themes.neutralPackage()
 				assert(package.chrome).panel = { kind = "native" :: "native", shadow = "raised" }
-				local panel, _, stop = build({ theme = package }, function(UI: FacetControls)
+				local panel, _, stop = build({ theme = package }, function(UI)
 					return UI.VStack "Card" { surface = "panel", padding = "m", UI.Text { text = "A" } }
 				end)
-				Verify.expect(panel:FindFirstChildWhichIsA("UIShadow") ~= nil):toBe(true)
+				expect(panel:FindFirstChildWhichIsA("UIShadow") ~= nil):toBe(true)
 				stop()
-				local plain, _, stopPlain = build({ theme = package }, function(UI: FacetControls)
+				local plain, _, stopPlain = build({ theme = package }, function(UI)
 					return UI.VStack "Plain" { padding = "m", UI.Text { text = "A" } }
 				end)
-				Verify.expect(plain:FindFirstChildWhichIsA("UIShadow")):toBe(nil)
+				expect(plain:FindFirstChildWhichIsA("UIShadow")):toBe(nil)
 				stopPlain()
-				local bare, _, stopBare = build(nil, function(UI: FacetControls)
+				local bare, _, stopBare = build(nil, function(UI)
 					return UI.VStack "Bare" { surface = "panel", padding = "m", UI.Text { text = "A" } }
 				end)
-				Verify.expect(bare:FindFirstChildWhichIsA("UIShadow")):toBe(nil)
+				expect(bare:FindFirstChildWhichIsA("UIShadow")):toBe(nil)
 				stopBare()
 			end,
 		})
 
-		verifyHarness:case(
-			"tints a status stack and the text, icons and progress inside it, and follows a status change",
-			{
-				id = "native_layout::stack surface chrome and status::tints a status stack and the text, icons and progress inside it, and follows a status change",
-				run = function()
-					local status = Compose.cell("warning" :: Status?)
-					local root, engine, stop, runtime = build(nil, function(UI: FacetControls)
-						return UI.VStack "Tag" {
-							surface = "panel",
-							status = status,
-							padding = "s",
-							UI.VStack "Inner" {
-								UI.Text "Count" { text = "5 / 20" },
-								UI.ProgressView "Bin" { value = 0.5 },
-							},
-						}
-					end)
-					local _, sheet = runtime.mount(function()
-						return Facet.themes.createStyleSheet(
-							runtime,
-							Facet.themes.neutralPackage(),
-							{ types = engine.types }
-						)
-					end, engine.new("Folder"))
-					local count = root:FindFirstChild("Count", true)
-					local fill = root:FindFirstChild("Fill1", true)
-					Verify.expect(root:HasTag("facet-status-surface")):toBe(true)
-					Verify.expect(root:HasTag("facet-status-warning")):toBe(true)
-					Verify.expect(styleRules.resolve(sheet, root, "BackgroundColor3")):toBe("$FacetColor_warning")
-					Verify.expect(styleRules.resolve(sheet, count, "TextColor3")):toBe("$FacetColor_onWarning")
-					Verify.expect(styleRules.resolve(sheet, fill, "BackgroundColor3")):toBe("$FacetColor_onWarning")
-					status:set("success")
-					Verify.expect(root:HasTag("facet-status-warning")):toBe(false)
-					Verify.expect(styleRules.resolve(sheet, count, "TextColor3")):toBe("$FacetColor_onSuccess")
-					status:set(nil)
-					Verify.expect(root:HasTag("facet-status-surface")):toBe(false)
-					Verify.expect(root:HasTag("facet-status-success")):toBe(false)
-					Verify.expect(styleRules.resolve(sheet, count, "TextColor3")):toBe("$FacetColor_content")
-					stop()
-				end,
-			}
-		)
+		it("tints a status stack and the text, icons and progress inside it, and follows a status change", {
+			id = "native_layout::stack surface chrome and status::tints a status stack and the text, icons and progress inside it, and follows a status change",
+			run = function()
+				local status = Compose.cell("warning" :: Status?)
+				local root, engine, stop, runtime = build(nil, function(UI)
+					return UI.VStack "Tag" {
+						surface = "panel",
+						status = status,
+						padding = "s",
+						UI.VStack "Inner" {
+							UI.Text "Count" { text = "5 / 20" },
+							UI.ProgressView "Bin" { value = 0.5 },
+						},
+					}
+				end)
+				local _, sheet = runtime.mount(function()
+					return Facet.themes.createStyleSheet(
+						runtime,
+						Facet.themes.neutralPackage(),
+						{ types = engine.types }
+					)
+				end, engine.new("Folder"))
+				local count = root:FindFirstChild("Count", true)
+				local fill = root:FindFirstChild("Fill1", true)
+				expect(root:HasTag("facet-status-surface")):toBe(true)
+				expect(root:HasTag("facet-status-warning")):toBe(true)
+				expect(styleRules.resolve(sheet, root, "BackgroundColor3")):toBe("$FacetColor_warning")
+				expect(styleRules.resolve(sheet, count, "TextColor3")):toBe("$FacetColor_onWarning")
+				expect(styleRules.resolve(sheet, fill, "BackgroundColor3")):toBe("$FacetColor_onWarning")
+				status:set("success")
+				expect(root:HasTag("facet-status-warning")):toBe(false)
+				expect(styleRules.resolve(sheet, count, "TextColor3")):toBe("$FacetColor_onSuccess")
+				status:set(nil)
+				expect(root:HasTag("facet-status-surface")):toBe(false)
+				expect(root:HasTag("facet-status-success")):toBe(false)
+				expect(styleRules.resolve(sheet, count, "TextColor3")):toBe("$FacetColor_content")
+				stop()
+			end,
+		})
 	end)
 
-	verifyHarness:suite("phone layout policy", function()
-		verifyHarness:case("reserves a visible horizontal scroll hint below overflowing genre chips", {
+	describe("phone layout policy", function()
+		it("reserves a visible horizontal scroll hint below overflowing genre chips", {
 			id = "native_layout::phone layout policy::reserves a visible horizontal scroll hint below overflowing genre chips",
 			run = function()
 				for _, width in { 320, 360, 375, 389, 430 } do
-					local root, engine, stop = build(nil, function(UI: FacetControls)
+					local root, engine, stop = build(nil, function(UI)
+						local chip: Facet.ChipCellProps = { label = "Adventure", selected = Compose.cell(false) }
 						return UI.ScrollView {
 							axis = "x" :: "x",
 							ScrollBarThickness = 2,
-							UI.Chip { label = "Adventure", selected = Compose.cell(false) },
+							UI.Chip(chip),
 						}
 					end)
 					engine.environment.poke(root, "AbsoluteWindowSize", engine.types.Vector2.new(width, 36))
@@ -708,21 +705,21 @@ return function(verifyHarness: Verify.Harness)
 						engine.types.Vector2.new(750, 36)
 					)
 					local hint = root:FindFirstChild("ScrollBarRoom")
-					Verify.expect(hint ~= nil):toBe(true)
-					Verify.expect(hint.MinSize.Y):toBe(38)
-					Verify.expect(root.HorizontalScrollBarInset):toBe(engine.types.Enum.ScrollBarInset.ScrollBar)
-					Verify.expect(root.CanvasSize.X.Offset):toBe(750)
-					Verify.expect(root.ScrollBarThickness):toBe(2)
+					expect(hint ~= nil):toBe(true)
+					expect(hint.MinSize.Y):toBe(38)
+					expect(root.HorizontalScrollBarInset):toBe(engine.types.Enum.ScrollBarInset.ScrollBar)
+					expect(root.CanvasSize.X.Offset):toBe(750)
+					expect(root.ScrollBarThickness):toBe(2)
 					stop()
 				end
 			end,
 		})
 
-		verifyHarness:case("a scroll view that holds a control is not itself a gamepad stop", {
+		it("a scroll view that holds a control is not itself a gamepad stop", {
 			id = "native_layout::phone layout policy::a scroll view that holds a control is not itself a gamepad stop",
 			run = function()
 				local shown = Compose.cell(true)
-				local root, engine, stop = build(nil, function(UI: FacetControls)
+				local root, engine, stop = build(nil, function(UI)
 					return UI.ScrollView {
 						UI.Text { text = "Rules" },
 						(Compose.show(shown, function()
@@ -730,48 +727,48 @@ return function(verifyHarness: Verify.Harness)
 						end) :: unknown) :: GuiObject,
 					}
 				end)
-				Verify.expect(root.Selectable):toBe(false)
+				expect(root.Selectable):toBe(false)
 				shown:set(false)
 				for _ = 1, 3 do
 					engine.heartbeat:Fire(1 / 60)
 				end
-				Verify.expect(root.Selectable):toBe(true)
+				expect(root.Selectable):toBe(true)
 				shown:set(true)
 				for _ = 1, 3 do
 					engine.heartbeat:Fire(1 / 60)
 				end
-				Verify.expect(root.Selectable):toBe(false)
+				expect(root.Selectable):toBe(false)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("a scroll view rechecks its gamepad stop when hidden content appears", {
+		it("a scroll view rechecks its gamepad stop when hidden content appears", {
 			id = "native_layout::phone layout policy::a scroll view rechecks its gamepad stop when hidden content appears",
 			run = function()
 				local visible = Compose.cell(false)
-				local root, engine, stop = build(nil, function(UI: FacetControls)
+				local root, engine, stop = build(nil, function(UI)
 					return UI.ScrollView {
 						UI.Button "Retry" { label = "Retry", Visible = visible },
 					}
 				end)
-				Verify.expect(root.Selectable):toBe(true)
+				expect(root.Selectable):toBe(true)
 				visible:set(true)
 				engine.environment.poke(root, "AbsoluteCanvasSize", engine.types.Vector2.new(200, 44))
 				for _ = 1, 3 do
 					engine.heartbeat:Fire(1 / 60)
 				end
-				Verify.expect(root.Selectable):toBe(false)
+				expect(root.Selectable):toBe(false)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("a single fitting candidate keeps its authored visibility on phone widths", {
+		it("a single fitting candidate keeps its authored visibility on phone widths", {
 			id = "native_layout::phone layout policy::a single fitting candidate keeps its authored visibility on phone widths",
 			run = function()
 				local outcomes: { string } = {}
 				for _, width in { 320, 360, 375, 389, 430 } do
 					local visible = Compose.cell(false)
-					local root, engine, stop = build(nil, function(UI: FacetControls)
+					local root, engine, stop = build(nil, function(UI)
 						return UI.ViewThatFits {
 							width = "hug" :: "hug",
 							UI.HStack { Visible = visible, UI.Button { label = "Spatial mode" } },
@@ -781,25 +778,29 @@ return function(verifyHarness: Verify.Harness)
 					local candidate = root:FindFirstChildWhichIsA("Frame")
 					local initiallyHidden = candidate.Visible == false
 					visible:set(true)
-					Verify.expect(candidate.Visible):toBe(true)
+					expect(candidate.Visible):toBe(true)
 					visible:set(false)
 					engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(width - 1, 44))
 					table.insert(outcomes, `{width}:{initiallyHidden and candidate.Visible == false}`)
 					stop()
 				end
-				Verify.expect(table.concat(outcomes, ",")):toBe("320:true,360:true,375:true,389:true,430:true")
+				expect(table.concat(outcomes, ",")):toBe("320:true,360:true,375:true,389:true,430:true")
 			end,
 		})
 	end)
 
-	verifyHarness:suite("world marker", function()
-		verifyHarness:case("follows its anchor on screen and clamps to the edge with an arrow off screen", {
+	describe("world marker", function()
+		it("follows its anchor on screen and clamps to the edge with an arrow off screen", {
 			id = "native_layout::world marker::follows its anchor on screen and clamps to the edge with an arrow off screen",
 			run = function()
-				type Point = { visible: boolean, x: number?, y: number?, onscreen: boolean? }
-				local point = Compose.cell({ visible = true, x = 400, y = 300, onscreen = true } :: Point)
+				local point = Compose.cell<<EnvironmentTypes.WorldAnchorPoint>>({
+					visible = true,
+					x = 400,
+					y = 300,
+					onscreen = true,
+				})
 				local edge = Compose.cell("clamp" :: "clamp" | "hide")
-				local margin = Compose.cell(10 :: number | { top: number })
+				local margin = Compose.cell<<SharedTypes.Padding>>(10)
 				local holder, engine, stop = build(nil, function(UI, Host)
 					return Host.Frame {
 						Name = "Holder",
@@ -820,138 +821,140 @@ return function(verifyHarness: Verify.Harness)
 					return marker.Position.X.Offset, marker.Position.Y.Offset
 				end
 				local x, y = at()
-				Verify.expect(marker.Visible):toBe(true)
-				Verify.expect(x):toBe(400)
-				Verify.expect(y):toBe(300)
-				Verify.expect(marker:GetAttribute("Clamped")):toBe(false)
-				Verify.expect(arrow.Visible):toBe(false)
+				expect(marker.Visible):toBe(true)
+				expect(x):toBe(400)
+				expect(y):toBe(300)
+				expect(marker:GetAttribute("Clamped")):toBe(false)
+				expect(arrow.Visible):toBe(false)
 				point:set({ visible = true, x = 400.4, y = 300.3, onscreen = true })
 				x, y = at()
-				Verify.expect(x):toBe(400)
-				Verify.expect(y):toBe(300)
+				expect(x):toBe(400)
+				expect(y):toBe(300)
 				point:set({ visible = true, x = 1600, y = 300, onscreen = false })
 				x, y = at()
-				Verify.expect(x):toBe(770)
-				Verify.expect(y):toBe(300)
-				Verify.expect(marker:GetAttribute("Clamped")):toBe(true)
-				Verify.expect(arrow.Visible):toBe(true)
-				Verify.expect(arrow.Rotation):toBe(0)
+				expect(x):toBe(770)
+				expect(y):toBe(300)
+				expect(marker:GetAttribute("Clamped")):toBe(true)
+				expect(arrow.Visible):toBe(true)
+				expect(arrow.Rotation):toBe(0)
 				point:set({ visible = true, x = 1600, y = 310, onscreen = false })
-				Verify.expect(arrow.Rotation):toBe(0)
+				expect(arrow.Rotation):toBe(0)
 				point:set({ visible = true, x = 400, y = -900, onscreen = false })
 				x, y = at()
-				Verify.expect(x):toBe(400)
-				Verify.expect(y):toBe(20)
-				Verify.expect(arrow.Rotation):toBe(-90)
+				expect(x):toBe(400)
+				expect(y):toBe(20)
+				expect(arrow.Rotation):toBe(-90)
 				point:set({ visible = true, x = 795, y = 300, onscreen = true })
 				x = at()
-				Verify.expect(x):toBe(770)
-				Verify.expect(marker:GetAttribute("Clamped")):toBe(true)
+				expect(x):toBe(770)
+				expect(marker:GetAttribute("Clamped")):toBe(true)
 				margin:set({ top = 60 })
 				point:set({ visible = true, x = 400, y = -900, onscreen = false })
 				x, y = at()
-				Verify.expect(y):toBe(70)
+				expect(y):toBe(70)
 				edge:set("hide")
-				Verify.expect(marker.Visible):toBe(false)
+				expect(marker.Visible):toBe(false)
 				point:set({ visible = true, x = 300, y = 200, onscreen = true })
-				Verify.expect(marker.Visible):toBe(true)
+				expect(marker.Visible):toBe(true)
 				point:set({ visible = false })
-				Verify.expect(marker.Visible):toBe(false)
+				expect(marker.Visible):toBe(false)
 				stop()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("native text layout", function()
-		verifyHarness:case("owns a glyph floor only while text can grow without wrapping or truncation", {
+	describe("native text layout", function()
+		it("owns a glyph floor only while text can grow without wrapping or truncation", {
 			id = "native_layout::native text layout::owns a glyph floor only while text can grow without wrapping or truncation",
 			run = function()
-				local root, engine, stop = build(nil, function(UI: FacetControls)
+				local root, engine, stop = build(nil, function(UI)
 					return UI.Text {
 						text = "Inventory",
 						wrap = true,
 						AutomaticSize = engineLib.types.Enum.AutomaticSize.XY,
 					}
 				end)
-				Verify.expect(root:FindFirstChild("TextBoundsFloor")):toBe(nil)
-				Verify.expect(root:FindFirstChild("TextBoundsUnit")):toBe(nil)
+				expect(root:FindFirstChild("TextBoundsFloor")):toBe(nil)
+				expect(root:FindFirstChild("TextBoundsUnit")):toBe(nil)
 				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(80, 20))
 				root.TextWrapped = false
-				Verify.expect(root:FindFirstChild("TextBoundsFloor").MinSize):toBe(engine.types.Vector2.new(80, 20))
+				expect(root:FindFirstChild("TextBoundsFloor").MinSize):toBe(engine.types.Vector2.new(80, 20))
 				root.TextTruncate = engine.types.Enum.TextTruncate.AtEnd
-				Verify.expect(root:FindFirstChild("TextBoundsFloor")):toBe(nil)
-				Verify.expect(root:FindFirstChild("TextBoundsUnit")):toBe(nil)
+				expect(root:FindFirstChild("TextBoundsFloor")):toBe(nil)
+				expect(root:FindFirstChild("TextBoundsUnit")):toBe(nil)
 				root.TextTruncate = engine.types.Enum.TextTruncate.None
-				Verify.expect(root:FindFirstChild("TextBoundsFloor").MinSize):toBe(engine.types.Vector2.new(80, 20))
+				expect(root:FindFirstChild("TextBoundsFloor").MinSize):toBe(engine.types.Vector2.new(80, 20))
 				stop()
-				Verify.expect(engine.census().connections):toBe(0)
+				expect(engine.census().connections):toBe(0)
 			end,
 		})
-		verifyHarness:case("defers fixed text layout resources until native automatic sizing starts", {
+		it("defers fixed text layout resources until native automatic sizing starts", {
 			id = "native_layout::native text layout::defers fixed text layout resources until native automatic sizing starts",
 			run = function()
 				local mode = Compose.cell(engineLib.types.Enum.AutomaticSize.None)
-				local root, engine, stop = build(nil, function(UI: FacetControls)
-					return UI.Text({
+				local root, engine, stop = build(nil, function(UI)
+					return UI.Text {
 						text = "Player",
 						Size = engineLib.types.UDim2.fromOffset(160, 40),
 						AutomaticSize = mode,
-					})
+					}
 				end)
-				Verify.expect(root:FindFirstChild("TextBoundsFloor")):toBe(nil)
-				Verify.expect(root:FindFirstChild("TextBoundsUnit")):toBe(nil)
+				expect(root:FindFirstChild("TextBoundsFloor")):toBe(nil)
+				expect(root:FindFirstChild("TextBoundsUnit")):toBe(nil)
 				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(60, 20))
 				mode:set(engine.types.Enum.AutomaticSize.XY)
 				local floor = root:FindFirstChild("TextBoundsFloor")
-				Verify.expect(floor ~= nil):toBe(true)
-				Verify.expect(floor.MinSize):toBe(engine.types.Vector2.new(60, 20))
+				expect(floor ~= nil):toBe(true)
+				expect(floor.MinSize):toBe(engine.types.Vector2.new(60, 20))
 				mode:set(engine.types.Enum.AutomaticSize.None)
 				mode:set(engine.types.Enum.AutomaticSize.XY)
-				Verify.expect(root:FindFirstChild("TextBoundsFloor")):toBe(floor)
+				expect(root:FindFirstChild("TextBoundsFloor")):toBe(floor)
 				stop()
-				Verify.expect(engine.census().connections):toBe(0)
+				expect(engine.census().connections):toBe(0)
 			end,
 		})
 
-		verifyHarness:case("keeps the Slider readout reservation across drag values", {
+		it("keeps the Slider readout reservation across drag values", {
 			id = "native_layout::native text layout::keeps the Slider readout reservation across drag values",
 			run = function()
 				local value = Compose.cell(0)
 				local root, engine, stop = build(nil, function(UI)
-					return UI.Slider { value = value, min = 0, max = 100 }
+					local slider: Facet.SliderCellProps = { value = value, min = 0, max = 100 }
+					return UI.Slider(slider)
 				end)
 				local label = root:FindFirstChild("Value", true)
 				local floor = label:FindFirstChild("TextBoundsFloor")
 				for _, sample in { { 0, 8 }, { 50, 16 }, { 55.08, 36 }, { 100, 24 } } do
 					value:set(sample[1])
 					engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(sample[2], 16))
-					Verify.expect(floor.MaxSize.X):toBe(44)
+					expect(floor.MaxSize.X):toBe(44)
 				end
 				label.Size = engine.types.UDim2.fromOffset(60, 0)
-				Verify.expect(floor.MaxSize.X):toBe(60)
+				expect(floor.MaxSize.X):toBe(60)
 				label.Size = engine.types.UDim2.new(1, 0, 0, 0)
-				Verify.expect(floor.MaxSize.X):toBe(math.huge)
+				expect(floor.MaxSize.X):toBe(math.huge)
 				stop()
 			end,
 		})
-		verifyHarness:case("keeps the Stepper readout reservation when a digit is added", {
+		it("keeps the Stepper readout reservation when a digit is added", {
 			id = "native_layout::native text layout::keeps the Stepper readout reservation when a digit is added",
 			run = function()
 				local value = Compose.cell(9)
 				local root, engine, stop = build(nil, function(UI)
-					return UI.Stepper { value = value, max = 100 }
+					local stepper: Facet.StepperCellProps = { value = value, max = 100 }
+					return UI.Stepper(stepper)
 				end)
 				local label = root:FindFirstChild("Value", true)
 				local floor = label:FindFirstChild("TextBoundsFloor")
 				engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(8, 16))
-				Verify.expect(floor.MaxSize.X):toBe(40)
+				expect(floor.MaxSize.X):toBe(40)
 				value:set(10)
 				engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(13, 16))
-				Verify.expect(floor.MaxSize.X):toBe(40)
+				expect(floor.MaxSize.X):toBe(40)
 				stop()
 			end,
 		})
-		verifyHarness:case("holds a counting Text at its widest and fits it again when its length changes", {
+		it("holds a counting Text at its widest and fits it again when its length changes", {
 			id = "native_layout::native text layout::holds a counting Text at its widest and fits it again when its length changes",
 			run = function()
 				local text = Compose.cell("1,000,000")
@@ -960,32 +963,33 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local floor = root:FindFirstChild("TextBoundsFloor")
 				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(100, 20))
-				Verify.expect(floor.MinSize.X):toBe(100)
+				expect(floor.MinSize.X):toBe(100)
 				text:set("1,000,001")
 				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(96, 20))
-				Verify.expect(floor.MinSize.X):toBe(100)
+				expect(floor.MinSize.X):toBe(100)
 				text:set("12")
 				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(14, 20))
-				Verify.expect(floor.MinSize.X):toBe(14)
+				expect(floor.MinSize.X):toBe(14)
 				text:set("19")
 				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(13, 20))
-				Verify.expect(floor.MinSize.X):toBe(14)
+				expect(floor.MinSize.X):toBe(14)
 				stop()
 			end,
 		})
-		verifyHarness:case("grows both ShortcutHint axes with a taller painted key", {
+		it("grows both ShortcutHint axes with a taller painted key", {
 			id = "native_layout::native text layout::grows both ShortcutHint axes with a taller painted key",
 			run = function()
 				local root, engine, stop = build(nil, function(UI)
-					return UI.ShortcutHint { keys = { { "K" } } }
+					local hint: Facet.ShortcutHintKeysProps = { keys = { { "K" } } }
+					return UI.ShortcutHint(hint)
 				end)
 				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(6, 12))
 				local before = root.Size.Y.Offset
 				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(13, 26))
-				Verify.expect(root.Size.Y.Offset > before):toBe(true)
-				Verify.expect(root.Size.X.Offset):toBe(root.Size.Y.Offset)
-				Verify.expect(root.Size.Y.Offset >= 34):toBe(true)
-				Verify.expect(root.Size.Y.Offset < 44):toBe(true)
+				expect(root.Size.Y.Offset > before):toBe(true)
+				expect(root.Size.X.Offset):toBe(root.Size.Y.Offset)
+				expect(root.Size.Y.Offset >= 34):toBe(true)
+				expect(root.Size.Y.Offset < 44):toBe(true)
 				engine.environment.poke(
 					root:FindFirstChild("TextBoundsUnit"),
 					"AbsoluteSize",
@@ -997,51 +1001,52 @@ return function(verifyHarness: Verify.Harness)
 					engine.types.Vector2.new(50, 0.5)
 				)
 				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(6.5, 13))
-				Verify.expect(root.Size.Y.Offset):toBe(34)
+				expect(root.Size.Y.Offset):toBe(34)
 				stop()
 			end,
 		})
-		verifyHarness:case("keeps a ShortcutHint square while allowing a longer chord", {
+		it("keeps a ShortcutHint square while allowing a longer chord", {
 			id = "native_layout::native text layout::keeps a ShortcutHint square while allowing a longer chord",
 			run = function()
 				local root, engine, stop = build(nil, function(UI)
-					return UI.ShortcutHint { keys = { { "K" } } }
+					local hint: Facet.ShortcutHintKeysProps = { keys = { { "K" } } }
+					return UI.ShortcutHint(hint)
 				end)
 				local floor = root:FindFirstChild("TextBoundsFloor")
 				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(6, 12))
-				Verify.expect(floor.MaxSize):toBe(engine.types.Vector2.new(root.Size.X.Offset, root.Size.Y.Offset))
+				expect(floor.MaxSize):toBe(engine.types.Vector2.new(root.Size.X.Offset, root.Size.Y.Offset))
 				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(60, 26))
-				Verify.expect(floor.MaxSize.X):toBe(60)
-				Verify.expect(floor.MaxSize.Y):toBe(math.max(26, root.Size.Y.Offset))
+				expect(floor.MaxSize.X):toBe(60)
+				expect(floor.MaxSize.Y):toBe(math.max(26, root.Size.Y.Offset))
 				local padding = root:FindFirstChildWhichIsA("UIPadding")
 				padding.PaddingLeft = engine.types.UDim.new(0, 8)
 				padding.PaddingRight = engine.types.UDim.new(0, 8)
-				Verify.expect(floor.MaxSize.X):toBe(76)
+				expect(floor.MaxSize.X):toBe(76)
 				padding.PaddingRight = engine.types.UDim.new(0, 12)
-				Verify.expect(floor.MaxSize.X):toBe(80)
+				expect(floor.MaxSize.X):toBe(80)
 				stop()
 			end,
 		})
-		verifyHarness:case("yields the automatic glyph floor to a later wrapping constraint", {
+		it("yields the automatic glyph floor to a later wrapping constraint", {
 			id = "native_layout::native text layout::yields the automatic glyph floor to a later wrapping constraint",
 			run = function()
-				local root, engine, stop = build(nil, function(UI: FacetControls)
+				local root, engine, stop = build(nil, function(UI)
 					return UI.Text { text = "A long label" }
 				end)
 				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(300, 18))
-				Verify.expect(root:FindFirstChild("TextBoundsFloor").MinSize.X):toBe(300)
+				expect(root:FindFirstChild("TextBoundsFloor").MinSize.X):toBe(300)
 				local cap = engine.new("UISizeConstraint")
 				cap.MaxSize = engine.types.Vector2.new(100, math.huge)
 				cap.Parent = root
 				root.TextWrapped = true
-				Verify.expect(root:FindFirstChild("TextBoundsFloor")):toBeNil()
-				Verify.expect(root:FindFirstChildWhichIsA("UISizeConstraint")):toBe(cap)
-				Verify.expect(cap.MaxSize.X):toBe(100)
+				expect(root:FindFirstChild("TextBoundsFloor")):toBeNil()
+				expect(root:FindFirstChildWhichIsA("UISizeConstraint")):toBe(cap)
+				expect(cap.MaxSize.X):toBe(100)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("reflows a late clipped automatic box after styled metrics have settled", {
+		it("reflows a late clipped automatic box after styled metrics have settled", {
 			id = "native_layout::native text layout::reflows a late clipped automatic box after styled metrics have settled",
 			run = function()
 				local engine: any = engineLib.new()
@@ -1058,7 +1063,7 @@ return function(verifyHarness: Verify.Harness)
 				end, engine.new("ScreenGui"))
 				local label: any = result
 				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
+				expect(engineLib.connections(engine.heartbeat)):toBe(0)
 				local pulse = 0
 				engine.onWrite(function(node, property, value)
 					if
@@ -1072,91 +1077,88 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				engine.environment.poke(label, "AbsoluteSize", engine.types.Vector2.new(44, 12))
 				engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(15, 13))
-				Verify.expect(pulse):toBe(0)
+				expect(pulse):toBe(0)
 				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(pulse):toBe(1)
-				Verify.expect(label.AbsoluteSize.Y):toBe(13)
-				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
+				expect(pulse):toBe(1)
+				expect(label.AbsoluteSize.Y):toBe(13)
+				expect(engineLib.connections(engine.heartbeat)):toBe(0)
 				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(pulse):toBe(1)
+				expect(pulse):toBe(1)
 				engine.environment.poke(label, "AbsoluteSize", engine.types.Vector2.new(44, 12))
 				stop()
 				runtime:dispose()
 				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(pulse):toBe(1)
-				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
+				expect(pulse):toBe(1)
+				expect(engineLib.connections(engine.heartbeat)):toBe(0)
 			end,
 		})
-		verifyHarness:case(
-			"leaves the first layout to the engine and reflows styled metric changes without local font overrides",
-			{
-				id = "native_layout::native text layout::leaves the first layout to the engine and reflows styled metric changes without local font overrides",
-				run = function()
-					local engine: any = engineLib.new()
-					local points = 13
-					local face = engine.types.Font.new("rbxasset://fonts/families/BuilderSans.json")
-					local original = engine.new
-					engine.new = function(className)
-						local node = original(className)
-						if className == "TextLabel" then
-							engine.environment.fakeOn(node, "GetStyled", function(self, property)
-								if property == "FontFace" then
-									return face
-								elseif property == "TextSize" then
-									return points
-								end
-								return self[property]
-							end)
-						end
-						return node
+		it("leaves the first layout to the engine and reflows styled metric changes without local font overrides", {
+			id = "native_layout::native text layout::leaves the first layout to the engine and reflows styled metric changes without local font overrides",
+			run = function()
+				local engine: any = engineLib.new()
+				local points = 13
+				local face = engine.types.Font.new("rbxasset://fonts/families/BuilderSans.json")
+				local original = engine.new
+				engine.new = function(className)
+					local node = original(className)
+					if className == "TextLabel" then
+						engine.environment.fakeOn(node, "GetStyled", function(self, property)
+							if property == "FontFace" then
+								return face
+							elseif property == "TextSize" then
+								return points
+							end
+							return self[property]
+						end)
 					end
-					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-					local UI = Facet.controls(
-						runtime,
-						{
-							types = engine.types,
-							services = { RunService = { Heartbeat = engine.heartbeat } },
-						} :: any
-					)
-					local nativeMetrics = {}
-					engine.onWrite(function(node, property, value)
-						if
-							node.Name == "Summary"
-							and property == "AutomaticSize"
-							and value == engine.types.Enum.AutomaticSize.XY
-						then
-							table.insert(nativeMetrics, { node.FontFace, node.TextSize })
-						end
-					end)
-					local stop, result = runtime.mount(function()
-						return UI.Text "Summary" { text = "Page 1 of 3" }
-					end, engine.new("ScreenGui"))
-					local root: any = result
-					local initialFace, initialSize = root.FontFace, root.TextSize
-					local mounted = #nativeMetrics
-					engine.heartbeat:Fire(1 / 60)
-					Verify.expect(nativeMetrics):toHaveLength(mounted)
-					Verify.expect(root.FontFace):toBe(initialFace)
-					Verify.expect(root.TextSize):toBe(initialSize)
-					points = 17
-					root.StyledPropertiesChanged:Fire()
-					engine.heartbeat:Fire(1 / 60)
-					Verify.expect(nativeMetrics[#nativeMetrics][1]):toBe(face)
-					Verify.expect(nativeMetrics[#nativeMetrics][2]):toBe(17)
-					Verify.expect(root.TextSize):toBe(initialSize)
-					Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
-					points = 19
-					root.StyledPropertiesChanged:Fire()
-					stop()
-					runtime:dispose()
-					local count = #nativeMetrics
-					engine.heartbeat:Fire(1 / 60)
-					Verify.expect(nativeMetrics):toHaveLength(count)
-					Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
-				end,
-			}
-		)
-		verifyHarness:case("measures wrapped automatic-height text again with the styled size when its text changes", {
+					return node
+				end
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local UI = Facet.controls(
+					runtime,
+					{
+						types = engine.types,
+						services = { RunService = { Heartbeat = engine.heartbeat } },
+					} :: any
+				)
+				local nativeMetrics = {}
+				engine.onWrite(function(node, property, value)
+					if
+						node.Name == "Summary"
+						and property == "AutomaticSize"
+						and value == engine.types.Enum.AutomaticSize.XY
+					then
+						table.insert(nativeMetrics, { node.FontFace, node.TextSize })
+					end
+				end)
+				local stop, result = runtime.mount(function()
+					return UI.Text "Summary" { text = "Page 1 of 3" }
+				end, engine.new("ScreenGui"))
+				local root: any = result
+				local initialFace, initialSize = root.FontFace, root.TextSize
+				local mounted = #nativeMetrics
+				engine.heartbeat:Fire(1 / 60)
+				expect(nativeMetrics):toHaveLength(mounted)
+				expect(root.FontFace):toBe(initialFace)
+				expect(root.TextSize):toBe(initialSize)
+				points = 17
+				root.StyledPropertiesChanged:Fire()
+				engine.heartbeat:Fire(1 / 60)
+				expect(nativeMetrics[#nativeMetrics][1]):toBe(face)
+				expect(nativeMetrics[#nativeMetrics][2]):toBe(17)
+				expect(root.TextSize):toBe(initialSize)
+				expect(engineLib.connections(engine.heartbeat)):toBe(0)
+				points = 19
+				root.StyledPropertiesChanged:Fire()
+				stop()
+				runtime:dispose()
+				local count = #nativeMetrics
+				engine.heartbeat:Fire(1 / 60)
+				expect(nativeMetrics):toHaveLength(count)
+				expect(engineLib.connections(engine.heartbeat)):toBe(0)
+			end,
+		})
+		it("measures wrapped automatic-height text again with the styled size when its text changes", {
 			id = "native_layout::native text layout::measures wrapped automatic-height text again with the styled size when its text changes",
 			run = function()
 				local points = 16
@@ -1186,23 +1188,23 @@ return function(verifyHarness: Verify.Harness)
 				line:set("Short, then longer.")
 				engine.heartbeat:Fire(1 / 60)
 				local settled = #measured
-				Verify.expect(settled > 0):toBe(true)
-				Verify.expect(measured[settled]):toBe(16)
+				expect(settled > 0):toBe(true)
+				expect(measured[settled]):toBe(16)
 				line:set("I tuned half these karts.  Including yours.  Drive it well.")
 				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(#measured > settled):toBe(true)
-				Verify.expect(measured[#measured]):toBe(16)
-				Verify.expect(label.TextSize == 16):toBe(false)
+				expect(#measured > settled):toBe(true)
+				expect(measured[#measured]):toBe(16)
+				expect(label.TextSize == 16):toBe(false)
 				engine.environment.poke(label, "AbsoluteSize", Vector2.new(168, 19))
 				local before = #measured
 				engine.environment.poke(label, "TextBounds", Vector2.new(160, 38))
 				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(#measured > before):toBe(true)
+				expect(#measured > before):toBe(true)
 				stop()
-				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
+				expect(engineLib.connections(engine.heartbeat)):toBe(0)
 			end,
 		})
-		verifyHarness:case("floors a wrapped automatic-height text at the height of its styled lines", {
+		it("floors a wrapped automatic-height text at the height of its styled lines", {
 			id = "native_layout::native text layout::floors a wrapped automatic-height text at the height of its styled lines",
 			run = function()
 				local Enum, UDim2, Vector2 = engineLib.types.Enum, engineLib.types.UDim2, engineLib.types.Vector2
@@ -1229,20 +1231,20 @@ return function(verifyHarness: Verify.Harness)
 				})
 				engine.environment.poke(label, "AbsoluteSize", Vector2.new(300, 27))
 				local floor = label:FindFirstChild("TextBoundsFloor")
-				Verify.expect(#asked > 0):toBe(true)
-				Verify.expect(asked[#asked]):toBe(300)
+				expect(#asked > 0):toBe(true)
+				expect(asked[#asked]):toBe(300)
 				for _, sample in { { 1, 2, 1 }, { 2, 1.25, 2.25 }, { 3, 2, 5 } } do
 					lines = sample[1]
 					label.LineHeight = sample[2]
 					line:set(string.rep("Line ", lines))
-					Verify.expect(floor.MinSize.Y):toBe(math.ceil(sample[3] * label.TextSize))
+					expect(floor.MinSize.Y):toBe(math.ceil(sample[3] * label.TextSize))
 				end
 				label.TextWrapped = false
-				Verify.expect(floor.MinSize.Y):toBe(0)
+				expect(floor.MinSize.Y):toBe(0)
 				stop()
 			end,
 		})
-		verifyHarness:case("reflows automatic text when font metrics change and preserves fixed text", {
+		it("reflows automatic text when font metrics change and preserves fixed text", {
 			id = "native_layout::native text layout::reflows automatic text when font metrics change and preserves fixed text",
 			run = function()
 				local Enum = require("./lib/native_engine").types.Enum
@@ -1263,35 +1265,35 @@ return function(verifyHarness: Verify.Harness)
 					table.insert(states, automatic.AutomaticSize)
 				end)
 				automatic.TextSize = 12
-				Verify.expect(states):toHaveLength(2)
-				Verify.expect(states[1]):toBe(engine.types.Enum.AutomaticSize.None)
-				Verify.expect(states[2]):toBe(engine.types.Enum.AutomaticSize.XY)
+				expect(states):toHaveLength(2)
+				expect(states[1]):toBe(engine.types.Enum.AutomaticSize.None)
+				expect(states[2]):toBe(engine.types.Enum.AutomaticSize.XY)
 				automatic.TextColor3 = engine.types.Color3.new(1, 0, 0)
-				Verify.expect(states):toHaveLength(2)
+				expect(states):toHaveLength(2)
 				fixed.TextSize = 12
-				Verify.expect(fixed.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
+				expect(fixed.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
 				local readout = root.Slider:FindFirstChild("Value", true)
 				local internal = {}
 				local internalConnection = readout:GetPropertyChangedSignal("AutomaticSize"):Connect(function()
 					table.insert(internal, readout.AutomaticSize)
 				end)
 				readout.TextSize = 12
-				Verify.expect(internal):toHaveLength(2)
-				Verify.expect(internal[1]):toBe(engine.types.Enum.AutomaticSize.None)
-				Verify.expect(internal[2]):toBe(engine.types.Enum.AutomaticSize.XY)
+				expect(internal):toHaveLength(2)
+				expect(internal[1]):toBe(engine.types.Enum.AutomaticSize.None)
+				expect(internal[2]):toBe(engine.types.Enum.AutomaticSize.XY)
 				frames.heartbeat:Fire(1 / 60)
-				Verify.expect(states):toHaveLength(4)
-				Verify.expect(internal):toHaveLength(4)
-				Verify.expect(engineLib.connections(frames.heartbeat)):toBe(0)
+				expect(states):toHaveLength(4)
+				expect(internal):toHaveLength(4)
+				expect(engineLib.connections(frames.heartbeat)):toBe(0)
 				frames.heartbeat:Fire(1 / 60)
-				Verify.expect(states):toHaveLength(4)
-				Verify.expect(internal):toHaveLength(4)
+				expect(states):toHaveLength(4)
+				expect(internal):toHaveLength(4)
 				automatic.TextSize = 14
 				stop()
 				local released = #states
 				frames.heartbeat:Fire(1 / 60)
-				Verify.expect(states):toHaveLength(released)
-				Verify.expect(engineLib.connections(frames.heartbeat)):toBe(0)
+				expect(states):toHaveLength(released)
+				expect(engineLib.connections(frames.heartbeat)):toBe(0)
 				internalConnection:Disconnect()
 				connection:Disconnect()
 				stop()
@@ -1299,13 +1301,13 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
-	verifyHarness:suite("native layout primitives", function()
-		verifyHarness:suite("VStack and HStack", function()
-			verifyHarness:case("maps align and distribute to the native list alignment and flex", {
+	describe("native layout primitives", function()
+		describe("VStack and HStack", function()
+			it("maps align and distribute to the native list alignment and flex", {
 				id = "native_layout::VStack and HStack::maps align and distribute to the native list alignment and flex",
 				run = function()
 					local align = Compose.cell("center" :: "center" | "end" | "start" | "stretch")
-					local root, engine, stop = build(nil, function(UI: FacetControls)
+					local root, engine, stop = build(nil, function(UI)
 						return UI.HStack {
 							align = align,
 							height = 40,
@@ -1315,35 +1317,35 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local E = engine.types.Enum
 					local layout = child(root, "UIListLayout")
-					Verify.expect(layout.VerticalAlignment):toBe(E.VerticalAlignment.Center)
-					Verify.expect(layout.ItemLineAlignment):toBe(E.ItemLineAlignment.Automatic)
-					Verify.expect(layout.HorizontalFlex):toBe(E.UIFlexAlignment.SpaceBetween)
-					Verify.expect(layout.HorizontalAlignment):toBe(E.HorizontalAlignment.Left)
-					Verify.expect(layout.VerticalFlex):toBe(E.UIFlexAlignment.None)
+					expect(layout.VerticalAlignment):toBe(E.VerticalAlignment.Center)
+					expect(layout.ItemLineAlignment):toBe(E.ItemLineAlignment.Automatic)
+					expect(layout.HorizontalFlex):toBe(E.UIFlexAlignment.SpaceBetween)
+					expect(layout.HorizontalAlignment):toBe(E.HorizontalAlignment.Left)
+					expect(layout.VerticalFlex):toBe(E.UIFlexAlignment.None)
 					align:set("stretch")
-					Verify.expect(layout.ItemLineAlignment):toBe(E.ItemLineAlignment.Stretch)
-					Verify.expect(layout.VerticalFlex):toBe(E.UIFlexAlignment.Fill)
-					Verify.expect(layout.HorizontalFlex):toBe(E.UIFlexAlignment.SpaceBetween)
-					Verify.expect(layout.VerticalAlignment):toBe(E.VerticalAlignment.Top)
+					expect(layout.ItemLineAlignment):toBe(E.ItemLineAlignment.Stretch)
+					expect(layout.VerticalFlex):toBe(E.UIFlexAlignment.Fill)
+					expect(layout.HorizontalFlex):toBe(E.UIFlexAlignment.SpaceBetween)
+					expect(layout.VerticalAlignment):toBe(E.VerticalAlignment.Top)
 					align:set("end")
-					Verify.expect(layout.VerticalAlignment):toBe(E.VerticalAlignment.Bottom)
-					Verify.expect(layout.VerticalFlex):toBe(E.UIFlexAlignment.None)
+					expect(layout.VerticalAlignment):toBe(E.VerticalAlignment.Bottom)
+					expect(layout.VerticalFlex):toBe(E.UIFlexAlignment.None)
 					stop()
-					local column = build(nil, function(UI: FacetControls)
+					local column = build(nil, function(UI)
 						return UI.VStack { align = "end" :: "end", distribute = "center" :: "center" }
 					end)
 					local list = child(column, "UIListLayout")
-					Verify.expect(list.HorizontalAlignment):toBe(E.HorizontalAlignment.Right)
-					Verify.expect(list.VerticalAlignment):toBe(E.VerticalAlignment.Center)
-					Verify.expect(list.VerticalFlex):toBe(E.UIFlexAlignment.None)
+					expect(list.HorizontalAlignment):toBe(E.HorizontalAlignment.Right)
+					expect(list.VerticalAlignment):toBe(E.VerticalAlignment.Center)
+					expect(list.VerticalFlex):toBe(E.UIFlexAlignment.None)
 				end,
 			})
 
-			verifyHarness:case("turns off auto localization only for text the author binds", {
+			it("turns off auto localization only for text the author binds", {
 				id = "native_layout::VStack and HStack::turns off auto localization only for text the author binds",
 				run = function()
 					local words = Compose.cell("Coins 10")
-					local root, _engine, stop = build(nil, function(UI: FacetControls)
+					local root, _engine, stop = build(nil, function(UI)
 						return UI.VStack {
 							UI.Text "Static" { text = "Play" },
 							UI.Text "Bound" { text = words },
@@ -1356,9 +1358,9 @@ return function(verifyHarness: Verify.Harness)
 							},
 						}
 					end)
-					Verify.expect((root:FindFirstChild("Static", true) :: TextLabel).AutoLocalize):toBe(true)
-					Verify.expect((root:FindFirstChild("Bound", true) :: TextLabel).AutoLocalize):toBe(false)
-					Verify.expect((root:FindFirstChild("Chosen", true) :: TextLabel).AutoLocalize):toBe(true)
+					expect((root:FindFirstChild("Static", true) :: TextLabel).AutoLocalize):toBe(true)
+					expect((root:FindFirstChild("Bound", true) :: TextLabel).AutoLocalize):toBe(false)
+					expect((root:FindFirstChild("Chosen", true) :: TextLabel).AutoLocalize):toBe(true)
 					local found = {}
 					for _, node in root:GetDescendants() do
 						if
@@ -1369,17 +1371,17 @@ return function(verifyHarness: Verify.Harness)
 						end
 					end
 					local joined = table.concat(found, ",")
-					Verify.expect(string.find(joined, "Word language=true", 1, true) ~= nil):toBe(true)
-					Verify.expect((string.find(joined, "=false", 1, true))):toBeNil()
+					expect(string.find(joined, "Word language=true", 1, true) ~= nil):toBe(true)
+					expect((string.find(joined, "=false", 1, true))):toBeNil()
 					stop()
 				end,
 			})
 
-			verifyHarness:case("treats a transiently negative computed extent as zero pixels", {
+			it("treats a transiently negative computed extent as zero pixels", {
 				id = "native_layout::VStack and HStack::treats a transiently negative computed extent as zero pixels",
 				run = function()
 					local viewport = Compose.cell(0)
-					local root, _engine, stop = build(nil, function(UI: FacetControls)
+					local root, _engine, stop = build(nil, function(UI)
 						return UI.VStack {
 							width = function(use: Use): number
 								return use(viewport) - 80
@@ -1387,119 +1389,116 @@ return function(verifyHarness: Verify.Harness)
 							height = 40,
 						}
 					end)
-					Verify.expect(root.Size.X.Offset):toBe(0)
+					expect(root.Size.X.Offset):toBe(0)
 					viewport:set(400)
-					Verify.expect(root.Size.X.Offset):toBe(320)
+					expect(root.Size.X.Offset):toBe(320)
 					stop()
 				end,
 			})
 
-			verifyHarness:case(
-				"reserves wrapped row height in a hugging parent and releases it after reflow",
-				function(t)
-					local root, engine, stop = build(nil, function(UI: FacetControls)
-						return UI.VStack "FilterArea" {
+			it("reserves wrapped row height in a hugging parent and releases it after reflow", function(_own, t)
+				local root, engine, stop = build(nil, function(UI)
+					local filter: Facet.TextInputCellProps = { placeholder = "Filter files", value = Compose.cell("") }
+					return UI.VStack "FilterArea" {
+						width = "fill",
+						UI.HStack "Filters" {
 							width = "fill",
-							UI.HStack "Filters" {
-								width = "fill",
-								wrap = true,
-								UI.TextInput { placeholder = "Filter files", value = Compose.cell("") },
-								UI.Button { label = "Clear filter" },
-							},
-							UI.Text { text = "18 of 27 items" },
-						}
-					end)
-					t:defer(stop)
-					local filters = root.Filters
-					local list = filters:FindFirstChildWhichIsA("UIListLayout")
-					for _, height in { 44, 96, 44 } do
-						engine.environment.poke(
-							VerifyRoblox.assertInstance(list),
-							"AbsoluteContentSize",
-							engine.types.Vector2.new(320, height)
-						)
-						t:expect(filters.Lift.MinSize.Y):toBe(height)
-					end
+							wrap = true,
+							UI.TextInput(filter),
+							UI.Button { label = "Clear filter" },
+						},
+						UI.Text { text = "18 of 27 items" },
+					}
+				end)
+				t:defer(stop)
+				local filters = root.Filters
+				local list = filters:FindFirstChildWhichIsA("UIListLayout")
+				for _, height in { 44, 96, 44 } do
+					engine.environment.poke(
+						VerifyRoblox.assertInstance(list),
+						"AbsoluteContentSize",
+						engine.types.Vector2.new(320, height)
+					)
+					t:expect(filters.Lift.MinSize.Y):toBe(height)
 				end
-			)
+			end)
 
-			verifyHarness:case("lets a hugging fill stack take its size along a bounded parent row from the flex", {
+			it("lets a hugging fill stack take its size along a bounded parent row from the flex", {
 				id = "native_layout::VStack and HStack::lets a hugging fill stack take its size along a bounded parent row from the flex",
 				run = function()
 					local types = require("./lib/native_engine").types
-					local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
+					local root, engine, stop = build(nil, function(UI, Host)
 						return UI.VStack {
 							UI.HStack {
 								Name = "Row",
 								width = "fill" :: "fill",
 								Host.Frame { Name = "List", Size = types.UDim2.fromOffset(380, 100) },
-								UI.VStack { Name = "Detail", UI.fill() :: unknown },
+								UI.VStack { Name = "Detail", UI.fill() },
 								UI.VStack {
 									Name = "Authored",
 									AutomaticSize = types.Enum.AutomaticSize.XY,
-									UI.fill() :: unknown,
+									UI.fill(),
 								},
 							},
 							UI.HStack {
 								Name = "Hug",
-								UI.VStack { Name = "Grown", UI.fill() :: unknown },
+								UI.VStack { Name = "Grown", UI.fill() },
 							},
 						}
 					end)
 					local AutomaticSize = engine.types.Enum.AutomaticSize
 					local row = root:FindFirstChild("Row")
 					local detail = row:FindFirstChild("Detail")
-					Verify.expect(detail.AutomaticSize):toBe(AutomaticSize.Y)
-					Verify.expect(row:FindFirstChild("Authored").AutomaticSize):toBe(AutomaticSize.XY)
-					Verify.expect(root:FindFirstChild("Hug"):FindFirstChild("Grown").AutomaticSize)
-						:toBe(AutomaticSize.XY)
+					expect(detail.AutomaticSize):toBe(AutomaticSize.Y)
+					expect(row:FindFirstChild("Authored").AutomaticSize):toBe(AutomaticSize.XY)
+					expect(root:FindFirstChild("Hug"):FindFirstChild("Grown").AutomaticSize):toBe(AutomaticSize.XY)
 					row:FindFirstChildWhichIsA("UIListLayout").FillDirection = engine.types.Enum.FillDirection.Vertical
-					Verify.expect(detail.AutomaticSize):toBe(AutomaticSize.XY)
+					expect(detail.AutomaticSize):toBe(AutomaticSize.XY)
 					stop()
 				end,
 			})
 
-			verifyHarness:case(
-				"keeps a keyed child's rows in keyed order between their siblings, and a row's own LayoutOrder wins",
-				{
-					id = "native_layout::VStack and HStack::keeps a keyed child's rows in keyed order between their siblings, and a row's own LayoutOrder wins",
-					run = function()
-						local items = Compose.cell({ "A", "B", "C" })
-						local root, _, stop = build(nil, function(UI: FacetControls)
-							return UI.VStack {
-								UI.Text { text = "Top" } :: unknown,
-								Compose.keyed({
-									from = items,
-									render = function(value, index): GuiObject
-										return UI.Text {
-											text = value,
-											LayoutOrder = index,
-										}
-									end,
-								}),
-								Compose.keyed({
-									from = items,
-									render = function(value): GuiObject
-										return UI.Text {
-											text = function(use: Use)
-												return string.lower(use(value))
-											end,
-										}
-									end,
-								}),
-								UI.Text { text = "End" },
-							}
-						end)
-						Verify.expect((painted(root))):toBe("Top A B C a b c End")
-						items:set({ "B", "C", "A" })
-						Verify.expect((painted(root))):toBe("Top B C A b c a End")
-						items:set({ "C", "D", "B" })
-						Verify.expect((painted(root))):toBe("Top C D B c d b End")
-						stop()
-					end,
-				}
-			)
-			verifyHarness:case("grows a padded stack's padding to hold its children's shadows", {
+			it("keeps a keyed child's rows in keyed order between their siblings, and a row's own LayoutOrder wins", {
+				id = "native_layout::VStack and HStack::keeps a keyed child's rows in keyed order between their siblings, and a row's own LayoutOrder wins",
+				run = function()
+					local items = Compose.cell({ "A", "B", "C" })
+					local root, _, stop = build(nil, function(UI)
+						return UI.VStack {
+							UI.Text { text = "Top" },
+							Compose.keyed({
+								from = items,
+								render = function(
+									value: ComposeTypes.ReadOnlyValue<string>,
+									index: ComposeTypes.ReadOnlyValue<number>
+								): GuiObject
+									return UI.Text {
+										text = value,
+										LayoutOrder = index,
+									}
+								end,
+							}),
+							Compose.keyed({
+								from = items,
+								render = function(value: ComposeTypes.ReadOnlyValue<string>): GuiObject
+									return UI.Text {
+										text = function(use: Use)
+											return string.lower(use(value))
+										end,
+									}
+								end,
+							}),
+							UI.Text { text = "End" },
+						}
+					end)
+					expect((painted(root))):toBe("Top A B C a b c End")
+					items:set({ "B", "C", "A" })
+					expect((painted(root))):toBe("Top B C A b c a End")
+					items:set({ "C", "D", "B" })
+					expect((painted(root))):toBe("Top C D B c d b End")
+					stop()
+				end,
+			})
+			it("grows a padded stack's padding to hold its children's shadows", {
 				id = "native_layout::VStack and HStack::grows a padded stack's padding to hold its children's shadows",
 				run = function()
 					local root, engine, stop = build(nil, function(UI: FacetControls, C)
@@ -1510,33 +1509,33 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local T = engine.types
 					local padding = child(root, "UIPadding")
-					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 3))
+					expect(padding.PaddingBottom):toBe(T.UDim.new(0, 3))
 					local plated = root:FindFirstChild("Plated")
 					local plate = engine.new("UIShadow")
 					plate.Offset = T.UDim2.new(0, 0, 0, 5)
 					plate.Parent = plated
-					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 8))
-					Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 3))
-					Verify.expect(padding.PaddingLeft):toBe(T.UDim.new(0, 8))
+					expect(padding.PaddingBottom):toBe(T.UDim.new(0, 8))
+					expect(padding.PaddingTop):toBe(T.UDim.new(0, 3))
+					expect(padding.PaddingLeft):toBe(T.UDim.new(0, 8))
 					plate.Spread = T.UDim2.new(0, 1, 0, 1)
 					plate.BlurRadius = T.UDim.new(0, 2)
-					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 11))
-					Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 3))
-					Verify.expect(padding.PaddingRight):toBe(T.UDim.new(0, 11))
+					expect(padding.PaddingBottom):toBe(T.UDim.new(0, 11))
+					expect(padding.PaddingTop):toBe(T.UDim.new(0, 3))
+					expect(padding.PaddingRight):toBe(T.UDim.new(0, 11))
 					plated.Visible = false
-					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 3))
+					expect(padding.PaddingBottom):toBe(T.UDim.new(0, 3))
 					plated.Visible = true
 					plate.Enabled = false
-					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 3))
+					expect(padding.PaddingBottom):toBe(T.UDim.new(0, 3))
 					plate.Enabled = true
-					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 11))
+					expect(padding.PaddingBottom):toBe(T.UDim.new(0, 11))
 					plate.Parent = nil
-					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 3))
-					Verify.expect(padding.PaddingRight):toBe(T.UDim.new(0, 8))
+					expect(padding.PaddingBottom):toBe(T.UDim.new(0, 3))
+					expect(padding.PaddingRight):toBe(T.UDim.new(0, 8))
 					stop()
 				end,
 			})
-			verifyHarness:case("grows a padded AdaptiveStack's padding to hold its children's shadows", {
+			it("grows a padded AdaptiveStack's padding to hold its children's shadows", {
 				id = "native_layout::VStack and HStack::grows a padded AdaptiveStack's padding to hold its children's shadows",
 				run = function()
 					local root, engine, stop = build(nil, function(UI: FacetControls, C)
@@ -1549,12 +1548,12 @@ return function(verifyHarness: Verify.Harness)
 					local plate = engine.new("UIShadow")
 					plate.Offset = engine.types.UDim2.new(0, 0, 0, 5)
 					plate.Parent = root:FindFirstChild("Plated")
-					Verify.expect(padding.PaddingBottom):toBe(engine.types.UDim.new(0, 9))
-					Verify.expect(padding.PaddingTop):toBe(engine.types.UDim.new(0, 4))
+					expect(padding.PaddingBottom):toBe(engine.types.UDim.new(0, 9))
+					expect(padding.PaddingTop):toBe(engine.types.UDim.new(0, 4))
 					stop()
 				end,
 			})
-			verifyHarness:case("leaves a stack without padding unpadded under shadowed children", {
+			it("leaves a stack without padding unpadded under shadowed children", {
 				id = "native_layout::VStack and HStack::leaves a stack without padding unpadded under shadowed children",
 				run = function()
 					local root, engine, stop = build(nil, function(UI: FacetControls, C)
@@ -1563,14 +1562,14 @@ return function(verifyHarness: Verify.Harness)
 					local plate = engine.new("UIShadow")
 					plate.Offset = engine.types.UDim2.new(0, 0, 0, 5)
 					plate.Parent = root:FindFirstChild("Plated")
-					Verify.expect((child(root, "UIPadding"))):toBe(nil)
+					expect((child(root, "UIPadding"))):toBe(nil)
 					stop()
 				end,
 			})
 		end)
 
-		verifyHarness:suite("Screen", function()
-			verifyHarness:case("unmounts a screen while overscan remains active", function()
+		describe("Screen", function()
+			it("unmounts a screen while overscan remains active", function()
 				local engine, runtime, UI, fixture = make({ environment = { viewingDistance = "ten-foot" } }, {})
 				local tracking = fixture.track()
 				local layer = engine.new("ScreenGui")
@@ -1580,33 +1579,33 @@ return function(verifyHarness: Verify.Harness)
 				end, layer)
 				local before = #tracking.created
 				stop()
-				Verify.expect(#tracking.created):toBe(before)
+				expect(#tracking.created):toBe(before)
 				tracking.stop()
 				runtime:dispose()
 			end)
-			verifyHarness:case("fills its parent, pads the content by the m step and stacks vertically", {
+			it("fills its parent, pads the content by the m step and stacks vertically", {
 				id = "native_layout::Screen::fills its parent, pads the content by the m step and stacks vertically",
 				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls)
+					local root, engine, stop = build(nil, function(UI)
 						return UI.Screen "Home" { gap = "s", UI.Text { text = "A" } }
 					end)
 					local E = engine.types.Enum
-					Verify.expect(root.Name):toBe("Home")
-					Verify.expect(root.Size):toBe(engine.types.UDim2.fromScale(1, 1))
-					Verify.expect(root.AutomaticSize):toBe(E.AutomaticSize.None)
-					Verify.expect((root:HasTag("facet-layout"))):toBe(true)
-					Verify.expect(child(root, "UIPadding").PaddingTop):toBe(engine.types.UDim.new(0, 16))
-					Verify.expect(child(root, "UIListLayout").FillDirection):toBe(E.FillDirection.Vertical)
-					Verify.expect(child(root, "UIListLayout").Padding):toBe(engine.types.UDim.new(0, 8))
+					expect(root.Name):toBe("Home")
+					expect(root.Size):toBe(engine.types.UDim2.fromScale(1, 1))
+					expect(root.AutomaticSize):toBe(E.AutomaticSize.None)
+					expect((root:HasTag("facet-layout"))):toBe(true)
+					expect(child(root, "UIPadding").PaddingTop):toBe(engine.types.UDim.new(0, 16))
+					expect(child(root, "UIListLayout").FillDirection):toBe(E.FillDirection.Vertical)
+					expect(child(root, "UIListLayout").Padding):toBe(engine.types.UDim.new(0, 8))
 					stop()
-					local bare = build(nil, function(UI: FacetControls)
+					local bare = build(nil, function(UI)
 						return UI.Screen { padding = 0 }
 					end)
-					Verify.expect(child(bare, "UIPadding").PaddingLeft):toBe(engine.types.UDim.new(0, 0))
+					expect(child(bare, "UIPadding").PaddingLeft):toBe(engine.types.UDim.new(0, 0))
 				end,
 			})
 
-			verifyHarness:case("keeps its content below the engine top bar, the background still fills", {
+			it("keeps its content below the engine top bar, the background still fills", {
 				id = "native_layout::Screen::keeps its content below the engine top bar, the background still fills",
 				run = function()
 					for _, ignoresInset in { true, false } do
@@ -1636,21 +1635,20 @@ return function(verifyHarness: Verify.Harness)
 							T.Vector2.new(0, if ignoresInset then -58 else 0)
 						)
 						local padding = child(root, "UIPadding")
-						Verify.expect(padding.PaddingTop)
-							:toBe(T.UDim.new(0, 16 + 58 - insetTop - root.AbsolutePosition.Y))
-						Verify.expect(padding.PaddingLeft):toBe(T.UDim.new(0, 16))
-						Verify.expect(root.Size):toBe(T.UDim2.fromScale(1, 1))
+						expect(padding.PaddingTop):toBe(T.UDim.new(0, 16 + 58 - insetTop - root.AbsolutePosition.Y))
+						expect(padding.PaddingLeft):toBe(T.UDim.new(0, 16))
+						expect(root.Size):toBe(T.UDim2.fromScale(1, 1))
 						engine.environment.poke(gui, "TopbarInset", T.Rect.new(0, 0, 0, 0))
-						Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
+						expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
 						engine.environment.poke(gui, "TopbarInset", T.Rect.new(104, 0, 1000, 58))
 						engine.environment.poke(root, "AbsolutePosition", T.Vector2.new(0, 200))
-						Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
+						expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
 						runtime:dispose()
 					end
 				end,
 			})
 
-			verifyHarness:case("refreshes top-bar clearance when the native inset changes without a property event", {
+			it("refreshes top-bar clearance when the native inset changes without a property event", {
 				id = "native_layout::Screen::refreshes top-bar clearance when the native inset changes without a property event",
 				run = function()
 					local engine: any = engineLib.new()
@@ -1676,18 +1674,18 @@ return function(verifyHarness: Verify.Harness)
 						return root
 					end, engine.new("ScreenGui"))
 					local padding = child(root, "UIPadding")
-					Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 44))
+					expect(padding.PaddingTop):toBe(T.UDim.new(0, 44))
 					inset = 58
 					engine.heartbeat:Fire(1 / 60)
-					Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
+					expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
 					inset = 30
 					engine.heartbeat:Fire(1 / 60)
-					Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 44))
+					expect(padding.PaddingTop):toBe(T.UDim.new(0, 44))
 					runtime:dispose()
 				end,
 			})
 
-			verifyHarness:case("chrome band rides the free top-bar band, and edge also drops the overscan", {
+			it("chrome band rides the free top-bar band, and edge also drops the overscan", {
 				id = "native_layout::Screen::chrome band rides the free top-bar band, and edge also drops the overscan",
 				run = function()
 					local engine: any = engineLib.new()
@@ -1725,11 +1723,11 @@ return function(verifyHarness: Verify.Harness)
 					local function top(chrome: string): any
 						return child(roots[chrome], "UIPadding").PaddingTop
 					end
-					Verify.expect((top("device"))):toBe(T.UDim.new(60 / 1080, 24 + 58))
-					Verify.expect((top("band"))):toBe(T.UDim.new(60 / 1080, 24))
-					Verify.expect((top("edge"))):toBe(T.UDim.new(0, 24))
-					Verify.expect(child(roots.edge, "UIPadding").PaddingLeft):toBe(T.UDim.new(0, 24))
-					Verify.expect((pcall(function()
+					expect((top("device"))):toBe(T.UDim.new(60 / 1080, 24 + 58))
+					expect((top("band"))):toBe(T.UDim.new(60 / 1080, 24))
+					expect((top("edge"))):toBe(T.UDim.new(0, 24))
+					expect(child(roots.edge, "UIPadding").PaddingLeft):toBe(T.UDim.new(0, 24))
+					expect((pcall(function()
 						runtime.mount(function()
 							return UI.Screen({ chrome = "glass" } :: any)
 						end, layer)
@@ -1738,7 +1736,7 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
-			verifyHarness:case("clears only the remaining overscan at each edge, including nested screens", {
+			it("clears only the remaining overscan at each edge, including nested screens", {
 				id = "native_layout::Screen::clears only the remaining overscan at each edge, including nested screens",
 				run = function()
 					local engine = engineLib.new()
@@ -1755,7 +1753,7 @@ return function(verifyHarness: Verify.Harness)
 					local nested
 					local stop, root: any = runtime.mount(function()
 						nested = UI.Screen { padding = 0 }
-						return UI.Screen { padding = 0, nested :: unknown }
+						return UI.Screen { padding = 0, nested }
 					end, layer)
 					engine.environment.poke(root, "AbsoluteSize", layer.AbsoluteSize)
 					engine.environment.poke(
@@ -1769,24 +1767,24 @@ return function(verifyHarness: Verify.Harness)
 						T.Vector2.new(100, 100)
 					)
 					local outer, inner = child(root, "UIPadding"), child(nested, "UIPadding")
-					Verify.expect(outer.PaddingTop):toBe(T.UDim.new(0, 60))
-					Verify.expect(outer.PaddingLeft):toBe(T.UDim.new(0, 90))
-					Verify.expect(inner.PaddingTop):toBe(T.UDim.new(0, 0))
-					Verify.expect(inner.PaddingLeft):toBe(T.UDim.new(0, 0))
+					expect(outer.PaddingTop):toBe(T.UDim.new(0, 60))
+					expect(outer.PaddingLeft):toBe(T.UDim.new(0, 90))
+					expect(inner.PaddingTop):toBe(T.UDim.new(0, 0))
+					expect(inner.PaddingLeft):toBe(T.UDim.new(0, 0))
 					engine.environment.poke(
 						VerifyRoblox.assertInstance(nested),
 						"AbsolutePosition",
 						T.Vector2.new(30, 20)
 					)
-					Verify.expect(inner.PaddingTop):toBe(T.UDim.new(0, 40))
-					Verify.expect(inner.PaddingLeft):toBe(T.UDim.new(0, 60))
+					expect(inner.PaddingTop):toBe(T.UDim.new(0, 40))
+					expect(inner.PaddingLeft):toBe(T.UDim.new(0, 60))
 					margins:set({ top = 30, left = 40, bottom = 30, right = 40 })
-					Verify.expect(inner.PaddingTop):toBe(T.UDim.new(0, 10))
-					Verify.expect(inner.PaddingLeft):toBe(T.UDim.new(0, 10))
+					expect(inner.PaddingTop):toBe(T.UDim.new(0, 10))
+					expect(inner.PaddingLeft):toBe(T.UDim.new(0, 10))
 					margins:set(nil)
 					distance:set("near")
-					Verify.expect(outer.PaddingTop):toBe(T.UDim.new(0, 0))
-					Verify.expect(inner.PaddingLeft):toBe(T.UDim.new(0, 0))
+					expect(outer.PaddingTop):toBe(T.UDim.new(0, 0))
+					expect(inner.PaddingLeft):toBe(T.UDim.new(0, 0))
 					stop()
 					runtime:dispose()
 				end,
@@ -1846,36 +1844,36 @@ return function(verifyHarness: Verify.Harness)
 				}
 			end
 
-			verifyHarness:case("paints a surface Screen to the glass at its safe edges and keeps the content safe", {
+			it("paints a surface Screen to the glass at its safe edges and keeps the content safe", {
 				id = "native_layout::Screen::paints a surface Screen to the glass at its safe edges and keeps the content safe",
 				run = function()
-					local world = glassWorld(PORTRAIT, function(UI: FacetControls): Frame
+					local world = glassWorld(PORTRAIT, function(UI): Frame
 						return UI.Screen "Shop" { surface = "surface", UI.Text { text = "Shop" } }
 					end)
 					local T, corner = world.T, 8
 					world.poke(world.root, "AbsoluteSize", world.safe)
 					local glass = world.root:FindFirstChild("Glass") :: Instance
 					local backdrop = world.root:FindFirstChild("Backdrop", true) :: Frame
-					Verify.expect(glass:IsA("Folder")):toBe(true)
-					Verify.expect((backdrop:IsDescendantOf(glass))):toBe(true)
-					Verify.expect((backdrop:HasTag("facet-surface"))):toBe(true)
-					Verify.expect(backdrop.ZIndex):toBe(0)
-					Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(-corner, -106 - corner))
-					Verify.expect(backdrop.Size):toBe(T.UDim2.new(1, 2 * corner, 1, 106 + 34 + 2 * corner))
+					expect(glass:IsA("Folder")):toBe(true)
+					expect((backdrop:IsDescendantOf(glass))):toBe(true)
+					expect((backdrop:HasTag("facet-surface"))):toBe(true)
+					expect(backdrop.ZIndex):toBe(0)
+					expect(backdrop.Position):toBe(T.UDim2.fromOffset(-corner, -106 - corner))
+					expect(backdrop.Size):toBe(T.UDim2.new(1, 2 * corner, 1, 106 + 34 + 2 * corner))
 					local padding = world.root:FindFirstChildWhichIsA("UIPadding") :: UIPadding
-					Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
-					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 16))
-					Verify.expect(padding.PaddingLeft):toBe(T.UDim.new(0, 16))
-					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
+					expect(padding.PaddingBottom):toBe(T.UDim.new(0, 16))
+					expect(padding.PaddingLeft):toBe(T.UDim.new(0, 16))
+					expect(world.layer.ClipToDeviceSafeArea):toBe(false)
 					world.stop()
-					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					expect(world.layer.ClipToDeviceSafeArea):toBe(true)
 				end,
 			})
 
-			verifyHarness:case("ends the surface plate at the screen bounds away from the safe edges", {
+			it("ends the surface plate at the screen bounds away from the safe edges", {
 				id = "native_layout::Screen::ends the surface plate at the screen bounds away from the safe edges",
 				run = function()
-					local world = glassWorld(PORTRAIT, function(UI: FacetControls): Frame
+					local world = glassWorld(PORTRAIT, function(UI): Frame
 						return UI.VStack {
 							UI.Screen "Plain" { padding = 0 },
 							UI.Screen "Painted" { surface = "surface" },
@@ -1888,28 +1886,28 @@ return function(verifyHarness: Verify.Harness)
 					world.poke(painted, "AbsolutePosition", V2.new(100, 50))
 					world.poke(painted, "AbsoluteSize", V2.new(200, 300))
 					local backdrop = painted:FindFirstChild("Backdrop", true) :: Frame
-					Verify.expect((plain:FindFirstChild("Glass"))):toBeNil()
-					Verify.expect((plain:FindFirstChild("Backdrop", true))):toBeNil()
-					Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(0, 0))
-					Verify.expect(backdrop.Size):toBe(T.UDim2.fromScale(1, 1))
-					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					expect((plain:FindFirstChild("Glass"))):toBeNil()
+					expect((plain:FindFirstChild("Backdrop", true))):toBeNil()
+					expect(backdrop.Position):toBe(T.UDim2.fromOffset(0, 0))
+					expect(backdrop.Size):toBe(T.UDim2.fromScale(1, 1))
+					expect(world.layer.ClipToDeviceSafeArea):toBe(true)
 					world.poke(painted, "AbsolutePosition", V2.new(0, 50))
-					Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(-corner, 0))
-					Verify.expect(backdrop.Size):toBe(T.UDim2.new(1, corner, 1, 0))
-					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					expect(backdrop.Position):toBe(T.UDim2.fromOffset(-corner, 0))
+					expect(backdrop.Size):toBe(T.UDim2.new(1, corner, 1, 0))
+					expect(world.layer.ClipToDeviceSafeArea):toBe(true)
 					world.poke(painted, "AbsolutePosition", V2.new(0, 0))
-					Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(-corner, -106 - corner))
-					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					expect(backdrop.Position):toBe(T.UDim2.fromOffset(-corner, -106 - corner))
+					expect(world.layer.ClipToDeviceSafeArea):toBe(false)
 					world.stop()
-					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
-					local wrong = refusal(function(UI: FacetControls)
+					expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					local wrong = refusal(function(UI)
 						return UI.Screen(({ surface = "card" } :: unknown) :: Facet.ScreenProps)
 					end)
-					Verify.expect(mentions(wrong, "surface must be surface, panel or pane")):toBe(true)
+					expect(mentions(wrong, "surface must be surface, panel or pane")):toBe(true)
 				end,
 			})
 
-			verifyHarness:case("follows a landscape cutout on either side with the surface plate", {
+			it("follows a landscape cutout on either side with the surface plate", {
 				id = "native_layout::Screen::follows a landscape cutout on either side with the surface plate",
 				run = function()
 					for _, side in { { left = 47, right = 0 }, { left = 0, right = 47 } } do
@@ -1921,67 +1919,68 @@ return function(verifyHarness: Verify.Harness)
 							bottom = 21,
 							right = side.right,
 						}
-						local world = glassWorld(landscape, function(UI: FacetControls): Frame
+						local world = glassWorld(landscape, function(UI): Frame
 							return UI.Screen { surface = "surface", UI.Text { text = "Garage" } }
 						end)
 						local T, corner = world.T, 8
 						world.poke(world.root, "AbsoluteSize", world.safe)
 						local backdrop = world.root:FindFirstChild("Backdrop", true) :: Frame
 						local wide = side.left + side.right + 2 * corner
-						Verify.expect(backdrop.Position):toBe(T.UDim2.fromOffset(-side.left - corner, -58 - corner))
-						Verify.expect(backdrop.Size):toBe(T.UDim2.new(1, wide, 1, 58 + 21 + 2 * corner))
+						expect(backdrop.Position):toBe(T.UDim2.fromOffset(-side.left - corner, -58 - corner))
+						expect(backdrop.Size):toBe(T.UDim2.new(1, wide, 1, 58 + 21 + 2 * corner))
 						local padding = world.root:FindFirstChildWhichIsA("UIPadding") :: UIPadding
-						Verify.expect(padding.PaddingLeft):toBe(T.UDim.new(0, 16))
-						Verify.expect(padding.PaddingRight):toBe(T.UDim.new(0, 16))
-						Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
+						expect(padding.PaddingLeft):toBe(T.UDim.new(0, 16))
+						expect(padding.PaddingRight):toBe(T.UDim.new(0, 16))
+						expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
 						world.stop()
 					end
 				end,
 			})
 
-			verifyHarness:case("shares the device clipping lease between a surface Screen and a modal", {
+			it("shares the device clipping lease between a surface Screen and a modal", {
 				id = "native_layout::Screen::shares the device clipping lease between a surface Screen and a modal",
 				run = function()
 					local open = Compose.cell(false)
-					local world = glassWorld(PORTRAIT, function(UI: FacetControls): Frame
+					local world = glassWorld(PORTRAIT, function(UI): Frame
+						local confirmation: Facet.AlertSpec<unknown> = {
+							isPresented = open,
+							title = "Buy?",
+							actions = { { id = "ok", label = "OK" } },
+						}
 						return UI.Screen {
 							surface = "surface",
-							UI.Alert "Confirm" {
-								isPresented = open,
-								title = "Buy?",
-								actions = { { id = "ok", label = "OK" } },
-							},
+							UI.Alert "Confirm"(confirmation),
 						}
 					end)
 					local V2 = world.T.Vector2
 					world.poke(world.root, "AbsoluteSize", world.safe)
-					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					expect(world.layer.ClipToDeviceSafeArea):toBe(false)
 					open:set(true)
-					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					expect(world.layer.ClipToDeviceSafeArea):toBe(false)
 					open:set(false)
-					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					expect(world.layer.ClipToDeviceSafeArea):toBe(false)
 					world.poke(world.root, "AbsolutePosition", V2.new(0, 40))
 					world.poke(world.root, "AbsoluteSize", V2.new(390, 600))
-					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					expect(world.layer.ClipToDeviceSafeArea):toBe(true)
 					open:set(true)
-					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(false)
+					expect(world.layer.ClipToDeviceSafeArea):toBe(false)
 					open:set(false)
-					Verify.expect(world.layer.ClipToDeviceSafeArea):toBe(true)
+					expect(world.layer.ClipToDeviceSafeArea):toBe(true)
 					world.stop()
 				end,
 			})
 		end)
 
-		verifyHarness:suite("ZStack", function()
-			verifyHarness:case("aligns children by offset along a hugging axis", {
+		describe("ZStack", function()
+			it("aligns children by offset along a hugging axis", {
 				id = "native_layout::ZStack::aligns children by offset along a hugging axis",
 				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
+					local root, engine, stop = build(nil, function(UI, Host)
 						return UI.ZStack {
 							width = 60,
 							alignH = "end" :: "end",
 							alignV = "end" :: "end",
-							Host.Frame { Name = "Card" } :: unknown,
+							Host.Frame { Name = "Card" },
 							Host.Frame { Name = "Dot" },
 						}
 					end)
@@ -1989,19 +1988,19 @@ return function(verifyHarness: Verify.Harness)
 					local card, dot = root:FindFirstChild("Card"), root:FindFirstChild("Dot")
 					engine.environment.poke(card, "AbsoluteSize", V2.new(60, 40))
 					engine.environment.poke(dot, "AbsoluteSize", V2.new(16, 16))
-					Verify.expect(dot.AnchorPoint):toBe(V2.new(1, 0))
-					Verify.expect(dot.Position):toBe(D2.new(1, 0, 0, 24))
-					Verify.expect(card.Position):toBe(D2.new(1, 0, 0, 0))
+					expect(dot.AnchorPoint):toBe(V2.new(1, 0))
+					expect(dot.Position):toBe(D2.new(1, 0, 0, 24))
+					expect(card.Position):toBe(D2.new(1, 0, 0, 0))
 					engine.environment.poke(dot, "AbsoluteSize", V2.new(16, 50))
-					Verify.expect(card.Position):toBe(D2.new(1, 0, 0, 10))
-					Verify.expect(dot.Position):toBe(D2.new(1, 0, 0, 0))
+					expect(card.Position):toBe(D2.new(1, 0, 0, 10))
+					expect(dot.Position):toBe(D2.new(1, 0, 0, 0))
 					stop()
 				end,
 			})
 		end)
 
-		verifyHarness:suite("ScrollView", function()
-			verifyHarness:case("keeps room inside its canvas for the theme's plate glow and edge", {
+		describe("ScrollView", function()
+			it("keeps room inside its canvas for the theme's plate glow and edge", {
 				id = "native_layout::ScrollView::keeps room inside its canvas for the theme's plate glow and edge",
 				run = function()
 					local edge: ThemeTypes.AuthoredRuleProperties = { Thickness = 2 }
@@ -2019,104 +2018,98 @@ return function(verifyHarness: Verify.Harness)
 						rules = { { selector = ".facet-panel::UIStroke", properties = edge } },
 					}
 					local glowing = assert((Facet.themes.define(definition)))
-					local root, _, stop = build({ theme = glowing }, function(UI: FacetControls)
-						return UI.ScrollView({ UI.VStack({ width = "fill", surface = "panel" }) })
+					local root, _, stop = build({ theme = glowing }, function(UI)
+						return UI.ScrollView { UI.VStack { width = "fill", surface = "panel" } }
 					end)
 					local padding = child(root, "UIPadding")
-					Verify.expect(padding ~= nil):toBe(true)
-					Verify.expect(padding.PaddingLeft.Offset):toBe(22)
-					Verify.expect(padding.PaddingTop.Offset):toBe(22)
+					expect(padding ~= nil):toBe(true)
+					expect(padding.PaddingLeft.Offset):toBe(22)
+					expect(padding.PaddingTop.Offset):toBe(22)
 					stop()
-					root, _, stop = build({ theme = glowing }, function(UI: FacetControls)
-						return UI.ScrollView({ padding = 8 })
+					root, _, stop = build({ theme = glowing }, function(UI)
+						return UI.ScrollView { padding = 8 }
 					end)
-					Verify.expect(child(root, "UIPadding").PaddingRight.Offset):toBe(30)
+					expect(child(root, "UIPadding").PaddingRight.Offset):toBe(30)
 					stop()
-					root, _, stop = build(nil, function(UI: FacetControls)
-						return UI.ScrollView({})
+					root, _, stop = build(nil, function(UI)
+						return UI.ScrollView {}
 					end)
-					Verify.expect(child(root, "UIPadding")):toBe(nil)
+					expect(child(root, "UIPadding")):toBe(nil)
 					stop()
 				end,
 			})
 
-			verifyHarness:case(
-				"keeps a horizontal canvas floor at the native layout extent and respects an authored canvas",
-				{
-					id = "native_layout::ScrollView::keeps a horizontal canvas floor at the native layout extent and respects an authored canvas",
-					run = function()
-						local root, engine, stop = build(nil, function(UI: FacetControls)
-							return UI.ScrollView({ axis = "x" :: "x", padding = { left = 4, right = 6 } })
-						end)
-						local V2 = engine.types.Vector2
-						engine.environment.poke(root, "AbsoluteWindowSize", V2.new(353, 44))
-						engine.environment.poke(child(root, "UIListLayout"), "AbsoluteContentSize", V2.new(376, 40))
-						Verify.expect(root.AutomaticCanvasSize):toBe(engine.types.Enum.AutomaticSize.X)
-						Verify.expect(root.CanvasSize.X.Offset):toBe(386)
-						engine.environment.poke(root:FindFirstChild("LayoutUnit"), "AbsoluteSize", V2.new(200, 2))
-						engine.environment.poke(root, "AbsoluteWindowSize", V2.new(706, 88))
-						engine.environment.poke(child(root, "UIListLayout"), "AbsoluteContentSize", V2.new(752, 80))
-						Verify.expect(root.CanvasSize.X.Offset):toBe(386)
-						engine.environment.poke(root:FindFirstChild("LayoutUnit"), "AbsoluteSize", V2.new(100, 1))
-						engine.environment.poke(child(root, "UIListLayout"), "AbsoluteContentSize", V2.new(250, 40))
-						Verify.expect(root.CanvasSize.X.Offset):toBe(260)
-						stop()
-						root, engine, stop = build(nil, function(UI: FacetControls)
-							return UI.ScrollView({
-								axis = "x" :: "x",
-								CanvasSize = engine.types.UDim2.fromOffset(500, 0),
-							})
-						end)
-						engine.environment.poke(
-							child(root, "UIListLayout"),
-							"AbsoluteContentSize",
-							engine.types.Vector2.new(700, 40)
-						)
-						Verify.expect(root.CanvasSize.X.Offset):toBe(500)
-						stop()
-					end,
-				}
-			)
+			it("keeps a horizontal canvas floor at the native layout extent and respects an authored canvas", {
+				id = "native_layout::ScrollView::keeps a horizontal canvas floor at the native layout extent and respects an authored canvas",
+				run = function()
+					local root, engine, stop = build(nil, function(UI)
+						return UI.ScrollView { axis = "x" :: "x", padding = { left = 4, right = 6 } }
+					end)
+					local V2 = engine.types.Vector2
+					engine.environment.poke(root, "AbsoluteWindowSize", V2.new(353, 44))
+					engine.environment.poke(child(root, "UIListLayout"), "AbsoluteContentSize", V2.new(376, 40))
+					expect(root.AutomaticCanvasSize):toBe(engine.types.Enum.AutomaticSize.X)
+					expect(root.CanvasSize.X.Offset):toBe(386)
+					engine.environment.poke(root:FindFirstChild("LayoutUnit"), "AbsoluteSize", V2.new(200, 2))
+					engine.environment.poke(root, "AbsoluteWindowSize", V2.new(706, 88))
+					engine.environment.poke(child(root, "UIListLayout"), "AbsoluteContentSize", V2.new(752, 80))
+					expect(root.CanvasSize.X.Offset):toBe(386)
+					engine.environment.poke(root:FindFirstChild("LayoutUnit"), "AbsoluteSize", V2.new(100, 1))
+					engine.environment.poke(child(root, "UIListLayout"), "AbsoluteContentSize", V2.new(250, 40))
+					expect(root.CanvasSize.X.Offset):toBe(260)
+					stop()
+					root, engine, stop = build(nil, function(UI)
+						return UI.ScrollView {
+							axis = "x" :: "x",
+							CanvasSize = engine.types.UDim2.fromOffset(500, 0),
+						}
+					end)
+					engine.environment.poke(
+						child(root, "UIListLayout"),
+						"AbsoluteContentSize",
+						engine.types.Vector2.new(700, 40)
+					)
+					expect(root.CanvasSize.X.Offset):toBe(500)
+					stop()
+				end,
+			})
 
-			verifyHarness:case(
-				"restores an initial offset after native canvas bounds arrive without overriding input",
-				{
-					id = "native_layout::ScrollView::restores an initial offset after native canvas bounds arrive without overriding input",
-					run = function()
-						local frame, engine, stop = build(nil, function(UI)
-							return UI.ScrollView({
-								CanvasPosition = require("./lib/native_engine").types.Vector2.new(130, 0),
-								axis = "x",
-							})
-						end)
-						local V2 = engine.types.Vector2
-						frame.CanvasPosition = V2.zero
-						engine.environment.poke(frame, "AbsoluteWindowSize", V2.new(365, 220))
-						Verify.expect(frame.CanvasPosition):toBe(V2.zero)
-						engine.environment.poke(frame, "AbsoluteCanvasSize", V2.new(624, 220))
-						Verify.expect(frame.CanvasPosition):toBe(V2.new(130, 0))
-						frame.CanvasPosition = V2.new(20, 0)
-						engine.environment.poke(frame, "AbsoluteCanvasSize", V2.new(800, 220))
-						Verify.expect(frame.CanvasPosition):toBe(V2.new(20, 0))
-						stop()
-						frame, engine, stop = build(nil, function(UI)
-							return UI.ScrollView({ CanvasPosition = V2.new(130, 0), axis = "x" })
-						end)
-						frame.CanvasPosition = V2.zero
-						frame.InputBegan:Fire({ UserInputType = engine.types.Enum.UserInputType.Touch })
-						engine.environment.poke(frame, "AbsoluteWindowSize", V2.new(365, 220))
-						engine.environment.poke(frame, "AbsoluteCanvasSize", V2.new(624, 220))
-						Verify.expect(frame.CanvasPosition):toBe(V2.zero)
-						stop()
-					end,
-				}
-			)
+			it("restores an initial offset after native canvas bounds arrive without overriding input", {
+				id = "native_layout::ScrollView::restores an initial offset after native canvas bounds arrive without overriding input",
+				run = function()
+					local frame, engine, stop = build(nil, function(UI)
+						return UI.ScrollView {
+							CanvasPosition = require("./lib/native_engine").types.Vector2.new(130, 0),
+							axis = "x",
+						}
+					end)
+					local V2 = engine.types.Vector2
+					frame.CanvasPosition = V2.zero
+					engine.environment.poke(frame, "AbsoluteWindowSize", V2.new(365, 220))
+					expect(frame.CanvasPosition):toBe(V2.zero)
+					engine.environment.poke(frame, "AbsoluteCanvasSize", V2.new(624, 220))
+					expect(frame.CanvasPosition):toBe(V2.new(130, 0))
+					frame.CanvasPosition = V2.new(20, 0)
+					engine.environment.poke(frame, "AbsoluteCanvasSize", V2.new(800, 220))
+					expect(frame.CanvasPosition):toBe(V2.new(20, 0))
+					stop()
+					frame, engine, stop = build(nil, function(UI)
+						return UI.ScrollView { CanvasPosition = V2.new(130, 0), axis = "x" }
+					end)
+					frame.CanvasPosition = V2.zero
+					frame.InputBegan:Fire({ UserInputType = engine.types.Enum.UserInputType.Touch })
+					engine.environment.poke(frame, "AbsoluteWindowSize", V2.new(365, 220))
+					engine.environment.poke(frame, "AbsoluteCanvasSize", V2.new(624, 220))
+					expect(frame.CanvasPosition):toBe(V2.zero)
+					stop()
+				end,
+			})
 
-			verifyHarness:case("gives a fill-height child the padded window as a floor so its bottom stays reachable", {
+			it("gives a fill-height child the padded window as a floor so its bottom stays reachable", {
 				id = "native_layout::ScrollView::gives a fill-height child the padded window as a floor so its bottom stays reachable",
 				run = function()
 					local roblox = require("./lib/native_engine").types
-					local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
+					local root, engine, stop = build(nil, function(UI, Host)
 						return UI.ScrollView "Page" {
 							padding = 16,
 							Host.Frame {
@@ -2128,28 +2121,28 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local V2 = engine.types.Vector2
 					local body = root:FindFirstChild("Body")
-					Verify.expect(body.Size):toBe(engine.types.UDim2.new(1, 0, 0, 0))
+					expect(body.Size):toBe(engine.types.UDim2.new(1, 0, 0, 0))
 					engine.environment.poke(root, "AbsoluteSize", V2.new(389, 648))
-					Verify.expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(0, 616))
+					expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(0, 616))
 					stop()
 				end,
 			})
 
-			verifyHarness:case("lets a fill-height stack grow its scroll canvas around constrained content", {
+			it("lets a fill-height stack grow its scroll canvas around constrained content", {
 				id = "native_layout::ScrollView::lets a fill-height stack grow its scroll canvas around constrained content",
 				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
+					local root, engine, stop = build(nil, function(UI, Host)
 						return UI.ScrollView {
 							UI.VStack {
 								Name = "Page",
 								width = "fill" :: "fill",
 								height = "fill" :: "fill",
-								UI.fill() :: unknown,
+								UI.fill(),
 								Host.Frame { Size = require("./lib/native_engine").types.UDim2.new(1, 0, 0, 500) },
 								UI.VStack {
 									Name = "Pane",
 									height = "fill" :: "fill",
-									UI.fill() :: unknown,
+									UI.fill(),
 									Host.UISizeConstraint {
 										MinSize = require("./lib/native_engine").types.Vector2.new(0, 320),
 									},
@@ -2158,16 +2151,15 @@ return function(verifyHarness: Verify.Harness)
 						}
 					end)
 					local page = root:FindFirstChild("Page")
-					Verify.expect(page.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
-					Verify.expect(page:FindFirstChildWhichIsA("UIFlexItem").FlexMode)
-						:toBe(engine.types.Enum.UIFlexMode.Grow)
+					expect(page.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+					expect(page:FindFirstChildWhichIsA("UIFlexItem").FlexMode):toBe(engine.types.Enum.UIFlexMode.Grow)
 					engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(390, 600))
-					Verify.expect(page:FindFirstChildWhichIsA("UISizeConstraint").MinSize.Y):toBe(600)
+					expect(page:FindFirstChildWhichIsA("UISizeConstraint").MinSize.Y):toBe(600)
 					stop()
 				end,
 			})
 
-			verifyHarness:case("lets a grown fill-height child shrink back when the padded window shrinks", {
+			it("lets a grown fill-height child shrink back when the padded window shrinks", {
 				id = "native_layout::ScrollView::lets a grown fill-height child shrink back when the padded window shrinks",
 				run = function()
 					local roblox = require("./lib/native_engine").types
@@ -2186,7 +2178,7 @@ return function(verifyHarness: Verify.Harness)
 					runtime.mount(function()
 						root = UI.ScrollView "Page" {
 							padding = 16,
-							((runtime.constructors.Frame :: unknown) :: FrameConstructor) {
+							Facet.host(runtime).Frame {
 								Name = "Body",
 								Size = roblox.UDim2.fromScale(1, 1),
 								AutomaticSize = roblox.Enum.AutomaticSize.Y,
@@ -2197,114 +2189,111 @@ return function(verifyHarness: Verify.Harness)
 					local V2, E = engine.types.Vector2, engine.types.Enum
 					local body = root:FindFirstChild("Body")
 					engine.environment.poke(root, "AbsoluteSize", V2.new(389, 648))
-					Verify.expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(0, 616))
+					expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(0, 616))
 					engine.environment.poke(root, "AbsoluteSize", V2.new(749, 300))
-					Verify.expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(0, 268))
-					Verify.expect(body.AutomaticSize):toBe(E.AutomaticSize.None)
-					Verify.expect(body.Size.Y.Offset):toBe(268)
+					expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(0, 268))
+					expect(body.AutomaticSize):toBe(E.AutomaticSize.None)
+					expect(body.Size.Y.Offset):toBe(268)
 					engine.heartbeat:Fire(1 / 60)
-					Verify.expect(body.AutomaticSize):toBe(E.AutomaticSize.Y)
-					Verify.expect(body.Size):toBe(engine.types.UDim2.new(1, 0, 0, 0))
+					expect(body.AutomaticSize):toBe(E.AutomaticSize.Y)
+					expect(body.Size):toBe(engine.types.UDim2.new(1, 0, 0, 0))
 					engine.environment.poke(root, "AbsoluteSize", V2.new(389, 648))
-					Verify.expect(body.AutomaticSize):toBe(E.AutomaticSize.Y)
+					expect(body.AutomaticSize):toBe(E.AutomaticSize.Y)
 					runtime:dispose()
 				end,
 			})
 
-			verifyHarness:case(
-				"a fill-height child's shrink keeps the scroll, its own size constraint and a bound size",
-				{
-					id = "native_layout::ScrollView::a fill-height child's shrink keeps the scroll, its own size constraint and a bound size",
-					run = function()
-						local roblox = require("./lib/native_engine").types
-						local height = Compose.cell(0)
-						local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
-							return UI.ScrollView "Page" {
-								padding = 16,
-								Host.Frame {
-									Name = "Body",
-									Size = roblox.UDim2.fromScale(1, 1),
-									AutomaticSize = roblox.Enum.AutomaticSize.Y,
-									Host.UISizeConstraint { MinSize = roblox.Vector2.new(10, 700) },
-								} :: unknown,
-								Host.Frame {
-									Name = "Bound",
-									Size = function(use: Use)
-										return roblox.UDim2.new(1, 0, if use(height) > 0 then 0 else 1, use(height))
-									end,
-									AutomaticSize = roblox.Enum.AutomaticSize.Y,
-								},
-							}
-						end)
-						local V2, E = engine.types.Vector2, engine.types.Enum
-						local body, bound = root:FindFirstChild("Body"), root:FindFirstChild("Bound")
-						local constraints = 0
-						for _, node in body:GetChildren() do
-							if node:IsA("UISizeConstraint") then
-								constraints += 1
-							end
+			it("a fill-height child's shrink keeps the scroll, its own size constraint and a bound size", {
+				id = "native_layout::ScrollView::a fill-height child's shrink keeps the scroll, its own size constraint and a bound size",
+				run = function()
+					local roblox = require("./lib/native_engine").types
+					local height = Compose.cell(0)
+					local root, engine, stop = build(nil, function(UI, Host)
+						return UI.ScrollView "Page" {
+							padding = 16,
+							Host.Frame {
+								Name = "Body",
+								Size = roblox.UDim2.fromScale(1, 1),
+								AutomaticSize = roblox.Enum.AutomaticSize.Y,
+								Host.UISizeConstraint { MinSize = roblox.Vector2.new(10, 700) },
+							},
+							Host.Frame {
+								Name = "Bound",
+								Size = function(use: Use)
+									return roblox.UDim2.new(1, 0, if use(height) > 0 then 0 else 1, use(height))
+								end,
+								AutomaticSize = roblox.Enum.AutomaticSize.Y,
+							},
+						}
+					end)
+					local V2, E = engine.types.Vector2, engine.types.Enum
+					local body, bound = root:FindFirstChild("Body"), root:FindFirstChild("Bound")
+					local constraints = 0
+					for _, node in body:GetChildren() do
+						if node:IsA("UISizeConstraint") then
+							constraints += 1
 						end
-						Verify.expect(constraints):toBe(1)
-						engine.environment.poke(root, "AbsoluteSize", V2.new(389, 648))
-						Verify.expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(10, 700))
-						engine.environment.poke(root, "AbsoluteSize", V2.new(389, 1000))
-						Verify.expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(10, 968))
-						height:set(120)
-						root.CanvasPosition = V2.new(0, 200)
-						engine.environment.poke(root, "AbsoluteSize", V2.new(749, 300))
-						Verify.expect(bound.AutomaticSize):toBe(E.AutomaticSize.Y)
-						Verify.expect(bound.Size.Y.Offset):toBe(120)
-						Verify.expect(body.AutomaticSize):toBe(E.AutomaticSize.None)
-						root.CanvasPosition = V2.new(0, 0)
-						engine.heartbeat:Fire(1 / 60)
-						Verify.expect(body.AutomaticSize):toBe(E.AutomaticSize.Y)
-						engine.heartbeat:Fire(1 / 60)
-						Verify.expect(root.CanvasPosition):toBe(V2.new(0, 200))
-						stop()
-					end,
-				}
-			)
+					end
+					expect(constraints):toBe(1)
+					engine.environment.poke(root, "AbsoluteSize", V2.new(389, 648))
+					expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(10, 700))
+					engine.environment.poke(root, "AbsoluteSize", V2.new(389, 1000))
+					expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(10, 968))
+					height:set(120)
+					root.CanvasPosition = V2.new(0, 200)
+					engine.environment.poke(root, "AbsoluteSize", V2.new(749, 300))
+					expect(bound.AutomaticSize):toBe(E.AutomaticSize.Y)
+					expect(bound.Size.Y.Offset):toBe(120)
+					expect(body.AutomaticSize):toBe(E.AutomaticSize.None)
+					root.CanvasPosition = V2.new(0, 0)
+					engine.heartbeat:Fire(1 / 60)
+					expect(body.AutomaticSize):toBe(E.AutomaticSize.Y)
+					engine.heartbeat:Fire(1 / 60)
+					expect(root.CanvasPosition):toBe(V2.new(0, 200))
+					stop()
+				end,
+			})
 
-			verifyHarness:case("runs a horizontal axis as a horizontal list with a horizontal canvas", {
+			it("runs a horizontal axis as a horizontal list with a horizontal canvas", {
 				id = "native_layout::ScrollView::runs a horizontal axis as a horizontal list with a horizontal canvas",
 				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls)
+					local root, engine, stop = build(nil, function(UI)
 						return UI.ScrollView { axis = "x" :: "x" }
 					end)
 					local E = engine.types.Enum
-					Verify.expect(child(root, "UIListLayout").FillDirection):toBe(E.FillDirection.Horizontal)
-					Verify.expect(root.AutomaticCanvasSize):toBe(E.AutomaticSize.X)
-					Verify.expect(root.ScrollingDirection):toBe(E.ScrollingDirection.X)
-					Verify.expect(root.HorizontalScrollBarInset):toBe(E.ScrollBarInset.ScrollBar)
-					Verify.expect(root.AutomaticSize):toBe(E.AutomaticSize.Y)
-					Verify.expect(root.Size.Y.Scale == 0 and root.Size.X.Scale == 1):toBe(true)
+					expect(child(root, "UIListLayout").FillDirection):toBe(E.FillDirection.Horizontal)
+					expect(root.AutomaticCanvasSize):toBe(E.AutomaticSize.X)
+					expect(root.ScrollingDirection):toBe(E.ScrollingDirection.X)
+					expect(root.HorizontalScrollBarInset):toBe(E.ScrollBarInset.ScrollBar)
+					expect(root.AutomaticSize):toBe(E.AutomaticSize.Y)
+					expect(root.Size.Y.Scale == 0 and root.Size.X.Scale == 1):toBe(true)
 					stop()
-					local filled = build(nil, function(UI: FacetControls)
+					local filled = build(nil, function(UI)
 						return UI.ScrollView {
 							axis = "x" :: "x",
 							UI.VStack { height = "fill" :: "fill", UI.Text { text = "A" } },
 						}
 					end)
-					Verify.expect(filled.AutomaticSize):toBe(E.AutomaticSize.None)
-					Verify.expect(filled.Size.Y.Scale):toBe(1)
-					local both = build(nil, function(UI: FacetControls)
+					expect(filled.AutomaticSize):toBe(E.AutomaticSize.None)
+					expect(filled.Size.Y.Scale):toBe(1)
+					local both = build(nil, function(UI)
 						return UI.ScrollView { axis = "xy" :: "xy" }
 					end)
-					Verify.expect(both.AutomaticCanvasSize):toBe(E.AutomaticSize.XY)
-					Verify.expect(both.ScrollingDirection):toBe(E.ScrollingDirection.XY)
+					expect(both.AutomaticCanvasSize):toBe(E.AutomaticSize.XY)
+					expect(both.ScrollingDirection):toBe(E.ScrollingDirection.XY)
 				end,
 			})
 		end)
 
-		verifyHarness:suite("Grid", function()
-			verifyHarness:case("fills columns first with flow column and follows the child count", {
+		describe("Grid", function()
+			it("fills columns first with flow column and follows the child count", {
 				id = "native_layout::Grid::fills columns first with flow column and follows the child count",
 				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
+					local root, engine, stop = build(nil, function(UI, Host)
 						return UI.Grid "Board" {
 							columns = 2,
 							flow = "column" :: "column",
-							Host.Frame { Name = "A" } :: unknown,
+							Host.Frame { Name = "A" },
 							Host.Frame { Name = "B" },
 							Host.Frame { Name = "C" },
 							Host.Frame { Name = "D" },
@@ -2313,21 +2302,22 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local E = engine.types.Enum
 					local grid = child(root, "UIGridLayout")
-					Verify.expect(grid.FillDirection):toBe(E.FillDirection.Vertical)
-					Verify.expect(grid.FillDirectionMaxCells):toBe(3)
-					Verify.expect(grid.CellSize.X.Scale):toBeCloseTo(1 / 2, 1e-4)
+					expect(grid.FillDirection):toBe(E.FillDirection.Vertical)
+					expect(grid.FillDirectionMaxCells):toBe(3)
+					expect(grid.CellSize.X.Scale):toBeCloseTo(1 / 2, 1e-4)
 					local extra = engine.new("Frame")
 					extra.Parent = root
 					local more = engine.new("Frame")
 					more.Parent = root
-					Verify.expect(grid.FillDirectionMaxCells):toBe(4)
+					expect(grid.FillDirectionMaxCells):toBe(4)
 					more.Parent = nil
 					extra.Parent = nil
-					Verify.expect(grid.FillDirectionMaxCells):toBe(3)
+					expect(grid.FillDirectionMaxCells):toBe(3)
 					stop()
-					Verify.expect((mentions(
+					expect((mentions(
 						refusal(function(UI: FacetControls)
-							return UI.Grid { columns = 2, flow = "diagonal" :: any }
+							local grid: Facet.GridProps = { columns = 2, flow = "diagonal" :: any }
+							return UI.Grid(grid)
 						end),
 						"flow must be row or column"
 					))):toBe(true)
@@ -2335,7 +2325,7 @@ return function(verifyHarness: Verify.Harness)
 			})
 		end)
 
-		verifyHarness:suite("layout paint belongs to the StyleSheet", function()
+		describe("layout paint belongs to the StyleSheet", function()
 			local styleRules = require("./lib/style_rules")
 
 			local function painted(engine: any, sheet: any, node: any, property: string): any
@@ -2347,34 +2337,34 @@ return function(verifyHarness: Verify.Harness)
 				return if ruled == nil then default else ruled
 			end
 			local primitives: { [string]: (any, any) -> any } = {
-				VStack = function(UI: FacetControls)
+				VStack = function(UI)
 					return UI.VStack { UI.Text { text = "A" } }
 				end,
-				HStack = function(UI: FacetControls)
+				HStack = function(UI)
 					return UI.HStack { UI.Text { text = "A" } }
 				end,
-				ZStack = function(UI: FacetControls)
+				ZStack = function(UI)
 					return UI.ZStack { UI.Text { text = "A" } }
 				end,
-				Screen = function(UI: FacetControls)
+				Screen = function(UI)
 					return UI.Screen { UI.Text { text = "A" } }
 				end,
-				ScrollView = function(UI: FacetControls)
+				ScrollView = function(UI)
 					return UI.ScrollView { UI.Text { text = "A" } }
 				end,
-				Grid = function(UI: FacetControls)
+				Grid = function(UI)
 					return UI.Grid { columns = 2, UI.Text { text = "A" } }
 				end,
-				AdaptiveStack = function(UI: FacetControls)
+				AdaptiveStack = function(UI)
 					return UI.AdaptiveStack { UI.Text { text = "A" } }
 				end,
-				ViewThatFits = function(UI: FacetControls)
+				ViewThatFits = function(UI)
 					return UI.ViewThatFits { UI.Text { text = "A" } }
 				end,
-				Spacer = function(UI: FacetControls)
+				Spacer = function(UI)
 					return UI.Spacer {}
 				end,
-				ErrorBoundary = function(UI: FacetControls)
+				ErrorBoundary = function(UI)
 					return UI.ErrorBoundary {
 						view = function()
 							return UI.Text { text = "A" }
@@ -2384,10 +2374,10 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end,
-				Region = function(UI: FacetControls)
+				Region = function(UI)
 					return UI.Region { zone = "center" :: "center", rank = 1, UI.Text { text = "A" } }
 				end,
-				Composition = function(UI: FacetControls)
+				Composition = function(UI)
 					return UI.Composition { UI.Region { zone = "center" :: "center", rank = 1, UI.Text { text = "A" } } }
 				end,
 			}

@@ -1,4 +1,5 @@
 --!strict
+local ThemeTypes = require("./theme_types")
 local TreeTypes = require("./collection_tree")
 local activation = require("./activation")
 local createSelection = require("./collection_selection")
@@ -39,7 +40,7 @@ export type View<V, K> = {
 	frames: ComposeTypes.Frames,
 	reduced: () -> boolean,
 	unit: Frame,
-	unitSize: ComposeTypes.Value<Vector2>,
+	unitSize: ComposeTypes.ReadOnlyValue<Vector2>,
 	focusActive: ComposeTypes.Value<boolean>,
 	noFocusCandidates: { V },
 	initialFollow: boolean,
@@ -102,10 +103,12 @@ local function create<V, K>(
 ): View<V, K>
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
+	local readNumber = read<<number>>
 	local readSource = ctx.readSource
 	local observe = ctx.observe
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
-	local viewport: ComposeTypes.Value<ComposeTypes.OrderedCollectionViewport> = Compose.cell({ offset = 0, size = 0 })
+	local initialViewport: ComposeTypes.OrderedCollectionViewport = { offset = 0, size = 0 }
+	local viewport = Compose.cell(initialViewport)
 	local cross, mountedVersion = Compose.cell(0), Compose.cell(0)
 	local emptyStatus: ComposeTypes.OrderedCollectionStatus = {
 		mode = "windowed",
@@ -128,7 +131,13 @@ local function create<V, K>(
 		status:set(emptyStatus)
 	end
 	local controls: ComposeTypes.OrderedCollectionControls<K> = spec.controls or {}
-	local selection: ComposeTypes.Value<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
+	local selection: ComposeTypes.Value<CollectionTypes.Selection<K>>
+	if spec.selection then
+		selection = spec.selection
+	else
+		local initialSelection: CollectionTypes.Selection<K> = {}
+		selection = Compose.cell(initialSelection)
+	end
 	local coordinator = Compose.cell(nil :: {}?)
 	local selectionMode: "none" | "single" | "multiple" = spec.selectionMode
 		or (if spec.selection or spec.onSelectionChange then "single" else "none")
@@ -147,13 +156,13 @@ local function create<V, K>(
 	local function reduced(): boolean
 		return if spec.reducedMotion == nil then motionReduced() else read(spec.reducedMotion) == true
 	end
-	local unit = Host.Frame({
+	local unit = Host.Frame {
 		Name = "LayoutUnit",
 		Size = D2.fromOffset(1, 1),
 		BackgroundTransparency = 1,
 		Visible = false,
-	})
-	local unitSize: ComposeTypes.Value<Vector2> = observe.AbsoluteSize(unit)
+	}
+	local unitSize = observe.AbsoluteSize(unit)
 	local focusActive = Compose.cell(spec.focus ~= nil or spec.initialFocus ~= nil or spec.autoFocus == true)
 	local noFocusCandidates: { V } = {}
 	local initialFollow = read(spec.follow) == "end" and spec.CanvasPosition == nil
@@ -239,7 +248,7 @@ local function create<V, K>(
 		maxRetained = spec.maxRetained or 32,
 		create = function()
 			local owner = Compose.owner.createChild(poolOwner)
-			local node = Compose.withOwner(owner, function()
+			local node = Compose.withOwner(owner, function(): Frame
 				local nativeProps: Types.FrameProps = {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -259,11 +268,11 @@ local function create<V, K>(
 		end,
 	})
 	local function edgeOf(gutter: Types.Input<number>?, use: ComposeTypes.Use?): number
-		return if kind == "grid" then math.ceil(math.max(0, read(gutter or 0, use)) / 2) else 0
+		return if kind == "grid" then math.ceil(math.max(0, read<<number>>(gutter or 0, use)) / 2) else 0
 	end
 
 	local function plateReach(use: ComposeTypes.Use?): number
-		return themeSupport.plateReach(read(ctx.config.theme, use))
+		return themeSupport.plateReach(read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use))
 	end
 	local function mainEdge(use: ComposeTypes.Use?): number
 		local edge = edgeOf(spec.gap, use)
@@ -285,11 +294,14 @@ local function create<V, K>(
 			return 1
 		end
 		if spec.minColumnWidth == nil then
-			return math.max(1, math.floor(read(spec.columns or 1, use)))
+			return math.max(1, math.floor(readNumber(spec.columns or 1, use)))
 		end
-		local fitted =
-			adaptive.columnsFor(available, read(spec.minColumnWidth, use), read(spec.crossGap or spec.gap or 0, use))
-		local columns = math.max(fitted, read(spec.minColumns or 1, use))
+		local fitted = adaptive.columnsFor(
+			available,
+			readNumber(spec.minColumnWidth, use),
+			readNumber(spec.crossGap or spec.gap or 0, use)
+		)
+		local columns = math.max(fitted, readNumber(spec.minColumns or 1, use))
 		if not spec.hug or spec.slots ~= nil then
 			return columns
 		end
@@ -314,7 +326,7 @@ local function create<V, K>(
 	local function cardLayout(use: ComposeTypes.Use?): (number, number)
 		local options: { perView: number?, minWidth: number?, peek: number? } = spec.cards or {}
 		local available = if use then use(viewport).size else viewport:peek().size
-		local gap: number = read(spec.gap or 0, use)
+		local gap: number = read<<number>>(spec.gap or 0, use)
 		local touch = preferred ~= nil and readSource(preferred, use) == E.PreferredInput.Touch
 		local perView = options.perView
 			or if touch and available < adaptive.BREAKPOINTS.regular

@@ -5,7 +5,7 @@
     "Lighting": { "$className": "Lighting", "$properties": { "Technology": "Future" } },
     "StarterGui": { "$properties": { "ScreenOrientation": "Sensor" } },
     "Workspace": {
-      "$properties": { "FilteringEnabled": true, "PlayerScriptsUseInputActionSystem": "Enabled" },
+      "$properties": { "UseNewLuauTypeSolver": "Enabled", "FilteringEnabled": true, "PlayerScriptsUseInputActionSystem": "Enabled" },
       "Baseplate": {
         "$className": "Part",
         "$properties": {

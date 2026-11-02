@@ -1,8 +1,16 @@
 --!strict
-return function(c: any, kind: string)
+local Types = require("./catalog_types")
+type Row = { id: string, name: string, kind: string, parent: string? }
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+type Draft = { text: string, original: unknown, error: string? }
+type Undo = { rows: { Row }, selection: { [string]: boolean } }
+
+return function(c: Types.Context, kind: string)
 	local UI, C = c.UI, c.Compose
-	local D2, E = c.ctx.types.UDim2, c.ctx.types.Enum
-	local initial: { any } = {}
+	local D2, E = c.types.UDim2, c.types.Enum
+	local initial: { Row } = {}
 	for i, name in { "Coast", "Canyon", "Forest", "City", "Glacier", "Harbour" } do
 		initial[i] = { id = tostring(i), name = name, kind = if i % 3 == 0 then "Material" else "Image" }
 	end
@@ -12,10 +20,10 @@ return function(c: any, kind: string)
 		end
 		table.insert(initial, 1, { id = "folder", name = "Championship", kind = "Folder" })
 	end
-	local rows = c.cell("editingRows", initial)
-	local expanded = c.cell("editingExpanded", { folder = true })
-	local function children(parent, all)
-		local result = {}
+	local rows: Value<{ Row }> = c.cell("editingRows", initial)
+	local expanded: Value<{ [string]: boolean }> = c.cell("editingExpanded", { folder = true })
+	local function children(parent: string?, all: { Row }): { Row }
+		local result: { Row } = {}
 		for _, item in all do
 			if item.parent == parent then
 				table.insert(result, item)
@@ -23,24 +31,28 @@ return function(c: any, kind: string)
 		end
 		return result
 	end
-	local selection = c.cell("editingSelection", {})
-	local enabled, editing = c.cell("editingEnabled", true), c.cell("editingMode", false)
-	local cellsEnabled = c.cell("cellEditingEnabled", true)
-	local serial, undo = c.cell("editingSerial", 6), c.cell("editingUndo", nil)
-	local drafts = c.cell("editingDrafts", {}):peek()
+	local selection: Value<{ [string]: boolean }> = c.cell("editingSelection", {})
+	local enabled: Value<boolean> = c.cell("editingEnabled", true)
+	local editing: Value<boolean> = c.cell("editingMode", false)
+	local cellsEnabled: Value<boolean> = c.cell("cellEditingEnabled", true)
+	local serial: Value<number> = c.cell("editingSerial", 6)
+	local noUndo: Undo? = nil
+	local undo: Value<Undo?> = c.cell("editingUndo", noUndo)
+	local noDraft: Draft? = nil
+	local drafts: { [string]: Value<Draft?> } = c.cell("editingDrafts", {}):peek()
 	local env = UI.environment()
-	local function coarse(use)
+	local function coarse(use: Use)
 		return use(env.effectiveInput) ~= "KeyboardAndMouse"
 	end
-	local function editable(use)
+	local function editable(use: Use)
 		return use(cellsEnabled)
 	end
-	local function save(nextRows)
+	local function save(nextRows: { Row })
 		undo:set({ rows = rows:peek(), selection = selection:peek() })
 		rows:set(nextRows)
 	end
-	local function remove(keys)
-		local removing = {}
+	local function remove(keys: { string })
+		local removing: { [string]: boolean } = {}
 		for _, key in keys do
 			removing[key] = true
 		end
@@ -54,7 +66,8 @@ return function(c: any, kind: string)
 				end
 			end
 		end
-		local kept, chosen = {}, table.clone(selection:peek())
+		local kept: { Row } = {}
+		local chosen = table.clone(selection:peek())
 		for _, item in rows:peek() do
 			if removing[item.id] then
 				chosen[item.id] = nil
@@ -79,8 +92,8 @@ return function(c: any, kind: string)
 		end
 		return result
 	end
-	local function cell(current, _placement, key)
-		drafts[key] = drafts[key] or C.cell(nil)
+	local function cell(current: ReadOnlyValue<Row>, _placement: unknown, key: string)
+		drafts[key] = drafts[key] or C.cell(noDraft)
 		return (if kind == "Outline" then UI.HStack else UI.VStack) {
 			Name = "EditableCell",
 			align = "center",
@@ -94,7 +107,7 @@ return function(c: any, kind: string)
 				align = "center",
 				UI.Image { image = "rbxassetid://75342910516929", Size = D2.fromOffset(32, 32) },
 				UI.Text {
-					text = function(use)
+					text = function(use: Use)
 						return use(current).kind
 					end,
 					textRole = "caption",
@@ -110,26 +123,25 @@ return function(c: any, kind: string)
 				Size = D2.fromScale(1, 0),
 				draft = drafts[key],
 				if kind == "Outline" then UI.fill() else nil,
-				value = function(use)
+				value = function(use: Use)
 					return use(current).name
 				end,
-				validate = function(value)
-					return if string.match(value, "^%s*$") then "Enter a name." else nil
+				validate = function(value: unknown)
+					return if string.match(tostring(value), "^%s*$") then "Enter a name." else nil
 				end,
-				onChange = function(value)
+				onChange = function(value: unknown)
 					if not cellsEnabled:peek() then
-						return false
+						return
 					end
-					local nextRows: { any } = table.clone(rows:peek())
+					local nextRows: { Row } = table.clone(rows:peek())
 					for index, item in nextRows do
 						if item.id == key then
 							nextRows[index] = table.clone(item)
-							nextRows[index].name = value
+							nextRows[index].name = tostring(value)
 						end
 					end
 					save(nextRows)
 					c.log("rename")(key, value)
-					return true
 				end,
 			},
 		}
@@ -137,7 +149,7 @@ return function(c: any, kind: string)
 	local spec: any = {
 		Name = "EditableItems",
 		from = if kind == "Outline"
-			then function(use)
+			then function(use: Use)
 				return children(nil, use(rows))
 			end
 			else rows,
@@ -145,7 +157,7 @@ return function(c: any, kind: string)
 		key = "id",
 		selection = selection,
 		selectionMode = "multiple",
-		editing = function(use)
+		editing = function(use: Use)
 			return use(enabled) and coarse(use) and use(editing)
 		end,
 		deletable = true,
@@ -161,7 +173,8 @@ return function(c: any, kind: string)
 			if not enabled:peek() then
 				return
 			end
-			local kept: { any }, carried: { any } = {}, {}
+			local kept: { Row } = {}
+			local carried: { Row } = {}
 			for _, item in rows:peek() do
 				table.insert(if table.find(moved, item.id) then carried else kept, item)
 			end
@@ -188,7 +201,7 @@ return function(c: any, kind: string)
 		gap = if kind == "Outline" then 0 else 8,
 	}
 	if kind == "Outline" then
-		spec.children = function(item)
+		spec.children = function(item: Row)
 			return if item.kind == "Folder" then children(item.id, rows:peek()) else nil
 		end
 		spec.expanded = expanded
@@ -200,7 +213,7 @@ return function(c: any, kind: string)
 				id = "kind",
 				label = "Kind",
 				width = 100,
-				value = function(item)
+				value = function(item: Row)
 					return item.kind
 				end,
 			},
@@ -217,7 +230,7 @@ return function(c: any, kind: string)
 		width = "fill",
 		gap = "m",
 		UI.Text {
-			text = function(use)
+			text = function(use: Use)
 				return if use(env.effectiveInput) == "Gamepad"
 					then "A selects an item. X opens item actions to rename; Edit selects a group. On a move handle, A picks up, D-pad moves, A drops and B cancels."
 					elseif
@@ -240,7 +253,7 @@ return function(c: any, kind: string)
 			UI.Toggle "EnableEditing" { label = "Container editing", value = enabled },
 			UI.Toggle "EnableCellEditing" { label = "Cell editing", value = cellsEnabled },
 			UI.Button "EditItems" {
-				label = function(use)
+				label = function(use: Use)
 					return if use(editing) then "Done" else "Edit"
 				end,
 				Visible = coarse,
@@ -254,7 +267,7 @@ return function(c: any, kind: string)
 				enabled = enabled,
 				onActivate = function()
 					serial:set(serial:peek() + 1)
-					local nextRows: { any } = table.clone(rows:peek())
+					local nextRows: { Row } = table.clone(rows:peek())
 					table.insert(
 						nextRows,
 						1,
@@ -265,7 +278,7 @@ return function(c: any, kind: string)
 			},
 			UI.Button "DeleteSelected" {
 				label = "Delete selected",
-				enabled = function(use)
+				enabled = function(use: Use)
 					return use(enabled) and next(use(selection)) ~= nil
 				end,
 				onActivate = function()
@@ -274,7 +287,7 @@ return function(c: any, kind: string)
 			},
 			UI.Button "UndoEdit" {
 				label = "Undo",
-				enabled = function(use)
+				enabled = function(use: Use)
 					return (use(enabled) or use(cellsEnabled)) and use(undo) ~= nil
 				end,
 				onActivate = function()
@@ -289,7 +302,7 @@ return function(c: any, kind: string)
 		},
 		UI.Text "EditingSummary" {
 			textRole = "caption",
-			text = function(use)
+			text = function(use: Use)
 				local count = 0
 				for _ in use(selection) do
 					count += 1
@@ -297,6 +310,9 @@ return function(c: any, kind: string)
 				return `{#use(rows)} items · {count} selected`
 			end,
 		},
-		UI[if kind == "Outline" then "Table" else kind](spec),
+		if kind == "Outline" or kind == "Table"
+			then UI.Table(spec)
+			elseif kind == "VirtualGrid" then UI.VirtualGrid(spec)
+			else UI.VirtualList(spec),
 	}
 end

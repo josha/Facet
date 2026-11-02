@@ -17,11 +17,11 @@ local STATES: { [string]: string } =
 local STEP_KEYS: { [string]: boolean } =
 	{ id = true, label = true, description = true, state = true, navigable = true, enabled = true }
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 	local Host, Compose, read, runtime = ctx.Host, ctx.Compose, ctx.read, ctx.runtime
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 
-	local function problem(steps: unknown, current: unknown): string?
+	local function problem(steps: { Content.Step }, current: string?): string?
 		if type(steps) ~= "table" then
 			return "steps must be an array of steps"
 		end
@@ -29,46 +29,49 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			return "current must be a step id or nil"
 		end
 		local seen: { [string]: boolean } = {}
-		for index, step in steps :: { unknown } do
+		for index, step in steps do
 			if type(step) ~= "table" then
 				return `step {index} must be a table`
 			end
-			local entry = step :: { [string]: unknown }
-			for key in entry do
+			local fields: unknown = step
+			assert(type(fields) == "table")
+			for key in fields do
 				if type(key) ~= "string" or not STEP_KEYS[key] then
 					return `step {index} has the unknown field '{tostring(key)}'`
 				end
 			end
+			local entry = step
 			if type(entry.id) ~= "string" or entry.id == "" then
 				return `step {index} needs a nonempty string id`
 			end
-			if seen[entry.id :: string] then
+			if seen[entry.id] then
 				return `two steps share the id '{entry.id}'`
 			end
-			seen[entry.id :: string] = true
-			if type(entry.label) ~= "string" or string.find(entry.label :: string, "%S") == nil then
+			seen[entry.id] = true
+			if type(entry.label) ~= "string" or string.find(entry.label, "%S") == nil then
 				return `step '{entry.id}' needs a nonempty label`
 			end
 			if entry.description ~= nil and type(entry.description) ~= "string" then
 				return `step '{entry.id}' description must be a string`
 			end
-			if entry.state ~= nil and STATES[entry.state :: string] == nil then
+			if entry.state ~= nil and STATES[entry.state] == nil then
 				return `step '{entry.id}' state must be complete, current, upcoming or error`
 			end
 			if entry.state == "current" and entry.id ~= current then
 				return `step '{entry.id}' is marked current, but current names '{tostring(current)}'`
 			end
-			for _, flag in { "navigable", "enabled" } do
-				if entry[flag] ~= nil and type(entry[flag]) ~= "boolean" then
-					return `step '{entry.id}' {flag} must be a boolean`
-				end
+			if entry.navigable ~= nil and type(entry.navigable) ~= "boolean" then
+				return `step '{entry.id}' navigable must be a boolean`
+			end
+			if entry.enabled ~= nil and type(entry.enabled) ~= "boolean" then
+				return `step '{entry.id}' enabled must be a boolean`
 			end
 		end
 		return nil
 	end
 
 	UI.StepIndicator = ctx.construct("StepIndicator", function(spec: ContentProps.StepIndicatorSpec): Frame
-		local initialSteps, initialCurrent = read(spec.steps), read(spec.current)
+		local initialSteps, initialCurrent = read<<{ Content.Step }>>(spec.steps), read<<string?>>(spec.current)
 		local refusal = problem(initialSteps, initialCurrent)
 		if refusal then
 			error(`Facet UI.StepIndicator: {refusal}`, 0)
@@ -102,7 +105,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		last = snapshot(initialSteps, initialCurrent)
 		local refused = false
 		local model = Compose.formula(function(use: ComposeTypes.Use): Snapshot
-			local steps, current = read(spec.steps, use), read(spec.current, use)
+			local steps, current = read<<{ Content.Step }>>(spec.steps, use), read<<string?>>(spec.current, use)
 			local reason = problem(steps, current)
 			if reason == nil then
 				last, refused = snapshot(steps, current), false
@@ -156,22 +159,27 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			return (ctx.controlSize(spec.controlSize, "iconSize", use))
 		end
 		local function inset(side: "left" | "right" | "top" | "bottom", use: ComposeTypes.Use?): number
-			local package = read(ctx.config.theme, use)
+			local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 			local skin = package and package.chrome and package.chrome.control
 			local insets: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
 			local floor = if side == "left" or side == "right"
 				then ctx.controlSize(spec.controlSize, "paddingX", use)
 				else ctx.metric("space.xs", use)
-			return math.max(floor, insets[side] or 0)
+			local value = if side == "left"
+				then insets.left
+				elseif side == "right" then insets.right
+				elseif side == "top" then insets.top
+				else insets.bottom
+			return math.max(floor, value or 0)
 		end
 		local function padding(side: "left" | "right" | "top" | "bottom")
 			return function(use: ComposeTypes.Use): UDim
 				return D.new(0, inset(side, use))
 			end
 		end
-		local measures = Compose.cell({} :: { [string]: { ComposeTypes.ReadOnlyValue<Vector2> } })
+		local measures: ComposeTypes.Value<{ [string]: { ComposeTypes.ReadOnlyValue<Vector2> } }> = Compose.cell({})
 		local cells: { [string]: GuiObject } = {}
-		local cellMeasures = Compose.cell({} :: { [string]: { ComposeTypes.ReadOnlyValue<Vector2> } })
+		local cellMeasures: ComposeTypes.Value<{ [string]: { ComposeTypes.ReadOnlyValue<Vector2> } }> = Compose.cell({})
 		local function content(id: string): { Types.Child }
 			local numberLabel = ctx.text({
 				Name = "Number",
@@ -196,7 +204,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					local side = math.max(cueSize(use), math.ceil(math.max(bounds.X, bounds.Y, line)) + 8)
 					return D2.fromOffset(side, side)
 				end,
-				Host.UIAspectRatioConstraint({ AspectRatio = 1 }),
+				Host.UIAspectRatioConstraint { AspectRatio = 1 },
 				ctx.styled(
 					Host.Frame "Circle" {
 						BackgroundTransparency = 1,
@@ -206,8 +214,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 							local state = if step then stateOf(step, ctx.readSource(model, use).current) else "upcoming"
 							return state ~= "complete" and state ~= "error"
 						end,
-						Host.UICorner({ CornerRadius = ctx.round }),
-						Host.UIStroke({ ApplyStrokeMode = E.ApplyStrokeMode.Border }),
+						Host.UICorner { CornerRadius = ctx.round },
+						Host.UIStroke { ApplyStrokeMode = E.ApplyStrokeMode.Border },
 						numberLabel,
 					},
 					"step-circle"
@@ -284,20 +292,20 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				measures:set(remaining)
 			end)
 			return {
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = E.FillDirection.Horizontal,
 					SortOrder = E.SortOrder.LayoutOrder,
 					VerticalAlignment = E.VerticalAlignment.Top,
 					Padding = function(use: ComposeTypes.Use)
 						return D.new(0, ctx.metric("space.s", use))
 					end,
-				}),
-				Host.UIPadding({
+				},
+				Host.UIPadding {
 					PaddingLeft = padding("left"),
 					PaddingRight = padding("right"),
 					PaddingTop = padding("top"),
 					PaddingBottom = padding("bottom"),
-				}),
+				},
 				cue,
 				copy,
 				measure,
@@ -346,7 +354,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					local button = UI.Button(props)
 					node = button
 				else
-					local props: Types.FrameNativeProps = {
+					local props: Types.FrameProps = {
 						Name = layout.Name,
 						LayoutOrder = layout.LayoutOrder,
 						Size = layout.Size,
@@ -357,7 +365,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 								local live = stepById(id, use)
 								return if live then live.label else id
 							end,
-						} :: Types.Attributes,
+						},
 					}
 					for _, child in content(id) do
 						props[#props + 1] = child
@@ -377,7 +385,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				next[id] = { ctx.observe.AbsolutePosition(node), ctx.observe.AbsoluteSize(node) }
 				cellMeasures:set(next)
 				Compose.cleanup(function()
-					if cells[id] == node then
+					if rawequal(cells[id], node) then
 						cells[id] = nil
 					end
 					local remaining = table.clone(cellMeasures:peek())
@@ -391,12 +399,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local reduced = reducedMotion(ctx)
 		local target = Compose.formula(function(use: ComposeTypes.Use): { x: number, width: number, shown: boolean }
 			local m = use(model)
-			local measured = if m.current then use(cellMeasures)[m.current] else nil
+			local measured: { ComposeTypes.ReadOnlyValue<Vector2> }? = if m.current
+				then use(cellMeasures)[m.current]
+				else nil
 			local box = use(stripBox)
 			if measured == nil or box.width <= 0 then
 				return { x = 0, width = 0, shown = false }
 			end
-			local at, size = use(measured[1]), use(measured[2])
+			local at: Vector2, size: Vector2 = use(measured[1]), use(measured[2])
 			return { x = (at.X - box.x) / box.width, width = size.X / box.width, shown = true }
 		end)
 		local indicatorSpring = ctx.motionSpring("control")
@@ -406,7 +416,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local springWidth = runtime.spring(function(use: ComposeTypes.Use)
 			return use(target).width
 		end, { period = indicatorSpring.period, damping = indicatorSpring.damping })
-		local rowLayout = Host.UIListLayout({
+		local rowLayout = Host.UIListLayout {
 			FillDirection = E.FillDirection.Horizontal,
 			SortOrder = E.SortOrder.LayoutOrder,
 			VerticalAlignment = E.VerticalAlignment.Top,
@@ -415,22 +425,22 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			Padding = function(use: ComposeTypes.Use)
 				return D.new(0, ctx.metric("space.m", use))
 			end,
-		})
+		}
 		local laidOut = ctx.observe.AbsoluteContentSize(rowLayout)
 		local row = Host.Frame "Row" {
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 			rowLayout,
-			Host.UIPadding({
+			Host.UIPadding {
 				PaddingBottom = function(use: ComposeTypes.Use)
 					return D.new(0, ctx.metric("space.xs", use) + 2)
 				end,
-			}),
+			},
 			rowItems,
 		}
 		local underline = ctx.styled(
-			Host.Frame({
+			Host.Frame {
 				Name = "Underline",
 				BorderSizePixel = 0,
 				AnchorPoint = V2.new(0, 1),
@@ -446,7 +456,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					local width = if reduced(use) then use(target).width else use(springWidth)
 					return D2.new(width, 0, 0, 2)
 				end,
-			}),
+			},
 			"selection-indicator"
 		)
 		local strip = Host.Frame "Strip" {
@@ -499,7 +509,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			Compose.show(function(use: ComposeTypes.Use): boolean
 				return #use(model).steps > 0
 			end, function()
-				return UI.Menu({
+				return UI.Menu {
 					Name = "ShowSteps",
 					label = spec.listLabel or "Steps",
 					isPresented = listOpen,
@@ -509,7 +519,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						local m = use(model)
 						for _, step in m.steps do
 							local id = step.id
-							table.insert(items, {
+							local item: Nav.MenuCommand = {
 								id = `Item-{id}`,
 								label = step.label,
 								description = STATES[stateOf(step, m.current)],
@@ -519,11 +529,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 								onSelect = function()
 									propose(id)
 								end,
-							})
+							}
+							table.insert(items, item)
 						end
 						return items
 					end,
-				})
+				}
 			end),
 		}, { Name = "SummaryRow" })
 		root = Host.Frame(ctx.props(spec, {
@@ -541,13 +552,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 			Attributes = {
-				FacetCurrent = checks.attribute(function(use: ComposeTypes.Use)
+				FacetCurrent = function(use: ComposeTypes.Use)
 					return use(model).current
-				end),
-				FacetSummary = checks.attribute(summary),
-				FacetForm = checks.attribute(form),
-				FacetListOpen = checks.attribute(listOpen),
-			} :: Types.Attributes,
+				end,
+				FacetSummary = summary,
+				FacetForm = form,
+				FacetListOpen = listOpen,
+			},
 			strip,
 			compact,
 		}))

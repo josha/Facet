@@ -1,8 +1,8 @@
 --!strict
 local Types = require("./types")
 local arbitration = require("./gesture_arbitration")
-local services = setmetatable({} :: { [UserInputService]: arbitration.Arbiter }, { __mode = "k" })
-local fallbacks = setmetatable({} :: { [Types.Context]: arbitration.Arbiter }, { __mode = "k" })
+local services: { [UserInputService]: arbitration.Arbiter } = setmetatable({}, { __mode = "k" })
+local fallbacks: { [Types.Context]: arbitration.Arbiter } = setmetatable({}, { __mode = "k" })
 
 return function(ctx: Types.Context): arbitration.Arbiter
 	local input = ctx.config.userInputService

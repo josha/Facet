@@ -46,7 +46,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 		track: (() -> Instance)?,
 		knob: ((Inputs.SliderKnob) -> Instance)?
 	): Frame
-		local props: InputProps.SliderProps = {
+		local props: InputProps.SliderRequestProps = {
 			Name = name,
 			label = words,
 			value = function(use: Use): number
@@ -87,7 +87,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 			Visible = function(use: Use)
 				return touch(use) and shown(use)
 			end,
-			ctx.corner(BUBBLE) :: Shared.Child,
+			ctx.corner(BUBBLE),
 			Host.UIStroke({ Color = WHITE, Thickness = 2, Transparency = 0 }),
 		}
 		for key, value in (place :: unknown) :: { [string]: unknown } do
@@ -124,7 +124,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 			Size = D2.new(1, 0, 0, STRIP),
 			BackgroundColor3 = WHITE,
 			BorderSizePixel = 0,
-			ctx.corner(STRIP) :: Shared.Child,
+			ctx.corner(STRIP),
 			Host.UIGradient "Rainbow" { Color = ctx.types.ColorSequence.new(points), Rotation = 0 },
 		}
 	end
@@ -143,22 +143,22 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 					})
 				)
 			end
-			local props: Shared.FrameNativeProps = {
+			local props: Shared.FrameProps = {
 				Name = if row == 1 then "Top" else "Bottom",
 				Size = D2.fromScale(1, 0.5),
 				Position = D2.fromScale(0, (row - 1) / 2),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = E.FillDirection.Horizontal,
 					SortOrder = E.SortOrder.LayoutOrder,
-				}),
+				},
 			}
 			for _, cell in cells do
 				props[#props + 1] = cell
 			end
 			table.insert(rows, Host.Frame(props))
 		end
-		local checker: Shared.FrameNativeProps = {
+		local checker: Shared.FrameProps = {
 			Name = "Checker",
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -179,13 +179,13 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 				BackgroundColor3 = function(use: Use)
 					return use(held) or color.toColor(use(canon))
 				end,
-				Host.UIGradient({
+				Host.UIGradient {
 					Transparency = ctx.types.NumberSequence.new({
 						ctx.types.NumberSequenceKeypoint.new(0, 1),
 						ctx.types.NumberSequenceKeypoint.new(1, 0),
 					}),
 					Rotation = 0,
-				}),
+				},
 			},
 		}
 	end
@@ -258,7 +258,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 	end
 
 	local function opacitySlider(): Frame
-		local opacity: InputProps.SliderProps = {
+		local opacity: InputProps.SliderRequestProps = {
 			Name = "Opacity",
 			label = "Opacity",
 			LayoutOrder = 4,

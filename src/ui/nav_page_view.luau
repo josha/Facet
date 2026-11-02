@@ -5,19 +5,21 @@ local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local reducedMotion = require("./motion").reduced
 local NavigationProps = require("./navigation_props")
+local CollectionProps = require("./collection_props")
 local pageLayers = require("./nav_page_layers")
 local contacts = require("./input_contacts")
 local settling = require("./settle")
 
 return function(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	surfaces: Nav.Surfaces,
 	layers: pageLayers.PageLayers
 ): ()
 	local Host, Compose, runtime = ctx.Host, ctx.Compose, ctx.runtime
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local content, checkedSelection = layers.content, layers.checkedSelection
+	local checkedSelection = layers.checkedSelection
+	local readNumber = ctx.read<<number?>>
 	UI.PageView = ctx.construct("PageView", function(spec: NavigationProps.PageViewSpec): Frame
 		assert(
 			spec.indicatorPlacement == nil
@@ -40,7 +42,8 @@ return function(
 		local tallest = Compose.cell(0)
 		local heights: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 		for index, page in spec.pages do
-			local body = content(page.content, nil)
+			local content = page.content
+			local body = if type(content) == "function" then content() else content
 			if hugs and body:IsA("GuiObject") then
 				table.insert(heights, ctx.observe.AbsoluteSize(body))
 			end
@@ -60,7 +63,7 @@ return function(
 		local function Page(current: ComposeTypes.ReadOnlyValue<Nav.Tab>): GuiObject
 			return assert(pageNodes[current:peek().id])
 		end
-		local pages = UI.VirtualList "Pages" {
+		local pageSpec: CollectionProps.KeyedCollectionSpec<Nav.Tab, string> = {
 			from = spec.pages,
 			key = function(page: Nav.Tab): string
 				return page.id
@@ -81,6 +84,7 @@ return function(
 			end,
 			ClipsDescendants = true,
 		}
+		local pages = UI.VirtualList(pageSpec, "Pages")
 		local held = Compose.cell(false)
 		local target: number? = nil
 		local paused = if spec.autoAdvanceSeconds ~= nil then Compose.cell(false) else nil
@@ -285,7 +289,7 @@ return function(
 				interaction:set(held:peek() or cooling)
 			end)
 			Compose.watch(function(use: ComposeTypes.Use)
-				local seconds = ctx.read(spec.autoAdvanceSeconds, use)
+				local seconds = readNumber(spec.autoAdvanceSeconds, use)
 				local id = use(spec.selection)
 				local held = use(interaction)
 				local selected = if focused then use(focused) else nil
@@ -369,7 +373,7 @@ return function(
 							Position = D2.fromScale(0.5, 0.5),
 							Size = D2.fromOffset(8, 8),
 							BorderSizePixel = 0,
-							Host.UICorner({ CornerRadius = ctx.round }),
+							Host.UICorner { CornerRadius = ctx.round },
 						},
 						"page-dot"
 					)

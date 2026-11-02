@@ -4,21 +4,24 @@ local ComposeTypes = require("../vendor/compose/core")
 local ControlTypes = require("./control_types")
 local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
+local Nav = require("./navigation_types")
 local MenuItems = require("./nav_menu_items")
 local PickerParts = require("./nav_picker_parts")
 
 return function(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	shared: PickerParts.Parts,
 	buildMenu: MenuItems.BuildMenu
 )
 	local runtime, read = ctx.runtime, ctx.read
+	local readText = read<<string?>>
+	local readSize = read<<UDim2?>>
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local pickerKeys, appearanceFor = shared.keys, shared.appearanceFor
 	local function menuStyle<V>(spec: NavigationProps.PickerSpec<V>, choice: PickerParts.Choice<V>): GuiObject
 		local isSelected, select, options = choice.isSelected, choice.select, choice.options
-		local native: Types.FrameNativeProps = ctx.props(spec, pickerKeys)
+		local native = ctx.props(spec, pickerKeys)
 		local menuSpec: NavigationProps.MenuSpec<V> = { items = {} }
 		for key, value in pairs(native) do
 			menuSpec[key] = value
@@ -34,9 +37,7 @@ return function(
 					table.insert(labels, read(option.label, use))
 				end
 			end
-			return if #labels > 0
-				then table.concat(labels, ", ")
-				else read(spec.placeholder, use) or (if spec.label == nil then "Choose" else "Choose")
+			return if #labels > 0 then table.concat(labels, ", ") else readText(spec.placeholder, use) or "Choose"
 		end
 		local triggerProps: InputProps.ButtonProps = {
 			Name = "Trigger",
@@ -57,7 +58,7 @@ return function(
 				AnchorPoint = V2.new(1, 0.5),
 				Position = D2.new(1, 20, 0.5, 0),
 				BackgroundTransparency = 1,
-			}) :: Types.Child,
+			}),
 		}
 		if spec.Size ~= nil and spec.label == nil then
 			local automatic = spec.AutomaticSize or E.AutomaticSize.None
@@ -82,10 +83,10 @@ return function(
 		menuSpec.trigger = function(): GuiObject
 			return trigger
 		end
-		menuSpec.items = function(use: ComposeTypes.Use)
-			local items = {}
+		menuSpec.items = function(use: ComposeTypes.Use): { Nav.MenuItem<V> }
+			local items: { Nav.MenuItem<V> } = {}
 			for _, option in use(options) do
-				table.insert(items, {
+				local item: Nav.MenuCommand = {
 					id = option.id or tostring(option.value),
 					label = option.label,
 					icon = option.icon,
@@ -102,7 +103,8 @@ return function(
 					onSelect = function()
 						select(option.value)
 					end,
-				})
+				}
+				table.insert(items, item)
 			end
 			return items
 		end
@@ -118,7 +120,7 @@ return function(
 		local label = ctx.text({
 			Name = "Label",
 			Text = function(use: ComposeTypes.Use)
-				return read(spec.label, use) or ""
+				return readText(spec.label, use) or ""
 			end,
 			Size = if inline then D2.fromOffset(0, 0) else D2.new(1, 0, 0, 0),
 			AutomaticSize = if inline then E.AutomaticSize.XY else E.AutomaticSize.Y,
@@ -170,26 +172,27 @@ return function(
 					return label
 				end
 			end
-			return read(spec.placeholder, use) or "Choose"
+			return readText(spec.placeholder, use) or "Choose"
 		end
-		local native: Types.FrameNativeProps = ctx.props(spec, pickerKeys)
+		local native: Types.FrameNativeProps = ctx.props(spec, pickerKeys, {
+			enabled = spec.enabled,
+			label = spec.label or chosenText,
+			controlSize = spec.controlSize,
+		})
 		local triggerProps = (native :: unknown) :: InputProps.ButtonProps
 		triggerProps.Name = spec.Name or "Picker"
-		triggerProps.enabled = spec.enabled
-		triggerProps.label = spec.label or chosenText
 		triggerProps.trailingIcon = if spec.label ~= nil then "chevron.trailing" else nil
 		if spec.label ~= nil then
 			triggerProps.row = { title = spec.label }
 			local given = spec.Size
 			triggerProps.Size = function(use: ComposeTypes.Use): UDim2
-				local base: UDim2 = read(given, use) or D2.fromScale(1, 0)
+				local base: UDim2 = readSize(given, use) or D2.fromScale(1, 0)
 				local floor = ctx.controlSize(spec.controlSize, "height", use)
 				return D2.new(base.X.Scale, base.X.Offset, base.Y.Scale, math.max(base.Y.Offset, floor))
 			end
 			triggerProps.AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y
 			triggerProps.ClipsDescendants = true
 		end
-		triggerProps.controlSize = spec.controlSize
 		triggerProps.corners = spec.corners
 		triggerProps.appearance = if spec.appearance ~= nil
 			then function(use: ComposeTypes.Use): string

@@ -6,8 +6,9 @@ local ComposeTypes = require("../vendor/compose/core")
 local NavigationProps = require("./navigation_props")
 local PickerParts = require("./nav_picker_parts")
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, shared: PickerParts.Parts)
+return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: PickerParts.Parts)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
+	local readText = read<<string?>>
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
 	local pickerKeys = shared.keys
 	local function cardsStyle<V>(spec: NavigationProps.PickerSpec<V>, choice: PickerParts.Choice<V>): GuiObject
@@ -44,16 +45,16 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, shared: Pi
 					local chosen = function(use: ComposeTypes.Use)
 						return isSelected(use(source).value, use)
 					end
-					local card = UI.Button({
+					local card = UI.Button {
 						Name = "Card-" .. key,
 						LayoutOrder = index,
 						Size = if across then D2.fromOffset(200, 0) else D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						label = function(use: ComposeTypes.Use)
-							return read(use(source).label, use)
+							return readText(use(source).label, use) or ""
 						end,
 						subtitle = function(use: ComposeTypes.Use)
-							return read(use(source).description, use) or ""
+							return readText(use(source).description, use) or ""
 						end,
 						icon = shared.liveIcon(source),
 						controlSize = spec.controlSize,
@@ -72,7 +73,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, shared: Pi
 								select(value)
 							end
 						end,
-					})
+					}
 					card:AddTag("facet-card-option")
 					local cardWidth = shared.layoutWidth(card)
 					shared.wrapCaptions(card, spec.controlSize, function(use: ComposeTypes.Use): number
@@ -90,7 +91,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, shared: Pi
 											Name = "Meta",
 											LayoutOrder = 50,
 											Text = function(use: ComposeTypes.Use)
-												return read(use(source).meta, use) or ""
+												return readText(use(source).meta, use) or ""
 											end,
 										}),
 										"secondary"
@@ -111,7 +112,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, shared: Pi
 													local badge = read(use(source).badge, use)
 													return if badge == nil then "" else tostring(badge)
 												end,
-											}) :: Types.Child,
+											}),
 										},
 										"badge"
 									)
@@ -121,7 +122,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, shared: Pi
 						end, content)
 					end
 					Compose.watch(function(use: ComposeTypes.Use)
-						card:SetAttribute("FacetLabel", read(use(source).label, use))
+						card:SetAttribute("FacetLabel", readText(use(source).label, use))
 					end)
 					return card
 				end,
@@ -145,7 +146,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, shared: Pi
 			ctx.text({
 				Name = "Label",
 				Text = function(use: ComposeTypes.Use)
-					return read(spec.label, use) or ""
+					return readText(spec.label, use) or ""
 				end,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,

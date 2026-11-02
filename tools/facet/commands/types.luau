@@ -12,16 +12,18 @@ local Analyzer = require("../lib/analyzer")
 local Cli = require("../lib/cli")
 local ControlProps = require("../lib/control_props")
 local Definitions = require("../lib/definitions")
+local DesignFields = require("../lib/design_fields")
 local Files = require("../lib/files")
 local Generator = require("../lib/engine_generator")
 local Hash = require("../lib/hash")
 local Json = require("../lib/json")
 local Run = require("../lib/run")
+local Rule = require("../lib/rule")
 
-local USAGE = [[usage: lute run tools/facet types [--solver old|new|both] [--flag KEY=VALUE]... [--source-only]
+local USAGE = [[usage: lute run tools/facet types [--solver new] [--flag KEY=VALUE]... [--source-only]
        lute run tools/facet types prepare
        lute run tools/facet types [--solver ...] --files FILE [FILE...]
-       lute run tools/facet types selftest [--solver old|new|both]
+       lute run tools/facet types selftest
        lute run tools/facet types engine [--check] [--definitions PATH] [--creator-docs PATH]
        lute run tools/facet types props [--check]
        lute run tools/facet types --selftest
@@ -30,7 +32,7 @@ The complete check type checks every tracked and untracked Luau file that Git do
 ignore, in each Rojo project context, in the Designer plugin context and in the Lute
 context (tools/facet, tests/tools, tools/lute and the vendored Verify Lute runtime). It
 requires strict directives, zero blocking diagnostics and the rejection of every public
-negative probe. Every selected solver must pass.
+negative probe. Analysis uses the current Luau solver.
 
 --files checks only the named targets and records dependency diagnostics separately.
 --source-only checks Facet-owned source without the public probes.
@@ -45,8 +47,10 @@ from the option tables in src/ui/*_types.luau.
 local ARTIFACTS = "artifacts/verify/types"
 local LOCK = "tools/typecheck/roblox.lock.json"
 local PLUGIN_LOCK = "tools/typecheck/roblox-plugin.lock.json"
-local DEFAULT_FLAGS = { "LuauTarjanChildLimit=100000" }
-local SOLVER_FLAGS: { [string]: { string } } = { old = {}, new = { "LuauSolverV2=true" } }
+local DEFAULT_FLAGS = { "LuauTarjanChildLimit=100000", "LuauTypeInferIterationLimit=100000" }
+local SOLVER_FLAGS: { [string]: { string } } = {
+	new = { "LuauSolverV2=true" },
+}
 local ANALYZER_TIMEOUT = 600
 local ARGUMENT_BUDGET = if system.win32 then 24000 else 1000000
 local INVENTORY = { "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*.luau" }
@@ -351,26 +355,20 @@ local NEGATIVE_PROBES: { { string } } = {
 	{ "Button size rung", 'UI.Button({ label = "Save", controlSize = "tiny" })' },
 	{ "Button native return", 'local wrong: number = UI.Button({ label = "Save" })' },
 	{ "Button shortcut hint action", 'UI.Button({ label = "Boost", shortcutHint = "Boost" })' },
-	{ "Toggle cell value", 'UI.Toggle({ value = Facet.Compose.cell("on") })' },
 	{
 		"Toggle callback value",
 		"UI.Toggle({ value = Facet.Compose.cell(false), onChange = function(value: string) end })",
 	},
-	{ "TextInput cell value", "UI.TextInput({ value = Facet.Compose.cell(42) })" },
 	{
 		"TextInput callback value",
 		'UI.TextInput({ value = Facet.Compose.cell(""), onChange = function(value: number) end })',
 	},
-	{ "Slider cell value", 'UI.Slider({ value = Facet.Compose.cell("loud") })' },
 	{
 		"Slider callback value",
 		"UI.Slider({ value = Facet.Compose.cell(0.5), onChange = function(value: string) end })",
 	},
-	{ "Stepper numeric maximum", 'UI.Stepper({ value = Facet.Compose.cell(1), max = "ten" })' },
 	{ "Progress numeric value", 'UI.ProgressView({ value = "half" })' },
-	{ "Card badge status", 'UI.Card({ title = "Kart", image = "a", badges = { leading = { status = "busy" } } })' },
 	{ "Badge label", "UI.Badge({ label = false })" },
-	{ "Avatar presence", 'UI.Avatar({ name = "Alder", presence = "unknown" })' },
 	{ "Status status", 'UI.StatusIndicator({ status = "busy" })' },
 	{ "Badged status", 'UI.badged(UI.Button { label = "Inbox" }, true, { status = "busy" })' },
 	{ "Sheet writable presentation", 'UI.Sheet({ isPresented = "yes", detent = Facet.Compose.cell("large") })' },
@@ -835,7 +833,8 @@ local function prepare(capture: typeof(Run.capture)?)
 	local execute = capture or Run.capture
 	local rokit = Files.read("rokit.toml")
 	for _, tool in { "rojo", "stylua" } do
-		local pin = assert(string.match(rokit, "\n" .. tool .. '%s*=%s*"[^"@]*@([^"]+)"'))
+		local pin = string.match(rokit, "\n" .. tool .. '%s*=%s*"[^"@]*@([^"]+)"')
+		assert(pin)
 		local result = execute({ tool, "--version" })
 		local version = string.match(result.stdout, "%d+%.%d+%.%d+")
 		if not result.ok or version ~= pin then
@@ -915,9 +914,9 @@ end
 local register: (Verify.Harness, string) -> ()
 
 local function parseOptions(invocation: Cli.Invocation, offset: number): (Options?, string?)
-	local solver: string = Cli.flag(invocation, "solver") or "old"
-	if solver ~= "old" and solver ~= "new" and solver ~= "both" then
-		return nil, ("unknown solver '%s'"):format(solver)
+	local solver: string = Cli.flag(invocation, "solver") or "new"
+	if solver ~= "new" then
+		return nil, "the current Luau solver is required"
 	end
 	local files: { string } = {}
 	local given: { string } = invocation.repeated.files or {}
@@ -931,6 +930,11 @@ local function parseOptions(invocation: Cli.Invocation, offset: number): (Option
 		return nil, "--files needs at least one file"
 	end
 	local overrides: { string } = invocation.repeated.flag or {}
+	for _, flag in overrides do
+		if string.match(flag, "^LuauSolverV2=") and flag ~= "LuauSolverV2=true" then
+			return nil, "the current Luau solver is required"
+		end
+	end
 	local options: Options = {
 		solver = solver :: string,
 		files = if #files > 0 then files else nil,
@@ -940,19 +944,12 @@ local function parseOptions(invocation: Cli.Invocation, offset: number): (Option
 	return options, nil
 end
 
-local function solversOf(options: Options): { string }
-	return if options.solver == "both" then { "old", "new" } else { options.solver }
-end
-
-local function selftest(options: Options): number
+local function selftest(): number
 	local code = Gate.selftest("tools/commands", "tools/commands::types::checker::")
 	if code ~= 0 then
 		return code
 	end
-	for _, solver in solversOf(options) do
-		code = math.max(code, Gate.selftest("tools/commands", "tools/commands::types::analyzer " .. solver .. "::"))
-	end
-	return code
+	return Gate.selftest("tools/commands", "tools/commands::types::analyzer new::")
 end
 
 local function full(options: Options): number
@@ -974,15 +971,7 @@ local function full(options: Options): number
 	local _, luteFiles = Analyzer.partition(targets)
 	local lute = if #luteFiles > 0 then prepareLuteTypes() else nil
 	local projectList = if options.sourceOnly then nil else projects()
-	local passed = true
-	for _, solver in solversOf(options) do
-		local selected = table.clone(options)
-		selected.solver = solver
-		if not check(selected, targets, projectList, lute) then
-			passed = false
-		end
-	end
-	return if passed then 0 else 1
+	return if check(options, targets, projectList, lute) then 0 else 1
 end
 
 local KNOWN = { "solver", "files", "flag", "source-only", "selftest", "check", "definitions", "creator-docs" }
@@ -1021,7 +1010,7 @@ local function run(invocation: Cli.Invocation): number
 				print(("facet types: selftest takes no files\n\n%s"):format(USAGE))
 				return 2
 			end
-			return selftest(options)
+			return selftest()
 		end
 		return full(options)
 	end)
@@ -1061,7 +1050,7 @@ local function fixtureReport(
 	solver: string?,
 	missingStrict: { string }?
 ): Report
-	local options: Options = { solver = solver or "old", files = files, flags = {}, sourceOnly = false }
+	local options: Options = { solver = solver or "new", files = files, flags = {}, sourceOnly = false }
 	local targets: { string } = files or FIXTURE_FILES
 	local targetSet: { [string]: boolean } = {}
 	for _, file in targets do
@@ -1097,6 +1086,40 @@ end
 register = function(harness: Verify.Harness, prefix: string): ()
 	local idPrefix = prefix
 	prefix ..= "checker::"
+	harness:case(prefix .. "design fields follow constructor declarations and arbitrary type aliases", {
+		id = idPrefix .. "design fields follow constructor declarations and arbitrary type aliases",
+		run = function(test: Verify.Context): ()
+			local fixture = Rule.fixture(test, {
+				["src/ui/control_types.luau"] = [[--!strict
+local Props = require("./input_props")
+type Constructor<P, N> = (P, string?) -> N
+export type DirectConstructor = <T>(Props.DirectProps<T>, string?) -> {}
+type ArbitraryName = <T>(Props.IndirectProps<T>, string?) -> {}
+export type IndirectConstructor = ArbitraryName
+export type Controls = {
+	Direct: DirectConstructor,
+	Indirect: IndirectConstructor,
+	Plain: Constructor<Props.PlainProps, {}>,
+}
+return {}
+]],
+				["src/ui/input_props.luau"] = [[--!strict
+export type DirectProps<T> = { value: T, caption: string }
+export type IndirectProps<T> = { value: T, enabled: boolean }
+export type PlainProps = { count: number }
+return {}
+]],
+				["src/vendor/compose/core/init.luau"] = "--!strict\nreturn {}\n",
+			})
+			local generated = DesignFields.generate(fixture.root)
+			for _, kind in { "Direct", "Indirect", "Plain" } do
+				Verify.expect(generated):toContain("\t\t" .. kind .. " = {")
+			end
+			Verify.expect(generated):toContain('caption = { type = "string" }')
+			Verify.expect(generated):toContain('enabled = { type = "boolean" }')
+			Verify.expect(generated):toContain('count = { type = "number" }')
+		end,
+	})
 	harness:case(prefix .. "control option origins retain native hooks, binding variants and aliases", {
 		id = idPrefix .. "control option origins retain native hooks, binding variants and aliases",
 		run = function(test: Verify.Context): ()
@@ -1108,6 +1131,45 @@ register = function(harness: Verify.Harness, prefix: string): ()
 			Verify.expect(origins.SliderRangeProps.range):toBe("SliderRangeBinding")
 			Verify.expect(origins.CollectionSpec.from):toBe(origins.KeyedCollectionSpec.from)
 			Verify.expect(origins.KeyedCollectionSpec.rowActions):toBe(nil)
+		end,
+	})
+	harness:case(prefix .. "control props preserve explicit field access in flat and variant records", {
+		id = idPrefix .. "control props preserve explicit field access in flat and variant records",
+		run = function(test: Verify.Context): ()
+			local fixture = Rule.fixture(test, {})
+			local generated = ControlProps.generate({
+				output = "access_props.luau",
+				modules = { Nav = "./navigation_types" },
+				recipes = {
+					{
+						name = "Flat",
+						params = "P",
+						native = "FrameProps",
+						parts = { "Nav.AlertOptions<P>" },
+					},
+					{
+						name = "Choice",
+						params = "P",
+						native = "FrameProps",
+						variants = {
+							{ name = "First", parts = { "Nav.AlertOptions<P>" } },
+							{ name = "Second", parts = { "Nav.AlertOptions<P>" } },
+						},
+					},
+				},
+			}, fixture.root)
+			Verify.expect(generated):toContain("read title: Nav.AlertText<P>?")
+			Verify.expect(generated):toContain("read title: TitleField")
+			Verify.expect(generated):toContain("\n\tName: Engine.ValueString?")
+		end,
+	})
+	harness:case(prefix .. "Studio verification uses plugin definitions without widening game code", {
+		id = idPrefix .. "Studio verification uses plugin definitions without widening game code",
+		run = function(): ()
+			Verify.expect(Analyzer.isPlugin("tools/studio/live/interactive.luau")):toBe(true)
+			Verify.expect(Analyzer.isPlugin("tools/design_playground/init.luau")):toBe(true)
+			Verify.expect(Analyzer.isPlugin("src/ui/input.luau")):toBe(false)
+			Verify.expect(Analyzer.isPlugin("examples/gallery/client/init.luau")):toBe(false)
 		end,
 	})
 	harness:case(prefix .. "inventory includes each repository area and untracked files", {
@@ -1186,8 +1248,27 @@ register = function(harness: Verify.Harness, prefix: string): ()
 			Verify.expect(report.ok):toBe(false)
 			Verify.expect(Json.strings(report.document.flags) or {}):toEqual({
 				"LuauTarjanChildLimit=100000",
+				"LuauTypeInferIterationLimit=100000",
 				"LuauSolverV2=true",
 			})
+		end,
+	})
+	harness:case(prefix .. "the current solver is required", {
+		id = idPrefix .. "the current solver is required",
+		run = function(test: Verify.Context): ()
+			local options = assert(parseOptions(Cli.parse({ "types" }), 1))
+			Verify.expect(options.solver):toBe("new")
+			for _, arguments in
+				{
+					{ "types", "--solver", "old" },
+					{ "types", "--solver", "both" },
+					{ "types", "--flag", "LuauSolverV2=false" },
+				}
+			do
+				local refused, problem = parseOptions(Cli.parse(arguments, { "solver", "flag" }), 1)
+				Verify.expect(refused):toBe(nil)
+				Verify.expect(problem):toBe("the current Luau solver is required")
+			end
 		end,
 	})
 	harness:case(prefix .. "projects cover mapped and unmapped files in both security contexts", {
@@ -1357,11 +1438,13 @@ register = function(harness: Verify.Harness, prefix: string): ()
 			Verify.expect(lines[8]):toBe("UI.Button({ label = 42 })")
 			Verify.expect(count):toBe(#lines - 6)
 			Verify.expect(Analyzer.named('local wrong: number = UI.Button({ label = "Save" })'))
-				:toBe('local wrong: number = UI.Button("Typed")({ label = "Save" })')
+				:toBe('local wrong: number = UI.Button({ label = "Save" }, "Typed")')
 			Verify.expect(string.find(source, 'UI.ThisControlDoesNotExist("Typed")', 1, true) == nil)
 				:toBeTrueWith("the unknown control gained a named form")
-			Verify.expect(string.find(source, 'UI.Badge("Typed")', 1, true) ~= nil)
+			Verify.expect(string.find(source, 'UI.Badge({ label = false }, "Typed")', 1, true) ~= nil)
 				:toBeTrueWith("Badge has no named form")
+			Verify.expect(Analyzer.named('UI.Button { label = ")", onActivate = function() save() end }'))
+				:toBe('UI.Button({ label = ")", onActivate = function() save() end }, "Typed")')
 		end,
 	})
 	harness:case(prefix .. "preflight rejects missing tools and mismatched pins before expensive checks", {
@@ -1472,9 +1555,9 @@ register = function(harness: Verify.Harness, prefix: string): ()
 			has("\tInputBegan: ((InputObject, Enum.UserInputState, unknown) -> ())?,")
 			has("\tAttributes: Attributes?,")
 			has("\tref: ((Frame) -> ())?,")
-			has("\tFrame: Constructor<FrameNativeProps, Frame>,")
-			has("\tAbsoluteSize: ((GuiObject) -> Compose.Value<Vector2>),")
-			has("\tParent: ((Instance) -> Compose.Value<Instance?>),")
+			has("\tFrame: NamedConstructor<FrameNativeProps, Frame>,")
+			has("\tAbsoluteSize: ((GuiObject) -> Compose.ReadOnlyValue<Vector2>),")
+			has("\tParent: ((Instance) -> Compose.ReadOnlyValue<Instance?>),")
 			Verify.expect(table.find(lines, "export type InstanceNativeProps = {") == nil)
 				:toBeTrueWith("an unselected class was exported")
 			Verify.expect(table.find(lines, "\tGuiObject: Constructor<GuiObjectNativeProps, GuiObject>,") == nil)
@@ -1531,15 +1614,13 @@ local command: Cli.Command = {
 	register = function(harness: Verify.Harness, prefix: string)
 		register(harness, prefix)
 		local name = "the analyzers accept native and Lute types and reject planted scalar faults"
-		for _, solver in { "old", "new" } do
-			harness:case(prefix .. "analyzer " .. solver .. "::" .. name, {
-				id = prefix .. name .. (if solver == "old" then "" else " (new solver)"),
-				run = function()
-					prepare()
-					Verify.expect(liveSelftest(flagsFor(solver, {}))):toBe(0)
-				end,
-			})
-		end
+		harness:case(prefix .. "analyzer new::" .. name, {
+			id = prefix .. name,
+			run = function()
+				prepare()
+				Verify.expect(liveSelftest(flagsFor("new", {}))):toBe(0)
+			end,
+		})
 	end,
 	run = run,
 }

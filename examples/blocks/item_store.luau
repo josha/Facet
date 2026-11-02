@@ -5,10 +5,8 @@ type FacetModule = FacetTypes.Facet
 type FacetControls = FacetTypes.Controls
 type Use = FacetTypes.Use
 type NumberCell = FacetTypes.Value<number>
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type ReadOnlyValue<T> = FacetTypes.ReadOnlyValue<T>
+type Value<T> = FacetTypes.Value<T>
 type Item = {
 	id: string,
 	name: string,
@@ -101,7 +99,6 @@ return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 			}
 		end,
 	}
-	local alert = (UI.Alert "ConfirmPurchase" :: unknown) :: (FacetTypes.AlertSpec<Item>) -> Frame
 	return UI.Screen "Store" {
 		padding = "m",
 		gap = "m",
@@ -124,7 +121,7 @@ return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 		},
 		UI.VirtualGrid "Items"(itemsSpec),
 		UI.Text "Result" { text = message, textRole = "body", wrap = true },
-		alert(alertSpec),
+		UI.Alert "ConfirmPurchase"(alertSpec),
 		UI.Toast "PurchaseToast" {
 			message = confirmation,
 			isPresented = purchased,

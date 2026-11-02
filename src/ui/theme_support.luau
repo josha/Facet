@@ -37,7 +37,8 @@ local function readableTransparency(ink: Color3, background: Color3, requested: 
 end
 
 local function copy<T>(value: T): T
-	if type(value) ~= "table" then
+	local source: unknown = value
+	if type(source) ~= "table" then
 		return value
 	end
 	local out: { [unknown]: unknown } = {}
@@ -117,7 +118,7 @@ local function numericMetric(metrics: ThemeTypes.Metrics, path: unknown): number
 	return if type(value) == "number" and value == value and math.abs(value) < math.huge then value else nil
 end
 
-local function paletteFor(package: ThemeTypes.ThemePackage, requested: string?): ThemeTypes.Palette
+local function paletteFor(package: ThemeTypes.ReadOnlyThemePackage, requested: string?): ThemeTypes.Palette
 	local name = requested or package.style.defaultTheme
 	for _, palette in package.style.themes do
 		if palette.name == name then
@@ -216,8 +217,8 @@ local function deeplyFrozen(value: unknown, visited: { [unknown]: boolean }): bo
 	return true
 end
 
-local frozenPackages = setmetatable({} :: { [ThemeTypes.ThemePackage]: boolean }, { __mode = "k" })
-local fingerprints: { [ThemeTypes.ThemePackage]: string } = {}
+local frozenPackages: { [ThemeTypes.ReadOnlyThemePackage]: boolean } = setmetatable({}, { __mode = "k" })
+local fingerprints: { [ThemeTypes.ReadOnlyThemePackage]: string } = {}
 weakKeys(fingerprints)
 
 local function keyOrder(left: unknown, right: unknown): boolean
@@ -254,7 +255,7 @@ local function describe(value: unknown, ignored: { [unknown]: unknown }?, parts:
 	table.insert(parts, "}")
 end
 
-local function sealed(package: ThemeTypes.ThemePackage): boolean
+local function sealed(package: ThemeTypes.ReadOnlyThemePackage): boolean
 	local known = frozenPackages[package]
 	if known == nil then
 		known = deeplyFrozen(package, {})
@@ -268,7 +269,10 @@ local function sealed(package: ThemeTypes.ThemePackage): boolean
 	return known
 end
 
-local function sameBesidesPalettes(left: ThemeTypes.ThemePackage?, right: ThemeTypes.ThemePackage?): boolean
+local function sameBesidesPalettes(
+	left: ThemeTypes.ReadOnlyThemePackage?,
+	right: ThemeTypes.ReadOnlyThemePackage?
+): boolean
 	if left == right then
 		return true
 	end
@@ -281,11 +285,14 @@ local function sameBesidesPalettes(left: ThemeTypes.ThemePackage?, right: ThemeT
 	return fingerprints[left] == fingerprints[right]
 end
 
-local function neutralBase(neutral: ThemeTypes.ThemePackage, colors: { [string]: unknown }?): ThemeTypes.Palette
+local function neutralBase(
+	neutral: ThemeTypes.ReadOnlyThemePackage,
+	colors: { [string]: ThemeTypes.RGB }?
+): ThemeTypes.Palette
 	local surface = if colors then colors.surface else nil
 	local base = neutral.style.themes[1]
 	if type(surface) == "table" then
-		local rgb = surface :: ThemeTypes.RGB
+		local rgb = surface
 		local function linear(channel: number): number
 			return if channel <= 0.04045 then channel / 12.92 else ((channel + 0.055) / 1.055) ^ 2.4
 		end
@@ -300,12 +307,12 @@ local function neutralBase(neutral: ThemeTypes.ThemePackage, colors: { [string]:
 	return base
 end
 
-local function plateReach(package: ThemeTypes.ThemePackage?): number
+local function plateReach(package: ThemeTypes.ReadOnlyThemePackage?): number
 	if package == nil then
 		return 0
 	end
 	local reach = 0
-	local chrome = package.chrome or {}
+	local chrome: { [string]: ThemeTypes.SkinLayer } = package.chrome or {}
 	for _, slot in { "panel", "control" } do
 		local recipe = chrome[slot]
 		local declared: unknown = if recipe then recipe.shadow else nil

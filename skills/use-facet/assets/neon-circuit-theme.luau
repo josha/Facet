@@ -17,7 +17,7 @@ local typography: { [string]: Facet.TypographyPatch } = {
 	body = { size = 18 },
 	caption = { size = 15 },
 }
-local colors: { [string]: { r: number?, g: number?, b: number? } } = {
+local colors: { [string]: Facet.RGB } = {
 	surface = rgb(9, 12, 30),
 	surfaceStrong = rgb(18, 26, 56),
 	content = rgb(236, 248, 255),

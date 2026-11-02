@@ -6,6 +6,7 @@ local Shared = require("../src/ui/types")
 local engineLib = require("./lib/native_engine")
 local travelEngine = require("../src/ui/travel_engine")
 local context = require("../src/ui/context")
+local NavigationProps = require("../src/ui/navigation_props")
 
 return function(harness: Verify.Harness)
 	harness:case("Travel owns style links added after the portal mounts", function(t)
@@ -21,7 +22,7 @@ return function(harness: Verify.Harness)
 		local visual: Frame? = nil
 		local stop = runtime.mount(function()
 			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
-			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local Host = Facet.host(runtime)
 			return UI.Travel {
 				destination = slot,
 				content = function(): GuiObject
@@ -167,17 +168,17 @@ return function(harness: Verify.Harness)
 		local runtime = Facet.Roblox.createRuntime(native)
 		local stop, root = runtime.mount(function()
 			local UI = Facet.controls(runtime, { types = native.types })
-			return UI.Picker {
-				style = "segmented" :: "segmented",
+			local swatches: Facet.PickerOption = { value = "a", label = "Swatches" }
+			local spectrum: Facet.PickerOption = { value = "b", label = "Spectrum" }
+			local sliders: Facet.PickerOption = { value = "c", label = "Sliders" }
+			local bricks: Facet.PickerOption = { value = "d", label = "Bricks" }
+			local spec: NavigationProps.SinglePickerSpecInput<string> = {
+				style = "segmented",
 				selected = Facet.Compose.cell("a"),
 				Size = native.types.UDim2.fromOffset(341, 44),
-				options = {
-					{ value = "a", label = "Swatches" },
-					{ value = "b", label = "Spectrum" },
-					{ value = "c", label = "Sliders" },
-					{ value = "d", label = "Bricks" },
-				},
+				options = { swatches, spectrum, sliders, bricks },
 			}
+			return UI.Picker(spec)
 		end, native.new("ScreenGui"))
 		t:defer(function()
 			stop()
@@ -202,7 +203,7 @@ return function(harness: Verify.Harness)
 		t:defer(tracking.stop)
 		local C = Facet.Compose
 		local runtime = Facet.Roblox.createRuntime(native)
-		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local Host = Facet.host(runtime)
 		local handles: { travelEngine.Handle } = {}
 		local positions: { number } = {}
 		local targets: { number } = {}
@@ -263,7 +264,7 @@ return function(harness: Verify.Harness)
 		t:defer(tracking.stop)
 		local C = Facet.Compose
 		local runtime = Facet.Roblox.createRuntime(native)
-		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local Host = Facet.host(runtime)
 		local screen, board = native.new("ScreenGui"), native.new("Frame")
 		screen.Parent = native.new("Folder")
 		board.Parent = screen
@@ -321,7 +322,7 @@ return function(harness: Verify.Harness)
 		t:defer(tracking.stop)
 		local C = Facet.Compose
 		local runtime = Facet.Roblox.createRuntime(native)
-		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local Host = Facet.host(runtime)
 		local screen, row = native.new("ScreenGui"), native.new("Frame")
 		screen.Parent, row.Parent = native.new("Folder"), screen
 		local slots: { Frame } = {}
@@ -449,7 +450,7 @@ return function(harness: Verify.Harness)
 	harness:case("landed content keeps its size while an ancestor transition zoom is in flight", function(t)
 		local native = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(native)
-		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local Host = Facet.host(runtime)
 		local screen, page, slot = native.new("ScreenGui"), native.new("Frame"), native.new("Frame")
 		screen.Parent, page.Parent, slot.Parent = native.new("Folder"), screen, page
 		native.new("UIScale").Parent = page
@@ -483,7 +484,7 @@ return function(harness: Verify.Harness)
 	harness:case("landed content stays above the slot button", function(t)
 		local native = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(native)
-		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local Host = Facet.host(runtime)
 		local screen, board, slot = native.new("ScreenGui"), native.new("Frame"), native.new("Frame")
 		screen.Parent, board.Parent, slot.Parent = native.new("Folder"), screen, board
 		native.environment.poke(slot, "AbsoluteSize", native.types.Vector2.new(44, 44))
@@ -521,7 +522,7 @@ return function(harness: Verify.Harness)
 		})
 		local C = Facet.Compose
 		local runtime = Facet.Roblox.createRuntime(native)
-		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local Host = Facet.host(runtime)
 		local screen, source, target = native.new("ScreenGui"), native.new("Frame"), native.new("Frame")
 		screen.Parent, source.Parent, target.Parent = native.new("Folder"), screen, screen
 		source.ClipsDescendants, target.ClipsDescendants = true, true
@@ -635,7 +636,7 @@ return function(harness: Verify.Harness)
 		local native = engineLib.new()
 		local C = Facet.Compose
 		local runtime = Facet.Roblox.createRuntime(native)
-		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local Host = Facet.host(runtime)
 		local screen = native.new("ScreenGui")
 		screen.Parent = native.new("Folder")
 		local slots: { [number]: GuiObject } = {}
@@ -646,14 +647,14 @@ return function(harness: Verify.Harness)
 		local stop = runtime.mount(function()
 			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
 			rows = C.cell({ 1, 2 })
-			local grid = UI.VirtualGrid {
+			local gridSpec: Facet.KeyedCollectionSpec<number, number> = {
 				from = rows,
 				key = function(value: number): number
 					return value
 				end,
 				columns = 2,
 				itemSize = 60,
-				mode = "all" :: "all",
+				mode = "all",
 				recycle = false,
 				render = function(current: Shared.ReadOnlyValue<number>): GuiObject
 					local id = current:peek()
@@ -672,6 +673,7 @@ return function(harness: Verify.Harness)
 					return slot
 				end,
 			}
+			local grid = UI.VirtualGrid(gridSpec)
 			destination = C.cell(assert(slots[1]))
 			local travel = UI.Travel {
 				destination = destination,
@@ -680,7 +682,7 @@ return function(harness: Verify.Harness)
 					return node
 				end,
 			}
-			root = Host.Frame { grid :: unknown, travel :: unknown }
+			root = Host.Frame { grid, travel }
 			return root
 		end, screen)
 		t:defer(function()
@@ -707,7 +709,7 @@ return function(harness: Verify.Harness)
 	harness:case("F-030 shared stepper drops externally destroyed carriers", function(t)
 		local native = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(native)
-		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local Host = Facet.host(runtime)
 		local node: Frame
 		local handle: travelEngine.Handle
 		local samples = 0
@@ -755,7 +757,7 @@ return function(harness: Verify.Harness)
 		local native = engineLib.new()
 		local C = Facet.Compose
 		local runtime = Facet.Roblox.createRuntime(native)
-		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local Host = Facet.host(runtime)
 		local screen, source, target = native.new("ScreenGui"), native.new("Frame"), native.new("Frame")
 		screen.Parent, source.Parent, target.Parent = native.new("Folder"), screen, screen
 		source.ClipsDescendants, target.ClipsDescendants = true, true
@@ -793,7 +795,7 @@ return function(harness: Verify.Harness)
 		local native = engineLib.new({ lenientProperties = true })
 		local C = Facet.Compose
 		local runtime = Facet.Roblox.createRuntime(native)
-		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local Host = Facet.host(runtime)
 		local screen = native.new("ScreenGui")
 		local a, b = native.new("Frame"), native.new("Frame")
 		a.Parent, b.Parent = screen, screen
@@ -829,7 +831,7 @@ return function(harness: Verify.Harness)
 						}
 						return anchor
 					end,
-				} :: unknown,
+				},
 			}
 		end, screen)
 		t:defer(function()

@@ -4,7 +4,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local textMeasure = require("./text_measure")
 
 type Poll = { steps: { [() -> ()]: boolean }, queue: { () -> () }, count: number, stop: (() -> ())? }
-local polls = setmetatable({} :: { [unknown]: Poll }, { __mode = "k" })
+local polls: { [unknown]: Poll } = setmetatable({}, { __mode = "k" })
 
 return function(
 	ctx: Types.Context,
@@ -50,12 +50,7 @@ return function(
 		if box.X <= 0 or box.Y <= 0 then
 			return false
 		end
-		for _, child in root:GetChildren() do
-			if not painted(child) then
-				return false
-			end
-		end
-		return true
+		return painted(root)
 	end
 	if rest and ctx.runtime.host.frames and not sample() then
 		return ctx.runtime.settled {
@@ -116,7 +111,7 @@ return function(
 			end
 			ready:set(false)
 		end
-		if scope then
+		if scope or ready:peek() then
 			return
 		end
 		local nextScope = ComposeTypes.owner.createChild(owner)
@@ -128,6 +123,16 @@ return function(
 			local poll: Poll
 			local prepare: () -> ()
 			local geometry: { RBXScriptConnection } = {}
+			local descendants = false
+			local function listen(node: Instance)
+				if node:IsA("GuiObject") then
+					table.insert(geometry, node:GetPropertyChangedSignal("AbsoluteSize"):Connect(prepare))
+					table.insert(geometry, node:GetPropertyChangedSignal("Visible"):Connect(prepare))
+					if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+						table.insert(geometry, node:GetPropertyChangedSignal("TextBounds"):Connect(prepare))
+					end
+				end
+			end
 			local function halt()
 				for _, connection in geometry do
 					connection:Disconnect()
@@ -153,12 +158,22 @@ return function(
 				if sample() then
 					halt()
 					ready:set(true)
+					if scope == nextScope then
+						scope = nil
+					end
+					ComposeTypes.owner.dispose(nextScope)
 					return
 				end
-				local start = arm
-				if start and not waiting then
-					local box = root.AbsoluteSize
-					if box.X > 0 and box.Y > 0 then
+				local box = root.AbsoluteSize
+				if box.X > 0 and box.Y > 0 then
+					if not descendants then
+						descendants = true
+						for _, node in root:GetDescendants() do
+							listen(node)
+						end
+					end
+					local start = arm
+					if start and not waiting then
 						start()
 					end
 				end
@@ -168,19 +183,7 @@ return function(
 			if ready:peek() then
 				return
 			end
-			local function listen(node: Instance)
-				if node:IsA("GuiObject") then
-					table.insert(geometry, node:GetPropertyChangedSignal("AbsoluteSize"):Connect(prepare))
-					table.insert(geometry, node:GetPropertyChangedSignal("Visible"):Connect(prepare))
-					if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-						table.insert(geometry, node:GetPropertyChangedSignal("TextBounds"):Connect(prepare))
-					end
-				end
-			end
 			listen(root)
-			for _, node in root:GetDescendants() do
-				listen(node)
-			end
 			if not render and not frames then
 				prepare()
 				return
@@ -189,7 +192,8 @@ return function(
 				local key: unknown = ctx.runtime
 				local found = polls[key]
 				if found == nil then
-					found = { steps = {}, queue = {}, count = 0, stop = nil }
+					local created: Poll = { steps = {}, queue = {}, count = 0 }
+					found = created
 					polls[key] = found
 				end
 				poll = found

@@ -13,7 +13,7 @@ local kit = Facet.design()
 local library = kit.library({
     UI = UI,
     host = function(className, name, props)
-        return runtime.constructors[className](name)(props)
+        return runtime.constructors[className](props, name)
     end,
 })
 local document = kit.Design.document.new("Shop", library, "VStack")

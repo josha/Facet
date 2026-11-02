@@ -1,13 +1,13 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 local task = require("@std/task")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 	type Use = <T>(ReadOnlyValue<T>) -> T
 	type ExampleContext = typeof(require("@repo/examples/types").Context)
 	type Built = typeof(require("@repo/examples/types").Built)
@@ -32,7 +32,7 @@ return function(verifyHarness: Verify.Harness)
 		return nil
 	end
 
-	local function fixture(build)
+	local function fixture(build: (ExampleContext) -> Instance)
 		local engine = engineLib.new()
 		local hapticCapture = engine.environment.onCreate(function(effect)
 			if effect:IsA("HapticEffect") then
@@ -48,21 +48,23 @@ return function(verifyHarness: Verify.Harness)
 		function input:GetFocusedTextBox()
 			return nil
 		end
-		local ctx: any = {
+		local theme = Facet.themes.neutralPackage()
+		local ctx: ExampleContext = {
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (runtime.constructors :: unknown) :: RobloxHost,
+			Host = Facet.host(runtime),
+			UI = Facet.controls(runtime, { types = engine.types }),
 			types = engine.types,
 			viewport = Compose.cell({ width = 1280, height = 720 }),
 			inputTarget = target,
 			guiService = gui,
-			runService = { Heartbeat = engine.heartbeat },
+			runService = ({ Heartbeat = engine.heartbeat } :: unknown) :: RunService,
 			selection = Compose.cell("first"),
-			theme = Compose.cell(Facet.themes.neutralPackage()),
+			theme = Compose.cell(theme),
 			themeMode = Compose.cell("light"),
+			packages = { Neutral = theme },
 		}
-		ctx.packages = { Neutral = ctx.theme:peek() } :: { [string]: Facet.ThemePackage }
 		local stop, root: any = runtime.mount(function()
 			gallery.configure(ctx)
 			ctx.UI = Facet.controls(runtime, {
@@ -71,9 +73,9 @@ return function(verifyHarness: Verify.Harness)
 				inputParent = target,
 				services = { GuiService = gui, UserInputService = input },
 				theme = ctx.theme,
-				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
+				motionLevel = function(use: Use): "normal" | "limited" | "none"
 					return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-				end) :: unknown) :: MotionLevel,
+				end,
 				environment = ctx.environment,
 				overlayParent = ctx.overlayParent,
 			})
@@ -86,7 +88,15 @@ return function(verifyHarness: Verify.Harness)
 		end, engine
 	end
 
-	local function scenarioGroup(scenario: any, name: string): boolean
+	type GroupScenario = { read build: (ExampleContext) -> { read screen: () -> Instance }, read groups: { DemoTab } }
+
+	local scenarios: { [string]: GroupScenario } = {
+		all_controls = require("../examples/gallery/scenarios/all_controls"),
+		collections = require("../examples/gallery/scenarios/collections"),
+		motion_layout = require("../examples/gallery/scenarios/motion_layout"),
+	}
+
+	local function scenarioGroup(scenario: GroupScenario, name: string): boolean
 		for _, group in scenario.groups do
 			if group.id == name then
 				return true
@@ -99,7 +109,9 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("reports the selected retained leaf and propagates ancestor page visibility", {
 			id = "native_gallery_shell::native gallery shell parity::reports the selected retained leaf and propagates ancestor page visibility",
 			run = function()
-				local built: any, contexts, counts = nil, {}, {}
+				local built: any
+				local contexts: { [string]: ExampleContext } = {}
+				local counts: { [string]: number } = {}
 				local function entry(id: string): DemoTab
 					return {
 						id = id,
@@ -111,7 +123,7 @@ return function(verifyHarness: Verify.Harness)
 								local clicks = Compose.cell(0)
 								return {
 									screen = function(): Instance
-										return ctx.UI.Button({
+										return ctx.UI.Button {
 											Name = id .. "Action",
 											label = id,
 											onActivate = function()
@@ -119,7 +131,7 @@ return function(verifyHarness: Verify.Harness)
 													return value + 1
 												end)
 											end,
-										})
+										}
 									end,
 									report = function(): unknown
 										return { clicks = clicks:peek() }
@@ -129,13 +141,15 @@ return function(verifyHarness: Verify.Harness)
 						},
 					}
 				end
+				local pageVisible = Compose.cell(true)
 				local ctx, root, stop, engine = fixture(function(context)
-					context.pageVisible = Compose.cell(true)
-					built = demoTabs(context, "TabsTest", {
+					context.pageVisible = pageVisible
+					local tabs = demoTabs(context, "TabsTest", {
 						{ id = "group", label = "Group", tabs = { entry("a"), entry("b") } },
 						entry("other"),
 					})
-					return built.screen()
+					built = tabs
+					return tabs.screen()
 				end)
 				local button = find(root, "aAction")
 				button.Activated:Fire()
@@ -151,7 +165,7 @@ return function(verifyHarness: Verify.Harness)
 				find(root, "other", "TextButton").Activated:Fire()
 				Verify.expect((assert(contexts.a.pageVisible):peek())):toBe(false)
 				Verify.expect(built.report().active):toBe("other")
-				ctx.pageVisible:set(false)
+				pageVisible:set(false)
 				Verify.expect((assert(contexts.other.pageVisible):peek())):toBe(false)
 				stop()
 			end,
@@ -161,20 +175,19 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_gallery_shell::native gallery shell parity::toggles the combined menu with one bumper and keeps the chosen section",
 			run = function()
 				local ctx, root, stop, engine = fixture(function(context)
-					context.demos =
-						{ { id = "first", title = "First", kind = "fixture" :: "fixture", module = "first" } }
+					context.demos = { { id = "first", title = "First", kind = "fixture", module = "first" } }
 					context.load = function()
 						return {
-							build = function(page)
+							build = function(page: ExampleContext)
 								return demoTabs(page, "TabsTest", {
 									{
 										id = "one",
 										label = "One",
 										scenario = {
-											build = function(inner)
+											build = function(inner: ExampleContext)
 												return {
 													screen = function()
-														return inner.Host.Frame({ Name = "OnePage" })
+														return inner.Host.Frame { Name = "OnePage" }
 													end,
 												}
 											end,
@@ -184,10 +197,10 @@ return function(verifyHarness: Verify.Harness)
 										id = "two",
 										label = "Two",
 										scenario = {
-											build = function(inner)
+											build = function(inner: ExampleContext)
 												return {
 													screen = function()
-														return inner.Host.Frame({ Name = "TwoPage" })
+														return inner.Host.Frame { Name = "TwoPage" }
 													end,
 												}
 											end,
@@ -205,9 +218,9 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(lb.Text):toBe("LB")
 				Verify.expect((find(toolbar, "SettingsHint"))):toBe(nil)
 				Verify.expect(lb.Visible):toBe(false)
-				ctx.inputPreview:set("Gamepad")
+				assert(ctx.inputPreview):set("Gamepad")
 				Verify.expect(lb.Visible):toBe(true)
-				ctx.inputPreview:set("KeyboardAndMouse")
+				assert(ctx.inputPreview):set("KeyboardAndMouse")
 				local choice = find(toolbar, "ToggleSidebar", "TextButton")
 				Verify.expect(choice ~= nil):toBe(true)
 				Verify.expect((find(find(root, "Categories"), "UseTopTabs"))):toBe(nil)
@@ -215,9 +228,9 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(choice:GetAttribute("FacetLabel") or choice.Text):toBe("Use top tabs")
 				choice.Activated:Fire()
 				Verify.expect(choice:GetAttribute("FacetLabel") or choice.Text):toBe("Use sidebar")
-				Verify.expect((ctx.categoryPlacement:peek())):toBe("top")
+				Verify.expect((assert(ctx.categoryPlacement):peek())):toBe("top")
 				choice.Activated:Fire()
-				Verify.expect((ctx.categoryPlacement:peek())):toBe("side")
+				Verify.expect((assert(ctx.categoryPlacement):peek())):toBe("side")
 				Verify.expect((find(root, "ShowcasePanel"))):toBe(nil)
 				local toggle = find(ctx.inputTarget, "ShowcaseChromeGamepad")
 				Verify.expect(toggle.Priority < 250):toBe(true)
@@ -225,14 +238,14 @@ return function(verifyHarness: Verify.Harness)
 					:toBe(nil)
 				Verify.expect(#toggle:GetChildren()):toBe(1)
 				toggle:FindFirstChild("Activate").Pressed:Fire()
-				Verify.expect((ctx.panelSection:peek())):toBe("demos")
+				Verify.expect((assert(ctx.panelSection):peek())):toBe("demos")
 				find(find(root, "Section"), "settings").Activated:Fire()
 				toggle:FindFirstChild("Activate").Pressed:Fire()
-				Verify.expect((ctx.panelOpen:peek())):toBe(false)
+				Verify.expect((assert(ctx.panelOpen):peek())):toBe(false)
 				toggle:FindFirstChild("Activate").Pressed:Fire()
-				Verify.expect((ctx.panelSection:peek())):toBe("settings")
+				Verify.expect((assert(ctx.panelSection):peek())):toBe("settings")
 				local panel = find(root, "ShowcasePanel")
-				Verify.expect(panel ~= nil and panel:IsDescendantOf(ctx.overlayParent)):toBe(true)
+				Verify.expect(panel ~= nil and panel:IsDescendantOf(assert(ctx.overlayParent))):toBe(true)
 				Verify.expect(panel.ClassName):toBe("Frame")
 				local expanded = find(root, "Expanded")
 				local scrolling = find(expanded, "ExpandedScroll")
@@ -252,21 +265,21 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(preview, "Trigger") ~= nil):toBe(true)
 				Verify.expect(expanded:HasTag("facet-floating") and expanded.ClipsDescendants):toBe(true)
 
-				ctx.viewingDistance:set("ten-foot")
+				assert(ctx.viewingDistance):set("ten-foot")
 				preview = find(panel, "Preview")
 				Verify.expect(find(preview, "Trigger") == nil and find(preview, "desktop") ~= nil):toBe(true)
-				ctx.viewingDistance:set("automatic")
-				ctx.devicePreview:set("phone")
-				ctx.inputPreview:set("Touch")
+				assert(ctx.viewingDistance):set("automatic")
+				assert(ctx.devicePreview):set("phone")
+				assert(ctx.inputPreview):set("Touch")
 				find(panel, "ResetAll").Activated:Fire()
-				Verify.expect((ctx.devicePreview:peek())):toBe("automatic")
-				Verify.expect((ctx.inputPreview:peek())):toBe("automatic")
+				Verify.expect((assert(ctx.devicePreview):peek())):toBe("automatic")
+				Verify.expect((assert(ctx.inputPreview):peek())):toBe("automatic")
 				Verify.expect(#toggle:GetChildren()):toBe(1)
 				toggle:FindFirstChild("Activate").Pressed:Fire()
-				Verify.expect((ctx.panelOpen:peek())):toBe(false)
+				Verify.expect((assert(ctx.panelOpen):peek())):toBe(false)
 				Verify.expect((find(root, "ShowcasePanel"))):toBe(nil)
 				toggle:FindFirstChild("Activate").Pressed:Fire()
-				Verify.expect((ctx.panelSection:peek())):toBe("settings")
+				Verify.expect((assert(ctx.panelSection):peek())):toBe("settings")
 				find(find(root, "Section"), "demos").Activated:Fire()
 				Verify.expect(find(root, "Demo-first") ~= nil):toBe(true)
 				find(root, "DismissTarget").Activated:Fire()
@@ -283,12 +296,13 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_gallery_shell::native gallery shell parity::names the Status and Menus categories on the category bar and visits every inner tab through its own bar",
 				run = function()
 					for _, name in { "all_controls", "collections", "motion_layout" } do
-						local scenario = require("../examples/gallery/scenarios/" .. name) :: any
-						local built
+						local scenario = scenarios[name]
+						local built: any
 						local ctx, root, stop, engine = fixture(function(context)
 							context.pageVisible = Compose.cell(true)
-							built = scenario.build(context)
-							return built.screen()
+							local made = scenario.build(context)
+							built = made
+							return made.screen()
 						end)
 						local categories = find(root, "Categories", "Frame")
 						local function tabViewOf(node: any): any
@@ -317,12 +331,22 @@ return function(verifyHarness: Verify.Harness)
 							category.Activated:Fire()
 							Verify.expect(built.report().selected.Categories):toBe(group.id)
 							local bar = assert(
-								Verify.awaitValue(function()
-									return find(categories, group.id, "Frame")
-								end, 5, 0.01, { now = os.clock, sleep = task.wait }),
+								Verify.awaitValue(
+									function()
+										return find(categories, group.id, "Frame")
+									end,
+									5,
+									0.01,
+									{
+										now = os.clock,
+										sleep = function(seconds: number)
+											task.wait(seconds)
+										end,
+									}
+								),
 								`Missing {name} group {group.id}`
 							)
-							for _, tab in group.tabs do
+							for _, tab in assert(group.tabs) do
 								local button = find(bar, tab.id, "TextButton")
 								Verify.expect(`{tab.id} on the {group.id} bar: {tabViewOf(button) == bar}`)
 									:toBe(`{tab.id} on the {group.id} bar: true`)
@@ -335,7 +359,7 @@ return function(verifyHarness: Verify.Harness)
 						end
 						local expected = 0
 						for _, group in scenario.groups do
-							expected += #group.tabs
+							expected += #assert(group.tabs)
 						end
 						Verify.expect(visited):toBe(expected)
 						if name == "all_controls" then
@@ -354,9 +378,9 @@ return function(verifyHarness: Verify.Harness)
 							local menus = find(categories, "navigation", "Frame")
 							find(menus, "journey", "TextButton").Activated:Fire()
 							Verify.expect(built.report().active):toBe("journey")
-							ctx.guiService.SelectedObject = find(menus, "journey", "TextButton")
-							local shoulder
-							for _, node in ctx.inputTarget:GetDescendants() do
+							assert(ctx.guiService).SelectedObject = find(menus, "journey", "TextButton")
+							local shoulder: InputContext?
+							for _, node in assert(ctx.inputTarget):GetDescendants() do
 								if
 									node:IsA("InputContext")
 									and node.Name == "FacetNextTab"
@@ -367,7 +391,10 @@ return function(verifyHarness: Verify.Harness)
 								end
 							end
 							assert(shoulder, "the Menus tabs bind ButtonR1")
-							shoulder:FindFirstChild("NextTab").Pressed:Fire()
+							engine.environment.fire(
+								VerifyRoblox.assertInstance(assert(shoulder:FindFirstChild("NextTab"))),
+								"Pressed"
+							)
 							Verify.expect(built.report().selected.Categories):toBe("navigation")
 							Verify.expect(built.report().active):toBe("pages")
 						end

@@ -75,7 +75,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				dismiss("cancel")
 			end
 		end
-		local props: Types.FrameNativeProps = {
+		local props: Types.FrameProps = {
 			Name = spec.Name or "Modal",
 			BorderSizePixel = 0,
 			Size = D2.fromScale(1, 1),
@@ -108,7 +108,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				Selectable = false,
 				Interactable = true,
 				ZIndex = spec.ZIndex or 100,
-				Activated = function(input)
+				Activated = function(input: InputObject?)
 					if
 						input
 						and input.UserInputType
@@ -212,7 +212,8 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			if chosen and displayed(chosen) then
 				return chosen
 			end
-			return firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+			local initial = spec.initialFocus
+			return if initial then firstSelectable(panel, initial) or firstSelectable(panel) else firstSelectable(panel)
 		end
 		local provisional = Compose.cell(nil :: GuiObject?)
 		local function settleEntry(target: GuiObject?)
@@ -392,9 +393,16 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			end)
 			local selection = ctx.observe.SelectedObject(gui)
 			local extent = ctx.observe.AbsoluteSize(panel)
+			local measured: GuiObject? = nil
+			local function measuredTarget(): GuiObject?
+				if measured == nil or measured.Parent == nil then
+					measured = entryTarget()
+				end
+				return measured
+			end
 			local landing = runtime.settled({
 				ready = function(): boolean
-					local target = entryTarget()
+					local target = measuredTarget()
 					return landed
 						or (
 							target ~= nil
@@ -404,7 +412,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 						)
 				end,
 				sample = function(): Vector2
-					local target = entryTarget()
+					local target = measuredTarget()
 					return if target then target.AbsoluteSize else V2.zero
 				end,
 			})
@@ -445,7 +453,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 						and use(panelInteractive)
 						and not (exiting and use(exiting))
 					then
-						gui.SelectedObject = if focusIn(use) then entryTarget() else nil
+						guiService.SelectedObject = if focusIn(use) then entryTarget() else nil
 					end
 					return
 				end

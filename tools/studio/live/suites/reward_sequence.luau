@@ -2,6 +2,7 @@
 type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Compose = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type Live = {
 	mount: ((Controls, Host, Compose) -> Instance, { frames: number, motionLevel: "normal"? }?) -> GuiObject,
 	check: (string, boolean, unknown?) -> (),
@@ -17,7 +18,7 @@ local function setup(t: Live): State
 		local target = Host.Frame { Size = UDim2.fromOffset(240, 60), Position = UDim2.fromOffset(20, 80) }
 		local display = UI.Text {
 			Name = "LiveTotal",
-			text = C.formula(function(use)
+			text = C.formula(function(use: Use)
 				return tostring(math.floor(use(number) + 0.5))
 			end),
 		}
@@ -64,21 +65,25 @@ local function setup(t: Live): State
 		end)
 		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
-			target :: unknown,
-			display :: unknown,
-			UI.Flash { target = target :: GuiObject, progress = flash } :: unknown,
+			target,
+			display,
+			UI.Flash { target = target :: GuiObject, progress = flash },
 			UI.Button {
 				Name = "Play",
 				label = "Play reward",
 				Position = UDim2.fromOffset(20, 160),
-				onActivate = reward.play,
-			} :: unknown,
+				onActivate = function()
+					reward.play()
+				end,
+			},
 			UI.Button {
 				Name = "Finish",
 				label = "Finish",
 				Position = UDim2.fromOffset(160, 160),
-				onActivate = reward.finish,
-			} :: unknown,
+				onActivate = function()
+					reward.finish()
+				end,
+			},
 			UI.Button {
 				Name = "Cancel",
 				label = "Cancel",
@@ -87,7 +92,7 @@ local function setup(t: Live): State
 					reward.cancel()
 					flash:set(0)
 				end,
-			} :: unknown,
+			},
 		}
 	end, { frames = 12, motionLevel = "normal" })
 	return state

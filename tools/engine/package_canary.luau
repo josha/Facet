@@ -277,15 +277,15 @@ local function screen()
 	local sheet = Facet.themes.createStyleSheet(runtime, Facet.themes.neutralPackage(), { types = engine.types })
 	return Host.Frame({
 		Name = "Canary",
-		sheet :: unknown,
+		sheet,
 		Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
-		UI.Text("Title")({ text = title }),
-		UI.Button("Go")({
+		UI.Text({ text = title }, "Title"),
+		UI.Button({
 			label = "Go",
 			onActivate = function()
 				taps += 1
 			end,
-		}),
+		}, "Go"),
 	})
 end
 for lap = 1, 3 do
@@ -299,7 +299,10 @@ for lap = 1, 3 do
 	check(label.Text == `Changed {lap}`, `lap {lap}: Compose updates native text`)
 	local link = node:FindFirstChildWhichIsA("StyleLink")
 	check(
-		link and link.StyleSheet and link.StyleSheet:IsDescendantOf(target) and #link.StyleSheet:GetChildren() > 0,
+		link ~= nil
+			and link.StyleSheet ~= nil
+			and link.StyleSheet:IsDescendantOf(target)
+			and #link.StyleSheet:GetChildren() > 0,
 		`lap {lap}: native theme rules are linked`
 	)
 	close()

@@ -40,7 +40,7 @@ function release.choose(
 			best, bestGap = stop, gap
 		end
 	end
-	return (best :: Stop).id
+	return assert(best).id
 end
 
 function release.resist(

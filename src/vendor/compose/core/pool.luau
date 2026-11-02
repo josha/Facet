@@ -1,15 +1,15 @@
 --!strict
 
-local ResourceTypes = require "./resource-types"
+local CoreTypes = require "./types"
 local Owners = require "./ownership/owner"
 local Diagnostics = require "./diagnostics"
 local cacheOptions = require "./ownership/cache-options"
 
-export type Lease<T> = ResourceTypes.Lease<T>
+export type Lease<T> = CoreTypes.Lease<T>
 
-export type Pool<T> = ResourceTypes.Pool<T>
+export type Pool<T> = CoreTypes.Pool<T>
 
-export type Options<T> = ResourceTypes.PoolOptions<T>
+export type Options<T> = CoreTypes.PoolOptions<T>
 
 local function createPool<T>(options: Options<T>): Pool<T>
 	local owner, maximum = cacheOptions.validate(options, "pool")
@@ -34,7 +34,7 @@ local function createPool<T>(options: Options<T>): Pool<T>
 
 	local function acquire(): Lease<T>
 		if disposed then
-			Diagnostics.raise("pool/disposed", "a disposed pool cannot acquire resources", {
+			return Diagnostics.raise("pool/disposed", "a disposed pool cannot acquire resources", {
 				contract = "the pool shares its owner's lifetime",
 			})
 		end

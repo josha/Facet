@@ -5,6 +5,7 @@ local reducedMotion = require("./motion").reduced
 
 return function(ctx: Shared.Context, UI: Types.Controls)
 	function UI.shake(targets: Shared.Input<{ GuiObject }>, options: Types.ShakeOptions?): Types.Sequence
+		local readTargets = ctx.read<<{ GuiObject }>>
 		local intensity = if options and options.intensity ~= nil then options.intensity else 1
 		assert(intensity >= 0 and intensity < math.huge, "Facet shake intensity must be finite and nonnegative")
 		local originals: { [GuiObject]: number } = {}
@@ -69,7 +70,7 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 					return
 				end
 				cancel()
-				local current = ctx.read(targets)
+				local current = readTargets(targets)
 				for _, target in current do
 					assert(target:IsA("GuiObject"), "Facet shake requires GuiObject targets")
 				end

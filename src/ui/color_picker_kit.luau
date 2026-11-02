@@ -9,7 +9,7 @@ type Use = ComposeTypes.Use
 export type Hsv = colorValue.Hsv
 export type Item = colorValue.Swatch
 export type Paint = { color: Color3?, alpha: number }
-export type Deps = ControlTypes.BuilderControls
+export type Deps = ControlTypes.Controls
 export type Kit = {
 	chrome: fieldChrome.Chrome,
 	color: colorValue.ColorValue,
@@ -125,7 +125,7 @@ local function new(ctx: Shared.Context): Kit
 					})
 				)
 			end
-			local checker: Shared.FrameNativeProps = {
+			local checker: Shared.FrameProps = {
 				Name = "Checker",
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
@@ -161,7 +161,7 @@ local function new(ctx: Shared.Context): Kit
 						Size = D2.fromScale(1, 1),
 						BorderSizePixel = 0,
 						BackgroundTransparency = 1,
-						ctx.corner() :: Shared.Child,
+						ctx.corner(),
 						checkerView(),
 						Host.Frame "Plate" {
 							Size = D2.fromScale(1, 1),

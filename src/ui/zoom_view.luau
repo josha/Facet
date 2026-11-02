@@ -2,7 +2,8 @@
 local Shared = require("./types")
 local Types = require("./zoom_travel_types")
 local geometry = require("./zoom_geometry")
-local reducedMotion = require("./motion").reduced
+local Motion = require("./motion")
+local reducedMotion = Motion.reduced
 local sessionOf = require("./drag_session")
 local arbiterOf = require("./gesture_service")
 local scrollLock = require("./scroll_lock")
@@ -30,7 +31,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		assert(positive(zoom:peek()), "Facet UI.ZoomView: zoom must be positive and finite")
 		local reduce = reducedMotion(ctx)
 		local ramp = runtime.ramp(zoom:peek(), { ease = ctx.motionEase("zoom") })
-		local translation = runtime.ramp(V2.zero, { ease = ctx.motionEase("zoom") })
+		local translation = Motion.forValue(ctx, V2.zero).ramp(V2.zero, { ease = ctx.motionEase("zoom") })
 		local drag = sessionOf(ctx)
 		local arbiter = arbiterOf(ctx)
 		local contacts: { [InputObject]: boolean } = {}
@@ -51,7 +52,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		local input, gui = ctx.config.userInputService, ctx.config.guiService
 		local effectiveInput = ctx.effectiveInput()
 		local function extent(): Vector2
-			local size = ctx.read(spec.contentSize)
+			local size = ctx.read<<Vector2>>(spec.contentSize)
 			assert(
 				positive(size.X) and positive(size.Y),
 				"Facet UI.ZoomView: contentSize must have positive finite axes"
@@ -65,11 +66,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			Name = "ZoomContent",
 			BackgroundTransparency = 1,
 			Size = function(use: Shared.Use): UDim2
-				local size = ctx.read(spec.contentSize, use)
+				local size = ctx.read<<Vector2>>(spec.contentSize, use)
 				return D2.fromOffset(size.X, size.Y)
 			end,
-			scaler :: unknown,
-			content :: unknown,
+			scaler,
+			content,
 		}
 		local props = ctx.props(spec, {
 			"contentSize",
@@ -423,7 +424,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			end
 			if not measured then
 				measured = true
-				contentPoint, screenPoint = ctx.read(spec.focus) or size / 2, area / 2
+				contentPoint, screenPoint = ctx.read<<Vector2?>>(spec.focus) or size / 2, area / 2
 				local fitted = geometry.fit(area.X, area.Y, size.X, size.Y)
 				if spec.zoom == nil or zoom:peek() <= fitted then
 					value = clamp(fitted)
@@ -466,11 +467,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			end
 		end)
 		local lastZoom = zoom:peek()
-		local lastFocus = ctx.read(spec.focus)
+		local lastFocus = ctx.read<<Vector2?>>(spec.focus)
 		Compose.watch(function(use: Shared.Use)
 			local next = use(zoom)
 			assert(positive(next), "Facet UI.ZoomView: zoom must be positive and finite")
-			local focus = ctx.read(spec.focus, use)
+			local focus = ctx.read<<Vector2?>>(spec.focus, use)
 			if next ~= lastZoom or focus ~= lastFocus then
 				if blocked() and not (proposing and captureTarget ~= nil) then
 					deferred = next
@@ -833,7 +834,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		end
 		capture()
 		if spec.focus then
-			contentPoint = ctx.read(spec.focus)
+			contentPoint = ctx.read<<Vector2?>>(spec.focus)
 		end
 		render(0)
 		if spec.controls then

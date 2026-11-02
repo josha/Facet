@@ -46,7 +46,7 @@ function placement.assertAlign(align: unknown, where: string)
 end
 
 function placement.assertCrossOffset(offset: unknown, where: string)
-	if offset ~= nil and (type(offset) ~= "number" or offset ~= offset or math.abs(offset :: number) == math.huge) then
+	if offset ~= nil and (type(offset) ~= "number" or offset ~= offset or math.abs(offset) == math.huge) then
 		error(`Facet {where}: crossOffset must be a finite number of pixels (got {tostring(offset)})`, 0)
 	end
 end

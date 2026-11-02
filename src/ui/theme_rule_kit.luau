@@ -57,10 +57,10 @@ export type RuleKit = {
 }
 
 return function(
-	package: ThemeTypes.ThemePackage,
+	package: ThemeTypes.ReadOnlyThemePackage,
 	selected: string?,
 	types: Engine.RobloxTypes,
-	neutral: ThemeTypes.ThemePackage,
+	neutral: ThemeTypes.ReadOnlyThemePackage,
 	paint: support.Paint
 ): RuleKit
 	local color = paint.color

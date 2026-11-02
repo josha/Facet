@@ -2,10 +2,11 @@
 --!native
 
 local Evaluation = require "./evaluation"
+local stats = Evaluation.stats
+local Dynamic = require "../dynamic"
 local Graph = require "./graph"
-local NodeCast = require "./node"
+local Nodes = require "./node"
 local Types = require "./types"
-local stats = require "./stats"
 local statsOn = stats.state
 
 type Body = (use: Types.Use) -> ()
@@ -50,6 +51,8 @@ end
 
 local WATCH = {}
 WATCH.__index = WATCH
+Nodes.adopt(WATCH)
+WATCH.state = CLEAN
 
 function WATCH.run(node: Node)
 	if node.released then
@@ -64,6 +67,8 @@ end
 
 local TERMINAL = {}
 TERMINAL.__index = TERMINAL
+Nodes.adopt(TERMINAL)
+TERMINAL.state = CLEAN
 TERMINAL.group = true
 
 local resume: Node? = nil
@@ -120,8 +125,11 @@ function TERMINAL.run(leader: Node)
 	local from = producer.first
 	local failures: { string }? = nil
 	while from ~= nil do
+		local previous = resume
 		resume = nil
 		local ok, err: unknown = pcall(sweep, leader, producer, from)
+		local following = resume
+		resume = previous
 		if ok then
 			break
 		end
@@ -129,7 +137,7 @@ function TERMINAL.run(leader: Node)
 		local collected = failures or {}
 		failures = collected
 		table.insert(collected, tostring(err))
-		from = resume
+		from = following
 	end
 	if failures ~= nil then
 		if #failures == 1 then
@@ -157,6 +165,8 @@ end
 
 local GUARDED = {}
 GUARDED.__index = GUARDED
+Nodes.adopt(GUARDED)
+GUARDED.state = CLEAN
 
 function GUARDED.run(node: Node)
 	if node.released then
@@ -169,18 +179,18 @@ function GUARDED.run(node: Node)
 	rerun(node)
 end
 
-local function begin(reactor: Reactor, body: Body, class: {}, label: string?, scope: unknown?): Node
+local function begin(reactor: Reactor, body: Body, class: {}, label: string?, scope: Types.Owner?): Node
 	local node: Node = {
-		state = DIRTY,
 		reactor = reactor,
 		effect = body,
 		released = false,
 		queued = false,
+		reads = nil,
 		inherited = scope,
 		child = nil,
 		base = nil,
 	}
-	NodeCast.classify(node, class)
+	Nodes.classify(node, class)
 	if statsOn.enabled then
 		statsOn.recorder.born(node, label)
 	end
@@ -194,20 +204,29 @@ local function begin(reactor: Reactor, body: Body, class: {}, label: string?, sc
 		end
 		error(err, 0)
 	end
+	if #node == 0 and not node.queued then
+		node.effect = nil
+	end
 	return node
 end
 
-local function releaseHeld(subject: unknown)
-	local node = NodeCast.heldEdge(subject)
+local function releaseEdge(node: Types.Node)
 	if node.listener ~= nil then
 		Graph.unlisten(node)
-	elseif not node.released and node.effect ~= nil then
+	elseif not node.released and node.state ~= nil then
 		Graph.release(node)
 		node.queued = false
 	end
 end
 
-local function start(reactor: Reactor, body: Body, class: {}, label: string?, scope: unknown?): Dispose
+local function releaseHeld(subject: unknown)
+	local node = Nodes.asNode(subject)
+	if node ~= nil then
+		releaseEdge(node)
+	end
+end
+
+local function start(reactor: Reactor, body: Body, class: {}, label: string?, scope: Types.Owner?): Dispose
 	local node = begin(reactor, body, class, label, scope)
 	return function()
 		if node.released then
@@ -229,7 +248,7 @@ local function watchGuarded(reactor: Reactor, body: Body, label: string?): Dispo
 	return start(reactor, body, GUARDED, label)
 end
 
-local function watchScoped(reactor: Reactor, body: Body, label: string?, scope: unknown, guarded: boolean): Dispose
+local function watchScoped(reactor: Reactor, body: Body, label: string?, scope: Types.Owner, guarded: boolean): Dispose
 	return start(reactor, body, if guarded then GUARDED else WATCH, label, scope)
 end
 
@@ -237,16 +256,12 @@ local function watchTerminal(reactor: Reactor, body: Body): Dispose
 	return start(reactor, body, TERMINAL, nil)
 end
 
-local function terminalNode(reactor: Reactor, body: Body): Node
-	return begin(reactor, body, TERMINAL, nil)
+local function terminalNode(reactor: Reactor, body: Body, guarded: boolean?): Node
+	return begin(reactor, body, if guarded then GUARDED else TERMINAL, nil)
 end
 
 local function watchStatic<T>(reactor: Reactor, value: Types.ReadOnlyValue<T>, body: (value: T) -> ()): Dispose
-	return Graph.listen(reactor, NodeCast.nodeOf(value), NodeCast.eraseListener(body))
-end
-
-local function listenEdge<T>(reactor: Reactor, value: Types.ReadOnlyValue<T>, body: (value: T) -> ()): Node
-	return Graph.listenEdge(reactor, NodeCast.nodeOf(value), NodeCast.eraseListener(body))
+	return Graph.listen(reactor, Graph.nodeOf(value), Dynamic.listener(body))
 end
 
 local function sample<T>(body: () -> T): T
@@ -259,10 +274,10 @@ return {
 	watchScoped = watchScoped,
 	installScope = installScope,
 	watchStatic = watchStatic,
-	listenEdge = listenEdge,
 	unlisten = Graph.unlisten,
 	terminalNode = terminalNode,
 	releaseHeld = releaseHeld,
+	releaseEdge = releaseEdge,
 	watchTerminal = watchTerminal,
 	sample = sample,
 }

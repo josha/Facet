@@ -34,7 +34,7 @@ return function(harness: Verify.Harness)
 				end
 			end
 		end)
-		local runtime = Facet.Roblox.createRuntime(bridge.engine)
+		local runtime = Facet.Roblox.createRuntime(engine)
 		local Host = Facet.host(runtime)
 		local UI = Facet.controls(
 			runtime,

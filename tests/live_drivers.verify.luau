@@ -2,7 +2,8 @@
 local Verify = require("../tools/vendor/verify/src/core")
 local fs = require("@std/fs")
 local Lute = require("../tools/vendor/verify/src/lute")
-local Roblox = require("./lib/native_engine").types
+local NativeEngine = require("./lib/native_engine")
+local Roblox = NativeEngine.types
 local datatypeName = require("../tools/vendor/verify/src/roblox").datatypes.typeof
 local function scope(fields: { [string]: unknown }): { [string]: unknown }
 	return fields
@@ -24,19 +25,21 @@ return function(harness: Verify.Harness)
 		local buttons: { string } = {}
 		local steps: { string } = {}
 		local forbidden = 0
-		local node = { AbsolutePosition = Roblox.Vector2.zero, AbsoluteSize = Roblox.Vector2.new(64, 64) }
-		local root = {
-			FindFirstChild = function(): unknown
-				return node
-			end,
-		}
-		local source = {
-			AbsolutePosition = Roblox.Vector2.zero,
-			AbsoluteSize = Roblox.Vector2.new(64, 64),
-			FindFirstChild = function(): unknown
-				return node
-			end,
-		}
+		local engine = NativeEngine.new()
+		local root = engine.new("Frame")
+		local node = engine.new("TextButton")
+		node.Name = "Shuffle"
+		node.Parent = root
+		engine.environment.poke(node, "AbsolutePosition", Roblox.Vector2.zero)
+		engine.environment.poke(node, "AbsoluteSize", Roblox.Vector2.new(64, 64))
+		for _, name in { "Send", "Return" } do
+			local button = engine.new("TextButton")
+			button.Name = name
+			button.Parent = root
+		end
+		local source = engine.new("Frame")
+		engine.environment.poke(source, "AbsolutePosition", Roblox.Vector2.zero)
+		engine.environment.poke(source, "AbsoluteSize", Roblox.Vector2.new(64, 64))
 		local state = {
 			source = source,
 			target = node,
@@ -174,6 +177,9 @@ return function(harness: Verify.Harness)
 		local positions: { Vector2 } = {}
 		local down = false
 		local virtual = {
+			IsA = function(_self: unknown, className: string): boolean
+				return className == "VirtualInput" or className == "Object"
+			end,
 			SendMousePosition = function(_self: unknown, point: Vector2)
 				assert(point.X < 1000, "blocked native input")
 				table.insert(positions, point)

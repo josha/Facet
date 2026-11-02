@@ -7,22 +7,26 @@ local ControlTypes = require("./control_types")
 local InputProps = require("./input_props")
 local ComposeTypes = require("../vendor/compose/core")
 
-type LevelSpec = Shared.TextButtonProps & inputKit.ValueState<number> & InputTypes.LevelOptions & {
-	segment: ("bar" | "glyph" | "image")?,
-	segmentSize: InputTypes.LevelSize?,
-	starSize: InputTypes.LevelSize?,
-	glyphs: InputTypes.Glyphs?,
-	images: InputTypes.Images?,
-	tint: InputTypes.Tint?,
+type LevelSpec = Shared.TextButtonProps & inputKit.NumberSpec & {
+	read count: number?,
+	read allowZero: boolean?,
+	read enabled: Shared.ValueBoolean?,
+	read segment: ("bar" | "glyph" | "image")?,
+	read segmentSize: InputTypes.LevelSize?,
+	read starSize: InputTypes.LevelSize?,
+	read glyphs: InputTypes.Glyphs?,
+	read images: InputTypes.Images?,
+	read tint: InputTypes.Tint?,
 }
 
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
 	local runtime, Host, Compose = ctx.runtime, ctx.Host, ctx.Compose
-	local read = ctx.read
+	local readNumber = ctx.read<<number>>
+	local readColor = ctx.read<<Color3?>>
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local enabled, changed = kit.enabled, kit.changed
 	local function level(source: InputProps.RatingProps | InputProps.LevelPickerProps, rating: boolean): TextButton
-		local spec = (source :: Shared.TextButtonProps) :: LevelSpec
+		local spec: LevelSpec = source
 		kit.requireValue(spec, "number", if rating then "Rating" else "LevelPicker")
 		local count = spec.count or 5
 		assert(
@@ -51,10 +55,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			local width = math.min(use(room), use(drawn))
 			return math.min(markSize, math.max(1, math.floor((width - math.max(0, count - 1) * 2) / count)))
 		end)
-		local marks: { ComposeTypes.Child } = {}
+		local marks: { GuiObject } = {}
 		for index = 1, count do
 			local filled = function(use: ComposeTypes.Use)
-				return read(spec.value, use) >= index
+				return readNumber(spec.value, use) >= index
 			end
 			local name = `Level{index}`
 			local size = function(use: ComposeTypes.Use): UDim2
@@ -82,7 +86,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					"Facet.LevelPicker: image segments require filled and empty images"
 				)
 				mark, paint =
-					Host.ImageLabel({
+					Host.ImageLabel {
 						Name = name,
 						Size = size,
 						BackgroundTransparency = 1,
@@ -90,7 +94,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						Image = function(use: ComposeTypes.Use)
 							return if filled(use) then images.filled else images.empty
 						end,
-					}), "ImageColor3"
+					}, "ImageColor3"
 			else
 				mark, paint =
 					ctx.styled(
@@ -114,14 +118,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end
 			if spec.tint then
 				Compose.watch(function(use: ComposeTypes.Use)
-					local color = read(if filled(use) then spec.tint.filled else spec.tint.empty, use)
+					local color = readColor(if filled(use) then spec.tint.filled else spec.tint.empty, use)
 					if color ~= nil then
 						if mark:IsA("TextLabel") then
 							mark.TextColor3 = color
 						elseif mark:IsA("ImageLabel") then
 							mark.ImageColor3 = color
 						else
-							(mark :: Frame).BackgroundColor3 = color
+							mark.BackgroundColor3 = color
 						end
 					else
 						mark:ResetPropertyToDefault(paint)
@@ -130,7 +134,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end
 			table.insert(marks, mark)
 		end
-		local contentProps: Shared.FrameNativeProps = {
+		local contentProps: Shared.FrameProps = {
 			Name = "Marks",
 			Size = D2.fromOffset(0, 0),
 			AutomaticSize = E.AutomaticSize.XY,
@@ -178,7 +182,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				width, origin = root.AbsoluteSize.X, root.AbsolutePosition.X
 			end
 			if width <= 0 then
-				return read(spec.value)
+				return readNumber(spec.value)
 			end
 			return math.clamp(math.floor((position.X - origin) / width * count) + 1, 1, count)
 		end
@@ -189,68 +193,65 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				changed(spec, assert(snapshot))
 			end
 		end
-		local p = ctx.props(
-			spec,
-			{
-				"value",
-				"count",
-				"allowZero",
-				"enabled",
-				"readOnly",
-				"glyphs",
-				"images",
-				"tint",
-				"segment",
-				"starSize",
-				"segmentSize",
-				"onChange",
-			},
-			{
-				PressHapticEffect = if spec.PressHapticEffect == nil and ctx.haptic(true)
-					then Compose.static(ctx.haptic(true))
-					else nil,
-				Text = "",
-				BackgroundTransparency = 1,
-				AutoButtonColor = false,
-				Size = function(use: ComposeTypes.Use): UDim2
-					return D2.fromOffset(count * markSize + math.max(0, count - 1) * gap(use), math.max(44, markSize))
+		local defaults: Shared.TextButtonNativeProps = {
+			PressHapticEffect = if spec.PressHapticEffect == nil and ctx.haptic(true)
+				then Compose.static(ctx.haptic(true))
+				else nil,
+			Text = "",
+			BackgroundTransparency = 1,
+			AutoButtonColor = false,
+			Size = function(use: ComposeTypes.Use): UDim2
+				return D2.fromOffset(count * markSize + math.max(0, count - 1) * gap(use), math.max(44, markSize))
+			end,
+			Selectable = interactive,
+			Interactable = interactive,
+			markContent,
+			Host.UIFlexItem { FlexMode = E.UIFlexMode.Shrink },
+			Host.UIDragDetector "Scrub" {
+				ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
+				Enabled = interactive,
+				DragStart = function(position)
+					if interactive() then
+						dragging, snapshot = true, readNumber(spec.value)
+						dragOrigin = dragPointer(ctx, position)
+						moved = false
+						target = valueAt(assert(dragOrigin))
+						apply(assert(target))
+					end
 				end,
-				Selectable = interactive,
-				Interactable = interactive,
-				markContent :: ComposeTypes.Child,
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Shrink }),
-				Host.UIDragDetector "Scrub" {
-					ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-					Enabled = interactive,
-					DragStart = function(position)
-						if interactive() then
-							dragging, snapshot = true, read(spec.value)
-							dragOrigin = dragPointer(ctx, position)
-							moved = false
-							target = valueAt(assert(dragOrigin))
-							apply(assert(target))
+				DragContinue = function(position)
+					if dragging then
+						local point = dragPointer(ctx, position)
+						moved = moved or point ~= dragOrigin
+						target = valueAt(point)
+						apply(assert(target))
+					end
+				end,
+				DragEnd = function()
+					if dragging then
+						dragging = false
+						suppressActivation = true
+						if not moved and target == snapshot and minimum == 0 then
+							apply(0)
 						end
-					end,
-					DragContinue = function(position)
-						if dragging then
-							local point = dragPointer(ctx, position)
-							moved = moved or point ~= dragOrigin
-							target = valueAt(point)
-							apply(assert(target))
-						end
-					end,
-					DragEnd = function()
-						if dragging then
-							dragging = false
-							suppressActivation = true
-							if not moved and target == snapshot and minimum == 0 then
-								apply(0)
-							end
-						end
-					end,
-				},
-			} :: Shared.TextButtonNativeProps
-		)
+					end
+				end,
+			},
+		}
+		local p = ctx.props(spec, {
+			"value",
+			"count",
+			"allowZero",
+			"enabled",
+			"readOnly",
+			"glyphs",
+			"images",
+			"tint",
+			"segment",
+			"starSize",
+			"segmentSize",
+			"onChange",
+		}, defaults)
 		p.Activated = function(input: InputObject, clickCount: number)
 			if suppressActivation then
 				suppressActivation = false
@@ -258,9 +259,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end
 			if input and input.Position then
 				local value = valueAt(input.Position)
-				apply(if value == read(spec.value) and minimum == 0 then 0 else value)
+				apply(if value == readNumber(spec.value) and minimum == 0 then 0 else value)
 			else
-				apply(if read(spec.value) == count then minimum else (read(spec.value) :: number) + 1)
+				apply(if readNumber(spec.value) == count then minimum else readNumber(spec.value) + 1)
 			end
 			if spec.Activated then
 				spec.Activated(input, clickCount)
@@ -273,17 +274,19 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local observation = runtime.host.observation
 		local stopHolder: (() -> ())? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
-			local holder = use(parent) :: Instance?
+			local holder = use(parent)
 			if stopHolder then
 				stopHolder()
 				stopHolder = nil
 			end
-			local fixed = holder
+			if
+				holder
 				and holder:IsA("GuiObject")
 				and holder.AutomaticSize ~= E.AutomaticSize.X
 				and holder.AutomaticSize ~= E.AutomaticSize.XY
-			if fixed and observation then
-				local frame = holder :: GuiObject
+				and observation
+			then
+				local frame = holder
 				local function measure()
 					holderSize:set(frame.AbsoluteSize.X)
 				end
@@ -306,7 +309,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			drawn:set(if box > 0 and scale > 0 then box / scale else math.huge)
 		end)
 		local function published(use: ComposeTypes.Use): number
-			return math.clamp(read(spec.value, use), minimum, count)
+			return math.clamp(readNumber(spec.value, use), minimum, count)
 		end
 		kit.attributes(root, {
 			value = published,
@@ -320,7 +323,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			suppressActivation = false
 		end)
 		kit.adjustment(root, spec, function(direction)
-			apply((read(spec.value) :: number) + direction)
+			apply(readNumber(spec.value) + direction)
 		end, cancel, minimum, count)
 		Compose.watch(function(use: ComposeTypes.Use)
 			if not interactive(use) then

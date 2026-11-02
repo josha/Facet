@@ -10,6 +10,7 @@ local Core = require("../vendor/compose/core")
 return function(ctx: Types.Context, UI: Controls.Controls)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local V2, V3, CF, E = ctx.types.Vector2, ctx.types.Vector3, ctx.types.CFrame, ctx.types.Enum
+	local vectorMotion = Motion.forValue(ctx, V3.zero)
 	UI.cameraRig = function(spec: Props.CameraRigOptions): Props.CameraRig
 		local owner = assert(Compose.currentOwner(), "cameraRig requires a Compose owner")
 		local input = assert(ctx.config.userInputService, "cameraRig requires UserInputService")
@@ -76,8 +77,8 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 		end
 		local focus = Compose.cell(initialFocus)
 		local preset = Compose.cell<<string?>>(nil)
-		local focusRamp: Core.Ramp<Vector3> = runtime.ramp(initialFocus, { ease = ctx.motionEase("travel") })
-		local orbitRamp: Core.Ramp<Vector3> = runtime.ramp(initialOrbit, { ease = ctx.motionEase("travel") })
+		local focusRamp: Core.Ramp<Vector3> = vectorMotion.ramp(initialFocus, { ease = ctx.motionEase("travel") })
+		local orbitRamp: Core.Ramp<Vector3> = vectorMotion.ramp(initialOrbit, { ease = ctx.motionEase("travel") })
 		local targetFocus: Vector3 = initialFocus
 		local targetOrbit: Vector3 = initialOrbit
 		local internal = false
@@ -410,7 +411,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				{ name = "CameraOut", keys = { E.KeyCode.Minus, E.KeyCode.KeypadMinus, E.KeyCode.ButtonL2 } },
 			}
 		do
-			local bindings: Types.InputActionNativeProps = {
+			local bindings: Types.InputActionProps = {
 				Name = entry.name,
 				Parent = Compose.static(context),
 				Type = E.InputActionType.Bool,
@@ -443,7 +444,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 			Host.InputBinding { KeyCode = E.KeyCode.Thumbstick2 },
 		}
 		local spring = ctx.motionSpring("camera")
-		local smoothFocus = runtime.spring(function(use: Types.Use): Vector3
+		local smoothFocus = vectorMotion.spring(function(use: Types.Use): Vector3
 			return use(focusRamp.value)
 		end, {
 			period = spring.period,
@@ -452,7 +453,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				return reduce(use) or spec.smoothing ~= true or use(direct) or use(halted) or use(travelling)
 			end,
 		})
-		local smoothOrbit = runtime.spring(function(use: Types.Use): Vector3
+		local smoothOrbit = vectorMotion.spring(function(use: Types.Use): Vector3
 			return use(orbitRamp.value)
 		end, {
 			period = spring.period,

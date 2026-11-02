@@ -2,7 +2,7 @@
 
 local freeze: ({}) -> {} = table.freeze
 
-local StructureTypes = require "./types"
+local CoreTypes = require "../types"
 local Owners = require "../ownership/owner"
 local Children = require "../runtime/children"
 local Diagnostics = require "../diagnostics"
@@ -11,10 +11,10 @@ local Support = require "./support"
 local Types = require "../reactive/types"
 local keyed = require "./keyed"
 
-export type Viewport = StructureTypes.TileCollectionViewport
-export type Size = StructureTypes.TileCollectionSize
-export type Placement = StructureTypes.TileCollectionPlacement
-export type Options<V> = StructureTypes.TileCollectionOptions<V>
+export type Viewport = CoreTypes.TileCollectionViewport
+export type Size = CoreTypes.TileCollectionSize
+export type Placement = CoreTypes.TileCollectionPlacement
+export type Options<V> = CoreTypes.TileCollectionOptions<V>
 
 local KNOWN_FIELDS: { [string]: true } =
 	{ viewport = true, tileSize = true, overscan = true, read = true, render = true }
@@ -38,13 +38,17 @@ local function tileCollection<V>(options: Options<V>): Children.Directive
 		or size.width <= 0
 		or size.height <= 0
 	then
-		Diagnostics.raise("tile-collection/invalid-size", "TileCollection needs positive finite tile dimensions", {})
+		return Diagnostics.raise(
+			"tile-collection/invalid-size",
+			"TileCollection needs positive finite tile dimensions",
+			{}
+		)
 	end
 	Support.noUnknownFields(size, "TileCollection.tileSize", { width = true, height = true })
 	local width, height = size.width, size.height
 	local overscan = settings.overscan or 0
 	if not finite(overscan) or overscan < 0 or overscan % 1 ~= 0 then
-		Diagnostics.raise(
+		return Diagnostics.raise(
 			"tile-collection/invalid-overscan",
 			"TileCollection overscan must be a non-negative integer",
 			{}
@@ -71,7 +75,7 @@ local function tileCollection<V>(options: Options<V>): Children.Directive
 				or view.width < 0
 				or view.height < 0
 			then
-				Diagnostics.raise(
+				return Diagnostics.raise(
 					"tile-collection/invalid-viewport",
 					"TileCollection needs a finite viewport with non-negative dimensions",
 					{}
@@ -87,7 +91,7 @@ local function tileCollection<V>(options: Options<V>): Children.Directive
 				local lastRow = math.ceil((view.y + view.height) / height) - 1 + overscan
 				for _, coordinate in { firstColumn, lastColumn, firstRow, lastRow } do
 					if not finite(coordinate) or math.abs(coordinate) > 9007199254740990 then
-						Diagnostics.raise(
+						return Diagnostics.raise(
 							"tile-collection/invalid-viewport",
 							"TileCollection coordinates must be safely representable integers",
 							{}

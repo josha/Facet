@@ -17,7 +17,7 @@ local function fixture()
 	local runtime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local inputService = engine.new("UserInputService")
-	local config =
+	local config: Types.Config =
 		{ types = engine.types, guiService = gui, services = { UserInputService = inputService, GuiService = gui } }
 	local UI = table.clone(Facet.controls(runtime, config))
 	local ctx = context(C, runtime, config)

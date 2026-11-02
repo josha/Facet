@@ -9,7 +9,7 @@ local len7 = require("@self/len7")
 local solutions = require("@self/solutions")
 local manifest = require("@self/manifest")
 
-export type Bank = { length: number, count: number, packed: string }
+export type Bank = { read length: number, read count: number, read packed: string }
 
 local words = {}
 

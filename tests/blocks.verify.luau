@@ -17,6 +17,30 @@ return function(harness: Verify.Harness)
 	local dialogue = require("../examples/blocks/dialogue_box")
 	local Compose = Facet.Compose
 
+	type StoreItem = {
+		id: string,
+		name: string,
+		description: string,
+		image: string,
+		price: number,
+		currency: "Coins" | "Gems",
+		owned: boolean,
+	}
+
+	local function bootsFor(price: number): { StoreItem }
+		return {
+			{
+				id = "boots",
+				name = "Boots",
+				description = "Move faster",
+				image = "rbxassetid://1",
+				price = price,
+				currency = "Coins",
+				owned = false,
+			},
+		}
+	end
+
 	local function mount(t: Verify.Context, component: (FacetModule, FacetControls) -> Instance)
 		local engine = engineLib.new()
 		local parent = engine.new("Folder")
@@ -85,17 +109,7 @@ return function(harness: Verify.Harness)
 					coins = Compose.cell(0),
 					gems = Compose.cell(0),
 					confirmationThreshold = 100,
-					items = Compose.cell({
-						{
-							id = "boots",
-							name = "Boots",
-							description = "Move faster",
-							image = "rbxassetid://1",
-							price = 10,
-							currency = "Coins" :: "Coins",
-							owned = false,
-						},
-					}),
+					items = Compose.cell(bootsFor(10)),
 					purchase = function(id)
 						requested = id
 						return { ok = ok, reason = if ok then nil else reason }
@@ -121,17 +135,7 @@ return function(harness: Verify.Harness)
 					coins = Compose.cell(500),
 					gems = Compose.cell(0),
 					confirmationThreshold = 100,
-					items = Compose.cell({
-						{
-							id = "boots",
-							name = "Boots",
-							description = "Move faster",
-							image = "rbxassetid://1",
-							price = 200,
-							currency = "Coins" :: "Coins",
-							owned = false,
-						},
-					}),
+					items = Compose.cell(bootsFor(200)),
 					purchase = function()
 						calls += 1
 						return { ok = true }
@@ -241,13 +245,13 @@ return function(harness: Verify.Harness)
 					}),
 				})
 			end)
-			local rows = {}
+			local rows: { Frame } = {}
 			for _, node in parent:GetDescendants() do
-				if node.Name == "Row" and node:FindFirstChild("score") then
-					table.insert(rows, node :: Frame)
+				if node:IsA("Frame") and node.Name == "Row" and node:FindFirstChild("score") then
+					table.insert(rows, node)
 				end
 			end
-			table.sort(rows, function(a, b)
+			table.sort(rows, function(a: Frame, b: Frame)
 				return a.AbsolutePosition.Y < b.AbsolutePosition.Y
 			end)
 			t:expect(#rows):toBe(2)

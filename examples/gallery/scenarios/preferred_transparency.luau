@@ -2,13 +2,11 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "Background transparency",
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local UDim, UDim2, Color3, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Color3, ctx.types.Enum
 		local gui = ctx.guiService
@@ -27,13 +25,13 @@ return {
 			end)
 		end
 		local function panel(name, transparency)
-			return Host.Frame({
+			return Host.Frame {
 				Name = name,
 				Size = UDim2.fromOffset(200, 96),
 				BackgroundColor3 = Color3.fromRGB(42, 70, 120),
 				BackgroundTransparency = transparency,
-				UI.Text({ text = name, TextColor3 = Color3.new(1, 1, 1) }),
-			})
+				UI.Text { text = name, TextColor3 = Color3.new(1, 1, 1) },
+			}
 		end
 		local function screen()
 			local closeActions: { AlertAction } = {
@@ -44,10 +42,10 @@ return {
 				gap = 12,
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Text({ text = "Background transparency", TextSize = 24 }),
-				UI.Text({
+				UI.Text { text = "Background transparency", TextSize = 24 },
+				UI.Text {
 					text = "Change Background transparency in the Roblox menu under Settings. Facet scales translucent theme surfaces and modal backdrops by your setting. An authored group fade stays independent.",
-				}),
+				},
 				UI.Text "Reading" {
 					text = function(use: Use)
 						return `Your setting: {math.round(use(preference) * 100)}%`
@@ -57,12 +55,12 @@ return {
 					return 0.5 * use(preference)
 				end),
 				panel("Opaque panel", 0),
-				Host.CanvasGroup("AuthoredFade")({
+				Host.CanvasGroup "AuthoredFade" {
 					Size = UDim2.fromOffset(200, 96),
 					BackgroundTransparency = 1,
 					GroupTransparency = 0.5,
 					panel("Authored fade", 0),
-				}),
+				},
 				UI.Button "Open" {
 					label = "Open a dialog",
 					onActivate = function()

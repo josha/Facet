@@ -2,7 +2,7 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local expect = Verify.expect

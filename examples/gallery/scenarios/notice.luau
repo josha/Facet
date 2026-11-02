@@ -6,10 +6,10 @@ type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type ToastSpec = typeof(require("@repo/tools/typecheck/aliases").ToastSpec)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type NoticeSeverity = "info" | "success" | "warning" | "error"
-type ToastAction = { label: string, onActivate: () -> () }
+type ToastAction = typeof(require("@repo/tools/typecheck/aliases").ToastAction)
 type ToastExtra = {
 	duration: number?,
 	icon: string?,
@@ -82,7 +82,7 @@ return {
 		}
 
 		local function label(name: string, text: TextValue, order: number, role: "heading"?)
-			return UI.Text({
+			return UI.Text {
 				Name = name,
 				LayoutOrder = order,
 				BackgroundTransparency = 1,
@@ -93,7 +93,7 @@ return {
 				textRole = role,
 				TextWrapped = true,
 				TextXAlignment = Enum.TextXAlignment.Left,
-			})
+			}
 		end
 
 		local function row(name: string, order: number, children: { GuiObject }): Frame
@@ -105,27 +105,27 @@ return {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Horizontal,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
 					Wraps = true,
-				}),
+				},
 				table.unpack(children),
 			})
 		end
 
 		local function snackbars(): Frame
-			return Host.Frame("Toasts")({
+			return Host.Frame "Toasts" {
 				LayoutOrder = 5,
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
-				}),
+				},
 				label("ToastTitle", "Toasts", 1, "heading"),
 				label("Undone", function(use: Use): string
 					local n = use(undone)
@@ -193,7 +193,7 @@ return {
 						return UI.Toast(entry.spec)
 					end,
 				}),
-			})
+			}
 		end
 
 		local function reset()
@@ -211,13 +211,13 @@ return {
 			for index, severity: NoticeSeverity in severityOrder do
 				table.insert(
 					severities,
-					UI.Notice({
+					UI.Notice {
 						Name = `Severity-{severity}`,
 						LayoutOrder = index,
 						severity = severity,
 						appearance = "emphasis",
 						message = `{if severity == "info" or severity == "error" then "An" else "A"} {severity} notice, in its severity's colour.`,
-					})
+					}
 				)
 			end
 			local installActions: { OverlayAction } = {
@@ -230,16 +230,16 @@ return {
 					end,
 				},
 			}
-			return Host.Frame("NoticeRecipe")({
+			return Host.Frame "NoticeRecipe" {
 				LayoutOrder = order or 1,
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				},
 				label("NoticeTitle", "Notices", 1, "heading"),
 				label("Last", last, 2),
 				Compose.show(shown, function()
@@ -261,18 +261,18 @@ return {
 						end,
 					}
 				end),
-				Host.Frame("Severities")({
+				Host.Frame "Severities" {
 					LayoutOrder = 4,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}),
+					},
 					table.unpack(severities),
-				}),
+				},
 				snackbars(),
 				row("Commands", 6, {
 					UI.Button "ShowBanner" {
@@ -288,7 +288,7 @@ return {
 						end,
 					},
 				}),
-			})
+			}
 		end
 
 		local function affixed()
@@ -313,7 +313,7 @@ return {
 			entries = entries,
 			last = last,
 			screen = function()
-				return Host.Frame("Notices")({
+				return Host.Frame "Notices" {
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
 					UI.ScrollView "Content" {
@@ -324,7 +324,7 @@ return {
 						section(),
 					},
 					affixed(),
-				})
+				}
 			end,
 			steps = {
 				reset = reset,

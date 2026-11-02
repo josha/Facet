@@ -10,16 +10,21 @@ type Compose = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Types = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Tile = { id: string, letter: string }
-type Flight = { id: string, tile: Tile, destination: FacetCell<GuiObject> }
+type Flight = { id: string, tile: Tile, destination: Destination }
 type Model = { rack: { Tile }, board: { [number]: Tile } }
 type Payload = { collection: string, keys: { string }, items: { Tile } }
-type Use = <T>(FacetReadable<T>) -> T
-type FacetReadable<T> = { peek: (FacetReadable<T>) -> T }
-type FacetCell<T> = FacetReadable<T> & {
-	set: (FacetCell<T>, T) -> (),
-	update: (FacetCell<T>, (T) -> T) -> (),
-	dispose: (FacetCell<T>) -> (),
-}
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+type Destination = typeof(require("@repo/tools/typecheck/aliases").ZoomDestinationCell)
+type TileReadable = typeof(require("@repo/tools/typecheck/aliases").TransferTileReadOnly)
+type FlightReadable = typeof(require("@repo/tools/typecheck/aliases").TransferFlightReadOnly)
+type CollectionProps = typeof(require("@repo/tools/typecheck/aliases").TransferCollectionSpec)
+local function collectionProps(props: CollectionProps): CollectionProps
+	return props
+end
+type TextInputProps = typeof(require("@repo/tools/typecheck/aliases").TextInputCellProps)
+local function textInputProps(props: TextInputProps): TextInputProps
+	return props
+end
 type Options = {
 	reject: boolean?,
 	scale: number?,
@@ -47,7 +52,7 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 	local slotKeys = C.cell({ "1", "2", "3", "4", "5", "6", "7" })
 	local notice = C.cell("Drag a letter to the board. Select a letter and press A or Return to carry it.")
 	local nothing: string? = nil
-	local held: FacetCell<string?> = C.cell(nothing)
+	local held = C.cell(nothing)
 	local noFlights: { Flight } = {}
 	local flights = C.cell(noFlights)
 	local slotControls: SlotControls = {}
@@ -107,7 +112,7 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 	local cells: { GuiObject } = {}
 	for slot = 1, 25 do
 		local aim = C.cell(false)
-		local button = UI.Button("BoardSlot" .. slot) {
+		local button = UI.Button("BoardSlot" .. slot)({
 			label = function(use: Use)
 				local tile = use(model).board[slot]
 				local returning = false
@@ -123,7 +128,7 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 			onActivate = function()
 				notice:set("Pressed board " .. slot)
 			end,
-		}
+		})
 		boardNodes[slot] = button
 		UI.draggable(button, {
 			payload = function()
@@ -164,105 +169,110 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 		})
 		table.insert(cells, button)
 	end
-	local rack = UI.VirtualGrid "TransferRack" {
-		from = C.formula(function(use: Use): { Tile }
-			return use(model).rack
-		end),
-		key = "id",
-		slots = if options.reserveSlots then slotKeys else nil,
-		slotControls = if options.reserveSlots then slotControls else nil,
-		collectionId = "rack",
-		columns = 7,
-		itemSize = 52,
-		gap = 4,
-		mode = "all",
-		contentOverflow = "clip",
-		Size = D2.fromOffset(396, 72),
-		drag = function(items: { Tile }, keys: { string }): DraggableSpec
-			return {
-				payload = issue({ collection = "rack", items = items, keys = keys }),
-				preview = if items[1] then carriedFaces[items[1].id] else nil,
-				touchPickup = options.touchPickup,
-				touchDragAxis = options.touchDragAxis,
-				returnTravel = true,
-				statusLabels = options.statusLabels,
-				onStart = function(value: unknown, _mode: "pointer" | "armed")
-					picked(value)
-				end,
-				onEnd = ended,
-			}
-		end,
-		reorderable = true,
-		onReorder = function(keys, slot)
-			for _, tile in model:peek().rack do
-				if tile.id == keys[1] then
-					transfer({ collection = "rack", items = { tile }, keys = keys }, nil, slot)
-					if options.reserveSlots then
-						local available: { [string]: boolean } = {}
-						local current = model:peek().rack
-						for _, item in current do
-							available[item.id] = true
-						end
-						local nextSlots, index = {}, 1
-						for _, key in slotKeys:peek() do
-							if available[key] then
-								table.insert(nextSlots, current[index].id)
-								index += 1
-							else
-								table.insert(nextSlots, key)
-							end
-						end
-						slotKeys:set(nextSlots)
-					end
-					break
-				end
-			end
-		end,
-		drop = {
-			label = "Rack",
-			travel = true,
-			landing = if options.reserveSlots
-				then nil
-				else function(info: DropInfo)
-					local node = assert(rackNode)
-					local slot = if info.insertion then info.insertion.slot else #model:peek().rack
-					local width = node.AbsoluteWindowSize.X / 7
-					return {
-						x = node.AbsolutePosition.X + width * slot,
-						y = node.AbsolutePosition.Y,
-						w = width - 4,
-						h = 52 * (options.scale or 1),
-					}
-				end,
-			accepts = function(value)
-				return payload(value) ~= nil and not options.reject, "Rack locked"
+	local rack = UI.VirtualGrid(
+		collectionProps {
+			from = C.formula(function(use: Use): { Tile }
+				return use(model).rack
+			end),
+			key = function(tile: Tile, _index: number): string
+				return tile.id
 			end,
-			onDrop = function(value: unknown, info: DropInfo)
-				return transfer(payload(value), nil, if info.insertion then info.insertion.slot else nil)
+			slots = if options.reserveSlots then slotKeys else nil,
+			slotControls = if options.reserveSlots then slotControls else nil,
+			collectionId = "rack",
+			columns = 7,
+			itemSize = 52,
+			gap = 4,
+			mode = "all",
+			contentOverflow = "clip",
+			Size = D2.fromOffset(396, 72),
+			drag = function(items: { Tile }, keys: { string }): DraggableSpec
+				return {
+					payload = issue({ collection = "rack", items = items, keys = keys }),
+					preview = if items[1] then carriedFaces[items[1].id] else nil,
+					touchPickup = options.touchPickup,
+					touchDragAxis = options.touchDragAxis,
+					returnTravel = true,
+					statusLabels = options.statusLabels,
+					onStart = function(value: unknown, _mode: "pointer" | "armed")
+						picked(value)
+					end,
+					onEnd = ended,
+				}
+			end,
+			reorderable = true,
+			onReorder = function(keys: { string }, slot: number)
+				for _, tile in model:peek().rack do
+					if tile.id == keys[1] then
+						transfer({ collection = "rack", items = { tile }, keys = keys }, nil, slot)
+						if options.reserveSlots then
+							local available: { [string]: boolean } = {}
+							local current = model:peek().rack
+							for _, item in current do
+								available[item.id] = true
+							end
+							local nextSlots, index = {}, 1
+							for _, key in slotKeys:peek() do
+								if available[key] then
+									table.insert(nextSlots, current[index].id)
+									index += 1
+								else
+									table.insert(nextSlots, key)
+								end
+							end
+							slotKeys:set(nextSlots)
+						end
+						break
+					end
+				end
+			end,
+			drop = {
+				label = "Rack",
+				travel = true,
+				landing = if options.reserveSlots
+					then nil
+					else function(info: DropInfo)
+						local node = assert(rackNode)
+						local slot = if info.insertion then info.insertion.slot else #model:peek().rack
+						local width = node.AbsoluteWindowSize.X / 7
+						return {
+							x = node.AbsolutePosition.X + width * slot,
+							y = node.AbsolutePosition.Y,
+							w = width - 4,
+							h = 52 * (options.scale or 1),
+						}
+					end,
+				accepts = function(value)
+					return payload(value) ~= nil and not options.reject, "Rack locked"
+				end,
+				onDrop = function(value: unknown, info: DropInfo)
+					return transfer(payload(value), nil, if info.insertion then info.insertion.slot else nil)
+				end,
+			},
+			render = function(current: TileReadable): GuiObject
+				local id = current:peek().id
+				local face: GuiObject = UI.Button {
+					label = function(use: Use)
+						return use(current).letter
+					end,
+					Size = D2.fromScale(1, 1),
+					AutomaticSize = E.AutomaticSize.None,
+					controlSize = "compact",
+					onActivate = function()
+						notice:set("Pressed rack " .. current:peek().letter)
+					end,
+				}
+				carriedFaces[id] = face
+				C.cleanup(function()
+					if carriedFaces[id] == face then
+						carriedFaces[id] = nil
+					end
+				end)
+				return face
 			end,
 		},
-		render = function(current: FacetReadable<Tile>): GuiObject
-			local id = current:peek().id
-			local face = UI.Button {
-				label = function(use: Use)
-					return use(current).letter
-				end,
-				Size = D2.fromScale(1, 1),
-				AutomaticSize = E.AutomaticSize.None,
-				controlSize = "compact",
-				onActivate = function()
-					notice:set("Pressed rack " .. current:peek().letter)
-				end,
-			}
-			carriedFaces[id] = face
-			C.cleanup(function()
-				if carriedFaces[id] == face then
-					carriedFaces[id] = nil
-				end
-			end)
-			return face
-		end,
-	}
+		"TransferRack"
+	)
 	rackNode = rack
 	local board = UI.Grid "TransferBoard" {
 		columns = 5,
@@ -290,7 +300,7 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 								transfer({ collection = "rack", items = { tile }, keys = { tile.id } }, slot, nil)
 								and scope
 							then
-								scope.focus(math.min(25, slot + 1))
+								assert(scope).focus(math.min(25, slot + 1))
 							end
 							break
 						end
@@ -312,11 +322,11 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 			UI.commandScope(board, { targets = targets, commands = commands, enabled = options.typingEnabled ~= false })
 	end
 	local chat: GuiObject = if options.commandTyping
-		then UI.TextInput {
+		then UI.TextInput(textInputProps {
 			value = C.cell(""),
 			placeholder = "Chat takes letters and Backspace while it edits",
 			Size = D2.fromOffset(396, 44),
-		}
+		})
 		else UI.Text { text = "", Visible = false }
 	local scaled: { Child } = {
 		Host.UIScale { Scale = options.scale or 1 },
@@ -343,7 +353,8 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 					local board = table.clone(model:peek().board)
 					local nextFlights: { Flight } = {}
 					for slot, tile in board do
-						local target = if slotControls.nodeOfKey then slotControls.nodeOfKey(tile.id) else nil
+						local nodeOfKey = slotControls.nodeOfKey
+						local target = if nodeOfKey then nodeOfKey(tile.id) else nil
 						if target then
 							table.insert(
 								nextFlights,
@@ -372,10 +383,10 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 			BackgroundTransparency = 1,
 			C.keyed {
 				from = flights,
-				key = function(flight: Flight): string
+				key = function(flight: Flight, _index: number): string
 					return flight.id
 				end,
-				render = function(current: FacetReadable<Flight>): GuiObject
+				render = function(current: FlightReadable): GuiObject
 					local flight = current:peek()
 					local travel = UI.Travel {
 						destination = flight.destination,
@@ -391,7 +402,7 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 								return
 							end
 							transfer({ collection = "board", items = { flight.tile }, keys = { flight.id } }, nil, nil)
-							flights:update(function(values)
+							flights:update(function(values: { Flight })
 								local next: { Flight } = {}
 								for _, value in values do
 									if value.id ~= flight.id then

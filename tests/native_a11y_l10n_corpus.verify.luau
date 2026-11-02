@@ -55,15 +55,19 @@ return function(verifyHarness: Verify.Harness)
 				for _, entry in CORPUS do
 					local engine, runtime, root, UI = world()
 					local open, bounded = Compose.cell(""), Compose.cell("")
-					local field, limited
+					local fieldRef: TextBox?
+					local limitedRef: TextBox?
 					local stop = runtime.mount(function()
-						field = UI.TextInput({ value = open }) :: TextBox
-						limited = UI.TextInput({ value = bounded, maxLength = 3 }) :: TextBox
-						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-							field :: unknown,
-							limited,
+						local first = UI.TextInput { value = open }
+						local second = UI.TextInput { value = bounded, maxLength = 3 }
+						fieldRef, limitedRef = first :: any, second :: any
+						return Facet.host(runtime).Frame({
+							first,
+							second,
 						})
 					end, root)
+					local field = assert(fieldRef)
+					local limited = assert(limitedRef)
 					field:CaptureFocus()
 					field.Text = entry.text
 					assert(open:peek() == entry.text, `{entry.id}: edit changed the text to {open:peek()}`)

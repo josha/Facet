@@ -1,49 +1,61 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Bdd = require("../tools/vendor/verify/src/bdd")
 
 return function(verifyHarness: Verify.Harness)
+	local test = Bdd.create(verifyHarness)
+	local describe, it, expect = test.describe, test.it, test.expect
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+	type ExampleContext = typeof(require("@repo/examples/types").Context)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 	local hud = require("../examples/gallery/scenarios/hud")
 
+	local function capture<T>(build: () -> T)
+		local value: T? = nil
+		return function(): T
+			local built = build()
+			value = built
+			return built
+		end, function(): T
+			return assert(value)
+		end
+	end
+
 	local function mount(width: number?, height: number?)
 		local engine = engineLib.new()
-		local create = engine.new
 		engine.onWrite(function(instance, property, value)
 			if property == "Text" then
 				assert(type(value) == "string", instance.ClassName .. ".Text requires a string")
 			end
 		end)
-		engine.new = function(className)
-			local node = create(className)
-			return node
-		end
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local viewport = Facet.Compose.cell({ width = width or 1079, height = height or 809 })
 		local target = engine.new("ScreenGui")
-		local ctx = {
+		local ctx: ExampleContext = {
 			Facet = Facet,
 			Compose = Facet.Compose,
 			runtime = runtime,
-			Host = (runtime.constructors :: unknown) :: RobloxHost,
+			Host = Facet.host(runtime),
 			UI = Facet.controls(runtime, { types = engine.types, viewport = viewport }),
 			types = engine.types,
 			viewport = viewport,
+			buildStamp = nil,
 		}
-		local built
+		local build, built = capture(function()
+			return hud.build(ctx)
+		end)
 		local stop, root: any = runtime.mount(function()
-			built = hud.build(ctx)
-			return built.screen()
+			return build().screen()
 		end, target)
-		return built,
+		return built(),
 			root,
 			function()
 				stop()
 				runtime:dispose()
-				Verify.expect(#target:GetChildren()):toBe(0)
+				expect(#target:GetChildren()):toBe(0)
 			end,
 			viewport,
 			engine
@@ -72,25 +84,25 @@ return function(verifyHarness: Verify.Harness)
 		return false
 	end
 
-	verifyHarness:suite("native HUD", function()
-		verifyHarness:case("keeps native notification text valid while hidden shown and dismissed", {
+	describe("native HUD", function()
+		it("keeps native notification text valid while hidden shown and dismissed", {
 			id = "native_hud::native HUD::keeps native notification text valid while hidden shown and dismissed",
 			run = function()
 				local built, root, stop = mount()
 				local notice = find(root, "Notice")
 				local button = notice:FindFirstChildWhichIsA("TextButton")
-				Verify.expect(notice.Visible):toBe(false)
-				Verify.expect(button.Text):toBe("")
+				expect(notice.Visible):toBe(false)
+				expect(button.Text):toBe("")
 				built.steps.notify()
-				Verify.expect(notice.Visible):toBe(true)
-				Verify.expect(button.Text):toBe("Supplies delivered")
+				expect(notice.Visible):toBe(true)
+				expect(button.Text):toBe("Supplies delivered")
 				button.Activated:Fire()
-				Verify.expect(notice.Visible):toBe(false)
-				Verify.expect(button.Text):toBe("")
+				expect(notice.Visible):toBe(false)
+				expect(button.Text):toBe("")
 				stop()
 			end,
 		})
-		verifyHarness:case("keeps complete task rewards, weapon ammunition, scores and telemetry", {
+		it("keeps complete task rewards, weapon ammunition, scores and telemetry", {
 			id = "native_hud::native HUD::keeps complete task rewards, weapon ammunition, scores and telemetry",
 			run = function()
 				local built, root, stop, _, engine = mount()
@@ -98,7 +110,7 @@ return function(verifyHarness: Verify.Harness)
 				for _, id in
 					{ "Tasks", "Clock", "Rail", "Health", "Actions", "Feed", "Readout", "Weapon", "Rounds", "Strip" }
 				do
-					Verify.expect(`{id} {built.report().forms[id]}`):toBe(`{id} full`)
+					expect(`{id} {built.report().forms[id]}`):toBe(`{id} full`)
 				end
 				for _, text in
 					{
@@ -118,41 +130,41 @@ return function(verifyHarness: Verify.Harness)
 						"Ravi eliminated Mo",
 					}
 				do
-					Verify.expect((hasText(root, text))):toBe(true)
+					expect((hasText(root, text))):toBe(true)
 				end
 				for index, fraction in { 0.2, 0.4, 0.6 } do
-					Verify.expect(find(find(root, "Task" .. index), "Fill1").Size.X.Scale):toBeCloseTo(fraction, 1e-4)
+					expect(find(find(root, "Task" .. index), "Fill1").Size.X.Scale):toBeCloseTo(fraction, 1e-4)
 				end
 				find(root, "Weapon2").Activated:Fire()
-				Verify.expect((built.model.selectedWeapon:peek())):toBe(2)
+				expect((built.model.selectedWeapon:peek())):toBe(2)
 				find(root, "Shop").Activated:Fire()
-				Verify.expect(built.report().notice):toBe("Shop opened")
+				expect(built.report().notice):toBe("Shop opened")
 				stop()
 			end,
 		})
-		verifyHarness:case("updates segmented health and full, compact and tiny numeric timer formats", {
+		it("updates segmented health and full, compact and tiny numeric timer formats", {
 			id = "native_hud::native HUD::updates segmented health and full, compact and tiny numeric timer formats",
 			run = function()
 				local built, root, stop, _, engine = mount()
-				Verify.expect(find(root, "TimerText").Text):toBe("2:14")
+				expect(find(root, "TimerText").Text):toBe("2:14")
 				built.steps.takeDamage()
-				Verify.expect(find(root, "HealthNum").Text):toBe("59")
-				Verify.expect(find(find(root, "HealthBar"), "Fill4").Size.X.Scale):toBe(0)
-				Verify.expect(find(find(root, "HealthBar"), "Trail") ~= nil):toBe(true)
+				expect(find(root, "HealthNum").Text):toBe("59")
+				expect(find(find(root, "HealthBar"), "Fill4").Size.X.Scale):toBe(0)
+				expect(find(find(root, "HealthBar"), "Trail") ~= nil):toBe(true)
 				built.steps.tickRound()
-				Verify.expect(find(root, "TimerText").Text):toBe("2:04")
-				Verify.expect(find(root, "ClockCompactText").Text):toBe("2:04")
-				Verify.expect(find(root, "ClockShortText").Text):toBe("2m")
+				expect(find(root, "TimerText").Text):toBe("2:04")
+				expect(find(root, "ClockCompactText").Text):toBe("2:04")
+				expect(find(root, "ClockShortText").Text):toBe("2m")
 				measure(root, engine, { 150, 400 })
-				Verify.expect(built.report().forms.Clock):toBe("short")
-				Verify.expect(find(root, "ClockShort").Parent.Visible):toBe(true)
-				Verify.expect(find(root, "ClockFull").Parent.Visible):toBe(false)
+				expect(built.report().forms.Clock):toBe("short")
+				expect(find(root, "ClockShort").Parent.Visible):toBe(true)
+				expect(find(root, "ClockFull").Parent.Visible):toBe(false)
 				built.steps.heal()
-				Verify.expect(find(root, "HealthCompactText").Text):toBe("100")
+				expect(find(root, "HealthCompactText").Text):toBe("100")
 				stop()
 			end,
 		})
-		verifyHarness:case("reserves the settled Ranger rifle glyph rectangle on both sweep viewports", {
+		it("reserves the settled Ranger rifle glyph rectangle on both sweep viewports", {
 			id = "native_hud::native HUD::reserves the settled Ranger rifle glyph rectangle on both sweep viewports",
 			run = function()
 				for _, size in { { 1079, 809 }, { 390, 844 } } do
@@ -161,24 +173,24 @@ return function(verifyHarness: Verify.Harness)
 					engine.environment.poke(label, "AbsoluteSize", engine.types.Vector2.new(52, 11))
 					engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(55, 12))
 					local floor = label:FindFirstChild("TextBoundsFloor")
-					Verify.expect(floor ~= nil):toBe(true)
-					Verify.expect(floor.MinSize):toBe(engine.types.Vector2.new(55, 12))
-					Verify.expect(floor.MaxSize):toBe(engine.types.Vector2.new(55, 12))
+					expect(floor ~= nil):toBe(true)
+					expect(floor.MinSize):toBe(engine.types.Vector2.new(55, 12))
+					expect(floor.MaxSize):toBe(engine.types.Vector2.new(55, 12))
 					engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(41, 12))
-					Verify.expect(floor.MinSize):toBe(engine.types.Vector2.new(41, 12))
-					Verify.expect(floor.MaxSize):toBe(engine.types.Vector2.new(41, 12))
+					expect(floor.MinSize):toBe(engine.types.Vector2.new(41, 12))
+					expect(floor.MaxSize):toBe(engine.types.Vector2.new(41, 12))
 					engine.environment.poke(
 						label:FindFirstChild("TextBoundsUnit"),
 						"AbsoluteSize",
 						engine.types.Vector2.new(50, 0.5)
 					)
 					engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(27.5, 6))
-					Verify.expect(floor.MinSize):toBe(engine.types.Vector2.new(55, 12))
+					expect(floor.MinSize):toBe(engine.types.Vector2.new(55, 12))
 					stop()
 				end
 			end,
 		})
-		verifyHarness:case("restores every resolution after repeated rotations and URL bar episodes", {
+		it("restores every resolution after repeated rotations and URL bar episodes", {
 			id = "native_hud::native HUD::restores every resolution after repeated rotations and URL bar episodes",
 			run = function()
 				local boxes = { LANDSCAPE, PORTRAIT, TINY, { 1040, 640 } }
@@ -195,78 +207,77 @@ return function(verifyHarness: Verify.Harness)
 						built.steps.closeOverflow()
 						built.steps.closeUrlBar()
 						measure(root, engine, box)
-						Verify.expect(built.report().forms):toEqual(expected)
+						expect(built.report().forms):toEqual(expected)
 						sink(root).Activated:Fire()
-						Verify.expect(built.report().overflowOpen):toBe(true)
+						expect(built.report().overflowOpen):toBe(true)
 						built.steps.closeOverflow()
 					end
 				end
-				Verify.expect(find(root, "HudBody").LayoutOrder):toBe(3)
-				Verify.expect(find(root, "BrowserChrome").Size.Y.Offset):toBe(64)
+				expect(find(root, "HudBody").LayoutOrder):toBe(3)
+				expect(find(root, "BrowserChrome").Size.Y.Offset):toBe(64)
 				stop()
 			end,
 		})
-		verifyHarness:case("recovers whole simplified zones in overflow and shares their live model", {
+		it("recovers whole simplified zones in overflow and shares their live model", {
 			id = "native_hud::native HUD::recovers whole simplified zones in overflow and shares their live model",
 			run = function()
 				local built, root, stop, _, engine = mount()
 				measure(root, engine, TINY)
-				Verify.expect(#built.report().unshown > 3):toBe(true)
+				expect(#built.report().unshown > 3):toBe(true)
 				sink(root).Activated:Fire()
 				local body = find(root.Parent, "OverflowBody")
-				Verify.expect(body.ClassName):toBe("ScrollingFrame")
+				expect(body.ClassName):toBe("ScrollingFrame")
 				for _, id in built.report().unshown do
-					Verify.expect(`{id} {body:FindFirstChild("Rich" .. id) ~= nil}`):toBe(`{id} true`)
+					expect(`{id} {body:FindFirstChild("Rich" .. id) ~= nil}`):toBe(`{id} true`)
 				end
 				for _, text in { "Win a round", "+120", "24/90", "7/21", "2:14", "12", "9" } do
-					Verify.expect((hasText(body, text))):toBe(true)
+					expect((hasText(body, text))):toBe(true)
 				end
 				built.steps.advanceTask(2, 0.8)
-				Verify.expect(find(find(body, "Task2"), "Fill1").Size.X.Scale):toBeCloseTo(0.8, 1e-4)
+				expect(find(find(body, "Task2"), "Fill1").Size.X.Scale):toBeCloseTo(0.8, 1e-4)
 				find(body, "Weapon3").Activated:Fire()
-				Verify.expect((built.model.selectedWeapon:peek())):toBe(3)
+				expect((built.model.selectedWeapon:peek())):toBe(3)
 				measure(root, engine, { 1040, 640 })
-				Verify.expect(#built.report().unshown):toBe(0)
-				Verify.expect(find(root.Parent, "OverflowEmpty").Text):toBe(hud.copy.overflowEmpty)
-				Verify.expect(find(find(root, "Task2"), "Fill1").Size.X.Scale):toBeCloseTo(0.8, 1e-4)
+				expect(#built.report().unshown):toBe(0)
+				expect(find(root.Parent, "OverflowEmpty").Text):toBe(hud.copy.overflowEmpty)
+				expect(find(find(root, "Task2"), "Fill1").Size.X.Scale):toBeCloseTo(0.8, 1e-4)
 				measure(root, engine, TINY)
-				Verify.expect((find(root.Parent, "OverflowEmpty"))):toBe(nil)
+				expect((find(root.Parent, "OverflowEmpty"))):toBe(nil)
 				stop()
 			end,
 		})
-		verifyHarness:case("expands a collapsed zone in context, anchored at it, instead of the overflow sheet", {
+		it("expands a collapsed zone in context, anchored at it, instead of the overflow sheet", {
 			id = "native_hud::native HUD::expands a collapsed zone in context, anchored at it, instead of the overflow sheet",
 			run = function()
 				local built, root, stop, _, engine = mount()
 				measure(root, engine, PORTRAIT)
-				Verify.expect(built.report().forms.Tasks ~= "full" and built.report().forms.Tasks ~= "hidden")
-					:toBe(true)
+				expect(built.report().forms.Tasks ~= "full" and built.report().forms.Tasks ~= "hidden"):toBe(true)
 				find(find(root, "Tasks"), "Expand").Activated:Fire()
-				Verify.expect(built.report().overflowOpen):toBe(false)
+				expect(built.report().overflowOpen):toBe(false)
 				local modal = find(root.Parent, "ExpandModal")
-				Verify.expect((modal:GetAttribute("FacetRoute"))):toBe("popover")
-				Verify.expect((hasText(modal, hud.copy.tasksTitle))):toBe(true)
-				Verify.expect((hasText(modal, "+300"))):toBe(true)
+				expect((modal:GetAttribute("FacetRoute"))):toBe("popover")
+				expect((hasText(modal, hud.copy.tasksTitle))):toBe(true)
+				expect((hasText(modal, "+300"))):toBe(true)
 				measure(root, engine, { 1040, 640 })
-				Verify.expect((find(root.Parent, "ExpandModal"))):toBe(nil)
+				expect((find(root.Parent, "ExpandModal"))):toBe(nil)
 				stop()
 			end,
 		})
-		verifyHarness:case("uses native body bounds after chrome layout and disconnects on disposal", {
+		it("uses native body bounds after chrome layout and disconnects on disposal", {
 			id = "native_hud::native HUD::uses native body bounds after chrome layout and disconnects on disposal",
 			run = function()
 				local built, root, stop, _, engine = mount()
 				measure(root, engine, { 1040, 640 })
 				local original = built.report().forms
 				measure(root, engine, TINY)
-				Verify.expect(built.report().forms.Tasks):toBe("hidden")
-				Verify.expect(built.report().forms.Clock):toBe("timer")
+				expect(built.report().forms.Tasks):toBe("hidden")
+				expect(built.report().forms.Clock):toBe("timer")
 				measure(root, engine, { 1040, 640 })
-				Verify.expect(built.report().forms):toEqual(original)
+				expect(built.report().forms):toEqual(original)
 				local zones = find(root, "Zones")
 				local signal = zones:GetPropertyChangedSignal("AbsoluteSize")
 				stop()
-				Verify.expect((engineLib.connections(signal))):toBe(0)
+				expect((engineLib.connections(signal))):toBe(0)
 			end,
 		})
 	end)

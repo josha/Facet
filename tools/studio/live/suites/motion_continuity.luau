@@ -1,4 +1,8 @@
 --!strict
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type StringPickerSpec = typeof(require("@repo/tools/typecheck/aliases").StringPickerSpec)
+type MenuSpec = typeof(require("@repo/tools/typecheck/aliases").MenuSpec)
 type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -8,7 +12,7 @@ type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type Case = {
 	id: string,
@@ -19,6 +23,12 @@ type Case = {
 	keepGallery: boolean?,
 }
 local cases: { Case } = {}
+local function menu(UI: FacetControls, spec: MenuSpec): GuiObject
+	return UI.Menu(spec)
+end
+local function picker(UI: FacetControls, spec: StringPickerSpec): GuiObject
+	return UI.Picker(spec)
+end
 local TEXT = "Your selected driver is ready."
 local clipping = require(game:GetService("ReplicatedStorage").FacetLive.text_clipping)
 local geometry = require(game:GetService("ReplicatedStorage").FacetLive.overlay_geometry)
@@ -182,13 +192,15 @@ table.insert(cases, {
 	id = "continuity-checker-rejects-text-pop-shift-and-scrollbar-flash",
 	contracts = {},
 	run = function(t)
-		local factor, extent, label
+		local factor: NumberCell
+		local extent: NumberCell
+		local label: GuiObject
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			factor, extent = Compose.cell(0.94), Compose.cell(80)
 			label = UI.Text { text = TEXT, TextSize = 24 }
 			return Host.Frame "Fault" {
 				Size = UDim2.fromOffset(300, 100),
-				Host.UIScale { Scale = factor } :: unknown,
+				Host.UIScale { Scale = factor },
 				label,
 				Host.ScrollingFrame {
 					Size = UDim2.fromOffset(300, 40),
@@ -204,7 +216,7 @@ table.insert(cases, {
 		extent:set(0)
 		t.settle(4)
 		table.insert(frames, snapshot(stage))
-		local rejected = {}
+		local rejected: { [string]: boolean } = {}
 		checkFrames({
 			check = function(name, ok)
 				rejected[name] = not ok
@@ -256,7 +268,8 @@ do
 								end
 							end
 						end
-						local open, trigger
+						local open: BooleanCell
+						local trigger: GuiObject
 						local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 							open = Compose.cell(false)
 							local function content(): Instance
@@ -311,7 +324,7 @@ do
 									},
 								}
 							elseif kind == "Menu" then
-								overlay = UI.Menu {
+								overlay = menu(UI, {
 									isPresented = open,
 									label = "Options",
 									Position = UDim2.fromOffset(40, shape.Y - 80),
@@ -319,7 +332,7 @@ do
 									items = {
 										{ id = "Start", label = copy, onSelect = function() end } :: MenuItem,
 									},
-								}
+								})
 							elseif kind == "Popover" then
 								overlay = UI.Popover {
 									isPresented = open,
@@ -358,8 +371,8 @@ do
 							return Host.Frame {
 								Size = UDim2.fromScale(1, 1),
 								BackgroundTransparency = 1,
-								overlay or trigger :: unknown,
-								if kind ~= "Popover" and overlay then trigger else nil :: unknown,
+								overlay or trigger,
+								if kind ~= "Popover" and overlay then trigger else nil,
 							}
 						end, {
 							size = shape,
@@ -519,7 +532,8 @@ for _, kind in { "Help", "Callout", "Popover", "Menu", "Picker" } do
 			for _, preference in Enum.PreferredTextSize:GetEnumItems() do
 				for _, width in { 960, 390 } do
 					for _, location in { Vector2.new(8, 8), Vector2.new(width - 100, 320), Vector2.new(40, 600) } do
-						local opened, anchor
+						local opened: BooleanCell
+						local anchor: GuiObject
 						local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 							opened = Compose.cell(false)
 							local copy = TEXT
@@ -560,7 +574,7 @@ for _, kind in { "Help", "Callout", "Popover", "Menu", "Picker" } do
 									end,
 								}
 							elseif kind == "Menu" then
-								overlay = UI.Menu {
+								overlay = menu(UI, {
 									isPresented = opened,
 									trigger = function()
 										return anchor
@@ -569,9 +583,9 @@ for _, kind in { "Help", "Callout", "Popover", "Menu", "Picker" } do
 									items = {
 										{ id = "Ready", label = copy, onSelect = function() end } :: MenuItem,
 									},
-								}
+								})
 							elseif kind == "Picker" then
-								overlay = UI.Picker {
+								overlay = picker(UI, {
 									isPresented = opened,
 									selected = Compose.cell("ready"),
 									style = "menu",
@@ -580,18 +594,18 @@ for _, kind in { "Help", "Callout", "Popover", "Menu", "Picker" } do
 										{ value = "ready", label = "Ready" },
 										{ value = "details", label = copy },
 									},
-								}
+								})
 							end
 							return Host.Frame {
 								Size = UDim2.fromScale(1, 1),
 								BackgroundTransparency = 1,
-								overlay or anchor :: unknown,
+								overlay or anchor,
 								if overlay
 										and kind ~= "Popover"
 										and kind ~= "Menu"
 										and kind ~= "Picker"
 									then anchor
-									else nil :: unknown,
+									else nil,
 							}
 						end, {
 							size = Vector2.new(width, 720),
@@ -622,7 +636,8 @@ for _, kind in { "Help", "Callout", "Popover", "Menu", "Picker" } do
 						if panel then
 							t.stable(panel, 8)
 						end
-						t.note(
+						local note: (string, unknown) -> () = t.note
+						note(
 							"attachment variant",
 							{ kind = kind, width = width, preference = preference.Name, x = location.X, y = location.Y }
 						)
@@ -633,7 +648,7 @@ for _, kind in { "Help", "Callout", "Popover", "Menu", "Picker" } do
 								elseif kind == "Callout" then "Arrow"
 								else "Tail"
 							local tail = t.find(layer, tailName)
-							local side = t.themes[1].package.metrics.space.m
+							local side: number = t.themes[1].package.metrics.space.m
 							local gap = if kind == "Menu" or kind == "Picker"
 								then 4
 								else (if kind == "Help" then 6 else 8) + side * math.sqrt(2) / 2
@@ -651,7 +666,7 @@ for _, kind in { "Help", "Callout", "Popover", "Menu", "Picker" } do
 									check = function(name: string, ok: boolean, detail: unknown?)
 										t.check(variant .. " " .. name, ok, detail)
 									end,
-								}, panel, anchor, t.find(stage, "Screen"), gap, tail)
+								}, panel, anchor, assert(t.find(stage, "Screen")), gap, tail)
 							end
 							local faults = clipping.inspect(panel)
 							t.check("anchored overlay text is not clipped", #faults == 0, faults)

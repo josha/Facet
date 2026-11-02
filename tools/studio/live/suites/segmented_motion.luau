@@ -42,7 +42,7 @@ return {
 				return Host.Frame "Motion" {
 					Size = UDim2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					sheet :: unknown,
+					sheet,
 					Host.StyleLink { StyleSheet = Compose.static(sheet) },
 					UI.Picker "MotionPicker" {
 						style = "segmented",

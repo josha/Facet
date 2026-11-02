@@ -2,6 +2,7 @@
   "name": "FacetAuthoringExamples",
   "tree": {
     "$className": "DataModel",
+    "Workspace": { "$properties": { "UseNewLuauTypeSolver": "Enabled" } },
     "ReplicatedStorage": {
       "Packages": { "$className": "Folder", "Facet": { "$path": "../../src" } },
       "AuthoringExamples": {

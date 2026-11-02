@@ -7,7 +7,7 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 	type Owner = typeof(require("@repo/tools/typecheck/aliases").Owner)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Facet = require("../src")
@@ -76,7 +76,8 @@ return function(verifyHarness: Verify.Harness)
 			local scale = Compose.cell(1)
 			local stop, mounted = runtime.mount(function()
 				local ctx = context(Compose, runtime, { types = engine.types })
-				local panel = ctx.Host.Frame { ctx.Host.Frame "Copy" {} }
+				local Host = Facet.host(runtime)
+				local panel = Host.Frame { Host.Frame "Copy" {} }
 				materialize(ctx, panel, {
 					Size = engine.types.UDim2.fromOffset(280, 120),
 					AutomaticSize = engine.types.Enum.AutomaticSize.None,
@@ -112,13 +113,14 @@ return function(verifyHarness: Verify.Harness)
 			local group: CanvasGroup? = nil
 			local stop = runtime.mount(function()
 				local ctx = context(Compose, runtime, { types = engine.types })
-				local fade = ctx.Host.CanvasGroup "Fade" {
+				local Host = Facet.host(runtime)
+				local fade = Host.CanvasGroup "Fade" {
 					Size = engine.types.UDim2.fromScale(1, 1),
 					AutomaticSize = engine.types.Enum.AutomaticSize.Y,
-					ctx.Host.Frame "Copy" {},
+					Host.Frame "Copy" {},
 				}
 				group = fade
-				local panel = ctx.Host.Frame {}
+				local panel = Host.Frame {}
 				fade.Parent = panel
 				materialize(ctx, panel, {
 					Size = engine.types.UDim2.fromOffset(280, 120),
@@ -168,7 +170,7 @@ return function(verifyHarness: Verify.Harness)
 							return t
 						end,
 					})
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
+					return Facet.host(runtime).Frame({})
 				end, engine.new("ScreenGui"))
 				engine.heartbeat:Fire(0.1)
 				Verify.expect(amount:peek()):toBe(0)
@@ -202,7 +204,7 @@ return function(verifyHarness: Verify.Harness)
 							cleanups += 1
 						end)
 					end)
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
+					return Facet.host(runtime).Frame({})
 				end, engine.new("ScreenGui"))
 				source:set(1)
 				assert(calls == 2)

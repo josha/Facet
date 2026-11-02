@@ -17,7 +17,7 @@ export type AppOptions = {
 	inputParent: Instance?,
 	overlayParent: Instance?,
 	controlSize: Types.Input<Types.ControlSize?>?,
-	theme: Types.Input<ThemeTypes.ThemePackage>?,
+	theme: Types.Input<ThemeTypes.ReadOnlyThemePackage>?,
 	icons: Types.Input<{ [string]: ThemeTypes.IconEntry }>?,
 	motionLevel: (Types.Input<Types.MotionLevel> | Types.Input<Types.MotionLevel?>)?,
 	environment: Types.EnvironmentPreview?,
@@ -72,7 +72,7 @@ export type App = {
 	presentToast: (component: (ControlTypes.Controls) -> Instance, options: ToastOptions?) -> Toast,
 	dispose: () -> (),
 }
-type RobloxModule = { createRuntime: () -> Types.Runtime }
+type RobloxModule = { read createRuntime: typeof(require("../vendor/compose/roblox").createRuntime) }
 type StyleLinkHost = { StyleLink: ({ StyleSheet: unknown }) -> Instance }
 
 local function playerGui(): Instance
@@ -104,8 +104,10 @@ return function(
 		assert(not disposed, "Facet app.mount: the app is disposed")
 		assert(type(component) == "function", "Facet app.mount: expected a component function")
 		local target = parent or settings.parent or playerGui()
-		local stop, root = runtime.mount(function(): ComposeTypes.Child
-			local sheetOptions: ThemeTypes.ThemeOptions = table.clone(settings.sheet or {})
+		local screen: ScreenGui? = nil
+		local stop = runtime.mount(function(): ComposeTypes.Node
+			local supplied: ThemeTypes.ThemeOptions = settings.sheet or {}
+			local sheetOptions = table.clone(supplied)
 			if sheetOptions.types == nil then
 				sheetOptions.types = settings.types
 			end
@@ -137,12 +139,14 @@ return function(
 				props.ZIndexBehavior = enums.ZIndexBehavior.Sibling
 			end
 			props[1] = sheet
-			props[2] = Links.StyleLink({ StyleSheet = Compose.static(sheet) })
+			props[2] = Links.StyleLink { StyleSheet = Compose.static(sheet) }
 			props[3] = UI.provide(component)
 			if target:IsA("PlayerGui") and settings.focusRing ~= false then
 				props[4] = UI.focusRing(target)
 			end
-			return Host.ScreenGui(props :: Engine.ScreenGuiNativeProps)
+			local root = Host.ScreenGui(props :: Engine.ScreenGuiNativeProps)
+			screen = root
+			return root
 		end, target)
 		local stopped = false
 		local function release()
@@ -156,7 +160,7 @@ return function(
 			end
 		end
 		table.insert(stops, release)
-		return release, root :: ScreenGui
+		return release, assert(screen)
 	end
 	local members = (UI :: unknown) :: { [string]: unknown }
 	local function refusal(control: string, spec: unknown): string?
@@ -167,7 +171,7 @@ return function(
 		end
 		local ok, failure = pcall(function()
 			Compose.withRootOwner(function()
-				Host.ScreenGui({ construct(spec) })
+				Host.ScreenGui { construct(spec) }
 			end)
 		end)
 		if ok then
@@ -269,7 +273,7 @@ return function(
 		local id = toasts
 		if toastLayer == nil or toastLayer.Parent == nil then
 			local _, layer = mount(function(): ComposeTypes.Child
-				return Host.Folder({ Name = "Toasts" })
+				return Host.Folder { Name = "Toasts" }
 			end)
 			layer.Name = (settings.name or "Facet") .. "Toasts"
 			toastLayer = layer

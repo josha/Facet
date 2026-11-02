@@ -8,6 +8,14 @@ local Theme = require("./theme_types")
 
 export type Place = (GuiObject, number) -> ()
 export type Room = { top: number, right: number, bottom: number, left: number }
+
+local function plain<N>(node: N & Instance, properties: unknown?): N & Instance
+	if type(properties) ~= "table" or properties.BackgroundTransparency == nil then
+		node:AddTag("facet-layout")
+	end
+	return node
+end
+
 export type Kit = {
 	spacing: (Shared.Input<Shared.Space>?, ComposeTypes.Use?) -> number,
 	insets: (Shared.Input<Shared.Padding>?, ComposeTypes.ReadOnlyValue<Room>?) -> UIPadding?,
@@ -15,11 +23,11 @@ export type Kit = {
 	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Input<UDim2>, Shared.Input<Enum.AutomaticSize>),
 	list: (Shared.Flow, Shared.Input<boolean>, boolean?) -> UIListLayout,
 	underTopbar: (GuiObject, ComposeTypes.Value<number>) -> (),
-	ordered: ({ ComposeTypes.Child }, Place?) -> { ComposeTypes.Child },
-	assemble: <P>(P, unknown?, { Instance? }, { ComposeTypes.Child }, Place?) -> P,
-	plain: <N>(N & Instance, unknown?) -> N & Instance,
+	ordered: (Shared.ChildList, Place?) -> { ComposeTypes.Child },
+	assemble: <P>(P, unknown?, { Instance? }, Shared.ChildList, Place?) -> P,
+	plain: typeof(plain),
 	stack: (
-		{ ComposeTypes.Child },
+		Shared.ChildList,
 		Shared.FrameNativeProps?,
 		Shared.Flow,
 		Shared.Input<boolean>,
@@ -70,7 +78,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			return step
 		end
 		assert(type(step) == "string", "Facet spacing must be a number or a spacing step")
-		local package: Theme.ThemePackage? = read(config.theme, use)
+		local package: Theme.ReadOnlyThemePackage? = read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
 		local space: { [string]: number } = if package and type(package.metrics.space) == "table"
 			then package.metrics.space
 			else ctx.neutralMetrics(use).space
@@ -92,7 +100,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		local function side(name: "top" | "right" | "bottom" | "left"): Shared.Input<UDim>
 			local function pick(use: ComposeTypes.Use?): Shared.Space?
-				local value = read(padding, use)
+				local value = read<<Shared.Padding?>>(padding, use)
 				if type(value) == "table" then
 					local sides = value :: Shared.Sides
 					return if name == "top"
@@ -105,7 +113,13 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			end
 			return derive(function(use)
 				local value: unknown = pick(use)
-				local extra = if room and use then use(room)[name] elseif room then room:peek()[name] else 0
+				local insets = if room and use then use(room) elseif room then room:peek() else nil
+				local extra = if insets == nil
+					then 0
+					elseif name == "top" then insets.top
+					elseif name == "right" then insets.right
+					elseif name == "bottom" then insets.bottom
+					else insets.left
 				if typeof(value) == "UDim" then
 					local given = value
 					return if extra > 0 then types.UDim.new(given.Scale, given.Offset + extra) else given
@@ -113,12 +127,12 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				return types.UDim.new(0, kit.spacing(value :: Shared.Space?, use) + extra)
 			end, padding, if type(pick(nil)) == "string" then config.theme else nil, room)
 		end
-		return Host.UIPadding({
+		return Host.UIPadding {
 			PaddingTop = side("top"),
 			PaddingRight = side("right"),
 			PaddingBottom = side("bottom"),
 			PaddingLeft = side("left"),
-		})
+		}
 	end
 	function kit.shadowRoom(frame: GuiObject, room: ComposeTypes.Value<Room>)
 		local function measure()
@@ -234,8 +248,8 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		height: Shared.Extent
 	): (Shared.Input<UDim2>, Shared.Input<Enum.AutomaticSize>)
 		local function resolve(use: ComposeTypes.Use?): (Shared.Extent, Shared.Extent)
-			local w: Shared.Extent? = read(box.width, use)
-			local h: Shared.Extent? = read(box.height, use)
+			local w = read<<Shared.Extent?>>(box.width, use)
+			local h = read<<Shared.Extent?>>(box.height, use)
 			return checked(if w == nil then width else w), checked(if h == nil then height else h)
 		end
 		local function scale(value: Shared.Extent): number
@@ -272,7 +286,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			end
 			return onColumn ~= nil or onRow ~= nil
 		end
-		local native: Shared.UIListLayoutNativeProps = {
+		local native: Shared.UIListLayoutProps = {
 			FillDirection = derive(function(use)
 				return if column(use) then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal
 			end, vertical),
@@ -286,7 +300,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		local H, V = Enum.HorizontalAlignment, Enum.VerticalAlignment
 		local function align(use: ComposeTypes.Use?): Shared.Align
-			local value: Shared.Align? = read(flow.align, use)
+			local value = read<<Shared.Align?>>(flow.align, use)
 			assert(
 				value == nil or valid(value, { start = true, center = true, ["end"] = true, stretch = true }),
 				"Facet align must be start, center, end or stretch"
@@ -299,7 +313,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			spaceEvenly = Enum.UIFlexAlignment.SpaceEvenly,
 		}
 		local function distribute(use: ComposeTypes.Use?): Shared.Distribute
-			local value: Shared.Distribute? = read(flow.distribute, use)
+			local value = read<<Shared.Distribute?>>(flow.distribute, use)
 			assert(
 				value == nil
 					or valid(value, { start = true, center = true, ["end"] = true })
@@ -358,7 +372,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 
 	local SPAN = 65536
 	local STEP = 64
-	function kit.ordered(children: { ComposeTypes.Child }, place: ((GuiObject, number) -> ())?): { ComposeTypes.Child }
+	function kit.ordered(children: Shared.ChildList, place: ((GuiObject, number) -> ())?): { ComposeTypes.Child }
 		local spaced = false
 		for _, child in children do
 			spaced = spaced or type(child) == "function"
@@ -458,7 +472,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 								end
 							end
 							settle(at or #slot)
-							mountPoint.insert(node, at)
+							mountPoint.insert(gui, at)
 						end,
 						moveTo = function(node: unknown, at: number)
 							table.remove(slot, assert(table.find(slot, node :: Instance)))
@@ -466,12 +480,12 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							stamped[node :: Instance] = nil
 							settle(at)
 							if mountPoint.ordersChildren then
-								mountPoint.moveTo(node, at)
+								mountPoint.moveTo(node :: Instance, at)
 							end
 						end,
 						remove = function(node: unknown)
 							forget(node :: Instance)
-							mountPoint.remove(node)
+							mountPoint.remove(node :: Instance)
 						end,
 					})
 				end
@@ -492,7 +506,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		native: P,
 		properties: unknown?,
 		helpers: { Instance? },
-		children: { ComposeTypes.Child },
+		children: Shared.ChildList,
 		place: ((GuiObject, number) -> ())?
 	): P
 		local fields = (native :: unknown) :: { [unknown]: unknown }
@@ -515,14 +529,9 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		return native
 	end
 
-	function kit.plain<N>(node: N & Instance, properties: unknown?): N & Instance
-		if ((properties or {}) :: { BackgroundTransparency: unknown? }).BackgroundTransparency == nil then
-			node:AddTag("facet-layout")
-		end
-		return node
-	end
+	kit.plain = plain
 	function kit.stack(
-		children: { ComposeTypes.Child },
+		children: Shared.ChildList,
 		properties: Shared.FrameNativeProps?,
 		flow: Shared.Flow,
 		vertical: Shared.Input<boolean>,
@@ -593,7 +602,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			if count ~= 1 or only == nil then
 				break
 			end
-			at = only
+			at = assert(only)
 		end
 		return at
 	end
@@ -679,8 +688,9 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local owner = assert(Compose.currentOwner(), "Facet lift needs an owner")
 		local target: GuiObject? = nil
 		local function apply(node: GuiObject, floor: sizeFloor.Floor, value: number)
-			local shrinking = value < floor[axis]:peek()
-			floor[axis]:set(value)
+			local size = if axis == "x" then floor.x else floor.y
+			local shrinking = value < size:peek()
+			size:set(value)
 			if shrinking then
 				local automatic = node.AutomaticSize
 				node.AutomaticSize = Enum.AutomaticSize.None

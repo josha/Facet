@@ -1,7 +1,9 @@
 --!strict
 
 type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
-type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
+type PaletteExtra = typeof(require("@repo/tools/typecheck/aliases").PaletteExtra)
+type RGB = { r: number, g: number, b: number }
+type ThemeDefinition = typeof(require("@repo/tools/typecheck/aliases").ThemeDefinition)
 
 local foundation = {}
 
@@ -17,7 +19,7 @@ local function hex(value: number)
 	}
 end
 
-local DARK = {
+local DARK: { colors: { [string]: RGB }, extra: PaletteExtra } = {
 	colors = {
 		surface = hex(0x121215),
 		surfaceStrong = hex(0x191A1F),
@@ -54,7 +56,7 @@ local DARK = {
 	},
 }
 
-local LIGHT = {
+local LIGHT: { colors: { [string]: RGB }, extra: PaletteExtra } = {
 	colors = {
 		surface = hex(0xFFFFFF),
 		surfaceStrong = hex(0xF7F7F8),

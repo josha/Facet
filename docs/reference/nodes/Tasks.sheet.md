@@ -1,7 +1,7 @@
 # Tasks.sheet
 
-Open a task over play and return to its source. Keep the HUD mounted as a
-sibling of the Sheet when it should stay visible behind the modal.
+Open a task over play and return to its source. Keep the HUD beside the Sheet
+when it should stay visible behind the modal.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -9,6 +9,7 @@ local C = Facet.Compose
 local app = Facet.app({ name = "Game" })
 local UI = app.UI
 local open, captions = C.cell(false), C.cell(true)
+local toggle: Facet.ToggleCellProps = { label = "Dialogue captions", value = captions }
 app.mount(function()
   return UI.Screen "Root" {
     UI.Button { label = "Audio options", onActivate = function() open:set(true) end },
@@ -18,7 +19,7 @@ app.mount(function()
       content = function()
         return UI.VStack "Options" { width = "fill", gap = "s",
           UI.Text { text = "Show captions for spoken dialogue.", wrap = true },
-          UI.Toggle { label = "Dialogue captions", value = captions },
+          UI.Toggle(toggle),
         }
       end,
     },
@@ -33,8 +34,8 @@ absent so the exit follows placement. Test exit and focus return with each input
 Use [pages](Tasks.pages.md) when a destination intentionally replaces play,
 [Popover](Popover.card.md) for an anchored choice, or DisclosureGroup for
 optional inline facts. A short task hugs its content; a large collection needs
-a bounded viewport. NavigationStack fills its viewport and cannot hug. For a task with child
-steps, put the stack inside a bounded Sheet, with the opened task as root.
+a bounded viewport. NavigationStack fills its viewport and cannot hug. For child
+steps, put the stack inside a bounded Sheet with the task as root.
 The root has Close and no Back. Push or replace in one path update; do not
 pop to gameplay and defer opening the next step. See the
 [game screen recipe](../../../skills/use-facet/references/game-screens.md).

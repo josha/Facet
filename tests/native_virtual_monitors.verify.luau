@@ -2,13 +2,14 @@
 local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 local styleProperties = require("./lib/style_properties")
+local Facet = require("../src")
 
 return function(verifyHarness: Verify.Harness)
 	local nativeDrag = require("./lib/native_drag")
 
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Compose = require("../src/vendor/compose/core")
@@ -40,9 +41,9 @@ return function(verifyHarness: Verify.Harness)
 		return nil
 	end
 
-	local function rule(sheet, selector)
+	local function rule(sheet: StyleSheet, selector: string)
 		for _, node in sheet:GetChildren() do
-			if table.find(string.split(node.Selector, ", "), selector) ~= nil then
+			if node:IsA("StyleRule") and table.find(string.split(node.Selector, ", "), selector) ~= nil then
 				return styleProperties(node)
 			end
 		end
@@ -69,7 +70,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function withScreens(body: (any) -> (), options: { [string]: any }?)
-		local Facet = require("../src")
 		local engine = engineModule.new()
 		local hapticCapture = engine.environment.onCreate(function(effect)
 			if effect:IsA("HapticEffect") then
@@ -165,7 +165,8 @@ return function(verifyHarness: Verify.Harness)
 					world.model.step(0.05, true)
 					Verify.expect((find(tiles, "Tile_1_12"))):toBe(retained)
 					for column = 1, 1000 do
-						local state = table.clone(world.model.flap.state:peek())
+						local current = world.model.flap.state:peek()
+						local state = table.clone(current)
 						state.x = column * 32
 						world.model.flap.state:set(state)
 						Verify.expect(#tiles:GetChildren() <= 130):toBe(true)
@@ -239,7 +240,6 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("mounts the actual three screens and drives their controls through native events", {
 			id = "native_virtual_monitors::native virtual monitors::mounts the actual three screens and drives their controls through native events",
 			run = function()
-				local Facet = require("../src")
 				local engine = engineModule.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 				local target = engine.new("ScreenGui")
@@ -288,12 +288,12 @@ return function(verifyHarness: Verify.Harness)
 					saveCard(find(discovery, "Game_2"))
 					Verify.expect(model.saved:peek()["2"]):toBe(true)
 					find(find(discovery, "Game_2"), "Body").Activated:Fire()
-					Verify.expect(model.selectedGame:peek().id):toBe("2")
+					Verify.expect(assert(model.selectedGame:peek()).id):toBe("2")
 					Verify.expect(find(target, "GameDetails") ~= nil):toBe(true)
 					local play = find(target, "Play")
 					find(play, "Primary").Activated:Fire()
-					Verify.expect(model.launch:peek().id):toBe("2")
-					Verify.expect(model.launch:peek().mode):toBe("Joining a public server")
+					Verify.expect(assert(model.launch:peek()).id):toBe("2")
+					Verify.expect(assert(model.launch:peek()).mode):toBe("Joining a public server")
 					Verify.expect(find(target, "LaunchStatus").Text):toBe("Joining a public server… (simulated)")
 					local steps = find(target, "LaunchSteps")
 					Verify.expect((steps:GetAttribute("FacetCurrent"))):toBe("find")
@@ -314,12 +314,12 @@ return function(verifyHarness: Verify.Harness)
 						end
 					end
 					private.Activated:Fire()
-					Verify.expect(model.launch:peek().mode):toBe("Starting a private server")
+					Verify.expect(assert(model.launch:peek()).mode):toBe("Starting a private server")
 					rate(target, 3, engine)
 					Verify.expect(model.ratings:peek()["2"]):toBe(3)
 					find(find(target, "DetailSection"), "similar").Activated:Fire()
 					find(target, "Similar_8").Activated:Fire()
-					Verify.expect(model.selectedGame:peek().id):toBe("8")
+					Verify.expect(assert(model.selectedGame:peek()).id):toBe("8")
 					find(target, "close").Activated:Fire()
 					Verify.expect((model.selectedGame:peek())):toBe(nil)
 					find(discovery, "Saved").Activated:Fire()
@@ -500,7 +500,7 @@ return function(verifyHarness: Verify.Harness)
 					find(find(featured, "Indicators"), "2").Activated:Fire()
 					Verify.expect((model.featuredSelection:peek())):toBe("2")
 					find(featured, "ExploreFeatured_2").Activated:Fire()
-					Verify.expect(model.selectedGame:peek().id):toBe("2")
+					Verify.expect(assert(model.selectedGame:peek()).id):toBe("2")
 					find(world.target, "close").Activated:Fire()
 					local search = find(discover, "Search")
 					world.engine.environment.poke(body, "AbsoluteSize", types.Vector2.new(390, 410))
@@ -537,7 +537,7 @@ return function(verifyHarness: Verify.Harness)
 					editor.Text = "Circuit"
 					Verify.expect(find(world.target, "MenuPanel") ~= nil):toBe(true)
 					find(find(world.target, "MenuPanel"), "2").Activated:Fire()
-					Verify.expect(model.selectedGame:peek().id):toBe("2")
+					Verify.expect(assert(model.selectedGame:peek()).id):toBe("2")
 					find(world.target, "close").Activated:Fire()
 					world.engine.environment.poke(discover, "AbsoluteSize", types.Vector2.new(393, 690))
 					Verify.expect(find(discover, "Chrome").Visible):toBe(false)
@@ -657,7 +657,7 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(icon.Image ~= unsavedImage):toBe(true)
 						Verify.expect((model.selectedGame:peek())):toBe(nil)
 						body.Activated:Fire()
-						Verify.expect(model.selectedGame:peek().id):toBe("1")
+						Verify.expect(assert(model.selectedGame:peek()).id):toBe("1")
 						Verify.expect(find(world.target, "AlertModal") ~= nil):toBe(true)
 						find(world.target, "close").Activated:Fire()
 						model.catalog.items:update(function(items)
@@ -936,7 +936,7 @@ return function(verifyHarness: Verify.Harness)
 					find(world.target, "trailing:SaveSimilar").Activated:Fire()
 					Verify.expect(model.saved:peek()["7"]):toBe(true)
 					find(world.target, "Similar_7").Activated:Fire()
-					Verify.expect(model.selectedGame:peek().id):toBe("7")
+					Verify.expect(assert(model.selectedGame:peek()).id):toBe("7")
 					Verify.expect((model.detailTab:peek())):toBe("about")
 				end)
 			end,
@@ -1443,7 +1443,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(find(saved, "Note_2").Text):toBe("Play Friday")
 					find(find(body, "2"), "RowHit").Activated:Fire()
 					Verify.expect(model.savedSelection:peek()["2"]):toBe(true)
-					Verify.expect(model.selectedGame:peek().id):toBe("2")
+					Verify.expect(assert(model.selectedGame:peek()).id):toBe("2")
 				end)
 			end,
 		})
@@ -1578,7 +1578,7 @@ return function(verifyHarness: Verify.Harness)
 				end, {
 					gameContent = function()
 						return function(runtime, world)
-							local Host = runtime.constructors
+							local Host = Facet.host(runtime)
 							return runtime.mount(function()
 								return Host.Model "CompleteModel" { Host.Part "Island" {} }
 							end, world)
@@ -1749,10 +1749,12 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("NVM-13 desktop tab transitions reclaim interrupted content and release departing owners", {
 			id = "native_virtual_monitors::native virtual monitors::NVM-13 desktop tab transitions reclaim interrupted content and release departing owners",
 			run = function()
-				local Facet, desktop = require("../src"), require("../examples/virtual_monitors/desktop")
+				local desktop = require("../examples/virtual_monitors/desktop")
 				local engine = engineModule.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local mounted, released, now = {}, {}, 0
+				local mounted: { [string]: number } = {}
+				local released: { [string]: number } = {}
+				local now = 0
 				local target = engine.new("ScreenGui")
 				local lifetime = Compose.createRootOwner(function()
 					local model = modelModule.new(Compose)
@@ -1764,7 +1766,7 @@ return function(verifyHarness: Verify.Harness)
 							Compose.cleanup(function()
 								released[name] = (released[name] or 0) + 1
 							end)
-							return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+							return Facet.host(runtime).Frame({
 								Name = name .. "Content",
 							})
 						end
@@ -1894,10 +1896,9 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_virtual_monitors::native virtual monitors::NVM-Accent swaps the native accent paint from the Accent picker and the quick accent menu",
 				run = function()
 					withScreens(function(world)
-						local Facet = require("../src")
 						local model, types = world.model, world.types
 						local package = theme.create(Facet, "Avatar")
-						local sheet
+						local sheet: StyleSheet
 						local stop = world.runtime.mount(function()
 							sheet = Facet.themes.createStyleSheet(world.runtime, package, {
 								types = types,

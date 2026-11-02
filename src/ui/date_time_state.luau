@@ -48,7 +48,7 @@ export type State = {
 	typedError: Value<string>,
 	valueText: Formula<string>,
 	longName: (CivilDate) -> string,
-	preferred: Value<Enum.PreferredInput> | Value<unknown>,
+	preferred: ReadOnlyValue<Enum.PreferredInput> | Value<unknown>,
 	prefers: (Enum.PreferredInput, Use) -> boolean,
 	typedEntry: Formula<boolean>,
 	selected: ReadOnlyValue<GuiObject?>,
@@ -73,11 +73,11 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 			ctx.config.onError(message)
 		end
 	end
-	local function legal<T>(key: string, source: Shared.Input<T>?, ok: (unknown) -> boolean): ReadOnlyValue<T>
-		local held: Value<T> = Compose.cell(read(source))
+	local function legal<T>(key: string, source: Shared.Input<T>, ok: (unknown) -> boolean): ReadOnlyValue<T>
+		local held: Value<T> = Compose.cell(read<<T>>(source))
 		local refused = false
 		Compose.watch(function(use: Use)
-			local v: T = read(source, use)
+			local v: T = read<<T>>(source, use)
 			if ok(v) then
 				refused = false
 				held:set(v)
@@ -91,10 +91,10 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 	local function optionalDate(v: unknown): boolean
 		return v == nil or civil.problem(v) == nil
 	end
-	local value = legal("value", spec.value, function(v: unknown): boolean
+	local value = legal<<CivilDate?>>("value", spec.value, function(v: unknown): boolean
 		return v == nil or civil.problem(v, withTime) == nil
 	end)
-	local range = legal("range", if isRange then spec.range else {}, function(v: unknown): boolean
+	local range = legal<<Range>>("range", if isRange then assert(spec.range) else {}, function(v: unknown): boolean
 		if type(v) ~= "table" then
 			return false
 		end
@@ -103,9 +103,9 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 			and optionalDate(r.finish)
 			and not (r.start ~= nil and r.finish ~= nil and civil.compare(r.start, r.finish) > 0)
 	end)
-	local minDate = legal("min", spec.min, optionalDate)
-	local maxDate = legal("max", spec.max, optionalDate)
-	local referenceDate = legal("referenceDate", spec.referenceDate, optionalDate)
+	local minDate = legal<<CivilDate?>>("min", spec.min, optionalDate)
+	local maxDate = legal<<CivilDate?>>("max", spec.max, optionalDate)
+	local referenceDate = legal<<CivilDate?>>("referenceDate", spec.referenceDate, optionalDate)
 	local function enabled(use: Use?): boolean
 		return read(spec.enabled, use) ~= false
 	end

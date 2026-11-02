@@ -63,7 +63,7 @@ export type CardMenu = { items: Input<{ Nav.MenuItem<string> }>, label: Types.Va
 export type CardBadge = {
 	label: Input<string?>?,
 	status: Input<Media.Status>?,
-	icon: Types.ValueString?,
+	icon: Input<string?>?,
 	name: string?,
 }
 export type CardBadges = { leading: CardBadge?, trailing: CardBadge? }

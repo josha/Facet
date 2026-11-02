@@ -2,6 +2,9 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local Engine = require("./engine_types")
+local Media = require("./media_types")
+local Theme = require("./theme_types")
+local Environment = require("./environment_types")
 local Layout = require("./layout_types")
 local layoutKit = require("./layout_kit")
 local scrollLock = require("./scroll_lock")
@@ -23,8 +26,12 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	type FillAxis = "x" | "y" | "none"
 	local function fills(children: { ComposeTypes.Child }): boolean
 		for _, child in children do
-			local node = child :: { IsA: unknown }
-			if type(child) ~= "function" and type(node.IsA) == "function" and (child :: Instance):IsA("UIFlexItem") then
+			local node = (child :: unknown) :: { IsA: unknown }
+			if
+				type(child) ~= "function"
+				and type(node.IsA) == "function"
+				and ((child :: unknown) :: Instance):IsA("UIFlexItem")
+			then
 				return true
 			end
 		end
@@ -89,7 +96,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local omitted = table.clone(keys)
 		table.insert(omitted, "maxWidth")
 		local properties = ctx.props(spec, omitted) :: { [unknown]: unknown }
-		properties[#properties + 1] = Host.UISizeConstraint({
+		properties[#properties + 1] = Host.UISizeConstraint {
 			MaxSize = function(use: ComposeTypes.Use): Vector2
 				local value = read(maxWidth, use)
 				assert(
@@ -98,10 +105,13 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				)
 				return V2.new(value, math.huge)
 			end,
-		})
+		}
 		return properties
 	end
-	local function split(spec: unknown, keys: { string }): ({ [unknown]: unknown }, { ComposeTypes.Child })
+	local function split(
+		spec: { [number]: ComposeTypes.Child? },
+		keys: { string }
+	): ({ [unknown]: unknown }, { ComposeTypes.Child })
 		local fields = spec :: { [unknown]: unknown }
 		local named: { [unknown]: unknown } = {}
 		local children: { ComposeTypes.Child } = {}
@@ -111,7 +121,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			end
 		end
 		for index = 1, #fields do
-			children[index] = fields[index] :: ComposeTypes.Child
+			children[index] = spec[index]
 		end
 		return containerProps(named, keys), children
 	end
@@ -122,9 +132,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		bend: (ComposeTypes.Use) -> (number, boolean?)
 	): Types.Input<Types.Padding>
 		return function(use: ComposeTypes.Use): Types.Padding
-			local value = read(padding, use)
+			local value = read<<Types.Padding>>(padding, use)
 			local given: { [string]: unknown } = if type(value) == "table"
-				then value
+				then (value :: unknown) :: { [string]: unknown }
 				else { top = value, right = value, bottom = value, left = value }
 			local pixels: { [string]: number } = {}
 			for _, name in SIDES do
@@ -191,7 +201,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		end
 		if corners ~= nil then
 			local constant = fixed and corners ~= "control" and corners ~= "panel"
-			properties[#properties + 1] = Host.UICorner({ CornerRadius = if constant then shape() else shape })
+			properties[#properties + 1] = Host.UICorner { CornerRadius = if constant then shape() else shape }
 		end
 		local flow: Types.Flow = spec
 		if (metric ~= nil or corners ~= nil) and spec.padding ~= nil then
@@ -203,7 +213,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			local bounded = Compose.cell("none" :: FillAxis)
 			local _, automatic = kit.extent(flow, "hug", "hug")
 			properties.AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
-				return withoutAxis(read(automatic, use), use(bounded))
+				return withoutAxis(read<<Enum.AutomaticSize>>(automatic, use), use(bounded))
 			end
 			room = bounded
 		end
@@ -226,7 +236,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		if spec.status ~= nil then
 			local worn: string? = nil
 			Compose.watch(function(use: ComposeTypes.Use)
-				local status = read(spec.status, use)
+				local status = read<<Media.Status?>>(spec.status, use)
 				local tag = if status then "facet-status-" .. status else nil
 				if tag == worn then
 					return
@@ -270,20 +280,21 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local distant = ctx.tenFoot()
 		local authored = ctx.config.environment and ctx.config.environment.overscanInsets
 		local needsInsets = Compose.formula(function(use: ComposeTypes.Use): boolean
-			local margins = read(authored, use)
+			local margins = read<<(Environment.SafeInsets | "none")?>>(authored, use)
 			return chrome ~= "edge" and (type(margins) == "table" or (margins == nil and distant(use)))
 		end)
-		local FRACTION = { top = 60 / 1080, bottom = 60 / 1080, left = 90 / 1920, right = 90 / 1920 }
+		local FRACTION: { [string]: number } =
+			{ top = 60 / 1080, bottom = 60 / 1080, left = 90 / 1920, right = 90 / 1920 }
 		local flow: Types.Flow = {
 			gap = spec.gap,
 			align = spec.align,
 			distribute = spec.distribute,
 			padding = function(use: ComposeTypes.Use): Types.Padding
-				local value = read(base, use)
+				local value = read<<Types.Padding>>(base, use)
 				local sides: Types.Sides = if type(value) == "table"
 					then value :: Types.Sides
 					else { top = value, right = value, bottom = value, left = value }
-				local margins = read(authored, use)
+				local margins = read<<(Environment.SafeInsets | "none")?>>(authored, use)
 				local function side(name: "top" | "right" | "bottom" | "left", extra: number): UDim
 					local pixels = kit.spacing((sides :: { [string]: Types.Space? })[name], use) + extra
 					local available = use(clearance)
@@ -341,8 +352,12 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 						return
 					end
 					local scale = use(unit)
-					local margins = read(authored, use)
-					local function remaining(name: string, span: number, gap: number): number
+					local margins = read<<(Environment.SafeInsets | "none")?>>(authored, use)
+					local function remaining(
+						name: "top" | "right" | "bottom" | "left",
+						span: number,
+						gap: number
+					): number
 						local inset = if type(margins) == "table"
 							then ((margins :: { [string]: number })[name] or 0) * scale
 							elseif margins == nil and distant(use) then span * FRACTION[name]
@@ -377,7 +392,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			)
 			return if value == "center" then 0.5 elseif value == "end" then 1 else 0
 		end
-		local placed = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<Vector2> }
+		local placed: { [GuiObject]: ComposeTypes.ReadOnlyValue<Vector2> } = setmetatable({}, { __mode = "k" })
 		local members = Compose.cell(0)
 		local function hugs(value: Layout.Extent?): boolean
 			return value == nil or value == "hug"
@@ -404,8 +419,10 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		if aligned then
 			Compose.watch(function(use: ComposeTypes.Use)
 				use(members)
-				local x, y = fraction(read(spec.alignH, use)), fraction(read(spec.alignV, use))
-				local wide, tall = hugs(read(spec.width, use)), hugs(read(spec.height, use))
+				local x, y =
+					fraction(read<<Types.Edge?>>(spec.alignH, use)), fraction(read<<Types.Edge?>>(spec.alignV, use))
+				local wide, tall =
+					hugs(read<<Types.Extent?>>(spec.width, use)), hugs(read<<Types.Extent?>>(spec.height, use))
 				local nodes: { GuiObject } = {}
 				local extents: { [GuiObject]: Vector2 } = {}
 				local widest, tallest = 0, 0
@@ -434,7 +451,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	end)
 
 	local function plateReach(use: ComposeTypes.Use?): number
-		return themeSupport.plateReach(read(ctx.config.theme, use))
+		return themeSupport.plateReach(read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use))
 	end
 
 	UI.ScrollView = ctx.construct("ScrollView", function(spec: LayoutProps.ScrollViewProps): ScrollingFrame
@@ -444,7 +461,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local scaled = false
 		local filling: { GuiObject } = {}
 		for _, child in children do
-			local node = child :: GuiObject
+			local node = (child :: unknown) :: GuiObject
 			local gui = (typeof(node) == "Instance" or type(node) == "table")
 				and type(node.IsA) == "function"
 				and node:IsA("GuiObject")
@@ -454,7 +471,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			end
 		end
 		local size, automatic = kit.extent(spec, "fill", if axis == "x" and not scaled then "hug" else "fill")
-		local native: Engine.ScrollingFrameNativeProps = {
+		local native: Engine.ScrollingFrameProps = {
 			Active = true,
 			BorderSizePixel = 0,
 			Size = size,
@@ -616,11 +633,11 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					})
 				else
 					runtime.mount(function()
-						return Host.UISizeConstraint({
+						return Host.UISizeConstraint {
 							MinSize = function(use: ComposeTypes.Use): Vector2
 								return V2.new(0, use(floor))
 							end,
-						})
+						}
 					end, node)
 				end
 				local observed = ctx.observe.Size(node)
@@ -684,7 +701,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			)
 			return count
 		end
-		local layout: Engine.UIGridLayoutNativeProps = {
+		local layout: Engine.UIGridLayoutProps = {
 			SortOrder = E.SortOrder.LayoutOrder,
 			FillDirection = if flow == "column" then E.FillDirection.Vertical else E.FillDirection.Horizontal,
 			FillDirectionMaxCells = function(use: ComposeTypes.Use): number
@@ -701,7 +718,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			CellSize = function(use: ComposeTypes.Use): UDim2
 				local count = columns(use)
 				local gap = kit.spacing(spec.gap, use)
-				local height = read(spec.cellHeight, use)
+				local height = read<<number?>>(spec.cellHeight, use)
 				return D2.new(
 					1 / count,
 					-math.ceil(gap * (count - 1) / count),
@@ -724,7 +741,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			end
 		end
 		if spec.aspectRatio ~= nil then
-			layout[1] = Host.UIAspectRatioConstraint({ AspectRatio = spec.aspectRatio })
+			layout[1] = Host.UIAspectRatioConstraint { AspectRatio = spec.aspectRatio }
 		end
 		local native: Engine.FrameNativeProps = {
 			BorderSizePixel = 0,
@@ -753,7 +770,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		end
 
 		local forward = if flow == "column" then "NextSelectionRight" else "NextSelectionDown"
-		local clamped = setmetatable({} :: { [GuiObject]: boolean }, { __mode = "k" })
+		local clamped: { [GuiObject]: boolean } = setmetatable({}, { __mode = "k" })
 		local revision = Compose.cell(0)
 		local function bump()
 			revision:set(revision:peek() + 1)
@@ -799,14 +816,25 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					local fields = (
 						target :: unknown
 					) :: { NextSelectionDown: GuiObject?, NextSelectionRight: GuiObject? }
+					local nextSelection = if forward == "NextSelectionDown"
+						then fields.NextSelectionDown
+						else fields.NextSelectionRight
+					local nextTarget: GuiObject?
 					if last and line == lines - 1 and lane > short then
-						if fields[forward] == nil or clamped[target] then
-							fields[forward] = last
-							clamped[target] = true
+						if nextSelection ~= nil and not clamped[target] then
+							continue
 						end
+						nextTarget = last
+						clamped[target] = true
 					elseif clamped[target] then
-						fields[forward] = nil
 						clamped[target] = nil
+					else
+						continue
+					end
+					if forward == "NextSelectionDown" then
+						fields.NextSelectionDown = nextTarget
+					else
+						fields.NextSelectionRight = nextTarget
 					end
 				end
 			end
@@ -824,8 +852,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	end
 	local function tracked(
 		node: GuiObject,
-		sizes: { [GuiObject]: ComposeTypes.Value<Vector2> },
-		parents: { [GuiObject]: ComposeTypes.Value<Instance?> },
+		sizes: { [GuiObject]: ComposeTypes.ReadOnlyValue<Vector2> },
+		parents: { [GuiObject]: ComposeTypes.ReadOnlyValue<Instance?> },
 		members: ComposeTypes.Value<number>,
 		spills: { [GuiObject]: ComposeTypes.Value<boolean> }?
 	)
@@ -868,9 +896,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			return kit.stack(children, properties :: Engine.FrameNativeProps, flow, vertical)
 		end
 		local vertical = Compose.cell(false)
-		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<Vector2> }
-		local parents = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<Instance?> }
-		local shown = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<boolean> }
+		local sizes: { [GuiObject]: ComposeTypes.ReadOnlyValue<Vector2> } = setmetatable({}, { __mode = "k" })
+		local parents: { [GuiObject]: ComposeTypes.ReadOnlyValue<Instance?> } = setmetatable({}, { __mode = "k" })
+		local shown: { [GuiObject]: ComposeTypes.ReadOnlyValue<boolean> } = setmetatable({}, { __mode = "k" })
 		local members = Compose.cell(0)
 		local size, automatic = kit.extent(flow, "fill", "hug")
 		local layout = kit.list(flow, vertical)
@@ -941,9 +969,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	UI.ViewThatFits = ctx.construct("ViewThatFits", function(spec: LayoutProps.ViewThatFitsProps): Frame
 		local properties, children = split(spec, { "width", "height" })
 		assert(#children > 0, "Facet ViewThatFits needs at least one candidate")
-		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<Vector2> }
-		local parents = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<Instance?> }
-		local spills = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Value<boolean> }
+		local sizes: { [GuiObject]: ComposeTypes.ReadOnlyValue<Vector2> } = setmetatable({}, { __mode = "k" })
+		local parents: { [GuiObject]: ComposeTypes.ReadOnlyValue<Instance?> } = setmetatable({}, { __mode = "k" })
+		local spills: { [GuiObject]: ComposeTypes.Value<boolean> } = setmetatable({}, { __mode = "k" })
 		local members = Compose.cell(0)
 		local box: Types.Box = { width = spec.width, height = spec.height }
 		local size, automatic = kit.extent(box, "fill", "hug")
@@ -965,8 +993,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(members)
 			local offer, parent = use(offered), use(holder)
-			local openX = read(spec.width, use) == "hug" or offer.X <= 0 or scrolls(parent, true)
-			local height = read(spec.height, use)
+			local openX = read<<Types.Extent?>>(spec.width, use) == "hug" or offer.X <= 0 or scrolls(parent, true)
+			local height = read<<Types.Extent?>>(spec.height, use)
 			local openY = height == nil or height == "hug" or offer.Y <= 0 or scrolls(parent, false)
 			local candidates: { GuiObject } = {}
 			for child in sizes do
@@ -974,7 +1002,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					table.insert(candidates, child)
 				end
 			end
-			table.sort(candidates, function(a, b)
+			table.sort(candidates, function(a: GuiObject, b: GuiObject)
 				return a.LayoutOrder < b.LayoutOrder
 			end)
 			local winner = candidates[#candidates]
@@ -1110,7 +1138,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local native: Engine.FrameNativeProps = {
 			Name = "Spacer",
 			BorderSizePixel = 0,
-			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+			Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 		}
 		local node = kit.plain(Host.Frame(ctx.props(spec, { "minLength" }, native)), spec)
 		local along = stackAxis(node, nil)
@@ -1127,10 +1155,10 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 
 	UI.fill = function(weight: number?): UIFlexItem
 		if weight == nil then
-			return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
+			return Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill }
 		end
 		assert(type(weight) == "number" and weight > 0, "Facet fill weight must be a positive number")
-		return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Custom, GrowRatio = weight, ShrinkRatio = weight })
+		return Host.UIFlexItem { FlexMode = E.UIFlexMode.Custom, GrowRatio = weight, ShrinkRatio = weight }
 	end
 
 	return UI

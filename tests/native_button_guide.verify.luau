@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Facet = require("../src")
 
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -33,7 +34,7 @@ return function(verifyHarness: Verify.Harness)
 				table.insert(shown, { order = entry.LayoutOrder, text = overlay.find(node, "Label").Text })
 			end
 		end
-		table.sort(shown, function(a, b)
+		table.sort(shown, function(a: { order: number, text: string }, b: { order: number, text: string })
 			return a.order < b.order
 		end)
 		local words: { string } = {}
@@ -243,13 +244,14 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local alert = Compose.cell(false)
 				local w = guideWorld(function(UI: FacetControls, Host: RobloxHost)
+					local leave: Facet.AlertSpec = {
+						isPresented = alert,
+						title = "Leave the race?",
+						actions = { { id = "Stay", label = "Stay", role = "cancel" } },
+					}
 					return Host.Frame "Scene" {
-						UI.ButtonGuide "HudGuide" { entries = { { keys = { { "Y" } }, label = "Map" } } } :: unknown,
-						UI.Alert {
-							isPresented = alert,
-							title = "Leave the race?",
-							actions = { { id = "Stay", label = "Stay", role = "cancel" :: "cancel" } },
-						},
+						UI.ButtonGuide "HudGuide" { entries = { { keys = { { "Y" } }, label = "Map" } } },
+						UI.Alert(leave),
 					}
 				end, { motionLevel = "none" })
 				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
@@ -306,7 +308,7 @@ return function(verifyHarness: Verify.Harness)
 						title = "Shop",
 						content = function(): Instance
 							return Host.Frame "Shelf" {
-								UI.Button "Blade" { label = "Blade" } :: unknown,
+								UI.Button "Blade" { label = "Blade" },
 								UI.Button "Wheels" { label = "Wheels" },
 							}
 						end,
@@ -447,7 +449,7 @@ return function(verifyHarness: Verify.Harness)
 						table.insert(entryNodes, node :: GuiObject)
 					end
 				end
-				table.sort(entryNodes, function(a, b)
+				table.sort(entryNodes, function(a: GuiObject, b: GuiObject)
 					return a.LayoutOrder < b.LayoutOrder
 				end)
 				local buy, tabs = entryNodes[1], entryNodes[2]
@@ -472,7 +474,7 @@ return function(verifyHarness: Verify.Harness)
 				local tick = Compose.cell(0)
 				local w = guideWorld(function(UI: FacetControls)
 					return UI.ButtonGuide "Guide" {
-						entries = function(use)
+						entries = function(use: Facet.Use): { Facet.ButtonGuideEntry }
 							use(tick)
 							return {
 								{ keys = { { "E" } }, label = "Use" },

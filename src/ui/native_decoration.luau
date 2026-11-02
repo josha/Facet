@@ -23,7 +23,7 @@ return function(
 	local poll: ComposeTypes.ObserveOptions? = if frame then { frame = true, poll = true } else nil
 	if target:FindFirstChildWhichIsA("UIPadding") == nil then
 		runtime.mount(function()
-			return Host.UIPadding({})
+			return Host.UIPadding {}
 		end, target)
 	end
 	local container = Host.Frame(node.Name .. "Bounds")({

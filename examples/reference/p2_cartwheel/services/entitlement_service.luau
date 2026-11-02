@@ -24,7 +24,7 @@ function entitlement_service.new(opts: Opts)
 		if n == 1 then
 			return false, "reject.purchase"
 		end
-		return true
+		return true, nil
 	end
 
 	function self.attemptsOn(product: string): number

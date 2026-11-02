@@ -9,7 +9,7 @@ return function(
 	ctx: Shared.Context,
 	config: Shared.Config,
 	themes: Theme.Themes,
-	preview: { [string]: unknown },
+	preview: Shared.EnvironmentPreview,
 	metricAt: (unknown, string) -> number?,
 	setDistance: ((ComposeTypes.Use?) -> boolean) -> ()
 )
@@ -63,6 +63,7 @@ return function(
 			})
 		end
 	end
+	local readTheme = ctx.read<<Theme.ReadOnlyThemePackage>>
 	local authored = config.theme
 	ctx.runtime:watch(function()
 		local distant = Compose.formula(ctx.tenFoot())
@@ -71,8 +72,9 @@ return function(
 		end
 		setDistance(distance)
 		if authored ~= nil then
-			config.theme = Compose.formula(function(use: ComposeTypes.Use): Theme.ThemePackage
-				return themes.forDistance(ctx.read(authored, use), if distance(use) then "ten-foot" else "near")
+			local theme = authored
+			config.theme = Compose.formula(function(use: ComposeTypes.Use): Theme.ReadOnlyThemePackage
+				return themes.forDistance(readTheme(theme, use), if distance(use) then "ten-foot" else "near")
 			end, support.sameBesidesPalettes)
 		end
 	end)
@@ -80,7 +82,7 @@ return function(
 		local pointerOnly = ctx.pointerOnly()
 		return function(use: ComposeTypes.Use?): number
 			local minimum = ctx.metric("targetSizes.minimum", use)
-			local package = ctx.read(config.theme, use)
+			local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
 			local pointer = metricAt(if package then package.metrics else nil, "targetSizes.pointer")
 			if pointer == nil or pointer >= minimum or not pointerOnly(use) then
 				return minimum

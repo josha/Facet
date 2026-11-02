@@ -8,11 +8,12 @@ return function(
 	config: Shared.Config,
 	services: Shared.Services,
 	themes: Theme.Themes,
-	observeStyled: (Instance, string) -> ComposeTypes.Value<unknown>
+	observeStyled: (Instance, string) -> ComposeTypes.ReadOnlyValue<unknown>
 )
 	local Compose, runtime, types, Host = ctx.Compose, ctx.runtime, ctx.types, ctx.Host
 	local Enum = types.Enum
 	local read = ctx.read
+	local readNumber = ctx.read<<number>>
 	local hapticWaves: { [string]: { number } } = {
 		warning = { 0, 0, 10, 0.7, 40, 0, 90, 0.7, 130, 0 },
 		error = { 0, 0, 8, 1, 40, 0, 80, 1, 112, 0, 152, 1, 190, 0 },
@@ -94,7 +95,7 @@ return function(
 		assert(fades[node], "Facet: fadeTo needs a node made by ctx.fade").source:set({ value })
 	end
 	function ctx.fade(
-		properties: Shared.CanvasGroupNativeProps,
+		properties: Shared.CanvasGroupProps,
 		persistent: boolean?,
 		chrome: boolean?,
 		scrolls: boolean?
@@ -106,7 +107,7 @@ return function(
 			then (Host.ScrollingFrame((properties :: unknown) :: Shared.ScrollingFrameNativeProps) :: unknown) :: Frame
 			else Host.Frame((properties :: unknown) :: Shared.FrameNativeProps)
 		local function amount(use: ComposeTypes.Use): number
-			return read(use(source)[1], use) or 0
+			return readNumber(use(source)[1], use) or 0
 		end
 		local shown = ctx.observe.Visible(node)
 		local warming = Compose.cell(false)
@@ -148,7 +149,7 @@ return function(
 					return use(shown) and (persistent == true or amount(use) > 0)
 				end, function()
 					local automatic = ctx.observe.AutomaticSize(node)
-					local leaving = frames ~= nil and (read(source:peek()[1]) or 0) < 0.5
+					local leaving = frames ~= nil and (readNumber(source:peek()[1]) or 0) < 0.5
 					local gather: (() -> ())? = nil
 					if frames then
 						warming:set(not leaving)
@@ -286,8 +287,8 @@ return function(
 			return nil, nil
 		end
 		local function hasSkin(use: ComposeTypes.Use?): boolean
-			local package = ctx.read(config.theme, use)
-			local recipe = package and (package.chrome or {})[slot]
+			local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
+			local recipe = if package and package.chrome then package.chrome[slot] else nil
 			return recipe ~= nil and (recipe.kind ~= "native" and recipe.kind ~= "none" or recipe.shadow ~= nil)
 		end
 		if not Compose.isValue(config.theme) and type(config.theme) ~= "function" then
@@ -303,7 +304,7 @@ return function(
 				types = types,
 				target = node,
 				shadowTransparency = function(use: ComposeTypes.Use)
-					local package = ctx.read(config.theme, use)
+					local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
 					local recipe = package and (package.chrome or {})[slot]
 					local fill = if recipe and recipe.kind == "native"
 						then math.clamp(use(background) :: number, 0, 1)
@@ -340,7 +341,7 @@ return function(
 		end
 		if node:FindFirstChildWhichIsA("UIPadding") == nil then
 			runtime.mount(function()
-				return Host.UIPadding({})
+				return Host.UIPadding {}
 			end, node)
 		end
 		local dispose, art = runtime.mount(function()

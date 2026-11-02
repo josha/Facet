@@ -1,8 +1,8 @@
 --!strict
 type Context = typeof(require("@repo/examples/types").Context)
 type Point = typeof(require("@repo/tools/typecheck/aliases").PathPoint)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type Paint = Color3 | ReadOnlyValue<Color3> | (Use) -> Color3
 local drawings: { [string]: { { number } } } = {
 	bolt = {
@@ -82,12 +82,12 @@ local drawings: { [string]: { { number } } } = {
 }
 local art = {}
 function art.hex(ctx: Context, name: string, size: number, paint: Paint, z: number): Frame
-	local H, D2, V2 = ctx.Host, ctx.types.UDim2, ctx.types.Vector2
+	local Host, D2, V2 = ctx.Host, ctx.types.UDim2, ctx.types.Vector2
 	local pieces: { Instance } = {}
 	for _, angle in { 0, 60, 120 } do
 		table.insert(
 			pieces,
-			H.Frame {
+			Host.Frame {
 				Size = D2.fromOffset(size / 2, size * math.sqrt(3) / 2),
 				Position = D2.fromScale(0.5, 0.5),
 				AnchorPoint = V2.new(0.5, 0.5),
@@ -98,14 +98,14 @@ function art.hex(ctx: Context, name: string, size: number, paint: Paint, z: numb
 			}
 		)
 	end
-	return H.Frame(name) {
+	return Host.Frame(name)({
 		Size = D2.fromOffset(size, size * math.sqrt(3) / 2),
 		Position = D2.fromScale(0.5, 0.5),
 		AnchorPoint = V2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		ZIndex = z,
 		table.unpack(pieces),
-	}
+	})
 end
 function art.outline(ctx: Context, tint: Paint): Frame
 	local points: { Point } = {}

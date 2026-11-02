@@ -67,7 +67,7 @@ return function()
         camera = CFrame.lookAt(Vector3.new(0, 2, 6), Vector3.new(0, 0, 0)), fieldOfView = 35,
         content = function(runtime, world)
           sceneBuilt()
-          local Host = runtime.constructors
+          local Host = Facet.host(runtime)
           Host.Part { Parent = Facet.Compose.static(world), Anchored = true, Size = Vector3.new(2, 2, 2) }
           return nil
         end,

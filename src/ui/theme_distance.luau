@@ -4,14 +4,14 @@ local adaptive = require("./adaptive")
 
 local UNSCALED =
 	{ "TextSize$", "Lines$", "Count$", "Duration$", "Seconds$", "Ratio$", "Fraction$", "Scale$", "Opacity$", "Weight$" }
-local LENGTHS: { "space" | "strokes" | "targetSizes" | "iconSizes" } =
-	{ "space", "strokes", "targetSizes", "iconSizes" }
-
 local TEXT_FLOOR = 28
 local CAPTION_FLOOR = 24
 
-local scaledFrom = setmetatable({} :: { [ThemeTypes.ThemePackage]: ThemeTypes.ThemePackage }, { __mode = "k" })
-local cache = setmetatable({} :: { [ThemeTypes.ThemePackage]: ThemeTypes.ThemePackage }, { __mode = "k" })
+local scaledFrom: { [ThemeTypes.ReadOnlyThemePackage]: ThemeTypes.ReadOnlyThemePackage } = setmetatable(
+	{},
+	{ __mode = "k" }
+)
+local cache: { [ThemeTypes.ReadOnlyThemePackage]: ThemeTypes.ReadOnlyThemePackage } = setmetatable({}, { __mode = "k" })
 
 local function isLength(name: string): boolean
 	for _, pattern in UNSCALED do
@@ -46,16 +46,17 @@ local function deepFreeze<T>(value: T): T
 end
 
 local function tenFoot(
-	package: ThemeTypes.ThemePackage,
-	neutral: ThemeTypes.ThemePackage,
+	package: ThemeTypes.ReadOnlyThemePackage,
+	neutral: ThemeTypes.ReadOnlyThemePackage,
 	sealed: boolean
-): ThemeTypes.ThemePackage
+): ThemeTypes.ReadOnlyThemePackage
 	local factor = adaptive.TEN_FOOT_SCALE
 	local metrics = package.metrics
 	local scaled = table.clone(metrics)
-	for _, group in LENGTHS do
-		scaled[group] = scaleTable(metrics[group], factor)
-	end
+	scaled.space = scaleTable(metrics.space, factor)
+	scaled.strokes = scaleTable(metrics.strokes, factor)
+	scaled.targetSizes = scaleTable(metrics.targetSizes, factor)
+	scaled.iconSizes = scaleTable(metrics.iconSizes, factor)
 	scaled.radii = scaleTable(metrics.radii, factor, true)
 	local sizes: { [string]: ThemeTypes.ControlSize } = {}
 	for step, entry in metrics.controlSizes do
@@ -98,13 +99,21 @@ local function tenFoot(
 		typography[role] = copy
 	end
 	scaled.typography = typography
-	local result = table.clone(package)
-	result.metrics = scaled
+	local result: ThemeTypes.ThemePackage = {
+		schema = package.schema,
+		identity = package.identity,
+		style = package.style,
+		metrics = scaled,
+		chrome = package.chrome,
+		assets = package.assets,
+		icons = package.icons,
+		rules = package.rules,
+	}
 	return if sealed then deepFreeze(result) else result
 end
 
-return function(neutral: ThemeTypes.ThemePackage)
-	return function(package: ThemeTypes.ThemePackage, distance: string?): ThemeTypes.ThemePackage
+return function(neutral: ThemeTypes.ReadOnlyThemePackage)
+	return function(package: ThemeTypes.ReadOnlyThemePackage, distance: string?): ThemeTypes.ReadOnlyThemePackage
 		assert(
 			distance == "near" or distance == "ten-foot",
 			"Facet themes.forDistance: distance must be near or ten-foot"
@@ -120,8 +129,8 @@ return function(neutral: ThemeTypes.ThemePackage)
 		if found == nil then
 			found = tenFoot(base, neutral, true)
 			cache[base] = found
-			scaledFrom[found :: ThemeTypes.ThemePackage] = base
+			scaledFrom[found] = base
 		end
-		return found :: ThemeTypes.ThemePackage
+		return found
 	end
 end

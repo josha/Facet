@@ -8,7 +8,7 @@ return function(verifyHarness: Verify.Harness)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
 	type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Facet = require("../src")
@@ -33,7 +33,7 @@ return function(verifyHarness: Verify.Harness)
 			destroy(node)
 		end
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-		local Host = (runtime.constructors :: unknown) :: RobloxHost
+		local Host = Facet.host(runtime)
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local D2, V2 = engine.types.UDim2, engine.types.Vector2
 		local target = engine.new("Folder")
@@ -43,13 +43,13 @@ return function(verifyHarness: Verify.Harness)
 			ready: BooleanCell,
 		}
 		local items: { Item } = {}
-		local list
+		local list: ScrollingFrame
 		local status = require("./lib/cells").collectionStatus()
 		for index = 1, count do
 			items[index] = { id = tostring(index), value = Compose.cell(index), ready = Compose.cell(false) }
 		end
 		local stop = runtime.mount(function()
-			list = UI.VirtualList({
+			local spec: Facet.KeyedCollectionSpec<Item, string> = {
 				from = items,
 				key = function(item)
 					return item.id
@@ -58,20 +58,21 @@ return function(verifyHarness: Verify.Harness)
 				status = status,
 				render = function(current: ReadOnlyValue<Item>): GuiObject
 					local item = current:peek()
-					return Host.Frame({
+					return Host.Frame {
 						Size = D2.new(1, 0, 0, 56),
-						Host.ImageLabel({ Image = "rbxassetid://0", Size = D2.fromOffset(40, 40) }) :: unknown,
-						Host.TextLabel({
+						Host.ImageLabel { Image = "rbxassetid://0", Size = D2.fromOffset(40, 40) },
+						Host.TextLabel {
 							Text = function(use: Use)
 								return tostring(use(item.value))
 							end,
-						}),
-						UI.Toggle({ value = item.ready, label = "Ready" }),
-					})
+						},
+						UI.Toggle { value = item.ready, label = "Ready" },
+					}
 				end,
 				Size = D2.fromScale(1, 1),
-			})
-			return Host.ScreenGui({ list :: unknown })
+			}
+			list = UI.VirtualList(spec)
+			return Host.ScreenGui { list }
 		end, target)
 		engine.environment.poke(FixtureRoblox.assertInstance(list), "AbsoluteSize", V2.new(480, 640))
 		engine.environment.poke(FixtureRoblox.assertInstance(list), "AbsoluteWindowSize", V2.new(480, 640))

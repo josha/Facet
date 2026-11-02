@@ -2,10 +2,9 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 local CELLS: { { id: string, label: string, spans: { number }? } } = {
 	{ id = "Standings", label = "Standings", spans = { 3, 4, 6 } },
 	{ id = "Lap", label = "Lap times", spans = { 3, 2, 3 } },
@@ -14,7 +13,7 @@ local CELLS: { { id: string, label: string, spans: { number }? } } = {
 }
 return {
 	title = "Measured container grid",
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 		local sidebarWidth, guides, media = Compose.cell(360), Compose.cell(false), Compose.cell(true)
@@ -43,16 +42,16 @@ return {
 			end)
 			panels[name] = geometry
 			local bodySize = Compose.cell(V2.zero)
-			local children: { unknown } = {
-				Host.UIListLayout({
+			local children: { Instance } = {
+				Host.UIListLayout {
 					SortOrder = E.SortOrder.LayoutOrder,
 					FillDirection = E.FillDirection.Horizontal,
 					Wraps = true,
 					Padding = D.new(0, 8),
-				}),
+				},
 			}
 			for index, item in CELLS do
-				local frame = Host.Frame(item.id) {
+				local frame = Host.Frame(item.id)({
 					LayoutOrder = index,
 					BackgroundTransparency = 0,
 					Visible = function(use: Use)
@@ -64,20 +63,20 @@ return {
 						return D2.fromOffset(span * g.lane + (span - 1) * 8, 0)
 					end,
 					AutomaticSize = E.AutomaticSize.Y,
-					Host.UISizeConstraint({ MinSize = V2.new(0, 44) }),
-					Host.UIPadding({
+					Host.UISizeConstraint { MinSize = V2.new(0, 44) },
+					Host.UIPadding {
 						PaddingLeft = D.new(0, 8),
 						PaddingRight = D.new(0, 8),
 						PaddingTop = D.new(0, 8),
 						PaddingBottom = D.new(0, 8),
-					}),
-					UI.Text({
+					},
+					UI.Text {
 						text = item.label,
 						TextWrapped = true,
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
-					}),
-				}
+					},
+				})
 				frame:AddTag("facet-control")
 				table.insert(children, frame)
 			end
@@ -88,11 +87,11 @@ return {
 				table.unpack(children),
 			}
 			observe(cells, bodySize)
-			local lanes = {}
+			local lanes: { Instance } = {}
 			for index = 1, 12 do
 				table.insert(
 					lanes,
-					Host.Frame({
+					Host.Frame {
 						Name = "Lane" .. index,
 						BorderSizePixel = 0,
 						BackgroundTransparency = 0.82,
@@ -105,21 +104,21 @@ return {
 						Position = function(use: Use)
 							return D2.fromOffset((index - 1) * (use(geometry).lane + 8), 0)
 						end,
-					})
+					}
 				)
 			end
-			local root = Host.Frame(name) {
+			local root = Host.Frame(name)({
 				Size = D2.new(scale, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				Host.UISizeConstraint({ MaxSize = V2.new(maxWidth and maxWidth:peek() or 100000, 100000) }),
-				Host.UIPadding({
+				Host.UISizeConstraint { MaxSize = V2.new(maxWidth and maxWidth:peek() or 100000, 100000) },
+				Host.UIPadding {
 					PaddingLeft = D.new(0, 16),
 					PaddingRight = D.new(0, 16),
 					PaddingTop = D.new(0, 12),
 					PaddingBottom = D.new(0, 12),
-				}),
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
+				},
+				Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) },
 				UI.Text "Heading" {
 					text = function(use: Use)
 						local g = use(geometry)
@@ -142,9 +141,10 @@ return {
 						table.unpack(lanes),
 					},
 				},
-			}
-			if maxWidth then
-				ctx.runtime.decorate(root:FindFirstChildWhichIsA("UISizeConstraint"), {
+			})
+			local constraint = root:FindFirstChildWhichIsA("UISizeConstraint")
+			if maxWidth and constraint then
+				ctx.runtime.decorate(constraint, {
 					MaxSize = function(use: Use)
 						return V2.new(use(maxWidth), 100000)
 					end,
@@ -161,21 +161,21 @@ return {
 					gap = 12,
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					UI.Text({ text = "One screen, three containers", textRole = "title" }),
-					UI.Text({
+					UI.Text { text = "One screen, three containers", textRole = "title" },
+					UI.Text {
 						text = "Each panel reads its own width; its cells use the actual space inside the frame.",
 						TextWrapped = true,
-					}),
+					},
 					Host.Frame "Actions" {
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						BackgroundTransparency = 1,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							SortOrder = E.SortOrder.LayoutOrder,
 							FillDirection = E.FillDirection.Horizontal,
 							Wraps = true,
 							Padding = D.new(0, 8),
-						}),
+						},
 						UI.Button "Resize" {
 							label = "Resize sidebar",
 							onActivate = function()

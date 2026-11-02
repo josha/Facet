@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Facet = require("../src")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -7,8 +8,6 @@ return function(verifyHarness: Verify.Harness)
 
 	local Compose = require("../src/vendor/compose/core")
 	local Roblox = require("../src/vendor/compose/roblox")
-	local context = require("../src/ui/context")
-	local register = require("../src/ui/inputs")
 	local engineLib = require("./lib/native_engine")
 	local expect = Verify.expect
 
@@ -29,7 +28,6 @@ return function(verifyHarness: Verify.Harness)
 		local o = options or {}
 		local engine: any = o.engine or engineLib.new()
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-		local UI: any = {}
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		local E = engine.types.Enum
 		engine.environment.poke(input, "PreferredInput", o.preferred or E.PreferredInput.KeyboardAndMouse)
@@ -37,29 +35,17 @@ return function(verifyHarness: Verify.Harness)
 			return E.UserInputType.MouseMovement
 		end
 		local held: { [any]: boolean } = {}
-		local services: any = {
-			GuiService = gui,
-			UserInputService = setmetatable({
-				IsKeyDown = function(_, key)
-					return held[key.Name] == true
-				end,
-				IsGamepadButtonDown = function(_, _, key)
-					return held[key.Name] == true
-				end,
-			}, {
-				__index = function(_, key)
-					local value = input[key]
-					if type(value) == "function" then
-						return function(_, ...)
-							return value(input, ...)
-						end
-					end
-					return value
-				end,
-			}),
-		}
-		local ctx = context(Compose, runtime, { types = engine.types, services = services, guiService = gui })
-		register(ctx, UI)
+		engine.environment.fakeOn(input, "IsKeyDown", function(_: unknown, key: Enum.KeyCode)
+			return held[key.Name] == true
+		end)
+		engine.environment.fakeOn(input, "IsGamepadButtonDown", function(_: unknown, _pad: unknown, key: Enum.KeyCode)
+			return held[key.Name] == true
+		end)
+		local UI = Facet.controls(runtime, {
+			types = engine.types,
+			services = { GuiService = gui, UserInputService = input },
+			guiService = gui,
+		})
 		local w: any = {
 			engine = engine,
 			runtime = runtime,
@@ -89,7 +75,7 @@ return function(verifyHarness: Verify.Harness)
 		local screen = engine.new("ScreenGui")
 		w.screen = screen
 		w.stop = runtime.mount(function()
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+			return Facet.host(runtime).Frame({
 				Name = "Host",
 				Compose.show(w.visible, function()
 					return UI.Slider "Vol"(merged)
@@ -677,23 +663,23 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local engine: any = engineLib.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local UI: any = {}
-				register(context(Compose, runtime, { types = engine.types }), UI)
+				local UI = Facet.controls(runtime, { types = engine.types })
 				local before = engine.census()
 				local value = Compose.cell({ lower = 10, upper = 90 })
+				local band: Facet.SliderRangeProps = {
+					value = value,
+					min = 0,
+					max = 100,
+					range = true,
+					minGap = 5,
+					thumb = "auto",
+					rotation = 45,
+					thumbContent = function(): Frame
+						return engine.new("Frame")
+					end,
+				}
 				local stop = runtime.mount(function()
-					return UI.Slider("Band")({
-						value = value,
-						min = 0,
-						max = 100,
-						range = true,
-						minGap = 5,
-						thumb = "auto",
-						rotation = 45,
-						thumbContent = function()
-							return engine.new("Frame")
-						end,
-					})
+					return UI.Slider "Band"(band)
 				end, engine.new("ScreenGui"))
 				value:set({ lower = 20, upper = 80 })
 				stop()

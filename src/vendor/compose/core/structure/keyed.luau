@@ -1,9 +1,9 @@
 --!strict
 --!native
 
-local StructureTypes = require "./types"
+local StructureTypes = require "../types"
 local Owners = require "../ownership/owner"
-local Block = require "../runtime/block"
+local Block = require("../runtime/children").block
 local Children = require "../runtime/children"
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
@@ -16,7 +16,7 @@ export type Render<V, K> = StructureTypes.KeyedRender<V, K>
 
 type Entry<V, K> = {
 	owner: Owners.Owner,
-	nodes: { Host.Node },
+	node: Host.Node,
 	value: Types.Value<V>,
 	index: Types.Value<number>,
 	key: K,
@@ -25,32 +25,23 @@ type Entry<V, K> = {
 	mark: number,
 }
 
-local identity = require("../reactive/node").identityKey
-
 export type Source<V> = StructureTypes.KeyedSource<V>
 
-export type Options<V, K> = StructureTypes.KeyedOptions<V, K>
+export type Options<V, K = V> = StructureTypes.KeyedOptions<V, K>
 
 local UNREAD_INDEX = cellModule.cell(0)
 local TRIM_TAIL = 8
 
 local KNOWN_FIELDS: { [string]: true } = { from = true, key = true, render = true }
 
-local function keyed<V, K>(options: Options<V, K>): Children.Directive
-	local settings = Support.optionsOf(options, "keyed", "from = ..., key = ..., render = ...")
-	Support.noUnknownFields(settings, "keyed", KNOWN_FIELDS)
-	local source: Types.Body<{ V }> = Support.sourceOf(settings.from, "keyed", "from")
-	local render: Render<V, K> = Support.builderOf(settings.render, "keyed", "render")
+local function keyedWithKeys<V, K>(
+	from: Source<V>,
+	render: Render<V, K>,
+	collectKeys: (list: { V }, wanted: number, keys: { K }) -> ()
+): Children.Directive
+	local source: Types.Body<{ V }> = Support.sourceOf(from, "keyed", "from")
 	local arity, variadic = debug.info(render, "a")
 	local readsIndex = variadic or arity >= 2
-	local keyOf = settings.key
-
-	local key: (value: V, index: number) -> K
-	if keyOf ~= nil then
-		key = Support.builderOf(keyOf, "keyed", "key")
-	else
-		key = identity
-	end
 
 	return function(mountPoint: Children.MountPoint)
 		local owner = Support.ownerFor "keyed"
@@ -58,10 +49,8 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 		local ordersChildren = mountPoint.ordersChildren
 		local entries: { [K]: Entry<V, K> } = {}
 		local order: { Entry<V, K> } = {}
-		local missing = ({} :: unknown) :: Entry<V, K>
-		local matched: { Entry<V, K> } = {}
+		local matched: { [number]: Entry<V, K>? } = {}
 
-		local uniform = true
 		local keys: { K } = {}
 		local retainedPositions: { number } = {}
 		local retainedTargets: { number } = {}
@@ -70,7 +59,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 
 		Owners.own(owner, function()
 			for _, entry in entries do
-				Block.releaseNodes(mountPoint, entry.nodes)
+				Block.releaseNode(mountPoint, entry.node)
 			end
 			table.clear(entries)
 			table.clear(order)
@@ -96,17 +85,6 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			base = 0
 		end
 
-		local function startOf(liveIndex: number): number
-			if uniform then
-				return liveIndex
-			end
-			local position = 1
-			for index = 1, liveIndex - 1 do
-				position += #order[base + index].nodes
-			end
-			return position
-		end
-
 		local function reindex(from: number, to: number)
 			for index = from, to do
 				order[index].position = index
@@ -115,7 +93,8 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 
 		local function setIndex(entry: Entry<V, K>, index: number)
 			local cell = entry.index
-			if ((cell :: unknown) :: Types.Node).value ~= index then
+			local cached = cell.cache
+			if cached == nil or cached.value ~= index then
 				cell:set(index)
 			end
 		end
@@ -133,13 +112,10 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			local item = currentList[index]
 			local value = cellModule.cell(item)
 			local position = if readsIndex then cellModule.cell(index) else UNREAD_INDEX
-			local nodes, rowOwner = Block.mountRow(mountPoint, owner, render, value, position, itemKey, "keyed row", at)
-			if #nodes ~= 1 then
-				uniform = false
-			end
+			local node, rowOwner = Block.mountRow(mountPoint, owner, render, value, position, itemKey, "keyed row", at)
 			local entry: Entry<V, K> = {
 				owner = rowOwner,
-				nodes = nodes,
+				node = node,
 				value = value,
 				index = position,
 				key = itemKey,
@@ -173,7 +149,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 		end
 
 		local function release(entry: Entry<V, K>)
-			Block.releaseNodes(mountPoint, entry.nodes)
+			Block.releaseNode(mountPoint, entry.node)
 			Owners.dispose(entry.owner)
 			entries[entry.key] = nil
 			entry.position = 0
@@ -229,8 +205,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			local failures: { string }? = nil
 			for index = kept + 1, wanted do
 				local itemKey = keys[index]
-				local ok, made =
-					pcall(mountRow, index, itemKey, if ordersChildren then startOf(count + 1) else count + 1)
+				local ok, made = pcall(mountRow, index, itemKey, count + 1)
 				if ok then
 					count += 1
 					local at = base + count
@@ -257,13 +232,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			currentList = list
 			local wanted = #list
 
-			if keyOf == nil then
-				table.move((list :: unknown) :: { K }, 1, wanted, 1, keys)
-			else
-				for index = 1, wanted do
-					keys[index] = key(list[index], index)
-				end
-			end
+			collectKeys(list, wanted, keys)
 			for index = #keys, wanted + 1, -1 do
 				keys[index] = nil
 			end
@@ -315,7 +284,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 						duplicate(index, earlier)
 					end
 					added[itemKey] = index
-					matched[index] = missing
+					matched[index] = nil
 				end
 			end
 			if laterEarlier ~= 0 then
@@ -358,7 +327,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			end
 			if fresh == nil and not ordersChildren then
 				for index = prefix + 1, newEnd do
-					local entry = matched[index]
+					local entry = assert(matched[index])
 					local item = list[index]
 					if entry.item ~= item then
 						entry.item = item
@@ -372,7 +341,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 				end
 				if shift ~= 0 then
 					for index = newEnd + 1, wanted do
-						local entry = matched[index]
+						local entry = assert(matched[index])
 						order[index] = entry
 						entry.position = index
 					end
@@ -404,7 +373,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			local ordered = true
 			for index = prefix + 1, newEnd do
 				local entry = matched[index]
-				if entry ~= missing then
+				if entry ~= nil then
 					local item = list[index]
 					if entry.item ~= item then
 						entry.item = item
@@ -441,7 +410,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 				local live = prefix
 				for index = prefix + 1, wanted do
 					local entry = matched[index]
-					if entry == missing then
+					if entry == nil then
 						local ok, made = pcall(mountRow, index, keys[index], live + 1)
 						if passes ~= pass then
 							return
@@ -455,8 +424,9 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 						entry = made
 					end
 					live += 1
-					order[live] = entry
-					entry.position = live
+					local mounted = assert(entry)
+					order[live] = mounted
+					mounted.position = live
 				end
 				for index = #order, live + 1, -1 do
 					order[index] = nil
@@ -467,8 +437,8 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 					local entry = matched[index]
 					live += 1
 
-					if entry == missing then
-						local ok, made = pcall(mountRow, index, keys[index], startOf(live))
+					if entry == nil then
+						local ok, made = pcall(mountRow, index, keys[index], live)
 						if passes ~= pass then
 							return
 						end
@@ -503,8 +473,8 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 
 					local anchorLive = if anchor ~= nil then anchor.position else #order + 1
 
-					if entry == missing then
-						local ok, made = pcall(mountRow, index, keys[index], startOf(anchorLive))
+					if entry == nil then
+						local ok, made = pcall(mountRow, index, keys[index], anchorLive)
 						if passes ~= pass then
 							return
 						end
@@ -523,10 +493,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 						local destination = if from < anchorLive then anchorLive - 1 else anchorLive
 						table.insert(order, destination, entry)
 						reindex(math.min(from, destination), math.max(from, destination))
-						local at = startOf(destination)
-						for offset, node in entry.nodes do
-							mountPoint.moveTo(node, at + offset - 1)
-						end
+						mountPoint.moveTo(entry.node, destination)
 					else
 						staying += 1
 					end
@@ -562,6 +529,24 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 			end
 		end)
 	end
+end
+
+local function keyed<V, K>(options: Options<V, K>): Children.Directive
+	local settings = Support.optionsOf(options, "keyed", "from = ..., key = ..., render = ...")
+	Support.noUnknownFields(settings, "keyed", KNOWN_FIELDS)
+	if settings.key == nil then
+		local render = Support.builderOf(settings.render, "keyed", "render")
+		return keyedWithKeys(settings.from, render, function(list: { V }, wanted: number, keys: { V })
+			table.move(list, 1, wanted, 1, keys)
+		end)
+	end
+	local key = Support.builderOf(settings.key, "keyed", "key")
+	local render = Support.builderOf(settings.render, "keyed", "render")
+	return keyedWithKeys(settings.from, render, function(list: { V }, wanted: number, keys: { K })
+		for index = 1, wanted do
+			keys[index] = key(list[index], index)
+		end
+	end)
 end
 
 return keyed

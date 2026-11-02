@@ -19,12 +19,12 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			assert(spec.action == nil or spec.separator == nil, "Facet.ShortcutHint: separator applies only to keys")
 			assert(spec.cap == nil or type(spec.cap) == "boolean", "Facet.ShortcutHint: cap must be a boolean")
 			local semantic = { "action", "keys", "separator", "controlSize", "cap" }
-			local function capped<N>(node: N & Instance): N & Instance
-				local styled = ctx.styled(node, "shortcut-hint")
+			local function capped<N>(node: N): N
+				ctx.styled(node, "shortcut-hint")
 				if spec.cap == false then
-					ctx.styled(styled, "shortcut-hint-bare")
+					ctx.styled(node, "shortcut-hint-bare")
 				end
-				return styled
+				return node
 			end
 			if spec.label ~= nil then
 				assert(
@@ -62,7 +62,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				local cap = capped(ctx.styled(
 					Host.TextLabel(props(spec, semantic, {
 						Text = function(use: ComposeTypes.Use)
-							local chords: { { string } } = read(assert(spec.keys), use)
+							local chords = read<<{ { string } }>>(assert(spec.keys), use)
 							assert(
 								type(chords) == "table" and #chords > 0,
 								"Facet.ShortcutHint: keys must be a nonempty list of chords"
@@ -99,7 +99,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						BackgroundTransparency = if spec.cap == false then 1 else 0,
 						BorderSizePixel = 0,
 						TextXAlignment = E.TextXAlignment.Center,
-						Host.UIPadding({}),
+						Host.UIPadding {},
 					})),
 					"Text"
 				))
@@ -134,7 +134,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					or string.find(name, "^Thumbstick") ~= nil
 				return if pad then value else nil
 			end
-			local p = props(spec :: Shared.GuiObjectNativeProps, semantic, {
+			local p = props(spec :: Shared.GuiObjectProps, semantic, {
 				Size = D2.fromOffset(0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
 				BackgroundTransparency = function(use: ComposeTypes.Use): number
@@ -149,15 +149,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end,
 				render = function(_, _, current: InputBinding)
 					return glyph("PreferredBinding", spec.controlSize, {
-						key = (ctx.observe.KeyCode(current) :: unknown) :: ComposeTypes.ReadOnlyValue<Enum.KeyCode?>,
-						name = (ctx.observe.DisplayName(current) :: unknown) :: ComposeTypes.ReadOnlyValue<string?>,
-						primary = (
-								ctx.observe.PrimaryModifier(current) :: unknown
-							) :: ComposeTypes.ReadOnlyValue<Enum.KeyCode?>,
-						secondary = (
-								ctx.observe.SecondaryModifier(current) :: unknown
-							) :: ComposeTypes.ReadOnlyValue<Enum.KeyCode?>,
-						image = (ctx.observe.DisplayImage(current) :: unknown) :: ComposeTypes.ReadOnlyValue<Content?>,
+						key = ctx.observe.KeyCode(current),
+						name = ctx.observe.DisplayName(current),
+						primary = ctx.observe.PrimaryModifier(current),
+						secondary = ctx.observe.SecondaryModifier(current),
+						image = ctx.observe.DisplayImage(current),
 					})
 				end,
 			})

@@ -12,14 +12,16 @@ export type Metrics = {
 
 return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes): Metrics
 	local Compose, types = ctx.Compose, ctx.types
+	local easings = (Compose.easing :: unknown) :: { read [string]: ((number) -> number)? }
 	local environment = config.environment
 	local reactive = config.guiService ~= nil
 		or config.userInputService ~= nil
 		or Compose.isValue(config.theme)
 		or type(config.theme) == "function"
-	local entries: { [unknown]: unknown } = if environment then environment else {}
-	for _, value in entries do
-		reactive = reactive or Compose.isValue(value) or type(value) == "function"
+	if environment then
+		for _, value in (environment :: unknown) :: { read [string]: unknown } do
+			reactive = reactive or Compose.isValue(value) or type(value) == "function"
+		end
 	end
 	local defaultMetrics = themes.neutralPackage().metrics
 	local function valueAt(value: unknown, path: string): unknown
@@ -49,7 +51,7 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 		return if distance(use) then distantMetrics else defaultMetrics
 	end
 	local function metric(path: string, use: ComposeTypes.Use?, authored: boolean?): number
-		local package = ctx.read(config.theme, use)
+		local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
 		local value = assert(
 			metricAt(if package then package.metrics else nil, path) or metricAt(ctx.neutralMetrics(use), path),
 			`Facet numeric metric {path} is missing`
@@ -106,7 +108,7 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 		args: { [string]: string | number },
 		use: ComposeTypes.Use?
 	): string
-		local translator = ctx.read(config.translator, use)
+		local translator = ctx.read<<Translator?>>(config.translator, use)
 		if translator then
 			local ok, text = pcall(translator.FormatByKey, translator, key, args)
 			if ok and type(text) == "string" and text ~= "" then
@@ -121,7 +123,7 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 		)
 	end
 	local function motionName(path: string, use: ComposeTypes.Use?): string
-		local package = ctx.read(config.theme, use)
+		local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
 		local found = valueAt(if package then package.metrics else nil, path)
 		if type(found) ~= "string" then
 			found = valueAt(ctx.neutralMetrics(use), path)
@@ -140,7 +142,7 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 	end
 	function ctx.motionEase(role: string, use: ComposeTypes.Use?): (number) -> number
 		local name = motionName(`motion.easing.{role}`, use)
-		local ease = assert(Compose.easing[name], `Facet motion easing {name} is not a Compose easing`)
+		local ease = assert(easings[name], `Facet motion easing {name} is not a Compose easing`)
 		return ease
 	end
 	function ctx.motionStyle(role: string, use: ComposeTypes.Use?): Enum.EasingStyle
@@ -156,14 +158,14 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 		field: "height" | "paddingX" | "iconSize",
 		use: ComposeTypes.Use?
 	): number
-		local requested = ctx.read(source, use)
+		local requested = ctx.read<<Shared.ControlSize?>>(source, use)
 		local rung = if requested == nil then "regular" else requested
 		assert(
 			rung == "xsmall" or rung == "compact" or rung == "regular" or rung == "large",
 			"Facet controlSize must be xsmall, compact, regular or large"
 		)
 		if rung == "xsmall" then
-			local package = ctx.read(config.theme, use)
+			local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
 			local authored = metricAt(if package then package.metrics else nil, "controlSizes.xsmall." .. field)
 			if authored then
 				return authored

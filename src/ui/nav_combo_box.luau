@@ -7,11 +7,13 @@ local ComposeTypes = require("../vendor/compose/core")
 local NavigationProps = require("./navigation_props")
 local MenuPanel = require("./nav_menu_panel")
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces)
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
+	local readOptions = read<<{ Nav.PickerOption<string> }>>
+	local readText = read<<string>>
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
-	local menuPanel = MenuPanel(ctx, UI, surfaces)
-	local function writable(cell: { set: unknown }, name: string)
+	local menuPanel = MenuPanel(ctx, UI, surfaces)<<string>>
+	local function writable(cell: { read set: unknown }, name: string)
 		assert(type(cell) == "table" and type(cell.set) == "function", name .. " requires a writable Compose cell")
 	end
 	UI.ComboBox = ctx.construct("ComboBox", function(spec: NavigationProps.ComboBoxSpec): Frame
@@ -33,9 +35,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			opened:set(false)
 		end
 		local function label(value: string): string
-			for _, option in read(spec.options) do
+			for _, option in readOptions(spec.options) do
 				if (option.value or option.id) == value then
-					return read(option.label)
+					return readText(option.label)
 				end
 			end
 			return value
@@ -59,7 +61,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			then
 				return
 			end
-			for _, option in read(spec.options) do
+			for _, option in readOptions(spec.options) do
 				if read(option.label) == text then
 					if read(option.enabled) == false then
 						errorText:set("This option is unavailable.")
@@ -176,16 +178,17 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local choices = function(use: ComposeTypes.Use): { Nav.MenuItem<string> }
 			local result: { Nav.MenuItem<string> } = {}
 			local query = string.lower(use(spec.text))
-			for _, option in read(spec.options, use) do
-				if string.find(string.lower(read(option.label, use)), query, 1, true) then
-					table.insert(result, {
+			for _, option in readOptions(spec.options, use) do
+				if string.find(string.lower(readText(option.label, use)), query, 1, true) then
+					local item: Nav.MenuCommand = {
 						id = option.id or tostring(option.value),
 						label = option.label,
 						enabled = option.enabled,
 						onSelect = function()
 							update(option.value or option.id)
 						end,
-					})
+					}
+					table.insert(result, item)
 				end
 			end
 			return result
@@ -194,7 +197,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			surfaces.overlay(row, function(use: ComposeTypes.Use)
 				return use(opened) and #choices(use) > 0
 			end, function()
-				local panel = menuPanel({ items = choices, presentation = "menu" :: "menu" }, close, row, true)
+				local menuSpec: NavigationProps.MenuSpec<string> = { items = choices, presentation = "menu" }
+				local panel = menuPanel(menuSpec, close, row, true)
 				popup = panel
 				Compose.cleanup(function()
 					if gui and surfaces.within(gui.SelectedObject, panel) then
@@ -256,7 +260,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						editor:CaptureFocus()
 					end
 				end, { priority = 11000 })
-				return Host.Folder({})
+				return Host.Folder {}
 			end),
 		})
 		return root

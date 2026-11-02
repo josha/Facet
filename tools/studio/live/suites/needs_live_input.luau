@@ -3,14 +3,29 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type IdReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").IdReadOnlyValue)
+type Rect = { x: number, y: number, w: number, h: number, r: number, b: number }
+type Mount = ((FacetControls, RobloxHost, ComposeModule) -> Instance, { frames: number }?) -> Instance
+type RunContext = {
+	Facet: { Compose: ComposeModule },
+	mount: Mount,
+	find: (Instance, string) -> GuiObject?,
+	rect: (GuiObject) -> Rect,
+	clipped: (GuiObject) -> Rect?,
+	check: (string, boolean, unknown?) -> (),
+	note: (string, unknown) -> (),
+	settle: (number) -> (),
+	device: ({ device: string, input: Enum.PreferredInput }) -> (),
+}
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 
 type Case = {
 	id: string,
 	contracts: { string },
-	run: ((any) -> ())?,
-	setup: ((any) -> any)?,
+	run: ((RunContext) -> ())?,
+	setup: ((RunContext) -> unknown)?,
 	steps: { [string]: (any, any) -> () }?,
 	keepGallery: boolean?,
 }
@@ -50,7 +65,7 @@ local function selectedName(): string
 	return if selected then selected.Name else "nil"
 end
 
-local function rows(count: number): { any }
+local function rows(count: number): { { id: string } }
 	local list = {}
 	for index = 1, count do
 		list[index] = { id = tostring(index) }
@@ -63,17 +78,15 @@ add("list-keyboard-and-dpad", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.VirtualList "List" {
 			from = rows(100),
-			key = function(item)
-				return item.id
-			end,
+			key = "id",
 			itemSize = 40,
 			Size = UDim2.fromOffset(300, 200),
-			render = function(current): GuiObject
-				return UI.Button({
+			render = function(current: IdReadOnlyValue): GuiObject
+				return UI.Button {
 					Name = "Row" .. current:peek().id,
 					label = "Row " .. current:peek().id,
 					Size = UDim2.fromScale(1, 1),
-				})
+				}
 			end,
 		}
 	end, { frames = 12 })
@@ -108,17 +121,17 @@ end, {
 add("scroll-into-view-by-gamepad", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		local children: { unknown } = {
-			Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+		local children: { Child } = {
+			Host.UIListLayout { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder },
 		}
 		for index = 1, 20 do
-			table.insert(children, UI.Button({ Name = "Item" .. index, label = "Item " .. index, LayoutOrder = index }))
+			table.insert(children, UI.Button { Name = "Item" .. index, label = "Item " .. index, LayoutOrder = index })
 		end
 		return Host.ScrollingFrame "Plain" {
 			Size = UDim2.fromOffset(300, 200),
 			CanvasSize = UDim2.new(),
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			table.unpack((children :: unknown) :: { unknown }),
+			table.unpack(children),
 		}
 	end, { frames = 12 })
 	value.frame = t.find(stage, "Plain")
@@ -148,7 +161,8 @@ end, {
 })
 
 add("sidebar-dpad-to-collections", {}, function(t)
-	local api = workspace:WaitForChild("FacetShowcaseAPI") :: any
+	local api = workspace:WaitForChild("FacetShowcaseAPI")
+	assert(api:IsA("BindableFunction"))
 	local shown = api:Invoke("show", "all-controls")
 	if shown.panel ~= "demos" then
 		api:Invoke("panel", "demos")
@@ -230,21 +244,19 @@ add("touch-drag-scrolls-reorderable-list", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.VirtualList "Sortable" {
 			from = rows(50),
-			key = function(item)
-				return item.id
-			end,
+			key = "id",
 			itemSize = 44,
 			reorderable = true,
 			onReorder = function()
 				value.reorders += 1
 			end,
 			Size = UDim2.fromOffset(320, 220),
-			render = function(current)
-				return UI.Text({
+			render = function(current: IdReadOnlyValue)
+				return UI.Text {
 					Name = "Cell" .. current:peek().id,
 					text = "Row " .. current:peek().id,
 					Size = UDim2.fromScale(1, 1),
-				})
+				}
 			end,
 		}
 	end, { frames = 12 })
@@ -304,7 +316,7 @@ add("tray-grows-with-text-size", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.RowActions "Row" {
-			content = UI.Text({ text = "Message", Size = UDim2.fromScale(1, 1) }),
+			content = UI.Text { text = "Message", Size = UDim2.fromScale(1, 1) },
 			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
 			onOpenChange = function() end,
 			trailing = {
@@ -346,19 +358,36 @@ local function within(node: Instance?, ancestor: Instance?): boolean
 	return node ~= nil and ancestor ~= nil and (node == ancestor or node:IsDescendantOf(ancestor))
 end
 
-local function modalFixture(t: any, withSheet: boolean, actions: { any })
-	local value = { visited = {}, panel = nil :: GuiObject? }
-	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-		value.sheet = Compose.cell(withSheet)
-		value.alert = Compose.cell(not withSheet)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type ModalState = {
+	sheet: BooleanCell,
+	alert: BooleanCell,
+	visited: { string },
+	panel: GuiObject?,
+	stage: Instance,
+	gui: LayerCollector?,
+	connection: RBXScriptConnection?,
+}
+type StepContext = {
+	note: (string, unknown) -> (),
+	check: (string, boolean, unknown?) -> (),
+	settle: (number) -> (),
+}
+
+local function modalFixture(mount: Mount, withSheet: boolean, actions: { any }): ModalState
+	local sheet: BooleanCell?
+	local alert: BooleanCell?
+	local stage = mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		sheet = Compose.cell(withSheet)
+		alert = Compose.cell(not withSheet)
 		return Host.Frame "Base" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) },
 			UI.Button "Background" { label = "Background", LayoutOrder = 1 },
 			UI.Button "Background2" { label = "Background two", LayoutOrder = 2 },
-			UI.Sheet({
-				isPresented = value.sheet,
+			UI.Sheet {
+				isPresented = sheet,
 				detent = Compose.cell("medium"),
 				title = "Loadout",
 				content = function(): Instance
@@ -366,18 +395,23 @@ local function modalFixture(t: any, withSheet: boolean, actions: { any })
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						BackgroundTransparency = 1,
-						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
+						Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) },
 						UI.Button "First" { label = "First", LayoutOrder = 1 },
 						UI.Button "Second" { label = "Second", LayoutOrder = 2 },
 						UI.Button "Third" { label = "Third", LayoutOrder = 3 },
 					}
 				end,
-			}),
-			UI.Alert({ isPresented = value.alert, title = "Leave the match?", actions = actions }),
+			},
+			UI.Alert { isPresented = alert, title = "Leave the match?", actions = actions },
 		}
 	end, { frames = 14 })
-	value.stage = stage
-	value.gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
+	local value: ModalState = {
+		sheet = assert(sheet),
+		alert = assert(alert),
+		visited = {},
+		stage = stage,
+		gui = stage:FindFirstAncestorWhichIsA("LayerCollector"),
+	}
 	watchSelection(value)
 	return value
 end
@@ -393,122 +427,139 @@ local function panelOf(value: any): GuiObject?
 	return nil
 end
 
-add("sheet-traps-and-orders-selection", {}, function(t)
-	local value = modalFixture(t, false, { { id = "ok", label = "OK" } })
-	value.alert:set(false)
-	t.settle(6)
-	GuiService.SelectedObject = t.find(value.stage, "Background")
-	t.settle(4)
-	value.sheet:set(true)
-	t.settle(20)
-	value.panel = panelOf(value)
-	t.note("selection after present", selectedName())
-	t.check(
-		"presenting the sheet selects the first selectable in document order",
-		selectedName() == "Grabber",
-		selectedName()
-	)
-	table.clear(value.visited)
-	return value
-end, {
-	afterDown = function(t, value)
-		t.note("Down visits", table.clone(value.visited))
-		local stops = {}
-		for _, name in value.visited do
-			local node = value.panel and value.panel:FindFirstChild(name, true)
-			if not (node and node:IsA("ScrollingFrame")) then
-				table.insert(stops, name)
-			end
-		end
-		t.note("Down stops without scroll containers", stops)
-		local handle = value.panel and value.panel:FindFirstChild("DragHandle", true)
-		t.check("the drag handle is a passive frame", handle ~= nil and handle:IsA("Frame") and not handle.Selectable)
-		local close = value.panel and value.panel:FindFirstChild("Close", true)
-		t.check("the docked sheet hides its duplicate Close command", close ~= nil and not t_visible(close))
+table.insert(cases, {
+	id = "sheet-traps-and-orders-selection",
+	contracts = {},
+	setup = function(t: RunContext)
+		local value = modalFixture(t.mount, false, { { id = "ok", label = "OK" } })
+		value.alert:set(false)
+		t.settle(6)
+		GuiService.SelectedObject = t.find(value.stage, "Background")
+		t.settle(4)
+		value.sheet:set(true)
+		t.settle(20)
+		value.panel = panelOf(value)
+		t.note("selection after present", selectedName())
 		t.check(
-			"Down walks the sheet controls in document order",
-			table.concat(stops, ",") == "First,Second,Third",
-			value.visited
-		)
-		t.check("Down stops at Third", selectedName() == "Third", selectedName())
-		table.clear(value.visited)
-	end,
-	afterAll = function(t, value)
-		local outside = {}
-		for _, name in value.visited do
-			if name == "Background" or name == "Background2" then
-				table.insert(outside, name)
-			end
-		end
-		t.note("four-direction visits", table.clone(value.visited))
-		t.check("selection never leaves the sheet", #outside == 0 and within(GuiService.SelectedObject, value.panel), {
-			outside = outside,
-			now = selectedName(),
-		})
-		table.clear(value.visited)
-	end,
-	afterBack = function(t, value)
-		t.check("ButtonB dismisses the sheet", value.sheet:peek() == false, value.sheet:peek())
-		t.check(
-			"Back returns the selection to the control that held it",
-			selectedName() == "Background",
+			"presenting the sheet selects the first selectable in document order",
+			selectedName() == "Grabber",
 			selectedName()
 		)
-		value.connection:Disconnect()
-		GuiService.SelectedObject = nil
+		table.clear(value.visited)
+		return value
 	end,
+	steps = {
+		afterDown = function(t: StepContext, value: ModalState)
+			t.note("Down visits", table.clone(value.visited))
+			local stops = {}
+			for _, name in value.visited do
+				local node = value.panel and value.panel:FindFirstChild(name, true)
+				if not (node and node:IsA("ScrollingFrame")) then
+					table.insert(stops, name)
+				end
+			end
+			t.note("Down stops without scroll containers", stops)
+			local handle = value.panel and value.panel:FindFirstChild("DragHandle", true)
+			t.check(
+				"the drag handle is a passive frame",
+				handle ~= nil and handle:IsA("Frame") and not handle.Selectable
+			)
+			local close = value.panel and value.panel:FindFirstChild("Close", true)
+			t.check("the docked sheet hides its duplicate Close command", close ~= nil and not t_visible(close))
+			t.check(
+				"Down walks the sheet controls in document order",
+				table.concat(stops, ",") == "First,Second,Third",
+				value.visited
+			)
+			t.check("Down stops at Third", selectedName() == "Third", selectedName())
+			table.clear(value.visited)
+		end,
+		afterAll = function(t: StepContext, value: ModalState)
+			local outside = {}
+			for _, name in value.visited do
+				if name == "Background" or name == "Background2" then
+					table.insert(outside, name)
+				end
+			end
+			t.note("four-direction visits", table.clone(value.visited))
+			t.check(
+				"selection never leaves the sheet",
+				#outside == 0 and within(GuiService.SelectedObject, value.panel),
+				{
+					outside = outside,
+					now = selectedName(),
+				}
+			)
+			table.clear(value.visited)
+		end,
+		afterBack = function(t: StepContext, value: ModalState)
+			t.check("ButtonB dismisses the sheet", value.sheet:peek() == false, value.sheet:peek())
+			t.check(
+				"Back returns the selection to the control that held it",
+				selectedName() == "Background",
+				selectedName()
+			)
+			assert(value.connection):Disconnect()
+			GuiService.SelectedObject = nil
+		end,
+	},
 })
 
-add("alert-selection-stays-inside", {}, function(t)
-	local value = modalFixture(t, true, {
-		{ id = "stay", label = "Stay", role = "cancel" :: "cancel" },
-		{ id = "save", label = "Save and leave" },
-		{ id = "leave", label = "Leave without saving", role = "destructive" :: "destructive" },
-	})
-	GuiService.SelectedObject = t.find(value.stage, "Background")
-	t.settle(6)
-	value.alert:set(true)
-	t.settle(10)
-	value.sheet:set(false)
-	t.settle(10)
-	value.panel = panelOf(value)
-	t.check(
-		"the alert is on top after the covered sheet leaves",
-		value.panel ~= nil and value.panel.Name == "AlertPanel",
-		value.panel and value.panel.Name
-	)
-	t.check("selection starts in the alert", within(GuiService.SelectedObject, value.panel), selectedName())
-	t.note("initial alert selection", selectedName())
-	table.clear(value.visited)
-	return value
-end, {
-	afterDown = function(t, value)
-		t.note("Down visits", table.clone(value.visited))
-		t.check("Down at the last action stays on Stay", selectedName() == "stay", value.visited)
-		t.check("two Downs stay inside the alert", within(GuiService.SelectedObject, value.panel), selectedName())
-		table.clear(value.visited)
-	end,
-	afterUp = function(t, value)
-		t.note("Up visits", table.clone(value.visited))
+table.insert(cases, {
+	id = "alert-selection-stays-inside",
+	contracts = {},
+	setup = function(t: RunContext)
+		local value = modalFixture(t.mount, true, {
+			{ id = "stay", label = "Stay", role = "cancel" :: "cancel" },
+			{ id = "save", label = "Save and leave" },
+			{ id = "leave", label = "Leave without saving", role = "destructive" :: "destructive" },
+		})
+		GuiService.SelectedObject = t.find(value.stage, "Background")
+		t.settle(6)
+		value.alert:set(true)
+		t.settle(10)
+		value.sheet:set(false)
+		t.settle(10)
+		value.panel = panelOf(value)
 		t.check(
-			"the first Up from Stay reaches the stacked destructive action",
-			value.visited[1] == "leave",
-			value.visited
+			"the alert is on top after the covered sheet leaves",
+			value.panel ~= nil and value.panel.Name == "AlertPanel",
+			value.panel and value.panel.Name
 		)
-		t.check(
-			"Up walks the stacked actions and stops at the top action",
-			table.concat(value.visited, ",") == "leave,save" and selectedName() == "save",
-			value.visited
-		)
-		t.check("Up stays inside the alert", within(GuiService.SelectedObject, value.panel), selectedName())
+		t.check("selection starts in the alert", within(GuiService.SelectedObject, value.panel), selectedName())
+		t.note("initial alert selection", selectedName())
 		table.clear(value.visited)
+		return value
 	end,
-	afterActivate = function(t, value)
-		t.check("ButtonA on an alert action closes the alert", value.alert:peek() == false, value.alert:peek())
-		t.check("the selection returns to the control that held it", selectedName() == "Background", selectedName())
-		value.connection:Disconnect()
-		GuiService.SelectedObject = nil
-	end,
+	steps = {
+		afterDown = function(t: StepContext, value: ModalState)
+			t.note("Down visits", table.clone(value.visited))
+			t.check("Down at the last action stays on Stay", selectedName() == "stay", value.visited)
+			t.check("two Downs stay inside the alert", within(GuiService.SelectedObject, value.panel), selectedName())
+			table.clear(value.visited)
+		end,
+		afterUp = function(t: StepContext, value: ModalState)
+			t.note("Up visits", table.clone(value.visited))
+			t.check(
+				"the first Up from Stay reaches the stacked destructive action",
+				value.visited[1] == "leave",
+				value.visited
+			)
+			t.check(
+				"Up walks the stacked actions and stops at the top action",
+				table.concat(value.visited, ",") == "leave,save" and selectedName() == "save",
+				value.visited
+			)
+			t.check("Up stays inside the alert", within(GuiService.SelectedObject, value.panel), selectedName())
+			table.clear(value.visited)
+		end,
+		afterActivate = function(t: StepContext, value: ModalState)
+			t.check("ButtonA on an alert action closes the alert", value.alert:peek() == false, value.alert:peek())
+			t.check("the selection returns to the control that held it", selectedName() == "Background", selectedName())
+			assert(value.connection):Disconnect()
+			GuiService.SelectedObject = nil
+		end,
+	},
 })
 
 add("confirm-dialog-left-right", {}, function(t)
@@ -644,7 +695,7 @@ add("skinned-part-hover-state", {}, function(t)
 		return Host.Frame "Column" {
 			Size = UDim2.fromOffset(360, 300),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }) :: unknown,
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) },
 			UI.Toggle "Toggle" { value = Compose.cell(false), label = "On", LayoutOrder = 1 },
 			UI.Stepper "Stepper" { value = Compose.cell(2), min = 0, max = 5, LayoutOrder = 2 },
 			UI.Slider "Slider" { value = Compose.cell(0.5), LayoutOrder = 3 },
@@ -693,8 +744,8 @@ end, {
 table.insert(cases, {
 	id = "sheet-native-selection-order",
 	contracts = {},
-	run = function(t)
-		local value = modalFixture(t, true, {})
+	run = function(t: RunContext)
+		local value = modalFixture(t.mount, true, {})
 		value.alert:set(false)
 		t.settle(30)
 		local panel = panelOf(value)
@@ -708,6 +759,7 @@ table.insert(cases, {
 		for _, name in { "Grabber", "First", "Second", "Third" } do
 			local target = panel:FindFirstChild(name, true)
 			t.check(name .. " mounts", target ~= nil)
+			assert(target and target:IsA("GuiObject"))
 			GuiService.SelectedObject = target
 			t.settle(2)
 			t.check(name .. " keeps native selection inside the panel", within(GuiService.SelectedObject, panel))
@@ -721,7 +773,7 @@ table.insert(cases, {
 			"the grabber links Down to the first task entry",
 			grabber ~= nil and grabber:IsA("GuiObject") and grabber.NextSelectionDown == first
 		)
-		local watched = (value :: unknown) :: { connection: RBXScriptConnection }
+		local watched = (value) :: { connection: RBXScriptConnection }
 		watched.connection:Disconnect()
 		GuiService.SelectedObject = nil
 	end,
@@ -732,7 +784,7 @@ for _, scenario in { "replacement", "ancestor-detached", "nested" } do
 		id = "sheet-content-" .. scenario,
 		contracts = {},
 		keepGallery = false,
-		run = function(t)
+		run = function(t: RunContext)
 			t.device({ device = "xbox", input = Enum.PreferredInput.Gamepad })
 			local Compose: ComposeModule = t.Facet.Compose
 			local opened, child, detail, ready =
@@ -754,7 +806,7 @@ for _, scenario in { "replacement", "ancestor-detached", "nested" } do
 				return Host.Frame "Base" {
 					Size = UDim2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					UI.Button "Opener" { label = "Open equipment" } :: unknown,
+					UI.Button "Opener" { label = "Open equipment" },
 					UI.Sheet {
 						isPresented = opened,
 						title = "Equipment",
@@ -764,7 +816,7 @@ for _, scenario in { "replacement", "ancestor-detached", "nested" } do
 								Size = UDim2.new(1, 0, 0, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
 								BackgroundTransparency = 1,
-								Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
+								Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
 								Compose.show(ready, function()
 									return Compose.show(detail, function()
 										return UI.Button "Equip" { label = "Equip" }
@@ -794,7 +846,7 @@ for _, scenario in { "replacement", "ancestor-detached", "nested" } do
 					},
 				}
 			end)
-			local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
+			local gui = assert(stage:FindFirstAncestorWhichIsA("LayerCollector"))
 			local opener = t.find(stage, "Opener")
 			GuiService.SelectedObject = opener
 			opened:set(true)
@@ -811,7 +863,7 @@ for _, scenario in { "replacement", "ancestor-detached", "nested" } do
 			if not panel then
 				return
 			end
-			local removed = t.find(panel, "Inspect")
+			local removed = assert(t.find(panel, "Inspect"))
 			tracked = removed
 			GuiService.SelectedObject = removed
 			t.settle(2)
@@ -837,7 +889,7 @@ for _, scenario in { "replacement", "ancestor-detached", "nested" } do
 				)
 			end
 			if scenario == "ancestor-detached" then
-				local branch = removed.Parent
+				local branch = assert(removed.Parent)
 				branch.Parent = nil
 				t.check(
 					"the selected control stays parented to its detached ancestor",
@@ -918,9 +970,10 @@ table.insert(cases, {
 	id = "demo-strip-native-selection-axis",
 	contracts = {},
 	keepGallery = true,
-	run = function(t)
+	run = function(t: RunContext)
 		t.device({ device = "xbox", input = Enum.PreferredInput.Gamepad })
 		local api = workspace:WaitForChild("FacetShowcaseAPI")
+		assert(api:IsA("BindableFunction"))
 		api:Invoke("show", "all-controls")
 		api:Invoke("panel", "demos")
 		t.settle(10)
@@ -932,6 +985,7 @@ table.insert(cases, {
 		if not tab or not peer then
 			return
 		end
+		assert(tab:IsA("GuiObject") and peer:IsA("GuiObject"))
 		local across = peer.AbsolutePosition.X > tab.AbsolutePosition.X + tab.AbsoluteSize.X / 2
 		t.note("demo strip geometry", {
 			first = t.rect(tab),
@@ -983,8 +1037,9 @@ table.insert(cases, {
 	id = "sidebar-selection-setup-keeps-open-panel",
 	contracts = {},
 	keepGallery = true,
-	run = function(t)
+	run = function(t: RunContext)
 		local api = workspace:WaitForChild("FacetShowcaseAPI")
+		assert(api:IsA("BindableFunction"))
 		local before = api:Invoke("report")
 		if before.panel ~= "demos" then
 			api:Invoke("panel", "demos")

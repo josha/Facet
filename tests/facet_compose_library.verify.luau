@@ -41,7 +41,9 @@ return function(verifyHarness: Verify.Harness)
 			motionLevel = "none",
 		})
 		local stop = runtime.mount(function()
-			return render({ UI = UI, types = engine.types, runtime = runtime }, engine)
+			local built = render({ UI = UI, types = engine.types, runtime = runtime }, engine)
+			assert(typeof(built) == "Instance", "a design renders to an Instance")
+			return built
 		end, engine.new("ScreenGui"))
 		return {
 			dispose = function()
@@ -70,7 +72,28 @@ return function(verifyHarness: Verify.Harness)
 					return types.Enum[name][item]
 				end,
 				cframe = function(components: { number }): unknown
-					return types.CFrame.new(table.unpack(components))
+					local c = components
+					if #c == 3 then
+						return types.CFrame.new(c[1], c[2], c[3])
+					elseif #c == 7 then
+						return types.CFrame.new(c[1], c[2], c[3], c[4], c[5], c[6], c[7])
+					elseif #c == 12 then
+						return types.CFrame.new(
+							c[1],
+							c[2],
+							c[3],
+							c[4],
+							c[5],
+							c[6],
+							c[7],
+							c[8],
+							c[9],
+							c[10],
+							c[11],
+							c[12]
+						)
+					end
+					return types.CFrame.new()
 				end,
 				raycastParams = function(): unknown
 					return nil
@@ -163,8 +186,8 @@ return function(verifyHarness: Verify.Harness)
 			end
 			table.insert(children, seeded({ kind = name, children = Kit.seeds(name) }))
 		end
-		local first: { [string]: Facet.DesignLiteral } = { id = "a", label = "First" }
-		local second: { [string]: Facet.DesignLiteral } = { id = "b", label = "Second" }
+		local first: Facet.DesignLiteral = { id = "a", label = "First" }
+		local second: Facet.DesignLiteral = { id = "b", label = "Second" }
 		local idField: Facet.DesignItemField = { id = "id", type = "string" }
 		local labelField: Facet.DesignItemField = { id = "label", type = "string" }
 		local preview: Facet.DesignLiteral = { first, second }
@@ -256,7 +279,7 @@ return function(verifyHarness: Verify.Harness)
 					local types = ctx.types
 					local library = live(ctx)
 					local environment = designEnvironment(ctx, engine)
-					local host = ctx.UI.VStack("Editor")({ width = "fill" })
+					local host = ctx.UI.VStack "Editor" { width = "fill" }
 					editor = DesignEditor.create(library, Design.document.new("Shop", library, "VStack"), host, {
 						runtime = ctx.runtime,
 						environment = environment,
@@ -268,7 +291,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(opened.session.insert("Button")):toBe(true)
 				Verify.expect(opened.session.change("label", { literal = "Buy" })):toBe(true)
 				local value = opened.session.document:peek()
-				local found = assert(Design.document.find(value.root, opened.session.selected:peek()))
+				local found = Design.document.find(value.root, opened.session.selected:peek())
+				assert(found)
 				Verify.expect(found.kind):toBe("Button")
 				Verify.expect(found.props.label.literal):toBe("Buy")
 				Verify.expect(string.find(Design.emit(value, opened.session.library), 'label = "Buy"', 1, true) ~= nil)
@@ -287,7 +311,7 @@ return function(verifyHarness: Verify.Harness)
 				local mounted = mount(function(ctx: Context, engine: Engine)
 					local library = live(ctx)
 					runtime = ctx.runtime
-					local host = ctx.UI.VStack("Editor")({ width = "fill" })
+					local host = ctx.UI.VStack "Editor" { width = "fill" }
 					editor = DesignEditor.create(library, Design.document.new("Every", library, "VStack"), host, {
 						runtime = ctx.runtime,
 						environment = designEnvironment(ctx, engine),
@@ -327,7 +351,7 @@ return function(verifyHarness: Verify.Harness)
 						local pending: { [string]: Facet.DesignValue } = {}
 						local requires: { [string]: { Facet.DesignLiteral } } = field.requires or {}
 						for other, allowed in requires do
-							local needed = if #allowed > 0
+							local needed: Facet.DesignValue? = if #allowed > 0
 								then { literal = allowed[1] }
 								else sample(kind.fields[other], if defaults then defaults[other] else nil)
 							if needed == nil then
@@ -520,7 +544,7 @@ return function(verifyHarness: Verify.Harness)
 						"from = props.games,",
 						"Facet.Compose.show(props.offered, function()",
 						"if props.onRetry then",
-						'UI.Text "Text" {',
+						'UI.Text "Text"',
 						"export type GamesItem = { id: string, title: string }",
 						"games: Facet.ReadOnlyValue<{ GamesItem }>?",
 						"\tname: string,",
@@ -538,8 +562,8 @@ return function(verifyHarness: Verify.Harness)
 				local inner
 				panel, inner = Design.document.insert(panel, library, "n1", "Text")
 				panel = Design.document.change(panel, library, inner, "text", { literal = "Finding players" })
-				Verify.expect(string.find(Design.emit(panel, library), 'Host.Frame "Frame" {', 1, true) ~= nil)
-					:toBe(true)
+				local panelCode = Design.emit(panel, library)
+				Verify.expect(string.find(panelCode, 'Host.Frame "Frame" {', 1, true) ~= nil):toBe(true)
 			end,
 		})
 

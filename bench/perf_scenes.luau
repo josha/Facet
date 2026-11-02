@@ -1,4 +1,5 @@
 --!strict
+export type SceneState = { workload: { [string]: any }, target: any, dispose: () -> () }
 local nativeApp = require("./native_app")
 local workloads = require("../examples/performance/lab/workloads")
 local dataset = require("../examples/performance/lab/dataset")
@@ -8,7 +9,8 @@ local compactPointer = require("../examples/themes/compact_pointer")
 local glossyTouch = require("../examples/themes/glossy_touch")
 local ornate = require("../examples/themes/fantasy_ornate")
 local styleProperties = require("../tests/lib/style_properties")
-local sampling = {
+type RuleProperties = typeof(require("@repo/tools/typecheck/aliases").RuleProperties)
+local sampling: { [string]: { number } } = {
 	["virtual-list-scroll"] = { 160, 40 },
 	["native-scroll-drag"] = { 160, 40 },
 	["dense-hud"] = { 160, 40 },
@@ -58,25 +60,25 @@ local metricProperties = {
 	TextSize = true,
 	Thickness = true,
 }
-local function ruleSnapshot(root)
-	local rules = {}
+local function ruleSnapshot(root: Instance): { [string]: RuleProperties }
+	local rules: { [string]: RuleProperties } = {}
 	for _, node in root:GetDescendants() do
-		if node.ClassName == "StyleRule" then
+		if node:IsA("StyleRule") then
 			rules[`{node.Selector}#{node.Priority}`] = styleProperties(node)
 		end
 	end
 	return rules
 end
-local function imageSnapshot(root)
-	local images = {}
+local function imageSnapshot(root: Instance): { [Instance]: string }
+	local images: { [Instance]: string } = {}
 	for _, node in root:GetDescendants() do
-		if (node.ClassName == "ImageLabel" or node.ClassName == "ImageButton") and node.Image ~= "" then
+		if (node:IsA("ImageLabel") or node:IsA("ImageButton")) and node.Image ~= "" then
 			images[node] = `{node.Image}|{node.Visible}|{node.ImageTransparency}`
 		end
 	end
 	return images
 end
-local function imageChanges(before, after)
+local function imageChanges(before: { [Instance]: string }, after: { [Instance]: string }): number
 	local changes = 0
 	for node, image in after do
 		if before[node] ~= image then
@@ -90,7 +92,7 @@ local function imageChanges(before, after)
 	end
 	return changes
 end
-local function themeSwap(state)
+local function themeSwap(state: SceneState)
 	local before, images = ruleSnapshot(state.target), imageSnapshot(state.target)
 	local first = state.workload.themeControls[2]
 	state.workload.step()
@@ -119,7 +121,7 @@ local function themeSwap(state)
 		controlsRetained = state.workload.themeControls[2] == first and not first:isDestroyed(),
 	}
 end
-local function segmentedFlip(state)
+local function segmentedFlip(state: SceneState)
 	local function probe()
 		local size, segments = nil, 0
 		for _, node in state.target:GetDescendants() do
@@ -138,7 +140,6 @@ local function segmentedFlip(state)
 	local after = probe()
 	return { segments = segments, textSizeBefore = before, textSizeAfter = after }
 end
-export type SceneState = { workload: { [string]: any }, target: any, dispose: () -> () }
 local scenes = {}
 for _, name in workloads.ORDER do
 	local counts = sampling[name] or { 240, 60 }
@@ -173,8 +174,10 @@ for _, name in workloads.ORDER do
 					(glossyTouch.build(world.Facet.themes)),
 				}
 			elseif name == "theme-swap-assets" then
+				local neutral = world.Facet.themes.define(world.Facet.themes.neutralPackage())
+				assert(neutral)
 				world.themePackages = {
-					assert(world.Facet.themes.define(world.Facet.themes.neutralPackage())),
+					neutral,
 					(ornate.build(world.Facet.themes)),
 				}
 			end
@@ -182,7 +185,7 @@ for _, name in workloads.ORDER do
 			world.runtime.mount(function()
 				workload = workloads.create(world, name, dataset)
 				local build = workload.build :: () -> Instance
-				return world.Host.ScreenGui({ build() })
+				return world.Host.ScreenGui { build() }
 			end, world.target)
 			world.workload = workload
 			if name == "radial-menu-open-close" then
@@ -199,8 +202,9 @@ for _, name in workloads.ORDER do
 			return state.workload.step()
 		end,
 		afterRun = function(state: SceneState)
-			if state.workload.afterRun then
-				state.workload.afterRun()
+			local workloadAfterRun: (() -> ())? = state.workload.afterRun
+			if workloadAfterRun then
+				workloadAfterRun()
 			end
 		end,
 		asyncStats = function(state: SceneState)
@@ -211,6 +215,11 @@ for _, name in workloads.ORDER do
 		end,
 		extras = function(state: SceneState)
 			local w = state.workload
+			local springs: { unknown }? = w.springs
+			local logicalRows: { peek: (unknown) -> { unknown } }? = w.rows
+			local windowStatus: { peek: (unknown) -> { retained: number } }? = w.status
+			local boosts: { peek: (unknown) -> number }? = w.boosts
+			local boostText: { Text: string }? = w.boostText
 			return {
 				dragMoves = w.dragMoves,
 				drops = w.drops,
@@ -221,7 +230,7 @@ for _, name in workloads.ORDER do
 				settleFrames = w.settleFrames,
 				surfaceItems = w.surfaceItems,
 				presentation = w.presentation,
-				springs = if w.springs then #w.springs else nil,
+				springs = if springs then #springs else nil,
 				springsMoving = w.springsMoving,
 				beatCallbacks = w.beatCallbacks,
 				rekeys = w.rekeys,
@@ -231,8 +240,8 @@ for _, name in workloads.ORDER do
 				segmented = if name == "picker-segmented-textsize" then segmentedFlip(state) else nil,
 				workloadVersion = workloads.VERSION,
 				datasetVersion = dataset.VERSION,
-				logicalRows = if state.workload.rows then #state.workload.rows:peek() else nil,
-				windowedRows = if state.workload.status then state.workload.status:peek().retained else nil,
+				logicalRows = if logicalRows then #logicalRows:peek() else nil,
+				windowedRows = if windowStatus then windowStatus:peek().retained else nil,
 				contentBuilds = state.workload.contentBuilds,
 				motionSteps = state.workload.motionSteps,
 				motionTransactions = state.workload.motionTransactions,
@@ -243,8 +252,8 @@ for _, name in workloads.ORDER do
 				beats = state.workload.beats,
 				themeSwap = if string.sub(name, 1, 11) == "theme-swap-" then themeSwap(state) else nil,
 				geometryMeasured = false,
-				activationCount = if state.workload.boosts then state.workload.boosts:peek() else nil,
-				activationText = if state.workload.boostText then state.workload.boostText.Text else nil,
+				activationCount = if boosts then boosts:peek() else nil,
+				activationText = if boostText then boostText.Text else nil,
 				measurementChange = if name == "shadow-storm"
 					then "100 unchanged native shadows and runtime settle. Removed Facet presenter refresh/style_lint have no replacement CPU phase; Engine shadow painting is unmeasured. This is not a shadow rendering speedup."
 					else "Compose and control property/event cost only. Roblox layout, text measurement, native selection, StyleSheet resolution and image fetching require Studio/retail evidence.",

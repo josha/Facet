@@ -1,4 +1,5 @@
 --!strict
+local ThemeTypes = require("./theme_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
@@ -43,15 +44,15 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 	end
 	local function layoutWidth(node: GuiObject): ComposeTypes.ReadOnlyValue<number>
 		local extent = ctx.observe.AbsoluteSize(node)
-		local _, units = ctx.runtime.mount(function()
-			return ctx.Host.Folder "Units" {
-				ctx.Host.Frame "Unit" { Size = ctx.types.UDim2.fromOffset(1, 1), Visible = false },
-			}
+		local probe: Frame? = nil
+		ctx.runtime.mount(function()
+			probe = Host.Frame "Unit" { Size = D2.fromOffset(1, 1), Visible = false }
+			return probe
 		end, node)
-		local pixel = ctx.observe.AbsoluteSize((units :: Instance):FindFirstChild("Unit") :: GuiObject)
+		local pixel = ctx.observe.AbsoluteSize(assert(probe))
 		return Compose.formula(function(use: ComposeTypes.Use): number
-			local unit = (use(pixel) :: Vector2).X
-			local width = (use(extent) :: Vector2).X / (if unit > 0 then unit else 1)
+			local unit = use(pixel).X
+			local width = use(extent).X / (if unit > 0 then unit else 1)
 			return if width > 0 then width else math.huge
 		end)
 	end
@@ -62,7 +63,7 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 		container: GuiObject,
 		truncates: boolean
 	)
-		local text = label :: TextLabel
+		local text = label
 		local words, points, face =
 			ctx.observe.Text(label), ctx.observeStyled.TextSize(label), ctx.observeStyled.FontFace(label)
 		local fits, extent = ctx.observe.TextFits(label), ctx.observe.AbsoluteSize(container)
@@ -77,23 +78,23 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 			end
 			if probe == nil then
 				Compose.withOwner(owner, function()
-					local _, measure = ctx.runtime.mount(function()
+					ctx.runtime.mount(function()
+						probe = Host.TextLabel "WidestWord" {
+							Size = D2.fromOffset(0, 0),
+							BackgroundTransparency = 1,
+							TextTransparency = 1,
+							Interactable = false,
+							AutoLocalize = false,
+							Text = "",
+						}
 						return ctx.Host.Folder "WordMeasure" {
-							ctx.Host.TextLabel "WidestWord" {
-								Size = D2.fromOffset(0, 0),
-								BackgroundTransparency = 1,
-								TextTransparency = 1,
-								Interactable = false,
-								AutoLocalize = false,
-								Text = "",
-							},
+							probe,
 						}
 					end, container)
-					probe = (measure :: Instance):FindFirstChild("WidestWord") :: TextLabel
 				end)
 			end
-			local measuring = probe :: TextLabel
-			measuring.FontFace, measuring.TextSize = face:peek() :: Font, points:peek() :: number
+			local measuring = assert(probe)
+			measuring.FontFace, measuring.TextSize = face:peek(), points:peek()
 			measuring.Text = string.gsub(text.Text, "%s+", "\n")
 			local widest = measuring.TextBounds.X
 			measuring.Text = ""
@@ -167,7 +168,7 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 		use: ComposeTypes.Use?,
 		glyph: boolean?
 	): number
-		local package = ctx.read(ctx.config.theme, use)
+		local package = ctx.read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 		local recipe = if package and package.chrome then package.chrome.control else nil
 		local insets = if recipe then recipe.contentInsets else nil
 		local side = if glyph then 0 else ctx.controlSize(controlSize, "paddingX", use)
@@ -190,7 +191,7 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 		for _, name in { "Title", "Description" } do
 			local caption = button:FindFirstChild(name, true)
 			if caption and caption:IsA("TextLabel") then
-				surfaces.attach(caption, { Host.UISizeConstraint({ MaxSize = room }) })
+				surfaces.attach(caption, { Host.UISizeConstraint { MaxSize = room } })
 				wrapWhenLong(caption, function(use: ComposeTypes.Use): string
 					return `{room(use).X}|{if peers then peers(use) else 0}`
 				end, button, peers ~= nil)
@@ -232,7 +233,7 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 			return nil
 		end
 		return function(use: ComposeTypes.Use): string
-			return read(use(source).icon, use) or ""
+			return read<<string?>>(use(source).icon, use) or ""
 		end
 	end
 	local function appearanceFor(style: Nav.PickerStyle, word: unknown): string?
@@ -261,7 +262,8 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 		else
 			error(`Facet UI.Picker: a {style} picker takes no appearance`, 0)
 		end
-		return word :: string
+		assert(type(word) == "string")
+		return word
 	end
 	return {
 		keys = pickerKeys,

@@ -1,6 +1,6 @@
 --!strict
 
-local RuntimeTypes = require "../runtime/types"
+local CoreTypes = require "../types"
 local Reactors = require "../reactive/reactor"
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
@@ -8,23 +8,20 @@ local Owner = require "../ownership/owner"
 local ownedFrame = require "../ownership/frame"
 local cellModule = require "../reactive/cell"
 
-export type Direction = RuntimeTypes.TimelineDirection
+export type Direction = CoreTypes.TimelineDirection
 
-export type Options = RuntimeTypes.TimelineOptions
+export type Options = CoreTypes.TimelineOptions
 
-export type Timeline = RuntimeTypes.Timeline
+export type Timeline = CoreTypes.Timeline
 
 local function positive(name: string, value: number)
 	local infinite = value == math.huge
 	if value ~= value or value <= 0 or (infinite and name ~= "repeats") then
-		error(
-			Diagnostics.format("animation/timeline-option", ("timeline %s must be greater than zero"):format(name), {
-				option = name,
-				actual = tostring(value),
-				expected = "a number greater than zero",
-			}),
-			0
-		)
+		return Diagnostics.raise("animation/timeline-option", ("timeline %s must be greater than zero"):format(name), {
+			option = name,
+			actual = tostring(value),
+			expected = "a number greater than zero",
+		})
 	end
 end
 
@@ -32,13 +29,10 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 	local function timeline(options: Options?): Timeline
 		local frames = host.frames
 		if frames == nil then
-			error(
-				Diagnostics.format("animation/no-frames", ("host %q cannot drive a timeline"):format(host.name), {
-					contract = "a timeline needs a frame loop, which is the host frames capability",
-					fix = "implement host.frames.onFrame and host.frames.now, or drive time outside Compose",
-				}),
-				0
-			)
+			return Diagnostics.raise("animation/no-frames", ("host %q cannot drive a timeline"):format(host.name), {
+				contract = "a timeline needs a frame loop, which is the host frames capability",
+				fix = "implement host.frames.onFrame and host.frames.now, or drive time outside Compose",
+			})
 		end
 		local loop = frames
 		local owner = ownerOf "timeline"
@@ -53,14 +47,11 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 		positive("repeats", repeats)
 		positive("scale", scale)
 		if delay < 0 or delay ~= delay then
-			error(
-				Diagnostics.format("animation/timeline-option", "timeline delay must not be negative", {
-					option = "delay",
-					actual = tostring(delay),
-					expected = "zero or more seconds",
-				}),
-				0
-			)
+			return Diagnostics.raise("animation/timeline-option", "timeline delay must not be negative", {
+				option = "delay",
+				actual = tostring(delay),
+				expected = "zero or more seconds",
+			})
 		end
 
 		local progress = cellModule.cell(0)

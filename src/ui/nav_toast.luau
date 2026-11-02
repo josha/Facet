@@ -1,4 +1,5 @@
 --!strict
+local ThemeTypes = require("./theme_types")
 local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
@@ -58,7 +59,8 @@ local KEYS = {
 local PASSIVE_ONLY = { "content", "position", "width", "fade" }
 local MARGIN, GAP, HUG_MAX, ROW_Z, ACTION_Z = 8, 8, 560, 70, 60
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces): ()
+	local readText = ctx.read<<string?>>
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, V2, UD = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local frames = runtime.host.frames
@@ -361,18 +363,18 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		if icon == nil then
 			return message
 		end
-		surfaces.attach(message, { Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) })
+		surfaces.attach(message, { Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill } })
 		local props: Types.FrameNativeProps = {
 			Name = "Body",
 			BackgroundTransparency = 1,
 			Size = if hug then D2.fromOffset(0, 0) else D2.fromScale(1, 0),
 			AutomaticSize = if hug then E.AutomaticSize.XY else E.AutomaticSize.Y,
-			Host.UIListLayout({
+			Host.UIListLayout {
 				FillDirection = E.FillDirection.Horizontal,
 				VerticalAlignment = E.VerticalAlignment.Center,
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = UD.new(0, 8),
-			}),
+			},
 			ctx.icon(icon, { Name = "Icon", LayoutOrder = 0 }),
 			message,
 		}
@@ -436,7 +438,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local messageNode = ctx.text({
 				Name = "Message",
 				Text = function(use: ComposeTypes.Use)
-					return read(message, use) or ""
+					return readText(message, use) or ""
 				end,
 				TextWrapped = true,
 				LayoutOrder = 1,
@@ -456,7 +458,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 			return use(slide)
 		end
-		local props: Types.CanvasGroupNativeProps = {
+		local props: Types.CanvasGroupProps = {
 			Name = "ToastRow",
 			BackgroundTransparency = 0,
 			BorderSizePixel = 0,
@@ -472,13 +474,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		props[#props + 1] = ctx.padding(12, 8)
 		props[#props + 1] = ctx.corner()
 		if hug then
-			props[#props + 1] = Host.UISizeConstraint({
+			props[#props + 1] = Host.UISizeConstraint {
 				Name = "WidthCap",
 				MaxSize = function(use: ComposeTypes.Use)
 					if extent then
 						return V2.new(math.max(0, math.min(HUG_MAX, use(extent).X - 32)), math.huge)
 					end
-					local package = read(ctx.config.theme, use)
+					local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 					local panel = if package and package.chrome then package.chrome.panel else nil
 					local insets = if panel then panel.contentInsets else nil
 					local chrome = math.max(12, if insets then insets.left or 0 else 0)
@@ -486,7 +488,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						+ (if spec.icon then ctx.controlSize(nil, "iconSize", use) + 8 else 0)
 					return V2.new(math.min(HUG_MAX, if natural then use(natural).X + chrome else HUG_MAX), math.huge)
 				end,
-			})
+			}
 		end
 		local row = ctx.styled(ctx.fade(props), "snackbar")
 		ctx.styled(row, "panel")
@@ -551,7 +553,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local measure = ctx.text({
 			Name = "MessageMeasure",
 			Text = function(use: ComposeTypes.Use)
-				return read(spec.message, use) or ""
+				return readText(spec.message, use) or ""
 			end,
 			TextWrapped = false,
 			TextTransparency = 1,
@@ -567,7 +569,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local natural = ctx.layoutBounds(measure, unit)
 		local actionWidth = Compose.cell(0)
 		local function chrome(use: ComposeTypes.Use): number
-			local package = ctx.read(ctx.config.theme, use)
+			local package = ctx.read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 			local panel = if package and package.chrome then package.chrome.panel else nil
 			local insets = if panel then panel.contentInsets else nil
 			return math.max(8, if insets then insets.left or 0 else 0)
@@ -581,7 +583,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local message = ctx.text({
 			Name = "Message",
 			Text = function(use: ComposeTypes.Use)
-				return read(spec.message, use) or ""
+				return readText(spec.message, use) or ""
 			end,
 			TextWrapped = true,
 			LayoutOrder = 1,
@@ -589,11 +591,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			AutomaticSize = E.AutomaticSize.Y,
 		})
 		surfaces.attach(message, {
-			Host.UIFlexItem({
+			Host.UIFlexItem {
 				FlexMode = function(use: ComposeTypes.Use)
 					return if use(beside) then E.UIFlexMode.Fill else E.UIFlexMode.None
 				end,
-			}),
+			},
 		})
 		local action = spec.action :: Overlay.ToastAction
 		local button = UI.Button "Action" {
@@ -622,8 +624,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			LayoutOrder = 2,
 			Size = D2.new(0, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
-			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
-			Host.UIListLayout({
+			Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
+			Host.UIListLayout {
 				FillDirection = function(use: ComposeTypes.Use)
 					return if use(beside) then E.FillDirection.Horizontal else E.FillDirection.Vertical
 				end,
@@ -631,12 +633,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				VerticalAlignment = E.VerticalAlignment.Center,
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = UD.new(0, 8),
-			}),
+			},
 			message,
 			measure,
 			button,
 		}
-		local rowProps: Types.CanvasGroupNativeProps = {
+		local rowProps: Types.CanvasGroupProps = {
 			Name = "Snack",
 			BackgroundTransparency = 0,
 			BorderSizePixel = 0,
@@ -648,12 +650,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end,
 			ctx.padding(8, 8),
 			ctx.corner(),
-			Host.UIListLayout({
+			Host.UIListLayout {
 				FillDirection = E.FillDirection.Horizontal,
 				VerticalAlignment = E.VerticalAlignment.Center,
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = UD.new(0, 8),
-			}),
+			},
 			Host.Frame(bodyProps),
 		}
 		if spec.icon then
@@ -869,7 +871,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						return if record.stack then record.stack.container else nil
 					end,
 					presence = {
-						exit = function()
+						exit = function(): ComposeTypes.Exiting
 							local current = level()
 							if current == "none" then
 								return { completed = Compose.cell(true) }

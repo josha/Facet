@@ -1,9 +1,9 @@
 --!strict
 --!native
+local Weak = require "../weak"
 
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
-local Weak = require "../weak"
 
 type Node = Host.Node
 
@@ -11,18 +11,20 @@ export type Custody = "owned" | "adopted" | "borrowed"
 
 type Counts = { owned: number, adopted: number, borrowed: number }
 
-local custody: { [Node]: Custody } = {}
+local custody: { [unknown]: Custody } = {}
 
 Weak.keys(custody)
 
 local tracked = { dependents = 0, labels = 0, charges = 0 }
+
+local inspecting = { active = false }
 
 local function assertReference(node: Node, operation: string)
 	local kind = type(node)
 	if kind == "table" or kind == "userdata" then
 		return
 	end
-	Diagnostics.raise(
+	return Diagnostics.raise(
 		"host/node-not-a-reference",
 		("%s received a node that is not a reference value"):format(operation),
 		{
@@ -63,7 +65,7 @@ local function custodyOf(node: Node): Custody
 	return "borrowed"
 end
 
-local function isDestructible(node: Node): boolean
+local function isDestructible(node: unknown): boolean
 	local known = custody[node]
 	return known == "owned" or known == "adopted"
 end
@@ -245,6 +247,7 @@ local function resetForTests()
 end
 
 return {
+	inspecting = inspecting,
 	tracked = tracked,
 	mark = mark,
 	markOwned = markOwned,

@@ -8,6 +8,7 @@ local parts = require("./overlay_parts")
 local placement = require("./overlay_placement")
 local activation = require("./activation")
 local OverlayProps = require("./overlay_props")
+local NavigationProps = require("./navigation_props")
 
 local KEYS = {
 	"isPresented",
@@ -32,7 +33,7 @@ local KEYS = {
 local MARGIN = 8
 local PADDING = 8
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local function geometry(
@@ -297,25 +298,25 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local height = math.min(spec.maxHeight or math.huge, box.h)
 				return V2.new(math.max(0, width - 2 * PADDING), math.max(0, height - 2 * PADDING))
 			end
-			local limit = Host.UISizeConstraint({
+			local limit = Host.UISizeConstraint {
 				MaxSize = cap,
-			})
+			}
 			local fills = parts.instance(content)
 				and content:IsA("GuiObject")
 				and content.Size.X.Scale > 0
 				and content.AutomaticSize ~= E.AutomaticSize.X
 				and content.AutomaticSize ~= E.AutomaticSize.XY
-			local proposed = Host.UISizeConstraint({
+			local proposed = Host.UISizeConstraint {
 				MinSize = function(use: ComposeTypes.Use)
 					if not fills then
 						return V2.zero
 					end
 					return V2.new(math.min(ctx.metric("controls.popup.panelWidth", use) - 2 * PADDING, cap(use).X), 0)
 				end,
-			})
-			local list = Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder })
+			}
+			local list = Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder }
 			local laidOut = Compose.cell(0)
-			local bodyProps: Types.ScrollingFrameNativeProps = {
+			local bodyProps: Types.ScrollingFrameProps = {
 				Name = "Body",
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
@@ -363,7 +364,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 								TextWrapped = true,
 								Size = D2.new(1, 0, 0, 0),
 								AutomaticSize = E.AutomaticSize.Y,
-								Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+								Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 							}),
 							"type-heading"
 						)
@@ -395,7 +396,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						}
 					)
 				end
-				local row: Types.FrameNativeProps = {
+				local row: Types.FrameProps = {
 					Name = "CloseHeader",
 					BackgroundTransparency = 1,
 					Size = D2.new(1, 0, 0, 0),
@@ -441,10 +442,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local source: Overlay.Rect = if rect
 					then rect
 					else {
-						x = use(sourceAt).X - offset.X,
-						y = use(sourceAt).Y - offset.Y,
-						w = use(sourceSize).X,
-						h = use(sourceSize).Y,
+						x = use(assert(sourceAt)).X - offset.X,
+						y = use(assert(sourceAt)).Y - offset.Y,
+						w = use(assert(sourceSize)).X,
+						h = use(assert(sourceSize)).Y,
 					}
 				local size = use(measured)
 				return placement.solve({
@@ -541,14 +542,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end
 		local function sheeted(phase: Nav.PresencePhase?): Frame
 			local build = assert(surfaces.sheetModal, "Facet UI.Popover requires the Sheet surface")
-			local modal = build({
+			local sheetSpec: NavigationProps.SheetSpec = {
 				isPresented = Compose.cell(true),
 				detent = Compose.cell("hug"),
-				detents = { "hug" :: Nav.SheetDetent },
+				detents = { "hug" },
 				title = spec.title,
 				closeButton = if spec.cancelPolicy == "none" then false else spec.closeButton,
 				content = spec.content,
-			}, function(reason: string): boolean
+			}
+			local modal = build(sheetSpec, function(reason: string): boolean
 				if spec.cancelPolicy == "none" then
 					return false
 				end

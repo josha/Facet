@@ -3,6 +3,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local Env = require("./environment_types")
 local InputTypes = require("./input_types")
+local Navigation = require("./navigation_types")
 
 export type FocusControls<K> = {
 	current: typeof(((nil :: unknown) :: ComposeTypes.FocusScope<K>).current)?,
@@ -103,12 +104,12 @@ export type Keyed<V, K> = { key: ((item: V, index: number) -> K) | string }
 export type Identity = { key: nil? }
 
 export type RowAction = {
-	id: string,
-	label: Types.ValueString,
-	icon: Types.ValueString?,
-	role: InputTypes.ButtonRole?,
-	enabled: Types.ValueBoolean?,
-	onActivate: (() -> ())?,
+	read id: string,
+	read label: Types.ValueString,
+	read icon: Types.ValueString?,
+	read role: InputTypes.ButtonRole?,
+	read enabled: Types.ValueBoolean?,
+	read onActivate: (() -> ())?,
 }
 export type RowEdge = "leading" | "trailing"
 export type RowActionsFields = {
@@ -139,7 +140,7 @@ export type CellEditorOptions = {
 	label: Types.ValueString?,
 	enabled: Types.ValueBoolean?,
 	busy: Types.ValueBoolean?,
-	options: { { value: unknown, label: Types.ValueString } }?,
+	options: { read [number]: Navigation.PickerOption<unknown> }?,
 	min: number?,
 	max: number?,
 	step: number?,
@@ -163,7 +164,7 @@ export type TableColumn<V, K> = {
 	render: RowRender<V, K>?,
 	detailRender: RowRender<V, K>?,
 	editor: ("text" | "number" | "toggle" | "menu")?,
-	options: { { value: unknown, label: Types.ValueString } }?,
+	options: { read [number]: Navigation.PickerOption<unknown> }?,
 	min: number?,
 	max: number?,
 	step: number?,

@@ -1,19 +1,17 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type PlaylistBuilt = { [string]: unknown, screen: () -> Instance, dispose: () -> () }
 type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
 type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
 type RowActionsOptions = typeof(require("@repo/tools/typecheck/aliases").RowActionsOptions)
 
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type Sort = { column: string, direction: "ascending" | "descending" }
 type Track = { id: string, name: string, artist: string, length: number, rating: number }
 
+local searchPresentation: "search" = "search"
 local example = {}
 example.title = "Playlist Table"
 local TRACKS: { Track } = {
@@ -27,12 +25,6 @@ local TRACKS: { Track } = {
 function example.build(ctx: ExampleContext)
 	local UI, Compose = ctx.UI, ctx.Compose
 	local UDim2, Enum = ctx.types.UDim2, ctx.types.Enum
-	local built: PlaylistBuilt = {
-		screen = function(): Instance
-			error("the playlist screen is not ready")
-		end,
-		dispose = function() end,
-	}
 
 	local baseRows = Compose.cell(table.clone(TRACKS))
 	local filterText = Compose.cell("")
@@ -69,7 +61,7 @@ function example.build(ctx: ExampleContext)
 			end
 		end
 		local out = table.clone(all)
-		table.sort(out, function(a, b)
+		table.sort(out, function(a: Track, b: Track)
 			local same, ascending
 			if column == "rating" then
 				local av, bv = ratingKeys[a.id], ratingKeys[b.id]
@@ -174,7 +166,33 @@ function example.build(ctx: ExampleContext)
 		end
 		baseRows:set(out)
 	end
-	built.screen = function()
+	local function restore()
+		filterText:set("")
+		sortOrder:set(nil)
+		baseRows:set(table.clone(TRACKS))
+		nowPlaying:set(nil)
+		for _, track in TRACKS do
+			ratings[track.id]:set(track.rating)
+		end
+	end
+	local COLUMN_LABELS = {
+		{ id = "name", label = "Name", resizable = true },
+		{ id = "artist", label = "Artist", resizable = true },
+		{ id = "rating", label = "Rating", resizable = false },
+	}
+	local function widths(): string
+		local overrides = columnWidths:peek()
+		local parts: { string } = {}
+		for _, column in COLUMN_LABELS do
+			local px = overrides[column.id]
+			local shown = if px ~= nil then `{math.floor(px + 0.5)}px` elseif column.resizable then "auto" else "locked"
+			table.insert(parts, `{column.label} {shown}`)
+		end
+		return table.concat(parts, " · ")
+	end
+	local hintText =
+		"Type to filter · tap a heading to sort · drag a divider to resize · drag a row to move it · Delete removes the selected rows · swipe a row for its actions"
+	local function screen()
 		local columns: { TableColumn } = {
 			{
 				id = "name",
@@ -215,7 +233,7 @@ function example.build(ctx: ExampleContext)
 		}
 		local noSelection: { [string]: boolean } = {}
 		local viewport = UI.environment()
-		local tracks = UI.Table "Tracks" {
+		local tableProps = {
 			Size = function(use: Use): UDim2
 				return UDim2.new(1, 0, 0, math.clamp(use(viewport.viewportHeight) - 360, 328, 720))
 			end,
@@ -228,7 +246,7 @@ function example.build(ctx: ExampleContext)
 			sort = sortOrder,
 			selectionMode = "multiple",
 			selection = Compose.cell(noSelection),
-			onActivate = function(item: Track, _key: string, input: InputObject?, clickCount: number?)
+			onActivate = function(item: Track, _key, input, clickCount)
 				if input and input.UserInputType == Enum.UserInputType.MouseButton1 and (clickCount or 0) < 1 then
 					return
 				end
@@ -265,41 +283,13 @@ function example.build(ctx: ExampleContext)
 						end,
 					},
 				}
-				local actions: RowActionsOptions = { leading = leading, trailing = trailing, fullSwipe = true }
-				return actions
+				local actions = { leading = leading, trailing = trailing, fullSwipe = true }
+				return actions :: any
 			end,
 			onReorder = reorder,
 		}
+		local tracks = UI.Table "Tracks"(tableProps)
 
-		local function restore()
-			filterText:set("")
-			sortOrder:set(nil)
-			baseRows:set(table.clone(TRACKS))
-			nowPlaying:set(nil)
-			for _, track in TRACKS do
-				ratings[track.id]:set(track.rating)
-			end
-		end
-		local COLUMN_LABELS = {
-			{ id = "name", label = "Name", resizable = true },
-			{ id = "artist", label = "Artist", resizable = true },
-			{ id = "rating", label = "Rating", resizable = false },
-		}
-		local widthsText = Compose.formula(function(use: Use)
-			local overrides = use(columnWidths)
-			local parts: { string } = {}
-			for _, column in COLUMN_LABELS do
-				local px = overrides[column.id]
-				local shown = if px ~= nil
-					then `{math.floor(px + 0.5)}px`
-					elseif column.resizable then "auto"
-					else "locked"
-				table.insert(parts, `{column.label} {shown}`)
-			end
-			return table.concat(parts, " · ")
-		end)
-		local hintText =
-			"Type to filter · tap a heading to sort · drag a divider to resize · drag a row to move it · Delete removes the selected rows · swipe a row for its actions"
 		local env = UI.environment()
 		local shownHint = function(use: Use): string
 			local input = use(env.effectiveInput)
@@ -328,7 +318,7 @@ function example.build(ctx: ExampleContext)
 				UI.Text "Title" { text = "Playlist", textRole = "title" },
 				UI.TextInput "Filter" {
 					value = filterText,
-					presentation = "search",
+					presentation = searchPresentation,
 					placeholder = "Filter tracks",
 				},
 				UI.Text "EmptyResult" {
@@ -355,38 +345,34 @@ function example.build(ctx: ExampleContext)
 				},
 			},
 		}
-		local exports: { [string]: unknown } = {
-			from = filteredRows,
-			sortedRows = sortedRows,
-			baseRows = baseRows,
-			sort = sortOrder,
-
-			widths = function(): string
-				return widthsText:peek()
-			end,
-
-			hint = function(): string
-				return hintText
-			end,
-			reorder = reorder,
-			moveToTop = moveToTop,
-			removeTrack = removeTrack,
-			filterText = filterText,
-
-			nowPlaying = nowPlaying,
-			nowPlayingPath = "/Playlist/Page/NowPlaying",
-			ratingFor = function(id: string)
-				return ratings[id]
-			end,
-			columnWidths = columnWidths,
-			restore = restore,
-			restorePath = "/Playlist/Page/Restore",
-		}
-		for key, value in exports do
-			built[key] = value
-		end
 		return screen
 	end
-	return built
+	return {
+		screen = screen,
+		dispose = function() end,
+		from = filteredRows,
+		sortedRows = sortedRows,
+		baseRows = baseRows,
+		sort = sortOrder,
+
+		widths = widths,
+
+		hint = function(): string
+			return hintText
+		end,
+		reorder = reorder,
+		moveToTop = moveToTop,
+		removeTrack = removeTrack,
+		filterText = filterText,
+
+		nowPlaying = nowPlaying,
+		nowPlayingPath = "/Playlist/Page/NowPlaying",
+		ratingFor = function(id: string)
+			return ratings[id]
+		end,
+		columnWidths = columnWidths,
+		restore = restore,
+		restorePath = "/Playlist/Page/Restore",
+	}
 end
 return example

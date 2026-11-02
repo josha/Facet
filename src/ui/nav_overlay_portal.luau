@@ -112,7 +112,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 					return if use(arrived) then 0 else 1
 				end,
 				Interactable = arrived,
-				Compose.fragment(function(): { unknown }
+				Compose.fragment(function(): { Instance }
 					local node = build()
 					built = node
 					return { node }
@@ -255,7 +255,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		end
 		local enabled = available(anchor, locate)
 		local condition = function(use: ComposeTypes.Use): boolean
-			return use(enabled) and ctx.read(presented, use)
+			return use(enabled) and ctx.read<<boolean>>(presented, use)
 		end
 		return Compose.switch(destination, {}, function()
 			local target = destination:peek()
@@ -300,12 +300,15 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 						return node
 					end, arrived)
 				end
-				if options and options.failure then
-					return Host.Folder({
+				local failureHandler = options and options.failure
+				if failureHandler then
+					return Host.Folder {
 						Compose.boundary(function()
 							return themed()
-						end, options.failure),
-					})
+						end, function(failure, _retry)
+							return failureHandler(failure)
+						end),
+					}
 				end
 				return themed()
 			end
@@ -329,7 +332,9 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 			local function presentation(): Types.Child
 				return if presence
 					then Compose.presence(condition, render, presence)
-					else Compose.show(condition, render)
+					else Compose.show(condition, function()
+						return render(nil)
+					end)
 			end
 			local identity = options and options.identity
 			runtime.mountFragment(function()
@@ -342,5 +347,11 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 			end)
 		end)
 	end
-	return { available = available, parent = parent, overlay = overlay }
+	return {
+		available = function(anchor)
+			return available(anchor, nil)
+		end,
+		parent = parent,
+		overlay = overlay,
+	}
 end

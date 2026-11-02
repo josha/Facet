@@ -32,7 +32,7 @@ function identity_service.new(opts: Opts)
 				return false, "reject.guildTaken"
 			end
 		end
-		return true
+		return true, nil
 	end
 
 	function self.signIn(name: string)

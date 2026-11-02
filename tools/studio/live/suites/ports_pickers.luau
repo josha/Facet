@@ -3,8 +3,21 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+type StringReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").StringReadOnlyValue)
+type NumberReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").NumberReadOnlyValue)
+type ColorCell = typeof(require("@repo/tools/typecheck/aliases").ColorCell)
+type SliderRangeProps = typeof(require("@repo/tools/typecheck/aliases").SliderRangeProps)
+type RangeCell = typeof(require("@repo/tools/typecheck/aliases").RangeCell)
+type CellFactory = { cell: typeof(require("@repo/src/vendor/compose/core").cell) }
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
+type ChipRequestProps = typeof(require("@repo/tools/typecheck/aliases").ChipRequestProps)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type ColorPickerProps = typeof(require("@repo/tools/typecheck/aliases").ColorPickerProps)
+type DateTimePickerProps = typeof(require("@repo/tools/typecheck/aliases").DateTimePickerProps)
+type TextInputCellProps = typeof(require("@repo/tools/typecheck/aliases").TextInputCellProps)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 local GuiService = game:GetService("GuiService")
 local Verify = (require :: (ModuleScript) -> typeof(require("@repo/tools/vendor/verify/src/core")))(
 	game.ReplicatedStorage.FacetVerify.core
@@ -120,12 +133,20 @@ local function pointerScreen(t: any, width: number, height: number)
 end
 
 local function scenario(t: any, name: string, size: Vector2?, theme: any?): (any, any, FacetControls)
-	local built
+	local built: (() -> Instance) | { screen: () -> Instance } = function(): Instance
+		error("not mounted")
+	end
 	local controls: FacetControls? = nil
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		controls = UI
-		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
-		return if type(built) == "function" then built() else built.screen()
+		local result: (() -> Instance) | { screen: () -> Instance } = t.scenario(name)
+			.build(t.context(UI, Host, Compose, env))
+		built = result
+		if type(result) == "function" then
+			local render: () -> Instance = result
+			return render()
+		end
+		return result.screen()
 	end, { size = size, theme = theme, frames = 20 })
 	return stage, built, assert(controls)
 end
@@ -178,9 +199,9 @@ local function sequence(value: any): string
 	return table.concat(value.visited, ",")
 end
 
-local opening: { any } = {}
+local opening: { BooleanCell } = {}
 
-local function openLater(Compose: any): any
+local function openLater(Compose: CellFactory): BooleanCell
 	local cell = Compose.cell(false)
 	table.insert(opening, cell)
 	return cell
@@ -326,7 +347,7 @@ add("fields-accessories", {}, function(t)
 		return Host.Frame "Column" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ Padding = UDim.new(0, 16), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+			Host.UIListLayout { Padding = UDim.new(0, 16), SortOrder = Enum.SortOrder.LayoutOrder },
 			UI.TextInput "Kitted" {
 				LayoutOrder = 1,
 				value = Compose.cell("Ada"),
@@ -463,26 +484,25 @@ interactive(
 	"afterType: type the letter x once on the keyboard (the Crew briefing field already has keyboard focus with the caret at the end)",
 	function(t)
 		local lines = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			local children: { any } = {
-				Host.UIListLayout({ Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }),
+			local children: { Child } = {
+				Host.UIListLayout { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder },
 			}
 			for order, count in { 1, 3, 5 } do
-				table.insert(
-					children,
-					UI.TextInput({
-						Name = `Lines{count}`,
-						LayoutOrder = order,
-						value = Compose.cell("One line"),
-						multiline = true,
-						visibleLines = count,
-						label = `{count} lines`,
-					})
-				)
+				local value: StringCell = Compose.cell("One line")
+				local spec: TextInputCellProps = {
+					Name = `Lines{count}`,
+					LayoutOrder = order,
+					value = value,
+					multiline = true,
+					visibleLines = count,
+					label = `{count} lines`,
+				}
+				table.insert(children, UI.TextInput(spec))
 			end
 			return Host.Frame "Lines" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				table.unpack((children :: unknown) :: { unknown }),
+				table.unpack(children),
 			}
 		end, { size = Vector2.new(400, 700), frames = 20 })
 		local heights = {}
@@ -566,8 +586,8 @@ interactive(
 			return Host.Frame "Column" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				Host.UIPadding({ PaddingLeft = UDim.new(0, 40), PaddingTop = UDim.new(0, 40) }) :: unknown,
-				Host.UIListLayout({ Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder }),
+				Host.UIPadding { PaddingLeft = UDim.new(0, 40), PaddingTop = UDim.new(0, 40) },
+				Host.UIListLayout { Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder },
 				UI.NumberInput "Speed" {
 					LayoutOrder = 1,
 					Size = UDim2.fromOffset(420, 0),
@@ -867,8 +887,21 @@ interactive(
 	function(t)
 		local value: any = {}
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			value.band = Compose.cell({ lower = 10, upper = 30 })
+			local band: RangeCell = Compose.cell({ lower = 10, upper = 30 })
+			value.band = band
 			value.turn = Compose.cell(0)
+			local slider: SliderRangeProps = {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.new(0.8, 0, 0, 0),
+				value = band,
+				min = 0,
+				max = 100,
+				step = 10,
+				range = true :: true,
+				minGap = 10,
+				rotation = value.turn,
+			}
 			return Host.ScrollingFrame "Scroller" {
 				Size = UDim2.fromOffset(700, 520),
 				CanvasSize = UDim2.fromOffset(0, 1100),
@@ -878,18 +911,7 @@ interactive(
 					Size = UDim2.fromOffset(320, 320),
 					Position = UDim2.fromOffset(190, 100),
 					BackgroundTransparency = 1,
-					UI.Slider "Tilt" {
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						Position = UDim2.fromScale(0.5, 0.5),
-						Size = UDim2.new(0.8, 0, 0, 0),
-						value = value.band,
-						min = 0,
-						max = 100,
-						step = 10,
-						range = true :: true,
-						minGap = 10,
-						rotation = value.turn,
-					},
+					UI.Slider "Tilt"(slider),
 				},
 			}
 		end, { size = Vector2.new(800, 600), frames = 20 })
@@ -973,10 +995,11 @@ add("slider-range-live", {}, function(t)
 	end
 	t.cleanup()
 	local knobs = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-		return UI.Slider "Knobs" {
+		local value: RangeCell = Compose.cell({ lower = 0, upper = 100 })
+		local spec: SliderRangeProps = {
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(420, 0),
-			value = Compose.cell({ lower = 0, upper = 100 }),
+			value = value,
 			min = 0,
 			max = 100,
 			range = true :: true,
@@ -985,6 +1008,7 @@ add("slider-range-live", {}, function(t)
 				return Host.Frame "Art" { Size = UDim2.fromOffset(edge, edge) }
 			end,
 		}
+		return UI.Slider "Knobs"(spec)
 	end, { size = Vector2.new(600, 200), frames = 20 })
 	local knobTrack = partOf(t.find(knobs, "Knobs"), "Track")
 	local low = partOf(knobTrack, "HandleLower")
@@ -1149,7 +1173,11 @@ local function rangeSpec(Compose: any, extra: { [string]: any }): any
 	return spec
 end
 
-local function datePicker(t: any, make: (any, any) -> any, holder: { [string]: any }?): (any, any, any)
+local function datePicker(
+	t: any,
+	make: (CellFactory) -> DateTimePickerProps,
+	holder: { [string]: any }?
+): (any, any, any)
 	local config: { [string]: any } = holder or {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.Frame "Holder" {
@@ -1158,7 +1186,7 @@ local function datePicker(t: any, make: (any, any) -> any, holder: { [string]: a
 			AnchorPoint = config.anchor or Vector2.zero,
 			Size = config.size or UDim2.fromOffset(360, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
-			UI.DateTimePicker("Date")(make(Compose, UI)),
+			UI.DateTimePicker((make(Compose)), "Date"),
 		}
 	end, { frames = 20 })
 	openNow(t)
@@ -1181,9 +1209,13 @@ add("dtp-anchor-below", {}, function(t)
 		}
 	do
 		pointerScreen(t, 1280, 720)
-		local _, root, layer = datePicker(t, function(Compose: ComposeModule)
-			return singleSpec(Compose, { isPresented = openLater(Compose) })
-		end, { position = place.position, anchor = place.anchor })
+		local _, root, layer = datePicker(
+			{ mount = t.mount, settle = t.settle, find = t.find },
+			function(Compose: CellFactory)
+				return singleSpec(Compose, { isPresented = openLater(Compose) })
+			end,
+			{ position = place.position, anchor = place.anchor }
+		)
 		local plate = partOf(root, "Field")
 		local surface = surfaceOf(t, layer)
 		if
@@ -1222,13 +1254,16 @@ interactive(
 	"afterOpen: left-click once at the screen point noted as icon; afterClose: left-click once more at the same point noted as icon; afterReopen: left-click once more at the same point noted as icon",
 	function(t)
 		local value: any = { reasons = {} }
-		local stage, root = datePicker(t, function(Compose: ComposeModule)
-			return singleSpec(Compose, {
-				onDismiss = function(reason: any)
-					table.insert(value.reasons, tostring(reason))
-				end,
-			})
-		end)
+		local stage, root = datePicker(
+			{ mount = t.mount, settle = t.settle, find = t.find },
+			function(Compose: CellFactory)
+				return singleSpec(Compose, {
+					onDismiss = function(reason: any)
+						table.insert(value.reasons, tostring(reason))
+					end,
+				})
+			end
+		)
 		value.root = root
 		local icon = partOf(root, "Open")
 		if not found(t, "the calendar icon Open was found", { "root", "icon" }, { root = root, icon = icon }) then
@@ -1291,7 +1326,7 @@ interactive(
 )
 
 add("dtp-grid-layout", {}, function(t)
-	local _, root = datePicker(t, function(Compose: ComposeModule)
+	local _, root = datePicker({ mount = t.mount, settle = t.settle, find = t.find }, function(Compose: CellFactory)
 		return rangeSpec(Compose, {
 			style = "inline" :: "inline",
 			range = { start = { year = 2026, month = 9, day = 10 }, finish = { year = 2026, month = 9, day = 15 } },
@@ -1374,12 +1409,15 @@ interactive(
 				Position = UDim2.fromOffset(40, 40),
 				Size = UDim2.fromOffset(360, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				UI.DateTimePicker("Date")(singleSpec(Compose, {
-					value = { year = 2026, month = 9, day = 16, hour = 14, minute = 30 },
-					time = true,
-					draft = true,
-					isPresented = value.open,
-				})),
+				UI.DateTimePicker(
+					singleSpec(Compose, {
+						value = { year = 2026, month = 9, day = 16, hour = 14, minute = 30 },
+						time = true,
+						draft = true,
+						isPresented = value.open,
+					}),
+					"Date"
+				),
 			}
 		end, { frames = 20 })
 		openNow(t)
@@ -1432,7 +1470,7 @@ interactive(
 					Position = UDim2.fromOffset(40, 40),
 					Size = UDim2.fromOffset(360, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					UI.DateTimePicker("Date")(singleSpec(Compose, { draft = true, isPresented = value.open })),
+					UI.DateTimePicker(singleSpec(Compose, { draft = true, isPresented = value.open }), "Date"),
 				}
 			end, { frames = 20 })
 			openNow(t)
@@ -1459,8 +1497,8 @@ interactive(
 					Position = UDim2.fromOffset(40, 40),
 					Size = UDim2.fromOffset(360, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({ Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-					UI.DateTimePicker("Date")(singleSpec(Compose, { style = "inline" :: "inline", LayoutOrder = 1 })),
+					Host.UIListLayout { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder },
+					UI.DateTimePicker(singleSpec(Compose, { style = "inline" :: "inline", LayoutOrder = 1 }), "Date"),
 					UI.Button "Below" { label = "Below", LayoutOrder = 2, onActivate = function() end },
 				}
 			end, { frames = 20 })
@@ -1590,15 +1628,23 @@ add("dtp-phone-fit", {}, function(t)
 		t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, orientation = turn.orientation })
 		t.note(`{turn.name} viewport`, workspace.CurrentCamera.ViewportSize)
 		t.note(`{turn.name} preferred input`, tostring(game:GetService("UserInputService").PreferredInput))
-		local _, root, layer = datePicker(t, function(Compose: ComposeModule)
-			return singleSpec(Compose, { draft = true, isPresented = openLater(Compose) })
-		end, { position = UDim2.fromOffset(16, 16), size = UDim2.new(1, -32, 0, 0) })
+		local _, root, layer = datePicker(
+			{ mount = t.mount, settle = t.settle, find = t.find },
+			function(Compose: CellFactory)
+				return singleSpec(Compose, { draft = true, isPresented = openLater(Compose) })
+			end,
+			{ position = UDim2.fromOffset(16, 16), size = UDim2.new(1, -32, 0, 0) }
+		)
 		phoneChecks(t, `{turn.name} single`, root, layer, turn.name == "portrait")
 		t.cleanup()
 		t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, orientation = turn.orientation })
-		local _, rangeRoot, rangeLayer = datePicker(t, function(Compose: ComposeModule)
-			return rangeSpec(Compose, { draft = true, presets = preset, isPresented = openLater(Compose) })
-		end, { position = UDim2.fromOffset(16, 16), size = UDim2.new(1, -32, 0, 0) })
+		local _, rangeRoot, rangeLayer = datePicker(
+			{ mount = t.mount, settle = t.settle, find = t.find },
+			function(Compose: CellFactory)
+				return rangeSpec(Compose, { draft = true, presets = preset, isPresented = openLater(Compose) })
+			end,
+			{ position = UDim2.fromOffset(16, 16), size = UDim2.new(1, -32, 0, 0) }
+		)
 		phoneChecks(t, `{turn.name} range`, rangeRoot, rangeLayer, turn.name == "portrait")
 		t.cleanup()
 	end
@@ -1607,9 +1653,12 @@ end)
 
 add("dtp-panel-hugs", {}, function(t)
 	pointerScreen(t, 1280, 720)
-	local _, root, layer = datePicker(t, function(Compose: ComposeModule)
-		return singleSpec(Compose, { isPresented = openLater(Compose) })
-	end)
+	local _, root, layer = datePicker(
+		{ mount = t.mount, settle = t.settle, find = t.find },
+		function(Compose: CellFactory)
+			return singleSpec(Compose, { isPresented = openLater(Compose) })
+		end
+	)
 	local surface = surfaceOf(t, layer)
 	local calendar = if surface then partOf(surface, "Calendar") else nil
 	local header = partOf(calendar, "Header")
@@ -1685,36 +1734,42 @@ add("dtp-paint", {}, function(t)
 				Position = UDim2.fromOffset(40, 40),
 				Size = UDim2.fromOffset(760, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Horizontal,
 					Padding = UDim.new(0, 24),
 					SortOrder = Enum.SortOrder.LayoutOrder,
-				}) :: unknown,
+				},
 				Host.Frame "SpanBox" {
 					LayoutOrder = 1,
 					BackgroundTransparency = 1,
 					Size = UDim2.fromOffset(360, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					UI.DateTimePicker("Span")(rangeSpec(Compose, {
-						style = "inline" :: "inline",
-						today = today,
-						min = { year = 2026, month = 12, day = 2 },
-						range = {
-							start = { year = 2026, month = 12, day = 5 },
-							finish = { year = 2026, month = 12, day = 20 },
-						},
-					})),
+					UI.DateTimePicker(
+						rangeSpec(Compose, {
+							style = "inline" :: "inline",
+							today = today,
+							min = { year = 2026, month = 12, day = 2 },
+							range = {
+								start = { year = 2026, month = 12, day = 5 },
+								finish = { year = 2026, month = 12, day = 20 },
+							},
+						}),
+						"Span"
+					),
 				},
 				Host.Frame "SingleBox" {
 					LayoutOrder = 2,
 					BackgroundTransparency = 1,
 					Size = UDim2.fromOffset(360, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					UI.DateTimePicker("Single")(singleSpec(Compose, {
-						style = "inline" :: "inline",
-						today = today,
-						value = { year = 2026, month = 12, day = 12 },
-					})),
+					UI.DateTimePicker(
+						singleSpec(Compose, {
+							style = "inline" :: "inline",
+							today = today,
+							value = { year = 2026, month = 12, day = 12 },
+						}),
+						"Single"
+					),
 				},
 			}
 		end, { palette = name, frames = 20 })
@@ -1874,7 +1929,7 @@ interactive(
 				Position = UDim2.fromOffset(40, 40),
 				Size = UDim2.fromOffset(360, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				UI.DateTimePicker("Date")(singleSpec(Compose, { style = "inline" :: "inline" })),
+				UI.DateTimePicker(singleSpec(Compose, { style = "inline" :: "inline" }), "Date"),
 			}
 		end, { frames = 20 })
 		local year = t.find(stage, "Year")
@@ -2028,8 +2083,9 @@ interactive(
 		local value: any = {}
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			value.tokens = Compose.cell({ "Rain", "No assists", "Friends" } :: { string })
-			local editing = Compose.cell(true)
-			local chosen = Compose.cell({} :: { [string]: boolean })
+			local editing: BooleanCell = Compose.cell(true)
+			local initialChosen: { [string]: boolean } = {}
+			local chosen = Compose.cell(initialChosen)
 			return Host.ScrollingFrame "Tokens" {
 				Position = UDim2.fromOffset(40, 40),
 				BackgroundTransparency = 1,
@@ -2041,25 +2097,25 @@ interactive(
 					BackgroundTransparency = 1,
 					Size = UDim2.new(),
 					AutomaticSize = Enum.AutomaticSize.XY,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}) :: unknown,
-					Compose.OrderedCollection({
+					},
+					Compose.OrderedCollection {
 						from = value.tokens,
 						key = function(item: string): string
 							return item
 						end,
-						render = function(current: ReadOnlyValue<string>): GuiObject
+						render = function(current: StringReadOnlyValue): GuiObject
 							local item = current:peek()
-							return UI.Chip(item)({
+							local spec: ChipRequestProps = {
 								label = item,
 								controlSize = "compact" :: "compact",
 								selected = function(use: Use)
 									return use(chosen)[item] == true
 								end,
-								onToggle = function(next)
+								onToggle = function(next: boolean)
 									local copy = table.clone(chosen:peek())
 									copy[item] = next
 									chosen:set(copy)
@@ -2074,9 +2130,10 @@ interactive(
 									end
 									value.tokens:set(rest)
 								end,
-							})
+							}
+							return UI.Chip(spec, item)
 						end,
-					}),
+					},
 				},
 			}
 		end, { size = Vector2.new(800, 200), frames = 20 })
@@ -2178,7 +2235,7 @@ local DRIVER_NAMES = { "Ada", "Bo", "Cy", "Dee", "Eli", "Fay", "Gus", "Hal", "Iv
 
 local function driverPicker(t: any, first: string, value: any): any
 	return t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		local options = {}
+		local options: { StringPickerOption } = {}
 		for i, name in DRIVER_NAMES do
 			table.insert(options, {
 				value = "d" .. i,
@@ -2243,7 +2300,7 @@ add("picker-menu-scroll-live", {}, function(t)
 		if not row or not words then
 			table.insert(cut, `{name} missing`)
 		elseif not t.fits(words) or t.rect(words).r > p.r - scroller.ScrollBarThickness + 0.5 then
-			table.insert(cut, { name :: unknown, words.TextBounds, words.AbsoluteSize, t.rect(words).r, p.r })
+			table.insert(cut, { name, words.TextBounds, words.AbsoluteSize, t.rect(words).r, p.r })
 		end
 	end
 	t.check("every avatar row keeps its name visible with the scroll bar reserved", #cut == 0, cut)
@@ -2354,7 +2411,7 @@ add("picker-cards-live", {}, function(t)
 end)
 
 add("picker-segmented-rightmost-stays-put", {}, function(t)
-	local selected
+	local selected: StringCell?
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		selected = Compose.cell("street")
 		return UI.ScrollView "Inspector" {
@@ -2373,7 +2430,7 @@ add("picker-segmented-rightmost-stays-put", {}, function(t)
 	end, { size = Vector2.new(480, 480), frames = 20, motionLevel = "normal" })
 	local picker = t.find(stage, "Wheels")
 	local before = picker.AbsoluteSize
-	selected:set("sport")
+	assert(selected):set("sport")
 	t.settle(90)
 	local after = picker.AbsoluteSize
 	t.settle(30)
@@ -2686,8 +2743,9 @@ local function rotated(first: number): { string }
 	return out
 end
 
-local function colorSpec(Compose: any, extra: { [string]: any }): (any, any)
-	local value = Compose.cell(extra.value or Color3.fromRGB(46, 125, 255))
+local function colorSpec(Compose: ComposeModule, extra: { [string]: any }): (ColorPickerProps, ColorCell)
+	local initial: Color3 = extra.value or Color3.fromRGB(46, 125, 255)
+	local value = Compose.cell(initial)
 	local spec: { [string]: any } = {
 		value = value,
 		onChange = function(next: any)
@@ -2789,7 +2847,7 @@ add("color-first-visit", {}, function(t)
 		SendMouseButton: (Virtual, Vector2, Enum.UserInputType, boolean) -> (),
 	}
 	local input = game:GetService("UserInputService")
-	local service = (input :: unknown) :: { CreateVirtualInput: (UserInputService) -> Virtual }
+	local service = (input) :: { CreateVirtualInput: (UserInputService) -> Virtual }
 	local virtual = service.CreateVirtualInput(input)
 	local inset = GuiService:GetGuiInset()
 	local seen: Vector2? = nil
@@ -2898,31 +2956,31 @@ add("color-hidden-technique-size", {}, function(t)
 		}
 	do
 		t.device(screen.device)
-		local opens = {}
+		local opens: { [string | number]: BooleanCell } = {}
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			local children: { any } = {
-				Host.UIListLayout({
+			local children: { Child } = {
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Horizontal,
 					Padding = UDim.new(0, 16),
 					SortOrder = Enum.SortOrder.LayoutOrder,
-				}),
+				},
 			}
 			for index = 1, 4 do
 				opens[index] = Compose.cell(false)
 				table.insert(
 					children,
-					UI.ColorPicker(`Well{index}`)((colorSpec(Compose, {
+					UI.ColorPicker((colorSpec(Compose, {
 						LayoutOrder = index,
 						modes = rotated(index),
 						isPresented = opens[index],
-					})))
+					})), `Well{index}`)
 				)
 			end
 			return Host.Frame "Wells" {
 				BackgroundTransparency = 1,
 				Position = UDim2.fromOffset(16, 16),
 				Size = UDim2.new(1, -32, 0, 44),
-				table.unpack((children :: unknown) :: { unknown }),
+				table.unpack(children),
 			}
 		end, { frames = 20 })
 		local layer = layerOf(stage)
@@ -3006,9 +3064,10 @@ add("color-placement-real-layout", {}, function(t)
 	for _, screen in { Vector2.new(1542, 1044), Vector2.new(1542, 560) } do
 		local where = `{screen.X}x{screen.Y}`
 		pointerScreen(t, screen.X, screen.Y)
-		local opens, names = {}, {}
+		local opens: { [string]: BooleanCell } = {}
+		local names: { string } = {}
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			local children: { any } = {}
+			local children: { Child } = {}
 			for _, spot in
 				{
 					{ name = "Top", anchor = Vector2.new(0, 0), y = UDim.new(0, 16) },
@@ -3022,7 +3081,7 @@ add("color-placement-real-layout", {}, function(t)
 					table.insert(names, name)
 					table.insert(
 						children,
-						Host.Frame({
+						Host.Frame {
 							Name = name .. "Box",
 							BackgroundTransparency = 1,
 							AnchorPoint = spot.anchor,
@@ -3033,20 +3092,20 @@ add("color-placement-real-layout", {}, function(t)
 								spot.y.Offset
 							),
 							Size = UDim2.fromOffset(if kind == "Labelled" then 360 else 44, 44),
-							UI.ColorPicker(name)((colorSpec(Compose, {
+							UI.ColorPicker((colorSpec(Compose, {
 								label = if kind == "Labelled" then "Kart body" else nil,
 								modes = ALL_MODES,
 								alpha = true,
 								isPresented = opens[name],
-							}))),
-						})
+							})), name),
+						}
 					)
 				end
 			end
 			return Host.Frame "Screen" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				table.unpack((children :: unknown) :: { unknown }),
+				table.unpack(children),
 			}
 		end, { frames = 20 })
 		local layer = layerOf(stage)
@@ -3112,8 +3171,9 @@ interactive(
 				BackgroundTransparency = 1,
 				Position = UDim2.fromOffset(40, 40),
 				Size = UDim2.fromOffset(44, 44),
-				UI.ColorPicker("Well")(
-					(colorSpec(Compose, { modes = { "swatches" }, isPresented = openLater(Compose) }))
+				UI.ColorPicker(
+					(colorSpec(Compose, { modes = { "swatches" }, isPresented = openLater(Compose) })),
+					"Well"
 				),
 			}
 		end, { frames = 20 })
@@ -3129,7 +3189,7 @@ interactive(
 				table.insert(value.cells, child)
 			end
 		end
-		table.sort(value.cells, function(a, b)
+		table.sort(value.cells, function(a: GuiObject, b: GuiObject)
 			return a.LayoutOrder < b.LayoutOrder
 		end)
 		local cells = value.cells
@@ -3184,7 +3244,7 @@ local function strokeOf(node: any): any
 end
 
 add("color-plane-layers-and-ring", {}, function(t)
-	local value
+	local value: ColorCell?
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		local spec
 		spec, value =
@@ -3194,7 +3254,7 @@ add("color-plane-layers-and-ring", {}, function(t)
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(360, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
-			UI.ColorPicker("Accent")(spec),
+			UI.ColorPicker "Accent"(spec),
 		}
 	end, { frames = 20 })
 	local root = t.find(stage, "Accent")
@@ -3218,7 +3278,7 @@ add("color-plane-layers-and-ring", {}, function(t)
 	t.stable(plane)
 	local across = hue:FindFirstChildWhichIsA("UIGradient")
 	local down = shade:FindFirstChildWhichIsA("UIGradient")
-	local h = value:peek():ToHSV()
+	local h = assert(value):peek():ToHSV()
 	local pure = Color3.fromHSV(h, 1, 1)
 	if across and down then
 		local keys = across.Color.Keypoints
@@ -3319,7 +3379,8 @@ end)
 add("color-touch-bubble-room", {}, function(t)
 	t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, orientation = Enum.ScreenOrientation.Portrait })
 	t.note("preferred input", tostring(game:GetService("UserInputService").PreferredInput))
-	local inlineValue, sheetValue
+	local inlineValue: ColorCell?
+	local sheetValue: ColorCell?
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		local inlineSpec, sheetSpec
 		inlineSpec, inlineValue =
@@ -3331,20 +3392,20 @@ add("color-touch-bubble-room", {}, function(t)
 			Position = UDim2.fromOffset(16, 16),
 			Size = UDim2.new(1, -32, 0, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
-			Host.UIListLayout({ Padding = UDim.new(0, 16), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+			Host.UIListLayout { Padding = UDim.new(0, 16), SortOrder = Enum.SortOrder.LayoutOrder },
 			Host.Frame "SheetBox" {
 				LayoutOrder = 1,
 				BackgroundTransparency = 1,
 				Size = UDim2.fromOffset(44, 44),
-				UI.ColorPicker("Sheet")(sheetSpec),
+				UI.ColorPicker "Sheet"(sheetSpec),
 			},
-			UI.ColorPicker("Inline")(inlineSpec),
+			UI.ColorPicker "Inline"(inlineSpec),
 		}
 	end, { frames = 20 })
 	openNow(t)
 	local layer = layerOf(stage)
-	inlineValue:set(Color3.new(1, 1, 1))
-	sheetValue:set(Color3.new(1, 1, 1))
+	assert(inlineValue):set(Color3.new(1, 1, 1))
+	assert(sheetValue):set(Color3.new(1, 1, 1))
 	t.settle(8)
 	local sheetModal = visibleNamed(t, layer, "ColorPickerModal")
 	local inlineRoot = t.find(stage, "Inline")
@@ -3402,32 +3463,32 @@ add("color-phone-sheet-apply-on-screen", {}, function(t)
 		}
 	do
 		t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, orientation = turn.orientation })
-		local opens = {}
+		local opens: { [string | number]: BooleanCell } = {}
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			local children: { any } = {
-				Host.UIListLayout({
+			local children: { Child } = {
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Horizontal,
 					Padding = UDim.new(0, 16),
 					SortOrder = Enum.SortOrder.LayoutOrder,
-				}),
+				},
 			}
 			for index, mode in ALL_MODES do
 				opens[mode] = Compose.cell(false)
 				table.insert(
 					children,
-					UI.ColorPicker(`Well{index}`)((colorSpec(Compose, {
+					UI.ColorPicker((colorSpec(Compose, {
 						LayoutOrder = index,
 						modes = { mode },
 						draft = true,
 						isPresented = opens[mode],
-					})))
+					})), `Well{index}`)
 				)
 			end
 			return Host.Frame "Wells" {
 				BackgroundTransparency = 1,
 				Position = UDim2.fromOffset(16, 16),
 				Size = UDim2.new(1, -32, 0, 44),
-				table.unpack((children :: unknown) :: { unknown }),
+				table.unpack(children),
 			}
 		end, { frames = 20 })
 		local layer = layerOf(stage)
@@ -3556,9 +3617,12 @@ add("dtp-ten-foot", {}, function(t)
 	if not tenFootCheck(t) then
 		return
 	end
-	local _, root, layer = datePicker(t, function(Compose: ComposeModule)
-		return singleSpec(Compose, { isPresented = openLater(Compose) })
-	end)
+	local _, root, layer = datePicker(
+		{ mount = t.mount, settle = t.settle, find = t.find },
+		function(Compose: CellFactory)
+			return singleSpec(Compose, { isPresented = openLater(Compose) })
+		end
+	)
 	local surface = surfaceOf(t, layer)
 	local modal = visibleNamed(t, layer, "CalendarModal")
 	local done = if surface then visibleNamed(t, surface, "Done") else nil
@@ -3597,9 +3661,12 @@ interactive(
 		if not tenFootCheck(t) then
 			return value
 		end
-		local stage, root, layer = datePicker(t, function(Compose: ComposeModule)
-			return singleSpec(Compose, {})
-		end)
+		local stage, root, layer = datePicker(
+			{ mount = t.mount, settle = t.settle, find = t.find },
+			function(Compose: CellFactory)
+				return singleSpec(Compose, {})
+			end
+		)
 		value.stage, value.root, value.layer = stage, root, layer
 		value.open = if root then visibleNamed(t, root, "Open") else nil
 		if not found(t, "the calendar icon was found", { "open" }, { open = value.open }) then
@@ -3654,12 +3721,12 @@ interactive(
 				BackgroundTransparency = 1,
 				Position = UDim2.fromOffset(40, 40),
 				Size = UDim2.fromOffset(44, 44),
-				UI.ColorPicker("Well")((colorSpec(Compose, { modes = { "spectrum", "swatches" } }))),
+				UI.ColorPicker((colorSpec(Compose, { modes = { "spectrum", "swatches" } })), "Well"),
 			}
 		end, { frames = 20 })
 		value.layer = layerOf(stage)
 		value.well = t.find(stage, "Well")
-		local target = value.well
+		local target: Instance? = value.well
 		if target and not (target:IsA("GuiObject") and target.Selectable) then
 			for _, node in target:GetDescendants() do
 				if node:IsA("GuiButton") and node.Selectable and t.visible(node) then
@@ -3672,6 +3739,7 @@ interactive(
 		if not found(t, "the well was found", { "target" }, { target = target }) then
 			return value
 		end
+		assert(target and target:IsA("GuiObject"))
 		GuiService.SelectedObject = target
 		t.settle(2)
 		t.check("the well holds the selection", GuiService.SelectedObject == target, selectedName())
@@ -3712,8 +3780,9 @@ interactive(
 				BackgroundTransparency = 1,
 				Position = UDim2.fromOffset(40, 40),
 				Size = UDim2.fromOffset(44, 44),
-				UI.ColorPicker("Well")(
-					(colorSpec(Compose, { modes = { "spectrum", "swatches" }, isPresented = openLater(Compose) }))
+				UI.ColorPicker(
+					(colorSpec(Compose, { modes = { "spectrum", "swatches" }, isPresented = openLater(Compose) })),
+					"Well"
 				),
 			}
 		end, { frames = 20 })

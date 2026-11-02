@@ -1,8 +1,8 @@
 --!strict
 local InputTypes = require("./input_types")
 local Shared = require("./types")
-local ControlTypes = require("./control_types")
 local InputProps = require("./input_props")
+local ControlTypes = require("./control_types")
 local inputKit = require("./input_kit")
 local keyGlyph = require("./input_key_glyph")
 local ComposeTypes = require("../vendor/compose/core")
@@ -16,6 +16,7 @@ local KEYS = { "entries", "inputs", "controlSize", "Visible", "Selectable", "Act
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
 	local runtime, Host, Compose = ctx.runtime, ctx.Host, ctx.Compose
 	local read, props = ctx.read, ctx.props
+	local readEntries = ctx.read<<{ Entry }>>
 	local D2, E, UDim = ctx.types.UDim2, ctx.types.Enum, ctx.types.UDim
 	local glyph = keyGlyph(ctx, kit.noKey)
 	local function isKeyCode(value: unknown): boolean
@@ -125,25 +126,24 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		local shown: ComposeTypes.Value<Shown> = Compose.cell({})
 		local placed = Compose.cell(0)
-		local hint: (InputProps.ShortcutHintProps) -> TextLabel | Frame = UI.ShortcutHint
 		local function keyCodeHint(
 			codes: { Enum.KeyCode },
 			label: (ComposeTypes.Use) -> string,
-			native: Shared.FrameNativeProps
+			native: Shared.FrameProps
 		): Frame
-			local capProps: Shared.FrameNativeProps = {
+			local capProps: Shared.FrameProps = {
 				Name = "Keys",
 				Size = D2.fromOffset(0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
 				BackgroundTransparency = if bare:peek() then 1 else 0,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = E.FillDirection.Horizontal,
 					VerticalAlignment = E.VerticalAlignment.Center,
 					SortOrder = E.SortOrder.LayoutOrder,
 					Padding = function(use: ComposeTypes.Use): UDim
 						return UDim.new(0, ctx.metric("space.xs", use))
 					end,
-				}),
+				},
 			}
 			for order, code in codes do
 				local key = glyph("KeyCode", spec.controlSize, { key = code })
@@ -182,7 +182,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				shown:set(remaining)
 			end)
 			local function label(use: ComposeTypes.Use): string
-				return read(use(value).label, use)
+				local source = use(value).label
+				return if type(source) == "string" then source else ctx.readSource(source, use)
 			end
 			local function order(use: ComposeTypes.Use): number
 				return use(index)
@@ -200,18 +201,30 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					Visible = visible,
 				})
 			end
-			return hint(({
+			if action then
+				local hint: InputProps.ShortcutHintActionProps = {
+					Name = "Entry",
+					label = label,
+					controlSize = spec.controlSize,
+					cap = not bare:peek(),
+					LayoutOrder = order,
+					Visible = visible,
+					action = action,
+				}
+				return UI.ShortcutHint(hint)
+			end
+			local hint: InputProps.ShortcutHintKeysProps = {
 				Name = "Entry",
-				action = action,
-				keys = entry.keys,
 				label = label,
 				controlSize = spec.controlSize,
 				cap = not bare:peek(),
 				LayoutOrder = order,
 				Visible = visible,
-			} :: unknown) :: InputProps.ShortcutHintProps)
+				keys = assert(entry.keys),
+			}
+			return UI.ShortcutHint(hint)
 		end
-		local p = props(spec, KEYS, {
+		local p: Shared.FrameProps = props(spec, KEYS, {
 			Name = "ButtonGuide",
 			Size = D2.fromOffset(0, 0),
 			AutomaticSize = E.AutomaticSize.XY,
@@ -230,17 +243,17 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						AutomaticSize = E.AutomaticSize.XY,
 						BackgroundTransparency = 1,
 						Selectable = false,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = E.FillDirection.Horizontal,
 							VerticalAlignment = E.VerticalAlignment.Center,
 							SortOrder = E.SortOrder.LayoutOrder,
 							Padding = function(use: ComposeTypes.Use): UDim
 								return UDim.new(0, ctx.metric("space.m", use))
 							end,
-						}),
+						},
 						Compose.keyed({
 							from = function(use: ComposeTypes.Use): { Entry }
-								return read(entries, use)
+								return readEntries(entries, use)
 							end,
 							key = keyOf,
 							render = render,

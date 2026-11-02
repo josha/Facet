@@ -24,7 +24,7 @@ return function(verifyHarness: Verify.Harness)
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (runtime.constructors :: unknown) :: RobloxHost,
+			Host = Facet.host(runtime),
 			types = engine.types,
 			viewport = Compose.cell({ width = 1280, height = 720 }),
 			inputTarget = engine.new("Folder"),
@@ -166,13 +166,13 @@ return function(verifyHarness: Verify.Harness)
 					)
 				end
 				local function cells(): { any }
-					local out = {}
+					local out: { GuiObject } = {}
 					for _, child in find(s.target, "Swatches"):GetChildren() do
 						if child:IsA("GuiObject") then
 							table.insert(out, child)
 						end
 					end
-					table.sort(out, function(a, b)
+					table.sort(out, function(a: GuiObject, b: GuiObject)
 						return a.LayoutOrder < b.LayoutOrder
 					end)
 					return out

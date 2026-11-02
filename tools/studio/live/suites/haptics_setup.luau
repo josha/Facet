@@ -3,12 +3,17 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type HapticsBuild = {
+	screen: () -> unknown,
+	effects: { [string]: HapticEffect },
+	requests: { peek: (unknown) -> unknown },
+}
 return {
 	{
 		id = "haptics-mount-feedback-demo",
 		contracts = {},
 		run = function(t: any)
-			local built
+			local built: HapticsBuild
 			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 				built = t.scenario("sensory_feedback").build(t.context(UI, Host, Compose, env))
 				return built.screen()
@@ -20,7 +25,7 @@ return {
 				press and press.PressHapticEffect == built.effects.press,
 				press and press.PressHapticEffect
 			)
-			for kind, effect in built.effects :: { [string]: HapticEffect } do
+			for kind, effect in built.effects do
 				t.check(`{kind} effect is a native HapticEffect`, effect:IsA("HapticEffect"), effect.ClassName)
 				t.note(`{kind} effect type`, effect.Type)
 			end

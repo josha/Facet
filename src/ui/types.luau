@@ -2,6 +2,9 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Engine = require("./engine_types")
 local Theme = require("./theme_types")
+local tag = require("./tag")
+local inputRead = require("./input_read")
+local sourceRead = require("./source_read")
 
 export type TextRole = "caption" | "label" | "body" | "heading" | "title" | "control" | "strong" | "numeral"
 export type ComposeModule = typeof(ComposeTypes)
@@ -11,13 +14,17 @@ export type ReadOnlyValue<T> = ComposeTypes.ReadOnlyValue<T>
 export type Value<T> = ComposeTypes.Value<T>
 export type Use = ComposeTypes.Use
 export type Child = ComposeTypes.Child
+export type ChildList = { read [number]: Child? }
 export type Dispose = ComposeTypes.Dispose
 export type Input<T> = Engine.Input<T>
 export type ValueString = Engine.ValueString
 export type ValueBoolean = Engine.ValueBoolean
 export type ValueNumber = Engine.ValueNumber
 
-export type Constructor<P, N> = Engine.Constructor<P, N>
+export type Constructor<P, N> = (
+	P | string,
+	string?
+) -> N & typeof(setmetatable({} :: {}, {} :: { __call: (unknown, P) -> N }))
 export type GuiButtonInstance = GuiButton | TextButton | ImageButton
 export type GuiInstance =
 	GuiObject
@@ -32,6 +39,7 @@ export type GuiInstance =
 	| ViewportFrame
 	| VideoFrame
 export type Host = Engine.Host
+export type NamedHost = Engine.NamedHost
 export type Attributes = Engine.Attributes
 export type AttributeValue = Engine.AttributeValue
 export type RobloxTypes = Engine.RobloxTypes
@@ -63,6 +71,7 @@ export type Flow = {
 
 export type BillboardGuiProps = Engine.BillboardGuiProps
 export type BillboardGuiNativeProps = Engine.BillboardGuiNativeProps
+export type StyleLinkNativeProps = Engine.StyleLinkNativeProps
 export type CameraProps = Engine.CameraProps
 export type CameraNativeProps = Engine.CameraNativeProps
 export type CanvasGroupProps = Engine.CanvasGroupProps
@@ -155,7 +164,7 @@ export type Config = {
 	inputParent: Instance?,
 	overlayParent: Instance?,
 	controlSize: Input<ControlSize?>?,
-	theme: Input<Theme.ThemePackage>?,
+	theme: Input<Theme.ReadOnlyThemePackage>?,
 	icons: Input<{ [string]: Theme.IconEntry }>?,
 	motionLevel: (Input<MotionLevel> | Input<MotionLevel?>)?,
 	pressHaptic: (HapticEffect | HapticKind)?,
@@ -166,6 +175,7 @@ export type Config = {
 	buttonGuides: Input<boolean>?,
 	suspendGameplay: boolean?,
 }
+export type OverscanInsets = { top: number, left: number, bottom: number, right: number } | "none"
 export type EnvironmentPreview = {
 	preferredInput: Input<(Enum.PreferredInput | string)?>?,
 	touchEnabled: Input<boolean?>?,
@@ -176,10 +186,19 @@ export type EnvironmentPreview = {
 	displaySize: Input<(Enum.DisplaySize | string)?>?,
 	viewportSize: Input<Vector2?>?,
 	viewingDistance: Input<("automatic" | "near" | "ten-foot")?>?,
-	overscanInsets: Input<({ top: number, left: number, bottom: number, right: number } | "none")?>?,
+	overscanInsets: Input<OverscanInsets?>?,
 }
 export type ResolvedConfig = Config & { services: Services }
-export type Read = <T>(Input<T>, Use?) -> T
+export type Read = typeof(inputRead(ComposeTypes.isValue))
+
+export type MotionCodecs = {
+	Vector2: ComposeTypes.Codec<Vector2>,
+	Vector3: ComposeTypes.Codec<Vector3>,
+	Color3: ComposeTypes.Codec<Color3>,
+	UDim: ComposeTypes.Codec<UDim>,
+	UDim2: ComposeTypes.Codec<UDim2>,
+	CFrame: ComposeTypes.Codec<CFrame>,
+}
 export type ModalPortal = { node: Instance, anchor: Instance }
 export type ActionBinding = string | Enum.KeyCode | InputBindingNativeProps
 export type ActionBindings = { ActionBinding } | { Enum.KeyCode } | { InputBindingNativeProps } | { string }
@@ -224,8 +243,9 @@ export type ResponderOptions = {
 	resignOnActivate: boolean?,
 }
 export type ResponderState = "passive" | "engaged"
-export type Responder = { state: ReadOnlyValue<ResponderState>, engage: () -> (), resign: () -> () }
+export type Responder = { read state: ReadOnlyValue<ResponderState>, read engage: () -> (), read resign: () -> () }
 export type Context = {
+	motionCodecs: MotionCodecs?,
 	runtime: Runtime,
 	lifetime: ComposeTypes.Owner,
 	Host: Host,
@@ -234,7 +254,7 @@ export type Context = {
 	config: ResolvedConfig,
 	metrics: { textSize: number, controlHeight: number, gap: number, cornerRadius: number },
 	read: Read,
-	readSource: <T>(ReadOnlyValue<T>, Use?) -> T,
+	readSource: typeof(sourceRead),
 	haptic: (kind: unknown) -> HapticEffect?,
 	metric: (string, Use?, boolean?) -> number,
 	phrase: (key: string, source: string, args: { [string]: string | number }, Use?) -> string,
@@ -253,13 +273,7 @@ export type Context = {
 	overlayHosts: { [Instance]: Instance },
 	thumbFloor: (ReadOnlyValue<number>) -> (Use?) -> number,
 	observe: Observe,
-	observeNative: {
-		AbsoluteContentSize: (UIGridStyleLayout) -> ComposeTypes.Value<Vector2>,
-		AbsolutePosition: (GuiBase2d) -> ComposeTypes.Value<Vector2>,
-		AbsoluteSize: (GuiBase2d) -> ComposeTypes.Value<Vector2>,
-		AbsoluteWindowSize: (ScrollingFrame) -> ComposeTypes.Value<Vector2>,
-		TextBounds: (TextBox | TextButton | TextLabel) -> ComposeTypes.Value<Vector2>,
-	},
+	observeNative: Observe,
 	observeStyled: Observe,
 	shiftRoute: (Instance, () -> ()) -> (),
 	whenSelected: (Instance, Instance, () -> ()) -> (),
@@ -267,25 +281,26 @@ export type Context = {
 	shiftActivation: (Instance, InputObject?) -> (() -> ())?,
 	playWhileShown: (Playback, Instance) -> (),
 	props: <P>(P, { string } | { [string]: boolean }?, unknown?) -> P,
-	construct: <F>(string, F) -> F & ((string) -> F),
-	styled: <N>(N & Instance, string) -> N & Instance,
+	construct: (string, (never) -> unknown) -> never,
+	build: <P, N>(string, (P) -> N, P?, string?) -> N,
+	styled: typeof(tag),
 	padding: (number, number) -> UIPadding,
-	round: (ComposeTypes.Use?, UDim?) -> UDim,
+	round: (ComposeTypes.Use?, ...UDim?) -> UDim,
 	corner: (number?) -> UICorner,
-	fade: (CanvasGroupNativeProps, boolean?, boolean?, boolean?) -> Frame,
+	fade: (CanvasGroupProps, boolean?, boolean?, boolean?) -> Frame,
 	fadeTo: (Instance, Engine.ValueNumber) -> (),
 	text: (TextLabelNativeProps?, boolean?) -> TextLabel,
 	textLayout: (TextLabel | TextButton, boolean?, boolean?) -> (),
-	row: ({ Child }, FrameNativeProps?) -> Frame,
+	row: (ChildList, FrameNativeProps?) -> Frame,
 	layoutUnit: (GuiBase2d, string?) -> ComposeTypes.ReadOnlyValue<number>,
 	layoutSize: (GuiBase2d, ComposeTypes.ReadOnlyValue<number>?) -> ComposeTypes.ReadOnlyValue<Vector2>,
 	layoutBounds: (
 		TextLabel | TextButton | TextBox,
 		ComposeTypes.ReadOnlyValue<number>?
 	) -> ComposeTypes.ReadOnlyValue<Vector2>,
-	column: ({ Child }, FrameNativeProps?) -> Frame,
+	column: (ChildList, FrameNativeProps?) -> Frame,
 	listRow: (ListRow) -> (Frame, Input<UDim2>, (GuiObject) -> ()),
-	icon: (Engine.ValueString, ImageLabelNativeProps?, Input<Theme.SkinState>?) -> ImageLabel,
+	icon: (Input<string?>, ImageLabelNativeProps?, Input<Theme.SkinState>?) -> ImageLabel,
 	iconVaries: (Engine.ValueString?) -> boolean,
 	modalScopes: Value<{ Instance }>,
 	modalPortals: Value<{ ModalPortal }>,

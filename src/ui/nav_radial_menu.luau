@@ -11,7 +11,7 @@ local ComposeTypes = require("../vendor/compose/core")
 
 local HOLD = 0.4
 
-export type Controls = ControlTypes.BuilderControls
+export type Controls = ControlTypes.Controls
 export type Session<V> = {
 	branchOrigin: { path: string, shape: Radial.SectorShape }?,
 	capture: InputObject?,
@@ -35,7 +35,7 @@ export type Session<V> = {
 export type Menu<V> = {
 	spec: RadialProps.RadialMenuSpec<V>,
 	session: Session<V>,
-	preferred: ComposeTypes.Value<Enum.PreferredInput>?,
+	preferred: ComposeTypes.ReadOnlyValue<Enum.PreferredInput>?,
 	painted: (use: ComposeTypes.Use?) -> number,
 	appearance: string,
 	glyphOnly: (item: Radial.RadialItemBase<V>) -> boolean,
@@ -76,7 +76,10 @@ return function<V>(ctx: Types.Context, surfaces: Navigation.Surfaces, spec: Radi
 		return if distant(use) then 32 * adaptive.TEN_FOOT_SCALE else 32
 	end
 	local function choice<T>(value: T?, fallback: T, choices: { T }, name: string): T
-		local selected = if value == nil then fallback else value
+		local selected: T = fallback
+		if value ~= nil then
+			selected = value :: T
+		end
 		assert(table.find(choices, selected), "RadialMenu invalid " .. name)
 		return selected
 	end
@@ -136,13 +139,13 @@ return function<V>(ctx: Types.Context, surfaces: Navigation.Surfaces, spec: Radi
 			choice(item.expansion, "fan", { "fan", "ring" }, "item expansion")
 			assert(not (item.children and item.onSelect), "RadialMenu items use children or onSelect")
 			if item.children then
-				validate(read(item.children, use), use, ancestors)
+				validate(read<<{ Radial.RadialItem<V> }>>(item.children, use), use, ancestors)
 			end
 		end
 		ancestors[items] = nil
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
-		validate(read(spec.items, use), use, {})
+		validate(read<<{ Radial.RadialItem<V> }>>(spec.items, use), use, {})
 	end)
 	local opened: ComposeTypes.Value<boolean> = spec.isPresented or Compose.cell(spec.launcher == false)
 	local path: ComposeTypes.Value<{ string }> = Compose.cell({})
@@ -209,7 +212,7 @@ return function<V>(ctx: Types.Context, surfaces: Navigation.Surfaces, spec: Radi
 		if read(spec.enabled) == false or opened:peek() then
 			return
 		end
-		local anchor = read(spec.anchor)
+		local anchor = read<<Radial.Anchor?>>(spec.anchor)
 		if typeOf(anchor) ~= "Instance" and type(anchor) == "table" and anchor.visible == false then
 			return
 		end

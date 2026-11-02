@@ -146,6 +146,79 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("a lifted preview keeps its magnification while it returns after a cancelled drag", {
+			id = "native_drag_session::shared drop sessions::a lifted preview keeps its magnification while it returns after a cancelled drag",
+			run = function()
+				local w = fixture()
+				local V2 = w.engine.types.Vector2
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsolutePosition", V2.new(20, 30))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsoluteSize", V2.new(50, 60))
+				local lift = Facet.Compose.cell(1)
+				w.session.begin(
+					w.source,
+					{ payload = "A", previewScale = 1.9, returnTravel = true, liftValue = lift },
+					"pointer"
+				)
+				lift:set(1.9)
+				w.engine.heartbeat:Fire(1 / 60)
+				local ghost = w.screen:FindFirstChild("DragGhost")
+				local scaler = ghost:FindFirstChildWhichIsA("UIScale")
+				Verify.expect(scaler.Scale):toBe(1.9)
+				w.session.update(V2.new(300, 300))
+				w.session.finish(false)
+				Verify.expect(ghost:FindFirstChildWhichIsA("UIScale")):toBe(scaler)
+				w.engine.heartbeat:Fire(1 / 240)
+				Verify.expect(ghost:FindFirstChildWhichIsA("UIScale")):toBe(scaler)
+				Verify.expect(scaler.Scale > 1):toBe(true)
+				for _ = 1, 60 do
+					w.engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(ghost.Parent):toBe(nil)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("a preview from a scaled source lands with its content in proportion to the destination", {
+			id = "native_drag_session::shared drop sessions::a preview from a scaled source lands with its content in proportion to the destination",
+			run = function()
+				local w = fixture()
+				local V2 = w.engine.types.Vector2
+				local board = w.engine.new("Frame")
+				board.Parent = w.screen
+				local zoom = w.engine.new("UIScale")
+				zoom.Scale, zoom.Parent = 0.5, board
+				w.source.Parent = board
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsolutePosition", V2.new(20, 30))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsoluteSize", V2.new(30, 30))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.target), "AbsolutePosition", V2.new(200, 200))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.target), "AbsoluteSize", V2.new(40, 40))
+				w.register(w.target, {
+					travel = true,
+					onDrop = function(): boolean
+						return true
+					end,
+				})
+				w.hits({ w.target })
+				w.session.begin(w.source, { payload = "tile", previewScale = 1.9 }, "pointer")
+				local ghost = w.screen:FindFirstChild("DragGhost")
+				local scaler = ghost:FindFirstChildWhichIsA("UIScale")
+				local landed = scaler.Scale
+				local stop = w.engine.onWrite(function(node, key, value)
+					if node == scaler and key == "Scale" and type(value) == "number" then
+						landed = value
+					end
+				end)
+				w.move(220, 220)
+				w.session.commit(nil)
+				for _ = 1, 60 do
+					w.engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(math.abs(landed - 0.5 * 40 / 30) < 0.01):toBe(true)
+				stop:Disconnect()
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("a raised pickup lands its preview at the destination size", {
 			id = "native_drag_session::shared drop sessions::a raised pickup lands its preview at the destination size",
 			run = function()
@@ -168,10 +241,11 @@ return function(verifyHarness: Verify.Harness)
 					"pointer"
 				)
 				local ghost = w.screen:FindFirstChild("DragGhost")
-				local width, height = -1, -1
+				local scaler = ghost:FindFirstChildWhichIsA("UIScale")
+				local width, height, landedScale = -1, -1, 1
 				local stop = w.engine.onWrite(function(node, key, value)
 					if node == ghost and key == "Size" and typeof(value) == "UDim2" then
-						width, height = value.X.Offset, value.Y.Offset
+						width, height, landedScale = value.X.Offset, value.Y.Offset, scaler.Scale
 					end
 				end)
 				w.move(220, 220)
@@ -179,7 +253,8 @@ return function(verifyHarness: Verify.Harness)
 				for _ = 1, 60 do
 					w.engine.heartbeat:Fire(1 / 60)
 				end
-				Verify.expect(math.abs(width - 40) < 0.5 and math.abs(height - 40) < 0.5):toBe(true)
+				Verify.expect(math.abs(width * landedScale - 40) < 0.5 and math.abs(height * landedScale - 40) < 0.5)
+					:toBe(true)
 				stop:Disconnect()
 				w.stop()
 			end,
@@ -395,9 +470,10 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				for _, removeTarget in { false, true } do
 					local w = fixture()
-					local completion, valid = nil, true
+					local completion: ((boolean, string?) -> boolean)? = nil
+					local valid = true
 					w.register(w.target, {
-						onDrop = function(_, info)
+						onDrop = function(_, info): "pending"
 							completion = info.complete
 							return "pending"
 						end,
@@ -417,7 +493,7 @@ return function(verifyHarness: Verify.Harness)
 						valid = false
 					end
 					w.engine.heartbeat:Fire(1 / 60)
-					Verify.expect((completion(true))):toBe(false)
+					Verify.expect((assert(completion)(true))):toBe(false)
 					Verify.expect((w.session.state:peek())):toBeNil()
 					w.stop()
 				end

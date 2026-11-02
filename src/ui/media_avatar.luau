@@ -30,7 +30,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	UI.Avatar = ctx.construct("Avatar", function(spec: MediaProps.AvatarProps): TextButton
 		assert(spec.form == nil or spec.form == "standard" or spec.form == "icon", "Facet Avatar invalid form")
 		local diameter = function(use: ComposeTypes.Use)
-			return read(spec.diameter, use)
+			return read<<number?>>(spec.diameter, use)
 				or controlSize(spec.controlSize, if spec.form == "icon" then "iconSize" else "height", use)
 		end
 		local native = ctx.props(spec, {
@@ -59,7 +59,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			AutoButtonColor = false,
 			Selectable = spec.onActivate ~= nil,
 			Interactable = spec.onActivate ~= nil,
-			Host.UICorner({ CornerRadius = ctx.round }),
+			Host.UICorner { CornerRadius = ctx.round },
 		})
 		local onActivate = spec.onActivate
 		if onActivate then
@@ -88,14 +88,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		if onActivate then
 			local state = ctx.observe.GuiState(root)
 			runtime.mountFragment(function()
-				local ring = Host.UIStroke({
+				local ring = Host.UIStroke {
 					Name = "HoverRing",
 					ApplyStrokeMode = E.ApplyStrokeMode.Border,
 					Thickness = ringWidth,
 					Transparency = function(use: ComposeTypes.Use): number
 						return if use(state) == E.GuiState.Hover then 0 else 1
 					end,
-				})
+				}
 				ring:AddTag("facet-avatar-hover")
 				return { ring }
 			end, root)
@@ -107,7 +107,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			root:AddTag("facet-avatar-background-" .. spec.background)
 		end
 		local function facts(use: ComposeTypes.Use)
-			local name, presence = read(spec.name, use), read(spec.presence, use)
+			local name, presence = read<<string>>(spec.name, use), read<<Media.Presence?>>(spec.presence, use)
 			assert(type(name) == "string" and name ~= "", "Facet Avatar name must be nonempty")
 			assert(
 				presence == nil
@@ -117,7 +117,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			return {
 				name = name,
 				presence = presence,
-				label = if presence then name .. ", " .. (read(spec.presenceLabel, use) or presence) else name,
+				label = if presence
+					then name .. ", " .. (read<<string?>>(spec.presenceLabel, use) or presence)
+					else name,
 			}
 		end
 		runtime.decorate(root, {
@@ -132,7 +134,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			return ctx.text({
 				Name = "Initials",
 				Visible = function(use: ComposeTypes.Use)
-					return not use(pictured) and read(spec.icon, use) == nil
+					return not use(pictured) and read<<string?>>(spec.icon, use) == nil
 				end,
 				Size = D2.fromScale(1, 1),
 				Text = function(use: ComposeTypes.Use)
@@ -141,17 +143,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				TextScaled = true,
 				TextXAlignment = E.TextXAlignment.Center,
 				TextYAlignment = E.TextYAlignment.Center,
-				Host.UITextSizeConstraint({
+				Host.UITextSizeConstraint {
 					MaxTextSize = function(use: ComposeTypes.Use)
 						return math.max(8, math.floor(diameter(use) * 0.4 + 0.5))
 					end,
-				}),
+				},
 			})
 		end, root)
 		if spec.icon ~= nil then
 			runtime.mount(function()
 				return ctx.icon(function(use: ComposeTypes.Use)
-					return read(spec.icon, use) or ""
+					return read<<string?>>(spec.icon, use) or ""
 				end, {
 					Name = "Face",
 					AnchorPoint = V2.new(0.5, 0.5),
@@ -169,13 +171,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					Visible = function(use: ComposeTypes.Use)
 						return facts(use).presence == "inExperience"
 					end,
-					Host.UICorner({ CornerRadius = ctx.round }),
+					Host.UICorner { CornerRadius = ctx.round },
 					ctx.styled(
-						Host.UIStroke({
+						Host.UIStroke {
 							ApplyStrokeMode = E.ApplyStrokeMode.Border,
 							BorderStrokePosition = E.BorderStrokePosition.Inner,
 							Thickness = ringWidth,
-						}),
+						},
 						"avatar-ring"
 					),
 					Host.Frame "Gap" {
@@ -186,13 +188,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 							local inset = 2 * ringWidth(use)
 							return D2.new(1, -inset, 1, -inset)
 						end,
-						Host.UICorner({ CornerRadius = ctx.round }),
+						Host.UICorner { CornerRadius = ctx.round },
 						ctx.styled(
-							Host.UIStroke({
+							Host.UIStroke {
 								ApplyStrokeMode = E.ApplyStrokeMode.Border,
 								BorderStrokePosition = E.BorderStrokePosition.Inner,
 								Thickness = ringWidth,
-							}),
+							},
 							"avatar-ring-gap"
 						),
 					},
@@ -202,8 +204,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local image, userId, onStatus = spec.image, spec.userId, spec.onStatus
 		if image or userId or spec.resource then
 			runtime.mount(function()
-				return UI.AsyncImage({
-					imageProperties = { Host.UICorner({ CornerRadius = ctx.round }) },
+				local portraitProps: MediaProps.AsyncImagePropsInput = {
+					imageProperties = { Host.UICorner { CornerRadius = ctx.round } },
 					Name = "Portrait",
 					loader = spec.loader,
 					onStatus = function(state: Media.ImageState, failure: unknown)
@@ -216,14 +218,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					Size = D2.fromScale(1, 1),
 					image = function(use: ComposeTypes.Use)
 						return if image
-							then read(image, use)
-							else "rbxthumb://type=AvatarHeadShot&id=" .. tostring(read(userId, use)) .. "&w=150&h=150"
+							then read<<string?>>(image, use)
+							else "rbxthumb://type=AvatarHeadShot&id="
+								.. tostring(read<<number?>>(userId, use))
+								.. "&w=150&h=150"
 					end,
 					placeholder = function(_state: ComposeTypes.ReadOnlyValue<Media.ImageState>): Instance
-						return Host.Frame({ BackgroundTransparency = 1, Size = D2.fromScale(1, 1) })
+						return Host.Frame { BackgroundTransparency = 1, Size = D2.fromScale(1, 1) }
 					end,
-					Host.UICorner({ CornerRadius = ctx.round }),
-				})
+					Host.UICorner { CornerRadius = ctx.round },
+				}
+				return UI.AsyncImage(portraitProps)
 			end, root)
 		end
 		local presence = spec.presence
@@ -247,7 +252,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					AnchorPoint = V2.new(1, 1),
 					Position = D2.fromScale(1, 1),
 					status = function(use: ComposeTypes.Use): Media.Status
-						local current = read(presence, use)
+						local current = read<<Media.Presence?>>(presence, use)
 						return if current then statuses[current] or "neutral" else "neutral"
 					end,
 				}
@@ -258,7 +263,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 
 	UI.AvatarGroup = ctx.construct("AvatarGroup", function(spec: MediaProps.AvatarGroupProps): Frame
 		local items = Compose.formula(function(use: ComposeTypes.Use)
-			local members = read(spec.items, use)
+			local members = read<<{ Media.AvatarMember }>>(spec.items, use)
 			assert(type(members) == "table", "Facet AvatarGroup items must be an array")
 			local seen: { [string]: boolean }, count = {}, 0
 			for key, member in members do
@@ -293,7 +298,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local maximum = spec.max or 4
 		assert(maximum >= 1 and maximum % 1 == 0, "Facet AvatarGroup max must be positive")
 		local size = function(use: ComposeTypes.Use)
-			return read(spec.diameter, use)
+			return read<<number?>>(spec.diameter, use)
 				or controlSize(spec.controlSize, if spec.form == "icon" then "iconSize" else "height", use)
 		end
 		local spacing = if spec.layout == "spread" then 8 else -10
@@ -314,11 +319,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				return D2.fromOffset(0, size(use))
 			end,
 			AutomaticSize = E.AutomaticSize.X,
-			Host.UIListLayout({
+			Host.UIListLayout {
 				FillDirection = E.FillDirection.Horizontal,
 				Padding = D.new(0, spacing),
 				SortOrder = E.SortOrder.LayoutOrder,
-			}),
+			},
 		})
 		native[#native + 1] = Compose.keyed({
 			from = function(use: ComposeTypes.Use)
@@ -336,7 +341,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				current: ComposeTypes.ReadOnlyValue<Media.AvatarMember>,
 				index: ComposeTypes.ReadOnlyValue<number>
 			)
-				return UI.Avatar({
+				return UI.Avatar {
 					resource = current:peek().resource,
 					Name = function(use: ComposeTypes.Use)
 						return use(current).id
@@ -366,7 +371,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					diameter = size,
 					presenceMark = spec.layout == "spread",
 					LayoutOrder = index,
-				})
+				}
 			end,
 		})
 		native[#native + 1] = Compose.show(function(use: ComposeTypes.Use)
@@ -376,7 +381,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				Host.TextButton "Overflow" {
 					Attributes = {
 						AccessibleLabel = (function(use: ComposeTypes.Use): string
-							local label = read(spec.overflowLabel, use)
+							local label = read<<string?>>(spec.overflowLabel, use)
 							assert(
 								label == nil or type(label) == "string",
 								"Facet AvatarGroup overflowLabel must be a string"
@@ -401,18 +406,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 							onOverflow()
 						end
 					end,
-					Host.UICorner({ CornerRadius = ctx.round }),
+					Host.UICorner { CornerRadius = ctx.round },
 					Host.UITextSizeConstraint {
 						MaxTextSize = function(use: ComposeTypes.Use): number
 							return math.max(8, math.floor(size(use) * 0.4 + 0.5))
 						end,
 					},
-					Host.UISizeConstraint({
+					Host.UISizeConstraint {
 						MinSize = function(use: ComposeTypes.Use): Vector2
 							local minimum = if spec.onOverflow ~= nil then floor(use) else 0
 							return V2.new(minimum, minimum)
 						end,
-					}),
+					},
 				},
 				"button"
 			)

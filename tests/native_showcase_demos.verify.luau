@@ -23,7 +23,7 @@ return function(verifyHarness: Verify.Harness)
 			Facet = Facet,
 			Compose = C,
 			runtime = runtime,
-			Host = (runtime.constructors :: unknown) :: RobloxHost,
+			Host = Facet.host(runtime),
 			types = engine.types,
 			viewport = C.cell({ width = 1280, height = 720 }),
 			inputTarget = target,
@@ -35,11 +35,13 @@ return function(verifyHarness: Verify.Harness)
 			prepare(ctx, engine)
 		end
 		local built
-		local stop, root: any = runtime.mount(function()
-			gallery.configure(ctx)
+		local configure: (any) -> () = gallery.configure
+		local function render(): Instance
+			configure(ctx)
 			built = requireDynamic("../examples/gallery/examples/" .. name).build(ctx)
 			return built.screen()
-		end, target)
+		end
+		local stop, root: any = runtime.mount(render, target)
 		run(built, root, ctx, engine)
 		stop()
 		Verify.expect(#target:GetChildren()):toBe(0)

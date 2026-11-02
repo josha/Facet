@@ -10,11 +10,11 @@ local engineLib = require("./lib/native_engine")
 local geometry = require("../src/ui/zoom_geometry")
 local travelGeometry = require("../src/ui/travel_geometry")
 
-local function inputWorld(content: ((Shared.Host, ZoomTypesControls.Controls) -> GuiObject)?)
+local function inputWorld(content: ((Facet.Host, Facet.Controls) -> GuiObject)?)
 	local engine = engineLib.new({ lenientProperties = true })
 	local C = Facet.Compose
 	local runtime = Facet.Roblox.createRuntime(engine)
-	local Host = (runtime.constructors :: unknown) :: Shared.Host
+	local Host = Facet.host(runtime)
 	local input, gui = engine.new("UserInputService"), engine.new("GuiService")
 	local V2, E = engine.types.Vector2, engine.types.Enum
 	local mouse, control = V2.new(220, 236), false
@@ -48,8 +48,8 @@ local function inputWorld(content: ((Shared.Host, ZoomTypesControls.Controls) ->
 				return Host.Frame { Name = "Board" }
 			end,
 		}
-		outer = Host.ScrollingFrame { view :: unknown }
-		return Host.ScreenGui { outer :: unknown }
+		outer = Host.ScrollingFrame { view }
+		return Host.ScreenGui { outer }
 	end, player)
 	player.GetGuiObjectsAtPosition = function()
 		return { view:FindFirstChild("ZoomContent"), view, outer }
@@ -58,8 +58,12 @@ local function inputWorld(content: ((Shared.Host, ZoomTypesControls.Controls) ->
 	engine.environment.poke(FixtureRoblox.assertInstance(outer), "AbsoluteSize", V2.new(600, 600))
 	engine.environment.poke(FixtureRoblox.assertInstance(view), "AbsolutePosition", V2.new(20, 30))
 	engine.environment.poke(FixtureRoblox.assertInstance(view), "AbsoluteWindowSize", V2.new(400, 400))
-	view.ResetScrollVelocity = function() end
-	outer.ResetScrollVelocity = function() end
+	view.ResetScrollVelocity = function(): nil
+		return nil
+	end
+	outer.ResetScrollVelocity = function(): nil
+		return nil
+	end
 	engine.heartbeat:Fire(0.016)
 	local scale = view:FindFirstChild("ZoomScale", true) :: UIScale
 	local function event(kind: Enum.UserInputType, point: Vector2, state: Enum.UserInputState): InputObject
@@ -189,7 +193,7 @@ return function(harness: Verify.Harness)
 			t:defer(tracking.stop)
 			local C = Facet.Compose
 			local runtime = Facet.Roblox.createRuntime(engine)
-			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local Host = Facet.host(runtime)
 			local input = engine.new("UserInputService")
 			local gui = engine.new("GuiService")
 			local UI = Facet.controls(runtime, { types = engine.types, userInputService = input, guiService = gui })
@@ -223,9 +227,9 @@ return function(harness: Verify.Harness)
 				engine.types.Vector2.new(400, 400)
 			)
 			local resets = 0
-			local nativeMethods = (view :: unknown) :: { ResetScrollVelocity: () -> () }
-			nativeMethods.ResetScrollVelocity = function()
+			view.ResetScrollVelocity = function(): nil
 				resets += 1
+				return nil
 			end
 			engine.heartbeat:Fire(0.016)
 			local count = #tracking.created
@@ -260,9 +264,8 @@ return function(harness: Verify.Harness)
 			pointer.Position = engine.types.Vector3.new(10, 10, 0)
 			input.InputBegan:Fire(pointer, false)
 			local owner = C.createRootOwner(function() end, runtime.reactor)
-			local arbiter
-			C.withOwner(owner.owner, function()
-				arbiter = UI.gestureArbiter(tile)
+			local arbiter = C.withOwner(owner.owner, function()
+				return UI.gestureArbiter(tile)
 			end)
 			t:defer(owner.dispose)
 			arbiter.begin(pointer, engine.types.Vector2.new(10, 10), { pickup = "immediate" })
@@ -677,7 +680,7 @@ return function(harness: Verify.Harness)
 			local engine = engineLib.new({ lenientProperties = true })
 			local C = Facet.Compose
 			local runtime = Facet.Roblox.createRuntime(engine)
-			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local Host = Facet.host(runtime)
 			local input = engine.new("UserInputService")
 			local UI = Facet.controls(runtime, { types = engine.types, userInputService = input })
 			local camera: Facet.ZoomControls = {}
@@ -712,7 +715,9 @@ return function(harness: Verify.Harness)
 			end)
 			local V2, E = engine.types.Vector2, engine.types.Enum
 			engine.environment.poke(FixtureRoblox.assertInstance(view), "AbsoluteWindowSize", V2.new(360, 320))
-			view.ResetScrollVelocity = function() end
+			view.ResetScrollVelocity = function(): nil
+				return nil
+			end
 			engine.environment.poke(FixtureRoblox.assertInstance(tile), "AbsolutePosition", V2.new(150, 130))
 			engine.environment.poke(FixtureRoblox.assertInstance(tile), "AbsoluteSize", V2.new(60, 60))
 			engine.heartbeat:Fire(1 / 60)
@@ -752,9 +757,9 @@ return function(harness: Verify.Harness)
 			local engine = engineLib.new({ lenientProperties = true })
 			local C = Facet.Compose
 			local runtime = Facet.Roblox.createRuntime(engine)
-			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local Host = Facet.host(runtime)
 			local input = engine.new("UserInputService")
-			local config = { types = engine.types, userInputService = input }
+			local config: Shared.Config = { types = engine.types, userInputService = input }
 			local ctx = require("../src/ui/context")(C, runtime, config)
 			local drag = require("../src/ui/drag_session")(ctx)
 			local UI = ({} :: unknown) :: ZoomTypesControls.Controls
@@ -786,8 +791,9 @@ return function(harness: Verify.Harness)
 				"AbsoluteWindowSize",
 				engine.types.Vector2.new(400, 400)
 			)
-			local methods = (view :: unknown) :: { ResetScrollVelocity: () -> () }
-			methods.ResetScrollVelocity = function() end
+			view.ResetScrollVelocity = function(): nil
+				return nil
+			end
 			engine.heartbeat:Fire(0.016)
 			local scale = view:FindFirstChild("ZoomScale", true) :: UIScale
 			drag.begin(tile, {
@@ -826,11 +832,12 @@ return function(harness: Verify.Harness)
 			local engine = engineLib.new()
 			local C = Facet.Compose
 			local runtime = Facet.Roblox.createRuntime(engine)
-			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local Host = Facet.host(runtime)
 			local input, run = engine.new("UserInputService"), engine.new("RunService")
 			local player, screen = engine.new("PlayerGui"), engine.new("ScreenGui")
 			screen.Parent = player
-			local config = { types = engine.types, userInputService = input, services = { RunService = run } }
+			local config: Shared.Config =
+				{ types = engine.types, userInputService = input, services = { RunService = run } }
 			local ctx = require("../src/ui/context")(C, runtime, config)
 			local drag = require("../src/ui/drag_session")(ctx)
 			local UI = ({} :: unknown) :: ZoomTypesControls.Controls
@@ -873,8 +880,9 @@ return function(harness: Verify.Harness)
 				"AbsoluteWindowSize",
 				engine.types.Vector2.new(400, 400)
 			)
-			local methods = (view :: unknown) :: { ResetScrollVelocity: () -> () }
-			methods.ResetScrollVelocity = function() end
+			view.ResetScrollVelocity = function(): nil
+				return nil
+			end
 			run.PreRender:Fire(0)
 			local scale = view:FindFirstChild("ZoomScale", true) :: UIScale
 			local V2 = engine.types.Vector2
@@ -947,7 +955,7 @@ return function(harness: Verify.Harness)
 			local native = engineLib.new({ lenientProperties = true })
 			local C = Facet.Compose
 			local runtime = Facet.Roblox.createRuntime(native)
-			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local Host = Facet.host(runtime)
 			local input = native.new("UserInputService")
 			local V2 = native.types.Vector2
 			local screen = native.new("ScreenGui")
@@ -966,14 +974,14 @@ return function(harness: Verify.Harness)
 						return Host.Frame {}
 					end,
 				}
-				rack = UI.VirtualGrid {
+				local grid: Facet.KeyedCollectionSpec<number, number> = {
 					from = { 1, 2 },
 					key = function(id: number): number
 						return id
 					end,
 					columns = 2,
 					itemSize = 60,
-					mode = "all" :: "all",
+					mode = "all",
 					drag = function(_items: { number }, _keys: { number }): Facet.DraggableSpec
 						return {
 							payload = "collection tile",
@@ -993,15 +1001,17 @@ return function(harness: Verify.Harness)
 						return Host.Frame { Name = "RackTile" }
 					end,
 				}
-				return Host.Frame { view :: unknown, rack :: unknown }
+				rack = UI.VirtualGrid(grid)
+				return Host.Frame { view, rack }
 			end, screen)
 			t:defer(function()
 				stop()
 				runtime:dispose()
 			end)
 			native.environment.poke(FixtureRoblox.assertInstance(view), "AbsoluteWindowSize", V2.new(400, 400))
-			local viewMethods = (view :: unknown) :: { ResetScrollVelocity: () -> () }
-			viewMethods.ResetScrollVelocity = function() end
+			view.ResetScrollVelocity = function(): nil
+				return nil
+			end
 			native.environment.poke(FixtureRoblox.assertInstance(rack), "AbsoluteWindowSize", V2.new(400, 60))
 			local row = assert(rack:FindFirstChild("RackTile", true)) :: GuiObject
 			native.environment.poke(FixtureRoblox.assertInstance(row), "AbsolutePosition", V2.new(20, 440))
@@ -1038,7 +1048,7 @@ return function(harness: Verify.Harness)
 			local engine = engineLib.new()
 			local C = Facet.Compose
 			local runtime = Facet.Roblox.createRuntime(engine)
-			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local Host = Facet.host(runtime)
 			local run = engine.new("RunService")
 			local UI = Facet.controls(runtime, { types = engine.types, services = { RunService = run } })
 			local zoom: Facet.Value<number>
@@ -1090,7 +1100,7 @@ return function(harness: Verify.Harness)
 			t:defer(tracking.stop)
 			local C = Facet.Compose
 			local runtime = Facet.Roblox.createRuntime(engine)
-			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local Host = Facet.host(runtime)
 			local overlay = engine.new("Frame")
 			local screen = engine.new("ScreenGui")
 			screen.Parent = engine.new("Folder")

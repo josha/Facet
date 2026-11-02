@@ -1,11 +1,13 @@
 --!strict
+type ToastWidthSinglePickerSpec = typeof(require("@repo/tools/typecheck/aliases").ToastWidthSinglePickerSpec)
+type EdgeSinglePickerSpec = typeof(require("@repo/tools/typecheck/aliases").EdgeSinglePickerSpec)
+type ToastWidthPickerOption = typeof(require("@repo/tools/typecheck/aliases").ToastWidthPickerOption)
+type EdgePickerOption = typeof(require("@repo/tools/typecheck/aliases").EdgePickerOption)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 type Row = {
 	id: number,
 	title: string,
@@ -23,7 +25,7 @@ type Options = { priority: number?, duration: number?, readFloor: number?, subje
 type LineProps = typeof(require("@repo/tools/typecheck/aliases").TextProps)
 return {
 	title = "Toasts",
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local Host, UI, Compose: ComposeModule, runtime = ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local initialRows: { Row } = {}
@@ -143,15 +145,19 @@ return {
 			}
 		end
 		local function screen()
-			local edgeOptions: { PickerOption } = {
+			local edgeOptions: { EdgePickerOption } = {
 				{ value = "top", label = "Top" },
 				{ value = "bottom", label = "Bottom" },
 			}
-			local widthOptions: { PickerOption } = {
+			local widthOptions: { ToastWidthPickerOption } = {
 				{ value = "fill", label = "Wide" },
 				{ value = "hug", label = "Fit content" },
 			}
-			local root = Host.Frame("ToastLab")({
+			local edgeSpec: EdgeSinglePickerSpec =
+				{ label = "Edge for new stacks", selected = edge, options = edgeOptions }
+			local widthSpec: ToastWidthSinglePickerSpec =
+				{ label = "Toast width", selected = widthMode, options = widthOptions }
+			local root = Host.Frame "ToastLab" {
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 				UI.ScrollView "Actions" {
@@ -159,32 +165,29 @@ return {
 					gap = 12,
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					UI.Text({ text = "Toasts", textRole = "title" }),
-					UI.Text({
+					UI.Text { text = "Toasts", textRole = "title" },
+					UI.Text {
 						text = "Show a toast, then try Test input. Notifications leave the controls below usable.",
 						TextWrapped = true,
-					}),
-					UI.Picker "Edge" {
-						label = "Edge for new stacks",
-						selected = edge,
-						options = edgeOptions,
 					},
-					UI.Picker "Width" {
-						label = "Toast width",
-						selected = widthMode,
-						options = widthOptions,
-					},
-					Host.Frame("Commands")({
+					UI.Picker "Edge"(edgeSpec),
+					UI.Picker "Width"(widthSpec),
+					Host.Frame "Commands" {
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						BackgroundTransparency = 1,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							SortOrder = E.SortOrder.LayoutOrder,
 							FillDirection = E.FillDirection.Horizontal,
 							Wraps = true,
 							Padding = D.new(0, 8),
-						}),
-						UI.Button "Send" { label = "Show toast", onActivate = send },
+						},
+						UI.Button "Send" {
+							label = "Show toast",
+							onActivate = function()
+								send()
+							end,
+						},
 						UI.Button "Pair" {
 							label = "Show pair",
 							onActivate = function()
@@ -219,7 +222,7 @@ return {
 								dismiss()
 							end,
 						},
-					}),
+					},
 					UI.Button "Beneath" {
 						label = function(use: Use)
 							return "Test input: " .. use(presses)
@@ -243,11 +246,11 @@ return {
 						TextWrapped = true,
 					},
 				},
-				Host.Frame("Messages")({
+				Host.Frame "Messages" {
 					BackgroundTransparency = 1,
 					Active = false,
 					Size = D2.fromScale(0, 0),
-					Compose.OrderedCollection({
+					Compose.OrderedCollection {
 						from = rows,
 						key = function(row: Row)
 							return row.id
@@ -304,9 +307,9 @@ return {
 							end
 							return anchor
 						end,
-					}),
-				}),
-			})
+					},
+				},
+			}
 			return root
 		end
 		return {

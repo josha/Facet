@@ -3,32 +3,23 @@
 local Active = require "@self/ownership/active"
 local AnimationCodec = require "@self/animation/codec"
 local AnimationEasing = require "@self/animation/easing"
-local AsyncShared = require "@self/async/shared"
 local ContextModule = require "@self/context"
 local Diagnostics = require "@self/diagnostics"
-local Geometry = require "@self/geometry"
-local FocusTypes = require "@self/focus-types"
+local Dynamic = require "@self/dynamic"
 local Graph = require "@self/reactive/graph"
-local NodeCast = require "@self/reactive/node"
-local Inspect = require "@self/ownership/inspect"
 local HostProtocol = require "@self/host"
-local Keys = require "@self/runtime/keys"
 local Props = require "@self/runtime/props"
 local OwnerModule = require "@self/ownership/owner"
-local Root = require "@self/ownership/root"
-local ResourceTypes = require "@self/resource-types"
-local StructureTypes = require "@self/structure/types"
-local RuntimeTypes = require "@self/runtime/types"
+local CoreTypes = require "@self/types"
 local RuntimeModule = require "@self/runtime"
 local Types = require "@self/reactive/types"
-local clock = require "@self/reactive/clock"
 local cellModule = require "@self/reactive/cell"
 local nodes = require "@self/ownership/nodes"
 local formulaModule = require "@self/reactive/formula"
 local reactorModule = require "@self/reactive/reactor"
-local stats = require "@self/reactive/stats"
 local watchModule = require "@self/reactive/watch"
-local userSpace = require "@self/reactive/userSpace"
+local Evaluation = require "@self/reactive/evaluation"
+local stats = Evaluation.stats
 
 export type Dispose = Types.Dispose
 export type Use = Types.Use
@@ -43,7 +34,7 @@ export type AccumulatorOptions<T, E> = Types.AccumulatorOptions<T, E>
 
 export type Owner = OwnerModule.Owner
 export type Context<T> = ContextModule.Context<T>
-export type RootScope = ResourceTypes.RootScope
+export type RootScope = CoreTypes.RootScope
 export type Custody = nodes.Custody
 
 export type Node = HostProtocol.Node
@@ -63,25 +54,26 @@ export type Fragment = RuntimeModule.Fragment
 export type Child = RuntimeModule.Child
 export type Props = RuntimeModule.Props
 export type Directive = RuntimeModule.Directive
-export type PresenceOptions = StructureTypes.PresenceOptions
-export type Exiting = StructureTypes.Exiting
+export type PresenceOptions = CoreTypes.PresenceOptions
+export type Exiting = CoreTypes.Exiting
 export type MountPoint = RuntimeModule.MountPoint
 
-export type FocusScope<K> = FocusTypes.FocusScope<K>
-export type FocusScopeOptions<V, K> = FocusTypes.Options<V, K>
-export type FocusDirection = FocusTypes.Direction
-export type FocusRect = FocusTypes.FocusRect
+export type FocusScope<K> = CoreTypes.FocusScope<K>
+export type FocusScopeOptions<V, K> = CoreTypes.FocusScopeOptions<V, K>
+export type FocusDirection = CoreTypes.FocusDirection
+export type FocusRect = CoreTypes.FocusRect
 
-export type Pool<T> = ResourceTypes.Pool<T>
-export type PoolLease<T> = ResourceTypes.Lease<T>
-export type PoolOptions<T> = ResourceTypes.PoolOptions<T>
+export type Pool<T> = CoreTypes.Pool<T>
+export type PoolLease<T> = CoreTypes.Lease<T>
+export type PoolOptions<T> = CoreTypes.PoolOptions<T>
 
-export type KeyedCache<K, T> = ResourceTypes.KeyedCache<K, T>
-export type KeyedCacheOptions<K, T> = ResourceTypes.KeyedCacheOptions<K, T>
+export type KeyedCache<K, T> = CoreTypes.KeyedCache<K, T>
+export type KeyedCacheOptions<K, T> = CoreTypes.KeyedCacheOptions<K, T>
 
 export type Easing = AnimationEasing.Easing
 export type Codec<T> = AnimationCodec.Codec<T>
-export type SpringState = RuntimeTypes.SpringState
+export type Motion<T> = CoreTypes.Motion<T>
+export type SpringState = CoreTypes.SpringState
 export type SpringOptions = RuntimeModule.SpringOptions
 export type TweenOptions = RuntimeModule.TweenOptions
 export type RampOptions = RuntimeModule.RampOptions
@@ -93,61 +85,60 @@ export type SettledOptions<T, R = unknown> = RuntimeModule.SettledOptions<T, R>
 export type SequenceOptions = RuntimeModule.SequenceOptions
 export type SequenceStep = RuntimeModule.SequenceStep
 export type Sequence = RuntimeModule.Sequence
-export type Slot = ResourceTypes.Slot
+export type Slot = CoreTypes.Slot
 
-export type GeometrySize = Geometry.Size
-export type GeometryInsets = Geometry.Insets
-export type GeometryAnchor = Geometry.Anchor
-export type GeometryFrame = Geometry.Frame
-export type GeometryBounds = Geometry.Bounds
-export type GeometryFitOptions = Geometry.FitOptions
-export type GeometryClearOptions<R> = Geometry.ClearOptions<R>
+export type GeometrySize = Types.GeometrySize
+export type GeometryInsets = Types.GeometryInsets
+export type GeometryAnchor = Types.GeometryAnchor
+export type GeometryFrame = Types.GeometryFrame
+export type GeometryBounds = Types.GeometryBounds
+export type GeometryFitOptions = Types.GeometryFitOptions
+export type GeometryClearOptions<R> = Types.GeometryClearOptions<R>
 
-export type SharedResourceFactory<T> = AsyncShared.Factory<T>
-export type AcquireSharedResource<T> = AsyncShared.Acquire<T>
+export type SharedResourceFactory<T> = () -> (T, (() -> ())?)
 
-export type KeyedRender<V, K> = StructureTypes.KeyedRender<V, K>
-export type IndexedRender<V> = StructureTypes.IndexedRender<V>
+export type KeyedRender<V, K> = CoreTypes.KeyedRender<V, K>
+export type IndexedRender<V> = CoreTypes.IndexedRender<V>
 
-export type Placement = StructureTypes.Placement
-export type OrderedCollectionMode = StructureTypes.OrderedCollectionMode
-export type OrderedCollectionDirection = StructureTypes.OrderedCollectionDirection
-export type OrderedCollectionLayoutKind = StructureTypes.OrderedCollectionLayoutKind
-export type OrderedCollectionAlign = StructureTypes.OrderedCollectionAlign
-export type OrderedCollectionLayout = StructureTypes.OrderedCollectionLayout
-export type OrderedCollectionViewport = StructureTypes.OrderedCollectionViewport
-export type OrderedCollectionStatus = StructureTypes.OrderedCollectionStatus
-export type OrderedCollectionControls<K> = StructureTypes.OrderedCollectionControls<K>
-export type OrderedCollectionOptions<V, K> = StructureTypes.OrderedCollectionOptions<V, K>
-export type SpatialCollectionTier = StructureTypes.SpatialCollectionTier
-export type SpatialCollectionPoint = StructureTypes.SpatialCollectionPoint
-export type Representation = StructureTypes.Representation
-export type SpatialCollectionBudget = StructureTypes.SpatialCollectionBudget
-export type SpatialCollectionStatus = StructureTypes.SpatialCollectionStatus
-export type SpatialCollectionOptions<V, K> = StructureTypes.SpatialCollectionOptions<V, K>
-export type TileCollectionViewport = StructureTypes.TileCollectionViewport
-export type TileCollectionSize = StructureTypes.TileCollectionSize
-export type TileCollectionPlacement = StructureTypes.TileCollectionPlacement
-export type TileCollectionOptions<V> = StructureTypes.TileCollectionOptions<V>
-export type LayerStackRetention = StructureTypes.LayerStackRetention
-export type LayerStackState = StructureTypes.LayerStackState
-export type LayerStackOptions<V, K> = StructureTypes.LayerStackOptions<V, K>
-export type MountBudgetStatus = StructureTypes.MountBudgetStatus
-export type MountBudgetOptions<V, K> = StructureTypes.MountBudgetOptions<V, K>
+export type Placement = CoreTypes.Placement
+export type OrderedCollectionMode = CoreTypes.OrderedCollectionMode
+export type OrderedCollectionDirection = CoreTypes.OrderedCollectionDirection
+export type OrderedCollectionLayoutKind = CoreTypes.OrderedCollectionLayoutKind
+export type OrderedCollectionAlign = CoreTypes.OrderedCollectionAlign
+export type OrderedCollectionLayout = CoreTypes.OrderedCollectionLayout
+export type OrderedCollectionViewport = CoreTypes.OrderedCollectionViewport
+export type OrderedCollectionStatus = CoreTypes.OrderedCollectionStatus
+export type OrderedCollectionControls<K> = CoreTypes.OrderedCollectionControls<K>
+export type OrderedCollectionOptions<V, K> = CoreTypes.OrderedCollectionOptions<V, K>
+export type SpatialCollectionTier = CoreTypes.SpatialCollectionTier
+export type SpatialCollectionPoint = CoreTypes.SpatialCollectionPoint
+export type Representation = CoreTypes.Representation
+export type SpatialCollectionBudget = CoreTypes.SpatialCollectionBudget
+export type SpatialCollectionStatus = CoreTypes.SpatialCollectionStatus
+export type SpatialCollectionOptions<V, K> = CoreTypes.SpatialCollectionOptions<V, K>
+export type TileCollectionViewport = CoreTypes.TileCollectionViewport
+export type TileCollectionSize = CoreTypes.TileCollectionSize
+export type TileCollectionPlacement = CoreTypes.TileCollectionPlacement
+export type TileCollectionOptions<V> = CoreTypes.TileCollectionOptions<V>
+export type LayerStackRetention = CoreTypes.LayerStackRetention
+export type LayerStackState = CoreTypes.LayerStackState
+export type LayerStackOptions<V, K> = CoreTypes.LayerStackOptions<V, K>
+export type MountBudgetStatus = CoreTypes.MountBudgetStatus
+export type MountBudgetOptions<V, K> = CoreTypes.MountBudgetOptions<V, K>
 
-export type WorkCounters = stats.Counters
+export type WorkCounters = Evaluation.Counters
 export type Diagnostic = Diagnostics.Parsed
 export type ProfileOptions = Types.ProfileOptions
 export type ProfileReport = Types.ProfileReport
 export type ProfileNode = Types.ProfileNodeRow
 export type ProfileDrain = Types.ProfileDrainRow
 export type ProfileData = Types.ProfileData
-export type InspectOptions = Inspect.Options
-export type InspectReport = Inspect.Report
-export type InspectOwner = Inspect.OwnerReport
-export type InspectNode = Inspect.NodeReport
+export type InspectOptions = Types.InspectOptions
+export type InspectReport = Types.InspectReport
+export type InspectOwner = Types.InspectOwnerReport
+export type InspectNode = Types.InspectNodeReport
 export type InspectOwnedCounts = nodes.OwnedCounts
-export type InspectData = Inspect.Data
+export type InspectData = Types.InspectData
 
 local function once<T>(load: () -> T): () -> T
 	local loaded: T? = nil
@@ -163,7 +154,7 @@ local function once<T>(load: () -> T): () -> T
 end
 
 type Builder = () -> HostProtocol.Node | Directive
-type NodesBuilder = () -> { HostProtocol.Node }
+type NodesBuilder = () -> { read [number]: HostProtocol.Node }
 
 local profileModule = once(function()
 	return require "@self/reactive/profile"
@@ -197,6 +188,49 @@ local focusScopeModule = once(function()
 end)
 local focusNeighborModule = once(function()
 	return require "@self/focus-neighbor"
+end)
+local sharedResourceModule = once(function()
+	return require "@self/async/shared"
+end)
+
+export type AcquireSharedResource<T> = CoreTypes.AcquireSharedResource<T>
+
+local function createSharedResource<T>(factory: SharedResourceFactory<T>): AcquireSharedResource<T>
+	return sharedResourceModule()(factory)
+end
+
+local geometryModule = once(function()
+	return require "@self/geometry"
+end)
+
+local geometry = table.freeze {
+	safeArea = function(
+		viewport: Types.GeometrySize,
+		insets: Types.GeometryInsets?,
+		margin: number?
+	): Types.GeometryFrame
+		return geometryModule().safeArea(viewport, insets, margin)
+	end,
+	fit = function(
+		available: Types.GeometryBounds,
+		desired: Types.GeometrySize,
+		options: Types.GeometryFitOptions?
+	): Types.GeometryFrame
+		return geometryModule().fit(available, desired, options)
+	end,
+	overlaps = function(a: Types.GeometryBounds, b: Types.GeometryBounds): boolean
+		return geometryModule().overlaps(a, b)
+	end,
+	contains = function(outer: Types.GeometryBounds, inner: Types.GeometryBounds): boolean
+		return geometryModule().contains(outer, inner)
+	end,
+	firstClear = function<T, R>(candidates: { T }, options: Types.GeometryClearOptions<R>?): (T?, number?)
+		return geometryModule().firstClear(candidates, options)
+	end,
+}
+
+local inspectModule = once(function()
+	return require "@self/ownership/inspect"
 end)
 local reportModule = once(function()
 	return require "@self/ownership/report"
@@ -242,16 +276,16 @@ local function withRootOwner<T...>(body: (owner: OwnerModule.Owner) -> T..., rea
 	return rootScopeModule().withRootOwner(body, reactor)
 end
 
-local function createRootOwner(body: (owner: OwnerModule.Owner) -> (), reactor: Types.Reactor?): ResourceTypes.RootScope
+local function createRootOwner(body: (owner: OwnerModule.Owner) -> (), reactor: Types.Reactor?): CoreTypes.RootScope
 	return rootScopeModule().createRootOwner(body, reactor)
 end
 
-local function createSpringState(position: { number }, arity: number): RuntimeTypes.SpringState
+local function createSpringState(position: { number }, arity: number): CoreTypes.SpringState
 	return springModule().createState(position, arity)
 end
 
 local function stepSpring(
-	state: RuntimeTypes.SpringState,
+	state: CoreTypes.SpringState,
 	target: { number },
 	delta: number,
 	period: number,
@@ -261,7 +295,7 @@ local function stepSpring(
 end
 
 local function springAtRest(
-	state: RuntimeTypes.SpringState,
+	state: CoreTypes.SpringState,
 	target: { number },
 	reference: { number },
 	tolerance: number
@@ -273,15 +307,15 @@ local function springCoefficients(period: number, damping: number): (number, num
 	return springModule().coefficients(period, damping)
 end
 
-local function createPool<T>(options: ResourceTypes.PoolOptions<T>): ResourceTypes.Pool<T>
+local function createPool<T>(options: CoreTypes.PoolOptions<T>): CoreTypes.Pool<T>
 	return poolModule()(options)
 end
 
-local function createKeyedCache<K, T>(options: ResourceTypes.KeyedCacheOptions<K, T>): ResourceTypes.KeyedCache<K, T>
+local function createKeyedCache<K, T>(options: CoreTypes.KeyedCacheOptions<K, T>): CoreTypes.KeyedCache<K, T>
 	return keyedCacheModule()(options)
 end
 
-local function createSlot(explicit: OwnerModule.Owner?): ResourceTypes.Slot
+local function createSlot(explicit: OwnerModule.Owner?): CoreTypes.Slot
 	return slotModule()(explicit)
 end
 
@@ -294,28 +328,28 @@ local function selector<K>(source: Types.ReadOnlyValue<K>): (K) -> Types.ReadOnl
 end
 
 local function boundary(
-	builder: () -> HostProtocol.Node,
-	fallback: (failure: unknown, retry: () -> ()) -> HostProtocol.Node
+	builder: Builder,
+	fallback: (failure: unknown, retry: () -> ()) -> HostProtocol.Node | Directive
 ): Directive
 	return boundaryModule()(builder, fallback)
 end
 
-local function createFocusScope<V, K>(options: FocusTypes.Options<V, K>): FocusTypes.FocusScope<K>
+local function createFocusScope<V, K>(options: CoreTypes.FocusScopeOptions<V, K>): CoreTypes.FocusScope<K>
 	return focusScopeModule()(options)
 end
 
 local function focusNeighbor(
-	from: FocusTypes.FocusRect,
-	candidates: { FocusTypes.FocusRect },
-	direction: FocusTypes.Direction
+	from: CoreTypes.FocusRect,
+	candidates: { CoreTypes.FocusRect },
+	direction: CoreTypes.FocusDirection
 ): number?
 	return focusNeighborModule()(from, candidates, direction)
 end
 
 local function presence<T>(
 	condition: Types.Source<T>,
-	builder: StructureTypes.PresenceBuilder,
-	options: StructureTypes.PresenceOptions?
+	builder: CoreTypes.PresenceBuilder,
+	options: CoreTypes.PresenceOptions?
 ): Directive
 	return presenceModule()(condition, builder, options)
 end
@@ -328,31 +362,31 @@ local function switch<K>(source: Types.Source<K>, branches: { [K]: Builder }, fa
 	return switchModule()(source, branches, fallback)
 end
 
-local function keyed<V, K>(options: StructureTypes.KeyedOptions<V, K>): Directive
+local function keyed<V, K>(options: CoreTypes.KeyedOptions<V, K>): Directive
 	return keyedModule()(options)
 end
 
-local function indexes<V>(source: Types.Source<{ V }>, render: StructureTypes.IndexedRender<V>): Directive
+local function indexes<V>(source: Types.Source<{ V }>, render: CoreTypes.IndexedRender<V>): Directive
 	return indexesModule()(source, render)
 end
 
-local function orderedCollection<V, K>(options: StructureTypes.OrderedCollectionOptions<V, K>): Directive
+local function orderedCollection<V, K>(options: CoreTypes.OrderedCollectionOptions<V, K>): Directive
 	return orderedCollectionModule()(options)
 end
 
-local function spatialCollection<V, K>(options: StructureTypes.SpatialCollectionOptions<V, K>): Directive
+local function spatialCollection<V, K>(options: CoreTypes.SpatialCollectionOptions<V, K>): Directive
 	return spatialCollectionModule()(options)
 end
 
-local function tileCollection<V>(options: StructureTypes.TileCollectionOptions<V>): Directive
+local function tileCollection<V>(options: CoreTypes.TileCollectionOptions<V>): Directive
 	return tileCollectionModule()(options)
 end
 
-local function layerStack<V, K>(options: StructureTypes.LayerStackOptions<V, K>): Directive
+local function layerStack<V, K>(options: CoreTypes.LayerStackOptions<V, K>): Directive
 	return layerStackModule()(options)
 end
 
-local function mountBudget<V, K>(options: StructureTypes.MountBudgetOptions<V, K>): Directive
+local function mountBudget<V, K>(options: CoreTypes.MountBudgetOptions<V, K>): Directive
 	return mountBudgetModule()(options)
 end
 
@@ -364,11 +398,11 @@ local function portal(target: HostProtocol.Node, builder: NodesBuilder): Directi
 	return portalModule()(target, builder)
 end
 
-local function inspectSnapshot(): Inspect.Report
+local function inspectSnapshot(): Types.InspectReport
 	return reportModule().snapshot()
 end
 
-local function inspectOwner(subject: OwnerModule.Owner): Inspect.OwnerReport?
+local function inspectOwner(subject: OwnerModule.Owner): Types.InspectOwnerReport?
 	return reportModule().owner(subject)
 end
 
@@ -376,15 +410,15 @@ local function inspectOwned(subject: OwnerModule.Owner): nodes.OwnedCounts?
 	return reportModule().owned(subject)
 end
 
-local function inspectNode(subject: HostProtocol.Node): Inspect.NodeReport
+local function inspectNode(subject: HostProtocol.Node): Types.InspectNodeReport
 	return reportModule().node(subject)
 end
 
-local function inspectFormat(report: Inspect.Report): string
+local function inspectFormat(report: Types.InspectReport): string
 	return reportModule().format(report)
 end
 
-local function inspectData(report: Inspect.Report): Inspect.Data
+local function inspectData(report: Types.InspectReport): Types.InspectData
 	return reportModule().data(report)
 end
 
@@ -392,7 +426,7 @@ local function formula<T>(body: Types.Body<T>, equals: Types.Equals<T>?): Types.
 	local value = formulaModule(body, equals)
 	local owner = Active.current()
 	if owner ~= nil then
-		NodeCast.detachers[NodeCast.nodeOf(value)] = OwnerModule.own(owner, function()
+		Graph.detachers[Graph.nodeOf(value)] = OwnerModule.own(owner, function()
 			value:dispose()
 		end)
 	end
@@ -402,13 +436,10 @@ end
 local function watch(body: (use: Types.Use) -> (), label: string?): Types.Dispose
 	local owner = Active.current()
 	if owner == nil then
-		error(
-			Diagnostics.format("owner/no-active-owner", "watch ran with no owner to hold it", {
-				contract = "a watch lives exactly as long as the owner that created it",
-				fix = "call it inside a component, or use OwnerModule.watch(owner, ...) with an explicit owner",
-			}),
-			0
-		)
+		return Diagnostics.raise("owner/no-active-owner", "watch ran with no owner to hold it", {
+			contract = "a watch lives exactly as long as the owner that created it",
+			fix = "call it inside a component, or use OwnerModule.watch(owner, ...) with an explicit owner",
+		})
 	end
 	return OwnerModule.watch(owner, body, label)
 end
@@ -416,38 +447,34 @@ end
 local function cleanup(value: unknown): Types.Dispose
 	local teardown: Types.Dispose
 	if type(value) == "function" then
-		teardown = value :: Types.Dispose
+		teardown = function()
+			Dynamic.invoke(value)
+		end
 	elseif type(value) == "table" then
-		local object = (value :: unknown) :: { destroy: unknown, dispose: unknown }
-		if type(object.destroy) == "function" then
+		local object = value
+		if type(Dynamic.read(object, "destroy")) == "function" then
 			teardown = function()
-				(object.destroy :: (unknown) -> ())(object)
+				Dynamic.invoke(Dynamic.read(object, "destroy"), object)
 			end
-		elseif type(object.dispose) == "function" then
+		elseif type(Dynamic.read(object, "dispose")) == "function" then
 			teardown = function()
-				(object.dispose :: (unknown) -> ())(object)
+				Dynamic.invoke(Dynamic.read(object, "dispose"), object)
 			end
 		else
-			error(
-				Diagnostics.format("owner/uncleanable", "cleanup was given a table it cannot tear down", {
-					actual = "table with neither destroy nor dispose",
-					expected = "a function, or a table with a destroy or dispose method",
-				}),
-				0
-			)
+			return Diagnostics.raise("owner/uncleanable", "cleanup was given a table it cannot tear down", {
+				actual = "table with neither destroy nor dispose",
+				expected = "a function, or a table with a destroy or dispose method",
+			})
 		end
 	else
-		error(
-			Diagnostics.format("owner/uncleanable", "cleanup was given something it cannot tear down", {
-				actual = Diagnostics.describe(value),
-				expected = "a function, or a table with a destroy or dispose method",
-			}),
-			0
-		)
+		return Diagnostics.raise("owner/uncleanable", "cleanup was given something it cannot tear down", {
+			actual = Diagnostics.describe(value),
+			expected = "a function, or a table with a destroy or dispose method",
+		})
 	end
 	local holder = Active.current()
-	if holder ~= nil and Inspect.isActive() then
-		Inspect.cleanup(holder)
+	if holder ~= nil and nodes.inspecting.active then
+		inspectModule().cleanup(holder)
 	end
 	return Active.own(teardown, "cleanup")
 end
@@ -460,23 +487,20 @@ local function sampleRead<T>(node: Types.ReadOnlyValue<T>): T
 end
 
 local function sample<T>(source: Types.Source<T>): T
-	if cellModule.isValue(source) then
-		return (source :: Types.ReadOnlyValue<T>):peek()
-	end
 	if type(source) ~= "function" then
+		if cellModule.isValue(source) then
+			return source:peek()
+		end
 		local actual = Diagnostics.describe(source)
-		error(
-			Diagnostics.format(
-				"reactive/not-a-source",
-				("Compose.sample was given a %s it cannot read"):format(actual),
-				{
-					actual = actual,
-					expected = "a cell, a formula, or a function taking `use`",
-					contract = "sample reads a source's current value once, without recording a dependency",
-					fix = "pass the cell or formula itself, or a body that reads one",
-				}
-			),
-			0
+		return Diagnostics.raise(
+			"reactive/not-a-source",
+			("Compose.sample was given a %s it cannot read"):format(actual),
+			{
+				actual = actual,
+				expected = "a cell, a formula, or a function taking `use`",
+				contract = "sample reads a source's current value once, without recording a dependency",
+				fix = "pass the cell or formula itself, or a body that reads one",
+			}
 		)
 	end
 	local body = source
@@ -489,41 +513,43 @@ local withOwner = Active.withOwner
 
 local function bindOwner<Args..., Rets...>(body: (Args...) -> Rets...): (Args...) -> Rets...
 	if type(body) ~= "function" then
-		error(
-			Diagnostics.format("owner/bind-body-not-a-function", "bindOwner expects the function to bind", {
-				actual = Diagnostics.describe(body),
-				expected = "a function to run later under the owner active now",
-				contract = "bindOwner exists to carry one callback back into its owner; there is nothing else to bind",
-			}),
-			0
-		)
+		return Diagnostics.raise("owner/bind-body-not-a-function", "bindOwner expects the function to bind", {
+			actual = Diagnostics.describe(body),
+			expected = "a function to run later under the owner active now",
+			contract = "bindOwner exists to carry one callback back into its owner; there is nothing else to bind",
+		})
 	end
 	local owner = Active.current()
 	if owner == nil then
-		error(
-			Diagnostics.format("owner/no-active-owner", "bindOwner has no owner to bind to", {
-				contract = "a bound callback re-enters the owner that created it, so there has to be one to capture",
-				fix = "call Compose.bindOwner inside the component or mount whose owner the callback belongs to",
-			}),
-			0
-		)
+		return Diagnostics.raise("owner/no-active-owner", "bindOwner has no owner to bind to", {
+			contract = "a bound callback re-enters the owner that created it, so there has to be one to capture",
+			fix = "call Compose.bindOwner inside the component or mount whose owner the callback belongs to",
+		})
 	end
 	return Active.bind(owner, body)
 end
 
 local function resetForTests()
 	Active.resetForTests()
-	Root.disposeAll()
+	OwnerModule.disposeRoots()
 	nodes.resetForTests()
-	clock.reset()
+	Graph.clock.now = 0
 	stats.reset()
 end
 
 local inspect = {
-	start = Inspect.start,
-	stop = Inspect.stop,
-	active = Inspect.isActive,
-	label = Inspect.label,
+	start = function(options: Types.InspectOptions?)
+		inspectModule().start(options)
+	end,
+	stop = function()
+		inspectModule().stop()
+	end,
+	active = function(): boolean
+		return nodes.inspecting.active
+	end,
+	label = function(owner: Owner, name: string)
+		inspectModule().label(owner, name)
+	end,
 	snapshot = inspectSnapshot,
 	owner = inspectOwner,
 	owned = inspectOwned,
@@ -555,6 +581,7 @@ local profile = {
 
 return {
 	cell = cellModule.cell,
+	lazyCell = cellModule.lazyCell,
 	sharedCell = cellModule.cell,
 	formula = formula,
 	map = Props.map,
@@ -582,10 +609,10 @@ return {
 	labelOf = nodes.labelOf,
 
 	createRuntime = RuntimeModule.createRuntime,
-	event = Keys.event,
-	group = Keys.group,
-	property = Keys.property,
-	static = Keys.static,
+	event = Props.event,
+	group = Props.group,
+	property = Props.property,
+	static = Props.static,
 
 	presence = presence,
 	show = show,
@@ -605,17 +632,16 @@ return {
 	createPool = createPool,
 	createKeyedCache = createKeyedCache,
 	createSlot = createSlot,
-	geometry = Geometry,
+	geometry = geometry,
 
 	easing = AnimationEasing,
-	registerCodec = AnimationCodec.register,
-	registeredCodecs = AnimationCodec.registered,
+	numberCodec = AnimationCodec.number,
 	createSpringState = createSpringState,
 	stepSpring = stepSpring,
 	springAtRest = springAtRest,
 	springCoefficients = springCoefficients,
 
-	createSharedResource = AsyncShared,
+	createSharedResource = createSharedResource,
 	createContext = ContextModule,
 	boundary = boundary,
 
@@ -624,10 +650,10 @@ return {
 	setWorkCounters = stats.setEnabled,
 	readWorkCounters = stats.read,
 	resetWorkCounters = stats.reset,
-	setYieldChecking = userSpace.setValidating,
+	setYieldChecking = Evaluation.setValidating,
 	profile = profile,
 	inspect = inspect,
-	outstandingMounts = Root.size,
+	outstandingMounts = OwnerModule.rootSize,
 
 	__resetForTests = resetForTests,
 }

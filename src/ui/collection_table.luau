@@ -16,7 +16,7 @@ local CollectionProps = require("./collection_props")
 local ControlTypes = require("./control_types")
 local preparePaint = require("./collection_paint")
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList: ListTypes.BuildList): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls, buildList: ListTypes.BuildList): ()
 	local lists = layoutKit.of(ctx)
 	local editors = tableEditors(ctx, UI)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -88,15 +88,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 		assert(spec.direction == nil or spec.direction == "vertical", "Facet.Table rows run vertically")
 		local manageable = spec.reorderable == true or spec.deletable == true
 		local ownsToggle = manageable and spec.editing == nil and spec.header ~= false
-		local editing: Types.ValueBoolean? = if ownsToggle then Compose.cell(false) else spec.editing
+		local editing: Types.Input<boolean>? = if ownsToggle then Compose.cell(false) else spec.editing
 		local rowPolicySpec = table.clone(spec)
 		rowPolicySpec.editing = editing
 		Compose.watch(function(use: ComposeTypes.Use)
-			editors.check(read(spec.columns, use), spec.onCellChange)
+			editors.check(read<<{ CollectionTypes.TableColumn<V, K> }>>(spec.columns, use), spec.onCellChange)
 		end)
-		local sort: ComposeTypes.Value<CollectionTypes.Sort?> = spec.sort or Compose.cell(nil :: CollectionTypes.Sort?)
-		local widths: ComposeTypes.Value<{ [string]: number }> = spec.widths or Compose.cell({})
-		local selection: ComposeTypes.Value<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
+		local sort = spec.sort or Compose.cell<<CollectionTypes.Sort?>>(nil)
+		local widths = spec.widths or Compose.cell<<{ [string]: number }>>({})
+		local selection = spec.selection or Compose.cell<<CollectionTypes.Selection<K>>>({})
 		local emptyStatus: ComposeTypes.OrderedCollectionStatus = {
 			mode = "windowed",
 			direction = "vertical",
@@ -155,7 +155,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 				return rows
 			end
 			local column: CollectionTypes.TableColumn<V, K>?
-			for _, candidate in read(spec.columns, use) do
+			for _, candidate in read<<{ CollectionTypes.TableColumn<V, K> }>>(spec.columns, use) do
 				if candidate.id == order.column then
 					column = candidate
 					break
@@ -167,10 +167,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			local items: { V }, values: { unknown }
 			local cached = ascending
 			if cached ~= nil and cached.rows == rows and cached.column == column then
-				items, values = cached.items, cached.values
+				items = cached.items
+				values = cached.values
 			else
-				local indexed: { { item: V, index: number, value: unknown, number: number?, text: string? } } =
-					table.create(#rows)
+				type SortedRow = { item: V, index: number, value: unknown, number: number?, text: string? }
+				local indexed = table.create<<SortedRow>>(#rows)
 				for index, item in rows do
 					local value = field(item, column)
 					indexed[index] = {
@@ -181,7 +182,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 						text = if value == nil then nil else tostring(value),
 					}
 				end
-				table.sort(indexed, function(a, b)
+				table.sort(indexed, function(a: SortedRow, b: SortedRow): boolean
 					if a.value == b.value then
 						return a.index < b.index
 					end
@@ -191,11 +192,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 					elseif right == nil then
 						return false
 					elseif a.number ~= nil and b.number ~= nil then
-						return a.number < b.number
+						return assert(a.number) < assert(b.number)
 					end
 					return left < right
 				end)
-				items, values = table.create(#rows), table.create(#rows)
+				items = table.create<<V>>(#rows)
+				values = table.create<<unknown>>(#rows)
 				for index, entry in indexed do
 					items[index], values[index] = entry.item, entry.value
 				end
@@ -223,7 +225,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 		local ordered = if tree
 			then tree.from
 			else Compose.formula(function(use: ComposeTypes.Use): { V }
-				return sortRows(read(spec.from, use), use)
+				return sortRows(read<<{ V }>>(spec.from, use), use)
 			end)
 		local layout = createColumns(ctx, spec, widths, truncatedRows, metrics, ordered, keyOf, field, unitScale)
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -378,7 +380,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 				for key, height in result do
 					result[key] = math.max(height, use(minimumRow))
 				end
-				local external: { [K]: number } = read(spec.measured or {}, use)
+				local external = read<<{ [K]: number }>>(spec.measured or {}, use)
 				for key, height in external do
 					result[key] = height
 				end
@@ -409,7 +411,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 		}
 		local previousSort = sort:peek()
 		body = buildList(bodySpec, tree, true, function(use: ComposeTypes.Use, viewport): number?
-			local rows = read(ordered, use)
+			local rows = read<<{ V }>>(ordered, use)
 			local order = use(sort)
 			if order == previousSort then
 				return nil
@@ -434,12 +436,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			end
 			return 0
 		end)
-		local unit = Host.Frame({
+		local unit = Host.Frame {
 			Name = "LayoutUnit",
 			Size = D2.fromOffset(1, 1),
 			BackgroundTransparency = 1,
 			Visible = false,
-		})
+		}
 		local position, rendered = ctx.observe.CanvasPosition(body), ctx.observe.AbsoluteWindowSize(body)
 		local outerSize = ctx.observe.AbsoluteSize(body)
 		local scrollBar = runtime.observe(body, "ScrollBarThickness") :: ComposeTypes.ReadOnlyValue<number>
@@ -510,10 +512,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			end,
 			BackgroundTransparency = 1,
 			ClipsDescendants = spec.scrolls ~= false,
-			unit :: ComposeTypes.Child,
+			unit,
 			textInsets,
 			ctx.styled(
-				Host.Frame({
+				Host.Frame {
 					Name = "HeaderBand",
 					Visible = spec.header ~= false,
 					Position = function(use: ComposeTypes.Use)
@@ -522,7 +524,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 					Size = function(use: ComposeTypes.Use)
 						return D2.new(1, 0, 0, use(headerHeight))
 					end,
-				}),
+				},
 				"TableHead"
 			),
 			header,
@@ -530,7 +532,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			body,
 			if editor then editor.overlay() else nil,
 		})
-		local fading = (props :: unknown) :: Types.CanvasGroupNativeProps
+		local fading = (props :: unknown) :: Types.CanvasGroupProps
 		if prepare then
 			fading.GroupTransparency = function(use: ComposeTypes.Use): number
 				return if use(ready) then 0 else 1
@@ -593,6 +595,5 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 		assert(type(key) == "function", "Facet UI.Table: key must be a function or a field name")
 		return create((spec :: unknown) :: CollectionTypes.TableShape<V, K>, key :: (V, number) -> K)
 	end
-	local tableConstructor: ControlTypes.TableConstructor = ctx.construct("Table", constructor)
-	UI.Table = tableConstructor
+	UI.Table = ctx.construct("Table", constructor)
 end

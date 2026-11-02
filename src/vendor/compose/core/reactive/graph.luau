@@ -2,24 +2,38 @@
 --!native
 
 local Diagnostics = require "../diagnostics"
+local Nodes = require "./node"
+local Weak = require "../weak"
+local Dynamic = require "../dynamic"
 local Evaluation = require "./evaluation"
+local stats = Evaluation.stats
 local evaluationCache = Evaluation.cache
-local NodeCast = require "./node"
 local Reactor = require "./reactor"
 local Types = require "./types"
-local Weak = require "../weak"
-local stats = require "./stats"
 local statsOn = stats.state
-local userSpace = require "./userSpace"
-local validationState = userSpace.state
+local validationState = Evaluation.validation
 
 type Node = Types.Node
-type Value<T> = Types.Value<T>
 type Dispose = Types.Dispose
+
+local clock = { now = 0 }
+
+local function nextVersion(): number
+	local version = clock.now + 1
+	clock.now = version
+	return version
+end
 
 local CLEAN = 0
 local CHECK = 1
 local DIRTY = 2
+
+local detachers = Nodes.detachers
+local asNode = Nodes.asNode
+local isNode = Nodes.isNode
+local nodeOf = Nodes.nodeOf
+local read = Nodes.read
+local identityKey = Nodes.identityKey
 
 local invalidated: { Node } = {}
 
@@ -45,8 +59,7 @@ local coalesced: { [Node]: boolean } = {}
 Weak.keys(coalesced)
 
 local function resumeSet(producer: Node)
-	local set = producer.resume
-	if set ~= nil then
+	if producer.coalescing then
 		local edge = producer.first
 		if edge ~= nil then
 			local consumer = edge[2]
@@ -56,8 +69,8 @@ local function resumeSet(producer: Node)
 				edge.coalesced = false
 			end
 		end
-		producer.resume = nil
-		producer.set = set
+		producer.coalescing = nil
+		Dynamic.write(producer, "set", nil)
 		coalesced[producer] = nil
 	end
 end
@@ -69,9 +82,9 @@ statsOn.resume = function()
 end
 
 local function coalesce(producer: Node, consumer: Node, set: (Node, unknown) -> ())
-	if producer.resume == nil then
-		producer.resume = producer.set
-		producer.set = set
+	if not producer.coalescing then
+		producer.coalescing = 1
+		Dynamic.write(producer, "set", set)
 		consumer.coalesced = producer
 		coalesced[producer] = true
 	end
@@ -85,6 +98,9 @@ local function append(producer: Node, edge: Node)
 	local first = producer.first
 	if first == nil then
 		producer.first = edge
+		if edge[2] == nil then
+			edge.listenerGroup = true
+		end
 		edge[3] = edge
 		if observing > 0 then
 			local observed = observations[producer]
@@ -94,7 +110,10 @@ local function append(producer: Node, edge: Node)
 		end
 		return
 	end
-	if producer.resume ~= nil then
+	if first.listenerGroup and (edge[2] ~= nil or edge.reactor ~= first.reactor) then
+		first.listenerGroup = false
+	end
+	if producer.coalescing ~= nil then
 		resumeSet(producer)
 	end
 	local last = first[3]
@@ -124,6 +143,9 @@ local function detach(edge: Node)
 		producer.first = following
 		if following ~= nil then
 			following[3] = previous
+			if following[2] == nil then
+				following.listenerGroup = edge.listenerGroup
+			end
 		end
 	else
 		if previous ~= nil then
@@ -280,18 +302,18 @@ local function notANode(api: string, candidate: unknown): never
 end
 
 local function noEvaluation()
-	Diagnostics.raise("reactive/no-evaluation", "use() was called outside a reactive body", {
+	return Diagnostics.raise("reactive/no-evaluation", "use() was called outside a reactive body", {
 		contract = "use reads a cell or formula and records a dependency, which only means "
 			.. "something while a formula, watch, or bound property is evaluating",
 		fix = "read it with :peek() outside a reactive body, or move the read inside one",
 	})
 end
 
-local function use<T>(value: Types.ReadOnlyValue<T>): T
+local function useWithTracking<T>(value: Types.ReadOnlyValue<T>): T
 	if type(value) ~= "table" then
 		return notANode("use", value)
 	end
-	local node = (value :: unknown) :: Node
+	local node = nodeOf(value)
 	if node.version == nil then
 		return notANode("use", value)
 	end
@@ -303,7 +325,7 @@ local function use<T>(value: Types.ReadOnlyValue<T>): T
 		else Evaluation.context()
 	if consumer == nil then
 		noEvaluation()
-		return (node.value :: unknown) :: T
+		return Nodes.readCached(value)
 	end
 	local at = consumer.reads
 	if consumer.released or at == nil then
@@ -311,7 +333,7 @@ local function use<T>(value: Types.ReadOnlyValue<T>): T
 		if update then
 			update(node)
 		end
-		return (node.value :: unknown) :: T
+		return Nodes.readCached(value)
 	end
 	local following = at + 1
 	local edge = consumer[following]
@@ -334,7 +356,38 @@ local function use<T>(value: Types.ReadOnlyValue<T>): T
 	if edge ~= nil then
 		edge.version = node.version
 	end
-	return (node.value :: unknown) :: T
+	local cached = value.cache
+	if cached == nil then
+		return Nodes.readCached(value)
+	end
+	return cached.value
+end
+
+local function use<T>(value: Types.ReadOnlyValue<T>): T
+	local frame = evaluationCache.frame
+	if frame ~= nil and frame.order > 0 and evaluationCache.thread == coroutine.running() then
+		local consumer = frame.consumer
+		local at = if consumer ~= nil then consumer.reads else nil
+		if consumer ~= nil and at ~= nil and not consumer.released then
+			local following = at + 1
+			local edge = consumer[following]
+			local node = if edge ~= nil then edge[1] else nil
+			if node ~= nil and edge ~= nil and rawequal(node, value) then
+				consumer.reads = following
+				local update = node.refresh
+				if update ~= nil and (node.state ~= CLEAN or node.released) then
+					update(node)
+				end
+				edge.version = node.version
+				local cached = value.cache
+				if cached == nil then
+					return Nodes.readCached(value)
+				end
+				return cached.value
+			end
+		end
+	end
+	return useWithTracking(value)
 end
 
 local function dependenciesMoved(consumer: Node): boolean
@@ -372,7 +425,7 @@ local function evaluate<A, T>(consumer: Node, body: (A) -> T, argument: A): T
 
 	local ok, result
 	if validationState.validating then
-		ok, result = pcall(userSpace.call, body, argument)
+		ok, result = pcall(Evaluation.call, body, argument)
 	else
 		ok, result = pcall(body, argument)
 	end
@@ -409,7 +462,7 @@ local function runEffect(consumer: Node)
 	local effect = consumer.effect
 	if effect then
 		if validationState.validating then
-			userSpace.call(effect, use)
+			Evaluation.call(effect, use)
 		else
 			effect(use)
 		end
@@ -431,7 +484,7 @@ local function runEffectIn(frame: Evaluation.Evaluation, consumer: Node)
 	local effect = consumer.effect
 	if effect then
 		if validationState.validating then
-			userSpace.call(effect, use)
+			Evaluation.call(effect, use)
 		else
 			effect(use)
 		end
@@ -489,6 +542,7 @@ end
 
 local LISTENER = {}
 LISTENER.__index = LISTENER
+Nodes.adopt(LISTENER)
 
 local resume: Node? = nil
 
@@ -497,7 +551,7 @@ local function sweep(producer: Node, reactor: Types.Reactor?, version: number?, 
 	while edge ~= nil do
 		local following = edge[4]
 		resume = following
-		if edge[2] == nil and edge.reactor == reactor then
+		if rawget(edge, 2) == nil and edge.reactor == reactor then
 			local listener = edge.listener
 			if listener ~= nil and edge.version ~= version then
 				edge.version = version
@@ -505,7 +559,11 @@ local function sweep(producer: Node, reactor: Types.Reactor?, version: number?, 
 					stats.bump "watchRuns"
 					statsOn.recorder.enterRun(edge)
 				end
-				listener(producer.value)
+				if edge.subject ~= nil then
+					listener(producer.value, edge)
+				else
+					listener(producer.value)
+				end
 			end
 		end
 		edge = following
@@ -515,7 +573,7 @@ end
 local function runListeners(leader: Node, producer: Node)
 	local version = producer.version
 	local from = producer.first
-	if from == leader and leader[4] == nil then
+	if from == leader and rawget(leader, 4) == nil then
 		local listener = leader.listener
 		if listener ~= nil and leader.version ~= version then
 			leader.version = version
@@ -523,22 +581,29 @@ local function runListeners(leader: Node, producer: Node)
 				stats.bump "watchRuns"
 				statsOn.recorder.enterRun(leader)
 			end
-			listener(producer.value)
+			if leader.subject ~= nil then
+				listener(producer.value, leader)
+			else
+				listener(producer.value)
+			end
 		end
 		return
 	end
 	local reactor = leader.reactor
 	local failures: { string }? = nil
 	while from ~= nil do
+		local previous = resume
 		resume = nil
 		local ok, err: unknown = pcall(sweep, producer, reactor, version, from)
+		local following = resume
+		resume = previous
 		if ok then
 			break
 		end
 		local collected = failures or {}
 		failures = collected
 		table.insert(collected, tostring(err))
-		from = resume
+		from = following
 	end
 	if failures ~= nil then
 		if #failures == 1 then
@@ -560,12 +625,16 @@ function LISTENER.run(leader: Node)
 	if update then
 		update(producer)
 	end
-	if producer.first == leader and leader[4] == nil and not statsOn.enabled then
+	if producer.first == leader and rawget(leader, 4) == nil and not statsOn.enabled then
 		local listener = leader.listener
 		local version = producer.version
 		if listener ~= nil and leader.version ~= version then
 			leader.version = version
-			listener(producer.value)
+			if leader.subject ~= nil then
+				listener(producer.value, leader)
+			else
+				listener(producer.value)
+			end
 		end
 		return
 	end
@@ -574,6 +643,7 @@ end
 
 local CELL_LISTENER = {}
 CELL_LISTENER.__index = CELL_LISTENER
+Nodes.adopt(CELL_LISTENER)
 
 function CELL_LISTENER.run(leader: Node)
 	local producer = leader[1]
@@ -583,56 +653,84 @@ function CELL_LISTENER.run(leader: Node)
 	if leader.coalesced then
 		resumeSet(producer)
 	end
-	if producer.first == leader and leader[4] == nil and not statsOn.enabled then
+	if producer.first == leader and rawget(leader, 4) == nil and not statsOn.enabled then
 		local listener = leader.listener
 		local version = producer.version
 		if listener ~= nil and leader.version ~= version then
 			leader.version = version
-			listener(producer.value)
+			if leader.subject ~= nil then
+				listener(producer.value, leader)
+			else
+				listener(producer.value)
+			end
 		end
 		return
 	end
 	runListeners(leader, producer)
 end
 
-local function listenEdge(reactor: Types.Reactor, producer: Node, listener: (value: unknown) -> ()): Node
+local function listenEdge(
+	reactor: Types.Reactor,
+	producer: Node,
+	listener: (value: unknown, edge: Node?) -> (),
+	subject: {},
+	key: string,
+	transform: ((unknown) -> unknown)?,
+	written: unknown
+): Node
 	local update = producer.refresh
 	if update then
 		update(producer)
 	end
 	local class = if update ~= nil and producer.refresh ~= nil then LISTENER else CELL_LISTENER
-	local edge: Node = {
-		producer,
-		nil,
-		nil,
-		nil,
-		version = producer.version,
-		reactor = reactor,
-		queued = false,
-		listener = listener,
-		coalesced = false,
-		run = class.run,
-	}
-	setmetatable((edge :: unknown) :: {}, class)
+	local edge: Node = if transform == nil
+		then {
+			producer,
+			nil,
+			nil,
+			nil,
+			version = producer.version,
+			reactor = reactor,
+			queued = false,
+			listener = listener,
+			coalesced = false,
+			subject = subject,
+			fastKey = key,
+		}
+		else {
+			producer,
+			nil,
+			nil,
+			nil,
+			version = producer.version,
+			reactor = reactor,
+			queued = false,
+			listener = listener,
+			coalesced = false,
+			subject = subject,
+			fastKey = key,
+			transform = transform,
+			written = written,
+		}
+	Nodes.classify(edge, class)
 	if statsOn.enabled then
 		statsOn.recorder.born(edge)
 		stats.bump "watchRuns"
 		statsOn.recorder.enterRun(edge)
 	end
-	listener(producer.value)
+	listener(producer.value, edge)
 	append(producer, edge)
 	return edge
 end
 
-local function unlisten(subject: unknown)
-	local edge = NodeCast.heldEdge(subject)
+local function unlisten(edge: Node)
 	if edge.listener ~= nil then
 		edge.listener = nil
 		detach(edge)
 	end
 end
 
-local function listen(reactor: Types.Reactor, producer: Node, listener: (value: unknown) -> ()): Dispose
+local function listen(reactor: Types.Reactor, producer: Node, listener: (unknown) -> ()): Dispose
 	local update = producer.refresh
 	if update then
 		update(producer)
@@ -648,9 +746,8 @@ local function listen(reactor: Types.Reactor, producer: Node, listener: (value: 
 		queued = false,
 		listener = listener,
 		coalesced = false,
-		run = class.run,
 	}
-	setmetatable((edge :: unknown) :: {}, class)
+	Nodes.classify(edge, class)
 	if statsOn.enabled then
 		statsOn.recorder.born(edge)
 		stats.bump "watchRuns"
@@ -667,6 +764,14 @@ local function listen(reactor: Types.Reactor, producer: Node, listener: (value: 
 end
 
 return {
+	detachers = detachers,
+	isNode = isNode,
+	asNode = asNode,
+	nodeOf = nodeOf,
+	read = read,
+	identityKey = identityKey,
+	clock = clock,
+	nextVersion = nextVersion,
 	CLEAN = CLEAN,
 	coalesce = coalesce,
 	CHECK = CHECK,

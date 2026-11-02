@@ -83,7 +83,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					end
 				end
 			end
-			return read(spec.removeFocusFallback)
+			return read<<GuiObject?>>(spec.removeFocusFallback)
 		end
 		local function restore()
 			if
@@ -154,12 +154,13 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				Position = D2.fromScale(0, 0.5),
 			})
 			assert(row:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Center
-			table.insert(p, row)
+			p[#p + 1] = row
 		end
 		if p.haptic == nil and spec.selected ~= nil then
 			p.haptic = true
 		end
-		node = ctx.styled(UI.Button(p), "chip")
+		local base: TextButton = UI.Button(p)
+		node = ctx.styled(base, "chip")
 		node:AddTag("facet-selection-mark")
 		if removable then
 			kit.attributes(
@@ -167,14 +168,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				{
 					AccessibleLabel = function(use: ComposeTypes.Use): string
 						if not editing(use) then
-							return read(spec.label, use) or ""
+							return read<<string?>>(spec.label, use) or ""
 						end
-						local named = read(spec.removeLabel, use)
+						local named = read<<string?>>(spec.removeLabel, use)
 						return named
 							or ctx.phrase(
 								"Facet.RemoveItem",
 								"Remove {item}",
-								{ item = read(spec.label, use) or "" },
+								{ item = read<<string?>>(spec.label, use) or "" },
 								use
 							)
 					end,

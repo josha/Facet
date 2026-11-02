@@ -3,6 +3,7 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type Built = (() -> unknown) | { screen: () -> unknown }
 local GuiService = game:GetService("GuiService")
 local storage = game:GetService("ReplicatedStorage")
 
@@ -162,10 +163,11 @@ local function reached(paths: { string }, fragment: string): boolean
 end
 
 local function scenario(t: any, name: string, size: any, frames: number?): (any, any)
-	local built
+	local built: Built
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
-		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
-		return if type(built) == "function" then built() else built.screen()
+		local result: Built = t.scenario(name).build(t.context(UI, Host, Compose, env))
+		built = result
+		return if type(result) == "function" then result() else result.screen()
 	end, { size = size, frames = frames or 20 })
 	return stage, built
 end
@@ -369,6 +371,7 @@ add("vm-card-expansion-paints-before-it-finishes", {}, function(t)
 		end
 	end)
 	local virtual = game:GetService("UserInputService"):CreateVirtualInput()
+	assert(virtual:IsA("VirtualInput"))
 	local function click(node: GuiObject)
 		local at = node.AbsolutePosition + node.AbsoluteSize / 2 + GuiService:GetGuiInset()
 		virtual:SendMousePosition(at)
@@ -589,6 +592,7 @@ add("showcase-outside-dismiss", {}, function(t)
 	local playerGui = game:GetService("Players").LocalPlayer.PlayerGui
 	local input = game:GetService("UserInputService")
 	local virtual = input:CreateVirtualInput()
+	assert(virtual:IsA("VirtualInput"))
 	local inset = GuiService:GetGuiInset()
 	if input.TouchEnabled and not input.MouseEnabled then
 		local shield = Instance.new("ScreenGui")

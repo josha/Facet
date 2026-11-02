@@ -1,32 +1,35 @@
 --!strict
 local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
+local Bdd = require("../tools/vendor/verify/src/bdd")
 local Shared = require("../src/ui/types")
+local Facet = require("../src")
 
 return function(verifyHarness: Verify.Harness)
-	verifyHarness:suite("sound icon catalog", function()
-		verifyHarness:case("provides bundled sound placeholders and preserves theme overrides", {
+	local test = Bdd.create(verifyHarness)
+	local describe, it, expect = test.describe, test.it, test.expect
+	describe("sound icon catalog", function()
+		it("provides bundled sound placeholders and preserves theme overrides", {
 			id = "native_themes_media::sound icon catalog::provides bundled sound placeholders and preserves theme overrides",
 			run = function()
 				local icons = require("../src/ui/icons")
 				local themes = require("../src").themes
 				for _, name in { "speaker", "volume", "mute" } do
 					local entry = assert(icons.resolve(name))
-					Verify.expect(
-						string.find(entry.contentId, "rbxasset://textures/ui/VoiceChat/SpeakerLight/", 1, true) == 1
+					expect(string.find(entry.contentId, "rbxasset://textures/ui/VoiceChat/SpeakerLight/", 1, true) == 1):toBe(
+						true
 					)
-						:toBe(true)
-					Verify.expect(themes.resolveIcon({}, name)):toBe(entry.contentId)
+					expect(themes.resolveIcon({}, name)):toBe(entry.contentId)
 				end
 				local ThemeTypes = require("../src/ui/theme_types")
 				local catalog: { [string]: ThemeTypes.IconEntry } = { mute = "rbxassetid://123" }
 				local override: ThemeTypes.IconRegistry = { icons = catalog }
-				Verify.expect(themes.resolveIcon(override, "mute")):toBe("rbxassetid://123")
+				expect(themes.resolveIcon(override, "mute")):toBe("rbxassetid://123")
 			end,
 		})
 	end)
-	verifyHarness:suite("game glyph catalog", function()
-		verifyHarness:case("registers game glyphs as standard art below theme icons", {
+	describe("game glyph catalog", function()
+		it("registers game glyphs as standard art below theme icons", {
 			id = "native_themes_media::game glyph catalog::registers game glyphs as standard art below theme icons",
 			run = function()
 				local icons = require("../src/ui/icons")
@@ -51,16 +54,16 @@ return function(verifyHarness: Verify.Harness)
 					}
 				do
 					local art = assert(icons.ART[name], name)
-					Verify.expect(art.assetName):toBe("facet_icon_" .. name)
-					Verify.expect(art.tintRole):toBe("content")
-					Verify.expect(themes.resolveIcon({}, name)):toBe(art.contentId)
-					Verify.expect(themes.resolveIcon({}, name .. ".fill")):toBe(art.contentId)
+					expect(art.assetName):toBe("facet_icon_" .. name)
+					expect(art.tintRole):toBe("content")
+					expect(themes.resolveIcon({}, name)):toBe(art.contentId)
+					expect(themes.resolveIcon({}, name .. ".fill")):toBe(art.contentId)
 					local catalog: { [string]: ThemeTypes.IconEntry } = { [name] = "rbxassetid://7" }
 					local themed: ThemeTypes.IconRegistry = { icons = catalog }
-					Verify.expect(themes.resolveIcon(themed, name)):toBe("rbxassetid://7")
+					expect(themes.resolveIcon(themed, name)):toBe("rbxassetid://7")
 				end
-				Verify.expect(themes.resolveIcon({}, "person")):toBe(icons.ART.person.contentId)
-				Verify.expect(themes.resolveIcon({}, "kart")):toBe(nil)
+				expect(themes.resolveIcon({}, "person")):toBe(icons.ART.person.contentId)
+				expect(themes.resolveIcon({}, "kart")):toBe(nil)
 			end,
 		})
 	end)
@@ -74,9 +77,9 @@ return function(verifyHarness: Verify.Harness)
 	local FixtureComposeTypes = require("../src/vendor/compose/core")
 	local FixtureMediaTypes = require("../src/ui/media_types")
 	local FixtureMediaProps = require("../src/ui/media_props")
+	local FixtureInputProps = require("../src/ui/input_props")
 	local FixtureThemeTypes = require("../src/ui/theme_types")
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-	type Use = <T>(ReadOnlyValue<T>) -> T
+	type Use = FixtureComposeTypes.Use
 
 	local transitionOf = require("./lib/transition")
 	local styleProperties = require("./lib/style_properties")
@@ -85,7 +88,7 @@ return function(verifyHarness: Verify.Harness)
 	local context = require("../src/ui/context")
 	local controls = require("../src/ui")
 	local media = require("../src/ui/media")
-	local themes = require("../src/ui/themes")(Compose)
+	local themes: FixtureThemeTypes.Themes = require("../src/ui/themes")(Compose)
 	local engineLib = require("./lib/native_engine")
 
 	local function setup()
@@ -93,6 +96,12 @@ return function(verifyHarness: Verify.Harness)
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI = media(context(Compose, runtime, { types = engine.types }))
 		return engine, runtime, UI
+	end
+
+	local function themeState(
+		package: FixtureThemeTypes.ReadOnlyThemePackage
+	): FixtureComposeTypes.Value<FixtureThemeTypes.ReadOnlyThemePackage>
+		return Compose.cell(package)
 	end
 
 	local function style(sheet: StyleSheet, selector: string)
@@ -105,18 +114,84 @@ return function(verifyHarness: Verify.Harness)
 		error("No rule: " .. selector)
 	end
 
-	verifyHarness:suite("native themes and media", function()
-		verifyHarness:case("scales the caption outline at ten feet and keeps its opacity", function()
+	describe("native themes and media", function()
+		it("updates a row icon's art across button states beside a static trailing icon", {
+			id = "native_themes_media::row-icon-button-states",
+			run = function()
+				for _, withTrailing in { true, false } do
+					local engine = engineLib.new()
+					local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+					local package = themes.neutralPackage()
+					package.icons = {
+						rowState = {
+							default = "rbxassetid://100",
+							hover = "rbxassetid://101",
+							pressed = "rbxassetid://102",
+							disabled = "rbxassetid://103",
+						},
+						fixed = "rbxassetid://104",
+					}
+					local enabled = Compose.cell(true)
+					local UI = controls(Compose, runtime, { types = engine.types, theme = package })
+					local button: TextButton
+					local stop = runtime.mount(function()
+						local props: FixtureInputProps.ButtonProps = {
+							row = { title = "Row", icon = "rowState" },
+							trailingIcon = if withTrailing then "fixed" else nil,
+							enabled = enabled,
+							onActivate = function() end,
+						}
+						button = UI.Button "Row"(props)
+						return button
+					end, engine.new("ScreenGui"))
+					local icon = assert(button:FindFirstChild("LeadingIcon", true))
+					assert(icon:IsA("ImageLabel"))
+					expect(icon.Image):toBe("rbxassetid://100")
+					engine.environment.poke(
+						FixtureRoblox.assertInstance(button),
+						"GuiState",
+						engine.types.Enum.GuiState.Hover
+					)
+					expect(icon.Image):toBe("rbxassetid://101")
+					engine.environment.poke(
+						FixtureRoblox.assertInstance(button),
+						"GuiState",
+						engine.types.Enum.GuiState.Press
+					)
+					expect(icon.Image):toBe("rbxassetid://102")
+					enabled:set(false)
+					expect(icon.Image):toBe("rbxassetid://103")
+					enabled:set(true)
+					engine.environment.poke(
+						FixtureRoblox.assertInstance(button),
+						"GuiState",
+						engine.types.Enum.GuiState.Idle
+					)
+					expect(icon.Image):toBe("rbxassetid://100")
+					if withTrailing then
+						local trailing = assert(button:FindFirstChild("TrailingIcon", true))
+						assert(trailing:IsA("ImageLabel"))
+						expect(trailing.Image):toBe("rbxassetid://104")
+					end
+					stop()
+					runtime:dispose()
+				end
+			end,
+		})
+
+		it("scales the caption outline at ten feet and keeps its opacity", function()
 			local package = themes.neutralPackage()
 			local far = themes.forDistance(package, "ten-foot").metrics.controls.button
 			local near = package.metrics.controls.button
-			Verify.expect(far.captionStroke):toBeGreaterThan(near.captionStroke)
-			Verify.expect(far.captionStrokeOpacity):toBe(near.captionStrokeOpacity)
+			expect(far.captionStroke):toBeGreaterThan(near.captionStroke)
+			expect(far.captionStrokeOpacity):toBe(near.captionStrokeOpacity)
 		end)
-		verifyHarness:case("ten-foot text never drops below the console reading floors", {
+		it("ten-foot text never drops below the console reading floors", {
 			id = "native_themes_media::ten-foot-text-floors",
 			run = function()
-				local package = assert(themes.define({ name = "Floors" }))
+				local definition: FixtureThemeTypes.ThemeDefinition =
+					{ identity = { id = "floors", displayName = "Floors" } }
+				local package = assert((themes.define(definition)))
 				local far = themes.forDistance(package, "ten-foot").metrics.typography
 				local near = package.metrics.typography
 				local smallest = math.huge
@@ -125,20 +200,20 @@ return function(verifyHarness: Verify.Harness)
 				end
 				for role, entry in far do
 					local size = near[role].size
-					Verify.expect(entry.size >= (if size == smallest then 24 else 28)):toBe(true)
-					Verify.expect(entry.size >= math.floor(size * 1.5 + 0.5)):toBe(true)
+					expect(entry.size >= (if size == smallest then 24 else 28)):toBe(true)
+					expect(entry.size >= math.floor(size * 1.5 + 0.5)):toBe(true)
 					for other, peer in far do
 						if near[other].size < size then
-							Verify.expect(peer.size < entry.size):toBe(true)
+							expect(peer.size < entry.size):toBe(true)
 						elseif near[other].size == size then
-							Verify.expect(peer.size):toBe(entry.size)
+							expect(peer.size):toBe(entry.size)
 						end
 					end
 				end
 			end,
 		})
 
-		verifyHarness:case("keeps each fade stroke presence selector on its theme motion token", {
+		it("keeps each fade stroke presence selector on its theme motion token", {
 			id = "native_themes_media::native themes and media::keeps each fade stroke presence selector on its theme motion token",
 			run = function()
 				local engine = engineLib.new()
@@ -163,17 +238,17 @@ return function(verifyHarness: Verify.Harness)
 								then "Press"
 								elseif string.find(selector, ":Hover", 1, true) then "Hover"
 								else "Normal"
-							Verify.expect(rule:GetPropertyTransitions().Transparency):toBe("$FacetMotion" .. role)
+							expect(rule:GetPropertyTransitions().Transparency):toBe("$FacetMotion" .. role)
 							checked += 1
 						end
 					end
 				end
-				Verify.expect(checked > 0):toBe(true)
+				expect(checked > 0):toBe(true)
 				stop()
 				runtime:dispose()
 			end,
 		})
-		verifyHarness:case("keeps disabled emphasis text readable after a consumer changes its accent pair", {
+		it("keeps disabled emphasis text readable after a consumer changes its accent pair", {
 			id = "native_themes_media::native themes and media::keeps disabled emphasis text readable after a consumer changes its accent pair",
 			run = function()
 				local engine = engineLib.new()
@@ -191,16 +266,15 @@ return function(verifyHarness: Verify.Harness)
 				local opacity = styleRules.resolve(sheet, node, "TextTransparency") :: number
 				local ink = engine.types.Color3.new(0.06, 0.09, 0.12)
 				local background = engine.types.Color3.new(0.76, 0.96, 0.27)
-				Verify.expect(opacity < 0.4):toBe(true)
-				Verify.expect(
-					require("../src/ui/theme_support").contrast(ink:Lerp(background, opacity), background) >= 4.5
+				expect(opacity < 0.4):toBe(true)
+				expect(require("../src/ui/theme_support").contrast(ink:Lerp(background, opacity), background) >= 4.5):toBe(
+					true
 				)
-					:toBe(true)
 				stop()
 				runtime:dispose()
 			end,
 		})
-		verifyHarness:case("installs motion tokens before a palette token starts a theme transition", {
+		it("installs motion tokens before a palette token starts a theme transition", {
 			id = "native_themes_media::native themes and media::installs motion tokens before a palette token starts a theme transition",
 			run = function()
 				local engine, runtime = setup()
@@ -222,17 +296,16 @@ return function(verifyHarness: Verify.Harness)
 					end
 				end)
 				source:set(assert((themes.define(nextPackage))))
-				Verify.expect(observed):toBeFloat32(0.4)
+				expect(observed):toBeFloat32(0.4)
 				connection:Disconnect()
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("swaps a palette with one token write and no control or rule work", {
+		it("swaps a palette with one token write and no control or rule work", {
 			id = "native_themes_media::native themes and media::swaps a palette with one token write and no control or rule work",
 			run = function()
-				local Facet = require("../src")
 				local engine, runtime = setup()
 				local first = assert((themes.define(themes.neutralPackage())))
 				local tinted = themes.neutralPackage()
@@ -240,8 +313,9 @@ return function(verifyHarness: Verify.Harness)
 				local second = assert((themes.define(tinted)))
 				local source = Compose.cell(first)
 				local UI = Facet.controls(runtime, { types = engine.types, theme = source })
+				local Host = Facet.host(runtime)
 				local stop, result = runtime.mount(function()
-					return Facet.host(runtime).Folder "Screen" {
+					return Host.Folder "Screen" {
 						themes.createStyleSheet(runtime, source, { types = engine.types }),
 						UI.Button "Action" { label = "Action", onActivate = function() end },
 					}
@@ -257,17 +331,16 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				source:set(second)
 				observer:Disconnect()
-				Verify.expect(writes):toEqual({ "StyleSheet.FacetColor_content" })
-				Verify.expect(sheet:GetAttribute("FacetColor_content")):toBe(engine.types.Color3.new(0.8, 0.9, 1))
+				expect(writes):toEqual({ "StyleSheet.FacetColor_content" })
+				expect(sheet:GetAttribute("FacetColor_content")):toBe(engine.types.Color3.new(0.8, 0.9, 1))
 				source:set(first)
-				Verify.expect(sheet:GetAttribute("FacetColor_content") == engine.types.Color3.new(0.8, 0.9, 1))
-					:toBe(false)
+				expect(sheet:GetAttribute("FacetColor_content") == engine.types.Color3.new(0.8, 0.9, 1)):toBe(false)
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("mounts a rule only once an instance carries every class its selector names", {
+		it("mounts a rule only once an instance carries every class its selector names", {
 			id = "native_themes_media::native themes and media::mounts a rule only once an instance carries every class its selector names",
 			run = function()
 				local engine, runtime = setup()
@@ -320,13 +393,14 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, engine.new("Folder"))
 				local sheet = result :: StyleSheet
-				Verify.expect(has(sheet, ".facet-text")):toBe(true)
-				Verify.expect(has(sheet, ".facet-validation")):toBe(false)
-				Verify.expect(#sheet:GetChildren() < #(everything :: StyleSheet):GetChildren()):toBe(true)
+				expect(has(sheet, ".facet-text")):toBe(true)
+				expect(has(sheet, ".facet-validation")):toBe(false)
+				expect(#sheet:GetChildren() < #(everything :: StyleSheet):GetChildren()):toBe(true)
 				arrive("facet-validation")
-				Verify.expect(has(sheet, ".facet-validation")):toBe(true)
-				Verify.expect(style(sheet, ".facet-validation").TextColor3)
-					:toBe(style(everything :: StyleSheet, ".facet-validation").TextColor3)
+				expect(has(sheet, ".facet-validation")):toBe(true)
+				expect(style(sheet, ".facet-validation").TextColor3):toBe(
+					style(everything :: StyleSheet, ".facet-validation").TextColor3
+				)
 				stop()
 				local open = 0
 				for _, list in listeners do
@@ -336,65 +410,61 @@ return function(verifyHarness: Verify.Harness)
 						end
 					end
 				end
-				Verify.expect(open):toBe(0)
+				expect(open):toBe(0)
 				stopAll()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case(
-			"keeps palette roles distinct and updates their native tokens without rewriting color rules",
-			{
-				id = "native_themes_media::native themes and media::keeps palette roles distinct and updates their native tokens without rewriting color rules",
-				run = function()
-					local engine, runtime = setup()
-					local package = themes.neutralPackage()
-					package.style.themes[1].colors.accent = package.style.themes[1].colors.danger
-					local alternate = table.clone(package.style.themes[1])
-					alternate.name = "Alternate"
-					alternate.colors = table.clone(alternate.colors)
-					alternate.colors.accent = { r = 0.2, g = 0.3, b = 0.4 }
-					table.insert(package.style.themes, alternate)
-					local palette = Compose.cell(package.style.defaultTheme)
-					local definition = assert((themes.define(package)))
-					local stop, result = runtime.mount(function()
-						return themes.createStyleSheet(runtime, definition, {
-							types = engine.types,
-							theme = palette,
-						})
-					end, engine.new("Folder"))
-					local sheet = result :: StyleSheet
-					local writes = 0
-					for _, child in sheet:GetChildren() do
-						local rule = child :: StyleRule
-						if rule.Selector ~= ".facet-text" and rule.Selector ~= ".facet-accent-text" then
-							continue
-						end
-						local methods = (
-							rule :: unknown
-						) :: { SetProperties: (StyleRule, FixtureThemeTypes.RuleProperties) -> () }
-						local set = methods.SetProperties
-						methods.SetProperties = function(self, properties)
-							writes += 1
-							set(self, properties)
-						end
+		it("keeps palette roles distinct and updates their native tokens without rewriting color rules", {
+			id = "native_themes_media::native themes and media::keeps palette roles distinct and updates their native tokens without rewriting color rules",
+			run = function()
+				local engine, runtime = setup()
+				local package = themes.neutralPackage()
+				package.style.themes[1].colors.accent = package.style.themes[1].colors.danger
+				local alternate = table.clone(package.style.themes[1])
+				alternate.name = "Alternate"
+				alternate.colors = table.clone(alternate.colors)
+				alternate.colors.accent = { r = 0.2, g = 0.3, b = 0.4 }
+				table.insert(package.style.themes, alternate)
+				local palette = Compose.cell(package.style.defaultTheme)
+				local definition = assert((themes.define(package)))
+				local stop, result = runtime.mount(function()
+					return themes.createStyleSheet(runtime, definition, {
+						types = engine.types,
+						theme = palette,
+					})
+				end, engine.new("Folder"))
+				local sheet = result :: StyleSheet
+				local writes = 0
+				for _, child in sheet:GetChildren() do
+					local rule = child :: StyleRule
+					if rule.Selector ~= ".facet-text" and rule.Selector ~= ".facet-accent-text" then
+						continue
 					end
-					local content = style(sheet, ".facet-validation").TextColor3
-					palette:set("Alternate")
-					Verify.expect(style(sheet, ".facet-validation").TextColor3):toBe(content)
-					Verify.expect(style(sheet, ".facet-accent-text").TextColor3)
-						:toBe(engine.types.Color3.new(0.2, 0.3, 0.4))
-					Verify.expect(writes):toBe(0)
-					palette:set(package.style.defaultTheme)
-					Verify.expect(style(sheet, ".facet-accent-text").TextColor3):toBe(content)
-					Verify.expect(writes):toBe(0)
-					stop()
-					runtime:dispose()
-				end,
-			}
-		)
+					local methods = (
+						rule :: unknown
+					) :: { SetProperties: (StyleRule, FixtureThemeTypes.RuleProperties) -> () }
+					local set = methods.SetProperties
+					methods.SetProperties = function(self, properties)
+						writes += 1
+						set(self, properties)
+					end
+				end
+				local content = style(sheet, ".facet-validation").TextColor3
+				palette:set("Alternate")
+				expect(style(sheet, ".facet-validation").TextColor3):toBe(content)
+				expect(style(sheet, ".facet-accent-text").TextColor3):toBe(engine.types.Color3.new(0.2, 0.3, 0.4))
+				expect(writes):toBe(0)
+				palette:set(package.style.defaultTheme)
+				expect(style(sheet, ".facet-accent-text").TextColor3):toBe(content)
+				expect(writes):toBe(0)
+				stop()
+				runtime:dispose()
+			end,
+		})
 
-		verifyHarness:case("resolves authored metric rules through distance and theme changes", {
+		it("resolves authored metric rules through distance and theme changes", {
 			id = "native_themes_media::native themes and media::resolves authored metric rules through distance and theme changes",
 			run = function()
 				local engine, runtime = setup()
@@ -410,28 +480,29 @@ return function(verifyHarness: Verify.Harness)
 						properties = { TextSize = { metric = "typography.title.size" }, Rotation = 3 } :: FixtureThemeTypes.AuthoredRuleProperties,
 					} :: FixtureThemeTypes.Rule,
 				}
-				local package = assert(themes.define(definition))
-				local chosen, distant = Compose.cell(package), Compose.cell(false)
+				local package = assert((themes.define(definition)))
+				local chosen, distant = themeState(package), Compose.cell(false)
 				local stop, mounted = runtime.mount(function()
 					return themes.createStyleSheet(runtime, chosen, { types = engine.types, tenFoot = distant })
 				end, engine.new("ScreenGui"))
 				local sheet = mounted :: StyleSheet
-				Verify.expect(style(sheet, ".toy::UIStroke").Thickness):toBe(3)
+				expect(style(sheet, ".toy::UIStroke").Thickness):toBe(3)
 				distant:set(true)
-				Verify.expect(style(sheet, ".toy::UIStroke").Thickness):toBe(4.5)
-				Verify.expect(style(sheet, ".toy").TextSize)
-					:toBe(themes.forDistance(package, "ten-foot").metrics.typography.title.size)
-				Verify.expect(style(sheet, ".toy").Rotation):toBe(3)
+				expect(style(sheet, ".toy::UIStroke").Thickness):toBe(4.5)
+				expect(style(sheet, ".toy").TextSize):toBe(
+					themes.forDistance(package, "ten-foot").metrics.typography.title.size
+				)
+				expect(style(sheet, ".toy").Rotation):toBe(3)
 				definition.metrics.strokes.outline = 4
-				chosen:set((assert(themes.define(definition))))
-				Verify.expect(style(sheet, ".toy::UIStroke").Thickness):toBe(6)
+				chosen:set((assert((themes.define(definition)))))
+				expect(style(sheet, ".toy::UIStroke").Thickness):toBe(6)
 				distant:set(false)
-				Verify.expect(style(sheet, ".toy::UIStroke").Thickness):toBe(4)
+				expect(style(sheet, ".toy::UIStroke").Thickness):toBe(4)
 				stop()
 				runtime:dispose()
 			end,
 		})
-		verifyHarness:case("rejects malformed or nonnumeric authored metric references", {
+		it("rejects malformed or nonnumeric authored metric references", {
 			id = "native_themes_media::native themes and media::rejects malformed or nonnumeric authored metric references",
 			run = function()
 				for _, path in
@@ -445,51 +516,48 @@ return function(verifyHarness: Verify.Harness)
 						} :: FixtureThemeTypes.Rule,
 					}
 					local package, report = themes.define(definition)
-					Verify.expect(package):toBe(nil)
-					Verify.expect(report.ok):toBe(false)
-					Verify.expect(report.errors[1].field):toBe("rules.1.properties.Thickness")
+					expect(package):toBe(nil)
+					expect(report.ok):toBe(false)
+					expect(report.errors[1].field):toBe("rules.1.properties.Thickness")
 				end
 			end,
 		})
 
-		verifyHarness:case(
-			"uses an end ellipsis for bounded disclosure text without changing wrap or authored truncation",
-			{
-				id = "native_themes_media::native themes and media::uses an end ellipsis for bounded disclosure text without changing wrap or authored truncation",
-				run = function()
-					local engine, runtime, UI = setup()
-					local labels: { TextLabel } = {}
-					local stop = runtime.mount(function()
-						local text = "A deliberately long label that has to wrap or truncate honestly in every theme"
-						local specs: { FixtureMediaProps.TextProps } = {
-							{ text = text, disclose = true },
-							{ text = text, disclose = true, wrap = true },
-							{ text = text, disclose = true, TextTruncate = engine.types.Enum.TextTruncate.None },
-							{ text = text, disclose = true, truncate = "middle" :: "middle" },
-						}
-						for index, spec in specs do
-							local props = table.clone(spec)
-							props.Size = engine.types.UDim2.fromOffset(200, 24)
-							labels[index] = (UI.Text(props) :: unknown) :: TextLabel
-						end
-						return labels
-					end, engine.new("Frame"))
-					Verify.expect(labels[1].TextTruncate):toBe(engine.types.Enum.TextTruncate.AtEnd)
-					Verify.expect(labels[2].TextWrapped):toBe(true)
-					Verify.expect(labels[2].TextTruncate):toBe(engine.types.Enum.TextTruncate.None)
-					Verify.expect(labels[3].TextTruncate):toBe(engine.types.Enum.TextTruncate.None)
-					Verify.expect(labels[4].TextTruncate):toBe(engine.types.Enum.TextTruncate.None)
-					stop()
-					runtime:dispose()
-				end,
-			}
-		)
+		it("uses an end ellipsis for bounded disclosure text without changing wrap or authored truncation", {
+			id = "native_themes_media::native themes and media::uses an end ellipsis for bounded disclosure text without changing wrap or authored truncation",
+			run = function()
+				local engine, runtime, UI = setup()
+				local labels: { TextLabel } = {}
+				local stop = runtime.mount(function()
+					local text = "A deliberately long label that has to wrap or truncate honestly in every theme"
+					local specs: { FixtureMediaProps.TextProps } = {
+						{ text = text, disclose = true },
+						{ text = text, disclose = true, wrap = true },
+						{ text = text, disclose = true, TextTruncate = engine.types.Enum.TextTruncate.None },
+						{ text = text, disclose = true, truncate = "middle" :: "middle" },
+					}
+					for index, spec in specs do
+						local props = table.clone(spec)
+						props.Size = engine.types.UDim2.fromOffset(200, 24)
+						labels[index] = (UI.Text(props) :: unknown) :: TextLabel
+					end
+					return labels
+				end, engine.new("Frame"))
+				expect(labels[1].TextTruncate):toBe(engine.types.Enum.TextTruncate.AtEnd)
+				expect(labels[2].TextWrapped):toBe(true)
+				expect(labels[2].TextTruncate):toBe(engine.types.Enum.TextTruncate.None)
+				expect(labels[3].TextTruncate):toBe(engine.types.Enum.TextTruncate.None)
+				expect(labels[4].TextTruncate):toBe(engine.types.Enum.TextTruncate.None)
+				stop()
+				runtime:dispose()
+			end,
+		})
 
-		verifyHarness:case("paints a cached image with its prepared row without a second entrance", function(t)
+		it("paints a cached image with its prepared row without a second entrance", function(_own, t)
 			for _, grouped in { true, false } do
 				local native = engineLib.new()
 				local runtime = Roblox.createRuntime(native)
-				local Host = (runtime.constructors :: unknown) :: Shared.Host
+				local Host = Facet.host(runtime)
 				local image: ImageLabel? = nil
 				local provider = {
 					GetAssetFetchStatus = function(_self: unknown, _content: string): Enum.AssetFetchStatus
@@ -521,14 +589,16 @@ return function(verifyHarness: Verify.Harness)
 					stop()
 					runtime:dispose()
 				end)
-				t:expect(assert(image):GetAttribute("FacetMediaReady")):toBe(true)
-				t:expect(assert(image).ImageTransparency):toBe(0)
+				expect(assert(image):GetAttribute("FacetMediaReady")):toBe(true)
+				expect(assert(image).ImageTransparency):toBe(0)
 			end
 		end)
 
-		verifyHarness:case("reveals a fetched collection image when native IsLoaded stays false", function(t)
+		it("reveals a fetched collection image when native IsLoaded stays false", function(_own, t)
 			local prepare = require("../src/ui/media_readiness")
-			local environment = getfenv(prepare)
+			local callable: unknown = prepare
+			assert(type(callable) == "function")
+			local environment = getfenv(callable)
 			local originalTask = environment.task
 			local pending: { thread } = {}
 			environment.task = {
@@ -550,7 +620,7 @@ return function(verifyHarness: Verify.Harness)
 				return now
 			end
 			local runtime = Roblox.createRuntime(native)
-			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local Host = Facet.host(runtime)
 			local fetched: Instance? = nil
 			local provider = {
 				PreloadAsync = function(
@@ -590,26 +660,26 @@ return function(verifyHarness: Verify.Harness)
 				"AbsoluteSize",
 				native.types.Vector2.new(240, 180)
 			)
-			t:expect(#pending > 0):toBe(true)
+			expect(#pending > 0):toBe(true)
 			local function flush()
 				for _, queued in pending do
 					if coroutine.status(queued) == "suspended" then
-						t:expect(coroutine.resume(queued)):toBe(true)
+						expect(coroutine.resume(queued)):toBe(true)
 					end
 				end
 			end
 			flush()
-			t:expect(fetched):toBe(artwork)
+			expect(fetched):toBe(artwork)
 			for _ = 1, 30 do
 				now += 1 / 60
 				native.heartbeat:Fire(1 / 60)
 				flush()
 			end
-			t:expect(artwork.IsLoaded):toBe(false)
-			t:expect(artwork:GetAttribute("FacetMediaReady")):toBe(true)
-			t:expect(artwork.ImageTransparency):toBe(0)
+			expect(artwork.IsLoaded):toBe(false)
+			expect(artwork:GetAttribute("FacetMediaReady")):toBe(true)
+			expect(artwork.ImageTransparency):toBe(0)
 		end)
-		verifyHarness:case("keeps a newly materialized stage on its current styled colour throughout media reveal", {
+		it("keeps a newly materialized stage on its current styled colour throughout media reveal", {
 			id = "native_themes_media::native themes and media::keeps a newly materialized stage on its current styled colour throughout media reveal",
 			run = function()
 				for _, rgb in { { 32, 30, 44 }, { 242, 244, 248 } } do
@@ -620,7 +690,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 					local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 					local ctx = context(Compose, runtime, { types = engine.types })
-					local Host = (runtime.constructors :: unknown) :: RobloxHost
+					local Host = Facet.host(runtime)
 					local grey = engine.types.Color3.fromRGB(163, 162, 165)
 					local themed = engine.types.Color3.fromRGB(rgb[1], rgb[2], rgb[3])
 					local resolved = Compose.cell(grey)
@@ -662,8 +732,8 @@ return function(verifyHarness: Verify.Harness)
 					for _ = 1, 30 do
 						now += 1 / 60
 						engine.heartbeat:Fire(1 / 60)
-						Verify.expect(node:GetStyled("BackgroundColor3")):toBe(themed)
-						Verify.expect(node:GetStyled("BackgroundColor3")):toBe(baseline:GetStyled("BackgroundColor3"))
+						expect(node:GetStyled("BackgroundColor3")):toBe(themed)
+						expect(node:GetStyled("BackgroundColor3")):toBe(baseline:GetStyled("BackgroundColor3"))
 					end
 					baseline:Destroy()
 					stop()
@@ -672,7 +742,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("keeps field ink separate from row selection and uses readable link ink", {
+		it("keeps field ink separate from row selection and uses readable link ink", {
 			id = "native_themes_media::native themes and media::keeps field ink separate from row selection and uses readable link ink",
 			run = function()
 				local engine, runtime = setup()
@@ -680,7 +750,7 @@ return function(verifyHarness: Verify.Harness)
 					return themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
 				end, engine.new("Folder"))
 				local content = style(sheet, ".facet-text").TextColor3
-				Verify.expect(style(sheet, ".facet-selected >> .facet-text.facet-field").TextColor3):toBe(content)
+				expect(style(sheet, ".facet-selected >> .facet-text.facet-field").TextColor3):toBe(content)
 				local link = style(sheet, ".facet-appearance-link >> .facet-button-caption").TextColor3
 				local function luminance(color)
 					local function linear(value)
@@ -690,13 +760,13 @@ return function(verifyHarness: Verify.Harness)
 				end
 				local surface = style(sheet, ".facet-panel").BackgroundColor3
 				local a, b = luminance(link :: Color3), luminance(surface :: Color3)
-				Verify.expect((math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)):toBeGreaterThanOrEqual(4.5)
+				expect((math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)):toBeGreaterThanOrEqual(4.5)
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("reserves the full radial target for its native single line label", {
+		it("reserves the full radial target for its native single line label", {
 			id = "native_themes_media::native themes and media::reserves the full radial target for its native single line label",
 			run = function()
 				local engine, runtime = setup()
@@ -704,16 +774,15 @@ return function(verifyHarness: Verify.Harness)
 					return themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
 				end, engine.new("Folder"))
 				for _, side in { "Left", "Right", "Top", "Bottom" } do
-					Verify.expect(
+					expect(
 						(style(sheet, ".facet-button.facet-radial-label::UIPadding")["Padding" .. side] :: UDim).Offset
-					)
-						:toBe(0)
+					):toBe(0)
 				end
 				stop()
 				runtime:dispose()
 			end,
 		})
-		verifyHarness:case("gives a text badge a native padding child for its status dot inset", {
+		it("gives a text badge a native padding child for its status dot inset", {
 			id = "native_themes_media::native themes and media::gives a text badge a native padding child for its status dot inset",
 			run = function()
 				local engine = engineLib.new()
@@ -724,12 +793,12 @@ return function(verifyHarness: Verify.Harness)
 					badge = UI.Badge "Coins" { label = "120 coins", appearance = "status", status = "warning" }
 					return badge
 				end, engine.new("Folder"))
-				Verify.expect(assert(badge):FindFirstChildWhichIsA("UIPadding") ~= nil):toBe(true)
+				expect(assert(badge):FindFirstChildWhichIsA("UIPadding") ~= nil):toBe(true)
 				stop()
 				runtime:dispose()
 			end,
 		})
-		verifyHarness:case("calendar scroll padding reserves only the panel artwork", {
+		it("calendar scroll padding reserves only the panel artwork", {
 			id = "native_themes_media::native themes and media::calendar scroll padding reserves only the panel artwork",
 			run = function()
 				local engine, runtime = setup()
@@ -741,7 +810,7 @@ return function(verifyHarness: Verify.Harness)
 						return themes.createStyleSheet(runtime, package, { types = engine.types })
 					end, engine.new("Folder"))
 					for _, side in { "Left", "Right", "Top", "Bottom" } do
-						Verify.expect(
+						expect(
 							(
 								style(sheet :: StyleSheet, ".facet-panel.facet-calendar-scroll::UIPadding")["Padding" .. side] :: UDim
 							).Offset
@@ -752,24 +821,24 @@ return function(verifyHarness: Verify.Harness)
 				runtime:dispose()
 			end,
 		})
-		verifyHarness:case("pins artwork and captions to the observed automatic layout origin", {
+		it("pins artwork and captions to the observed automatic layout origin", {
 			id = "native_themes_media::native themes and media::pins artwork and captions to the observed automatic layout origin",
 			run = function()
 				local engine, runtime = setup()
-				local Host = (runtime.constructors :: unknown) :: RobloxHost
+				local Host = Facet.host(runtime)
 				local decoration = require("../src/ui/native_decoration")
 				local stop, target: any = runtime.mount(function()
-					return Host.TextButton({
+					return Host.TextButton {
 						AutomaticSize = engine.types.Enum.AutomaticSize.XY,
-						Host.UIPadding({
+						Host.UIPadding {
 							PaddingLeft = engine.types.UDim.new(0, 28),
 							PaddingRight = engine.types.UDim.new(0, 28),
-						}),
-					})
+						},
+					}
 				end, engine.new("Folder"))
 				local boundary: GuiObject?
 				runtime.mount(function()
-					boundary = decoration(Compose, runtime, engine.types, target, Host.Frame({ Name = "Skin" }))
+					boundary = decoration(Compose, runtime, engine.types, target, Host.Frame { Name = "Skin" })
 					return boundary
 				end, target)
 				assert(boundary)
@@ -790,12 +859,12 @@ return function(verifyHarness: Verify.Harness)
 				local origin = boundary.AbsolutePosition
 					+ engine.types.Vector2.new(bounds.Position.X.Offset, bounds.Position.Y.Offset)
 					- bounds.AbsoluteSize
-				Verify.expect(origin):toBe(target.AbsolutePosition)
+				expect(origin):toBe(target.AbsolutePosition)
 				stop()
 				runtime:dispose()
 			end,
 		})
-		verifyHarness:case("applies a live text preference to every typography role", {
+		it("applies a live text preference to every typography role", {
 			id = "native_themes_media::native themes and media::applies a live text preference to every typography role",
 			run = function()
 				local engine = engineLib.new()
@@ -807,164 +876,159 @@ return function(verifyHarness: Verify.Harness)
 				end, engine.new("Folder"))
 				local base = style(sheet, ".facet-text").TextSize :: number
 				preference:set("Largest")
-				Verify.expect(style(sheet, ".facet-text").TextSize):toBe(base + 6)
-				Verify.expect(style(sheet, ".facet-type-control").TextSize)
-					:toBe(themes.neutralPackage().metrics.typography.control.size + 6)
+				expect(style(sheet, ".facet-text").TextSize):toBe(base + 6)
+				expect(style(sheet, ".facet-type-control").TextSize):toBe(
+					themes.neutralPackage().metrics.typography.control.size + 6
+				)
 				preference:set("Medium")
-				Verify.expect(style(sheet, ".facet-text").TextSize):toBe(base)
+				expect(style(sheet, ".facet-text").TextSize):toBe(base)
 				stop()
 				runtime:dispose()
 			end,
 		})
-		verifyHarness:case("keeps native theme rules reactive without writing instance paint", {
+		it("keeps native theme rules reactive without writing instance paint", {
 			id = "native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint",
 			run = function()
 				local engine, runtime, UI = setup()
-				local selected = Compose.cell(themes.neutralPackage())
+				local selected = themeState(themes.neutralPackage())
 				local sheet: any, label: any
 				local stop = runtime.mount(function()
 					sheet = themes.createStyleSheet(runtime, selected, { types = engine.types })
-					label = UI.Text({ text = "Themed" })
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						sheet :: unknown,
-						runtime.constructors.StyleLink({ StyleSheet = Compose.static(sheet) }),
+					label = UI.Text { text = "Themed" }
+					return Facet.host(runtime).Frame({
+						sheet,
+						runtime.constructors.StyleLink { StyleSheet = Compose.static(sheet) },
 						label,
 					})
 				end, engine.new("Folder"))
 				local nextTheme = themes.neutralPackage()
 				nextTheme.style.themes[1].colors.content = { r = 0.1, g = 0.2, b = 0.3 }
 				selected:set(nextTheme)
-				Verify.expect(style(sheet, ".facet-text").TextColor3):toBe(engine.types.Color3.new(0.1, 0.2, 0.3))
-				Verify.expect(label.Text):toBe("Themed")
+				expect(style(sheet, ".facet-text").TextColor3):toBe(engine.types.Color3.new(0.1, 0.2, 0.3))
+				expect(label.Text):toBe("Themed")
 				stop()
-				Verify.expect((sheet:isDestroyed())):toBe(true)
+				expect((sheet:isDestroyed())):toBe(true)
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case(
-			"retargets native theme paint with shared timing and disables motion without replacing rules",
-			{
-				id = "native_themes_media::native themes and media::retargets native theme paint with shared timing and disables motion without replacing rules",
-				run = function()
-					local engine, runtime = setup()
-					local package = themes.neutralPackage()
-					package.metrics.motion.normal = 0.32
-					local light = table.clone(package.style.themes[1])
-					light.name = "Light"
-					light.colors = table.clone(light.colors)
-					light.colors.surface = { r = 0.9, g = 0.9, b = 0.9 }
-					light.colors.content = { r = 0.1, g = 0.1, b = 0.1 }
-					light.extra = table.clone(light.extra or {})
-					assert(light.extra).onSelected = { r = 1, g = 1, b = 1 }
-					package.style.themes = { package.style.themes[1], light }
-					package = assert(themes.define(package))
-					local selection, reduced, explicit: FixtureComposeTypes.Value<(TweenInfo | false)?> =
-						Compose.cell("Dark"), Compose.cell(false), Compose.cell(nil :: TweenInfo | false | nil)
-					local stop, sheet: any = runtime.mount(function()
-						return themes.createStyleSheet(runtime, package, {
-							types = engine.types,
-							theme = selection,
-							motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
-								return if use(reduced) then "none" else "normal"
-							end) :: unknown) :: MotionLevel,
-							transition = explicit,
-						})
-					end, engine.new("Folder"))
-					local rules = sheet:GetChildren()
-					local textRule, surfaceRule
-					for _, rule in rules do
-						if rule.Selector == ".facet-text" then
-							textRule = rule
-						elseif rule.Selector == ".facet-surface" then
-							surfaceRule = rule
-						end
+		it("retargets native theme paint with shared timing and disables motion without replacing rules", {
+			id = "native_themes_media::native themes and media::retargets native theme paint with shared timing and disables motion without replacing rules",
+			run = function()
+				local engine, runtime = setup()
+				local package = themes.neutralPackage()
+				package.metrics.motion.normal = 0.32
+				local light = table.clone(package.style.themes[1])
+				light.name = "Light"
+				light.colors = table.clone(light.colors)
+				light.colors.surface = { r = 0.9, g = 0.9, b = 0.9 }
+				light.colors.content = { r = 0.1, g = 0.1, b = 0.1 }
+				light.extra = if light.extra then table.clone(light.extra) else {}
+				assert(light.extra).onSelected = { r = 1, g = 1, b = 1 }
+				package.style.themes = { package.style.themes[1], light }
+				package = assert((themes.define(package)))
+				local selection, reduced, explicit: FixtureComposeTypes.Value<(TweenInfo | false)?> =
+					Compose.cell("Dark"), Compose.cell(false), Compose.cell(nil :: TweenInfo | false | nil)
+				local stop, sheet: any = runtime.mount(function()
+					return themes.createStyleSheet(runtime, package, {
+						types = engine.types,
+						theme = selection,
+						motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
+							return if use(reduced) then "none" else "normal"
+						end) :: unknown) :: MotionLevel,
+						transition = explicit,
+					})
+				end, engine.new("Folder"))
+				local rules = sheet:GetChildren()
+				local textRule, surfaceRule
+				for _, rule in rules do
+					if rule.Selector == ".facet-text" then
+						textRule = rule
+					elseif rule.Selector == ".facet-surface" then
+						surfaceRule = rule
 					end
-					local timing = transitionOf(textRule, "TextColor3")
-					Verify.expect(timing.Time):toBeFloat32(0.32)
-					Verify.expect(timing.EasingStyle):toBe(engine.types.Enum.EasingStyle.Quad)
-					Verify.expect((transitionOf(surfaceRule, "BackgroundColor3"))):toBe(timing)
-					Verify.expect((transitionOf(surfaceRule, "BackgroundTransparency"))):toBe(timing)
-					Verify.expect((transitionOf(textRule, "TextSize"))):toBe(nil)
-					selection:set("Light")
-					Verify.expect(styleProperties(textRule).TextColor3):toBe(engine.types.Color3.new(0.1, 0.1, 0.1))
-					Verify.expect(styleProperties(surfaceRule).BackgroundColor3)
-						:toBe(engine.types.Color3.new(0.9, 0.9, 0.9))
-					selection:set("Dark")
-					Verify.expect((transitionOf(textRule, "TextColor3"))):toBe(timing)
-					Verify.expect(styleProperties(textRule).TextColor3)
-						:toBe(engine.types.Color3.new(236 / 255, 239 / 255, 245 / 255))
-					Verify.expect(sheet:GetChildren()[1]):toBe(rules[1])
-					Verify.expect(#sheet:GetChildren()):toBe(#rules)
-					Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
-					reduced:set(true)
-					Verify.expect(transitionOf(textRule, "TextColor3").Time):toBe(0)
-					Verify.expect(transitionOf(surfaceRule, "BackgroundColor3").Time):toBe(0)
-					selection:set("Light")
-					Verify.expect(styleProperties(surfaceRule).BackgroundColor3)
-						:toBe(engine.types.Color3.new(0.9, 0.9, 0.9))
-					reduced:set(false)
-					local override = engine.types.TweenInfo.new(0.6, engine.types.Enum.EasingStyle.Linear)
-					explicit:set(override)
-					Verify.expect((transitionOf(surfaceRule, "BackgroundColor3"))):toBe(override)
-					explicit:set(false :: false)
-					Verify.expect(transitionOf(textRule, "TextColor3").Time):toBe(0)
-					stop()
-					Verify.expect((textRule:isDestroyed())):toBe(true)
-					Verify.expect((surfaceRule:isDestroyed())):toBe(true)
-					selection:set("Dark")
-					Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
-					runtime:dispose()
-				end,
-			}
-		)
+				end
+				local timing = transitionOf(textRule, "TextColor3")
+				expect(timing.Time):toBeFloat32(0.32)
+				expect(timing.EasingStyle):toBe(engine.types.Enum.EasingStyle.Quad)
+				expect((transitionOf(surfaceRule, "BackgroundColor3"))):toBe(timing)
+				expect((transitionOf(surfaceRule, "BackgroundTransparency"))):toBe(timing)
+				expect((transitionOf(textRule, "TextSize"))):toBe(nil)
+				selection:set("Light")
+				expect(styleProperties(textRule).TextColor3):toBe(engine.types.Color3.new(0.1, 0.1, 0.1))
+				expect(styleProperties(surfaceRule).BackgroundColor3):toBe(engine.types.Color3.new(0.9, 0.9, 0.9))
+				selection:set("Dark")
+				expect((transitionOf(textRule, "TextColor3"))):toBe(timing)
+				expect(styleProperties(textRule).TextColor3):toBe(
+					engine.types.Color3.new(236 / 255, 239 / 255, 245 / 255)
+				)
+				expect(sheet:GetChildren()[1]):toBe(rules[1])
+				expect(#sheet:GetChildren()):toBe(#rules)
+				expect((engineLib.connections(engine.heartbeat))):toBe(0)
+				reduced:set(true)
+				expect(transitionOf(textRule, "TextColor3").Time):toBe(0)
+				expect(transitionOf(surfaceRule, "BackgroundColor3").Time):toBe(0)
+				selection:set("Light")
+				expect(styleProperties(surfaceRule).BackgroundColor3):toBe(engine.types.Color3.new(0.9, 0.9, 0.9))
+				reduced:set(false)
+				local override = engine.types.TweenInfo.new(0.6, engine.types.Enum.EasingStyle.Linear)
+				explicit:set(override)
+				expect((transitionOf(surfaceRule, "BackgroundColor3"))):toBe(override)
+				explicit:set(false :: false)
+				expect(transitionOf(textRule, "TextColor3").Time):toBe(0)
+				stop()
+				expect((textRule:isDestroyed())):toBe(true)
+				expect((surfaceRule:isDestroyed())):toBe(true)
+				selection:set("Dark")
+				expect((engineLib.connections(engine.heartbeat))):toBe(0)
+				runtime:dispose()
+			end,
+		})
 
-		verifyHarness:case(
-			"adds and removes native rules through Compose while shallow-frozen packages stay reactive",
-			{
-				id = "native_themes_media::native themes and media::adds and removes native rules through Compose while shallow-frozen packages stay reactive",
-				run = function()
-					local engine, runtime = setup()
-					local package = themes.neutralPackage()
-					local contributed: FixtureThemeTypes.RuleProperties = { BackgroundTransparency = 0.25 }
-					package.rules = {}
-					table.freeze(package)
-					local revision = Compose.cell(0)
-					local stop, sheet: any = runtime.mount(function()
-						return themes.createStyleSheet(runtime, function(use: Use)
-							use(revision)
-							return package
-						end, { types = engine.types })
-					end, engine.new("Folder"))
-					local initial = sheet:GetChildren()
-					table.insert(assert(package.rules), { selector = ".game-added", properties = contributed })
-					revision:set(1)
-					Verify.expect(#sheet:GetChildren()):toBe(#initial + 1)
-					local added = sheet:GetChildren()[#initial + 1]
-					Verify.expect(added.Selector):toBe(".game-added")
-					Verify.expect(added:GetProperties().BackgroundTransparency):toBe(0.25)
-					Verify.expect(transitionOf(added, "BackgroundTransparency").Time):toBeFloat32(0.2)
-					contributed.BackgroundTransparency = 0.75
-					revision:set(2)
-					Verify.expect(added:GetProperties().BackgroundTransparency):toBe(0.75)
-					Verify.expect(sheet:GetChildren()[#initial + 1]):toBe(added)
-					table.clear(assert(package.rules))
-					revision:set(3)
-					Verify.expect((added:isDestroyed())):toBe(true)
-					Verify.expect(#sheet:GetChildren()):toBe(#initial)
-					for index, rule in initial do
-						Verify.expect(sheet:GetChildren()[index]):toBe(rule)
-					end
-					stop()
-					for _, rule in initial do
-						Verify.expect((rule:isDestroyed())):toBe(true)
-					end
-					runtime:dispose()
-				end,
-			}
-		)
+		it("adds and removes native rules through Compose while shallow-frozen packages stay reactive", {
+			id = "native_themes_media::native themes and media::adds and removes native rules through Compose while shallow-frozen packages stay reactive",
+			run = function()
+				local engine, runtime = setup()
+				local package: FixtureThemeTypes.ThemePackage = themes.neutralPackage()
+				local contributed: FixtureThemeTypes.AuthoredRuleProperties = { BackgroundTransparency = 0.25 }
+				local rules: { FixtureThemeTypes.Rule } = {}
+				package.rules = rules
+				table.freeze(package)
+				local revision = Compose.cell(0)
+				local stop, sheet: any = runtime.mount(function()
+					return (themes.createStyleSheet :: any)(runtime, function(use: Use)
+						use(revision)
+						return package
+					end, { types = engine.types })
+				end, engine.new("Folder"))
+				local initial = sheet:GetChildren()
+				table.insert(rules, { selector = ".game-added", properties = contributed })
+				revision:set(1)
+				expect(#sheet:GetChildren()):toBe(#initial + 1)
+				local added = sheet:GetChildren()[#initial + 1]
+				expect(added.Selector):toBe(".game-added")
+				expect(added:GetProperties().BackgroundTransparency):toBe(0.25)
+				expect(transitionOf(added, "BackgroundTransparency").Time):toBeFloat32(0.2)
+				contributed.BackgroundTransparency = 0.75
+				revision:set(2)
+				expect(added:GetProperties().BackgroundTransparency):toBe(0.75)
+				expect(sheet:GetChildren()[#initial + 1]):toBe(added)
+				table.clear(rules)
+				revision:set(3)
+				expect((added:isDestroyed())):toBe(true)
+				expect(#sheet:GetChildren()):toBe(#initial)
+				for index, rule in initial do
+					expect(sheet:GetChildren()[index]):toBe(rule)
+				end
+				stop()
+				for _, rule in initial do
+					expect((rule:isDestroyed())):toBe(true)
+				end
+				runtime:dispose()
+			end,
+		})
 
-		verifyHarness:case("keeps theme skin layers and state asset swaps inside native Compose ownership", {
+		it("keeps theme skin layers and state asset swaps inside native Compose ownership", {
 			id = "native_themes_media::native themes and media::keeps theme skin layers and state asset swaps inside native Compose ownership",
 			run = function()
 				local engine, runtime = setup()
@@ -991,65 +1055,66 @@ return function(verifyHarness: Verify.Harness)
 				local stop, node: any = runtime.mount(function()
 					return themes.skin(runtime, package, "control", { types = engine.types, state = state })
 				end, engine.new("Folder"))
-				Verify.expect(#node:GetChildren()):toBe(5)
-				Verify.expect(node:FindFirstChild("control2bottomRight").Image):toBe("rbxassetid://3")
+				expect(#node:GetChildren()):toBe(5)
+				expect(node:FindFirstChild("control2bottomRight").Image):toBe("rbxassetid://3")
 				local image = node:FindFirstChild("control1")
-				Verify.expect(image.Image):toBe("rbxassetid://1")
-				Verify.expect(image.ScaleType):toBe(engine.types.Enum.ScaleType.Slice)
+				expect(image.Image):toBe("rbxassetid://1")
+				expect(image.ScaleType):toBe(engine.types.Enum.ScaleType.Slice)
 				state:set("pressed")
-				Verify.expect(image.Image):toBe("rbxassetid://2")
-				Verify.expect(image.ScaleType):toBe(engine.types.Enum.ScaleType.Stretch)
+				expect(image.Image):toBe("rbxassetid://2")
+				expect(image.ScaleType):toBe(engine.types.Enum.ScaleType.Stretch)
 				stop()
-				Verify.expect((image:isDestroyed())):toBe(true)
+				expect((image:isDestroyed())):toBe(true)
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("shares caller resources directly through Compose and releases the final reference", {
+		it("shares caller resources directly through Compose and releases the final reference", {
 			id = "native_themes_media::native themes and media::shares caller resources directly through Compose and releases the final reference",
 			run = function()
 				local engine, runtime, UI = setup()
 				local acquired, released = 0, 0
 				local resource = Compose.createSharedResource(function(): (FixtureMediaTypes.ImageResource, (() -> ())?)
 					acquired += 1
-					return {
+					local image: FixtureMediaTypes.ImageResource = {
 						state = Compose.cell("ready" :: "loading" | "ready" | "failed"),
 						value = Compose.cell("rbxassetid://7"),
-					}, function()
+					}
+					return image, function()
 						released += 1
 					end
 				end)
 				local first: any = runtime.mount(function()
-					return UI.AsyncImage({
+					return UI.AsyncImage {
 						resource = function()
 							return resource()
 						end,
-					})
+					}
 				end, engine.new("Folder"))
 				local second = runtime.mount(function()
-					return UI.AsyncImage({
+					return UI.AsyncImage {
 						resource = function()
 							return resource()
 						end,
-					})
+					}
 				end, engine.new("Folder"))
-				Verify.expect(acquired):toBe(1)
+				expect(acquired):toBe(1)
 				first()
-				Verify.expect(released):toBe(0)
+				expect(released):toBe(0)
 				second()
-				Verify.expect(released):toBe(1)
+				expect(released):toBe(1)
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("keeps async completions stale after a source change or disposal", {
+		it("keeps async completions stale after a source change or disposal", {
 			id = "native_themes_media::native themes and media::keeps async completions stale after a source change or disposal",
 			run = function()
 				local engine, runtime, UI = setup()
 				local source, requests, states = Compose.cell("first" :: string?), {}, {}
 				local cancellations = 0
 				local stop, root: any = runtime.mount(function()
-					return UI.AsyncImage({
+					return UI.AsyncImage {
 						source = source,
 						loader = function(content, resolve, reject)
 							requests[content] = { resolve = resolve, reject = reject }
@@ -1060,36 +1125,39 @@ return function(verifyHarness: Verify.Harness)
 						onStatus = function(status)
 							table.insert(states, status)
 						end,
-					})
+					}
 				end, engine.new("Folder"))
 				source:set("second")
 				requests.first.resolve("wrong")
-				Verify.expect(root:FindFirstChild("Image").Visible):toBe(false)
+				expect(root:FindFirstChild("Image").Visible):toBe(false)
 				requests.second.resolve("right")
-				Verify.expect(root:FindFirstChild("Image").Image):toBe("right")
-				Verify.expect(root:FindFirstChild("Image").Visible):toBe(true)
+				expect(root:FindFirstChild("Image").Image):toBe("right")
+				expect(root:FindFirstChild("Image").Visible):toBe(true)
 				stop()
 				local count = #states
 				requests.second.reject("late")
-				Verify.expect(#states):toBe(count)
-				Verify.expect(cancellations):toBe(2)
+				expect(#states):toBe(count)
+				expect(cancellations):toBe(2)
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("clamps progress, counts badges and releases stage scenes with Compose", {
+		it("clamps progress, counts badges and releases stage scenes with Compose", {
 			id = "native_themes_media::native themes and media::clamps progress, counts badges and releases stage scenes with Compose",
 			run = function()
 				local engine, runtime, UI = setup()
 				local progress = Compose.cell(0.25)
 				local count = Compose.cell(120 :: number?)
-				local stage, bar, badge, released = nil, nil, nil, 0
+				local stage: ViewportFrame? = nil
+				local bar: Frame? = nil
+				local badge: TextLabel? = nil
+				local released = 0
 				local stop = runtime.mount(function()
-					bar = UI.ProgressView({ value = progress })
-					badge = UI.StatusIndicator({ count = count, status = "success" :: "success" })
-					stage = UI.Stage({
+					bar = UI.ProgressView { value = progress }
+					badge = UI.StatusIndicator { count = count, status = "success" :: "success" }
+					stage = UI.Stage {
 						content = function(sceneRuntime: FixtureComposeTypes.Runtime, world: WorldModel): (() -> ())?
-							local Host = (sceneRuntime.constructors :: unknown) :: RobloxHost
+							local Host = Facet.host(sceneRuntime)
 							Host.Part "Direct" {
 								Parent = Compose.static(world),
 							}
@@ -1098,94 +1166,99 @@ return function(verifyHarness: Verify.Harness)
 							end, world)
 							return stop
 						end,
-					})
+					}
 					Compose.cleanup(function()
 						released += 1
 					end)
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						bar :: unknown,
+					return Facet.host(runtime).Frame({
+						bar,
 						badge,
 						stage,
 					})
 				end, engine.new("Folder"))
-				Verify.expect((bar:FindFirstChild("Fill1", true) :: any).Size.X.Scale):toBe(0.25)
+				local stage, bar, badge = assert(stage), assert(bar), assert(badge)
+				expect((bar:FindFirstChild("Fill1", true) :: any).Size.X.Scale):toBe(0.25)
 				progress:set(2)
-				Verify.expect((bar:FindFirstChild("Fill1", true) :: any).Size.X.Scale):toBe(1)
-				Verify.expect(badge.Text):toBe("99+")
-				Verify.expect(badge.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.XY)
-				Verify.expect(assert(badge:FindFirstChildWhichIsA("UISizeConstraint")).MinSize.X):toBe(24)
-				Verify.expect((badge:FindFirstChildWhichIsA("UIAspectRatioConstraint"))):toBe(nil)
+				expect((bar:FindFirstChild("Fill1", true) :: any).Size.X.Scale):toBe(1)
+				expect(badge.Text):toBe("99+")
+				expect(badge.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.XY)
+				expect(assert(badge:FindFirstChildWhichIsA("UISizeConstraint")).MinSize.X):toBe(24)
+				expect((badge:FindFirstChildWhichIsA("UIAspectRatioConstraint"))):toBe(nil)
 				count:set(3)
-				Verify.expect(badge.Text):toBe("3")
+				expect(badge.Text):toBe("3")
 				local model: any = stage:FindFirstChild("Model", true)
-				Verify.expect(model.ClassName):toBe("Part")
+				expect(model.ClassName):toBe("Part")
 				local direct = assert(stage:FindFirstChild("Direct", true))
-				Verify.expect(direct.Parent):toBe(model.Parent)
+				expect(direct.Parent):toBe(model.Parent)
 				stop()
-				Verify.expect(direct.Parent):toBe(nil)
-				Verify.expect((model:isDestroyed())):toBe(true)
-				Verify.expect(released):toBe(1)
+				expect(direct.Parent):toBe(nil)
+				expect((model:isDestroyed())):toBe(true)
+				expect(released):toBe(1)
 				runtime:dispose()
 			end,
 		})
-		verifyHarness:case("preserves avatar initials presence rung changes and keyed roster identity", {
+		it("preserves avatar initials presence rung changes and keyed roster identity", {
 			id = "native_themes_media::native themes and media::preserves avatar initials presence rung changes and keyed roster identity",
 			run = function()
 				local engine, runtime, UI = setup()
 				local rung: FixtureComposeTypes.Value<"compact" | "large" | "regular" | "xsmall">, presence =
 					Compose.cell("compact" :: "compact" | "large" | "regular" | "xsmall"),
 					Compose.cell("online" :: ("away" | "busy" | "inExperience" | "offline" | "online")?)
-				local roster = Compose.cell({
+				local members: { FixtureMediaTypes.AvatarMember } = {
 					{ id = "a", name = "Émile Noël" },
 					{ id = "b", name = "Bo Lane" },
 					{ id = "c", name = "Ada Quill" },
-				})
-				local avatar, group, selected = nil, nil, 0
+				}
+				local roster = Compose.cell(members)
+				local avatar: TextButton? = nil
+				local group: Frame? = nil
+				local selected = 0
 				local stop = runtime.mount(function()
-					avatar = UI.Avatar({ name = "Émile Noël", presence = presence, controlSize = rung })
-					group = UI.AvatarGroup({
+					avatar = UI.Avatar { name = "Émile Noël", presence = presence, controlSize = rung }
+					group = UI.AvatarGroup {
 						items = roster,
 						max = 2,
 						onOverflow = function()
 							selected += 1
 						end,
-					})
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ avatar :: unknown, group })
+					}
+					return Facet.host(runtime).Frame({ avatar, group })
 				end, engine.new("Folder"))
-				Verify.expect((avatar:FindFirstChild("Initials") :: any).Text):toBe("ÉN")
-				Verify.expect(avatar.Size.X.Offset):toBe(36)
-				Verify.expect(
+				local avatar, group = assert(avatar), assert(group)
+				expect((avatar:FindFirstChild("Initials") :: any).Text):toBe("ÉN")
+				expect(avatar.Size.X.Offset):toBe(36)
+				expect(
 					((avatar:FindFirstChild("Initials") :: any):FindFirstChildWhichIsA("UITextSizeConstraint") :: any).MaxTextSize
 				):toBe(14)
-				Verify.expect(avatar.Selectable):toBe(false)
+				expect(avatar.Selectable):toBe(false)
 				presence:set("busy")
 				rung:set("large")
-				Verify.expect((avatar:GetAttribute("AccessibleLabel"))):toBe("Émile Noël, busy")
-				Verify.expect(avatar.Size.X.Offset):toBe(56)
-				Verify.expect(
+				expect((avatar:GetAttribute("AccessibleLabel"))):toBe("Émile Noël, busy")
+				expect(avatar.Size.X.Offset):toBe(56)
+				expect(
 					((avatar:FindFirstChild("Initials") :: any):FindFirstChildWhichIsA("UITextSizeConstraint") :: any).MaxTextSize
 				):toBe(22)
-				Verify.expect((avatar:FindFirstChild("Presence") :: any):HasTag("facet-status-error") :: any):toBe(true)
-				Verify.expect((group:HasTag("facet-avatar-stack"))):toBe(true)
+				expect((avatar:FindFirstChild("Presence") :: any):HasTag("facet-status-error") :: any):toBe(true)
+				expect((group:HasTag("facet-avatar-stack"))):toBe(true)
 				local first: any = group:FindFirstChild("a")
 				roster:set({
 					{ id = "b", name = "Bo Lane" },
 					{ id = "a", name = "Émile Changed" },
 					{ id = "c", name = "Ada Quill" },
 				})
-				Verify.expect((group:FindFirstChild("a"))):toBe(first)
-				Verify.expect((first:FindFirstChild("Initials") :: any).Text):toBe("ÉC")
-				Verify.expect(first.LayoutOrder):toBe(2)
+				expect((group:FindFirstChild("a"))):toBe(first)
+				expect((first:FindFirstChild("Initials") :: any).Text):toBe("ÉC")
+				expect(first.LayoutOrder):toBe(2)
 				local overflow: any = group:FindFirstChild("Overflow")
-				Verify.expect(overflow.Text):toBe("+1")
+				expect(overflow.Text):toBe("+1")
 				overflow.Activated:Fire()
-				Verify.expect(selected):toBe(1)
+				expect(selected):toBe(1)
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("animates skeletons with one shared Compose clock and honors reduced motion", {
+		it("animates skeletons with one shared Compose clock and honors reduced motion", {
 			id = "native_themes_media::native themes and media::animates skeletons with one shared Compose clock and honors reduced motion",
 			run = function()
 				local engine = engineLib.new()
@@ -1198,82 +1271,86 @@ return function(verifyHarness: Verify.Harness)
 					end) :: unknown) :: MotionLevel,
 				}))
 				local first: any, one: any = runtime.mount(function()
-					return UI.Skeleton({ form = "line" :: "line", lines = 3 })
+					return UI.Skeleton { form = "line" :: "line", lines = 3 }
 				end, engine.new("Folder"))
 				local listeners = engineLib.connections(engine.heartbeat)
 				local second, two: any = runtime.mount(function()
-					return UI.Skeleton({ form = "circle" :: "circle" })
+					return UI.Skeleton { form = "circle" :: "circle" }
 				end, engine.new("Folder"))
-				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(listeners)
-				Verify.expect(one:FindFirstChild("Placeholder3").Size.X.Scale):toBeCloseTo(0.6, 1e-4)
+				expect((engineLib.connections(engine.heartbeat))):toBe(listeners)
+				expect(one:FindFirstChild("Placeholder3").Size.X.Scale):toBeCloseTo(0.6, 1e-4)
 				engine.heartbeat:Fire(0.4)
 				local gradient = two:FindFirstChild("Shimmer", true)
 				local previous = gradient.Offset.X
 				first()
 				engine.heartbeat:Fire(0.2)
-				Verify.expect(gradient.Offset.X > previous):toBe(true)
+				expect(gradient.Offset.X > previous):toBe(true)
 				reduced:set(true)
-				Verify.expect(gradient.Enabled):toBe(false)
+				expect(gradient.Enabled):toBe(false)
 				previous = gradient.Offset.X
 				engine.heartbeat:Fire(0.3)
-				Verify.expect(gradient.Offset.X):toBe(previous)
+				expect(gradient.Offset.X):toBe(previous)
 				reduced:set(false)
 				engine.heartbeat:Fire(0.2)
-				Verify.expect(gradient.Enabled):toBe(true)
-				Verify.expect(gradient.Offset.X ~= previous):toBe(true)
+				expect(gradient.Enabled):toBe(true)
+				expect(gradient.Offset.X ~= previous):toBe(true)
 				second()
 				runtime:dispose()
-				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
+				expect((engineLib.connections(engine.heartbeat))):toBe(0)
 			end,
 		})
 
-		verifyHarness:case("keeps indeterminate progress stepping and trails determinate decreases", {
+		it("keeps indeterminate progress stepping and trails determinate decreases", {
 			id = "native_themes_media::native themes and media::keeps indeterminate progress stepping and trails determinate decreases",
 			run = function()
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 				local UI = media(context(Compose, runtime, { types = engine.types, motionLevel = "none" }))
-				local value, bar, busy = Compose.cell(0.8), nil, nil
+				local value = Compose.cell(0.8)
+				local bar: Frame? = nil
+				local busy: Frame? = nil
 				local stop = runtime.mount(function()
-					bar = UI.ProgressView({ value = value, trail = { delay = 0.2, duration = 0.4 } })
-					busy = UI.ProgressView({ presentation = "spinner" :: "spinner" })
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ bar :: unknown, busy })
+					bar = UI.ProgressView { value = value, trail = { delay = 0.2, duration = 0.4 } }
+					busy = UI.ProgressView { presentation = "spinner" :: "spinner" }
+					return Facet.host(runtime).Frame({ bar, busy })
 				end, engine.new("Folder"))
+				local bar, busy = assert(bar), assert(busy)
 				local dot: any = busy:FindFirstChild("Segment1", true)
 				local before = dot.BackgroundTransparency
 				engine.heartbeat:Fire(0.1)
-				Verify.expect(dot.BackgroundTransparency):toBe(before)
+				expect(dot.BackgroundTransparency):toBe(before)
 				engine.heartbeat:Fire(0.2)
-				Verify.expect(dot.BackgroundTransparency ~= before):toBe(true)
+				expect(dot.BackgroundTransparency ~= before):toBe(true)
 				value:set(0.2)
-				Verify.expect((bar:FindFirstChild("Trail", true) :: any).Size.X.Scale):toBeCloseTo(0.2, 1e-4)
+				expect((bar:FindFirstChild("Trail", true) :: any).Size.X.Scale):toBeCloseTo(0.2, 1e-4)
 				stop()
 				runtime:dispose()
-				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
+				expect((engineLib.connections(engine.heartbeat))):toBe(0)
 			end,
 		})
 
-		verifyHarness:case("rejects malformed type roles, unknown shadow presets and unreadable selected labels", {
+		it("rejects malformed type roles, unknown shadow presets and unreadable selected labels", {
 			id = "native_themes_media::native themes and media::rejects malformed type roles, unknown shadow presets and unreadable selected labels",
 			run = function()
 				local typed = themes.neutralPackage()
 				local roles = (typed.metrics.typography :: unknown) :: { [string]: unknown }
 				roles.body = 5
-				Verify.expect((select(2, themes.define(typed))).ok):toBe(false)
+				expect((select(2, themes.define(typed))).ok):toBe(false)
 				local shadowed = themes.neutralPackage()
 				shadowed.chrome = { control = { kind = "native" :: "native", shadow = "floating" } }
-				Verify.expect((select(2, themes.define(shadowed))).ok):toBe(false)
+				expect((select(2, themes.define(shadowed))).ok):toBe(false)
 				local selected = themes.neutralPackage()
-				selected.style.themes[1].extra = table.clone(selected.style.themes[1].extra or {})
+				local palette = selected.style.themes[1]
+				palette.extra = if palette.extra then table.clone(palette.extra) else {}
 				assert(selected.style.themes[1].extra).controlSelected = { r = 0.9, g = 0.9, b = 0.92 }
-				Verify.expect((select(2, themes.define(selected))).ok):toBe(false)
+				expect((select(2, themes.define(selected))).ok):toBe(false)
 				local valid = themes.neutralPackage()
 				valid.chrome = { control = { kind = "native" :: "native", shadow = "raised" } }
-				Verify.expect((select(2, themes.define(valid))).ok):toBe(true)
+				expect((select(2, themes.define(valid))).ok):toBe(true)
 			end,
 		})
 
-		verifyHarness:case("validates the dimensions and overlap of panel arrow artwork", {
+		it("validates the dimensions and overlap of panel arrow artwork", {
 			id = "native_themes_media::panel-tail-validation",
 			run = function()
 				for _, values in
@@ -1302,19 +1379,19 @@ return function(verifyHarness: Verify.Harness)
 							margin = if type(values[5]) == "number" then values[5] else nil,
 						},
 					}
-					Verify.expect(select(2, themes.define(package)).ok):toBe(values[4])
+					expect(select(2, themes.define(package)).ok):toBe(values[4])
 				end
 			end,
 		})
 
-		verifyHarness:case("keeps compiled theme data immutable and rejects callbacks or malformed values", {
+		it("keeps compiled theme data immutable and rejects callbacks or malformed values", {
 			id = "native_themes_media::native themes and media::keeps compiled theme data immutable and rejects callbacks or malformed values",
 			run = function()
 				local definition = themes.neutralPackage()
 				local package = themes.define(definition)
-				Verify.expect((table.isfrozen(assert(package).metrics.typography))):toBe(true)
+				expect((table.isfrozen(assert(package).metrics.typography))):toBe(true)
 				definition.metrics.typography.body.size = 23
-				Verify.expect(assert(package).metrics.typography.body.size):toBe(16)
+				expect(assert(package).metrics.typography.body.size):toBe(16)
 				local malformedDefinition = definition :: any
 				malformedDefinition.rules = {
 					{
@@ -1326,12 +1403,12 @@ return function(verifyHarness: Verify.Harness)
 						},
 					},
 				}
-				Verify.expect(select(2, themes.define(definition)).ok):toBe(false)
-				Verify.expect(select(2, themes.define(false :: any)).ok):toBe(false)
+				expect(select(2, themes.define(definition)).ok):toBe(false)
+				expect(select(2, themes.define(false :: any)).ok):toBe(false)
 			end,
 		})
 
-		verifyHarness:case("preserves external cameras and forwards native viewport lighting", {
+		it("preserves external cameras and forwards native viewport lighting", {
 			id = "native_themes_media::native themes and media::preserves external cameras and forwards native viewport lighting",
 			run = function()
 				local engine, runtime, UI = setup()
@@ -1340,38 +1417,39 @@ return function(verifyHarness: Verify.Harness)
 				camera.Parent = original
 				local ambient = engine.types.Color3.new(0.2, 0.3, 0.4)
 				local stop, stage: any = runtime.mount(function()
-					return UI.Stage({
+					return UI.Stage {
 						camera = camera,
 						Ambient = ambient,
 						LightDirection = engine.types.Vector3.new(1, -1, 0),
-					})
+					}
 				end, engine.new("Folder"))
-				Verify.expect(stage.CurrentCamera):toBe(camera)
-				Verify.expect(stage.Ambient):toBe(ambient)
-				Verify.expect(camera.Parent):toBe(original)
+				expect(stage.CurrentCamera):toBe(camera)
+				expect(stage.Ambient):toBe(ambient)
+				expect(camera.Parent):toBe(original)
 				stop()
-				Verify.expect((camera:isDestroyed())):toBe(false)
+				expect((camera:isDestroyed())):toBe(false)
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("preserves accessible media names native constraints and caller resource sharing", {
+		it("preserves accessible media names native constraints and caller resource sharing", {
 			id = "native_themes_media::native themes and media::preserves accessible media names native constraints and caller resource sharing",
 			run = function()
 				local engine, runtime, UI = setup()
 				local loaded, released, activated = 0, 0, 0
 				local resource = Compose.createSharedResource(function(): (FixtureMediaTypes.ImageResource, (() -> ())?)
 					loaded += 1
-					return {
+					local image: FixtureMediaTypes.ImageResource = {
 						state = Compose.cell("ready" :: "loading" | "ready" | "failed"),
 						value = Compose.cell("rbxassetid://21" :: string?),
-					}, function()
+					}
+					return image, function()
 						released += 1
 					end
 				end)
 				local avatar: any, group: any, badge: any, mark: any
 				local stop = runtime.mount(function()
-					avatar = UI.Avatar({
+					avatar = UI.Avatar {
 						name = "Ada",
 						presence = "online" :: "online",
 						presenceLabel = "Disponible",
@@ -1379,8 +1457,8 @@ return function(verifyHarness: Verify.Harness)
 						onActivate = function()
 							activated += 1
 						end,
-					})
-					group = UI.AvatarGroup({
+					}
+					group = UI.AvatarGroup {
 						items = {
 							{
 								id = "a",
@@ -1401,96 +1479,96 @@ return function(verifyHarness: Verify.Harness)
 						max = 2,
 						overflow = "ellipsis" :: "ellipsis",
 						overflowLabel = "Otra persona",
-					})
-					badge = UI.Badge({ icon = "checkmark", name = "Verified" })
-					mark = UI.StatusIndicator({
+					}
+					badge = UI.Badge { icon = "checkmark", name = "Verified" }
+					mark = UI.StatusIndicator {
 						form = "dash" :: "dash",
 						cutout = true,
 						Size = engine.types.UDim2.fromOffset(80, 12),
-					})
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						avatar :: unknown,
+					}
+					return Facet.host(runtime).Frame({
+						avatar,
 						group,
 						badge,
 						mark,
 					})
 				end, engine.new("Folder"))
-				Verify.expect((avatar:GetAttribute("AccessibleLabel"))):toBe("Ada, Disponible")
-				Verify.expect(avatar.Size.X.Offset):toBe(52)
-				Verify.expect(avatar.Selectable):toBe(true)
+				expect((avatar:GetAttribute("AccessibleLabel"))):toBe("Ada, Disponible")
+				expect(avatar.Size.X.Offset):toBe(52)
+				expect(avatar.Selectable):toBe(true)
 				avatar.Activated:Fire()
-				Verify.expect(activated):toBe(1)
-				Verify.expect((group:FindFirstChild("Overflow") :: any):GetAttribute("AccessibleLabel") :: any)
-					:toBe("Otra persona")
-				Verify.expect((group:FindFirstChild("Overflow") :: any).Text):toBe("…")
-				Verify.expect(loaded):toBe(1)
-				Verify.expect(((group:FindFirstChild("a") :: any):FindFirstChild("Initials") :: any).Visible)
-					:toBe(false)
-				Verify.expect((avatar:FindFirstChild("Initials") :: any).Visible):toBe(true)
-				Verify.expect((badge:FindFirstChildWhichIsA("TextLabel"):GetAttribute("AccessibleLabel")))
-					:toBe("Verified")
-				Verify.expect((badge:HasTag("facet-badge"))):toBe(true)
-				Verify.expect((badge:FindFirstChildWhichIsA("TextLabel"):HasTag("facet-badge"))):toBe(false)
-				Verify.expect(badge:FindFirstChildWhichIsA("UIListLayout").VerticalAlignment)
-					:toBe(engine.types.Enum.VerticalAlignment.Center)
+				expect(activated):toBe(1)
+				expect((group:FindFirstChild("Overflow") :: any):GetAttribute("AccessibleLabel") :: any):toBe(
+					"Otra persona"
+				)
+				expect((group:FindFirstChild("Overflow") :: any).Text):toBe("…")
+				expect(loaded):toBe(1)
+				expect(((group:FindFirstChild("a") :: any):FindFirstChild("Initials") :: any).Visible):toBe(false)
+				expect((avatar:FindFirstChild("Initials") :: any).Visible):toBe(true)
+				expect((badge:FindFirstChildWhichIsA("TextLabel"):GetAttribute("AccessibleLabel"))):toBe("Verified")
+				expect((badge:HasTag("facet-badge"))):toBe(true)
+				expect((badge:FindFirstChildWhichIsA("TextLabel"):HasTag("facet-badge"))):toBe(false)
+				expect(badge:FindFirstChildWhichIsA("UIListLayout").VerticalAlignment):toBe(
+					engine.types.Enum.VerticalAlignment.Center
+				)
 				local constraint = mark:FindFirstChildWhichIsA("UIAspectRatioConstraint")
-				Verify.expect(constraint.AspectRatio):toBe(3)
-				Verify.expect(constraint.AspectType):toBe(engine.types.Enum.AspectType.FitWithinMaxSize)
-				Verify.expect((mark:FindFirstChild("Cutout") :: any).BorderStrokePosition)
-					:toBe(engine.types.Enum.BorderStrokePosition.Inner)
+				expect(constraint.AspectRatio):toBe(3)
+				expect(constraint.AspectType):toBe(engine.types.Enum.AspectType.FitWithinMaxSize)
+				expect((mark:FindFirstChild("Cutout") :: any).BorderStrokePosition):toBe(
+					engine.types.Enum.BorderStrokePosition.Inner
+				)
 				stop()
-				Verify.expect(released):toBe(1)
+				expect(released):toBe(1)
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("rejects malformed media policy and retains valid reactive captions", {
+		it("rejects malformed media policy and retains valid reactive captions", {
 			id = "native_themes_media::native themes and media::rejects malformed media policy and retains valid reactive captions",
 			run = function()
-				for _, build in
-					{
-						function(UI: typeof(media(nil :: any)))
-							return UI.Badge({ label = 3 } :: any)
-						end,
-						function(UI: typeof(media(nil :: any)))
-							return UI.Badge({ icon = "checkmark" })
-						end,
-						function(UI: typeof(media(nil :: any)))
-							return UI.AvatarGroup({ items = {}, overflow = "unexpected" } :: any)
-						end,
-						function(UI: typeof(media(nil :: any)))
-							return UI.AvatarGroup({ items = { { id = "a", name = "A" }, { id = "a", name = "B" } } })
-						end,
-						function(UI: typeof(media(nil :: any)))
-							return UI.StatusIndicator({ count = 1, max = -1 })
-						end,
-					}
-				do
+				local builders: { (media.MediaControls) -> GuiObject } = {
+					function(UI: media.MediaControls): GuiObject
+						return UI.Badge({ label = 3 } :: any)
+					end,
+					function(UI: media.MediaControls): GuiObject
+						return UI.Badge { icon = "checkmark" }
+					end,
+					function(UI: media.MediaControls): GuiObject
+						return UI.AvatarGroup({ items = {}, overflow = "unexpected" } :: any)
+					end,
+					function(UI: media.MediaControls): GuiObject
+						return UI.AvatarGroup { items = { { id = "a", name = "A" }, { id = "a", name = "B" } } }
+					end,
+					function(UI: media.MediaControls): GuiObject
+						return UI.StatusIndicator { count = 1, max = -1 }
+					end,
+				}
+				for _, build in builders do
 					local engine, runtime, UI = setup()
 					local ok = pcall(function()
 						runtime.mount(function()
 							return build(UI)
 						end, engine.new("Folder"))
 					end)
-					Verify.expect(ok):toBe(false)
+					expect(ok):toBe(false)
 					runtime:dispose()
 				end
 				local engine, runtime, UI = setup()
 				local caption = Compose.cell("Ready")
 				local stop, badge: any = runtime.mount(function()
-					return UI.Badge({ label = caption })
+					return UI.Badge { label = caption }
 				end, engine.new("Folder"))
-				Verify.expect((pcall(function()
+				expect((pcall(function()
 					caption:set(3 :: any)
 				end))):toBe(false)
 				caption:set("Recovered")
-				Verify.expect(badge.Text):toBe("Recovered")
+				expect(badge.Text):toBe("Recovered")
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("hides a Badge while its bound label is empty and refuses a fixed empty label", {
+		it("hides a Badge while its bound label is empty and refuses a fixed empty label", {
 			id = "native_themes_media::native themes and media::hides a Badge while its bound label is empty and refuses a fixed empty label",
 			run = function()
 				local function refused(spec: FixtureMediaProps.BadgeProps): boolean
@@ -1503,47 +1581,47 @@ return function(verifyHarness: Verify.Harness)
 					runtime:dispose()
 					return not ok
 				end
-				Verify.expect(refused({ label = "" })):toBe(true)
-				Verify.expect(refused({})):toBe(true)
-				Verify.expect(refused({ icon = "checkmark", label = "" })):toBe(true)
-				Verify.expect(refused({ label = "New" })):toBe(false)
+				expect(refused({ label = "" })):toBe(true)
+				expect(refused({})):toBe(true)
+				expect(refused({ icon = "checkmark", label = "" })):toBe(true)
+				expect(refused({ label = "New" })):toBe(false)
 				local engine, runtime, UI = setup()
 				local caption = Compose.cell(nil :: string?)
 				local shown = Compose.cell(true)
 				local sale: GuiObject?, owned: GuiObject?, verified: GuiObject?
 				local stop = runtime.mount(function()
-					sale = UI.Badge({ label = caption, Visible = shown })
-					owned = UI.Badge({
+					sale = UI.Badge { label = caption, Visible = shown }
+					owned = UI.Badge {
 						label = function(): string?
 							return nil
 						end,
-					})
-					verified = UI.Badge({ icon = "checkmark", name = "Verified", label = caption })
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						sale :: unknown,
+					}
+					verified = UI.Badge { icon = "checkmark", name = "Verified", label = caption }
+					return Facet.host(runtime).Frame({
+						sale,
 						owned,
 						verified,
 					})
 				end, engine.new("Folder"))
 				local badge, empty, named = assert(sale), assert(owned), assert(verified)
-				Verify.expect(badge.Visible):toBe(false)
-				Verify.expect(empty.Visible):toBe(false)
-				Verify.expect(named.Visible):toBe(true)
+				expect(badge.Visible):toBe(false)
+				expect(empty.Visible):toBe(false)
+				expect(named.Visible):toBe(true)
 				caption:set("Sale")
-				Verify.expect(badge.Visible):toBe(true)
-				Verify.expect((badge :: TextLabel).Text):toBe("Sale")
+				expect(badge.Visible):toBe(true)
+				expect((badge :: TextLabel).Text):toBe("Sale")
 				shown:set(false)
-				Verify.expect(badge.Visible):toBe(false)
+				expect(badge.Visible):toBe(false)
 				shown:set(true)
 				caption:set("")
-				Verify.expect(badge.Visible):toBe(false)
-				Verify.expect(named.Visible):toBe(true)
+				expect(badge.Visible):toBe(false)
+				expect(named.Visible):toBe(true)
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("preserves full size progress art endcaps centers and fill direction", {
+		it("preserves full size progress art endcaps centers and fill direction", {
 			id = "native_themes_media::native themes and media::preserves full size progress art endcaps centers and fill direction",
 			run = function()
 				local engine = engineLib.new()
@@ -1565,44 +1643,44 @@ return function(verifyHarness: Verify.Harness)
 				}
 				assert(package.chrome).barCenter =
 					{ kind = "nineSlice" :: "nineSlice", asset = "center", size = { w = 36, h = 28 } }
-				local selected = Compose.cell(package)
+				local selected = themeState(package)
 				local UI = media(context(Compose, runtime, { types = engine.types, theme = selected }))
 				local value = Compose.cell(0.25)
 				local stop, root: any = runtime.mount(function()
-					return UI.ProgressView({ value = value, thickness = 36 })
+					return UI.ProgressView { value = value, thickness = 36 }
 				end, engine.new("Folder"))
 				local fill = root:FindFirstChild("Fill1", true)
-				Verify.expect(fill.AnchorPoint.X):toBe(1)
-				Verify.expect(fill.Size.X.Scale):toBe(0.25)
+				expect(fill.AnchorPoint.X):toBe(1)
+				expect(fill.Size.X.Scale):toBe(0.25)
 				engine.environment.poke(fill, "AbsoluteSize", engine.types.Vector2.new(25, 6))
 				engine.environment.poke(
 					fill:FindFirstChild("SkinBoundary"),
 					"AbsoluteSize",
 					engine.types.Vector2.new(1, 1)
 				)
-				Verify.expect(fill:FindFirstChild("SkinBoundary").Size):toBe(engine.types.UDim2.fromOffset(1, 1))
-				Verify.expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(4)
-				Verify.expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(25)
-				Verify.expect(root:FindFirstChild("barCap-start", true).Position.X.Scale):toBe(1)
-				Verify.expect(root:FindFirstChild("barCap-end", true).Image):toBe("rbxassetid://3")
-				Verify.expect(root:FindFirstChild("barCenter", true).Size.X.Offset):toBe(36)
+				expect(fill:FindFirstChild("SkinBoundary").Size):toBe(engine.types.UDim2.fromOffset(1, 1))
+				expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(4)
+				expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(25)
+				expect(root:FindFirstChild("barCap-start", true).Position.X.Scale):toBe(1)
+				expect(root:FindFirstChild("barCap-end", true).Image):toBe("rbxassetid://3")
+				expect(root:FindFirstChild("barCenter", true).Size.X.Offset):toBe(36)
 				value:set(0.5)
 				engine.environment.poke(fill, "AbsoluteSize", engine.types.Vector2.new(50, 6))
-				Verify.expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(2)
-				Verify.expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(50)
+				expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(2)
+				expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(50)
 				local nextPackage = table.clone(package)
 				nextPackage.chrome = table.clone(package.chrome)
 				assert(nextPackage.chrome).barFill =
 					{ kind = "nineSlice" :: "nineSlice", asset = "fill", direction = "btt" :: "btt" }
 				selected:set(nextPackage)
-				Verify.expect(fill.AnchorPoint.Y):toBe(1)
-				Verify.expect(fill.Size.Y.Scale):toBe(0.5)
-				Verify.expect(root:FindFirstChild("barCap-start", true).Position.Y.Scale):toBe(1)
+				expect(fill.AnchorPoint.Y):toBe(1)
+				expect(fill.Size.Y.Scale):toBe(0.5)
+				expect(root:FindFirstChild("barCap-start", true).Position.Y.Scale):toBe(1)
 				stop()
 				runtime:dispose()
 			end,
 		})
-		verifyHarness:case("sizes spanning progress fill art to the filled length so both ends of the art show", {
+		it("sizes spanning progress fill art to the filled length so both ends of the art show", {
 			id = "native_themes_media::native themes and media::sizes spanning progress fill art to the filled length so both ends of the art show",
 			run = function()
 				local engine = engineLib.new()
@@ -1615,90 +1693,96 @@ return function(verifyHarness: Verify.Harness)
 				local value = Compose.cell(0.25)
 				local holder = engine.new("Folder")
 				local stop = runtime.mount(function()
-					return UI.ProgressView({ value = value, thickness = 12 })
+					return UI.ProgressView { value = value, thickness = 12 }
 				end, holder)
 				local fill = holder:FindFirstChild("Fill1", true)
-				Verify.expect(fill.Size.X.Scale):toBe(0.25)
+				expect(fill.Size.X.Scale):toBe(0.25)
 				engine.environment.poke(fill, "AbsoluteSize", engine.types.Vector2.new(25, 6))
 				engine.environment.poke(
 					fill:FindFirstChild("SkinBoundary"),
 					"AbsoluteSize",
 					engine.types.Vector2.new(1, 1)
 				)
-				Verify.expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(1)
-				Verify.expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(25)
+				expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(1)
+				expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(25)
 				value:set(0.5)
 				engine.environment.poke(fill, "AbsoluteSize", engine.types.Vector2.new(50, 6))
-				Verify.expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(1)
-				Verify.expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(50)
+				expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(1)
+				expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(50)
 				stop()
 				runtime:dispose()
 			end,
 		})
-		verifyHarness:case("applies rich native skin slots to editable fields toggles steppers and sliders", {
+		it("applies rich native skin slots to editable fields toggles steppers and sliders", {
 			id = "native_themes_media::native themes and media::applies rich native skin slots to editable fields toggles steppers and sliders",
 			run = function()
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 				local package = themes.neutralPackage()
 				package.assets = { art = { content = "rbxassetid://30" }, selected = { content = "rbxassetid://31" } }
+				local asset: FixtureThemeTypes.AssetVariants = { default = "art", selected = "selected" }
 				for _, slot in
 					{ "field", "toggleTrack", "toggleKnob", "stepperPlate", "sliderTrack", "sliderThumb", "barFill" }
 				do
-					assert(package.chrome)[slot] =
-						{ kind = "nineSlice" :: "nineSlice", asset = { default = "art", selected = "selected" } }
+					assert(package.chrome)[slot] = { kind = "nineSlice" :: "nineSlice", asset = asset }
 				end
 				local UI = require("../src").controls(runtime, { types = engine.types, theme = package })
 				local active = Compose.cell(false)
-				local field: any, toggle: any, stepper, slider
+				local field: GuiObject? = nil
+				local toggle: TextButton? = nil
+				local stepper: Frame? = nil
+				local slider: Frame? = nil
+				local fieldProps: FixtureInputProps.TextInputCellProps = { value = Compose.cell("Ada"), label = "Name" }
+				local toggleProps: FixtureInputProps.ToggleCellProps = { value = active }
+				local stepperProps: FixtureInputProps.StepperCellProps = { value = Compose.cell(2), min = 0, max = 10 }
+				local sliderProps: FixtureInputProps.SliderCellProps = { value = Compose.cell(0.5), min = 0, max = 1 }
 				local stop = runtime.mount(function()
-					field = UI.TextInput({ value = Compose.cell("Ada"), label = "Name" })
-					toggle = UI.Toggle({ value = active })
-					stepper = UI.Stepper({ value = Compose.cell(2), min = 0, max = 10 })
-					slider = UI.Slider({ value = Compose.cell(0.5), min = 0, max = 1 })
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						field :: unknown,
+					field = UI.TextInput(fieldProps)
+					toggle = UI.Toggle(toggleProps)
+					stepper = UI.Stepper(stepperProps)
+					slider = UI.Slider(sliderProps)
+					return Facet.host(runtime).Frame({
+						field,
 						toggle,
 						stepper,
 						slider,
 					})
 				end, engine.new("Folder"))
-				for slot, root in
-					{
-						field = field,
-						toggleTrack = toggle,
-						toggleKnob = toggle,
-						stepperPlate = stepper,
-						sliderTrack = slider,
-						sliderThumb = slider,
-						barFill = slider,
-					}
-				do
-					Verify.expect(
-						(assert((root :: GuiObject):FindFirstChild((slot :: string) .. "1", true)) :: ImageLabel).Image
-					)
-						:toBe("rbxassetid://30")
+				local field, toggle, stepper, slider = assert(field), assert(toggle), assert(stepper), assert(slider)
+				local roots: { [string]: GuiObject } = {
+					field = field,
+					toggleTrack = toggle,
+					toggleKnob = toggle,
+					stepperPlate = stepper,
+					sliderTrack = slider,
+					sliderThumb = slider,
+					barFill = slider,
+				}
+				for slot, root in roots do
+					local image = assert(root:FindFirstChild(slot .. "1", true))
+					assert(image:IsA("ImageLabel"))
+					expect(image.Image):toBe("rbxassetid://30")
 				end
-				Verify.expect((field:FindFirstChild("Field", true) :: any).Text):toBe("Ada")
-				Verify.expect((field:FindFirstChild("Input", true) :: any):HasTag("facet-skinned") :: any):toBe(true)
+				expect((field:FindFirstChild("Field", true) :: any).Text):toBe("Ada")
+				expect((field:FindFirstChild("Input", true) :: any):HasTag("facet-skinned") :: any):toBe(true)
 				active:set(true)
-				Verify.expect((toggle:FindFirstChild("toggleTrack1", true) :: any).Image):toBe("rbxassetid://31")
-				Verify.expect((toggle:FindFirstChild("toggleKnob1", true) :: any).Image):toBe("rbxassetid://31")
+				expect((toggle:FindFirstChild("toggleTrack1", true) :: any).Image):toBe("rbxassetid://31")
+				expect((toggle:FindFirstChild("toggleKnob1", true) :: any).Image):toBe("rbxassetid://31")
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("uses native shadows with reactive theme parameters and Compose disposal", {
+		it("uses native shadows with reactive theme parameters and Compose disposal", {
 			id = "native_themes_media::native themes and media::uses native shadows with reactive theme parameters and Compose disposal",
 			run = function()
 				local engine, runtime = setup()
 				local package = themes.neutralPackage()
 				assert(package.chrome).control = { kind = "native" :: "native", shadow = "raised" }
-				local selected = Compose.cell(package)
-				local target
+				local selected = themeState(package)
+				local target: TextButton? = nil
 				local stop = runtime.mount(function()
-					target = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor)({ Text = "Play" })
+					target = Facet.host(runtime).TextButton({ Text = "Play" })
 					runtime.mount(function()
 						return themes.skin(
 							runtime,
@@ -1709,10 +1793,11 @@ return function(verifyHarness: Verify.Harness)
 					end, target)
 					return target
 				end, engine.new("Folder"))
+				local target = assert(target)
 				local shadow = target:FindFirstChild("ChromeShadow") :: FixtureShadow
-				Verify.expect(shadow.ClassName):toBe("UIShadow")
-				Verify.expect(shadow.BlurRadius.Offset):toBe(14)
-				Verify.expect(shadow.Offset.Y.Offset):toBe(3)
+				expect(shadow.ClassName):toBe("UIShadow")
+				expect(shadow.BlurRadius.Offset):toBe(14)
+				expect(shadow.Offset.Y.Offset):toBe(3)
 				local nextPackage = themes.neutralPackage()
 				assert(nextPackage.chrome).control = {
 					kind = "native" :: "native",
@@ -1723,52 +1808,52 @@ return function(verifyHarness: Verify.Harness)
 					},
 				}
 				selected:set(nextPackage)
-				Verify.expect((target:FindFirstChild("ChromeShadow"))):toBe(shadow)
-				Verify.expect(shadow.BlurRadius.Offset):toBe(16)
-				Verify.expect(shadow.Transparency):toBe(0.28)
+				expect((target:FindFirstChild("ChromeShadow"))):toBe(shadow)
+				expect(shadow.BlurRadius.Offset):toBe(16)
+				expect(shadow.Transparency):toBe(0.28)
 				selected:set(themes.neutralPackage())
-				Verify.expect(shadow.Enabled):toBe(false)
+				expect(shadow.Enabled):toBe(false)
 				selected:set(nextPackage)
-				Verify.expect((target:FindFirstChild("ChromeShadow"))):toBe(shadow)
-				Verify.expect(shadow.Enabled):toBe(true)
+				expect((target:FindFirstChild("ChromeShadow"))):toBe(shadow)
+				expect(shadow.Enabled):toBe(true)
 				stop()
-				Verify.expect((shadow:isDestroyed())):toBe(true)
+				expect((shadow:isDestroyed())):toBe(true)
 				runtime:dispose()
 			end,
 		})
-		verifyHarness:case("defers reactive control decoration until a theme needs it", {
+		it("defers reactive control decoration until a theme needs it", {
 			id = "native_themes_media::native themes and media::defers reactive control decoration until a theme needs it",
 			run = function()
 				local engine, runtime = setup()
-				local selected = Compose.cell(themes.neutralPackage())
+				local selected = themeState(themes.neutralPackage())
 				local ctx = context(Compose, runtime, { types = engine.types, theme = selected })
 				local stop, target = runtime.mount(function()
-					local node = ctx.Host.Frame({ Size = engine.types.UDim2.fromOffset(200, 44) })
+					local node = ctx.Host.Frame { Size = engine.types.UDim2.fromOffset(200, 44) }
 					ctx.skin(node, "control")
 					return node
 				end, engine.new("Folder"))
 				local node = target :: Frame
-				Verify.expect(#node:GetDescendants()):toBe(2)
-				Verify.expect(node:FindFirstChildWhichIsA("UIPadding") ~= nil):toBe(true)
-				Verify.expect(node:FindFirstChild("SkinBoundary", true)):toBeNil()
+				expect(#node:GetDescendants()):toBe(2)
+				expect(node:FindFirstChildWhichIsA("UIPadding") ~= nil):toBe(true)
+				expect(node:FindFirstChild("SkinBoundary", true)):toBeNil()
 				local art = themes.neutralPackage()
 				assert(art.assets).image = { content = "rbxassetid://30" }
 				assert(art.chrome).control = { kind = "nineSlice" :: "nineSlice", asset = "image", shadow = "raised" }
 				selected:set(art)
 				local image = assert(node:FindFirstChild("control1", true)) :: ImageLabel
-				Verify.expect(image.Image):toBe("rbxassetid://30")
-				Verify.expect(node:FindFirstChild("ChromeShadow") ~= nil):toBe(true)
+				expect(image.Image):toBe("rbxassetid://30")
+				expect(node:FindFirstChild("ChromeShadow") ~= nil):toBe(true)
 				selected:set(themes.neutralPackage())
-				Verify.expect(image.Visible):toBe(false)
+				expect(image.Visible):toBe(false)
 				selected:set(art)
-				Verify.expect(node:FindFirstChild("control1", true)):toBe(image)
-				Verify.expect(image.Visible):toBe(true)
+				expect(node:FindFirstChild("control1", true)):toBe(image)
+				expect(image.Visible):toBe(true)
 				stop()
-				Verify.expect(node.Parent):toBeNil()
+				expect(node.Parent):toBeNil()
 				runtime:dispose()
 			end,
 		})
-		verifyHarness:case("skips static empty skin graphs while retaining later reactive art and shadows", {
+		it("skips static empty skin graphs while retaining later reactive art and shadows", {
 			id = "native_themes_media::native themes and media::skips static empty skin graphs while retaining later reactive art and shadows",
 			run = function()
 				local engine, runtime = setup()
@@ -1779,9 +1864,9 @@ return function(verifyHarness: Verify.Harness)
 				end, engine.new("Folder"))
 				local counters = Compose.readWorkCounters()
 				Compose.setWorkCounters(false)
-				Verify.expect(counters.watchRuns):toBe(0)
-				Verify.expect(counters.formulaRecomputations):toBe(0)
-				Verify.expect(#root:GetChildren()):toBe(0)
+				expect(counters.watchRuns):toBe(0)
+				expect(counters.formulaRecomputations):toBe(0)
+				expect(#root:GetChildren()):toBe(0)
 				stop()
 				local static = themes.neutralPackage()
 				assert(static.chrome).control = { kind = "native" :: "native", shadow = "raised" }
@@ -1792,45 +1877,47 @@ return function(verifyHarness: Verify.Harness)
 				end, engine.new("Folder"))
 				counters = Compose.readWorkCounters()
 				Compose.setWorkCounters(false)
-				Verify.expect(counters.watchRuns):toBe(0)
-				Verify.expect(counters.formulaRecomputations):toBe(0)
-				Verify.expect(root:FindFirstChild("ChromeShadow").BlurRadius.Offset):toBe(14)
+				expect(counters.watchRuns):toBe(0)
+				expect(counters.formulaRecomputations):toBe(0)
+				expect(root:FindFirstChild("ChromeShadow").BlurRadius.Offset):toBe(14)
 				stop()
-				local selected = Compose.cell(themes.neutralPackage())
+				local selected = themeState(themes.neutralPackage())
 				stop, root = runtime.mount(function()
 					return themes.skin(runtime, selected, "control", { types = engine.types })
 				end, engine.new("Folder"))
-				Verify.expect(#root:GetChildren()):toBe(0)
+				expect(#root:GetChildren()):toBe(0)
 				local art = themes.neutralPackage()
 				assert(art.assets).image = { content = "rbxassetid://30" }
 				assert(art.chrome).control = { kind = "nineSlice" :: "nineSlice", asset = "image", shadow = "raised" }
 				selected:set(art)
-				Verify.expect(root:FindFirstChild("control1").Image):toBe("rbxassetid://30")
-				Verify.expect(root:FindFirstChild("ChromeShadow") ~= nil):toBe(true)
+				expect(root:FindFirstChild("control1").Image):toBe("rbxassetid://30")
+				expect(root:FindFirstChild("ChromeShadow") ~= nil):toBe(true)
 				selected:set(themes.neutralPackage())
-				Verify.expect(#root:GetChildren()):toBe(2)
-				Verify.expect(root:FindFirstChild("control1").Visible):toBe(false)
-				Verify.expect(root:FindFirstChild("ChromeShadow").Enabled):toBe(false)
+				expect(#root:GetChildren()):toBe(2)
+				expect(root:FindFirstChild("control1").Visible):toBe(false)
+				expect(root:FindFirstChild("ChromeShadow").Enabled):toBe(false)
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("preloads the Compose owned ImageLabel after its source binding settles", {
+		it("preloads the Compose owned ImageLabel after its source binding settles", {
 			id = "native_themes_media::native themes and media::preloads the Compose owned ImageLabel after its source binding settles",
 			run = function()
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local environment = getfenv(require("../src/ui/media_async_image"))
+				local loader: unknown = require("../src/ui/media_async_image")
+				assert(type(loader) == "function")
+				local environment: { task: { defer: (() -> ()) -> thread, cancel: (thread) -> () } } = getfenv(loader)
 				local originalTask = environment.task
-				local pending = {}
+				local pending: { thread } = {}
 				environment.task = {
-					defer = function(callback)
+					defer = function(callback: () -> ()): thread
 						local thread = coroutine.create(callback)
 						table.insert(pending, thread)
 						return thread
 					end,
-					cancel = function(thread)
+					cancel = function(thread: thread)
 						coroutine.close(thread)
 					end,
 				}
@@ -1848,109 +1935,109 @@ return function(verifyHarness: Verify.Harness)
 				}))
 				local source = Compose.cell("rbxassetid://10" :: string?)
 				local stop, root: any = runtime.mount(function()
-					return UI.AsyncImage({ source = source })
+					return UI.AsyncImage { source = source }
 				end, engine.new("Folder"))
-				Verify.expect(#preloaded):toBe(0)
-				Verify.expect((coroutine.resume(pending[1]))):toBe(true)
+				expect(#preloaded):toBe(0)
+				expect((coroutine.resume(pending[1]))):toBe(true)
 				local image = root:FindFirstChild("Image")
-				Verify.expect(preloaded[1]):toBe(image)
-				Verify.expect(image.Image):toBe("rbxassetid://10")
-				Verify.expect(image.Visible):toBe(true)
+				expect(preloaded[1]):toBe(image)
+				expect(image.Image):toBe("rbxassetid://10")
+				expect(image.Visible):toBe(true)
 				source:set("rbxassetid://20")
-				Verify.expect((coroutine.resume(pending[2]))):toBe(true)
-				Verify.expect(preloaded[2]):toBe(image)
-				Verify.expect(image.Image):toBe("rbxassetid://20")
+				expect((coroutine.resume(pending[2]))):toBe(true)
+				expect(preloaded[2]):toBe(image)
+				expect(image.Image):toBe("rbxassetid://20")
 				stop()
-				Verify.expect((image:isDestroyed())):toBe(true)
+				expect((image:isDestroyed())):toBe(true)
 				environment.task = originalTask
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("holds damage trails then settles and snaps immediately on healing", {
+		it("holds damage trails then settles and snaps immediately on healing", {
 			id = "native_themes_media::native themes and media::holds damage trails then settles and snaps immediately on healing",
 			run = function()
 				local engine, runtime, UI = setup()
 				local value = Compose.cell(1)
 				local stop, meter: any = runtime.mount(function()
-					return UI.ProgressView({ value = value, trail = { delay = 0.2, duration = 0.3 } })
+					return UI.ProgressView { value = value, trail = { delay = 0.2, duration = 0.3 } }
 				end, engine.new("Folder"))
 				local trail = meter:FindFirstChild("Trail", true)
 				value:set(0.5)
 				engine.heartbeat:Fire(0.1)
-				Verify.expect(trail.Size.X.Scale):toBe(1)
+				expect(trail.Size.X.Scale):toBe(1)
 				engine.heartbeat:Fire(0.25)
-				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.75, 1e-4)
+				expect(trail.Size.X.Scale):toBeCloseTo(0.75, 1e-4)
 				engine.heartbeat:Fire(0.2)
-				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.5, 1e-4)
-				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
+				expect(trail.Size.X.Scale):toBeCloseTo(0.5, 1e-4)
+				expect((engineLib.connections(engine.heartbeat))):toBe(0)
 				value:set(0.25)
 				value:set(0.4)
-				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.4, 1e-4)
-				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
+				expect(trail.Size.X.Scale):toBeCloseTo(0.4, 1e-4)
+				expect((engineLib.connections(engine.heartbeat))):toBe(0)
 				value:set(0.1)
 				engine.heartbeat:Fire(0.35)
-				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.25, 1e-4)
+				expect(trail.Size.X.Scale):toBeCloseTo(0.25, 1e-4)
 				value:set(0.2)
-				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.2, 1e-4)
+				expect(trail.Size.X.Scale):toBeCloseTo(0.2, 1e-4)
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("centers circular readouts when native text bounds fit the ring", {
+		it("centers circular readouts when native text bounds fit the ring", {
 			id = "native_themes_media::native themes and media::centers circular readouts when native text bounds fit the ring",
 			run = function()
 				local engine, runtime, UI = setup()
 				local value = Compose.cell(0.75)
 				local stop, meter: any = runtime.mount(function()
-					return UI.ProgressView({
+					return UI.ProgressView {
 						value = value,
 						presentation = "circular" :: "circular",
 						diameter = 120,
 						showValue = true,
-					})
+					}
 				end, engine.new("Folder"))
 				local readout, gauge = meter:FindFirstChild("Value", true), meter:FindFirstChild("Gauge", true)
 				engine.environment.poke(readout, "TextBounds", engine.types.Vector2.new(38, 20))
-				Verify.expect(readout.Text):toBe("75%")
-				Verify.expect(readout.Parent):toBe(gauge)
-				Verify.expect(readout.Position):toBe(engine.types.UDim2.new(0.5, 0, 0, 60))
-				Verify.expect(readout.AnchorPoint):toBe(engine.types.Vector2.new(0.5, 0.5))
-				Verify.expect(gauge.Size):toBe(engine.types.UDim2.fromOffset(120, 120))
-				Verify.expect(gauge.ClipsDescendants):toBe(false)
+				expect(readout.Text):toBe("75%")
+				expect(readout.Parent):toBe(gauge)
+				expect(readout.Position):toBe(engine.types.UDim2.new(0.5, 0, 0, 60))
+				expect(readout.AnchorPoint):toBe(engine.types.Vector2.new(0.5, 0.5))
+				expect(gauge.Size):toBe(engine.types.UDim2.fromOffset(120, 120))
+				expect(gauge.ClipsDescendants):toBe(false)
 				value:set(1)
-				Verify.expect(readout.Text):toBe("100%")
+				expect(readout.Text):toBe("100%")
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("keeps the value and end label of an unlabelled bar on the bar's row", {
+		it("keeps the value and end label of an unlabelled bar on the bar's row", {
 			id = "native_themes_media::native themes and media::keeps the value and end label of an unlabelled bar on the bar's row",
 			run = function()
 				local engine, runtime, UI = setup()
 				local stop, meter = runtime.mount(function()
-					return UI.ProgressView({ value = 0.4, showValue = true, endLabel = "mowed" })
+					return UI.ProgressView { value = 0.4, showValue = true, endLabel = "mowed" }
 				end, engine.new("Folder"))
 				local root = meter :: Instance
 				local line, track = root:FindFirstChild("Line"), root:FindFirstChild("Track", true)
-				Verify.expect(line ~= nil):toBe(true)
+				expect(line ~= nil):toBe(true)
 				local row = line :: Instance
 				local bar = track :: Instance
-				Verify.expect(bar.Parent):toBe(row)
+				expect(bar.Parent):toBe(row)
 				local flex = bar:FindFirstChildWhichIsA("UIFlexItem") :: UIFlexItem
-				Verify.expect(flex.FlexMode):toBe(engine.types.Enum.UIFlexMode.Fill)
-				Verify.expect((root:FindFirstChild("Value", true) :: Instance).Parent):toBe(row)
-				Verify.expect((root:FindFirstChild("EndLabel", true) :: Instance).Parent):toBe(row)
+				expect(flex.FlexMode):toBe(engine.types.Enum.UIFlexMode.Fill)
+				expect((root:FindFirstChild("Value", true) :: Instance).Parent):toBe(row)
+				expect((root:FindFirstChild("EndLabel", true) :: Instance).Parent):toBe(row)
 				local layout = row:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout
-				Verify.expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Horizontal)
+				expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Horizontal)
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("cancels pending damage trails for reduced motion and releases their clock", {
+		it("cancels pending damage trails for reduced motion and releases their clock", {
 			id = "native_themes_media::native themes and media::cancels pending damage trails for reduced motion and releases their clock",
 			run = function()
 				local engine = engineLib.new()
@@ -1963,32 +2050,32 @@ return function(verifyHarness: Verify.Harness)
 					end) :: unknown) :: MotionLevel,
 				}))
 				local stop, meter: any = runtime.mount(function()
-					return UI.ProgressView({ value = value, trail = { delay = 0.2, duration = 0.3 } })
+					return UI.ProgressView { value = value, trail = { delay = 0.2, duration = 0.3 } }
 				end, engine.new("Folder"))
 				local trail = meter:FindFirstChild("Trail", true)
 				value:set(0.4)
-				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(1)
+				expect((engineLib.connections(engine.heartbeat))):toBe(1)
 				reduced:set(true)
-				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.4, 1e-4)
-				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
+				expect(trail.Size.X.Scale):toBeCloseTo(0.4, 1e-4)
+				expect((engineLib.connections(engine.heartbeat))):toBe(0)
 				reduced:set(false)
-				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.4, 1e-4)
+				expect(trail.Size.X.Scale):toBeCloseTo(0.4, 1e-4)
 				value:set(0.2)
-				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(1)
+				expect((engineLib.connections(engine.heartbeat))):toBe(1)
 				stop()
-				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
+				expect((engineLib.connections(engine.heartbeat))):toBe(0)
 				value:set(0.8)
-				Verify.expect((trail:isDestroyed())):toBe(true)
+				expect((trail:isDestroyed())):toBe(true)
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("moves oversized circular readouts below the ring using native text bounds", {
+		it("moves oversized circular readouts below the ring using native text bounds", {
 			id = "native_themes_media::native themes and media::moves oversized circular readouts below the ring using native text bounds",
 			run = function()
 				local engine, runtime, UI = setup()
 				local stop, meter: any = runtime.mount(function()
-					return UI.ProgressView({
+					return UI.ProgressView {
 						value = 1,
 						presentation = "circular" :: "circular",
 						diameter = 80,
@@ -1997,30 +2084,30 @@ return function(verifyHarness: Verify.Harness)
 						format = function()
 							return "10000 / 10000"
 						end,
-					})
+					}
 				end, engine.new("Folder"))
 				local readout, gauge = meter:FindFirstChild("Value", true), meter:FindFirstChild("Gauge", true)
 				engine.environment.poke(readout, "TextBounds", engine.types.Vector2.new(190, 32))
-				Verify.expect(readout.Text):toBe("10000 / 10000")
-				Verify.expect(readout.Position):toBe(engine.types.UDim2.new(0.5, 0, 0, 88))
-				Verify.expect(readout.AnchorPoint):toBe(engine.types.Vector2.new(0.5, 0))
-				Verify.expect(readout.TextWrapped):toBe(false)
-				Verify.expect(readout.TextXAlignment):toBe(engine.types.Enum.TextXAlignment.Center)
-				Verify.expect(gauge.Size):toBe(engine.types.UDim2.fromOffset(190, 120))
+				expect(readout.Text):toBe("10000 / 10000")
+				expect(readout.Position):toBe(engine.types.UDim2.new(0.5, 0, 0, 88))
+				expect(readout.AnchorPoint):toBe(engine.types.Vector2.new(0.5, 0))
+				expect(readout.TextWrapped):toBe(false)
+				expect(readout.TextXAlignment):toBe(engine.types.Enum.TextXAlignment.Center)
+				expect(gauge.Size):toBe(engine.types.UDim2.fromOffset(190, 120))
 				engine.environment.poke(readout, "TextBounds", engine.types.Vector2.new(40, 18))
-				Verify.expect(readout.Position.Y.Offset):toBe(40)
-				Verify.expect(gauge.Size):toBe(engine.types.UDim2.fromOffset(80, 80))
+				expect(readout.Position.Y.Offset):toBe(40)
+				expect(gauge.Size):toBe(engine.types.UDim2.fromOffset(80, 80))
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("rotates a smooth native circular arc with reduced motion and themed stroke colors", {
+		it("rotates a smooth native circular arc with reduced motion and themed stroke colors", {
 			id = "native_themes_media::native themes and media::rotates a smooth native circular arc with reduced motion and themed stroke colors",
 			run = function()
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local reduced, package = Compose.cell(false), Compose.cell(themes.neutralPackage())
+				local reduced, package = Compose.cell(false), themeState(themes.neutralPackage())
 				local UI = media(context(Compose, runtime, {
 					types = engine.types,
 					theme = package,
@@ -2031,63 +2118,62 @@ return function(verifyHarness: Verify.Harness)
 				local sheet: any, meter: any
 				local stop = runtime.mount(function()
 					sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
-					meter = UI.ProgressView({ presentation = "circular" :: "circular", diameter = 120, thickness = 4 })
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ sheet :: unknown, meter })
+					meter = UI.ProgressView { presentation = "circular" :: "circular", diameter = 120, thickness = 4 }
+					return Facet.host(runtime).Frame({ sheet, meter })
 				end, engine.new("Folder"))
 				local arc = meter:FindFirstChild("RingFill", true)
-				Verify.expect(arc.Thickness):toBe(4)
-				Verify.expect(#arc:GetControlPoints()):toBe(3)
-				Verify.expect(#((meter:FindFirstChild("Indicator") :: any):GetDescendants() :: any)):toBe(2)
+				expect(arc.Thickness):toBe(4)
+				expect(#arc:GetControlPoints()):toBe(3)
+				expect(#((meter:FindFirstChild("Indicator") :: any):GetDescendants() :: any)):toBe(2)
 				local before = arc:GetControlPoints()[1].Position
 				engine.heartbeat:Fire(0.1)
-				Verify.expect(arc:GetControlPoints()[1].Position ~= before):toBe(true)
+				expect(arc:GetControlPoints()[1].Position ~= before):toBe(true)
 				reduced:set(true)
 				before = arc:GetControlPoints()[1].Position
 				engine.heartbeat:Fire(0.1)
-				Verify.expect(arc:GetControlPoints()[1].Position):toBe(before)
+				expect(arc:GetControlPoints()[1].Position):toBe(before)
 				engine.heartbeat:Fire(0.1)
-				Verify.expect(arc:GetControlPoints()[1].Position ~= before):toBe(true)
+				expect(arc:GetControlPoints()[1].Position ~= before):toBe(true)
 				local nextPackage = themes.neutralPackage()
 				nextPackage.style.themes[1].colors.accent = { r = 0.7, g = 0.2, b = 0.1 }
 				nextPackage.style.themes[1].colors.control = { r = 0.3, g = 0.4, b = 0.5 }
 				nextPackage.style.themes[1].colors.contentSecondary = { r = 0.6, g = 0.6, b = 0.65 }
 				package:set(nextPackage)
-				Verify.expect(style(sheet, ".facet-progress-ring-fill").Color3)
-					:toBe(engine.types.Color3.new(0.7, 0.2, 0.1))
-				Verify.expect(style(sheet, ".facet-progress-ring-track").Color3)
-					:toBe(engine.types.Color3.new(0.3, 0.4, 0.5))
+				expect(style(sheet, ".facet-progress-ring-fill").Color3):toBe(engine.types.Color3.new(0.7, 0.2, 0.1))
+				expect(style(sheet, ".facet-progress-ring-track").Color3):toBe(engine.types.Color3.new(0.3, 0.4, 0.5))
 				local secondary = nextPackage.style.themes[1].colors.contentSecondary
-				Verify.expect(style(sheet, ".facet-type-caption").TextColor3)
-					:toBe(engine.types.Color3.new(secondary.r, secondary.g, secondary.b))
-				Verify.expect((meter:FindFirstChild("RingFill", true))):toBe(arc)
+				expect(style(sheet, ".facet-type-caption").TextColor3):toBe(
+					engine.types.Color3.new(secondary.r, secondary.g, secondary.b)
+				)
+				expect((meter:FindFirstChild("RingFill", true))):toBe(arc)
 				stop()
-				Verify.expect((arc:isDestroyed())):toBe(true)
-				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
+				expect((arc:isDestroyed())):toBe(true)
+				expect((engineLib.connections(engine.heartbeat))):toBe(0)
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("draws a gauge arc and a needle that follow the value across the sweep", {
+		it("draws a gauge arc and a needle that follow the value across the sweep", {
 			id = "native_themes_media::native themes and media::draws a gauge arc and a needle that follow the value across the sweep",
 			run = function()
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local package = Compose.cell(themes.neutralPackage())
+				local package = themeState(themes.neutralPackage())
 				local UI = media(context(Compose, runtime, { types = engine.types, theme = package }))
 				local value = Compose.cell(0)
 				local made: { sheet: StyleSheet?, meter: Instance? } = { sheet = nil, meter = nil }
 				local stop = runtime.mount(function()
 					made.sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
-					made.meter = UI.ProgressView({
+					made.meter = UI.ProgressView {
 						presentation = "gauge" :: "gauge",
 						value = value,
 						max = 100,
 						sweep = 180,
 						diameter = 100,
 						thickness = 6,
-					})
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						made.sheet :: unknown,
+					}
+					return Facet.host(runtime).Frame({
+						made.sheet,
 						made.meter,
 					})
 				end, engine.new("Folder"))
@@ -2097,89 +2183,89 @@ return function(verifyHarness: Verify.Harness)
 				local fill = meter:FindFirstChild("GaugeFill", true)
 				local needleFound = meter:FindFirstChild("GaugeNeedle", true)
 				local hub = meter:FindFirstChild("GaugeHub", true)
-				Verify.expect(trackFound ~= nil and fill ~= nil and needleFound ~= nil and hub ~= nil):toBe(true)
+				expect(trackFound ~= nil and fill ~= nil and needleFound ~= nil and hub ~= nil):toBe(true)
 				local track = trackFound :: Path2D
 				local needle = needleFound :: Path2D
-				Verify.expect((meter:FindFirstChild("RingTrack", true))):toBe(nil)
+				expect((meter:FindFirstChild("RingTrack", true))):toBe(nil)
 				local function tip(): (number, number)
 					local points = needle:GetControlPoints()
 					local p = points[#points].Position
 					return p.X.Scale, p.Y.Scale
 				end
 				local x0, y0 = tip()
-				Verify.expect(x0 < 0.2 and math.abs(y0 - 0.5) < 0.01):toBe(true)
+				expect(x0 < 0.2 and math.abs(y0 - 0.5) < 0.01):toBe(true)
 				value:set(50)
 				local x1, y1 = tip()
-				Verify.expect(math.abs(x1 - 0.5) < 0.01 and y1 < 0.2):toBe(true)
+				expect(math.abs(x1 - 0.5) < 0.01 and y1 < 0.2):toBe(true)
 				value:set(100)
 				local x2, y2 = tip()
-				Verify.expect(x2 > 0.8 and math.abs(y2 - 0.5) < 0.01):toBe(true)
+				expect(x2 > 0.8 and math.abs(y2 - 0.5) < 0.01):toBe(true)
 				local trackPoints = track:GetControlPoints()
-				Verify.expect(trackPoints[1].Position.X.Scale < 0.1):toBe(true)
-				Verify.expect(trackPoints[#trackPoints].Position.X.Scale > 0.9):toBe(true)
-				Verify.expect(style(sheet, ".facet-progress-gauge-needle").Color3 ~= nil):toBe(true)
+				expect(trackPoints[1].Position.X.Scale < 0.1):toBe(true)
+				expect(trackPoints[#trackPoints].Position.X.Scale > 0.9):toBe(true)
+				expect(style(sheet, ".facet-progress-gauge-needle").Color3 ~= nil):toBe(true)
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("refuses a needle or a sweep outside the gauge", {
+		it("refuses a needle or a sweep outside the gauge", {
 			id = "native_themes_media::native themes and media::refuses a needle or a sweep outside the gauge",
 			run = function()
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 				local UI = media(context(Compose, runtime, { types = engine.types }))
-				local function mount(build: () -> unknown)
+				local function mount(build: () -> GuiObject)
 					local stop = runtime.mount(build, engine.new("Folder"))
 					stop()
 				end
-				Verify.expect(function()
+				expect(function()
 					mount(function()
-						return UI.ProgressView({ presentation = "circular" :: "circular", value = 0.5, sweep = 180 })
+						return UI.ProgressView { presentation = "circular" :: "circular", value = 0.5, sweep = 180 }
 					end)
 				end):toThrow("sweep requires the gauge presentation")
-				Verify.expect(function()
+				expect(function()
 					mount(function()
-						return UI.ProgressView({ presentation = "gauge" :: "gauge", value = 0.5, sweep = 20 })
+						return UI.ProgressView { presentation = "gauge" :: "gauge", value = 0.5, sweep = 20 }
 					end)
 				end):toThrow("sweep must be")
-				Verify.expect(function()
+				expect(function()
 					mount(function()
-						return UI.ProgressView({ presentation = "gauge" :: "gauge" })
+						return UI.ProgressView { presentation = "gauge" :: "gauge" }
 					end)
 				end):toThrow("gauge requires a value")
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("bounds idle skin slots and disposes every retained native owner", {
+		it("bounds idle skin slots and disposes every retained native owner", {
 			id = "native_themes_media::native themes and media::bounds idle skin slots and disposes every retained native owner",
 			run = function()
 				local engine, runtime = setup()
 				local package = themes.neutralPackage()
 				assert(package.assets).image = { content = "rbxassetid://99" }
-				local layers = {}
+				local layers: { FixtureThemeTypes.SkinLayer } = {}
 				for _ = 1, 24 do
 					table.insert(layers, { kind = "fill" :: "fill", asset = "image" })
 				end
 				assert(package.chrome).control = { kind = "layered" :: "layered", layers = layers }
-				local selected = Compose.cell(package)
+				local selected = themeState(package)
 				local stop, root: any = runtime.mount(function()
 					return themes.skin(runtime, selected, "control", { types = engine.types })
 				end, engine.new("Folder"))
 				local initial = root:GetChildren()
-				Verify.expect(#initial):toBe(24)
+				expect(#initial):toBe(24)
 				selected:set(themes.neutralPackage())
-				Verify.expect(#root:GetChildren()):toBe(16)
+				expect(#root:GetChildren()):toBe(16)
 				local retained = 0
 				for _, image in initial do
 					if not image:isDestroyed() then
 						retained += 1
-						Verify.expect(image.Parent):toBe(root)
-						Verify.expect(image.Visible):toBe(false)
+						expect(image.Parent):toBe(root)
+						expect(image.Visible):toBe(false)
 					end
 				end
-				Verify.expect(retained):toBe(16)
+				expect(retained):toBe(16)
 				selected:set(package)
 				local active = root:GetChildren()
 				local reused = 0
@@ -2187,16 +2273,16 @@ return function(verifyHarness: Verify.Harness)
 					if table.find(initial, image) then
 						reused += 1
 					end
-					Verify.expect(image.Image):toBe("rbxassetid://99")
-					Verify.expect(image.Visible):toBe(true)
+					expect(image.Image):toBe("rbxassetid://99")
+					expect(image.Visible):toBe(true)
 				end
-				Verify.expect(reused):toBe(16)
+				expect(reused):toBe(16)
 				stop()
 				for _, image in initial do
-					Verify.expect((image:isDestroyed())):toBe(true)
+					expect((image:isDestroyed())):toBe(true)
 				end
 				for _, image in active do
-					Verify.expect((image:isDestroyed())):toBe(true)
+					expect((image:isDestroyed())):toBe(true)
 				end
 				selected:set(themes.neutralPackage())
 				selected:set(package)
@@ -2204,16 +2290,18 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("retains bounded skin slots across frozen recipes while mutable art stays reactive", {
+		it("retains bounded skin slots across frozen recipes while mutable art stays reactive", {
 			id = "native_themes_media::native themes and media::retains bounded skin slots across frozen recipes while mutable art stays reactive",
 			run = function()
 				local engine, runtime = setup()
-				local package = themes.neutralPackage()
-				assert(package.assets).image = { content = "rbxassetid://99" }
-				assert(package.chrome).control = { kind = "fill" :: "fill", asset = "image" }
-				local frozen = assert(themes.define(package))
+				local package: FixtureThemeTypes.ThemePackage = themes.neutralPackage()
+				local assets = assert(package.assets)
+				local chrome = assert(package.chrome)
+				assets.image = { content = "rbxassetid://99" }
+				chrome.control = { kind = "fill" :: "fill", asset = "image" }
+				local frozen = assert((themes.define(package)))
 				local neutral = themes.neutralPackage()
-				local selected, revision = Compose.cell(frozen), Compose.cell(0)
+				local selected, revision = themeState(frozen), Compose.cell(0)
 				local stop, root: any = runtime.mount(function()
 					return themes.skin(runtime, function(use: Use)
 						use(revision)
@@ -2223,45 +2311,46 @@ return function(verifyHarness: Verify.Harness)
 				local image = root:FindFirstChild("control1")
 				for _ = 1, 50 do
 					selected:set(neutral)
-					Verify.expect(image.Visible):toBe(false)
+					expect(image.Visible):toBe(false)
 					selected:set(frozen)
-					Verify.expect((root:FindFirstChild("control1"))):toBe(image)
-					Verify.expect(image.Visible):toBe(true)
+					expect((root:FindFirstChild("control1"))):toBe(image)
+					expect(image.Visible):toBe(true)
 				end
-				Verify.expect(#root:GetChildren()):toBe(1)
+				expect(#root:GetChildren()):toBe(1)
 				table.freeze(package)
-				selected:set(package)
-				assert(package.assets).image.content = "rbxassetid://100"
-				assert(package.chrome).control.kind = "tile" :: "tile"
-				assert(package.chrome).control.tileSize = { w = 11, h = 12 }
+				selected:set(package :: any)
+				assets.image.content = "rbxassetid://100"
+				chrome.control.kind = "tile" :: "tile"
+				chrome.control.tileSize = { w = 11, h = 12 }
 				revision:set(1)
-				Verify.expect(image.Image):toBe("rbxassetid://100")
-				Verify.expect(image.ScaleType):toBe(engine.types.Enum.ScaleType.Tile)
-				Verify.expect(image.TileSize):toBe(engine.types.UDim2.fromOffset(11, 12))
+				expect(image.Image):toBe("rbxassetid://100")
+				expect(image.ScaleType):toBe(engine.types.Enum.ScaleType.Tile)
+				expect(image.TileSize):toBe(engine.types.UDim2.fromOffset(11, 12))
 				selected:set(frozen)
-				Verify.expect(image.Image):toBe("rbxassetid://99")
-				Verify.expect(image.ScaleType):toBe(engine.types.Enum.ScaleType.Stretch)
+				expect(image.Image):toBe("rbxassetid://99")
+				expect(image.ScaleType):toBe(engine.types.Enum.ScaleType.Stretch)
 				stop()
-				Verify.expect((image:isDestroyed())):toBe(true)
+				expect((image:isDestroyed())):toBe(true)
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("skin art follows a host inset that code writes, not only one a style rule writes", {
+		it("skin art follows a host inset that code writes, not only one a style rule writes", {
 			id = "native_themes_media::native themes and media::skin art follows a host inset that code writes, not only one a style rule writes",
 			run = function()
 				local engine = engineLib.new({ styleOnlySignals = true })
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 				local decorate = require("../src/ui/native_decoration")
-				local Host = (runtime.constructors :: unknown) :: RobloxHost
+				local Host = Facet.host(runtime)
 				local stop, host: any = runtime.mount(function()
-					return Host.Frame({ Name = "Panel", Host.UIPadding({}) })
+					return Host.Frame { Name = "Panel", Host.UIPadding {} }
 				end, engine.new("Folder"))
-				local boundary
+				local boundary: GuiObject? = nil
 				runtime.mount(function()
-					boundary = decorate(Compose, runtime, engine.types, host, Host.Frame({ Name = "Skin" }))
+					boundary = decorate(Compose, runtime, engine.types, host, Host.Frame { Name = "Skin" })
 					return boundary
 				end, host)
+				local boundary = assert(boundary)
 				engine.environment.poke(host, "AbsoluteSize", engine.types.Vector2.new(200, 100))
 				engine.environment.poke(
 					FixtureRoblox.assertInstance(boundary),
@@ -2276,27 +2365,28 @@ return function(verifyHarness: Verify.Harness)
 					engine.types.Vector2.new(175, 75)
 				)
 				local bounds: any = boundary:FindFirstChild("SkinBounds")
-				Verify.expect(`{bounds.Position.X.Offset} {bounds.Position.Y.Offset}`):toBe("25 25")
+				expect(`{bounds.Position.X.Offset} {bounds.Position.Y.Offset}`):toBe("25 25")
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("skin art on a scrolling host stays pinned to the window, not the scrolled canvas", {
+		it("skin art on a scrolling host stays pinned to the window, not the scrolled canvas", {
 			id = "native_themes_media::native themes and media::skin art on a scrolling host stays pinned to the window, not the scrolled canvas",
 			run = function()
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 				local decorate = require("../src/ui/native_decoration")
-				local Host = (runtime.constructors :: unknown) :: RobloxHost
+				local Host = Facet.host(runtime)
 				local stop, host: any = runtime.mount(function()
-					return Host.ScrollingFrame({ Name = "Surface" })
+					return Host.ScrollingFrame { Name = "Surface" }
 				end, engine.new("Folder"))
-				local boundary
+				local boundary: GuiObject? = nil
 				runtime.mount(function()
-					boundary = decorate(Compose, runtime, engine.types, host, Host.Frame({ Name = "Skin" }))
+					boundary = decorate(Compose, runtime, engine.types, host, Host.Frame { Name = "Skin" })
 					return boundary
 				end, host)
+				local boundary = assert(boundary)
 				engine.environment.poke(host, "AbsoluteSize", engine.types.Vector2.new(300, 400))
 				engine.environment.poke(
 					FixtureRoblox.assertInstance(boundary),
@@ -2304,15 +2394,16 @@ return function(verifyHarness: Verify.Harness)
 					engine.types.Vector2.new(1, 1)
 				)
 				host.CanvasPosition = engine.types.Vector2.new(0, 48)
-				Verify.expect(`{boundary.Position.X.Offset} {boundary.Position.Y.Offset} {boundary.Position.Y.Scale}`)
-					:toBe("300 448 0")
+				expect(`{boundary.Position.X.Offset} {boundary.Position.Y.Offset} {boundary.Position.Y.Scale}`):toBe(
+					"300 448 0"
+				)
 				stop()
 				runtime:dispose()
 			end,
 		})
 	end)
 
-	verifyHarness:suite("native Avatar and AvatarGroup per-input rules", function()
+	describe("native Avatar and AvatarGroup per-input rules", function()
 		local function inputWorld(touch: boolean)
 			local engine = engineLib.new()
 			local runtime: ComposeRuntime = Roblox.createRuntime(engine)
@@ -2340,39 +2431,39 @@ return function(verifyHarness: Verify.Harness)
 			return nil
 		end
 
-		verifyHarness:case("lights only the avatar under the pointer and leaves passive faces out of input", {
+		it("lights only the avatar under the pointer and leaves passive faces out of input", {
 			id = "native_themes_media::native Avatar and AvatarGroup per-input rules::lights only the avatar under the pointer and leaves passive faces out of input",
 			run = function()
 				local engine, runtime, UI = inputWorld(false)
 				local screen = engine.new("ScreenGui")
 				local stop = runtime.mount(function()
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Avatar "Passive" { name = "Pat Lane" } :: unknown,
+					return Facet.host(runtime).Frame({
+						UI.Avatar "Passive" { name = "Pat Lane" },
 						UI.Avatar "Ada" { name = "Ada Quill", onActivate = function() end },
 						UI.Avatar "Bo" { name = "Bo Lane", onActivate = function() end },
 					})
 				end, screen)
 				local passive, ada, bo = find(screen, "Passive"), find(screen, "Ada"), find(screen, "Bo")
-				Verify.expect(passive.Interactable):toBe(false)
-				Verify.expect(ada.Interactable):toBe(true)
+				expect(passive.Interactable):toBe(false)
+				expect(ada.Interactable):toBe(true)
 				local adaRing, boRing = find(ada, "HoverRing"), find(bo, "HoverRing")
-				Verify.expect((adaRing:HasTag("facet-avatar-hover"))):toBe(true)
-				Verify.expect(adaRing.Transparency):toBe(1)
+				expect((adaRing:HasTag("facet-avatar-hover"))):toBe(true)
+				expect(adaRing.Transparency):toBe(1)
 				engine.environment.poke(ada, "GuiState", engine.types.Enum.GuiState.Hover)
-				Verify.expect(adaRing.Transparency):toBe(0)
-				Verify.expect(boRing.Transparency):toBe(1)
-				Verify.expect((find(passive, "HoverRing"))):toBe(nil)
+				expect(adaRing.Transparency):toBe(0)
+				expect(boRing.Transparency):toBe(1)
+				expect((find(passive, "HoverRing"))):toBe(nil)
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("keeps the touch overflow chip its own whole target clear of the stacked faces", {
+		it("keeps the touch overflow chip its own whole target clear of the stacked faces", {
 			id = "native_themes_media::native Avatar and AvatarGroup per-input rules::keeps the touch overflow chip its own whole target clear of the stacked faces",
 			run = function()
 				local engine, runtime, UI = inputWorld(true)
 				local screen = engine.new("ScreenGui")
-				local roster = {}
+				local roster: { FixtureMediaTypes.AvatarMember } = {}
 				for index = 1, 6 do
 					roster[index] = { id = `p{index}`, name = `Player {index}` }
 				end
@@ -2387,24 +2478,25 @@ return function(verifyHarness: Verify.Harness)
 				local group = find(screen, "Team")
 				local chip, gap = group:FindFirstChild("Overflow"), group:FindFirstChild("OverflowGap")
 				local padding = group:FindFirstChildWhichIsA("UIListLayout").Padding.Offset
-				Verify.expect(padding < 0):toBe(true)
-				Verify.expect(find(group, "p1").Interactable):toBe(false)
-				Verify.expect(gap.LayoutOrder < chip.LayoutOrder and gap.LayoutOrder > find(group, "p3").LayoutOrder)
-					:toBe(true)
-				Verify.expect(gap.Size.X.Offset + 2 * padding > 0):toBe(true)
+				expect(padding < 0):toBe(true)
+				expect(find(group, "p1").Interactable):toBe(false)
+				expect(gap.LayoutOrder < chip.LayoutOrder and gap.LayoutOrder > find(group, "p3").LayoutOrder):toBe(
+					true
+				)
+				expect(gap.Size.X.Offset + 2 * padding > 0):toBe(true)
 				local floor = chip:FindFirstChildWhichIsA("UISizeConstraint")
-				Verify.expect(floor.MinSize):toBe(engine.types.Vector2.new(44, 44))
+				expect(floor.MinSize):toBe(engine.types.Vector2.new(44, 44))
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("keeps a display-only touch overflow chip at the face size", {
+		it("keeps a display-only touch overflow chip at the face size", {
 			id = "native_themes_media::native Avatar and AvatarGroup per-input rules::keeps a display-only touch overflow chip at the face size",
 			run = function()
 				local engine, runtime, UI = inputWorld(true)
 				local screen = engine.new("ScreenGui")
-				local roster = {}
+				local roster: { FixtureMediaTypes.AvatarMember } = {}
 				for index = 1, 4 do
 					roster[index] = { id = `p{index}`, name = `Player {index}` }
 				end
@@ -2416,15 +2508,14 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end, screen)
 				local chip = find(find(screen, "Friends"), "Overflow")
-				Verify.expect(chip.Selectable):toBe(false)
-				Verify.expect(chip:FindFirstChildWhichIsA("UISizeConstraint").MinSize)
-					:toBe(engine.types.Vector2.new(0, 0))
+				expect(chip.Selectable):toBe(false)
+				expect(chip:FindFirstChildWhichIsA("UISizeConstraint").MinSize):toBe(engine.types.Vector2.new(0, 0))
 				stop()
 				runtime:dispose()
 			end,
 		})
 
-		verifyHarness:case("lets gamepad B pass through a selected overflow chip", {
+		it("lets gamepad B pass through a selected overflow chip", {
 			id = "native_themes_media::native Avatar and AvatarGroup per-input rules::lets gamepad B pass through a selected overflow chip",
 			run = function()
 				local engine, runtime, UI, gui = inputWorld(false)
@@ -2443,11 +2534,11 @@ return function(verifyHarness: Verify.Harness)
 				gui.SelectedObject = chip
 				for _, node in screen:GetDescendants() do
 					if node:IsA("InputBinding") then
-						Verify.expect(node.KeyCode == engine.types.Enum.KeyCode.ButtonB):toBe(false)
+						expect(node.KeyCode == engine.types.Enum.KeyCode.ButtonB):toBe(false)
 					end
 				end
 				chip.Activated:Fire()
-				Verify.expect(calls):toBe(1)
+				expect(calls):toBe(1)
 				stop()
 				runtime:dispose()
 			end,
@@ -2460,7 +2551,6 @@ return function(verifyHarness: Verify.Harness)
 		local ThemeTypes = require("../src/ui/theme_types")
 		local FixtureNavigationTypes = require("../src/ui/navigation_types")
 
-		local Facet = require("../src")
 		local engineLib = require("./lib/native_engine")
 		local Compose: ComposeModule = Facet.Compose
 		local themes = Facet.themes
@@ -2488,7 +2578,7 @@ return function(verifyHarness: Verify.Harness)
 				engine = engine,
 				runtime = runtime,
 				UI = UI,
-				Host = (runtime.constructors :: unknown) :: RobloxHost,
+				Host = Facet.host(runtime),
 				gui = gui,
 				dispose = function()
 					runtime:dispose()
@@ -2498,7 +2588,7 @@ return function(verifyHarness: Verify.Harness)
 
 		local function mount(h: Harness, build: () -> any): (any, () -> ())
 			local stop, root = h.runtime.mount(function()
-				return h.Host.Frame({ build() })
+				return h.Host.Frame { build() }
 			end, h.engine.new("ScreenGui"))
 			return root, stop
 		end
@@ -2563,7 +2653,7 @@ return function(verifyHarness: Verify.Harness)
 			"scifi_hud",
 		}
 
-		verifyHarness:case("keeps every shipped typography scale readable on every device", {
+		it("keeps every shipped typography scale readable on every device", {
 			id = "native_themes_media::typography::readable shipped scales",
 			run = function()
 				local packages = { themes.neutralPackage() }
@@ -2581,7 +2671,7 @@ return function(verifyHarness: Verify.Harness)
 				do
 					table.insert(packages, (descriptor.build(themes)))
 				end
-				table.insert(packages, (assert(require("../examples/facet-lab/themes/foundation").build(themes))))
+				table.insert(packages, (assert((require("../examples/facet-lab/themes/foundation").build(themes)))))
 				for _, package in packages do
 					for _, device in { "desktop", "phone-portrait", "phone-landscape", "tablet", "console" } do
 						local scaled = themes.forDistance(package, if device == "console" then "ten-foot" else "near")
@@ -2597,13 +2687,12 @@ return function(verifyHarness: Verify.Harness)
 							return themes.createStyleSheet(runtime, scaled, { types = engine.types })
 						end, engine.new("Folder"))
 						for _, role in themes.TYPE_ROLES do
-							Verify.expect(scaled.metrics.typography[role].size >= 14):toBe(true)
+							expect(scaled.metrics.typography[role].size >= 14):toBe(true)
 							for _, size in { "Medium", "Large", "Larger", "Largest" } do
 								preference:set(size)
-								Verify.expect(
-									(style(sheet :: StyleSheet, ".facet-type-" .. role).TextSize :: number) >= 14
+								expect((style(sheet :: StyleSheet, ".facet-type-" .. role).TextSize :: number) >= 14):toBe(
+									true
 								)
-									:toBe(true)
 							end
 						end
 						stop()
@@ -2613,10 +2702,10 @@ return function(verifyHarness: Verify.Harness)
 				local definition = themes.neutralPackage()
 				definition.metrics.typography.caption.size = 12
 				definition.metrics.typography.body.size = 15
-				local resolved = assert(themes.define(definition))
-				Verify.expect(resolved.metrics.typography.caption.size):toBe(14)
-				Verify.expect(resolved.metrics.typography.body.size):toBe(15)
-				Verify.expect(definition.metrics.typography.caption.size):toBe(12)
+				local resolved = assert((themes.define(definition)))
+				expect(resolved.metrics.typography.caption.size):toBe(14)
+				expect(resolved.metrics.typography.body.size):toBe(15)
+				expect(definition.metrics.typography.caption.size):toBe(12)
 			end,
 		})
 
@@ -2629,123 +2718,114 @@ return function(verifyHarness: Verify.Harness)
 			return 0.2126 * linear(value.r) + 0.7152 * linear(value.g) + 0.0722 * linear(value.b)
 		end
 
-		verifyHarness:suite("native parity paint", function()
-			verifyHarness:case(
-				"compiles the button role and appearance vocabulary to palette rules above their base states",
-				{
-					id = "native_themes_media::native parity paint::compiles the button role and appearance vocabulary to palette rules above their base states",
-					run = function()
-						local h = harness()
-						local colors, extra = neutralColors()
-						local package = Compose.cell(themes.neutralPackage())
-						local sheet, stop = sheetFor(h, package)
-						local function expectColor(selector: string, property: string, value: any)
-							Verify.expect(style(sheet, selector)[property]):toBe(color(h.engine, value))
-						end
-						expectColor(".facet-role-destructive", "BackgroundColor3", colors.danger)
-						expectColor(".facet-role-destructive", "TextColor3", colors.onDanger)
-						expectColor(".facet-role-destructive:Hover", "BackgroundColor3", colors.danger)
-						expectColor(".facet-role-destructive:Press", "BackgroundColor3", colors.danger)
-						expectColor(".facet-role-destructive >> .facet-button-caption", "TextColor3", colors.onDanger)
-						expectColor(".facet-role-cancel >> .facet-button-caption", "TextColor3", extra.contentSecondary)
-						expectColor(".facet-role-onIndicator >> .facet-button-caption", "TextColor3", colors.onAccent)
-						expectColor(".facet-accent", "BackgroundColor3", colors.accent)
-						expectColor(".facet-accent", "TextColor3", colors.onAccent)
-						expectColor(".facet-accent >> .facet-button-caption", "TextColor3", colors.onAccent)
-						expectColor(".facet-appearance-soft", "BackgroundColor3", colors.accent)
-						Verify.expect(style(sheet, ".facet-appearance-soft").BackgroundTransparency):toBe(0.8)
-						Verify.expect(style(sheet, ".facet-appearance-soft:Hover").BackgroundTransparency):toBe(0.7)
-						Verify.expect(style(sheet, ".facet-appearance-soft:Press").BackgroundTransparency):toBe(0.6)
-						expectColor(".facet-appearance-soft >> .facet-button-caption", "TextColor3", colors.content)
-						expectColor(".facet-appearance-soft >> .facet-icon", "ImageColor3", colors.content)
-						expectColor(".facet-appearance-soft >> .facet-text", "TextColor3", colors.content)
-						expectColor(".facet-appearance-soft.facet-selected", "BackgroundColor3", colors.accent)
-						Verify.expect(style(sheet, ".facet-appearance-soft.facet-selected").BackgroundTransparency)
-							:toBe(0)
-						expectColor(
-							".facet-appearance-soft.facet-selected >> .facet-button-caption",
-							"TextColor3",
-							colors.onAccent
-						)
-						expectColor(
-							".facet-appearance-soft.facet-selected >> .facet-text",
-							"TextColor3",
-							colors.onAccent
-						)
-						Verify.expect(style(sheet, ".facet-appearance-utility").BackgroundTransparency):toBe(1)
-						expectColor(".facet-appearance-utility:Hover", "BackgroundColor3", extra.controlHover)
-						Verify.expect(style(sheet, ".facet-appearance-utility:Hover").BackgroundTransparency):toBe(0)
-						expectColor(".facet-appearance-utility:Press", "BackgroundColor3", extra.controlPressed)
-						Verify.expect(style(sheet, ".facet-appearance-link").BackgroundTransparency):toBe(1)
-						expectColor(".facet-appearance-link", "TextColor3", colors.content)
-						expectColor(".facet-appearance-link >> .facet-button-caption", "TextColor3", colors.content)
-						expectColor(".facet-appearance-link >> .facet-icon", "ImageColor3", colors.content)
-						Verify.expect(style(sheet, ".facet-appearance-link::UIPadding").PaddingLeft)
-							:toBe(h.engine.types.UDim.new(0, 0))
-						expectColor(".facet-quiet-destructive", "TextColor3", colors.danger)
-						expectColor(".facet-quiet-destructive >> .facet-button-caption", "TextColor3", colors.danger)
-						expectColor(".facet-selected", "BackgroundColor3", extra.controlSelected)
-						expectColor(".facet-selected", "TextColor3", colors.content)
-						Verify.expect(style(sheet, ".facet-disabled").TextTransparency)
-							:toBe(extra.disabledContentOpacity)
-						Verify.expect(style(sheet, ".facet-disabled >> .facet-button-caption").TextTransparency)
-							:toBe(extra.disabledContentOpacity)
-						expectColor(".facet-button:Hover", "BackgroundColor3", extra.controlHover)
-						expectColor(".facet-button:Press", "BackgroundColor3", extra.controlPressed)
-						local function priority(selector: string): number
-							return ruleNode(sheet, selector).Priority
-						end
-						for _, base in
-							{
-								".facet-role-destructive",
-								".facet-appearance-soft",
-								".facet-appearance-utility",
-								".facet-appearance-link",
-							}
-						do
-							for _, state in { ":Hover", ":Press" } do
-								Verify.expect(priority(base .. state) > priority(base)):toBe(true)
-								Verify.expect(priority(base .. state) > priority(".facet-button" .. state)):toBe(true)
-							end
-						end
-						Verify.expect(priority(".facet-button:Hover") > priority(".facet-button")):toBe(true)
-						Verify.expect(style(sheet, ".facet-disabled >> .facet-toggle-indicator").BackgroundTransparency)
-							:toBe(extra.disabledContentOpacity)
-						Verify.expect(
-							priority(".facet-disabled >> .facet-toggle-indicator") > priority(".facet-toggle-indicator")
-						)
-							:toBe(true)
+		describe("native parity paint", function()
+			it("compiles the button role and appearance vocabulary to palette rules above their base states", {
+				id = "native_themes_media::native parity paint::compiles the button role and appearance vocabulary to palette rules above their base states",
+				run = function()
+					local h = harness()
+					local colors, extra = neutralColors()
+					local package = themeState(themes.neutralPackage())
+					local sheet, stop = sheetFor(h, package)
+					local function expectColor(selector: string, property: string, value: any)
+						expect(style(sheet, selector)[property]):toBe(color(h.engine, value))
+					end
+					expectColor(".facet-role-destructive", "BackgroundColor3", colors.danger)
+					expectColor(".facet-role-destructive", "TextColor3", colors.onDanger)
+					expectColor(".facet-role-destructive:Hover", "BackgroundColor3", colors.danger)
+					expectColor(".facet-role-destructive:Press", "BackgroundColor3", colors.danger)
+					expectColor(".facet-role-destructive >> .facet-button-caption", "TextColor3", colors.onDanger)
+					expectColor(".facet-role-cancel >> .facet-button-caption", "TextColor3", extra.contentSecondary)
+					expectColor(".facet-role-onIndicator >> .facet-button-caption", "TextColor3", colors.onAccent)
+					expectColor(".facet-accent", "BackgroundColor3", colors.accent)
+					expectColor(".facet-accent", "TextColor3", colors.onAccent)
+					expectColor(".facet-accent >> .facet-button-caption", "TextColor3", colors.onAccent)
+					expectColor(".facet-appearance-soft", "BackgroundColor3", colors.accent)
+					expect(style(sheet, ".facet-appearance-soft").BackgroundTransparency):toBe(0.8)
+					expect(style(sheet, ".facet-appearance-soft:Hover").BackgroundTransparency):toBe(0.7)
+					expect(style(sheet, ".facet-appearance-soft:Press").BackgroundTransparency):toBe(0.6)
+					expectColor(".facet-appearance-soft >> .facet-button-caption", "TextColor3", colors.content)
+					expectColor(".facet-appearance-soft >> .facet-icon", "ImageColor3", colors.content)
+					expectColor(".facet-appearance-soft >> .facet-text", "TextColor3", colors.content)
+					expectColor(".facet-appearance-soft.facet-selected", "BackgroundColor3", colors.accent)
+					expect(style(sheet, ".facet-appearance-soft.facet-selected").BackgroundTransparency):toBe(0)
+					expectColor(
+						".facet-appearance-soft.facet-selected >> .facet-button-caption",
+						"TextColor3",
+						colors.onAccent
+					)
+					expectColor(".facet-appearance-soft.facet-selected >> .facet-text", "TextColor3", colors.onAccent)
+					expect(style(sheet, ".facet-appearance-utility").BackgroundTransparency):toBe(1)
+					expectColor(".facet-appearance-utility:Hover", "BackgroundColor3", extra.controlHover)
+					expect(style(sheet, ".facet-appearance-utility:Hover").BackgroundTransparency):toBe(0)
+					expectColor(".facet-appearance-utility:Press", "BackgroundColor3", extra.controlPressed)
+					expect(style(sheet, ".facet-appearance-link").BackgroundTransparency):toBe(1)
+					expectColor(".facet-appearance-link", "TextColor3", colors.content)
+					expectColor(".facet-appearance-link >> .facet-button-caption", "TextColor3", colors.content)
+					expectColor(".facet-appearance-link >> .facet-icon", "ImageColor3", colors.content)
+					expect(style(sheet, ".facet-appearance-link::UIPadding").PaddingLeft):toBe(
+						h.engine.types.UDim.new(0, 0)
+					)
+					expectColor(".facet-quiet-destructive", "TextColor3", colors.danger)
+					expectColor(".facet-quiet-destructive >> .facet-button-caption", "TextColor3", colors.danger)
+					expectColor(".facet-selected", "BackgroundColor3", extra.controlSelected)
+					expectColor(".facet-selected", "TextColor3", colors.content)
+					expect(style(sheet, ".facet-disabled").TextTransparency):toBe(extra.disabledContentOpacity)
+					expect(style(sheet, ".facet-disabled >> .facet-button-caption").TextTransparency):toBe(
+						extra.disabledContentOpacity
+					)
+					expectColor(".facet-button:Hover", "BackgroundColor3", extra.controlHover)
+					expectColor(".facet-button:Press", "BackgroundColor3", extra.controlPressed)
+					local function priority(selector: string): number
+						return ruleNode(sheet, selector).Priority
+					end
+					for _, base in
+						{
+							".facet-role-destructive",
+							".facet-appearance-soft",
+							".facet-appearance-utility",
+							".facet-appearance-link",
+						}
+					do
 						for _, state in { ":Hover", ":Press" } do
-							local disabled = ".facet-menu-destructive.facet-disabled" .. state
-							Verify.expect(style(sheet, disabled).BackgroundTransparency):toBe(1)
-							Verify.expect(priority(disabled) > priority(".facet-menu-destructive" .. state)):toBe(true)
+							expect(priority(base .. state) > priority(base)):toBe(true)
+							expect(priority(base .. state) > priority(".facet-button" .. state)):toBe(true)
 						end
-						for _, state in { "", ":Hover", ":Press" } do
-							Verify.expect(
-								priority(".facet-appearance-soft.facet-selected")
-									> priority(".facet-appearance-soft" .. state)
-							):toBe(true)
-						end
-						Verify.expect(priority(".facet-quiet-destructive") > priority(".facet-appearance-utility"))
-							:toBe(true)
-						Verify.expect(
-							priority(".facet-quiet-destructive >> .facet-button-caption")
-								> priority(".facet-appearance-link >> .facet-button-caption")
+					end
+					expect(priority(".facet-button:Hover") > priority(".facet-button")):toBe(true)
+					expect(style(sheet, ".facet-disabled >> .facet-toggle-indicator").BackgroundTransparency):toBe(
+						extra.disabledContentOpacity
+					)
+					expect(priority(".facet-disabled >> .facet-toggle-indicator") > priority(".facet-toggle-indicator")):toBe(
+						true
+					)
+					for _, state in { ":Hover", ":Press" } do
+						local disabled = ".facet-menu-destructive.facet-disabled" .. state
+						expect(style(sheet, disabled).BackgroundTransparency):toBe(1)
+						expect(priority(disabled) > priority(".facet-menu-destructive" .. state)):toBe(true)
+					end
+					for _, state in { "", ":Hover", ":Press" } do
+						expect(
+							priority(".facet-appearance-soft.facet-selected")
+								> priority(".facet-appearance-soft" .. state)
 						):toBe(true)
-						local destructive = ruleNode(sheet, ".facet-role-destructive")
-						local retuned = themes.neutralPackage()
-						retuned.style.themes[1].colors.danger = { r = 0.5, g = 0, b = 0.1 }
-						package:set(retuned)
-						Verify.expect((ruleNode(sheet, ".facet-role-destructive"))):toBe(destructive)
-						Verify.expect(styleProperties(destructive).BackgroundColor3)
-							:toBe(h.engine.types.Color3.new(0.5, 0, 0.1))
-						stop()
-						h.dispose()
-					end,
-				}
-			)
+					end
+					expect(priority(".facet-quiet-destructive") > priority(".facet-appearance-utility")):toBe(true)
+					expect(
+						priority(".facet-quiet-destructive >> .facet-button-caption")
+							> priority(".facet-appearance-link >> .facet-button-caption")
+					):toBe(true)
+					local destructive = ruleNode(sheet, ".facet-role-destructive")
+					local retuned = themes.neutralPackage()
+					retuned.style.themes[1].colors.danger = { r = 0.5, g = 0, b = 0.1 }
+					package:set(retuned)
+					expect((ruleNode(sheet, ".facet-role-destructive"))):toBe(destructive)
+					expect(styleProperties(destructive).BackgroundColor3):toBe(h.engine.types.Color3.new(0.5, 0, 0.1))
+					stop()
+					h.dispose()
+				end,
+			})
 
-			verifyHarness:case("derives control hover and pressed plates from the palette's own control", {
+			it("derives control hover and pressed plates from the palette's own control", {
 				id = "native_themes_media::native parity paint::derives control hover and pressed plates from the palette's own control",
 				run = function()
 					type Plates = { control: ThemeTypes.RGB, hover: ThemeTypes.RGB, pressed: ThemeTypes.RGB }
@@ -2766,10 +2846,10 @@ return function(verifyHarness: Verify.Harness)
 					local function follows(derived: Plates, reference: Plates)
 						local hover = step(reference.control, reference.hover)
 						local pressed = step(reference.control, reference.pressed)
-						Verify.expect(step(derived.control, derived.hover)):toBeCloseTo(hover)
-						Verify.expect(step(derived.control, derived.pressed)):toBeCloseTo(pressed)
+						expect(step(derived.control, derived.hover)):toBeCloseTo(hover)
+						expect(step(derived.control, derived.pressed)):toBeCloseTo(pressed)
 						for _, plate in { derived.hover, derived.pressed } do
-							Verify.expect(plate.r > plate.g and plate.g > plate.b):toBe(true)
+							expect(plate.r > plate.g and plate.g > plate.b):toBe(true)
 						end
 					end
 					local h = harness()
@@ -2792,15 +2872,15 @@ return function(verifyHarness: Verify.Harness)
 						},
 					}
 					local game, report = themes.define(definition)
-					Verify.expect(report.ok):toBe(true)
-					Verify.expect(#report.contrast):toBeGreaterThan(0)
+					expect(report.ok):toBe(true)
+					expect(#report.contrast):toBeGreaterThan(0)
 					local dark = plates(assert(game).style.themes[1].extra)
-					Verify.expect(luminance(dark.hover)):toBeGreaterThan(luminance(dark.control))
-					Verify.expect(luminance(dark.pressed)):toBeLessThan(luminance(dark.control))
+					expect(luminance(dark.hover)):toBeGreaterThan(luminance(dark.control))
+					expect(luminance(dark.pressed)):toBeLessThan(luminance(dark.control))
 					follows(dark, neutralDark)
-					Verify.expect(neutralDark.hover.b > neutralDark.hover.r):toBe(true)
-					Verify.expect(paint(game, ".facet-button:Hover")):toBe(color(h.engine, dark.hover))
-					Verify.expect(paint(game, ".facet-button:Press")):toBe(color(h.engine, dark.pressed))
+					expect(neutralDark.hover.b > neutralDark.hover.r):toBe(true)
+					expect(paint(game, ".facet-button:Hover")):toBe(color(h.engine, dark.hover))
+					expect(paint(game, ".facet-button:Press")):toBe(color(h.engine, dark.pressed))
 
 					local package = themes.neutralPackage()
 					local parchment = assert(package.style.themes[2].extra)
@@ -2808,8 +2888,8 @@ return function(verifyHarness: Verify.Harness)
 					parchment.controlHover = nil
 					parchment.controlPressed = nil
 					local light = plates(assert((themes.define(package))).style.themes[2].extra)
-					Verify.expect(luminance(light.hover)):toBeLessThan(luminance(light.control))
-					Verify.expect(luminance(light.pressed)):toBeLessThan(luminance(light.hover))
+					expect(luminance(light.hover)):toBeLessThan(luminance(light.control))
+					expect(luminance(light.pressed)):toBeLessThan(luminance(light.hover))
 					follows(light, neutralLight)
 
 					local explicit = themes.neutralPackage()
@@ -2819,9 +2899,9 @@ return function(verifyHarness: Verify.Harness)
 					partial.controlPressed = nil
 					local resolved = assert((themes.define(explicit)))
 					local kept = plates(resolved.style.themes[1].extra)
-					Verify.expect(kept.hover):toEqual(rgb(200, 40, 40))
-					Verify.expect(kept.pressed):toEqual(dark.pressed)
-					Verify.expect(plates(resolved.style.themes[2].extra)):toEqual(neutralLight)
+					expect(kept.hover):toEqual(rgb(200, 40, 40))
+					expect(kept.pressed):toEqual(dark.pressed)
+					expect(plates(resolved.style.themes[2].extra)):toEqual(neutralLight)
 
 					local plain: ThemeTypes.ThemeDefinition = {
 						base = themes.neutralPackage(),
@@ -2832,12 +2912,12 @@ return function(verifyHarness: Verify.Harness)
 						},
 					}
 					local untouched, plainReport = themes.define(plain)
-					Verify.expect(plainReport.ok):toBe(true)
+					expect(plainReport.ok):toBe(true)
 					local unset = assert(assert(untouched).style.themes[1].extra)
-					Verify.expect(unset.controlHover):toBeNil()
-					Verify.expect(unset.controlPressed):toBeNil()
-					Verify.expect(paint(untouched, ".facet-button:Hover")):toBe(color(h.engine, neutralDark.hover))
-					Verify.expect(paint(untouched, ".facet-button:Press")):toBe(color(h.engine, neutralDark.pressed))
+					expect(unset.controlHover):toBeNil()
+					expect(unset.controlPressed):toBeNil()
+					expect(paint(untouched, ".facet-button:Hover")):toBe(color(h.engine, neutralDark.hover))
+					expect(paint(untouched, ".facet-button:Press")):toBe(color(h.engine, neutralDark.pressed))
 
 					local undefined = themes.neutralPackage()
 					local sand = assert(undefined.style.themes[1])
@@ -2845,13 +2925,13 @@ return function(verifyHarness: Verify.Harness)
 					local sandExtra = assert(sand.extra)
 					sandExtra.controlHover = nil
 					sandExtra.controlPressed = nil
-					Verify.expect(paint(undefined, ".facet-button:Hover")):toBe(color(h.engine, neutralLight.hover))
-					Verify.expect(paint(undefined, ".facet-button:Press")):toBe(color(h.engine, neutralLight.pressed))
+					expect(paint(undefined, ".facet-button:Hover")):toBe(color(h.engine, neutralLight.hover))
+					expect(paint(undefined, ".facet-button:Press")):toBe(color(h.engine, neutralLight.pressed))
 					h.dispose()
 				end,
 			})
 
-			verifyHarness:case("keeps the contrast step on a saturated control plate", {
+			it("keeps the contrast step on a saturated control plate", {
 				id = "native_themes_media::native parity paint::keeps the contrast step on a saturated control plate",
 				run = function()
 					local function step(from: ThemeTypes.RGB, to: ThemeTypes.RGB): number
@@ -2875,14 +2955,14 @@ return function(verifyHarness: Verify.Harness)
 							},
 						}
 						local package, report = themes.define(definition)
-						Verify.expect(report.ok):toBe(true)
+						expect(report.ok):toBe(true)
 						local extra = assert(assert(package).style.themes[1].extra)
 						local lighter, darker = assert(extra.controlHover), assert(extra.controlPressed)
-						Verify.expect(step(plate, lighter)):toBeCloseTo(up)
-						Verify.expect(step(plate, darker)):toBeCloseTo(down)
-						Verify.expect(lighter.r):toBeCloseTo(1)
-						Verify.expect(lighter.g > plate.g and lighter.b > plate.b):toBe(true)
-						Verify.expect(darker.r < 1 and darker.r > darker.g):toBe(true)
+						expect(step(plate, lighter)):toBeCloseTo(up)
+						expect(step(plate, darker)):toBeCloseTo(down)
+						expect(lighter.r):toBeCloseTo(1)
+						expect(lighter.g > plate.g and lighter.b > plate.b):toBe(true)
+						expect(darker.r < 1 and darker.r > darker.g):toBe(true)
 					end
 				end,
 			})

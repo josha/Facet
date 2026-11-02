@@ -11,7 +11,8 @@ type Dispatcher = {
 	keyCodes: { [string]: Enum.KeyCode },
 }
 
-local KEYS = table.freeze({ Tab = true, Escape = true })
+local keyNames: { [string]: boolean } = { Tab = true, Escape = true }
+local KEYS = table.freeze(keyNames)
 local MODIFIERS = table.freeze({
 	"LeftControl",
 	"RightControl",
@@ -23,7 +24,7 @@ local MODIFIERS = table.freeze({
 	"RightSuper",
 })
 
-local dispatchers = setmetatable({} :: { [UserInputService]: Dispatcher }, { __mode = "k" })
+local dispatchers: { [UserInputService]: Dispatcher } = setmetatable({}, { __mode = "k" })
 
 local function holds(handler: Handler, selected: Instance?): boolean
 	local node = handler.node

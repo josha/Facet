@@ -16,7 +16,7 @@ local MENU_KEYS: { [string]: boolean } = { items = true, label = true }
 local BADGE_KEYS: { [string]: boolean } = { label = true, status = true, icon = true, name = true }
 local CORNER_KEYS: { [string]: boolean } = { leading = true, trailing = true }
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 	local Host, Compose, read, runtime = ctx.Host, ctx.Compose, ctx.read, ctx.runtime
 	local E, D2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.UDim
 	local function nonempty(value: unknown): boolean
@@ -27,6 +27,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 	end
 	local function within(node: Instance?, ancestor: Instance): boolean
 		return node ~= nil and (node == ancestor or node:IsDescendantOf(ancestor))
+	end
+	local function fields(value: unknown, known: { [string]: boolean }, name: string)
+		assert(type(value) == "table", `Facet UI.Card: {name} must be a table`)
+		for key in value do
+			assert(
+				type(key) == "string" and known[key],
+				`Facet UI.Card: {name} has the unknown field '{tostring(key)}'`
+			)
+		end
 	end
 
 	UI.Card = ctx.construct("Card", function(spec: ContentProps.CardSpec): Frame
@@ -63,51 +72,47 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		)
 		local primary = spec.primaryAction
 		if primary ~= nil then
-			assert(type(primary) == "table", "Facet UI.Card: primaryAction must be a table")
-			for key in (primary :: unknown) :: { [string]: unknown } do
-				assert(ACTION_KEYS[key], `Facet UI.Card: primaryAction has the unknown field '{key}'`)
-			end
+			fields(primary, ACTION_KEYS, "primaryAction")
 			assert(nonempty(read(primary.label)), "Facet UI.Card: primaryAction.label must be a nonempty string")
 			assert(type(primary.onActivate) == "function", "Facet UI.Card: primaryAction.onActivate is required")
 		end
 		local menu = spec.menu
 		if menu ~= nil then
-			assert(type(menu) == "table", "Facet UI.Card: menu must be a table")
-			for key in (menu :: unknown) :: { [string]: unknown } do
-				assert(MENU_KEYS[key], `Facet UI.Card: menu has the unknown field '{key}'`)
-			end
+			fields(menu, MENU_KEYS, "menu")
 			assert(menu.items ~= nil, "Facet UI.Card: menu.items is required")
 		end
 		local revealing = primary ~= nil or menu ~= nil
 		local badges = spec.badges
 		if badges ~= nil then
-			assert(type(badges) == "table", "Facet UI.Card: badges must be a table")
+			fields(badges, CORNER_KEYS, "badges")
 			assert(media, "Facet UI.Card: badges need image or artwork")
-			for corner, badge in (badges :: unknown) :: { [string]: unknown } do
-				assert(CORNER_KEYS[corner], `Facet UI.Card: badges has the unknown field '{corner}'`)
-				assert(type(badge) == "table", `Facet UI.Card: badges.{corner} must be a table`)
-				local fields = badge :: { [string]: unknown }
-				for key in fields do
-					assert(BADGE_KEYS[key], `Facet UI.Card: badges.{corner} has the unknown field '{key}'`)
+			local function checkBadge(corner: string, badge: Content.CardBadge?)
+				if badge == nil then
+					return
 				end
+				fields(badge, BADGE_KEYS, `badges.{corner}`)
 				assert(
-					fields.label ~= nil or (fields.icon ~= nil and nonempty(fields.name)),
+					badge.label ~= nil or (badge.icon ~= nil and nonempty(badge.name)),
 					`Facet UI.Card: badges.{corner} needs a label, or an icon and a name`
 				)
 			end
+			checkBadge("leading", badges.leading)
+			checkBadge("trailing", badges.trailing)
 		end
 		local checks = values(ctx, "Card")
-		local title = checks.legal("title", spec.title, nonempty, "must be a nonempty string")
+		local title = checks.legal<<string>>("title", spec.title, nonempty, "must be a nonempty string")
 		local image = if spec.image == nil
 			then ""
-			else checks.legal("image", spec.image, nonempty, "must be a nonempty image string")
-		local caption = checks.legal("caption", spec.caption or "", text, "must be a string")
+			else checks.legal<<string>>("image", spec.image, nonempty, "must be a nonempty image string")
+		local caption = checks.legal<<string>>("caption", spec.caption or "", text, "must be a string")
 		local enabled = function(use: ComposeTypes.Use?): boolean
 			return read(spec.enabled, use) ~= false
 		end
 		local gui = ctx.config.services.GuiService
 		local input = ctx.config.services.UserInputService
-		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil :: GuiObject?)
+		local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
+			then ctx.observe.SelectedObject(gui)
+			else Compose.cell(nil)
 		local touchEnabled = if input then ctx.observe.TouchEnabled(input) else Compose.cell(false)
 		local preferred = if input then ctx.observe.PreferredInput(input) else nil
 		local function prefersTouch(use: ComposeTypes.Use): boolean
@@ -117,9 +122,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local pressingBody = Compose.cell(false)
 		local reduced = reducedMotion(ctx)
 		local root: Frame? = nil
-		local primaryButton: TextButton?
+		local primaryButton: GuiObject?
 		local moreTrigger: GuiObject?
-		local actionStates = Compose.cell({} :: { ComposeTypes.ReadOnlyValue<boolean> })
+		local actionStates: ComposeTypes.Value<{ ComposeTypes.ReadOnlyValue<boolean> }> = Compose.cell({})
 		local function holding(button: GuiObject): ComposeTypes.ReadOnlyValue<boolean>
 			local down = Compose.cell(false)
 			local state = ctx.observe.GuiState(button)
@@ -149,7 +154,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local browsing = Compose.formula(function(use: ComposeTypes.Use): boolean
 			local node = use(selected)
 			local target: Instance? = if spec.browseTarget then spec.browseTarget() else nil
-			return node ~= nil and target ~= nil and (node :: Instance) == target
+			return node ~= nil and target ~= nil and node == target
 		end)
 		local pressing = Compose.formula(function(use: ComposeTypes.Use): boolean
 			if use(pressingBody) then
@@ -259,12 +264,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			local function gap(use: ComposeTypes.Use): UDim
 				return D.new(0, ctx.metric("space.s", use))
 			end
-			local layerProps: Types.FrameNativeProps = {
+			local layerProps: Types.FrameProps = {
 				Name = "Badges",
 				BackgroundTransparency = 1,
 				Size = D2.fromScale(1, 1),
 				ZIndex = 2,
-				Host.UIPadding({ PaddingLeft = gap, PaddingRight = gap, PaddingTop = gap, PaddingBottom = gap }),
+				Host.UIPadding { PaddingLeft = gap, PaddingRight = gap, PaddingTop = gap, PaddingBottom = gap },
 			}
 			local widths: { [string]: ComposeTypes.Value<number> } =
 				{ Leading = Compose.cell(0), Trailing = Compose.cell(0) }
@@ -284,9 +289,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				end
 				local props: MediaProps.BadgeProps = {
 					label = function(use: ComposeTypes.Use): string?
-						local value = read(label, use)
-						if nonempty(value) then
-							last = value :: string
+						local value = read<<string?>>(label, use)
+						if type(value) == "string" and nonempty(value) then
+							last = value
 						elseif marked(use) then
 							return nil
 						end
@@ -326,9 +331,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			moved = function(use: ComposeTypes.Use): { string }
 				local list: { string } = {}
 				local function add(name: string, label: Content.Input<string?>?)
-					local value = read(label, use)
-					if not use(onArt[name]) and nonempty(value) then
-						table.insert(list, value :: string)
+					local value = read<<string?>>(label, use)
+					if not use(onArt[name]) and type(value) == "string" and nonempty(value) then
+						table.insert(list, value)
 					end
 				end
 				add("Trailing", trailingLabel)
@@ -354,7 +359,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			end)
 			badgeLayer = badgeArea
 		end
-		local artwork = Host.ImageLabel({
+		local artwork = Host.ImageLabel {
 			Name = "Artwork",
 			LayoutOrder = 1,
 			BackgroundTransparency = 1,
@@ -367,7 +372,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				AspectType = E.AspectType.FitWithinMaxSize,
 				DominantAxis = E.DominantAxis.Width,
 			},
-		})
+		}
 		if badgeLayer then
 			badgeLayer.Parent = artwork
 		end
@@ -416,12 +421,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			local function side(use: ComposeTypes.Use): UDim
 				return D.new(0, ctx.metric("space.s", use))
 			end
-			return Host.UIPadding({
+			return Host.UIPadding {
 				PaddingLeft = side,
 				PaddingRight = side,
 				PaddingTop = if media or bottom then nil else side,
 				PaddingBottom = if bottom then side else closing,
-			})
+			}
 		end
 		runtime.mount(function()
 			return inset(false)
@@ -453,17 +458,19 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				PaddingTop = D.new(0, 0),
 				PaddingBottom = D.new(0, 0),
 			},
-			Host.UIListLayout({
+			Host.UIListLayout {
 				FillDirection = E.FillDirection.Vertical,
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = function(use: ComposeTypes.Use)
 					return D.new(0, ctx.metric("space.xs", use))
 				end,
-			}),
+			},
 			artwork,
 			titleLabel,
-			captionLabel,
 		}
+		if captionLabel then
+			table.insert(bodyChildren, captionLabel)
+		end
 		local body: GuiObject
 		if spec.onActivate then
 			local onActivate = spec.onActivate
@@ -495,13 +502,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			button:AddTag("facet-panel")
 			body = button
 			runtime.mount(function()
-				return Host.UIShadow({
+				return Host.UIShadow {
 					Name = "LiftShadow",
 					Enabled = lifting,
-				})
+				}
 			end, button)
 		else
-			local props: Types.FrameNativeProps = {
+			local props: Types.FrameProps = {
 				Name = "Body",
 				LayoutOrder = 1,
 				Size = D2.fromScale(1, 0),
@@ -510,14 +517,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					label = function(use: ComposeTypes.Use): string
 						return use(title)
 					end,
-				} :: Types.Attributes,
+				},
 			}
 			for _, child in bodyChildren do
 				props[#props + 1] = child
 			end
 			body = ctx.styled(Host.Frame(props), "panel")
 		end
-		ctx.styled(body, "card-body")
+		ctx.styled<<GuiObject>>(body, "card-body")
 		body:AddTag("facet-card-part")
 		local actionEnabled = function(use: ComposeTypes.Use?): boolean
 			return enabled(use) and ctx.readSource(revealed, use)
@@ -530,7 +537,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			local states: { ComposeTypes.ReadOnlyValue<boolean> } = {}
 			if primary then
 				local action = primary
-				local button = UI.Button({
+				local buttonProps: InputProps.ButtonPropsInput = {
 					Name = "Primary",
 					LayoutOrder = 1,
 					label = action.label,
@@ -545,21 +552,22 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 							action.onActivate()
 						end
 					end,
-					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
-				})
+					Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
+				}
+				local button = UI.Button(buttonProps)
 				primaryButton = button
 				table.insert(states, holding(button))
 				table.insert(rowChildren, button)
 			end
 			if menu then
-				local more = UI.Menu({
+				local more = UI.Menu {
 					Name = "More",
 					LayoutOrder = 2,
-					trigger = UI.Button({ label = "", name = menu.label or "More", icon = "more", enabled = enabled }),
+					trigger = UI.Button { label = "", name = menu.label or "More", icon = "more", enabled = enabled },
 					items = menu.items,
 					isPresented = menuOpen,
 					enabled = enabled,
-				})
+				}
 				moreTrigger = more
 				table.insert(states, holding(more))
 				table.insert(rowChildren, more)
@@ -569,28 +577,28 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				primaryButton, moreTrigger = nil, nil
 				actionStates:set({})
 			end)
-			local rowProps: Types.FrameNativeProps = {
+			local function selectionBehavior(use: ComposeTypes.Use): Enum.SelectionBehavior
+				return if use(entered) then E.SelectionBehavior.Stop else E.SelectionBehavior.Escape
+			end
+			local rowProps: Types.FrameProps = {
 				Name = "Row",
 				BackgroundTransparency = 1,
 				Size = D2.fromScale(1, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				SelectionGroup = true,
-				Host.UIListLayout({
+				SelectionBehaviorUp = selectionBehavior,
+				SelectionBehaviorDown = selectionBehavior,
+				SelectionBehaviorLeft = selectionBehavior,
+				SelectionBehaviorRight = selectionBehavior,
+				Host.UIListLayout {
 					FillDirection = E.FillDirection.Horizontal,
 					SortOrder = E.SortOrder.LayoutOrder,
 					VerticalAlignment = E.VerticalAlignment.Center,
 					Padding = function(use: ComposeTypes.Use)
 						return D.new(0, ctx.metric("space.s", use))
 					end,
-				}),
+				},
 			}
-			for _, side in
-				{ "SelectionBehaviorUp", "SelectionBehaviorDown", "SelectionBehaviorLeft", "SelectionBehaviorRight" }
-			do
-				(rowProps :: { [unknown]: unknown })[side] = function(use: ComposeTypes.Use): Enum.SelectionBehavior
-					return if use(entered) then E.SelectionBehavior.Stop else E.SelectionBehavior.Escape
-				end
-			end
 			for _, child in rowChildren do
 				rowProps[#rowProps + 1] = child
 			end
@@ -599,22 +607,22 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				local function side(use: ComposeTypes.Use): UDim
 					return D.new(0, ctx.metric("space.s", use))
 				end
-				rowProps[#rowProps + 1] = Host.UIPadding({
+				rowProps[#rowProps + 1] = Host.UIPadding {
 					PaddingLeft = side,
 					PaddingRight = side,
 					PaddingTop = function(use: ComposeTypes.Use): UDim
 						return D.new(0, ctx.metric("space.s", use) + tuck(use))
 					end,
 					PaddingBottom = side,
-				})
+				}
 			end
 			local row = Host.Frame(rowProps)
 			local plateLayer = ctx.styled(
-				Host.Frame({
+				Host.Frame {
 					Name = "Plate",
 					Size = D2.fromScale(1, 1),
 					Visible = reveal == "automatic",
-				}),
+				},
 				"panel"
 			)
 			plateLayer:AddTag("facet-card-part")
@@ -645,20 +653,20 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			local parent = root and root.Parent
 			return parent ~= nil and parent:FindFirstChildWhichIsA("UIGridStyleLayout") ~= nil
 		end
-		local liftScale = Host.UIScale({
+		local liftScale = Host.UIScale {
 			Name = "Lift",
 			Scale = function(use: ComposeTypes.Use): number
 				local factor = use(scale)
 				return if inLayout() then 1 else factor
 			end,
-		})
-		local layout = Host.UIListLayout({
+		}
+		local layout = Host.UIListLayout {
 			FillDirection = E.FillDirection.Vertical,
 			SortOrder = E.SortOrder.LayoutOrder,
 			Padding = function(use: ComposeTypes.Use)
 				return D.new(0, if reveal == "always" then ctx.metric("space.s", use) else -tuck(use))
 			end,
-		})
+		}
 		local actions = if revealing
 			then Compose.show(inFlow, function()
 				return actionRow(true)
@@ -694,21 +702,21 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				hovered:set(false)
 			end,
 			Attributes = {
-				FacetReveal = checks.attribute(reveal),
-				FacetRevealed = checks.attribute(revealed),
-				FacetEngaged = checks.attribute(engaged),
-				FacetLifting = checks.attribute(lifting),
-				FacetHovered = checks.attribute(hovered),
-				FacetFocusWithin = checks.attribute(focusWithin),
-				FacetPressing = checks.attribute(pressing),
-				FacetBrowsing = checks.attribute(browsing),
-				FacetEntered = checks.attribute(entered),
-				FacetMenuOpen = checks.attribute(menuOpen),
-				FacetBody = checks.attribute(if spec.onActivate then "button" else "informational"),
+				FacetReveal = reveal,
+				FacetRevealed = revealed,
+				FacetEngaged = engaged,
+				FacetLifting = lifting,
+				FacetHovered = hovered,
+				FacetFocusWithin = focusWithin,
+				FacetPressing = pressing,
+				FacetBrowsing = browsing,
+				FacetEntered = entered,
+				FacetMenuOpen = menuOpen,
+				FacetBody = if spec.onActivate then "button" else "informational",
 			},
-			layout :: Types.Child,
-			body :: Types.Child,
-			liftScale :: Types.Child,
+			layout,
+			body,
+			liftScale,
 			Compose.show(function(use: ComposeTypes.Use): boolean
 				local active = use(lifting) or use(scale) ~= 1
 				return active and not reduced(use) and inLayout()
@@ -719,21 +727,23 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					Host.UIScale { Name = "PaintLift", Scale = scale },
 					{ Size = spec.Size, AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y, reflow = true }
 				)
-				return Compose.fragment(function()
+				return Compose.fragment(function(): { ComposeTypes.Node }
 					return {}
 				end)
-			end) :: Types.Child,
-			actions :: Types.Child,
+			end),
+			actions,
 		}))
 		if not media then
 			ctx.styled(card, "panel")
 			card:AddTag("facet-card-text")
 			runtime.mount(function()
-				return Host.UIPadding({})
+				return Host.UIPadding {}
 			end, card)
 		end
 		root = card
-		local extent = if spec.onActivate or spec.controls then ctx.observe.AbsoluteSize(card) else nil
+		local extent: ComposeTypes.ReadOnlyValue<Vector2>? = if spec.onActivate or spec.controls
+			then ctx.observe.AbsoluteSize(card)
+			else nil
 		if spec.onActivate then
 			local bodyExtent = ctx.observe.AbsoluteSize(body)
 			local ringed = if spec.ringTarget == "media" then ctx.observe.AbsoluteSize(artwork) else assert(extent)
@@ -749,7 +759,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			runtime.decorate(card, {
 				AnchorPoint = function(use: ComposeTypes.Use): Vector2
 					local factor = math.max(use(scale), 0.001)
-					local anchor = read(spec.AnchorPoint, use) or ctx.types.Vector2.new(0, 0)
+					local anchor = read<<Vector2?>>(spec.AnchorPoint, use) or ctx.types.Vector2.new(0, 0)
 					local growth = (1 - 1 / factor) / 2
 					return if inLayout() then anchor else anchor + ctx.types.Vector2.new(growth, growth)
 				end,
@@ -789,7 +799,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				attachedTo = target
 				if target then
 					stopScale = runtime.mount(function()
-						return Host.UIScale({ Name = "CardLift", Scale = scale })
+						return Host.UIScale { Name = "CardLift", Scale = scale }
 					end, target)
 				end
 			end)

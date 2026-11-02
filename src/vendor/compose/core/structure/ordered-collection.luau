@@ -3,7 +3,7 @@
 
 local freeze: ({}) -> {} = table.freeze
 
-local StructureTypes = require "./types"
+local CoreTypes = require "../types"
 local Children = require "../runtime/children"
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
@@ -13,20 +13,20 @@ local Types = require "../reactive/types"
 local retain = require "../collection/retain"
 local cellModule = require "../reactive/cell"
 
-export type Viewport = StructureTypes.OrderedCollectionViewport
+export type Viewport = CoreTypes.OrderedCollectionViewport
 
-export type Mode = StructureTypes.OrderedCollectionMode
-export type Direction = StructureTypes.OrderedCollectionDirection
-export type LayoutKind = StructureTypes.OrderedCollectionLayoutKind
-export type Align = StructureTypes.OrderedCollectionAlign
+export type Mode = CoreTypes.OrderedCollectionMode
+export type Direction = CoreTypes.OrderedCollectionDirection
+export type LayoutKind = CoreTypes.OrderedCollectionLayoutKind
+export type Align = CoreTypes.OrderedCollectionAlign
 
-export type LayoutOptions = StructureTypes.OrderedCollectionLayout
+export type LayoutOptions = CoreTypes.OrderedCollectionLayout
 
-export type Status = StructureTypes.OrderedCollectionStatus
+export type Status = CoreTypes.OrderedCollectionStatus
 
-export type Controls<K> = StructureTypes.OrderedCollectionControls<K>
+export type Controls<K> = CoreTypes.OrderedCollectionControls<K>
 
-export type Options<V, K> = StructureTypes.OrderedCollectionOptions<V, K>
+export type Options<V, K> = CoreTypes.OrderedCollectionOptions<V, K>
 
 local KNOWN_FIELDS: { [string]: true } = {
 	from = true,
@@ -64,18 +64,27 @@ local function numberOr(value: unknown, fallback: number): number
 	return fallback
 end
 
-local identity = require("../reactive/node").identityKey
+local identity = require("../reactive/graph").identityKey
 
-local function geometryOptions(value: LayoutOptions): Layout.Options
-	local layoutOptions = Support.optionsOf(value, "OrderedCollection.layout", "kind = ..., itemSize = ...")
-	Support.noUnknownFields(layoutOptions, "OrderedCollection.layout", KNOWN_LAYOUT)
-	local kind: LayoutKind = layoutOptions.kind or "list"
+local function geometryOptions(value: unknown): Layout.Options
+	local supplied = Support.optionsOf(value, "OrderedCollection.layout", "kind = ..., itemSize = ...")
+	Support.noUnknownFields(supplied, "OrderedCollection.layout", KNOWN_LAYOUT)
+	assert(type(supplied) == "table")
+	local layoutOptions: { [unknown]: unknown } = {}
+	for key, item in supplied do
+		layoutOptions[key] = item
+	end
+	local kind = layoutOptions.kind or "list"
 	if kind ~= "list" and kind ~= "grid" then
-		Diagnostics.raise("collection/unknown-layout", "OrderedCollection was given a layout kind it does not have", {
-			primitive = "OrderedCollection",
-			actual = Diagnostics.describe(layoutOptions.kind),
-			expected = '"list" or "grid"',
-		})
+		return Diagnostics.raise(
+			"collection/unknown-layout",
+			"OrderedCollection was given a layout kind it does not have",
+			{
+				primitive = "OrderedCollection",
+				actual = Diagnostics.describe(layoutOptions.kind),
+				expected = '"list" or "grid"',
+			}
+		)
 	end
 	return {
 		count = 0,
@@ -93,12 +102,16 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 
 	local source: Types.Body<{ V }> = Support.sourceOf(settings.from, "OrderedCollection", "from")
 	if (settings.render == nil) == (settings.recycle == nil) then
-		Diagnostics.raise("collection/render-or-recycle", "OrderedCollection needs exactly one of render and recycle", {
-			primitive = "OrderedCollection",
-			expected = "render = function(value, placement, key) or recycle = function(value, placement, key)",
-			contract = "render mounts one row per key; recycle reuses rows and passes the key as a readable",
-			fix = "pass render, or pass recycle when row content can follow a changing key",
-		})
+		return Diagnostics.raise(
+			"collection/render-or-recycle",
+			"OrderedCollection needs exactly one of render and recycle",
+			{
+				primitive = "OrderedCollection",
+				expected = "render = function(value, placement, key) or recycle = function(value, placement, key)",
+				contract = "render mounts one row per key; recycle reuses rows and passes the key as a readable",
+				fix = "pass render, or pass recycle when row content can follow a changing key",
+			}
+		)
 	end
 	local render: ((Types.ReadOnlyValue<V>, Types.ReadOnlyValue<Layout.Placement>, K) -> Host.Node)? = if settings.render
 			~= nil
@@ -118,7 +131,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 
 	local mode: Mode = settings.mode or "all"
 	if mode ~= "all" and mode ~= "windowed" then
-		Diagnostics.raise("collection/unknown-mode", "OrderedCollection was given a mode it does not have", {
+		return Diagnostics.raise("collection/unknown-mode", "OrderedCollection was given a mode it does not have", {
 			primitive = "OrderedCollection",
 			actual = Diagnostics.describe(settings.mode),
 			expected = '"all" or "windowed"',
@@ -128,20 +141,31 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 
 	local direction: Direction = settings.direction or "vertical"
 	if direction ~= "vertical" and direction ~= "horizontal" then
-		Diagnostics.raise("collection/unknown-direction", "OrderedCollection was given a direction it does not have", {
-			primitive = "OrderedCollection",
-			actual = Diagnostics.describe(settings.direction),
-			expected = '"vertical" or "horizontal"',
-		})
+		return Diagnostics.raise(
+			"collection/unknown-direction",
+			"OrderedCollection was given a direction it does not have",
+			{
+				primitive = "OrderedCollection",
+				actual = Diagnostics.describe(settings.direction),
+				expected = '"vertical" or "horizontal"',
+			}
+		)
 	end
 
-	local layoutBody: Types.Body<LayoutOptions>? = nil
+	local layoutBody: Types.Body<unknown>? = nil
 	local initialLayout: Layout.Options
-	if cellModule.isValue(settings.layout) or type(settings.layout) == "function" then
-		layoutBody = Support.sourceOf(settings.layout :: Types.Source<LayoutOptions>, "OrderedCollection", "layout")
+	local layout = settings.layout
+	local readableLayout = cellModule.asValue(layout)
+	if type(layout) == "function" then
+		layoutBody = layout
+		initialLayout = geometryOptions {}
+	elseif readableLayout ~= nil then
+		layoutBody = function(use: Types.Use): unknown
+			return use(readableLayout)
+		end
 		initialLayout = geometryOptions {}
 	else
-		initialLayout = geometryOptions((settings.layout :: LayoutOptions?) or {})
+		initialLayout = geometryOptions(layout or {})
 	end
 	local overscan = math.max(0, math.floor(numberOr(settings.overscan, 0)))
 	local followThreshold = numberOr(settings.followThreshold, 4)
@@ -151,7 +175,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 	if settings.viewport ~= nil then
 		viewportBody = Support.sourceOf(settings.viewport, "OrderedCollection", "viewport")
 	elseif mode == "windowed" then
-		Diagnostics.raise("collection/no-viewport", 'OrderedCollection mode = "windowed" needs a viewport', {
+		return Diagnostics.raise("collection/no-viewport", 'OrderedCollection mode = "windowed" needs a viewport', {
 			primitive = "OrderedCollection",
 			contract = "a windowed collection retains what the viewport covers, so it has to be told where it is",
 			fix = 'pass viewport = a cell holding { offset = ..., size = ... }, or use mode = "all"',
@@ -168,7 +192,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 		else Support.writableOf(settings.status, "OrderedCollection", "status")
 	local controls = settings.controls
 	if controls ~= nil and type(controls) ~= "table" then
-		Diagnostics.raise("collection/controls-not-a-table", "OrderedCollection cannot fill in these controls", {
+		return Diagnostics.raise("collection/controls-not-a-table", "OrderedCollection cannot fill in these controls", {
 			key = "controls",
 			actual = Diagnostics.describe(controls),
 			expected = "a table, which the collection fills in on mount",
@@ -313,7 +337,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 	end
 
 	local function select(use: Types.Use, list: { V }): retain.Selection<V, Layout.Placement, K>
-		local readLayout: Types.Body<LayoutOptions>? = layoutBody
+		local readLayout: Types.Body<unknown>? = layoutBody
 		local layout = if readLayout ~= nil then geometryOptions(readLayout(use)) else initialLayout
 		if
 			list ~= builtFor

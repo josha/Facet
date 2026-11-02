@@ -3,11 +3,14 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
 type SideCell = typeof(require("@repo/tools/typecheck/aliases").SideCell)
 type SortCell = typeof(require("@repo/tools/typecheck/aliases").SortCell)
 type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+type NumberMapCell = typeof(require("@repo/tools/typecheck/aliases").NumberMapCell)
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -90,17 +93,25 @@ local function theme(t: any, pattern: string): any
 	return nil
 end
 
+type PurchaseConfig = {
+	name: string,
+	motion: string,
+	width: number,
+	height: number,
+	wrapped: boolean?,
+	measure: boolean?,
+}
+
 add("purchase-card-keeps-its-paint-inside-the-row", {}, function(t)
-	for _, config in
-		{
-			{ name = "desktop/normal", motion = "normal", width = 600, height = 400 },
-			{ name = "desktop/none", motion = "none", width = 600, height = 400 },
-			{ name = "portrait/normal", motion = "normal", width = 320, height = 600 },
-			{ name = "portrait/none", motion = "none", width = 320, height = 600 },
-			{ name = "wrapped/estimated", motion = "normal", width = 600, height = 900, wrapped = true },
-			{ name = "wrapped/measured", motion = "normal", width = 600, height = 900, wrapped = true, measure = true },
-		}
-	do
+	local configs: { PurchaseConfig } = {
+		{ name = "desktop/normal", motion = "normal", width = 600, height = 400 },
+		{ name = "desktop/none", motion = "none", width = 600, height = 400 },
+		{ name = "portrait/normal", motion = "normal", width = 320, height = 600 },
+		{ name = "portrait/none", motion = "none", width = 320, height = 600 },
+		{ name = "wrapped/estimated", motion = "normal", width = 600, height = 900, wrapped = true },
+		{ name = "wrapped/measured", motion = "normal", width = 600, height = 900, wrapped = true, measure = true },
+	}
+	for _, config in configs do
 		local motion = config.name
 		local owned: BooleanCell? = nil
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
@@ -288,10 +299,10 @@ add("cross-axis-fills-the-window", {}, function(t)
 					itemSize = 120,
 					direction = "horizontal" :: "horizontal",
 					render = function(current)
-						return UI.Text({ text = current:peek().name })
+						return UI.Text { text = current:peek().name }
 					end,
 				},
-			} :: unknown,
+			},
 			Host.Frame "Column" {
 				Position = UDim2.fromOffset(640, 0),
 				Size = UDim2.fromOffset(320, 400),
@@ -301,7 +312,7 @@ add("cross-axis-fills-the-window", {}, function(t)
 					key = "id",
 					itemSize = 48,
 					render = function(current)
-						return UI.Text({ text = current:peek().name })
+						return UI.Text { text = current:peek().name }
 					end,
 				},
 			},
@@ -414,18 +425,19 @@ add("fill-column-floors-and-hit-order", {}, function(t)
 	)
 	t.near("wide, the fills grow equally from their floors", width(wide, "name") - width(wide, "artist"), 20, 1)
 	t.check("wide, both fills are above their floors", width(wide, "artist") > 150, width(wide, "artist"))
-	local widths
+	local widths: NumberMapCell
 	local sorted = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		local columns430: { TableColumn } = {
+			{ id = "name", label = "Name" },
+			{ id = "laps", label = "Laps", width = 96 },
+		}
 		widths = Compose.cell({})
 		return UI.Table "Hits" {
 			from = rows(6),
 			key = "id",
 			selectionMode = "single" :: "single",
 			widths = widths,
-			columns = {
-				{ id = "name", label = "Name" },
-				{ id = "laps", label = "Laps", width = 96 },
-			},
+			columns = columns430,
 		}
 	end, { size = Vector2.new(600, 400), frames = 20 })
 	widths:set({ name = 220 })
@@ -452,13 +464,14 @@ end)
 
 add("cell-insets-and-header-contrast", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
+		local columns465: { TableColumn } = {
+			{ id = "name", label = "Name" },
+			{ id = "laps", label = "Laps", width = 120 },
+		}
 		return UI.Table "Racers" {
 			from = rows(4),
 			key = "id",
-			columns = {
-				{ id = "name", label = "Name" },
-				{ id = "laps", label = "Laps", width = 120 },
-			},
+			columns = columns465,
 		}
 	end, { size = Vector2.new(600, 400), frames = 20 })
 	local header = t.find(stage, "Header")
@@ -544,11 +557,12 @@ end)
 
 add("page-scroll-moves-the-table-body", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		local columns566: { TableColumn } = { { id = "name", label = "Name" } }
 		return Host.ScrollingFrame "Page" {
 			Size = UDim2.fromScale(1, 1),
 			CanvasSize = UDim2.fromOffset(0, 1600),
 			BackgroundTransparency = 1,
-			Host.Frame "Spacer" { Size = UDim2.fromOffset(10, 200), BackgroundTransparency = 1 } :: unknown,
+			Host.Frame "Spacer" { Size = UDim2.fromOffset(10, 200), BackgroundTransparency = 1 },
 			Host.Frame "Holder" {
 				Position = UDim2.fromOffset(0, 200),
 				Size = UDim2.fromOffset(500, 600),
@@ -560,7 +574,7 @@ add("page-scroll-moves-the-table-body", {}, function(t)
 					reorderable = true,
 					editing = Compose.cell(true),
 					onReorder = function() end,
-					columns = { { id = "name", label = "Name" } },
+					columns = columns566,
 				},
 			},
 		}
@@ -590,7 +604,7 @@ local function clampCase(t: any, direction: "horizontal" | "vertical", kind: str
 			measure = false,
 			direction = direction,
 			render = function(current)
-				return UI.Text({ Name = "Text", text = current:peek().name, Size = UDim2.fromScale(1, 1) })
+				return UI.Text { Name = "Text", text = current:peek().name, Size = UDim2.fromScale(1, 1) }
 			end,
 			Size = if direction == "horizontal" then UDim2.fromOffset(470, 300) else UDim2.fromOffset(300, 190),
 		}
@@ -681,7 +695,7 @@ add("tray-actions-meet-the-touch-floor", {}, function(t)
 		return UI.RowActions "Row" {
 			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
 			Size = UDim2.new(0, 400, 0, 44),
-			content = UI.Text({ text = "Row" }),
+			content = UI.Text { text = "Row" },
 			trailing = {
 				{ id = "flag", label = "Flag" },
 				{ id = "delete", label = "Delete", role = "destructive" :: "destructive" },
@@ -745,23 +759,23 @@ local function departureCase(t: any, entry: any, edge: string, scroll: boolean)
 				end
 			end,
 		}
-		local list = {
+		local list: FrameNativeProps = {
 			Name = "Rows",
 			Size = UDim2.new(1, 0, 0, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-			Host.UIPadding({
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
+			Host.UIPadding {
 				PaddingLeft = UDim.new(0, 17),
 				PaddingRight = UDim.new(0, 17),
 				PaddingTop = UDim.new(0, 17),
-			}),
+			},
 			UI.RowActions "Row" {
 				LayoutOrder = 1,
 				Size = UDim2.new(1, 0, 0, 70),
 				leading = if edge == "leading" then { action } else nil,
 				trailing = if edge == "trailing" then { action } else nil,
-				content = UI.Button({ Name = "Body", label = "Body", Size = UDim2.fromScale(1, 1) }),
+				content = UI.Button { Name = "Body", label = "Body", Size = UDim2.fromScale(1, 1) },
 			},
 			Host.Frame "Next" { LayoutOrder = 2, Size = UDim2.new(1, 0, 0, 70), BackgroundTransparency = 1 },
 		}
@@ -878,7 +892,7 @@ add("plate-decoration-stays-inside-the-band", {}, function(t)
 		table.insert(list, ornate)
 	end
 	for _, entry in list do
-		local open
+		local open: SideCell
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			open = (function(value: ("leading" | "trailing")?): SideCell
 				return Compose.cell(value)
@@ -886,7 +900,7 @@ add("plate-decoration-stays-inside-the-band", {}, function(t)
 			return UI.RowActions "Row" {
 				open = open,
 				Size = UDim2.new(0, 500, 0, 56),
-				content = UI.Button({ label = "Row", Size = UDim2.fromScale(1, 1) }),
+				content = UI.Button { label = "Row", Size = UDim2.fromScale(1, 1) },
 				trailing = {
 					{ id = "flag", label = "Flag" },
 					{ id = "delete", label = "Delete", role = "destructive" :: "destructive" },
@@ -960,7 +974,7 @@ local function screenCenter(node: any): { number }
 end
 
 interactive("tray-keys-and-hover", {}, function(t)
-	local value = { fired = {} }
+	local value: { fired: { string }, stage: Instance?, open: SideCell?, tray: Instance? } = { fired = {} }
 	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.open = (function(value: ("leading" | "trailing")?): SideCell
 			return Compose.cell(value)
@@ -968,7 +982,7 @@ interactive("tray-keys-and-hover", {}, function(t)
 		return UI.RowActions "Row" {
 			open = value.open,
 			Size = UDim2.new(0, 500, 0, 56),
-			content = UI.Button({ Name = "Body", label = "Row body", Size = UDim2.fromScale(1, 1) }),
+			content = UI.Button { Name = "Body", label = "Row body", Size = UDim2.fromScale(1, 1) },
 			trailing = {
 				{
 					id = "flag",
@@ -990,7 +1004,7 @@ interactive("tray-keys-and-hover", {}, function(t)
 	local row = t.find(value.stage, "Row")
 	GuiService.SelectedObject = t.find(row, "Body")
 	t.settle(2)
-	value.open:set("trailing")
+	assert(value.open):set("trailing")
 	t.settle(10)
 	value.tray = row:FindFirstChild("trailing")
 	t.check("opening the tray selects its first action", selectedName() == "flag", selectedName())
@@ -1029,6 +1043,10 @@ end, {
 interactive("header-sort-keys", {}, function(t)
 	local value = {}
 	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		local columns1045: { TableColumn } = {
+			{ id = "name", label = "Name", resizable = false },
+			{ id = "laps", label = "Laps", width = 140, resizable = false },
+		}
 		value.sort = (function(value: { column: string, direction: "ascending" | "descending" }?): SortCell
 			return Compose.cell(value)
 		end)(nil)
@@ -1037,10 +1055,7 @@ interactive("header-sort-keys", {}, function(t)
 			key = "id",
 			sort = value.sort,
 			selectionMode = "single" :: "single",
-			columns = {
-				{ id = "name", label = "Name", resizable = false },
-				{ id = "laps", label = "Laps", width = 140, resizable = false },
-			},
+			columns = columns1045,
 		}
 	end, { size = Vector2.new(600, 500), frames = 20 })
 	local header = t.find(value.stage, "Header")
@@ -1094,14 +1109,16 @@ end, {
 })
 
 interactive("left-reaches-this-rows-minus", {}, function(t)
-	local value = { fired = {} }
+	local value: { fired: { string }, stage: Instance? } = { fired = {} }
 	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		local columns1109: { TableColumn } =
+			{ { id = "name", label = "Name" }, { id = "laps", label = "Laps", width = 120 } }
 		return UI.Table "Racers" {
 			from = rows(6),
 			key = "id",
 			selectionMode = "single" :: "single",
 			editing = Compose.cell(true),
-			columns = { { id = "name", label = "Name" }, { id = "laps", label = "Laps", width = 120 } },
+			columns = columns1109,
 			rowActions = function(_, key): RowActions?
 				return {
 					editing = Compose.cell(true),
@@ -1111,7 +1128,7 @@ interactive("left-reaches-this-rows-minus", {}, function(t)
 							label = "Delete",
 							role = "destructive" :: "destructive",
 							onActivate = function()
-								table.insert(value.fired, "delete:" .. key)
+								table.insert(value.fired, "delete:" .. tostring(key))
 							end,
 						},
 					},
@@ -1119,7 +1136,7 @@ interactive("left-reaches-this-rows-minus", {}, function(t)
 			end,
 		}
 	end, { size = Vector2.new(700, 500), frames = 24 })
-	local hit = rowOf(value.stage, "r2"):FindFirstChild("RowHit", true)
+	local hit = rowOf(assert(value.stage), "r2"):FindFirstChild("RowHit", true)
 	GuiService.SelectedObject = hit
 	t.settle(2)
 	t.check("r2 holds the selection", GuiService.SelectedObject == hit, selectedName())
@@ -1139,14 +1156,15 @@ end, {
 interactive("collapsed-column-leaves-the-ring", {}, function(t)
 	local value = {}
 	value.stage = t.mount(function(UI: FacetControls)
+		local columns1152: { TableColumn } = {
+			{ id = "name", label = "Name", minWidth = 200 },
+			{ id = "laps", label = "Laps", width = 120, minWidth = 120, priority = 1 },
+		}
 		return UI.Table "Racers" {
 			from = rows(6),
 			key = "id",
 			selectionMode = "single" :: "single",
-			columns = {
-				{ id = "name", label = "Name", minWidth = 200 },
-				{ id = "laps", label = "Laps", width = 120, minWidth = 120, priority = 1 },
-			},
+			columns = columns1152,
 		}
 	end, { size = Vector2.new(280, 500), frames = 24 })
 	local header = t.find(value.stage, "Header")
@@ -1160,11 +1178,12 @@ interactive("collapsed-column-leaves-the-ring", {}, function(t)
 end, {
 	afterWalk = function(t, value)
 		value.connection:Disconnect()
-		local names, hidden = {}, {}
+		local names: { string } = {}
+		local hidden: { string } = {}
 		for _, node in value.visited do
 			table.insert(names, node.Name)
 			if not t.visible(node) then
-				table.insert(hidden, node:GetFullName())
+				hidden[#hidden + 1] = node:GetFullName()
 			end
 		end
 		t.note("visited", names)
@@ -1191,19 +1210,23 @@ end, {
 })
 
 interactive("return-toggles-multi-selection", {}, function(t)
-	local value = {}
+	local value: { stage: Instance?, selection: unknown? } = {}
 	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		value.selection = Compose.cell({})
-		return UI.Table "Racers" {
+		local selection = Compose.cell({})
+		value.selection = selection
+		local columns: { TableColumn } = { { id = "name", label = "Name" } }
+		local editing: BooleanCell = Compose.cell(true)
+		return UI.Table {
+			Name = "Racers",
 			from = rows(6),
 			key = "id",
-			selection = value.selection,
+			selection = selection,
 			selectionMode = "multiple" :: "multiple",
-			editing = Compose.cell(true),
-			columns = { { id = "name", label = "Name" } },
+			editing = editing,
+			columns = columns,
 		}
 	end, { size = Vector2.new(500, 400), frames = 20 })
-	GuiService.SelectedObject = rowOf(value.stage, "r1"):FindFirstChild("RowHit", true)
+	GuiService.SelectedObject = rowOf(assert(value.stage), "r1"):FindFirstChild("RowHit", true)
 	t.settle(2)
 	return value
 end, {
@@ -1242,7 +1265,7 @@ interactive("horizontal-list-keys", {}, function(t)
 				table.insert(value.activations, { item.id, if input then assert(input).KeyCode.Name else "nil" })
 			end,
 			render = function(current)
-				return UI.Text({ text = current:peek().name })
+				return UI.Text { text = current:peek().name }
 			end,
 		}
 	end, { size = Vector2.new(800, 400), frames = 20 })
@@ -1271,6 +1294,7 @@ end, {
 interactive("drag-across-rows-after-page-scroll", {}, function(t)
 	local value = { reorders = {} }
 	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		local columns1293: { TableColumn } = { { id = "name", label = "Name" } }
 		return Host.ScrollingFrame "Page" {
 			Size = UDim2.fromScale(1, 1),
 			CanvasSize = UDim2.fromOffset(0, 1400),
@@ -1288,7 +1312,7 @@ interactive("drag-across-rows-after-page-scroll", {}, function(t)
 					onReorder = function(keys, slot)
 						table.insert(value.reorders, { keys = keys, slot = slot })
 					end,
-					columns = { { id = "name", label = "Name" } },
+					columns = columns1293,
 				},
 			},
 		}

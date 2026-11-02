@@ -5,8 +5,10 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 
 	local scenarios = require("../bench/scenarios")
-	local scenes = require("../bench/perf_scenes")
+	local PerfScenes = require("../bench/perf_scenes")
+	local scenes = PerfScenes
 	local profiles = require("../bench/perf_profiles")
+	type Workload = typeof(scenes[1].setup(profiles.get("floorAndroid")).workload)
 	local registered = {}
 	for _, scene in scenes do
 		registered[scene.name] = scene
@@ -28,7 +30,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 				end)
 				scene.teardown(state)
-				assert(ok, err)
+				assert(ok, tostring(err))
 			end,
 		})
 
@@ -97,14 +99,17 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(measurement.textSizeAfter ~= measurement.textSizeBefore):toBe(true)
 				end)
 				scene.teardown(state)
-				assert(ok, err)
+				assert(ok, tostring(err))
 			end,
 		})
 
 		verifyHarness:case("preserves binding counts, one-hot style mutation and exact collection records", {
 			id = "native_perf::native benchmark workload contract::preserves binding counts, one-hot style mutation and exact collection records",
 			run = function()
-				local function check(name, callback)
+				local function check(
+					name: string,
+					callback: (w: Workload, step: () -> unknown, state: PerfScenes.SceneState) -> ()
+				)
 					local scene = registered[tostring(name)]
 					local state = scene.setup(profiles.get("floorAndroid"))
 					callback(state.workload, function()
@@ -148,7 +153,7 @@ return function(verifyHarness: Verify.Harness)
 					step()
 					step()
 					Verify.expect((w.value:peek())):toBeCloseTo(1 - 0.65 ^ 6, 1e-4)
-					Verify.expect((state.engine.clock())):toBeCloseTo(12 / 60, 1e-4)
+					Verify.expect(((state :: any).engine.clock())):toBeCloseTo(12 / 60, 1e-4)
 				end)
 			end,
 		})
@@ -214,13 +219,15 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local world = require("../bench/native_app")()
 				local Compose: ComposeModule = world.Compose
-				local source, requests = Compose.cell("one"), {}
+				local source = Compose.cell("one")
+				local requests: { [string]: { resolve: (string?) -> (), reject: (unknown) -> () } } = {}
 				local built, disposed = 0, 0
-				local function loader(content, resolve, reject)
+				local function loader(content: string, resolve: (string?) -> (), reject: (unknown) -> ()): (() -> ())?
 					requests[content] = { resolve = resolve, reject = reject }
+					return nil
 				end
 				local _, root: any = world.runtime.mount(function()
-					return world.UI.AsyncImage({ source = source, loader = loader, failureLabel = "Unavailable" })
+					return world.UI.AsyncImage { source = source, loader = loader, failureLabel = "Unavailable" }
 				end, world.target)
 				local placeholder, image = root:FindFirstChild("Placeholder"), root:FindFirstChild("Image")
 				Verify.expect((placeholder:HasTag("facet-skeleton"))):toBe(true)
@@ -239,7 +246,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((placeholder:FindFirstChildWhichIsA("TextLabel"))):toBe(nil)
 				local customSource = Compose.cell("custom-one")
 				world.runtime.mount(function()
-					return world.UI.AsyncImage({
+					return world.UI.AsyncImage {
 						source = customSource,
 						loader = loader,
 						placeholder = function(): Instance
@@ -249,7 +256,7 @@ return function(verifyHarness: Verify.Harness)
 							end)
 							return world.Host.Frame "Custom" {}
 						end,
-					})
+					}
 				end, world.target)
 				Verify.expect(built):toBe(1)
 				requests["custom-one"].resolve("custom-one")
@@ -281,7 +288,7 @@ return function(verifyHarness: Verify.Harness)
 				for _ = 1, 3 do
 					scene.run(state)
 				end
-				Verify.expect((state.engine.clock())):toBeCloseTo(3 / 60, 1e-4)
+				Verify.expect(((state :: any).engine.clock())):toBeCloseTo(3 / 60, 1e-4)
 				Verify.expect(changes):toBe(0)
 				for _, value in state.workload.observed do
 					value:set(0.25)
@@ -316,7 +323,8 @@ return function(verifyHarness: Verify.Harness)
 					root.Parent, child.Parent, leaf.Parent = first, root, child
 					root.Parent = second
 					root.Parent = first
-					local log, connections = {}, {}
+					local log: { string } = {}
+					local connections: { RBXScriptConnection } = {}
 					local childEvents = {}
 					local removed = first.ChildRemoved:Connect(function(node)
 						Verify.expect(node.Parent):toBe(second)
@@ -326,7 +334,7 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(node.Parent):toBe(second)
 						table.insert(childEvents, "added")
 					end)
-					for _, node in { root, child, leaf } do
+					for _, node: Instance in { root, child, leaf } do
 						table.insert(
 							connections,
 							node.AncestryChanged:Connect(function(changed, parent)

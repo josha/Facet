@@ -4,6 +4,7 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type IdReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").IdReadOnlyValue)
 local GuiService = game:GetService("GuiService")
 
 type Case = {
@@ -118,15 +119,15 @@ end, {
 add("held-arrow-repeats-and-stops", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		local children: { unknown } =
-			{ Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }) }
+		local children: { Instance } =
+			{ Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) } }
 		for index = 1, 12 do
-			table.insert(children, UI.Button({ Name = "B" .. index, label = "Button " .. index, LayoutOrder = index }))
+			table.insert(children, UI.Button { Name = "B" .. index, label = "Button " .. index, LayoutOrder = index })
 		end
 		return Host.Frame "Column" {
 			Size = UDim2.fromOffset(240, 700),
 			BackgroundTransparency = 1,
-			table.unpack((children :: unknown) :: { unknown }),
+			table.unpack(children),
 		}
 	end, { frames = 12 })
 	GuiService.SelectedObject = t.find(stage, "B1")
@@ -152,7 +153,7 @@ add("form-controls-traverse-in-document-order", {}, function(t)
 		return Host.Frame "Form" {
 			Size = UDim2.fromOffset(360, 700),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) },
 			UI.Button "First" { label = "First", LayoutOrder = 1 },
 			UI.Slider "Volume" { value = Compose.cell(0.5), LayoutOrder = 2 },
 			UI.Stepper "Laps" { value = Compose.cell(3), min = 1, max = 9, LayoutOrder = 3 },
@@ -205,26 +206,24 @@ end, {
 add("return-activates-the-selected-row", {}, function(t)
 	local value = { activated = {} }
 	local stage = t.mount(function(UI: FacetControls)
-		local rows = {}
+		local rows: { { id: string } } = {}
 		for index = 1, 30 do
 			rows[index] = { id = tostring(index) }
 		end
 		return UI.VirtualList "List" {
 			from = rows,
-			key = function(item)
-				return item.id
-			end,
+			key = "id",
 			itemSize = 44,
 			Size = UDim2.fromOffset(320, 300),
-			render = function(current): GuiObject
-				return UI.Button({
+			render = function(current: IdReadOnlyValue)
+				return UI.Button {
 					Name = "Row" .. current:peek().id,
 					label = "Row " .. current:peek().id,
 					Size = UDim2.fromScale(1, 1),
 					onActivate = function()
 						table.insert(value.activated, current:peek().id)
 					end,
-				})
+				}
 			end,
 		}
 	end, { frames = 12 })
@@ -297,7 +296,7 @@ add("tab-key-traversal", {}, function(t)
 		return Host.Frame "Row" {
 			Size = UDim2.fromOffset(600, 60),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) }) :: unknown,
+			Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) },
 			UI.Button "A" { label = "A" },
 			UI.Button "B" { label = "B" },
 			UI.Button "C" { label = "C" },

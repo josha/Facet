@@ -1,36 +1,77 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Bdd = require("../tools/vendor/verify/src/bdd")
 
 return function(verifyHarness: Verify.Harness)
+	local test = Bdd.create(verifyHarness)
+	local describe, it, expect = test.describe, test.it, test.expect
 	local g = require("../src/ui/nav_radial_geometry")
 	local Radial = require("../src/ui/radial_types")
+	local function sectors(
+		items: { Radial.RadialItem<string> },
+		start: number,
+		sweep: number,
+		distribution: Radial.Distribution,
+		inner: number,
+		outer: number
+	): { Radial.Sector<string> }
+		return g.sectors<<string>>(items, start, sweep, distribution, inner, outer)
+	end
+	local function hit(
+		list: { Radial.Sector<string> },
+		x: number,
+		y: number,
+		appearance: string,
+		overshoot: number?,
+		previous: Radial.Sector<string>?
+	): Radial.Sector<string>?
+		return g.hit<<string>>(list, x, y, appearance, overshoot, previous)
+	end
+	local function item(value: Radial.RadialAction<string>): Radial.RadialItem<string>
+		return value
+	end
+	local function change(shape: Radial.SectorShape, field: string, delta: number)
+		if field == "x" then
+			shape.x += delta
+		elseif field == "y" then
+			shape.y += delta
+		elseif field == "inner" then
+			shape.inner += delta
+		elseif field == "outer" then
+			shape.outer += delta
+		elseif field == "angle" then
+			shape.angle += delta
+		else
+			shape.span += delta
+		end
+	end
 	local expect = Verify.expect
-	verifyHarness:suite("radial geometry", function()
-		verifyHarness:case("label fits follow changed shapes and requested heights", {
+	describe("radial geometry", function()
+		it("label fits follow changed shapes and requested heights", {
 			id = "radial_geometry::radial geometry::label fits follow changed shapes and requested heights",
 			run = function()
 				local shape: Radial.SectorShape =
 					{ x = 0, y = -100, inner = 60, outer = 150, angle = 0, span = 90, size = 40 }
-				local fields = (shape :: unknown) :: { [string]: number }
+				local fieldNames: { "x" | "y" | "inner" | "outer" | "angle" | "span" } =
+					{ "x", "y", "inner", "outer", "angle", "span" }
 				local initial = g.labelBounds(shape, 40)
 				expect(g.labelBounds(shape, 40)):toEqual(initial)
-				for _, field in { "x", "y", "inner", "outer", "angle", "span" } do
-					local previous = fields[field]
-					fields[field] = previous + 7
+				for _, field in fieldNames do
+					change(shape, field, 7)
 					expect(g.labelBounds(shape, 40)):toEqual(g.labelBounds(table.clone(shape), 40))
-					fields[field] = previous
+					change(shape, field, -7)
 				end
 				expect(g.labelBounds(shape, 20)):toEqual(g.labelBounds(table.clone(shape), 20))
 				expect(g.labelBounds(shape, 40)):toEqual(initial)
 			end,
 		})
-		verifyHarness:case("label bounds stay inside rotated narrow and wide sectors", {
+		it("label bounds stay inside rotated narrow and wide sectors", {
 			id = "radial_geometry::radial geometry::label bounds stay inside rotated narrow and wide sectors",
 			run = function()
 				for _, span in { 15, 45, 90, 180, 270, 360 } do
 					for angle = -180, 540, 17 do
 						for _, inner in { 0, 60, 110 } do
-							local shape = {
+							local shape: Radial.SectorShape = {
 								x = math.sin(math.rad(angle)) * (inner + 150) / 2,
 								y = -math.cos(math.rad(angle)) * (inner + 150) / 2,
 								inner = inner,
@@ -60,24 +101,24 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
-		verifyHarness:case("radial sectors exclude the hole, preserve compass gaps, and bound overshoot", {
+		it("radial sectors exclude the hole, preserve compass gaps, and bound overshoot", {
 			id = "radial_geometry::radial geometry::radial sectors exclude the hole, preserve compass gaps, and bound overshoot",
 			run = function()
-				local items = {
-					{ id = "up", label = "up", slot = "N" :: "N" | "E" | "W" },
-					{ id = "right", label = "right", slot = "E" :: "N" | "E" | "W" },
-					{ id = "left", label = "left", slot = "W" :: "N" | "E" | "W" },
+				local items: { Radial.RadialItem<string> } = {
+					{ id = "up", label = "up", slot = "N" },
+					{ id = "right", label = "right", slot = "E" },
+					{ id = "left", label = "left", slot = "W" },
 				}
-				local sectors = g.sectors(items, 0, 360, "compass", 60, 120)
-				expect((g.hit(sectors, 0, 0, "wedges"))):toBe(nil)
-				expect(assert(g.hit(sectors, 0, -90, "wedges")).id):toBe("up")
-				expect((g.hit(sectors, 64, -64, "wedges"))):toBe(nil)
-				expect((g.hit(sectors, 0, -140, "wedges"))):toBe(nil)
-				expect(assert(g.hit(sectors, 0, -140, "wedges", 32)).id):toBe("up")
-				expect((g.hit(sectors, 0, -180, "wedges", 32))):toBe(nil)
+				local sectors = sectors(items, 0, 360, "compass", 60, 120)
+				expect((hit(sectors, 0, 0, "wedges"))):toBe(nil)
+				expect(assert(hit(sectors, 0, -90, "wedges")).id):toBe("up")
+				expect((hit(sectors, 64, -64, "wedges"))):toBe(nil)
+				expect((hit(sectors, 0, -140, "wedges"))):toBe(nil)
+				expect(assert(hit(sectors, 0, -140, "wedges", 32)).id):toBe("up")
+				expect((hit(sectors, 0, -180, "wedges", 32))):toBe(nil)
 			end,
 		})
-		verifyHarness:case("all corner arcs face inward without rotating authored compass directions", {
+		it("all corner arcs face inward without rotating authored compass directions", {
 			id = "radial_geometry::radial geometry::all corner arcs face inward without rotating authored compass directions",
 			run = function()
 				local expected: { [string]: number } =
@@ -89,26 +130,23 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
-		verifyHarness:case("direct circular buttons reject rectangular corners", {
+		it("direct circular buttons reject rectangular corners", {
 			id = "radial_geometry::radial geometry::direct circular buttons reject rectangular corners",
 			run = function()
-				local sectors = g.sectors({ { id = "a", label = "a" } }, 0, 360, "even", 60, 120)
-				expect((g.hit(sectors, 29, -61, "buttons"))):toBe(nil)
-				expect(assert(g.hit(sectors, 0, -90, "buttons")).id):toBe("a")
+				local sectors = sectors({ item({ id = "a", label = "a" }) }, 0, 360, "even", 60, 120)
+				expect((hit(sectors, 29, -61, "buttons"))):toBe(nil)
+				expect(assert(hit(sectors, 0, -90, "buttons")).id):toBe("a")
 			end,
 		})
-		verifyHarness:case("paint seams have the same pixel width at both edges of thick and slim rings", {
+		it("paint seams have the same pixel width at both edges of thick and slim rings", {
 			id = "radial_geometry::radial geometry::paint seams have the same pixel width at both edges of thick and slim rings",
 			run = function()
 				for _, band in { 44, 62, 96 } do
-					local sectors = g.sectors(
-						{ { id = "a", label = "a" }, { id = "b", label = "b" }, { id = "c", label = "c" } },
-						0,
-						360,
-						"even",
-						82,
-						82 + band
-					)
+					local sectors = sectors({
+						item({ id = "a", label = "a" }),
+						item({ id = "b", label = "b" }),
+						item({ id = "c", label = "c" }),
+					}, 0, 360, "even", 82, 82 + band)
 					local pa, pb = g.paint(sectors[1]), g.paint(sectors[2])
 					local a, b = pa.points[#pa.points], pb.points[1]
 					local ax, ay, bx, by = a.x * pa.w + pa.x, a.y * pa.h + pa.y, b.x * pb.w + pb.x, b.y * pb.h + pb.y
@@ -126,32 +164,35 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
-		verifyHarness:case("short arc outlines close both end caps with straight tangents", {
-			id = "radial_geometry::radial geometry::short arc outlines close both end caps with straight tangents",
+		it("short arc stroke ends preserve the radial gap and tangent", {
+			id = "radial_geometry::radial geometry::short arc stroke ends preserve the radial gap and tangent",
 			run = function()
-				local s = g.sectors({ { id = "a", label = "a" } }, 0, 90, "even", 82, 144)[1]
-				local p = g.paint(g.fitContent(s, 20, 22, 4, "both"))
-				local outline = p.outline
-				expect((type(outline))):toBe("table")
-				local n = #outline / 2
-				expect(outline[n].outX):toBe(0)
-				expect(outline[n].outY):toBe(0)
-				expect(outline[n + 1].inX):toBe(0)
-				expect(outline[1].inX):toBe(0)
-				expect(outline[#outline].outX):toBe(0)
-				local dx = (outline[n].x - outline[n + 1].x) * p.w
-				local dy = (outline[n].y - outline[n + 1].y) * p.h
-				expect(math.sqrt(dx * dx + dy * dy) > 20):toBe(true)
+				local s = sectors({ item({ id = "a", label = "a" }) }, 0, 90, "even", 82, 144)[1]
+				local fitted = g.fitContent(s, 20, 22, 4, "both")
+				local p = g.paint(fitted)
+				local radius = (fitted.inner + fitted.outer) / 2
+				for _, endpoint in { { 1, -1 }, { #p.points, 1 } } do
+					local point, edge = p.points[endpoint[1]], endpoint[2]
+					local angle = math.rad(fitted.angle + edge * fitted.span / 2)
+					local x, y = point.x * p.w + p.x, point.y * p.h + p.y
+					local radial = x * math.sin(angle) - y * math.cos(angle)
+					local gap = x * math.cos(angle) + y * math.sin(angle)
+					expect(math.abs(radial - radius) < 1e-6):toBe(true)
+					expect(math.abs(gap + edge * (fitted.gap or 2) / 2) < 1e-6):toBe(true)
+					local tangentX, tangentY = point.outX * p.w, point.outY * p.h
+					expect(math.abs(tangentX * math.sin(angle) - tangentY * math.cos(angle)) < 1e-6):toBe(true)
+					expect(tangentX * math.cos(angle) + tangentY * math.sin(angle) > 0):toBe(true)
+				end
 			end,
 		})
-		verifyHarness:case("content-fitted paint encloses upright icons at every compass direction", {
+		it("content-fitted paint encloses upright icons at every compass direction", {
 			id = "radial_geometry::radial geometry::content-fitted paint encloses upright icons at every compass direction",
 			run = function()
-				local items = {}
+				local items: { Radial.RadialItem<string> } = {}
 				for i = 1, 8 do
-					table.insert(items, { id = tostring(i), label = tostring(i) })
+					table.insert(items, item({ id = tostring(i), label = tostring(i) }))
 				end
-				for _, s in g.sectors(items, 0, 360, "even", 82, 143.6) do
+				for _, s in sectors(items, 0, 360, "even", 82, 143.6) do
 					local p = g.fitContent(s, 20, 22, 4, "both")
 					expect(p.span < s.span):toBe(true)
 					expect(p.outer - p.inner < s.outer - s.inner):toBe(true)
@@ -166,13 +207,13 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
-		verifyHarness:case("conflicting compass assignments are rejected", {
+		it("conflicting compass assignments are rejected", {
 			id = "radial_geometry::radial geometry::conflicting compass assignments are rejected",
 			run = function()
 				local ok = pcall(function()
-					g.sectors({
-						{ id = "a", label = "a", slot = "N" :: "N" | "E" | "W" },
-						{ id = "b", label = "b", slot = "N" :: "N" | "E" | "W" },
+					sectors({
+						{ id = "a", label = "a", slot = "N" },
+						{ id = "b", label = "b", slot = "N" },
 					}, 0, 360, "compass", 60, 120)
 				end)
 				expect(ok):toBe(false)

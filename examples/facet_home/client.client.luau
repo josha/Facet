@@ -1,6 +1,6 @@
 --!strict
 
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 local storage, players = game:GetService("ReplicatedStorage"), game:GetService("Players")
 local Facet = require(storage:WaitForChild("Facet"))
@@ -13,6 +13,8 @@ assert(remote:IsA("RemoteFunction"), "Missing FacetHomeRequest")
 local signal = storage:WaitForChild("FacetHomeSelect")
 assert(signal:IsA("RemoteEvent"), "Missing FacetHomeSelect")
 local player = players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+assert(playerGui:IsA("PlayerGui"))
 local Compose = Facet.Compose
 local runtime = Facet.Roblox.createRuntime()
 local Host = Facet.host(runtime)
@@ -293,7 +295,7 @@ local stop = runtime.mount(function()
 	for index, name in { "Home", "Furnish", "Activities", "People", "Settings" } do
 		table.insert(
 			buttons,
-			UI.Button("Go" .. name) {
+			UI.Button("Go" .. name)({
 				label = if name == "Activities" then "Play" elseif name == "Furnish" then "Build" else name,
 				appearance = function(use: Use)
 					return if use(route) == name then "soft" else "utility"
@@ -303,7 +305,7 @@ local stop = runtime.mount(function()
 				onActivate = function()
 					enter(name)
 				end,
-			}
+			})
 		)
 	end
 	local panel = Host.Frame "HomePanel" {
@@ -411,9 +413,9 @@ local stop = runtime.mount(function()
 		Host.StyleLink { StyleSheet = Compose.static(sheet) },
 		panel,
 		dock,
-		UI.focusRing(player:WaitForChild("PlayerGui")),
+		UI.focusRing(playerGui),
 	}
-end, player:WaitForChild("PlayerGui"))
+end, playerGui)
 request("load")
 local homes = workspace:WaitForChild("FacetHomes")
 local function mountBoard(room: Instance)

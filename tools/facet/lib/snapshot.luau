@@ -56,6 +56,7 @@ function Snapshot.config(root: string, name: Name): Config
 		docsDestination = "tools/vendor/verify/.agents/skills/verify",
 		paths = {
 			"src/core",
+			"src/bdd.luau",
 			"src/roblox",
 			"src/lute",
 			"tools/studio-worker.luau",

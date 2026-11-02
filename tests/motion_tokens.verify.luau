@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Facet = require("../src")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -16,7 +17,7 @@ return function(verifyHarness: Verify.Harness)
 		local ctx: any
 		local stop = runtime.mount(function()
 			ctx = context(Compose, runtime, { types = engine.types, services = {} })
-			return ((runtime.constructors.Folder :: unknown) :: FolderConstructor)({})
+			return Facet.host(runtime).Folder({})
 		end, engine.new("Folder"))
 		return ctx, function()
 			stop()

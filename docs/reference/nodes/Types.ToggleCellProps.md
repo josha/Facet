@@ -29,13 +29,9 @@ Types.ToggleCellProps option values and behavior.
 - The theme definition types `ThemeDefinition`, `PalettePatch`,
   `PaletteExtra` and `TypographyPatch`.
 
-The old solver gives no contextual type to the items of an array that is in an
-optional or a reactive option. Examples are `actions`, `items`, `options`,
-`tabs`, `steps` and `detents`. An optional option is a union with `nil`, and
-a reactive option is a union with `Readable`. The old solver gives a type to an
-array item only when the option type is one table type. Thus no option type can
-fix this. When the items use literal options, give the array a type in a local.
-The root module exports each item type:
+Give option arrays an explicit item type when their union or generic type is
+ambiguous. This applies to `actions`, `items`, `options`, `tabs`, `steps` and
+`detents`. The root module exports each item type:
 
 | Option | Item type |
 | --- | --- |

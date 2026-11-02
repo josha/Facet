@@ -11,29 +11,18 @@ local pickerMenus = require("./nav_picker_menu")
 local pickerCards = require("./nav_picker_cards")
 local pickerOptions = require("./nav_picker_options")
 
-return function(
-	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
-	surfaces: Nav.Surfaces,
-	buildMenu: MenuItems.BuildMenu
-)
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces, buildMenu: MenuItems.BuildMenu)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
+	local readText = read<<string?>>
+	local readFlag = read<<boolean?>>
+	local readAutomaticSize = read<<Enum.AutomaticSize?>>
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
 	local shared = PickerParts(ctx, surfaces)
 	local pickerKeys, derive = shared.keys, shared.derive
 	local menus = pickerMenus(ctx, UI, shared, buildMenu)
 	local cardsStyle = pickerCards(ctx, UI, shared)
 	local optionsStyle = pickerOptions(ctx, UI, surfaces, shared)
-	local function optionLabels(options: unknown): { unknown }
-		local labels: { unknown } = {}
-		if type(options) == "table" and not Compose.isValue(options) then
-			for _, option in options :: { { label: unknown } } do
-				table.insert(labels, option.label)
-			end
-		end
-		return labels
-	end
-	local function writable(cell: { set: unknown }, name: string)
+	local function writable(cell: { read set: unknown }, name: string)
 		assert(type(cell) == "table" and type(cell.set) == "function", name .. " requires a writable Compose cell")
 	end
 	local optionFields: { [string]: boolean } = {
@@ -49,6 +38,15 @@ return function(
 		sectionTitle = true,
 		indicator = true,
 	}
+	local function checkOptionFields(option: unknown)
+		assert(type(option) == "table", "Picker options require a table")
+		for field in next, option do
+			assert(
+				type(field) == "string" and optionFields[field] == true,
+				`Unknown Picker option field {tostring(field)}`
+			)
+		end
+	end
 	local function translate(word: string?, style: Nav.PickerStyle): string?
 		if word == nil then
 			return nil
@@ -61,7 +59,18 @@ return function(
 		return nil
 	end
 	local chrome = fieldChrome(ctx)
-	UI.Picker = ctx.construct("Picker", function<V>(spec: NavigationProps.PickerSpec<V>): GuiObject
+	local function buildPicker<V>(spec: NavigationProps.PickerSpec<V>): GuiObject
+		local readOptions = read<<Nav.PickerOptions<V>>>
+		local function picker(child: NavigationProps.PickerSpec<V>): GuiObject
+			if child.multiple == true then
+				return UI.Picker(child)
+			end
+			return UI.Picker(child)
+		end
+		local menu = menus.menu<<V>>
+		local navigationLink = menus.navigationLink<<V>>
+		local cards = cardsStyle<<V>>
+		local optionControl = optionsStyle<<V>>
 		writable(spec.selected, "Picker.selected")
 		assert(spec.onChange == nil or type(spec.onChange) == "function", "Picker.onChange must be a function")
 		assert(spec.onChanging == nil or type(spec.onChanging) == "function", "Picker.onChanging must be a function")
@@ -110,21 +119,23 @@ return function(
 			local words = spec.label
 			marked.requiredMark = nil
 			marked.label = function(use: ComposeTypes.Use)
-				return (read(words, use) or "") .. " *"
+				return (readText(words, use) or "") .. " *"
 			end
-			return UI.Picker(marked)
+			return picker(marked)
 		end
 		if spec.hint ~= nil or spec.errorText ~= nil then
 			local inner = table.clone(spec)
-			local shell: Types.FrameNativeProps = {}
-			local source = (inner :: unknown) :: { [string]: unknown }
-			local target = (shell :: unknown) :: { [string]: unknown }
-			for _, key in { "Name", "Size", "Position", "AnchorPoint", "LayoutOrder", "Visible", "ZIndex" } do
-				target[key], source[key] = source[key], nil
-			end
+			local shell: Types.FrameProps = {}
+			shell.Name, inner.Name = inner.Name, nil
+			shell.Size, inner.Size = inner.Size, nil
+			shell.Position, inner.Position = inner.Position, nil
+			shell.AnchorPoint, inner.AnchorPoint = inner.AnchorPoint, nil
+			shell.LayoutOrder, inner.LayoutOrder = inner.LayoutOrder, nil
+			shell.Visible, inner.Visible = inner.Visible, nil
+			shell.ZIndex, inner.ZIndex = inner.ZIndex, nil
 			inner.hint, inner.errorText = nil, nil
 			inner.Name = "Control"
-			local control = UI.Picker(inner)
+			local control = picker(inner)
 			local failure = chrome.errorOf({ errorText = spec.errorText }, nil)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local failing = failure(use) ~= ""
@@ -156,9 +167,9 @@ return function(
 		)
 		local function isSelected(value: V, use: ComposeTypes.Use?): boolean
 			if spec.multiple then
-				return read(spec.selected, use)[value] == true
+				return ctx.readSource<<{ [V]: boolean }>>(spec.selected, use)[value] == true
 			else
-				return read(spec.selected, use) == value
+				return ctx.readSource<<V>>(spec.selected, use) == value
 			end
 		end
 		local function commitSelection<T>(
@@ -167,7 +178,7 @@ return function(
 			onChanging: ((T, T) -> boolean?)?,
 			onChange: ((T) -> ())?
 		)
-			local previous = selected:peek()
+			local previous: T = selected:peek()
 			if onChanging and onChanging(value, previous) == false then
 				return
 			end
@@ -183,7 +194,7 @@ return function(
 				return
 			end
 			if spec.multiple then
-				local previous = spec.selected:peek()
+				local previous: { [V]: boolean } = ctx.readSource<<{ [V]: boolean }>>(spec.selected)
 				local nextValue: { [V]: boolean } = {}
 				for key, flag in previous do
 					if key ~= value then
@@ -196,14 +207,15 @@ return function(
 				if spec.required and next(nextValue) == nil then
 					return
 				end
-				commitSelection(spec.selected, nextValue, spec.onChanging, spec.onChange)
+				commitSelection<<{ [V]: boolean }>>(spec.selected, nextValue, spec.onChanging, spec.onChange)
 			else
-				if value ~= spec.selected:peek() then
-					commitSelection(spec.selected, value, spec.onChanging, spec.onChange)
+				if value ~= ctx.readSource<<V>>(spec.selected) then
+					commitSelection<<V>>(spec.selected, value, spec.onChanging, spec.onChange)
 				end
 			end
 		end
-		local declaredIndicator, declaredAxis, declaredSizing = read(spec.indicator), read(spec.axis), read(spec.sizing)
+		local declaredIndicator, declaredAxis, declaredSizing =
+			readText(spec.indicator), readText(spec.axis), readText(spec.sizing)
 		assert(
 			declaredIndicator == nil or table.find({ "automatic", "pill", "underline", "none" }, declaredIndicator),
 			"Invalid Picker.indicator"
@@ -217,21 +229,27 @@ return function(
 		if style == "automatic" then
 			local retained = ctx.config.services.RunService ~= nil and spec.query == nil
 			local input = surfaces.service("UserInputService")
-			local preferred = if input
-				then ctx.observe.PreferredInput(input) :: ComposeTypes.ReadOnlyValue<Enum.PreferredInput?>
-				else Compose.cell(nil :: Enum.PreferredInput?)
+			local preferred: ComposeTypes.ReadOnlyValue<Enum.PreferredInput?> = if input
+				then ctx.observe.PreferredInput(input)
+				else Compose.cell(nil)
 			local opened: ComposeTypes.Value<boolean> = spec.isPresented or Compose.cell(false)
 			local tenFoot = ctx.tenFoot()
 			local width = Compose.cell(0)
+			local optionLabels: { Types.ValueString } = {}
+			if type(spec.options) == "table" and not Compose.isValue(spec.options) then
+				for _, option in readOptions(spec.options) do
+					table.insert(optionLabels, option.label)
+				end
+			end
 			local measure = ctx.text({
 				Name = "LabelMeasure",
 				Text = derive(function(use: ComposeTypes.Use?)
 					local labels = {}
-					for _, option in read(spec.options, use) do
-						table.insert(labels, tostring(read(option.label, use) or ""))
+					for _, option in readOptions(spec.options, use) do
+						table.insert(labels, tostring(readText(option.label, use) or ""))
 					end
 					return table.concat(labels, "")
-				end, spec.options, table.unpack(optionLabels(spec.options))),
+				end, spec.options, table.unpack(optionLabels)),
 				TextSize = spec.textSize,
 				TextWrapped = false,
 				Visible = false,
@@ -244,7 +262,7 @@ return function(
 				if spec.query then
 					return "navigationLink"
 				end
-				local list: { Nav.PickerOption<V> } = read(spec.options, use)
+				local list = readOptions(spec.options, use)
 				local count = #list
 				local available = use(width)
 				local described = false
@@ -291,22 +309,22 @@ return function(
 				return node
 			end
 			props[#props + 1] = Compose.keyed({
-				from = function(use: ComposeTypes.Use)
+				from = function(use: ComposeTypes.Use): { Nav.PickerStyle }
 					local chosen = use(resolved)
 					if not retained then
 						return { chosen }
 					end
 					local choices: { Nav.PickerStyle } = { "menu" }
-					local list: { Nav.PickerOption<V> } = read(spec.options, use)
+					local list = readOptions(spec.options, use)
 					if #list <= 6 then
-						table.insert(choices, "inline")
+						choices[#choices + 1] = "inline"
 					end
 					local described = false
 					for _, option in list do
 						described = described or option.description ~= nil
 					end
 					if #list <= 4 and not described then
-						table.insert(choices, "segmented")
+						choices[#choices + 1] = "segmented"
 					end
 					return choices
 				end,
@@ -316,11 +334,11 @@ return function(
 						return use(resolved) == presentation
 					end
 					local function enabled(use: ComposeTypes.Use): boolean
-						return active(use) and read(spec.enabled, use) ~= false
+						return active(use) and readFlag(spec.enabled, use) ~= false
 					end
 					local automatic = props.AutomaticSize
 					local size = derive(function(use: ComposeTypes.Use?)
-						local sizing = read(automatic, use)
+						local sizing = readAutomaticSize(automatic, use)
 						return D2.fromScale(
 							if sizing == E.AutomaticSize.X or sizing == E.AutomaticSize.XY then 0 else 1,
 							if sizing == E.AutomaticSize.Y or sizing == E.AutomaticSize.XY then 0 else 1
@@ -361,16 +379,16 @@ return function(
 										or presentation == "navigationLink"
 									)
 								then function(use: ComposeTypes.Use): string
-									return translate(read(spec.appearance, use), presentation) or "utility"
+									return translate(readText(spec.appearance, use), presentation) or "utility"
 								end
 								else nil,
 							valueAlignment = spec.valueAlignment,
-							multiple = true :: true,
+							multiple = true,
 							selected = spec.selected,
 							onChanging = spec.onChanging,
 							onChange = spec.onChange,
 						}
-						return presented(UI.Picker(child), presentation)
+						return presented(picker(child), presentation)
 					else
 						local child: NavigationProps.SinglePickerSpec<V> = {
 							options = spec.options,
@@ -406,16 +424,16 @@ return function(
 										or presentation == "navigationLink"
 									)
 								then function(use: ComposeTypes.Use): string
-									return translate(read(spec.appearance, use), presentation) or "utility"
+									return translate(readText(spec.appearance, use), presentation) or "utility"
 								end
 								else nil,
 							valueAlignment = spec.valueAlignment,
-							multiple = false :: false,
+							multiple = false,
 							selected = spec.selected,
 							onChanging = spec.onChanging,
 							onChange = spec.onChange,
 						}
-						return presented(UI.Picker(child), presentation)
+						return presented(picker(child), presentation)
 					end
 				end,
 			})
@@ -434,7 +452,7 @@ return function(
 			local query = string.lower(tostring(read(spec.query, use) or ""))
 			local result: { Nav.PickerOption<V> } = {}
 			local seen: { [V | string]: boolean } = {}
-			local list: { Nav.PickerOption<V> } = read(spec.options, use)
+			local list = readOptions(spec.options, use)
 			for key in list do
 				assert(
 					type(key) == "number" and key >= 1 and key <= #list and key % 1 == 0,
@@ -442,12 +460,7 @@ return function(
 				)
 			end
 			for _, option in list do
-				for field in (option :: unknown) :: { [unknown]: unknown } do
-					assert(
-						type(field) == "string" and optionFields[field] == true,
-						`Unknown Picker option field {tostring(field)}`
-					)
-				end
+				checkOptionFields(option)
 				assert(
 					option.description == nil or type(read(option.description, use)) == "string",
 					"Picker description must be text"
@@ -469,7 +482,8 @@ return function(
 				assert(key ~= nil and not seen[key], "Picker options require unique values or ids")
 				seen[key] = true
 				assert(
-					type(read(option.label, use)) == "string" and string.find(read(option.label, use), "%S") ~= nil,
+					type(readText(option.label, use)) == "string"
+						and string.find(readText(option.label, use) or "", "%S") ~= nil,
 					"Picker options require nonempty labels"
 				)
 				assert(
@@ -485,15 +499,16 @@ return function(
 		end)
 		local choice: PickerParts.Choice<V> = { isSelected = isSelected, select = select, options = options }
 		if style == "menu" then
-			return menus.menu(spec, choice)
+			return menu(spec, choice)
 		end
 		if style == "navigationLink" then
-			return menus.navigationLink(spec, choice)
+			return navigationLink(spec, choice)
 		end
 		if style == "cards" then
-			return cardsStyle(spec, choice)
+			return cards(spec, choice)
 		end
 		assert(table.find({ "segmented", "inline", "radioGroup", "navigationLink" }, style), "Unknown Picker style")
-		return optionsStyle(spec, choice, style)
-	end)
+		return optionControl(spec, choice, style)
+	end
+	UI.Picker = ctx.construct("Picker", buildPicker)
 end

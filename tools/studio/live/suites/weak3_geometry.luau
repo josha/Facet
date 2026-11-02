@@ -1,6 +1,7 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Built = (() -> unknown) | { screen: () -> unknown }
 local GuiService = game:GetService("GuiService")
 
 local cases: { any } = {}
@@ -52,10 +53,11 @@ end
 
 local function scenario(t: any, name: string, options: { [string]: any }?): (any, any)
 	local config: { [string]: any } = options or {}
-	local built: any
+	local built: Built
 	local stage = t.mount(function(UI: any, Host: any, Compose: any, env: any)
-		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
-		return if type(built) == "function" then built() else built.screen()
+		local result: Built = t.scenario(name).build(t.context(UI, Host, Compose, env))
+		built = result
+		return if type(result) == "function" then result() else result.screen()
 	end, {
 		size = config.size,
 		theme = config.theme,
@@ -74,7 +76,7 @@ local function labelHolder(t: any, text: any, width: any, extra: { [string]: any
 		for key, value in (extra or {} :: { [string]: any }) do
 			spec[key] = value
 		end
-		return Host.Frame({
+		return Host.Frame {
 			Name = "Holder",
 			BackgroundTransparency = 1,
 			Size = function(use: any)
@@ -82,7 +84,7 @@ local function labelHolder(t: any, text: any, width: any, extra: { [string]: any
 				return UDim2.fromOffset(value, 40)
 			end,
 			UI.Text(spec),
-		})
+		}
 	end, options or { size = Vector2.new(800, 400) })
 end
 
@@ -166,12 +168,12 @@ add("label-middle-truncation-follows-a-theme-text-change", {}, function(t)
 	local themeCell: any
 	local stage = t.mount(function(UI: any, Host: any, _: any, env: any)
 		themeCell = env.theme
-		return Host.Frame({
+		return Host.Frame {
 			Name = "Holder",
 			BackgroundTransparency = 1,
 			Size = UDim2.fromOffset(160, 60),
-			UI.Text({ Name = "Cut", text = COASTAL, truncate = "middle" }),
-		})
+			UI.Text { Name = "Cut", text = COASTAL, truncate = "middle" },
+		}
 	end, { size = Vector2.new(800, 400) })
 	local label = t.find(stage, "Cut")
 	t.check("the label mounts", label ~= nil)
@@ -244,12 +246,12 @@ end
 
 local function fitBox(t: any, text: string, w: number, h: number, textSize: any, theme: any?): any
 	local stage = t.mount(function(UI: any, Host: any)
-		return Host.Frame({
+		return Host.Frame {
 			Name = "Box",
 			BackgroundTransparency = 1,
 			Size = UDim2.fromOffset(w, h),
-			UI.Text({ Name = "Cta", text = text, textSize = textSize }),
-		})
+			UI.Text { Name = "Cta", text = text, textSize = textSize },
+		}
 	end, { size = Vector2.new(800, 400), theme = theme })
 	return t.find(stage, "Cta")
 end
@@ -392,7 +394,7 @@ end)
 
 add("uicorner-per-corner-probe", {}, function(t)
 	local corner = Instance.new("UICorner")
-	local found = {}
+	local found: { [string]: string | boolean } = {}
 	for _, name in
 		{
 			"CornerRadius",

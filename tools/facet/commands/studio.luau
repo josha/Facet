@@ -1,7 +1,7 @@
 --!strict
 local Cli = require("../lib/cli")
 local fs = require("@std/fs")
-local json = require("@std/json")
+local Json = require("../lib/json")
 local process = require("@std/process")
 local Lute = require("../../vendor/verify/src/lute")
 local Verify = require("../../vendor/verify/src/core")
@@ -135,7 +135,7 @@ local function run(invocation: Cli.Invocation): number
 	end
 
 	local project = LiveProject.build(suites)
-	fs.writeStringToFile(PROJECT, json.serialize(project))
+	fs.writeStringToFile(PROJECT, Json.encode(project))
 	if not fs.exists("build") then
 		fs.createDirectory("build")
 	end

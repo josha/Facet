@@ -9,6 +9,7 @@ local GuiService = game:GetService("GuiService")
 local function pointer(t: Context, playerGui: Instance)
 	local input = game:GetService("UserInputService")
 	local virtual = input:CreateVirtualInput()
+	assert(virtual:IsA("VirtualInput"))
 	local inset = GuiService:GetGuiInset()
 	if input.TouchEnabled and not input.MouseEnabled then
 		local shield = Instance.new("ScreenGui")

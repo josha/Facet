@@ -60,9 +60,13 @@ local function decode<T>(path: string): T
 	return (Lute.parse(fs.readFileToString(path)) :: unknown) :: T
 end
 
+local readPlan: (string) -> Plan = decode
+local readCatalog: (string) -> Catalog = decode
+
 local function toolUnits(): { [string]: boolean }
 	local tools: { [string]: boolean } = {}
-	for _, unit in decode(PLAN).units :: { Unit } do
+	local plan = readPlan(PLAN)
+	for _, unit in plan.units do
 		tools[unit.id] = table.find(unit.requires or {}, TOOL_REQUIREMENT) ~= nil
 	end
 	return tools
@@ -121,7 +125,8 @@ end
 local function planned(entry: Entry, claimed: { [string]: boolean }): { string }
 	local names: { string } = {}
 	local wanted = entry.requires
-	for _, unit in decode(entry.plan :: string).units :: { Unit } do
+	local plan = readPlan(assert(entry.plan))
+	for _, unit in plan.units do
 		assert(unit.locator == `tests/{unit.id}.verify.luau`, "plan locator differs from its source: " .. unit.id)
 		local selected = if wanted ~= nil
 			then table.find(unit.requires or {}, wanted) ~= nil
@@ -159,7 +164,7 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?, s
 			producer = tests(entry.id, planned(entry, claimed))
 			producer.exclusive = entry.exclusive ~= false
 		else
-			producer = {
+			local command: Gate.ProducerDraft = {
 				id = entry.id,
 				kind = entry.kind or "command",
 				exclusive = entry.exclusive ~= false,
@@ -168,6 +173,7 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?, s
 				report = entry.report,
 				env = if entry.id == "perf" then { FACET_PERF_TIMING = tostring(referenceHost) } else nil,
 			}
+			producer = command
 		end
 		if deferrable and producer.kind ~= "tests" then
 			local exit: { [number]: Gate.ExitClass } = { [2] = "deferred" }
@@ -197,7 +203,7 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?, s
 end
 
 local function draft(referenceHost: boolean, studioHost: boolean?): Gate.Draft
-	local catalog: Catalog = decode(CATALOG)
+	local catalog = readCatalog(CATALOG)
 	return define(catalog.producers, referenceHost, nil, studioHost)
 end
 

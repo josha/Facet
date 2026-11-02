@@ -12,6 +12,28 @@ local gestureOf = require("../src/ui/gesture_service")
 local engineLib = require("./lib/native_engine")
 local ComposeTypes = require("../src/vendor/compose/core")
 
+local function inputObject(
+	engine: engineLib.Engine,
+	props: {
+		UserInputType: Enum.UserInputType,
+		UserInputState: Enum.UserInputState?,
+		Position: Vector3,
+	}
+): InputObject
+	local object = engine.new("InputObject")
+	object.UserInputType, object.UserInputState, object.Position =
+		props.UserInputType, props.UserInputState or engine.types.Enum.UserInputState.Change, props.Position
+	return object
+end
+
+local function list(UI: Facet.Controls, props: Facet.KeyedCollectionSpec<string, string>, name: string?): ScrollingFrame
+	return UI.VirtualList(props, name)
+end
+
+local function grid(UI: Facet.Controls, props: Facet.KeyedCollectionSpec<{ id: number }, number>): ScrollingFrame
+	return UI.VirtualGrid(props)
+end
+
 return function(harness: Verify.Harness)
 	harness:case("a transfer list carries a separate visual instead of its empty logical slot", function()
 		local worlds = require("./lib/content_world")
@@ -24,35 +46,37 @@ return function(harness: Verify.Harness)
 					return not use(held)
 				end,
 			}
+			local rack: Facet.KeyedCollectionSpec<number, number> = {
+				Name = "Rack",
+				from = { 1 },
+				key = function(value: number): number
+					return value
+				end,
+				direction = "horizontal",
+				mode = "all",
+				itemSize = 52,
+				reorderable = true,
+				drag = function(): Facet.DraggableSpec
+					return {
+						payload = "E",
+						preview = visual,
+						touchPickup = "immediate",
+						touchDragAxis = "XY",
+						onStart = function()
+							held:set(true)
+						end,
+						onEnd = function()
+							held:set(false)
+						end,
+					}
+				end,
+				render = function(): GuiObject
+					return UI.ZStack "EmptySlot" { width = "fill", height = "fill" }
+				end,
+			}
 			return UI.ZStack {
 				visual,
-				UI.VirtualList "Rack" {
-					from = { 1 },
-					key = function(value: number): number
-						return value
-					end,
-					direction = "horizontal",
-					mode = "all",
-					itemSize = 52,
-					reorderable = true,
-					drag = function(): Facet.DraggableSpec
-						return {
-							payload = "E",
-							preview = visual,
-							touchPickup = "immediate",
-							touchDragAxis = "XY",
-							onStart = function()
-								held:set(true)
-							end,
-							onEnd = function()
-								held:set(false)
-							end,
-						}
-					end,
-					render = function(): GuiObject
-						return UI.ZStack "EmptySlot" { width = "fill", height = "fill" }
-					end,
-				},
+				UI.VirtualList(rack),
 			}
 		end)
 		local E, V2, V3 = w.engine.types.Enum, w.engine.types.Vector2, w.engine.types.Vector3
@@ -71,7 +95,10 @@ return function(harness: Verify.Harness)
 		w.input.InputChanged:Fire(pointer)
 		local ghost = assert(w.find("DragGhost"))
 		Verify.expect(painted.Visible):toBe(false)
-		Verify.expect(assert(ghost:FindFirstChild("Reorderable", true)).Visible):toBe(true)
+		local painted: Instance? = ghost:FindFirstChild("Reorderable", true)
+		local reorderable = assert(painted)
+		assert(reorderable:IsA("GuiObject"))
+		Verify.expect(reorderable.Visible):toBe(true)
 		local readable = false
 		for _, node in ghost:GetDescendants() do
 			if node:IsA("TextLabel") and node.Text == "E" then
@@ -82,15 +109,15 @@ return function(harness: Verify.Harness)
 		Verify.expect(w.find("PaintedTile").Parent ~= ghost):toBe(true)
 		pointer.UserInputState = E.UserInputState.End
 		w.input.InputEnded:Fire(pointer)
-		Verify.expect(painted.Visible):toBe(true)
+		Verify.expect(reorderable.Visible):toBe(true)
 		w.stop()
 	end)
 	harness:case("a horizontal transfer list permits native pickup across its layout axis", function()
 		local worlds = require("./lib/content_world")
 		local started = 0
 		local w = worlds.new(function(UI: Facet.Controls)
-			local List = UI.VirtualList "Rack"
-			return List {
+			local rack: Facet.KeyedCollectionSpec<number, number> = {
+				Name = "Rack",
 				from = { 1 },
 				key = function(item: number): number
 					return item
@@ -111,6 +138,7 @@ return function(harness: Verify.Harness)
 					return UI.Button "Tile" { label = "A" }
 				end,
 			}
+			return UI.VirtualList(rack)
 		end)
 		local tile = w.find("Tile")
 		local E, V2, V3 = w.engine.types.Enum, w.engine.types.Vector2, w.engine.types.Vector3
@@ -166,7 +194,7 @@ return function(harness: Verify.Harness)
 			input = input,
 			bind = function(spec: Facet.DraggableSpec)
 				Facet.Compose.withOwner(owner.owner, function()
-					local UI = ({} :: unknown) :: Environment.EnvironmentControls
+					local UI = ({}) :: Environment.EnvironmentControls
 					registerDrag(ctx, UI)
 					UI.draggable(source, spec)
 				end)
@@ -186,7 +214,7 @@ return function(harness: Verify.Harness)
 			end,
 			registerAt = function(node: GuiObject, spec: Facet.DropTargetSpec)
 				Facet.Compose.withOwner(owner.owner, function()
-					service.register(node, (spec :: unknown) :: DragTypes.TargetSpec)
+					service.register(node, (spec) :: DragTypes.TargetSpec)
 				end)
 			end,
 			runtime = runtime,
@@ -196,7 +224,7 @@ return function(harness: Verify.Harness)
 			screen = screen,
 			register = function(spec: Facet.DropTargetSpec)
 				Facet.Compose.withOwner(owner.owner, function()
-					service.register(target, (spec :: unknown) :: DragTypes.TargetSpec)
+					service.register(target, (spec) :: DragTypes.TargetSpec)
 				end)
 			end,
 			begin = function(spec: Facet.DraggableSpec?)
@@ -229,7 +257,7 @@ return function(harness: Verify.Harness)
 		local UI = Facet.controls(runtime, { types = engine.types, userInputService = input })
 		local starts = 0
 		local stop, mounted = runtime.mount(function()
-			return UI.VirtualList "Rack" {
+			return list(UI, {
 				from = C.cell({ "A", "B", "C" }),
 				key = function(item: string): string
 					return item
@@ -254,7 +282,7 @@ return function(harness: Verify.Harness)
 				render = function(current: Facet.ReadOnlyValue<string>): GuiObject
 					return UI.Button "Tile" { label = current:peek() }
 				end,
-			}
+			}, "Rack")
 		end, screen)
 		local body = mounted :: ScrollingFrame
 		engine.environment.poke(FixtureRoblox.assertInstance(body), "AbsoluteWindowSize", V2.new(200, 40))
@@ -264,14 +292,12 @@ return function(harness: Verify.Harness)
 		engine.environment.poke(FixtureRoblox.assertInstance(row), "AbsoluteSize", V2.new(40, 40))
 		local tile = assert(row:FindFirstChild("Tile", true)) :: GuiObject
 		engine.environment.poke(FixtureRoblox.assertInstance(tile), "AbsoluteSize", V2.new(40, 40))
-		local pointer = (
-			{
-				UserInputType = if kind == "Touch" then E.UserInputType.Touch else E.UserInputType.MouseButton1,
-				UserInputState = E.UserInputState.Begin,
-				Position = V3.new(20, 20, 0),
-			} :: unknown
-		) :: InputObject
-		local began = (tile.InputBegan :: unknown) :: { Fire: (unknown, InputObject) -> () }
+		local pointer = inputObject(engine, {
+			UserInputType = if kind == "Touch" then E.UserInputType.Touch else E.UserInputType.MouseButton1,
+			UserInputState = E.UserInputState.Begin,
+			Position = V3.new(20, 20, 0),
+		})
+		local began = (tile.InputBegan) :: { Fire: (unknown, InputObject) -> () }
 		return {
 			engine = engine,
 			input = input,
@@ -293,16 +319,14 @@ return function(harness: Verify.Harness)
 				if kind == "Touch" then
 					input.InputChanged:Fire(pointer)
 				else
-					local movement = (
-						{
-							UserInputType = E.UserInputType.MouseMovement,
-							UserInputState = E.UserInputState.Change,
-							Position = V3.new(x, 20, 0),
-						} :: unknown
-					) :: InputObject
+					local movement = inputObject(engine, {
+						UserInputType = E.UserInputType.MouseMovement,
+						UserInputState = E.UserInputState.Change,
+						Position = V3.new(x, 20, 0),
+					})
 					input.InputChanged:Fire(movement)
 					local detector = assert(tile:FindFirstChild("FacetCollectionDrag")) :: UIDragDetector
-					local continued = (detector.DragContinue :: unknown) :: { Fire: (unknown, Vector2) -> () }
+					local continued = (detector.DragContinue) :: { Fire: (unknown, Vector2) -> () }
 					continued:Fire(V2.new(x, 20))
 				end
 			end,
@@ -324,7 +348,7 @@ return function(harness: Verify.Harness)
 				t:defer(w.stop)
 				if kind == "MouseButton1" then
 					local detector = assert(w.tile:FindFirstChild("FacetCollectionDrag")) :: UIDragDetector
-					local started = (detector.DragStart :: unknown) :: { Fire: (unknown, Vector2) -> () }
+					local started = (detector.DragStart) :: { Fire: (unknown, Vector2) -> () }
 					w.press()
 					started:Fire(w.engine.types.Vector2.new(20, 20))
 				else
@@ -352,7 +376,7 @@ return function(harness: Verify.Harness)
 				local w = liftRack(kind)
 				t:defer(w.stop)
 				local detector = assert(w.tile:FindFirstChild("FacetCollectionDrag")) :: UIDragDetector
-				local started = (detector.DragStart :: unknown) :: { Fire: (unknown, Vector2) -> () }
+				local started = (detector.DragStart) :: { Fire: (unknown, Vector2) -> () }
 				w.press()
 				if kind == "MouseButton1" then
 					started:Fire(w.engine.types.Vector2.new(20, 20))
@@ -385,7 +409,7 @@ return function(harness: Verify.Harness)
 		require("../src/ui/collections")(ctx, UI)
 		local proposals: { number } = {}
 		local stop, mounted = runtime.mount(function()
-			return UI.VirtualList {
+			return list(UI, {
 				from = { "1", "2", "3" },
 				key = function(item: string): string
 					return item
@@ -422,7 +446,7 @@ return function(harness: Verify.Harness)
 				render = function(current: Facet.ReadOnlyValue<string>): GuiObject
 					return UI.Button { label = current:peek() }
 				end,
-			}
+			})
 		end, screen)
 		local rack = mounted :: ScrollingFrame
 		engine.environment.poke(FixtureRoblox.assertInstance(rack), "AbsoluteSize", V2.new(300, 40))
@@ -541,7 +565,7 @@ return function(harness: Verify.Harness)
 			require("../src/ui/collections")(ctx, UI)
 			local dropped: { Facet.DropInsertion } = {}
 			local stop, mounted = runtime.mount(function()
-				return UI.VirtualList {
+				return list(UI, {
 					from = { "1", "2", "4", "5" },
 					key = function(item: string): string
 						return item
@@ -574,9 +598,9 @@ return function(harness: Verify.Harness)
 						end,
 					},
 					render = function(current: Facet.ReadOnlyValue<string>): GuiObject
-						return UI.ZStack("RackSlot" .. current:peek()) { width = "fill", height = "fill" }
+						return UI.ZStack("RackSlot" .. current:peek())({ width = "fill", height = "fill" })
 					end,
-				}
+				})
 			end, screen)
 			t:defer(stop)
 			local rack = mounted :: ScrollingFrame
@@ -678,7 +702,7 @@ return function(harness: Verify.Harness)
 			local faces: { [string]: GuiObject } = {}
 			local travels: { [string]: GuiObject } = {}
 			local stop, mounted = runtime.mount(function()
-				local list = UI.VirtualList {
+				local list = list(UI, {
 					from = rack,
 					key = function(id: string): string
 						return tostring(assert(table.find(order:peek(), id)))
@@ -717,9 +741,9 @@ return function(harness: Verify.Harness)
 						end,
 					},
 					render = function(current: Facet.ReadOnlyValue<string>): GuiObject
-						return UI.ZStack("RackSlot" .. current:peek()) { width = "fill", height = "fill" }
+						return UI.ZStack("RackSlot" .. current:peek())({ width = "fill", height = "fill" })
 					end,
-				}
+				})
 				return list
 			end, screen)
 			t:defer(stop)
@@ -751,18 +775,18 @@ return function(harness: Verify.Harness)
 			sync()
 			local stopTravels = runtime.mount(function()
 				for _, id in order:peek() do
-					travels[id] = UI.Travel("Travel" .. id) {
+					travels[id] = UI.Travel("Travel" .. id)({
 						destination = function(use: Facet.Use): GuiObject
 							return assert(assert(anchors.nodeOfKey)(tostring(assert(table.find(use(order), id)))))
 						end,
 						content = function(): GuiObject
-							local face = UI.ZStack("Face" .. id) { width = "fill", height = "fill" }
+							local face = UI.ZStack("Face" .. id)({ width = "fill", height = "fill" })
 							faces[id] = face
 							return face
 						end,
 						path = "arc",
 						lift = true,
-					}
+					})
 				end
 				return UI.ZStack "Faces" {
 					width = "fill",
@@ -855,7 +879,7 @@ return function(harness: Verify.Harness)
 			local ctx = context(C, runtime, { types = engine.types })
 			require("../src/ui/collections")(ctx, UI)
 			local stop, mounted = runtime.mount(function()
-				return UI.VirtualGrid {
+				return grid(UI, {
 					from = rows,
 					key = function(item: { id: number }): number
 						return item.id
@@ -872,7 +896,7 @@ return function(harness: Verify.Harness)
 					render = function(current: Facet.ReadOnlyValue<{ id: number }>): GuiObject
 						return UI.Button { label = tostring(current:peek().id) }
 					end,
-				}
+				})
 			end, screen)
 			local rack = mounted :: ScrollingFrame
 			engine.environment.poke(FixtureRoblox.assertInstance(rack), "AbsoluteSize", V2.new(300, 80))
@@ -936,7 +960,7 @@ return function(harness: Verify.Harness)
 				t:defer(function()
 					runtime:dispose()
 				end)
-				local Host = runtime.constructors
+				local Host = Facet.host(runtime)
 				local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
 				type Row = { id: number, name: string }
 				local initial: { Row } = { [1] = { id = 1, name = "First" }, [3] = { id = 3, name = "Third" } }
@@ -953,12 +977,12 @@ return function(harness: Verify.Harness)
 						itemSize = 40,
 						controls = controls,
 						render = function(current, _placement, key)
-							local label = Host.TextLabel({
+							local label = Host.TextLabel {
 								Text = function(use: Facet.Use): string
 									return use(current).name
 								end,
-							})
-							assert(typeof(label) == "Instance" and label:IsA("TextLabel"))
+							}
+							assert(label:IsA("TextLabel"))
 							Facet.Compose.watch(function(use: Facet.Use)
 								labels[use(key)] = label
 							end)
@@ -986,7 +1010,7 @@ return function(harness: Verify.Harness)
 				t:defer(function()
 					runtime:dispose()
 				end)
-				local Host = runtime.constructors
+				local Host = Facet.host(runtime)
 				local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
 				type Row = { id: number, name: string }
 				local initial: { Row } = {}
@@ -1012,12 +1036,12 @@ return function(harness: Verify.Harness)
 						itemSize = 40,
 						render = function(current, _placement, key)
 							builds += 1
-							local label = Host.TextLabel({
+							local label = Host.TextLabel {
 								Text = function(use: Facet.Use): string
 									return use(current).name
 								end,
-							})
-							assert(typeof(label) == "Instance" and label:IsA("TextLabel"))
+							}
+							assert(label:IsA("TextLabel"))
 							Facet.Compose.watch(function(use: Facet.Use)
 								labels[use(key)] = label
 							end)
@@ -1091,7 +1115,7 @@ return function(harness: Verify.Harness)
 						return UI.Button { label = tostring(current:peek()) }
 					end,
 				}
-				return UI.VirtualList((spec :: unknown) :: Facet.KeyedCollectionSpec<number, string>)
+				return UI.VirtualList((spec) :: Facet.KeyedCollectionSpec<number, string>)
 			end, engine.new("ScreenGui"))
 			model:set({ order = { 14, 15, 11, 16, 12, 17, 13 } })
 			Verify.expect(missing):toEqual({})
@@ -1125,7 +1149,7 @@ return function(harness: Verify.Harness)
 						return UI.Button { label = tostring(current:peek().id) }
 					end,
 				}
-				return UI.VirtualGrid((spec :: unknown) :: Facet.KeyedCollectionSpec<{ id: number }, number>)
+				return UI.VirtualGrid((spec) :: Facet.KeyedCollectionSpec<{ id: number }, number>)
 			end, engine.new("ScreenGui"))
 			local body = rack :: ScrollingFrame
 			local function recessFor(key: number): GuiObject
@@ -1170,7 +1194,7 @@ return function(harness: Verify.Harness)
 			local rows = C.cell({ { id = 1 } })
 			local screen = engine.new("ScreenGui")
 			local stop, rack = runtime.mount(function()
-				return UI.VirtualList {
+				local spec: Facet.KeyedCollectionSpec<{ id: number }, number> = {
 					from = rows,
 					key = "id",
 					slots = { 1 },
@@ -1181,6 +1205,7 @@ return function(harness: Verify.Harness)
 						return UI.ZStack { width = "fill", height = "fill" }
 					end,
 				}
+				return UI.VirtualList(spec)
 			end, screen)
 			local anchor = assert((assert(anchors.nodeOfKey)(1)))
 			engine.environment.poke(FixtureRoblox.assertInstance(anchor), "AbsolutePosition", V2.new(20, 20))
@@ -1225,7 +1250,7 @@ return function(harness: Verify.Harness)
 			require("../src/ui/collections")(ctx, UI)
 			local commits = 0
 			local stop, mounted = runtime.mount(function()
-				return UI.VirtualGrid {
+				return grid(UI, {
 					from = rows,
 					key = function(item: { id: number }): number
 						return item.id
@@ -1246,7 +1271,7 @@ return function(harness: Verify.Harness)
 					render = function(current: Facet.ReadOnlyValue<{ id: number }>): GuiObject
 						return UI.Button { label = tostring(current:peek().id) }
 					end,
-				}
+				})
 			end, screen)
 			local rack = mounted :: ScrollingFrame
 			engine.environment.poke(FixtureRoblox.assertInstance(rack), "AbsoluteSize", V2.new(300, 80))
@@ -1315,8 +1340,8 @@ return function(harness: Verify.Harness)
 			end
 			local rendered = 0
 			local stop, mounted = runtime.mount(function()
-				return UI.VirtualList {
-					from = {} :: { { id: number } },
+				local spec: Facet.KeyedCollectionSpec<{ id: number }, number> = {
+					from = {},
 					slots = slots,
 					key = function(item: { id: number }): number
 						return item.id
@@ -1328,6 +1353,7 @@ return function(harness: Verify.Harness)
 						return UI.Button { label = "Item" }
 					end,
 				}
+				return UI.VirtualList(spec)
 			end, engine.new("ScreenGui"))
 			local list = mounted :: ScrollingFrame
 			engine.environment.poke(
@@ -1367,7 +1393,7 @@ return function(harness: Verify.Harness)
 				theme = Facet.themes.neutralPackage(),
 				motionLevel = "normal",
 			})
-			local Host = (runtime.constructors :: unknown) :: typeof(require("../tools/typecheck/aliases").RobloxHost)
+			local Host = Facet.host(runtime)
 			local fs, Lute = require("@std/fs"), require("../tools/vendor/verify/src/lute")
 			local source = "examples/facet-lab/src/container_transfer_demo.luau"
 			local demo = Lute.chunk.load(fs.readFileToString(source), { name = source })() :: (
@@ -1388,14 +1414,12 @@ return function(harness: Verify.Harness)
 			local tile = assert(rack:FindFirstChild("Reorderable", true)) :: Frame
 			engine.environment.poke(FixtureRoblox.assertInstance(tile), "AbsoluteSize", V2.new(52, 52))
 			local hit = assert(tile:FindFirstChildWhichIsA("TextButton", true)) :: GuiObject
-			local pointer = (
-				{
-					UserInputType = E.UserInputType.Touch,
-					UserInputState = E.UserInputState.Begin,
-					Position = V3.new(10, 10, 0),
-				} :: unknown
-			) :: InputObject
-			local began = (hit.InputBegan :: unknown) :: { Fire: (unknown, InputObject) -> () }
+			local pointer = inputObject(engine, {
+				UserInputType = E.UserInputType.Touch,
+				UserInputState = E.UserInputState.Begin,
+				Position = V3.new(10, 10, 0),
+			})
+			local began = (hit.InputBegan) :: { Fire: (unknown, InputObject) -> () }
 			began:Fire(pointer)
 			pointer.Position = V3.new(18, 10, 0)
 			input.InputChanged:Fire(pointer)
@@ -1422,16 +1446,16 @@ return function(harness: Verify.Harness)
 			engine.environment.poke(FixtureRoblox.assertInstance(assert(recess)), "AbsolutePosition", V2.new(20, 200))
 			engine.environment.poke(FixtureRoblox.assertInstance(assert(recess)), "AbsoluteSize", V2.new(52, 52))
 			engine.heartbeat:Fire(1 / 60)
-			local pressed = (assert(recall).Activated :: unknown) :: { Fire: (unknown) -> () }
+			local pressed = (assert(recall).Activated) :: { Fire: (unknown) -> () }
 			pressed:Fire()
 			for _, node in root:GetDescendants() do
-				local ancestry = (node.AncestryChanged :: unknown) :: { Fire: (unknown, Instance, Instance?) -> () }
+				local ancestry = (node.AncestryChanged) :: { Fire: (unknown, Instance, Instance?) -> () }
 				ancestry:Fire(node, node.Parent)
 			end
-			local travel: Instance?
+			local travel: GuiObject?
 			engine.heartbeat:Fire(1 / 60)
 			for _, node in screen:GetDescendants() do
-				if node:GetAttribute("FacetTravelMoving") ~= nil then
+				if node:GetAttribute("FacetTravelMoving") ~= nil and node:IsA("GuiObject") then
 					travel = node
 				end
 			end
@@ -1442,7 +1466,8 @@ return function(harness: Verify.Harness)
 					.. "; recess="
 					.. tostring(assert(recess).Visible)
 			)
-			assert(travel:GetAttribute("FacetTravelMoving") == true, "Recall must move Travel")
+			local moving: GuiObject = assert(travel)
+			assert(moving:GetAttribute("FacetTravelMoving") == true, "Recall must move Travel")
 			for _ = 1, 240 do
 				engine.heartbeat:Fire(1 / 60)
 			end
@@ -1468,7 +1493,7 @@ return function(harness: Verify.Harness)
 			local UI = Facet.controls(runtime, { types = engine.types, userInputService = input, motionLevel = "none" })
 			local reorders, accepted = 0, 0
 			local stop, mounted = runtime.mount(function()
-				return UI.VirtualGrid {
+				return grid(UI, {
 					from = { { id = 1 }, { id = 2 }, { id = 3 } },
 					key = function(item: { id: number }): number
 						return item.id
@@ -1496,7 +1521,7 @@ return function(harness: Verify.Harness)
 					render = function(): GuiObject
 						return UI.Button "Tile" { label = "Tile" }
 					end,
-				}
+				})
 			end, screen)
 			rack = mounted :: ScrollingFrame
 			local body = assert(rack)
@@ -1508,16 +1533,14 @@ return function(harness: Verify.Harness)
 			engine.environment.poke(FixtureRoblox.assertInstance(row), "AbsoluteSize", V2.new(40, 40))
 			local tile = assert(row:FindFirstChild("Tile", true)) :: GuiObject
 			local detector = assert(row:FindFirstChild("FacetCollectionDrag", true))
-			local pointer = (
-				{
-					UserInputType = E.UserInputType.MouseButton1,
-					UserInputState = E.UserInputState.Begin,
-					Position = V3.new(60, 20, 0),
-				} :: unknown
-			) :: InputObject
-			local began = (tile.InputBegan :: unknown) :: { Fire: (unknown, InputObject) -> () }
+			local pointer = inputObject(engine, {
+				UserInputType = E.UserInputType.MouseButton1,
+				UserInputState = E.UserInputState.Begin,
+				Position = V3.new(60, 20, 0),
+			})
+			local began = (tile.InputBegan) :: { Fire: (unknown, InputObject) -> () }
 			began:Fire(pointer)
-			local start = (detector :: unknown) :: {
+			local start = (detector) :: {
 				DragStart: { Fire: (unknown, Vector2) -> () },
 				DragContinue: { Fire: (unknown, Vector2) -> () },
 				DragEnd: { Fire: (unknown) -> () },
@@ -1525,11 +1548,11 @@ return function(harness: Verify.Harness)
 			start.DragStart:Fire(V2.new(60, 20))
 			start.DragContinue:Fire(V2.new(68, 20))
 			Verify.expect(row:GetAttribute("FacetDragging")):toBe(true)
-			input.InputChanged:Fire({
+			input.InputChanged:Fire(inputObject(engine, {
 				UserInputType = E.UserInputType.MouseMovement,
 				UserInputState = E.UserInputState.Change,
 				Position = V3.new(2, 20, 0),
-			})
+			}))
 			start.DragEnd:Fire()
 			pointer.UserInputState = E.UserInputState.End
 			input.InputEnded:Fire(pointer)
@@ -1555,9 +1578,11 @@ return function(harness: Verify.Harness)
 			local results: { boolean } = {}
 			local drops = 0
 			local stop, rack = runtime.mount(function()
-				return UI.VirtualGrid {
+				return grid(UI, {
 					from = rows,
-					key = "id",
+					key = function(item: { id: number }): number
+						return item.id
+					end,
 					mode = "all" :: "all",
 					columns = 2,
 					itemSize = 40,
@@ -1576,7 +1601,7 @@ return function(harness: Verify.Harness)
 					render = function(): GuiObject
 						return UI.Button "Tile" { label = "A" }
 					end,
-				}
+				})
 			end, screen)
 			local stopTarget, target = runtime.mount(function()
 				local node = UI.Button "Target" { label = "Place" }
@@ -1593,14 +1618,12 @@ return function(harness: Verify.Harness)
 			local row = assert(body:FindFirstChild("Reorderable", true)) :: Frame
 			engine.environment.poke(FixtureRoblox.assertInstance(row), "AbsoluteSize", V2.new(40, 40))
 			local hit = assert(row:FindFirstChild("Tile", true)) :: GuiObject
-			local pointer = (
-				{
-					UserInputType = E.UserInputType.Touch,
-					UserInputState = E.UserInputState.Begin,
-					Position = V3.new(10, 10, 0),
-				} :: unknown
-			) :: InputObject
-			local signal = (hit.InputBegan :: unknown) :: { Fire: (unknown, InputObject) -> () }
+			local pointer = inputObject(engine, {
+				UserInputType = E.UserInputType.Touch,
+				UserInputState = E.UserInputState.Begin,
+				Position = V3.new(10, 10, 0),
+			})
+			local signal = (hit.InputBegan) :: { Fire: (unknown, InputObject) -> () }
 			signal:Fire(pointer)
 			pointer.Position = V3.new(18, 10, 0)
 			input.InputChanged:Fire(pointer)
@@ -1632,11 +1655,16 @@ return function(harness: Verify.Harness)
 			local UI = Facet.controls(runtime, { types = engine.types, userInputService = input, motionLevel = "none" })
 			local starts, ends, factories, drops = 0, 0, 0, 0
 			local touchAxis: "X" | "Y" | "XY" = "XY"
+			local function axis(): "X" | "Y" | "XY"
+				return touchAxis
+			end
 			local carried: unknown = nil
 			local stop, rack = runtime.mount(function()
-				return UI.VirtualGrid {
+				return grid(UI, {
 					from = { { id = 1 }, { id = 2 }, { id = 3 } },
-					key = "id",
+					key = function(item: { id: number }): number
+						return item.id
+					end,
 					mode = "all" :: "all",
 					columns = 3,
 					itemSize = 40,
@@ -1647,7 +1675,7 @@ return function(harness: Verify.Harness)
 						return {
 							payload = items[1].id,
 							touchPickup = "immediate",
-							touchDragAxis = touchAxis,
+							touchDragAxis = axis(),
 							onStart = function(value)
 								starts += 1
 								carried = value
@@ -1664,7 +1692,7 @@ return function(harness: Verify.Harness)
 							end,
 						}
 					end,
-				}
+				})
 			end, screen)
 			local body = rack :: ScrollingFrame
 			engine.environment.poke(FixtureRoblox.assertInstance(body), "AbsoluteWindowSize", V2.new(120, 80))
@@ -1673,20 +1701,18 @@ return function(harness: Verify.Harness)
 			local row = assert(cell:FindFirstChild("Reorderable", true)) :: Frame
 			engine.environment.poke(FixtureRoblox.assertInstance(row), "AbsoluteSize", V2.new(40, 40))
 			local hit = assert(row:FindFirstChild("Tile", true)) :: GuiObject
-			local pointer = (
-				{
-					UserInputType = E.UserInputType.Touch,
-					UserInputState = E.UserInputState.Begin,
-					Position = V3.new(10, 10, 0),
-				} :: unknown
-			) :: InputObject
-			local hitInput = (hit.InputBegan :: unknown) :: { Fire: (unknown, InputObject) -> () }
+			local pointer = inputObject(engine, {
+				UserInputType = E.UserInputType.Touch,
+				UserInputState = E.UserInputState.Begin,
+				Position = V3.new(10, 10, 0),
+			})
+			local hitInput = (hit.InputBegan) :: { Fire: (unknown, InputObject) -> () }
 			hitInput:Fire(pointer)
 			pointer.Position = V3.new(15, 10, 0)
 			input.InputChanged:Fire(pointer)
 			Verify.expect(starts):toBe(0)
 			local neighbor = assert(assert(body:FindFirstChild("2", true)):FindFirstChild("Tile", true)) :: GuiObject
-			local neighborInput = (neighbor.InputBegan :: unknown) :: { Fire: (unknown, InputObject) -> () }
+			local neighborInput = (neighbor.InputBegan) :: { Fire: (unknown, InputObject) -> () }
 			neighborInput:Fire(pointer)
 			pointer.Position = V3.new(16, 10, 0)
 			input.InputChanged:Fire(pointer)
@@ -1712,19 +1738,15 @@ return function(harness: Verify.Harness)
 			Verify.expect(body.ScrollingEnabled):toBe(true)
 			Verify.expect(factories):toBe(1)
 			touchAxis = "X"
-			local scrollPointer = (
-				{
-					UserInputType = E.UserInputType.Touch,
-					UserInputState = E.UserInputState.Begin,
-					Position = V3.new(10, 10, 0),
-				} :: unknown
-			) :: InputObject
+			local scrollPointer = inputObject(engine, {
+				UserInputType = E.UserInputType.Touch,
+				UserInputState = E.UserInputState.Begin,
+				Position = V3.new(10, 10, 0),
+			})
 			hitInput:Fire(scrollPointer)
 			scrollPointer.Position = V3.new(10, 18, 0)
 			input.InputChanged:Fire(scrollPointer)
-			local longPress = (
-				row.TouchLongPress :: unknown
-			) :: { Fire: (unknown, { Vector2 }, Enum.UserInputState) -> () }
+			local longPress = (row.TouchLongPress) :: { Fire: (unknown, { Vector2 }, Enum.UserInputState) -> () }
 			longPress:Fire({ V2.new(10, 18) }, E.UserInputState.Begin)
 			Verify.expect(starts):toBe(1)
 			Verify.expect(body.ScrollingEnabled):toBe(true)
@@ -1745,13 +1767,11 @@ return function(harness: Verify.Harness)
 				return target
 			end, screen)
 			hits = { target :: GuiObject }
-			local dropPointer = (
-				{
-					UserInputType = E.UserInputType.Touch,
-					UserInputState = E.UserInputState.Begin,
-					Position = V3.new(10, 10, 0),
-				} :: unknown
-			) :: InputObject
+			local dropPointer = inputObject(engine, {
+				UserInputType = E.UserInputType.Touch,
+				UserInputState = E.UserInputState.Begin,
+				Position = V3.new(10, 10, 0),
+			})
 			hitInput:Fire(dropPointer)
 			dropPointer.Position = V3.new(18, 10, 0)
 			input.InputChanged:Fire(dropPointer)
@@ -1794,7 +1814,9 @@ return function(harness: Verify.Harness)
 			ghost = assert(w.screen:FindFirstChild("DragGhost")) :: GuiObject
 			w.service.commit(w.target)
 			Verify.expect(commits):toBe(1)
-			local scale = assert(ghost:FindFirstChildWhichIsA("UIScale"))
+			local candidate: Instance? = ghost:FindFirstChildWhichIsA("UIScale")
+			local scale = assert(candidate)
+			assert(scale:IsA("UIScale"))
 			local previousScale = scale.Scale
 			for _ = 1, 60 do
 				w.engine.heartbeat:Fire(1 / 120)
@@ -1931,6 +1953,23 @@ return function(harness: Verify.Harness)
 				Verify.expect(inner.ScrollingEnabled):toBe(false)
 			end
 		end)
+		harness:case("a source with mark false keeps its own content visible while held", function()
+			for _, mark in { true, false } do
+				local w = fixture()
+				w.bind({ payload = "tile", mark = mark, touchPickup = "immediate" })
+				local event = {
+					Position = w.engine.types.Vector3.new(28, 95, 0),
+					UserInputType = w.engine.types.Enum.UserInputType.Touch,
+					UserInputState = w.engine.types.Enum.UserInputState.Begin,
+				}
+				w.source.InputBegan:Fire(event)
+				event.Position = w.engine.types.Vector3.new(36, 95, 0)
+				w.input.InputChanged:Fire(event)
+				Verify.expect(assert(w.service.state:peek()).source):toBe(w.source)
+				Verify.expect(w.source:HasTag("facet-drag-held")):toBe(mark)
+				w.stop()
+			end
+		end)
 		harness:case("paint outside a bounded hit area cannot start a native mouse drag", function()
 			local w = fixture()
 			local hit = w.engine.new("Frame")
@@ -1968,16 +2007,16 @@ return function(harness: Verify.Harness)
 					return true
 				end,
 			})
-			local pointer = (
-				{
-					UserInputType = E.UserInputType.MouseButton1,
-					UserInputState = E.UserInputState.Begin,
-					Position = V3.new(30, 70, 0),
-				} :: unknown
-			) :: InputObject
-			local event = (w.source.InputBegan :: unknown) :: { Fire: (unknown, InputObject) -> () }
+			local pointer = inputObject(w.engine, {
+				UserInputType = E.UserInputType.MouseButton1,
+				UserInputState = E.UserInputState.Begin,
+				Position = V3.new(30, 70, 0),
+			})
+			local event = (w.source.InputBegan) :: { Fire: (unknown, InputObject) -> () }
 			event:Fire(pointer)
-			w.input.InputChanged:Fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(40, 70, 0) })
+			w.input.InputChanged:Fire(
+				inputObject(w.engine, { UserInputType = E.UserInputType.MouseMovement, Position = V3.new(40, 70, 0) })
+			)
 			Verify.expect(w.service.state:peek() ~= nil):toBe(true)
 			w.input.InputChanged:Fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(260, 180, 0) })
 			pointer.UserInputState = E.UserInputState.End
@@ -1992,14 +2031,12 @@ return function(harness: Verify.Harness)
 			local w = fixture()
 			local E, V3 = w.engine.types.Enum, w.engine.types.Vector3
 			w.bind({ payload = "tile", hitArea = w.source })
-			local pointer = (
-				{
-					UserInputType = E.UserInputType.MouseButton1,
-					UserInputState = E.UserInputState.Begin,
-					Position = V3.new(30, 70, 0),
-				} :: unknown
-			) :: InputObject
-			local event = (w.source.InputBegan :: unknown) :: { Fire: (unknown, InputObject) -> () }
+			local pointer = inputObject(w.engine, {
+				UserInputType = E.UserInputType.MouseButton1,
+				UserInputState = E.UserInputState.Begin,
+				Position = V3.new(30, 70, 0),
+			})
+			local event = (w.source.InputBegan) :: { Fire: (unknown, InputObject) -> () }
 			event:Fire(pointer)
 			activation.consume(pointer)
 			pointer.UserInputState = E.UserInputState.End
@@ -2085,7 +2122,7 @@ return function(harness: Verify.Harness)
 			end
 			w.stop()
 		end)
-		harness:case("landing removes source zoom from the whole preview on every sample", function()
+		harness:case("landing fits the whole preview to the destination in proportion on every sample", function()
 			local w = fixture()
 			local zoom = w.engine.new("Frame")
 			zoom.Parent, w.source.Parent = w.screen, zoom
@@ -2102,14 +2139,17 @@ return function(harness: Verify.Harness)
 			w.begin()
 			w.service.update(w.engine.types.Vector2.new(200, 120))
 			local ghost = assert(w.screen:FindFirstChild("DragGhost"))
-			local scale = assert(ghost:FindFirstChildWhichIsA("UIScale"))
+			local candidate: Instance? = ghost:FindFirstChildWhichIsA("UIScale")
+			local scale = assert(candidate)
+			assert(scale:IsA("UIScale"))
 			Verify.expect(scale.Scale):toBe(3)
+			local landingScale = 3 * math.min(w.target.AbsoluteSize.X / 240, w.target.AbsoluteSize.Y / 180)
 			w.service.commit(w.target)
 			local previous = scale.Scale
 			for frame = 1, 60 do
 				w.engine.heartbeat:Fire(1 / 120)
 				if w.service.state:peek() then
-					Verify.expect(scale.Scale <= previous and scale.Scale >= 1):toBe(true)
+					Verify.expect(scale.Scale <= previous and scale.Scale >= landingScale - 0.001):toBe(true)
 					Verify.expect(ghost.Size.X.Offset * scale.Scale >= 59):toBe(true)
 					Verify.expect(ghost.Size.X.Offset * scale.Scale <= 240):toBe(true)
 					Verify.expect(ghost.Size.Y.Offset * scale.Scale >= 59):toBe(true)
@@ -2117,7 +2157,7 @@ return function(harness: Verify.Harness)
 					previous = scale.Scale
 				end
 			end
-			Verify.expect(scale.Scale):toBe(1)
+			Verify.expect(math.abs(scale.Scale - landingScale) < 0.001):toBe(true)
 			Verify.expect(commits):toBe(1)
 			w.stop()
 		end)

@@ -6,6 +6,7 @@ local fieldChrome = require("./field_chrome")
 local textPress = require("./text_press")
 local keyboardInset = require("./keyboard_inset")
 local measuredScroll = require("./measured_scroll")
+local ThemeTypes = require("./theme_types")
 local InputTypes = require("./input_types")
 local Shared = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
@@ -97,7 +98,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 		side: "left" | "right" | "top" | "bottom"
 	): (ComposeTypes.Use?) -> UDim
 		return function(use: ComposeTypes.Use?): UDim
-			local package = read(ctx.config.theme, use)
+			local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 			local recipe = package and package.chrome and package.chrome.field
 			local insets = (recipe and recipe.contentInsets or {}) :: { [string]: number? }
 			return D.new(0, face + (if read(spec.appearance, use) == "utility" then 0 else insets[side] or 0))
@@ -116,7 +117,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 	end
 	local function build(control: string, spec: Spec): TextBox | Frame
 		local invalidSource: ComposeTypes.ReadOnlyValue<boolean>? = spec.invalid
-		assert(type(read(spec.value)) == "string", `Facet.{control}: value must resolve to a string`)
+		assert(type(read<<string>>(spec.value)) == "string", `Facet.{control}: value must resolve to a string`)
 		assert(
 			writable(spec.value) or type(spec.onChange) == "function",
 			`Facet.{control}: a read-only value requires onChange`
@@ -232,12 +233,12 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			errorTimeline:seek(0.24)
 		end
 		local textHeight, messageHeight = Compose.cell(18), Compose.cell(0)
-		local writing, disposed, snapshot = false, false, read(spec.value)
+		local writing, disposed, snapshot = false, false, read<<string>>(spec.value)
 		local scrubbing: Scrub? = nil
 		local node: TextBox
 		local fieldOwner = assert(Compose.currentOwner())
 		local function updateValue(value: string): ()
-			if read(spec.value) == value then
+			if read<<string>>(spec.value) == value then
 				return
 			end
 			if spec.onChange then
@@ -279,16 +280,16 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 		end
 		local function propose(text: string): ()
 			if disposed or not editable() then
-				setText(read(spec.value))
+				setText(read<<string>>(spec.value))
 				return
 			end
 			local accepted = normalize(text)
 			if accepted == nil then
-				setText(read(spec.value))
+				setText(read<<string>>(spec.value))
 				return
 			end
 			updateValue(accepted)
-			setText(read(spec.value))
+			setText(read<<string>>(spec.value))
 		end
 		local function releaseFocus()
 			if node:IsFocused() then
@@ -301,7 +302,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			end
 			editing:set(false)
 			updateValue(snapshot)
-			setText(read(spec.value))
+			setText(read<<string>>(spec.value))
 			releaseFocus()
 			if spec.onCancel then
 				spec.onCancel()
@@ -362,13 +363,13 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			local accepted = false
 			runtime:batch(function()
 				updateValue(formatted)
-				accepted = read(spec.value) == formatted
+				accepted = read<<string>>(spec.value) == formatted
 				if accepted then
 					numericValue:set(number)
 				end
 			end)
 			if not accepted then
-				setText(read(spec.value))
+				setText(read<<string>>(spec.value))
 				markInvalid(true)
 				return false
 			end
@@ -381,7 +382,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 		end
 		local function commitNumber(reason: InputTypes.CommitReason): ()
 			local numericValue = assert(spec.numericValue)
-			local text = read(spec.value)
+			local text = read<<string>>(spec.value)
 			if arithmetic.incomplete(text) then
 				if spec.requiredMark == "required" then
 					markInvalid(true, "Enter a number.")
@@ -390,7 +391,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 				local previous = formatNumber(numericValue:peek())
 				if previous then
 					updateValue(previous)
-					setText(read(spec.value))
+					setText(read<<string>>(spec.value))
 				end
 				markInvalid(false)
 				return
@@ -417,14 +418,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			end
 			editing:set(false)
 			if not enabled() or readOnly() then
-				setText(read(spec.value))
+				setText(read<<string>>(spec.value))
 				return
 			end
 			if numeric then
 				commitNumber(reason)
 				return
 			end
-			local value = read(spec.value)
+			local value = read<<string>>(spec.value)
 			local normalized = normalize(value)
 			if disposed or not enabled() then
 				return
@@ -435,8 +436,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			end
 			value = normalized
 			updateValue(value)
-			if read(spec.value) ~= value then
-				setText(read(spec.value))
+			if read<<string>>(spec.value) ~= value then
+				setText(read<<string>>(spec.value))
 				markInvalid(true)
 				return
 			end
@@ -465,14 +466,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			end
 			local numericValue = assert(spec.numericValue)
 			local number = stepped(numericValue:peek(), direction)
-			if number ~= numericValue:peek() or read(spec.value) ~= formatNumber(number) then
+			if number ~= numericValue:peek() or read<<string>>(spec.value) ~= formatNumber(number) then
 				settleNumber(number, "submit", true)
 			end
 		end
 
 		local touchFloor = ctx.touchFloor()
 		local nativeProps = ctx.props(spec, TEXT_KEYS, {
-			Text = read(spec.value),
+			Text = read<<string>>(spec.value),
 			PlaceholderText = spec.placeholder or "",
 			ClearTextOnFocus = false,
 			MultiLine = spec.multiline == true,
@@ -488,7 +489,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 				return enabled(use)
 			end,
 		})
-		local rootProps: Shared.FrameNativeProps = {}
+		local rootProps: Shared.FrameProps = {}
 		if framed then
 			local source = nativeProps :: { [unknown]: unknown }
 			local target = (rootProps :: unknown) :: { [string]: unknown }
@@ -538,7 +539,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 		local attachEditing: (() -> ())?
 		nativeProps.Focused = function(...)
 			if enabled() and not editing:peek() then
-				snapshot = read(spec.value)
+				snapshot = read<<string>>(spec.value)
 				editing:set(true)
 				local attach = attachEditing
 				if attach then
@@ -564,7 +565,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			end
 		end
 		local padding = ctx.padding(if framed then 0 else 10, 6)
-		table.insert(nativeProps, padding)
+		nativeProps[#nativeProps + 1] = padding
 
 		local messageNode: TextLabel?
 		if mayReject and not framed then
@@ -585,7 +586,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 				"validation"
 			)
 			messageNode = message
-			table.insert(nativeProps, message)
+			nativeProps[#nativeProps + 1] = message
 		end
 		local pulse = if errorTimeline
 			then Host.UIScale "ValidationPulse" {
@@ -626,7 +627,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 				LayoutOrder = if framed then 40 else nil,
 				Visible = function(use: ComposeTypes.Use)
 					return editable(use)
-						and read(spec.value, use) ~= ""
+						and read<<string>>(spec.value, use) ~= ""
 						and (
 							mode == "always"
 							or (mode == "whileEditing" and use(editing))
@@ -639,7 +640,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			}
 			else nil
 		if clear and not framed then
-			table.insert(nativeProps, clear)
+			nativeProps[#nativeProps + 1] = clear
 		end
 		node = ctx.styled(Host.TextBox(nativeProps), "text")
 		if not framed then
@@ -760,7 +761,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 				end)
 			end
 			runtime.mountFragment(function()
-				return { Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) }
+				return { Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill } }
 			end, editor)
 			table.insert(parts, editor)
 			unit("Suffix", 32, spec.suffix)
@@ -805,12 +806,12 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 0,
-				Host.UIPadding({
+				Host.UIPadding {
 					PaddingLeft = carved(spec, 10, "left"),
 					PaddingRight = carved(spec, 10, "right"),
 					PaddingTop = carved(spec, 4, "top"),
 					PaddingBottom = carved(spec, 4, "bottom"),
-				}),
+				},
 			})
 			local layout = assert(plate:FindFirstChildWhichIsA("UIListLayout"))
 			layout.VerticalAlignment = E.VerticalAlignment.Center
@@ -983,7 +984,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 					if spec.label ~= nil then
 						return chrome.labelText(spec, use)
 					end
-					local placeholder = read(spec.placeholder, use)
+					local placeholder = read<<string?>>(spec.placeholder, use)
 					return if placeholder ~= nil and placeholder ~= "" then placeholder else "Search"
 				end,
 			})
@@ -1007,7 +1008,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			end
 		end))
 		Compose.watch(function(use: ComposeTypes.Use)
-			setText(read(spec.value, use))
+			setText(read<<string>>(spec.value, use))
 			if enabled(use) then
 				node:RemoveTag("facet-disabled")
 			else
@@ -1028,7 +1029,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			if restore and not disposed then
 				assert(spec.numericValue):set(active.start)
 				updateValue(active.text)
-				setText(read(spec.value))
+				setText(read<<string>>(spec.value))
 			elseif restore then
 				assert(spec.numericValue):set(active.start)
 				if writable(spec.value) then
@@ -1053,10 +1054,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 						return false
 					end
 					local start = numericValue:peek()
-					local text = if editing:peek() then snapshot else read(spec.value)
+					local text = if editing:peek() then snapshot else read<<string>>(spec.value)
 					scrubbing = { start = start, text = text, written = start, promoted = true }
 					updateValue(text)
-					setText(read(spec.value))
+					setText(read<<string>>(spec.value))
 					markInvalid(false)
 					return true
 				elseif phase == "move" then

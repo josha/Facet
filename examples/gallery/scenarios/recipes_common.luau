@@ -1,12 +1,14 @@
 --!strict
+type OrderedPlacementReadOnly = typeof(require("@repo/tools/typecheck/aliases").OrderedPlacementReadOnly)
+type ToggleRequestProps = typeof(require("@repo/tools/typecheck/aliases").ToggleRequestProps)
+type ChipCellProps = typeof(require("@repo/tools/typecheck/aliases").ChipCellProps)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 local WRAP_TAGS = { "Rain", "Dust", "Night", "Mirror", "Reverse", "Elimination" }
 local RAIL_TAGS = {
 	"Sprint",
@@ -23,7 +25,7 @@ local RAIL_TAGS = {
 
 return {
 	title = "Recipes",
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local Facet, UI, Compose: ComposeModule = ctx.Facet, ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local Compose: ComposeModule = ctx.Compose
@@ -88,7 +90,7 @@ return {
 		end
 
 		local function heading(id: string, text: string): GuiObject
-			return UI.Text({
+			return UI.Text {
 				Name = id,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
@@ -99,10 +101,10 @@ return {
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
 				TextXAlignment = Enum.TextXAlignment.Left,
-			})
+			}
 		end
 		local function note(id: string, text: string): GuiObject
-			return UI.Text({
+			return UI.Text {
 				Name = id,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
@@ -113,7 +115,7 @@ return {
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
 				TextXAlignment = Enum.TextXAlignment.Left,
-			})
+			}
 		end
 		local function emptyState(
 			id: string,
@@ -167,35 +169,36 @@ return {
 			)
 			table.insert(
 				children,
-				UI.Button "Action" { label = opts.actionLabel, appearance = "soft", onActivate = opts.onAction }
+				UI.Button "Action" {
+					label = opts.actionLabel,
+					appearance = "soft",
+					onActivate = function()
+						opts.onAction()
+					end,
+				}
 			)
 			return Host.Frame(id)({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					HorizontalAlignment = Enum.HorizontalAlignment.Center,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
-				}),
-				Host.UIPadding({
+				},
+				Host.UIPadding {
 					PaddingTop = UDim.new(0, 16),
 					PaddingBottom = UDim.new(0, 16),
 					PaddingLeft = UDim.new(0, 16),
 					PaddingRight = UDim.new(0, 16),
-				}),
+				},
 				table.unpack(children),
 			})
 		end
 		local function metrics(use: Use)
 			local package: ThemePackage = if ctx.theme then use(ctx.theme) else Facet.themes.neutralPackage()
 			return package.metrics
-		end
-		local function observePosition(node: GuiObject): ReadOnlyValue<Vector2>
-			return (ctx.runtime.observe(node, "AbsolutePosition", { frame = true }) :: unknown) :: ReadOnlyValue<
-				Vector2
-			>
 		end
 		local function dividerExample(
 			id: string,
@@ -205,76 +208,81 @@ return {
 		): Frame
 			local row = UI.Label "Row" { LayoutOrder = 1, icon = "checkmark", title = name }
 			local title = row:FindFirstChild("Title")
-			local rowAt = observePosition(row)
-			local titleAt = if title and title:IsA("GuiObject") then observePosition(title) else rowAt
+			local titleNode = if title and title:IsA("GuiObject") then title else row
+			local rowAt = ctx.runtime.observe(row, "AbsolutePosition", { frame = true })
+			local titleAt = if titleNode == row
+				then rowAt
+				else ctx.runtime.observe(titleNode, "AbsolutePosition", { frame = true })
 			local function inset(side: "left" | "right")
 				return function(use: Use)
 					local shown = if sides == nil then nil elseif side == "left" then sides.left else sides.right
 					if not shown then
 						return UDim.new(0, 0)
 					end
-					return UDim.new(0, math.max(0, use(titleAt).X - use(rowAt).X))
+					use(titleAt)
+					use(rowAt)
+					return UDim.new(0, math.max(0, titleNode.AbsolutePosition.X - row.AbsolutePosition.X))
 				end
 			end
-			local line = Host.Frame({
+			local line = Host.Frame {
 				LayoutOrder = 1,
 				Name = "Line",
 				Size = function(use: Use)
 					return UDim2.new(1, 0, 0, (thickness or 1) * metrics(use).strokes.hairline)
 				end,
-			})
+			}
 			line:AddTag("facet-divider")
 			return Host.Frame(id)({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
-				}),
+				},
 				row,
-				Host.Frame("Pad")({
+				Host.Frame "Pad" {
 					LayoutOrder = 2,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 0),
-					}),
-					Host.UIPadding({
+					},
+					Host.UIPadding {
 						PaddingLeft = inset("left"),
 						PaddingRight = inset("right"),
-					}),
+					},
 					line,
-				}),
+				},
 			})
 		end
 		local function dividers()
-			local card = Host.Frame("Dividers")({
+			local card = Host.Frame "Dividers" {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				BorderSizePixel = 0,
-				Host.UISizeConstraint({ MaxSize = Vector2.new(360, math.huge) }),
-				Host.UIListLayout({
+				Host.UISizeConstraint { MaxSize = Vector2.new(360, math.huge) },
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 12),
-				}),
-				Host.UIPadding({
+				},
+				Host.UIPadding {
 					PaddingTop = UDim.new(0, 16),
 					PaddingBottom = UDim.new(0, 16),
 					PaddingLeft = UDim.new(0, 16),
 					PaddingRight = UDim.new(0, 16),
-				}),
+				},
 				dividerExample("DividerFull", "Full"),
 				dividerExample("DividerLeading", "Leading inset", { left = true }),
 				dividerExample("DividerTrailing", "Trailing inset", { right = true }),
 				dividerExample("DividerBoth", "Leading and trailing", { left = true, right = true }),
 				dividerExample("DividerHeavy", "Heavy", nil, 3),
-			})
+			}
 			card:AddTag("facet-panel")
 			return card
 		end
@@ -300,16 +308,16 @@ return {
 					role = role,
 					appearance = appearance,
 					onActivate = function()
-						activations:update(function(n)
+						activations:update(function(n: number)
 							return n + 1
 						end)
 					end,
-					Host.UIPadding({
+					Host.UIPadding {
 						PaddingLeft = UDim.new(0, 12),
 						PaddingRight = UDim.new(0, 12),
 						PaddingTop = UDim.new(0, 6),
 						PaddingBottom = UDim.new(0, 6),
-					}),
+					},
 				})
 				local function styled(property)
 					local value = Compose.cell(button:GetStyled(property))
@@ -323,7 +331,7 @@ return {
 				end
 				local measure: TextLabel
 				local release = ctx.runtime.mount(function()
-					measure = Host.TextLabel("NaturalWidth")({
+					measure = Host.TextLabel "NaturalWidth" {
 						Text = label,
 						Visible = false,
 						TextWrapped = false,
@@ -331,7 +339,7 @@ return {
 						AutomaticSize = Enum.AutomaticSize.XY,
 						FontFace = styled("FontFace"),
 						TextSize = styled("TextSize"),
-					})
+					}
 					return measure
 				end, button)
 				Compose.cleanup(release)
@@ -346,16 +354,16 @@ return {
 				return button
 			end
 			local function actionRow()
-				local row = Host.Frame("Actions")({
+				local row = Host.Frame "Actions" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UISizeConstraint({
+					Host.UISizeConstraint {
 						MaxSize = function(use: Use)
 							return Vector2.new(use(actionsCap), math.huge)
 						end,
-					}),
-					Host.UIListLayout({
+					},
+					Host.UIListLayout {
 						FillDirection = function(use: Use)
 							return if use(actionsHorizontal)
 								then Enum.FillDirection.Horizontal
@@ -363,11 +371,11 @@ return {
 						end,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}),
+					},
 					actionButton(1, "Cancel", "Cancel", "cancel", nil),
 					actionButton(2, "Save", "Save changes to this profile", nil, "emphasis"),
 					actionButton(3, "Delete", "Delete profile", "destructive", "utility"),
-				})
+				}
 				local function resized()
 					actionsWidth:set(row.AbsoluteSize.X)
 				end
@@ -379,7 +387,7 @@ return {
 				return row
 			end
 			local function accordionItem(id: string, label: string, body: string): Frame
-				return UI.DisclosureGroup({
+				return UI.DisclosureGroup {
 					Name = id,
 					label = label,
 					appearance = "divided",
@@ -407,10 +415,10 @@ return {
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}
 					end,
-				})
+				}
 			end
 			local function checkItem(id: string, label: string, width: UDim?)
-				return UI.Toggle({
+				local props: ToggleRequestProps = {
 					Name = id,
 					Size = function(use: Use)
 						return if width then UDim2.new(width.Scale, width.Offset, 0, 0) else UDim2.new(1, 0, 0, 0)
@@ -425,7 +433,7 @@ return {
 						return use(checks)[id] == true
 					end,
 					onChange = function(next)
-						requests:update(function(n)
+						requests:update(function(n: number)
 							return n + 1
 						end)
 						if acceptChecks:peek() then
@@ -434,31 +442,33 @@ return {
 							checks:set(copy)
 						end
 					end,
-				})
+				}
+				return UI.Toggle(props)
 			end
 			local function chipItem(tag: string, cells: { [string]: BooleanCell })
-				return UI.Chip({
+				local props: ChipCellProps = {
 					Name = tag,
 					label = tag,
 					selected = cells[tag],
-				})
+				}
+				return UI.Chip(props)
 			end
 
-			local root = Host.Frame("Page")({
+			local root = Host.Frame "Page" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 24),
-				}),
-				Host.UIPadding({
+				},
+				Host.UIPadding {
 					PaddingTop = UDim.new(0, 16),
 					PaddingBottom = UDim.new(0, 16),
 					PaddingLeft = UDim.new(0, 16),
 					PaddingRight = UDim.new(0, 16),
-				}),
+				},
 				heading("ActionRowHeading", "Action row"),
 				note(
 					"ActionRowNote",
@@ -470,53 +480,57 @@ return {
 					"CheckboxNote",
 					"Independent settings, not a single choice. Use a Picker instead the moment only one of these can be true at a time."
 				),
-				Host.Frame("CheckboxGroup")({
+				Host.Frame "CheckboxGroup" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 4),
-					}),
+					},
 					checkItem("tires", "Tire wear"),
 					checkItem("fuel", "Fuel use"),
 					checkItem("damage", "Damage"),
 					checkItem("weather", "Weather"),
-				}),
-				Host.Frame("WrapChecks")({
+				},
+				Host.Frame "WrapChecks" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}),
+					},
 					checkItem("tires", "Tire wear", UDim.new(0, 0)),
 					checkItem("fuel", "Fuel use", UDim.new(0, 0)),
 					checkItem("damage", "Damage", UDim.new(0, 0)),
 					checkItem("weather", "Weather", UDim.new(0, 0)),
-				}),
+				},
 				heading("ChipHeading", "Chip group"),
 				note("ChipWrapNote", "Wraps to a new line when it runs out of room."),
-				Host.Frame("WrapChips")({
+				Host.Frame "WrapChips" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}),
-					Compose.OrderedCollection({
+					},
+					Compose.OrderedCollection {
 						from = wrapTags,
 						key = function(tag: string)
 							return tag
 						end,
-						render = function(current, placement, key): GuiObject
+						render = function(
+							current: ReadOnlyValue<string>,
+							placement: OrderedPlacementReadOnly,
+							key: string
+						): GuiObject
 							local tag = current:peek()
 							local node = chipItem(tag, wrapSelected)
 							ctx.runtime.decorate(node, {
@@ -526,40 +540,44 @@ return {
 							})
 							return node
 						end,
-					}),
-				}),
+					},
+				},
 				note(
 					"ChipRailNote",
 					"One scrolling row instead, for a long list on a narrow screen. A keyboard or gamepad focus move keeps the picked chip in view with no extra wiring."
 				),
-				Host.ScrollingFrame("RailChips")({
+				Host.ScrollingFrame "RailChips" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					AutomaticCanvasSize = Enum.AutomaticSize.X,
 					CanvasSize = UDim2.new(),
 					ScrollBarThickness = 6,
-					Host.Frame("Row")({
+					Host.Frame "Row" {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(0, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.XY,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Horizontal,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}),
-						Compose.OrderedCollection({
+						},
+						Compose.OrderedCollection {
 							from = railTags,
 							key = function(tag: string)
 								return tag
 							end,
-							render = function(current, placement, key): GuiObject
+							render = function(
+								current: ReadOnlyValue<string>,
+								placement: OrderedPlacementReadOnly,
+								key: string
+							): GuiObject
 								local tag = current:peek()
 								return chipItem(tag, railSelected)
 							end,
-						}),
-					}),
-				}),
+						},
+					},
+				},
 				heading("EmptyHeading", "Empty state"),
 				note(
 					"EmptyNote",
@@ -580,7 +598,7 @@ return {
 					message = "Check the spelling, or clear the search to see every track.",
 					actionLabel = "Clear search",
 					onAction = function()
-						clearCount:update(function(n)
+						clearCount:update(function(n: number)
 							return n + 1
 						end)
 					end,
@@ -598,20 +616,20 @@ return {
 				heading("DividerHeading", "Divider insets"),
 				dividers(),
 				heading("AccordionHeading", "Single-open accordion"),
-				Host.Frame("Accordion")({
+				Host.Frame "Accordion" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 0),
-					}),
+					},
 					accordionItem("Rules", "Race rules", "Standard lap count, no shortcuts, collisions on."),
 					accordionItem("Setup", "Car setup", "Tire compound, gear ratio and ride height for this track."),
 					accordionItem("Rewards", "Rewards", "Podium finishes bank currency toward the next kart unlock."),
-				}),
-			})
+				},
+			}
 			local rail = assert(root:FindFirstChild("RailChips"))
 			local row = assert(rail:FindFirstChild("Row"))
 			local empty = assert(root:FindFirstChild("EmptyCollection"))
@@ -645,7 +663,7 @@ return {
 			report = report,
 			reset = reset,
 			screen = function()
-				return Host.Frame("Recipes")({
+				return Host.Frame "Recipes" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					UI.ScrollView "Content" {
@@ -655,7 +673,7 @@ return {
 						ScrollBarThickness = 6,
 						Page(),
 					},
-				})
+				}
 			end,
 			steps = {
 				narrowActions = function()

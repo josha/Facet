@@ -5,11 +5,12 @@ return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local expect = Verify.expect
 
+	local Facet = require("../src")
+	type Use = Facet.Use
+	local Facet = require("../src")
 	local toast_schedule = require("../src/ui/toast_schedule")
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
@@ -243,26 +244,38 @@ return function(verifyHarness: Verify.Harness)
 			end
 		end
 		local world = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-			local children: { unknown } = { UI.Button "Under" { label = "Under" } }
+			local children: { Facet.Child } = { UI.Button "Under" { label = "Under" } }
 			for index, spec in specs do
 				table.insert(
 					children,
 					Compose.show(function(use: Use)
 						return use(shown[index])
 					end, function()
-						return UI.Toast(`T{index}`)(spec)
+						return UI.Toast(spec, `T{index}`)
 					end)
 				)
 			end
-			return Host.Frame({ Name = "S", table.unpack((children :: unknown) :: { unknown }) })
+			return Host.Frame { Name = "S", table.unpack(children) }
 		end, options or { motionLevel = "none" })
 		return { world = world, shown = shown, reasons = reasons }
 	end
 
+	local function slotOrder(row: Instance): number
+		local slot = row:FindFirstAncestor("ToastSlot")
+		assert(slot and slot:IsA("GuiObject"))
+		return slot.LayoutOrder
+	end
+
+	local function slotOrder(row: Instance): number
+		local slot = row:FindFirstAncestor("ToastSlot")
+		assert(slot and slot:IsA("GuiObject"))
+		return slot.LayoutOrder
+	end
+
 	local function rows(world: any): { any }
 		local out = world.findAll("ToastRow")
-		table.sort(out, function(a, b)
-			return a:FindFirstAncestor("ToastSlot").LayoutOrder < b:FindFirstAncestor("ToastSlot").LayoutOrder
+		table.sort(out, function(a: Instance, b: Instance)
+			return slotOrder(a) < slotOrder(b)
 		end)
 		return out
 	end
@@ -370,23 +383,25 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("a TabView bottom bar reserves its band on its layer, and a top bar does not", {
 			id = "native_toast_schedule::UI.Toast: presentation::a TabView bottom bar reserves its band on its layer, and a top bar does not",
 			run = function()
-				for _, case in { { placement = "bottomBar", height = 44 }, { placement = "topBar", height = 0 } } do
+				local cases: { { placement: "bottomBar" | "topBar", height: number } } =
+					{ { placement = "bottomBar", height = 44 }, { placement = "topBar", height = 0 } }
+				for _, case in cases do
 					local world = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-						local tabs = {}
+						local tabs: { Facet.Tab } = {}
 						for _, id in { "home", "feed" } do
 							table.insert(tabs, {
 								id = id,
 								label = id,
 								content = function(): Instance
-									return Host.Frame({ Name = "Page-" .. id })
+									return Host.Frame { Name = "Page-" .. id }
 								end,
 							})
 						end
-						return UI.TabView({
+						return UI.TabView {
 							selection = Compose.cell("home"),
-							placement = case.placement :: "automatic" | "bottomBar" | "bottomBarCompact" | "none" | "sidebar" | "topBar",
+							placement = case.placement,
 							tabs = tabs,
-						})
+						}
 					end, { motionLevel = "none" })
 					local bar = world.find("Tabs")
 					world.engine.environment.poke(
@@ -437,16 +452,18 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("fits the overlay that receives it and follows its resized width", {
 			id = "native_toast_schedule::UI.Toast: presentation::fits the overlay that receives it and follows its resized width",
 			run = function()
-				local presentation
+				local mounted: Frame? = nil
 				local w = overlay.new(function(_, Host: RobloxHost, engine, _, runtime)
-					presentation = Host.Frame "Presentation" {}
+					local panel = Host.Frame "Presentation" {}
+					mounted = panel
 					local UI = require("../src/ui")(Compose, runtime, {
 						types = engine.types,
-						overlayParent = presentation :: Instance,
+						overlayParent = panel,
 						motionLevel = "none",
 					})
-					return Host.Frame { presentation :: unknown, UI.Toast { message = "Ready" } }
+					return Host.Frame { panel, UI.Toast { message = "Ready" } }
 				end)
+				local presentation = assert(mounted)
 				w.engine.environment.poke(presentation, "AbsoluteSize", Vector2.new(390, 720))
 				w.advance(0.1)
 				local row = w.find("ToastRow")
@@ -464,7 +481,6 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("app.presentToast", function()
-		local Facet = require("../src") :: any
 		local engineLib = require("./lib/native_engine")
 		verifyHarness:case("parents imperative passive toasts to their edge stack", {
 			id = "native_toast_schedule::app.presentToast::parents imperative passive toasts to their edge stack",
@@ -475,7 +491,8 @@ return function(verifyHarness: Verify.Harness)
 				local app =
 					Facet.app({ runtime = runtime, types = engine.types, parent = target, motionLevel = "none" })
 				local live = 0
-				for _, edge in { "top", "bottom" } do
+				local edges: { "top" | "bottom" } = { "top", "bottom" }
+				for _, edge in edges do
 					for index = 1, 2 do
 						app.presentToast(function(UI: FacetControls)
 							live += 1
@@ -505,17 +522,17 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("owns its body, returns an id and dismiss, and releases the layer when it retires", {
 			id = "native_toast_schedule::app.presentToast::owns its body, returns an id and dismiss, and releases the layer when it retires",
 			run = function()
-				local engine: any = engineLib.new()
+				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 				local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 				local target = engine.new("PlayerGui")
-				local app = Facet.app({
+				local app: Facet.App = Facet.app({
 					runtime = runtime,
 					types = engine.types,
 					parent = target,
 					services = { GuiService = gui, UserInputService = input },
 					motionLevel = "none",
-				} :: any)
+				})
 				local live = 0
 				local toast = app.presentToast(function(UI: FacetControls)
 					live += 1
@@ -538,7 +555,8 @@ return function(verifyHarness: Verify.Harness)
 				expect(live):toBe(0)
 				expect(#overlay.findAll(target, "ToastRow")):toBe(3)
 				expect((toast.dismiss())):toBe(false)
-				expect((pcall(app.presentToast, "no" :: any, {}))):toBe(false)
+				local present: any = app.presentToast
+				expect((pcall(present, "no", {}))):toBe(false)
 				app.dispose()
 			end,
 		})

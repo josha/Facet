@@ -5,11 +5,12 @@ local api = {}
 
 function api.press(node: any, value: any)
 	node.InputBegan:Fire(value)
-	if node.IsA == nil or node:IsA("UserInputService") or value.Position == nil then
+	local isA: ((any, string) -> boolean)? = node.IsA
+	if isA == nil or isA(node, "UserInputService") or value.Position == nil then
 		return
 	end
-	local at = node
-	local detector
+	local at: any = node
+	local detector: any
 	while at and not detector and not at:IsA("LayerCollector") do
 		detector = at:FindFirstChildWhichIsA("UIDragDetector") or at:FindFirstChild("FacetCollectionDrag", true)
 		at = at.Parent

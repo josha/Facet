@@ -7,7 +7,7 @@ local freeze = require("./freeze")
 export type Plate = { name: string?, gate: Types.Input<boolean>?, shown: Types.Value<boolean>? }
 type Show = (GuiObject, Inputs.Help, Plate?) -> ()
 
-local pressed = setmetatable({} :: { [Instance]: boolean }, { __mode = "k" })
+local pressed: { [Instance]: boolean } = setmetatable({}, { __mode = "k" })
 
 local help = {}
 

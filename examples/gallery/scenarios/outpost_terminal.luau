@@ -1,11 +1,8 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type Terminal = typeof(require("@repo/examples/gallery/examples/outpost_terminal"))
 type Reply = {
 	kind: string?,
@@ -223,7 +220,14 @@ return {
 			command("close")
 		end)
 		local function button(name: string, label: string, action: () -> ...unknown): TextButton
-			return UI.Button({ Name = name, label = label, onActivate = action, Size = UDim2.new(1, 0, 0, 40) })
+			return UI.Button {
+				Name = name,
+				label = label,
+				onActivate = function()
+					action()
+				end,
+				Size = UDim2.new(1, 0, 0, 40),
+			}
 		end
 		local loadTerminal: (ModuleScript | string) -> Terminal = require
 		return {
@@ -233,7 +237,7 @@ return {
 					ctx.theme,
 					{ types = ctx.types, theme = ctx.themeMode }
 				)
-				local gui = Host.SurfaceGui("OutpostSurface")({
+				local gui = Host.SurfaceGui "OutpostSurface" {
 					Parent = ctx.inputTarget,
 					Adornee = function(use: Use): BasePart?
 						return use(console)
@@ -247,25 +251,25 @@ return {
 					Active = function(use: Use)
 						return use(built.model.phase) == "engaged"
 					end,
-					Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
+					Host.StyleLink { StyleSheet = Compose.static(sheet) },
 					built.screen(),
-				})
-				Host.InputContext("OutpostInput")({
+				}
+				Host.InputContext "OutpostInput" {
 					Parent = ctx.inputTarget,
 					Priority = 3000,
 					Sink = true,
 					Enabled = function(use: Use)
 						return use(built.model.phase) == "engaged"
 					end,
-					Host.InputAction("LeaveConsole")({
+					Host.InputAction "LeaveConsole" {
 						Type = Enum.InputActionType.Bool,
 						Pressed = function()
 							release("cancel")
 						end,
-						Host.InputBinding({ KeyCode = Enum.KeyCode.Escape }),
-						Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonB }),
-					}),
-				})
+						Host.InputBinding { KeyCode = Enum.KeyCode.Escape },
+						Host.InputBinding { KeyCode = Enum.KeyCode.ButtonB },
+					},
+				}
 				local previousPhase = built.model.phase:peek()
 				Compose.watch(function(use: Use)
 					local phase = use(built.model.phase)
@@ -279,42 +283,42 @@ return {
 					end
 					previousPhase = phase
 				end)
-				return Host.Frame("OutpostCompanion")({
+				return Host.Frame "OutpostCompanion" {
 					Position = UDim2.fromOffset(12, 12),
 					Size = UDim2.new(0, 280, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIPadding({
+					Host.UIPadding {
 						PaddingLeft = UDim.new(0, 12),
 						PaddingRight = UDim.new(0, 12),
 						PaddingTop = UDim.new(0, 12),
 						PaddingBottom = UDim.new(0, 12),
-					}),
-					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
-					UI.Text({
+					},
+					Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) },
+					UI.Text {
 
 						text = "Outpost 7 — World terminal",
 						textRole = "heading",
 						TextWrapped = true,
 						Size = UDim2.new(1, 0, 0, 54),
-					}),
-					UI.Text({
+					},
+					UI.Text {
 
 						text = connectionState,
 						TextWrapped = true,
 						Size = UDim2.new(1, 0, 0, 72),
-					}),
+					},
 					button("Character", "Enter the outpost", steps.loadCharacter),
 					button("Exit", "Leave console", steps.exitCancel),
 					button("Restore", "Restore console", steps.restoreConsole),
-					UI.Text({
+					UI.Text {
 
 						text = function(use: Use)
 							return `Last exit: {use(lastExit)}`
 						end,
 						TextWrapped = true,
 						Size = UDim2.new(1, 0, 0, 36),
-					}),
-				})
+					},
+				}
 			end,
 			steps = steps,
 			report = function()

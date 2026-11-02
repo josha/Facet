@@ -29,10 +29,7 @@ return function(verifyHarness: Verify.Harness)
 		local root: any
 		local builds = { sidebar = 0, detail = 0 }
 		local back = Compose.cell(false)
-		local noLabel: false? = nil
-		if handoff then
-			noLabel = false
-		end
+		local noLabel: false? = if handoff then false else nil
 		local stopPage: (() -> ())? = nil
 		if handoff == "page" then
 			stopPage = runtime.mount(function()

@@ -69,7 +69,7 @@ interactive(
 				Size = UDim2.fromOffset(600, 420),
 				Position = UDim2.fromOffset(100, 100),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 40) }) :: unknown,
+				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 40) },
 				UI.Slider "Gap" {
 					LayoutOrder = 1,
 					Size = UDim2.fromOffset(420, 0),
@@ -245,7 +245,7 @@ interactive(
 				Position = UDim2.fromOffset(100, 100),
 				Size = UDim2.fromOffset(400, 200),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 24) }) :: unknown,
+				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 24) },
 				UI.Button "Link" { label = "Read more", underline = "hover" :: "hover", LayoutOrder = 1 },
 				UI.Button "Always" { label = "Terms", underline = "always" :: "always", LayoutOrder = 2 },
 			}
@@ -313,7 +313,7 @@ interactive(
 				Position = UDim2.fromOffset(100, 100),
 				Size = UDim2.fromOffset(360, 300),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }) :: unknown,
+				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) },
 				UI.Toggle "Toggle" { value = value.toggle, label = "On", LayoutOrder = 1 },
 				UI.Stepper "Stepper" { value = Compose.cell(2), min = 0, max = 5, LayoutOrder = 2 },
 			}

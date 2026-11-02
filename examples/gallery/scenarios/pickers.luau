@@ -2,14 +2,12 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 type CivilDate = typeof(require("@repo/tools/typecheck/aliases").CivilDate)
 type CivilDateModule = typeof(require("@repo/tools/typecheck/aliases").CivilDateModule)
 type CivilRange = typeof(require("@repo/tools/typecheck/aliases").CivilRange)
 type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Settable<T> = { set: (Settable<T>, T) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Settable<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ColorMode = "brick" | "sliders" | "spectrum" | "swatches"
 type Swatch = Color3 | { color: Color3, label: string? }
 type SwatchItem = { color: Color3, label: string?, key: string }
@@ -41,7 +39,7 @@ return {
 	title = "Pickers",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types
 		local UDim, UDim2, Color3, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Color3, nativeTypes.Enum
@@ -145,7 +143,7 @@ return {
 			words: TextValue,
 			role: "body" | "caption" | "control" | "heading" | "label" | "numeral" | "strong" | "title"
 		)
-			return UI.Text({
+			return UI.Text {
 				Name = name,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
@@ -155,32 +153,32 @@ return {
 				textRole = role,
 				TextWrapped = true,
 				TextXAlignment = Enum.TextXAlignment.Left,
-			})
+			}
 		end
 		local function page()
 			local spectrumModes: { ColorMode } = { "spectrum" }
 			local allModes: { ColorMode } = { "swatches", "spectrum", "sliders", "brick" }
 			local sliderModes: { ColorMode } = { "sliders" }
-			return Host.Frame("Pickers")({
+			return Host.Frame "Pickers" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				},
 				text("Title", COPY.title, "title"),
 				text("ColoursTitle", COPY.colours, "heading"),
 				UI.Toggle "Refuse" { label = COPY.refuse, value = refuse },
 				text("Committed", function(use: Use): string
 					return `{COPY.committed} {use(committed)}`
 				end, "body"),
-				Host.Frame("Inline")({
+				Host.Frame "Inline" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UISizeConstraint({ MaxSize = nativeTypes.Vector2.new(360, math.huge) }),
+					Host.UISizeConstraint { MaxSize = nativeTypes.Vector2.new(360, math.huge) },
 					UI.ColorPicker "Accent" {
 						label = COPY.accent,
 						style = "inline",
@@ -189,7 +187,7 @@ return {
 						onChange = accept(accent),
 						onCommit = record,
 					},
-				}),
+				},
 				UI.ColorPicker "Body" {
 					label = COPY.body,
 					hint = COPY.bodyHint,
@@ -200,16 +198,16 @@ return {
 					onAlphaChange = accept(bodyAlpha),
 					modes = allModes,
 				},
-				Host.Frame("Wells")({
+				Host.Frame "Wells" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						Padding = UDim.new(0, 16),
-					}),
+					},
 					UI.Text "TrimLabel" {
 						LayoutOrder = 1,
 						BackgroundTransparency = 1,
@@ -225,7 +223,7 @@ return {
 						onSaveSwatch = saveTeam,
 						onRemoveSwatch = removeTeam,
 					},
-				}),
+				},
 				UI.ColorPicker "Livery" {
 					label = COPY.livery,
 					value = livery,
@@ -276,10 +274,10 @@ return {
 					weekStart = 2,
 					clock = today,
 				},
-			})
+			}
 		end
 		local function screen()
-			return Host.Frame("PickersScreen")({
+			return Host.Frame "PickersScreen" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
 				UI.ScrollView "Content" {
@@ -289,7 +287,7 @@ return {
 					ScrollBarThickness = 6,
 					page(),
 				},
-			})
+			}
 		end
 		return {
 			screen = screen,

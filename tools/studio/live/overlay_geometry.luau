@@ -21,10 +21,12 @@ local function attachment(
 	local ps, az = panel.AbsoluteSize, anchor.AbsoluteSize
 	local gaps: { [string]: number } =
 		{ bottom = p.Y - a.Y - az.Y, top = a.Y - p.Y - ps.Y, right = p.X - a.X - az.X, left = a.X - p.X - ps.X }
-	local edge, error = "bottom", math.huge
+	local edge: string = "bottom"
+	local nearest: number = math.huge
 	for name, distance in gaps do
-		if math.abs(distance - gap) < error then
-			edge, error = name, math.abs(distance - gap)
+		if math.abs(distance - gap) < nearest then
+			edge = name
+			nearest = math.abs(distance - gap)
 		end
 	end
 	local vertical = edge == "bottom" or edge == "top"
@@ -33,7 +35,7 @@ local function attachment(
 		else math.min(p.Y + ps.Y, a.Y + az.Y) - math.max(p.Y, a.Y)
 	t.check(
 		"settled panel attaches to anchor with expected gap",
-		error <= 0.5 and span >= -0.5,
+		nearest <= 0.5 and span >= -0.5,
 		{ edge = edge, gaps = gaps, expected = gap, overlap = span }
 	)
 	t.check(

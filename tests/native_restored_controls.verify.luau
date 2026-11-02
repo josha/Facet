@@ -5,9 +5,7 @@ local styleProperties = require("./lib/style_properties")
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Facet = require("../src")
@@ -27,22 +25,26 @@ return function(verifyHarness: Verify.Harness)
 		"scifi_hud",
 	}
 
-	local function make(options: { [string]: any }?): (any, any, any)
-		local engine: any = engineLib.new()
+	local function make(options: { [string]: any }?): (engineLib.Engine, ComposeRuntime, Facet.Controls)
+		local engine = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
-		local config: { [string]: any } = { types = engine.types, guiService = gui, services = { GuiService = gui } }
-		for key, value in (options or {}) :: { [string]: any } do
+		local config: any = { types = engine.types, guiService = gui, services = { GuiService = gui } }
+		for key, value in options or {} do
 			config[key] = value
 		end
-		return engine, runtime, Facet.controls(runtime, config :: any)
+		local controlOptions: Facet.ControlOptions = config
+		return engine, runtime, Facet.controls(runtime, controlOptions)
 	end
 
-	local function build(options: { [string]: any }?, body: (any, any) -> any): (any, any, () -> ())
+	local function build(
+		options: { [string]: any }?,
+		body: (Facet.Controls, Facet.Host) -> Instance
+	): (any, engineLib.Engine, () -> ())
 		local engine, runtime, UI = make(options)
 		local root: any
 		runtime.mount(function()
-			root = body(UI, runtime.constructors)
+			root = body(UI, Facet.host(runtime))
 			return root
 		end, engine.new("ScreenGui"))
 		return root, engine, function()
@@ -50,11 +52,11 @@ return function(verifyHarness: Verify.Harness)
 		end
 	end
 
-	local function refusal(body: (any, any) -> any, options: { [string]: any }?): string?
+	local function refusal(body: (Facet.Controls, Facet.Host) -> Instance, options: { [string]: any }?): string?
 		local engine, runtime, UI = make(options)
 		local ok, message = pcall(function()
 			runtime.mount(function()
-				return body(UI, runtime.constructors)
+				return body(UI, Facet.host(runtime))
 			end, engine.new("ScreenGui"))
 		end)
 		runtime:dispose()
@@ -72,7 +74,7 @@ return function(verifyHarness: Verify.Harness)
 			return themes.createStyleSheet(
 				runtime,
 				package,
-				{ types = engine.types, preferredTransparency = 1, motionLevel = "normal" } :: any
+				{ types = engine.types, preferredTransparency = 1, motionLevel = "normal" }
 			)
 		end, engine.new("Folder"))
 		return sheet, function()
@@ -105,8 +107,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_restored_controls::native restored controls: Text::paints text with its type role and follows a bound text without a rebuild",
 			run = function()
 				local value = Compose.cell("Lap 1")
-				local root, _, stop = build(nil, function(UI: FacetControls)
-					return UI.Text("Lap")({ text = value, textRole = "title" :: "title" })
+				local root, _, stop = build(nil, function(UI)
+					return UI.Text "Lap" { text = value, textRole = "title" }
 				end)
 				Verify.expect(root.ClassName):toBe("TextLabel")
 				Verify.expect(root.Name):toBe("Lap")
@@ -132,7 +134,7 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local value = Compose.cell("Lap 1")
 					local builds = 0
-					local root, _, stop = build(nil, function(UI: FacetControls)
+					local root, _, stop = build(nil, function(UI)
 						builds += 1
 						local title: any = if form == "cell"
 							then value
@@ -142,7 +144,7 @@ return function(verifyHarness: Verify.Harness)
 							else function(use: any)
 								return use(value)
 							end
-						return UI.Label("Lap")({ title = title })
+						return UI.Label "Lap" { title = title }
 					end)
 					local before = root:FindFirstChild("Title")
 					Verify.expect(before.Text):toBe("Lap 1")
@@ -161,18 +163,16 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("refuses an unknown semantic icon and plain-text options", {
 			id = "native_restored_controls::native restored controls: Label::refuses an unknown semantic icon and plain-text options",
 			run = function()
-				Verify.expect((mentions(
-					refusal(function(UI: FacetControls)
-						return UI.Label({ title = "Saved", icon = "unknown-semantic-icon" })
-					end),
-					"unknown icon"
-				))):toBe(true)
-				Verify.expect((mentions(
-					refusal(function(UI: FacetControls)
-						return UI.Label({ text = "Saved" } :: any)
-					end),
-					"UI.Text"
-				))):toBe(true)
+				local unknownIcon = refusal(function(UI)
+					return UI.Label { title = "Saved", icon = "unknown-semantic-icon" }
+				end)
+				Verify.expect((mentions(unknownIcon, "unknown icon"))):toBe(true)
+				local plainText = refusal(function(UI)
+					local legacy: any = { text = "Saved" }
+					local props: Facet.LabelProps = legacy
+					return UI.Label(props)
+				end)
+				Verify.expect((mentions(plainText, "UI.Text"))):toBe(true)
 			end,
 		})
 
@@ -181,8 +181,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local icons = require("../src/ui/icons")
 				for name, art in icons.ART do
-					local root, _, stop = build(nil, function(UI: FacetControls)
-						return UI.Label({ title = name, icon = name })
+					local root, _, stop = build(nil, function(UI)
+						return UI.Label { title = name, icon = name }
 					end)
 					Verify.expect(root:FindFirstChild("Icon", true).Image):toBe(art.contentId)
 					stop()
@@ -233,15 +233,15 @@ return function(verifyHarness: Verify.Harness)
 				}
 				for _, case in cases do
 					Verify.expect((mentions(
-						refusal(function(UI: FacetControls)
+						refusal(function(UI)
 							return UI.Image(case.spec)
 						end),
 						case.fragment
 					))):toBe(true)
 				end
 				local mode = Compose.cell("fit" :: "crop" | "fill" | "fit" | "slice" | "stretch" | "tile")
-				local root, engine, stop = build(nil, function(UI: FacetControls)
-					return UI.Image({ scaleMode = mode })
+				local root, engine, stop = build(nil, function(UI)
+					return UI.Image { scaleMode = mode }
 				end)
 				local ok, failure = pcall(function()
 					mode:set("tile")
@@ -259,12 +259,12 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_restored_controls::native restored controls: Divider::uses the theme hairline weight by default and accepts pixels or a metric name",
 			run = function()
 				local theme = Compose.cell(themes.neutralPackage())
-				local root, engine, stop = build({ theme = theme }, function(UI: FacetControls)
-					return UI.VStack({
-						UI.Divider("Default")({}) :: unknown,
-						UI.Divider("Pixels")({ thickness = 3 }),
-						UI.Divider("Step")({ thickness = "xs" }),
-					})
+				local root, engine, stop = build({ theme = theme }, function(UI)
+					return UI.VStack {
+						UI.Divider "Default" {},
+						UI.Divider "Pixels" { thickness = 3 },
+						UI.Divider "Step" { thickness = "xs" },
+					}
 				end)
 				local UDim2 = engine.types.UDim2
 				Verify.expect(root:FindFirstChild("Default").Size):toBe(UDim2.new(1, 0, 0, 1))
@@ -276,26 +276,24 @@ return function(verifyHarness: Verify.Harness)
 				theme:set(heavy)
 				Verify.expect(root:FindFirstChild("Default").Size):toBe(UDim2.new(1, 0, 0, 2))
 				stop()
-				Verify.expect((mentions(
-					refusal(function(UI: FacetControls)
-						return UI.Divider({ thickness = 0 })
-					end),
-					"positive number"
-				))):toBe(true)
+				local zeroThickness = refusal(function(UI)
+					return UI.Divider { thickness = 0 }
+				end)
+				Verify.expect((mentions(zeroThickness, "positive number"))):toBe(true)
 			end,
 		})
 
 		verifyHarness:case("leaves its transparency at the class default so the divider rule paints the line", {
 			id = "native_restored_controls::native restored controls: Divider::leaves its transparency at the class default so the divider rule paints the line",
 			run = function()
-				local root, _, stop = build(nil, function(UI: FacetControls)
-					return UI.Divider({})
+				local root, _, stop = build(nil, function(UI)
+					return UI.Divider {}
 				end)
 				Verify.expect(root.BackgroundTransparency):toBe(0)
 				Verify.expect(root.BorderSizePixel):toBe(0)
 				stop()
 				Verify.expect((mentions(
-					refusal(function(UI: FacetControls)
+					refusal(function(UI)
 						return UI.Divider({ appearance = "loud" :: "loud" } :: any)
 					end),
 					"standard or strong"
@@ -368,16 +366,16 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("keeps an explicit native size and refuses an invalid minimum", {
 			id = "native_restored_controls::native restored controls: Spacer::keeps an explicit native size and refuses an invalid minimum",
 			run = function()
-				local root, engine, stop = build(nil, function(UI: FacetControls)
-					return UI.HStack({
-						UI.Spacer("Gap")({ Size = Roblox.UDim2.fromOffset(40, 4), minLength = 8 }),
-					})
+				local root, engine, stop = build(nil, function(UI)
+					return UI.HStack {
+						UI.Spacer "Gap" { Size = Roblox.UDim2.fromOffset(40, 4), minLength = 8 },
+					}
 				end)
 				Verify.expect(root:FindFirstChild("Gap").Size):toBe(engine.types.UDim2.fromOffset(40, 4))
 				stop()
 				for _, value in { -1, "huge" } :: { any } do
-					Verify.expect(refusal(function(UI: FacetControls)
-						return UI.HStack({ UI.Spacer({ minLength = value }) })
+					Verify.expect(refusal(function(UI)
+						return UI.HStack { UI.Spacer { minLength = value } }
 					end) ~= nil):toBe(true)
 				end
 			end,
@@ -388,8 +386,6 @@ return function(verifyHarness: Verify.Harness)
 	(function(verifyHarness: Verify.Harness)
 		type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 		type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-		type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-		type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 
 		local Facet = require("../src")
 		local engineLib = require("./lib/native_engine")
@@ -406,7 +402,10 @@ return function(verifyHarness: Verify.Harness)
 			stop: () -> (),
 		}
 
-		local function setup(build: (any, any, any) -> any, options: { [string]: any }?): World
+		local function setup(
+			build: (Facet.Controls, Facet.Host, engineLib.Engine) -> Facet.Child,
+			options: { [string]: any }?
+		): World
 			local engine: any = engineLib.new()
 			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
@@ -417,19 +416,20 @@ return function(verifyHarness: Verify.Harness)
 			input.IsKeyDown = function()
 				return false
 			end
-			local config: { [string]: any } = {
+			local config: any = {
 				types = engine.types,
 				guiService = gui,
 				services = { GuiService = gui, UserInputService = input },
 				motionLevel = "none",
 			}
-			for key, value in (options or {}) :: { [string]: any } do
+			for key, value in options or {} do
 				config[key] = value
 			end
-			local UI = Facet.controls(runtime, config :: any)
-			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local controlOptions: Facet.ControlOptions = config
+			local UI = Facet.controls(runtime, controlOptions)
+			local Host = Facet.host(runtime)
 			local stop, root: any = runtime.mount(function()
-				return Host.ScreenGui({ build(UI, Host, engine) })
+				return Host.ScreenGui { build(UI, Host, engine) }
 			end, engine.new("Folder"))
 			return {
 				engine = engine,
@@ -477,7 +477,7 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local club = Compose.cell(false)
 					local theme = Compose.cell(themes.neutralPackage())
-					local world = setup(function(UI: FacetControls)
+					local world = setup(function(UI)
 						return UI.CollapsibleView "Settings" {
 							label = "Race settings",
 							expanded = Compose.cell(false),

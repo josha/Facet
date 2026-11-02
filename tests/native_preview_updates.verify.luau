@@ -3,9 +3,9 @@ local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	local FixtureOverlayTypes = require("../src/ui/overlay_types")
+	local SharedTypes = require("../src/ui/types")
+	type ExampleContext = typeof(require("@repo/examples/types").Context)
 
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")
@@ -13,7 +13,7 @@ return function(verifyHarness: Verify.Harness)
 	local labSettings = require("../examples/facet-lab/src/lab_settings")
 	local C = Facet.Compose
 
-	local function fixture(build)
+	local function fixture(build: (Facet.Controls, Facet.Host, SharedTypes.RobloxTypes) -> Facet.Child)
 		local engine = engines.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
@@ -25,23 +25,29 @@ return function(verifyHarness: Verify.Harness)
 			Compose = C,
 			Facet = Facet,
 			runtime = runtime,
-			Host = (runtime.constructors :: unknown) :: RobloxHost,
+			Host = Facet.host(runtime),
 			types = engine.types,
 			guiService = gui,
 			viewport = C.cell({ width = 1440, height = 900 }),
 		}
-		local settings, UI
+		local made: labSettings.Settings? = nil
+		local controls: Facet.Controls? = nil
 		local stop, root: any = runtime.mount(function()
-			gallery.configure(ctx)
-			settings = labSettings.new(ctx, input)
-			UI = Facet.controls(runtime, {
+			local scope: ExampleContext = ctx
+			gallery.configure(scope)
+			local settings = labSettings.new(ctx, input)
+			made = settings
+			local overlay: Instance = ctx.overlayParent
+			local UI = Facet.controls(runtime, {
 				types = engine.types,
 				services = { GuiService = gui, UserInputService = input },
 				environment = settings.environment,
-				overlayParent = ctx.overlayParent,
+				overlayParent = overlay,
 				motionLevel = "none",
 			})
-			return ctx.Host.ScreenGui { ctx.overlayParent :: unknown, build(UI, ctx.Host, engine.types) }
+			controls = UI
+			local Host = Facet.host(runtime)
+			return Host.ScreenGui { overlay, build(UI, Host, engine.types) }
 		end, engine.new("Folder"))
 		engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(1440, 900))
 		engine.environment.poke(ctx.overlayParent, "AbsoluteSize", engine.types.Vector2.new(389, 762))
@@ -49,9 +55,9 @@ return function(verifyHarness: Verify.Harness)
 		return {
 			engine = engine,
 			ctx = ctx,
-			settings = settings,
+			settings = assert(made),
 			root = root,
-			UI = UI,
+			UI = assert(controls),
 			input = input,
 			find = function(name)
 				return root:FindFirstChild(name, true)
@@ -75,14 +81,15 @@ return function(verifyHarness: Verify.Harness)
 						.. " picker adapts in place to touch, console and pointer inside the preview bounds",
 					run = function()
 						local opened = C.cell(false)
-						local w = fixture(function(UI: FacetControls, _, T)
+						local day: Facet.CivilDate? = { year = 2026, month = 9, day = 30 }
+						local w = fixture(function(UI, _, T)
 							return if kind == "color"
 								then UI.ColorPicker "Picker" {
 									value = C.cell(T.Color3.new(1, 0, 0)),
 									isPresented = opened,
 								}
 								else UI.DateTimePicker "Picker" {
-									value = C.cell({ year = 2026, month = 9, day = 30 }),
+									value = C.cell(day),
 									onChange = function() end,
 									isPresented = opened,
 								}
@@ -143,7 +150,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_preview_updates::settings update mounted controls and their presentation bounds::dialog width follows a resized overlay parent rather than the desktop window",
 			run = function()
 				local opened = C.cell(false)
-				local w = fixture(function(UI: FacetControls)
+				local w = fixture(function(UI)
 					return UI.Dialog {
 						isPresented = opened,
 						title = "Preview",

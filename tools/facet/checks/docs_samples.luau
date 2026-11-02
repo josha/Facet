@@ -30,7 +30,12 @@ local function check(context: Rule.Context): { string }
 			end
 			local _, line = string.gsub(string.sub(source, 1, start), "\n", "")
 			local _, count = string.gsub(prefix, "\n", "")
-			Files.write(target, prefix .. code .. (if node.kind == "card" then "return nil\nend)\n" else ""))
+			Files.write(
+				target,
+				prefix
+					.. code
+					.. (if node.kind == "card" then "return app.runtime.constructors.Frame({})\nend)\n" else "")
+			)
 			table.insert(targets, target)
 			origins[string.lower(Files.absolute(target))] = { file = node.file, line = line + 2, prefix = count }
 		end
@@ -88,6 +93,27 @@ return {
 	summary = "Type-check every recipe and control card sample with the consumer verifier settings.",
 	check = check,
 	register = function(harness: Verify.Harness, prefix: string): ()
+		harness:case(prefix .. "control cards compile inside a mount that returns a host node", {
+			id = prefix .. "control cards compile inside a mount that returns a host node",
+			run = function(test: Verify.Context): ()
+				Rule.within(test, {
+					["src/init.luau"] = [[--!strict
+return {
+	app = function()
+		return {
+			UI = {},
+			runtime = { constructors = { Frame = function(_props: {}): {} return {} end } },
+			mount = function(build: () -> {}) build() end,
+		}
+	end,
+}
+]],
+					["docs/reference/nodes/Value.card.md"] = "# Value\n\n```luau\nlocal value: number = 1\nprint(value)\n```\n",
+				}, function(context)
+					Verify.expect(check(context)):toEqual({})
+				end)
+			end,
+		})
 		harness:case(
 			prefix .. "the consumer analyzer accepts a typed sample and rejects a scalar fault at its Markdown line",
 			{

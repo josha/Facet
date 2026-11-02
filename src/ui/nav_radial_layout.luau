@@ -1,16 +1,18 @@
 --!strict
+local ThemeTypes = require("./theme_types")
 local geometry = require("./nav_radial_geometry")
 local Types = require("./types")
 local Radial = require("./radial_types")
 local RadialProps = require("./radial_props")
 local ComposeTypes = require("../vendor/compose/core")
 local MenuTypes = require("./nav_radial_menu")
+local Motion = require("./motion")
 
 export type Arrangement<V> = {
 	viewport: ComposeTypes.Value<Vector2>,
 	origin: ComposeTypes.Value<Vector2>,
 	launcher: Instance?,
-	anchorSize: ComposeTypes.Value<Vector2>?,
+	anchorSize: ComposeTypes.ReadOnlyValue<Vector2>?,
 	centerTarget: ComposeTypes.Value<Vector2>,
 	following: ComposeTypes.Value<boolean>,
 	center: ComposeTypes.Value<Vector2>,
@@ -25,6 +27,11 @@ export type Arrangement<V> = {
 
 return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Arrangement<V>
 	local Compose, runtime, read = ctx.Compose, ctx.runtime, ctx.read
+	local readAnchor = read<<Radial.Anchor?>>
+	local readItems = read<<{ Radial.RadialItem<V> }>>
+	local readText = read<<string?>>
+	local readClearance = read<<number?>>
+	local sectorsFor = geometry.sectors<<V>>
 	local typeOf: (unknown) -> string = runtime.host.typeNameOf or typeof
 	local V2 = ctx.types.Vector2
 	local spec: RadialProps.RadialMenuSpec<V> = menu.spec
@@ -40,36 +47,39 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 	local interacting: ComposeTypes.Value<boolean> = menu.interacting
 	local path: ComposeTypes.Value<{ string }> = menu.path
 	local candidate: ComposeTypes.Value<string?> = menu.candidate
-	local layer = ctx.config.overlayParent :: GuiBase2d?
-		or root:FindFirstAncestorWhichIsA("LayerCollector") :: GuiBase2d?
+	local parent = ctx.config.overlayParent or root:FindFirstAncestorWhichIsA("LayerCollector")
+	local layer: GuiBase2d? = nil
+	if parent then
+		assert(parent:IsA("GuiBase2d"), "RadialMenu overlay parent must be a GuiBase2d")
+		layer = parent
+	end
 	local measured = layer ~= nil and layer.AbsoluteSize.X > 0 and layer.AbsoluteSize.Y > 0
-	local viewport = Compose.cell(if measured then (layer :: GuiBase2d).AbsoluteSize else V2.new(640, 480))
-	local origin = Compose.cell(if measured then (layer :: GuiBase2d).AbsolutePosition else V2.zero)
-	local anchor = read(spec.anchor)
+	local viewport = Compose.cell(if layer and measured then layer.AbsoluteSize else V2.new(640, 480))
+	local origin = Compose.cell(if layer and measured then layer.AbsolutePosition else V2.zero)
+	local anchor = readAnchor(spec.anchor)
 	local launcher = if anchor == nil then root:FindFirstChild("Launcher") else nil
 	local focal = anchor or launcher
-	local nativeAnchor = focal and (typeof(focal) == "Instance" or (type(focal) == "table" and focal.IsA))
-	local anchorPosition = if nativeAnchor then ctx.observe.AbsolutePosition(focal :: GuiObject) else nil
-	local anchorSize = if nativeAnchor then ctx.observe.AbsoluteSize(focal :: GuiObject) else nil
-	if nativeAnchor and anchorPosition and anchorSize then
-		anchorPosition:set((focal :: GuiObject).AbsolutePosition)
-		anchorSize:set((focal :: GuiObject).AbsoluteSize)
-	end
+	local nativeAnchor = focal ~= nil and typeOf(focal) == "Instance"
+	local anchorPosition = if nativeAnchor then ctx.observeNative.AbsolutePosition(focal :: GuiObject) else nil
+	local anchorSize = if nativeAnchor then ctx.observeNative.AbsoluteSize(focal :: GuiObject) else nil
 	local shelves: { { position: ComposeTypes.ReadOnlyValue<Vector2>, size: ComposeTypes.ReadOnlyValue<Vector2> } } = {}
 	local shelf = if nativeAnchor and not corner then (focal :: Instance).Parent else nil
 	while shelf and shelf ~= layer and shelf:IsA("GuiObject") do
 		table.insert(shelves, {
-			position = ctx.observe.AbsolutePosition(shelf :: GuiObject),
-			size = ctx.observe.AbsoluteSize(shelf :: GuiObject),
+			position = ctx.observe.AbsolutePosition(shelf),
+			size = ctx.observe.AbsoluteSize(shelf),
 		})
 		shelf = shelf.Parent
 	end
 	local rawInner = Compose.formula(function(use: ComposeTypes.Use): number
-		local inner =
-			math.max(24, if type(read(spec.clearance, use)) == "number" then read(spec.clearance, use) else 40)
-		local focal = read(spec.anchor, use)
-		if typeOf(focal) ~= "Instance" and type(focal) == "table" and type(focal.clearance) == "number" then
-			inner = math.max(inner, focal.clearance)
+		local clearance = readClearance(spec.clearance, use)
+		local inner = math.max(24, if type(clearance) == "number" then clearance else 40)
+		local focal = readAnchor(spec.anchor, use)
+		if typeOf(focal) ~= "Instance" and type(focal) == "table" then
+			local margin = focal.clearance
+			if type(margin) == "number" then
+				inner = math.max(inner, margin)
+			end
 		end
 		if anchorSize then
 			local extent = use(anchorSize)
@@ -79,7 +89,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 	end)
 	local rawCenter = Compose.formula(function(use: ComposeTypes.Use)
 		local size = use(viewport)
-		local live = read(spec.anchor, use)
+		local live = readAnchor(spec.anchor, use)
 		local preset = spec.preset or "donut"
 		local at = V2.new(
 			if string.find(preset, "left") then 16 elseif string.find(preset, "right") then size.X - 16 else size.X / 2,
@@ -87,7 +97,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 		)
 		if anchorPosition and anchorSize and (launcher == nil or use(anchorSize).X > 0) then
 			at = use(anchorPosition) + use(anchorSize) / 2 - use(origin)
-		elseif live and live.x and live.y then
+		elseif typeOf(live) ~= "Instance" and type(live) == "table" and live.x and live.y then
 			at = V2.new(live.x, live.y) - use(origin)
 		end
 		local _, sweep = geometry.arc(preset)
@@ -111,7 +121,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 	end)
 	local frozenCenter = Compose.cell(centerTarget:peek())
 	local centerSpring = ctx.motionSpring("quick")
-	local movingCenter = runtime.spring(function(use: ComposeTypes.Use)
+	local movingCenter = Motion.forValue(ctx, ctx.types.Vector2.zero).spring(function(use: ComposeTypes.Use)
 		return use(centerTarget)
 	end, { period = centerSpring.period, damping = centerSpring.damping })
 	local following = Compose.cell(false)
@@ -125,7 +135,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 		frozenCenter:set(center:peek())
 	end
 	local function captionPadding(use: ComposeTypes.Use): number
-		local package = read(ctx.config.theme, use)
+		local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 		local skin = package and package.chrome and package.chrome.control
 		local insets = skin and skin.contentInsets
 		return 2 * ctx.controlSize(nil, "paddingX", use)
@@ -142,11 +152,11 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 				local key = prefix .. "/" .. item.id
 				captions[key] = true
 				if item.children then
-					visit(read(item.children, use), if prefix == "" then item.id else key)
+					visit(readItems(item.children, use), if prefix == "" then item.id else key)
 				end
 			end
 		end
-		visit(read(spec.items, use), "")
+		visit(readItems(spec.items, use), "")
 		local retained: { [string]: number } = {}
 		local changed = false
 		for key, width in wordWidths:peek() do
@@ -195,7 +205,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 		local radius = math.max(inner + 1, math.min(240, room))
 		local band = math.max(minimum, radius - inner)
 		local floor = math.min(band, math.max(minimum, ringWidth(use) or 0))
-		local items = read(spec.items, use)
+		local items = readItems(spec.items, use)
 		local prefix: { string } = {}
 		local levels: { { Radial.Sector<V> } } = {}
 		local ring = inner
@@ -212,7 +222,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 			if measured and measured > 0 then
 				return measured + captionPadding(use), textSize
 			end
-			local label = read(item.label, use) or ""
+			local label = readText(item.label, use) or ""
 			return (utf8.len(label) or #label) * textSize * 0.6 + captionPadding(use), textSize
 		end
 		local navigation, expansion = spec.navigation or "replace", spec.expansion or "fan"
@@ -234,13 +244,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 				end
 			end
 			if spec.center and spec.center ~= "back" and not corner and #prefix == #use(path) then
-				local navigationItem: Radial.RadialItemBase<V> & { checked: nil?, selected: nil?, value: nil?, onChange: nil? } =
-					{
-						id = "$navigation",
-						label = if #prefix > 0 then "Back" else "Close",
-						icon = if #prefix > 0 then "chevron.leading" else "close",
-						labelStyle = "icon" :: "icon",
-					}
+				local freeSlot: Radial.CompassSlot? = nil
 				if #prefix == 0 and spec.distribution == "compass" then
 					local slots: { [string]: boolean } = {}
 					for _, item in shown do
@@ -251,11 +255,20 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 					local compassSlots: { Radial.CompassSlot } = { "SW", "S", "SE", "NW", "W", "E", "NE", "N" }
 					for _, slot in compassSlots do
 						if not slots[slot] then
-							navigationItem.slot = slot :: Radial.CompassSlot
+							freeSlot = slot
 							break
 						end
 					end
-					if navigationItem.slot then
+				end
+				local navigationItem: Radial.RadialAction<V> = {
+					id = "$navigation",
+					label = if #prefix > 0 then "Back" else "Close",
+					icon = if #prefix > 0 then "chevron.leading" else "close",
+					labelStyle = "icon",
+					slot = freeSlot,
+				}
+				if #prefix == 0 and spec.distribution == "compass" then
+					if freeSlot then
 						table.insert(shown, navigationItem)
 					end
 				else
@@ -272,11 +285,8 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 			local levelBand = band
 			do
 				local extent, target = 0, 0
-				for _, probe in geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + 1) do
-					local width, height = estimate(
-						(probe.item :: unknown) :: Radial.RadialItemBase<V>,
-						table.concat(prefix, "/") .. "/" .. probe.item.id
-					)
+				for _, probe in sectorsFor(shown, levelStart, currentSweep, distribution, ri, ri + 1) do
+					local width, height = estimate(probe.item, table.concat(prefix, "/") .. "/" .. probe.item.id)
 					local ux, uy = math.sin(math.rad(probe.angle)), -math.cos(math.rad(probe.angle))
 					local hw, hh = width / 2 + padding, height / 2 + padding
 					local middle = ri + math.abs(hw * ux) + math.abs(hh * uy)
@@ -297,8 +307,8 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 						break
 					end
 					local short = false
-					for _, probe in geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + levelBand) do
-						local item = (probe.item :: unknown) :: Radial.RadialItemBase<V>
+					for _, probe in sectorsFor(shown, levelStart, currentSweep, distribution, ri, ri + levelBand) do
+						local item = probe.item
 						if not glyphOnly(item) then
 							local width, height = estimate(item, table.concat(prefix, "/") .. "/" .. probe.item.id)
 							local bounds = geometry.labelBounds(probe, height)
@@ -315,7 +325,8 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 				end
 			end
 			ring = ri + levelBand + 4
-			local sectors = geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + levelBand)
+			local sectors: { Radial.Sector<V> } =
+				sectorsFor(shown, levelStart, currentSweep, distribution, ri, ri + levelBand)
 			local iconUses: { [string]: number } = {}
 			for _, item in shown do
 				local icon = item.icon or (item.compactLabel and item.compactLabel.icon)
@@ -348,7 +359,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 			navigation = if flatten then "replace" else parent.item.navigation or navigation
 			expansion = parent.item.expansion or expansion
 			table.insert(prefix, id)
-			items = read(parent.item.children, use)
+			items = readItems(parent.item.children, use)
 			replaced = if navigation == "replace" then parent.outer - parent.inner else 0
 			if navigation == "replace" then
 				levels, ring = {}, inner
@@ -413,7 +424,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 	local fallback = Compose.formula(function(use: ComposeTypes.Use)
 		return use(layout).list
 	end)
-	session.candidateSector = function()
+	session.candidateSector = function(): Radial.Sector<V>?
 		local entries = sectors:peek()
 		for sectorIndex = 1, #entries do
 			local sector = entries[sectorIndex]

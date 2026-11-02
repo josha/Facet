@@ -11,6 +11,7 @@ local defineThemes = require("./theme_define")
 local createStyleSheet = require("./theme_stylesheet")
 local skin = require("./theme_skin")
 export type ThemePackage = ThemeTypes.ThemePackage
+export type ReadOnlyThemePackage = ThemeTypes.ReadOnlyThemePackage
 export type ThemeDefinition = ThemeTypes.ThemeDefinition
 export type ThemeOptions = ThemeTypes.ThemeOptions
 export type SkinOptions = ThemeTypes.SkinOptions
@@ -23,7 +24,7 @@ local contrast, copy, merge = support.contrast, support.copy, support.merge
 themes.SCHEMA = "facet-theme/2"
 themes.TYPE_ROLES = table.freeze({ "caption", "label", "body", "heading", "title", "control", "strong", "numeral" })
 themes.REQUIRED_TYPE_ROLES = themes.TYPE_ROLES
-local AVATAR_BACKGROUNDS: { [string]: string } = table.freeze({
+local AVATAR_BACKGROUNDS: { [string]: string } = {
 	surface = "content",
 	surfaceStrong = "content",
 	control = "content",
@@ -32,7 +33,8 @@ local AVATAR_BACKGROUNDS: { [string]: string } = table.freeze({
 	success = "onSuccess",
 	warning = "onWarning",
 	danger = "onDanger",
-})
+}
+table.freeze(AVATAR_BACKGROUNDS)
 
 local function rgb(r: number, g: number, b: number): ThemeTypes.RGB
 	return { r = r / 255, g = g / 255, b = b / 255 }
@@ -267,7 +269,8 @@ local function color(types: Engine.RobloxTypes, value: ThemeTypes.RGB | Color3?)
 	if type(value) == "table" and value.r ~= nil then
 		return types.Color3.new(value.r, value.g, value.b)
 	end
-	return value :: Color3?
+	assert(value == nil or typeof(value) == "Color3")
+	return value
 end
 
 local paint: support.Paint = {
@@ -279,7 +282,11 @@ local paint: support.Paint = {
 
 local SEGMENT_INSET = segmentMetrics.inset
 
-local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, types: Engine.RobloxTypes): { NativeRule }
+local function rulesFor(
+	package: ThemeTypes.ReadOnlyThemePackage,
+	selected: string?,
+	types: Engine.RobloxTypes
+): { NativeRule }
 	local kit = ruleKit(package, selected, types, neutral, paint)
 	local extra, source, c, f, rule = kit.extra, kit.source, kit.c, kit.f, kit.rule
 	local resolved = kit.resolved
@@ -395,8 +402,9 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			PaddingBottom = side(vertical, inset.bottom),
 		})
 	end
-	local chrome: { [string]: ThemeTypes.SkinLayer } = package.chrome or {}
-	local buttonInsets: ThemeTypes.Insets = if chrome.control then chrome.control.contentInsets or {} else {}
+	local chrome: { read [string]: ThemeTypes.SkinLayer? } = package.chrome or {}
+	local control = chrome.control
+	local buttonInsets: ThemeTypes.Insets = if control then control.contentInsets or {} else {}
 
 	rule(".facet-sheet >> .facet-card-body, .facet-panel >> .facet-card-body", { BackgroundColor3 = c("control") })
 	rule(".facet-sheet >> .facet-card-text, .facet-panel >> .facet-card-text", { BackgroundColor3 = c("control") })
@@ -437,14 +445,23 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		})
 	end
 	rule(".facet-tableheading", { BackgroundTransparency = 1 })
-	local function rungMetric(rung: string, field: string): number
-		local authored = (package.metrics.controlSizes or {})[rung]
-		if authored and type(authored[field]) == "number" then
-			return authored[field]
+	local function rungMetric(rung: string, field: "height" | "paddingX" | "iconSize"): number
+		local sizes = package.metrics.controlSizes
+		local authored: ThemeTypes.ControlSize? = if sizes then sizes[rung] else nil
+		local value = if not authored
+			then nil
+			elseif field == "height" then authored.height
+			elseif field == "paddingX" then authored.paddingX
+			else authored.iconSize
+		if type(value) == "number" then
+			return value
 		end
 		local fallback = neutral.metrics.controlSizes[rung]
 		if fallback then
-			return fallback[field]
+			return if field == "height"
+				then fallback.height
+				elseif field == "paddingX" then fallback.paddingX
+				else fallback.iconSize
 		end
 		return math.max(0, 2 * rungMetric("compact", field) - rungMetric("regular", field))
 	end
@@ -731,7 +748,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-toggle-indicator", { BackgroundColor3 = c("control"), BackgroundTransparency = 0 })
 	rule(".facet-toggle-on", { BackgroundColor3 = c("selection") })
 	local knob, offTrack, loudKnob =
-		resolved("onSelection") :: Color3, resolved("control") :: Color3, resolved("content") :: Color3
+		assert(resolved("onSelection")), assert(resolved("control")), assert(resolved("content"))
 	local offKnob = if contrast(knob, offTrack) >= 3
 			or contrast(knob, offTrack) >= contrast(loudKnob, offTrack)
 		then knob
@@ -1107,9 +1124,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingTop = types.UDim.new(0, 0),
 		PaddingBottom = types.UDim.new(0, 0),
 	})
-	local calendarInsets: ThemeTypes.Insets = if package.chrome and package.chrome.panel
-		then package.chrome.panel.contentInsets or {}
-		else {}
+	local panel = chrome.panel
+	local calendarInsets: ThemeTypes.Insets = if panel then panel.contentInsets or {} else {}
 	rule(".facet-panel.facet-calendar-scroll::UIPadding", {
 		PaddingLeft = types.UDim.new(0, calendarInsets.left or 0),
 		PaddingRight = types.UDim.new(0, calendarInsets.right or 0),
@@ -1150,9 +1166,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		elseif plate.kind == "layered" then plate.layers or {}
 		else { plate }
 	for index, layer in plateLayers do
-		local link = if type(layer.asset) == "table" then (layer.asset :: ThemeTypes.AssetVariants).selected else nil
+		local asset = layer.asset
+		local variants: { read selected: ThemeTypes.AssetLink? }? = if type(asset) == "table" then asset else nil
+		local link = if variants then variants.selected else nil
 		if link ~= nil and selectedArt == nil then
-			selectedArt, selectedLayer = link, index
+			selectedArt = link :: ThemeTypes.AssetLink
+			selectedLayer = index
 		end
 	end
 	local selectedLink: { asset: string, rotation: number?, tint: ThemeTypes.RGB? }? = if type(selectedArt)
@@ -1160,7 +1179,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		then { asset = selectedArt }
 		else selectedArt
 	local white, black = types.Color3.new(1, 1, 1), types.Color3.new(0, 0, 0)
-	local art = if selectedLink then (package.assets or {})[selectedLink.asset] else nil
+	local assets: { read [string]: ThemeTypes.Asset? } = package.assets or {}
+	local art = if selectedLink then assets[selectedLink.asset] else nil
 	local pressedEmphasis = false
 	for _, theme in package.style.themes do
 		local swatch = merge(support.neutralBase(neutral, theme.colors).colors, theme.colors)
@@ -1170,7 +1190,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 	end
 	for _, entry in { { ".facet-role-destructive", "danger", "onDanger" }, { ".facet-accent", "accent", "onAccent" } } do
-		local selector, fill, ink = entry[1], resolved(entry[2]) :: Color3, resolved(entry[3]) :: Color3
+		local selector, fill, ink = entry[1], assert(resolved(entry[2])), assert(resolved(entry[3]))
 		local pressed = pressedEmphasis and entry[2] == "accent"
 		local tinted = not pressed and contrast(ink, black) > contrast(fill, black)
 		rule(selector .. " > #SkinBoundary >> .facet-skin-art", { ImageColor3 = if tinted then c(entry[2]) else white })
@@ -1330,14 +1350,14 @@ return function(Compose: typeof(ComposeTypes)): ThemeTypes.Themes
 		resolveIcon = themes.resolveIcon,
 		createStyleSheet = function(
 			runtime: ComposeTypes.Runtime,
-			packageOrReadable: Engine.Input<ThemeTypes.ThemePackage>?,
+			packageOrReadable: Engine.Input<ThemeTypes.ReadOnlyThemePackage>?,
 			options: ThemeTypes.ThemeOptions?
 		): StyleSheet
 			return createStyleSheet(neutral, rulesFor, themes.forDistance, Compose, runtime, packageOrReadable, options)
 		end,
 		skin = function(
 			runtime: ComposeTypes.Runtime,
-			packageOrReadable: Engine.Input<ThemeTypes.ThemePackage>?,
+			packageOrReadable: Engine.Input<ThemeTypes.ReadOnlyThemePackage>?,
 			slot: string,
 			options: ThemeTypes.SkinOptions?
 		): Frame

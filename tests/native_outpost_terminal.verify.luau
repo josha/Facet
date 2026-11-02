@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -10,61 +11,80 @@ return function(verifyHarness: Verify.Harness)
 	local terminal = require("../examples/gallery/examples/outpost_terminal")
 	local scenario = require("../examples/gallery/scenarios/outpost_terminal")
 
-	local function mount(module: any, options: { [string]: any }?, configure: ((any, engineLib.Engine) -> ())?)
-		local engine = engineLib.new()
+	type Context = typeof(require("@repo/examples/types").Context)
+
+	local function mount<B>(
+		engine: engineLib.Engine,
+		build: (Context) -> B,
+		screenOf: (B) -> Instance,
+		configure: ((Context) -> ())?
+	)
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
-		local ctx = {
+		local ctx: Context = {
 			Facet = Facet,
 			Compose = Facet.Compose,
 			runtime = runtime,
-			Host = (runtime.constructors :: unknown) :: RobloxHost,
+			Host = Facet.host(runtime),
 			UI = Facet.controls(runtime, { types = engine.types }),
 			types = engine.types,
 			inputTarget = engine.new("PlayerGui"),
 			worldTarget = engine.new("Folder"),
-			load = function()
-				return terminal
-			end,
 		}
 		if configure then
-			configure(ctx, engine)
+			configure(ctx)
 		end
-		local built
+		local built: B
 		local stop, node: any = runtime.mount(function()
-			built = module.build(ctx, options)
-			return built.screen()
+			built = build(ctx)
+			return screenOf(built)
 		end, target)
 		return built, node, function()
 			stop()
 			runtime:dispose()
-		end, ctx, engine
+		end, ctx
+	end
+
+	type Screened = { read screen: () -> Instance }
+
+	local function screenOf(built: Screened): Instance
+		return built.screen()
+	end
+
+	local function outpostSurface(ctx: Context): SurfaceGui
+		local inputTarget = assert(ctx.inputTarget)
+		local surface = assert(inputTarget:FindFirstChild("OutpostSurface"))
+		assert(surface:IsA("SurfaceGui"))
+		return surface
 	end
 
 	verifyHarness:suite("native outpost terminal", function()
 		verifyHarness:case("keeps draft separate until the matching server verdict and ignores stale replies", {
 			id = "native_outpost_terminal::native outpost terminal::keeps draft separate until the matching server verdict and ignores stale replies",
 			run = function()
-				local envelopes: { { [string]: any } } = {}
-				local built, root, stop = mount(terminal, {
-					send = function(envelope)
-						table.insert(envelopes, envelope)
-					end,
-				})
+				local envelopes: { { requestId: number } } = {}
+				local built, root, stop = mount(engineLib.new(), function(ctx)
+					return terminal.build(ctx, {
+						send = function(envelope)
+							table.insert(envelopes, envelope)
+						end,
+					})
+				end, screenOf)
 				Verify.expect(root.ClassName):toBe("ScrollingFrame")
 				built.steps.engage(terminal.rules.START, 2)
 				built.steps.setValue("door", 2)
 				built.steps.setValue("beacon", 1)
 				built.steps.setValue("workshop", 2)
 				local sent = built.steps.apply()
+				local requestId = assert(sent.requestId)
 				Verify.expect(sent.sent):toBe(true)
 				Verify.expect(built.report().status):toBe("pending")
 				Verify.expect(built.report().complete):toBe(false)
 				Verify.expect(built.steps.apply().reason):toBe("pending")
-				Verify.expect((built.steps.confirm(sent.requestId + 1, { revision = 3, allocation = sent.allocation })))
+				Verify.expect((built.steps.confirm(requestId + 1, { revision = 3, allocation = sent.allocation })))
 					:toBe(false)
 				Verify.expect(built.report().complete):toBe(false)
-				built.steps.confirm(sent.requestId, { revision = 3, allocation = sent.allocation })
+				built.steps.confirm(requestId, { revision = 3, allocation = sent.allocation })
 				Verify.expect(built.report().complete):toBe(true)
 				Verify.expect((built.steps.ingest(2, terminal.rules.START))):toBe(false)
 				Verify.expect(built.report().complete):toBe(true)
@@ -85,25 +105,28 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("mounts a real SurfaceGui on the caller runtime and owns cleanup", {
 			id = "native_outpost_terminal::native outpost terminal::mounts a real SurfaceGui on the caller runtime and owns cleanup",
 			run = function()
-				local built, _, stop, ctx = mount(scenario)
-				local surface = ctx.inputTarget:FindFirstChild("OutpostSurface")
+				local engine = engineLib.new()
+				local built, _, stop, ctx = mount(engine, scenario.build, screenOf)
+				local surface = outpostSurface(ctx)
 				Verify.expect(surface.ClassName):toBe("SurfaceGui")
 				Verify.expect(surface.Face):toBe(ctx.types.Enum.NormalId.Back)
 				Verify.expect(surface.CanvasSize.X):toBe(640)
 				Verify.expect(surface.Active):toBe(false)
 				Verify.expect(built.report().serverConnected):toBe(false)
 				stop()
-				Verify.expect((surface:isDestroyed())):toBe(true)
-				Verify.expect(#ctx.inputTarget:GetChildren()):toBe(0)
+				Verify.expect(not engine.environment.isAlive(VerifyRoblox.assertInstance(surface))):toBe(true)
+				Verify.expect(#assert(ctx.inputTarget):GetChildren()):toBe(0)
 			end,
 		})
 		verifyHarness:case("carries native remote verdicts and retires the surface when the console disappears", {
 			id = "native_outpost_terminal::native outpost terminal::carries native remote verdicts and retires the surface when the console disappears",
 			run = function()
 				local sent: { { [string]: any } } = {}
-				local remote, console, heartbeat = nil, nil, nil
-				local built, _, stop, ctx = mount(scenario, nil, function(context, engine)
-					remote = engine.new("RemoteEvent")
+				local engine = engineLib.new()
+				local remote = engine.new("RemoteEvent")
+				local console = engine.new("Part")
+				local heartbeat = engine.heartbeat
+				local built, _, stop, ctx = mount(engine, scenario.build, screenOf, function(context)
 					remote.FireServer = function(_, message)
 						table.insert(sent, message)
 					end
@@ -111,25 +134,23 @@ return function(verifyHarness: Verify.Harness)
 					local outpost = engine.new("Model")
 					outpost.Name = "Outpost"
 					outpost.Parent = context.worldTarget
-					console = engine.new("Part")
 					console.Name = "Console"
 					console.Parent = outpost
 					local character = engine.new("Model")
 					local root = engine.new("Part")
 					root.Name = "HumanoidRootPart"
 					root.Parent = character
-					context.player = { Character = character }
-					heartbeat = engine.heartbeat
-					context.runService = { Heartbeat = heartbeat }
+					context.player = ({ Character = character } :: unknown) :: Player
+					context.runService = ({ Heartbeat = heartbeat } :: unknown) :: RunService
 				end)
 				Verify.expect(sent[1].kind):toBe("open")
 				remote.OnClientEvent:Fire({
-					kind = "session" :: "session",
+					kind = "session",
 					token = "server-session",
 					revision = 1,
 					allocation = terminal.rules.START,
 				})
-				local surface = ctx.inputTarget:FindFirstChild("OutpostSurface")
+				local surface = outpostSurface(ctx)
 				Verify.expect(surface.Active):toBe(true)
 				Verify.expect(surface.Adornee):toBe(console)
 				local request = built.steps.solve()
@@ -137,7 +158,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(sent[#sent].token):toBe("server-session")
 				Verify.expect(built.report().terminal.complete):toBe(false)
 				remote.OnClientEvent:Fire({
-					kind = "verdict" :: "verdict",
+					kind = "verdict",
 					requestId = request.requestId,
 					ok = true,
 					revision = 2,

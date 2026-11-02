@@ -1,7 +1,12 @@
 --!strict
 local CatalogTypes = require("./catalog_types")
 
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+
+type PickerSpec = typeof(require("@repo/tools/typecheck/aliases").StringSinglePickerSpec)
+local function pickerProps(props: PickerSpec): PickerSpec
+	return props
+end
 
 local LABELS = { "All", "Motors", "Boosts", "Wheels", "Cosmetics" }
 
@@ -27,8 +32,12 @@ return function(none: unknown): { scrolls: CatalogTypes.Builder, fallback: Catal
 		fallback = function(c: CatalogTypes.Context): CatalogTypes.Properties
 			local selected = c.cell("category", "all")
 			return {
-				c.UI.Picker({ Name = "Strip", style = "segmented", selected = selected, options = categories(4) }),
-				c.UI.Picker({ Name = "Menu", style = "menu", selected = selected, options = categories(4) }),
+				c.UI.Picker(
+					pickerProps { Name = "Strip", style = "segmented", selected = selected, options = categories(4) }
+				),
+				c.UI.Picker(
+					pickerProps { Name = "Menu", style = "menu", selected = selected, options = categories(4) }
+				),
 			}
 		end,
 	}

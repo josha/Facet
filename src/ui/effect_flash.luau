@@ -30,12 +30,12 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 				"facet-flash"
 			)
 			C.watch(function(use: Shared.Use)
-				local target: GuiObject = ctx.read(spec.target, use)
+				local target: GuiObject = ctx.read<<GuiObject>>(spec.target, use)
 				assert(target:IsA("GuiObject"), "Facet Flash requires a GuiObject target")
 				ctx.read(ctx.observe.AbsolutePosition(target), use)
 				ctx.read(ctx.observe.AbsoluteSize(target), use)
 				local point, size = target.AbsolutePosition, target.AbsoluteSize
-				local progress = math.clamp(ctx.read(spec.progress, use), 0, 1)
+				local progress = math.clamp(ctx.read<<number>>(spec.progress, use), 0, 1)
 				local scale = math.max(use(unit), 0.001)
 				node.Visible = not reduce(use)
 					and target.Parent ~= nil
@@ -51,7 +51,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 					size.Y / scale
 				)
 				if spec.color then
-					node.BackgroundColor3 = ctx.read(spec.color, use)
+					node.BackgroundColor3 = ctx.read<<Color3>>(spec.color, use)
 				end
 				node.BackgroundTransparency = 1 - 4 * progress * (1 - progress)
 			end)

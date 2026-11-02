@@ -1,6 +1,21 @@
 --!strict
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type MenuSpec = typeof(require("@repo/tools/typecheck/aliases").MenuSpec)
+type MenuCommand = typeof(require("@repo/tools/typecheck/aliases").MenuCommand)
+type NumberMenuSpec = typeof(require("@repo/tools/typecheck/aliases").NumberMenuSpec)
+type NumberMenuChoice = typeof(require("@repo/tools/typecheck/aliases").NumberMenuChoice)
+type NumberMenuItem = typeof(require("@repo/tools/typecheck/aliases").NumberMenuItem)
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type StringMenuItem = typeof(require("@repo/tools/typecheck/aliases").StringMenuItem)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
+
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+type StringReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").StringReadOnlyValue)
+type NumberReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").NumberReadOnlyValue)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -118,6 +133,7 @@ add("card-list-lift-keeps-layout-stable", {}, function(t)
 	t.settle(60)
 	t.near("card keeps the new width after leaving", t.rect(card).w, 320, 0.5)
 	local virtual = UserInputService:CreateVirtualInput()
+	assert(virtual:IsA("VirtualInput"))
 	local inset = GuiService:GetGuiInset()
 	local body = t.find(card, "Body")
 	local rested, nextRested = t.rect(card), t.rect(neighbor)
@@ -188,6 +204,7 @@ add("hug-sheet-card-hover-keeps-layout-stable", {}, function(t)
 	local panel, card = t.find(layer, "SheetPanel"), t.find(layer, "Speed")
 	GuiService.SelectedObject = nil
 	local virtual = UserInputService:CreateVirtualInput()
+	assert(virtual:IsA("VirtualInput"))
 	local inset = GuiService:GetGuiInset()
 	virtual:SendMousePosition(Vector2.new(5, 5) + inset)
 	t.settle(80)
@@ -294,17 +311,18 @@ for _, direction in { "vertical", "horizontal" } do
 				direction = direction,
 				itemSize = if horizontal then 240 else 140,
 				gap = 20,
-				render = function(current: ReadOnlyValue<number>)
-					return UI.Card(`Card{current:peek()}`) {
+				render = function(current: NumberReadOnlyValue)
+					return UI.Card(`Card{current:peek()}`)({
 						title = `Vehicle {current:peek()}`,
 						caption = "Compare handling and speed",
 						primaryAction = { label = "Inspect", onActivate = function() end },
-					}
+					})
 				end,
 			}
 		end, { size = Vector2.new(900, 600), motionLevel = "normal", frames = 40 })
 		local list = t.find(stage, "Cards")
 		local virtual = UserInputService:CreateVirtualInput()
+		assert(virtual:IsA("VirtualInput"))
 		local inset = GuiService:GetGuiInset()
 		GuiService.SelectedObject = nil
 		for _, index in { 1, 12 } do
@@ -357,10 +375,18 @@ end
 
 local function scenario(t: any, name: string, options: { [string]: any }?): (any, any)
 	local config: { [string]: any } = options or {}
-	local built: any
-	local stage = t.mount(function(UI: any, Host: any, Compose: any, env: any)
-		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
-		return if type(built) == "function" then built() else built.screen()
+	local built: (() -> Instance) | { screen: () -> Instance } = function(): Instance
+		error("not mounted")
+	end
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env: any)
+		local result: (() -> Instance) | { screen: () -> Instance } = t.scenario(name)
+			.build(t.context(UI, Host, Compose, env))
+		built = result
+		if type(result) == "function" then
+			local render: () -> Instance = result
+			return render()
+		end
+		return result.screen()
 	end, { size = config.size, motionLevel = config.motionLevel, frames = config.frames or 20 })
 	return stage, built
 end
@@ -420,7 +446,7 @@ local ARROWS = { First = true, Previous = true, Next = true, Last = true }
 
 add("pagination-fit-narrows-in-order", {}, function(t)
 	local width: any
-	local stage = t.mount(function(UI: any, Host: any, Compose: any)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		width = Compose.cell(800)
 		local page = Compose.cell(5000)
 		return Host.Frame "Holder" {
@@ -557,55 +583,55 @@ add("pagination-hug-matches-fill", {}, function(t)
 	end
 	t.cleanup()
 	local roots = {}
-	t.mount(function(UI: any, Host: any, Compose: any)
-		local children = {
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
+	t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		local children: { Child } = {
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) },
 		}
 		for index, w in { 360, 330, 240, 190 } do
 			for _, kind in { "Fill", "Hug" } :: { "Fill" | "Hug" } do
 				local page = Compose.cell(5000)
-				local pagination = UI.Pagination({
+				local pagination = UI.Pagination {
 					Name = `{kind}{w}`,
 					page = page,
 					pageCount = 9999,
 					onChange = function(nextPage: number)
 						page:set(nextPage)
 					end,
-				})
+				}
 				roots[`{kind}{w}`] = pagination
 				table.insert(
 					children,
-					Host.Frame({
+					Host.Frame {
 						Name = `{kind}Holder{w}`,
 						LayoutOrder = index * 2 + (if kind == "Hug" then 1 else 0),
 						BackgroundTransparency = 1,
 						Size = if kind == "Fill" then UDim2.fromOffset(w, 44) else UDim2.fromOffset(w, 0),
 						AutomaticSize = if kind == "Fill" then Enum.AutomaticSize.None else Enum.AutomaticSize.XY,
-						pagination :: unknown,
-					})
+						pagination,
+					}
 				)
 			end
 		end
 		local zero = Compose.cell(5000)
-		local hugZero = UI.Pagination({
+		local hugZero = UI.Pagination {
 			Name = "HugZero",
 			page = zero,
 			pageCount = 9999,
 			onChange = function(nextPage: number)
 				zero:set(nextPage)
 			end,
-		})
+		}
 		roots.HugZero = hugZero
 		table.insert(
 			children,
-			Host.Frame({
+			Host.Frame {
 				Name = "HugZeroHolder",
 				LayoutOrder = 100,
 				BackgroundTransparency = 1,
 				Size = UDim2.fromOffset(0, 0),
 				AutomaticSize = Enum.AutomaticSize.XY,
-				hugZero :: unknown,
-			})
+				hugZero,
+			}
 		)
 		local props: { [any]: any } = { Name = "Column", BackgroundTransparency = 1, Size = UDim2.fromOffset(600, 700) }
 		for _, child in children do
@@ -629,7 +655,7 @@ interactive(
 	function(t)
 		local value = {}
 		local alive: any, count: any
-		local fixture = t.mount(function(UI: any, Host: any, Compose: any)
+		local fixture = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			alive = Compose.cell(true)
 			count = Compose.cell(3)
 			local page = Compose.cell(2)
@@ -641,9 +667,9 @@ interactive(
 						BackgroundTransparency = 1,
 						Position = UDim2.fromOffset(700, 40),
 						Size = UDim2.fromOffset(500, 300),
-						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
-						UI.Button({ Name = "Before", label = "Before", LayoutOrder = 1 }),
-						UI.Pagination({
+						Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) },
+						UI.Button { Name = "Before", label = "Before", LayoutOrder = 1 },
+						UI.Pagination {
 							Name = "Zero",
 							LayoutOrder = 2,
 							page = page,
@@ -651,8 +677,8 @@ interactive(
 							onChange = function(nextPage: number)
 								page:set(nextPage)
 							end,
-						}),
-						UI.Button({ Name = "After", label = "After", LayoutOrder = 3 }),
+						},
+						UI.Button { Name = "After", label = "After", LayoutOrder = 3 },
 					}
 				end),
 			}
@@ -778,16 +804,17 @@ add("pagination-arrows-hold-still", {}, function(t)
 			to = 100,
 		},
 	}
-	local pages = {}
-	local stage = t.mount(function(UI: any, Host: any, Compose: any)
+	local pages: { [string]: NumberCell } = {}
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		local props: { [any]: any } = {
 			Name = "Column",
 			BackgroundTransparency = 1,
 			Size = UDim2.fromOffset(600, 400),
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) },
 		}
 		for index, entry in specs do
-			local page = Compose.cell(entry.from)
+			local initialPage: number = entry.from
+			local page = Compose.cell(initialPage)
 			pages[entry.name] = page
 			local spec: { [string]: any } = {
 				Name = entry.name,
@@ -1102,17 +1129,17 @@ add("steps-form-fits-the-offer", {}, function(t)
 		t.cleanup()
 	end
 	local width: any, probe: any
-	local stage = t.mount(function(UI: any, Host: any, Compose: any)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		width = Compose.cell(900)
 		probe = Compose.cell(900)
 		local current = Compose.cell("ship")
-		local children = {
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
+		local children: { Child } = {
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) },
 		}
 		for index, kind in { "Fill", "Hug" } :: { "Fill" | "Hug" } do
 			table.insert(
 				children,
-				Host.Frame({
+				Host.Frame {
 					Name = kind .. "Holder",
 					LayoutOrder = index,
 					BackgroundTransparency = 1,
@@ -1120,27 +1147,27 @@ add("steps-form-fits-the-offer", {}, function(t)
 						return UDim2.fromOffset(use(width), if kind == "Fill" then 120 else 0)
 					end,
 					AutomaticSize = if kind == "Fill" then Enum.AutomaticSize.None else Enum.AutomaticSize.XY,
-					UI.StepIndicator({
+					UI.StepIndicator {
 						Name = kind :: "Fill" | "Hug",
 						steps = checkoutSteps(),
 						current = current,
 						onSelect = function(id: string)
 							current:set(id)
 						end,
-					}),
-				})
+					},
+				}
 			)
 		end
 		table.insert(
 			children,
-			Host.Frame({
+			Host.Frame {
 				Name = "SizedHolder",
 				LayoutOrder = 3,
 				BackgroundTransparency = 1,
 				Size = function(use: Use)
 					return UDim2.fromOffset(use(width), 120)
 				end,
-				UI.StepIndicator({
+				UI.StepIndicator {
 					Name = "Sized",
 					sizing = "hug" :: "hug",
 					steps = checkoutSteps(),
@@ -1148,27 +1175,27 @@ add("steps-form-fits-the-offer", {}, function(t)
 					onSelect = function(id: string)
 						current:set(id)
 					end,
-				}),
-			})
+				},
+			}
 		)
 		table.insert(
 			children,
-			Host.Frame({
+			Host.Frame {
 				Name = "ProbeHolder",
 				LayoutOrder = 4,
 				BackgroundTransparency = 1,
 				Size = function(use: Use)
 					return UDim2.fromOffset(use(probe), 120)
 				end,
-				UI.StepIndicator({
+				UI.StepIndicator {
 					Name = "Probe",
 					steps = checkoutSteps(),
 					current = current,
 					onSelect = function(id: string)
 						current:set(id)
 					end,
-				}),
-			})
+				},
+			}
 		)
 		local props: { [any]: any } =
 			{ Name = "Column", BackgroundTransparency = 1, Size = UDim2.fromOffset(1000, 700) }
@@ -1200,7 +1227,9 @@ add("steps-form-fits-the-offer", {}, function(t)
 			probed:GetAttribute("FacetForm") == hug:GetAttribute("FacetForm"),
 			{ probe = probed:GetAttribute("FacetForm"), hug = hug:GetAttribute("FacetForm"), width = settled }
 		)
-		table.insert(seen, sized:GetAttribute("FacetForm"))
+		local form = sized:GetAttribute("FacetForm")
+		assert(type(form) == "string")
+		table.insert(seen, form)
 	end
 	t.check(
 		"hug sizing narrows to the summary and widens back to the row",
@@ -1585,10 +1614,21 @@ add("card-grid-lines-and-corners", {}, function(t)
 	)
 end)
 
-local function menuItems(count: number, prefix: string): { any }
-	local list = {}
+local noSelection: () -> () = function() end
+
+local function menuCommand(item: MenuCommand): StringMenuItem
+	return item
+end
+
+local function menu(UI: FacetControls, spec: MenuSpec): GuiObject
+	return UI.Menu(spec)
+end
+
+local function menuItems(count: number, prefix: string): { StringMenuItem }
+	local list: { StringMenuItem } = {}
 	for index = 1, count do
-		table.insert(list, { id = `{prefix}{index}`, label = `Row {index}`, onSelect = function() end })
+		local command: MenuCommand = { id = `{prefix}{index}`, label = `Row {index}`, onSelect = noSelection }
+		table.insert(list, command)
 	end
 	return list
 end
@@ -1601,15 +1641,15 @@ local PLACEMENTS: { { name: string, edge: "trailing" | "top", x: number, y: numb
 }
 
 add("menu-edge-and-align-place-the-panel", {}, function(t)
-	local cells = {}
-	local stage = t.mount(function(UI: any, Host: any, Compose: any)
+	local cells: { [string]: BooleanCell } = {}
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		local props: { [any]: any } = { Name = "Board", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1) }
 		for _, entry in PLACEMENTS do
 			local open = Compose.cell(false)
 			cells[entry.name] = open
 			table.insert(
 				props,
-				UI.Menu({
+				menu(UI, {
 					Name = entry.name,
 					label = entry.name,
 					items = menuItems(3, entry.name),
@@ -1660,20 +1700,20 @@ end)
 
 add("menu-rows-floor-and-lead", {}, function(t)
 	local open: any
-	local stage = t.mount(function(UI: any, Host: any, Compose: any)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		open = Compose.cell(false)
-		local list: { any } = {
-			{ id = "all", label = "All tracks", badge = 3, onSelect = function() end },
-			{ id = "fav", label = "Favourites", shortcutLabel = "Ctrl+F", onSelect = function() end },
-			{ id = "recent", label = "Recent", meta = "12 tracks", onSelect = function() end },
+		local list: { StringMenuItem } = {
+			menuCommand({ id = "all", label = "All tracks", badge = 3, onSelect = noSelection }),
+			menuCommand({ id = "fav", label = "Favourites", shortcutLabel = "Ctrl+F", onSelect = noSelection }),
+			menuCommand({ id = "recent", label = "Recent", meta = "12 tracks", onSelect = noSelection }),
 		}
 		for index = 1, 4 do
-			table.insert(list, { id = `p{index}`, label = `Track {index}`, onSelect = function() end })
+			table.insert(list, menuCommand({ id = `p{index}`, label = `Track {index}`, onSelect = noSelection }))
 		end
 		return Host.Frame "Board" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
-			UI.Menu({
+			menu(UI, {
 				Name = "Bounded",
 				label = "Tracks",
 				items = list,
@@ -1729,24 +1769,27 @@ interactive(
 	function(t)
 		local value = {}
 		local yearOpen: any, boundedOpen: any
-		local stage = t.mount(function(UI: any, Host: any, Compose: any)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			yearOpen, boundedOpen = Compose.cell(false), Compose.cell(false)
 			local year = Compose.cell(2026)
-			local years = {}
+			local years: { NumberMenuItem } = {}
 			for item = 1926, 2126 do
-				table.insert(years, { id = `y{item}`, label = tostring(item), selected = year, value = item })
+				local choice: NumberMenuChoice =
+					{ id = `y{item}`, label = tostring(item), selected = year, value = item }
+				table.insert(years, choice)
 			end
+			local yearSpec: NumberMenuSpec = {
+				Name = "Year",
+				label = "Year",
+				items = years,
+				isPresented = yearOpen,
+				Position = UDim2.fromOffset(200, 60),
+			}
 			return Host.Frame "Board" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				UI.Menu({
-					Name = "Year",
-					label = "Year",
-					items = years,
-					isPresented = yearOpen,
-					Position = UDim2.fromOffset(200, 60),
-				}) :: unknown,
-				UI.Menu({
+				UI.Menu(yearSpec),
+				menu(UI, {
 					Name = "Bounded",
 					label = "Options",
 					items = menuItems(12, "r"),
@@ -1961,7 +2004,7 @@ interactive(
 
 add("outline-section-closes-up", {}, function(t)
 	local open: any
-	local stage = t.mount(function(UI: any, Host: any, Compose: any)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		open = Compose.cell(true)
 		local props: { [any]: any } = {
 			Name = "Sc",
@@ -1969,12 +2012,12 @@ add("outline-section-closes-up", {}, function(t)
 			Size = UDim2.fromOffset(400, 300),
 			CanvasSize = UDim2.new(),
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
 		}
 		for index = 1, 2 do
 			table.insert(
 				props,
-				UI.DisclosureGroup({
+				UI.DisclosureGroup {
 					Name = "G" .. index,
 					LayoutOrder = index,
 					label = "Group " .. index,
@@ -1985,14 +2028,14 @@ add("outline-section-closes-up", {}, function(t)
 							BackgroundTransparency = 1,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
-							Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
+							Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
 						}
 						for row = 1, 8 do
-							table.insert(rows, UI.Button({ Name = `B{row}`, label = `Row {row}`, LayoutOrder = row }))
+							table.insert(rows, UI.Button { Name = `B{row}`, label = `Row {row}`, LayoutOrder = row })
 						end
 						return Host.Frame(rows)
 					end,
-				})
+				}
 			)
 		end
 		return Host.ScrollingFrame(props)
@@ -2192,41 +2235,41 @@ add("containers-recipes-draw-as-described", {}, function(t)
 		t.note("09 CornerRadius beside the per-corner radii", corner and tostring(corner.CornerRadius))
 	end
 	t.cleanup()
-	local stageTwo = t.mount(function(UI: any, Host: any)
+	local stageTwo = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Fixtures" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromOffset(600, 400),
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }) :: unknown,
-			UI.HStack({
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) },
+			UI.HStack {
 				Name = "FixedRow",
 				LayoutOrder = 1,
 				width = 100,
 				height = 24,
-				Host.Frame({ Name = "Wide", Size = UDim2.fromOffset(160, 24), BorderSizePixel = 0 }),
-			}),
-			UI.ZStack({
+				Host.Frame { Name = "Wide", Size = UDim2.fromOffset(160, 24), BorderSizePixel = 0 },
+			},
+			UI.ZStack {
 				Name = "HugZ",
 				LayoutOrder = 2,
 				alignH = "end" :: "end",
 				alignV = "end" :: "end",
-				Host.Frame({ Name = "Dot", Size = UDim2.fromOffset(16, 16), BorderSizePixel = 0 }),
-			}),
-			Host.CanvasGroup({
+				Host.Frame { Name = "Dot", Size = UDim2.fromOffset(16, 16), BorderSizePixel = 0 },
+			},
+			Host.CanvasGroup {
 				Name = "Faded",
 				LayoutOrder = 3,
 				GroupTransparency = 1,
 				BackgroundTransparency = 1,
 				Size = UDim2.fromOffset(200, 50),
-				UI.Button({ Name = "FadedButton", label = "Faded" }),
-			}),
-			Host.CanvasGroup({
+				UI.Button { Name = "FadedButton", label = "Faded" },
+			},
+			Host.CanvasGroup {
 				Name = "Hidden",
 				LayoutOrder = 4,
 				Visible = false,
 				BackgroundTransparency = 1,
 				Size = UDim2.fromOffset(200, 50),
-				UI.Button({ Name = "HiddenButton", label = "Hidden" }),
-			}),
+				UI.Button { Name = "HiddenButton", label = "Hidden" },
+			},
 		}
 	end, { size = Vector2.new(1280, 720), frames = 12 })
 	local fixed, wide = t.find(stageTwo, "FixedRow"), t.find(stageTwo, "Wide")
@@ -2268,7 +2311,9 @@ interactive(
 	{},
 	"afterInbox: click the point noted as 'Inbox seal point'; afterAlerts: click the point noted as 'Alerts seal point'",
 	function(t)
-		local value = { presses = { Inbox = 0, Alerts = 0 }, connections = {} }
+		local presses: { [string]: number } = { Inbox = 0, Alerts = 0 }
+		local connections: { RBXScriptConnection } = {}
+		local value = { presses = presses, connections = connections }
 		local stage = scenario(t, "status_family", { size = Vector2.new(1280, 720) })
 		local scroller: any
 		for _, node in stage:GetDescendants() do
@@ -2290,7 +2335,7 @@ interactive(
 			local host = wrapper and wrapper:FindFirstChild(name)
 			local folder = wrapper and wrapper:FindFirstChild("Seal")
 			local cornerFrame = folder and folder:FindFirstChild("Corner")
-			local seal = cornerFrame and t.find(cornerFrame, "CornerBadge")
+			local seal = cornerFrame and t.find(cornerFrame, if name == "Alerts" then "CornerDot" else "CornerBadge")
 			t.check(`{name} host and seal found`, host ~= nil and seal ~= nil)
 			if host and seal and cornerFrame then
 				local h, s = t.rect(host), t.rect(seal)
@@ -2323,12 +2368,10 @@ interactive(
 						{ seal = { s.x, s.y, s.w, s.h } }
 					)
 					t.note(`{name} seal point`, point)
-					table.insert(
-						value.connections,
-						host.Activated:Connect(function()
-							value.presses[name] += 1
-						end)
-					)
+					local connection: RBXScriptConnection = host.Activated:Connect(function()
+						value.presses[name] = (value.presses[name] or 0) + 1
+					end)
+					table.insert(value.connections, connection)
 				end
 			end
 		end

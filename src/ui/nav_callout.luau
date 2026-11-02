@@ -11,7 +11,7 @@ local surfaceParts = require("./nav_surface_parts")
 
 return function(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	surfaces: Nav.Surfaces,
 	kit: surfaceParts.SurfaceParts
 ): ()
@@ -19,7 +19,7 @@ return function(
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local body = kit.body
 	type CalloutRegistration = { id: number, eligible: ComposeTypes.ReadOnlyValue<boolean>, priority: number }
-	local callouts = Compose.cell({} :: { CalloutRegistration })
+	local callouts = Compose.cell<<{ CalloutRegistration }>>({})
 	local nextCallout = 0
 
 	UI.Callout = ctx.construct("Callout", function(spec: NavigationProps.CalloutSpec): Frame
@@ -41,7 +41,14 @@ return function(
 			local function whole(value: unknown): boolean
 				return type(value) == "number" and value == math.floor(value) and value < math.huge
 			end
-			if not whole(index) or not whole(count) or index < 1 or index > count then
+			if
+				type(index) ~= "number"
+				or type(count) ~= "number"
+				or not whole(index)
+				or not whole(count)
+				or index < 1
+				or index > count
+			then
 				error(`Facet {where}: steps must be \{ index, count } with whole numbers 1 <= index <= count`, 0)
 			end
 		end
@@ -59,7 +66,7 @@ return function(
 				and read(spec.isPresented, use) ~= false
 				and read(spec.seen, use) ~= true
 				and read(spec.featureUsed, use) ~= true
-				and (spec.afterSessions == nil or (read(spec.sessions, use) or 0) >= spec.afterSessions)
+				and (spec.afterSessions == nil or (read<<number?>>(spec.sessions, use) or 0) >= spec.afterSessions)
 		end)
 		nextCallout += 1
 		local registration: CalloutRegistration =
@@ -164,12 +171,12 @@ return function(
 						local heading = ctx.text({
 							Name = "Title",
 							Text = function(use: ComposeTypes.Use): string
-								return read(title, use) or ""
+								return read<<string?>>(title, use) or ""
 							end,
 							TextWrapped = true,
 							Size = D2.new(1, 0, 0, 0),
 							AutomaticSize = E.AutomaticSize.Y,
-							Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+							Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 						})
 						heading:AddTag("facet-type-heading")
 						table.insert(header, heading)
@@ -201,6 +208,7 @@ return function(
 					table.insert(rows, body(spec.content))
 				end
 				if steps then
+					local progress = steps
 					table.insert(
 						rows,
 						ctx.styled(
@@ -210,7 +218,7 @@ return function(
 									return ctx.phrase(
 										"Facet.IndexOf",
 										"{current} of {count}",
-										{ current = steps.index, count = steps.count },
+										{ current = progress.index, count = progress.count },
 										use
 									)
 								end,
@@ -222,20 +230,20 @@ return function(
 				local actions: { Overlay.Action } = spec.actions or {}
 				local actionButtons: { [string]: GuiObject } = {}
 				if #actions > 0 then
-					local buttons: Types.FrameNativeProps = {
+					local buttons: Types.FrameProps = {
 						Name = "Actions",
 						BackgroundTransparency = 1,
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 					}
-					buttons[#buttons + 1] = Host.UIListLayout({
+					buttons[#buttons + 1] = Host.UIListLayout {
 						FillDirection = E.FillDirection.Horizontal,
 						HorizontalFlex = E.UIFlexAlignment.Fill,
 						SortOrder = E.SortOrder.LayoutOrder,
 						Padding = ctx.types.UDim.new(0, 8),
-					})
+					}
 					for index, action in actions do
-						local button = UI.Button({
+						local button = UI.Button {
 							Name = action.id,
 							label = action.label,
 							role = action.role,
@@ -248,7 +256,7 @@ return function(
 									retire("action")
 								end)
 							end,
-						})
+						}
 						buttons[#buttons + 1] = button
 						actionButtons[action.id] = button
 					end
@@ -345,8 +353,8 @@ return function(
 						use(position), use(size), use(extent), use(origin), use(measured)
 					local x = at.X - offset.X
 					local y = at.Y - offset.Y
-					local align = read(spec.align, use) or "center"
-					local edge = read(spec.edge, use)
+					local align = read<<("leading" | "center" | "trailing")?>>(spec.align, use) or "center"
+					local edge = read<<("top" | "bottom" | "leading" | "trailing")?>>(spec.edge, use)
 						or (if preferred and use(preferred) == E.PreferredInput.Touch then "top" else "bottom")
 					local gutter = ctx.metric("space.s", use)
 					local solved = anchoredPlacement.solve({
@@ -481,18 +489,13 @@ return function(
 					local anchor = spec.anchor
 					local selection = ctx.observe.SelectedObject(gui)
 					local panelAt = ctx.observe.AbsolutePosition(panel)
-					local linked: string? = nil
+					local linked: ("Down" | "Up")? = nil
 					local linkedTarget: GuiObject? = nil
 					local function unlink()
-						if
-							linked
-							and (
-									(anchor :: unknown) :: { NextSelectionDown: GuiObject?, NextSelectionUp: GuiObject? }
-								)["NextSelection" .. linked]
-								== linkedTarget
-						then
-							((anchor :: unknown) :: { NextSelectionDown: GuiObject?, NextSelectionUp: GuiObject? })["NextSelection" .. linked] =
-								nil
+						if linked == "Down" and anchor.NextSelectionDown == linkedTarget then
+							runtime.host.render.setProperty(anchor, "NextSelectionDown", nil)
+						elseif linked == "Up" and anchor.NextSelectionUp == linkedTarget then
+							runtime.host.render.setProperty(anchor, "NextSelectionUp", nil)
 						end
 						linked, linkedTarget = nil, nil
 					end
@@ -511,7 +514,7 @@ return function(
 					Compose.watch(function(use: ComposeTypes.Use)
 						use(rebuilt)
 						local below = use(panelAt).Y > anchor.AbsolutePosition.Y
-						local direction = if below then "Down" else "Up"
+						local direction: "Down" | "Up" = if below then "Down" else "Up"
 						local candidates: { parts.Candidate } = {}
 						for _, action in actions do
 							local candidate: parts.Candidate =
@@ -525,17 +528,13 @@ return function(
 						local target = if found == leaving then nil else found
 						if linked ~= direction or linkedTarget ~= target then
 							unlink()
-							if
-								target
-								and (
-										(
-											anchor :: unknown
-										) :: { NextSelectionDown: GuiObject?, NextSelectionUp: GuiObject? }
-									)["NextSelection" .. direction]
-									== nil
-							then
-								((anchor :: unknown) :: { NextSelectionDown: GuiObject?, NextSelectionUp: GuiObject? })["NextSelection" .. direction] =
-									target
+							local existing = if below then anchor.NextSelectionDown else anchor.NextSelectionUp
+							if target and existing == nil then
+								if below then
+									anchor.NextSelectionDown = target
+								else
+									anchor.NextSelectionUp = target
+								end
 								linked, linkedTarget = direction, target
 							end
 						end
@@ -547,12 +546,19 @@ return function(
 							gui.SelectedObject = if anchor.Selectable and anchor.Parent then anchor else nil
 						end
 					end)
-					ctx.action(panel, "CalloutBack", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use)
-						local current = use(selection)
-						return current ~= nil and current:IsDescendantOf(panel)
-					end, function()
-						retire("dismissed")
-					end, { priority = 2000 })
+					ctx.action(
+						panel,
+						"CalloutBack",
+						{ E.KeyCode.Escape, E.KeyCode.ButtonB },
+						function(use: ComposeTypes.Use): boolean
+							local current = use(selection)
+							return current ~= nil and current:IsDescendantOf(panel)
+						end,
+						function()
+							retire("dismissed")
+						end,
+						{ priority = 2000 }
+					)
 				end
 				local overlayRoot = if arrow then Host.Folder "CalloutOverlay" { panel, table.unpack(arrow) } else panel
 				surfaces.keep(spec.content)

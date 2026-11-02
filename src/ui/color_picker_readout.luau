@@ -3,13 +3,15 @@ local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
+local Navigation = require("./navigation_types")
 local Kit = require("./color_picker_kit")
 local PickerState = require("./color_picker_state")
 
 type Use = ComposeTypes.Use
 type Hsv = Kit.Hsv
 
-local FORMATS = { { value = "rgb", label = "RGB" }, { value = "hsv", label = "HSV" }, { value = "hex", label = "Hex" } }
+local FORMATS: { Navigation.PickerOption<string> } =
+	{ { value = "rgb", label = "RGB" }, { value = "hsv", label = "HSV" }, { value = "hex", label = "Hex" } }
 local CELL, GAP = Kit.CELL, Kit.GAP
 
 return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerState.State): () -> Frame
@@ -27,7 +29,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 		get: (Color3, Hsv) -> number,
 		with: (number) -> Hsv?
 	): GuiObject
-		local text, number = Compose.cell(""), Compose.cell(0)
+		local text, number = Compose.cell<<string>>(""), Compose.cell<<number>>(0)
 		local function resync()
 			local value = held:peek()
 			local n = if value == nil then nil else get(value, canon:peek())
@@ -39,7 +41,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 			use(canon)
 			resync()
 		end)
-		local props: InputProps.NumberInputProps = {
+		local props: InputProps.NumberInputCellProps = {
 			Name = name,
 			label = words,
 			value = text,
@@ -99,7 +101,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 		return fieldsRow({ channel("h", "H", 360), channel("s", "S", 100), channel("v", "V", 100) })
 	end
 	local function hexFields(): Frame
-		local text = Compose.cell("")
+		local text = Compose.cell<<string>>("")
 		local function formatted(): string
 			local value = held:peek()
 			return if value == nil then "" else color.hex(value, if hasAlpha then alphaHeld:peek() else nil)
@@ -111,7 +113,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 			text:set(formatted())
 			hexError:set("")
 		end)
-		local props: InputProps.TextInputProps = {
+		local props: InputProps.TextInputCellProps = {
 			Name = "FieldHex",
 			label = "Hex",
 			value = text,
@@ -142,7 +144,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 	end
 	local function readoutView(): Frame
 		local builders: { [string]: () -> Frame } = { rgb = rgbFields, hsv = hsvFields, hex = hexFields }
-		local values: Shared.FrameNativeProps = {
+		local values: Shared.FrameProps = {
 			Name = "Values",
 			Size = D2.new(1, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
@@ -157,7 +159,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 					end
 				end)
 			end
-			values[#values + 1] = Host.CanvasGroup("Fields" .. format.label)({
+			values[#values + 1] = Host.CanvasGroup("Fields" .. ctx.read<<string>>(format.label))({
 				BackgroundTransparency = 1,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
@@ -178,14 +180,14 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 		local formatProps: NavigationProps.SinglePickerSpec<string> = {
 			Name = "Format",
 			selected = formatCell,
-			style = "segmented" :: "segmented",
+			style = "segmented",
 			options = FORMATS,
 			Size = D2.fromOffset(0, CELL),
 			AutomaticSize = E.AutomaticSize.None,
 		}
 		local picker = UI.Picker(formatProps)
 		runtime.mount(function()
-			return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
+			return Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill }
 		end, picker)
 		local head = ctx.row({
 			kit.swatch("Preview", D2.fromOffset(2 * CELL + GAP, CELL), state.currentPaint),

@@ -1,19 +1,22 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Bdd = require("../tools/vendor/verify/src/bdd")
+local InputProps = require("../src/ui/input_props")
+local CollectionProps = require("../src/ui/collection_props")
+local NavProps = require("../src/ui/navigation_props")
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
-	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+	local test = Bdd.create(verifyHarness)
+	local describe, it, expect = test.describe, test.it, test.expect
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
-	local FixtureNavigationTypes = require("../src/ui/navigation_types")
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-	type Use = <T>(ReadOnlyValue<T>) -> T
 	local process = require("@std/process")
 
 	local cells = require("./lib/cells")
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
-	local Compose: ComposeModule = Facet.Compose
+	local Compose = require("../src/vendor/compose/core")
 
 	local function world()
 		local engine = engineLib.new()
@@ -73,57 +76,54 @@ return function(verifyHarness: Verify.Harness)
 		end
 	end
 
-	verifyHarness:suite("native stress invariants", function()
-		verifyHarness:case("detects detached instance and service connection leaks in the census", {
+	describe("native stress invariants", function()
+		it("detects detached instance and service connection leaks in the census", {
 			id = "native_stress::native stress invariants::detects detached instance and service connection leaks in the census",
 			run = function()
 				local engine = engineLib.new()
 				local service = engine.new("GuiService")
 				local baseline = engine.census()
 				local orphan = engine.new("Frame")
-				Verify.expect((pcall(sameCensus, engine, baseline, "orphan"))):toBe(false)
+				expect((pcall(sameCensus, engine, baseline, "orphan"))):toBe(false)
 				orphan:Destroy()
 				local connection = service:GetPropertyChangedSignal("SelectedObject"):Connect(function() end)
-				Verify.expect((pcall(sameCensus, engine, baseline, "connection"))):toBe(false)
+				expect((pcall(sameCensus, engine, baseline, "connection"))):toBe(false)
 				connection:Disconnect()
 				sameCensus(engine, baseline, "cleaned")
 			end,
 		})
 
-		verifyHarness:case(
-			"collects disposed runtimes and disposed controls contexts whose reactive motion level closes over them",
-			{
-				id = "native_stress::native stress invariants::collects disposed runtimes and disposed controls contexts whose reactive motion level closes over them",
-				run = function()
-					local result = process.run({ "lute", "run", "tests/lib/motion_level_leak.luau" })
-					Verify.expect((string.gsub(result.stdout, "\r\n", "\n")))
-						:toBe("retained 0\npublished 0 contexts 0\n")
-				end,
-			}
-		)
-
-		verifyHarness:case("lets a disposed runtime's engine be collected", {
-			id = "native_stress::native stress invariants::lets a disposed runtime's engine be collected",
+		it("collects disposed runtimes and disposed controls contexts whose reactive motion level closes over them", {
+			id = "native_stress::native stress invariants::collects disposed runtimes and disposed controls contexts whose reactive motion level closes over them",
 			run = function()
-				local result = process.run({ "lute", "run", "tests/lib/disposed_engine.luau" })
-				Verify.expect((string.gsub(result.stdout, "\r\n", "\n"))):toBe("collected\n")
+				local result = process.run({ "lute", "run", "tests/lib/motion_level_leak.luau" })
+				expect((string.gsub(result.stdout, "\r\n", "\n"))):toBe("retained 0\npublished 0 contexts 0\n")
 			end,
 		})
 
-		verifyHarness:case("returns all instances and connections to baseline through 200 modal cycles twice", {
+		it("lets a disposed runtime's engine be collected", {
+			id = "native_stress::native stress invariants::lets a disposed runtime's engine be collected",
+			run = function()
+				local result = process.run({ "lute", "run", "tests/lib/disposed_engine.luau" })
+				expect((string.gsub(result.stdout, "\r\n", "\n"))):toBe("collected\n")
+			end,
+		})
+
+		it("returns all instances and connections to baseline through 200 modal cycles twice", {
 			id = "native_stress::native stress invariants::returns all instances and connections to baseline through 200 modal cycles twice",
 			run = function()
 				for replay = 1, 2 do
 					local engine, runtime, root, UI, _, _, before = world()
 					local shown = Compose.cell(false)
 					local stop = runtime.mount(function()
-						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-							UI.Button "Base" { label = "Open" } :: unknown,
-							UI.Alert({
-								isPresented = shown,
-								title = "Confirm",
-								actions = { { id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any> },
-							}),
+						local alertSpec: NavProps.AlertSpec = {
+							isPresented = shown,
+							title = "Confirm",
+							actions = { { id = "ok", label = "OK" } },
+						}
+						return Facet.host(runtime).Frame({
+							UI.Button "Base" { label = "Open" },
+							UI.Alert(alertSpec),
 						})
 					end, root)
 					local baseline = engine.census()
@@ -140,7 +140,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("reclaims detached and pooled rows through 100 structural cycles twice", {
+		it("reclaims detached and pooled rows through 100 structural cycles twice", {
 			id = "native_stress::native stress invariants::reclaims detached and pooled rows through 100 structural cycles twice",
 			run = function()
 				for replay = 1, 2 do
@@ -148,7 +148,7 @@ return function(verifyHarness: Verify.Harness)
 					local initial = { { id = "a" }, { id = "b" }, { id = "c" } }
 					local source = Compose.cell(initial)
 					local stop, node: any = runtime.mount(function()
-						return UI.VirtualList({
+						local props: CollectionProps.KeyedCollectionSpec<{ id: string }, string> = {
 							from = source,
 							key = function(item)
 								return item.id
@@ -156,13 +156,14 @@ return function(verifyHarness: Verify.Harness)
 							itemSize = 20,
 							overscan = 0,
 							render = function(current): GuiObject
-								return UI.Button({
-									label = function(use: Use)
+								return UI.Button {
+									label = function(use: Compose.Use)
 										return use(current).id
 									end,
-								})
+								}
 							end,
-						})
+						}
+						return UI.VirtualList(props)
 					end, root)
 					engine.environment.poke(node, "AbsoluteWindowSize", engine.types.Vector2.new(300, 100))
 					local baseline = engine.census()
@@ -178,7 +179,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("preserves keyed row content and bounded retention across 400 replayable mutation seeds", {
+		it("preserves keyed row content and bounded retention across 400 replayable mutation seeds", {
 			id = "native_stress::native stress invariants::preserves keyed row content and bounded retention across 400 replayable mutation seeds",
 			run = function()
 				for seed = 1, 400 do
@@ -190,7 +191,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 					local nextId, source, status = 80, Compose.cell(rows), cells.collectionStatus()
 					local stop, node: any = runtime.mount(function()
-						return UI.VirtualList({
+						local props: CollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> = {
 							from = source,
 							key = function(item)
 								return item.id
@@ -200,12 +201,13 @@ return function(verifyHarness: Verify.Harness)
 							status = status,
 							render = function(current): GuiObject
 								return UI.Button "Value" {
-									label = function(use: Use)
+									label = function(use: Compose.Use)
 										return use(current).label
 									end,
 								}
 							end,
-						})
+						}
+						return UI.VirtualList(props)
 					end, root)
 					for step = 1, 40 do
 						local operation = rng(1, 5)
@@ -245,68 +247,69 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case(
-			"preserves UTF8 edit state and gates actions through 200 seeded preference and visibility storms",
-			{
-				id = "native_stress::native stress invariants::preserves UTF8 edit state and gates actions through 200 seeded preference and visibility storms",
-				run = function()
-					local labels =
-						{ "保存", "مرحبا", "Café", "👩‍🚀", "é", "Long translated label with spaces" }
-					for seed = 1, 200 do
-						local rng = random(845101 + seed)
-						local engine, runtime, root, UI, _, _, before = world()
-						local text, size, enabled = Compose.cell("Initial"), Compose.cell(16), Compose.cell(true)
-						local activations, field, button = 0, nil, nil
-						local stop, panel: any = runtime.mount(function()
-							field = UI.TextInput({ value = text, TextSize = size }) :: TextBox
-							button = UI.Button({
-								label = text,
-								TextSize = size,
-								enabled = enabled,
-								onActivate = function()
-									activations += 1
-								end,
-							})
-							return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-								field :: unknown,
-								button,
-							})
-						end, root)
+		it("preserves UTF8 edit state and gates actions through 200 seeded preference and visibility storms", {
+			id = "native_stress::native stress invariants::preserves UTF8 edit state and gates actions through 200 seeded preference and visibility storms",
+			run = function()
+				local labels =
+					{ "保存", "مرحبا", "Café", "👩‍🚀", "é", "Long translated label with spaces" }
+				for seed = 1, 200 do
+					local rng = random(845101 + seed)
+					local engine, runtime, root, UI, _, _, before = world()
+					local text, size, enabled = Compose.cell("Initial"), Compose.cell(16), Compose.cell(true)
+					local activations = 0
+					local field: TextBox
+					local button: TextButton
+					local stop, panel: any = runtime.mount(function()
+						local props: InputProps.TextInputCellProps = { value = text, TextSize = size }
+						local editor = UI.TextInput(props)
+						assert(editor:IsA("TextBox"))
+						field = editor
+						button = UI.Button {
+							label = text,
+							TextSize = size,
+							enabled = enabled,
+							onActivate = function()
+								activations += 1
+							end,
+						}
+						return Facet.host(runtime).Frame({
+							field,
+							button,
+						})
+					end, root)
+					field:CaptureFocus()
+					for step = 1, 40 do
+						panel.Visible = true
+						root.Enabled = true
 						field:CaptureFocus()
-						for step = 1, 40 do
-							panel.Visible = true
-							root.Enabled = true
-							field:CaptureFocus()
-							local value = labels[rng(1, #labels)]
-							field.Text = value
-							size:set(rng(12, 48))
-							assert(
-								text:peek() == value and field.Text == value and button.Text == value,
-								`seed={seed} step={step}: expected={value} model={text:peek()} editor={field.Text} button={button.Text}`
-							)
-							assert(field:IsFocused(), `seed={seed} step={step}: preference lost editing focus`)
-							assert(
-								field.TextSize == size:peek() and button.TextSize == size:peek(),
-								`seed={seed}: stale text size`
-							)
-							enabled:set(rng(0, 1) == 1)
-							panel.Visible = rng(0, 1) == 1
-							root.Enabled = rng(0, 1) == 1
-							local prior = activations
-							local activated = button.Activated :: any
-							activated:Fire()
-							local expected = if enabled:peek() and panel.Visible and root.Enabled then 1 else 0
-							assert(activations == prior + expected, `seed={seed} step={step}: action eligibility stale`)
-						end
-						stop()
-						runtime:dispose()
-						sameCensus(engine, before, `preference seed={seed} teardown`)
+						local value = labels[rng(1, #labels)]
+						field.Text = value
+						size:set(rng(12, 48))
+						assert(
+							text:peek() == value and field.Text == value and button.Text == value,
+							`seed={seed} step={step}: expected={value} model={text:peek()} editor={field.Text} button={button.Text}`
+						)
+						assert(field:IsFocused(), `seed={seed} step={step}: preference lost editing focus`)
+						assert(
+							field.TextSize == size:peek() and button.TextSize == size:peek(),
+							`seed={seed}: stale text size`
+						)
+						enabled:set(rng(0, 1) == 1)
+						panel.Visible = rng(0, 1) == 1
+						root.Enabled = rng(0, 1) == 1
+						local prior = activations
+						engine.environment.fire(FixtureRoblox.assertInstance(button), "Activated")
+						local expected = if enabled:peek() and panel.Visible and root.Enabled then 1 else 0
+						assert(activations == prior + expected, `seed={seed} step={step}: action eligibility stale`)
 					end
-				end,
-			}
-		)
+					stop()
+					runtime:dispose()
+					sameCensus(engine, before, `preference seed={seed} teardown`)
+				end
+			end,
+		})
 
-		verifyHarness:case("keeps mounted controls and activation through 200 seeded preferred input storms", {
+		it("keeps mounted controls and activation through 200 seeded preferred input storms", {
 			id = "native_stress::native stress invariants::keeps mounted controls and activation through 200 seeded preferred input storms",
 			run = function()
 				for seed = 1, 200 do
@@ -315,13 +318,13 @@ return function(verifyHarness: Verify.Harness)
 					local builds, activations, value = 0, 0, Compose.cell(3)
 					local stop, panel: any = runtime.mount(function()
 						builds += 1
-						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						return Facet.host(runtime).Frame({
 							UI.Button "A" {
 								label = "A",
 								onActivate = function()
 									activations += 1
 								end,
-							} :: unknown,
+							},
 							UI.Button "B" { label = "B" },
 							UI.Stepper "Stepper" { value = value, max = 10 },
 						})
@@ -366,7 +369,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("disposes with pending changes, twice, and from inside a change notification", {
+		it("disposes with pending changes, twice, and from inside a change notification", {
 			id = "native_stress::native stress invariants::disposes with pending changes, twice, and from inside a change notification",
 			run = function()
 				local engine, runtime, root, UI, _, _, before = world()
@@ -382,7 +385,7 @@ return function(verifyHarness: Verify.Harness)
 				local flag = Compose.cell(false)
 				local disposed = 0
 				local stopNotify, panel: any = runtime.mount(function()
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+					return Facet.host(runtime).Frame({
 						Compose.show(flag, function()
 							return UI.Text "On" { text = "on" }
 						end),
@@ -394,15 +397,15 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				flag:set(true)
 				connection:Disconnect()
-				Verify.expect(disposed >= 1):toBe(true)
-				Verify.expect(panel.Parent):toBe(nil)
+				expect(disposed >= 1):toBe(true)
+				expect(panel.Parent):toBe(nil)
 				stopNotify()
 				runtime:dispose()
 				sameCensus(engine, before, "dispose from a notification")
 			end,
 		})
 
-		verifyHarness:case("keeps the top modal active and selected when a covered modal dismisses, 50 times", {
+		it("keeps the top modal active and selected when a covered modal dismisses, 50 times", {
 			id = "native_stress::native stress invariants::keeps the top modal active and selected when a covered modal dismisses, 50 times",
 			run = function()
 				local engine, runtime, root, UI, input, gui, before = world()
@@ -411,23 +414,24 @@ return function(verifyHarness: Verify.Harness)
 				end
 				local sheet, alert = Compose.cell(false), Compose.cell(false)
 				local stop = runtime.mount(function()
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Button "Base" { label = "Base" } :: unknown,
-						UI.Sheet({
+					local alertSpec: NavProps.AlertSpec = {
+						isPresented = alert,
+						title = "Confirm",
+						actions = {
+							{ id = "ok", label = "OK" },
+							{ id = "cancel", label = "Cancel", role = "cancel" :: "cancel" },
+						},
+					}
+					return Facet.host(runtime).Frame({
+						UI.Button "Base" { label = "Base" },
+						UI.Sheet {
 							isPresented = sheet,
 							detent = Compose.cell("medium"),
 							content = function(): Instance
 								return UI.Button "SheetAction" { label = "Sheet" }
 							end,
-						}),
-						UI.Alert({
-							isPresented = alert,
-							title = "Confirm",
-							actions = {
-								{ id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any>,
-								{ id = "cancel", label = "Cancel", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
-							},
-						}),
+						},
+						UI.Alert(alertSpec),
 					})
 				end, root)
 				for cycle = 1, 50 do

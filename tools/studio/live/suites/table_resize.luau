@@ -2,7 +2,12 @@
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type NumberMapCell = typeof(require("@repo/tools/typecheck/aliases").NumberMapCell)
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type LapRowReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").LapRowReadOnlyValue)
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type Case = { id: string, contracts: { string }, keepGallery: boolean?, run: (any) -> () }
 local cases: { Case } = {
@@ -15,47 +20,51 @@ local cases: { Case } = {
 					continue
 				end
 				for _, scale in { 0.75, 1.5 } do
-					local widths, runtime, Host, container
+					local widths: NumberMapCell
+					local runtime: ComposeRuntime
+					local Host: RobloxHost
+					local container: Frame
 					local stage = t.mount(function(UI: FacetControls, constructors, Compose: ComposeModule, env)
+						local columns35: { TableColumn } = {
+							{
+								id = "name",
+								label = "Driver",
+								render = function(row: LapRowReadOnlyValue)
+									return UI.Text {
+										text = function(use: Use)
+											return use(row).name
+										end,
+									}
+								end,
+							},
+							{
+								id = "laps",
+								label = "Laps completed",
+								render = function(row: LapRowReadOnlyValue)
+									return UI.Text {
+										text = function(use: Use)
+											return tostring(use(row).laps)
+										end,
+									}
+								end,
+							},
+						}
 						runtime, Host = env.runtime, constructors
 						widths = Compose.cell({ name = 140, laps = 72 })
-						local rows = {}
+						local rows: { { id: number, name: string, laps: number } } = {}
 						for index = 1, 30 do
 							table.insert(rows, { id = index, name = "Driver " .. index, laps = 3 })
 						end
 						container = Host.Frame {
 							Size = UDim2.fromOffset(460, 300),
-							Host.UIScale { Scale = scale } :: unknown,
+							Host.UIScale { Scale = scale },
 							UI.Table "Results" {
 								from = rows,
 								key = function(row)
 									return row.id
 								end,
 								widths = widths,
-								columns = {
-									{
-										id = "name",
-										label = "Driver",
-										render = function(row)
-											return UI.Text {
-												text = function(use: Use)
-													return use(row).name
-												end,
-											}
-										end,
-									},
-									{
-										id = "laps",
-										label = "Laps completed",
-										render = function(row)
-											return UI.Text {
-												text = function(use: Use)
-													return tostring(use(row).laps)
-												end,
-											}
-										end,
-									},
-								},
+								columns = columns35,
 							},
 						}
 						return container
@@ -134,10 +143,11 @@ local cases: { Case } = {
 									PaddingRight = inset("PaddingRight"),
 									PaddingTop = inset("PaddingTop"),
 									PaddingBottom = inset("PaddingBottom"),
-								} :: unknown,
+								},
 							}
 						end, container)
 						t.settle(3)
+						assert(typeof(fresh) == "Instance" and fresh:IsA("TextLabel"))
 						t.near(
 							label .. " truncation matches freshly drawn text",
 							heading.TextBounds.X,
@@ -159,13 +169,14 @@ local cases: { Case } = {
 			t.device({ device = "iphone_14", orientation = "Portrait", frames = 30 })
 			local input = game:GetService("UserInputService")
 			local virtual = input:CreateVirtualInput()
+			assert(virtual:IsA("VirtualInput"))
 			if virtual == nil then
 				t.check("native virtual pointer input is available", false)
 				return
 			end
 			local stage = t.mount(function(UI: FacetControls, Host, Compose: ComposeModule, env)
-				local example = require(game.ReplicatedStorage.FacetExamples["02_playlist_table"])
-				return example.build(t.context(UI, Host, Compose, env)).screen()
+				local ctx = t.context(UI, Host, Compose, env)
+				return ctx.load("example", "02_playlist_table").build(ctx).screen()
 			end, { size = Vector2.new(390, 844), motionLevel = "normal", environment = { preferredInput = "Touch" } })
 			local inset = game:GetService("GuiService"):GetGuiInset()
 			local shield = Instance.new("TextButton")

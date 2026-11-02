@@ -1,10 +1,28 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local function record(value: unknown): { [string]: unknown }
+	assert(type(value) == "table")
+	local result: { [string]: unknown } = {}
+	for key, item in value do
+		if type(key) == "string" then
+			result[key] = item
+		end
+	end
+	return result
+end
+
+local function slider(
+	UI: typeof(require("@repo/tools/typecheck/aliases").FacetControls),
+	value: typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+): Frame
+	local props: typeof(require("@repo/tools/typecheck/aliases").SliderCellProps) = { value = value, min = 0, max = 10 }
+	return UI.Slider(props)
+end
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Facet = require("../src")
@@ -38,7 +56,8 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("Facet on the consumer's Compose instance", function()
 		verifyHarness:case("inherits app controls and the 60 pixel Button height", function(context)
-			for _, surface in { Facet, Facet.bind(Core, Roblox) } do
+			local surfaces: { Facet.Facet } = { Facet, Facet.bind(Core, Roblox) }
+			for _, surface in surfaces do
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = surface.Roblox.createRuntime(engine)
 				context:defer(function()
@@ -46,7 +65,7 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local theme = surface.themes.neutralPackage()
 				theme.metrics.controlSizes.regular.height = 60
-				local app = surface.app({
+				local app: Facet.App = surface.app({
 					runtime = runtime,
 					types = engine.types,
 					parent = engine.new("Folder"),
@@ -63,8 +82,8 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Button(props)
 				end
 				app.mount(function()
-					local button = PortableButton({ label = "Continue" })
-					local reference = app.UI.Button({ label = "Continue" })
+					local button = PortableButton { label = "Continue" }
+					local reference = app.UI.Button { label = "Continue" }
 					Verify.expect(button.Size.Y.Offset):toBe(60)
 					Verify.expect(button.Size):toBe(reference.Size)
 					return app.UI.VStack { button, reference }
@@ -78,7 +97,7 @@ return function(verifyHarness: Verify.Harness)
 			context:defer(function()
 				runtime:dispose()
 			end)
-			local app = Facet.app({
+			local app: Facet.App = Facet.app({
 				runtime = runtime,
 				types = engine.types,
 				parent = engine.new("Folder"),
@@ -86,19 +105,21 @@ return function(verifyHarness: Verify.Harness)
 			})
 			context:defer(app.dispose)
 			local rendered = 0
-			local function PortableContent(): TextButton
+			local function PortableContent(_UI: Facet.Controls): Instance
 				rendered += 1
 				local UI = Facet.controls(runtime)
 				Verify.expect(UI):toBe(app.UI)
-				return UI.Button({ label = "Continue" })
+				return UI.Button { label = "Continue" }
 			end
-			local close = app.presentAnchored(PortableContent, {
+			local anchored: Facet.AnchoredOptions = {
 				source = { rect = { x = 100, y = 100, w = 40, h = 40 } },
 				modal = false,
-			})
+			}
+			local component: (Facet.Controls) -> Instance = PortableContent
+			local close = app.presentAnchored(component, anchored)
 			Verify.expect(rendered):toBe(1)
 			close()
-			local toast = app.presentToast(PortableContent)
+			local toast = app.presentToast(component, nil)
 			Verify.expect(rendered):toBe(2)
 			toast.dismiss()
 		end)
@@ -120,7 +141,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(first == UI):toBe(false)
 					Verify.expect(second == first):toBe(false)
 					Verify.expect(Bound.controls(runtime)):toBe(UI)
-					local button = first.Button({ label = "Standalone" })
+					local button = first.Button { label = "Standalone" }
 					Verify.expect(button.Size.Y.Offset):toBe(44)
 					return button
 				end)
@@ -135,14 +156,14 @@ return function(verifyHarness: Verify.Harness)
 			end)
 			local environment = getfenv(require("../src/ui/roblox_types"))
 			local previous: { [string]: unknown } = {}
-			for key, value in engine.types do
+			for key, value in record(engine.types) do
 				if type(key) == "string" then
 					previous[key] = environment[key]
 					environment[key] = value
 				end
 			end
 			context:defer(function()
-				for key in engine.types do
+				for key in record(engine.types) do
 					if type(key) == "string" then
 						environment[key] = previous[key]
 					end
@@ -157,7 +178,7 @@ return function(verifyHarness: Verify.Harness)
 					local explicit = Facet.controls(runtime, {})
 					Verify.expect(explicit == first):toBe(false)
 					Verify.expect(Facet.controls(runtime, {}) == explicit):toBe(false)
-					return explicit.Button({ label = "Default" })
+					return explicit.Button { label = "Default" }
 				end)
 			end, engine.new("Folder"))
 			Verify.expect(Facet.controls(runtime) == first):toBe(false)
@@ -190,7 +211,7 @@ return function(verifyHarness: Verify.Harness)
 								end)
 								local UI = Bound.controls(runtime)
 								Verify.expect(UI):toBe(inner)
-								local button = UI.Button({ label = "Nested" })
+								local button = UI.Button { label = "Nested" }
 								Verify.expect(button.Size.Y.Offset):toBe(60)
 								return button
 							end),
@@ -225,7 +246,7 @@ return function(verifyHarness: Verify.Harness)
 					return inner.provide(function()
 						Verify.expect(Bound.controls(first)):toBe(outer)
 						Verify.expect(Bound.controls(second)):toBe(inner)
-						return outer.Button({ label = "First runtime" })
+						return outer.Button { label = "First runtime" }
 					end)
 				end)
 			end, engine.new("Folder"))
@@ -241,15 +262,20 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(Facet.Compose ~= Core):toBe(true)
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local Host = (runtime.constructors :: unknown) :: RobloxHost
+				local Host = Facet.host(runtime)
 				local UI = Bound.controls(runtime, { types = engine.types })
 				local root = engine.new("ScreenGui")
 				local baseline = engine.census()
-				local shown, checked, caption, amount =
-					Core.cell(true), Core.cell(false), Core.cell("One"), Core.cell(2)
+				local shown: Facet.Value<boolean> = Core.cell(true)
+				local checked: Facet.Value<boolean> = Core.cell(false)
+				local caption: Facet.Value<string> = Core.cell("One")
+				local amount: Facet.Value<number> = Core.cell(2)
 				local total = Core.cell(1)
 				local cleanups = 0
-				local toggle: any, label, button, sheet
+				local toggle: any
+				local label: TextLabel? = nil
+				local button: TextButton? = nil
+				local sheet: StyleSheet? = nil
 				local stop = runtime.mount(function()
 					Core.cleanup(function()
 						cleanups += 1
@@ -258,50 +284,51 @@ return function(verifyHarness: Verify.Harness)
 						return use(total) * 2
 					end)
 					sheet = Bound.themes.createStyleSheet(runtime, nil, { types = engine.types })
-					return Host.Frame({
-						sheet :: unknown,
+					return Host.Frame {
+						sheet,
 						Core.show(shown, function()
-							toggle = UI.Toggle({
+							local props: typeof(require("@repo/tools/typecheck/aliases").ToggleCellProps) = {
 								value = checked,
 								presentation = "checkbox" :: "checkbox",
 								label = "Enabled",
-							})
+							}
+							toggle = UI.Toggle(props)
 							return toggle
 						end),
-						UI.Text({
+						UI.Text {
 							text = function(use: Use)
 								return `{use(caption)} {use(doubled)}`
 							end,
 							ref = function(node)
 								label = node
 							end,
-						}),
-						UI.Button({
+						},
+						UI.Button {
 							label = caption,
 							ref = function(node)
 								button = node
 							end,
-						}),
-						UI.Slider({ value = amount, min = 0, max = 10 }),
-					})
+						},
+						slider(UI, amount),
+					}
 				end, root)
-				Verify.expect(label.Text):toBe("One 2")
-				Verify.expect(button.Text):toBe("One")
+				Verify.expect(assert(label).Text):toBe("One 2")
+				Verify.expect(assert(button).Text):toBe("One")
 				Verify.expect(find(toggle, "Check").Visible):toBe(false)
 				checked:set(true)
 				Verify.expect(find(toggle, "Check").Visible):toBe(true)
 				toggle.Activated:Fire()
 				Verify.expect((checked:peek())):toBe(false)
 				caption:set("Two")
-				Verify.expect(label.Text):toBe("Two 2")
-				Verify.expect(button.Text):toBe("Two")
+				Verify.expect(assert(label).Text):toBe("Two 2")
+				Verify.expect(assert(button).Text):toBe("Two")
 				runtime:batch(function()
 					caption:set("Three")
 					total:set(5)
 				end)
-				Verify.expect(label.Text):toBe("Three 10")
+				Verify.expect(assert(label).Text):toBe("Three 10")
 				total:set(6)
-				Verify.expect(label.Text):toBe("Three 12")
+				Verify.expect(assert(label).Text):toBe("Three 12")
 				local hidden = toggle
 				shown:set(false)
 				Verify.expect((hidden:isDestroyed())):toBe(true)
@@ -310,7 +337,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(cleanups):toBe(1)
 				Verify.expect(#root:GetChildren()):toBe(0)
 				caption:set("Four")
-				Verify.expect(label.Text):toBe("Three 12")
+				Verify.expect(assert(label).Text):toBe("Three 12")
 				local after = engine.census()
 				Verify.expect(after.live):toBe(baseline.live)
 				Verify.expect(after.connections):toBe(baseline.connections)
@@ -334,13 +361,14 @@ return function(verifyHarness: Verify.Harness)
 					table.sort(out)
 					return out
 				end
-				for _, surface in { Facet, Facet.bind(Core, Roblox) } do
+				local surfaces: { Facet.Facet } = { Facet, Facet.bind(Core, Roblox) }
+				for _, surface in surfaces do
 					local engine = engineLib.new()
 					local runtime: ComposeRuntime = surface.Roblox.createRuntime(engine)
-					local package = assert(surface.themes.define({
+					local package = assert((surface.themes.define({
 						identity = { id = "app-wide" },
 						metrics = { space = { xs = 6, s = 12, m = 20, l = 30, xl = 48 } },
-					} :: any))
+					} :: any)))
 					local playerGui = engine.new("Folder")
 					local app =
 						surface.app({ runtime = runtime, theme = package, types = engine.types, parent = playerGui })
@@ -358,11 +386,11 @@ return function(verifyHarness: Verify.Harness)
 								text = function(use: Use)
 									return `Count {use(count)}`
 								end,
-							} :: unknown,
+							},
 							UI.Button "Add" {
 								label = "Add one",
 								onActivate = function()
-									count:update(function(value)
+									count:update(function(value: number): number
 										return value + 1
 									end)
 								end,
@@ -405,7 +433,7 @@ return function(verifyHarness: Verify.Harness)
 					app.dispose()
 					Verify.expect(#secondParent:GetChildren()):toBe(0)
 					local stopLate, late: any = runtime.mount(function()
-						return UI.Text({ text = "Late" })
+						return UI.Text { text = "Late" }
 					end, engine.new("Folder"))
 					Verify.expect(late.Text):toBe("Late")
 					stopLate()
@@ -413,16 +441,16 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(string.find(
 						failure(function()
 							app.mount(function()
-								return UI.Text({ text = "Late" })
+								return UI.Text { text = "Late" }
 							end)
 						end),
 						"Facet app.mount: the app is disposed",
 						1,
 						true
 					) ~= nil):toBe(true)
-					local palette = ((surface.Compose.cell :: unknown) :: (string) -> Facet.Value<string>)("Dark")
+					local palette = ((surface.Compose.cell) :: (string) -> Facet.Value<string>)("Dark")
 					local styled = (surface.app :: (Facet.AppOptions) -> Facet.App)({
-						runtime = (runtime :: unknown) :: Facet.Runtime,
+						runtime = (runtime) :: Facet.Runtime,
 						types = engine.types,
 						parent = playerGui,
 						theme = surface.themes.neutralPackage(),
@@ -430,7 +458,7 @@ return function(verifyHarness: Verify.Harness)
 						screen = { Name = "Desk", DisplayOrder = 7, ResetOnSpawn = true },
 					})
 					local stopStyled, desk = styled.mount(function()
-						return styled.UI.Text({ text = "Desk" })
+						return styled.UI.Text { text = "Desk" }
 					end)
 					Verify.expect(desk.Name):toBe("Desk")
 					Verify.expect(desk.DisplayOrder):toBe(7)

@@ -2,12 +2,26 @@
 --!native
 
 local Types = require "../reactive/types"
-local Inspect = require "./inspect"
+local Nodes = require "./nodes"
 local Reactor = require "../reactive/reactor"
 local watchModule = require "../reactive/watch"
 local Graph = require "../reactive/graph"
+local Dynamic = require "../dynamic"
+local OwnerTypes = require "./types"
 
-local inspecting = Inspect.flag
+local inspecting = Nodes.inspecting
+
+local inspectModule: typeof(require "./inspect")? = nil
+
+local function inspector(): typeof(require "./inspect")
+	local loaded = inspectModule
+	if loaded ~= nil then
+		return loaded
+	end
+	local required = require "./inspect"
+	inspectModule = required
+	return required
+end
 
 type Dispose = Types.Dispose
 
@@ -15,19 +29,7 @@ export type Boundary = {
 	report: (failure: unknown) -> (),
 }
 
-export type Owner = {
-	parent: Owner?,
-	reactor: Reactor.Reactor?,
-	boundary: Boundary?,
-	head: Owner?,
-	disposed: boolean?,
-	previous: Owner?,
-	following: Owner?,
-	release: Dispose?,
-	after: Dispose?,
-	batchRelease: ((subject: unknown) -> ())?,
-	[number]: unknown,
-}
+export type Owner = OwnerTypes.Owner<Reactor.Reactor>
 
 export type Entry = Owner
 
@@ -82,10 +84,13 @@ local function isOwner(candidate: unknown): boolean
 	if type(candidate) ~= "table" then
 		return false
 	end
-	local owner = candidate :: Owner
-	return owner.release == nil
-		and owner[1] == nil
-		and (owner.reactor ~= nil or owner.parent ~= nil or owner.disposed ~= nil)
+	return Dynamic.read(candidate, "release") == nil
+		and Dynamic.read(candidate, 1) == nil
+		and (
+			Dynamic.read(candidate, "reactor") ~= nil
+			or Dynamic.read(candidate, "parent") ~= nil
+			or Dynamic.read(candidate, "disposed") ~= nil
+		)
 end
 
 local function heldSize(entry: Entry): number
@@ -115,7 +120,7 @@ local function releasePairs(batch: Entry, keep: number)
 		index -= 2
 		cursor = index
 		if type(releaseSubject) == "function" then
-			((releaseSubject :: unknown) :: (subject: unknown) -> ())(subject)
+			releaseSubject(subject)
 		end
 	end
 end
@@ -225,7 +230,7 @@ end
 
 local function runScopeOf(consumer: Types.Node): RunScope?
 	if consumer.inherited ~= nil then
-		return (consumer :: unknown) :: RunScope
+		return consumer
 	end
 	return nil
 end
@@ -262,7 +267,7 @@ local function own(owner: Owner, dispose: Dispose, after: Dispose?): Dispose
 	end
 end
 
-local function holdSubject(owner: Owner, releaseSubject: (subject: unknown) -> (), subject: unknown)
+local function holdSubject(owner: Owner, releaseSubject: OwnerTypes.Release, subject: OwnerTypes.Subject)
 	if owner.disposed then
 		releaseSubject(subject)
 		return
@@ -443,7 +448,7 @@ local function createChild(owner: Owner): Owner
 		attach(owner, child)
 	end
 	if inspecting.active then
-		Inspect.child(owner, child)
+		inspector().child(owner, child)
 	end
 	local boundary = owner.boundary
 	if boundary ~= nil then
@@ -477,7 +482,7 @@ local function watchStatic<T>(
 	after: Dispose?
 ): Dispose
 	if inspecting.active then
-		Inspect.watch(owner)
+		inspector().watch(owner)
 	end
 	local boundary = owner.boundary
 	if boundary == nil then
@@ -493,31 +498,47 @@ local function watchStatic<T>(
 	end, nil, after)
 end
 
-local function listenHeld<T>(owner: Owner, producer: Types.ReadOnlyValue<T>, body: (value: T) -> ()): Types.Node
+local function listenHeld(
+	owner: Owner,
+	producer: Types.Node,
+	body: (value: unknown, edge: Types.Node?) -> (),
+	subject: {},
+	key: string,
+	transform: ((unknown) -> unknown)?,
+	written: unknown?
+): Types.Node
 	if inspecting.active then
-		Inspect.watch(owner)
+		inspector().watch(owner)
 	end
-	local edge = Graph.listenEdge(
-		reactorOf(owner),
-		(producer :: unknown) :: Types.Node,
-		(body :: unknown) :: (value: unknown) -> ()
-	)
+	local edge = Graph.listenEdge(reactorOf(owner), producer, body, subject, key, transform, written)
 	holdSubject(owner, releaseHeld, edge)
 	return edge
 end
 
-local function effectHeld(owner: Owner, body: (use: Types.Use) -> ()): Types.Node
+local function effectHeld(owner: Owner, body: (use: Types.Use) -> ()): Types.Node?
 	if inspecting.active then
-		Inspect.watch(owner)
+		inspector().watch(owner)
 	end
-	local node = watchModule.terminalNode(reactorOf(owner), body)
+	local boundary = owner.boundary
+	local run = if boundary == nil
+		then body
+		else function(use: Types.Use)
+			local ok, failure: unknown = pcall(body, use)
+			if not ok then
+				boundary.report(failure)
+			end
+		end
+	local node = watchModule.terminalNode(reactorOf(owner), run, boundary ~= nil)
+	if node.effect == nil then
+		return nil
+	end
 	holdSubject(owner, releaseHeld, node)
 	return node
 end
 
 local function watchTerminal(owner: Owner, body: (use: Types.Use) -> (), after: Dispose?): Dispose
 	if inspecting.active then
-		Inspect.watch(owner)
+		inspector().watch(owner)
 	end
 	local boundary = owner.boundary
 	if boundary == nil then
@@ -535,7 +556,7 @@ local function releaseScope(node: Types.Node)
 	local child = node.child
 	if child ~= nil then
 		node.child = nil
-		disposeOwner(child :: Owner)
+		disposeOwner(child)
 	end
 end
 
@@ -546,7 +567,7 @@ end, releaseScope)
 
 local function watch(owner: Owner, body: (use: Types.Use) -> (), label: string?, after: Dispose?): Dispose
 	if inspecting.active then
-		Inspect.watch(owner)
+		inspector().watch(owner)
 	end
 	local boundary = owner.boundary
 	local run = if boundary == nil
@@ -584,8 +605,26 @@ local function scopeOwner(record: RunScope): Owner
 	return created
 end
 
+local roots = createOwner()
+
+local function holdRoot(dispose: Dispose): Dispose
+	return own(roots, dispose)
+end
+
+local function rootSize(): number
+	return size(roots)
+end
+
+local function disposeRoots()
+	disposeOwner(roots)
+	roots = createOwner()
+end
+
 return {
 	createOwner = createOwner,
+	holdRoot = holdRoot,
+	rootSize = rootSize,
+	disposeRoots = disposeRoots,
 	reactorOf = reactorOf,
 	isOwner = isOwner,
 	raiseAll = raiseAll,

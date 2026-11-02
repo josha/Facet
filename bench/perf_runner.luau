@@ -11,7 +11,16 @@ local QUALITY = "headless (no engine render; property writes only)"
 local HEADLESS_NOTE = "Headless Lute timing is trend screening only — NOT an authoritative device result (§14.3). "
 	.. "deviceMeasurement is the empty slot a real on-device capture fills."
 
-perf_runner.EVIDENCE_CLASSES = {
+type EvidenceClass = {
+	id: string,
+	level: string,
+	instrument: string,
+	proves: string,
+	cannotProve: string,
+	rows: number?,
+}
+
+local EVIDENCE_CLASSES: { EvidenceClass } = {
 	{
 		id = "lute",
 		level = "E1",
@@ -48,6 +57,10 @@ perf_runner.EVIDENCE_CLASSES = {
 		cannotProve = "mobile device behavior or subjective feel",
 	},
 }
+
+perf_runner.EVIDENCE_CLASSES = EVIDENCE_CLASSES
+
+local noNumber: number? = nil
 
 local DEVICE_CLASSES: { [string]: boolean } = {
 	["desktop-retail"] = true,
@@ -199,9 +212,14 @@ local function slope(ys: { number }): number
 	return (n * sxy - sx * sy) / denom
 end
 
+type AsyncStats = { dropped: number, stale: number, completed: number }
 function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 	local warmup = (opts and opts.warmup) or scene.warmup or DEFAULT_WARMUP
-	local samples = (opts and opts.samples) or scene.samples or DEFAULT_SAMPLES
+	local samples: number = (opts and opts.samples) or scene.samples or DEFAULT_SAMPLES
+	local afterRun: ((unknown) -> ())? = scene.afterRun
+	local asyncStats: ((unknown) -> AsyncStats)? = scene.asyncStats
+	local extrasOf: ((unknown) -> unknown)? = scene.extras
+	local teardown: ((unknown) -> ())? = scene.teardown
 	local auditing = opts ~= nil and opts.memory == true
 	if auditing then
 		Compose.inspect.start({ maxOwners = math.huge, maxNodes = math.huge })
@@ -211,13 +229,13 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 
 	for _ = 1, warmup do
 		scene.run(state)
-		if scene.afterRun then
-			scene.afterRun(state)
+		if afterRun then
+			afterRun(state)
 		end
 	end
 
-	local phaseSamples: { [string]: { number } } = { total = table.create(samples) }
-	local heapSeries = table.create(samples)
+	local phaseSamples: { [string]: { number } } = { total = table.create(samples, noNumber) }
+	local heapSeries: { number } = table.create(samples, noNumber)
 	local resourceSeries = {}
 	local function resources(): { instances: number, connections: number, registrations: number }
 		local native = state.engine.census()
@@ -245,15 +263,15 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 			for name, seconds in phases do
 				local bucket = phaseSamples[name]
 				if bucket == nil then
-					bucket = table.create(samples)
+					bucket = table.create(samples, noNumber)
 					phaseSamples[name] = bucket
 				end
 				table.insert(bucket, seconds * 1000)
 			end
 		end
-		if scene.afterRun then
+		if afterRun then
 			local settleStart = os.clock()
-			scene.afterRun(state)
+			afterRun(state)
 			local bucket = phaseSamples.settle or {}
 			phaseSamples.settle = bucket
 			table.insert(bucket, (os.clock() - settleStart) * 1000)
@@ -285,18 +303,18 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 		liveConnections = connections
 	end
 
-	local async = { dropped = 0, stale = 0, completed = 0 }
-	if scene.asyncStats ~= nil then
-		async = scene.asyncStats(state)
+	local async: AsyncStats = { dropped = 0, stale = 0, completed = 0 }
+	if asyncStats ~= nil then
+		async = asyncStats(state)
 	end
 
 	local extras: any = nil
-	if scene.extras ~= nil then
-		extras = scene.extras(state)
+	if extrasOf ~= nil then
+		extras = extrasOf(state)
 	end
 
-	if scene.teardown ~= nil then
-		scene.teardown(state)
+	if teardown ~= nil then
+		teardown(state)
 	end
 	local resourceEnd = if auditing then resources() else nil
 	if auditing then

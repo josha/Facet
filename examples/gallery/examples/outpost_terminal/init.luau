@@ -1,18 +1,15 @@
 --!strict
 
 type TextPropsText = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 local rules = require("@self/rules")
 local terminal = { rules = rules, CANVAS = { w = 640, h = 480 }, TITLE = "OUTPOST 7 — POWER" }
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Allocation = rules.Allocation
 type Verdict = rules.Verdict
-type Outcome = { ok: boolean, code: string?, message: string?, consumer: string?, total: number?, detail: string? }
+type Outcome = Verdict
 type Reply = { revision: number?, allocation: Allocation?, code: string?, message: string? }
 type Envelope = {
 	requestId: number,
@@ -263,17 +260,17 @@ function terminal.build(ctx: ExampleContext, options: Options?)
 		return true
 	end
 	local function label(name: string, text: TextPropsText, height: number, size: number?)
-		return UI.Text({
+		return UI.Text {
 			Name = name,
 			text = text,
 			TextSize = size or 16,
 			TextWrapped = true,
 			Size = UDim2.new(1, 0, 0, height),
 			AutomaticSize = Enum.AutomaticSize.Y,
-		})
+		}
 	end
 	local function screen()
-		local rows = {}
+		local rows: { Instance } = {}
 		for index, consumer in rules.CONSUMERS do
 			table.insert(
 				rows,
@@ -286,7 +283,7 @@ function terminal.build(ctx: ExampleContext, options: Options?)
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, -184, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 3) }),
+						Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 3) },
 						label("Title", `{consumer.label} — needs {consumer.needs}`, 24),
 						label("State", function(use: Use)
 							local live = rules.isRunning(use(confirmed), consumer.id)
@@ -295,7 +292,7 @@ function terminal.build(ctx: ExampleContext, options: Options?)
 								.. (if live ~= nextRunning then " (on Apply)" else "")
 						end, 36, 13),
 					},
-					UI.Stepper({
+					UI.Stepper {
 						Name = consumer.id .. "Step",
 						Position = UDim2.new(1, -172, 0, 8),
 						Size = UDim2.fromOffset(172, 44),
@@ -308,7 +305,7 @@ function terminal.build(ctx: ExampleContext, options: Options?)
 						onChange = function(value)
 							steps.setValue(consumer.id, value)
 						end,
-					}),
+					},
 				})
 			)
 		end
@@ -318,13 +315,13 @@ function terminal.build(ctx: ExampleContext, options: Options?)
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
 			ScrollingDirection = Enum.ScrollingDirection.Y,
 			ScrollBarThickness = 6,
-			Host.UIPadding({
+			Host.UIPadding {
 				PaddingLeft = UDim.new(0, 16),
 				PaddingRight = UDim.new(0, 16),
 				PaddingTop = UDim.new(0, 16),
 				PaddingBottom = UDim.new(0, 16),
-			}),
-			Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+			},
+			Host.UIListLayout { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder },
 			label("Title", terminal.TITLE, 30, 22),
 			label("Budget", function(use: Use)
 				local spent = rules.spent(allocation(use))
@@ -333,30 +330,32 @@ function terminal.build(ctx: ExampleContext, options: Options?)
 			label("Confirmed", function(use: Use)
 				return `Outpost: {rules.runningCount(use(confirmed))} of {#rules.CONSUMERS} consumers running.`
 			end, 24, 13),
-			Host.Frame("Consumers")({
+			Host.Frame "Consumers" {
 				LayoutOrder = 4,
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 200),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({ Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
+				Host.UIListLayout { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder },
 				table.unpack(rows),
-			}),
+			},
 			label("Message", message, 44),
-			Host.Frame("Actions")({
+			Host.Frame "Actions" {
 				LayoutOrder = 6,
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 44),
-				Host.UIListLayout({
+				Host.UIListLayout {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					FillDirection = Enum.FillDirection.Horizontal,
 					Padding = UDim.new(0, 8),
-				}),
+				},
 				UI.Button "Apply" {
 					LayoutOrder = 1,
 					label = "Apply",
 					enabled = canApply,
 					Size = UDim2.new(1 / 3, -6, 1, 0),
-					onActivate = steps.apply,
+					onActivate = function()
+						steps.apply()
+					end,
 				},
 				UI.Button "Reset" {
 					LayoutOrder = 2,
@@ -365,7 +364,9 @@ function terminal.build(ctx: ExampleContext, options: Options?)
 						return use(phase) == "engaged" and use(status) ~= "pending"
 					end,
 					Size = UDim2.new(1 / 3, -6, 1, 0),
-					onActivate = steps.reset,
+					onActivate = function()
+						steps.reset()
+					end,
 				},
 				UI.Button "Exit" {
 					LayoutOrder = 3,
@@ -376,7 +377,7 @@ function terminal.build(ctx: ExampleContext, options: Options?)
 						steps.exit("exit-control")
 					end,
 				},
-			}),
+			},
 		}
 		root:AddTag("facet-surface")
 		return root

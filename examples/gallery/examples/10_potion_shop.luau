@@ -1,8 +1,8 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 local makeView = require("./showcase_view")
 type Sale = { id: number, name: string, recipe: string, quantity: number, earned: number }
 local recipes = {
@@ -24,6 +24,9 @@ return {
 	build = function(ctx: ExampleContext)
 		local UI, Host, C = ctx.UI, ctx.Host, ctx.Compose
 		local V3, C3, E, D2 = ctx.types.Vector3, ctx.types.Color3, ctx.types.Enum, ctx.types.UDim2
+		local function paint(color: { number }): Color3
+			return C3.fromRGB(color[1], color[2], color[3])
+		end
 		local view = makeView(ctx)
 		local selected, quantity, progress = C.cell("sun"), C.cell(0), C.cell(0)
 		local customer, coins, phase = C.cell(1), C.cell(0), C.cell("mixing")
@@ -66,17 +69,18 @@ return {
 			return true
 		end
 		local function serve()
-			if phase:peek() ~= "ready" or not brewed then
+			local made = brewed
+			if phase:peek() ~= "ready" or not made then
 				return false
 			end
 			local index = customer:peek()
-			local earned = byId[brewed.recipe].price * brewed.quantity
+			local earned = byId[made.recipe].price * made.quantity
 			local entries = table.clone(ledger:peek())
 			table.insert(entries, {
 				id = index,
 				name = orders[index].name,
-				recipe = byId[brewed.recipe].label,
-				quantity = brewed.quantity,
+				recipe = byId[made.recipe].label,
+				quantity = made.quantity,
 				earned = earned,
 			})
 			ctx.runtime:batch(function()
@@ -143,7 +147,7 @@ return {
 						{ Shape = E.PartType.Ball }
 					),
 					view.part("Brew", V3.new(2.7, 0.3, 2.7), V3.new(0, 1.8, 0), function(use: Use)
-						return C3.fromRGB(table.unpack(byId[use(selected)].color))
+						return paint(byId[use(selected)].color)
 					end, {
 						Shape = E.PartType.Ball,
 						Material = E.Material.Neon,
@@ -173,12 +177,12 @@ return {
 			end, ctx.types.CFrame.lookAt(V3.new(7, 7, 10), V3.new(0, 0.8, 0)), 260)
 		end
 		local function shop()
-			local tickets, ingredients = {}, {}
+			local tickets: { Instance }, ingredients: { Instance } = {}, {}
 			local ingredientOf: { [unknown]: string } = {}
 			for index, order in orders do
 				table.insert(
 					tickets,
-					UI.VStack("Ticket" .. index) {
+					UI.VStack("Ticket" .. index)({
 						width = "fill",
 						gap = "xs",
 						padding = "s",
@@ -189,11 +193,11 @@ return {
 								else ""}{order.name}`
 						end, "heading"),
 						view.text("Request", `{order.quantity} × {byId[order.recipe].label}`, "caption"),
-					}
+					})
 				)
 			end
 			for _, recipe in recipes do
-				local ingredient = UI.Button("Add_" .. recipe.id) {
+				local ingredient = UI.Button("Add_" .. recipe.id)({
 					label = recipe.ingredient .. "\nAdd one portion",
 					Size = D2.new(1, 0, 0, 72),
 					enabled = function(use: Use)
@@ -202,7 +206,7 @@ return {
 					onActivate = function()
 						addIngredient(recipe.id)
 					end,
-				}
+				})
 				local payload = { kind = "ingredient", id = recipe.id }
 				ingredientOf[payload] = recipe.id
 				UI.draggable(ingredient, { payload = payload, armOnTap = false })
@@ -211,7 +215,7 @@ return {
 			local cauldron = counter()
 			UI.dropTarget(cauldron, {
 				accepts = function(payload: unknown)
-					return ingredientOf[payload] ~= nil
+					return ingredientOf[payload] ~= nil, nil
 				end,
 				onDrop = function(payload: unknown)
 					local id = ingredientOf[payload]
@@ -220,7 +224,9 @@ return {
 					end
 				end,
 			})
-			local serveButton = view.button("Serve", "Hand over the order", serve, function(use: Use)
+			local serveButton = view.button("Serve", "Hand over the order", function()
+				serve()
+			end, function(use: Use)
 				return use(phase) == "ready"
 			end)
 			local orderPayload = { kind = "order" }
@@ -233,7 +239,7 @@ return {
 			}
 			UI.dropTarget(rail, {
 				accepts = function(payload: unknown)
-					return payload == orderPayload and phase:peek() == "ready"
+					return payload == orderPayload and phase:peek() == "ready", nil
 				end,
 				onDrop = serve,
 			})
@@ -270,7 +276,9 @@ return {
 					}
 				end),
 				view.actions({
-					view.button("Brew", "Brew the order", brew, function(use: Use)
+					view.button("Brew", "Brew the order", function()
+						brew()
+					end, function(use: Use)
 						return use(phase) == "mixing" and use(quantity) > 0 and use(customer) <= #orders
 					end),
 					serveButton,

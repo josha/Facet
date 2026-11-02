@@ -6,7 +6,7 @@ local Compose = require("../../src/vendor/compose/core")
 return function(UI: DatesControls.Controls): ()
 	local noSession: Dates.CivilDate? = nil
 	local session = Compose.cell(noSession)
-	local single: Frame = UI.DateTimePicker("Session")({
+	local single: Frame = UI.DateTimePicker "Session" {
 		label = "Play session",
 		time = true,
 		minuteStep = 15,
@@ -19,9 +19,10 @@ return function(UI: DatesControls.Controls): ()
 			local closed: string = reason
 			assert(closed ~= "")
 		end,
-	})
-	local trip: Compose.Value<Dates.Range> = Compose.cell({})
-	local range: Frame = UI.DateTimePicker({
+	}
+	local noTrip: Dates.Range = {}
+	local trip: Compose.Value<Dates.Range> = Compose.cell(noTrip)
+	local range: Frame = UI.DateTimePicker {
 		selection = "range",
 		range = trip,
 		onRangeChange = function(next: Dates.Range)
@@ -36,6 +37,6 @@ return function(UI: DatesControls.Controls): ()
 				end,
 			},
 		},
-	})
+	}
 	single.Name, range.Name = "Single", "Range"
 end

@@ -1,16 +1,18 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Bdd = require("../tools/vendor/verify/src/bdd")
 
 return function(verifyHarness: Verify.Harness)
+	local test = Bdd.create(verifyHarness)
+	local describe, it, expect = test.describe, test.it, test.expect
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type ExampleContext = typeof(require("@repo/examples/types").Context)
 	type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 	type Use = <T>(ReadOnlyValue<T>) -> T
 
-	local expect = Verify.expect
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 	local gallery = require("../examples/gallery/client/screen")
@@ -69,7 +71,7 @@ return function(verifyHarness: Verify.Harness)
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (runtime.constructors :: unknown) :: RobloxHost,
+			Host = Facet.host(runtime),
 			types = engine.types,
 			inputTarget = target,
 			worldTarget = engine.new("Folder"),
@@ -80,10 +82,15 @@ return function(verifyHarness: Verify.Harness)
 			engine = engine,
 		}
 	end
-	local function mountGame(ctx: World, definition: any): any
-		local game
+	type GameScreen = { read screen: () -> Instance }
+	local function mountGame<G>(
+		ctx: World,
+		definition: { read build: (ExampleContext) -> G & GameScreen }
+	): (G & GameScreen, () -> ())
+		local game: (G & GameScreen)? = nil
+		local exampleContext = (ctx :: unknown) :: ExampleContext
 		local stop, node = ctx.runtime.mount(function()
-			gallery.configure((ctx :: unknown) :: ExampleContext)
+			gallery.configure(exampleContext)
 			ctx.UI = Facet.controls(ctx.runtime, {
 				types = ctx.types,
 				environment = {
@@ -100,15 +107,15 @@ return function(verifyHarness: Verify.Harness)
 						end) :: unknown
 					) :: ComposeTypes.Value<"none" | "normal" | "limited">,
 			})
-			game = definition.build(ctx)
-			return ctx.Host.ScreenGui "GameScreen" { game.screen() }
+			local built = definition.build(exampleContext)
+			game = built
+			return ctx.Host.ScreenGui "GameScreen" { built.screen() }
 		end, ctx.target)
 		ctx.node = node
-		game.dispose = function()
+		return assert(game), function()
 			stop()
 			ctx.runtime:dispose()
 		end
-		return game
 	end
 	do
 		local wordGame = require("../examples/gallery/examples/05_word_game")
@@ -123,9 +130,9 @@ return function(verifyHarness: Verify.Harness)
 		end)()
 
 		local function newGame(ctx: World)
-			local game = mountGame(ctx, wordGame)
+			local game, dispose = mountGame(ctx, wordGame)
 			game.restart(READER_SEED)
-			return game
+			return game, dispose
 		end
 		local function typeWord(game: any, word: string)
 			for i = 1, #word do
@@ -159,8 +166,8 @@ return function(verifyHarness: Verify.Harness)
 			end
 		end
 
-		verifyHarness:suite("examples/05 word game — the key ladder is monotonic", function()
-			verifyHarness:case("mergeKeys returns a NEW table and keeps the strongest per letter", {
+		describe("examples/05 word game — the key ladder is monotonic", function()
+			it("mergeKeys returns a NEW table and keeps the strongest per letter", {
 				id = "native_games::examples/05 word game — the key ladder is monotonic::mergeKeys returns a NEW table and keeps the strongest per letter",
 				run = function()
 					local first = rules.mergeKeys({}, "RULERS", rules.evaluate("RULERS", "READER"))
@@ -175,7 +182,7 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
-			verifyHarness:case("a later guess that re-tests a solved letter cannot downgrade it", {
+			it("a later guess that re-tests a solved letter cannot downgrade it", {
 				id = "native_games::examples/05 word game — the key ladder is monotonic::a later guess that re-tests a solved letter cannot downgrade it",
 				run = function()
 					local keys = rules.mergeKeys({}, "READER", rules.evaluate("READER", "READER"))
@@ -186,12 +193,12 @@ return function(verifyHarness: Verify.Harness)
 			})
 		end)
 
-		verifyHarness:suite("examples/05 word game — the state machine", function()
-			verifyHarness:case("paints key and tile state through theme status tags and outlines the active row", {
+		describe("examples/05 word game — the state machine", function()
+			it("paints key and tile state through theme status tags and outlines the active row", {
 				id = "native_games::examples/05 word game — the state machine::paints key and tile state through theme status tags and outlines the active row",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					guess(game, "RULERS")
 					local function key(letter)
 						return findPath(ctx.node, game.keyPath(letter))
@@ -222,15 +229,15 @@ return function(verifyHarness: Verify.Harness)
 					guess(game, "ERRORS")
 					expect(outline(2, 1).Enabled):toBe(false)
 					expect(outline(3, 1).Enabled):toBe(true)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("letters land in the ACTIVE row only", {
+			it("letters land in the ACTIVE row only", {
 				id = "native_games::examples/05 word game — the state machine::letters land in the ACTIVE row only",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					typeWord(game, "RULERS")
 					expect((game.row(1))):toBe("RULERS")
 					expect((game.row(2))):toBe("")
@@ -242,30 +249,30 @@ return function(verifyHarness: Verify.Harness)
 					typeWord(game, "AB")
 					expect((game.row(1))):toBe("RULERS")
 					expect((game.row(2))):toBe("AB")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("a SHORT guess is refused with a message and does not consume a row", {
+			it("a SHORT guess is refused with a message and does not consume a row", {
 				id = "native_games::examples/05 word game — the state machine::a SHORT guess is refused with a message and does not consume a row",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					typeWord(game, "REA")
 					game.press("Return")
 					expect((game.activeRow())):toBe(1)
 					expect((game.row(1))):toBe("REA")
 					expect(string.find(game.status(), "Not enough letters") ~= nil):toBe(true)
 					expect((game.state(1, 1))):toBe("filled")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("an INVALID guess is refused with a different message and does not consume a row", {
+			it("an INVALID guess is refused with a different message and does not consume a row", {
 				id = "native_games::examples/05 word game — the state machine::an INVALID guess is refused with a different message and does not consume a row",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					typeWord(game, "ZZZZZZ")
 					game.press("Return")
 					expect((game.activeRow())):toBe(1)
@@ -278,15 +285,15 @@ return function(verifyHarness: Verify.Harness)
 
 					game.press("Backspace")
 					expect((string.find(game.status(), "this game doesn't know that word"))):toBeNil()
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("a rejected guess consumes NO row, and an ordinary word the old list refused plays on", {
+			it("a rejected guess consumes NO row, and an ordinary word the old list refused plays on", {
 				id = "native_games::examples/05 word game — the state machine::a rejected guess consumes NO row, and an ordinary word the old list refused plays on",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					typeWord(game, "PLZTKZ")
 					game.press("Return")
 					expect((game.activeRow())):toBe(1)
@@ -302,16 +309,16 @@ return function(verifyHarness: Verify.Harness)
 					expect((game.row(1))):toBe("COCOAS")
 
 					expectStates(game, 1, { "absent", "absent", "absent", "absent", "present", "absent" })
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("four words the old thirty-four-word list rejected now play end to end", {
+			it("four words the old thirty-four-word list rejected now play end to end", {
 				id = "native_games::examples/05 word game — the state machine::four words the old thirty-four-word list rejected now play end to end",
 				run = function()
 					for _, word in { "COLOUR", "CENTRE", "FAVOUR", "LITRES" } do
 						local ctx = makeWorld()
-						local game = newGame(ctx)
+						local game, dispose = newGame(ctx)
 						guess(game, word)
 						if game.activeRow() ~= 2 then
 							error(
@@ -327,16 +334,16 @@ return function(verifyHarness: Verify.Harness)
 						end
 
 						expect(game.keyState(string.sub(word, 1, 1)) ~= nil):toBe(true)
-						game.dispose()
+						dispose()
 					end
 				end,
 			})
 
-			verifyHarness:case("backspace deletes from the active row and stops at empty", {
+			it("backspace deletes from the active row and stops at empty", {
 				id = "native_games::examples/05 word game — the state machine::backspace deletes from the active row and stops at empty",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					typeWord(game, "RE")
 					game.press("Backspace")
 					expect((game.row(1))):toBe("R")
@@ -344,15 +351,15 @@ return function(verifyHarness: Verify.Harness)
 					game.press("Backspace")
 					expect((game.row(1))):toBe("")
 					expect((game.state(1, 1))):toBe("caret")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("key state accumulates monotonically and never downgrades", {
+			it("key state accumulates monotonically and never downgrades", {
 				id = "native_games::examples/05 word game — the state machine::key state accumulates monotonically and never downgrades",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					guess(game, "RULERS")
 					expect((game.keyState("R"))):toBe("correct")
 					expect((game.keyState("E"))):toBe("present")
@@ -364,15 +371,15 @@ return function(verifyHarness: Verify.Harness)
 					guess(game, "READER")
 					expect((game.keyState("E"))):toBe("correct")
 					expect((game.keyState("U"))):toBe("absent")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("a refused guess does NOT count toward the seven", {
+			it("a refused guess does NOT count toward the seven", {
 				id = "native_games::examples/05 word game — the state machine::a refused guess does NOT count toward the seven",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					for _, word in { "RULERS", "ERRORS", "ALWAYS", "LEVELS", "SOLVED", "WALNUT" } do
 						guess(game, word)
 					end
@@ -385,15 +392,15 @@ return function(verifyHarness: Verify.Harness)
 					end
 					guess(game, "TILING")
 					expect((game.phase())):toBe("lost")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("input is dead after the game ends, except restart", {
+			it("input is dead after the game ends, except restart", {
 				id = "native_games::examples/05 word game — the state machine::input is dead after the game ends, except restart",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					guess(game, "READER")
 					expect((game.phase())):toBe("won")
 					local before = game.row(1)
@@ -411,15 +418,15 @@ return function(verifyHarness: Verify.Harness)
 					expect(findPath(ctx.node, "/WordGuess/page/Restart").Interactable):toBe(true)
 					tap(ctx, "/WordGuess/page/Restart")
 					expect((game.phase())):toBe("playing")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("restart is deterministic: the same seed replays the same word", {
+			it("restart is deterministic: the same seed replays the same word", {
 				id = "native_games::examples/05 word game — the state machine::restart is deterministic: the same seed replays the same word",
 				run = function()
 					local ctx = makeWorld()
-					local game = mountGame(ctx, wordGame)
+					local game, dispose = mountGame(ctx, wordGame)
 					expect((game.seed())):toBe(1)
 					expect((game.solution())):toBe(rules.solutionForSeed(1))
 					guess(game, "RULERS")
@@ -440,15 +447,15 @@ return function(verifyHarness: Verify.Harness)
 					game.restart(4)
 					expect((game.solution())):toBe(first)
 					expect((game.row(1))):toBe("")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("restart after a loss closes the results card and re-enables the keyboard", {
+			it("restart after a loss closes the results card and re-enables the keyboard", {
 				id = "native_games::examples/05 word game — the state machine::restart after a loss closes the results card and re-enables the keyboard",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					for _, word in { "RULERS", "ERRORS", "ALWAYS", "LEVELS", "SOLVED", "TILING", "WALNUT" } do
 						guess(game, word)
 					end
@@ -466,15 +473,15 @@ return function(verifyHarness: Verify.Harness)
 					expect(findPath(ctx.node, game.keyPath("Z")).Interactable):toBe(true)
 					typeWord(game, "AB")
 					expect((game.row(1))):toBe("AB")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("the results card's Close button actually closes it", {
+			it("the results card's Close button actually closes it", {
 				id = "native_games::examples/05 word game — the state machine::the results card's Close button actually closes it",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					guess(game, "READER")
 					expect((if game.resultsOpen() then 2 else 1)):toBe(2)
 					expect(find(ctx.node, "Close") ~= nil):toBe(true)
@@ -484,15 +491,15 @@ return function(verifyHarness: Verify.Harness)
 
 					expect((game.phase())):toBe("won")
 					expect((game.state(1, 1))):toBe("correct")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("the results card's New game button restarts from inside the card", {
+			it("the results card's New game button restarts from inside the card", {
 				id = "native_games::examples/05 word game — the state machine::the results card's New game button restarts from inside the card",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					guess(game, "READER")
 					tap(ctx, "/Again")
 					expect((if game.resultsOpen() then 2 else 1)):toBe(1)
@@ -500,19 +507,19 @@ return function(verifyHarness: Verify.Harness)
 
 					expect((game.seed())):toBe(READER_SEED + 1)
 					expect((game.solution())):toBe(rules.solutionForSeed(READER_SEED + 1))
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("tears down to a registry baseline after dispose", {
+			it("tears down to a registry baseline after dispose", {
 				id = "native_games::examples/05 word game — the state machine::tears down to a registry baseline after dispose",
 				run = function()
 					local ctx = makeWorld()
 					local baseline = #ctx.target:GetChildren()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					guess(game, "RULERS")
 					guess(game, "READER")
-					game.dispose()
+					dispose()
 					local after = #ctx.target:GetChildren()
 					expect(after):toBe(baseline)
 				end,
@@ -575,8 +582,8 @@ return function(verifyHarness: Verify.Harness)
 			end
 		end
 
-		verifyHarness:suite("examples/06 crossword — axis, run and connection", function()
-			verifyHarness:case("connection is ORTHOGONAL: touching diagonally is not touching", {
+		describe("examples/06 crossword — axis, run and connection", function()
+			it("connection is ORTHOGONAL: touching diagonally is not touching", {
 				id = "native_games::examples/06 crossword — axis, run and connection::connection is ORTHOGONAL: touching diagonally is not touching",
 				run = function()
 					local seeded =
@@ -598,11 +605,11 @@ return function(verifyHarness: Verify.Harness)
 			})
 		end)
 
-		verifyHarness:suite("examples/06 crossword — every word a turn creates", function()
+		describe("examples/06 crossword — every word a turn creates", function()
 			local DON = boardOf({ ".......", ".......", ".......", "..DON..", ".......", ".......", "......." })
 		end)
 
-		verifyHarness:suite("examples/06 crossword — nine refusals, nine sentences, on screen", function()
+		describe("examples/06 crossword — nine refusals, nine sentences, on screen", function()
 			local function said(game: any): string
 				return game.wordText()
 			end
@@ -611,11 +618,11 @@ return function(verifyHarness: Verify.Harness)
 				return game.hintText()
 			end
 
-			verifyHarness:case("1 — the first turn misses the centre", {
+			it("1 — the first turn misses the centre", {
 				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::1 — the first turn misses the centre",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 
 					game.select(1)
 					game.place(1, 1)
@@ -624,30 +631,30 @@ return function(verifyHarness: Verify.Harness)
 					game.submit()
 					expect((said(game))):toBe("Your first word has to cover the starred centre square.")
 					expect((game.turn())):toBe(1)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("2 — the tiles are not in one line", {
+			it("2 — the tiles are not in one line", {
 				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::2 — the tiles are not in one line",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					game.select(1)
 					game.place(4, 4)
 					game.select(2)
 					game.place(5, 5)
 					game.submit()
 					expect((said(game))):toBe("The tiles you place in a turn go in a single row or a single column.")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("3 — a gap in the run", {
+			it("3 — a gap in the run", {
 				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::3 — a gap in the run",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					game.select(1)
 					game.place(4, 4)
 					game.select(2)
@@ -656,15 +663,15 @@ return function(verifyHarness: Verify.Harness)
 					expect((said(game))):toBe(
 						"Leave no gaps — your tiles and the letters already on the board have to make one unbroken run."
 					)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("4 — a later turn touches nothing", {
+			it("4 — a later turn touches nothing", {
 				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::4 — a later turn touches nothing",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					play(game, WIN_SCRIPT, 1)
 					expect((game.turn())):toBe(2)
 
@@ -676,15 +683,15 @@ return function(verifyHarness: Verify.Harness)
 					expect((said(game))):toBe(
 						"After the first turn, a word has to touch a letter already on the board."
 					)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("5 — the main word is unknown, and the sentence names it", {
+			it("5 — the main word is unknown, and the sentence names it", {
 				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::5 — the main word is unknown, and the sentence names it",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 
 					game.select(1)
 					game.place(4, 4)
@@ -696,15 +703,15 @@ return function(verifyHarness: Verify.Harness)
 					expect((said(game))):toBe("EDA isn't a word this game knows.")
 
 					expect((rules.sayUnknown("PLZTK"))):toBe("PLZTK isn't a word this game knows.")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("6 — a crossing word is unknown, and the sentence names it AND its direction", {
+			it("6 — a crossing word is unknown, and the sentence names it AND its direction", {
 				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::6 — a crossing word is unknown, and the sentence names it AND its direction",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					play(game, WIN_SCRIPT, 1)
 
 					game.select(5)
@@ -717,15 +724,15 @@ return function(verifyHarness: Verify.Harness)
 					expect((game.pendingAt(5, 1))):toBe("A")
 					expect((game.pendingAt(5, 2))):toBe("I")
 					expect((game.turn())):toBe(2)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("8 — placing on an occupied square", {
+			it("8 — placing on an occupied square", {
 				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::8 — placing on an occupied square",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					game.select(1)
 					game.place(4, 4)
 					game.select(2)
@@ -733,30 +740,30 @@ return function(verifyHarness: Verify.Harness)
 					expect((said(game))):toBe("That square already has a letter.")
 
 					expect((game.selected())):toBe(2)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("8b — an off-board square takes nothing, so a stray call cannot beach a tile", {
+			it("8b — an off-board square takes nothing, so a stray call cannot beach a tile", {
 				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::8b — an off-board square takes nothing, so a stray call cannot beach a tile",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					game.select(1)
 					game.place(9, 9)
 
 					expect((game.selected())):toBe(1)
 					game.place(4, 4)
 					expect((game.selected())):toBe(nil)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("...and an uncommitted tile CAN be picked back up, which is what makes 9 a rule", {
+			it("...and an uncommitted tile CAN be picked back up, which is what makes 9 a rule", {
 				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::...and an uncommitted tile CAN be picked back up, which is what makes 9 a rule",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					local letter = game.rackLetter(1)
 					game.select(1)
 					game.place(4, 4)
@@ -766,15 +773,15 @@ return function(verifyHarness: Verify.Harness)
 					expect((game.pendingAt(4, 4))):toBeNil()
 					expect((game.rackLetter(1))):toBe(letter)
 					expect((said(game))):toBe("No tiles placed this turn.")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("the instruction line names the held tile, and clears on a placement", {
+			it("the instruction line names the held tile, and clears on a placement", {
 				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::the instruction line names the held tile, and clears on a placement",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					expect((hint(game))):toBe("Cover the starred square with a word to begin.")
 					local letter = game.rackLetter(1)
 					game.select(1)
@@ -782,17 +789,17 @@ return function(verifyHarness: Verify.Harness)
 					game.place(4, 4)
 					expect((hint(game))):toBe("Cover the starred square with a word to begin.")
 					expect((said(game))):toBe(`{letter} isn't a word this game knows.`)
-					game.dispose()
+					dispose()
 				end,
 			})
 		end)
 
-		verifyHarness:suite("examples/06 crossword — commit, refill, undo, budget", function()
-			verifyHarness:case("undo returns exactly the uncommitted tiles, to the slots they came from", {
+		describe("examples/06 crossword — commit, refill, undo, budget", function()
+			it("undo returns exactly the uncommitted tiles, to the slots they came from", {
 				id = "native_games::examples/06 crossword — commit, refill, undo, budget::undo returns exactly the uncommitted tiles, to the slots they came from",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					play(game, WIN_SCRIPT, 1)
 					local before = game.dump()
 					local rackBefore = {}
@@ -818,15 +825,15 @@ return function(verifyHarness: Verify.Harness)
 					game.select(4)
 					game.place(3, 4)
 					expect(game.pendingAt(3, 4) ~= nil):toBe(true)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("A REFUSED SUBMIT CHANGES NOTHING — every tile stays where the player put it", {
+			it("A REFUSED SUBMIT CHANGES NOTHING — every tile stays where the player put it", {
 				id = "native_games::examples/06 crossword — commit, refill, undo, budget::A REFUSED SUBMIT CHANGES NOTHING — every tile stays where the player put it",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					game.select(1)
 					game.place(4, 4)
 					game.select(2)
@@ -850,15 +857,15 @@ return function(verifyHarness: Verify.Harness)
 					end
 					expect((game.dump())):toBe(before)
 					expect(#ctx.target:GetChildren()):toBe(counters)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("the turn budget decrements only on a commit", {
+			it("the turn budget decrements only on a commit", {
 				id = "native_games::examples/06 crossword — commit, refill, undo, budget::the turn budget decrements only on a commit",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					expect((game.turnsLeft())):toBe(6)
 					game.submit()
 					expect((game.turnsLeft())):toBe(6)
@@ -872,15 +879,15 @@ return function(verifyHarness: Verify.Harness)
 					expect((game.turnsLeft())):toBe(6)
 					play(game, WIN_SCRIPT, 1)
 					expect((game.turnsLeft())):toBe(5)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("the legal-next-cell cue follows the rules, and locks with the axis", {
+			it("the legal-next-cell cue follows the rules, and locks with the axis", {
 				id = "native_games::examples/06 crossword — commit, refill, undo, budget::the legal-next-cell cue follows the rules, and locks with the axis",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 
 					expect((game.cellState(4, 4))):toBe("centre")
 					expect((game.cellState(1, 1))):toBe("idle")
@@ -895,17 +902,17 @@ return function(verifyHarness: Verify.Harness)
 					expect((game.cellState(4, 3))):toBe("legal")
 					expect((game.cellState(3, 4))):toBe("idle")
 					expect((game.cellState(4, 4))):toBe("pending")
-					game.dispose()
+					dispose()
 				end,
 			})
 		end)
 
-		verifyHarness:suite("examples/06 crossword — both endings, and the way back", function()
-			verifyHarness:case("reaching the goal wins, and the screen says which ending it was", {
+		describe("examples/06 crossword — both endings, and the way back", function()
+			it("reaching the goal wins, and the screen says which ending it was", {
 				id = "native_games::examples/06 crossword — both endings, and the way back::reaching the goal wins, and the screen says which ending it was",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					play(game, WIN_SCRIPT)
 					expect((game.phase())):toBe("won")
 					expect((game.score())):toBe(67)
@@ -924,15 +931,15 @@ return function(verifyHarness: Verify.Harness)
 					tap(ctx, game.resetPath)
 					expect((game.phase())):toBe("playing")
 					expect((game.score())):toBe(0)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("spending the budget without reaching the goal loses, and says so", {
+			it("spending the budget without reaching the goal loses, and says so", {
 				id = "native_games::examples/06 crossword — both endings, and the way back::spending the budget without reaching the goal loses, and says so",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					play(game, LOSS_SCRIPT)
 					expect((game.phase())):toBe("lost")
 					expect((game.score())):toBe(14)
@@ -942,15 +949,15 @@ return function(verifyHarness: Verify.Harness)
 					tap(ctx, game.resetPath)
 					expect((game.phase())):toBe("playing")
 					expect((game.turnsLeft())):toBe(6)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("restart returns EVERY observable to its seeded start", {
+			it("restart returns EVERY observable to its seeded start", {
 				id = "native_games::examples/06 crossword — both endings, and the way back::restart returns EVERY observable to its seeded start",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					local start = game.dump()
 					local startHint = game.hintText()
 					local startWord = game.wordText()
@@ -969,17 +976,17 @@ return function(verifyHarness: Verify.Harness)
 
 					play(game, WIN_SCRIPT, 1)
 					expect((game.score())):toBe(16)
-					game.dispose()
+					dispose()
 				end,
 			})
 		end)
 
-		verifyHarness:suite("examples/06 crossword — robustness", function()
-			verifyHarness:case("rapid alternating input leaves no stale selection or held tile", {
+		describe("examples/06 crossword — robustness", function()
+			it("rapid alternating input leaves no stale selection or held tile", {
 				id = "native_games::examples/06 crossword — robustness::rapid alternating input leaves no stale selection or held tile",
 				run = function()
 					local ctx = makeWorld()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					for _ = 1, 20 do
 						tap(ctx, game.rackPath(1))
 						tap(ctx, game.cellPath(4, 4))
@@ -995,20 +1002,20 @@ return function(verifyHarness: Verify.Harness)
 					expect((game.score())):toBe(0)
 					expect((game.turn())):toBe(1)
 					expect((game.phase())):toBe("playing")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("tears down to a registry baseline after dispose", {
+			it("tears down to a registry baseline after dispose", {
 				id = "native_games::examples/06 crossword — robustness::tears down to a registry baseline after dispose",
 				run = function()
 					local ctx = makeWorld()
 					local baseline = #ctx.target:GetChildren()
-					local game = newGame(ctx)
+					local game, dispose = newGame(ctx)
 					play(game, WIN_SCRIPT, 2)
 					tap(ctx, game.rackPath(1))
 					tap(ctx, game.cellPath(1, 1))
-					game.dispose()
+					dispose()
 					local after = #ctx.target:GetChildren()
 					expect(after):toBe(baseline)
 				end,
@@ -1037,14 +1044,14 @@ return function(verifyHarness: Verify.Harness)
 		local function newGame(board: { { string } }?, reduced: boolean?)
 			local ctx = makeWorld()
 			ctx.engine.environment.poke(ctx.guiService, "ReducedMotionEnabled", reduced == true)
-			local game = mountGame(ctx, match3)
+			local game, dispose = mountGame(ctx, match3)
 			game.debugSetBoard(board or swapBoard)
-			return game, ctx
+			return game, ctx, dispose
 		end
-		local function tile(ctx, id)
-			return find(ctx.node, "tile" .. id)
+		local function tile(ctx: World, id: number?)
+			return find(ctx.node, "tile" .. assert(id))
 		end
-		local function advanceTo(game, ctx, phase)
+		local function advanceTo(game: { read phase: () -> string }, ctx: World, phase: string)
 			for _ = 1, 2400 do
 				if game.phase() == phase then
 					return
@@ -1053,17 +1060,17 @@ return function(verifyHarness: Verify.Harness)
 			end
 			error("Match3 did not reach " .. phase)
 		end
-		local function sameArray(actual, expected)
+		local function sameArray<T>(actual: { read [number]: T }, expected: { read [number]: T })
 			expect(#actual):toBe(#expected)
 			for index, value in expected do
 				expect(actual[index]):toBe(value)
 			end
 		end
-		verifyHarness:suite("examples/07 native Match3 parity", function()
-			verifyHarness:case("keeps tile identity while a valid swap travels between endpoints", {
+		describe("examples/07 native Match3 parity", function()
+			it("keeps tile identity while a valid swap travels between endpoints", {
 				id = "native_games::examples/07 native Match3 parity::keeps tile identity while a valid swap travels between endpoints",
 				run = function()
-					local game, ctx = newGame()
+					local game, ctx, dispose = newGame()
 					local id = game.tileIdAt(1, 3)
 					local original = tile(ctx, id)
 					expect(original.Position.Y.Offset):toBe(0)
@@ -1073,16 +1080,16 @@ return function(verifyHarness: Verify.Harness)
 					ctx.engine.heartbeat:Fire(0.05)
 					expect(original.Position.Y.Offset > 0 and original.Position.Y.Offset < 48):toBe(true)
 					expect((game.phase())):toBe("swap")
-					game.dispose()
+					dispose()
 					expect((original:isDestroyed())):toBe(true)
 					expect((engineLib.connections(ctx.engine.heartbeat))):toBe(0)
 				end,
 			})
 
-			verifyHarness:case("fades retiring tiles then drops survivors and introduces new tiles above the board", {
+			it("fades retiring tiles then drops survivors and introduces new tiles above the board", {
 				id = "native_games::examples/07 native Match3 parity::fades retiring tiles then drops survivors and introduces new tiles above the board",
 				run = function()
-					local game, ctx = newGame(dropBoard)
+					local game, ctx, dispose = newGame(dropBoard)
 					local oldIds = game.tileIds()
 					local removed = tile(ctx, game.tileIdAt(3, 1))
 					local survivorId = game.tileIdAt(2, 1)
@@ -1099,7 +1106,7 @@ return function(verifyHarness: Verify.Harness)
 					ctx.engine.heartbeat:Fire(0.04)
 					expect(survivor.Position.Y.Offset > 48 and survivor.Position.Y.Offset < 96):toBe(true)
 					advanceTo(game, ctx, "refill")
-					local newId = game.tileIdAt(1, 1)
+					local newId = assert(game.tileIdAt(1, 1))
 					local arrived = tile(ctx, newId)
 					expect((table.find(oldIds, newId))):toBe(nil)
 					expect(arrived.Position.Y.Offset < 0):toBe(true)
@@ -1114,15 +1121,15 @@ return function(verifyHarness: Verify.Harness)
 					expect(#game.tileIds()):toBe(36)
 					expect((game.moves())):toBe(1)
 					expect(game.score() >= 3):toBe(true)
-					game.dispose()
+					dispose()
 					expect((engineLib.connections(ctx.engine.heartbeat))):toBe(0)
 				end,
 			})
 
-			verifyHarness:case("reverts a refused swap and keeps the board and move budget unchanged", {
+			it("reverts a refused swap and keeps the board and move budget unchanged", {
 				id = "native_games::examples/07 native Match3 parity::reverts a refused swap and keeps the board and move budget unchanged",
 				run = function()
-					local game, ctx = newGame()
+					local game, ctx, dispose = newGame()
 					local before = game.boardSnapshot()
 					local id = game.tileIdAt(1, 1)
 					local original = tile(ctx, id)
@@ -1138,54 +1145,52 @@ return function(verifyHarness: Verify.Harness)
 					expect((game.tileIdAt(1, 1))):toBe(id)
 					expect((game.moves())):toBe(0)
 					expect(string.find(game.hintText(), "no run", 1, true) ~= nil):toBe(true)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case(
-				"keeps deterministic results under native reduced motion and changes paint immediately",
-				{
-					id = "native_games::examples/07 native Match3 parity::keeps deterministic results under native reduced motion and changes paint immediately",
-					run = function()
-						local outcomes = {}
-						for _, reduced in { false, true } do
-							local game, ctx = newGame(swapBoard, reduced)
-							local moving = tile(ctx, game.tileIdAt(1, 3))
-							game.swap(1, 3, 2, 3)
-							expect(moving.Position.Y.Offset):toBe(if reduced then 48 else 0)
-							advanceTo(game, ctx, "idle")
-							table.insert(outcomes, {
-								board = game.boardSnapshot(),
-								score = game.score(),
-								moves = game.moves(),
-								log = game.phaseLog(),
-								ids = game.tileIds(),
-							})
-							game.dispose()
-						end
-						sameArray(outcomes[1].board, outcomes[2].board)
-						sameArray(outcomes[1].log, outcomes[2].log)
-						sameArray(outcomes[1].ids, outcomes[2].ids)
-						expect(outcomes[1].score):toBe(outcomes[2].score)
-						expect(outcomes[1].moves):toBe(outcomes[2].moves)
-						local game, ctx = newGame()
+			it("keeps deterministic results under native reduced motion and changes paint immediately", {
+				id = "native_games::examples/07 native Match3 parity::keeps deterministic results under native reduced motion and changes paint immediately",
+				run = function()
+					local outcomes: { { board: { string }, score: number, moves: number, log: { string }, ids: { number } } } =
+						{}
+					for _, reduced in { false, true } do
+						local game, ctx, dispose = newGame(swapBoard, reduced)
 						local moving = tile(ctx, game.tileIdAt(1, 3))
 						game.swap(1, 3, 2, 3)
-						ctx.engine.heartbeat:Fire(0.03)
-						ctx.engine.environment.poke(ctx.guiService, "ReducedMotionEnabled", true)
-						expect(moving.Position.Y.Offset):toBe(48)
-						game.dispose()
-						expect((engineLib.connections(ctx.guiService:GetPropertyChangedSignal("ReducedMotionEnabled")))):toBe(
-							0
-						)
-					end,
-				}
-			)
+						expect(moving.Position.Y.Offset):toBe(if reduced then 48 else 0)
+						advanceTo(game, ctx, "idle")
+						table.insert(outcomes, {
+							board = game.boardSnapshot(),
+							score = game.score(),
+							moves = game.moves(),
+							log = game.phaseLog(),
+							ids = game.tileIds(),
+						})
+						dispose()
+					end
+					sameArray(outcomes[1].board, outcomes[2].board)
+					sameArray(outcomes[1].log, outcomes[2].log)
+					sameArray(outcomes[1].ids, outcomes[2].ids)
+					expect(outcomes[1].score):toBe(outcomes[2].score)
+					expect(outcomes[1].moves):toBe(outcomes[2].moves)
+					local game, ctx, dispose = newGame()
+					local moving = tile(ctx, game.tileIdAt(1, 3))
+					game.swap(1, 3, 2, 3)
+					ctx.engine.heartbeat:Fire(0.03)
+					ctx.engine.environment.poke(ctx.guiService, "ReducedMotionEnabled", true)
+					expect(moving.Position.Y.Offset):toBe(48)
+					dispose()
+					expect((engineLib.connections(ctx.guiService:GetPropertyChangedSignal("ReducedMotionEnabled")))):toBe(
+						0
+					)
+				end,
+			})
 
-			verifyHarness:case("retries failed artwork through native controls without replacing tile identity", {
+			it("retries failed artwork through native controls without replacing tile identity", {
 				id = "native_games::examples/07 native Match3 parity::retries failed artwork through native controls without replacing tile identity",
 				run = function()
-					local game, ctx = newGame()
+					local game, ctx, dispose = newGame()
 					local original = tile(ctx, game.tileIdAt(1, 1))
 					local image = find(original, "img")
 					local asset = image.Image
@@ -1200,14 +1205,14 @@ return function(verifyHarness: Verify.Harness)
 					expect((game.artStatusText())):toBe("Artwork: all 5 ready")
 					expect((tile(ctx, game.tileIdAt(1, 1)))):toBe(original)
 					expect(find(original, "hit").Text):toBe("")
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("selects detector taps once and swaps adjacent tiles with mouse and touch", {
+			it("selects detector taps once and swaps adjacent tiles with mouse and touch", {
 				id = "native_games::examples/07 native Match3 parity::selects detector taps once and swaps adjacent tiles with mouse and touch",
 				run = function()
-					local game, ctx = newGame()
+					local game, ctx, dispose = newGame()
 					local first = find(tile(ctx, game.tileIdAt(1, 3)), "hit")
 					local second = find(tile(ctx, game.tileIdAt(2, 3)), "hit")
 					for _, hit in { first, second } do
@@ -1238,38 +1243,35 @@ return function(verifyHarness: Verify.Harness)
 					advanceTo(game, ctx, "idle")
 					expect((game.moves())):toBe(1)
 					expect(game.score() >= 3):toBe(true)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case(
-				"uses detector release position and preserves the next keyboard activation after dragging",
-				{
-					id = "native_games::examples/07 native Match3 parity::uses detector release position and preserves the next keyboard activation after dragging",
-					run = function()
-						local game, ctx = newGame()
-						local first = find(tile(ctx, game.tileIdAt(1, 1)), "hit")
-						local drag = find(first, "SwapDrag")
-						drag.DragStart:Fire(ctx.types.Vector2.new(20, 20))
-						drag.DragEnd:Fire(ctx.types.Vector2.new(52, 20))
-						first.Activated:Fire({ UserInputType = ctx.types.Enum.UserInputType.MouseButton1 })
-						expect((game.isResolving())):toBe(true)
-						advanceTo(game, ctx, "idle")
-						expect((game.moves())):toBe(0)
-						first.SelectionGained:Fire()
-						find(ctx.target, "Activate").Pressed:Fire()
-						expect((first:GetAttribute("selected"))):toBe(true)
-						first.Activated:Fire({ UserInputType = ctx.types.Enum.UserInputType.Gamepad1 })
-						expect((first:GetAttribute("selected"))):toBe(false)
-						game.dispose()
-					end,
-				}
-			)
+			it("uses detector release position and preserves the next keyboard activation after dragging", {
+				id = "native_games::examples/07 native Match3 parity::uses detector release position and preserves the next keyboard activation after dragging",
+				run = function()
+					local game, ctx, dispose = newGame()
+					local first = find(tile(ctx, game.tileIdAt(1, 1)), "hit")
+					local drag = find(first, "SwapDrag")
+					drag.DragStart:Fire(ctx.types.Vector2.new(20, 20))
+					drag.DragEnd:Fire(ctx.types.Vector2.new(52, 20))
+					first.Activated:Fire({ UserInputType = ctx.types.Enum.UserInputType.MouseButton1 })
+					expect((game.isResolving())):toBe(true)
+					advanceTo(game, ctx, "idle")
+					expect((game.moves())):toBe(0)
+					first.SelectionGained:Fire()
+					find(ctx.target, "Activate").Pressed:Fire()
+					expect((first:GetAttribute("selected"))):toBe(true)
+					first.Activated:Fire({ UserInputType = ctx.types.Enum.UserInputType.Gamepad1 })
+					expect((first:GetAttribute("selected"))):toBe(false)
+					dispose()
+				end,
+			})
 
-			verifyHarness:case("cancels uncaptured releases, outside taps and drags that return to their start", {
+			it("cancels uncaptured releases, outside taps and drags that return to their start", {
 				id = "native_games::examples/07 native Match3 parity::cancels uncaptured releases, outside taps and drags that return to their start",
 				run = function()
-					local game, ctx = newGame()
+					local game, ctx, dispose = newGame()
 					local first = find(tile(ctx, game.tileIdAt(1, 1)), "hit")
 					ctx.engine.environment.poke(first, "AbsolutePosition", ctx.types.Vector2.new(100, 100))
 					ctx.engine.environment.poke(first, "AbsoluteSize", ctx.types.Vector2.new(44, 44))
@@ -1286,14 +1288,14 @@ return function(verifyHarness: Verify.Harness)
 					expect((first:GetAttribute("selected"))):toBe(false)
 					expect((game.isResolving())):toBe(false)
 					expect((game.moves())):toBe(0)
-					game.dispose()
+					dispose()
 				end,
 			})
 
-			verifyHarness:case("selects with native keyboard and gamepad events and keeps grid neighbors current", {
+			it("selects with native keyboard and gamepad events and keeps grid neighbors current", {
 				id = "native_games::examples/07 native Match3 parity::selects with native keyboard and gamepad events and keeps grid neighbors current",
 				run = function()
-					local game, ctx = newGame()
+					local game, ctx, dispose = newGame()
 					local first = find(tile(ctx, game.tileIdAt(1, 3)), "hit")
 					local second = find(tile(ctx, game.tileIdAt(2, 3)), "hit")
 					expect(first.NextSelectionDown):toBe(second)
@@ -1317,7 +1319,7 @@ return function(verifyHarness: Verify.Harness)
 							expect(hit.NextSelectionRight):toBe(find(tile(ctx, game.tileIdAt(row, col + 1)), "hit"))
 						end
 					end
-					game.dispose()
+					dispose()
 				end,
 			})
 		end)

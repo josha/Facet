@@ -21,6 +21,22 @@ local function raster(width: number, height: number, pixel: (number, number) -> 
 	return { width = width, height = height, channels = 3, data = data }
 end
 
+local function flat(): number
+	return 20
+end
+
+local function ripple(x: number): number
+	return 120 + x % 3
+end
+
+local function noise(x: number, y: number): number
+	return (x * 37 + y * 71) % 256
+end
+
+local function horizon(_x: number, y: number): number
+	return if y < 64 then 180 else 40
+end
+
 local function sparse(x: number, y: number): number
 	return if x >= 16 and x < 24 and y >= 16 and y < 24 then 220 else 20
 end
@@ -30,17 +46,13 @@ return function(harness: Verify.Harness)
 		for _, fixture in
 			{
 				{
-					image = raster(128, 128, function()
-						return 20
-					end),
+					image = raster(128, 128, flat),
 					classification = "unusable",
 					blank = true,
 				},
 				{ image = raster(32, 32, sparse), classification = "unusable", blank = false },
 				{
-					image = raster(128, 128, function(x)
-						return 120 + x % 3
-					end),
+					image = raster(128, 128, ripple),
 					classification = "needs-review",
 					blank = false,
 				},
@@ -53,7 +65,7 @@ return function(harness: Verify.Harness)
 		end
 	end)
 	harness:case("capture triage does not call an unsampled pixel uniform", function(t)
-		local image = raster(128, 128, function(x, y)
+		local image = raster(128, 128, function(x: number, y: number): number
 			return if x == 1 and y == 1 then 220 else 20
 		end)
 		local inspection = Capture.inspect(image)
@@ -76,12 +88,8 @@ return function(harness: Verify.Harness)
 	harness:case("noise and a world-only horizon remain unreviewed rather than approved UI", function(t)
 		for _, image in
 			{
-				raster(128, 128, function(x, y)
-					return (x * 37 + y * 71) % 256
-				end),
-				raster(128, 128, function(_x, y)
-					return if y < 64 then 180 else 40
-				end),
+				raster(128, 128, noise),
+				raster(128, 128, horizon),
 			}
 		do
 			local inspection = Capture.inspect(image)
@@ -94,11 +102,7 @@ return function(harness: Verify.Harness)
 		t:defer(function()
 			Files.remove(directory)
 		end)
-		for _, image in
-			{ raster(128, 128, function()
-				return 20
-			end), raster(128, 128, sparse) }
-		do
+		for _, image in { raster(128, 128, flat), raster(128, 128, sparse) } do
 			local source, target = directory .. "/source.png", directory .. "/normalized.png"
 			Files.write(source, buffer.tostring(Png.encode(image, true)))
 			local inspection, problem = Capture.convert(source, target)
@@ -151,15 +155,7 @@ return function(harness: Verify.Harness)
 		t:expect(Files.isFile(context.captures .. "/desktop/sparse.png")):toBe(false)
 		local firstPath = assert(shots[1].reviewPath)
 		local firstBytes = Files.read(firstPath)
-		Files.write(
-			source,
-			buffer.tostring(Png.encode(
-				raster(128, 128, function(_x, y)
-					return if y < 64 then 180 else 40
-				end),
-				true
-			))
-		)
+		Files.write(source, buffer.tostring(Png.encode(raster(128, 128, horizon), true)))
 		qa:capture("sparse")
 		t:expect(calls):toBe(2)
 		t:expect(stems[1] ~= stems[2]):toBe(true)

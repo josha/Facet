@@ -9,6 +9,7 @@
     "$className": "DataModel",
     "Workspace": {
       "$properties": {
+        "UseNewLuauTypeSolver": "Enabled",
         "PlayerScriptsUseInputActionSystem": "Enabled"
       },
       "Ground": {

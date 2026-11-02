@@ -2,7 +2,7 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Bounded = { width: unknown?, label: unknown?, Size: unknown?, AutomaticSize: unknown? }
 
 return function<P>(
@@ -14,7 +14,8 @@ return function<P>(
 	boundLabel: boolean?,
 	maximum: number?
 ): P & Bounded
-	local width = props.width
+	local bounded: Bounded = props
+	local width = bounded.width
 	if control == false then
 		return props
 	end
@@ -24,16 +25,16 @@ return function<P>(
 		end)
 		else available
 	if type(width) == "number" then
-		props.width = Compose.formula(function(use)
+		bounded.width = Compose.formula(function(use)
 			return math.min(width, math.max(0, use(room)))
 		end)
 	end
-	if boundLabel and type(props.label) == "string" and props.Size == nil and width == nil then
+	if boundLabel and type(bounded.label) == "string" and bounded.Size == nil and width == nil then
 		local native = if types then types.UDim2 else UDim2
-		props.Size = Compose.formula(function(use)
+		bounded.Size = Compose.formula(function(use)
 			return native.fromOffset(math.max(0, use(room)), 0)
 		end)
-		props.AutomaticSize = if types then types.Enum.AutomaticSize.Y else Enum.AutomaticSize.Y
+		bounded.AutomaticSize = if types then types.Enum.AutomaticSize.Y else Enum.AutomaticSize.Y
 	end
 	return props
 end

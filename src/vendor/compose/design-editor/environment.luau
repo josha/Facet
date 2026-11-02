@@ -14,6 +14,7 @@ export type Values = {
 
 export type Environment = {
 	values: Values,
+	read: (subject: unknown, property: string) -> unknown,
 	service: (name: string) -> unknown,
 	invoke: (node: unknown, method: string, ...unknown) -> ...unknown,
 	descendants: (node: unknown) -> { unknown },

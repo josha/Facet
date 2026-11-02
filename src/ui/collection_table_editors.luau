@@ -11,8 +11,9 @@ local NavigationProps = require("./navigation_props")
 local EDITORS = { text = true, number = true, toggle = true, menu = true }
 local SETTINGS = { "options", "min", "max", "step", "draft", "validate", "editLabel", "editable" }
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
+return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local Compose, read = ctx.Compose, ctx.read
+	local readText = ctx.read<<string>>
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local editors = {}
 	local function build(spec: CollectionProps.CellEditorSpec): Frame
@@ -82,7 +83,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 		local display: TextLabel? = nil
 		local fieldHeight: ComposeTypes.ReadOnlyValue<UDim2>? = nil
 		if spec.editor == "toggle" then
-			child = UI.Toggle(({
+			local toggle: InputProps.ToggleRequestProps = {
 				Name = "Editor",
 				presentation = "checkbox",
 				appearance = "plain",
@@ -93,13 +94,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 				end,
 				onChange = propose,
 				enabled = enabled,
-			} :: unknown) :: InputProps.ToggleProps)
+			}
+			child = UI.Toggle(toggle)
 		elseif spec.editor == "menu" then
 			local selected = Compose.cell(value())
 			Compose.watch(function(use: ComposeTypes.Use)
 				selected:set(value(use))
 			end)
-			child = UI.Picker(({
+			local picker: NavigationProps.SinglePickerSpec<unknown> = {
 				Name = "Editor",
 				style = "menu",
 				appearance = "utility",
@@ -112,7 +114,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 					propose(nextValue)
 					return false
 				end,
-			} :: unknown) :: NavigationProps.SinglePickerSpec<unknown>)
+			}
+			child = UI.Picker(picker)
 		else
 			local input = Compose.cell("")
 			local numeric = Compose.cell(tonumber(value()) or 0)
@@ -132,7 +135,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 						else ""
 				)
 			end)
-			local props = {
+			local props: InputProps.TextInputCellProps = {
 				Name = "Editor",
 				appearance = "utility",
 				controlSize = "compact",
@@ -191,8 +194,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 					local parent: Instance? = hit.Parent
 					while parent and not parent:IsA("LayerCollector") do
 						local row = parent:FindFirstChild("RowHit")
-						if row then
-							return row :: GuiObject
+						if row and row:IsA("GuiObject") then
+							return row
 						end
 						parent = parent.Parent
 					end
@@ -237,11 +240,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 					end
 					activation.consume(input)
 				end
-				hit = ctx.Host.TextButton({
+				hit = ctx.Host.TextButton {
 					Name = "EditLabel",
 					Attributes = {
 						AccessibleLabel = function(use: ComposeTypes.Use): string
-							return read(spec.label or spec.editLabel or "Edit value", use)
+							return readText(spec.label or spec.editLabel or "Edit value", use)
 						end,
 					} :: Types.Attributes,
 					Text = "",
@@ -252,7 +255,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 					Activated = function(input: InputObject?, clicks: number?)
 						activate(input, math.max(0, (clicks or 1) - 1))
 					end,
-				})
+				}
 				ctx.runtime.connect(hit, "AncestryChanged", function()
 					hit.Selectable = rowHit() == nil
 				end)
@@ -279,11 +282,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 						ctx.Host.UIPadding {
 							PaddingLeft = D.new(0, 10),
 							PaddingRight = D.new(0, 10),
-						} :: ComposeTypes.Child,
+						},
 						hit,
 					}),
 					"Text"
-				) :: TextLabel
+				)
 				local initialized = Compose.cell(false)
 				Compose.watch(function(use: ComposeTypes.Use)
 					if use(editing) then
@@ -304,11 +307,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 							numberProps.min, numberProps.max, numberProps.step = spec.min, spec.max, spec.step
 							editor = UI.NumberInput(numberProps)
 						else
-							editor = UI.TextInput((props :: unknown) :: InputProps.TextInputProps)
+							editor = UI.TextInput(props)
 						end
 						local field = (
 							if editor:IsA("TextBox") then editor else editor:FindFirstChildWhichIsA("TextBox", true)
-						) :: TextBox
+						)
+						assert(field and field:IsA("TextBox"))
 						local function focus()
 							if
 								alive
@@ -375,8 +379,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 			Size = D2.new(1, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 			BackgroundTransparency = 1,
-			child :: ComposeTypes.Child,
-			display :: ComposeTypes.Child,
+			child,
+			display,
 			if fieldHeight
 				then ctx.Host.UISizeConstraint {
 					Name = "FieldSize",
@@ -461,7 +465,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 				editor = assert(column.editor),
 				label = column.label or column.id,
 				editLabel = column.editLabel or function(use: ComposeTypes.Use): string
-					return "Edit " .. read(column.label or column.id, use)
+					return "Edit " .. readText(column.label or column.id, use)
 				end,
 				value = function(use: ComposeTypes.Use): unknown
 					return raw(use(current))

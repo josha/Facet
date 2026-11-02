@@ -13,6 +13,7 @@ return function<V, K>(
 	defaultMode: "none" | "single" | "multiple"
 ): ((K, V, InputObject?) -> (), (K?, K) -> ())
 	local Compose, read, E = ctx.Compose, ctx.read, ctx.types.Enum
+	local readRows = ctx.read<<{ V }>>
 	local anchor: K?
 	local mode = spec.selectionMode or defaultMode
 	assert(
@@ -28,7 +29,7 @@ return function<V, K>(
 	end
 	local function validKeys(use: ComposeTypes.Use): { [K]: boolean }
 		local valid: { [K]: boolean } = {}
-		for index, item in read(spec.selectionFrom or source, use) do
+		for index, item in readRows(spec.selectionFrom or source, use) do
 			valid[keyOf(item, index)] = true
 		end
 		return valid
@@ -94,7 +95,7 @@ return function<V, K>(
 				selected[key] = true
 			end
 		end
-		local rows = read(source)
+		local rows = readRows(source)
 		for index = math.min(first, last), math.max(first, last) do
 			local candidate = rows[index]
 			if candidate ~= nil and eligible(candidate) then
@@ -114,7 +115,6 @@ return function<V, K>(
 		end
 		if mode ~= "multiple" then
 			local selected = if read(spec.editing) == true and selection:peek()[key] then {} else { [key] = true }
-			anchorAt(key, selected)
 			publish(selected)
 			return
 		end
@@ -125,7 +125,7 @@ return function<V, K>(
 		if held(toggle) or read(spec.editing) == true then
 			local current = selection:peek()
 			for other, on in current do
-				if on and other ~= key then
+				if on and not rawequal(other, key) then
 					selected[other] = true
 				end
 			end
@@ -139,7 +139,7 @@ return function<V, K>(
 		publish(selected)
 	end
 	local function extend(from: K?, to: K): ()
-		if mode ~= "multiple" or from == nil or from == to or not held(shift) then
+		if mode ~= "multiple" or from == nil or rawequal(from, to) or not held(shift) then
 			return
 		end
 		if anchor == nil or assert(controls.indexOfKey)(anchor :: K) == nil then

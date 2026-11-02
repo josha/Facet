@@ -5,9 +5,21 @@ local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
-local Verify = (require :: any)(game.ReplicatedStorage:WaitForChild("FacetVerify"):WaitForChild("core"))
+local Verify: typeof(require("@repo/tools/vendor/verify/src/core")) =
+	require(game.ReplicatedStorage:WaitForChild("FacetVerify"):WaitForChild("core"))
 
-return function(live: any, suite: string, options: { [string]: any }): any
+type Options = {
+	complete: boolean?,
+	registerOnly: boolean?,
+	device: string?,
+	only: string?,
+	ids: { string }?,
+	changeNativeTextSize: (() -> ())?,
+	connectGamepad: (() -> ())?,
+	disconnectGamepad: (() -> ())?,
+}
+
+return function(live: any, suite: string, options: Options): any
 	local automaticReport = nil
 	if options.complete and suite ~= "haptics_pair" then
 		local ids = {}
@@ -55,11 +67,17 @@ return function(live: any, suite: string, options: { [string]: any }): any
 	end
 	local keyboardInput = UserInputService.KeyboardEnabled
 		and UserInputService.PreferredInput ~= Enum.PreferredInput.Gamepad
-	local function centre(node: GuiObject): Vector2
+	local function gui(value: unknown): GuiObject
+		assert(typeof(value) == "Instance" and value:IsA("GuiObject"), "native input target must be a GuiObject")
+		return value
+	end
+	local function centre(value: unknown): Vector2
+		local node = gui(value)
 		return node.AbsolutePosition + node.AbsoluteSize / 2
 	end
 	local function pointer(t: any): any
-		local virtual = (UserInputService :: any):CreateVirtualInput()
+		local virtual = assert(UserInputService:CreateVirtualInput(), "native virtual input is unavailable")
+		assert(virtual:IsA("VirtualInput"))
 		local inset = GuiService:GetGuiInset()
 		if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
 			local shield = Instance.new("ScreenGui")
@@ -155,7 +173,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 				settle(1)
 			end
 		end
-		function io.pointerAction(at: Vector2, action: { Wheel: number?, Pan: Vector2?, Pinch: number? })
+		function io.pointerAction(at: Vector2, action: { [string]: number | Vector2 })
 			io.move(at)
 			virtual:SendPointerAction(at + inset, action)
 			settle(30)
@@ -283,12 +301,13 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		api:Invoke("device", "desktop")
 		settle(20)
 		local detail = value.root:FindFirstChild("Detail")
-		if detail == nil or not detail.Visible then
-			local menu = assert(t.find(value.layer, "ViewOptions"))
+		if detail == nil or not detail:IsA("GuiObject") or not detail.Visible then
+			local menu = gui(t.find(value.layer, "ViewOptions"))
 			io.click(centre(menu:FindFirstChild("Trigger", true) or menu))
 			settle(8)
-			local panel = assert(t.find(Players.LocalPlayer.PlayerGui, "MenuPanel"))
-			io.click(centre(assert(t.find(panel, "linked"))))
+			local panel = gui(t.find(Players.LocalPlayer.PlayerGui, "MenuPanel"))
+			local linked = gui(t.find(panel, "linked"))
+			io.click(centre(linked))
 			settle(20)
 		end
 		live.step("wide")
@@ -314,12 +333,13 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		live.step("divider")
 		api:Invoke("device", "phone")
 		settle(20)
-		if not value.root.Detail.Visible then
+		if not gui(value.root.Detail).Visible then
 			io.click(centre(assert(value.root.NavigationBar:FindFirstChild("ShowDetail"))))
 			settle(12)
 		end
 		live.step("compact")
-		io.click(centre(assert(t.find(value.root.NavigationBar, "Back"))))
+		local back = gui(t.find(value.root.NavigationBar, "Back"))
+		io.click(centre(back))
 		settle(12)
 		live.step("back")
 		api:Invoke("device", "automatic")
@@ -328,7 +348,8 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		(workspace:WaitForChild("FacetShowcaseAPI") :: BindableFunction):Invoke("device", "phone")
 		settle(30)
 		local function swipe(direction: number)
-			local window = assert(t.clipped(value.inner), "file list has no visible touch area")
+			local clip: { x: number, y: number, w: number, h: number }? = t.clipped(value.inner)
+			local window = assert(clip, "file list has no visible touch area")
 			local start = Vector2.new(window.x + window.w / 2, window.y + window.h / 2)
 			local finish = start + Vector2.new(0, direction * math.min(120, window.h / 3))
 			io.heldDrag(start, finish)
@@ -793,17 +814,17 @@ return function(live: any, suite: string, options: { [string]: any }): any
 	drivers["touch-drag-scrolls-reorderable-list"] = function(t, value, io)
 		local cell = t.find(value.list, "Cell3")
 		local from = centre(cell)
-		local distance = math.min(160, from.Y - value.list.AbsolutePosition.Y - 8)
+		local distance = math.min(160, from.Y - gui(value.list).AbsolutePosition.Y - 8)
 		t.note("native scroll drag", { from = from, to = from - Vector2.new(0, distance) })
 		io.drag(from, from - Vector2.new(0, distance))
 		live.step("afterDrag")
 	end
 	drivers["mail-swipe-and-tap"] = function(t, value, io)
-		local row = t.find(value.stage, "Row_m1")
+		local row = gui(t.find(value.stage, "Row_m1"))
 		local from = row.AbsolutePosition + Vector2.new(row.AbsoluteSize.X * 0.8, row.AbsoluteSize.Y / 2)
 		io.drag(from, from - Vector2.new(row.AbsoluteSize.X * 0.4, 0), 20)
 		live.step("afterSwipe")
-		local fifth = t.find(value.stage, "Row_m5")
+		local fifth = gui(t.find(value.stage, "Row_m5"))
 		local parent = fifth.Parent
 		while parent do
 			if parent:IsA("ScrollingFrame") then
@@ -871,7 +892,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		live.step("afterActivate")
 	end
 	drivers["confirm-dialog-left-right"] = function(t, value)
-		GuiService.SelectedObject = assert(value.stage:FindFirstChild("Delete", true)) :: GuiObject
+		GuiService.SelectedObject = gui(value.stage:FindFirstChild("Delete", true))
 		settle(2)
 		press(t, { "ButtonA" })
 		live.step("afterOpen")
@@ -959,7 +980,8 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		end
 	end
 	drivers["shuffle-pointer"] = function(t, value, io)
-		local button = assert(value.row.Parent:FindFirstChild("Shuffle", true))
+		local button = gui(value.row.Parent:FindFirstChild("Shuffle", true))
+		assert(button:IsA("GuiButton"))
 		local activated = 0
 		local watch = button.Activated:Connect(function()
 			activated += 1
@@ -977,7 +999,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		watch:Disconnect()
 	end
 	drivers["shuffle-gamepad"] = function(t, value)
-		GuiService.SelectedObject = assert(value.row.Parent:FindFirstChild("Shuffle", true))
+		GuiService.SelectedObject = gui(value.row.Parent:FindFirstChild("Shuffle", true))
 		press(t, { "ButtonA" })
 		settle(240)
 		live.step("afterShuffle")
@@ -989,7 +1011,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 	end
 	drivers["hover-slot-reflow"] = function(_, value, io)
 		local source = centre(value.source)
-		local node = assert(value.stage:FindFirstChild("B", true)) :: GuiObject
+		local node = gui(value.stage:FindFirstChild("B", true))
 		local slot = node.AbsolutePosition + node.AbsoluteSize * Vector2.new(0.25, 0.5)
 		io.heldDrag(source, slot)
 		live.step("whileHovering")
@@ -1030,7 +1052,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		end
 	end
 	drivers["travel-pointer"] = function(_, value, io)
-		local stage = assert(value.source.Parent)
+		local stage = assert(gui(value.source).Parent)
 		io.click(centre(assert(stage:FindFirstChild("Send", true))))
 		settle(120)
 		live.step("afterSend")
@@ -1039,7 +1061,8 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		live.step("afterReverse")
 	end
 	drivers["zoom-pointer"] = function(_, value, io)
-		local at = value.view.AbsolutePosition + Vector2.new(value.view.AbsoluteSize.X - 80, 80)
+		local view = gui(value.view)
+		local at = view.AbsolutePosition + Vector2.new(view.AbsoluteSize.X - 80, 80)
 		io.controlWheel(at, 1)
 		live.step("afterFocusZoom")
 		io.doubleClick(at)
@@ -1066,8 +1089,18 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			end
 		)
 		for id, driver in travelDrivers do
-			drivers[id] = driver
+			drivers[id] = function(t, value, _io)
+				driver(t, value)
+			end
 		end
+	end
+	drivers["board-typing-advances-native-selection"] = function(_, _, io)
+		io.hold(Enum.KeyCode.A, 3)
+		live.step("afterFirst")
+		io.hold(Enum.KeyCode.A, 3)
+		live.step("afterSecond")
+		io.hold(Enum.KeyCode.Left, 3)
+		live.step("afterNavigation")
 	end
 	drivers["board-typing-pointer-and-text-entry"] = function(t, value, io)
 		local received: { string } = {}
@@ -1084,10 +1117,10 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		io.click(centre(value.chat))
 		io.hold(Enum.KeyCode.A, 3)
 		io.text("A")
-		t.note(
-			"text entry state",
-			{ focused = UserInputService:GetFocusedTextBox() == value.chat, text = value.chat.Text }
-		)
+		t.note("text entry state", {
+			focused = UserInputService:GetFocusedTextBox() == value.chat,
+			text = if typeof(value.chat) == "Instance" and value.chat:IsA("TextBox") then value.chat.Text else "",
+		})
 		live.step("afterChat")
 		io.hold(Enum.KeyCode.Backspace, 3)
 		t.note("recall counts", { value.counts() })
@@ -1096,9 +1129,9 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		live.step("afterRecall")
 	end
 	drivers["reward-pointer"] = function(_, value, io)
-		local root = assert(value.target.Parent)
-		local play = assert(root:FindFirstChild("Play", true)) :: GuiObject
-		local finish = assert(root:FindFirstChild("Finish", true)) :: GuiObject
+		local root = assert(gui(value.target).Parent)
+		local play = gui(root:FindFirstChild("Play", true))
+		local finish = gui(root:FindFirstChild("Finish", true))
 		io.click(centre(play))
 		settle(180)
 		live.step("afterReward")
@@ -1116,9 +1149,9 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		live.step("afterRecall")
 	end
 	drivers["reward-gamepad"] = function(t, value)
-		local root = assert(value.target.Parent)
-		local play = assert(root:FindFirstChild("Play", true))
-		local finish = assert(root:FindFirstChild("Finish", true))
+		local root = assert(gui(value.target).Parent)
+		local play = gui(root:FindFirstChild("Play", true))
+		local finish = gui(root:FindFirstChild("Finish", true))
 		GuiService.SelectedObject = play
 		press(t, { "ButtonA" })
 		settle(180)
@@ -1166,6 +1199,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		["confirm-dialog-left-right"] = true,
 	}
 	local requirements: { [string]: string } = {
+		["board-typing-advances-native-selection"] = "input-keyboard",
 		["fields-visible-lines"] = "input-keyboard",
 		["number-step-buttons"] = "input-keyboard",
 		["slider-landing-live"] = "input-keyboard",
@@ -1211,20 +1245,20 @@ return function(live: any, suite: string, options: { [string]: any }): any
 	requirements["zoom-pointer"] = "input-mouse"
 	requirements["zoom-collection-capture-camera"] = "input-mouse"
 	drivers["text-edit-carries-gamepad-connect"] = function()
-		options.connectGamepad()
+		assert(options.connectGamepad)()
 		live.step("afterConnect")
-		options.disconnectGamepad()
+		assert(options.disconnectGamepad)()
 	end
 	drivers["radial-hot-switch-keeps-open"] = function()
-		options.connectGamepad()
+		assert(options.connectGamepad)()
 		live.step("afterPlug")
-		options.disconnectGamepad()
+		assert(options.disconnectGamepad)()
 		live.step("afterUnplug")
 	end
 	drivers["input-fact-follows-device"] = function()
-		options.connectGamepad()
+		assert(options.connectGamepad)()
 		live.step("afterPlug")
-		options.disconnectGamepad()
+		assert(options.disconnectGamepad)()
 	end
 	drivers["hover-arrives-with-a-mouse"] = function()
 		game:GetService("StudioDeviceSimulatorService"):StopSimulationAsync()
@@ -1267,7 +1301,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			assert(Players.LocalPlayer.PlayerGui:FindFirstChild("FacetLive"), "haptics fixture did not mount")
 		local io = pointer({ note = function() end })
 		for _, name in { "Press", "Release", "Selection", "Custom" } do
-			local button = assert(fixture:FindFirstChild(name, true), "missing haptics button " .. name) :: GuiObject
+			local button = gui(fixture:FindFirstChild(name, true))
 			local parent = button.Parent
 			while parent do
 				if parent:IsA("ScrollingFrame") then
@@ -1295,10 +1329,11 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			continue
 		end
 		selected += 1
-		local required = requirements[case.id]
+		local caseId: string = case.id
+		local required = requirements[caseId]
 		if required and not table.find(capabilities, required) then
-			unavailable:case(case.id, {
-				id = case.id,
+			unavailable:case(caseId, {
+				id = caseId,
 				requires = { required },
 				run = function()
 					error("missing input capability", 0)
@@ -1311,7 +1346,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			or case.id == "collection-immediate-touch-transfer"
 			or case.id == "files-nested-touch-handoff"
 		if options.device ~= "keep" then
-			local simulator = game:GetService("StudioDeviceSimulatorService") :: any
+			local simulator = game:GetService("StudioDeviceSimulatorService")
 			if touch then
 				simulator:SetDeviceAsync("iphone_14")
 				simulator:SetOrientationAsync(Enum.ScreenOrientation.Portrait)
@@ -1346,12 +1381,15 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		end
 		local session = shared.FacetLiveSession
 		local cleanInput: (() -> ())? = nil
-		local ran, errorMessage = xpcall(function()
+		local ran, errorMessage = xpcall(function(): boolean
 			local driver = assert(drivers[case.id], "no native input driver for " .. case.id)
 			local io = pointer(session.t)
 			cleanInput = io.cleanup
 			driver(session.t, session.value, io)
-		end, debug.traceback)
+			return true
+		end, function(problem: unknown): string
+			return debug.traceback(tostring(problem), 2)
+		end)
 		if cleanInput then
 			local released, releaseError = pcall(function(): unknown
 				assert(cleanInput)()

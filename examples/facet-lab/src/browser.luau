@@ -2,7 +2,7 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type TextProps = typeof(require("@repo/tools/typecheck/aliases").TextProps)
@@ -25,6 +25,7 @@ local catalog = require("./catalog")
 type FacetModule = typeof(require("@repo/tools/typecheck/aliases").FacetModule)
 type App = typeof(require("@repo/tools/typecheck/aliases").App)
 type Controls = typeof(require("@repo/tools/typecheck/aliases").Controls)
+type TextInputCellProps = typeof(require("@repo/tools/typecheck/aliases").TextInputCellProps)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 type ThemeDefinition = typeof(require("@repo/tools/typecheck/aliases").ThemeDefinition)
 type PaletteExtra = typeof(require("@repo/tools/typecheck/aliases").PaletteExtra)
@@ -32,9 +33,7 @@ type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
 type UnknownCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 type Settings = typeof(require("@repo/examples/facet-lab/src/lab_settings").new(nil :: never, nil :: never))
 type Props = { width: unknown?, label: unknown?, Size: unknown?, AutomaticSize: unknown?, [unknown]: unknown }
 type Source = Props | (catalog.Context) -> Props
@@ -81,7 +80,7 @@ export type Context = {
 }
 local NONE = catalog.NONE
 local collectionEditing = require(script.Parent.collection_editing)
-local dragDropDemo = require(script.Parent.drag_drop_demo)
+local dragDropDemo: (Context) -> Frame = require(script.Parent.drag_drop_demo)
 local variantCell = require(script.Parent.variant_cell)
 local matrixRow = require(script.Parent.matrix_row)
 local matrixWidth = require(script.Parent.matrix_width)
@@ -90,6 +89,10 @@ local renderResult = require(script.Parent.render_result)
 local pageKey = require(script.Parent.page_key)
 
 local SIZE_KEYS: { [string]: boolean } = { controlSize = true, starSize = true, segmentSize = true }
+
+local function textInputProps(props: TextInputCellProps): TextInputCellProps
+	return props
+end
 
 local function list<T>(items: { T }?): { T }
 	return items or {}
@@ -105,11 +108,15 @@ function browser.mount(opts: MountOpts)
 	local scenarios = ReplicatedStorage:WaitForChild("FacetScenarios")
 	local demoTabs = loadDemoTabs(scenarios:WaitForChild("demo_tabs"))
 
+	local top: StringCell = Compose.cell("catalog")
+	local selected: StringCell = Compose.cell(cat.families[1].pages[1].id)
+	local query: StringCell = Compose.cell("")
+	local compactPath: Value<{ { id: string, value: unknown? } }> = Compose.cell({})
 	local state = {
-		top = Compose.cell("catalog"),
-		selected = Compose.cell(cat.families[1].pages[1].id),
-		query = Compose.cell(""),
-		compactPath = Compose.cell({} :: { { id: string, value: unknown? } }),
+		top = top,
+		selected = selected,
+		query = query,
+		compactPath = compactPath,
 		expanded = {} :: { [string]: BooleanCell },
 		pages = {} :: { [string]: PageState },
 		errors = {} :: { [string]: { [string]: string } },
@@ -167,21 +174,22 @@ function browser.mount(opts: MountOpts)
 		id: string,
 		label: string,
 		selected: Value<V>,
-		values: { V | { value: V, label: string } },
+		values: { { value: V, label: string } },
 		onChange: ((V) -> ())?,
 		enabledFor: ((V) -> ReadOnlyValue<boolean>)?,
 		row: boolean?
 	): GuiObject
 		local options: { typeof(require("@repo/tools/typecheck/aliases").PickerOption) } = {}
 		for _, v in values do
-			local option = (
-				(if type(v) == "table" then table.clone(v) else { value = v, label = tostring(v) }) :: unknown
-			) :: typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-			option.enabled = if enabledFor then enabledFor(option.value) else nil
-			option.id = string.gsub(tostring(option.value), "[^%w_%-]", "_")
+			local option: typeof(require("@repo/tools/typecheck/aliases").PickerOption) = {
+				id = string.gsub(tostring(v.value), "[^%w_%-]", "_"),
+				value = v.value,
+				label = v.label,
+				enabled = if enabledFor then enabledFor(v.value) else nil,
+			}
 			table.insert(options, option)
 		end
-		return UI.Picker({
+		return UI.Picker {
 			Name = id,
 			label = label,
 			style = "menu",
@@ -191,10 +199,17 @@ function browser.mount(opts: MountOpts)
 			selected = selected,
 			options = options,
 			onChange = onChange,
-		})
+		}
+	end
+	local function plain<V>(values: { V }): { { value: V, label: string } }
+		local out: { { value: V, label: string } } = {}
+		for _, v in values do
+			table.insert(out, { value = v, label = tostring(v) })
+		end
+		return out
 	end
 	local function titled(values: { string }): { { value: string, label: string } }
-		local out = {}
+		local out: { { value: string, label: string } } = {}
 		for _, v in values do
 			local label = if v == "tv" then "TV" else string.upper(string.sub(v, 1, 1)) .. string.sub(v, 2)
 			table.insert(out, { value = v, label = label })
@@ -295,7 +310,7 @@ function browser.mount(opts: MountOpts)
 	local function configure(
 		page: Page,
 		c: catalog.Context,
-		axisValues: Props,
+		axisValues: { [string]: unknown },
 		stateList: { catalog.State },
 		context: Source?
 	)
@@ -345,7 +360,12 @@ function browser.mount(opts: MountOpts)
 		}) :: unknown
 	) :: catalog.Context
 
-	local function isValid(page: Page, axisValues: Props, stateList: { catalog.State }, context: Source?): boolean
+	local function isValid(
+		page: Page,
+		axisValues: { [string]: unknown },
+		stateList: { catalog.State },
+		context: Source?
+	): boolean
 		local valid = page.data.valid
 		if
 			valid ~= nil
@@ -413,7 +433,7 @@ function browser.mount(opts: MountOpts)
 
 	local function cells(page: Page, id: string, title: string?, entries: { MatrixEntry }): GuiObject?
 		local data, c = page.data, contextFor(pageState(page), false)
-		local available = Compose.cell(0)
+		local available: NumberCell = Compose.cell(0)
 		local row: StackProps = { Name = "Cells", width = "fill", wrap = true, gap = "m" }
 		for i, entry in entries do
 			local states = if entry.state then { entry.state } else {}
@@ -490,7 +510,7 @@ function browser.mount(opts: MountOpts)
 				`Axis_{axis.key}`,
 				axis.key,
 				ps.axis[axis.key],
-				axis.values,
+				plain(axis.values),
 				nil,
 				if checked
 					then function(value)
@@ -505,7 +525,7 @@ function browser.mount(opts: MountOpts)
 			if st.matrixOnly then
 				continue
 			end
-			row[#row + 1] = UI.Toggle({
+			row[#row + 1] = UI.Toggle {
 				Name = `State_{st.name}`,
 				label = st.name,
 				presentation = "checkbox",
@@ -519,7 +539,7 @@ function browser.mount(opts: MountOpts)
 						return use(ps.flags[st.name]) or isValid(page, current(use, nil, nil, st))
 					end)
 					else nil,
-			})
+			}
 		end
 		row[#row + 1] = UI.Button "Reset" {
 			label = "Reset",
@@ -597,7 +617,8 @@ function browser.mount(opts: MountOpts)
 					return item.id
 				end,
 				render = function(): GuiObject
-					local values, list = {}, {}
+					local values: { [string]: unknown } = {}
+					local list: { catalog.State } = {}
 					for _, axis in axes do
 						values[axis.key] = ps.axis[axis.key]:peek()
 					end
@@ -658,7 +679,9 @@ function browser.mount(opts: MountOpts)
 	local function Examples(page: Page): { Child }
 		local data = page.data
 		local axes = list(data.axes)
-		local variants, sizing, states = {}, {}, {}
+		local variants: { Child } = {}
+		local sizing: { Child } = {}
+		local states: { Child } = {}
 		if data.matrix == false then
 			if #axes == 0 and #list(data.states) == 0 then
 				return {}
@@ -669,7 +692,8 @@ function browser.mount(opts: MountOpts)
 				}),
 			}
 		end
-		local shown, first = {}, nil
+		local shown: { catalog.Axis } = {}
+		local first: catalog.Axis? = nil
 		for _, axis in axes do
 			if axis.matrix ~= false then
 				table.insert(shown, axis)
@@ -695,16 +719,21 @@ function browser.mount(opts: MountOpts)
 			if st.across == false then
 				across = nil
 			end
-			local entries = if across then axisCells(across, st) else { { label = st.name, state = st } }
+			local entries: { MatrixEntry } = if across
+				then axisCells(across, st)
+				else { { label = st.name, state = st } }
 			local view = cells(page, `S{s}`, st.name, entries)
 			if view then
 				table.insert(states, view)
 			end
 		end
 		if #variants == 0 and #sizing == 0 then
-			table.insert(variants, cells(page, "Rest", nil, { { label = "rest" } }))
+			local rest = cells(page, "Rest", nil, { { label = "rest" } })
+			if rest then
+				table.insert(variants, rest)
+			end
 		end
-		local out = {}
+		local out: { Child } = {}
 		if #variants > 0 then
 			table.insert(out, section("Variants", "Variants", variants))
 		end
@@ -848,7 +877,7 @@ function browser.mount(opts: MountOpts)
 	end
 
 	local function tagged(name: string, tag: string, w: number, h: number): GuiObject
-		local node = Host.Frame({ Name = name, Size = UDim2.fromOffset(w, h), BorderSizePixel = 0 })
+		local node = Host.Frame { Name = name, Size = UDim2.fromOffset(w, h), BorderSizePixel = 0 }
 		node:AddTag(tag)
 		return node
 	end
@@ -857,11 +886,11 @@ function browser.mount(opts: MountOpts)
 		for _, tag in
 			{ "surface", "pane", "panel", "control", "field", "button", "badge", "track", "skeleton", "scrim" }
 		do
-			surfaces[#surfaces + 1] = UI.VStack({
+			surfaces[#surfaces + 1] = UI.VStack {
 				gap = "xs",
 				tagged(tag, `facet-{tag}`, 96, 56),
-				UI.Text({ text = `facet-{tag}`, textRole = "caption" }),
-			})
+				UI.Text { text = `facet-{tag}`, textRole = "caption" },
+			}
 		end
 
 		local palette = Compose.formula(function(use: Use)
@@ -879,7 +908,7 @@ function browser.mount(opts: MountOpts)
 		do
 			local swatch: StackProps = {
 				gap = "xs",
-				Host.Frame({
+				Host.Frame {
 					Name = role,
 					Size = UDim2.fromOffset(72, 40),
 					BorderSizePixel = 0,
@@ -887,8 +916,8 @@ function browser.mount(opts: MountOpts)
 						local color = use(palette).colors[role]
 						return if color then Color3.new(color.r, color.g, color.b) else Color3.new()
 					end,
-				}),
-				UI.Text({ text = role, textRole = "caption" }),
+				},
+				UI.Text { text = role, textRole = "caption" },
 			}
 			swatches[#swatches + 1] = UI.VStack(swatch)
 		end
@@ -937,7 +966,7 @@ function browser.mount(opts: MountOpts)
 		do
 			local swatch: StackProps = {
 				gap = "xs",
-				Host.Frame({
+				Host.Frame {
 					Name = item.label,
 					Size = UDim2.fromOffset(72, 40),
 					BorderSizePixel = 0,
@@ -945,8 +974,8 @@ function browser.mount(opts: MountOpts)
 						local color = plate(if item.derived then use(derived) else use(palette).extra, item.role)
 						return if color then Color3.new(color.r, color.g, color.b) else Color3.new()
 					end,
-				}),
-				UI.Text({ text = item.label, textRole = "caption" }),
+				},
+				UI.Text { text = item.label, textRole = "caption" },
 			}
 			states[#states + 1] = UI.VStack(swatch)
 		end
@@ -962,20 +991,20 @@ function browser.mount(opts: MountOpts)
 			for _, appearance in
 				{ "standard", "emphasis", "soft", "utility", "link", "inverse" } :: { "standard" | "emphasis" | "soft" | "utility" | "link" | "inverse" }
 			do
-				ladder[#ladder + 1] = UI.Button({
+				ladder[#ladder + 1] = UI.Button {
 					label = appearance,
 					appearance = appearance :: typeof(require("@repo/tools/typecheck/aliases").ButtonProps.appearance),
 					controlSize = size :: typeof(require("@repo/tools/typecheck/aliases").ButtonProps.controlSize),
-				})
+				}
 			end
 		end
 		local dividers = UI.VStack "Dividers" {
 			width = 240,
 			gap = "s",
-			UI.Text({ text = "standard", textRole = "caption" }),
-			UI.Divider({}),
-			UI.Text({ text = "strong", textRole = "caption" }),
-			UI.Divider({ appearance = "strong" }),
+			UI.Text { text = "standard", textRole = "caption" },
+			UI.Divider {},
+			UI.Text { text = "strong", textRole = "caption" },
+			UI.Divider { appearance = "strong" },
 		}
 		return scroller("Style", {
 			Header(
@@ -998,12 +1027,12 @@ function browser.mount(opts: MountOpts)
 	end
 
 	local function themeOptions(): { { value: string, label: string } }
-		local out = {}
+		local out: { { value: string, label: string } } = {}
 		local names: { string } = {}
 		for name in ctx.packages do
 			table.insert(names, name)
 		end
-		table.sort(names, function(a, b)
+		table.sort(names, function(a: string, b: string)
 			return if a == "foundation" then true elseif b == "foundation" then false else a < b
 		end)
 		for _, name in names do
@@ -1043,9 +1072,17 @@ function browser.mount(opts: MountOpts)
 	end)
 
 	local function settingPicker(key: string, label: string): GuiObject
-		return dropdown(`Setting_{key}`, label, settings.cells[key], titled(settings.CHOICES[key]), function(value)
-			settings.set(key, value)
-		end, nil, true)
+		return dropdown(
+			`Setting_{key}`,
+			label,
+			settings.cells[key],
+			titled(settings.CHOICES[key]),
+			function(value: string)
+				settings.set(key, value)
+			end,
+			nil,
+			true
+		)
 	end
 
 	local MOTION_OPTIONS = {
@@ -1055,7 +1092,7 @@ function browser.mount(opts: MountOpts)
 		{ value = "none", label = "Game: None" },
 	}
 	local function motionPicker(): GuiObject
-		return dropdown("Setting_motion", "Motion", settings.cells.motion, MOTION_OPTIONS, function(value)
+		return dropdown("Setting_motion", "Motion", settings.cells.motion, MOTION_OPTIONS, function(value: string)
 			settings.set("motion", value)
 		end, nil, true)
 	end
@@ -1064,7 +1101,9 @@ function browser.mount(opts: MountOpts)
 		return scroller("Settings", {
 			Header("Settings", "Theme and preview. Every setting is reused public Facet or showcase logic."),
 			section("ThemeSection", "Theme", {
-				dropdown("Theme", "Theme", themeCell, THEMES, setTheme, nil, true),
+				dropdown("Theme", "Theme", themeCell, THEMES, function(value: string)
+					setTheme(value)
+				end, nil, true),
 			}),
 			section("PreviewSection", "Preview", {
 				settingPicker("platform", "Platform"),
@@ -1084,7 +1123,9 @@ function browser.mount(opts: MountOpts)
 				caption(settings.lines),
 				UI.Button "ResetAll" {
 					label = "Reset everything to Automatic",
-					onActivate = settings.reset,
+					onActivate = function()
+						settings.reset()
+					end,
 				},
 			}),
 			section("BuildSection", "Build", {
@@ -1094,38 +1135,34 @@ function browser.mount(opts: MountOpts)
 	end
 
 	local function Detail(): GuiObject
-		local current = Compose.formula(function(use: Use)
+		local current: ReadOnlyValue<{ { id: string, revision: number } }> = Compose.formula(function(use: Use)
 			local top = use(state.top)
 			local id = if top == "catalog" then use(state.selected) else "@" .. top
 			local revision = if top == "catalog" then use(pageState(cat.pages[id]).revision) else 0
 			return { { id = id, revision = revision } }
 		end)
 		local detail: StackProps = { Name = "Detail", width = "fill", height = "fill" }
-		detail[#detail + 1] = UI.VStack "Body" {
-			width = "fill",
-			height = "fill",
-			UI.fill(),
-			Compose.keyed({
-				from = current,
-				key = pageKey,
-				render = function(item: ReadOnlyValue<{ id: string, revision: number }>): GuiObject
-					local id = item:peek().id
-					if id == "@style" then
-						return StylePage()
-					elseif id == "@settings" then
-						return SettingsPage()
-					elseif id == "@drag-drop" then
-						return dragDropDemo(ctx)
-					end
-					local ok, node = pcall(Page, cat.pages[id])
-					if ok then
-						return node
-					end
-					recordError(id, "page", node)
-					return caption(`Page failed: {node}`)
-				end,
-			}),
-		}
+		local pages = Compose.keyed({
+			from = current,
+			key = pageKey,
+			render = function(item: ReadOnlyValue<{ id: string, revision: number }>): GuiObject
+				local id = item:peek().id
+				if id == "@style" then
+					return StylePage()
+				elseif id == "@settings" then
+					return SettingsPage()
+				elseif id == "@drag-drop" then
+					return dragDropDemo(ctx)
+				end
+				local ok, node = pcall(Page, cat.pages[id])
+				if ok then
+					return node
+				end
+				recordError(id, "page", node)
+				return caption(`Page failed: {node}`)
+			end,
+		})
+		detail[#detail + 1] = UI.VStack "Body" { width = "fill", height = "fill", UI.fill(), pages }
 		return UI.VStack(detail)
 	end
 
@@ -1144,7 +1181,7 @@ function browser.mount(opts: MountOpts)
 		pick: () -> (),
 		shown: (Use) -> boolean
 	)
-		return UI.Button({
+		return UI.Button {
 			Name = id,
 			Visible = shown,
 			label = label,
@@ -1153,7 +1190,9 @@ function browser.mount(opts: MountOpts)
 			controlSize = "compact",
 			textSize = "body",
 			selected = isSelected,
-			onActivate = pick,
+			onActivate = function()
+				pick()
+			end,
 			Size = function(use: Use)
 				local package = use(ctx.theme)
 				local dense = math.max(32, package.metrics.targetSizes.pointer or 44)
@@ -1161,7 +1200,7 @@ function browser.mount(opts: MountOpts)
 			end,
 			AutomaticSize = Enum.AutomaticSize.None,
 			TextXAlignment = Enum.TextXAlignment.Left,
-		})
+		}
 	end
 
 	local function Outline(onPick: (() -> ())?): GuiObject
@@ -1175,7 +1214,7 @@ function browser.mount(opts: MountOpts)
 				end
 				return false
 			end
-			return UI.DisclosureGroup({
+			return UI.DisclosureGroup {
 				Name = `G_{id}`,
 				label = label,
 				appearance = "outline",
@@ -1199,7 +1238,7 @@ function browser.mount(opts: MountOpts)
 					end
 					return UI.VStack(rows)
 				end,
-			})
+			}
 		end
 		local groups: StackProps = { Name = "Tree", width = "fill", gap = 0, padding = { bottom = "m" } }
 		for _, family in cat.families do
@@ -1244,19 +1283,21 @@ function browser.mount(opts: MountOpts)
 			})
 		end
 		groups[#groups + 1] = group("lab", "Lab", labEntries)
+		local search = UI.TextInput(textInputProps {
+			Name = "Search",
+			value = state.query,
+			placeholder = "Search...",
+			presentation = "search",
+			clearButton = true,
+			controlSize = "compact",
+			Size = UDim2.fromScale(1, 0),
+		})
 		return UI.VStack "OutlineList" {
 			width = "fill",
 			height = "fill",
 			gap = "s",
 			padding = { top = "s", left = "s", right = "s" },
-			UI.TextInput "Search" {
-				value = state.query,
-				placeholder = "Search...",
-				presentation = "search",
-				clearButton = true,
-				controlSize = "compact",
-				Size = UDim2.fromScale(1, 0),
-			},
+			search,
 			UI.Button "L_settings" {
 				label = "Settings",
 				icon = "settings",
@@ -1375,7 +1416,7 @@ function browser.mount(opts: MountOpts)
 			AutomaticSize = Enum.AutomaticSize.None,
 			ClipsDescendants = true,
 
-			padding = function(use: Use): number | { left: number, right: number, top: number, bottom: number }
+			padding = function(use: Use)
 				local d = use(device)
 				if use(settings.cells.platform) ~= "tv" then
 					return 0
@@ -1389,20 +1430,20 @@ function browser.mount(opts: MountOpts)
 				}
 			end,
 
-			Host.UIStroke({
+			Host.UIStroke {
 				Name = "DeviceEdge",
 				Color = Color3.fromRGB(128, 128, 128),
 				Thickness = 1,
 				Transparency = function(use: Use)
 					return if use(device).simulated then 0.4 else 1
 				end,
-			}),
-			Host.UIScale({
+			},
+			Host.UIScale {
 				Name = "Preview",
 				Scale = function(use: Use)
 					return use(device).scale
 				end,
-			}),
+			},
 			Catalog(),
 		}
 		local frame = UI.VStack "Device"(deviceProps)

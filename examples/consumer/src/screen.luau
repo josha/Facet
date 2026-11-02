@@ -36,7 +36,7 @@ function screen.build(Facet: FacetModule, UI: FacetControls): Frame
 					label = "Bump",
 					appearance = "emphasis",
 					onActivate = function()
-						count:update(function(value)
+						count:update(function(value: number): number
 							return value + 1
 						end)
 					end,

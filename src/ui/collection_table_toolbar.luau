@@ -5,11 +5,10 @@ local reorder = require("./collection_reorder")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local CollectionTypes = require("./collection_types")
-local InputTypes = require("./input_types")
 local Metrics = require("./collection_table_metrics")
 return function<V, K>(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	spec: CollectionTypes.TableShape<V, K>,
 	editing: Types.ValueBoolean?,
 	editor: reorder.Editor<V, K>?,
@@ -33,7 +32,7 @@ return function<V, K>(
 		local function fraction(use: ComposeTypes.Use): number
 			return math.clamp(use(progress), 0, 1)
 		end
-		local button = UI.Button("Edit")({
+		local button = UI.Button "Edit" {
 			label = function(use: ComposeTypes.Use): string
 				return if read(editing, use) then "Done" else "Edit"
 			end,
@@ -45,7 +44,7 @@ return function<V, K>(
 				local cell = (editing :: unknown) :: ComposeTypes.Value<boolean>
 				cell:set(not cell:peek())
 			end,
-		})
+		}
 		local font, size = ctx.observeStyled.FontFace(button), ctx.observeStyled.TextSize(button)
 
 		runtime.decorate(button, { TextTransparency = 1 })
@@ -90,13 +89,13 @@ return function<V, K>(
 			})
 		end
 		runtime.mount(function()
-			return Host.Frame({
+			return Host.Frame {
 				Name = "WidthReserve",
 				BackgroundTransparency = 1,
 				AutomaticSize = E.AutomaticSize.XY,
-				reserve("Edit") :: ComposeTypes.Child,
+				reserve("Edit"),
 				reserve("Done"),
-			})
+			}
 		end, button)
 		local words: { string } = {}
 		if spec.deletable then
@@ -108,28 +107,30 @@ return function<V, K>(
 		local function pad(use: ComposeTypes.Use): boolean
 			return preferredInput ~= nil and use(preferredInput) == E.PreferredInput.Gamepad
 		end
-		local remove = if spec.deletable and editor
-			then UI.Button "DeleteSelected" {
+		local remove: TextButton? = nil
+		if spec.deletable and editor then
+			local activeEditor = editor
+			remove = UI.Button "DeleteSelected" {
 				label = "Delete",
-				role = "destructive" :: InputTypes.ButtonRole,
+				role = "destructive",
 				Size = D2.new(0, 0, 1, 0),
 				AutomaticSize = E.AutomaticSize.X,
 				Visible = function(use: ComposeTypes.Use)
 					return (read(editing, use) == true or fraction(use) > 0) and not pad(use)
 				end,
 				enabled = function(use: ComposeTypes.Use)
-					return read(editing, use) == true and editor.canDeleteSelected(use)
+					return read(editing, use) == true and activeEditor.canDeleteSelected(use)
 				end,
-				onActivate = editor.deleteSelected,
+				onActivate = activeEditor.deleteSelected,
 			}
-			else nil
-		return Host.Frame({
+		end
+		return Host.Frame {
 			Name = "Toolbar",
 			BackgroundTransparency = 1,
 			Size = function(use: ComposeTypes.Use)
 				return D2.new(1, 0, 0, use(metrics.toolbarHeight) - ctx.metric("space.s", use))
 			end,
-			button :: ComposeTypes.Child,
+			button,
 			ctx.styled(
 				ctx.text({
 					Name = "PadHints",
@@ -155,6 +156,6 @@ return function<V, K>(
 					remove,
 				}
 				else nil,
-		})
+		}
 	end)
 end

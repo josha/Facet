@@ -3,7 +3,7 @@
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type Input<T> = T | ReadOnlyValue<T> | (Use) -> T
 return function(ctx: ExampleContext)
@@ -11,13 +11,13 @@ return function(ctx: ExampleContext)
 	local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 	local view = {}
 	function view.text(label: Input<string>, size: number?): GuiObject
-		return UI.Text({
+		return UI.Text {
 			text = label,
 			TextSize = size or 16,
 			TextWrapped = true,
 			Size = D2.new(1, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
-		})
+		}
 	end
 	function view.column(name: string, children: { Child }, spacing: number?): Frame
 		local props: StackProps = {
@@ -38,25 +38,30 @@ return function(ctx: ExampleContext)
 			CanvasSize = D2.fromOffset(0, 0),
 			AutomaticCanvasSize = E.AutomaticSize.Y,
 			ScrollBarThickness = 6,
-			Host.UIPadding({
+			Host.UIPadding {
 				PaddingTop = D.new(0, 16),
 				PaddingBottom = D.new(0, 16),
 				PaddingLeft = D.new(0, 16),
 				PaddingRight = D.new(0, 16),
-			}),
-			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+			},
+			Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder },
 			view.column("Content", children, 16),
 		})
 	end
-	function view.action(name: string, label: Input<string>, command: () -> (), enabled: Input<boolean>?): TextButton
-		return UI.Button({
+	function view.action(
+		name: string,
+		label: Input<string>,
+		command: (InputObject?, number?) -> (),
+		enabled: Input<boolean>?
+	): TextButton
+		return UI.Button {
 			Name = name,
 			label = label,
 			onActivate = command,
 			enabled = enabled,
 			Size = D2.new(1, 0, 0, 44),
 			AutomaticSize = E.AutomaticSize.None,
-		})
+		}
 	end
 	function view.watch<T>(source: (Use) -> { T }, render: (ReadOnlyValue<T>, string) -> GuiObject, id: (T) -> string)
 		return Compose.keyed({

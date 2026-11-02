@@ -15,9 +15,10 @@ type State = {
 	chat: TextBox,
 	scope: CommandScope,
 	counts: () -> (number, number, number),
+	placedKeys: { number },
 }
 local GuiService = game:GetService("GuiService")
-local function setup(t: Live): State
+local function setup(t: Live, advance: boolean?): State
 	local state: State
 	t.mount(function(UI: Controls, Host: Host, C: Compose): Instance
 		local letters, placed, returned = { "A", "A" }, 0, 0
@@ -42,11 +43,13 @@ local function setup(t: Live): State
 		local label = UI.Text { text = notice, Position = UDim2.fromOffset(20, 164), Size = UDim2.fromOffset(360, 60) }
 		local root = Host.Frame {
 			Size = UDim2.fromScale(1, 1),
-			first :: unknown,
-			second :: unknown,
-			chat :: unknown,
-			label :: unknown,
+			first,
+			second,
+			chat,
+			label,
 		}
+		local scope: CommandScope?
+		local placedKeys: { number } = {}
 		local commands: { Command } = {
 			{
 				id = "Letter",
@@ -55,7 +58,11 @@ local function setup(t: Live): State
 					if #letters > 0 then
 						table.remove(letters, 1)
 						placed += 1
+						table.insert(placedKeys, key)
 						notice:set("Placed one A at cell " .. tostring(key) .. ". Rack count: " .. tostring(#letters))
+						if advance then
+							assert(scope).focus(math.min(2, key + 1))
+						end
 					end
 				end,
 			},
@@ -72,17 +79,18 @@ local function setup(t: Live): State
 			},
 		}
 		local targets: { { key: number, node: GuiObject } } = { { key = 1, node = first }, { key = 2, node = second } }
-		local scope = UI.commandScope(root, { targets = targets, commands = commands })
+		scope = UI.commandScope(root, { targets = targets, commands = commands })
 		state = {
 			first = first,
 			second = second,
 			chat = if chat:IsA("TextBox")
 				then chat
 				else assert(chat:FindFirstChildWhichIsA("TextBox", true)) :: TextBox,
-			scope = scope,
+			scope = assert(scope),
 			counts = function(): (number, number, number)
 				return placed, returned, #letters
 			end,
+			placedKeys = placedKeys,
 		}
 		return root
 	end, { frames = 12 })
@@ -111,8 +119,34 @@ local function afterRecall(t: Live, state: State)
 		GuiService.SelectedObject == state.second and state.scope.current:peek() == 2
 	)
 end
-type Case = { id: string, contracts: { string }, setup: (Live) -> State, steps: { [string]: (Live, State) -> () } }
+type Case = {
+	id: string,
+	contracts: { string },
+	setup: (Live, boolean?) -> State,
+	steps: { [string]: (Live, State) -> () },
+}
 local cases: { Case } = {
+	{
+		id = "board-typing-advances-native-selection",
+		contracts = { "UI.commandScope" },
+		setup = function(t: Live): State
+			return setup(t, true)
+		end,
+		steps = {
+			afterFirst = function(t: Live, state: State)
+				t.check("first letter uses the first cell", #state.placedKeys == 1 and state.placedKeys[1] == 1)
+				t.check("typing advances native selection", GuiService.SelectedObject == state.second)
+			end,
+			afterSecond = function(t: Live, state: State)
+				t.note("typed cell keys", state.placedKeys)
+				t.check("next letter uses the advanced cell", #state.placedKeys == 2 and state.placedKeys[2] == 2)
+				t.check("typing retains the last cell", GuiService.SelectedObject == state.second)
+			end,
+			afterNavigation = function(t: Live, state: State)
+				t.check("unbound Left stays native after typing", GuiService.SelectedObject == state.first)
+			end,
+		},
+	},
 	{
 		id = "board-typing-pointer-and-text-entry",
 		contracts = { "UI.commandScope", "UI.TextInput" },

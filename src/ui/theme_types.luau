@@ -3,16 +3,16 @@ local ComposeTypes = require("../vendor/compose/core")
 local Engine = require("./engine_types")
 
 export type RGB = { r: number, g: number, b: number }
-export type RGBPatch = { r: number?, g: number?, b: number? }
+export type RGBPatch = { read r: number?, read g: number?, read b: number? }
 export type FontSpec = { family: string?, weight: string?, style: string? }
 export type Typography = { size: number, font: Font | FontSpec, lineHeight: number? }
-export type TypographyPatch = { size: number?, font: Font | FontSpec?, lineHeight: number? }
+export type TypographyPatch = { read size: number?, read font: Font | FontSpec?, read lineHeight: number? }
 export type ControlSize = { height: number, paddingX: number, iconSize: number }
-export type ControlSizePatch = { height: number?, paddingX: number?, iconSize: number? }
+export type ControlSizePatch = { read height: number?, read paddingX: number?, read iconSize: number? }
 export type MotionTiming = { enter: number, exit: number }
-export type MotionTimingPatch = { enter: number?, exit: number? }
+export type MotionTimingPatch = { read enter: number?, read exit: number? }
 export type SpringMetric = { period: number, damping: number }
-export type SpringMetricPatch = { period: number?, damping: number? }
+export type SpringMetricPatch = { read period: number?, read damping: number? }
 export type MotionMetrics = {
 	typewriter: { grapheme: number, pause: number }?,
 	fast: number,
@@ -42,32 +42,32 @@ export type MotionMetrics = {
 	fling: { [string]: number }?,
 }
 export type MotionMetricsPatch = {
-	typewriter: { grapheme: number?, pause: number? }?,
-	fast: number?,
-	normal: number?,
-	press: number?,
-	hover: number?,
-	reducedFade: number?,
-	revealFadeShare: number?,
-	presentFadeIn: number?,
-	presentFadeOut: number?,
-	unfoldStart: number?,
-	restLimit: number?,
-	frameLimit: number?,
-	popover: MotionTimingPatch?,
-	dialog: MotionTimingPatch?,
-	reveal: MotionTimingPatch?,
-	sheet: MotionTimingPatch?,
-	toast: MotionTimingPatch?,
-	radial: { enter: number?, exit: number?, slot: number? }?,
-	durations: { [string]: number }?,
-	springs: { [string]: SpringMetricPatch }?,
-	materialize: { [string]: number }?,
-	distances: { [string]: number }?,
-	scales: { [string]: number }?,
-	easing: { [string]: string }?,
-	styles: { [string]: string }?,
-	fling: { [string]: number }?,
+	read typewriter: { grapheme: number?, pause: number? }?,
+	read fast: number?,
+	read normal: number?,
+	read press: number?,
+	read hover: number?,
+	read reducedFade: number?,
+	read revealFadeShare: number?,
+	read presentFadeIn: number?,
+	read presentFadeOut: number?,
+	read unfoldStart: number?,
+	read restLimit: number?,
+	read frameLimit: number?,
+	read popover: MotionTimingPatch?,
+	read dialog: MotionTimingPatch?,
+	read reveal: MotionTimingPatch?,
+	read sheet: MotionTimingPatch?,
+	read toast: MotionTimingPatch?,
+	read radial: { enter: number?, exit: number?, slot: number? }?,
+	read durations: { read [string]: number }?,
+	read springs: { read [string]: SpringMetricPatch }?,
+	read materialize: { read [string]: number }?,
+	read distances: { read [string]: number }?,
+	read scales: { read [string]: number }?,
+	read easing: { read [string]: string }?,
+	read styles: { read [string]: string }?,
+	read fling: { read [string]: number }?,
 }
 export type Metrics = {
 	typography: { [string]: Typography },
@@ -81,15 +81,15 @@ export type Metrics = {
 	controls: { [string]: { [string]: number } },
 }
 export type MetricsPatch = {
-	typography: { [string]: TypographyPatch }?,
-	space: { [string]: number }?,
-	radii: { [string]: number }?,
-	strokes: { [string]: number }?,
-	targetSizes: { [string]: number }?,
-	controlSizes: { [string]: ControlSizePatch }?,
-	motion: MotionMetricsPatch?,
-	iconSizes: { [string]: number }?,
-	controls: { [string]: { [string]: number } }?,
+	read typography: { read [string]: TypographyPatch }?,
+	read space: { read [string]: number }?,
+	read radii: { read [string]: number }?,
+	read strokes: { read [string]: number }?,
+	read targetSizes: { read [string]: number }?,
+	read controlSizes: { read [string]: ControlSizePatch }?,
+	read motion: MotionMetricsPatch?,
+	read iconSizes: { read [string]: number }?,
+	read controls: { read [string]: { read [string]: number } }?,
 }
 export type Gradient = {
 	stops: { { t: number, r: number, g: number, b: number } },
@@ -124,7 +124,7 @@ export type PaletteExtra = {
 	chromeGradient: { [string]: Gradient }?,
 }
 export type Palette = { name: string, colors: { [string]: RGB }, extra: PaletteExtra? }
-export type PalettePatch = { name: string, colors: { [string]: RGBPatch }?, extra: PaletteExtra? }
+export type PalettePatch = { read name: string, read colors: { read [string]: RGBPatch }?, read extra: PaletteExtra? }
 export type Insets = { left: number?, right: number?, top: number?, bottom: number? }
 export type ShadowAxis = { scale: number?, offset: number? }
 export type ShadowPair = { x: ShadowAxis?, y: ShadowAxis? }
@@ -166,7 +166,7 @@ export type IconEntry = string | IconAsset | {
 	selected: string | IconAsset?,
 	disabled: string | IconAsset?,
 }
-export type IconRegistry = { icons: { [string]: IconEntry }?, assets: { [string]: Asset }? }
+export type IconRegistry = { read icons: { [string]: IconEntry }?, read assets: { [string]: Asset }? }
 export type FillDirection = "ltr" | "rtl" | "ttb" | "btt"
 type SkinKind =
 	"native"
@@ -282,10 +282,21 @@ export type IdentityPatch = {
 	schemaVersion: string?,
 	rendering: string?,
 }
+export type ThemeStyle = { defaultTheme: string, themes: { Palette }, shadows: { [string]: Shadow }? }
 export type ThemePackage = {
 	schema: string,
 	identity: Identity,
-	style: { defaultTheme: string, themes: { Palette }, shadows: { [string]: Shadow }? },
+	style: ThemeStyle,
+	metrics: Metrics,
+	chrome: { [string]: SkinLayer }?,
+	assets: { [string]: Asset }?,
+	icons: { [string]: IconEntry }?,
+	rules: { Rule }?,
+}
+export type ReadOnlyThemePackage = {
+	schema: string,
+	identity: Identity,
+	read style: ThemeStyle,
 	metrics: Metrics,
 	chrome: { [string]: SkinLayer }?,
 	assets: { [string]: Asset }?,
@@ -350,18 +361,18 @@ export type Themes = {
 	TYPE_ROLES: { string },
 	REQUIRED_TYPE_ROLES: { string },
 	neutralPackage: () -> ThemePackage,
-	forDistance: (package: ThemePackage, distance: "near" | "ten-foot") -> ThemePackage,
+	forDistance: (package: ReadOnlyThemePackage, distance: "near" | "ten-foot") -> ReadOnlyThemePackage,
 	define: (definition: ThemeDefinition | ThemePackage) -> (ThemePackage?, ThemeReport),
 	checkCoverage: (package: ThemePackage, needs: { CoverageNeed }) -> CoverageReport,
 	resolveIcon: (package: IconRegistry, name: string, state: SkinState?) -> string?,
 	createStyleSheet: (
 		runtime: ComposeTypes.Runtime,
-		packageOrReadable: Engine.Input<ThemePackage>?,
+		packageOrReadable: Engine.Input<ReadOnlyThemePackage>?,
 		options: ThemeOptions?
 	) -> StyleSheet,
 	skin: (
 		runtime: ComposeTypes.Runtime,
-		packageOrReadable: Engine.Input<ThemePackage>?,
+		packageOrReadable: Engine.Input<ReadOnlyThemePackage>?,
 		slot: string,
 		options: SkinOptions?
 	) -> Frame,

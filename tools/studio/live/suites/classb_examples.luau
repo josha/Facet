@@ -3,6 +3,15 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Built = (() -> unknown) | { screen: () -> unknown }
+type OutpostBuild = {
+	screen: () -> unknown,
+	steps: {
+		engage: (unknown) -> (),
+		snapshot: () -> { outpost: unknown, message: string },
+		setValue: (string, number) -> (),
+	},
+}
 local storage = game:GetService("ReplicatedStorage")
 type KeyInput = {
 	SendKey: (KeyInput, boolean, Enum.KeyCode, boolean) -> (),
@@ -42,28 +51,30 @@ local function grow(root: Instance, offset: number, base: { [Instance]: number }
 end
 
 local function example(t: any, name: string, size: Vector2, patch: ((any) -> ())?, theme: any?): (any, any)
-	local built
+	local built: Built
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local ctx = t.context(UI, Host, Compose, env)
 		if patch then
 			patch(ctx)
 		end
 		local module = storage:WaitForChild("FacetExamples"):WaitForChild(name)
-		built = (require :: any)(module).build(ctx)
-		return if type(built) == "function" then built() else built.screen()
+		local result: Built = (require :: any)(module).build(ctx)
+		built = result
+		return if type(result) == "function" then result() else result.screen()
 	end, { size = size, frames = 20, theme = theme })
 	return stage, built
 end
 
 local function scenario(t: any, name: string, size: Vector2, patch: ((any) -> ())?): (any, any)
-	local built
+	local built: Built
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local ctx = t.context(UI, Host, Compose, env)
 		if patch then
 			patch(ctx)
 		end
-		built = t.scenario(name).build(ctx)
-		return if type(built) == "function" then built() else built.screen()
+		local result: Built = t.scenario(name).build(ctx)
+		built = result
+		return if type(result) == "function" then result() else result.screen()
 	end, { size = size, frames = 20 })
 	return stage, built
 end
@@ -391,7 +402,7 @@ end)
 
 add("outpost-terminal-holds-canvas-every-text-size", {}, function(t)
 	for _, offset in OFFSETS do
-		local built
+		local built: OutpostBuild
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 			local ctx = t.context(UI, Host, Compose, env)
 			built = ctx.load("example", "outpost_terminal").build(ctx)
@@ -514,7 +525,8 @@ add("playlist-filter-clears-with-native-keyboard", {}, function(t)
 	local filter = assert(stage:FindFirstChild("Filter", true))
 	local field = if filter:IsA("TextBox") then filter else filter:FindFirstChildWhichIsA("TextBox", true)
 	assert(field)
-	local tracks = assert(stage:FindFirstChild("Tracks", true))
+	local tracks: Instance = stage:FindFirstChild("Tracks", true)
+	assert(tracks)
 	local body = assert(tracks:FindFirstChild("Body", true))
 	local empty = assert(stage:FindFirstChild("EmptyResult", true)) :: GuiObject
 	local function rowCount(): number
@@ -567,12 +579,10 @@ add("playlist-320x640-edit-mode-cells", {}, function(t)
 	local stage = example(t, "02_playlist_table", Vector2.new(320, 640), function(ctx)
 		local base = ctx.UI
 		ctx.UI = setmetatable({
-			Table = function(name)
-				return function(spec)
-					local copy = table.clone(spec)
-					copy.editing = ctx.Compose.cell(true)
-					return base.Table(name)(copy)
-				end
+			Table = function(spec, name)
+				local copy = table.clone(spec)
+				copy.editing = ctx.Compose.cell(true)
+				return base.Table(copy, name)
 			end,
 		}, { __index = base })
 	end)
@@ -584,13 +594,13 @@ add("playlist-320x640-edit-mode-cells", {}, function(t)
 	if not (header and body) then
 		return
 	end
-	local shown = {}
+	local shown: { [string]: boolean } = {}
 	for _, id in { "name", "artist", "rating" } do
 		local cell = header:FindFirstChild(id)
 		shown[id] = cell ~= nil and t.visible(cell)
 	end
 	t.note("visible header columns", shown)
-	local row = nil
+	local row: GuiObject? = nil
 	for _, node in body:GetDescendants() do
 		if node.Name == "Row" and node:IsA("GuiObject") and t.visible(node) then
 			row = node
@@ -610,13 +620,13 @@ add("playlist-320x640-edit-mode-cells", {}, function(t)
 			visible == shown[id],
 			{ row = visible, header = shown[id] }
 		)
-		if visible and cell then
+		if cell and visible then
 			local head = t.rect(header:FindFirstChild(id))
 			local box = t.rect(cell)
 			t.near(`{id} cell starts under its header`, box.x, head.x, 0.5)
 			t.near(`{id} cell is as wide as its header`, box.w, head.w, 0.5)
 			local value = cell:FindFirstChild("Value", true)
-			if value then
+			if value and value:IsA("TextLabel") then
 				local seen = t.clipped(value)
 				local width = if seen then seen.w else 0
 				measures[id] = { cell = box.w, text = width, fits = value.TextFits }
@@ -636,7 +646,12 @@ add("playlist-320x640-edit-mode-cells", {}, function(t)
 		shown
 	)
 	local collapsed = not shown.artist or not shown.rating
-	local more = row.Parent and row.Parent:FindFirstChild("Details")
+	local more: GuiObject? = nil
+	local moreHost = row.Parent
+	local moreFound = moreHost and moreHost:FindFirstChild("Details")
+	if moreFound and moreFound:IsA("GuiObject") then
+		more = moreFound
+	end
 	t.check(
 		"collapsed columns are offered through the row's More control",
 		not collapsed or (more ~= nil and t.visible(more) and more.AbsoluteSize.X >= 44),

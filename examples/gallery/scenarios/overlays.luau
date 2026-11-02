@@ -3,13 +3,11 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 type OverlayMedia = typeof(require("@repo/tools/typecheck/aliases").OverlayMedia)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 
 local COPY = {
 	title = "Overlays on request",
@@ -53,7 +51,7 @@ return {
 	title = "Overlays",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
@@ -92,7 +90,7 @@ return {
 		end
 
 		local function label(name: string, text: TextValue, order: number, role: ("title" | "caption")?): GuiObject
-			return UI.Text({
+			return UI.Text {
 				Name = name,
 				LayoutOrder = order,
 				BackgroundTransparency = 1,
@@ -103,7 +101,7 @@ return {
 				textRole = role,
 				TextWrapped = true,
 				TextXAlignment = Enum.TextXAlignment.Left,
-			})
+			}
 		end
 
 		local function body(text: string): () -> GuiObject
@@ -194,7 +192,7 @@ return {
 					end,
 				},
 			}
-			return Host.Frame("Overlays")({
+			return Host.Frame "Overlays" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
 				UI.ScrollView "Content" {
@@ -266,15 +264,15 @@ return {
 						end,
 						trigger = UI.Button "LockedButton" { label = COPY.locked },
 						content = function(): Instance
-							return Host.Frame("Body")({
+							return Host.Frame "Body" {
 								BackgroundTransparency = 1,
 								Size = UDim2.fromOffset(280, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
-								Host.UIListLayout({
+								Host.UIListLayout {
 									FillDirection = Enum.FillDirection.Vertical,
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									Padding = UDim.new(0, 8),
-								}),
+								},
 								label("Line", COPY.lockedBody, 1),
 								UI.Toggle "Allow" { LayoutOrder = 2, label = COPY.allow, value = allowClose },
 								UI.Button "Close" {
@@ -286,7 +284,7 @@ return {
 										end
 									end,
 								},
-							})
+							}
 						end,
 					},
 					sourceRow,
@@ -307,18 +305,18 @@ return {
 						align = "start",
 						content = body(COPY.sourceBody),
 					},
-					Host.Frame("TourRow")({
+					Host.Frame "TourRow" {
 						LayoutOrder = 11,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Horizontal,
 							SortOrder = Enum.SortOrder.LayoutOrder,
-						}),
+						},
 						tourButton,
 						tour(tourButton),
-					}),
+					},
 					UI.Button "DialogButton" {
 						LayoutOrder = 12,
 						label = COPY.dialog,
@@ -366,7 +364,7 @@ return {
 						end,
 					},
 				},
-			})
+			}
 		end
 
 		return {

@@ -11,7 +11,7 @@ local ConsumerTypes = {}
 local DEFINITIONS = { "tools/typecheck/roblox.d.luau", "artifacts/verify/types/roblox.d.luau" }
 local CACHE = "artifacts/facet-lint/types-cache.json"
 local LOCK = "tools/typecheck/roblox.lock.json"
-local FLAGS = { "--flag:LuauTarjanChildLimit=100000" }
+local FLAGS = { "--flag:LuauTarjanChildLimit=100000", "--flag:LuauTypeInferIterationLimit=100000" }
 
 local function fingerprint(
 	paths: { string },
@@ -134,6 +134,9 @@ local function cached(key: string): { Analyzer.Diagnostic }?
 end
 
 function ConsumerTypes.check(paths: { string }, project: string, solver: string): ({ Analyzer.Diagnostic }?, string?)
+	if solver ~= "new" then
+		return nil, "the current Luau solver is required"
+	end
 	local reported = Run.capture({ "luau-lsp", "--version" })
 	if not reported.ok then
 		return nil, "Pinned luau-lsp is missing; run rokit install"
@@ -190,7 +193,7 @@ function ConsumerTypes.check(paths: { string }, project: string, solver: string)
 		"roblox",
 		"--definitions=" .. (definitions :: string),
 		"--sourcemap=" .. sourcemap,
-		"--flag:LuauSolverV2=" .. (if solver == "old" then "false" else "true"),
+		"--flag:LuauSolverV2=true",
 	}
 	for _, flag in FLAGS do
 		table.insert(argv, flag)

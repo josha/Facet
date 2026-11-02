@@ -111,7 +111,7 @@ return function(
 	local root: Frame
 	local entry: TextBox? = nil
 	local function calendarButton(): TextButton
-		return UI.Button({
+		return UI.Button {
 			Name = "Open",
 			LayoutOrder = 2,
 			icon = "calendar",
@@ -126,7 +126,7 @@ return function(
 			onActivate = function()
 				requestPresented(not presented:peek())
 			end,
-		})
+		}
 	end
 	local entryView = Compose.show(function(use: Use)
 		return use(typedEntry)
@@ -145,7 +145,7 @@ return function(
 			Selectable = function(use: Use)
 				return interactive(use)
 			end,
-			ctx.padding(12, 0) :: Shared.Child,
+			ctx.padding(12, 0),
 		}
 		ctx.styled(box, "text")
 		entry = box
@@ -176,7 +176,7 @@ return function(
 	local showView = Compose.show(function(use: Use)
 		return not use(typedEntry)
 	end, function()
-		local show = UI.Button({
+		local show = UI.Button {
 			Name = "Show",
 			LayoutOrder = 1,
 			label = function(use: Use)
@@ -195,7 +195,7 @@ return function(
 			onActivate = function()
 				requestPresented(true)
 			end,
-		})
+		}
 		parts.tagWhile(show, "facet-secondary", function(use: Use)
 			return use(valueText) == ""
 		end)
@@ -207,7 +207,7 @@ return function(
 		AutomaticSize = E.AutomaticSize.None,
 		BackgroundTransparency = 0,
 		ClipsDescendants = true,
-		ctx.padding(0, 0) :: Shared.Child,
+		ctx.padding(0, 0),
 	})
 	local layout = assert(plate:FindFirstChildWhichIsA("UIListLayout"))
 	layout.VerticalAlignment = E.VerticalAlignment.Center
@@ -290,7 +290,7 @@ return function(
 					ScrollingDirection = E.ScrollingDirection.Y,
 					ScrollBarThickness = 4,
 					VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
-					panel :: Shared.Child,
+					panel,
 				}
 				surface = ctx.fade {
 					Name = "CalendarSurface",
@@ -299,7 +299,7 @@ return function(
 					GroupTransparency = function(use: Use): number
 						return 1 - shown.opacity(use)
 					end,
-					scroll :: Shared.Child,
+					scroll,
 				}
 				ctx.styled(scroll, "panel")
 				ctx.styled(scroll, "calendar-scroll")

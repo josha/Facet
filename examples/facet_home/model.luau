@@ -3,9 +3,9 @@
 export type Item = { kind: string, rotation: number, palette: string }
 export type Layout = { schema: string, revision: number, slots: { [string]: Item } }
 export type Stored = {
-	schema: unknown,
-	revision: unknown,
-	slots: { [unknown]: { kind: unknown, rotation: unknown, palette: unknown } },
+	read schema: unknown,
+	read revision: unknown,
+	read slots: { read [string]: { read kind: unknown, read rotation: unknown, read palette: unknown } },
 }
 local model = {}
 model.catalog = {

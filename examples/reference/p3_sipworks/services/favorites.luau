@@ -1,10 +1,8 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 
 local favorites = {}
 
@@ -15,8 +13,8 @@ function favorites.new(opts: Opts)
 	local seed = opts.seed or 1
 	local ids: { string } = opts.ids or {}
 
-	local function seeded(): { [string]: boolean }
-		local out: { [string]: boolean } = {}
+	local function seeded(): { [string]: boolean? }
+		local out: { [string]: boolean? } = {}
 
 		local stride = 2 + (seed - 1) % 3
 		for i, id in ids do

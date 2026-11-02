@@ -21,20 +21,20 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 		local nodes: { [K]: GuiObject } = {}
 		local cells: { TextButton } = {}
 		local positions: { Types.ReadOnlyValue<Vector2> } = {}
-		local preview = C.cell(nil :: Spatial.Placement?)
+		local preview = C.cell<<Spatial.Placement?>>(nil)
 		local accepted = C.cell(false)
 		local size = C.formula(function(use: Types.Use): number
-			local value = ctx.read(spec.cellSize or ctx.metric("targetSizes.minimum", use), use)
+			local value = ctx.read<<number>>(spec.cellSize or ctx.metric("targetSizes.minimum", use), use)
 			assert(value > 0 and value < math.huge, "SpatialGrid.cellSize must be finite and positive")
 			return math.max(ctx.metric("targetSizes.minimum", use), value)
 		end)
 		local gap = C.formula(function(use: Types.Use): number
-			local value = ctx.read(spec.gap or ctx.metric("space.xs", use), use)
+			local value = ctx.read<<number>>(spec.gap or ctx.metric("space.xs", use), use)
 			assert(value >= 0 and value < math.huge, "SpatialGrid.gap must be finite and nonnegative")
 			return value
 		end)
 		local items = C.formula(function(use: Types.Use): { V }
-			local values = ctx.read(spec.from, use)
+			local values = ctx.read<<{ V }>>(spec.from, use)
 			local seen: { [K]: boolean } = {}
 			local occupied: { Spatial.Placement } = {}
 			for _, item in values do
@@ -205,9 +205,11 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 		runtime.mountFragment(function()
 			return {
 				grid,
-				C.keyed({
+				C.keyed<<V, K>>({
 					from = items,
-					key = spec.key,
+					key = function(item: V, _index: number): K
+						return spec.key(item)
+					end,
 					render = function(
 						current: Types.ReadOnlyValue<V>,
 						_index: Types.ReadOnlyValue<number>,
@@ -287,7 +289,8 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 							width = 1,
 							height = 1,
 						}
-						local next = if carried and carried.Parent then carried else nil
+						local held = carried
+						local next: GuiObject? = if held and held.Parent then held else nil
 						if next == nil then
 							for _, item in values do
 								if geometry.overlaps(at, spec.placement(item)) then

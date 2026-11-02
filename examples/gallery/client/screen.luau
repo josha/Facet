@@ -15,11 +15,9 @@ type MotionLevel = typeof(require("@repo/examples/types").MotionLevel)
 type CategoryLayout = typeof(require("@repo/examples/types").CategoryLayout)
 type ThemeModule = typeof(require("@repo/examples/types").ThemeModule)
 type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 local catalogue = require("./demo_picker")
 local screen = {}
 local DEVICES: { [string]: Device } = {
@@ -327,7 +325,7 @@ function screen.dispatch(ctx: ExampleContext, command: string, argument: unknown
 			ctx.requestPanel(word)
 		end
 	elseif command == "tab" and ctx.currentSelect then
-		ok = ctx.currentSelect(argument) == true
+		ok = word ~= nil and ctx.currentSelect(word) == true
 	elseif command == "report" then
 		ok = true
 	end
@@ -642,7 +640,7 @@ function screen.build(ctx: ExampleContext)
 				Pressed = function()
 					request(want)
 				end,
-				Host.InputBinding({ KeyCode = key }),
+				Host.InputBinding { KeyCode = key },
 			})
 		end
 		Host.InputContext "ShowcaseChromeToggle" {
@@ -715,12 +713,12 @@ function screen.build(ctx: ExampleContext)
 	local row = Host.Frame "Row" {
 		AutomaticSize = Enum.AutomaticSize.XY,
 		BackgroundTransparency = 1,
-		Host.UIListLayout({
+		Host.UIListLayout {
 			FillDirection = Enum.FillDirection.Horizontal,
 			Padding = UDim.new(0, 8),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			VerticalAlignment = Enum.VerticalAlignment.Top,
-		}),
+		},
 		hint("MenuHint", "LB"),
 		UI.CollapsibleView "Showcase" {
 			label = function(use: Use)
@@ -753,16 +751,16 @@ function screen.build(ctx: ExampleContext)
 			return UDim2.new(1, 0, 0, toolbarHeight(use))
 		end,
 		BackgroundTransparency = 1,
-		Host.UIPadding({
+		Host.UIPadding {
 			PaddingLeft = UDim.new(0, 16),
 			PaddingRight = UDim.new(0, 12),
 			PaddingTop = UDim.new(0, 8),
 			PaddingBottom = UDim.new(0, 4),
-		}),
+		},
 		Host.Frame "Column" {
 			AutomaticSize = Enum.AutomaticSize.XY,
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+			Host.UIListLayout { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder },
 			row,
 		},
 	}

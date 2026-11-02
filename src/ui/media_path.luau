@@ -20,7 +20,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			height == nil or (type(height) == "number" and height > 0),
 			"Facet Path height must be a positive number"
 		)
-		local stroke: Engine.Path2DNativeProps = {
+		local stroke: Engine.Path2DProps = {
 			Name = "Stroke",
 			Closed = function(use: ComposeTypes.Use): boolean
 				return read(spec.closed, use) == true
@@ -41,7 +41,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		if spec.tint ~= nil then
 			stroke.Color3 = function(use: ComposeTypes.Use): Color3
-				return read(spec.tint, use)
+				return assert(read<<Color3?>>(spec.tint, use))
 			end
 		end
 		local path = ctx.styled(Host.Path2D(stroke), "path")
@@ -55,11 +55,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			if previousRole then
 				path:RemoveTag(previousRole)
 			end
-			previousRole = "facet-path-" .. role
-			path:AddTag(previousRole :: string)
+			local tag = "facet-path-" .. role
+			previousRole = tag
+			path:AddTag(tag)
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
-			local points: { Media.PathPoint } = read(spec.points, use)
+			local points = read<<{ Media.PathPoint }>>(spec.points, use)
 			assert(type(points) == "table", "Facet Path points must be a list of pathShapes points")
 			assert(#points <= pathShapes.MAX_CONTROL_POINTS, "Facet Path takes at most 100 control points")
 			local native: { Path2DControlPoint } = {}

@@ -3,13 +3,10 @@ local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
+	local Facet = require("../src")
 	local Compose = require("../src/vendor/compose/core")
 	local Roblox = require("../src/vendor/compose/roblox")
-	local context = require("../src/ui/context")
-	local register = require("../src/ui/inputs")
 	local engineLib = require("./lib/native_engine")
 	local expect = Verify.expect
 
@@ -26,49 +23,37 @@ return function(verifyHarness: Verify.Harness)
 		return nil
 	end
 
-	local function world(build: (any, any) -> any, theme: any?): any
+	local function world(build: (Facet.Controls, Facet.Host) -> Compose.Node, theme: any?): any
 		local engine: any = engineLib.new()
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-		local UI: any = {}
 		local gui = engine.new("GuiService")
 		local held: { [string]: boolean } = {}
-		local input = setmetatable({
-			IsKeyDown = function(_, key)
-				return key.Name ~= "ButtonX" and held[key.Name] == true
-			end,
-			GetConnectedGamepads = function()
-				return { engine.types.Enum.UserInputType.Gamepad1 }
-			end,
-			IsGamepadButtonDown = function(_, pad, key)
+		local input = engine.new("UserInputService")
+		engine.environment.fakeOn(input, "IsKeyDown", function(_: unknown, key: Enum.KeyCode)
+			return key.Name ~= "ButtonX" and held[key.Name] == true
+		end)
+		engine.environment.fakeOn(input, "GetConnectedGamepads", function()
+			return { engine.types.Enum.UserInputType.Gamepad1 }
+		end)
+		engine.environment.fakeOn(
+			input,
+			"IsGamepadButtonDown",
+			function(_: unknown, pad: Enum.UserInputType, key: Enum.KeyCode)
 				return pad == engine.types.Enum.UserInputType.Gamepad1 and held[key.Name] == true
-			end,
-			GetFocusedTextBox = function()
-				return nil
-			end,
-		}, {
-			__index = function(_, key)
-				local real = engine.new("UserInputService")
-				local value = real[key]
-				if type(value) == "function" then
-					return function(_, ...)
-						return value(real, ...)
-					end
-				end
-				return value
-			end,
-		})
-		register(
-			context(Compose, runtime, {
-				types = engine.types,
-				theme = theme,
-				services = { GuiService = gui, UserInputService = input :: any },
-				guiService = gui,
-			}),
-			UI
+			end
 		)
+		engine.environment.fakeOn(input, "GetFocusedTextBox", function()
+			return nil
+		end)
+		local UI = Facet.controls(runtime, {
+			types = engine.types,
+			theme = theme,
+			services = { GuiService = gui, UserInputService = input },
+			guiService = gui,
+		})
 		local screen = engine.new("ScreenGui")
 		local stop = runtime.mount(function()
-			return build(UI, runtime.constructors)
+			return build(UI, Facet.host(runtime))
 		end, screen)
 		return { engine = engine, gui = gui, held = held, screen = screen, stop = stop, E = engine.types.Enum }
 	end
@@ -87,8 +72,8 @@ return function(verifyHarness: Verify.Harness)
 
 	local function tagWorld(theme: any?, rung: ("xsmall" | "compact" | "regular" | "large")?): any
 		local state = { selected = Compose.cell(false), editing = Compose.cell(false), removes = 0 }
-		local w = world(function(UI: FacetControls)
-			return UI.Chip("Tag")({
+		local w = world(function(UI)
+			return UI.Chip "Tag" {
 				label = "Rain",
 				selected = state.selected,
 				editing = state.editing,
@@ -96,7 +81,7 @@ return function(verifyHarness: Verify.Harness)
 				onRemove = function()
 					state.removes += 1
 				end,
-			})
+			}
 		end, theme)
 		w.state = state
 		w.tag = find(w.screen, "Tag")
@@ -175,14 +160,14 @@ return function(verifyHarness: Verify.Harness)
 					for _, n in { 3, 2 } do
 						local all = { "A", "B", "C" }
 						local items = Compose.cell(table.move(all, 1, n, 1, {}))
-						local w = world(function(UI: FacetControls, Host: RobloxHost)
-							return Host.Frame({
+						local w = world(function(UI, Host)
+							return Host.Frame {
 								Name = "Tokens",
 								Compose.keyed({
 									from = items,
 									render = function(current, index): GuiObject
 										local id = current:peek()
-										return UI.Chip({
+										return UI.Chip {
 											Name = id,
 											label = id,
 											LayoutOrder = index,
@@ -191,10 +176,10 @@ return function(verifyHarness: Verify.Harness)
 												table.remove(nextItems, table.find(nextItems, id) :: number)
 												items:set(nextItems)
 											end,
-										})
+										}
 									end,
 								}),
-							})
+							}
 						end)
 						w.gui.SelectedObject = find(w.screen, all[n])
 						w.held[key] = true
@@ -218,17 +203,17 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_chip_edit::native Chip edit mode::a held removal does not repeat after an input change, and inherited disabled refuses it",
 			run = function()
 				local calls, enabled = 0, Compose.cell(true)
-				local w = world(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
+				local w = world(function(UI, Host)
+					return Host.Frame {
 						Name = "Holder",
-						UI.Chip("Token")({
+						UI.Chip "Token" {
 							label = "Rain",
 							enabled = enabled,
 							onRemove = function()
 								calls += 1
 							end,
-						}),
-					})
+						},
+					}
 				end)
 				local token = find(w.screen, "Token")
 				local content = find(token, "Content")

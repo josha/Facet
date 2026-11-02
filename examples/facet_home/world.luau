@@ -1,7 +1,7 @@
 --!strict
 
 type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
-type Constructor = (props: { [string]: unknown }) -> unknown
+type Constructor = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime.constructors.ProximityPrompt)
 type Item = { kind: string, rotation: number, palette: string }
 local world = {}
 world.colors = {
@@ -39,7 +39,7 @@ function world.furniture(Host: Host, item: Item, at: CFrame, assets: Instance?):
 	local tint = world.colors[item.palette] or world.colors.sage
 	local wood, soft = Color3.fromRGB(144, 107, 73), Color3.fromRGB(245, 233, 209)
 	local function part(name: string, size: Vector3, offset: Vector3, color: Color3, shape: Enum.PartType?): Part
-		return Host.Part(name) {
+		return Host.Part(name)({
 			Anchored = true,
 			Size = size,
 			CFrame = at * CFrame.new(offset),
@@ -51,7 +51,7 @@ function world.furniture(Host: Host, item: Item, at: CFrame, assets: Instance?):
 			Shape = shape or Enum.PartType.Block,
 			TopSurface = Enum.SurfaceType.Smooth,
 			BottomSurface = Enum.SurfaceType.Smooth,
-		}
+		})
 	end
 	local pieces: { Instance } = {}
 	if item.kind == "sofa" then
@@ -113,12 +113,12 @@ function world.furniture(Host: Host, item: Item, at: CFrame, assets: Instance?):
 		table.insert(pieces, part("Rug", Vector3.new(5.5, 0.12, 4), Vector3.new(0, 0.12, 0), tint))
 		table.insert(pieces, part("Stripe", Vector3.new(5.3, 0.04, 0.35), Vector3.new(0, 0.2, 0), soft))
 	end
-	return Host.Model(item.kind) { table.unpack(pieces) }
+	return Host.Model(item.kind)({ table.unpack(pieces) })
 end
 function world.room(Host: Host, Prompt: Constructor, owner: Player, origin: Vector3): (Model, { Part }, Part)
 	local wood = Color3.fromRGB(182, 147, 107)
 	local function part(name: string, size: Vector3, position: Vector3, color: Color3): Part
-		return Host.Part(name) {
+		return Host.Part(name)({
 			Anchored = true,
 			Size = size,
 			Position = origin + position,
@@ -129,7 +129,7 @@ function world.room(Host: Host, Prompt: Constructor, owner: Player, origin: Vect
 				else Enum.Material.Plaster,
 			TopSurface = Enum.SurfaceType.Smooth,
 			BottomSurface = Enum.SurfaceType.Smooth,
-		}
+		})
 	end
 	local children: { Instance } = {
 		part("Floor", Vector3.new(27, 0.4, 23), Vector3.new(0, 0, 0), wood),
@@ -193,7 +193,7 @@ function world.room(Host: Host, Prompt: Constructor, owner: Player, origin: Vect
 			table.insert(children, crown)
 		end
 	end
-	local room = Host.Model("Home_" .. owner.UserId) { table.unpack(children) }
+	local room = Host.Model("Home_" .. owner.UserId)({ table.unpack(children) })
 	room:SetAttribute("OwnerUserId", owner.UserId)
 	return room, slots, board
 end

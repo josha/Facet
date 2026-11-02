@@ -1,4 +1,12 @@
 --!strict
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type StringSinglePickerSpec = typeof(require("@repo/tools/typecheck/aliases").StringSinglePickerSpec)
+type SliderCellProps = typeof(require("@repo/tools/typecheck/aliases").SliderCellProps)
+type ToggleCellProps = typeof(require("@repo/tools/typecheck/aliases").ToggleCellProps)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+type NumberStepperCellProps = typeof(require("@repo/tools/typecheck/aliases").NumberStepperCellProps)
+type PerfRowTableSpec = typeof(require("@repo/tools/typecheck/aliases").PerfRowTableSpec)
+type PerfRowCollectionSpec = typeof(require("@repo/tools/typecheck/aliases").PerfRowCollectionSpec)
 
 type DatasetModule = typeof(require("./dataset"))
 
@@ -11,11 +19,10 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type ObservedCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
+type ImageRequest = { resolve: (string?) -> (), content: string, cancelled: boolean, completed: boolean? }
 type Signal = { Fire: (Signal, ...unknown) -> () }
 local function fire(signal: unknown, ...: unknown)
 	local native = (signal :: unknown) :: Signal
@@ -91,6 +98,12 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 	assert(workloads.DATASETS[name], `unknown performance workload {name}`)
 	local Compose: ComposeModule, runtime, Host, UI, types = ctx.Facet.Compose, ctx.runtime, ctx.Host, ctx.UI, ctx.types
 	local D2, V2, E, C3 = types.UDim2, types.Vector2, types.Enum, types.Color3
+	local VirtualList: (PerfRowCollectionSpec, string?) -> ScrollingFrame = UI.VirtualList
+	local Table: (PerfRowTableSpec, string?) -> Frame = UI.Table
+	local Picker: (StringSinglePickerSpec, string?) -> GuiObject = UI.Picker
+	local Slider: (SliderCellProps, string?) -> Frame = UI.Slider
+	local Stepper: (NumberStepperCellProps, string?) -> Frame = UI.Stepper
+	local Toggle: (ToggleCellProps, string?) -> TextButton = UI.Toggle
 	type Row = {
 		id: string,
 		name: string,
@@ -101,7 +114,17 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 		team: string?,
 		value: number?,
 	}
+	local initialDragMoves: number? = nil
+	local initialDrops: number? = nil
+	local initialDropTarget: string? = nil
+	local initialScroll: number? = nil
+	local initialRequests: { ImageRequest }? = nil
 	local state = {
+		requests = initialRequests,
+		dragMoves = initialDragMoves,
+		drops = initialDrops,
+		dropTarget = initialDropTarget,
+		scroll = initialScroll,
 		n = 0,
 		name = name,
 		selected = nil :: (Value<string> | Value<{ [string]: boolean }>)?,
@@ -155,26 +178,26 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 			},
 		}
 	end
-	local function readText(value: any, index: (number | string)?)
-		return Host.TextLabel({
+	local function readText(value: TextValue, index: (number | string)?)
+		return Host.TextLabel {
 			Name = `Readout{index or 1}`,
 			TextSize = if name == "hud-binding-storm" then 18 else 14,
 			Text = value,
 			Size = D2.new(1, 0, 0, 24),
 			BackgroundTransparency = 1,
-		})
+		}
 	end
 	local function stack(children: { Instance }): Frame
 		local props: FrameProps = {
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+			Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder },
 		}
 		for index, node in children do
-			if type(node) ~= "function" and ((node :: unknown) :: Instance):IsA("GuiObject") then
-				runtime.decorate((node :: unknown) :: Instance, { LayoutOrder = index })
+			if node:IsA("GuiObject") then
+				runtime.decorate(node, { LayoutOrder = index })
 			end
-			props[#props + 1] = node :: unknown
+			props[#props + 1] = node
 		end
 		return Host.Frame(props)
 	end
@@ -183,10 +206,10 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 		table.insert(state.observed, (cell :: unknown) :: ObservedCell)
 		return cell
 	end
-	local function viewport<T>(node: T): T
+	local function viewport<T>(node: T & { read ClassName: string }): T & { read ClassName: string }
 		if poke then
 			poke(node, "AbsoluteSize", V2.new(ctx.viewport.w, ctx.viewport.h))
-			if ((node :: unknown) :: Instance).ClassName == "ScrollingFrame" then
+			if node.ClassName == "ScrollingFrame" then
 				poke(node, "AbsoluteWindowSize", V2.new(ctx.viewport.w, math.max(120, ctx.viewport.h - 80)))
 			end
 		end
@@ -209,9 +232,9 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 			end
 		end
 		state.rows = Compose.cell(data :: { Row })
-		state.list = UI.VirtualList({
+		state.list = VirtualList {
 			from = state.rows,
-			key = function(item)
+			key = function(item: Row): string
 				return item.id
 			end,
 			render = row,
@@ -222,15 +245,16 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 			status = state.status,
 			controls = state.controls,
 			Size = D2.fromScale(1, 1),
-			if full then state.disclosure() else nil :: unknown,
-		})
+			if full then state.disclosure() else nil,
+		}
 		viewport(state.list)
 		return state.list
 	end
 	local function images()
-		local children: { Instance } = { Host.UIGridLayout({ CellSize = D2.fromOffset(64, 64) }) }
+		local children: { Instance } = { Host.UIGridLayout { CellSize = D2.fromOffset(64, 64) } }
 		state.images = {}
-		state.requests = {}
+		local requests: { ImageRequest } = {}
+		state.requests = requests
 		state.async = state.async or { completed = 0, stale = 0, dropped = 0 }
 		for index = 1, 12 do
 			local source = Compose.cell(
@@ -239,27 +263,27 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 			state.images[index] = source
 			table.insert(
 				children,
-				UI.AsyncImage({
+				UI.AsyncImage {
 					source = source,
 					loader = if ctx.engine
 						then function(content, resolve)
 							local request: { resolve: (string?) -> (), content: string, cancelled: boolean, completed: boolean? } =
 								{ resolve = resolve, content = content, cancelled = false }
-							table.insert(state.requests, request)
+							table.insert(requests, request)
 							return function()
 								request.cancelled = true
 								if not request.completed then
 									state.async.dropped += 1
 								end
-								local at = table.find(state.requests, request)
+								local at = table.find(requests, request)
 								if at then
-									table.remove(state.requests, at)
+									table.remove(requests, at)
 								end
 							end
 						end
 						else nil,
 					Size = D2.fromOffset(64, 64),
-				})
+				}
 			)
 		end
 		local props: FrameProps = {}
@@ -287,10 +311,11 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 		},
 	}
 	local function presentedSurface(): Instance?
-		if not (ctx.frame and ctx.target and state.surface) then
+		local surface = state.surface
+		if not (ctx.frame and ctx.target and surface) then
 			return nil
 		end
-		return ctx.target:FindFirstChild(state.surface.panel, true)
+		return ctx.target:FindFirstChild(surface.panel, true)
 	end
 	local function transient(kind: string): GuiObject
 		local selected = Compose.cell("1")
@@ -329,12 +354,12 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				{ id = "Keep", label = "Keep a copy" },
 				{ id = "Cancel", label = "Cancel", role = "cancel" },
 			}
-			return UI.Alert({
+			return UI.Alert {
 				title = "Delete this save?",
 				message = "The save slot is cleared and the run restarts from the last checkpoint.",
 				isPresented = state.presented,
 				actions = actions,
-			})
+			}
 		elseif kind == "radial" then
 			local radial: typeof(require("@repo/tools/typecheck/aliases").RadialSpec) = {
 				items = (options :: unknown) :: { typeof(require("@repo/tools/typecheck/aliases").RadialItem) },
@@ -343,11 +368,11 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 			}
 			return UI.RadialMenu(radial)
 		end
-		local choices = {}
+		local choices: { StringPickerOption } = {}
 		for index, option in options do
 			choices[index] = { id = option.id, value = option.value, label = option.label }
 		end
-		return UI.Picker({
+		return Picker {
 			options = choices,
 			selected = selected,
 			isPresented = state.presented,
@@ -355,13 +380,13 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				selected:set(value)
 			end,
 			style = "menu",
-		})
+		}
 	end
 	local function lifecycle()
 		local volume, quality, selected = Compose.cell(50), Compose.cell(2), Compose.cell("medium")
 		local children: { Instance } = {
-			UI.Text({ text = "Settings" }),
-			UI.Slider({
+			UI.Text { text = "Settings" },
+			Slider {
 				label = "Volume",
 				value = volume,
 				min = 0,
@@ -369,8 +394,8 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				onChange = function(next)
 					volume:set(next)
 				end,
-			}),
-			UI.Stepper({
+			},
+			Stepper {
 				label = "Quality",
 				value = quality,
 				min = 0,
@@ -378,33 +403,33 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				onChange = function(next)
 					quality:set(next)
 				end,
-			}),
-			UI.Picker({
+			},
+			Picker {
 				label = "Detail",
 				selected = selected,
 				options = {
-					{ value = "low", label = "Low" } :: PickerOption,
-					{ value = "medium", label = "Medium" } :: PickerOption,
-					{ value = "high", label = "High" } :: PickerOption,
+					{ value = "low", label = "Low" },
+					{ value = "medium", label = "Medium" },
+					{ value = "high", label = "High" },
 				},
 				onChange = function(next)
 					selected:set(next)
 				end,
-			}),
-			UI.ProgressView({ value = 0.4 }),
+			},
+			UI.ProgressView { value = 0.4 },
 		}
 		local toggles: { Instance } = {}
 		for index = 1, 12 do
 			local checked = Compose.cell(index % 2 == 0)
 			table.insert(
 				toggles,
-				UI.Toggle({
+				Toggle {
 					label = `Flag {index}`,
 					value = checked,
 					onChange = function(next)
 						checked:set(next)
 					end,
-				})
+				}
 			)
 		end
 		local flags = stack(toggles)
@@ -423,15 +448,15 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				readText(function(use: Use)
 					return `{use(state.speed)} sps`
 				end),
-				UI.Button({
+				UI.Button {
 					label = "Boost",
-				}),
+				},
 			})
 		elseif name == "settings-churn" or name == "screen-lifecycle-churn" or name == "async-image-grid" then
-			state.anchor = Host.Frame({
+			state.anchor = Host.Frame {
 				Size = D2.fromScale(1, 1),
-				if name ~= "async-image-grid" then readText("HUD") else nil :: unknown,
-			})
+				if name ~= "async-image-grid" then readText("HUD") else nil,
+			}
 			return state.anchor
 		elseif name == "collection-mutation" then
 			local items = {}
@@ -441,19 +466,19 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 			state.rows, state.collectionSelection =
 				Compose.cell(items :: { Row }), Compose.cell({} :: { [string]: boolean })
 			state.selected = state.collectionSelection
-			local function cell(current: ReadOnlyValue<Row>): Instance
-				return Host.TextLabel({
+			local function cell(current: ReadOnlyValue<Row>): GuiObject
+				return Host.TextLabel {
 					Text = function(use: Use)
 						return use(current).name
 					end,
 					TextSize = 14,
 					BackgroundTransparency = 1,
 					Size = D2.fromScale(1, 1),
-				})
+				}
 			end
-			local node = UI.Table({
+			local node = Table {
 				from = state.rows,
-				key = function(item)
+				key = function(item: Row): string
 					return item.id
 				end,
 				columns = {
@@ -465,7 +490,7 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				selection = state.collectionSelection,
 				selectionMode = "multiple",
 				status = state.status,
-			})
+			}
 			for _, child in node:GetChildren() do
 				if child.Name == "Body" then
 					viewport(child)
@@ -481,7 +506,7 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				state.images[index] = image
 				table.insert(
 					children,
-					Host.ImageLabel({ Name = `Img{index}`, Image = image, Size = D2.fromOffset(64, 64) })
+					Host.ImageLabel { Name = `Img{index}`, Image = image, Size = D2.fromOffset(64, 64) }
 				)
 			end
 			return stack(children)
@@ -496,21 +521,22 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				Size = D2.fromScale(1, 1),
 			}
 		elseif name == "locale-textsize-change" or name == "picker-segmented-textsize" then
-			state.expanded, state.textSize = bindCell(false), bindCell(1)
+			local expanded, textSize = bindCell(false), bindCell(1)
+			state.expanded, state.textSize = expanded, textSize
 			state.locale = Compose.cell("en-us")
 			local children: { Instance } = {}
-			local function label(text: any, size: number)
-				return Host.TextLabel({
+			local function label(text: TextValue, size: number)
+				return Host.TextLabel {
 					Text = text,
 					TextSize = function(use: Use)
-						return size * use(state.textSize)
+						return size * use(textSize)
 					end,
 					Size = D2.new(1, 0, 0, 30),
 					BackgroundTransparency = 1,
 					TextColor3 = C3.fromRGB(230, 232, 238),
 					TextXAlignment = E.TextXAlignment.Left,
-					Host.UIPadding({ PaddingLeft = types.UDim.new(0, 12) }),
-				})
+					Host.UIPadding { PaddingLeft = types.UDim.new(0, 12) },
+				}
 			end
 			if name == "locale-textsize-change" then
 				for index = 1, 8 do
@@ -522,19 +548,19 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				table.insert(children, label("Race setup", 18))
 				table.insert(
 					children,
-					UI.Picker({
+					Picker {
 						label = "Difficulty",
 						style = "segmented",
 						selected = selected,
 						textSize = function(use: Use)
-							return 16 * use(state.textSize)
+							return 16 * use(textSize)
 						end,
 						options = {
-							{ value = "easy", label = "Easy" } :: PickerOption,
-							{ value = "normal", label = "Normal" } :: PickerOption,
-							{ value = "hard", label = "Hard" } :: PickerOption,
+							{ value = "easy", label = "Easy" },
+							{ value = "normal", label = "Normal" },
+							{ value = "hard", label = "Hard" },
 						},
-					})
+					}
 				)
 				table.insert(children, label("Affects rival speed and damage.", 14))
 			end
@@ -545,12 +571,12 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 			or name == "radial-menu-open-close"
 		then
 			return stack({
-				UI.Button({
+				UI.Button {
 					label = "Open",
 					onActivate = function()
 						state.presented:set(true)
 					end,
-				}),
+				},
 				transient(
 					if name == "alert-present-dismiss"
 						then "alert"
@@ -559,17 +585,17 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				),
 			})
 		elseif name == "scroll-focus-traversal" or name == "native-scroll-drag" then
-			local children: typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameNativeProps) =
-				{ CanvasSize = D2.fromOffset(0, 1500), Size = D2.fromScale(1, 1), Host.UIListLayout({}) }
+			local children: typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameProps) =
+				{ CanvasSize = D2.fromOffset(0, 1500), Size = D2.fromScale(1, 1), Host.UIListLayout {} }
 			for index = 1, if name == "scroll-focus-traversal" then 16 else 30 do
-				local node = UI.Button({
+				local node = UI.Button {
 					Name = `Row{index}`,
 					label = `Row {index}`,
 					Size = if name == "native-scroll-drag" then D2.new(1, 0, 0, 48) else nil,
-				})
+				}
 				table.insert(state.nodes, node)
 				if name == "native-scroll-drag" then
-					local drag = Host.UIDragDetector({
+					local drag = Host.UIDragDetector {
 						DragStart = function(position)
 							state.dragActive = true
 							state.lastDrag = position
@@ -587,7 +613,7 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 								state.drops = (state.drops or 0) + 1
 							end
 						end,
-					})
+					}
 					runtime.mount(function()
 						return drag
 					end, node)
@@ -595,34 +621,34 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				end
 				children[#children + 1] = node
 			end
-			state.list = viewport(Host.ScrollingFrame(children))
+			state.list = viewport(Host.ScrollingFrame(children) :: any)
 			return state.list
 		elseif name == "adaptive-navigation-images" or name == "navigation-customization" then
 			local selected = Compose.cell("garage")
 			state.selected = selected
 			state.placement = Compose.cell("topBar" :: "topBar" | "sidebar")
 			state.contentBuilds = 0
-			state.tabs = {
+			local tabs: { Tab } = {
 				{
 					id = "garage",
 					label = "Garage",
 					content = function(): Instance
 						state.contentBuilds += 1
-						local children: typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameNativeProps) = {
+						local children: typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameProps) = {
 							Name = "Cars",
 							Size = D2.fromScale(1, 1),
 							AutomaticCanvasSize = E.AutomaticSize.Y,
-							Host.UIGridLayout({ CellSize = D2.fromOffset(180, 180) }),
+							Host.UIGridLayout { CellSize = D2.fromOffset(180, 180) },
 						}
 						for index = 1, 24 do
-							local card = UI.Button({
+							local card = UI.Button {
 								Name = `Car{index}`,
 								label = `Race car {index}`,
 								subtitle = "Ready to race",
 								image = dataset.IMAGE_KEYS[(index - 1) % #dataset.IMAGE_KEYS + 1],
 								imageFraming = "crop",
 								onActivate = function() end,
-							})
+							}
 							table.insert(state.nodes, card)
 							children[#children + 1] = card
 						end
@@ -644,6 +670,7 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 					end,
 				},
 			}
+			state.tabs = tabs
 			state.customization = Compose.cell(
 				{ order = { "garage", "race", "settings" } } :: { order: { string }?, hidden: { string }? }
 			)
@@ -654,20 +681,23 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 					end
 				end
 			end
-			return UI.TabView({
+			return UI.TabView {
 				tabs = state.tabs,
 				selection = selected,
 				customization = state.customization,
 				placement = state.placement,
 				style = "sidebarAdaptable",
-			})
+			}
 		elseif string.sub(name, 1, 11) == "theme-swap-" then
 			state.packages = assert(ctx.themePackages, "theme workload requires original package fixtures")
 			state.palette = Compose.cell(state.packages[1])
-			state.themeName = Compose.cell(if ctx.themeNames then ctx.themeNames[1] else nil)
+			local themeName: string? = if ctx.themeNames then ctx.themeNames[1] else nil
+			state.themeName = Compose.cell(themeName)
 			local themed = ctx.Facet.controls(runtime, { types = types, theme = state.palette })
-			local sheet =
-				ctx.Facet.themes.createStyleSheet(runtime, state.palette, { types = types, theme = state.themeName })
+			local sheet = ctx.Facet.themes.createStyleSheet(runtime, state.palette, {
+				types = types,
+				theme = state.themeName :: any,
+			})
 			state.themeControls = {
 				themed.Text "Head" { text = "Garage", TextSize = 20 },
 				themed.Button "Go" { label = "Go", onActivate = function() end },
@@ -677,16 +707,16 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 			state.themeSheet = sheet
 			return stack({
 				sheet,
-				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
+				Host.StyleLink { StyleSheet = Compose.static(sheet) },
 				state.themeControls[1],
-				Host.Frame({
+				Host.Frame {
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ FillDirection = E.FillDirection.Horizontal, Padding = types.UDim.new(0, 8) }) :: unknown,
+					Host.UIListLayout { FillDirection = E.FillDirection.Horizontal, Padding = types.UDim.new(0, 8) },
 					state.themeControls[2],
 					state.themeControls[3],
-				}),
+				},
 				state.themeControls[4],
 			})
 		else
@@ -697,20 +727,19 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				if name == "shadow-storm" then
 					table.insert(
 						children,
-						Host.Frame({
+						Host.Frame {
 							BackgroundTransparency = (value :: unknown) :: Value<number>,
 							Size = D2.fromOffset(30, 30),
-							Host.UICorner({}) :: unknown,
-							Host.UIStroke({ Thickness = 2 }),
-							Host.UIShadow({
+							Host.UICorner {},
+							Host.UIStroke { Thickness = 2 },
+							Host.UIShadow {
 								Transparency = (value :: unknown) :: Value<number>,
 								BlurRadius = types.UDim.new(0, 8),
-							}),
-						})
+							},
+						}
 					)
 				elseif name == "stylesheet-state-churn" then
-					local control =
-						UI.Toggle({ label = `Option {index}`, value = (value :: unknown) :: Value<boolean> })
+					local control = Toggle { label = `Option {index}`, value = (value :: unknown) :: Value<boolean> }
 					table.insert(state.nodes, control)
 					table.insert(children, control)
 				else
@@ -734,9 +763,9 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				table.insert(children, state.boostText)
 				table.insert(
 					children,
-					UI.ProgressView({
+					UI.ProgressView {
 						value = state.progress,
-					})
+					}
 				)
 				local markers = {}
 				for index = 1, 12 do
@@ -750,17 +779,17 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 						Size = D2.new(1, 0, 0, 6),
 						Compose.keyed({
 							from = state.markers,
-							key = function(item)
+							key = function(item: { id: string, x: number }): string
 								return item.id
 							end,
 							render = function(current: ReadOnlyValue<{ id: string, x: number }>): GuiObject
-								return Host.Frame({ Name = `Dot-{current:peek().id}`, Size = D2.fromOffset(6, 6) })
+								return Host.Frame { Name = `Dot-{current:peek().id}`, Size = D2.fromOffset(6, 6) }
 							end,
 						}),
 					}
 				)
 				for index = 1, 4 do
-					local button = UI.Button({ label = `Action {index}`, onActivate = state.activate })
+					local button = UI.Button { label = `Action {index}`, onActivate = state.activate }
 					table.insert(state.nodes, button)
 					table.insert(children, button)
 				end
@@ -790,22 +819,22 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				for index = 1, 6 do
 					table.insert(
 						children,
-						Host.Frame({
+						Host.Frame {
 							Size = D2.new(1, 0, 0, 40),
-							Host.UIListLayout({
+							Host.UIListLayout {
 								FillDirection = E.FillDirection.Horizontal,
 								Padding = types.UDim.new(0, 8),
-							}) :: unknown,
-							Host.TextLabel({
+							},
+							Host.TextLabel {
 								Text = `Setting {index}`,
 								Size = D2.fromOffset(0, 24),
 								BackgroundTransparency = 1,
 								TextXAlignment = E.TextXAlignment.Left,
 								TextTruncate = E.TextTruncate.AtEnd,
-								Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
-							}),
-							UI.Toggle({ label = `Toggle {index}`, value = Compose.cell(index % 2 == 0) }),
-						})
+								Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
+							},
+							Toggle { label = `Toggle {index}`, value = Compose.cell(index % 2 == 0) },
+						}
 					)
 				end
 				return stack(children)
@@ -817,16 +846,17 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 			end
 		elseif name == "virtual-list-scroll" or name == "lab-dense-scroll" or name == "native-scroll-drag" then
 			local increment = if name == "native-scroll-drag" then 37 else 61
-			state.scroll = (state.scroll or 0) + increment
+			local scroll = (state.scroll or 0) + increment
 			local maximum = if name == "native-scroll-drag"
 				then 600
 				elseif name == "virtual-list-scroll" then 2000 * 56 - 400
 				else #state.rows:peek() * ((ctx.rowSize or 56) + 4) - math.max(120, ctx.viewport.h - 80)
 			if name == "native-scroll-drag" then
-				state.scroll %= maximum
-			elseif state.scroll > maximum then
-				state.scroll = 0
+				scroll %= maximum
+			elseif scroll > maximum then
+				scroll = 0
 			end
+			state.scroll = scroll
 			state.list.CanvasPosition = V2.new(0, state.scroll)
 			if name == "native-scroll-drag" and ctx.engine then
 				fire(state.controls[1].DragStart, V2.new(10, 10))
@@ -838,11 +868,11 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 		elseif name == "lab-collection-churn" or name == "collection-mutation" then
 			local items = table.clone(state.rows:peek())
 			if name == "collection-mutation" then
-				local item = { id = `r{state.n + #items}`, name = `Racer {state.n + #items}` }
+				local item: Row = { id = `r{state.n + #items}`, name = `Racer {state.n + #items}` }
 				items[((state.n - 1) % #items) + 1] = item
 				state.nextSelectionKey = item.id
 			elseif name == "lab-collection-churn" then
-				local item = {
+				local item: Row = {
 					id = `ins{state.n}`,
 					name = `Inserted {state.n}`,
 					detail = "inserted during churn",
@@ -891,7 +921,7 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				end
 			end
 		elseif name == "locale-textsize-change" or name == "picker-segmented-textsize" then
-			state.expanded:set(state.n % 2 == 1)
+			assert(state.expanded):set(state.n % 2 == 1)
 			state.textSize:set(if state.n % 2 == 1 then 1.3 else 1)
 			if name == "locale-textsize-change" then
 				state.locale:set(if state.n % 2 == 0 then "en-us" else "de-de")
@@ -1019,9 +1049,10 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 				phases = { inputToVisible = os.clock() - started }
 			end
 		end
-		if state.requests then
-			for _ = 1, math.min(4, #state.requests) do
-				local request = assert(table.remove(state.requests, 1))
+		local requests = state.requests
+		if requests then
+			for _ = 1, math.min(4, #requests) do
+				local request = assert(table.remove(requests, 1))
 				request.completed = true
 				request.resolve(request.content)
 				if request.cancelled then

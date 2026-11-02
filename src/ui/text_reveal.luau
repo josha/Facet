@@ -5,7 +5,7 @@ local reducedMotion = require("./motion").reduced
 
 local PAUSE, GLYPHS_PER_SECOND, SLACK = 1.2, 3, 2
 
-local moving = setmetatable({} :: { [Types.Context]: TextLabel? }, { __mode = "k" })
+local moving: { [Types.Context]: TextLabel? } = setmetatable({}, { __mode = "k" })
 
 return function(ctx: Types.Context, label: TextLabel, plateShown: ComposeTypes.ReadOnlyValue<boolean>)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime

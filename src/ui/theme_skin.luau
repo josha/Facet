@@ -82,18 +82,18 @@ local function grown(types: Engine.RobloxTypes, value: ImageLayer, fit: Vector2)
 end
 
 return function(
-	neutral: ThemeTypes.ThemePackage,
+	neutral: ThemeTypes.ReadOnlyThemePackage,
 	paint: support.Paint,
 	Compose: typeof(ComposeTypes),
 	runtime: ComposeTypes.Runtime,
-	packageOrReadable: Engine.Input<ThemeTypes.ThemePackage>?,
+	packageOrReadable: Engine.Input<ThemeTypes.ReadOnlyThemePackage>?,
 	slot: string,
 	options: ThemeTypes.SkinOptions?
 ): Frame
 	local color, white = paint.color, paint.white
 	local settings: ThemeTypes.SkinOptions = options or {}
 	local function shadowTransparency(base: number, use: ComposeTypes.Use): number
-		local fade = math.clamp(read(settings.shadowTransparency, use) or 0, 0, 1)
+		local fade = math.clamp(read<<number?>>(settings.shadowTransparency, use) or 0, 0, 1)
 		return if fade == 0 then base else 1 - (1 - base) * (1 - fade)
 	end
 	local types, Host = typesFor(settings), (runtime.constructors :: unknown) :: Engine.Host
@@ -109,7 +109,7 @@ return function(
 		return D2.new(x, xo, y, yo)
 	end
 	if not Compose.isValue(packageOrReadable) and type(packageOrReadable) ~= "function" then
-		local package = read(packageOrReadable) or neutral
+		local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable) or neutral
 		local chrome = package.chrome
 		local recipe = if chrome then chrome[slot] else nil
 		if recipe == nil or recipe.kind == "native" or recipe.kind == "none" then
@@ -154,7 +154,7 @@ return function(
 		end
 	end
 	type CompiledLayers = {
-		package: ThemeTypes.ThemePackage,
+		package: ThemeTypes.ReadOnlyThemePackage,
 		state: ThemeTypes.SkinState,
 		selected: boolean,
 		direction: string?,
@@ -164,16 +164,18 @@ return function(
 	local compiled: { CompiledLayers } = {}
 	local overText = settings.target ~= nil and settings.target:IsA("TextBox")
 	local function buildLayers(use: ComposeTypes.Use): { ImageLayer }
-		local package = read(packageOrReadable, use) or neutral
+		local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use) or neutral
 		local chrome = package.chrome
 		local recipe = if chrome then chrome[slot] else nil
 		if recipe == nil or recipe.kind == "native" or recipe.kind == "none" or overText then
 			return {}
 		end
-		local state: ThemeTypes.SkinState = (read(settings.state, use) or "default") :: ThemeTypes.SkinState
-		local selected = read(settings.selected, use) == true
-		local direction = if slot == "barCap" then read(settings.direction, use) or "ltr" else nil
-		local fit = read(settings.fit, use)
+		local state = read<<ThemeTypes.SkinState?>>(settings.state, use) or "default"
+		local selected = read<<boolean?>>(settings.selected, use) == true
+		local direction = if slot == "barCap"
+			then read<<"btt" | "ltr" | "rtl" | "ttb"?>>(settings.direction, use) or "ltr"
+			else nil
+		local fit = read<<number?>>(settings.fit, use)
 		for _, cached in compiled do
 			if
 				cached.package == package
@@ -212,7 +214,8 @@ return function(
 			source: ThemeTypes.AssetSource?
 		)
 			local assetName, link = variantAsset(source or layer.asset, state, selected)
-			local asset = assetName and (package.assets or {})[assetName]
+			local assets = package.assets
+			local asset: ThemeTypes.Asset? = if assetName and assets then assets[assetName] else nil
 			if not asset then
 				return
 			end
@@ -235,12 +238,12 @@ return function(
 				Rotation = link.rotation or 0,
 				ImageColor3 = color(types, link.tint) or white(types),
 			}
+			local slice = asset.sliceCenter
 			if layer.kind == "tile" or layer.tile then
 				local tile = layer.tileSize or { w = layer.tile or 32, h = layer.tile or 32 }
 				value.ScaleType = types.Enum.ScaleType.Tile
 				value.TileSize = D2.fromOffset(tile.w, tile.h)
-			elseif asset.sliceCenter and layer.sliced ~= false then
-				local slice = asset.sliceCenter
+			elseif slice and layer.sliced ~= false then
 				value.ScaleType = types.Enum.ScaleType.Slice
 				value.SliceCenter = types.Rect.new(slice.x0, slice.y0, slice.x1, slice.y1)
 				value.SliceScale = asset.sliceScale or 1
@@ -348,11 +351,11 @@ return function(
 	local target = settings.target
 	local function labelled(use: ComposeTypes.Use?): boolean
 		local label = settings.label
-		return label ~= nil and (read(label, use) or "") ~= ""
+		return label ~= nil and (read<<string?>>(label, use) or "") ~= ""
 	end
 	local function createImage(initial: ImageLayer): MountedImage
 		local shown = not initial.text or labelled()
-		local properties: Engine.ImageLabelNativeProps = {
+		local properties: Engine.ImageLabelProps = {
 			Name = initial.id,
 			Visible = shown,
 			Image = initial.Image,
@@ -547,7 +550,7 @@ return function(
 		end
 	end)
 	local shadow = Compose.formula(function(use: ComposeTypes.Use)
-		local package = read(packageOrReadable, use) or neutral
+		local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use) or neutral
 		local chrome = package.chrome
 		local recipe = if chrome then chrome[slot] else nil
 		local value = if recipe then recipe.shadow else nil

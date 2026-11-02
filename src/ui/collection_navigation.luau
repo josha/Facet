@@ -109,7 +109,7 @@ return function<V, K>(
 			end
 		end, { priority = 200 })
 	end
-	local function jump(move: () -> ()): () -> ()
+	local function jump(move: () -> K?): () -> ()
 		return function()
 			local before = focusScope.current:peek()
 			move()

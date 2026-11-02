@@ -10,10 +10,7 @@ export type Adjust = {
 	arrows: ((ComposeTypes.Use, number) -> boolean)?,
 	extra: (((ComposeTypes.Use) -> boolean) -> ())?,
 }
-export type EnabledSource = InputTypes.EnabledOptions | InputTypes.NumberInputOptions | InputTypes.LevelOptions | {
-	value: Shared.Input<number>,
-	onChange: ((number) -> ())?,
-}
+export type EnabledSource = InputTypes.EnabledState
 export type RepeatHeld = (
 	{ onFrame: ((number) -> ()) -> () -> () },
 	number,
@@ -43,6 +40,7 @@ local STICK_PRESS, STICK_RELEASE, STICK_DOMINANCE = 0.5, 0.35, 1.2
 
 return function(ctx: Shared.Context, base: Base): Adjustment
 	local runtime, Compose, read = ctx.runtime, ctx.Compose, ctx.read
+	local readNumber = read<<number>>
 	local E = ctx.types.Enum
 	local attributes, enabled, stopEnabled, repeatHeld =
 		base.attributes, base.enabled, base.stopEnabled, base.repeatHeld
@@ -60,7 +58,7 @@ return function(ctx: Shared.Context, base: Base): Adjustment
 		runtime.connect(node, "SelectionGained", function() end)
 		attributes(node, {
 			disabled = function(use: ComposeTypes.Use): boolean
-				return not stopEnabled((spec :: unknown) :: InputTypes.EnabledOptions, use)
+				return not stopEnabled(spec, use)
 			end,
 		})
 		if minimum ~= nil and maximum ~= nil then
@@ -72,21 +70,15 @@ return function(ctx: Shared.Context, base: Base): Adjustment
 			if input == nil then
 				return false
 			end
-			local probe = (input :: unknown) :: {
-				IsKeyDown: ((UserInputService, Enum.KeyCode) -> boolean)?,
-				IsGamepadButtonDown: ((UserInputService, Enum.UserInputType, Enum.KeyCode) -> boolean)?,
-			}
 			for _, key in { E.KeyCode.Up, E.KeyCode.Down, E.KeyCode.Left, E.KeyCode.Right } do
-				if probe.IsKeyDown and input:IsKeyDown(key) then
+				if input:IsKeyDown(key) then
 					return true
 				end
 			end
-			if probe.IsGamepadButtonDown then
-				for _, pad in ctx.navigationGamepads() do
-					for _, key in { E.KeyCode.DPadUp, E.KeyCode.DPadDown, E.KeyCode.DPadLeft, E.KeyCode.DPadRight } do
-						if input:IsGamepadButtonDown(pad, key) then
-							return true
-						end
+			for _, pad in ctx.navigationGamepads() do
+				for _, key in { E.KeyCode.DPadUp, E.KeyCode.DPadDown, E.KeyCode.DPadLeft, E.KeyCode.DPadRight } do
+					if input:IsGamepadButtonDown(pad, key) then
+						return true
 					end
 				end
 			end
@@ -94,10 +86,7 @@ return function(ctx: Shared.Context, base: Base): Adjustment
 		end
 		local function stickHeld(): boolean
 			local service = ctx.config.services.UserInputService
-			local probe = (
-				service :: unknown
-			) :: { GetGamepadState: ((UserInputService, Enum.UserInputType) -> { InputObject })? }
-			if service == nil or probe.GetGamepadState == nil then
+			if service == nil then
 				return false
 			end
 			for _, pad in ctx.navigationGamepads() do
@@ -168,10 +157,11 @@ return function(ctx: Shared.Context, base: Base): Adjustment
 							if adjust.arrows then
 								return adjust.arrows(peekUse, direction)
 							end
+							local minimum, maximum = minimum, maximum
 							if minimum == nil or maximum == nil then
 								return true
 							end
-							local value = read(((spec :: unknown) :: { value: Shared.ValueNumber }).value)
+							local value = readNumber(assert(spec.value))
 							return if direction < 0 then value > minimum else value < maximum
 						end
 					end
@@ -184,11 +174,10 @@ return function(ctx: Shared.Context, base: Base): Adjustment
 						apply(direction)
 						held = token
 						if runtime.host.frames and not adjust.once then
-							local timing = (spec :: unknown) :: { repeatDelay: number?, repeatInterval: number? }
 							stopFrame = repeatHeld(
 								runtime.host.frames,
-								timing.repeatDelay or base.repeatDelay,
-								timing.repeatInterval or base.repeatInterval,
+								spec.repeatDelay or base.repeatDelay,
+								spec.repeatInterval or base.repeatInterval,
 								function(): boolean
 									if held ~= token or not can() or not ctx.available(node) or not holding() then
 										stopRepeat()
@@ -220,10 +209,11 @@ return function(ctx: Shared.Context, base: Base): Adjustment
 							if adjust.arrows then
 								return adjust.arrows(use, direction)
 							end
+							local minimum, maximum = minimum, maximum
 							if minimum == nil or maximum == nil then
 								return true
 							end
-							local value = read(((spec :: unknown) :: { value: Shared.ValueNumber }).value, use)
+							local value = readNumber(assert(spec.value), use)
 							return if direction < 0 then value > minimum else value < maximum
 						end
 					end
@@ -233,11 +223,9 @@ return function(ctx: Shared.Context, base: Base): Adjustment
 							if arrow and landing then
 								return
 							end
-							local probe = (action :: unknown) :: { GetState: ((InputAction) -> unknown)? }
-							local state = probe.GetState
-							local engaged = state ~= nil and state(action) == true
+							local engaged = action:GetState() == true
 							start(action, direction, function(): boolean
-								return not engaged or (state :: (InputAction) -> unknown)(action) == true
+								return not engaged or action:GetState() == true
 							end)
 						end, {
 							priority = 250,
@@ -246,7 +234,7 @@ return function(ctx: Shared.Context, base: Base): Adjustment
 								if arrow then
 									landing = false
 								end
-								if held == (action :: unknown) then
+								if held == action then
 									stopRepeat()
 								end
 							end,

@@ -53,7 +53,7 @@ export type ImageOptions = {
 export type BadgeOptions = {
 	label: Types.Input<string?>?,
 	name: string?,
-	icon: Types.ValueString?,
+	icon: Types.Input<string?>?,
 	iconPosition: "leading" | "trailing"?,
 	status: Types.Input<Status>?,
 	appearance: Types.Input<"standard" | "status" | "utility">?,
@@ -106,8 +106,8 @@ export type SkeletonOptions = {
 }
 export type ImageState = "loading" | "ready" | "failed"
 export type ImageResource =
-	{ value: Types.Input<string?>, state: Types.Input<ImageState>, status: Types.Input<ImageState>? }
-	| { value: Types.Input<string?>, state: Types.Input<ImageState>?, status: Types.Input<ImageState> }
+	{ read value: Types.Input<string?>, read state: Types.Input<ImageState>, read status: Types.Input<ImageState>? }
+	| { read value: Types.Input<string?>, read state: Types.Input<ImageState>?, read status: Types.Input<ImageState> }
 export type ImageLoader = (
 	source: string,
 	resolve: (value: string?) -> (),

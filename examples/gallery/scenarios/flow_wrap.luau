@@ -1,12 +1,10 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 
 local ALIGN_BOX_ROWS = 10
 
@@ -52,7 +50,7 @@ return {
 
 	tagCount = TAG_COUNT,
 	shortCount = SHORT_COUNT,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types
@@ -67,11 +65,11 @@ return {
 		end)
 
 		local function tag(id: string, label: string): TextButton
-			return UI.Button({
+			return UI.Button {
 				Name = id,
 				label = label,
 				onActivate = function() end,
-			})
+			}
 		end
 
 		local function tagRow(prefix: string, key: string, count: number): { TextButton }
@@ -138,12 +136,12 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						BackgroundTransparency = 1,
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							FillDirection = Enum.FillDirection.Horizontal,
 							Padding = UDim.new(0, 8),
 							Wraps = wrapping,
-						}),
+						},
 						table.unpack(tagRow("T", "tag", TAG_COUNT)),
 					},
 					UI.Text "AlignCaption" {
@@ -174,7 +172,7 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						BackgroundTransparency = 1,
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							FillDirection = Enum.FillDirection.Horizontal,
 							Padding = UDim.new(0, 8),
@@ -186,7 +184,7 @@ return {
 									elseif value == "end" then Enum.HorizontalAlignment.Right
 									else Enum.HorizontalAlignment.Left
 							end,
-						}),
+						},
 						table.unpack(tagRow("S", "short", SHORT_COUNT)),
 					},
 				},

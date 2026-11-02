@@ -54,7 +54,7 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 	local declared = value.state
 	if declared then
 		for _, entry in declared do
-			states[entry.id] = Core.cell(entry.initial :: Literal?)
+			states[entry.id] = Core.cell<<Literal?>>(entry.initial)
 		end
 	end
 	local players: { [string]: Types.Player } = {}
@@ -118,13 +118,13 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		for _, property in node.props do
 			local target = property.node
 			if target ~= nil and references[target] == nil then
-				references[target] = Core.cell(nil :: unknown)
+				references[target] = Core.cell<<unknown>>(nil)
 			end
 			local candidates = property.nodes
 			if candidates then
 				for _, candidate in candidates do
 					if references[candidate] == nil then
-						references[candidate] = Core.cell(nil :: unknown)
+						references[candidate] = Core.cell<<unknown>>(nil)
 					end
 				end
 			end
@@ -149,6 +149,11 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		return false
 	end
 	local build: (node: Types.Node, item: ReadOnlyValue<Row>?) -> unknown
+	local function structuralBuild(node: Types.Node, item: ReadOnlyValue<Row>?): Core.Node
+		local built = build(node, item)
+		assert(type(built) == "table" or type(built) == "userdata", `Design kind {node.kind} did not build a node`)
+		return built
+	end
 	local function withCallbacks(current: Literal, row: ReadOnlyValue<Row>?, owner: Types.Node): unknown
 		if type(current) ~= "table" then
 			return current
@@ -381,8 +386,8 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 					children,
 					Core.show(function(use: Use): boolean
 						return truthy(condition, item, use)
-					end, function(): unknown
-						return build(child, item)
+					end, function(): Core.Node
+						return structuralBuild(child, item)
 					end)
 				)
 			elseif condition == nil or truthy(condition, item, nil) then
@@ -443,8 +448,8 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 									assert(key ~= nil, `A row needs key {bind.key}`)
 									return key
 								end,
-								render = function(row: ReadOnlyValue<Row>): unknown
-									return build(child, row)
+								render = function(row: ReadOnlyValue<Row>): Core.Node
+									return structuralBuild(child, row)
 								end,
 							}
 						)

@@ -2,21 +2,33 @@
 
 local art = require("./art")
 
-export type Hue = { r: number, g: number, b: number }
-export type Ingredient = { id: string, name: string, family: string, group: string?, attrs: { number } }
-export type Potion = {
-	id: string,
-	name: string,
-	base: string,
-	essence: string?,
-	garnish: string?,
-	hue: Hue,
-	mark: art.Mark,
-	index: number,
+export type Hue = { read r: number, read g: number, read b: number }
+export type Ingredient = {
+	read id: string,
+	read name: string,
+	read family: string,
+	read group: string?,
+	read attrs: { number },
 }
-export type Plaza = { id: string, name: string, seed: number, weight: number, pitch: string }
-export type Post = { id: string, who: string, potion: string, minutes: number, tags: { number } }
-export type Tier = { id: string, credits: number, save: number? }
+export type Potion = {
+	read id: string,
+	read name: string,
+	read base: string,
+	read essence: string?,
+	read garnish: string?,
+	read hue: Hue,
+	read mark: art.Mark,
+	read index: number,
+}
+export type Plaza = { read id: string, read name: string, read seed: number, read weight: number, read pitch: string }
+export type Post = {
+	read id: string,
+	read who: string,
+	read potion: string,
+	read minutes: number,
+	read tags: { number },
+}
+export type Tier = { read id: string, read credits: number, read save: number? }
 
 local data = {}
 

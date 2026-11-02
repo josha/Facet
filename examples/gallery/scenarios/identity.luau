@@ -1,14 +1,13 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 
 return {
 	title = "Identity",
 	ledgerRows = {},
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI = ctx.UI
 		local Host = ctx.Host
 		local Compose: ComposeModule = ctx.Compose

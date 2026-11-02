@@ -271,7 +271,7 @@ table.insert(workloads, {
 				id = tostring(i),
 				label = `Tab {i}`,
 				content = function()
-					return UI.Text("Page" .. i) { text = `Page {i} content` }
+					return UI.Text("Page" .. i)({ text = `Page {i} content` })
 				end,
 			})
 		end
@@ -664,7 +664,7 @@ table.insert(workloads, {
 				title = "Details",
 				content = function(entry)
 					assert(entry and entry.value)
-					return UI.Text("PageText" .. entry.value) { text = `Destination {entry.value}` }
+					return UI.Text("PageText" .. entry.value)({ text = `Destination {entry.value}` })
 				end,
 			},
 		}

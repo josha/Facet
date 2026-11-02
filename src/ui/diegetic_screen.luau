@@ -173,10 +173,11 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				end)
 			end)
 		end
+		local readPose = ctx.read<<CFrame>>
 		local function SessionNodes(): { Core.Node }
 			layerOwner = assert(Compose.currentOwner())
 			lastFrame, previousFrame = 0, math.huge
-			local extent = Geometry.fit(ctx.read(spec.bounds), canvas)
+			local extent = Geometry.fit(ctx.read<<Vector2>>(spec.bounds), canvas)
 			local plate = Host.Part "Display" {
 				Anchored = true,
 				CanCollide = false,
@@ -185,14 +186,14 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				Transparency = 1,
 				Size = V3.new(extent.X, extent.Y, 0.01),
 				CFrame = function(use: Types.Use): CFrame
-					local pose: CFrame = ctx.read(spec.surface, use)
+					local pose: CFrame = readPose(spec.surface, use)
 					return pose * ctx.types.CFrame.new(0, 0, 0.005)
 				end,
 			}
 			local pose = Compose.formula(function(use: Types.Use): CFrame
 				local p = if reduce(use) then use(goal) else math.clamp(use(progress), 0, 1)
-				local matched = Geometry.match(ctx.read(spec.surface, use), extent, fieldOfView, ctx.types.CFrame)
-				return matched:Lerp(ctx.read(spec.camera, use), p)
+				local matched = Geometry.match(readPose(spec.surface, use), extent, fieldOfView, ctx.types.CFrame)
+				return matched:Lerp(readPose(spec.camera, use), p)
 			end)
 			local worldCamera = Host.Camera "DiegeticCamera" {
 				CameraType = E.CameraType.Scriptable,

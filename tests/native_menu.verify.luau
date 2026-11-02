@@ -4,9 +4,6 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
-	type MenuSpec = typeof(require("@repo/tools/typecheck/aliases").MenuSpec)
-	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	local FixtureNavigationTypes = require("../src/ui/navigation_types")
 
 	local materialize = require("./lib/materialize")
@@ -20,10 +17,10 @@ return function(verifyHarness: Verify.Harness)
 
 	local FRAME = 1 / 60
 
-	local function items(count: number, log: { string }?): { any }
-		local out = {}
+	local function items(count: number, log: { string }?): { Facet.MenuItem }
+		local out: { Facet.MenuItem } = {}
 		for index = 1, count do
-			out[index] = {
+			local row: Facet.MenuCommand = {
 				id = `row{index}`,
 				label = `Row {index}`,
 				onSelect = function()
@@ -32,6 +29,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 				end,
 			}
+			out[index] = row
 		end
 		return out
 	end
@@ -49,21 +47,21 @@ return function(verifyHarness: Verify.Harness)
 		{ id = "skin", label = "Skin", onSelect = function() end } :: MenuItem,
 	}
 
-	local function labelled(spec: { [any]: any }, options: { [string]: any }?): any
+	local function labelled(spec: { [any]: any }, options: { [string]: any }?): worlds.World
 		local fields = table.clone(spec)
 		if fields.trigger == nil and fields.label == nil then
 			fields.label = "Options"
 		end
-		return worlds.new(function(UI: FacetControls, Host: RobloxHost)
-			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu "M"(fields) })
+		return worlds.new(function(UI, Host)
+			return Host.Frame { Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu "M"(fields) }
 		end, options or { motionLevel = "none" })
 	end
 
-	local function panelOf(world: any): any
+	local function panelOf(world: worlds.World): any
 		return world.find("MenuPanel", world.screen.Parent)
 	end
 
-	local function modalOf(world: any, panel: any): any
+	local function modalOf(world: worlds.World, panel: any): any
 		local modal = panel.Parent
 		while modal and modal.Parent and modal.Parent ~= world.screen and modal.Parent.ClassName ~= "ScreenGui" do
 			modal = modal.Parent
@@ -71,7 +69,7 @@ return function(verifyHarness: Verify.Harness)
 		return modal
 	end
 
-	local function lay(world: any, panel: any, at: Vector2, size: Vector2, panelSize: Vector2)
+	local function lay(world: worlds.World, panel: any, at: Vector2, size: Vector2, panelSize: Vector2)
 		local trigger = world.find("Trigger")
 		world.engine.environment.poke(trigger, "AbsolutePosition", at)
 		world.engine.environment.poke(trigger, "AbsoluteSize", size)
@@ -79,7 +77,7 @@ return function(verifyHarness: Verify.Harness)
 		world.engine.environment.poke(panel, "AbsoluteSize", panelSize)
 	end
 
-	local function open(world: any): any
+	local function open(world: worlds.World): any
 		world.find("Trigger").Activated:Fire()
 		return panelOf(world)
 	end
@@ -130,7 +128,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local count = 0
 				local label = Compose.cell("Save")
-				local action: FixtureNavigationTypes.MenuItem<string> = {
+				local action: Facet.MenuCommand = {
 					id = "save",
 					label = label,
 					dismiss = false,
@@ -146,8 +144,13 @@ return function(verifyHarness: Verify.Harness)
 				label:set("Save race")
 				Verify.expect(row.Text):toBe("Save race")
 				row.Activated:Fire()
-				local described = table.clone(action)
-				described.description = "Keep this lap"
+				local described: Facet.MenuCommand = {
+					id = action.id,
+					label = label,
+					dismiss = false,
+					description = "Keep this lap",
+					onSelect = action.onSelect,
+				}
 				source:set({ described })
 				Verify.expect(world.find("Description", panel).Text):toBe("Keep this lap")
 				world.find("save", panel).Activated:Fire()
@@ -394,34 +397,37 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("attaches to the caller's trigger node and returns that same node without a wrapper", {
 			id = "native_menu::native menu parity with main::attaches to the caller's trigger node and returns that same node without a wrapper",
 			run = function()
-				local authored: any, returned
+				local authored: Instance? = nil
+				local returned: Instance? = nil
 				local ran: { string } = {}
-				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					authored = UI.Button "Opener" { label = "More" }
-					returned = UI.Menu({
-						trigger = authored,
+				local world = worlds.new(function(UI, Host)
+					local trigger = UI.Button "Opener" { label = "More" }
+					local menu = UI.Menu {
+						trigger = trigger,
 						LayoutOrder = 3,
 						items = items(2, ran),
-					})
-					return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), returned :: unknown })
+					}
+					authored, returned = trigger, menu
+					return Host.Frame { Name = "S", Size = UDim2.fromOffset(800, 600), menu }
 				end, { motionLevel = "none" })
-				Verify.expect(returned):toBe(authored)
-				Verify.expect(authored.Parent.Name):toBe("S")
-				Verify.expect(authored.Name):toBe("Opener")
-				Verify.expect(authored.LayoutOrder):toBe(3)
-				authored.Activated:Fire()
+				local opener = assert(authored)
+				Verify.expect(returned):toBe(opener)
+				Verify.expect(assert(opener.Parent).Name):toBe("S")
+				Verify.expect(opener.Name):toBe("Opener")
+				Verify.expect(world.find("Opener").LayoutOrder):toBe(3)
+				world.find("Opener").Activated:Fire()
 				local panel = panelOf(world)
 				Verify.expect(panel ~= nil):toBe(true)
 				world.find("row2", panel).Activated:Fire()
 				Verify.expect(ran):toEqual({ "row2" })
 				world.stop()
-				local named = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
+				local named = worlds.new(function(UI, Host)
+					return Host.Frame {
 						UI.Menu "Actions" {
 							trigger = UI.Button "Opener" { label = "More" },
 							items = items(1),
 						},
-					})
+					}
 				end, { motionLevel = "none" })
 				Verify.expect(named.find("Actions").ClassName):toBe("TextButton")
 				Verify.expect((named.find("Opener"))):toBeNil()
@@ -432,22 +438,16 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("fills each row title so a submenu chevron or check sits at the trailing edge", {
 			id = "native_menu::native menu parity with main::fills each row title so a submenu chevron or check sits at the trailing edge",
 			run = function()
-				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						Name = "S",
-						Size = UDim2.fromOffset(800, 600),
-						UI.Menu(({
-							trigger = UI.Button "Opener" { label = "More" },
-							items = {
-								{ id = "plain", label = "Plain", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
-								{
-									id = "deeper",
-									label = "Deeper",
-									children = { { id = "leaf", label = "Leaf", onSelect = function() end } },
-								} :: FixtureNavigationTypes.MenuItem<any>,
-							},
-						} :: unknown) :: MenuSpec),
-					})
+				local plain: Facet.MenuCommand = { id = "plain", label = "Plain", onSelect = function() end }
+				local leaf: Facet.MenuCommand = { id = "leaf", label = "Leaf", onSelect = function() end }
+				local deeper: FixtureNavigationTypes.MenuSubmenu =
+					{ id = "deeper", label = "Deeper", children = { leaf } }
+				local world = worlds.new(function(UI, Host)
+					local spec: Facet.MenuSpec = {
+						trigger = UI.Button "Opener" { label = "More" },
+						items = { plain, deeper },
+					}
+					return Host.Frame { Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu(spec) }
 				end, { motionLevel = "none" })
 				world.find("Opener").Activated:Fire()
 				local panel = panelOf(world)
@@ -478,19 +478,19 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("dims the page behind a menu presented as a sheet and not behind a panel", {
 			id = "native_menu::native menu parity with main::dims the page behind a menu presented as a sheet and not behind a panel",
 			run = function()
-				for _, case in { { "sheet" :: unknown, true }, { "menu" :: unknown, false } } do
-					local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame({
-							Name = "S",
-							Size = UDim2.fromOffset(800, 600),
-							UI.Menu(({
-								trigger = UI.Button "Opener" { label = "More" },
-								presentation = case[1] :: "sheet" | "menu",
-								items = {
-									{ id = "one", label = "One", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
-								},
-							} :: unknown) :: MenuSpec),
-						})
+				local one: Facet.MenuCommand = { id = "one", label = "One", onSelect = function() end }
+				local cases: { { presentation: "sheet" | "menu", dims: boolean } } = {
+					{ presentation = "sheet", dims = true },
+					{ presentation = "menu", dims = false },
+				}
+				for _, case in cases do
+					local world = worlds.new(function(UI, Host)
+						local spec: Facet.MenuSpec = {
+							trigger = UI.Button "Opener" { label = "More" },
+							presentation = case.presentation,
+							items = { one },
+						}
+						return Host.Frame { Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu(spec) }
 					end, { motionLevel = "none" })
 					world.find("Opener").Activated:Fire()
 					local panel = panelOf(world)
@@ -501,7 +501,8 @@ return function(verifyHarness: Verify.Harness)
 					world.engine.heartbeat:Fire(FRAME)
 					world.engine.heartbeat:Fire(FRAME)
 					local catcher = world.find("Scrim")
-					Verify.expect(`{case[1]}: {catcher.BackgroundTransparency < 1}`):toBe(`{case[1]}: {case[2]}`)
+					Verify.expect(`{case.presentation}: {catcher.BackgroundTransparency < 1}`)
+						:toBe(`{case.presentation}: {case.dims}`)
 					world.stop()
 				end
 			end,

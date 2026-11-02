@@ -6,7 +6,7 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-	type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+	type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 	type Use = <T>(ReadOnlyValue<T>) -> T
 
 	local Facet = require("../src")
@@ -59,9 +59,19 @@ return function(verifyHarness: Verify.Harness)
 			end
 	end
 
-	local function world(spec: any, options: any?): any
-		local o = options or {}
-		local engine: any = engineLib.new()
+	type WorldOptions = {
+		tenFoot: boolean?,
+		preferred: Enum.PreferredInput?,
+		theme: typeof(require("@repo/tools/typecheck/aliases").ThemePackage)?,
+		build: ((FacetControls, RobloxHost) -> Instance)?,
+	}
+
+	local function world(
+		spec: typeof(require("@repo/tools/typecheck/aliases").ColorPickerProps),
+		options: WorldOptions?
+	): any
+		local o: WorldOptions = options or {}
+		local engine: engineLib.Engine = engineLib.new()
 		local E = engine.types.Enum
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
@@ -72,46 +82,35 @@ return function(verifyHarness: Verify.Harness)
 		end
 		local input = engine.new("UserInputService")
 		engine.environment.poke(input, "PreferredInput", o.preferred or E.PreferredInput.KeyboardAndMouse)
-		local proxy = setmetatable({
-			IsKeyDown = function()
-				return false
-			end,
-			IsGamepadButtonDown = function()
-				return false
-			end,
-			GetFocusedTextBox = function()
-				return nil
-			end,
-		}, {
-			__index = function(_, key)
-				local value = input[key]
-				if type(value) == "function" then
-					return function(_, ...)
-						return value(input, ...)
-					end
-				end
-				return value
-			end,
-		})
+		input.IsKeyDown = function()
+			return false
+		end
+		input.IsGamepadButtonDown = function()
+			return false
+		end
+		input.GetFocusedTextBox = function()
+			return nil
+		end
+
 		local types = engine.types
-		local UI: any = Facet.controls(
+		local UI: FacetControls = Facet.controls(
 			runtime,
 			{
 				types = types,
-				services = { GuiService = gui, UserInputService = proxy },
+				services = { GuiService = gui, UserInputService = input },
 				guiService = gui,
 				theme = o.theme,
 			} :: any
 		)
 		local target = engine.new("Folder")
-		local Host = (runtime.constructors :: unknown) :: RobloxHost
+		local Host = Facet.host(runtime)
 		local stop, screen: any = runtime.mount(function()
-			return Host.ScreenGui({
+			return Host.ScreenGui {
 				Host.Frame "Col" {
-					if o.build then o.build(UI, Host) else UI.ColorPicker "P"(spec) :: unknown,
-					UI.Button("Other")({ label = "Other" }),
+					if o.build then o.build(UI, Host) else UI.ColorPicker "P"(spec),
+					UI.Button "Other" { label = "Other" },
 				},
-			})
+			}
 		end, target)
 		local w: any = { engine = engine, runtime = runtime, gui = gui, input = input, screen = screen, E = E, UI = UI }
 		w.root = deep(screen, "P")
@@ -137,7 +136,7 @@ return function(verifyHarness: Verify.Harness)
 					table.insert(out, child)
 				end
 			end
-			table.sort(out, function(a, b)
+			table.sort(out, function(a: { LayoutOrder: number }, b: { LayoutOrder: number })
 				return a.LayoutOrder < b.LayoutOrder
 			end)
 			return out
@@ -318,12 +317,12 @@ return function(verifyHarness: Verify.Harness)
 			{
 				id = "native_color_picker::native ColorPicker well and panel::every technique shares a bounded height and a long brick list scrolls inside it, on a pointer panel and a phone sheet",
 				run = function()
-					for _, case in
+					local cases: { { touch: boolean, w: number, h: number, modes: { "swatches" | "spectrum" | "sliders" | "brick" } } } =
 						{
 							{ touch = false, w = 900, h = 900, modes = { "swatches", "spectrum", "sliders", "brick" } },
 							{ touch = true, w = 390, h = 844, modes = { "swatches", "spectrum", "sliders" } },
 						}
-					do
+					for _, case in cases do
 						local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
 						local probe = world({ value = cell, onChange = change, modes = case.modes })
 						local E = probe.E
@@ -338,13 +337,14 @@ return function(verifyHarness: Verify.Harness)
 						expect((w.attr("placement"))):toBe(if case.touch then "sheet" else "bottom")
 						local heights = { 180, 300, 240, 500 }
 						for index, mode in case.modes do
-							local label = ({
+							local labels: { [string]: string } = {
 								swatches = "Swatches",
 								spectrum = "Spectrum",
 								sliders = "Sliders",
 								brick = "Bricks",
-							})[mode]
-							w.size(w.find("Show" .. label), 300, heights[index])
+							}
+							local label = labels[mode]
+							w.size(w.find("Show" .. assert(label)), 300, heights[index])
 						end
 						local reserved = 6 * 44 + 5 * 4
 						for index, mode in case.modes do
@@ -679,9 +679,9 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native ColorPicker spectrum plane", function()
-		local function spectrum(options: any?): (any, any, { string })
+		local function spectrum(options: WorldOptions?): (any, any, { string })
 			local cell, _, change = caller(Color3.fromHSV(0.5, 0.5, 0.5))
-			local commits = {}
+			local commits: { string } = {}
 			local w = world({
 				value = cell,
 				onChange = change,
@@ -1004,7 +1004,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = world({}, {
 					build = function(UI: FacetControls, Host: RobloxHost)
 						return Host.Frame "Pickers" {
-							UI.ColorPicker("P")({
+							UI.ColorPicker "P" {
 								label = "Trim",
 								value = trim,
 								swatches = team,
@@ -1021,7 +1021,7 @@ return function(verifyHarness: Verify.Harness)
 									table.insert(nextList, c)
 									team:set(nextList)
 								end,
-							}) :: unknown,
+							},
 							Host.TextLabel "Committed" {
 								Text = function(use: Use)
 									return "Committed: " .. use(committed)
@@ -1208,8 +1208,10 @@ return function(verifyHarness: Verify.Harness)
 				end
 				for _, mode in { "spectrum", "sliders", "brick" } do
 					w.find("Modes/" .. mode).Activated:Fire()
-					local label = ({ spectrum = "Spectrum", sliders = "Sliders", brick = "Bricks" })[mode]
-					expect(#w.find("Show" .. label):GetChildren() > 0):toBe(true)
+					local labels: { [string]: string } =
+						{ spectrum = "Spectrum", sliders = "Sliders", brick = "Bricks" }
+					local label = labels[mode]
+					expect(#w.find("Show" .. assert(label)):GetChildren() > 0):toBe(true)
 				end
 				for _, format in { "hsv", "hex" } do
 					w.find("Format/" .. format).Activated:Fire()

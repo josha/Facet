@@ -34,7 +34,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local motionReduced = reducedMotion(ctx)
 		local rows: { ComposeTypes.Child } = {}
 		for index = 1, count do
-			local native: Engine.FrameNativeProps = {
+			local native: Engine.FrameProps = {
 				Name = "Placeholder" .. index,
 				Size = function(use: ComposeTypes.Use)
 					local pixels = controlSize(spec.controlSize, if form == "line" then "iconSize" else "height", use)
@@ -57,9 +57,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				},
 			}
 			if form == "circle" then
-				native[#native + 1] = Host.UICorner({ CornerRadius = ctx.round })
+				native[#native + 1] = Host.UICorner { CornerRadius = ctx.round }
 			elseif spec.corners then
-				native[#native + 1] = Host.UICorner({
+				native[#native + 1] = Host.UICorner {
 					CornerRadius = function(use: ComposeTypes.Use)
 						local value = read(spec.corners, use)
 						if value == "pill" then
@@ -77,7 +77,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 						assert(type(value) == "number" and value >= 0, "Facet Skeleton invalid corners")
 						return D.new(0, value)
 					end,
-				})
+				}
 			end
 			table.insert(rows, ctx.styled(Host.Frame(native), "skeleton"))
 		end

@@ -1,12 +1,11 @@
 --!strict
 
 local Compose = require "../core"
-local RobloxTypes = require "./types"
 local Engine = require "./engine"
 
-export type Viewport = RobloxTypes.Viewport
+export type Viewport = Engine.Viewport
 
-export type Options = RobloxTypes.ViewportOptions
+export type Options = Engine.ViewportOptions
 
 local DEFAULT_MINIMUM_SIDE = 100
 local DEFAULT_FALLBACK: Viewport = { width = 1280, height = 720 }
@@ -25,7 +24,7 @@ local function known(size: Engine.Vector2?, minimum: number?): boolean
 end
 
 local function createViewport(
-	camera: { ViewportSize: Engine.Vector2 },
+	camera: unknown,
 	engine: Engine.Engine?,
 	options: Options?
 ): (Compose.ReadOnlyValue<Viewport>, Compose.ReadOnlyValue<boolean>)
@@ -34,14 +33,20 @@ local function createViewport(
 	local minimum = if settings.minimumSide ~= nil then settings.minimumSide else DEFAULT_MINIMUM_SIDE
 	local fallback = if settings.fallback ~= nil then settings.fallback else DEFAULT_FALLBACK
 
-	local first = camera.ViewportSize
+	local function sizeOf(): Engine.Vector2
+		local size = Engine.readMember(camera, "ViewportSize")
+		local x, y = Engine.readMember(size, "X"), Engine.readMember(size, "Y")
+		assert(type(x) == "number" and type(y) == "number", "Camera viewport must have numeric dimensions")
+		return { X = x, Y = y }
+	end
+	local first = sizeOf()
 	local settled = known(first, minimum)
 	local value = Compose.cell(if settled then dimensionsOf(first) else fallback)
 	local ready = Compose.cell(settled)
 
 	local signal = resolved.propertyChanged(camera, "ViewportSize")
 	local connection = signal:Connect(function()
-		local size = camera.ViewportSize
+		local size = sizeOf()
 		if not known(size, minimum) then
 			return
 		end

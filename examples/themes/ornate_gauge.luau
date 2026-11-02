@@ -6,7 +6,7 @@ type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
 type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type PaletteExtra = typeof(require("@repo/tools/typecheck/aliases").PaletteExtra)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type Size = { height: number, paddingX: number, iconSize: number }
 type Tint = { r: number, g: number, b: number }
@@ -179,7 +179,7 @@ function ornate_gauge.blueprint(UI: Controls, core: Core, resolved: Resolved, op
 		Size = function(use: Use): UDim2
 			return UDim2.new(1, 0, 0, height(use))
 		end,
-		Host.UICorner({ CornerRadius = UDim.new(0, resolved.ring) }),
+		Host.UICorner { CornerRadius = UDim.new(0, resolved.ring) },
 		Host.ImageLabel(name .. "Face")({
 			Image = ornate_gauge.ART.face,
 			BackgroundTransparency = 1,
@@ -209,7 +209,7 @@ function ornate_gauge.blueprint(UI: Controls, core: Core, resolved: Resolved, op
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }),
+		Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) },
 		UI.Text(name .. "Label")({
 			text = o.label or "Boiler pressure (gauge:dial)",
 			textRole = "caption",

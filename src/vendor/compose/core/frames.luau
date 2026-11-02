@@ -67,12 +67,13 @@ local function share(frames: Host.Frames, reactor: Reactor.Reactor): Host.Frames
 			table.insert(listeners, entry)
 			if stop == nil then
 				stop = frames.onFrame(function(delta)
+					local outerDispatching = dispatching
 					local outerDelta, outerPosition, outerLimit, outerFailures = frameDelta, position, limit, failures
 					dispatching = true
 					failures = nil
 					frameDelta = delta
 					local ok, failure: unknown = pcall(batched)
-					dispatching = false
+					dispatching = outerDispatching
 					compact()
 					local collected = failures or {}
 					frameDelta, position, limit, failures = outerDelta, outerPosition, outerLimit, outerFailures

@@ -4,10 +4,9 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
 type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
 type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 local COPY = {
 	title = "Rows that say no",
 	intro = "One table. Five rows. Three of them opt out of something the others allow.",
@@ -58,11 +57,12 @@ return {
 	title = "Rows that say no",
 	copy = COPY,
 	seed = SEED,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local UDim, UDim2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local rows = Compose.cell(table.clone(SEED))
-		local selection = Compose.cell({})
+		local initialSelection: { [string]: boolean } = {}
+		local selection = Compose.cell(initialSelection)
 		local message = Compose.cell(COPY.refusalIdle)
 		local function remove(id)
 			local next = {}
@@ -114,7 +114,7 @@ return {
 						end,
 					},
 				}
-				return Host.Frame("RowCapabilities")({
+				return Host.Frame "RowCapabilities" {
 					Size = UDim2.fromScale(1, 1),
 					BackgroundTransparency = 1,
 					UI.Text "Title" {
@@ -155,7 +155,7 @@ return {
 									label = "Delete",
 									role = "destructive",
 									enabled = function(use: Use)
-										return use(current).lock ~= "delete"
+										return use(current :: any).lock ~= "delete"
 									end,
 									onActivate = function()
 										remove(key)
@@ -174,7 +174,7 @@ return {
 						TextWrapped = true,
 						BackgroundTransparency = 1,
 					},
-				})
+				}
 			end,
 			report = function()
 				return { rows = rows:peek(), selection = selection:peek(), message = message:peek() }

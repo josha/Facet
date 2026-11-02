@@ -44,9 +44,9 @@ export type Gesture<V, K> = {
 }
 export type Reorder<V, K> = {
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	spec: CollectionTypes.ReorderShape<V, K>,
-	source: Types.Input<{ V }>,
+	source: ComposeTypes.Source<{ V }>,
 	keyOf: (V, number) -> K,
 	controls: ComposeTypes.OrderedCollectionControls<K>,
 	bodyOf: () -> ScrollingFrame,
@@ -113,9 +113,9 @@ export type Reorder<V, K> = {
 }
 return function<V, K>(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	spec: CollectionTypes.ReorderShape<V, K>,
-	source: Types.Input<{ V }>,
+	source: ComposeTypes.Source<{ V }>,
 	keyOf: (V, number) -> K,
 	controls: ComposeTypes.OrderedCollectionControls<K>,
 	bodyOf: () -> ScrollingFrame,
@@ -129,6 +129,7 @@ return function<V, K>(
 ): Reorder<V, K>
 	local Compose = ctx.Compose
 	local read = ctx.read
+	local readSource = ctx.readSource
 	local V2, E = ctx.types.Vector2, ctx.types.Enum
 	local moving: ComposeTypes.Value<Move<V, K>?> = Compose.cell(nil :: Move<V, K>?)
 	local choosingDestination = Compose.cell(false)
@@ -308,7 +309,7 @@ return function<V, K>(
 		end
 		local keys = (payload :: { keys: { K }? }).keys
 		local key = if type(keys) == "table" then keys[1] else nil
-		if key == nil or table.find(read(reservedSlots, use), key) == nil then
+		if key == nil or table.find(read<<{ K }>>(reservedSlots, use), key) == nil then
 			return nil
 		end
 		local session = if use then use(drag.state) else drag.state:peek()
@@ -357,7 +358,7 @@ return function<V, K>(
 		end
 		if
 			not reorderable
-			or read(sort) ~= nil
+			or readSource(sort) ~= nil
 			or (not spec.onReorder and not spec.drag)
 			or (position ~= nil and gesture.captured ~= nil and moving:peek() ~= nil)
 		then
@@ -384,7 +385,7 @@ return function<V, K>(
 				gesture.gestureOwner = node
 			end
 		end
-		local rows, selected = read(source), read(selection)
+		local rows, selected = readSource(source), readSource(selection)
 		for index, item in rows do
 			if keyOf(item, index) == key and not movable(item) then
 				return
@@ -403,7 +404,8 @@ return function<V, K>(
 		end
 		local prepared = if position ~= nil or tap then gesture.pressTransfer else nil
 		if prepared and prepared.key == key and prepared.pointer == gesture.pendingInput then
-			keys, items = table.clone(prepared.keys), table.clone(prepared.items)
+			keys = table.clone(prepared.keys)
+			items = table.clone(prepared.items)
 			table.clear(indices)
 			for _, capturedKey in keys do
 				indices[capturedKey] = true
@@ -539,7 +541,7 @@ return function<V, K>(
 			end
 			return
 		end
-		local rows = read(source)
+		local rows = readSource(source)
 		local included, remaining = {}, {}
 		for _, key in keys do
 			included[key] = true
@@ -635,7 +637,7 @@ return function<V, K>(
 			moving:set(nextMove)
 			local body = bodyOf()
 			local at = current.remaining[nextMove.slot + 1] or current.remaining[nextMove.slot]
-			local index = if at then assert(controls.indexOfKey)(at) else nil
+			local index = if at then assert(controls.indexOfKey)(at :: K) else nil
 			if index then
 				canvasOffset(
 					body,
@@ -648,7 +650,7 @@ return function<V, K>(
 		end
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
-		local rows, order = read(source, use), read(sort, use)
+		local rows, order = readSource(source, use), readSource(sort, use)
 		local move = moving:peek()
 		if move then
 			local found = 0
@@ -747,7 +749,7 @@ return function<V, K>(
 		pluginGui = nil
 	end
 	local function chosen(use: ComposeTypes.Use?, selectedOnly: boolean?, allSelected: boolean?): { K }
-		local keys, selected = {}, read(selection, use)
+		local keys, selected = {}, readSource(selection, use)
 		for index, item in read(if allSelected then spec.selectionFrom or source else source, use) do
 			local key = keyOf(item, index)
 			if selected[key] then

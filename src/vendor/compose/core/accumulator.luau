@@ -6,7 +6,7 @@ local OwnerModule = require "./ownership/owner"
 local Support = require "./structure/support"
 local Types = require "./reactive/types"
 local cellModule = require "./reactive/cell"
-local userSpace = require "./reactive/userSpace"
+local Evaluation = require "./reactive/evaluation"
 
 export type Options<T, E> = Types.AccumulatorOptions<T, E>
 
@@ -33,7 +33,7 @@ local function accumulator<T, E>(options: Options<T, E>): Types.ReadOnlyValue<T>
 
 	local source = settings.from
 	if not cellModule.isValue(source) then
-		Diagnostics.raise("accumulator/from-not-readable", "accumulator was given a source it cannot track", {
+		return Diagnostics.raise("accumulator/from-not-readable", "accumulator was given a source it cannot track", {
 			actual = Diagnostics.describe(source),
 			expected = "a cell or a formula",
 			contract = "an accumulator tracks exactly one readable source and reduces each of its "
@@ -44,7 +44,7 @@ local function accumulator<T, E>(options: Options<T, E>): Types.ReadOnlyValue<T>
 
 	local reduce = settings.reduce
 	if type(reduce) ~= "function" then
-		Diagnostics.raise("accumulator/reduce-not-a-function", "accumulator was given a reduce it cannot call", {
+		return Diagnostics.raise("accumulator/reduce-not-a-function", "accumulator was given a reduce it cannot call", {
 			actual = Diagnostics.describe(reduce),
 			expected = "a function (previous, event) -> next",
 			fix = "pass the reducer that merges one event into the running state",
@@ -54,7 +54,7 @@ local function accumulator<T, E>(options: Options<T, E>): Types.ReadOnlyValue<T>
 	local state = cellModule.cell(settings.initial, settings.equals)
 
 	OwnerModule.watchStatic(owner, source, function(event: E)
-		state:set(userSpace.call(reduce, state:peek(), event))
+		state:set(Evaluation.call(reduce, state:peek(), event))
 	end)
 
 	return state

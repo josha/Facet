@@ -11,7 +11,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 
 	UI.feedback = function(kind: Shared.HapticKind)
 		assert(type(kind) == "string", "Facet UI.feedback expects a feedback kind")
-		local effect = ctx.haptic(kind) :: HapticEffect
+		local effect = assert(ctx.haptic(kind))
 		effect:Play()
 	end
 

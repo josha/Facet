@@ -37,7 +37,9 @@ Compose : table
   Compose.isValue : function
   Compose.keyed : function
   Compose.labelOf : function
+  Compose.lazyCell : function
   Compose.map : function
+  Compose.numberCodec : table
   Compose.outstandingMounts : function
   Compose.owner : table
   Compose.parseDiagnostic : function
@@ -47,8 +49,6 @@ Compose : table
   Compose.property : function
   Compose.reactor : table
   Compose.readWorkCounters : function
-  Compose.registerCodec : function
-  Compose.registeredCodecs : function
   Compose.resetWorkCounters : function
   Compose.sample : function
   Compose.selector : function
@@ -68,6 +68,7 @@ Roblox : table
   Roblox.__resetForTests : function
   Roblox.animatableTypes : function
   Roblox.cleanup : function
+  Roblox.codecs : function
   Roblox.createCleanup : function
   Roblox.createHost : function
   Roblox.createRuntime : function
@@ -429,12 +430,14 @@ type Presence
 type ProgressViewProps
 type RGB
 type RadialAction
+type RadialChoice
 type RadialItem
 type RadialMenuSpec
 type RatingCellProps
 type RatingProps
 type RatingReadOnlyProps
 type RatingRequestProps
+type ReadOnlyThemePackage
 type ReadOnlyValue
 type RegionProps
 type ReviewElement

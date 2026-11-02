@@ -5,7 +5,11 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
+type Rect = { x: number, y: number, w: number, h: number, r: number, b: number }
+type Built = (() -> unknown) | { screen: () -> unknown }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 local Players = game:GetService("Players")
 
@@ -39,22 +43,23 @@ local function overlap(a: any, b: any): boolean
 end
 
 local function scenario(t: any, name: string, size: Vector2?): (any, any)
-	local built
+	local built: Built
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
-		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
-		return if type(built) == "function" then built() else built.screen()
+		local result: Built = t.scenario(name).build(t.context(UI, Host, Compose, env))
+		built = result
+		return if type(result) == "function" then result() else result.screen()
 	end, { size = size, frames = 16 })
 	return stage, built
 end
 
 local function alertCase(t: any, where: string, size: Vector2, message: string, actions: { any }, theme: any?)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.Alert({
+		return UI.Alert {
 			isPresented = Compose.cell(true),
 			title = "Replace the save?",
 			message = message,
 			actions = actions,
-		})
+		}
 	end, { size = size, theme = theme, frames = 4 })
 	local panel = t.find(stage, "AlertPanel")
 	if panel then
@@ -137,13 +142,13 @@ add("alert-themes-and-viewports", {}, function(t)
 end)
 
 add("disclosure-description-header", {}, function(t)
-	local description
+	local description: StringCell
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		description = Compose.cell("Configure the current race")
 		return Host.Frame "Column" {
 			Size = UDim2.fromOffset(390, 400),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) },
 			UI.DisclosureGroup "With" {
 				LayoutOrder = 1,
 				label = "Details",
@@ -152,7 +157,7 @@ add("disclosure-description-header", {}, function(t)
 				appearance = "contained" :: "contained",
 				expanded = Compose.cell(false),
 				content = function(): Instance
-					return UI.Text({ text = "Body" })
+					return UI.Text { text = "Body" }
 				end,
 			},
 			UI.DisclosureGroup "Without" {
@@ -162,7 +167,7 @@ add("disclosure-description-header", {}, function(t)
 				appearance = "contained" :: "contained",
 				expanded = Compose.cell(false),
 				content = function(): Instance
-					return UI.Text({ text = "Body" })
+					return UI.Text { text = "Body" }
 				end,
 			},
 		}
@@ -194,7 +199,7 @@ add("toggle-sizes-around-label", {}, function(t)
 	for _, theme in t.themes do
 		for _, presentation in { "switch", "checkbox" } :: { "checkbox" | "switch" } do
 			for _, position in { "leading", "trailing" } :: { "leading" | "trailing" } do
-				local label
+				local label: StringCell
 				local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 					label = Compose.cell("Rain")
 					return UI.Toggle "Toggle" {
@@ -250,7 +255,7 @@ add("step-and-clear-targets", {}, function(t)
 			return Host.Frame "Column" {
 				Size = UDim2.fromOffset(360, 300),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
+				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) },
 				UI.Stepper "Stepper" { value = Compose.cell(2), max = 5, LayoutOrder = 1 },
 				UI.TextInput "Search" {
 					value = Compose.cell("racers"),
@@ -383,9 +388,9 @@ add("toast-wide-and-fit", {}, function(t)
 		{ duration = 3600 }
 	)
 	t.settle(30)
-	local found = {}
+	local found: { Rect } = {}
 	for _, node in rows() do
-		table.insert(found, t.rect(node))
+		found[#found + 1] = t.rect(node)
 	end
 	if #found >= 2 then
 		local s = t.rect(stage)
@@ -437,7 +442,7 @@ add("text-degrade-sort-label", {}, function(t)
 end)
 
 add("compact-label-single-line", {}, function(t)
-	local width
+	local width: NumberCell
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		width = Compose.cell(300)
 		return Host.Frame "Box" {
@@ -445,11 +450,11 @@ add("compact-label-single-line", {}, function(t)
 				return UDim2.fromOffset(use(width), 60)
 			end,
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal }) :: unknown,
+			Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal },
 			UI.Button "Go" {
 				label = "Continue to checkout",
 				compactLabel = "Continue",
-				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
+				Host.UIFlexItem { FlexMode = Enum.UIFlexMode.Fill },
 			},
 		}
 	end, { size = Vector2.new(400, 200) })
@@ -487,7 +492,7 @@ add("progress-skin-under-scale", {}, function(t)
 				return Host.Frame "Scaled" {
 					Size = UDim2.fromOffset(200, 60),
 					BackgroundTransparency = 1,
-					Host.UIScale({ Scale = factor }) :: unknown,
+					Host.UIScale { Scale = factor },
 					UI.ProgressView "Bar" { value = 0.5, Size = UDim2.fromOffset(180, 12) },
 				}
 			end, { theme = theme.package, size = Vector2.new(500, 300) })
@@ -543,7 +548,7 @@ add("skinned-checkbox-stroke", {}, function(t)
 			return Host.Frame {
 				Size = UDim2.fromOffset(400, 300),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
 				UI.Toggle "Box" {
 					value = Compose.cell(true),
 					label = "Box",
@@ -642,11 +647,13 @@ add("playlist-and-grid-panes", {}, function(t)
 	local page, extents = scenario(t, "variable_extents", Vector2.new(320, 640))
 	local list = t.find(page, "Collection")
 	local function hosts()
-		local out = {}
+		local out: { { post: GuiObject, host: GuiObject } } = {}
 		for _, node in list:GetDescendants() do
 			local key = string.match(node.Name, "^Post_(.+)$")
 			if key and node:IsA("GuiObject") and t.visible(node) then
-				table.insert(out, { post = node, host = node.Parent })
+				local host = node.Parent
+				assert(host and host:IsA("GuiObject"))
+				table.insert(out, { post = node, host = host })
 			end
 		end
 		return out
@@ -662,7 +669,7 @@ add("playlist-and-grid-panes", {}, function(t)
 			}
 		)
 	end
-	table.sort(variable, function(a, b)
+	table.sort(variable, function(a: { post: GuiObject, host: GuiObject }, b: { post: GuiObject, host: GuiObject })
 		return a.host.AbsolutePosition.Y < b.host.AbsolutePosition.Y
 	end)
 	for index = 2, #variable do

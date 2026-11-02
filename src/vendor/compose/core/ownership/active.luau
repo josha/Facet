@@ -82,13 +82,10 @@ local function findOn(create: boolean, running: thread): Owner.Owner?
 		end
 	end
 	if explicit == nil and ambiguous then
-		error(
-			Diagnostics.format("owner/no-active-owner", "resumer owners are ambiguous", {
-				contract = "a callback cannot infer the order of distinct resumer owners",
-				fix = "bind the child callback with Compose.bindOwner or activate its owner with Compose.withOwner",
-			}),
-			0
-		)
+		return Diagnostics.raise("owner/no-active-owner", "resumer owners are ambiguous", {
+			contract = "a callback cannot infer the order of distinct resumer owners",
+			fix = "bind the child callback with Compose.bindOwner or activate its owner with Compose.withOwner",
+		})
 	end
 	return explicit or inherited
 end
@@ -117,7 +114,7 @@ local function resolve(): (Owner.Owner?, boolean)
 				return owners[last], true
 			end
 			local own = stacked[running] or 0
-			if own == last and own > (((context :: unknown) :: Owner.RunScope).base or 0) then
+			if own == last and own > ((context).base or 0) then
 				return owners[last], true
 			end
 		end
@@ -180,13 +177,10 @@ end
 local function own(dispose: Dispose, operation: string): Dispose
 	local owner = current()
 	if owner == nil then
-		error(
-			Diagnostics.format("owner/no-active-owner", ("%s has no owner to register with"):format(operation), {
-				contract = "resources must be created inside a mount, so something can release them",
-				fix = "wrap the caller in runtime.mount(component, target), or pass an explicit owner",
-			}),
-			0
-		)
+		return Diagnostics.raise("owner/no-active-owner", ("%s has no owner to register with"):format(operation), {
+			contract = "resources must be created inside a mount, so something can release them",
+			fix = "wrap the caller in runtime.mount(component, target), or pass an explicit owner",
+		})
 	end
 	return Owner.own(owner, dispose)
 end

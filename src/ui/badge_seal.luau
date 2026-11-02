@@ -7,8 +7,10 @@ local ComposeTypes = require("../vendor/compose/core")
 
 local SEAL_STATUS: Media.Status = "error"
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
+	local readValue = read<<Content.BadgeValue?>>
+	local readStatus = read<<Media.Status?>>
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local function words(value: Content.BadgeValue?): string
 		if value == true then
@@ -46,17 +48,17 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.badged: build a badged host inside runtime.mount")
 		local function tone(use: ComposeTypes.Use): Media.Status
-			local current: Media.Status? = read(status, use)
+			local current: Media.Status? = readStatus(status, use)
 			return current or SEAL_STATUS
 		end
-		words(read(value))
+		words(readValue(value))
 		local text = function(use: ComposeTypes.Use): string
-			return words(read(value, use))
+			return words(readValue(value, use))
 		end
-		local list = Host.UIListLayout({
+		local list = Host.UIListLayout {
 			FillDirection = E.FillDirection.Vertical,
 			SortOrder = E.SortOrder.LayoutOrder,
-		})
+		}
 		local wrapper = Host.Frame(host.Name .. "+badge")({
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
@@ -73,28 +75,28 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					Position = D2.fromScale(if direction == "rtl" then 0 else 1, 0),
 					ZIndex = host.ZIndex + 2,
 					Compose.show(function(use: ComposeTypes.Use): boolean
-						return read(value, use) == true
+						return readValue(value, use) == true
 					end, function()
-						return UI.StatusIndicator({
+						return UI.StatusIndicator {
 							Name = "CornerDot",
 							form = "dot",
 							status = tone,
 							AnchorPoint = V2.new(0.5, 0.5),
 							Position = D2.fromScale(0, 0),
 							ZIndex = host.ZIndex + 2,
-						})
+						}
 					end),
 					Compose.show(function(use: ComposeTypes.Use): boolean
-						return read(value, use) ~= true and text(use) ~= ""
+						return readValue(value, use) ~= true and text(use) ~= ""
 					end, function()
-						return UI.Badge({
+						return UI.Badge {
 							Name = "CornerBadge",
 							label = text,
 							status = tone,
 							AnchorPoint = V2.new(0.5, 0.5),
 							Position = D2.fromScale(0, 0),
 							ZIndex = host.ZIndex + 2,
-						})
+						}
 					end),
 				},
 			},

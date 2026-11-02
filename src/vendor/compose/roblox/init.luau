@@ -1,25 +1,25 @@
 --!strict
 
-local Codecs = require "@self/codecs"
 local Compose = require "./core"
 local Engine = require "@self/engine"
 local HostImpl = require "@self/host"
-local RobloxTypes = require "@self/types"
+local Codecs = require "@self/codecs"
 
+export type Codecs = Codecs.Codecs
+export type CodecSource = Codecs.Source
 export type Engine = Engine.Engine
 export type Signal<A... = ...unknown> = Engine.Signal<A...>
 export type Connection = Engine.Connection
-export type Viewport = RobloxTypes.Viewport
-export type ViewportOptions = RobloxTypes.ViewportOptions
-export type PreferredInputClass = RobloxTypes.PreferredInputClass
-export type PreferredInputSpec = RobloxTypes.PreferredInputSpec
+export type Viewport = Engine.Viewport
+export type ViewportOptions = Engine.ViewportOptions
+export type PreferredInputClass = Engine.PreferredInputClass
+export type PreferredInputSpec = Engine.PreferredInputSpec
 
 local sharedHost: Compose.Host? = nil
 
 local function createHost(engine: Engine.Engine?): Compose.Host
 	if engine ~= nil then
 		local host = HostImpl.createHost(engine)
-		Codecs.register(engine)
 		return host
 	end
 
@@ -29,7 +29,6 @@ local function createHost(engine: Engine.Engine?): Compose.Host
 	end
 	local ambient = Engine.ambient()
 	local host = HostImpl.createHost(ambient)
-	Codecs.register(ambient)
 	sharedHost = host
 	return host
 end
@@ -41,23 +40,48 @@ end
 local function designEnvironment(options: {
 	values: typeof(Engine.designEnvironment(HostImpl.readMember).values),
 	service: (string) -> unknown,
+	read: ((unknown, string) -> unknown)?,
 }?): typeof(Engine.designEnvironment(HostImpl.readMember))
 	if options then
+		local read = options.read or HostImpl.readMember
 		return {
+			read = read,
 			values = options.values,
 			service = options.service,
 			descendants = Engine.descendants,
 			invoke = function(object: unknown, method: string, ...: unknown): ...unknown
-				return Engine.invoke(HostImpl.readMember, object, method, ...)
+				return Engine.invoke(read, object, method, ...)
 			end,
 		}
 	end
 	return Engine.designEnvironment(HostImpl.readMember)
 end
 
+local function codecs(engine: CodecSource?): Codecs
+	return Codecs.create(if engine ~= nil then engine else Engine.ambient())
+end
+
 local function animatableTypes(engine: Engine.Engine?): { string }
-	local resolved = if engine ~= nil then engine else Engine.ambient()
-	local names = Codecs.register(resolved)
+	local supplied = codecs(engine)
+	local names: { string } = {}
+	if supplied.CFrame ~= nil then
+		table.insert(names, "CFrame")
+	end
+	if supplied.Color3 ~= nil then
+		table.insert(names, "Color3")
+	end
+	if supplied.UDim ~= nil then
+		table.insert(names, "UDim")
+	end
+	if supplied.UDim2 ~= nil then
+		table.insert(names, "UDim2")
+	end
+	if supplied.Vector2 ~= nil then
+		table.insert(names, "Vector2")
+	end
+	if supplied.Vector3 ~= nil then
+		table.insert(names, "Vector3")
+	end
 	table.sort(names)
 	return names
 end
@@ -104,10 +128,10 @@ local function createCleanup(typeName: ((value: unknown) -> string)?): (value: u
 end
 
 local function createViewport(
-	camera: { ViewportSize: Engine.Vector2 },
+	camera: unknown,
 	engine: Engine.Engine?,
-	options: RobloxTypes.ViewportOptions?
-): (Compose.ReadOnlyValue<RobloxTypes.Viewport>, Compose.ReadOnlyValue<boolean>)
+	options: Engine.ViewportOptions?
+): (Compose.ReadOnlyValue<Engine.Viewport>, Compose.ReadOnlyValue<boolean>)
 	return viewportOf().createViewport(camera, engine, options)
 end
 
@@ -115,14 +139,11 @@ local function usableViewportSize(size: Engine.Vector2?, minimum: number?): bool
 	return viewportOf().usableViewportSize(size, minimum)
 end
 
-local function preferredInput(
-	inputService: { PreferredInput: unknown }?,
-	engine: Engine.Engine?
-): Compose.Value<RobloxTypes.PreferredInputClass>
+local function preferredInput(inputService: unknown, engine: Engine.Engine?): Compose.Value<Engine.PreferredInputClass>
 	return inputOf().preferredInput(inputService, engine)
 end
 
-local function preferredInputSpec(value: unknown): RobloxTypes.PreferredInputSpec
+local function preferredInputSpec(value: unknown): Engine.PreferredInputSpec
 	return inputOf().preferredInputSpec(value)
 end
 
@@ -134,6 +155,7 @@ return {
 	createHost = createHost,
 	createRuntime = createRuntime,
 	designEnvironment = designEnvironment,
+	codecs = codecs,
 	animatableTypes = animatableTypes,
 	cleanup = cleanup,
 	createCleanup = createCleanup,

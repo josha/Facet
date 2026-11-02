@@ -7,6 +7,7 @@ return function(verifyHarness: Verify.Harness)
 	local FixtureNavigationTypes = require("../src/ui/navigation_types")
 	local FixtureOverlayTypes = require("../src/ui/overlay_types")
 
+	local Facet = require("../src")
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
 	local Roblox = require("./lib/native_engine").types
@@ -24,7 +25,7 @@ return function(verifyHarness: Verify.Harness)
 		}
 	end
 
-	local BUILDS: { [string]: (any, any) -> any } = {
+	local BUILDS: { [string]: (FacetControls, RobloxHost) -> Facet.Child } = {
 		Dialog = function(UI: FacetControls, Host: RobloxHost)
 			return UI.Dialog "Long" {
 				isPresented = Compose.cell(true),
@@ -172,7 +173,7 @@ return function(verifyHarness: Verify.Harness)
 						.. `{name}: the nearest fixed ancestor of the copy is taller than any text, and the canvas follows it`,
 					run = function()
 						local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-							return Host.Frame({ BUILDS[name](UI, Host) })
+							return Host.Frame { BUILDS[name](UI, Host) }
 						end)
 						w.advance(1 / 60, 4)
 						local label = w.find("Copy")

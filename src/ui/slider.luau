@@ -125,7 +125,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 	end
 	local function thickness(spec: Spec, use: ComposeTypes.Use?): number
-		local rung = read(spec.controlSize, use)
+		local rung = read<<Shared.ControlSize?>>(spec.controlSize, use)
 		return THICKNESS[rung or "regular"] or THICKNESS.regular
 	end
 	local function unrotate(track: GuiObject, position: Vector2 | Vector3, degrees: number): (number, number)
@@ -193,7 +193,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local visible: Shared.Input<boolean>? = if mode == "always" then nil elseif mode == "none" then false else shown
 		local size = if target then 44 else KNOB
 		local markName = if name == "ThumbStop" then "Thumb" else "Knob"
-		local native: Shared.FrameNativeProps = {
+		local native: Shared.FrameProps = {
 			Name = name,
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = function(use: ComposeTypes.Use)
@@ -224,7 +224,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				Size = knobBox,
 				Visible = visible,
 				ZIndex = 3,
-				Host.UICorner({ CornerRadius = ctx.round }),
+				Host.UICorner { CornerRadius = ctx.round },
 			}, spec.thumbImage, "slider-thumb", "sliderThumb")
 			measure(part)
 			return part
@@ -244,20 +244,20 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					return h.enabled(spec, use)
 				end),
 			})
-			mark = Host.Frame(markName) {
+			mark = Host.Frame(markName)({
 				BackgroundTransparency = 1,
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = D2.fromScale(0.5, 0.5),
 				Size = D2.fromOffset(0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
 				Visible = visible,
-				Host.UISizeConstraint({ MinSize = knobFloor }),
-				Host.UIListLayout({
+				Host.UISizeConstraint { MinSize = knobFloor },
+				Host.UIListLayout {
 					HorizontalAlignment = E.HorizontalAlignment.Center,
 					VerticalAlignment = E.VerticalAlignment.Center,
-				}) :: ComposeTypes.Child,
-				built :: ComposeTypes.Child,
-			}
+				},
+				built,
+			})
 		else
 			mark = h.paintedPart({
 				Name = markName,
@@ -265,7 +265,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				Position = D2.fromScale(0.5, 0.5),
 				Size = knobBox,
 				Visible = visible,
-				Host.UICorner({ CornerRadius = ctx.round }),
+				Host.UICorner { CornerRadius = ctx.round },
 			}, spec.thumbImage, "slider-thumb", "sliderThumb")
 		end
 		measure(if content then mark:FindFirstChildWhichIsA("GuiObject") or mark else mark)
@@ -273,13 +273,13 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			native.BackgroundTransparency = 1
 			native.Size = D2.fromOffset(0, 0)
 			native.AutomaticSize = E.AutomaticSize.XY
-			native[#native + 1] = Host.UISizeConstraint({ MinSize = knobFloor })
+			native[#native + 1] = Host.UISizeConstraint { MinSize = knobFloor }
 			native[#native + 1] = mark
 			return Host.Frame(native)
 		end
 		native.BackgroundTransparency = 1
 		native[#native + 1] = mark
-		native[#native + 1] = Host.UICorner({ CornerRadius = D.new(0.5, 0) })
+		native[#native + 1] = Host.UICorner { CornerRadius = D.new(0.5, 0) }
 		return Host.Frame(native)
 	end
 
@@ -313,7 +313,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			return nil
 		end
 		if isRange then
-			local initial = read(spec.value :: Shared.Input<Range>)
+			local initial = read<<Range>>(spec.value :: Shared.Input<Range>)
 			local why = problem(initial)
 			if why then
 				error(`Facet UI.Slider: {why}`, 0)
@@ -334,7 +334,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			return h.enabled(spec, use) and pointer(use)
 		end
 		local degrees = function(use: ComposeTypes.Use?): number
-			local turn = read(spec.rotation, use)
+			local turn = read<<number?>>(spec.rotation, use)
 			assert(turn == nil or finite(turn), "Facet UI.Slider: rotation must be a finite number of degrees")
 			return turn or 0
 		end
@@ -365,11 +365,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			return use(hovered) or use(selectedInside) or use(dragging) or use(preferred) == E.PreferredInput.Touch
 		end
 		local diagnostics: { string } = {}
-		local last: Range? = if isRange then table.clone(read(spec.value :: Shared.Input<Range>)) else nil
+		local last: Range? = if isRange then table.clone(read<<Range>>(spec.value :: Shared.Input<Range>)) else nil
 		local legal = Compose.cell(last)
 		if isRange then
 			Compose.watch(function(use: ComposeTypes.Use)
-				local pair = read(spec.value :: Shared.Input<Range>, use)
+				local pair = read<<Range>>(spec.value :: Shared.Input<Range>, use)
 				local why = problem(pair)
 				if why then
 					if diagnostics[#diagnostics] ~= why then
@@ -387,7 +387,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			return assert(readSource(legal, use))
 		end
 		local function single(use: ComposeTypes.Use?): number
-			return read(spec.value :: Shared.Input<number>, use)
+			return read<<number>>(spec.value :: Shared.Input<number>, use)
 		end
 		local detent = ctx.haptic(true)
 		local function proposeSingle(value: number): boolean
@@ -573,11 +573,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = D2.fromScale(0.5, 0.5),
 					Size = D2.fromScale(1, 1),
-					Host.UIListLayout({
+					Host.UIListLayout {
 						HorizontalAlignment = E.HorizontalAlignment.Center,
 						VerticalAlignment = E.VerticalAlignment.Center,
-					}),
-					content :: ComposeTypes.Child,
+					},
+					content,
 				}
 			)
 		else
@@ -596,14 +596,16 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			local fill = ctx.styled(
 				Host.Frame "Fill" {
 					Size = function(use: ComposeTypes.Use)
-						local low, high, lowShift, highShift
+						local low, high = 0, 0
+						local lowShift, highShift = 0, 0
 						if isRange then
 							local current = pair(use)
-							low, high = fraction(current.lower), fraction(current.upper)
+							low = fraction(current.lower)
+							high = fraction(current.upper)
 							lowShift = inset(low, use(extentOf("lower")))
 							highShift = inset(high, use(extentOf("upper")))
 						else
-							low, high, lowShift = 0, fraction(single(use)), 0
+							high = fraction(single(use))
 							highShift = inset(high, use(extentOf("value")))
 						end
 						return if vertical
@@ -678,8 +680,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			)
 		end
 		table.insert(trackChildren, detector)
-		table.insert(trackChildren, Host.UISizeConstraint({ MinSize = V2.new(44, 44) }))
-		local trackProps: Shared.FrameNativeProps = {
+		table.insert(trackChildren, Host.UISizeConstraint { MinSize = V2.new(44, 44) })
+		local trackProps: Shared.FrameProps = {
 			Name = "Track",
 			Size = if vertical then D2.new(0, 44, 1, 0) else D2.new(1, 0, 0, 44),
 			BackgroundTransparency = 1,
@@ -699,7 +701,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			trackSlot = Host.Frame "TrackSlot" {
 				Size = trackProps.Size,
 				BackgroundTransparency = 1,
-				Host.UISizeConstraint({ MinSize = V2.new(44, 44) }),
+				Host.UISizeConstraint { MinSize = V2.new(44, 44) },
 				track,
 			}
 		end
@@ -744,7 +746,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local captions: { GuiObject } = {}
 		if spec.row then
 			local row = spec.row
-			local header = { readout }
+			local header: { ComposeTypes.Child } = { readout }
 			if spec.label or row.title then
 				table.insert(
 					header,
@@ -755,7 +757,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						Size = D2.fromOffset(0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						TextWrapped = true,
-						Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+						Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 					})
 				)
 			end
@@ -784,8 +786,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						Name = "Label",
 						Text = spec.label,
 						TextTruncate = E.TextTruncate.AtEnd,
-						Host.UIFlexItem({ FlexMode = E.UIFlexMode.Shrink }) :: ComposeTypes.Child,
-						Host.UIPadding({ PaddingRight = ctx.types.UDim.new(0, KNOB / 2 + 8) }) :: ComposeTypes.Child,
+						Host.UIFlexItem { FlexMode = E.UIFlexMode.Shrink },
+						Host.UIPadding { PaddingRight = ctx.types.UDim.new(0, KNOB / 2 + 8) },
 					})
 				)
 			end
@@ -793,7 +795,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				runtime.decorate(trackSlot, { Size = D2.fromOffset(0, 44) })
 			end
 			runtime.mount(function()
-				return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
+				return Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill }
 			end, trackSlot)
 			table.insert(parts, trackSlot)
 			table.insert(parts, readout)
@@ -818,8 +820,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				native.Size = size
 				native.AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y
 			end
-			table.insert(native, content)
-			table.insert(native, Host.UIPadding({}))
+			native[#native + 1] = content
+			native[#native + 1] = Host.UIPadding {}
 			node = ctx.styled(Host.Frame(native), "slider")
 			mark(node)
 			node:AddTag("facet-slider-settings")
@@ -858,7 +860,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		if not isRange then
 			h.attributes(node, {
 				AccessibleLabel = (function(use: ComposeTypes.Use): string
-					local named = if trackLabel ~= nil then read(trackLabel, use) else nil
+					local named = if trackLabel == nil
+						then nil
+						elseif type(trackLabel) == "string" then trackLabel
+						else ctx.readSource(trackLabel, use)
 					return if named and named ~= "" then named else model.format(single(use))
 				end) :: Shared.Input<Shared.AttributeValue?>,
 			})
@@ -970,7 +975,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end,
 				diagnostics = function(use: ComposeTypes.Use)
 					use(legal)
-					read(spec.value :: Shared.Input<Range>, use)
+					read<<Range>>(spec.value :: Shared.Input<Range>, use)
 					return table.concat(diagnostics, "\n")
 				end,
 			})

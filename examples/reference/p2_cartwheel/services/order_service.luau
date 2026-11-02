@@ -1,10 +1,8 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 
 local data = require("../content/data")
 local rng = require("./rng")
@@ -138,7 +136,7 @@ function order_service.new(opts: Opts)
 
 	local function replace(id: number, mutate: (Brew) -> ())
 		local current = brews:peek()
-		local out: { Brew } = table.create(#current)
+		local out: { Brew } = {}
 		for _, brew in current do
 			if brew.id == id then
 				local copy = table.clone(brew)
@@ -159,7 +157,7 @@ function order_service.new(opts: Opts)
 
 	function self.canStart(from: string?): (boolean, string?)
 		if from == "new" then
-			return true
+			return true, nil
 		end
 		if from == "done" then
 			return false, "reject.collected"
@@ -169,7 +167,7 @@ function order_service.new(opts: Opts)
 
 	function self.canFinish(from: string?): (boolean, string?)
 		if from == "new" or from == "brewing" or from == "ready" then
-			return true
+			return true, nil
 		end
 		if from == "done" then
 			return false, "reject.collected"
@@ -251,7 +249,7 @@ function order_service.new(opts: Opts)
 		local minutes = NEWEST_PLACED + math.floor(clock.now() / 60) + arrived
 		local brew = makeBrew(id, "new", minutes)
 		local current = brews:peek()
-		local out: { Brew } = table.create(#current + 1)
+		local out: { Brew } = {}
 		table.insert(out, brew)
 		for _, existing in current do
 			table.insert(out, existing)

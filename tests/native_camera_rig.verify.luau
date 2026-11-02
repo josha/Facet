@@ -31,7 +31,7 @@ local function fixture(inertia: boolean?, smoothing: boolean?, initial: CameraRi
 		return focused
 	end)
 	table.insert(roots, Roblox.assertInstance(player))
-	local runtime = Facet.Roblox.createRuntime(bridge.engine)
+	local runtime = Facet.Roblox.createRuntime(engine)
 	local Host = Facet.host(runtime)
 	local motion = C.cell<<Shared.MotionLevel>>("normal")
 	local enabled, blocked = C.cell(true), C.cell(false)

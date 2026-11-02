@@ -1,4 +1,5 @@
 --!strict
+local ThemeTypes = require("./theme_types")
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 
@@ -6,11 +7,11 @@ export type Mark = "required" | "optional"
 export type Appearance = "standard" | "contrast" | "utility"
 export type Corners = "pill" | "square"
 export type Options = {
-	label: Shared.Input<string>?,
+	read label: Shared.Input<string>?,
 	requiredMark: Mark?,
 	hint: Shared.Input<string>?,
 	errorText: Shared.Input<string>?,
-	controlSize: Shared.Input<Shared.ControlSize?>?,
+	read controlSize: Shared.Input<Shared.ControlSize?>?,
 	appearance: Shared.Input<string>?,
 	corners: Corners?,
 }
@@ -21,7 +22,7 @@ export type Wrap = {
 	focus: () -> (),
 	enabled: (ComposeTypes.Use?) -> boolean,
 	message: ComposeTypes.ReadOnlyValue<string>?,
-	native: Shared.FrameNativeProps,
+	native: Shared.FrameProps,
 }
 export type Chrome = {
 	KEYS: { string },
@@ -33,7 +34,8 @@ export type Chrome = {
 	wrap: (Wrap) -> Frame,
 }
 
-local KEYS = table.freeze({ "label", "requiredMark", "hint", "errorText", "controlSize", "appearance", "corners" })
+local KEYS: { string } = { "label", "requiredMark", "hint", "errorText", "controlSize", "appearance", "corners" }
+table.freeze(KEYS)
 local APPEARANCE: { [string]: string } = {
 	standard = "facet-field",
 	contrast = "facet-control",
@@ -43,39 +45,42 @@ local APPEARANCE: { [string]: string } = {
 return function(ctx: Shared.Context): Chrome
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
-	local chrome = {} :: Chrome
-	chrome.KEYS = KEYS
+	local readString = read<<string?>>
 	local function dynamic(source: unknown): boolean
 		return Compose.isValue(source) or type(source) == "function"
 	end
-	function chrome.present(spec: Options): boolean
-		for _, key in KEYS do
-			if ((spec :: unknown) :: { [string]: unknown })[key] ~= nil then
-				return true
-			end
-		end
-		return false
+	local function present(spec: Options): boolean
+		return spec.label ~= nil
+			or spec.requiredMark ~= nil
+			or spec.hint ~= nil
+			or spec.errorText ~= nil
+			or spec.controlSize ~= nil
+			or spec.appearance ~= nil
+			or spec.corners ~= nil
 	end
 	local function appearanceWord(control: string, word: unknown): Appearance
 		if word == nil then
 			return "standard"
 		end
-		if type(word) ~= "string" or APPEARANCE[word] == nil then
+		if word ~= "standard" and word ~= "contrast" and word ~= "utility" then
 			error(`Facet UI.{control}: appearance must be standard | contrast | utility (got {tostring(word)})`, 0)
 		end
-		return word :: Appearance
+		return word
 	end
-	function chrome.check(control: string, spec: Options)
+	local function checkString(control: string, key: string, source: Shared.Input<string>?)
+		local value = readString(source)
+		if value ~= nil and type(value) ~= "string" then
+			error(`Facet UI.{control}: {key} must be a string or a readable string (got {typeof(value)})`, 0)
+		end
+	end
+	local function check(control: string, spec: Options)
 		local mark: unknown = spec.requiredMark
 		if mark ~= nil and mark ~= "required" and mark ~= "optional" then
 			error(`Facet UI.{control}: requiredMark must be required | optional (got {tostring(mark)})`, 0)
 		end
-		for _, key in { "label", "hint", "errorText" } do
-			local value = read(((spec :: unknown) :: { [string]: Shared.Input<unknown> })[key])
-			if value ~= nil and type(value) ~= "string" then
-				error(`Facet UI.{control}: {key} must be a string or a readable string (got {typeof(value)})`, 0)
-			end
-		end
+		checkString(control, "label", spec.label)
+		checkString(control, "hint", spec.hint)
+		checkString(control, "errorText", spec.errorText)
 		local corners: unknown = spec.corners
 		if corners ~= nil and corners ~= "pill" and corners ~= "square" then
 			error(`Facet UI.{control}: corners must be pill | square (got {tostring(corners)})`, 0)
@@ -85,11 +90,11 @@ return function(ctx: Shared.Context): Chrome
 			ctx.controlSize(spec.controlSize, "height")
 		end
 	end
-	function chrome.labelText(spec: Options, use: ComposeTypes.Use?): string
-		local words = read(spec.label, use) or ""
+	local function labelText(spec: Options, use: ComposeTypes.Use?): string
+		local words = readString(spec.label, use) or ""
 		return if spec.requiredMark == "required" then words .. " *" else words
 	end
-	function chrome.errorOf(spec: Options, internal: ComposeTypes.ReadOnlyValue<string>?): (ComposeTypes.Use?) -> string
+	local function errorOf(spec: Options, internal: ComposeTypes.ReadOnlyValue<string>?): (ComposeTypes.Use?) -> string
 		return function(use: ComposeTypes.Use?): string
 			local authored = read(spec.errorText, use)
 			if type(authored) == "string" and authored ~= "" then
@@ -106,7 +111,7 @@ return function(ctx: Shared.Context): Chrome
 			node:RemoveTag(tag)
 		end
 	end
-	function chrome.paint(control: string, plate: GuiObject, spec: Options, failing: ((ComposeTypes.Use?) -> boolean)?)
+	local function paint(control: string, plate: GuiObject, spec: Options, failing: ((ComposeTypes.Use?) -> boolean)?)
 		local applied: string? = nil
 		local function apply(use: ComposeTypes.Use?)
 			local tag = APPEARANCE[appearanceWord(control, read(spec.appearance, use))]
@@ -134,12 +139,12 @@ return function(ctx: Shared.Context): Chrome
 			end)
 		end
 	end
-	function chrome.wrap(options: Wrap): Frame
+	local function wrap(options: Wrap): Frame
 		local spec, plate = options.spec, options.plate
-		local failure = chrome.errorOf(spec, options.message)
+		local failure = errorOf(spec, options.message)
 		local function line(use: ComposeTypes.Use?): string
 			local text = failure(use)
-			return if text ~= "" then text else read(spec.hint, use) or ""
+			return if text ~= "" then text else readString(spec.hint, use) or ""
 		end
 		local parts: { ComposeTypes.Child } = {}
 		if spec.label ~= nil then
@@ -163,7 +168,7 @@ return function(ctx: Shared.Context): Chrome
 					ctx.text({
 						Name = "Title",
 						Text = function(use: ComposeTypes.Use)
-							return chrome.labelText(spec, use)
+							return labelText(spec, use)
 						end,
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
@@ -183,7 +188,7 @@ return function(ctx: Shared.Context): Chrome
 		local body: GuiObject = plate
 		if spec.controlSize ~= nil then
 			local function plateHeight(use: ComposeTypes.Use): number
-				local package = read(ctx.config.theme, use)
+				local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 				local skin = package and package.chrome and package.chrome.field
 				local carve: { top: number?, bottom: number? } = if skin
 						and read(spec.appearance, use) ~= "utility"
@@ -210,7 +215,7 @@ return function(ctx: Shared.Context): Chrome
 				Size = function(use: ComposeTypes.Use)
 					return D2.new(1, 0, 0, math.max(targetFloor(use), plateHeight(use)))
 				end,
-				plate :: ComposeTypes.Child,
+				plate,
 			})
 		end
 		table.insert(parts, body)
@@ -228,7 +233,7 @@ return function(ctx: Shared.Context): Chrome
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						TextWrapped = true,
-						Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+						Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 					}),
 					"type-caption"
 				)
@@ -269,5 +274,13 @@ return function(ctx: Shared.Context): Chrome
 		assert(root:FindFirstChildWhichIsA("UIListLayout")).Padding = D.new(0, 4)
 		return root
 	end
-	return chrome
+	return {
+		KEYS = KEYS,
+		present = present,
+		check = check,
+		labelText = labelText,
+		errorOf = errorOf,
+		paint = paint,
+		wrap = wrap,
+	}
 end

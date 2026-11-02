@@ -6,10 +6,8 @@ type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type Compose = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Types = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 
 return function(UI: Controls, runtime: Runtime, C: Compose, types: Types, selected: Value<string>): Instance
@@ -73,7 +71,7 @@ return function(UI: Controls, runtime: Runtime, C: Compose, types: Types, select
 		}
 		local size = runtime.observe(board, "AbsoluteSize") :: ReadOnlyValue<Vector2>
 		local function paper(id: string, number: string, title: string, body: string): GuiObject
-			return Host.Frame(id) {
+			return Host.Frame(id)({
 				BackgroundColor3 = paperColor,
 				BorderSizePixel = 0,
 				Size = D2.fromScale(1, 1),
@@ -100,7 +98,7 @@ return function(UI: Controls, runtime: Runtime, C: Compose, types: Types, select
 						UI.Text { text = body, tint = ink, wrap = true },
 					},
 				},
-			}
+			})
 		end
 		runtime.mountFragment(function()
 			return {
@@ -286,7 +284,7 @@ return function(UI: Controls, runtime: Runtime, C: Compose, types: Types, select
 						end,
 					})
 					runtime.mountFragment(function()
-						local strips: { unknown } = {}
+						local strips: { Frame } = {}
 						for index = 1, 32 do
 							local function point(u: number, value: number): Vector2
 								local angle = math.pi * value
@@ -310,7 +308,7 @@ return function(UI: Controls, runtime: Runtime, C: Compose, types: Types, select
 							)
 							table.insert(
 								strips,
-								Host.Frame("PaperStrip" .. index) {
+								Host.Frame("PaperStrip" .. index)({
 									BorderSizePixel = 0,
 									AnchorPoint = V2.new(0, 0.5),
 									Position = function(use: Use): UDim2
@@ -340,7 +338,7 @@ return function(UI: Controls, runtime: Runtime, C: Compose, types: Types, select
 											return use(geometry).rotation
 										end,
 									},
-								}
+								})
 							)
 						end
 						return strips

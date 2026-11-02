@@ -1,6 +1,6 @@
 --!strict
 
-local StructureTypes = require "./types"
+local CoreTypes = require "../types"
 local Owners = require "../ownership/owner"
 local Children = require "../runtime/children"
 local Admission = require "../collection/admission"
@@ -11,9 +11,9 @@ local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 local keyed = require "./keyed"
 
-export type Status = StructureTypes.MountBudgetStatus
+export type Status = CoreTypes.MountBudgetStatus
 
-export type Options<V, K> = StructureTypes.MountBudgetOptions<V, K>
+export type Options<V, K> = CoreTypes.MountBudgetOptions<V, K>
 
 local KNOWN_FIELDS: { [string]: true } = {
 	from = true,
@@ -24,7 +24,7 @@ local KNOWN_FIELDS: { [string]: true } = {
 	status = true,
 }
 
-local identity = require("../reactive/node").identityKey
+local identity = require("../reactive/graph").identityKey
 
 local function mountBudget<V, K>(options: Options<V, K>): Children.Directive
 	local settings = Support.optionsOf(options, "MountBudget", "from = ..., mountsPerFrame = ..., render = ...")
@@ -39,7 +39,7 @@ local function mountBudget<V, K>(options: Options<V, K>): Children.Directive
 		else Support.builderOf(settings.priority, "MountBudget", "priority")
 	local rawLimit = settings.mountsPerFrame
 	if type(rawLimit) ~= "number" or rawLimit ~= rawLimit or rawLimit < 1 then
-		Diagnostics.raise("mount-budget/invalid-limit", "MountBudget needs a positive mountsPerFrame", {
+		return Diagnostics.raise("mount-budget/invalid-limit", "MountBudget needs a positive mountsPerFrame", {
 			actual = Diagnostics.describe(rawLimit),
 			expected = "a positive number",
 		})
@@ -77,7 +77,7 @@ local function mountBudget<V, K>(options: Options<V, K>): Children.Directive
 				for index, value in list do
 					local key = keyOf(value, index)
 					if present[key] then
-						Diagnostics.raise("structure/duplicate-key", "two MountBudget items share a key", {
+						return Diagnostics.raise("structure/duplicate-key", "two MountBudget items share a key", {
 							index = index,
 							contract = "keys identify mounted items and must be unique",
 						})
@@ -99,7 +99,7 @@ local function mountBudget<V, K>(options: Options<V, K>): Children.Directive
 						if priority ~= nil then
 							local score = priority(value, index)
 							if type(score) ~= "number" or score ~= score or math.abs(score) == math.huge then
-								Diagnostics.raise(
+								return Diagnostics.raise(
 									"mount-budget/invalid-priority",
 									"MountBudget.priority returned an invalid score",
 									{

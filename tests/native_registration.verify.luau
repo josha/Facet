@@ -58,7 +58,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(node.Name):toBe("Proof")
 				Verify.expect(node.Size.X.Offset):toBe(60)
 				local stopNamed, named: any = runtime.mount(function()
-					return UI.ProofControl("Named")({ Size = engine.types.UDim2.fromOffset(20, 30) })
+					return UI.ProofControl "Named" { Size = engine.types.UDim2.fromOffset(20, 30) }
 				end, engine.new("Folder"))
 				Verify.expect(named.Name):toBe("Named")
 				stopNamed()

@@ -11,7 +11,7 @@ local Metrics = require("./collection_table_metrics")
 local Columns = require("./collection_table_columns")
 return function<V, K>(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	spec: CollectionTypes.TableShape<V, K>,
 	sort: ComposeTypes.Value<CollectionTypes.Sort?>,
 	widths: ComposeTypes.Value<{ [string]: number }>,
@@ -21,6 +21,7 @@ return function<V, K>(
 ): ComposeTypes.Directive
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
+	local readColumns = ctx.read<<{ CollectionTypes.TableColumn<V, K> }>>
 	local readSource = ctx.readSource
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local input, preferredInput = metrics.input, metrics.preferredInput
@@ -34,7 +35,7 @@ return function<V, K>(
 	end
 	local headerCells = Compose.keyed({
 		from = function(use: ComposeTypes.Use)
-			return read(spec.columns, use)
+			return readColumns(spec.columns, use)
 		end,
 		key = function(column: CollectionTypes.TableColumn<V, K>)
 			return column.id
@@ -82,7 +83,8 @@ return function<V, K>(
 					end
 				end,
 			}
-			local button = ctx.styled(UI.Button(buttonProps), "TableHeading")
+			local base: TextButton = UI.Button(buttonProps)
+			local button = ctx.styled(base, "TableHeading")
 			local frame: Frame
 			local resizeUnit: ComposeTypes.ReadOnlyValue<number>
 			local grip: TextButton?
@@ -125,7 +127,7 @@ return function<V, K>(
 					end,
 					BackgroundTransparency = 1,
 					ZIndex = 3,
-					Host.UIDragDetector({
+					Host.UIDragDetector {
 						Enabled = function(use: ComposeTypes.Use): boolean
 							return pointerInput(use)
 						end,
@@ -148,20 +150,20 @@ return function<V, K>(
 							setWidths(nextWidths)
 						end,
 						DragEnd = finishResize,
-					}),
+					},
 				}
 				grip = Host.TextButton(gripProps)
 			end
 			frame = ctx.styled(layout.columnFrame(current, index, button, grip), "TableHeader")
 			runtime.decorate(frame, {
 				ZIndex = function(use: ComposeTypes.Use)
-					return #read(spec.columns, use) - use(index) + 1
+					return #readColumns(spec.columns, use) - use(index) + 1
 				end,
 			})
 			resizeUnit = ctx.layoutUnit(frame)
 			Compose.cleanup((runtime.mount(function()
 				return ctx.styled(
-					Host.Frame({
+					Host.Frame {
 						Name = "ColumnDivider",
 						AnchorPoint = V2.new(0, 0.5),
 						Position = D2.fromScale(0, 0.5),
@@ -172,7 +174,7 @@ return function<V, K>(
 							return use(index) > 1
 						end,
 						ZIndex = 2,
-					}),
+					},
 					"divider"
 				)
 			end, frame)))

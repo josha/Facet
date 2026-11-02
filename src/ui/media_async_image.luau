@@ -13,9 +13,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	local E, D2 = types.Enum, types.UDim2
 	local bind = shared.bind
 	UI.AsyncImage = ctx.construct("AsyncImage", function(spec: MediaProps.AsyncImageProps): Frame
-		local state: ComposeTypes.Value<Media.ImageState> = Compose.cell("loading" :: Media.ImageState)
+		local state = Compose.cell<<Media.ImageState>>("loading")
 		local loaded = Compose.cell("")
-		local failure = Compose.cell(nil :: unknown)
+		local failure = Compose.cell<<unknown>>(nil)
 		local root = Host.Frame(ctx.props(spec, {
 			"image",
 			"source",
@@ -45,7 +45,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			return image
 		end, root)
 		runtime.mount(function()
-			local placeholder: Engine.FrameNativeProps = {
+			local placeholder: Engine.FrameProps = {
 				Name = "Placeholder",
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = if spec.placeholder then 1 else 0,
@@ -65,7 +65,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				placeholder[#placeholder + 1] = Compose.show(function(use: ComposeTypes.Use)
 					return use(state) == "failed"
 				end, function()
-					return ctx.text({ Text = bind(spec.failureLabel, ""), Size = D2.fromScale(1, 1) })
+					return ctx.text({ Text = bind<<string>>(spec.failureLabel, ""), Size = D2.fromScale(1, 1) })
 				end)
 			end
 			local node = Host.Frame(placeholder)
@@ -81,12 +81,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		if spec.resource then
 			local resource = spec.resource()
 			Compose.watch(function(use: ComposeTypes.Use)
-				state:set(read(resource.state or resource.status, use) :: Media.ImageState)
-				loaded:set(read(resource.value, use) or "")
+				state:set(read<<Media.ImageState>>(assert(resource.state or resource.status), use))
+				loaded:set(read<<string?>>(resource.value, use) or "")
 			end)
 		else
 			Compose.watch(function(use: ComposeTypes.Use)
-				local source = read(spec.source or spec.image, use) or ""
+				local source = read<<string?>>(spec.source or spec.image, use) or ""
 				generation += 1
 				local ticket = generation
 				if cancel then
@@ -143,9 +143,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				end
 			end)
 		end
-		if spec.onStatus then
+		local onStatus = spec.onStatus
+		if onStatus then
 			Compose.watch(function(use: ComposeTypes.Use)
-				spec.onStatus(use(state) :: Media.ImageState, use(failure))
+				onStatus(use(state), use(failure))
 			end)
 		end
 		return root

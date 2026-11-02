@@ -1,6 +1,6 @@
 --!strict
 
-export type Mark = { image: string, iconName: string, label: string }
+export type Mark = { read image: string, read iconName: string, read label: string }
 
 local art = {}
 

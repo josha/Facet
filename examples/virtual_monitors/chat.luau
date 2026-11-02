@@ -1,10 +1,13 @@
 --!strict
 
 type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
-type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").StringMenuItem)
+type MenuSubmenu = typeof(require("@repo/tools/typecheck/aliases").StringMenuSubmenu)
+type MenuCheck = typeof(require("@repo/tools/typecheck/aliases").MenuCheck)
+type MenuCommand = typeof(require("@repo/tools/typecheck/aliases").MenuCommand)
 type MenuSpec = typeof(require("@repo/tools/typecheck/aliases").MenuSpec)
 type CollectionStatus = typeof(require("@repo/tools/typecheck/aliases").CollectionStatus)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 local modelModule = require("./model")
 local chatModule = require("./chat_model")
@@ -98,7 +101,8 @@ return function(ctx: Context): (GuiObject, GuiObject)
 		return if ok then service else nil
 	end)()
 	local function measuredHeight(node: GuiObject, hug: (() -> number)?): GuiObject
-		if textService == nil or not node:IsA("TextLabel") then
+		local service = textService
+		if service == nil or not node:IsA("TextLabel") then
 			return node
 		end
 		local label = node
@@ -120,7 +124,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 				params.Size = size
 				params.Width = widthNow
 				local ok, bounds = pcall(function()
-					return textService:GetTextBoundsAsync(params)
+					return service:GetTextBoundsAsync(params)
 				end)
 				if not ok or ticket ~= serial or label.Parent == nil then
 					return
@@ -163,11 +167,11 @@ return function(ctx: Context): (GuiObject, GuiObject)
 					content({
 						Size = D2.new(0, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.XY,
-						Host.UISizeConstraint({
+						Host.UISizeConstraint {
 							MaxSize = function(use: Use)
 								return V2.new(math.max(96, math.floor(use(width) * 0.78) - 32), math.huge)
 							end,
-						}),
+						},
 					}),
 					function(): number
 						return math.max(96, math.floor(width:peek() * 0.78) - 32)
@@ -262,47 +266,46 @@ return function(ctx: Context): (GuiObject, GuiObject)
 				end,
 			})
 		end
-		return UI.RowActions({
+		return UI.RowActions {
 			Name = "MessageActions_" .. id,
 			Size = D2.fromScale(1, 1),
 			content = function(): GuiObject
 				return rowFrame
 			end,
 			trailing = trailing,
-		})
+		}
 	end
-	local conversationItems: { MenuItem } = {
-		{
-			id = "Suggest",
-			label = "Suggest",
-			children = {
-				{
-					id = "FindGame",
-					label = "Find a game",
-					onSelect = function()
-						prompt("What game should I play with friends?")
-					end,
-				},
-				{
-					id = "BuildSomething",
-					label = "Build something",
-					onSelect = function()
-						prompt("Help me build a game browser")
-					end,
-				},
-			},
-		},
-		{
-			id = "FollowReplies",
-			label = "Follow replies",
-			checked = model.followChat,
-			onChange = function(value: boolean)
-				model.followChat:set(value)
-			end,
-		},
-		{ divider = true },
-		{ id = "Clear", label = "Clear conversation", role = "destructive", onSelect = chat.clear },
+	local findGame: MenuCommand = {
+		id = "FindGame",
+		label = "Find a game",
+		onSelect = function()
+			prompt("What game should I play with friends?")
+		end,
 	}
+	local buildSomething: MenuCommand = {
+		id = "BuildSomething",
+		label = "Build something",
+		onSelect = function()
+			prompt("Help me build a game browser")
+		end,
+	}
+	local suggest: MenuSubmenu = { id = "Suggest", label = "Suggest", children = { findGame, buildSomething } }
+	local followReplies: MenuCheck = {
+		id = "FollowReplies",
+		label = "Follow replies",
+		checked = model.followChat,
+		onChange = function(value: boolean)
+			model.followChat:set(value)
+		end,
+	}
+	local divider: { divider: true, id: string? } = { divider = true }
+	local clear: MenuCommand = {
+		id = "Clear",
+		label = "Clear conversation",
+		role = "destructive",
+		onSelect = chat.clear,
+	}
+	local conversationItems: { MenuItem } = { suggest, followReplies, divider, clear }
 	local function conversationMenu(): GuiObject
 		local spec: MenuSpec = {
 			trigger = button("ConversationMenu", "Conversation", function() end, {
@@ -401,7 +404,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 			width = "fill",
 			height = "fill",
 			gap = "s",
-			Host.UISizeConstraint({ MaxSize = V2.new(960, math.huge) }),
+			Host.UISizeConstraint { MaxSize = V2.new(960, math.huge) },
 			UI.Notice "Disclaimer" {
 				placement = "affixed",
 				message = "Simulated responses · No messages leave this device",

@@ -74,23 +74,24 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		local timeline = if indeterminate
 			then runtime.timeline({ duration = ctx.metric("motion.durations.progressLoop"), repeats = math.huge })
 			else nil
-		local progress = Compose.formula(function(use: ComposeTypes.Use)
+		local progress = Compose.formula(function(use: ComposeTypes.Use): number
 			if timeline then
 				local phase = use(timeline.progress)
 				return if motionReduced(use) then math.floor(phase * 4) / 4 else phase
 			end
-			local minimum, maximum = read(spec.min, use) or 0, read(spec.max, use) or 1
+			local minimum, maximum = read<<number?>>(spec.min, use) or 0, read<<number?>>(spec.max, use) or 1
 			assert(maximum > minimum, "Facet ProgressView max must exceed min")
-			return math.clamp(((read(spec.value, use) :: number) - minimum) / (maximum - minimum), 0, 1)
+			return math.clamp(((read<<number?>>(spec.value, use) :: number) - minimum) / (maximum - minimum), 0, 1)
 		end)
-		local trail: ComposeTypes.Value<number>?
+		local trail: ComposeTypes.ReadOnlyValue<number>?
 		if spec.trail and not indeterminate then
 			local clock = runtime.timeline({ delay = delay, duration = duration, autoplay = false })
 			local previous = progress:peek()
 			local origin, destination = Compose.cell(previous), Compose.cell(previous)
-			trail = Compose.formula(function(use: ComposeTypes.Use)
+			local followed = Compose.formula(function(use: ComposeTypes.Use): number
 				return use(origin) + (use(destination) - use(origin)) * use(clock.progress)
 			end)
+			trail = followed
 			Compose.watch(function(use: ComposeTypes.Use)
 				local value = use(progress)
 				if motionReduced(use) or value >= previous then
@@ -98,7 +99,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					destination:set(value)
 					clock:seek(duration)
 				else
-					origin:set((trail :: ComposeTypes.Value<number>):peek())
+					origin:set(followed:peek())
 					destination:set(value)
 					clock:restart()
 				end
@@ -110,7 +111,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			then ctx.text({
 				Name = "EndLabel",
 				Text = function(use: ComposeTypes.Use)
-					return read(spec.endLabel, use) or ""
+					return read<<string?>>(spec.endLabel, use) or ""
 				end,
 			}, true)
 			else nil
@@ -121,7 +122,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					if indeterminate then
 						return "Loading"
 					end
-					local value = read(spec.value, use)
+					local value = read<<number?>>(spec.value, use)
 					return if spec.format
 						then spec.format(value :: number)
 						else tostring(math.floor(use(progress) * 100 + 0.5)) .. "%"
@@ -129,7 +130,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			}, true)
 		end
 		local direction = Compose.formula(function(use: ComposeTypes.Use): Theme.FillDirection
-			local package = read(ctx.config.theme, use)
+			local package = read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 			local recipe = if package then ((package.chrome or {}) :: { [string]: Theme.SkinLayer }).barFill else nil
 			local value: Theme.FillDirection = if recipe then recipe.direction or "ltr" else "ltr"
 			assert(({ ltr = true, rtl = true, ttb = true, btt = true })[value], "Facet progress invalid fill direction")
@@ -168,8 +169,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			and (if spec.showValue then true else spec.endLabel ~= nil)
 		if presentation == "bar" then
 			local function thickness(use: ComposeTypes.Use): number
-				local rung = read(spec.controlSize, use)
-				return read(spec.thickness, use)
+				local rung = read<<Types.ControlSize?>>(spec.controlSize, use)
+				return read<<number?>>(spec.thickness, use)
 					or (
 						if rung == "xsmall" or rung == "compact"
 							then metric("space.xs", use)
@@ -179,15 +180,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 
 			local measured = Compose.cell(V2.zero)
 			local function spansFill(use: ComposeTypes.Use): boolean
-				local package = read(ctx.config.theme, use)
+				local package = read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 				local recipe = if package
 					then ((package.chrome or {}) :: { [string]: Theme.SkinLayer }).barFill
 					else nil
 				return recipe ~= nil and recipe.span == "fill"
 			end
 			local function ornament(slot: string, use: ComposeTypes.Use): (number, number)
-				local package = read(ctx.config.theme, use)
-				local recipe = if package then (package.chrome or {})[slot] else nil
+				local package = read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use)
+				local chrome = if package then package.chrome else nil
+				local recipe = if chrome then chrome[slot] else nil
 				if recipe == nil or recipe.kind == "native" or recipe.kind == "none" then
 					return 1, 0
 				end
@@ -204,19 +206,21 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				end
 				return if fit < 0.5 then 0 else fit, if fit < 0.5 then 0 else math.round(along * fit)
 			end
-			local track: Engine.FrameNativeProps = {
-				Name = "Track",
-				Size = fixed(function(use: ComposeTypes.Use)
-					local pixels = thickness(use)
-					return if vertical(use)
-						then D2.new(0, pixels, 1, 0)
-						elseif inline then D2.fromOffset(0, pixels)
-						else D2.new(1, 0, 0, pixels)
-				end),
-				ClipsDescendants = false,
+			local clipped: Engine.FrameProps = {
+				Name = "FillClip",
+				Size = function(use: ComposeTypes.Use)
+					local _, cap = ornament("barCap", use)
+					return if vertical(use) then D2.new(1, 0, 1, -2 * cap) else D2.new(1, -2 * cap, 1, 0)
+				end,
+				Position = function(use: ComposeTypes.Use)
+					local _, cap = ornament("barCap", use)
+					return if vertical(use) then D2.fromOffset(0, cap) else D2.fromOffset(cap, 0)
+				end,
+				BackgroundTransparency = 1,
+				ClipsDescendants = true,
 			}
 			if trail then
-				track[#track + 1] = ctx.styled(
+				clipped[#clipped + 1] = ctx.styled(
 					Host.Frame "Trail" {
 						BackgroundTransparency = 0.6,
 						BorderSizePixel = 0,
@@ -224,7 +228,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						Size = function(use: ComposeTypes.Use)
 							local fraction = if motionReduced(use)
 								then use(progress)
-								else math.max(use(trail :: ComposeTypes.Value<number>), use(progress))
+								else math.max(use(trail :: ComposeTypes.ReadOnlyValue<number>), use(progress))
 							return if vertical(use) then D2.fromScale(1, fraction) else D2.fromScale(fraction, 1)
 						end,
 						AnchorPoint = function(use: ComposeTypes.Use)
@@ -242,8 +246,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				)
 			end
 			for index = 1, count do
-				track[#track + 1] = ctx.styled(
-					Host.Frame({
+				clipped[#clipped + 1] = ctx.styled(
+					Host.Frame {
 						Name = "Fill" .. index,
 						ClipsDescendants = true,
 						AnchorPoint = fixed(function(use: ComposeTypes.Use)
@@ -273,32 +277,28 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 								if vertical(use) then position else 0
 							)
 						end),
-					}),
+					},
 					"fill"
 				)
 			end
-			local clipped: Engine.FrameNativeProps = {
-				Name = "FillClip",
-
-				Size = function(use: ComposeTypes.Use)
-					local _, cap = ornament("barCap", use)
-					return if vertical(use) then D2.new(1, 0, 1, -2 * cap) else D2.new(1, -2 * cap, 1, 0)
-				end,
-				Position = function(use: ComposeTypes.Use)
-					local _, cap = ornament("barCap", use)
-					return if vertical(use) then D2.fromOffset(0, cap) else D2.fromOffset(cap, 0)
-				end,
-				BackgroundTransparency = 1,
-				ClipsDescendants = true,
-			}
-			for _, child in ipairs((track :: unknown) :: { unknown }) do
-				clipped[#clipped + 1] = child
-			end
-			for index = #track, 1, -1 do
-				table.remove((track :: unknown) :: { unknown }, index)
-			end
-			track[#track + 1] = Host.Frame(clipped)
-			content = skin(ctx.styled(Host.Frame(track), "track"), "barTrack")
+			content = skin(
+				ctx.styled(
+					Host.Frame {
+						Name = "Track",
+						Size = fixed(function(use: ComposeTypes.Use)
+							local pixels = thickness(use)
+							return if vertical(use)
+								then D2.new(0, pixels, 1, 0)
+								elseif inline then D2.fromOffset(0, pixels)
+								else D2.new(1, 0, 0, pixels)
+						end),
+						ClipsDescendants = false,
+						Host.Frame(clipped),
+					},
+					"track"
+				),
+				"barTrack"
+			)
 			local trackSize = ctx.layoutSize(content)
 			Compose.watch(function(use: ComposeTypes.Use)
 				measured:set(use(trackSize))
@@ -347,14 +347,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			})
 		else
 			local diameter = function(use: ComposeTypes.Use)
-				return read(spec.diameter, use)
+				return read<<number?>>(spec.diameter, use)
 					or (
 						if spec.controlSize
 							then controlSize(spec.controlSize, "height", use)
 							else metric("controls.progress.circularSize", use)
 					)
 			end
-			local native: Engine.FrameNativeProps = {
+			local native: Engine.FrameProps = {
 				Name = "Indicator",
 				Size = function(use: ComposeTypes.Use)
 					local pixels = diameter(use)
@@ -372,7 +372,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 							BorderSizePixel = 0,
 							Position = D2.fromScale(0.5 + math.cos(angle) * 0.4, 0.5 + math.sin(angle) * 0.4),
 							Size = function(use: ComposeTypes.Use)
-								local thickness = read(spec.thickness, use)
+								local thickness = read<<number?>>(spec.thickness, use)
 									or metric("controls.progress.spinnerDotSize", use)
 								return D2.fromOffset(thickness, thickness)
 							end,
@@ -383,14 +383,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 								end
 								return ((index / count - value) % 1) * 0.85
 							end,
-							Host.UICorner({ CornerRadius = ctx.round }),
+							Host.UICorner { CornerRadius = ctx.round },
 						}),
 						"fill"
 					)
 				end
 			else
 				local thickness = function(use: ComposeTypes.Use)
-					return read(spec.thickness, use)
+					return read<<number?>>(spec.thickness, use)
 						or math.max(
 							metric("controls.progress.circularThickness", use),
 							math.round(diameter(use) * 0.08)
@@ -399,7 +399,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				local gauge = presentation == "gauge"
 				for _, isTrack in { true, false } do
 					local path = ctx.styled(
-						Host.Path2D({
+						Host.Path2D {
 							Name = if gauge
 								then (if isTrack then "GaugeTrack" else "GaugeFill")
 								elseif isTrack then "RingTrack"
@@ -410,7 +410,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 							Visible = function(use: ComposeTypes.Use)
 								return isTrack or indeterminate or use(progress) > 0
 							end,
-						}),
+						},
 						if isTrack then "progress-ring-track" else "progress-ring-fill"
 					)
 					Compose.watch(function(use: ComposeTypes.Use)
@@ -446,12 +446,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				end
 				if gauge and spec.needle ~= false then
 					local needle = ctx.styled(
-						Host.Path2D({
+						Host.Path2D {
 							Name = "GaugeNeedle",
 							Thickness = thickness,
 							Closed = false,
 							ZIndex = 3,
-						}),
+						},
 						"progress-gauge-needle"
 					)
 					Compose.watch(function(use: ComposeTypes.Use)
@@ -472,7 +472,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					end)
 					native[#native + 1] = needle
 					native[#native + 1] = ctx.styled(
-						Host.Frame("GaugeHub")({
+						Host.Frame "GaugeHub" {
 							AnchorPoint = V2.new(0.5, 0.5),
 							Position = D2.fromScale(0.5, 0.5),
 							BorderSizePixel = 0,
@@ -481,8 +481,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 								local hub = math.max(6, math.round(thickness(use) * 1.6))
 								return D2.fromOffset(hub, hub)
 							end,
-							Host.UICorner({ CornerRadius = ctx.round }),
-						}),
+							Host.UICorner { CornerRadius = ctx.round },
+						},
 						"progress-gauge-hub"
 					)
 				end
@@ -531,13 +531,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			table.insert(trailing, ending)
 		end
 		if presentation == "bar" and spec.label and #trailing > 0 then
-			local header: { ComposeTypes.Child } = {
-				UI.Text({
-					text = spec.label,
-					LayoutOrder = 1,
-					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
-				}),
+			local headerText: MediaProps.TextPropsInput = {
+				text = spec.label,
+				LayoutOrder = 1,
+				Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 			}
+			local header: { ComposeTypes.Child } = { UI.Text(headerText) }
 			for _, node in trailing do
 				table.insert(header, node)
 			end
@@ -547,19 +546,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			)
 			trailing = {}
 		elseif spec.label then
-			table.insert(children, UI.Text({ text = spec.label }))
+			table.insert(children, UI.Text { text = spec.label })
 		end
 		if presentation == "bar" and #trailing > 0 and direction:peek() ~= "ttb" and direction:peek() ~= "btt" then
-			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }).Parent = content
-			Host.UISizeConstraint({
+			Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill }.Parent = content
+			Host.UISizeConstraint {
 				MinSize = function(use: ComposeTypes.Use): Vector2
 					return V2.new(ctx.metric("controls.progress.minTrackWidth", use), 0)
 				end,
-			}).Parent =
+			}.Parent =
 				content
 			if ending then
 				ending.TextTruncate = E.TextTruncate.AtEnd
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Shrink }).Parent = ending
+				Host.UIFlexItem { FlexMode = E.UIFlexMode.Shrink }.Parent = ending
 			end
 			local line: { ComposeTypes.Child } = { content }
 			for _, node in trailing do

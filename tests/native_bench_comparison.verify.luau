@@ -31,7 +31,7 @@ return function(harness: Verify.Harness)
 		harness:case("collection highlights follow multiple selection and recycled keys until disposal", {
 			id = "native_bench_comparison::collection highlights follow multiple selection and recycled keys until disposal",
 			run = function()
-				local world = NativeApp({ textService = true })
+				local world = NativeApp { textService = true }
 				local Compose = world.Compose
 				local initial: { [number]: boolean } = { [1] = true }
 				local chosen = Compose.cell(initial)
@@ -69,7 +69,7 @@ return function(harness: Verify.Harness)
 		harness:case("collection selectors preserve table key identity", {
 			id = "native_bench_comparison::collection selectors preserve table key identity",
 			run = function()
-				local world = NativeApp({ textService = true })
+				local world = NativeApp { textService = true }
 				local Compose = world.Compose
 				local equality = {
 					__eq = function(_left: unknown, _right: unknown): boolean
@@ -100,7 +100,7 @@ return function(harness: Verify.Harness)
 		harness:case("selection effects run only for changed row indicators", {
 			id = "native_bench_comparison::selection effects run only for changed row indicators",
 			run = function()
-				local world = NativeApp({ textService = true })
+				local world = NativeApp { textService = true }
 				local scene = workload("inventory-100").prepare(world, "facet")
 				world.Compose.profile.start(os.clock)
 				scene.step(1)
@@ -116,7 +116,7 @@ return function(harness: Verify.Harness)
 		harness:case("drag actions do not rewrite unchanged enablement", {
 			id = "native_bench_comparison::drag actions do not rewrite unchanged enablement",
 			run = function()
-				local world = NativeApp({ textService = true })
+				local world = NativeApp { textService = true }
 				local subject = workload("tile-transfer-20")
 				local scene = subject.prepare(world, "facet")
 				local last: { [unknown]: boolean } = {}
@@ -150,7 +150,7 @@ return function(harness: Verify.Harness)
 		harness:case("empty and offscreen selections leave unrelated indicators idle", {
 			id = "native_bench_comparison::empty and offscreen selections leave unrelated indicators idle",
 			run = function()
-				local world = NativeApp({ textService = true })
+				local world = NativeApp { textService = true }
 				local Compose = world.Compose
 				local initial: { [number]: boolean } = {}
 				local chosen = Compose.cell(initial)
@@ -179,7 +179,7 @@ return function(harness: Verify.Harness)
 		harness:case("multiple selection paints only changed indicator states", {
 			id = "native_bench_comparison::multiple selection paints only changed indicator states",
 			run = function()
-				local world = NativeApp({ textService = true })
+				local world = NativeApp { textService = true }
 				local Compose = world.Compose
 				local initial: { [number]: boolean } = { [1] = true, [2] = true }
 				local chosen = Compose.cell(initial)
@@ -206,7 +206,7 @@ return function(harness: Verify.Harness)
 		harness:case("collection selectors start with the first row and survive its disposal", {
 			id = "native_bench_comparison::collection selectors start with the first row and survive its disposal",
 			run = function()
-				local world = NativeApp({ textService = true })
+				local world = NativeApp { textService = true }
 				local Compose = world.Compose
 				local initial: { [number]: boolean } = { [1] = true }
 				local chosen = Compose.cell(initial)
@@ -249,7 +249,7 @@ return function(harness: Verify.Harness)
 		harness:case("multiple selection follows recycled rows and releases removed indicators", {
 			id = "native_bench_comparison::multiple selection follows recycled rows and releases removed indicators",
 			run = function()
-				local world = NativeApp({ textService = true })
+				local world = NativeApp { textService = true }
 				local Compose = world.Compose
 				local initial: { [number]: boolean } = { [1] = true, [2] = true }
 				local chosen = Compose.cell(initial)
@@ -292,7 +292,7 @@ return function(harness: Verify.Harness)
 			harness:case(name, {
 				id = "native_bench_comparison::" .. name,
 				run = function()
-					local world = NativeApp({ textService = true })
+					local world = NativeApp { textService = true }
 					local scene = workload(subject.id).prepare(world, "facet")
 					local writes = 0
 					local observer = world.engine.environment.observe(function(event)
@@ -311,7 +311,7 @@ return function(harness: Verify.Harness)
 		harness:case("shared metrics follow height changes after the first screen is disposed", {
 			id = "native_bench_comparison::shared metrics follow height changes after the first screen is disposed",
 			run = function()
-				local world = NativeApp({ textService = true })
+				local world = NativeApp { textService = true }
 				local theme = world.Compose.cell(Facet.themes.neutralPackage())
 				local UI = Facet.controls(world.runtime, { types = world.types, theme = theme })
 				local function mount(): () -> ()
@@ -339,7 +339,7 @@ return function(harness: Verify.Harness)
 		harness:case("appending a keyed row keeps retained sibling orders", {
 			id = "native_bench_comparison::appending a keyed row keeps retained sibling orders",
 			run = function()
-				local world = NativeApp({ textService = true })
+				local world = NativeApp { textService = true }
 				local scene = workload("chat-append-500").prepare(world, "facet")
 				scene.step(1)
 				local first = S.find(world, "Chat"):FindFirstChildWhichIsA("TextLabel", true)
@@ -361,7 +361,7 @@ return function(harness: Verify.Harness)
 			id = "native_bench_comparison::custom table cells retain content for a key and release it when the key changes",
 			run = function()
 				type Item = { id: number, label: string }
-				local world = NativeApp({ textService = true })
+				local world = NativeApp { textService = true }
 				local initial: { Item } = { { id = 1, label = "One" } }
 				local source = world.Compose.cell(initial)
 				local released = 0
@@ -373,16 +373,17 @@ return function(harness: Verify.Harness)
 							world.Compose.cleanup(function()
 								released += 1
 							end)
-							return world.UI.Text("Cell" .. key:peek()) {
+							return world.UI.Text("Cell" .. key:peek())({
 								text = function(use: Facet.Use): string
 									return use(current).label
 								end,
-							}
+							})
 						end,
 					},
 				}
 				local stop = S.mount(world, "facet", function()
 					local spec: Facet.KeyedTableSpec<Item, number> = {
+						Name = "Cells",
 						from = source,
 						key = function(item)
 							return item.id
@@ -390,7 +391,7 @@ return function(harness: Verify.Harness)
 						columns = columns,
 						mode = "all",
 					}
-					return world.UI.Table "Cells"(spec)
+					return world.UI.Table(spec)
 				end, function() end)
 				local first = S.find(world, "Cell1")
 				source:set({ { id = 1, label = "Updated" } })
@@ -417,7 +418,7 @@ return function(harness: Verify.Harness)
 					end
 				end
 				local workload = assert(source)
-				local world = NativeApp({ textService = true })
+				local world = NativeApp { textService = true }
 				local scene = workload.prepare(world, "facet")
 				for index = 1, 5 do
 					scene.step(index)

@@ -1,4 +1,5 @@
 --!strict
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
@@ -44,10 +45,10 @@ local function painted(node: GuiObject): boolean
 end
 
 local function sample(t: Live, root: Instance, name: string)
-	local frames = {}
+	local frames: { { [TextButton | TextLabel]: { Vector2 } } } = {}
 	for _ = 1, 40 do
 		RunService.RenderStepped:Wait()
-		local frame = {}
+		local frame: { [TextButton | TextLabel]: { Vector2 } } = {}
 		for _, node in root:GetDescendants() do
 			if (node:IsA("TextButton") or node:IsA("TextLabel")) and node.Text ~= "" and painted(node) then
 				frame[node] = { node.AbsolutePosition, node.AbsoluteSize, node.TextBounds }
@@ -132,7 +133,7 @@ table.insert(cases, {
 table.insert(cases, {
 	id = "colour-opening-layout",
 	run = function(t: Live)
-		local open
+		local open: BooleanCell
 		local stage = t.mount(function(UI: any, _: any, C: any)
 			open = C.cell(false)
 			return UI.ColorPicker "Colour" {
@@ -157,12 +158,10 @@ table.insert(cases, {
 			if theme.name ~= "Neutral" and theme.name ~= "pixel_quest" then
 				continue
 			end
-			local model
+			local model: { linked: BooleanCell, transfers: BooleanCell, editingEnabled: BooleanCell }
 			local size = t.Facet.Compose.cell(Vector2.new(390, 740))
 			local stage = t.mount(function(UI: any, Host: Live, C: any, env: any)
-				local built = require(game.ReplicatedStorage.FacetScenarios.collection_workbench).build(
-					t.context(UI, Host, C, env)
-				)
+				local built = t.scenario("collection_workbench").build(t.context(UI, Host, C, env))
 				model = built.model
 				return built.screen()
 			end, { theme = theme.package, size = size, environment = { preferredInput = "Touch" } })
@@ -353,7 +352,7 @@ table.insert(cases, {
 		local strip = playerGui:FindFirstChild("CompositionTopbar")
 		t.check(
 			"the strip rides the Roblox top bar",
-			strip ~= nil and strip.ScreenInsets == Enum.ScreenInsets.TopbarSafeInsets,
+			strip ~= nil and strip:IsA("ScreenGui") and strip.ScreenInsets == Enum.ScreenInsets.TopbarSafeInsets,
 			GuiService.TopbarInset
 		)
 		if not strip then
@@ -383,7 +382,7 @@ table.insert(cases, {
 			local stage = t.mount(function(UI: Live, Host: Live, C: Live, env: Live)
 				local ctx = t.context(UI, Host, C, env)
 				ctx.theme = env.theme
-				return require(game.ReplicatedStorage.FacetExamples["05_word_game"]).build(ctx).screen()
+				return ctx.load("example", "05_word_game").build(ctx).screen()
 			end, { theme = theme, size = Vector2.new(width, 620), frames = 60 })
 			local keys = t.find(stage, "kb")
 			for _, key in keys:GetDescendants() do
@@ -410,7 +409,7 @@ table.insert(cases, {
 	id = "colour-format-layout",
 	run = function(t: Live)
 		for _, width in { 350, 390, 844 } do
-			local open
+			local open: BooleanCell
 			local stage = t.mount(function(UI: Live, _: Live, C: Live)
 				open = C.cell(false)
 				return UI.ColorPicker "Colour" {

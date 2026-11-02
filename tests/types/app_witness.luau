@@ -13,22 +13,22 @@ local app: Facet.App = Facet.app({
 local UI = app.UI
 local function Counter(): Frame
 	local count = Compose.cell(0)
-	return UI.Screen({
+	return UI.Screen {
 		gap = "s",
-		UI.Text({
+		UI.Text {
 			text = function(use: Facet.Use): string
 				return `Clicked {use(count)} times`
 			end,
-		}),
-		UI.Button({
+		},
+		UI.Button {
 			label = "Add one",
 			onActivate = function()
 				count:update(function(value: number): number
 					return value + 1
 				end)
 			end,
-		}),
-	})
+		},
+	}
 end
 local stop: () -> (), root: ScreenGui = app.mount(Counter)
 local runtime: Facet.Runtime = app.runtime

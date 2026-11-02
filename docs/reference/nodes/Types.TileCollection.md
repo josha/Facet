@@ -22,21 +22,13 @@ the Roblox property types. For example, `Size` accepts a `UDim2` or a reactive
 source of a `UDim2`.
 
 Each `Props` and `Spec` type is one flat table type. It holds the native
-properties of the root, the control options and the children. In the named
-form, `UI.Button "Save" { ... }`, strict mode checks the property table
-without casts in both Luau solvers:
+properties of the root, the control options and the children. Pass that table
+first and an optional name second: `UI.Button "Save" { ... }`.
 
-- a literal option, such as `textRole = "title"` or `width = "fill"`,
-- a callback and a `function(use)` body, without parameter types,
-- children of different classes in the same table.
-
-The direct form, `UI.Button { ... }`, calls the overloaded constructor with
-the table. Neither solver gives the full props type to a table literal in an
-overloaded call. The old solver gives all children the type of the first
-child, and it can refuse a literal option. The new solver refuses literal
-options. When the table has children of different classes or literal
-options, use the named form or give the table a type in a local, for example
-`local props: Facet.MenuSpec = { ... }` and then `UI.Menu(props)`.
+Use the current Luau solver. For overloaded or generic controls, give the
+table its binding or item type on a local, for example
+`local props: Facet.MenuSpec<string> = { ... }` and then `UI.Menu(props)`.
+Use `Facet.Use` for an explicit reactive callback parameter type.
 
 `Host` types the native constructors, and `Child` types a child entry.
 

@@ -1,4 +1,12 @@
 --!strict
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type UDim2Cell = typeof(require("@repo/tools/typecheck/aliases").UDim2Cell)
+type CalloutEdgeCell = typeof(require("@repo/tools/typecheck/aliases").CalloutEdgeCell)
+type NavigationPathCell = typeof(require("@repo/tools/typecheck/aliases").NavigationPathCell)
+type IdReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").IdReadOnlyValue)
+type IdGridSpec = typeof(require("@repo/tools/typecheck/aliases").IdGridSpec)
+type StringPickerSpec = typeof(require("@repo/tools/typecheck/aliases").StringPickerSpec)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -29,21 +37,28 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
 end
 
-local function anchored(UI: any, Host: any, Compose: any, at: UDim2, edge: string?, pivot: Vector2)
+local function anchored(
+	UI: FacetControls,
+	Host: RobloxHost,
+	Compose: ComposeModule,
+	at: UDim2,
+	edge: ("top" | "bottom" | "leading" | "trailing")?,
+	pivot: Vector2
+)
 	local anchor = UI.Button "Anchor" { label = "Anchor", Position = at, AnchorPoint = pivot }
 	return Host.Frame "Surface" {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
-		anchor :: unknown,
-		UI.Callout({
+		anchor,
+		UI.Callout {
 			anchor = anchor,
 			edge = edge,
 			isPresented = Compose.cell(true),
 			onRetire = function() end,
 			content = function()
-				return UI.Text({ text = "Start from a prompt, then edit it before you send." })
+				return UI.Text { text = "Start from a prompt, then edit it before you send." }
 			end,
-		}),
+		},
 	}
 end
 
@@ -173,7 +188,8 @@ add("callout-themed-arrows-follow-edges-and-clamps", {}, function(t)
 		end
 		assert(package, key .. " must be installed")
 		for _, size in { Vector2.new(1024, 768), Vector2.new(390, 844), Vector2.new(844, 390) } do
-			local edge, position
+			local edge: CalloutEdgeCell
+			local position: UDim2Cell
 			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 				edge, position =
 					Compose.cell("bottom" :: "top" | "bottom" | "leading" | "trailing"),
@@ -183,7 +199,7 @@ add("callout-themed-arrows-follow-edges-and-clamps", {}, function(t)
 				return Host.Frame {
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
-					anchor :: unknown,
+					anchor,
 					UI.Callout {
 						anchor = anchor,
 						edge = edge,
@@ -286,10 +302,10 @@ add("popover-themed-arrows-keep-the-frame-unclipped", {}, function(t)
 end)
 
 add("navigation-stack-root-box-and-back-chrome", {}, function(t)
-	local path
+	local path: NavigationPathCell
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		path = Compose.cell({})
-		return UI.NavigationStack({
+		return UI.NavigationStack {
 			path = path,
 			root = {
 				content = function(): Instance
@@ -304,7 +320,7 @@ add("navigation-stack-root-box-and-back-chrome", {}, function(t)
 					end,
 				} :: Destination,
 			},
-		})
+		}
 	end, { size = Vector2.new(480, 320) })
 	local stack = t.find(stage, "NavigationStack")
 	local rootDestination = t.find(t.find(stack, "@root") or stack, "Destination")
@@ -329,22 +345,24 @@ end)
 
 add("vertical-segments-stack-share-width-floor", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.Picker "Rail" {
+		local spec: StringPickerSpec = {
 			style = "segmented" :: "segmented",
 			axis = "y" :: "y",
 			selected = Compose.cell("a"),
 			options = {
-				{ value = "a", label = "Alpha" } :: PickerOption,
-				{ value = "b", label = "Beta with a longer label" } :: PickerOption,
-				{ value = "c", label = "C" } :: PickerOption,
+				{ value = "a", label = "Alpha" } :: StringPickerOption,
+				{ value = "b", label = "Beta with a longer label" } :: StringPickerOption,
+				{ value = "c", label = "C" } :: StringPickerOption,
 			},
 		}
+		return UI.Picker "Rail"(spec)
 	end, { size = Vector2.new(480, 400) })
-	local segments = {}
+	local segments: { { x: number, y: number, w: number, h: number, r: number, b: number } } = {}
 	for _, value in { "a", "b", "c" } do
 		local node = t.find(stage, value)
 		if node and node:IsA("GuiObject") then
-			table.insert(segments, t.rect(node))
+			local rect: { x: number, y: number, w: number, h: number, r: number, b: number } = t.rect(node)
+			table.insert(segments, rect)
 		end
 	end
 	t.check("three segments mounted", #segments == 3, #segments)
@@ -364,7 +382,7 @@ end)
 
 add("tab-head-accessory-above-rail", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-		return UI.TabView({
+		return UI.TabView {
 			selection = Compose.cell("one"),
 			style = "sidebarAdaptable" :: "sidebarAdaptable",
 			placement = "sidebar" :: "sidebar",
@@ -373,14 +391,14 @@ add("tab-head-accessory-above-rail", {}, function(t)
 					id = "one",
 					label = "One",
 					content = function()
-						return Host.Frame({ BackgroundTransparency = 1 })
+						return Host.Frame { BackgroundTransparency = 1 }
 					end,
 				} :: Tab,
 				{
 					id = "two",
 					label = "Two",
 					content = function()
-						return Host.Frame({ BackgroundTransparency = 1 })
+						return Host.Frame { BackgroundTransparency = 1 }
 					end,
 				} :: Tab,
 			},
@@ -392,7 +410,7 @@ add("tab-head-accessory-above-rail", {}, function(t)
 					return UI.Button "FootButton" { label = "Settings" }
 				end,
 			},
-		})
+		}
 	end, { size = Vector2.new(1000, 600) })
 	local head, tabs = t.find(stage, "Accessory-head"), t.find(stage, "Tabs")
 	local foot = t.find(stage, "Accessory-foot")
@@ -423,7 +441,7 @@ add("tab-rail-items-inside-track", {}, function(t)
 			for _, textSize in { "Medium", "Largest" } do
 				local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 					local function page(): Instance
-						return Host.Frame({ BackgroundTransparency = 1 })
+						return Host.Frame { BackgroundTransparency = 1 }
 					end
 					return UI.TabView "Rail" {
 						selection = Compose.cell("home"),
@@ -539,13 +557,13 @@ local HUD_DEVICES: { { name: string, size: Vector2, environment: { [string]: str
 local function goalsHud(UI: FacetControls, ordering: boolean)
 	local env = UI.environment()
 	local function bar(name: string, value: number, words: string, width: number)
-		return UI.ProgressView(name) {
+		return UI.ProgressView(name)({
 			value = value,
 			endLabel = words,
 			Size = function(use: Use)
 				return UDim2.fromOffset(use(env.scaled(width)), 0)
 			end,
-		}
+		})
 	end
 	local function order(compact: boolean): Frame?
 		if not ordering then
@@ -746,7 +764,7 @@ add("chrome-insets-reserve-native-padding", {}, function(t)
 			return Host.Frame "Column" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+				Host.UIListLayout { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder },
 				UI.Button "Plain" { label = "Continue the long journey", LayoutOrder = 1 },
 				UI.Toggle "Switch" { label = "Notifications", value = Compose.cell(true), LayoutOrder = 2 },
 			}
@@ -796,7 +814,7 @@ add("panel-insets-reserve-native-padding", {}, function(t)
 		local inset = if recipe then recipe.contentInsets or {} else {}
 		local spacing = theme.package.metrics.space.m
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-			return UI.Alert({
+			return UI.Alert {
 				isPresented = Compose.cell(true),
 				title = "Replace the save?",
 				message = "Your changes to this slot are not saved yet.",
@@ -804,7 +822,7 @@ add("panel-insets-reserve-native-padding", {}, function(t)
 					{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: AlertAction,
 					{ id = "go", label = "Replace" } :: AlertAction,
 				},
-			})
+			}
 		end, { theme = theme.package, size = Vector2.new(800, 600) })
 		local panel
 		for _, node in stage.Parent:GetDescendants() do
@@ -886,7 +904,7 @@ end)
 add("layers-hang-outside-layout", {}, function(t)
 	for _, theme in t.themes do
 		t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			return UI.Sheet({
+			return UI.Sheet {
 				isPresented = Compose.cell(true),
 				detent = Compose.cell("medium"),
 				title = "Loadout",
@@ -898,7 +916,7 @@ add("layers-hang-outside-layout", {}, function(t)
 						AutomaticSize = Enum.AutomaticSize.Y,
 					}
 				end,
-			})
+			}
 		end, { theme = theme.package })
 		local gui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 		local panel
@@ -948,26 +966,24 @@ end)
 
 add("grid-cell-width-arithmetic", {}, function(t)
 	for _, columns in { 2, 3, 4 } do
-		local rows = {}
+		local rows: { { id: string } } = {}
 		for index = 1, 12 do
 			rows[index] = { id = tostring(index) }
 		end
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 			return UI.VirtualGrid "Grid" {
 				from = rows,
-				key = function(item)
-					return item.id
-				end,
+				key = "id",
 				columns = columns,
 				itemSize = 60,
 				gap = 8,
 				crossGap = 10,
 				Size = UDim2.fromOffset(400, 300),
-				render = function(current): GuiObject
-					return Host.Frame({
+				render = function(current: IdReadOnlyValue): GuiObject
+					return Host.Frame {
 						Name = "Cell" .. current:peek().id,
 						Size = UDim2.fromScale(1, 1),
-					})
+					}
 				end,
 			}
 		end, { size = Vector2.new(400, 300) })
@@ -996,7 +1012,7 @@ add("grid-cell-width-arithmetic", {}, function(t)
 end)
 
 add("hugging-fill-stack-keeps-its-share-of-a-bounded-row", {}, function(t)
-	local wide
+	local wide: BooleanCell
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		wide = Compose.cell(false)
 		return UI.HStack "Row" {
@@ -1061,7 +1077,7 @@ add("review-names-hub-regions-that-overlap-on-a-phone", {}, function(t)
 	local Facet: typeof(require("@repo/tools/typecheck/aliases").FacetModule) = t.Facet
 	local stage = t.mount(function(UI: FacetControls)
 		local function circle(name: string)
-			return UI.Button(name) { icon = "car", shape = "circle", caption = name }
+			return UI.Button(name)({ icon = "car", shape = "circle", caption = name })
 		end
 		return UI.Composition "Hub" {
 			UI.Region "Destinations" {
@@ -1182,9 +1198,9 @@ add("image-button-wrapped-cells-reserve-full-height", {}, function(t)
 	for _, ratio in { 1, 16 / 9 } do
 		for _, scale in { 0.75, 1, 1.5 } do
 			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-				local cells: { unknown } = {}
+				local cells: { GuiObject } = {}
 				for i, appearance in { "standard", "emphasis", "soft", "utility", "link", "inverse" } do
-					cells[i] = UI.VStack({
+					cells[i] = UI.VStack {
 						Name = `Cell{i}`,
 						gap = "xs",
 						UI.Text { text = appearance, textRole = "caption" :: "caption" },
@@ -1198,21 +1214,21 @@ add("image-button-wrapped-cells-reserve-full-height", {}, function(t)
 									imageAspectRatio = ratio,
 								}
 							end,
-							fallback = function(message)
+							fallback = function(message): never
 								error(message)
 							end,
 						},
-					})
+					}
 				end
 				local row = UI.HStack "Cards" { width = "fill" :: "fill", wrap = true, gap = "m", table.unpack(cells) }
 				return UI.ScrollView {
 					UI.VStack "Page" {
 						width = "fill" :: "fill",
 						gap = "m",
-						row :: unknown,
+						row,
 						UI.Text "NextSection" { text = "Settings row" },
-					} :: unknown,
-					Host.UIScale { Scale = scale } :: unknown,
+					},
+					Host.UIScale { Scale = scale },
 				}
 			end, { size = Vector2.new(1100, 800) })
 			local row = t.find(stage, "Cards")
@@ -1285,7 +1301,7 @@ add("travel-scroll-keeps-the-current-destination", { "UI.Travel" }, function(t)
 					Size = UDim2.fromOffset(400, 320),
 					CanvasSize = UDim2.fromOffset(400, 900),
 					BorderSizePixel = 0,
-					source :: unknown,
+					source,
 					target,
 					anchor,
 					Host.UIScale { Scale = 1.25 },

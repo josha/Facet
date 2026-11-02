@@ -1,13 +1,12 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 local seed = require("@self/content/seed")
@@ -179,7 +178,7 @@ function Glade.build(ctx: ExampleContext)
 			end, function()
 				local id = assert(visitor:peek()).wisp
 				local definition = seed.WISP_BY_ID[id]
-				return Host.Frame({
+				return Host.Frame {
 					Name = id,
 					Size = D2.fromOffset(36, 36),
 					AnchorPoint = V2.new(0.5, 0.5),
@@ -189,14 +188,14 @@ function Glade.build(ctx: ExampleContext)
 					end,
 					BackgroundColor3 = C3.new(definition.core[1], definition.core[2], definition.core[3]),
 					BorderSizePixel = 0,
-					Host.UICorner({ CornerRadius = ctx.types.UDim.new(1, 0) }),
-				})
+					Host.UICorner { CornerRadius = ctx.types.UDim.new(1, 0) },
+				}
 			end),
 		}
 	end
 	local function detail(): Instance
 		local id = selected:peek()
-		local options = {}
+		local options: { PickerOption } = {}
 		for _, nectar in seed.NECTARS do
 			table.insert(options, { value = nectar.id, label = L("nectar." .. nectar.id) })
 		end
@@ -208,14 +207,14 @@ function Glade.build(ctx: ExampleContext)
 			view.text(function(use: Use)
 				return "Dew: " .. use(supply.state(id, "dew"))
 			end),
-			UI.ProgressView({ value = supply.level(id, "dew"), label = "Dew" }),
+			UI.ProgressView { value = supply.level(id, "dew"), label = "Dew" },
 			view.action("Refill", "Refill dew", function()
 				refill(id)
 			end),
 			view.text(function(use: Use)
 				return "Nectar: " .. use(supply.state(id, "nectar"))
 			end),
-			UI.ProgressView({ value = supply.level(id, "nectar"), label = "Nectar" }),
+			UI.ProgressView { value = supply.level(id, "nectar"), label = "Nectar" },
 			UI.Picker "Nectar" {
 				selected = choice,
 				options = options,
@@ -301,7 +300,7 @@ function Glade.build(ctx: ExampleContext)
 		})
 	end
 	local function shop(): Instance
-		local children = { view.text("Provisions", 28) }
+		local children: { Child } = { view.text("Provisions", 28) }
 		for _, pack in seed.PACKS do
 			table.insert(
 				children,
@@ -326,7 +325,7 @@ function Glade.build(ctx: ExampleContext)
 		return view.page("Shop", children)
 	end
 	local function keeper()
-		local children = {
+		local children: { Child } = {
 			view.text("Keeper", 28),
 			view.text(keeperName, 22),
 			view.text(keeperContact),
@@ -366,7 +365,12 @@ function Glade.build(ctx: ExampleContext)
 				)
 			end
 		end
-		table.insert(children, view.action("Restore", "Restore provisions", commerce.restore))
+		table.insert(
+			children,
+			view.action("Restore", "Restore provisions", function()
+				commerce.restore()
+			end)
+		)
 		local locales: { PickerOption } = {
 			{ value = "en", label = "English" },
 			{ value = "xa", label = "Expanded" },
@@ -395,11 +399,11 @@ function Glade.build(ctx: ExampleContext)
 							return view.column(item.id, {
 								view.text(text("flora." .. item.id), 24),
 								view.text(text("flora.species." .. item.id)),
-								Host.Frame({
+								Host.Frame {
 									Size = D2.new(1, 0, 0, 80),
 									BorderSizePixel = 0,
 									BackgroundColor3 = C3.new(item.art[1], item.art[2], item.art[3]),
-								}),
+								},
 							})
 						end, function(item: seed.Flora): string
 							return item.id
@@ -427,13 +431,13 @@ function Glade.build(ctx: ExampleContext)
 				Size = D2.new(1, 0, 1, -64),
 				tabs = destinations,
 			},
-			UI.Text({
+			UI.Text {
 				text = notice,
 				Position = D2.new(0, 16, 1, -60),
 				Size = D2.new(1, -32, 0, 56),
 				AutomaticSize = ctx.types.Enum.AutomaticSize.None,
 				TextWrapped = true,
-			}),
+			},
 			UI.Sheet "KeeperEdit" {
 				title = text("keeper.editTitle"),
 				isPresented = editOpen,

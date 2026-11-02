@@ -18,7 +18,7 @@ type CollapsibleButtonSpec = InputProps.ButtonProps & {
 
 return function(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	surfaces: Nav.Surfaces,
 	kit: surfaceParts.SurfaceParts
 ): ()
@@ -64,7 +64,7 @@ return function(
 			if title and title:IsA("TextLabel") then
 				runtime.decorate(title, { TextTruncate = E.TextTruncate.AtEnd, TextWrapped = false })
 				runtime.mount(function()
-					return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Shrink })
+					return Host.UIFlexItem { FlexMode = E.UIFlexMode.Shrink }
 				end, title)
 			end
 			local caret = root:FindFirstChild("TrailingIcon", true)

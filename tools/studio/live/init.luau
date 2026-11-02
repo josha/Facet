@@ -4,8 +4,22 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ThemeCell = typeof(require("@repo/tools/typecheck/aliases").ThemeCell)
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
+type ViewportCell = typeof(require("@repo/src/vendor/compose/core").formula(function()
+	return { width = 0, height = 0 }
+end))
+type MountEnvironment = {
+	runtime: ComposeRuntime,
+	viewport: ViewportCell,
+	theme: ThemeCell,
+	palette: StringCell,
+	types: { [string]: unknown },
+}
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
+type Rect = { x: number, y: number, w: number, h: number, r: number, b: number }
+type ThemeEntry = { name: string, package: unknown }
 local function virtualInput(): any
 	return (game:GetService("UserInputService") :: any):CreateVirtualInput()
 end
@@ -23,6 +37,47 @@ local VerifyRoblox: typeof(require("@repo/tools/vendor/verify/src/roblox")) = (r
 )
 
 local live = { caseSelection = true }
+
+local function robloxTypes(): { [string]: unknown }
+	return {
+		UDim = UDim,
+		UDim2 = UDim2,
+		Vector2 = Vector2,
+		Vector3 = Vector3,
+		Color3 = Color3,
+		CFrame = CFrame,
+		RaycastParams = RaycastParams,
+		Rect = Rect,
+		Enum = Enum,
+		Font = Font,
+		NumberRange = NumberRange,
+		BrickColor = BrickColor,
+		TweenInfo = TweenInfo,
+		Path2DControlPoint = Path2DControlPoint,
+		NumberSequence = NumberSequence,
+		NumberSequenceKeypoint = NumberSequenceKeypoint,
+		ColorSequence = ColorSequence,
+		ColorSequenceKeypoint = ColorSequenceKeypoint,
+		FloatCurveKey = FloatCurveKey,
+	}
+end
+
+local function findScript(kind: string, name: string, ...: string): ModuleScript
+	local source: Instance = if kind == "example"
+		then storage:WaitForChild("FacetExamples")
+		elseif kind == "reference" then storage:WaitForChild("FacetReference")
+		else storage:WaitForChild("FacetScenarios")
+	local target: Instance = source:WaitForChild(name)
+	for _, child in { ... } do
+		target = target:WaitForChild(child)
+	end
+	assert(target:IsA("ModuleScript"), name .. " is not a ModuleScript")
+	return target
+end
+
+local function traceback(message: string): string
+	return debug.traceback(message, 2)
+end
 
 local function round(value: number): number
 	return math.floor(value * 100 + 0.5) / 100
@@ -55,7 +110,7 @@ end
 local function themeModules(Facet: any): { { name: string, package: any } }
 	local list = { { name = "Neutral", package = assert(Facet.themes.define(Facet.themes.neutralPackage())) } }
 	local folder = storage:FindFirstChild("FacetThemes")
-	local found = {}
+	local found: { ThemeEntry } = {}
 	if folder then
 		for _, module in folder:GetChildren() do
 			if module:IsA("ModuleScript") then
@@ -74,7 +129,7 @@ local function themeModules(Facet: any): { { name: string, package: any } }
 			end
 		end
 	end
-	table.sort(found, function(a, b)
+	table.sort(found, function(a: ThemeEntry, b: ThemeEntry)
 		return a.name < b.name
 	end)
 	for _, entry in found do
@@ -181,7 +236,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 		end
 		return out
 	end
-	function t.rect(node: any): { x: number, y: number, w: number, h: number, r: number, b: number }
+	function t.rect(node: any): Rect
 		local at, size = node.AbsolutePosition, node.AbsoluteSize
 		return { x = at.X, y = at.Y, w = size.X, h = size.Y, r = at.X + size.X, b = at.Y + size.Y }
 	end
@@ -220,7 +275,10 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 		end
 		return current ~= nil and (current :: LayerCollector).Enabled
 	end
-	function t.mount(build: (any, any, any, any) -> any, options: { [string]: any }?): any
+	local function mount(
+		build: (unknown, RobloxHost, ComposeModule, MountEnvironment) -> Frame,
+		options: { [string]: any }?
+	): any
 		local config: { [string]: any } = options or {}
 		local Compose: ComposeModule = Facet.Compose
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
@@ -234,7 +292,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				else nil
 			local theme = Compose.cell(package)
 			local palette = Compose.cell(config.palette or package.style.defaultTheme)
-			local viewport = if emulate
+			local viewport: ViewportCell = if emulate
 				then Compose.formula(function(use: Use)
 					local size = config.size
 					local value = if Compose.isValue(size) then use(size) else size
@@ -249,6 +307,14 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				overlayParent = overlay,
 			})
 			local sheet = Facet.themes.createStyleSheet(runtime, theme, { theme = palette, transition = false })
+			local environment: MountEnvironment = {
+				runtime = runtime,
+				viewport = viewport,
+				theme = theme,
+				palette = palette,
+				types = robloxTypes(),
+			}
+			local content = build(UI, Host, Compose, environment)
 			local stage = Host.Frame "Stage" {
 				Size = function(use: Use)
 					local size = config.size
@@ -259,33 +325,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 					return UDim2.fromOffset(value.X, value.Y)
 				end,
 				BackgroundTransparency = 1,
-				build(UI, Host, Compose, {
-					runtime = runtime,
-					viewport = viewport,
-					theme = theme,
-					palette = palette,
-					types = {
-						UDim = UDim,
-						UDim2 = UDim2,
-						Vector2 = Vector2,
-						Vector3 = Vector3,
-						Color3 = Color3,
-						CFrame = CFrame,
-						RaycastParams = RaycastParams,
-						Rect = Rect,
-						Enum = Enum,
-						Font = Font,
-						NumberRange = NumberRange,
-						BrickColor = BrickColor,
-						TweenInfo = TweenInfo,
-						Path2DControlPoint = Path2DControlPoint,
-						NumberSequence = NumberSequence,
-						NumberSequenceKeypoint = NumberSequenceKeypoint,
-						ColorSequence = ColorSequence,
-						ColorSequenceKeypoint = ColorSequenceKeypoint,
-						FloatCurveKey = FloatCurveKey,
-					},
-				}),
+				content,
 			}
 			if overlay then
 				overlay.Parent = stage
@@ -295,8 +335,8 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				ResetOnSpawn = false,
 				DisplayOrder = 50,
 				ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-				sheet :: unknown,
-				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
+				sheet,
+				Host.StyleLink { StyleSheet = Compose.static(sheet) },
 				Host.Frame "Backdrop" {
 					Size = UDim2.fromScale(1, 1),
 					BorderSizePixel = 0,
@@ -312,9 +352,10 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 		t.settle(config.frames or 8)
 		return root
 	end
+	t.mount = mount
 	function t.context(UI: any, Host: any, Compose: any, env: any): { [string]: any }
 		local function find(kind: string, name: string): Instance
-			local source = if kind == "example"
+			local source: Instance = if kind == "example"
 				then storage:WaitForChild("FacetExamples")
 				elseif kind == "reference" then storage:WaitForChild("FacetReference")
 				else storage:WaitForChild("FacetScenarios")
@@ -338,13 +379,13 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 			end,
 		}
 	end
-	function t.clipped(node: any): { x: number, y: number, w: number, h: number, r: number, b: number }?
-		local box = t.rect(node)
-		local x, y, r, b = box.x, box.y, box.r, box.b
+	function t.clipped(node: any): Rect?
+		local box: Rect = t.rect(node)
+		local x: number, y: number, r: number, b: number = box.x, box.y, box.r, box.b
 		local at = node.Parent
 		while at and not at:IsA("LayerCollector") do
 			if at:IsA("GuiObject") and (at.ClipsDescendants or at:IsA("ScrollingFrame")) then
-				local clip = t.rect(at)
+				local clip: Rect = t.rect(at)
 				x, y = math.max(x, clip.x), math.max(y, clip.y)
 				r, b = math.min(r, clip.r), math.min(b, clip.b)
 			end
@@ -414,29 +455,17 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 	function t.gallery(options: { [string]: any }?): (any, any)
 		local config: { [string]: any } = options or {}
 		local context: { [string]: any }
-		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		local function build(_UI: unknown, Host: RobloxHost, Compose: ComposeModule, env: MountEnvironment): Frame
 			local screen = (require :: any)(storage:WaitForChild("Gallery"):WaitForChild("screen"))
 			local folder = storage:FindFirstChild("FacetThemes")
 			local packages = screen.themePackages(
 				Facet.themes,
 				if folder then folder:GetChildren() else {},
-				function(module)
+				function(module: ModuleScript)
 					return (require :: any)(module)
 				end
 			)
 			packages.Neutral = env.theme:peek()
-			local function find(kind: string, name: string, ...: string): ModuleScript
-				local source = if kind == "example"
-					then storage:WaitForChild("FacetExamples")
-					elseif kind == "reference" then storage:WaitForChild("FacetReference")
-					else storage:WaitForChild("FacetScenarios")
-				local target = source:WaitForChild(name)
-				for _, child in { ... } do
-					target = target:WaitForChild(child)
-				end
-				assert(target:IsA("ModuleScript"), name .. " is not a ModuleScript")
-				return target
-			end
 			context = {
 				Facet = Facet,
 				Compose = Compose,
@@ -453,9 +482,9 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				theme = env.theme,
 				themeMode = env.palette,
 				packages = packages,
-				find = find,
+				find = findScript,
 				load = function(kind: string, name: string, ...: string)
-					return (require :: any)(find(kind, name, ...))
+					return (require :: any)(findScript(kind, name, ...))
 				end,
 			}
 			screen.configure(context)
@@ -495,10 +524,11 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 				sheet,
-				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
+				Host.StyleLink { StyleSheet = Compose.static(sheet) },
 				screen.build(context),
 			}
-		end, { size = config.size, theme = config.theme, frames = config.frames or 20 })
+		end
+		local stage = mount(build, { size = config.size, theme = config.theme, frames = config.frames or 20 })
 		return stage, context
 	end
 	function t.device(options: { [string]: any }): Vector2
@@ -681,7 +711,6 @@ function live.report(suite: string, options: { [string]: any }?): any
 	baselineDevice = config.device or "none"
 	baseline()
 	harness:afterEach(function()
-		baseline()
 		for _, gui in hidden do
 			gui.Enabled = true
 		end
@@ -692,7 +721,8 @@ function live.report(suite: string, options: { [string]: any }?): any
 	local records = {}
 	local selected = {}
 	for _, case in live.cases(suite) do
-		if not case.run then
+		local run = case.run
+		if not run then
 			continue
 		end
 		if not config.only or string.find(case.id, config.only, 1, true) then
@@ -734,11 +764,12 @@ function live.report(suite: string, options: { [string]: any }?): any
 					end
 				end)
 				baseline()
-				local ran, problem = xpcall(function()
+				local ran, problem = xpcall(function(): boolean
 					context:step(case.id, function()
-						case.run(t)
+						run(t)
 					end)
-				end, debug.traceback)
+					return true
+				end, traceback)
 				attachNotes(context, record)
 				if not ran then
 					error(problem, 0)
@@ -796,7 +827,7 @@ function live.begin(suite: string, id: string, config: { device: string? }?): st
 				table.insert(hidden, gui)
 			end
 		end
-		t.cleanup = (function(inner)
+		t.cleanup = (function(inner: () -> ())
 			return function()
 				local ok, problem = pcall(inner)
 				for _, gui in hidden do
@@ -839,7 +870,7 @@ function live.step(name: string): string
 	local session = assert(shared.FacetLiveSession, "call live.begin first")
 	local before = #session.record.checks
 	table.insert(session.record.steps, name)
-	local ok, problem = xpcall(session.case.steps[name], debug.traceback, session.t, session.value)
+	local ok, problem = xpcall(session.case.steps[name], traceback, session.t, session.value)
 	if not ok then
 		session.t.check(name .. " ran", false, tostring(problem))
 	end
@@ -1021,11 +1052,15 @@ function live.case(source: string, id: string, body: () -> ()): string
 	return HttpService:JSONEncode(Verify.decode(report))
 end
 
-function live.signal<T...>(name: string, body: () -> T...): T...
+local function collect(...: unknown): { [number]: unknown, n: number }
+	return table.pack(...)
+end
+
+function live.signal(name: string, body: () -> ...unknown): ...unknown
 	local context = assert(active, "live.signal needs a running case")
-	local results: any
+	local results: { [number]: unknown, n: number }
 	context:step(name, function()
-		results = table.pack(body())
+		results = collect(body())
 	end)
 	return table.unpack(results, 1, results.n)
 end

@@ -78,7 +78,7 @@ return {
 					Eval.decodeSuite(Json.decode(Files.read(suitePath)), Files.absolute(suitePath), Eval.lute.loader())
 				assert(#suite.tasks == 1 and #suite.seeds == 1, "compare requires one task and seed")
 				local chosen = Cli.flag(invocation, "agent")
-				local author = suite.agents[1]
+				local author: Eval.Agent = suite.agents[1]
 				if chosen ~= nil then
 					local found: Eval.Agent? = nil
 					for _, agent in suite.agents do
@@ -86,7 +86,10 @@ return {
 							found = agent
 						end
 					end
-					author = assert(found, "the suite has no author " .. chosen)
+					if found == nil then
+						error("the suite has no author " .. chosen, 0)
+					end
+					author = found
 				else
 					assert(#suite.agents == 1, "pass --agent ID to choose one of the suite authors")
 				end

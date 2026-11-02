@@ -2,10 +2,8 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSize)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 
 local COPY = {
 	title = "Progress and activity",
@@ -23,7 +21,7 @@ return {
 	title = "Progress and activity",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types
@@ -47,7 +45,7 @@ return {
 			Compose.cleanup(function()
 				rootPath, controller = nil, nil
 			end)
-			local root = Host.Frame("ProgressRing")({
+			local root = Host.Frame "ProgressRing" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
 				UI.ScrollView "Page" {
@@ -78,7 +76,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
-					UI.Text({
+					UI.Text {
 
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -88,14 +86,14 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					},
 					UI.Slider "AdjustProgress" {
 						value = progress,
 						min = 0,
 						max = 1,
 						step = 0.05,
 					},
-					UI.Text({
+					UI.Text {
 
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -105,7 +103,7 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					},
 					UI.ProgressView "Bar" {
 						value = progress,
 						showValue = true,
@@ -144,16 +142,16 @@ return {
 						presentation = "spinner",
 						controlSize = rung,
 					},
-					Host.Frame("Sizes")({
+					Host.Frame "Sizes" {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(0, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.XY,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Horizontal,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
 							Wraps = true,
-						}),
+						},
 						UI.Button "Compact" {
 							LayoutOrder = 1,
 							label = "Compact",
@@ -175,11 +173,11 @@ return {
 								rung:set("large")
 							end,
 						},
-					}),
+					},
 					UI.Button "Reset" { label = "Reset progress", onActivate = reset },
 					placeholders.section(),
 				},
-			})
+			}
 			return root
 		end
 		local function report()

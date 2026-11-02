@@ -9,19 +9,13 @@ local freeze = require("./freeze")
 local support = require("./theme_support")
 local gameplayHold = require("./gameplay_hold")
 
-type Point = { X: number, Y: number, Z: number }
-type Projector = {
-	CFrame: CFrame,
-	ViewportSize: Vector2,
-	NearPlaneZ: number,
-	WorldToViewportPoint: (Projector, Vector3) -> Point,
+local ANCHOR_KEYS: { [string]: boolean } = {
+	target = true,
+	padding = true,
+	offscreen = true,
+	occlusion = true,
+	camera = true,
 }
-type Hit = { Instance: Instance }
-type Scene = { CurrentCamera: Projector?, Raycast: (Scene, Vector3, Vector3) -> Hit? }
-type Hook = { Disconnect: (Hook) -> () }
-type Frames = { Heartbeat: { Connect: (unknown, () -> ()) -> Hook } }
-
-local ANCHOR_KEYS = { target = true, padding = true, offscreen = true, occlusion = true, camera = true }
 
 local function finite(value: unknown): boolean
 	return type(value) == "number" and value == value and math.abs(value) < math.huge
@@ -35,7 +29,7 @@ local function enumName(value: unknown, fallback: string): string
 end
 
 type SelectionOwner = { prior: GuiObject?, rings: { GuiObject } }
-local selectionOwners = setmetatable({} :: { [Instance]: SelectionOwner }, { __mode = "k" })
+local selectionOwners: { [Instance]: SelectionOwner } = setmetatable({}, { __mode = "k" })
 
 return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	local Compose = ctx.Compose
@@ -43,10 +37,13 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	local runtime = ctx.runtime
 	local V2 = ctx.types.Vector2
 
-	local function watched(node: Instance?, property: string, fallback: unknown): ComposeTypes.ReadOnlyValue<unknown>
+	local function watched<N, T>(
+		node: N?,
+		observe: (N) -> ComposeTypes.ReadOnlyValue<T>,
+		fallback: T
+	): ComposeTypes.ReadOnlyValue<T>
 		if node ~= nil then
-			local observers = (ctx.observe :: unknown) :: { [string]: (Instance) -> ComposeTypes.ReadOnlyValue<unknown> }
-			local ok, value = pcall(observers[property], node)
+			local ok, value = pcall(observe, node)
 			if ok then
 				return value
 			end
@@ -63,7 +60,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local Host, E, D, D2 = ctx.Host, ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2
 		local input = config.services
 		local keyed = Compose.cell(false)
-		local cursor = watched(config.services.GamepadService, "GamepadCursorEnabled", false)
+		local cursor = watched(config.services.GamepadService, ctx.observe.GamepadCursorEnabled, false)
 		local function heard(kind: Enum.UserInputType)
 			keyed:set(kind == E.UserInputType.Keyboard or string.find(kind.Name, "^Gamepad") ~= nil)
 		end
@@ -80,13 +77,13 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local env = UI.environment()
 		local far = ctx.tenFoot()
 		local reduced = motion.reduced(ctx)
-		local package = Compose.formula(function(use: ComposeTypes.Use): ThemeTypes.ThemePackage?
-			return ctx.read(config.theme, use)
+		local package = Compose.formula(function(use: ComposeTypes.Use): ThemeTypes.ReadOnlyThemePackage?
+			return ctx.read<<ThemeTypes.ReadOnlyThemePackage?>>(config.theme, use)
 		end)
 		local recipe = Compose.formula(function(use: ComposeTypes.Use): ThemeTypes.SkinLayer
 			local current = use(package)
 			local chrome = if current then current.chrome else nil
-			return (if chrome then chrome.focus else nil) or { kind = "ring" :: "ring" }
+			return (if chrome then chrome.focus else nil) or { kind = "ring" }
 		end)
 		local function layer(use: ComposeTypes.Use): ThemeTypes.SkinLayer
 			return use(recipe)
@@ -101,13 +98,15 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local function fade(use: ComposeTypes.Use, depth: number): number
 			return if shown(use) then use(pulse) * depth else 1
 		end
-		local corner = Host.UICorner({})
-		local paint = Host.Frame({ Name = "FocusRingPaint", Visible = false, Size = D2.fromOffset(0, 0), corner })
+		local corner = Host.UICorner {}
+		local paint = Host.Frame { Name = "FocusRingPaint", Visible = false, Size = D2.fromOffset(0, 0), corner }
 		paint:AddTag("facet-focus-ring")
 		local color = ctx.observeStyled.BackgroundColor3(paint)
 		local themeRadius = ctx.observeStyled.CornerRadius(corner)
 		local gui = config.guiService
-		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil)
+		local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
+			then ctx.observe.SelectedObject(gui)
+			else Compose.cell(nil)
 		local reshaped = Compose.cell(0)
 		local function partOf(target: Instance?): GuiObject?
 			local path = if target then target:GetAttribute("FacetFocusPart") else nil
@@ -172,7 +171,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					Compose.show(function(use: ComposeTypes.Use): boolean
 						return shown(use) and layer(use).pulse == true and not reduced(use)
 					end, function()
-						local value = runtime.host.render.createNode("NumberValue") :: NumberValue
+						local value = runtime.host.render.createNode("NumberValue")
+						assert(typeof(value) == "Instance" and value:IsA("NumberValue"))
 						value.Name = "FocusPulse"
 						local playback = tweenService:Create(
 							value,
@@ -226,7 +226,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				+ (if stroked(use) then thickness(use) else 0)
 				+ (if layer(use).kind == "ring" then 0 else outset(use))
 		end
-		local glowProperties = {
+		local glowProperties: Shared.UIShadowProps = {
 			Name = "Glow",
 			Color = color,
 			Enabled = function(use: ComposeTypes.Use): boolean
@@ -244,7 +244,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				return layer(use).zIndex or -1
 			end,
 		}
-		local ring = Host.ImageLabel({
+		local ring = Host.ImageLabel {
 			Name = "FacetFocusRing",
 			BackgroundTransparency = 1,
 			ScaleType = E.ScaleType.Slice,
@@ -288,7 +288,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				local base = layer(use).sliceScale or (if asset then asset.sliceScale else nil) or 1
 				return if far(use) then base * 1.5 else base
 			end,
-			Host.UICorner({
+			Host.UICorner {
 				CornerRadius = function(use: ComposeTypes.Use): UDim
 					local shape = layer(use).corner
 					if shape == "square" or art(use) then
@@ -311,8 +311,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					end
 					return if radius.Scale > 0 then radius else D.new(0, radius.Offset + lift(use))
 				end,
-			}) :: ComposeTypes.Child,
-			Host.UIStroke({
+			},
+			Host.UIStroke {
 				ApplyStrokeMode = E.ApplyStrokeMode.Border,
 				BorderStrokePosition = E.BorderStrokePosition.Inner,
 				Color = color,
@@ -321,7 +321,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				Transparency = function(use: ComposeTypes.Use): number
 					return fade(use, 0.35)
 				end,
-				Host.UIGradient({
+				Host.UIGradient {
 					Name = "Brackets",
 					Enabled = function(use: ComposeTypes.Use): boolean
 						return layer(use).kind == "brackets"
@@ -344,9 +344,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 							K.new(1, 0),
 						})
 					end,
-				}) :: ComposeTypes.Child,
-			}),
-			Host.UIStroke({
+				},
+			},
+			Host.UIStroke {
 				Name = "Halo",
 				ApplyStrokeMode = E.ApplyStrokeMode.Border,
 				BorderStrokePosition = E.BorderStrokePosition.Outer,
@@ -372,7 +372,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				Transparency = function(use: ComposeTypes.Use): number
 					return fade(use, 0.35)
 				end,
-			}),
+			},
 			Host.UIShadow((function()
 				local properties = table.clone(glowProperties)
 				properties.Enabled = function(use: ComposeTypes.Use): boolean
@@ -380,7 +380,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				end
 				return properties
 			end)()),
-		})
+		}
 		runtime.mountFragment(function()
 			return {
 				Compose.keyed({
@@ -388,11 +388,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 						use(partRevision)
 						local target: GuiObject? = use(selected)
 						use(reshaped)
-						return if target
-								and not target.SelectionImageObject
-								and layer(use).kind == "glow"
-							then { partOf(target) or target }
-							else {}
+						if target == nil then
+							return {}
+						end
+						local image: unknown = target.SelectionImageObject
+						return if not image and layer(use).kind == "glow" then { partOf(target) or target } else {}
 					end,
 					render = function(item: ComposeTypes.ReadOnlyValue<GuiObject>): Folder
 						runtime.mount(function()
@@ -406,27 +406,31 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 								Thickness = thickness,
 							}
 						end, item:peek())
-						return Host.Folder({ Name = "FocusGlowOwner" })
+						return Host.Folder { Name = "FocusGlowOwner" }
 					end,
 				}),
 			}
 		end, ring)
 		local owner = selectionOwners[playerGui]
 		if owner == nil then
-			owner = { prior = playerGui.SelectionImageObject, rings = {} }
+			local created: SelectionOwner = { prior = playerGui.SelectionImageObject, rings = {} }
+			owner = created
 			selectionOwners[playerGui] = owner
 		end
 		local held = owner
-		local selectionHost = (playerGui :: unknown) :: { SelectionImageObject: GuiObject? }
 		table.insert(held.rings, ring)
-		selectionHost.SelectionImageObject = ring
+		playerGui.SelectionImageObject = ring
 		Compose.cleanup(function()
 			local index = table.find(held.rings, ring)
 			if index then
 				table.remove(held.rings, index)
 			end
-			if selectionHost.SelectionImageObject == ring then
-				selectionHost.SelectionImageObject = held.rings[#held.rings] or held.prior
+			if playerGui.SelectionImageObject == ring then
+				runtime.host.render.setProperty(
+					playerGui,
+					"SelectionImageObject",
+					held.rings[#held.rings] or held.prior
+				)
 			end
 			if #held.rings == 0 then
 				selectionOwners[playerGui] = nil
@@ -444,11 +448,12 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local held: Vector2? = nil
 		return Compose.formula(function(use: ComposeTypes.Use): Vector2
 			local size = use(measured)
+			local previous = held
 			local at: Instance? = node
 			while at do
 				local zoom: unknown = at:GetAttribute("FacetTransitionZoom")
-				if held and type(zoom) == "number" and zoom ~= 1 then
-					return held
+				if previous and type(zoom) == "number" and zoom ~= 1 then
+					return previous
 				end
 				at = at.Parent
 			end
@@ -462,10 +467,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			local world = scene()
 			node = if world then world.CurrentCamera else nil
 		end
-		local gui2d = node ~= nil and node:IsA("GuiBase2d")
-		local property = if gui2d then "AbsoluteSize" else "ViewportSize"
-		local screenSize = watched(node, property, V2.zero)
-		local unit = if gui2d then ctx.layoutUnit(node :: GuiBase2d) else nil
+		local screenSize = if node and node:IsA("GuiBase2d")
+			then watched(node, ctx.observe.AbsoluteSize, V2.zero)
+			elseif node and node:IsA("Camera") then watched(node, ctx.observe.ViewportSize, V2.zero)
+			else Compose.cell(V2.zero)
+		local unit = if node and node:IsA("GuiBase2d") then ctx.layoutUnit(node) else nil
 		local engineSize: ComposeTypes.ReadOnlyValue<unknown> = if unit
 			then Compose.formula(function(use: ComposeTypes.Use): unknown
 				local size = use(screenSize)
@@ -492,32 +498,28 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local function derived<T>(body: (ComposeTypes.Use) -> T): ComposeTypes.ReadOnlyValue<T>
 			return Compose.formula(body)
 		end
-		local viewportWidth = derived(function(use): number
+		local viewportWidth = derived(function(use: ComposeTypes.Use): number
 			return use(viewportSize).X
 		end)
-		local viewportHeight = derived(function(use): number
+		local viewportHeight = derived(function(use: ComposeTypes.Use): number
 			return use(viewportSize).Y
 		end)
 		local tenFoot = ctx.tenFoot()
-		local sizeClass = (
-			derived(function(use): Env.SizeClass
-				local class: Env.SizeClass = adaptive.sizeClass(use(viewportWidth))
-				return if class == "wide" and tenFoot(use) then "regular" else class
-			end) :: unknown
-		) :: ComposeTypes.ReadOnlyValue<Env.SizeClass>
-		local heightClass = (
-			derived(function(use): Env.HeightClass
-				local class: Env.HeightClass = adaptive.heightClass(use(viewportHeight))
-				return if class == "tall" and tenFoot(use) then "medium" else class
-			end) :: unknown
-		) :: ComposeTypes.ReadOnlyValue<Env.HeightClass>
+		local sizeClass = derived(function(use: ComposeTypes.Use): Env.SizeClass
+			local class: Env.SizeClass = adaptive.sizeClass(use(viewportWidth))
+			return if class == "wide" and tenFoot(use) then "regular" else class
+		end)
+		local heightClass = derived(function(use: ComposeTypes.Use): Env.HeightClass
+			local class: Env.HeightClass = adaptive.heightClass(use(viewportHeight))
+			return if class == "tall" and tenFoot(use) then "medium" else class
+		end)
 		local function atLeast(target: Env.SizeClass): ComposeTypes.ReadOnlyValue<boolean>
 			local wanted: Env.SizeClass = target
 			assert(
 				target == "compact" or target == "regular" or target == "wide",
 				"Facet environment.atLeast expects compact, regular or wide"
 			)
-			return derived(function(use): boolean
+			return derived(function(use: ComposeTypes.Use): boolean
 				local current = use(sizeClass)
 				return adaptive.sizeClassAtLeast(current, wanted)
 			end)
@@ -525,11 +527,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local gui = config.guiService
 		local input = config.userInputService
 		local primaryInput = ctx.effectiveInput()
-		local mouse = watched(input, "MouseEnabled", false)
-		local touch = watched(input, "TouchEnabled", false)
-		local gamepad = watched(input, "GamepadEnabled", false)
-		local keyboard = watched(input, "KeyboardEnabled", false)
-		local interactionClasses = derived(function(use): Env.InteractionClasses
+		local mouse = watched(input, ctx.observe.MouseEnabled, false)
+		local touch = watched(input, ctx.observe.TouchEnabled, false)
+		local gamepad = watched(input, ctx.observe.GamepadEnabled, false)
+		local keyboard = watched(input, ctx.observe.KeyboardEnabled, false)
+		local interactionClasses = derived(function(use: ComposeTypes.Use): Env.InteractionClasses
 			local classes: Env.InteractionClasses = {
 				primary = "pointer",
 				pointer = use(mouse) == true,
@@ -551,39 +553,36 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end
 			return freeze(classes)
 		end)
-		local effectiveInput = (
-			derived(function(use): "Touch" | "Gamepad" | "KeyboardAndMouse"
-				return primaryInput(use)
-			end) :: unknown
-		) :: ComposeTypes.ReadOnlyValue<"Touch" | "Gamepad" | "KeyboardAndMouse">
-		local displayRaw = watched(gui, "ViewportDisplaySize", nil)
-		local displaySize = (
-			derived(function(use): Env.DisplaySize
-				local name = enumName(use(displayRaw), "Medium")
-				return if name == "Small" or name == "Large" then name else "Medium"
-			end) :: unknown
-		) :: ComposeTypes.ReadOnlyValue<Env.DisplaySize>
-		local textRaw = watched(gui, "PreferredTextSize", nil)
-		local preferredTextSize = derived(function(use): string
+		local effectiveInput = derived(function(use: ComposeTypes.Use): "Touch" | "Gamepad" | "KeyboardAndMouse"
+			return primaryInput(use)
+		end)
+		local displayRaw = watched(gui, ctx.observe.ViewportDisplaySize, nil)
+		local displaySize = derived(function(use: ComposeTypes.Use): Env.DisplaySize
+			local name = enumName(use(displayRaw), "Medium")
+			return if name == "Small" or name == "Large" then name else "Medium"
+		end)
+		local textRaw = watched(gui, ctx.observe.PreferredTextSize, nil)
+		local preferredTextSize = derived(function(use: ComposeTypes.Use): string
 			return enumName(use(textRaw), "Medium")
 		end)
-		local topbar = watched(gui, "TopbarInset", nil)
-		local topbarInset = derived(function(use): Rect
+		local topbar = watched(gui, ctx.observe.TopbarInset, nil)
+		local topbarInset = derived(function(use: ComposeTypes.Use): Rect
 			local inset = use(topbar)
 			return if typeof(inset) == "Rect" then inset else ctx.types.Rect.new()
 		end)
-		local topbarControlDiameter = derived(function(use): number
+		local topbarControlDiameter = derived(function(use: ComposeTypes.Use): number
 			use(viewportSize)
 			local nativeTenFoot = false
 			if gui then
+				local service = gui
 				local ok, value = pcall(function()
-					return gui:IsTenFootInterface()
+					return service:IsTenFootInterface()
 				end)
 				nativeTenFoot = ok and value == true
 			end
 			return math.round(use(topbarInset).Height * (if nativeTenFoot then 0.5 else 0.75))
 		end)
-		local safeInsets = derived(function(use): Env.SafeInsets
+		local safeInsets = derived(function(use: ComposeTypes.Use): Env.SafeInsets
 			use(viewportSize)
 			use(topbar)
 			local insets: Env.SafeInsets = { top = 0, left = 0, bottom = 0, right = 0 }
@@ -598,8 +597,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end
 			return freeze(insets)
 		end)
-		local overscan = derived(function(use): Env.SafeInsets
-			local authored = ctx.read(config.environment and config.environment.overscanInsets, use)
+		local overscan = derived(function(use: ComposeTypes.Use): Env.SafeInsets
+			local authored =
+				ctx.read<<Env.SafeInsets | "none"?>>(config.environment and config.environment.overscanInsets, use)
 			if authored == "none" or (authored == nil and not tenFoot(use)) then
 				return freeze({ top = 0, left = 0, bottom = 0, right = 0 })
 			end
@@ -610,10 +610,10 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			return adaptive.overscanInsets(size.X, size.Y)
 		end)
 		local level = motion.level(ctx)
-		local isTenFoot = derived(function(use): boolean
+		local isTenFoot = derived(function(use: ComposeTypes.Use): boolean
 			return tenFoot(use)
 		end)
-		local metricScale = derived(function(use): number
+		local metricScale = derived(function(use: ComposeTypes.Use): number
 			return if use(isTenFoot) then adaptive.TEN_FOOT_SCALE else 1
 		end)
 		local textService = config.services
@@ -637,12 +637,12 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local function scaled(value: number | string, relativeTo: string?): ComposeTypes.ReadOnlyValue<number>
 			assert(
 				relativeTo == nil
-					or (type(relativeTo) == "string" and pcall(ctx.metric, `typography.{relativeTo}.size`)),
+					or (type(relativeTo) == "string" and pcall(ctx.metric, `typography.{relativeTo}.size`, nil, nil)),
 				"Facet environment.scaled relativeTo must be a type role"
 			)
 			if type(value) == "string" then
 				ctx.metric(value)
-				return derived(function(use): number
+				return derived(function(use: ComposeTypes.Use): number
 					local length = ctx.metric(value, use)
 					return if relativeTo then length * textFactor(relativeTo, use) else length
 				end)
@@ -651,7 +651,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge,
 				"Facet environment.scaled expects a finite number or a theme metric path"
 			)
-			return derived(function(use): number
+			return derived(function(use: ComposeTypes.Use): number
 				local length = value * use(metricScale)
 				return if relativeTo then length * textFactor(relativeTo, use) else length
 			end)
@@ -662,24 +662,24 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			viewportHeight = viewportHeight,
 			sizeClass = sizeClass,
 			heightClass = heightClass,
-			orientation = (derived(function(use): Env.Orientation
+			orientation = derived(function(use: ComposeTypes.Use): Env.Orientation
 				local size = use(viewportSize)
 				return adaptive.orientationFor(size.X, size.Y)
-			end) :: unknown) :: ComposeTypes.ReadOnlyValue<Env.Orientation>,
-			isCompact = derived(function(use): boolean
+			end),
+			isCompact = derived(function(use: ComposeTypes.Use): boolean
 				return use(sizeClass) == "compact"
 			end),
-			isRegular = derived(function(use): boolean
+			isRegular = derived(function(use: ComposeTypes.Use): boolean
 				return use(sizeClass) == "regular"
 			end),
-			isWide = derived(function(use): boolean
+			isWide = derived(function(use: ComposeTypes.Use): boolean
 				return use(sizeClass) == "wide"
 			end),
 			isRegularOrWider = atLeast("regular"),
-			isShort = derived(function(use): boolean
+			isShort = derived(function(use: ComposeTypes.Use): boolean
 				return use(heightClass) == "short"
 			end),
-			isTall = derived(function(use): boolean
+			isTall = derived(function(use: ComposeTypes.Use): boolean
 				return use(heightClass) == "tall"
 			end),
 			thumbTarget = derived(function(use: ComposeTypes.Use): number
@@ -691,22 +691,22 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				local size = use(viewportSize)
 				return size.X > size.Y
 			end),
-			axis = (derived(function(use: ComposeTypes.Use): "x" | "y"
+			axis = derived(function(use: ComposeTypes.Use): "x" | "y"
 				return adaptive.axisFor(use(viewportWidth))
-			end) :: unknown) :: ComposeTypes.ReadOnlyValue<"x" | "y">,
+			end),
 			atLeast = atLeast,
 			interactionClasses = interactionClasses,
 			effectiveInput = effectiveInput,
 			displaySize = displaySize,
 			isTenFoot = isTenFoot,
-			viewingDistanceSource = (derived(function(use): "authored" | "inferred"
+			viewingDistanceSource = derived(function(use: ComposeTypes.Use): "authored" | "inferred"
 				return if ctx.viewingDistance(use) == "automatic" then "inferred" else "authored"
-			end) :: unknown) :: ComposeTypes.ReadOnlyValue<"authored" | "inferred">,
+			end),
 			metricScale = metricScale,
 			scaled = scaled,
 			layoutSize = layoutSize,
 			overscanInsets = overscan,
-			navPlacement = (derived(function(use): adaptive.NavPlacement
+			navPlacement = derived(function(use: ComposeTypes.Use): adaptive.NavPlacement
 				return adaptive.navPlacement({
 					sizeClass = use(sizeClass),
 					heightClass = use(heightClass),
@@ -714,18 +714,18 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					displaySize = use(displaySize),
 					tenFoot = use(isTenFoot),
 				})
-			end) :: unknown) :: ComposeTypes.ReadOnlyValue<adaptive.NavPlacement>,
+			end),
 			safeInsets = safeInsets,
 			topbarInset = topbarInset,
 			topbarControlDiameter = topbarControlDiameter,
 			gameplaySuspended = gameplayHold.suspended(ctx),
 			preferredTextSize = preferredTextSize,
-			reducedMotion = derived(function(use): boolean
+			reducedMotion = derived(function(use: ComposeTypes.Use): boolean
 				return level(use) ~= "normal"
 			end),
-			motionLevel = (derived(function(use): "normal" | "limited" | "none"
+			motionLevel = derived(function(use: ComposeTypes.Use): Shared.MotionLevel
 				return level(use)
-			end) :: unknown) :: ComposeTypes.ReadOnlyValue<Shared.MotionLevel>,
+			end),
 		})
 		return environment
 	end
@@ -762,16 +762,26 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	end
 
 	UI.responder = ctx.responder
-	local SECTION_KEYS = { entry = true, preferred = true, focusOnAppear = true, returnFocus = true }
+	local SECTION_KEYS: { [string]: boolean } = {
+		entry = true,
+		preferred = true,
+		focusOnAppear = true,
+		returnFocus = true,
+	}
 	UI.focusSection = function(group: GuiObject, options: Env.FocusSectionOptions?)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.focusSection must run inside a component or Compose owner")
 		assert(
-			(group :: GuiObject?) ~= nil and group.IsA ~= nil and group:IsA("GuiObject"),
+			group ~= nil and group.IsA ~= nil and group:IsA("GuiObject"),
 			"Facet UI.focusSection expects a GuiObject"
 		)
 		local settings: Env.FocusSectionOptions = options or {}
-		for key in (settings :: unknown) :: { [unknown]: unknown } do
-			assert(SECTION_KEYS[key :: string] == true, `Facet UI.focusSection: unknown option '{tostring(key)}'`)
+		local fields: unknown = settings
+		assert(type(fields) == "table")
+		for key in fields do
+			assert(
+				type(key) == "string" and SECTION_KEYS[key] == true,
+				`Facet UI.focusSection: unknown option '{tostring(key)}'`
+			)
 		end
 		local entry = settings.entry or "restore"
 		assert(
@@ -921,8 +931,13 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	end
 	UI.worldAnchor = function(options: Env.WorldAnchorOptions): Env.WorldAnchor
 		assert(type(options) == "table", "Facet UI.worldAnchor expects an options table")
-		for key in (options :: unknown) :: { [unknown]: unknown } do
-			assert(ANCHOR_KEYS[key :: string] == true, `Facet UI.worldAnchor: unknown option '{tostring(key)}'`)
+		local fields: unknown = options
+		assert(type(fields) == "table")
+		for key in fields do
+			assert(
+				type(key) == "string" and ANCHOR_KEYS[key] == true,
+				`Facet UI.worldAnchor: unknown option '{tostring(key)}'`
+			)
 		end
 		assert(options.target ~= nil, "Facet UI.worldAnchor: target is required")
 		local padding = if options.padding == nil then 0.15 else options.padding
@@ -938,11 +953,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			options.occlusion == nil or type(options.occlusion) == "boolean",
 			"Facet UI.worldAnchor: occlusion must be a boolean"
 		)
-		local world = (scene() :: unknown) :: Scene?
+		local world = scene()
 		local function sample(): Env.WorldAnchorPoint
 			local place = world
-			local found: Instance? = ctx.read(options.target)
-			local chosen = (ctx.read(options.camera) :: unknown) :: Projector?
+			local found = ctx.read<<BasePart | Model | Player?>>(options.target)
+			local chosen = ctx.read<<Camera?>>(options.camera)
 			local camera = chosen or (if place then place.CurrentCamera else nil)
 			if found == nil or camera == nil or place == nil then
 				return { visible = false }
@@ -952,7 +967,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				"Facet UI.worldAnchor: target must be a BasePart, Model or Player"
 			)
 			local target: Instance? = if found:IsA("Player") then found.Character else found
-			if target == nil or not target:IsDescendantOf((place :: unknown) :: Instance) then
+			if target == nil or not target:IsDescendantOf(place) then
 				return { visible = false }
 			end
 			local frame: CFrame, size: Vector3
@@ -962,7 +977,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				end
 				frame, size = target:GetBoundingBox()
 			else
-				frame, size = (target :: BasePart).CFrame, (target :: BasePart).Size
+				assert(target:IsA("BasePart"))
+				frame, size = target.CFrame, target.Size
 			end
 			if options.occlusion then
 				local origin = camera.CFrame.Position
@@ -991,7 +1007,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				end
 				return { x = x, y = y, visible = true, onscreen = onscreen, clearance = 0 }
 			end
-			local points: { Point } = {}
+			local points: { Vector3 } = {}
 			local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
 			for _, sx in { -1, 1 } do
 				for _, sy in { -1, 1 } do
@@ -1023,8 +1039,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			return { x = x, y = y, clearance = radius * (1 + padding), visible = true }
 		end
 		local anchor = Compose.cell(sample())
-		local frames = (config.services.RunService :: unknown) :: Frames?
-		local hook: Hook? = nil
+		local frames = config.services.RunService
+		local hook: RBXScriptConnection? = nil
 		if frames then
 			hook = frames.Heartbeat:Connect(function()
 				local ok, fresh = pcall(sample)

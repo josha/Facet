@@ -15,9 +15,13 @@ local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 type RowEdge = CollectionTypes.RowEdge
 type RowAction = CollectionTypes.RowAction
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
+	local readActions = ctx.read<<{ RowAction }>>
+	local readNumber = ctx.read<<number>>
+	local readString = ctx.read<<string>>
+	local readSize = ctx.read<<UDim2>>
 	local readSource = ctx.readSource
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local behavior = {
@@ -67,7 +71,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			return if spec.reducedMotion == nil then motionReduced(use) else read(spec.reducedMotion, use) == true
 		end
 		local function actions(edge: string, use: ComposeTypes.Use?): { RowAction }
-			return read(if edge == "leading" then leading else trailing, use)
+			return readActions(if edge == "leading" then leading else trailing, use)
 		end
 		local function bandWidth(edge: string, use: ComposeTypes.Use?): number
 			local list = actions(edge, use)
@@ -75,7 +79,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			for _, action in list do
 				iconic = iconic and action.icon ~= nil
 			end
-			local width = read(spec.actionWidth or (if iconic then 64 else 88), use)
+			local width = readNumber(spec.actionWidth or (if iconic then 64 else 88), use)
 			local measuredWidths = readSource(actionWidths, use)
 			for _, action in list do
 				width = math.max(width, measuredWidths[edge .. ":" .. action.id] or 0)
@@ -267,13 +271,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				BackgroundTransparency = 1,
 				ClipsDescendants = true,
 				Attributes = { FacetDragExclude = true } :: Types.Attributes,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = E.FillDirection.Horizontal,
 					HorizontalAlignment = if edge == "leading"
 						then E.HorizontalAlignment.Right
 						else E.HorizontalAlignment.Left,
 					SortOrder = E.SortOrder.LayoutOrder,
-				}),
+				},
 				Compose.keyed({
 					from = function(use: ComposeTypes.Use)
 						return actions(edge, use)
@@ -287,7 +291,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					)
 						local iconic = current:peek().icon ~= nil
 						local function words(use: ComposeTypes.Use): string
-							return read(use(current).label, use)
+							return readString(use(current).label, use)
 						end
 						local function first(use: ComposeTypes.Use): boolean
 							return use(index) == 1
@@ -577,7 +581,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			local edges: { RowEdge } = { "leading", "trailing" }
 			for _, edge in edges do
 				for _, action in actions(edge, use) do
-					table.insert(result, {
+					local item: NavigationTypes.MenuCommand = {
 						id = edge .. ":" .. action.id,
 						label = action.label,
 						icon = action.icon,
@@ -586,7 +590,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						onSelect = function()
 							execute(action, edge)
 						end,
-					})
+					}
+					table.insert(result, item)
 				end
 			end
 			return result
@@ -651,7 +656,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 							tap(input)
 						end
 					end,
-					Host.UIDragDetector({
+					Host.UIDragDetector {
 						Enabled = swipeDetector,
 						DragStyle = E.UIDragDetectorDragStyle.TranslateLine,
 						DragAxis = V2.new(1, 0),
@@ -676,7 +681,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 								release()
 							end
 						end,
-					}),
+					},
 				},
 				Host.TextButton "DismissTray" {
 					Size = D2.fromScale(1, 1),
@@ -767,7 +772,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		runtime.connect(grip, "TouchPan", pan)
 		runtime.decorate(root, {
 			Size = function(use: ComposeTypes.Use)
-				local size = read(spec.Size, use) or D2.new(1, 0, 0, 44)
+				local size = if spec.Size == nil then D2.new(1, 0, 0, 44) else readSize(spec.Size, use)
 				local fraction = if use(committing)
 					then (if reduced(use) then 1 else math.clamp((use(departure.progress) - 0.7) / 0.3, 0, 1))
 					else 0
@@ -859,7 +864,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		runtime.connect(root, "TouchLongPress", longPress)
 		runtime.connect(grip, "TouchLongPress", longPress)
 		local gui = ctx.config.guiService
-		local selected: ComposeTypes.Value<GuiObject?> = if gui
+		local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
 			then ctx.observe.SelectedObject(gui)
 			else Compose.cell(nil :: GuiObject?)
 		local function scope(): Instance
@@ -942,7 +947,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 							ZIndex = 5,
 							label = function(use: ComposeTypes.Use): string
 								local action = destructive(use)
-								return if action then read(action.label, use) else "Delete"
+								return if action then read<<string>>(action.label, use) else "Delete"
 							end,
 							role = "destructive" :: InputTypes.ButtonRole,
 							onActivate = delete,

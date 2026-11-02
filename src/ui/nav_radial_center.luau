@@ -31,6 +31,8 @@ return function<V>(
 	phase: Navigation.PresencePhase?
 ): Hub<V>
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
+	local readText = read<<string?>>
+	local readItems = read<<{ Radial.RadialItem<V> }?>>
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local spec, corner, painted = menu.spec, menu.corner, menu.painted
 	local path, candidate, naming, touchPoint = menu.path, menu.candidate, menu.naming, menu.touchPoint
@@ -73,10 +75,10 @@ return function<V>(
 	local function centerName(use: ComposeTypes.Use): string
 		local depth = #use(path)
 		if navigating(use) or spec.center == nil or spec.center == "back" then
-			return (if navigating(use) then nil else read(spec.centerLabel, use))
+			return (if navigating(use) then nil else readText(spec.centerLabel, use))
 				or if depth == 0 then "Close" else "Back"
 		end
-		return read(spec.centerLabel, use) or if spec.center == "root" then "Home" else "Close"
+		return readText(spec.centerLabel, use) or if spec.center == "root" then "Home" else "Close"
 	end
 	local function morph(use: ComposeTypes.Use): number
 		return 1 - transparency(use)
@@ -101,7 +103,7 @@ return function<V>(
 	end
 	local hideLauncher: (() -> ())? = nil
 	local centerNode = UI.Button "Center" {
-		corners = "pill" :: "pill",
+		corners = "pill",
 		appearance = "utility",
 		name = centerName,
 		icon = function(use: ComposeTypes.Use): string
@@ -136,7 +138,7 @@ return function<V>(
 		Activated = centerAction,
 	}
 	if launcher and launcher:IsA("GuiObject") then
-		local hidden = launcher :: GuiObject
+		local hidden = launcher
 
 		hideLauncher = function()
 			local automatic, size = root.AutomaticSize, root.Size
@@ -152,9 +154,10 @@ return function<V>(
 				root.AutomaticSize, root.Size = E.AutomaticSize.None, D2.fromOffset(extent.X, extent.Y)
 			end
 			hidden.Visible = false
-			if phase and corner then
+			local exiting = if phase and corner then phase.exiting else nil
+			if exiting then
 				Compose.watch(function(use: ComposeTypes.Use)
-					if use(phase.exiting) then
+					if use(exiting) then
 						show()
 					end
 				end)
@@ -301,8 +304,8 @@ return function<V>(
 				for sectorIndex = 1, #entries do
 					local sector = entries[sectorIndex]
 					if sector.key == key and paint.iconic(use, sector) then
-						local label = read(sector.item.label, use) or ""
-						local detail = read(sector.item.description, use)
+						local label = readText(sector.item.label, use) or ""
+						local detail = readText(sector.item.description, use)
 						return label .. (if detail then " · " .. detail else "")
 					end
 				end
@@ -310,7 +313,7 @@ return function<V>(
 			end
 
 			local labels: { string } = {}
-			local items: { Radial.RadialItem<V> }? = read(spec.items, use)
+			local items = readItems(spec.items, use)
 			for _, id in use(path) do
 				local found: Radial.RadialItem<V>? = nil
 				local level: { Radial.RadialItem<V> } = items or {}
@@ -323,10 +326,10 @@ return function<V>(
 				if found == nil then
 					break
 				end
-				table.insert(labels, tostring(read(found.label, use) or id))
-				items = read(found.children, use)
+				table.insert(labels, tostring(readText(found.label, use) or id))
+				items = readItems(found.children, use)
 			end
-			return if #labels > 0 then table.concat(labels, " › ") else read(spec.label, use) or "Quick actions"
+			return if #labels > 0 then table.concat(labels, " › ") else readText(spec.label, use) or "Quick actions"
 		end,
 		ZIndex = 106,
 		ctx.padding(8, 6),

@@ -1,10 +1,8 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 
 export type Message = { id: number, role: "user" | "assistant", content: string }
 export type Vote = "up" | "down" | "none"
@@ -115,8 +113,8 @@ function chat.new(Compose: ComposeModule): Chat
 		if disposed or streaming:peek() then
 			return false
 		end
-		local prompt = assert(draft:peek():match("^%s*(.-)%s*$"))
-		if prompt == "" then
+		local prompt = draft:peek():match("^%s*(.-)%s*$")
+		if not prompt or prompt == "" then
 			return false
 		end
 		do

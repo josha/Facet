@@ -6,20 +6,20 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-	local FixtureRadialTypes = require("../src/ui/radial_types")
-	local FixtureNavigationTypes = require("../src/ui/navigation_types")
 
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 	local Compose: ComposeModule = Facet.Compose
 
-	local function signal()
+	type Ticker = engineLib.Signal<number> & { count: () -> number }
+
+	local function signal(): Ticker
 		local handlers: { (number) -> () } = {}
 		return {
-			Connect = function(_: any, fn: (number) -> ())
+			Connect = function(_: unknown, fn: (number) -> ())
 				table.insert(handlers, fn)
 				return {
-					Disconnect = function()
+					Disconnect = function(_: unknown)
 						local index = table.find(handlers, fn)
 						if index then
 							table.remove(handlers, index)
@@ -27,7 +27,7 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				}
 			end,
-			Fire = function(_self: any)
+			Fire = function(_self: unknown)
 				for _, fn in table.clone(handlers) do
 					fn(1 / 60)
 				end
@@ -38,25 +38,23 @@ return function(verifyHarness: Verify.Harness)
 		}
 	end
 
-	local function world(build: (any) -> any, render: boolean?)
+	local function world(build: (Facet.Controls) -> Facet.Child, render: boolean?)
 		local engine = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
-		local frames = { Heartbeat = signal(), PreRender = if render then signal() else nil }
+		local frames: { Heartbeat: Ticker, PreRender: Ticker? } =
+			{ Heartbeat = signal(), PreRender = if render then signal() else nil }
 		if render then
 			engine.heartbeat = assert(frames.PreRender)
 		end
-		local UI = Facet.controls(
-			runtime,
-			{
-				types = engine.types,
-				guiService = gui,
-				motionLevel = "none",
-				services = { GuiService = gui, RunService = frames },
-			} :: any
-		)
+		local UI = Facet.controls(runtime, {
+			types = engine.types,
+			guiService = gui,
+			motionLevel = "none",
+			services = { GuiService = gui, RunService = frames :: any },
+		})
 		local stop, screen: any = runtime.mount(function()
-			return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ build(UI) })
+			return Facet.host(runtime).ScreenGui({ build(UI) })
 		end, engine.new("Folder"))
 		return screen, frames, function()
 			stop()
@@ -83,13 +81,19 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("restores screen device clipping after the last modal closes", function()
 			local first, second = Compose.cell(false), Compose.cell(false)
 			local screen, _, stop = world(function(UI: FacetControls)
+				local firstSpec: Facet.AlertSpec = {
+					isPresented = first,
+					title = "First",
+					actions = { { id = "ok", label = "OK" } },
+				}
+				local secondSpec: Facet.AlertSpec = {
+					isPresented = second,
+					title = "Second",
+					actions = { { id = "ok", label = "OK" } },
+				}
 				return UI.VStack {
-					UI.Alert "First" { isPresented = first, title = "First", actions = { { id = "ok", label = "OK" } } },
-					UI.Alert "Second" {
-						isPresented = second,
-						title = "Second",
-						actions = { { id = "ok", label = "OK" } },
-					},
+					UI.Alert "First"(firstSpec),
+					UI.Alert "Second"(secondSpec),
 				}
 			end)
 			screen.ClipToDeviceSafeArea = true
@@ -113,7 +117,7 @@ return function(verifyHarness: Verify.Harness)
 			engine.environment.poke(row, "AbsoluteSize", engineLib.types.Vector2.new(210, 40))
 			local render = assert(frames.PreRender)
 			for _ = 1, 4 do
-				render:Fire()
+				render:Fire(1 / 60)
 			end
 			Verify.expect(require("./lib/fade").of(row)):toBe(0)
 			stop()
@@ -121,11 +125,12 @@ return function(verifyHarness: Verify.Harness)
 		end)
 		verifyHarness:case("waits for deferred geometry before the first painted frame", function()
 			local screen, frames, stop, engine = world(function(UI: FacetControls)
-				return UI.Alert {
+				local stable: Facet.AlertSpec = {
 					title = "Stable crop",
 					isPresented = Compose.cell(true),
 					actions = { { id = "ok", label = "Sell" } },
 				}
+				return UI.Alert(stable)
 			end, true)
 			local group = screen:FindFirstChild("OverlayArrival", true)
 			Verify.expect(group:IsA("Frame")):toBe(true)
@@ -141,17 +146,17 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end
 			local render = assert(frames.PreRender)
-			render:Fire()
+			render:Fire(1 / 60)
 			Verify.expect(require("./lib/fade").of(group)):toBe(1)
 			engine.environment.poke(
 				group:FindFirstChild("AlertModal", true),
 				"AbsoluteSize",
 				engineLib.types.Vector2.new(236, 40)
 			)
-			render:Fire()
+			render:Fire(1 / 60)
 			Verify.expect(require("./lib/fade").of(group)):toBe(1)
 			for _ = 1, 4 do
-				render:Fire()
+				render:Fire(1 / 60)
 			end
 			Verify.expect(require("./lib/fade").of(group)):toBe(0)
 			Verify.expect(group.Visible):toBe(true)
@@ -163,7 +168,8 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("holds a newly presented surface hidden until the next frame, when the theme styles apply", {
 			id = "native_overlay_arrival::presented surfaces arrive styled::holds a newly presented surface hidden until the next frame, when the theme styles apply",
 			run = function()
-				for _, kind in { "Sheet", "Alert" } :: { "Alert" | "Sheet" } do
+				local kinds: { "Alert" | "Sheet" } = { "Sheet", "Alert" }
+				for _, kind in kinds do
 					local open = Compose.cell(false)
 					local screen, frames, stop, engine = world(function(UI: FacetControls)
 						if kind == "Sheet" then
@@ -176,16 +182,17 @@ return function(verifyHarness: Verify.Harness)
 								end,
 							}
 						end
-						return UI.Alert "Confirm" {
+						local confirm: Facet.AlertSpec = {
 							title = "Sell the crop?",
 							isPresented = open,
-							actions = { { id = "ok", label = "Sell" } :: FixtureNavigationTypes.AlertAction<any> },
+							actions = { { id = "ok", label = "Sell" } },
 						}
+						return UI.Alert "Confirm"(confirm)
 					end)
 					local inner = if kind == "Sheet" then "SheetPanel" else "ok"
 					open:set(true)
 					Verify.expect(`{kind} hidden {hidden(screen, inner)}`):toBe(`{kind} hidden true`)
-					frames.Heartbeat:Fire()
+					frames.Heartbeat:Fire(1 / 60)
 					Verify.expect(`{kind} hidden {hidden(screen, inner)}`):toBe(`{kind} hidden false`)
 					Verify.expect((frames.Heartbeat.count())):toBe(0)
 					stop()
@@ -198,11 +205,12 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local open = Compose.cell(false)
 				local _, frames, stop = world(function(UI: FacetControls)
-					return UI.Alert "Confirm" {
+					local confirm: Facet.AlertSpec = {
 						title = "Sell the crop?",
 						isPresented = open,
-						actions = { { id = "ok", label = "Sell" } :: FixtureNavigationTypes.AlertAction<any> },
+						actions = { { id = "ok", label = "Sell" } },
 					}
+					return UI.Alert "Confirm"(confirm)
 				end)
 				open:set(true)
 				Verify.expect(frames.Heartbeat.count() >= 1):toBe(true)
@@ -217,32 +225,26 @@ return function(verifyHarness: Verify.Harness)
 			{
 				id = "native_overlay_arrival::presented surfaces arrive styled::selects a presented surface's first control only once it is shown, never the hidden or panel node",
 				run = function()
-					for _, kind in { "RadialMenu", "Dialog" } :: { "Dialog" | "RadialMenu" } do
+					local kinds: { "Dialog" | "RadialMenu" } = { "RadialMenu", "Dialog" }
+					for _, kind in kinds do
 						local engine = engineLib.new()
 						local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 						local gui = engine.new("GuiService")
 						local frames = { Heartbeat = signal() }
-						local UI = Facet.controls(
-							runtime,
-							{
-								types = engine.types,
-								guiService = gui,
-								motionLevel = "none",
-								services = { GuiService = gui, RunService = frames },
-							} :: any
-						)
+						local UI = Facet.controls(runtime, {
+							types = engine.types,
+							guiService = gui,
+							motionLevel = "none",
+							services = { GuiService = gui, RunService = frames :: any },
+						})
 						local open = Compose.cell(false)
+						local alpha: Facet.RadialAction = { id = "alpha", label = "Alpha", onSelect = function() end }
+						local radial: Facet.RadialMenuSpec = { launcher = false, isPresented = open, items = { alpha } }
 						local stop, screen: any = runtime.mount(function()
-							return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
-								UI.Button "Opener" { label = "Open" } :: unknown,
+							return Facet.host(runtime).ScreenGui({
+								UI.Button "Opener" { label = "Open" },
 								if kind == "RadialMenu"
-									then UI.RadialMenu {
-										launcher = false,
-										isPresented = open,
-										items = {
-											{ id = "alpha", label = "Alpha", onSelect = function() end } :: FixtureRadialTypes.RadialItem<any>,
-										},
-									}
+									then (UI.RadialMenu :: any)(radial)
 									else UI.Dialog {
 										isPresented = open,
 										closeButton = false,
@@ -250,12 +252,12 @@ return function(verifyHarness: Verify.Harness)
 										content = function(): Instance
 											return UI.Button "Inside" { label = "Inside" }
 										end,
-									} :: unknown,
+									},
 							})
 						end, engine.new("Folder"))
 						gui.SelectedObject = screen:FindFirstChild("Opener", true)
 						open:set(true)
-						frames.Heartbeat:Fire()
+						frames.Heartbeat:Fire(1 / 60)
 						Verify.expect(#engine.rejectedSelections()):toBe(0)
 						local selected = gui.SelectedObject
 						Verify.expect(selected.Name):toBe(if kind == "RadialMenu" then "alpha" else "Inside")

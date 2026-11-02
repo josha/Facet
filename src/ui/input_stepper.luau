@@ -8,6 +8,7 @@ local ComposeTypes = require("../vendor/compose/core")
 
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
 	local Host, read = ctx.Host, ctx.read
+	local readValue = read<<number>>
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
 	local lists, enabled = kit.lists, kit.enabled
 	local changed = kit.changed
@@ -18,7 +19,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local model = valueModel(modelSpec, read)
 		local function adjust(direction)
 			if enabled(spec) then
-				changed(spec, model.stepped(read(spec.value), direction))
+				changed(spec, model.stepped(readValue(spec.value), direction))
 			end
 		end
 
@@ -52,10 +53,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				LayoutOrder = 2,
 				Size = D2.fromOffset(0, 44),
 				AutomaticSize = E.AutomaticSize.X,
-				lists.list({ align = "center" }, false) :: ComposeTypes.Child,
-				lists.insets(controlInsets) :: ComposeTypes.Child,
+				lists.list({ align = "center" }, false),
+				lists.insets(controlInsets),
 				stepButton("Decrease", "decrement", -1, function(use: ComposeTypes.Use)
-					return enabled(spec, use) and read(spec.value, use) > model.min
+					return enabled(spec, use) and readValue(spec.value, use) > model.min
 				end),
 				ctx.text({
 					Name = "Value",
@@ -65,11 +66,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					TextXAlignment = E.TextXAlignment.Center,
 					TextYAlignment = E.TextYAlignment.Center,
 					Text = function(use: ComposeTypes.Use)
-						return model.format(read(spec.value, use))
+						return model.format(readValue(spec.value, use))
 					end,
 				}),
 				stepButton("Increase", "increment", 1, function(use: ComposeTypes.Use)
-					return enabled(spec, use) and read(spec.value, use) < model.max
+					return enabled(spec, use) and readValue(spec.value, use) < model.max
 				end),
 			},
 			"stepper-track"
@@ -88,8 +89,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					Size = D2.fromScale(0, 0),
 					AutomaticSize = E.AutomaticSize.XY,
 					TextXAlignment = E.TextXAlignment.Left,
-					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) :: ComposeTypes.Child,
-					ctx.styled(Host.UIPadding({}), "stepper-inset") :: ComposeTypes.Child,
+					Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
+					ctx.styled(Host.UIPadding {}, "stepper-inset"),
 				})
 			)
 		end
@@ -113,23 +114,20 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 		})
-		table.insert(
-			p,
-			Host.Frame "Content" {
-				ZIndex = 1,
-				BackgroundTransparency = 1,
-				Size = if spec.label then D2.new(1, 0, 0, 44) else D2.fromOffset(0, 44),
-				AutomaticSize = if spec.label then E.AutomaticSize.None else E.AutomaticSize.X,
-				table.unpack(parts),
-			}
-		)
+		p[#p + 1] = Host.Frame "Content" {
+			ZIndex = 1,
+			BackgroundTransparency = 1,
+			Size = if spec.label then D2.new(1, 0, 0, 44) else D2.fromOffset(0, 44),
+			AutomaticSize = if spec.label then E.AutomaticSize.None else E.AutomaticSize.X,
+			table.unpack(parts),
+		}
 		local node = ctx.styled(Host.Frame(p), "stepper")
 		ctx.skin(node, "stepperPlate")
 		kit.valueAttributes(node, spec, model)
 		if spec.label ~= nil then
 			kit.attributes(node, {
 				AccessibleLabel = function(use: ComposeTypes.Use): string
-					return read(spec.label, use) or ""
+					return read<<string?>>(spec.label, use) or ""
 				end,
 			})
 		end

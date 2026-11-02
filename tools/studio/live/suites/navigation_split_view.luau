@@ -1,4 +1,34 @@
 --!strict
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
+type NavigationEntry = typeof(require("@repo/tools/typecheck/aliases").NavigationEntry)
+type PathCell = typeof(require("@repo/src/vendor/compose/core").cell<<{ NavigationEntry }>>({}))
+type VectorSource = typeof(require("@repo/src/vendor/compose/core").formula(function(): Vector2
+	return Vector2.zero
+end))
+type CompactColumnCell = typeof(require("@repo/src/vendor/compose/core").cell<<"sidebar" | "detail">>("sidebar"))
+type WorkbenchPath = typeof(require("@repo/src/vendor/compose/core").cell<<{ { id: string, value: string? } }>>({}))
+type Workbench = {
+	read screen: () -> Instance,
+	read model: {
+		read transfers: BooleanCell,
+		read linked: BooleanCell,
+		read path: WorkbenchPath,
+		read linkedPath: WorkbenchPath,
+	}?,
+}
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
+type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
+type ContextFactory = (FacetControls, RobloxHost, ComposeModule, unknown) -> ExampleContext
+local function workbench(context: ExampleContext): Workbench
+	return require(game.ReplicatedStorage.FacetScenarios.collection_workbench).build(context)
+end
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local function api(command: string, argument: any?): any
@@ -10,12 +40,10 @@ local cases: { any } = {
 		contracts = {},
 		run = function(t)
 			for _, width in { 1000, 390 } do
-				local built
+				local built: Workbench
 				local stage = t.mount(function(UI, Host, C, env)
-					built = require(game.ReplicatedStorage.FacetScenarios.collection_workbench).build(
-						t.context(UI, Host, C, env)
-					)
-					built.model.linked:set(true)
+					built = workbench(t.context(UI, Host, C, env))
+					assert(built.model).linked:set(true)
 					return built.screen()
 				end, { size = Vector2.new(width, 700), frames = 30 })
 				local views = t.find(stage, "Views")
@@ -31,6 +59,7 @@ local cases: { any } = {
 				t.check(width .. " folder is visible", t.visible(hit) and t.clipped(hit) ~= nil)
 				local point = hit.AbsolutePosition + hit.AbsoluteSize / 2 + GuiService:GetGuiInset()
 				local virtual = game:GetService("UserInputService"):CreateVirtualInput()
+				assert(virtual:IsA("VirtualInput"))
 				virtual:SendMousePosition(point)
 				for _ = 1, 2 do
 					virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
@@ -49,8 +78,8 @@ local cases: { any } = {
 						and linked.AbsoluteSize == size
 						and divider.AbsolutePosition == dividerAt
 				end
-				t.check(width .. " opens primary folder", #built.model.path:peek() == 1)
-				t.check(width .. " linked history stays at root", #built.model.linkedPath:peek() == 0)
+				t.check(width .. " opens primary folder", #assert(built.model).path:peek() == 1)
+				t.check(width .. " linked history stays at root", #assert(built.model).linkedPath:peek() == 0)
 				t.check(width .. " split and linked pane stay still throughout motion", steady)
 				t.check(width .. " stack belongs to primary pane", folders:IsDescendantOf(views.Sidebar))
 				t.cleanup()
@@ -62,10 +91,11 @@ local cases: { any } = {
 		contracts = {},
 		run = function(t: any)
 			for _, theme in t.themes do
-				local stage = t.mount(function(UI: any, Host: any, C: any, env: any)
-					return require(game.ReplicatedStorage.FacetScenarios.collection_workbench)
-						.build(t.context(UI, Host, C, env))
-						.screen()
+				local makeContext: ContextFactory = t.context
+				local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, C: ComposeModule, env: any)
+					local context = makeContext(UI, Host, C, env)
+					local built: Workbench = workbench(context)
+					return built.screen()
 				end, {
 					theme = theme.package,
 					size = Vector2.new(393, 844),
@@ -163,12 +193,12 @@ local cases: { any } = {
 				if theme.name ~= "Neutral" and theme.name ~= "fantasy_parchment" then
 					continue
 				end
-				local stage = t.mount(function(UI: any, Host: any, C: any, env: any)
-					local built = require(game.ReplicatedStorage.FacetScenarios.collection_workbench).build(
-						t.context(UI, Host, C, env)
-					)
-					built.model.linked:set(true)
-					built.model.transfers:set(true)
+				local makeContext: ContextFactory = t.context
+				local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, C: ComposeModule, env: any)
+					local context = makeContext(UI, Host, C, env)
+					local built: Workbench = workbench(context)
+					assert(built.model).linked:set(true)
+					assert(built.model).transfers:set(true)
 					return built.screen()
 				end, { theme = theme.package, size = Vector2.new(1340, 850) })
 				local editor = t.find(t.find(stage, "PrimaryView"), "Rename")
@@ -201,7 +231,7 @@ local cases: { any } = {
 				end
 				local Compose = t.Facet.Compose
 				local editing, input = Compose.cell(false), Compose.cell("KeyboardAndMouse")
-				local editor
+				local editor: GuiObject
 				local stage = t.mount(function(UI: any)
 					editor = UI.CellEditor {
 						editor = "text",
@@ -220,7 +250,7 @@ local cases: { any } = {
 					theme.name .. " display has no native editor",
 					editor:FindFirstChildWhichIsA("TextBox", true) == nil
 				)
-				local field
+				local field: TextBox?
 				for _, kind in { "KeyboardAndMouse", "Touch", "Gamepad" } do
 					input:set(kind)
 					t.settle()
@@ -256,12 +286,12 @@ local cases: { any } = {
 				local Compose = t.Facet.Compose
 				local size, distance, input =
 					Compose.cell(Vector2.new(1340, 850)), Compose.cell("near"), Compose.cell("KeyboardAndMouse")
-				local stage = t.mount(function(UI: any, Host: any, C: any, env: any)
-					local built = require(game.ReplicatedStorage.FacetScenarios.collection_workbench).build(
-						t.context(UI, Host, C, env)
-					)
-					built.model.linked:set(true)
-					built.model.transfers:set(true)
+				local makeContext: ContextFactory = t.context
+				local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, C: ComposeModule, env: any)
+					local context = makeContext(UI, Host, C, env)
+					local built: Workbench = workbench(context)
+					assert(built.model).linked:set(true)
+					assert(built.model).transfers:set(true)
 					return built.screen()
 				end, {
 					theme = theme.package,
@@ -395,8 +425,9 @@ local cases: { any } = {
 		id = "geometry-feedback",
 		contracts = {},
 		run = function(t: any)
-			local node, size
-			t.mount(function(_UI: any, Host: any, Compose: any, env: any)
+			local node: Frame
+			local size: VectorSource
+			t.mount(function(_UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env: any)
 				node = Host.Frame { Size = UDim2.fromOffset(100, 40) }
 				size = env.runtime.observe(node, "AbsoluteSize")
 				Compose.watch(function(use: any)
@@ -418,10 +449,14 @@ local cases: { any } = {
 		id = "geometry-publication",
 		contracts = {},
 		run = function(t: any)
-			local first, second, firstSize, secondSize, shown
+			local first: Frame
+			local second: Frame
+			local firstSize: VectorSource
+			local secondSize: VectorSource
+			local shown: BooleanCell
 			local runs, lastFirst, lastSecond = 0, 0, 0
-			local order = {}
-			t.mount(function(_UI: any, Host: any, Compose: any, env: any)
+			local order: { string } = {}
+			t.mount(function(_UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env: any)
 				shown = Compose.cell(true)
 				return Host.Frame {
 					Size = UDim2.fromScale(1, 1),
@@ -494,11 +529,16 @@ local cases: { any } = {
 		contracts = {},
 		run = function(t: any)
 			for _, theme in t.themes do
-				local width, column, size, distance, shown
+				local width: NumberCell
+				local column: CompactColumnCell
+				local size: VectorCell
+				local distance: StringCell
+				local shown: BooleanCell
 				local count = 0
 				local stage = t.mount(
-					function(UI: any, Host: any, Compose: any)
-						width, column, shown = Compose.cell(360), Compose.cell("sidebar"), Compose.cell(true)
+					function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+						width, column, shown =
+							Compose.cell(360), Compose.cell<<"sidebar" | "detail">>("sidebar"), Compose.cell(true)
 						size, distance = Compose.cell(Vector2.new(1000, 600)), Compose.cell("near")
 						return UI.NavigationSplitView {
 							Name = "Split",
@@ -574,11 +614,11 @@ local cases: { any } = {
 		id = "files-theme-bounds",
 		contracts = {},
 		run = function(t: any)
-			local stage = t.mount(function(UI: any, Host: any, C: any, env: any)
-				local built = require(game.ReplicatedStorage.FacetScenarios.collection_workbench).build(
-					t.context(UI, Host, C, env)
-				)
-				built.model.linked:set(true)
+			local makeContext: ContextFactory = t.context
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, C: ComposeModule, env: any)
+				local context = makeContext(UI, Host, C, env)
+				local built: Workbench = workbench(context)
+				assert(built.model).linked:set(true)
 				return built.screen()
 			end, { size = Vector2.new(1340, 850), environment = { preferredInput = "Touch" }, frames = 20 })
 			t.settle(20)
@@ -671,14 +711,15 @@ local cases: { any } = {
 		contracts = {},
 		run = function(t: any)
 			local RunService = game:GetService("RunService")
-			local path, column
-			local stage = t.mount(function(UI: any, Host: any, Compose: any)
+			local path: PathCell
+			local column: CompactColumnCell
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 				path = Compose.cell({})
-				column = Compose.cell("sidebar")
+				column = Compose.cell<<"sidebar" | "detail">>("sidebar")
 				local function Sidebar(): Instance
-					local props: { [any]: any } = { Name = "List", width = "fill" }
+					local props: StackProps = { Name = "List", width = "fill" }
 					for index = 1, 12 do
-						table.insert(props, UI.Button { Name = "Row" .. index, label = "Game " .. index })
+						props[#props + 1] = UI.Button { Name = "Row" .. index, label = "Game " .. index }
 					end
 					return UI.VStack(props)
 				end
@@ -686,13 +727,13 @@ local cases: { any } = {
 					local spin = os.clock()
 					while os.clock() - spin < 0.25 do
 					end
-					local props: { [any]: any } = {
+					local props: FrameProps = {
 						Name = "Board",
 						Size = UDim2.fromScale(1, 1),
 						Host.UIGridLayout { CellSize = UDim2.fromOffset(16, 16) },
 					}
 					for index = 1, 400 do
-						table.insert(props, Host.TextLabel { Text = tostring(index), Size = UDim2.fromOffset(16, 16) })
+						props[#props + 1] = Host.TextLabel { Text = tostring(index), Size = UDim2.fromOffset(16, 16) }
 					end
 					return Host.Frame(props)
 				end
@@ -728,7 +769,7 @@ local cases: { any } = {
 					selection = Compose.cell("play"),
 					style = "sidebarAdaptable",
 					controlSize = "large",
-					placement = function(use: any): string
+					placement = function(use: any): "none" | "bottomBar"
 						return if #use(path) > 0 then "none" else "bottomBar"
 					end,
 					tabs = {
@@ -768,7 +809,8 @@ local cases: { any } = {
 				return frames
 			end
 			local function span(frames: { any }, inside: (any) -> boolean): number
-				local first, last = nil, nil
+				local first: number? = nil
+				local last: number? = nil
 				for _, frame in frames do
 					if inside(frame) then
 						first = first or frame.at
@@ -778,7 +820,8 @@ local cases: { any } = {
 				return if first then last - first else 0
 			end
 			local function largestStep(frames: { any }): number
-				local largest, previous = 0, nil
+				local largest = 0
+				local previous: number? = nil
 				for _, frame in frames do
 					if frame.band and previous then
 						largest = math.max(largest, math.abs(frame.band - previous))

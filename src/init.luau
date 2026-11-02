@@ -129,21 +129,22 @@ export type PickerSpec<V = string> = NavigationProps.PickerSpec<V>
 export type SinglePickerSpec<V = string> = NavigationProps.SinglePickerSpec<V>
 export type MultiplePickerSpec<V = string> = NavigationProps.MultiplePickerSpec<V>
 export type SplitButtonSpec<V = string> = NavigationProps.SplitButtonSpec<V>
-export type ComboBoxSpec = NavigationProps.ComboBoxSpec
-export type DisclosureGroupSpec = NavigationProps.DisclosureGroupSpec
-export type CollapsibleViewSpec = NavigationProps.CollapsibleViewSpec
+export type ComboBoxSpec = NavigationProps.ComboBoxSpecInput
+export type DisclosureGroupSpec = NavigationProps.DisclosureGroupSpecInput
+export type CollapsibleViewSpec = NavigationProps.CollapsibleViewSpecInput
 export type AlertAction<P = unknown> = NavigationTypes.AlertAction<P>
 export type AlertSpec<P = unknown> = NavigationProps.AlertSpec<P>
 export type SheetDetent = NavigationTypes.SheetDetent
-export type SheetSpec = NavigationProps.SheetSpec
-export type CalloutSpec = NavigationProps.CalloutSpec
+export type SheetSpec = NavigationProps.SheetSpecInput
+export type CalloutSpec = NavigationProps.CalloutSpecInput
 export type Tab = NavigationTypes.Tab
-export type TabViewSpec = NavigationProps.TabViewSpec
+export type TabViewSpec = NavigationProps.TabViewSpecInput
 export type NavigationEntry<P = unknown> = NavigationTypes.NavigationEntry<P>
 export type NavigationDestination<P = unknown> = NavigationTypes.NavigationDestination<P>
 export type NavigationStackSpec<P = unknown> = NavigationProps.NavigationStackSpec<P>
-export type PageViewSpec = NavigationProps.PageViewSpec
+export type PageViewSpec = NavigationProps.PageViewSpecInput
 export type RadialItem<V = string> = RadialTypes.RadialItem<V>
+export type RadialChoice<V = string> = RadialTypes.RadialChoice<V>
 export type RadialAction<V = string> = RadialTypes.RadialAction<V>
 export type RadialMenuSpec<V = string> = RadialProps.RadialMenuSpec<V>
 export type SlotControls<K> = CollectionTypes.SlotControls<K>
@@ -152,22 +153,22 @@ export type CollectionPlacement = Compose.Placement
 export type Transition = NavigationTypes.Transition
 export type TransitionContext = NavigationTypes.TransitionContext
 export type SpatialPlacement = EnvironmentTypes.DropPlacement
-export type SpatialGridSpec<V, K> = SpatialProps.SpatialGridSpec<V, K>
-export type KeyedCollectionSpec<V, K> = CollectionProps.KeyedCollectionSpec<V, K>
-export type IdentityCollectionSpec<V> = CollectionProps.IdentityCollectionSpec<V>
-export type CollectionSpec<V, K> = CollectionProps.CollectionSpec<V, K>
+export type SpatialGridSpec<V, K> = SpatialProps.SpatialGridSpecInput<V, K>
+export type KeyedCollectionSpec<V, K> = CollectionProps.KeyedCollectionSpecInput<V, K>
+export type IdentityCollectionSpec<V> = CollectionProps.IdentityCollectionSpecInput<V>
+export type CollectionSpec<V, K> = CollectionProps.CollectionSpecInput<V, K>
 export type RowAction = CollectionTypes.RowAction
-export type RowActionsOptions = CollectionProps.RowActionsOptions
-export type RowActionsSpec = CollectionProps.RowActionsSpec
+export type RowActionsOptions = CollectionProps.RowActionsOptionsInput
+export type RowActionsSpec = CollectionProps.RowActionsSpecInput
 export type CellDraft = CollectionTypes.CellDraft
-export type CellEditorSpec = CollectionProps.CellEditorSpec
+export type CellEditorSpec = CollectionProps.CellEditorSpecInput
 export type TableColumn<V, K> = CollectionTypes.TableColumn<V, K>
-export type KeyedTableSpec<V, K> = CollectionProps.KeyedTableSpec<V, K>
-export type IdentityTableSpec<V> = CollectionProps.IdentityTableSpec<V>
-export type TableSpec<V, K> = CollectionProps.TableSpec<V, K>
-export type OutlineSpec<V, K> = CollectionProps.OutlineSpec<V, K>
-export type KeyedOutlineSpec<V, K> = CollectionProps.KeyedOutlineSpec<V, K>
-export type IdentityOutlineSpec<V> = CollectionProps.IdentityOutlineSpec<V>
+export type KeyedTableSpec<V, K> = CollectionProps.KeyedTableSpecInput<V, K>
+export type IdentityTableSpec<V> = CollectionProps.IdentityTableSpecInput<V>
+export type TableSpec<V, K> = CollectionProps.TableSpecInput<V, K>
+export type OutlineSpec<V, K> = CollectionProps.OutlineSpecInput<V, K>
+export type KeyedOutlineSpec<V, K> = CollectionProps.KeyedOutlineSpecInput<V, K>
+export type IdentityOutlineSpec<V> = CollectionProps.IdentityOutlineSpecInput<V>
 export type HierarchyOptions<V, K> = CollectionTypes.HierarchyOptions<V, K>
 export type TextProps = MediaProps.TextProps
 export type LabelProps = MediaProps.LabelProps
@@ -184,11 +185,11 @@ export type AvatarProps = MediaProps.AvatarProps
 export type AvatarMember = MediaTypes.AvatarMember
 export type AvatarGroupProps = MediaProps.AvatarGroupProps
 export type StageProps = MediaProps.StageProps
-export type PaginationSpec = ContentProps.PaginationSpec
-export type StepIndicatorSpec = ContentProps.StepIndicatorSpec
+export type PaginationSpec = ContentProps.PaginationSpecInput
+export type StepIndicatorSpec = ContentProps.StepIndicatorSpecInput
 export type Step = ContentTypes.Step
-export type VoteSpec = ContentProps.VoteSpec
-export type CardSpec = ContentProps.CardSpec
+export type VoteSpec = ContentProps.VoteSpecInput
+export type CardSpec = ContentProps.CardSpecInput
 export type CardControls = ContentTypes.CardControls
 export type CardAction = ContentTypes.CardAction
 export type CardMenu = ContentTypes.CardMenu
@@ -241,15 +242,15 @@ export type TabPlacement = NavigationTypes.Placement
 export type TabSelectionIndicator = NavigationTypes.TabSelectionIndicator
 export type OverlayMedia = OverlayTypes.Media
 export type OverlayHero = OverlayTypes.Hero
-export type DialogSpec = OverlayProps.DialogSpec
-export type PopoverSpec = OverlayProps.PopoverSpec
-export type NoticeSpec = OverlayProps.NoticeSpec
-export type NavBarSpec = OverlayProps.NavBarSpec
-export type ToastSpec = OverlayProps.ToastSpec
+export type DialogSpec = OverlayProps.DialogSpecInput
+export type PopoverSpec = OverlayProps.PopoverSpecInput
+export type NoticeSpec = OverlayProps.NoticeSpecInput
+export type NavBarSpec = OverlayProps.NavBarSpecInput
+export type ToastSpec = OverlayProps.ToastSpecInput
 export type DateTimePickerProps = InputProps.DateTimePickerProps
 export type ColorPickerProps = InputProps.ColorPickerProps
 export type Controls = ControlTypes.Controls
-export type Host = SharedTypes.Host
+export type Host = SharedTypes.NamedHost
 export type Child = SharedTypes.Child
 export type Environment = EnvironmentTypes.Environment
 export type InteractionClasses = EnvironmentTypes.InteractionClasses
@@ -279,6 +280,7 @@ export type AnchoredOptions = createApp.AnchoredOptions
 export type ToastOptions = createApp.ToastOptions
 export type ControlOptions = ControlTypes.Config
 export type ThemePackage = ThemeTypes.ThemePackage
+export type ReadOnlyThemePackage = ThemeTypes.ReadOnlyThemePackage
 export type ThemeDefinition = ThemeTypes.ThemeDefinition
 export type PalettePatch = ThemeTypes.PalettePatch
 export type PaletteExtra = ThemeTypes.PaletteExtra
@@ -353,13 +355,13 @@ export type Facet = {
 	format: typeof(format),
 	review: typeof(review),
 	recipes: { arithmetic: { parse: (unknown) -> number? } },
-	inputPriority: { belowControls: number, aboveFacet: number },
+	inputPriority: { read belowControls: number, read aboveFacet: number },
 	bind: (ComposeModule, ComposeRobloxModule) -> Facet,
 }
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "2d03ca1f097bc99efacefa5da74c51fea3ab78e7"
+local COMPOSE_COMMIT = "ee44a2e5499f81790a0d495d3442f99e573bb8c9"
 local USED = {
 	"boundary",
 	"cell",
@@ -387,8 +389,9 @@ local USED = {
 
 local function tag<T>(instance: T, tags: { string }): T
 	if typeof(instance) == "Instance" then
+		local tagged: Instance = instance
 		for _, name in tags do
-			instance:AddTag(name)
+			tagged:AddTag(name)
 		end
 	end
 	return instance
@@ -412,6 +415,9 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		error("Facet.bind: pass the Compose Roblox module from the same Compose copy as the second argument", 2)
 	end
 	local themes = bindThemes(core)
+	local function controls(runtime: Runtime, options: ControlOptions?): Controls
+		return createControls(core, runtime, options)
+	end
 	local designKit: DesignKit? = nil
 	local function design(): DesignKit
 		local kit = designKit
@@ -438,27 +444,29 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 			local theme = themes.neutralPackage()
 			local palette = core.cell("Light")
 			local textSize = core.cell("Medium")
-			local UI = surface.controls(runtime, { theme = theme, environment = { preferredTextSize = textSize } })
+			local UI = controls(runtime, { theme = theme, environment = { preferredTextSize = textSize } })
 			local kit = design()
 			local library = kit.library({
 				UI = UI,
 				motion = kit.motion(UI),
 				host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
-					return runtime.constructors[className](name)(props)
+					return runtime.constructors[className](props, name)
 				end,
 				provide = function(content: unknown): unknown
 					local sheet = themes.createStyleSheet(runtime, theme, { theme = palette })
 					local styles: Compose.Child = sheet
-					local link: Compose.Child = Host.StyleLink({ StyleSheet = core.static(sheet) })
-					local design: Compose.Child = if typeof(content) == "Instance" then content else nil
-					return Host.Frame({
+					local linkProps: SharedTypes.StyleLinkNativeProps = { StyleSheet = core.static(sheet) }
+					local link: Compose.Child = Host.StyleLink(linkProps)
+					local design: Compose.Child? = if typeof(content) == "Instance" then content else nil
+					local themeProps: SharedTypes.FrameNativeProps = {
 						Name = "FacetTheme",
 						Size = UDim2.fromScale(1, 1),
 						BackgroundTransparency = 1,
 						styles,
 						link,
 						design,
-					})
+					}
+					return Host.Frame(themeProps)
 				end,
 			})
 			return {
@@ -502,9 +510,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		design = design,
 		composeDesign = composeDesign,
 		tag = tag,
-		controls = function(runtime: Runtime, options: ControlOptions?): Controls
-			return createControls(core, runtime, options)
-		end,
+		controls = controls,
 		host = function(runtime: Runtime): Host
 			if type(runtime) ~= "table" or type(runtime.constructors) ~= "table" then
 				error("Facet.host: pass a Compose runtime", 2)

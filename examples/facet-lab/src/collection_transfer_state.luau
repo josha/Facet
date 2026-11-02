@@ -1,5 +1,8 @@
 --!strict
-return function(c: any, initial: unknown): { [string]: any }
+local Types = require("./catalog_types")
+type Row = { id: string, name: string, laps: number }
+
+return function(c: Types.Context, initial: { Row }): Types.Properties
 	local rows = c.cell("transferRows", initial)
 	local serial = 0
 	return {

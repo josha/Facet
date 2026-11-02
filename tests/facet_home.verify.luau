@@ -15,12 +15,12 @@ return function(verifyHarness: Verify.Harness)
 				local dock = require("../examples/facet_home/dock")
 				local stop, panel: any = runtime.mount(function()
 					return dock(Facet.host(runtime), engine.types.UDim2, {
-						UI.Button({ label = "Open Home", Size = engine.types.UDim2.fromOffset(118, 44) }),
-						UI.Text({
+						UI.Button { label = "Open Home", Size = engine.types.UDim2.fromOffset(118, 44) },
+						UI.Text {
 							text = "Status",
 							Size = engine.types.UDim2.fromOffset(180, 48),
 							AutomaticSize = engine.types.Enum.AutomaticSize.None,
-						}),
+						},
 					})
 				end, engine.new("ScreenGui"))
 				local padding = Facet.themes.neutralPackage().metrics.space.m
@@ -66,9 +66,8 @@ return function(verifyHarness: Verify.Harness)
 						local root: Instance? = nil
 						local stop = runtime.mount(function()
 							local built = Design.render(value, library)
-							if typeof(built) == "Instance" then
-								root = built
-							end
+							assert(typeof(built) == "Instance")
+							root = built
 							return built
 						end, engine.new("ScreenGui"))
 						Verify.expect(#assert(root):GetChildren() > 0):toBe(true)

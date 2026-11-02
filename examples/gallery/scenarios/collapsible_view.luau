@@ -1,10 +1,9 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 local COPY = {
 	title = "Collapsible views",
 	intro = "Open a custom settings view, or expand the selected destination below.",
@@ -17,7 +16,7 @@ return {
 	title = "Collapsible views",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types
@@ -38,12 +37,12 @@ return {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
-				UI.Text({
+				},
+				UI.Text {
 					LayoutOrder = 1,
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -54,13 +53,13 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
+				},
 				UI.Toggle "Club" {
 					LayoutOrder = 2,
 					label = "Club membership",
 					value = club,
 				},
-				UI.Text({
+				UI.Text {
 					LayoutOrder = 3,
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -70,10 +69,10 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
+				},
 			}
 		end
-		local tabs = {}
+		local tabs: { Tab } = {}
 		for _, key in { "coast", "forest", "summit" } do
 			table.insert(tabs, {
 				id = key,
@@ -86,12 +85,12 @@ return {
 						AutomaticCanvasSize = Enum.AutomaticSize.Y,
 						CanvasSize = UDim2.new(),
 						ScrollBarThickness = 6,
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 16),
-						}),
-						UI.Text({
+						},
+						UI.Text {
 							LayoutOrder = 1,
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
@@ -102,8 +101,8 @@ return {
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-						UI.Text({
+						},
+						UI.Text {
 							LayoutOrder = 2,
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
@@ -113,7 +112,7 @@ return {
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
+						},
 						UI.Button "Practice" {
 							LayoutOrder = 3,
 							Size = UDim2.new(1, 0, 0, 0),
@@ -135,7 +134,7 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					ScrollBarThickness = 6,
-					UI.Text({
+					UI.Text {
 						LayoutOrder = 1,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -146,8 +145,8 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
-					UI.Text({
+					},
+					UI.Text {
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -157,7 +156,7 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					},
 					UI.CollapsibleView "Settings" {
 						LayoutOrder = 3,
 						label = label,
@@ -169,11 +168,11 @@ return {
 						LayoutOrder = 4,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 420),
-						Host.UIListLayout({
+						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 0),
-						}),
+						},
 						UI.TabView "Destinations" {
 							LayoutOrder = 1,
 							style = "collapsible",

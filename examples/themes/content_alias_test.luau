@@ -1,8 +1,8 @@
 --!strict
 type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
-type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
+type ThemeDefinition = typeof(require("@repo/tools/typecheck/aliases").ThemeDefinition)
 type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
-type Asset = typeof(require("@repo/examples/types").ThemeAsset)
+type Asset = typeof(require("@repo/tools/typecheck/aliases").ThemeAsset)
 type RGB = { r: number, g: number, b: number }
 type Palette = { colors: { [string]: RGB }, extra: Extra }
 

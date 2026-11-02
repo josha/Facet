@@ -2,7 +2,8 @@
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Compose = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
-type Readable<T> = { peek: (Readable<T>) -> T }
+type NumberReadable = typeof(require("@repo/tools/typecheck/aliases").NumberReadOnlyValue)
+type BooleanReadable = typeof(require("@repo/tools/typecheck/aliases").BooleanReadOnlyValue)
 type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
 
 local art = {}
@@ -11,10 +12,10 @@ function art.draw(
 	Host: Host,
 	C: Compose,
 	types: typeof(require("@repo/tools/typecheck/aliases").RobloxTypes),
-	progress: Readable<number>,
+	progress: NumberReadable,
 	radar: boolean,
-	range: Readable<number>,
-	headingUp: Readable<boolean>
+	range: NumberReadable,
+	headingUp: BooleanReadable
 ): Frame
 	local Vector2, UDim2, UDim, Color3 = types.Vector2, types.UDim2, types.UDim, types.Color3
 	local course = {
@@ -94,7 +95,7 @@ function art.draw(
 			end
 			return Vector2.new(0.5, 0.5) + relative * 0.46
 		end)
-		props[#props + 1] = Host.Frame(`Contact{index}`) {
+		props[#props + 1] = Host.Frame(`Contact{index}`)({
 			BackgroundColor3 = if index == 1 then Color3.fromRGB(15, 28, 39) else Color3.fromRGB(255, 176, 119),
 			BorderSizePixel = 0,
 			Size = if index == 1 then UDim2.fromOffset(24, 24) else UDim2.fromOffset(10, 10),
@@ -126,7 +127,7 @@ function art.draw(
 				local _, heading = position(use(progress))
 				return math.deg(heading)
 			end,
-		}
+		})
 	end
 	return Host.Frame(props)
 end

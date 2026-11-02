@@ -1,5 +1,9 @@
 # Current package
 
+Theme readers accept shallow-frozen packages without copying them. Native
+property observations expose read-only values. Controls share these observations
+without treating them as writable cells.
+
 `Facet.controls(runtime)` now loads a control family when code first reads one
 of its members. `require(Facet)` and `Facet.controls(runtime)` load 82 Facet
 modules instead of 275. A game that uses only `UI.Button` loads 90. An

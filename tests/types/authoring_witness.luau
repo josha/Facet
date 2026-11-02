@@ -79,9 +79,8 @@ end
 local function anchored(): Frame
 	local trigger = UI.Button "Trigger" { label = "Open" }
 	local row = UI.HStack "Row" { gap = "xs" }
-	local items: { Facet.MenuItem } = {
-		{ id = "edit", label = "Edit", onSelect = function() end },
-	}
+	local edit: Facet.MenuCommand = { id = "edit", label = "Edit", onSelect = function() end }
+	local items: { Facet.MenuItem } = { edit }
 	local swipe: { Facet.RowAction } = {
 		{ id = "delete", label = "Delete", role = "destructive", onActivate = function() end },
 	}

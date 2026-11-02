@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Facet = require("../src")
 local Rules = require("../src/ui/review_rules")
 
 type Element = Rules.ReviewElement
@@ -211,7 +212,8 @@ return function(harness: Verify.Harness)
 
 	harness:case("define reports a flat type scale as advice and stays valid", function(t)
 		local themes = require("../src").themes
-		local flat, flatReport = themes.define({ identity = { id = "flat" } })
+		local flatDefinition: Facet.ThemeDefinition = { identity = { id = "flat" } }
+		local flat, flatReport = themes.define(flatDefinition)
 		t:expect(flat ~= nil and flatReport.ok):toBe(true)
 		local fields: { [string]: boolean } = {}
 		for _, item in flatReport.advice do
@@ -243,29 +245,36 @@ return function(harness: Verify.Harness)
 		local themes = require("../src").themes
 		local ThemeTypes = require("../src/ui/theme_types")
 		local function typography(roles: { string }): { [string]: ThemeTypes.TypographyPatch }
-			local scale: { [string]: ThemeTypes.TypographyPatch } = {
-				body = { size = 18 },
-				caption = { size = 15 },
-				heading = { size = 24 },
-				numeral = { size = 32 },
-				title = { size = 32 },
-			}
-			for _, role in roles do
-				scale[role].font = { family = "rbxasset://fonts/families/Michroma.json", weight = "Bold" }
+			local function role(name: string, size: number): ThemeTypes.TypographyPatch
+				if table.find(roles, name) then
+					return {
+						size = size,
+						font = { family = "rbxasset://fonts/families/Michroma.json", weight = "Bold" },
+					}
+				end
+				return { size = size }
 			end
-			return scale
+			return {
+				body = role("body", 18),
+				caption = role("caption", 15),
+				heading = role("heading", 24),
+				numeral = role("numeral", 32),
+				title = role("title", 32),
+			}
 		end
-		local _, single =
-			themes.define({ identity = { id = "single" }, metrics = { typography = typography({ "title" }) } })
+		local singleDefinition: Facet.ThemeDefinition =
+			{ identity = { id = "single" }, metrics = { typography = typography({ "title" }) } }
+		local _, single = themes.define(singleDefinition)
 		local fields: { [string]: boolean } = {}
 		for _, item in single.advice do
 			fields[item.field] = true
 		end
 		t:expect(fields["metrics.typography.title"]):toBe(true)
-		local _, carried = themes.define({
+		local carriedDefinition: Facet.ThemeDefinition = {
 			identity = { id = "carried" },
 			metrics = { typography = typography({ "title", "heading", "numeral" }) },
-		})
+		}
+		local _, carried = themes.define(carriedDefinition)
 		t:expect(#carried.advice):toBe(0)
 	end)
 
@@ -436,7 +445,8 @@ return function(harness: Verify.Harness)
 		local V2 = engine.types.Vector2
 		local card = assert(screen:FindFirstChild("Card", true))
 		for _, name in { "Value", "Label", "Hidden" } do
-			local node = assert(card:FindFirstChild(name))
+			local node = card:FindFirstChild(name)
+			assert(node)
 			engine.environment.poke(node, "AbsolutePosition", V2.new(10, 10))
 			engine.environment.poke(node, "AbsoluteSize", V2.new(200, 40))
 		end

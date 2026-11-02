@@ -82,7 +82,7 @@ local function retainKeyed<V, S, K>(options: Options<V, S, K>, render: Render<V,
 		return render(value, state, key)
 	end
 
-	return keyed { from = slice, key = keyOfRetained, render = renderRetained }
+	return keyed<<V, K>> { from = slice, key = keyOfRetained, render = renderRetained }
 end
 
 local function retainSlots<V, S, K>(options: Options<V, S, K>, recycle: Recycle<V, S, K>): Children.Directive
@@ -181,7 +181,7 @@ local function retainSlots<V, S, K>(options: Options<V, S, K>, recycle: Recycle<
 		return recycle(value, state, keyCell)
 	end
 
-	return keyed { from = slice, key = slotOfRetained, render = renderSlot }
+	return keyed<<V, number>> { from = slice, key = slotOfRetained, render = renderSlot }
 end
 
 local function retain<V, S, K>(options: Options<V, S, K>): Children.Directive

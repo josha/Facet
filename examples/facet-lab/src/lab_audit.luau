@@ -57,9 +57,10 @@ return function(lab: Lab, playerGui: PlayerGui, ids: { string }, options: Option
 							local right = label.AbsolutePosition.X
 								+ math.min(label.AbsoluteSize.X, label.TextBounds.X + 16)
 							if right > cell.AbsolutePosition.X + cell.AbsoluteSize.X + 4 then
+								local row = cell.Parent.Parent
 								table.insert(
 									lines,
-									`text past its cell "{string.sub(label.Text, 1, 30)}": {assert(cell.Parent.Parent).Name}/{cell.Name}`
+									`text past its cell "{string.sub(label.Text, 1, 30)}": {if row then row.Name else ""}/{cell.Name}`
 								)
 							end
 						end

@@ -27,13 +27,15 @@ type SelectionLinks = {
 
 return function(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	surfaces: Nav.Surfaces,
 	layers: pageLayers.PageLayers
 ): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
-	local content, layer, checkedSelection = layers.content, layers.layer, layers.checkedSelection
+	local readTabs = read<<{ Nav.Tab }>>
+	local readPlacement = read<<Nav.Placement?>>
+	local layer, checkedSelection = layers.layer, layers.checkedSelection
 	local tabDepth = 0
 	UI.TabView = ctx.construct("TabView", function(spec: NavigationProps.TabViewSpec): Frame
 		local retention = spec.retention
@@ -55,7 +57,7 @@ return function(
 			contrast = true,
 		}
 		local forms: { [string]: boolean } = { dot = true, ring = true, square = true, dash = true }
-		for _, tab in read(spec.tabs) do
+		for _, tab in readTabs(spec.tabs) do
 			local indicator = tab.indicator
 			if indicator ~= nil then
 				assert(
@@ -74,7 +76,11 @@ return function(
 		end
 		local fit = spec.textSize == nil or spec.textSize == "fit"
 		assert(
-			spec.labelPlacement == nil or table.find({ "besideIcon", "belowIcon" }, read(spec.labelPlacement)),
+			spec.labelPlacement == nil
+				or table.find(
+					{ "besideIcon", "belowIcon" },
+					read<<"besideIcon" | "belowIcon">>(assert(spec.labelPlacement))
+				),
 			"Invalid TabView.labelPlacement"
 		)
 		assert(
@@ -90,10 +96,10 @@ return function(
 			)
 			sectionLabels[section.id] = section.label
 		end
-		local byId = checkedSelection(spec.selection, read(spec.tabs), "TabView")
+		local byId = checkedSelection(spec.selection, readTabs(spec.tabs), "TabView")
 		local tabMap = Compose.formula(function(use: ComposeTypes.Use)
 			local result: { [string]: Nav.Tab } = {}
-			for _, tab in read(spec.tabs, use) do
+			for _, tab in readTabs(spec.tabs, use) do
 				assert(type(tab.id) == "string" and result[tab.id] == nil, "TabView tabs require unique string ids")
 				assert(
 					tab.section == nil or sectionLabels[tab.section] ~= nil,
@@ -132,7 +138,7 @@ return function(
 		local frames = ctx.config.services.RunService
 		local preparing = frames ~= nil and frames.PreRender ~= nil and runtime.host.frames ~= nil
 		local root = if preparing
-			then ctx.fade((properties :: unknown) :: Types.CanvasGroupNativeProps, false, false)
+			then ctx.fade((properties :: unknown) :: Types.CanvasGroupProps, false, false)
 			else Host.Frame(properties)
 		if preparing then
 			ctx.fadeTo(root, 1)
@@ -164,7 +170,7 @@ return function(
 			if spec.style == "collapsible" then
 				return "topBar"
 			end
-			local explicit = read(spec.placement, use)
+			local explicit = readPlacement(spec.placement, use)
 			if explicit and explicit ~= "automatic" then
 				return explicit
 			end
@@ -187,11 +193,11 @@ return function(
 				displaySize = if typeof(display) == "EnumItem" then display.Name else nil,
 				tenFoot = distant,
 			})
-			if home == "bottomBar" and #(read(spec.tabs, use) :: { unknown }) > 5 then
+			if home == "bottomBar" and #readTabs(spec.tabs, use) > 5 then
 				return "topBar"
 			end
 			if spec.style == "sidebarAdaptable" and not distant and (home == "sidebar" or home == "topBar") then
-				local choice = read(spec.sidebarPreference, use)
+				local choice = read<<("automatic" | "topBar" | "sidebar")?>>(spec.sidebarPreference, use)
 				if choice and choice ~= "automatic" then
 					return choice
 				end
@@ -223,7 +229,7 @@ return function(
 			end
 		end)
 		local function indicatorOf(use: ComposeTypes.Use): Nav.TabSelectionIndicator?
-			local chosen = read(spec.indicator, use)
+			local chosen = read<<Nav.TabSelectionIndicator?>>(spec.indicator, use)
 			if (chosen == nil or chosen == "automatic") and spec.style == "sidebarAdaptable" then
 				return "pill"
 			end
@@ -238,7 +244,7 @@ return function(
 			if not use(nested) or (spec.style ~= nil and spec.style ~= "automatic") then
 				return false
 			end
-			local explicit = read(spec.placement, use)
+			local explicit = readPlacement(spec.placement, use)
 			if explicit and explicit ~= "automatic" then
 				return false
 			end
@@ -253,10 +259,10 @@ return function(
 			return use(headHeight) + use(underTopbar)
 		end)
 		local visibleTabs = Compose.formula(function(use: ComposeTypes.Use)
-			local customized = read(spec.customization, use)
+			local customized = read<<{ order: { string }?, hidden: { string }? }?>>(spec.customization, use)
 			local byId = use(tabMap)
 			if not customized then
-				return read(spec.tabs, use)
+				return readTabs(spec.tabs, use)
 			end
 			local ordered: { Nav.Tab } = {}
 			local added: { [string]: boolean } = {}
@@ -273,7 +279,7 @@ return function(
 					added[id] = true
 				end
 			end
-			for _, tab in read(spec.tabs, use) do
+			for _, tab in readTabs(spec.tabs, use) do
 				if not added[tab.id] and (not hidden[tab.id] or tab.required) then
 					table.insert(ordered, tab)
 				end
@@ -355,7 +361,7 @@ return function(
 			previous = id
 		end)
 		local function tabEnabled(id: string, use: ComposeTypes.Use?): boolean
-			local tab = read(tabMap, use)[id]
+			local tab = ctx.readSource(tabMap, use)[id]
 			return tab ~= nil and read(tab.enabled, use) ~= false
 		end
 		local isCurrent = Compose.selector(spec.selection)
@@ -427,12 +433,12 @@ return function(
 				AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
 					return if use(placement) == "sidebar" then E.AutomaticSize.Y else E.AutomaticSize.X
 				end,
-				Host.UIPadding({
+				Host.UIPadding {
 					PaddingLeft = inset,
 					PaddingRight = inset,
 					PaddingTop = inset,
 					PaddingBottom = inset,
-				}),
+				},
 				stripLayout,
 				tabItem(ctx, UI, surfaces, spec, {
 					isCurrent = isCurrent,
@@ -641,7 +647,7 @@ return function(
 						-band(use) - metrics.contentGap(use) - use(aboveHeight) - bottomInset(use)
 					)
 			end,
-			Compose.LayerStack({
+			Compose.LayerStack {
 				from = visited,
 				retention = "all",
 				render = function(
@@ -667,7 +673,8 @@ return function(
 					local step = if spec.placement == "none" then 0 else 1
 					tabDepth += step
 					local ok, built = pcall(function(): Instance
-						return content(byId[current:peek()].content, nil)
+						local content = byId[current:peek()].content
+						return if type(content) == "function" then content() else content
 					end)
 					tabDepth -= step
 					if not ok then
@@ -722,13 +729,14 @@ return function(
 						attached:set(attached:peek() + 1)
 					end)
 					Compose.watch(function(use: ComposeTypes.Use)
+						local service = gui
 						use(attached)
 						if
 							not use(shown)
 							or not use(interactable)
 							or not use(state).top
 							or handoff ~= id
-							or not gui
+							or not service
 							or panel:FindFirstAncestorWhichIsA("LayerCollector") == nil
 						then
 							return
@@ -744,7 +752,7 @@ return function(
 						end
 						bookmarkPaths[id] = nil
 						local button = tabButtons[id]
-						gui.SelectedObject = if bookmark
+						service.SelectedObject = if bookmark
 								and surfaces.within(bookmark, panel)
 								and bookmark.Visible
 								and bookmark.Interactable
@@ -770,7 +778,7 @@ return function(
 					end)
 					return panel
 				end,
-			}),
+			},
 		}
 		Compose.watch(function(use: ComposeTypes.Use)
 			layers:SetAttribute("FacetSettling", use(stowed) and use(stow) > 0 and use(placement) ~= "none")
@@ -850,12 +858,12 @@ return function(
 					disclosure = true,
 					label = function(use: ComposeTypes.Use)
 						local tab = use(tabMap)[use(spec.selection)]
-						return read(tab.label, use) or tab.id
+						return read<<string?>>(tab.label, use) or tab.id
 					end,
 					items = function(use: ComposeTypes.Use)
 						local items: { Nav.MenuItem<string> } = {}
 						for _, tab in use(visibleTabs) do
-							table.insert(items, {
+							local item: Nav.MenuCommand = {
 								id = tab.id,
 								label = tab.label or tab.id,
 								icon = tab.icon,
@@ -866,7 +874,8 @@ return function(
 								onSelect = function()
 									select(tab.id)
 								end,
-							})
+							}
+							items[#items + 1] = item
 						end
 						return items
 					end,

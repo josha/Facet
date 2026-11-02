@@ -4,7 +4,6 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
 type Step = typeof(require("@repo/tools/typecheck/aliases").Step)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-type Built = typeof(require("@repo/examples/types").Built)
 local COPY = {
 	title = "Steps",
 	refuse = "Refuse changes",
@@ -21,7 +20,7 @@ return {
 	title = "Steps",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext): Built
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
@@ -48,15 +47,15 @@ return {
 			end
 		end
 		local function section()
-			return Host.Frame("Steps")({
+			return Host.Frame "Steps" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				},
 				UI.Text "Title" {
 					LayoutOrder = 1,
 					text = copy.title,
@@ -80,14 +79,14 @@ return {
 					AutomaticSize = Enum.AutomaticSize.Y,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				Host.Frame("NarrowBox")({
+				Host.Frame "NarrowBox" {
 					LayoutOrder = 5,
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(0.5, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					UI.StepIndicator "Compact" { steps = steps, current = current, onSelect = select },
-				}),
-			})
+				},
+			}
 		end
 		return {
 			section = section,

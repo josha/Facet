@@ -25,7 +25,7 @@ return function(harness: Verify.Harness)
 			local entries: { InputTypes.ButtonGuideEntry } = { { keys = { { "E" } }, label = label } }
 			local guide: Frame
 			local stop = state.runtime.mount(function()
-				guide = UI.ButtonGuide({ entries = entries, Visible = visible })
+				guide = UI.ButtonGuide { entries = entries, Visible = visible }
 				return guide
 			end, state.target)
 			Verify.expect(guide:FindFirstChild("Entries")):toBe(nil)
@@ -63,12 +63,12 @@ return function(harness: Verify.Harness)
 			local hint, failure = state.Compose.cell(""), state.Compose.cell("")
 			local field: Instance
 			local stop = state.runtime.mount(function()
-				field = state.UI.TextInput({
+				field = state.UI.TextInput {
 					value = state.Compose.cell("Ada"),
 					label = "Driver",
 					hint = hint,
 					errorText = failure,
-				})
+				}
 				return field
 			end, state.target)
 			Verify.expect(field:FindFirstChild("Message")):toBe(nil)
@@ -100,11 +100,11 @@ return function(harness: Verify.Harness)
 			local first: GuiObject
 			local second: GuiObject
 			local stopFirst = state.runtime.mount(function()
-				first = UI.Badge({ label = "First", status = "success" })
+				first = UI.Badge { label = "First", status = "success" }
 				return first
 			end, state.target)
 			local stopSecond = state.runtime.mount(function()
-				second = UI.Badge({ label = "Second" })
+				second = UI.Badge { label = "Second" }
 				return second
 			end, state.target)
 			Verify.expect(first:FindFirstChild("Skin", true)):toBe(nil)

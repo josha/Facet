@@ -2,6 +2,12 @@
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
+type Live = {
+	check: (string, boolean, unknown?) -> (),
+	cleanup: () -> (),
+	find: (Instance, string) -> GuiObject,
+	mount: ((FacetControls, RobloxHost) -> unknown, { [string]: unknown }?) -> Instance,
+}
 type PageReport = { current: string?, demo: { active: string? }? }
 type PageIdentity = (PageReport) -> string
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -54,12 +60,12 @@ table.insert(cases, {
 	id = "focus-rest-tracks-targets-while-activity-runs",
 	contracts = {},
 	input = "pointer",
-	run = function(t)
+	run = function(t: Live)
 		local focus = (require :: (ModuleScript) -> typeof(require("../focus")))(storage.FacetLive.focus)
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame {
 				Size = UDim2.fromScale(1, 1),
-				UI.ProgressView "Activity" { Size = UDim2.fromOffset(280, 6) } :: unknown,
+				UI.ProgressView "Activity" { Size = UDim2.fromOffset(280, 6) },
 				UI.Button "Target" {
 					label = "Continue",
 					Position = UDim2.fromOffset(0, 60),
@@ -67,7 +73,8 @@ table.insert(cases, {
 				},
 			}
 		end, { motionLevel = "normal" })
-		local fill = assert(t.find(stage, "Fill1"))
+		local fill: GuiObject = t.find(stage, "Fill1")
+		assert(fill)
 		local previous, moving = fill.AbsolutePosition, false
 		local run = game:GetService("RunService")
 		local activity = run.PreRender:Connect(function()
@@ -110,7 +117,7 @@ for index, page in pages() do
 		id = `focus-walk/{name}`,
 		contracts = {},
 		input = if shared.FacetFocusWalk and shared.FacetFocusWalk.keys == true then "pointer" else "gamepad",
-		run = function(t: any)
+		run = function(t)
 			local live = (require :: any)(storage.FacetLive)
 			local focus = shared.FacetFocusRecorder or (require :: any)(storage.FacetLive.focus)
 			local layer = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery")

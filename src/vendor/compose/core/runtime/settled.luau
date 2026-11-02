@@ -1,6 +1,6 @@
 --!strict
 
-local RuntimeTypes = require "./types"
+local CoreTypes = require "../types"
 local Host = require "../host"
 local Owner = require "../ownership/owner"
 local Types = require "../reactive/types"
@@ -8,7 +8,7 @@ local Cell = require "../reactive/cell"
 local Support = require "../structure/support"
 local ownedFrame = require "../ownership/frame"
 
-export type Options<T, R = unknown> = RuntimeTypes.SettledOptions<T, R>
+export type Options<T, R = unknown> = CoreTypes.SettledOptions<T, R>
 
 return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 	return function<T, R>(options: Options<T, R>): Types.ReadOnlyValue<boolean>
@@ -27,7 +27,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 			generation += 1
 			pump.stop()
 		end
-		local last: T? = nil
+		local last: { value: T }? = nil
 		local equal: Types.Equals<T> = options.equals or Cell.defaultEquals
 		local stable, waited = 0, 0
 		pump = ownedFrame(owner, frames.onFrame, function(delta)
@@ -41,8 +41,12 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 				return
 			end
 			waited += delta
-			stable = if stable > 0 and equal(last :: T, current) then stable + 1 else 1
-			last = current
+			stable = if stable > 0 and last ~= nil and equal(last.value, current) then stable + 1 else 1
+			if last == nil then
+				last = { value = current }
+			else
+				last.value = current
+			end
 			if stable >= count or (options.timeout ~= nil and waited >= options.timeout) then
 				halt()
 				value:set(true)

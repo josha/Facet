@@ -31,38 +31,38 @@ sample("Theme", function(state)
 	return state.Facet.themes.createStyleSheet(state.runtime, nil, { types = state.types })
 end)
 sample("Sheet-closed", function(state)
-	return state.UI.Sheet "Closed" {
+	return state.UI.Sheet({
 		isPresented = state.Compose.cell(false),
 		title = "Shop",
 		content = function()
 			error("closed content must remain unbuilt")
 		end,
-	}
+	}, "Closed")
 end)
 sample("VStack", function(state)
-	return state.UI.VStack "Stack" { width = "fill", gap = "s", padding = "m" }
+	return state.UI.VStack({ width = "fill", gap = "s", padding = "m" }, "Stack")
 end)
 sample("HStack", function(state)
-	return state.UI.HStack "Row" { width = "fill", gap = "s", wrap = true }
+	return state.UI.HStack({ width = "fill", gap = "s", wrap = true }, "Row")
 end)
 sample("Badge", function(state)
-	return state.UI.Badge "Category" { label = "Motors" }
+	return state.UI.Badge({ label = "Motors" }, "Category")
 end)
 sample("ProgressView", function(state)
-	return state.UI.ProgressView "Progress" { label = "Zone 1", value = state.Compose.cell(0.5) }
+	return state.UI.ProgressView({ label = "Zone 1", value = state.Compose.cell(0.5) }, "Progress")
 end)
 sample("Screen", function(state)
-	return state.UI.Screen "Root" {}
+	return state.UI.Screen({}, "Root")
 end)
 sample("Composition-Region", function(state)
-	return state.UI.Composition "HUD" {
-		state.UI.Region "Top" { zone = "top", rank = 1, state.UI.VStack "Readouts" {} },
-	}
+	return state.UI.Composition({
+		state.UI.Region({ zone = "top", rank = 1, state.UI.VStack({}, "Readouts") }, "Top"),
+	}, "HUD")
 end)
 sample("VirtualGrid-part-row", function(state)
 	local UI = state.UI
 	local rows = { { id = "part", label = "Starter Motor", description = "A starter part for the next race." } }
-	local node = UI.VirtualGrid "Parts" {
+	local node = UI.VirtualGrid({
 		from = rows,
 		key = "id",
 		minColumnWidth = 220,
@@ -70,17 +70,17 @@ sample("VirtualGrid-part-row", function(state)
 		measure = true,
 		Size = state.types.UDim2.fromOffset(315, 340),
 		render = function(current)
-			return UI.VStack "Part" {
+			return UI.VStack({
 				width = "fill",
 				padding = "m",
 				gap = "s",
-				UI.Badge "Category" { label = "Motors" },
-				UI.Text "Name" { text = current:peek().label, textRole = "heading", wrap = true },
-				UI.Text "Description" { text = current:peek().description, textRole = "caption", wrap = true },
-				UI.Button "Buy" { label = "Buy | 250 Coins", Size = state.types.UDim2.new(1, 0, 0, 0) },
-			}
+				UI.Badge({ label = "Motors" }, "Category"),
+				UI.Text({ text = current:peek().label, textRole = "heading", wrap = true }, "Name"),
+				UI.Text({ text = current:peek().description, textRole = "caption", wrap = true }, "Description"),
+				UI.Button({ label = "Buy | 250 Coins", Size = state.types.UDim2.new(1, 0, 0, 0) }, "Buy"),
+			}, "Part")
 		end,
-	}
+	}, "Parts")
 	local geometry = (node :: unknown) :: { AbsoluteSize: Vector2, AbsoluteWindowSize: Vector2 }
 	state.engine.environment.poke(geometry, "AbsoluteSize", state.types.Vector2.new(315, 340))
 	state.engine.environment.poke(geometry, "AbsoluteWindowSize", state.types.Vector2.new(309, 340))

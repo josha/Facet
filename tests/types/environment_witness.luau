@@ -34,14 +34,14 @@ local function Screen(): Frame
 	UI.adjustable(list, dial)
 	local kind: Facet.HapticKind = "success"
 	UI.feedback(kind)
-	return UI.Screen("Environment")({
+	return UI.Screen "Environment" {
 		ring,
-		UI.Text({
+		UI.Text {
 			text = function(use: Facet.Use): string
 				return `{use(env.sizeClass)} {moved} {shown} {use(anchor.anchor) ~= nil} {use(responder.state)}`
 			end,
-		}),
-	})
+		},
+	}
 end
 app.mount(Screen)
 return nil

@@ -1,7 +1,7 @@
 --!strict
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 
 local CatalogTypes = require("./catalog_types")
@@ -22,12 +22,12 @@ local page: CatalogTypes.PageDefinition = {
 	states = {},
 	make = function(UI: FacetControls, p: Properties, c: Context): Instance
 		local text = c.Compose.cell("")
-		local label = UI.Text({
+		local label = UI.Text {
 			text = text,
 			wrap = true,
 			Size = UDim2.fromOffset(320, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
-		})
+		}
 		local env = if p.source == "this box" then UI.environment(label) else UI.environment()
 		c.Compose.watch(function(use: Use)
 			local size = use(env.viewportSize)
@@ -61,38 +61,38 @@ local page: CatalogTypes.PageDefinition = {
 			return UI.VStack(name)({
 				gap = "xs",
 				align = "center",
-				c.Host.Frame({
+				c.Host.Frame {
 					Name = "Square",
 					BackgroundColor3 = Color3.fromRGB(120, 140, 220),
 					Size = function(use: Use): UDim2
 						local edge = math.floor(use(side) + 0.5)
 						return UDim2.fromOffset(edge, edge)
 					end,
-				}),
-				UI.Text({
+				},
+				UI.Text {
 					text = function(use: Use)
 						return `{caption} = {math.floor(use(side) + 0.5)}`
 					end,
 					textRole = "caption",
-				}),
+				},
 			})
 		end
-		return UI.VStack({
+		return UI.VStack {
 			gap = "xs",
 			label,
-			UI.Text({
+			UI.Text {
 				text = function(use: Use)
 					return `atLeast("regular") = {tostring(use(atLeast))}`
 				end,
 				textRole = "caption",
-			}),
-			UI.HStack({
+			},
+			UI.HStack {
 				gap = "m",
 				align = "end",
 				square("Scaled", env.scaled(48), "scaled(48)"),
 				square("ScaledBody", env.scaled(48, "body"), 'scaled(48, "body")'),
-			}),
-		})
+			},
+		}
 	end,
 	surface = "UI.environment",
 }

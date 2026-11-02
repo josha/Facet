@@ -5,6 +5,7 @@ local reducedMotion = require("./motion").reduced
 
 return function(ctx: Types.Context, parent: Instance, sample: (number) -> (), complete: () -> ()): () -> ()
 	local stop = ctx.runtime.mount(function()
+		local reduced = reducedMotion(ctx)
 		travelEngine(ctx, {
 			initial = { 0 },
 			target = function()
@@ -14,7 +15,9 @@ return function(ctx: Types.Context, parent: Instance, sample: (number) -> (), co
 				sample(values[1])
 			end,
 			complete = complete,
-			reduced = reducedMotion(ctx),
+			reduced = function(): boolean
+				return reduced()
+			end,
 			motion = "ease",
 			duration = ctx.metric("motion.durations.travel"),
 			ease = ctx.motionEase("travel"),

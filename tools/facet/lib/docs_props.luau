@@ -194,7 +194,7 @@ function Props.load(root: string): { [string]: { Option } }
 			for field, kind in collected do
 				table.insert(options, { name = field, type = kind })
 			end
-			table.sort(options, function(a, b)
+			table.sort(options, function(a: Option, b: Option)
 				return a.name < b.name
 			end)
 			if name == "Picker" then
@@ -211,7 +211,7 @@ function Props.load(root: string): { [string]: { Option } }
 				for field, kind in collected do
 					table.insert(options, { name = field, type = kind })
 				end
-				table.sort(options, function(a, b)
+				table.sort(options, function(a: Option, b: Option)
 					return a.name < b.name
 				end)
 			end
@@ -355,7 +355,8 @@ function Props.render(name: string, options: { Option }): string
 		"Options: name: type = default. omitted uses the control or theme default; required has no default.",
 	}
 	for _, option in options do
-		local defaults = DEFAULTS[if name == "VStack" or name == "HStack" then "Stack" else name] or {}
+		local defaults: { [string]: string } = DEFAULTS[if name == "VStack" or name == "HStack" then "Stack" else name]
+			or {}
 		local default = defaults[option.name]
 		table.insert(
 			lines,

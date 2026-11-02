@@ -1,4 +1,5 @@
 --!strict
+local ThemeTypes = require("./theme_types")
 local layoutKit = require("./layout_kit")
 local Types = require("./types")
 local Nav = require("./navigation_types")
@@ -13,25 +14,26 @@ local arrival = require("./overlay_arrival")
 
 return function(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	surfaces: Nav.Surfaces,
 	kit: surfaceParts.SurfaceParts
 ): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local lists = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local function presented<P>(
-		spec: { isPresented: ComposeTypes.Value<boolean>?, item: ComposeTypes.Value<P?>? }
-	): ComposeTypes.Body<boolean>
+	local function presented<P>(spec: {
+		read isPresented: ComposeTypes.Value<boolean>?,
+		read item: ComposeTypes.Value<P?>?,
+	}): ComposeTypes.Body<boolean>
 		assert(spec.isPresented or spec.item, "A presented control requires isPresented or item")
 		return function(use: ComposeTypes.Use)
 			return if spec.item then use(spec.item) ~= nil else use(assert(spec.isPresented))
 		end
 	end
 	local function dismiss<P>(spec: {
-		isPresented: ComposeTypes.Value<boolean>?,
-		item: ComposeTypes.Value<P?>?,
-		error: ComposeTypes.Value<string?>?,
+		read isPresented: ComposeTypes.Value<boolean>?,
+		read item: ComposeTypes.Value<P?>?,
+		read error: ComposeTypes.Value<string?>?,
 	}): ()
 		if spec.item then
 			spec.item:set(nil)
@@ -49,9 +51,9 @@ return function(
 			return if type(value) == "function" then value(payload) else value
 		end
 		local function actionsFor(
-			value: ({ Nav.AlertAction<P> } | ((P) -> { Nav.AlertAction<P> }))?,
+			value: (Nav.AlertActions<P> | ((P) -> Nav.AlertActions<P>))?,
 			payload: P
-		): { Nav.AlertAction<P> }?
+		): Nav.AlertActions<P>?
 			return if type(value) == "function" then value(payload) else value
 		end
 		local root = kit.empty(spec, {
@@ -101,10 +103,10 @@ return function(
 			surfaces.overlay(root, condition, function(phase: Nav.PresencePhase?): Instance
 				if spec.suppression and spec.suppression.isSuppressed:peek() then
 					dismiss(spec)
-					return Host.Folder({})
+					return Host.Folder {}
 				end
 				local payload = (if spec.item then spec.item:peek() else read(spec.presenting)) :: P
-				local actions: { Nav.AlertAction<P> } = actionsFor(spec.actions, payload)
+				local actions: Nav.AlertActions<P> = actionsFor(spec.actions, payload)
 					or { { id = "OK", label = "OK" } }
 				assert(#actions > 0, "Alert requires at least one action")
 				local cancel: Nav.AlertAction<P>?
@@ -211,12 +213,12 @@ return function(
 					contentLayout.HorizontalAlignment = E.HorizontalAlignment.Center
 				end
 				local contentHeight = Compose.cell(0)
-				local actionProps: Types.FrameNativeProps = {
+				local actionProps: Types.FrameProps = {
 					Name = "Actions",
 					BackgroundTransparency = 1,
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
-					Host.UIListLayout({
+					Host.UIListLayout {
 						FillDirection = function(use: ComposeTypes.Use)
 							return if use(stacked) then E.FillDirection.Vertical else E.FillDirection.Horizontal
 						end,
@@ -225,11 +227,11 @@ return function(
 						end,
 						SortOrder = E.SortOrder.LayoutOrder,
 						Padding = ctx.types.UDim.new(0, 8),
-					}),
+					},
 				}
 				local textBounds: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 				for index, action in actions do
-					local button = UI.Button({
+					local button = UI.Button {
 						Name = action.id,
 						label = action.label,
 						enabled = action.enabled,
@@ -250,7 +252,7 @@ return function(
 						onActivate = function()
 							activate(action)
 						end,
-					})
+					}
 					actionProps[#actionProps + 1] = button
 					table.insert(textBounds, ctx.observe.TextBounds(button))
 				end
@@ -273,7 +275,7 @@ return function(
 				end
 				local actionSize = ctx.layoutSize(actionBar)
 				local function chrome(use: ComposeTypes.Use): number
-					local package = read(ctx.config.theme, use)
+					local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 					local recipe = if package and package.chrome then package.chrome.panel else nil
 					local inset = if recipe then recipe.contentInsets else nil
 					return padding * 2
@@ -389,7 +391,7 @@ return function(
 				if transition then
 					local phase = assert(phase)
 					local ready = Compose.cell(false)
-					local source: GuiObject? = read(transition.source)
+					local source: GuiObject? = read<<GuiObject?>>(transition.source)
 					local sourcePosition: ComposeTypes.ReadOnlyValue<Vector2> = if source
 						then ctx.observe.AbsolutePosition(source)
 						else Compose.cell(V2.zero)
@@ -411,7 +413,7 @@ return function(
 						local sourceParent = if source
 							then ctx.observe.Parent(source)
 							else Compose.cell(nil :: Instance?)
-						local corner = ctx.Host.UICorner({ CornerRadius = ctx.types.UDim.new(0, 0) })
+						local corner = ctx.Host.UICorner { CornerRadius = ctx.types.UDim.new(0, 0) }
 						local sourceCorner = if source then source:FindFirstChildWhichIsA("UICorner") else nil
 						local radius = if sourceCorner then sourceCorner.CornerRadius.Offset else 12
 						local snapshot = if source then source:Clone() else nil
@@ -521,7 +523,7 @@ return function(
 						surfaces.attach(panel, { corner })
 						local backdrop = modal:FindFirstChild("Scrim")
 						local preferred = surfaces.preference()
-						runtime.decorate(backdrop, {
+						runtime.decorate(assert(backdrop), {
 							BackgroundTransparency = function(use: ComposeTypes.Use)
 								return 1 - amount(use) * (1 - 0.35 * preferred(use))
 							end,
@@ -578,8 +580,9 @@ return function(
 							if reduce() then
 								return { completed = Compose.cell(true) }
 							end
-							local motion =
-								runtime.timeline({ duration = read(transition.seconds) or ctx.metric("motion.normal") })
+							local motion = runtime.timeline({
+								duration = read<<number?>>(transition.seconds) or ctx.metric("motion.normal"),
+							})
 							return { completed = motion.completed }
 						end,
 					}

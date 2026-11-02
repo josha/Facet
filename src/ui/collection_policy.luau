@@ -23,8 +23,10 @@ function policy.disabled<V>(predicate: ((V) -> boolean)?, item: V): boolean
 end
 function policy.selectionVisible(node: GuiObject): boolean
 	local position, size = node.AbsolutePosition, node.AbsoluteSize
-	local left, top = position.X, position.Y
-	local right, bottom = left + size.X, top + size.Y
+	local left = position.X
+	local top = position.Y
+	local right = left + size.X
+	local bottom = top + size.Y
 	local measured = size.X > 0 and size.Y > 0
 	local ancestor: Instance? = node
 	while ancestor do
@@ -34,8 +36,10 @@ function policy.selectionVisible(node: GuiObject): boolean
 			end
 			if measured and ancestor.ClipsDescendants then
 				local p, s = ancestor.AbsolutePosition, ancestor.AbsoluteSize
-				left, top = math.max(left, p.X), math.max(top, p.Y)
-				right, bottom = math.min(right, p.X + s.X), math.min(bottom, p.Y + s.Y)
+				left = math.max(left, p.X)
+				top = math.max(top, p.Y)
+				right = math.min(right, p.X + s.X)
+				bottom = math.min(bottom, p.Y + s.Y)
 				if right <= left or bottom <= top then
 					return false
 				end
@@ -59,17 +63,23 @@ function policy.actions<V, K>(
 	current: ComposeTypes.ReadOnlyValue<V>,
 	key: K,
 	row: GuiObject,
-	constructor: Types.Constructor<CollectionProps.RowActionsSpec, Frame>,
+	constructor: Types.Constructor<CollectionProps.RowActionsSpecInput, Frame>,
 	coordinator: ComposeTypes.Value<{}?>,
 	tiled: boolean?
 ): (GuiObject, ComposeTypes.ReadOnlyValue<number>?)
+	local readActions = ctx.read<<{ CollectionTypes.RowAction }>>
 	local authored = if spec.rowActions then spec.rowActions(current, key) else nil
 	local edits = activation.edits(row)
 	if authored == nil and #edits == 0 then
 		return row, nil
 	end
-	local actions: CollectionTypes.RowActionsShape = authored or {}
-	local actionSpec = table.clone(actions) :: CollectionProps.RowActionsSpec
+	local actions: CollectionTypes.RowActionsFields = authored or {}
+	local actionSpec: CollectionProps.RowActionsSpec = { content = row }
+	if authored then
+		for key, value in authored do
+			actionSpec[key] = value
+		end
+	end
 	local function gated(list: Types.Input<{ CollectionTypes.RowAction }>?): Types.Input<{ CollectionTypes.RowAction }>?
 		if list == nil then
 			return nil
@@ -77,7 +87,7 @@ function policy.actions<V, K>(
 		return function(use: ComposeTypes.Use): { CollectionTypes.RowAction }
 			local allowed = policy.allows(spec.rowDeletable, use(current))
 			local kept = {}
-			for _, action in ctx.read(list, use) do
+			for _, action in readActions(list, use) do
 				if allowed or action.role ~= "destructive" then
 					table.insert(kept, action)
 				end
@@ -89,11 +99,17 @@ function policy.actions<V, K>(
 	if #edits > 0 then
 		local trailing = actionSpec.trailing
 		actionSpec.trailing = function(use: ComposeTypes.Use): { CollectionTypes.RowAction }
-			local result = table.clone(ctx.read(trailing, use) or {})
+			local result = if trailing == nil then {} else table.clone(readActions(trailing, use))
 			for index, edit in edits do
-				local action = table.clone(edit)
-				action.id = "edit:" .. index
-				table.insert(result, (action :: unknown) :: CollectionTypes.RowAction)
+				local action: CollectionTypes.RowAction = {
+					id = "edit:" .. index,
+					label = edit.label,
+					icon = edit.icon,
+					role = edit.role,
+					enabled = edit.enabled,
+					onActivate = edit.onActivate,
+				}
+				table.insert(result, action)
 			end
 			return result
 		end

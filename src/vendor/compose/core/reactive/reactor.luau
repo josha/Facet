@@ -2,9 +2,9 @@
 --!native
 
 local Evaluation = require "./evaluation"
+local stats = Evaluation.stats
 local evaluationCache = Evaluation.cache
 local Types = require "./types"
-local stats = require "./stats"
 local statsOn = stats.state
 
 type Node = Types.Node
@@ -12,14 +12,8 @@ export type Reactor = Types.Reactor
 
 local MAX_RUNS_PER_DRAIN = 1_000_000
 
-local caught = ""
-
 local function traceback(message: unknown): string
 	return debug.traceback(tostring(message), 2)
-end
-
-local function catch(message: unknown)
-	caught = traceback(message)
 end
 
 local function describeErrors(errors: { string }): string
@@ -80,6 +74,13 @@ local function rearm(node: Node)
 		return
 	end
 	node.retry = true
+	if node.state == nil then
+		local producer = node[1]
+		if producer ~= nil and producer.state ~= nil then
+			rearm(producer)
+		end
+		return
+	end
 	for index = 1, #node do
 		local edge = node[index]
 		local producer = if edge ~= nil then edge[1] else nil
@@ -95,7 +96,7 @@ local function fail(reactor: Reactor, message: string)
 	table.insert(errors, message)
 end
 
-local function runRest(reactor: Reactor)
+local function runRest(reactor: Reactor): unknown
 	local queue = reactor.queue
 	while reactor.cursor < reactor.count do
 		local limit = math.min(reactor.count, MAX_RUNS_PER_DRAIN)
@@ -119,12 +120,13 @@ local function runRest(reactor: Reactor)
 				):format(MAX_RUNS_PER_DRAIN)
 			)
 			reactor.abandoned = true
-			return
+			return nil
 		end
 	end
+	return nil
 end
 
-local function runInRest(reactor: Reactor)
+local function runInRest(reactor: Reactor): unknown
 	local queue = reactor.queue
 	local frame, previousConsumer, previousOrder = Evaluation.enterFrame(nil)
 	while reactor.cursor < reactor.count do
@@ -156,10 +158,11 @@ local function runInRest(reactor: Reactor)
 			)
 			reactor.abandoned = true
 			Evaluation.leaveFrame(frame, previousConsumer, previousOrder)
-			return
+			return nil
 		end
 	end
 	Evaluation.leaveFrame(frame, previousConsumer, previousOrder)
+	return nil
 end
 
 local function drain(reactor: Reactor): { string }?
@@ -181,9 +184,10 @@ local function drain(reactor: Reactor): { string }?
 	repeat
 		local first = reactor.queue[reactor.cursor + 1]
 		local run = if first ~= nil and first.runIn ~= nil then runInRest else runRest
-		if not xpcall(run, catch, reactor) then
+		local ok, failure = xpcall(run, traceback, reactor)
+		if not ok then
 			Evaluation.leave(consumer, at)
-			fail(reactor, caught)
+			fail(reactor, tostring(failure))
 		end
 	until reactor.abandoned or reactor.cursor >= reactor.count
 
@@ -335,17 +339,23 @@ local function runNow(node: Node)
 		and producer ~= nil
 		and producer.refresh == nil
 		and producer.first == node
-		and node[4] == nil
+		and rawget(node, 4) == nil
 		and not statsOn.enabled
 	local consumer: Node? = nil
 	local at = 0
 	local ok: boolean
+	local failure: unknown
 	if direct and listener ~= nil and producer ~= nil then
 		node.version = producer.version
-		ok = xpcall(listener, catch, producer.value)
+		local value = producer.value
+		if node.subject ~= nil then
+			ok, failure = xpcall(listener, traceback, value, node)
+		else
+			ok, failure = xpcall(listener, traceback, value)
+		end
 	else
 		consumer, at = Evaluation.snapshot()
-		ok = xpcall(run, catch, node)
+		ok, failure = xpcall(run, traceback, node)
 	end
 	if not ok and not direct then
 		Evaluation.leave(consumer, at)
@@ -357,9 +367,9 @@ local function runNow(node: Node)
 	reactor.batching = false
 	if not ok then
 		if errors == nil then
-			errors = { caught }
+			errors = { tostring(failure) }
 		else
-			table.insert(errors, 1, caught)
+			table.insert(errors, 1, tostring(failure))
 		end
 	end
 	if errors ~= nil then

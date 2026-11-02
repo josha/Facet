@@ -8,7 +8,7 @@ local surfaceParts = require("./nav_surface_parts")
 
 return function(
 	ctx: Types.Context,
-	UI: ControlTypes.BuilderControls,
+	UI: ControlTypes.Controls,
 	surfaces: Nav.Surfaces,
 	kit: surfaceParts.SurfaceParts
 ): ()
@@ -65,7 +65,7 @@ return function(
 			local words = captions or headerContent:FindFirstChild("Title")
 			if words and (side == "trailing" or captions) then
 				runtime.mount(function()
-					return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
+					return Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill }
 				end, words)
 			end
 			local caption = captions and captions:FindFirstChild("Description")
@@ -103,7 +103,7 @@ return function(
 					local function side(use: ComposeTypes.Use): number
 						return if outline then 0 else ctx.controlSize(nil, "paddingX", use)
 					end
-					local inset = Host.UIPadding({
+					local inset = Host.UIPadding {
 						PaddingTop = ctx.types.UDim.new(0, 8),
 						PaddingBottom = ctx.types.UDim.new(0, 8),
 						PaddingRight = function(use: ComposeTypes.Use)
@@ -119,7 +119,7 @@ return function(
 									else side(use)
 							)
 						end,
-					})
+					}
 					local fade = ctx.fade({
 						Name = "RevealFade",
 						BackgroundTransparency = 1,
@@ -128,7 +128,7 @@ return function(
 						GroupTransparency = hidden,
 						node,
 					}, nil, false)
-					surfaces.attach(fade, { inset :: Types.Child })
+					surfaces.attach(fade, { inset })
 					local automatic, height = kit.unroll(progress, ctx.observe.AbsoluteSize(fade))
 					local reveal = Host.Frame "Reveal" {
 						BackgroundTransparency = 1,

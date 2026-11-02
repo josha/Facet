@@ -1,15 +1,14 @@
 --!strict
 
-local RuntimeTypes = require "./types"
+local CoreTypes = require "../types"
 local Host = require "../host"
 local Owner = require "../ownership/owner"
 local Types = require "../reactive/types"
 local Graph = require "../reactive/graph"
-local NodeCast = require "../reactive/node"
 local Cell = require "../reactive/cell"
 local ownedFrame = require "../ownership/frame"
 
-export type Options = RuntimeTypes.ClockOptions
+export type Options = CoreTypes.ClockOptions
 
 return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 	return function(options: Options?): Types.ReadOnlyValue<number>
@@ -47,7 +46,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner)
 				else elapsed
 		end
 		local value = Cell.cell(read())
-		local producer = NodeCast.nodeOf(value)
+		local producer = Graph.nodeOf(value)
 		local function finished(current: number): boolean
 			return (duration ~= nil or deadline ~= nil) and current == 0
 		end

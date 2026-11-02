@@ -10,7 +10,7 @@ local PaintTypes = require("./nav_radial_sectors")
 local HubTypes = require("./nav_radial_center")
 
 type NavigationHold = { count: number, saved: boolean, changed: boolean, watch: RBXScriptConnection? }
-local navigationHolds = setmetatable({} :: { [Instance]: NavigationHold }, { __mode = "k" })
+local navigationHolds: { [Instance]: NavigationHold } = setmetatable({}, { __mode = "k" })
 local function holdNavigation(gui: GuiService): () -> ()
 	local hold = navigationHolds[gui]
 	if hold == nil then
@@ -24,7 +24,7 @@ local function holdNavigation(gui: GuiService): () -> ()
 		navigationHolds[gui] = created
 		hold = created
 	end
-	local held = hold :: NavigationHold
+	local held = assert(hold)
 	held.count += 1
 	local released = false
 	return function()
@@ -106,7 +106,7 @@ return function<V>(
 			x, y = x / magnitude * radius, y / magnitude * radius
 		end
 		return choose(
-			geometry.hit(
+			geometry.hit<<V>>(
 				sectors:peek(),
 				x,
 				y,
@@ -149,7 +149,7 @@ return function<V>(
 			end
 			local radius = (last.inner + last.outer) / 2
 			choose(
-				geometry.hit(
+				geometry.hit<<V>>(
 					entries,
 					value.X / magnitude * radius,
 					-value.Y / magnitude * radius,
@@ -308,7 +308,7 @@ return function<V>(
 		}
 		local function ringStep(direction: string): (string?, boolean)
 			local d = toward[direction]
-			local entries = {}
+			local entries: { Radial.Sector<V> } = {}
 			for _, sector in sectors:peek() do
 				if read(sector.item.enabled) ~= false then
 					table.insert(entries, sector)
@@ -337,10 +337,10 @@ return function<V>(
 			if read(hub.showCenter) and aligned(-here) >= math.cos(math.rad(45)) then
 				return nil, true
 			end
-			table.sort(entries, function(a, b)
+			table.sort(entries, function(a: Radial.Sector<V>, b: Radial.Sector<V>): boolean
 				return math.atan2(a.x, -a.y) < math.atan2(b.x, -b.y)
 			end)
-			local at = table.find(entries, current) :: number
+			local at = assert(table.find(entries, current))
 			local best, bestKey = 0, nil
 			for _, step in { -1, 1 } do
 				local neighbour = entries[(at - 1 + step) % #entries + 1]

@@ -4,7 +4,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	local FixtureCollectionTypes = require("../src/ui/collection_types")
+	type Row = { id: string, label: string }
 
 	local Facet = require("../src")
 	local themes = Facet.themes
@@ -17,7 +17,7 @@ return function(verifyHarness: Verify.Harness)
 				local parchment = (require :: any)("../examples/themes/fantasy_parchment").build(themes)
 				local selection = Facet.Compose.cell({ a = true } :: { [string]: boolean })
 				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.Table({
+					local spec: Facet.KeyedTableSpec<Row, string> = {
 						from = Facet.Compose.cell({ { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } }),
 						key = "id",
 						selection = selection,
@@ -26,11 +26,12 @@ return function(verifyHarness: Verify.Harness)
 								id = "label",
 								label = "Name",
 								render = function(current): GuiObject
-									return Host.TextLabel({ Text = current:peek().label })
+									return Host.TextLabel { Text = current:peek().label }
 								end,
-							} :: FixtureCollectionTypes.TableColumn<any, any>,
+							},
 						},
-					})
+					}
+					return UI.Table(spec)
 				end, { motionLevel = "none", theme = parchment })
 				world.engine.environment.poke(world.find("Body"), "AbsoluteWindowSize", world.V2(400, 300))
 				local rows = {}

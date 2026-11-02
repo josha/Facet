@@ -17,66 +17,96 @@ return function<K>(
 			paint("none")
 		end
 	end
-	type Indicator = { key: K, paint: Paint }
+	type Indicator = { key: K, paint: Paint, state: State? }
 	local owner = assert(Compose.currentOwner())
-	local multiple = {}
-	local rows: { [Indicator]: boolean } = {}
-	local isOnly: ((K | {} | nil) -> ComposeTypes.ReadOnlyValue<boolean>)? = nil
-	return function(key: ComposeTypes.ReadOnlyValue<K>, render: Paint)
-		if isOnly == nil then
-			isOnly = Compose.withOwner(owner, function()
-				local function createSole(initial: K | {} | nil): ComposeTypes.Value<K | {} | nil>
-					return Compose.cell(initial, rawequal)
+	local rows: { [K]: { [Indicator]: boolean } } = {}
+	local chosen: CollectionTypes.Selection<K> = {}
+	local single: K? = nil
+	local many = false
+	local started = false
+	local function stateFor(key: K): State
+		return if chosen[key] then (if many then "selected" else "only") else "none"
+	end
+	local function paint(row: Indicator, state: State)
+		if row.state ~= state then
+			row.state = state
+			row.paint(state)
+		end
+	end
+	local function notify(key: K, state: State, failures: { string }?): { string }?
+		local bucket = rows[key]
+		if bucket then
+			for row in bucket do
+				local ok, problem: unknown = pcall(paint, row, state)
+				if not ok then
+					local messages = failures or {}
+					table.insert(messages, tostring(problem))
+					failures = messages
 				end
-				local sole = createSole(nil)
-				local selected = Compose.selector(sole)
-				local wasMultiple = false
-				Compose.owner.watchStatic(owner, selection, function(chosen)
-					local result: K? = nil
-					local many = false
-					for candidate, on in chosen do
-						if on then
-							if result ~= nil then
-								many = true
-								break
-							end
-							result = candidate
-						end
-					end
-					sole:set(if many then multiple else result)
-					if many or wasMultiple then
-						for row in rows do
-							row.paint(if chosen[row.key] ~= true then "none" elseif many then "selected" else "only")
-						end
-					end
-					wasMultiple = many
-				end)
-				return selected
-			end)
-		end
-		local selected = assert(isOnly)
-		local state: State? = nil
-		local function paint(nextState: State)
-			if nextState ~= state then
-				state = nextState
-				render(nextState)
 			end
 		end
-		local row: Indicator = { key = key:peek(), paint = paint }
-		rows[row] = true
+		return failures
+	end
+	local function remove(row: Indicator)
+		local bucket = rows[row.key]
+		if bucket then
+			bucket[row] = nil
+			if next(bucket) == nil then
+				rows[row.key] = nil
+			end
+		end
+	end
+	return function(key: ComposeTypes.ReadOnlyValue<K>, render: Paint)
+		if not started then
+			started = true
+			Compose.owner.watchStatic(owner, selection, function(incoming)
+				local first: K? = nil
+				local multiple = false
+				for candidate, on in incoming do
+					if on then
+						if first ~= nil then
+							multiple = true
+							break
+						end
+						first = candidate
+					end
+				end
+				local previous, wasMany = single, many
+				chosen, single, many = incoming, first, multiple
+				local failures: { string }? = nil
+				if wasMany or multiple then
+					for candidate in rows do
+						failures = notify(candidate, stateFor(candidate), failures)
+					end
+				else
+					if previous ~= nil then
+						failures = notify(previous, stateFor(previous), failures)
+					end
+					if first ~= nil and not rawequal(first, previous) then
+						local winner = first :: K
+						failures = notify(winner, stateFor(winner), failures)
+					end
+				end
+				if failures then
+					error(table.concat(failures, "\n"), 0)
+				end
+			end)
+		end
+		local row: Indicator = { key = key:peek(), paint = render }
 		local rowOwner = assert(Compose.currentOwner())
-		local stop: (() -> ())? = nil
 		Compose.owner.watchStatic(rowOwner, key, function(now)
+			remove(row)
 			row.key = now
-			if stop then
-				stop()
+			local bucket = rows[now]
+			if bucket == nil then
+				bucket = {}
+				rows[now] = bucket
 			end
-			stop = Compose.owner.watchStatic(rowOwner, selected(now), function(only)
-				paint(if only then "only" elseif selection:peek()[now] == true then "selected" else "none")
-			end)
+			bucket[row] = true
+			paint(row, stateFor(now))
 		end)
 		Compose.cleanup(function()
-			rows[row] = nil
+			remove(row)
 		end)
 	end
 end

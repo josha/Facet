@@ -8,6 +8,9 @@ Instance. `ref = function(instance) ... end` receives that root. Make controls
 inside a Compose owner. This is usually the component that you give to
 `runtime.mount`.
 
+Property tables accept native Instances and Compose directives as children.
+A `nil` child omits that entry.
+
 Open:
 
 - [Factory-options](Factory-options.md)

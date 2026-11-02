@@ -15,13 +15,15 @@ type ToggleButtonProps = InputProps.ButtonProps & {
 	onChange: ((boolean) -> ())?,
 	indicatorPosition: ("leading" | "trailing")?,
 }
+local copyButton: (InputTypes.ToggleImplementationProps) -> ToggleButtonProps = table.clone
 
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
 	local runtime, Host, read = ctx.runtime, ctx.Host, ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local dynamic, writable = kit.dynamic, kit.writable
 	UI.Toggle = ctx.construct("Toggle", function(spec: InputTypes.ToggleImplementationProps): TextButton
-		assert(type(read(spec.value)) == "boolean", "Facet.Toggle: value must be boolean")
+		local p = copyButton(spec)
+		assert(type(read<<boolean>>(spec.value)) == "boolean", "Facet.Toggle: value must be boolean")
 		assert(writable(spec.value) or spec.onChange, "Facet.Toggle: read-only value requires onChange")
 		assert(
 			spec.mixed == nil or writable(spec.mixed) or spec.onChange,
@@ -33,7 +35,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			"Facet.Toggle: invalid presentation"
 		)
 		assert(
-			spec.mixed == nil or (presentation == "checkbox" and type(read(spec.mixed)) == "boolean"),
+			spec.mixed == nil or (presentation == "checkbox" and type(read<<boolean?>>(spec.mixed)) == "boolean"),
 			"Facet.Toggle: mixed requires a checkbox boolean source"
 		)
 		assert(
@@ -43,15 +45,12 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local plain = spec.appearance == "plain"
 		assert(not plain or presentation ~= "button", "Facet.Toggle: the button presentation cannot be plain")
 
-		local p = table.clone(
-			spec :: Shared.TextButtonProps & InputTypes.ButtonVisualOptions & InputTypes.ButtonInputOptions
-		) :: ToggleButtonProps
 		p.value, p.mixed, p.presentation, p.onChange, p.indicatorPosition, p.row, p.hint =
 			nil, nil, nil, nil, nil, nil, nil
 		p.selected = if spec.mixed == nil
 			then spec.value
 			else function(use: ComposeTypes.Use)
-				return read(spec.value, use) or read(spec.mixed, use) == true
+				return read<<boolean>>(spec.value, use) or read<<boolean?>>(spec.mixed, use) == true
 			end
 		p.ref = nil
 		local markRow: ((GuiObject) -> ())? = nil
@@ -59,7 +58,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			p.selected, p.appearance = nil, nil
 		end
 		p.onActivate = function()
-			local value = if read(spec.mixed) then true else not read(spec.value)
+			local value = if read<<boolean?>>(spec.mixed) then true else not read<<boolean>>(spec.value)
 			if spec.onChange then
 				spec.onChange(value)
 			else
@@ -127,7 +126,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				local knobReduced = reducedMotion(ctx)
 				local spring = ctx.motionSpring("control")
 				local knob = runtime.spring(function(use: ComposeTypes.Use): number
-					return if read(spec.value, use) == true then 0.7 else 0.3
+					return if read<<boolean>>(spec.value, use) == true then 0.7 else 0.3
 				end, {
 					period = spring.period,
 					damping = spring.damping,
@@ -175,14 +174,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 							local _, height = track(use)
 							return ctx.round(use, D.new(0, if presentation == "switch" then height / 2 else 4))
 						end),
-					} :: ComposeTypes.Child,
+					},
 					mark,
 					check,
 				} :: Shared.FrameNativeProps),
 				"toggle-indicator"
 			)
 			local function updateIndicator(use)
-				local value, mixed = read(spec.value, use), read(spec.mixed, use) == true
+				local value, mixed = read<<boolean>>(spec.value, use), read<<boolean?>>(spec.mixed, use) == true
 				if presentation ~= "switch" then
 					mark.Size = D2.fromOffset(12, 4)
 					mark.Visible = mixed
@@ -252,7 +251,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						described = described,
 						controlSize = spec.controlSize,
 					})
-					table.insert(p, content)
+					p[#p + 1] = content
 					if spec.Size == nil then
 						p.Size = size
 						p.AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y
@@ -262,7 +261,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					local label: GuiObject = if described then ctx.column(captions) else title
 					table.insert(icons, if trailing then label else indicator)
 					table.insert(icons, if trailing then indicator else label)
-					table.insert(p, ctx.row(icons))
+					p[#p + 1] = ctx.row(icons)
 				end
 			else
 				p.Text = spec.Text or spec.label or ""
@@ -270,7 +269,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				local reactive = dynamic(ctx.config.theme) or dynamic(spec.controlSize) or sizeLive
 				local function paddingAmount(side: "left" | "right" | "top" | "bottom"): Shared.Input<UDim>
 					local function amount(use: ComposeTypes.Use?): UDim
-						local package = read(ctx.config.theme, use)
+						local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 						local skin = package and package.chrome and package.chrome.control
 						local insets: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
 						local offset = (
@@ -299,8 +298,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				inset("right", "PaddingRight")
 				inset("top", "PaddingTop")
 				inset("bottom", "PaddingBottom")
-				table.insert(p, Host.UIPadding(padding))
-				table.insert(p, indicator)
+				p[#p + 1] = Host.UIPadding(padding)
+				p[#p + 1] = indicator
 			end
 		end
 		if spec.haptic == nil then
@@ -309,7 +308,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		if presentation ~= "button" then
 			kit.unskinned[p] = true
 		end
-		local toggle = ctx.styled(UI.Button(p), "toggle")
+		local base: TextButton = UI.Button(p)
+		local toggle = ctx.styled(base, "toggle")
 		if markRow then
 			markRow(toggle)
 		end

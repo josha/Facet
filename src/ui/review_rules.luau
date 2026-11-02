@@ -53,7 +53,7 @@ local SEPARATORS = { " · ", " • ", " | ", " / ", " – " }
 local SEVERITY_RANK: { [ReviewSeverity]: number } = { high = 1, medium = 2, low = 3 }
 local RECIPES = "See the information-display reference in the use-facet skill."
 
-local FIXES: { [string]: string } = table.freeze({
+local fixes: { [string]: string } = {
 	["joined-facts"] = "One text joins several facts with separators, so no fact leads and values cannot be compared. Give each fact its own element: the value in the numeral or strong role and its label in caption beside or under it. "
 		.. RECIPES,
 	["numbers-unemphasized"] = "The numbers on this screen are no larger or heavier than the text around them. Put the value that drives the decision in the numeral role, larger than body text, with its unit or label smaller. "
@@ -72,7 +72,8 @@ local FIXES: { [string]: string } = table.freeze({
 	["touch-control-overlap"] = "A control covers the place where Roblox draws the Jump button on touch screens. On touch, raise the bottom of the Composition above the thumb controls with bottom padding, or move the control.",
 	["composition-unfit"] = "A HUD Composition does not fit a phone screen: the named regions overlap there even at their last form. Give each of them a compact second form, such as one Menu circle for the destinations, or mayDrop = true for an optional region.",
 	["stranded-content"] = "The content fills a small part of a large surface and sits to one side. Bound the surface to its content or use the space for the subject.",
-})
+}
+local FIXES = table.freeze(fixes)
 
 local function clean(content: string): string
 	local plain = string.gsub(content, "<[^>]+>", "")
@@ -90,23 +91,24 @@ local function split(line: string): { string }
 		local found: number?, finish: number?, separator: string? = nil, nil, nil
 		for _, candidate in SEPARATORS do
 			local i, j = string.find(text, candidate, position, true)
-			if i ~= nil and (found == nil or i < (found :: number)) then
+			if i ~= nil and j ~= nil and (found == nil or i < found) then
 				found, finish, separator = i, j, candidate
 			end
 		end
 		if found == nil or finish == nil then
 			break
 		end
-		local before = string.sub(text, found - 1, found - 1)
-		local after = string.sub(text, finish + 1, finish + 1)
+		local first, last = assert(found), assert(finish)
+		local before = string.sub(text, first - 1, first - 1)
+		local after = string.sub(text, last + 1, last + 1)
 		local range = (separator == " / " or separator == " – ")
 			and string.match(before, "%d") ~= nil
 			and string.match(after, "%d") ~= nil
 		if not range then
-			table.insert(parts, string.sub(text, start, found - 1))
-			start = finish + 1
+			table.insert(parts, string.sub(text, start, first - 1))
+			start = last + 1
 		end
-		position = finish + 1
+		position = last + 1
 	end
 	table.insert(parts, string.sub(text, start))
 	local kept: { string } = {}

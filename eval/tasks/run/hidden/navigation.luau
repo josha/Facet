@@ -132,7 +132,7 @@ for _, device in { "desktop", "phone-portrait", "phone-landscape", "tablet", "co
 		local screen = route[1]
 		table.insert(cases, {
 			id = "navigation/" .. screen,
-			tier = "universal",
+			tier = "universal" :: "universal",
 			screen = screen,
 			shot = "navigation-" .. screen,
 			run = function(qa, context)

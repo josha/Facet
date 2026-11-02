@@ -5,8 +5,6 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
-	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-	local FixtureNavigationTypes = require("../src/ui/navigation_types")
 
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")
@@ -48,7 +46,10 @@ return function(verifyHarness: Verify.Harness)
 		return nil
 	end
 
-	local function world(build: (any, any, any) -> any, options: { [string]: any }?): any
+	local function world(
+		build: (Facet.Controls, Facet.Host, engines.Engine) -> Facet.Child,
+		options: { [string]: any }?
+	): any
 		local o: { [string]: any } = options or {}
 		local engine: any = engines.new({
 			measureText = function(node: any): any
@@ -63,16 +64,15 @@ return function(verifyHarness: Verify.Harness)
 			return nil
 		end
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-		local config: { [string]: any } = {
+		local UI = Facet.controls(runtime, {
 			types = engine.types,
 			services = { GuiService = gui, UserInputService = input },
 			theme = o.theme,
 			controlSize = o.controlSize,
-		}
-		local UI: any = Facet.controls(runtime, config :: any)
+		})
 		local stop, screen: any = runtime.mount(function()
-			return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
-				build(UI, runtime.constructors, engine),
+			return Facet.host(runtime).ScreenGui({
+				build(UI, Facet.host(runtime), engine),
 			})
 		end, engine.new("Folder"))
 		return {
@@ -112,13 +112,13 @@ return function(verifyHarness: Verify.Harness)
 		local layout = row:FindFirstChildWhichIsA("UIListLayout")
 		assert(layout, `{row.Name} places its parts with a list layout`)
 		assert(layout.FillDirection.Name == "Horizontal", `{row.Name} is a horizontal row`)
-		local parts = {}
+		local parts: { { node: any, order: number, index: number } } = {}
 		for index, child in row:GetChildren() do
 			if child:IsA("GuiObject") and child.Visible ~= false then
 				table.insert(parts, { node = child, order = child.LayoutOrder, index = index })
 			end
 		end
-		table.sort(parts, function(a, b)
+		table.sort(parts, function(a: { order: number, index: number }, b: { order: number, index: number })
 			return if a.order == b.order then a.index < b.index else a.order < b.order
 		end)
 		local result, x = {}, 0
@@ -187,19 +187,19 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("an inline list and a menu keep the check after the label", {
 			id = "native_control_polish::native option rows keep the mark in its own slot::an inline list and a menu keep the check after the label",
 			run = function()
-				local inline = world(function(UI: FacetControls)
+				local inline = world(function(UI)
 					return UI.Picker "P" {
-						style = "inline" :: "inline",
-						indicator = "none" :: "none",
+						style = "inline",
+						indicator = "none",
 						selected = Compose.cell("normal"),
 						options = THREE,
 					}
 				end)
 				clear("inline", find(inline.screen, "normal"), "TrailingIcon", "trailing")
 				inline.stop()
-				local menu = world(function(UI: FacetControls)
+				local menu = world(function(UI)
 					return UI.Picker "P" {
-						style = "menu" :: "menu",
+						style = "menu",
 						selected = Compose.cell("normal"),
 						options = THREE,
 					}
@@ -230,11 +230,12 @@ return function(verifyHarness: Verify.Harness)
 					local neutralSizes = themes.neutralPackage().metrics.controlSizes
 					for _, package in packages do
 						local id = package.identity.id
-						for _, size in { "compact", "regular", "large" } do
-							local w = world(function(UI: FacetControls)
+						local sizes: { Facet.ControlSize } = { "compact", "regular", "large" }
+						for _, size in sizes do
+							local w = world(function(UI)
 								return UI.Picker "P" {
-									style = "segmented" :: "segmented",
-									controlSize = size :: "compact" | "regular" | "large",
+									style = "segmented",
+									controlSize = size,
 									selected = Compose.cell("normal"),
 									options = THREE,
 								}
@@ -283,9 +284,9 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("bounds segments in layout units under a scaled ancestor", {
 			id = "native_control_polish::native segmented picker track::bounds segments in layout units under a scaled ancestor",
 			run = function()
-				local w = world(function(UI: FacetControls)
+				local w = world(function(UI)
 					return UI.Picker "P" {
-						style = "segmented" :: "segmented",
+						style = "segmented",
 						label = "Mode",
 						selected = Compose.cell("easy"),
 						options = THREE,
@@ -305,9 +306,9 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("a caller's fixed 44 point track keeps the segments inside it", {
 			id = "native_control_polish::native segmented picker track::a caller's fixed 44 point track keeps the segments inside it",
 			run = function()
-				local w = world(function(UI: FacetControls, _, engine)
+				local w = world(function(UI, _, engine)
 					return UI.Picker "P" {
-						style = "segmented" :: "segmented",
+						style = "segmented",
 						selected = Compose.cell("easy"),
 						options = THREE,
 						Size = engine.types.UDim2.new(1, 0, 0, 44),
@@ -330,18 +331,18 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("applies the selected state during the activation that causes it", {
 			id = "native_control_polish::native selection paint::applies the selected state during the activation that causes it",
 			run = function()
-				local w = world(function(UI: FacetControls)
+				local w = world(function(UI)
 					return UI.VStack "Column" {
 						UI.Picker "Segments" {
-							style = "segmented" :: "segmented",
+							style = "segmented",
 							selected = Compose.cell("easy"),
 							options = THREE,
-						} :: unknown,
+						},
 						UI.Toggle "Hat" { label = "Hat", value = Compose.cell(false) },
 						UI.TabView "Tabs" {
 							selection = Compose.cell("one"),
-							indicator = "pill" :: "pill",
-							placement = "topBar" :: "topBar",
+							indicator = "pill",
+							placement = "topBar",
 							tabs = {
 								{
 									id = "one",
@@ -349,14 +350,14 @@ return function(verifyHarness: Verify.Harness)
 									content = function(): Instance
 										return UI.Text "OneBody" { text = "One" }
 									end,
-								} :: FixtureNavigationTypes.Tab,
+								},
 								{
 									id = "two",
 									label = "Two",
 									content = function(): Instance
 										return UI.Text "TwoBody" { text = "Two" }
 									end,
-								} :: FixtureNavigationTypes.Tab,
+								},
 							},
 						},
 					}
@@ -392,7 +393,7 @@ return function(verifyHarness: Verify.Harness)
 				local function check(distance: "near" | "ten-foot")
 					local package = themes.forDistance(themes.neutralPackage(), distance)
 					local regular = assert(package.metrics.controlSizes.regular)
-					local w = world(function(UI: FacetControls)
+					local w = world(function(UI)
 						return UI.Chip "Pill" {
 							label = "Global",
 							selected = Compose.cell(true),
@@ -419,7 +420,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_control_polish::native navigation stack paint::lets a fixed-width button's padding give way before its label vanishes",
 			run = function()
 				local styleRules = require("./lib/style_rules")
-				local w = world(function(UI: FacetControls, _, engine)
+				local w = world(function(UI, _, engine)
 					return UI.Button "Key" {
 						label = "W",
 						Size = engine.types.UDim2.fromOffset(31, 44),
@@ -575,7 +576,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_control_polish::native navigation stack paint::decides the tight padding from the engine's live fit, not a fit report still in flight",
 			run = function()
 				local live: boolean? = nil
-				local w = world(function(UI: FacetControls, _, engine)
+				local w = world(function(UI, _, engine)
 					return UI.Button "Tab" {
 						label = "Inputs",
 						Size = engine.types.UDim2.fromOffset(94, 44),

@@ -51,7 +51,7 @@ local ICON_TAGS: { [string]: string } = freeze({
 	error = "facet-icon-error",
 })
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, UD = ctx.types.Enum, ctx.types.UDim2, ctx.types.UDim
 
@@ -141,7 +141,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local copyNatural = Compose.cell(0)
 		local accessoryWidth = Compose.cell(0)
 		local function panelCarve(use: ComposeTypes.Use?): { left: number, right: number, top: number, bottom: number }
-			local package = if emphasis then nil else read(ctx.config.theme, use)
+			local package = if emphasis then nil else read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 			local chrome: { [string]: Theme.SkinLayer } = if package then package.chrome or {} else {}
 			local recipe = chrome.panel
 			local inset: Theme.Insets = if recipe then recipe.contentInsets or {} else {}
@@ -172,7 +172,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local heading = lettering(ctx.text({
 				Name = "Title",
 				Text = function(use: ComposeTypes.Use)
-					return read(title, use) or ""
+					return read<<string?>>(title, use) or ""
 				end,
 				TextWrapped = true,
 				Size = D2.new(1, 0, 0, 0),
@@ -185,7 +185,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local message = lettering(ctx.text({
 			Name = "Message",
 			Text = function(use: ComposeTypes.Use)
-				return read(spec.message, use) or ""
+				return read<<string?>>(spec.message, use) or ""
 			end,
 			TextWrapped = true,
 			Size = D2.new(1, 0, 0, 0),
@@ -195,7 +195,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local measure = ctx.text({
 			Name = "MessageMeasure",
 			Text = function(use: ComposeTypes.Use)
-				return read(spec.message, use) or ""
+				return read<<string?>>(spec.message, use) or ""
 			end,
 			TextWrapped = false,
 			TextTransparency = 1,
@@ -212,30 +212,33 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			Name = "Copy",
 			Size = D2.new(1, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
-			Host.UIFlexItem({
+			Host.UIFlexItem {
 				FlexMode = function(use: ComposeTypes.Use)
 					return if use(beside) then E.UIFlexMode.Fill else E.UIFlexMode.None
 				end,
-			}),
+			},
 		})
 		local bodyChildren: { Types.Child } = { copyFrame }
 		if link ~= nil or #actions > 0 then
 			local accessories: { Types.Child } = {}
 			if link then
+				local activate = link.onActivate
 				table.insert(
 					accessories,
 					UI.Button "Link" {
 						label = link.label,
 						appearance = if emphasis then nil else "link",
 						controlSize = spec.controlSize,
-						onActivate = link.onActivate,
+						onActivate = function(_input: InputObject?, _clicks: number?)
+							activate()
+						end,
 					}
 				)
 			end
 			for _, action in actions do
 				table.insert(
 					accessories,
-					UI.Button({
+					UI.Button {
 						Name = action.id,
 						label = action.label,
 						enabled = action.enabled,
@@ -243,8 +246,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						role = if action.role == "destructive" then "destructive" :: "destructive" else nil,
 						appearance = if action.role == "default" and not emphasis then "emphasis" else nil,
 						controlSize = spec.controlSize,
-						onActivate = action.onActivate,
-					})
+						onActivate = function(_input: InputObject?, _clicks: number?)
+							action.onActivate()
+						end,
+					}
 				)
 			end
 			local row = ctx.row(accessories, { Name = "Accessories" })
@@ -259,7 +264,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end)
 			table.insert(bodyChildren, row)
 		end
-		local bodyProps: Types.CanvasGroupNativeProps = {
+		local bodyProps: Types.CanvasGroupProps = {
 			Name = "Body",
 			GroupTransparency = function(use: ComposeTypes.Use)
 				return if level(use) == "limited" then 1 - use(shade) else 0
@@ -268,15 +273,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			Size = D2.new(0, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 		}
-		bodyProps[#bodyProps + 1] = Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
-		bodyProps[#bodyProps + 1] = Host.UIListLayout({
+		bodyProps[#bodyProps + 1] = Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill }
+		bodyProps[#bodyProps + 1] = Host.UIListLayout {
 			FillDirection = function(use: ComposeTypes.Use)
 				return if use(beside) then E.FillDirection.Horizontal else E.FillDirection.Vertical
 			end,
 			VerticalAlignment = E.VerticalAlignment.Center,
 			SortOrder = E.SortOrder.LayoutOrder,
 			Padding = UD.new(0, 8),
-		})
+		}
 		for index, child in bodyChildren do
 			runtime.decorate(child :: Instance, { LayoutOrder = index })
 			bodyProps[#bodyProps + 1] = child
@@ -367,7 +372,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end
 		local restSize, restAutomatic, restClip, restInteractable =
 			native.Size, native.AutomaticSize, native.ClipsDescendants, native.Interactable
-		local inset = Host.UIPadding({
+		local inset = Host.UIPadding {
 			PaddingLeft = function(use: ComposeTypes.Use)
 				return UD.new(0, panelCarve(use).left)
 			end,
@@ -380,7 +385,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			PaddingBottom = function(use: ComposeTypes.Use)
 				return UD.new(0, panelCarve(use).bottom)
 			end,
-		})
+		}
 		local bodyExtent = ctx.observe.AbsoluteSize(body)
 		local function settled(use: ComposeTypes.Use): boolean
 			return progress(use) >= 1
@@ -416,12 +421,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		surfaces.attach(root, {
 			inset,
 			ctx.corner(),
-			Host.UIListLayout({
+			Host.UIListLayout {
 				FillDirection = E.FillDirection.Horizontal,
 				VerticalAlignment = E.VerticalAlignment.Top,
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = UD.new(0, 8),
-			}),
+			},
 		})
 		surfaces.attach(root, rowChildren)
 		ctx.styled(root, "notice")
@@ -584,7 +589,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local label = ctx.text({
 				Name = "Title",
 				Text = function(use: ComposeTypes.Use)
-					return read(title, use) or ""
+					return read<<string?>>(title, use) or ""
 				end,
 				TextWrapped = false,
 				TextTruncate = E.TextTruncate.AtEnd,
@@ -596,7 +601,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local measure = ctx.text({
 				Name = "TitleMeasure",
 				Text = function(use: ComposeTypes.Use)
-					return read(title, use) or ""
+					return read<<string?>>(title, use) or ""
 				end,
 				Visible = false,
 				TextWrapped = false,
@@ -606,18 +611,18 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			measure:AddTag("facet-type-" .. (spec.titleSize or "title"))
 			titleMeasure = measure
 		end
-		local centerProps: Types.FrameNativeProps = {
+		local centerProps: Types.FrameProps = {
 			Name = "Center",
 			BackgroundTransparency = 1,
 			Size = D2.new(0, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 		}
-		centerProps[#centerProps + 1] = Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
-		centerProps[#centerProps + 1] = Host.UIListLayout({
+		centerProps[#centerProps + 1] = Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill }
+		centerProps[#centerProps + 1] = Host.UIListLayout {
 			FillDirection = E.FillDirection.Horizontal,
 			VerticalAlignment = E.VerticalAlignment.Center,
 			SortOrder = E.SortOrder.LayoutOrder,
-		})
+		}
 		if center then
 			centerProps[#centerProps + 1] = center
 		end
@@ -696,11 +701,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				})
 			end
 		end
-		local primaryFlex = Host.UIFlexItem({
+		local primaryFlex = Host.UIFlexItem {
 			FlexMode = function(use: ComposeTypes.Use)
 				return if use(stacked) then E.UIFlexMode.None else E.UIFlexMode.Fill
 			end,
-		})
+		}
 		surfaces.attach(primaryFrame, { primaryFlex })
 		runtime.decorate(primaryFrame, {
 			Size = function(use: ComposeTypes.Use)

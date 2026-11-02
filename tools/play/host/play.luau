@@ -123,7 +123,7 @@ local function arguments(): Arguments
 		devices = chosen
 	end
 	local scores: string? = values.scores
-	local place = if values.place ~= nil then absolute(values.place) else nil
+	local place = if values.place ~= nil then absolute(tostring(values.place)) else nil
 	assert(values.tier == nil or values.tier == "universal" or values.tier == "spec", "invalid --tier")
 	return {
 		workspace = if values.workspace ~= nil

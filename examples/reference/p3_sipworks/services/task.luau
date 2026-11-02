@@ -1,7 +1,7 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 
 local rewardsService = require("./rewards")
@@ -16,8 +16,8 @@ task.PHASES = { "order", "placing", "rejected", "redeem", "done" }
 export type Opts = {
 	Compose: ComposeModule,
 	batch: (() -> ()) -> (),
-	rewards: { earned: ReadOnlyValue<number>, spent: ReadOnlyValue<number> },
-	order: { status: ReadOnlyValue<string> },
+	rewards: { read earned: ReadOnlyValue<number>, read spent: ReadOnlyValue<number> },
+	order: { read status: ReadOnlyValue<string> },
 }
 
 function task.new(opts: Opts)

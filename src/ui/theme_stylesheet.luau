@@ -129,20 +129,22 @@ type ByTiming = { [string]: { [string]: string } }
 local transitionTables = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: ByTiming }
 type Known = { [ThemeTypes.RuleProperties]: boolean }
 local comparisons = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: Known }
-local compiledFor = setmetatable(
-	{} :: { [Engine.RobloxTypes]: { [ThemeTypes.ThemePackage]: { [string]: { NativeRule } } } },
+local compiledFor: { [Engine.RobloxTypes]: { [ThemeTypes.ReadOnlyThemePackage]: { [string]: { NativeRule } } } } = setmetatable(
+	{},
 	{ __mode = "k" }
 )
-local internedFor =
-	setmetatable({} :: { [Engine.RobloxTypes]: { [string]: ThemeTypes.RuleProperties } }, { __mode = "k" })
+local internedFor: { [Engine.RobloxTypes]: { [string]: ThemeTypes.RuleProperties } } = setmetatable(
+	{},
+	{ __mode = "k" }
+)
 
 return function(
-	neutral: ThemeTypes.ThemePackage,
-	rulesFor: (ThemeTypes.ThemePackage, string?, Engine.RobloxTypes) -> { NativeRule },
-	forDistance: (ThemeTypes.ThemePackage, string?) -> ThemeTypes.ThemePackage,
+	neutral: ThemeTypes.ReadOnlyThemePackage,
+	rulesFor: (ThemeTypes.ReadOnlyThemePackage, string?, Engine.RobloxTypes) -> { NativeRule },
+	forDistance: (ThemeTypes.ReadOnlyThemePackage, string?) -> ThemeTypes.ReadOnlyThemePackage,
 	Compose: typeof(ComposeTypes),
 	runtime: ComposeTypes.Runtime,
-	packageOrReadable: Engine.Input<ThemeTypes.ThemePackage>?,
+	packageOrReadable: Engine.Input<ThemeTypes.ReadOnlyThemePackage>?,
 	options: ThemeTypes.ThemeOptions?
 ): StyleSheet
 	local settings: ThemeTypes.ThemeOptions = options or {}
@@ -325,7 +327,7 @@ return function(
 			end)
 		end
 	end
-	local hoverless = setmetatable({} :: { [{ NativeRule }]: { NativeRule } }, { __mode = "k" })
+	local hoverless: { [{ NativeRule }]: { NativeRule } } = setmetatable({}, { __mode = "k" })
 	local function withoutHover(rules: { NativeRule }): { NativeRule }
 		local cached = hoverless[rules]
 		if cached then
@@ -346,8 +348,12 @@ return function(
 	end
 	local defaultTimings: { [string]: TweenInfo } = {}
 	type PaintState = "normal" | "press" | "hover" | "pop" | "instant"
-	local function timingFor(package: ThemeTypes.ThemePackage, role: PaintState, use: ComposeTypes.Use): TweenInfo
-		local explicit = read(settings.transition, use)
+	local function timingFor(
+		package: ThemeTypes.ReadOnlyThemePackage,
+		role: PaintState,
+		use: ComposeTypes.Use
+	): TweenInfo
+		local explicit = read<<(TweenInfo | false)?>>(settings.transition, use)
 		local motion = ((package.metrics or {}) :: { motion: ThemeTypes.MotionMetrics? }).motion
 		local normal = if motion and motion.normal then motion.normal else neutral.metrics.motion.normal
 		local seconds
@@ -367,8 +373,9 @@ return function(
 		elseif role == "normal" then
 			seconds = normal
 		else
-			local authored = if motion then motion[role] else nil
-			seconds = math.min(authored or neutral.metrics.motion[role], normal)
+			local authored = if motion then (if role == "press" then motion.press else motion.hover) else nil
+			local fallback = if role == "press" then neutral.metrics.motion.press else neutral.metrics.motion.hover
+			seconds = math.min(assert(authored or fallback), normal)
 		end
 		local key = `{seconds}|{style}|{direction}`
 		local cached: TweenInfo? = defaultTimings[key]
@@ -462,13 +469,13 @@ return function(
 		table.clear(awaited)
 	end)
 	local definitions: { [string]: NativeRule } = {}
-	local function compiledRules(package: ThemeTypes.ThemePackage, palette: string?): { NativeRule }
+	local function compiledRules(package: ThemeTypes.ReadOnlyThemePackage, palette: string?): { NativeRule }
 		if not support.sealed(package) then
 			return rulesFor(package, palette, types)
 		end
 		local byPackage = compiledFor[types]
 		if byPackage == nil then
-			local fresh: { [ThemeTypes.ThemePackage]: { [string]: { NativeRule } } } = {}
+			local fresh: { [ThemeTypes.ReadOnlyThemePackage]: { [string]: { NativeRule } } } = {}
 			support.weakKeys(fresh)
 			byPackage = fresh
 			compiledFor[types] = byPackage
@@ -511,8 +518,8 @@ return function(
 		lastCompiled[types] = result
 		return result
 	end
-	local scaled = setmetatable(
-		{} :: { [NativeRule]: { preference: number, properties: ThemeTypes.RuleProperties } },
+	local scaled: { [NativeRule]: { preference: number, properties: ThemeTypes.RuleProperties } } = setmetatable(
+		{},
 		{ __mode = "k" }
 	)
 	local function withPreference(definition: NativeRule, preference: number): NativeRule
@@ -621,7 +628,7 @@ return function(
 	local written: { [string]: TweenInfo } = {}
 	local writtenTokens: { [string]: Color3? }? = nil
 	type TimingMemo = { live: { [string]: TweenInfo }?, snapped: { [string]: TweenInfo }? }
-	local timingMemo: { [ThemeTypes.ThemePackage]: TimingMemo } = {}
+	local timingMemo: { [ThemeTypes.ReadOnlyThemePackage]: TimingMemo } = {}
 	support.weakKeys(timingMemo)
 	local applied: { NativeRule }? = nil
 	local appliedArrivals = 0
@@ -635,11 +642,11 @@ return function(
 			render = function(current: ComposeTypes.ReadOnlyValue<string>)
 				local id = current:peek()
 				local initial = definitions[id]
-				local node = Host.StyleRule({
+				local node = Host.StyleRule {
 					Name = initial.id,
 					Selector = initial.selector,
 					Priority = initial.priority,
-				})
+				}
 				local record: MountedRule =
 					{ node = node, priority = initial.priority, timing = TOKENS[stateOf(initial.selector)] }
 				mounted[id] = record
@@ -665,10 +672,10 @@ return function(
 	})
 	local compiled = Compose.formula(function(use: ComposeTypes.Use)
 		local package = forDistance(
-			read(packageOrReadable, use) or neutral,
+			read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use) or neutral,
 			if read(distant, use) == true then "ten-foot" else "near"
 		)
-		return { package = package, rules = compiledRules(package, read(settings.theme, use)) }
+		return { package = package, rules = compiledRules(package, read<<string?>>(settings.theme, use)) }
 	end)
 	Compose.watch(function(use: ComposeTypes.Use)
 		local built = use(compiled)
@@ -682,7 +689,7 @@ return function(
 		if hovering == false then
 			current = withoutHover(current)
 		end
-		local explicit = read(settings.transition, use)
+		local explicit = read<<(TweenInfo | false)?>>(settings.transition, use)
 		local snapped = snaps(use)
 		local memo = if explicit == nil then timingMemo[package] else nil
 		local timings: { [string]: TweenInfo }? = if memo then (if snapped then memo.snapped else memo.live) else nil
@@ -742,8 +749,9 @@ return function(
 				end
 				resized[definition.id] = definition
 				local record = mounted[definition.id]
-				if record then
-					apply(record, definition)
+				if record and record.properties ~= definition.properties then
+					record.node:SetProperties(definition.properties)
+					record.properties = definition.properties
 				end
 			end
 			definitions = resized
@@ -828,9 +836,9 @@ return function(
 			connection:Disconnect()
 		end)
 	end
-	local warmed = setmetatable({} :: { [ThemeTypes.ThemePackage]: boolean }, { __mode = "k" })
+	local warmed: { [ThemeTypes.ReadOnlyThemePackage]: boolean } = setmetatable({}, { __mode = "k" })
 	Compose.watch(function(use: ComposeTypes.Use)
-		local package = read(packageOrReadable, use)
+		local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use)
 		if package == nil or warmed[package] then
 			return
 		end
@@ -844,14 +852,17 @@ return function(
 		end
 		local provider: ContentProvider? = settings.contentProvider
 		if provider == nil and #content > 0 then
-			local globals = getfenv(0)
-			provider = globals.game and globals.game:GetService("ContentProvider")
+			local dataModel: DataModel? = getfenv(0).game
+			if dataModel then
+				provider = dataModel:GetService("ContentProvider")
+			end
 		end
 		if provider and #content > 0 then
+			local target = provider
 			if task then
-				task.spawn(provider.PreloadAsync, provider, content)
+				task.spawn(target.PreloadAsync, target, content)
 			else
-				provider:PreloadAsync(content)
+				target:PreloadAsync(content)
 			end
 		end
 	end)

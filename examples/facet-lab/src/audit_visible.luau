@@ -15,8 +15,10 @@ return function(node: GuiObject, includeOutsideWindow: boolean?): boolean
 			end
 			if not includeOutsideWindow and gui ~= node and gui.ClipsDescendants then
 				local position, size = gui.AbsolutePosition, gui.AbsoluteSize
-				left, top = math.max(left, position.X), math.max(top, position.Y)
-				right, bottom = math.min(right, position.X + size.X), math.min(bottom, position.Y + size.Y)
+				left = math.max(left, position.X)
+				top = math.max(top, position.Y)
+				right = math.min(right, position.X + size.X)
+				bottom = math.min(bottom, position.Y + size.Y)
 				if right <= left or bottom <= top then
 					return false
 				end

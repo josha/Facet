@@ -17,8 +17,9 @@ export type RowState = {
 }
 export type AncestorLevel<V> = { id: string, items: { Nav.MenuItem<V> }, prefix: { string }, depth: number }
 
-return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces)
+return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
+	local readText = read<<string?>>
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local itemModel = MenuItems(ctx)
 	local actionItem, commitItem = itemModel.actionItem, itemModel.commitItem
@@ -30,38 +31,37 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 	)
 		row:AddTag("facet-menu-mark")
 		local state = if ctx.iconVaries(name) then ctx.observe.GuiState(row) else nil
+		local skin: ((ComposeTypes.Use) -> Theme.SkinState)?
+		if state then
+			local activeState = state
+			skin = function(use: ComposeTypes.Use): Theme.SkinState
+				return if read(enabled, use) == false
+					then "disabled"
+					elseif use(activeState) == E.GuiState.Press then "pressed"
+					elseif use(activeState) == E.GuiState.Hover then "hover"
+					elseif selected(use) then "selected"
+					else "default"
+			end
+		end
 		runtime.mountFragment(function()
 			return {
-				Host.UIPadding({
+				Host.UIPadding {
 					PaddingRight = if ctx.config.theme == nil
 						then D.new(0, ctx.controlSize(nil, "iconSize") + 8)
 						else nil,
-				}),
-				ctx.icon(
-					name,
-					{
-						Name = "TrailingIcon",
-						AnchorPoint = V2.new(1, 0.5),
-						Position = function(use: ComposeTypes.Use): UDim2
-							return D2.new(1, ctx.controlSize(nil, "iconSize", use) + 8, 0.5, 0)
-						end,
-					},
-					if state
-						then function(use: ComposeTypes.Use): Theme.SkinState
-							return if read(enabled, use) == false
-								then "disabled"
-								elseif use(state) == E.GuiState.Press then "pressed"
-								elseif use(state) == E.GuiState.Hover then "hover"
-								elseif selected(use) then "selected"
-								else "default"
-						end
-						else nil
-				),
+				},
+				ctx.icon(name, {
+					Name = "TrailingIcon",
+					AnchorPoint = V2.new(1, 0.5),
+					Position = function(use: ComposeTypes.Use): UDim2
+						return D2.new(1, ctx.controlSize(nil, "iconSize", use) + 8, 0.5, 0)
+					end,
+				}, skin),
 			}
 		end, row)
 	end
 	local function hairline(): Frame
-		return ctx.styled(Host.Frame({ Name = "Hairline", Size = D2.new(1, 0, 0, 1), ZIndex = 3 }), "menu-hairline")
+		return ctx.styled(Host.Frame { Name = "Hairline", Size = D2.new(1, 0, 0, 1), ZIndex = 3 }, "menu-hairline")
 	end
 	local function fillTitle(button: GuiObject)
 		local content = button:FindFirstChild("Content")
@@ -74,7 +74,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end
 		if words and not words:FindFirstChildWhichIsA("UIFlexItem") then
 			runtime.mount(function()
-				return Host.UIFlexItem({ FlexMode = ctx.types.Enum.UIFlexMode.Fill })
+				return Host.UIFlexItem { FlexMode = ctx.types.Enum.UIFlexMode.Fill }
 			end, words)
 		end
 	end
@@ -131,7 +131,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			return read(actionItem(use(source)).enabled, use) ~= false
 		end
 		local row: TextButton
-		row = UI.Button({
+		local built: TextButton = UI.Button {
 			Name = rowKey,
 			LayoutOrder = index,
 			AutomaticSize = E.AutomaticSize.Y,
@@ -141,14 +141,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				return D2.new(1, 0, 0, hitFloor(use))
 			end,
 			label = function(use: ComposeTypes.Use)
-				return read(actionItem(use(source)).label, use)
+				return readText(actionItem(use(source)).label, use) or ""
 			end,
 			icon = item.icon,
 			role = item.role,
 			trailingIcon = if simple then nil else trailing,
 			subtitle = if item.description ~= nil or item.avatar ~= nil
 				then function(use: ComposeTypes.Use)
-					return read(actionItem(use(source)).description, use) or ""
+					return readText(actionItem(use(source)).description, use) or ""
 				end
 				else nil,
 			TextXAlignment = E.TextXAlignment.Left,
@@ -168,7 +168,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					close()
 				end
 			end,
-		})
+		}
+		row = built
 		if simple and trailing then
 			trailingMark(row, trailing, selected, enabled)
 		end
@@ -200,14 +201,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		if item.badge ~= nil then
 			table.insert(
 				accessories,
-				UI.Badge({
+				UI.Badge {
 					Name = "Count",
 					LayoutOrder = 1,
 					label = function(use: ComposeTypes.Use): string
 						local badge = read(actionItem(use(source)).badge, use)
 						return if badge == nil then "" else tostring(badge)
 					end,
-				})
+				}
 			)
 		end
 		if item.meta ~= nil then
@@ -215,7 +216,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				Name = "Meta",
 				LayoutOrder = 0,
 				Text = function(use: ComposeTypes.Use): string
-					return read(actionItem(use(source)).meta, use) or ""
+					return readText(actionItem(use(source)).meta, use) or ""
 				end,
 			})
 			meta:AddTag("facet-secondary")
@@ -226,7 +227,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				Name = "Shortcut",
 				LayoutOrder = 2,
 				Text = function(use: ComposeTypes.Use): string
-					return read(actionItem(use(source)).shortcutLabel, use) or ""
+					return readText(actionItem(use(source)).shortcutLabel, use) or ""
 				end,
 			})
 			shortcut:AddTag("facet-secondary")
@@ -241,12 +242,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				Size = D2.fromOffset(0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
 				ZIndex = 2,
-				Host.UIListLayout({
+				Host.UIListLayout {
 					FillDirection = E.FillDirection.Horizontal,
 					SortOrder = E.SortOrder.LayoutOrder,
 					VerticalAlignment = E.VerticalAlignment.Center,
 					Padding = D.new(0, 8),
-				}),
+				},
 				table.unpack(accessories),
 			}
 			surfaces.attach(row, { accessoryFrame })
@@ -268,7 +269,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local rowContent = row:FindFirstChild("Content")
 		if avatar and rowContent then
 			runtime.mount(function()
-				return UI.Avatar({
+				return UI.Avatar {
 					Name = "Avatar",
 					LayoutOrder = 0,
 					name = avatar.name,
@@ -278,7 +279,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					Selectable = false,
 					Active = false,
 					Interactable = false,
-				})
+				}
 			end, rowContent)
 		end
 		local check = if item.children then nil else row:FindFirstChild("TrailingIcon", true)
@@ -346,10 +347,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local hitFloor, path, enter, close = state.hitFloor, state.path, state.enter, state.close
 		local item = row:peek()
 		if item.divider then
-			return ctx.styled(Host.Frame({ Size = D2.new(1, 0, 0, 1), LayoutOrder = index }), "divider")
+			return ctx.styled(Host.Frame { Size = D2.new(1, 0, 0, 1), LayoutOrder = index }, "divider")
 		end
 		local button: GuiObject
-		button = UI.Button({
+		button = UI.Button {
 			Name = item.id,
 			label = item.label,
 			enabled = item.enabled,
@@ -384,7 +385,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					close()
 				end
 			end,
-		})
+		}
 		button:AddTag("facet-menu-item")
 		fillTitle(button)
 		if item.role == "destructive" then

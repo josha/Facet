@@ -1,7 +1,7 @@
 --!strict
 type Context = typeof(require("@repo/examples/types").Context)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Use = <T>(ReadOnlyValue<T>) -> T
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 type ZoomControls = typeof(require("@repo/tools/typecheck/aliases").ZoomControls)
@@ -13,11 +13,11 @@ local source = require("./copy")
 local art = require("./art")
 
 return function(ctx: Context)
-	local UI, H, C, runtime = ctx.UI, ctx.Host, ctx.Compose, ctx.runtime
+	local UI, Host, C, runtime = ctx.UI, ctx.Host, ctx.Compose, ctx.runtime
 	local D2, V2, C3, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 	local theme: ReadOnlyValue<ThemePackage> = ctx.theme or C.cell(ctx.Facet.themes.neutralPackage())
 	local mode: ReadOnlyValue<string> = ctx.themeMode or C.cell(theme:peek().style.defaultTheme)
-	local LocalizationTable = ((H :: unknown) :: {
+	local LocalizationTable = ((Host :: unknown) :: {
 		LocalizationTable: (string) -> ({ SourceLocaleId: string }) -> LocalizationTable,
 	}).LocalizationTable
 	local translations = LocalizationTable "AscentStrings" { SourceLocaleId = "en-us" }
@@ -81,7 +81,8 @@ return function(ctx: Context)
 	end
 	local function reveal(id: string)
 		local view, button = map, nodes[id]
-		if not view or not button or not camera.zoomTo then
+		local zoomTo = camera.zoomTo
+		if not view or not button or not zoomTo then
 			return
 		end
 		local area = view.AbsoluteWindowSize
@@ -100,7 +101,7 @@ return function(ctx: Context)
 		local scale = if ctx.previewScale then ctx.previewScale:peek() else 1
 		local size = area / math.max(0.01, scale) / zoom:peek()
 		local node = model.byId[id]
-		camera.zoomTo({ x = node.x - size.X / 2, y = node.y - size.Y / 2, w = size.X, h = size.Y })
+		zoomTo({ x = node.x - size.X / 2, y = node.y - size.Y / 2, w = size.X, h = size.Y })
 	end
 	local function buy()
 		local before = state:peek()
@@ -133,7 +134,7 @@ return function(ctx: Context)
 		secondary: boolean?,
 		visibleWhen: ((Use) -> boolean)?
 	): GuiObject
-		return UI.Text(name) {
+		return UI.Text(name)({
 			Visible = visibleWhen,
 			text = value,
 			textRole = role or "body",
@@ -142,7 +143,7 @@ return function(ctx: Context)
 			AutomaticSize = E.AutomaticSize.Y,
 			role = if secondary then "secondary" else "content",
 			AutoLocalize = false,
-		}
+		})
 	end
 	local visible = C.formula(function(use: Use): { Node }
 		local result: { Node } = {}
@@ -193,7 +194,7 @@ return function(ctx: Context)
 				then color("content", use):Lerp(color("surfaceStrong", use), 0.35)
 				else color("accent", use)
 		end
-		local body = H.Frame "Gem" {
+		local body = Host.Frame "Gem" {
 			Size = D2.fromOffset(180, 156),
 			Position = D2.fromScale(0.5, 0.5),
 			AnchorPoint = V2.new(0.5, 0.5),
@@ -203,7 +204,7 @@ return function(ctx: Context)
 					return color("accent", use):Lerp(color("contentStrong", use), 0.7)
 				end)
 			end),
-			H.UIScale {
+			Host.UIScale {
 				Scale = function(use: Use)
 					return (0.3 + 0.7 * use(enter)) * (1 + 0.045 * use(emphasis))
 				end,
@@ -221,7 +222,7 @@ return function(ctx: Context)
 			art.hex(ctx, "Face", 164, function(use: Use)
 				return color("surfaceStrong", use):Lerp(ink(use), if use(status) == "owned" then 0.75 else 0.12)
 			end, 5),
-			H.Frame "Emblem" {
+			Host.Frame "Emblem" {
 				ZIndex = 8,
 				Size = D2.fromOffset(48, 48),
 				Position = D2.fromScale(0.5, 0.27),
@@ -276,7 +277,7 @@ return function(ctx: Context)
 				ZIndex = 8,
 			},
 		}
-		local selectionImage = H.Frame "HexFocus" {
+		local selectionImage = Host.Frame "HexFocus" {
 			Size = D2.fromScale(0.3, 0.025),
 			Position = D2.fromScale(0.35, 1.025),
 			AnchorPoint = V2.new(0.5, 0.5),
@@ -285,7 +286,7 @@ return function(ctx: Context)
 			end,
 			BorderSizePixel = 0,
 		}
-		local button = UI.Button("Skill_" .. node.id) {
+		local button = UI.Button("Skill_" .. node.id)({
 			Attributes = { FacetOwnsTaps = true } :: Attributes,
 			name = text("inspect", { name = text(node.id .. "Name") }),
 			SelectionImageObject = C.static(selectionImage),
@@ -305,27 +306,27 @@ return function(ctx: Context)
 					select(node.id)
 				end
 			end,
-			[C.event("MouseEnter")] = function()
+			MouseEnter = function()
 				hovering:set(true)
 			end,
-			[C.event("MouseLeave")] = function()
+			MouseLeave = function()
 				hovering:set(false)
 			end,
-			[C.event("SelectionGained")] = function()
+			SelectionGained = function()
 				hovering:set(true)
 				select(node.id)
 				reveal(node.id)
 			end,
-			[C.event("SelectionLost")] = function()
+			SelectionLost = function()
 				hovering:set(false)
 			end,
-		}
+		})
 		nodes[node.id] = button
 		C.cleanup(function()
 			nodes[node.id] = nil
 		end)
 		local parent = if node.parent then model.byId[node.parent] else node
-		local root = H.Frame("Node_" .. node.id) {
+		local root = Host.Frame("Node_" .. node.id)({
 			Size = D2.fromOffset(180, 156),
 			AnchorPoint = V2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
@@ -335,7 +336,7 @@ return function(ctx: Context)
 			end,
 			body,
 			button,
-		}
+		})
 		target:set(1)
 		return root
 	end
@@ -347,7 +348,7 @@ return function(ctx: Context)
 				local dx, dy = node.x - parent.x, node.y - parent.y
 				table.insert(
 					children,
-					H.Frame("Link_" .. node.id) {
+					Host.Frame("Link_" .. node.id)({
 						Size = D2.fromOffset(math.sqrt(dx * dx + dy * dy), 2),
 						AnchorPoint = V2.new(0.5, 0.5),
 						Position = D2.fromOffset((node.x + parent.x) / 2, (node.y + parent.y) / 2),
@@ -363,7 +364,7 @@ return function(ctx: Context)
 								if use(state).owned[node.id] then 0.8 else 0.22
 							)
 						end,
-					}
+					})
 				)
 			end
 		end
@@ -377,7 +378,10 @@ return function(ctx: Context)
 				render = tile,
 			}
 		)
-		return H.Frame "SkillTreeCanvas" { Size = D2.fromScale(1, 1), BackgroundTransparency = 1, table.unpack(children) }
+		return Host.Frame(
+			{ Size = D2.fromScale(1, 1), BackgroundTransparency = 1, table.unpack(children) },
+			"SkillTreeCanvas"
+		)
 	end
 	local function screen(): Instance
 		map = UI.ZoomView "SkillMap" {

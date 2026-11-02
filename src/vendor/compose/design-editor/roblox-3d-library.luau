@@ -238,7 +238,7 @@ return function(runtime: Compose.Runtime, environment: Environment.Environment):
 						if child ~= nil then
 							ui.set(child, "Parent", model)
 							if ui.isA(child, "BasePart") then
-								offsets[child] = ui.components(ui.get(child, "CFrame"))
+								offsets[ui.node(child)] = ui.components(ui.get(child, "CFrame"))
 							end
 						end
 					end

@@ -37,18 +37,27 @@ local function rotationFromQuaternion(x: number, y: number, z: number, w: number
 	}
 end
 
-local function register(engine: Engine.Engine): { string }
-	local datatypes = engine.datatypes
-	local registered: { string } = {}
+export type Codecs = {
+	Vector2: Compose.Codec<Engine.Vector2>?,
+	Vector3: Compose.Codec<Engine.Vector3>?,
+	Color3: Compose.Codec<Engine.Color3>?,
+	UDim: Compose.Codec<Engine.UDim>?,
+	UDim2: Compose.Codec<Engine.UDim2>?,
+	CFrame: Compose.Codec<Engine.CFrame>?,
+}
 
-	local function add<T>(name: string, codec: Compose.Codec<T>)
-		Compose.registerCodec(name, codec)
-		table.insert(registered, name)
-	end
+export type Source = {
+	read datatypes: Engine.Datatypes,
+	read readCFrame: ((value: Engine.CFrame) -> (number, number, number, { number }))?,
+}
+
+local function create(engine: Source): Codecs
+	local datatypes = engine.datatypes
+	local codecs: Codecs = {}
 
 	local vector2 = datatypes.Vector2
 	if vector2 ~= nil then
-		add("Vector2", {
+		codecs.Vector2 = {
 			arity = 2,
 			encode = function(value: Engine.Vector2, out: { number })
 				out[1], out[2] = value.X, value.Y
@@ -56,12 +65,12 @@ local function register(engine: Engine.Engine): { string }
 			decode = function(c: { number }): Engine.Vector2
 				return vector2(c[1], c[2])
 			end,
-		})
+		}
 	end
 
 	local vector3 = datatypes.Vector3
 	if vector3 ~= nil then
-		add("Vector3", {
+		codecs.Vector3 = {
 			arity = 3,
 			encode = function(value: Engine.Vector3, out: { number })
 				out[1], out[2], out[3] = value.X, value.Y, value.Z
@@ -69,12 +78,12 @@ local function register(engine: Engine.Engine): { string }
 			decode = function(c: { number }): Engine.Vector3
 				return vector3(c[1], c[2], c[3])
 			end,
-		})
+		}
 	end
 
 	local color3 = datatypes.Color3
 	if color3 ~= nil then
-		add("Color3", {
+		codecs.Color3 = {
 			arity = 3,
 			encode = function(value: Engine.Color3, out: { number })
 				out[1], out[2], out[3] = value.R, value.G, value.B
@@ -87,12 +96,12 @@ local function register(engine: Engine.Engine): { string }
 				c[2] = math.clamp(c[2], 0, 1)
 				c[3] = math.clamp(c[3], 0, 1)
 			end,
-		})
+		}
 	end
 
 	local udim = datatypes.UDim
 	if udim ~= nil then
-		add("UDim", {
+		codecs.UDim = {
 			arity = 2,
 			encode = function(value: Engine.UDim, out: { number })
 				out[1], out[2] = value.Scale, value.Offset
@@ -100,12 +109,12 @@ local function register(engine: Engine.Engine): { string }
 			decode = function(c: { number }): Engine.UDim
 				return udim(c[1], math.round(c[2]))
 			end,
-		})
+		}
 	end
 
 	local udim2 = datatypes.UDim2
 	if udim2 ~= nil then
-		add("UDim2", {
+		codecs.UDim2 = {
 			arity = 4,
 			encode = function(value: Engine.UDim2, out: { number })
 				out[1], out[2] = value.X.Scale, value.X.Offset
@@ -114,13 +123,13 @@ local function register(engine: Engine.Engine): { string }
 			decode = function(c: { number }): Engine.UDim2
 				return udim2(c[1], math.round(c[2]), c[3], math.round(c[4]))
 			end,
-		})
+		}
 	end
 
 	local cframe = datatypes.CFrame
 	local readCFrame = engine.readCFrame
-	if cframe ~= nil and readCFrame ~= nil and vector3 ~= nil then
-		add("CFrame", {
+	if cframe ~= nil and readCFrame ~= nil then
+		codecs.CFrame = {
 			arity = 7,
 			encode = function(value: Engine.CFrame, out: { number })
 				local x, y, z, rotation = readCFrame(value)
@@ -141,16 +150,16 @@ local function register(engine: Engine.Engine): { string }
 				c[4], c[5], c[6], c[7] = c[4] / length, c[5] / length, c[6] / length, c[7] / length
 			end,
 			decode = function(c: { number }): Engine.CFrame
-				return cframe(vector3(c[1], c[2], c[3]), rotationFromQuaternion(c[4], c[5], c[6], c[7]))
+				return cframe({ X = c[1], Y = c[2], Z = c[3] }, rotationFromQuaternion(c[4], c[5], c[6], c[7]))
 			end,
-		})
+		}
 	end
 
-	return registered
+	return codecs
 end
 
 return {
-	register = register,
+	create = create,
 	quaternionFromRotation = quaternionFromRotation,
 	rotationFromQuaternion = rotationFromQuaternion,
 }

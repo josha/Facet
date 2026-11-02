@@ -13,6 +13,7 @@ export type Pointer<K> = {
 return function<V, K>(shared: State.Reorder<V, K>): Pointer<K>
 	local ctx, spec, gesture = shared.ctx, shared.spec, shared.gesture
 	local read = ctx.read
+	local readSource = ctx.readSource
 	local V2, E = ctx.types.Vector2, ctx.types.Enum
 	local moving, source = shared.moving, shared.source
 	local reorderable, arbiter = shared.reorderable, shared.arbiter
@@ -46,7 +47,7 @@ return function<V, K>(shared: State.Reorder<V, K>): Pointer<K>
 		local options: DragTypes.SourceSpec? = nil
 		if (touch or value.UserInputType == E.UserInputType.MouseButton1) and spec.drag then
 			local items, keys = {}, {}
-			local selected = read(shared.selection)
+			local selected = readSource(shared.selection)
 			for index, item in read(spec.selectionFrom or source) do
 				local candidate = shared.keyOf(item, index)
 				if shared.movable(item) and (candidate == key or (selected[key] and selected[candidate])) then

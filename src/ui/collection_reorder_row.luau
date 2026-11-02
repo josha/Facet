@@ -83,12 +83,12 @@ return function<V, K>(
 						Name = "ReorderIcon",
 						AnchorPoint = V2.new(0.5, 0.5),
 						Position = D2.fromScale(0.5, 0.5),
-					}) :: ComposeTypes.Child,
+					}),
 					enabled = function(use: ComposeTypes.Use)
 						return movable(use(current)) and read(sort, use) == nil
 					end,
 					onActivate = activate,
-					ctx.Host.UIDragDetector({
+					ctx.Host.UIDragDetector {
 						DragStyle = if grid
 							then E.UIDragDetectorDragStyle.TranslatePlane
 							else E.UIDragDetectorDragStyle.TranslateLine,
@@ -140,9 +140,9 @@ return function<V, K>(
 								commit()
 							end
 						end,
-					}),
+					},
 				}
-				local handle = UI.Button(handleProps)
+				local handle: TextButton = UI.Button(handleProps)
 				handleNode = handle
 				if handle then
 					ctx.runtime.connect(handle, "InputBegan", function(value: InputObject)
@@ -236,7 +236,7 @@ return function<V, K>(
 								ctx.corner(4) :: Types.Child,
 							},
 							"fill"
-						)) :: Types.Child,
+						)),
 				},
 				"radio-mark"
 			)
@@ -324,7 +324,7 @@ return function<V, K>(
 				movePointer(position)
 			end
 		end
-		local detector = Host.UIDragDetector({
+		local detector = Host.UIDragDetector {
 			Name = "FacetCollectionDrag",
 			DragStyle = E.UIDragDetectorDragStyle.TranslatePlane,
 			ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
@@ -394,7 +394,7 @@ return function<V, K>(
 					end
 				end
 			end,
-		})
+		}
 		detector.Parent = row
 		Compose.cleanup(activation.provideDrag(frame, function(phase, position)
 			if phase == "start" then

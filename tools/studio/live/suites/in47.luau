@@ -1,9 +1,19 @@
 --!strict
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
+type StringRadialAction = typeof(require("@repo/tools/typecheck/aliases").StringRadialAction)
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
+type Built = { read screen: () -> Instance } | (() -> Instance)
+local noSelection: { [string]: boolean } = {}
+type SelectionCell = typeof(require("@repo/src/vendor/compose/core").cell(noSelection))
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").IdNameTableColumn)
+type Score = { id: string, name: string }
+type NumberMapCell = typeof(require("@repo/tools/typecheck/aliases").NumberMapCell)
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -229,27 +239,29 @@ local function hits(at: Vector2): { GuiObject }
 end
 
 local function example(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
-	local built
+	local built: Built
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local ctx = t.context(UI, Host, Compose, env)
 		if patch then
 			patch(ctx)
 		end
-		built = (require :: any)(storage:WaitForChild("FacetExamples"):WaitForChild(name)).build(ctx)
-		return if type(built) == "function" then built() else built.screen()
+		local current: Built = (require :: any)(storage:WaitForChild("FacetExamples"):WaitForChild(name)).build(ctx)
+		built = current
+		return if type(current) == "function" then current() else current.screen()
 	end, { frames = 20, size = size })
 	return stage, built
 end
 
 local function scenario(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
-	local built
+	local built: Built
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local ctx = t.context(UI, Host, Compose, env)
 		if patch then
 			patch(ctx)
 		end
-		built = t.scenario(name).build(ctx)
-		return if type(built) == "function" then built() else built.screen()
+		local current: Built = t.scenario(name).build(ctx)
+		built = current
+		return if type(current) == "function" then current() else current.screen()
 	end, { frames = 20, size = size })
 	return stage, built
 end
@@ -363,7 +375,7 @@ add("confirm-dialog-keyboard-to-cancel", {}, function(t: any)
 	t.check(
 		"Up cannot leave the dialog",
 		selectedName() == "Cancel" or selectedName() == "Confirm",
-		{ selectedName() :: unknown, inside :: unknown }
+		{ selectedName(), inside }
 	)
 	GuiService.SelectedObject = cancel
 	t.settle(2)
@@ -412,7 +424,7 @@ add("with-animation-four-inputs", {}, function(t: any)
 	t.settle(2)
 	io.key(Enum.KeyCode.Return)
 	t.check("Return on the selected button animates once more", built.report().runs == 2, built.report())
-	local reduced = t.find(stage, "Reduced")
+	local reduced: GuiObject? = t.find(stage, "Reduced")
 	local target = textBox(reduced) or reduced
 	local button = if reduced and reduced:IsA("GuiButton")
 		then reduced
@@ -615,14 +627,14 @@ local function chromeBar(t: any): (any, any, any)
 					onActivate = function()
 						table.insert(pressed, "Left")
 					end,
-				} :: unknown,
+				},
 				UI.Button "Right" {
 					label = "Right",
 					onActivate = function()
 						table.insert(pressed, "Right")
 					end,
 				},
-			} :: unknown,
+			},
 			Host.Frame "Content" {
 				Position = UDim2.fromOffset(0, 200),
 				Size = UDim2.fromOffset(300, 100),
@@ -691,21 +703,22 @@ add("pad-chrome-press-activates-once", {}, function(t: any)
 end)
 
 local function fieldForm(t: any): (any, any)
-	local value = { commits = {}, changes = {} }
+	local value: { commits: { { string } }, changes: { string }, text: StringCell?, field: TextBox?, next: GuiObject? } =
+		{ commits = {}, changes = {} }
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		value.text = Compose.cell("seed")
 		return UI.VStack "Form" {
 			gap = "s",
 			UI.TextInput "Name" {
-				value = value.text,
-				onChange = function(text)
+				value = assert(value.text),
+				onChange = function(text: string)
 					table.insert(value.changes, text)
-					value.text:set(text)
+					assert(value.text):set(text)
 				end,
 				onCommit = function(text: string, reason: "focusLost" | "submit")
 					table.insert(value.commits, { text, reason })
 				end,
-			} :: unknown,
+			},
 			UI.Button "Next" { label = "Next" },
 		}
 	end, { frames = 12 })
@@ -873,17 +886,18 @@ local function radial(t: any, options: { [string]: any }?): { [string]: any }
 		value.open = Compose.cell(false)
 		local items: { RadialItem } = {}
 		for _, entry in COMPASS do
-			table.insert(items, {
+			local item: StringRadialAction = {
 				id = entry[1],
-				slot = entry[1] :: "N" | "E" | "S" | "W",
 				label = entry[1],
 				icon = entry[2],
 				labelStyle = if config.iconOnly then "icon" :: "icon" else nil,
 				completion = "stay" :: "stay",
+				slot = entry[1] :: "N" | "E" | "S" | "W",
 				onSelect = function()
 					table.insert(value.fired, entry[1])
 				end,
-			})
+			}
+			table.insert(items, item)
 		end
 		return UI.RadialMenu "Quick" {
 			isPresented = value.open,
@@ -961,7 +975,7 @@ add("pad-radial-held-dpad-steps-once", {}, function(t: any)
 	io.warm()
 	GuiService.SelectedObject = north
 	t.settle(4)
-	local visited = {}
+	local visited: { string } = {}
 	local watch = GuiService:GetPropertyChangedSignal("SelectedObject"):Connect(function()
 		table.insert(visited, selectedName())
 	end)
@@ -1003,7 +1017,7 @@ add("pad-radial-held-stick-rests", {}, function(t: any)
 	io.warm()
 	GuiService.SelectedObject = south
 	t.settle(4)
-	local visited = {}
+	local visited: { string } = {}
 	local watch = GuiService:GetPropertyChangedSignal("SelectedObject"):Connect(function()
 		table.insert(visited, selectedName())
 	end)
@@ -1252,14 +1266,18 @@ end
 
 local function tableProbe(t: any): (any, any)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.Table "Scores" {
-			from = { { id = "a", name = "Alpha" }, { id = "b", name = "Bravo" } },
+		local columns1265: { TableColumn } = {
+			{ id = "name", label = "Name", width = 160, minWidth = 60, maxWidth = 300 },
+		}
+		local scores: { Score } = { { id = "a", name = "Alpha" }, { id = "b", name = "Bravo" } }
+		local widths: NumberMapCell = Compose.cell({})
+		return (UI.Table :: any) {
+			Name = "Scores",
+			from = scores,
 			key = "id",
-			widths = Compose.cell({}),
+			widths = widths,
 			Size = UDim2.fromOffset(400, 200),
-			columns = {
-				{ id = "name", label = "Name", width = 160, minWidth = 60, maxWidth = 300 },
-			},
+			columns = columns1265,
 		}
 	end, { size = Vector2.new(600, 400), frames = 20 })
 	return t.find(stage, "Header"), t.find(stage, "Resize")
@@ -1473,9 +1491,9 @@ add("native-context-arbitration", {}, function(t: any)
 					Released = function()
 						value.highReleased += 1
 					end,
-					Host.InputBinding({ KeyCode = Enum.KeyCode.X }),
+					Host.InputBinding { KeyCode = Enum.KeyCode.X },
 				},
-			} :: unknown,
+			},
 			Host.InputContext "Low" {
 				Priority = 1000,
 				Sink = false,
@@ -1484,7 +1502,7 @@ add("native-context-arbitration", {}, function(t: any)
 					Pressed = function()
 						value.low += 1
 					end,
-					Host.InputBinding({ KeyCode = Enum.KeyCode.X }),
+					Host.InputBinding { KeyCode = Enum.KeyCode.X },
 				},
 			},
 		}
@@ -1558,7 +1576,7 @@ local function shortcutPair(t: any): any
 				onActivate = function()
 					value.plain += 1
 				end,
-			} :: unknown,
+			},
 			UI.Button "Shifted" {
 				label = "Shift K",
 				shortcut = { keyCode = "K", modifiers = { shift = true } },
@@ -1655,7 +1673,7 @@ add("editing-sinks-lower-navigation", {}, function(t: any)
 				Pressed = function()
 					moved += 1
 				end,
-				Host.InputBinding({ KeyCode = Enum.KeyCode.Down }),
+				Host.InputBinding { KeyCode = Enum.KeyCode.Down },
 			},
 		}
 	end, { frames = 6 })
@@ -1688,7 +1706,7 @@ add("actions-released-with-their-owner", {}, function(t: any)
 	local io = device(t)
 	local baseline = #contexts()
 	local fired = 0
-	t.mount(function(UI: FacetControls)
+	t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.VStack "Owned" {
 			UI.Button "Save" {
 				label = "Save",
@@ -1696,9 +1714,9 @@ add("actions-released-with-their-owner", {}, function(t: any)
 				onActivate = function()
 					fired += 1
 				end,
-			} :: unknown,
+			},
 			UI.Button "Close" { label = "Close", dialogAction = "cancel" :: "cancel" },
-			UI.TextInput "Name" { value = "seed", onChange = function() end },
+			UI.TextInput "Name" { value = Compose.cell("seed"), onChange = function() end },
 		}
 	end, { frames = 12 })
 	local mounted = #contexts()
@@ -1823,7 +1841,7 @@ local function hoverProbe(t: any, value: any): any
 					onActivate = function()
 						value.activated += 1
 					end,
-				} :: unknown,
+				},
 				UI.Text "Caption" { text = "A caption" },
 			},
 		}
@@ -1950,7 +1968,7 @@ end, {
 
 add("help-leaves-with-its-surface", {}, function(t: any)
 	local io = device(t)
-	local open
+	local open: BooleanCell
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		open = Compose.cell(true)
 		return UI.Sheet "Editor" {
@@ -1984,7 +2002,7 @@ add("help-leaves-with-its-surface", {}, function(t: any)
 end)
 
 local function sliderProbe(t: any): (any, any)
-	local value
+	local value: NumberCell
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		value = Compose.cell(0)
 		return Host.Frame "Holder" {
@@ -2007,20 +2025,18 @@ local function sliderDrag(t: any, io: any, stage: any, value: any, where: string
 	local r = t.rect(track)
 	local y = r.y + r.h / 2
 	local samples = {}
-	local watches = {}
+	local watches: { RBXScriptConnection } = {}
 	for _, detector in track:GetDescendants() do
 		if detector:IsA("UIDragDetector") then
-			table.insert(
-				watches,
-				detector.DragContinue:Connect(function(position)
-					table.insert(samples, {
-						detector = detector.Parent.Name,
-						pointer = position,
-						track = t.rect(track),
-						value = value:peek(),
-					})
-				end)
-			)
+			local connection: RBXScriptConnection = detector.DragContinue:Connect(function(position: Vector2)
+				table.insert(samples, {
+					detector = detector.Parent.Name,
+					pointer = position,
+					track = t.rect(track),
+					value = value:peek(),
+				})
+			end)
+			table.insert(watches, connection)
 		end
 	end
 	t.note(`{where} track before`, r)
@@ -2050,20 +2066,25 @@ end)
 
 add("pad-table-row-a-selects", {}, function(t: any)
 	local io = device(t)
-	local selection
+	local selection: SelectionCell
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		selection = Compose.cell({})
-		return UI.Table "Scores" {
-			from = { { id = "a", name = "Alpha" }, { id = "b", name = "Bravo" }, { id = "c", name = "Charlie" } },
+		local columns2064: { TableColumn } = { { id = "name", label = "Name" } }
+		local made: SelectionCell = Compose.cell({})
+		selection = made
+		local scores: { Score } =
+			{ { id = "a", name = "Alpha" }, { id = "b", name = "Bravo" }, { id = "c", name = "Charlie" } }
+		return (UI.Table :: any) {
+			Name = "Scores",
+			from = scores,
 			key = "id",
-			selection = selection,
+			selection = made,
 			selectionMode = "multiple" :: "multiple",
 			editing = true,
 			Size = UDim2.fromOffset(400, 240),
-			columns = { { id = "name", label = "Name" } },
+			columns = columns2064,
 		}
 	end, { size = Vector2.new(600, 400), frames = 20 })
-	local rows = {}
+	local rows: { GuiButton } = {}
 	for _, node in stage:GetDescendants() do
 		if
 			node:IsA("GuiButton")
@@ -2074,7 +2095,7 @@ add("pad-table-row-a-selects", {}, function(t: any)
 			table.insert(rows, node)
 		end
 	end
-	table.sort(rows, function(a, b)
+	table.sort(rows, function(a: GuiButton, b: GuiButton)
 		return a.AbsolutePosition.Y < b.AbsolutePosition.Y
 	end)
 	t.check("the table rows are selection stops", #rows >= 3, #rows)

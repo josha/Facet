@@ -47,7 +47,7 @@ local function run(t: Context)
 			measure = true,
 			measured = external,
 			render = function(): Frame
-				return Host.Frame({ Size = UDim2.fromOffset(100, 35) })
+				return Host.Frame { Size = UDim2.fromOffset(100, 35) }
 			end,
 		}
 		return UI.Outline(spec)

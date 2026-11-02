@@ -5,7 +5,7 @@ return function(ctx: Types.Context, frame: ScrollingFrame, source: Types.Input<V
 	if source == nil then
 		return
 	end
-	local pending: Vector2? = ctx.read(source)
+	local pending: Vector2? = ctx.read<<Vector2?>>(source)
 	local canvas = ctx.observe.AbsoluteCanvasSize(frame)
 	local window = ctx.observe.AbsoluteWindowSize(frame)
 	local function cancel(input: InputObject)

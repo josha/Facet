@@ -4,10 +4,11 @@ type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Compose = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type Types = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
+type DraggableSpec = typeof(require("@repo/tools/typecheck/aliases").DraggableSpec)
 type Placement = typeof(require("@repo/tools/typecheck/aliases").SpatialPlacement)
 type DropInfo = typeof(require("@repo/tools/typecheck/aliases").DropInfo)
 type Phase = typeof(require("@repo/tools/typecheck/aliases").TransitionContext)
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type Use = <T>(ReadOnlyValue<T>) -> T
 type Live = {
 	mount: (
@@ -56,7 +57,7 @@ local function inventory(t: Live, width: number)
 			footprint = function(): Vector2
 				return Vector2.new(2, 2)
 			end,
-			drag = function()
+			drag = function(): DraggableSpec
 				return { payload = "Pack", returnTravel = false }
 			end,
 			drop = {

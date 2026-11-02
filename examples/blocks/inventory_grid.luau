@@ -4,7 +4,7 @@ local FacetTypes = require("../../src")
 type Use = FacetTypes.Use
 type FacetModule = FacetTypes.Facet
 type FacetControls = FacetTypes.Controls
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
+type ReadOnlyValue<T> = FacetTypes.ReadOnlyValue<T>
 type Item = { id: string, name: string, description: string, slot: string }
 type Model = {
 	items: ReadOnlyValue<{ Item }>,

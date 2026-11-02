@@ -6,10 +6,8 @@ local clock = {}
 
 export type Scheduled = { at: number, seq: number, fn: () -> (), cancelled: boolean }
 
-type ReadOnlyValue<T> = { peek: (ReadOnlyValue<T>) -> T }
-type Value<T> =
-	ReadOnlyValue<T>
-	& { set: (Value<T>, T) -> (), update: (Value<T>, (T) -> T) -> (), dispose: (Value<T>) -> () }
+type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
+type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 export type Handle = { cancel: () -> () }
 export type Clock = {
 	nowSignal: Value<number>,

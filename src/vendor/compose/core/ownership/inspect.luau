@@ -1,68 +1,17 @@
 --!strict
-
-local Nodes = require "./nodes"
 local Weak = require "../weak"
 
-export type Options = {
-	maxOwners: number?,
-	maxNodes: number?,
-}
+local Types = require "../reactive/types"
+local Nodes = require "./nodes"
 
-export type OwnerReport = {
-	id: number,
-	label: string?,
-	holding: number,
-	disposed: boolean,
-	owned: number,
-	adopted: number,
-	borrowed: number,
-	watches: number,
-	cleanups: number,
-	children: { OwnerReport },
-	totalHolding: number,
-	totalOwned: number,
-	totalAdopted: number,
-	totalBorrowed: number,
-	totalWatches: number,
-	totalCleanups: number,
-	descendants: number,
-	unclassified: number,
-}
-
-export type NodeReport = {
-	custody: string,
-	label: string?,
-	ownerId: number?,
-	ownerLabel: string?,
-	because: string,
-}
-
-export type Report = {
-	active: boolean,
-	mounts: { OwnerReport },
-	detached: { OwnerReport },
-	outstandingMounts: number,
-
-	trackedNodes: number,
-	pending: number,
-	droppedOwners: number,
-	droppedNodes: number,
-}
+export type Options = Types.InspectOptions
+export type OwnerReport = Types.InspectOwnerReport
+export type NodeReport = Types.InspectNodeReport
+export type Report = Types.InspectReport
+export type Data = Types.InspectData
 
 local DEFAULT_MAX_OWNERS = 4096
 local DEFAULT_MAX_NODES = 16384
-
-export type Data = {
-	schemaVersion: number,
-	active: boolean,
-	outstandingMounts: number,
-	trackedNodes: number,
-	pending: number,
-	droppedOwners: number,
-	droppedNodes: number,
-	mounts: { OwnerReport },
-	detached: { OwnerReport },
-}
 
 export type Record = {
 	id: number,
@@ -73,16 +22,16 @@ export type Record = {
 	watches: number,
 	cleanups: number,
 
-	children: { [unknown]: true },
+	children: { [Types.Owner]: true },
 	childCount: number,
 	isChild: boolean,
 	isMount: boolean,
 }
 
 export type State = {
-	records: { [unknown]: Record },
+	records: { [Types.Owner]: Record },
 
-	ordered: { [number]: unknown },
+	ordered: { [number]: Types.Owner },
 	orderedCount: number,
 	nextId: number,
 	maxOwners: number,
@@ -95,7 +44,7 @@ export type State = {
 }
 
 local state: State? = nil
-local flag = { active = false }
+local flag = Nodes.inspecting
 
 local function isActive(): boolean
 	return state ~= nil
@@ -112,7 +61,7 @@ local function guarded(body: (State) -> ())
 	end
 end
 
-local function recordFor(owner: unknown): Record?
+local function recordFor(owner: Types.Owner): Record?
 	local held = state
 	if held == nil then
 		return nil
@@ -126,7 +75,7 @@ local function recordFor(owner: unknown): Record?
 		return nil
 	end
 	held.nextId += 1
-	local children: { [unknown]: true } = {}
+	local children: { [Types.Owner]: true } = {}
 	Weak.keys(children)
 	local record: Record = {
 		id = held.nextId,
@@ -147,7 +96,7 @@ local function recordFor(owner: unknown): Record?
 	return record
 end
 
-local function node(owner: unknown, subject: unknown, custody: string)
+local function node(owner: Types.Owner, subject: unknown, custody: string)
 	guarded(function(held)
 		local record = recordFor(owner)
 		if record == nil then
@@ -169,7 +118,7 @@ local function node(owner: unknown, subject: unknown, custody: string)
 	end)
 end
 
-local function mount(owner: unknown)
+local function mount(owner: Types.Owner)
 	guarded(function()
 		local record = recordFor(owner)
 		if record ~= nil then
@@ -178,7 +127,7 @@ local function mount(owner: unknown)
 	end)
 end
 
-local function watch(owner: unknown)
+local function watch(owner: Types.Owner)
 	guarded(function()
 		local record = recordFor(owner)
 		if record ~= nil then
@@ -187,7 +136,7 @@ local function watch(owner: unknown)
 	end)
 end
 
-local function cleanup(owner: unknown)
+local function cleanup(owner: Types.Owner)
 	guarded(function()
 		local record = recordFor(owner)
 		if record ~= nil then
@@ -196,7 +145,7 @@ local function cleanup(owner: unknown)
 	end)
 end
 
-local function child(parent: unknown, subject: unknown)
+local function child(parent: Types.Owner, subject: Types.Owner)
 	guarded(function()
 		local parentRecord = recordFor(parent)
 		local childRecord = recordFor(subject)
@@ -211,7 +160,7 @@ local function child(parent: unknown, subject: unknown)
 	end)
 end
 
-local function label(owner: unknown, name: string)
+local function label(owner: Types.Owner, name: string)
 	guarded(function()
 		local record = recordFor(owner)
 		if record ~= nil then
@@ -222,9 +171,9 @@ end
 
 local function start(options: Options?)
 	local settings: Options = options or {}
-	local records: { [unknown]: Record } = {}
+	local records: { [Types.Owner]: Record } = {}
 	Weak.keys(records)
-	local ordered: { [number]: unknown } = {}
+	local ordered: { [number]: Types.Owner } = {}
 	Weak.values(ordered)
 	local nodeOwner: { [unknown]: Record } = {}
 	Weak.keys(nodeOwner)

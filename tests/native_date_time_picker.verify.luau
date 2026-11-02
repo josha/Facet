@@ -9,6 +9,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local Compose = require("../src/vendor/compose/core")
 	local Roblox = require("../src/vendor/compose/roblox")
+	local Facet = require("../src")
 	local controls = require("../src/ui")
 	local themes = require("../src/ui/themes")
 	local civil: any = require("../src/ui/civil_date")
@@ -80,7 +81,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local PREFERRED = { pointer = "KeyboardAndMouse", touch = "Touch", pad = "Gamepad" }
 
-	local function world(build: (any, any) -> any, options: any?): any
+	local function world(build: (FacetControls, RobloxHost) -> Instance, options: any?): any
 		local o = options or {}
 		local engine: any = engines.new()
 		local gui = engine.new("GuiService")
@@ -97,7 +98,7 @@ return function(verifyHarness: Verify.Harness)
 		end
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local errors: { any } = {}
-		local UI: any = controls(
+		local UI: FacetControls = controls(
 			Compose,
 			runtime,
 			{
@@ -111,10 +112,10 @@ return function(verifyHarness: Verify.Harness)
 		)
 		local target = engine.new("Folder")
 		local view = o.viewport or { w = 600, h = 900 }
+		local Host = Facet.host(runtime)
 		local stop, screen: any = runtime.mount(function()
-			return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
-				build(UI, runtime.constructors),
-			})
+			local content: Instance = build(UI, Host)
+			return Host.ScreenGui { content }
 		end, target)
 		engine.environment.poke(screen, "AbsoluteSize", engine.types.Vector2.new(view.w, view.h))
 		local w: any = {
@@ -182,16 +183,16 @@ return function(verifyHarness: Verify.Harness)
 		return w
 	end
 
-	local function mount(spec: any, options: any?): any
-		local full: { [any]: any } = table.clone(spec)
+	local function mount(spec: typeof(require("@repo/tools/typecheck/aliases").DateTimePickerProps), options: any?): any
+		local full: typeof(require("@repo/tools/typecheck/aliases").DateTimePickerProps) = table.clone(spec)
 		full.clock = full.clock or clock
 		local w = world(function(UI: FacetControls, Host: RobloxHost)
-			return Host.Frame({
+			return Host.Frame {
 				Name = "Col",
-				Host.UIListLayout({}) :: unknown,
+				Host.UIListLayout {},
 				UI.DateTimePicker "P"(full),
-				UI.Button("Other")({ label = "Other" }),
-			})
+				UI.Button "Other" { label = "Other" },
+			}
 		end, options)
 		w.weekStart = full.weekStart or 1
 		return w
@@ -977,22 +978,22 @@ return function(verifyHarness: Verify.Harness)
 						end
 					end
 					local w = world(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame({
+						return Host.Frame {
 							Name = "Pickers",
-							Host.UIListLayout({}) :: unknown,
-							UI.Toggle("Refuse")({ label = "Refuse changes", value = refuse }),
-							UI.Text("Committed")({
+							Host.UIListLayout {},
+							UI.Toggle "Refuse" { label = "Refuse changes", value = refuse },
+							UI.Text "Committed" {
 								text = function(use: any): string
 									return `Committed: {use(committed)}`
 								end,
-							}),
-							UI.DateTimePicker("RaceDay")({
+							},
+							UI.DateTimePicker "RaceDay" {
 								label = "Race day",
 								value = raceDay,
 								onChange = accept(raceDay),
 								clock = clock,
-							}),
-							UI.DateTimePicker("Window")({
+							},
+							UI.DateTimePicker "Window" {
 								label = "Season window",
 								selection = "range" :: "range",
 								range = window,
@@ -1014,8 +1015,8 @@ return function(verifyHarness: Verify.Harness)
 										end,
 									},
 								},
-							}),
-						})
+							},
+						}
 					end, { input = "touch" })
 					local line = must(w.screen, "Committed")
 					local text = if line:IsA("TextLabel") then line else line:FindFirstChildWhichIsA("TextLabel", true)
@@ -1132,7 +1133,7 @@ return function(verifyHarness: Verify.Harness)
 							clock = clock,
 						})
 					end
-					return Host.Frame({ Name = "Col", Host.UIListLayout({}) :: unknown, picker("A"), picker("B") })
+					return Host.Frame { Name = "Col", Host.UIListLayout {}, picker("A"), picker("B") }
 				end, { input = "pad" })
 				for _, id in { "A", "B" } do
 					local last = 0
