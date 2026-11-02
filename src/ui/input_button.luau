@@ -80,6 +80,32 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 	end
 	local escapeRich = richText.escape
 	local idle: ComposeTypes.Directive = function() end
+	local function sized(label: TextLabel | TextButton, textSize: Shared.Input<(number | Shared.TextRole)?>?)
+		if textSize == nil then
+			return
+		end
+		local function apply(value: (string | number)?)
+			for role in typeRoles do
+				if value ~= role and label:HasTag("facet-type-" .. role) then
+					label:RemoveTag("facet-type-" .. role)
+				end
+			end
+			if type(value) == "string" then
+				assert(typeRoles[value], "Facet.Button: textSize must be a type role or a positive number")
+				label:AddTag("facet-type-" .. value)
+				label:ResetPropertyToDefault("TextSize")
+			elseif type(value) == "number" then
+				label.TextSize = value
+			end
+		end
+		if dynamic(textSize) then
+			Compose.watch(function(use: ComposeTypes.Use)
+				apply(read<<(number | Shared.TextRole)?>>(textSize, use))
+			end)
+		else
+			apply(read<<(number | Shared.TextRole)?>>(textSize))
+		end
+	end
 	UI.Button = ctx.construct("Button", function(spec: InputProps.ButtonProps): TextButton
 		local onActivate = spec.onActivate
 		assert(
@@ -373,33 +399,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				return if underline == "always" or use(assert(engaged)) then `<u>{words}</u>` else words
 			end
 		end
-		local function sized(label: TextLabel | TextButton)
-			local function apply(value: (string | number)?)
-				for role in typeRoles do
-					if value ~= role and label:HasTag("facet-type-" .. role) then
-						label:RemoveTag("facet-type-" .. role)
-					end
-				end
-				if type(value) == "string" then
-					assert(typeRoles[value], "Facet.Button: textSize must be a type role or a positive number")
-					label:AddTag("facet-type-" .. value)
-					label:ResetPropertyToDefault("TextSize")
-				elseif type(value) == "number" then
-					if label:IsA("TextButton") then
-						label.TextSize = value
-					elseif label:IsA("TextLabel") then
-						label.TextSize = value
-					end
-				end
-			end
-			if dynamic(spec.textSize) then
-				Compose.watch(function(use: ComposeTypes.Use)
-					apply(read<<(number | Shared.TextRole)?>>(spec.textSize, use))
-				end)
-			elseif spec.textSize ~= nil then
-				apply(read<<(number | Shared.TextRole)?>>(spec.textSize))
-			end
-		end
 		p.Activated = function(input: InputObject, clicks: number)
 			if not repeated then
 				activate(input, clicks)
@@ -594,7 +593,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			inputHint.Parent = node
 		end
 		if not rich then
-			sized(node)
+			sized(node, spec.textSize)
 			if spec.shape ~= "circle" then
 				local sizing = ctx.observe.AutomaticSize(node)
 				runtime.mountFragment(function()

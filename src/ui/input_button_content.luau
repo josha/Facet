@@ -13,7 +13,7 @@ return function(
 	p: InputProps.ButtonProps,
 	iconState: ComposeTypes.Value<ThemeTypes.SkinState>?,
 	bounded: boolean,
-	sized: (TextLabel | TextButton) -> (),
+	sized: (TextLabel | TextButton, Shared.Input<(number | Shared.TextRole)?>?) -> (),
 	hint: GuiObject?
 ): (boolean, ((GuiObject) -> ())?)
 	local runtime, Host, read = ctx.runtime, ctx.Host, ctx.read
@@ -203,7 +203,7 @@ return function(
 				TextWrapped = if stacked then sizing(true, false) else imageCard,
 			})
 			if name == "Title" then
-				sized(made)
+				sized(made, spec.textSize)
 				if bounded then
 					runtime.decorate(made, { TextTruncate = sizing(E.TextTruncate.AtEnd, E.TextTruncate.None) })
 					runtime.mount(function()
