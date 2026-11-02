@@ -1,6 +1,8 @@
 --!strict
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
-type StringRadialItem = typeof(require("@repo/tools/typecheck/aliases").StringRadialItem)
+type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 type StringRadialAction = typeof(require("@repo/tools/typecheck/aliases").StringRadialAction)
 type NavigationEntry = typeof(require("@repo/tools/typecheck/aliases").NavigationEntry)
 type NavigationStackSpec = typeof(require("@repo/tools/typecheck/aliases").NavigationStackSpec)
@@ -1024,17 +1026,18 @@ end)
 local function sortable(t: any, count: number, editing: boolean?): any
 	local value: any = { reorders = {}, activated = {} }
 	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-		local items = {}
+		local items: { { id: string } } = {}
 		for index = 1, count do
 			items[index] = { id = tostring(index) }
 		end
-		value.rows = Compose.cell(items)
+		local rows = Compose.cell(items)
+		value.rows = rows
 		return Host.Frame "Holder" {
 			Position = UDim2.fromOffset(20, 200),
 			Size = UDim2.fromOffset(320, 264),
 			BackgroundTransparency = 1,
 			UI.VirtualList "Sortable" {
-				from = value.rows,
+				from = rows,
 				key = "id",
 				itemSize = 44,
 				reorderable = true,
@@ -1307,7 +1310,8 @@ add("feedback-motion-is-paint-only", {}, function(t)
 	local io = device(t)
 	local value: any = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		value.invalid = Compose.cell(false)
+		local invalid: BooleanCell = Compose.cell(false)
+		value.invalid = invalid
 		value.expanded = Compose.cell(false)
 		return UI.VStack "Column" {
 			gap = "s",
@@ -1317,7 +1321,7 @@ add("feedback-motion-is-paint-only", {}, function(t)
 			UI.TextInput "Field" {
 				value = Compose.cell("abc"),
 				onChange = function() end,
-				invalid = value.invalid,
+				invalid = invalid,
 				hint = "Check this value.",
 			},
 			UI.Text "Lower" { text = "Lower" },
@@ -1636,8 +1640,9 @@ end)
 add("radial-lift-is-paint-only", {}, function(t)
 	local value: any = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		value.open = Compose.cell(true)
-		local items: { StringRadialItem } = {}
+		local open: BooleanCell = Compose.cell(true)
+		value.open = open
+		local items: { RadialItem } = {}
 		for _, id in { "N", "E", "S", "W" } do
 			local item: StringRadialAction = {
 				id = id,
@@ -1648,7 +1653,7 @@ add("radial-lift-is-paint-only", {}, function(t)
 			}
 			table.insert(items, item)
 		end
-		return UI.RadialMenu "Quick" { isPresented = value.open, items = items }
+		return UI.RadialMenu "Quick" { isPresented = open, items = items }
 	end, { size = Vector2.new(800, 600), frames = 60, motionLevel = "normal" })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	local panel = visibleNamed(t, gui, "RadialPanel")
@@ -2372,7 +2377,8 @@ local function multiline(t: any, touchDevice: boolean?): any
 	local value: any = { commits = 0 }
 	value.io = device(t)
 	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-		value.text = Compose.cell("")
+		local text: StringCell = Compose.cell("")
+		value.text = text
 		return Host.Frame "Holder" {
 			Position = UDim2.fromOffset(20, 200),
 			Size = UDim2.fromOffset(300, 200),
@@ -2381,7 +2387,7 @@ local function multiline(t: any, touchDevice: boolean?): any
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				UI.TextInput "Notes" {
-					value = value.text,
+					value = text,
 					onChange = function(text)
 						value.text:set(text)
 					end,
@@ -2478,14 +2484,15 @@ add("multiline-grows-with-hard-breaks", {}, function(t)
 	local io = device(t)
 	local value: any = { commits = 0 }
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-		value.text = Compose.cell("")
+		local text: StringCell = Compose.cell("")
+		value.text = text
 		return Host.Frame "Holder" {
 			Position = UDim2.fromOffset(20, 200),
 			Size = UDim2.fromOffset(300, 400),
 			BackgroundTransparency = 1,
 			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
 			UI.TextInput "Notes" {
-				value = value.text,
+				value = text,
 				onChange = function(text)
 					value.text:set(text)
 				end,

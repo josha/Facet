@@ -2,6 +2,7 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
+	type Step = typeof(require("@repo/tools/typecheck/aliases").Step)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
@@ -385,11 +386,12 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_ported_behaviours::StepIndicator room::the underline sits below the copy, and a long description counts toward the fit",
 			run = function()
 				local w = world(function(UI)
+					local steps: { Step } = {
+						{ id = "a", label = "Cart" },
+						{ id = "b", label = "Ship", description = "Address and speed of delivery for the order" },
+					}
 					return UI.StepIndicator "Steps" {
-						steps = {
-							{ id = "a", label = "Cart" },
-							{ id = "b", label = "Ship", description = "Address and speed of delivery for the order" },
-						},
+						steps = steps,
 						current = "a",
 						sizing = "fill",
 					}

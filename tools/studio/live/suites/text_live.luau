@@ -1,5 +1,6 @@
 --!strict
 
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ThemeDefinition = typeof(require("@repo/tools/typecheck/aliases").ThemeDefinition)
@@ -84,6 +85,7 @@ add("described-toggle-fits-a-narrow-row", {}, function(t: any)
 		end
 	end
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		local hints: BooleanCell = t.Facet.Compose.cell(true)
 		return Host.Frame "Column" {
 			Size = UDim2.fromOffset(320, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
@@ -95,7 +97,7 @@ add("described-toggle-fits-a-narrow-row", {}, function(t: any)
 					description = "Adds a short line of help under each control in this panel",
 					icon = "settings",
 				},
-				value = t.Facet.Compose.cell(true),
+				value = hints,
 			},
 		}
 	end, { theme = chosen.package, size = Vector2.new(320, 400) })
@@ -121,10 +123,11 @@ add("described-toggle-fits-a-narrow-row", {}, function(t: any)
 	for _, side in sides do
 		local copy = "Keep frames aligned with the display"
 		local hinted = t.mount(function(UI: FacetControls)
+			local sync: BooleanCell = t.Facet.Compose.cell(true)
 			return UI.Toggle "Hinted" {
 				label = "Vertical sync",
 				hint = copy,
-				value = t.Facet.Compose.cell(true),
+				value = sync,
 				controlSize = "large",
 				indicatorPosition = side :: "leading" | "trailing",
 				Size = UDim2.fromOffset(280, 0),

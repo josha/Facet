@@ -1,4 +1,5 @@
 --!strict
+type Sides = typeof(require("@repo/tools/typecheck/aliases").Sides)
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -33,6 +34,7 @@ type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
 type UnknownCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
+type NavigationPathCell = typeof(require("@repo/tools/typecheck/aliases").NavigationPathCell)
 type Value<T> = typeof(require("@repo/src/vendor/compose/core").cell<<T>>(nil :: never))
 type Settings = typeof(require("@repo/examples/facet-lab/src/lab_settings").new(nil :: never, nil :: never))
 type Props = { width: unknown?, label: unknown?, Size: unknown?, AutomaticSize: unknown?, [unknown]: unknown }
@@ -111,7 +113,7 @@ function browser.mount(opts: MountOpts)
 	local top: StringCell = Compose.cell("catalog")
 	local selected: StringCell = Compose.cell(cat.families[1].pages[1].id)
 	local query: StringCell = Compose.cell("")
-	local compactPath: Value<{ { id: string, value: unknown? } }> = Compose.cell({})
+	local compactPath: NavigationPathCell = Compose.cell({})
 	local state = {
 		top = top,
 		selected = selected,
@@ -472,7 +474,7 @@ function browser.mount(opts: MountOpts)
 	end
 
 	local function axisCells(axis: catalog.Axis, st: catalog.State?): { MatrixEntry }
-		local entries = {}
+		local entries: { MatrixEntry } = {}
 		for _, value in axis.values do
 			table.insert(
 				entries,
@@ -1292,11 +1294,12 @@ function browser.mount(opts: MountOpts)
 			controlSize = "compact",
 			Size = UDim2.fromScale(1, 0),
 		})
+		local padding: Sides = { top = "s", left = "s", right = "s" }
 		return UI.VStack "OutlineList" {
 			width = "fill",
 			height = "fill",
 			gap = "s",
-			padding = { top = "s", left = "s", right = "s" },
+			padding = padding,
 			search,
 			UI.Button "L_settings" {
 				label = "Settings",
@@ -1355,7 +1358,7 @@ function browser.mount(opts: MountOpts)
 				local function open()
 					state.compactPath:set({ { id = "page" } })
 				end
-				return UI.NavigationStack "Browse" {
+				return UI.NavigationStack({
 					path = state.compactPath,
 					backLabel = "Controls",
 					Size = UDim2.fromScale(1, 1),
@@ -1390,7 +1393,7 @@ function browser.mount(opts: MountOpts)
 							end,
 						},
 					},
-				}
+				}, "Browse")
 			end),
 		}
 	end

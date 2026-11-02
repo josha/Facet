@@ -3,6 +3,8 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
+type Built = (() -> Instance) | { screen: () -> Instance }
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type IdReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").IdReadOnlyValue)
 type Rect = { x: number, y: number, w: number, h: number, r: number, b: number }
@@ -315,18 +317,19 @@ end, {
 add("tray-grows-with-text-size", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		local trailingActions: { RowAction } = {
+			{
+				id = "delete",
+				label = "Delete",
+				role = "destructive",
+				onActivate = function() end,
+			},
+		}
 		return UI.RowActions "Row" {
 			content = UI.Text { text = "Message", Size = UDim2.fromScale(1, 1) },
 			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
 			onOpenChange = function() end,
-			trailing = {
-				{
-					id = "delete",
-					label = "Delete",
-					role = "destructive" :: "destructive",
-					onActivate = function() end,
-				},
-			},
+			trailing = trailingActions,
 			Size = UDim2.fromOffset(360, 56),
 		}
 	end, { frames = 12 })
@@ -568,8 +571,9 @@ add("confirm-dialog-left-right", {}, function(t)
 		local ctx = t.context(UI, Host, Compose, env)
 		ctx.load = function() end
 		local folder = game:GetService("ReplicatedStorage"):WaitForChild("FacetExamples")
-		value.built = (require :: any)(folder:WaitForChild("04_confirm_dialog")).build(ctx)
-		return if type(value.built) == "function" then value.built() else value.built.screen()
+		local built: Built = (require :: any)(folder:WaitForChild("04_confirm_dialog")).build(ctx)
+		value.built = built
+		return if type(built) == "function" then built() else built.screen()
 	end, { frames = 14 })
 	value.stage = stage
 	value.gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
@@ -644,6 +648,9 @@ end, {
 add("shift-return-opens-row-menu", {}, function(t)
 	local value = { count = 0 }
 	local stage = t.mount(function(UI: FacetControls)
+		local trailingActions: { RowAction } = {
+			{ id = "delete", label = "Delete", role = "destructive", onActivate = function() end },
+		}
 		return UI.RowActions "Row" {
 			content = UI.Button "Content" {
 				label = "Message",
@@ -652,9 +659,7 @@ add("shift-return-opens-row-menu", {}, function(t)
 					value.count += 1
 				end,
 			},
-			trailing = {
-				{ id = "delete", label = "Delete", role = "destructive" :: "destructive", onActivate = function() end },
-			},
+			trailing = trailingActions,
 			Size = UDim2.fromOffset(360, 56),
 		}
 	end, { frames = 10 })

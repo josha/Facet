@@ -461,7 +461,7 @@ function DesignFields.generate(root: string): string
 	end
 	local host: { [string]: Derived } = {}
 	for _, className in HOST_CLASSES do
-		local declared = tables["engine_types." .. className .. "Props"]
+		local declared: Declared? = tables[`engine_types.{className}Props`]
 		if declared then
 			host[className] = derive(declared)
 		end

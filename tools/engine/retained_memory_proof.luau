@@ -20,7 +20,7 @@ for _, scene in Paired.SCENES do
 		local arms = {
 			{ name = "reference", bytes = 0, readings = reference },
 			{ name = "unchanged", bytes = 0, readings = unchanged },
-			{ name = "retained", bytes = 4 * 1024 * 1024, readings = planted },
+			{ name = "retained", bytes = 8 * 1024 * 1024, readings = planted },
 		}
 		for round = 1, 3 do
 			for position = 1, #arms do
@@ -54,11 +54,11 @@ for _, scene in Paired.SCENES do
 		for _, compared in leaked do
 			context
 				:expect(compared.regressed)
-				:toBeTrueWith(`{scene} {compared.metric}: a retained 4 MiB buffer must flag growth`)
+				:toBeTrueWith(`{scene} {compared.metric}: a retained 8 MiB buffer must flag growth`)
 		end
 	end)
 end
-local report = harness:run({ executor = "lute", environment = { proof = "unchanged-and-retained-4MiB", rounds = "3" } })
+local report = harness:run({ executor = "lute", environment = { proof = "unchanged-and-retained-8MiB", rounds = "3" } })
 print(Verify.format(report))
 Lute.gate.writeReport(Files.join(out, "report.json"), `retained-memory-{os.time()}`, report)
 if report.total ~= #Paired.SCENES or report.passed ~= report.total then

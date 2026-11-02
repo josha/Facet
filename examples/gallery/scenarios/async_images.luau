@@ -32,7 +32,7 @@ return {
 			{ id = "AvatarBuilderman", image = "rbxthumb://type=AvatarHeadShot&id=156&w=48&h=48" },
 			{ id = "BadAsset", image = "rbxassetid://999999999999999" },
 		}
-		local function picture(index)
+		local function picture(index: number)
 			return UI.AsyncImage {
 				Name = pictures[index].id,
 				image = pictures[index].image,

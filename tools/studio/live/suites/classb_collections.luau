@@ -6,7 +6,8 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
 type SideCell = typeof(require("@repo/tools/typecheck/aliases").SideCell)
 type SortCell = typeof(require("@repo/tools/typecheck/aliases").SortCell)
-type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
+type RowActionsShape = typeof(require("@repo/tools/typecheck/aliases").RowActionsShape)
+type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type NumberMapCell = typeof(require("@repo/tools/typecheck/aliases").NumberMapCell)
@@ -343,7 +344,7 @@ add("cross-axis-fills-the-window", {}, function(t)
 end)
 
 add("fill-column-floors-and-hit-order", {}, function(t)
-	local function mount(width: number, columns: { any }, widths: any?): any
+	local function mount(width: number, columns: { TableColumn }, widths: any?): any
 		t.cleanup()
 		return t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			return UI.Table "Racers" {
@@ -692,14 +693,15 @@ end)
 
 add("tray-actions-meet-the-touch-floor", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		local trailingActions: { RowAction } = {
+			{ id = "flag", label = "Flag" },
+			{ id = "delete", label = "Delete", role = "destructive" },
+		}
 		return UI.RowActions "Row" {
 			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
 			Size = UDim2.new(0, 400, 0, 44),
 			content = UI.Text { text = "Row" },
-			trailing = {
-				{ id = "flag", label = "Flag" },
-				{ id = "delete", label = "Delete", role = "destructive" :: "destructive" },
-			},
+			trailing = trailingActions,
 		}
 	end, { size = Vector2.new(600, 300), frames = 30 })
 	local row = t.find(stage, "Row")
@@ -744,7 +746,7 @@ local function departureCase(t: any, entry: any, edge: string, scroll: boolean)
 	local actionSize: UDim2? = nil
 	local actionVisible: boolean? = nil
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		local action = {
+		local action: RowAction = {
 			id = "delete",
 			label = "Delete",
 			role = "destructive" :: "destructive",
@@ -897,14 +899,15 @@ add("plate-decoration-stays-inside-the-band", {}, function(t)
 			open = (function(value: ("leading" | "trailing")?): SideCell
 				return Compose.cell(value)
 			end)(nil)
+			local trailingActions: { RowAction } = {
+				{ id = "flag", label = "Flag" },
+				{ id = "delete", label = "Delete", role = "destructive" },
+			}
 			return UI.RowActions "Row" {
 				open = open,
 				Size = UDim2.new(0, 500, 0, 56),
 				content = UI.Button { label = "Row", Size = UDim2.fromScale(1, 1) },
-				trailing = {
-					{ id = "flag", label = "Flag" },
-					{ id = "delete", label = "Delete", role = "destructive" :: "destructive" },
-				},
+				trailing = trailingActions,
 			}
 		end, { size = Vector2.new(700, 300), theme = entry.package, motionLevel = "normal", frames = 20 })
 		local row = t.find(stage, "Row")
@@ -979,26 +982,27 @@ interactive("tray-keys-and-hover", {}, function(t)
 		value.open = (function(value: ("leading" | "trailing")?): SideCell
 			return Compose.cell(value)
 		end)(nil)
+		local trailingActions: { RowAction } = {
+			{
+				id = "flag",
+				label = "Flag",
+				onActivate = function()
+					table.insert(value.fired, "flag")
+				end,
+			},
+			{
+				id = "delete",
+				label = "Delete",
+				onActivate = function()
+					table.insert(value.fired, "delete")
+				end,
+			},
+		}
 		return UI.RowActions "Row" {
 			open = value.open,
 			Size = UDim2.new(0, 500, 0, 56),
 			content = UI.Button { Name = "Body", label = "Row body", Size = UDim2.fromScale(1, 1) },
-			trailing = {
-				{
-					id = "flag",
-					label = "Flag",
-					onActivate = function()
-						table.insert(value.fired, "flag")
-					end,
-				},
-				{
-					id = "delete",
-					label = "Delete",
-					onActivate = function()
-						table.insert(value.fired, "delete")
-					end,
-				},
-			},
+			trailing = trailingActions,
 		}
 	end, { size = Vector2.new(700, 300), frames = 20 })
 	local row = t.find(value.stage, "Row")
@@ -1119,19 +1123,20 @@ interactive("left-reaches-this-rows-minus", {}, function(t)
 			selectionMode = "single" :: "single",
 			editing = Compose.cell(true),
 			columns = columns1109,
-			rowActions = function(_, key): RowActions?
+			rowActions = function(_, key): RowActionsShape?
+				local trailingActions: { RowAction } = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = "destructive",
+						onActivate = function()
+							table.insert(value.fired, "delete:" .. tostring(key))
+						end,
+					},
+				}
 				return {
 					editing = Compose.cell(true),
-					trailing = {
-						{
-							id = "delete",
-							label = "Delete",
-							role = "destructive" :: "destructive",
-							onActivate = function()
-								table.insert(value.fired, "delete:" .. tostring(key))
-							end,
-						},
-					},
+					trailing = trailingActions,
 				}
 			end,
 		}

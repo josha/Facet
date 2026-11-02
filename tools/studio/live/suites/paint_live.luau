@@ -3,6 +3,7 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type ThemeCell = typeof(require("@repo/tools/typecheck/aliases").ThemeCell)
 type UnknownCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
 type Case = {
@@ -50,7 +51,7 @@ add("explicit-paint-beats-the-sheet", {}, function(t: any)
 end)
 
 add("toggle-follows-a-live-palette", {}, function(t: any)
-	local value = t.Facet.Compose.cell(true)
+	local value: BooleanCell = t.Facet.Compose.cell(true)
 	local context: { theme: ThemeCell, palette: UnknownCell }
 	local stage = t.mount(function(UI: FacetControls, _, _, ctx)
 		context = ctx
@@ -95,8 +96,8 @@ add("alert-title-is-centred", {}, function(t: any)
 		}
 	end, { size = Vector2.new(800, 600) })
 	t.settle(30)
-	local title = nil
-	for _, node in stage.Parent:GetDescendants() do
+	local title: TextLabel? = nil
+	for _, node: Instance in stage.Parent:GetDescendants() do
 		if node:IsA("TextLabel") and node.Text == "Save changes?" and t.visible(node) then
 			title = node
 		end

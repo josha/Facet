@@ -319,8 +319,9 @@ return {
 						PaddingBottom = UDim.new(0, 6),
 					},
 				})
-				local function styled(property)
-					local value = Compose.cell(button:GetStyled(property))
+				local function styled<T>(property: string)
+					local initial: T = button:GetStyled(property)
+					local value = Compose.cell(initial)
 					local connection = button:GetStyledPropertyChangedSignal(property):Connect(function()
 						value:set(button:GetStyled(property))
 					end)
@@ -337,8 +338,8 @@ return {
 						TextWrapped = false,
 						Size = UDim2.fromOffset(0, 0),
 						AutomaticSize = Enum.AutomaticSize.XY,
-						FontFace = styled("FontFace"),
-						TextSize = styled("TextSize"),
+						FontFace = styled<<Font>>("FontFace"),
+						TextSize = styled<<number>>("TextSize"),
 					}
 					return measure
 				end, button)

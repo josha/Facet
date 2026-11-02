@@ -90,7 +90,6 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 				travel = true,
 				onDrop = function()
 					rows:set({ { id = "A" }, { id = "B" } })
-					return true
 				end,
 			}
 			UI.draggable(destination, { payload = { keys = { "A" } }, touchPickup = "immediate", returnTravel = true })
@@ -243,9 +242,7 @@ local cases: { Case } = {
 				})
 				local items: { Item } = { { id = "B" }, { id = "C" } }
 				local rackDrop: DropTargetSpec = {
-					onDrop = function()
-						return true
-					end,
+					onDrop = function() end,
 				}
 				local rack = UI.VirtualGrid "TargetRack" {
 					from = items,

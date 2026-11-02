@@ -80,7 +80,7 @@ export type Model = {
 	schedule: (id: string, date: CivilDate?) -> (),
 	launchGame: (id: string, mode: string) -> (),
 	deleteMessage: (id: number) -> (),
-	reorderSaved: (keys: { string }, slot: number) -> (),
+	reorderSaved: (keys: { string }, slot: number, parentKey: string?) -> (),
 	setNote: (id: string, value: string) -> (),
 	rate: (id: string, value: number) -> (),
 	selectGame: (item: Game?) -> (),
@@ -347,7 +347,7 @@ function model.new(Compose: ComposeModule): Model
 			end)
 		end
 	end
-	local function reorderSaved(keys: { string }, slot: number)
+	local function reorderSaved(keys: { string }, slot: number, _parentKey: string?)
 		local moving: { [string]: boolean }, rest: { string }, ordered: { string } = {}, {}, {}
 		for _, id in keys do
 			moving[id] = true

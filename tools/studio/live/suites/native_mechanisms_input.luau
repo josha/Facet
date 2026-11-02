@@ -3,7 +3,8 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type IdReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").IdReadOnlyValue)
 local GuiService = game:GetService("GuiService")
 
@@ -162,8 +163,8 @@ add("form-controls-traverse-in-document-order", {}, function(t)
 				style = "segmented" :: "segmented",
 				selected = Compose.cell("a"),
 				options = {
-					{ value = "a", label = "Arcade" } :: PickerOption,
-					{ value = "b", label = "Sim" } :: PickerOption,
+					{ value = "a", label = "Arcade" } :: StringPickerOption,
+					{ value = "b", label = "Sim" } :: StringPickerOption,
 				},
 				indicator = "underline" :: "underline",
 				LayoutOrder = 5,
@@ -244,19 +245,20 @@ end, {
 add("open-tray-steps-sideways", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		local trailingActions: { RowAction } = {
+			{ id = "archive", label = "Archive", onActivate = function() end },
+			{ id = "flag", label = "Flag", onActivate = function() end },
+			{
+				id = "delete",
+				label = "Delete",
+				role = "destructive",
+				onActivate = function() end,
+			},
+		}
 		return UI.RowActions "Row" {
 			content = UI.Button "Content" { label = "Message", Size = UDim2.fromScale(1, 1) },
 			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
-			trailing = {
-				{ id = "archive", label = "Archive", onActivate = function() end },
-				{ id = "flag", label = "Flag", onActivate = function() end },
-				{
-					id = "delete",
-					label = "Delete",
-					role = "destructive" :: "destructive",
-					onActivate = function() end,
-				},
-			},
+			trailing = trailingActions,
 			Size = UDim2.fromOffset(480, 56),
 		}
 	end, { frames = 16 })

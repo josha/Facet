@@ -417,7 +417,7 @@ table.insert(workloads, {
 		local stop = S.mount(world, lane, function()
 			local spec: Facet.RadialMenuSpec<string> =
 				{ label = "Emotes", isPresented = assert(open), items = items, preset = "donut" }
-			return UI.RadialMenu "Emotes"(spec)
+			return UI.RadialMenu<<string>>(spec, "Emotes")
 		end, function(screen)
 			parent = screen
 			launcher = S.button(world, screen, "Launcher", "Emotes", function() end)

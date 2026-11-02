@@ -995,12 +995,13 @@ return function(verifyHarness: Verify.Harness)
 				local trim = Compose.cell(Color3.fromRGB(230, 57, 70))
 				local committed = Compose.cell("nothing yet")
 				local refuse = Compose.cell(false)
-				local team = Compose.cell({
+				local swatches: { Facet.ColorSwatch } = {
 					{ color = Color3.fromRGB(230, 57, 70), label = "Red" },
 					{ color = Color3.fromRGB(255, 196, 0), label = "Gold" },
 					{ color = Color3.fromRGB(46, 125, 255), label = "Blue" },
 					{ color = Color3.fromRGB(0, 170, 140), label = "Teal" },
-				} :: { any })
+				}
+				local team = Compose.cell(swatches)
 				local w = world({}, {
 					build = function(UI: FacetControls, Host: RobloxHost)
 						return Host.Frame "Pickers" {
@@ -1068,8 +1069,10 @@ return function(verifyHarness: Verify.Harness)
 				expect(w.find("Well/Swatch/Checker").Visible):toBe(true)
 				expect(w.find("Well/Swatch/Plate").BackgroundTransparency):toBeCloseTo(0.5, 1e-4)
 				w.open()
-				for _, swatch in { w.find("Well/Swatch"), w.find("Readout/Head/Preview") } do
+				local swatches: { Instance } = { w.find("Well/Swatch"), w.find("Readout/Head/Preview") }
+				for _, swatch in swatches do
 					local paint = swatch:FindFirstChild("Paint")
+					assert(paint)
 					expect((paint:IsA("CanvasGroup"))):toBe(true)
 					expect(paint:FindFirstChildWhichIsA("UICorner") ~= nil):toBe(true)
 					expect(paint:FindFirstChild("Checker") ~= nil):toBe(true)

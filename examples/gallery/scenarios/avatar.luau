@@ -2,8 +2,9 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type PresenceCell = typeof(require("@repo/tools/typecheck/aliases").PresenceCell)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSizeValue)
+type PresenceOption = { value: "online" | "away" | "busy" | "offline" | "inExperience", label: string }
+type SizeOption = { value: ControlSize, label: string }
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
@@ -38,14 +39,14 @@ return {
 			return report()
 		end
 		local function section()
-			local presenceOptions: { PickerOption } = {
+			local presenceOptions: { PresenceOption } = {
 				{ value = "online", label = "Online" },
 				{ value = "away", label = "Away" },
 				{ value = "busy", label = "Busy" },
 				{ value = "offline", label = "Offline" },
 				{ value = "inExperience", label = "In game" },
 			}
-			local sizeOptions: { PickerOption } = {
+			local sizeOptions: { SizeOption } = {
 				{ value = "compact", label = "Compact" },
 				{ value = "regular", label = "Regular" },
 				{ value = "large", label = "Large" },

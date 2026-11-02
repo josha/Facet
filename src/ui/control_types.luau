@@ -30,7 +30,7 @@ export type PickerConstructor = <V>(
 	NavigationProps.PickerSpecInput<V> | string,
 	string?
 ) -> GuiObject
-	& typeof(setmetatable({} :: {}, {} :: { __call: (unknown, NavigationProps.PickerSpecInput<V>) -> GuiObject }))
+	& typeof(setmetatable({} :: {}, {} :: { __call: <A>(unknown, NavigationProps.PickerSpecInput<A>) -> GuiObject }))
 
 export type ToggleConstructor = Constructor<InputProps.TogglePropsInput, TextButton>
 
@@ -54,29 +54,32 @@ export type MenuConstructor = <V>(
 	NavigationProps.MenuSpecInput<V> | string,
 	string?
 ) -> GuiObject
-	& typeof(setmetatable({} :: {}, {} :: { __call: (unknown, NavigationProps.MenuSpecInput<V>) -> GuiObject }))
+	& typeof(setmetatable({} :: {}, {} :: { __call: <A>(unknown, NavigationProps.MenuSpecInput<A>) -> GuiObject }))
 
 export type SplitButtonConstructor = <V>(
 	NavigationProps.SplitButtonSpecInput<V> | string,
 	string?
 ) -> Frame
-	& typeof(setmetatable({} :: {}, {} :: { __call: (unknown, NavigationProps.SplitButtonSpecInput<V>) -> Frame }))
+	& typeof(setmetatable({} :: {}, {} :: { __call: <A>(unknown, NavigationProps.SplitButtonSpecInput<A>) -> Frame }))
 
 export type AlertConstructor = <P>(
 	NavigationProps.AlertSpecInput<P> | string,
 	string?
-) -> Frame & typeof(setmetatable({} :: {}, {} :: { __call: (unknown, NavigationProps.AlertSpecInput<P>) -> Frame }))
+) -> Frame & typeof(setmetatable({} :: {}, {} :: { __call: <C>(unknown, NavigationProps.AlertSpecInput<C>) -> Frame }))
 
 export type NavigationStackConstructor = <P>(
 	NavigationProps.NavigationStackSpecInput<P> | string,
 	string?
 ) -> Frame
-	& typeof(setmetatable({} :: {}, {} :: { __call: (unknown, NavigationProps.NavigationStackSpecInput<P>) -> Frame }))
+	& typeof(setmetatable(
+		{} :: {},
+		{} :: { __call: <C>(unknown, NavigationProps.NavigationStackSpecInput<C>) -> Frame }
+	))
 
 export type RadialMenuConstructor = <V>(
 	RadialProps.RadialMenuSpecInput<V> | string,
 	string?
-) -> Frame & typeof(setmetatable({} :: {}, {} :: { __call: (unknown, RadialProps.RadialMenuSpecInput<V>) -> Frame }))
+) -> Frame & typeof(setmetatable({} :: {}, {} :: { __call: <A>(unknown, RadialProps.RadialMenuSpecInput<A>) -> Frame }))
 
 export type CollectionConstructor = <V, K>(
 	CollectionProps.KeyedCollectionSpecInput<V, K> | CollectionProps.IdentityCollectionSpecInput<V> | string,
@@ -85,9 +88,9 @@ export type CollectionConstructor = <V, K>(
 	& typeof(setmetatable(
 		{} :: {},
 		{} :: {
-			__call: (
+			__call: <A, B>(
 				unknown,
-				CollectionProps.KeyedCollectionSpecInput<V, K> | CollectionProps.IdentityCollectionSpecInput<V>
+				CollectionProps.KeyedCollectionSpecInput<A, B> | CollectionProps.IdentityCollectionSpecInput<A>
 			) -> ScrollingFrame,
 		}
 	))
@@ -96,7 +99,7 @@ export type SpatialGridConstructor = <V, K>(
 	SpatialProps.SpatialGridSpecInput<V, K> | string,
 	string?
 ) -> Frame
-	& typeof(setmetatable({} :: {}, {} :: { __call: (unknown, SpatialProps.SpatialGridSpecInput<V, K>) -> Frame }))
+	& typeof(setmetatable({} :: {}, {} :: { __call: <A, B>(unknown, SpatialProps.SpatialGridSpecInput<A, B>) -> Frame }))
 
 export type OutlineConstructor = <V, K>(
 	CollectionProps.KeyedOutlineSpecInput<V, K> | CollectionProps.IdentityOutlineSpecInput<V> | string,
@@ -105,9 +108,9 @@ export type OutlineConstructor = <V, K>(
 	& typeof(setmetatable(
 		{} :: {},
 		{} :: {
-			__call: (
+			__call: <A, B>(
 				unknown,
-				CollectionProps.KeyedOutlineSpecInput<V, K> | CollectionProps.IdentityOutlineSpecInput<V>
+				CollectionProps.KeyedOutlineSpecInput<A, B> | CollectionProps.IdentityOutlineSpecInput<A>
 			) -> ScrollingFrame,
 		}
 	))
@@ -118,7 +121,7 @@ export type TableConstructor = <V, K>(
 ) -> Frame & typeof(setmetatable(
 	{} :: {},
 	{} :: {
-		__call: (unknown, CollectionProps.KeyedTableSpecInput<V, K>) -> Frame,
+		__call: <A, B>(unknown, CollectionProps.KeyedTableSpecInput<A, B>) -> Frame,
 	}
 ))
 

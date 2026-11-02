@@ -3,6 +3,7 @@
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumulator<<T, number>>(nil :: never))
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 local makeView = require("./showcase_view")
 type Preset = { id: number, name: string, vehicle: string, wheel: string, paint: Color3, stripe: boolean }
@@ -69,7 +70,7 @@ return {
 		end
 		local function preview()
 			return view.stage("VehiclePreview", function()
-				local parts = {
+				local parts: { Child } = {
 					view.part("Plinth", V3.new(8, 0.2, 8), V3.new(0, -0.25, 0), C3.fromRGB(46, 55, 72)),
 				}
 				local function at(x, y, z)

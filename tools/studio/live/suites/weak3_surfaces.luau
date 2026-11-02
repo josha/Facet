@@ -8,6 +8,9 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type CivilRangeCell = typeof(require("@repo/tools/typecheck/aliases").CivilRangeCell)
+type DateRangePreset = typeof(require("@repo/tools/typecheck/aliases").DateRangePreset)
+type ColorPickerMode = typeof(require("@repo/tools/typecheck/aliases").ColorPickerMode)
+type NoticeSpec = typeof(require("@repo/tools/typecheck/aliases").NoticeSpec)
 type CivilRange = typeof(require("@repo/tools/typecheck/aliases").CivilRange)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
@@ -554,6 +557,26 @@ add("dtp-draft-footer-rects", {}, function(t)
 	local open: BooleanCell
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		open = Compose.cell(false)
+		local presets: { DateRangePreset } = {
+			{
+				id = "week",
+				label = "This week",
+				range = function(today: any)
+					local start = civil.addDays(today, -(civil.weekday(today) - 1))
+					return { start = start, finish = civil.addDays(start, 6) }
+				end,
+			},
+			{
+				id = "lastYear",
+				label = "Last year",
+				range = function(today: any)
+					return {
+						start = { year = today.year - 1, month = 1, day = 1 },
+						finish = { year = today.year - 1, month = 12, day = 31 },
+					}
+				end,
+			},
+		}
 		local range = (function(): CivilRangeCell
 			return Compose.cell({
 				start = { year = 2026, month = 9, day = 1, hour = nil :: number?, minute = nil :: number? },
@@ -577,26 +600,7 @@ add("dtp-draft-footer-rects", {}, function(t)
 				end,
 				draft = true,
 				isPresented = open,
-				presets = {
-					{
-						id = "week",
-						label = "This week",
-						range = function(today: any)
-							local start = civil.addDays(today, -(civil.weekday(today) - 1))
-							return { start = start, finish = civil.addDays(start, 6) }
-						end,
-					},
-					{
-						id = "lastYear",
-						label = "Last year",
-						range = function(today: any)
-							return {
-								start = { year = today.year - 1, month = 1, day = 1 },
-								finish = { year = today.year - 1, month = 12, day = 31 },
-							}
-						end,
-					},
-				},
+				presets = presets,
 			},
 		}
 	end, { size = Vector2.new(1280, 720), frames = 20 })
@@ -656,6 +660,8 @@ add("color-swatch-square-cells", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		open = Compose.cell(false)
 		local value = Compose.cell(Color3.fromRGB(255, 196, 0))
+		local swatches: { Color3 | { read color: Color3, read label: string? } } =
+			{ { color = Color3.fromRGB(255, 196, 0) }, { color = Color3.fromRGB(20, 20, 24) } }
 		return UI.ColorPicker "Trim" {
 			Position = UDim2.fromOffset(40, 40),
 			value = value,
@@ -663,7 +669,7 @@ add("color-swatch-square-cells", {}, function(t)
 				value:set(next)
 			end,
 			isPresented = open,
-			swatches = { { color = Color3.fromRGB(255, 196, 0) }, { color = Color3.fromRGB(20, 20, 24) } },
+			swatches = swatches,
 		}
 	end, { size = Vector2.new(1280, 720), frames = 20 })
 	open:set(true)
@@ -698,6 +704,7 @@ add("color-brick-field-above-grid", {}, function(t)
 	t.note("host", host(t))
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		local value = Compose.cell(Color3.fromRGB(255, 0, 0))
+		local modes: { ColorPickerMode } = { "brick" }
 		return UI.ColorPicker "Brick" {
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(420, 0),
@@ -706,7 +713,7 @@ add("color-brick-field-above-grid", {}, function(t)
 				value:set(next)
 			end,
 			style = "inline" :: "inline",
-			modes = { "brick" :: "brick" },
+			modes = modes,
 		}
 	end, { size = Vector2.new(1280, 900), frames = 20 })
 	local field, grid = partOf(stage, "NameField"), partOf(stage, "BrickGrid")
@@ -1114,7 +1121,8 @@ interactive(
 		unemulated(t)
 		local value: { [string]: any } = {}
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			value.cell = Compose.cell(false)
+			local cell: BooleanCell = Compose.cell(false)
+			value.cell = cell
 			return Host.Frame "Col" {
 				BackgroundTransparency = 1,
 				Position = UDim2.fromOffset(40, 40),
@@ -1127,7 +1135,7 @@ interactive(
 					appearance = "plain",
 					controlSize = "compact" :: "compact",
 					textSize = "label",
-					value = value.cell,
+					value = cell,
 				},
 			}
 		end, { size = Vector2.new(400, 300), frames = 20 })
@@ -1179,11 +1187,12 @@ interactive(
 
 add("notice-preparation-preserves-visible-motion", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.Notice "Arrival" {
+		local spec: NoticeSpec = {
 			title = "Update available",
 			message = "A new track pack is ready to install.",
 			actions = { { id = "Install", label = "Install", onActivate = function() end } },
 		}
+		return UI.Notice "Arrival"(spec)
 	end, { size = Vector2.new(768, 600), motionLevel = "normal", frames = 0 })
 	local notice = assert(stage:FindFirstChild("Arrival", true)) :: Frame
 	local first: number? = nil

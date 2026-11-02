@@ -1,16 +1,16 @@
 --!strict
 local Types = require("./types")
 export type DiegeticScreenProps = {
-	layers: { ScreenGui },
-	isPresented: Types.Value<boolean>,
-	scene: () -> Instance,
-	retainScene: boolean?,
-	surface: Types.Input<CFrame>,
-	bounds: Types.Input<Vector2>,
-	camera: Types.Input<CFrame>,
-	fieldOfView: number?,
-	motion: string?,
-	interactive: boolean?,
-	onUnavailable: ((string) -> ())?,
+	read layers: { ScreenGui },
+	read isPresented: Types.Value<boolean>,
+	read scene: () -> Instance,
+	read retainScene: boolean?,
+	read surface: Types.Input<CFrame>,
+	read bounds: Types.Input<Vector2>,
+	read camera: Types.Input<CFrame>,
+	read fieldOfView: number?,
+	read motion: string?,
+	read interactive: boolean?,
+	read onUnavailable: ((string) -> ())?,
 }
 return {}

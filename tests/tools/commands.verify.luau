@@ -81,10 +81,10 @@ return function(harness: Verify.Harness)
 			["shared/default.project.json"] = '{"tree":{"External":{"$path":"../external"}}}',
 			["external/model.luau"] = "return 1",
 			["tools/typecheck/roblox.d.luau"] = "declare value: number",
-			["tools/typecheck/roblox.lock.json"] = '{"analyzerVersion":"1.69.0"}',
+			["tools/typecheck/roblox.lock.json"] = '{"analyzerVersion":"1.70.1"}',
 			[".luaurc"] = '{"languageMode":"strict"}',
 		}
-		local version, available, analyses = "1.69.0", true, 0
+		local version, available, analyses = "1.70.1", true, 0
 		local function relative(file: string): string
 			return Analyzer.relative(file, Files.cwd())
 		end
@@ -199,7 +199,7 @@ return function(harness: Verify.Harness)
 		t:expect(missing):toBe(nil)
 		t:expect(string.find(unavailable or "", "missing", 1, true) ~= nil):toBe(true)
 		t:expect(analyses):toBe(1)
-		available, version = true, "1.69.0"
+		available, version = true, "1.70.1"
 		sources["tools/typecheck/roblox.d.luau"] = "declare value: string"
 		t:expect(checked()[1].message):toBe("planted-2")
 		sources[".luaurc"] = '{"languageMode":"nonstrict"}'

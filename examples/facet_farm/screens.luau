@@ -8,7 +8,7 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
 type Constructors = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime.constructors)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type SeedOption = typeof(require("@repo/examples/facet_farm/types").SeedPickerOption)
 type ToolOption = typeof(require("@repo/examples/facet_farm/types").ToolPickerOption)
 type RadialChoice = typeof(require("@repo/examples/facet_farm/types").ToolRadialChoice)
 type RadialItem = typeof(require("@repo/examples/facet_farm/types").ToolRadialItem)
@@ -246,7 +246,7 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 		table.insert(plots, plotView(index))
 	end
 
-	local seedOptions: { PickerOption } = {}
+	local seedOptions: { SeedOption } = {}
 	for _, crop in modelModule.CROPS do
 		table.insert(seedOptions, {
 			value = crop.id,
@@ -538,10 +538,10 @@ function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors,
 									farm.marketOpen:set(true)
 								end,
 							},
-							UI.RadialMenu "QuickTools" {
+							UI.RadialMenu<<"harvest" | "plant" | "plow">>({
 								label = "Tools",
 								items = toolItems,
-							},
+							}, "QuickTools"),
 						},
 						UI.HStack "Settings" {
 							LayoutOrder = 2,

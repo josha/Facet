@@ -1,4 +1,5 @@
 --!strict
+type Sides = typeof(require("@repo/tools/typecheck/aliases").Sides)
 local Verify = require("../tools/vendor/verify/src/core")
 local Bdd = require("../tools/vendor/verify/src/bdd")
 local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
@@ -384,7 +385,11 @@ return function(verifyHarness: Verify.Harness)
 			return text
 		end
 		local function pill(UI: FacetControls): Instance
-			return UI.VStack "Tag" { surface = "panel", padding = { top = 4, bottom = 4, left = 8, right = 8 } }
+			local padding: Sides = { top = 4, bottom = 4, left = 8, right = 8 }
+			return UI.VStack "Tag" {
+				surface = "panel",
+				padding = padding,
+			}
 		end
 
 		it("widens a rounded surface's longer padding to its corner radius so content clears the curve", {
@@ -401,9 +406,10 @@ return function(verifyHarness: Verify.Harness)
 					return UI.HStack "Square" { surface = "panel", padding = 6 }
 				end)):toBe("6 12 6 12")
 				expect(insets(function(UI): Instance
+					local padding: Sides = { top = 8, bottom = 8, left = 4, right = 4 }
 					return UI.VStack "Tall" {
 						surface = "panel",
-						padding = { top = 8, bottom = 8, left = 4, right = 4 },
+						padding = padding,
 					}
 				end)):toBe("12 4 12 4")
 				expect(insets(function(UI): Instance
@@ -420,9 +426,10 @@ return function(verifyHarness: Verify.Harness)
 						return UI.VStack "Roomy" { surface = "panel", padding = 12 }
 					end,
 					["16 4 16 4"] = function(UI): Instance
+						local padding: Sides = { top = 16, bottom = 16, left = 4, right = 4 }
 						return UI.VStack "Deep" {
 							surface = "panel",
-							padding = { top = 16, bottom = 16, left = 4, right = 4 },
+							padding = padding,
 						}
 					end,
 					["0 0 0 0"] = function(UI): Instance
@@ -469,10 +476,11 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_layout::stack corners option::rounds a pill plate and grows its long sides to half its short side",
 			run = function()
 				local root, engine, stop = build(nil, function(UI)
+					local padding: Sides = { top = 4, bottom = 4, left = 8, right = 8 }
 					return UI.HStack "Readout" {
 						surface = "panel",
 						corners = "pill",
-						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+						padding = padding,
 					}
 				end)
 				local V2 = engine.types.Vector2
@@ -509,27 +517,30 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_layout::stack corners option::takes a theme radius name or a pixel radius and clears content from it",
 			run = function()
 				expect(shaped(function(UI): Instance
+					local padding: Sides = { top = 4, bottom = 4, left = 8, right = 8 }
 					return UI.HStack "Wide" {
 						surface = "surface",
 						corners = "panel",
-						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+						padding = padding,
 					}
 				end)):toBe("0,12 4 12 4 12")
 				expect(shaped(function(UI): Instance
+					local padding: Sides = { top = 4, bottom = 4, left = 8, right = 8 }
 					return UI.HStack "Tight" {
 						surface = "panel",
 						corners = "control",
-						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+						padding = padding,
 					}
 				end)):toBe("0,8 4 8 4 8")
 				expect(shaped(function(UI): Instance
 					return UI.HStack "Tile" { surface = "pane", corners = 10, padding = 4 }
 				end)):toBe("0,10 4 10 4 10")
 				expect(shaped(function(UI): Instance
+					local padding: Sides = { top = 4, bottom = 4, left = 8, right = 8 }
 					return UI.HStack "Flat" {
 						surface = "panel",
 						corners = "square",
-						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+						padding = padding,
 					}
 				end)):toBe("0,0 4 8 4 8")
 				expect(shaped(function(UI): Instance
@@ -542,9 +553,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_layout::stack corners option::keeps the theme corner and padding of a stack without corners",
 			run = function()
 				local root, _, stop = build(nil, function(UI)
+					local padding: Sides = { top = 4, bottom = 4, left = 8, right = 8 }
 					return UI.HStack "Steps" {
 						surface = "panel",
-						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+						padding = padding,
 					}
 				end)
 				expect(measure(root)):toBe("theme 4 12 4 12")
@@ -561,10 +573,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local corners = Compose.cell("panel" :: Corners)
 				local root, engine, stop = build(nil, function(UI)
+					local padding: Sides = { top = 4, bottom = 4, left = 8, right = 8 }
 					return UI.HStack "Live" {
 						surface = "panel",
 						corners = corners,
-						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+						padding = padding,
 					}
 				end)
 				expect(measure(root)):toBe("0,12 4 12 4 12")
@@ -582,10 +595,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local theme = Compose.cell(Facet.themes.neutralPackage())
 				local root, _, stop = build({ theme = theme }, function(UI)
+					local padding: Sides = { top = 4, bottom = 4, left = 8, right = 8 }
 					return UI.HStack "Themed" {
 						surface = "surface",
 						corners = "panel",
-						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+						padding = padding,
 					}
 				end)
 				expect(measure(root)):toBe("0,12 4 12 4 12")

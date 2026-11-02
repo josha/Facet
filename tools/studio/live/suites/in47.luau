@@ -1569,6 +1569,7 @@ end)
 local function shortcutPair(t: any): any
 	local value: any = { plain = 0, shifted = 0 }
 	t.mount(function(UI: FacetControls)
+		local shift: boolean? = true
 		return UI.VStack "Pair" {
 			UI.Button "Plain" {
 				label = "Plain K",
@@ -1579,7 +1580,7 @@ local function shortcutPair(t: any): any
 			},
 			UI.Button "Shifted" {
 				label = "Shift K",
-				shortcut = { keyCode = "K", modifiers = { shift = true } },
+				shortcut = { keyCode = "K", modifiers = { shift = shift } },
 				onActivate = function()
 					value.shifted += 1
 				end,

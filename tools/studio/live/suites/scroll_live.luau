@@ -4,6 +4,7 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type ColorPickerMode = typeof(require("@repo/tools/typecheck/aliases").ColorPickerMode)
 type EntryColumn = typeof(require("@repo/tools/typecheck/aliases").IdNameTableColumn)
 type Entry = { id: string, name: string }
 local noSelection: { [string]: boolean } = {}
@@ -391,7 +392,7 @@ end)
 
 add("table-header-uses-native-scroll-window", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
-		local columns389: { TableColumn } = {
+		local columns389: { EntryColumn } = {
 			{ id = "name", label = "Name", width = 260 },
 			{ id = "id", label = "Identifier", width = 140 },
 		}
@@ -427,7 +428,7 @@ add("table-columns-stay-stable-when-vertical-overflow-changes", {}, function(t)
 	local setRows: ((number) -> ())? = nil
 	local stage = t.mount(function(UI: FacetControls, _Host: RobloxHost, Compose: ComposeModule)
 		local count = Compose.cell(1)
-		local columns427: { TableColumn } = {
+		local columns427: { EntryColumn } = {
 			{ id = "name", label = "Name", minWidth = 220 },
 			{ id = "id", label = "Rating", minWidth = 130, priority = 1 },
 		}
@@ -543,6 +544,7 @@ end)
 
 add("inline-color-picker-keeps-keyboard-selection-in-the-page", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _Host: RobloxHost, Compose: ComposeModule)
+		local modes: { ColorPickerMode } = { "spectrum" }
 		return UI.ScrollView "Page" {
 			Size = UDim2.fromOffset(380, 190),
 			gap = 16,
@@ -550,7 +552,7 @@ add("inline-color-picker-keeps-keyboard-selection-in-the-page", {}, function(t)
 			UI.ColorPicker "Accent" {
 				label = "Accent",
 				style = "inline" :: "inline",
-				modes = { "spectrum" :: "spectrum" },
+				modes = modes,
 				value = Color3.new(1, 0, 0),
 				onChange = function() end,
 			},

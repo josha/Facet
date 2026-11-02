@@ -11,6 +11,7 @@ return function(verifyHarness: Verify.Harness)
 	local describe, it, expect = test.describe, test.it, test.expect
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+	type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 
 	local materialize = require("./lib/materialize")
 	local fadeKit = require("./lib/fade")
@@ -331,19 +332,20 @@ return function(verifyHarness: Verify.Harness)
 								return { use(generation) }
 							end,
 							render = function(): GuiObject
+								local actions: { OverlayAction } = {
+									{
+										id = "Again",
+										label = "Again",
+										onActivate = function(): ()
+											generation:set(generation:peek() + 1)
+											error("caller bug after rearm")
+										end,
+									},
+								}
 								return UI.Callout "Callout" {
 									anchor = anchor :: GuiObject,
 									content = tip(Host),
-									actions = {
-										{
-											id = "Again",
-											label = "Again",
-											onActivate = function(): ()
-												generation:set(generation:peek() + 1)
-												error("caller bug after rearm")
-											end,
-										},
-									},
+									actions = actions,
 									onRetire = function(
 										reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway"
 									)
@@ -674,7 +676,7 @@ return function(verifyHarness: Verify.Harness)
 					local w = hovered({ theme = assert(defined) })
 					local panel = w.find("Help")
 					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(120, 60))
-					local labels = { w.find("HelpTitle"), w.find("HelpText"), w.find("HelpShortcut") }
+					local labels: { TextLabel } = { w.find("HelpTitle"), w.find("HelpText"), w.find("HelpShortcut") }
 					for index, label in labels do
 						w.engine.environment.poke(label, "AbsolutePosition", w.Vector2.new(8, 6 + (index - 1) * 16))
 						w.engine.environment.poke(label, "AbsoluteSize", w.Vector2.new(104, 16))

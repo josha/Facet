@@ -15,6 +15,8 @@ local function record(value: unknown): { [string]: unknown }
 end
 
 return function(verifyHarness: Verify.Harness)
+	type Step = typeof(require("@repo/tools/typecheck/aliases").Step)
+	type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -1293,12 +1295,13 @@ return function(verifyHarness: Verify.Harness)
 				local sizes: { [string]: number } = {}
 				for _, rung in { "compact", "regular", "large", "none" } :: { "compact" | "large" | "none" | "regular" } do
 					local w = worlds.new(function(UI: FacetControls)
+						local steps: { Step } = {
+							{ id = "cart", label = "Cart" },
+							{ id = "pay", label = "Pay" },
+							{ id = "ship", label = "Ship" },
+						}
 						return UI.StepIndicator "S" {
-							steps = {
-								{ id = "cart", label = "Cart" },
-								{ id = "pay", label = "Pay" },
-								{ id = "ship", label = "Ship" },
-							},
+							steps = steps,
 							current = "ship",
 							controlSize = if rung == "none"
 								then nil
@@ -1323,11 +1326,14 @@ return function(verifyHarness: Verify.Harness)
 					local carve = ((theme.chrome or {}).panel or {}).contentInsets or {}
 					for _, appearance in { "standard", "emphasis" } :: { "emphasis" | "standard" } do
 						local w = worlds.new(function(UI: FacetControls)
+							local actions: { OverlayAction } = {
+								{ id = "Install", label = "Install", onActivate = function() end },
+							}
 							return UI.Notice "Conn" {
 								title = "Update available",
 								message = "A new track pack is ready.",
 								appearance = appearance :: "emphasis" | "standard",
-								actions = { { id = "Install", label = "Install", onActivate = function() end } },
+								actions = actions,
 								onDismiss = function() end,
 							}
 						end, { theme = theme })

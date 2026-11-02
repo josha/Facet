@@ -345,10 +345,10 @@ end)
 add("toast-wide-and-fit", {}, function(t)
 	local stage, built = scenario(t, "sponsor_toast", Vector2.new(390, 700))
 	local layer = stage:FindFirstAncestorWhichIsA("LayerCollector") or stage
-	local function rows()
-		local found = {}
+	local function rows(): { GuiObject }
+		local found: { GuiObject } = {}
 		for _, node in layer:GetDescendants() do
-			if node.Name == "ToastRow" and node:IsA("GuiObject") and t.visible(node) then
+			if node:IsA("GuiObject") and node.Name == "ToastRow" and t.visible(node) then
 				table.insert(found, node)
 			end
 		end
@@ -398,7 +398,7 @@ add("toast-wide-and-fit", {}, function(t)
 			t.near(`fit toast {index} centred on the screen`, r.x + r.w / 2, s.x + s.w / 2, 1)
 			t.check(`fit toast {index} at most 560 wide`, r.w <= 560.5, r.w)
 		end
-		local long = nil
+		local long: GuiObject? = nil
 		for _, node in rows() do
 			local title = t.find(node, "Title")
 			if title and title.Text == "A very long sponsor message" then
@@ -610,8 +610,8 @@ add("skinned-checkbox-stroke", {}, function(t)
 			track ~= nil and track:HasTag("facet-skinned") == entry.hidden,
 			track and track:GetTags()
 		)
-		local panel
-		for _, node in stage:GetDescendants() do
+		local panel: GuiObject?
+		for _, node: Instance in stage:GetDescendants() do
 			if node:IsA("GuiObject") and node:HasTag("facet-menu") and t.visible(node) then
 				panel = node
 			end

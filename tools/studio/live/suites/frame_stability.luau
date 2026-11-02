@@ -3,6 +3,8 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
+type CivilDate = typeof(require("@repo/tools/typecheck/aliases").CivilDate)
+type NoticeSpec = typeof(require("@repo/tools/typecheck/aliases").NoticeSpec)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 local function traceback(message: string): string
 	return debug.traceback(message, 2)
@@ -794,7 +796,7 @@ add({
 				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 16) },
 				UI.Text { text = "Updates", textRole = "heading", LayoutOrder = 1 },
 				Compose.show(shown, function()
-					return UI.Notice "Update" {
+					local spec: NoticeSpec = {
 						LayoutOrder = 2,
 						appearance = "emphasis",
 						title = "Update available",
@@ -803,6 +805,7 @@ add({
 						actions = { { id = "Install", label = "Install", onActivate = function() end } },
 						onDismiss = function() end,
 					}
+					return UI.Notice "Update"(spec)
 				end),
 				UI.Button "Below" { label = "Continue", LayoutOrder = 3 },
 			}
@@ -828,6 +831,7 @@ for _, textSize in { "Medium", "Largest" } do
 			local show: (() -> ())? = nil
 			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 				local shown = Compose.cell(false)
+				local raceDay: CivilDate = { year = 2026, month = 10, day = 17 }
 				show = function()
 					shown:set(true)
 				end
@@ -837,7 +841,7 @@ for _, textSize in { "Medium", "Largest" } do
 					Size = UDim2.fromOffset(360, 100),
 					UI.DateTimePicker "Date" {
 						label = "Race day",
-						value = { year = 2026, month = 10, day = 17 },
+						value = raceDay,
 						isPresented = shown,
 						onPresentedChange = function(value: boolean)
 							shown:set(value)
@@ -867,12 +871,13 @@ for _, textSize in { "Medium", "Largest" } do
 		keepGallery = false,
 		run = function(t: T)
 			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+				local start: CivilDate = { year = 2026, month = 10, day = 17, hour = 12, minute = 30 }
 				return Host.Frame {
 					Position = UDim2.fromOffset(24, 900),
 					Size = UDim2.fromOffset(360, 100),
 					UI.DateTimePicker "Date" {
 						label = "Starts",
-						value = { year = 2026, month = 10, day = 17, hour = 12, minute = 30 },
+						value = start,
 						onChange = function() end,
 						time = true,
 						isPresented = Compose.cell(true),

@@ -453,12 +453,12 @@ function example.build(ctx: ExampleContext)
 					target = "inline",
 					TextSize = if isCommand then 14 else 16,
 					enabled = playingSig,
-					label = if key == "Enter"
-						then "Enter"
-						elseif key == "Back" then "Delete"
-						else function(use: Use)
-							return key .. (KEY_MARK[assert(use(state))] or "")
-						end,
+					label = function(use: Use): string
+						return if key == "Enter"
+							then "Enter"
+							elseif key == "Back" then "Delete"
+							else key .. (KEY_MARK[assert(use(state))] or "")
+					end,
 					onActivate = function()
 						if key == "Enter" then
 							submit()

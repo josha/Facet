@@ -141,7 +141,8 @@ return function(harness: Verify.Harness)
 					local open, child, covered, ambiguous = true, false, false, false
 					local rootTaps, dismissTaps, hubTaps, hits, selections, coveredActivations = 0, 0, 0, 0, 0, 0
 					local function find(query: QA.Query): QA.Info?
-						for _, words in { label, "Shop", "×", "Back", "N / G • HUB", "Close" } do
+						local candidates: { string } = { label, "Shop", "×", "Back", "N / G • HUB", "Close" }
+						for _, words in candidates do
 							local visible = if words == "N / G • HUB"
 								then not open
 								elseif words == "Back" then covered and not ambiguous

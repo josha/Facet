@@ -23,13 +23,13 @@ export type Row = {
 	read value: string?,
 	read icon: string?,
 }
-export type Shortcut = { keyCode: string, modifiers: { shift: boolean? }? }
+export type Shortcut = { read keyCode: string, read modifiers: { shift: boolean? }? }
 export type HelpSpec = {
-	title: Shared.ValueString?,
-	body: Shared.ValueString,
-	shortcut: { { string } }?,
-	edge: ("top" | "bottom" | "leading" | "trailing")?,
-	align: ("start" | "center" | "end")?,
+	read title: Shared.ValueString?,
+	read body: Shared.ValueString,
+	read shortcut: { { string } }?,
+	read edge: ("top" | "bottom" | "leading" | "trailing")?,
+	read align: ("start" | "center" | "end")?,
 }
 export type Help = Shared.ValueString | HelpSpec
 export type ButtonCorners = "pill" | "square"
@@ -347,16 +347,16 @@ export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & Shor
 	read keys: Input<{ { string } }>?,
 }
 export type ButtonGuideEntry = {
-	action: InputAction?,
-	keyCode: (Enum.KeyCode | { Enum.KeyCode })?,
-	keys: Input<{ { string } }>?,
-	label: Shared.ValueString,
+	read action: InputAction?,
+	read keyCode: (Enum.KeyCode | { Enum.KeyCode })?,
+	read keys: Input<{ { string } }>?,
+	read label: Shared.ValueString,
 }
 export type ButtonGuideOptions = {
-	ref: ((Frame) -> ())?,
-	entries: Input<{ ButtonGuideEntry }>,
-	inputs: { string }?,
-	controlSize: Input<Shared.ControlSize?>?,
+	read ref: ((Frame) -> ())?,
+	read entries: Input<{ ButtonGuideEntry }>,
+	read inputs: { string }?,
+	read controlSize: Input<Shared.ControlSize?>?,
 }
 export type ButtonGuideImplementationProps = Shared.FrameProps & ButtonGuideOptions
 export type HapticKind = Shared.HapticKind

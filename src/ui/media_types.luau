@@ -80,7 +80,7 @@ export type PathOptions = {
 	width: number?,
 	height: number?,
 }
-export type Trail = { delay: number?, duration: number? }
+export type Trail = { read delay: number?, read duration: number? }
 export type ProgressViewOptions = {
 	value: Types.ValueNumber?,
 	min: Types.ValueNumber?,
