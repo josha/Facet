@@ -16,19 +16,26 @@ for _, scene in Paired.SCENES do
 	harness:case(scene, function(context)
 		local reference: { Retained.Reading } = {}
 		local unchanged: { Retained.Reading } = {}
-		local planted: { Retained.Reading } = {}
+		local leaking: { Retained.Reading } = {}
+		local holding: { Retained.Reading } = {}
 		local arms = {
-			{ name = "reference", bytes = 0, readings = reference },
-			{ name = "unchanged", bytes = 0, readings = unchanged },
-			{ name = "retained", bytes = 8 * 1024 * 1024, readings = planted },
+			{ name = "reference", bytes = 0, mode = "kept", readings = reference },
+			{ name = "unchanged", bytes = 0, mode = "kept", readings = unchanged },
+			{ name = "leaking", bytes = 8 * 1024 * 1024, mode = "kept", readings = leaking },
+			{ name = "holding", bytes = 8 * 1024 * 1024, mode = "released", readings = holding },
 		}
 		for round = 1, 3 do
 			for position = 1, #arms do
 				local arm = arms[Paired.armIndex(round, position, #arms)]
-				local result = Run.capture(
-					{ Run.lute(), "run", "bench/paired_scene.luau", scene, "--memory-only", tostring(arm.bytes) },
-					{ timeout = 120 }
-				)
+				local result = Run.capture({
+					Run.lute(),
+					"run",
+					"bench/paired_scene.luau",
+					scene,
+					"--memory-only",
+					tostring(arm.bytes),
+					arm.mode,
+				}, { timeout = 120 })
 				local path = Files.join(out, `{scene}-{round}-{arm.name}`)
 				Files.write(path .. ".log", result.stdout .. result.stderr)
 				context
@@ -43,22 +50,32 @@ for _, scene in Paired.SCENES do
 			end
 		end
 		local same = Retained.compare(reference, unchanged)
-		local leaked = Retained.compare(reference, planted)
+		local leaked = Retained.compare(reference, leaking)
+		local held = Retained.compare(reference, holding)
 		context:attach(scene .. "-unchanged.json", "application/json", Json.encode(same))
-		context:attach(scene .. "-planted.json", "application/json", Json.encode(leaked))
+		context:attach(scene .. "-leaking.json", "application/json", Json.encode(leaked))
+		context:attach(scene .. "-holding.json", "application/json", Json.encode(held))
 		for _, compared in same do
 			context
 				:expect(not compared.regressed)
 				:toBeTrueWith(`{scene} {compared.metric}: unchanged arms must not flag growth`)
 		end
 		for _, compared in leaked do
-			context
-				:expect(compared.regressed)
-				:toBeTrueWith(`{scene} {compared.metric}: a retained 8 MiB buffer must flag growth`)
+			if compared.metric == "teardown" then
+				context
+					:expect(compared.regressed)
+					:toBeTrueWith(`{scene}: an 8 MiB buffer kept after teardown must flag`)
+			end
+		end
+		for _, compared in held do
+			if compared.metric == "mounted" then
+				context:expect(compared.regressed):toBeTrueWith(`{scene}: an 8 MiB buffer held while mounted must flag`)
+			end
 		end
 	end)
 end
-local report = harness:run({ executor = "lute", environment = { proof = "unchanged-and-retained-8MiB", rounds = "3" } })
+local report =
+	harness:run({ executor = "lute", environment = { proof = "unchanged-leaking-and-holding-8MiB", rounds = "3" } })
 print(Verify.format(report))
 Lute.gate.writeReport(Files.join(out, "report.json"), `retained-memory-{os.time()}`, report)
 if report.total ~= #Paired.SCENES or report.passed ~= report.total then

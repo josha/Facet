@@ -941,7 +941,7 @@ local function memoryFixture(mounted: number?, teardown: number?): Json.Object
 	for key, value in fields do
 		Json.set(result, key, value)
 	end
-	Json.set(result, "mountedKb", 1000 + (mounted or 1000))
+	Json.set(result, "mountedKb", 1000 + (teardown or 0) + (mounted or 1000))
 	Json.set(result, "teardownKb", 1000 + (teardown or 0))
 	Json.set(result, "mountedRetainedKb", mounted or 1000)
 	Json.set(result, "teardownRetainedKb", teardown or 0)

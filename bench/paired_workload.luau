@@ -29,6 +29,7 @@ end
 local name = assert(process.args[2], "a paired scene name is required")
 local memoryOnly = process.args[3] == "--memory-only"
 local plantedBytes = tonumber(process.args[4] or "0")
+local plantedOnlyWhileMounted = process.args[5] == "released"
 assert(plantedBytes ~= nil and plantedBytes >= 0 and plantedBytes <= 16 * 1024 * 1024 and plantedBytes % 1 == 0)
 assert(memoryOnly or plantedBytes == 0, "retained allocation controls require the memory-only diagnostic")
 
@@ -93,6 +94,9 @@ local ok, problem = pcall(function()
 		end,
 		teardown = function(state: MemoryState)
 			chosen.teardown(state.fixture)
+			if plantedOnlyWhileMounted then
+				table.clear(planted)
+			end
 		end,
 		warmup = chosen.warmup,
 		iterations = chosen.samples,
