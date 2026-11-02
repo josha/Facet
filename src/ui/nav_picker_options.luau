@@ -514,15 +514,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							return `{use(room) - 2 * segmentMetrics.inset}|{peers(use)}`
 						end, button, true)
 						local caption = button:FindFirstChild("Title", true) or button:FindFirstChild("Label", true)
-						local bounds: ComposeTypes.ReadOnlyValue<Vector2> = if caption and caption:IsA("TextLabel")
-							then ctx.observe.TextBounds(caption)
-							else ctx.observe.TextBounds(button)
-						local captionUnit = ctx.layoutUnit(button)
 						local extent = ctx.observe.AbsoluteSize(button)
-						Compose.watch(function(use: ComposeTypes.Use)
-							captionHeights[button] = use(bounds).Y / use(captionUnit)
-							measureCaptions()
-						end)
+						if ctx.config.theme ~= nil then
+							local bounds: ComposeTypes.ReadOnlyValue<Vector2> = if caption
+									and caption:IsA("TextLabel")
+								then ctx.observe.TextBounds(caption)
+								else ctx.observe.TextBounds(button)
+							local captionUnit = ctx.layoutUnit(button)
+							Compose.watch(function(use: ComposeTypes.Use)
+								captionHeights[button] = use(bounds).Y / use(captionUnit)
+								measureCaptions()
+							end)
+						end
 						segmentBoxes[button] =
 							{ order = index, size = extent, at = ctx.observe.AbsolutePosition(button) }
 						Compose.cleanup(function()

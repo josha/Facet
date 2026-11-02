@@ -62,9 +62,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 	local function buildPicker<V>(spec: NavigationProps.PickerSpec<V>): GuiObject
 		local readOptions = read<<Nav.PickerOptions<V>>>
 		local function picker(child: NavigationProps.PickerSpec<V>): GuiObject
-			if child.multiple == true then
-				return UI.Picker(child)
-			end
 			return UI.Picker(child)
 		end
 		local menu = menus.menu<<V>>
