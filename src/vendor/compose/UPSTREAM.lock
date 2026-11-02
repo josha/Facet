@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "e3bfb56c21e4b1a284e6e918edcd0ac364d1e569",
+  "commit": "9d7a963f1e8c58b5e5327fb9801872c2613a2ce1",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -89,7 +89,7 @@
     "design-editor/layers.luau": "f9f0678d6ceeedba487822dec0519715985e53dde718de0b8271e05dffab2cd7",
     "design-editor/library-panel.luau": "c819a8e195e7386a60a56bce980d9a2ad4c63cefd258e66cc1b14fc706120bbd",
     "design-editor/math.luau": "10ffe5d814276fea8a78e7e8a3d16473048f13d9d675c63f382d1cebf889192a",
-    "design-editor/roblox-3d-library.luau": "0225aad073d87e3b1227273d111ae30580deabc48c7357552a7f5a4aae625e19",
+    "design-editor/roblox-3d-library.luau": "ede21088d6fa1aa0a926b5f00d08de8d1d8dee985d26015d278c62ef34976ade",
     "design-editor/roblox-library.luau": "fdaff799a2814f902f76716294b0cbf86d0c1078227d25d7c2fccc66e80cee07",
     "design-editor/stage.luau": "7ccb309c996eae0ef9283013c932b1b88a93eb98cf93c4c1bdffae558b76d12c",
     "design-editor/stage3d.luau": "1a47827d4881f5a024b2f84d4cf460b70be65d5fabfdc0a5b6b54fd98c7f8b75",
@@ -102,8 +102,8 @@
     "design/init.luau": "d54159f68fc098a2f46e6f10072652551c39ed0d8f47adda409f75255587661e",
     "design/library.luau": "95c8652acd457c2b71104ca565b127a32d3a5e9e7150370a022a094878e34f01",
     "design/link.luau": "b9d2ce2eec9065317e8fb627d61d7638cfb6f4e19d16585eec48622bee79ed2b",
-    "design/patterns.luau": "225aba7485f932ca12b0edd416dfc08e653ab4065c9080bfa523782c7c706f1a",
-    "design/patterns.md": "9e3dee6360cbc82c1d34f45fbff42aa7ce23357375043060617fb4337258cf47",
+    "design/patterns.luau": "220b6ca37d819ea0116a4092d16fd5c8405960c18b4a872d1583c3959f23fc4f",
+    "design/patterns.md": "53b154d37c586f79a6156d349bd1db45d1d8fe4445879b1edd063adb2d562107",
     "design/render.luau": "6dd82dc75ce38b90427fb116543d4a256a9eeed636c6e91a88401c8b7a217de1",
     "design/session.luau": "1e222d65acae3a42d02c6622010d201c7bdfb9935a744d6225fa49d08973c612",
     "design/source-read.luau": "d5b29f2d66a0444942332204f30898a3534f2f8d49ea6ed03a7dfd3b3280eea5",
@@ -123,9 +123,9 @@
   },
   "docs": {
     "SKILL.md": "a3277af0c096e2c640b1a0fb22c1739ffbf57603e81aab8ec9d7324d9f7ac590",
-    "references/api.md": "3fca72264f3371dc69a2bd26b5d5adb204d419b7700c235af678dbf562ae5d94",
-    "references/consumer-guides.md": "6ff019f99882f18cf31b282deb2c596c6cf93fdbc6c3081949deff0db07b8413",
+    "references/api.md": "df4fd47d28e3963488db2a8aebbf792faf00fc57137487b08c629000dfbf1773",
+    "references/consumer-guides.md": "b3729a011c58b10787187c1188866a134d7b609aef3001d85eef0985f563d2a1",
     "references/design.md": "d071e5bb4b1fc0b056c175cd6c38cd963a53594c700e833270345b32a6e2364c",
-    "references/ownership.md": "c1c9e05d01307fc9c3baa1447d04911e8b54f6cc40fef6754f47506c3d1982a9"
+    "references/ownership.md": "d7553e84f375c480d445e0dede219b09806eb6143861cb7a5ee358b667bb0b6c"
   }
 }
