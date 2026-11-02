@@ -38,6 +38,26 @@ return function(harness: Verify.Harness)
 			end):toThrow("positive integer")
 		end
 	end)
+	it("parallel map keeps input order, bounds concurrency and raises the earliest failure", function()
+		local Parallel = require("../../tools/facet/lib/parallel")
+		local task = require("@std/task")
+		local active, peak = 0, 0
+		local doubled = Parallel.map({ 5, 1, 4, 2, 3 }, 2, function(delay: number): number
+			active += 1
+			peak = math.max(peak, active)
+			task.wait(delay * 0.01)
+			active -= 1
+			return delay * 2
+		end)
+		expect(doubled):toEqual({ 10, 2, 8, 4, 6 })
+		expect(peak):toBe(2)
+		expect(function()
+			Parallel.map({ 1, 2, 3 }, 3, function(value: number): number
+				task.wait((4 - value) * 0.01)
+				error("failed " .. value, 0)
+			end)
+		end):toThrow("failed 1")
+	end)
 	it("the gate audits off-reference scenes and preserves reference timing", function()
 		local Policy = require("../../tools/facet/lib/gate")
 		for _, reference in { false, true } do
