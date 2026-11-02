@@ -447,8 +447,8 @@ interactive("navigation-back-pointer", {}, function(t)
 		}
 		return UI.NavigationStack "Nav"(props)
 	end, { size = Vector2.new(800, 600), frames = 20 })
-	local back
-	for _, node in stage:GetDescendants() do
+	local back: GuiButton?
+	for _, node: Instance in stage:GetDescendants() do
 		if node.Name == "Back" and node:IsA("GuiButton") and t.visible(node) then
 			back = node
 		end
@@ -681,8 +681,8 @@ add("segment-accent-plate-image-themes", {}, function(t)
 				)
 				t.check(`{entry.name}: no art covers the plate`, #covering == 0, covering)
 			end
-			local other = nil
-			for _, node in tagged(stage, "facet-segment") do
+			local other: Instance?
+			for _, node: Instance in tagged(stage, "facet-segment") do
 				if not node:HasTag("facet-segment-current") then
 					other = node
 				end

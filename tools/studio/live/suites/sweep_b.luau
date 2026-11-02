@@ -1,5 +1,6 @@
 --!strict
 
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local GuiService = game:GetService("GuiService")
@@ -135,11 +136,12 @@ end)
 
 add("disabled-subtree", {}, function(t: any)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		local option: BooleanCell = t.Facet.Compose.cell(false)
 		return Host.Frame "Area" {
 			Size = UDim2.fromOffset(400, 300),
 			Interactable = false,
 			UI.Button "Inner" { label = "Inside" },
-			UI.Toggle "Check" { label = "Option", value = t.Facet.Compose.cell(false) },
+			UI.Toggle "Check" { label = "Option", value = option },
 		}
 	end)
 	t.settle(10)

@@ -3,6 +3,8 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
+type Built = (() -> Instance) | { screen: () -> Instance }
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type IdReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").IdReadOnlyValue)
 type Rect = { x: number, y: number, w: number, h: number, r: number, b: number }
@@ -326,7 +328,7 @@ add("tray-grows-with-text-size", {}, function(t)
 					role = "destructive" :: "destructive",
 					onActivate = function() end,
 				},
-			},
+			} :: { RowAction },
 			Size = UDim2.fromOffset(360, 56),
 		}
 	end, { frames = 12 })
@@ -568,8 +570,9 @@ add("confirm-dialog-left-right", {}, function(t)
 		local ctx = t.context(UI, Host, Compose, env)
 		ctx.load = function() end
 		local folder = game:GetService("ReplicatedStorage"):WaitForChild("FacetExamples")
-		value.built = (require :: any)(folder:WaitForChild("04_confirm_dialog")).build(ctx)
-		return if type(value.built) == "function" then value.built() else value.built.screen()
+		local built: Built = (require :: any)(folder:WaitForChild("04_confirm_dialog")).build(ctx)
+		value.built = built
+		return if type(built) == "function" then built() else built.screen()
 	end, { frames = 14 })
 	value.stage = stage
 	value.gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
@@ -654,7 +657,7 @@ add("shift-return-opens-row-menu", {}, function(t)
 			},
 			trailing = {
 				{ id = "delete", label = "Delete", role = "destructive" :: "destructive", onActivate = function() end },
-			},
+			} :: { RowAction },
 			Size = UDim2.fromOffset(360, 56),
 		}
 	end, { frames = 10 })
