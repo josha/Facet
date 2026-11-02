@@ -1,5 +1,8 @@
 # Current package
 
+A help tooltip no longer breaks a short word across two lines, such as
+"Paus / e". Its width rounds the measured text width up to a whole pixel.
+
 Compose Design documents can author more Facet controls without code. A Text
 node can own native constraint children such as `UISizeConstraint`. Dialog,
 Sheet and DisclosureGroup content fields bind a prepared slot input, so the

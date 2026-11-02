@@ -196,7 +196,7 @@ return function(
 				local function width(use: ComposeTypes.Use): UDim2
 					local widest = 0
 					for _, natural in use(widths) do
-						widest = math.max(widest, use(natural).X)
+						widest = math.max(widest, math.ceil(use(natural).X) + 1)
 					end
 					return D2.fromOffset(math.min(264, math.max(0, use(extent).X - 32), widest), 0)
 				end
