@@ -65,12 +65,11 @@ function policy.actions<V, K>(
 	row: GuiObject,
 	constructor: Types.Constructor<CollectionProps.RowActionsSpecInput, Frame>,
 	coordinator: ComposeTypes.Value<{}?>,
-	tiled: boolean?,
-	rowEdits: { activation.EditAction }?
+	tiled: boolean?
 ): (GuiObject, ComposeTypes.ReadOnlyValue<number>?)
 	local readActions = ctx.read<<{ CollectionTypes.RowAction }>>
 	local authored = if spec.rowActions then spec.rowActions(current, key) else nil
-	local edits = rowEdits or activation.edits(row)
+	local edits = activation.edits(row)
 	if authored == nil and #edits == 0 then
 		return row, nil
 	end
