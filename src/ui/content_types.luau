@@ -25,12 +25,12 @@ export type PaginationOptions = {
 }
 export type StepState = "complete" | "current" | "upcoming" | "error"
 export type Step = {
-	id: string,
-	label: string,
-	description: string?,
-	state: StepState?,
-	navigable: boolean?,
-	enabled: boolean?,
+	read id: string,
+	read label: string,
+	read description: string?,
+	read state: StepState?,
+	read navigable: boolean?,
+	read enabled: boolean?,
 }
 export type StepIndicatorOptions = {
 	steps: Input<{ Step }>,

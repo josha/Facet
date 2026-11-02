@@ -91,7 +91,7 @@ export type NoticeOptions = {
 	appearance: ("standard" | "emphasis")?,
 	placement: ("inline" | "affixed")?,
 	icon: (boolean | string)?,
-	link: { label: Types.ValueString, onActivate: () -> () }?,
+	link: { read label: Types.ValueString, read onActivate: () -> () }?,
 	actions: { Action }?,
 	onDismiss: (() -> ())?,
 	controlSize: Input<Types.ControlSize?>?,
