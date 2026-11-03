@@ -8,6 +8,7 @@ local parts = require("./overlay_parts")
 local NavigationProps = require("./navigation_props")
 local MenuItems = require("./nav_menu_items")
 local MenuRows = require("./nav_menu_rows")
+local arrival = require("./overlay_arrival")
 
 type MenuEntry<V> = MenuItems.MenuEntry<V>
 
@@ -46,12 +47,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local readItems = read<<{ Nav.MenuItem<V> }>>
 		local actionItem = actionItem<<V>>
 		local menuItems = menuItems<<V>>
-		local popoverTiming, sheetTiming = ctx.motionTiming("popover"), ctx.motionTiming("sheet")
+		local popoverTiming, sheetTiming = ctx.motionTiming("menu"), ctx.motionTiming("sheet")
 		local timing: Nav.MotionTiming = motion or { enter = popoverTiming.enter, exit = popoverTiming.exit }
 		local present = ctx.motionEase("present")
 		local slide = ctx.metric("motion.distances.menuSlide")
 		local materialize = ctx.metric("motion.materialize.menu")
 		local entered = Compose.cell(false)
+		if phase then
+			arrival.prepare(phase, entered)
+		end
 		local appearance = if phase then surfaces.appearance(phase, timing, entered) else nil
 		local hitFloor = ctx.hitFloor()
 		local path: ComposeTypes.Value<{ string }> = Compose.cell({})

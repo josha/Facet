@@ -129,6 +129,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			restLimit = 0.25,
 			frameLimit = 0,
 			popover = { enter = 0.15, exit = 0.1 },
+			menu = { enter = 0.08, exit = 0.04 },
 			dialog = { enter = 0.2, exit = 0.15 },
 			reveal = { enter = 0.25, exit = 0.2 },
 			sheet = { enter = 0.3, exit = 0.2 },

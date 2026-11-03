@@ -362,7 +362,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 					number(key, tokens[key], 0, 1, true)
 				end
 			end
-			for _, role in { "popover", "dialog", "reveal", "sheet", "toast", "radial" } do
+			for _, role in { "popover", "menu", "dialog", "reveal", "sheet", "toast", "radial" } do
 				each(role, function(path: string, value: unknown)
 					number(path, value, 0, 10)
 				end)

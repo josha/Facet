@@ -303,6 +303,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			end
 			local natural: ComposeTypes.ReadOnlyValue<Vector2> = if content == row
 				then ctx.observe.TextBounds(row)
+				elseif layout then ctx.observe.AbsoluteContentSize(layout)
 				else ctx.observe.AbsoluteSize(content)
 			local words = content:FindFirstChild("Captions") or content:FindFirstChild("Title")
 			local wordsBox: ComposeTypes.ReadOnlyValue<Vector2>? = nil

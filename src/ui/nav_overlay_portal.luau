@@ -92,7 +92,11 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		return value
 	end
 
-	local function arrive(build: () -> Instance, arrived: ComposeTypes.Value<boolean>): Instance
+	local function arrive(
+		build: () -> Instance,
+		arrived: ComposeTypes.Value<boolean>,
+		phase: Nav.PresencePhase
+	): Instance
 		local frames = ctx.config.services and ctx.config.services.RunService
 		local built: Instance? = nil
 		local wrapper: Frame? = nil
@@ -155,37 +159,39 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		local fontsReady = fontReadiness(ctx, surfaces)
 		local snapshot, complete = "", false
 		local allowed: boolean? = nil
-		local ready = ctx.runtime.settled {
-			sample = function(): string
-				return snapshot
-			end,
-			ready = function(): boolean
-				local signature: { string } = {}
-				local filled = false
-				local measured = true
-				for _, surface in surfaces do
-					local descendants = surface:GetDescendants()
-					table.insert(descendants, surface)
-					filled = filled or (surface.AbsoluteSize.X > 0 and surface.AbsoluteSize.Y > 0)
-					for _, child in descendants do
-						measured = measured and not textMeasure.pending(child)
-						if child:IsA("GuiObject") then
-							filled = filled or (child.Visible and child.AbsoluteSize.X > 0 and child.AbsoluteSize.Y > 0)
-							local value = `{child.AbsolutePosition}:{child.AbsoluteSize}:{child.Visible}`
-							if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
-								value ..= `:{child.TextBounds}`
+		local ready = arrival.prepared(phase)
+			or ctx.runtime.settled {
+				sample = function(): string
+					return snapshot
+				end,
+				ready = function(): boolean
+					local signature: { string } = {}
+					local filled = false
+					local measured = true
+					for _, surface in surfaces do
+						local descendants = surface:GetDescendants()
+						table.insert(descendants, surface)
+						filled = filled or (surface.AbsoluteSize.X > 0 and surface.AbsoluteSize.Y > 0)
+						for _, child in descendants do
+							measured = measured and not textMeasure.pending(child)
+							if child:IsA("GuiObject") then
+								filled = filled
+									or (child.Visible and child.AbsoluteSize.X > 0 and child.AbsoluteSize.Y > 0)
+								local value = `{child.AbsolutePosition}:{child.AbsoluteSize}:{child.Visible}`
+								if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+									value ..= `:{child.TextBounds}`
+								end
+								table.insert(signature, value)
 							end
-							table.insert(signature, value)
 						end
 					end
-				end
-				snapshot, complete, allowed = table.concat(signature, ";"), filled, fontsReady() and measured
-				return allowed ~= false
-			end,
-			equals = function(a: string, b: string): boolean
-				return complete and a == b
-			end,
-		}
+					snapshot, complete, allowed = table.concat(signature, ";"), filled, fontsReady() and measured
+					return allowed ~= false
+				end,
+				equals = function(a: string, b: string): boolean
+					return complete and a == b
+				end,
+			}
 		Compose.watch(function(use: ComposeTypes.Use)
 			if use(ready) then
 				arrived:set(true)
@@ -300,7 +306,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 							scope = scope.Parent
 						end
 						return node
-					end, arrived)
+					end, arrived, entering)
 				end
 				local failureHandler = options and options.failure
 				if failureHandler then
