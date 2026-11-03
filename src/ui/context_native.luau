@@ -383,6 +383,13 @@ return function(
 			end, node)
 		end
 		local function place(art: GuiObject?)
+			if art and stateOptions.visible ~= nil then
+				runtime.decorate(art, {
+					Visible = function(use: ComposeTypes.Use): boolean
+						return ctx.read(stateOptions.visible, use) ~= false
+					end,
+				})
+			end
 			if art and node:FindFirstChildWhichIsA("UIGridStyleLayout") then
 				local _, chrome = runtime.mount(function()
 					return Host.Folder "Chrome" {}

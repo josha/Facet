@@ -1855,6 +1855,35 @@ return function(verifyHarness: Verify.Harness)
 				runtime:dispose()
 			end,
 		})
+		it("keeps the visibility option on reactive art that a theme adds later", {
+			id = "native_themes_media::native themes and media::keeps the visibility option on reactive art that a theme adds later",
+			run = function()
+				local engine, runtime = setup()
+				local selected = themeState(themes.neutralPackage())
+				local shown = Compose.cell(false)
+				local ctx = context(Compose, runtime, { types = engine.types, theme = selected })
+				local stop, target = runtime.mount(function()
+					local node = ctx.Host.Frame { Size = engine.types.UDim2.fromOffset(200, 44) }
+					ctx.skin(node, "field", {
+						visible = function(use: Use): boolean
+							return use(shown)
+						end,
+					})
+					return node
+				end, engine.new("Folder"))
+				local node = target :: Frame
+				local art = themes.neutralPackage()
+				assert(art.assets).image = { content = "rbxassetid://31" }
+				assert(art.chrome).field = { kind = "nineSlice" :: "nineSlice", asset = "image" }
+				selected:set(art)
+				local host = assert(node:FindFirstChild("SkinHost")) :: Frame
+				expect(host.Visible):toBe(false)
+				shown:set(true)
+				expect(host.Visible):toBe(true)
+				stop()
+				runtime:dispose()
+			end,
+		})
 		it("shares one theme watch across unskinned controls of one context", {
 			id = "native_themes_media::native themes and media::shares one theme watch across unskinned controls of one context",
 			run = function()

@@ -238,6 +238,7 @@ export type SkinStateOptions = {
 	label: Engine.ValueString?,
 	onCaption: ((boolean) -> ())?,
 	ZIndex: number?,
+	visible: Engine.ValueBoolean?,
 }
 export type ResponderOptions = {
 	passive: boolean?,
