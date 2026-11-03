@@ -33,23 +33,30 @@ function Retained.read(value: unknown): (Reading?, string?)
 		end
 	end
 	local baseline, mounted, teardown =
-		Json.numberField(value, "baselineKb"),
+		Json.numberField(value, "baselineHeapKb"),
+		Json.numberField(value, "mountedHeapKb"),
+		Json.numberField(value, "teardownHeapKb")
+	local mountedRetained, releasedRetained, teardownRetained =
 		Json.numberField(value, "mountedKb"),
-		Json.numberField(value, "teardownKb")
-	local mountedRetained, teardownRetained =
-		Json.numberField(value, "mountedRetainedKb"), Json.numberField(value, "teardownRetainedKb")
+		Json.numberField(value, "releasedKb"),
+		Json.numberField(value, "teardownRetainedKb")
 	if
 		not finite(baseline)
 		or not finite(mounted)
 		or not finite(teardown)
 		or not finite(mountedRetained)
+		or not finite(releasedRetained)
 		or not finite(teardownRetained)
 	then
 		return nil, "retained memory readings must be finite and nonnegative"
 	end
 	local before, during, after = assert(baseline), assert(mounted), assert(teardown)
-	local live, released = assert(mountedRetained), assert(teardownRetained)
-	if live ~= math.max(0, during - after) or released ~= math.max(0, after - before) then
+	local live, freed, released = assert(mountedRetained), assert(releasedRetained), assert(teardownRetained)
+	if
+		live ~= math.max(0, during - before)
+		or freed ~= math.max(0, during - after)
+		or released ~= math.max(0, after - before)
+	then
 		return nil, "retained memory deltas do not match their raw heap readings"
 	end
 	return { mounted = live, teardown = released }, nil
