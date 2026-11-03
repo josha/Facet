@@ -113,91 +113,112 @@ for index, page in pages() do
 	then
 		continue
 	end
-	table.insert(cases, {
-		id = `focus-walk/{name}`,
-		contracts = {},
-		input = if shared.FacetFocusWalk and shared.FacetFocusWalk.keys == true then "pointer" else "gamepad",
-		run = function(t)
-			local live = (require :: any)(storage.FacetLive)
-			local focus = shared.FacetFocusRecorder or (require :: any)(storage.FacetLive.focus)
-			local layer = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery")
-			local options = shared.FacetFocusWalk or {}
-			local prefix = if options.device then `{options.device}--` else ""
-			api("device", options.device or "automatic")
-			local function open()
-				api("show", page.id)
-				t.settle(30)
-				if page.tab then
-					local group = string.split(page.tab, "/")[1]
-					api("tab", group)
-					t.settle(10)
-					api("tab", page.tab)
+	local families: { string } = if selection.keys
+		then { "keys" }
+		elseif selection.stick == false then { "dpad" }
+		else { "dpad", "stick" }
+	for _, family in families do
+		table.insert(cases, {
+			id = if family == "stick" then `focus-walk/{name}/stick` else `focus-walk/{name}`,
+			contracts = {},
+			input = if shared.FacetFocusWalk and shared.FacetFocusWalk.keys == true then "pointer" else "gamepad",
+			run = function(t)
+				local live = (require :: any)(storage.FacetLive)
+				local focus = shared.FacetFocusRecorder or (require :: any)(storage.FacetLive.focus)
+				local layer = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery")
+				local options = shared.FacetFocusWalk or {}
+				local prefix = if options.device then `{options.device}--` else ""
+				api("device", options.device or "automatic")
+				local function open()
+					api("show", page.id)
 					t.settle(30)
+					if page.tab then
+						local group = string.split(page.tab, "/")[1]
+						api("tab", group)
+						t.settle(10)
+						api("tab", page.tab)
+						t.settle(30)
+					end
+					focus.rest(layer)
+					focus.settle(layer)
 				end
-				focus.rest(layer)
-				focus.settle(layer)
-			end
-			local function restore()
-				game:GetService("GuiService").SelectedObject = nil
-				api("show", if page.id == "hud" then "garage" else "hud")
-				t.settle(10)
+				local function restore()
+					game:GetService("GuiService").SelectedObject = nil
+					api("show", if page.id == "hud" then "garage" else "hud")
+					t.settle(10)
+					open()
+				end
 				open()
-			end
-			open()
-			local identity = pageIdentity(api("report", nil))
-			local function onPage(): boolean
-				return pageIdentity(api("report", nil)) == identity
-			end
-			local lint = focus.lint(layer)
-			t.check(`{name} lint`, #lint == 0, lint)
-			local stops = focus.stops(layer)
-			local paths = focus.paths(layer, stops)
-			local atlas = if options.resumePaths then shared.FacetFocusAtlas else focus.atlas(layer, name, stops, paths)
-			if options.resumePaths then
-				assert(atlas and atlas.page == name, "focus walk resume atlas does not match the page")
-				focus.adopt(layer, atlas)
-			end
-			local file = prefix .. string.gsub(name, "[^%w%-]", "_")
-			local function merge(family: string, moves: any, offsets: any, scenes: any)
-				atlas.moves[family] = atlas.moves[family] or {}
-				atlas.offsets[family] = atlas.offsets[family] or {}
-				atlas.scenes[family] = atlas.scenes[family] or {}
-				for path, row in moves do
-					atlas.moves[family][path] = row
-					atlas.offsets[family][path] = offsets[path]
-					atlas.scenes[family][path] = scenes[path]
+				local identity = pageIdentity(api("report", nil))
+				local function onPage(): boolean
+					return pageIdentity(api("report", nil)) == identity
 				end
-			end
-			if options.keys then
-				merge(
-					"keys",
-					focus.walk(
-						layer,
-						stops,
-						paths,
-						{ "Up", "Down", "Left", "Right" },
-						atlas,
-						restore,
-						options.resumePaths,
-						onPage
+				local lint = focus.lint(layer)
+				t.check(`{name} lint`, #lint == 0, lint)
+				local stops = focus.stops(layer)
+				local paths = focus.paths(layer, stops)
+				local atlas = if options.resumePaths
+					then shared.FacetFocusAtlas
+					else focus.atlas(layer, name, stops, paths)
+				if options.resumePaths then
+					assert(atlas and atlas.page == name, "focus walk resume atlas does not match the page")
+					focus.adopt(layer, atlas)
+				end
+				local file = prefix .. string.gsub(name, "[^%w%-]", "_")
+				local function merge(family: string, moves: any, offsets: any, scenes: any)
+					atlas.moves[family] = atlas.moves[family] or {}
+					atlas.offsets[family] = atlas.offsets[family] or {}
+					atlas.scenes[family] = atlas.scenes[family] or {}
+					for path, row in moves do
+						atlas.moves[family][path] = row
+						atlas.offsets[family][path] = offsets[path]
+						atlas.scenes[family][path] = scenes[path]
+					end
+				end
+				if family == "keys" then
+					merge(
+						"keys",
+						focus.walk(
+							layer,
+							stops,
+							paths,
+							{ "Up", "Down", "Left", "Right" },
+							atlas,
+							restore,
+							options.resumePaths,
+							onPage
+						)
 					)
-				)
-				file ..= "--keys"
-			else
-				merge(
-					"dpad",
-					focus.walk(
-						layer,
-						stops,
-						paths,
-						{ "DPadDown", "DPadLeft", "DPadRight" },
-						atlas,
-						restore,
-						options.resumePaths,
-						onPage
+					file ..= "--keys"
+				elseif family == "dpad" then
+					merge(
+						"dpad",
+						focus.walk(
+							layer,
+							stops,
+							paths,
+							{ "DPadDown", "DPadLeft", "DPadRight" },
+							atlas,
+							restore,
+							options.resumePaths,
+							onPage
+						)
 					)
-				)
-				if options.stick ~= false then
+					if options.up then
+						local moves, offsets, scenes = live.signal("focus-upstream", function()
+							return focus.walkUp(layer, stops, paths, options.up, atlas, restore)
+						end)
+						for path, target in moves do
+							atlas.moves.dpad[path] = atlas.moves.dpad[path] or {}
+							atlas.moves.dpad[path].DPadUp = target
+							atlas.offsets.dpad[path].DPadUp = offsets[path]
+							if scenes[path] then
+								atlas.scenes.dpad[path] = atlas.scenes.dpad[path] or {}
+								atlas.scenes.dpad[path].DPadUp = scenes[path]
+							end
+						end
+					end
+				else
 					merge(
 						"stick",
 						focus.walk(
@@ -211,26 +232,13 @@ for index, page in pages() do
 							onPage
 						)
 					)
+					file ..= "--stick"
 				end
-				if options.up then
-					local moves, offsets, scenes = live.signal("focus-upstream", function()
-						return focus.walkUp(layer, stops, paths, options.up, atlas, restore)
-					end)
-					for path, target in moves do
-						atlas.moves.dpad[path] = atlas.moves.dpad[path] or {}
-						atlas.moves.dpad[path].DPadUp = target
-						atlas.offsets.dpad[path].DPadUp = offsets[path]
-						if scenes[path] then
-							atlas.scenes.dpad[path] = atlas.scenes.dpad[path] or {}
-							atlas.scenes.dpad[path].DPadUp = scenes[path]
-						end
-					end
-				end
-			end
-			live.save(file, HttpService:JSONEncode(atlas), "atlas")
-			t.note(`{name} stops`, #atlas.stops)
-		end,
-	})
+				live.save(file, HttpService:JSONEncode(atlas), "atlas")
+				t.note(`{name} stops`, #atlas.stops)
+			end,
+		})
+	end
 end
 
 return cases

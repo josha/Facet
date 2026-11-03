@@ -15,16 +15,39 @@ export type Catalog = {
 
 local PROJECT = "examples/.live-double.project.json"
 local CACHE = Roblox.createPlaceCache(Lute.fixture.host)
+local LAB_CLIENT = "DataModel.ReplicatedStorage.Lab.client"
+
+type Diagnostic = { kind: string, text: string, source: string }
+
+local function unexpected(diagnostics: { Diagnostic }): { Diagnostic }
+	local kept: { Diagnostic } = {}
+	for _, diagnostic in diagnostics do
+		if not (diagnostic.kind == "print" and diagnostic.source == LAB_CLIENT) then
+			table.insert(kept, diagnostic)
+		end
+	end
+	return kept
+end
 local RUN = [==[
-local storage, suite, id, check, loadDrive = ...
+local storage, suite, id, check, loadDrive, device, hooks = ...
 local live = require(storage:FindFirstChild("FacetLive"))
+if device then
+ local simulator = game:GetService("StudioDeviceSimulatorService")
+ simulator:SetDeviceAsync(device)
+ simulator:SetOrientationAsync(Enum.ScreenOrientation.Portrait)
+end
 for _, case in live.cases(suite) do
  if case.id ~= id then continue end
  if case.run then
   return game:GetService("HttpService"):JSONEncode(live.report(suite, {ids = {id}, device = "keep"}))
  end
  return live.case(suite, id, function()
-   local report = loadDrive()(live, suite, {only = id, device = "keep"})
+   local report = loadDrive()(live, suite, {
+    only = id,
+    device = "keep",
+    connectGamepad = hooks.connectGamepad,
+    disconnectGamepad = hooks.disconnectGamepad,
+   })
    check:expect(#report.results > 0):toBe(true)
    for _, result in report.results do
     for _, step in result.steps or {} do
@@ -126,6 +149,9 @@ local function open(check: Verify.Context, suites: { string }, sources: { [strin
 		return "verify-engine-double"
 	end
 	local storage = engine.service("ReplicatedStorage")
+	if table.find(suites, "lab") then
+		runtime.runScript(assert(assert(storage:FindFirstChild("Lab")):FindFirstChild("client")), "client")
+	end
 	for _, suite in suites do
 		local suiteSource = Lute.fixture.host.readFile(`tools/studio/live/suites/{suite}.luau`)
 		if
@@ -135,7 +161,7 @@ local function open(check: Verify.Context, suites: { string }, sources: { [strin
 			break
 		end
 	end
-	return { bridge = bridge, engine = engine, runtime = runtime, storage = storage }
+	return { bridge = bridge, engine = engine, runtime = runtime, storage = storage, input = input }
 end
 
 local function run(
@@ -143,18 +169,20 @@ local function run(
 	suite: string,
 	id: string,
 	sources: { [string]: string }?,
-	controller: boolean?
+	controller: boolean?,
+	device: string?
 )
 	local deadline = os.clock() + math.min(590, check:remainingSeconds())
 	local host = open(check, { suite }, sources, controller)
 	local bridge, engine, runtime, storage = host.bridge, host.engine, host.runtime, host.storage
+	local hooks = { connectGamepad = host.input.connectGamepad, disconnectGamepad = host.input.disconnectGamepad }
 	local report: Verify.Report? = nil
 	local source = Lute.fixture.host.readFile("tools/studio/live/interactive.luau")
 	local scheduler = bridge.environment.scheduler
 	local thread = scheduler.spawnTagged({ context = "client", source = `live-double/{suite}/{id}` }, function()
 		local encoded = Lute.chunk.load(RUN, { environment = runtime.globals })(storage, suite, id, check, function()
 			return Lute.chunk.load(source, { environment = runtime.globals })()
-		end)
+		end, device, hooks)
 		assert(type(encoded) == "string")
 		report = Lute.decode(encoded)
 	end)
@@ -167,7 +195,7 @@ local function run(
 		end
 		runtime.step(1 / 60)
 	end
-	check:expect(engine.diagnostics):toEqual({})
+	check:expect(unexpected(engine.diagnostics)):toEqual({})
 	check:expect(scheduler.failures):toEqual({})
 	check
 		:expect(report ~= nil)
@@ -227,7 +255,7 @@ local function catalog(check: Verify.Context): Catalog
 		check:expect(#entries > 0):toBeTrueWith(id)
 		table.insert(result.sources, { id = id, cases = entries })
 	end
-	check:expect(host.engine.diagnostics):toEqual({})
+	check:expect(unexpected(host.engine.diagnostics)):toEqual({})
 	return result
 end
 
