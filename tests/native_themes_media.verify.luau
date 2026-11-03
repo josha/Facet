@@ -1834,8 +1834,9 @@ return function(verifyHarness: Verify.Harness)
 					return node
 				end, engine.new("Folder"))
 				local node = target :: Frame
-				expect(#node:GetDescendants()):toBe(2)
+				expect(#node:GetDescendants()):toBe(1)
 				expect(node:FindFirstChildWhichIsA("UIPadding") ~= nil):toBe(true)
+				expect(node:FindFirstChild("SkinHost")):toBeNil()
 				expect(node:FindFirstChild("SkinBoundary", true)):toBeNil()
 				local art = themes.neutralPackage()
 				assert(art.assets).image = { content = "rbxassetid://30" }
@@ -1852,6 +1853,34 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 				expect(node.Parent):toBeNil()
 				runtime:dispose()
+			end,
+		})
+		it("shares one theme watch across unskinned controls of one context", {
+			id = "native_themes_media::native themes and media::shares one theme watch across unskinned controls of one context",
+			run = function()
+				local function themeWork(count: number): number
+					local engine, runtime = setup()
+					local selected = themeState(themes.neutralPackage())
+					local UI = controls(Compose, runtime, { types = engine.types, theme = selected })
+					local stop = runtime.mount(function()
+						local children: { Instance } = {}
+						for index = 1, count do
+							table.insert(children, UI.Button("Action" .. index) { label = `Action {index}` })
+						end
+						return runtime.constructors.Frame(children)
+					end, engine.new("Folder"))
+					local quiet = themes.neutralPackage()
+					assert(quiet.chrome).toggleTrack = { kind = "native" :: "native" }
+					Compose.setWorkCounters(true)
+					Compose.resetWorkCounters()
+					selected:set(quiet)
+					local runs = Compose.readWorkCounters().watchRuns
+					Compose.setWorkCounters(false)
+					stop()
+					runtime:dispose()
+					return runs
+				end
+				expect(themeWork(8)):toBe(themeWork(1))
 			end,
 		})
 		it("skips static empty skin graphs while retaining later reactive art and shadows", {

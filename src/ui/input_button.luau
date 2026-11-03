@@ -22,6 +22,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local dynamic, enabled = kit.dynamic, kit.enabled
 	local noKey, typeRoles = kit.noKey, kit.typeRoles
+	local function captioned(package: ThemeTypes.ReadOnlyThemePackage?): boolean
+		local recipe = package and package.chrome and package.chrome.control
+		return recipe ~= nil and recipe.kind ~= "native" and recipe.kind ~= "none"
+	end
 	local dialogOrder = 0
 	local roles: { [string]: boolean } = { default = true, cancel = true, destructive = true, onIndicator = true }
 	local roleTags: { [string]: string } = {}
@@ -775,9 +779,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		if not rich and ctx.config.theme ~= nil then
 			local function needsCaption(use)
-				local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
-				local recipe = package and package.chrome and package.chrome.control
-				return recipe ~= nil and recipe.kind ~= "native" and recipe.kind ~= "none"
+				return captioned(read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use))
 			end
 			local function caption()
 				Compose.cleanup(function()
@@ -820,15 +822,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				return boundary
 			end
 			if Compose.isValue(ctx.config.theme) or type(ctx.config.theme) == "function" then
-				local attached = false
-				runtime.mountFragment(function()
-					return {
-						Compose.show(function(use: ComposeTypes.Use)
-							attached = attached or needsCaption(use)
-							return attached
-						end, caption),
-					}
-				end, node)
+				ctx.whenTheme("caption", captioned, function()
+					runtime.mount(caption, node)
+				end)
 			elseif needsCaption() then
 				runtime.mount(caption, node)
 			end

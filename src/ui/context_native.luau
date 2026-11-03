@@ -278,6 +278,42 @@ return function(
 		Compose.cleanup(stop)
 		return node
 	end
+	local awaiting: { [string]: { [() -> ()]: true } } = {}
+	function ctx.whenTheme(key: string, ready: (Theme.ReadOnlyThemePackage?) -> boolean, body: () -> ())
+		if ready(read<<Theme.ReadOnlyThemePackage?>>(config.theme)) then
+			body()
+			return
+		end
+		local owner = assert(Compose.currentOwner(), "Facet: build controls inside runtime.mount")
+		local waiting = awaiting[key]
+		if waiting == nil then
+			local fresh: { [() -> ()]: true } = {}
+			waiting = fresh
+			awaiting[key] = fresh
+			Compose.withOwner(ctx.lifetime, function()
+				Compose.watch(function(use: ComposeTypes.Use)
+					if ready(read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)) then
+						local due: { () -> () } = {}
+						for entry in fresh do
+							table.insert(due, entry)
+						end
+						table.clear(fresh)
+						for _, entry in due do
+							entry()
+						end
+					end
+				end)
+			end)
+		end
+		local pending = assert(waiting)
+		local function entry()
+			Compose.withOwner(owner, body)
+		end
+		pending[entry] = true
+		Compose.cleanup(function()
+			pending[entry] = nil
+		end)
+	end
 	function ctx.skin(
 		node: GuiObject,
 		slot: string,
@@ -286,10 +322,12 @@ return function(
 		if config.theme == nil then
 			return nil, nil
 		end
-		local function hasSkin(use: ComposeTypes.Use?): boolean
-			local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
+		local function skinned(package: Theme.ReadOnlyThemePackage?): boolean
 			local recipe = if package and package.chrome then package.chrome[slot] else nil
 			return recipe ~= nil and (recipe.kind ~= "native" and recipe.kind ~= "none" or recipe.shadow ~= nil)
+		end
+		local function hasSkin(): boolean
+			return skinned(ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme))
 		end
 		if not Compose.isValue(config.theme) and type(config.theme) ~= "function" then
 			if not hasSkin() then
@@ -297,7 +335,7 @@ return function(
 			end
 		end
 		local stateOptions: Shared.SkinStateOptions = skinOptions or {}
-		local function createSkin(): Frame
+		local function createSkin(zIndex: number): Frame
 			local state = ctx.observe.GuiState(node)
 			local background = observeStyled(node, "BackgroundTransparency")
 			return themes.skin(runtime, config.theme, slot, {
@@ -336,7 +374,7 @@ return function(
 				selected = function(use: ComposeTypes.Use)
 					return ctx.read(stateOptions.selected, use) == true
 				end,
-				ZIndex = 0,
+				ZIndex = zIndex,
 			})
 		end
 		if node:FindFirstChildWhichIsA("UIPadding") == nil then
@@ -344,28 +382,33 @@ return function(
 				return Host.UIPadding {}
 			end, node)
 		end
-		local dispose, art = runtime.mount(function()
-			if hasSkin() then
-				return createSkin()
+		local function place(art: GuiObject?)
+			if art and node:FindFirstChildWhichIsA("UIGridStyleLayout") then
+				local _, chrome = runtime.mount(function()
+					return Host.Folder "Chrome" {}
+				end, node);
+				(art :: GuiObject).Parent = chrome :: Instance
 			end
-			local needed = false
-			return Host.Frame "SkinHost" {
-				Size = types.UDim2.fromOffset(0, 0),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				ZIndex = 0,
-				Compose.show(function(use: ComposeTypes.Use): boolean
-					needed = needed or hasSkin(use)
-					return needed
-				end, createSkin),
-			}
-		end, node)
-		if art and node:FindFirstChildWhichIsA("UIGridStyleLayout") then
-			local _, chrome = runtime.mount(function()
-				return Host.Folder "Chrome" {}
-			end, node);
-			(art :: GuiObject).Parent = chrome :: Instance
 		end
-		return dispose, art :: GuiObject?
+		if hasSkin() then
+			local dispose, art = runtime.mount(function()
+				return createSkin(stateOptions.ZIndex or 0)
+			end, node)
+			place(art :: GuiObject)
+			return dispose, art :: GuiObject
+		end
+		ctx.whenTheme("skin:" .. slot, skinned, function()
+			local _, art = runtime.mount(function()
+				return Host.Frame "SkinHost" {
+					Size = types.UDim2.fromOffset(0, 0),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					ZIndex = stateOptions.ZIndex or 0,
+					createSkin(0),
+				}
+			end, node)
+			place(art :: GuiObject)
+		end)
+		return nil, nil
 	end
 end
