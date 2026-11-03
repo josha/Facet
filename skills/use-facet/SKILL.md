@@ -24,7 +24,10 @@ screen lists, skins, dimensions or typography ratios.
 
 Read [runtime essentials](references/runtime.md) and the relevant route below.
 Read a theme asset only when adapting it. Retrieve exact control contracts as
-needed; an example does not cover every option or integration.
+needed; an example does not cover every option or integration. Everything you
+read stays in context for the rest of the session. Without a search tool, read
+a control's contract when you are about to use it rather than every route up
+front.
 
 | Task | Read and adapt |
 | --- | --- |
@@ -55,15 +58,23 @@ operation. Demonstration callbacks do not implement a production transaction.
 
 Keep the project's source and sync path. Edit persistent source; Play-only
 changes are not the delivered result. Split modules by responsibility and
-lifetime. Size tool calls to the host's limits and the amount of code that can
-be checked reliably, rather than a fixed line count or number of screens.
+lifetime. Each tool call resends the session so far, so work in batches: when
+modules are independent and the next Play session will check them together,
+write them in one call within the host's size limit. Write a module that relies
+on an option or API you have not yet seen work in its own call, and check it
+before reusing its pattern.
 
 Read the relevant source range before patching. An exact-text patch should
 assert that its old text occurs once. Return focused diagnostics rather than
 whole source trees. Batch independent reads or probes when that is useful.
 
-In Play, exercise the changed routes and inspect errors. In the Client data
-model, `Facet.review.screen().text` provides layout and design findings.
+In Play, exercise the changed routes and inspect errors. Treat a mounted surface
+that shows no content, or a control that is missing, as a construction error to
+find, not a style to adjust. In the Client data model, `Facet.review.screen().text`
+provides layout and design findings, including compact-layout findings when the
+host shows only one size; run it on each changed screen. If the host's command
+tool cannot require modules, call it from a temporary client script and read its
+output.
 Automated findings are evidence to investigate, not a substitute for viewing
 the interface or testing input. Capture representative changed states at the
 supported sizes the host can show, then capture again after visual repairs.
