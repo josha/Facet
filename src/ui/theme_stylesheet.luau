@@ -781,7 +781,7 @@ return function(
 				resized[definition.id] = definition
 				local record = mounted[definition.id]
 				if record and record.properties ~= definition.properties then
-					record.node:SetProperties(definition.properties)
+					record.node:SetProperty("TextSize", definition.properties.TextSize)
 					record.properties = definition.properties
 				end
 			end
