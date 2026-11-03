@@ -56,7 +56,7 @@ function Publish.collect(directories: { string }): { Row }
 					then
 						local entry = samplesFor(scenes, sceneOrder, scene)
 						local p50, p95 = Json.numberField(row, "p50"), Json.numberField(row, "p95")
-						local retained = Json.numberField(Json.objectField(row, "memory"), "mountedRetainedKb")
+						local retained = Json.numberField(Json.objectField(row, "memory"), "mountedKb")
 						if p50 and p95 then
 							table.insert(entry.p50, p50)
 							table.insert(entry.p95, p95)

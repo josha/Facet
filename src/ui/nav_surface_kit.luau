@@ -139,10 +139,7 @@ return function(ctx: Types.Context, attach: Attach): Kit
 	local function skin(panel: GuiObject, slot: string?, options: Nav.PanelSkin?): GuiObject
 		local settings: Nav.PanelSkin = options or {}
 		local extra = settings.reserve
-		local _, artwork = ctx.skin(panel, slot or "panel", { label = settings.title, onCaption = settings.onCaption })
-		if artwork then
-			artwork.ZIndex = -1
-		end
+		ctx.skin(panel, slot or "panel", { label = settings.title, onCaption = settings.onCaption, ZIndex = -1 })
 		local padding = if settings.padding == false
 			then nil
 			else settings.padding or panel:FindFirstChildWhichIsA("UIPadding")

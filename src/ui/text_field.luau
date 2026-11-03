@@ -824,18 +824,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			chrome.paint(control, plate, spec, function(use: ComposeTypes.Use?)
 				return failure(use) ~= "" or read(spec.invalid, use) == true
 			end)
-			local _, skin = ctx.skin(plate, "field", {
+			ctx.skin(plate, "field", {
 				disabled = function(use: ComposeTypes.Use)
 					return not enabled(use)
 				end,
+				visible = function(use: ComposeTypes.Use): boolean
+					return read(spec.appearance, use) ~= "utility"
+				end,
 			})
-			if skin then
-				runtime.decorate(skin, {
-					Visible = function(use: ComposeTypes.Use): boolean
-						return read(spec.appearance, use) ~= "utility"
-					end,
-				})
-			end
 			if not spec.stepButtons then
 				local up: { string } = {}
 				local at: Instance? = node.Parent
