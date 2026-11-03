@@ -244,7 +244,7 @@ return function<V, K>(
 		local edits: { activation.EditAction } = {}
 		local measuredNode: GuiObject
 		local actionHeight: ComposeTypes.ReadOnlyValue<number>? = nil
-		local painted = Compose.cell(false)
+		local shown = if arrivals then Compose.cell(false) else nil
 		local content: GuiObject
 		local stop = Compose.withOwner(poolOwner, function()
 			return runtime.mount(function(): GuiObject
@@ -470,10 +470,15 @@ return function<V, K>(
 					}
 					groupProperties = expanded
 				end
-				groupProperties.GroupTransparency = function(use: ComposeTypes.Use): number
-					return if use(painted) then 1 - (if entrance then use(entrance) else 1) else 1
+				if shown and entrance then
+					local arrival, visible = entrance, shown
+					groupProperties.GroupTransparency = function(use: ComposeTypes.Use): number
+						return if use(visible) then 1 - use(arrival) else 1
+					end
+				else
+					groupProperties.GroupTransparency = 1
 				end
-				groupProperties.Attributes = { FacetCollectionRow = true, FacetCollectionReady = painted }
+				groupProperties.Attributes = { FacetCollectionRow = true, FacetCollectionReady = false }
 				groupProperties.AutomaticSize = if tree ~= nil or read(spec.contentOverflow) == "clip"
 					then E.AutomaticSize.None
 					elseif carded then (if horizontal then E.AutomaticSize.X else E.AutomaticSize.Y)
@@ -570,8 +575,8 @@ return function<V, K>(
 		wireSelection(content, keyCell)
 		view.slotKeys[node] = keyCell
 		local arrive: ((K) -> ())? = nil
-		if entrance then
-			local cell = entrance
+		if entrance and shown then
+			local cell, visible = entrance, shown
 			local stopArrival: (() -> ())? = nil
 			local function settle(): ()
 				if stopArrival then
@@ -586,7 +591,7 @@ return function<V, K>(
 				local seconds = ctx.metric("motion.durations.rowArrival")
 				local present = ctx.motionEase("present")
 				stopArrival = view.frames.onFrame(function(step: number)
-					if not painted:peek() then
+					if not visible:peek() then
 						return
 					end
 					elapsed = math.min(seconds, elapsed + step)
@@ -741,17 +746,15 @@ return function<V, K>(
 			settle = close
 			return prepared
 		end)
-		preparing[node] = {
+		local paint: State.Preparing = {
 			ready = ready,
-			painted = painted,
+			content = content,
+			placement = placement,
+			painted = false,
+			shown = shown,
 			settle = settle,
-			required = function(): boolean
-				local at, window = placement:peek(), viewport:peek()
-				return spec.mode == "all"
-					or window.size <= 0
-					or (at.offset + at.size > window.offset and at.offset < window.offset + window.size)
-			end,
 		}
+		preparing[node] = paint
 		waiting:update(function(value)
 			return value + 1
 		end)
@@ -799,7 +802,7 @@ return function<V, K>(
 			if
 				not wanted
 				and pendingReplacement
-				and painted:peek()
+				and paint.painted
 				and not ComposeTypes.owner.isDisposed(poolOwner)
 				and #nextRows > 0
 			then

@@ -231,4 +231,99 @@ return function(harness: Verify.Harness)
 			end,
 		}
 	)
+	harness:case("collection rows reveal painted rows without a binding unless arrival motion is declared", {
+		id = "native_control_memory::collection-row-reveal",
+		run = function()
+			type Row = { id: string }
+			for _, arrival in { "absent", "rise" } do
+				local function mount(count: number)
+					local state = nativeApp()
+					local Compose, V2, environment = state.Compose, state.types.Vector2, state.engine.environment
+					local initial: { Row } = {}
+					for index = 1, count do
+						table.insert(initial, { id = tostring(index) })
+					end
+					local rows = Compose.cell(initial)
+					Compose.inspect.start({ maxOwners = math.huge, maxNodes = math.huge })
+					local root: GuiObject
+					local stop = state.runtime.mount(function()
+						root = state.UI.VirtualGrid {
+							from = rows,
+							key = "id",
+							mode = "all",
+							columns = 2,
+							itemSize = 44,
+							measure = false,
+							recycle = false,
+							reducedMotion = false,
+							arrival = if arrival == "rise" then "rise" else nil,
+							selection = Compose.cell({}),
+							render = function(current: Facet.ReadOnlyValue<Row>): GuiObject
+								return state.Host.TextLabel "Caption" { Text = current:peek().id }
+							end,
+						}
+						return root
+					end, state.target)
+					local snapshot = Compose.inspect.snapshot()
+					local watches = 0
+					for _, owner in snapshot.mounts do
+						watches += owner.totalWatches
+					end
+					Compose.inspect.stop()
+					local items = assert(root:FindFirstChild("Items", true))
+					local function content(name: string): CanvasGroup
+						local found = assert(assert(items:FindFirstChild(name)):FindFirstChild("Content"))
+						assert(found:IsA("CanvasGroup"))
+						return found
+					end
+					local function paint(name: string, frames: number)
+						for _, node in assert(items:FindFirstChild(name)):GetDescendants() do
+							if node:IsA("GuiObject") then
+								environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(100, 44))
+								if node:IsA("TextLabel") then
+									environment.poke(VerifyRoblox.assertInstance(node), "TextBounds", V2.new(60, 20))
+								end
+							end
+						end
+						for _ = 1, frames do
+							state.frame()
+						end
+					end
+					return {
+						state = state,
+						rows = rows,
+						stop = stop,
+						watches = watches,
+						content = content,
+						paint = paint,
+					}
+				end
+				local one, two = mount(1), mount(2)
+				Verify.expect(two.watches - one.watches):toBe(if arrival == "rise" then 4 else 3)
+				two.stop()
+				two.state.dispose()
+				local first = one.content("1")
+				Verify.expect(first.GroupTransparency):toBe(1)
+				Verify.expect(first:GetAttribute("FacetCollectionReady")):toBe(false)
+				one.paint("1", 4)
+				Verify.expect(first.GroupTransparency):toBe(0)
+				Verify.expect(first:GetAttribute("FacetCollectionReady")):toBe(true)
+				one.rows:set({ { id = "1" }, { id = "2" } })
+				local second = one.content("2")
+				Verify.expect(second.GroupTransparency):toBe(1)
+				Verify.expect(second:GetAttribute("FacetCollectionReady")):toBe(false)
+				one.paint("2", 2)
+				Verify.expect(second:GetAttribute("FacetCollectionReady")):toBe(true)
+				if arrival == "rise" then
+					Verify.expect(second.GroupTransparency > 0 and second.GroupTransparency < 1):toBe(true)
+					one.paint("2", 120)
+				end
+				Verify.expect(second.GroupTransparency):toBe(0)
+				Verify.expect(first.GroupTransparency):toBe(0)
+				one.stop()
+				one.state.dispose()
+				Verify.expect(one.state.engine.census().connections):toBe(0)
+			end
+		end,
+	})
 end

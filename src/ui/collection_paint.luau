@@ -6,44 +6,57 @@ local textMeasure = require("./text_measure")
 type Poll = { steps: { [() -> ()]: boolean }, queue: { () -> () }, count: number, stop: (() -> ())? }
 local polls: { [unknown]: Poll } = setmetatable({}, { __mode = "k" })
 
+local function painted(node: Instance): boolean
+	if node:IsA("GuiObject") then
+		if not node.Visible then
+			return true
+		end
+		if node:GetAttribute("FacetBuilt") == false then
+			return false
+		end
+		if node:IsA("ViewportFrame") and node:GetAttribute("FacetMediaReady") == false then
+			return false
+		end
+		if
+			(node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox"))
+			and node.Text ~= ""
+			and node.TextTransparency < 1
+		then
+			if textMeasure.pending(node) then
+				return false
+			end
+			local box, bounds = node.AbsoluteSize, node.TextBounds
+			if box.X <= 0 or box.Y <= 0 or bounds.X <= 0 or bounds.Y <= 0 then
+				return false
+			end
+		end
+	end
+	for _, child in node:GetChildren() do
+		if not painted(child) then
+			return false
+		end
+	end
+	return true
+end
+
+local function listen(node: Instance, root: GuiObject, geometry: { RBXScriptConnection }, prepare: () -> ())
+	if node:IsA("GuiObject") then
+		if node ~= root then
+			table.insert(geometry, node:GetPropertyChangedSignal("AbsoluteSize"):Connect(prepare))
+		end
+		table.insert(geometry, node:GetPropertyChangedSignal("Visible"):Connect(prepare))
+		if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+			table.insert(geometry, node:GetPropertyChangedSignal("TextBounds"):Connect(prepare))
+		end
+	end
+end
+
 return function(
 	ctx: Types.Context,
 	root: GuiObject,
 	measure: ((ComposeTypes.Use, Vector2) -> ())?,
 	rest: boolean?
 ): (ComposeTypes.ReadOnlyValue<boolean>, (() -> ())?)
-	local function painted(node: Instance): boolean
-		if node:IsA("GuiObject") then
-			if not node.Visible then
-				return true
-			end
-			if node:GetAttribute("FacetBuilt") == false then
-				return false
-			end
-			if node:IsA("ViewportFrame") and node:GetAttribute("FacetMediaReady") == false then
-				return false
-			end
-			if
-				(node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox"))
-				and node.Text ~= ""
-				and node.TextTransparency < 1
-			then
-				if textMeasure.pending(node) then
-					return false
-				end
-				local box, bounds = node.AbsoluteSize, node.TextBounds
-				if box.X <= 0 or box.Y <= 0 or bounds.X <= 0 or bounds.Y <= 0 then
-					return false
-				end
-			end
-		end
-		for _, child in node:GetChildren() do
-			if not painted(child) then
-				return false
-			end
-		end
-		return true
-	end
 	local function sample(): boolean
 		local box = root.AbsoluteSize
 		if box.X <= 0 or box.Y <= 0 then
@@ -104,17 +117,6 @@ return function(
 	local poll: Poll? = nil
 	local geometry: { RBXScriptConnection } = {}
 	local prepare: () -> ()
-	local function listen(node: Instance)
-		if node:IsA("GuiObject") then
-			if node ~= root then
-				table.insert(geometry, node:GetPropertyChangedSignal("AbsoluteSize"):Connect(prepare))
-			end
-			table.insert(geometry, node:GetPropertyChangedSignal("Visible"):Connect(prepare))
-			if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-				table.insert(geometry, node:GetPropertyChangedSignal("TextBounds"):Connect(prepare))
-			end
-		end
-	end
 	local function halt()
 		for _, connection in geometry do
 			connection:Disconnect()
@@ -191,9 +193,9 @@ return function(
 			return
 		end
 		if #geometry == 0 then
-			listen(root)
+			listen(root, root, geometry, prepare)
 			for _, node in root:GetDescendants() do
-				listen(node)
+				listen(node, root, geometry, prepare)
 			end
 		end
 		arm()
