@@ -675,6 +675,25 @@ return function(
 			end,
 		}),
 	})
+	local compiledTheme = Compose.formula(
+		function(
+			use: ComposeTypes.Use
+		): { package: ThemeTypes.ReadOnlyThemePackage, rules: { NativeRule }, tokens: { [string]: Color3? } }
+			local authored = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use)
+			local package = forDistance(authored or neutral, if read(distant, use) == true then "ten-foot" else "near")
+			local rules = compiledRules(package, read<<string?>>(settings.theme, use))
+			local tokens: { [string]: Color3? } = rules[1].tokens or {}
+			local hovering = read(settings.hover, use)
+			if hovering == nil then
+				hovering = read(hover, use)
+			end
+			return {
+				package = package,
+				rules = if hovering == false then withoutHover(rules) else rules,
+				tokens = tokens,
+			}
+		end
+	)
 	Compose.watch(function(use: ComposeTypes.Use)
 		local authored = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use)
 		if authored and not warmed[authored] then
@@ -702,16 +721,8 @@ return function(
 				end
 			end
 		end
-		local package = forDistance(authored or neutral, if read(distant, use) == true then "ten-foot" else "near")
-		local current = compiledRules(package, read<<string?>>(settings.theme, use))
-		local colorTokens: { [string]: Color3? } = current[1].tokens or {}
-		local hovering = read(settings.hover, use)
-		if hovering == nil then
-			hovering = read(hover, use)
-		end
-		if hovering == false then
-			current = withoutHover(current)
-		end
+		local compiled = use(compiledTheme)
+		local package, current, colorTokens = compiled.package, compiled.rules, compiled.tokens
 		local explicit = read<<(TweenInfo | false)?>>(settings.transition, use)
 		local snapped = snaps(use)
 		local cache = if support.sealed(package) then sharedTimings else timingMemo
@@ -770,7 +781,7 @@ return function(
 				resized[definition.id] = definition
 				local record = mounted[definition.id]
 				if record and record.properties ~= definition.properties then
-					record.node:SetProperties(definition.properties)
+					record.node:SetProperty("TextSize", definition.properties.TextSize)
 					record.properties = definition.properties
 				end
 			end
