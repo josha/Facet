@@ -299,7 +299,7 @@ return function(harness: Verify.Harness)
 					}
 				end
 				local one, two = mount(1), mount(2)
-				Verify.expect(two.watches - one.watches):toBe(if arrival == "rise" then 4 else 3)
+				Verify.expect(two.watches - one.watches):toBe(if arrival == "rise" then 3 else 2)
 				two.stop()
 				two.state.dispose()
 				local first = one.content("1")
@@ -324,6 +324,108 @@ return function(harness: Verify.Harness)
 				one.state.dispose()
 				Verify.expect(one.state.engine.census().connections):toBe(0)
 			end
+		end,
+	})
+	harness:case("collection rows share selection painting and connect only the row hit events they use", {
+		id = "native_control_memory::collection-row-selection",
+		run = function()
+			type Row = { id: string }
+			local activation = require("../src/ui/activation")
+			local function mount(count: number)
+				local state = nativeApp()
+				local Compose = state.Compose
+				local initial: { Row } = {}
+				for index = 1, count do
+					table.insert(initial, { id = tostring(index) })
+				end
+				local rows = Compose.cell(initial)
+				local selection = Compose.cell({} :: { [string]: boolean })
+				local focus: Facet.FocusControls<string> = {}
+				local activated: { string } = {}
+				Compose.inspect.start({ maxOwners = math.huge, maxNodes = math.huge })
+				local before = state.engine.census().connections
+				local root: GuiObject
+				local stop = state.runtime.mount(function()
+					root = state.UI.VirtualGrid {
+						from = rows,
+						key = "id",
+						mode = "all",
+						columns = 2,
+						itemSize = 44,
+						measure = false,
+						selection = selection,
+						focus = focus,
+						onActivate = function(_row: Row, key: string)
+							table.insert(activated, key)
+						end,
+						render = function(current: Facet.ReadOnlyValue<Row>): GuiObject
+							return state.Host.TextLabel "Caption" { Text = current:peek().id }
+						end,
+					}
+					return root
+				end, state.target)
+				local snapshot = Compose.inspect.snapshot()
+				local watches, cleanups = 0, 0
+				for _, owner in snapshot.mounts do
+					watches += owner.totalWatches
+					cleanups += owner.totalCleanups
+				end
+				Compose.inspect.stop()
+				return {
+					state = state,
+					rows = rows,
+					selection = selection,
+					focus = focus,
+					activated = activated,
+					stop = stop,
+					items = assert(root:FindFirstChild("Items", true)),
+					watches = watches,
+					cleanups = cleanups,
+					connections = state.engine.census().connections - before,
+				}
+			end
+			local one, two = mount(1), mount(2)
+			Verify.expect(two.watches - one.watches):toBe(2)
+			Verify.expect(two.cleanups - one.cleanups):toBe(3)
+			Verify.expect(two.connections - one.connections):toBe(4)
+			one.stop()
+			one.state.dispose()
+			local items, environment = two.items, two.state.engine.environment
+			local function hit(name: string): TextButton
+				local found = assert(assert(items:FindFirstChild(name)):FindFirstChild("RowHit", true))
+				assert(found:IsA("TextButton"))
+				return found
+			end
+			local function content(name: string): Instance
+				return assert(assert(items:FindFirstChild(name)):FindFirstChild("Content"))
+			end
+			local function shown(name: string): (boolean, boolean)
+				return hit(name):GetAttribute("FacetSelected") == true, content(name):HasTag("facet-selected")
+			end
+			Verify.expect(environment.connectionsOfInstance(VerifyRoblox.assertInstance(hit("1")))):toBe(2)
+			Verify.expect(hit("1"):GetAttribute("FacetSelected")):toBe(false)
+			Verify.expect(hit("1"):GetAttribute("FacetOnlySelected")):toBe(nil)
+			local mouse = { UserInputType = two.state.types.Enum.UserInputType.MouseButton1 }
+			environment.fire(VerifyRoblox.assertInstance(hit("2")), "Activated", mouse, 1)
+			Verify.expect(two.selection:peek()):toEqual({ ["2"] = true })
+			Verify.expect({ shown("2") }):toEqual({ true, true })
+			Verify.expect({ shown("1") }):toEqual({ false, false })
+			environment.fire(VerifyRoblox.assertInstance(hit("1")), "Activated", mouse, 2)
+			Verify.expect(two.activated):toEqual({ "1" })
+			Verify.expect(activation.trigger(hit("2"), nil, nil)):toBe(true)
+			Verify.expect(two.selection:peek()):toEqual({ ["2"] = true })
+			Verify.expect(two.activated):toEqual({ "1", "2" })
+			Verify.expect({ shown("1") }):toEqual({ false, false })
+			environment.fire(VerifyRoblox.assertInstance(hit("1")), "SelectionGained")
+			Verify.expect(assert(two.focus.current):peek()):toBe("1")
+			local gone = hit("2")
+			two.rows:set({ { id = "1" } })
+			two.selection:set({ ["2"] = true, ["1"] = true })
+			Verify.expect({ shown("1") }):toEqual({ true, true })
+			two.stop()
+			Verify.expect(activation.trigger(gone, nil, nil)):toBe(false)
+			two.state.dispose()
+			Verify.expect(two.state.engine.census().connections):toBe(0)
 		end,
 	})
 end

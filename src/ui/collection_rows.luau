@@ -31,7 +31,37 @@ return function<V, K>(
 	local source, viewport, cross = view.source, view.viewport, view.cross
 	local mountedVersion, status, controls, selection = view.mountedVersion, view.status, view.controls, view.selection
 	local coordinator, selectionMode = view.coordinator, view.selectionMode
-	local highlight = createHighlight(Compose, selection, spec.selection ~= nil or selectionMode ~= "none")
+	local paintSelection = spec.selectionIndicator ~= false and selectionMode ~= "none"
+	type Mark = { hit: TextButton?, logical: GuiObject, selected: ComposeTypes.Value<boolean>?, onlySelected: boolean }
+	local highlight = createHighlight(
+		Compose,
+		selection,
+		spec.selection ~= nil or selectionMode ~= "none",
+		function(mark: Mark, state: createHighlight.State, previous: createHighlight.State?)
+			local on, only = state ~= "none", state == "only"
+			local shownOn: boolean? = if previous == nil then nil else previous ~= "none"
+			local hit = mark.hit
+			if hit then
+				if mark.onlySelected and (previous == nil or (previous == "only") ~= only) then
+					hit:SetAttribute("FacetOnlySelected", only)
+				end
+				if shownOn ~= on then
+					hit:SetAttribute("FacetSelected", on)
+				end
+			end
+			if paintSelection and (shownOn == true) ~= on then
+				if on then
+					mark.logical:AddTag("facet-selected")
+				else
+					mark.logical:RemoveTag("facet-selected")
+				end
+			end
+			local selected = mark.selected
+			if selected then
+				selected:set(on)
+			end
+		end
+	)
 	local measured, containsCards, horizontal = view.measured, view.containsCards, view.horizontal
 	local reduced, focusActive = view.reduced, view.focusActive
 	local liveOverflow = Compose.isValue(spec.contentOverflow) or type(spec.contentOverflow) == "function"
@@ -86,14 +116,18 @@ return function<V, K>(
 		view.focusedPath = path
 		view.scope.focus(key)
 	end
-	local function wireSelection(node: Instance, key: ComposeTypes.ReadOnlyValue<K>): ()
-		if node:IsA("GuiObject") and (node.Selectable or node:IsA("GuiButton") or node:IsA("TextBox")) then
+	local function wireSelection(node: Instance, key: ComposeTypes.ReadOnlyValue<K>, wired: Instance?): ()
+		if
+			node ~= wired
+			and node:IsA("GuiObject")
+			and (node.Selectable or node:IsA("GuiButton") or node:IsA("TextBox"))
+		then
 			runtime.connect(node, "SelectionGained", function()
 				captureSelection(node, key:peek())
 			end)
 		end
 		for _, child in node:GetChildren() do
-			wireSelection(child, key)
+			wireSelection(child, key, wired)
 		end
 	end
 	local positionEditor = rowEditor or (if spec.reorderable or spec.drag then editor else nil)
@@ -245,6 +279,7 @@ return function<V, K>(
 		local measuredNode: GuiObject
 		local actionHeight: ComposeTypes.ReadOnlyValue<number>? = nil
 		local shown = if arrivals then Compose.cell(false) else nil
+		local marked: Mark? = nil
 		local content: GuiObject
 		local stop = Compose.withOwner(poolOwner, function()
 			return runtime.mount(function(): GuiObject
@@ -343,6 +378,7 @@ return function<V, K>(
 					end))
 				end
 				local selectionHit: TextButton? = nil
+				local offered: ((InputObject?, number?) -> ())? = nil
 				local attributes: EngineTypes.Attributes = { FacetCollectionRow = true }
 				local children: Types.CanvasGroupProps = {
 					Name = "Content",
@@ -384,6 +420,9 @@ return function<V, K>(
 							select(keyCell:peek(), current, input, clicks)
 						end
 					end
+					local function gained()
+						captureSelection(hit, keyCell:peek())
+					end
 					local hitAttributes: EngineTypes.Attributes = { FacetSelectionRequired = selectionMode ~= "none" }
 					hit = Host.TextButton "RowHit" {
 						AnchorPoint = centre,
@@ -394,14 +433,19 @@ return function<V, K>(
 						Selectable = true,
 						Interactable = interactable,
 						Activated = activate,
+						SelectionGained = gained,
 						Attributes = hitAttributes,
 					}
-					selectionHit = hit
-					Compose.cleanup(activation.provide(hit, activate))
-					local function pressed(value: InputObject)
-						activation.press(rendered, value)
+					selectionHit, offered = hit, activate
+					activation.offer(hit, activate)
+					if activation.pressable(rendered) then
+						local target = rendered
+						local function pressed(value: InputObject)
+							activation.press(target, value)
+						end
+						runtime.connect(hit, "InputBegan", pressed)
+						Compose.cleanup(activation.providePress(hit, pressed))
 					end
-					runtime.connect(hit, "InputBegan", pressed)
 					if editor and ctx.config.inputParent and ctx.config.inputParent:IsA("PluginGui") then
 						local activeEditor = editor
 						runtime.connect(hit, "MouseButton1Down", function(x: number, y: number)
@@ -409,13 +453,11 @@ return function<V, K>(
 						end)
 						runtime.connect(hit, "InputEnded", editor.finish)
 					end
-					Compose.cleanup(activation.providePress(hit, pressed))
 					children[2], children[1] = children[1], hit
 				end
 				local carded = tree == nil
 					and rendered:GetAttribute("FacetBody") ~= nil
 					and read(spec.contentOverflow) ~= "clip"
-				local paintSelection = spec.selectionIndicator ~= false and selectionMode ~= "none"
 				if paintSelection and not carded then
 					children.BackgroundTransparency = nil
 				end
@@ -499,30 +541,22 @@ return function<V, K>(
 						})
 					end
 				end
-				if selectionHit or paintSelection then
-					local shownOnly: boolean?, shownOn: boolean? = nil, nil
-					highlight(keyCell, function(state)
-						local on, only = state ~= "none", state == "only"
-						if selectionHit then
-							if (editor or #edits > 0) and shownOnly ~= only then
-								selectionHit:SetAttribute("FacetOnlySelected", only)
-							end
-							if shownOn ~= on then
-								selectionHit:SetAttribute("FacetSelected", on)
-							end
+				local mark: Mark? = if selectionHit or paintSelection
+					then {
+						hit = selectionHit,
+						logical = logical,
+						selected = selected,
+						onlySelected = editor ~= nil or #edits > 0,
+					}
+					else nil
+				if mark then
+					marked = mark
+					highlight.track(mark, keyCell:peek())
+					Compose.cleanup(function()
+						if selectionHit and offered then
+							activation.withdraw(selectionHit, offered)
 						end
-						local changed = (shownOn == true) ~= on
-						shownOnly, shownOn = only, on
-						if paintSelection and changed then
-							if on then
-								logical:AddTag("facet-selected")
-							else
-								logical:RemoveTag("facet-selected")
-							end
-						end
-						if selected then
-							selected:set(on)
-						end
+						highlight.forget(mark)
 					end)
 				end
 				return content
@@ -572,7 +606,7 @@ return function<V, K>(
 			stop()
 			lease.release()
 		end
-		wireSelection(content, keyCell)
+		wireSelection(content, keyCell, if marked then marked.hit else nil)
 		view.slotKeys[node] = keyCell
 		local arrive: ((K) -> ())? = nil
 		if entrance and shown then
@@ -634,6 +668,9 @@ return function<V, K>(
 			node.Name = tostring(now)
 			mounted[now], placed[now], cellEdits[now] = node, placement, edits
 			if gone ~= nil then
+				if marked then
+					highlight.move(marked, now)
+				end
 				if tree == nil and spec.disabled ~= nil then
 					node.Interactable = not policy.disabled(spec.disabled, rowItem:peek())
 				end
