@@ -83,6 +83,25 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native menu parity with main", function()
+		verifyHarness:case("menu width follows icon content instead of the stretched row", {
+			id = "native_menu::native menu parity with main::menu width follows icon content instead of the stretched row",
+			run = function()
+				local world =
+					labelled({ items = { { id = "edit", label = "Edit", icon = "edit", onSelect = function() end } } })
+				local panel = open(world)
+				local content = world.find("edit", panel):FindFirstChild("Content")
+				local layout = content:FindFirstChildWhichIsA("UIListLayout")
+				local title = content:FindFirstChild("Title")
+				world.engine.environment.poke(content, "AbsoluteSize", Vector2.new(360, 24))
+				world.engine.environment.poke(title, "AbsoluteSize", Vector2.new(22, 16))
+				world.engine.environment.poke(title, "TextBounds", Vector2.new(22, 16))
+				world.engine.environment.poke(layout, "AbsoluteContentSize", Vector2.new(50, 20))
+				Verify.expect(panel.Size.X.Offset):toBe(220)
+				world.engine.environment.poke(layout, "AbsoluteContentSize", Vector2.new(250, 20))
+				Verify.expect(panel.Size.X.Offset):toBe(298)
+				world.stop()
+			end,
+		})
 		verifyHarness:case("keeps native row marks reactive across selection and icon states", {
 			id = "native_menu::native menu parity with main::keeps native row marks reactive across selection and icon states",
 			run = function()

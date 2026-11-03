@@ -610,7 +610,7 @@ function browser.mount(opts: MountOpts)
 		local liveControl = UI.VStack "Live" {
 
 			width = "fill",
-			maxWidth = if data.cellWidth and not data.fills then data.cellWidth * 2 else nil,
+			maxWidth = if data.cellWidth and not data.fills then data.cellWidth else nil,
 			height = function(use: Use)
 				return use(cellHeight) :: number | "hug" | "fill"
 			end,
@@ -759,7 +759,7 @@ function browser.mount(opts: MountOpts)
 				return not use(ps.examples)
 			end, function()
 				return UI.Button "ShowExamples" {
-					label = "Show examples",
+					label = "Open interactive examples",
 					appearance = "utility",
 					controlSize = "compact",
 					onActivate = function()
@@ -814,9 +814,13 @@ function browser.mount(opts: MountOpts)
 			)
 		end
 		if data.scenarios then
+			table.insert(
+				body,
+				caption("Try this control in complete interfaces below. These examples have their own state.")
+			)
 			table.insert(body, InContext(page))
 		end
-		return section("Content", "Content", body)
+		return section("Content", "Usage and examples", body)
 	end
 
 	local function Header(title: string, description: string?, note: string?): GuiObject
