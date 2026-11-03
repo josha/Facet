@@ -6,14 +6,26 @@ local layoutKit = require("./layout_kit")
 local textMeasure = require("./text_measure")
 local NATIVE_KEYS = table.freeze({ "ref" })
 
-local geometryQueue: { [() -> ()]: boolean } = {}
+type Geometry = { apply: () -> (), frame: number }
+
+local geometryQueue: { [() -> ()]: Geometry } = {}
 local geometryStop: (() -> ())? = nil
+local geometryFrame = 0
 
 local function flushGeometry()
-	local queued = geometryQueue
-	geometryQueue = {}
-	for refresh in queued do
-		refresh()
+	geometryFrame += 1
+	local settled: { [() -> ()]: Geometry } = {}
+	for sample, entry in geometryQueue do
+		if entry.frame < geometryFrame - 1 then
+			settled[sample] = entry
+		end
+	end
+	for sample in settled do
+		geometryQueue[sample] = nil
+		sample()
+	end
+	for _, entry in settled do
+		entry.apply()
 	end
 	if next(geometryQueue) == nil and geometryStop then
 		local stop = geometryStop
@@ -139,15 +151,25 @@ local function attachMeasuredLayout(
 	local checkStale: () -> () = function() end
 	local sizeMoved, boundsMoved = false, false
 	textChanged = textChanged or (warm == true and not framed)
-	local function readGeometry()
+	local sampledBounds: Vector2? = nil
+	local function sampleGeometry()
 		if alive then
 			if sizeMoved then
 				box = label.AbsoluteSize
 			end
 			if boundsMoved then
-				bounds:set(label.TextBounds)
+				sampledBounds = label.TextBounds
 			end
 			sizeMoved, boundsMoved = false, false
+		end
+	end
+	local function applyGeometry()
+		if alive then
+			local glyph = sampledBounds
+			sampledBounds = nil
+			if glyph then
+				bounds:set(glyph)
+			end
 			if warm and not textChanged then
 				textChanged = true
 				refloor()
@@ -163,10 +185,16 @@ local function attachMeasuredLayout(
 			boundsMoved = true
 		end
 		if not framed or frames == nil then
-			readGeometry()
+			sampleGeometry()
+			applyGeometry()
 			return
 		end
-		geometryQueue[readGeometry] = true
+		local entry = geometryQueue[sampleGeometry]
+		if entry then
+			entry.frame = geometryFrame
+		else
+			geometryQueue[sampleGeometry] = { apply = applyGeometry, frame = geometryFrame }
+		end
 		if geometryStop == nil then
 			geometryStop = frames.onFrame(flushGeometry)
 		end
