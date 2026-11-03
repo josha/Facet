@@ -141,9 +141,24 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 			damping = ctx.metric(`motion.springs.{role}.damping`, use),
 		}
 	end
+	type Ease = { package: Theme.ReadOnlyThemePackage?, neutral: Theme.Metrics?, ease: (number) -> number }
+	local eases: { [string]: Ease } = {}
 	function ctx.motionEase(role: string, use: ComposeTypes.Use?): (number) -> number
-		local name = motionName(`motion.easing.{role}`, use)
+		local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
+		local known = eases[role]
+		if known and known.package == package and (known.neutral == nil or known.neutral == ctx.neutralMetrics(use)) then
+			return known.ease
+		end
+		local path = `motion.easing.{role}`
+		local found = valueAt(if package then package.metrics else nil, path)
+		local neutral: Theme.Metrics? = nil
+		if type(found) ~= "string" then
+			neutral = ctx.neutralMetrics(use)
+			found = valueAt(neutral, path)
+		end
+		local name = assert(if type(found) == "string" then found else nil, `Facet motion name {path} is missing`)
 		local ease = assert(easings[name], `Facet motion easing {name} is not a Compose easing`)
+		eases[role] = { package = package, neutral = neutral, ease = ease }
 		return ease
 	end
 	function ctx.motionStyle(role: string, use: ComposeTypes.Use?): Enum.EasingStyle
