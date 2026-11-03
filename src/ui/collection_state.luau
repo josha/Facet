@@ -14,6 +14,7 @@ export type Preparing = {
 	ready: ComposeTypes.ReadOnlyValue<boolean>,
 	painted: ComposeTypes.Value<boolean>,
 	required: () -> boolean,
+	settle: (() -> ())?,
 }
 export type View<V, K> = {
 	spec: CollectionTypes.CollectionShape<V, K>,
@@ -184,14 +185,7 @@ local function create<V, K>(
 	local cellEdits: { [K]: { activation.EditAction } } = {}
 	local placed: { [K]: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement> } = {}
 	local poolOwner = ComposeTypes.owner.createChild(assert(Compose.currentOwner()))
-	local preparing: {
-		[Frame]: {
-			ready: ComposeTypes.ReadOnlyValue<boolean>,
-			painted: ComposeTypes.Value<boolean>,
-			required: () -> boolean,
-		},
-	} =
-		{}
+	local preparing: { [Frame]: Preparing } = {}
 	local retiring: { [Frame]: () -> () } = {}
 	local waiting = Compose.cell(0)
 	local resume: (() -> ())? = nil
@@ -224,6 +218,10 @@ local function create<V, K>(
 			if use(entry.ready) then
 				entry.painted:set(true)
 				preparing[node] = nil
+				local settle = entry.settle
+				if settle then
+					settle()
+				end
 			end
 		end
 		waiting:set(0)

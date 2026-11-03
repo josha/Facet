@@ -11,7 +11,7 @@ return function(
 	root: GuiObject,
 	measure: ((ComposeTypes.Use, Vector2) -> ())?,
 	rest: boolean?
-): ComposeTypes.ReadOnlyValue<boolean>
+): (ComposeTypes.ReadOnlyValue<boolean>, (() -> ())?)
 	local function painted(node: Instance): boolean
 		if node:IsA("GuiObject") then
 			if not node.Visible then
@@ -53,7 +53,7 @@ return function(
 	end
 	if rest and ctx.runtime.host.frames and not sample() then
 		local size = ctx.observe.AbsoluteSize(root)
-		return ctx.runtime.settled {
+		local settled = ctx.runtime.settled {
 			restart = function(use: ComposeTypes.Use): boolean
 				local box = use(size)
 				if measure then
@@ -95,6 +95,7 @@ return function(
 				return true
 			end,
 		}
+		return settled, nil
 	end
 	local ready = ctx.Compose.cell(false)
 	local render = ctx.config.services.RunService and ctx.config.services.RunService.PreRender
@@ -198,11 +199,15 @@ return function(
 		arm()
 	end
 	local changed = root:GetPropertyChangedSignal("AbsoluteSize"):Connect(prepare)
-	ctx.Compose.cleanup(function()
+	local function close()
+		if closed then
+			return
+		end
 		closed = true
 		changed:Disconnect()
 		halt()
-	end)
+	end
+	ctx.Compose.cleanup(close)
 	if measure then
 		local size = ctx.observe.AbsoluteSize(root)
 		ctx.Compose.watch(function(use: ComposeTypes.Use)
@@ -212,5 +217,5 @@ return function(
 	else
 		prepare()
 	end
-	return ready
+	return ready, close
 end

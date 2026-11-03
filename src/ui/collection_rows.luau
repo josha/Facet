@@ -527,9 +527,7 @@ return function<V, K>(
 		local previousParent: Instance? = node.Parent
 		local released = false
 		local restoringParent = false
-		local destroyed = node.Destroying:Connect(function()
-			parked = nil
-		end)
+		local destroyed: RBXScriptConnection? = nil
 		local live = true
 		local restore = node.AncestryChanged:Connect(function()
 			if node.Parent and parked == nil then
@@ -563,7 +561,9 @@ return function<V, K>(
 			released = true
 			parked = nil
 			restore:Disconnect()
-			destroyed:Disconnect()
+			if destroyed then
+				destroyed:Disconnect()
+			end
 			stop()
 			lease.release()
 		end
@@ -730,17 +730,21 @@ return function<V, K>(
 				end)
 			end
 		end
+		local settle: (() -> ())? = nil
 		local ready = Compose.withOwner(contentOwner, function()
-			return preparePaint(
+			local prepared, close = preparePaint(
 				ctx,
 				if measureRow then measuredNode else content,
 				measureRow,
 				tree == nil and (spec.measure == true or measureRow ~= nil)
 			)
+			settle = close
+			return prepared
 		end)
 		preparing[node] = {
 			ready = ready,
 			painted = painted,
+			settle = settle,
 			required = function(): boolean
 				local at, window = placement:peek(), viewport:peek()
 				return spec.mode == "all"
@@ -800,6 +804,9 @@ return function<V, K>(
 				and #nextRows > 0
 			then
 				parked = previousParent
+				destroyed = node.Destroying:Connect(function()
+					parked = nil
+				end)
 				node.Parent = parked
 				content.Interactable = false
 				view.retiring[node] = release

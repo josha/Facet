@@ -4,6 +4,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local nativeApp = require("../bench/native_app")
 local context = require("../src/ui/context")
+local Facet = require("../src")
 local InputTypes = require("../src/ui/input_types")
 
 return function(harness: Verify.Harness)
@@ -150,4 +151,84 @@ return function(harness: Verify.Harness)
 			Verify.expect(state.engine.census().connections):toBe(0)
 		end,
 	})
+	harness:case(
+		"collection rows park a replaced row until its replacement paints and hold row hooks only while needed",
+		{
+			id = "native_control_memory::collection-row-hooks",
+			run = function()
+				type Row = { id: string, title: string }
+				for _, ending in { "paint", "unparent", "destroy" } do
+					local state = nativeApp()
+					local Host, V2, environment = state.Host, state.types.Vector2, state.engine.environment
+					local rows = state.Compose.cell({ { id = "A", title = "Alpha" } :: Row })
+					local root: GuiObject
+					local stop = state.runtime.mount(function()
+						root = state.UI.VirtualGrid {
+							from = rows,
+							key = "id",
+							mode = "all",
+							columns = 2,
+							itemSize = 44,
+							measure = false,
+							recycle = false,
+							render = function(current: Facet.ReadOnlyValue<Row>): GuiObject
+								return Host.TextLabel "Caption" { Text = current:peek().title }
+							end,
+						}
+						return root
+					end, state.target)
+					local items = assert(root:FindFirstChild("Items", true))
+					local function connections(node: Instance): number
+						return environment.connectionsOfInstance(VerifyRoblox.assertInstance(node))
+					end
+					local function content(row: Instance): CanvasGroup
+						local found = assert(row:FindFirstChild("Content"))
+						assert(found:IsA("CanvasGroup"))
+						return found
+					end
+					local function paint(name: string)
+						for _, node in assert(items:FindFirstChild(name)):GetDescendants() do
+							if node:IsA("GuiObject") then
+								environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(100, 44))
+								if node:IsA("TextLabel") then
+									environment.poke(VerifyRoblox.assertInstance(node), "TextBounds", V2.new(60, 20))
+								end
+							end
+						end
+						for _ = 1, 4 do
+							state.frame()
+						end
+					end
+					local old = assert(items:FindFirstChild("A"))
+					Verify.expect(connections(old)):toBe(1)
+					Verify.expect(connections(content(old))):toBe(1)
+					paint("A")
+					Verify.expect(content(old).GroupTransparency):toBe(0)
+					Verify.expect(connections(old)):toBe(1)
+					Verify.expect(connections(content(old))):toBe(0)
+					environment.poke(VerifyRoblox.assertInstance(content(old)), "AbsoluteSize", V2.new(0, 0))
+					Verify.expect(content(old).GroupTransparency):toBe(0)
+					rows:set({ { id = "B", title = "Beta" } :: Row })
+					local fresh = assert(items:FindFirstChild("B"))
+					Verify.expect(old.Parent):toBe(items)
+					Verify.expect(connections(old)):toBe(2)
+					Verify.expect(content(fresh).GroupTransparency):toBe(1)
+					if ending == "unparent" then
+						old.Parent = nil
+						Verify.expect(old.Parent):toBe(items)
+					elseif ending == "destroy" then
+						old:Destroy()
+						Verify.expect(old.Parent):toBe(nil)
+					end
+					paint("B")
+					Verify.expect(content(fresh).GroupTransparency):toBe(0)
+					Verify.expect(old.Parent):toBe(nil)
+					Verify.expect(connections(old)):toBe(0)
+					stop()
+					state.dispose()
+					Verify.expect(state.engine.census().connections):toBe(0)
+				end
+			end,
+		}
+	)
 end
