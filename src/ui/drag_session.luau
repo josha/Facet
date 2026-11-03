@@ -282,44 +282,12 @@ return function(ctx: Types.Context): Drag.Service
 		label.ZIndex = top + 2
 	end
 
-	local function updateStatus(session: Drag.Session)
+	local function placeStatus(session: Drag.Session)
 		local label = session.status
-		if not label then
+		if not label or current ~= session then
 			return
 		end
-		local text: string = if session.spec.statusLabels == false
-			then ""
-			elseif session.pending then "Waiting for confirmation…"
-			elseif session.accepted then ({ move = "Move", copy = "Copy", apply = "Apply" })[session.operation]
-			elseif session.target then session.reason or "Cannot drop here"
-			elseif session.mode == "armed" then "Choose a destination"
-			else "Cannot drop here"
-		if
-			session.spec.statusLabels ~= false
-			and session.accepted
-			and session.target
-			and targets[session.target].label
-			and not session.pending
-		then
-			text ..= " to " .. ctx.read<<string>>(assert(targets[session.target].label))
-		end
-		if session.mode == "armed" and not session.pending then
-			local input = (session.effectiveInput :: (Types.Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse")(nil)
-			text ..= if text ~= "" then " · " else ""
-			text ..= if input == "Gamepad"
-				then "A: drop · B: cancel"
-				elseif input == "Touch" then "Tap a destination"
-				else "Enter: drop · Esc: cancel · Tab: destination"
-			if input == "Gamepad" and session.spec.navigationHint then
-				text ..= " · " .. session.spec.navigationHint
-			end
-		end
-		if label.Text ~= text then
-			label.Text = text
-		end
 		local panel = label.Parent :: GuiObject
-		panel.Visible = text ~= ""
-			and (session.pending or session.mode == "armed" or not session.accepted or session.operation ~= "move")
 		if not panel.Visible and session.mode ~= "armed" then
 			return
 		end
@@ -391,6 +359,74 @@ return function(ctx: Types.Context): Drag.Service
 			math.clamp(at.X.Offset + gap, gap, math.max(gap, bounds.X - size.X - gap)),
 			math.clamp(at.Y.Offset + ctx.metric("targetSizes.minimum"), gap, math.max(gap, bounds.Y - size.Y - gap))
 		)
+	end
+
+	local placing: { [Drag.Session]: boolean } = {}
+	local placement: RBXScriptConnection? = nil
+	local function schedulePlacement(session: Drag.Session)
+		local frames = ctx.config.services.RunService
+		if frames == nil then
+			placeStatus(session)
+			return
+		end
+		placing[session] = true
+		if placement == nil then
+			placement = (frames.PreRender or frames.Heartbeat):Connect(function()
+				if placement then
+					placement:Disconnect()
+					placement = nil
+				end
+				local queued = placing
+				placing = {}
+				for queuedSession in queued do
+					placeStatus(queuedSession)
+				end
+			end)
+		end
+	end
+
+	local function updateStatus(session: Drag.Session)
+		local label = session.status
+		if not label then
+			return
+		end
+		local text: string = if session.spec.statusLabels == false
+			then ""
+			elseif session.pending then "Waiting for confirmation…"
+			elseif session.accepted then ({ move = "Move", copy = "Copy", apply = "Apply" })[session.operation]
+			elseif session.target then session.reason or "Cannot drop here"
+			elseif session.mode == "armed" then "Choose a destination"
+			else "Cannot drop here"
+		if
+			session.spec.statusLabels ~= false
+			and session.accepted
+			and session.target
+			and targets[session.target].label
+			and not session.pending
+		then
+			text ..= " to " .. ctx.read<<string>>(assert(targets[session.target].label))
+		end
+		if session.mode == "armed" and not session.pending then
+			local input = (session.effectiveInput :: (Types.Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse")(nil)
+			text ..= if text ~= "" then " · " else ""
+			text ..= if input == "Gamepad"
+				then "A: drop · B: cancel"
+				elseif input == "Touch" then "Tap a destination"
+				else "Enter: drop · Esc: cancel · Tab: destination"
+			if input == "Gamepad" and session.spec.navigationHint then
+				text ..= " · " .. session.spec.navigationHint
+			end
+		end
+		if label.Text ~= text then
+			label.Text = text
+		end
+		local panel = label.Parent :: GuiObject
+		panel.Visible = text ~= ""
+			and (session.pending or session.mode == "armed" or not session.accepted or session.operation ~= "move")
+		if not panel.Visible and session.mode ~= "armed" then
+			return
+		end
+		schedulePlacement(session)
 	end
 	local panels: { [GuiBase2d]: StatusPanel } = {}
 	local owners = 0
