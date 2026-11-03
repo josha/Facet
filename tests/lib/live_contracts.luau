@@ -2,7 +2,7 @@
 local Verify = require("../../tools/vendor/verify/src/core")
 local Double = require("./live_double")
 
-local SUITES: { { id: string, cases: { string }, controller: boolean? } } = {
+local SUITES: { { id: string, cases: { string }, controller: boolean?, touch: boolean? } } = {
 	{
 		id = "ascent",
 		cases = {
@@ -1068,6 +1068,139 @@ local SUITES: { { id: string, cases: { string }, controller: boolean? } } = {
 			"travel-gamepad",
 		},
 	},
+	{
+		id = "ascent",
+		cases = {
+			"ascent-portrait-touch-and-themes",
+		},
+	},
+	{
+		id = "classb_examples",
+		cases = {
+			"playlist-320x640-edit-mode-cells",
+		},
+	},
+	{
+		id = "container_transfer",
+		cases = {
+			"reserved-slots-pointer-recall",
+		},
+	},
+	{
+		id = "frame_stability",
+		cases = {
+			"native-feedback/desktop/Medium",
+		},
+	},
+	{
+		id = "in24",
+		cases = {
+			"draggable-immediate-cross-axis-X",
+			"touch-page-view-swipes-one-page",
+			"touch-reorder-arms-and-pans",
+		},
+	},
+	{
+		id = "live_bugs",
+		cases = {
+			"mail-row-grip",
+		},
+	},
+	{
+		id = "navigation_split_view",
+		cases = {
+			"files-grid-action-bounds",
+			"three-pane-layout",
+		},
+	},
+	{
+		id = "needs_live_input",
+		cases = {
+			"sheet-content-replacement",
+		},
+	},
+	{
+		id = "visual_review",
+		cases = {
+			"changed-controls-board",
+		},
+	},
+	{
+		id = "zoom_travel",
+		cases = {
+			"zoom-pointer",
+		},
+	},
+	{
+		id = "focus_opened",
+		controller = true,
+		cases = {
+			"opened-date-picker",
+		},
+	},
+	{
+		id = "focus_walk",
+		controller = true,
+		cases = {
+			"focus-walk/all-controls/actions/alerts",
+			"focus-walk/all-controls/actions/buttons",
+			"focus-walk/all-controls/actions/help",
+			"focus-walk/all-controls/actions/menus",
+			"focus-walk/all-controls/actions/overlays",
+			"focus-walk/all-controls/actions/recipes",
+			"focus-walk/all-controls/actions/sheets",
+			"focus-walk/all-controls/indicators/feedback",
+			"focus-walk/all-controls/indicators/identity",
+			"focus-walk/all-controls/indicators/levels",
+			"focus-walk/all-controls/indicators/status",
+			"focus-walk/all-controls/indicators/toasts",
+			"focus-walk/all-controls/inputs/basics",
+			"focus-walk/all-controls/inputs/basics/stick",
+			"focus-walk/all-controls/inputs/choices",
+			"focus-walk/all-controls/inputs/choices/stick",
+			"focus-walk/all-controls/inputs/writing",
+			"focus-walk/all-controls/inputs/writing/stick",
+			"focus-walk/all-controls/navigation/disclosure",
+			"focus-walk/all-controls/navigation/journey",
+			"focus-walk/all-controls/navigation/pages",
+			"focus-walk/all-controls/navigation/paging",
+			"focus-walk/all-controls/navigation/steps",
+			"focus-walk/arcade/stick",
+			"focus-walk/ascent/stick",
+			"focus-walk/collections/rows/declared",
+			"focus-walk/collections/rows/declared/stick",
+			"focus-walk/collections/rows/measured",
+			"focus-walk/collections/rows/measured/stick",
+			"focus-walk/collections/rows/permissions",
+			"focus-walk/collections/rows/permissions/stick",
+			"focus-walk/collections/rows/swipe",
+			"focus-walk/collections/rows/swipe/stick",
+			"focus-walk/ex02/stick",
+			"focus-walk/ex03",
+			"focus-walk/ex03/stick",
+			"focus-walk/ex05",
+			"focus-walk/ex05/stick",
+			"focus-walk/ex06",
+			"focus-walk/ex06/stick",
+			"focus-walk/ex07",
+			"focus-walk/ex07/stick",
+			"focus-walk/files",
+			"focus-walk/garage",
+			"focus-walk/garage/stick",
+			"focus-walk/hud/stick",
+			"focus-walk/motion-layout/motion/animation",
+			"focus-walk/radial-menu",
+			"focus-walk/radial-menu/stick",
+			"focus-walk/sipworks",
+		},
+	},
+	{
+		id = "needs_live_c",
+		controller = true,
+		cases = {
+			"gallery-previews-keep-page-and-pad-routes",
+		},
+	},
 }
 
 local WEIGHTS: { [string]: number } = {
@@ -1165,7 +1298,6 @@ local WEIGHTS: { [string]: number } = {
 	["focus_opened/opened-alert"] = 39,
 	["focus_opened/opened-callout"] = 26,
 	["focus_opened/opened-collapsible"] = 27,
-	["focus_opened/opened-date-picker"] = 305,
 	["focus_opened/opened-dialog"] = 35,
 	["focus_opened/opened-disclosure-group"] = 58,
 	["focus_opened/opened-menu"] = 100,
@@ -1208,15 +1340,9 @@ local WEIGHTS: { [string]: number } = {
 	["focus_probe/F8-sink-context-on-dpad-and-stick"] = 1,
 	["focus_walk/focus-rest-tracks-targets-while-activity-runs"] = 90,
 	["focus_walk/focus-walk/all-controls/actions/shortcuts"] = 174,
-	["focus_walk/focus-walk/all-controls/indicators/identity"] = 370,
-	["focus_walk/focus-walk/all-controls/inputs/basics"] = 589,
-	["focus_walk/focus-walk/all-controls/inputs/choices"] = 525,
-	["focus_walk/focus-walk/all-controls/inputs/writing"] = 426,
-	["focus_walk/focus-walk/all-controls/navigation/pages"] = 348,
 	["focus_walk/focus-walk/arcade"] = 70,
 	["focus_walk/focus-walk/ascent"] = 87,
 	["focus_walk/focus-walk/ex02"] = 62,
-	["focus_walk/focus-walk/garage"] = 298,
 	["focus_walk/focus-walk/hud"] = 36,
 	["focus_walk/focus-walk/motion-layout/layout/containers"] = 82,
 	["focus_walk/focus-walk/motion-layout/layout/grid"] = 40,
@@ -1224,7 +1350,6 @@ local WEIGHTS: { [string]: number } = {
 	["focus_walk/focus-walk/motion-layout/layout/labels"] = 40,
 	["focus_walk/focus-walk/motion-layout/layout/markers"] = 46,
 	["focus_walk/focus-walk/motion-layout/layout/wrap"] = 77,
-	["focus_walk/focus-walk/motion-layout/motion/animation"] = 404,
 	["focus_walk/focus-walk/motion-layout/motion/automatic"] = 29,
 	["focus_walk/focus-walk/motion-layout/motion/compositing"] = 48,
 	["focus_walk/focus-walk/motion-layout/motion/curves"] = 45,
@@ -1338,7 +1463,6 @@ local WEIGHTS: { [string]: number } = {
 	["frame_stability/native-calendar-first-visible-glyphs/Medium"] = 14,
 	["frame_stability/native-calendar-time-validation-placement/Medium"] = 24,
 	["frame_stability/native-feedback/desktop/Largest"] = 1,
-	["frame_stability/native-feedback/desktop/Medium"] = 1,
 	["frame_stability/native-feedback/phone/Largest"] = 1,
 	["frame_stability/native-feedback/phone/Medium"] = 1,
 	["frame_stability/native-feedback/tablet/Largest"] = 1,
@@ -1514,7 +1638,6 @@ local WEIGHTS: { [string]: number } = {
 	["native_mechanisms/scroll-gutter-and-window"] = 3,
 	["native_mechanisms/sibling-order-and-hit-testing"] = 6,
 	["navigation_split_view/files-editor-first-focus"] = 114,
-	["navigation_split_view/files-grid-action-bounds"] = 273,
 	["navigation_split_view/files-pane-navigation"] = 124,
 	["navigation_split_view/files-theme-bounds"] = 39,
 	["navigation_split_view/geometry-feedback"] = 18,
@@ -1522,7 +1645,6 @@ local WEIGHTS: { [string]: number } = {
 	["navigation_split_view/resize-options"] = 65,
 	["navigation_split_view/split-layout-and-retention"] = 56,
 	["navigation_split_view/stacked-layout-and-retention"] = 76,
-	["navigation_split_view/three-pane-layout"] = 299,
 	["needs_live/circular-value-inside-gauge"] = 3,
 	["needs_live/coach-mark-clear-of-share-and-reset-floor"] = 7,
 	["needs_live/collapsed-column-details-target"] = 3,
@@ -1767,6 +1889,71 @@ local WEIGHTS: { [string]: number } = {
 	["weak3_surfaces/slider-custom-track-centred"] = 1,
 	["weak3_surfaces/slider-rung-thin-rail-whole-target"] = 1,
 	["weak3_surfaces/tabview-rung-centred"] = 1,
+	["focus_walk/focus-walk/sipworks"] = 119,
+	["focus_opened/opened-date-picker"] = 115,
+	["focus_walk/focus-walk/files"] = 92,
+	["focus_walk/focus-walk/all-controls/actions/recipes"] = 92,
+	["focus_walk/focus-walk/all-controls/actions/buttons"] = 90,
+	["focus_walk/focus-walk/motion-layout/motion/animation"] = 89,
+	["focus_walk/focus-walk/all-controls/inputs/basics/stick"] = 78,
+	["focus_walk/focus-walk/all-controls/indicators/status"] = 71,
+	["focus_walk/focus-walk/all-controls/navigation/pages"] = 68,
+	["focus_walk/focus-walk/all-controls/inputs/choices/stick"] = 65,
+	["focus_walk/focus-walk/all-controls/inputs/basics"] = 59,
+	["focus_walk/focus-walk/all-controls/indicators/levels"] = 55,
+	["focus_walk/focus-walk/garage/stick"] = 51,
+	["focus_walk/focus-walk/all-controls/indicators/identity"] = 51,
+	["focus_walk/focus-walk/garage"] = 49,
+	["focus_walk/focus-walk/all-controls/inputs/writing/stick"] = 47,
+	["focus_walk/focus-walk/all-controls/inputs/choices"] = 47,
+	["focus_walk/focus-walk/all-controls/inputs/writing"] = 38,
+	["focus_walk/focus-walk/ex06/stick"] = 34,
+	["focus_walk/focus-walk/all-controls/navigation/paging"] = 33,
+	["focus_walk/focus-walk/all-controls/actions/overlays"] = 33,
+	["navigation_split_view/files-grid-action-bounds"] = 32,
+	["focus_walk/focus-walk/all-controls/actions/help"] = 31,
+	["focus_walk/focus-walk/ex06"] = 29,
+	["focus_walk/focus-walk/all-controls/actions/menus"] = 29,
+	["focus_walk/focus-walk/all-controls/indicators/feedback"] = 26,
+	["focus_walk/focus-walk/all-controls/indicators/toasts"] = 25,
+	["focus_walk/focus-walk/all-controls/navigation/steps"] = 24,
+	["focus_walk/focus-walk/ex07/stick"] = 22,
+	["navigation_split_view/three-pane-layout"] = 21,
+	["focus_walk/focus-walk/all-controls/navigation/disclosure"] = 21,
+	["focus_walk/focus-walk/all-controls/actions/sheets"] = 20,
+	["ascent/ascent-portrait-touch-and-themes"] = 20,
+	["focus_walk/focus-walk/ascent/stick"] = 19,
+	["focus_walk/focus-walk/all-controls/actions/alerts"] = 19,
+	["focus_walk/focus-walk/arcade/stick"] = 18,
+	["focus_walk/focus-walk/ex07"] = 16,
+	["focus_walk/focus-walk/ex05/stick"] = 16,
+	["focus_walk/focus-walk/collections/rows/permissions/stick"] = 15,
+	["focus_walk/focus-walk/ex02/stick"] = 14,
+	["focus_walk/focus-walk/ex05"] = 13,
+	["focus_walk/focus-walk/all-controls/navigation/journey"] = 13,
+	["needs_live_c/gallery-previews-keep-page-and-pad-routes"] = 12,
+	["focus_walk/focus-walk/collections/rows/swipe/stick"] = 12,
+	["live_bugs/mail-row-grip"] = 10,
+	["focus_walk/focus-walk/collections/rows/swipe"] = 10,
+	["focus_walk/focus-walk/collections/rows/permissions"] = 9,
+	["focus_walk/focus-walk/collections/rows/measured/stick"] = 9,
+	["focus_walk/focus-walk/collections/rows/declared/stick"] = 9,
+	["focus_walk/focus-walk/hud/stick"] = 7,
+	["focus_walk/focus-walk/collections/rows/measured"] = 6,
+	["focus_walk/focus-walk/collections/rows/declared"] = 6,
+	["visual_review/changed-controls-board"] = 2,
+	["needs_live_input/sheet-content-replacement"] = 1,
+	["in24/touch-page-view-swipes-one-page"] = 1,
+	["focus_walk/focus-walk/radial-menu/stick"] = 1,
+	["focus_walk/focus-walk/radial-menu"] = 1,
+	["focus_walk/focus-walk/ex03/stick"] = 1,
+	["focus_walk/focus-walk/ex03"] = 1,
+	["classb_examples/playlist-320x640-edit-mode-cells"] = 1,
+	["zoom_travel/zoom-pointer"] = 1,
+	["in24/touch-reorder-arms-and-pans"] = 1,
+	["in24/draggable-immediate-cross-axis-X"] = 1,
+	["frame_stability/native-feedback/desktop/Medium"] = 1,
+	["container_transfer/reserved-slots-pointer-recall"] = 1,
 }
 
 local SHARDS = 40
@@ -1807,7 +1994,7 @@ local function register(harness: Verify.Harness, shard: number)
 		for _, id in suite.cases do
 			if shardOf[`{suite.id}/{id}`] == shard then
 				harness:case(`original live {suite.id}/{id} on the Verify engine double`, function(check)
-					Double.run(check, suite.id, id, nil, suite.controller)
+					Double.run(check, suite.id, id, nil, suite.controller, if suite.touch then "iphone_14" else nil)
 				end)
 			end
 		end
