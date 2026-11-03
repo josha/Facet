@@ -237,6 +237,8 @@ export type SkinStateOptions = {
 	selected: Engine.ValueBoolean?,
 	label: Engine.ValueString?,
 	onCaption: ((boolean) -> ())?,
+	ZIndex: number?,
+	visible: Engine.ValueBoolean?,
 }
 export type ResponderOptions = {
 	passive: boolean?,
@@ -322,6 +324,7 @@ export type Context = {
 		ActionSettings?
 	) -> (InputAction, InputContext),
 	skin: (GuiObject, string, SkinStateOptions?) -> (Dispose?, GuiObject?),
+	whenTheme: (string, (Theme.ReadOnlyThemePackage?) -> boolean, () -> ()) -> (),
 	responder: (Instance, ResponderOptions?) -> Responder,
 	spaceActivates: (Instance) -> (Use) -> boolean,
 	layoutKit: unknown?,
