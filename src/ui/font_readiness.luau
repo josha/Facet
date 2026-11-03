@@ -4,6 +4,8 @@ local Types = require("./types")
 
 export type TextNode = TextLabel | TextButton | TextBox
 
+local prepared: { [TextService]: { [string]: boolean } } = setmetatable({}, { __mode = "k" })
+
 local function fontOf(node: TextNode): Font
 	local font: unknown = node:GetStyled("FontFace")
 	assert(typeof(font) == "Font", "text font must be a Font")
@@ -19,6 +21,10 @@ end
 return function(ctx: Types.Context, roots: { GuiObject }): (texts: { TextNode }?) -> boolean
 	local provider = ctx.config.services.ContentProvider
 	local textService = ctx.config.services.TextService
+	local cached: { [string]: boolean } = if textService then prepared[textService] or {} else {}
+	if textService then
+		prepared[textService] = cached
+	end
 	if (provider == nil and textService == nil) or task == nil then
 		return function(_texts: { TextNode }?): boolean
 			return true
@@ -70,20 +76,35 @@ return function(ctx: Types.Context, roots: { GuiObject }): (texts: { TextNode }?
 			table.insert(sources, fonts[face])
 		end
 		local key = table.concat(faces, ";")
+		local known = textService ~= nil
+		for _, face in faces do
+			known = known and cached[face] == true
+		end
+		if known then
+			return true
+		end
 		if key ~= wanted then
 			cancel()
 			wanted = key
 			pending = task.defer(function()
 				if textService and params then
 					local service, request = textService, params
-					for _, node in sources do
+					for index, node in sources do
+						if cached[faces[index]] then
+							continue
+						end
 						request.Font = fontOf(node)
 						request.Size = sizeOf(node)
 						request.Text = node.Text
 						request.RichText = node.RichText
-						pcall(function()
+						local face = request.Font
+						local measuredKey = `{face.Family}:{face.Weight.Name}:{face.Style.Name}:{request.Size}`
+						local ok = pcall(function()
 							service:GetTextBoundsAsync(request)
 						end)
+						if ok then
+							cached[measuredKey] = true
+						end
 					end
 				elseif provider then
 					local content = provider

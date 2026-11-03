@@ -4,6 +4,10 @@
 
 Open one option group below. Each group gives part of this contract.
 
+Menus use `metrics.motion.menu`: 0.08 seconds to enter and 0.04 seconds to
+exit by default. They wait for stable layout before the fade starts. Sheet
+presentations keep `metrics.motion.sheet` timing.
+
 Open:
 
 - [Menu-and-SplitButton.edge](Menu-and-SplitButton.edge.md)

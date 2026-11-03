@@ -1,5 +1,9 @@
 # Current package
 
+Menus use a short fade after layout is ready, with separate theme timing for
+menus and sheets. Menu overlays share their preparation result, and successful
+font preparation is reused when a menu opens again.
+
 A help tooltip no longer breaks a short word across two lines, such as
 "Paus / e". Its width rounds the measured text width up to a whole pixel.
 

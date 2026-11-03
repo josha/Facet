@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local NativeTypes = require("../src/ui/types")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -83,6 +84,56 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native menu parity with main", function()
+		verifyHarness:case("reuses successful font preparation across menu lifetimes", function(t)
+			local prepare = require("../src/ui/font_readiness")
+			local environment, pending = getfenv(prepare), {} :: { thread }
+			local original = environment.task
+			environment.task = {
+				defer = function(callback: () -> ()): thread
+					local work = coroutine.create(callback)
+					table.insert(pending, work)
+					return work
+				end,
+				cancel = function(work: thread)
+					coroutine.close(work)
+				end,
+			}
+			t:defer(function()
+				environment.task = original
+			end)
+			local world = labelled({ items = items(1) })
+			t:defer(world.stop)
+			local calls = 0
+			local service = {
+				GetTextBoundsAsync = function()
+					calls += 1
+					return Vector2.new(40, 16)
+				end,
+			}
+			world.runtime.mount(function()
+				local node = world.Host.TextLabel { Text = "Edit" }
+				local context = (
+					{
+						Compose = Compose,
+						Host = world.Host,
+						config = { services = { TextService = service } },
+					} :: unknown
+				) :: NativeTypes.Context
+				local first = prepare(context, { node })
+				Verify.expect(first()):toBe(false)
+				Verify.expect(coroutine.resume(pending[1])):toBe(true)
+				Verify.expect(first()):toBe(true)
+				local second = prepare(context, { node })
+				Verify.expect(second()):toBe(true)
+				Verify.expect(calls):toBe(1)
+				node.TextSize += 1
+				Verify.expect(second()):toBe(false)
+				Verify.expect(coroutine.resume(pending[2])):toBe(true)
+				Verify.expect(second()):toBe(true)
+				Verify.expect(calls):toBe(2)
+				return node
+			end, world.screen)
+		end)
 		verifyHarness:case("menu width follows icon content instead of the stretched row", {
 			id = "native_menu::native menu parity with main::menu width follows icon content instead of the stretched row",
 			run = function()
@@ -766,7 +817,7 @@ return function(verifyHarness: Verify.Harness)
 						cleared = exit
 					end
 				end
-				local timing = assert(require("../src/ui/themes")(Compose).neutralPackage().metrics.motion.popover)
+				local timing = assert(require("../src/ui/themes")(Compose).neutralPackage().metrics.motion.menu)
 				Verify.expect(timing.exit < timing.enter):toBe(true)
 				Verify.expect(exit > 0 and exit <= math.ceil(timing.exit / FRAME) + 1):toBe(true)
 				Verify.expect(cleared < enter - 2):toBe(true)
@@ -1080,7 +1131,9 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_menu::native menu parity with main::a level change during the exit does not re-measure or restart the fade",
 			run = function()
 				local list = Compose.cell(NESTED)
-				local world = labelled({ items = list, presentation = "menu" :: "menu" }, {})
+				local theme = themes.neutralPackage()
+				theme.metrics.motion.menu = { enter = 0.15, exit = 0.1 }
+				local world = labelled({ items = list, presentation = "menu" :: "menu" }, { theme = theme })
 				local panel = open(world)
 				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
 				for _ = 1, 40 do

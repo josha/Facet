@@ -275,7 +275,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				return surfaces.within(use(selected), root)
 			end, open, { priority = 1200 })
 		end
-		local motion = ctx.motionTiming("popover")
+		local motion = ctx.motionTiming("menu")
 		surfaces.attach(root, {
 			surfaces.overlay(root, opened, function(phase: Nav.PresencePhase?)
 				local presentedPointer = Compose.cell(pointer:peek())
