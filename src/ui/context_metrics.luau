@@ -146,7 +146,11 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 	function ctx.motionEase(role: string, use: ComposeTypes.Use?): (number) -> number
 		local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
 		local known = eases[role]
-		if known and known.package == package and (known.neutral == nil or known.neutral == ctx.neutralMetrics(use)) then
+		if
+			known
+			and known.package == package
+			and (known.neutral == nil or known.neutral == ctx.neutralMetrics(use))
+		then
 			return known.ease
 		end
 		local path = `motion.easing.{role}`
