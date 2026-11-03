@@ -39,6 +39,7 @@ export type Options = {
 	serverEntry: string?,
 	players: number?,
 	studioIdentity: Studio.Identity?,
+	studioDevice: string?,
 	context: ("Server" | "Client")?,
 	finalCapture: boolean?,
 	attachments: Attachments_Limits?,
@@ -135,6 +136,7 @@ local function run(options: Options): Result
 		assert(options.entry ~= "", "entry module is required")
 		if options.host ~= "studio" then
 			assert(options.studioIdentity == nil, "studioIdentity requires the Studio host")
+			assert(options.studioDevice == nil, "studioDevice requires the Studio host")
 		end
 		assert(
 			options.host == "simulator"
@@ -190,7 +192,9 @@ local function run(options: Options): Result
 			assert(options.basePlace == nil or options.place == nil, "choose place or basePlace, not both")
 			assert(options.basePlace == nil or options.attach == nil, "an attached Studio has no base place to merge")
 			local place = options.place or directory .. "/fixture.rbxlx"
-			if options.place == nil and options.attach == nil then
+			local code = engineCode(framework, options.entry, options.caseIds, nil, progressPath ~= nil)
+			local runner = options.place == nil and options.attach == nil
+			if runner then
 				local roots = { framework .. "/src/core", framework .. "/src/roblox" }
 				local additionalRoots: { string } = options.roots or {}
 				for _, root in additionalRoots do
@@ -213,18 +217,22 @@ local function run(options: Options): Result
 					modules = modules,
 					verbatim = options.verbatim,
 					clientSource = clientSource,
+					logCollectors = true,
+					request = code,
 					serverSource = serverSource,
 				}
 			end
 			outcome = Studio.run {
 				attach = options.attach,
 				place = place,
-				code = engineCode(framework, options.entry, options.caseIds, nil, progressPath ~= nil),
+				code = code,
+				runner = runner,
 				worker = framework .. "/tools/studio-worker.luau",
 				deadlineSeconds = seconds,
 				directory = directory .. "/studio",
 				players = options.players,
 				identity = options.studioIdentity,
+				device = options.studioDevice,
 				context = options.context,
 				finalCapture = options.finalCapture,
 				progressFile = if progressPath ~= nil then absolute(progressPath) else nil,

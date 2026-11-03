@@ -933,7 +933,7 @@ local function memoryFixture(mounted: number?, teardown: number?): Json.Object
 	local fields: { [string]: string | number } = {
 		method = Lute.memory.METHOD,
 		cycles = Retained.CYCLES,
-		baselineKb = 1000,
+		baselineHeapKb = 1000,
 		baselineAllocations = 10,
 		mountedAllocations = 10,
 		teardownAllocations = 10,
@@ -941,9 +941,10 @@ local function memoryFixture(mounted: number?, teardown: number?): Json.Object
 	for key, value in fields do
 		Json.set(result, key, value)
 	end
-	Json.set(result, "mountedKb", 1000 + (teardown or 0) + (mounted or 1000))
-	Json.set(result, "teardownKb", 1000 + (teardown or 0))
-	Json.set(result, "mountedRetainedKb", mounted or 1000)
+	Json.set(result, "mountedHeapKb", 1000 + (mounted or 1000))
+	Json.set(result, "teardownHeapKb", 1000 + (teardown or 0))
+	Json.set(result, "mountedKb", mounted or 1000)
+	Json.set(result, "releasedKb", (mounted or 1000) - (teardown or 0))
 	Json.set(result, "teardownRetainedKb", teardown or 0)
 	return result
 end
@@ -1494,10 +1495,11 @@ REGISTRATIONS.paired = function(harness: Verify.Harness, prefix: string): ()
 			{
 				"method",
 				"cycles",
-				"baselineKb",
+				"baselineHeapKb",
+				"mountedHeapKb",
+				"teardownHeapKb",
 				"mountedKb",
-				"teardownKb",
-				"mountedRetainedKb",
+				"releasedKb",
 				"teardownRetainedKb",
 				"baselineAllocations",
 				"mountedAllocations",
@@ -1511,11 +1513,11 @@ REGISTRATIONS.paired = function(harness: Verify.Harness, prefix: string): ()
 		end
 		for _, bad in { -1, math.huge, math.huge - math.huge } do
 			local value = memoryFixture()
-			Json.set(value, "mountedKb", bad)
+			Json.set(value, "mountedHeapKb", bad)
 			test:expect((Retained.read(value))):toBe(nil)
 		end
 		local mismatched = memoryFixture()
-		Json.set(mismatched, "mountedRetainedKb", 2000)
+		Json.set(mismatched, "mountedKb", 2000)
 		test:expect((Retained.read(mismatched))):toBe(nil)
 		local scope, entries, first, second = requiredPairs()
 		Json.set(assert(Json.asObject(Json.field(entries[1], "row"))), "memory", nil)
@@ -2094,7 +2096,7 @@ REGISTRATIONS.publish = function(harness: Verify.Harness, prefix: string)
 					for _, label in { "base", "pr" } do
 						table.insert(
 							rows,
-							`\{"label": "{label}", "round": {round}, "row": \{"scene": "settings", "status": "ok", "p50": {p50}, "p95": {p50 * 2}, "memory": \{"mountedRetainedKb": 100\}\}\}`
+							`\{"label": "{label}", "round": {round}, "row": \{"scene": "settings", "status": "ok", "p50": {p50}, "p95": {p50 * 2}, "memory": \{"mountedKb": 100\}\}\}`
 						)
 					end
 				end

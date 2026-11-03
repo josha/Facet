@@ -27,6 +27,7 @@ export type Options = {
 	players: number?,
 	place: string?,
 	code: string,
+	runner: boolean?,
 	worker: string?,
 	attach: Attach.Options?,
 	context: ("Server" | "Client")?,
@@ -36,6 +37,7 @@ export type Options = {
 	directory: string?,
 	progressFile: string?,
 	identity: Identity?,
+	device: string?,
 }
 
 local function worker(path: string)
@@ -69,10 +71,27 @@ local function worker(path: string)
 		local token = string.format("%q", runId)
 		local runToken = Detached.tokenFor(runId)
 		local attribute = string.format("%q", runToken)
+		local runner = fields.runner == true
+		local progressToken = Detached.tokenFor(runId)
+		local request = if runner
+			then "game:GetService('ReplicatedStorage'):SetAttribute("
+				.. string.format("%q", Detached.REQUEST)
+				.. ", "
+				.. string.format(
+					"%q",
+					Detached.request(
+						runId,
+						if fields.players ~= nil then "Multiplayer" else textField "context",
+						if type(fields.progressFile) == "string" then progressToken else nil
+					)
+				)
+				.. "); "
+			else ""
 		local edit = Reply.texts(call("execute_luau", {
 			studio_id = id,
 			datamodel_type = "Edit",
-			code = "game:GetService('ReplicatedStorage'):SetAttribute('VerifyRun', "
+			code = request
+				.. "game:GetService('ReplicatedStorage'):SetAttribute('VerifyRun', "
 				.. attribute
 				.. "); return game:GetService('ReplicatedStorage'):GetAttribute('VerifyRun')",
 		}))
@@ -85,30 +104,46 @@ local function worker(path: string)
 				"Studio did not acknowledge place identity"
 			)
 		end
-		local installedLogs = session.execute("Edit", Logs.install)
-		assert(installedLogs.ok, installedLogs.detail)
-		local progressToken = Detached.tokenFor(runId)
+		if type(fields.device) == "string" then
+			local configured = session.execute(
+				"Edit",
+				"local simulator = game:GetService('StudioDeviceSimulatorService')\nsimulator:SetDeviceAsync("
+					.. string.format("%q", fields.device)
+					.. ")\nreturn 'verify-studio-device:' .. tostring(simulator:GetDeviceAsync())"
+			)
+			assert(configured.ok, configured.detail)
+			assert(
+				string.find(Reply.texts(configured.result), "verify-studio-device:" .. fields.device, 1, true),
+				"Studio did not acknowledge device " .. fields.device
+			)
+		end
+		if not runner then
+			local installedLogs = session.execute("Edit", Logs.install)
+			assert(installedLogs.ok, installedLogs.detail)
+		end
 		local players = fields.players
 		local datamodel = textField "context"
 		local code: string
 		if type(players) == "number" then
 			assert(players >= 1 and players <= 8 and players % 1 == 0, "Studio multiplayer supports 1 to 8 clients")
-			local source = "game:GetService('ReplicatedStorage'):SetAttribute('VerifyRun', "
-				.. attribute
-				.. "); local runId = "
-				.. token
-				.. "; local progressToken = "
-				.. string.format("%q", progressToken)
-				.. "; local ok, result = pcall(function() "
-				.. textField "code"
-				.. " end); game:GetService('StudioTestService'):EndTest(if ok then result else {error = tostring(result)})"
-			call("execute_luau", {
-				studio_id = id,
-				datamodel_type = "Edit",
-				code = "local runner = Instance.new('Script'); runner.Name = 'VerifyServer'; runner.Source = "
-					.. string.format("%q", source)
-					.. "; runner.Parent = game:GetService('ServerScriptService')",
-			})
+			if not runner then
+				local source = "game:GetService('ReplicatedStorage'):SetAttribute('VerifyRun', "
+					.. attribute
+					.. "); local runId = "
+					.. token
+					.. "; local progressToken = "
+					.. string.format("%q", progressToken)
+					.. "; local ok, result = pcall(function() "
+					.. textField "code"
+					.. " end); game:GetService('StudioTestService'):EndTest(if ok then result else {error = tostring(result)})"
+				call("execute_luau", {
+					studio_id = id,
+					datamodel_type = "Edit",
+					code = "local runner = Instance.new('Script'); runner.Name = 'VerifyServer'; runner.Source = "
+						.. string.format("%q", source)
+						.. "; runner.Parent = game:GetService('ServerScriptService')",
+				})
+			end
 			datamodel = "Edit"
 			code = "return game:GetService('StudioTestService'):ExecuteMultiplayerTestAsync("
 				.. tostring(players)
@@ -130,6 +165,7 @@ local function worker(path: string)
 			context = datamodel,
 			progressFile = if type(fields.progressFile) == "string" then fields.progressFile else nil,
 			finalCapture = fields.finalCapture == true,
+			runner = runner and type(players) ~= "number",
 		}, directory, runId)
 		assert(outcome.status == "returned", outcome.detail)
 		local report = outcome.report
@@ -157,6 +193,11 @@ end
 
 local function run(options: Options): Core.BatchOutcome
 	assert(options.identity == nil or options.attach == nil, "Studio identity requires a launched disposable Studio")
+	assert(options.device == nil or options.attach == nil, "Studio device requires a launched disposable Studio")
+	assert(
+		options.device == nil or string.match(options.device, "^[%w_]+$") ~= nil,
+		"Studio device must be a simulator device id such as hd_1080"
+	)
 	if options.identity ~= nil then
 		Identity.read(options.identity)
 	end
@@ -211,10 +252,12 @@ local function run(options: Options): Core.BatchOutcome
 			players = options.players,
 			directory = directory,
 			identity = options.identity,
+			device = options.device,
 			runId = directory,
 			place = placePath,
 			placeName = placeName,
 			code = options.code,
+			runner = options.runner == true,
 			context = options.context or "Server",
 			deadlineSeconds = seconds,
 			progressFile = options.progressFile,
