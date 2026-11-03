@@ -48,10 +48,24 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
 	local spec, rowPolicySpec, selection, coordinator =
 		shared.spec, shared.rowPolicySpec, shared.selection, shared.coordinator
-	local highlight = if spec.selection ~= nil
+	type Marked = { row: Instance, painted: Instance }
+	local highlight: createHighlight.Highlight<K, Marked>? = if spec.selection ~= nil
 			or spec.onSelectionChange ~= nil
 			or spec.selectionMode ~= nil
-		then createHighlight(Compose, selection, true)
+		then createHighlight(Compose, selection, true, function(marked: Marked, state: createHighlight.State)
+			local on = state ~= "none"
+			local row, painted = marked.row, marked.painted
+			if row:GetAttribute("FacetSelected") ~= on then
+				row:SetAttribute("FacetSelected", on)
+			end
+			if on ~= painted:HasTag("facet-selected") then
+				if on then
+					painted:AddTag("facet-selected")
+				else
+					painted:RemoveTag("facet-selected")
+				end
+			end
+		end)
 		else nil
 	local rowMeasures, actionGutters, truncatedRows = shared.rowMeasures, shared.actionGutters, shared.truncatedRows
 	local mountedRows = shared.mountedRows
@@ -486,19 +500,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 			end)
 		end
 		if highlight then
-			highlight(key, function(state)
-				local on = state ~= "none"
-				if cellRow:GetAttribute("FacetSelected") ~= on then
-					cellRow:SetAttribute("FacetSelected", on)
-				end
-				if on ~= painted:HasTag("facet-selected") then
-					if on then
-						painted:AddTag("facet-selected")
-					else
-						painted:RemoveTag("facet-selected")
-					end
-				end
-			end)
+			highlight.bind(key, { row = cellRow, painted = painted })
 		end
 		if editor then
 			local press = editor.press

@@ -9,6 +9,25 @@ local NativeApp = require("../bench/native_app")
 local createHighlight = require("../src/ui/collection_highlight")
 local Facet = require("../src")
 
+type Paint = (createHighlight.State) -> ()
+local function indicators<K>(
+	Compose: Facet.ComposeModule,
+	chosen: Facet.ReadOnlyValue<{ [K]: boolean }>,
+	active: boolean
+): (Facet.ReadOnlyValue<K>, Paint) -> ()
+	local highlight = createHighlight(
+		Compose,
+		chosen,
+		active,
+		function(row: { paint: Paint }, state: createHighlight.State)
+			row.paint(state)
+		end
+	)
+	return function(key: Facet.ReadOnlyValue<K>, paint: Paint)
+		highlight.bind(key, { paint = paint })
+	end
+end
+
 local function workload(id: string): Types.Workload
 	for _, candidate in Workloads do
 		if candidate.id == id then
@@ -39,7 +58,7 @@ return function(harness: Verify.Harness)
 				local state = ""
 				local calls = 0
 				local root = Compose.createRootOwner(function()
-					createHighlight(Compose, chosen, true)(key, function(value)
+					indicators(Compose, chosen, true)(key, function(value)
 						calls += 1
 						state = value
 					end)
@@ -82,7 +101,7 @@ return function(harness: Verify.Harness)
 				local chosen = Compose.cell(initial)
 				local states = { "", "" }
 				local root = Compose.createRootOwner(function()
-					local highlight = createHighlight(Compose, chosen, true)
+					local highlight = indicators(Compose, chosen, true)
 					for index, key in keys do
 						highlight(Compose.cell(key), function(state)
 							states[index] = state
@@ -156,7 +175,7 @@ return function(harness: Verify.Harness)
 				local chosen = Compose.cell(initial)
 				local calls = { 0, 0, 0 }
 				local root = Compose.createRootOwner(function()
-					local highlight = createHighlight(Compose, chosen, true)
+					local highlight = indicators(Compose, chosen, true)
 					for index = 1, 3 do
 						highlight(Compose.cell(index), function()
 							calls[index] += 1
@@ -185,7 +204,7 @@ return function(harness: Verify.Harness)
 				local chosen = Compose.cell(initial)
 				local calls = { 0, 0, 0 }
 				local root = Compose.createRootOwner(function()
-					local highlight = createHighlight(Compose, chosen, true)
+					local highlight = indicators(Compose, chosen, true)
 					for index = 1, 3 do
 						highlight(Compose.cell(index), function()
 							calls[index] += 1
@@ -212,7 +231,7 @@ return function(harness: Verify.Harness)
 				local chosen = Compose.cell(initial)
 				local root = Compose.createRootOwner(function() end)
 				local highlight = Compose.withOwner(root.owner, function()
-					return createHighlight(Compose, chosen, true)
+					return indicators(Compose, chosen, true)
 				end)
 				Compose.profile.start(os.clock)
 				chosen:set({ [2] = true })
@@ -256,7 +275,7 @@ return function(harness: Verify.Harness)
 				local key = Compose.cell(1)
 				local root = Compose.createRootOwner(function() end)
 				local highlight = Compose.withOwner(root.owner, function()
-					return createHighlight(Compose, chosen, true)
+					return indicators(Compose, chosen, true)
 				end)
 				local row = Compose.owner.createChild(root.owner)
 				local states: { string } = {}

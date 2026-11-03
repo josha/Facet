@@ -94,12 +94,20 @@ end
 
 local activators: { [Instance]: Listener } = setmetatable({}, { __mode = "k" })
 
+function activation.offer(node: Instance, activate: Listener)
+	activators[node] = activate
+end
+
+function activation.withdraw(node: Instance, activate: Listener)
+	if activators[node] == activate then
+		activators[node] = nil
+	end
+end
+
 function activation.provide(node: Instance, activate: Listener): () -> ()
 	activators[node] = activate
 	return function()
-		if activators[node] == activate then
-			activators[node] = nil
-		end
+		activation.withdraw(node, activate)
 	end
 end
 
@@ -149,6 +157,10 @@ function activation.providePress(node: Instance, press: (InputObject) -> ()): ()
 			pressers[node] = nil
 		end
 	end
+end
+
+function activation.pressable(node: Instance): boolean
+	return pressers[node] ~= nil
 end
 
 function activation.press(node: Instance, input: InputObject)

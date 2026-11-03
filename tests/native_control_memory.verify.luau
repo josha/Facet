@@ -4,6 +4,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local nativeApp = require("../bench/native_app")
 local context = require("../src/ui/context")
+local Facet = require("../src")
 local InputTypes = require("../src/ui/input_types")
 
 return function(harness: Verify.Harness)
@@ -148,6 +149,283 @@ return function(harness: Verify.Harness)
 			Verify.expect(effective()):toBe("Touch")
 			state.dispose()
 			Verify.expect(state.engine.census().connections):toBe(0)
+		end,
+	})
+	harness:case(
+		"collection rows park a replaced row until its replacement paints and hold row hooks only while needed",
+		{
+			id = "native_control_memory::collection-row-hooks",
+			run = function()
+				type Row = { id: string, title: string }
+				for _, ending in { "paint", "unparent", "destroy" } do
+					local state = nativeApp()
+					local Host, V2, environment = state.Host, state.types.Vector2, state.engine.environment
+					local rows = state.Compose.cell({ { id = "A", title = "Alpha" } :: Row })
+					local root: GuiObject
+					local stop = state.runtime.mount(function()
+						root = state.UI.VirtualGrid {
+							from = rows,
+							key = "id",
+							mode = "all",
+							columns = 2,
+							itemSize = 44,
+							measure = false,
+							recycle = false,
+							render = function(current: Facet.ReadOnlyValue<Row>): GuiObject
+								return Host.TextLabel "Caption" { Text = current:peek().title }
+							end,
+						}
+						return root
+					end, state.target)
+					local items = assert(root:FindFirstChild("Items", true))
+					local function connections(node: Instance): number
+						return environment.connectionsOfInstance(VerifyRoblox.assertInstance(node))
+					end
+					local function content(row: Instance): CanvasGroup
+						local found = assert(row:FindFirstChild("Content"))
+						assert(found:IsA("CanvasGroup"))
+						return found
+					end
+					local function paint(name: string)
+						for _, node in assert(items:FindFirstChild(name)):GetDescendants() do
+							if node:IsA("GuiObject") then
+								environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(100, 44))
+								if node:IsA("TextLabel") then
+									environment.poke(VerifyRoblox.assertInstance(node), "TextBounds", V2.new(60, 20))
+								end
+							end
+						end
+						for _ = 1, 4 do
+							state.frame()
+						end
+					end
+					local old = assert(items:FindFirstChild("A"))
+					Verify.expect(connections(old)):toBe(1)
+					Verify.expect(connections(content(old))):toBe(1)
+					paint("A")
+					Verify.expect(content(old).GroupTransparency):toBe(0)
+					Verify.expect(connections(old)):toBe(1)
+					Verify.expect(connections(content(old))):toBe(0)
+					environment.poke(VerifyRoblox.assertInstance(content(old)), "AbsoluteSize", V2.new(0, 0))
+					Verify.expect(content(old).GroupTransparency):toBe(0)
+					rows:set({ { id = "B", title = "Beta" } :: Row })
+					local fresh = assert(items:FindFirstChild("B"))
+					Verify.expect(old.Parent):toBe(items)
+					Verify.expect(connections(old)):toBe(2)
+					Verify.expect(content(fresh).GroupTransparency):toBe(1)
+					if ending == "unparent" then
+						old.Parent = nil
+						Verify.expect(old.Parent):toBe(items)
+					elseif ending == "destroy" then
+						old:Destroy()
+						Verify.expect(old.Parent):toBe(nil)
+					end
+					paint("B")
+					Verify.expect(content(fresh).GroupTransparency):toBe(0)
+					Verify.expect(old.Parent):toBe(nil)
+					Verify.expect(connections(old)):toBe(0)
+					stop()
+					state.dispose()
+					Verify.expect(state.engine.census().connections):toBe(0)
+				end
+			end,
+		}
+	)
+	harness:case("collection rows reveal painted rows without a binding unless arrival motion is declared", {
+		id = "native_control_memory::collection-row-reveal",
+		run = function()
+			type Row = { id: string }
+			for _, arrival in { "absent", "rise" } do
+				local function mount(count: number)
+					local state = nativeApp()
+					local Compose, V2, environment = state.Compose, state.types.Vector2, state.engine.environment
+					local initial: { Row } = {}
+					for index = 1, count do
+						table.insert(initial, { id = tostring(index) })
+					end
+					local rows = Compose.cell(initial)
+					Compose.inspect.start({ maxOwners = math.huge, maxNodes = math.huge })
+					local root: GuiObject
+					local stop = state.runtime.mount(function()
+						root = state.UI.VirtualGrid {
+							from = rows,
+							key = "id",
+							mode = "all",
+							columns = 2,
+							itemSize = 44,
+							measure = false,
+							recycle = false,
+							reducedMotion = false,
+							arrival = if arrival == "rise" then "rise" else nil,
+							selection = Compose.cell({}),
+							render = function(current: Facet.ReadOnlyValue<Row>): GuiObject
+								return state.Host.TextLabel "Caption" { Text = current:peek().id }
+							end,
+						}
+						return root
+					end, state.target)
+					local snapshot = Compose.inspect.snapshot()
+					local watches = 0
+					for _, owner in snapshot.mounts do
+						watches += owner.totalWatches
+					end
+					Compose.inspect.stop()
+					local items = assert(root:FindFirstChild("Items", true))
+					local function content(name: string): CanvasGroup
+						local found = assert(assert(items:FindFirstChild(name)):FindFirstChild("Content"))
+						assert(found:IsA("CanvasGroup"))
+						return found
+					end
+					local function paint(name: string, frames: number)
+						for _, node in assert(items:FindFirstChild(name)):GetDescendants() do
+							if node:IsA("GuiObject") then
+								environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(100, 44))
+								if node:IsA("TextLabel") then
+									environment.poke(VerifyRoblox.assertInstance(node), "TextBounds", V2.new(60, 20))
+								end
+							end
+						end
+						for _ = 1, frames do
+							state.frame()
+						end
+					end
+					return {
+						state = state,
+						rows = rows,
+						stop = stop,
+						watches = watches,
+						content = content,
+						paint = paint,
+					}
+				end
+				local one, two = mount(1), mount(2)
+				Verify.expect(two.watches - one.watches):toBe(if arrival == "rise" then 3 else 2)
+				two.stop()
+				two.state.dispose()
+				local first = one.content("1")
+				Verify.expect(first.GroupTransparency):toBe(1)
+				Verify.expect(first:GetAttribute("FacetCollectionReady")):toBe(false)
+				one.paint("1", 4)
+				Verify.expect(first.GroupTransparency):toBe(0)
+				Verify.expect(first:GetAttribute("FacetCollectionReady")):toBe(true)
+				one.rows:set({ { id = "1" }, { id = "2" } })
+				local second = one.content("2")
+				Verify.expect(second.GroupTransparency):toBe(1)
+				Verify.expect(second:GetAttribute("FacetCollectionReady")):toBe(false)
+				one.paint("2", 2)
+				Verify.expect(second:GetAttribute("FacetCollectionReady")):toBe(true)
+				if arrival == "rise" then
+					Verify.expect(second.GroupTransparency > 0 and second.GroupTransparency < 1):toBe(true)
+					one.paint("2", 120)
+				end
+				Verify.expect(second.GroupTransparency):toBe(0)
+				Verify.expect(first.GroupTransparency):toBe(0)
+				one.stop()
+				one.state.dispose()
+				Verify.expect(one.state.engine.census().connections):toBe(0)
+			end
+		end,
+	})
+	harness:case("collection rows share selection painting and connect only the row hit events they use", {
+		id = "native_control_memory::collection-row-selection",
+		run = function()
+			type Row = { id: string }
+			local activation = require("../src/ui/activation")
+			local function mount(count: number)
+				local state = nativeApp()
+				local Compose = state.Compose
+				local initial: { Row } = {}
+				for index = 1, count do
+					table.insert(initial, { id = tostring(index) })
+				end
+				local rows = Compose.cell(initial)
+				local selection = Compose.cell({} :: { [string]: boolean })
+				local focus: Facet.FocusControls<string> = {}
+				local activated: { string } = {}
+				Compose.inspect.start({ maxOwners = math.huge, maxNodes = math.huge })
+				local before = state.engine.census().connections
+				local root: GuiObject
+				local stop = state.runtime.mount(function()
+					root = state.UI.VirtualGrid {
+						from = rows,
+						key = "id",
+						mode = "all",
+						columns = 2,
+						itemSize = 44,
+						measure = false,
+						selection = selection,
+						focus = focus,
+						onActivate = function(_row: Row, key: string)
+							table.insert(activated, key)
+						end,
+						render = function(current: Facet.ReadOnlyValue<Row>): GuiObject
+							return state.Host.TextLabel "Caption" { Text = current:peek().id }
+						end,
+					}
+					return root
+				end, state.target)
+				local snapshot = Compose.inspect.snapshot()
+				local watches, cleanups = 0, 0
+				for _, owner in snapshot.mounts do
+					watches += owner.totalWatches
+					cleanups += owner.totalCleanups
+				end
+				Compose.inspect.stop()
+				return {
+					state = state,
+					rows = rows,
+					selection = selection,
+					focus = focus,
+					activated = activated,
+					stop = stop,
+					items = assert(root:FindFirstChild("Items", true)),
+					watches = watches,
+					cleanups = cleanups,
+					connections = state.engine.census().connections - before,
+				}
+			end
+			local one, two = mount(1), mount(2)
+			Verify.expect(two.watches - one.watches):toBe(2)
+			Verify.expect(two.cleanups - one.cleanups):toBe(3)
+			Verify.expect(two.connections - one.connections):toBe(4)
+			one.stop()
+			one.state.dispose()
+			local items, environment = two.items, two.state.engine.environment
+			local function hit(name: string): TextButton
+				local found = assert(assert(items:FindFirstChild(name)):FindFirstChild("RowHit", true))
+				assert(found:IsA("TextButton"))
+				return found
+			end
+			local function content(name: string): Instance
+				return assert(assert(items:FindFirstChild(name)):FindFirstChild("Content"))
+			end
+			local function shown(name: string): (boolean, boolean)
+				return hit(name):GetAttribute("FacetSelected") == true, content(name):HasTag("facet-selected")
+			end
+			Verify.expect(environment.connectionsOfInstance(VerifyRoblox.assertInstance(hit("1")))):toBe(2)
+			Verify.expect(hit("1"):GetAttribute("FacetSelected")):toBe(false)
+			Verify.expect(hit("1"):GetAttribute("FacetOnlySelected")):toBe(nil)
+			local mouse = { UserInputType = two.state.types.Enum.UserInputType.MouseButton1 }
+			environment.fire(VerifyRoblox.assertInstance(hit("2")), "Activated", mouse, 1)
+			Verify.expect(two.selection:peek()):toEqual({ ["2"] = true })
+			Verify.expect({ shown("2") }):toEqual({ true, true })
+			Verify.expect({ shown("1") }):toEqual({ false, false })
+			environment.fire(VerifyRoblox.assertInstance(hit("1")), "Activated", mouse, 2)
+			Verify.expect(two.activated):toEqual({ "1" })
+			Verify.expect(activation.trigger(hit("2"), nil, nil)):toBe(true)
+			Verify.expect(two.selection:peek()):toEqual({ ["2"] = true })
+			Verify.expect(two.activated):toEqual({ "1", "2" })
+			Verify.expect({ shown("1") }):toEqual({ false, false })
+			environment.fire(VerifyRoblox.assertInstance(hit("1")), "SelectionGained")
+			Verify.expect(assert(two.focus.current):peek()):toBe("1")
+			local gone = hit("2")
+			two.rows:set({ { id = "1" } })
+			two.selection:set({ ["2"] = true, ["1"] = true })
+			Verify.expect({ shown("1") }):toEqual({ true, true })
+			two.stop()
+			Verify.expect(activation.trigger(gone, nil, nil)):toBe(false)
+			two.state.dispose()
+			Verify.expect(two.state.engine.census().connections):toBe(0)
 		end,
 	})
 end

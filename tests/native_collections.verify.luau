@@ -185,21 +185,21 @@ return function(verifyHarness: Verify.Harness)
 				Compose.owner.dispose(owner)
 			end)
 			local selected = Compose.cell({ a = true } :: FixtureCollectionTypes.Selection<string>)
-			local bind = Compose.withOwner(owner, function()
-				return createHighlight(Compose, selected, true)
-			end)
 			local states: { string } = {}
 			local calls = { 0, 0, 0 }
+			local highlight = Compose.withOwner(owner, function()
+				return createHighlight(Compose, selected, true, function(row: { index: number }, state: string)
+					states[row.index] = state
+					calls[row.index] += 1
+				end)
+			end)
 			local keys = { Compose.cell("a"), Compose.cell("b"), Compose.cell("c") }
 			local rowOwners: { FixtureComposeTypes.Owner } = {}
 			for index, key in keys do
 				local rowOwner = Compose.owner.createChild(owner)
 				rowOwners[index] = rowOwner
 				Compose.withOwner(rowOwner, function()
-					bind(key, function(state)
-						states[index] = state
-						calls[index] += 1
-					end)
+					highlight.bind(key, { index = index })
 				end)
 			end
 			expect(states):toEqual({ "only", "none", "none" })
@@ -241,15 +241,20 @@ return function(verifyHarness: Verify.Harness)
 			local failing = false
 			local state = "none"
 			Compose.withOwner(owner, function()
-				local bind = createHighlight(Compose, selected, true)
-				bind(Compose.cell("a"), function(nextState)
-					if failing and nextState == "none" then
-						error("highlight failed", 0)
+				local highlight = createHighlight(
+					Compose,
+					selected,
+					true,
+					function(row: { name: string }, nextState: string)
+						if row.name == "a" and failing and nextState == "none" then
+							error("highlight failed", 0)
+						elseif row.name == "b" then
+							state = nextState
+						end
 					end
-				end)
-				bind(Compose.cell("b"), function(nextState)
-					state = nextState
-				end)
+				)
+				highlight.bind(Compose.cell("a"), { name = "a" })
+				highlight.bind(Compose.cell("b"), { name = "b" })
 			end)
 			failing = true
 			expect(function()

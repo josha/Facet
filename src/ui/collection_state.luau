@@ -12,8 +12,11 @@ local themeSupport = require("./theme_support")
 export type PooledRow = { node: Frame, owner: ComposeTypes.Owner }
 export type Preparing = {
 	ready: ComposeTypes.ReadOnlyValue<boolean>,
-	painted: ComposeTypes.Value<boolean>,
-	required: () -> boolean,
+	content: GuiObject,
+	placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+	painted: boolean,
+	shown: ComposeTypes.Value<boolean>?,
+	settle: (() -> ())?,
 }
 export type View<V, K> = {
 	spec: CollectionTypes.CollectionShape<V, K>,
@@ -184,17 +187,31 @@ local function create<V, K>(
 	local cellEdits: { [K]: { activation.EditAction } } = {}
 	local placed: { [K]: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement> } = {}
 	local poolOwner = ComposeTypes.owner.createChild(assert(Compose.currentOwner()))
-	local preparing: {
-		[Frame]: {
-			ready: ComposeTypes.ReadOnlyValue<boolean>,
-			painted: ComposeTypes.Value<boolean>,
-			required: () -> boolean,
-		},
-	} =
-		{}
+	local preparing: { [Frame]: Preparing } = {}
 	local retiring: { [Frame]: () -> () } = {}
 	local waiting = Compose.cell(0)
 	local resume: (() -> ())? = nil
+	local function required(entry: Preparing): boolean
+		local at, window = entry.placement:peek(), viewport:peek()
+		return spec.mode == "all"
+			or window.size <= 0
+			or (at.offset + at.size > window.offset and at.offset < window.offset + window.size)
+	end
+	local function reveal(entry: Preparing): ()
+		entry.painted = true
+		local shown = entry.shown
+		if shown then
+			shown:set(true)
+		elseif tree then
+			ctx.fadeTo(entry.content, 0)
+		else
+			local content = entry.content
+			if content:IsA("CanvasGroup") then
+				content.GroupTransparency = 0
+			end
+		end
+		entry.content:SetAttribute("FacetCollectionReady", true)
+	end
 	if tree then
 		Compose.watch(function(use: ComposeTypes.Use)
 			local size = use(viewport).size
@@ -216,14 +233,18 @@ local function create<V, K>(
 		use(viewport)
 		local pending = tree ~= nil and use(tree.preparing)
 		for _, entry in preparing do
-			if entry.required() and not use(entry.ready) then
+			if required(entry) and not use(entry.ready) then
 				return
 			end
 		end
 		for node, entry in preparing do
 			if use(entry.ready) then
-				entry.painted:set(true)
+				reveal(entry)
 				preparing[node] = nil
+				local settle = entry.settle
+				if settle then
+					settle()
+				end
 			end
 		end
 		waiting:set(0)
@@ -236,7 +257,7 @@ local function create<V, K>(
 				assert(resume)()
 				resume = nil
 				for _, entry in preparing do
-					if entry.required() and not entry.ready:peek() then
+					if required(entry) and not entry.ready:peek() then
 						return
 					end
 				end
