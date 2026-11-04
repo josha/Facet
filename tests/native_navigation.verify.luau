@@ -3752,7 +3752,7 @@ return function(verifyHarness: Verify.Harness)
 				local selected, opened = Compose.cell("a"), Compose.cell(false)
 				local initial: { Navigation.PickerOption<string> } =
 					{ { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } }
-				local options = Compose.cell(initial)
+				local options = Compose.cell<<{ Navigation.PickerOption<string> }>>(initial)
 				local world = setup(function(UI: FacetControls)
 					local controlProps: NavigationProps.SinglePickerSpec<string> = {
 						selected = selected,
@@ -3820,7 +3820,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(segmented.Visible):toBe(true)
 				expect(segmented.Parent):toBe(picker)
 				expect(hidden.Interactable):toBe(false)
-				local many = {}
+				local many: { Navigation.PickerOption<string> } = {}
 				for index = 1, 7 do
 					table.insert(many, { value = tostring(index), label = "Choice " .. tostring(index) })
 				end
